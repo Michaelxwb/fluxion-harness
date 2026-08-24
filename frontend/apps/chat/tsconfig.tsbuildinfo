@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/index.ts","./src/main.tsx","./src/__tests__/bind-chat.e2e.test.tsx","./src/services/httpchatapi.ts","./src/services/inmemorychatapi.ts","./src/test/renderchat.tsx","./src/test/setup.ts","./src/types/chat.ts"],"version":"5.9.3"}
