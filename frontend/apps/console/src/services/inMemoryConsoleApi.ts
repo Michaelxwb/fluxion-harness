@@ -76,10 +76,14 @@ class InMemoryConsoleApi implements ConsoleApi {
     this.users = (seed.users ?? []).map((user) => ({ ...user }));
   }
 
-  async listResources(resourceType: ResourceType): Promise<PageData<ResourceSummary>> {
+  async listResources(resourceType?: ResourceType): Promise<PageData<ResourceSummary>> {
     const items = uniqueResourceKeys(this.resources)
       .map((key) => this.latestResource(key.resourceType, key.resourceId))
-      .filter((resource) => resource.resourceType === resourceType && this.canSee(resource))
+      .filter(
+        (resource) =>
+          (resourceType === undefined || resource.resourceType === resourceType) &&
+          this.canSee(resource)
+      )
       .map(toSummary)
       .sort((left, right) => left.resourceId.localeCompare(right.resourceId));
     return page(items, { page: 1, pageSize: items.length || 20 });
@@ -202,8 +206,15 @@ class InMemoryConsoleApi implements ConsoleApi {
     return pageData.items;
   }
 
-  async listBindings(): Promise<readonly BindingRecord[]> {
-    return this.bindings.map(cloneBinding);
+  async listBindings(
+    request: PageRequest,
+    resourceType?: ResourceType
+  ): Promise<PageData<BindingRecord>> {
+    const items =
+      resourceType === undefined
+        ? this.bindings
+        : this.bindings.filter((binding) => binding.resourceType === resourceType);
+    return page(items.map(cloneBinding), request);
   }
 
   async saveBinding(input: BindingInput): Promise<BindingRecord> {
@@ -228,14 +239,6 @@ class InMemoryConsoleApi implements ConsoleApi {
     return this.runs.map(cloneRun);
   }
 
-  async getRunDetail(executionId: string): Promise<RunDetail> {
-    const run = this.runs.find((item) => item.executionId === executionId);
-    if (!run) {
-      throw new Error("run not found");
-    }
-    return cloneRun(run);
-  }
-
   async listAudit(request: PageRequest): Promise<PageData<AuditRecord>> {
     return page(this.audit.map((record) => ({ ...record })), request);
   }
@@ -250,8 +253,8 @@ class InMemoryConsoleApi implements ConsoleApi {
     return (this.p1Views[view] ?? []).map((item) => ({ ...item }));
   }
 
-  async listPlatformUsers(): Promise<PageData<PlatformUser>> {
-    return page(this.users.map((user) => ({ ...user })), { page: 1, pageSize: 100 });
+  async listPlatformUsers(request: PageRequest): Promise<PageData<PlatformUser>> {
+    return page(this.users.map((user) => ({ ...user })), request);
   }
 
   async createPlatformUser(platformUserId: string, displayName: string): Promise<PlatformUser> {
@@ -375,11 +378,11 @@ function invalidWorkflow(message: string): ValidationResult {
 
 function p1ViewTitle(view: P1View): string {
   const titles: Record<P1View, string> = {
-    capabilities: "Capability Registry",
-    eval: "Eval",
-    plugin_policy: "Plugin / Hook Policy",
-    runtime_status: "Runtime Status",
-    users_channels: "Users / Channels"
+    capabilities: "能力注册",
+    eval: "能力评测",
+    plugin_policy: "插件钩子",
+    runtime_status: "运行时态",
+    users_channels: "用户管理"
   };
   return titles[view];
 }

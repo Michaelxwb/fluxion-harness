@@ -33,9 +33,10 @@ export function createHttpConsoleApi(baseUrl = "", client = createHttpClient(bas
 class HttpConsoleApi implements ConsoleApi {
   constructor(private readonly client: HttpClient) {}
 
-  async listResources(resourceType: ResourceType): Promise<PageData<ResourceSummary>> {
+  async listResources(resourceType?: ResourceType): Promise<PageData<ResourceSummary>> {
+    const filter = resourceType ? `&resource_type=${encodeURIComponent(resourceType)}` : "";
     const page = await this.client.request(
-      `/api/v1/resources/${resourceType}?page=1&page_size=100`,
+      `/api/v1/resources?page=1&page_size=100${filter}`,
       undefined,
       parseResourcePage
     );
@@ -143,9 +144,16 @@ class HttpConsoleApi implements ConsoleApi {
     return (await this.listResources(resourceType)).items;
   }
 
-  async listBindings(): Promise<readonly BindingRecord[]> {
-    return this.client.request("/api/v1/bindings?page=1&page_size=100", undefined, parseBindingPage)
-      .then((page) => page.items);
+  async listBindings(
+    request: PageRequest,
+    resourceType?: ResourceType
+  ): Promise<PageData<BindingRecord>> {
+    const filter = resourceType ? `&resource_type=${resourceType}` : "";
+    return this.client.request(
+      `/api/v1/bindings?page=${request.page}&page_size=${request.pageSize}${filter}`,
+      undefined,
+      parseBindingPage
+    );
   }
 
   async saveBinding(input: BindingInput): Promise<BindingRecord> {
@@ -177,14 +185,6 @@ class HttpConsoleApi implements ConsoleApi {
       undefined,
       parseRunPage
     ).then((page) => page.items);
-  }
-
-  async getRunDetail(executionId: string): Promise<RunDetail> {
-    return this.client.request(
-      `/api/v1/runs/${encodeURIComponent(executionId)}`,
-      undefined,
-      parseRun
-    );
   }
 
   async listAudit(request: PageRequest): Promise<PageData<AuditRecord>> {
@@ -225,9 +225,9 @@ class HttpConsoleApi implements ConsoleApi {
     return this.client.request("/api/v1/runtime-status", undefined, parseRuntimeStatus);
   }
 
-  async listPlatformUsers(): Promise<PageData<PlatformUser>> {
+  async listPlatformUsers(request: PageRequest): Promise<PageData<PlatformUser>> {
     return this.client.request(
-      "/api/v1/platform-users?page=1&page_size=100",
+      `/api/v1/platform-users?page=${request.page}&page_size=${request.pageSize}`,
       undefined,
       parsePlatformUserPage
     );

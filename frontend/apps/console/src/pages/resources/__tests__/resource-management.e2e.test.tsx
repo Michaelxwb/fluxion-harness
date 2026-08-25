@@ -11,28 +11,28 @@ describe("S-C114 RuntimeProfile management", () => {
       seed: createConsoleFixture()
     });
 
-    await screen.findByRole("heading", { name: "Runtime Profiles" });
-    await user.click(screen.getByRole("button", { name: "runtime-profile-main" }));
-    await user.click(screen.getByRole("button", { name: "创建 Draft" }));
+    await screen.findByRole("heading", { name: "运行资产" });
+    await user.click(screen.getByText("runtime-profile-main"));
+    await user.click(await screen.findByRole("button", { name: "创建草稿" }));
 
-    const editor = await screen.findByRole("region", { name: "Draft Editor" });
-    const specEditor = within(editor).getByLabelText("Spec JSON");
+    const editor = await screen.findByLabelText("规格编辑");
+    const specEditor = within(editor).getByLabelText("规格 JSON");
     await user.clear(specEditor);
     await user.click(specEditor);
     await user.paste('{"display_name":"Main Runtime","model":"gpt-5","timeout_ms":2500}');
-    await user.click(screen.getByRole("button", { name: "保存 Draft" }));
-    await screen.findByText("Draft 已保存");
-    await user.click(screen.getByRole("button", { name: "Validate" }));
+    await user.click(screen.getByRole("button", { name: "保存草稿" }));
+    await screen.findByText("草稿已保存");
+    await user.click(screen.getByRole("button", { name: "校验" }));
     await screen.findByText("校验通过");
 
-    await user.click(screen.getByRole("button", { name: "Publish" }));
+    await user.click(screen.getByRole("button", { name: "发布" }));
     const publishDialog = await screen.findByRole("dialog", { name: "确认发布" });
     expect(within(publishDialog).getByText("runtime_profile/runtime-profile-main")).toBeInTheDocument();
     expect(within(publishDialog).getByText("v4")).toBeInTheDocument();
     await user.click(within(publishDialog).getByRole("button", { name: "确认发布" }));
-    await screen.findByText("Published v4");
+    await screen.findByText("已发布 v4");
 
-    await user.click(screen.getByRole("button", { name: "Rollback to v1" }));
+    await user.click(screen.getByRole("button", { name: "回滚到 v1" }));
     const rollbackDialog = await screen.findByRole("dialog", { name: "确认回滚" });
     expect(within(rollbackDialog).getByText("runtime-profile-main")).toBeInTheDocument();
     expect(within(rollbackDialog).getByText("v1")).toBeInTheDocument();

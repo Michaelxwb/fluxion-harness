@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Button, Descriptions, Modal, Space, Table, TextArea, Typography } from "@douyinfe/semi-ui";
+import { Button, Card, Descriptions, Empty, Modal, Space, Table, TextArea, Typography } from "@douyinfe/semi-ui";
 import { IconPlay, IconPlus, IconSave } from "@douyinfe/semi-icons";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
@@ -60,7 +60,7 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
       const draft = await api.createDraftFromLatest("workflow", selected.resourceId);
       await selectResource(draft);
       await loadWorkflows();
-      setNotice(`Workflow Draft ${draft.version} 已创建`);
+      setNotice(`草稿 ${draft.version} 已创建`);
     });
   }
 
@@ -69,7 +69,7 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
     await runAction(async () => {
       const updated = await api.updateDraft(selected, parseSpec(specText));
       await selectResource(updated);
-      setNotice("Workflow Draft 已保存");
+      setNotice("草稿已保存");
     });
   }
 
@@ -79,7 +79,7 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
       const result = await api.validateDraft(selected);
       if (!result.valid) throw new Error(result.diagnostics.join("；"));
       setValidatedVersion(selected.version);
-      setNotice("Workflow 校验通过");
+      setNotice("校验通过");
     });
   }
 
@@ -92,7 +92,7 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
       await selectResource(latest);
       await loadWorkflows();
       setConfirmVisible(false);
-      setNotice(`Published ${version}`);
+      setNotice(`已发布 ${version}`);
     });
   }
 
@@ -107,7 +107,7 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
 
   return (
     <div className="page-stack">
-      <PageHeader description="管理 WorkflowDefinition DSL、校验与不可变版本。" title="Workflows" />
+      <PageHeader description="管理工作流定义（WorkflowDefinition）DSL、校验与不可变版本。" title="流程编排" />
       <ErrorBanner message={error} />
       {notice ? <Typography.Text type="success">{notice}</Typography.Text> : null}
       <WorkflowTable onSelect={(item) => void selectWorkflow(item)} workflows={workflows} />
@@ -152,16 +152,24 @@ function WorkflowTable({
       render: (_value: unknown, record: ResourceSummary) => (
         <Button onClick={() => onSelect(record)} type="tertiary">{record.resourceId}</Button>
       ),
-      title: "Workflow"
+      title: "工作流"
     },
-    { dataIndex: "displayName", title: "Name" },
-    { dataIndex: "currentVersion", title: "Current Version" },
+    { dataIndex: "displayName", title: "名称" },
+    { dataIndex: "currentVersion", title: "当前版本" },
     {
       render: (_value: unknown, record: ResourceSummary) => <StatusTag status={record.status} />,
-      title: "Status"
+      title: "状态"
     }
   ];
-  return <Table columns={columns} dataSource={[...workflows]} pagination={false} rowKey="resourceId" />;
+  return (
+    <Table
+      columns={columns}
+      dataSource={[...workflows]}
+      empty={<Empty description="暂无工作流" />}
+      pagination={false}
+      rowKey="resourceId"
+    />
+  );
 }
 
 function WorkflowEditor(props: {
@@ -176,52 +184,56 @@ function WorkflowEditor(props: {
 }) {
   const { canPublish, resource } = props;
   return (
-    <section aria-label="Workflow Editor" className="panel">
-      <Typography.Title heading={4}>Workflow Editor</Typography.Title>
+    <Card aria-label="Workflow Editor" bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }} title="工作流编辑器">
       <Descriptions row>
-        <Descriptions.Item itemKey="Workflow">{resource.resourceId}</Descriptions.Item>
-        <Descriptions.Item itemKey="Version">{resource.version}</Descriptions.Item>
-        <Descriptions.Item itemKey="Status"><StatusTag status={resource.status} /></Descriptions.Item>
+        <Descriptions.Item itemKey="工作流">{resource.resourceId}</Descriptions.Item>
+        <Descriptions.Item itemKey="版本">{resource.version}</Descriptions.Item>
+        <Descriptions.Item itemKey="状态"><StatusTag status={resource.status} /></Descriptions.Item>
       </Descriptions>
       <TextArea
-        aria-label="Workflow DSL JSON"
+        aria-label="工作流 DSL JSON"
         className="workflow-dsl"
         onChange={props.onSpecChange}
         value={props.specText}
       />
       <Space wrap>
-        <Button aria-label="创建 Workflow Draft" icon={<IconPlus />} onClick={props.onCreateDraft}>创建 Workflow Draft</Button>
-        <Button aria-label="保存 Workflow" icon={<IconSave />} onClick={props.onSave} type="primary">保存 Workflow</Button>
-        <Button aria-label="Validate Workflow" icon={<IconPlay />} onClick={props.onValidate}>Validate Workflow</Button>
+        <Button aria-label="创建草稿" icon={<IconPlus />} onClick={props.onCreateDraft}>创建草稿</Button>
+        <Button aria-label="保存草稿" icon={<IconSave />} onClick={props.onSave} type="primary">保存草稿</Button>
+        <Button aria-label="校验" icon={<IconPlay />} onClick={props.onValidate}>校验</Button>
         <Button
-          aria-label="Publish Workflow"
+          aria-label="发布"
           disabled={!canPublish}
           icon={<IconPlay />}
           onClick={props.onPublish}
           theme="solid"
           type="warning"
         >
-          Publish Workflow
+          发布
         </Button>
       </Space>
-    </section>
+    </Card>
   );
 }
 
 function VersionsTable({ versions }: { readonly versions: readonly ResourceVersion[] }) {
   const columns = [
-    { dataIndex: "version", title: "Version" },
+    { dataIndex: "version", title: "版本" },
     {
       render: (_value: unknown, record: ResourceVersion) => <StatusTag status={record.status} />,
-      title: "Status"
+      title: "状态"
     },
-    { dataIndex: "updatedAt", title: "Updated" }
+    { dataIndex: "updatedAt", title: "更新时间" }
   ];
   return (
-    <section aria-label="Workflow Versions" className="panel">
-      <Typography.Title heading={4}>Versions</Typography.Title>
-      <Table columns={columns} dataSource={[...versions]} pagination={false} rowKey="version" />
-    </section>
+    <Card aria-label="Workflow Versions" bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }} title="版本">
+      <Table
+        columns={columns}
+        dataSource={[...versions]}
+        empty={<Empty description="暂无版本" />}
+        pagination={false}
+        rowKey="version"
+      />
+    </Card>
   );
 }
 
@@ -236,11 +248,11 @@ function PublishWorkflowModal(props: {
       footer={
         <Space>
           <Button onClick={props.onCancel}>取消</Button>
-          <Button onClick={props.onConfirm} theme="solid" type="primary">确认发布 Workflow</Button>
+          <Button onClick={props.onConfirm} theme="solid" type="primary">确认发布</Button>
         </Space>
       }
       onCancel={props.onCancel}
-      title="确认发布 Workflow"
+      title="确认发布工作流"
       visible={props.visible}
     >
       {props.resource ? (

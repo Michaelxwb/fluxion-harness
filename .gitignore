@@ -16,6 +16,8 @@ playwright-report/
 *.db
 *.sqlite
 *.sqlite3
+.data/
+.idea/
 .env
 .env.*
 !.env.example

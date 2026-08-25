@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Button, Descriptions, Empty, Spin, Table, Typography } from "@douyinfe/semi-ui";
+import { Button, Card, Descriptions, Empty, Spin, Table, Typography } from "@douyinfe/semi-ui";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { PageHeader } from "../../components/PageHeader";
@@ -14,11 +14,11 @@ interface P1ViewPageProps {
 }
 
 const titles: Record<P1View, string> = {
-  capabilities: "Capability Registry",
-  eval: "Eval",
-  plugin_policy: "Plugin / Hook Policy",
-  runtime_status: "Runtime Status",
-  users_channels: "Users / Channels"
+  capabilities: "能力注册",
+  eval: "能力评测",
+  plugin_policy: "插件钩子",
+  runtime_status: "运行时态",
+  users_channels: "用户管理"
 };
 
 export function P1ViewPage({ api, view, showHeader = true }: P1ViewPageProps) {
@@ -95,11 +95,11 @@ function P1Table({
       ),
       title: "ID"
     },
-    { dataIndex: "name", title: "Name" },
+    { dataIndex: "name", title: "名称" },
     {
       dataIndex: "status",
       render: (value: unknown) => <Typography.Text>{String(value)}</Typography.Text>,
-      title: "Status"
+      title: "状态"
     }
   ];
   return <Table columns={columns} dataSource={[...items]} pagination={false} rowKey="id" />;
@@ -107,15 +107,14 @@ function P1Table({
 
 function P1Detail({ item, title }: { readonly item: ControlPlaneItem; readonly title: string }) {
   return (
-    <section aria-label={`${title} Detail`} className="panel">
-      <Typography.Title heading={4}>Detail</Typography.Title>
+    <Card aria-label={`${title} 详情`} bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }} title="详情">
       <Descriptions row>
         <Descriptions.Item itemKey="ID">{item.id}</Descriptions.Item>
-        <Descriptions.Item itemKey="Name">{item.name}</Descriptions.Item>
-        <Descriptions.Item itemKey="Status">{item.status}</Descriptions.Item>
+        <Descriptions.Item itemKey="名称">{item.name}</Descriptions.Item>
+        <Descriptions.Item itemKey="状态">{item.status}</Descriptions.Item>
       </Descriptions>
       <Typography.Paragraph>{item.detail}</Typography.Paragraph>
-    </section>
+    </Card>
   );
 }
 

@@ -104,19 +104,29 @@ def _register_create_resource_route(app: FastAPI, service: ConsoleApplicationSer
 
 
 def _register_list_resources_route(app: FastAPI, service: ConsoleApplicationService) -> None:
-    @app.get("/api/v1/resources/{resource_type}")
+    # 资源中心一次列出租户下全部类型的资源：GET /api/v1/resources（可带 resource_type 过滤），
+    # 后端是单表 resource_definitions，不再需要前端并发多个按类型接口再合并。
+    @app.get("/api/v1/resources")
     async def list_resources(
-        resource_type: str,
+        resource_type: Annotated[str | None, Query()] = None,
         page: Annotated[int, Query(ge=1)] = 1,
         page_size: Annotated[int, Query(ge=1, le=100)] = 20,
         x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
     ) -> JSONResponse:
-        resources, total = await service.list_resources(
-            _actor(x_actor_id),
-            _kind(resource_type),
-            page=page,
-            page_size=page_size,
-        )
+        actor = _actor(x_actor_id)
+        if resource_type is None:
+            resources, total = await service.list_all_resources(
+                actor,
+                page=page,
+                page_size=page_size,
+            )
+        else:
+            resources, total = await service.list_resources(
+                actor,
+                _kind(resource_type),
+                page=page,
+                page_size=page_size,
+            )
         return success(
             {
                 "items": [resource_payload(resource) for resource in resources],
@@ -333,6 +343,7 @@ def _register_approval_routes(app: FastAPI, service: ConsoleApplicationService) 
 def _register_binding_routes(app: FastAPI, service: ConsoleApplicationService) -> None:
     @app.get("/api/v1/bindings")
     async def list_bindings(
+        resource_type: Annotated[str | None, Query()] = None,
         page: Annotated[int, Query(ge=1)] = 1,
         page_size: Annotated[int, Query(ge=1, le=100)] = 20,
     ) -> JSONResponse:
@@ -340,6 +351,7 @@ def _register_binding_routes(app: FastAPI, service: ConsoleApplicationService) -
             _actor(None),
             page=page,
             page_size=page_size,
+            resource_type=_kind(resource_type) if resource_type is not None else None,
         )
         return success(
             {

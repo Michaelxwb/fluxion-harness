@@ -26,3 +26,4 @@ These problems are retained as architecture evidence. Do not delete them when si
 | P20 | Multi-agent direct code coupling does not scale | Minimal A2A contract |
 | P21 | SOP hard-coded in Python blocks versioning/console management | Workflow DSL |
 | P22 | Architecture patterns can become cargo cult | Problem -> Constraint -> Decision -> Validation |
+| P23 | Policy 校验模型（name+rules）与运行时消费（allowed_tools/denied_tools）脱节，控制台建不出有效策略 | PolicyDefinition 对齐运行时+展示层字段；死字段清单见 resource-spec-field-injection.md |

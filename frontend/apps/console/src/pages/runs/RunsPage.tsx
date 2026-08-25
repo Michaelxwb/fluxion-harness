@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Button, Descriptions, Space, Table, Typography } from "@douyinfe/semi-ui";
+import { Button, Card, Descriptions, Empty, Space, Table, Typography } from "@douyinfe/semi-ui";
 import { IconRefresh } from "@douyinfe/semi-icons";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
@@ -35,13 +35,13 @@ export function RunsPage({ api }: RunsPageProps) {
   return (
     <div className="page-stack">
       <PageHeader
-        description="Trace 查询失败只影响本页，不阻断 Resource 发布。"
+        description="追踪查询失败只影响本页，不阻断资源发布。"
         extra={
           <Button icon={<IconRefresh />} onClick={() => void loadRuns()}>
             刷新
           </Button>
         }
-        title="Runs / Traces"
+        title="执行记录"
       />
       <ErrorBanner message={error} />
       <RunTable onSelect={setSelected} runs={runs} />
@@ -64,33 +64,40 @@ function RunTable({ onSelect, runs }: RunTableProps) {
           {record.executionId}
         </Button>
       ),
-      title: "Execution"
+      title: "执行"
     },
     {
       dataIndex: "status",
       render: (_value: unknown, record: RunDetail) => <StatusTag status={record.status} />,
-      title: "Status"
+      title: "状态"
     },
-    { dataIndex: "startedAt", title: "Started" }
+    { dataIndex: "startedAt", title: "开始时间" }
   ];
-  return <Table columns={columns} dataSource={[...runs]} pagination={false} rowKey="executionId" />;
+  return (
+    <Table
+      columns={columns}
+      dataSource={[...runs]}
+      empty={<Empty description="暂无运行记录" />}
+      pagination={false}
+      rowKey="executionId"
+    />
+  );
 }
 
 function RunSnapshot({ run }: { readonly run: RunDetail }) {
   return (
-    <section aria-label="ExecutionSnapshot" className="panel">
-      <Typography.Title heading={4}>ExecutionSnapshot</Typography.Title>
+    <Card aria-label="ExecutionSnapshot" bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }} title="执行快照">
       <Descriptions row>
-        <Descriptions.Item itemKey="RuntimeProfile">
+        <Descriptions.Item itemKey="运行态（RuntimeProfile）">
           {versionLabel(run.snapshot.runtimeProfile)}
         </Descriptions.Item>
       </Descriptions>
-      <VersionGroup refs={run.snapshot.skills} title="Skills" />
-      <VersionGroup refs={run.snapshot.mcps} title="MCP" />
-      <VersionGroup refs={run.snapshot.plugins} title="Plugins" />
-      <VersionGroup refs={run.snapshot.policies} title="Policies" />
-      <Typography.Text type="tertiary">{run.traceEvents.length} trace event(s)</Typography.Text>
-    </section>
+      <VersionGroup refs={run.snapshot.skills} title="技能" />
+      <VersionGroup refs={run.snapshot.mcps} title="MCP 工具" />
+      <VersionGroup refs={run.snapshot.plugins} title="插件" />
+      <VersionGroup refs={run.snapshot.policies} title="策略" />
+      <Typography.Text type="tertiary">{run.traceEvents.length} 条追踪事件</Typography.Text>
+    </Card>
   );
 }
 

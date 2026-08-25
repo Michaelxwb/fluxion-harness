@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Pagination, Space, Table, Typography } from "@douyinfe/semi-ui";
+import { Empty, Pagination, Space, Table, Typography } from "@douyinfe/semi-ui";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { PageHeader } from "../../components/PageHeader";
@@ -32,20 +32,26 @@ export function AuditPage({ api }: AuditPageProps) {
   }, []);
 
   const columns = [
-    { dataIndex: "action", title: "Action" },
-    { dataIndex: "actorId", title: "Actor" },
-    { dataIndex: "resourceId", title: "Resource" },
-    { dataIndex: "resourceVersion", title: "Version" },
-    { dataIndex: "at", title: "Time" }
+    { dataIndex: "action", title: "操作" },
+    { dataIndex: "actorId", title: "操作者" },
+    { dataIndex: "resourceId", title: "资源" },
+    { dataIndex: "resourceVersion", title: "版本" },
+    { dataIndex: "at", title: "时间" }
   ];
 
   return (
     <div className="page-stack">
-      <PageHeader description="Audit 是独立事实源，不以普通日志替代。" title="Audit" />
+      <PageHeader description="审计是独立事实源，不以普通日志替代。" title="操作审计" />
       <ErrorBanner message={error} />
-      <Table columns={columns} dataSource={[...(page?.items ?? [])]} pagination={false} rowKey="id" />
+      <Table
+        columns={columns}
+        dataSource={[...(page?.items ?? [])]}
+        empty={<Empty description="暂无审计记录" />}
+        pagination={false}
+        rowKey="id"
+      />
       <Space>
-        <Typography.Text>Audit 保留 30 天热查询</Typography.Text>
+        <Typography.Text>审计日志保留 30 天热查询</Typography.Text>
         <Pagination
           currentPage={currentPage}
           onPageChange={(nextPage) => void loadAudit(nextPage)}

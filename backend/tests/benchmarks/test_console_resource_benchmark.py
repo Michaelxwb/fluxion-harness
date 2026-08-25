@@ -45,7 +45,7 @@ def test_B_C104_resource_list_and_detail_p95_under_300ms(
         started = perf_counter_ns()
         listed = loop.run_until_complete(
             client.get(
-                "/api/v1/resources/runtime_profile?page=1&page_size=50",
+                "/api/v1/resources?resource_type=runtime_profile&page=1&page_size=50",
                 headers=tenant_headers(),
             )
         )

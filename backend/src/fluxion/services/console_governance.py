@@ -17,7 +17,7 @@ from fluxion.registry import (
     NotFoundError,
     VersionConflictError,
 )
-from fluxion.resources import ResourceBinding
+from fluxion.resources import ResourceBinding, ResourceKind
 from fluxion.services.approval_app import (
     ApprovalRecord,
     ApprovalStatus,
@@ -201,11 +201,13 @@ class ConsoleGovernanceOps:
         *,
         page: int,
         page_size: int,
+        resource_type: ResourceKind | None = None,
     ) -> tuple[list[ResourceBinding], int]:
         return await self._store.list_bindings_page(
             tenant_id=actor.tenant_id,
             offset=(page - 1) * page_size,
             limit=page_size,
+            resource_type=resource_type,
         )
 
     async def disable_binding(

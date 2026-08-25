@@ -157,7 +157,7 @@ export interface BindingInput {
 }
 
 export interface ConsoleApi {
-  listResources(resourceType: ResourceType): Promise<PageData<ResourceSummary>>;
+  listResources(resourceType?: ResourceType): Promise<PageData<ResourceSummary>>;
   getResource(resourceType: ResourceType, resourceId: string, version?: string): Promise<ResourceVersion>;
   createResource(input: ResourceCreateInput): Promise<ResourceVersion>;
   createDraftFromLatest(resourceType: ResourceType, resourceId: string): Promise<ResourceVersion>;
@@ -167,14 +167,13 @@ export interface ConsoleApi {
   rollbackVersion(resource: ResourceVersion, targetVersion: string): Promise<RollbackResult>;
   listVersions(resourceType: ResourceType, resourceId: string, page: PageRequest): Promise<PageData<ResourceVersion>>;
   listVisibleResources(resourceType: ResourceType): Promise<readonly ResourceSummary[]>;
-  listBindings(): Promise<readonly BindingRecord[]>;
+  listBindings(request: PageRequest, resourceType?: ResourceType): Promise<PageData<BindingRecord>>;
   saveBinding(input: BindingInput): Promise<BindingRecord>;
   listCredentials(): Promise<readonly CredentialMetadata[]>;
   listRuns(): Promise<readonly RunDetail[]>;
-  getRunDetail(executionId: string): Promise<RunDetail>;
   listAudit(page: PageRequest): Promise<PageData<AuditRecord>>;
   listP1View(view: P1View): Promise<readonly ControlPlaneItem[]>;
-  listPlatformUsers(): Promise<PageData<PlatformUser>>;
+  listPlatformUsers(request: PageRequest): Promise<PageData<PlatformUser>>;
   createPlatformUser(platformUserId: string, displayName: string): Promise<PlatformUser>;
   issueChatAccess(platformUserId: string, runtimeProfileId: string): Promise<IssuedChatAccess>;
   revokeChatAccess(accessId: string): Promise<void>;

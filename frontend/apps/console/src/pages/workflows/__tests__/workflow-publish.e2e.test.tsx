@@ -28,26 +28,26 @@ describe("S-C108 WorkflowDefinition management", () => {
       }
     });
 
-    await screen.findByRole("heading", { name: "Workflows" });
+    await screen.findByRole("heading", { name: "流程编排" });
     await user.click(screen.getByRole("button", { name: "weekly-report" }));
-    await user.click(screen.getByRole("button", { name: "创建 Workflow Draft" }));
+    await user.click(screen.getByRole("button", { name: "创建草稿" }));
 
-    const editor = await screen.findByRole("region", { name: "Workflow Editor" });
-    const dsl = within(editor).getByLabelText("Workflow DSL JSON");
+    const editor = await screen.findByLabelText("Workflow Editor");
+    const dsl = within(editor).getByLabelText("工作流 DSL JSON");
     await user.clear(dsl);
     await user.click(dsl);
     await user.paste(JSON.stringify(workflowSpec()));
-    await user.click(within(editor).getByRole("button", { name: "保存 Workflow" }));
-    await screen.findByText("Workflow Draft 已保存");
-    await user.click(within(editor).getByRole("button", { name: "Validate Workflow" }));
-    await screen.findByText("Workflow 校验通过");
+    await user.click(within(editor).getByRole("button", { name: "保存草稿" }));
+    await screen.findByText("草稿已保存");
+    await user.click(within(editor).getByRole("button", { name: "校验" }));
+    await screen.findByText("校验通过");
 
-    await user.click(within(editor).getByRole("button", { name: "Publish Workflow" }));
-    const dialog = await screen.findByRole("dialog", { name: "确认发布 Workflow" });
+    await user.click(within(editor).getByRole("button", { name: "发布" }));
+    const dialog = await screen.findByRole("dialog", { name: "确认发布工作流" });
     expect(within(dialog).getByText("workflow/weekly-report")).toBeInTheDocument();
     expect(within(dialog).getByText("v2")).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "确认发布 Workflow" }));
-    await screen.findByText("Published v2");
+    await user.click(within(dialog).getByRole("button", { name: "确认发布" }));
+    await screen.findByText("已发布 v2");
 
     const latest = await api.getResource("workflow", "weekly-report");
     const versions = await api.listVersions("workflow", "weekly-report", {

@@ -6,16 +6,16 @@ import { renderConsole } from "../../test/renderConsole";
 import type { ControlPlaneItem } from "../../types/console";
 import type { ConsoleView, P1View } from "../../types/navigation";
 
+// 用户 / 通道 是完整交互页（UsersChannelsPage），不再走 P1ViewPage 只读表格，故不在此列。
 const views: readonly {
   readonly itemId: string;
   readonly title: string;
   readonly view: ConsoleView & P1View;
 }[] = [
-  { itemId: "user-001", title: "Users / Channels", view: "users_channels" },
-  { itemId: "plugin-policy-main", title: "Plugin / Hook Policy", view: "plugin_policy" },
-  { itemId: "cap.report.source", title: "Capability Registry", view: "capabilities" },
-  { itemId: "support-quality", title: "Eval", view: "eval" },
-  { itemId: "runtime-pod-7", title: "Runtime Status", view: "runtime_status" }
+  { itemId: "plugin-policy-main", title: "插件钩子", view: "plugin_policy" },
+  { itemId: "cap.report.source", title: "能力注册", view: "capabilities" },
+  { itemId: "support-quality", title: "能力评测", view: "eval" },
+  { itemId: "runtime-pod-7", title: "运行时态", view: "runtime_status" }
 ];
 
 afterEach(() => cleanup());
@@ -29,7 +29,7 @@ describe("S-C118 P1 Console views", () => {
       });
       await screen.findByRole("heading", { name: target.title });
       await rendered.user.click(screen.getByRole("button", { name: target.itemId }));
-      const detail = await screen.findByRole("region", { name: `${target.title} Detail` });
+      const detail = await screen.findByLabelText(`${target.title} 详情`);
       expect(within(detail).getByText(`${target.itemId} detail`)).toBeInTheDocument();
       if (target.view === "runtime_status") {
         expect(screen.queryByRole("button", { name: /创建|启动|扩缩容|删除 Pod/ })).not.toBeInTheDocument();

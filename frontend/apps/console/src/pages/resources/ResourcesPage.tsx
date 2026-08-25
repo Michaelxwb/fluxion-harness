@@ -1,61 +1,52 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
-import { Button, Descriptions, Input, Modal, Select, Space, Table, TextArea, Typography } from "@douyinfe/semi-ui";
-import { IconPlay, IconPlus, IconSave } from "@douyinfe/semi-icons";
+import { Button, Card, Empty, Input, Modal, Select, SideSheet, Space, Table, TextArea, Typography } from "@douyinfe/semi-ui";
+import { IconPlus } from "@douyinfe/semi-icons";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
+import { ListPager } from "../../components/ListPager";
 import { PageHeader } from "../../components/PageHeader";
 import { StatusTag } from "../../components/StatusTag";
-import type { ConsoleApi, JsonRecord, PageData, ResourceSummary, ResourceType, ResourceVersion } from "../../types/console";
-import { type ConfirmAction, ResourceActionModal } from "./ResourceActionModal";
-import { ResourceVersionsPanel, RetentionPanel, VERSION_PAGE_SIZE } from "./ResourceVersionsPanel";
+import { parseSpec } from "../../utils/json";
+import type { ConsoleApi, ResourceSummary, ResourceType } from "../../types/console";
+import { ResourceDetailPanel } from "./ResourceDetailPanel";
 
 interface ResourcesPageProps {
   readonly api: ConsoleApi;
 }
 
+const RESOURCE_PAGE_SIZE = 20;
+
 export function ResourcesPage({ api }: ResourcesPageProps) {
   const [resources, setResources] = useState<readonly ResourceSummary[]>([]);
-  const [selected, setSelected] = useState<ResourceVersion | null>(null);
-  const [specText, setSpecText] = useState("{}");
-  const [versions, setVersions] = useState<PageData<ResourceVersion> | null>(null);
-  const [versionPage, setVersionPage] = useState(1);
-  const [diagnostic, setDiagnostic] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
-  const [resourceType, setResourceType] = useState<ResourceType>("runtime_profile");
+  const [typeFilter, setTypeFilter] = useState<ResourceType | "all">("all");
+  const [resourcePage, setResourcePage] = useState(1);
+  const [drawerTarget, setDrawerTarget] = useState<{
+    readonly resourceType: ResourceType;
+    readonly resourceId: string;
+  } | null>(null);
+  const [createType, setCreateType] = useState<ResourceType>("runtime_profile");
   const [createOpen, setCreateOpen] = useState(false);
   const [createId, setCreateId] = useState("");
   const [createVersion, setCreateVersion] = useState("v1");
   const [createSpec, setCreateSpec] = useState("{}");
 
-  async function loadResources(type = resourceType): Promise<void> {
-    const page = await api.listResources(type);
-    setResources(page.items);
-  }
-
-  async function selectResource(summary: ResourceSummary): Promise<void> {
-    try {
-      const resource = await api.getResource(summary.resourceType, summary.resourceId);
-      setSelectedResource(resource);
-      await loadVersions(resource, 1);
-      setError(null);
-    } catch (cause) {
-      setError(toErrorMessage(cause));
-    }
-  }
-
   useEffect(() => {
-    setSelected(null);
-    void loadResources(resourceType);
-  }, [resourceType]);
+    void loadResources();
+  }, []);
+
+  async function loadResources(): Promise<void> {
+    // 后端单表 resource_definitions，GET /api/v1/resources 一次返回全部类型。
+    const result = await api.listResources();
+    setResources(result.items);
+  }
 
   async function createResource(): Promise<void> {
-    await runAction(async () => {
+    try {
       const created = await api.createResource({
         resourceId: createId.trim(),
-        resourceType,
+        resourceType: createType,
         spec: parseSpec(createSpec),
         version: createVersion.trim(),
         visibility: "private"
@@ -64,138 +55,131 @@ export function ResourcesPage({ api }: ResourcesPageProps) {
       setCreateId("");
       setCreateVersion("v1");
       setCreateSpec("{}");
-      setSelectedResource(created);
       await loadResources();
-      await loadVersions(created, 1);
-      setNotice(`${created.resourceId}@${created.version} 已创建`);
-    });
-  }
-
-  async function createDraft(): Promise<void> {
-    if (!selected) {
-      return;
-    }
-    await runAction(async () => {
-      const draft = await api.createDraftFromLatest(selected.resourceType, selected.resourceId);
-      setSelectedResource(draft);
-      await loadResources();
-      await loadVersions(draft, 1);
-      setNotice(`Draft ${draft.version} 已创建`);
-    });
-  }
-
-  async function saveDraft(): Promise<void> {
-    if (!selected) {
-      return;
-    }
-    await runAction(async () => {
-      const updated = await api.updateDraft(selected, parseSpec(specText));
-      setSelectedResource(updated);
-      await loadResources();
-      await loadVersions(updated, versionPage);
-      setNotice("Draft 已保存");
-    });
-  }
-
-  async function validateDraft(): Promise<void> {
-    if (!selected) {
-      return;
-    }
-    await runAction(async () => {
-      const result = await api.validateDraft(selected);
-      setDiagnostic(result.diagnostics.join("；"));
-      setNotice(result.valid ? "Validate 完成" : "校验失败");
-    });
-  }
-
-  async function runAction(action: () => Promise<void>): Promise<void> {
-    try {
-      await action();
-      setError(null);
+      setDrawerTarget({ resourceType: created.resourceType, resourceId: created.resourceId });
     } catch (cause) {
       setError(toErrorMessage(cause));
     }
   }
 
-  async function loadVersions(resource: ResourceVersion, page: number): Promise<void> {
-    setVersionPage(page);
-    setVersions(
-      await api.listVersions(resource.resourceType, resource.resourceId, {
-        page,
-        pageSize: VERSION_PAGE_SIZE
-      })
-    );
+  function openCreate(): void {
+    setCreateType(typeFilter === "all" ? "runtime_profile" : typeFilter);
+    setCreateOpen(true);
   }
 
-  function setSelectedResource(resource: ResourceVersion): void {
-    setSelected(resource);
-    setSpecText(JSON.stringify(resource.spec, null, 2));
-    setDiagnostic(null);
-  }
+  const visibleResources =
+    typeFilter === "all"
+      ? resources
+      : resources.filter((resource) => resource.resourceType === typeFilter);
+  const totalPages = Math.max(1, Math.ceil(visibleResources.length / RESOURCE_PAGE_SIZE));
+  const currentPage = Math.min(resourcePage, totalPages);
+  const pageResources = visibleResources.slice(
+    (currentPage - 1) * RESOURCE_PAGE_SIZE,
+    currentPage * RESOURCE_PAGE_SIZE
+  );
 
   return (
     <div className="page-stack">
-      <PageHeader description="Console 只管理 RuntimeProfile，不创建 Runtime Pod。" title="Runtime Profiles" />
+      <PageHeader description="管理所有类型的资源定义（运行态 / 技能 / MCP 工具 / 插件 / 策略），不创建运行实例（Pod）。" title="运行资产" />
       <ErrorBanner message={error} />
-      {notice ? <Typography.Text type="success">{notice}</Typography.Text> : null}
-      <Space wrap>
-        <Select
-          aria-label="Resource 类型"
-          data-testid="resource-type-select"
-          onChange={(value) => {
-            if (isResourceType(value)) setResourceType(value);
-          }}
-          optionList={RESOURCE_TYPES.map((type) => ({ label: type, value: type }))}
-          value={resourceType}
+      <Card
+        aria-label="资源列表"
+        bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }}
+        header={
+          <div className="list-card-header list-card-header--spread">
+            <Space>
+              <Button aria-label="新增" icon={<IconPlus />} onClick={() => openCreate()} type="primary">新增</Button>
+            </Space>
+            <Select
+              aria-label="类型筛选"
+              onChange={(value) => {
+                if (value === "all" || isResourceType(value)) {
+                  setTypeFilter(value);
+                  setResourcePage(1);
+                }
+              }}
+              optionList={[
+                { label: "全部", value: "all" },
+                ...RESOURCE_TYPES.map((type) => ({ label: RESOURCE_TYPE_LABELS[type], value: type }))
+              ]}
+              style={{ width: 160 }}
+              value={typeFilter}
+            />
+          </div>
+        }
+      >
+        {typeFilter !== "all" ? (
+          <Typography.Text type="tertiary">{RESOURCE_TYPE_HINTS[typeFilter]}</Typography.Text>
+        ) : null}
+        <ResourceTable
+          empty={
+            <Empty
+              description={typeFilter === "all" ? "暂无资源" : `暂无「${RESOURCE_TYPE_LABELS[typeFilter]}」资源`}
+            />
+          }
+          onSelect={(resourceType, resourceId) => setDrawerTarget({ resourceType, resourceId })}
+          resources={pageResources}
         />
-        <Button icon={<IconPlus />} onClick={() => setCreateOpen(true)} type="primary">新建 Resource</Button>
-      </Space>
-      <ResourceTable onSelect={(summary) => void selectResource(summary)} resources={resources} />
-      {selected ? (
-        <ResourceDetail
-          diagnostic={diagnostic}
-          onCreateDraft={() => void createDraft()}
-          onPublish={(resource) => setConfirmAction({ resource, type: "publish" })}
-          onRollback={(resource, targetVersion) => setConfirmAction({ resource, targetVersion, type: "rollback" })}
-          onSave={() => void saveDraft()}
-          onSpecChange={setSpecText}
-          onValidate={() => void validateDraft()}
-          resource={selected}
-          specText={specText}
-          versionPage={versionPage}
-          versions={versions}
-          onVersionPageChange={(page) => void loadVersions(selected, page)}
+        <ListPager
+          onChange={setResourcePage}
+          page={currentPage}
+          pageSize={RESOURCE_PAGE_SIZE}
+          total={visibleResources.length}
         />
-      ) : null}
-      <RetentionPanel />
-      <ResourceActionModal action={confirmAction} api={api} onClose={() => setConfirmAction(null)} onDone={handleConfirmDone} />
+      </Card>
       {createOpen ? (
         <Modal
-          cancelText="取消"
-          okButtonProps={{ disabled: !createId.trim() || !createVersion.trim() }}
-          okText="创建 Draft"
+          footer={
+            <Space>
+              <Button aria-label="取消" onClick={() => setCreateOpen(false)}>取消</Button>
+              <Button
+                aria-label="创建草稿"
+                disabled={!createId.trim() || !createVersion.trim()}
+                onClick={() => void createResource()}
+                theme="solid"
+                type="primary"
+              >
+                创建草稿
+              </Button>
+            </Space>
+          }
           onCancel={() => setCreateOpen(false)}
-          onOk={() => void createResource()}
-          title={`新建 ${resourceType}`}
+          title={`新建资源（${RESOURCE_TYPE_LABELS[createType]}）`}
           visible
         >
           <Space vertical align="start" style={{ width: "100%" }}>
-            <Input aria-label="Resource ID" onChange={setCreateId} placeholder="resource-id" value={createId} />
-            <Input aria-label="Version" onChange={setCreateVersion} value={createVersion} />
-            <TextArea aria-label="新 Resource Spec JSON" autosize={{ minRows: 8, maxRows: 16 }} onChange={setCreateSpec} value={createSpec} />
+            <Select
+              aria-label="类型"
+              onChange={(value) => {
+                if (isResourceType(value)) setCreateType(value);
+              }}
+              optionList={RESOURCE_TYPES.map((type) => ({ label: RESOURCE_TYPE_LABELS[type], value: type }))}
+              style={{ width: 200 }}
+              value={createType}
+            />
+            <Typography.Text type="tertiary">{RESOURCE_TYPE_HINTS[createType]}</Typography.Text>
+            <Input aria-label="资源 ID" onChange={setCreateId} placeholder="资源 ID" value={createId} />
+            <Input aria-label="版本" onChange={setCreateVersion} value={createVersion} />
+            <TextArea aria-label="新资源规格 JSON" autosize={{ minRows: 8, maxRows: 16 }} onChange={setCreateSpec} value={createSpec} />
           </Space>
         </Modal>
       ) : null}
+      <SideSheet
+        onCancel={() => setDrawerTarget(null)}
+        title="资源详情"
+        visible={drawerTarget !== null}
+        width={980}
+      >
+        {drawerTarget ? (
+          <ResourceDetailPanel
+            api={api}
+            resourceId={drawerTarget.resourceId}
+            resourceType={drawerTarget.resourceType}
+          />
+        ) : null}
+      </SideSheet>
     </div>
   );
-
-  async function handleConfirmDone(message: string, resource: ResourceVersion): Promise<void> {
-    setNotice(message);
-    const latest = await api.getResource(resource.resourceType, resource.resourceId);
-    setSelectedResource(latest);
-    await loadResources();
-    await loadVersions(latest, 1);
-  }
 }
 
 const RESOURCE_TYPES: readonly ResourceType[] = [
@@ -203,118 +187,72 @@ const RESOURCE_TYPES: readonly ResourceType[] = [
   "skill",
   "mcp",
   "plugin",
-  "policy"
+  "policy",
+  "workflow"
 ];
+
+const RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {
+  runtime_profile: "运行态",
+  skill: "技能",
+  mcp: "MCP 工具",
+  plugin: "插件",
+  policy: "策略",
+  workflow: "工作流"
+};
+
+const RESOURCE_TYPE_HINTS: Record<ResourceType, string> = {
+  runtime_profile: "运行态是助手的运行档案：选用模型 / 系统提示词，以及可用技能、MCP 与工具。",
+  skill: "技能是给助手的指令包，描述某项任务该怎么做。",
+  mcp: "MCP 工具是通过 MCP 协议接入的外部工具服务器。",
+  plugin: "插件是扩展运行时能力的扩展包（如模型供应商）。",
+  policy: "策略是访问控制与护栏规则。",
+  workflow: "工作流是多步骤编排流程。"
+};
 
 function isResourceType(value: unknown): value is ResourceType {
   return typeof value === "string" && RESOURCE_TYPES.includes(value as ResourceType);
 }
 
 function ResourceTable({
+  empty,
   onSelect,
   resources
 }: {
-  readonly onSelect: (resource: ResourceSummary) => void;
+  readonly empty: ReactNode;
+  readonly onSelect: (resourceType: ResourceType, resourceId: string) => void;
   readonly resources: readonly ResourceSummary[];
 }) {
   const columns = [
     {
+      dataIndex: "resourceType",
+      render: (_value: unknown, record: ResourceSummary) => RESOURCE_TYPE_LABELS[record.resourceType],
+      title: "类型"
+    },
+    {
       dataIndex: "resourceId",
       render: (_value: unknown, record: ResourceSummary) => (
-        <Button onClick={() => onSelect(record)} type="tertiary">
+        <Typography.Text link onClick={() => onSelect(record.resourceType, record.resourceId)}>
           {record.resourceId}
-        </Button>
+        </Typography.Text>
       ),
-      title: "Resource"
+      title: "资源"
     },
-    { dataIndex: "displayName", title: "Name" },
-    { dataIndex: "currentVersion", title: "Current Version" },
+    { dataIndex: "displayName", title: "名称" },
+    { dataIndex: "currentVersion", title: "当前版本" },
     {
       render: (_value: unknown, record: ResourceSummary) => <StatusTag status={record.status} />,
-      title: "Status"
+      title: "状态"
     }
   ];
-  return <Table columns={columns} dataSource={[...resources]} pagination={false} rowKey="resourceId" />;
-}
-
-function ResourceDetail(props: {
-  readonly diagnostic: string | null;
-  readonly resource: ResourceVersion;
-  readonly specText: string;
-  readonly versionPage: number;
-  readonly versions: PageData<ResourceVersion> | null;
-  readonly onCreateDraft: () => void;
-  readonly onPublish: (resource: ResourceVersion) => void;
-  readonly onRollback: (resource: ResourceVersion, version: string) => void;
-  readonly onSave: () => void;
-  readonly onSpecChange: (value: string) => void;
-  readonly onValidate: () => void;
-  readonly onVersionPageChange: (page: number) => void;
-}) {
   return (
-    <div className="detail-grid">
-      <DraftEditor {...props} />
-      <ResourceVersionsPanel {...props} />
-    </div>
+    <Table
+      columns={columns}
+      dataSource={[...resources]}
+      empty={empty}
+      pagination={false}
+      rowKey={(record) => (record ? `${record.resourceType}/${record.resourceId}` : "")}
+    />
   );
-}
-
-function DraftEditor({
-  diagnostic,
-  onCreateDraft,
-  onPublish,
-  onSave,
-  onSpecChange,
-  onValidate,
-  resource,
-  specText
-}: {
-  readonly diagnostic: string | null;
-  readonly resource: ResourceVersion;
-  readonly specText: string;
-  readonly onCreateDraft: () => void;
-  readonly onPublish: (resource: ResourceVersion) => void;
-  readonly onSave: () => void;
-  readonly onSpecChange: (value: string) => void;
-  readonly onValidate: () => void;
-}) {
-  return (
-    <section aria-label="Draft Editor" className="panel">
-      <Typography.Title heading={4}>Draft Editor</Typography.Title>
-      <Descriptions row>
-        <Descriptions.Item itemKey="Resource">{resource.resourceId}</Descriptions.Item>
-        <Descriptions.Item itemKey="Version">{resource.version}</Descriptions.Item>
-        <Descriptions.Item itemKey="Status"><StatusTag status={resource.status} /></Descriptions.Item>
-      </Descriptions>
-      <Input
-        aria-label="Spec JSON"
-        className="json-input"
-        onChange={onSpecChange}
-        value={specText}
-      />
-      {diagnostic ? <Typography.Text type="success">{diagnostic}</Typography.Text> : null}
-      <Space wrap>
-        <Button aria-label="创建 Draft" icon={<IconPlus />} onClick={onCreateDraft}>创建 Draft</Button>
-        <Button aria-label="保存 Draft" icon={<IconSave />} onClick={onSave} type="primary">保存 Draft</Button>
-        <Button aria-label="Validate" icon={<IconPlay />} onClick={onValidate}>Validate</Button>
-        <Button aria-label="Publish" icon={<IconPlay />} onClick={() => onPublish(resource)} theme="solid" type="warning">
-          Publish
-        </Button>
-      </Space>
-    </section>
-  );
-}
-
-function parseSpec(value: string): JsonRecord {
-  const parsed: unknown = JSON.parse(value);
-  if (isJsonRecord(parsed)) {
-    return parsed;
-  }
-  throw new Error("Spec 必须是 JSON Object");
-}
-
-function isJsonRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function toErrorMessage(cause: unknown): string {

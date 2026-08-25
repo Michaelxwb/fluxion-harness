@@ -139,6 +139,20 @@ class SQLAlchemyRegistryStore:
             limit=limit,
         )
 
+    async def list_all_resources(
+        self,
+        *,
+        tenant_id: str,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[ResourceDefinition], int]:
+        return await resource_sqlalchemy.list_all_resources(
+            self._engine,
+            tenant_id=tenant_id,
+            offset=offset,
+            limit=limit,
+        )
+
     async def append_audit(self, record: AuditRecord) -> None:
         async with self._engine.begin() as connection:
             await self._insert_audit(connection, record)
@@ -284,16 +298,20 @@ class SQLAlchemyRegistryStore:
         tenant_id: str,
         offset: int,
         limit: int,
+        resource_type: ResourceKind | None = None,
     ) -> tuple[list[ResourceBinding], int]:
+        conditions = [resource_bindings.c.tenant_id == tenant_id]
+        if resource_type is not None:
+            conditions.append(resource_bindings.c.resource_type == resource_type.value)
         statement = (
             select(resource_bindings)
-            .where(resource_bindings.c.tenant_id == tenant_id)
+            .where(*conditions)
             .order_by(resource_bindings.c.created_at.desc())
             .offset(offset)
             .limit(limit)
         )
-        count_statement = select(func.count()).select_from(resource_bindings).where(
-            resource_bindings.c.tenant_id == tenant_id
+        count_statement = (
+            select(func.count()).select_from(resource_bindings).where(*conditions)
         )
         async with self._engine.connect() as connection:
             rows = (await connection.execute(statement)).mappings().all()

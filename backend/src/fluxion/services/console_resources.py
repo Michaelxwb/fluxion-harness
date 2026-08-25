@@ -142,6 +142,19 @@ class ConsoleResourceOps:
             limit=page_size,
         )
 
+    async def list_all_resources(
+        self,
+        actor: ConsoleActor,
+        *,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[ResourceDefinition], int]:
+        return await self._store.list_all_resources(
+            tenant_id=actor.tenant_id,
+            offset=(page - 1) * page_size,
+            limit=page_size,
+        )
+
     async def validate_workflow_version(
         self,
         actor: ConsoleActor,

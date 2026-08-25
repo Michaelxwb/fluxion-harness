@@ -150,6 +150,14 @@ class RegistryStore(RegistryReadStore, Protocol):
         limit: int,
     ) -> tuple[list[ResourceDefinition], int]: ...
 
+    async def list_all_resources(
+        self,
+        *,
+        tenant_id: str,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[ResourceDefinition], int]: ...
+
     async def append_audit(self, record: AuditRecord) -> None: ...
 
     async def list_audit(
@@ -183,7 +191,12 @@ class RegistryStore(RegistryReadStore, Protocol):
     async def put_binding(self, binding: ResourceBinding) -> ResourceBinding: ...
 
     async def list_bindings_page(
-        self, *, tenant_id: str, offset: int, limit: int
+        self,
+        *,
+        tenant_id: str,
+        offset: int,
+        limit: int,
+        resource_type: ResourceKind | None = None,
     ) -> tuple[list[ResourceBinding], int]: ...
 
     async def disable_binding(self, binding_id: str, *, tenant_id: str) -> None: ...

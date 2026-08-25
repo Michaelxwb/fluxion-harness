@@ -33,7 +33,7 @@ export function ResourceActionModal({ action, api, onClose, onDone }: ResourceAc
     if (action.type === "publish") {
       await api.publishVersion(action.resource);
       onClose();
-      await onDone(`Published ${action.resource.version}`, action.resource);
+      await onDone(`已发布 ${action.resource.version}`, action.resource);
       return;
     }
     await api.rollbackVersion(action.resource, action.targetVersion);

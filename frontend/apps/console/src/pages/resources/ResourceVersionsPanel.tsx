@@ -1,6 +1,7 @@
-import { Button, Pagination, Space, Table, Typography } from "@douyinfe/semi-ui";
+import { Button, Card, Empty, Table } from "@douyinfe/semi-ui";
 import { IconUndo } from "@douyinfe/semi-icons";
 
+import { ListPager } from "../../components/ListPager";
 import { StatusTag } from "../../components/StatusTag";
 import type { PageData, ResourceVersion } from "../../types/console";
 
@@ -23,73 +24,43 @@ export function ResourceVersionsPanel({
 }: ResourceVersionsPanelProps) {
   const page = versions ?? { items: [], page: 1, pageSize: VERSION_PAGE_SIZE, total: 0 };
   return (
-    <section aria-label="Versions" className="panel">
-      <Typography.Title heading={4}>Versions</Typography.Title>
-      <Typography.Text>版本总数 {page.total}</Typography.Text>
-      <Table columns={versionColumns(resource, onRollback)} dataSource={[...page.items]} pagination={false} rowKey="version" />
-      <VersionPager onChange={onVersionPageChange} page={versionPage} total={page.total} />
-    </section>
-  );
-}
-
-export function RetentionPanel() {
-  return (
-    <section className="panel">
-      <Typography.Text>Audit 保留 30 天热查询</Typography.Text>
-      <Typography.Text>Trace 历史按 execution_id 查询</Typography.Text>
-    </section>
-  );
-}
-
-function VersionPager({
-  onChange,
-  page,
-  total
-}: {
-  readonly onChange: (page: number) => void;
-  readonly page: number;
-  readonly total: number;
-}) {
-  return (
-    <Space>
-      <Button disabled={page <= 1} onClick={() => onChange(page - 1)}>
-        上一页
-      </Button>
-      <Typography.Text>第 {page} 页</Typography.Text>
-      <Button disabled={page * VERSION_PAGE_SIZE >= total} onClick={() => onChange(page + 1)}>
-        下一页
-      </Button>
-      <Pagination
-        currentPage={page}
-        nextText="Next"
-        onPageChange={onChange}
-        pageSize={VERSION_PAGE_SIZE}
-        prevText="Prev"
-        total={total}
+    <Card aria-label="Versions" bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }} title={`版本（共 ${page.total} 个）`}>
+      <Table
+        columns={versionColumns(resource, onRollback)}
+        dataSource={[...page.items]}
+        empty={<Empty description="暂无版本" />}
+        pagination={false}
+        rowKey="version"
       />
-    </Space>
+      <ListPager
+        onChange={onVersionPageChange}
+        page={versionPage}
+        pageSize={VERSION_PAGE_SIZE}
+        total={page.total}
+      />
+    </Card>
   );
 }
 
 function versionColumns(resource: ResourceVersion, onRollback: (resource: ResourceVersion, version: string) => void) {
   return [
-    { dataIndex: "version", title: "Version" },
+    { dataIndex: "version", title: "版本" },
     {
       render: (_value: unknown, record: ResourceVersion) => <StatusTag status={record.status} />,
-      title: "Status"
+      title: "状态"
     },
     {
       render: (_value: unknown, record: ResourceVersion) =>
         record.status === "published" && record.version !== resource.version ? (
           <Button
-            aria-label={`Rollback to ${record.version}`}
+            aria-label={`回滚到 ${record.version}`}
             icon={<IconUndo />}
             onClick={() => onRollback(resource, record.version)}
           >
-            Rollback to {record.version}
+            回滚到 {record.version}
           </Button>
         ) : null,
-      title: "Action"
+      title: "操作"
     }
   ];
 }

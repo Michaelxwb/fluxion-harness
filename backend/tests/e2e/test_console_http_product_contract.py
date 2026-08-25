@@ -88,6 +88,17 @@ async def test_S_P13_05_console_http_contract_supports_real_ui_operations() -> N
             runs = await client.get("/api/v1/runs?page=1&page_size=100")
             run = await client.get("/api/v1/runs/execution-console")
             audit = await client.get("/api/v1/audit?page=1&page_size=100")
+            all_resources = await client.get("/api/v1/resources?page=1&page_size=100")
+            filtered_skill = await client.get(
+                "/api/v1/resources?resource_type=skill&page=1&page_size=100"
+            )
+            filtered_binding = await client.get(
+                "/api/v1/bindings?resource_type=skill&page=1&page_size=100"
+            )
+            empty_binding = await client.get(
+                "/api/v1/bindings?resource_type=mcp&page=1&page_size=100"
+            )
+            invalid_binding_type = await client.get("/api/v1/bindings?resource_type=bogus")
 
         assert profile.json()["data"]["tenant_id"] == "dev"
         assert profile.json()["data"]["updated_at"]
@@ -107,6 +118,18 @@ async def test_S_P13_05_console_http_contract_supports_real_ui_operations() -> N
         assert run.json()["data"]["trace_events"][0]["event"] == "runtime.started"
         assert audit.json()["data"]["total"] >= 4
         assert all("token" not in str(item) for item in audit.json()["data"]["items"])
+        # 单表 resource_definitions，一个 GET /api/v1/resources 返回全部类型（已发布的）。
+        assert all_resources.json()["data"]["total"] == 2
+        assert {item["resource_type"] for item in all_resources.json()["data"]["items"]} == {
+            "runtime_profile",
+            "skill",
+        }
+        assert [item["resource_id"] for item in filtered_skill.json()["data"]["items"]] == ["review"]
+        # 绑定列表同样支持 resource_type 过滤，非法类型返回 400。
+        assert filtered_binding.json()["data"]["total"] == 1
+        assert [item["resource_type"] for item in filtered_binding.json()["data"]["items"]] == ["skill"]
+        assert empty_binding.json()["data"]["total"] == 0
+        assert invalid_binding_type.status_code == 400
     finally:
         await store.close()
 

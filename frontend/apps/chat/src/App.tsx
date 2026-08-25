@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { Avatar, Button, Layout, Spin, Tag, TextArea, Typography } from "@douyinfe/semi-ui";
-import { IconSend, IconUser } from "@douyinfe/semi-icons";
+import { Avatar, Button, Layout, Space, Spin, Tag, TextArea, Typography } from "@douyinfe/semi-ui";
+import { IconMoon, IconSend, IconSun, IconUser } from "@douyinfe/semi-icons";
 
 import type { ChatAccess, ChatApi, ChatRequest, ChatResultKind } from "./types/chat";
+import { useThemeMode } from "./theme";
 import "./styles.css";
 
 interface ChatAppProps {
@@ -17,6 +18,7 @@ interface ChatItem {
 }
 
 export function ChatApp({ api }: ChatAppProps) {
+  const { mode, toggle } = useThemeMode();
   const [content, setContent] = useState("");
   const [messages, setMessages] = useState<ChatItem[]>([]);
   const [platformUserId, setPlatformUserId] = useState<string>();
@@ -133,12 +135,20 @@ export function ChatApp({ api }: ChatAppProps) {
     <Layout className="chat-shell">
       <header className="chat-header">
         <div>
-          <Typography.Title heading={4}>Fluxion Chat</Typography.Title>
-          <Typography.Text type="tertiary">{access?.runtimeProfileId ?? "Agent"}</Typography.Text>
+          <Typography.Title heading={4}>Fluxion 对话</Typography.Title>
+          <Typography.Text type="tertiary">{access?.runtimeProfileId ?? "智能体"}</Typography.Text>
         </div>
-        <Tag color={platformUserId ? "green" : "grey"}>
-          {platformUserId ? `已绑定 ${platformUserId}` : "未绑定"}
-        </Tag>
+        <Space>
+          <Tag color={platformUserId ? "green" : "grey"}>
+            {platformUserId ? `已绑定 ${platformUserId}` : "未绑定"}
+          </Tag>
+          <Button
+            aria-label={mode === "dark" ? "切换到亮色模式" : "切换到暗色模式"}
+            icon={mode === "dark" ? <IconSun /> : <IconMoon />}
+            onClick={toggle}
+            theme="borderless"
+          />
+        </Space>
       </header>
       <Layout.Content className="chat-content" aria-live="polite">
         {accessError ? <Typography.Text role="alert" type="danger">{accessError}</Typography.Text> : null}

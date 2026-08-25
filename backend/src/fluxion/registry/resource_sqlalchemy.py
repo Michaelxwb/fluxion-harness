@@ -172,6 +172,41 @@ async def list_resources(
     offset: int,
     limit: int,
 ) -> tuple[list[ResourceDefinition], int]:
+    return await _list_published_resources(
+        engine,
+        kind=kind,
+        tenant_id=tenant_id,
+        offset=offset,
+        limit=limit,
+    )
+
+
+async def list_all_resources(
+    engine: AsyncEngine,
+    *,
+    tenant_id: str,
+    offset: int,
+    limit: int,
+) -> tuple[list[ResourceDefinition], int]:
+    # 单表 resource_definitions：不带 kind 过滤即列出租户下全部资源类型。
+    return await _list_published_resources(
+        engine,
+        kind=None,
+        tenant_id=tenant_id,
+        offset=offset,
+        limit=limit,
+    )
+
+
+async def _list_published_resources(
+    engine: AsyncEngine,
+    *,
+    kind: ResourceKind | None,
+    tenant_id: str,
+    offset: int,
+    limit: int,
+) -> tuple[list[ResourceDefinition], int]:
+    kind_scope = [resource_definitions.c.kind == kind.value] if kind is not None else []
     ranked = (
         select(
             *resource_definitions.c,
@@ -186,7 +221,7 @@ async def list_resources(
             .label("version_rank"),
         )
         .where(resource_definitions.c.tenant_id == tenant_id)
-        .where(resource_definitions.c.kind == kind.value)
+        .where(*kind_scope)
         .where(resource_definitions.c.status == ResourceStatus.PUBLISHED.value)
         .subquery()
     )
@@ -200,7 +235,7 @@ async def list_resources(
     count_statement = (
         select(func.count(func.distinct(resource_definitions.c.resource_id)))
         .where(resource_definitions.c.tenant_id == tenant_id)
-        .where(resource_definitions.c.kind == kind.value)
+        .where(*kind_scope)
         .where(resource_definitions.c.status == ResourceStatus.PUBLISHED.value)
     )
     async with engine.connect() as connection:
