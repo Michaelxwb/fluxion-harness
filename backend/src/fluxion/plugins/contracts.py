@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
@@ -123,6 +124,20 @@ class ModelProviderTimeoutError(ModelProviderError):
 @runtime_checkable
 class ModelProvider(Protocol):
     async def complete(self, request: ModelRequest) -> ModelResponse: ...
+
+
+@runtime_checkable
+class StreamingModelProvider(Protocol):
+    """支持流式输出 token 的模型 Provider（可选能力）。
+
+    未实现该协议的 Provider 走非流式 complete；Runtime 用 isinstance 检测，
+    向后兼容既有 ModelProvider 实现。
+
+    注意：stream 是 async generator，签名用普通 def（不带 async），
+    调用返回 AsyncIterator[str] 供 async for 直接迭代。
+    """
+
+    def stream(self, request: ModelRequest) -> AsyncIterator[str]: ...
 
 
 class ModelProviderRegistryProtocol(Protocol):

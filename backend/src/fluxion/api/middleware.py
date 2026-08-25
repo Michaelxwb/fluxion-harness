@@ -16,6 +16,7 @@ from fluxion.observability.context import (
     reset_request_context,
 )
 from fluxion.observability.logging import emit_access_log
+from fluxion.observability.tracing import get_tracer
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
@@ -45,27 +46,40 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         biz_code = INTERNAL_ERROR
         publish_id: str | None = None
         is_health = request.url.path == "/healthz"
-        try:
-            response = await call_next(request)
-            status_code = response.status_code
-            response.headers["X-Request-ID"] = context.request_id
-            response.headers.setdefault("X-Trace-ID", context.trace_id)
-            biz_code = _biz_code(response)
-            publish_id = response.headers.get("X-Publish-ID")
-            return response
-        finally:
-            latency_ms = (perf_counter() - started) * 1000
-            if not is_health or status_code >= 500:
-                emit_access_log(
-                    context,
-                    status_code=status_code,
-                    biz_code=biz_code,
-                    latency_ms=latency_ms,
-                    headers=dict(request.headers),
-                    query=dict(request.query_params),
-                    publish_id=publish_id,
-                )
-            reset_request_context(token)
+        tracer = get_tracer("fluxion.http")
+        with tracer.start_as_current_span(
+            "http.request",
+            attributes={
+                "http.request.method": request.method,
+                "http.route": request.url.path,
+                "fluxion.trace_id": context.trace_id,
+                "fluxion.request_id": context.request_id,
+                "fluxion.tenant_id": context.tenant_id,
+                "fluxion.actor_id": context.actor_id,
+            },
+        ) as span:
+            try:
+                response = await call_next(request)
+                status_code = response.status_code
+                response.headers["X-Request-ID"] = context.request_id
+                response.headers.setdefault("X-Trace-ID", context.trace_id)
+                biz_code = _biz_code(response)
+                publish_id = response.headers.get("X-Publish-ID")
+                span.set_attribute("http.response.status_code", status_code)
+                return response
+            finally:
+                latency_ms = (perf_counter() - started) * 1000
+                if not is_health or status_code >= 500:
+                    emit_access_log(
+                        context,
+                        status_code=status_code,
+                        biz_code=biz_code,
+                        latency_ms=latency_ms,
+                        headers=dict(request.headers),
+                        query=dict(request.query_params),
+                        publish_id=publish_id,
+                    )
+                reset_request_context(token)
 
     def _identity(self, request: Request) -> tuple[str, str]:
         if self._dev_mode.enabled:

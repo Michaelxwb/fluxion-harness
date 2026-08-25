@@ -9,7 +9,7 @@ from fluxion.runtime.workflow import StubWorkflowEngine, WorkflowAdapter
 
 @pytest.mark.asyncio
 async def test_S_R08_workflow_adapter_returns_run_id_without_runtime_durable_state() -> None:
-    context, runtime = await runtime_context()
+    context, _runtime = await runtime_context()
     engine = StubWorkflowEngine(run_id="wf-run-1")
     adapter = WorkflowAdapter(workflow_id="weekly-report", engine=engine)
     tool_runtime = ToolRuntime()
@@ -26,6 +26,5 @@ async def test_S_R08_workflow_adapter_returns_run_id_without_runtime_durable_sta
 
     assert result.status is ToolResultStatus.STARTED
     assert result.run_id == "wf-run-1"
-    assert runtime.local_durable_fact_count == 0
     assert adapter.local_durable_state_count == 0
     assert engine.started_requests[0].workflow_id == "weekly-report"

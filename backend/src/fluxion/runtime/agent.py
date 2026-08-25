@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
 from dataclasses import dataclass, replace
+from typing import cast
 
 from fluxion.plugins.contracts import (
     ModelMessage,
@@ -12,6 +13,7 @@ from fluxion.plugins.contracts import (
     ModelProviderTimeoutError,
     ModelRequest,
     ModelResponse,
+    StreamingModelProvider,
     ToolCall,
     ToolDefinition,
 )
@@ -74,10 +76,6 @@ class AgentRuntime:
     def memory(self) -> MemoryManager:
         return self._memory
 
-    @property
-    def local_durable_fact_count(self) -> int:
-        return 0
-
     async def start_execution(self, request: RequestContext) -> RuntimeContext:
         snapshot = await self._snapshot_builder.build(request)
         context = RuntimeContext(request=request, snapshot=snapshot)
@@ -122,6 +120,38 @@ class AgentRuntime:
     async def finish_execution(self, context: RuntimeContext) -> None:
         await self._memory.finish_execution(context)
         context.emit("execution.finished", {})
+
+    async def stream_final_answer(
+        self,
+        context: RuntimeContext,
+        input_message: str,
+    ) -> AsyncIterator[str]:
+        """流式输出最终答案 token；provider 不支持流式时返回空迭代。
+
+        仅覆盖单轮最终答案（无 tool call）场景，供 SSE 逐 token 输出；
+        有 tool call 需求时调用方回退到 run_step 的非流式完整循环。
+        """
+        if self._model_providers is None:
+            return
+        provider_ids = _provider_chain(context.snapshot.model_resolution)
+        if not provider_ids:
+            return
+        provider = self._model_providers.resolve(provider_ids[0])
+        if not isinstance(provider, StreamingModelProvider):
+            return
+        streaming = cast(StreamingModelProvider, provider)
+        session_history = await self._memory.read_session_context(context)
+        messages = _model_messages(context, session_history, input_message)
+        scoped = ModelRequest(
+            messages=messages,
+            model=_optional_str(context.snapshot.model_resolution.get("model")),
+            timeout_ms=_timeout_ms(context.snapshot.model_resolution),
+            tenant_id=context.snapshot.tenant_id,
+            user_id=context.snapshot.user_id,
+            provider_version=context.snapshot.plugin_versions.get(provider_ids[0]),
+        )
+        async for token in streaming.stream(scoped):
+            yield token
 
     async def run(
         self,

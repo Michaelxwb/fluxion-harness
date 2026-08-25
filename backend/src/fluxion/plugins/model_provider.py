@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import cast
 
@@ -113,6 +114,26 @@ class OpenAICompatibleHTTPModelProvider:
         payload = _request_payload(request, self._model)
         response = await self._post_with_retry(payload)
         return _response_from_openai(self._provider_id, response)
+
+    async def stream(self, request: ModelRequest) -> AsyncIterator[str]:
+        """流式完成：逐 token yield 最终答案 content（不处理 tool call）。"""
+        payload = _request_payload(request, self._model)
+        payload["stream"] = True
+        headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
+        async with (
+            httpx.AsyncClient(timeout=self._timeout_seconds) as client,
+            client.stream(
+                "POST",
+                f"{self._api_base_url}/chat/completions",
+                json=payload,
+                headers=headers,
+            ) as response,
+        ):
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                content = _stream_chunk_content(line)
+                if content is not None:
+                    yield content
 
     async def _post_with_retry(self, payload: dict[str, object]) -> dict[str, object]:
         headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
@@ -244,3 +265,21 @@ def _tool_call(value: object) -> ToolCall | None:
     else:
         parsed_args = {}
     return ToolCall(call_id=str(value.get("id", "")), name=name, arguments=parsed_args)
+
+
+def _stream_chunk_content(line: str) -> str | None:
+    """解析 OpenAI SSE 流式一行，返回 delta content；非内容行返回 None。"""
+    if not line.startswith("data:"):
+        return None
+    payload = line[len("data:") :].strip()
+    if not payload or payload == "[DONE]":
+        return None
+    try:
+        chunk = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    choices = chunk.get("choices")
+    first = choices[0] if isinstance(choices, list) and choices else {}
+    delta = first.get("delta") if isinstance(first, dict) else {}
+    content = delta.get("content") if isinstance(delta, dict) else None
+    return content if isinstance(content, str) else None

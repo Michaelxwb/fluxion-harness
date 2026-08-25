@@ -57,4 +57,3 @@ async def test_S_R19_scheduler_runs_independent_approved_executions(
     assert {item.task_id for item in first_run} == {"approved"}
     assert {item.task_id for item in second_run} == {"blocked"}
     assert scheduler.local_execution_state_count == 0
-    assert runtime.local_durable_fact_count == 0

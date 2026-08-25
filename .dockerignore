@@ -1,0 +1,23 @@
+# 构建上下文是仓库根目录，排除本机大目录与产物，避免送进 Docker daemon
+.git
+.idea
+.vscode
+.venv
+venv
+node_modules
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.benchmarks
+test-results
+playwright-report
+coverage
+dist
+build
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.*

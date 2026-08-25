@@ -1,0 +1,138 @@
+# Fluxion Harness 前端 CI
+#
+# 覆盖内容：
+#   1. TypeScript 类型检查（shared / console / chat）
+#   2. ESLint 静态检查 + Vitest 单元测试
+#   3. Console / Chat 生产构建 + InMemory-import 守卫
+#   4. Playwright 浏览器 E2E（Chromium → 真实 HTTP → FastAPI → SQLite）
+#
+# 说明：
+#   - pnpm 版本锁定在根 package.json 的 packageManager 字段（pnpm@10.15.0）
+#   - E2E 的 webServer 由 playwright.config.ts 定义，会启动后端 dev bundle
+#     （.venv/bin/fluxion serve --dev），因此 E2E job 需同时安装 Python 依赖与
+#     前端依赖，并先构建前端静态资源（serve --dev 会复用已构建的 dist/）。
+
+name: frontend-ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 前端静态检查 + 单元测试 + 生产构建
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: 前端 typecheck / lint / test / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          # 与根 package.json 的 packageManager 字段保持一致
+          version: 10.15.0
+
+      - name: 安装 Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装前端依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript 类型检查
+        run: |
+          pnpm --filter @fluxion/shared typecheck
+          pnpm --filter @fluxion/console typecheck
+          pnpm --filter @fluxion/chat typecheck
+
+      - name: ESLint 静态检查
+        run: |
+          pnpm --filter @fluxion/console lint
+          pnpm --filter @fluxion/chat lint
+
+      - name: Vitest 单元测试
+        run: |
+          pnpm --filter @fluxion/console test
+          pnpm --filter @fluxion/chat test
+
+      # 生产构建（console/chat 的 build 脚本内部已包含 check-no-inmemory 守卫，
+      # 这里再显式执行一次，与 release gate 的 Reproducible Full Gate 保持一致）。
+      - name: 生产构建 + InMemory-import 守卫
+        run: |
+          pnpm --filter @fluxion/console build
+          pnpm --filter @fluxion/chat build
+          node frontend/scripts/check-no-inmemory.mjs
+
+  # ---------------------------------------------------------------------------
+  # 浏览器 E2E（需要后端 dev bundle + 前端构建产物）
+  #
+  # playwright.config.ts 的 webServer 由 Playwright 自动启动 / 停止：
+  #   - .venv/bin/python backend/tests/fixtures/browser_product_servers.py --port 9878
+  #   - .venv/bin/fluxion serve --dev --host 127.0.0.1 --port 8766 ...
+  # 因此本 job 必须先 uv sync（生成 .venv/bin/fluxion 与 .venv/bin/python），
+  # 并先构建前端 dist/（serve --dev 检测到 dist 缺失时才回退 pnpm run build，
+  # 显式预构建可避免把构建耗时压进 webServer 启动超时）。
+  # ---------------------------------------------------------------------------
+  e2e:
+    name: 浏览器 E2E（Playwright + 后端 dev bundle）
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # ---- 后端运行时（playwright webServer 依赖 .venv/bin/fluxion）----
+      - name: 安装 Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装 uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: 安装后端依赖（uv）
+        run: uv sync --extra dev --frozen
+
+      # ---- 前端依赖与构建 ----
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+
+      - name: 安装 Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装前端依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建 Console/Chat 静态资源
+        run: |
+          pnpm --filter @fluxion/console build
+          pnpm --filter @fluxion/chat build
+
+      # playwright.config.ts 使用 channel: "chrome"（即宿主 Google Chrome，
+      # ubuntu-latest 已预装）；安装 chromium + 系统依赖确保浏览器运行所需的
+      # 共享库齐全（--with-deps 会经 apt 补齐依赖）。
+      - name: 安装 Playwright 浏览器与系统依赖
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: 运行 Playwright E2E
+        run: pnpm exec playwright test

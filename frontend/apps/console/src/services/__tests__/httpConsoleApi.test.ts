@@ -9,7 +9,8 @@ function stubClient(responses: Readonly<Record<string, unknown>>): HttpClient {
     async request<T>(path: string, _init: RequestInit | undefined, parse: (v: unknown) => T): Promise<T> {
       return parse(responses[path]);
     },
-    readEventStream: vi.fn(async () => "")
+    readEventStream: vi.fn(async () => ""),
+    streamEvents: vi.fn(async () => undefined)
   };
 }
 

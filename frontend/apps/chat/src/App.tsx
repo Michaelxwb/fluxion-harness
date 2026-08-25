@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Avatar, Button, Layout, Spin, Tag, TextArea, Typography } from "@douyinfe/semi-ui";
 import { IconSend, IconUser } from "@douyinfe/semi-icons";
 
-import type { ChatAccess, ChatApi, ChatResultKind } from "./types/chat";
+import type { ChatAccess, ChatApi, ChatRequest, ChatResultKind } from "./types/chat";
 import "./styles.css";
 
 interface ChatAppProps {
@@ -52,26 +52,81 @@ export function ChatApp({ api }: ChatAppProps) {
     const trimmed = content.trim();
     if (!trimmed || sending || (requiresAccess && !access)) return;
     const messageId = `message-${Date.now()}-${messages.length}`;
+    const assistantId = `${messageId}-response`;
     setContent("");
     setMessages((items) => [...items, { content: trimmed, id: messageId, kind: "user" }]);
     setSending(true);
+    const updateAssistant = (updater: (item: ChatItem) => ChatItem): void => {
+      setMessages((items) =>
+        items.map((item) => (item.id === assistantId ? updater(item) : item))
+      );
+    };
     try {
-      const result = await api.sendMessage({
-        content: trimmed,
-        conversationId,
-        messageId
-      });
-      if (result.platformUserId) setPlatformUserId(result.platformUserId);
-      setMessages((items) => [
-        ...items,
-        { content: result.output, id: `${messageId}-response`, kind: result.kind }
-      ]);
+      if (api.sendMessageStream) {
+        await submitStreaming(
+          api,
+          { content: trimmed, conversationId, messageId },
+          assistantId,
+          updateAssistant
+        );
+      } else {
+        await submitPlain(api, { content: trimmed, conversationId, messageId }, assistantId);
+      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "消息发送失败";
-      setMessages((items) => [...items, { content: message, id: `${messageId}-error`, kind: "error" }]);
+      updateAssistant(() => ({
+        content: error instanceof Error ? error.message : "消息发送失败",
+        id: assistantId,
+        kind: "error"
+      }));
     } finally {
       setSending(false);
     }
+  }
+
+  async function submitStreaming(
+    api: ChatApi,
+    request: ChatRequest,
+    assistantId: string,
+    updateAssistant: (updater: (item: ChatItem) => ChatItem) => void
+  ): Promise<void> {
+    setMessages((items) => [...items, { content: "", id: assistantId, kind: "message" }]);
+    let receivedOutput = false;
+    await api.sendMessageStream!(request, (event) => {
+      if (event.kind === "token" && typeof event.content === "string") {
+        receivedOutput = true;
+        updateAssistant((item) => ({ ...item, content: item.content + event.content }));
+      } else if (event.kind === "completed" && event.response) {
+        receivedOutput = true;
+        if (event.response.platformUserId) setPlatformUserId(event.response.platformUserId);
+        updateAssistant((item) => ({
+          ...item,
+          content: event.response!.output,
+          kind: event.response!.kind
+        }));
+      } else if (event.kind === "error") {
+        updateAssistant((item) => ({
+          ...item,
+          content: event.message ?? "消息发送失败",
+          kind: "error"
+        }));
+      }
+    });
+    if (!receivedOutput) {
+      updateAssistant((item) => ({ ...item, content: "（无输出）", kind: "error" }));
+    }
+  }
+
+  async function submitPlain(
+    api: ChatApi,
+    request: ChatRequest,
+    assistantId: string
+  ): Promise<void> {
+    const result = await api.sendMessage(request);
+    if (result.platformUserId) setPlatformUserId(result.platformUserId);
+    setMessages((items) => [
+      ...items,
+      { content: result.output, id: assistantId, kind: result.kind }
+    ]);
   }
 
   return (

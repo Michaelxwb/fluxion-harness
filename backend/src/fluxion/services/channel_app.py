@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
@@ -23,11 +23,17 @@ from fluxion.registry import (
     ChatAccessRecord,
     PlatformUserRecord,
 )
-from fluxion.services.runtime_app import RunRuntimeRequest, RunRuntimeResult
+from fluxion.services.runtime_app import (
+    RunRuntimeRequest,
+    RunRuntimeResult,
+    RuntimeStreamEvent,
+)
 
 
 class RuntimeGateway(Protocol):
     async def run(self, request: RunRuntimeRequest) -> RunRuntimeResult: ...
+
+    def stream(self, request: RunRuntimeRequest) -> AsyncIterator[RuntimeStreamEvent]: ...
 
 
 class ChannelBindError(RuntimeError):
@@ -143,6 +149,42 @@ class ChannelApplicationService:
             trace_id=runtime_result.trace_id,
             execution_id=runtime_result.execution_id,
         )
+
+    async def stream_chat_access(
+        self,
+        token: str,
+        *,
+        conversation_id: str,
+        content: str,
+        request_id: str,
+        trace_id: str,
+    ) -> AsyncIterator[RuntimeStreamEvent]:
+        """流式转发 Runtime 的 started/token 事件，completed 包装为 ChannelResult 结构。"""
+        access = await self.resolve_chat_access(token)
+        request = RunRuntimeRequest(
+            tenant_id=access.tenant_id,
+            user_id=access.platform_user_id,
+            runtime_profile_id=access.runtime_profile_id,
+            session_id=conversation_id,
+            input_message=content,
+            request_id=request_id,
+            trace_id=trace_id,
+        )
+        async for event in self._runtime.stream(request):
+            if event.event == "completed":
+                yield RuntimeStreamEvent(
+                    event="completed",
+                    data={
+                        "kind": "message",
+                        "output": event.data.get("output"),
+                        "platform_user_id": access.platform_user_id,
+                        "request_id": event.data.get("request_id"),
+                        "trace_id": event.data.get("trace_id"),
+                        "execution_id": event.data.get("execution_id"),
+                    },
+                )
+            else:
+                yield event
 
     async def handle(
         self, adapter: ChannelAdapter, external: ExternalChannelMessage

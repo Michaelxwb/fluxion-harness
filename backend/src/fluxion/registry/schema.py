@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, Index, Integer, MetaData, String, Table
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Index,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Text,
+)
 
 metadata = MetaData()
 
@@ -197,3 +208,37 @@ bind_codes = Table(
 )
 
 Index("idx_bind_code_tenant_expiry", bind_codes.c.tenant_id, bind_codes.c.expires_at)
+
+# 会话记忆持久化：Runtime 无状态的关键——L1/L2/summary 记录外置到共享 Registry。
+# level 取值：l1（会话上下文）、l2（用户级长期记忆）、summary（压缩摘要）。
+# summary 同时承担 l1/l2 桶的角色，读取时通过 level IN 查询等价展开。
+session_memory = Table(
+    "session_memory",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("tenant_id", String(128), nullable=False),
+    Column("user_id", String(128), nullable=False),
+    Column("session_id", String(128), nullable=False),
+    Column("execution_id", String(128), nullable=False),
+    Column("role", String(32), nullable=False),
+    Column("content", Text, nullable=False),
+    Column("tokens", Integer, nullable=False),
+    Column("level", String(16), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+Index(
+    "idx_memory_l1",
+    session_memory.c.tenant_id,
+    session_memory.c.session_id,
+    session_memory.c.level,
+    session_memory.c.id,
+)
+
+Index(
+    "idx_memory_l2",
+    session_memory.c.tenant_id,
+    session_memory.c.user_id,
+    session_memory.c.level,
+    session_memory.c.id,
+)

@@ -203,16 +203,15 @@ async def _access_events(
     token: str,
 ) -> AsyncIterator[str]:
     request_id, trace_id = _request_ids(payload.message_id)
-    yield _event("started", {"request_id": request_id, "message_id": payload.message_id})
     try:
-        result = await service.handle_chat_access(
+        async for event in service.stream_chat_access(
             token,
             conversation_id=payload.conversation_id,
             content=payload.content,
             request_id=request_id,
             trace_id=trace_id,
-        )
-        yield _event("completed", result.to_payload())
+        ):
+            yield _event(event.event, event.data)
     except ChannelAccessError:
         yield _event(
             "error",

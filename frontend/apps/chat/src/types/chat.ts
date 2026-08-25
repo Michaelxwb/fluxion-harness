@@ -26,7 +26,18 @@ export interface RuntimeCall {
   readonly platformUserId: string;
 }
 
+export interface ChatStreamEvent {
+  readonly kind: "token" | "completed" | "error";
+  readonly content?: string;
+  readonly response?: ChatResponse;
+  readonly message?: string;
+}
+
 export interface ChatApi {
   resolveAccess?(): Promise<ChatAccess>;
   sendMessage(request: ChatRequest): Promise<ChatResponse>;
+  sendMessageStream?(
+    request: ChatRequest,
+    onEvent: (event: ChatStreamEvent) => void
+  ): Promise<void>;
 }

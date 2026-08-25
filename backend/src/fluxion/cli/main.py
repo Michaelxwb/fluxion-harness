@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Annotated, Protocol, cast
@@ -38,7 +39,7 @@ def run_command(
     tenant: Annotated[str, typer.Option("--tenant")] = "dev-tenant",
     user: Annotated[str, typer.Option("--user")] = "dev-user",
     session: Annotated[str, typer.Option("--session")] = "dev-session",
-    registry_dsn: Annotated[str, typer.Option("--registry-dsn")] = DEFAULT_REGISTRY_DSN,
+    registry_dsn: Annotated[str, typer.Option("--registry-dsn")] = "",
     bootstrap: Annotated[bool, typer.Option("--bootstrap")] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
@@ -49,7 +50,7 @@ def run_command(
             tenant=tenant,
             user=user,
             session=session,
-            registry_dsn=registry_dsn,
+            registry_dsn=_registry_dsn(registry_dsn),
             bootstrap=bootstrap,
         )
     )
@@ -60,15 +61,16 @@ def run_command(
 def serve_command(
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port")] = 8000,
-    registry_dsn: Annotated[str, typer.Option("--registry-dsn")] = DEFAULT_REGISTRY_DSN,
+    registry_dsn: Annotated[str, typer.Option("--registry-dsn")] = "",
     dev: Annotated[bool, typer.Option("--dev")] = False,
 ) -> None:
+    dsn = _registry_dsn(registry_dsn)
     uvicorn = _load_uvicorn()
     if dev:
         console_dist, chat_dist = _ensure_frontend_builds()
         uvicorn.run(
             create_dev_bundle_app(
-                registry_dsn=registry_dsn,
+                registry_dsn=dsn,
                 console_dist=console_dist,
                 chat_dist=chat_dist,
             ),
@@ -76,7 +78,7 @@ def serve_command(
             port=port,
         )
         return
-    service = _create_service(registry_dsn)
+    service = _create_service(dsn)
     asyncio.run(service.initialize())
     uvicorn_run = uvicorn.run
     uvicorn_run(create_app(service), host=host, port=port)
@@ -193,6 +195,13 @@ def _load_uvicorn() -> UvicornModule:
         return cast(UvicornModule, importlib.import_module("uvicorn"))
     except ModuleNotFoundError as exc:
         raise typer.BadParameter("serve requires uvicorn to be installed") from exc
+
+
+def _registry_dsn(explicit: str) -> str:
+    """解析 Registry DSN：显式 --registry-dsn 优先，否则读 FLUXION_DATABASE_URL。"""
+    if explicit:
+        return explicit
+    return os.environ.get("FLUXION_DATABASE_URL", DEFAULT_REGISTRY_DSN)
 
 
 def _emit(payload: dict[str, object], json_output: bool) -> None:

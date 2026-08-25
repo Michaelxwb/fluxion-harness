@@ -1,0 +1,86 @@
+# Fluxion Harness 默认配置（最小可用）
+# 安装前请至少设置 secrets.masterKey（MASTER_KEY），生产环境务必修改数据库密码。
+
+# 副本数（Runtime 无状态，可水平扩容；此 Deployment 承载 Runtime API）
+replicaCount: 1
+
+image:
+  repository: fluxion-harness/fluxion
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8000
+
+# 非敏感环境变量（进 ConfigMap）
+env:
+  FLUXION_ENV: production
+  FLUXION_LOG_LEVEL: INFO
+
+# 敏感环境变量（进 Secret）
+secrets:
+  # FLUXION_MASTER_KEY：32 字节 AES-256-GCM key 的 base64。
+  # 生成：openssl rand -base64 32
+  # 生产环境请用 helm --set-file 或外部 Secret 管理，不要明文提交到仓库。
+  masterKey: ""
+  # 若指定 existingSecret，则跳过内置 Secret 创建，Deployment 直接引用该已存在 Secret；
+  # 该 Secret 必须包含 FLUXION_MASTER_KEY / FLUXION_SECRET_MASTER_KEY / FLUXION_DATABASE_URL。
+  existingSecret: ""
+
+# 数据库连接 DSN（优先级最高）。为空时：若 postgresql.enabled 则用子 chart 自动拼 DSN，
+# 否则使用 externalDatabase.url。
+databaseUrl: ""
+
+# 外部数据库（当 postgresql.enabled=false 时使用）
+externalDatabase:
+  url: "postgresql+asyncpg://fluxion:fluxion@postgres:5432/fluxion"
+
+# 内置 PostgreSQL（bitnami/postgresql 子 chart）
+postgresql:
+  enabled: true
+  auth:
+    username: fluxion
+    password: fluxion      # 生产环境务必修改
+    database: fluxion
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# 健康检查端点（后端生产模式暴露 /healthz 与 /readyz）
+probes:
+  liveness:
+    path: /healthz
+    port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    path: /readyz
+    port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# 资源配置（按需调整）
+resources: {}
+#   requests:
+#     cpu: 100m
+#     memory: 128Mi
+#   limits:
+#     cpu: 500m
+#     memory: 512Mi
+
+# 容器安全上下文（示例：若镜像以非 root 运行则开启 runAsNonRoot）
+securityContext: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: []

@@ -1,0 +1,14 @@
+apiVersion: v2
+name: fluxion
+description: Fluxion Harness 后端（无状态 Runtime + Console Control Plane）最小可用 Helm Chart
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+# 可选：内置 PostgreSQL（bitnami/postgresql 子 chart），通过 values 的 postgresql.enabled 开关。
+# 版本区间避免绑定某个不存在的具体小版本；生产环境建议在 values 中锁定具体版本。
+dependencies:
+  - name: postgresql
+    version: ">=15.0.0 <17.0.0"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled

@@ -1,6 +1,12 @@
 import { createHttpClient, isRecord, type HttpClient } from "@fluxion/shared";
 
-import type { ChatAccess, ChatApi, ChatRequest, ChatResponse } from "../types/chat";
+import type {
+  ChatAccess,
+  ChatApi,
+  ChatRequest,
+  ChatResponse,
+  ChatStreamEvent
+} from "../types/chat";
 
 interface ChannelPayload {
   readonly execution_id: string | null;
@@ -17,6 +23,12 @@ export function createHttpChatApi(
   client: HttpClient = createHttpClient(baseUrl)
 ): ChatApi {
   const authorization = { Authorization: `Bearer ${accessToken}` };
+  const messageInit = (request: ChatRequest): RequestInit => ({
+    body: JSON.stringify(toPayload(request)),
+    headers: { ...authorization, "Content-Type": "application/json" },
+    method: "POST"
+  });
+
   return {
     async resolveAccess() {
       return client.request(
@@ -26,15 +38,31 @@ export function createHttpChatApi(
       );
     },
     async sendMessage(request) {
-      const stream = await client.readEventStream(
+      let result: ChatResponse | null = null;
+      let error: string | null = null;
+      await client.streamEvents(
         "/api/v1/channels/web/access/messages:stream",
-        {
-          body: JSON.stringify(toPayload(request)),
-          headers: { ...authorization, "Content-Type": "application/json" },
-          method: "POST"
+        messageInit(request),
+        (event) => {
+          if (event.event === "completed" && isRecord(event.data)) {
+            result = fromPayload(parseChannelPayload(event.data));
+          } else if (event.event === "error" && isRecord(event.data)) {
+            error = parseEventError(event.data);
+          }
         }
       );
-      return fromPayload(parseCompletedEvent(stream));
+      if (error !== null) throw new Error(error);
+      if (result === null) throw new Error("Channel stream 未返回 completed 事件");
+      return result;
+    },
+    async sendMessageStream(request, onEvent) {
+      await client.streamEvents(
+        "/api/v1/channels/web/access/messages:stream",
+        messageInit(request),
+        (event) => {
+          handleStreamEvent(event, onEvent);
+        }
+      );
     }
   };
 }
@@ -42,6 +70,23 @@ export function createHttpChatApi(
 export function accessTokenFromHash(hash: string): string {
   const match = /^#\/([^/]+)$/.exec(hash);
   return match ? decodeURIComponent(match[1] ?? "") : "";
+}
+
+function handleStreamEvent(
+  event: { readonly event: string; readonly data: unknown },
+  onEvent: (event: ChatStreamEvent) => void
+): void {
+  if (event.event === "token" && isRecord(event.data) && typeof event.data.content === "string") {
+    onEvent({ kind: "token", content: event.data.content });
+    return;
+  }
+  if (event.event === "completed" && isRecord(event.data)) {
+    onEvent({ kind: "completed", response: fromPayload(parseChannelPayload(event.data)) });
+    return;
+  }
+  if (event.event === "error" && isRecord(event.data)) {
+    onEvent({ kind: "error", message: parseEventError(event.data) });
+  }
 }
 
 function toPayload(request: ChatRequest) {
@@ -59,17 +104,6 @@ function parseAccess(value: unknown): ChatAccess {
     platformUserId: requiredString(value.platform_user_id, "platform_user_id"),
     runtimeProfileId: requiredString(value.runtime_profile_id, "runtime_profile_id")
   };
-}
-
-function parseCompletedEvent(stream: string): ChannelPayload {
-  for (const block of stream.split("\n\n")) {
-    const lines = block.split("\n");
-    const event = lines.find((line) => line.startsWith("event: "))?.slice(7);
-    const data = lines.find((line) => line.startsWith("data: "))?.slice(6);
-    if (event === "completed" && data) return parseChannelPayload(JSON.parse(data));
-    if (event === "error" && data) throw new Error(parseEventError(JSON.parse(data)));
-  }
-  throw new Error("Channel stream 未返回 completed 事件");
 }
 
 function parseChannelPayload(value: unknown): ChannelPayload {

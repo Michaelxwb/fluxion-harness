@@ -9,6 +9,7 @@ from tests.runtime_helpers import publish_resource
 
 from fluxion.plugins.contracts import (
     CapabilityDescriptor,
+    ModelMessage,
     ModelProviderError,
     ModelRequest,
     ModelResponse,
@@ -25,6 +26,7 @@ from fluxion.plugins.model_provider import (
     ModelProviderRegistry,
     OpenAICompatibleHTTPModelProvider,
     StubModelProviderPlugin,
+    _stream_chunk_content,
     _tool_call,
 )
 from fluxion.registry import RegistryStore
@@ -250,3 +252,36 @@ def test_S_R13_tool_call_unparseable_arguments_keeps_raw() -> None:
     )
     assert call is not None
     assert call.arguments == {"raw": "not-json"}
+
+
+@pytest.mark.asyncio
+async def test_S_R13_stream_yields_tokens_and_ignores_non_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        del request
+        body = (
+            b'data: {"choices":[{"delta":{"content":"\xe4\xbd\xa0"}}]}\n\n'
+            b'data: {"choices":[{"delta":{"role":"assistant"}}]}\n\n'
+            b'data: {"choices":[{"delta":{"content":"\xe5\xa5\xbd"}}]}\n\n'
+            b"data: [DONE]\n\n"
+        )
+        return httpx.Response(200, content=body)
+
+    provider = _provider_with_transport(monkeypatch, httpx.MockTransport(handler))
+    tokens = [
+        token
+        async for token in provider.stream(
+            ModelRequest(messages=[ModelMessage(role="user", content="hi")])
+        )
+    ]
+
+    assert tokens == ["你", "好"]
+
+
+def test_S_R13_stream_chunk_content_ignores_non_content_lines() -> None:
+    assert _stream_chunk_content('data: {"choices":[{"delta":{"content":"a"}}]}') == "a"
+    assert _stream_chunk_content("data: [DONE]") is None
+    assert _stream_chunk_content("event: message") is None
+    assert _stream_chunk_content("data: not-json") is None
+    assert _stream_chunk_content('data: {"choices":[{"delta":{}}]}') is None

@@ -1,0 +1,125 @@
+# Fluxion Harness 后端 CI
+#
+# 覆盖内容：
+#   1. ruff 代码风格检查 + mypy 类型检查
+#   2. pytest 单元 / 集成 / 回归测试（默认 SQLite 后端，无需外部数据库）
+#   3. Registry 双库 Contract 测试（SQLite + PostgreSQL 16，经服务容器提供 PostgreSQL）
+#
+# 依赖安装说明（仓库含 uv.lock，优先使用 uv）：
+#   uv sync --extra dev
+#   无 uv 时的 pip 回退（见下方 backend 步骤注释）：
+#   python3 -m pip install --upgrade pip
+#   python3 -m pip install -e '.[dev]'
+
+name: backend-ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# 同一分支 / PR 的新提交取消旧的未完成运行，节省 CI 额度
+concurrency:
+  group: backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 后端静态检查 + 回归测试（SQLite，无外部服务依赖）
+  # ---------------------------------------------------------------------------
+  backend:
+    name: 后端 lint / mypy / pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装 uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # --frozen：不解锁 / 更新 uv.lock，锁文件与 pyproject.toml 不一致时直接报错，
+      # 保证 CI 可复现。--extra dev 安装 pyproject 的 dev 依赖组（pytest/mypy/ruff/testcontainers）。
+      - name: 安装后端依赖（uv）
+        run: uv sync --extra dev --frozen
+        # 无 uv 时的 pip 回退：
+        #   python3 -m pip install --upgrade pip
+        #   python3 -m pip install -e '.[dev]'
+
+      - name: ruff 代码风格检查
+        run: uv run ruff check backend/src backend/tests
+
+      - name: mypy 类型检查
+        run: uv run mypy backend/src
+
+      # 全量回归：163 passed / 1 skipped（skip=S-P13-07 live smoke，受 FLUXION_LIVE_MODEL_SMOKE 门控）。
+      # Registry contract 在此轮以 SQLite 运行；PostgreSQL 双库验证见下方独立 job。
+      - name: pytest 回归测试（SQLite）
+        run: uv run python -m pytest backend/tests -q
+
+  # ---------------------------------------------------------------------------
+  # Registry 双库 Contract 测试（依赖 PostgreSQL 16 服务容器）
+  #
+  # 说明：契约测试文件 backend/tests/contract/test_registry_store.py 实际读取的是
+  # FLUXION_POSTGRES_DSN（由 FLUXION_REQUIRE_POSTGRES_CONTRACT=1 门控），而非
+  # FLUXION_DATABASE_URL。后者是应用级数据库地址（见 .env.example），此处一并设置以保持一致。
+  #
+  # 与本地 release gate 命令等价：
+  #   FLUXION_REQUIRE_POSTGRES_CONTRACT=1 python3 scripts/run_registry_contract_tests.py
+  # 该脚本在检测到本机 Docker 时会自行拉起 postgres:16-alpine 容器；CI 里改用服务容器，
+  # 连接更确定、不依赖 runner 上的 docker CLI。
+  # ---------------------------------------------------------------------------
+  registry-contract:
+    name: Registry 双库 Contract（SQLite + PostgreSQL）
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fluxion_test
+        ports:
+          - 5432:5432
+        # 健康检查：runner 会等待容器健康后再执行 job 步骤
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fluxion_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装 uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: 安装后端依赖（uv）
+        run: uv sync --extra dev --frozen
+
+      # 同一套 12 项 Contract 断言参数化运行 SQLite + PostgreSQL（24/24 通过）。
+      - name: Registry 双库 Contract 测试
+        env:
+          FLUXION_REQUIRE_POSTGRES_CONTRACT: "1"
+          FLUXION_POSTGRES_DSN: postgresql+asyncpg://postgres:postgres@localhost:5432/fluxion_test
+          FLUXION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/fluxion_test
+        run: uv run python -m pytest backend/tests/contract/test_registry_store.py -q

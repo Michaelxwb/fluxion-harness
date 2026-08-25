@@ -159,3 +159,22 @@ pnpm exec playwright test
 本轮复验结果：backend 163 passed / 1 skipped（skip=S-P13-07 live smoke，受 `FLUXION_LIVE_MODEL_SMOKE` 门控）、ruff/mypy clean、Store Contract（SQLite）12 passed、console/chat typecheck/lint/build 全绿、InMemory-import 守卫 PASS、宿主 Chrome 浏览器 E2E S-P13-05/S-P13-06/E-P13-03 GREEN。
 
 只有所有本地 Gate 通过，并完成标记为 `ENV REQUIRED` 的 S-P13-07 live smoke、staging 多 Pod、独立部署与 Canary 验证后，才可进入生产全量发布。
+
+---
+
+## V1 第一阶段缺陷修复记录（2026-08-25）
+
+针对「第一阶段开源无状态 Agent 项目」深度评审发现的缺陷，本轮落地以下修复：
+
+| 缺陷 | 修复 | 证据 |
+|------|------|------|
+| 无 LICENSE / 开源治理 | 补 Apache-2.0 `LICENSE`、`CONTRIBUTING`、`CHANGELOG`、`SECURITY`、`CODE_OF_CONDUCT`、`.github/workflows`（backend + frontend + E2E CI） | 文件存在；CI 命令与 release gate 一致 |
+| 无状态承诺被 InMemory 记忆架空 | 新增 `SQLSessionMemoryStore`（`session_memory` 表），L1/L2/summary 持久化到共享 Registry；删除 `local_durable_fact_count` 作弊桩 | `test_stateless_runtime.py` 用文件 SQLite 验证 Pod 重启后记忆仍在 |
+| deploy 目录全空 | 补齐 `deploy/docker`（Dockerfile/docker-compose/entrypoint）、`deploy/helm/fluxion`、`deploy/README.md`、`.dockerignore` | 产物自洽，含环境变量桥接说明 |
+| shared/contracts 空（语言无关契约缺） | 留待后续（OpenAPI 产物生成器） | — |
+| Redis 配置通知是桩 | 新增 `redis_streams.py`（`RedisStreamsClient` + `RedisConfigEventSubscriber` + 工厂），依赖声明 `redis>=5.0` | `test_redis_streams.py` 4 passed |
+| Alembic migration 缺失 | 落地 `alembic.ini` + `env.py` + 初始 migration（11 张表含 session_memory） | `test_migration.py` upgrade/downgrade 验证通过 |
+| OpenTelemetry 零落地 | 新增 `observability/tracing.py`（TracerProvider + OTLP exporter），middleware 与 Runtime 创建 span 关联业务 trace_id | `test_tracing.py` 2 passed |
+| 5 个文件超 500 行 | 拆分 console_app / api/console / sqlalchemy_store / runtime_app / mcp | 各文件 ≤ 500 行 |
+| Web Chat 无流式渲染 | `OpenAICompatibleHTTPModelProvider.stream` + channel SSE token 转发 + 前端 `streamEvents` 逐 token 渲染 | `test_model_provider.py` stream 测试 8 passed |
+| 前端 E2E 证据偏薄 | 补强 `agent-error-path.spec.ts`（模型依赖失败不泄露堆栈）与 `console-real-http.spec.ts`（统一 envelope） | 浏览器 E2E 覆盖与宣称一致 |

@@ -5,7 +5,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from tests.channel_helpers import RecordingRuntime
 
-import fluxion.api.console as console_api
+from fluxion.api import console_errors
 from fluxion.api.channel import create_app as create_channel_app
 from fluxion.api.console import create_app as create_console_app
 from fluxion.config import DevModeSettings
@@ -104,7 +104,7 @@ async def test_E_P13_02_error_log_uses_trusted_dev_identity(
         raise RuntimeError("forced failure")
 
     monkeypatch.setattr(service, "list_platform_users", fail_list)
-    monkeypatch.setattr(console_api, "emit_error_log", lambda **values: emitted.append(values))
+    monkeypatch.setattr(console_errors, "emit_error_log", lambda **values: emitted.append(values))
     await store.initialize()
     try:
         async with AsyncClient(

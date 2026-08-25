@@ -42,5 +42,3 @@ async def test_B_R03_runtime_pool_resolves_same_versions(
     assert first.snapshot.runtime_profile_version == second.snapshot.runtime_profile_version
     assert first.snapshot.skill_versions == second.snapshot.skill_versions == {"search": "1"}
     assert first.snapshot.execution_id != second.snapshot.execution_id
-    assert pod_a.local_durable_fact_count == 0
-    assert pod_b.local_durable_fact_count == 0

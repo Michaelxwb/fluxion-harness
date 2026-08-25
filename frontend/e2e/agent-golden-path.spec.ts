@@ -103,7 +103,10 @@ async function createUserAndChatLink(page: Page): Promise<string> {
   await page.getByRole("button", { name: "创建用户" }).click();
   await expect(page.getByText("browser-user", { exact: true })).toBeVisible();
   await chooseSelectOption(page, "RuntimeProfile", "assistant");
-  await page.getByRole("button", { name: "生成 Chat 链接" }).click();
+  await page
+    .getByRole("row", { name: /browser-user/ })
+    .getByRole("button", { name: "生成 Chat 链接" })
+    .click();
   const value = await page.getByLabel("专属 Chat 链接").inputValue();
   expect(value).toContain("/chat/#/");
   return value;

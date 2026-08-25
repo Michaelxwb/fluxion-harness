@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 
 from fluxion.plugins.contracts import ModelProviderError, ModelRequest, ModelResponse
 from fluxion.plugins.model_provider import OpenAICompatibleHTTPModelProvider
@@ -25,6 +25,17 @@ class RegistryOpenAIModelProvider:
         self._credential_resolver = credential_resolver
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
+        provider = await self._resolve_provider(request)
+        return await provider.complete(request)
+
+    async def stream(self, request: ModelRequest) -> AsyncIterator[str]:
+        provider = await self._resolve_provider(request)
+        async for token in provider.stream(request):
+            yield token
+
+    async def _resolve_provider(
+        self, request: ModelRequest
+    ) -> OpenAICompatibleHTTPModelProvider:
         tenant_id = _required_context(request.tenant_id, "tenant_id")
         user_id = _required_context(request.user_id, "user_id")
         version = _required_context(request.provider_version, "provider_version")
@@ -39,12 +50,7 @@ class RegistryOpenAIModelProvider:
         _validate_protocol(resource.spec_json)
         binding = await self._binding(tenant_id=tenant_id, user_id=user_id)
         credential = await self._credential(binding)
-        provider = _provider_from_spec(
-            self._provider_id,
-            resource.spec_json,
-            credential,
-        )
-        return await provider.complete(request)
+        return _provider_from_spec(self._provider_id, resource.spec_json, credential)
 
     async def _binding(self, *, tenant_id: str, user_id: str) -> ResourceBinding:
         user_bindings = await self._store.list_bindings(

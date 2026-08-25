@@ -1,136 +1,51 @@
 from __future__ import annotations
 
-import traceback
 from typing import Annotated
 
-from fastapi import FastAPI, Header, Query, Request
-from fastapi.exceptions import RequestValidationError
+from fastapi import FastAPI, Header, Query
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from fluxion.api.console_errors import _register_error_handlers
+from fluxion.api.console_helpers import _actor, _kind, _publication_response
+from fluxion.api.console_models import (
+    ApprovalCreatePayload,
+    ApprovalDecidePayload,
+    BindingCreatePayload,
+    ChatAccessCreatePayload,
+    DeprecatePayload,
+    PlatformUserCreatePayload,
+    PublishPayload,
+    ResourceCreatePayload,
+    ResourceUpdatePayload,
+    RollbackPayload,
+    WorkflowValidatePayload,
+)
+from fluxion.api.console_routes_read import (
+    _register_p1_routes,
+    _register_read_side_routes,
+    _register_trace_routes,
+)
 from fluxion.api.middleware import RequestContextMiddleware
-from fluxion.api.responses import failure, success
+from fluxion.api.responses import success
 from fluxion.config import DevModeSettings
-from fluxion.errors.console import (
-    FORBIDDEN,
-    INTERNAL_ERROR,
-    RESOURCE_NOT_FOUND,
-    VALIDATION_FAILED,
-    ConsoleError,
-)
-from fluxion.observability.context import current_context
-from fluxion.observability.logging import emit_error_log
-from fluxion.resources import ResourceKind, ResourceVisibility
-from fluxion.services.console_app import (
-    ConsoleApplicationService,
-    approval_payload,
-    audit_payload,
-    binding_payload,
-    credential_payload,
-    issued_chat_access_payload,
-    platform_user_payload,
-    policy_payload,
-    publish_payload,
-    resource_payload,
-    run_payload,
-    trace_payload,
-)
+from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.console_contracts import (
-    ConsoleActor,
     CreateApprovalRequest,
     CreateBindingRequest,
     CreateResourceDraftRequest,
     DecideApprovalRequest,
     DeprecateResourceVersionRequest,
-    PublishResourceResult,
     PublishResourceVersionRequest,
     RollbackResourceRequest,
     UpdateResourceDraftRequest,
 )
-
-
-class ResourceCreatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    tenant_id: str | None = None
-    resource_id: str
-    version: str
-    spec: dict[str, object]
-    visibility: ResourceVisibility = ResourceVisibility.PRIVATE
-
-
-class ResourceUpdatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    spec: dict[str, object]
-
-
-class PublishPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    publish_note: str | None = None
-    expected_base_version: str | None = None
-
-
-class RollbackPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    target_version: str
-    force: bool = False
-    approval_id: str | None = None
-
-
-class DeprecatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    reason: str | None = None
-
-
-class BindingCreatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    subject_type: str
-    subject_id: str
-    resource_type: ResourceKind
-    resource_id: str
-    version_selector: str = "latest-published"
-    credential_ref: str | None = None
-    config: dict[str, object] = Field(default_factory=dict)
-
-
-class WorkflowValidatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-
-class PlatformUserCreatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    platform_user_id: str
-    display_name: str = ""
-
-
-class ChatAccessCreatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    runtime_profile_id: str
-
-
-class ApprovalCreatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    resource_type: str
-    resource_id: str
-    target_version: str
-    reason: str | None = None
-    ttl_seconds: float = 3600.0
-
-
-class ApprovalDecidePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    approved: bool
-    reason: str | None = None
+from fluxion.services.console_payloads import (
+    approval_payload,
+    binding_payload,
+    issued_chat_access_payload,
+    platform_user_payload,
+    resource_payload,
+)
 
 
 def create_app(
@@ -158,69 +73,6 @@ def create_app(
     _register_read_side_routes(app, service)
     _register_trace_routes(app, service)
     return app
-
-
-def _register_error_handlers(app: FastAPI) -> None:
-    @app.exception_handler(ConsoleError)
-    async def console_error_handler(request: Request, exc: ConsoleError) -> JSONResponse:
-        return failure(exc.code, exc.message, status_code=exc.status_code, request=request)
-
-    @app.exception_handler(RequestValidationError)
-    async def validation_error_handler(
-        request: Request,
-        exc: RequestValidationError,
-    ) -> JSONResponse:
-        del exc
-        return failure(VALIDATION_FAILED, "validation failed", status_code=400, request=request)
-
-    @app.exception_handler(StarletteHTTPException)
-    async def http_exception_handler(
-        request: Request,
-        exc: StarletteHTTPException,
-    ) -> JSONResponse:
-        # 路由级 404/405 等 HTTPException 需回到统一 envelope，而不是落到
-        # 通用 Exception handler 变成 500 INTERNAL_ERROR。
-        if exc.status_code == 404:
-            return failure(RESOURCE_NOT_FOUND, "not found", status_code=404, request=request)
-        if exc.status_code == 403:
-            return failure(FORBIDDEN, "forbidden", status_code=403, request=request)
-        return failure(
-            VALIDATION_FAILED,
-            str(exc.detail),
-            status_code=exc.status_code,
-            request=request,
-        )
-
-    @app.exception_handler(Exception)
-    async def internal_error_handler(request: Request, exc: Exception) -> JSONResponse:
-        _emit_unhandled_error_log(request, exc)
-        return failure(INTERNAL_ERROR, "internal error", status_code=500, request=request)
-
-
-def _emit_unhandled_error_log(request: Request, exc: Exception) -> None:
-    emit_error_log(
-        request_id=_state_or_header(request, "request_id", "X-Request-ID"),
-        trace_id=_state_or_header(request, "trace_id", "X-Trace-ID"),
-        tenant_id=_state_or_unknown(request, "tenant_id"),
-        actor_id=_state_or_unknown(request, "actor_id"),
-        method=request.method,
-        route=request.url.path,
-        error_type=type(exc).__name__,
-        error_code=INTERNAL_ERROR,
-        stack=traceback.format_exc(),
-    )
-
-
-def _state_or_header(request: Request, state_key: str, header_name: str) -> str:
-    value = getattr(request.state, state_key, None)
-    if isinstance(value, str) and value:
-        return value
-    return request.headers.get(header_name, "unknown")
-
-
-def _state_or_unknown(request: Request, state_key: str) -> str:
-    value = getattr(request.state, state_key, None)
-    return value if isinstance(value, str) and value else "unknown"
 
 
 def _register_health_routes(app: FastAPI) -> None:
@@ -570,96 +422,3 @@ def _register_platform_user_routes(app: FastAPI, service: ConsoleApplicationServ
     async def revoke_chat_access(access_id: str) -> JSONResponse:
         record = await service.revoke_chat_access(_actor(None), access_id=access_id)
         return success({"access_id": record.access_id, "status": "revoked"})
-
-
-def _register_p1_routes(app: FastAPI, service: ConsoleApplicationService) -> None:
-    @app.get("/api/v1/policies")
-    async def list_policies(
-        page: Annotated[int, Query(ge=1)] = 1,
-        page_size: Annotated[int, Query(ge=1, le=100)] = 20,
-    ) -> JSONResponse:
-        items, total = await service.list_policies(
-            _actor(None), page=page, page_size=page_size
-        )
-        return success(_page([policy_payload(item) for item in items], page, page_size, total))
-
-    @app.get("/api/v1/capabilities")
-    async def list_capabilities() -> JSONResponse:
-        items = await service.list_capabilities(_actor(None))
-        return success({"items": items, "total": len(items)})
-
-    @app.get("/api/v1/runtime-status")
-    async def runtime_status() -> JSONResponse:
-        return success(await service.runtime_status(_actor(None)))
-
-
-def _register_trace_routes(app: FastAPI, service: ConsoleApplicationService) -> None:
-    @app.get("/api/v1/traces/{trace_id}")
-    async def get_trace(trace_id: str) -> JSONResponse:
-        return success(trace_payload(await service.get_trace(_actor(None), trace_id)))
-
-
-def _register_read_side_routes(app: FastAPI, service: ConsoleApplicationService) -> None:
-    @app.get("/api/v1/credentials")
-    async def list_credentials(
-        page: Annotated[int, Query(ge=1)] = 1,
-        page_size: Annotated[int, Query(ge=1, le=100)] = 20,
-    ) -> JSONResponse:
-        items, total = await service.list_credentials(
-            _actor(None), page=page, page_size=page_size
-        )
-        return success(_page([credential_payload(item) for item in items], page, page_size, total))
-
-    @app.get("/api/v1/runs")
-    async def list_runs(
-        page: Annotated[int, Query(ge=1)] = 1,
-        page_size: Annotated[int, Query(ge=1, le=100)] = 20,
-    ) -> JSONResponse:
-        items, total = await service.list_runs(_actor(None), page=page, page_size=page_size)
-        return success(_page([run_payload(item) for item in items], page, page_size, total))
-
-    @app.get("/api/v1/runs/{execution_id}")
-    async def get_run(execution_id: str) -> JSONResponse:
-        return success(run_payload(await service.get_run(_actor(None), execution_id)))
-
-    @app.get("/api/v1/audit")
-    async def list_audit(
-        page: Annotated[int, Query(ge=1)] = 1,
-        page_size: Annotated[int, Query(ge=1, le=100)] = 20,
-    ) -> JSONResponse:
-        items, total = await service.list_audit(_actor(None), page=page, page_size=page_size)
-        return success(_page([audit_payload(item) for item in items], page, page_size, total))
-
-
-def _page(items: list[dict[str, object]], page: int, page_size: int, total: int) -> dict[str, object]:
-    return {"items": items, "page": page, "page_size": page_size, "total": total}
-
-
-def _publication_response(result: PublishResourceResult) -> JSONResponse:
-    response = success(publish_payload(result))
-    response.headers["X-Publish-ID"] = result.publish_id
-    return response
-
-
-def _actor(actor_id: str | None) -> ConsoleActor:
-    context = current_context()
-    if context is None:
-        return ConsoleActor(
-            tenant_id="unknown",
-            actor_id=actor_id or "unknown",
-            request_id="req_unknown",
-            trace_id="trace_unknown",
-        )
-    return ConsoleActor(
-        tenant_id=context.tenant_id,
-        actor_id=context.actor_id,
-        request_id=context.request_id,
-        trace_id=context.trace_id,
-    )
-
-
-def _kind(value: str) -> ResourceKind:
-    try:
-        return ResourceKind(value)
-    except ValueError as exc:
-        raise ConsoleError(VALIDATION_FAILED, "invalid resource type", 400) from exc

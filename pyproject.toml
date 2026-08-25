@@ -23,6 +23,8 @@ dependencies = [
   "structlog>=24,<26",
   "opentelemetry-api>=1.37,<2",
   "opentelemetry-sdk>=1.37,<2",
+  "opentelemetry-exporter-otlp>=1.37,<2",
+  "redis>=5.0,<6",
 ]
 
 [project.optional-dependencies]
