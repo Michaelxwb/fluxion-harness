@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
@@ -134,10 +134,10 @@ class StreamingModelProvider(Protocol):
     向后兼容既有 ModelProvider 实现。
 
     注意：stream 是 async generator，签名用普通 def（不带 async），
-    调用返回 AsyncIterator[str] 供 async for 直接迭代。
+    调用返回 AsyncGenerator[str, None]（可 async for 迭代、可 aclose）。
     """
 
-    def stream(self, request: ModelRequest) -> AsyncIterator[str]: ...
+    def stream(self, request: ModelRequest) -> AsyncGenerator[str, None]: ...
 
 
 class ModelProviderRegistryProtocol(Protocol):

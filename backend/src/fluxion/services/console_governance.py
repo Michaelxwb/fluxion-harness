@@ -13,11 +13,14 @@ from fluxion.errors.console import (
     ConsoleValidationError,
 )
 from fluxion.registry import (
+    BindingCommand,
+    BindingOperation,
     ChannelRegistryStore,
     NotFoundError,
     VersionConflictError,
 )
 from fluxion.resources import ResourceBinding, ResourceKind
+from fluxion.runtime.secrets import secret_ref_tenant
 from fluxion.services.approval_app import (
     ApprovalRecord,
     ApprovalStatus,
@@ -150,6 +153,15 @@ class ConsoleGovernanceOps:
         request: CreateBindingRequest,
     ) -> ResourceBinding:
         _ensure_same_tenant(actor, request.tenant_id)
+        if request.credential_ref is not None:
+            # binding 不校验 credential_ref 归属 → tenant A 管理员可把 ref 填成
+            # secret://tenant-b/... 仅在解算时才拦截（CredentialResolver 已加租户
+            # 校验）。此处前置阻断，避免越权 binding 落库。
+            ref_tenant = secret_ref_tenant(request.credential_ref)
+            if ref_tenant is not None and ref_tenant != request.tenant_id:
+                raise ConsoleBindingValidationError(
+                    "credential_ref does not belong to this tenant"
+                )
         resource = await self._store.get(
             request.resource_type,
             request.resource_id,
@@ -173,27 +185,25 @@ class ConsoleGovernanceOps:
                 credential_ref=request.credential_ref,
                 enabled=True,
             )
-            created = await self._store.put_binding(binding)
+            # A12：binding 治理走 commit_binding 单事务（insert+revision+audit+
+            # outbox 原子化），不再 store.put_binding + 独立 _append_audit。
+            commit = await self._store.commit_binding(
+                BindingCommand(
+                    event_id=f"evt_{uuid4().hex}",
+                    tenant_id=request.tenant_id,
+                    binding_id=binding.binding_id,
+                    operation=BindingOperation.CREATE,
+                    actor_id=actor.actor_id,
+                    request_id=actor.request_id,
+                    trace_id=actor.trace_id,
+                    binding=binding,
+                )
+            )
         except (ValueError, ValidationError) as exc:
             raise ConsoleBindingValidationError("binding validation failed") from exc
         except VersionConflictError as exc:
             raise ConsoleBindingConflictError("binding already exists") from exc
-        await self._append_audit(
-            actor,
-            action="binding.create",
-            target_type="binding",
-            target_id=created.binding_id,
-            before=None,
-            after={
-                "subject_type": str(created.subject_type),
-                "subject_id": created.subject_id,
-                "resource_type": created.resource_type.value,
-                "resource_id": created.resource_id,
-                "version_selector": created.resource_version_selector,
-                "enabled": created.enabled,
-            },
-        )
-        return created
+        return commit.binding
 
     async def list_bindings(
         self,
@@ -216,18 +226,23 @@ class ConsoleGovernanceOps:
         *,
         binding_id: str,
     ) -> None:
+        # A12：disable 走 commit_binding 单事务（update+revision+audit+outbox 原子化），
+        # 取代 store.disable_binding + 独立 _append_audit。
         try:
-            await self._store.disable_binding(binding_id, tenant_id=actor.tenant_id)
+            await self._store.commit_binding(
+                BindingCommand(
+                    event_id=f"evt_{uuid4().hex}",
+                    tenant_id=actor.tenant_id,
+                    binding_id=binding_id,
+                    operation=BindingOperation.DISABLE,
+                    actor_id=actor.actor_id,
+                    request_id=actor.request_id,
+                    trace_id=actor.trace_id,
+                    binding=None,
+                )
+            )
         except NotFoundError as exc:
             raise ConsoleResourceNotFoundError("binding not found") from exc
-        await self._append_audit(
-            actor,
-            action="binding.disable",
-            target_type="binding",
-            target_id=binding_id,
-            before=None,
-            after={"enabled": False},
-        )
 
 
 def _approval_view(record: ApprovalRecord) -> ApprovalRecordView:

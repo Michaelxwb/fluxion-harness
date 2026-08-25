@@ -48,9 +48,11 @@ class TraceStore(Protocol):
 
 
 class InMemoryTraceStore:
-    def __init__(self) -> None:
+    def __init__(self, *, max_records: int = 10_000) -> None:
         self._records: dict[str, TraceRecord] = {}
         self._execution_index: dict[tuple[str, str], dict[str, TraceRecord]] = {}
+        # 长跑进程内存上限：此前 _records 无界增长，dev/in-memory 部署下 OOM。
+        self._max_records = max_records
 
     async def append(self, record: TraceRecord) -> None:
         previous = self._records.get(record.trace_id)
@@ -60,6 +62,20 @@ class InMemoryTraceStore:
         self._records[record.trace_id] = record
         key = (record.tenant_id, record.execution_id)
         self._execution_index.setdefault(key, {})[record.trace_id] = record
+        self._trim()
+
+    def _trim(self) -> None:
+        """超过容量上限时按 created_at 淘汰最旧记录，防止长跑进程内存无界增长。"""
+        if len(self._records) <= self._max_records:
+            return
+        sorted_ids = sorted(
+            self._records, key=lambda tid: self._records[tid].snapshot.created_at
+        )
+        for tid in sorted_ids[: len(self._records) - self._max_records]:
+            record = self._records.pop(tid, None)
+            if record is not None:
+                key = (record.tenant_id, record.execution_id)
+                self._execution_index.get(key, {}).pop(tid, None)
 
     async def get(self, trace_id: str) -> TraceRecord | None:
         return self._records.get(trace_id)

@@ -198,6 +198,12 @@ async def _check_expected_base(
         .where(resource_definitions.c.status == ResourceStatus.PUBLISHED.value)
         .order_by(resource_definitions.c.published_at.desc(), resource_definitions.c.version.desc())
         .limit(1)
+        # A6：CAS 读 latest published 须带行锁。PG READ COMMITTED 下，并发 publish
+        # 阻塞于此；先提交者释放锁后，本 SELECT 重算 ORDER BY...LIMIT 1 指向新
+        # latest，后到者读到更新后的 base 与 expected_base_version 不符 →
+        # VersionConflict，CAS 原子生效。SQLite 方言省略 FOR UPDATE（靠
+        # service-layer asyncio.Lock + StaticPool 单连接串行化），无副作用。
+        .with_for_update()
     )
     row = (await connection.execute(statement)).first()
     current_base = command.version if row is None else str(row[0])

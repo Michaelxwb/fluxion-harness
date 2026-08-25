@@ -6,6 +6,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from fluxion.api.runtime import create_app
+from fluxion.errors.console import RUNTIME_APPLICATION_ERROR
 from fluxion.registry import SQLiteRegistryStore
 from fluxion.services.runtime_app import (
     CreateRuntimeProfileRequest,
@@ -76,8 +77,8 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
         assert response.status_code == 200
         assert response.headers["X-Request-ID"] == "req-run"
         payload = response.json()
-        assert payload["code"] == "ok"
-        assert payload["message"] == "ok"
+        assert payload["code"] == 0
+        assert payload["message"] == "success"
         assert payload["request_id"] == "req-run"
         assert payload["data"]["output"] == "api: hello"
         assert payload["data"]["runtime_profile_version"] == "1"
@@ -88,7 +89,8 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
         completed = next(data for name, data in events if name == "completed")
         assert completed["output"] == "api: stream"
         assert override.status_code == 400
-        assert override.json()["code"] == "resource_version_not_found"
+        assert override.json()["code"] == RUNTIME_APPLICATION_ERROR
+        assert "resource_version_not_found" in override.json()["message"]
     finally:
         await service.close()
 

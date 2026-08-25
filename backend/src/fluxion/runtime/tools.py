@@ -80,13 +80,27 @@ ToolExecutor = Callable[[RuntimeContext, dict[str, object]], ToolRawResult | Awa
 
 
 class ToolRuntime:
-    def __init__(self) -> None:
+    def __init__(self, *, default_tool_timeout_seconds: float = 60.0) -> None:
         self._descriptors: dict[str, ToolDescriptor] = {}
         self._executors: dict[str, ToolExecutor] = {}
+        # 同步工具的硬性超时上限：与 to_thread 卸载配合，防止一次阻塞
+        # 调用（如 http.get 的同步 urlopen）长时间占用 worker 线程，
+        # 同时让 agent loop 的 deadline 定时器能真正被调度触发。
+        self._default_timeout_seconds = default_tool_timeout_seconds
 
     def register(self, descriptor: ToolDescriptor, executor: ToolExecutor) -> None:
         self._descriptors[descriptor.tool_id] = descriptor
         self._executors[descriptor.tool_id] = executor
+
+    def clone_for_execution(self) -> ToolRuntime:
+        # F4：per-execution 副本。base（builtin/注入工具）的 descriptor+executor
+        # 引用拷贝过来，MCP prepare 再往副本注入——执行期 MCP descriptor（含
+        # credential_ref）跨租户隔离、不累积、disable 后不 stale。descriptor 是
+        # frozen dataclass、executor 是无状态 callable，共享引用安全。
+        clone = ToolRuntime(default_tool_timeout_seconds=self._default_timeout_seconds)
+        clone._descriptors.update(self._descriptors)
+        clone._executors.update(self._executors)
+        return clone
 
     def descriptor(self, tool_id: str) -> ToolDescriptor:
         descriptor = self._descriptors.get(tool_id)
@@ -149,9 +163,29 @@ class ToolRuntime:
         executor = self._executors.get(tool_id)
         if executor is None:
             raise ToolNotFoundError(f"tool {tool_id} not found")
-        result = executor(context, arguments)
+        timeout = self._default_timeout_seconds
+        if asyncio.iscoroutinefunction(executor):
+            # async def 执行器：调用仅构造协程（非阻塞），在循环内 await 并带上限。
+            try:
+                return await asyncio.wait_for(executor(context, arguments), timeout=timeout)
+            except TimeoutError as exc:
+                raise ToolRuntimeError(f"tool {tool_id} timed out") from exc
+        # 同步执行器（含返回 coroutine 的同步 lambda）必须离开事件循环线程：
+        # 否则阻塞调用会冻结整个 Pod 上所有并发 execution，连 agent loop 的
+        # deadline 定时器也无法触发。先用 to_thread 取回结果（带硬性上限），
+        # 若是 awaitable 再在循环内 await（同样带上限）。
+        try:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(executor, context, arguments),
+                timeout=timeout,
+            )
+        except TimeoutError as exc:
+            raise ToolRuntimeError(f"tool {tool_id} timed out") from exc
         if isawaitable(result):
-            return await asyncio.ensure_future(result)
+            try:
+                return await asyncio.wait_for(asyncio.ensure_future(result), timeout=timeout)
+            except TimeoutError as exc:
+                raise ToolRuntimeError(f"tool {tool_id} timed out") from exc
         return result
 
     def _record_policy_decision(

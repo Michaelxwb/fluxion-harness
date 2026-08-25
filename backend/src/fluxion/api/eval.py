@@ -11,6 +11,12 @@ from pydantic import BaseModel, ConfigDict
 from fluxion.api.middleware import RequestContextMiddleware
 from fluxion.api.responses import failure, success
 from fluxion.config import DevModeSettings
+from fluxion.errors.console import (
+    EVAL_EXECUTION_ERROR,
+    EVAL_INTERNAL_ERROR,
+    EVAL_TRACEABILITY_ERROR,
+    EVAL_VALIDATION_FAILED,
+)
 from fluxion.observability.context import current_context
 from fluxion.observability.logging import emit_error_log
 from fluxion.services.eval_app import (
@@ -20,11 +26,6 @@ from fluxion.services.eval_app import (
     EvalTraceabilityError,
     EvaluationApplicationService,
 )
-
-EVAL_INTERNAL_ERROR = 37_000
-EVAL_VALIDATION_FAILED = 37_001
-EVAL_TRACEABILITY_ERROR = 37_002
-EVAL_EXECUTION_ERROR = 37_003
 
 
 class EvalRunCreatePayload(BaseModel):

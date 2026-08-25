@@ -354,7 +354,10 @@ class ResourceBinding(BaseModel):
 
 
 class ExecutionSnapshot(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    # frozen=True 落实 ADR-005 的执行期不可变：持有者不能原地改写
+    # model_resolution 等字段。构造时另对派生自 profile spec_json 的
+    # model_resolution 深拷贝，断开与 Registry 缓存的共享引用。
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     execution_id: str
     tenant_id: str

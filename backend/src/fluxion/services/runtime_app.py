@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import traceback
+from collections import deque
 from collections.abc import AsyncIterator, Sequence
 from contextlib import suppress
 from functools import partial
@@ -17,7 +18,12 @@ from fluxion.kernel.events import TypedEventBus
 from fluxion.observability.logging import emit_runtime_error_log
 from fluxion.observability.tracing import get_tracer
 from fluxion.plugins.model_provider import ModelProviderRegistry
-from fluxion.registry import RegistryStore, RegistryStoreError
+from fluxion.registry import (
+    PublicationCommand,
+    PublicationOperation,
+    RegistryStore,
+    RegistryStoreError,
+)
 from fluxion.resources import (
     ResourceDefinition,
     ResourceKind,
@@ -34,6 +40,7 @@ from fluxion.runtime.resolver import ExecutionSnapshotBuilder
 from fluxion.runtime.secrets import CredentialResolver
 from fluxion.runtime.tools import ToolRuntime
 from fluxion.runtime.tracing import InMemoryTraceStore, TraceRecord, TraceStore
+from fluxion.services.outbox import InProcessConfigEventPublisher, OutboxWorker
 from fluxion.services.runtime_contracts import (
     CreateRuntimeProfileRequest,
     HealthResult,
@@ -110,7 +117,10 @@ class RuntimeApplicationService(RuntimeToolOps):
         )
         self._plugin_summaries = tuple(plugin_summaries)
         self._service_instance_id = uuid4().hex
-        self._config_events: list[ConfigChangeEvent] = []
+        # F10：config change event 环形缓冲（长跑进程此前无界 append → OOM）。
+        # 仅 dev 观测用途（config_events 属性 + 测试读 [-1]），maxlen 覆盖最近
+        # 变更窗口即可；超出自动丢弃最旧。
+        self._config_events: deque[ConfigChangeEvent] = deque(maxlen=1000)
 
     @classmethod
     def create_dev_bundle(
@@ -180,23 +190,35 @@ class RuntimeApplicationService(RuntimeToolOps):
         self,
         request: PublishRuntimeProfileRequest,
     ) -> ResourceDefinition:
-        published = await self._store.publish(
-            ResourceKind.RUNTIME_PROFILE,
-            request.runtime_profile_id,
-            tenant_id=request.tenant_id,
-            version=request.version,
+        # A8/契约§7：Runtime 发布路径走治理事务（commit_publication）——审计 +
+        # publish_record + outbox + bump_revision 原子化，与 Console 一致。此前走
+        # store.publish() + 独立 bump_revision()：无审计、无 outbox、revision 非原子。
+        # 该路径由 CLI `run --bootstrap` / SDK ensure_runtime_profile 触达，属系统
+        # 发起，actor 归属 system:bootstrap；真实操作员归属需经 SDK 传入（后续）。
+        commit = await self._store.commit_publication(
+            PublicationCommand(
+                publish_id=f"pub_{uuid4().hex}",
+                event_id=f"evt_{uuid4().hex}",
+                tenant_id=request.tenant_id,
+                kind=ResourceKind.RUNTIME_PROFILE,
+                resource_id=request.runtime_profile_id,
+                version=request.version,
+                operation=PublicationOperation.PUBLISH,
+                actor_id="system:bootstrap",
+                request_id=f"bootstrap_{uuid4().hex}",
+                trace_id="bootstrap",
+            )
         )
-        revision = await self._store.bump_revision(tenant_id=request.tenant_id)
         event = ConfigChangeEvent(
             tenant_id=request.tenant_id,
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id=request.runtime_profile_id,
             version=request.version,
-            revision=revision,
+            revision=commit.revision,
         )
         if request.notify_runtime:
             self.handle_config_changed(event)
-        return published
+        return commit.resource
 
     async def ensure_runtime_profile(
         self,
@@ -238,8 +260,9 @@ class RuntimeApplicationService(RuntimeToolOps):
         ) as span:
             try:
                 context = await self._runtime.start_execution(_request_context(request))
+                context.tool_runtime = self._tool_runtime.clone_for_execution()
                 self._prepare_registry_model_providers(context)
-                mcp_tool_ids = await self._mcp_runtime.prepare(context, self._tool_runtime)
+                mcp_tool_ids = await self._mcp_runtime.prepare(context, context.tool_runtime)
                 model_tools = await self._model_tool_definitions(context, mcp_tool_ids)
                 allowed_model_tools = {tool.name for tool in model_tools}
                 step_result = await self._runtime.run_step(
@@ -308,51 +331,119 @@ class RuntimeApplicationService(RuntimeToolOps):
     async def _stream_tokens_or_fallback(
         self, request: RunRuntimeRequest
     ) -> AsyncIterator[RuntimeStreamEvent]:
-        """无工具场景且模型支持流式时逐 token 输出，否则回退到非流式 run。"""
+        """无工具场景且模型支持流式时逐 token 输出，否则回退到非流式 run。
+
+        与 run() 对齐的异常契约：流式专属路径的异常被收口为 RuntimeApplicationError
+        并补 trace + error log；仅当 provider 不支持流式（返回空、不抛错）时才回退
+        到非流式 run（单次模型调用）。此前任何异常都被吞成 chunks=[] 再回退 run()，
+        导致流式失败被静默重试（双倍模型调用 + 错误永不暴露）。
+        """
         started = perf_counter()
-        context = await self._runtime.start_execution(_request_context(request))
-        self._prepare_registry_model_providers(context)
-        mcp_tool_ids = await self._mcp_runtime.prepare(context, self._tool_runtime)
-        model_tools = await self._model_tool_definitions(context, mcp_tool_ids)
-        if model_tools:
-            # 有工具可用，模型可能发起 tool call，必须走完整非流式循环。
-            with suppress(Exception):
-                await self._runtime.finish_execution(context)
-            result = await self.run(request)
-            yield RuntimeStreamEvent(event="completed", data=result.to_payload())
-            return
-        chunks: list[str] = []
+        context: RuntimeContext | None = None
         try:
-            async for token in self._runtime.stream_final_answer(context, request.input_message):
+            context = await self._runtime.start_execution(_request_context(request))
+            context.tool_runtime = self._tool_runtime.clone_for_execution()
+            self._prepare_registry_model_providers(context)
+            mcp_tool_ids = await self._mcp_runtime.prepare(context, context.tool_runtime)
+            model_tools = await self._model_tool_definitions(context, mcp_tool_ids)
+            if model_tools:
+                # 有工具可用：模型可能发起 tool call，须走完整非流式循环。复用已
+                # start 的 context——此前 finish 后再 run(request) 会重开第二个
+                # context，首个 context 的 trace 被丢弃且 mcp/模型定义重复准备。
+                allowed_model_tools = {tool.name for tool in model_tools}
+                step_result = await self._runtime.run_step(
+                    context,
+                    request.input_message,
+                    tools=model_tools,
+                    tool_handler=partial(
+                        self._execute_model_tool,
+                        allowed_tool_ids=allowed_model_tools,
+                    ),
+                )
+                tool_results = list(step_result.tool_results)
+                tool_results.extend(await self._call_tools(context, request.tool_calls))
+                await self._runtime.finish_execution(context)
+                latency_ms = _elapsed_ms(started)
+                await self._append_trace(
+                    context, step_result, tuple(tool_results), latency_ms, None
+                )
+                yield RuntimeStreamEvent(
+                    event="completed",
+                    data=_run_result(
+                        request,
+                        context,
+                        step_result,
+                        tuple(tool_results),
+                        latency_ms,
+                        self._service_instance_id,
+                    ).to_payload(),
+                )
+                return
+            chunks: list[str] = []
+            async for token in self._runtime.stream_final_answer(
+                context, request.input_message
+            ):
                 chunks.append(token)
                 yield RuntimeStreamEvent(event="token", data={"content": token})
-        except Exception:  # noqa: BLE001 - 流式失败须回退到非流式 run，不中断执行
-            chunks = []
-        if chunks:
-            output = "".join(chunks)
-            await self._runtime.memory.add_message(context, "user", request.input_message)
-            await self._runtime.memory.add_message(context, "assistant", output)
+            if chunks:
+                output = "".join(chunks)
+                await self._runtime.memory.add_message(context, "user", request.input_message)
+                await self._runtime.memory.add_message(context, "assistant", output)
+                await self._runtime.finish_execution(context)
+                latency_ms = _elapsed_ms(started)
+                # 此前流式成功分支只 yield completed、从不 append_trace，
+                # 流式执行在 trace_store 中完全不可观测。
+                await self._append_trace(context, None, (), latency_ms, None)
+                yield RuntimeStreamEvent(
+                    event="completed",
+                    data={
+                        "request_id": request.request_id,
+                        "trace_id": context.snapshot.trace_id,
+                        "execution_id": context.snapshot.execution_id,
+                        "service_instance_id": self._service_instance_id,
+                        "runtime_profile_id": context.snapshot.runtime_profile_id,
+                        "runtime_profile_version": context.snapshot.runtime_profile_version,
+                        "output": output,
+                        "latency_ms": latency_ms,
+                        "model_provider_id": None,
+                        "tool_results": [],
+                    },
+                )
+                return
+            # 流式不被支持（provider 非 StreamingModelProvider / 无 provider）→
+            # 回退非流式 run（单次模型调用）。context 已置 None，run() 会自起 context
+            # 并自负 error log + trace + RuntimeApplicationError 包装。
             await self._runtime.finish_execution(context)
-            yield RuntimeStreamEvent(
-                event="completed",
-                data={
-                    "request_id": request.request_id,
-                    "trace_id": context.snapshot.trace_id,
-                    "execution_id": context.snapshot.execution_id,
-                    "service_instance_id": self._service_instance_id,
-                    "runtime_profile_id": context.snapshot.runtime_profile_id,
-                    "runtime_profile_version": context.snapshot.runtime_profile_version,
-                    "output": output,
-                    "latency_ms": _elapsed_ms(started),
-                    "model_provider_id": None,
-                    "tool_results": [],
-                },
+            context = None
+            result = await self.run(request)
+            yield RuntimeStreamEvent(event="completed", data=result.to_payload())
+        except RuntimeApplicationError:
+            # 来自 fallback 的 run()：run() 自身已完成 error log + trace + 包装，直接上抛。
+            raise
+        except Exception as exc:
+            if context is not None:
+                context.emit("execution.error", {"error": _error_code(exc)})
+                with suppress(Exception):
+                    await self._runtime.finish_execution(context)
+                await self._append_trace(
+                    context,
+                    None,
+                    (),
+                    _elapsed_ms(started),
+                    str(exc),
+                )
+            emit_runtime_error_log(
+                request_id=request.request_id,
+                trace_id=request.trace_id,
+                tenant_id=request.tenant_id,
+                execution_id=request.execution_id,
+                runtime_profile_id=request.runtime_profile_id,
+                error_type=type(exc).__name__,
+                error_code=_error_code(exc),
+                message=str(exc),
+                stack=traceback.format_exc(),
             )
-            return
-        with suppress(Exception):
-            await self._runtime.finish_execution(context)
-        result = await self.run(request)
-        yield RuntimeStreamEvent(event="completed", data=result.to_payload())
+            raise RuntimeApplicationError(_error_code(exc), str(exc)) from exc
 
     async def validate_resource_file(self, path: Path) -> dict[str, object]:
         try:
@@ -394,6 +485,17 @@ class RuntimeApplicationService(RuntimeToolOps):
     def handle_config_changed(self, event: ConfigChangeEvent) -> None:
         self._resolver.handle_config_changed(event)
         self._config_events.append(event)
+
+    def build_outbox_worker(self) -> OutboxWorker:
+        # A7：为 serve lifespan 提供 outbox drain worker。publisher 路由到
+        # handle_config_changed（push-invalidation，与 revision 轮询按 revision
+        # 收敛共存）。仅 lifespan 调 start/stop——不进 initialize()，避免测试中
+        # 后台 worker drain 掉断言所依赖的 PENDING 行。
+        return OutboxWorker(
+            self._store,
+            InProcessConfigEventPublisher(self.handle_config_changed),
+            worker_id=self._service_instance_id,
+        )
 
     async def _append_trace(
         self,

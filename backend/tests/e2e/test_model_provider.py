@@ -234,6 +234,51 @@ async def test_S_R13_non_json_body_raises_model_provider_error_without_retry(
     assert calls == 1
 
 
+@pytest.mark.asyncio
+async def test_S_F10_http_429_rate_limit_is_retried_then_recovers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """F10：429（rate-limit）是瞬时 4xx，应退避重试（此前与 401 一样立即抛）。
+    退避后第二次 attempt 返回 200，payload 正常解析。"""
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(429, json={"error": "rate limit"})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    provider = _provider_with_transport(
+        monkeypatch, httpx.MockTransport(handler), max_retries=2
+    )
+    payload = await provider._post_with_retry({"messages": []})
+    assert calls == 2
+    assert cast(list, payload["choices"])[0]["message"]["content"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_S_F10_http_408_request_timeout_is_retried_then_recovers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """F10：408（request timeout）是瞬时 4xx，应退避重试。"""
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(408, json={"error": "timeout"})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    provider = _provider_with_transport(
+        monkeypatch, httpx.MockTransport(handler), max_retries=2
+    )
+    payload = await provider._post_with_retry({"messages": []})
+    assert calls == 2
+    assert cast(list, payload["choices"])[0]["message"]["content"] == "ok"
+
+
 def test_S_R13_tool_call_parses_string_json_arguments() -> None:
     call = _tool_call(
         {

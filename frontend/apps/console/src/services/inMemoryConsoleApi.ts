@@ -152,10 +152,11 @@ class InMemoryConsoleApi implements ConsoleApi {
     if (current.resourceType === "workflow") {
       return validateWorkflow(current.spec, this.capabilities);
     }
-    const hasModel = typeof current.spec.model === "string" && current.spec.model.length > 0;
-    const hasTimeout = typeof current.spec.timeout_ms === "number";
-    const diagnostics = hasModel && hasTimeout ? ["校验通过"] : ["model 与 timeout_ms 必须存在"];
-    return { valid: hasModel && hasTimeout, diagnostics };
+    // 对齐后端 validate_resource_version：非 workflow 类型走各 kind 的 pydantic 模型
+    // 校验（model_validate），并不统一要求 model/timeout_ms。此前 in-memory 对所有
+    // 非 workflow 类型硬查 model + timeout_ms，使 skill/mcp/policy 等不含这两个字段
+    // 的 spec 恒返回 invalid，与真实 HTTP 后端（valid）分叉。
+    return { valid: true, diagnostics: ["校验通过"] };
   }
 
   async publishVersion(resource: ResourceVersion): Promise<PublishResult> {

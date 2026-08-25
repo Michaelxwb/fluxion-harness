@@ -4,7 +4,9 @@ import asyncio
 import json
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
 from dataclasses import dataclass, replace
+from time import perf_counter
 from typing import cast
+from uuid import uuid4
 
 from fluxion.plugins.contracts import (
     ModelMessage,
@@ -52,10 +54,6 @@ class AgentLoopTimeoutError(AgentLoopError):
     code = "agent_loop_timeout"
 
 
-class AgentLoopDuplicateToolCallError(AgentLoopError):
-    code = "agent_loop_duplicate_tool_call"
-
-
 ModelToolHandler = Callable[[RuntimeContext, ToolCall], Awaitable[ModelToolResult]]
 
 
@@ -97,6 +95,11 @@ class AgentRuntime:
         tool_handler: ModelToolHandler | None = None,
     ) -> RuntimeStepResult:
         session_history = await self._memory.read_session_context(context)
+        # 上下文超预算时摘要压缩：此前 compact_context 是死代码，L1 无界增长
+        # 直到 provider context length exceeded（中文场景尤甚——CJK 此前整段
+        # 计 1 token 永不触发）。压缩后重读以反映截断后的历史。
+        if await self._memory.maybe_compact(context):
+            session_history = await self._memory.read_session_context(context)
         await self._memory.add_message(context, "user", input_message)
         context.emit("execution.step", {"input_tokens": len(input_message.split())})
         model_response, tool_results = await self._maybe_complete_model(
@@ -126,10 +129,15 @@ class AgentRuntime:
         context: RuntimeContext,
         input_message: str,
     ) -> AsyncIterator[str]:
-        """流式输出最终答案 token；provider 不支持流式时返回空迭代。
+        """流式输出最终答案 token；provider 不支持流式时返回空迭代（不抛错）。
 
         仅覆盖单轮最终答案（无 tool call）场景，供 SSE 逐 token 输出；
         有 tool call 需求时调用方回退到 run_step 的非流式完整循环。
+
+        整体受 deadline_ms 约束：非流式路径有 wait_for(deadline_ms) 兜底，而此前
+        streaming.stream 无任何 wait_for——卡住的 provider 会永久挂起流式连接。
+        这里以整体 deadline 减已耗时作为每轮读取上限，既保留逐 token 增量输出，
+        又给流式一个与非流式一致的总截止。
         """
         if self._model_providers is None:
             return
@@ -150,8 +158,32 @@ class AgentRuntime:
             user_id=context.snapshot.user_id,
             provider_version=context.snapshot.plugin_versions.get(provider_ids[0]),
         )
-        async for token in streaming.stream(scoped):
-            yield token
+        deadline_seconds = _deadline_ms(context.snapshot.model_resolution) / 1000
+        started = perf_counter()
+        sentinel = object()
+        stream = streaming.stream(scoped)
+        try:
+            while True:
+                remaining = deadline_seconds - (perf_counter() - started)
+                try:
+                    token = await asyncio.wait_for(
+                        anext(stream, sentinel), timeout=remaining
+                    )
+                except TimeoutError:
+                    context.emit(
+                        "agent_loop.timeout",
+                        {"deadline_ms": _deadline_ms(context.snapshot.model_resolution)},
+                    )
+                    raise AgentLoopTimeoutError("streaming deadline exceeded")
+                if token is sentinel:
+                    break
+                yield cast(str, token)
+            context.emit(
+                "model.completed",
+                {"provider_id": provider_ids[0], "streamed": True},
+            )
+        finally:
+            await stream.aclose()
 
     async def run(
         self,
@@ -249,8 +281,23 @@ class AgentRuntime:
                 )
             )
             for call in response.tool_calls:
-                _remember_tool_call(call, seen_call_ids, seen_signatures)
-                result = await tool_handler(context, call)
+                call = _ensure_call_id(call)
+                if _remember_tool_call(call, seen_call_ids, seen_signatures):
+                    # 重复调用（同 id 或同名同参）：不硬失败也不重复执行
+                    # （避免副作用双发）；把 "已调用过" 作为 tool result 喂回，
+                    # 让模型改道，循环仍由 max_rounds 兜底。此前直接 raise
+                    # 会因模型合法的重复查询（轮询/重读）终止整个 execution。
+                    result = ModelToolResult(
+                        call_id=call.call_id,
+                        tool_id=call.name,
+                        content=(
+                            f"tool {call.name} already called with identical "
+                            "arguments; change approach"
+                        ),
+                        payload={"tool_id": call.name, "duplicate": True},
+                    )
+                else:
+                    result = await tool_handler(context, call)
                 tool_results.append(result.payload)
                 messages.append(
                     ModelMessage(
@@ -390,16 +437,27 @@ def _system_prompt(system_prompt: str, skill_instructions: dict[str, str]) -> st
     return "\n\n".join(sections)
 
 
+def _ensure_call_id(call: ToolCall) -> ToolCall:
+    # 部分兼容服务端不返回 tool call id；缺省时合成，否则后续 tool
+    # result 的 tool_call_id 为空，与 assistant 消息无法匹配。
+    if not call.call_id:
+        return replace(call, call_id=f"gen-{uuid4().hex}")
+    return call
+
+
 def _remember_tool_call(
     call: ToolCall,
     seen_call_ids: set[str],
     seen_signatures: set[str],
-) -> None:
+) -> bool:
+    """记录 tool call 以检测循环；返回 True 表示重复（调用方回退为
+    "已调用过" 的 tool result，不重复执行、也不硬失败）。"""
     signature = f"{call.name}:{json.dumps(call.arguments, sort_keys=True, separators=(',', ':'))}"
-    if not call.call_id or call.call_id in seen_call_ids or signature in seen_signatures:
-        raise AgentLoopDuplicateToolCallError(f"duplicate model tool call: {call.name}")
+    if call.call_id in seen_call_ids or signature in seen_signatures:
+        return True
     seen_call_ids.add(call.call_id)
     seen_signatures.add(signature)
+    return False
 
 
 def _optional_str(value: object) -> str | None:

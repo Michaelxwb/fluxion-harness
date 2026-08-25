@@ -156,8 +156,34 @@ class CredentialResolver:
     def __init__(self, store: SecretStore) -> None:
         self._store = store
 
-    async def resolve(self, ref: str) -> str:
-        return (await self.resolve_with_metadata(ref)).value
+    async def resolve(self, ref: str, *, tenant_id: str) -> str:
+        return (await self.resolve_with_metadata(ref, tenant_id=tenant_id)).value
 
-    async def resolve_with_metadata(self, ref: str) -> ResolvedCredential:
+    async def resolve_with_metadata(
+        self, ref: str, *, tenant_id: str
+    ) -> ResolvedCredential:
+        # 跨租户 IDOR 收口：credential_ref 内嵌租户必须与调用方租户一致。
+        # 此前 resolve 只按 ref 精确查表，tenant A 把 binding 的 credential_ref
+        # 填成 secret://tenant-b/... 即可解出 tenant B 的凭据调用外部系统。
+        ref_tenant = secret_ref_tenant(ref)
+        if ref_tenant is not None and ref_tenant != tenant_id:
+            raise SecretProviderError(
+                "secret_tenant_mismatch",
+                f"{ref} does not belong to tenant {tenant_id}",
+            )
         return await self._store.resolve(ref)
+
+
+def secret_ref_tenant(ref: str) -> str | None:
+    """从 secret://{tenant_id}/{name}@{version} 解析租户段。
+
+    name 可含 `/`；非 secret:// 协议的 ref（如外部 vault）返回 None，
+    交由具体 store 自行鉴权。
+    """
+    if not ref.startswith("secret://"):
+        return None
+    rest = ref[len("secret://"):]
+    slash = rest.find("/")
+    if slash <= 0:
+        return None
+    return rest[:slash]

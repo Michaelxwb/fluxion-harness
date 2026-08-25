@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
-from fluxion.registry import OutboxEventRecord, RegistryStore
+from fluxion.registry import OutboxEventRecord, RegistryStore, RegistryStoreError
 from fluxion.resources import ResourceKind
 from fluxion.runtime.hot_reload import ConfigChangeEvent
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigEventPublisher(Protocol):
@@ -127,6 +131,7 @@ class OutboxWorker:
         self._base_backoff_seconds = base_backoff_seconds
         self._max_backoff_seconds = max_backoff_seconds
         self._max_attempts = max_attempts
+        self._task: asyncio.Task[None] | None = None
 
     async def run_once(self) -> OutboxDispatchResult:
         events = await self._store.claim_outbox(
@@ -141,6 +146,38 @@ class OutboxWorker:
             retried += outcome == "retried"
             failed += outcome == "failed"
         return OutboxDispatchResult(len(events), published, retried, failed)
+
+    def start(self, *, interval_seconds: float = 1.0) -> None:
+        # A7：后台 drain 循环。serve lifespan 起始 start()、终止 stop()。每周期
+        # run_once() claim 一批 → publish → mark PUBLISHED/retry。与 revision 轮询
+        # 共存：push-invalidation（handle_config_changed）比 0.25s 轮询更快触达，
+        # 两者按 revision 收敛不冲突。不进 initialize()——测试需观察 PENDING 行，
+        # 后台 worker 会提前 drain 掉断言所依赖的 pending 状态。
+        if interval_seconds <= 0:
+            raise ValueError("interval_seconds must be positive")
+        if self._task is not None:
+            return
+        self._task = asyncio.create_task(self._run(interval_seconds))
+
+    async def stop(self) -> None:
+        task = self._task
+        if task is None:
+            return
+        self._task = None
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+    async def _run(self, interval_seconds: float) -> None:
+        while True:
+            try:
+                await self.run_once()
+            except RegistryStoreError:
+                # claim 批次失败（DB 短暂不可用）→ 下周期重试，不终止长跑循环。
+                logger.warning("outbox worker claim cycle failed; will retry", exc_info=True)
+            except Exception:
+                logger.exception("outbox worker dispatch cycle failed")
+            await asyncio.sleep(interval_seconds)
 
     async def _dispatch(self, record: OutboxEventRecord) -> str:
         try:
@@ -165,6 +202,18 @@ class OutboxWorker:
 
 
 def _config_event(record: OutboxEventRecord) -> ConfigChangeEvent:
+    if record.aggregate_type == "binding":
+        # A12 binding outbox 行：aggregate_type="binding"（非 ResourceKind），
+        # kind/resource_id 取自 payload（commit_binding 写入 resource_type +
+        # resource_id）。handle_config_changed 仅按 tenant_id+revision 做租户级
+        # 失效，kind/resource_id 为元数据，但须是合法 ResourceKind 以构造事件。
+        return ConfigChangeEvent(
+            tenant_id=record.tenant_id,
+            kind=ResourceKind(str(record.payload["resource_type"])),
+            resource_id=str(record.payload["resource_id"]),
+            version=record.version,
+            revision=record.revision,
+        )
     return ConfigChangeEvent(
         tenant_id=record.tenant_id,
         kind=ResourceKind(record.aggregate_type),

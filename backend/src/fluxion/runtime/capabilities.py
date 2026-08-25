@@ -3,7 +3,12 @@ from __future__ import annotations
 from typing import cast
 
 from fluxion.registry import RegistryStore
-from fluxion.resources import ResourceBinding, ResourceDefinition, ResourceKind
+from fluxion.resources import (
+    ResourceBinding,
+    ResourceDefinition,
+    ResourceKind,
+    ResourceStatus,
+)
 from fluxion.runtime.tools import ToolDescriptor
 
 
@@ -72,10 +77,18 @@ class EffectiveCapabilityResolver:
             )
         return granted
 
-    async def tenant_policy_tools(self, *, tenant_id: str) -> tuple[set[str], bool]:
-        """返回 (tenant policy 允许的 tool ids, 是否配置了 tenant policy)。"""
+    async def tenant_policy_tools(
+        self, *, tenant_id: str
+    ) -> tuple[set[str], set[str], bool]:
+        """返回 (allowed, denied, configured)。
+
+        - configured=False：未配置 tenant policy，不施加约束。
+        - configured=True 且 allowed 非空：allow-list 模式，仅放行 allowed。
+        - configured=True 且 allowed 为空：deny-only 模式，放行除 denied 外的全部。
+        denied 始终优先，调用方必须从所有维度移除。
+        """
         policy = await self._tenant_policy_tools(tenant_id)
-        return policy.allowed, policy.configured
+        return policy.allowed, policy.denied, policy.configured
 
     async def _mcp_bindings(self, tenant_id: str, user_id: str) -> list[ResourceBinding]:
         return await self._store.list_bindings(
@@ -117,6 +130,13 @@ class EffectiveCapabilityResolver:
         resource = await self._store.get(kind, resource_id, tenant_id=tenant_id, version=version)
         if resource is None:
             raise LookupError(f"{tenant_id}/{kind.value}/{resource_id}@{selector} not found")
+        # binding pin 显式版本时必须校验已发布：否则 DRAFT 状态的
+        # policy/MCP 定义可参与生产授权计算（与 ResourceResolver 的
+        # PUBLISHED 校验对齐）。
+        if resource.status is not ResourceStatus.PUBLISHED:
+            raise LookupError(
+                f"{tenant_id}/{kind.value}/{resource_id}@{selector} is not published"
+            )
         return resource
 
 
@@ -130,7 +150,12 @@ class _PolicyTools:
 def _allowed(tool_id: str, agent_tools: set[str], policy: _PolicyTools) -> bool:
     if tool_id in policy.denied:
         return False
-    if agent_tools and tool_id not in agent_tools:
+    # ADR-003 failure mode：交集为空→静默无能力。空 allowlist = 全拒（fail-closed），
+    # 与 Runtime tools.py enforcement 对齐——此前展示侧用 `agent_tools and ...` 守卫，
+    # 空 allowlist 时跳过成员校验（fail-open），导致 Console visible_tools 与 Runtime
+    # 实际放行不一致。Skill 维度的扩展（binding 授予 profile 外的 skill）由 resolver
+    # 的 _effective_skill_selectors 独立处理，不经过本函数，故此处收敛不影响 S_R18。
+    if tool_id not in agent_tools:
         return False
     if not policy.configured:
         return True

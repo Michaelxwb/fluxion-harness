@@ -55,10 +55,13 @@ async def test_S_C102_publish_event_invalidates_runtime_for_new_execution() -> N
         second = await runtime.run(_run_request("after"))
 
         async with store.engine.connect() as connection:
-            outbox = (await connection.execute(select(outbox_events))).mappings().one()
+            outbox = (await connection.execute(select(outbox_events))).mappings().all()
         assert published.json()["data"]["event_status"] == "pending"
-        assert dispatched.published == 1
-        assert outbox["status"] == "published"
+        # A8：runtime bootstrap 发布（v1）现也走治理事务写 outbox，故 v1+v2 共 2 条
+        # 事件，均被 worker 派发为 published。
+        assert dispatched.published == 2
+        assert len(outbox) == 2
+        assert all(row["status"] == "published" for row in outbox)
         assert first.runtime_profile_version == "1"
         assert second.runtime_profile_version == "2"
         assert second.output == "v2: after"

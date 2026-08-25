@@ -4,7 +4,7 @@ import os
 from datetime import UTC, datetime
 from typing import Any, cast
 
-from sqlalchemy import Select, func, insert, select, update
+from sqlalchemy import Select, event, func, insert, select, update
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
@@ -22,12 +22,17 @@ from fluxion.registry.schema import (
     audit_logs,
     config_revisions,
     metadata,
+    outbox_events,
     resource_bindings,
 )
 from fluxion.registry.store import (
     AuditRecord,
+    BindingCommand,
+    BindingCommit,
+    BindingOperation,
     NotFoundError,
     OutboxEventRecord,
+    OutboxStatus,
     PublicationCommand,
     PublicationCommit,
     RegistryStoreError,
@@ -45,6 +50,20 @@ class SQLAlchemyRegistryStore:
         self._dsn = dsn
         self._reset_on_initialize = reset_on_initialize
         self._engine = create_async_engine(dsn, **self._engine_kwargs(dsn))
+        if dsn.startswith("sqlite"):
+            # F5：SQLite 默认 rollback journal + 5s busy timeout；dev 并发写（多
+            # worker publish 同资源 / outbox claim）下易抛 "database is locked"
+            # → 500。WAL 让读不阻塞写、写不阻塞读；busy_timeout 让写锁竞争排队
+            # 而非立即失败。PG 不经此路径（行锁由 with_for_update 保证）。
+            # :memory: 库 WAL 被 SQLite 忽略（保持 memory 模式），无副作用。
+            @event.listens_for(self._engine.sync_engine, "connect")
+            def _apply_sqlite_pragmas(
+                dbapi_connection: Any, _connection_record: object
+            ) -> None:
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA busy_timeout=5000")
+                cursor.close()
 
     @staticmethod
     def _engine_kwargs(dsn: str) -> dict[str, object]:
@@ -59,6 +78,15 @@ class SQLAlchemyRegistryStore:
         return {}
 
     async def initialize(self) -> None:
+        # A13/ADR-004：schema 双事实源收口——serving 路径按 DSN 分流，不在运行
+        # 路径对 PG 跑 create_all（否则与 alembic 形成双事实源、绕过迁移版本管理）。
+        # - PostgreSQL serving（reset=False）：alembic 管控，initialize() 为 no-op；
+        #   迁移由运维 `alembic upgrade head` 带外执行。
+        # - reset_on_initialize=True（契约测试 bootstrap，含 PG testcontainers）：
+        #   仍走 drop_all + create_all 重建干净库，与 S-R07 双跑契约一致。
+        # - SQLite（dev/tests）：metadata.create_all 自举（ADR-004 dev 零依赖）。
+        if not self._reset_on_initialize and self._dsn.startswith("postgresql"):
+            return
         async with self._engine.begin() as connection:
             if self._reset_on_initialize:
                 await connection.run_sync(metadata.drop_all)
@@ -167,7 +195,9 @@ class SQLAlchemyRegistryStore:
         statement = (
             select(audit_logs)
             .where(audit_logs.c.tenant_id == tenant_id)
-            .order_by(audit_logs.c.created_at.desc())
+            # F8：同事务批量写入的 audit created_at 相同，缺 tiebreak 会跨页重复/丢失。
+            # audit_id 作确定性次序键，保证分页稳定。
+            .order_by(audit_logs.c.created_at.desc(), audit_logs.c.audit_id.desc())
             .offset(offset)
             .limit(limit)
         )
@@ -191,6 +221,120 @@ class SQLAlchemyRegistryStore:
             self._engine,
             command,
             self._insert_audit,
+        )
+
+    async def commit_binding(self, command: BindingCommand) -> BindingCommit:
+        # A12：Binding 治理事务——insert/update binding + bump_revision + audit +
+        # outbox 收进单事务（镜像 commit_publication）。此前 put_binding/
+        # disable_binding 先提交 binding 再单独 bump_revision（两步间崩溃则
+        # revision 不变、轮询型 runtime 看不到新 binding），且根本不写 outbox
+        # （跨 Pod 权限生效/收回延迟到下一次 publish）。audit 内联进事务使 A20
+        # 的 fail-closed 对 binding 真正生效——此前 audit 在 binding 提交后跑
+        # 独立事务，失败时 binding 已落地，fail-closed 只是装饰性。
+        now = _now()
+        async with self._engine.begin() as connection:
+            before: dict[str, object] | None
+            after: dict[str, object]
+            if command.operation is BindingOperation.CREATE:
+                if command.binding is None:
+                    raise RegistryStoreError("binding command missing binding for grant")
+                try:
+                    await connection.execute(
+                        insert(resource_bindings).values(**_binding_values(command.binding))
+                    )
+                except IntegrityError as exc:
+                    raise VersionConflictError(
+                        f"binding {command.binding_id} exists"
+                    ) from exc
+                before = None
+                after = {
+                    "subject_type": str(command.binding.subject_type),
+                    "subject_id": command.binding.subject_id,
+                    "resource_type": command.binding.resource_type.value,
+                    "resource_id": command.binding.resource_id,
+                    "version_selector": command.binding.resource_version_selector,
+                    "enabled": command.binding.enabled,
+                }
+                binding = command.binding
+            else:  # DISABLE：先 SELECT FOR UPDATE 取 before 态，再 update
+                lock_statement = (
+                    select(resource_bindings)
+                    .where(resource_bindings.c.binding_id == command.binding_id)
+                    .where(resource_bindings.c.tenant_id == command.tenant_id)
+                    .with_for_update()
+                )
+                row = (await connection.execute(lock_statement)).mappings().first()
+                if row is None:
+                    raise NotFoundError(f"binding {command.binding_id} not found")
+                before = {
+                    "subject_type": str(row["subject_type"]),
+                    "subject_id": str(row["subject_id"]),
+                    "resource_type": str(row["resource_type"]),
+                    "resource_id": str(row["resource_id"]),
+                    "enabled": bool(row["enabled"]),
+                }
+                result = await connection.execute(
+                    update(resource_bindings)
+                    .where(resource_bindings.c.binding_id == command.binding_id)
+                    .where(resource_bindings.c.tenant_id == command.tenant_id)
+                    .values(enabled=False)
+                )
+                if result.rowcount != 1:
+                    raise NotFoundError(f"binding {command.binding_id} not found")
+                after = {"enabled": False}
+                binding = _binding_from_row(row).model_copy(update={"enabled": False})
+            revision = await publish_sqlalchemy._bump_revision(
+                connection, command.tenant_id, now
+            )
+            await self._insert_audit(
+                connection,
+                AuditRecord(
+                    audit_id=f"audit_{command.event_id}",
+                    tenant_id=command.tenant_id,
+                    actor_id=command.actor_id,
+                    request_id=command.request_id,
+                    publish_id=None,
+                    action=command.operation.value,
+                    target_type="binding",
+                    target_id=command.binding_id,
+                    before=before,
+                    after=after,
+                    created_at=now,
+                ),
+            )
+            await connection.execute(
+                insert(outbox_events).values(
+                    event_id=command.event_id,
+                    tenant_id=command.tenant_id,
+                    event_type="config.changed",
+                    aggregate_type="binding",
+                    aggregate_id=command.binding_id,
+                    version=binding.resource_version_selector,
+                    revision=revision,
+                    payload_json={
+                        "event_id": command.event_id,
+                        "tenant_id": command.tenant_id,
+                        "binding_id": command.binding_id,
+                        "operation": command.operation.value,
+                        "resource_type": binding.resource_type.value,
+                        "resource_id": binding.resource_id,
+                        "revision": revision,
+                    },
+                    status=OutboxStatus.PENDING.value,
+                    attempt_count=0,
+                    available_at=now,
+                    locked_by=None,
+                    locked_until=None,
+                    last_error=None,
+                    created_at=now,
+                    published_at=None,
+                )
+            )
+        return BindingCommit(
+            binding=binding,
+            event_id=command.event_id,
+            revision=revision,
+            event_status=OutboxStatus.PENDING,
         )
 
     async def claim_outbox(
@@ -306,7 +450,11 @@ class SQLAlchemyRegistryStore:
         statement = (
             select(resource_bindings)
             .where(*conditions)
-            .order_by(resource_bindings.c.created_at.desc())
+            # F8：同事务批量写入的 binding created_at 相同，缺 tiebreak 会跨页重复/丢失。
+            .order_by(
+                resource_bindings.c.created_at.desc(),
+                resource_bindings.c.binding_id.desc(),
+            )
             .offset(offset)
             .limit(limit)
         )

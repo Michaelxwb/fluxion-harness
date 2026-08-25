@@ -83,14 +83,35 @@ class RuntimeToolOps:
             payload=payload,
         )
 
+    def _execution_tool_runtime(self, context: RuntimeContext) -> ToolRuntime:
+        # F4：优先 per-execution 隔离 runtime（run/stream 起始 clone 自 base，
+        # builtin/注入工具已拷入、MCP prepare 注入副本）。context.tool_runtime
+        # 未设（直接调 mixin 的边界路径）回退 service-level base，保留既有行为。
+        return context.tool_runtime or self._tool_runtime
+
     async def _call_tool(
         self,
         context: RuntimeContext,
         call: ToolCallRequest,
     ) -> ToolResult:
         user_tools, agent_tools, tenant_tools = await self._effective_tool_policy(context)
+        # A22：授权（与存在性）先于 hook 分发。设计要求
+        # CheckPolicy→CheckGrant→Allowlist→BeforeToolHooks；此前
+        # _dispatch_before_tool 在 ToolRuntime.call 的三重交集之前分发，DLP/安全
+        # hook 会看到用户本无权调用的工具参数，且 fail_closed hook 可在授权结论
+        # 产生前中断。此处做与 ToolRuntime.call 一致的预检，未通过则直接拒绝，
+        # 不进入 hook、不执行。
+        self._execution_tool_runtime(context).descriptor(call.tool_id)
+        if (
+            call.tool_id not in user_tools
+            or call.tool_id not in agent_tools
+            or call.tool_id not in tenant_tools
+        ):
+            raise RuntimeApplicationError(
+                "tool_not_allowed", f"tool {call.tool_id} is not allowed"
+            )
         await self._dispatch_before_tool(context, call)
-        return await self._tool_runtime.call(
+        return await self._execution_tool_runtime(context).call(
             context,
             call.tool_id,
             call.arguments,
@@ -105,7 +126,7 @@ class RuntimeToolOps:
         mcp_tool_ids: set[str],
     ) -> list[ToolDefinition]:
         user_tools, agent_tools, tenant_tools = await self._effective_tool_policy(context)
-        descriptors = self._tool_runtime.list_effective_descriptors(
+        descriptors = self._execution_tool_runtime(context).list_effective_descriptors(
             user_grants=user_tools,
             agent_allowlist=agent_tools,
             tenant_policy=tenant_tools,
@@ -129,6 +150,13 @@ class RuntimeToolOps:
         self,
         context: RuntimeContext,
     ) -> tuple[set[str], set[str], set[str]]:
+        # A2/ADR-005：每执行期首次解析后缓存于 context.tool_policy，后续 tool call
+        # 与 model tool 列表构建复用同一结果——消除执行期版本漂移（此前每次调用
+        # 新建 EffectiveCapabilityResolver 按 latest-published 实时解析，执行中途
+        # 租户发布新 Policy 会令后半段授权集合变化、与 trace 记录的 snapshot 版本
+        # 不一致）与每个 tool call 的 N+1 查询。
+        if context.tool_policy is not None:
+            return context.tool_policy
         agent_tools = await self._allowed_tools(context)
         capability = EffectiveCapabilityResolver(self._store)
         granted_mcp = await capability.user_granted_tools(
@@ -137,11 +165,27 @@ class RuntimeToolOps:
             runtime_profile_id=context.snapshot.runtime_profile_id,
         )
         user_tools = agent_tools | granted_mcp
-        policy_allowed, configured = await capability.tenant_policy_tools(
+        policy_allowed, policy_denied, configured = await capability.tenant_policy_tools(
             tenant_id=context.snapshot.tenant_id
         )
-        tenant_tools = policy_allowed if configured else user_tools
-        return user_tools, agent_tools, tenant_tools
+        if not configured:
+            tenant_tools = set(user_tools)
+        elif policy_allowed:
+            # allow-list 模式：tenant 显式限定可用集合。
+            tenant_tools = set(policy_allowed)
+        else:
+            # deny-only 模式（allowed 为空）：不缩小集合，仅靠 denied 移除。
+            # 此前此分支把 tenant_tools 置空 → tenant 所有工具被锁死。
+            tenant_tools = set(user_tools)
+        # denied 始终优先：从所有维度移除，确保 ToolRuntime 三重交集不会
+        # 放行 tenant 显式拒绝的工具（此前 denied 被直接丢弃，安全洞）。
+        if policy_denied:
+            user_tools = user_tools - policy_denied
+            agent_tools = agent_tools - policy_denied
+            tenant_tools = tenant_tools - policy_denied
+        policy = (user_tools, agent_tools, tenant_tools)
+        context.tool_policy = policy
+        return policy
 
     async def _dispatch_before_tool(
         self,

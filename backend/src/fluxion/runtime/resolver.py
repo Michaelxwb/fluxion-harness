@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from typing import cast
 
@@ -217,7 +218,10 @@ class ExecutionSnapshotBuilder:
         plugin_versions: dict[str, str] | None = None,
         policy_version: str | None = None,
     ) -> ExecutionSnapshot:
-        model_resolution = _dict_field(runtime_profile.spec_json.get("model_policy"))
+        # 深拷贝断开与缓存 ResourceDefinition.spec_json 的引用共享：
+        # 否则原地修改 snapshot.model_resolution 会污染本 Pod 缓存中的
+        # profile spec，影响该 Pod 后续所有 execution（ADR-005 不可变被破坏）。
+        model_resolution = copy.deepcopy(_dict_field(runtime_profile.spec_json.get("model_policy")))
         return ExecutionSnapshot(
             execution_id=request.execution_id,
             tenant_id=request.tenant_id,

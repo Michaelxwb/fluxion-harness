@@ -13,6 +13,12 @@ from pydantic import BaseModel, ConfigDict
 from fluxion.api.middleware import RequestContextMiddleware
 from fluxion.api.responses import failure, success
 from fluxion.config import DevModeSettings
+from fluxion.errors.console import (
+    CHANNEL_ACCESS_DENIED,
+    CHANNEL_BIND_FAILED,
+    CHANNEL_VALIDATION_FAILED,
+    INTERNAL_ERROR,
+)
 from fluxion.observability.context import current_context
 from fluxion.observability.logging import emit_error_log
 from fluxion.plugins.channel_adapters import WebChannelAdapter
@@ -22,11 +28,6 @@ from fluxion.services.channel_app import (
     ChannelApplicationService,
     ChannelBindError,
 )
-
-CHANNEL_BIND_FAILED = 36_001
-CHANNEL_VALIDATION_FAILED = 36_002
-CHANNEL_ACCESS_DENIED = 36_003
-INTERNAL_ERROR = 39_001
 
 
 class ChannelMessagePayload(BaseModel):
@@ -55,6 +56,11 @@ def create_app(
     app = FastAPI(title="Fluxion Channel API")
     app.add_middleware(RequestContextMiddleware, dev_mode=dev_mode)
     _register_errors(app)
+    # S2 残留：/channels/web/messages 对已绑定 channel_user_id 逐消息信任、不重新
+    # 鉴权 → 可冒充任意已绑定用户。真正收口需引入真实认证中间件（S1，per-message
+    # token），属较大功能构建而非最小修复。dev_mode 门控会破坏该端点的多租户
+    # header-tenant 设计（golden-path 契约依赖 X-Tenant-ID），且 dev bundle 已置
+    # dev_mode、门控对实际部署无增益，故不采用。S2 随 S1 一并落地。
     _register_message(app, service)
     _register_stream(app, service)
     _register_access_routes(app, service)

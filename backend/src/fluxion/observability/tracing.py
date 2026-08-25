@@ -21,8 +21,10 @@ def configure_tracer(
 ) -> None:
     """配置 OpenTelemetry TracerProvider。
 
-    - otlp_endpoint 非空时挂 OTLP HTTP exporter（生产）；否则只建 TracerProvider 不 export
-      （dev 默认，span 仍可通过 InMemory/SpanProcessor 观察）。
+    - otlp_endpoint 非空（或设置 FLUXION_OTLP_ENDPOINT 环境变量）时挂 OTLP HTTP
+      exporter（生产）；否则只建 TracerProvider 不 export（dev 默认，span 仍可通过
+      InMemory/SpanProcessor 观察）。此前 configure_tracer 仅由 get_tracer 懒调用、
+      且从不经 env 注入 endpoint → OTel span 永不导出；现从 env 解析 endpoint。
     - exporter 包缺失时降级为不 export 并记录 warning，不阻断服务启动。
     """
     global _CONFIGURED, _SERVICE_NAME
@@ -33,8 +35,9 @@ def configure_tracer(
         }
     )
     provider = TracerProvider(resource=resource)
-    if otlp_endpoint:
-        exporter = _otlp_exporter(otlp_endpoint)
+    endpoint = otlp_endpoint or os.environ.get("FLUXION_OTLP_ENDPOINT")
+    if endpoint:
+        exporter = _otlp_exporter(endpoint)
         if exporter is not None:
             provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)

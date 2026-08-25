@@ -26,6 +26,12 @@ class PublicationOperation(StrEnum):
     DEPRECATE = "deprecate"
 
 
+class BindingOperation(StrEnum):
+    # 值即 AuditRecord.action，保持既有 wire 契约（"binding.create"/"binding.disable"）。
+    CREATE = "binding.create"
+    DISABLE = "binding.disable"
+
+
 class OutboxStatus(StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
@@ -69,6 +75,35 @@ class PublicationCommand:
 class PublicationCommit:
     resource: ResourceDefinition
     publish_id: str
+    event_id: str
+    revision: int
+    event_status: OutboxStatus
+
+
+@dataclass(frozen=True, slots=True)
+class BindingCommand:
+    """Binding 治理事务命令（A12，镜像 PublicationCommand）。
+
+    GRANT（CREATE）：携带 `binding`（完整 ResourceBinding，含服务层生成的
+    binding_id），事务内 insert + audit + outbox + revision 原子化。
+    DISABLE：`binding=None`，事务内 SELECT FOR UPDATE 既有行（取 before 态供
+    审计）+ update enabled=False + audit + outbox + revision。
+    actor_id/request_id/trace_id 流入 audit + outbox，与 publish 治理一致。
+    """
+
+    event_id: str
+    tenant_id: str
+    binding_id: str
+    operation: BindingOperation
+    actor_id: str
+    request_id: str
+    trace_id: str
+    binding: ResourceBinding | None = None  # GRANT 必填；DISABLE 为 None
+
+
+@dataclass(frozen=True, slots=True)
+class BindingCommit:
+    binding: ResourceBinding
     event_id: str
     revision: int
     event_status: OutboxStatus
@@ -165,6 +200,8 @@ class RegistryStore(RegistryReadStore, Protocol):
     ) -> tuple[list[AuditRecord], int]: ...
 
     async def commit_publication(self, command: PublicationCommand) -> PublicationCommit: ...
+
+    async def commit_binding(self, command: BindingCommand) -> BindingCommit: ...
 
     async def claim_outbox(
         self,

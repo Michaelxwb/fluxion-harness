@@ -138,9 +138,13 @@ class OpenAICompatibleHTTPModelProvider:
     async def _post_with_retry(self, payload: dict[str, object]) -> dict[str, object]:
         headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
         attempts = self._max_retries + 1
-        for attempt in range(attempts):
-            try:
-                async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
+        # F10：单一 AsyncClient 跨 attempt 复用（连接池/keep-alive），不再
+        # per-attempt 重建。retry 语义：429（rate-limit）/ 408（request timeout）
+        # 是瞬时 4xx，退避重试；其余 4xx（400/401/403/404…）是客户端错误，重试
+        # 无意义，立即抛。5xx + TimeoutException + HTTPError 退避重试（既有行为）。
+        async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
+            for attempt in range(attempts):
+                try:
                     response = await client.post(
                         f"{self._api_base_url}/chat/completions",
                         json=payload,
@@ -154,19 +158,20 @@ class OpenAICompatibleHTTPModelProvider:
                         raise ModelProviderError(
                             f"model provider returned invalid json: {exc}"
                         ) from exc
-            except httpx.TimeoutException as exc:
-                if attempt + 1 == attempts:
-                    raise ModelProviderTimeoutError("model provider timeout") from exc
-            except httpx.HTTPStatusError as exc:
-                # 4xx 是客户端错误，重试无意义
-                if exc.response.status_code < 500 or attempt + 1 == attempts:
-                    raise ModelProviderError(
-                        f"model provider http {exc.response.status_code}: {exc}"
-                    ) from exc
-            except httpx.HTTPError as exc:
-                if attempt + 1 == attempts:
-                    raise ModelProviderError(f"model provider http error: {exc}") from exc
-            await asyncio.sleep(min(0.05 * (2**attempt), 1.0))
+                except httpx.TimeoutException as exc:
+                    if attempt + 1 == attempts:
+                        raise ModelProviderTimeoutError("model provider timeout") from exc
+                except httpx.HTTPStatusError as exc:
+                    status = exc.response.status_code
+                    transient = status in (408, 429)
+                    if (not transient and status < 500) or attempt + 1 == attempts:
+                        raise ModelProviderError(
+                            f"model provider http {status}: {exc}"
+                        ) from exc
+                except httpx.HTTPError as exc:
+                    if attempt + 1 == attempts:
+                        raise ModelProviderError(f"model provider http error: {exc}") from exc
+                await asyncio.sleep(min(0.05 * (2**attempt), 1.0))
         raise ModelProviderError("model provider failed without response")
 
 

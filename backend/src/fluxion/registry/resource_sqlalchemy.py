@@ -24,10 +24,15 @@ from fluxion.resources import (
 
 
 async def put(engine: AsyncEngine, definition: ResourceDefinition) -> ResourceDefinition:
-    if definition.status is not ResourceStatus.DRAFT and definition.published_at is None:
+    # F6：put() 只接受 DRAFT。PUBLISHED/DEPRECATED 是治理后状态，必须经
+    # publish()/commit_publication() 路径过渡（CAS + 审计 + outbox）；此前仅要求
+    # published_at 非空即可直插 PUBLISHED 行，绕过 publish 治理（无 CAS、无
+    # _validate_definition 发布校验、无 audit）。生产调用方固定 DRAFT。
+    if definition.status is not ResourceStatus.DRAFT:
         raise RegistryStoreError(
-            f"non-draft resource {definition.tenant_id}/{definition.kind}/"
-            f"{definition.id}@{definition.version} requires published_at"
+            f"put() only accepts DRAFT; {definition.tenant_id}/{definition.kind}/"
+            f"{definition.id}@{definition.version} has status {definition.status.value} — "
+            f"use publish()/commit_publication() to transition to published/deprecated"
         )
     values = _definition_values(definition)
     try:
@@ -212,7 +217,13 @@ async def _list_published_resources(
             *resource_definitions.c,
             func.row_number()
             .over(
-                partition_by=resource_definitions.c.resource_id,
+                # kind 必须进入分区键：否则同名跨 kind（skill/X 与 mcp/X）
+                # 会被并入同一窗口，只有最近发布的那个能拿到 rank==1，
+                # 另一个 kind 的资源从 list_all_resources 静默消失。
+                partition_by=[
+                    resource_definitions.c.kind,
+                    resource_definitions.c.resource_id,
+                ],
                 order_by=(
                     resource_definitions.c.published_at.desc(),
                     resource_definitions.c.version.desc(),
@@ -228,16 +239,20 @@ async def _list_published_resources(
     items_statement = (
         select(ranked)
         .where(ranked.c.version_rank == 1)
-        .order_by(ranked.c.resource_id.asc())
+        .order_by(ranked.c.kind.asc(), ranked.c.resource_id.asc())
         .offset(offset)
         .limit(limit)
     )
-    count_statement = (
-        select(func.count(func.distinct(resource_definitions.c.resource_id)))
+    # count 必须按 (kind, resource_id) 去重，与分区键一致；否则跨 kind
+    # 同名资源只计 1，与 items 的实际行数不符（total 低估）。
+    distinct_pairs = (
+        select(resource_definitions.c.kind, resource_definitions.c.resource_id)
         .where(resource_definitions.c.tenant_id == tenant_id)
         .where(*kind_scope)
         .where(resource_definitions.c.status == ResourceStatus.PUBLISHED.value)
+        .distinct()
     )
+    count_statement = select(func.count()).select_from(distinct_pairs.subquery())
     async with engine.connect() as connection:
         rows = (await connection.execute(items_statement)).mappings().all()
         total = int((await connection.execute(count_statement)).scalar_one())

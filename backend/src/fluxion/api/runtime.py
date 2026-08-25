@@ -1,15 +1,28 @@
 from __future__ import annotations
 
 import json
+import traceback
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import FastAPI, Header, Request, Response
+from fastapi import FastAPI, Header, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from fluxion.api.middleware import RequestContextMiddleware
+from fluxion.api.responses import failure, success
+from fluxion.errors.console import (
+    INTERNAL_ERROR,
+    RESOURCE_NOT_FOUND,
+    RUNTIME_APPLICATION_ERROR,
+    VALIDATION_FAILED,
+)
+from fluxion.observability.context import current_context
+from fluxion.observability.logging import emit_error_log
 from fluxion.services.runtime_app import (
     RunRuntimeRequest,
     RuntimeApplicationError,
@@ -37,84 +50,134 @@ class RunPayload(BaseModel):
 
 
 def create_app(service: RuntimeApplicationService) -> FastAPI:
-    app = FastAPI(title="Fluxion Runtime API")
-    app.add_middleware(RequestContextMiddleware)
+    @asynccontextmanager
+    async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        # A15：initialize 必须在 serving 事件循环内执行——此前 cli serve（非 dev）
+        # 用 asyncio.run(service.initialize()) 起一个临时 loop 初始化，aiosqlite
+        # 连接绑回该 loop 后关闭，随后 uvicorn 新 loop 复用池中连接 → "Future
+        # attached to a different loop"。改为 lifespan 在 uvicorn loop 内初始化
+        # （与 dev bundle 一致）。httpx ASGITransport 不触发 lifespan，测试仍手动
+        # initialize，无双重初始化。
+        await service.initialize()
+        outbox_worker = service.build_outbox_worker()
+        outbox_worker.start()
+        try:
+            yield
+        finally:
+            await outbox_worker.stop()
+            await service.close()
 
-    @app.exception_handler(RuntimeApplicationError)
-    async def runtime_error_handler(request: Request, exc: RuntimeApplicationError) -> JSONResponse:
-        request_id = _request_id(request.headers.get("X-Request-ID"))
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=_envelope(exc.code, str(exc), None, request_id),
-            headers={"X-Request-ID": request_id},
-        )
+    app = FastAPI(title="Fluxion Runtime API", lifespan=_lifespan)
+    app.add_middleware(RequestContextMiddleware)
+    _register_error_handlers(app)
 
     @app.get("/healthz")
-    async def healthz(
-        response: Response,
-        x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
-    ) -> dict[str, object]:
-        request_id = _request_id(x_request_id)
-        response.headers["X-Request-ID"] = request_id
+    async def healthz() -> JSONResponse:
         health = await service.health()
-        return _envelope("ok", "ok", health.to_payload(), request_id)
+        return success(health.to_payload())
 
     @app.get("/readyz")
-    async def readyz(
-        response: Response,
-        x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
-    ) -> dict[str, object]:
-        request_id = _request_id(x_request_id)
-        response.headers["X-Request-ID"] = request_id
+    async def readyz() -> JSONResponse:
         ready = await service.ready()
-        return _envelope("ok", "ok", ready.to_payload(), request_id)
+        return success(ready.to_payload())
 
     @app.get("/health")
-    async def health_alias(
-        response: Response,
-        x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
-    ) -> dict[str, object]:
-        return await healthz(response, x_request_id)
+    async def health_alias() -> JSONResponse:
+        return await healthz()
 
     @app.get("/ready")
-    async def ready_alias(
-        response: Response,
-        x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
-    ) -> dict[str, object]:
-        return await readyz(response, x_request_id)
+    async def ready_alias() -> JSONResponse:
+        return await readyz()
 
     @app.post("/api/v1/runtime-profiles/{runtime_profile_id}/runs")
     async def run_profile(
         runtime_profile_id: str,
         payload: RunPayload,
-        response: Response,
-        x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
         x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
-    ) -> dict[str, object]:
-        request_id = _request_id(x_request_id)
-        response.headers["X-Request-ID"] = request_id
-        result = await service.run(_run_request(runtime_profile_id, payload, request_id, x_tenant_id))
-        return _envelope("ok", "ok", result.to_payload(), request_id)
+    ) -> JSONResponse:
+        request_id = _context_request_id()
+        result = await service.run(
+            _run_request(runtime_profile_id, payload, request_id, x_tenant_id)
+        )
+        return success(result.to_payload())
 
     @app.post("/api/v1/runtime-profiles/{runtime_profile_id}/runs:stream")
     async def stream_profile(
         runtime_profile_id: str,
         payload: RunPayload,
-        x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
         x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
     ) -> StreamingResponse:
-        request_id = _request_id(x_request_id)
+        request_id = _context_request_id()
         events = _sse_events(
             service,
             _run_request(runtime_profile_id, payload, request_id, x_tenant_id),
         )
-        return StreamingResponse(
-            events,
-            media_type="text/event-stream",
-            headers={"X-Request-ID": request_id},
-        )
+        return StreamingResponse(events, media_type="text/event-stream")
 
     return app
+
+
+def _register_error_handlers(app: FastAPI) -> None:
+    @app.exception_handler(RuntimeApplicationError)
+    async def runtime_error_handler(
+        request: Request, exc: RuntimeApplicationError
+    ) -> JSONResponse:
+        # RuntimeApplicationError.code 是字符串 slug（如 resource_version_not_found），
+        # 统一映射到 RUNTIME_APPLICATION_ERROR 整数码，slug 保留在 message 中追溯，
+        # 不再回传字符串 code——与 Console 共用 responses.failure 整数码契约对齐。
+        return failure(
+            RUNTIME_APPLICATION_ERROR,
+            f"{exc.code}: {exc}",
+            status_code=exc.status_code,
+            request=request,
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_handler(
+        request: Request,
+        exc: RequestValidationError,
+    ) -> JSONResponse:
+        del exc
+        return failure(
+            VALIDATION_FAILED, "validation failed", status_code=400, request=request
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(
+        request: Request,
+        exc: StarletteHTTPException,
+    ) -> JSONResponse:
+        # 路由级 404/405 等 HTTPException 需回到统一 envelope，而不是落到
+        # 通用 Exception handler 变成 500 INTERNAL_ERROR。
+        if exc.status_code == 404:
+            return failure(
+                RESOURCE_NOT_FOUND, "not found", status_code=404, request=request
+            )
+        return failure(
+            VALIDATION_FAILED,
+            str(exc.detail),
+            status_code=exc.status_code,
+            request=request,
+        )
+
+    @app.exception_handler(Exception)
+    async def internal_error_handler(request: Request, exc: Exception) -> JSONResponse:
+        # 与 Console API 对齐：未捕获异常必须回到统一 envelope，而不是裸 500 文本。
+        context = current_context()
+        emit_error_log(
+            request_id=context.request_id if context is not None else "unknown",
+            trace_id=context.trace_id if context is not None else "unknown",
+            tenant_id=context.tenant_id if context is not None else "unknown",
+            actor_id=context.actor_id if context is not None else "unknown",
+            method=request.method,
+            route=request.url.path,
+            error_type=type(exc).__name__,
+            error_code=INTERNAL_ERROR,
+            stack=traceback.format_exc(),
+        )
+        return failure(
+            INTERNAL_ERROR, "internal error", status_code=500, request=request
+        )
 
 
 def _run_request(
@@ -147,9 +210,11 @@ async def _sse_events(
             data = json.dumps(event.data, ensure_ascii=False)
             yield f"event: {event.event}\ndata: {data}\n\n"
     except RuntimeApplicationError as exc:
+        # SSE error 帧同样用整数码（与 HTTP envelope 一致），slug 保留在 error 字段。
         data = json.dumps(
             {
-                "code": exc.code,
+                "code": RUNTIME_APPLICATION_ERROR,
+                "error": exc.code,
                 "message": str(exc),
                 "request_id": request.request_id,
             },
@@ -158,9 +223,10 @@ async def _sse_events(
         yield f"event: error\ndata: {data}\n\n"
 
 
-def _request_id(value: str | None) -> str:
-    if value is not None and value.strip():
-        return value.strip()
+def _context_request_id() -> str:
+    context = current_context()
+    if context is not None:
+        return context.request_id
     return f"req_{uuid4().hex}"
 
 
@@ -168,17 +234,3 @@ def _tenant_id(header: str | None, body: str) -> str:
     if header is not None and header.strip():
         return header.strip()
     return body
-
-
-def _envelope(
-    code: str,
-    message: str,
-    data: dict[str, object] | None,
-    request_id: str,
-) -> dict[str, object]:
-    return {
-        "code": code,
-        "message": message,
-        "data": data,
-        "request_id": request_id,
-    }

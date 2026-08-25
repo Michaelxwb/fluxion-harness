@@ -142,6 +142,20 @@ class MemoryManager:
         context.emit("memory.compacted", {"summary_tokens": _estimate_tokens(summary)})
         return CompactionResult(raw_messages=raw, summary=summary)
 
+    async def maybe_compact(self, context: RuntimeContext) -> bool:
+        """上下文超 max_context_tokens 时触发摘要压缩；返回是否压缩过。
+
+        compact_context 此前是死代码（runtime 从不调用），叠加 token 估算对
+        中文系统性低估，L1 在中文长会话中无界增长，最终每轮请求都因 provider
+        context length exceeded 永久失败。由 AgentRuntime.run_step 在每轮建消息前调用。
+        """
+        messages = await self._context_messages(context)
+        total = sum(record.tokens for record in messages)
+        if total < self._policy.max_context_tokens:
+            return False
+        await self.compact_context(context)
+        return True
+
     async def _drop_from_l0(self, execution_id: str, records: list[MemoryRecord]) -> None:
         current = self._l0.get(execution_id, [])
         if not current:
@@ -209,7 +223,32 @@ def _memory_record(context: RuntimeContext, role: str, content: str) -> MemoryRe
 
 
 def _estimate_tokens(content: str) -> int:
-    return max(1, len(content.split()))
+    # 拉丁文沿用按词计（split）；CJK 无空格分词，此前整段中文计为 1 token，
+    # 导致 flush/compact 永不触发、L1 无界增长 → provider context length
+    # exceeded（中文场景的必然崩溃，见 FEAT-22/23）。修正：CJK 按单字计
+    # （≈1 token/字，略过估但远胜低估；过估早 flush 不丢数据）。
+    if not content:
+        return 1
+    word_tokens = len(content.split())
+    cjk_chars = sum(1 for char in content if _is_cjk(ord(char)))
+    return max(1, word_tokens + cjk_chars)
+
+
+_CJK_RANGES = (
+    (0x1100, 0x11FF),    # Hangul Jamo
+    (0x2E80, 0x9FFF),    # CJK Radicals / Unified Ideographs
+    (0xA000, 0xA4FF),    # Yi
+    (0xAC00, 0xD7AF),    # Hangul Syllables
+    (0xF900, 0xFAFF),    # CJK Compatibility Ideographs
+    (0xFE30, 0xFE4F),    # CJK Compatibility Forms
+    (0xFF00, 0xFFEF),    # Fullwidth / Halfwidth
+    (0x3000, 0x30FF),    # CJK Symbols / Hiragana / Katakana
+    (0x20000, 0x2FA1F),  # CJK Extensions A–F
+)
+
+
+def _is_cjk(codepoint: int) -> bool:
+    return any(low <= codepoint <= high for low, high in _CJK_RANGES)
 
 
 def _summarize(records: list[MemoryRecord]) -> str:

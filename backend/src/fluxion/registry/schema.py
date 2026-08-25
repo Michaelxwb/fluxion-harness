@@ -63,6 +63,14 @@ Index(
     resource_bindings.c.enabled,
 )
 
+# F8：服务 list_bindings_page 的 tenant-only（+可选 resource_type）按 created_at
+# 排序分页——idx_binding_subject 中 created_at 不在列，无法服务排序查询。
+Index(
+    "idx_binding_tenant_created",
+    resource_bindings.c.tenant_id,
+    resource_bindings.c.created_at,
+)
+
 audit_logs = Table(
     "audit_logs",
     metadata,
@@ -84,6 +92,14 @@ Index(
     audit_logs.c.tenant_id,
     audit_logs.c.target_type,
     audit_logs.c.target_id,
+    audit_logs.c.created_at,
+)
+
+# F8：服务 list_audit 的 tenant-only 按 created_at 排序分页——idx_audit_target 中
+# target_type/target_id 夹在 tenant_id 与 created_at 之间，无法服务 tenant-only 排序。
+Index(
+    "idx_audit_tenant_created",
+    audit_logs.c.tenant_id,
     audit_logs.c.created_at,
 )
 

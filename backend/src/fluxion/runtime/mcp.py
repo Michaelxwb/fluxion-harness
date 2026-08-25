@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator, Awaitable, Mapping
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -93,9 +93,11 @@ class OfficialMCPClient:
         config: MCPServerConfig,
         *,
         http_client: httpx2.AsyncClient | None = None,
+        pool_session: AbstractAsyncContextManager[httpx2.AsyncClient] | None = None,
     ) -> None:
         self._config = config
         self._http_client = http_client
+        self._pool_session = pool_session
 
     async def list_tools(self) -> list[MCPDiscoveredTool]:
         async def operation() -> list[MCPDiscoveredTool]:
@@ -173,6 +175,17 @@ class OfficialMCPClient:
             return
         if self._config.transport != "streamable_http" or self._config.url is None:
             raise MCPTransportError(f"unsupported MCP transport: {self._config.transport}")
+        if self._pool_session is not None:
+            # A18：pool session 在 enter 时 inc in_flight、exit 时 dec；MCP Client
+            # session（含 handshake + call）整段被 in_flight 覆盖——evict/expire/
+            # invalidate 三处 close 路径不会关掉本 client（含跨执行 version
+            # invalidation race）。httpx2 transport client 复用 pool entry。
+            async with (
+                self._pool_session as http_client,
+                self._open_http_session(http_client, timeout_seconds) as client,
+            ):
+                yield client
+            return
         if self._http_client is not None:
             async with self._open_http_session(self._http_client, timeout_seconds) as client:
                 yield client
@@ -310,25 +323,31 @@ class RegistryMCPRuntime:
             resource_version=resource_version,
             credential_version=config.credential_version,
         )
-        http_client = await self._http_pool.get_client(
+        pool_session = self._http_pool.session(
             key,
             headers=config.headers or {},
             timeout_ms=config.timeout_ms,
             credential_ref=config.credential_ref,
         )
-        return OfficialMCPClient(config, http_client=http_client)
+        return OfficialMCPClient(config, pool_session=pool_session)
 
     async def _mcp_bindings(
         self,
         context: RuntimeContext,
     ) -> dict[str, ResourceBinding]:
+        # A18/ADR-005：bindings 不随执行期变化，首次解析后缓存于 context，避免
+        # 每次 call_tool/prepare 的 N+1 list_bindings 查询。
+        if context.mcp_bindings_cache is not None:
+            return context.mcp_bindings_cache
         bindings = await self._store.list_bindings(
             tenant_id=context.snapshot.tenant_id,
             subject_type="user",
             subject_id=context.snapshot.user_id,
             resource_type=ResourceKind.MCP,
         )
-        return {binding.resource_id: binding for binding in bindings if binding.enabled}
+        result = {binding.resource_id: binding for binding in bindings if binding.enabled}
+        context.mcp_bindings_cache = result
+        return result
 
     async def _resolve_config(
         self,
@@ -337,6 +356,12 @@ class RegistryMCPRuntime:
         version: str,
         binding: ResourceBinding,
     ) -> MCPServerConfig:
+        # A18/ADR-005：config（含已解算 credential）不随执行期变化，首次解析后
+        # 缓存于 context，避免每次 call_tool 的 store.get + secret resolve。
+        if context.mcp_configs_cache is not None:
+            cached = context.mcp_configs_cache.get(mcp_id)
+            if cached is not None:
+                return cast(MCPServerConfig, cached)
         resource = await self._store.get(
             ResourceKind.MCP,
             mcp_id,
@@ -346,7 +371,11 @@ class RegistryMCPRuntime:
         if resource is None:
             raise MCPTransportError(f"MCP {mcp_id}@{version} not found")
         credential = await self._credential(binding)
-        return _server_config(resource, credential, binding.credential_ref)
+        config = _server_config(resource, credential, binding.credential_ref)
+        if context.mcp_configs_cache is None:
+            context.mcp_configs_cache = {}
+        context.mcp_configs_cache[mcp_id] = config
+        return config
 
     async def _credential(self, binding: ResourceBinding) -> ResolvedCredential | None:
         if binding.credential_ref is None:
@@ -354,7 +383,9 @@ class RegistryMCPRuntime:
         if self._credential_resolver is None:
             raise MCPTransportError("MCP credential resolver is not configured")
         try:
-            return await self._credential_resolver.resolve_with_metadata(binding.credential_ref)
+            return await self._credential_resolver.resolve_with_metadata(
+                binding.credential_ref, tenant_id=binding.tenant_id
+            )
         except SecretProviderError:
             await self._http_pool.invalidate_credential(binding.credential_ref)
             raise

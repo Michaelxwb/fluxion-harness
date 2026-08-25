@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from datetime import UTC, datetime
 from statistics import quantiles
 from time import perf_counter_ns
 from typing import Protocol
@@ -12,7 +11,7 @@ from tests.console_helpers import tenant_headers
 
 from fluxion.api.console import create_app
 from fluxion.registry import SQLiteRegistryStore
-from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
+from fluxion.resources import ResourceDefinition, ResourceKind
 from fluxion.services.console_app import ConsoleApplicationService
 
 
@@ -73,14 +72,21 @@ def test_B_C104_resource_list_and_detail_p95_under_300ms(
 async def _seed_resources(store: SQLiteRegistryStore, *, count: int) -> None:
     for index in range(count):
         resource_id = f"runtime-{index}"
+        # F6：put() 只接受 DRAFT，PUBLISHED 必须经 publish() 过渡——此前 seed 直插
+        # PUBLISHED 行正是 F6 要关闭的治理旁门。seed 在 setup 阶段（非计时路径），
+        # 多一次 publish 往返不影响 list+detail 的 p95 测量。
         await store.put(
             ResourceDefinition(
                 kind=ResourceKind.RUNTIME_PROFILE,
                 id=resource_id,
                 tenant_id="tenant-a",
                 version="1",
-                status=ResourceStatus.PUBLISHED,
                 spec_json={"id": resource_id, "model": "dev"},
-                published_at=datetime.now(UTC),
             )
+        )
+        await store.publish(
+            ResourceKind.RUNTIME_PROFILE,
+            resource_id,
+            tenant_id="tenant-a",
+            version="1",
         )

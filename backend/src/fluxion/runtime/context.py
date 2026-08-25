@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from fluxion.resources import ExecutionSnapshot
+from fluxion.resources import ExecutionSnapshot, ResourceBinding
+
+if TYPE_CHECKING:
+    from fluxion.runtime.tools import ToolRuntime
 
 
 def _new_id() -> str:
@@ -55,6 +59,23 @@ class RuntimeContext:
     request: RequestContext
     snapshot: ExecutionSnapshot
     trace: list[TraceEvent] = field(default_factory=list)
+    # A2/ADR-005：每执行期 effective tool policy 首次解析后缓存于此，tool call 期
+    # 不再实时重解析 tenant policy/user binding——消除执行期版本漂移（snapshot 记录
+    # 的版本与执行期授权不一致）与每个 tool call 的 N+1 查询。随 RuntimeContext
+    # 生命周期释放，无跨执行泄漏；首次解析发生在 _model_tool_definitions（模型工具
+    # 列表构建，执行起始），等价于"在执行起始锚定授权"。
+    tool_policy: tuple[set[str], set[str], set[str]] | None = None
+    # F4：per-execution ToolRuntime 副本。run/stream 起始 clone 自 service-level
+    # base（builtin/注入工具保留），prepare 往副本注入 MCP descriptor——跨租户
+    # MCP descriptor（含 credential_ref）不共享、执行结束随 context GC、不累积、
+    # disable binding 后不 stale。仅 run/stream 执行路径内设值。
+    tool_runtime: ToolRuntime | None = None
+    # A18/ADR-005：MCP bindings + config（含已解算 credential）每执行期首次解析
+    # 后缓存于此，call_tool/prepare 不再每调用重查 store.list_bindings /
+    # store.get / secret resolve（N+1）。值不随执行期变化（执行期版本锚定），
+    # 随 context 生命周期释放，无跨执行泄漏。
+    mcp_bindings_cache: dict[str, ResourceBinding] | None = None
+    mcp_configs_cache: dict[str, object] | None = None
 
     def emit(self, name: str, attributes: dict[str, object] | None = None) -> None:
         self.trace.append(

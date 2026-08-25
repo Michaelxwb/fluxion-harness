@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import socket
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 import pytest
 from tests.runtime_helpers import runtime_context
 
-from fluxion.runtime.builtin_tools import BuiltinToolConfig, register_builtin_tools
+from fluxion.runtime.builtin_tools import (
+    BuiltinToolConfig,
+    _http_get,
+    register_builtin_tools,
+)
 from fluxion.runtime.tools import ToolAuthorizationError, ToolResultStatus, ToolRuntime
 
 
@@ -128,6 +135,87 @@ async def test_E_R16_http_get_rejects_loopback_and_private_hosts(
     with pytest.raises(ToolAuthorizationError) as exc:
         await tool_runtime.call(context, "http.get", {"url": url}, **common)
     assert exc.value.code == "host_not_allowed"
+
+
+def test_S5_http_get_returns_redirect_without_following(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """S5 回归：http.get 不跟随重定向——3xx 响应原样返回（status=302），
+    不取回 Location 目标内容（否则 SSRF：校验过的公网域名 302 跳到内网）。
+    http.client 本身不跟随重定向；校验逻辑由 loopback/private 测试覆盖，
+    这里把解析结果指向本地测试服务以走通连接。"""
+
+    class _RedirectServer(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            if self.path == "/redir":
+                self.send_response(302)
+                self.send_header("Location", "/secret")
+                self.end_headers()
+            else:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"SECRET-BODY")
+
+        def log_message(self, _format: str, *_args: object) -> None:
+            return
+
+    server = HTTPServer(("127.0.0.1", 0), _RedirectServer)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.setattr(
+        "fluxion.runtime.builtin_tools._resolve_public_host",
+        lambda _host, _url, _port: ["127.0.0.1"],
+    )
+    try:
+        result = _http_get(
+            None,  # type: ignore[arg-type] — _context 未被 http.get 使用
+            {"url": f"http://example.com:{server.server_port}/redir"},
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert result["status"] == 302
+    assert result["body"] != "SECRET-BODY"
+
+
+def test_S5_http_get_resolves_hostname_once_and_pins_ip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """S5：DNS rebinding 封堵——hostname 只解析一次（校验），连接钉扎到解析出
+    的 IP 字面量，不再按 hostname 二次解析。校验与连接之间 DNS 变化无法把
+    连接引到内网。"""
+    hostname_resolutions: list[str] = []
+    real_getaddrinfo = socket.getaddrinfo
+
+    def fake_getaddrinfo(host, port, *args, **kwargs):
+        if str(host) == "example.com":
+            hostname_resolutions.append(str(host))
+            return [
+                (
+                    socket.AF_INET,
+                    socket.SOCK_STREAM,
+                    socket.IPPROTO_TCP,
+                    "",
+                    ("93.184.216.34", port),
+                )
+            ]
+        return real_getaddrinfo(host, port, *args, **kwargs)
+
+    connect_targets: list[object] = []
+
+    def fake_create_connection(address, *args, **kwargs):
+        connect_targets.append(address)
+        raise RuntimeError("stop")
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
+    monkeypatch.setattr(socket, "create_connection", fake_create_connection)
+
+    with pytest.raises(RuntimeError, match="stop"):
+        _http_get(None, {"url": "http://example.com/path"})  # type: ignore[arg-type]
+
+    assert hostname_resolutions == ["example.com"]
+    assert connect_targets == [("93.184.216.34", 80)]
 
 
 @pytest.mark.asyncio

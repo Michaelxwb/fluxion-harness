@@ -83,7 +83,9 @@ class RegistryOpenAIModelProvider:
         if self._credential_resolver is None:
             raise RegistryModelProviderError("model credential resolver is not configured")
         try:
-            return await self._credential_resolver.resolve(binding.credential_ref)
+            return await self._credential_resolver.resolve(
+                binding.credential_ref, tenant_id=binding.tenant_id
+            )
         except SecretProviderError as exc:
             raise RegistryModelProviderError("model credential is unavailable") from exc
 

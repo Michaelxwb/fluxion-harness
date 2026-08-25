@@ -44,6 +44,11 @@ from fluxion.services.workflow_app import (
     WorkflowValidationResult,
 )
 
+# 长跑进程内存上限：publication lock 此前每个 (tenant, kind, resource_id) 一把且
+# 从不淘汰 → dev/多租户压测下 _publication_locks 无界增长 OOM。此 cap 仅淘汰未被
+# 持有的空闲锁，命中即保留。
+_PUBLICATION_LOCK_CAP = 4096
+
 
 class ConsoleResourceOps:
     """资源生命周期操作 mixin：CRUD、publish/rollback/deprecate 与版本校验。
@@ -68,7 +73,24 @@ class ConsoleResourceOps:
         if lock is None:
             lock = asyncio.Lock()
             self._publication_locks[key] = lock
+            self._evict_idle_publication_locks(exclude=key)
         return lock
+
+    def _evict_idle_publication_locks(
+        self, *, exclude: tuple[str, ResourceKind, str]
+    ) -> None:
+        # 超过 cap 时按插入序（最旧优先）淘汰未被持有的锁；排除当前 key 以免淘汰
+        # 刚插入的锁。dict 保持插入序，list() 拷贝避免在迭代中修改 size。
+        if len(self._publication_locks) <= _PUBLICATION_LOCK_CAP:
+            return
+        for candidate_key in list(self._publication_locks):
+            if len(self._publication_locks) <= _PUBLICATION_LOCK_CAP:
+                break
+            if candidate_key == exclude:
+                continue
+            candidate = self._publication_locks.get(candidate_key)
+            if candidate is not None and not candidate.locked():
+                self._publication_locks.pop(candidate_key, None)
 
     async def create_resource_draft(
         self,
@@ -286,7 +308,7 @@ class ConsoleResourceOps:
         if _rollback_requires_approval(target):
             if not request.force or not request.approval_id:
                 raise ConsoleVersionConflictError("回滚目标存在兼容性风险，需要强制审批")
-            await self._verify_rollback_approval(actor, request, request.approval_id)
+            await self._verify_and_consume_rollback_approval(actor, request, request.approval_id)
         return await self._commit_publication(
             actor,
             kind=request.kind,
@@ -296,7 +318,7 @@ class ConsoleResourceOps:
             approval_id=request.approval_id,
         )
 
-    async def _verify_rollback_approval(
+    async def _verify_and_consume_rollback_approval(
         self,
         actor: ConsoleActor,
         request: RollbackResourceRequest,
@@ -320,6 +342,18 @@ class ConsoleResourceOps:
             raise ConsoleForbiddenError("审批人不能执行本次回滚")
         if actor.actor_id != record.requester_actor_id:
             raise ConsoleForbiddenError("仅审批请求人可执行本次回滚")
+        # A9：审批单一次性消费——校验通过后立即 CAS 置 consumed_at（fail-closed，
+        # 消费先于 _commit_publication）。已消费的审批单重放 → store.consume 抛
+        # ValueError → 403「已消费」。消费先于 commit：若 commit 失败，审批单已
+        # burnt，操作者需重新申请；对高风险回滚而言，宁可 burnt 也不可重放。
+        try:
+            await self._approval_store.consume(
+                approval_id,
+                tenant_id=actor.tenant_id,
+                consumed_at=utc_now(),
+            )
+        except ValueError as exc:
+            raise ConsoleForbiddenError("审批已消费，不可重放") from exc
 
     async def deprecate_resource_version(
         self,

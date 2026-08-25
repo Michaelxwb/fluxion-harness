@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -54,11 +55,16 @@ async def _run_process(
     cwd: str | None,
     timeout_ms: int,
 ) -> SandboxResult:
+    # 显式清空环境：沙箱子进程此前继承宿主全部 env（含
+    # FLUXION_SECRET_MASTER_KEY、DB 连接串），模型一句 run_command ["env"]
+    # 即可把主密钥取进工具结果。仅保留 PATH 让命令可被定位。
+    sanitized_env = {"PATH": os.environ.get("PATH") or "/usr/bin:/bin"}
     process = await asyncio.create_subprocess_exec(
         *argv,
         cwd=cwd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        env=sanitized_env,
     )
     try:
         stdout, stderr = await asyncio.wait_for(
@@ -92,13 +98,22 @@ class SandboxExecBackend:
             "(deny default)",
             "(allow process*)",
             "(allow sysctl-read)",
+            # NOTE: file-read 未做 subpath 收口。尝试限制为最小系统根时，macOS
+            # dyld 共享缓存依赖使严格 allow-list 致进程启动即 SIGABRT（exit -6）。
+            # env 清空（_run_process）已封堵主密钥经环境变量泄漏的最严重路径；
+            # 文件级隔离（dev SQLite / K8s SA token）需跨 seatbelt+bubblewrap 的
+            # 分平台 allow-list 调优（含 dyld 缓存路径），单独跟踪，不交付半成品。
             "(allow file-read*)",
         ]
         if request.root_read_only:
             lines.append('(allow file-write* (subpath "/tmp/"))')
         else:
             lines.append("(allow file-write*)")
-        if not request.network_enabled:
+        # 此前 network_enabled=True 时不追加 (allow network*)，而 (deny default)
+        # 已拒绝网络 → 该开关在 macOS 后端永远是 no-op（请求网络的工具静默失败）。
+        if request.network_enabled:
+            lines.append("(allow network*)")
+        else:
             lines.append("(deny network*)")
         return "\n".join(lines) + "\n"
 

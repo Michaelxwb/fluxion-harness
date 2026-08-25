@@ -79,7 +79,9 @@ def serve_command(
         )
         return
     service = _create_service(dsn)
-    asyncio.run(service.initialize())
+    # A15：initialize 移入 app lifespan（在 uvicorn loop 内执行），不再单独
+    # asyncio.run——避免跨 loop 持有 DB 连接导致首请求 "Future attached to a
+    # different loop"。
     uvicorn_run = uvicorn.run
     uvicorn_run(create_app(service), host=host, port=port)
 

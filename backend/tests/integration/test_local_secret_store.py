@@ -19,12 +19,12 @@ async def test_E_R09_local_secret_store_encrypts_and_fails_closed_on_bad_master_
     assert metadata[ref].ciphertext != b"weather-token"
 
     resolver = CredentialResolver(store)
-    assert await resolver.resolve(ref) == "weather-token"
+    assert await resolver.resolve(ref, tenant_id="tenant-a") == "weather-token"
 
     wrong_store = LocalEncryptedSecretStore(master_key=b"b" * 32)
     wrong_store.import_encrypted_records(metadata)
     with pytest.raises(SecretProviderError) as exc_info:
-        await CredentialResolver(wrong_store).resolve(ref)
+        await CredentialResolver(wrong_store).resolve(ref, tenant_id="tenant-a")
     assert exc_info.value.code == "secret_decrypt_failed"
 
 

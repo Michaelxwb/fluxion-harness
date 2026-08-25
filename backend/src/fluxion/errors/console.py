@@ -11,6 +11,25 @@ BINDING_CONFLICT = 32_002
 VERSION_CONFLICT = 33_009
 FORBIDDEN = 35_003
 INTERNAL_ERROR = 39_001
+# RuntimeApplicationError.code 是字符串 slug（如 resource_version_not_found），
+# 无独立整数码表；统一映射到此码，slug 保留在 envelope message 中以便追溯。
+RUNTIME_APPLICATION_ERROR = 40_001
+
+# Channel API 错误码（集中定义，禁止在 handler 内硬编码——F9）。
+# 命名空间漂移待对齐：契约命名空间表规定 34xxx = Identity/Bind/Channel，而
+# 此处实际占 36xxx（Workflow/Capability 引用段）；为避免破坏既有 wire 契约
+# 与 test_dev_identity_security 的 36_003 断言，暂保留原数字，命名空间对齐
+# 作为后续契约重构项。
+CHANNEL_BIND_FAILED = 36_001
+CHANNEL_VALIDATION_FAILED = 36_002
+CHANNEL_ACCESS_DENIED = 36_003
+
+# Eval API 错误码（集中定义——F9）。37xxx 未在契约命名空间表内定义；命名空间
+# 扩展（如 38xxx = Eval/Telemetry）作为后续契约对齐项。
+EVAL_INTERNAL_ERROR = 37_000
+EVAL_VALIDATION_FAILED = 37_001
+EVAL_TRACEABILITY_ERROR = 37_002
+EVAL_EXECUTION_ERROR = 37_003
 
 
 @dataclass(frozen=True, slots=True)

@@ -276,7 +276,11 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         before: dict[str, object] | None,
         after: dict[str, object] | None,
     ) -> None:
-        # Binding 仍沿用独立 Audit 写入；Publication 使用 Registry 原子事务。
+        # Binding 等治理类操作沿用独立 Audit 写入；Publication 使用 Registry 原子事务。
+        # A20/契约§7：审计写失败不再静默吞掉（fail-open）——Binding 权限变更等必须
+        # 进 AuditLog 独立持久化，审计失败应令操作可见地失败，对齐 Publication 的
+        # fail-closed。注：当前 audit 在主操作之后独立写入（非同事务），真正的原子性
+        # 需将 audit 并入主操作事务（后续 store 契约重构项）；此处先消除静默吞没。
         try:
             await self._store.append_audit(
                 AuditRecord(
@@ -291,7 +295,7 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
                     after=after,
                 )
             )
-        except Exception as exc:  # noqa: BLE001 - audit 失败必须不影响主操作
+        except Exception as exc:
             emit_error_log(
                 request_id=actor.request_id,
                 trace_id=actor.trace_id,
@@ -303,6 +307,7 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
                 error_code=INTERNAL_ERROR,
                 stack=traceback.format_exc(),
             )
+            raise
 
 
 def _hash_access_token(token: str) -> str:

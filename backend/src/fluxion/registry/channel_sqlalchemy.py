@@ -173,6 +173,18 @@ async def resolve_channel_identity(
     return None if row is None else _identity_from_row(row)
 
 
+def _is_lock_contention(exc: OperationalError) -> bool:
+    # SQLite 并发写以 "database is locked" (SQLITE_BUSY=5) 抛 OperationalError；
+    # PG 行锁在 with_for_update 下表现为阻塞后正常读到 consumed_at，不抛
+    # OperationalError。故仅识别 SQLite BUSY；其余 OperationalError（磁盘满/
+    # 连接中断/约束等）不属锁竞争，由调用方原样向上抛（F7：避免 code 未消费
+    # 却误报 used，令用户无法重试）。
+    orig = getattr(exc, "orig", exc)
+    if getattr(orig, "sqlite_errorcode", None) == 5:  # SQLITE_BUSY
+        return True
+    return "database is locked" in str(exc).lower()
+
+
 async def redeem_bind_code(
     engine: AsyncEngine, redemption: BindRedemption
 ) -> ChannelIdentityRecord:
@@ -197,9 +209,13 @@ async def redeem_bind_code(
                 assert row is not None
                 identity = await _consume_and_bind(connection, row, redemption)
     except OperationalError as exc:
-        # SQLite 并发兑换会以 "database is locked" 触发 OperationalError，
-        # 属于「另一个请求正在消耗该 code」，转为干净的 used 拒绝而非裸 500。
-        raise BindCodeRejected("used") from exc
+        # SQLite 并发写以 "database is locked" (SQLITE_BUSY) 视作「另一个请求正在
+        # 消耗该 code」→ 干净的 used 拒绝。但 OperationalError 还覆盖磁盘满/连接
+        # 中断等——这些 code 未消费却误报 used 会让用户无法重试。故仅锁竞争转
+        # used，其余原样向上抛（F7）。
+        if _is_lock_contention(exc):
+            raise BindCodeRejected("used") from exc
+        raise
     if rejection is not None:
         raise BindCodeRejected(rejection)
     if identity is None:

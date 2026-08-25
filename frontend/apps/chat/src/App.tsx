@@ -100,11 +100,18 @@ export function ChatApp({ api }: ChatAppProps) {
       } else if (event.kind === "completed" && event.response) {
         receivedOutput = true;
         if (event.response.platformUserId) setPlatformUserId(event.response.platformUserId);
-        updateAssistant((item) => ({
-          ...item,
-          content: event.response!.output,
-          kind: event.response!.kind
-        }));
+        updateAssistant((item) => {
+          // 后端流式失败回退路径会先发若干 token 再发 completed（output 已含这些 token）。
+          // 若已累加的流式内容是 output 的前缀，保留累加结果避免重复渲染；否则用完整 output。
+          const streamed = item.content;
+          const output = event.response!.output;
+          const keepStreamed = streamed.length > 0 && output.startsWith(streamed);
+          return {
+            ...item,
+            content: keepStreamed ? streamed : output,
+            kind: event.response!.kind
+          };
+        });
       } else if (event.kind === "error") {
         updateAssistant((item) => ({
           ...item,

@@ -86,9 +86,12 @@ def create_dev_bundle_app(
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         await store.initialize()
         await _seed_environment_credentials(secret_store)
+        outbox_worker = runtime.build_outbox_worker()
+        outbox_worker.start()
         try:
             yield
         finally:
+            await outbox_worker.stop()
             await runtime.close()
 
     return Starlette(

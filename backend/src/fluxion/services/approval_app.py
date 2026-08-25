@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Protocol
@@ -30,6 +30,9 @@ class ApprovalRecord:
     expires_at: datetime
     created_at: datetime
     decided_at: datetime | None
+    # A9：审批单一次性消费标记。回滚执行时 CAS 置位，已消费的审批单不可重放。
+    # None 表示尚未消费；非 None 表示已被某次成功校验后的回滚消费（消费时间）。
+    consumed_at: datetime | None = None
 
 
 class ApprovalStore(Protocol):
@@ -46,6 +49,14 @@ class ApprovalStore(Protocol):
         approved: bool,
         reason: str | None,
         decided_at: datetime,
+    ) -> ApprovalRecord: ...
+
+    async def consume(
+        self,
+        approval_id: str,
+        *,
+        tenant_id: str,
+        consumed_at: datetime,
     ) -> ApprovalRecord: ...
 
 
@@ -102,6 +113,27 @@ class InMemoryApprovalStore:
         )
         self._records[key] = decided
         return decided
+
+    async def consume(
+        self,
+        approval_id: str,
+        *,
+        tenant_id: str,
+        consumed_at: datetime,
+    ) -> ApprovalRecord:
+        # A9：CAS 标记审批单已消费。仅当 consumed_at 仍为 None 时置位成功；
+        # 已消费则抛 ValueError（由调用方映射为 403「已消费」）。进程内 store
+        # 依赖上层 publication lock 串行化同资源回滚；多实例需 DB 级 CAS
+        # （UPDATE ... WHERE consumed_at IS NULL）保证原子性。
+        key = (tenant_id, approval_id)
+        record = self._records.get(key)
+        if record is None:
+            raise KeyError(approval_id)
+        if record.consumed_at is not None:
+            raise ValueError(f"approval {approval_id} already consumed")
+        consumed = replace(record, consumed_at=consumed_at)
+        self._records[key] = consumed
+        return consumed
 
 
 def new_approval_id() -> str:

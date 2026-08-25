@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button, Card, Descriptions, Space, Spin, TextArea, Typography } from "@douyinfe/semi-ui";
 import { IconPlay, IconPlus, IconSave } from "@douyinfe/semi-icons";
@@ -26,6 +26,7 @@ export function ResourceDetailPanel({ api, resourceType, resourceId }: ResourceD
   const [error, setError] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [loading, setLoading] = useState(true);
+  const versionsRequestId = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -51,13 +52,16 @@ export function ResourceDetailPanel({ api, resourceType, resourceId }: ResourceD
   }, [api, resourceType, resourceId]);
 
   async function loadVersions(target: ResourceVersion, page: number): Promise<void> {
+    // 与 getResource 的 active 守卫同义：快速切换资源时，旧请求的 setVersions 不应
+    // 覆盖新资源的版本列表。用单调 token 记 latest 调用，过期结果丢弃。
+    const requestId = ++versionsRequestId.current;
     setVersionPage(page);
-    setVersions(
-      await api.listVersions(target.resourceType, target.resourceId, {
-        page,
-        pageSize: VERSION_PAGE_SIZE
-      })
-    );
+    const result = await api.listVersions(target.resourceType, target.resourceId, {
+      page,
+      pageSize: VERSION_PAGE_SIZE
+    });
+    if (requestId !== versionsRequestId.current) return;
+    setVersions(result);
   }
 
   function applyResource(next: ResourceVersion): void {

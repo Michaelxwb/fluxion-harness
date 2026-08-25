@@ -50,3 +50,22 @@ Definition 描述"是什么"；Binding 描述"谁能用、怎么配置、用什�
 ## Revisit Conditions
 
 - 出现无需共享定义的单一归属资源且 Binding 成为纯开销。
+
+## Amendment (2026-08-26): Skill 扩展式能力模型
+
+A1 review 发现：原文「EffectiveCapability = UserGrant ∩ AgentAllowlist ∩ TenantPolicy」
+（严格交集）与 S_R18 契约冲突——S_R18 把「Binding 授予 profile `allowed_skills` 之外
+的 Skill」明确为**期望特性**（扩展式能力）。经设计裁决，确认扩展模型为既有 spec，
+对 ADR-003 做如下澄清，不改变实现：
+
+- **Skill 维度允许扩展**：Binding 可授予 RuntimeProfile `allowed_skills` 之外的 Skill。
+  扩展由 Resolver 的 `_effective_skill_selectors` 独立计算，不经过能力交集函数 `_allowed`，
+  故 S_R18 的扩展语义不受 A1 fail-closed 收敛影响。
+- **MCP / builtin tools 不允许扩展**：`allowed_tools` 是 Agent 层硬上限。Binding/UserGrant
+  只能在 Agent allowlist 之内做交集（UserGrant ∩ AgentAllowlist ∩ TenantPolicy），不得越过。
+  对应 `_allowed` 的 fail-closed：空 allowlist = 全拒（与 Runtime `tools.py` enforcement 对齐）。
+- **Failure Modes 澄清**：原文「交集为空 → 静默无能力」对 MCP/builtin tools 仍然成立且为
+  fail-closed；Skill 的扩展路径是**有意**的，不属于该 failure mode。
+
+理由：Skill 是声明式能力（prompt/instructions），授予风险可控；MCP/builtin tools 是可执行
+副作用通道，必须由 Agent allowlist 把守。两类能力安全边界不同，故扩展语义仅限 Skill。

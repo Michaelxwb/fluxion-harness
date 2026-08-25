@@ -12,6 +12,9 @@ __all__ = [
     "BindCodeRecord",
     "BindCodeRejected",
     "BindRedemption",
+    "BindingCommand",
+    "BindingCommit",
+    "BindingOperation",
     "ChannelIdentityRecord",
     "ChannelRegistryStore",
     "ChannelStore",
@@ -41,6 +44,9 @@ from fluxion.registry.channel_store import (
     PlatformUserRecord,
 )
 from fluxion.registry.store import (
+    BindingCommand,
+    BindingCommit,
+    BindingOperation,
     OutboxEventRecord,
     OutboxStatus,
     PublicationCommand,
