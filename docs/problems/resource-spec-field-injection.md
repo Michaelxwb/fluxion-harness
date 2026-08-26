@@ -1,8 +1,9 @@
 # 资源规格字段：运行时注入真相与修复建议
 
-> **状态**:评审中  
-> **日期**:2026-08-25  
-> **背景**:控制台「新增运行资产」弹窗只有 类型/资源 ID/版本/规格 JSON 四个裸字段,用户不知道怎么填、不知道六种类型怎么选、不知道 ID 与 JSON 格式。为解决这个问题,从核心运行时**自底向上**梳理了六类资源 spec 字段的真实消费路径——每个字段都要有缘由,规则可以改。本文记录梳理结果与修复建议,供评审。
+> **状态**:已闭环（落地见 §6，决策见 [ADR-012](../adr/adr-012-spec-model-single-source-of-truth.md)）  
+> **日期**:2026-08-25（评审）/ 2026-08-26（落地闭环）  
+> **背景**:控制台「新增运行资产」弹窗只有 类型/资源 ID/版本/规格 JSON 四个裸字段,用户不知道怎么填、不知道六种类型怎么选、不知道 ID 与 JSON 格式。为解决这个问题,从核心运行时**自底向上**梳理了六类资源 spec 字段的真实消费路径——每个字段都要有缘由,规则可以改。本文记录梳理结果与修复建议,供评审。  
+> **注**:§2/§3 为评审时刻的历史快照（字段真相表已归档，权威定义以 `contracts.py` spec model 为唯一真相源，见 ADR-012）。其中两处 hedge 已被后续修复超越，已就地标注「⚠️ 已修正，见 §6」。
 
 **涉及文件**:
 - `backend/src/fluxion/resources/contracts.py` — 全部 spec 校验模型(权威字段定义)
@@ -137,7 +138,7 @@ PolicyDefinition.model_validate({'name': 'tenant-policy', 'allowed_tools': ['lis
 但运行时实际读取键: ['allowed_tools', 'denied_tools']; rules 零读取。
 ```
 
-即「**能通过校验的策略对运行时无用,运行时/展示需要的字段通不过校验**」。`denied_tools` 另有注:当前只在 `visible_tools`(services 层无调用点)里用,实际放行路径不生效。
+即「**能通过校验的策略对运行时无用,运行时/展示需要的字段通不过校验**」。`denied_tools` 另有注:当前只在 `visible_tools`(services 层无调用点)里用,实际放行路径不生效。 ⚠️ **已修正，见 §6**——`denied_tools` 已在 `_effective_tool_policy` 中从 user/agent/tenant 三维度统一移除，进入执行路径生效。
 
 ### 3.2 工具放行机制(为什么 allowed_* 语义不一样)
 
@@ -175,7 +176,7 @@ class PolicyDefinition(SensitiveSpecModel):
     name: str
     rules: list[dict[str, object]] = Field(default_factory=list)  # 保留(向后兼容)
     allowed_tools: list[str] = Field(default_factory=list)         # 新增:工具白名单(运行时真读)
-    denied_tools: list[str] = Field(default_factory=list)          # 新增:工具黑名单(运行时读,当前执行路径不生效)
+    denied_tools: list[str] = Field(default_factory=list)          # 新增:工具黑名单(运行时读,⚠️ 当前执行路径不生效——见 §6 已修正)
 ```
 
 - 证据:运行时 `capabilities.py:104-105` 与展示层 `console_payloads.py:67-68` 都已读这两个键,只有校验模型缺。
@@ -211,3 +212,37 @@ class PolicyDefinition(SensitiveSpecModel):
 1. **策略模型修复**(§4.1)是否随本文档评审通过后实施?
 2. **弹窗形态**(§4.2)选 A 还是 B?
 3. 本文档放置于 `docs/problems/` 是否认可?(备选:`docs/design/`、`docs/development/`)
+
+---
+
+## 6. 结论与落地（2026-08-26 闭环）
+
+决策采纳 [ADR-012](../adr/adr-012-spec-model-single-source-of-truth.md) 方案 2：**spec model 是校验 / 运行时 / 前端表单的唯一真相源**，弹窗形态取 §4.2 的 **B（结构化表单）**。整改 RS1–RS10 已全量落地，后端 223 passed / 1 skipped（live-smoke planned，见 S-P13-07）、前端 20 passed、生产构建（check-no-inmemory + tsc -b + vite build）全绿。
+
+### 6.1 后端契约收口（`contracts.py`）
+
+- **删死字段**：`RuntimeProfile.allowed_workflows/memory_policy/runtime_policy`、`SkillDefinition.description/capability_id/parameters`、`ModelProviderDefinition.name`、`PolicyDefinition.rules` 全部移除（`extra="forbid"` 后顶层不可能再写这些键）。
+- **`ModelPolicy` 结构化**：`model_policy` 由 `dict[str, object]` 改为 typed `ModelPolicy`（6 键 `provider/failover/model/timeout_ms/deadline_ms/max_rounds`，默认 60000/120000/8，`extra="forbid"` + `frozen=True`）；`ExecutionSnapshot.model_resolution` 直接持有 frozen 实例（强化 ADR-005）。
+- **`prompt: dict|str → str`**；**`PolicyDefinition` 增 `allowed_tools`/`denied_tools`**（均为运行时真读）。
+- 运行时消费点全部改为 `model_validate(spec_json)` 后读 model 属性，禁止 `spec_json.get`。
+
+### 6.2 ⚠️ hedge 更正：`denied_tools` 已进执行路径
+
+评审时刻（§3.1/§4.1）记 `denied_tools`「只在 `visible_tools`、实际放行路径不生效」。此结论已被 task #2（S6+A1）超越：`runtime_tool_ops._effective_tool_policy` 现将 `policy_denied` 从 `user_tools`/`agent_tools`/`tenant_tools` **三维度统一移除**后再做三重交集，`denied_tools` 始终优先于白名单拒绝，安全洞已封。
+
+### 6.3 静态 MCP `tools` 路径移除（ADR-012 §5）
+
+`capabilities.py` 对 MCP spec 的静态 `tools` 字段读取路径已整体移除：该字段不在 `MCPDefinition`（严格校验建不出）、工具 id 与真实 MCP 运行时（`mcp__<server>__<tool>`）不匹配、集合上被三重交集吸收。用户级 MCP 授权语义保留在挂载层（`mcp.py` binding 检查）与 Skill 扩展（`resolver._effective_skill_selectors`），`EffectiveCapabilityResolver` 的 user 维度与 agent 维度重合（`user_tools = agent_tools`），有效交集结果数学上不变（`user = agent ∪ granted`，`user ∩ agent = agent`）。
+
+### 6.4 前端表单：schema 派生自后端 model（用户不再手写 JSON）
+
+- 新增 `GET /api/v1/resources/{resource_type}/schema` → `model_json_schema()`（route 注册在 `/{resource_id}` 之前，避免被吞）。
+- 前端 `SchemaForm` 自渲染：string→Input/TextArea、integer→InputNumber、enum→Select、boolean→Switch、array→动态增删、结构化 object→边框分组、`dict[str,str]`→键值对；清空可选字段即整键移除（不提交空串/空数组）。
+- 创建弹窗（`ResourcesPage`）与草稿编辑（`ResourceDetailPanel`）均接入 `SpecForm`（结构化默认 + 「高级 JSON 模式」逃逸舱）；严格校验仍由后端 `validateDraft` 承担，前端不重复实现。
+- inMemory 镜像（`inMemorySchemas.ts`）仅供离线开发/组件测试，线上构建不打包；`check-no-inmemory` 守卫已放宽 inMemory fixture 间互引（仍拦截生产源码引用 inMemory API）。
+
+### 6.5 未覆盖（不在本整改范围）
+
+- S1+S2 auth boundary：用户决定「后续再补」，不在 RS 范围。
+- A21 `execution_id` 幂等/去重：独立项，未启动。
+- 复杂 schema（oneOf/allOf/条件字段）：ADR-012 revisit 条件，届时评估引入表单库。

@@ -28,7 +28,7 @@ async def test_S_C118_plugin_policy_view_lists_published_policies() -> None:
             stack.client,
             kind=ResourceKind.POLICY,
             resource_id="main-policy",
-            spec={"name": "main-policy", "rules": []},
+            spec={"name": "main-policy"},
         )
         published = await publish_resource(
             stack.client,
@@ -63,7 +63,7 @@ async def test_S_C118_plugin_policy_view_is_tenant_scoped() -> None:
                 kind=ResourceKind.POLICY,
                 resource_id=resource_id,
                 tenant_id=tenant_id,
-                spec={"name": resource_id, "rules": []},
+                spec={"name": resource_id},
             )
             await publish_resource(
                 stack.client,

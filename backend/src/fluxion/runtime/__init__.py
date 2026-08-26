@@ -22,7 +22,6 @@ from fluxion.runtime.secrets import (
     LocalEncryptedSecretStore,
     SecretProviderError,
 )
-from fluxion.runtime.skills import DeclarativeSkill, DeclarativeSkillRuntime
 from fluxion.runtime.tools import (
     ToolAuthorizationError,
     ToolDescriptor,
@@ -40,8 +39,6 @@ __all__ = [
     "CacheRevisionState",
     "ConfigChangeEvent",
     "CredentialResolver",
-    "DeclarativeSkill",
-    "DeclarativeSkillRuntime",
     "EffectiveCapabilityResolver",
     "InMemoryTraceStore",
     "LocalEncryptedSecretStore",

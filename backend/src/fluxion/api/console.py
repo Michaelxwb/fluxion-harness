@@ -59,6 +59,7 @@ def create_app(
     _register_health_routes(app)
     _register_create_resource_route(app, service)
     _register_list_resources_route(app, service)
+    _register_resource_schema_route(app, service)
     _register_get_resource_route(app, service)
     _register_list_versions_route(app, service)
     _register_update_resource_route(app, service)
@@ -135,6 +136,19 @@ def _register_list_resources_route(app: FastAPI, service: ConsoleApplicationServ
                 "total": total,
             }
         )
+
+
+def _register_resource_schema_route(app: FastAPI, service: ConsoleApplicationService) -> None:
+    # ADR-012：spec model 是表单单一真相源——前端按 schema 自渲染 Semi 表单，
+    # 用户不再手写 JSON。必须注册在 /{resource_type}/{resource_id} 之前，
+    # 否则 "schema" 会被当成 resource_id 吞掉。
+    @app.get("/api/v1/resources/{resource_type}/schema")
+    async def get_resource_schema(
+        resource_type: str,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        schema = await service.resource_schema(_kind(resource_type))
+        return success(schema)
 
 
 def _register_get_resource_route(app: FastAPI, service: ConsoleApplicationService) -> None:

@@ -8,7 +8,12 @@ from typer.testing import CliRunner
 
 from fluxion.cli.main import app
 from fluxion.registry import SQLiteRegistryStore
-from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
+from fluxion.resources import (
+    ModelPolicy,
+    ResourceDefinition,
+    ResourceKind,
+    ResourceStatus,
+)
 
 
 def test_S_R12_cli_bootstraps_runtime_profile_and_runs_without_console(
@@ -53,11 +58,11 @@ def test_S_R12_cli_bootstraps_runtime_profile_and_runs_without_console(
     profile = asyncio.run(_load_profile(dsn))
     assert profile is not None
     assert profile.status is ResourceStatus.PUBLISHED
-    assert profile.spec_json["model_policy"] == {
-        "provider": "dev.echo",
-        "model": "dev",
-        "timeout_ms": 1000,
-    }
+    # ADR-012：spec 由 RuntimeProfile model_dump 生成，model_policy 含默认值
+    # 完整落库（failover/deadline_ms/max_rounds），读取端可与 ModelPolicy 精确比对。
+    assert profile.spec_json["model_policy"] == ModelPolicy(
+        provider="dev.echo", model="dev", timeout_ms=1000
+    ).model_dump(mode="json")
 
 
 async def _load_profile(dsn: str) -> ResourceDefinition | None:

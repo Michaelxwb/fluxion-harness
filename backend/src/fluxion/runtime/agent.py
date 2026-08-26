@@ -19,7 +19,7 @@ from fluxion.plugins.contracts import (
     ToolCall,
     ToolDefinition,
 )
-from fluxion.resources import ExecutionSnapshot
+from fluxion.resources import ExecutionSnapshot, ModelPolicy
 from fluxion.runtime.context import RequestContext, RuntimeContext, TraceEvent
 from fluxion.runtime.memory import MemoryManager, MemoryPolicy, MemoryRecord, SessionMemoryStore
 from fluxion.runtime.resolver import ExecutionSnapshotBuilder
@@ -141,7 +141,8 @@ class AgentRuntime:
         """
         if self._model_providers is None:
             return
-        provider_ids = _provider_chain(context.snapshot.model_resolution)
+        policy = context.snapshot.model_resolution
+        provider_ids = _provider_chain(policy)
         if not provider_ids:
             return
         provider = self._model_providers.resolve(provider_ids[0])
@@ -152,13 +153,13 @@ class AgentRuntime:
         messages = _model_messages(context, session_history, input_message)
         scoped = ModelRequest(
             messages=messages,
-            model=_optional_str(context.snapshot.model_resolution.get("model")),
-            timeout_ms=_timeout_ms(context.snapshot.model_resolution),
+            model=policy.model,
+            timeout_ms=policy.timeout_ms,
             tenant_id=context.snapshot.tenant_id,
             user_id=context.snapshot.user_id,
             provider_version=context.snapshot.plugin_versions.get(provider_ids[0]),
         )
-        deadline_seconds = _deadline_ms(context.snapshot.model_resolution) / 1000
+        deadline_seconds = policy.deadline_ms / 1000
         started = perf_counter()
         sentinel = object()
         stream = streaming.stream(scoped)
@@ -172,7 +173,7 @@ class AgentRuntime:
                 except TimeoutError:
                     context.emit(
                         "agent_loop.timeout",
-                        {"deadline_ms": _deadline_ms(context.snapshot.model_resolution)},
+                        {"deadline_ms": policy.deadline_ms},
                     )
                     raise AgentLoopTimeoutError("streaming deadline exceeded")
                 if token is sentinel:
@@ -218,10 +219,10 @@ class AgentRuntime:
     ) -> tuple[ModelResponse | None, tuple[dict[str, object], ...]]:
         if self._model_providers is None:
             return None, ()
-        provider_ids = _provider_chain(context.snapshot.model_resolution)
+        policy = context.snapshot.model_resolution
+        provider_ids = _provider_chain(policy)
         if not provider_ids:
             return None, ()
-        timeout_ms = _timeout_ms(context.snapshot.model_resolution)
         messages = _model_messages(context, session_history, input_message)
         try:
             return await asyncio.wait_for(
@@ -230,15 +231,15 @@ class AgentRuntime:
                     provider_ids=provider_ids,
                     messages=messages,
                     tools=tools,
-                    timeout_ms=timeout_ms,
+                    timeout_ms=policy.timeout_ms,
                     tool_handler=tool_handler,
                 ),
-                timeout=_deadline_ms(context.snapshot.model_resolution) / 1000,
+                timeout=policy.deadline_ms / 1000,
             )
         except TimeoutError as exc:
             context.emit(
                 "agent_loop.timeout",
-                {"deadline_ms": _deadline_ms(context.snapshot.model_resolution)},
+                {"deadline_ms": policy.deadline_ms},
             )
             raise AgentLoopTimeoutError("agent loop deadline exceeded") from exc
 
@@ -252,7 +253,7 @@ class AgentRuntime:
         timeout_ms: int,
         tool_handler: ModelToolHandler | None,
     ) -> tuple[ModelResponse, tuple[dict[str, object], ...]]:
-        max_rounds = _max_rounds(context.snapshot.model_resolution)
+        max_rounds = context.snapshot.model_resolution.max_rounds
         seen_call_ids: set[str] = set()
         seen_signatures: set[str] = set()
         tool_results: list[dict[str, object]] = []
@@ -261,7 +262,7 @@ class AgentRuntime:
                 messages=list(messages),
                 tools=tools,
                 timeout_ms=timeout_ms,
-                model=_optional_str(context.snapshot.model_resolution.get("model")),
+                model=context.snapshot.model_resolution.model,
             )
             response = await self._complete_with_failover(
                 context,
@@ -382,34 +383,12 @@ async def _wait_for_provider(
     return await asyncio.wait_for(awaitable, timeout=timeout_ms / 1000)
 
 
-def _provider_chain(model_resolution: dict[str, object]) -> list[str]:
-    provider = _optional_str(model_resolution.get("provider"))
-    failover = model_resolution.get("failover")
-    chain = [provider] if provider is not None else []
-    if isinstance(failover, list):
-        chain.extend(item for item in failover if isinstance(item, str) and item.strip())
+def _provider_chain(policy: ModelPolicy) -> list[str]:
+    # ADR-012：ModelPolicy 结构化后类型/范围由校验层保证；provider 仍沿用
+    # 原 _optional_str 的「非空白」语义，避免空白 provider 被当作有效插件 id。
+    chain = [policy.provider] if policy.provider and policy.provider.strip() else []
+    chain.extend(item for item in policy.failover if item.strip())
     return list(dict.fromkeys(chain))
-
-
-def _timeout_ms(model_resolution: dict[str, object]) -> int:
-    raw_timeout = model_resolution.get("timeout_ms")
-    if isinstance(raw_timeout, int) and raw_timeout > 0:
-        return raw_timeout
-    return 60_000
-
-
-def _deadline_ms(model_resolution: dict[str, object]) -> int:
-    raw_deadline = model_resolution.get("deadline_ms")
-    if isinstance(raw_deadline, int) and raw_deadline > 0:
-        return raw_deadline
-    return 120_000
-
-
-def _max_rounds(model_resolution: dict[str, object]) -> int:
-    raw_rounds = model_resolution.get("max_rounds")
-    if isinstance(raw_rounds, int) and raw_rounds > 0:
-        return min(raw_rounds, 32)
-    return 8
 
 
 def _model_messages(
@@ -458,9 +437,3 @@ def _remember_tool_call(
     seen_call_ids.add(call.call_id)
     seen_signatures.add(signature)
     return False
-
-
-def _optional_str(value: object) -> str | None:
-    if isinstance(value, str) and value.strip():
-        return value
-    return None

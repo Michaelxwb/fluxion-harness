@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import copy
 from dataclasses import dataclass
-from typing import cast
 
 from fluxion.registry import RegistryReadStore, RegistryStoreError
 from fluxion.resources import (
@@ -11,6 +9,7 @@ from fluxion.resources import (
     ResourceDefinition,
     ResourceKind,
     ResourceStatus,
+    RuntimeProfile,
     SubjectType,
     TenantResourceCache,
 )
@@ -192,11 +191,16 @@ class ExecutionSnapshotBuilder:
             request.runtime_profile_id,
             selector=request.runtime_profile_version_selector,
         )
+        # ADR-012：spec model 单一真相源——快照消费的字段全部来自 validate 后
+        # 的 model 实例，不再 spec_json.get（校验/运行时键集合不可能漂移）。
+        profile_model = RuntimeProfile.model_validate(profile.spec_json)
         bindings = await self._effective_bindings(request)
-        skills = await self._resolve_skills(request.tenant_id, profile, bindings)
-        mcps = await self._resolve_mcps(request.tenant_id, profile)
-        plugins = await self._resolve_plugins(request.tenant_id, profile)
-        policy_version = await self._resolve_policy_version(request.tenant_id, profile)
+        skills = await self._resolve_skills(request.tenant_id, profile_model, bindings)
+        mcps = await self._resolve_mcps(request.tenant_id, profile_model)
+        plugins = await self._resolve_plugins(request.tenant_id, profile_model)
+        policy_version = await self._resolve_policy_version(
+            request.tenant_id, profile_model
+        )
         return self.build_from_resolved(
             request,
             runtime_profile=profile,
@@ -218,19 +222,18 @@ class ExecutionSnapshotBuilder:
         plugin_versions: dict[str, str] | None = None,
         policy_version: str | None = None,
     ) -> ExecutionSnapshot:
-        # 深拷贝断开与缓存 ResourceDefinition.spec_json 的引用共享：
-        # 否则原地修改 snapshot.model_resolution 会污染本 Pod 缓存中的
-        # profile spec，影响该 Pod 后续所有 execution（ADR-005 不可变被破坏）。
-        model_resolution = copy.deepcopy(_dict_field(runtime_profile.spec_json.get("model_policy")))
+        # ADR-012：validate 产生新 frozen ModelPolicy 实例，天然断开与缓存
+        # spec_json 的引用共享（原 deepcopy dict 防护由此替代）。
+        profile_model = RuntimeProfile.model_validate(runtime_profile.spec_json)
         return ExecutionSnapshot(
             execution_id=request.execution_id,
             tenant_id=request.tenant_id,
             user_id=request.user_id,
             runtime_profile_id=runtime_profile.id,
             runtime_profile_version=runtime_profile.version,
-            model_resolution=model_resolution,
+            model_resolution=profile_model.model_policy,
             trace_id=request.trace_id,
-            system_prompt=_prompt_text(runtime_profile.spec_json.get("prompt")),
+            system_prompt=profile_model.prompt.strip(),
             skill_instructions=_skill_instructions(skills),
             skill_allowed_tools=_skill_allowed_tools(skills),
             skill_versions={skill.id: skill.version for skill in skills},
@@ -259,10 +262,10 @@ class ExecutionSnapshotBuilder:
     async def _resolve_skills(
         self,
         tenant_id: str,
-        profile: ResourceDefinition,
+        profile_model: RuntimeProfile,
         bindings: list[ResourceBinding],
     ) -> list[ResourceDefinition]:
-        selectors = _profile_selectors(profile, "allowed_skills")
+        selectors = _selectors(profile_model.allowed_skills)
         effective = _effective_skill_selectors(selectors, bindings)
         skills: list[ResourceDefinition] = []
         for selector in effective:
@@ -278,26 +281,28 @@ class ExecutionSnapshotBuilder:
     async def _resolve_mcps(
         self,
         tenant_id: str,
-        profile: ResourceDefinition,
+        profile_model: RuntimeProfile,
     ) -> dict[str, str]:
-        return await self._resolve_configured(tenant_id, profile, "allowed_mcps", ResourceKind.MCP)
+        return await self._resolve_configured(
+            tenant_id, profile_model.allowed_mcps, ResourceKind.MCP
+        )
 
     async def _resolve_plugins(
         self,
         tenant_id: str,
-        profile: ResourceDefinition,
+        profile_model: RuntimeProfile,
     ) -> dict[str, str]:
         return await self._resolve_configured(
-            tenant_id, profile, "plugin_bindings", ResourceKind.PLUGIN
+            tenant_id, profile_model.plugin_bindings, ResourceKind.PLUGIN
         )
 
     async def _resolve_policy_version(
         self,
         tenant_id: str,
-        profile: ResourceDefinition,
+        profile_model: RuntimeProfile,
     ) -> str | None:
-        raw = profile.spec_json.get("guardrail_policy")
-        if not isinstance(raw, str):
+        raw = profile_model.guardrail_policy
+        if raw is None:
             return None
         selector = _parse_selector(raw)
         policy = await self._resolver.resolve_resource(
@@ -311,12 +316,11 @@ class ExecutionSnapshotBuilder:
     async def _resolve_configured(
         self,
         tenant_id: str,
-        profile: ResourceDefinition,
-        field: str,
+        allowed: list[str],
         kind: ResourceKind,
     ) -> dict[str, str]:
         versions: dict[str, str] = {}
-        for selector in _profile_selectors(profile, field):
+        for selector in _selectors(allowed):
             resource = await self._resolver.resolve_resource(
                 tenant_id,
                 kind,
@@ -325,17 +329,6 @@ class ExecutionSnapshotBuilder:
             )
             versions[selector.resource_id] = resource.version
         return versions
-
-
-def _prompt_text(value: object) -> str:
-    if isinstance(value, str):
-        return value.strip()
-    if isinstance(value, dict):
-        for key in ("system", "content", "text"):
-            prompt = value.get(key)
-            if isinstance(prompt, str) and prompt.strip():
-                return prompt.strip()
-    return ""
 
 
 def _skill_instructions(skills: list[ResourceDefinition]) -> dict[str, str]:
@@ -356,11 +349,9 @@ def _skill_allowed_tools(skills: list[ResourceDefinition]) -> list[str]:
     return sorted(allowed)
 
 
-def _profile_selectors(profile: ResourceDefinition, field: str) -> list[ResourceSelector]:
-    raw = profile.spec_json.get(field, [])
-    if not isinstance(raw, list):
-        return []
-    return [_parse_selector(value) for value in raw if isinstance(value, str)]
+def _selectors(values: list[str]) -> list[ResourceSelector]:
+    # ADR-012：入参来自 spec model 字段（list[str] 已被校验保证），无需防御。
+    return [_parse_selector(value) for value in values]
 
 
 def _parse_selector(value: str) -> ResourceSelector:
@@ -395,12 +386,6 @@ def _merge_selector(profile_selector: str, binding_selector: str) -> str:
     if profile_selector != LATEST_PUBLISHED:
         return profile_selector
     return binding_selector
-
-
-def _dict_field(value: object) -> dict[str, object]:
-    if isinstance(value, dict):
-        return cast(dict[str, object], value)
-    return {}
 
 
 def _is_non_sensitive(resource: ResourceDefinition) -> bool:

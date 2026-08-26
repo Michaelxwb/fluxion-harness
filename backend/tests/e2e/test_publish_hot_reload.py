@@ -84,7 +84,6 @@ def _runtime_profile(version: str, model: str) -> CreateRuntimeProfileRequest:
 def _console_spec(version: str, model: str) -> dict[str, object]:
     return {
         **runtime_profile_spec(display_name=f"assistant-{version}"),
-        "version": version,
         "model_policy": {"provider": "dev.echo", "model": model, "timeout_ms": 1000},
     }
 

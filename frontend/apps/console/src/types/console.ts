@@ -7,6 +7,26 @@ export interface JsonRecord {
   readonly [key: string]: JsonValue;
 }
 
+/**
+ * ADR-012：后端 spec model 的 model_json_schema() 直接作为表单单一真相源。
+ * 这里只声明渲染器消费的结构子集（pydantic 输出的其余键原样透传）。
+ */
+export interface JsonSchemaNode {
+  readonly type?: string | readonly string[];
+  readonly title?: string;
+  readonly description?: string;
+  readonly properties?: Readonly<Record<string, JsonSchemaNode>>;
+  readonly required?: readonly string[];
+  readonly items?: JsonSchemaNode;
+  readonly enum?: readonly JsonValue[];
+  readonly const?: JsonValue;
+  readonly default?: JsonValue;
+  readonly "$ref"?: string;
+  readonly "$defs"?: Readonly<Record<string, JsonSchemaNode>>;
+  readonly additionalProperties?: boolean | JsonSchemaNode;
+  readonly anyOf?: readonly JsonSchemaNode[];
+}
+
 export type ResourceType = "runtime_profile" | "skill" | "mcp" | "plugin" | "policy" | "workflow";
 export type ResourceStatus = "draft" | "published" | "deprecated";
 export type ResourceVisibility = "system" | "public" | "tenant" | "private";
@@ -158,6 +178,7 @@ export interface BindingInput {
 
 export interface ConsoleApi {
   listResources(resourceType?: ResourceType): Promise<PageData<ResourceSummary>>;
+  getResourceSchema(resourceType: ResourceType): Promise<JsonSchemaNode>;
   getResource(resourceType: ResourceType, resourceId: string, version?: string): Promise<ResourceVersion>;
   createResource(input: ResourceCreateInput): Promise<ResourceVersion>;
   createDraftFromLatest(resourceType: ResourceType, resourceId: string): Promise<ResourceVersion>;

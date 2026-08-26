@@ -16,6 +16,9 @@ describe("S-C114 RuntimeProfile management", () => {
     await user.click(await screen.findByRole("button", { name: "创建草稿" }));
 
     const editor = await screen.findByLabelText("规格编辑");
+    // 草稿编辑默认走结构化表单；JSON 编辑需切到「高级 JSON 模式」逃逸舱。
+    await within(editor).findByLabelText("高级 JSON 模式");
+    await user.click(within(editor).getByLabelText("高级 JSON 模式"));
     const specEditor = within(editor).getByLabelText("规格 JSON");
     await user.clear(specEditor);
     await user.click(specEditor);

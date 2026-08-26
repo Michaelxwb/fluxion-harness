@@ -6,7 +6,7 @@ from time import perf_counter
 from fluxion.plugins.contracts import ModelRequest, ModelResponse
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.registry import RegistryStore
-from fluxion.resources import RuntimeProfile
+from fluxion.resources import ModelPolicy, RuntimeProfile
 from fluxion.runtime.agent import RuntimeStepResult
 from fluxion.runtime.context import RequestContext, RuntimeContext, TraceEvent
 from fluxion.runtime.memory import InMemorySessionMemoryStore, SessionMemoryStore
@@ -29,25 +29,16 @@ class DevEchoModelProvider:
 
 
 def _runtime_profile_spec(request: CreateRuntimeProfileRequest) -> dict[str, object]:
+    # ADR-012：以 RuntimeProfile model 为单一真相源——构造即校验，spec 的
+    # 键集合不可能与校验模型/运行时消费漂移；model_dump 输出干净 spec。
     profile = RuntimeProfile(
-        id=request.runtime_profile_id,
-        version=request.version,
         prompt=request.prompt,
-        model_policy=dict(request.model_policy),
+        model_policy=ModelPolicy.model_validate(request.model_policy),
         allowed_skills=list(request.allowed_skills),
         allowed_mcps=list(request.allowed_mcps),
         allowed_tools=list(request.allowed_tools),
-        allowed_workflows=list(request.allowed_workflows),
     )
-    return {
-        "prompt": profile.prompt,
-        "model_policy": profile.model_policy,
-        "allowed_skills": profile.allowed_skills,
-        "allowed_mcps": profile.allowed_mcps,
-        "allowed_tools": profile.allowed_tools,
-        "allowed_workflows": profile.allowed_workflows,
-        "plugin_bindings": profile.plugin_bindings,
-    }
+    return profile.model_dump(mode="json")
 
 
 def _request_context(request: RunRuntimeRequest) -> RequestContext:

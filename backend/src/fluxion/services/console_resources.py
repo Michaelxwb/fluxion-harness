@@ -20,6 +20,7 @@ from fluxion.registry import (
     VersionConflictError,
 )
 from fluxion.resources import (
+    EvalSetDefinition,
     MCPDefinition,
     ModelProviderDefinition,
     PolicyDefinition,
@@ -28,6 +29,7 @@ from fluxion.resources import (
     ResourceStatus,
     RuntimeProfile,
     SkillDefinition,
+    WorkflowDefinition,
 )
 from fluxion.services.approval_app import ApprovalStatus, ApprovalStore, utc_now
 from fluxion.services.console_contracts import (
@@ -470,6 +472,14 @@ class ConsoleResourceOps:
         # 其余资源类型：校验失败返回 valid=false 结果（200），由调用方决定行为。
         return _validate_definition(kind, resource.spec_json)
 
+    async def resource_schema(self, kind: ResourceKind) -> dict[str, object]:
+        # ADR-012：前端表单 schema 直接取自 spec model 的 model_json_schema()，
+        # 校验模型与表单结构不可能漂移。schema 是 kind 级静态数据，无租户上下文。
+        model = _definition_model(kind)
+        if model is None:
+            raise ConsoleValidationError(f"unsupported resource type: {kind.value}")
+        return {"schema": model.model_json_schema()}
+
 
 def _ensure_same_tenant(actor: ConsoleActor, tenant_id: str) -> None:
     if not tenant_id.strip():
@@ -503,6 +513,12 @@ def _definition_model(kind: ResourceKind) -> type[BaseModel] | None:
         return ModelProviderDefinition
     if kind is ResourceKind.POLICY:
         return PolicyDefinition
+    if kind is ResourceKind.WORKFLOW:
+        # 发布路径仍走带能力引用存在性检查的 WorkflowDefinitionValidator；
+        # 此处提供结构校验兜底与表单 schema 来源（ADR-012）。
+        return WorkflowDefinition
+    if kind is ResourceKind.EVAL_SET:
+        return EvalSetDefinition
     return None
 
 

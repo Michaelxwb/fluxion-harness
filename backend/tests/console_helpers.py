@@ -150,18 +150,16 @@ def runtime_profile_spec(
     display_name: str = "assistant",
     allowed_mcps: list[str] | None = None,
 ) -> dict[str, object]:
+    # ADR-012：与 RuntimeProfile 字段集一致（id/version/status 由资源外层
+    # ResourceDefinition 承载，不进 spec）。
     return {
-        "id": "assistant",
-        "version": "1",
         "display_name": display_name,
         "prompt": "保持严谨",
         "model_policy": {"provider": "dev.echo", "model": "console", "timeout_ms": 1000},
         "allowed_skills": [],
         "allowed_mcps": allowed_mcps or [],
         "allowed_tools": [],
-        "allowed_workflows": [],
         "plugin_bindings": [],
-        "status": "draft",
     }
 
 

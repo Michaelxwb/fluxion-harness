@@ -6,7 +6,7 @@ from fluxion.kernel.events import BeforeToolCallPayload, TypedEventBus
 from fluxion.plugins.contracts import ToolCall, ToolDefinition
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.registry import RegistryStore
-from fluxion.resources import ResourceKind
+from fluxion.resources import ResourceKind, RuntimeProfile
 from fluxion.runtime.agent import ModelToolResult
 from fluxion.runtime.capabilities import EffectiveCapabilityResolver
 from fluxion.runtime.context import RuntimeContext
@@ -42,11 +42,9 @@ class RuntimeToolOps:
         return results
 
     def _prepare_registry_model_providers(self, context: RuntimeContext) -> None:
-        configured = context.snapshot.model_resolution.get("provider")
-        failover = context.snapshot.model_resolution.get("failover", [])
-        provider_ids = [configured] if isinstance(configured, str) else []
-        if isinstance(failover, list):
-            provider_ids.extend(item for item in failover if isinstance(item, str))
+        policy = context.snapshot.model_resolution
+        provider_ids = [policy.provider] if policy.provider else []
+        provider_ids.extend(policy.failover)
         for provider_id in provider_ids:
             if provider_id not in context.snapshot.plugin_versions:
                 continue
@@ -159,12 +157,11 @@ class RuntimeToolOps:
             return context.tool_policy
         agent_tools = await self._allowed_tools(context)
         capability = EffectiveCapabilityResolver(self._store)
-        granted_mcp = await capability.user_granted_tools(
-            tenant_id=context.snapshot.tenant_id,
-            user_id=context.snapshot.user_id,
-            runtime_profile_id=context.snapshot.runtime_profile_id,
-        )
-        user_tools = agent_tools | granted_mcp
+        # ADR-012：原 user 维度并入的静态 MCP "tools" 读取已移除（该字段不在
+        # MCPDefinition、工具 id 与真实 MCP 运行时不匹配、集合上被交集吸收），
+        # user 维度与 agent 维度重合。用户级 MCP 授权保留在挂载层（mcp.py
+        # binding 检查）与 skill 扩展（resolver._effective_skill_selectors）。
+        user_tools = agent_tools
         policy_allowed, policy_denied, configured = await capability.tenant_policy_tools(
             tenant_id=context.snapshot.tenant_id
         )
@@ -212,8 +209,6 @@ class RuntimeToolOps:
         )
         if profile is None:
             return set()
-        raw_tools = profile.spec_json.get("allowed_tools", [])
-        if not isinstance(raw_tools, list):
-            return set()
-        profile_tools = {tool for tool in raw_tools if isinstance(tool, str)}
-        return profile_tools | set(context.snapshot.skill_allowed_tools)
+        # ADR-012：从 RuntimeProfile 实例取字段（单一真相源）。
+        profile_model = RuntimeProfile.model_validate(profile.spec_json)
+        return set(profile_model.allowed_tools) | set(context.snapshot.skill_allowed_tools)

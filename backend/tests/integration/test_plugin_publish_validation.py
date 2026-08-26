@@ -17,7 +17,6 @@ async def test_S_P13_06_console_publishes_model_provider_plugin_spec() -> None:
             kind=ResourceKind.PLUGIN,
             resource_id="browser-provider",
             spec={
-                "name": "browser-provider",
                 "plugin_type": "model_provider",
                 "protocol": "openai_compatible",
                 "base_url": "http://127.0.0.1:9878/v1",

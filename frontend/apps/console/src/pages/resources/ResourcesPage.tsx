@@ -1,14 +1,15 @@
 import { useEffect, useState, type ReactNode } from "react";
 
-import { Button, Card, Empty, Input, Modal, Select, SideSheet, Space, Table, TextArea, Typography } from "@douyinfe/semi-ui";
+import { Button, Card, Empty, Input, Modal, Select, SideSheet, Space, Spin, Table, Typography } from "@douyinfe/semi-ui";
 import { IconPlus } from "@douyinfe/semi-icons";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { ListPager } from "../../components/ListPager";
 import { PageHeader } from "../../components/PageHeader";
+import { SpecForm } from "../../components/SpecForm";
 import { StatusTag } from "../../components/StatusTag";
-import { parseSpec } from "../../utils/json";
-import type { ConsoleApi, ResourceSummary, ResourceType } from "../../types/console";
+import { specFromSchema } from "../../components/SchemaForm";
+import type { ConsoleApi, JsonRecord, JsonSchemaNode, ResourceSummary, ResourceType } from "../../types/console";
 import { ResourceDetailPanel } from "./ResourceDetailPanel";
 
 interface ResourcesPageProps {
@@ -30,11 +31,25 @@ export function ResourcesPage({ api }: ResourcesPageProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [createId, setCreateId] = useState("");
   const [createVersion, setCreateVersion] = useState("v1");
-  const [createSpec, setCreateSpec] = useState("{}");
+  const [createSchema, setCreateSchema] = useState<JsonSchemaNode | null>(null);
+  const [createSpec, setCreateSpec] = useState<JsonRecord>({});
 
   useEffect(() => {
     void loadResources();
   }, []);
+
+  // ADR-012：创建弹窗按选中类型拉取后端 schema（pydantic model_json_schema），
+  // 由 SpecForm 自渲染结构化表单；用户无需手写 JSON。
+  useEffect(() => {
+    if (!createOpen) return;
+    void api.getResourceSchema(createType).then(
+      (schema) => {
+        setCreateSchema(schema);
+        setCreateSpec(specFromSchema(schema));
+      },
+      (cause: unknown) => setError(toErrorMessage(cause))
+    );
+  }, [api, createOpen, createType]);
 
   async function loadResources(): Promise<void> {
     // 后端单表 resource_definitions，GET /api/v1/resources 一次返回全部类型。
@@ -47,14 +62,16 @@ export function ResourcesPage({ api }: ResourcesPageProps) {
       const created = await api.createResource({
         resourceId: createId.trim(),
         resourceType: createType,
-        spec: parseSpec(createSpec),
+        spec: createSpec,
         version: createVersion.trim(),
         visibility: "private"
       });
+      // 创建即校验留给详情页「校验」按钮（ADR-012：严格校验由后端 validateDraft
+      // 承担）。此处直接进入详情：若在此处校验失败，草稿已落库而弹窗未关闭，
+      // 重新提交同 id+version 会版本冲突，反而把用户卡住。
       setCreateOpen(false);
       setCreateId("");
       setCreateVersion("v1");
-      setCreateSpec("{}");
       await loadResources();
       setDrawerTarget({ resourceType: created.resourceType, resourceId: created.resourceId });
     } catch (cause) {
@@ -129,12 +146,13 @@ export function ResourcesPage({ api }: ResourcesPageProps) {
       </Card>
       {createOpen ? (
         <Modal
+          bodyStyle={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}
           footer={
             <Space>
               <Button aria-label="取消" onClick={() => setCreateOpen(false)}>取消</Button>
               <Button
                 aria-label="创建草稿"
-                disabled={!createId.trim() || !createVersion.trim()}
+                disabled={!createId.trim() || !createVersion.trim() || createSchema === null}
                 onClick={() => void createResource()}
                 theme="solid"
                 type="primary"
@@ -146,22 +164,44 @@ export function ResourcesPage({ api }: ResourcesPageProps) {
           onCancel={() => setCreateOpen(false)}
           title={`新建资源（${RESOURCE_TYPE_LABELS[createType]}）`}
           visible
+          width={760}
         >
-          <Space vertical align="start" style={{ width: "100%" }}>
-            <Select
-              aria-label="类型"
-              onChange={(value) => {
-                if (isResourceType(value)) setCreateType(value);
-              }}
-              optionList={RESOURCE_TYPES.map((type) => ({ label: RESOURCE_TYPE_LABELS[type], value: type }))}
-              style={{ width: 200 }}
-              value={createType}
-            />
-            <Typography.Text type="tertiary">{RESOURCE_TYPE_HINTS[createType]}</Typography.Text>
-            <Input aria-label="资源 ID" onChange={setCreateId} placeholder="资源 ID" value={createId} />
-            <Input aria-label="版本" onChange={setCreateVersion} value={createVersion} />
-            <TextArea aria-label="新资源规格 JSON" autosize={{ minRows: 8, maxRows: 16 }} onChange={setCreateSpec} value={createSpec} />
-          </Space>
+          <div style={{ display: "grid", rowGap: 12 }}>
+            {/* 类型 / 资源 ID / 版本：顶部一行三栏，缩短弹窗纵向高度 */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", columnGap: 12 }}>
+              <LabeledField label="类型">
+                <Select
+                  aria-label="类型"
+                  onChange={(value) => {
+                    if (isResourceType(value)) setCreateType(value);
+                  }}
+                  optionList={RESOURCE_TYPES.map((type) => ({ label: RESOURCE_TYPE_LABELS[type], value: type }))}
+                  style={{ width: "100%" }}
+                  value={createType}
+                />
+              </LabeledField>
+              <LabeledField label="资源 ID">
+                <Input aria-label="资源 ID" onChange={setCreateId} placeholder="资源 ID" value={createId} />
+              </LabeledField>
+              <LabeledField label="版本">
+                <Input aria-label="版本" onChange={setCreateVersion} value={createVersion} />
+              </LabeledField>
+            </div>
+            {/* 说明文字归位到顶部 callout（左 accent），不再插在字段流中挤压表单 */}
+            <div style={{ borderLeft: "3px solid var(--semi-color-primary)", padding: "4px 0 4px 12px" }}>
+              <Typography.Text type="tertiary">{RESOURCE_TYPE_HINTS[createType]}</Typography.Text>
+            </div>
+            {createSchema ? (
+              <SpecForm
+                jsonLabel="新资源规格 JSON"
+                onChange={setCreateSpec}
+                schema={createSchema}
+                spec={createSpec}
+              />
+            ) : (
+              <Spin aria-label="加载表单" />
+            )}
+          </div>
         </Modal>
       ) : null}
       <SideSheet
@@ -257,4 +297,14 @@ function ResourceTable({
 
 function toErrorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : "未知错误";
+}
+
+/** 弹窗顶部元数据字段（类型/资源 ID/版本）的可见标签 + 控件壳。 */
+function LabeledField({ label, children }: { readonly label: string; readonly children: ReactNode }) {
+  return (
+    <div style={{ display: "grid", rowGap: 4 }}>
+      <Typography.Text strong>{label}</Typography.Text>
+      {children}
+    </div>
+  );
 }

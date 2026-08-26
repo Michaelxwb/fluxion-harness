@@ -10,9 +10,15 @@ from typing import cast
 import httpx2
 from mcp import Client, StdioServerParameters, stdio_client
 from mcp.client.streamable_http import streamable_http_client
+from pydantic import ValidationError
 
 from fluxion.registry import RegistryReadStore
-from fluxion.resources import ResourceBinding, ResourceDefinition, ResourceKind
+from fluxion.resources import (
+    MCPDefinition,
+    ResourceBinding,
+    ResourceDefinition,
+    ResourceKind,
+)
 from fluxion.runtime.context import RuntimeContext
 from fluxion.runtime.mcp_pool import (
     MCPClient,
@@ -404,79 +410,46 @@ def _server_config(
     credential: ResolvedCredential | None,
     credential_ref: str | None,
 ) -> MCPServerConfig:
-    spec = resource.spec_json
-    transport = _required_string(spec, "transport")
-    timeout_ms = _positive_int(spec.get("timeout_ms"), 30_000)
-    allowed_tools = frozenset(_string_list(spec.get("allowed_tools")))
-    if transport == "stdio":
-        command = _required_string(spec, "command")
-        env = _string_mapping(spec.get("env"))
-        credential_env = spec.get("credential_env")
-        if credential is not None and isinstance(credential_env, str):
-            env[credential_env] = credential.value
-        cwd = spec.get("cwd")
+    # ADR-012：从 MCPDefinition 实例取字段（单一真相源）；transport 必填、
+    # stdio command / http url 必填、timeout 为正等约束由 model 校验保证。
+    try:
+        definition = MCPDefinition.model_validate(resource.spec_json)
+    except ValidationError as exc:
+        raise MCPTransportError(f"MCP {resource.id} spec invalid: {exc}") from exc
+    allowed_tools = frozenset(definition.allowed_tools)
+    if definition.transport == "stdio":
+        env = dict(definition.env)
+        if credential is not None and definition.credential_env is not None:
+            env[definition.credential_env] = credential.value
         return MCPServerConfig(
-            transport=transport,
+            transport=definition.transport,
             server_uri=f"stdio://{resource.id}@{resource.version}",
-            timeout_ms=timeout_ms,
-            command=command,
-            args=tuple(_string_list(spec.get("args"))),
+            timeout_ms=definition.timeout_ms,
+            command=definition.command or "",
+            args=tuple(definition.args),
             env=env,
-            cwd=Path(cwd) if isinstance(cwd, str) else None,
+            cwd=Path(definition.cwd) if definition.cwd else None,
             allowed_tools=allowed_tools,
             credential_ref=credential_ref,
             credential_version=credential.version if credential is not None else "none",
         )
-    if transport == "streamable_http":
-        url = _required_string(spec, "url")
-        headers = _string_mapping(spec.get("headers"))
-        credential_header = spec.get("credential_header", "Authorization")
-        credential_scheme = spec.get("credential_scheme", "Bearer")
-        if credential is not None and isinstance(credential_header, str):
-            prefix = f"{credential_scheme} " if isinstance(credential_scheme, str) else ""
-            headers[credential_header] = f"{prefix}{credential.value}"
+    if definition.transport == "streamable_http":
+        headers = dict(definition.headers)
+        if credential is not None:
+            headers[definition.credential_header] = (
+                f"{definition.credential_scheme} {credential.value}"
+            )
         return MCPServerConfig(
-            transport=transport,
-            server_uri=url,
-            timeout_ms=timeout_ms,
-            url=url,
+            transport=definition.transport,
+            server_uri=definition.url or "",
+            timeout_ms=definition.timeout_ms,
+            url=definition.url or "",
             headers=headers,
             allowed_tools=allowed_tools,
             credential_ref=credential_ref,
             credential_version=credential.version if credential is not None else "none",
         )
-    raise MCPTransportError(f"unsupported MCP transport: {transport}")
-
-
-def _required_string(spec: Mapping[str, object], field: str) -> str:
-    value = spec.get(field)
-    if not isinstance(value, str) or not value.strip():
-        raise MCPTransportError(f"MCP {field} is required")
-    return value
-
-
-def _positive_int(value: object, default: int) -> int:
-    if value is None:
-        return default
-    if not isinstance(value, int) or value <= 0:
-        raise MCPTransportError("MCP timeout_ms must be a positive integer")
-    return value
-
-
-def _string_list(value: object) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [item for item in value if isinstance(item, str) and item.strip()]
-
-
-def _string_mapping(value: object) -> dict[str, str]:
-    if not isinstance(value, dict):
-        return {}
-    return {
-        str(key): item
-        for key, item in value.items()
-        if isinstance(key, str) and isinstance(item, str)
-    }
+    raise MCPTransportError(f"unsupported MCP transport: {definition.transport}")
 
 
 def _contains_timeout(exc: BaseException) -> bool:

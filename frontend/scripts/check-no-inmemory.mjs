@@ -3,7 +3,7 @@
 // InMemoryChatApi are test fixtures only. Any non-test source file that imports
 // them means the product is silently running on in-memory data — fail the build.
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -34,6 +34,10 @@ function* walk(dir) {
 let violations = 0;
 for (const app of apps) {
   for (const file of walk(join(root, "frontend", app, "src"))) {
+    // InMemory fixture 文件之间的互引（如 inMemoryConsoleApi 引用 inMemorySchemas）
+    // 不是“生产代码跑在内存数据上”——守卫只拦截非 fixture 的生产源码引用
+    // inMemory API。按文件名含 inMemory 判定为 fixture，放行其内部互引。
+    if (/inMemory/i.test(basename(file))) continue;
     const source = readFileSync(file, "utf8");
     for (const line of source.split("\n")) {
       if (INMEMORY_IMPORT_RE.test(line)) {

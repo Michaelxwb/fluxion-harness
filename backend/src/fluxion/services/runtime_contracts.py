@@ -25,12 +25,11 @@ class CreateRuntimeProfileRequest:
     tenant_id: str
     runtime_profile_id: str
     version: str
-    prompt: str | dict[str, object]
+    prompt: str
     model_policy: Mapping[str, object]
     allowed_skills: Sequence[str] = ()
     allowed_mcps: Sequence[str] = ()
     allowed_tools: Sequence[str] = ()
-    allowed_workflows: Sequence[str] = ()
 
 
 @dataclass(frozen=True, slots=True)

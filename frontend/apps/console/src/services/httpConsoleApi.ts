@@ -9,6 +9,7 @@ import type {
   CredentialMetadata,
   IssuedChatAccess,
   JsonRecord,
+  JsonSchemaNode,
   JsonValue,
   PageData,
   PageRequest,
@@ -53,6 +54,15 @@ class HttpConsoleApi implements ConsoleApi {
       `/api/v1/resources/${resourceType}/${encodeURIComponent(resourceId)}${query}`,
       undefined,
       parseResource
+    );
+  }
+
+  async getResourceSchema(resourceType: ResourceType): Promise<JsonSchemaNode> {
+    // ADR-012：spec model 单一真相源——表单结构来自后端 model_json_schema()。
+    return this.client.request(
+      `/api/v1/resources/${resourceType}/schema`,
+      undefined,
+      parseResourceSchema
     );
   }
 
@@ -505,6 +515,12 @@ function parseAudit(value: unknown): AuditRecord {
     resourceId: requiredString(record.resource_id, "resource_id"),
     resourceVersion: requiredString(record.resource_version, "resource_version")
   };
+}
+
+function parseResourceSchema(value: unknown): JsonSchemaNode {
+  const record = requiredRecord(value, "resource schema");
+  if (!isRecord(record.schema)) throw new Error("schema 无效");
+  return record.schema as unknown as JsonSchemaNode;
 }
 
 function parseValidation(value: unknown): ValidationResult {

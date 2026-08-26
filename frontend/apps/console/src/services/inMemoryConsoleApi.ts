@@ -8,6 +8,7 @@ import type {
   JsonRecord,
   JsonValue,
   IssuedChatAccess,
+  JsonSchemaNode,
   PageData,
   PageRequest,
   PlatformUser,
@@ -21,6 +22,7 @@ import type {
   ValidationResult
 } from "../types/console";
 import type { P1View } from "../types/navigation";
+import { IN_MEMORY_RESOURCE_SCHEMAS } from "./inMemorySchemas";
 
 export interface ConsoleSeed {
   readonly tenantId: string;
@@ -87,6 +89,13 @@ class InMemoryConsoleApi implements ConsoleApi {
       .map(toSummary)
       .sort((left, right) => left.resourceId.localeCompare(right.resourceId));
     return page(items, { page: 1, pageSize: items.length || 20 });
+  }
+
+  async getResourceSchema(resourceType: ResourceType): Promise<JsonSchemaNode> {
+    // ADR-012：真相源是后端 schema endpoint；inMemory 用内嵌镜像（见 schemas 文件头注释）。
+    const schema = IN_MEMORY_RESOURCE_SCHEMAS[resourceType];
+    if (!schema) throw new Error(`unsupported resource type: ${resourceType}`);
+    return schema;
   }
 
   async getResource(

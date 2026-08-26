@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
-import { Button, Card, Descriptions, Space, Spin, TextArea, Typography } from "@douyinfe/semi-ui";
+import { Button, Card, Descriptions, Space, Spin, Typography } from "@douyinfe/semi-ui";
 import { IconPlay, IconPlus, IconSave } from "@douyinfe/semi-icons";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
+import { SpecForm } from "../../components/SpecForm";
 import { StatusTag } from "../../components/StatusTag";
-import { parseSpec } from "../../utils/json";
-import type { ConsoleApi, PageData, ResourceType, ResourceVersion } from "../../types/console";
+import type { ConsoleApi, JsonRecord, JsonSchemaNode, PageData, ResourceType, ResourceVersion } from "../../types/console";
 import { type ConfirmAction, ResourceActionModal } from "./ResourceActionModal";
 import { ResourceVersionsPanel, VERSION_PAGE_SIZE } from "./ResourceVersionsPanel";
 
@@ -18,7 +18,8 @@ interface ResourceDetailPanelProps {
 
 export function ResourceDetailPanel({ api, resourceType, resourceId }: ResourceDetailPanelProps) {
   const [resource, setResource] = useState<ResourceVersion | null>(null);
-  const [specText, setSpecText] = useState("{}");
+  const [spec, setSpec] = useState<JsonRecord>({});
+  const [schema, setSchema] = useState<JsonSchemaNode | null>(null);
   const [versions, setVersions] = useState<PageData<ResourceVersion> | null>(null);
   const [versionPage, setVersionPage] = useState(1);
   const [diagnostic, setDiagnostic] = useState<string | null>(null);
@@ -33,6 +34,15 @@ export function ResourceDetailPanel({ api, resourceType, resourceId }: ResourceD
     setLoading(true);
     setError(null);
     setNotice(null);
+    // ADR-012：草稿编辑表单的 schema 同样取自后端 spec model（单一真相源）。
+    void api.getResourceSchema(resourceType).then(
+      (loaded) => {
+        if (active) setSchema(loaded);
+      },
+      (cause: unknown) => {
+        if (active) setError(toErrorMessage(cause));
+      }
+    );
     void api.getResource(resourceType, resourceId).then(
       (loaded) => {
         if (!active) return;
@@ -66,7 +76,7 @@ export function ResourceDetailPanel({ api, resourceType, resourceId }: ResourceD
 
   function applyResource(next: ResourceVersion): void {
     setResource(next);
-    setSpecText(JSON.stringify(next.spec, null, 2));
+    setSpec(next.spec);
     setDiagnostic(null);
   }
 
@@ -83,7 +93,7 @@ export function ResourceDetailPanel({ api, resourceType, resourceId }: ResourceD
   async function saveDraft(): Promise<void> {
     if (!resource) return;
     await runAction(async () => {
-      const updated = await api.updateDraft(resource, parseSpec(specText));
+      const updated = await api.updateDraft(resource, spec);
       applyResource(updated);
       await loadVersions(updated, versionPage);
       setNotice("草稿已保存");
@@ -131,10 +141,11 @@ export function ResourceDetailPanel({ api, resourceType, resourceId }: ResourceD
             onCreateDraft={() => void createDraft()}
             onPublish={(target) => setConfirmAction({ resource: target, type: "publish" })}
             onSave={() => void saveDraft()}
-            onSpecChange={setSpecText}
+            onSpecChange={setSpec}
             onValidate={() => void validateDraft()}
             resource={resource}
-            specText={specText}
+            schema={schema}
+            spec={spec}
           />
           <ResourceVersionsPanel
             onRollback={(target, version) =>
@@ -160,15 +171,17 @@ function SpecEditor({
   onSpecChange,
   onValidate,
   resource,
-  specText
+  schema,
+  spec
 }: {
   readonly diagnostic: string | null;
   readonly resource: ResourceVersion;
-  readonly specText: string;
+  readonly schema: JsonSchemaNode | null;
+  readonly spec: JsonRecord;
   readonly onCreateDraft: () => void;
   readonly onPublish: (resource: ResourceVersion) => void;
   readonly onSave: () => void;
-  readonly onSpecChange: (value: string) => void;
+  readonly onSpecChange: (next: JsonRecord) => void;
   readonly onValidate: () => void;
 }) {
   return (
@@ -178,14 +191,12 @@ function SpecEditor({
         <Descriptions.Item itemKey="版本">{resource.version}</Descriptions.Item>
         <Descriptions.Item itemKey="状态"><StatusTag status={resource.status} /></Descriptions.Item>
       </Descriptions>
-      <Typography.Text type="tertiary">编辑 JSON 规格，创建草稿 → 校验 → 发布为新版本。</Typography.Text>
-      <TextArea
-        aria-label="规格 JSON"
-        autosize={{ minRows: 14, maxRows: 28 }}
-        className="json-input"
-        onChange={onSpecChange}
-        value={specText}
-      />
+      <Typography.Text type="tertiary">编辑草稿：结构化表单或高级 JSON 模式，保存 → 校验 → 发布。</Typography.Text>
+      {schema ? (
+        <SpecForm onChange={onSpecChange} schema={schema} spec={spec} />
+      ) : (
+        <Spin aria-label="加载表单" />
+      )}
       {diagnostic ? <Typography.Text type="success">{diagnostic}</Typography.Text> : null}
       <Space wrap>
         <Button aria-label="创建草稿" icon={<IconPlus />} onClick={onCreateDraft}>创建草稿</Button>
