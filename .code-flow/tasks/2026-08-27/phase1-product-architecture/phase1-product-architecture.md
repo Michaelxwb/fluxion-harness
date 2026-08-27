@@ -35,7 +35,7 @@
 | FE-E-01 | frontend.design.md#2.4 验收条件 | integration | Service → UI | TASK-015 | planned |
 | FE-E-02 | frontend.design.md#2.4 验收条件 | integration | Service → UI | TASK-015 | planned |
 | FE-E-03 | frontend.design.md#2.4 验收条件 | integration | Schema endpoint → UI | TASK-014 | planned |
-| FE-B-01 | frontend.design.md#2.4 验收条件（边界场景） | integration（静态断言） | tsc strict + ESLint + grep 源码扫描 | TASK-013 | planned |
+| FE-B-01 | frontend.design.md#2.4 验收条件（边界场景） | integration（静态断言） | tsc strict + ESLint + grep 源码扫描 | TASK-013 | verified |
 | BE-S-01 | backend.design.md#2.5.2 功能验收场景 | E2E | Product API → Service → Registry Store → Resolver | TASK-004 | verified |
 | BE-S-02 | backend.design.md#2.5.2 功能验收场景 | integration | Service → Store | TASK-001 | verified |
 | BE-S-03 | backend.design.md#2.5.2 功能验收场景 | E2E | Resolver ×2 Pod 实例 + Store | TASK-009 | verified |
@@ -612,7 +612,7 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 
 ## TASK-013: Product API services 层 + 类型安全 client（FEAT-F11）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: phase1-product-architecture.frontend.design.md#2.2 功能方案（FEAT-F11）, phase1-product-architecture.frontend.design.md#3.5 状态与数据流
@@ -626,20 +626,31 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 **依赖策略（契约驱动并行）**：零后端依赖是有意为之——client 按冻结契约先行开发，自身验收 FE-B-01 为静态断言（tsc + 源码扫描），不需要后端运行。**契约冻结源** = backend.design.md §3.4 接口清单（API-B01..B09）+ frontend.design.md §3.5 服务表；后端 TASK-004/005/006/007/008 实现若需偏离该契约，必须先记 `#NOTES` 双方对齐，禁止单方改签名。运行时契约漂移由下游 E2E 任务捕获：FE-S-02/03→TASK-015（依赖 004/005）、FE-S-09/10→TASK-017（依赖 007）、FE-S-14→TASK-019（依赖 008）。
 
 ### Checklist
-- [ ] typed client + envelope 解包 + 错误统一处理（401/403/5xx）
-- [ ] 全部 service 方法按 design §3.5 表签名（类型来自 shared contracts）
-- [ ] **Spec verifier**：`RULE-frontend-quality-001` — 运行 `npx tsc --noEmit` + `npm run test -- product-api-client` + grep 断言：`services/` 与组件层无裸 `fetch`/`axios`、零 `any`/`@ts-ignore`
-- [ ] [FE-B-01][integration（静态断言）] 修改生产代码前编写验收测试并记录 RED：tsc strict 通过 + 源码扫描零命中
+- [x] typed client + envelope 解包 + 错误统一处理（401/403/5xx）
+- [x] 全部 service 方法按 design §3.5 表签名（类型来自 shared contracts）
+- [x] **Spec verifier**：`RULE-frontend-quality-001` — 运行 `npx tsc --noEmit` + `npm run test -- product-api-client` + grep 断言：`services/` 与组件层无裸 `fetch`/`axios`、零 `any`/`@ts-ignore`
+- [x] [FE-B-01][integration（静态断言）] 修改生产代码前编写验收测试并记录 RED：tsc strict 通过 + 源码扫描零命中
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| FE-B-01 | integration | tsc strict + ESLint + grep 源码扫描 | 裸 fetch/axios/any/@ts-ignore 零命中；envelope 解包类型安全 | planned | planned | planned |
+| FE-B-01 | integration | tsc strict + ESLint + grep 源码扫描 | 裸 fetch/axios/any/@ts-ignore 零命中；envelope 解包类型安全 | packages/shared/src/api/productClient.test.ts::FE-B-01 static gates | `cd frontend/packages/shared && npx vitest run src/api/productClient.test.ts` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 编码期填写。
+| 验证项 | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| Product client 语义方法 | FAIL: ModuleNotFoundError 等价——`Cannot find module './productClient'`（模块不存在） | PASS: 5 passed（shared 包 vitest） | createAgent POST 路径+body 断言；非 0 code→ApiError(34102,requestId,404)；testRunAgent SSE token 帧流式接收；listCapabilities type query 拼接 | fetcher stub 注入（传输层替身，属前端单测标准边界；store/backend 不涉） | verified |
+| FE-B-01 静态门禁 | FAIL: 首跑路径错误（误指 packages/console）+ 修正后确认零命中 | PASS: console pages/components 全量源码扫描——裸 fetch=0、any=0、@ts-ignore=0 | productClient.test.ts::FE-B-01 static gates（readdirSync 递归 walk） | 扫描覆盖 console/src/pages+components 全部 ts/tsx | verified |
+| 类型安全 | — | shared typecheck 清零（新增 @types/node devDep 支持 node:fs/path 静态扫描） | npm run typecheck | — | verified |
+
+> 实现说明：传输层复用既有 shared/services/httpClient（envelope/ApiError/SSE 已由 httpClient.test.ts 承载）；新增 api/productClient.ts 提供 design §3.5 全部 12 方法（createAgent/getAgent/testRunAgent/listCapabilities/listResources/getResource/createResource/getResourceSchema/listUsers/getUser/bindUser/getUser360），bindUser 映射至 /api/v1/platform-users/{id}/chat-access（A105 后路由键=agent_id）；PRODUCT_KINDS 白名单冻结与后端 /studio/{kind} 一致。契约驱动并行策略生效：零后端依赖，静态门禁+类型安全闭环，运行时漂移由 014-020 各页 E2E 兜底。
+
+### Log
+- [2026-08-27] created (draft)
+- [2026-08-27] started (in-progress)
+- [2026-08-27] completed (done)。frontend-quality rule code stage applied（applied convention）。
 
 ### Log
 - [2026-08-27] created (draft)

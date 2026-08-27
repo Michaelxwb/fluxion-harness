@@ -1,7 +1,7 @@
 version: 1
 task: PHASE1-PRODUCT-ARCHITECTURE
 enforcement: required
-updated_at: '2026-08-27T14:17:26.585658+00:00'
+updated_at: '2026-08-27T14:25:20.657180+00:00'
 sources:
 - type: cli
   ref: manual
@@ -43,7 +43,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-003
           item_id: typed-spec-models-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -52,7 +52,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-003
           item_id: typed-spec-models-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
@@ -201,7 +201,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-007
           item_id: user-domain-contract-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -210,7 +210,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-007
           item_id: user-domain-contract-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
@@ -385,7 +385,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-002
           item_id: runtime-profile-ast-guard-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -394,11 +394,11 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-002
           item_id: Acceptance Evidence
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         - artifact: phase1-product-architecture.md
           section_id: TASK-002
           item_id: runtime-profile-ast-guard-code
-          artifact_sha256: aad1a2e4d25273138e7a40205db3fbf6b09e973af50f25fb2806000d13a8f749
+          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
         decision: null
         evidence: []
       review:
@@ -547,7 +547,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-005
           item_id: test-run-logging-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -556,7 +556,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-005
           item_id: test-run-logging-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
@@ -705,7 +705,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-005
           item_id: test-run-timeout-retry-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -714,7 +714,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-005
           item_id: test-run-timeout-retry-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
@@ -917,7 +917,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-004
           item_id: product-api-envelope-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -926,7 +926,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-004
           item_id: product-api-envelope-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
@@ -1128,7 +1128,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-008
           item_id: agent-id-routing-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -1137,7 +1137,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-008
           item_id: agent-id-routing-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
@@ -1186,7 +1186,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-010
           item_id: dfx-bench-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -1195,7 +1195,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-010
           item_id: dfx-bench-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
@@ -1241,7 +1241,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-001
           item_id: agent-definition-resource-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -1250,7 +1250,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-001
           item_id: agent-definition-resource-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
@@ -1296,7 +1296,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-009
           item_id: runtime-stateless-equivalence-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -1305,7 +1305,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-009
           item_id: runtime-stateless-equivalence-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
@@ -1351,7 +1351,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-006
           item_id: capability-contract-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -1360,7 +1360,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-006
           item_id: capability-contract-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
@@ -1405,7 +1405,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-015
           item_id: agent-studio-components-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -1585,7 +1585,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-011
           item_id: frozen-nav-routes-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -1594,7 +1594,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-011
           item_id: frozen-nav-routes-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
@@ -1743,12 +1743,16 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-013
           item_id: typed-client-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-product-architecture.md
+          section_id: TASK-013
+          item_id: typed-client-code
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
@@ -1897,7 +1901,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-012
           item_id: semi-terminology-plan
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       code:
@@ -1906,7 +1910,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-012
           item_id: semi-terminology-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:
