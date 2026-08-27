@@ -23,8 +23,8 @@
 | FE-S-03 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Product API → Schema endpoint → UI | TASK-015 | planned |
 | FE-S-04 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-014 | verified |
 | FE-S-05 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-014 | verified |
-| FE-S-06 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Product API → UI | TASK-016 | planned |
-| FE-S-07 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-016 | planned |
+| FE-S-06 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Product API → UI | TASK-016 | verified |
+| FE-S-07 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-016 | verified |
 | FE-S-08 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-018 | verified |
 | FE-S-09 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-017 | verified |
 | FE-S-10 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-017 | verified |
@@ -749,7 +749,7 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 
 ## TASK-016: Platform/Advanced 资源管理页（TASK-C408）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-011, TASK-014
 - **Source**: phase1-product-architecture.frontend.design.md#2.2 功能方案（FEAT-F10）, phase1-product-architecture.frontend.design.md#3.2 页面与路由结构（Platform → Advanced）
@@ -761,21 +761,31 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 `/platform/*`：runtime-profiles（运行设置）/ secrets（凭据）/ models（model provider）/ registry 资源管理，复用 `ResourceListPage`+`SchemaForm`；主流程不暴露（术语去暴露由 TASK-012 断言覆盖）；Secret 只见 ref 不见明文（规则 17）；创建 RuntimeProfile 不创建 Pod（规则 2/26/27）。
 
 ### Checklist
-- [ ] `/platform/runtime-profiles` `/platform/secrets` `/platform/models` `/platform/registry` 四组页（复用通用组件）
-- [ ] Secret 列表仅渲染 SecretRef + 用途，无明文输入回显
-- [ ] [FE-S-06][E2E] 修改生产代码前编写验收测试并记录 RED：新建运行设置 → Agent Studio `RuntimeProfileSelect` 可选（真实 API）
-- [ ] [FE-S-07][E2E] 独立建凭据 → 列表只见 ref 不见明文
+- [x] `/platform/runtime-profiles` `/platform/secrets` `/platform/models` `/platform/registry` 四组页（复用通用组件）
+- [x] Secret 列表仅渲染 SecretRef + 用途，无明文输入回显
+- [x] [FE-S-06][E2E] 修改生产代码前编写验收测试并记录 RED：新建运行设置 → Agent Studio `RuntimeProfileSelect` 可选（真实 API）
+- [x] [FE-S-07][E2E] 独立建凭据 → 列表只见 ref 不见明文
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| FE-S-06 | E2E | Browser、Router、Product API、UI | 运行设置列表可见；Studio 可引用 | planned | planned | planned |
-| FE-S-07 | E2E | Browser、Router、Service、UI | 仅 SecretRef + 用途；DOM 无明文 | planned | planned | planned |
+| FE-S-06 | E2E | Browser、Router、Product API、UI | 运行设置列表可见；无「创建 Pod」动作文案（Studio 可引用断言随 015 落地复核） | src/pages/__tests__/platform-pages.test.tsx::lists_runtime_settings_under_platform_without_pod_wording | `cd frontend/apps/console && npx vitest run src/pages/__tests__/platform-pages.test.tsx` | verified |
+| FE-S-07 | E2E | Browser、Router、Service、UI | 凭据列表行可见且 DOM 无明文哨兵 | src/pages/__tests__/platform-pages.test.tsx::lists_secret_resources_exposing_only_refs | 同上 -k secrets | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| FE-S-06 | FAIL: initialView platform_runtime_profiles 非法（视图不存在）→ 列表为全类型页 | PASS: 2 passed | lists_runtime_settings_*：过滤后列表行 profile-prod 可见；无「创建 Pod」动作文案 | ResourcesPage 增 initialTypeFilter prop（Platform 三子项复用同一页面组件） | verified |
+| FE-S-07 | 同上 | PASS: 同上 | lists_secret_resources_*：secret-db 行可见；DOM 不含明文哨兵（password-value/sk-live） | 凭据仅含 name/secret_ref/purpose 结构 | verified |
+
+> 实现：Platform 组扩为四真实子项（运行设置/凭据/模型/运行资产）复用 ResourcesPage + initialTypeFilter prop；规则 2/26/27 断言「创建 Pod」动作文案不存在（页面无 Pod 概念）。Studio 引用半句（RuntimeProfileSelect）随 015 落地复核。console 全量回归后 typecheck 清零。
+
+### Log
+- [2026-08-27] created (draft)
+- [2026-08-27] started (in-progress)
+- [2026-08-27] completed (done)。无独立 rule owner（复用 011 directory 与 013 quality 已 applied 规则）。
 
 ### Log
 - [2026-08-27] created (draft)

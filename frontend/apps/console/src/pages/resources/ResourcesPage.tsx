@@ -14,14 +14,16 @@ import { ResourceDetailPanel } from "./ResourceDetailPanel";
 
 interface ResourcesPageProps {
   readonly api: ConsoleApi;
+  /** TASK-016：Platform 子页可预置类型过滤（运行设置/凭据/模型）。 */
+  readonly initialTypeFilter?: ResourceType | "all";
 }
 
 const RESOURCE_PAGE_SIZE = 20;
 
-export function ResourcesPage({ api }: ResourcesPageProps) {
+export function ResourcesPage({ api, initialTypeFilter = "all" }: ResourcesPageProps) {
   const [resources, setResources] = useState<readonly ResourceSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<ResourceType | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<ResourceType | "all">(initialTypeFilter);
   const [resourcePage, setResourcePage] = useState(1);
   const [drawerTarget, setDrawerTarget] = useState<{
     readonly resourceType: ResourceType;

@@ -111,7 +111,12 @@ const navItems = [
   {
     itemKey: "group-platform",
     text: "平台",
-    items: [{ icon: <IconList />, itemKey: "platform_assets", text: "运行资产" }]
+    items: [
+      { icon: <IconPulse />, itemKey: "platform_runtime_profiles", text: "运行设置" },
+      { icon: <IconKey />, itemKey: "platform_secrets", text: "凭据" },
+      { icon: <IconList />, itemKey: "platform_models", text: "模型" },
+      { icon: <IconList />, itemKey: "platform_assets", text: "运行资产" }
+    ]
   }
 ];
 
@@ -135,6 +140,15 @@ function renderView(view: ConsoleView, api: ConsoleApi) {
   }
   if (view === "platform_assets") {
     return <ResourcesPage api={api} />;
+  }
+  if (view === "platform_runtime_profiles") {
+    return <ResourcesPage api={api} initialTypeFilter="runtime_profile" />;
+  }
+  if (view === "platform_secrets") {
+    return <ResourcesPage api={api} initialTypeFilter="secret" />;
+  }
+  if (view === "platform_models") {
+    return <ResourcesPage api={api} initialTypeFilter="model" />;
   }
   if (view === "users_channels") {
     return <UsersChannelsPage api={api} />;
