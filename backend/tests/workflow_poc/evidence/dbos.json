@@ -1,0 +1,89 @@
+{
+  "candidate": "dbos",
+  "library_version": "2.31.0",
+  "criteria": {
+    "S-01": {
+      "passed": true,
+      "detail": "E2E Adapter→DBOS→Postgres；start 返回即同步持久化（status 可查）",
+      "metrics": {
+        "start_ms": 13.8
+      }
+    },
+    "P-CRASH": {
+      "passed": true,
+      "detail": "SIGKILL 后新进程 startup recovery 续跑；已完成 step 未重执行",
+      "metrics": {
+        "recovery_seconds": 5.13
+      }
+    },
+    "P-TIMER": {
+      "passed": true,
+      "detail": "kill+restart 后 timer 按原始 deadline 触发（elapsed 落在 [5.5, 9.5]s 窗口）",
+      "metrics": {
+        "elapsed_seconds": 7.2,
+        "timer_seconds": 6.0
+      }
+    },
+    "P-SIGNAL": {
+      "passed": true,
+      "detail": "recv 等待中被 send(signal) 唤醒，payload 完整进入 workflow 结果",
+      "metrics": {}
+    },
+    "P-PIN": {
+      "passed": true,
+      "detail": "恢复后仍按 start 时 pinned 的 v1 执行（latest 已漂移 v2）；retention 引用生命周期成立",
+      "metrics": {}
+    },
+    "P-TIMEOUT": {
+      "passed": true,
+      "detail": "step timeout=0.5s 触发（external_delay=5s），workflow 有界转 ERROR",
+      "metrics": {
+        "elapsed_seconds": 0.57
+      }
+    },
+    "P-IDEMP": {
+      "passed": true,
+      "detail": "同 run_id 二次 start 返回既有执行；step 未重跑、业务记录恰好 1 条",
+      "metrics": {}
+    },
+    "P-SCALE": {
+      "passed": true,
+      "detail": "database-backed queue + 2 真实 worker 进程；executor_id 显示双 worker 分摊",
+      "metrics": {
+        "distinct_executors": 2,
+        "workflows": 8
+      }
+    },
+    "B-02": {
+      "passed": true,
+      "detail": "tenant 维度 run/record 查询隔离；跨租户互不可见（tenant scope 由 adapter 层承载）",
+      "metrics": {}
+    },
+    "RULE-backend-database-001": {
+      "passed": true,
+      "detail": "durable state 全量在 PostgreSQL；SIGKILL 零丢失、恢复后无重复副作用",
+      "metrics": {}
+    },
+    "SLO-OBS-01": {
+      "passed": true,
+      "detail": "trace 关联完整率 1.0000（75/75）",
+      "metrics": {
+        "total_events": 75,
+        "correlated": 75
+      }
+    },
+    "baseline": {
+      "passed": true,
+      "detail": "1000 并发 workflow 全部 SUCCESS；单进程 start 吞吐见 metrics",
+      "metrics": {
+        "count": 1000,
+        "start_p95_ms": 6.1,
+        "start_max_ms": 39.6,
+        "total_seconds": 5.0,
+        "start_throughput_per_sec": 199.0
+      }
+    }
+  },
+  "baseline": null,
+  "all_criteria_passed": true
+}

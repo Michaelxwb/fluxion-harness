@@ -24,6 +24,17 @@ from fluxion.errors.console import (
     ConsoleValidationError,
     ConsoleVersionConflictError,
 )
+from fluxion.errors.workflow import (
+    WORKFLOW_BACKEND_UNAVAILABLE,
+    WORKFLOW_CANCEL_TIMEOUT,
+    WORKFLOW_INVALID_STATE,
+    WORKFLOW_RUN_NOT_FOUND,
+    WorkflowBackendUnavailableError,
+    WorkflowCancelTimeoutError,
+    WorkflowEngineError,
+    WorkflowInvalidStateError,
+    WorkflowRunNotFoundError,
+)
 
 __all__ = [
     "BINDING_VALIDATION_FAILED",
@@ -42,6 +53,10 @@ __all__ = [
     "SUCCESS",
     "VALIDATION_FAILED",
     "VERSION_CONFLICT",
+    "WORKFLOW_BACKEND_UNAVAILABLE",
+    "WORKFLOW_CANCEL_TIMEOUT",
+    "WORKFLOW_INVALID_STATE",
+    "WORKFLOW_RUN_NOT_FOUND",
     "ConsoleBindingValidationError",
     "ConsoleError",
     "ConsoleForbiddenError",
@@ -50,4 +65,9 @@ __all__ = [
     "ConsoleResourceNotFoundError",
     "ConsoleValidationError",
     "ConsoleVersionConflictError",
+    "WorkflowBackendUnavailableError",
+    "WorkflowCancelTimeoutError",
+    "WorkflowEngineError",
+    "WorkflowInvalidStateError",
+    "WorkflowRunNotFoundError",
 ]

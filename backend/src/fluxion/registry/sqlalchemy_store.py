@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from sqlalchemy import Select, event, func, insert, select, update
@@ -10,7 +10,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from fluxion.registry import channel_sqlalchemy, publish_sqlalchemy, resource_sqlalchemy
+from fluxion.registry import (
+    channel_sqlalchemy,
+    publish_sqlalchemy,
+    resource_sqlalchemy,
+    retention_sqlalchemy,
+)
 from fluxion.registry.channel_store import (
     BindCodeRecord,
     BindRedemption,
@@ -26,10 +31,13 @@ from fluxion.registry.schema import (
     resource_bindings,
 )
 from fluxion.registry.store import (
+    ActiveReference,
     AuditRecord,
     BindingCommand,
     BindingCommit,
     BindingOperation,
+    DEFAULT_HARD_DELETE_RETENTION,
+    DeleteResult,
     NotFoundError,
     OutboxEventRecord,
     OutboxStatus,
@@ -478,6 +486,100 @@ class SQLAlchemyRegistryStore:
         if result.rowcount == 0:
             raise NotFoundError(f"binding {binding_id} not found")
         await self.bump_revision(tenant_id=tenant_id)
+
+    async def recall_pinned(
+        self,
+        kind: ResourceKind,
+        resource_id: str,
+        *,
+        tenant_id: str,
+        version: str,
+    ) -> ResourceDefinition:
+        return await resource_sqlalchemy.recall_pinned(
+            self._engine,
+            kind,
+            resource_id,
+            tenant_id=tenant_id,
+            version=version,
+        )
+
+    async def hard_delete(
+        self,
+        kind: ResourceKind,
+        resource_id: str,
+        *,
+        tenant_id: str,
+        version: str,
+        approval_id: str,
+        retention_period: timedelta = DEFAULT_HARD_DELETE_RETENTION,
+    ) -> DeleteResult:
+        return await retention_sqlalchemy.hard_delete(
+            self._engine,
+            tenant_id=tenant_id,
+            kind=kind,
+            resource_id=resource_id,
+            version=version,
+            approval_id=approval_id,
+            retention_period=retention_period,
+        )
+
+    async def add_active_reference(
+        self,
+        *,
+        tenant_id: str,
+        kind: ResourceKind,
+        resource_id: str,
+        version: str,
+        ref_type: str,
+        ref_id: str,
+    ) -> None:
+        await resource_sqlalchemy.add_active_reference(
+            self._engine,
+            tenant_id=tenant_id,
+            kind=kind,
+            resource_id=resource_id,
+            version=version,
+            ref_type=ref_type,
+            ref_id=ref_id,
+        )
+
+    async def release_active_reference(
+        self,
+        *,
+        tenant_id: str,
+        kind: ResourceKind,
+        resource_id: str,
+        version: str,
+        ref_type: str,
+        ref_id: str,
+    ) -> None:
+        await resource_sqlalchemy.release_active_reference(
+            self._engine,
+            tenant_id=tenant_id,
+            kind=kind,
+            resource_id=resource_id,
+            version=version,
+            ref_type=ref_type,
+            ref_id=ref_id,
+        )
+
+    async def check_active_references(
+        self,
+        *,
+        tenant_id: str,
+        kind: ResourceKind,
+        resource_id: str,
+        version: str,
+        ref_type: str | None = None,
+    ) -> list[ActiveReference]:
+        return await resource_sqlalchemy.check_active_references(
+            self._engine,
+            tenant_id=tenant_id,
+            kind=kind,
+            resource_id=resource_id,
+            version=version,
+            ref_type=ref_type,
+        )
 
     async def create_platform_user(self, record: PlatformUserRecord) -> PlatformUserRecord:
         return await channel_sqlalchemy.create_platform_user(self._engine, record)

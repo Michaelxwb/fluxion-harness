@@ -248,6 +248,15 @@ def _next_status(
         if current_status is not ResourceStatus.PUBLISHED:
             raise VersionConflictError("only published versions can be deprecated")
         return ResourceStatus.DEPRECATED
+    if command.operation is PublicationOperation.TOMBSTONE:
+        # ADR-SNAPSHOT-001 §3.2：PUBLISHED/DEPRECATED→TOMBSTONE（soft-delete 终态）；
+        # DRAFT 未发布无 pinned payload 语义，TOMBSTONE 自身为终态不可重复进入。
+        # REVIEW-C：tombstone 是高影响操作，与 rollback 对齐强制 approval_id。
+        if current_status not in {ResourceStatus.PUBLISHED, ResourceStatus.DEPRECATED}:
+            raise VersionConflictError("only published or deprecated versions can be tombstoned")
+        if not command.approval_id:
+            raise VersionConflictError("tombstone requires approval")
+        return ResourceStatus.TOMBSTONE
     if current_status is ResourceStatus.DEPRECATED and not command.approval_id:
         raise VersionConflictError("deprecated rollback requires approval")
     if current_status not in {ResourceStatus.PUBLISHED, ResourceStatus.DEPRECATED}:

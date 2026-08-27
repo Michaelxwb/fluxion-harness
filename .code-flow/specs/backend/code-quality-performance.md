@@ -40,6 +40,14 @@ except Exception:
 ## Rules
 - [RULE-backend-quality-001] 实现必须满足 Guidance 中所有适用要求，并避免 Avoid 中列出的所有禁止项。
 
+### 代码约定（cf-learn 2026-08-27 证据沉淀）
+- 自定义错误类必须定义字符串 `code` 属性（31 处一致：`PluginLoadError.code="plugin_load_error"`、`ModelProviderError.code="model_provider_error"` 等）——错误码集中、可机检
+- 数据对象统一 `@dataclass(frozen=True, slots=True)`（110 处）——不可变 + `__slots__`，防可变默认值/属性漂移
+- 模块以 `from __future__ import annotations` 开头（全仓库仅 13 文件缺该行）——延迟注解求值，避免 forward-ref 循环，mypy 友好
+- 外部调用方法带显式 `timeout_ms` 参数（Rule 18 的代码形态；contracts/summarizer/personal_memory 统一 `timeout_ms: int = 30_000`），禁止无超时签名
+- SPI Protocol 用 `@runtime_checkable`（12 处）——loader 以 isinstance 分派 typed provider，依赖运行时结构校验
+- 公共函数完整类型注解（pyproject `[tool.mypy] strict=true` 硬门禁），禁止裸 `dict`/未注解参数
+
 ## Guidance
 - 所有公开函数 / 方法必须有类型注解（type hints / 类型签名）
 - 异常必须显式处理或显式上抛，禁止 `except Exception: pass` / `catch (e) {}` 静默吞掉

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import logging
 from contextlib import suppress
 from dataclasses import dataclass
 
 from fluxion.plugins.contracts import (
+    ArtifactStoreProvider,
     CapabilityDescriptor,
     CapabilityProvider,
     ModelProvider,
@@ -13,8 +15,13 @@ from fluxion.plugins.contracts import (
     PluginExecutionMode,
     PluginManifest,
     PluginType,
+    ProviderNotFoundError,
+    SecretProvider,
+    SemanticStoreProvider,
     TrustLevel,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class PluginLoadError(RuntimeError):
@@ -40,6 +47,43 @@ class LoadedPlugin:
     capabilities: list[CapabilityDescriptor]
 
 
+# ADR-EXT-001 统一扩展模型：per-PluginType 分派表。
+# 仅含 4 个"可 resolve(provider_id)"的 provider SPI。TOOL_PROVIDER 走
+# CapabilityProvider→LoadedPlugin.capabilities（既有路径，不进 typed registry）；
+# HOOK 走 HookRegistryProtocol（对齐 ADR-007，Phase 5 注入），本阶段不分派。
+_PROVIDER_PROTOCOL: dict[PluginType, type] = {
+    PluginType.MODEL_PROVIDER: ModelProvider,
+    PluginType.SEMANTIC_STORE: SemanticStoreProvider,
+    PluginType.ARTIFACT_STORE: ArtifactStoreProvider,
+    PluginType.SECRET_PROVIDER: SecretProvider,
+}
+
+
+class InMemoryProviderRegistry:
+    """参考实现的 in-memory typed provider registry（register/resolve/provider_ids）。
+
+    生产实现（pgvector / S3 / SecretProvider resolve 等）按 design §11 Rolling-wave
+    延后 Phase 1/5；此处只提供形状一致的参考 registry，供 PluginLoader 分派。
+    """
+
+    def __init__(self) -> None:
+        self._providers: dict[str, object] = {}
+
+    def register(self, provider_id: str, provider: object) -> None:
+        self._providers[provider_id] = provider
+
+    def resolve(self, provider_id: str) -> object:
+        try:
+            return self._providers[provider_id]
+        except KeyError as error:
+            raise ProviderNotFoundError(
+                f"provider '{provider_id}' not registered in {type(self).__name__}"
+            ) from error
+
+    def provider_ids(self) -> list[str]:
+        return list(self._providers)
+
+
 class PluginLoader:
     def __init__(
         self,
@@ -51,6 +95,12 @@ class PluginLoader:
         self._model_provider_registry = model_provider_registry
         self._loaded: dict[str, Plugin] = {}
         self._records: dict[str, LoadedPlugin] = {}
+        # 非 MODEL_PROVIDER 的 typed provider SPI：per-PluginType 参考 registry。
+        self._registries: dict[PluginType, InMemoryProviderRegistry] = {
+            pt: InMemoryProviderRegistry()
+            for pt in _PROVIDER_PROTOCOL
+            if pt is not PluginType.MODEL_PROVIDER
+        }
 
     @property
     def loaded(self) -> list[LoadedPlugin]:
@@ -71,7 +121,7 @@ class PluginLoader:
             self._loaded[manifest.plugin_id] = plugin
             record = LoadedPlugin(manifest=manifest, capabilities=capabilities)
             self._records[manifest.plugin_id] = record
-            self._register_model_provider(plugin, manifest, capabilities)
+            self._register_provider(plugin, manifest, capabilities)
             return record
         except Exception:
             # 注册中途失败时回滚，避免残留部分注册
@@ -110,6 +160,37 @@ class PluginLoader:
             raise PluginLoadError(f"{manifest.plugin_id}: model plugin lacks complete()")
         provider_id = _provider_id(manifest, capabilities)
         self._model_provider_registry.register(provider_id, plugin)
+
+    def _register_provider(
+        self,
+        plugin: Plugin,
+        manifest: PluginManifest,
+        capabilities: list[CapabilityDescriptor],
+    ) -> None:
+        """per-PluginType 分派：MODEL_PROVIDER 走注入 registry；其余 typed SPI 走参考 registry。"""
+        if manifest.plugin_type is PluginType.MODEL_PROVIDER:
+            self._register_model_provider(plugin, manifest, capabilities)
+            return
+        if manifest.plugin_type is PluginType.TOOL_PROVIDER:
+            # TOOL_PROVIDER = CapabilityProvider 形状（ADR-EXT-001 SPI-02）。不硬拒绝：
+            # 既有最小插件用 TOOL_PROVIDER 作通用类型（无 provider 角色）；但静默零能力
+            # 是误配置信号，故 warn 暴露（review #1：静默 → 显式警告）。
+            if not isinstance(plugin, CapabilityProvider):
+                _logger.warning(
+                    "%s: tool_provider plugin lacks CapabilityProvider -> loads with zero capabilities",
+                    manifest.plugin_id,
+                )
+            return
+        protocol = _PROVIDER_PROTOCOL.get(manifest.plugin_type)
+        if protocol is None:
+            # HOOK 不进 typed provider registry（见 _PROVIDER_PROTOCOL 注释）
+            return
+        if not isinstance(plugin, protocol):
+            raise PluginLoadError(
+                f"{manifest.plugin_id}: {manifest.plugin_type.value} plugin lacks protocol"
+            )
+        provider_id = _provider_id(manifest, capabilities)
+        self._registries[manifest.plugin_type].register(provider_id, plugin)
 
 
 def _capabilities(plugin: Plugin) -> list[CapabilityDescriptor]:

@@ -3,7 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+from fluxion.observability.logging import emit_memory_event_log
 from fluxion.runtime.context import RuntimeContext
+from fluxion.runtime.summarizer import (
+    SUMMARIZER_DETERMINISTIC,
+    SUMMARIZER_MODEL,
+    SummarizerRegistryProtocol,
+    SummaryResult,
+    default_summarizer_registry,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +44,8 @@ class MemoryPolicy:
 class CompactionResult:
     raw_messages: list[MemoryRecord]
     summary: str
+    # ADR-MEM-001：摘要源消息 range hash（Summarizer SPI 产出，可追溯）
+    source_range_hash: str = ""
 
 
 class SessionMemoryStore(Protocol):
@@ -71,8 +81,9 @@ class InMemorySessionMemoryStore:
     async def append_summary(self, record: MemoryRecord) -> None:
         key = (record.tenant_id, record.session_id)
         self._summaries.setdefault(key, []).append(record)
+        # ADR-MEM-001：SessionContextSummary 只写 session-scoped（_summaries/_l1），
+        # 不交叉写 _l2——summary 泄漏进 user-level L2 的写侧根因已删。
         await self.append_l1([record])
-        await self.append_l2([record])
 
     async def read_l1(self, tenant_id: str, session_id: str) -> list[MemoryRecord]:
         return list(self._l1.get((tenant_id, session_id), []))
@@ -99,9 +110,12 @@ class MemoryManager:
         store: SessionMemoryStore,
         *,
         policy: MemoryPolicy | None = None,
+        summarizer_registry: SummarizerRegistryProtocol | None = None,
     ) -> None:
         self._store = store
         self._policy = policy or MemoryPolicy()
+        # ADR-MEM-001：compaction 经 Summarizer registry resolve（默认只挂确定性截断）
+        self._summarizer_registry = summarizer_registry or default_summarizer_registry()
         self._l0: dict[str, list[MemoryRecord]] = {}
         self._flushed_counts: dict[str, int] = {}
 
@@ -133,14 +147,59 @@ class MemoryManager:
         messages = await self._context_messages(context)
         retain = self._policy.retain_latest_turns
         older, raw = messages[:-retain], messages[-retain:]
-        summary = _summarize(older)
+        result = await self._summarize_records(context, older) if older else None
+        summary = result.content if result else ""
         if summary:
             await self._store.append_summary(_memory_record(context, "summary", summary))
             # 已被摘要的 L1 记录删除，L1 与 L0 都截断，避免压缩后存储仍无界增长。
             await self._store.remove_l1(older)
             await self._drop_from_l0(context.snapshot.execution_id, older)
         context.emit("memory.compacted", {"summary_tokens": _estimate_tokens(summary)})
-        return CompactionResult(raw_messages=raw, summary=summary)
+        return CompactionResult(
+            raw_messages=raw,
+            summary=summary,
+            source_range_hash=result.source_range_hash if result else "",
+        )
+
+    async def _summarize_records(
+        self, context: RuntimeContext, records: list[MemoryRecord]
+    ) -> SummaryResult:
+        """经 Summarizer registry resolve 调 SPI（ADR-MEM-001 替换假 `_summarize`）。
+
+        优先 model summarizer；超时/异常降级 deterministic 截断 fallback，
+        不静默吞（trace 事件 + 结构化日志，E-02）；registry 未命中 model 时
+        直接走 deterministic（无 model 配置的正常路径，非降级）。
+        """
+        token_budget = self._policy.max_context_tokens
+        summarizer_id = next(
+            (
+                candidate
+                for candidate in (SUMMARIZER_MODEL, SUMMARIZER_DETERMINISTIC)
+                if candidate in _registered_summarizer_ids(self._summarizer_registry)
+            ),
+            None,
+        )
+        if summarizer_id is None:
+            raise RuntimeError("no summarizer registered (need model or deterministic)")
+        summarizer = self._summarizer_registry.resolve(summarizer_id)
+        try:
+            return await summarizer.summarize(records, token_budget=token_budget)
+        except Exception as exc:  # noqa: BLE001 — compaction 降级必须兜底，下方 trace+log 不静默吞
+            error_type = type(exc).__name__
+            emit_memory_event_log(
+                event="memory.summarizer.fallback",
+                tenant_id=context.snapshot.tenant_id,
+                trace_id=context.snapshot.trace_id,
+                execution_id=context.snapshot.execution_id,
+                level="warning",
+                detail=f"{error_type}: {exc}",
+            )
+            context.emit(
+                "memory.summarizer_fallback",
+                {"from": summarizer_id, "fallback": SUMMARIZER_DETERMINISTIC, "error_type": error_type},
+            )
+            fallback = self._summarizer_registry.resolve(SUMMARIZER_DETERMINISTIC)
+            return await fallback.summarize(records, token_budget=token_budget)
 
     async def maybe_compact(self, context: RuntimeContext) -> bool:
         """上下文超 max_context_tokens 时触发摘要压缩；返回是否压缩过。
@@ -187,8 +246,10 @@ class MemoryManager:
         new_records = records[already_flushed:]
         if not new_records:
             return
+        # ADR-MEM-001：双写修复——flush 只写 L1（session raw）。L2 legacy
+        # user-raw 停止无脑双写（raw 会话翻倍进 user-level = 反模式）；legacy
+        # L2 数据迁移/删除延后 Phase 2 TASK-M202。
         await self._store.append_l1(new_records)
-        await self._store.append_l2(new_records)
         self._flushed_counts[execution_id] = len(records)
         context.emit("memory.flushed", {"records": len(new_records)})
 
@@ -251,7 +312,21 @@ def _is_cjk(codepoint: int) -> bool:
     return any(low <= codepoint <= high for low, high in _CJK_RANGES)
 
 
-def _summarize(records: list[MemoryRecord]) -> str:
-    if not records:
-        return ""
-    return "summary: " + " | ".join(record.content for record in records)
+def _registered_summarizer_ids(registry: SummarizerRegistryProtocol) -> set[str]:
+    """registry 可选暴露 summarizer_ids（SummarizerRegistry 实现）；缺失时仅探测已知 id。"""
+    ids = getattr(registry, "summarizer_ids", None)
+    if callable(ids):
+        return set(ids())
+    return {
+        candidate
+        for candidate in (SUMMARIZER_MODEL, SUMMARIZER_DETERMINISTIC)
+        if _can_resolve(registry, candidate)
+    }
+
+
+def _can_resolve(registry: SummarizerRegistryProtocol, summarizer_id: str) -> bool:
+    try:
+        registry.resolve(summarizer_id)
+    except Exception:  # noqa: BLE001 — 探测性 resolve，任何失败都视为未注册
+        return False
+    return True

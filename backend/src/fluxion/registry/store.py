@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
@@ -24,6 +24,9 @@ class PublicationOperation(StrEnum):
     PUBLISH = "publish"
     ROLLBACK = "rollback"
     DEPRECATE = "deprecate"
+    # ADR-SNAPSHOT-001：soft-delete（PUBLISHED/DEPRECATED→TOMBSTONE），走同一治理
+    # 事务（audit + publish_record + outbox + revision）。
+    TOMBSTONE = "tombstone"
 
 
 class BindingOperation(StrEnum):
@@ -124,6 +127,34 @@ class OutboxEventRecord:
     available_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class ActiveReference:
+    """pinned 版本的一条 active 引用（ADR-SNAPSHOT-001；坐标由查询 scope 决定）。"""
+
+    ref_type: str
+    ref_id: str
+    created_at: datetime
+
+
+# ADR-SNAPSHOT-001 RISK-02：retention_period 默认保守语义——Phase 6 前不因
+# retention 放行（guard 逻辑就位，值以参数注入；S-03 用 timedelta(0) 验证通过路径）。
+DEFAULT_HARD_DELETE_RETENTION: timedelta = timedelta(days=30)
+
+
+@dataclass(frozen=True, slots=True)
+class DeleteResult:
+    """hard_delete 治理提交结果（镜像 PublicationCommit 形态）。"""
+
+    publish_id: str
+    event_id: str
+    tenant_id: str
+    kind: ResourceKind
+    resource_id: str
+    version: str
+    revision: int
+    event_status: OutboxStatus
+
+
 @runtime_checkable
 class RegistryReadStore(Protocol):
     async def get(
@@ -165,6 +196,26 @@ class RegistryStore(RegistryReadStore, Protocol):
     ) -> ResourceDefinition: ...
 
     async def update_draft(self, definition: ResourceDefinition) -> ResourceDefinition: ...
+
+    async def recall_pinned(
+        self,
+        kind: ResourceKind,
+        resource_id: str,
+        *,
+        tenant_id: str,
+        version: str,
+    ) -> ResourceDefinition: ...
+
+    async def hard_delete(
+        self,
+        kind: ResourceKind,
+        resource_id: str,
+        *,
+        tenant_id: str,
+        version: str,
+        approval_id: str,
+        retention_period: timedelta = DEFAULT_HARD_DELETE_RETENTION,
+    ) -> DeleteResult: ...
 
     async def list_versions(
         self,
@@ -237,3 +288,35 @@ class RegistryStore(RegistryReadStore, Protocol):
     ) -> tuple[list[ResourceBinding], int]: ...
 
     async def disable_binding(self, binding_id: str, *, tenant_id: str) -> None: ...
+
+    async def add_active_reference(
+        self,
+        *,
+        tenant_id: str,
+        kind: ResourceKind,
+        resource_id: str,
+        version: str,
+        ref_type: str,
+        ref_id: str,
+    ) -> None: ...
+
+    async def release_active_reference(
+        self,
+        *,
+        tenant_id: str,
+        kind: ResourceKind,
+        resource_id: str,
+        version: str,
+        ref_type: str,
+        ref_id: str,
+    ) -> None: ...
+
+    async def check_active_references(
+        self,
+        *,
+        tenant_id: str,
+        kind: ResourceKind,
+        resource_id: str,
+        version: str,
+        ref_type: str | None = None,
+    ) -> list[ActiveReference]: ...

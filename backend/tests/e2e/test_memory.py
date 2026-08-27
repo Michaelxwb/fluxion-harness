@@ -42,5 +42,7 @@ async def test_S_R17_multi_layer_memory_flush_and_isolation(
 
     assert any(message.content == "alpha beta gamma delta epsilon" for message in same_session)
     assert other_session == []
-    assert any(message.content == "alpha beta gamma delta epsilon" for message in cross_session)
+    # ADR-MEM-001 双写修复：flush 只写 L1（session raw）；L2 legacy user-raw 不再
+    # 接收 flush 写入（raw 会话翻倍进 user-level = 反模式）。read_l2 在此为空。
+    assert cross_session == []
     assert other_tenant == []

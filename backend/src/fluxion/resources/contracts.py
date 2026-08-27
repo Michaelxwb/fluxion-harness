@@ -21,6 +21,9 @@ class ResourceStatus(StrEnum):
     DRAFT = "draft"
     PUBLISHED = "published"
     DEPRECATED = "deprecated"
+    # ADR-SNAPSHOT-001：soft-delete 终态——immutable spec_json 保留（recall_pinned
+    # 仍可恢复）、resolver 不解析；物理删除只能经 hard_delete 三重 guard。
+    TOMBSTONE = "tombstone"
 
 
 class ResourceVisibility(StrEnum):

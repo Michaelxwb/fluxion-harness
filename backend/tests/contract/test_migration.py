@@ -43,6 +43,7 @@ def test_migration_upgrade_creates_full_schema_and_downgrade_cleans(tmp_path) ->
     assert "channel_identities" in tables
     assert "chat_access_tokens" in tables
     assert "publish_records" in tables
+    assert "active_references" in tables
 
     command.downgrade(_config(db_path), "base")
     assert _tables(db_path) == {"alembic_version"}

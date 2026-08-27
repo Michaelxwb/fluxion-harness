@@ -1,7 +1,7 @@
 version: 1
 task: TASK-101
 enforcement: required
-updated_at: '2026-08-23T10:39:04.559923+00:00'
+updated_at: '2026-08-27T02:51:04.540755+00:00'
 sources:
 - type: cli
   ref: bind
@@ -13,8 +13,8 @@ bindings:
     file_sha256: 2948c1d7f6de41b5ac291b2e1b07df5edd4accf1bb685dcd30ff6c66145e5018
     metadata_sha256: b47ce10c1c4909938b6e81de279a1f79ff668396723faa5a07a6582843fa42bc
     rules_sha256: 0be3ab4ac115124aa531b6d35ffe5648a81186f417e708abb10005aa14407e3c
-  selected_by: task
-  reason: TASK-101 explicit Spec-Refs
+  selected_by: requirement
+  reason: archive re-bind
   enforcement: required
   stages:
   - design
@@ -39,12 +39,16 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: control-plane-api.md
           section_id: TASK-101
           item_id: Spec-Refs/Acceptance Contract
           artifact_sha256: 3f4f7b8c01926afc1bb556d349e194d7e7d22ba28c548ff21d88737296c1e399
+        - artifact: control-plane-api.md
+          section_id: phase-06-control-plane-api
+          item_id: RULE
+          artifact_sha256: 7055b12d5b3fd54e55170bc8114877eadddd8384a353e39c35bdef9337262e0f
         decision:
           kind: manual_verification
           reason: 用户以 project-owner 身份确认 TASK-101 满足当前 code-flow Stop Gate required
@@ -191,8 +195,8 @@ bindings:
     file_sha256: ec7dbf940463ec02ed51075a082be00c23da585c69b150864455b03d108266ce
     metadata_sha256: 5229e1d69a7cbce9500e9a8fa902fe6cc9888dcc5a304f1543476b248971087e
     rules_sha256: dbe672ee29795f296a5340e78d0ff12b030ecebce4d18422fa33fc2f457b79ec
-  selected_by: task
-  reason: TASK-101 explicit Spec-Refs
+  selected_by: requirement
+  reason: archive re-bind
   enforcement: required
   stages:
   - design
@@ -217,12 +221,16 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: control-plane-api.md
           section_id: TASK-101
           item_id: Spec-Refs/Acceptance Contract
           artifact_sha256: 3f4f7b8c01926afc1bb556d349e194d7e7d22ba28c548ff21d88737296c1e399
+        - artifact: control-plane-api.md
+          section_id: phase-06-control-plane-api
+          item_id: RULE
+          artifact_sha256: 7055b12d5b3fd54e55170bc8114877eadddd8384a353e39c35bdef9337262e0f
         decision:
           kind: manual_verification
           reason: 用户以 project-owner 身份确认 TASK-101 满足当前 code-flow Stop Gate required
@@ -395,8 +403,8 @@ bindings:
     file_sha256: 8a3dad58ea5a76482fcafb61df231d310cb3e091ab286914f21e955343e3ed7e
     metadata_sha256: e4195df6c2ece3686dd5a90e9adf8ea70245e54d9ac0bd069a3ad6c6a12693b1
     rules_sha256: 8f95386478469266c84a84f5a8d507f4d049f08497f7b8e0f38a231a753b2dc6
-  selected_by: scope:path
-  reason: Git diff matched .code-flow/scripts/cf_checks.py,.code-flow/scripts/cf_core.py,.code-flow/scripts/cf_feedback.py,.code-flow/scripts/cf_log.py,.code-flow/scripts/cf_post_hook.py,.code-flow/scripts/cf_pre_tool_hook.py,.code-flow/scripts/cf_scan.py,.code-flow/scripts/cf_session_state.py,.code-flow/scripts/cf_spec_context.py,.code-flow/scripts/cf_spec_gate.py,.code-flow/scripts/cf_spec_metadata.py,.code-flow/scripts/cf_spec_migrate.py,.code-flow/scripts/cf_spec_resolver.py,.code-flow/scripts/cf_spec_router.py,.code-flow/scripts/cf_spec_session.py,.code-flow/scripts/cf_spec_verify.py,.code-flow/scripts/cf_stats.py,.code-flow/scripts/cf_stop_hook.py,.code-flow/scripts/cf_sync.py,.code-flow/scripts/cf_task_runtime.py,.code-flow/scripts/cf_user_prompt_hook.py,backend/src/fluxion/__init__.py,backend/src/fluxion/api/__init__.py,backend/src/fluxion/api/console.py,backend/src/fluxion/api/middleware.py,backend/src/fluxion/api/responses.py,backend/src/fluxion/api/runtime.py,backend/src/fluxion/cli/__init__.py,backend/src/fluxion/cli/main.py,backend/src/fluxion/config/__init__.py,backend/src/fluxion/errors/__init__.py,backend/src/fluxion/errors/console.py,backend/src/fluxion/kernel/__init__.py,backend/src/fluxion/kernel/events.py,backend/src/fluxion/models/__init__.py,backend/src/fluxion/observability/__init__.py,backend/src/fluxion/observability/context.py,backend/src/fluxion/observability/logging.py,backend/src/fluxion/observability/redaction.py,backend/src/fluxion/plugins/__init__.py,backend/src/fluxion/plugins/contracts.py,backend/src/fluxion/plugins/loader.py,backend/src/fluxion/plugins/model_provider.py,backend/src/fluxion/protocols/__init__.py,backend/src/fluxion/protocols/a2a.py,backend/src/fluxion/registry/__init__.py,backend/src/fluxion/registry/schema.py,backend/src/fluxion/registry/sqlalchemy_store.py,backend/src/fluxion/registry/store.py,backend/src/fluxion/repositories/__init__.py,backend/src/fluxion/resources/__init__.py,backend/src/fluxion/resources/cache.py,backend/src/fluxion/resources/contracts.py,backend/src/fluxion/runtime/__init__.py,backend/src/fluxion/runtime/agent.py,backend/src/fluxion/runtime/builtin_tools.py,backend/src/fluxion/runtime/capabilities.py,backend/src/fluxion/runtime/context.py,backend/src/fluxion/runtime/hot_reload.py,backend/src/fluxion/runtime/mcp.py,backend/src/fluxion/runtime/memory.py,backend/src/fluxion/runtime/planning.py,backend/src/fluxion/runtime/resolver.py,backend/src/fluxion/runtime/sandbox.py,backend/src/fluxion/runtime/scheduler.py,backend/src/fluxion/runtime/secrets.py,backend/src/fluxion/runtime/skills.py,backend/src/fluxion/runtime/tools.py,backend/src/fluxion/runtime/tracing.py,backend/src/fluxion/runtime/workflow.py,backend/src/fluxion/services/__init__.py,backend/src/fluxion/services/console_app.py,backend/src/fluxion/services/console_contracts.py,backend/src/fluxion/services/runtime_app.py,backend/src/fluxion/services/runtime_contracts.py,backend/tests/__init__.py,backend/tests/benchmarks/test_hook_benchmark.py,backend/tests/benchmarks/test_resolver_benchmark.py,backend/tests/benchmarks/test_runtime_overhead.py,backend/tests/benchmarks/test_snapshot_benchmark.py,backend/tests/conftest.py,backend/tests/console_helpers.py,backend/tests/contract/test_registry_store.py,backend/tests/contract/test_shared_contracts.py,backend/tests/e2e/test_binding_authz.py,backend/tests/e2e/test_builtin_tools.py,backend/tests/e2e/test_cli_dev_bundle.py,backend/tests/e2e/test_console_authz.py,backend/tests/e2e/test_console_resource.py,backend/tests/e2e/test_context_compaction.py,backend/tests/e2e/test_effective_capability.py,backend/tests/e2e/test_hot_reload.py,backend/tests/e2e/test_mcp_credentials.py,backend/tests/e2e/test_memory.py,backend/tests/e2e/test_model_provider.py,backend/tests/e2e/test_planning.py,backend/tests/e2e/test_runtime_api.py,backend/tests/e2e/test_runtime_pool.py,backend/tests/e2e/test_sandbox.py,backend/tests/e2e/test_scheduler.py,backend/tests/e2e/test_secret_ref.py,backend/tests/e2e/test_snapshot_stability.py,backend/tests/e2e/test_stateless_runtime.py,backend/tests/e2e/test_tool_policy.py,backend/tests/e2e/test_tool_result_contract.py,backend/tests/e2e/test_trace.py,backend/tests/e2e/test_user_binding.py,backend/tests/e2e/test_visibility.py,backend/tests/e2e/test_workflow_adapter.py,backend/tests/integration/test_a2a_adapter.py,backend/tests/integration/test_api_response.py,backend/tests/integration/test_cache_revision.py,backend/tests/integration/test_hooks.py,backend/tests/integration/test_local_secret_store.py,backend/tests/integration/test_logging.py,backend/tests/integration/test_plugin_trust.py,backend/tests/integration/test_registry_degraded.py,backend/tests/integration/test_resource_version.py,backend/tests/integration/test_snapshot_resolution.py,backend/tests/integration/test_tenant_registry.py,backend/tests/runtime_helpers.py,backend/tests/unit/test_hook_scheduler.py,backend/tests/unit/test_kernel_boundaries.py,backend/tests/unit/test_resource_schema.py,scripts/check_frontend_constraints.py,scripts/run_registry_contract_tests.py
+  selected_by: requirement
+  reason: archive re-bind
   enforcement: required
   stages:
   - design
@@ -421,12 +429,16 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: control-plane-api.md
           section_id: TASK-101
           item_id: Spec-Refs/Stop Gate scope expansion
           artifact_sha256: 3f4f7b8c01926afc1bb556d349e194d7e7d22ba28c548ff21d88737296c1e399
+        - artifact: control-plane-api.md
+          section_id: phase-06-control-plane-api
+          item_id: RULE
+          artifact_sha256: 7055b12d5b3fd54e55170bc8114877eadddd8384a353e39c35bdef9337262e0f
         decision:
           kind: manual_verification
           reason: 用户以 project-owner 身份确认 TASK-101 满足当前 code-flow Stop Gate required
@@ -573,8 +585,8 @@ bindings:
     file_sha256: 3a5bd6d6c887ac1957ea0af903338397598cba239880390f8aab87433a7bdebe
     metadata_sha256: e5cf511d3452526d38711c7c1f2439c1a0fdd47cb64f5e8b9b6b00f7d75c7352
     rules_sha256: 35cdc8dcca234205abe5800ce53b0b7898b87d09c3369e64c7f6344a55ce3cf9
-  selected_by: task
-  reason: TASK-101 explicit Spec-Refs
+  selected_by: requirement
+  reason: archive re-bind
   enforcement: required
   stages:
   - design
@@ -599,12 +611,16 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: control-plane-api.md
           section_id: TASK-101
           item_id: Spec-Refs/Acceptance Contract
           artifact_sha256: 3f4f7b8c01926afc1bb556d349e194d7e7d22ba28c548ff21d88737296c1e399
+        - artifact: control-plane-api.md
+          section_id: phase-06-control-plane-api
+          item_id: RULE
+          artifact_sha256: 7055b12d5b3fd54e55170bc8114877eadddd8384a353e39c35bdef9337262e0f
         decision:
           kind: manual_verification
           reason: 用户以 project-owner 身份确认 TASK-101 满足当前 code-flow Stop Gate required
@@ -751,8 +767,8 @@ bindings:
     file_sha256: 15cafc5fe29c4bdc380485799ae0ed0dae1625a52d0c2874b4a3be72d216873b
     metadata_sha256: 08e544fb358be1b0c1e6a346ee6076f72ae784b921e3bd5dc6838771c7376828
     rules_sha256: 6b656795a6660ba5d2a9088dbfc999299eb5a99e0d433df110e68de6e670bfa6
-  selected_by: task
-  reason: TASK-101 explicit Spec-Refs
+  selected_by: requirement
+  reason: archive re-bind
   enforcement: required
   stages:
   - design
@@ -777,12 +793,16 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: control-plane-api.md
           section_id: TASK-101
           item_id: Spec-Refs/Acceptance Contract
           artifact_sha256: 3f4f7b8c01926afc1bb556d349e194d7e7d22ba28c548ff21d88737296c1e399
+        - artifact: control-plane-api.md
+          section_id: phase-06-control-plane-api
+          item_id: RULE
+          artifact_sha256: 7055b12d5b3fd54e55170bc8114877eadddd8384a353e39c35bdef9337262e0f
         decision:
           kind: manual_verification
           reason: 用户以 project-owner 身份确认 TASK-101 满足当前 code-flow Stop Gate required
@@ -982,8 +1002,8 @@ bindings:
     file_sha256: b49848fb91c2fe4c57f1c0c0ea47066eefdef0f79a0c5be99c06a9437f950934
     metadata_sha256: 43f49336b20d8bf5a7dfedeec5c2c3cf627489ba95f04ef201b7699c6596c829
     rules_sha256: 1f5fd7ead679f6b3092c8945fa7f73d6ab20a411c0186cf305bb4b5e44ed695b
-  selected_by: task
-  reason: TASK-101 explicit Spec-Refs
+  selected_by: requirement
+  reason: archive re-bind
   enforcement: required
   stages:
   - design
@@ -1009,12 +1029,16 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: control-plane-api.md
           section_id: TASK-101
           item_id: Spec-Refs/Acceptance Contract
           artifact_sha256: 3f4f7b8c01926afc1bb556d349e194d7e7d22ba28c548ff21d88737296c1e399
+        - artifact: control-plane-api.md
+          section_id: phase-06-control-plane-api
+          item_id: RULE
+          artifact_sha256: 7055b12d5b3fd54e55170bc8114877eadddd8384a353e39c35bdef9337262e0f
         decision:
           kind: manual_verification
           reason: 用户以 project-owner 身份确认 TASK-101 满足当前 code-flow Stop Gate required
@@ -1214,8 +1238,8 @@ bindings:
     file_sha256: 14365a9df1c1040d420cc533d1a8406cf1e116b507a1f294328551e19ca58763
     metadata_sha256: c2259fdf0e5ae7c7c2c1d3f11830c7b94cd1835e6221522ad664445d984ecffc
     rules_sha256: 79b3ff85988bba401360a3fd5b2859a81a8dd53949bac50646725a022aa03b57
-  selected_by: task
-  reason: TASK-101 explicit Spec-Refs
+  selected_by: requirement
+  reason: archive re-bind
   enforcement: required
   stages:
   - design
@@ -1241,12 +1265,16 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: control-plane-api.md
           section_id: TASK-101
           item_id: Spec-Refs/Acceptance Contract
           artifact_sha256: 3f4f7b8c01926afc1bb556d349e194d7e7d22ba28c548ff21d88737296c1e399
+        - artifact: control-plane-api.md
+          section_id: phase-06-control-plane-api
+          item_id: RULE
+          artifact_sha256: 7055b12d5b3fd54e55170bc8114877eadddd8384a353e39c35bdef9337262e0f
         decision:
           kind: manual_verification
           reason: 用户以 project-owner 身份确认 TASK-101 满足当前 code-flow Stop Gate required
@@ -1290,8 +1318,8 @@ bindings:
     file_sha256: 71163a48c0cf2e71f5b268f2f1c58bff770be366acfc38fdf483f6bb5e68cfd1
     metadata_sha256: 62f6f524cfe71bc9bed49c4de8bbab639be32805170760047db16b67526272cf
     rules_sha256: 3ba9ab41fd68e20a2f0cb91ee56e1c8f5c14fb8f374bbe49c75904532410581c
-  selected_by: task
-  reason: TASK-101 explicit Spec-Refs
+  selected_by: requirement
+  reason: archive re-bind
   enforcement: required
   stages:
   - design
@@ -1316,12 +1344,16 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: control-plane-api.md
           section_id: TASK-101
           item_id: Spec-Refs/Acceptance Contract
           artifact_sha256: 3f4f7b8c01926afc1bb556d349e194d7e7d22ba28c548ff21d88737296c1e399
+        - artifact: control-plane-api.md
+          section_id: phase-06-control-plane-api
+          item_id: RULE
+          artifact_sha256: 7055b12d5b3fd54e55170bc8114877eadddd8384a353e39c35bdef9337262e0f
         decision:
           kind: manual_verification
           reason: 用户以 project-owner 身份确认 TASK-101 满足当前 code-flow Stop Gate required
@@ -1364,8 +1396,8 @@ bindings:
     file_sha256: e4012ca419da7c37e2fb2ffbfb6dcc0a6598317fb8a8ab06b93b5c789e0b3710
     metadata_sha256: 9a3ed4c18e5f5a3cc513741e2c4588fee6ebf3a778ece32f6432d6e61a8424b4
     rules_sha256: 568d859613aeec93782523fcd103bc62e1145387cfd4f1a8572d3e6c1ed2f73a
-  selected_by: task
-  reason: TASK-101 explicit Spec-Refs
+  selected_by: requirement
+  reason: archive re-bind
   enforcement: required
   stages:
   - design
@@ -1391,12 +1423,16 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: control-plane-api.md
           section_id: TASK-101
           item_id: Spec-Refs/Acceptance Contract
           artifact_sha256: 3f4f7b8c01926afc1bb556d349e194d7e7d22ba28c548ff21d88737296c1e399
+        - artifact: control-plane-api.md
+          section_id: phase-06-control-plane-api
+          item_id: RULE
+          artifact_sha256: 7055b12d5b3fd54e55170bc8114877eadddd8384a353e39c35bdef9337262e0f
         decision:
           kind: manual_verification
           reason: 用户以 project-owner 身份确认 TASK-101 满足当前 code-flow Stop Gate required
@@ -1440,8 +1476,8 @@ bindings:
     file_sha256: 610021f0f96ef91124b7cd3be3df734aeaa7ec7f179459b3c0be9b6f3cf79871
     metadata_sha256: 391bdce0da4852f97e2ac830c24f595c665a0a5cd125d68837b31c1e626ca9e0
     rules_sha256: 15b396e337884dce61e18a6c0c07445eb2ddbb495218f1bb04ddb6ee03dad7f0
-  selected_by: scope:path
-  reason: Git diff matched backend/src/fluxion/__init__.py,backend/src/fluxion/api/__init__.py,backend/src/fluxion/api/console.py,backend/src/fluxion/api/middleware.py,backend/src/fluxion/api/responses.py,backend/src/fluxion/api/runtime.py,backend/src/fluxion/cli/__init__.py,backend/src/fluxion/cli/main.py,backend/src/fluxion/config/__init__.py,backend/src/fluxion/errors/__init__.py,backend/src/fluxion/errors/console.py,backend/src/fluxion/kernel/__init__.py,backend/src/fluxion/kernel/events.py,backend/src/fluxion/models/__init__.py,backend/src/fluxion/observability/__init__.py,backend/src/fluxion/observability/context.py,backend/src/fluxion/observability/logging.py,backend/src/fluxion/observability/redaction.py,backend/src/fluxion/plugins/__init__.py,backend/src/fluxion/plugins/contracts.py,backend/src/fluxion/plugins/loader.py,backend/src/fluxion/plugins/model_provider.py,backend/src/fluxion/protocols/__init__.py,backend/src/fluxion/protocols/a2a.py,backend/src/fluxion/registry/__init__.py,backend/src/fluxion/registry/schema.py,backend/src/fluxion/registry/sqlalchemy_store.py,backend/src/fluxion/registry/store.py,backend/src/fluxion/repositories/__init__.py,backend/src/fluxion/resources/__init__.py,backend/src/fluxion/resources/cache.py,backend/src/fluxion/resources/contracts.py,backend/src/fluxion/runtime/__init__.py,backend/src/fluxion/runtime/agent.py,backend/src/fluxion/runtime/builtin_tools.py,backend/src/fluxion/runtime/capabilities.py,backend/src/fluxion/runtime/context.py,backend/src/fluxion/runtime/hot_reload.py,backend/src/fluxion/runtime/mcp.py,backend/src/fluxion/runtime/memory.py,backend/src/fluxion/runtime/planning.py,backend/src/fluxion/runtime/resolver.py,backend/src/fluxion/runtime/sandbox.py,backend/src/fluxion/runtime/scheduler.py,backend/src/fluxion/runtime/secrets.py,backend/src/fluxion/runtime/skills.py,backend/src/fluxion/runtime/tools.py,backend/src/fluxion/runtime/tracing.py,backend/src/fluxion/runtime/workflow.py,backend/src/fluxion/services/__init__.py,backend/src/fluxion/services/console_app.py,backend/src/fluxion/services/console_contracts.py,backend/src/fluxion/services/runtime_app.py,backend/src/fluxion/services/runtime_contracts.py,backend/tests/.gitkeep,backend/tests/__init__.py,backend/tests/benchmarks/test_hook_benchmark.py,backend/tests/benchmarks/test_resolver_benchmark.py,backend/tests/benchmarks/test_runtime_overhead.py,backend/tests/benchmarks/test_snapshot_benchmark.py,backend/tests/conftest.py,backend/tests/console_helpers.py,backend/tests/contract/test_registry_store.py,backend/tests/contract/test_shared_contracts.py,backend/tests/e2e/test_binding_authz.py,backend/tests/e2e/test_builtin_tools.py,backend/tests/e2e/test_cli_dev_bundle.py,backend/tests/e2e/test_console_authz.py,backend/tests/e2e/test_console_resource.py,backend/tests/e2e/test_context_compaction.py,backend/tests/e2e/test_effective_capability.py,backend/tests/e2e/test_hot_reload.py,backend/tests/e2e/test_mcp_credentials.py,backend/tests/e2e/test_memory.py,backend/tests/e2e/test_model_provider.py,backend/tests/e2e/test_planning.py,backend/tests/e2e/test_runtime_api.py,backend/tests/e2e/test_runtime_pool.py,backend/tests/e2e/test_sandbox.py,backend/tests/e2e/test_scheduler.py,backend/tests/e2e/test_secret_ref.py,backend/tests/e2e/test_snapshot_stability.py,backend/tests/e2e/test_stateless_runtime.py,backend/tests/e2e/test_tool_policy.py,backend/tests/e2e/test_tool_result_contract.py,backend/tests/e2e/test_trace.py,backend/tests/e2e/test_user_binding.py,backend/tests/e2e/test_visibility.py,backend/tests/e2e/test_workflow_adapter.py,backend/tests/integration/test_a2a_adapter.py,backend/tests/integration/test_api_response.py,backend/tests/integration/test_cache_revision.py,backend/tests/integration/test_hooks.py,backend/tests/integration/test_local_secret_store.py,backend/tests/integration/test_logging.py,backend/tests/integration/test_plugin_trust.py,backend/tests/integration/test_registry_degraded.py,backend/tests/integration/test_resource_version.py,backend/tests/integration/test_snapshot_resolution.py,backend/tests/integration/test_tenant_registry.py,backend/tests/runtime_helpers.py,backend/tests/unit/test_hook_scheduler.py,backend/tests/unit/test_kernel_boundaries.py,backend/tests/unit/test_resource_schema.py,deploy/docker/.gitkeep,deploy/helm/.gitkeep,deploy/local/.gitkeep,frontend/apps/chat/package.json,frontend/apps/console/package.json,frontend/packages/shared/package.json,frontend/packages/shared/src/.gitkeep,package.json,pnpm-workspace.yaml,pyproject.toml,scripts/check_frontend_constraints.py,scripts/run_registry_contract_tests.py,shared/contracts/.gitkeep
+  selected_by: requirement
+  reason: archive re-bind
   enforcement: required
   stages:
   - design
@@ -1467,12 +1503,16 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: control-plane-api.md
           section_id: TASK-101
           item_id: Spec-Refs/Stop Gate scope expansion
           artifact_sha256: 3f4f7b8c01926afc1bb556d349e194d7e7d22ba28c548ff21d88737296c1e399
+        - artifact: control-plane-api.md
+          section_id: phase-06-control-plane-api
+          item_id: RULE
+          artifact_sha256: 7055b12d5b3fd54e55170bc8114877eadddd8384a353e39c35bdef9337262e0f
         decision:
           kind: manual_verification
           reason: 用户以 project-owner 身份确认 TASK-101 满足当前 code-flow Stop Gate required
@@ -1515,8 +1555,8 @@ bindings:
     file_sha256: b33116eff4b5885c3047c1e6253306098cc695815818504b5ec8ea23d39b1122
     metadata_sha256: 97e0795f6d72dd84c827faf2b70338d8ada2ca29c369d9c2a63eb217d0205193
     rules_sha256: c63766775e7af11a22a3341f6de0e303a10d6c295ce86ce51ed9175528acd9b5
-  selected_by: scope:path
-  reason: Git diff matched backend/src/fluxion/__init__.py,backend/src/fluxion/api/__init__.py,backend/src/fluxion/api/console.py,backend/src/fluxion/api/middleware.py,backend/src/fluxion/api/responses.py,backend/src/fluxion/api/runtime.py,backend/src/fluxion/cli/__init__.py,backend/src/fluxion/cli/main.py,backend/src/fluxion/config/__init__.py,backend/src/fluxion/errors/__init__.py,backend/src/fluxion/errors/console.py,backend/src/fluxion/kernel/__init__.py,backend/src/fluxion/kernel/events.py,backend/src/fluxion/models/__init__.py,backend/src/fluxion/observability/__init__.py,backend/src/fluxion/observability/context.py,backend/src/fluxion/observability/logging.py,backend/src/fluxion/observability/redaction.py,backend/src/fluxion/plugins/__init__.py,backend/src/fluxion/plugins/contracts.py,backend/src/fluxion/plugins/loader.py,backend/src/fluxion/plugins/model_provider.py,backend/src/fluxion/protocols/__init__.py,backend/src/fluxion/protocols/a2a.py,backend/src/fluxion/registry/__init__.py,backend/src/fluxion/registry/schema.py,backend/src/fluxion/registry/sqlalchemy_store.py,backend/src/fluxion/registry/store.py,backend/src/fluxion/repositories/__init__.py,backend/src/fluxion/resources/__init__.py,backend/src/fluxion/resources/cache.py,backend/src/fluxion/resources/contracts.py,backend/src/fluxion/runtime/__init__.py,backend/src/fluxion/runtime/agent.py,backend/src/fluxion/runtime/builtin_tools.py,backend/src/fluxion/runtime/capabilities.py,backend/src/fluxion/runtime/context.py,backend/src/fluxion/runtime/hot_reload.py,backend/src/fluxion/runtime/mcp.py,backend/src/fluxion/runtime/memory.py,backend/src/fluxion/runtime/planning.py,backend/src/fluxion/runtime/resolver.py,backend/src/fluxion/runtime/sandbox.py,backend/src/fluxion/runtime/scheduler.py,backend/src/fluxion/runtime/secrets.py,backend/src/fluxion/runtime/skills.py,backend/src/fluxion/runtime/tools.py,backend/src/fluxion/runtime/tracing.py,backend/src/fluxion/runtime/workflow.py,backend/src/fluxion/services/__init__.py,backend/src/fluxion/services/console_app.py,backend/src/fluxion/services/console_contracts.py,backend/src/fluxion/services/runtime_app.py,backend/src/fluxion/services/runtime_contracts.py,backend/tests/.gitkeep,backend/tests/__init__.py,backend/tests/benchmarks/test_hook_benchmark.py,backend/tests/benchmarks/test_resolver_benchmark.py,backend/tests/benchmarks/test_runtime_overhead.py,backend/tests/benchmarks/test_snapshot_benchmark.py,backend/tests/conftest.py,backend/tests/console_helpers.py,backend/tests/contract/test_registry_store.py,backend/tests/contract/test_shared_contracts.py,backend/tests/e2e/test_binding_authz.py,backend/tests/e2e/test_builtin_tools.py,backend/tests/e2e/test_cli_dev_bundle.py,backend/tests/e2e/test_console_authz.py,backend/tests/e2e/test_console_resource.py,backend/tests/e2e/test_context_compaction.py,backend/tests/e2e/test_effective_capability.py,backend/tests/e2e/test_hot_reload.py,backend/tests/e2e/test_mcp_credentials.py,backend/tests/e2e/test_memory.py,backend/tests/e2e/test_model_provider.py,backend/tests/e2e/test_planning.py,backend/tests/e2e/test_runtime_api.py,backend/tests/e2e/test_runtime_pool.py,backend/tests/e2e/test_sandbox.py,backend/tests/e2e/test_scheduler.py,backend/tests/e2e/test_secret_ref.py,backend/tests/e2e/test_snapshot_stability.py,backend/tests/e2e/test_stateless_runtime.py,backend/tests/e2e/test_tool_policy.py,backend/tests/e2e/test_tool_result_contract.py,backend/tests/e2e/test_trace.py,backend/tests/e2e/test_user_binding.py,backend/tests/e2e/test_visibility.py,backend/tests/e2e/test_workflow_adapter.py,backend/tests/integration/test_a2a_adapter.py,backend/tests/integration/test_api_response.py,backend/tests/integration/test_cache_revision.py,backend/tests/integration/test_hooks.py,backend/tests/integration/test_local_secret_store.py,backend/tests/integration/test_logging.py,backend/tests/integration/test_plugin_trust.py,backend/tests/integration/test_registry_degraded.py,backend/tests/integration/test_resource_version.py,backend/tests/integration/test_snapshot_resolution.py,backend/tests/integration/test_tenant_registry.py,backend/tests/runtime_helpers.py,backend/tests/unit/test_hook_scheduler.py,backend/tests/unit/test_kernel_boundaries.py,backend/tests/unit/test_resource_schema.py,deploy/docker/.gitkeep,deploy/helm/.gitkeep,deploy/local/.gitkeep,frontend/apps/chat/package.json,frontend/apps/console/package.json,frontend/packages/shared/package.json,frontend/packages/shared/src/.gitkeep,package.json,pnpm-workspace.yaml,pyproject.toml,scripts/check_frontend_constraints.py,scripts/run_registry_contract_tests.py,shared/contracts/.gitkeep
+  selected_by: requirement
+  reason: archive re-bind
   enforcement: required
   stages:
   - design
@@ -1542,12 +1582,16 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: control-plane-api.md
           section_id: TASK-101
           item_id: Spec-Refs/Stop Gate scope expansion
           artifact_sha256: 3f4f7b8c01926afc1bb556d349e194d7e7d22ba28c548ff21d88737296c1e399
+        - artifact: control-plane-api.md
+          section_id: phase-06-control-plane-api
+          item_id: RULE
+          artifact_sha256: 7055b12d5b3fd54e55170bc8114877eadddd8384a353e39c35bdef9337262e0f
         decision:
           kind: manual_verification
           reason: 用户以 project-owner 身份确认 TASK-101 满足当前 code-flow Stop Gate required

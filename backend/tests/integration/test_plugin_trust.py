@@ -17,7 +17,7 @@ class UntrustedInProcessPlugin:
     manifest = PluginManifest(
         plugin_id="untrusted.local",
         version="1",
-        plugin_type=PluginType.TOOL,
+        plugin_type=PluginType.TOOL_PROVIDER,
         entrypoint="tests.untrusted:Plugin",
         trust_level=TrustLevel.UNTRUSTED,
         permissions=[],
@@ -37,7 +37,7 @@ class MinimalPlugin:
     manifest = PluginManifest(
         plugin_id="minimal",
         version="1",
-        plugin_type=PluginType.TOOL,
+        plugin_type=PluginType.TOOL_PROVIDER,
         entrypoint="tests.minimal:Plugin",
         trust_level=TrustLevel.TRUSTED,
         permissions=[],

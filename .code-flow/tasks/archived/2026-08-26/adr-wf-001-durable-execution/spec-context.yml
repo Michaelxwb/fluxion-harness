@@ -1,0 +1,1034 @@
+version: 1
+task: adr-wf-001-durable-execution
+enforcement: required
+updated_at: '2026-08-27T02:53:27.372871+00:00'
+sources:
+- type: cli
+  ref: bind
+bindings:
+- spec_id: backend-code-quality-performance
+  path: backend/code-quality-performance.md
+  status: active
+  hashes:
+    file_sha256: 2948c1d7f6de41b5ac291b2e1b07df5edd4accf1bb685dcd30ff6c66145e5018
+    metadata_sha256: b47ce10c1c4909938b6e81de279a1f79ff668396723faa5a07a6582843fa42bc
+    rules_sha256: 0be3ab4ac115124aa531b6d35ffe5648a81186f417e708abb10005aa14407e3c
+  selected_by: requirement
+  reason: every durable-backend external call defines timeout+retry+circuit-breaker+fail
+    policy (rule 18); no unbounded wait/retry (RULE-backend-quality-001)
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-backend-quality-001
+    summary: 实现必须满足 Guidance 中所有适用要求，并避免 Avoid 中列出的所有禁止项。
+    text_sha256: bb2e52306aabab63ce3d89c88ff8b88685c0f35b7af5cfa73165cad3fd875dc6
+    enforcement: required
+    verifier_ref: backend-code-quality-performance#RULE-backend-quality-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.design.md
+          section_id: 3.4-3.5-timeout-fail
+          item_id: timeout-fail-policy
+          artifact_sha256: 212fd8c1481480244c542dab8e39c5f30845e3bc3e35f6ea3de55a43e909b47a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-001-protocol-harness
+          item_id: TASK-001
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-001-protocol-harness
+          item_id: TASK-001
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: 缓存可计算结果以减少重复 IO，明确缓存 key、TTL 与失效策略
+    text_sha256: d3c551240f59be0274a0d4fa6d5d9a188376bc9e0a4371b6dc50ffe6f08863cb
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: 重 IO 用异步或批处理，CPU 密集任务下沉到 worker / 队列
+    text_sha256: f6c084b30fa2236d8558ba80c020e53722f7ef69e3731a110ba4e4261b2f5372
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: 资源（连接、文件、锁）使用 `with` / `using` / `defer` 确保释放
+    text_sha256: 377d1e608abb7ddff68ec3034fc34c3867872c860e64f4400726c5413f5f6470
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: 性能敏感路径加监控指标（QPS / P95 延迟 / 错误率）
+    text_sha256: 564937ed8e066a6fa638cd8aaea01c6530f3fe79f8e946dc2b95d6497e69e5ba
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: backend-database
+  path: backend/database.md
+  status: active
+  hashes:
+    file_sha256: ec7dbf940463ec02ed51075a082be00c23da585c69b150864455b03d108266ce
+    metadata_sha256: 5229e1d69a7cbce9500e9a8fa902fe6cc9888dcc5a304f1543476b248971087e
+    rules_sha256: dbe672ee29795f296a5340e78d0ff12b030ecebce4d18422fa33fc2f457b79ec
+  selected_by: requirement
+  reason: durable state RPO=0 in PostgreSQL; self-built engine option schema + tenant
+    isolation (RULE-backend-database-001)
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-backend-database-001
+    summary: 实现必须满足 Guidance 中所有适用要求，并避免 Avoid 中列出的所有禁止项。
+    text_sha256: bb2e52306aabab63ce3d89c88ff8b88685c0f35b7af5cfa73165cad3fd875dc6
+    enforcement: required
+    verifier_ref: backend-database#RULE-backend-database-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.design.md
+          section_id: 3.3-rpo-zero-tenant-schema
+          item_id: rpo-zero-tenant-schema
+          artifact_sha256: 212fd8c1481480244c542dab8e39c5f30845e3bc3e35f6ea3de55a43e909b47a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-003-dbos-poc
+          item_id: TASK-003
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-003-dbos-poc
+          item_id: TASK-003
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: 读写分离场景显式标注读库/写库，强一致读走主库
+    text_sha256: f08e8a46dbd11bf98e06dc740af8142f2471ffac7e042118a38d5cfe9cd805dc
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: N+1 查询用预加载（`joinedload` / `include` / `Preload`）解决
+    text_sha256: 8a707a2a51ad3f66bad6d5fc201b5bd0f8f6138377c842e83538930811b4f9b7
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: 大批量写入分批 + commit，避免单事务过大
+    text_sha256: e42d4712ce5e09c9a2e9b6889f2419a48dee7342bbd03a2af2afac939cc6147d
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: 缓存与数据库一致性：先写库再失效缓存（`cache-aside`）
+    text_sha256: 466033fff3413cb5a97f744faf9520bd7134051513e2362b9f4d6c969cfeaf93
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-005
+    summary: CRUD 基类统一实现 `get / list / create / update / delete / bulk_*`，子类只扩展模型特有查询
+    text_sha256: bf0110f17a8acacfbdd4e3b13349b93c721db883dd0f97963e04b6d30f6950c1
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: backend-directory-structure
+  path: backend/directory-structure.md
+  status: active
+  hashes:
+    file_sha256: 8a3dad58ea5a76482fcafb61df231d310cb3e091ab286914f21e955343e3ed7e
+    metadata_sha256: e4195df6c2ece3686dd5a90e9adf8ea70245e54d9ac0bd069a3ad6c6a12693b1
+    rules_sha256: 8f95386478469266c84a84f5a8d507f4d049f08497f7b8e0f38a231a753b2dc6
+  selected_by: cf-task:plan
+  reason: PoC 新建 backend/tests/workflow_poc/ 目录与 Protocol 扩展文件，目录结构约束在实现路径内
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-backend-directory-001
+    summary: 实现必须满足 Guidance 中所有适用要求，并避免 Avoid 中列出的所有禁止项。
+    text_sha256: bb2e52306aabab63ce3d89c88ff8b88685c0f35b7af5cfa73165cad3fd875dc6
+    enforcement: required
+    verifier_ref: backend-directory-structure#RULE-backend-directory-001
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-001-protocol-harness
+          item_id: TASK-001
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-001-protocol-harness
+          item_id: TASK-001
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: 模块按业务域拆分（如 `services/order/`、`services/user/`），目录深度建议 ≤ 3 层
+    text_sha256: 44d146f5250498316354553ed06bc879c80d0a7d231d9dd3f297255a42a2ab4e
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: 公共工具放 `utils/`，无业务依赖；与业务相关的 helper 放对应 service 子目录
+    text_sha256: bb3ae84681d8990b97a06944ceb99f363e74e865b10a9dea22042ba6246425a3
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: 常量命名用 UPPER_SNAKE_CASE，枚举优先使用语言原生 `Enum`
+    text_sha256: 1ec0507a9df84581c3a4d00c20eef80e267b0efe6fa56bf85eae56c6c716c280
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: 测试目录与源码同构（`tests/services/order/test_*`）
+    text_sha256: 63e00ea4d6a00318bd9fa0be80aff7025e68dcf18eef9725800aea8eb5b7fe3e
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: backend-logging
+  path: backend/logging.md
+  status: active
+  hashes:
+    file_sha256: 3a5bd6d6c887ac1957ea0af903338397598cba239880390f8aab87433a7bdebe
+    metadata_sha256: e5cf511d3452526d38711c7c1f2439c1a0fdd47cb64f5e8b9b6b00f7d75c7352
+    rules_sha256: 35cdc8dcca234205abe5800ce53b0b7898b87d09c3369e64c7f6344a55ce3cf9
+  selected_by: cf-task:plan
+  reason: PoC harness 与候选 adapter 涉及结构化日志（run_id/tenant_id/trace_id 字段统一）
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-backend-logging-001
+    summary: 实现必须满足 Guidance 中所有适用要求，并避免 Avoid 中列出的所有禁止项。
+    text_sha256: bb2e52306aabab63ce3d89c88ff8b88685c0f35b7af5cfa73165cad3fd875dc6
+    enforcement: required
+    verifier_ref: backend-logging#RULE-backend-logging-001
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-001-protocol-harness
+          item_id: TASK-001
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-001-protocol-harness
+          item_id: TASK-001
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: 统一字段命名：`request_id`、`user_id`、`route`、`status`、`latency_ms`、`error`
+    text_sha256: 134c5edc27ebb35c0e067021e138b32742d4c8c4e02675c7cf4affa673686a52
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: 异常日志必须带堆栈（`exc_info=True` 或等价机制）
+    text_sha256: 66c209961fa768c267a66445894e8a953bb6b8d19e30928969ffb4b921d09ca6
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: 高频路径用采样日志，避免 IO 阻塞主流程
+    text_sha256: f7bf8c03ace95eb9aecbdd720a99860364c2a90d96d09741166306704b648f30
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: 日志输出到 stdout/stderr，由部署环境采集，禁止业务代码写文件
+    text_sha256: 647e583469c78fe69df5ffcdc5782f6297c6e0a8b7afdbb7947953bc50cfeac9
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: backend-platform-rules
+  path: backend/platform-rules.md
+  status: active
+  hashes:
+    file_sha256: 15cafc5fe29c4bdc380485799ae0ed0dae1625a52d0c2874b4a3be72d216873b
+    metadata_sha256: 08e544fb358be1b0c1e6a346ee6076f72ae784b921e3bd5dc6838771c7376828
+    rules_sha256: 6b656795a6660ba5d2a9088dbfc999299eb5a99e0d433df110e68de6e670bfa6
+  selected_by: cf-task:plan
+  reason: PoC 涉及 backend 连接配置加载优先级与 workflow 错误码集中定义
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-backend-platform-001
+    summary: 实现必须满足 Guidance 中所有适用要求，并避免 Avoid 中列出的所有禁止项。
+    text_sha256: bb2e52306aabab63ce3d89c88ff8b88685c0f35b7af5cfa73165cad3fd875dc6
+    enforcement: required
+    verifier_ref: backend-platform-rules#RULE-backend-platform-001
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-001-protocol-harness
+          item_id: TASK-001
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-001-protocol-harness
+          item_id: TASK-001
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: API 响应统一结构：`{ code, message, data, request_id }`（`code=0` 表示成功）；`request_id`
+      同时写入 `X-Request-ID`
+    text_sha256: c18420d942b7ff8f520a2f9e44e042ea9ec9e129392a88cc3189da59f673b154
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: 错误码命名空间：模块前缀 + 顺序号（如订单错误码 `10xxx`、用户 `20xxx`），便于定位归属
+    text_sha256: 1bef76f9c272a89f48adf4a2d41a854f73fdde387702987a6ff187d94bf78a22
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: 异常 → 错误码：自定义业务异常类携带 `code`，由中间件统一转 `fail(code)` 响应
+    text_sha256: a4d4d871aaca43ba3411a00539e6d36f38cb5ebda2d9c77847c5a6fdf0dc8f3d
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: 配置加载优先级：环境变量 > 配置文件 > 默认值
+    text_sha256: 19990b2e45fb8725c5ec2befae319b817d06dbb638f9e6c5ec36f0b0145e8f1a
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-005
+    summary: 健康检查端点（`/healthz`、`/readyz`）必须独立于业务认证
+    text_sha256: 56b5d679f4265db2d63c45fef1252ff9998c5ef36ae8ae625059ca05bdce4ab4
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-006
+    summary: 部署前跑 smoke test，覆盖核心路径
+    text_sha256: bea13c57d089aa9db43ca0a296380114b34e581302a2193dc7922d6817006cce
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: fluxion-dfx
+  path: architecture/dfx.md
+  status: active
+  hashes:
+    file_sha256: 71163a48c0cf2e71f5b268f2f1c58bff770be366acfc38fdf483f6bb5e68cfd1
+    metadata_sha256: 62f6f524cfe71bc9bed49c4de8bbab639be32805170760047db16b67526272cf
+    rules_sha256: 3ba9ab41fd68e20a2f0cb91ee56e1c8f5c14fb8f374bbe49c75904532410581c
+  selected_by: requirement
+  reason: build-vs-buy PoC must produce automated crash-recovery/timeout/idempotency
+    evidence at coding stage, not after-the-fact (RULE-fluxion-dfx-001)
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-fluxion-dfx-001
+    summary: DFX 必须在编码阶段实现并通过自动化证据验证，不能在功能完成后再补。
+    text_sha256: ff928fd8e0f23aec2eb88c5b1ee76bafc211ceaff41fa2c82a371f9f124eb0d9
+    enforcement: required
+    verifier_ref: fluxion-dfx#RULE-fluxion-dfx-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.design.md
+          section_id: 3.1.3-poc-acceptance
+          item_id: poc-evidence-gate
+          artifact_sha256: 212fd8c1481480244c542dab8e39c5f30845e3bc3e35f6ea3de55a43e909b47a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-005-matrix-adr-gate
+          item_id: TASK-005
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-005-matrix-adr-gate
+          item_id: TASK-005
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: fluxion-runtime-core
+  path: architecture/runtime-core.md
+  status: active
+  hashes:
+    file_sha256: 610021f0f96ef91124b7cd3be3df734aeaa7ec7f179459b3c0be9b6f3cf79871
+    metadata_sha256: 391bdce0da4852f97e2ac830c24f595c665a0a5cd125d68837b31c1e626ca9e0
+    rules_sha256: 15b396e337884dce61e18a6c0c07445eb2ddbb495218f1bb04ddb6ee03dad7f0
+  selected_by: requirement
+  reason: durable workflow state NOT in Agent Runtime (rule 13); ExecutionSnapshot
+    pinned version; backend behind stable Contract (RULE-fluxion-runtime-001)
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-fluxion-runtime-001
+    summary: Runtime 必须保持无状态；一次 Execution 必须使用固定 ExecutionSnapshot；Kernel 只能依赖稳定 Contract，不允许依赖具体
+      Plugin/Provider。
+    text_sha256: 36e057d0d7b8d8371980e8e9a2b6306dfcb52cbaa3ad8768fa908d3fec739355
+    enforcement: required
+    verifier_ref: fluxion-runtime-core#RULE-fluxion-runtime-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.design.md
+          section_id: 3.2-stateless-invariant
+          item_id: stateless-invariant-contract
+          artifact_sha256: 212fd8c1481480244c542dab8e39c5f30845e3bc3e35f6ea3de55a43e909b47a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-001-protocol-harness
+          item_id: TASK-001
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-001-protocol-harness
+          item_id: TASK-001
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: fluxion-workflow-capability
+  path: architecture/workflow-capability.md
+  status: active
+  hashes:
+    file_sha256: b33116eff4b5885c3047c1e6253306098cc695815818504b5ec8ea23d39b1122
+    metadata_sha256: 97e0795f6d72dd84c827faf2b70338d8ada2ca29c369d9c2a63eb217d0205193
+    rules_sha256: c63766775e7af11a22a3341f6de0e303a10d6c295ce86ce51ed9175528acd9b5
+  selected_by: requirement
+  reason: durable SOP state owned by Workflow Engine; Tool=Adapter boundary (ADR-008)
+    preserved; build-vs-buy decides what backs the Adapter (RULE-fluxion-workflow-001)
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-fluxion-workflow-001
+    summary: Tool 只是 Agent-facing Adapter；业务逻辑属于 Capability；复杂 SOP 的 Durable State
+      必须由 Workflow Engine 管理。
+    text_sha256: 05082bd4466fc0ad178405c479b4bf5e2bef9d662f815081fdd442fb30cc7bbb
+    enforcement: required
+    verifier_ref: fluxion-workflow-capability#RULE-fluxion-workflow-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.design.md
+          section_id: 3.2-3.4-adapter-contract
+          item_id: durable-state-by-engine
+          artifact_sha256: 212fd8c1481480244c542dab8e39c5f30845e3bc3e35f6ea3de55a43e909b47a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-001-protocol-harness
+          item_id: TASK-001
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: adr-wf-001-durable-execution.md
+          section_id: task-001-protocol-harness
+          item_id: TASK-001
+          artifact_sha256: f7d4b7e3f19e149ceebadcac38ceefdd6465c3847a1af2c010be893a2747df25
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []

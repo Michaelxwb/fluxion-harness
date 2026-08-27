@@ -1,0 +1,14 @@
+{
+  "candidate": "restate",
+  "library_version": "1.0.4",
+  "criteria": {
+    "B-02": {
+      "passed": true,
+      "detail": "tenant 维度 run/record 查询隔离；跨租户互不可见（tenant scope 由 adapter 层承载）",
+      "metrics": {}
+    }
+  },
+  "baseline": null,
+  "license": "BUSL-1.1（source-available，非 OSI；release 后 4 年转 Apache-2.0；禁止 Public Restate Platform Service；Fluxion 抽象层用法落在允许范围）",
+  "all_criteria_passed": false
+}

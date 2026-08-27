@@ -23,6 +23,7 @@ from fluxion.resources import ExecutionSnapshot, ModelPolicy
 from fluxion.runtime.context import RequestContext, RuntimeContext, TraceEvent
 from fluxion.runtime.memory import MemoryManager, MemoryPolicy, MemoryRecord, SessionMemoryStore
 from fluxion.runtime.resolver import ExecutionSnapshotBuilder
+from fluxion.runtime.summarizer import SummarizerRegistryProtocol
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,9 +66,14 @@ class AgentRuntime:
         memory_store: SessionMemoryStore,
         memory_policy: MemoryPolicy | None = None,
         model_providers: ModelProviderRegistryProtocol | None = None,
+        summarizer_registry: SummarizerRegistryProtocol | None = None,
     ) -> None:
         self._snapshot_builder = snapshot_builder
-        self._memory = MemoryManager(memory_store, policy=memory_policy)
+        self._memory = MemoryManager(
+            memory_store,
+            policy=memory_policy,
+            summarizer_registry=summarizer_registry,
+        )
         self._model_providers = model_providers
 
     @property

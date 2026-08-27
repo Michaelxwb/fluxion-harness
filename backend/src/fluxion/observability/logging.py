@@ -13,6 +13,8 @@ from fluxion.observability.redaction import redact_mapping
 ACCESS_LOGGER_NAME = "fluxion.console.access"
 ERROR_LOGGER_NAME = "fluxion.console.error"
 RUNTIME_ERROR_LOGGER_NAME = "fluxion.runtime.error"
+WORKFLOW_LOGGER_NAME = "fluxion.workflow.event"
+MEMORY_LOGGER_NAME = "fluxion.runtime.memory"
 _JSON_RENDERER = structlog.processors.JSONRenderer(ensure_ascii=False, sort_keys=True)
 
 
@@ -117,6 +119,75 @@ def emit_runtime_error_log(
         "stack": stack,
     }
     logging.getLogger(RUNTIME_ERROR_LOGGER_NAME).error(_JSON_RENDERER(None, "", event))
+
+
+def emit_workflow_event_log(
+    *,
+    event: str,
+    run_id: str | None = None,
+    tenant_id: str | None = None,
+    trace_id: str | None = None,
+    execution_id: str | None = None,
+    level: str = "info",
+    error_code: int | None = None,
+    detail: str | None = None,
+) -> None:
+    """Workflow 生命周期结构化日志（backend-logging 约定：run_id/tenant_id/trace_id 全链路关联）。"""
+    entry: dict[str, object] = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "level": level,
+        "service": "fluxion-runtime",
+        "environment": _environment(),
+        "event": event,
+        "run_id": run_id,
+        "tenant_id": tenant_id,
+        "trace_id": trace_id,
+        "execution_id": execution_id,
+    }
+    if error_code is not None:
+        entry["error_code"] = error_code
+    if detail is not None:
+        entry["detail"] = detail
+    logger = logging.getLogger(WORKFLOW_LOGGER_NAME)
+    if level == "error":
+        logger.error(_JSON_RENDERER(None, "", entry))
+    else:
+        logger.info(_JSON_RENDERER(None, "", entry))
+
+
+def emit_memory_event_log(
+    *,
+    event: str,
+    tenant_id: str | None = None,
+    trace_id: str | None = None,
+    execution_id: str | None = None,
+    level: str = "info",
+    detail: str | None = None,
+) -> None:
+    """Memory 生命周期结构化日志（backend-logging 约定：tenant_id/trace_id/execution_id 全链路关联）。
+
+    ADR-MEM-001：Summarizer 降级等 memory 事件不静默吞——结构化 warning 落
+    `fluxion.runtime.memory` logger，与 RuntimeContext trace 事件（trace_id）互为印证。
+    """
+    entry: dict[str, object] = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "level": level,
+        "service": "fluxion-runtime",
+        "environment": _environment(),
+        "event": event,
+        "tenant_id": tenant_id,
+        "trace_id": trace_id,
+        "execution_id": execution_id,
+    }
+    if detail is not None:
+        entry["detail"] = detail
+    logger = logging.getLogger(MEMORY_LOGGER_NAME)
+    if level == "error":
+        logger.error(_JSON_RENDERER(None, "", entry))
+    elif level == "warning":
+        logger.warning(_JSON_RENDERER(None, "", entry))
+    else:
+        logger.info(_JSON_RENDERER(None, "", entry))
 
 
 def _environment() -> str:

@@ -40,7 +40,9 @@ async def test_S_R18_context_compaction_preserves_latest_raw_and_snapshot(
     assert "turn-0" in compacted.summary
     assert "turn-2" in compacted.summary
     assert summaries and summaries[-1].content == compacted.summary
-    assert await memory_store.read_l2("tenant-a", "user-a")
+    # ADR-MEM-001：append_summary 不交叉写 L2——SessionContextSummary 只服务
+    # session compaction，不泄漏进 user-level retrieval。read_l2 为空。
+    assert await memory_store.read_l2("tenant-a", "user-a") == []
     assert context.snapshot.model_dump(mode="json") == snapshot_before
     # 已摘要的 L1 记录被截断，仅保留 summary 与 retain 窗口
     l1_after = await memory_store.read_l1("tenant-a", "session-a")
@@ -74,8 +76,8 @@ async def test_S_R18_repeated_compaction_does_not_summarize_summaries(
         await runtime.memory.add_message(context, "user", f"turn-{index}")
     second = await runtime.memory.compact_context(context)
 
-    assert "summary: turn-0" in first.summary
+    # ADR-MEM-001：假 `_summarize` 已删——默认 registry 走确定性截断 fallback 输出
+    assert first.summary == "turn-0 | turn-1 | turn-2"
     # 第二次压缩只概括新消息，不把既有 summary 再摘要一遍
-    assert "summary: turn-0" not in second.summary
-    assert second.summary == "summary: turn-3 | turn-4"
+    assert second.summary == "turn-3 | turn-4"
     assert [message.content for message in second.raw_messages] == ["turn-5", "turn-6"]
