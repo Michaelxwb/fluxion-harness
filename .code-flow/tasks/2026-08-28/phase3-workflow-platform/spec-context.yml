@@ -1,21 +1,20 @@
 version: 1
-task: adr-wf-001-durable-execution
+task: PHASE3-WORKFLOW-PLATFORM
 enforcement: required
-updated_at: '2026-08-26T13:29:03.556668+00:00'
+updated_at: '2026-08-27T18:12:45.138107+00:00'
 sources:
 - type: cli
-  ref: bind
+  ref: manual
 bindings:
 - spec_id: backend-code-quality-performance
   path: backend/code-quality-performance.md
   status: active
   hashes:
-    file_sha256: 2948c1d7f6de41b5ac291b2e1b07df5edd4accf1bb685dcd30ff6c66145e5018
+    file_sha256: b8239ec1371b8391dc29e16060cafccddd705959fd4da2dd818a5d5a36d01325
     metadata_sha256: b47ce10c1c4909938b6e81de279a1f79ff668396723faa5a07a6582843fa42bc
     rules_sha256: 0be3ab4ac115124aa531b6d35ffe5648a81186f417e708abb10005aa14407e3c
   selected_by: requirement
-  reason: every durable-backend external call defines timeout+retry+circuit-breaker+fail
-    policy (rule 18); no unbounded wait/retry (RULE-backend-quality-001)
+  reason: timeout/retry/fail policy(规则 18)/禁 double retry
   enforcement: required
   stages:
   - design
@@ -32,19 +31,15 @@ bindings:
       design:
         status: applied
         refs:
-        - artifact: adr-wf-001-durable-execution.design.md
-          section_id: 3.4-3.5-timeout-fail
-          item_id: timeout-fail-policy
-          artifact_sha256: b78410d0f318027b36b84e808d772b27953e263d80ae00bea5e38a718d79137d
+        - artifact: phase3-workflow-platform.design.md
+          section_id: 3.1-d6-retry
+          item_id: timeout-retry-circuitbreaker
+          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
         decision: null
         evidence: []
       plan:
-        status: applied
-        refs:
-        - artifact: adr-wf-001-durable-execution.md
-          section_id: task-001-protocol-harness
-          item_id: TASK-001
-          artifact_sha256: 8899aaa4d27e229ed5ba15ca85bcdd7d16c6926f0d36dbe975ed37b951415e35
+        status: pending
+        refs: []
         decision: null
         evidence: []
       code:
@@ -169,8 +164,7 @@ bindings:
     metadata_sha256: 5229e1d69a7cbce9500e9a8fa902fe6cc9888dcc5a304f1543476b248971087e
     rules_sha256: dbe672ee29795f296a5340e78d0ff12b030ecebce4d18422fa33fc2f457b79ec
   selected_by: requirement
-  reason: durable state RPO=0 in PostgreSQL; self-built engine option schema + tenant
-    isolation (RULE-backend-database-001)
+  reason: DBOS sys 表 + workflow_run projection schema + 索引
   enforcement: required
   stages:
   - design
@@ -187,19 +181,15 @@ bindings:
       design:
         status: applied
         refs:
-        - artifact: adr-wf-001-durable-execution.design.md
-          section_id: 3.3-rpo-zero-tenant-schema
-          item_id: rpo-zero-tenant-schema
-          artifact_sha256: b78410d0f318027b36b84e808d772b27953e263d80ae00bea5e38a718d79137d
+        - artifact: phase3-workflow-platform.design.md
+          section_id: 3.3-workflow-run-schema
+          item_id: projection-schema-index
+          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
         decision: null
         evidence: []
       plan:
-        status: applied
-        refs:
-        - artifact: adr-wf-001-durable-execution.md
-          section_id: task-003-dbos-poc
-          item_id: TASK-003
-          artifact_sha256: 8899aaa4d27e229ed5ba15ca85bcdd7d16c6926f0d36dbe975ed37b951415e35
+        status: pending
+        refs: []
         decision: null
         evidence: []
       code:
@@ -346,11 +336,11 @@ bindings:
   path: backend/directory-structure.md
   status: active
   hashes:
-    file_sha256: 8a3dad58ea5a76482fcafb61df231d310cb3e091ab286914f21e955343e3ed7e
+    file_sha256: d5e6b692089f750964c632cf6999243a4932a6c7122ad263a4c82800a96d07ee
     metadata_sha256: e4195df6c2ece3686dd5a90e9adf8ea70245e54d9ac0bd069a3ad6c6a12693b1
     rules_sha256: 8f95386478469266c84a84f5a8d507f4d049f08497f7b8e0f38a231a753b2dc6
-  selected_by: cf-task:plan
-  reason: PoC 新建 backend/tests/workflow_poc/ 目录与 Protocol 扩展文件，目录结构约束在实现路径内
+  selected_by: requirement
+  reason: DbosWorkflowEngine/解释器/投影服务包边界
   enforcement: required
   stages:
   - design
@@ -365,17 +355,17 @@ bindings:
     verifier_ref: backend-directory-structure#RULE-backend-directory-001
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.design.md
+          section_id: 3.2-package-structure
+          item_id: workflow-package-boundary
+          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
         decision: null
         evidence: []
       plan:
-        status: applied
-        refs:
-        - artifact: adr-wf-001-durable-execution.md
-          section_id: task-001-protocol-harness
-          item_id: TASK-001
-          artifact_sha256: 8899aaa4d27e229ed5ba15ca85bcdd7d16c6926f0d36dbe975ed37b951415e35
+        status: pending
+        refs: []
         decision: null
         evidence: []
       code:
@@ -499,8 +489,8 @@ bindings:
     file_sha256: 3a5bd6d6c887ac1957ea0af903338397598cba239880390f8aab87433a7bdebe
     metadata_sha256: e5cf511d3452526d38711c7c1f2439c1a0fdd47cb64f5e8b9b6b00f7d75c7352
     rules_sha256: 35cdc8dcca234205abe5800ce53b0b7898b87d09c3369e64c7f6344a55ce3cf9
-  selected_by: cf-task:plan
-  reason: PoC harness 与候选 adapter 涉及结构化日志（run_id/tenant_id/trace_id 字段统一）
+  selected_by: requirement
+  reason: run_id/trace_id/execution_id 关联 + 脱敏
   enforcement: required
   stages:
   - design
@@ -515,17 +505,17 @@ bindings:
     verifier_ref: backend-logging#RULE-backend-logging-001
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.design.md
+          section_id: 3.5-observability
+          item_id: run-trace-correlation
+          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
         decision: null
         evidence: []
       plan:
-        status: applied
-        refs:
-        - artifact: adr-wf-001-durable-execution.md
-          section_id: task-001-protocol-harness
-          item_id: TASK-001
-          artifact_sha256: 8899aaa4d27e229ed5ba15ca85bcdd7d16c6926f0d36dbe975ed37b951415e35
+        status: pending
+        refs: []
         decision: null
         evidence: []
       code:
@@ -649,8 +639,8 @@ bindings:
     file_sha256: 15cafc5fe29c4bdc380485799ae0ed0dae1625a52d0c2874b4a3be72d216873b
     metadata_sha256: 08e544fb358be1b0c1e6a346ee6076f72ae784b921e3bd5dc6838771c7376828
     rules_sha256: 6b656795a6660ba5d2a9088dbfc999299eb5a99e0d433df110e68de6e670bfa6
-  selected_by: cf-task:plan
-  reason: PoC 涉及 backend 连接配置加载优先级与 workflow 错误码集中定义
+  selected_by: requirement
+  reason: SLO 目标 + 错误码命名空间 + 统一响应
   enforcement: required
   stages:
   - design
@@ -665,17 +655,17 @@ bindings:
     verifier_ref: backend-platform-rules#RULE-backend-platform-001
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.design.md
+          section_id: 2.5.3-nfr
+          item_id: slo-errorcodes-envelope
+          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
         decision: null
         evidence: []
       plan:
-        status: applied
-        refs:
-        - artifact: adr-wf-001-durable-execution.md
-          section_id: task-001-protocol-harness
-          item_id: TASK-001
-          artifact_sha256: 8899aaa4d27e229ed5ba15ca85bcdd7d16c6926f0d36dbe975ed37b951415e35
+        status: pending
+        refs: []
         decision: null
         evidence: []
       code:
@@ -845,6 +835,256 @@ bindings:
         refs: []
         decision: null
         evidence: []
+- spec_id: fluxion-console-api-contract
+  path: backend/console-api-contract.md
+  status: active
+  hashes:
+    file_sha256: b49848fb91c2fe4c57f1c0c0ea47066eefdef0f79a0c5be99c06a9437f950934
+    metadata_sha256: 43f49336b20d8bf5a7dfedeec5c2c3cf627489ba95f04ef201b7699c6596c829
+    rules_sha256: 1f5fd7ead679f6b3092c8945fa7f73d6ab20a411c0186cf305bb4b5e44ed695b
+  selected_by: requirement
+  reason: workflow status/execution history API 统一 envelope + 日志
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-fluxion-console-api-001
+    summary: Console/Control Plane 的 HTTP 响应、业务错误、请求上下文和日志必须通过统一基础设施封装，业务 Handler/Service
+      不得各自拼装响应或自行定义日志字段。
+    text_sha256: eebd23eb552535a106bf7eb01ceb031fd5018d43265c0e65812edf27b648f553
+    enforcement: required
+    verifier_ref: fluxion-console-api-contract#RULE-fluxion-console-api-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.design.md
+          section_id: 3.4-interface-design
+          item_id: status-api-envelope
+          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: '`RequestContextMiddleware`：生成/恢复请求上下文。'
+    text_sha256: 54ab4749aa5d0b081c7ed4c64e0b7fd6d8ec7e3a0dd6dbe6efa8bb137d6e4265
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: '`ApiResponse[T]`、`PageData[T]`：统一响应类型。'
+    text_sha256: 0dec8ff0ef6243edaf84841c7785ef22d91c6bbf64e05bf9f9f4909eb40f4119
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: '`ExceptionMapper`：异常到 HTTP + Business Code。'
+    text_sha256: 1253019bf53d6d443336440ab082155d668d8041a8dbc8d72b0b35cfe3e1ec0f
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: '`get_logger()`：返回已绑定 Request Context 的结构化 Logger。'
+    text_sha256: 0ddee84a23d7404bea4962aaf256b29601c3c95b18dd7f27d539a3287d584bae
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-005
+    summary: '`RedactionProcessor`：日志字段级脱敏。'
+    text_sha256: d4eb981893d66195a153f3b456c2234cfbfb6a343ef19ffa5bdc076e6a236125
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-006
+    summary: '`AuditService`：高影响操作独立持久化。'
+    text_sha256: 0d0dfdb2d8354bab3acc5af8bc14ab98804f0c73660404d54767471534f1d963
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: fluxion-console-channel
+  path: architecture/console-channel.md
+  status: active
+  hashes:
+    file_sha256: 14365a9df1c1040d420cc533d1a8406cf1e116b507a1f294328551e19ca58763
+    metadata_sha256: c2259fdf0e5ae7c7c2c1d3f11830c7b94cd1835e6221522ad664445d984ecffc
+    rules_sha256: 79b3ff85988bba401360a3fd5b2859a81a8dd53949bac50646725a022aa03b57
+  selected_by: requirement
+  reason: Workflow status projection API 供 Console 消费
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-fluxion-console-001
+    summary: Console 与 Runtime 必须同仓共享 Contract 但可独立部署；Web Chat 是正式 Channel；未绑定身份在映射
+      PlatformUser 前只能执行 `/bind <code>`。
+    text_sha256: 6f467af56e6d488f22832bd3a78603819f753dde916814d7c27803265933d8e2
+    enforcement: required
+    verifier_ref: fluxion-console-channel#RULE-fluxion-console-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.design.md
+          section_id: 3.2.1-sop-access
+          item_id: status-projection-console
+          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
 - spec_id: fluxion-dfx
   path: architecture/dfx.md
   status: active
@@ -853,8 +1093,7 @@ bindings:
     metadata_sha256: 62f6f524cfe71bc9bed49c4de8bbab639be32805170760047db16b67526272cf
     rules_sha256: 3ba9ab41fd68e20a2f0cb91ee56e1c8f5c14fb8f374bbe49c75904532410581c
   selected_by: requirement
-  reason: build-vs-buy PoC must produce automated crash-recovery/timeout/idempotency
-    evidence at coding stage, not after-the-fact (RULE-fluxion-dfx-001)
+  reason: Phase 3 Gate 编码阶段证据(durable start/recovery/idempotency)
   enforcement: required
   stages:
   - design
@@ -871,19 +1110,62 @@ bindings:
       design:
         status: applied
         refs:
-        - artifact: adr-wf-001-durable-execution.design.md
-          section_id: 3.1.3-poc-acceptance
-          item_id: poc-evidence-gate
-          artifact_sha256: b78410d0f318027b36b84e808d772b27953e263d80ae00bea5e38a718d79137d
+        - artifact: phase3-workflow-platform.design.md
+          section_id: 2.5.2-scenarios
+          item_id: phase3-gate-evidence
+          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
         decision: null
         evidence: []
       plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: fluxion-resource-registry
+  path: architecture/resource-registry.md
+  status: active
+  hashes:
+    file_sha256: e4012ca419da7c37e2fb2ffbfb6dcc0a6598317fb8a8ab06b93b5c789e0b3710
+    metadata_sha256: 9a3ed4c18e5f5a3cc513741e2c4588fee6ebf3a778ece32f6432d6e61a8424b4
+    rules_sha256: 568d859613aeec93782523fcd103bc62e1145387cfd4f1a8572d3e6c1ed2f73a
+  selected_by: requirement
+  reason: WorkflowDefinition 版本化 + pinned resume + active ref
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-fluxion-resource-001
+    summary: 所有可配置事实必须资源化、版本化并保存于 Registry；用户/租户差异通过 Binding 表达；SQLite 和 PostgreSQL
+      必须实现相同 Contract。
+    text_sha256: 99660d1623cf2bdd5b50f857232a127fd1bb60ee04496d16fa3bb38e89ee3901
+    enforcement: required
+    verifier_ref: fluxion-resource-registry#RULE-fluxion-resource-001
+    stage_status:
+      design:
         status: applied
         refs:
-        - artifact: adr-wf-001-durable-execution.md
-          section_id: task-005-matrix-adr-gate
-          item_id: TASK-005
-          artifact_sha256: 8899aaa4d27e229ed5ba15ca85bcdd7d16c6926f0d36dbe975ed37b951415e35
+        - artifact: phase3-workflow-platform.design.md
+          section_id: 3.3-pinned-refs
+          item_id: version-pin-active-ref
+          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
         decision: null
         evidence: []
       code:
@@ -904,8 +1186,7 @@ bindings:
     metadata_sha256: 391bdce0da4852f97e2ac830c24f595c665a0a5cd125d68837b31c1e626ca9e0
     rules_sha256: 15b396e337884dce61e18a6c0c07445eb2ddbb495218f1bb04ddb6ee03dad7f0
   selected_by: requirement
-  reason: durable workflow state NOT in Agent Runtime (rule 13); ExecutionSnapshot
-    pinned version; backend behind stable Contract (RULE-fluxion-runtime-001)
+  reason: Runtime 无状态(rule 13)+ WorkflowEngine Protocol 只依赖 Contract
   enforcement: required
   stages:
   - design
@@ -923,19 +1204,15 @@ bindings:
       design:
         status: applied
         refs:
-        - artifact: adr-wf-001-durable-execution.design.md
-          section_id: 3.2-stateless-invariant
-          item_id: stateless-invariant-contract
-          artifact_sha256: b78410d0f318027b36b84e808d772b27953e263d80ae00bea5e38a718d79137d
+        - artifact: phase3-workflow-platform.design.md
+          section_id: 3.1-retry-boundary
+          item_id: runtime-stateless-contract
+          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
         decision: null
         evidence: []
       plan:
-        status: applied
-        refs:
-        - artifact: adr-wf-001-durable-execution.md
-          section_id: task-001-protocol-harness
-          item_id: TASK-001
-          artifact_sha256: 8899aaa4d27e229ed5ba15ca85bcdd7d16c6926f0d36dbe975ed37b951415e35
+        status: pending
+        refs: []
         decision: null
         evidence: []
       code:
@@ -956,8 +1233,7 @@ bindings:
     metadata_sha256: 97e0795f6d72dd84c827faf2b70338d8ada2ca29c369d9c2a63eb217d0205193
     rules_sha256: c63766775e7af11a22a3341f6de0e303a10d6c295ce86ce51ed9175528acd9b5
   selected_by: requirement
-  reason: durable SOP state owned by Workflow Engine; Tool=Adapter boundary (ADR-008)
-    preserved; build-vs-buy decides what backs the Adapter (RULE-fluxion-workflow-001)
+  reason: WorkflowDefinition V2 node contracts / durable state 归 Workflow Engine
   enforcement: required
   stages:
   - design
@@ -975,19 +1251,15 @@ bindings:
       design:
         status: applied
         refs:
-        - artifact: adr-wf-001-durable-execution.design.md
-          section_id: 3.2-3.4-adapter-contract
-          item_id: durable-state-by-engine
-          artifact_sha256: b78410d0f318027b36b84e808d772b27953e263d80ae00bea5e38a718d79137d
+        - artifact: phase3-workflow-platform.design.md
+          section_id: 2.3.2-capability-node
+          item_id: tool-adapter-capability-durable-state
+          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
         decision: null
         evidence: []
       plan:
-        status: applied
-        refs:
-        - artifact: adr-wf-001-durable-execution.md
-          section_id: task-001-protocol-harness
-          item_id: TASK-001
-          artifact_sha256: 8899aaa4d27e229ed5ba15ca85bcdd7d16c6926f0d36dbe975ed37b951415e35
+        status: pending
+        refs: []
         decision: null
         evidence: []
       code:
