@@ -8,6 +8,7 @@ import { ListPager } from "../../components/ListPager";
 import { PageHeader } from "../../components/PageHeader";
 import type {
   ConsoleApi,
+  User360Summary,
   IssuedChatAccess,
   PlatformUser,
   ResourceSummary
@@ -25,6 +26,8 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
   const [platformUserId, setPlatformUserId] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [agentId, setRuntimeProfileId] = useState<string>();
+  const [selected360, setSelected360] = useState<string>();
+  const [view360, setView360] = useState<User360Summary | null>(null);
   const [issued, setIssued] = useState<IssuedChatAccess | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
@@ -126,7 +129,14 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
         }
       >
         <Table
-          columns={userColumns((user) => void issue(user), Boolean(agentId))}
+          columns={userColumns(
+            (user) => void issue(user),
+            Boolean(agentId),
+            (user) => {
+              setSelected360(user.platformUserId);
+              void api.getUser360(user.platformUserId).then(setView360).catch(() => setView360(null));
+            }
+          )}
           dataSource={[...users]}
           empty={<Empty description="暂无用户" />}
           pagination={false}
@@ -156,10 +166,70 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
         >
           <Space vertical align="start" style={{ width: "100%" }}>
             <Input aria-label="用户 ID" onChange={setPlatformUserId} placeholder="用户 ID" value={platformUserId} />
-            <Input aria-label="显示名称" onChange={setDisplayName} placeholder="显示名称" value={displayName} />
+            <Input aria-label="显示名" onChange={setDisplayName} placeholder="显示名" value={displayName} />
           </Space>
         </Modal>
       ) : null}
+      <SideSheet
+        onCancel={() => setSelected360(undefined)}
+        title={`User 360 · ${selected360 ?? ""}`}
+        visible={selected360 !== undefined}
+        width={520}
+      >
+        {view360 ? (
+          <div aria-label="User 360" className="page-stack">
+            <Card title="身份">
+              <Descriptions row>
+                <Descriptions.Item itemKey="平台用户">{view360.identity.platform_user_id}</Descriptions.Item>
+                <Descriptions.Item itemKey="显示名">{view360.identity.display_name}</Descriptions.Item>
+                <Descriptions.Item itemKey="渠道数">{view360.identity.channels.length}</Descriptions.Item>
+              </Descriptions>
+            </Card>
+            <Card title="画像">
+              {view360.profile ? (
+                <Descriptions row>
+                  {Object.entries(view360.profile).map(([key, value]) => (
+                    <Descriptions.Item itemKey={key} key={key}>{String(value)}</Descriptions.Item>
+                  ))}
+                </Descriptions>
+              ) : (
+                <Typography.Text type="tertiary">暂无画像</Typography.Text>
+              )}
+            </Card>
+            <Card title="偏好">
+              {view360.preferences ? (
+                <Descriptions row>
+                  {Object.entries(view360.preferences).map(([key, value]) => (
+                    <Descriptions.Item itemKey={key} key={key}>{String(value)}</Descriptions.Item>
+                  ))}
+                </Descriptions>
+              ) : (
+                <Typography.Text type="tertiary">暂无偏好</Typography.Text>
+              )}
+            </Card>
+            <Card title="能力授权">
+              {view360.capabilities.length === 0 ? (
+                <Typography.Text type="tertiary">暂无授权</Typography.Text>
+              ) : (
+                view360.capabilities.map((g: Record<string, unknown>, index: number) => (
+                  <Typography.Text key={index}>{String(g.capability_ref)}</Typography.Text>
+                ))
+              )}
+            </Card>
+            <Card title="策略">
+              {view360.policy.length === 0 ? (
+                <Typography.Text type="tertiary">暂无绑定策略</Typography.Text>
+              ) : (
+                view360.policy.map((b: Record<string, unknown>, index: number) => (
+                  <Typography.Text key={index}>{String(b.resource_id)}</Typography.Text>
+                ))
+              )}
+            </Card>
+            <Typography.Text type="tertiary">活动记录数：{view360.activity_count}</Typography.Text>
+          </div>
+        ) : null}
+      </SideSheet>
+
       <SideSheet
         onCancel={() => {
           setIssued(null);
@@ -205,22 +275,31 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
   );
 }
 
-function userColumns(onIssue: (user: PlatformUser) => void, enabled: boolean) {
+function userColumns(
+  onIssue: (user: PlatformUser) => void,
+  enabled: boolean,
+  onView360: (user: PlatformUser) => void
+) {
   return [
     { dataIndex: "platformUserId", title: "用户 ID" },
     { dataIndex: "displayName", title: "名称" },
     { dataIndex: "createdAt", title: "创建时间" },
     {
       render: (_value: unknown, user: PlatformUser) => (
-        <Button
-          aria-label="生成对话链接"
-          disabled={!enabled}
-          icon={<IconLink />}
-          onClick={() => onIssue(user)}
-          type="primary"
-        >
-          生成对话链接
-        </Button>
+        <Space>
+          <Button
+            aria-label="生成对话链接"
+            disabled={!enabled}
+            icon={<IconLink />}
+            onClick={() => onIssue(user)}
+            type="primary"
+          >
+            生成对话链接
+          </Button>
+          <Button aria-label={`查看 360 ${user.platformUserId}`} onClick={() => onView360(user)}>
+            查看 360
+          </Button>
+        </Space>
       ),
       title: "操作"
     }

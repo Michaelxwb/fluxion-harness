@@ -7,6 +7,7 @@ export type P1View =
 
 export type ConsoleView =
   | "overview"
+  | "policies"
   | "platform_assets"
   | "resources"
   | "workflows"
@@ -30,6 +31,7 @@ export function isP1View(value: ConsoleView): value is P1View {
 export function isConsoleView(value: string): value is ConsoleView {
   return (
     value === "overview" ||
+    value === "policies" ||
     value === "platform_assets" ||
     value === "resources" ||
     value === "workflows" ||

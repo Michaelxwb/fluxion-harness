@@ -23,7 +23,8 @@ import type {
   ResourceVisibility,
   RollbackResult,
   RunDetail,
-  ValidationResult
+  ValidationResult,
+  User360Summary
 } from "../types/console";
 import type { P1View } from "../types/navigation";
 
@@ -259,6 +260,14 @@ class HttpConsoleApi implements ConsoleApi {
       `/api/v1/platform-users/${encodeURIComponent(platformUserId)}/chat-access`,
       jsonRequest("POST", { runtime_profile_id: agentId }),
       parseIssuedChatAccess
+    );
+  }
+
+  async getUser360(platformUserId: string): Promise<User360Summary> {
+    return this.client.request(
+      `/admin/users/${platformUserId}/360`,
+      { method: "GET" },
+      parseUser360
     );
   }
 
@@ -609,3 +618,5 @@ function nextVersion(resources: readonly ResourceVersion[]): string {
   const numeric = resources.map((resource) => Number(resource.version.replace(/^v/, ""))).filter(Number.isFinite);
   return `v${Math.max(0, ...numeric) + 1}`;
 }
+
+const parseUser360 = (value: unknown): User360Summary => value as User360Summary;

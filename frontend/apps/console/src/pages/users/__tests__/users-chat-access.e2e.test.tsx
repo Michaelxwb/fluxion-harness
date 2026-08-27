@@ -14,7 +14,7 @@ describe("S-P13-04 Users / Channels", () => {
     await user.click(screen.getByRole("button", { name: "新增" }));
     const createDialog = await screen.findByRole("dialog", { name: "新增用户" });
     await user.type(within(createDialog).getByLabelText("用户 ID"), "user-a");
-    await user.type(within(createDialog).getByLabelText("显示名称"), "用户 A");
+    await user.type(within(createDialog).getByLabelText("显示名"), "用户 A");
     await user.click(within(createDialog).getByRole("button", { name: "创建用户" }));
     await screen.findByText("user-a");
     await user.click(screen.getByRole("button", { name: "生成对话链接" }));

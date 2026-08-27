@@ -17,6 +17,7 @@ import {
 } from "@douyinfe/semi-icons";
 
 import { AuditPage } from "./pages/audit/AuditPage";
+import { GovernancePoliciesPage } from "./pages/governance/GovernancePoliciesPage";
 import { OverviewPage } from "./pages/overview/OverviewPage";
 import { BindingsPage } from "./pages/bindings/BindingsPage";
 import { ResourcesPage } from "./pages/resources/ResourcesPage";
@@ -93,6 +94,7 @@ const navItems = [
     itemKey: "group-governance",
     text: "治理",
     items: [
+      { icon: <IconShield />, itemKey: "policies", text: "授权规则" },
       { icon: <IconPuzzle />, itemKey: "plugin_policy", text: <PlannedText>插件策略</PlannedText> },
       { icon: <IconHistory />, itemKey: "audit", text: "操作审计" },
       { icon: <IconShield />, itemKey: "bindings", text: "资源绑定" }
@@ -139,6 +141,9 @@ function renderView(view: ConsoleView, api: ConsoleApi) {
   }
   if (view === "capabilities") {
     return <CapabilitiesPage api={api} />;
+  }
+  if (view === "policies") {
+    return <GovernancePoliciesPage api={api} />;
   }
   if (isP1View(view)) {
     return <P1ViewPage api={api} view={view} />;

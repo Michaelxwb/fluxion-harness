@@ -19,7 +19,8 @@ import type {
   ResourceVersion,
   RollbackResult,
   RunDetail,
-  ValidationResult
+  ValidationResult,
+  User360Summary
 } from "../types/console";
 import type { P1View } from "../types/navigation";
 import { IN_MEMORY_RESOURCE_SCHEMAS } from "./inMemorySchemas";
@@ -290,6 +291,24 @@ class InMemoryConsoleApi implements ConsoleApi {
       platformUserId,
       agentId,
       token
+    };
+  }
+
+  async getUser360(platformUserId: string): Promise<User360Summary> {
+    const user = this.users.find((u) => u.platformUserId === platformUserId);
+    if (!user) throw new Error(`user_not_found: ${platformUserId}`);
+    const activity = this.audit.filter((a) => a.resourceId === platformUserId);
+    return {
+      identity: {
+        platform_user_id: user.platformUserId,
+        display_name: user.displayName,
+        channels: []
+      },
+      profile: null,
+      preferences: null,
+      capabilities: [],
+      policy: [],
+      activity_count: activity.length
     };
   }
 

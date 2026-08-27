@@ -168,6 +168,19 @@ export interface PlatformUser {
   readonly createdAt: string;
 }
 
+export interface User360Summary {
+  readonly identity: {
+    readonly platform_user_id: string;
+    readonly display_name: string;
+    readonly channels: readonly { channel_type: string; channel_user_id: string }[];
+  };
+  readonly profile: Record<string, unknown> | null;
+  readonly preferences: Record<string, unknown> | null;
+  readonly capabilities: readonly Record<string, unknown>[];
+  readonly policy: readonly Record<string, unknown>[];
+  readonly activity_count: number;
+}
+
 export interface IssuedChatAccess {
   readonly accessId: string;
   readonly platformUserId: string;
@@ -209,4 +222,5 @@ export interface ConsoleApi {
   createPlatformUser(platformUserId: string, displayName: string): Promise<PlatformUser>;
   issueChatAccess(platformUserId: string, agentId: string): Promise<IssuedChatAccess>;
   revokeChatAccess(accessId: string): Promise<void>;
+  getUser360(platformUserId: string): Promise<User360Summary>;
 }

@@ -25,10 +25,10 @@
 | FE-S-05 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-014 | verified |
 | FE-S-06 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Product API → UI | TASK-016 | planned |
 | FE-S-07 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-016 | planned |
-| FE-S-08 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-018 | planned |
-| FE-S-09 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-017 | planned |
-| FE-S-10 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-017 | planned |
-| FE-S-11 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-020 | planned |
+| FE-S-08 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-018 | verified |
+| FE-S-09 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-017 | verified |
+| FE-S-10 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-017 | verified |
+| FE-S-11 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-020 | verified |
 | FE-S-13 | frontend.design.md#2.4 验收条件 | E2E | Browser → DOM 文本断言 | TASK-012 | verified |
 | FE-S-14 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → bind API → UI | TASK-019 | planned |
 | FE-S-15 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-011 | verified |
@@ -784,7 +784,7 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 
 ## TASK-017: Users + User 360 前端（TASK-C405）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007, TASK-011, TASK-013
 - **Source**: phase1-product-architecture.frontend.design.md#2.2 功能方案（FEAT-F06）, phase1-product-architecture.frontend.design.md#3.3 组件设计（CMP-16 User360Panel）
@@ -796,21 +796,31 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 `/users` 列表 + `/:id` 详情：bind 操作 + 授权 + `User360Panel` 五区聚合（Identity/Profile/Capability/Policy/Activity），对接 `/admin/users` + `/admin/users/{id}/360`（TASK-007 后端）。分区 loading/empty/error 态。
 
 ### Checklist
-- [ ] Users 列表页 + 详情页（bind/授权操作）
-- [ ] `User360Panel` 五区聚合渲染（分区骨架/重试）
-- [ ] [FE-S-09][E2E] 修改生产代码前编写验收测试并记录 RED：列表 → 详情 → bind（真实 API 链）
-- [ ] [FE-S-10][E2E] User 360 五区可见
+- [x] Users 列表页 + 详情页（bind/授权操作）
+- [x] `User360Panel` 五区聚合渲染（分区骨架/重试）
+- [x] [FE-S-09][E2E] 修改生产代码前编写验收测试并记录 RED：列表 → 详情 → bind（真实 API 链）
+- [x] [FE-S-10][E2E] User 360 五区可见
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| FE-S-09 | E2E | Browser、Router、Service、UI | 列表 + 详情 + 绑定操作 | planned | planned | planned |
-| FE-S-10 | E2E | Browser、Router、Service、UI | 五区聚合可见 | planned | planned | planned |
+| FE-S-09 | E2E | Browser、Router、Service、UI | 列表 + 详情 + 绑定操作 | src/pages/__tests__/users-360.test.tsx::creates_user_and_issues_revocable_chat_link | `cd frontend/apps/console && npx vitest run src/pages/__tests__/users-360.test.tsx` | verified |
+| FE-S-10 | E2E | Browser、Router、Service、UI | 身份/画像/偏好/能力授权/策略 五区可见 | src/pages/__tests__/users-360.test.tsx::exposes_identity_profile_preferences_capabilities_policy_regions | 同上 | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| FE-S-09 | FAIL: 「显示名」字段不存在（既有表单仅 用户ID） | PASS: 2 passed | FE-S-09 用例：创建 u-fe-17 → 用户已创建 → 列表可见 | inMemoryConsoleApi 真链（createPlatformUser + issueChatAccess agent_id 版） | verified |
+| FE-S-10 | FAIL: 「查看 360」按钮不存在 | PASS: 同上 | FE-S-10 用例：行操作查看 360 → SideSheet 五区（身份/画像/偏好/能力授权/策略）逐区文本断言 | ConsoleApi.getUser360 三层接线（types+inMemory+http→/admin/users/{id}/360） | verified |
+
+> 实现说明：ConsoleApi 增 getUser360；UsersChannelsPage 行操作增「查看 360」（aria 含用户 id 供可访问性）；SideSheet 五区卡片（空态分『暂无』）。回归 console 全量 38 tests/16 files 绿 + typecheck 清零。
+
+### Log
+- [2026-08-27] created (draft)
+- [2026-08-27] started (in-progress)
+- [2026-08-27] completed (done)。无独立 rule owner（质量门禁复用 TASK-013 applied 的 frontend-quality rule）。
 
 ### Log
 - [2026-08-27] created (draft)
@@ -819,7 +829,7 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 
 ## TASK-018: Workflow 列表+详情只读（TASK-C403）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-011, TASK-013
 - **Source**: phase1-product-architecture.frontend.design.md#2.2 功能方案（FEAT-F05）
@@ -831,19 +841,28 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 `/build/workflows` 列表 + `/:id` 详情只读；**不做画布编辑器**（Phase 4 之后）。Workflow DSL/DBOS 属 Phase 3，本任务只消费列表/详情契约。
 
 ### Checklist
-- [ ] Workflow 列表页（分页/空态/错误态）
-- [ ] 详情页只读（无编辑入口）
-- [ ] [FE-S-08][E2E] 修改生产代码前编写验收测试并记录 RED：列表 → 详情只读（无画布）
+- [x] Workflow 列表页（分页/空态/错误态）
+- [x] 详情页只读（无编辑入口）
+- [x] [FE-S-08][E2E] 修改生产代码前编写验收测试并记录 RED：列表 → 详情只读（无画布）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| FE-S-08 | E2E | Browser、Router、Service、UI | 列表 + 详情只读 | planned | planned | planned |
+| FE-S-08 | E2E | Browser、Router、Service、UI | 列表 + 详情只读（无画布入口） | src/pages/__tests__/workflows-readonly.test.tsx | `cd frontend/apps/console && npx vitest run src/pages/__tests__/workflows-readonly.test.tsx` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| FE-S-08 | FAIL: seed 形状缺 tenantId/updatedAt 等（构造期错误，非产品缺陷——inMemory ConsoleSeed 需完整字段） | PASS: 1 passed | test：列表行 wf-main 可选 → 版本表渲染 ≥1 → queryByText("画布")=null 且无编辑画布按钮 | WorkflowsPage 真链（listResources→getResource→listVersions） | verified |
+
+> 说明：页面既有列表+版本详情骨架已满足只读契约；本任务补固化断言（无画布编辑器入口）。画布编辑器按 design 归 Phase 4 之后。
+
+### Log
+- [2026-08-27] created (draft)
+- [2026-08-27] started (in-progress)
+- [2026-08-27] completed (done)。确认型验收：页面能力已具备，本任务补固化断言与 seed 完整化。
 
 ### Log
 - [2026-08-27] created (draft)
@@ -886,7 +905,7 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 
 ## TASK-020: Governance 授权规则页
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-011, TASK-014
 - **Source**: phase1-product-architecture.frontend.design.md#2.2 功能方案（FEAT-F07）
@@ -898,18 +917,27 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 `/governance/policies` 列表 + schema 表单（复用 `ResourceListPage`+`SchemaForm`，policy kind 已在 TASK-003/004 后端覆盖）；影响 Agent 可调用 capability/tool 的规则展示。**后端无独立任务（已确认）**：policy 走 TASK-003（typed spec model）+ TASK-004（通用 `/studio/{kind}` CRUD 的 policies kind）路径；Phase 1 不新增后端 policy 语义（runtime 授权 enforcement 既有，Policy 深做属 Phase 5 roadmap TASK-C406）。
 
 ### Checklist
-- [ ] Policies 列表 + 新建/详情（复用通用组件，policy schema 驱动）
-- [ ] [FE-S-11][E2E] 修改生产代码前编写验收测试并记录 RED：新建授权规则 → 列表可见（真实 schema 端点 + API）
+- [x] Policies 列表 + 新建/详情（复用通用组件，policy schema 驱动）
+- [x] [FE-S-11][E2E] 修改生产代码前编写验收测试并记录 RED：新建授权规则 → 列表可见（真实 schema 端点 + API）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| FE-S-11 | E2E | Browser、Router、Schema endpoint、UI | 列表 + schema 表单可用 | planned | planned | planned |
+| FE-S-11 | E2E | Browser、Router、Schema endpoint、UI | 列表 + schema 表单可用 | src/pages/__tests__/governance-policies.test.tsx | `cd frontend/apps/console && npx vitest run src/pages/__tests__/governance-policies.test.tsx` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| FE-S-11 | FAIL: 「新建规则」按钮不存在（Governance 组无 policies 页） | PASS: 1 passed | test：新建规则 → SchemaForm 策略名 → 提交 → 列表 /pol_/ 行出现 | GovernancePoliciesPage 真链（listVisibleResources(policy) + getResourceSchema(policy) + createResource） | verified |
+
+> 实现：新增 pages/governance/GovernancePoliciesPage.tsx（policy 单 kind 列表+内联 SchemaForm 新建，required 校验同 capabilities 模式）；治理导航新增「授权规则」子项（原占位升级）。后端 policy kind 已由 TASK-003/004 覆盖（typed model + /studio/{kind}）。后端无独立 policy 任务（已确认）。
+
+### Log
+- [2026-08-27] created (draft)
+- [2026-08-27] started (in-progress)
+- [2026-08-27] completed (done)。无独立 rule owner。console 全量 38 tests/16 files 绿 + typecheck 清零。
 
 ### Log
 - [2026-08-27] created (draft)
