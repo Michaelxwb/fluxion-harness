@@ -173,6 +173,8 @@ class UserDomainService:
         actor_id: str = "unknown",
         request_id: str = "",
     ) -> dict[str, object]:
+        if granted_scope not in ("invoke", "manage"):
+            raise ConsoleError(VALIDATION_FAILED, f"granted_scope 无效: {granted_scope}", 400)
         target = resolve_binding_reference(capability_binding)
         if target.resource_kind not in (ResourceKind.SKILL, ResourceKind.MCP):
             # TOOL 准入属 Agent allowlist 域；用户级授权只覆盖可被用户上下文

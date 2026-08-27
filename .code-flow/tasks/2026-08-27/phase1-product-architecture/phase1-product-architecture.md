@@ -4,6 +4,35 @@
 - **Created**: 2026-08-27
 - **Updated**: 2026-08-27
 
+## DeepSeek 五路审查整改台账（2026-08-28）
+
+### 已修复（8 HIGH + 3 MED，全部实测验证）
+- **H1/H2** httpConsoleApi `requiredResourceType` 白名单缺 v2.2 五 kind → 已对齐全枚举（生产 createResource/listResources 不再 400）。
+- **H3** issueChatAccess 发 `runtime_profile_id` 且解析读同字段 → body 改 `{agent_id}`，parse 改 `record.agent_id`（「生成对话链接」生产可用）。
+- **H4** Studio 试跑硬编码 "assistant" → 保存生成的 resourceId 存入 `savedAgentId` state，试跑优先使用。
+- **H5** 迁移对无 @pin 的 legacy 条目：`rpartition("@")` 语义误用（无分隔符时 resource_id 为空）→ 正确整串作 ref + `latest-published`；并修 M4 put/publish 间断点续跑（DRAFT 续发布）。
+- **H7** alembic 迁移 `f7a3c91d2e84`：user_profiles/user_preferences/capability_grants 三表 + chat_access_tokens 列改名（alter_column），upgrade/downgrade 契约测试过。
+- **H8①④** productClient listCapabilities 改走 `/studio/{kind}`；getResourceSchema 经 SCHEMA_KIND 映射单数枚举。
+- **H8②③** listResources/listUsers 解包 `{items}` 并改 `page_size`。
+- **M3** granted_scope 校验（invoke/manage 之外 400）。
+- **M9** 伪造 policy-default 移除（types optional + parse optionalString + 页面展示空）。
+- **M10** ResourcesPage loadResources try/catch → error state。
+
+### 挂账（后续批次处理）
+- **M2** profile/preference 并发写 IntegrityError（PG ON CONFLICT DO UPDATE 改造）。
+- **M5** test-run SSE 透传 request_id/trace_id（X- headers 进 RunRuntimeRequest）。
+- **M6** channel 派生 profile 键的精确版本 pin（与 resolver 统一 selector）。
+- **M7** SchemaForm anyOf 多选项渲染（fail_policy 等单选变 Select）。
+- **M11** chat http 层未绑定门禁 + FE-S-14 真链断言。
+- **M12** 工具准入冻结进 Snapshot（agent_definition_version 扩展）。
+- **M13** 页面级 http 路径测试补层。
+- **LOW 汇总**：policie_ 自动 id、put_profile null 清字段、敏感键启发式、_actor 头参、input 长度、uuid4 重复导入、AgentDomainError code 属性、grants 唯一约束、360 activity 窗口、contracts.py 行数、resolve 悬空引用语义、_ensure_default_agent 治理链、issue_chat_access mechanics 校验、skill binding 覆盖死代码、BindingsPage SecretRef 文案、Studio effect 取消、initialKind Tab 高亮、semi-compliance 子串匹配。
+
+### 正面确认（避免重复返工）
+tenant 隔离全链强制、/studio typed pydantic 校验、envelope/错误码集中、capability 单一解析源、审计五类含关联字段、A105 后端 access 对齐、AST 守护/Kernel 方向/无 secret 泄漏/冻结导航/tsc strict——均复核通过。
+
+---
+
 ## Proposal
 
 把 v1「RuntimeProfile 混装 persona/model/capability/mechanics + Resource 铺表 Console」重构为产品化架构：后端拆出 AgentDefinition（PRD §4.2 对齐）+ User Domain（Gate 1B）+ agent_id 产品路由（TASK-A105）+ Product API/schema 端点；前端落地冻结导航 `Overview/Build{Agents,Workflows,Capabilities,Eval}/Users/Governance/Operations/Platform` + Agent Studio（CapabilityPicker）+ schema 驱动全资源接入。开发阶段接受破坏性迁移，不做兼容补丁。

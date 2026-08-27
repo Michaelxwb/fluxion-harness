@@ -55,8 +55,13 @@ export function ResourcesPage({ api, initialTypeFilter = "all" }: ResourcesPageP
 
   async function loadResources(): Promise<void> {
     // 后端单表 resource_definitions，GET /api/v1/resources 一次返回全部类型。
-    const result = await api.listResources();
-    setResources(result.items);
+    try {
+      const result = await api.listResources();
+      setResources(result.items);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "加载资源失败");
+    }
   }
 
   async function createResource(): Promise<void> {

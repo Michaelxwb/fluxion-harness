@@ -89,7 +89,7 @@ export function BindingsPage({ api }: BindingsPageProps) {
     try {
       await api.saveBinding({
         credentialRef: bindCredentialRef,
-        policyId: "policy-default",
+        policyId: null,
         resourceId: bindResourceId,
         resourceType: bindType,
         subjectId: bindSubjectId.trim(),

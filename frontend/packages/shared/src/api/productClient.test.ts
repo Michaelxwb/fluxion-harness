@@ -68,7 +68,7 @@ describe("TASK-013 product client envelope semantics", () => {
     const client = createProductClient({ baseUrl: "", fetcher: fetcher as unknown as typeof fetch });
     await client.listCapabilities("mcp");
     const [url] = (fetcher as unknown as { mock: { calls: unknown[][] } }).mock.calls[0];
-    expect(String(url)).toContain("/studio/capabilities?type=mcp");
+    expect(String(url)).toContain("/studio/mcp");
   });
 });
 

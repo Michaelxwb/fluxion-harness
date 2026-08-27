@@ -110,7 +110,7 @@ export interface BindingRecord {
   readonly resourceId: string;
   readonly versionSelector: string;
   readonly credentialRef: string | null;
-  readonly policyId: string;
+  readonly policyId: string | null;
   readonly enabled: boolean;
 }
 
@@ -197,7 +197,7 @@ export interface BindingInput {
   readonly subjectId: string;
   readonly versionSelector: string;
   readonly credentialRef: string | null;
-  readonly policyId: string;
+  readonly policyId: string | null;
 }
 
 export interface ConsoleApi {

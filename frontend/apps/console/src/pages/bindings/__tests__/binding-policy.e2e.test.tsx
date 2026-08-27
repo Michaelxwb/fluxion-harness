@@ -24,8 +24,8 @@ describe("S-C115 Binding Policy CredentialRef", () => {
 
     await user.click(within(dialog).getByRole("button", { name: "创建绑定" }));
     await screen.findByText("bind-user-001");
-    expect(screen.getByText("policy-default")).toBeInTheDocument();
     expect(screen.getByText("secret://openai-prod")).toBeInTheDocument();
+    expect(screen.queryByText("policy-default")).not.toBeInTheDocument();
     expect(screen.queryByText(SECRET_VALUE)).not.toBeInTheDocument();
   });
 });

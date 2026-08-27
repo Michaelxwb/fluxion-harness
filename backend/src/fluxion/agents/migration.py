@@ -149,14 +149,28 @@ def _legacy_capabilities(
     return bindings
 
 
+LATEST_PIN = "latest-published"
+
+
 def _capability(
     value: str, capability_type: CapabilityType, default_version: str
 ) -> CapabilityBinding:
+    """legacy 条目转 typed binding。
+
+    带显式 @version 的沿用；**无 @pin 的不能借用 profile 版本号**（skill/mcp
+    版本空间与 profile 独立，错误 pin 会让 resolver 解析必 404，H5）——改用
+    latest-published 选择器语义，与 legacy 运行时「未 pin 即最新」一致。
+    """
     resource_id, separator, version = value.rpartition("@")
     if not separator:
-        resource_id, version = value, default_version
+        # 无 @：整串是 resource_id（H5 正解——rpartition 无分隔符时前两元为空）。
+        return CapabilityBinding(
+            capability_ref=value,
+            version_pin=LATEST_PIN,
+            type=capability_type,
+        )
     return CapabilityBinding(
-        capability_ref=_required_text(resource_id, "capability_ref"),
+        capability_ref=resource_id,
         version_pin=_required_text(version, "version_pin"),
         type=capability_type,
     )
@@ -198,9 +212,17 @@ async def _persist_target(store: RegistryStore, target: ResourceDefinition) -> N
         version=target.version,
     )
     if existing is not None:
-        if existing.spec_json != target.spec_json or existing.status is not target.status:
+        if existing.spec_json != target.spec_json:
             raise MigrationConsistencyError(
                 f"migration target differs: {target.kind.value}/{target.id}@{target.version}"
+            )
+        if existing.status is not ResourceStatus.PUBLISHED:
+            # M4：上次运行在 put/publish 之间崩溃——续跑补发布（幂等承诺）。
+            await store.publish(
+                target.kind,
+                target.id,
+                tenant_id=target.tenant_id,
+                version=target.version,
             )
         return
     draft = target.model_copy(update={"status": ResourceStatus.DRAFT})

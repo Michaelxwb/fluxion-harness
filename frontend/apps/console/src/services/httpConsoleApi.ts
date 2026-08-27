@@ -258,7 +258,7 @@ class HttpConsoleApi implements ConsoleApi {
   ): Promise<IssuedChatAccess> {
     return this.client.request(
       `/api/v1/platform-users/${encodeURIComponent(platformUserId)}/chat-access`,
-      jsonRequest("POST", { runtime_profile_id: agentId }),
+      jsonRequest("POST", { agent_id: agentId }),
       parseIssuedChatAccess
     );
   }
@@ -433,10 +433,10 @@ function toResourceSummary(resource: ResourceVersion): ResourceSummary {
 function parseBinding(value: unknown): BindingRecord {
   const record = requiredRecord(value, "binding");
   return {
+    policyId: optionalString(record.policy_id),
     bindingId: requiredString(record.binding_id, "binding_id"),
     credentialRef: optionalString(record.credential_ref),
     enabled: requiredBoolean(record.enabled, "enabled"),
-    policyId: optionalString(record.policy_id) ?? "policy-default",
     resourceId: requiredString(record.resource_id, "resource_id"),
     resourceType: requiredResourceType(record.resource_type),
     subjectId: requiredString(record.subject_id, "subject_id"),
@@ -462,7 +462,7 @@ function parseIssuedChatAccess(value: unknown): IssuedChatAccess {
     chatPath: requiredString(record.chat_path, "chat_path"),
     createdAt: requiredString(record.created_at, "created_at"),
     platformUserId: requiredString(record.platform_user_id, "platform_user_id"),
-    agentId: requiredString(record.runtime_profile_id, "runtime_profile_id"),
+    agentId: requiredString(record.agent_id, "agent_id"),
     token: requiredString(record.token, "token")
   };
 }
@@ -590,7 +590,21 @@ function requiredBoolean(value: unknown, field: string): boolean {
 }
 
 function requiredResourceType(value: unknown): ResourceType {
-  if (["runtime_profile", "skill", "mcp", "plugin", "policy", "workflow"].includes(String(value))) {
+  if (
+    [
+      "runtime_profile",
+      "agent_definition",
+      "model",
+      "tool",
+      "secret",
+      "skill",
+      "mcp",
+      "plugin",
+      "policy",
+      "workflow",
+      "eval_set"
+    ].includes(String(value))
+  ) {
     return value as ResourceType;
   }
   throw new Error("resource_type 无效");

@@ -75,6 +75,7 @@ export function AgentStudioPage({ api, initialAgentId }: AgentStudioPageProps) {
   const [runOutput, setRunOutput] = useState("");
   const [runError, setRunError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [savedAgentId, setSavedAgentId] = useState<string | null>(null);
   const [runtimeProfileId, setRuntimeProfileId] = useState("");
   const [profiles, setProfiles] = useState<readonly ModelOption[]>([]);
   const [capabilities, setCapabilities] = useState<readonly string[]>([]);
@@ -105,9 +106,10 @@ export function AgentStudioPage({ api, initialAgentId }: AgentStudioPageProps) {
       setSavedNotice(null);
       return;
     }
+    const resourceId = `studio_${Date.now().toString(36)}`;
     await api.createResource({
       resourceType: "agent_definition",
-      resourceId: `studio_${Date.now().toString(36)}`,
+      resourceId,
       version: "1",
       visibility: "private",
       spec: {
@@ -118,6 +120,7 @@ export function AgentStudioPage({ api, initialAgentId }: AgentStudioPageProps) {
         model_ref: { id: modelId || "dev.echo", version: "1" }
       }
     });
+    setSavedAgentId(resourceId);
     setSavedNotice("草稿已保存");
   };
 
@@ -125,7 +128,8 @@ export function AgentStudioPage({ api, initialAgentId }: AgentStudioPageProps) {
     setRunning(true);
     setRunError(null);
     setRunOutput("");
-    const agentId = initialAgentId ?? "assistant";
+    // H4：优先用本次保存生成的 agent id，其次编辑态 initialAgentId。
+    const agentId = savedAgentId ?? initialAgentId ?? "assistant";
     try {
       await api.testRunAgent(agentId, { input: runInput }, (event) => {
         if (event.event === "token") {

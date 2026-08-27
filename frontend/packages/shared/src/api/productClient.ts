@@ -79,6 +79,19 @@ export const PRODUCT_KINDS = [
 
 export type ProductKind = (typeof PRODUCT_KINDS)[number];
 
+/** ProductKind 复数别名 → schema 端点的单数 ResourceType 枚举值。 */
+const SCHEMA_KIND: Record<string, string> = {
+  agents: "agent_definition",
+  models: "model",
+  tools: "tool",
+  skills: "skill",
+  mcp: "mcp",
+  "runtime-profiles": "runtime_profile",
+  secrets: "secret",
+  policies: "policy",
+  evals: "eval_set"
+};
+
 export function createProductClient(options: ProductClientOptions = {}) {
   const http: HttpClient = createHttpClient(options.baseUrl, options.fetcher);
 
@@ -114,28 +127,30 @@ export function createProductClient(options: ProductClientOptions = {}) {
 
     /** Capability（TASK-006：skill/tool/mcp typed 绑定）。 */
     listCapabilities: (type?: CapabilityKind) =>
-      read(
-        type ? `/studio/capabilities?type=${type}` : "/studio/capabilities",
-        (value) => value as readonly Record<string, unknown>[]
-      ),
+      read(`/studio/${type ?? "skills"}`, (value) => value as readonly Record<string, unknown>[]),
 
     /** 通用 Product resource CRUD（TASK-004）。 */
     listResources: (kind: ProductKind, page?: PageRequest) =>
-      read(
-        `/studio/${kind}?page=${page?.page ?? 1}&pageSize=${page?.pageSize ?? 20}`,
-        (value) => value as readonly Record<string, unknown>[]
-      ),
+      read(`/studio/${kind}?page=${page?.page ?? 1}&page_size=${page?.pageSize ?? 20}`, (value) => {
+        const record = value as { items?: unknown[] };
+        return (record.items ?? []) as readonly Record<string, unknown>[];
+      }),
     getResource: (kind: ProductKind, resourceId: string) =>
       read(`/studio/${kind}/${resourceId}`, (value) => value as Record<string, unknown>),
     createResource: (kind: ProductKind, body: { resource_id?: string; version?: string; spec: Record<string, unknown> }) =>
       send(`/studio/${kind}`, "POST", body, (value) => value as Record<string, unknown>),
     getResourceSchema: (kind: string) =>
-      read(`/api/v1/resources/${kind}/schema`, (value) => value as Record<string, unknown>),
+      read(
+        `/api/v1/resources/${SCHEMA_KIND[kind] ?? kind}/schema`,
+        (value) => value as Record<string, unknown>
+      ),
 
     /** User Domain / User 360（TASK-007）。 */
     listUsers: (page?: PageRequest) =>
-      read(`/admin/users?page=${page?.page ?? 1}&pageSize=${page?.pageSize ?? 20}`,
-        (value) => value as readonly Record<string, unknown>[]),
+      read(`/admin/users?page=${page?.page ?? 1}&page_size=${page?.pageSize ?? 20}`, (value) => {
+        const record = value as { items?: unknown[] };
+        return (record.items ?? []) as readonly Record<string, unknown>[];
+      }),
     getUser: (userId: string) =>
       read(`/admin/users/${userId}`, (value) => value as Record<string, unknown>),
     bindUser: (userId: string, agentId: string) =>
