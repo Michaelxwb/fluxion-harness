@@ -9,7 +9,7 @@ export interface ChatRequest {
 export interface ChatAccess {
   readonly accessId: string;
   readonly platformUserId: string;
-  readonly runtimeProfileId: string;
+  readonly agentId: string;
 }
 
 export interface ChatResponse {

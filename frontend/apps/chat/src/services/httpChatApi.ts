@@ -102,7 +102,7 @@ function parseAccess(value: unknown): ChatAccess {
   return {
     accessId: requiredString(value.access_id, "access_id"),
     platformUserId: requiredString(value.platform_user_id, "platform_user_id"),
-    runtimeProfileId: requiredString(value.runtime_profile_id, "runtime_profile_id")
+    agentId: requiredString(value.agent_id, "agent_id")
   };
 }
 

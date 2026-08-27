@@ -143,7 +143,7 @@ export function ChatApp({ api }: ChatAppProps) {
       <header className="chat-header">
         <div>
           <Typography.Title heading={4}>Fluxion 对话</Typography.Title>
-          <Typography.Text type="tertiary">{access?.runtimeProfileId ?? "智能体"}</Typography.Text>
+          <Typography.Text type="tertiary">{access?.agentId ?? "智能体"}</Typography.Text>
         </div>
         <Space>
           <Tag color={platformUserId ? "green" : "grey"}>

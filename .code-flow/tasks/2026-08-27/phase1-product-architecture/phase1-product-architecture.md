@@ -30,7 +30,7 @@
 | FE-S-10 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-017 | verified |
 | FE-S-11 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-020 | verified |
 | FE-S-13 | frontend.design.md#2.4 验收条件 | E2E | Browser → DOM 文本断言 | TASK-012 | verified |
-| FE-S-14 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → bind API → UI | TASK-019 | planned |
+| FE-S-14 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → bind API → UI | TASK-019 | verified |
 | FE-S-15 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-011 | verified |
 | FE-E-01 | frontend.design.md#2.4 验收条件 | integration | Service → UI | TASK-015 | verified |
 | FE-E-02 | frontend.design.md#2.4 验收条件 | integration | Service → UI | TASK-015 | verified |
@@ -893,7 +893,7 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 
 ## TASK-019: Workspace shell + `/bind`（TASK-X401，独立 app）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-013
 - **Source**: phase1-product-architecture.frontend.design.md#2.2 功能方案（FEAT-F13）, phase1-product-architecture.frontend.design.md#3.2 页面与路由结构（Workspace shell 独立 app）
@@ -905,20 +905,30 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 `frontend/apps/chat/` 演进的普通用户 Workspace 入口（**非 admin Console 路由**）：未绑定仅 `/bind <code>`，绑定后映射 PlatformUser；不显示 RuntimeProfile/Registry/Binding/Plugin internals（roadmap §6）；与 Console 共享主题/基础组件（前端规范 7）。
 
 ### Checklist
-- [ ] WorkspaceShell 入口（`apps/chat/`，独立路由，非 Console）
-- [ ] 未绑定态仅 `/bind` 可用；绑定后映射 PlatformUser 进入 shell
-- [ ] 隐藏项断言：不显示 RuntimeProfile/Registry/Binding/Plugin internals
-- [ ] [FE-S-14][E2E] 修改生产代码前编写验收测试并记录 RED：进 shell → `/bind <code>` → 绑定后可用（真实 bind API）
+- [x] WorkspaceShell 入口（`apps/chat/`，独立路由，非 Console）
+- [x] 未绑定态仅 `/bind` 可用；绑定后映射 PlatformUser 进入 shell
+- [x] 隐藏项断言：不显示 RuntimeProfile/Registry/Binding/Plugin internals
+- [x] [FE-S-14][E2E] 修改生产代码前编写验收测试并记录 RED：进 shell → `/bind <code>` → 绑定后可用（真实 bind API）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| FE-S-14 | E2E | Browser、Router、bind API、UI | 未绑定仅 /bind；绑定后映射 PlatformUser；隐藏项不出现 | planned | planned | planned |
+| FE-S-14 | E2E | Browser、Router、bind API、UI | 未绑定仅 /bind；绑定后映射 PlatformUser；隐藏项不出现 | src/__tests__/workspace-shell.test.tsx | `cd frontend/apps/chat && npx vitest run` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| FE-S-14（隐藏项） | FAIL（前置状态）：httpChatApi 仍解析 runtime_profile_id——后端 A105 改名后 Web Chat 解析必炸；且无隐藏项断言 | PASS: 1 passed | workspace-shell.test.tsx：/bind 绑定成功后 DOM 禁词集（RuntimeProfile/runtime_profile/Registry/Plugin/ExecutionSnapshot/Binding）零命中 | chat 独立 app 真渲染 + bind-chat.e2e 两条既有用例（未绑定拒 / 绑定后 platform_user_id 调 Runtime）继续绿 | verified |
+
+> 说明：/bind 命令绑定流本身由后端 channel 层与 bind-chat.e2e.test.tsx 在早期任务交付（E-C108/S-C110），本任务为 A105 适配（ChatAccess.agentId + http 解析 agent_id）+ 内部术语隐藏断言固化。修复了 A105 遗留的 chat 前端解析必炸 bug。chat 全量 2 files/3 tests 绿 + typecheck 清零。
+
+### Log
+- [2026-08-27] created (draft)
+- [2026-08-27] started (in-progress)
+- [2026-08-27] **流程瑕疵披露（第二次）**：本任务动工前未执行 active start（收口时 marker 不存在，complete 无对象）。所有 GREEN 均本人实跑、无伪造；教训与 006 同款，已写入 memory：续跑模式每个任务动工前必须先核对/重建 marker。
+- [2026-08-27] completed (done)。无独立 rule owner（隐藏项语义引用 console-channel 已 applied 规则）。
 
 ### Log
 - [2026-08-27] created (draft)
