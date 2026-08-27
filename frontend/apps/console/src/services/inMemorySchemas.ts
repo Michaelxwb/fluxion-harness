@@ -53,6 +53,25 @@ export const IN_MEMORY_RESOURCE_SCHEMAS: Readonly<Record<string, JsonSchemaNode>
       allowed_tools: { type: "array", items: { type: "string" }, title: "放行工具", description: "该技能放行的工具（并入 agent 工具白名单）" }
     }
   },
+  tool: {
+    type: "object",
+    additionalProperties: false,
+    required: ["name", "capability_ref"],
+    properties: {
+      name: { type: "string", title: "工具名", description: "工具展示名" },
+      description: { type: "string", title: "说明", description: "工具用途说明" },
+      capability_ref: { type: "string", title: "能力引用", description: "Tool Adapter 复用的 Capability ID" },
+      adapter_ref: { type: "string", title: "适配器引用", description: "具体 Adapter/Provider 的版本化引用" },
+      timeout_ms: { type: "integer", title: "调用超时", default: 30000 },
+      fail_policy: {
+        title: "失败策略",
+        anyOf: [
+          { const: "fail_open", title: "失败放行" },
+          { const: "fail_closed", title: "失败拦截" }
+        ]
+      }
+    }
+  },
   mcp: {
     title: "MCPDefinition",
     type: "object",

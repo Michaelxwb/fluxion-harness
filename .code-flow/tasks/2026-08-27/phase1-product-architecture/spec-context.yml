@@ -1,7 +1,7 @@
 version: 1
 task: PHASE1-PRODUCT-ARCHITECTURE
 enforcement: required
-updated_at: '2026-08-27T14:25:20.657180+00:00'
+updated_at: '2026-08-27T14:26:57.968901+00:00'
 sources:
 - type: cli
   ref: manual
@@ -398,7 +398,7 @@ bindings:
         - artifact: phase1-product-architecture.md
           section_id: TASK-002
           item_id: runtime-profile-ast-guard-code
-          artifact_sha256: f7e1da4c854071b34e8a91ed00acc7643d1c47d6308d424f9fc002c471b8184b
+          artifact_sha256: b295da2cc29f2d96b36959db8bef3ba2f4e823659e3e9a3a8d897255ea494a65
         decision: null
         evidence: []
       review:

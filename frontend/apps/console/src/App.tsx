@@ -24,6 +24,7 @@ import { RunsPage } from "./pages/runs/RunsPage";
 import { UsersChannelsPage } from "./pages/users/UsersChannelsPage";
 import { WorkflowsPage } from "./pages/workflows/WorkflowsPage";
 import { P1ViewPage } from "./pages/p1/P1ViewPage";
+import { CapabilitiesPage } from "./pages/capabilities/CapabilitiesPage";
 import type { ConsoleApi } from "./types/console";
 import { isConsoleView, isP1View, type ConsoleView } from "./types/navigation";
 import { useThemeMode } from "./theme";
@@ -79,7 +80,7 @@ const navItems = [
     items: [
       { icon: <IconUserGroup />, itemKey: "resources", text: "智能体" },
       { icon: <IconFlowChartStroked />, itemKey: "workflows", text: "工作流" },
-      { icon: <IconKey />, itemKey: "capabilities", text: <PlannedText>能力</PlannedText> },
+      { icon: <IconKey />, itemKey: "capabilities", text: "能力" },
       { icon: <IconTestScore />, itemKey: "eval", text: <PlannedText>评测</PlannedText> }
     ]
   },
@@ -135,6 +136,9 @@ function renderView(view: ConsoleView, api: ConsoleApi) {
   }
   if (view === "users_channels") {
     return <UsersChannelsPage api={api} />;
+  }
+  if (view === "capabilities") {
+    return <CapabilitiesPage api={api} />;
   }
   if (isP1View(view)) {
     return <P1ViewPage api={api} view={view} />;

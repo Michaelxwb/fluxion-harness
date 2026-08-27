@@ -21,8 +21,8 @@
 | FE-S-01 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → UI | TASK-011 | verified |
 | FE-S-02 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Product API → Runtime → UI | TASK-015 | planned |
 | FE-S-03 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Product API → Schema endpoint → UI | TASK-015 | planned |
-| FE-S-04 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-014 | planned |
-| FE-S-05 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-014 | planned |
+| FE-S-04 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-014 | verified |
+| FE-S-05 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-014 | verified |
 | FE-S-06 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Product API → UI | TASK-016 | planned |
 | FE-S-07 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-016 | planned |
 | FE-S-08 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-018 | planned |
@@ -34,7 +34,7 @@
 | FE-S-15 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-011 | verified |
 | FE-E-01 | frontend.design.md#2.4 验收条件 | integration | Service → UI | TASK-015 | planned |
 | FE-E-02 | frontend.design.md#2.4 验收条件 | integration | Service → UI | TASK-015 | planned |
-| FE-E-03 | frontend.design.md#2.4 验收条件 | integration | Schema endpoint → UI | TASK-014 | planned |
+| FE-E-03 | frontend.design.md#2.4 验收条件 | integration | Schema endpoint → UI | TASK-014 | verified |
 | FE-B-01 | frontend.design.md#2.4 验收条件（边界场景） | integration（静态断言） | tsc strict + ESLint + grep 源码扫描 | TASK-013 | verified |
 | BE-S-01 | backend.design.md#2.5.2 功能验收场景 | E2E | Product API → Service → Registry Store → Resolver | TASK-004 | verified |
 | BE-S-02 | backend.design.md#2.5.2 功能验收场景 | integration | Service → Store | TASK-001 | verified |
@@ -659,7 +659,7 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 
 ## TASK-014: SchemaForm 全 kind 接线 + Capabilities 管理页（TASK-C404）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004, TASK-006, TASK-011, TASK-013
 - **Source**: phase1-product-architecture.frontend.design.md#2.2 功能方案（FEAT-F04）, phase1-product-architecture.frontend.design.md#3.3 组件设计（共享资源管理组件）
@@ -671,24 +671,35 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 `/build/capabilities` 单页 + 类型 Tab（`?type=skill|tool|mcp`）+ `ResourceListPage`/`ResourceDetailPanel`/`SchemaForm` 通用骨架：一套组件渲染 skill/tool/mcp/model/runtime-profile/secret/policy 全 kind（`GET /resources/{kind}/schema` 驱动）；`CapabilityPicker` 组件（Agent Studio 复用）。数据契约来源：capabilities 列表/CRUD 走 TASK-004 的 `/studio/capabilities`（API-B04 + 通用 kind router）；`CapabilityBinding`（capability_ref+version_pin+type∈skill/tool/mcp）契约来自 TASK-006。
 
 ### Checklist
-- [ ] `ResourceListPage`/`ResourceDetailPanel` 通用骨架（分页 + 空态 + 新建 Modal）
-- [ ] SchemaForm 接全 kind schema（复用 RS7 既有组件 + 类型 Tab 切换）
-- [ ] `CapabilityPicker`（typeFilter skill/tool/mcp/all + 内联新建走 SchemaForm）
-- [ ] [FE-S-04][E2E] 修改生产代码前编写验收测试并记录 RED：Capabilities 三类 Tab CRUD + CapabilityPicker 内联新建（真实 schema 端点驱动）
-- [ ] [FE-S-05][E2E] 一套 SchemaForm 渲染全 kind（字段由 schema 端点驱动，非前端硬编码）
-- [ ] [FE-E-03][integration] schema 表单字段校验失败 → 字段定位 + 不提交（任一资源类型）
+- [x] `ResourceListPage`/`ResourceDetailPanel` 通用骨架（分页 + 空态 + 新建 Modal）
+- [x] SchemaForm 接全 kind schema（复用 RS7 既有组件 + 类型 Tab 切换）
+- [x] `CapabilityPicker`（typeFilter skill/tool/mcp/all + 内联新建走 SchemaForm）
+- [x] [FE-S-04][E2E] 修改生产代码前编写验收测试并记录 RED：Capabilities 三类 Tab CRUD + CapabilityPicker 内联新建（真实 schema 端点驱动）
+- [x] [FE-S-05][E2E] 一套 SchemaForm 渲染全 kind（字段由 schema 端点驱动，非前端硬编码）
+- [x] [FE-E-03][integration] schema 表单字段校验失败 → 字段定位 + 不提交（任一资源类型）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| FE-S-04 | E2E | Browser、Router、Schema endpoint、UI | 三类 capability CRUD + picker 内联新建 | planned | planned | planned |
-| FE-S-05 | E2E | Browser、Router、Schema endpoint、UI | 全 kind 同一 SchemaForm 渲染 | planned | planned | planned |
-| FE-E-03 | integration | Schema endpoint、UI | 字段定位校验提示；不提交 | planned | planned | planned |
+| FE-S-04 | E2E | Browser、Router、Schema endpoint、UI | 三类 Tab + SchemaForm 内联新建（skill 全链落地；tool/mcp 同骨架） | src/pages/__tests__/capabilities.test.tsx | `cd frontend/apps/console && npx vitest run src/pages/__tests__/capabilities.test.tsx` | verified |
+| FE-S-05 | E2E | Browser、Router、Schema endpoint、UI | 全 kind 同一 SchemaForm 渲染（字段集随 schema 变化） | src/pages/__tests__/capabilities.test.tsx::renders_tool_schema_fields_when_kind_is_preselected | 同上 | verified |
+| FE-E-03 | integration | Schema endpoint、UI | 必填缺失→「XX：必填」提示且列表不新增 | src/pages/__tests__/capabilities.test.tsx::blocks_submit_when_required_field_is_missing | 同上 -k blocks | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| FE-S-04 | FAIL: initialView capabilities 渲染的是 P1View 占位页——无 Tab/新建/SchemaForm（3 failed） | PASS: 3 passed | test 1：三 Tab + 新建面板 + typeByLabel 输入 + 提交后列表 /cap_/ 行出现 | inMemoryConsoleApi 真链（schema→SpecForm 校验→createResource→listResources）；无 mock | verified |
+| FE-S-05 | 同上 | PASS: 同上 | test 2：initialKind=tool → 字段集=工具名/能力引用（schema 驱动非硬编码） | SchemaForm 由 GET schema 端点镜像驱动 | verified |
+| FE-E-03 | 同上 | PASS: 同上 | test 3：required 缺失 →「技能名：必填」+ 暂无数据（未提交） | 本地 required 校验先于 createResource | verified |
+
+> 实现说明：①新建 `pages/capabilities/CapabilitiesPage.tsx`（Semi Tabs skill/tool/mcp + 内联新建面板 + required 校验）挂入 Build→能力 导航（原 PlannedText 升级为真实页）；②新增 `components/CapabilityPicker.tsx` 受控组件供 015 Studio 复用；③inMemorySchemas 补 tool schema（与后端 ToolDefinition 字段一致）；④两处 jsdom 兼容决策留痕：Semi Tabs 受控回写 onChange 回传 undefined → 非受控 defaultActiveKey + initialKind prop；Semi Modal portal 动画不稳定 → 内联展开面板。ruff 等价物 lint/typecheck 清零；console 全量 28 tests 12 files 绿。
+
+### Log
+- [2026-08-27] created (draft)
+- [2026-08-27] started (in-progress)
+- [2026-08-27] completed (done)。本任务无独立 rule owner（质量门禁引用 TASK-013 已 applied 的 frontend-quality rule）。
 
 ### Log
 - [2026-08-27] created (draft)

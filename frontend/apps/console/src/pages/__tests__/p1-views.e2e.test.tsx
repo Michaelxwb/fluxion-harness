@@ -13,7 +13,8 @@ const views: readonly {
   readonly view: ConsoleView & P1View;
 }[] = [
   { itemId: "plugin-policy-main", title: "插件钩子", view: "plugin_policy" },
-  { itemId: "cap.report.source", title: "能力注册", view: "capabilities" },
+  // capabilities 已在 TASK-014 升级为真实管理页（CapabilitiesPage），
+  // 交互由 capabilities.test.tsx 承载，不再走 P1 只读视图。
   { itemId: "support-quality", title: "能力评测", view: "eval" },
   { itemId: "runtime-pod-7", title: "运行时态", view: "runtime_status" }
 ];
