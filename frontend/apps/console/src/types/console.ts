@@ -171,7 +171,7 @@ export interface PlatformUser {
 export interface IssuedChatAccess {
   readonly accessId: string;
   readonly platformUserId: string;
-  readonly runtimeProfileId: string;
+  readonly agentId: string;
   readonly token: string;
   readonly chatPath: string;
   readonly createdAt: string;
@@ -207,6 +207,6 @@ export interface ConsoleApi {
   listP1View(view: P1View): Promise<readonly ControlPlaneItem[]>;
   listPlatformUsers(request: PageRequest): Promise<PageData<PlatformUser>>;
   createPlatformUser(platformUserId: string, displayName: string): Promise<PlatformUser>;
-  issueChatAccess(platformUserId: string, runtimeProfileId: string): Promise<IssuedChatAccess>;
+  issueChatAccess(platformUserId: string, agentId: string): Promise<IssuedChatAccess>;
   revokeChatAccess(accessId: string): Promise<void>;
 }

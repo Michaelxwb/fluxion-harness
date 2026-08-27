@@ -24,7 +24,7 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
   const [profiles, setProfiles] = useState<readonly ResourceSummary[]>([]);
   const [platformUserId, setPlatformUserId] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [runtimeProfileId, setRuntimeProfileId] = useState<string>();
+  const [agentId, setRuntimeProfileId] = useState<string>();
   const [issued, setIssued] = useState<IssuedChatAccess | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
@@ -67,9 +67,9 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
   }
 
   async function issue(user: PlatformUser): Promise<void> {
-    if (!runtimeProfileId) return;
+    if (!agentId) return;
     await runAction(async () => {
-      setIssued(await api.issueChatAccess(user.platformUserId, runtimeProfileId));
+      setIssued(await api.issueChatAccess(user.platformUserId, agentId));
       setNotice("Chat 链接已生成，仅本次显示 token");
     });
   }
@@ -119,14 +119,14 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
                 onChange={(value) => setRuntimeProfileId(typeof value === "string" ? value : undefined)}
                 optionList={profiles.map((profile) => ({ label: profile.displayName, value: profile.resourceId }))}
                 style={{ width: 160 }}
-                value={runtimeProfileId}
+                value={agentId}
               />
             </Space>
           </div>
         }
       >
         <Table
-          columns={userColumns((user) => void issue(user), Boolean(runtimeProfileId))}
+          columns={userColumns((user) => void issue(user), Boolean(agentId))}
           dataSource={[...users]}
           empty={<Empty description="暂无用户" />}
           pagination={false}
@@ -175,7 +175,7 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
             {notice ? <Typography.Text type="success">{notice}</Typography.Text> : null}
             <Descriptions row>
               <Descriptions.Item itemKey="用户">{issued.platformUserId}</Descriptions.Item>
-              <Descriptions.Item itemKey="运行态">{issued.runtimeProfileId}</Descriptions.Item>
+              <Descriptions.Item itemKey="运行态">{issued.agentId}</Descriptions.Item>
               <Descriptions.Item itemKey="创建时间">{formatDateTime(issued.createdAt)}</Descriptions.Item>
             </Descriptions>
             <Typography.Text type="tertiary">链接仅本次显示 token，复制后请妥善保存；撤销后链接立即失效。</Typography.Text>

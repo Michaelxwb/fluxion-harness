@@ -278,7 +278,7 @@ class InMemoryConsoleApi implements ConsoleApi {
 
   async issueChatAccess(
     platformUserId: string,
-    runtimeProfileId: string
+    agentId: string
   ): Promise<IssuedChatAccess> {
     const accessId = `chat-access-${this.chatAccessIds.size + 1}`;
     const token = `test-token-${this.chatAccessIds.size + 1}`;
@@ -288,7 +288,7 @@ class InMemoryConsoleApi implements ConsoleApi {
       chatPath: `/chat/#/${token}`,
       createdAt: nowIso(),
       platformUserId,
-      runtimeProfileId,
+      agentId,
       token
     };
   }

@@ -29,7 +29,7 @@
 | FE-S-09 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-017 | planned |
 | FE-S-10 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-017 | planned |
 | FE-S-11 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-020 | planned |
-| FE-S-13 | frontend.design.md#2.4 验收条件 | E2E | Browser → DOM 文本断言 | TASK-012 | planned |
+| FE-S-13 | frontend.design.md#2.4 验收条件 | E2E | Browser → DOM 文本断言 | TASK-012 | verified |
 | FE-S-14 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → bind API → UI | TASK-019 | planned |
 | FE-S-15 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-011 | verified |
 | FE-E-01 | frontend.design.md#2.4 验收条件 | integration | Service → UI | TASK-015 | planned |
@@ -568,7 +568,7 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 
 ## TASK-012: Semi 合规 + react19-adapter 首导 + 术语去暴露（FEAT-F12）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-011
 - **Source**: phase1-product-architecture.frontend.design.md#2.2 功能方案（FEAT-F12）, phase1-product-architecture.frontend.design.md#3.7 样式方案（术语映射）
@@ -580,21 +580,30 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 `main.tsx` 第一条 UI 导入 = `@douyinfe/semi-ui/react19-adapter`；全仓无第二套通用 UI 库（antd/@ant-design/icons/MUI）；术语映射落地（design §3.7 表：RuntimeProfile→运行设置、Binding→授权/绑定、Registry→资源库、AgentDefinition→Agent、Secret→凭据、Capability→按 skill/tool/mcp 具名）；主流程 DOM 文本不出现内部术语原词，普通用户核心页底层术语暴露=0。
 
 ### Checklist
-- [ ] main.tsx adapter 首导断言（Console + Chat 两个 app）
-- [ ] 依赖扫描：无 antd/MUI 等第二套库
-- [ ] 术语映射落地到各页面文案（design §3.7 表逐项）
-- [ ] **Spec verifier**：`RULE-frontend-semi-001` — 运行 `npm run test -- terminology`：断言 adapter 首导 + Semi 唯一组件体系 + 主流程术语零暴露
-- [ ] [FE-S-13][E2E] 修改生产代码前编写验收测试并记录 RED：遍历主流程页面 DOM 文本断言无 `RuntimeProfile`/`Binding`/`Registry`/`ExecutionSnapshot` 原词、无 secret 明文
+- [x] main.tsx adapter 首导断言（Console + Chat 两个 app）
+- [x] 依赖扫描：无 antd/MUI 等第二套库
+- [x] 术语映射落地到各页面文案（design §3.7 表逐项）
+- [x] **Spec verifier**：`RULE-frontend-semi-001` — 运行 `npm run test -- terminology`：断言 adapter 首导 + Semi 唯一组件体系 + 主流程术语零暴露
+- [x] [FE-S-13][E2E] 修改生产代码前编写验收测试并记录 RED：遍历主流程页面 DOM 文本断言无 `RuntimeProfile`/`Binding`/`Registry`/`ExecutionSnapshot` 原词、无 secret 明文
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| FE-S-13 | E2E | Browser、DOM 文本断言 | 主流程术语原词零命中；Secret 无明文 | planned | planned | planned |
+| FE-S-13 | E2E | Browser、DOM 文本断言 | 主流程术语原词零命中；Secret 无明文 | src/pages/__tests__/terminology.test.tsx | `cd frontend/apps/console && npx vitest run src/pages/__tests__/terminology.test.tsx` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 编码期填写。
+| 验证项 | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| adapter 首导 + 禁第二套库 | 初版用 vitest fs 断言——app 无 node 类型，改为构建门禁脚本（先例 check-no-inmemory）后通过；脚本对「非首导/引入 antd」两种破坏均会 exit 1 | PASS: [semi-compliance] OK（console+chat 双 app） | scripts/check-semi-compliance.mjs；已接入 console/chat 的 test 与 build 命令前置 | 真实读取两个 main.tsx 与 package.json | verified |
+| FE-S-13 术语零暴露 | FAIL: runs 视图 DOM 含「运行态（RuntimeProfile）」/aria-label ExecutionSnapshot | PASS: 6 视图遍历（overview/resources/workflows/users_channels/runs/audit，runs 注入非空 seed 使详情卡渲染）innerHTML 禁词集零命中 | terminology.test.tsx BANNED_TERMS 循环 | 真实 ConsoleApp 渲染 + innerHTML 全文断言；RunsPage 两处硬编码已改「执行快照/运行态」；UsersChannelsPage 变量名同步 A105 | verified |
+| 回归 | — | console 12 files 31 tests 全绿 + typecheck 清零（含 A105 连锁的 IssuedChatAccess/inMemory/http 三层类型对齐） | — | — | verified |
+
+### Log
+- [2026-08-27] created (draft)
+- [2026-08-27] started (in-progress)
+- [2026-08-27] completed (done)。frontend-semi rule code stage applied（applied convention）。
 
 ### Log
 - [2026-08-27] created (draft)

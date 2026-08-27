@@ -86,9 +86,9 @@ function RunTable({ onSelect, runs }: RunTableProps) {
 
 function RunSnapshot({ run }: { readonly run: RunDetail }) {
   return (
-    <Card aria-label="ExecutionSnapshot" bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }} title="执行快照">
+    <Card aria-label="执行快照" bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }} title="执行快照">
       <Descriptions row>
-        <Descriptions.Item itemKey="运行态（RuntimeProfile）">
+        <Descriptions.Item itemKey="运行态">
           {versionLabel(run.snapshot.runtimeProfile)}
         </Descriptions.Item>
       </Descriptions>

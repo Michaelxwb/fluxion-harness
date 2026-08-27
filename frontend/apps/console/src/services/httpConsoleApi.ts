@@ -253,11 +253,11 @@ class HttpConsoleApi implements ConsoleApi {
 
   async issueChatAccess(
     platformUserId: string,
-    runtimeProfileId: string
+    agentId: string
   ): Promise<IssuedChatAccess> {
     return this.client.request(
       `/api/v1/platform-users/${encodeURIComponent(platformUserId)}/chat-access`,
-      jsonRequest("POST", { runtime_profile_id: runtimeProfileId }),
+      jsonRequest("POST", { runtime_profile_id: agentId }),
       parseIssuedChatAccess
     );
   }
@@ -441,7 +441,7 @@ function parseIssuedChatAccess(value: unknown): IssuedChatAccess {
     chatPath: requiredString(record.chat_path, "chat_path"),
     createdAt: requiredString(record.created_at, "created_at"),
     platformUserId: requiredString(record.platform_user_id, "platform_user_id"),
-    runtimeProfileId: requiredString(record.runtime_profile_id, "runtime_profile_id"),
+    agentId: requiredString(record.runtime_profile_id, "runtime_profile_id"),
     token: requiredString(record.token, "token")
   };
 }

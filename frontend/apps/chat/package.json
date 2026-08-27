@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node ../../scripts/check-no-inmemory.mjs && tsc -b && vite build",
+    "build": "node ../../scripts/check-no-inmemory.mjs && node ../../scripts/check-semi-compliance.mjs && tsc -b && vite build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "node scripts/run-vitest.mjs"
+    "test": "node ../../scripts/check-semi-compliance.mjs && node scripts/run-vitest.mjs"
   },
   "dependencies": {
     "@fluxion/shared": "workspace:*",
