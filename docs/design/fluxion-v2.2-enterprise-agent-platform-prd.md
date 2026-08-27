@@ -17,7 +17,7 @@
 |---|---|
 | A1 Phase 编号三套体系冲突 | PRD 与整改计划统一为 **Phase 0–6 七阶段** |
 | A2 Redis/pgvector/User/Runtime 时序冲突 | 基础设施按“能力首次需要前落地”统一时序 |
-| B1 Workflow build-vs-buy 未评估 | Phase 0 强制完成 **ADR-WF-001 Durable Execution Backend**，未通过不得开发 Engine |
+| B1 Workflow build-vs-buy 未评估 | Phase 0 已完成 **ADR-WF-001 Durable Execution Backend**（= ADR-013，DBOS，2026-08-28 Accepted） |
 | B2 Snapshot 与长暂停 resume 冲突 | 增加 **Pinned Resource Retention / Tombstone / GC** 规则 |
 | B3 无兼容债与真实外部面冲突 | 改为 **No Permanent Compatibility Debt**；真实已部署外部面做一次性 rollover |
 | B4 Memory 模型无映射、假摘要 | 增加现状→V2 Memory 映射；现有 `_summarize` 明确替换 |
@@ -301,9 +301,9 @@ Fluxion 不预设必须自研：
 - exactly-once/replay engine
 - crash recovery kernel
 
-Phase 0 必须完成 ADR-WF-001，比较：
+Phase 0 必须完成 ADR-WF-001（已由 ADR-013 落定 = DBOS，2026-08-28 Accepted），当时比较：
 - Temporal
-- DBOS
+- DBOS（选定）
 - Restate
 - Self-built PostgreSQL engine
 
@@ -324,13 +324,13 @@ Phase 0 必须完成 ADR-WF-001，比较：
 - enterprise maturity
 - local development complexity
 
-**默认倾向：优先成熟 durable execution backend；Fluxion 自研 DSL 与 adapter，而不是默认自研 durable kernel。最终以 ADR 为 Gate。**
+**默认倾向：优先成熟 durable execution backend；Fluxion 自研 DSL 与 adapter，而不是默认自研 durable kernel。最终以 ADR 为 Gate——已由 ADR-013 决定 = DBOS。**
 
 ### 4.9 Unified Extension Model
 
 不允许已有死 PluginType 与新 SPI 长期并存。
 
-Phase 0 完成 ADR-EXT-001。
+Phase 0 完成 ADR-EXT-001（无独立 ADR；扩展模型决策并入 Phase 2/5 设计简报，与 ADR-012 Spec SoT 关联）。
 
 推荐模型：
 - Provider SPI 定义能力；
@@ -475,9 +475,9 @@ Surface Inventory 的结论必须来自生产部署审计、数据库/日志/配
 - Architecture Baseline
 - Runtime Design
 - Console Design
-- Spec Model Single Source of Truth（ADR-012 或实际对应 ADR）
-- Plugin/Extension ADR（新增）
-- Workflow Durable Backend ADR（新增）
+- Spec Model Single Source of Truth（ADR-012）
+- Plugin/Extension ADR（决策并入 Phase 2/5 设计简报）
+- Workflow Durable Backend ADR（= ADR-013，DBOS）
 
 不得自行将 required rule 设为 N/A。
 
@@ -512,10 +512,11 @@ L1 Product Baseline
   └─ PRD V2.2
 
 L2 Architecture Decision Baseline
-  ├─ ADR-WF-001
-  ├─ ADR-EXT-001
-  ├─ ADR-SNAPSHOT-001
-  └─ ADR-MEM-001
+  ├─ ADR-013（Durable Workflow Engine = DBOS，原 ADR-WF-001 落定）
+  ├─ ADR-012（Spec Model 单一真相源）
+  ├─ ADR-EXT-001 → 扩展模型决策并入 Phase 2/5 设计简报
+  ├─ ADR-SNAPSHOT-001 → 快照 V2 决策并入 Phase 2 设计简报
+  └─ ADR-MEM-001 → Memory 决策并入 Phase 2 设计简报
 
 L3 Architecture Remediation Roadmap
   └─ Phase / Sub-Gate / Dependency / SLO

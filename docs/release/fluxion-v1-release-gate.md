@@ -3,6 +3,7 @@
 - 核验日期：2026-08-24（重新生成，TASK-108 闭环后）
 - 核验范围：Phase 01-13 已实现的 Runtime、Console 与 Chat
 - 结论：**PASS（本地）**。Console/Chat 浏览器真实 HTTP 集成已闭环（宿主 Chrome S-P13-05/S-P13-06/E-P13-03 浏览器 E2E GREEN）；剩余标记 `ENV REQUIRED` 的 live smoke（S-P13-07）、多 Pod 与 Canary 验证须在发布环境完成
+- 当前状态：本记录为 **V1 历史门禁快照**；仓库已演进至 V3.2（v2.2 rolling-wave，Phase 1 已实现、Phase 2-6 设计已落地待实现）
 
 ## Gate Summary
 

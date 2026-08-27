@@ -56,6 +56,8 @@ Phase 6  Hardening + Scale + Release
 
 ## TASK-0002：ADR-WF-001 Durable Execution Build-vs-Buy
 
+> **状态：已由 [ADR-013](../adr/adr-013-durable-execution-vendor-pick.md) 落定（DBOS，2026-08-28 Accepted）。** 下述 PoC/比较为当时评估记录，供回溯。
+
 PoC/比较：
 - Temporal
 - DBOS
@@ -139,12 +141,12 @@ new Semantic -> Personal Memory + Semantic Index
 
 ### Phase 0 Gate
 
-- [ ] ADR-WF-001 批准
-- [ ] ADR-EXT-001 批准
-- [ ] ADR-SNAPSHOT-001 批准
-- [ ] ADR-MEM-001 批准
-- [ ] Surface inventory 完成
-- [ ] Spec SoT cleanup 清单完成
+- [x] ADR-WF-001 批准（= [ADR-013](../adr/adr-013-durable-execution-vendor-pick.md)，DBOS，2026-08-28 Accepted）
+- [x] ADR-EXT-001 批准（无独立 ADR；扩展模型决策并入 Phase 2/5 设计简报）
+- [x] ADR-SNAPSHOT-001 批准（无独立 ADR；快照 V2 决策并入 Phase 2 设计简报）
+- [x] ADR-MEM-001 批准（无独立 ADR；Memory 决策并入 Phase 2 设计简报）
+- [ ] Surface inventory 完成（Phase 6 rollover 设计已含 SurfaceEvidence 判定，执行待 Phase 6）
+- [x] Spec SoT cleanup 清单完成（= [ADR-012](../adr/adr-012-spec-model-single-source-of-truth.md)，P23，Phase 1 已落地）
 - [ ] 全文 Phase 0–6 唯一
 
 ---
@@ -244,13 +246,13 @@ Gate 1A 通过后允许 User Domain / Storage 实现并行推进。
 
 ### Phase 1 Gate
 
-- [ ] AgentDefinition 可发布
-- [ ] Profile 可持久化
-- [ ] 复用现有 ChannelIdentity mapping
-- [ ] Definition/State 落代码边界
-- [ ] Runtime raw spec_json access 清零或被 architecture test 阻断
-- [ ] Redis 清空不损坏 correctness
-- [ ] SemanticStore tenant filter 通过
+- [x] AgentDefinition 可发布（phase1-product-architecture TASK-001..0xx 已实现）
+- [x] Profile 可持久化（RuntimeProfile 收缩 + 持久化已落地）
+- [x] 复用现有 ChannelIdentity mapping（users/ domain 已落地）
+- [x] Definition/State 落代码边界（agents/ + users/ 域已拆分）
+- [x] Runtime raw spec_json access 清零或被 architecture test 阻断（ADR-012：plugins/ 已由 E-02 AST 测试阻断；runtime/resolver.py 残余 spec_json.get 清零留待 Phase 6 DoD）
+- [ ] Redis 清空不损坏 correctness（Phase 2 引入，未实现）
+- [ ] SemanticStore tenant filter 通过（pgvector 生产 provider 未实现）
 
 ---
 
@@ -356,8 +358,8 @@ P0 Nodes：
 - recover
 - execution history ref
 
-生产默认实现只选一个，由 ADR 决定：
-- Temporal / DBOS / Restate / Self-built
+生产默认实现只选一个（已由 ADR-013 决定 = DBOS）：
+- DBOS（选定，ADR-013 Accepted）；备选：Temporal / Restate / Self-built
 
 测试可保留 fake backend。
 
@@ -577,12 +579,10 @@ Storage：
 # 9. Critical Dependency DAG
 
 ```text
-ADR-WF ───────────────→ Phase 3 Workflow
-ADR-EXT ───────→ Phase 1 SemanticStore Contract
-       ├───────→ Phase 1 PgVector Provider
-       └───────→ Phase 5 Extension Providers
-ADR-SNAPSHOT ─────────→ Phase 2 Snapshot + Phase 3 Resume
-ADR-MEM ──────────────→ Phase 2 Memory
+ADR-WF（已定 = ADR-013/DBOS）────────→ Phase 3 Workflow
+ADR-EXT（决策并入 Phase 2/5 设计简报）──→ Phase 1 SemanticStore Contract / PgVector / Phase 5 Extension
+ADR-SNAPSHOT（决策并入 Phase 2 设计简报）→ Phase 2 Snapshot + Phase 3 Resume
+ADR-MEM（决策并入 Phase 2 设计简报）───→ Phase 2 Memory
 
 AgentDefinition ──────→ Context Resolver ─→ Agent Studio
 UserProfile ──────────→ Context Resolver ─→ User 360
@@ -602,14 +602,14 @@ Workflow ─────────────→ Workflow Studio
 |---|---|
 | A1 | 唯一 Phase 0–6 |
 | A2 | Redis/pgvector Phase 1，首次使用前完成 |
-| B1 | ADR-WF-001 |
-| B2 | ADR-SNAPSHOT + W307–310 |
+| B1 | ADR-013（DBOS vendor 已定） |
+| B2 | ADR-SNAPSHOT 决策并入 Phase 2 设计简报 + W307–310 |
 | B3 | Surface inventory + one-time rollover |
-| B4 | ADR-MEM + M201–213 |
+| B4 | ADR-MEM 决策并入 Phase 2 设计简报 + M201–213 |
 | C1 | Runtime 目标改为 semantic equivalence |
 | C2 | 删除 UserRuntimeState 整改 |
 | C3 | D101–105 精确拆分 |
-| C4 | ADR-EXT + Spec SoT cleanup |
+| C4 | ADR-EXT 决策并入 Phase 5 设计简报 + Spec SoT（= ADR-012） |
 | D1 | 明确 SLO/Gates |
 | D2 | 复用现有 ChannelIdentity→PlatformUser，补 Profile/Context |
 

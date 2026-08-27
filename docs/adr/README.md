@@ -27,3 +27,5 @@ Required sections:
 | [ADR-009](adr-009-capability-interface-and-center.md) | Capability 接口保留 Runtime，Center 归业务层 | P12 |
 | [ADR-010](adr-010-trusted-untrusted-plugin-boundary.md) | Trusted / Untrusted Plugin 边界 | P10 |
 | [ADR-011](adr-011-channel-adapter-contract.md) | Channel Adapter Contract（统一 IM Gateway）在开源 V1；具体 IM 通道为可插拔 Adapter | P13 |
+| [ADR-012](adr-012-spec-model-single-source-of-truth.md) | Spec Model 单一真相源（typed model，不引入 `spec_json.get`） | P23 |
+| [ADR-013](adr-013-durable-execution-vendor-pick.md) | Durable Workflow Engine Vendor Pick = DBOS | P11 |

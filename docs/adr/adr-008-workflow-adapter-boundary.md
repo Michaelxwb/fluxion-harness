@@ -3,6 +3,7 @@
 - **Status**: Accepted
 - **Date**: 2026-08-23
 - **Problem Driver**: P11, P21
+- **Amended by**: ADR-013（Durable Workflow Engine vendor 已定 = DBOS，2026-08-28）
 
 ## Context
 
@@ -37,14 +38,14 @@
 业务接入层（不开发，接入时构建）
 ├── Workflow Engine / DSL / Durable State
 ├── 业务 WorkflowDefinition 与 SOP
-└── 真实 Engine 替换 Adapter 的 Stub
+└── 真实 Engine（现以 DBOS 构建，见 ADR-013）替换 Adapter 的 Stub
 ```
 
 Runtime 不持有 Workflow durable state。Console 的 WorkflowDefinition 管理（FEAT-09）降为 P2 占位，属业务接入层。
 
 ## Trade-offs
 
-- 换取开源项目业务无关、Agent 侧接入能力完整，代价是业务方需自行构建 Workflow Engine（Retry/Compensation/Approval/Recovery）。
+- 换取开源项目业务无关、Agent 侧接入能力完整，代价是业务方需自行构建 Workflow Engine（现以 DBOS 构建，见 ADR-013；Retry/Compensation/Approval/Recovery）。
 - 与 V4.1 §12.5 时序一致（Workflow 详细设计在 Runtime/Console 之后），边界调整为"Adapter 开源、Engine 业务层"。
 
 ## Failure Modes

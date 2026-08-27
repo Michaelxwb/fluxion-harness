@@ -221,6 +221,8 @@ class PolicyDefinition(SensitiveSpecModel):
 
 ### 6.1 后端契约收口（`contracts.py`）
 
+> **⚠️ 后续 phase1（TASK-A104 收缩，commit 9e0270d）进一步收口**：`RuntimeProfile` 收缩为纯运行机制字段（`request_timeout_ms/max_retries/max_rounds/concurrency/memory_budget_mb/executor_config`，`contracts.py:173-215`），`prompt/model_policy/allowed_skills/allowed_mcps/allowed_tools/plugin_bindings/guardrail_policy/display_name` 不再位于 RuntimeProfile；§4.3「API key 不填在 spec」亦被 `ModelProviderDefinition.credential_ref`（`contracts.py:293`，`secret://`）超越。本文 §2/§3 字段表保留为评审时刻快照。
+
 - **删死字段**：`RuntimeProfile.allowed_workflows/memory_policy/runtime_policy`、`SkillDefinition.description/capability_id/parameters`、`ModelProviderDefinition.name`、`PolicyDefinition.rules` 全部移除（`extra="forbid"` 后顶层不可能再写这些键）。
 - **`ModelPolicy` 结构化**：`model_policy` 由 `dict[str, object]` 改为 typed `ModelPolicy`（6 键 `provider/failover/model/timeout_ms/deadline_ms/max_rounds`，默认 60000/120000/8，`extra="forbid"` + `frozen=True`）；`ExecutionSnapshot.model_resolution` 直接持有 frozen 实例（强化 ADR-005）。
 - **`prompt: dict|str → str`**；**`PolicyDefinition` 增 `allowed_tools`/`denied_tools`**（均为运行时真读）。

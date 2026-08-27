@@ -18,7 +18,7 @@
 
 - **术语**：Console 创建/发布的对象是 **RuntimeProfile**；运行中的 **Agent** 是实际 Runtime Service/Pod（与 V4.1 的 AgentDefinition / Agent Runtime 对应，语义一致、命名重排）。
 - Console 创建 RuntimeProfile 不产生任何 K8s Pod 动作。
-- 多个 RuntimeProfile 默认共享 Runtime Pool；`runtime_policy: dedicated|sandbox|gpu|remote` 是调度策略而非默认部署方式。
+- 多个 RuntimeProfile 默认共享 Runtime Pool；RuntimeProfile 只承载运行机制配置（超时/重试/并发/内存预算），不承载部署或调度字段（原 `runtime_policy` 调度字段已由 ADR-012 删除）。
 - 所有 Agent Pod 从 Registry 读取同一套 RuntimeProfile/Binding/Policy，等价解析。
 
 ## Trade-offs
@@ -38,4 +38,4 @@
 
 ## Revisit Conditions
 
-- 出现必须与特定算力一一绑定的产品场景且无法用 runtime_policy 表达。
+- 出现必须与特定算力一一绑定的产品场景且现有 RuntimeProfile 运行机制字段无法表达调度需求（原 `runtime_policy` 已由 ADR-012 删除，需另立调度机制）。

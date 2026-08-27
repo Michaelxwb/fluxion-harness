@@ -52,7 +52,7 @@ RuntimeProfile
 SkillDefinition + SkillBinding
 MCPDefinition + MCPBinding
 PluginDefinition + PluginBinding
-WorkflowDefinition
+WorkflowDefinition（管理归 P2 占位/业务接入层，见 §7/§12 与 ADR-008）
 PolicyDefinition
 CredentialBinding / SecretRef
 ```
@@ -69,9 +69,10 @@ Naming mapping vs the V4.1 baseline（V4.1 的术语在 Fluxion 中做了重命�
 Rules:
 - Published versions are immutable.
 - User/Tenant-specific configuration belongs to Binding, not RuntimeProfile.
-- `EffectiveCapability = UserGrant ∩ AgentAllowlist ∩ TenantPolicy`.
+- `EffectiveCapability = UserGrant ∩ AgentAllowlist ∩ TenantPolicy`（MCP/builtin tools 适用严格交集；Skill 支持 Binding 授予 `allowed_skills` 之外的扩展式能力，见 ADR-003 Amendment）。
 - Tenant scope is mandatory for resources, bindings, caches, sessions, traces and auth decisions.
 - Secrets never live in Definition/Binding plaintext; use SecretStore.
+- **Spec Model 单一真相源（ADR-012）**：校验/运行时/展示三层共用同一 typed spec model；运行时先 `model_validate(spec_json)` 再读属性，禁止 `spec_json.get` 裸读；前端表单由 `model_json_schema()` 派生。
 
 ## 4. SQLite Development / PostgreSQL Production
 
@@ -131,7 +132,7 @@ Tool and Workflow Step are adapters. Business logic is implemented once behind C
 
 Agent handles intent/reasoning/decision. Workflow Engine owns durable state, retries, compensation, timeouts, approvals and crash recovery. A Workflow may be exposed as a coarse-grained Agent Tool. Runtime never stores Workflow durable state.
 
-Workflow **Engine / DSL / 执行**与 Capability 实现归**业务接入层**，不在开源 V1 范围：开源项目是业务无关的 Agent + Console harness，业务接入时才构建对应 Workflow。Agent Runtime 侧的 **Workflow Tool Adapter 接入协议**属于开源 V1（FEAT-13 / S-R08，见 §12）：Agent 通过 Adapter 调用 Workflow，获得 `workflow_run_id`，Runtime 不保存 durable state。
+Workflow **Engine / DSL / 执行**与 Capability 实现归**业务接入层**，不在开源 V1 范围：开源项目是业务无关的 Agent + Console harness，业务接入时才构建对应 Workflow（其 durable backend 已选定 DBOS，见 ADR-013）。Agent Runtime 侧的 **Workflow Tool Adapter 接入协议**属于开源 V1（FEAT-13 / S-R08，见 §12）：Agent 通过 Adapter 调用 Workflow，获得 `workflow_run_id`，Runtime 不保存 durable state。
 
 ## 8. Identity and Channels
 
@@ -190,7 +191,7 @@ A core architecture change must identify the design driver it solves, document t
 
 ## 12. Layer Boundary and Open-source Scope
 
-Fluxion 的开源范围是**与业务无关的 Agent Harness**：换一家公司仍能基本原样复用的组件进入开源层；换一家公司就必须重写的属于业务层。**Workflow Engine 不属于开源范围**，它和业务 SOP 一样在业务接入时构建。
+Fluxion 的开源范围是**与业务无关的 Agent Harness**：换一家公司仍能基本原样复用的组件进入开源层；换一家公司就必须重写的属于业务层。**Workflow Engine 不属于开源范围**，它和业务 SOP 一样在业务接入时构建（其 durable backend 已选定 DBOS，见 ADR-013）。
 
 ```text
 Open-source（业务无关，开源 V1）
@@ -203,11 +204,11 @@ Open-source（业务无关，开源 V1）
 ├── CLI / SDK
 ├── Web Chat（用户 Channel）
 ├── Channel Adapter Contract（统一 IM Gateway；Web Chat 为首个实现）
-├── Workflow Tool Adapter（Agent 侧接入协议；Engine 由业务接入层提供）
+├── Workflow Tool Adapter（Agent 侧接入协议；Engine 由业务接入层提供，现以 DBOS 构建）
 └── 共享 Contract / Schema / 版本治理
 
 Business layer（业务接入时构建，不进入开源仓库）
-├── Workflow Engine / DSL / Durable State
+├── Workflow Engine / DSL / Durable State（现以 DBOS 构建，见 ADR-013）
 ├── Capability 业务实现
 ├── 企业 Connector（HR / CRM / ERP ...）
 ├── 企业身份与 Credential
@@ -217,7 +218,7 @@ Business layer（业务接入时构建，不进入开源仓库）
 
 Rules:
 
-- Workflow **Engine / DSL / 执行**与业务 Capability 实现属于业务层；开源 V1 不开发。**Workflow Tool Adapter 接入协议**在开源 V1 实现（FEAT-13 / S-R08），业务接入时以真实 Engine 替换 Stub。
+- Workflow **Engine / DSL / 执行**与业务 Capability 实现属于业务层；开源 V1 不开发。**Workflow Tool Adapter 接入协议**在开源 V1 实现（FEAT-13 / S-R08），业务接入时以真实 Engine（DBOS，见 ADR-013）替换 Stub。
 - **Channel Adapter Contract（统一 IM Gateway）**在开源 V1 实现（FEAT-26 / S-C119），Web Chat 为首个实现；具体 IM 通道 Adapter（飞书/QQ/企微）复用度高且与业务无关，作为独立通道包按需补充，V1 不开发。
 - Agent + Console 在不绑定业务时独立运行。
 - 业务层通过稳定 Contract（Capability / MCP / HTTP / Workflow Tool Adapter）接入开源层，不得向 Kernel/Core 塞业务逻辑。

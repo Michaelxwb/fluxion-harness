@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-08-26
-- **Problem Driver**: `docs/problems/resource-spec-field-injection.md`
+- **Problem Driver**: P23（实证：`docs/problems/resource-spec-field-injection.md`）
 
 ## Context
 

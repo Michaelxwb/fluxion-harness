@@ -78,23 +78,12 @@ import '@douyinfe/semi-ui/react19-adapter';
 Fluxion **不维护第二套任务激活脚本**。使用 code-flow 自带命令：
 
 ```text
-cf-task-status
-cf-task-start resource-foundation TASK-001
-cf-task-start runtime-kernel TASK-002
-cf-task-start plugin-hook TASK-003
-cf-task-start tool-skill-mcp TASK-004
-cf-task-start runtime-api-cli TASK-005
-
-cf-task-start control-plane-api TASK-101
-cf-task-start console-web TASK-102
-cf-task-start web-chat-bind TASK-103
-cf-task-start publish-outbox-audit TASK-104
-cf-task-start workflow-management TASK-105
-cf-task-start governance-eval-views TASK-106
-cf-task-start quality-hardening TASK-107
+cf-task:status
+# v2.2 rolling-wave：phase1 已实现（2026-08-27）；phase2-6 设计简报已就绪（2026-08-28，待 cf-task:plan 拆解 TASK）
+cf-task:start phase1-product-architecture TASK-001
 ```
 
-`cf-task-start` 自己负责：
+`cf-task:start` 自己负责：
 
 ```text
 前置检查
@@ -110,4 +99,4 @@ cf-task-start quality-hardening TASK-107
 → 自动完成检查
 ```
 
-实施顺序见 `.code-flow/tasks/2026-08-23/README.md`。
+v1 批次已归档至 `.code-flow/tasks/archived/`（2026-08-23 实现批次、2026-08-26 ADR 简报）；当前活跃任务见 `.code-flow/tasks/2026-08-27/`（phase1 已实现）与 `.code-flow/tasks/2026-08-28/`（phase2-6 设计简报，待 `cf-task:plan`）。

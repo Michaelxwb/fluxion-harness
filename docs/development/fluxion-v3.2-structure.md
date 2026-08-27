@@ -11,7 +11,7 @@ Tier-1 Specs
     ↓
 code-flow TASK
     ↓
-cf-task-start
+cf-task:start
     ↓
 Start Gate + Spec Session
     ↓
@@ -95,19 +95,16 @@ fluxion-harness/
     │   │   └── console-api-contract.md
     │   └── frontend/
     │       └── semi-design.md
-    └── tasks/2026-08-23/
-        ├── phase-01-resource-foundation/resource-foundation.md
-        ├── phase-02-runtime-kernel/runtime-kernel.md
-        ├── phase-03-plugin-hook/plugin-hook.md
-        ├── phase-04-tool-skill-mcp/tool-skill-mcp.md
-        ├── phase-05-runtime-api-cli/runtime-api-cli.md
-        ├── phase-06-control-plane-api/control-plane-api.md
-        ├── phase-07-console-web/console-web.md
-        ├── phase-08-web-chat-bind/web-chat-bind.md
-        └── phase-09-publish-outbox-audit/publish-outbox-audit.md
-        ├── phase-10-workflow-management/workflow-management.md
-        ├── phase-11-governance-eval-views/governance-eval-views.md
-        └── phase-12-quality-hardening/quality-hardening.md
+    └── tasks/
+        ├── archived/            # v1 批次归档（2026-08-23 实现批次、2026-08-26 ADR 简报）
+        ├── 2026-08-27/          # v2.2 Phase 1 产品架构（已实现，TASK-001..0xx done）
+        │   └── phase1-product-architecture/
+        └── 2026-08-28/          # v2.2 Phase 2-6 设计简报（Design Gate 已过，待 cf-task:plan）
+            ├── phase2-user-context-runtime-memory/
+            ├── phase3-workflow-platform/
+            ├── phase4-product-experience/
+            ├── phase5-governance-observability-eval/
+            └── phase6-hardening-scale-release/
 ```
 
 ## 3. Console 统一 Response
@@ -169,20 +166,9 @@ Resource/Publish 场景增加 resource_id/version/publish_id 等字段。
 ## 5. code-flow 原生命令
 
 ```text
-cf-task-status
-cf-task-start resource-foundation TASK-001
-cf-task-start runtime-kernel TASK-002
-cf-task-start plugin-hook TASK-003
-cf-task-start tool-skill-mcp TASK-004
-cf-task-start runtime-api-cli TASK-005
-
-cf-task-start control-plane-api TASK-101
-cf-task-start console-web TASK-102
-cf-task-start web-chat-bind TASK-103
-cf-task-start publish-outbox-audit TASK-104
-cf-task-start workflow-management TASK-105
-cf-task-start governance-eval-views TASK-106
-cf-task-start quality-hardening TASK-107
+cf-task:status
+# v2.2 rolling-wave：phase1 已实现（2026-08-27）；phase2-6 设计简报已就绪（2026-08-28，待 cf-task:plan）
+cf-task:start phase1-product-architecture TASK-001
 ```
 
 TASK 文件已经包含 Status、Source、Spec-Refs、Acceptance-Refs、Acceptance Contract、Acceptance Evidence 和 Definition of Done。
