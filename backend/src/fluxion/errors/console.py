@@ -34,6 +34,7 @@ EVAL_EXECUTION_ERROR = 37_003
 # User Domain / Identity 段（TASK-007；契约命名空间 34xxx = Identity/Bind/Channel）。
 USER_NOT_FOUND = 34_100
 USER_NOT_BOUND = 34_101
+CHANNEL_AGENT_NOT_FOUND = 34_102
 
 # Studio/Product API 错误码（TASK-004；42xxx = Studio/Product API 段）。
 # slug 形态保留在 envelope message 前缀（如 agent_definition_invalid），

@@ -9,7 +9,9 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from fluxion.errors.console import (
+    CHANNEL_AGENT_NOT_FOUND,
     INTERNAL_ERROR,
+    ConsoleError,
     ConsoleResourceNotFoundError,
 )
 from fluxion.observability.logging import emit_error_log
@@ -20,7 +22,7 @@ from fluxion.registry import (
     NotFoundError,
     PlatformUserRecord,
 )
-from fluxion.resources import ResourceDefinition, ResourceKind
+from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
 from fluxion.runtime.secrets import SecretMetadata, SecretMetadataStore
 from fluxion.runtime.tracing import TraceRecord, TraceStore
 from fluxion.services.approval_app import ApprovalStore, InMemoryApprovalStore
@@ -211,7 +213,7 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         actor: ConsoleActor,
         *,
         platform_user_id: str,
-        runtime_profile_id: str,
+        agent_id: str,
     ) -> IssuedChatAccess:
         user = await self._store.get_platform_user(
             tenant_id=actor.tenant_id,
@@ -219,15 +221,25 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         )
         if user is None:
             raise ConsoleResourceNotFoundError("platform user not found")
-        # 已知 gap：不校验 runtime_profile 是否已发布——dev 模式下 profile 可由
-        # 运行时按需解析（见 test_S_P13_04），强制校验会破坏该契约。token 绑定到
-        # profile_id，运行时解析失败会以 runtime 错误呈现，而非越权风险。
+        agent = await self._store.get(
+            ResourceKind.AGENT_DEFINITION,
+            agent_id,
+            tenant_id=actor.tenant_id,
+        )
+        if agent is None or agent.status is not ResourceStatus.PUBLISHED:
+            raise ConsoleError(
+                CHANNEL_AGENT_NOT_FOUND,
+                f"agent_not_found: {agent_id}",
+                404,
+            )
+        # TASK-A105：product routing key = agent_id；发行即校验存在且 PUBLISHED
+        # （BE-E-05 前置 404 agent_not_found），不再允许悬空引用延迟到运行期。
         token = secrets.token_urlsafe(32)
         record = ChatAccessRecord(
             access_id=f"chat_access_{uuid4().hex}",
             tenant_id=actor.tenant_id,
             platform_user_id=platform_user_id,
-            runtime_profile_id=runtime_profile_id,
+            agent_id=agent_id,
             token_hash=_hash_access_token(token),
             created_at=datetime.now(UTC),
         )
@@ -318,6 +330,6 @@ def _chat_access_audit_payload(record: ChatAccessRecord) -> dict[str, object]:
     return {
         "access_id": record.access_id,
         "platform_user_id": record.platform_user_id,
-        "runtime_profile_id": record.runtime_profile_id,
+        "agent_id": record.agent_id,
         "revoked": record.revoked_at is not None,
     }

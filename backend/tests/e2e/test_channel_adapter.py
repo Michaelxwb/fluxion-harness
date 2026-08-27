@@ -44,5 +44,5 @@ def _message(channel_user_id: str, content: str, message_id: str) -> ExternalCha
         conversation_id=f"conversation-{channel_user_id}",
         message_id=message_id,
         content=content,
-        runtime_profile_id="assistant",
+        agent_id="assistant",
     )

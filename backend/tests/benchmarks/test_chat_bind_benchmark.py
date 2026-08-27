@@ -51,6 +51,10 @@ def test_B_C106_bind_p95_under_300ms_and_chat_p95_under_200ms(
         user_id = f"user-{run_index}"
         channel_user_id = f"browser-{run_index}"
         loop.run_until_complete(service.create_platform_user("tenant-a", user_id))
+        # TASK-A105：chat access 发行校验目标 agent；benchmark 侧补种同名 agent。
+        import asyncio as _a
+        from tests.runtime_helpers import seed_agent_definition as _sd
+        loop.run_until_complete(_sd(store, tenant_id="tenant-a"))
         issued = loop.run_until_complete(service.issue_bind_code("tenant-a", user_id))
         started = perf_counter_ns()
         loop.run_until_complete(service.handle(adapter, _message(channel_user_id, f"/bind {issued.code}")))
@@ -76,5 +80,5 @@ def _message(channel_user_id: str, content: str) -> ExternalChannelMessage:
         conversation_id=f"conversation-{channel_user_id}",
         message_id=f"message-{channel_user_id}-{content}",
         content=content,
-        runtime_profile_id="assistant",
+        agent_id="assistant",
     )

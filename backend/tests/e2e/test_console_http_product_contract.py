@@ -168,6 +168,8 @@ def _trace_record() -> TraceRecord:
         user_id="user-a",
         runtime_profile_id="assistant",
         runtime_profile_version="v1",
+        agent_definition_id="assistant",
+        agent_definition_version="v1",
         model_resolution={"provider": "fixture"},
         trace_id="trace-console",
         skill_versions={"review": "v1"},

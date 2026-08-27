@@ -16,7 +16,7 @@ class ExternalChannelMessage:
     conversation_id: str
     message_id: str
     content: str
-    runtime_profile_id: str
+    agent_id: str
     request_id: str = field(default_factory=_new_id)
     trace_id: str = field(default_factory=_new_id)
 
@@ -29,7 +29,7 @@ class ChannelMessage:
     conversation_id: str
     message_id: str
     content: str
-    runtime_profile_id: str
+    agent_id: str
     request_id: str
     trace_id: str
 

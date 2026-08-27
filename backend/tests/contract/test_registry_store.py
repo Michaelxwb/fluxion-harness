@@ -359,7 +359,7 @@ async def test_S_P13_04_platform_user_and_chat_access_contract(
         access_id="access-1",
         tenant_id="t1",
         platform_user_id="u1",
-        runtime_profile_id="assistant",
+        agent_id="assistant",
         token_hash="a" * 64,
         created_at=now,
     )

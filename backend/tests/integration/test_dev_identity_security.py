@@ -9,6 +9,7 @@ from fluxion.api import console_errors
 from fluxion.api.channel import create_app as create_channel_app
 from fluxion.api.console import create_app as create_console_app
 from fluxion.config import DevModeSettings
+from fluxion.resources import ResourceKind
 from fluxion.registry import SQLiteRegistryStore
 from fluxion.registry.schema import audit_logs, chat_access_tokens
 from fluxion.services.channel_app import ChannelApplicationService
@@ -40,9 +41,14 @@ async def test_E_P13_02_forged_headers_tampered_and_revoked_tokens_fail_closed()
                 json={"platform_user_id": "user-a", "display_name": "用户 A"},
                 headers=forged,
             )
+            from tests.runtime_helpers import publish_resource, seed_agent_definition as _sd
+            await publish_resource(store, tenant_id="dev", kind=ResourceKind.RUNTIME_PROFILE,
+                                   resource_id="assistant", version="1",
+                                   spec={"request_timeout_ms":30_000,"max_retries":1})
+            await _sd(store, tenant_id="dev", provider_id="dev.echo")
             issued = await console_client.post(
                 "/api/v1/platform-users/user-a/chat-access",
-                json={"runtime_profile_id": "assistant"},
+                json={"agent_id": "assistant"},
                 headers=forged,
             )
             access = issued.json()["data"]

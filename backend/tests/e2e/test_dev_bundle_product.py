@@ -30,9 +30,16 @@ async def test_S_P13_06_dev_bundle_routes_static_console_chat_and_shared_api(
             "/api/v1/platform-users",
             json={"platform_user_id": "user-a", "display_name": "User A"},
         )
+        # bundle 内部自建 store：按同 DSN 开句柄补种同名 Agent（TASK-A105 校验前置）。
+        from fluxion.registry import SQLiteRegistryStore as _SRS
+        _seed_store = _SRS(f"sqlite+aiosqlite:///{tmp_path / 'bundle.db'}")
+        await _seed_store.initialize()
+        from tests.runtime_helpers import seed_agent_definition
+        await seed_agent_definition(_seed_store, tenant_id="dev", system_prompt="你是测试代理。")
+        await _seed_store.close()
         issued = await client.post(
             "/api/v1/platform-users/user-a/chat-access",
-            json={"runtime_profile_id": "assistant"},
+            json={"agent_id": "assistant"},
         )
         token = issued.json()["data"]["token"]
         resolved = await client.get(

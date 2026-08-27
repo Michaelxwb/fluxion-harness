@@ -94,6 +94,6 @@ async def _bind(
             conversation_id=f"conversation-{channel_user_id}",
             message_id=f"message-{channel_user_id}",
             content=f"/bind {code}",
-            runtime_profile_id="assistant",
+            agent_id="assistant",
         ),
     )

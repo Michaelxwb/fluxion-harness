@@ -122,6 +122,15 @@ async def seed_agent_definition(
     """独立发布一个 AgentDefinition（默认与 fixture profile 同名以便回退解析）。"""
     from fluxion.agents.definitions import AgentDefinition
 
+    # 幂等：重复 seeding（多轮 benchmark / 并发 fixture）直接复用现有发布版。
+    existing = await store.get(
+        ResourceKind.AGENT_DEFINITION,
+        agent_id,
+        tenant_id=tenant_id,
+        version=version,
+    )
+    if existing is not None:
+        return existing
     return await publish_resource(
         store,
         tenant_id=tenant_id,

@@ -37,7 +37,7 @@ class ChannelMessagePayload(BaseModel):
     conversation_id: str
     message_id: str
     content: str
-    runtime_profile_id: str
+    agent_id: str
 
 
 class ChatAccessMessagePayload(BaseModel):
@@ -146,7 +146,7 @@ def _register_access_routes(app: FastAPI, service: ChannelApplicationService) ->
                 "access_id": access.access_id,
                 "tenant_id": access.tenant_id,
                 "platform_user_id": access.platform_user_id,
-                "runtime_profile_id": access.runtime_profile_id,
+                "agent_id": access.agent_id,
             }
         )
 
@@ -253,7 +253,7 @@ def _external(payload: ChannelMessagePayload, tenant_header: str | None) -> Exte
         conversation_id=payload.conversation_id,
         message_id=payload.message_id,
         content=payload.content,
-        runtime_profile_id=payload.runtime_profile_id,
+        agent_id=payload.agent_id,
         request_id=context.request_id if context is not None else payload.message_id,
         trace_id=context.trace_id if context is not None else payload.message_id,
     )

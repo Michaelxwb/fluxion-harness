@@ -28,7 +28,7 @@ class ChatAccessRecord:
     access_id: str
     tenant_id: str
     platform_user_id: str
-    runtime_profile_id: str
+    agent_id: str
     token_hash: str
     created_at: datetime
     revoked_at: datetime | None = None

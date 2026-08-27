@@ -27,7 +27,7 @@ async def test_S_C105_channel_identity_maps_to_platform_user_store() -> None:
                 conversation_id="conversation-a",
                 message_id="message-bind",
                 content=f"/bind {issued.code}",
-                runtime_profile_id="assistant",
+                agent_id="assistant",
             ),
         )
         identity = await service.resolve_identity("tenant-a", "web", "browser-a")

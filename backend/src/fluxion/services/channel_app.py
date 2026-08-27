@@ -134,7 +134,8 @@ class ChannelApplicationService:
             RunRuntimeRequest(
                 tenant_id=access.tenant_id,
                 user_id=access.platform_user_id,
-                runtime_profile_id=access.runtime_profile_id,
+                runtime_profile_id=await self._profile_id_for(access.tenant_id, access.agent_id),
+                agent_definition_id=access.agent_id,
                 session_id=conversation_id,
                 input_message=content,
                 request_id=request_id,
@@ -164,7 +165,8 @@ class ChannelApplicationService:
         request = RunRuntimeRequest(
             tenant_id=access.tenant_id,
             user_id=access.platform_user_id,
-            runtime_profile_id=access.runtime_profile_id,
+            runtime_profile_id=await self._profile_id_for(access.tenant_id, access.agent_id),
+            agent_definition_id=access.agent_id,
             session_id=conversation_id,
             input_message=content,
             request_id=request_id,
@@ -236,7 +238,8 @@ class ChannelApplicationService:
             RunRuntimeRequest(
                 tenant_id=message.tenant_id,
                 user_id=platform_user_id,
-                runtime_profile_id=message.runtime_profile_id,
+                runtime_profile_id=await self._profile_id_for(message.tenant_id, message.agent_id),
+                agent_definition_id=message.agent_id,
                 session_id=message.conversation_id,
                 input_message=message.content,
                 request_id=message.request_id,
@@ -251,6 +254,21 @@ class ChannelApplicationService:
             trace_id=runtime_result.trace_id,
             execution_id=runtime_result.execution_id,
         )
+
+    async def _profile_id_for(self, tenant_id: str, agent_id: str) -> str:
+        """TASK-A104/A105：执行仍需 mechanics profile 键，来源为 Agent 的
+        runtime_profile_ref；缺省同名回退（迁移产物与 fixture 同名约定）。"""
+        from fluxion.agents.definitions import AgentDefinition
+        from fluxion.resources import ResourceKind
+
+        row = await self._store.get(
+            ResourceKind.AGENT_DEFINITION, agent_id, tenant_id=tenant_id
+        )
+        if row is None:
+            return agent_id
+        spec = AgentDefinition.model_validate(row.spec_json)
+        return spec.runtime_profile_ref.id if spec.runtime_profile_ref else agent_id
+
 
 
 def _hash_code(code: str) -> str:

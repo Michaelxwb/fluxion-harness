@@ -180,7 +180,7 @@ chat_access_tokens = Table(
     Column("access_id", String(128), primary_key=True),
     Column("tenant_id", String(128), nullable=False),
     Column("platform_user_id", String(128), nullable=False),
-    Column("runtime_profile_id", String(255), nullable=False),
+    Column("agent_id", String(255), nullable=False),
     Column("token_hash", String(64), nullable=False, unique=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("revoked_at", DateTime(timezone=True), nullable=True),

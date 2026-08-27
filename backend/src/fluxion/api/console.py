@@ -448,7 +448,7 @@ def _register_platform_user_routes(app: FastAPI, service: ConsoleApplicationServ
         issued = await service.issue_chat_access(
             _actor(None),
             platform_user_id=platform_user_id,
-            runtime_profile_id=payload.runtime_profile_id,
+            agent_id=payload.agent_id,
         )
         return success(issued_chat_access_payload(issued))
 

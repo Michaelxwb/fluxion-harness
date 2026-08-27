@@ -160,7 +160,7 @@ def _chat_access(token: str) -> ChatAccessRecord:
         access_id="benchmark-access",
         tenant_id="tenant-a",
         platform_user_id="user-a",
-        runtime_profile_id="assistant",
+        agent_id="assistant",
         token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest(),
         created_at=datetime.now(UTC),
     )

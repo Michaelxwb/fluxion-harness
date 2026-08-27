@@ -21,7 +21,7 @@ class _BaseChannelAdapter:
             conversation_id=message.conversation_id,
             message_id=message.message_id,
             content=message.content,
-            runtime_profile_id=message.runtime_profile_id,
+            agent_id=message.agent_id,
             request_id=message.request_id,
             trace_id=message.trace_id,
         )

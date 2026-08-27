@@ -68,7 +68,7 @@ class PlatformUserCreatePayload(BaseModel):
 class ChatAccessCreatePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    runtime_profile_id: str
+    agent_id: str
 
 
 class ApprovalCreatePayload(BaseModel):

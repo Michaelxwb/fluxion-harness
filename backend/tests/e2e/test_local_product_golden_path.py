@@ -85,5 +85,5 @@ def _chat_payload(content: str, message_id: str) -> dict[str, str]:
         "conversation_id": "conversation-a",
         "message_id": message_id,
         "content": content,
-        "runtime_profile_id": "assistant",
+        "agent_id": "assistant",
     }

@@ -38,12 +38,15 @@ async def test_S_P13_04_fixed_admin_creates_user_and_resolvable_chat_link() -> N
             created = await console_client.post(
                 "/api/v1/platform-users",
                 json={"platform_user_id": "user-a", "display_name": "用户 A"},
-                headers={"X-Tenant-ID": "forged", "X-Actor-ID": "forged"},
+                headers={"X-Tenant-ID": "tenant-a", "X-Actor-ID": "admin-a"},
             )
+            # TASK-A105：chat access 发行前置校验目标 agent 已发布（fixture 补种）。
+            from tests.runtime_helpers import seed_agent_definition
+            await seed_agent_definition(store, tenant_id="dev", provider_id="dev.echo")
             issued = await console_client.post(
                 "/api/v1/platform-users/user-a/chat-access",
-                json={"runtime_profile_id": "assistant"},
-                headers={"X-Tenant-ID": "forged", "X-Actor-ID": "forged"},
+                json={"agent_id": "assistant"},
+                headers={"X-Tenant-ID": "tenant-a", "X-Actor-ID": "admin-a"},
             )
             token = issued.json()["data"]["token"]
             resolved = await chat_client.get(
@@ -69,14 +72,14 @@ async def test_S_P13_04_fixed_admin_creates_user_and_resolvable_chat_link() -> N
             "access_id": issued.json()["data"]["access_id"],
             "tenant_id": "dev",
             "platform_user_id": "user-a",
-            "runtime_profile_id": "assistant",
+            "agent_id": "assistant",
         }
         assert messaged.status_code == 200
         assert messaged.json()["data"]["output"] == "echo: hello access"
         assert len(runtime.requests) == 1
         assert runtime.requests[0].tenant_id == "dev"
         assert runtime.requests[0].user_id == "user-a"
-        assert runtime.requests[0].runtime_profile_id == "assistant"
+        assert runtime.requests[0].agent_definition_id == "assistant"
 
         async with store.engine.connect() as connection:
             user_row = (await connection.execute(select(platform_users))).mappings().one()

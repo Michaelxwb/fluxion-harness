@@ -85,7 +85,7 @@ def issued_chat_access_payload(issued: IssuedChatAccess) -> dict[str, object]:
         "access_id": record.access_id,
         "tenant_id": record.tenant_id,
         "platform_user_id": record.platform_user_id,
-        "runtime_profile_id": record.runtime_profile_id,
+        "agent_id": record.agent_id,
         "token": issued.token,
         "chat_path": f"/chat/#/{issued.token}",
         "created_at": record.created_at.isoformat(),
@@ -100,7 +100,7 @@ def trace_payload(trace: TraceRecord) -> dict[str, object]:
         "tenant_id": trace.tenant_id,
         "user_id": snapshot.user_id,
         "runtime_profile": {
-            "id": snapshot.runtime_profile_id,
+            "id": snapshot.agent_id,
             "version": snapshot.runtime_profile_version,
         },
         "skills": snapshot.skill_versions,
@@ -136,6 +136,7 @@ def run_payload(trace: TraceRecord) -> dict[str, object]:
         "started_at": started_at,
         "snapshot": {
             "runtime_profile": {
+                # TASK-A105：机械替换误伤点还原——该键语义为执行 mechanics 版本。
                 "id": snapshot.runtime_profile_id,
                 "version": snapshot.runtime_profile_version,
             },

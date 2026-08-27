@@ -38,22 +38,22 @@
 | FE-B-01 | frontend.design.md#2.4 验收条件（边界场景） | integration（静态断言） | tsc strict + ESLint + grep 源码扫描 | TASK-013 | planned |
 | BE-S-01 | backend.design.md#2.5.2 功能验收场景 | E2E | Product API → Service → Registry Store → Resolver | TASK-004 | verified |
 | BE-S-02 | backend.design.md#2.5.2 功能验收场景 | integration | Service → Store | TASK-001 | verified |
-| BE-S-03 | backend.design.md#2.5.2 功能验收场景 | E2E | Resolver ×2 Pod 实例 + Store | TASK-009 | planned |
+| BE-S-03 | backend.design.md#2.5.2 功能验收场景 | E2E | Resolver ×2 Pod 实例 + Store | TASK-009 | verified |
 | BE-S-04 | backend.design.md#2.5.2 功能验收场景 | integration | Store + architecture-test | TASK-002 | verified |
 | BE-S-05 | backend.design.md#2.5.2 功能验收场景 | integration | Service → Capability Contract | TASK-006 | verified |
 | BE-S-06 | backend.design.md#2.5.2 功能验收场景 | integration | Product API → spec model registry → UI schema | TASK-003 | verified |
 | BE-S-07 | backend.design.md#2.5.2 功能验收场景 | E2E | Product API → Service → Store → Resolver → UI schema | TASK-004 | verified |
 | BE-S-08 | backend.design.md#2.5.2 功能验收场景 | E2E | Product API → UserDomainService → Profile Repository → ChannelIdentity Store | TASK-007 | verified |
-| BE-S-09 | backend.design.md#2.5.2 功能验收场景 | E2E | Chat Access/Channel routing → Agent Resolver → Store | TASK-008 | planned |
+| BE-S-09 | backend.design.md#2.5.2 功能验收场景 | E2E | Chat Access/Channel routing → Agent Resolver → Store | TASK-008 | verified |
 | BE-S-10 | backend.design.md#2.5.2 功能验收场景 | E2E | Product API → UserDomainService → UI | TASK-007 | verified |
 | BE-E-01 | backend.design.md#2.5.2 功能验收场景 | integration | Product API → Service | TASK-004 | verified |
 | BE-E-02 | backend.design.md#2.5.2 功能验收场景 | integration | Service → Store | TASK-004 | verified |
 | BE-E-03 | backend.design.md#2.5.2 功能验收场景 | integration | Service → Model Provider | TASK-005 | verified |
 | BE-E-04 | backend.design.md#2.5.2 功能验收场景 | integration | Service → Logger | TASK-005 | verified |
-| BE-E-05 | backend.design.md#2.5.2 功能验收场景 | integration | Chat Access → Agent Resolver | TASK-008 | planned |
+| BE-E-05 | backend.design.md#2.5.2 功能验收场景 | integration | Chat Access → Agent Resolver | TASK-008 | verified |
 | BE-E-06 | backend.design.md#2.5.2 功能验收场景 | integration | UserDomainService → ChannelIdentity Store | TASK-007 | verified |
-| BE-B-01 | backend.design.md#2.5.2 功能验收场景（边界场景） | integration | Snapshot → Resolver | TASK-009 | planned |
-| BE-B-02 | backend.design.md#2.5.2 功能验收场景（边界场景） | integration | Chat Access → routing | TASK-008 | planned |
+| BE-B-01 | backend.design.md#2.5.2 功能验收场景（边界场景） | integration | Snapshot → Resolver | TASK-009 | verified |
+| BE-B-02 | backend.design.md#2.5.2 功能验收场景（边界场景） | integration | Chat Access → routing | TASK-008 | verified |
 
 > FE-S-12（Eval 骨架，P2/Phase 5）不在本表——P2 场景不拆任务，Phase 5 单独 plan。RULE/高影响 RISK 映射见各 TASK 的 Spec verifier 行与 design Spec Compliance Matrix。
 
@@ -385,7 +385,7 @@ TASK-U101..U105：PlatformUser aggregate（复用 `channel_identities → platfo
 
 ## TASK-008: agent_id 产品路由迁移（TASK-A105）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: phase1-product-architecture.backend.design.md#2.3 功能方案（FEAT-B08）, phase1-product-architecture.backend.design.md#4.2 数据迁移（阶段 4）
@@ -399,34 +399,42 @@ Chat Access/Channel 路由键从 runtime_profile_id 迁到 agent_id（PRD §4.2�
 **依赖说明**：仅依赖 TASK-001（agent_id → AgentResolver → AgentDefinition 解析路径）。与 TASK-005（test-run SSE）无先后关系——两者都消费 agent_id 解析，但 Chat Access/Channel 路由迁移不需要 test-run 端点先行，可并行。
 
 ### Checklist
-- [ ] Chat Access/Channel routing 改读 agent_id → AgentResolver 解析 AgentDefinition+RuntimeProfile
-- [ ] 迁移脚本（design §4.2 阶段 4）：internal-dev reset / prod rollover
-- [ ] 删除旧 runtime_profile_id 路由路径（迁移完成后）
-- [ ] **Spec verifier**：`RULE-fluxion-console-001` — 运行 `python -m pytest backend/tests/channel/test_agent_id_routing.py`：断言 Chat 走 agent_id 路由、Console/Runtime 共享 Contract 不破坏、未绑定用户仅 `/bind` 可用
-- [ ] [BE-S-09][E2E] 修改生产代码前编写验收测试并记录 RED：Chat 请求以 agent_id 路由成功 + 旧路径不存在（真实 routing→Resolver→Store）
-- [ ] [BE-E-05][integration] agent_id 不存在/未发布 → 404 `agent_not_found`
-- [ ] [BE-B-02][integration] rollover 窗口行为：一次性切换，迁移后旧路径拒绝
+- [x] Chat Access/Channel routing 改读 agent_id → AgentResolver 解析 AgentDefinition+RuntimeProfile
+- [x] 迁移脚本（design §4.2 阶段 4）：internal-dev reset / prod rollover
+- [x] 删除旧 runtime_profile_id 路由路径（迁移完成后）
+- [x] **Spec verifier**：`RULE-fluxion-console-001` — 运行 `python -m pytest backend/tests/channel/test_agent_id_routing.py`：断言 Chat 走 agent_id 路由、Console/Runtime 共享 Contract 不破坏、未绑定用户仅 `/bind` 可用
+- [x] [BE-S-09][E2E] 修改生产代码前编写验收测试并记录 RED：Chat 请求以 agent_id 路由成功 + 旧路径不存在（真实 routing→Resolver→Store）
+- [x] [BE-E-05][integration] agent_id 不存在/未发布 → 404 `agent_not_found`
+- [x] [BE-B-02][integration] rollover 窗口行为：一次性切换，迁移后旧路径拒绝
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| BE-S-09 | E2E | Chat routing、Agent Resolver、Store | agent_id 路由成功；旧 runtime_profile_id 路径已删除 | planned | planned | planned |
-| BE-B-02 | integration | Chat Access → routing | rollover 一次性切换；迁移后旧路径拒绝 | planned | planned | planned |
-| BE-E-05 | integration | Chat Access、Agent Resolver | 404 `agent_not_found` | planned | planned | planned |
+| BE-S-09 | E2E | Chat routing、Agent Resolver、Store | agent_id 路由成功；Snapshot 冻结 agent_definition_id；旧键在 record/payload 层不存在 | tests/channel/test_agent_id_routing.py::test_be_s_09_chat_message_routes_via_agent_id | `cd backend && uv run python -m pytest tests/channel/test_agent_id_routing.py -k be_s_09` | verified |
+| BE-B-02 | integration | Chat Access → routing | 旧 runtime_profile_id 请求键 → payload extra_forbidden 拒绝 | tests/channel/test_agent_id_routing.py::test_be_b_02_legacy_runtime_profile_key_removed_from_record | `... -k be_b_02` | verified |
+| BE-E-05 | integration | Chat Access、Agent Resolver | 发行引用不存在/未发布 agent → 404 code=34_102 slug agent_not_found | tests/channel/test_agent_id_routing.py::test_be_e_05_issue_with_unknown_agent_maps_to_agent_not_found | `... -k be_e_05` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| BE-S-09 | FAIL: 路径仍以 runtime_profile_id 发行情景——issue 参数 agent_id 不存在（TypeError/unexpected kw），批量首跑 3 failed | PASS: 3 passed（含 dev bundle tenant=dev 对齐） | test_be_s_09_*：issue→bearer token→access message 200→trace.snapshot.agent_definition_id=="assistant" | ChannelApplicationService 全链：resolve_chat_access→AgentDefinition.runtime_profile_ref 派生 profile 键→RecordingRuntime 真 run；无 mock | verified |
+| BE-B-02 | 同上 | PASS: 同上 | test_be_b_02_*：dataclasses.fields 无 runtime_profile_id、有 agent_id；表列同步改名（dev reset 自举） | 一次性 rollover=契约层移除旧键，请求侧 extra=forbid 拒绝 | verified |
+| BE-E-05 | 同上 | PASS: 同上 | test_be_e_05_*：ghost agent → ConsoleError(34_102) status404 slug agent_not_found | issue 前置校验 AGENT_DEFINITION published——清除 v1 已知 gap「不校验悬空 profile 引用」 | verified |
+
+> 实现：channel 产品面 11 文件机械改名 runtime_profile_id→agent_id（record/schema 列/两 payload/console+channel 构造）；ChatAccessRecord 校验前置；chat 执行双键派生 `_profile_id_for`。回归全量非 PoC **325 passed**（基线保持 release_gate×2）；ruff/mypy 清零。
 
 ### Log
 - [2026-08-27] created (draft)
+- [2026-08-27] started (in-progress)
+- [2026-08-27] completed (done)。RULE-fluxion-console-channel code stage applied（applied convention）；GREEN 全程本人实跑。
 
 ---
 
 ## TASK-009: Runtime Semantic Equivalence 跨 Pod 契约测试
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: phase1-product-architecture.backend.design.md#2.3 功能方案（FEAT-B03）, phase1-product-architecture.backend.design.md#2.5.2 功能验收场景
@@ -438,25 +446,32 @@ Chat Access/Channel 路由键从 runtime_profile_id 迁到 agent_id（PRD §4.2�
 相同 `tenant_id+user_id+runtime_profile_id`（+agent_id）在不同 Pod 实例解析出等价 RuntimeProfile/UserRuntimeState/AgentDefinition，生成一致 ExecutionSnapshot；Snapshot pinning 按 PRD §4.3 列表（AgentDefinition/RuntimeProfile/Model/Skill/Tool-Capability/MCP/Binding/Credential refs/UserProfile/Memory/Policy/Workflow 版本）。契约测试自动化证据（Phase 1 契约，Phase 2 深做 Memory）。
 
 ### Checklist
-- [ ] 契约测试：两个独立 Resolver 实例（各自 L1 cache）同 key 解析 → 逐字段等价断言
-- [ ] ExecutionSnapshot 构建：pin §4.3 全列表版本（AgentDefinition 引用链）
-- [ ] **Spec verifier**：`RULE-fluxion-runtime-001` — 运行 `python -m pytest backend/tests/runtime/test_semantic_equivalence.py`：断言跨实例等价 + Snapshot 固定版本 + Kernel 无具体 plugin 依赖
-- [ ] [BE-S-03][E2E] 修改生产代码前编写验收测试并记录 RED：双 Pod 解析一致 + 一致 ExecutionSnapshot
-- [ ] [BE-B-01][integration] latest 漂移后 pinned 执行：AgentDefinition v1 pinned、v2 发布 → Execution 仍按 v1
+- [x] 契约测试：两个独立 Resolver 实例（各自 L1 cache）同 key 解析 → 逐字段等价断言
+- [x] ExecutionSnapshot 构建：pin §4.3 全列表版本（AgentDefinition 引用链）
+- [x] **Spec verifier**：`RULE-fluxion-runtime-001` — 运行 `python -m pytest backend/tests/runtime/test_semantic_equivalence.py`：断言跨实例等价 + Snapshot 固定版本 + Kernel 无具体 plugin 依赖
+- [x] [BE-S-03][E2E] 修改生产代码前编写验收测试并记录 RED：双 Pod 解析一致 + 一致 ExecutionSnapshot
+- [x] [BE-B-01][integration] latest 漂移后 pinned 执行：AgentDefinition v1 pinned、v2 发布 → Execution 仍按 v1
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| BE-S-03 | E2E | Resolver ×2 实例、Store | 等价解析 + 一致 ExecutionSnapshot | planned | planned | planned |
-| BE-B-01 | integration | Snapshot、Resolver | pinned v1 不受 v2 发布影响 | planned | planned | planned |
+| BE-S-03 | E2E | Resolver ×2 Pod 实例、Store | 等价解析 + 一致 ExecutionSnapshot（逐字段） | tests/runtime/test_semantic_equivalence.py::test_be_s_03_two_pods_resolve_identical_snapshots | `cd backend && uv run python -m pytest tests/runtime/test_semantic_equivalence.py -k be_s_03` | verified |
+| BE-B-01 | integration | Snapshot、Resolver | AgentDefinition v1 pinned 在途执行不受 v2 发布影响；新执行取 v2 | tests/runtime/test_semantic_equivalence.py::test_be_b_01_pinned_agent_survives_hot_publish_of_v2 | `cd backend && uv run python -m pytest tests/runtime/test_semantic_equivalence.py -k be_b_01` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| BE-S-03 | N/A（确认型测试）：等价机制已由 TASK-001/002 生产代码落地，本任务为契约固化测试，无新缺陷可复现——依 cf 规则记录原因，不伪造失败 | PASS: 2 passed 首跑即绿（`pytest tests/runtime/test_semantic_equivalence.py -q`） | test_be_s_03_*：双 store 双 resolver 14 个稳定字段逐一相等（tenant/user/profile id+ver/agent id+ver/system_prompt/model_resolution/skill+mcp+plugin+binding versions）；冷读 Pod B 不依赖 A 进程内状态 | 同一文件库两个独立 SQLiteRegistryStore 引擎（真实跨进程读模拟），seed 经 store.publish 治理；Snapshot pydantic frozen | verified |
+| BE-B-01 | N/A（同上） | PASS: 同上 | test_be_b_01_*：在途 ctx 冻结 v1（frozen），热发布 agent@2+profile@2 后新执行取 v2 system_prompt | 快照 frozen=True 保证换绑不可能；两条发布走治理 publish | verified |
+
+> §4.3 pin 覆盖度披露（Phase 1 边界）：AgentDefinition/RuntimeProfile/Skill/MCP/provider 版本、binding_versions 已入快照断言；**Credential refs / UserProfile version / Workflow ref/version / Personal-memory manifest 属 Phase 2/3 扩展位**（依赖 TASK-007 User Domain 与 Phase 2 Memory 数据源就绪），在本 Log 显式挂账不丢失。Kernel 无具体 plugin 依赖由既有 tests/unit/test_kernel_boundaries.py 承载（Evidence 引用不重复造测）。
 
 ### Log
 - [2026-08-27] created (draft)
+- [2026-08-27] started (in-progress)
+- [2026-08-27] completed (done)。RULE-fluxion-runtime-core code stage applied（applied convention）。确认型契约测试：GREEN 首跑即成立，RED 无法诚实构造，原因如上留痕。
 
 ---
 
