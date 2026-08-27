@@ -28,3 +28,4 @@ playwright-report/
 .code-flow/.catalog-state.json
 .code-flow/_session/
 .code-flow/specs/_session/
+.DS_Store

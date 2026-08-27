@@ -33,7 +33,7 @@ if order.status == 1 and role == "admin":   # 魔法数字 / 魔法字符串
 ## Rules
 - [RULE-backend-directory-001] 实现必须满足 Guidance 中所有适用要求，并避免 Avoid 中列出的所有禁止项。
 
-### 架构规则（cf-learn 2026-08-27 证据沉淀）
+## 架构规则（cf-learn 2026-08-27 证据沉淀）
 - 架构约束必须落地为静态 architecture-test（AST import 扫描）并 CI 阻断——证据：`test_plugin_architecture.py`（loader 只 import contracts）、`test_personal_memory_architecture.py`（retriever 不读 SessionContextSummary）；"Kernel 只依赖 Contract"的可执行守护形态
 - 契约层（`contracts.py`）保持纯 Protocol/形状，禁止 import kernel/runtime 具体 impl——证据：contracts.py 模块 docstring + AST 测试守护；新 SPI 只定形状不锁字段
 

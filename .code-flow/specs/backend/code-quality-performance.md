@@ -40,7 +40,7 @@ except Exception:
 ## Rules
 - [RULE-backend-quality-001] 实现必须满足 Guidance 中所有适用要求，并避免 Avoid 中列出的所有禁止项。
 
-### 代码约定（cf-learn 2026-08-27 证据沉淀）
+## 代码约定（cf-learn 2026-08-27 证据沉淀）
 - 自定义错误类必须定义字符串 `code` 属性（31 处一致：`PluginLoadError.code="plugin_load_error"`、`ModelProviderError.code="model_provider_error"` 等）——错误码集中、可机检
 - 数据对象统一 `@dataclass(frozen=True, slots=True)`（110 处）——不可变 + `__slots__`，防可变默认值/属性漂移
 - 模块以 `from __future__ import annotations` 开头（全仓库仅 13 文件缺该行）——延迟注解求值，避免 forward-ref 循环，mypy 友好
