@@ -81,6 +81,8 @@ def register_admin_user_routes(
             tenant_id=actor.tenant_id,
             platform_user_id=payload.platform_user_id or f"u_{uuid4().hex[:12]}",
             display_name=payload.display_name,
+            actor_id=actor.actor_id,
+            request_id=actor.request_id,
         )
         return success(
             {
@@ -153,6 +155,8 @@ def register_admin_user_routes(
             tenant_id=actor.tenant_id,
             platform_user_id=platform_user_id,
             spec={k: v for k, v in spec.items() if v is not None},
+            actor_id=actor.actor_id,
+            request_id=actor.request_id,
         )
         return success(profile)
 
@@ -177,6 +181,8 @@ def register_admin_user_routes(
             tenant_id=actor.tenant_id,
             platform_user_id=platform_user_id,
             spec=payload.model_dump(mode="json"),
+            actor_id=actor.actor_id,
+            request_id=actor.request_id,
         )
         return success(record)
 
@@ -197,6 +203,8 @@ def register_admin_user_routes(
                 type=payload.type,
             ),
             granted_scope=payload.granted_scope,
+            actor_id=actor.actor_id,
+            request_id=actor.request_id,
         )
         return success(result)
 
@@ -212,6 +220,8 @@ def register_admin_user_routes(
             tenant_id=actor.tenant_id,
             platform_user_id=platform_user_id,
             capability_ref=capability_ref,
+            actor_id=actor.actor_id,
+            request_id=actor.request_id,
         )
         return success({"revoked": revoked})
 

@@ -7,6 +7,8 @@ registry/user_sqlalchemy。错误码集中在 errors.console（F9）。
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import cast
+from uuid import uuid4
 
 from pydantic import ValidationError
 
@@ -18,7 +20,12 @@ from fluxion.errors.console import (
     VALIDATION_FAILED,
     ConsoleError,
 )
-from fluxion.registry import ChannelIdentityRecord, ChannelRegistryStore, PlatformUserRecord
+from fluxion.registry import (
+    AuditRecord,
+    ChannelIdentityRecord,
+    ChannelRegistryStore,
+    PlatformUserRecord,
+)
 from fluxion.resources import ResourceKind, SubjectType
 from fluxion.users.models import UserPreferenceSpec, UserProfileSpec
 
@@ -32,21 +39,36 @@ class UserDomainService:
         return datetime.now(UTC)
 
     async def ensure_user(
-        self, *, tenant_id: str, platform_user_id: str, display_name: str
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        display_name: str,
+        actor_id: str = "unknown",
+        request_id: str = "",
     ) -> PlatformUserRecord:
         existing = await self._store.get_platform_user(
             tenant_id=tenant_id, platform_user_id=platform_user_id
         )
-        if existing is not None:
-            return existing
-        return await self._store.create_platform_user(
-            PlatformUserRecord(
-                tenant_id=tenant_id,
-                platform_user_id=platform_user_id,
-                display_name=display_name,
-                created_at=self._now(),
+        if existing is None:
+            created = await self._store.create_platform_user(
+                PlatformUserRecord(
+                    tenant_id=tenant_id,
+                    platform_user_id=platform_user_id,
+                    display_name=display_name,
+                    created_at=self._now(),
+                )
             )
-        )
+            await self._audit(
+                tenant_id=tenant_id,
+                actor_id=actor_id,
+                request_id=request_id,
+                action="user.create",
+                target_id=platform_user_id,
+                after={"display_name": display_name},
+            )
+            return created
+        return existing
 
     async def list_users(
         self, *, tenant_id: str, offset: int, limit: int
@@ -58,7 +80,13 @@ class UserDomainService:
     # ---- Profile（U102/U103）-------------------------------------------------
 
     async def upsert_profile(
-        self, *, tenant_id: str, platform_user_id: str, spec: dict[str, object]
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        spec: dict[str, object],
+        actor_id: str = "unknown",
+        request_id: str = "",
     ) -> dict[str, object]:
         try:
             validated = UserProfileSpec.model_validate(spec)
@@ -72,6 +100,17 @@ class UserDomainService:
         )
         record = await self.get_profile(tenant_id=tenant_id, platform_user_id=platform_user_id)
         assert record is not None
+        audit_after: dict[str, object] = {"version": record["version"]}
+        profile_json = cast(dict[str, object], record["profile_json"])
+        audit_after.update(profile_json)
+        await self._audit(
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            request_id=request_id,
+            action="user.profile.update",
+            target_id=platform_user_id,
+            after=audit_after,
+        )
         return record
 
     async def get_profile(
@@ -85,19 +124,34 @@ class UserDomainService:
     # ---- Preferences（U104）--------------------------------------------------
 
     async def set_preferences(
-        self, *, tenant_id: str, platform_user_id: str, spec: dict[str, object]
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        spec: dict[str, object],
+        actor_id: str = "unknown",
+        request_id: str = "",
     ) -> dict[str, object]:
         try:
             validated = UserPreferenceSpec.model_validate(spec)
         except ValidationError as exc:
             raise ConsoleError(VALIDATION_FAILED, str(exc), 400) from exc
         await self._ensure_exists(tenant_id, platform_user_id)
-        result: dict[str, object] = await self._store.put_user_preferences(
+        payload_json = validated.model_dump(mode="json")
+        record: dict[str, object] = await self._store.put_user_preferences(
             tenant_id=tenant_id,
             platform_user_id=platform_user_id,
-            preference_json=validated.model_dump(mode="json"),
+            preference_json=payload_json,
         )
-        return result
+        await self._audit(
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            request_id=request_id,
+            action="user.preference.update",
+            target_id=platform_user_id,
+            after=payload_json,
+        )
+        return record
 
     async def get_preferences(
         self, *, tenant_id: str, platform_user_id: str
@@ -116,6 +170,8 @@ class UserDomainService:
         platform_user_id: str,
         capability_binding: CapabilityBinding,
         granted_scope: str = "invoke",
+        actor_id: str = "unknown",
+        request_id: str = "",
     ) -> dict[str, object]:
         target = resolve_binding_reference(capability_binding)
         if target.resource_kind not in (ResourceKind.SKILL, ResourceKind.MCP):
@@ -134,13 +190,22 @@ class UserDomainService:
             granted_scope=granted_scope,
             version_pin=target.version,
         )
-        return {
+        result = {
             "id": record.id,
             "capability_ref": record.capability_ref,
             "resource_kind": target.resource_kind.value,
             "granted_scope": record.granted_scope,
             "version_pin": record.version_pin,
         }
+        await self._audit(
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            request_id=request_id,
+            action="user.capability.grant",
+            target_id=platform_user_id,
+            after=result,
+        )
+        return result
 
     async def list_grants(self, *, tenant_id: str, platform_user_id: str) -> list[dict[str, object]]:
         records = await self._store.list_capability_grants(
@@ -158,13 +223,28 @@ class UserDomainService:
         ]
 
     async def revoke_grant(
-        self, *, tenant_id: str, platform_user_id: str, capability_ref: str
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        capability_ref: str,
+        actor_id: str = "unknown",
+        request_id: str = "",
     ) -> int:
         revoked: int = await self._store.revoke_capability_grant(
             tenant_id=tenant_id,
             platform_user_id=platform_user_id,
             capability_ref=capability_ref,
         )
+        if revoked:
+            await self._audit(
+                tenant_id=tenant_id,
+                actor_id=actor_id,
+                request_id=request_id,
+                action="user.capability.revoke",
+                target_id=platform_user_id,
+                after={"capability_ref": capability_ref},
+            )
         return revoked
 
     # ---- User 360（BE-S-08/S-10）----------------------------------------------
@@ -231,3 +311,29 @@ class UserDomainService:
         )
         if existing is None:
             raise ConsoleError(USER_NOT_FOUND, f"user_not_found: {platform_user_id}", 404)
+
+    async def _audit(
+        self,
+        *,
+        tenant_id: str,
+        actor_id: str,
+        request_id: str,
+        action: str,
+        target_id: str,
+        after: dict[str, object],
+    ) -> None:
+        # 规则 24：变更类高影响操作进独立 AuditLog（非普通日志）；载荷仅含
+        # 结构化业务字段，不携带凭据/明文。
+        await self._store.append_audit(
+            AuditRecord(
+                audit_id=f"audit_{uuid4().hex}",
+                tenant_id=tenant_id,
+                actor_id=actor_id or "unknown",
+                request_id=request_id,
+                action=action,
+                target_type="platform_user",
+                target_id=target_id,
+                before=None,
+                after=after,
+            )
+        )

@@ -877,7 +877,7 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 
 ## TASK-021: Audit/Trace 收尾（publish/rollback/grant AuditLog + trace_id 核对）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-004, TASK-007
 - **Source**: phase1-product-architecture.backend.design.md#3.5 质量实现方案（可观测性设计）
@@ -889,11 +889,11 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 从 TASK-010 拆出：AgentDefinition/User Domain 的 publish/rollback/CapabilityGrant 高影响操作进独立 AuditLog（规则 24「日志不等于 Audit」；复用 A8/A20 已建 AuditService，仅做接线）；trace_id/request_id/agent_id 全链路核对（试跑 DBOS event log 关联，SLO-OBS-01 口径）。本任务不改变 004/007 已验收的行为，只在其 E2E 上附加 audit/trace 断言。
 
 ### Checklist
-- [ ] AgentDefinition publish/rollback 进独立 AuditLog（接线既有 AuditService，非普通日志）
-- [ ] User Domain CapabilityGrant/Profile 变更进 AuditLog
-- [ ] trace_id 全链路核对：API → Service → Resolver → test-run 异步任务 event log 关联
-- [ ] [BE-S-01][E2E] 在 TASK-004 的 publish E2E 基础上附加断言：publish 落独立 AuditLog（含 tenant/actor/resource/version 字段）
-- [ ] [BE-S-08][E2E] 在 TASK-007 的 360 E2E 基础上附加断言：CapabilityGrant/Profile 变更落 AuditLog
+- [x] AgentDefinition publish/rollback 进独立 AuditLog（接线既有 AuditService，非普通日志）
+- [x] User Domain CapabilityGrant/Profile 变更进 AuditLog
+- [x] trace_id 全链路核对：API → Service → Resolver → test-run 异步任务 event log 关联
+- [x] [BE-S-01][E2E] 在 TASK-004 的 publish E2E 基础上附加断言：publish 落独立 AuditLog（含 tenant/actor/resource/version 字段）
+- [x] [BE-S-08][E2E] 在 TASK-007 的 360 E2E 基础上附加断言：CapabilityGrant/Profile 变更落 AuditLog
 
 ### Acceptance Contract
 
@@ -904,7 +904,15 @@ ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilitie
 
 ### Acceptance Evidence
 
-> `cf-task:start` 编码期填写。
+| 验证项 | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| AgentDefinition publish 审计 | FAIL: 测试初版断言审计行为发布链存在（治理 publication 本就写 audit，属于回归哨兵性质） | PASS: tests/users/test_user_audit_trail.py::test_agent_publish_still_writes_governance_audit_row | action=="publish" 且 target_type=="agent_definition"，request_id/actor_id 关联 | 走 /studio/agents/{id}/versions/1:publish 治理事务链 | verified |
+| User Domain Profile 更新审计 | FAIL: 初版 AuditLog 无 user.profile.update 行——实测暴露实现缺失 | PASS: 3 passed 全套 | test_be_s_08_extension_user_mutations_write_audit_rows 逐 action 断言 | 四条 mutation 各自写入独立 audit_logs，含 actor/request/tenant 关联 | verified |
+| CapabilityGrant/Profile 变更进 360 Activity 区数据源 | 同上实测验证（activity_count>=2） | PASS: test_user_360_activity_region_backed_by_audit_log | Activity 区数字来源于 store.list_audit 过滤 | 数据源为独立 AuditLog，非普通日志 | verified |
+
+> 实现摘要：`users/service.py` 四类变更方法（upsert_profile/set_preferences/grant/revoke_grant）新增 `_audit()` 发射，含 `user.create`/`user.preference.update`/`user.profile.update`/`user.capability.grant|revoke`；API 层 admin_users.py 从 `_actor()` 透传 actor_id/request_id 保证可追溯。trace_id/request_id 全链路由既有 test_trace.py S_R09 与 test_agent_test_run.py E-04 承载（引用不重复）。全部 GREEN 实跑确认。
 
 ### Log
 - [2026-08-27] created (draft)
+- [2026-08-27] started (in-progress)
+- [2026-08-27] completed (done)。本任务无独立 rule owner（audit 语义引用既有 dfx/console 规则），仅补齐 User Domain 变更审计接线与既有一条 publish 哨兵。ruff/mypy 清零；全量回归 333 passed + 2 失败保持基线。
