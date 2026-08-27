@@ -223,4 +223,9 @@ export interface ConsoleApi {
   issueChatAccess(platformUserId: string, agentId: string): Promise<IssuedChatAccess>;
   revokeChatAccess(accessId: string): Promise<void>;
   getUser360(platformUserId: string): Promise<User360Summary>;
+  testRunAgent(
+    agentId: string,
+    input: { input: string },
+    onEvent: (event: { event: string; data: unknown }) => void
+  ): Promise<void>;
 }

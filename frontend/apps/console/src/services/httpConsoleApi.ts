@@ -263,6 +263,18 @@ class HttpConsoleApi implements ConsoleApi {
     );
   }
 
+  async testRunAgent(
+    agentId: string,
+    input: { input: string },
+    onEvent: (event: { event: string; data: unknown }) => void
+  ): Promise<void> {
+    await this.client.streamEvents(
+      `/studio/agents/${agentId}/test-run`,
+      { method: "POST", body: JSON.stringify(input) },
+      onEvent
+    );
+  }
+
   async getUser360(platformUserId: string): Promise<User360Summary> {
     return this.client.request(
       `/admin/users/${platformUserId}/360`,

@@ -294,6 +294,20 @@ class InMemoryConsoleApi implements ConsoleApi {
     };
   }
 
+  async testRunAgent(
+    agentId: string,
+    input: { input: string },
+    onEvent: (event: { event: string; data: unknown }) => void
+  ): Promise<void> {
+    if (agentId.startsWith("fail")) {
+      onEvent({ event: "error", data: { message: "provider unavailable" } });
+      return;
+    }
+    onEvent({ event: "token", data: { text: "你好" } });
+    onEvent({ event: "token", data: { text: "！" } });
+    onEvent({ event: "completed", data: { output: "你好！" } });
+  }
+
   async getUser360(platformUserId: string): Promise<User360Summary> {
     const user = this.users.find((u) => u.platformUserId === platformUserId);
     if (!user) throw new Error(`user_not_found: ${platformUserId}`);

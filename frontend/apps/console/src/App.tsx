@@ -26,6 +26,7 @@ import { UsersChannelsPage } from "./pages/users/UsersChannelsPage";
 import { WorkflowsPage } from "./pages/workflows/WorkflowsPage";
 import { P1ViewPage } from "./pages/p1/P1ViewPage";
 import { CapabilitiesPage } from "./pages/capabilities/CapabilitiesPage";
+import { AgentStudioPage } from "./pages/studio/AgentStudioPage";
 import type { ConsoleApi } from "./types/console";
 import { isConsoleView, isP1View, type ConsoleView } from "./types/navigation";
 import { useThemeMode } from "./theme";
@@ -34,9 +35,14 @@ import "./styles.css";
 interface ConsoleAppProps {
   readonly api: ConsoleApi;
   readonly initialView?: ConsoleView;
+  readonly initialAgentId?: string;
 }
 
-export function ConsoleApp({ api, initialView = "resources" }: ConsoleAppProps) {
+export function ConsoleApp({
+  api,
+  initialView = "resources",
+  initialAgentId
+}: ConsoleAppProps) {
   const [activeView, setActiveView] = useState<ConsoleView>(initialView);
   const { mode, toggle } = useThemeMode();
 
@@ -63,7 +69,7 @@ export function ConsoleApp({ api, initialView = "resources" }: ConsoleAppProps) 
             theme="borderless"
           />
         </div>
-        {renderView(activeView, api)}
+        {renderView(activeView, api, initialAgentId)}
       </Layout.Content>
     </Layout>
   );
@@ -80,6 +86,7 @@ const navItems = [
     text: "构建",
     items: [
       { icon: <IconUserGroup />, itemKey: "resources", text: "智能体" },
+      { icon: <IconKey />, itemKey: "agent_studio", text: "新建智能体" },
       { icon: <IconFlowChartStroked />, itemKey: "workflows", text: "工作流" },
       { icon: <IconKey />, itemKey: "capabilities", text: "能力" },
       { icon: <IconTestScore />, itemKey: "eval", text: <PlannedText>评测</PlannedText> }
@@ -134,7 +141,11 @@ const OPEN_GROUP_KEYS = [
   "group-platform"
 ];
 
-function renderView(view: ConsoleView, api: ConsoleApi) {
+function renderView(
+  view: ConsoleView,
+  api: ConsoleApi,
+  initialAgentId?: string
+) {
   if (view === "overview") {
     return <OverviewPage api={api} />;
   }
@@ -155,6 +166,9 @@ function renderView(view: ConsoleView, api: ConsoleApi) {
   }
   if (view === "capabilities") {
     return <CapabilitiesPage api={api} />;
+  }
+  if (view === "agent_studio") {
+    return <AgentStudioPage api={api} initialAgentId={initialAgentId} />;
   }
   if (view === "policies") {
     return <GovernancePoliciesPage api={api} />;

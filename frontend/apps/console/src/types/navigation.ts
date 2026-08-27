@@ -7,10 +7,12 @@ export type P1View =
 
 export type ConsoleView =
   | "overview"
+  | "agent_studio"
   | "platform_runtime_profiles"
   | "platform_secrets"
   | "platform_models"
   | "policies"
+  | "capabilities"
   | "platform_assets"
   | "resources"
   | "workflows"
@@ -34,10 +36,12 @@ export function isP1View(value: ConsoleView): value is P1View {
 export function isConsoleView(value: string): value is ConsoleView {
   return (
     value === "overview" ||
+    value === "agent_studio" ||
     value === "platform_runtime_profiles" ||
     value === "platform_secrets" ||
     value === "platform_models" ||
     value === "policies" ||
+    value === "capabilities" ||
     value === "platform_assets" ||
     value === "resources" ||
     value === "workflows" ||
