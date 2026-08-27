@@ -23,6 +23,9 @@ async def test_S_C109_console_resource_contract_is_runtime_compatible() -> None:
             resource_id="assistant",
             request_id="req-S-C109-publish",
         )
+        # TASK-A104：persona/model 在同名 AgentDefinition。
+        from tests.runtime_helpers import seed_agent_definition
+        await seed_agent_definition(stack.store, provider_id="dev.echo")
 
         runtime = RuntimeApplicationService.create_dev_bundle(stack.store)
         result = await runtime.run(
@@ -37,4 +40,4 @@ async def test_S_C109_console_resource_contract_is_runtime_compatible() -> None:
         )
 
         assert result.runtime_profile_version == "1"
-        assert result.output == "console: hello"
+        assert result.output == "dev: hello"  # 模型名归 MODEL 链（TASK-004/008）

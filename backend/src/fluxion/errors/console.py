@@ -31,6 +31,15 @@ EVAL_VALIDATION_FAILED = 37_001
 EVAL_TRACEABILITY_ERROR = 37_002
 EVAL_EXECUTION_ERROR = 37_003
 
+# User Domain / Identity 段（TASK-007；契约命名空间 34xxx = Identity/Bind/Channel）。
+USER_NOT_FOUND = 34_100
+USER_NOT_BOUND = 34_101
+
+# Studio/Product API 错误码（TASK-004；42xxx = Studio/Product API 段）。
+# slug 形态保留在 envelope message 前缀（如 agent_definition_invalid），
+# 版本冲突不另设 studio 段码——复用 VERSION_CONFLICT/RESOURCE_CONFLICT。
+STUDIO_SPEC_INVALID = 42_201
+
 
 @dataclass(frozen=True, slots=True)
 class ConsoleError(Exception):
@@ -40,6 +49,13 @@ class ConsoleError(Exception):
 
     def __str__(self) -> str:
         return self.message
+
+
+class StudioSpecValidationError(ConsoleError):
+    """Studio/Product API 的 spec 前置校验失败（typed model 字段定位）。"""
+
+    def __init__(self, message: str = "studio spec invalid") -> None:
+        super().__init__(STUDIO_SPEC_INVALID, message, 422)
 
 
 class ConsoleValidationError(ConsoleError):

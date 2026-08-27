@@ -73,29 +73,70 @@ async def seed_runtime_profile(
     tenant_id: str = "tenant-a",
     runtime_profile_id: str = "assistant",
     version: str = "1",
-    allowed_skills: list[str] | None = None,
-    allowed_mcps: list[str] | None = None,
-    plugin_bindings: list[str] | None = None,
-    guardrail_policy: str | None = None,
+    system_prompt: str = "保持严谨",
+    agent_version: str | None = None,
+    capabilities: list[dict[str, object]] | None = None,
 ) -> ResourceDefinition:
-    spec: dict[str, object] = {
-        "prompt": "保持严谨",
-        "model_policy": {"provider": "test", "model": "deterministic"},
-        "allowed_skills": allowed_skills or [],
-    }
-    if allowed_mcps is not None:
-        spec["allowed_mcps"] = allowed_mcps
-    if plugin_bindings is not None:
-        spec["plugin_bindings"] = plugin_bindings
-    if guardrail_policy is not None:
-        spec["guardrail_policy"] = guardrail_policy
-    return await publish_resource(
+    """TASK-A104 后的 seeding：profile 只含 mechanics；产品语义落在同名
+    AgentDefinition（resolver 缺省回退按同名解析）。旧签名的 allowed_skills/
+    allowed_mcps 已由 capabilities（CapabilityBinding dump 列表）取代。"""
+    from fluxion.agents.definitions import AgentDefinition
+
+    await publish_resource(
         store,
         tenant_id=tenant_id,
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id=runtime_profile_id,
         version=version,
-        spec=spec,
+        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+    )
+    return await publish_resource(
+        store,
+        tenant_id=tenant_id,
+        kind=ResourceKind.AGENT_DEFINITION,
+        resource_id=runtime_profile_id,
+        version=agent_version or version,
+        spec=AgentDefinition(
+            name=runtime_profile_id,
+            description="fixture agent",
+            system_prompt=system_prompt,
+            owner="fixture",
+            model_ref={"id": "test", "version": "1"},
+            capabilities=list(capabilities or []),
+        ).model_dump(mode="json"),
+    )
+
+
+async def seed_agent_definition(
+    store: RegistryStore,
+    *,
+    tenant_id: str = "tenant-a",
+    agent_id: str = "assistant",
+    version: str = "1",
+    system_prompt: str = "保持严谨",
+    owner: str = "fixture",
+    provider_id: str = "test",
+    instructions: str = "",
+    capabilities: list[dict[str, object]] | None = None,
+) -> ResourceDefinition:
+    """独立发布一个 AgentDefinition（默认与 fixture profile 同名以便回退解析）。"""
+    from fluxion.agents.definitions import AgentDefinition
+
+    return await publish_resource(
+        store,
+        tenant_id=tenant_id,
+        kind=ResourceKind.AGENT_DEFINITION,
+        resource_id=agent_id,
+        version=version,
+        spec=AgentDefinition(
+            name=agent_id,
+            description="fixture agent",
+            system_prompt=system_prompt,
+            owner=owner,
+            model_ref={"id": provider_id, "version": "1"},
+            instructions=instructions,
+            capabilities=list(capabilities or []),
+        ).model_dump(mode="json"),
     )
 
 

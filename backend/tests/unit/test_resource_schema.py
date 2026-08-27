@@ -122,7 +122,7 @@ def test_RS2_policy_definition_accepts_allowed_and_denied_tools() -> None:
 
 def test_RS2_policy_definition_rejects_removed_rules_field() -> None:
     with pytest.raises(ValueError, match="rules"):
-        PolicyDefinition(name="p", rules=[])
+        PolicyDefinition.model_validate({"name": "p", "rules": []})
 
 
 def test_RS2_model_policy_rejects_unknown_keys() -> None:
@@ -149,30 +149,42 @@ def test_RS2_model_policy_rejects_out_of_range_values() -> None:
         ModelPolicy(max_rounds=33)
 
 
-def test_RS2_runtime_profile_coerces_dict_model_policy() -> None:
-    """spec 存储仍是 dict；校验时 coerce 成 ModelPolicy（单一真相源入口）。"""
+def test_RS2_runtime_profile_accepts_mechanics_and_is_frozen() -> None:
+    """RuntimeProfile 只承载运行机制字段，且发布/执行期不可原地修改。"""
     profile = RuntimeProfile(
-        prompt="你是一名严谨的助手",
-        model_policy={"provider": "deepseek", "failover": ["stub"]},
+        request_timeout_ms=30_000,
+        max_retries=2,
+        concurrency=4,
+        memory_budget_mb=256,
+        executor_config={"executor": "local"},
     )
-    assert isinstance(profile.model_policy, ModelPolicy)
-    assert profile.model_policy.provider == "deepseek"
-    assert profile.model_policy.failover == ["stub"]
+    assert profile.request_timeout_ms == 30_000
+    assert profile.max_retries == 2
+    assert profile.executor_config == {"executor": "local"}
+    with pytest.raises(ValueError):
+        profile.__setattr__("concurrency", 8)
 
 
 def test_RS2_runtime_profile_rejects_removed_dead_fields() -> None:
     for dead_field, payload_value in (
-        ("allowed_workflows", []),
-        ("memory_policy", {}),
-        ("runtime_policy", {}),
+        ("prompt", "hi"),
+        ("model_policy", {}),
+        ("allowed_skills", []),
+        ("allowed_mcps", []),
+        ("allowed_tools", []),
+        ("capabilities", []),
     ):
         with pytest.raises(ValueError, match=dead_field):
-            RuntimeProfile.model_validate({"prompt": "hi", dead_field: payload_value})
+            RuntimeProfile.model_validate({dead_field: payload_value})
 
 
-def test_RS2_runtime_profile_prompt_must_be_string() -> None:
+def test_RS2_runtime_profile_rejects_invalid_mechanics_ranges() -> None:
     with pytest.raises(ValueError):
-        RuntimeProfile.model_validate({"prompt": {"text": "hi"}})
+        RuntimeProfile(request_timeout_ms=99, max_retries=1)
+    with pytest.raises(ValueError):
+        RuntimeProfile(request_timeout_ms=100, max_retries=6)
+    with pytest.raises(ValueError):
+        RuntimeProfile(request_timeout_ms=100, max_retries=1, concurrency=0)
 
 
 def test_RS2_skill_definition_rejects_removed_fields() -> None:
@@ -181,7 +193,7 @@ def test_RS2_skill_definition_rejects_removed_fields() -> None:
         ("capability_id", "cap"),
         ("parameters", {}),
     ):
-        payload = {"name": "skill-a", dead_field: payload_value}
+        payload: dict[str, object] = {"name": "skill-a", dead_field: payload_value}
         with pytest.raises(ValueError, match=dead_field):
             SkillDefinition.model_validate(payload)
 

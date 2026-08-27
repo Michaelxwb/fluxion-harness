@@ -58,11 +58,14 @@ def test_S_R12_cli_bootstraps_runtime_profile_and_runs_without_console(
     profile = asyncio.run(_load_profile(dsn))
     assert profile is not None
     assert profile.status is ResourceStatus.PUBLISHED
-    # ADR-012：spec 由 RuntimeProfile model_dump 生成，model_policy 含默认值
-    # 完整落库（failover/deadline_ms/max_rounds），读取端可与 ModelPolicy 精确比对。
-    assert profile.spec_json["model_policy"] == ModelPolicy(
-        provider="dev.echo", model="dev", timeout_ms=1000
-    ).model_dump(mode="json")
+    # ADR-012 / TASK-A104：mechanics-only spec；persona/model 在自举的同名
+    # AgentDefinition（_ensure_default_agent），模型回显 provider 默认名。
+    assert profile.spec_json["request_timeout_ms"] == 1_000
+    agent = asyncio.run(_load_agent(dsn))
+    assert agent is not None
+    from fluxion.agents.definitions import AgentDefinition
+
+    assert AgentDefinition.model_validate(agent.spec_json).model_ref.id == "dev.echo"
 
 
 async def _load_profile(dsn: str) -> ResourceDefinition | None:
@@ -71,6 +74,19 @@ async def _load_profile(dsn: str) -> ResourceDefinition | None:
     try:
         return await store.get(
             ResourceKind.RUNTIME_PROFILE,
+            "assistant",
+            tenant_id="tenant-a",
+        )
+    finally:
+        await store.close()
+
+
+async def _load_agent(dsn: str) -> ResourceDefinition | None:
+    store = SQLiteRegistryStore(dsn)
+    await store.initialize()
+    try:
+        return await store.get(
+            ResourceKind.AGENT_DEFINITION,
             "assistant",
             tenant_id="tenant-a",
         )

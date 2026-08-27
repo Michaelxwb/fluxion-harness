@@ -6,7 +6,7 @@ from time import perf_counter
 from fluxion.plugins.contracts import ModelRequest, ModelResponse
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.registry import RegistryStore
-from fluxion.resources import ModelPolicy, RuntimeProfile
+from fluxion.resources import RuntimeProfile
 from fluxion.runtime.agent import RuntimeStepResult
 from fluxion.runtime.context import RequestContext, RuntimeContext, TraceEvent
 from fluxion.runtime.memory import InMemorySessionMemoryStore, SessionMemoryStore
@@ -29,14 +29,15 @@ class DevEchoModelProvider:
 
 
 def _runtime_profile_spec(request: CreateRuntimeProfileRequest) -> dict[str, object]:
-    # ADR-012：以 RuntimeProfile model 为单一真相源——构造即校验，spec 的
-    # 键集合不可能与校验模型/运行时消费漂移；model_dump 输出干净 spec。
+    # ADR-012：以 RuntimeProfile model 为单一真相源——构造即校验。TASK-A104 后
+    # 只承载 mechanics，persona/model/capability 由 AgentDefinition 承载。
     profile = RuntimeProfile(
-        prompt=request.prompt,
-        model_policy=ModelPolicy.model_validate(request.model_policy),
-        allowed_skills=list(request.allowed_skills),
-        allowed_mcps=list(request.allowed_mcps),
-        allowed_tools=list(request.allowed_tools),
+        request_timeout_ms=request.request_timeout_ms,
+        max_retries=request.max_retries,
+        max_rounds=request.max_rounds,
+        concurrency=request.concurrency,
+        memory_budget_mb=request.memory_budget_mb or 512,
+        executor_config=dict(request.executor_config),
     )
     return profile.model_dump(mode="json")
 
@@ -48,6 +49,7 @@ def _request_context(request: RunRuntimeRequest) -> RequestContext:
         runtime_profile_id=request.runtime_profile_id,
         session_id=request.session_id,
         runtime_profile_version_selector=request.runtime_profile_version_selector,
+        agent_definition_id=request.agent_definition_id,
         request_id=request.request_id,
         trace_id=request.trace_id,
         execution_id=request.execution_id,

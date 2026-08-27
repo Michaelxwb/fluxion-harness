@@ -27,6 +27,7 @@ from fluxion.api.console_routes_read import (
 )
 from fluxion.api.middleware import RequestContextMiddleware
 from fluxion.api.responses import success
+from fluxion.api.studio import register_studio_routes
 from fluxion.config import DevModeSettings
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.console_contracts import (
@@ -46,17 +47,24 @@ from fluxion.services.console_payloads import (
     platform_user_payload,
     resource_payload,
 )
+from fluxion.services.runtime_app import RuntimeApplicationService
+from fluxion.users import UserDomainService
+from fluxion.api.admin_users import register_admin_user_routes
 
 
 def create_app(
     service: ConsoleApplicationService,
     *,
     dev_mode: DevModeSettings | None = None,
+    runtime_service: RuntimeApplicationService | None = None,
+    user_service: UserDomainService | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Fluxion Console API")
     app.add_middleware(RequestContextMiddleware, dev_mode=dev_mode)
     _register_error_handlers(app)
     _register_health_routes(app)
+    register_studio_routes(app, service, runtime_service=runtime_service)
+    register_admin_user_routes(app, service, user_service=user_service)
     _register_create_resource_route(app, service)
     _register_list_resources_route(app, service)
     _register_resource_schema_route(app, service)

@@ -40,10 +40,20 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="assistant",
             version="1",
+            spec={"request_timeout_ms": 30_000, "max_retries": 1},
+        )
+        # TASK-A104：persona/model 迁至同名 AgentDefinition（provider=PLUGIN 资源 id）。
+        await publish_resource(
+            sqlite_store,
+            tenant_id="tenant-a",
+            kind=ResourceKind.AGENT_DEFINITION,
+            resource_id="assistant",
+            version="1",
             spec={
-                "prompt": "Use the configured provider.",
-                "model_policy": {"provider": "wire-provider", "model": "wire-model"},
-                "plugin_bindings": ["wire-provider@1"],
+                "name": "assistant",
+                "system_prompt": "Use the configured provider.",
+                "owner": "fixture",
+                "model_ref": {"id": "wire-provider", "version": "1"},
             },
         )
         await sqlite_store.put_binding(

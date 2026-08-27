@@ -9,8 +9,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class ResourceKind(StrEnum):
     RUNTIME_PROFILE = "runtime_profile"
+    # PRD §4.2 / TASK-A101：Agent 产品领域实体（引用而非内嵌 persona/model/capability）。
+    AGENT_DEFINITION = "agent_definition"
+    MODEL = "model"
+    TOOL = "tool"
     SKILL = "skill"
     MCP = "mcp"
+    SECRET = "secret"
     PLUGIN = "plugin"
     POLICY = "policy"
     WORKFLOW = "workflow"
@@ -102,10 +107,10 @@ def _find_plaintext_secret(
             key_text = str(key)
             current_path = (*path, key_text)
             if _is_sensitive_key(key):
-                if (
-                    _is_secret_ref_key(key)
-                    and isinstance(item, str)
-                    and item.startswith("secret://")
+                # SecretRef 家族：None（未引用）或 secret:// 引用均放行，其余拒绝。
+                if _is_secret_ref_key(key) and (
+                    item is None
+                    or (isinstance(item, str) and item.startswith("secret://"))
                 ):
                     continue
                 return ".".join(current_path)
@@ -127,7 +132,7 @@ def assert_no_plaintext_secret(value: object, field_name: str) -> None:
 
 
 class SensitiveSpecModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     @model_validator(mode="after")
     def reject_plaintext_secrets(self) -> Self:
@@ -166,27 +171,47 @@ class ModelPolicy(SensitiveSpecModel):
 
 
 class RuntimeProfile(SensitiveSpecModel):
-    display_name: str | None = Field(
-        default=None, title="展示名", description="展示名（仅 UI 显示，运行时不消费）"
+    """运行机制配置，不承载 Agent 人设、模型或 Capability 产品语义。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    request_timeout_ms: int = Field(
+        ge=100,
+        le=120_000,
+        title="请求超时",
+        description="单次模型或外部调用的超时（毫秒）",
     )
-    prompt: str = Field(title="系统提示词", description="System Prompt：助手的人格与行为准则")
-    model_policy: ModelPolicy = Field(
-        default_factory=ModelPolicy, title="模型链与超时策略", description="模型链与超时策略"
+    max_retries: int = Field(
+        ge=0,
+        le=5,
+        title="重试上限",
+        description="失败后的有限重试次数",
     )
-    allowed_skills: list[str] = Field(
-        default_factory=list, title="挂载的技能", description="挂载的技能资源（id 或 id@version）"
+    # agent 工具循环预算属 runtime mechanics（非产品语义）——TASK-A104 收缩时
+    # 从旧 model_policy.max_rounds 迁入，快照 ModelPolicy 仍由此驱动。
+    max_rounds: int = Field(
+        default=8,
+        ge=1,
+        le=32,
+        title="轮数上限",
+        description="agent 工具循环轮数上限（最大 32）",
     )
-    allowed_mcps: list[str] = Field(
-        default_factory=list, title="挂载的 MCP", description="挂载的 MCP server（还需用户级 binding 授权）"
+    concurrency: int = Field(
+        default=1,
+        ge=1,
+        title="并发上限",
+        description="单个 RuntimeProfile 的执行并发上限",
     )
-    allowed_tools: list[str] = Field(
-        default_factory=list, title="工具白名单", description="agent 工具白名单（tool id）"
+    memory_budget_mb: int = Field(
+        default=512,
+        ge=1,
+        title="内存预算",
+        description="单次执行可使用的内存预算（MiB）",
     )
-    plugin_bindings: list[str] = Field(
-        default_factory=list, title="模型供应商插件", description="挂载的模型供应商插件（密钥配在 plugin binding）"
-    )
-    guardrail_policy: str | None = Field(
-        default=None, title="策略引用", description="策略资源引用（id@version）；执行期仅锚定版本进快照"
+    executor_config: dict[str, object] = Field(
+        default_factory=dict,
+        title="执行器配置",
+        description="Runtime executor 的非敏感装配参数",
     )
 
 
@@ -262,6 +287,11 @@ class ModelProviderDefinition(SensitiveSpecModel):
     )
     base_url: str = Field(title="API 地址", description="OpenAI 兼容 API 地址（http/https）")
     model: str = Field(title="默认模型", description="默认模型名（如 deepseek-chat）")
+    credential_ref: str | None = Field(
+        default=None,
+        title="凭据引用",
+        description="模型凭据 SecretRef；只允许 secret:// 引用，不保存明文",
+    )
     request_timeout_ms: int = Field(
         default=60_000, gt=0, title="请求超时", description="请求超时（毫秒）"
     )
@@ -274,6 +304,43 @@ class ModelProviderDefinition(SensitiveSpecModel):
         if not self.model.strip():
             raise ValueError("model provider model is required")
         return self
+
+
+class ToolDefinition(SensitiveSpecModel):
+    """Agent-facing Tool Adapter 的版本化资源定义。"""
+
+    name: str = Field(min_length=1, max_length=128, title="工具名")
+    description: str = Field(default="", max_length=1024, title="说明")
+    capability_ref: str = Field(
+        min_length=1,
+        max_length=255,
+        title="能力引用",
+        description="Tool Adapter 复用的 Capability ID",
+    )
+    adapter_ref: str = Field(
+        min_length=1,
+        max_length=255,
+        title="适配器引用",
+        description="具体 Adapter/Provider 的版本化引用",
+    )
+    timeout_ms: int = Field(default=30_000, ge=100, le=120_000, title="调用超时")
+    fail_policy: Literal["fail_open", "fail_closed"] = Field(
+        default="fail_closed",
+        title="失败策略",
+    )
+
+
+class SecretDefinition(SensitiveSpecModel):
+    """Secret 元数据；Resource spec 只保存 SecretRef，不保存密文或明文。"""
+
+    name: str = Field(min_length=1, max_length=128, title="凭据名")
+    secret_ref: str = Field(
+        min_length=10,
+        max_length=512,
+        title="SecretRef",
+        description="外部 SecretStore 引用（secret://...）",
+    )
+    purpose: str = Field(default="", max_length=512, title="用途")
 
 
 class PluginDefinition(SensitiveSpecModel):
@@ -475,6 +542,10 @@ class ExecutionSnapshot(BaseModel):
     user_id: str
     runtime_profile_id: str
     runtime_profile_version: str
+    # TASK-A104：persona/model/capability 产品语义迁至 AgentDefinition（PRD §4.3
+    # Snapshot 冻结 AgentDefinition exact version）；无关联 Agent 时为 None。
+    agent_definition_id: str | None = None
+    agent_definition_version: str | None = None
     # ADR-012：结构化 ModelPolicy（frozen）。validate 产生的新实例天然与缓存
     # spec_json 断开引用，执行期不可变由 model 层保证（原为 deepcopy dict 防护）。
     model_resolution: ModelPolicy

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fluxion.agents.definitions import AgentDefinition, CapabilityType
 from fluxion.registry import RegistryReadStore, RegistryStoreError
 from fluxion.resources import (
     ExecutionSnapshot,
+    ModelPolicy,
     ResourceBinding,
     ResourceDefinition,
     ResourceKind,
@@ -16,6 +18,8 @@ from fluxion.resources import (
 from fluxion.runtime.context import RequestContext
 
 LATEST_PUBLISHED = "latest-published"
+# 与 ModelPolicy.deadline_ms 默认一致（类属性在 pydantic v2 上不可直接读）。
+_DEFAULT_DEADLINE_MS = 120_000
 
 
 class RuntimeKernelError(RuntimeError):
@@ -180,6 +184,25 @@ class ResourceResolver:
         return cached
 
 
+def _capability_selectors(
+    agent: ResourceDefinition | None,
+) -> dict[CapabilityType, list[ResourceSelector]]:
+    """把 AgentDefinition.capabilities 按类型拆为解析用 selector 列表。"""
+    grouped: dict[CapabilityType, list[ResourceSelector]] = {}
+    if agent is None:
+        return grouped
+    spec = AgentDefinition.model_validate(agent.spec_json)
+    for capability_type in CapabilityType:
+        selectors = [
+            _parse_selector(f"{binding.capability_ref}@{binding.version_pin}")
+            for binding in spec.capabilities
+            if binding.type is capability_type
+        ]
+        if selectors:
+            grouped[capability_type] = selectors
+    return grouped
+
+
 class ExecutionSnapshotBuilder:
     def __init__(self, resolver: ResourceResolver) -> None:
         self._resolver = resolver
@@ -191,55 +214,109 @@ class ExecutionSnapshotBuilder:
             request.runtime_profile_id,
             selector=request.runtime_profile_version_selector,
         )
-        # ADR-012：spec model 单一真相源——快照消费的字段全部来自 validate 后
-        # 的 model 实例，不再 spec_json.get（校验/运行时键集合不可能漂移）。
-        profile_model = RuntimeProfile.model_validate(profile.spec_json)
+        agent = await self._resolve_agent_definition(request)
         bindings = await self._effective_bindings(request)
-        skills = await self._resolve_skills(request.tenant_id, profile_model, bindings)
-        mcps = await self._resolve_mcps(request.tenant_id, profile_model)
-        plugins = await self._resolve_plugins(request.tenant_id, profile_model)
-        policy_version = await self._resolve_policy_version(
-            request.tenant_id, profile_model
+        capabilities = _capability_selectors(agent)
+        skills = await self._resolve_capabilities(
+            request.tenant_id, capabilities.get(CapabilityType.SKILL, []), bindings
         )
+        mcp_versions = await self._resolve_capability_versions(
+            request.tenant_id, capabilities.get(CapabilityType.MCP, []), ResourceKind.MCP
+        )
+        # TOOL capability（含 builtin 工具）的准入由 capability dispatch 路径执行，
+        # 不在此做版本解析——其 ref 多为非 PLUGIN 资源（如 builtin.*）。
         return self.build_from_resolved(
             request,
             runtime_profile=profile,
+            agent_definition=agent,
             skills=skills,
             bindings=bindings,
-            mcp_versions=mcps,
-            plugin_versions=plugins,
-            policy_version=policy_version,
+            mcp_versions=mcp_versions,
         )
+
+    async def _resolve_agent_definition(
+        self, request: RequestContext
+    ) -> ResourceDefinition | None:
+        """解析本次执行的 AgentDefinition（persona/model/capability 的 SoT）。
+
+        显式 agent_definition_id 必须存在；缺省回退与 runtime_profile_id 同名——
+        一次性迁移产物即同名。回退未命中返回 None（纯 bindings 驱动执行）。
+        """
+        explicit = request.agent_definition_id or request.runtime_profile_id
+        try:
+            return await self._resolver.resolve_resource(
+                request.tenant_id,
+                ResourceKind.AGENT_DEFINITION,
+                explicit,
+                selector=request.agent_definition_version_selector,
+            )
+        except ResourceVersionNotFoundError:
+            if request.agent_definition_id:
+                raise
+            return None
 
     def build_from_resolved(
         self,
         request: RequestContext,
         *,
         runtime_profile: ResourceDefinition,
+        agent_definition: ResourceDefinition | None = None,
         skills: list[ResourceDefinition],
         bindings: list[ResourceBinding],
         mcp_versions: dict[str, str] | None = None,
-        plugin_versions: dict[str, str] | None = None,
-        policy_version: str | None = None,
     ) -> ExecutionSnapshot:
-        # ADR-012：validate 产生新 frozen ModelPolicy 实例，天然断开与缓存
-        # spec_json 的引用共享（原 deepcopy dict 防护由此替代）。
+        # ADR-012：validate 产生新 frozen 实例，天然断开与缓存 spec_json 的引用共享。
         profile_model = RuntimeProfile.model_validate(runtime_profile.spec_json)
+        agent_spec = (
+            AgentDefinition.model_validate(agent_definition.spec_json)
+            if agent_definition is not None
+            else None
+        )
+        system_prompt = "" if agent_spec is None else agent_spec.system_prompt.strip()
+        instructions = "" if agent_spec is None else agent_spec.instructions.strip()
+        if instructions:
+            system_prompt = f"{system_prompt}\n\n{instructions}".strip()
+        provider = None if agent_spec is None else agent_spec.model_ref.id
+        # 失败降级链属 runtime mechanics：从 executor_config.model_failover 取
+        # （产品面不暴露；Phase 2 Model policy 域回收归属）。
+        raw_failover = profile_model.executor_config.get("model_failover", [])
+        failover = (
+            [str(item) for item in raw_failover]
+            if isinstance(raw_failover, list)
+            else []
+        )
+        model_resolution = ModelPolicy(
+            provider=provider,
+            failover=failover,
+            timeout_ms=profile_model.request_timeout_ms,
+            max_rounds=profile_model.max_rounds,
+            # deadline 下限沿用 ModelPolicy 默认值语义（timeout 过短时不缩短总截止）。
+            deadline_ms=max(profile_model.request_timeout_ms * 2, _DEFAULT_DEADLINE_MS),
+        )
         return ExecutionSnapshot(
             execution_id=request.execution_id,
             tenant_id=request.tenant_id,
             user_id=request.user_id,
             runtime_profile_id=runtime_profile.id,
             runtime_profile_version=runtime_profile.version,
-            model_resolution=profile_model.model_policy,
+            agent_definition_id=None if agent_definition is None else agent_definition.id,
+            agent_definition_version=(
+                None if agent_definition is None else agent_definition.version
+            ),
+            model_resolution=model_resolution,
             trace_id=request.trace_id,
-            system_prompt=profile_model.prompt.strip(),
+            system_prompt=system_prompt,
             skill_instructions=_skill_instructions(skills),
             skill_allowed_tools=_skill_allowed_tools(skills),
             skill_versions={skill.id: skill.version for skill in skills},
             mcp_versions=mcp_versions or {},
-            plugin_versions=plugin_versions or {},
-            policy_version=policy_version,
+            # 主模型 provider 精确版本 pin 来自 AgentDefinition.model_ref
+            # （TASK-A104 前来源=profile.plugin_bindings）。failover 链不自动
+            # 入门槛：进程内注册实现优先；store-backed failover 归 Phase 2
+            # Model policy 域统一处理。
+            plugin_versions=(
+                {} if agent_spec is None else {agent_spec.model_ref.id: agent_spec.model_ref.version}
+            ),
             binding_versions={
                 binding.binding_id: binding.resource_version_selector for binding in bindings
             },
@@ -259,68 +336,34 @@ class ExecutionSnapshotBuilder:
         )
         return [*tenant_bindings, *user_bindings]
 
-    async def _resolve_skills(
+    async def _resolve_capabilities(
         self,
         tenant_id: str,
-        profile_model: RuntimeProfile,
+        selectors: list[ResourceSelector],
         bindings: list[ResourceBinding],
     ) -> list[ResourceDefinition]:
-        selectors = _selectors(profile_model.allowed_skills)
+        # Agent capability 是租户基线 allowlist；Binding 表达用户差异（grant 或
+        # 版本覆盖）——语义与原 profile.allowed_skills 基线一致，来源迁移到 Agent。
         effective = _effective_skill_selectors(selectors, bindings)
-        skills: list[ResourceDefinition] = []
+        resolved: list[ResourceDefinition] = []
         for selector in effective:
-            skill = await self._resolver.resolve_resource(
+            resource = await self._resolver.resolve_resource(
                 tenant_id,
                 ResourceKind.SKILL,
                 selector.resource_id,
                 selector=selector.selector,
             )
-            skills.append(skill)
-        return skills
+            resolved.append(resource)
+        return resolved
 
-    async def _resolve_mcps(
+    async def _resolve_capability_versions(
         self,
         tenant_id: str,
-        profile_model: RuntimeProfile,
-    ) -> dict[str, str]:
-        return await self._resolve_configured(
-            tenant_id, profile_model.allowed_mcps, ResourceKind.MCP
-        )
-
-    async def _resolve_plugins(
-        self,
-        tenant_id: str,
-        profile_model: RuntimeProfile,
-    ) -> dict[str, str]:
-        return await self._resolve_configured(
-            tenant_id, profile_model.plugin_bindings, ResourceKind.PLUGIN
-        )
-
-    async def _resolve_policy_version(
-        self,
-        tenant_id: str,
-        profile_model: RuntimeProfile,
-    ) -> str | None:
-        raw = profile_model.guardrail_policy
-        if raw is None:
-            return None
-        selector = _parse_selector(raw)
-        policy = await self._resolver.resolve_resource(
-            tenant_id,
-            ResourceKind.POLICY,
-            selector.resource_id,
-            selector=selector.selector,
-        )
-        return policy.version
-
-    async def _resolve_configured(
-        self,
-        tenant_id: str,
-        allowed: list[str],
+        selectors: list[ResourceSelector],
         kind: ResourceKind,
     ) -> dict[str, str]:
         versions: dict[str, str] = {}
-        for selector in _selectors(allowed):
+        for selector in selectors:
             resource = await self._resolver.resolve_resource(
                 tenant_id,
                 kind,
@@ -350,7 +393,7 @@ def _skill_allowed_tools(skills: list[ResourceDefinition]) -> list[str]:
 
 
 def _selectors(values: list[str]) -> list[ResourceSelector]:
-    # ADR-012：入参来自 spec model 字段（list[str] 已被校验保证），无需防御。
+    # 入参来自 spec model 校验后的 str 列表（capability_ref@version_pin）。
     return [_parse_selector(value) for value in values]
 
 
@@ -362,29 +405,27 @@ def _parse_selector(value: str) -> ResourceSelector:
 
 
 def _effective_skill_selectors(
-    profile_selectors: list[ResourceSelector],
+    agent_selectors: list[ResourceSelector],
     bindings: list[ResourceBinding],
 ) -> list[ResourceSelector]:
-    # Profile 是租户基线 allowlist，Binding 表达用户/租户差异（grant 或版本 pin）。
-    # profile 技能始终保留；存在 Binding 的技能用 Binding 的版本 selector 覆盖；
-    # 仅由 Binding 授予、profile 未列出的技能也加入。
+    # Agent capability 是基线 allowlist，Binding 表达用户差异（grant 或版本 pin）。
     effective: dict[str, ResourceSelector] = {
-        selector.resource_id: selector for selector in profile_selectors
+        selector.resource_id: selector for selector in agent_selectors
     }
     for binding in bindings:
-        profile_selector = effective.get(binding.resource_id)
+        agent_selector = effective.get(binding.resource_id)
         selector = (
-            _merge_selector(profile_selector.selector, binding.resource_version_selector)
-            if profile_selector is not None
+            _merge_selector(agent_selector.selector, binding.resource_version_selector)
+            if agent_selector is not None
             else binding.resource_version_selector
         )
         effective[binding.resource_id] = ResourceSelector(binding.resource_id, selector)
     return list(effective.values())
 
 
-def _merge_selector(profile_selector: str, binding_selector: str) -> str:
-    if profile_selector != LATEST_PUBLISHED:
-        return profile_selector
+def _merge_selector(agent_selector: str, binding_selector: str) -> str:
+    if agent_selector != LATEST_PUBLISHED:
+        return agent_selector
     return binding_selector
 
 

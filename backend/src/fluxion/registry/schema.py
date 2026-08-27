@@ -320,3 +320,52 @@ Index(
 # retention period 判断（TTL 兜底清理按 created_at 扫描，Phase 3+ 接线）
 Index("idx_active_reference_tenant_created", active_references.c.tenant_id, active_references.c.created_at)
 
+
+
+# ---- User Domain（Gate 1B / TASK-U102..U105，backend brief §3.3）----
+# Profile 带版本（幂等读取取最新版本）；Preference 单行覆盖；Grant 行级撤销。
+
+user_profiles = Table(
+    "user_profiles",
+    metadata,
+    Column("tenant_id", String(128), primary_key=True),
+    Column("platform_user_id", String(128), primary_key=True),
+    Column("version", Integer, nullable=False, primary_key=True),
+    Column("profile_json", JSON, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+Index(
+    "idx_user_profiles_latest",
+    user_profiles.c.tenant_id,
+    user_profiles.c.platform_user_id,
+    user_profiles.c.version.desc(),
+)
+
+user_preferences = Table(
+    "user_preferences",
+    metadata,
+    Column("tenant_id", String(128), primary_key=True),
+    Column("platform_user_id", String(128), primary_key=True),
+    Column("preference_json", JSON, nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
+capability_grants = Table(
+    "capability_grants",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("tenant_id", String(128), nullable=False),
+    Column("platform_user_id", String(128), nullable=False),
+    Column("capability_ref", String(255), nullable=False),
+    Column("granted_scope", String(32), nullable=False),
+    Column("version_pin", String(64), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+Index(
+    "idx_capability_grants_user",
+    capability_grants.c.tenant_id,
+    capability_grants.c.platform_user_id,
+    capability_grants.c.capability_ref,
+)

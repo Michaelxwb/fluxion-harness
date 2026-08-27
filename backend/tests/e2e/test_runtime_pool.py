@@ -15,7 +15,10 @@ from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
 async def test_B_R03_runtime_pool_resolves_same_versions(
     sqlite_store: RegistryStore,
 ) -> None:
-    await seed_runtime_profile(sqlite_store, allowed_skills=["search"])
+    await seed_runtime_profile(
+        sqlite_store,
+        capabilities=[{"capability_ref": "search", "version_pin": "1", "type": "skill"}],
+    )
     await seed_skill(sqlite_store, version="1")
     await bind_skill_to_user(sqlite_store)
 

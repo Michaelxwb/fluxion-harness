@@ -5,6 +5,8 @@ from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 from fluxion.registry.store import RegistryStore
+from fluxion.registry.user_store import UserDomainStore
+
 
 
 class BindCodeRejected(RuntimeError):
@@ -92,5 +94,5 @@ class ChannelStore(Protocol):
 
 
 @runtime_checkable
-class ChannelRegistryStore(RegistryStore, ChannelStore, Protocol):
+class ChannelRegistryStore(RegistryStore, ChannelStore, UserDomainStore, Protocol):
     pass

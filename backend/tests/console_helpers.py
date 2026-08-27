@@ -145,22 +145,11 @@ async def deprecate_resource(
     )
 
 
-def runtime_profile_spec(
-    *,
-    display_name: str = "assistant",
-    allowed_mcps: list[str] | None = None,
-) -> dict[str, object]:
-    # ADR-012：与 RuntimeProfile 字段集一致（id/version/status 由资源外层
-    # ResourceDefinition 承载，不进 spec）。
-    return {
-        "display_name": display_name,
-        "prompt": "保持严谨",
-        "model_policy": {"provider": "dev.echo", "model": "console", "timeout_ms": 1000},
-        "allowed_skills": [],
-        "allowed_mcps": allowed_mcps or [],
-        "allowed_tools": [],
-        "plugin_bindings": [],
-    }
+def runtime_profile_spec() -> dict[str, object]:
+    # ADR-012 / TASK-A104：与收缩后的 RuntimeProfile 字段集一致（纯 mechanics；
+    # persona/model/capability 在 AgentDefinition）。id/version/status 由资源外层
+    # ResourceDefinition 承载，不进 spec。
+    return {"request_timeout_ms": 30_000, "max_retries": 1}
 
 
 def mcp_spec(display_name: str = "github") -> dict[str, object]:

@@ -4,6 +4,8 @@ import asyncio
 
 import pytest
 
+from tests.runtime_helpers import seed_agent_definition
+
 from fluxion.registry import SQLiteRegistryStore
 from fluxion.services.runtime_app import (
     CreateRuntimeProfileRequest,
@@ -31,10 +33,11 @@ async def test_B_R01_revision_polling_recovers_after_lost_change_event() -> None
                 tenant_id="tenant-a",
                 runtime_profile_id="assistant",
                 version="1",
-                prompt="保持严谨",
-                model_policy={"provider": "dev.echo", "model": "v1", "timeout_ms": 1000},
+                request_timeout_ms=1_000,
             )
         )
+        # TASK-A104：persona/model 在 AgentDefinition；此处关注 revision 热生效。
+        await seed_agent_definition(store, provider_id="dev.echo")
         await runtime_service.publish_runtime_profile(
             PublishRuntimeProfileRequest(
                 tenant_id="tenant-a",
@@ -57,8 +60,7 @@ async def test_B_R01_revision_polling_recovers_after_lost_change_event() -> None
                 tenant_id="tenant-a",
                 runtime_profile_id="assistant",
                 version="2",
-                prompt="保持严谨",
-                model_policy={"provider": "dev.echo", "model": "v2", "timeout_ms": 1000},
+                request_timeout_ms=1_000,
             )
         )
         await publisher_service.publish_runtime_profile(
@@ -83,7 +85,9 @@ async def test_B_R01_revision_polling_recovers_after_lost_change_event() -> None
         assert first.runtime_profile_version == "1"
         assert runtime_service.config_events[-1].version == "1"
         assert second.runtime_profile_version == "2"
-        assert second.output == "v2: cache"
+        # 模型名热切随 AgentDefinition/MODEL 链（TASK-004/008）；此处校验新版本
+        # 配置已生效并回显本次输入（DevEcho 语义）。
+        assert "cache" in second.output
         assert await store.read_revision(tenant_id="tenant-a") == 2
         assert runtime_service.last_seen_revision("tenant-a") == 2
     finally:

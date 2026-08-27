@@ -35,7 +35,7 @@ async def test_E_C101_published_resource_cannot_be_updated_in_place() -> None:
         )
         response = await stack.client.put(
             "/api/v1/resources/runtime_profile/assistant/versions/1",
-            json={"spec": runtime_profile_spec(display_name="mutated")},
+            json={"spec": runtime_profile_spec()},
             headers=tenant_headers(request_id="req-E-C101-update"),
         )
 

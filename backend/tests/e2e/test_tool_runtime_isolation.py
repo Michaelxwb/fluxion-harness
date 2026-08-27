@@ -90,16 +90,23 @@ async def test_S_F4_mcp_descriptors_isolated_per_execution_and_not_accumulated(
             resource_id="assistant",
             version="1",
             spec={
-                "prompt": "echo",
-                "model_policy": {
-                    "provider": "dev.echo",
-                    "model": "dev",
-                    "timeout_ms": 2_000,
-                    "max_rounds": 1,
-                    "deadline_ms": 5_000,
-                },
-                "allowed_skills": [],
-                "allowed_tools": [],
+                "request_timeout_ms": 2_000,
+                "max_retries": 1,
+                "max_rounds": 1,
+            },
+        )
+        # TASK-A104：persona/model 迁至同名 AgentDefinition（两租户各一份）。
+        await publish_resource(
+            sqlite_store,
+            tenant_id=tenant,
+            kind=ResourceKind.AGENT_DEFINITION,
+            resource_id="assistant",
+            version="1",
+            spec={
+                "name": "assistant",
+                "system_prompt": "echo",
+                "owner": "fixture",
+                "model_ref": {"id": "dev.echo", "version": "1"},
             },
         )
     model_registry = ModelProviderRegistry()

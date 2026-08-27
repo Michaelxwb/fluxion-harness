@@ -25,7 +25,12 @@ async def test_S_C102_publish_event_invalidates_runtime_for_new_execution() -> N
     await runtime.initialize()
     client = AsyncClient(transport=ASGITransport(app=create_app(console)), base_url="http://console")
     try:
-        await runtime.create_runtime_profile(_runtime_profile("1", "v1"))
+        await runtime.create_runtime_profile(_runtime_profile("1"))
+        # TASK-A104：persona/model 在同名 AgentDefinition；直发（绕过治理
+        # commit_publication，不产生 outbox 行，保持下方 ==2 计数成立）。
+        from tests.runtime_helpers import seed_agent_definition
+
+        await seed_agent_definition(store, provider_id="dev.echo")
         await runtime.publish_runtime_profile(
             PublishRuntimeProfileRequest("tenant-a", "assistant", "1")
         )
@@ -36,7 +41,7 @@ async def test_S_C102_publish_event_invalidates_runtime_for_new_execution() -> N
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="assistant",
             version="2",
-            spec=_console_spec("2", "v2"),
+            spec=_console_spec("2"),
         )
         published = await publish_resource(
             client,
@@ -63,28 +68,31 @@ async def test_S_C102_publish_event_invalidates_runtime_for_new_execution() -> N
         assert len(outbox) == 2
         assert all(row["status"] == "published" for row in outbox)
         assert first.runtime_profile_version == "1"
+        assert "before" in first.output
         assert second.runtime_profile_version == "2"
-        assert second.output == "v2: after"
+        # 模型名热切归 AgentDefinition/MODEL 链（TASK-004/008）；此处校验 console
+        # 发布的 v2 mechanics 已被 runtime 无重启消费（echo 回显本次输入）。
+        assert "after" in second.output
         assert runtime.config_events[-1].version == "2"
     finally:
         await client.aclose()
         await runtime.close()
 
 
-def _runtime_profile(version: str, model: str) -> CreateRuntimeProfileRequest:
+def _runtime_profile(version: str) -> CreateRuntimeProfileRequest:
     return CreateRuntimeProfileRequest(
         tenant_id="tenant-a",
         runtime_profile_id="assistant",
         version=version,
-        prompt="保持严谨",
-        model_policy={"provider": "dev.echo", "model": model, "timeout_ms": 1000},
+        request_timeout_ms=1_000,
     )
 
 
-def _console_spec(version: str, model: str) -> dict[str, object]:
+def _console_spec(version: str) -> dict[str, object]:
+    # TASK-A104：mechanics-only spec；persona/model 随 AgentDefinition 链。
     return {
-        **runtime_profile_spec(display_name=f"assistant-{version}"),
-        "model_policy": {"provider": "dev.echo", "model": model, "timeout_ms": 1000},
+        **runtime_profile_spec(),
+        "executor_config": {"bootstrapped_from": f"v{version}"},
     }
 
 

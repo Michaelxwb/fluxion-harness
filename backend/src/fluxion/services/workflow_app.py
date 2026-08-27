@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 
 from pydantic import ValidationError
 
+from fluxion.agents.capabilities import parse_capability_ref
 from fluxion.registry import RegistryReadStore
 from fluxion.resources import (
     ResourceKind,
     ResourceStatus,
     WorkflowDefinition,
 )
-
-_CAPABILITY_REF = re.compile(r"^(skill|mcp|plugin):([^@]+)@([^@]+)$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,11 +64,12 @@ class WorkflowDefinitionValidator:
 def _parse_capability_ref(
     value: str,
 ) -> tuple[ResourceKind, str, str] | None:
-    match = _CAPABILITY_REF.fullmatch(value)
-    if match is None:
+    # TASK-006：workflow 语法与 Agent CapabilityBinding 共用同一解析实现
+    # （agents.capabilities）——禁止两端各自维护 kind 映射与拆装逻辑。
+    ref = parse_capability_ref(value)
+    if ref is None:
         return None
-    kind_value, resource_id, version = match.groups()
-    return ResourceKind(kind_value), resource_id, version
+    return ref.resource_kind, ref.resource_id, ref.version
 
 
 def _format_schema_error(exc: ValidationError) -> str:

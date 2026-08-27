@@ -142,8 +142,7 @@ async def _runtime_service() -> RuntimeApplicationService:
             tenant_id="tenant-a",
             runtime_profile_id="assistant",
             version="1",
-            prompt="保持严谨",
-            model_policy={"provider": "dev.echo", "model": "dev", "timeout_ms": 1_000},
+            request_timeout_ms=1_000,
         )
     )
     await service.publish_runtime_profile(

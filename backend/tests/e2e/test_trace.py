@@ -51,11 +51,17 @@ async def test_S_R09_trace_contains_snapshot_model_tool_hook_latency_and_error()
                 tenant_id="tenant-a",
                 runtime_profile_id="assistant",
                 version="1",
-                prompt="保持严谨",
-                model_policy={"provider": "dev.echo", "model": "dev", "timeout_ms": 1000},
-                allowed_tools=["time.now"],
+                request_timeout_ms=1_000,
             )
         )
+        from tests.runtime_helpers import seed_agent_definition
+        # 工具准入（time.now）随 AgentDefinition TOOL capability。
+        await seed_agent_definition(
+            store,
+            provider_id="dev.echo",
+            capabilities=[{"capability_ref": "time.now", "version_pin": "1", "type": "tool"}],
+        )
+
         await service.publish_runtime_profile(
             PublishRuntimeProfileRequest(
                 tenant_id="tenant-a",

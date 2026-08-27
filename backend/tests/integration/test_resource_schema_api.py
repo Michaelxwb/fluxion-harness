@@ -9,9 +9,14 @@ from fluxion.resources import ResourceKind
 # 契约里真正会被消费的必填字段（无默认值 → 进 required），避免测试与 schema
 # 全量耦合（schema 加字段不应破坏此测试）。
 REQUIRED_PROPERTIES: dict[ResourceKind, set[str]] = {
-    ResourceKind.RUNTIME_PROFILE: {"prompt"},
+    ResourceKind.RUNTIME_PROFILE: {"request_timeout_ms", "max_retries"},
+    # TASK-001：AgentDefinition 必填 = identity(name/system_prompt) + owner + model_ref
+    ResourceKind.AGENT_DEFINITION: {"name", "system_prompt", "owner", "model_ref"},
+    ResourceKind.MODEL: {"plugin_type", "protocol", "base_url", "model"},
+    ResourceKind.TOOL: {"name", "capability_ref", "adapter_ref"},
     ResourceKind.SKILL: {"name"},
     ResourceKind.MCP: {"name", "transport"},
+    ResourceKind.SECRET: {"name", "secret_ref"},
     ResourceKind.PLUGIN: {"plugin_type", "protocol", "base_url", "model"},
     ResourceKind.POLICY: {"name"},
     ResourceKind.WORKFLOW: {"name", "engine_ref", "steps"},
@@ -55,8 +60,8 @@ async def test_RS6_schema_route_not_swallowed_by_resource_id_route() -> None:
 
 
 @pytest.mark.asyncio
-async def test_RS6_schema_carries_field_defaults_for_form_prefill() -> None:
-    # 默认值内嵌于 property.default：前端据此预填，无需独立 defaults 契约。
+async def test_RS6_schema_carries_runtime_mechanics_constraints() -> None:
+    # RuntimeProfile schema 只暴露运行机制；必填、边界与默认值均供表单直接消费。
     async with console_stack() as stack:
         response = await stack.client.get(
             "/api/v1/resources/runtime_profile/schema",
@@ -64,12 +69,19 @@ async def test_RS6_schema_carries_field_defaults_for_form_prefill() -> None:
         )
 
     schema = response.json()["data"]["schema"]
-    model_policy = schema["properties"]["model_policy"]
-    resolved = schema["$defs"]["ModelPolicy"]["properties"]
-    assert resolved["timeout_ms"]["default"] == 60_000
-    assert resolved["deadline_ms"]["default"] == 120_000
-    assert resolved["max_rounds"]["default"] == 8
-    assert model_policy["$ref"] == "#/$defs/ModelPolicy"
+    properties = schema["properties"]
+    assert set(properties) == {
+        "request_timeout_ms",
+        "max_retries",
+        "max_rounds",
+        "concurrency",
+        "memory_budget_mb",
+        "executor_config",
+    }
+    assert properties["request_timeout_ms"]["minimum"] == 100
+    assert properties["request_timeout_ms"]["maximum"] == 120_000
+    assert properties["max_retries"]["maximum"] == 5
+    assert properties["concurrency"]["default"] == 1
 
 
 @pytest.mark.asyncio

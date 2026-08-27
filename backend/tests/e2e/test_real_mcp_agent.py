@@ -150,18 +150,25 @@ async def _seed_mcp_product(
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
+        spec={"request_timeout_ms": 3_000, "max_retries": 1, "max_rounds": max_rounds},
+    )
+    # TASK-A104：persona/model/能力白名单迁至同名 AgentDefinition（resolver 同名
+    # 回退解析）。TOOL capability 只承载 ref 准入，不做版本解析。
+    await publish_resource(
+        store,
+        tenant_id="tenant-a",
+        kind=ResourceKind.AGENT_DEFINITION,
+        resource_id="assistant",
+        version="1",
         spec={
-            "prompt": "使用 MCP 查询。",
-            "model_policy": {
-                "provider": "wire",
-                "model": "fixture-model",
-                "timeout_ms": 3_000,
-                "deadline_ms": 8_000,
-                "max_rounds": max_rounds,
-            },
-            "allowed_skills": [],
-            "allowed_mcps": ["weather@1"],
-            "allowed_tools": [tool_id],
+            "name": "assistant",
+            "system_prompt": "使用 MCP 查询。",
+            "owner": "fixture",
+            "model_ref": {"id": "wire", "version": "1"},
+            "capabilities": [
+                {"capability_ref": "weather", "version_pin": "1", "type": "mcp"},
+                {"capability_ref": tool_id, "version_pin": "1", "type": "tool"},
+            ],
         },
     )
     if bind_user:

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
 
 # Workflow backend 连接配置（ADR-WF-001 TASK-001；backend-platform：环境变量 > 配置文件 > 默认值）。
 TEMPORAL_ADDRESS_ENV = "TEMPORAL_ADDRESS"
@@ -79,8 +79,8 @@ def _pick(
 
 
 __all__ = [
-    "DEFAULT_CONFIG_FILE",
     "DBOS_DATABASE_URL_ENV",
+    "DEFAULT_CONFIG_FILE",
     "RESTATE_URL_ENV",
     "TEMPORAL_ADDRESS_ENV",
     "WORKFLOW_CONFIG_FILE_ENV",

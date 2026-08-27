@@ -27,10 +27,22 @@ def test_B_R07_snapshot_builder_p95_under_20ms(benchmark: BenchmarkFixture) -> N
         id="assistant",
         version="1",
         status=ResourceStatus.PUBLISHED,
+        spec_json={"request_timeout_ms": 30_000, "max_retries": 1},
+    )
+    agent = ResourceDefinition(
+        tenant_id="tenant-a",
+        kind=ResourceKind.AGENT_DEFINITION,
+        id="assistant",
+        version="1",
+        status=ResourceStatus.PUBLISHED,
         spec_json={
-            "prompt": "保持严谨",
-            "model_policy": {"provider": "test"},
-            "allowed_skills": ["search@1"],
+            "name": "assistant",
+            "system_prompt": "保持严谨",
+            "owner": "fixture",
+            "model_ref": {"id": "test", "version": "1"},
+            "capabilities": [
+                {"capability_ref": "search", "version_pin": "1", "type": "skill"}
+            ],
         },
     )
     skill = ResourceDefinition(

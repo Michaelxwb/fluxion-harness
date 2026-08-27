@@ -45,6 +45,9 @@ async def test_S_R01_local_console_sqlite_runtime_and_web_chat_golden_path(
                 json={"expected_base_version": "1"},
                 headers=tenant_headers(request_id="req-publish"),
             )
+            # TASK-A104：persona/model 在同名 AgentDefinition（golden path 数据面）。
+            from tests.runtime_helpers import seed_agent_definition
+            await seed_agent_definition(store, provider_id="dev.echo", system_prompt="你是 Fluxion 产品助手。")
         await channel.create_platform_user("tenant-a", "user-a", display_name="用户 A")
         issued = await channel.issue_bind_code("tenant-a", "user-a")
 
@@ -70,7 +73,7 @@ async def test_S_R01_local_console_sqlite_runtime_and_web_chat_golden_path(
         assert streamed.status_code == 200
         assert streamed.headers["content-type"].startswith("text/event-stream")
         assert 'event: completed' in streamed.text
-        assert '"output": "console: hello product"' in streamed.text
+        assert '"output": "dev: hello product"' in streamed.text  # 模型名归 MODEL 链
         assert database.exists()
     finally:
         await store.close()

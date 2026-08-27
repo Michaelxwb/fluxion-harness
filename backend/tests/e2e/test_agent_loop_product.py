@@ -60,16 +60,31 @@ async def _publish_profile(
         resource_id="assistant",
         version="1",
         spec={
-            "prompt": "你是 Fluxion 助手。",
-            "model_policy": {
-                "provider": "wire",
-                "model": "fixture-model",
-                "timeout_ms": 2_000,
-                "max_rounds": 4,
-                "deadline_ms": 5_000,
-            },
-            "allowed_skills": allowed_skills or [],
-            "allowed_tools": ["lookup"],
+            "request_timeout_ms": 2_000,
+            "max_retries": 1,
+            "max_rounds": 4,
+        },
+    )
+    # TASK-A104：persona/model/工具准入迁至同名 AgentDefinition。
+    capabilities = []
+    for skill in allowed_skills or []:
+        ref, _, pinned = skill.partition("@")
+        capabilities.append(
+            {"capability_ref": ref, "version_pin": pinned or "1", "type": "skill"}
+        )
+    capabilities.append({"capability_ref": "lookup", "version_pin": "1", "type": "tool"})
+    await publish_resource(
+        store,
+        tenant_id="tenant-a",
+        kind=ResourceKind.AGENT_DEFINITION,
+        resource_id="assistant",
+        version="1",
+        spec={
+            "name": "assistant",
+            "system_prompt": "你是 Fluxion 助手。",
+            "owner": "fixture",
+            "model_ref": {"id": "wire", "version": "1"},
+            "capabilities": capabilities,
         },
     )
 

@@ -28,6 +28,7 @@ from fluxion.resources import (
     ResourceDefinition,
     ResourceKind,
     ResourceStatus,
+    ResourceVisibility,
     TenantResourceCache,
 )
 from fluxion.runtime.agent import AgentRuntime, RuntimeStepResult
@@ -232,6 +233,9 @@ class RuntimeApplicationService(RuntimeToolOps):
         )
         if existing is None:
             existing = await self.create_runtime_profile(request)
+        # TASK-A104：自举路径同步确保同名默认 AgentDefinition（persona/model 的
+        # SoT），使 `run --bootstrap` / dev bundle 开箱可跑；已存在则不覆盖。
+        await _ensure_default_agent(self._store, request)
         if existing.status is ResourceStatus.PUBLISHED:
             return existing
         return await self.publish_runtime_profile(
@@ -261,7 +265,7 @@ class RuntimeApplicationService(RuntimeToolOps):
             try:
                 context = await self._runtime.start_execution(_request_context(request))
                 context.tool_runtime = self._tool_runtime.clone_for_execution()
-                self._prepare_registry_model_providers(context)
+                await self._prepare_registry_model_providers(context)
                 mcp_tool_ids = await self._mcp_runtime.prepare(context, context.tool_runtime)
                 model_tools = await self._model_tool_definitions(context, mcp_tool_ids)
                 allowed_model_tools = {tool.name for tool in model_tools}
@@ -343,7 +347,7 @@ class RuntimeApplicationService(RuntimeToolOps):
         try:
             context = await self._runtime.start_execution(_request_context(request))
             context.tool_runtime = self._tool_runtime.clone_for_execution()
-            self._prepare_registry_model_providers(context)
+            await self._prepare_registry_model_providers(context)
             mcp_tool_ids = await self._mcp_runtime.prepare(context, context.tool_runtime)
             model_tools = await self._model_tool_definitions(context, mcp_tool_ids)
             if model_tools:
@@ -522,3 +526,45 @@ class RuntimeApplicationService(RuntimeToolOps):
                 hooks=_hook_events(events),
             )
         )
+
+
+async def _ensure_default_agent(
+    store: RegistryStore, request: CreateRuntimeProfileRequest
+) -> None:
+    """为自举的 RuntimeProfile 确保同名默认 AgentDefinition（TASK-A104）。
+
+    persona/model 的 SoT 在 AgentDefinition；dev bundle / `run --bootstrap`
+    需要开箱可跑的默认 Agent（provider=dev.echo）。已存在任何版本即不动。
+    """
+    agent = await store.get(
+        ResourceKind.AGENT_DEFINITION,
+        request.runtime_profile_id,
+        tenant_id=request.tenant_id,
+    )
+    if agent is not None:
+        return
+    from fluxion.agents.definitions import AgentDefinition
+
+    spec = AgentDefinition(
+        name=request.runtime_profile_id,
+        description="由 runtime 自举生成的默认 Agent",
+        system_prompt="保持严谨",
+        owner="system:bootstrap",
+        model_ref={"id": "dev.echo", "version": "1"},
+    )
+    draft = ResourceDefinition(
+        kind=ResourceKind.AGENT_DEFINITION,
+        id=request.runtime_profile_id,
+        tenant_id=request.tenant_id,
+        version=request.version,
+        status=ResourceStatus.DRAFT,
+        visibility=ResourceVisibility.PRIVATE,
+        spec_json=spec.model_dump(mode="json"),
+    )
+    existing_draft = await store.put(draft)
+    await store.publish(
+        ResourceKind.AGENT_DEFINITION,
+        request.runtime_profile_id,
+        tenant_id=request.tenant_id,
+        version=existing_draft.version,
+    )

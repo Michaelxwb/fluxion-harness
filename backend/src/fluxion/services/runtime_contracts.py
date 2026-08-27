@@ -22,14 +22,18 @@ class RuntimeApplicationError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class CreateRuntimeProfileRequest:
+    """TASK-A104：RuntimeProfile 只承载 runtime mechanics（不再含 persona/
+    model/capability 产品语义——见 RuntimeProfile spec model）。"""
+
     tenant_id: str
     runtime_profile_id: str
     version: str
-    prompt: str
-    model_policy: Mapping[str, object]
-    allowed_skills: Sequence[str] = ()
-    allowed_mcps: Sequence[str] = ()
-    allowed_tools: Sequence[str] = ()
+    request_timeout_ms: int = 60_000
+    max_retries: int = 1
+    max_rounds: int = 8
+    concurrency: int = 1
+    memory_budget_mb: int | None = None
+    executor_config: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +58,8 @@ class RunRuntimeRequest:
     session_id: str
     input_message: str
     runtime_profile_version_selector: str = LATEST_PUBLISHED
+    # TASK-A104：显式指定执行的 AgentDefinition；缺省回退同名（迁移产物）。
+    agent_definition_id: str | None = None
     request_id: str = field(default_factory=_new_id)
     trace_id: str = field(default_factory=_new_id)
     execution_id: str = field(default_factory=_new_id)
@@ -131,6 +137,5 @@ def default_runtime_profile_request(
         tenant_id=tenant_id,
         runtime_profile_id=runtime_profile_id,
         version="1",
-        prompt="保持严谨",
-        model_policy={"provider": "dev.echo", "model": "dev", "timeout_ms": 1000},
+        request_timeout_ms=1_000,
     )

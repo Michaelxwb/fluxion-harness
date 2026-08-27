@@ -25,6 +25,9 @@ async def test_S_C103_runtime_reads_registry_after_console_shutdown(tmp_path: Pa
             resource_id="assistant",
             request_id="req-S-C103",
         )
+        # TASK-A104：persona/model 在同名 AgentDefinition（console 侧同库种入）。
+        from tests.runtime_helpers import seed_agent_definition
+        await seed_agent_definition(stack.store, provider_id="dev.echo")
         assert published.json()["data"]["event_status"] == "pending"
 
     runtime_store = SQLiteRegistryStore(f"sqlite+aiosqlite:///{database}")
@@ -43,7 +46,7 @@ async def test_S_C103_runtime_reads_registry_after_console_shutdown(tmp_path: Pa
         async with runtime_store.engine.connect() as connection:
             records = (await connection.execute(select(publish_records))).mappings().all()
         assert result.runtime_profile_version == "1"
-        assert result.output == "console: console is down"
+        assert result.output == "dev: console is down"  # 模型名归 MODEL 链
         assert len(records) == 1
         assert records[0]["request_id"] == "req-S-C103"
     finally:

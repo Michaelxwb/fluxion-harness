@@ -46,6 +46,7 @@ class RunPayload(BaseModel):
     session_id: str
     input_message: str = Field(alias="input")
     runtime_profile_version_selector: str = "latest-published"
+    agent_definition_id: str | None = None
     tool_calls: list[ToolCallPayload] = Field(default_factory=list)
 
 
@@ -193,6 +194,7 @@ def _run_request(
         session_id=payload.session_id,
         input_message=payload.input_message,
         runtime_profile_version_selector=payload.runtime_profile_version_selector,
+        agent_definition_id=payload.agent_definition_id,
         request_id=request_id,
         tool_calls=[
             ToolCallRequest(tool_id=call.tool_id, arguments=call.arguments)

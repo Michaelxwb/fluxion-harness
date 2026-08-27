@@ -6,7 +6,7 @@ from fluxion.kernel.events import BeforeToolCallPayload, TypedEventBus
 from fluxion.plugins.contracts import ToolCall, ToolDefinition
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.registry import RegistryStore
-from fluxion.resources import ResourceKind, RuntimeProfile
+from fluxion.resources import ResourceKind, ResourceStatus
 from fluxion.runtime.agent import ModelToolResult
 from fluxion.runtime.capabilities import EffectiveCapabilityResolver
 from fluxion.runtime.context import RuntimeContext
@@ -41,12 +41,22 @@ class RuntimeToolOps:
             results.append(_tool_result_payload(call.tool_id, result))
         return results
 
-    def _prepare_registry_model_providers(self, context: RuntimeContext) -> None:
+    async def _prepare_registry_model_providers(self, context: RuntimeContext) -> None:
         policy = context.snapshot.model_resolution
         provider_ids = [policy.provider] if policy.provider else []
         provider_ids.extend(policy.failover)
         for provider_id in provider_ids:
+            # 双重门槛：①在 snapshot.plugin_versions 中被 agent.model_ref 显式
+            # pin；②Registry 存在同 id 的 PLUGIN 资源。两者同时满足才包装为
+            # store-backed 注册——否则保留进程内已注册实现（DevEcho/测试桩等）。
             if provider_id not in context.snapshot.plugin_versions:
+                continue
+            plugin = await self._store.get(
+                ResourceKind.PLUGIN,
+                provider_id,
+                tenant_id=context.snapshot.tenant_id,
+            )
+            if plugin is None or plugin.status is not ResourceStatus.PUBLISHED:
                 continue
             self._model_providers.register(
                 provider_id,
@@ -201,14 +211,24 @@ class RuntimeToolOps:
         )
 
     async def _allowed_tools(self, context: RuntimeContext) -> set[str]:
-        profile = await self._store.get(
-            ResourceKind.RUNTIME_PROFILE,
-            context.snapshot.runtime_profile_id,
+        # TASK-A104：工具白名单基线从 AgentDefinition.capabilities(type=tool) 取
+        # （RuntimeProfile 已收缩为纯 mechanics，无工具语义）；snapshot 优先，
+        # 缺 agent 关联时回退按 snapshot 的 profile 同名解析（迁移产物同名）。
+        agent_id = context.snapshot.agent_definition_id or context.snapshot.runtime_profile_id
+        agent = await self._store.get(
+            ResourceKind.AGENT_DEFINITION,
+            agent_id,
             tenant_id=context.snapshot.tenant_id,
-            version=context.snapshot.runtime_profile_version,
+            version=context.snapshot.agent_definition_version,
         )
-        if profile is None:
-            return set()
-        # ADR-012：从 RuntimeProfile 实例取字段（单一真相源）。
-        profile_model = RuntimeProfile.model_validate(profile.spec_json)
-        return set(profile_model.allowed_tools) | set(context.snapshot.skill_allowed_tools)
+        tool_refs: set[str] = set()
+        if agent is not None:
+            from fluxion.agents.definitions import AgentDefinition, CapabilityType
+
+            agent_spec = AgentDefinition.model_validate(agent.spec_json)
+            tool_refs = {
+                binding.capability_ref
+                for binding in agent_spec.capabilities
+                if binding.type is CapabilityType.TOOL
+            }
+        return tool_refs | set(context.snapshot.skill_allowed_tools)

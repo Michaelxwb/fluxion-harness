@@ -39,10 +39,12 @@ async def test_stream_yields_tokens_when_provider_supports_streaming() -> None:
                 tenant_id="tenant-a",
                 runtime_profile_id="assistant",
                 version="1",
-                prompt="保持严谨",
-                model_policy={"provider": "custom-stream", "model": "stream", "timeout_ms": 1000},
+                request_timeout_ms=1_000,
             )
         )
+        from tests.runtime_helpers import seed_agent_definition
+        await seed_agent_definition(store, provider_id="custom-stream")
+
         await service.publish_runtime_profile(
             PublishRuntimeProfileRequest(
                 tenant_id="tenant-a",

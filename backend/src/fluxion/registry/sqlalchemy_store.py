@@ -15,7 +15,9 @@ from fluxion.registry import (
     publish_sqlalchemy,
     resource_sqlalchemy,
     retention_sqlalchemy,
+    user_sqlalchemy,
 )
+from fluxion.registry.user_store import CapabilityGrantRecord
 from fluxion.registry.channel_store import (
     BindCodeRecord,
     BindRedemption,
@@ -31,12 +33,12 @@ from fluxion.registry.schema import (
     resource_bindings,
 )
 from fluxion.registry.store import (
+    DEFAULT_HARD_DELETE_RETENTION,
     ActiveReference,
     AuditRecord,
     BindingCommand,
     BindingCommit,
     BindingOperation,
-    DEFAULT_HARD_DELETE_RETENTION,
     DeleteResult,
     NotFoundError,
     OutboxEventRecord,
@@ -639,6 +641,118 @@ class SQLAlchemyRegistryStore:
     def engine(self) -> AsyncEngine:
         return self._engine
 
+
+    # ---- User Domain（Gate 1B）门面：组合 user_sqlalchemy + engine 暴露 ----
+
+    async def put_user_profile(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        profile_json: dict[str, object],
+    ) -> int:
+        return await user_sqlalchemy.put_profile(
+            self.engine,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            profile_json=profile_json,
+        )
+
+    async def get_latest_user_profile(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> dict[str, Any] | None:
+        return await user_sqlalchemy.get_latest_profile(
+            self.engine, tenant_id=tenant_id, platform_user_id=platform_user_id
+        )
+
+    async def put_user_preferences(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        preference_json: dict[str, object],
+    ) -> dict[str, Any]:
+        await user_sqlalchemy.put_preferences(
+            self.engine,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            preference_json=preference_json,
+        )
+        row = await user_sqlalchemy.get_preferences(
+            self.engine, tenant_id=tenant_id, platform_user_id=platform_user_id
+        )
+        assert row is not None
+        return row
+
+    async def get_user_preferences(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> dict[str, Any] | None:
+        return await user_sqlalchemy.get_preferences(
+            self.engine, tenant_id=tenant_id, platform_user_id=platform_user_id
+        )
+
+    async def add_capability_grant(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        capability_ref: str,
+        granted_scope: str,
+        version_pin: str | None,
+    ) -> CapabilityGrantRecord:
+        created = await user_sqlalchemy.add_grant(
+            self.engine,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            capability_ref=capability_ref,
+            granted_scope=granted_scope,
+            version_pin=version_pin,
+        )
+        return CapabilityGrantRecord(
+            id=created,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            capability_ref=capability_ref,
+            granted_scope=granted_scope,
+            version_pin=version_pin,
+            created_at=user_sqlalchemy._now(),
+        )
+
+    async def list_capability_grants(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> list[CapabilityGrantRecord]:
+        rows = await user_sqlalchemy.list_grants(
+            self.engine, tenant_id=tenant_id, platform_user_id=platform_user_id
+        )
+        return [
+            CapabilityGrantRecord(
+                id=int(r["id"]),
+                tenant_id=r["tenant_id"],
+                platform_user_id=r["platform_user_id"],
+                capability_ref=r["capability_ref"],
+                granted_scope=r["granted_scope"],
+                version_pin=r["version_pin"],
+                created_at=r["created_at"],
+            )
+            for r in rows
+        ]
+
+    async def revoke_capability_grant(
+        self, *, tenant_id: str, platform_user_id: str, capability_ref: str
+    ) -> int:
+        return await user_sqlalchemy.revoke_grant(
+            self.engine,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            capability_ref=capability_ref,
+        )
+
+    async def list_channel_identities_for_user(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> list[dict[str, Any]]:
+        return await user_sqlalchemy.list_channel_identities_for_user(
+            self.engine, tenant_id=tenant_id, platform_user_id=platform_user_id
+        )
 
 class SQLiteRegistryStore(SQLAlchemyRegistryStore):
     pass

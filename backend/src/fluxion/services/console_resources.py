@@ -5,12 +5,14 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ValidationError
 
+from fluxion.agents import AgentDefinition
 from fluxion.errors.console import (
     ConsoleForbiddenError,
     ConsoleResourceConflictError,
     ConsoleResourceNotFoundError,
     ConsoleValidationError,
     ConsoleVersionConflictError,
+    StudioSpecValidationError,
 )
 from fluxion.registry import (
     ChannelRegistryStore,
@@ -28,7 +30,9 @@ from fluxion.resources import (
     ResourceKind,
     ResourceStatus,
     RuntimeProfile,
+    SecretDefinition,
     SkillDefinition,
+    ToolDefinition,
     WorkflowDefinition,
 )
 from fluxion.services.approval_app import ApprovalStatus, ApprovalStore, utc_now
@@ -480,6 +484,20 @@ class ConsoleResourceOps:
             raise ConsoleValidationError(f"unsupported resource type: {kind.value}")
         return {"schema": model.model_json_schema()}
 
+    def validate_spec_shape(
+        self, kind: ResourceKind, spec: dict[str, object]
+    ) -> None:
+        """Product API 前置 typed 校验（TASK-004 E-01）：进入 draft 前定位字段错误。
+
+        slug=agent_definition_invalid（agents 语义），诊断含 pydantic 字段路径；
+        其它 kind 同样前置（schema 驱动表单一套行为）。
+        """
+        result = _validate_definition(kind, spec)
+        if not result.valid:
+            raise StudioSpecValidationError(
+                "agent_definition_invalid：" + "；".join(result.diagnostics)
+            )
+
 
 def _ensure_same_tenant(actor: ConsoleActor, tenant_id: str) -> None:
     if not tenant_id.strip():
@@ -503,12 +521,20 @@ def _raise_for_invalid_workflow(result: WorkflowValidationResult) -> None:
 
 
 def _definition_model(kind: ResourceKind) -> type[BaseModel] | None:
+    if kind is ResourceKind.AGENT_DEFINITION:
+        return AgentDefinition
     if kind is ResourceKind.RUNTIME_PROFILE:
         return RuntimeProfile
+    if kind is ResourceKind.MODEL:
+        return ModelProviderDefinition
+    if kind is ResourceKind.TOOL:
+        return ToolDefinition
     if kind is ResourceKind.SKILL:
         return SkillDefinition
     if kind is ResourceKind.MCP:
         return MCPDefinition
+    if kind is ResourceKind.SECRET:
+        return SecretDefinition
     if kind is ResourceKind.PLUGIN:
         return ModelProviderDefinition
     if kind is ResourceKind.POLICY:

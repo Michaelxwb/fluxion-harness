@@ -26,10 +26,12 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
                 tenant_id="tenant-a",
                 runtime_profile_id="assistant",
                 version="1",
-                prompt="保持严谨",
-                model_policy={"provider": "dev.echo", "model": "api", "timeout_ms": 1000},
+                request_timeout_ms=1_000,
             )
         )
+        from tests.runtime_helpers import seed_agent_definition
+        await seed_agent_definition(store, provider_id="dev.echo")
+
         await service.publish_runtime_profile(
             PublishRuntimeProfileRequest(
                 tenant_id="tenant-a",
@@ -80,14 +82,15 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
         assert payload["code"] == 0
         assert payload["message"] == "success"
         assert payload["request_id"] == "req-run"
-        assert payload["data"]["output"] == "api: hello"
+        # 模型名随 MODEL 资源链（TASK-004/008）；DevEcho 回显 provider 默认名。
+        assert payload["data"]["output"] == "dev: hello"
         assert payload["data"]["runtime_profile_version"] == "1"
         assert stream.status_code == 200
         assert stream.headers["content-type"].startswith("text/event-stream")
         events = _parse_sse(stream.text)
         assert [name for name, _ in events] == ["started", "completed"]
         completed = next(data for name, data in events if name == "completed")
-        assert completed["output"] == "api: stream"
+        assert completed["output"] == "dev: stream"  # 模型名归 MODEL 链（TASK-004/008）
         assert override.status_code == 400
         assert override.json()["code"] == RUNTIME_APPLICATION_ERROR
         assert "resource_version_not_found" in override.json()["message"]
