@@ -63,13 +63,17 @@ describe("TASK-013 product client envelope semantics", () => {
     expect(seen).toEqual(["token"]);
   });
 
-  it("listCapabilities forwards type filter as query", async () => {
-    const fetcher = fetchStub(JSON_OK([]));
-    const client = createProductClient({ baseUrl: "", fetcher: fetcher as unknown as typeof fetch });
-    await client.listCapabilities("mcp");
-    const [url] = (fetcher as unknown as { mock: { calls: unknown[][] } }).mock.calls[0];
-    expect(String(url)).toContain("/studio/mcp");
-  });
+  it.each(["skill", "tool", "mcp"] as const)(
+    "listCapabilities maps singular kind to plural route (%s)",
+    async (route) => {
+      const fetcher = fetchStub(JSON_OK([]));
+      const client = createProductClient({ baseUrl: "", fetcher: fetcher as unknown as typeof fetch });
+      await client.listCapabilities(route);
+      const [url] = (fetcher as unknown as { mock: { calls: unknown[][] } }).mock.calls[0];
+      const expectedRoute = { skill: "skills", tool: "tools", mcp: "mcp" }[route];
+      expect(String(url)).toBe(`/studio/${expectedRoute}`);
+    }
+  );
 });
 
 /** FE-B-01 静态门禁：产品面源码零裸 fetch/any/@ts-ignore。 */

@@ -231,11 +231,16 @@ export function ResourcesPage({ api, initialTypeFilter = "all" }: ResourcesPageP
 
 const RESOURCE_TYPES: readonly ResourceType[] = [
   "runtime_profile",
+  "agent_definition",
+  "model",
+  "tool",
+  "secret",
   "skill",
   "mcp",
   "plugin",
   "policy",
-  "workflow"
+  "workflow",
+  "eval_set"
 ];
 
 const RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {

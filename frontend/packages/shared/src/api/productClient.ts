@@ -39,6 +39,13 @@ export interface TestRunInput {
 
 export type CapabilityKind = "skill" | "tool" | "mcp";
 
+/** CapabilityKind 单数 → /studio/{kind} 复数路由别名。 */
+const CAPABILITY_ROUTE: Record<CapabilityKind, string> = {
+  skill: "skills",
+  tool: "tools",
+  mcp: "mcp"
+};
+
 export interface GrantInput {
   readonly type: CapabilityKind;
   readonly capability_ref: string;
@@ -127,7 +134,10 @@ export function createProductClient(options: ProductClientOptions = {}) {
 
     /** Capability（TASK-006：skill/tool/mcp typed 绑定）。 */
     listCapabilities: (type?: CapabilityKind) =>
-      read(`/studio/${type ?? "skills"}`, (value) => value as readonly Record<string, unknown>[]),
+      read(
+        `/studio/${type ? CAPABILITY_ROUTE[type] : "skills"}`,
+        (value) => value as readonly Record<string, unknown>[]
+      ),
 
     /** 通用 Product resource CRUD（TASK-004）。 */
     listResources: (kind: ProductKind, page?: PageRequest) =>

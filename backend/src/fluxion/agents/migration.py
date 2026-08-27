@@ -100,6 +100,7 @@ def _convert_profile(
     mechanics_spec = RuntimeProfile(
         request_timeout_ms=_bounded_int(policy.get("timeout_ms", 60_000), "timeout_ms"),
         max_retries=_bounded_int(policy.get("max_retries", 1), "max_retries"),
+        max_rounds=_bounded_int(policy.get("max_rounds", 8), "max_rounds"),
         concurrency=_bounded_int(legacy.get("concurrency", 1), "concurrency"),
         memory_budget_mb=_bounded_int(
             legacy.get("memory_budget_mb", 512), "memory_budget_mb"

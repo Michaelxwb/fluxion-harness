@@ -176,6 +176,34 @@ async def test_runtime_profile_migration_moves_product_fields_and_is_idempotent(
         "tool",
         "mcp",
     }
+    # H6：无 @pin 的 legacy 条目 → latest-published（不得借用 profile 版本号）。
+    pins = {item["capability_ref"]: item["version_pin"] for item in capabilities if isinstance(item, dict)}
+    assert pins["builtin.time"] == "latest-published"
     assert mechanics.status is ResourceStatus.PUBLISHED
     assert mechanics.spec_json["request_timeout_ms"] == 15_000
     assert set(mechanics.spec_json) == _MECHANICS_FIELDS
+
+async def test_migration_resumes_when_draft_exists_without_publish() -> None:
+    """M4：put 与 publish 之间崩溃后重跑——同 spec DRAFT 续跑直接补发布。"""
+    from fluxion.agents.migration import _persist_target
+
+    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    await store.initialize()
+    try:
+        target = ResourceDefinition(
+            kind=ResourceKind.AGENT_DEFINITION, id="assistant", tenant_id="tenant-a",
+            version="1", status=ResourceStatus.PUBLISHED,
+            spec_json={"name": "assistant", "system_prompt": "保持严谨", "owner": "migration:system",
+                       "model_ref": {"id": "dev.echo", "version": "1"}},
+        )
+        # 预置同 spec 的 DRAFT（模拟首次迁移在 publish 前中断）。
+        await store.put(target.model_copy(update={"status": ResourceStatus.DRAFT}))
+
+        await _persist_target(store, target)
+
+        resumed = await store.get(
+            ResourceKind.AGENT_DEFINITION, "assistant", tenant_id="tenant-a", version="1"
+        )
+        assert resumed is not None and resumed.status is ResourceStatus.PUBLISHED
+    finally:
+        await store.close()

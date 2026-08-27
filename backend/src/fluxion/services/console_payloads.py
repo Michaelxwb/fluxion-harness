@@ -100,9 +100,17 @@ def trace_payload(trace: TraceRecord) -> dict[str, object]:
         "tenant_id": trace.tenant_id,
         "user_id": snapshot.user_id,
         "runtime_profile": {
-            "id": snapshot.agent_id,
+            "id": snapshot.runtime_profile_id,
             "version": snapshot.runtime_profile_version,
         },
+        "agent_definition": (
+            {
+                "id": snapshot.agent_definition_id,
+                "version": snapshot.agent_definition_version,
+            }
+            if snapshot.agent_definition_id
+            else None
+        ),
         "skills": snapshot.skill_versions,
         "mcps": snapshot.mcp_versions,
         "plugins": snapshot.plugin_versions,

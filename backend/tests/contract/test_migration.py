@@ -3,6 +3,8 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+import sqlalchemy as sa
+
 from alembic import command
 from alembic.config import Config
 
@@ -21,6 +23,15 @@ def _tables(db_path: Path) -> set[str]:
     try:
         rows = connection.execute("select name from sqlite_master where type='table'")
         return {str(row[0]) for row in rows}
+    finally:
+        connection.close()
+
+
+def _columns(db_path: Path, table: str) -> set[str]:
+    connection = sqlite3.connect(db_path)
+    try:
+        rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
+        return {row[1] for row in rows}
     finally:
         connection.close()
 
@@ -44,6 +55,14 @@ def test_migration_upgrade_creates_full_schema_and_downgrade_cleans(tmp_path) ->
     assert "chat_access_tokens" in tables
     assert "publish_records" in tables
     assert "active_references" in tables
+    # TASK-007/008：User Domain 三表 + A105 列改名显式断言。
+    assert "user_profiles" in tables
+    assert "user_preferences" in tables
+    assert "capability_grants" in tables
+
+    columns = _columns(db_path, "chat_access_tokens")
+    assert {"agent_id"} <= columns
+    assert "runtime_profile_id" not in columns
 
     command.downgrade(_config(db_path), "base")
     assert _tables(db_path) == {"alembic_version"}
