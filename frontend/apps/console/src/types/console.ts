@@ -27,7 +27,18 @@ export interface JsonSchemaNode {
   readonly anyOf?: readonly JsonSchemaNode[];
 }
 
-export type ResourceType = "runtime_profile" | "skill" | "mcp" | "plugin" | "policy" | "workflow";
+export type ResourceType =
+  | "runtime_profile"
+  | "agent_definition"
+  | "model"
+  | "tool"
+  | "secret"
+  | "skill"
+  | "mcp"
+  | "plugin"
+  | "policy"
+  | "workflow"
+  | "eval_set";
 export type ResourceStatus = "draft" | "published" | "deprecated";
 export type ResourceVisibility = "system" | "public" | "tenant" | "private";
 

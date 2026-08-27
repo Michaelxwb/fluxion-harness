@@ -17,6 +17,7 @@ import {
 } from "@douyinfe/semi-icons";
 
 import { AuditPage } from "./pages/audit/AuditPage";
+import { OverviewPage } from "./pages/overview/OverviewPage";
 import { BindingsPage } from "./pages/bindings/BindingsPage";
 import { ResourcesPage } from "./pages/resources/ResourcesPage";
 import { RunsPage } from "./pages/runs/RunsPage";
@@ -69,37 +70,45 @@ export function ConsoleApp({ api, initialView = "resources" }: ConsoleAppProps) 
 const navItems = [
   {
     itemKey: "group-overview",
-    text: "概览与运行",
+    text: "概览",
+    items: [{ icon: <IconPulse />, itemKey: "overview", text: "平台概览" }]
+  },
+  {
+    itemKey: "group-build",
+    text: "构建",
     items: [
-      { icon: <IconPulse />, itemKey: "runtime_status", text: <PlannedText>运行时态</PlannedText> },
-      { icon: <IconActivity />, itemKey: "runs", text: "执行记录" }
+      { icon: <IconUserGroup />, itemKey: "resources", text: "智能体" },
+      { icon: <IconFlowChartStroked />, itemKey: "workflows", text: "工作流" },
+      { icon: <IconKey />, itemKey: "capabilities", text: <PlannedText>能力</PlannedText> },
+      { icon: <IconTestScore />, itemKey: "eval", text: <PlannedText>评测</PlannedText> }
     ]
   },
   {
-    itemKey: "group-define",
-    text: "定义与编排",
-    items: [
-      { icon: <IconList />, itemKey: "resources", text: "运行资产" },
-      { icon: <IconFlowChartStroked />, itemKey: "workflows", text: "流程编排" }
-    ]
+    itemKey: "group-users",
+    text: "用户",
+    items: [{ icon: <IconUserGroup />, itemKey: "users_channels", text: "用户与渠道" }]
   },
   {
-    itemKey: "group-access",
-    text: "访问与授权",
+    itemKey: "group-governance",
+    text: "治理",
     items: [
-      { icon: <IconUserGroup />, itemKey: "users_channels", text: "用户管理" },
+      { icon: <IconPuzzle />, itemKey: "plugin_policy", text: <PlannedText>插件策略</PlannedText> },
+      { icon: <IconHistory />, itemKey: "audit", text: "操作审计" },
       { icon: <IconShield />, itemKey: "bindings", text: "资源绑定" }
     ]
   },
   {
-    itemKey: "group-governance",
-    text: "治理与质量",
+    itemKey: "group-operations",
+    text: "运营",
     items: [
-      { icon: <IconPuzzle />, itemKey: "plugin_policy", text: <PlannedText>插件钩子</PlannedText> },
-      { icon: <IconKey />, itemKey: "capabilities", text: <PlannedText>能力注册</PlannedText> },
-      { icon: <IconTestScore />, itemKey: "eval", text: <PlannedText>能力评测</PlannedText> },
-      { icon: <IconHistory />, itemKey: "audit", text: "操作审计" }
+      { icon: <IconActivity />, itemKey: "runs", text: "执行记录" },
+      { icon: <IconPulse />, itemKey: "runtime_status", text: <PlannedText>运行时态</PlannedText> }
     ]
+  },
+  {
+    itemKey: "group-platform",
+    text: "平台",
+    items: [{ icon: <IconList />, itemKey: "platform_assets", text: "运行资产" }]
   }
 ];
 
@@ -108,9 +117,22 @@ function PlannedText({ children }: { readonly children: string }) {
   return <Typography.Text type="tertiary">{children}</Typography.Text>;
 }
 
-const OPEN_GROUP_KEYS = ["group-overview", "group-define", "group-access", "group-governance"];
+const OPEN_GROUP_KEYS = [
+  "group-overview",
+  "group-build",
+  "group-users",
+  "group-governance",
+  "group-operations",
+  "group-platform"
+];
 
 function renderView(view: ConsoleView, api: ConsoleApi) {
+  if (view === "overview") {
+    return <OverviewPage api={api} />;
+  }
+  if (view === "platform_assets") {
+    return <ResourcesPage api={api} />;
+  }
   if (view === "users_channels") {
     return <UsersChannelsPage api={api} />;
   }

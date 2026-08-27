@@ -233,20 +233,30 @@ const RESOURCE_TYPES: readonly ResourceType[] = [
 
 const RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {
   runtime_profile: "运行态",
+  agent_definition: "智能体",
+  model: "模型",
+  tool: "工具",
+  secret: "凭据",
   skill: "技能",
   mcp: "MCP 工具",
   plugin: "插件",
   policy: "策略",
-  workflow: "工作流"
+  workflow: "工作流",
+  eval_set: "评测集"
 };
 
 const RESOURCE_TYPE_HINTS: Record<ResourceType, string> = {
-  runtime_profile: "运行态是助手的运行档案：选用模型 / 系统提示词，以及可用技能、MCP 与工具。",
+  runtime_profile: "运行态是执行机制配置：超时、重试、轮数与并发等参数。",
+  agent_definition: "智能体是产品实体：人设、模型与能力绑定都在这里配置。",
+  model: "模型是 OpenAI 兼容的模型供应商接入配置。",
+  tool: "工具是面向智能体的能力适配器。",
+  secret: "凭据只保存引用，不保存明文。",
   skill: "技能是给助手的指令包，描述某项任务该怎么做。",
   mcp: "MCP 工具是通过 MCP 协议接入的外部工具服务器。",
   plugin: "插件是扩展运行时能力的扩展包（如模型供应商）。",
   policy: "策略是访问控制与护栏规则。",
-  workflow: "工作流是多步骤编排流程。"
+  workflow: "工作流是多步骤编排流程。",
+  eval_set: "评测集用于对智能体做批量评测。"
 };
 
 function isResourceType(value: unknown): value is ResourceType {

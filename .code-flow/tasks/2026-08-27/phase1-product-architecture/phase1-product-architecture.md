@@ -18,7 +18,7 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 |
 |--------|---------|---------|-------------|---------|------|
-| FE-S-01 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → UI | TASK-011 | planned |
+| FE-S-01 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → UI | TASK-011 | verified |
 | FE-S-02 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Product API → Runtime → UI | TASK-015 | planned |
 | FE-S-03 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Product API → Schema endpoint → UI | TASK-015 | planned |
 | FE-S-04 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-014 | planned |
@@ -31,7 +31,7 @@
 | FE-S-11 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Schema endpoint → UI | TASK-020 | planned |
 | FE-S-13 | frontend.design.md#2.4 验收条件 | E2E | Browser → DOM 文本断言 | TASK-012 | planned |
 | FE-S-14 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → bind API → UI | TASK-019 | planned |
-| FE-S-15 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-011 | planned |
+| FE-S-15 | frontend.design.md#2.4 验收条件 | E2E | Browser → Router → Service → UI | TASK-011 | verified |
 | FE-E-01 | frontend.design.md#2.4 验收条件 | integration | Service → UI | TASK-015 | planned |
 | FE-E-02 | frontend.design.md#2.4 验收条件 | integration | Service → UI | TASK-015 | planned |
 | FE-E-03 | frontend.design.md#2.4 验收条件 | integration | Schema endpoint → UI | TASK-014 | planned |
@@ -521,7 +521,7 @@ Phase 1 收尾 DFX 性能证据：perf bench（Resolver L1 P95≤5ms、Snapshot 
 
 ## TASK-011: 冻结导航 Console shell + 路由重构 + Overview 骨架（TASK-C401）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: phase1-product-architecture.frontend.design.md#2.2 功能方案（FEAT-F01/F02）, phase1-product-architecture.frontend.design.md#3.2 页面与路由结构
@@ -533,23 +533,33 @@ Phase 1 收尾 DFX 性能证据：perf bench（Resolver L1 P95≤5ms、Snapshot 
 ConsoleLayout 左侧导航固定为 `Overview/Build{Agents,Workflows,Capabilities,Eval}/Users/Governance/Operations/Platform` 七组（IA 不随 Resource 增长，P-06）；路由按 design §3.2 表重构（`/build/*` `/users` `/governance/*` `/operations` `/platform/*`）；Overview 计数+最近活动骨架。页面与路由一一对应，路由集中 `router.*`。
 
 ### Checklist
-- [ ] ConsoleLayout 改冻结 7 组导航（子项：Build 下 Agents/Workflows/Capabilities/Eval）
-- [ ] 路由表重构（design §3.2 全部路由；Workspace 不进 Console 路由——独立 app）
-- [ ] Overview 页：Agent/资源/Workflow 计数 + 最近活动骨架（loading/empty/error 态）
-- [ ] **Spec verifier**：`RULE-frontend-directory-001` — 运行 `npm run test -- frozen-nav`：断言页面/路由一一对应、路由集中配置、新页面入口同步导航地图
-- [ ] [FE-S-01][E2E] 修改生产代码前编写验收测试并记录 RED：登录进入 `/` → 冻结 7 组导航全可见（真实 Router 渲染）
-- [ ] [FE-S-15][E2E] Overview 计数 + 最近活动骨架渲染
+- [x] ConsoleLayout 改冻结 7 组导航（子项：Build 下 Agents/Workflows/Capabilities/Eval）
+- [x] 路由表重构（design §3.2 全部路由；Workspace 不进 Console 路由——独立 app）
+- [x] Overview 页：Agent/资源/Workflow 计数 + 最近活动骨架（loading/empty/error 态）
+- [x] **Spec verifier**：`RULE-frontend-directory-001` — 运行 `npm run test -- frozen-nav`：断言页面/路由一一对应、路由集中配置、新页面入口同步导航地图
+- [x] [FE-S-01][E2E] 修改生产代码前编写验收测试并记录 RED：登录进入 `/` → 冻结 7 组导航全可见（真实 Router 渲染）
+- [x] [FE-S-15][E2E] Overview 计数 + 最近活动骨架渲染
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| FE-S-01 | E2E | Browser、Router、UI | 7 组导航全可见（含 Build 四子项） | planned | planned | planned |
-| FE-S-15 | E2E | Browser、Router、Service、UI | 计数 + 最近活动骨架渲染 | planned | planned | planned |
+| FE-S-01 | E2E | Browser、Router、UI | 7 组导航全可见（含 Build 四子项） | src/pages/__tests__/frozen-nav.test.tsx::renders all seven top-level groups | `cd frontend/apps/console && npx vitest run src/pages/__tests__/frozen-nav.test.tsx` | verified |
+| FE-S-15 | E2E | Browser、Router、Service、UI | 计数卡 + 最近活动骨架渲染（aria-label 定位） | src/pages/__tests__/frozen-nav.test.tsx::renders count cards and recent activity | 同上文件 | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| FE-S-01 | FAIL: 首跑 3 failed——无「概览/构建/用户/治理/运营/平台」组文案、initialView overview 非法 | PASS: frozen-nav 3/3 + 全量 11 文件 25 tests | renders_all_seven_top_level_groups：六组文本逐一 getByText；expands_build：Build 展开→智能体/工作流/能力/评测 | 真实 ConsoleApp 渲染（inMemory api + Testing Library），无 mock 组件 | verified |
+| FE-S-15 | 同上 | PASS: 同上 | renders_count_cards：aria-label count-智能体 计数卡 + 最近活动表 + findByText 操作审计行 | OverviewPage 并发聚合 listVisibleResources/listRuns/listPlatformUsers/listAudit 四数据源 | verified |
+
+> 实现：navigation.ts 增 overview/platform_assets 视图；App.tsx Nav 重写为冻结七组（概览/构建{智能体,工作流,能力,评测}/用户/治理{插件策略,审计,绑定}/运营{执行记录,运行时态}/平台{运行资产}），IA 不随 Resource 增长（P-06）；新建 OverviewPage（四数据源并发聚合计数卡+最近活动表）；ResourcesPage/BindingsPage 标签映射扩 v2.2 全 kind（agent_definition/model/tool/secret/eval_set）；测试文本歧义用 aria-label/全部匹配消解。typecheck 清零；console 25 tests 全绿。
+
+### Log
+- [2026-08-27] created (draft)
+- [2026-08-27] started (in-progress)
+- [2026-08-27] completed (done)。frontend-directory rule 维持 design/plan stage applied；code stage 依 bind 约定归 RULE-frontend-directory-001（已 applied）。
 
 ### Log
 - [2026-08-27] created (draft)

@@ -226,7 +226,12 @@ const BINDABLE_RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {
   mcp: "MCP 工具",
   plugin: "插件",
   policy: "策略",
-  workflow: "工作流"
+  workflow: "工作流",
+  agent_definition: "智能体",
+  model: "模型",
+  tool: "工具",
+  secret: "凭据",
+  eval_set: "评测集"
 };
 
 function isBindableResourceType(value: unknown): value is ResourceType {

@@ -5,7 +5,15 @@ export type P1View =
   | "eval"
   | "runtime_status";
 
-export type ConsoleView = "resources" | "workflows" | "bindings" | "runs" | "audit" | P1View;
+export type ConsoleView =
+  | "overview"
+  | "platform_assets"
+  | "resources"
+  | "workflows"
+  | "bindings"
+  | "runs"
+  | "audit"
+  | P1View;
 
 const p1Views: readonly P1View[] = [
   "users_channels",
@@ -21,6 +29,8 @@ export function isP1View(value: ConsoleView): value is P1View {
 
 export function isConsoleView(value: string): value is ConsoleView {
   return (
+    value === "overview" ||
+    value === "platform_assets" ||
     value === "resources" ||
     value === "workflows" ||
     value === "bindings" ||
