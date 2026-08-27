@@ -69,7 +69,9 @@ def create_app(service: RuntimeApplicationService) -> FastAPI:
             await service.close()
 
     app = FastAPI(title="Fluxion Runtime API", lifespan=_lifespan)
-    app.add_middleware(RequestContextMiddleware)
+    # H1：Execution 入口信任链在 body tenant（RunRuntimeRequest.tenant_id）+ 调用方
+    # 凭据，非 header-identity 模型；不强制 X-Tenant-ID/X-Actor-ID。
+    app.add_middleware(RequestContextMiddleware, require_identity=False)
     _register_error_handlers(app)
 
     @app.get("/healthz")

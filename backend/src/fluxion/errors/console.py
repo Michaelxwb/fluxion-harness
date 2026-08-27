@@ -35,6 +35,8 @@ EVAL_EXECUTION_ERROR = 37_003
 USER_NOT_FOUND = 34_100
 USER_NOT_BOUND = 34_101
 CHANNEL_AGENT_NOT_FOUND = 34_102
+# H1：Console 非 dev 模式身份头缺失（X-Tenant-ID/X-Actor-ID），401 fail-closed。
+IDENTITY_HEADER_MISSING = 34_103
 
 # Studio/Product API 错误码（TASK-004；42xxx = Studio/Product API 段）。
 # slug 形态保留在 envelope message 前缀（如 agent_definition_invalid），

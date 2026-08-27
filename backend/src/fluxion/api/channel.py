@@ -54,7 +54,11 @@ def create_app(
     dev_mode: DevModeSettings | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Fluxion Channel API")
-    app.add_middleware(RequestContextMiddleware, dev_mode=dev_mode)
+    # H1：chat 面鉴权在 Bearer token / bind 层；/bind 前置匿名无身份头，
+    # 故不强制 X-Tenant-ID/X-Actor-ID（messages 依赖 header-tenant 属 S2 已文档残留）。
+    app.add_middleware(
+        RequestContextMiddleware, dev_mode=dev_mode, require_identity=False
+    )
     _register_errors(app)
     # S2 残留：/channels/web/messages 对已绑定 channel_user_id 逐消息信任、不重新
     # 鉴权 → 可冒充任意已绑定用户。真正收口需引入真实认证中间件（S1，per-message

@@ -98,6 +98,34 @@ def _message_payload(content: str) -> dict[str, str]:
 
 
 @pytest.mark.asyncio
+async def test_H1_console_missing_identity_headers_fail_closed() -> None:
+    """H1：Console 非 dev 模式身份头缺失 → 401 fail-closed（不落 "unknown" 租户）。"""
+    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    console = ConsoleApplicationService(store)
+    await store.initialize()
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(
+                app=create_console_app(console, dev_mode=DevModeSettings(enabled=False))
+            ),
+            base_url="http://console",
+        ) as client:
+            rejected = await client.get("/api/v1/platform-users")
+            health = await client.get("/healthz")
+            accepted = await client.get(
+                "/api/v1/platform-users",
+                headers={"X-Tenant-ID": "tenant-a", "X-Actor-ID": "admin-a"},
+            )
+    finally:
+        await store.close()
+
+    assert rejected.status_code == 401
+    assert rejected.json()["code"] == 34_103
+    assert health.status_code == 200
+    assert accepted.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_E_P13_02_error_log_uses_trusted_dev_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

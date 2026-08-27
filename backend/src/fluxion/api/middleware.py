@@ -8,8 +8,9 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
+from fluxion.api.responses import failure
 from fluxion.config import DevModeSettings
-from fluxion.errors.console import INTERNAL_ERROR
+from fluxion.errors.console import IDENTITY_HEADER_MISSING, INTERNAL_ERROR
 from fluxion.observability.context import (
     RequestContext,
     bind_request_context,
@@ -20,12 +21,37 @@ from fluxion.observability.tracing import get_tracer
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: ASGIApp, *, dev_mode: DevModeSettings | None = None) -> None:
+    # H1：Console（Control Plane）非 dev 模式强制身份头，缺失即 401 fail-closed，
+    # 不落到 "unknown" 租户（否则匿名请求可与名为 unknown 的真实租户串户）。
+    # 生产由鉴权网关/身份代理在认证后注入 X-Tenant-ID/X-Actor-ID，中间件把该
+    # 假设变成可强制契约。Channel（用户 Chat）传 require_identity=False——/bind
+    # 前置匿名、messages 用 Bearer token + header-tenant（S2 残留另有文档化）。
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        dev_mode: DevModeSettings | None = None,
+        require_identity: bool = True,
+    ) -> None:
         super().__init__(app)
         self._dev_mode = dev_mode or DevModeSettings.from_env()
+        self._require_identity = require_identity
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         started = perf_counter()
+        is_health = request.url.path == "/healthz"
+        if self._require_identity and not self._dev_mode.enabled and not is_health:
+            missing = _missing_identity_header(request)
+            if missing is not None:
+                # 预置 request_id：failure() 在未绑定 context 时默认 req_unknown，
+                # 显式给拒绝响应一个可关联的 request_id。
+                request.state.request_id = _request_id(request.headers.get("X-Request-ID"))
+                return failure(
+                    IDENTITY_HEADER_MISSING,
+                    f"missing required identity header: {missing}",
+                    status_code=401,
+                    request=request,
+                )
         tenant_id, actor_id = self._identity(request)
         context = RequestContext(
             request_id=_request_id(request.headers.get("X-Request-ID")),
@@ -45,7 +71,6 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         status_code = 500
         biz_code = INTERNAL_ERROR
         publish_id: str | None = None
-        is_health = request.url.path == "/healthz"
         tracer = get_tracer("fluxion.http")
         with tracer.start_as_current_span(
             "http.request",
@@ -106,6 +131,15 @@ def _header_or_unknown(value: str | None) -> str:
     if value is not None and value.strip():
         return value.strip()
     return "unknown"
+
+
+def _missing_identity_header(request: Request) -> str | None:
+    """非 dev 模式身份头缺失时返回缺失的头名；全在则返回 None。"""
+    for header in ("X-Tenant-ID", "X-Actor-ID"):
+        value = request.headers.get(header)
+        if value is None or not value.strip():
+            return header
+    return None
 
 
 def _biz_code(response: Response) -> int:

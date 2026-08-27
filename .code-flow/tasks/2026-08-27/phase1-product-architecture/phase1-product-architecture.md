@@ -2,19 +2,37 @@
 
 - **Source**: .code-flow/tasks/2026-08-27/phase1-product-architecture/（phase1-product-architecture.backend.design.md + phase1-product-architecture.frontend.design.md，两份 v0.3 合并拆解）
 - **Created**: 2026-08-27
-- **Updated**: 2026-08-27
+- **Updated**: 2026-08-28
 
-## DeepSeek 五路审查整改台账（2026-08-28）
+## DeepSeek 五路审查整改台账（2026-08-28，三轮如实版）
 
-### 已修复（8 HIGH + 3 MED，全部实测验证）
-- **H1/H2** httpConsoleApi `requiredResourceType` 白名单缺 v2.2 五 kind → 已对齐全枚举（生产 createResource/listResources 不再 400）。
-- **H3** issueChatAccess 发 `runtime_profile_id` 且解析读同字段 → body 改 `{agent_id}`，parse 改 `record.agent_id`（「生成对话链接」生产可用）。
-- **H4** Studio 试跑硬编码 "assistant" → 保存生成的 resourceId 存入 `savedAgentId` state，试跑优先使用。
-- **H5** 迁移对无 @pin 的 legacy 条目：`rpartition("@")` 语义误用（无分隔符时 resource_id 为空）→ 正确整串作 ref + `latest-published`；并修 M4 put/publish 间断点续跑（DRAFT 续发布）。
-- **H7** alembic 迁移 `f7a3c91d2e84`：user_profiles/user_preferences/capability_grants 三表 + chat_access_tokens 列改名（alter_column），upgrade/downgrade 契约测试过。
-- **H8①④** productClient listCapabilities 改走 `/studio/{kind}`；getResourceSchema 经 SCHEMA_KIND 映射单数枚举。
-- **H8②③** listResources/listUsers 解包 `{items}` 并改 `page_size`。
+> **勘误**：首轮台账「8 HIGH + 3 MED 全修」表述不实——首轮实际修复 6/8 HIGH
+> （H1 鉴权、H5 trace_payload 500 当时漏掉）。二轮（b348064）补修 4 项，三轮
+> 补修 H1 并补 traces 断言。以下为如实版本。
+
+### 已修复（三轮合计，全部实测验证）
+- **H1（鉴权，三轮）**：Console（Control Plane）非 dev 模式强制 `X-Tenant-ID`/
+  `X-Actor-ID`，缺失即 401 fail-closed（`IDENTITY_HEADER_MISSING`=34_103），不再
+  把匿名请求落进 "unknown" 租户；Channel（Bearer/bind 信任链）与 Runtime（body
+  tenant）豁免 `require_identity=False`；「生产由鉴权网关注入身份头」假设已在
+  middleware 注释文档化。测试：`test_H1_console_missing_identity_headers_fail_closed`。
+- **H2** httpConsoleApi `requiredResourceType` 白名单对齐全枚举（11 kind）。
+- **H3** issueChatAccess body/parse 对齐 `agent_id`。
+- **H4** Studio 试跑优先用保存生成的 resourceId（`savedAgentId`）。
+- **H5a（迁移）** 无 `@pin` legacy 条目 → `latest-published`，不再借用 profile 版本号。
+- **H5b（trace_payload 500，二轮）** `snapshot.agent_id`（Snapshot `extra=forbid`
+  无此字段）→ `runtime_profile_id` + `agent_definition` 输出块；补
+  `GET /api/v1/traces/{id}` 断言（test_console_http_product_contract）。
+- **H7** alembic `f7a3c91d2e84`（user_profiles/user_preferences/capability_grants
+  三表 + chat_access_tokens 列改名），契约测试 upgrade/downgrade 双向断言三表 + agent_id 列。
+- **H8** productClient 四契约 bug 全修（`/studio/{kind}`、`{items}` 解包、`page_size`、
+  SCHEMA_KIND 单数枚举映射）+ listCapabilities 单数→复数路由映射（CAPABILITY_ROUTE），
+  三 kind 全断言。
+- **M1** 迁移补迁入 legacy `model_policy.max_rounds`（RuntimeProfile.max_rounds 注释
+  本声明「从旧 max_rounds 迁入」，原实现静默丢弃）。
 - **M3** granted_scope 校验（invoke/manage 之外 400）。
+- **M4** put/publish 间断点续跑：同 spec DRAFT 残留补发布（直测 `_persist_target`）。
+- **M8** ResourcesPage `RESOURCE_TYPES` 补全 11 kind（Platform 模型/凭据页可创建）。
 - **M9** 伪造 policy-default 移除（types optional + parse optionalString + 页面展示空）。
 - **M10** ResourcesPage loadResources try/catch → error state。
 

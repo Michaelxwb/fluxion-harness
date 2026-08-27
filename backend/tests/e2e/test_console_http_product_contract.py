@@ -88,6 +88,9 @@ async def test_S_P13_05_console_http_contract_supports_real_ui_operations() -> N
             credentials = await client.get("/api/v1/credentials?page=1&page_size=100")
             runs = await client.get("/api/v1/runs?page=1&page_size=100")
             run = await client.get("/api/v1/runs/execution-console")
+            # H5：trace_payload 曾读 snapshot.agent_id（Snapshot extra=forbid 无此字段）
+            # → GET /api/v1/traces/{id} 500；现读 runtime_profile_id + agent_definition 块。
+            trace = await client.get("/api/v1/traces/trace-console")
             audit = await client.get("/api/v1/audit?page=1&page_size=100")
             all_resources = await client.get("/api/v1/resources?page=1&page_size=100")
             filtered_skill = await client.get(
@@ -117,6 +120,9 @@ async def test_S_P13_05_console_http_contract_supports_real_ui_operations() -> N
         )
         assert runs.json()["data"]["items"][0]["execution_id"] == "execution-console"
         assert run.json()["data"]["trace_events"][0]["event"] == "runtime.started"
+        assert trace.status_code == 200
+        assert trace.json()["data"]["runtime_profile"] == {"id": "assistant", "version": "v1"}
+        assert trace.json()["data"]["agent_definition"] == {"id": "assistant", "version": "v1"}
         assert audit.json()["data"]["total"] >= 4
         assert all("token" not in str(item) for item in audit.json()["data"]["items"])
         # 单表 resource_definitions，一个 GET /api/v1/resources 返回全部类型（已发布的）。
