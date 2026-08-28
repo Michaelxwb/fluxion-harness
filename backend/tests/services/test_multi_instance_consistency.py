@@ -85,7 +85,7 @@ async def test_s01_v2_fields_complete(store) -> None:
     result = await resolver.resolve(_selector(), session_id="s")
 
     snap = result.snapshot
-    assert snap.user_profile_version is not None or snap.user_profile_version is None  # 可选
+    assert snap.user_profile_version is None or isinstance(snap.user_profile_version, str)
     assert snap.credential_versions is not None
     assert snap.agent_definition_version == "1"
     assert snap.snapshot_digest  # digest 已计算

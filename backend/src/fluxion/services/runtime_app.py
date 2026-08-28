@@ -138,6 +138,11 @@ class RuntimeApplicationService(RuntimeToolOps):
         model_registry.register("dev.echo", DevEchoModelProvider())
         tool_runtime = ToolRuntime()
         register_builtin_tools(tool_runtime, BuiltinToolConfig())
+        # closure TASK-011：用户自助工具注册（对话即界面——profile/preference/memory）
+        from fluxion.memory.application.user_tools import register_user_tools
+        from fluxion.users.service import UserDomainService
+
+        register_user_tools(tool_runtime, engine=store.engine, users=UserDomainService(store))
         return cls(
             store,
             cache_ttl_seconds=cache_ttl_seconds,
