@@ -105,6 +105,7 @@ class ContextResolver:
         self._credential_resolver = credential_resolver
         # L1 缓存（remediation §13.5 / design §3.5）：key = (tenant, agent, user)
         self._l1_cache: dict[str, tuple[ResolveResult, float]] = {}
+        self._l1_cache_ttl: float = 30.0  # 秒
         # Memory 段经 PersonalMemoryRetriever（P-04 / §13.4）
         self._semantic = PgVectorSemanticStore(engine)
         self._memory_retriever = PersonalMemoryRetriever(self._semantic)
@@ -122,6 +123,14 @@ class ContextResolver:
         def _stage(stage: str, version: str | None, started: float) -> None:
             trace.append(StageTrace(stage, version, (time.perf_counter() - started) * 1000))
 
+        # L1 缓存检查（remediation §13.5：同 key 短路，不重复查库）
+        cache_key = f"{selector.tenant_id}:{selector.agent_id}:{selector.user_id}"
+        cached = self._l1_cache.get(cache_key)
+        if cached is not None:
+            result, ts = cached
+            if time.monotonic() - ts < self._l1_cache_ttl:
+                return result
+            del self._l1_cache[cache_key]
         started = time.perf_counter()
         # 1. identity：ChannelIdentity → PlatformUser 映射（Phase 1 复用）
         started = time.perf_counter()
@@ -223,12 +232,14 @@ class ContextResolver:
             "memory_manifest": manifest.model_dump(),
         }
         budget_used = len(manifest.entry_refs)
-        return ResolveResult(
+        result = ResolveResult(
             snapshot=snapshot,
             user_context=user_context,
             resolution_trace=trace,
             budget_used=budget_used,
         )
+        self._l1_cache[cache_key] = (result, time.monotonic())
+        return result
 
     async def _get_resource(
         self, kind: str, resource_id: str, tenant_id: str, version: str | None = None
