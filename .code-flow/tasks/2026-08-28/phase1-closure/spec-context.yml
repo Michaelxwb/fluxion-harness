@@ -1,7 +1,7 @@
 version: 1
 task: PHASE1-CLOSURE
 enforcement: required
-updated_at: '2026-08-28T05:15:38.718141+00:00'
+updated_at: '2026-08-28T07:59:46.913144+00:00'
 sources:
 - type: cli
   ref: bind
@@ -47,8 +47,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-002
+          item_id: tool-kind-unification-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:
@@ -201,8 +205,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-004
+          item_id: profile-attribute-schema-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:
@@ -381,8 +389,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-005
+          item_id: channel-auth-module-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:
@@ -535,8 +547,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-005
+          item_id: auth-audit-redaction-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:
@@ -690,8 +706,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-003
+          item_id: product-api-envelope-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:
@@ -897,8 +917,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-005
+          item_id: channel-authenticator-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:
@@ -948,8 +972,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-001
+          item_id: agent-sot-cleanup-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:
@@ -999,8 +1027,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-003
+          item_id: product-api-internal-boundary-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:
@@ -1050,8 +1082,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-013
+          item_id: tool-usergrant-restore-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:
@@ -1100,8 +1136,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-008
+          item_id: typed-capability-picker-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:
@@ -1280,8 +1320,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-011
+          item_id: console-ia-cleanup-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:
@@ -1434,8 +1478,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-012
+          item_id: typecheck-terminology-gate-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:
@@ -1588,8 +1636,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase1-closure.md
+          section_id: TASK-010
+          item_id: user-agent-access-ui-code
+          artifact_sha256: 948b6b694d413cb5126b78f42483b7c7fc42cffb16814d9a0300b23758e81805
         decision: null
         evidence: []
       review:

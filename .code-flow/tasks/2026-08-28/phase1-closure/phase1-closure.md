@@ -2,7 +2,7 @@
 
 - **Source**: `.code-flow/tasks/2026-08-28/phase1-closure/phase1-closure.design.md`（源自 `fluxion-phase1-closure-detailed-remediation.md` P1C-01~09 + DoD，历史文档已移除、git 历史可查；及 `docs/migration/当前代码偏差与迁移.md` P0-1/P0-2）
 - **Created**: 2026-08-28
-- **Updated**: 2026-08-28
+- **Updated**: 2026-08-28（13/13 TASK done；closure DoD verified）
 
 ## Proposal
 
