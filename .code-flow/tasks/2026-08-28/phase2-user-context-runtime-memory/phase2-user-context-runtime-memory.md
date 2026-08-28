@@ -35,7 +35,7 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 | B-03 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | unit | canonical 序列化纯函数 | TASK-001 | verified |
 | S-08 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.3） | integration | 真实 Store + 执行中发布（Gate G4/ARCH-07） | TASK-007 | verified |
 | S-09 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.3） | integration | ContextResolver Credential 段 + MCP prepare（Gate G2） | TASK-007 | verified |
-| S-10 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.4） | E2E | AgentLoop + builtin user tools + UserDomainService + 真实 Store | TASK-011 | planned |
+| S-10 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.4） | E2E | AgentLoop + builtin user tools + UserDomainService + 真实 Store | TASK-011 | verified |
 | RULE-P2-01 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-01 | TASK-008 | planned |
 | RULE-P2-02 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 S-02 | TASK-007 | verified |
 | RULE-P2-03 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 S-03 | TASK-002 | verified |
