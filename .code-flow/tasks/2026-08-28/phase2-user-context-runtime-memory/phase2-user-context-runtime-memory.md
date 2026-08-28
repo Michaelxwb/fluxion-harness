@@ -297,7 +297,7 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 ## TASK-007: ContextResolver 十段管线 + 检索链接通
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003
 - **Source**: phase2-user-context-runtime-memory.design.md#3.2 架构设计, phase2-user-context-runtime-memory.design.md#3.4 接口设计, phase2-user-context-runtime-memory.design.md#3.5 质量实现方案
@@ -351,7 +351,7 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 ## TASK-008: 跨 Pod digest 一致性契约测试
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007
 - **Source**: phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景, phase2-user-context-runtime-memory.design.md#3.1 方案选型
@@ -424,7 +424,7 @@ L2 legacy 数据（session_memory level=l2，停双写遗留）一次性迁移�
 
 ## TASK-010: Multi-instance 等价性验证（kill 实例 / RPO=0）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-008
 - **Source**: phase2-user-context-runtime-memory.design.md#2.3.1 功能清单, phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景
@@ -461,7 +461,7 @@ Phase 2 Gate 收尾验证（remediation §13.6 分层：Phase 2 = N application 
 
 ## TASK-011: 用户自助 tool（对话即界面）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-004, TASK-005
 - **Source**: phase2-user-context-runtime-memory.design.md#2.3.1 功能清单（FEAT-P2-12，v0.4）, docs/design/08-用户旅程与体验设计.md#3.1 普通用户（UJ-U-04/UJ-U-06）
