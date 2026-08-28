@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Fluxion 是无状态、插件化、Resource 驱动的 Agent Harness。Agent 指实际运行的 Runtime Service/Pod；Console/Control Plane 只管理 RuntimeProfile 等版本化资源；Web Chat 是正式用户 Channel。
+Fluxion 是无状态、插件化、Resource 驱动的 Agent Harness。`AgentDefinition` 指逻辑/产品 Agent，`RuntimeInstance` 指实际运行的 Runtime Pod/Process；Console/Control Plane 操作 AgentDefinition 并管理 RuntimeProfile 等版本化资源；Web Chat 是正式用户 Channel。
 
 ## Spec Navigation
 
@@ -17,4 +17,4 @@ Fluxion 是无状态、插件化、Resource 驱动的 Agent Harness。Agent 指�
 - 后端实现入口：`backend/src/fluxion/`。
 - 前端应用边界：`frontend/apps/console/`、`frontend/apps/chat/`。
 - 共享契约占位：`shared/contracts/`。
-- 事实源入口：`README.md`、`AGENTS.md`、`docs/architecture/fluxion-architecture-baseline-v1.md`。
+- 事实源入口：`README.md`、`AGENTS.md`、`docs/architecture/总体架构.md`。

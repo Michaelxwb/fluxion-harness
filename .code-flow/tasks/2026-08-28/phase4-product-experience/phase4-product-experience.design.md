@@ -53,6 +53,7 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |------|------|------|---------|
 | v0.1 | 2026-08-28 | Fluxion 团队 | 初始草稿（评审中） |
+| v0.2 | 2026-08-28 | Fluxion 团队 | 按 `fluxion-phase1-closure-detailed-remediation.md` §15（历史文档，git 历史可查）修订：X401 由「审计对齐」改为完整 WorkspaceLayout 实现 + Settings（§15.1）；C402 Agent Studio 保存链修复归 Phase 1 Closure、本阶段做 UX 深化（§15.2）；C401 继承 Closure 的 Console IA 修正（默认 Overview/Build 单菜单/Binding 下沉，§15.3–15.5） |
 
 ---
 
@@ -71,11 +72,12 @@
 
 | # | 对齐点 | 结论 |
 |---|--------|------|
-| A | Workspace 范围 | 设计**完整目标体验** X401–X408；X401 shell 已在 Phase 1 落地（TASK-019），本阶段**审计对齐**，不重做。 |
+| A | Workspace 范围 | 设计**完整目标体验** X401–X409（含 Settings）；X401 shell 结构已在 Phase 1 落地（TASK-019），本阶段实现为完整 **WorkspaceLayout**（Router 化 + 八项导航 + Settings 页），**非纯审计**（remediation §15.1）。 |
 | B | Console IA 最终树 | 采用 roadmap §6 IA；Eval 页归 Phase 5，本阶段**占位**（导航入口 + 空态页）。C401 仅做导航结构核对，不重做已落地页。 |
 | C | 术语隐藏 denylist | 固定 denylist（`RuntimeProfile`/`Registry`/`Resource`/`Binding`/`Plugin`/`Workflow` 底层态）；沿用 console 的 terminology 测试模式，chat 也加断言。 |
 | D | Journey 成功率测量 | 三组 E2E journey 套件（Workspace task / Build / Admin），成功率 = 通过数/总数 ≥95%。 |
 | E | 测试与后端依赖 | 页面 + E2E 用 **in-memory service**（`inMemoryChatApi`/`inMemoryConsoleApi` 扩展），真 HTTP client 后端就绪后同契约切换。 |
+| F | Closure 继承 | Agent Studio **保存链修复**（数据 bug）与 Console IA 修正（默认 Overview/Build 单一 Agents 菜单/Binding 下沉）由 **Phase 1 Closure**（`.code-flow/tasks/2026-08-28/phase1-closure/`）先行落地；本阶段 C402 做 UX 深化、C401 做继承核对（remediation §15.2–15.5）。 |
 
 ---
 
@@ -83,7 +85,7 @@
 
 | 功能ID | 功能名称 | 功能描述 | 优先级 | 来源 |
 |--------|---------|---------|--------|------|
-| FEAT-P4-01 | X401 Workspace Shell（审计对齐） | 普通用户侧边导航（首页/智能体/任务/审批/历史/记忆/对话）+ 顶栏绑定状态 + 主题切换。Phase 1 已落地的 shell 本阶段审计对齐并接入 Router。 | P0 | US-02 |
+| FEAT-P4-01 | X401 Workspace Shell | 普通用户侧边导航（首页/智能体/任务/审批/历史/记忆/对话/**设置**）+ 顶栏绑定状态 + 主题切换。Phase 1 已落地的 shell 本阶段实现为完整 WorkspaceLayout（Router 化）并新增 Settings 页（remediation §15.1）。 | P0 | US-02 |
 | FEAT-P4-02 | X402 Home | 最近任务、常用 Agent 快捷入口、一键发起对话/任务。 | P0 | US-01, US-04 |
 | FEAT-P4-03 | X403 Agents | Agent 目录：按 AgentDefinition 产品模型展示（名称/描述/能力/可用性），用户选中后发起任务，不暴露 RuntimeProfile。 | P0 | US-01 |
 | FEAT-P4-04 | X404 Tasks | 长期任务列表：对话/Workflow 运行统一展示状态、进度、结果；支持详情页。 | P0 | US-04 |
@@ -97,6 +99,7 @@
 | FEAT-P4-12 | C407 Operations | 运营视图：Runs 升级（含 trace 关联）+ Queues（workflow 队列）+ Workers（运行 Worker 状态）。 | P0 | US-08, US-04 |
 | FEAT-P4-13 | 术语隐藏 denylist | 普通用户核心页（chat 全部页面 + console 普通用户可见面）断言不出现底层术语；denylist 固定并统一测试。 | P0 | US-01 |
 | FEAT-P4-14 | 三组 Journey E2E | Workspace task / Build / Admin 三组 E2E journey 套件，成功率 ≥95%（Phase 4 Gate 的可观测测量）。 | P0 | roadmap §6 Gate |
+| FEAT-P4-15 | C402 Agent Studio UX 深化 | 在 Phase 1 Closure 修复保存链（`phase1-closure` TASK-007/008）基础上补齐 Studio UX：版本管理、试跑结果面板、能力资产引用展示（remediation §15.2「在 Phase 4 做完整 UX」）。 | P1 | US-06 |
 
 ---
 
@@ -104,7 +107,7 @@
 
 | 类别 | 内容 |
 |------|------|
-| **范围（In Scope）** | Chat Web：X401 审计 + X402–X408 全部页面。Console：C401 导航核对 + C403 Workflow Studio + C405 User 360 升级 + C407 Operations 升级；导航路由从 state 迁移到 React Router。前端 in-memory service 扩展（覆盖新增页面 API 契约）。 |
+| **范围（In Scope）** | Chat Web：X401 WorkspaceLayout 实现 + Settings + X402–X408 全部页面。Console：C401 导航核对（继承 Closure IA 修正）+ C402 Studio UX 深化 + C403 Workflow Studio + C405 User 360 升级 + C407 Operations 升级；导航路由从 state 迁移到 React Router。前端 in-memory service 扩展（覆盖新增页面 API 契约）。 |
 | **非范围（Out of Scope）** | 后端领域/API 实现（Phase 2/3 负责）；Eval 实际页面（Phase 5）；术语隐藏影响 Admin/Builder 视图（他们需要底层术语）；Workflow V2 运行时语义（Phase 3）；移动端 App（仅响应式适配）。 |
 | **有意妥协 / 技术债** | Workflow Studio 采用表单驱动而非拖拽画布（画布交互/测试成本高，表单严格贴合 V2 schema）；前端 E2E 暂以 in-memory 契约先行，后端就绪后同契约切 HTTP；Operations Queues/Workers 数据源依赖 Phase 3 workflow_run 投影表（未实现前 in-memory 展示形态）。 |
 
@@ -118,7 +121,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |--------|--------|--------|---------|-------------|---------|-------------|
-| S-01 | FEAT-P4-01 | P0 | E2E | Browser → Router → Service → UI | 1. 绑定用户打开 chat 2. 查看导航与顶栏 | 侧边导航含 首页/智能体/任务/审批/历史/记忆/对话，顶栏显示已绑定用户与主题切换 |
+| S-01 | FEAT-P4-01 | P0 | E2E | Browser → Router → Service → UI | 1. 绑定用户打开 chat 2. 查看导航与顶栏 | 侧边导航含 首页/智能体/任务/审批/历史/记忆/对话/设置，顶栏显示已绑定用户与主题切换 |
 | S-02 | FEAT-P4-02 | P0 | E2E | Browser → Router → Service → UI | 1. 打开首页 2. 查看最近任务与常用 Agent | 最近任务列表 + 常用 Agent 卡片，点击可跳转对话/任务详情 |
 | S-03 | FEAT-P4-03 | P0 | E2E | Browser → Router → Service → UI | 1. 打开智能体页 2. 浏览目录 3. 选中 Agent 发起任务 | Agent 目录按产品模型展示（无 RuntimeProfile 字样），发起后跳转对话页 |
 | S-04 | FEAT-P4-04 | P0 | E2E | Browser → Router → Service → UI | 1. 打开任务页 2. 查看列表 3. 进入详情 | 长期任务列表（含 workflow 运行）状态/进度/结果正确；详情页展示启动信息 |
@@ -126,7 +129,7 @@
 | S-06 | FEAT-P4-06 | P0 | E2E | Browser → Router → Service → UI | 1. 打开历史页 2. 查看统一时间线 3. 展开详情 | 对话 + 任务统一列表，时间倒序，详情可展开 |
 | S-07 | FEAT-P4-07 | P0 | E2E | Browser → Router → Service → UI | 1. 打开记忆页 2. 查看 Profile 并编辑保存 3. 纠正/删除一条 Memory 4. 关闭自动学习 | Profile 保存成功提示；Memory 纠正/删除生效；自动学习开关关闭后不再新增 Memory |
 | S-08 | FEAT-P4-08 | P0 | E2E | Browser → Router → Service → UI | 1. 选择 Agent 2. 发送消息 3. 接收流式回复 | 消息流式渲染，完成后显示 kind 标签，绑定状态保持 |
-| S-09 | FEAT-P4-09 | P0 | E2E | Browser → Router → Service → UI | 1. 打开 Console 2. 核对导航树 | 导航含 Overview/Build/Users/Governance/Operations/Platform；Eval 入口置灰占位 |
+| S-09 | FEAT-P4-09 | P0 | E2E | Browser → Router → Service → UI | 1. 打开 Console 2. 核对导航树 | 导航含 Overview/Build/Users/Governance/Operations/Platform；默认视图 Overview、Build 单一 Agents 入口、Binding 非一级（继承 Closure IA 修正）；Eval 入口置灰占位 |
 | S-10 | FEAT-P4-10 | P0 | E2E | Browser → Router → Service → UI | 1. 打开工作流 2. 新建草稿 3. 添加 capability 节点并填配置 4. 校验 5. 发布 6. 查看版本 | 节点表单按 V2 schema 渲染；校验通过后发布可用；版本列表出现新版本 |
 | S-11 | FEAT-P4-10 | P0 | E2E | Browser → Router → Service → UI | 1. 切换节点类型（capability→condition→parallel→human_task） | 表单随类型切换字段集；生成 JSON 符合 V2 判别联合；含 `{{ node_id.output }}` 插值校验 |
 | S-12 | FEAT-P4-11 | P0 | E2E | Browser → Router → Service → UI | 1. 打开用户页 2. 选择用户 3. 查看 360 详情 | 360 视图含 Identity/Profile/Capability/Policy/Activity 五个维度 |
@@ -194,6 +197,7 @@
 | History（X406） | `/history` | Content | 对话 + 任务统一时间线 |
 | Memory & Profile（X407） | `/memory` | Content | Profile 编辑 + Personal Memory 管理 + 自动学习开关 |
 | Chat（X408） | `/chat` | Content | 正式 Channel 对话（迁移现有 ChatApp 能力） |
+| Settings（X409） | `/settings` | Content | 主题/语言/通知偏好（UserPreference 契约；remediation §15.1） |
 
 **Console（Builder/Admin）**
 
@@ -202,7 +206,7 @@
 | Console Layout | `/`（重定向 `/overview`） | Sider + Content | 现有 App shell 迁移到 Router |
 | Overview | `/overview` | Content | 平台概览（已落地，审计） |
 | Agents 目录 | `/build/agents` | Content | 智能体目录（现有 resources 视图对齐产品模型） |
-| Agent Studio | `/build/agent-studio` | Content | C402 已落地（审计，不重做） |
+| Agent Studio | `/build/agent-studio` | Content | C402 UX 深化（保存链修复由 Phase 1 Closure 先行，remediation §15.2） |
 | **Workflow Studio** | `/build/workflows` | Content | C403：WorkflowDefinition V2 节点编辑（本次新建/升级） |
 | Capabilities | `/build/capabilities` | Content | C404 已落地（审计） |
 | Eval | `/build/eval` | Content | 占位空态页（Phase 5 实页） |

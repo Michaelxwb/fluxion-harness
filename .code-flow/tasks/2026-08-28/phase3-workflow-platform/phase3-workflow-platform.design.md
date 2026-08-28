@@ -30,6 +30,7 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |------|------|------|---------|
 | v0.1 | 2026-08-28 | jahan | 初始草稿（继承三份规划 + ADR-WF-001/013/ADR-SNAPSHOT-001） |
+| v0.2 | 2026-08-28 | jahan | 按 `fluxion-phase1-closure-detailed-remediation.md` §14（历史文档，git 历史可查）修订：Agent 节点改 `agent_ref`（§14.1）、capability 前缀改 `skill\|tool\|mcp`（§14.2）、`engine_ref` 移出 Product DSL（§14.3） |
 
 ---
 
@@ -96,8 +97,8 @@
 
 | 节点类型 | 关键字段 | 必填约束 | 说明 |
 |---------|---------|---------|------|
-| `capability`（= V1 step 兼容） | `capability_ref` `(skill\|mcp\|plugin):<id>@<version>`、`input` | capability_ref 必填 | 执行 Capability（US-11：Step 与 Agent Tool 复用 Capability Contract） |
-| `agent` | `runtime_profile_ref`（`runtime-profile:<id>@<version>`）、`prompt`、`max_turns` | runtime_profile_ref 必填 | 经 Phase 2 ContextResolver 取 pinned ExecutionSnapshot 跑 AgentRuntime |
+| `capability`（= V1 step 兼容） | `capability_ref` `(skill\|tool\|mcp):<id>@<version>`、`input` | capability_ref 必填 | 执行 Capability（US-11：Step 与 Agent Tool 复用 Capability Contract；`tool:` → `ResourceKind.TOOL`，Phase 1 Closure 统一） |
+| `agent` | `agent_ref`（`agent:<id>@<version>`）、`prompt`、`max_turns` | agent_ref 必填 | 经 Agent exact version → Phase 2 ContextResolver（`agent_id` 主坐标）→ RuntimeProfile → pinned ExecutionSnapshot → AgentRuntime；**Workflow DSL 不感知 Runtime mechanics**（remediation §14.1） |
 | `condition` | `expression`（谓词，见 §3.4）、`then`/`else`（后继 node id 列表） | expression 必填 | 二元路由 |
 | `switch` | `expression`、`cases: [{value, node_ids}]`、`default` | cases ≥1 | 多路路由 |
 | `parallel` | `branches: [{branch_id, node_ids}]`、`join_policy: all\|any` | branches ≥2 | 分支并发 + 汇聚 |
@@ -108,6 +109,7 @@
 
 > 公共字段（所有节点）: `id`（唯一）、`depends_on`（无环）、`timeout_ms`、`retry_policy`（max_attempts/delay，**step 级 retry 归 DBOS**，仅表达业务意愿）、`output_schema`（可选，节点输出契约）。
 > 兼容规则: V1 spec（无 `type` 字段、有 `capability_ref`）经 `model_validator(mode="before")` 注入 `type="capability"`，V1 全部现网 WorkflowDefinition 不需迁移（B-03）。
+> **`engine_ref` 不进入 Product DSL**（remediation §14.3）：durable backend 选择属 Platform Configuration（`WorkflowBackendSettings`），不由每个 WorkflowDefinition 配置；可替换性由 `WorkflowEngine` Protocol 承担（ADR-008 可逆性）。
 
 ### 2.4 范围与边界
 
@@ -117,7 +119,7 @@
 | **非范围（Out of Scope）** | Workflow Studio UI（Phase 4）；Builder UX（Phase 4）；完整表达式语言（本 phase 用文档化子集）；retention_period 具体值/Hardening/Chaos（Phase 6）；OTel Collector（Phase 5）；A2A V1 扩展；跨语言大规模编排（ADR-013 Revisit 条件，未触发）。 |
 | **前置假设** | ADR-WF-001/013/ADR-SNAPSHOT-001 accepted；Phase 1 Capability/AgentDefinition 落地；**Phase 2 ContextResolver + Snapshot V2 落地**（Agent 节点消费 pinned ExecutionSnapshot）；`active_references` 表已建；本地 PG（`mmuser/mmuser@localhost:5432`，含 `fluxion_poc_dbos` 或新建 `fluxion_workflow` 库）+ Redis 可用。 |
 | **分层边界** | **Phase 3 交付能力层**（WorkflowDefinition V2 + DBOS 引擎 + 解释器 + 投影），**不交付业务 SOP**。业务 SOP = 发布到 Registry 的 WorkflowDefinition 实例（定义数据），不写引擎代码（rule 5 / rule 12）。ADR-008/013 的「业务接入层」是**时机**概念（有真实业务需要时才构建 Engine），不是分层概念——Phase 3 将其建成能力层基底。 |
-| **有意妥协 / 技术债** | (1) 条件表达式用文档化子集（`==`/`!=`/`in`/数值比较/布尔组合，白名单函数），不做任意表达式求值（安全）；(2) Agent 节点执行复用现有 AgentRuntime，不做节点级容错扩展（Phase 6 再评估）；(3) `engine_ref` 生产唯一值 `workflow-engine://dbos`，协议保留（可替换性，ADR-008 可逆性）；(4) DBOS sys 表建在业务 PG 库（ADR-013 已接受强耦合 PG）。 |
+| **有意妥协 / 技术债** | (1) 条件表达式用文档化子集（`==`/`!=`/`in`/数值比较/布尔组合，白名单函数），不做任意表达式求值（安全）；(2) Agent 节点执行复用现有 AgentRuntime，不做节点级容错扩展（Phase 6 再评估）；(3) durable backend 生产唯一值 DBOS（ADR-013），选择属 Platform Configuration 不进 DSL（remediation §14.3）；(4) DBOS sys 表建在业务 PG 库（ADR-013 已接受强耦合 PG）。 |
 
 ### 2.5 验收条件
 

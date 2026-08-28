@@ -1,6 +1,6 @@
 # 变更日志（Changelog）
 
-本项目遵循「无状态、插件化、Resource 驱动」的架构基线（`docs/architecture/fluxion-architecture-baseline-v1.md`）。
+本项目遵循「无状态、插件化、Resource 驱动」的架构基线（`docs/architecture/总体架构.md`）。
 本文件记录面向使用者的重要变更。
 
 ## [0.1.0] - 2026-08

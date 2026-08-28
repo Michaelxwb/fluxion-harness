@@ -52,6 +52,7 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |------|------|------|---------|
 | v0.1 | 2026-08-28 | Fluxion 团队 | 初始草稿（评审中） |
+| v0.2 | 2026-08-28 | Fluxion 团队 | 按 `fluxion-phase1-closure-detailed-remediation.md` §16（历史文档，git 历史可查）修订（对齐项 B 翻案）：ArtifactStore 生产必须落地 `S3CompatibleArtifactStore`（§16.1）；新增 `artifact_metadata` 表（§16.2）；`secret_credentials` 增加 key_id/cipher_version/rotated_at 与批量重加密（§16.3） |
 
 ---
 
@@ -71,7 +72,7 @@
 | # | 对齐点 | 结论 |
 |---|--------|------|
 | A | SecretProvider 生产后端 | PostgreSQL 持久化加密 store（密文入 `secret_credentials` 表、Master Key 外置 env、AES-256-GCM）；SPI 预留外部 KMS 扩展，不引 Vault/KMS 强依赖 |
-| B | ArtifactStore provider | **生产预留 SMB 接口（不实现）**；**本地文件系统 dev provider 必须跑通**；tenant 命名空间 = 路径前缀；`artifact://` 引用入 Resource spec |
+| B | ArtifactStore provider | **生产 provider 必须落地 `S3CompatibleArtifactStore`**（S3/MinIO 兼容；remediation §16.1 翻案原「SMB 预留」决策）；SMB 继续接口预留；**本地文件系统 dev provider 必须跑通**；**artifact metadata 落 PostgreSQL 表**（§16.2）；tenant 命名空间；`artifact://` 引用入 Resource spec |
 | C | OTel 范围 | 共享 `traced_scope` 上下文助手 + 7 类 span（O501–O507）；span 必带 trace_id/execution_id/tenant_id/request_id；Collector 部署 = OTLP env 接线 + 部署配置文档 |
 | D | Eval Release Gate | 扩展现有 `compare()`：publish 管道前挂 `ReleaseGateService`，候选版本跑 EvalRun 对比基线，score 回退超阈值阻断 P0 发布 |
 | E | Async Task | **P1 条件 FEAT**：设计 `durable_task` 表 + 无状态 worker（poll/claim/resume），仅在明确存在耗时后台逻辑时实施 |
@@ -83,7 +84,7 @@
 | 功能ID | 功能名称 | 功能描述 | 优先级 | 来源 |
 |--------|---------|---------|--------|------|
 | FEAT-P5-01 | Extension Model 生产 provider 接线 + lifecycle/isolation 测试 | 将本地 dev provider（local-fs ArtifactStore / 生产 SecretProvider / pgvector SemanticStore per Phase 2）注册进 per-PluginType registry；untrusted→isolated、单 provider 故障不拖垮 Runtime（ADR-EXT-001 S-04）。E501/E502 已在代码落地，本 FEAT 不做。 | P0 | US-11 |
-| FEAT-P5-02 | ArtifactStore | `ArtifactStoreProvider` SPI（已有）：**本地文件系统 dev provider（必须通）** + **SMB 生产接口预留**；tenant 命名空间；`artifact://{tenant}/{ns}/{key}@{version}` 引用模型与元数据。 | P0 | FEAT-18, US-11 |
+| FEAT-P5-02 | ArtifactStore | `ArtifactStoreProvider` SPI（已有）：**`S3CompatibleArtifactStore` 生产 provider（必须落地）** + 本地文件系统 dev provider（必须通）+ SMB 接口预留；tenant 命名空间；`artifact://{tenant}/{ns}/{key}@{version}` 引用模型；**`artifact_metadata` PostgreSQL 表**（audit/retention/GC/user deletion/access control，remediation §16.2）。 | P0 | FEAT-18, US-11 |
 | FEAT-P5-03 | SecretProvider 生产 | `SecretProvider` SPI（已有）+ `PostgresEncryptedSecretStore`：AES-256-GCM、Master Key 外置、`secret_credentials` 表持久化、双库契约；泄漏测试明文=0。 | P0 | FEAT-19, US-11 |
 | FEAT-P5-04 | OTel 生产 | 共享 `traced_scope` 助手 + 7 类 span（HTTP/Runtime/Model/Tool·MCP/Workflow/DB·Redis/Collector）；trace 关联≥99%；OTLP Collector 部署配置。 | P0 | FEAT-20, NFR-OBS-01 |
 | FEAT-P5-05 | Eval 生产 + Release Gate + Console 页 | EvalExecutor 扩展（模型评测 harness SPI + RuleBased 默认）；Workflow 用例 / Capability 契约；dataset 生命周期（EvalSet 版本化）；`ReleaseGateService` 阻断 P0 回归；Console `/build/eval` 实页（Phase 4 占位升级）。 | P0 | FEAT-24, US-05 |
@@ -95,9 +96,9 @@
 
 | 类别 | 内容 |
 |------|------|
-| **范围（In Scope）** | 生产 SecretProvider（PostgreSQL 持久化）；ArtifactStore local-fs dev provider + SMB 接口预留；pgvector SemanticStore 经 loader 接线（实现引用 Phase 2）；OTel 7 类 span + traced_scope + Collector 部署配置；Eval 生产化 + ReleaseGateService + Console Eval 页；Async Task 契约设计（P1 条件）。 |
+| **范围（In Scope）** | 生产 SecretProvider（PostgreSQL 持久化 + key rotation）；ArtifactStore `S3CompatibleArtifactStore` 生产 provider + local-fs dev provider + SMB 接口预留 + `artifact_metadata` 表；pgvector SemanticStore 经 loader 接线（实现引用 Phase 2）；OTel 7 类 span + traced_scope + Collector 部署配置；Eval 生产化 + ReleaseGateService + Console Eval 页；Async Task 契约设计（P1 条件）。 |
 | **非范围（Out of Scope）** | SMB/外部 KMS 的生产实现（仅预留接口）；Event Bus（V2.2 明确不引入）；Extension Model 核心（E501/E502 已落地）；pgvector 底层实现细节（Phase 2 设计简报）；Eval 页的交互深设计（复用 Phase 4 前端模式）。 |
-| **有意妥协 / 技术债** | ArtifactStore 生产走 SMB 预留（本阶段不实现），生产能力依赖后续 SMB 适配；Eval 模型评测 harness 为 SPI 预留，默认 RuleBased（真实模型评测需凭据，S-P13-07 约束不伪造）；Async Task 为条件 FEAT（无耗时逻辑则不启用）。 |
+| **有意妥协 / 技术债** | ArtifactStore 生产走 S3 兼容协议（SMB 仅预留接口，如需可后续扩展适配）；Eval 模型评测 harness 为 SPI 预留，默认 RuleBased（真实模型评测需凭据，S-P13-07 约束不伪造）；Async Task 为条件 FEAT（无耗时逻辑则不启用）。 |
 
 ---
 
@@ -107,8 +108,8 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
 |--------|--------|--------|---------|-------------|---------|---------|---------|
-| S-01 | FEAT-P5-02 | P0 | integration | 真实文件系统（tmp 目录）→ ArtifactStoreProvider | local-fs provider 已注册 | put → get → delete artifact | 内容一致；元数据（size/sha256/version）正确；tenant 命名空间隔离 |
-| S-02 | FEAT-P5-03 | P0 | integration | 真实 DB（SQLite+PG 双库契约） | `secret_credentials` 表就绪 + Master Key 外置 | put → 重启 store → resolve → revoke → resolve | 持久化 resolve 一致；revoke 后 resolve 拒绝；密文非明文 |
+| S-01 | FEAT-P5-02 | P0 | integration | 真实文件系统（tmp 目录）→ ArtifactStoreProvider | local-fs provider 已注册 | put → get → delete artifact | 内容一致；元数据（size/sha256/version）正确且 `artifact_metadata` 表落库；tenant 命名空间隔离 |
+| S-02 | FEAT-P5-03 | P0 | integration | 真实 DB（SQLite+PG 双库契约） | `secret_credentials` 表就绪 + Master Key 外置 | put → rotate（新 key 批量重加密）→ 重启 store → resolve → revoke → resolve | 持久化 resolve 一致；rotate 后经 key_id/cipher_version 可解旧密文；revoke 后 resolve 拒绝；密文非明文 |
 | S-03 | FEAT-P5-03 | P0 | integration | CredentialResolver + 双租户 | tenant A/B 各持 secret | tenant A 引用 tenant B ref | `secret_tenant_mismatch` 拒绝（tenant escape=0） |
 | S-04 | FEAT-P5-04 | P0 | E2E | 完整 execution：HTTP→Runtime→Model→Tool→Workflow→DB/Redis | traced_scope 已接线 | 跑一次真实 execution | 全链路 span 携带 trace_id/execution_id/tenant_id/request_id；关联完整率≥99% |
 | S-05 | FEAT-P5-05 | P0 | integration | EvalSet（workflow 类型用例）+ EvalExecutor | EvalSet 含 workflow 用例 | start EvalRun | score/passed 正确；EvalRun 记录可查 |
@@ -116,6 +117,7 @@
 | S-07 | FEAT-P5-05 | P0 | E2E | Publish 管道 + ReleaseGateService | 候选版本 score ≥ 阈值 | 触发 publish | publish 放行，EvalRun 记录留档 |
 | S-08 | FEAT-P5-05 | P0 | E2E | Browser → Router → Service → Eval API | Console Eval 页已升级 | 打开 `/build/eval` 查看 EvalSet/Run 列表 | 列表/详情/触发评测可见（四态完备） |
 | S-09 | FEAT-P5-06 | P1 | integration | 真实 DB + worker | Async Task 已启用（条件） | enqueue → claim → 完成/失败 | 任务状态正确；失败可重试；无重复执行（幂等） |
+| S-10 | FEAT-P5-02 | P0 | integration | S3/MinIO（docker）→ S3CompatibleArtifactStore | MinIO 端点可用 | put → get → delete + metadata 落表 | 内容一致；`artifact_metadata` 表落库；tenant 命名空间隔离；超时/失败策略生效 |
 
 **异常场景**
 
@@ -153,7 +155,7 @@
 | 类别 | 选型 | 版本 | 选型理由 |
 |------|------|------|---------|
 | SecretProvider 生产 | `PostgresEncryptedSecretStore`（AES-256-GCM + `secret_credentials` 表） | stdlib cryptography | 与现有 `LocalEncryptedSecretStore` 同形；Master Key 外置 env（规则 17）；复用双库契约；SPI 预留外部 KMS |
-| ArtifactStore 生产 | **SMB 接口预留**（不实现）；dev 用 local-fs provider | — | 用户明确：生产走 SMB 但本阶段只预留接口，保证 dev 通 |
+| ArtifactStore 生产 | **`S3CompatibleArtifactStore`**（S3/MinIO 兼容；remediation §16.1 翻案原「SMB 预留」决策）+ dev 用 local-fs provider | SMB 适配（仅预留接口）；维持 dev-only（原决策已被翻案） | 生产必须有落地 provider；S3 兼容生态成熟、MinIO 可容器化 dev |
 | ArtifactStore dev | `LocalFileArtifactStore`（tenant 前缀目录） | stdlib | 必须跑通；dev SQLite 平行 |
 | OTel | `traced_scope` 上下文助手 + 7 类 span | opentelemetry（已依赖） | 统一埋点入口；span 携带关联字段；Collector 走 OTLP env |
 | Eval | `EvalExecutor` SPI + RuleBased 默认 + 模型评测 harness 预留 | 已有 eval_app | 默认确定性；真实模型评测需凭据（S-P13-07） |
@@ -165,7 +167,7 @@
 | 决策点 | 选择 | 被否决项 | 理由 |
 |--------|------|---------|------|
 | Secret 生产后端 | PostgreSQL 持久化 AES-256-GCM | 外部 Vault/KMS | 简单、与现有同形、满足规则 17；SPI 留扩展 |
-| ArtifactStore 生产 | SMB 接口预留 | S3/MinIO | 用户指定；本阶段不实现，dev 通 |
+| ArtifactStore 生产 | `S3CompatibleArtifactStore`（落地） | SMB 适配（预留）；维持 dev-only（原决策，remediation §16.1 翻案） | 生产必须有可用 provider；S3 兼容生态成熟 |
 | OTel 范围 | 统一 `traced_scope` | 每类手写埋点 | 单一入口保证关联字段一致；可测 |
 | Eval 评测器 | SPI + RuleBased 默认 | 直接上模型评测 | 默认确定性可测；模型 harness 预留 |
 | Async Task | P1 条件 | 直接实现 | roadmap P1；无耗时逻辑不启用 |
@@ -236,14 +238,31 @@ graph TB
 | `nonce` | bytea | — | AES-256-GCM 12B nonce |
 | `ciphertext` | bytea | — | 密文（绝不存明文） |
 | `revoked` | bool | default false | 撤销标记 |
+| `key_id` | text | — | 加密密钥标识（rotation 支持，remediation §16.3） |
+| `cipher_version` | text | — | 密码方案版本（AES-256-GCM v1） |
+| `rotated_at` | timestamptz | nullable | 上次轮换时间 |
 | `created_at` | timestamptz | — | 创建时间 |
+
+> **Key rotation（remediation §16.3）**：支持 decrypt with old key（按 `key_id` 选择）→ encrypt with new key → batch re-encrypt → revoke old key；rotation 进 AuditLog。
 
 > 双库契约：SQLite + PostgreSQL 实现同一 `SecretStore`/`SecretMetadataStore` Repository 契约并跑同一 Contract Test（规则 7）。
 
-**Artifact 引用模型（无独立表）**
+**Artifact 引用模型 + `artifact_metadata` 表（remediation §16.2）**
 
 - Resource spec / ExecutionSnapshot 中以 `artifact://{tenant}/{namespace}/{key}@{version}` URI 引用（pin 进 snapshot，规则 6/10）。
-- 元数据由 provider 返回 `ArtifactMetadata(ref/tenant/namespace/key/version/size/sha256/created_at)`，不落独立表（对象存储自身即事实源）。
+- 对象存储只存 blob；**PostgreSQL `artifact_metadata` 表**承载治理事实（便于 Audit/Retention/GC/User deletion/Access control）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `artifact_id` | text PK | 元数据主键 |
+| `tenant_id` | text | 租户（强制） |
+| `owner_type` / `owner_id` | text | 归属（user/agent/workflow） |
+| `execution_id` / `workflow_id` | text | 溯源坐标 |
+| `content_type` / `size` / `sha256` | — | 内容事实 |
+| `classification` | text | 分类（敏感级） |
+| `retention_policy` | text | 保留策略引用 |
+| `status` | text | active/deleted |
+| `created_by` / `created_at` / `deleted_at` | — | 审计时间线 |
 
 **`durable_task` 表（P1 条件）**
 
@@ -270,6 +289,7 @@ graph TB
 | 接口 | 签名/形状 | 说明 |
 |------|---------|------|
 | `LocalFileArtifactStore` | `put(tenant_id, namespace, key, data) -> ArtifactMetadata`；`get(...) -> bytes`；`delete(...) -> None` | dev provider；目录前缀 `{root}/{tenant_id}/{namespace}/{key}`；timeout/fail policy 明确 |
+| `S3CompatibleArtifactStore` | 同上签名（S3 PutObject/GetObject/DeleteObject + metadata 落 `artifact_metadata` 表） | 生产 provider；S3/MinIO 兼容 endpoint 配置；timeout/retry/fail policy（规则 18，新增外部依赖） |
 | `PostgresEncryptedSecretStore` | `put/rotate/revoke/resolve/list_metadata(tenant_id, ...)` | 与 `LocalEncryptedSecretStore` 同形；密文入表；Master Key 外置 |
 | `traced_scope` | `async with traced_scope(name, kind=..., attributes={}): ...` | 统一 span 入口；自动挂 trace_id/execution_id/tenant_id/request_id；自动脱敏 |
 | `ReleaseGateService` | `async evaluate(release_id, candidate_eval_run_id, baseline_run_id, threshold) -> GateDecision` | 挂 publish 管道；score 回退超阈值 → blocked |
@@ -327,7 +347,7 @@ graph TB
 |------|------|------|------|
 | Phase 2 简报 | SemanticStore pgvector 实现细节 | 设计已过 gate，未实现 | 中（接线依赖其落地） |
 | Phase 3 简报 | Workflow OTel span（O505）与 execution 链路 | 设计已过 gate，未实现 | 中 |
-| SMB | ArtifactStore 生产适配 | 本阶段不实现（预留） | 高（生产 Artifact 能力缺失，记录为技术债） |
+| SMB | ArtifactStore 备选适配 | 接口预留（S3Compatible 已落地生产，remediation §16.1） | 低（S3 兼容已覆盖生产能力） |
 | 真实模型凭据 | Eval 模型评测 harness | 无凭据则保持 RuleBased（S-P13-07） | 中（不伪造 GREEN） |
 | Async Task | 耗时后台逻辑是否明确 | P1 条件 | 低（不启用即无副作用） |
 
@@ -338,7 +358,7 @@ graph TB
 | 用户故事/来源 | 功能ID | 接口/表 | 测试用例ID | 测试层级 | 状态 |
 |---------|--------|---------|-----------|---------|------|
 | US-11 | FEAT-P5-01 | Provider 注册 + loader | S-01, B-01 | integration | 待实现 |
-| FEAT-18 | FEAT-P5-02 | `LocalFileArtifactStore` + `artifact://` | S-01, E-02, B-01 | integration | 待实现 |
+| FEAT-18 | FEAT-P5-02 | `S3CompatibleArtifactStore`/`LocalFileArtifactStore` + `artifact_metadata` + `artifact://` | S-01, S-10, E-02, B-01 | integration | 待实现 |
 | FEAT-19 | FEAT-P5-03 | `PostgresEncryptedSecretStore` + `secret_credentials` | S-02, S-03, E-01, B-02 | integration | 待实现 |
 | FEAT-20 | FEAT-P5-04 | `traced_scope` + 7 span | S-04, E-03, B-03 | E2E | 待实现 |
 | FEAT-24 | FEAT-P5-05 | `ReleaseGateService` + Eval API | S-05~S-08, E-04 | E2E | 待实现 |

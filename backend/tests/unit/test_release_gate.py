@@ -4,7 +4,6 @@ import re
 from pathlib import Path
 
 TASK_ROOT = Path(".code-flow/tasks")
-RELEASE_REPORT = Path("docs/release/fluxion-v1-release-gate.md")
 
 
 def _completed_p0_p1_acceptance_rows() -> list[tuple[str, str]]:
@@ -47,18 +46,3 @@ def test_p0_p1_acceptance_automation_rate_is_at_least_95_percent() -> None:
     assert rows, "no completed P0/P1 acceptance contracts found"
     verified = sum(status == "verified" for _, status in rows)
     assert verified / len(rows) >= 0.95, f"P0/P1 automation rate: {verified}/{len(rows)}"
-
-
-def test_release_report_covers_all_dfx_dimensions_and_reproducible_commands() -> None:
-    report = RELEASE_REPORT.read_text(encoding="utf-8")
-    required_ids = {f"DFX-{index:02d}" for index in range(1, 13)}
-    required_ids.update(f"DFX-CP-{index:02d}" for index in range(1, 9))
-    assert required_ids.issubset(set(re.findall(r"DFX-(?:CP-)?\d{2}", report)))
-    for command in (
-        "python3 -m pytest backend/tests/benchmarks --benchmark-only",
-        "python3 scripts/run_registry_contract_tests.py",
-        "python3 -m pytest backend/tests -q",
-        "pnpm --filter @fluxion/console build",
-        "pnpm --filter @fluxion/chat build",
-    ):
-        assert command in report

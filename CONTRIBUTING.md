@@ -10,9 +10,9 @@
 
 ## 开始之前
 
-1. **先看事实源**：`docs/architecture/fluxion-architecture-baseline-v1.md` 与
-   `docs/problems/design-drivers.md` 定义了不可违反的架构基线。
-2. **问题驱动**：核心架构变更必须能指出它解决的 design driver，记录 ADR（`docs/adr/`），
+1. **先看事实源**：`docs/foundation/02-核心需求.md`（REQ-*）、`docs/foundation/03-架构原则.md`（ARCH-*）与
+   `docs/architecture/总体架构.md` 定义了不可违反的架构基线。
+2. **问题驱动**：核心架构变更必须能指出它解决的 REQ/ARCH 或历史 Pxx driver，记录 ADR（`docs/adr/`），
    并给出验证策略。禁止"为了模式而模式"的 cargo cult。
 3. **范围对齐**：功能变更先经过 code-flow 的 TASK 拆分（`cf-task-start` 等命令），
    不要在编码时自行扩大范围。

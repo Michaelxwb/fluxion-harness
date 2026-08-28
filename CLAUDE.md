@@ -6,7 +6,7 @@
 - 项目：`fluxion-harness`
 - 后端：Python 3.12+
 - 前端：TypeScript + React 19 + Semi Design
-- 架构基线：`docs/architecture/fluxion-architecture-baseline-v1.md`
+- 架构基线：`docs/architecture/总体架构.md`（权威链：foundation → architecture → ADR → design → Gate → Code）
 
 Fluxion 是一个无状态、插件化的 Agent Harness。Runtime 负责执行，Console/Control Plane 负责管理版本化资源；User/Tenant Binding 拥有用户级能力配置；Kubernetes 调度计算资源，而不是运行态配置。
 
@@ -38,9 +38,9 @@ Fluxion 是一个无状态、插件化的 Agent Harness。Runtime 负责执行�
 24. **日志不等于 Audit**：Publish、Rollback、权限/Binding/Policy/Bind 等高影响操作必须进入独立 AuditLog。
 25. 未经 ADR 且不在当前 TASK 明确范围内，禁止修改核心 Contract 或架构规则。
 
-26. **Agent 语义固定**：Agent 是实际部署/运行的 Runtime Service/Pod 集合；Console 不创建 Agent。
-27. **RuntimeProfile 是配置对象**：Console 创建/发布 RuntimeProfile，所有 Runtime Pod 从同一 Registry 读取它。
-28. **同一运行态一致性**：相同 `tenant_id + user_id + runtime_profile_id` 在不同 Pod 上必须解析出等价 RuntimeProfile/UserRuntimeState/TenantPolicy，并生成一致的 ExecutionSnapshot。
+26. **术语固定**：`AgentDefinition` 是逻辑/产品 Agent；`RuntimeInstance` 是实际 Runtime Pod/Process；`RuntimePool` 是共享无状态计算池。Console 操作 AgentDefinition，不管理 RuntimeInstance 生命周期。
+27. **RuntimeProfile 是配置对象**：Console 创建/发布 RuntimeProfile（执行机制配置），所有 RuntimeInstance 从同一 Registry 读取它。
+28. **同一运行态一致性**：相同 `tenant_id + user_id + agent_id`（+ execution inputs）在不同 RuntimeInstance 上必须解析出等价 RuntimeProfile/UserRuntimeState/TenantPolicy，并生成一致的 ExecutionSnapshot。
 
 
 ## 开发语言约定
@@ -52,14 +52,18 @@ Fluxion 是一个无状态、插件化的 Agent Harness。Runtime 负责执行�
 
 ## 事实源文档
 
-Codex 只读取当前 active code-flow TASK 引用的文档。全局基线：
+Codex 只读取当前 active code-flow TASK 引用的文档。全局基线（权威链：问题证据 → 核心需求 → 架构原则 → 总体架构 → ADR → 详细设计 → Gate → Code）：
 
-- `docs/architecture/fluxion-architecture-baseline-v1.md`
-- `docs/problems/design-drivers.md`
-- `docs/design/fluxion-runtime-design-v1.7.md`
-- `docs/design/fluxion-console-design-v1.6.md`
+- `docs/foundation/01-问题与目标.md` / `02-核心需求.md` / `03-架构原则.md`
+- `docs/architecture/总体架构.md`
+- `docs/adr/`（ADR-A001~A006）
+- `docs/design/01~07`（领域详细设计）
+- `docs/development/架构验收Gate.md`（G1~G9）
+- `docs/migration/当前代码偏差与迁移.md`
 - `.code-flow/specs/architecture/`
 - `.code-flow/specs/frontend/semi-design.md`
+
+> 上一代历史文档（旧 ADR-001~013、Runtime V1.7、Console V1.6、V2.2 PRD/Roadmap、各整改计划）已随 v2 基线切换移除，需要溯源时查 git 历史。
 
 ## 仓库边界
 

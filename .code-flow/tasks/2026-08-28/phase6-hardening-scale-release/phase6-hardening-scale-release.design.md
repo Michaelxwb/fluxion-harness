@@ -12,7 +12,7 @@
 **ID 体系**: FEAT（功能）、API（接口）、RULE（业务规则/系统约束）、NFR（非功能指标）
 场景编号：S-（正常）、E-（异常）、B-（边界）
 
-**范围来源**: `docs/design/fluxion-v2.2-architecture-remediation-roadmap.md` §8（Phase 6），承接 Phase 1-5 已落地设计与实现。本阶段为**加固 + 验证 + 发布**性质，不新增业务功能。
+**范围来源**: `fluxion-v2.2-architecture-remediation-roadmap.md` §8（Phase 6；该 roadmap 已随 docs v2 基线切换移除，git 历史可查），承接 Phase 1-5 已落地设计与实现。本阶段为**加固 + 验证 + 发布**性质，不新增业务功能；架构验收同步对齐 `docs/development/架构验收Gate.md`（G1~G9）。
 
 ---
 
@@ -43,6 +43,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |------|------|------|---------|
 | v0.1 | 2026-08-28 | Claude | 初始草稿（对齐点 A-E 用户已确认） |
+| v0.2 | 2026-08-28 | jahan | 按 `fluxion-phase1-closure-detailed-remediation.md` §17（历史文档，git 历史可查）修订：SurfaceEvidence 客观字段 schema + 三级分类 + UNKNOWN 保守规则（§17.1，新增 B-05）；RPO 拆 App/Infrastructure 两层（§17.2）；等价性主键对齐 agent（§13.1 级联） |
+| v0.3 | 2026-08-28 | jahan | 按 docs v2 基线（`docs/migration/当前代码偏差与迁移.md` P0-3/P0-4/P0-5 + 架构验收 Gate G3/G5/G7）新增 FEAT-P6-05「真实部署 Gate 与生产运行边界」：S-07（真实 k8s 多副本 G3）、S-08（停 Console 继续运行 G7）、S-09（本地状态审计 G5）、E-07（InMemory 唯一实现 fail-fast）、E-08（本地 scheduler 守卫）+ RULE-P6-05；G8/P14 列为显式 P1 移交（§5.3） |
 
 ---
 
@@ -78,6 +80,7 @@
 | FEAT-P6-02 | Chaos 测试套件 | Runtime / Workflow / Storage 三组故障注入 + 恢复断言 | P0 | roadmap §8.2 |
 | FEAT-P6-03 | One-time Migration/Rollover | 仅真实外部依赖触发的双写→校验→切换→删旧；legacy 清理 | P0 | roadmap §8.3 |
 | FEAT-P6-04 | Final DoD 自动化验收套件 | roadmap 14 项 DoD 每项一个 verifier，Release 门禁 | P0 | roadmap §8.4 |
+| FEAT-P6-05 | 真实部署 Gate 与生产运行边界 | ①真实 k8s ≥2 副本部署 Gate（rolling restart/kill pod，P0-3/G3，承接 Phase 2 移交）；②停 Console 后已发布 Agent 继续运行（G7/ARCH-14）；③本地状态审计脚本（G5）；④production profile 禁止 InMemory Trace/Approval/Eval 唯一实现（fail-fast，P0-5）；⑤RuntimeScheduler 本地实现限定 test/dev（fail-fast，P0-4） | P0 | migration P0-3/P0-4/P0-5 + Gate G3/G5/G7 |
 
 #### 2.3.2 字段约束
 
@@ -93,16 +96,31 @@
 | MCP servers/user | 5 | 每用户 MCP 接入上限 |
 | memories/user | 1,000 | 每用户 Memory 条目上限 |
 
+**SurfaceEvidence 客观分类（remediation §17.1）**
+
+| 证据字段 | 类型 | 说明 |
+|---------|------|------|
+| `active_record_count` | int | 活跃记录数（token/channel/绑定） |
+| `active_token_count` | int | 有效 access token 数 |
+| `enabled_integration_count` | int | 启用的外部集成数 |
+| `traffic_30d` | int | 近 30 天请求量 |
+| `last_used_at` | datetime \| None | 最近使用时间 |
+| `known_external_consumer` | bool | 已知外部消费方 |
+| `public_stable_contract` | bool | 是否公开稳定契约 |
+| `evidence_source` | text | 证据来源（表/指标名） |
+
+分类规则：`EXTERNAL_ACTIVE`（任一证据命中 → 只可 Rollover 双写）/ `RESET_ALLOWED`（全部证据为零且无外部消费 → 直接 reset）/ `UNKNOWN`（证据不足 → **按 EXTERNAL_ACTIVE 处理，禁止 destructive reset**，保守默认）。
+
 > 契约规则：V1 值经 scale-test 实测后**只允许收紧、不允许放松**（RULE-P6-01）。数值为设计契约初始值，以 scale-test 实测为准，禁止编造实测数据。
 
 ### 2.4 范围与边界 [必填]
 
 | 类别 | 内容 |
 |------|------|
-| **范围（In Scope）** | ①Capacity Profile 契约文档 + scale-test 压测套件；②Chaos 套件（进程 kill/重启、cache 失效、PG 连接中断、ArtifactStore 不可达、SemanticStore 降级、workflow activity timeout/duplicate delivery）；③One-time Migration/Rollover 流程与 legacy 清理；④Final DoD 14 项自动化验收套件 |
-| **非范围（Out of Scope）** | 新增业务功能；新增外部依赖；生产 k8s 集群演练（本地以进程级故障注入等价模拟，见 §3.2）；SemanticStore 生产实现（Phase 2 预留）；SMB ArtifactStore 实现（Phase 5 预留接口） |
-| **前置假设** | 本地 dev 环境存在真实 PostgreSQL（mmuser/fluxion_test，见 [[local-pg-test-env]]）；Runtime/Workflow Engine 可在本地以子进程方式启动/杀死；已落地 Phase 2 Snapshot V2 digest、Phase 3 DBOS Workflow、Phase 5 SecretStore/OTel/Eval |
-| **有意妥协 / 技术债** | 生产级混沌演练（真实 k8s chaos-mesh）推迟到真实部署后；本地以进程级故障注入等价覆盖故障语义。无真实外部凭据的 live smoke 保持 planned，**绝不伪造 GREEN**（约束继承自 [[sp13-07-live-smoke-constraint]]） |
+| **范围（In Scope）** | ①Capacity Profile 契约文档 + scale-test 压测套件；②Chaos 套件（进程 kill/重启、cache 失效、PG 连接中断、ArtifactStore 不可达、SemanticStore 降级、workflow activity timeout/duplicate delivery）；③One-time Migration/Rollover 流程与 legacy 清理；④Final DoD 14 项自动化验收套件；⑤真实部署 Gate 与生产运行边界（FEAT-P6-05：本地 k8s 多副本 G3、停 Console G7、本地状态审计 G5、InMemory/本地 scheduler 生产守卫 P0-4/P0-5） |
+| **非范围（Out of Scope）** | 新增业务功能；新增外部依赖；**生产级 chaos-mesh 工具化演练**（本地以进程级注入 + 本地 k8s 部署 Gate 等价覆盖，见 FEAT-P6-05/S-07）；SemanticStore 生产实现（Phase 2 预留）；SMB ArtifactStore 实现（Phase 5 已落地 S3Compatible 生产 provider，SMB 仍为预留接口） |
+| **前置假设** | 本地 dev 环境存在真实 PostgreSQL（mmuser/fluxion_test，见 [[local-pg-test-env]]）；Runtime/Workflow Engine 可在本地以子进程方式启动/杀死；**本地 k8s 集群可用（S-07 真实部署 Gate 载体）**；已落地 Phase 2 Snapshot V2 digest、Phase 3 DBOS Workflow、Phase 5 SecretStore/OTel/Eval |
+| **有意妥协 / 技术债** | 工具化混沌演练（chaos-mesh）推迟到真实生产部署后；本地以进程级注入（故障语义）+ 本地 k8s 部署 Gate（S-07，部署语义）双层等价覆盖。无真实外部凭据的 live smoke 保持 planned，**绝不伪造 GREEN**（约束继承自 [[sp13-07-live-smoke-constraint]]） |
 
 ### 2.5 验收条件 [必填]
 
@@ -112,8 +130,9 @@
 |----|------|------|---------|
 | RULE-P6-01 | 系统约束 | Capacity Profile V1 值只允许收紧、不允许放松；修改须设计评审 | B-01 |
 | RULE-P6-02 | 系统约束 | Chaos 场景不得 mock 关键真实边界（Runtime 进程 / Store / 外部 activity） | S-02..S-04、E-01..E-06 |
-| RULE-P6-03 | 业务规则 | Rollover 只在 SurfaceEvidence 判定存在真实外部依赖时执行；否则直接 reset，不建双写 | S-05、B-03 |
+| RULE-P6-03 | 业务规则 | Rollover 只在 SurfaceEvidence 判定存在真实外部依赖时执行；否则直接 reset，不建双写；**UNKNOWN 一律按 EXTERNAL_ACTIVE 处理，禁止 destructive reset**（remediation §17.1） | S-05、B-03 |
 | RULE-P6-04 | 系统约束 | Final DoD 14 项全过才允许 Release；任一失败阻断发布 | S-06 |
+| RULE-P6-05 | 系统约束 | 生产运行边界 fail-closed：production profile 禁止 InMemory Trace/Approval/Eval 作为唯一实现、禁止本地 scheduler 承载生产任务（启动 fail-fast 或显式 production adapter）；durable facts 只在外置 Store（P0-4/P0-5，REQ-SCH-001/REQ-OBS-002/REQ-SEC-006） | S-08、S-09、E-07、E-08 |
 
 #### 2.5.2 功能验收场景
 
@@ -129,6 +148,9 @@
 | S-04 | FEAT-P6-02 | P0 | E2E | 真实 PostgreSQL | 已提交事务的数据 | 模拟 PG 连接中断/failover → 恢复 | 已提交 durable state RPO=0；恢复后数据完整 |
 | S-05 | FEAT-P6-03 | P0 | E2E | 真实外部依赖（如有） | SurfaceEvidence 判定存在真实外部依赖 | 双写 → 一致性校验 → 切换 → 删旧 | 全流程成功；旧路径删除后无回归 |
 | S-06 | FEAT-P6-04 | P0 | E2E | 全套件边界 | 上述验收已过 | 运行 Final DoD 验收套件 | 14 项全过；Release 门禁通过 |
+| S-07 | FEAT-P6-05 | P0 | E2E | 本地 k8s 真实集群 ≥2 RuntimeInstance 副本（共享 PG/Redis） | 部署就绪、无 sticky session | rolling restart → kill 任一副本 → 新请求打到存活副本 → 扩/缩容 | digest 一致率=100%；committed durable state RPO=0；Agent/User/Session/Memory/Binding/Credential/Approval/Workflow facts 零丢失（G3，P0-3，承接 Phase 2 移交） |
+| S-08 | FEAT-P6-05 | P0 | E2E | 已发布 Agent 运行中 → 停止 Console 进程 | 已发布 AgentDefinition 存在并有流量 | 停 Console → 继续发起执行 → 核查 Runtime 配置来源 | 已发布 Agent 执行不受影响；Runtime 不调用 Console API 获取配置 truth（G7/ARCH-14） |
+| S-09 | FEAT-P6-05 | P0 | integration | Runtime 进程内全部 dict/list/cache | 审计脚本就绪 | 运行 local state audit 扫描并逐项标注 | 全部标注为 Ephemeral/Cache/Durable/SoT；Durable/SoT 本地命中 = 0；Scheduler/Trace/Approval/Eval/Workflow Stub 全覆盖（G5） |
 
 **异常场景**
 
@@ -140,6 +162,8 @@
 | E-04 | FEAT-P6-02 | integration | ArtifactStore（local-fs dev） | ArtifactStore 指向不可达路径 | 显式失败，不损坏已存 artifact | 明确的失败错误 |
 | E-05 | FEAT-P6-02 | integration | SemanticStore SPI | SemanticStore 未配置/不可用 | 降级为 no-memory 检索，不崩溃 | 检索降级但功能可用 |
 | E-06 | FEAT-P6-02 | E2E | Workflow Engine + durable store | HumanTask 审批长时间无人处理 | 无死锁；Wait 节点超时策略触发，可恢复 | 可取消/超时重处理 |
+| E-07 | FEAT-P6-05 | integration | production profile 启动装配路径 | Trace/Approval/Eval 仅装配 InMemory 实现 | 启动 fail-fast 拒绝，或要求显式 production adapter（P0-5，REQ-OBS-002/REQ-SEC-006） | 明确启动错误；不静默降级 |
+| E-08 | FEAT-P6-05 | integration | production profile + RuntimeScheduler 本地 `_tasks` 实现 | 生产任务走本地 scheduler | fail-fast 拒绝启用（仅 test/dev 放行）（P0-4，REQ-SCH-001） | 明确错误；生产任务事实外置 |
 
 **边界场景**
 
@@ -148,6 +172,7 @@
 | B-01 | E2E | 真实 PostgreSQL + Runtime | concurrent sessions 满负载 | 5,000 | SLO 仍达标或记录实际瓶颈，触发"只紧不松"评审 |
 | B-02 | integration | Registry | active pinned resource hard-delete | 已 pin 且被引用 | 拒绝删除（409），引用阻断生效 |
 | B-03 | integration | SurfaceEvidence 判定 | 无真实外部依赖 | 0 个外部依赖 | 直接 reset，不建双写；legacy 路径直接删除 |
+| B-05 | integration | SurfaceEvidence 判定 | 证据不足（UNKNOWN） | evidence 字段缺失/为空且无法确认 | **按 EXTERNAL_ACTIVE 处理，禁止 destructive reset**（remediation §17.1 保守默认） |
 
 #### 2.5.3 非功能指标 [按需]
 
@@ -156,10 +181,10 @@
 | 指标ID | 指标名称 | 目标值 |
 |--------|---------|-------|
 | NFR-P6-CONSIST-01 | Snapshot digest cross-pod 一致率 | =100% |
-| NFR-P6-CONSIST-02 | Capability equivalence（同 tenant+user+profile 解析等价） | =100% |
+| NFR-P6-CONSIST-02 | Capability equivalence（同 tenant+user+**agent** 解析等价，remediation §13.1） | =100% |
 | NFR-P6-REC-01 | Runtime failure recovery | P95≤30s |
 | NFR-P6-REC-02 | Workflow recovery | P95≤60s |
-| NFR-P6-REL-01 | committed durable state RPO | =0 |
+| NFR-P6-REL-01 | committed durable state RPO（**App RPO**，Fluxion durable transaction） | =0；**Infrastructure RPO**（跨 PG node failover）为部署契约前提：sync replication / WAL durability / storage / failover topology，由部署文档声明（remediation §17.2）；本地 S-04 只验证应用层连接中断等价 |
 | NFR-P6-REL-02 | irreversible duplicate side effect | =0 |
 
 **可观测性 / 安全 / 体验指标**（对应 Final DoD 7-9）
@@ -203,7 +228,7 @@
 
 | 决策点 | 选择 | 被否决项 | 理由 | 可逆性 |
 |--------|------|---------|------|--------|
-| D1 Chaos 注入形态 | 进程级故障注入（pytest fixture + subprocess kill/restart + 环境变量扰动） | chaos-mesh/kube-chaos | 本地无 k8s 部署形态；进程级 kill/重启/timeout/幂等 在语义上等价覆盖 roadmap 故障清单 | 易（部署后接入真实 chaos 工具不冲突） |
+| D1 Chaos 注入形态 | 进程级故障注入（pytest fixture + subprocess kill/restart + 环境变量扰动）覆盖故障语义；部署级语义由 S-07 真实 k8s Gate 承接 | chaos-mesh/kube-chaos | 工具化演练推迟到真实部署后；进程级 kill/重启/timeout/幂等在语义上等价覆盖 roadmap 故障清单，部署级一致性由 FEAT-P6-05 保证（remediation §13.6/P0-3） | 易（部署后接入真实 chaos 工具不冲突） |
 | D2 Capacity 契约载体 | `docs/capacity/capacity-profile-v1.md` 契约文档 + `tests/scale/` 压测套件 | 运行时配置 | 容量契约是部署/验收事实，不是运行态配置（架构规则 #2/8） | 易 |
 | D3 Rollover 触发 | SurfaceEvidence 判定为门禁：仅真实外部依赖才双写 | 无条件双写 | 无真实外部依赖时双写是无意义复杂度（对齐点 D 用户确认） | 易 |
 | D4 DoD 载体 | pytest 套件 + 静态扫描脚本，`-m chaos/scale/dod` 标记分组 | 独立 CLI 二进制 | 复用既有测试基础设施；静态扫描归入 CI 同门禁 | 易 |
@@ -400,6 +425,18 @@ graph LR
 
 ---
 
+### 5.3 P1 收口显式移交（不阻塞 Phase 6 Gate）
+
+以下为 `docs/migration/当前代码偏差与迁移.md` §3 的 P1 收口项，Phase 6 **不实施**，但作为 P0 Gate 全绿后的第一优先滚动项显式登记（避免静默悬挂）：
+
+| 移交项 | 基线依据 | 建议归属 |
+|--------|---------|---------|
+| Semantic Validation / Risk Classification / Approval 统一 pipeline（G8，L0-L3） | REQ-SEC-003/004、design/05 §1 | Phase 6 后 rolling wave（运行时治理域） |
+| Model policy / resource ownership 收口 | REQ-AGT-001 | 随 Phase 2/3 实施顺带 |
+| Personal Memory retrieval/learning 深度接入 AgentLoop | REQ-MEM-004/006 | Phase 2 完成后复核 |
+
+> G8 的最低保障不依赖上述 pipeline：publish 路径严格校验（`extra="forbid"`）+ Release Gate（Phase 5）已覆盖「schema valid 但明显退化」的第一道防线；语义级校验（L2/L3）在 pipeline 落地前保持显式缺口标注。
+
 ## 6. 需求追溯矩阵
 
 | 功能ID | 接口ID | 测试用例ID | 测试层级 | 状态 |
@@ -408,8 +445,9 @@ graph LR
 | FEAT-P6-02 | `fluxion-chaos run` | S-02、S-03、S-04、E-01..E-06 | E2E/integration | 待实现 |
 | FEAT-P6-03 | `fluxion-migrate rollover` / `cleanup` | S-05、B-03 | E2E/integration | 待实现 |
 | FEAT-P6-04 | `fluxion-dod verify` | S-06、B-02 | E2E/integration | 待实现 |
+| FEAT-P6-05 | 部署 Gate runner + local state audit 脚本 + production 守卫 | S-07、S-08、S-09、E-07、E-08 | E2E/integration | 待实现 |
 
-> RULE-P6-01..04 与高影响 RISK-01..04 已映射到场景；NFR 全部有对应场景/verifier。无 manual 场景（外部真实依赖触发条件由 SurfaceEvidence 判定，非人工）。
+> RULE-P6-01..05 与高影响 RISK-01..04 已映射到场景；NFR 全部有对应场景/verifier。无 manual 场景（外部真实依赖触发条件由 SurfaceEvidence 判定，非人工）。
 
 ---
 

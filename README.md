@@ -1,36 +1,42 @@
 # Fluxion Harness V3.2
 
-Fluxion 是一个 **无状态、插件化、Resource 驱动** 的 Agent Harness。Agent Runtime 与 Console/Control Plane 同仓开发、配套发布；Agent 指实际运行的 Runtime Service/Pod，Console 只管理 RuntimeProfile 等运行态资源，Web Chat 是正式用户 Channel。
+Fluxion 是一个 **无状态、插件化、Resource 驱动** 的 Agent Harness。Agent Runtime 与 Console/Control Plane 同仓开发、配套发布；`AgentDefinition` 指逻辑/产品 Agent，`RuntimeInstance` 指实际运行的 Runtime Pod/Process，Console 操作 AgentDefinition 而不管理 RuntimeInstance 生命周期，Web Chat 是正式用户 Channel。
 
 ## 事实源
 
 - `AGENTS.md`：仓库级不可违反规则。
-- `docs/architecture/fluxion-architecture-baseline-v1.md`：总体架构基线。
-- `docs/problems/design-drivers.md`：P01-P22 设计依据。
-- `docs/design/fluxion-runtime-design-v1.7.md`：Runtime 详细设计。
-- `docs/design/fluxion-console-design-v1.6.md`：Console / Control Plane / Web Chat 详细设计。
+- `docs/foundation/`：问题与目标 / 核心需求（REQ-*） / 架构原则（ARCH-*）。
+- `docs/architecture/总体架构.md`：总体架构基线。
+- `docs/adr/`：ADR-A001~A006（长期取舍）。
+- `docs/design/01~07`：领域详细设计。
+- `docs/design/08-用户旅程与体验设计.md`：用户旅程与体验基线（功能立项须引用 UJ-\* 步骤）。
+- `docs/development/架构验收Gate.md`：G1~G9 架构验收 Gate。
+- `docs/migration/当前代码偏差与迁移.md`：当前代码偏差与 P0 整改。
 - `.code-flow/specs/architecture/`：Fluxion 架构 required Specs。
 - `.code-flow/specs/backend/console-api-contract.md`：Console 统一响应/异常/日志/Audit 规范。
 - `.code-flow/specs/frontend/semi-design.md`：Semi Design 前端规范。
 
 
-## Agent / RuntimeProfile 语义
+## 术语语义
 
 ```text
-Agent
-= 实际运行的 Agent Runtime Service / Runtime Pod
+AgentDefinition
+= 逻辑/产品 Agent（Console 创建和发布的对象）
+
+RuntimeInstance
+= 实际运行的 Runtime Pod / Process（共享 RuntimePool 承载）
 
 RuntimeProfile
-= Console 创建和发布的 Agent 运行态配置
+= 执行机制配置（超时/重试/并发/预算），所有 RuntimeInstance 从 Registry 读取
 
 UserRuntimeState
-= 用户 Skill/MCP/Credential/Profile/Memory 等绑定与状态
+= 用户 Skill/MCP/Tool/Credential/Profile/Memory 等绑定与状态
 
 ExecutionSnapshot
-= 一次执行固定的 RuntimeProfile + UserRuntimeState + TenantPolicy 版本集合
+= 一次执行固定的 AgentDefinition + RuntimeProfile + UserRuntimeState + TenantPolicy 版本集合
 ```
 
-所有 Runtime Pod 读取同一个 Registry；同一个 `tenant_id + user_id + runtime_profile_id` 在任意 Pod 上必须得到等价运行态。
+所有 RuntimeInstance 读取同一个 Registry；同一个 `tenant_id + user_id + agent_id` 在任意实例上必须得到等价运行态。
 
 ## 仓库结构
 
