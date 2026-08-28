@@ -19,27 +19,27 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 |
 |--------|---------|---------|-------------|---------|------|
 | S-01 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | 双 Application 实例 → 真实 PG + Redis → Registry → Secret → Memory | TASK-008 | planned |
-| S-02 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | ContextResolver → Store（真实数据库） | TASK-007 | planned |
+| S-02 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | ContextResolver → Store（真实数据库） | TASK-007 | verified |
 | S-03 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | 架构测试扫描 imports（真实源码树） | TASK-002 | verified |
 | S-04 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | API → UserPreference → MemoryLearner → Store | TASK-004 | verified |
 | S-05 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Redis（kill/重启）→ cache adapter → Store | TASK-006 | planned |
 | S-06 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | N 个独立应用实例 → PG → Redis（kill 实例进程） | TASK-010 | planned |
 | S-07 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | PG pgvector → SemanticStoreProvider → PersonalMemoryRetriever | TASK-003 | verified |
-| E-01 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | Middleware → ContextResolver | TASK-007 | planned |
-| E-02 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | ContextResolver → Secret store | TASK-007 | planned |
+| E-01 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | Middleware → ContextResolver | TASK-007 | verified |
+| E-02 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | ContextResolver → Secret store | TASK-007 | verified |
 | E-03 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | MemoryLearner → Consent/Policy gate → Store | TASK-004 | verified |
-| E-04 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | ContextResolver → Profile | TASK-007 | planned |
+| E-04 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | ContextResolver → Profile | TASK-007 | verified |
 | E-05 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | Redis（连接超时）→ cache adapter → Store | TASK-006 | planned |
-| B-01 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | unit | context budget 计算（真实 manifest 构建） | TASK-007 | planned |
+| B-01 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | unit | context budget 计算（真实 manifest 构建） | TASK-007 | verified |
 | B-02 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | unit | canonical 序列化纯函数 | TASK-001 | verified |
 | B-03 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | unit | canonical 序列化纯函数 | TASK-001 | verified |
-| S-08 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.3） | integration | 真实 Store + 执行中发布（Gate G4/ARCH-07） | TASK-007 | planned |
-| S-09 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.3） | integration | ContextResolver Credential 段 + MCP prepare（Gate G2） | TASK-007 | planned |
+| S-08 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.3） | integration | 真实 Store + 执行中发布（Gate G4/ARCH-07） | TASK-007 | verified |
+| S-09 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.3） | integration | ContextResolver Credential 段 + MCP prepare（Gate G2） | TASK-007 | verified |
 | S-10 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.4） | E2E | AgentLoop + builtin user tools + UserDomainService + 真实 Store | TASK-011 | planned |
 | RULE-P2-01 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-01 | TASK-008 | planned |
-| RULE-P2-02 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 S-02 | TASK-007 | planned |
+| RULE-P2-02 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 S-02 | TASK-007 | verified |
 | RULE-P2-03 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 S-03 | TASK-002 | verified |
-| RULE-P2-04 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 E-02 | TASK-007 | planned |
+| RULE-P2-04 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 E-02 | TASK-007 | verified |
 | RULE-P2-05 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-04 | TASK-004 | verified |
 | RULE-P2-06 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-05 | TASK-006 | planned |
 | RULE-P2-07 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-06 | TASK-010 | planned |
