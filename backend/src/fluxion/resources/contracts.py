@@ -531,6 +531,26 @@ class ResourceBinding(BaseModel):
         return self
 
 
+class MemoryEntryRef(BaseModel):
+    """进入 Execution 的 Personal Memory 条目引用（closure TASK-001）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entry_id: str
+    memory_type: str
+    content_hash: str
+
+
+class MemoryManifest(BaseModel):
+    """Memory 检索清单：entry refs + 联合 content hash + 截断标记。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entry_refs: list[MemoryEntryRef] = Field(default_factory=list)
+    content_hash: str = ""
+    truncated: bool = False
+
+
 class ExecutionSnapshot(BaseModel):
     # frozen=True 落实 ADR-005 的执行期不可变：持有者不能原地改写
     # model_resolution 等字段。构造时另对派生自 profile spec_json 的
@@ -558,6 +578,13 @@ class ExecutionSnapshot(BaseModel):
     plugin_versions: dict[str, str] = Field(default_factory=dict)
     policy_version: str | None = None
     binding_versions: dict[str, str] = Field(default_factory=dict)
+    # closure TASK-001（phase2）V2 字段：版本图谱全集（remediation §13.2）。
+    user_profile_version: str | None = None
+    agent_definition_version: str | None = None
+    policy_versions: dict[str, str] | None = None
+    credential_versions: dict[str, str] | None = None
+    memory_manifest: MemoryManifest | None = None
+    snapshot_digest: str | None = None
     created_at: datetime = Field(default_factory=_utc_now)
 
     @model_validator(mode="after")

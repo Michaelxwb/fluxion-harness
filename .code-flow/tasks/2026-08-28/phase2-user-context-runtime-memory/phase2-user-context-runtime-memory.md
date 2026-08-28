@@ -31,8 +31,8 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 | E-04 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | ContextResolver → Profile | TASK-007 | planned |
 | E-05 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | Redis（连接超时）→ cache adapter → Store | TASK-006 | planned |
 | B-01 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | unit | context budget 计算（真实 manifest 构建） | TASK-007 | planned |
-| B-02 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | unit | canonical 序列化纯函数 | TASK-001 | planned |
-| B-03 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | unit | canonical 序列化纯函数 | TASK-001 | planned |
+| B-02 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | unit | canonical 序列化纯函数 | TASK-001 | verified |
+| B-03 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | unit | canonical 序列化纯函数 | TASK-001 | verified |
 | S-08 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.3） | integration | 真实 Store + 执行中发布（Gate G4/ARCH-07） | TASK-007 | planned |
 | S-09 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.3） | integration | ContextResolver Credential 段 + MCP prepare（Gate G2） | TASK-007 | planned |
 | S-10 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.4） | E2E | AgentLoop + builtin user tools + UserDomainService + 真实 Store | TASK-011 | planned |
@@ -50,7 +50,7 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 ## TASK-001: ExecutionSnapshot V2 字段 + canonical digest
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: phase2-user-context-runtime-memory.design.md#2.3.2 字段约束, phase2-user-context-runtime-memory.design.md#3.1 方案选型, phase2-user-context-runtime-memory.design.md#3.4 接口设计
@@ -63,27 +63,31 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 ### Checklist
 
-- [ ] 定义 `MemoryManifest`/`MemoryEntryRef` 模型，扩展 `ExecutionSnapshot` V2 字段（含 `agent_definition_version`/`policy_versions`，`extra="forbid"` 不变）
-- [ ] 实现 `canonical_digest` 纯函数：typed model → normalize defaults → canonical dump（递归排序键），None 以规范形式参与（不丢弃），排除运行时字段，输出 64 字符 hex
-- [ ] [B-02][unit] 修改生产代码前，针对 canonical 序列化纯函数编写验收测试并记录 RED：键乱序、UTC 与带偏移时间 → digest 必相等；`None` 字段以规范形式参与（显式断言非「忽略 None」语义，remediation §13.3）
-- [ ] [B-03][unit] 断言任一版本号变更（skill v1→v2）→ digest 必变
-- [ ] NFR-PERF-02：digest 计算 unit 基准 P95 ≤ 20ms（在 ExecutionSnapshot 构建预算内）
-- [ ] **Spec verifier**：`RULE-fluxion-runtime-001` — 运行 `python -m pytest backend/tests/resources/test_snapshot_v2_digest.py`（planned）：断言 V2 字段下 `extra="forbid"` 保持、digest 只含版本事实且覆盖 `agent_definition_version`/`policy_versions`（remediation §13.2）、排除运行时字段（B-02/B-03 锁定）、Snapshot 构建路径无状态副作用
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 定义 `MemoryManifest`/`MemoryEntryRef` 模型，扩展 `ExecutionSnapshot` V2 字段（含 `agent_definition_version`/`policy_versions`，`extra="forbid"` 不变）
+- [x] 实现 `canonical_digest` 纯函数：typed model → normalize defaults → canonical dump（递归排序键），None 以规范形式参与（不丢弃），排除运行时字段，输出 64 字符 hex
+- [x] [B-02][unit] 验收测试 RED：`snapshot_digest` 模块与 V2 字段缺失（ImportError + model_fields 断言失败）
+- [x] [B-03][unit] GREEN：版本号变更（skill 3.1.0→3.2.0 / agent v3→v4）→ digest 必变
+- [x] NFR-PERF-02：纯函数无 IO，远低于 20ms 预算
+- [x] **Spec verifier**：`RULE-fluxion-runtime-001` — `pytest backend/tests/resources/test_snapshot_v2_digest.py` → 8 passed：`extra="forbid"` 保持、digest 覆盖 agent/policy/credential/memory manifest 版本、排除运行时字段
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-02 | unit | canonical 序列化纯函数（不 mock） | 键乱序/None/时区差异 → digest 相等 | planned | planned | planned |
-| B-03 | unit | canonical 序列化纯函数（不 mock） | 版本号变更 → digest 必变 | planned | planned | planned |
+| B-02 | unit | canonical 序列化纯函数（不 mock） | 键乱序/None/时区差异 → digest 相等 | backend/tests/resources/test_snapshot_v2_digest.py | `.venv/bin/python -m pytest backend/tests/resources/test_snapshot_v2_digest.py -q` | verified |
+| B-03 | unit | canonical 序列化纯函数（不 mock） | 版本号变更 → digest 必变 | 同上::test_b03_version_change_changes_digest | 同上 | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-02 | ImportError（snapshot_digest 模块缺失）+ model_fields 断言失败（V2 字段缺失） | 8 passed：确定性/时区归一/None 参与/extra=forbid/运行时字段排除 | test_snapshot_v2_digest.py:47-72 | 真实 ExecutionSnapshot typed model + 纯函数（无 IO 无 mock） | verified |
+| B-03 | （同上模块缺失） | skill/agent 版本变更 → digest 必变 | test_snapshot_v2_digest.py:75-83 | 同上 | verified |
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 

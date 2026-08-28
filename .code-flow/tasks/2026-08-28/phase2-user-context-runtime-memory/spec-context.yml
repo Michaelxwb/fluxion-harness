@@ -1,7 +1,7 @@
 version: 1
 task: PHASE2-USER-CONTEXT-RUNTIME-MEMORY
 enforcement: required
-updated_at: '2026-08-28T03:33:49.355384+00:00'
+updated_at: '2026-08-28T08:45:31.752417+00:00'
 sources:
 - type: cli
   ref: manual
@@ -34,7 +34,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.design.md
           section_id: 3.4-interface-design
           item_id: typed-interfaces-perf
-          artifact_sha256: eab98f66a48cb4f91ea6dbf0b32cba2f9ee68b372892fa9c751a5cb0ffa6077a
+          artifact_sha256: eeb05b66052998d593110f59d984a431750f51044cf073a436890ff80ecd5442
         decision: null
         evidence: []
       plan:
@@ -43,7 +43,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.md
           section_id: TASK-007
           item_id: typed-resolver-quality-plan
-          artifact_sha256: ec3498650cd48a865e5205bf74f586fa928df84a71e05d81c08e12c3013c84d6
+          artifact_sha256: 654c13e97f152716d1ea22a07d7f8a9869dac59d31311e3d1ad3f603231c6b9a
         decision: null
         evidence: []
       code:
@@ -188,7 +188,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.design.md
           section_id: 3.3-data-design
           item_id: data-schema-ttl
-          artifact_sha256: eab98f66a48cb4f91ea6dbf0b32cba2f9ee68b372892fa9c751a5cb0ffa6077a
+          artifact_sha256: eeb05b66052998d593110f59d984a431750f51044cf073a436890ff80ecd5442
         decision: null
         evidence: []
       plan:
@@ -197,7 +197,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.md
           section_id: TASK-003
           item_id: embedding-dialect-cache-aside-plan
-          artifact_sha256: ec3498650cd48a865e5205bf74f586fa928df84a71e05d81c08e12c3013c84d6
+          artifact_sha256: 654c13e97f152716d1ea22a07d7f8a9869dac59d31311e3d1ad3f603231c6b9a
         decision: null
         evidence: []
       code:
@@ -368,7 +368,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.design.md
           section_id: 3.2-package-structure
           item_id: package-boundary-p04
-          artifact_sha256: eab98f66a48cb4f91ea6dbf0b32cba2f9ee68b372892fa9c751a5cb0ffa6077a
+          artifact_sha256: eeb05b66052998d593110f59d984a431750f51044cf073a436890ff80ecd5442
         decision: null
         evidence: []
       plan:
@@ -377,7 +377,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.md
           section_id: TASK-002
           item_id: personal-memory-domain-move-plan
-          artifact_sha256: ec3498650cd48a865e5205bf74f586fa928df84a71e05d81c08e12c3013c84d6
+          artifact_sha256: 654c13e97f152716d1ea22a07d7f8a9869dac59d31311e3d1ad3f603231c6b9a
         decision: null
         evidence: []
       code:
@@ -522,7 +522,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.design.md
           section_id: 3.5-observability
           item_id: resolution-trace-redaction
-          artifact_sha256: eab98f66a48cb4f91ea6dbf0b32cba2f9ee68b372892fa9c751a5cb0ffa6077a
+          artifact_sha256: eeb05b66052998d593110f59d984a431750f51044cf073a436890ff80ecd5442
         decision: null
         evidence: []
       plan:
@@ -531,7 +531,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.md
           section_id: TASK-007
           item_id: resolution-trace-redaction-plan
-          artifact_sha256: ec3498650cd48a865e5205bf74f586fa928df84a71e05d81c08e12c3013c84d6
+          artifact_sha256: 654c13e97f152716d1ea22a07d7f8a9869dac59d31311e3d1ad3f603231c6b9a
         decision: null
         evidence: []
       code:
@@ -676,7 +676,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.design.md
           section_id: 3.4-interface-design
           item_id: envelope-slo-errorcodes
-          artifact_sha256: eab98f66a48cb4f91ea6dbf0b32cba2f9ee68b372892fa9c751a5cb0ffa6077a
+          artifact_sha256: eeb05b66052998d593110f59d984a431750f51044cf073a436890ff80ecd5442
         decision: null
         evidence: []
       plan:
@@ -685,7 +685,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.md
           section_id: TASK-007
           item_id: envelope-slo-errorcodes-plan
-          artifact_sha256: ec3498650cd48a865e5205bf74f586fa928df84a71e05d81c08e12c3013c84d6
+          artifact_sha256: 654c13e97f152716d1ea22a07d7f8a9869dac59d31311e3d1ad3f603231c6b9a
         decision: null
         evidence: []
       code:
@@ -884,7 +884,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.design.md
           section_id: 3.2-context-resolver-pipeline
           item_id: channel-identity-reuse
-          artifact_sha256: eab98f66a48cb4f91ea6dbf0b32cba2f9ee68b372892fa9c751a5cb0ffa6077a
+          artifact_sha256: eeb05b66052998d593110f59d984a431750f51044cf073a436890ff80ecd5442
         decision: null
         evidence: []
       plan:
@@ -893,7 +893,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.md
           section_id: TASK-007
           item_id: channel-identity-reuse-plan
-          artifact_sha256: ec3498650cd48a865e5205bf74f586fa928df84a71e05d81c08e12c3013c84d6
+          artifact_sha256: 654c13e97f152716d1ea22a07d7f8a9869dac59d31311e3d1ad3f603231c6b9a
         decision: null
         evidence: []
       code:
@@ -934,7 +934,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.design.md
           section_id: 3.5-quality-impl
           item_id: dfx-coding-stage
-          artifact_sha256: eab98f66a48cb4f91ea6dbf0b32cba2f9ee68b372892fa9c751a5cb0ffa6077a
+          artifact_sha256: eeb05b66052998d593110f59d984a431750f51044cf073a436890ff80ecd5442
         decision: null
         evidence: []
       plan:
@@ -943,7 +943,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.md
           section_id: TASK-007
           item_id: dfx-coding-evidence-plan
-          artifact_sha256: ec3498650cd48a865e5205bf74f586fa928df84a71e05d81c08e12c3013c84d6
+          artifact_sha256: 654c13e97f152716d1ea22a07d7f8a9869dac59d31311e3d1ad3f603231c6b9a
         decision: null
         evidence: []
       code:
@@ -985,7 +985,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.design.md
           section_id: 3.3-personal-memory-pgvector
           item_id: pgvector-sqlite-dual-contract
-          artifact_sha256: eab98f66a48cb4f91ea6dbf0b32cba2f9ee68b372892fa9c751a5cb0ffa6077a
+          artifact_sha256: eeb05b66052998d593110f59d984a431750f51044cf073a436890ff80ecd5442
         decision: null
         evidence: []
       plan:
@@ -994,7 +994,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.md
           section_id: TASK-003
           item_id: pgvector-dual-store-contract-plan
-          artifact_sha256: ec3498650cd48a865e5205bf74f586fa928df84a71e05d81c08e12c3013c84d6
+          artifact_sha256: 654c13e97f152716d1ea22a07d7f8a9869dac59d31311e3d1ad3f603231c6b9a
         decision: null
         evidence: []
       code:
@@ -1036,7 +1036,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.design.md
           section_id: 3.1-snapshot-v2-digest
           item_id: snapshot-v2-canonical-digest
-          artifact_sha256: eab98f66a48cb4f91ea6dbf0b32cba2f9ee68b372892fa9c751a5cb0ffa6077a
+          artifact_sha256: eeb05b66052998d593110f59d984a431750f51044cf073a436890ff80ecd5442
         decision: null
         evidence: []
       plan:
@@ -1045,7 +1045,7 @@ bindings:
         - artifact: phase2-user-context-runtime-memory.md
           section_id: TASK-001
           item_id: snapshot-v2-canonical-digest-plan
-          artifact_sha256: ec3498650cd48a865e5205bf74f586fa928df84a71e05d81c08e12c3013c84d6
+          artifact_sha256: 654c13e97f152716d1ea22a07d7f8a9869dac59d31311e3d1ad3f603231c6b9a
         decision: null
         evidence: []
       code:
