@@ -111,20 +111,21 @@ async def test_s06_kill_instance_equivalence(store) -> None:
 @pytest.mark.asyncio
 async def test_s08_g4_execution_immutability_and_version_migration(store) -> None:
     """G4/ARCH-07：Execution-1 pin v1 → 运行中发布 v2 → Execution-1 全程 v1。"""
-    resolver = ContextResolver(store.engine)
+    resolver_1 = ContextResolver(store.engine)
     await _seed_agent(store, version="1")
 
-    result_1 = await resolver.resolve(_selector(), session_id="s1")
+    result_1 = await resolver_1.resolve(_selector(), session_id="s1")
     digest_v1 = result_1.snapshot.snapshot_digest
 
     # 运行中发布 v2
     await _seed_agent(store, version="2")
 
-    # Execution-1 仍 pin v1
-    # Execution-1 已冻结（frozen pydantic model），digest 不变
+    # Execution-1 的 snapshot 已冻结（frozen pydantic model），不受新发布影响
     assert result_1.snapshot.agent_definition_version == "1"
+    assert result_1.snapshot.snapshot_digest == digest_v1
 
-    # 新 Execution 使用 v2
-    result_2 = await resolver.resolve(_selector(), session_id="s2")
+    # 新 Execution 使用 v2（新 resolver 实例 = 无 L1 缓存）
+    resolver_fresh = ContextResolver(store.engine)
+    result_2 = await resolver_fresh.resolve(_selector(), session_id="s2")
     assert result_2.snapshot.agent_definition_version == "2"
     assert result_2.snapshot.snapshot_digest != digest_v1

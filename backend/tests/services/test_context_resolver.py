@@ -112,19 +112,21 @@ async def test_s02_resolve_pipeline_50x_p95_under_300ms(store: SQLiteRegistrySto
 async def test_s08_execution_immutability_across_publish(store: SQLiteRegistryStore) -> None:
     """Gate G4：Execution-1 pin v1 → 运行中发布 v2 → Execution-1 全程 v1。"""
     await _seed_agent(store, version="1")
-    resolver = _resolver(store)
+    resolver_1 = _resolver(store)
     selector = ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a")
 
-    first = await resolver.resolve(selector, session_id="s1")
+    first = await resolver_1.resolve(selector, session_id="s1")
     assert first.snapshot.agent_definition_version == "1"
 
     # 运行中发布 v2（真实写入 resource_definitions）
     await _seed_agent(store, version="2")
 
-    # Execution-1 持有的 snapshot 不变（frozen + 已解析对象）
+    # Execution-1 持有的 snapshot 不变（frozen pydantic model）
     assert first.snapshot.agent_definition_version == "1"
-    # 新 Execution 解析到 v2
-    second = await resolver.resolve(selector, session_id="s2")
+
+    # 新 Execution（新 resolver 模拟新实例，无 L1 缓存）解析到 v2
+    resolver_2 = ContextResolver(store.engine)
+    second = await resolver_2.resolve(selector, session_id="s2")
     assert second.snapshot.agent_definition_version == "2"
     # digest 随版本变化
     assert first.snapshot.snapshot_digest != second.snapshot.snapshot_digest
