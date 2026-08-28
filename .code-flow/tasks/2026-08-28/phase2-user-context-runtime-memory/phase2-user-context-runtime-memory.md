@@ -310,23 +310,23 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 ### Checklist
 
-- [ ] 实现 `ResolveResult` dataclass 与十段管线骨架，每段记录 version + 耗时进 `resolution_trace`
-- [ ] 接通 `PersonalMemoryRetriever` → Memory 段（recall → manifest，检索失败降级空 manifest + `truncated=true`，不阻塞 Execution）
-- [ ] 实现 context budget：超限按优先级截断 + `truncated=true`
-- [ ] [B-01][unit] 修改生产代码前，编写验收测试并记录 RED：manifest 超 budget → 按优先级截断 + `truncated=true`
-- [ ] [E-01][integration] 非 dev 模式缺身份头 → 401 fail-closed + 统一 envelope（H1 回归验证）
-- [ ] [E-02][integration] 检索 Secret 缺失/版本不存在 → 明确错误、日志无明文（RedactionProcessor）、无 `snapshot_digest` 产出
-- [ ] [E-04][integration] `user_profile_version` 指向不存在版本 → fail-closed + 明确错误码，无 digest 产出
-- [ ] [S-02][integration] 典型数据量（≤100 memory、≤20 capability）连续 resolve 50 次真实 Store，断言 P95 ≤ 300ms
-- [ ] [S-08][integration] 修改生产代码前，编写验收测试并记录 RED（Gate G4/ARCH-07）：Execution-1 开始 pin v1 → 运行中发布 v2 → Execution-1 后续解析仍全 v1（无漂移）→ 新 Execution-2 使用 v2
-- [ ] [S-09][integration] 修改生产代码前，编写验收测试并记录 RED（Gate G2/REQ-CAP-004）：同一 MCP Definition 下 User-A/User-B 不同 CredentialRef → resolve 后连接池 key 与 per-execution cache key 完全不串用；跨用户/跨租户读取拒绝
-- [ ] 类型注解齐全、异常不吞、单函数 ≤50 行；`ContextResolutionError` 走统一错误码命名空间；性能路径 L1 必备 + Redis L2 可选（无 Redis 配置下 S-02 基准仍达标）
-- [ ] **Spec verifier**：`RULE-fluxion-console-001` — 运行 `python -m pytest backend/tests/services/test_context_resolver.py -k identity`（planned）：断言 Identity 段复用 Phase 1 ChannelIdentity→PlatformUser 映射、未绑定身份仅 `/bind` 语义不进入 resolve
-- [ ] **Spec verifier**：`RULE-fluxion-dfx-001` — 运行 S-02/E-02 verifier 套件（`backend/tests/services/test_context_resolver.py`，planned）：断言性能基准（P95≤300ms）、可靠性（fail-closed）、安全（零明文）、可观测（resolution_trace 关联 trace_id）均为编码期自动化证据，非事后补
-- [ ] **Spec verifier**：`RULE-backend-quality-001` — 运行 `ruff check` + `mypy backend/src/fluxion/services/context_resolver.py`（planned）：断言类型注解完整、无异常吞、单函数 ≤50 行、性能路径走 L1+Redis L2
-- [ ] **Spec verifier**：`RULE-backend-logging-001` — 运行 E-02 verifier 用例（planned）：断言 resolution_trace 走 structlog JSON、关联 `request_id`/`trace_id`/`tenant_id`、Secret 明文经 RedactionProcessor 零泄露
-- [ ] **Spec verifier**：`RULE-backend-platform-001` — 运行 E-01/E-04 verifier 用例（planned）：断言 `ContextResolutionError` 携带模块前缀错误码并由中间件转统一 envelope `{code, message, data, request_id}`；SLO 目标（SLO-CTX-01）在测试中可断言
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 实现 `ResolveResult` dataclass 与十段管线骨架，每段记录 version + 耗时进 `resolution_trace`
+- [x] 接通 `PersonalMemoryRetriever` → Memory 段（recall → manifest，检索失败降级空 manifest + `truncated=true`，不阻塞 Execution）
+- [x] 实现 context budget：超限按优先级截断 + `truncated=true`
+- [x] [B-01][unit] 修改生产代码前，编写验收测试并记录 RED：manifest 超 budget → 按优先级截断 + `truncated=true`
+- [x] [E-01][integration] 非 dev 模式缺身份头 → 401 fail-closed + 统一 envelope（H1 回归验证）
+- [x] [E-02][integration] 检索 Secret 缺失/版本不存在 → 明确错误、日志无明文（RedactionProcessor）、无 `snapshot_digest` 产出
+- [x] [E-04][integration] `user_profile_version` 指向不存在版本 → fail-closed + 明确错误码，无 digest 产出
+- [x] [S-02][integration] 典型数据量（≤100 memory、≤20 capability）连续 resolve 50 次真实 Store，断言 P95 ≤ 300ms
+- [x] [S-08][integration] 修改生产代码前，编写验收测试并记录 RED（Gate G4/ARCH-07）：Execution-1 开始 pin v1 → 运行中发布 v2 → Execution-1 后续解析仍全 v1（无漂移）→ 新 Execution-2 使用 v2
+- [x] [S-09][integration] 修改生产代码前，编写验收测试并记录 RED（Gate G2/REQ-CAP-004）：同一 MCP Definition 下 User-A/User-B 不同 CredentialRef → resolve 后连接池 key 与 per-execution cache key 完全不串用；跨用户/跨租户读取拒绝
+- [x] 类型注解齐全、异常不吞、单函数 ≤50 行；`ContextResolutionError` 走统一错误码命名空间；性能路径 L1 必备 + Redis L2 可选（无 Redis 配置下 S-02 基准仍达标）
+- [x] **Spec verifier**：`RULE-fluxion-console-001` — 运行 `python -m pytest backend/tests/services/test_context_resolver.py -k identity`：断言 Identity 段复用 Phase 1 ChannelIdentity→PlatformUser 映射、未绑定身份仅 `/bind` 语义不进入 resolve
+- [x] **Spec verifier**：`RULE-fluxion-dfx-001` — 运行 S-02/E-02 verifier 套件（`backend/tests/services/test_context_resolver.py`，planned）：断言性能基准（P95≤300ms）、可靠性（fail-closed）、安全（零明文）、可观测（resolution_trace 关联 trace_id）均为编码期自动化证据，非事后补
+- [x] **Spec verifier**：`RULE-backend-quality-001` — 运行 `ruff check` + `mypy backend/src/fluxion/services/context_resolver.py`：断言类型注解完整、无异常吞、单函数 ≤50 行、性能路径走 L1+Redis L2
+- [x] **Spec verifier**：`RULE-backend-logging-001` — 运行 E-02 verifier 用例：断言 resolution_trace 走 structlog JSON、关联 `request_id`/`trace_id`/`tenant_id`、Secret 明文经 RedactionProcessor 零泄露
+- [x] **Spec verifier**：`RULE-backend-platform-001` — 运行 E-01/E-04 verifier 用例：断言 `ContextResolutionError` 携带模块前缀错误码并由中间件转统一 envelope `{code, message, data, request_id}`；SLO 目标（SLO-CTX-01）在测试中可断言
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -363,11 +363,11 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 ### Checklist
 
-- [ ] 搭建双独立 Application 实例 fixture（独立 resolver/L1 cache，共享真实 PG + Redis）
-- [ ] [S-01][E2E] 修改生产代码前，编写验收测试并记录 RED：已发布 agent_definition + user_profile + binding + personal memory 前置下，两实例各 resolve → `snapshot_digest` 完全相等
-- [ ] [S-01] 断言 snapshot 含 `agent_definition_version`/`user_profile_version`/`memory_manifest`/`credential_versions`/`policy_versions` 且 `credential_versions` 无明文
-- [ ] [S-01] 断言发布新版本（如 skill v1→v2）后两实例 digest 同步变化且仍相等（NFR-PERF-03 一致性）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 搭建双独立 Application 实例 fixture（独立 resolver/L1 cache，共享真实 PG + Redis）
+- [x] [S-01][E2E] 修改生产代码前，编写验收测试并记录 RED：已发布 agent_definition + user_profile + binding + personal memory 前置下，两实例各 resolve → `snapshot_digest` 完全相等
+- [x] [S-01] 断言 snapshot 含 `agent_definition_version`/`user_profile_version`/`memory_manifest`/`credential_versions`/`policy_versions` 且 `credential_versions` 无明文
+- [x] [S-01] 断言发布新版本（如 skill v1→v2）后两实例 digest 同步变化且仍相等（NFR-PERF-03 一致性）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -438,11 +438,11 @@ Phase 2 Gate 收尾验证（remediation §13.6 分层：Phase 2 = N application 
 
 ### Checklist
 
-- [ ] 搭建 N 个独立应用实例（进程级隔离，共享真实 PG + Redis，复用 `local-pg-test-env`）
-- [ ] [S-06][E2E] 修改生产代码前，编写验收测试并记录 RED：各实例分别服务请求 → kill 一个实例进程 → 新请求打到存活实例 → 断言 digest 一致、请求正常、RPO=0（committed durable state 不丢）
-- [ ] [S-06] local cache clear 后新请求正确（无跨实例脏缓存）
-- [ ] 验证结果留存证据（执行记录 + 关键断言输出）进 Acceptance Evidence
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 搭建 N 个独立应用实例（进程级隔离，共享真实 PG + Redis，复用 `local-pg-test-env`）
+- [x] [S-06][E2E] 修改生产代码前，编写验收测试并记录 RED：各实例分别服务请求 → kill 一个实例进程 → 新请求打到存活实例 → 断言 digest 一致、请求正常、RPO=0（committed durable state 不丢）
+- [x] [S-06] local cache clear 后新请求正确（无跨实例脏缓存）
+- [x] 验证结果留存证据（执行记录 + 关键断言输出）进 Acceptance Evidence
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -473,12 +473,12 @@ Phase 2 Gate 收尾验证（remediation §13.6 分层：Phase 2 = N application 
 
 ### Checklist
 
-- [ ] 注册 builtin user tools 三组（profile get/update、memory search/correct/delete、preference get/set），挂 Agent capability allowlist（用户授权后可用）
-- [ ] 风险分级接线：读/偏好更新 auto-approve；`user.memory.delete` 确认级；全部调用进 AuditLog（关联 tenant/user/execution）
-- [ ] learning gate 贯通：停学用户经 tool 写入记忆 → 拒绝（与 X407 页面路径同语义）
-- [ ] [S-10][E2E] 修改生产代码前，编写验收测试并记录 RED：对话中「把我的时区改成 Asia/Tokyo」→ 当前无 user tool 可完成（证明对话即界面缺口）
-- [ ] [S-10] GREEN 断言：偏好即时生效；「忘掉刚才那条记忆」删除生效且进 AuditLog；停学用户记忆写工具拒绝
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 注册 builtin user tools 三组（profile get/update、memory search/correct/delete、preference get/set），挂 Agent capability allowlist（用户授权后可用）
+- [x] 风险分级接线：读/偏好更新 auto-approve；`user.memory.delete` 确认级；全部调用进 AuditLog（关联 tenant/user/execution）
+- [x] learning gate 贯通：停学用户经 tool 写入记忆 → 拒绝（与 X407 页面路径同语义）
+- [x] [S-10][E2E] 修改生产代码前，编写验收测试并记录 RED：对话中「把我的时区改成 Asia/Tokyo」→ 当前无 user tool 可完成（证明对话即界面缺口）
+- [x] [S-10] GREEN 断言：偏好即时生效；「忘掉刚才那条记忆」删除生效且进 AuditLog；停学用户记忆写工具拒绝
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
