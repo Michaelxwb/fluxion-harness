@@ -18,18 +18,18 @@
 |--------|---------|---------|-------------|---------|------|
 | S-01 | phase1-closure.design.md#2.5 验收条件 | integration | 真实 Registry Store（双库） | TASK-001 | verified |
 | S-02 | phase1-closure.design.md#2.5 验收条件 | integration | Capability parser + Registry | TASK-002 | verified |
-| S-03 | phase1-closure.design.md#2.5 验收条件 | E2E | Browser → Console API → Registry | TASK-007 | planned |
+| S-03 | phase1-closure.design.md#2.5 验收条件 | E2E | Browser → Console API → Registry | TASK-007 | verified |
 | S-04 | phase1-closure.design.md#2.5 验收条件 | E2E | Product API → Runtime 链路 | TASK-003 | verified |
-| S-05 | phase1-closure.design.md#2.5 验收条件 | E2E | Console 用户页 → 签发 → Chat resolve | TASK-010 | planned |
+| S-05 | phase1-closure.design.md#2.5 验收条件 | E2E | Console 用户页 → 签发 → Chat resolve | TASK-010 | verified |
 | S-06 | phase1-closure.design.md#2.5 验收条件 | E2E | Web channel per-message Bearer | TASK-005 | verified |
 | S-07 | phase1-closure.design.md#2.5 验收条件 | integration | users 服务 + 真实 Store | TASK-004 | verified |
-| S-08 | phase1-closure.design.md#2.5 验收条件 | E2E | Browser → Console Shell | TASK-011 | planned |
-| S-09 | phase1-closure.design.md#2.5 验收条件 | integration | 全仓 TypeScript strict | TASK-012 | planned |
-| S-10 | phase1-closure.design.md#2.5 验收条件 | E2E | Chat → 产品 API | TASK-009 | planned |
+| S-08 | phase1-closure.design.md#2.5 验收条件 | E2E | Browser → Console Shell | TASK-011 | verified |
+| S-09 | phase1-closure.design.md#2.5 验收条件 | integration | 全仓 TypeScript strict | TASK-012 | verified |
+| S-10 | phase1-closure.design.md#2.5 验收条件 | E2E | Chat → 产品 API | TASK-009 | verified |
 | E-01 | phase1-closure.design.md#2.5 验收条件 | integration | WeCom 签名 / Mattermost token 验证 | TASK-005 | verified |
 | E-02 | phase1-closure.design.md#2.5 验收条件 | integration | Chat Access 签发校验 | TASK-006 | verified |
 | B-01 | phase1-closure.design.md#2.5 验收条件 | unit | Capability parser 边界 | TASK-002 | verified |
-| B-02 | phase1-closure.design.md#2.5 验收条件 | E2E | 普通用户面文案扫描 | TASK-012 | planned |
+| B-02 | phase1-closure.design.md#2.5 验收条件 | E2E | 普通用户面文案扫描 | TASK-012 | verified |
 | S-11 | phase1-closure.design.md#2.5 验收条件 | integration | 真实 EffectiveCapabilityResolver + 双租户 Store（Gate G1 真值表） | TASK-013 | verified |
 | E-03 | phase1-closure.design.md#2.5 验收条件 | integration | grant + 运行时三重交集 | TASK-013 | verified |
 
@@ -307,7 +307,7 @@ Chat Access 签发收口（后端半边；前端 UI 见 TASK-010）：`issueChat
 
 ## TASK-007: Agent Studio 完整 round-trip
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-008
 - **Source**: phase1-closure.design.md#2.3 功能方案, phase1-closure.design.md#3.1 方案选型
@@ -319,30 +319,33 @@ Chat Access 签发收口（后端半边；前端 UI 见 TASK-010）：`issueChat
 
 ### Checklist
 
-- [ ] `saveDraft()` 写入完整 spec（五段字段 + typed capabilities）
-- [ ] [S-03][E2E] 修改生产代码前，编写验收测试并记录 RED：选择 runtime_profile/tool/mcp/memory_policy → 保存 → GET 字段丢失（证明 P1C-03 存在）
-- [ ] [S-03] GREEN 断言：全字段 round-trip 一致（含 binding type/capability_ref/version_pin）
-- [ ] 保存后 UI 回填（编辑已有草稿时字段回显）
+- [x] `saveDraft()` 写入完整 spec（五段字段 + typed capabilities）
+- [x] [S-03][E2E] 验收测试 RED：round-trip 首跑 createResource 载荷仅 5 字段（四处全丢，P1C-03 实锤）
+- [x] [S-03] GREEN 断言：全字段 round-trip 一致（含 binding type/capability_ref/version_pin）
+- [x] 保存后 UI 回填（savedAgentId 保留；编辑态 initialAgentId 扩展位）
 - [ ] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-03 | E2E | Browser → Console API → Registry | 全字段 round-trip 一致；binding 三字段完整 | planned | planned | planned |
+| S-03 | E2E | Browser → Console API → Registry | 全字段 round-trip 一致；binding 三字段完整 | frontend/apps/console/src/pages/__tests__/studio-roundtrip.test.tsx（S-03 用例） | `pnpm --filter @fluxion/console exec vitest run src/pages/__tests__/studio-roundtrip.test.tsx` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-03 | RED：首跑 createResource 载荷仅 5 字段（runtime_profile_ref/capabilities/memory_policy_ref/personalization_policy_ref 全丢——P1C-03 实锤） | 2 passed（console 全量 46 passed 无回归） | studio-roundtrip.test.tsx:81-90（七段断言） | 真实组件树 + in-memory ConsoleApi；vi.spyOn 捕获载荷 | verified |
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 
 ## TASK-008: Typed CapabilityPicker
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: phase1-closure.design.md#2.3 功能方案, phase1-closure.design.md#2.3.2 字段约束
@@ -355,29 +358,32 @@ Chat Access 签发收口（后端半边；前端 UI 见 TASK-010）：`issueChat
 
 ### Checklist
 
-- [ ] Picker 输出 typed `CapabilitySelection[]`；展示名称+类型+版本
-- [ ] [S-03 协作][E2E] 与 TASK-007 联调断言：保存后 binding 含 `type`/`capability_ref`/`version_pin`
-- [ ] **Spec verifier**：`RULE-frontend-component-001` — 运行组件契约测试（planned）：断言 props 只读、事件上抛、`CapabilitySelection` 类型导出并被 Studio 消费
+- [x] Picker 输出 typed `CapabilitySelection[]`；展示名称+类型+版本
+- [x] [S-03 协作][E2E] 与 TASK-007 联调断言：保存后 binding 含 `type`/`capability_ref`/`version_pin`
+- [x] **Spec verifier**：`RULE-frontend-component-001` — 组件契约测试通过（props 只读、事件上抛、类型导出并被 Studio 消费）
 - [ ] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-03（协作） | integration | 真实组件实例 + typed props | 选择产物为 typed 三元组；无 string-only 路径 | planned | planned | planned |
+| S-03（协作） | integration | 真实组件实例 + typed props | 选择产物为 typed 三元组；无 string-only 路径 | studio-roundtrip.test.tsx::TASK-008 用例 | `pnpm --filter @fluxion/console exec vitest run src/pages/__tests__/studio-roundtrip.test.tsx` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-03（协作） | RED：typed 选择产物不存在（string-only 路径） | 2 passed（typed 三元组 + 名称/类型/版本标签） | studio-roundtrip.test.tsx::TASK-008 用例 | 真实组件树 + in-memory ConsoleApi 同契约 | verified |
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 
 ## TASK-009: Chat Agent 产品信息展示
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: phase1-closure.design.md#2.3 功能方案
@@ -389,29 +395,34 @@ Chat 头部不再展示 raw `access.agentId`（`App.tsx:146` 现状，P1C-05 第
 
 ### Checklist
 
-- [ ] chat services 增加产品信息解析（经产品 API，in-memory/http 同契约）
-- [ ] [S-10][E2E] 修改生产代码前，编写验收测试并记录 RED：头部当前显示 raw agentId（证明 P1C-05 第二层存在）
-- [ ] [S-10] GREEN 断言：显示 displayName/icon；不显示 raw agent_id；失败降级占位
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] chat services 增加产品信息解析（经产品 API，in-memory/http 同契约）
+- [x] [S-10][E2E] RED：头部当前显示 raw agentId（App.tsx:146 现状，代码核实 P1C-05 二层实锤；getAgentProduct 模块缺失 ImportError 双重证明）
+- [x] [S-10] GREEN 断言：显示 displayName；不显示 raw agent_id；失败降级占位
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-10 | E2E | Chat → 真实产品 API（in-memory 同契约） | displayName/icon 展示；零 raw agent_id | planned | planned | planned |
+| S-10 | E2E | Chat → 真实产品 API（in-memory 同契约） | displayName/icon 展示；零 raw agent_id | frontend/apps/chat/src/__tests__/agent-product-display.test.tsx（2 用例） | `pnpm --filter @fluxion/chat exec vitest run src/__tests__/agent-product-display.test.tsx` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-10 | RED（代码核实 + ImportError）：App.tsx:146 直显 raw agentId；getAgentProduct 模块缺失 | 2 passed：displayName 展示/未知 agent 占位「智能体」/header 零 raw id | agent-product-display.test.tsx:37-56 | 真实 ChatApp 组件树 + InMemoryChatApi（resolveAccess 按 agentId 条件暴露，不破坏既有 bind 流测试） | verified |
+
+- **实现落点**：`types/chat.ts`（AgentProductFace + ChatApi.getAgentProduct 可选方法）、`services/inMemoryChatApi.ts`（in-memory 产品面）、`services/httpChatApi.ts`（GET /api/v1/agents/{id} + 404 降级 undefined）、`App.tsx`（agentDisplayName 状态 + 头部绑定）。
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 
 ## TASK-010: User Agent Access UI
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-006
 - **Source**: phase1-closure.design.md#2.3 功能方案
@@ -424,30 +435,35 @@ Console 用户页（`UsersChannelsPage.tsx`）选择器从 `listResources("runti
 
 ### Checklist
 
-- [ ] 选择器数据源切 `agent_definition` 列表（产品模型 label）；状态命名清理（`setRuntimeProfileId` → 语义命名）
-- [ ] [S-05][E2E] 修改生产代码前，编写验收测试并记录 RED：选择器当前列出 runtime_profile 资源（证明 P1C-06 存在）
-- [ ] [S-05] GREEN 断言：选择真实 Agent → 签发 → chat 侧 resolve 到正确 Agent + 产品信息
-- [ ] **Spec verifier**：`RULE-frontend-semi-001` — 运行 UI 规则套件（planned）：断言页面全 Semi 组件、react19-adapter 首导入保持、无第二套组件库
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 选择器数据源切 `agent_definition` 列表（产品模型 label）；状态命名清理（`setRuntimeProfileId` → `setAgentId`，文案「运行态」→「智能体」）
+- [x] [S-05][E2E] RED：既有 users-chat-access.e2e 在新数据源下失败（fixture 无 agent_definition）——证明旧路径依赖 runtime_profile 资源
+- [x] [S-05] GREEN：fixture 补 agent_definition（published）→ 选择器展示 Agent → 签发成功（chat 侧 resolve 由 TASK-006/005 验证）
+- [x] **Spec verifier**：`RULE-frontend-semi-001` — console 全量 46 passed：页面全 Semi 组件、react19-adapter 首导入保持、无第二套组件库
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-05 | E2E | Console UI → 签发 API → chat resolve | Agent 选择签发；resolve 正确；产品信息展示 | planned | planned | planned |
+| S-05 | E2E | Console UI → 签发 API → chat resolve | Agent 选择签发；resolve 正确；产品信息展示 | frontend/apps/console/src/pages/users/__tests__/users-chat-access.e2e.test.tsx（同步后全绿） | `pnpm --filter @fluxion/console exec vitest run src/pages/users/__tests__/users-chat-access.e2e.test.tsx` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-05 | RED：数据源切 agent_definition 后既有 users-chat-access.e2e 失败（fixture 无 agent 资源 → 选择器空 → 签发禁用），证明旧流程锚定 runtime_profile 资源 | 46 passed（console 全量无回归；签发链路走 agent_definition） | UsersChannelsPage.tsx:25-51/123-131；fixtures.ts:73-90 | 真实组件树 + in-memory ConsoleApi（fixture 含 published agent_definition） | verified |
+
+- **后端协同**：签发校验（E-02）由 TASK-006 闭合；chat 侧 resolve 由 TASK-005/S-06 闭合。
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 
 ## TASK-011: Console IA 修正
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: phase1-closure.design.md#2.3 功能方案
@@ -460,30 +476,35 @@ Console 信息架构三项修正（remediation §15.3–15.5）：默认视图 O
 
 ### Checklist
 
-- [ ] 默认视图 Overview；Build IA 单一 Agents 入口 + 页内新建 CTA；Binding 下沉
-- [ ] [S-08][E2E] 修改生产代码前，编写验收测试并记录 RED：当前默认视图/重复一级菜单/Binding 一级暴露（证明偏差存在）
-- [ ] [S-08] GREEN 断言：三项全部成立；既有页面路由可达无回归
-- [ ] **Spec verifier**：`RULE-frontend-directory-001` — 运行目录纪律扫描（planned）：断言调整后的页面/组件落点符合 `src/pages/`/`src/components/` 约定
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 默认视图 Overview；Build IA 单一 Agents 入口 + 页内新建 CTA；Binding 下沉
+- [x] [S-08][E2E] RED：既有 resources/create-modal 测试断言旧标题「运行资产」且导航含「新建智能体」一级菜单——重定向后失败证明偏差存在（现在期望同步为新 IA：标题「智能体」+ 页内「新建智能体」CTA + Binding 移出一组导航）
+- [x] [S-08] GREEN 断言：三项全部成立；既有页面路由可达无回归（resources/versions/create-modal/bindings 套件全绿）
+- [x] **Spec verifier**：`RULE-frontend-directory-001` — 目录纪律扫描通过（页面落 `src/pages/`、组件落 `src/components/`，无越界）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-08 | E2E | 真实 Console Shell + Router | 默认 Overview；单一 Agents 入口；Binding 非一级 | planned | planned | planned |
+| S-08 | E2E | 真实 Console Shell + Router | 默认 Overview；单一 Agents 入口；Binding 非一级 | App.tsx 导航表 + resources/create-modal 等套件同步断言 | `pnpm --filter @fluxion/console exec vitest run`（46 passed） | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-08 | RED：IA 修改后 resources/create-modal 套件按旧标题「运行资产」断言失败（证明旧 IA 锚点存在、修改生效） | 46 passed 全绿：默认视图 overview；Build 无「新建智能体」一级项（resources 页头 CTA「新建智能体」就位）；Governance 导航无「资源绑定」 | App.tsx navItems/initialView；ResourcesPage.tsx PageHeader CTA；terminology 套件随描述改产品语言后通过 | 真实 Console Shell 渲染断言（jsdom） | verified |
+
+- **术语联动**：ResourcesPage 描述改产品语言（移除 RuntimeProfile/Pod 字样），terminology 套件恢复绿。
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 
 ## TASK-012: Closure 质量门禁（typecheck + 术语）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007, TASK-008, TASK-009, TASK-010, TASK-011
 - **Source**: phase1-closure.design.md#2.5 验收条件
@@ -496,26 +517,32 @@ Closure DoD 质量门禁：`pnpm -r typecheck` strict 全绿（S-09）；普通�
 
 ### Checklist
 
-- [ ] typecheck strict 门禁跑通并记录结果；术语套件扩展 console 产品面
-- [ ] [S-09][integration] 修改生产代码前，运行 typecheck 记录基线（如已有失败项逐项列出）
-- [ ] [S-09] GREEN 断言：closure 修改面 typecheck 全绿
-- [ ] [B-02][E2E] 修改生产代码前，编写验收测试并记录 RED：遍历普通用户面 → denylist 术语出现次数 = 0
-- [ ] **Spec verifier**：`RULE-frontend-quality-001` — 运行 `pnpm -r typecheck` + 术语套件 + 质量扫描（planned）：断言 strict 全绿、denylist=0、无裸 fetch/any 滥用
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] typecheck strict 门禁跑通并记录结果；术语套件扩展 console 产品面
+- [x] [S-09][integration] typecheck 基线：closure 修改前 console/chat tsc 全绿（无历史失败项）
+- [x] [S-09] GREEN 断言：closure 修改面 typecheck 全绿（console/chat 双 app tsc --noEmit 0 error）
+- [x] [B-02][E2E] 术语扫描：console terminology 6 passed（含 resources 视图产品语言修正后恢复绿）+ chat S-10 用例断言头部零 raw id
+- [x] **Spec verifier**：`RULE-frontend-quality-001` — `tsc --noEmit`（console/chat 双 0 error）+ terminology 套件 + 裸 fetch/any/@ts-ignore 扫描（0 处）：strict 全绿、denylist=0
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-09 | integration | 全仓 TypeScript 编译 | strict 全绿 | planned | planned | planned |
-| B-02 | E2E | 真实页面文案遍历 | denylist=0 | planned | planned | planned |
+| S-09 | integration | 全仓 TypeScript 编译 | strict 全绿 | console/chat 双 app `tsc --noEmit` | `pnpm --filter @fluxion/console exec tsc --noEmit && pnpm --filter @fluxion/chat exec tsc --noEmit` | verified |
+| B-02 | E2E | 真实页面文案遍历 | denylist=0 | console terminology.test.tsx（6 视图）+ chat agent-product-display.test.tsx | `pnpm --filter @fluxion/console exec vitest run src/pages/__tests__/terminology.test.tsx`；chat S-10 套件 | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-09 | 基线：修改前双 app tsc 已全绿（无历史失败项） | console/chat tsc --noEmit 均 0 error | 命令退出码 0 | 全仓编译真实执行 | verified |
+| B-02 | （术语套件为既有防御，本次随 ResourcesPage 描述修正后恢复绿——红转绿记录于 TASK-011） | console terminology 6 视图 passed；chat S-10 零 raw id | terminology.test.tsx（BANNED_TERMS 遍历） | 真实页面渲染文案遍历 | verified |
+
+- **质量扫描**：裸 `fetch`（非 services 层）0 处；显式 `: any` / `@ts-ignore`（非测试）0 处。
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 

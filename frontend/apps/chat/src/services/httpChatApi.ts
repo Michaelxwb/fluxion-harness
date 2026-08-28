@@ -37,6 +37,27 @@ export function createHttpChatApi(
         parseAccess
       );
     },
+    // closure TASK-009：经产品 API（GET /api/v1/agents/{id}）解析产品面信息。
+    async getAgentProduct(agentId) {
+      try {
+        const response = await client.request(
+          `/api/v1/agents/${encodeURIComponent(agentId)}`,
+          { headers: authorization },
+          (value: unknown) => value
+        );
+        const face = (response as { data?: Record<string, unknown> }).data;
+        if (!face || typeof face !== "object") return undefined;
+        const name = face.display_name ?? face.name;
+        return {
+          agentId,
+          displayName: typeof name === "string" ? name : "智能体",
+          description: typeof face.description === "string" ? face.description : "",
+          available: face.available === true
+        };
+      } catch {
+        return undefined; // 降级占位，不暴露 raw agent_id
+      }
+    },
     async sendMessage(request) {
       let result: ChatResponse | null = null;
       let error: string | null = null;

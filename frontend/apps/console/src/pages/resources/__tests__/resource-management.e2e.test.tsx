@@ -11,7 +11,7 @@ describe("S-C114 RuntimeProfile management", () => {
       seed: createConsoleFixture()
     });
 
-    await screen.findByRole("heading", { name: "运行资产" });
+    await screen.findByRole("heading", { name: "智能体" });
     await user.click(screen.getByText("runtime-profile-main"));
     await user.click(await screen.findByRole("button", { name: "创建草稿" }));
 

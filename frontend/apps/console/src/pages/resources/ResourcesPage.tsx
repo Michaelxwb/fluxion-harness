@@ -104,7 +104,15 @@ export function ResourcesPage({ api, initialTypeFilter = "all" }: ResourcesPageP
 
   return (
     <div className="page-stack">
-      <PageHeader description="管理所有类型的资源定义（运行态 / 技能 / MCP 工具 / 插件 / 策略），不创建运行实例（Pod）。" title="运行资产" />
+      <PageHeader
+        description="以智能体为中心构建、预览与发布；每个智能体绑定自己的能力与运行配置。"
+        title="智能体"
+        extra={
+          <Button aria-label="新建智能体" icon={<IconPlus />} onClick={() => openCreate()} type="primary">
+            新建智能体
+          </Button>
+        }
+      />
       <ErrorBanner message={error} />
       <Card
         aria-label="资源列表"

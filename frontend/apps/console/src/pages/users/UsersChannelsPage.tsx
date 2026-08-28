@@ -22,10 +22,12 @@ const USER_PAGE_SIZE = 20;
 
 export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
   const [users, setUsers] = useState<readonly PlatformUser[]>([]);
+  // closure TASK-010（P1C-06）：选择器数据源切 agent_definition（产品模型），
+  // 消除「RuntimeProfile 资源 ID 被当 agentId 签发」的错配。
   const [profiles, setProfiles] = useState<readonly ResourceSummary[]>([]);
   const [platformUserId, setPlatformUserId] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [agentId, setRuntimeProfileId] = useState<string>();
+  const [agentId, setAgentId] = useState<string>();
   const [selected360, setSelected360] = useState<string>();
   const [view360, setView360] = useState<User360Summary | null>(null);
   const [issued, setIssued] = useState<IssuedChatAccess | null>(null);
@@ -38,15 +40,15 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
 
   async function load(page: number): Promise<void> {
     try {
-      const [userPageResult, profilePage] = await Promise.all([
+      const [userPageResult, profileItems] = await Promise.all([
         api.listPlatformUsers({ page, pageSize: USER_PAGE_SIZE }),
-        api.listResources("runtime_profile")
+        api.listVisibleResources("agent_definition")
       ]);
       setUsers(userPageResult.items);
       setUserPage(page);
       setUserTotal(userPageResult.total);
-      setProfiles(profilePage.items);
-      setRuntimeProfileId((current) => current ?? profilePage.items[0]?.resourceId);
+      setProfiles(profileItems);
+      setAgentId((current) => current ?? profileItems[0]?.resourceId);
       setError(null);
     } catch (cause) {
       setError(toErrorMessage(cause));
@@ -115,11 +117,11 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
               <Button aria-label="新增" icon={<IconPlus />} onClick={() => setCreateOpen(true)} type="primary">新增</Button>
             </Space>
             <Space align="center">
-              <Typography.Text>运行态</Typography.Text>
+              <Typography.Text>智能体</Typography.Text>
               <Select
-                aria-label="运行态"
-                data-testid="runtime-profile-select"
-                onChange={(value) => setRuntimeProfileId(typeof value === "string" ? value : undefined)}
+                aria-label="智能体"
+                data-testid="agent-select"
+                onChange={(value) => setAgentId(typeof value === "string" ? value : undefined)}
                 optionList={profiles.map((profile) => ({ label: profile.displayName, value: profile.resourceId }))}
                 style={{ width: 160 }}
                 value={agentId}

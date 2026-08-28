@@ -40,7 +40,7 @@ interface ConsoleAppProps {
 
 export function ConsoleApp({
   api,
-  initialView = "resources",
+  initialView = "overview",
   initialAgentId
 }: ConsoleAppProps) {
   const [activeView, setActiveView] = useState<ConsoleView>(initialView);
@@ -86,7 +86,6 @@ const navItems = [
     text: "构建",
     items: [
       { icon: <IconUserGroup />, itemKey: "resources", text: "智能体" },
-      { icon: <IconKey />, itemKey: "agent_studio", text: "新建智能体" },
       { icon: <IconFlowChartStroked />, itemKey: "workflows", text: "工作流" },
       { icon: <IconKey />, itemKey: "capabilities", text: "能力" },
       { icon: <IconTestScore />, itemKey: "eval", text: <PlannedText>评测</PlannedText> }
@@ -103,8 +102,7 @@ const navItems = [
     items: [
       { icon: <IconShield />, itemKey: "policies", text: "授权规则" },
       { icon: <IconPuzzle />, itemKey: "plugin_policy", text: <PlannedText>插件策略</PlannedText> },
-      { icon: <IconHistory />, itemKey: "audit", text: "操作审计" },
-      { icon: <IconShield />, itemKey: "bindings", text: "资源绑定" }
+      { icon: <IconHistory />, itemKey: "audit", text: "操作审计" }
     ]
   },
   {

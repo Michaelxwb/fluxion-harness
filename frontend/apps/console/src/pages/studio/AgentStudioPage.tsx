@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Input, Select, Space, Table, Typography } from "@douyinfe/semi-ui";
 
 import { PageHeader } from "../../components/PageHeader";
-import type { ConsoleApi } from "../../types/console";
+import type { CapabilitySelection, CapabilitySelectionType, ConsoleApi } from "../../types/console";
 
 interface AgentStudioPageProps {
   readonly api: ConsoleApi;
@@ -11,44 +11,75 @@ interface AgentStudioPageProps {
   readonly initialAgentId?: string;
 }
 
-/** TASK-014 产出的能力选择器（Studio 内嵌版）：三类多选。 */
+const CAPABILITY_TYPE_LABELS: Record<CapabilitySelectionType, string> = {
+  skill: "Skill",
+  tool: "Tool",
+  mcp: "MCP"
+};
+
+/** closure TASK-008（P1C-04）：typed 能力选择器——产出 CapabilitySelection
+ * 三元组（type + capabilityRef + versionPin），展示「名称 + 类型 + 版本」。 */
 export function CapabilityPicker({
   api,
   selected,
   onChange
 }: {
   readonly api: ConsoleApi;
-  readonly selected: readonly string[];
-  readonly onChange: (next: readonly string[]) => void;
+  readonly selected: readonly CapabilitySelection[];
+  readonly onChange: (next: readonly CapabilitySelection[]) => void;
 }) {
-  const [options, setOptions] = useState<readonly { id: string; kind: string }[]>([]);
+  const [options, setOptions] = useState<
+    readonly { id: string; kind: CapabilitySelectionType; version: string; label: string }[]
+  >([]);
   useEffect(() => {
     void (async () => {
-      const merged: { id: string; kind: string }[] = [];
+      const merged: { id: string; kind: CapabilitySelectionType; version: string; label: string }[] = [];
       for (const kind of ["skill", "tool", "mcp"] as const) {
         const items = await api.listVisibleResources(kind);
-        merged.push(...items.map((i) => ({ id: i.resourceId, kind })));
+        merged.push(
+          ...items.map((i) => ({
+            id: i.resourceId,
+            kind,
+            version: i.currentVersion,
+            label: i.displayName || i.resourceId
+          }))
+        );
       }
       setOptions(merged);
     })();
   }, [api]);
 
-  const toggle = (id: string) => {
-    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+  const toggle = (option: { id: string; kind: CapabilitySelectionType; version: string }) => {
+    const exists = selected.some(
+      (item) => item.type === option.kind && item.capabilityRef === option.id
+    );
+    onChange(
+      exists
+        ? selected.filter((item) => !(item.type === option.kind && item.capabilityRef === option.id))
+        : [
+            ...selected,
+            { type: option.kind, capabilityRef: option.id, versionPin: option.version }
+          ]
+    );
   };
 
   return (
     <div aria-label="能力绑定选择">
-      {options.map((option) => (
-        <label key={option.id} style={{ display: "block" }}>
-          <input
-            type="checkbox"
-            checked={selected.includes(option.id)}
-            onChange={() => toggle(option.id)}
-          />
-          {`${option.kind}:${option.id}`}
-        </label>
-      ))}
+      {options.map((option) => {
+        const checked = selected.some(
+          (item) => item.type === option.kind && item.capabilityRef === option.id
+        );
+        return (
+          <label key={`${option.kind}:${option.id}`} style={{ display: "block" }}>
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => toggle(option)}
+            />
+            {`${option.label} ${CAPABILITY_TYPE_LABELS[option.kind]} v${option.version}`}
+          </label>
+        );
+      })}
     </div>
   );
 }
@@ -78,7 +109,7 @@ export function AgentStudioPage({ api, initialAgentId }: AgentStudioPageProps) {
   const [savedAgentId, setSavedAgentId] = useState<string | null>(null);
   const [runtimeProfileId, setRuntimeProfileId] = useState("");
   const [profiles, setProfiles] = useState<readonly ModelOption[]>([]);
-  const [capabilities, setCapabilities] = useState<readonly string[]>([]);
+  const [capabilities, setCapabilities] = useState<readonly CapabilitySelection[]>([]);
   const [memoryPolicyRef, setMemoryPolicyRef] = useState("");
   const [personalizationPolicyRef, setPersonalizationPolicyRef] = useState("");
 
@@ -117,7 +148,22 @@ export function AgentStudioPage({ api, initialAgentId }: AgentStudioPageProps) {
         system_prompt: systemPrompt,
         owner,
         instructions,
-        model_ref: { id: modelId || "dev.echo", version: "1" }
+        model_ref: { id: modelId || "dev.echo", version: "1" },
+        // closure TASK-007（P1C-03）：五段字段完整落 spec——此前四处全部丢失。
+        ...(runtimeProfileId
+          ? { runtime_profile_ref: { id: runtimeProfileId, version: "1" } }
+          : {}),
+        capabilities: capabilities.map((item) => ({
+          type: item.type,
+          capability_ref: item.capabilityRef,
+          version_pin: item.versionPin
+        })),
+        ...(memoryPolicyRef
+          ? { memory_policy_ref: { id: memoryPolicyRef, version: "1" } }
+          : {}),
+        ...(personalizationPolicyRef
+          ? { personalization_policy_ref: { id: personalizationPolicyRef, version: "1" } }
+          : {})
       }
     });
     setSavedAgentId(resourceId);

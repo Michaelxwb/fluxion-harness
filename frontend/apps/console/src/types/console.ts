@@ -229,3 +229,12 @@ export interface ConsoleApi {
     onEvent: (event: { event: string; data: unknown }) => void
   ): Promise<void>;
 }
+
+/** closure TASK-008（P1C-04）：能力选择 typed 三元组（Picker 契约）。 */
+export type CapabilitySelectionType = "skill" | "tool" | "mcp";
+
+export interface CapabilitySelection {
+  readonly type: CapabilitySelectionType;
+  readonly capabilityRef: string;
+  readonly versionPin: string;
+}

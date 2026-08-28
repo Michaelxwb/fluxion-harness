@@ -11,7 +11,7 @@ describe("B-C103 versions and history", () => {
       seed: createConsoleFixture(1000)
     });
 
-    await screen.findByRole("heading", { name: "运行资产" });
+    await screen.findByRole("heading", { name: "智能体" });
     await user.click(screen.getByText("runtime-profile-main"));
 
     const versions = await screen.findByLabelText("Versions");

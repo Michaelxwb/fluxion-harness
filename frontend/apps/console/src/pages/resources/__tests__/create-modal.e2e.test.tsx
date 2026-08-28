@@ -11,7 +11,7 @@ describe("RS8 创建弹窗 SchemaForm", () => {
       seed: createConsoleFixture()
     });
 
-    await screen.findByRole("heading", { name: "运行资产" });
+    await screen.findByRole("heading", { name: "智能体" });
     await user.click(screen.getByRole("button", { name: "新增" }));
     const dialog = await screen.findByRole("dialog", { name: "新建资源（运行态）" });
 
@@ -33,7 +33,7 @@ describe("RS8 创建弹窗 SchemaForm", () => {
       seed: createConsoleFixture()
     });
 
-    await screen.findByRole("heading", { name: "运行资产" });
+    await screen.findByRole("heading", { name: "智能体" });
     await user.click(screen.getByRole("button", { name: "新增" }));
     const dialog = await screen.findByRole("dialog", { name: "新建资源（运行态）" });
 

@@ -33,8 +33,18 @@ export interface ChatStreamEvent {
   readonly message?: string;
 }
 
+/** closure TASK-009（P1C-05 二层）：Agent 产品面信息（经产品 API 解析）。 */
+export interface AgentProductFace {
+  readonly agentId: string;
+  readonly displayName: string;
+  readonly description: string;
+  readonly available: boolean;
+}
+
 export interface ChatApi {
   resolveAccess?(): Promise<ChatAccess>;
+  /** 产品面信息（displayName/icon/description）；实现不可用时返回 undefined。 */
+  getAgentProduct?(agentId: string): Promise<AgentProductFace | undefined>;
   sendMessage(request: ChatRequest): Promise<ChatResponse>;
   sendMessageStream?(
     request: ChatRequest,

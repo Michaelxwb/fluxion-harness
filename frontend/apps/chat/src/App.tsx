@@ -25,6 +25,8 @@ export function ChatApp({ api }: ChatAppProps) {
   const [access, setAccess] = useState<ChatAccess | null>(null);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [resolvingAccess, setResolvingAccess] = useState(api.resolveAccess !== undefined);
+  // closure TASK-009（P1C-05 二层）：产品名解析——失败降级占位，不暴露 raw agent_id。
+  const [agentDisplayName, setAgentDisplayName] = useState("智能体");
   const [sending, setSending] = useState(false);
   const conversationId = useMemo(() => `conversation-${Date.now()}`, []);
   const requiresAccess = api.resolveAccess !== undefined;
@@ -32,12 +34,24 @@ export function ChatApp({ api }: ChatAppProps) {
   useEffect(() => {
     if (!api.resolveAccess) return;
     let active = true;
-    void api.resolveAccess()
+    void api
+      .resolveAccess()
       .then((resolved) => {
         if (!active) return;
         setAccess(resolved);
         setPlatformUserId(resolved.platformUserId);
         setAccessError(null);
+        // closure TASK-009：产品名解析——经产品 API 取 displayName，失败降级
+        // 占位「智能体」，任何路径都不展示 raw agent_id。
+        if (!api.getAgentProduct) return;
+        void api
+          .getAgentProduct(resolved.agentId)
+          .then((face) => {
+            if (active) setAgentDisplayName(face?.displayName ?? "智能体");
+          })
+          .catch(() => {
+            if (active) setAgentDisplayName("智能体");
+          });
       })
       .catch((cause: unknown) => {
         if (active) setAccessError(cause instanceof Error ? cause.message : "Chat 访问链接无效");
@@ -143,7 +157,7 @@ export function ChatApp({ api }: ChatAppProps) {
       <header className="chat-header">
         <div>
           <Typography.Title heading={4}>Fluxion 对话</Typography.Title>
-          <Typography.Text type="tertiary">{access?.agentId ?? "智能体"}</Typography.Text>
+          <Typography.Text type="tertiary">{agentDisplayName}</Typography.Text>
         </div>
         <Space>
           <Tag color={platformUserId ? "green" : "grey"}>

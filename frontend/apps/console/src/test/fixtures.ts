@@ -70,6 +70,24 @@ function createResourceVersions(versionCount: number): ConsoleSeed["resources"] 
   });
   return [
     ...versions,
+    // closure TASK-010：签发选择器数据源切 agent_definition——fixture 需提供。
+    {
+      resourceType: "agent_definition" as const,
+      resourceId: "assistant",
+      tenantId: "tenant-a",
+      version: "1",
+      status: "published" as const,
+      visibility: "tenant" as const,
+      spec: {
+        name: "assistant",
+        display_name: "assistant",
+        system_prompt: "fixture",
+        owner: "fixture",
+        model_ref: { id: "wire", version: "1" },
+        capabilities: []
+      },
+      updatedAt: "2026-08-23T08:00:00Z"
+    },
     {
       resourceType: "mcp" as const,
       resourceId: "tenant-a-calendar-mcp",
