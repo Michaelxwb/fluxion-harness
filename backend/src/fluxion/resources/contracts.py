@@ -539,6 +539,7 @@ class MemoryEntryRef(BaseModel):
     entry_id: str
     memory_type: str
     content_hash: str
+    priority: int = 0
 
 
 class MemoryManifest(BaseModel):
