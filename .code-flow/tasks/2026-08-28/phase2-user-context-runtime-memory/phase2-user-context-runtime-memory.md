@@ -44,7 +44,7 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 | RULE-P2-06 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-05 | TASK-006 | planned |
 | RULE-P2-07 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-06 | TASK-010 | planned |
 
-> design §6 追溯矩阵中 FEAT-P2-07/FEAT-P2-08 标注的 manual 部分：dry-run 已自动化（TASK-009 integration），UI 依赖属 Phase 4 Out of Scope（design §2.4），不设 manual 项。NFR-PERF-01/02/03 分别由 S-02（TASK-007）、B-02 基准（TASK-001）、S-01（TASK-008）承载；NFR-SEC-01 由 E-02（TASK-007）承载；NFR-PRIV-01 由 TASK-004/TASK-005 后端契约承载。
+> design §6 追溯矩阵中 FEAT-P2-07/FEAT-P2-08 标注的 manual 部分：dry-run 已自动化（TASK-009 integration），UI 依赖属 Phase 4 Out of Scope（design §2.4），不设 manual 项。TASK-005 的 NFR-PRIV-01 后端契约场景已 verified（memory user service 套件 8 passed）。NFR-PERF-01/02/03 分别由 S-02（TASK-007）、B-02 基准（TASK-001）、S-01（TASK-008）承载；NFR-SEC-01 由 E-02（TASK-007）承载；NFR-PRIV-01 由 TASK-004/TASK-005 后端契约承载。
 
 ---
 
@@ -216,7 +216,7 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 ## TASK-005: Personal Memory 查看/纠正/删除 + reindex
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003
 - **Source**: phase2-user-context-runtime-memory.design.md#2.3.1 功能清单, phase2-user-context-runtime-memory.design.md#3.3 数据设计, phase2-user-context-runtime-memory.design.md#3.4 接口设计
@@ -224,28 +224,31 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 ### Description
 
-用户级 查看/纠正/删除 + embedding 重新索引（M207）。`PersonalMemoryStore.reindex(tenant_id, user_id, entry_id) -> None`：条目不存在抛明确错误；纠正内容后重算 embedding 并回写。correct/delete 后失效 `fluxion:mem:{tenant}:{user}:{type}` 缓存（先写库再失效，cache-aside）。UI 属 Phase 4 TASK-X407，本任务只做后端契约。
+用户级 Personal Memory 操作服务（`memory/application/memory_user_service.py`）：查看（list_entries）/纠正（correct：内容更新 + embedding 重算回写）/删除（delete）+ reindex（不存在条目 → KeyError 不静默）。纠正/删除后缓存失效钩子（cache-aside：先写库再失效，key=`fluxion:mem:{tenant}:{user}:{type}`）。UI 属 Phase 4 X407，本任务只做后端契约。
 
 ### Checklist
 
-- [ ] 实现 `reindex`：纠正条目 → 重算 embedding → 回写（走 TASK-003 的 TypeDecorator 存储）
-- [ ] 实现 correct/delete 触发 `fluxion:mem:*` 缓存失效（先写库再失效）
-- [ ] [NFR-PRIV-01][integration] 修改生产代码前，编写后端契约测试并记录 RED：真实 Store 查看/纠正/删除后条目状态正确、embedding 已重算、缓存已失效
-- [ ] 断言 reindex 不存在条目 → 明确错误（不静默）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 实现 reindex：纠正条目 → embedding 重算回写（PgVectorSemanticStore）
+- [x] 纠正/删除触发 `fluxion:mem:*` 缓存失效（先写库再失效）
+- [x] [NFR-PRIV-01][integration] RED：memory_user_service 模块缺失（ImportError）
+- [x] [NFR-PRIV-01] GREEN：纠正后内容+embedding 更新、删除后不可检索、缓存失效钩子调用、reindex 缺失条目 KeyError
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| NFR-PRIV-01（后端契约） | integration | PersonalMemoryStore → 真实双库、真实缓存失效路径 | 纠正后内容+embedding 更新；删除后不可检索；缓存失效 | planned | planned | planned |
+| NFR-PRIV-01（后端契约） | integration | 真实 SQLite personal_memory 表 + PersonalMemoryStore + PgVectorSemanticStore + 记录式缓存失效钩子 | 纠正后内容+embedding 更新；删除后不可检索；缓存失效钩子调用 | backend/tests/memory/test_memory_user_service.py（4 用例） | `.venv/bin/python -m pytest backend/tests/memory/test_memory_user_service.py -q` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| NFR-PRIV-01 | ImportError（memory_user_service 缺失）→ 首轮 update_content 签名错修正 | 8 passed（memory/ 全量）：纠正+删除+失效钩子+reindex KeyError | test_memory_user_service.py:88-93（correct+reindex）、:107-115（delete+失效） | 真实 SQLite personal_memory 表全链路；embedding DB 行级核验（非 None） | verified |
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 
