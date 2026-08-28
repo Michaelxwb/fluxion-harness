@@ -17,6 +17,7 @@ from enum import Enum
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.sql.elements import ColumnElement
 
 from fluxion.plugins.contracts import SemanticStoreProvider
 from fluxion.registry.schema import personal_memory
@@ -152,7 +153,10 @@ class PersonalMemoryStore:
         }
         async with self._engine.begin() as connection:
             result = await connection.execute(insert(personal_memory).values(**values))
-            entry_id = int(result.inserted_primary_key[0])
+            inserted_pk = result.inserted_primary_key
+            if inserted_pk is None:
+                raise RuntimeError("inserted_primary_key not returned after INSERT")
+            entry_id = int(inserted_pk[0])
         return PersonalMemoryEntry(
             id=entry_id,
             tenant_id=candidate.tenant_id,
@@ -220,7 +224,7 @@ class PersonalMemoryRetriever:
         return [_entry_from_record(record) for record in records]
 
 
-def _scope(tenant_id: str, user_id: str, entry_id: int) -> tuple[object, ...]:
+def _scope(tenant_id: str, user_id: str, entry_id: int) -> tuple[ColumnElement[bool], ...]:
     return (
         personal_memory.c.tenant_id == tenant_id,
         personal_memory.c.user_id == user_id,
@@ -251,8 +255,11 @@ def _entry_from_record(record: dict[str, object]) -> PersonalMemoryEntry:
     def _as_datetime(value: object) -> datetime:
         return value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
 
+    def _as_id(value: object) -> int:
+        return value if isinstance(value, int) else int(str(value))
+
     return PersonalMemoryEntry(
-        id=int(record["id"]),  # type: ignore[arg-type]
+        id=_as_id(record["id"]),
         tenant_id=str(record["tenant_id"]),
         user_id=str(record["user_id"]),
         memory_type=_as_memory_type(record["memory_type"]),

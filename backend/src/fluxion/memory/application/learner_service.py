@@ -8,25 +8,39 @@ Policy/Consent 拒绝携带可观测 reason（不抛错）；抽取失败（None
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Protocol
 
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from fluxion.errors.console import VALIDATION_FAILED, ConsoleError
 from fluxion.memory.domain.personal_memory import (
+    CommitResult,
+    ConsentDecision,
     MemoryCandidate,
     MemoryLearner,
+    PersonalMemoryStore,
+    PolicyDecision,
 )
 from fluxion.registry.schema import personal_memory, user_preferences
+
+
+class EngineStore(Protocol):
+    """暴露 engine 的 Store 门面：raw-SQL 依赖统一经 store 取 engine。
+
+    memory 域 service 与 UserDomainService 一样收 store 根（不另传独立 engine），
+    从构造上杜绝"误传异库 engine 导致 user 数据与 memory 数据静默裂分"。
+    """
+
+    engine: AsyncEngine
 
 
 class MemoryLearnerService:
     """pipeline 正式入口：stop-learning gate（UserPreference）+ MemoryLearner。"""
 
-    def __init__(self, engine: AsyncEngine) -> None:
-        self._engine = engine
-        self._learner = MemoryLearner(store=_MemoryStoreAdapter(engine))
+    def __init__(self, store: EngineStore) -> None:
+        self._engine = store.engine
+        self._learner = MemoryLearner(store=PersonalMemoryStore(store.engine))
 
     async def ensure_user(self, *, tenant_id: str, platform_user_id: str) -> None:
         await self._store_ensure_user(tenant_id, platform_user_id)
@@ -53,9 +67,9 @@ class MemoryLearnerService:
         self,
         *,
         candidate: MemoryCandidate,
-        policy_decision,
-        consent,
-    ) -> Any:
+        policy_decision: PolicyDecision,
+        consent: ConsentDecision,
+    ) -> CommitResult:
         learning_enabled = await self._read_learning_enabled(
             candidate.tenant_id, candidate.user_id
         )
@@ -70,9 +84,9 @@ class MemoryLearnerService:
         self,
         *,
         candidates: list[MemoryCandidate | None],
-        policy_decision,
-        consent,
-    ) -> list[Any]:
+        policy_decision: PolicyDecision,
+        consent: ConsentDecision,
+    ) -> list[CommitResult]:
         """批次提交：抽取失败（None）候选跳过，不阻塞批次。"""
         results = []
         for candidate in candidates:
@@ -129,33 +143,3 @@ class MemoryLearnerService:
             raise ConsoleError(VALIDATION_FAILED, "tenant/user required", 400)
 
 
-class _MemoryStoreAdapter:
-    """MemoryLearner 依赖的存储面（personal_memory 表直写）。"""
-
-    def __init__(self, engine: AsyncEngine) -> None:
-        self._engine = engine
-
-    async def _insert(self, candidate: MemoryCandidate):
-        from sqlalchemy import insert
-
-        from fluxion.registry.schema import personal_memory
-
-        now = datetime.now(UTC)
-        from types import SimpleNamespace
-
-        async with self._engine.begin() as conn:
-            result = await conn.execute(
-                insert(personal_memory).values(
-                    tenant_id=candidate.tenant_id,
-                    user_id=candidate.user_id,
-                    memory_type=candidate.memory_type.value,
-                    content=candidate.content,
-                    source_session_id=candidate.source_session_id,
-                    source_range_hash=candidate.source_range_hash,
-                    learning_enabled=True,
-                    created_at=now,
-                    updated_at=now,
-                )
-            )
-            entry_id = result.inserted_primary_key[0]
-            return SimpleNamespace(id=entry_id)

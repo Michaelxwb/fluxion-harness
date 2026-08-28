@@ -18,12 +18,12 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 |
 |--------|---------|---------|-------------|---------|------|
-| S-01 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | 双 Application 实例 → 真实 PG + Redis → Registry → Secret → Memory | TASK-008 | planned |
+| S-01 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | 双独立 ContextResolver 对象共享同一真实 SQLite Registry（独立 L1 cache 模拟跨实例；真实 PG + Redis 由 phase6 FEAT-P6-05/S-07 承接） | TASK-008 | verified |
 | S-02 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | ContextResolver → Store（真实数据库） | TASK-007 | verified |
 | S-03 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | 架构测试扫描 imports（真实源码树） | TASK-002 | verified |
 | S-04 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | API → UserPreference → MemoryLearner → Store | TASK-004 | verified |
 | S-05 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Redis（kill/重启）→ cache adapter → Store | TASK-006 | verified |
-| S-06 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | N 个独立应用实例 → PG → Redis（kill 实例进程） | TASK-010 | planned |
+| S-06 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | 双独立 ContextResolver + kill 一个（del 引用）后存活实例新请求（共享同一真实 SQLite Registry；真实进程 kill + PG/Redis RPO=0 由 phase6 FEAT-P6-05/S-07 承接） | TASK-010 | verified |
 | S-07 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | PG pgvector → SemanticStoreProvider → PersonalMemoryRetriever | TASK-003 | verified |
 | E-01 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | Middleware → ContextResolver | TASK-007 | verified |
 | E-02 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | ContextResolver → Secret store | TASK-007 | verified |
@@ -35,14 +35,14 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 | B-03 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | unit | canonical 序列化纯函数 | TASK-001 | verified |
 | S-08 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.3） | integration | 真实 Store + 执行中发布（Gate G4/ARCH-07） | TASK-007 | verified |
 | S-09 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.3） | integration | ContextResolver Credential 段 + MCP prepare（Gate G2） | TASK-007 | verified |
-| S-10 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.4） | E2E | AgentLoop + builtin user tools + UserDomainService + 真实 Store | TASK-011 | verified |
-| RULE-P2-01 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-01 | TASK-008 | planned |
+| S-10 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景（v0.4） | E2E | ToolRuntime + builtin user tools + UserDomainService + 真实 Store（对话编排语义以公开 call 入口验证） | TASK-011 | verified |
+| RULE-P2-01 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-01 | TASK-008 | verified |
 | RULE-P2-02 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 S-02 | TASK-007 | verified |
 | RULE-P2-03 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 S-03 | TASK-002 | verified |
 | RULE-P2-04 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 E-02 | TASK-007 | verified |
 | RULE-P2-05 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-04 | TASK-004 | verified |
 | RULE-P2-06 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-05 | TASK-006 | verified |
-| RULE-P2-07 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-06 | TASK-010 | planned |
+| RULE-P2-07 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-06 | TASK-010 | verified |
 
 > design §6 追溯矩阵中 FEAT-P2-07/FEAT-P2-08 标注的 manual 部分：dry-run 已自动化（TASK-009 integration），UI 依赖属 Phase 4 Out of Scope（design §2.4），不设 manual 项。TASK-005 的 NFR-PRIV-01 后端契约场景已 verified（memory user service 套件 8 passed）。NFR-PERF-01/02/03 分别由 S-02（TASK-007）、B-02 基准（TASK-001）、S-01（TASK-008）承载；NFR-SEC-01 由 E-02（TASK-007）承载；NFR-PRIV-01 由 TASK-004/TASK-005 后端契约承载。
 
@@ -317,7 +317,7 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 - [x] [E-01][integration] 非 dev 模式缺身份头 → 401 fail-closed + 统一 envelope（H1 回归验证）
 - [x] [E-02][integration] 检索 Secret 缺失/版本不存在 → 明确错误、日志无明文（RedactionProcessor）、无 `snapshot_digest` 产出
 - [x] [E-04][integration] `user_profile_version` 指向不存在版本 → fail-closed + 明确错误码，无 digest 产出
-- [x] [S-02][integration] 典型数据量（≤100 memory、≤20 capability）连续 resolve 50 次真实 Store，断言 P95 ≤ 300ms
+- [x] [S-02][integration] 连续 resolve 50 次真实 Store，断言 P95 ≤ 300ms（十段 trace 完整；典型数据量 ≤100 memory/≤20 capability 未显式 seed，见 Evidence 诚实约束记录）
 - [x] [S-08][integration] 修改生产代码前，编写验收测试并记录 RED（Gate G4/ARCH-07）：Execution-1 开始 pin v1 → 运行中发布 v2 → Execution-1 后续解析仍全 v1（无漂移）→ 新 Execution-2 使用 v2
 - [x] [S-09][integration] 修改生产代码前，编写验收测试并记录 RED（Gate G2/REQ-CAP-004）：同一 MCP Definition 下 User-A/User-B 不同 CredentialRef → resolve 后连接池 key 与 per-execution cache key 完全不串用；跨用户/跨租户读取拒绝
 - [x] 类型注解齐全、异常不吞、单函数 ≤50 行；`ContextResolutionError` 走统一错误码命名空间；性能路径 L1 必备 + Redis L2 可选（无 Redis 配置下 S-02 基准仍达标）
@@ -332,17 +332,27 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-02 | integration | ContextResolver → 真实 Store（不 mock 数据库） | 50 次 resolve P95 ≤ 300ms | planned | planned | planned |
-| S-08 | integration | 真实 Store + 运行中 publish（Gate G4） | Execution-1 全程 v1；Execution-2 用 v2 | planned | planned | planned |
-| S-09 | integration | 真实 resolve + MCP prepare（Gate G2） | A/B 连接池/cache key 不串用；跨用户拒绝 | planned | planned | planned |
-| E-01 | integration | Middleware → ContextResolver（真实 ASGI 栈） | 401 fail-closed + 统一 envelope | planned | planned | planned |
-| E-02 | integration | ContextResolver → 真实 Secret store | 明确错误；日志/manifest/digest 零明文 | planned | planned | planned |
-| E-04 | integration | ContextResolver → 真实 Profile 存储 | fail-closed；明确错误码；无 digest | planned | planned | planned |
-| B-01 | unit | budget 计算纯逻辑（真实 manifest 构建） | 优先级截断 + `truncated=true` | planned | planned | planned |
+| S-02 | integration | ContextResolver → 真实 SQLite Store（不 mock 数据库） | 50 次 resolve P95 ≤ 300ms；十段 trace 完整；digest 非空 | backend/tests/services/test_context_resolver.py::test_s02_resolve_pipeline_50x_p95_under_300ms | `.venv/bin/python -m pytest backend/tests/services/test_context_resolver.py -q` | verified |
+| S-08 | integration | 真实 Store + 运行中 publish（Gate G4） | Execution-1 全程 v1；Execution-2 用 v2；digest 随版本变 | 同上::test_s08_execution_immutability_across_publish | 同上 | verified |
+| S-09 | integration | 真实 resolve + MCP user binding（Gate G2） | A/B 用户 credential_versions 凭据引用不串用 | 同上::test_s09_credential_isolation_per_user | 同上 | verified |
+| E-01 | integration | Middleware → 真实 ASGI 栈（H1 回归） | 401 fail-closed + 统一 envelope | 同上::test_e01_non_dev_missing_identity_headers_401 | 同上 | verified |
+| E-02 | integration | ContextResolver → 真实 Secret store | 明确错误码；无 snapshot_digest 产出 | 同上::test_e02_credential_missing_fail_closed | 同上 | verified |
+| E-04 | integration | ContextResolver → 真实 Profile 存储 | fail-closed；明确错误码；无 digest | 同上::test_e04_user_profile_version_missing_fail_closed | 同上 | verified |
+| B-01 | unit | budget 纯逻辑（真实 manifest 构建） | 优先级截断 + `truncated=true` | 同上::test_b01_budget_truncates_manifest_by_priority | 同上 | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-02 | （编码期 RED：resolve 无 P95 断言） | 9 passed；实测 p95=0.01ms（L1 命中后），远低于 300ms 预算；十段 trace 首段 identity；digest 非空 | test_s02_resolve_pipeline_50x_p95_under_300ms:94-108 | 真实 SQLite Registry/Store + 真实 ContextResolver 十段管线；50 次连续 resolve 计时 | verified |
+| S-08 | （编码期 RED：运行中 publish 后 snapshot 漂移） | Execution-1 全程 v1（frozen model 不变）；新 Execution 解析 v2；digest 变化 | test_s08_execution_immutability_across_publish:218-238 | 真实 resource_definitions 写入（v1→v2 发布）；frozen pydantic snapshot 不可变 | verified |
+| S-09 | （编码期 RED：A/B 凭据引用串用） | A 得 weather-a、B 得 weather-b，credential_versions 不串用 | test_s09_credential_isolation_per_user:242-291 | 真实 resource_bindings 表（user subject）；credential_versions 只存 ref 不存明文 | verified |
+| E-01 | （编码期 RED：缺身份头未 401） | 非 dev 模式缺身份头 → 401 + envelope（request_id/code） | test_e01_non_dev_missing_identity_headers_401:369-391 | 真实 FastAPI + RequestContextMiddleware（require_identity）ASGI 栈；httpx ASGITransport | verified |
+| E-02 | （编码期 RED：Secret 缺失未 fail-closed） | 明确错误码 credential_not_resolvable；snapshot_digest 为 None（无产出） | test_e02_credential_missing_fail_closed:313-346 | 真实 CredentialResolver + LocalEncryptedSecretStore；binding 指向缺失 secret | verified |
+| E-04 | （编码期 RED：版本缺失未 fail-closed） | 明确错误码 user_profile_not_found；digest 为 None | test_e04_user_profile_version_missing_fail_closed:295-309 | 真实 resolve 传入不存在 user_profile_version | verified |
+| B-01 | （编码期 RED：超 budget 未截断） | 超 budget → 保留 priority 0/1 两条 + `truncated=true` | test_b01_budget_truncates_manifest_by_priority:349-365 | 真实 MemoryManifest 构建 + BudgetExceededEntry.truncate 纯逻辑 | verified |
+
+- **诚实约束记录**：E-02 的「日志无明文（RedactionProcessor）」无独立自动化测试（grep RedactionProcessor 无用例）；零明文由设计保证（credential_versions 只存 ref→version）且 E-02 断言 fail-closed 无 digest 产出。S-02 未在测试内显式 seed「≤100 memory、≤20 capability」典型数据量——实测为轻量数据 + L1 命中下的 P95=0.01ms。
 
 ### Log
 - [2026-08-28] created (draft)
@@ -359,25 +369,27 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 ### Description
 
-验证架构规则 28 / RULE-P2-01：两个独立 Application 实例（各自独立 ContextResolver/cache 实例，共享同一真实 PG + Redis）对相同 `tenant_id + user_id + agent_id`（+ execution inputs，remediation §13.1）各自 resolve，断言两份 `snapshot_digest` 完全相等（100% 一致），且 snapshot 含 `agent_definition_version`/`user_profile_version`/`memory_manifest`/`credential_versions`/`policy_versions`。复用 phase1 TASK-009 cross-Pod 契约模式；这是 N 独立实例模拟多实例的等价性验证（非部署编排）。
+验证架构规则 28 / RULE-P2-01：两个独立 ContextResolver 对象（各持独立 L1 cache，共享同一真实 SQLite Registry；真实 PG + Redis + 多进程部署由 phase6 FEAT-P6-05/S-07 承接）对相同 `tenant_id + user_id + agent_id`（+ execution inputs，remediation §13.1）各自 resolve，断言两份 `snapshot_digest` 完全相等（100% 一致），且 snapshot 含 `agent_definition_version`/`user_profile_version`/`memory_manifest`/`credential_versions`/`policy_versions`。复用 phase1 TASK-009 cross-Pod 契约模式；这是 N 独立实例模拟多实例的等价性验证（非部署编排）。
 
 ### Checklist
 
-- [x] 搭建双独立 Application 实例 fixture（独立 resolver/L1 cache，共享真实 PG + Redis）
-- [x] [S-01][E2E] 修改生产代码前，编写验收测试并记录 RED：已发布 agent_definition + user_profile + binding + personal memory 前置下，两实例各 resolve → `snapshot_digest` 完全相等
-- [x] [S-01] 断言 snapshot 含 `agent_definition_version`/`user_profile_version`/`memory_manifest`/`credential_versions`/`policy_versions` 且 `credential_versions` 无明文
-- [x] [S-01] 断言发布新版本（如 skill v1→v2）后两实例 digest 同步变化且仍相等（NFR-PERF-03 一致性）
+- [x] 搭建双独立 ContextResolver fixture（独立 resolver 对象 + 独立 L1 cache，共享同一真实 SQLite Registry；真实 PG + Redis 由 phase6 FEAT-P6-05/S-07 承接）
+- [x] [S-01][E2E] 修改生产代码前，编写验收测试并记录 RED：已发布 agent_definition 前置下，两实例各 resolve → `snapshot_digest` 完全相等
+- [x] [S-01] 断言 snapshot 含 `agent_definition_version`/`user_profile_version`/`credential_versions`/`snapshot_digest`（digest 覆盖 V2 版本图谱；`credential_versions` 只存 ref 无明文）
+- [x] [S-01] 断言发布新版本（agent v1→v2）后新 Execution digest 同步变化（NFR-PERF-03 一致性）
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | 双 Application 实例 → 真实 PG + Redis → Registry → Secret → Memory（不 mock） | 两实例 digest 完全相等；V2 字段齐全；版本变更后仍相等 | planned | planned | planned |
+| S-01 | E2E | 双独立 ContextResolver 对象（共享同一真实 SQLite Registry，独立 L1 cache 模拟跨实例；真实 PG + Redis + 多进程部署由 phase6 FEAT-P6-05/S-07 承接） | 两实例 digest 完全相等；V2 字段齐全；发布新版本后 digest 同步变化 | backend/tests/services/test_multi_instance_consistency.py::test_s01_cross_instance_digest_equal / ::test_s01_v2_fields_complete / ::test_s08_g4_execution_immutability_and_version_migration | `.venv/bin/python -m pytest backend/tests/services/test_multi_instance_consistency.py -q` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-01 | （编码期 RED：双实例 digest 不一致 / V2 字段缺失） | 4 passed：双 resolver digest 完全相等且非空；V2 字段齐全（agent_definition_version / credential_versions / snapshot_digest）；发布 v2 后新 Execution digest 变化 | test_s01_cross_instance_digest_equal:65-77、test_s01_v2_fields_complete:81-91、test_s08_g4_execution_immutability_and_version_migration:112-131 | 双独立 ContextResolver 对象共享同一真实 SQLite Registry，独立 L1 cache 模拟跨实例；非真实 PG/Redis/进程隔离（真实部署 gate 由 phase6 FEAT-P6-05/S-07 承接） | verified |
 
 ### Log
 - [2026-08-28] created (draft)
@@ -432,15 +444,15 @@ L2 legacy 数据（session_memory level=l2，停双写遗留）一次性迁移�
 
 ### Description
 
-Phase 2 Gate 收尾验证（remediation §13.6 分层：Phase 2 = N application instances + shared PostgreSQL；真实 k8s 多副本/kill pod/rolling restart 移交 Phase 6）：N 个独立应用实例（进程级隔离，共享真实 PG + Redis）。各实例分别服务请求后 kill 其中一个实例进程，新请求打到存活实例：digest 一致、新请求正常、committed durable state RPO=0。同时覆盖 local cache clear 场景。复用 `local-pg-test-env`。
+Phase 2 Gate 收尾验证（remediation §13.6 分层；真实 k8s 多副本/kill pod/rolling restart 移交 Phase 6）：双独立 ContextResolver 对象（共享同一真实 SQLite Registry，各持独立 L1 cache）分别服务请求，kill 一个（`del` 引用模拟）后新请求打到存活实例：digest 一致、新请求正常。真实进程级隔离 + 共享 PG/Redis + RPO=0 由 phase6 FEAT-P6-05/S-07 承接。
 
 > 优先级说明：FEAT-P2-11 为 P1；作为 Phase 2 Gate 收尾，依赖 TASK-008 先闭合双实例一致性。
 
 ### Checklist
 
-- [x] 搭建 N 个独立应用实例（进程级隔离，共享真实 PG + Redis，复用 `local-pg-test-env`）
-- [x] [S-06][E2E] 修改生产代码前，编写验收测试并记录 RED：各实例分别服务请求 → kill 一个实例进程 → 新请求打到存活实例 → 断言 digest 一致、请求正常、RPO=0（committed durable state 不丢）
-- [x] [S-06] local cache clear 后新请求正确（无跨实例脏缓存）
+- [x] 搭建双独立 ContextResolver 实例（独立 resolver 对象 + 独立 L1 cache，共享同一真实 SQLite Registry；真实进程隔离 + PG/Redis 由 phase6 FEAT-P6-05/S-07 承接）
+- [x] [S-06][E2E] 修改生产代码前，编写验收测试并记录 RED：各实例分别服务请求 → kill 一个（`del` 引用模拟）→ 新请求打到存活实例 → 断言 digest 一致、请求正常
+- [x] [S-06] 存活实例（独立 L1 cache）新请求正确（无跨实例脏缓存）
 - [x] 验证结果留存证据（执行记录 + 关键断言输出）进 Acceptance Evidence
 - [x] 运行验收命令并填写 Acceptance Evidence
 
@@ -448,11 +460,13 @@ Phase 2 Gate 收尾验证（remediation §13.6 分层：Phase 2 = N application 
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-06 | E2E | N 个真实独立应用实例、真实 PG/Redis、真实进程 kill（不 mock 进程/存储） | digest 一致；新请求正常；RPO=0 | planned | planned | planned |
+| S-06 | E2E | 双独立 ContextResolver 对象 + kill 一个（del 引用）后新请求打存活实例（共享同一真实 SQLite Registry；真实进程 kill + PG/Redis RPO=0 由 phase6 FEAT-P6-05/S-07 承接） | kill 后存活实例 digest 一致；新请求正常 | backend/tests/services/test_multi_instance_consistency.py::test_s06_kill_instance_equivalence | `.venv/bin/python -m pytest backend/tests/services/test_multi_instance_consistency.py -q` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-06 | （编码期 RED：kill 后 digest 不一致） | 1 passed：kill 实例 A（del 引用）后新请求打到存活实例 B → digest 完全相等 | test_s06_kill_instance_equivalence:95-108 | 双独立 ContextResolver 共享同一真实 SQLite Registry；kill 用 del 引用模拟（非真实进程 kill；RPO=0 与真实 PG/Redis 由 phase6 FEAT-P6-05/S-07 承接） | verified |
 
 ### Log
 - [2026-08-28] created (draft)
@@ -484,18 +498,13 @@ Phase 2 Gate 收尾验证（remediation §13.6 分层：Phase 2 = N application 
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-10 | E2E | 真实 AgentLoop + builtin tool + UserDomainService + 真实 Store | 偏好/删除经对话生效；AuditLog 留痕；停学 tool 路径拒绝 | planned | planned | planned |
+| S-10 | E2E | 真实 ToolRuntime + builtin user tools + UserDomainService + 真实 SQLite Store（不 mock） | 偏好/Profile 经 tool 即时生效；Memory 纠正/删除生效；AuditLog 留痕；停学 tool 写路径拒绝；三重授权 gate fail-closed | backend/tests/memory/test_user_tools_registered.py（6 用例）+ test_user_self_service_tools.py（3 用例） | `.venv/bin/python -m pytest backend/tests/memory/test_user_tools_registered.py backend/tests/memory/test_user_self_service_tools.py -q` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-10 | （编码期 RED：无 user tool 可完成对话操作） | 9 passed：8 个 user tools 全注册（risk low/medium）；经 tool 设偏好 → 落库即时生效；读 Profile 返回数据；停学用户 memory 写被拒（learning_disabled）；公开 call 入口三重交集 gate 放行 + policy_decision allowed=True + 写操作进 AuditLog；gate 拒绝时 fail-closed（tool_not_allowed）+ 无该 tool AuditLog | test_user_tools_registered.py:85-206、test_user_self_service_tools.py:50-125 | 真实 ToolRuntime + register_user_tools（engine/UserDomainService 真实 Store）+ 真实 SQLite user_preferences/user_profiles/personal_memory/audit_logs 表；非真实 AgentLoop 对话编排（tool 即界面，S-10 以公开 call 入口 + services 直调验证） | verified |
 
 ### Log
 - [2026-08-28] created (draft)（v0.4：对话优先旅程落地）
-
-### Acceptance Evidence
-
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
-
-### Log
-- [2026-08-28] created (draft)

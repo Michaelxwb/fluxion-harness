@@ -15,10 +15,14 @@ manifest，不阻塞 Execution）。
 
 from __future__ import annotations
 
+import logging
 import math
 from typing import Any
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+
+logger = logging.getLogger(__name__)
 
 
 class SemanticStoreError(RuntimeError):
@@ -63,7 +67,10 @@ class PgVectorSemanticStore:
                     )
                 ).scalar()
                 self._pgvector_available = bool(row)
-        except Exception:
+        except SQLAlchemyError:
+            # 探测失败（如 SQLite 无 pg_extension 表）→ 降级非 native 路径；
+            # 属预期降级，记 debug 可观测、不告警（规则：禁止静默吞异常）
+            logger.debug("pgvector probe failed; degraded to Python cosine", exc_info=True)
             self._pgvector_available = False
 
     @property
@@ -76,7 +83,7 @@ class PgVectorSemanticStore:
         user_id: str,
         record: dict[str, Any],
         timeout_ms: int = 30_000,
-    ) -> int:
+    ) -> None:
         """写入/更新一条 memory + embedding（按 scope+content 幂等 upsert 简化为插入）。"""
         import datetime as _dt
 
@@ -105,11 +112,10 @@ class PgVectorSemanticStore:
                 await conn.execute(stmt)
         except Exception as exc:
             raise SemanticStoreError(f"semantic store failed: {exc}") from exc
-        return 0
 
     @property
     def _is_postgres(self) -> bool:
-        return self._engine.dialect.name == "postgresql"
+        return bool(self._engine.dialect.name == "postgresql")
 
     async def recall(
         self,
@@ -122,7 +128,12 @@ class PgVectorSemanticStore:
         query_embedding: list[float] | None = None,
         memory_type: str | None = None,
     ) -> list[dict[str, object]]:
-        """语义召回：cosine 排序 + memory_type 过滤 + tenant/user 隔离。"""
+        """语义召回：cosine 排序 + memory_type 过滤 + tenant/user 隔离。
+
+        record 契约与 `PersonalMemoryRetriever` 的 `_entry_from_record` 对齐：
+        完整行投影 + `id` 键（生产 provider 与测试 TableBackedSemanticStore
+        同形态）；`score` 为附加排序信息，消费方按需读取。
+        """
         from sqlalchemy import select
 
         from fluxion.registry.schema import personal_memory
@@ -130,9 +141,15 @@ class PgVectorSemanticStore:
         del query  # 查询语义经 query_embedding 表达；文本检索属 Phase 6 排序器
         stmt = select(
             personal_memory.c.id,
+            personal_memory.c.tenant_id,
+            personal_memory.c.user_id,
             personal_memory.c.memory_type,
             personal_memory.c.content,
             personal_memory.c.embedding,
+            personal_memory.c.source_session_id,
+            personal_memory.c.source_range_hash,
+            personal_memory.c.created_at,
+            personal_memory.c.updated_at,
         ).where(
             personal_memory.c.tenant_id == tenant_id,
             personal_memory.c.user_id == user_id,
@@ -154,9 +171,15 @@ class PgVectorSemanticStore:
                 (
                     score,
                     {
-                        "entry_id": row["id"],
+                        "id": row["id"],
+                        "tenant_id": row["tenant_id"],
+                        "user_id": row["user_id"],
                         "memory_type": row["memory_type"],
                         "content": row["content"],
+                        "source_session_id": row["source_session_id"],
+                        "source_range_hash": row["source_range_hash"],
+                        "created_at": row["created_at"],
+                        "updated_at": row["updated_at"],
                         "score": score,
                     },
                 )

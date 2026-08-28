@@ -9,11 +9,13 @@ L1 内存缓存必备（Redis L2 可选增强，正确性不依赖）。
 
 from __future__ import annotations
 
+import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from fluxion.agents.definitions import AgentDefinition
@@ -32,6 +34,8 @@ from fluxion.resources.contracts import (
     ModelPolicy,
 )
 from fluxion.resources.snapshot_digest import canonical_digest
+
+logger = logging.getLogger(__name__)
 
 
 class ContextResolutionError(RuntimeError):
@@ -123,13 +127,25 @@ class ContextResolver:
         def _stage(stage: str, version: str | None, started: float) -> None:
             trace.append(StageTrace(stage, version, (time.perf_counter() - started) * 1000))
 
-        # L1 缓存检查（remediation §13.5：同 key 短路，不重复查库）
+        # L1 缓存检查（remediation §13.5：同 key 短路，不重复查库）。
+        # 内容字段（版本/memory manifest）可跨 Execution 复用；但 execution_id/
+        # trace_id 是 per-Execution 标识（规则 23 日志/Audit/Trace 关联 trace_id），
+        # 命中缓存时必须重新生成——digest 已排除运行时字段（_RUNTIME_FIELDS），
+        # 无需重算 digest。
         cache_key = f"{selector.tenant_id}:{selector.agent_id}:{selector.user_id}"
         cached = self._l1_cache.get(cache_key)
         if cached is not None:
             result, ts = cached
             if time.monotonic() - ts < self._l1_cache_ttl:
-                return result
+                return replace(
+                    result,
+                    snapshot=result.snapshot.model_copy(
+                        update={
+                            "execution_id": f"exec_{uuid4_hex()}",
+                            "trace_id": f"trace_{uuid4_hex()}",
+                        }
+                    ),
+                )
             del self._l1_cache[cache_key]
         started = time.perf_counter()
         # 1. identity：ChannelIdentity → PlatformUser 映射（Phase 1 复用）
@@ -223,7 +239,7 @@ class ContextResolver:
             memory_manifest=manifest,
         )
         snapshot = snapshot.model_copy(update={"snapshot_digest": canonical_digest(snapshot)})
-        _stage("snapshot", snapshot.snapshot_digest[:12], started)
+        _stage("snapshot", (snapshot.snapshot_digest or "")[:12], started)
 
         user_context = {
             "user_id": platform_user_id or selector.user_id,
@@ -281,7 +297,7 @@ class ContextResolver:
             ).first()
         return str(row[0]) if row else None
 
-    async def _user_profile_at(self, tenant_id: str, user_id: str, version: str):
+    async def _user_profile_at(self, tenant_id: str, user_id: str, version: str) -> Any | None:
         from sqlalchemy import select
 
         async with self._engine.connect() as conn:
@@ -333,7 +349,7 @@ class ContextResolver:
     async def _resolve_platform_user(self, tenant_id: str, user_id: str) -> str | None:
         """Identity 段：ChannelIdentity → PlatformUser 映射（Phase 1 复用）。
         user_id 无前缀时视为 platform_user_id 直传（Channel/API 已解析）。"""
-        if user_id.startswith("migration:") or user_id.startswith("user-"):
+        if user_id.startswith(("migration:", "user-")):
             return user_id
         try:
             async with self._engine.connect() as conn:
@@ -347,37 +363,45 @@ class ContextResolver:
                 ).first()
             if row is not None:
                 return str(row[0])
-        except Exception:
-            pass
+        except SQLAlchemyError:
+            # 查询失败 → 降级直传（规则：禁止静默吞异常，带堆栈记录）
+            logger.warning(
+                "channel_identity lookup failed; fallback to raw user_id "
+                "tenant=%s user=%s",
+                tenant_id,
+                user_id,
+                exc_info=True,
+            )
         return user_id
 
     async def _resolve_capability_versions(
         self, tenant_id: str, capabilities: list[Any]
     ) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
-        """按 Agent capabilities 解析 skill/mcp/tool 的实际 published 版本。"""
+        """按 Agent capabilities 解析 skill/mcp 的实际 published 版本。
+
+        tool 类型不解析版本：builtin/runtime tool 不是版本化 Resource，且
+        ExecutionSnapshot V2 只承载 skill/mcp/plugin 版本字段（CapabilityType
+        无 plugin，plugin_versions 恒空）。不得把 tool 版本写入无效目标。
+        """
         skill_versions: dict[str, str] = {}
         mcp_versions: dict[str, str] = {}
         plugin_versions: dict[str, str] = {}
-        kind_map = {"skill": "skill_versions", "mcp": "mcp_versions", "tool": "tool_versions", "plugin": "plugin_versions"}
         for cap in capabilities:
-            cap_type = cap.type
-            ref = cap.capability_ref
-            pin = cap.version_pin
-            kind = kind_map.get(cap_type)
-            if kind is None:
+            if cap.type == "tool":
                 continue
-            row = await self._get_resource(cap_type, ref, tenant_id, pin if pin != "latest-published" else None)
-            if row is not None:
-                version = str(row["version"])
-                if kind == "skill_versions":
-                    skill_versions[ref] = version
-                elif kind == "mcp_versions":
-                    mcp_versions[ref] = version
-                elif kind == "tool_versions":
-                    tool_versions_dict = getattr(self, "_tool_versions", {})
-                    tool_versions_dict[ref] = version
-                else:
-                    plugin_versions[ref] = version
+            row = await self._get_resource(
+                cap.type.value,
+                cap.capability_ref,
+                tenant_id,
+                cap.version_pin if cap.version_pin != "latest-published" else None,
+            )
+            if row is None:
+                continue
+            version = str(row["version"])
+            if cap.type == "skill":
+                skill_versions[cap.capability_ref] = version
+            elif cap.type == "mcp":
+                mcp_versions[cap.capability_ref] = version
         return skill_versions, mcp_versions, plugin_versions
 
     async def _bindings(self, tenant_id: str, user_id: str) -> list[dict[str, Any]]:

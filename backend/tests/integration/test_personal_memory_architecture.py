@@ -229,6 +229,36 @@ async def test_s04_recall_respects_top_k_and_tenant_scope(
     assert await retriever.recall("tenant-b", "user-a", "concise", top_k=5) == []
 
 
+async def test_s04_recall_via_production_pgvector_provider_returns_full_entries(
+    memory_engine: AsyncEngine,
+) -> None:
+    """生产链回归：PersonalMemoryRetriever 接真实 PgVectorSemanticStore。
+
+    recall record 契约必须与 `_entry_from_record` 对齐（`id` 键 + 完整行投影）；
+    若不一致，`_entry_from_record` 会 KeyError，在 ContextResolver 里被兜底
+    降级成 content_hash="unavailable"——memory 检索静默失效。本测试在修复前 RED。
+    """
+    from fluxion.memory.domain.personal_memory import PersonalMemoryRetriever
+    from fluxion.plugins.providers.pgvector_semantic import PgVectorSemanticStore
+
+    store = PersonalMemoryStore(memory_engine)
+    await _commit_personal_entries(store)
+
+    provider = PgVectorSemanticStore(memory_engine)
+    # 生产 provider 满足 SemanticStoreProvider SPI（runtime_checkable）
+    assert isinstance(provider, SemanticStoreProvider)
+    retriever = PersonalMemoryRetriever(provider)
+
+    results = await retriever.recall("tenant-a", "user-a", "concise", top_k=5)
+    # 全量召回（PgVectorSemanticStore 不按 query 文本过滤）+ 完整领域对象构造
+    assert len(results) == 3
+    assert results[0].content == "user prefers concise answers"
+    assert results[1].content == "user prefers concise and structured replies"
+    assert results[2].content == "user visited Tokyo in 2024"
+    assert all(entry.tenant_id == "tenant-a" for entry in results)
+    assert all(isinstance(entry.created_at, datetime) for entry in results)
+
+
 # --- E-01：读侧静态守卫（PersonalMemoryRetriever 不 import/read SessionContextSummary）---
 
 

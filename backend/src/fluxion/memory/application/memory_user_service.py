@@ -13,8 +13,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.engine import RowMapping
 
+from fluxion.memory.application.learner_service import EngineStore
 from fluxion.memory.domain.personal_memory import (
     MemoryCandidate,
     MemoryLearner,
@@ -32,10 +33,10 @@ def _cache_key(tenant_id: str, user_id: str, memory_type: str) -> str:
 class MemoryUserService:
     """用户侧查看/纠正/删除 + reindex（NFR-PRIV-01 后端契约）。"""
 
-    def __init__(self, engine: AsyncEngine) -> None:
-        self._engine = engine
-        self._store = PersonalMemoryStore(engine)
-        self._semantic = PgVectorSemanticStore(engine)
+    def __init__(self, store: EngineStore) -> None:
+        self._engine = store.engine
+        self._store = PersonalMemoryStore(store.engine)
+        self._semantic = PgVectorSemanticStore(store.engine)
         self._learner = MemoryLearner(store=self._store)
 
     async def commit_candidate(
@@ -107,9 +108,7 @@ class MemoryUserService:
         norm = sum(v * v for v in vec) ** 0.5 or 1.0
         return [v / norm for v in vec]
 
-    async def _get_entry(self, tenant_id: str, user_id: str, entry_id: int):
-        from sqlalchemy import select
-
+    async def _get_entry(self, tenant_id: str, user_id: str, entry_id: int) -> RowMapping | None:
         from fluxion.registry.schema import personal_memory
 
         async with self._engine.connect() as conn:
@@ -129,8 +128,6 @@ class MemoryUserService:
     async def _rewrite_embedding(
         self, tenant_id: str, user_id: str, entry_id: int, embedding: list[float]
     ) -> None:
-        from sqlalchemy import update
-
         from fluxion.registry.schema import personal_memory
 
         async with self._engine.begin() as conn:

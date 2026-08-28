@@ -26,18 +26,23 @@ from fluxion.registry import SQLiteRegistryStore
 
 
 @pytest.fixture
-async def engine() -> AsyncGenerator[AsyncEngine, None]:
+async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
     store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
     await store.initialize()
     try:
-        yield store.engine
+        yield store
     finally:
         await store.close()
 
 
 @pytest.fixture
-async def service(engine: AsyncEngine) -> MemoryLearnerService:
-    svc = MemoryLearnerService(engine)
+async def engine(store: SQLiteRegistryStore) -> AsyncGenerator[AsyncEngine, None]:
+    yield store.engine
+
+
+@pytest.fixture
+async def service(store: SQLiteRegistryStore) -> MemoryLearnerService:
+    svc = MemoryLearnerService(store)
     await svc.ensure_user(tenant_id="tenant-a", platform_user_id="user-a")
     return svc
 

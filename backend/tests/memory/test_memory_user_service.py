@@ -12,10 +12,7 @@ NFR-PRIV-01 后端契约（design §2.3.1 FEAT-P2-08）：
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator
-
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine
 
 from fluxion.memory.application.memory_user_service import MemoryUserService
 from fluxion.memory.domain.personal_memory import (
@@ -42,18 +39,18 @@ def _candidate(content: str) -> MemoryCandidate:
 
 
 @pytest.fixture
-async def engine() -> AsyncGenerator[AsyncEngine, None]:
+async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
     store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
     await store.initialize()
     try:
-        yield store.engine
+        yield store
     finally:
         await store.close()
 
 
 @pytest.fixture
-async def service(engine: AsyncEngine) -> MemoryUserService:
-    svc = MemoryUserService(engine)
+async def service(store: SQLiteRegistryStore) -> MemoryUserService:
+    svc = MemoryUserService(store)
     await svc.commit_candidate(
         candidate=_candidate("旧内容"),
         policy_decision=PolicyDecision(allowed=True, reason="ok"),

@@ -1,7 +1,7 @@
 version: 1
 task: PHASE2-USER-CONTEXT-RUNTIME-MEMORY
 enforcement: required
-updated_at: '2026-08-28T08:45:31.752417+00:00'
+updated_at: '2026-08-28T11:32:29.332389+00:00'
 sources:
 - type: cli
   ref: manual
@@ -47,8 +47,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase2-user-context-runtime-memory.md
+          section_id: TASK-007
+          item_id: typed-resolver-quality-code
+          artifact_sha256: 'a38cae96959aeb73743c8732026988717a13a72a66ccacc62b3c20105668317f'
         decision: null
         evidence: []
       review:
@@ -201,8 +205,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase2-user-context-runtime-memory.md
+          section_id: TASK-003
+          item_id: pgvector-dual-store-contract-code
+          artifact_sha256: 'a38cae96959aeb73743c8732026988717a13a72a66ccacc62b3c20105668317f'
         decision: null
         evidence: []
       review:
@@ -381,8 +389,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase2-user-context-runtime-memory.md
+          section_id: TASK-002
+          item_id: personal-memory-domain-move-code
+          artifact_sha256: 'a38cae96959aeb73743c8732026988717a13a72a66ccacc62b3c20105668317f'
         decision: null
         evidence: []
       review:
@@ -535,8 +547,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase2-user-context-runtime-memory.md
+          section_id: TASK-007
+          item_id: resolution-trace-redaction-code
+          artifact_sha256: 'a38cae96959aeb73743c8732026988717a13a72a66ccacc62b3c20105668317f'
         decision: null
         evidence: []
       review:
@@ -689,8 +705,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase2-user-context-runtime-memory.md
+          section_id: TASK-007
+          item_id: envelope-slo-errorcodes-code
+          artifact_sha256: 'a38cae96959aeb73743c8732026988717a13a72a66ccacc62b3c20105668317f'
         decision: null
         evidence: []
       review:
@@ -897,8 +917,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase2-user-context-runtime-memory.md
+          section_id: TASK-007
+          item_id: channel-identity-reuse-code
+          artifact_sha256: 'a38cae96959aeb73743c8732026988717a13a72a66ccacc62b3c20105668317f'
         decision: null
         evidence: []
       review:
@@ -947,8 +971,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase2-user-context-runtime-memory.md
+          section_id: TASK-007
+          item_id: dfx-coding-evidence-code
+          artifact_sha256: 'a38cae96959aeb73743c8732026988717a13a72a66ccacc62b3c20105668317f'
         decision: null
         evidence: []
       review:
@@ -998,8 +1026,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase2-user-context-runtime-memory.md
+          section_id: TASK-003
+          item_id: pgvector-dual-store-contract-code
+          artifact_sha256: 'a38cae96959aeb73743c8732026988717a13a72a66ccacc62b3c20105668317f'
         decision: null
         evidence: []
       review:
@@ -1049,8 +1081,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase2-user-context-runtime-memory.md
+          section_id: TASK-001
+          item_id: snapshot-v2-canonical-digest-code
+          artifact_sha256: 'a38cae96959aeb73743c8732026988717a13a72a66ccacc62b3c20105668317f'
         decision: null
         evidence: []
       review:

@@ -40,8 +40,8 @@ async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
 @pytest.fixture
 async def services(store: SQLiteRegistryStore):
     users = UserDomainService(store)
-    memory = MemoryLearnerService(store.engine)
-    user_memory = MemoryUserService(store.engine)
+    memory = MemoryLearnerService(store)
+    user_memory = MemoryUserService(store)
     await users.ensure_user(tenant_id="tenant-a", platform_user_id="user-a", display_name="A")
     return users, memory, user_memory, store
 

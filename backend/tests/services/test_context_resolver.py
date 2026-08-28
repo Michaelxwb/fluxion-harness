@@ -109,6 +109,112 @@ async def test_s02_resolve_pipeline_50x_p95_under_300ms(store: SQLiteRegistrySto
 
 
 @pytest.mark.asyncio
+async def test_l1_cache_hit_regenerates_execution_identity(store: SQLiteRegistryStore) -> None:
+    """L1 缓存命中复用内容字段，但必须重新生成 execution_id/trace_id。
+
+    同一 resolver + 同一 selector，30s TTL 内两个不同 session 的独立 Execution：
+    digest 相等（内容一致），但 execution_id/trace_id 必须不同（规则 23 可区分）。
+    """
+    await _seed_agent(store)
+    resolver = _resolver(store)
+    selector = ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a")
+
+    first = await resolver.resolve(selector, session_id="s-1")
+    second = await resolver.resolve(selector, session_id="s-2", memory_query="different-query")
+
+    # 内容复用：digest 相等
+    assert first.snapshot.snapshot_digest == second.snapshot.snapshot_digest
+    # per-Execution 标识必须新鲜
+    assert first.snapshot.execution_id != second.snapshot.execution_id
+    assert first.snapshot.trace_id != second.snapshot.trace_id
+
+
+@pytest.mark.asyncio
+async def test_capability_versions_resolve_published(store: SQLiteRegistryStore) -> None:
+    """Agent capabilities（skill/mcp）→ skill_versions/mcp_versions 填充实际 published 版本。
+
+    此前该路径零测试覆盖（_seed_agent 无 capabilities）；tool 类型不解析版本也不抛错。
+    """
+    from fluxion.agents.definitions import AgentCapabilityReference, AgentDefinition, CapabilityType
+    from fluxion.registry.schema import resource_definitions
+    from fluxion.resources import ResourceKind
+    from sqlalchemy import insert
+
+    # skill v3 + mcp v2 已发布
+    await publish_resource(
+        store,
+        tenant_id="tenant-a",
+        kind=ResourceKind.SKILL,
+        resource_id="survey-skill",
+        version="3",
+        spec={"name": "survey", "prompt": "..."},
+    )
+    await publish_resource(
+        store,
+        tenant_id="tenant-a",
+        kind=ResourceKind.MCP,
+        resource_id="weather",
+        version="2",
+        spec={"name": "weather", "endpoint": "..."},
+    )
+    # runtime_profile（agent 解析依赖）
+    await publish_resource(
+        store,
+        tenant_id="tenant-a",
+        kind=ResourceKind.RUNTIME_PROFILE,
+        resource_id="assistant",
+        version="1",
+        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+    )
+    # agent 带 skill/mcp/tool 三个 capability
+    async with store.engine.begin() as conn:
+        await conn.execute(
+            insert(resource_definitions).values(
+                tenant_id="tenant-a",
+                kind=ResourceKind.AGENT_DEFINITION.value,
+                resource_id="assistant",
+                version="1",
+                status="published",
+                visibility="tenant",
+                spec_json=AgentDefinition(
+                    name="助手",
+                    system_prompt="p",
+                    owner="builder",
+                    model_ref={"id": "dev.echo", "version": "1"},
+                    capabilities=[
+                        AgentCapabilityReference(
+                            type=CapabilityType.SKILL,
+                            capability_ref="survey-skill",
+                            version_pin="latest-published",
+                        ),
+                        AgentCapabilityReference(
+                            type=CapabilityType.MCP,
+                            capability_ref="weather",
+                            version_pin="latest-published",
+                        ),
+                        AgentCapabilityReference(
+                            type=CapabilityType.TOOL,
+                            capability_ref="user.profile.get",
+                            version_pin="latest-published",
+                        ),
+                    ],
+                ).model_dump(mode="json"),
+                created_at=__import__("datetime").datetime.now(__import__("datetime").UTC),
+            )
+        )
+    resolver = _resolver(store)
+    result = await resolver.resolve(
+        ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a"),
+        session_id="s-cap",
+    )
+    assert result.snapshot.skill_versions["survey-skill"] == "3"
+    assert result.snapshot.mcp_versions["weather"] == "2"
+    # tool capability 不解析版本（非版本化 Resource），不落入任何 versions 字段
+    assert "user.profile.get" not in result.snapshot.skill_versions
+    assert "user.profile.get" not in result.snapshot.mcp_versions
+
+
+@pytest.mark.asyncio
 async def test_s08_execution_immutability_across_publish(store: SQLiteRegistryStore) -> None:
     """Gate G4：Execution-1 pin v1 → 运行中发布 v2 → Execution-1 全程 v1。"""
     await _seed_agent(store, version="1")
