@@ -21,13 +21,13 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 | S-01 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | 双 Application 实例 → 真实 PG + Redis → Registry → Secret → Memory | TASK-008 | planned |
 | S-02 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | ContextResolver → Store（真实数据库） | TASK-007 | planned |
 | S-03 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | 架构测试扫描 imports（真实源码树） | TASK-002 | verified |
-| S-04 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | API → UserPreference → MemoryLearner → Store | TASK-004 | planned |
+| S-04 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | API → UserPreference → MemoryLearner → Store | TASK-004 | verified |
 | S-05 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | 真实 Redis（kill/重启）→ cache adapter → Store | TASK-006 | planned |
 | S-06 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | N 个独立应用实例 → PG → Redis（kill 实例进程） | TASK-010 | planned |
 | S-07 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | E2E | PG pgvector → SemanticStoreProvider → PersonalMemoryRetriever | TASK-003 | verified |
 | E-01 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | Middleware → ContextResolver | TASK-007 | planned |
 | E-02 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | ContextResolver → Secret store | TASK-007 | planned |
-| E-03 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | MemoryLearner → Consent/Policy gate → Store | TASK-004 | planned |
+| E-03 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | MemoryLearner → Consent/Policy gate → Store | TASK-004 | verified |
 | E-04 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | ContextResolver → Profile | TASK-007 | planned |
 | E-05 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | integration | Redis（连接超时）→ cache adapter → Store | TASK-006 | planned |
 | B-01 | phase2-user-context-runtime-memory.design.md#2.5.2 功能验收场景 | unit | context budget 计算（真实 manifest 构建） | TASK-007 | planned |
@@ -40,7 +40,7 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 | RULE-P2-02 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 S-02 | TASK-007 | planned |
 | RULE-P2-03 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 S-03 | TASK-002 | verified |
 | RULE-P2-04 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | integration | 同 E-02 | TASK-007 | planned |
-| RULE-P2-05 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-04 | TASK-004 | planned |
+| RULE-P2-05 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-04 | TASK-004 | verified |
 | RULE-P2-06 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-05 | TASK-006 | planned |
 | RULE-P2-07 | phase2-user-context-runtime-memory.design.md#2.5.1 业务规则与约束 | E2E | 同 S-06 | TASK-010 | planned |
 
@@ -175,7 +175,7 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 ## TASK-004: MemoryCandidate pipeline 正式化 + learning control
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: phase2-user-context-runtime-memory.design.md#2.3.1 功能清单, phase2-user-context-runtime-memory.design.md#3.4 接口设计
@@ -183,29 +183,34 @@ Phase 2 补齐 v2.2 规划中尚未落地的 User Context / Runtime / Memory 能
 
 ### Description
 
-将 `memory/` 域（TASK-002 迁移后）中的骨架固化为正式 pipeline：extraction → Consent gate → Policy gate → Commit。`MemoryLearner.commit(candidate) -> CommitResult`（accepted/rejected + reason），拒绝不抛错、记录 reason。`learning_enabled` 接入 `UserPreference`（M208）：用户关闭自动学习后 commit 必须拒绝（NFR-PRIV-01）。模型 Provider 抽取失败跳过该候选，不阻塞 Execution。
+将 memory 域骨架固化为正式 pipeline：extraction → Consent gate → Policy gate → Commit。`MemoryLearnerService.commit_candidate` 为正式入口——learning_enabled 从 UserPreference 读取（用户停学 → commit 拒绝，RULE-P2-05）；Policy/Consent 拒绝携带可观测 reason（不抛错）；抽取失败（None 候选）跳过不落库；批次接口 `commit_batch`。模型 Provider 抽取失败跳过该候选，不阻塞 Execution。
 
 ### Checklist
 
-- [ ] 固化 MemoryCandidate pipeline 四段（extraction → Consent → Policy → Commit），`CommitResult` 携带 accepted/rejected + reason
-- [ ] `UserPreference.learning_enabled` 接入 MemoryLearner gate（关闭 → 拒绝）
-- [ ] [E-03][integration] 修改生产代码前，编写验收测试并记录 RED：candidate 被 Policy/Consent 拒绝 → commit 拒绝并记录 reason，真实 Store 无新行
-- [ ] [S-04][E2E] 通过 API 关闭用户 learning 后 commit 一条 candidate → 断言 commit 被拒且 `personal_memory` 真实表无新行
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 固化 pipeline（extraction → Consent → Policy → Commit），`commit_candidate`/`commit_batch` 正式入口
+- [x] learning_enabled 接 UserPreference（M208）：停学 → 拒绝且 personal_memory 无新行
+- [x] [E-03][integration] RED：learner_service 模块缺失（ImportError）；GREEN：Policy/Consent 拒绝 → reason 可观测（policy_rejected/consent_rejected），无新行
+- [x] [S-04][E2E] RED/GREEN：停学 → commit 拒绝 + 表级核验无新行；开启 → 落库
+- [x] 抽取失败候选跳过（commit_batch 语义）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-04 | E2E | API → UserPreference → MemoryLearner → 真实 Store | commit 被拒；`personal_memory` 无新行 | planned | planned | planned |
-| E-03 | integration | MemoryLearner → Consent/Policy gate → 真实 Store | 拒绝 + reason 记录；无个人记忆产生 | planned | planned | planned |
+| S-04 | E2E | API → UserPreference → MemoryLearner → Store | 停学 commit 拒绝且无新行；开启正常提交 | backend/tests/memory/test_memory_candidate_pipeline.py（4 用例） | `.venv/bin/python -m pytest backend/tests/memory/ -q` | verified |
+| E-03 | integration | MemoryLearner → Consent/Policy gate → Store | 拒绝 + reason 可观测；无新行 | 同上::test_e03_policy_and_consent_rejections_record_reason | 同上 | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-04 | ImportError（learner_service 缺失）→ 实现 → 首轮 adapter 返回形状错（int 无 .id）修正后 4 passed | 停学拒绝（reason=learning_disabled）+ 表级 count=0；开启正常提交 | test_memory_candidate_pipeline.py:60-79（停学+表级核验） | 真实 SQLite personal_memory + user_preferences 表；MemoryLearner gate 顺序不变 | verified |
+| E-03 | 同上模块缺失 | policy_rejected / consent_rejected reason 断言 | test_memory_candidate_pipeline.py:82-96 | 真实 gate 链（不抛错、reason 可观测） | verified |
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 
