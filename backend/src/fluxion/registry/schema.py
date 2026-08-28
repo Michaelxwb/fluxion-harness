@@ -12,6 +12,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    func,
 )
 
 metadata = MetaData()
@@ -320,6 +321,47 @@ Index(
 
 # retention period 判断（TTL 兜底清理按 created_at 扫描，Phase 3+ 接线）
 Index("idx_active_reference_tenant_created", active_references.c.tenant_id, active_references.c.created_at)
+
+# ---- Workflow run 投影（TASK-008 / FEAT-P3-06，design §3.3）----
+# 与 DBOS sysdb 同库不同表：Fluxion 域投影，DBOS sys 表由 DBOS 管理、不直写。
+# run_id = `{workflow_id}:{execution_id}`（与 DBOS workflow_id 一致）。
+
+workflow_run = Table(
+    "workflow_run",
+    metadata,
+    # 复合 PK（tenant_id, run_id）：rule 16 tenant scope 全链路——同库其余表均 tenant
+    # 复合 PK，避免跨租户同 run_id（同 workflow_id+execution_id）串写（P2）。run_id
+    # 列宽 512：`{workflow_id(≤255)}:{execution_id(≤128)}` 上限 ~384（P1-12）。
+    Column("tenant_id", String(128), primary_key=True),
+    Column("run_id", String(512), primary_key=True),
+    Column("workflow_id", String(128), nullable=False),
+    Column("workflow_version", Integer, nullable=False),
+    Column("execution_id", String(128), nullable=False),
+    Column("trace_id", String(128), nullable=False),
+    Column("status", String(16), nullable=False, server_default="running"),
+    # `{node_id: {status, output_ref, error}}`，分批写入（PATTERN-backend-003）。
+    Column("node_states", JSON, nullable=True),
+    # `[{kind, id, version}]` 版本快照（RULE-P3-02 / ExecutionSnapshot）。
+    Column("pinned_refs", JSON, nullable=False),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    ),
+    Column(
+        "updated_at",
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    ),
+)
+
+# tenant scope 全链路（rule 16 / RULE-P3-06）：list/查询按 tenant 过滤
+Index("idx_wf_run_tenant", workflow_run.c.tenant_id)
+# execution→run 关联（get_execution_history / Workflow Studio 数据源）
+Index("idx_wf_run_exec", workflow_run.c.execution_id)
 
 
 

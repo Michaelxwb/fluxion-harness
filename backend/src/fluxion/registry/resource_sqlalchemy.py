@@ -343,6 +343,29 @@ async def release_active_reference(
         await connection.execute(statement)
 
 
+async def release_active_references_for_ref(
+    engine: AsyncEngine,
+    *,
+    tenant_id: str,
+    ref_type: str,
+    ref_id: str,
+) -> None:
+    """按 ref_id（workflow run_id）释放该 run 的全部 active refs（TASK-007 terminal GC）。
+
+    与 `release_active_reference`（按 resource 坐标）互补：workflow run 到达终态
+    （succeeded/failed/cancelled）时逐 run 清理，无需重放 run_meta 坐标；不存在则
+    no-op（幂等，terminal 重复调用安全）。
+    """
+    statement = (
+        delete(active_references)
+        .where(active_references.c.tenant_id == tenant_id)
+        .where(active_references.c.ref_type == ref_type)
+        .where(active_references.c.ref_id == ref_id)
+    )
+    async with engine.begin() as connection:
+        await connection.execute(statement)
+
+
 async def check_active_references(
     engine: AsyncEngine,
     *,

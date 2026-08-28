@@ -1,7 +1,7 @@
 version: 1
 task: PHASE3-WORKFLOW-PLATFORM
 enforcement: required
-updated_at: '2026-08-28T03:33:49.539843+00:00'
+updated_at: '2026-08-28T16:31:51.904017+00:00'
 sources:
 - type: cli
   ref: manual
@@ -34,11 +34,11 @@ bindings:
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.1-d6-retry
           item_id: timeout-retry-circuitbreaker
-          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.4-interface-design
           item_id: timeout-retry-boundary
-          artifact_sha256: 7611bdc0292b16e5470712469be513a45005791747e9c5d4439da9143ddbf4ee
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         decision: null
         evidence: []
       plan:
@@ -47,7 +47,7 @@ bindings:
         - artifact: phase3-workflow-platform.md
           section_id: TASK-004
           item_id: retry-boundary-timeout-plan
-          artifact_sha256: a9be00b292541627c893de1f76e6460af10a2ba402080d381a7ed9ad8f041f62
+          artifact_sha256: 22253af3cabd2e812b513938939521e9c984683b8fc829d56e6e1e27a25cc19c
         decision: null
         evidence: []
       code:
@@ -192,11 +192,11 @@ bindings:
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.3-workflow-run-schema
           item_id: projection-schema-index
-          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.3-data-design
           item_id: workflow-run-projection
-          artifact_sha256: 7611bdc0292b16e5470712469be513a45005791747e9c5d4439da9143ddbf4ee
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         decision: null
         evidence: []
       plan:
@@ -205,7 +205,7 @@ bindings:
         - artifact: phase3-workflow-platform.md
           section_id: TASK-008
           item_id: workflow-run-projection-schema-plan
-          artifact_sha256: a9be00b292541627c893de1f76e6460af10a2ba402080d381a7ed9ad8f041f62
+          artifact_sha256: 22253af3cabd2e812b513938939521e9c984683b8fc829d56e6e1e27a25cc19c
         decision: null
         evidence: []
       code:
@@ -376,11 +376,11 @@ bindings:
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.2-package-structure
           item_id: workflow-package-boundary
-          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.2-architecture-design
           item_id: package-structure
-          artifact_sha256: 7611bdc0292b16e5470712469be513a45005791747e9c5d4439da9143ddbf4ee
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         decision: null
         evidence: []
       plan:
@@ -389,7 +389,7 @@ bindings:
         - artifact: phase3-workflow-platform.md
           section_id: TASK-001
           item_id: workflow-module-boundaries-plan
-          artifact_sha256: a9be00b292541627c893de1f76e6460af10a2ba402080d381a7ed9ad8f041f62
+          artifact_sha256: 22253af3cabd2e812b513938939521e9c984683b8fc829d56e6e1e27a25cc19c
         decision: null
         evidence: []
       code:
@@ -534,11 +534,11 @@ bindings:
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.5-observability
           item_id: run-trace-correlation
-          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.5-quality-impl
           item_id: observability
-          artifact_sha256: 7611bdc0292b16e5470712469be513a45005791747e9c5d4439da9143ddbf4ee
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         decision: null
         evidence: []
       plan:
@@ -547,7 +547,7 @@ bindings:
         - artifact: phase3-workflow-platform.md
           section_id: TASK-005
           item_id: run-trace-correlation-plan
-          artifact_sha256: a9be00b292541627c893de1f76e6460af10a2ba402080d381a7ed9ad8f041f62
+          artifact_sha256: 22253af3cabd2e812b513938939521e9c984683b8fc829d56e6e1e27a25cc19c
         decision: null
         evidence: []
       code:
@@ -692,11 +692,11 @@ bindings:
         - artifact: phase3-workflow-platform.design.md
           section_id: 2.5.3-nfr
           item_id: slo-errorcodes-envelope
-          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.4-interface-design
           item_id: slo-envelope
-          artifact_sha256: 7611bdc0292b16e5470712469be513a45005791747e9c5d4439da9143ddbf4ee
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         decision: null
         evidence: []
       plan:
@@ -705,7 +705,7 @@ bindings:
         - artifact: phase3-workflow-platform.md
           section_id: TASK-005
           item_id: slo-envelope-config-plan
-          artifact_sha256: a9be00b292541627c893de1f76e6460af10a2ba402080d381a7ed9ad8f041f62
+          artifact_sha256: 22253af3cabd2e812b513938939521e9c984683b8fc829d56e6e1e27a25cc19c
         decision: null
         evidence: []
       code:
@@ -904,7 +904,7 @@ bindings:
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.4-interface-design
           item_id: status-api-envelope
-          artifact_sha256: 7611bdc0292b16e5470712469be513a45005791747e9c5d4439da9143ddbf4ee
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         decision: null
         evidence: []
       plan:
@@ -913,7 +913,7 @@ bindings:
         - artifact: phase3-workflow-platform.md
           section_id: TASK-008
           item_id: projection-envelope-errorcodes-plan
-          artifact_sha256: a9be00b292541627c893de1f76e6460af10a2ba402080d381a7ed9ad8f041f62
+          artifact_sha256: 22253af3cabd2e812b513938939521e9c984683b8fc829d56e6e1e27a25cc19c
         decision: null
         evidence: []
       code:
@@ -1111,11 +1111,11 @@ bindings:
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.2.1-sop-access
           item_id: status-projection-console
-          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.2-architecture-design
           item_id: projection-console
-          artifact_sha256: 7611bdc0292b16e5470712469be513a45005791747e9c5d4439da9143ddbf4ee
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         decision: null
         evidence: []
       plan:
@@ -1124,7 +1124,7 @@ bindings:
         - artifact: phase3-workflow-platform.md
           section_id: TASK-008
           item_id: projection-api-console-plan
-          artifact_sha256: a9be00b292541627c893de1f76e6460af10a2ba402080d381a7ed9ad8f041f62
+          artifact_sha256: 22253af3cabd2e812b513938939521e9c984683b8fc829d56e6e1e27a25cc19c
         decision: null
         evidence: []
       code:
@@ -1165,11 +1165,11 @@ bindings:
         - artifact: phase3-workflow-platform.design.md
           section_id: 2.5.2-scenarios
           item_id: phase3-gate-evidence
-          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.5-quality-impl
           item_id: phase3-gate-evidence
-          artifact_sha256: 7611bdc0292b16e5470712469be513a45005791747e9c5d4439da9143ddbf4ee
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         decision: null
         evidence: []
       plan:
@@ -1178,7 +1178,7 @@ bindings:
         - artifact: phase3-workflow-platform.md
           section_id: TASK-005
           item_id: phase3-gate-coding-evidence-plan
-          artifact_sha256: a9be00b292541627c893de1f76e6460af10a2ba402080d381a7ed9ad8f041f62
+          artifact_sha256: 22253af3cabd2e812b513938939521e9c984683b8fc829d56e6e1e27a25cc19c
         decision: null
         evidence: []
       code:
@@ -1220,11 +1220,11 @@ bindings:
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.3-pinned-refs
           item_id: version-pin-active-ref
-          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.3-data-design
           item_id: pin-gc-active-references
-          artifact_sha256: 7611bdc0292b16e5470712469be513a45005791747e9c5d4439da9143ddbf4ee
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         decision: null
         evidence: []
       plan:
@@ -1233,7 +1233,7 @@ bindings:
         - artifact: phase3-workflow-platform.md
           section_id: TASK-002
           item_id: workflow-def-v2-versioned-contract-plan
-          artifact_sha256: a9be00b292541627c893de1f76e6460af10a2ba402080d381a7ed9ad8f041f62
+          artifact_sha256: 22253af3cabd2e812b513938939521e9c984683b8fc829d56e6e1e27a25cc19c
         decision: null
         evidence: []
       code:
@@ -1275,11 +1275,11 @@ bindings:
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.1-retry-boundary
           item_id: runtime-stateless-contract
-          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.1-key-decisions
           item_id: retry-boundary-stateless
-          artifact_sha256: 7611bdc0292b16e5470712469be513a45005791747e9c5d4439da9143ddbf4ee
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         decision: null
         evidence: []
       plan:
@@ -1288,7 +1288,7 @@ bindings:
         - artifact: phase3-workflow-platform.md
           section_id: TASK-001
           item_id: runtime-stateless-durable-boundary-plan
-          artifact_sha256: a9be00b292541627c893de1f76e6460af10a2ba402080d381a7ed9ad8f041f62
+          artifact_sha256: 22253af3cabd2e812b513938939521e9c984683b8fc829d56e6e1e27a25cc19c
         decision: null
         evidence: []
       code:
@@ -1330,11 +1330,11 @@ bindings:
         - artifact: phase3-workflow-platform.design.md
           section_id: 2.3.2-capability-node
           item_id: tool-adapter-capability-durable-state
-          artifact_sha256: 13fb1e712289627fc7df982ba521412fd287980e3d37d0db55ff0b5f38010bf9
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         - artifact: phase3-workflow-platform.design.md
           section_id: 3.2-architecture-design
           item_id: adapter-boundary-capability-node
-          artifact_sha256: 7611bdc0292b16e5470712469be513a45005791747e9c5d4439da9143ddbf4ee
+          artifact_sha256: 4b678dd42bf726bea3370a2da42b636279398b7e1b97248bc79cde0db31e48d4
         decision: null
         evidence: []
       plan:
@@ -1343,7 +1343,7 @@ bindings:
         - artifact: phase3-workflow-platform.md
           section_id: TASK-001
           item_id: dbos-engine-adapter-boundary-plan
-          artifact_sha256: a9be00b292541627c893de1f76e6460af10a2ba402080d381a7ed9ad8f041f62
+          artifact_sha256: 22253af3cabd2e812b513938939521e9c984683b8fc829d56e6e1e27a25cc19c
         decision: null
         evidence: []
       code:

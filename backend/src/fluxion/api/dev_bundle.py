@@ -23,6 +23,7 @@ from fluxion.registry import SQLiteRegistryStore
 from fluxion.runtime.secrets import CredentialResolver, LocalEncryptedSecretStore
 from fluxion.services.channel_app import ChannelApplicationService
 from fluxion.services.console_app import ConsoleApplicationService
+from fluxion.services.workflow_projection import WorkflowProjectionService
 from fluxion.services.eval_app import (
     EvaluationApplicationService,
     InMemoryEvalRunStore,
@@ -76,8 +77,12 @@ def create_dev_bundle_app(
         timeout_seconds=10.0,
     )
     dev_mode = DevModeSettings(enabled=True)
+    # P1-13：dev bundle 也接线投影 API（读 dev SQLite registry 投影表；无 DBOS
+    # engine → execution history 省略）。production Console 由装配方注入带 engine 的
+    # projection service。
+    projection = WorkflowProjectionService(store)
     api = ApiDispatcher(
-        create_console_app(console, dev_mode=dev_mode),
+        create_console_app(console, dev_mode=dev_mode, projection_service=projection),
         create_channel_app(channel, dev_mode=dev_mode),
         create_eval_app(eval_service, dev_mode=dev_mode),
     )

@@ -16,6 +16,7 @@ from fluxion.registry import (
     resource_sqlalchemy,
     retention_sqlalchemy,
     user_sqlalchemy,
+    workflow_run_sqlalchemy,
 )
 from fluxion.registry.channel_store import (
     BindCodeRecord,
@@ -565,6 +566,21 @@ class SQLAlchemyRegistryStore:
             ref_id=ref_id,
         )
 
+    async def release_active_references_for_ref(
+        self,
+        *,
+        tenant_id: str,
+        ref_type: str,
+        ref_id: str,
+    ) -> None:
+        """按 ref_id（workflow run_id）释放该 run 的全部引用（TASK-007 terminal GC）。"""
+        await resource_sqlalchemy.release_active_references_for_ref(
+            self._engine,
+            tenant_id=tenant_id,
+            ref_type=ref_type,
+            ref_id=ref_id,
+        )
+
     async def check_active_references(
         self,
         *,
@@ -581,6 +597,63 @@ class SQLAlchemyRegistryStore:
             resource_id=resource_id,
             version=version,
             ref_type=ref_type,
+        )
+
+    # ---- TASK-008：workflow_run 投影（FEAT-P3-06，API/Console 读路径）----
+
+    async def upsert_workflow_run(
+        self,
+        *,
+        tenant_id: str,
+        run_id: str,
+        workflow_id: str,
+        workflow_version: int,
+        execution_id: str,
+        trace_id: str,
+        pinned_refs: list[dict[str, str]],
+        status: str = "running",
+        node_states: dict[str, object] | None = None,
+    ) -> None:
+        """幂等 upsert run 投影行（writer 侧为 worker psycopg，本方法是 async 契约侧）。"""
+        await workflow_run_sqlalchemy.upsert_workflow_run(
+            self._engine,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            workflow_id=workflow_id,
+            workflow_version=workflow_version,
+            execution_id=execution_id,
+            trace_id=trace_id,
+            pinned_refs=pinned_refs,
+            status=status,
+            node_states=node_states,
+        )
+
+    async def get_workflow_run(
+        self,
+        *,
+        tenant_id: str,
+        run_id: str,
+    ) -> RowMapping | None:
+        """按 (tenant_id, run_id) 读取投影（tenant scope，RULE-P3-06）。"""
+        return await workflow_run_sqlalchemy.get_workflow_run(
+            self._engine, tenant_id=tenant_id, run_id=run_id
+        )
+
+    async def list_workflow_runs(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[RowMapping], int]:
+        """tenant 强制 scope 的 run 列表 + 总数（一次取回，无 N+1）。"""
+        return await workflow_run_sqlalchemy.list_workflow_runs(
+            self._engine,
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            limit=limit,
+            offset=offset,
         )
 
     async def create_platform_user(self, record: PlatformUserRecord) -> PlatformUserRecord:

@@ -19,6 +19,7 @@ from fluxion.registry.resource_sqlalchemy import (
     publish,
     put,
     release_active_reference,
+    release_active_references_for_ref,
 )
 from fluxion.registry.schema import metadata
 from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
@@ -181,3 +182,70 @@ async def test_b01_release_missing_is_noop() -> None:
             )
             == []
         )
+
+
+async def test_b01_release_by_ref_clears_only_that_ref() -> None:
+    """TASK-007 terminal GC：按 ref_id 释放该 run 的全部引用（同 ref_type），不影响其它 ref。"""
+    async for engine in _references_engine():
+        await add_active_reference(
+            engine,
+            tenant_id=_TENANT,
+            kind=_KIND,
+            resource_id=_RESOURCE,
+            version=_VERSION,
+            ref_type="execution",
+            ref_id="run-1",
+        )
+        await add_active_reference(
+            engine,
+            tenant_id=_TENANT,
+            kind=_KIND,
+            resource_id=_RESOURCE,
+            version=_VERSION,
+            ref_type="workflow",
+            ref_id="run-1",
+        )
+        await add_active_reference(
+            engine,
+            tenant_id=_TENANT,
+            kind=_KIND,
+            resource_id=_RESOURCE,
+            version=_VERSION,
+            ref_type="execution",
+            ref_id="run-2",
+        )
+        await release_active_references_for_ref(
+            engine,
+            tenant_id=_TENANT,
+            ref_type="execution",
+            ref_id="run-1",
+        )
+        remaining = await check_active_references(
+            engine,
+            tenant_id=_TENANT,
+            kind=_KIND,
+            resource_id=_RESOURCE,
+            version=_VERSION,
+        )
+        # run-1 的 workflow 引用不受 ref_type=execution 释放影响；run-2 完全不动
+        assert {(r.ref_type, r.ref_id) for r in remaining} == {
+            ("execution", "run-2"),
+            ("workflow", "run-1"),
+        }
+
+        # 幂等：再次按已无行的坐标释放是 no-op
+        await release_active_references_for_ref(
+            engine,
+            tenant_id=_TENANT,
+            ref_type="execution",
+            ref_id="run-1",
+        )
+        assert len(
+            await check_active_references(
+                engine,
+                tenant_id=_TENANT,
+                kind=_KIND,
+                resource_id=_RESOURCE,
+                version=_VERSION,
+            )
+        ) == 2

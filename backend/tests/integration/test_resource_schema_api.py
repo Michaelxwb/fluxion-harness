@@ -19,7 +19,7 @@ REQUIRED_PROPERTIES: dict[ResourceKind, set[str]] = {
     ResourceKind.SECRET: {"name", "secret_ref"},
     ResourceKind.PLUGIN: {"plugin_type", "protocol", "base_url", "model"},
     ResourceKind.POLICY: {"name"},
-    ResourceKind.WORKFLOW: {"name", "engine_ref", "steps"},
+    ResourceKind.WORKFLOW: {"name", "steps"},
     ResourceKind.EVAL_SET: {"name", "runtime_profile_ref", "cases"},
 }
 

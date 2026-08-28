@@ -50,6 +50,8 @@ from fluxion.services.console_payloads import (
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.users import UserDomainService
 from fluxion.api.admin_users import register_admin_user_routes
+from fluxion.api.workflow import register_workflow_projection_routes
+from fluxion.services.workflow_projection import WorkflowProjectionService
 
 
 def create_app(
@@ -58,6 +60,7 @@ def create_app(
     dev_mode: DevModeSettings | None = None,
     runtime_service: RuntimeApplicationService | None = None,
     user_service: UserDomainService | None = None,
+    projection_service: WorkflowProjectionService | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Fluxion Console API")
     app.add_middleware(RequestContextMiddleware, dev_mode=dev_mode)
@@ -81,6 +84,8 @@ def create_app(
     _register_p1_routes(app, service)
     _register_read_side_routes(app, service)
     _register_trace_routes(app, service)
+    if projection_service is not None:
+        register_workflow_projection_routes(app, projection_service=projection_service)
     return app
 
 

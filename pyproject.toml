@@ -26,6 +26,8 @@ dependencies = [
   "opentelemetry-sdk>=1.37,<2",
   "opentelemetry-exporter-otlp>=1.37,<2",
   "redis>=5.0,<6",
+  "dbos>=2.31,<3",
+  "psycopg[binary]>=3.3,<4",
 ]
 
 [project.optional-dependencies]
@@ -40,6 +42,7 @@ dev = [
 
 [project.scripts]
 fluxion = "fluxion.cli.main:app"
+fluxion-workflow-worker = "fluxion.cli.workflow_worker:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["backend/src/fluxion"]

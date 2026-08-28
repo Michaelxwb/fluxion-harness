@@ -20,7 +20,6 @@ from fluxion.resources.contracts import (
     SubjectType,
     ToolDefinition,
     WorkflowDefinition,
-    WorkflowStepDefinition,
     assert_no_plaintext_secret,
 )
 
@@ -47,6 +46,5 @@ __all__ = [
     "TenantResourceCacheKey",
     "ToolDefinition",
     "WorkflowDefinition",
-    "WorkflowStepDefinition",
     "assert_no_plaintext_secret",
 ]

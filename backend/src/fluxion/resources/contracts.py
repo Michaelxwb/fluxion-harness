@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from fluxion.resources.workflow_nodes import ConditionNode, ParallelNode, SwitchNode, WorkflowNode
 
 
 class ResourceKind(StrEnum):
@@ -367,54 +370,49 @@ class PolicyDefinition(SensitiveSpecModel):
     )
 
 
-class WorkflowStepDefinition(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    id: str = Field(
-        min_length=1, max_length=128, title="步骤 ID", description="步骤 ID（流程内唯一）"
-    )
-    capability_ref: str = Field(
-        min_length=1,
-        max_length=256,
-        title="能力引用",
-        description="能力引用，格式 (skill|mcp|plugin):<id>@<version>",
-    )
-    depends_on: list[str] = Field(
-        default_factory=list, max_length=64, title="前置步骤", description="前置步骤 ID（须无环）"
-    )
-    input: dict[str, object] = Field(
-        default_factory=dict, title="静态输入", description="步骤静态输入"
-    )
-
-
 class WorkflowDefinition(SensitiveSpecModel):
     name: str = Field(min_length=1, max_length=256, title="工作流名", description="工作流名")
     description: str = Field(default="", max_length=4096, title="说明", description="说明")
     display_name: str | None = Field(
         default=None, max_length=256, title="展示名", description="展示名（仅 UI 显示）"
     )
-    engine_ref: str = Field(
-        min_length=1,
-        max_length=256,
-        title="执行引擎",
-        description="执行引擎引用（workflow-engine:// 前缀）",
+    # 节点判别联合（`type` 为 discriminator；design §2.3.2 FEAT-P3-02）。
+    # 无 `engine_ref` 字段（remediation §14.3）：durable backend 选择属 Platform
+    # Configuration（WorkflowBackendSettings），不进 Product DSL。
+    steps: list[WorkflowNode] = Field(
+        min_length=1, max_length=200, title="节点", description="节点序列（1-200 节点）"
     )
-    steps: list[WorkflowStepDefinition] = Field(
-        min_length=1, max_length=200, title="步骤", description="步骤序列（1-200 步）"
-    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _v1_compat(cls, data: object) -> object:
+        """V1 零迁移兼容（B-03）：注入 `type="capability"` + 剥离遗留 `engine_ref`。"""
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+        # V1 spec 遗留 engine_ref（remediation §14.3 已移出 Product DSL）——静默剥离。
+        normalized.pop("engine_ref", None)
+        steps = normalized.get("steps")
+        if isinstance(steps, list):
+            normalized["steps"] = [
+                {**step, "type": "capability"}
+                if isinstance(step, dict) and "type" not in step and "capability_ref" in step
+                else step
+                for step in steps
+            ]
+        return normalized
 
     @model_validator(mode="after")
     def validate_dsl(self) -> Self:
         if not self.name.strip():
             raise ValueError("name is required")
-        if not self.engine_ref.startswith("workflow-engine://"):
-            raise ValueError("engine_ref must use workflow-engine://")
-        step_ids = [step.id for step in self.steps]
-        if any(not step_id.strip() for step_id in step_ids):
-            raise ValueError("step id is required")
-        if len(step_ids) != len(set(step_ids)):
-            raise ValueError("step ids must be unique")
-        _validate_workflow_dependencies(self.steps, set(step_ids))
+        node_ids = [node.id for node in self.steps]
+        if any(not node_id.strip() for node_id in node_ids):
+            raise ValueError("node id is required")
+        if len(node_ids) != len(set(node_ids)):
+            raise ValueError("node ids must be unique")
+        _validate_workflow_dependencies(self.steps, set(node_ids))
+        _validate_routing_refs(self.steps, set(node_ids))
         return self
 
 
@@ -444,24 +442,51 @@ class EvalSetDefinition(SensitiveSpecModel):
 
 
 def _validate_workflow_dependencies(
-    steps: list[WorkflowStepDefinition],
-    step_ids: set[str],
+    steps: Sequence[WorkflowNode],
+    node_ids: set[str],
 ) -> None:
-    dependencies = {step.id: set(step.depends_on) for step in steps}
-    for step_id, refs in dependencies.items():
-        missing = refs - step_ids
+    dependencies = {node.id: set(node.depends_on) for node in steps}
+    for node_id, refs in dependencies.items():
+        missing = refs - node_ids
         if missing:
-            raise ValueError(f"step {step_id} depends on missing steps: {sorted(missing)}")
-        if step_id in refs:
-            raise ValueError(f"step {step_id} cannot depend on itself")
-    remaining = {step_id: set(refs) for step_id, refs in dependencies.items()}
+            raise ValueError(f"node {node_id} depends on missing nodes: {sorted(missing)}")
+        if node_id in refs:
+            raise ValueError(f"node {node_id} cannot depend on itself")
+    remaining = {node_id: set(refs) for node_id, refs in dependencies.items()}
     while remaining:
-        ready = {step_id for step_id, refs in remaining.items() if not refs}
+        ready = {node_id for node_id, refs in remaining.items() if not refs}
         if not ready:
             raise ValueError("workflow dependency cycle detected")
         remaining = {
-            step_id: refs - ready for step_id, refs in remaining.items() if step_id not in ready
+            node_id: refs - ready for node_id, refs in remaining.items() if node_id not in ready
         }
+
+
+def _validate_routing_refs(steps: Sequence[WorkflowNode], node_ids: set[str]) -> None:
+    """路由节点后继引用校验（design §2.3.2）：condition/switch/parallel 引用的后继节点必须存在。
+
+    - condition.then / condition.else：真/假分支后继；
+    - switch.cases[*].node_ids / switch.default：多路后继；
+    - parallel.branches[*].node_ids：并行分支成员。
+    引用自身节点合法（路由节点可循环回退），但必须指向 DSL 内已有节点。
+    """
+
+    def check(owner: str, refs: list[str]) -> None:
+        missing = set(refs) - node_ids
+        if missing:
+            raise ValueError(f"node {owner} routes to missing nodes: {sorted(missing)}")
+
+    for node in steps:
+        if isinstance(node, ConditionNode):
+            check(node.id, node.then)
+            check(node.id, node.else_)
+        elif isinstance(node, SwitchNode):
+            for case in node.cases:
+                check(node.id, case.node_ids)
+            check(node.id, node.default)
+        elif isinstance(node, ParallelNode):
+            for branch in node.branches:
+                check(node.id, branch.node_ids)
 
 
 class ResourceDefinition(BaseModel):

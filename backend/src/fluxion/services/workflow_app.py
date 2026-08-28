@@ -11,6 +11,7 @@ from fluxion.resources import (
     ResourceStatus,
     WorkflowDefinition,
 )
+from fluxion.resources.workflow_nodes import CapabilityNode
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,7 +45,10 @@ class WorkflowDefinitionValidator:
         workflow: WorkflowDefinition,
     ) -> list[str]:
         diagnostics: list[str] = []
-        for step in workflow.steps:
+        # V2 节点判别联合：仅 `capability` 节点承载 capability_ref（design §2.3.2）；
+        # agent/condition/switch/parallel 等节点引用在各自 validator 层校验。
+        capability_nodes = [node for node in workflow.steps if isinstance(node, CapabilityNode)]
+        for step in capability_nodes:
             parsed = _parse_capability_ref(step.capability_ref)
             if parsed is None:
                 diagnostics.append(f"无效 Capability ref: {step.capability_ref}")

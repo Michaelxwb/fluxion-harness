@@ -1,40 +1,7 @@
 {
   "candidate": "restate",
   "library_version": "1.0.4",
-  "criteria": {
-    "S-01": {
-      "passed": true,
-      "detail": "start 经 ingress send（key=run_id）+ 回查可查；signal→结果含审批 payload",
-      "metrics": {
-        "start_ms": 33.2
-      }
-    },
-    "P-SIGNAL": {
-      "passed": true,
-      "detail": "ctx.signal('approve') 等待中被 ingress signal（lookup+resolver）唤醒，payload 完整进入结果",
-      "metrics": {}
-    },
-    "P-TIMEOUT": {
-      "passed": true,
-      "detail": "step timeout=0.5s 触发（external_delay=5s），invocation 有界转 ERROR",
-      "metrics": {
-        "elapsed_seconds": 0.62
-      }
-    },
-    "P-IDEMP": {
-      "passed": true,
-      "detail": "同 run_id 二次 start（send 返回 PreviouslyAccepted）→ 既有执行；step 未重跑、业务记录恰好 1 条",
-      "metrics": {}
-    },
-    "SLO-OBS-01": {
-      "passed": true,
-      "detail": "trace 关联完整率 1.0000（39/39）",
-      "metrics": {
-        "total_events": 39,
-        "correlated": 39
-      }
-    }
-  },
+  "criteria": {},
   "baseline": null,
   "license": "BUSL-1.1（source-available，非 OSI；release 后 4 年转 Apache-2.0；禁止 Public Restate Platform Service；Fluxion 抽象层用法落在允许范围）",
   "all_criteria_passed": false

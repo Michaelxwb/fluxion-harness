@@ -6,21 +6,21 @@
       "passed": true,
       "detail": "E2E Adapter→DBOS→Postgres；start 返回即同步持久化（status 可查）",
       "metrics": {
-        "start_ms": 17.0
+        "start_ms": 34.7
       }
     },
     "P-CRASH": {
       "passed": true,
       "detail": "SIGKILL 后新进程 startup recovery 续跑；已完成 step 未重执行",
       "metrics": {
-        "recovery_seconds": 5.07
+        "recovery_seconds": 5.14
       }
     },
     "P-TIMER": {
       "passed": true,
       "detail": "kill+restart 后 timer 按原始 deadline 触发（elapsed 落在 [5.5, 9.5]s 窗口）",
       "metrics": {
-        "elapsed_seconds": 7.07,
+        "elapsed_seconds": 8.65,
         "timer_seconds": 6.0
       }
     },
@@ -77,10 +77,10 @@
       "detail": "1000 并发 workflow 全部 SUCCESS；单进程 start 吞吐见 metrics",
       "metrics": {
         "count": 1000,
-        "start_p95_ms": 8.5,
-        "start_max_ms": 107.9,
-        "total_seconds": 6.1,
-        "start_throughput_per_sec": 162.8
+        "start_p95_ms": 6.5,
+        "start_max_ms": 42.0,
+        "total_seconds": 4.8,
+        "start_throughput_per_sec": 208.3
       }
     }
   },
