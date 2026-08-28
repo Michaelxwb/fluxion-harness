@@ -1,6 +1,6 @@
 """TASK-006 Capability Contract 复用验收测试（BE-S-05 / RULE-fluxion-workflow-001）。
 
-断言 Agent（CapabilityBinding）与 Workflow Step（capability_ref 字符串）两端走
+断言 Agent（AgentCapabilityReference）与 Workflow Step（capability_ref 字符串）两端走
 **同一个解析实现**，映射到同一 Registry kind，且收缩后无独立工具字段回潮。
 """
 
@@ -14,7 +14,7 @@ from fluxion.agents.capabilities import (
     parse_capability_ref,
     resolve_binding_reference,
 )
-from fluxion.agents.definitions import CapabilityBinding, CapabilityType
+from fluxion.agents.definitions import AgentCapabilityReference, CapabilityType
 from fluxion.registry import SQLiteRegistryStore
 from fluxion.resources import (
     ResourceDefinition,
@@ -29,9 +29,12 @@ def test_parse_capability_ref_supports_workflow_prefix_syntax() -> None:
         ResourceKind.SKILL, "search", "3"
     )
     assert parse_capability_ref("mcp:weather@1").resource_kind is ResourceKind.MCP
-    # workflow 的 plugin: 前缀即 TOOL/Adapter 引用段（历史契约命名保留）。
-    parsed = parse_capability_ref("plugin:calc@2")
-    assert parsed.resource_id == "calc" and parsed.version == "2"
+    # P1C-02 统一：tool: 前缀即 TOOL 引用；plugin: 保留 Provider/Extension 语义。
+    parsed_tool = parse_capability_ref("tool:calc@2")
+    assert parsed_tool is not None and parsed_tool.resource_kind is ResourceKind.TOOL
+    parsed_plugin = parse_capability_ref("plugin:model-provider@2")
+    assert parsed_plugin is not None and parsed_plugin.resource_kind is ResourceKind.PLUGIN
+    assert parsed_plugin.resource_id == "model-provider" and parsed_plugin.version == "2"
 
 
 def test_parse_bare_ref_without_prefix_is_ambiguous_only_for_workflow() -> None:
@@ -40,7 +43,7 @@ def test_parse_bare_ref_without_prefix_is_ambiguous_only_for_workflow() -> None:
 
 
 def test_binding_and_workflow_ref_resolve_to_same_contract_target() -> None:
-    binding = CapabilityBinding(
+    binding = AgentCapabilityReference(
         capability_ref="search", version_pin="4", type=CapabilityType.SKILL
     )
     resolved = resolve_binding_reference(binding)
@@ -53,8 +56,8 @@ def test_binding_and_workflow_ref_resolve_to_same_contract_target() -> None:
 def test_capability_type_to_registry_kind_mapping() -> None:
     assert CAPABILITY_TYPE_KINDS[CapabilityType.SKILL] is ResourceKind.SKILL
     assert CAPABILITY_TYPE_KINDS[CapabilityType.MCP] is ResourceKind.MCP
-    # TOOL 能力经 plugin: 段承载 Adapter 注册物（executor 侧准入字符串不强制存在）。
-    assert CAPABILITY_TYPE_KINDS[CapabilityType.TOOL] is ResourceKind.PLUGIN
+    # P1C-02 统一：TOOL 归 ResourceKind.TOOL（不再借道 plugin: 段）。
+    assert CAPABILITY_TYPE_KINDS[CapabilityType.TOOL] is ResourceKind.TOOL
 
 
 def test_no_standalone_tools_field_regression() -> None:
@@ -71,28 +74,24 @@ async def test_be_s_05_agent_and_workflow_step_share_the_same_store_target() -> 
     store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
     await store.initialize()
     try:
+        # P1C-02 统一后：TOOL capability 落 ResourceKind.TOOL 资源。
         resource = ResourceDefinition(
             tenant_id="tenant-a",
-            kind=ResourceKind.PLUGIN,
+            kind=ResourceKind.TOOL,
             id="calc",
             version="2",
             status=ResourceStatus.DRAFT,
-            spec_json={
-                "plugin_type": "model_provider",
-                "protocol": "openai_compatible",
-                "base_url": "https://x.com/v1",
-                "model": "m",
-            },
+            spec_json={"tool_type": "builtin", "entrypoint": "calc.evaluate"},
         )
         await store.put(resource)
-        await store.publish(ResourceKind.PLUGIN, "calc", tenant_id="tenant-a", version="2")
+        await store.publish(ResourceKind.TOOL, "calc", tenant_id="tenant-a", version="2")
 
         binding_target = resolve_binding_reference(
-            CapabilityBinding(
+            AgentCapabilityReference(
                 capability_ref="calc", version_pin="2", type=CapabilityType.TOOL
             )
         )
-        step_target = parse_capability_ref("plugin:calc@2")
+        step_target = parse_capability_ref("tool:calc@2")
         assert step_target == binding_target
 
         fetched = await store.get(

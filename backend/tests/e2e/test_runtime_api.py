@@ -44,7 +44,7 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             health = await client.get("/healthz", headers={"X-Request-ID": "req-health"})
             response = await client.post(
-                "/api/v1/runtime-profiles/assistant/runs",
+                "/internal/v1/runtime-profiles/assistant/runs",
                 json={
                     "tenant_id": "tenant-a",
                     "user_id": "user-a",
@@ -54,7 +54,7 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
                 headers={"X-Request-ID": "req-run"},
             )
             stream = await client.post(
-                "/api/v1/runtime-profiles/assistant/runs:stream",
+                "/internal/v1/runtime-profiles/assistant/runs:stream",
                 json={
                     "tenant_id": "tenant-a",
                     "user_id": "user-a",
@@ -64,7 +64,7 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
                 headers={"X-Request-ID": "req-stream"},
             )
             override = await client.post(
-                "/api/v1/runtime-profiles/assistant/runs",
+                "/internal/v1/runtime-profiles/assistant/runs",
                 json={
                     "tenant_id": "tenant-a",
                     "user_id": "user-a",

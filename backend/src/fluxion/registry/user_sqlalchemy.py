@@ -8,11 +8,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from fluxion.registry.schema import (
     capability_grants,
+    profile_attributes,
     user_preferences,
     user_profiles,
 )
@@ -140,6 +141,7 @@ async def add_grant(
     tenant_id: str,
     platform_user_id: str,
     capability_ref: str,
+    capability_kind: str = "skill",
     granted_scope: str,
     version_pin: str | None,
 ) -> int:
@@ -149,6 +151,7 @@ async def add_grant(
                 tenant_id=tenant_id,
                 platform_user_id=platform_user_id,
                 capability_ref=capability_ref,
+                capability_kind=capability_kind,
                 granted_scope=granted_scope,
                 version_pin=version_pin,
                 created_at=_now(),
@@ -207,3 +210,97 @@ async def list_channel_identities_for_user(
             )
         ).mappings().all()
     return [dict(row) for row in rows]
+
+
+# ---- ProfileAttribute（P1C-09 / closure TASK-004）---------------------------
+
+
+async def upsert_profile_attribute(
+    engine: AsyncEngine,
+    *,
+    tenant_id: str,
+    platform_user_id: str,
+    attribute: dict[str, Any],
+) -> dict[str, Any]:
+    """按 (tenant, user, key) upsert；新建保留 created_at，更新刷新 updated_at。"""
+    now = _now()
+    async with engine.begin() as conn:
+        existing = (
+            await conn.execute(
+                select(profile_attributes.c.created_at).where(
+                    profile_attributes.c.tenant_id == tenant_id,
+                    profile_attributes.c.platform_user_id == platform_user_id,
+                    profile_attributes.c.key == attribute["key"],
+                )
+            )
+        ).first()
+        if existing is None:
+            await conn.execute(
+                insert(profile_attributes).values(
+                    tenant_id=tenant_id,
+                    platform_user_id=platform_user_id,
+                    created_at=now,
+                    updated_at=now,
+                    **attribute,
+                )
+            )
+            created = updated = now
+        else:
+            await conn.execute(
+                update(profile_attributes)
+                .where(
+                    profile_attributes.c.tenant_id == tenant_id,
+                    profile_attributes.c.platform_user_id == platform_user_id,
+                    profile_attributes.c.key == attribute["key"],
+                )
+                .values(
+                    value=attribute["value"],
+                    source=attribute["source"],
+                    source_ref=attribute.get("source_ref"),
+                    confidence=attribute["confidence"],
+                    is_explicit=attribute["is_explicit"],
+                    user_editable=attribute["user_editable"],
+                    visibility=attribute["visibility"],
+                    valid_from=attribute.get("valid_from"),
+                    valid_until=attribute.get("valid_until"),
+                    superseded_by=attribute.get("superseded_by"),
+                    updated_at=now,
+                )
+            )
+            created = existing.created_at
+            updated = now
+    row = dict(attribute)
+    row["created_at"] = created
+    row["updated_at"] = updated
+    return row
+
+
+async def list_profile_attributes(
+    engine: AsyncEngine, *, tenant_id: str, platform_user_id: str
+) -> list[dict[str, Any]]:
+    async with engine.connect() as conn:
+        rows = (
+            await conn.execute(
+                select(profile_attributes)
+                .where(
+                    profile_attributes.c.tenant_id == tenant_id,
+                    profile_attributes.c.platform_user_id == platform_user_id,
+                )
+                .order_by(profile_attributes.c.key)
+            )
+        ).mappings().all()
+    return [dict(row) for row in rows]
+
+
+async def delete_profile_attribute(
+    engine: AsyncEngine, *, tenant_id: str, platform_user_id: str, key: str
+) -> int:
+    async with engine.begin() as conn:
+        result = await conn.execute(
+            delete(profile_attributes).where(
+                profile_attributes.c.tenant_id == tenant_id,
+                profile_attributes.c.platform_user_id == platform_user_id,
+                profile_attributes.c.key == key,
+            )
+        )
+    return result.rowcount

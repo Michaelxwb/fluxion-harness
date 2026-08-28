@@ -8,16 +8,11 @@ RuntimeProfile 的产品语义字段（TASK-A104 收缩后的边界）。
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Self
+from typing import Any
 
 from pydantic import ConfigDict, Field, model_validator
 
-from fluxion.resources.contracts import (
-    ExactResourceVersion,
-    ResourceStatus,
-    ResourceVisibility,
-    SensitiveSpecModel,
-)
+from fluxion.resources.contracts import ExactResourceVersion, SensitiveSpecModel
 
 
 class CapabilityType(StrEnum):
@@ -29,7 +24,7 @@ class CapabilityType(StrEnum):
     MCP = "mcp"
 
 
-class CapabilityBinding(SensitiveSpecModel):
+class AgentCapabilityReference(SensitiveSpecModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     capability_ref: str = Field(
@@ -50,10 +45,13 @@ class CapabilityBinding(SensitiveSpecModel):
 class AgentDefinition(SensitiveSpecModel):
     """Agent 产品领域实体（版本化 Resource 的 spec 形态）。
 
-    分组对齐 PRD §4.2：identity/presentation、owner/visibility/lifecycle、
+    分组对齐 design/08 与 closure 契约：identity/presentation、owner、
     runtime_profile_ref、default capability/workflow presentation、
-    memory/personalization policy refs；model_ref 由 §4.3 ExecutionSnapshot
-    冻结 Model 坐实。
+    memory/personalization policy refs；model_ref 由 ExecutionSnapshot 冻结。
+
+    状态唯一事实源（P1C-01 收口）：status/visibility 只由外层
+    ResourceDefinition envelope 承载；spec 内的 legacy ``lifecycle``/
+    ``visibility`` 键读取时剥离（存量兼容，不批量重写），序列化不再产出。
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -68,16 +66,6 @@ class AgentDefinition(SensitiveSpecModel):
     owner: str = Field(
         min_length=1, max_length=128, title="归属", description="归属（tenant 内用户/团队）"
     )
-    visibility: ResourceVisibility = Field(
-        default=ResourceVisibility.PRIVATE,
-        title="可见范围",
-        description="可见范围：private/tenant/public",
-    )
-    lifecycle: ResourceStatus = Field(
-        default=ResourceStatus.DRAFT,
-        title="生命周期",
-        description="生命周期态（映射 Resource 状态：draft/published/deprecated）",
-    )
     model_ref: ExactResourceVersion = Field(
         title="模型引用", description="模型 provider 资源的精确版本引用（id + version）"
     )
@@ -86,7 +74,7 @@ class AgentDefinition(SensitiveSpecModel):
         title="运行态引用",
         description="RuntimeProfile 引用；留空由解析层取租户默认",
     )
-    capabilities: list[CapabilityBinding] = Field(
+    capabilities: list[AgentCapabilityReference] = Field(
         default_factory=list,
         title="能力绑定",
         description="capability 绑定列表（skill/tool/mcp typed；不设独立 tools 字段）",
@@ -108,9 +96,14 @@ class AgentDefinition(SensitiveSpecModel):
         default="", max_length=2048, title="补充指令", description="补充指令"
     )
 
-    @model_validator(mode="after")
-    def validate_lifecycle(self) -> Self:
-        # TOMBSTONE 是 Registry 软删终态（ADR-SNAPSHOT-001），不经 spec 表达。
-        if self.lifecycle is ResourceStatus.TOMBSTONE:
-            raise ValueError("agent lifecycle cannot be tombstone")
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def _strip_legacy_status_keys(cls, data: Any) -> Any:
+        """剥离 legacy lifecycle/visibility 键（P1C-01 SoT 收口的兼容读）。
+
+        TOMBSTONE 是 Registry 软删终态（ADR-SNAPSHOT-001），不经 spec 表达；
+        状态由 envelope 承载，spec 侧不再接收这两类键。
+        """
+        if isinstance(data, dict):
+            data = {k: v for k, v in data.items() if k not in ("lifecycle", "visibility")}
+        return data

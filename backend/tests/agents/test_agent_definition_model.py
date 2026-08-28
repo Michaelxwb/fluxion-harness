@@ -265,8 +265,9 @@ def test_agent_definition_model_fields_match_prd_4_2() -> None:
     spec = AgentDefinition.model_validate(_agent_spec())
     assert spec.name == "Support Agent"
     assert spec.owner == "builder-1"
-    assert spec.visibility.value == "tenant"
-    assert spec.lifecycle is ResourceStatus.DRAFT
+    # P1C-01 SoT 收口：spec 不再承载状态，status/visibility 只来自 envelope
+    assert "visibility" not in AgentDefinition.model_fields
+    assert "lifecycle" not in AgentDefinition.model_fields
     assert spec.model_ref.id == "provider-1"
     assert spec.capabilities[0].type.value == "skill"
     assert spec.capabilities[1].type.value == "mcp"

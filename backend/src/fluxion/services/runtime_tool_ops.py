@@ -133,7 +133,9 @@ class RuntimeToolOps:
         context: RuntimeContext,
         mcp_tool_ids: set[str],
     ) -> list[ToolDefinition]:
-        user_tools, agent_tools, tenant_tools = await self._effective_tool_policy(context)
+        user_tools, agent_tools, tenant_tools = await self._effective_tool_policy(
+            context, user_mcp_tool_ids=mcp_tool_ids
+        )
         descriptors = self._execution_tool_runtime(context).list_effective_descriptors(
             user_grants=user_tools,
             agent_allowlist=agent_tools,
@@ -157,6 +159,7 @@ class RuntimeToolOps:
     async def _effective_tool_policy(
         self,
         context: RuntimeContext,
+        user_mcp_tool_ids: set[str] | None = None,
     ) -> tuple[set[str], set[str], set[str]]:
         # A2/ADR-005：每执行期首次解析后缓存于 context.tool_policy，后续 tool call
         # 与 model tool 列表构建复用同一结果——消除执行期版本漂移（此前每次调用
@@ -167,11 +170,14 @@ class RuntimeToolOps:
             return context.tool_policy
         agent_tools = await self._allowed_tools(context)
         capability = EffectiveCapabilityResolver(self._store)
-        # ADR-012：原 user 维度并入的静态 MCP "tools" 读取已移除（该字段不在
-        # MCPDefinition、工具 id 与真实 MCP 运行时不匹配、集合上被交集吸收），
-        # user 维度与 agent 维度重合。用户级 MCP 授权保留在挂载层（mcp.py
-        # binding 检查）与 skill 扩展（resolver._effective_skill_selectors）。
-        user_tools = agent_tools
+        # closure TASK-013（ADR-A002 撤销 ADR-012 的 user=agent 推导）：
+        # user 维度恢复为真实 User Tool Grant（capability_grants, kind=tool），
+        # 禁止 user_tools = agent_tools 作为最终语义（ARCH-06 / REQ-CAP-002）。
+        # 用户维度 = 显式 Tool Grant ∪ 用户 MCP binding 派生的工具 id
+        # （后者是挂载层授权到三重交集的映射：binding 按 user 隔离注入）。
+        user_tools = await self._user_granted_tools(context) | set(
+            user_mcp_tool_ids or set()
+        )
         policy_allowed, policy_denied, configured = await capability.tenant_policy_tools(
             tenant_id=context.snapshot.tenant_id
         )
@@ -209,6 +215,18 @@ class RuntimeToolOps:
             ),
             trace_sink=context,
         )
+
+    async def _user_granted_tools(self, context: RuntimeContext) -> set[str]:
+        """用户 Tool 维度：capability_grants(kind=tool) 的授权引用集合。"""
+        grants = await self._store.list_capability_grants(
+            tenant_id=context.snapshot.tenant_id,
+            platform_user_id=context.snapshot.user_id,
+        )
+        return {
+            grant.capability_ref
+            for grant in grants
+            if getattr(grant, "capability_kind", "skill") == "tool"
+        }
 
     async def _allowed_tools(self, context: RuntimeContext) -> set[str]:
         # TASK-A104：工具白名单基线从 AgentDefinition.capabilities(type=tool) 取

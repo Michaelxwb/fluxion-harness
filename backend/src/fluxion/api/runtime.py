@@ -92,7 +92,7 @@ def create_app(service: RuntimeApplicationService) -> FastAPI:
     async def ready_alias() -> JSONResponse:
         return await readyz()
 
-    @app.post("/api/v1/runtime-profiles/{runtime_profile_id}/runs")
+    @app.post("/internal/v1/runtime-profiles/{runtime_profile_id}/runs")
     async def run_profile(
         runtime_profile_id: str,
         payload: RunPayload,
@@ -104,7 +104,7 @@ def create_app(service: RuntimeApplicationService) -> FastAPI:
         )
         return success(result.to_payload())
 
-    @app.post("/api/v1/runtime-profiles/{runtime_profile_id}/runs:stream")
+    @app.post("/internal/v1/runtime-profiles/{runtime_profile_id}/runs:stream")
     async def stream_profile(
         runtime_profile_id: str,
         payload: RunPayload,

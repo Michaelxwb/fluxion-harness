@@ -79,7 +79,7 @@ async def seed_runtime_profile(
 ) -> ResourceDefinition:
     """TASK-A104 后的 seeding：profile 只含 mechanics；产品语义落在同名
     AgentDefinition（resolver 缺省回退按同名解析）。旧签名的 allowed_skills/
-    allowed_mcps 已由 capabilities（CapabilityBinding dump 列表）取代。"""
+    allowed_mcps 已由 capabilities（AgentCapabilityReference dump 列表）取代。"""
     from fluxion.agents.definitions import AgentDefinition
 
     await publish_resource(

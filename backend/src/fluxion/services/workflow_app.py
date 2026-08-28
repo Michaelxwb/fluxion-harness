@@ -64,7 +64,7 @@ class WorkflowDefinitionValidator:
 def _parse_capability_ref(
     value: str,
 ) -> tuple[ResourceKind, str, str] | None:
-    # TASK-006：workflow 语法与 Agent CapabilityBinding 共用同一解析实现
+    # TASK-006：workflow 语法与 Agent AgentCapabilityReference 共用同一解析实现
     # （agents.capabilities）——禁止两端各自维护 kind 映射与拆装逻辑。
     ref = parse_capability_ref(value)
     if ref is None:

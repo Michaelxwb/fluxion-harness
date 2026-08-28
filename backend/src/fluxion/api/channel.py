@@ -15,6 +15,7 @@ from fluxion.api.responses import failure, success
 from fluxion.config import DevModeSettings
 from fluxion.errors.console import (
     CHANNEL_ACCESS_DENIED,
+    CHANNEL_AUTH_DENIED,
     CHANNEL_BIND_FAILED,
     CHANNEL_VALIDATION_FAILED,
     INTERNAL_ERROR,
@@ -28,6 +29,10 @@ from fluxion.services.channel_app import (
     ChannelApplicationService,
     ChannelBindError,
 )
+from fluxion.services.channel_app import (
+    is_bind_command as _is_bind_command,
+)
+from fluxion.services.channel_auth import ChannelAuthError, WebBearerAuthenticator
 
 
 class ChannelMessagePayload(BaseModel):
@@ -59,19 +64,38 @@ def create_app(
     app.add_middleware(
         RequestContextMiddleware, dev_mode=dev_mode, require_identity=False
     )
-    _register_errors(app)
+    _register_errors(app, service)
     # S2 残留：/channels/web/messages 对已绑定 channel_user_id 逐消息信任、不重新
     # 鉴权 → 可冒充任意已绑定用户。真正收口需引入真实认证中间件（S1，per-message
     # token），属较大功能构建而非最小修复。dev_mode 门控会破坏该端点的多租户
     # header-tenant 设计（golden-path 契约依赖 X-Tenant-ID），且 dev bundle 已置
     # dev_mode、门控对实际部署无增益，故不采用。S2 随 S1 一并落地。
-    _register_message(app, service)
-    _register_stream(app, service)
+    auth = WebBearerAuthenticator(service)
+    _register_message(app, service, auth)
+    _register_stream(app, service, auth)
     _register_access_routes(app, service)
     return app
 
 
-def _register_errors(app: FastAPI) -> None:
+def _register_errors(app: FastAPI, service: ChannelApplicationService) -> None:
+    @app.exception_handler(ChannelAuthError)
+    async def channel_auth_error(request: Request, exc: ChannelAuthError) -> JSONResponse:
+        # closure TASK-005：验证失败进 AuditLog（仅 method/reason，token/签名零日志）
+        tenant_id = request.headers.get("X-Tenant-ID", "unknown")
+        await service.audit_auth_failure(
+            tenant_id=tenant_id,
+            method=exc.method,
+            reason=exc.reason,
+            request_id=request.headers.get("X-Request-ID", ""),
+            trace_id=request.headers.get("X-Trace-ID", ""),
+        )
+        return failure(
+            CHANNEL_AUTH_DENIED,
+            "渠道身份验证失败",
+            status_code=exc.status_code,
+            request=request,
+        )
+
     @app.exception_handler(ChannelBindError)
     async def bind_error(request: Request, exc: ChannelBindError) -> JSONResponse:
         del exc
@@ -119,24 +143,62 @@ def _register_errors(app: FastAPI) -> None:
         return failure(INTERNAL_ERROR, "internal error", status_code=500, request=request)
 
 
-def _register_message(app: FastAPI, service: ChannelApplicationService) -> None:
+def _register_message(
+    app: FastAPI, service: ChannelApplicationService, auth: WebBearerAuthenticator
+) -> None:
     @app.post("/api/v1/channels/web/messages")
     async def post_message(
         payload: ChannelMessagePayload,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
         x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
     ) -> JSONResponse:
-        result = await service.handle(WebChannelAdapter(), _external(payload, x_tenant_id))
-        return success(result.to_payload())
+        # closure TASK-005（S2 收口）：匿名仅放行 /bind 命令（H1 语义）；其余消息
+        # 必须持有效 Bearer Chat Access Token，身份来自 token 而非 payload。
+        token = _bearer_token(authorization) if authorization else ""
+        if token:
+            await auth.verify(token)
+            request_id, trace_id = _request_ids(payload.message_id)
+            result = await service.handle_chat_access(
+                token,
+                conversation_id=payload.conversation_id,
+                content=payload.content,
+                request_id=request_id,
+                trace_id=trace_id,
+            )
+            return success(result.to_payload())
+        if _is_bind_command(payload.content):
+            result = await service.handle(WebChannelAdapter(), _external(payload, x_tenant_id))
+            return success(result.to_payload())
+        raise ChannelAuthError(method="bearer_chat_access", reason="missing_credentials")
 
 
-def _register_stream(app: FastAPI, service: ChannelApplicationService) -> None:
+def _register_stream(
+    app: FastAPI, service: ChannelApplicationService, auth: WebBearerAuthenticator
+) -> None:
     @app.post("/api/v1/channels/web/messages:stream")
     async def stream_message(
         payload: ChannelMessagePayload,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
         x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
     ) -> StreamingResponse:
-        events = _events(service, _external(payload, x_tenant_id))
-        return StreamingResponse(events, media_type="text/event-stream")
+        token = _bearer_token(authorization) if authorization else ""
+        if token:
+            await auth.verify(token)
+            request_id, trace_id = _request_ids(payload.message_id)
+            events = _access_events(
+                service,
+                ChatAccessMessagePayload(
+                    conversation_id=payload.conversation_id,
+                    message_id=payload.message_id,
+                    content=payload.content,
+                ),
+                token,
+            )
+            return StreamingResponse(events, media_type="text/event-stream")
+        if _is_bind_command(payload.content):
+            events = _events(service, _external(payload, x_tenant_id))
+            return StreamingResponse(events, media_type="text/event-stream")
+        raise ChannelAuthError(method="bearer_chat_access", reason="missing_credentials")
 
 
 def _register_access_routes(app: FastAPI, service: ChannelApplicationService) -> None:

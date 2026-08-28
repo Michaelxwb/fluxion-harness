@@ -87,6 +87,15 @@ async def _publish_profile(
             "capabilities": capabilities,
         },
     )
+    # closure TASK-013：用户 Tool 维度恢复——fixture 用户需显式授权 lookup。
+    await store.add_capability_grant(
+        tenant_id="tenant-a",
+        platform_user_id="user-a",
+        capability_ref="lookup",
+        capability_kind="tool",
+        granted_scope="invoke",
+        version_pin="1",
+    )
 
 
 @pytest.mark.asyncio

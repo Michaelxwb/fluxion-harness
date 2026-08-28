@@ -8,7 +8,6 @@ from fluxion.registry.store import RegistryStore
 from fluxion.registry.user_store import UserDomainStore
 
 
-
 class BindCodeRejected(RuntimeError):
     def __init__(self, reason: str) -> None:
         self.reason = reason

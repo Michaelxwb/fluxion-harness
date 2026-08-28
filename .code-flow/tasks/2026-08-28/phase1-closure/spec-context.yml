@@ -1,7 +1,7 @@
 version: 1
 task: PHASE1-CLOSURE
 enforcement: required
-updated_at: '2026-08-28T03:32:45.282071+00:00'
+updated_at: '2026-08-28T05:15:38.718141+00:00'
 sources:
 - type: cli
   ref: bind
@@ -34,7 +34,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 3.4-interface-design
           item_id: typed-parser-boundaries
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -43,7 +43,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-002
           item_id: tool-kind-unification-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:
@@ -188,7 +188,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 3.3-data-design
           item_id: profile-attribute-schema
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -197,7 +197,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-004
           item_id: profile-attribute-schema-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:
@@ -368,7 +368,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 3.2-architecture-design
           item_id: module-placement
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -377,7 +377,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-005
           item_id: channel-auth-module-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:
@@ -522,7 +522,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 3.5-quality-impl
           item_id: auth-audit-redaction
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -531,7 +531,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-005
           item_id: auth-audit-redaction-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:
@@ -677,7 +677,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 3.4-interface-design
           item_id: product-api-envelope
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -686,7 +686,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-003
           item_id: product-api-envelope-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:
@@ -884,7 +884,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 3.2-architecture-design
           item_id: channel-authenticator
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -893,7 +893,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-005
           item_id: channel-authenticator-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:
@@ -935,7 +935,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 3.1-key-decisions
           item_id: agent-sot-envelope
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -944,7 +944,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-001
           item_id: agent-sot-cleanup-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:
@@ -986,7 +986,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 3.2-architecture-design
           item_id: product-api-layering
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -995,7 +995,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-003
           item_id: product-api-internal-boundary-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:
@@ -1037,7 +1037,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 3.2-architecture-design
           item_id: tool-usergrant-restore
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -1046,7 +1046,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-013
           item_id: tool-usergrant-restore-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:
@@ -1087,7 +1087,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 3.4-interface-design
           item_id: capability-selection-vm
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -1096,7 +1096,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-008
           item_id: typed-capability-picker-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:
@@ -1267,7 +1267,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 2.3-feature-plan
           item_id: console-ia-cleanup
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -1276,7 +1276,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-011
           item_id: console-ia-cleanup-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:
@@ -1421,7 +1421,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 3.5-quality-impl
           item_id: typecheck-terminology-gate
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -1430,7 +1430,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-012
           item_id: typecheck-terminology-gate-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:
@@ -1575,7 +1575,7 @@ bindings:
         - artifact: phase1-closure.design.md
           section_id: 3.2-architecture-design
           item_id: studio-roundtrip-semi
-          artifact_sha256: cda0b041adc055b60e060e2227dfd6a69135f3450a7c9210271b3c3a5942c488
+          artifact_sha256: acbc28275fbea4f37c47299a89fb0d962d10622bac02220f4118149d929becf9
         decision: null
         evidence: []
       plan:
@@ -1584,7 +1584,7 @@ bindings:
         - artifact: phase1-closure.md
           section_id: TASK-010
           item_id: user-agent-access-ui-plan
-          artifact_sha256: 52134cfc55140c36926de7099617c45c5fdd2dbe1b30a060929c86282454d817
+          artifact_sha256: fa00a6ea171d0d11daaab74dd5a785e656b533af9ae91696cb89604871d1a3e1
         decision: null
         evidence: []
       code:

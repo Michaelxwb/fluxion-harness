@@ -15,6 +15,7 @@ from fluxion.protocols.channel import (
     ExternalChannelMessage,
 )
 from fluxion.registry import (
+    AuditRecord,
     BindCodeRecord,
     BindCodeRejected,
     BindRedemption,
@@ -271,12 +272,43 @@ class ChannelApplicationService:
 
 
 
+    async def audit_auth_failure(
+        self,
+        *,
+        tenant_id: str,
+        method: str,
+        reason: str,
+        request_id: str = "",
+        trace_id: str = "",
+    ) -> None:
+        """closure TASK-005：验证失败进 AuditLog；token/签名不入审计载荷。"""
+        del trace_id  # 审计按 request 关联；token/签名/trace 不落敏感载荷
+        await self._store.append_audit(
+            AuditRecord(
+                audit_id=f"audit_{uuid4().hex}",
+                tenant_id=tenant_id,
+                actor_id="unknown",
+                request_id=request_id,
+                action="channel.auth.rejected",
+                target_type="channel_identity",
+                target_id=method,
+                before=None,
+                after={"method": method, "reason": reason},
+                created_at=self._clock(),
+            )
+        )
+
 def _hash_code(code: str) -> str:
     return hashlib.sha256(code.strip().encode("utf-8")).hexdigest()
 
 
 def _hash_access_token(token: str) -> str:
     return hashlib.sha256(token.strip().encode("utf-8")).hexdigest()
+
+
+def is_bind_command(content: str) -> bool:
+    """closure TASK-005：匿名通道仅放行 /bind 命令（H1 语义保留）。"""
+    return _bind_command_code(content) is not None
 
 
 def _bind_command_code(content: str) -> str | None:

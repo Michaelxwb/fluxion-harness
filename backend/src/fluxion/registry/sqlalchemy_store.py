@@ -17,7 +17,6 @@ from fluxion.registry import (
     retention_sqlalchemy,
     user_sqlalchemy,
 )
-from fluxion.registry.user_store import CapabilityGrantRecord
 from fluxion.registry.channel_store import (
     BindCodeRecord,
     BindRedemption,
@@ -48,6 +47,7 @@ from fluxion.registry.store import (
     RegistryStoreError,
     VersionConflictError,
 )
+from fluxion.registry.user_store import CapabilityGrantRecord
 from fluxion.resources import (
     ResourceBinding,
     ResourceDefinition,
@@ -691,6 +691,34 @@ class SQLAlchemyRegistryStore:
             self.engine, tenant_id=tenant_id, platform_user_id=platform_user_id
         )
 
+    async def upsert_profile_attribute(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        attribute: dict[str, object],
+    ) -> dict[str, Any]:
+        return await user_sqlalchemy.upsert_profile_attribute(
+            self.engine,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            attribute=dict(attribute),
+        )
+
+    async def list_profile_attributes(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> list[dict[str, Any]]:
+        return await user_sqlalchemy.list_profile_attributes(
+            self.engine, tenant_id=tenant_id, platform_user_id=platform_user_id
+        )
+
+    async def delete_profile_attribute(
+        self, *, tenant_id: str, platform_user_id: str, key: str
+    ) -> int:
+        return await user_sqlalchemy.delete_profile_attribute(
+            self.engine, tenant_id=tenant_id, platform_user_id=platform_user_id, key=key
+        )
+
     async def add_capability_grant(
         self,
         *,
@@ -699,12 +727,14 @@ class SQLAlchemyRegistryStore:
         capability_ref: str,
         granted_scope: str,
         version_pin: str | None,
+        capability_kind: str = "skill",
     ) -> CapabilityGrantRecord:
         created = await user_sqlalchemy.add_grant(
             self.engine,
             tenant_id=tenant_id,
             platform_user_id=platform_user_id,
             capability_ref=capability_ref,
+            capability_kind=capability_kind,
             granted_scope=granted_scope,
             version_pin=version_pin,
         )
@@ -713,6 +743,7 @@ class SQLAlchemyRegistryStore:
             tenant_id=tenant_id,
             platform_user_id=platform_user_id,
             capability_ref=capability_ref,
+            capability_kind=capability_kind,
             granted_scope=granted_scope,
             version_pin=version_pin,
             created_at=user_sqlalchemy._now(),
@@ -730,6 +761,7 @@ class SQLAlchemyRegistryStore:
                 tenant_id=r["tenant_id"],
                 platform_user_id=r["platform_user_id"],
                 capability_ref=r["capability_ref"],
+                capability_kind=r.get("capability_kind", "skill"),
                 granted_scope=r["granted_scope"],
                 version_pin=r["version_pin"],
                 created_at=r["created_at"],

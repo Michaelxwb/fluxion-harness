@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from pydantic import ValidationError
 
-from fluxion.agents.definitions import AgentDefinition, CapabilityBinding, CapabilityType
+from fluxion.agents.definitions import AgentDefinition, AgentCapabilityReference, CapabilityType
 from fluxion.registry import RegistryStore
 from fluxion.resources import (
     ExactResourceVersion,
@@ -126,8 +126,6 @@ def _agent_spec(
         description="由 RuntimeProfile 一次性迁移生成",
         system_prompt=prompt,
         owner=owner,
-        visibility=source.visibility,
-        lifecycle=source.status,
         model_ref=ExactResourceVersion(id=provider, version=source.version),
         runtime_profile_ref=ExactResourceVersion(id=source.id, version=mechanics_version),
         capabilities=_legacy_capabilities(legacy, source.version),
@@ -136,8 +134,8 @@ def _agent_spec(
 
 def _legacy_capabilities(
     legacy: Mapping[str, object], default_version: str
-) -> list[CapabilityBinding]:
-    bindings: list[CapabilityBinding] = []
+) -> list[AgentCapabilityReference]:
+    bindings: list[AgentCapabilityReference] = []
     for field, capability_type in (
         ("allowed_skills", CapabilityType.SKILL),
         ("allowed_tools", CapabilityType.TOOL),
@@ -155,7 +153,7 @@ LATEST_PIN = "latest-published"
 
 def _capability(
     value: str, capability_type: CapabilityType, default_version: str
-) -> CapabilityBinding:
+) -> AgentCapabilityReference:
     """legacy 条目转 typed binding。
 
     带显式 @version 的沿用；**无 @pin 的不能借用 profile 版本号**（skill/mcp
@@ -165,12 +163,12 @@ def _capability(
     resource_id, separator, version = value.rpartition("@")
     if not separator:
         # 无 @：整串是 resource_id（H5 正解——rpartition 无分隔符时前两元为空）。
-        return CapabilityBinding(
+        return AgentCapabilityReference(
             capability_ref=value,
             version_pin=LATEST_PIN,
             type=capability_type,
         )
-    return CapabilityBinding(
+    return AgentCapabilityReference(
         capability_ref=resource_id,
         version_pin=_required_text(version, "version_pin"),
         type=capability_type,

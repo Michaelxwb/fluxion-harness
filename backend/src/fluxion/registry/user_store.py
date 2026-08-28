@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +19,7 @@ class CapabilityGrantRecord:
     tenant_id: str
     platform_user_id: str
     capability_ref: str
+    capability_kind: str
     granted_scope: str
     version_pin: str | None
     created_at: datetime
@@ -29,6 +30,24 @@ class PreferenceRecord:
     tenant_id: str
     platform_user_id: str
     preference_json: dict[str, object]
+    updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ProfileAttributeRecord:
+    """行级用户画像属性（P1C-09）：key 唯一，provenance 随行持久化。"""
+
+    tenant_id: str
+    platform_user_id: str
+    key: str
+    value: str
+    source: str
+    source_ref: str | None
+    confidence: float
+    is_explicit: bool
+    user_editable: bool
+    visibility: str
+    created_at: datetime
     updated_at: datetime
 
 
@@ -67,6 +86,7 @@ class UserDomainStore(Protocol):
         capability_ref: str,
         granted_scope: str,
         version_pin: str | None,
+        capability_kind: str = "skill",
     ) -> CapabilityGrantRecord: ...
 
     async def list_capability_grants(
@@ -80,3 +100,19 @@ class UserDomainStore(Protocol):
     async def list_channel_identities_for_user(
         self, *, tenant_id: str, platform_user_id: str
     ) -> list[dict[str, object]]: ...
+
+    async def upsert_profile_attribute(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        attribute: dict[str, object],
+    ) -> dict[str, Any]: ...
+
+    async def list_profile_attributes(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> list[dict[str, Any]]: ...
+
+    async def delete_profile_attribute(
+        self, *, tenant_id: str, platform_user_id: str, key: str
+    ) -> int: ...

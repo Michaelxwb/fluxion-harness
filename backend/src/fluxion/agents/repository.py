@@ -46,7 +46,7 @@ class AgentDefinitionRepository:
         version: str = "1",
     ) -> ResourceDefinition:
         try:
-            AgentDefinition.model_validate(spec)
+            validated = AgentDefinition.model_validate(spec)
         except ValidationError as exc:
             raise AgentSpecValidationError(str(exc)) from exc
         definition = ResourceDefinition(
@@ -55,7 +55,9 @@ class AgentDefinitionRepository:
             tenant_id=tenant_id,
             version=version,
             status=ResourceStatus.DRAFT,
-            spec_json=dict(spec),
+            # P1C-01 SoT 收口：持久化剥离 legacy 键后的 typed dump（兼容读存量、
+            # 新写入零 legacy 键），状态唯一由 envelope 承载。
+            spec_json=validated.model_dump(mode="json"),
         )
         try:
             return await self._store.put(definition)

@@ -61,6 +61,15 @@ async def test_S_R09_trace_contains_snapshot_model_tool_hook_latency_and_error()
             provider_id="dev.echo",
             capabilities=[{"capability_ref": "time.now", "version_pin": "1", "type": "tool"}],
         )
+        # closure TASK-013：用户 Tool 维度恢复——执行用户需显式授权 time.now。
+        await store.add_capability_grant(
+            tenant_id="tenant-a",
+            platform_user_id="user-a",
+            capability_ref="time.now",
+            capability_kind="tool",
+            granted_scope="invoke",
+            version_pin="1",
+        )
 
         await service.publish_runtime_profile(
             PublishRuntimeProfileRequest(

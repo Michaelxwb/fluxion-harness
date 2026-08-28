@@ -6,6 +6,7 @@ from fluxion.registry.store import (
     RegistryStoreError,
     VersionConflictError,
 )
+from fluxion.registry.user_store import ProfileAttributeRecord
 
 __all__ = [
     "AuditRecord",
@@ -24,6 +25,7 @@ __all__ = [
     "OutboxStatus",
     "PlatformUserRecord",
     "PostgreSQLRegistryStore",
+    "ProfileAttributeRecord",
     "PublicationCommand",
     "PublicationCommit",
     "PublicationOperation",

@@ -13,7 +13,7 @@ from fastapi import FastAPI, Header, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from fluxion.agents.definitions import CapabilityBinding, CapabilityType
+from fluxion.agents.definitions import AgentCapabilityReference, CapabilityType
 from fluxion.api.console_helpers import _actor
 from fluxion.api.responses import success
 from fluxion.errors.console import RUNTIME_APPLICATION_ERROR, ConsoleError
@@ -197,7 +197,7 @@ def register_admin_user_routes(
         result = await svc.grant(
             tenant_id=actor.tenant_id,
             platform_user_id=platform_user_id,
-            capability_binding=CapabilityBinding(
+            capability_binding=AgentCapabilityReference(
                 capability_ref=payload.capability_ref,
                 version_pin=payload.version_pin,
                 type=payload.type,

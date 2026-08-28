@@ -117,3 +117,54 @@ def test_be_b_02_legacy_runtime_profile_key_removed_from_record() -> None:
     field_names = {f.name for f in dataclasses.fields(ChatAccessRecord)}
     assert "runtime_profile_id" not in field_names
     assert "agent_id" in field_names
+
+
+@pytest.mark.asyncio
+async def test_e02_issue_with_draft_agent_rejected_and_published_succeeds() -> None:
+    """closure E-02（RULE-C-05）：签发校验 agent 存在且 PUBLISHED。
+
+    「不存在」路径由 test_be_e_05 覆盖；本用例补「存在但 DRAFT」拒绝 +
+    「已发布」放行两条分支（TASK-006 增量，属于已有实现的行为补测——见
+    Acceptance Evidence 的无 RED 说明）。
+    """
+    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    await store.initialize()
+    runtime = RuntimeApplicationService.create_dev_bundle(store)
+    console = ConsoleApplicationService(store)
+    actor = _actor()
+    await console.create_platform_user(actor, platform_user_id="u-d", display_name="用户D")
+
+    # DRAFT agent（只 put 不 publish）
+    from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
+
+    await store.put(
+        ResourceDefinition(
+            tenant_id="tenant-a",
+            kind=ResourceKind.AGENT_DEFINITION,
+            id="draft-agent",
+            version="1",
+            status=ResourceStatus.DRAFT,
+            spec_json={
+                "name": "草稿代理",
+                "system_prompt": "draft",
+                "owner": "builder-1",
+                "model_ref": {"id": "dev.echo", "version": "1"},
+            },
+        )
+    )
+    with pytest.raises(ConsoleError) as error:
+        await console.issue_chat_access(actor, platform_user_id="u-d", agent_id="draft-agent")
+    assert error.value.code == CHANNEL_AGENT_NOT_FOUND
+    assert error.value.status_code == 404
+
+    # 发布后同一 agent → 签发成功，agent_id 为授权坐标
+    await store.publish(
+        ResourceKind.AGENT_DEFINITION, "draft-agent", tenant_id="tenant-a", version="1"
+    )
+    issued = await console.issue_chat_access(actor, platform_user_id="u-d", agent_id="draft-agent")
+    assert issued.record.agent_id == "draft-agent"
+    assert issued.record.platform_user_id == "u-d"
+    assert issued.token
+
+    await runtime.close()
+    await store.close()

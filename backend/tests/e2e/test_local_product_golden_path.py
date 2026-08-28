@@ -11,6 +11,7 @@ from fluxion.api.console import create_app as create_console_app
 from fluxion.registry import SQLiteRegistryStore
 from fluxion.services.channel_app import ChannelApplicationService
 from fluxion.services.console_app import ConsoleApplicationService
+from fluxion.services.console_contracts import ConsoleActor
 from fluxion.services.runtime_app import RuntimeApplicationService
 
 
@@ -60,10 +61,29 @@ async def test_S_R01_local_console_sqlite_runtime_and_web_chat_golden_path(
                 json=_chat_payload(f"/bind {issued.code}", "bind"),
                 headers=tenant_headers(actor_id="browser-a", request_id="req-bind"),
             )
+            # closure TASK-005（S2 收口）：匿名消息流已关闭；绑定后经签发的
+            # Chat Access Bearer 走 verified 流式链路（与前端 httpChatApi 一致）。
+            access = await console.issue_chat_access(
+                ConsoleActor(
+                    tenant_id="tenant-a",
+                    actor_id="admin-a",
+                    request_id="req-issue",
+                    trace_id="trace-issue",
+                ),
+                platform_user_id="user-a",
+                agent_id="assistant",
+            )
             streamed = await chat_client.post(
-                "/api/v1/channels/web/messages:stream",
-                json=_chat_payload("hello product", "message"),
-                headers=tenant_headers(actor_id="browser-a", request_id="req-chat"),
+                "/api/v1/channels/web/access/messages:stream",
+                json={
+                    "conversation_id": "conversation-a",
+                    "message_id": "message",
+                    "content": "hello product",
+                },
+                headers={
+                    **tenant_headers(actor_id="browser-a", request_id="req-chat"),
+                    "Authorization": f"Bearer {access.token}",
+                },
             )
 
         assert created.status_code == 200

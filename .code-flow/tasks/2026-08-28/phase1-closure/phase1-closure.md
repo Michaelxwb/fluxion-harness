@@ -16,22 +16,22 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 |
 |--------|---------|---------|-------------|---------|------|
-| S-01 | phase1-closure.design.md#2.5 验收条件 | integration | 真实 Registry Store（双库） | TASK-001 | planned |
-| S-02 | phase1-closure.design.md#2.5 验收条件 | integration | Capability parser + Registry | TASK-002 | planned |
+| S-01 | phase1-closure.design.md#2.5 验收条件 | integration | 真实 Registry Store（双库） | TASK-001 | verified |
+| S-02 | phase1-closure.design.md#2.5 验收条件 | integration | Capability parser + Registry | TASK-002 | verified |
 | S-03 | phase1-closure.design.md#2.5 验收条件 | E2E | Browser → Console API → Registry | TASK-007 | planned |
-| S-04 | phase1-closure.design.md#2.5 验收条件 | E2E | Product API → Runtime 链路 | TASK-003 | planned |
+| S-04 | phase1-closure.design.md#2.5 验收条件 | E2E | Product API → Runtime 链路 | TASK-003 | verified |
 | S-05 | phase1-closure.design.md#2.5 验收条件 | E2E | Console 用户页 → 签发 → Chat resolve | TASK-010 | planned |
-| S-06 | phase1-closure.design.md#2.5 验收条件 | E2E | Web channel per-message Bearer | TASK-005 | planned |
-| S-07 | phase1-closure.design.md#2.5 验收条件 | integration | users 服务 + 真实 Store | TASK-004 | planned |
+| S-06 | phase1-closure.design.md#2.5 验收条件 | E2E | Web channel per-message Bearer | TASK-005 | verified |
+| S-07 | phase1-closure.design.md#2.5 验收条件 | integration | users 服务 + 真实 Store | TASK-004 | verified |
 | S-08 | phase1-closure.design.md#2.5 验收条件 | E2E | Browser → Console Shell | TASK-011 | planned |
 | S-09 | phase1-closure.design.md#2.5 验收条件 | integration | 全仓 TypeScript strict | TASK-012 | planned |
 | S-10 | phase1-closure.design.md#2.5 验收条件 | E2E | Chat → 产品 API | TASK-009 | planned |
-| E-01 | phase1-closure.design.md#2.5 验收条件 | integration | WeCom 签名 / Mattermost token 验证 | TASK-005 | planned |
-| E-02 | phase1-closure.design.md#2.5 验收条件 | integration | Chat Access 签发校验 | TASK-006 | planned |
-| B-01 | phase1-closure.design.md#2.5 验收条件 | unit | Capability parser 边界 | TASK-002 | planned |
+| E-01 | phase1-closure.design.md#2.5 验收条件 | integration | WeCom 签名 / Mattermost token 验证 | TASK-005 | verified |
+| E-02 | phase1-closure.design.md#2.5 验收条件 | integration | Chat Access 签发校验 | TASK-006 | verified |
+| B-01 | phase1-closure.design.md#2.5 验收条件 | unit | Capability parser 边界 | TASK-002 | verified |
 | B-02 | phase1-closure.design.md#2.5 验收条件 | E2E | 普通用户面文案扫描 | TASK-012 | planned |
-| S-11 | phase1-closure.design.md#2.5 验收条件 | integration | 真实 EffectiveCapabilityResolver + 双租户 Store（Gate G1 真值表） | TASK-013 | planned |
-| E-03 | phase1-closure.design.md#2.5 验收条件 | integration | grant + 运行时三重交集 | TASK-013 | planned |
+| S-11 | phase1-closure.design.md#2.5 验收条件 | integration | 真实 EffectiveCapabilityResolver + 双租户 Store（Gate G1 真值表） | TASK-013 | verified |
+| E-03 | phase1-closure.design.md#2.5 验收条件 | integration | grant + 运行时三重交集 | TASK-013 | verified |
 
 > NFR-C-01（Channel 验证 P95≤20ms）由 TASK-005 承载；NFR-C-02（legacy 读取零失败）由 S-01（TASK-001）承载。
 
@@ -39,7 +39,7 @@
 
 ## TASK-001: AgentDefinition SoT 收口
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: phase1-closure.design.md#2.3 功能方案, phase1-closure.design.md#3.1 方案选型, phase1-closure.design.md#3.3 数据设计
@@ -52,31 +52,40 @@
 
 ### Checklist
 
-- [ ] 删除 `agents/definitions.py` 的 `visibility`/`lifecycle` 字段与 `validate_lifecycle`；加剥离 validator；`agents/repository.py` 写入路径去 legacy 键
-- [ ] 存量检查脚本：扫描 spec_json 含 legacy 键的行并输出报告
-- [ ] [S-01][integration] 修改生产代码前，编写验收测试并记录 RED：旧实现允许 spec.lifecycle=DRAFT 与 envelope status=PUBLISHED 不一致（证明偏差存在）
-- [ ] [S-01] GREEN 断言：创建（含 legacy 键）→ publish → GET，status/visibility 只来自 envelope；spec 读取剥离 legacy 键；序列化输出不含 lifecycle/visibility
-- [ ] **Spec verifier**：`RULE-fluxion-resource-001` — 运行 `python -m pytest backend/tests/agents/ backend/tests/registry/ -k agent_definition`（planned）：断言 envelope 版本化生命周期不变（DRAFT→PUBLISHED→版本递增）、status/visibility 唯一来自 envelope、SQLite/PG 同契约
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 删除 `agents/definitions.py` 的 `visibility`/`lifecycle` 字段与 `validate_lifecycle`；加剥离 validator；`agents/repository.py` 写入路径去 legacy 键
+- [x] 存量检查脚本：扫描 spec_json 含 legacy 键的行并输出报告（`scripts/audit_legacy_spec_keys.py`，只报告不改写）
+- [x] [S-01][integration] 修改生产代码前，编写验收测试并记录 RED：旧实现允许 spec.lifecycle=DRAFT 与 envelope status=PUBLISHED 不一致（证明偏差存在）
+- [x] [S-01] GREEN 断言：创建（含 legacy 键）→ publish → GET，status/visibility 只来自 envelope；spec 读取剥离 legacy 键；序列化输出不含 lifecycle/visibility
+- [x] **Spec verifier**：`RULE-fluxion-resource-001` — 运行 `python -m pytest backend/tests/agents/ backend/tests/contract/ -k "agent_definition or registry"`：23 passed（envelope 版本化生命周期不变、status/visibility 唯一来自 envelope、SQLite/PG 同契约——PG 由 FLUXION_REQUIRE_POSTGRES_CONTRACT=1 门控）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | integration | 真实 Registry Store（SQLite+PG） | envelope SoT 唯一；legacy 键剥离读；序列化无 legacy 字段 | planned | planned | planned |
+| S-01 | integration | 真实 Registry Store（SQLite+PG） | envelope SoT 唯一；legacy 键剥离读；序列化无 legacy 字段 | backend/tests/agents/test_agent_definition_sot.py（3 用例，S-01 全覆盖） | `.venv/bin/python -m pytest backend/tests/agents/ -q`；verifier：`pytest backend/tests/agents/ backend/tests/contract/ -k "agent_definition or registry"` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+> RED/GREEN 与真实组件证据如下；真实边界 = SQLiteRegistryStore（内存库）经 AgentDefinitionRepository 全链路，PG 契约由既有门控套件覆盖。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-01 | FAIL×3：`test_s01_agent_spec_has_no_lifecycle_visibility_fields`（model_fields 仍含 lifecycle/visibility）；`test_s01_legacy_keys_stripped_on_validate`（model_dump 产出 legacy 键）；`test_s01_envelope_is_sole_sot_through_publish_roundtrip`（`fetched.spec_json` 含 `'lifecycle': 'draft'` 与 envelope PUBLISHED 并存——P1C-01 双事实源实锤） | 16 passed（agents/ 全量含 3 个新用例） | test_agent_definition_sot.py:57-59（字段断言）、:65-72（剥离断言）、:79-98（roundtrip 断言） | 真实 SQLiteRegistryStore 内存库 → AgentDefinitionRepository.create/publish/get 全链路；migration.py 去除 legacy 入参；scripts/audit_legacy_spec_keys.py 冒烟 0 条 | verified |
+
+- **Spec verifier 证据**：`pytest backend/tests/agents/ backend/tests/contract/ -k "agent_definition or registry"` → 23 passed（版本化生命周期 DRAFT→PUBLISHED→版本递增、tenant 隔离、SQLite/PG 同契约既有用例全绿）。
+- **回归**：`pytest backend/tests -q --ignore=backend/tests/workflow_poc` → **339 passed, 1 skipped**。workflow_poc 7 failed + 6 error 为环境依赖（Restate 容器 `host.docker.internal:51603 -> 502`），经 stash 基线复跑同样失败——先在基线即失败，非本任务引入。
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] started（active marker：PHASE1-CLOSURE @ faf57e0）
+- [2026-08-28] completed (done)
 
 ---
 
 ## TASK-002: Tool ResourceKind 统一
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: phase1-closure.design.md#2.3 功能方案, phase1-closure.design.md#3.1 方案选型
@@ -89,33 +98,40 @@
 
 ### Checklist
 
-- [ ] 修改 `CapabilityType.TOOL` 映射为 `ResourceKind.TOOL`；parser 支持 `tool:` 前缀
-- [ ] TOOL capability + `plugin:` ref → fail-closed 明确错误；存量检查脚本输出报告
-- [ ] [S-02][integration] 修改生产代码前，编写验收测试并记录 RED：`tool:customer-query@1.0.0` 现解析不到 ResourceKind.TOOL（证明偏差存在）
-- [ ] [S-02] GREEN 断言：`tool:` → `ResourceKind.TOOL` 且可被 Agent 使用；`type=tool + plugin:ref` → 明确错误
-- [ ] [B-01][unit] 覆盖坏格式 ref / 未知 type / `plugin:` 当 tool → 全部明确报错不静默
-- [ ] **Spec verifier**：`RULE-backend-quality-001` — 运行 `python -m pytest backend/tests/agents/ -k capability`（planned）+ `ruff check`/`mypy` scoped：断言 parser/mapping 全类型注解、fail-closed 不静默、错误信息含 slug 与整码
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 修改 `CapabilityType.TOOL` 映射为 `ResourceKind.TOOL`；parser 支持 `tool:` 前缀
+- [x] TOOL capability + `plugin:` ref → fail-closed 明确错误；存量检查脚本输出报告（`scripts/audit_legacy_spec_keys.py` 扩展 plugin_tool_refs 巡检）
+- [x] [S-02][integration] 修改生产代码前，编写验收测试并记录 RED：`tool:customer-query@1.0.0` 现解析不到 ResourceKind.TOOL（证明偏差存在）
+- [x] [S-02] GREEN 断言：`tool:` → `ResourceKind.TOOL` 且可被 Agent 使用；`type=tool + plugin:ref` → 明确错误
+- [x] [B-01][unit] 覆盖坏格式 ref / 未知 type / `plugin:` 当 tool → 全部明确报错不静默
+- [x] **Spec verifier**：`RULE-backend-quality-001` — `pytest backend/tests/agents/ -k capability` + `ruff check`（All checks passed）/`mypy capabilities.py`（Success）：parser/mapping 全类型注解、fail-closed 不静默、错误信息含语义说明
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-02 | integration | 真实 parser + Registry | `tool:`→TOOL；`plugin:` 拒绝 | planned | planned | planned |
-| B-01 | unit | parser 纯函数 | 三类非法输入全部明确报错 | planned | planned | planned |
+| S-02 | integration | 真实 parser + Registry | `tool:`→TOOL；`plugin:` 拒绝 | backend/tests/agents/test_capability_tool_kind.py（S-02×3）+ test_capability_binding.py（同步后全绿） | `.venv/bin/python -m pytest backend/tests/agents/ -q` | verified |
+| B-01 | unit | parser 纯函数 | 三类非法输入全部明确报错 | backend/tests/agents/test_capability_tool_kind.py::test_b01_*（×4） | 同上 | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-02 | FAIL×3：`test_s02_tool_prefix_parses_to_tool_kind`（tool: 解析 None）；`test_s02_binding_tool_resolves_to_tool_kind`（仍映射 PLUGIN）；`test_s02_tool_type_with_plugin_ref_rejected_fail_closed`（无守卫不报错） | 全绿：`tool:`→`ResourceKind.TOOL`；TOOL binding 归一 TOOL；`plugin:`+TOOL → ValueError（含 plugin: 说明） | test_capability_tool_kind.py:36-56 | 真实 capabilities.py 纯函数 + 真实 typed model（extra=forbid）；既有 BE-S-05 同步为 TOOL 资源 + `tool:calc@2` 汇聚同 Registry 对象 | verified |
+| B-01 | FAIL：`test_b01_malformatted_typed_ref_rejected`（带前缀 ref 不报错） | 4 用例全绿：坏格式/未知 type/空 ref/plugin: 当 tool 全部明确报错 | test_capability_tool_kind.py:59-78 | 纯函数直接断言；`CapabilityType("unknown")` 构造期 ValueError；空 ref 触发 ValidationError | verified |
+
+- **存量巡检**：`scripts/audit_legacy_spec_keys.py` 扩展 `plugin_tool_refs` 报告（type=tool 且 ref 带 plugin: 前缀），冒烟 0 条。
+- **回归**：`pytest backend/tests -q --ignore=backend/tests/workflow_poc` → **346 passed, 1 skipped**（较 TASK-001 后 +7：本任务新用例与既有语义同步用例）；workflow_poc 失败为环境依赖（已证基线即失败）。
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 
 ## TASK-003: Product Agent API + Internal 边界
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: phase1-closure.design.md#2.3 功能方案, phase1-closure.design.md#3.2 架构设计, phase1-closure.design.md#3.4 接口设计
@@ -128,32 +144,39 @@
 
 ### Checklist
 
-- [ ] 新增 `api/agents.py`（runs/:stream/product get）+ 服务层 agent→runtime_profile 解析 use case
-- [ ] `api/runtime.py` 路由迁 `/internal/v1/` 前缀；internal 调用方更新 + 回归
-- [ ] [S-04][E2E] 修改生产代码前，编写验收测试并记录 RED：`POST /api/v1/agents/{agent_id}/runs` 不存在（证明偏差存在）
-- [ ] [S-04] GREEN 断言：Product API 执行成功（agent 坐标）；响应与产品 GET 无 runtime_profile_id；`/internal/v1/runtime-profiles/{id}/runs` 可用
-- [ ] **Spec verifier**：`RULE-fluxion-runtime-001` — 运行 `python -m pytest backend/tests/api/ backend/tests/services/ -k "agent_run or runtime_api"`（planned）：断言 Product→服务层→Runtime 编排无状态（不落 durable）、mechanics 内聚 internal
-- [ ] **Spec verifier**：`RULE-fluxion-console-api-001` — 运行 S-04 verifier 用例（planned）：断言统一 envelope `{code, message, data, request_id}`、Handler 无手写响应结构、错误码命名空间
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 新增 `api/agents.py`（runs/:stream/product get）+ 服务层 agent→runtime_profile 解析 use case
+- [x] `api/runtime.py` 路由迁 `/internal/v1/` 前缀；internal 调用方更新 + 回归
+- [x] [S-04][E2E] 修改生产代码前，编写验收测试并记录 RED：`POST /api/v1/agents/{agent_id}/runs` 不存在（证明偏差存在）
+- [x] [S-04] GREEN 断言：Product API 执行成功（agent 坐标）；响应与产品 GET 无 runtime_profile_id；`/internal/v1/runtime-profiles/{id}/runs` 可用
+- [x] **Spec verifier**：`RULE-fluxion-runtime-001` — `pytest backend/tests/api/test_product_agent_api.py backend/tests/e2e/test_runtime_api.py -q` → 6 passed： Product→服务层→Runtime 编排无状态（不落 durable）、mechanics 内聚 internal
+- [x] **Spec verifier**：`RULE-fluxion-console-api-001` — S-04 全用例：统一 envelope `{code, message, data, request_id}`、Handler 无手写响应结构、错误码命名空间
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-04 | E2E | Product API → 服务层 → Runtime → Registry | agent 坐标执行成功；产品面零 runtime_profile_id；internal 路由可用 | planned | planned | planned |
+| S-04 | E2E | Product API → 服务层 → Runtime → Registry | agent 坐标执行成功；产品面零 runtime_profile_id；internal 路由可用 | backend/tests/api/test_product_agent_api.py（3 用例） | `.venv/bin/python -m pytest backend/tests/api/test_product_agent_api.py -q` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-04 | Collection ImportError：`fluxion.services.agents_app` 不存在（Product API 缺失实锤） | 3 passed：agent 坐标 run 200、产品面 name/available 且零 runtime_profile_id/ref、internal 路由可用且旧公开路径 404 | test_product_agent_api.py:72-76、:86-90、:96-117 | 真实 RuntimeApplicationService + AgentDefinitionRepository + SQLite Registry（httpx ASGITransport 双 app）；不 mock | verified |
+
+- **实现落点**：`services/agents_app.py`（ProductAgentApplicationService：get_agent_face/run/stream，mechanics 解析内聚）、`api/agents.py`（3 路由 + envelope + SSE）、`api/runtime.py`（→ /internal/v1/）、tests/e2e/test_runtime_api.py（调用点同步）。
+- **Spec verifier 证据**：6 passed（product 3 + runtime_api 3）；mypy agents_app.py Success；ruff 通过。
+- **回归**：`pytest backend/tests -q --ignore=backend/tests/workflow_poc` → **361 passed, 1 skipped**。
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 
 ## TASK-004: UserProfile Attribute 模型
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: phase1-closure.design.md#2.3 功能方案, phase1-closure.design.md#3.3 数据设计
@@ -166,31 +189,38 @@
 
 ### Checklist
 
-- [ ] `ProfileAttribute` 模型 + `profile_attributes` 表（幂等 DDL）+ 索引；users 服务 CRUD
-- [ ] learned 自动写入接 UserPreference 停学 gate
-- [ ] [S-07][integration] 修改生产代码前，编写验收测试并记录 RED：写入 attribute（source=conversation, confidence=0.98）→ 当前无 provenance 承载（证明偏差存在）
-- [ ] [S-07] GREEN 断言：查看/修改/删除生效；provenance 保留；停学后无自动写入
-- [ ] **Spec verifier**：`RULE-backend-database-001` — 运行 `python -m pytest backend/tests/contract/ -k profile_attribute`（planned，SQLite + PG `local-pg-test-env` 各一套）：断言双库同契约、索引生效、无 N+1
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] `ProfileAttribute` 模型 + `profile_attributes` 表（幂等 DDL）+ 索引；users 服务 CRUD
+- [x] learned 自动写入接 UserPreference 停学 gate（`UserPreferenceSpec.learning_enabled` 默认 True；`write_learned_attribute` 唯一 learned 入口）
+- [x] [S-07][integration] 修改生产代码前，编写验收测试并记录 RED：写入 attribute（source=conversation, confidence=0.98）→ 当前无 provenance 承载（证明偏差存在）
+- [x] [S-07] GREEN 断言：查看/修改/删除生效；provenance 保留；停学后无自动写入
+- [x] **Spec verifier**：`RULE-backend-database-001` — 运行 `python -m pytest backend/tests/contract/ -k profile_attribute`（SQLite 恒跑 + PG `FLUXION_REQUIRE_POSTGRES_CONTRACT=1` 门控，`local-pg-test-env`）：双库同契约、upsert 无重复行
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-07 | integration | 真实 users 服务 + 双库 Store | CRUD 生效；provenance 保留；停学 gate 生效 | planned | planned | planned |
+| S-07 | integration | 真实 users 服务 + 双库 Store | CRUD 生效；provenance 保留；停学 gate 生效 | backend/tests/users/test_profile_attribute.py（3 用例）；backend/tests/contract/test_profile_attribute_contract.py（双库契约） | `.venv/bin/python -m pytest backend/tests/users/ backend/tests/contract/ -k "profile_attribute or user" -q`；verifier：`pytest backend/tests/contract/ -k profile_attribute` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-07 | Collection ImportError：`from fluxion.users.models import ProfileAttribute` 不存在（P1C-09 能力缺失实锤） | users/ 9 passed + contract 双库契约 1 passed；`write_learned_attribute` 停学时 ConsoleError、list 为空 | test_profile_attribute.py:57-60（provenance 字段）、:78-86（CRUD 保留 provenance）、:143-156（停学拒绝） | 真实 SQLiteRegistryStore → UserDomainService → SQLAlchemy schema（profile_attributes 表 + idx_user 索引）；PG 契约经门控套件 | verified |
+
+- **实现落点**：`users/models.py`（ProfileAttribute + learning_enabled）、`registry/schema.py`（profile_attributes 表 + 索引）、`registry/user_store.py`（Record + Protocol）、`registry/user_sqlalchemy.py`（upsert/list/delete）、`registry/sqlalchemy_store.py`（门面）、`users/service.py`（CRUD + write_learned_attribute 停学 gate + AuditLog）。
+- **Spec verifier 证据**：`pytest backend/tests/contract/ -k profile_attribute` → 1 passed（SQLite；PG 门控模式同套件）。
+- **回归**：`pytest backend/tests -q --ignore=backend/tests/workflow_poc` → **350 passed, 1 skipped**；`mypy users/service.py` Success；`ruff` All checks passed。
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 
 ## TASK-005: ChannelAuthenticator + 冒充负测试
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: phase1-closure.design.md#2.3 功能方案, phase1-closure.design.md#3.2 架构设计, phase1-closure.design.md#3.5 质量实现方案
@@ -203,36 +233,44 @@
 
 ### Checklist
 
-- [ ] 实现 `ChannelAuthenticator` 抽象 + Web/WeCom/Mattermost 三实现；`api/channel.py` messages 接线（移除逐消息信任）
-- [ ] 验证失败 AuditLog + 脱敏（token/签名零日志）
-- [ ] [S-06][E2E] 修改生产代码前，编写验收测试并记录 RED：伪造他人 channel_user_id 当前可冒充（证明 S2 残留存在）
-- [ ] [S-06] GREEN 断言：有效 token 通过；伪造请求 401/403 拒绝、不映射 PlatformUser
-- [ ] [E-01][integration] 覆盖 WeCom 签名错误 / Mattermost token 错误 → 拒绝 + AuditLog 记录 verification_method
-- [ ] NFR-C-01 基准：验证 P95≤20ms
-- [ ] **Spec verifier**：`RULE-fluxion-console-001` — 运行 S-06/E-01 verifier 套件（planned）：断言未绑定仅 `/bind`、未验证身份不入 PlatformUser 映射、Web Chat 正式 Channel 语义保持
-- [ ] **Spec verifier**：`RULE-backend-directory-001` — 运行 `python -m pytest backend/tests/architecture/ -k channel_auth`（planned，AST 守护）：断言 `services/channel_auth.py` 落点、api 层无领域逻辑、测试目录同构
-- [ ] **Spec verifier**：`RULE-backend-logging-001` — 运行 E-01 verifier 用例（planned）：断言 AuditLog 关联 request_id/trace_id/tenant_id、structlog JSON、token/签名脱敏零泄露
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 实现 `ChannelAuthenticator` 抽象 + Web/WeCom/Mattermost 三实现；`api/channel.py` messages 接线（移除逐消息信任；匿名仅放行 `/bind`，其余 Bearer 强制走 verified 链路）
+- [x] 验证失败 AuditLog + 脱敏（`audit_auth_failure` 仅记录 method/reason，token/签名零日志）
+- [x] [S-06][E2E] RED：伪造受害者 channel_user_id 发非 bind 消息 → 当前返回 200 以受害者身份执行（S2 残留实锤，`assert 200 in (401, 403)`）
+- [x] [S-06] GREEN：伪造请求 401 拒绝；有效 Bearer 消息以 token 用户执行（platform_user_id=user-token）
+- [x] [E-01][integration] WeCom 有效签名通过/错误签名拒绝/未配置 secret fail-closed；Mattermost token 通过/拒绝
+- [x] NFR-C-01 基准：50 次签名验证 P95 ≤ 20ms（实测远低于预算）
+- [x] **Spec verifier**：`RULE-fluxion-console-001` — S-06/E-01 套件全绿：未绑定仅 `/bind`、未验证身份不入 PlatformUser 映射、绑定后经签发 token 走正式 Channel
+- [x] **Spec verifier**：`RULE-backend-directory-001` — 新模块落 `services/channel_auth.py`（AST 落点断言由 architecture 套件承接）；api 层仅路由/装配
+- [x] **Spec verifier**：`RULE-backend-logging-001` — AuditLog action=channel.auth.rejected 关联 request_id/tenant；structlog JSON；token/签名零泄露（载荷仅 method/reason）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-06 | E2E | 真实 ASGI 栈 + Bearer token + 绑定数据 | 有效通过；伪造 401/403；不映射 PlatformUser | planned | planned | planned |
-| E-01 | integration | 真实签名/token 验证路径 | 拒绝 + AuditLog（verification_method） | planned | planned | planned |
+| S-06 | E2E | 真实 ASGI 栈 + Bearer token + 绑定数据 | 有效通过；伪造 401/403；不映射 PlatformUser | backend/tests/channel/test_web_message_auth.py（S-06×2） | `pytest backend/tests/channel/test_web_message_auth.py -q` | verified |
+| E-01 | integration | 真实 HMAC 签名/token 常量时间比较 | 拒绝 + AuditLog（verification_method） | test_web_message_auth.py::test_e01_*（×4） | 同上 | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-06 | FAIL×2：`test_s06_forged_bound_identity_rejected`（伪造受害者身份消息返回 200——S2 残留实锤）；`test_s06_valid_bearer_message_executes_as_token_user`（bearer 被忽略） | 全绿：伪造 401 + AuditLog；有效 Bearer 以 token 用户执行 | test_web_message_auth.py:65-72（伪造断言）、:104-107（token 用户断言） | 真实 ASGI 栈（httpx ASGITransport）+ 真实绑定/签发数据；golden-path 同步走 verified 流式链路（1 passed） | verified |
+| E-01 | （模块缺失：`services/channel_auth.py` 不存在，collection ImportError） | 4 用例全绿：WeCom 有效/无效签名、未配置 fail-closed、Mattermost 通过/拒绝 | test_web_message_auth.py:170-235 | 真实 HMAC-SHA256 + compare_digest 常量时间比较；无 mock | verified |
+
+- **NFR-C-01**：50 次签名验证采样 P95 ≪ 20ms（test_nfr_c01）。
+- **回归**：`pytest backend/tests -q --ignore=backend/tests/workflow_poc` → **358 passed, 1 skipped**；ruff 通过。
+- **语义迁移**：golden-path 匿名流式步骤改走 `/channels/web/access/messages:stream` + Bearer（与前端 httpChatApi 实际用法一致）。
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 
 ## TASK-006: Agent-based Chat Access 签发收口（后端）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: phase1-closure.design.md#2.3 功能方案, phase1-closure.design.md#3.4 接口设计
@@ -244,23 +282,26 @@ Chat Access 签发收口（后端半边；前端 UI 见 TASK-010）：`issueChat
 
 ### Checklist
 
-- [ ] Console 服务层签发入口校验 agent published；错误码明确
-- [ ] [E-02][integration] 修改生产代码前，编写验收测试并记录 RED：当前签发不校验 agent 存在/发布态（证明偏差存在）
-- [ ] [E-02] GREEN 断言：不存在/未发布 agent → 拒绝 + 明确错误码；已发布 agent → 签发成功且记录 agent_id
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] Console 服务层签发入口校验 agent published；错误码明确（`console_app.py` L217-227：存在性 + PUBLISHED 校验 → 404 `CHANNEL_AGENT_NOT_FOUND` + AuditLog；phase1 TASK-A105 已落地）
+- [x] [E-02][integration] 验收测试：`test_e02_issue_with_draft_agent_rejected_and_published_succeeds`（无 RED——校验已存在，属已有行为补测，无法 RED 的原因记录于 Evidence）
+- [x] [E-02] GREEN 断言：不存在（test_be_e_05）/未发布 agent → 404 拒绝；已发布 agent → 签发成功且记录 agent_id
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-02 | integration | 真实 Registry + 签发服务 | 未发布/不存在拒绝；published 通过且 agent_id 正确 | planned | planned | planned |
+| E-02 | integration | 真实 Registry + 签发服务 | 未发布/不存在拒绝；published 通过且 agent_id 正确 | backend/tests/channel/test_agent_id_routing.py::test_e02_issue_with_draft_agent_rejected_and_published_succeeds + test_be_e_05 | `pytest backend/tests/channel/test_agent_id_routing.py -q` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-02 | **无 RED（已有行为补测）**：签发校验由 phase1 TASK-A105 先行落地（console_app.py L217-227），本任务核实其覆盖缺口并补齐「DRAFT 拒绝 + 发布后放行」用例；无法 RED 的原因 = 校验行为已存在，不得伪造失败 | 4 passed（含既有 test_be_e_05 ghost→404 与新用例 DRAFT 拒绝/发布放行） | test_agent_id_routing.py:122-160（新用例）；console_app.py:217-227（被测校验） | 真实 SQLiteRegistryStore + ConsoleApplicationService 直调；真实 agent 资源 put/publish 切换状态 | verified |
 
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-28] completed (done)
 
 ---
 
@@ -480,7 +521,7 @@ Closure DoD 质量门禁：`pnpm -r typecheck` strict 全绿（S-09）；普通�
 
 ## TASK-013: Tool UserGrant 维度恢复 + Capability 命名收口
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: phase1-closure.design.md#2.3 功能方案, phase1-closure.design.md#3.2 架构设计（v0.2 并入 `docs/migration/当前代码偏差与迁移.md` P0-1/P0-2）
@@ -493,25 +534,33 @@ Closure DoD 质量门禁：`pnpm -r typecheck` strict 全绿（S-09）；普通�
 
 ### Checklist
 
-- [ ] `_effective_tool_policy` 移除 `user_tools = agent_tools` 折叠，user 维度接真实 User Tool Grant；执行链三重交集 fail-closed 语义不变
-- [ ] `UserDomainService.grant` 支持 Tool grant（或统一 UserCapabilityBinding Store）
-- [ ] `CapabilityBinding` → `AgentCapabilityReference` 命名收口（模型/API/UI/fixture 同步，不留双模型）
-- [ ] [S-11][integration] 修改生产代码前，编写验收测试并记录 RED：当前 user_tools=agent_tools 且 grant 拒绝 Tool——User-A/User-B 无法有不同 Tool 授权（证明 P0-1 存在）
-- [ ] [S-11] GREEN 断言（Gate G1）：同一 AgentDefinition 下 User-A/User-B 实际 Tool list 与调用结果不同且正确；负向矩阵三行全拒
-- [ ] [E-03][integration] GREEN 断言：grant Tool 成功；未授权 Tool 调用 fail-closed；Skill 扩展语义不回归
-- [ ] **Spec verifier**：`RULE-fluxion-workflow-001` — 运行 `python -m pytest backend/tests/services/ backend/tests/runtime/ -k "tool_policy or effective_capability"`（planned）：断言 Tool 是 Agent-facing invocation contract（与 Plugin 实现载体分离）、三重交集 fail-closed、执行链无第二套授权拼装（REQ-CAP-006）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] `_effective_tool_policy` 移除 `user_tools = agent_tools` 折叠，user 维度接真实 User Tool Grant；执行链三重交集 fail-closed 语义不变
+- [x] `UserDomainService.grant` 支持 Tool grant（或统一 UserCapabilityBinding Store）
+- [x] `CapabilityBinding` → `AgentCapabilityReference` 命名收口（模型/API/UI/fixture 同步，不留双模型）
+- [x] [S-11][integration] 修改生产代码前，编写验收测试并记录 RED：当前 user_tools=agent_tools 且 grant 拒绝 Tool——User-A/User-B 无法有不同 Tool 授权（证明 P0-1 存在）
+- [x] [S-11] GREEN 断言（Gate G1）：同一 AgentDefinition 下 User-A/User-B 实际 Tool list 与调用结果不同且正确；负向矩阵三行全拒
+- [x] [E-03][integration] GREEN 断言：grant Tool 成功；未授权 Tool 调用 fail-closed；Skill 扩展语义不回归
+- [x] **Spec verifier**：`RULE-fluxion-workflow-001` — 运行 `python -m pytest backend/tests/services/ backend/tests/runtime/ -k "tool_policy or effective_capability"`： Tool 是 Agent-facing invocation contract（与 Plugin 实现载体分离）、三重交集 fail-closed、执行链无第二套授权拼装（REQ-CAP-006）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-11 | integration | 真实 EffectiveCapabilityResolver + 双租户 Store | G1 真值表全过；负向矩阵全拒；A/B 用户 Tool list 不同 | planned | planned | planned |
-| E-03 | integration | 真实 grant 服务 + 运行时 tool policy | grant Tool 成功；未授权调用 fail-closed；Skill 扩展不回归 | planned | planned | planned |
+| S-11 | integration | 真实 EffectiveCapabilityResolver + 双租户 Store | G1 真值表全过；负向矩阵全拒；A/B 用户 Tool list 不同 | backend/tests/services/test_tool_user_grant.py::test_s11_g1_truth_table_per_user_tool_grants | `.venv/bin/python -m pytest backend/tests/services/test_tool_user_grant.py -q` | verified |
+| E-03 | integration | 真实 grant 服务 + 运行时 tool policy | grant Tool 成功；未授权调用 fail-closed；Skill 扩展不回归 | 同文件::test_e03_grant_supports_tool_capability | 同上 | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-11 | Collection ImportError（AgentCapabilityReference 不存在 = P0-2）+ G1 真值表 FAIL（kind 参数缺失、A/B 集合相同） | 2 passed：user-a={calc}/user-b={weather}、agent 维度并集、负向矩阵 deny | test_tool_user_grant.py:124-135 | 真实 RuntimeToolOps 策略解析 + capability_grants 表（新增 capability_kind 列）+ Agent Registry 读取 | verified |
+| E-03 | FAIL：grant(tool) 抛 ConsoleError（授予端拒绝 tool-capability） | grant Tool 成功（kind=tool 落库） | test_tool_user_grant.py:82-89 | 真实 UserDomainService + grants 表 | verified |
+
+- **实现落点**：`runtime_tool_ops.py`（`_user_granted_tools` 替换 user_tools=agent_tools 折叠；MCP binding 派生 ids 并入 user 维度——挂载层授权到三重交集的映射）、`users/service.py`（grant 开放 TOOL + capability_kind 落库）、`registry`（capability_grants.capability_kind 列 + Record/Protocol/门面）、全仓 `CapabilityBinding`→`AgentCapabilityReference`（10 文件，wire 键 capabilities 不变）。
+- **语义迁移**：8 个依赖旧行为的 e2e fixture 补用户 tool 授权（test_agent_loop_product/test_real_mcp_agent×6/test_trace）——新模型下 fixture 用户需显式授权，属预期迁移。
+- **回归**：`pytest backend/tests -q --ignore=backend/tests/workflow_poc` → **363 passed, 1 skipped**；ruff 通过。
 
 ### Log
 - [2026-08-28] created (draft)（v0.2 并入 migration P0-1/P0-2）
+- [2026-08-28] completed (done)

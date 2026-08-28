@@ -6,7 +6,7 @@ AgentDefinition 是产品领域实体（PRD §4.2）；本包只依赖 resources
 
 from fluxion.agents.definitions import (
     AgentDefinition,
-    CapabilityBinding,
+    AgentCapabilityReference,
     CapabilityType,
 )
 from fluxion.agents.repository import (
@@ -24,6 +24,6 @@ __all__ = [
     "AgentDomainError",
     "AgentSpecValidationError",
     "AgentVersionConflictError",
-    "CapabilityBinding",
+    "AgentCapabilityReference",
     "CapabilityType",
 ]

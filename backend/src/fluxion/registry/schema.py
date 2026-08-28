@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
     Index,
     Integer,
     MetaData,
@@ -351,6 +352,32 @@ user_preferences = Table(
     Column("updated_at", DateTime(timezone=True), nullable=False),
 )
 
+profile_attributes = Table(
+    "profile_attributes",
+    metadata,
+    Column("tenant_id", String(128), primary_key=True),
+    Column("platform_user_id", String(128), primary_key=True),
+    Column("key", String(128), primary_key=True),
+    Column("value", String(4096), nullable=False),
+    Column("source", String(16), nullable=False),
+    Column("source_ref", String(255), nullable=True),
+    Column("confidence", Float, nullable=False),
+    Column("is_explicit", Boolean, nullable=False),
+    Column("user_editable", Boolean, nullable=False),
+    Column("visibility", String(16), nullable=False),
+    Column("valid_from", String(64), nullable=True),
+    Column("valid_until", String(64), nullable=True),
+    Column("superseded_by", String(128), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
+Index(
+    "idx_profile_attributes_user",
+    profile_attributes.c.tenant_id,
+    profile_attributes.c.platform_user_id,
+)
+
 capability_grants = Table(
     "capability_grants",
     metadata,
@@ -358,6 +385,7 @@ capability_grants = Table(
     Column("tenant_id", String(128), nullable=False),
     Column("platform_user_id", String(128), nullable=False),
     Column("capability_ref", String(255), nullable=False),
+    Column("capability_kind", String(16), nullable=False, server_default="skill"),
     Column("granted_scope", String(32), nullable=False),
     Column("version_pin", String(64), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),

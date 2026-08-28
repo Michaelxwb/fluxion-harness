@@ -13,7 +13,7 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from fluxion.agents.capabilities import resolve_binding_reference
-from fluxion.agents.definitions import CapabilityBinding
+from fluxion.agents.definitions import AgentCapabilityReference
 from fluxion.errors.console import (
     USER_NOT_BOUND,
     USER_NOT_FOUND,
@@ -25,9 +25,10 @@ from fluxion.registry import (
     ChannelIdentityRecord,
     ChannelRegistryStore,
     PlatformUserRecord,
+    ProfileAttributeRecord,
 )
 from fluxion.resources import ResourceKind, SubjectType
-from fluxion.users.models import UserPreferenceSpec, UserProfileSpec
+from fluxion.users.models import ProfileAttribute, UserPreferenceSpec, UserProfileSpec
 
 
 class UserDomainService:
@@ -168,7 +169,7 @@ class UserDomainService:
         *,
         tenant_id: str,
         platform_user_id: str,
-        capability_binding: CapabilityBinding,
+        capability_binding: AgentCapabilityReference,
         granted_scope: str = "invoke",
         actor_id: str = "unknown",
         request_id: str = "",
@@ -176,19 +177,14 @@ class UserDomainService:
         if granted_scope not in ("invoke", "manage"):
             raise ConsoleError(VALIDATION_FAILED, f"granted_scope 无效: {granted_scope}", 400)
         target = resolve_binding_reference(capability_binding)
-        if target.resource_kind not in (ResourceKind.SKILL, ResourceKind.MCP):
-            # TOOL 准入属 Agent allowlist 域；用户级授权只覆盖可被用户上下文
-            # 授予的资源型能力（skill/mcp），与执行侧消费一致。
-            raise ConsoleError(
-                VALIDATION_FAILED,
-                f"grant scope invalid for tool-capability: {target}",
-                400,
-            )
+        # closure TASK-013（ADR-A002/ARCH-06）：Tool 用户授权维度恢复——
+        # grant 支持 skill/tool/mcp；kind 落 capability_grants.capability_kind。
         await self._ensure_exists(tenant_id, platform_user_id)
         record = await self._store.add_capability_grant(
             tenant_id=tenant_id,
             platform_user_id=platform_user_id,
             capability_ref=target.resource_id,
+            capability_kind=target.resource_kind.value,
             granted_scope=granted_scope,
             version_pin=target.version,
         )
@@ -339,3 +335,150 @@ class UserDomainService:
                 after=after,
             )
         )
+
+    # ---- ProfileAttribute（P1C-09 / closure TASK-004）------------------------
+
+    async def upsert_profile_attribute(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        key: str,
+        value: str,
+        source: str,
+        source_ref: str | None,
+        confidence: float,
+        is_explicit: bool,
+        actor_id: str = "unknown",
+        request_id: str = "",
+        user_editable: bool = True,
+        visibility: str = "private",
+    ) -> ProfileAttributeRecord:
+        attribute = ProfileAttribute(
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            key=key,
+            value=value,
+            source=source,  # type: ignore[arg-type]
+            source_ref=source_ref,
+            confidence=confidence,
+            is_explicit=is_explicit,
+            user_editable=user_editable,
+            visibility=visibility,  # type: ignore[arg-type]
+        )
+        row = await self._store.upsert_profile_attribute(
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            attribute=attribute.model_dump(include=_ATTRIBUTE_FIELDS, exclude_none=True),
+        )
+        record = ProfileAttributeRecord(
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            key=key,
+            value=str(row["value"]),
+            source=str(row["source"]),
+            source_ref=row.get("source_ref"),
+            confidence=float(row["confidence"]),
+            is_explicit=bool(row["is_explicit"]),
+            user_editable=bool(row["user_editable"]),
+            visibility=str(row["visibility"]),
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
+        await self._audit(
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            request_id=request_id,
+            action="user.profile_attribute.upsert",
+            target_id=platform_user_id,
+            after={"key": key, "value": value, "source": source},
+        )
+        return record
+
+    async def list_profile_attributes(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> list[ProfileAttributeRecord]:
+        rows = await self._store.list_profile_attributes(
+            tenant_id=tenant_id, platform_user_id=platform_user_id
+        )
+        return [
+            ProfileAttributeRecord(
+                tenant_id=row["tenant_id"],
+                platform_user_id=row["platform_user_id"],
+                key=row["key"],
+                value=row["value"],
+                source=row["source"],
+                source_ref=row.get("source_ref"),
+                confidence=float(row["confidence"]),
+                is_explicit=bool(row["is_explicit"]),
+                user_editable=bool(row["user_editable"]),
+                visibility=row["visibility"],
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
+            for row in rows
+        ]
+
+    async def delete_profile_attribute(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        key: str,
+        actor_id: str = "unknown",
+        request_id: str = "",
+    ) -> int:
+        deleted: int = await self._store.delete_profile_attribute(
+            tenant_id=tenant_id, platform_user_id=platform_user_id, key=key
+        )
+        if deleted:
+            await self._audit(
+                tenant_id=tenant_id,
+                actor_id=actor_id,
+                request_id=request_id,
+                action="user.profile_attribute.delete",
+                target_id=platform_user_id,
+                after={"key": key},
+            )
+        return deleted
+
+    async def write_learned_attribute(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        key: str,
+        value: str,
+        source_ref: str | None = None,
+        confidence: float = 0.9,
+        actor_id: str = "learner",
+        request_id: str = "",
+    ) -> ProfileAttributeRecord:
+        """learned 写入的唯一入口：learning_enabled=False 时拒绝（停学 gate）。"""
+        prefs = await self._store.get_user_preferences(
+            tenant_id=tenant_id, platform_user_id=platform_user_id
+        )
+        learning_enabled = True
+        if prefs is not None:
+            payload = cast(dict[str, object], prefs["preference_json"])
+            learning_enabled = bool(payload.get("learning_enabled", True))
+        if not learning_enabled:
+            raise ConsoleError(
+                VALIDATION_FAILED,
+                f"learning_disabled: user {platform_user_id} 已关闭自动学习",
+                422,
+            )
+        return await self.upsert_profile_attribute(
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            key=key,
+            value=value,
+            source="conversation",
+            source_ref=source_ref,
+            confidence=confidence,
+            is_explicit=False,
+            actor_id=actor_id,
+            request_id=request_id,
+        )
+
+_ATTRIBUTE_FIELDS = {'value', 'source', 'source_ref', 'confidence', 'is_explicit', 'user_editable', 'visibility', 'valid_from', 'valid_until', 'superseded_by', 'key'}
