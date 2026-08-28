@@ -341,17 +341,17 @@ class ContextResolver:
         return user_id
 
     async def _resolve_capability_versions(
-        self, tenant_id: str, capabilities: list[dict[str, str]]
+        self, tenant_id: str, capabilities: list[Any]
     ) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
         """按 Agent capabilities 解析 skill/mcp/tool 的实际 published 版本。"""
         skill_versions: dict[str, str] = {}
         mcp_versions: dict[str, str] = {}
         plugin_versions: dict[str, str] = {}
-        kind_map = {"skill": "skill_versions", "mcp": "mcp_versions", "plugin": "plugin_versions"}
+        kind_map = {"skill": "skill_versions", "mcp": "mcp_versions", "tool": "tool_versions", "plugin": "plugin_versions"}
         for cap in capabilities:
-            cap_type = cap["type"]
-            ref = cap["capability_ref"]
-            pin = cap["version_pin"]
+            cap_type = cap.type
+            ref = cap.capability_ref
+            pin = cap.version_pin
             kind = kind_map.get(cap_type)
             if kind is None:
                 continue
@@ -362,6 +362,9 @@ class ContextResolver:
                     skill_versions[ref] = version
                 elif kind == "mcp_versions":
                     mcp_versions[ref] = version
+                elif kind == "tool_versions":
+                    tool_versions_dict = getattr(self, "_tool_versions", {})
+                    tool_versions_dict[ref] = version
                 else:
                     plugin_versions[ref] = version
         return skill_versions, mcp_versions, plugin_versions
