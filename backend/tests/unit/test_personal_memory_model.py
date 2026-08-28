@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from fluxion.registry.schema import metadata
-from fluxion.runtime.personal_memory import (
+from fluxion.memory.domain.personal_memory import (
     ConsentDecision,
     MemoryCandidate,
     MemoryLearner,

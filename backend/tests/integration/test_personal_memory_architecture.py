@@ -27,14 +27,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from tests.runtime_helpers import seed_runtime_profile
 
-from fluxion.plugins.contracts import SemanticStoreError, SemanticStoreProvider
-from fluxion.registry import RegistryStore
-from fluxion.registry.schema import metadata, session_memory
-from fluxion.runtime import AgentRuntime, RequestContext
-from fluxion.runtime.memory import MemoryPolicy
-from fluxion.runtime.memory_sql import SQLSessionMemoryStore
-from fluxion.runtime.personal_memory import (
+from fluxion.memory.domain.personal_memory import (
     ConsentDecision,
     MemoryCandidate,
     MemoryLearner,
@@ -42,12 +37,18 @@ from fluxion.runtime.personal_memory import (
     PersonalMemoryStore,
     PolicyDecision,
 )
+from fluxion.plugins.contracts import SemanticStoreError, SemanticStoreProvider
+from fluxion.registry import RegistryStore
+from fluxion.registry.schema import metadata, session_memory
+from fluxion.runtime import AgentRuntime, RequestContext
+from fluxion.runtime.memory import MemoryPolicy
+from fluxion.runtime.memory_sql import SQLSessionMemoryStore
 from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
-from tests.runtime_helpers import seed_runtime_profile
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
+_MEMORY_ROOT = _BACKEND_ROOT / "src" / "fluxion" / "memory"
 _RUNTIME_ROOT = _BACKEND_ROOT / "src" / "fluxion" / "runtime"
-_PERSONAL_MEMORY_PATH = _RUNTIME_ROOT / "personal_memory.py"
+_PERSONAL_MEMORY_PATH = _MEMORY_ROOT / "domain" / "personal_memory.py"
 
 _ALLOW_POLICY = PolicyDecision(allowed=True)
 _ALLOW_CONSENT = ConsentDecision(allowed=True)
@@ -185,7 +186,7 @@ async def test_s04_recall_via_semantic_store_returns_personal_entries_only(
     memory_engine: AsyncEngine,
 ) -> None:
     # function-level import：RED 阶段 PersonalMemoryRetriever 未实现，仅本场景失败
-    from fluxion.runtime.personal_memory import PersonalMemoryRetriever
+    from fluxion.memory.domain.personal_memory import PersonalMemoryRetriever
 
     store = PersonalMemoryStore(memory_engine)
     await _commit_personal_entries(store)
@@ -217,7 +218,7 @@ async def test_s04_recall_via_semantic_store_returns_personal_entries_only(
 async def test_s04_recall_respects_top_k_and_tenant_scope(
     memory_engine: AsyncEngine,
 ) -> None:
-    from fluxion.runtime.personal_memory import PersonalMemoryRetriever
+    from fluxion.memory.domain.personal_memory import PersonalMemoryRetriever
 
     store = PersonalMemoryStore(memory_engine)
     await _commit_personal_entries(store)
@@ -325,7 +326,10 @@ def test_e03_session_side_modules_do_not_reference_personal_memory() -> None:
     """summarizer / session memory 侧不得引用 personal_memory 或 MemoryLearner。"""
     for name in ("summarizer.py", "memory.py", "memory_sql.py"):
         source = (_RUNTIME_ROOT / name).read_text(encoding="utf-8")
+        # closure TASK-002（P-04 / remediation §13.4）：runtime 侧不得引用
+        # personal_memory（旧路径或新 memory/ 域路径均不得出现）。
         assert "fluxion.runtime.personal_memory" not in _imported_modules(source), name
+        assert "fluxion.memory.domain.personal_memory" not in _imported_modules(source), name
         assert "MemoryLearner" not in source, name
 
 
