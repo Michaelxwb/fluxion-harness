@@ -45,6 +45,7 @@
 | v0.1 | 2026-08-28 | Claude | 初始草稿（对齐点 A-E 用户已确认） |
 | v0.2 | 2026-08-28 | jahan | 按 `fluxion-phase1-closure-detailed-remediation.md` §17（历史文档，git 历史可查）修订：SurfaceEvidence 客观字段 schema + 三级分类 + UNKNOWN 保守规则（§17.1，新增 B-05）；RPO 拆 App/Infrastructure 两层（§17.2）；等价性主键对齐 agent（§13.1 级联） |
 | v0.3 | 2026-08-28 | jahan | 按 docs v2 基线（`docs/migration/当前代码偏差与迁移.md` P0-3/P0-4/P0-5 + 架构验收 Gate G3/G5/G7）新增 FEAT-P6-05「真实部署 Gate 与生产运行边界」：S-07（真实 k8s 多副本 G3）、S-08（停 Console 继续运行 G7）、S-09（本地状态审计 G5）、E-07（InMemory 唯一实现 fail-fast）、E-08（本地 scheduler 守卫）+ RULE-P6-05；G8/P14 列为显式 P1 移交（§5.3） |
+| v0.4 | 2026-08-29 | Claude | 登记 phase5 review 遗留「生产装配」为 FEAT-P6-06（S-10）：真实 provider 接线（PostgresEncryptedSecretStore / S3CompatibleArtifactStore / Operations DBOS sysdb / release_gate_enforced=True）+ 与 FEAT-P6-05 ④ 协同的 production fail-fast |
 
 ---
 
@@ -81,6 +82,7 @@
 | FEAT-P6-03 | One-time Migration/Rollover | 仅真实外部依赖触发的双写→校验→切换→删旧；legacy 清理 | P0 | roadmap §8.3 |
 | FEAT-P6-04 | Final DoD 自动化验收套件 | roadmap 14 项 DoD 每项一个 verifier，Release 门禁 | P0 | roadmap §8.4 |
 | FEAT-P6-05 | 真实部署 Gate 与生产运行边界 | ①真实 k8s ≥2 副本部署 Gate（rolling restart/kill pod，P0-3/G3，承接 Phase 2 移交）；②停 Console 后已发布 Agent 继续运行（G7/ARCH-14）；③本地状态审计脚本（G5）；④production profile 禁止 InMemory Trace/Approval/Eval 唯一实现（fail-fast，P0-5）；⑤RuntimeScheduler 本地实现限定 test/dev（fail-fast，P0-4） | P0 | migration P0-3/P0-4/P0-5 + Gate G3/G5/G7 |
+| FEAT-P6-06 | Phase 5 生产装配（真实 provider 接线） | 将 phase5 生产 provider 从测试/占位装配进生产 app（composition root）：`PostgresEncryptedSecretStore`（PG AES-256-GCM 替代内存 store）、`S3CompatibleArtifactStore`（S3/MinIO）、Operations 运营端点（DBOS sysdb DSN）、`release_gate_enforced=True`（phase5 P1-7 强制语义落地）；与 FEAT-P6-05 ④ 协同——production profile 下 InMemory Secret/Approval/Eval/Trace 唯一实现 fail-fast | P0 | phase5 review P1-7 + phase5 review P2（Secret/Artifact/Operations 无生产装配点） |
 
 #### 2.3.2 字段约束
 
@@ -151,6 +153,7 @@
 | S-07 | FEAT-P6-05 | P0 | E2E | 本地 k8s 真实集群 ≥2 RuntimeInstance 副本（共享 PG/Redis） | 部署就绪、无 sticky session | rolling restart → kill 任一副本 → 新请求打到存活副本 → 扩/缩容 | digest 一致率=100%；committed durable state RPO=0；Agent/User/Session/Memory/Binding/Credential/Approval/Workflow facts 零丢失（G3，P0-3，承接 Phase 2 移交） |
 | S-08 | FEAT-P6-05 | P0 | E2E | 已发布 Agent 运行中 → 停止 Console 进程 | 已发布 AgentDefinition 存在并有流量 | 停 Console → 继续发起执行 → 核查 Runtime 配置来源 | 已发布 Agent 执行不受影响；Runtime 不调用 Console API 获取配置 truth（G7/ARCH-14） |
 | S-09 | FEAT-P6-05 | P0 | integration | Runtime 进程内全部 dict/list/cache | 审计脚本就绪 | 运行 local state audit 扫描并逐项标注 | 全部标注为 Ephemeral/Cache/Durable/SoT；Durable/SoT 本地命中 = 0；Scheduler/Trace/Approval/Eval/Workflow Stub 全覆盖（G5） |
+| S-10 | FEAT-P6-06 | P0 | integration | 真实 PG secret（AES-256-GCM）+ S3/MinIO artifact + enforced gate + Operations 真实端点 | phase5 生产 provider 已装配 | production 装配集成测试：put/rotate secret → S3 artifact put/get → publish 带 gate → Operations 端点 | Secret 落 PG 密文、artifact 落 S3 + metadata 表、gate 强制（无 gate 参数 publish fail-closed）、Operations 返回真实 DBOS 状态；production profile 下 InMemory Secret/Approval/Eval/Trace fail-fast |
 
 **异常场景**
 
@@ -446,6 +449,7 @@ graph LR
 | FEAT-P6-03 | `fluxion-migrate rollover` / `cleanup` | S-05、B-03 | E2E/integration | 待实现 |
 | FEAT-P6-04 | `fluxion-dod verify` | S-06、B-02 | E2E/integration | 待实现 |
 | FEAT-P6-05 | 部署 Gate runner + local state audit 脚本 + production 守卫 | S-07、S-08、S-09、E-07、E-08 | E2E/integration | 待实现 |
+| FEAT-P6-06 | Phase 5 生产装配（真实 provider 接线） | S-10 | integration | 待实现 |
 
 > RULE-P6-01..05 与高影响 RISK-01..04 已映射到场景；NFR 全部有对应场景/verifier。无 manual 场景（外部真实依赖触发条件由 SurfaceEvidence 判定，非人工）。
 

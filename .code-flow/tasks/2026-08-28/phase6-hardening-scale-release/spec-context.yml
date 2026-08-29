@@ -1,7 +1,7 @@
 version: 1
 task: PHASE6-HARDENING-SCALE-RELEASE
 enforcement: required
-updated_at: '2026-08-28T03:33:50.350060+00:00'
+updated_at: '2026-08-29T15:25:59.661052+00:00'
 sources:
 - type: cli
   ref: bind
@@ -34,7 +34,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 3.5-suite-quality
           item_id: chaos-suite-quality
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
@@ -184,7 +184,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 3.3-rpo-store
           item_id: pg-failover-rpo
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
@@ -360,7 +360,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 3.2-suite-layout
           item_id: chaos-suite-layout
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
@@ -510,7 +510,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 3.5-trace
           item_id: trace-completeness
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
@@ -660,7 +660,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 4-release-smoke
           item_id: release-smoke-health
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
@@ -864,7 +864,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 3.4-ops-interface
           item_id: ops-api-envelope
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
@@ -1067,7 +1067,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 2.3-ux-journey
           item_id: console-chat-journey
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
@@ -1113,7 +1113,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 3.5-dfx
           item_id: final-dod-verifiers
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
@@ -1160,7 +1160,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 3.3-registry-rpo
           item_id: registry-versioning-rpo
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
@@ -1207,7 +1207,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 3.2-runtime-chaos
           item_id: stateless-snapshot-chaos
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
@@ -1254,7 +1254,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 3.2-workflow-chaos
           item_id: durable-state-recovery
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
@@ -1300,7 +1300,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 2.3-ux-journey
           item_id: journey-e2e-quality
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
@@ -1450,7 +1450,7 @@ bindings:
         - artifact: phase6-hardening-scale-release.design.md
           section_id: 2.3-ux-journey
           item_id: journey-semi-pages
-          artifact_sha256: f95c5d73781470688949bfeb33d4b166d49ed63d80f2389bda4e265a1868f23c
+          artifact_sha256: 2630f6cfea6942f118f043f18160ed6ebbb167cb10cdafc4f524c510b7ed2d40
         decision: null
         evidence: []
       plan:
