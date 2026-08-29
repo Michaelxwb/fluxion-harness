@@ -2,7 +2,7 @@
 
 - **Source**: `.code-flow/tasks/2026-08-28/phase5-governance-observability-eval/phase5-governance-observability-eval.design.md`
 - **Created**: 2026-08-28
-- **Updated**: 2026-08-29（v0.7：TASK-001..008 全部完成并 verified——P0 全闭合：ArtifactStore/SecretStore 生产 provider、安全门禁、Eval 生产化 + ReleaseGate、Console Eval 实页、traced_scope + O501-O506 埋点 + 关联完整性门禁；剩 TASK-009（P1 条件）与 TASK-010..014（phase4 遗留））
+- **Updated**: 2026-08-29（v0.9：TASK-009..014 完成——TASK-014 Chat Workspace 后端 7 组端点落地（S-15 verified：审批 decide 真实 worker 端到端）；剩 TASK-013（真浏览器 NFR，P2））
 
 ## Proposal
 
@@ -37,7 +37,7 @@ Phase 5 生产化收尾：为保留 PluginType 补齐生产 provider（`Postgres
 | S-12 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12） | integration | 真实 workflow_run 投影 + HTTP 端点 | Runs list-all 端点返回分页 + RunsPage 切 HTTP | TASK-011 | verified |
 | S-13 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-11） | E2E | Browser → Router → Service → UI | User 360 深链直达详情、刷新保留 | TASK-012 | verified |
 | S-14 | phase4-product-experience.design.md#2.4 验收条件（NFR-PERF-01/NFR-A11Y-01） | E2E | 真浏览器（Playwright/Lighthouse） | 首屏 P95≤500ms + axe 真浏览器扫描 | TASK-013 | planned |
-| S-15 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-02..08） | integration | 真实 DB + HTTP 端点 | Chat Workspace 7 端点返回 + 写操作生效 + tenant scope + Chat 切 HTTP | TASK-014 | planned |
+| S-15 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-02..08） | integration | 真实 DB + HTTP 端点 | Chat Workspace 7 端点返回 + 写操作生效 + tenant scope + Chat 切 HTTP | TASK-014 | verified |
 | S-10 | phase5-governance-observability-eval.design.md#2.4 验收条件 | integration | S3/MinIO（docker）→ S3CompatibleArtifactStore | TASK-001 | verified |
 
 > NFR-SEC-01（明文=0）由 E-01（TASK-003）承载；NFR-OBS-01（≥99%）由 E-03+S-04（TASK-008）承载；NFR-ARCH-05（6 保留 PluginType 全有 provider 或显式预留）由 S-01/B-01（TASK-001）承载；NFR-PERF-01（gate 附加 P95 ≤500ms）由 TASK-005 承载。Phase 5 Gate 四项闭合：trace≥99%（S-04+E-03）、明文泄漏=0（E-01）、tenant escape=0（S-03+E-02）、Eval 阻断 P0（S-06+S-07）。
@@ -568,7 +568,7 @@ phase4 C407 Queues/Workers 面板以 in-memory 先行（⛳ 依赖缺口，`http
 
 ## TASK-011: workflow runs list-all 端点 + RunsPage 切 HTTP（P1-3 残留）
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P1
 - **Depends**:
 - **Source**: phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12）, phase3-workflow-platform.design.md#3.4 接口设计, phase5-governance-observability-eval.design.md#2.2 功能方案（FEAT-P5-07）
@@ -596,17 +596,25 @@ phase4 review P1-3 残留：Console `RunsPage` 全量 runs 视图走冻结路径
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-12 | FAIL（RED 回放）: `git checkout 09b2072~1 -- backend/src/fluxion/api/workflow.py services/workflow_projection.py registry/workflow_run_sqlalchemy.py api/console.py` 撤销生产代码后 → `assert page1.status_code == 200` 失败（list-all 路由缺失 404） | PASS: 1 passed | `test_s12_list_all_runs_paginated_tenant_scoped`：envelope code=0 + request_id L93-L94；分页 total=6/page_size=4/跨两工作流 `{"flow-x","flow-y"}` L96-L102；page2 与 page1 无重叠 L104-L111；tenant scope 他租户 total=2 且不混入 L114-L118 | 真实 SQLite registry（`workflow_run` 投影表真实 CRUD，双租户真实数据）+ 真实 HTTP（ASGITransport，路由→service→store 全链路无 mock） | verified |
+
+**实现说明**：
+- `GET /api/v1/workflows/runs` list-all（tenant scope 分页 `{items,page,page_size,total}`）；store 层 workflow_id 可选复用 `workflow_run` 投影 CRUD
+- 前端 `RunsPage.listWorkflowRuns()` 无参分支 ⛳ 冻结注释移除（`httpConsoleApi.ts`），切真实端点；runs 页面测试 1 passed
+- 回归：tests/api/ + tests/integration/ 相关 18+16 passed（提交时记录）；console tsc clean
 
 ### Log
 - [2026-08-29] created (draft)：phase4 审查 P1-3 残留登记（RunsPage 全量视图 list-all 端点）
 - [2026-08-29] started (in-progress)
+- [2026-08-29] completed (done)：S-12 verified（RED 回放 404 → GREEN 1 passed）；list-all 端点 + RunsPage 切 HTTP 收尾
 
 ---
 
 ## TASK-012: User 360 详情 URL 路由（C405 深链）
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P2
 - **Depends**:
 - **Source**: phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-11）, phase4-product-experience.design.md#3.2 页面与路由结构, phase5-governance-observability-eval.design.md#2.2 功能方案（FEAT-P5-08）
@@ -634,11 +642,18 @@ phase4 C405 User 360 详情以 `SideSheet`（组件状态）承载，无 URL 路
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-13 | FAIL（RED 回放）: `git checkout 6640887~1 -- App.tsx && rm User360Page.tsx` 撤销路由后 → 4 用例全失败（`/users/:id` 路由与 User360Page 缺失） | PASS: 4 passed | `深链 /users/:id 直达 360 详情`：五维 Tab 渲染（regions 逐一断言）L22-L39；`刷新（重挂载同一路径）保留 360 视图` L45-L67；`用户不存在：错误态 + 返回列表`（findByText 加载失败/不存在 + 返回列表 heading）L73-L84；`列表页「查看 360」路由跳转`（无 dialog——SideSheet 移除）L90-L101 | 真实 Router（`/users/:platformUserId` 路由）+ 真实 ConsoleApp 组件树 + in-memory service（同 http 契约）；jsdom 真实交互 | verified |
+
+**实现说明**：
+- 新增 `/users/:platformUserId` 路由 + `User360Page`（复用 `User360Header/User360Tabs`）
+- `UsersChannelsPage` "查看 360" 从 SideSheet 改路由跳转（深链/刷新直达）；console 回归（提交时记录）tsc clean + 全量 passed
 
 ### Log
 - [2026-08-29] created (draft)：phase4 审查未覆盖遗留登记（User 360 详情深链）
 - [2026-08-29] started (in-progress)
+- [2026-08-29] completed (done)：S-13 verified（RED 回放 4 failed → GREEN 4 passed）；`/users/:id` 路由 + User360Page，SideSheet 承载移除
 
 ---
 
@@ -681,7 +696,7 @@ phase4 perf/a11y 均为 jsdom 代理测量（`perf-baseline.test.tsx` 只测 mou
 
 ## TASK-014: Chat Workspace 后端端点（X402-X408 数据源，phase4 ⛳ 契约闭合）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**:
 - **Source**: phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-02..P4-08）, phase4-product-experience.design.md#3.2 页面与路由结构, phase5-governance-observability-eval.design.md#2.2 功能方案（FEAT-P5-10）
@@ -703,21 +718,34 @@ phase4 X402–X408（Home/Agents/Tasks/Approvals/History/Memory&Profile）全部
 
 ### Checklist
 
-- [ ] 实现 `/api/v1/workspace/*` 7 组端点（读 + 写：decide/correct/delete/updateProfile/setAutoLearn）
-- [ ] 数据源对齐既有域：AgentDefinition 产品模型（无 RuntimeProfile）、workflow_run 投影、Personal Memory、用户 Profile
-- [ ] [S-15][integration] 修改生产代码前，编写验收测试并记录 RED：真实 DB + HTTP 端点返回 workspace 数据 + 写操作生效 + tenant scope
-- [ ] Chat 前端切 HTTP（`httpChatApi` 真实请求路径，移除 in-memory 依赖）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 实现 `/api/v1/workspace/*` 7 组端点（读 + 写：decide/correct/delete/updateProfile/setAutoLearn）
+- [x] 数据源对齐既有域：AgentDefinition 产品模型（无 RuntimeProfile）、workflow_run 投影、Personal Memory、用户 Profile
+- [x] [S-15][integration] 修改生产代码前，编写验收测试并记录 RED：真实 DB + HTTP 端点返回 workspace 数据 + 写操作生效 + tenant scope
+- [x] Chat 前端切 HTTP（`httpChatApi` 真实请求路径，移除 in-memory 依赖）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-15 | integration | 真实 DB + HTTP 端点 | workspace 7 端点返回 + 写操作生效 + envelope + tenant scope + Chat 切 HTTP | planned | planned | planned |
+| S-15 | integration | 真实 PG registry（与 DBOS sysdb 同库）+ 真实 worker 子进程 + 真实 HTTP（ASGITransport）+ 真实 DBOS send | 7 组端点读返回真实数据；decide→真实 DBOS signal→worker 完成（写生效）；profile/memory/auto-learn 写生效；envelope；tenant scope；Bearer 鉴权 | `backend/tests/integration/test_workspace_api.py`（3 例） | `python -m pytest backend/tests/integration/test_workspace_api.py -v` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-15 读 | FAIL: 实现前 `pytest tests/integration/test_workspace_api.py` → collection error `ModuleNotFoundError: No module named 'fluxion.api.workspace'`（3 用例全失败） | PASS: `test_s15_agents_tasks_history_read` | agents 产品模型断言（display_name/capabilities=`["skill:faq@1"]`/available + `runtime_profile_ref`/`model_ref` 不得出现）L288-L297；tasks 统一列表（workflow running progress=33 + chat succeeded）L300-L316；详情 L319-L324；history 双 kind + 倒序 + trace_id L327-L341；tenant scope（tenant-b 空目录/独立会话）L343-L351；鉴权 401（code=46_001）L353-L362 | 真实 PG registry（PostgreSQLRegistryStore，与 DBOS sysdb 同库）+ 真实 HTTP（ASGITransport）+ Bearer token 真实 resolve_chat_access；发布版目录来自真实 resource_definitions | verified |
+| S-15 审批 decide | 同上 collection error | PASS: `test_s15_approvals_decide_real_worker` | 挂起 human_task 列表（approval_id/task_id=run_id/assignee=user:alice/status=pending）L397-L406；POST decision → 200 → worker `RUN_RESULT` → run 详情 status=succeeded + progress=100 L415-L427；队列清空 L429-L431；跨租户 decide → 404 L433-L440 | **端到端真实链**：真实 worker 子进程运行 pin-flow 阻塞在 review（durable checkpoint）→ POST decision 经真实 `DbosWorkspaceSignalSender`（DBOSClient send，durable notifications）→ worker 真实唤醒跑完 → 投影由 worker 写回 | verified |
+| S-15 写路径 | 同上 collection error | PASS: `test_s15_profile_memory_auto_learn_writes` | profile GET→PUT→GET 生效（display_name 新名字）L452-L472；memory list（source=episodic）→ PATCH 纠正 → DELETE → 剩 1 条 L474-L502；auto-learn GET true → PUT false → GET false + `preference_json.learning_enabled` 落库 L509-L527 | 真实 MemoryUserService（PersonalMemoryStore + embedding 重算）+ 真实 UserDomainService（user_profiles 版本化 + user_preferences + AuditLog） | verified |
+
+**Spec verifier 结果**：
+- `RULE-fluxion-console-api-001`：全部端点经 `success`/`failure` 统一 envelope（`{code,message,data,request_id}`），错误码集中 `errors/console.py`（46xxx Workspace 段），Handler 零手写响应结构；`RequestContextMiddleware` 挂接（require_identity=False——鉴权在 Bearer 层）
+- `RULE-backend-database-001`：全部查询参数化（SQLAlchemy 表达式）；pinned_refs 精确版本解析（rule 6）；tenant scope 全链路（identity 来自 token → 每查询 tenant 过滤）
+- `RULE-fluxion-workflow-001`：agents 端点只返回产品模型（name/description/capabilities/available），无 RuntimeProfile/model_ref 泄漏（断言负向验证）；审批 decide 经 durable signal（Workflow Engine 拥有 durable state，API 进程纯 client 侧）
+- 质量：`ruff check` + `mypy`（workspace_app.py / api/workspace.py）→ clean
+- 回归：tests/channel + tests/memory + tests/users → 39 passed；dev bundle 接线相关（span_correlation/agent_id_routing/web_message_auth/shared_contracts）→ 18 passed；S-11 共享 worker harness → 3 passed；相邻 phase5 端点（eval/operations/runs list-all/release_gate）→ 14 passed；Chat 前端 tsc clean + 全量 74 passed（`main.tsx` 本就走 `createHttpChatApi`，in-memory 仅测试替身）
 
 ### Log
 - [2026-08-29] created (draft)：phase5 扫描未覆盖登记（Chat Workspace 后端端点，后端无 `/workspace` 路由）
+- [2026-08-29] started (in-progress)：spec context refresh 通过（missing=0）、session spec 生成（3 required rules）
+- [2026-08-29] completed (done)：S-15 verified（3 用例：读路径/审批 decide 真实 worker 端到端/写路径）；`WorkspaceApplicationService` + `DbosWorkspaceSignalSender`（DBOSClient 免 launch）+ `/api/v1/workspace/*` 12 路由 + dev bundle 挂载；httpChatApi ⛳ 注解更新（端点已就绪）

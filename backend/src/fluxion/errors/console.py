@@ -35,6 +35,10 @@ EVAL_EXECUTION_ERROR = 37_003
 RELEASE_GATE_BLOCKED = 38_001
 # Phase 5 TASK-010：Operations 运营视图（sysdb 只读）不可用。
 OPERATIONS_UNAVAILABLE = 45_001
+# Phase 5 TASK-014：Chat Workspace（46xxx = Workspace 段）。鉴权失败（Bearer
+# Chat Access Token 缺失/无效/撤销）；signal 通道（DBOS sysdb）未装配或不可达。
+WORKSPACE_AUTH_DENIED = 46_001
+WORKSPACE_SIGNAL_UNAVAILABLE = 46_002
 
 # User Domain / Identity 段（TASK-007；契约命名空间 34xxx = Identity/Bind/Channel）。
 USER_NOT_FOUND = 34_100

@@ -97,7 +97,8 @@ export function createHttpChatApi(
         }
       );
     },
-    // ---- TASK-001 workspace 契约（⛳依赖缺口端点冻结，envelope 经 httpClient 解包） ----
+    // ---- workspace 契约（Phase 5 TASK-014 后端已落地 /api/v1/workspace/*；
+    // envelope 经 httpClient 解包，列表端点统一 {items}） ----
     async listAgents() {
       return client.request("/api/v1/workspace/agents", { headers: authorization }, parseAgents);
     },
@@ -191,8 +192,8 @@ export function createHttpChatApi(
         parseVoid
       );
     },
-    // P2（review）：读取当前开关状态（⛳ 依赖缺口，契约冻结 GET 同端点 {enabled}）。
-    // 端点未就绪时容错回退 true（页面另做容错加载），不让开关读取拖垮整页。
+    // P2（review）：读取当前开关状态（GET 同端点 {enabled}；Phase 5 TASK-014 已落地）。
+    // 读取失败时容错回退 true（页面另做容错加载），不让开关读取拖垮整页。
     async getAutoLearn() {
       try {
         const value = await client.request(

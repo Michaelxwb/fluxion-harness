@@ -18,6 +18,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from fluxion.api.channel import create_app as create_channel_app
 from fluxion.api.console import create_app as create_console_app
 from fluxion.api.eval import create_app as create_eval_app
+from fluxion.api.workspace import create_app as create_workspace_app
 from fluxion.config import DevModeSettings
 from fluxion.registry import SQLiteRegistryStore
 from fluxion.runtime.secrets import CredentialResolver, LocalEncryptedSecretStore
@@ -31,15 +32,20 @@ from fluxion.services.eval_app import (
 from fluxion.services.release_gate import ReleaseGateService
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.workflow_projection import WorkflowProjectionService
+from fluxion.services.workspace_app import WorkspaceApplicationService
 
 
 class ApiDispatcher:
-    def __init__(self, console: FastAPI, channel: FastAPI, eval: FastAPI) -> None:
+    def __init__(
+        self, console: FastAPI, channel: FastAPI, eval: FastAPI, workspace: FastAPI
+    ) -> None:
         self._routes: tuple[tuple[str, ASGIApp], ...] = (
             ("/api/v1/channels/", channel),
             # TASK-004：Console Eval 页三端点（/api/v1/admin/evals*）归 eval 域
             ("/api/v1/admin/evals", eval),
             ("/api/v1/eval/", eval),
+            # TASK-014：Chat Workspace（X402-X408 数据源；Bearer Chat Access Token 鉴权）
+            ("/api/v1/workspace", workspace),
             ("/", console),
         )
 
@@ -96,6 +102,9 @@ def create_dev_bundle_app(
         create_console_app(console, dev_mode=dev_mode, projection_service=projection),
         create_channel_app(channel, dev_mode=dev_mode),
         create_eval_app(eval_service, dev_mode=dev_mode),
+        # TASK-014：dev bundle 无 DBOS → signal sender 缺省（审批 decide 返回 503
+        # 明确失败，读端点正常）。
+        create_workspace_app(WorkspaceApplicationService(store), dev_mode=dev_mode),
     )
 
     @asynccontextmanager
