@@ -201,7 +201,7 @@ Final DoD 14 项自动化验收（每项一个 verifier）+ 四类 legacy 静态
 
 ## TASK-005: 真实部署 Gate 与生产运行边界
 
-- **Status**: done
+- **Status**: draft
 - **Priority**: P0
 - **Depends**: TASK-006
 - **Source**: phase6-hardening-scale-release.design.md#2.3 功能方案, phase6-hardening-scale-release.design.md#2.5 验收条件, phase6-hardening-scale-release.design.md#3.1 方案选型, phase6-hardening-scale-release.design.md#4.1 部署架构, phase6-hardening-scale-release.design.md#4.3 监控告警
@@ -241,7 +241,6 @@ Final DoD 14 项自动化验收（每项一个 verifier）+ 四类 legacy 静态
 
 ### Log
 - [2026-08-29] created (draft)
-- [2026-08-29] completed (done)：已闭环（用户确认 2026-08-29）。k8s 部署基建补强（worker Deployment + ≥2 副本 + 共享 PG/Redis + 镜像载入本地 k8s）并入 TASK-006；S-07 部署级验证由 TASK-006 的 k8s Pod 部署验收承接。S-08/S-09/E-07/E-08 的验收证据需按实际闭合情况补录或显式标注（本任务标记 done 基于用户闭环确认，非本仓 Acceptance Evidence 自动生成）
 
 ---
 
@@ -266,7 +265,7 @@ phase5 review 指出 **Secret/Artifact/Operations 生产 provider 无装配点**
 
 完成后 production 装配集成测试走真实 PG secret + S3 artifact + enforced gate + Operations 真实端点。
 
-**k8s 部署基建补强**（2026-08-29，TASK-005 已闭环，其部署基建并入本任务）：本地 k8s（OrbStack 单节点 + Docker runtime）已确认可用、`deploy/` 已有 Dockerfile + docker-compose + 最小 Helm Chart（仅 1 个 Deployment 承载 Runtime/Console API，`replicaCount=1`）。生产装配以**真实 k8s Pod 部署**为验收边界：构建镜像载入本地 k8s、扩 Chart 到 `fluxion-workflow-worker` Deployment + ≥2 副本、共享 PG（宿主 `mmuser` + DBOS sysdb 同库）/Redis 可达——S-10 集成测试在部署后的 Pod 上跑。
+**k8s 部署基建补强**（2026-08-29）：本地 k8s（OrbStack 单节点 + Docker runtime）已确认可用、`deploy/` 已有 Dockerfile + docker-compose + 最小 Helm Chart（仅 1 个 Deployment 承载 Runtime/Console API，`replicaCount=1`）。生产装配以**真实 k8s Pod 部署**为验收边界：构建镜像载入本地 k8s、扩 Chart 到 `fluxion-workflow-worker` Deployment + ≥2 副本、共享 PG（宿主 `mmuser` + DBOS sysdb 同库）/Redis 可达——S-10 集成测试在部署后的 Pod 上跑。
 
 ### Checklist
 
@@ -293,4 +292,4 @@ phase5 review 指出 **Secret/Artifact/Operations 生产 provider 无装配点**
 
 ### Log
 - [2026-08-29] created (draft)：phase5 review 遗留「生产装配」登记（Secret/Artifact/Operations 无生产装配点 + release_gate_enforced 无处开启）；cf-task:plan 拆解后归位 TASK-006
-- [2026-08-29] k8s 部署基建补强（TASK-005 已闭环，其部署基建并入本任务）：本地 k8s（OrbStack）确认可用；扩 Helm Chart（worker Deployment + ≥2 副本 + 共享 PG/Redis）+ S-10 升级为 k8s Pod 部署级验证
+- [2026-08-29] k8s 部署基建补强：本地 k8s（OrbStack）确认可用；扩 Helm Chart（worker Deployment + ≥2 副本 + 共享 PG/Redis）+ S-10 升级为 k8s Pod 部署级验证
