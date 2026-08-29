@@ -4,9 +4,14 @@
  */
 import { useEffect, useState } from "react";
 
+import { IconChevronDown } from "@douyinfe/semi-icons";
 import { Select, Switch, Typography } from "@douyinfe/semi-ui";
 
 import type { UserPreference } from "../types/chat";
+
+// Semi Select 默认下拉箭头图标 aria-label=""（role=img 无可访问名，NFR-A11Y-01
+// 真浏览器 axe role-img-alt serious 违规）——业务侧经 arrowIcon 注入带标签图标。
+const selectArrow = <IconChevronDown aria-label="展开选项" />;
 
 const PREFERENCE_KEY = "fluxion.user-preference";
 
@@ -55,6 +60,7 @@ export function SettingsPage() {
         <Typography.Text>界面主题</Typography.Text>
         <Select
           aria-label="界面主题"
+          arrowIcon={selectArrow}
           onChange={(value) => update({ theme: value as UserPreference["theme"] })}
           optionList={[
             { label: "跟随系统", value: "system" },
@@ -68,6 +74,7 @@ export function SettingsPage() {
         <Typography.Text>界面语言</Typography.Text>
         <Select
           aria-label="界面语言"
+          arrowIcon={selectArrow}
           onChange={(value) => update({ language: value as UserPreference["language"] })}
           optionList={[
             { label: "简体中文", value: "zh-CN" },

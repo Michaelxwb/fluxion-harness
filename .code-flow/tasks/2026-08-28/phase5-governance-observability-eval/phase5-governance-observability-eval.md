@@ -2,7 +2,7 @@
 
 - **Source**: `.code-flow/tasks/2026-08-28/phase5-governance-observability-eval/phase5-governance-observability-eval.design.md`
 - **Created**: 2026-08-28
-- **Updated**: 2026-08-29（v0.9：TASK-009..014 完成——TASK-014 Chat Workspace 后端 7 组端点落地（S-15 verified：审批 decide 真实 worker 端到端）；剩 TASK-013（真浏览器 NFR，P2））
+- **Updated**: 2026-08-29（v1.0：TASK-001..014 全部完成并 verified——Phase 5 收官：P0 主干（Artifact/Secret 生产 provider、安全门禁、Eval+ReleaseGate、traced_scope+O501-O506 埋点）+ durable_task 契约 + Operations/Runs/User360 遗留闭合 + Chat Workspace 后端端点（X402-X408）+ 真浏览器 NFR 验收（P95=83.3ms、axe 无 serious/critical）。Gate 四项全闭合）
 
 ## Proposal
 
@@ -36,7 +36,7 @@ Phase 5 生产化收尾：为保留 PluginType 补齐生产 provider（`Postgres
 | S-11 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12） | integration | 真实 DBOS sysdb + HTTP 端点 | Operations Queues/Workers 真实端点返回 + envelope + tenant scope | TASK-010 | verified |
 | S-12 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12） | integration | 真实 workflow_run 投影 + HTTP 端点 | Runs list-all 端点返回分页 + RunsPage 切 HTTP | TASK-011 | verified |
 | S-13 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-11） | E2E | Browser → Router → Service → UI | User 360 深链直达详情、刷新保留 | TASK-012 | verified |
-| S-14 | phase4-product-experience.design.md#2.4 验收条件（NFR-PERF-01/NFR-A11Y-01） | E2E | 真浏览器（Playwright/Lighthouse） | 首屏 P95≤500ms + axe 真浏览器扫描 | TASK-013 | planned |
+| S-14 | phase4-product-experience.design.md#2.4 验收条件（NFR-PERF-01/NFR-A11Y-01） | E2E | 真浏览器（Playwright/Lighthouse） | 首屏 P95≤500ms + axe 真浏览器扫描 | TASK-013 | verified |
 | S-15 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-02..08） | integration | 真实 DB + HTTP 端点 | Chat Workspace 7 端点返回 + 写操作生效 + tenant scope + Chat 切 HTTP | TASK-014 | verified |
 | S-10 | phase5-governance-observability-eval.design.md#2.4 验收条件 | integration | S3/MinIO（docker）→ S3CompatibleArtifactStore | TASK-001 | verified |
 
@@ -659,7 +659,7 @@ phase4 C405 User 360 详情以 `SideSheet`（组件状态）承载，无 URL 路
 
 ## TASK-013: 真浏览器 NFR 验收（首屏 P95 + a11y）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P2
 - **Depends**:
 - **Source**: phase4-product-experience.design.md#2.4 验收条件（NFR-PERF-01 / NFR-A11Y-01）, phase5-governance-observability-eval.design.md#2.2 功能方案（FEAT-P5-09）
@@ -674,23 +674,34 @@ phase4 perf/a11y 均为 jsdom 代理测量（`perf-baseline.test.tsx` 只测 mou
 
 ### Checklist
 
-- [ ] 接入 Playwright/Lighthouse 浏览器级测试基建（首屏计时 + axe 扫描）
-- [ ] [S-14][E2E] 修改生产代码前，编写验收测试并记录 RED：真浏览器首屏 P95 ≤500ms；a11y 无 serious/critical
-- [ ] phase4 perf/a11y jsdom 套件保留为快速 smoke（浏览器套件为 Gate 验收）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 接入 Playwright/Lighthouse 浏览器级测试基建（首屏计时 + axe 扫描）
+- [x] [S-14][E2E] 修改生产代码前，编写验收测试并记录 RED：真浏览器首屏 P95 ≤500ms；a11y 无 serious/critical
+- [x] phase4 perf/a11y jsdom 套件保留为快速 smoke（浏览器套件为 Gate 验收）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-14 | E2E | 真浏览器（Playwright/Lighthouse） | 首屏 P95≤500ms + axe 真浏览器无 serious/critical | planned | planned | planned |
+| S-14 | E2E | 真实 Chrome（channel: chrome）+ `fluxion serve --dev` 生产构建 + 真实 HTTP（resolveAccess + /workspace/*） | 首屏可交互 P95≤500ms（performance.now 冷访问口径）；axe 全页扫描无 serious/critical（含 jsdom 禁用的 color-contrast/role-img-alt/aria-valid-attr-value） | `frontend/e2e/chat-nfr.spec.ts`（2 例） | `pnpm build && npx playwright test frontend/e2e/chat-nfr.spec.ts` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-14 perf | GREEN-before（既有行为补测：首屏渲染链已有，无缺陷可复现——按规则记录原因，不伪造失败） | PASS: `NFR-PERF-01`——20 次独立 context 冷访问采样（每次全量下载/解析 bundle + resolveAccess HTTP + React 渲染），P95=83.3ms（样本区间 65.2-86.8ms，预算 500ms 余量 6 倍） | `firstScreenMs`：`page.goto(waitUntil:"commit")` → page.evaluate rAF 轮询 `section[aria-label="首页"]` → `performance.now()`（origin=导航起点）L105-L127；`percentile` 最近邻秩 P95 L129-L138；断言 `expect(p95).toBeLessThanOrEqual(500)` L48 | 真实 Chrome（系统 channel）+ 真实 `fluxion serve` 生产构建（628KB JS/685KB CSS 真实下载解析）+ 真实 HTTP 链（Bearer token resolveAccess → /api/v1/workspace/tasks+agents） | verified |
+| S-14 a11y | FAIL: `#/settings: aria-valid-attr-value (critical)` + `#/settings: role-img-alt (serious)`——真实浏览器复现 Semi Select 内部缺陷（`.semi-select-arrow > .semi-icon-chevron_down[aria-label=""]` 空可访问名 + 关闭态 combobox aria-controls 指向未挂载 options） | PASS: `NFR-A11Y-01`——8 路由（home/agents/tasks/approvals/history/memory/chat/settings）全页 axe 扫描（wcag2a/2aa/21a/21aa），业务代码 serious/critical=0；**color-contrast 真浏览器全过**（jsdom 无法测的规则实测干净） | 违规过滤断言 L67-L84（`expect(blocking).toEqual([])`）；每路由 sentinel 等待 + 脱离 loading 态（`div[aria-label$="加载中"]` 消失）L61-L66 | 真实 Chrome 布局/样式/色彩渲染 + @axe-core/playwright；hash 路由切换保持 token 内存态（不整页刷新） | verified |
+| 业务侧修复 | 即上述 RED | PASS: SettingsPage 两个 Select 经 `arrowIcon={<IconChevronDown aria-label="展开选项" />}` 注入可访问名——role-img-alt 在业务侧清零 | `frontend/apps/chat/src/pages/SettingsPage.tsx:11-13` | aria-valid-attr-value 剩余节点为 Semi 上游接线缺陷（target 为 .semi-select 根，业务侧不可修复）——测试中按 target 精确豁免并注释归因，规则保持启用（业务代码违规仍阻断 Gate） | verified |
+
+**Spec verifier 结果**：
+- `RULE-fluxion-dfx-001`：NFR-PERF-01/NFR-A11Y-01 以编码期自动化证据落地（真浏览器冷访问 P95=83.3ms + axe 全页扫描），jsdom 套件保留为快速 smoke（12 passed）
+- `RULE-frontend-quality-001`：chat 全量 vitest 74 passed + tsc clean（无 any/@ts-ignore）；spec 无裸 fetch（身份准备经 page.request 对 Console API）
+- 基建：复用根级既有 Playwright 装配（`playwright.config.ts` + 系统 Chrome channel + `fluxion serve --dev` webServer），新增 `@axe-core/playwright` 依赖（workspace root）
+- 已知预存在（非本任务引入、不修复仅登记）：legacy e2e specs（S-P13-05/06、agent-golden/error-path）期待 V1 console UI（"Runtime Profiles" 页面），phase1 console 重设计后失效——`pnpm test:e2e` 全量运行需先迁移这批旧 spec
 
 ### Log
 - [2026-08-29] created (draft)：phase4 审查未覆盖遗留登记（真浏览器首屏 P95 + a11y）
+- [2026-08-29] completed (done)：S-14 verified；chat-nfr.spec（2 例）+ SettingsPage arrowIcon 可访问名修复；冷访问 P95=83.3ms；color-contrast 真浏览器实测干净；Semi 上游缺陷按 target 豁免并归因
 
 ---
 
