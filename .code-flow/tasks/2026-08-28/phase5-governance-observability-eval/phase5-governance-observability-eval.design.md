@@ -53,6 +53,7 @@
 |------|------|------|---------|
 | v0.1 | 2026-08-28 | Fluxion 团队 | 初始草稿（评审中） |
 | v0.2 | 2026-08-28 | Fluxion 团队 | 按 `fluxion-phase1-closure-detailed-remediation.md` §16（历史文档，git 历史可查）修订（对齐项 B 翻案）：ArtifactStore 生产必须落地 `S3CompatibleArtifactStore`（§16.1）；新增 `artifact_metadata` 表（§16.2）；`secret_credentials` 增加 key_id/cipher_version/rotated_at 与批量重加密（§16.3） |
+| v0.3 | 2026-08-29 | Fluxion 团队 | 登记 phase4 审查未覆盖遗留为 FEAT-P5-07..10（TASK-010..014）：Operations 运营后端端点（Queues/Workers + Runs list-all，闭合 C407 ⛳）、User 360 详情深链（C405 SideSheet → 路由）、真浏览器 NFR 验收（Playwright/Lighthouse 首屏 P95 + a11y，承接 jsdom 代理口径）、Chat Workspace 后端端点（`/api/v1/workspace/*` 7 组，闭合 X402-X408 前端冻结契约——后端此前无 `/workspace` 路由） |
 
 ---
 
@@ -89,6 +90,10 @@
 | FEAT-P5-04 | OTel 生产 | 共享 `traced_scope` 助手 + 7 类 span（HTTP/Runtime/Model/Tool·MCP/Workflow/DB·Redis/Collector）；trace 关联≥99%；OTLP Collector 部署配置。 | P0 | FEAT-20, NFR-OBS-01 |
 | FEAT-P5-05 | Eval 生产 + Release Gate + Console 页 | EvalExecutor 扩展（模型评测 harness SPI + RuleBased 默认）；Workflow 用例 / Capability 契约；dataset 生命周期（EvalSet 版本化）；`ReleaseGateService` 阻断 P0 回归；Console `/build/eval` 实页（Phase 4 占位升级）。 | P0 | FEAT-24, US-05 |
 | FEAT-P5-06 | Async Task（P1 条件） | `durable_task` 表 + 无状态 worker（poll/claim/resume）；V2.2 不引 Event Bus；仅明确存在耗时后台逻辑时实施。 | P1 | FEAT-25 |
+| FEAT-P5-07 | Operations 运营后端端点（C407 闭合） | 补齐 phase4 C407 运营视图的后端数据源：`GET /api/v1/workflows/runs`（跨工作流 list-all，tenant 分页，基于 `workflow_run` 投影）+ `GET /api/v1/operations/queues\|workers`（DBOS sysdb 只读）；Console RunsPage/QueuesPage/WorkersPage 从 in-memory 切 HTTP 同契约。 | P1 | US-08, US-04 |
+| FEAT-P5-08 | User 360 详情深链（C405） | phase4 C405 User 360 详情以 SideSheet（组件状态）承载、无 URL 路由——刷新/深链丢失。升级为 `/users/:platformUserId` 路由页（复用 User360Header/User360Tabs），UsersChannelsPage "查看 360" 改路由跳转。 | P2 | US-07 |
+| FEAT-P5-09 | 真浏览器 NFR 验收 | phase4 perf/a11y 为 jsdom 代理测量（perf-baseline 只测 mount smoke；a11y 关 3 条规则）。补 Playwright/Lighthouse 真浏览器验收：首屏 P95≤500ms（真实网络/布局）+ axe 真浏览器全页扫描（含 jsdom 禁用的 color-contrast/role-img-alt/aria-valid-attr-value）。 | P2 | NFR-PERF-01, NFR-A11Y-01 |
+| FEAT-P5-10 | Chat Workspace 后端端点（X402-X408 闭合） | 补齐 `/api/v1/workspace/*` 7 组端点（agents/tasks/approvals/history/memory/profile/auto-learn + 写操作 decide/correct/delete/updateProfile/setAutoLearn）；数据源对齐既有域（AgentDefinition 产品模型不暴露 RuntimeProfile、workflow_run/execution 投影、Personal Memory、用户 Profile）；Chat 前端从 in-memory 切 HTTP 同契约。后端此前无 `/workspace` 路由，X402-X408 全跑 in-memory。 | P1 | US-01, US-04 |
 
 ---
 
@@ -96,9 +101,9 @@
 
 | 类别 | 内容 |
 |------|------|
-| **范围（In Scope）** | 生产 SecretProvider（PostgreSQL 持久化 + key rotation）；ArtifactStore `S3CompatibleArtifactStore` 生产 provider + local-fs dev provider + SMB 接口预留 + `artifact_metadata` 表；pgvector SemanticStore 经 loader 接线（实现引用 Phase 2）；OTel 7 类 span + traced_scope + Collector 部署配置；Eval 生产化 + ReleaseGateService + Console Eval 页；Async Task 契约设计（P1 条件）。 |
-| **非范围（Out of Scope）** | SMB/外部 KMS 的生产实现（仅预留接口）；Event Bus（V2.2 明确不引入）；Extension Model 核心（E501/E502 已落地）；pgvector 底层实现细节（Phase 2 设计简报）；Eval 页的交互深设计（复用 Phase 4 前端模式）。 |
-| **有意妥协 / 技术债** | ArtifactStore 生产走 S3 兼容协议（SMB 仅预留接口，如需可后续扩展适配）；Eval 模型评测 harness 为 SPI 预留，默认 RuleBased（真实模型评测需凭据，S-P13-07 约束不伪造）；Async Task 为条件 FEAT（无耗时逻辑则不启用）。 |
+| **范围（In Scope）** | 生产 SecretProvider（PostgreSQL 持久化 + key rotation）；ArtifactStore `S3CompatibleArtifactStore` 生产 provider + local-fs dev provider + SMB 接口预留 + `artifact_metadata` 表；pgvector SemanticStore 经 loader 接线（实现引用 Phase 2）；OTel 7 类 span + traced_scope + Collector 部署配置；Eval 生产化 + ReleaseGateService + Console Eval 页；Async Task 契约设计（P1 条件）；**phase4 未覆盖遗留闭合（FEAT-P5-07..10）**：Operations 运营后端端点（Queues/Workers + Runs list-all）、User 360 详情深链、真浏览器 NFR 验收（首屏 P95 + a11y）、Chat Workspace 后端端点（`/api/v1/workspace/*`）。 |
+| **非范围（Out of Scope）** | SMB/外部 KMS 的生产实现（仅预留接口）；Event Bus（V2.2 明确不引入）；Extension Model 核心（E501/E502 已落地）；pgvector 底层实现细节（Phase 2 设计简报）；Eval 页的交互深设计（复用 Phase 4 前端模式）；DBOS sysdb 内部表结构（Operations 端点只读不直写）。 |
+| **有意妥协 / 技术债** | ArtifactStore 生产走 S3 兼容协议（SMB 仅预留接口，如需可后续扩展适配）；Eval 模型评测 harness 为 SPI 预留，默认 RuleBased（真实模型评测需凭据，S-P13-07 约束不伪造）；Async Task 为条件 FEAT（无耗时逻辑则不启用）；Chat Workspace/Operations 后端此前依赖 phase3 workflow_run 投影与 phase2 域（本阶段接线闭合）。 |
 
 ---
 
@@ -118,6 +123,11 @@
 | S-08 | FEAT-P5-05 | P0 | E2E | Browser → Router → Service → Eval API | Console Eval 页已升级 | 打开 `/build/eval` 查看 EvalSet/Run 列表 | 列表/详情/触发评测可见（四态完备） |
 | S-09 | FEAT-P5-06 | P1 | integration | 真实 DB + worker | Async Task 已启用（条件） | enqueue → claim → 完成/失败 | 任务状态正确；失败可重试；无重复执行（幂等） |
 | S-10 | FEAT-P5-02 | P0 | integration | S3/MinIO（docker）→ S3CompatibleArtifactStore | MinIO 端点可用 | put → get → delete + metadata 落表 | 内容一致；`artifact_metadata` 表落库；tenant 命名空间隔离；超时/失败策略生效 |
+| S-11 | FEAT-P5-07 | P1 | integration | 真实 DBOS sysdb + HTTP 端点 | Queues/Workers 前端契约已冻结 | `GET /api/v1/operations/queues\|workers` | 返回队列深度/Worker 状态 + 统一 envelope + tenant scope |
+| S-12 | FEAT-P5-07 | P1 | integration | 真实 `workflow_run` 投影 + HTTP 端点 | 投影表已有数据 | `GET /api/v1/workflows/runs` | list-all 分页返回 + tenant scope；RunsPage 切 HTTP |
+| S-13 | FEAT-P5-08 | P2 | E2E | Browser → Router → Service → UI | 用户 360 数据可用 | 深链 `/users/:platformUserId` → 刷新 | 直达 360 详情、五维 Tab 渲染、刷新保留 |
+| S-14 | FEAT-P5-09 | P2 | E2E | 真浏览器（Playwright/Lighthouse） | 浏览器基建就绪 | 加载 `/home` 计时 + axe 全页扫描 | 首屏 P95≤500ms；axe 无 serious/critical（含 jsdom 禁用的 3 规则） |
+| S-15 | FEAT-P5-10 | P1 | integration | 真实 DB + HTTP 端点 | Workspace 数据源（AgentDefinition/投影/Memory/Profile）就绪 | 7 组 `/workspace/*` 端点读 + 写 | 返回真实数据、写操作生效、tenant scope；Chat 切 HTTP |
 
 **异常场景**
 
@@ -294,6 +304,10 @@ graph TB
 | `traced_scope` | `async with traced_scope(name, kind=..., attributes={}): ...` | 统一 span 入口；自动挂 trace_id/execution_id/tenant_id/request_id；自动脱敏 |
 | `ReleaseGateService` | `async evaluate(release_id, candidate_eval_run_id, baseline_run_id, threshold) -> GateDecision` | 挂 publish 管道；score 回退超阈值 → blocked |
 | Eval API 扩展 | `GET /admin/evals` / `POST /admin/evals/{id}/run` / `GET /admin/evals/runs` | Console Eval 页消费；envelope 封装（`{code,message,data,request_id}`） |
+| Operations 运营 API（FEAT-P5-07） | `GET /api/v1/workflows/runs`（list-all，tenant 分页 `{items,page,page_size,total}`，基于 `workflow_run` 投影）；`GET /api/v1/operations/queues\|workers`（DBOS sysdb 只读） | 闭合 phase4 C407 前端冻结契约；统一 envelope + tenant scope；DBOS sysdb 只读不直写 |
+| Chat Workspace API（FEAT-P5-10） | `GET /api/v1/workspace/agents\|tasks\|approvals\|history\|memory\|profile\|auto-learn` + 写操作（`decide`/`correct`/`delete`/`updateProfile`/`setAutoLearn`） | 闭合 phase4 X402-X408 前端冻结契约；AgentDefinition 产品模型（不暴露 RuntimeProfile）+ workflow_run/execution 投影 + Personal Memory + 用户 Profile；统一 envelope + tenant scope |
+| User 360 深链（FEAT-P5-08） | 前端路由 `/users/:platformUserId`（`User360Page` 复用 `User360Header/User360Tabs`） | C405 SideSheet → 路由页；深链/刷新直达 |
+| 真浏览器 NFR 基建（FEAT-P5-09） | Playwright + Lighthouse（首屏 P95 计时）+ axe（全页扫描） | 承接 phase4 jsdom 代理口径；浏览器级 Gate 验收 |
 
 > `ReleaseGateService` 复用 `EvaluationApplicationService.compare()`；blocked 决策含 score_delta 与原因。
 
@@ -363,6 +377,10 @@ graph TB
 | FEAT-20 | FEAT-P5-04 | `traced_scope` + 7 span | S-04, E-03, B-03 | E2E | 待实现 |
 | FEAT-24 | FEAT-P5-05 | `ReleaseGateService` + Eval API | S-05~S-08, E-04 | E2E | 待实现 |
 | FEAT-25 | FEAT-P5-06 | `durable_task` + worker | S-09, B-04 | integration | P1 条件 |
+| US-08/US-04 | FEAT-P5-07 | `/api/v1/workflows/runs` + `/api/v1/operations/queues\|workers` | S-11, S-12 | integration | 待实现 |
+| US-07 | FEAT-P5-08 | `/users/:platformUserId` 路由 + `User360Page` | S-13 | E2E | 待实现 |
+| NFR-PERF-01/NFR-A11Y-01 | FEAT-P5-09 | Playwright + Lighthouse + axe | S-14 | E2E | 待实现 |
+| US-01/US-04 | FEAT-P5-10 | `/api/v1/workspace/*` 7 组端点 | S-15 | integration | 待实现 |
 
 > 矩阵闭合：每个 FEAT 有来源✓、有验收场景✓；每个场景有测试层级与关键真实边界✓；Phase 5 Gate 四项（trace≥99% / 明文泄漏=0 / tenant escape=0 / Eval 阻断 P0）各映射到场景（S-04+E-03 / E-01 / S-03+E-02 / S-06+S-07）。
 

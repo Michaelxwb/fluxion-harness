@@ -2,7 +2,7 @@
 
 - **Source**: `.code-flow/tasks/2026-08-28/phase5-governance-observability-eval/phase5-governance-observability-eval.design.md`
 - **Created**: 2026-08-28
-- **Updated**: 2026-08-28（v0.2： remediation §16 修订）
+- **Updated**: 2026-08-29（v0.3：登记 phase4 审查未覆盖遗留为 TASK-010..013——Operations Queues/Workers 后端端点、Runs list-all 端点、User 360 深链、真浏览器首屏 P95+a11y；v0.4 扫描再登记 TASK-014 Chat Workspace 后端端点——后端无 `/workspace` 路由，phase4 X402-X408 全 in-memory 无真实数据源；v0.5 同步 phase5 设计文档 v0.3——FEAT-P5-07..10 + S-11..S-15 + 接口/追溯矩阵，TASK-010..014 Source 补 phase5 设计引用）
 
 ## Proposal
 
@@ -33,6 +33,11 @@ Phase 5 生产化收尾：为保留 PluginType 补齐生产 provider（`Postgres
 | B-02 | phase5-governance-observability-eval.design.md#2.4 验收条件 | unit | `FLUXION_SECRET_MASTER_KEY` env | TASK-002 | planned |
 | B-03 | phase5-governance-observability-eval.design.md#2.4 验收条件 | unit | OTLP exporter 包存在性 | TASK-007 | planned |
 | B-04 | phase5-governance-observability-eval.design.md#2.4 验收条件 | unit | Async Task 开关 | TASK-009 | planned |
+| S-11 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12） | integration | 真实 DBOS sysdb + HTTP 端点 | Operations Queues/Workers 真实端点返回 + envelope + tenant scope | TASK-010 | planned |
+| S-12 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12） | integration | 真实 workflow_run 投影 + HTTP 端点 | Runs list-all 端点返回分页 + RunsPage 切 HTTP | TASK-011 | planned |
+| S-13 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-11） | E2E | Browser → Router → Service → UI | User 360 深链直达详情、刷新保留 | TASK-012 | planned |
+| S-14 | phase4-product-experience.design.md#2.4 验收条件（NFR-PERF-01/NFR-A11Y-01） | E2E | 真浏览器（Playwright/Lighthouse） | 首屏 P95≤500ms + axe 真浏览器扫描 | TASK-013 | planned |
+| S-15 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-02..08） | integration | 真实 DB + HTTP 端点 | Chat Workspace 7 端点返回 + 写操作生效 + tenant scope + Chat 切 HTTP | TASK-014 | planned |
 | S-10 | phase5-governance-observability-eval.design.md#2.4 验收条件 | integration | S3/MinIO（docker）→ S3CompatibleArtifactStore | TASK-001 | planned |
 
 > NFR-SEC-01（明文=0）由 E-01（TASK-003）承载；NFR-OBS-01（≥99%）由 E-03+S-04（TASK-008）承载；NFR-ARCH-05（6 保留 PluginType 全有 provider 或显式预留）由 S-01/B-01（TASK-001）承载；NFR-PERF-01（gate 附加 P95 ≤500ms）由 TASK-005 承载。Phase 5 Gate 四项闭合：trace≥99%（S-04+E-03）、明文泄漏=0（E-01）、tenant escape=0（S-03+E-02）、Eval 阻断 P0（S-06+S-07）。
@@ -337,6 +342,7 @@ Phase 4 `/build/eval` 占位升级为实页：EvalSet 列表 / EvalRun 列表 / 
 ### Checklist
 
 - [ ] O501–O506 六类埋点接线（全部经 `traced_scope`，span 名/字段按清单）
+- [ ] **O505 workflow span 约束**（phase5 扫描提示）：`run_graph_workflow` 在 DBOS 独立 event loop 运行，async `traced_scope` 不可直接用于 workflow 函数内——需 sync 兼容 span 助手（镜像 projection writer 的 sync psycopg 模式）或把 span 落点放在 worker CLI/engine 侧，避免 "different loop" 类问题
 - [ ] [S-04][E2E] 修改生产代码前，编写验收测试并记录 RED：真实 execution（HTTP→Runtime→Model→Tool→Workflow→DB/Redis）→ 全链路 span 携带 trace_id/execution_id/tenant_id/request_id，关联完整率≥99%
 - [ ] [E-03][integration] 修改生产代码前，编写完整性扫描测试并记录 RED：span 采样缺关联字段 >1% → 测试失败（CI 门禁）
 - [ ] 断言 span 中红色内容已脱敏（明文不进 span）
@@ -392,3 +398,198 @@ Phase 4 `/build/eval` 占位升级为实页：EvalSet 列表 / EvalRun 列表 / 
 
 ### Log
 - [2026-08-28] created (draft)
+
+---
+
+## TASK-010: Operations Queues/Workers 后端端点（phase4 C407 技术债闭合）
+
+- **Status**: draft
+- **Priority**: P1
+- **Depends**:
+- **Source**: phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12）, phase4-product-experience.design.md#3.2 页面与路由结构, phase5-governance-observability-eval.design.md#2.2 功能方案（FEAT-P5-07）
+- **Spec-Refs**: fluxion-console-api-contract#RULE-fluxion-console-api-001, backend-database#RULE-backend-database-001
+- **Acceptance-Refs**: S-11
+
+### Description
+
+phase4 C407 Queues/Workers 面板以 in-memory 先行（⛳ 依赖缺口，`httpConsoleApi.ts` 已冻结 `/api/v1/operations/queues|workers` 契约）。本任务后端补齐真实端点：
+- `GET /api/v1/operations/queues`：workflow 队列状态（DBOS database-backed queue：queue_name、depth、worker 数——读 DBOS sysdb `dbos.queues` + `dbos.workflow_status` 排队计数）；
+- `GET /api/v1/operations/workers`：运行 worker 状态（DBOS worker 实例/心跳）。
+
+统一 envelope（`{code,message,data,request_id}`）+ tenant scope（rule 16）；数据源是 DBOS sysdb **只读**（Fluxion 不直写）。完成后 Console `QueuesPage/WorkersPage` 切 HTTP 同契约（去掉 `dataSource="in-memory"` 标识）。
+
+### Checklist
+
+- [ ] 实现 `/api/v1/operations/queues|workers` 后端端点（DBOS sysdb 只读 + 统一 envelope + tenant scope）
+- [ ] [S-11][integration] 修改生产代码前，编写验收测试并记录 RED：真实 DBOS sysdb + HTTP 端点返回 queue/worker 状态
+- [ ] phase4 `QueuesPage/WorkersPage` 切 HTTP（in-memory dataSource 标注移除）
+- [ ] 运行验收命令并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|--------|---------|--------------------|---------|----------------|---------|------|
+| S-11 | integration | 真实 DBOS sysdb + HTTP 端点 | queue 深度/worker 状态返回 + envelope + tenant scope | planned | planned | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-08-29] created (draft)：phase4 审查未覆盖遗留登记（Operations Queues/Workers 后端端点）
+
+---
+
+## TASK-011: workflow runs list-all 端点 + RunsPage 切 HTTP（P1-3 残留）
+
+- **Status**: draft
+- **Priority**: P1
+- **Depends**:
+- **Source**: phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12）, phase3-workflow-platform.design.md#3.4 接口设计, phase5-governance-observability-eval.design.md#2.2 功能方案（FEAT-P5-07）
+- **Spec-Refs**: fluxion-console-api-contract#RULE-fluxion-console-api-001, backend-database#RULE-backend-database-001
+- **Acceptance-Refs**: S-12
+
+### Description
+
+phase4 review P1-3 残留：Console `RunsPage` 全量 runs 视图走冻结路径 `GET /api/v1/workflows/runs`（后端无此路由，phase3 只有 `/{workflow_id}/runs`）。本任务后端补 list-all 端点：
+- `GET /api/v1/workflows/runs`：跨工作流 runs 列表（tenant scope，分页 `{items,page,page_size,total}`，基于 `workflow_run` 投影表）；
+- phase4 `RunsPage` 切 HTTP 真实端点（`listWorkflowRuns()` 无参分支不再 ⛳）。
+
+### Checklist
+
+- [ ] 实现 `GET /api/v1/workflows/runs` list-all（tenant scope 分页，复用 `workflow_run` 投影 CRUD）
+- [ ] [S-12][integration] 修改生产代码前，编写验收测试并记录 RED：真实投影表 + HTTP 端点返回分页 runs
+- [ ] phase4 `RunsPage` 切 HTTP（移除 ⛳ 冻结路径）
+- [ ] 运行验收命令并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|--------|---------|--------------------|---------|----------------|---------|------|
+| S-12 | integration | 真实 workflow_run 投影 + HTTP 端点 | list-all 分页返回 + tenant scope + RunsPage 切 HTTP | planned | planned | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-08-29] created (draft)：phase4 审查 P1-3 残留登记（RunsPage 全量视图 list-all 端点）
+
+---
+
+## TASK-012: User 360 详情 URL 路由（C405 深链）
+
+- **Status**: draft
+- **Priority**: P2
+- **Depends**:
+- **Source**: phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-11）, phase4-product-experience.design.md#3.2 页面与路由结构, phase5-governance-observability-eval.design.md#2.2 功能方案（FEAT-P5-08）
+- **Spec-Refs**: frontend-semi-design#RULE-frontend-semi-001, frontend-quality-standards#RULE-frontend-quality-001, frontend-directory-structure#RULE-frontend-directory-001
+- **Acceptance-Refs**: S-13
+
+### Description
+
+phase4 C405 User 360 详情以 `SideSheet`（组件状态）承载，无 URL 路由——刷新/深链丢失当前用户 360 视图。本任务升级为路由页：
+- 新增 `/users/:platformUserId` 路由 + `User360Page`（复用 `User360Header/User360Tabs`）；
+- `UsersChannelsPage` "查看 360" 从 SideSheet 改为路由跳转（深链/刷新直达）。
+
+### Checklist
+
+- [ ] 新增 `/users/:platformUserId` 路由 + `User360Page`（复用 `User360Header/User360Tabs`）
+- [ ] `UsersChannelsPage` "查看 360" 改路由跳转（移除 SideSheet 承载）
+- [ ] [S-13][E2E] 修改生产代码前，编写验收测试并记录 RED：深链 `/users/:id` 直达详情、刷新保留
+- [ ] 运行验收命令并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|--------|---------|--------------------|---------|----------------|---------|------|
+| S-13 | E2E | Browser → Router → Service → UI | 深链直达详情、刷新保留、五维 Tab 渲染 | planned | planned | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-08-29] created (draft)：phase4 审查未覆盖遗留登记（User 360 详情深链）
+
+---
+
+## TASK-013: 真浏览器 NFR 验收（首屏 P95 + a11y）
+
+- **Status**: draft
+- **Priority**: P2
+- **Depends**:
+- **Source**: phase4-product-experience.design.md#2.4 验收条件（NFR-PERF-01 / NFR-A11Y-01）, phase5-governance-observability-eval.design.md#2.2 功能方案（FEAT-P5-09）
+- **Spec-Refs**: fluxion-dfx#RULE-fluxion-dfx-001, frontend-quality-standards#RULE-frontend-quality-001
+- **Acceptance-Refs**: S-14
+
+### Description
+
+phase4 perf/a11y 均为 jsdom 代理测量（`perf-baseline.test.tsx` 只测 mount smoke；`a11y.e2e.test.tsx` 关 3 条规则 + jsdom 无真实布局）。本任务补齐**真浏览器**验收：
+- 首屏 P95 ≤500ms：Playwright 加载 `/home` 真实渲染计时（真实网络/布局/样式），关闭 jsdom 代理口径；
+- a11y：Playwright + axe 真浏览器全页扫描（含 phase4 jsdom 禁用的 color-contrast/role-img-alt/aria-valid-attr-value），无 serious/critical。
+
+### Checklist
+
+- [ ] 接入 Playwright/Lighthouse 浏览器级测试基建（首屏计时 + axe 扫描）
+- [ ] [S-14][E2E] 修改生产代码前，编写验收测试并记录 RED：真浏览器首屏 P95 ≤500ms；a11y 无 serious/critical
+- [ ] phase4 perf/a11y jsdom 套件保留为快速 smoke（浏览器套件为 Gate 验收）
+- [ ] 运行验收命令并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|--------|---------|--------------------|---------|----------------|---------|------|
+| S-14 | E2E | 真浏览器（Playwright/Lighthouse） | 首屏 P95≤500ms + axe 真浏览器无 serious/critical | planned | planned | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-08-29] created (draft)：phase4 审查未覆盖遗留登记（真浏览器首屏 P95 + a11y）
+
+---
+
+## TASK-014: Chat Workspace 后端端点（X402-X408 数据源，phase4 ⛳ 契约闭合）
+
+- **Status**: draft
+- **Priority**: P1
+- **Depends**:
+- **Source**: phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-02..P4-08）, phase4-product-experience.design.md#3.2 页面与路由结构, phase5-governance-observability-eval.design.md#2.2 功能方案（FEAT-P5-10）
+- **Spec-Refs**: fluxion-console-api-contract#RULE-fluxion-console-api-001, backend-database#RULE-backend-database-001, fluxion-workflow-capability#RULE-fluxion-workflow-001
+- **Acceptance-Refs**: S-15
+
+### Description
+
+phase4 X402–X408（Home/Agents/Tasks/Approvals/History/Memory&Profile）全部以 in-memory 先行（⛳ 依赖缺口），前端 `httpChatApi.ts` 已冻结 `/api/v1/workspace/*` 契约。**后端无任何 `/workspace` 路由**——本任务补齐，否则 Chat Workspace 永远跑在 in-memory 上无法切真实后端。端点（统一 envelope + tenant scope，rule 16）：
+
+- `GET /api/v1/workspace/agents`：AgentDefinition 产品模型目录（名称/描述/能力/可用性，**不暴露 RuntimeProfile**——RULE-fluxion-workflow-001）；
+- `GET /api/v1/workspace/tasks` + 详情：长期任务统一列表（对话 + workflow 运行，关联 `workflow_run`/execution 投影）；
+- `GET /api/v1/workspace/approvals` + `decide`：HumanTask 审批队列（读 workflow 挂起的 human_task）+ 通过/拒绝/留言；
+- `GET /api/v1/workspace/history`：对话 + 任务统一时间线（关联 trace）；
+- `GET /api/v1/workspace/memory` + `correct`/`delete`：Personal Memory（phase2 Memory 域）；
+- `GET/PUT /api/v1/workspace/profile`、`GET/PUT /api/v1/workspace/memory/auto-learn`：Profile 与自动学习开关（phase2 用户域）。
+
+完成后 Chat 前端从 in-memory 切 HTTP 同契约（删除 `dataSource="in-memory"` 语义）。
+
+### Checklist
+
+- [ ] 实现 `/api/v1/workspace/*` 7 组端点（读 + 写：decide/correct/delete/updateProfile/setAutoLearn）
+- [ ] 数据源对齐既有域：AgentDefinition 产品模型（无 RuntimeProfile）、workflow_run 投影、Personal Memory、用户 Profile
+- [ ] [S-15][integration] 修改生产代码前，编写验收测试并记录 RED：真实 DB + HTTP 端点返回 workspace 数据 + 写操作生效 + tenant scope
+- [ ] Chat 前端切 HTTP（`httpChatApi` 真实请求路径，移除 in-memory 依赖）
+- [ ] 运行验收命令并填写 Acceptance Evidence
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|--------|---------|--------------------|---------|----------------|---------|------|
+| S-15 | integration | 真实 DB + HTTP 端点 | workspace 7 端点返回 + 写操作生效 + envelope + tenant scope + Chat 切 HTTP | planned | planned | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-08-29] created (draft)：phase5 扫描未覆盖登记（Chat Workspace 后端端点，后端无 `/workspace` 路由）
