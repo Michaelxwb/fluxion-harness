@@ -117,3 +117,22 @@ class WorkflowProjectionService:
             items=tuple(_row_to_projection(row) for row in rows),
             total=total,
         )
+
+    async def list_all_runs(
+        self,
+        tenant_id: str,
+        *,
+        page: int,
+        page_size: int,
+    ) -> WorkflowRunPage:
+        """跨工作流 list-all（Phase 5 TASK-011，S-12：tenant scope 分页）。"""
+        rows, total = await self._store.list_workflow_runs(
+            tenant_id=tenant_id,
+            workflow_id=None,
+            limit=page_size,
+            offset=(page - 1) * page_size,
+        )
+        return WorkflowRunPage(
+            items=tuple(_row_to_projection(row) for row in rows),
+            total=total,
+        )

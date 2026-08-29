@@ -27,6 +27,7 @@ from fluxion.api.console_routes_read import (
     _register_trace_routes,
 )
 from fluxion.api.middleware import RequestContextMiddleware
+from fluxion.api.operations import register_operations_routes
 from fluxion.api.responses import success
 from fluxion.api.studio import register_studio_routes
 from fluxion.api.workflow import register_workflow_projection_routes
@@ -50,6 +51,7 @@ from fluxion.services.console_payloads import (
     platform_user_payload,
     resource_payload,
 )
+from fluxion.services.operations_app import OperationsApplicationService
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.workflow_projection import WorkflowProjectionService
 from fluxion.users import UserDomainService
@@ -62,6 +64,7 @@ def create_app(
     runtime_service: RuntimeApplicationService | None = None,
     user_service: UserDomainService | None = None,
     projection_service: WorkflowProjectionService | None = None,
+    operations_service: OperationsApplicationService | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Fluxion Console API")
     app.add_middleware(RequestContextMiddleware, dev_mode=dev_mode)
@@ -69,6 +72,7 @@ def create_app(
     _register_health_routes(app)
     register_studio_routes(app, service, runtime_service=runtime_service)
     register_admin_user_routes(app, service, user_service=user_service)
+    register_operations_routes(app, operations_service)
     _register_create_resource_route(app, service)
     _register_list_resources_route(app, service)
     _register_resource_schema_route(app, service)

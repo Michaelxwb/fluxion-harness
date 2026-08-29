@@ -33,6 +33,8 @@ EVAL_TRACEABILITY_ERROR = 37_002
 EVAL_EXECUTION_ERROR = 37_003
 # Phase 5 TASK-005：Release Gate 阻断（38xxx = Eval/Release Gate 段）。
 RELEASE_GATE_BLOCKED = 38_001
+# Phase 5 TASK-010：Operations 运营视图（sysdb 只读）不可用。
+OPERATIONS_UNAVAILABLE = 45_001
 
 # User Domain / Identity 段（TASK-007；契约命名空间 34xxx = Identity/Bind/Channel）。
 USER_NOT_FOUND = 34_100

@@ -1,7 +1,7 @@
-/** C407 队列运营视图（TASK-014）：⛳依赖缺口 in-memory 先行；四态齐全。 */
+/** C407 队列运营视图：Phase 5 TASK-010 后端 `/api/v1/operations/queues` 就绪（DBOS sysdb 只读）。 */
 import { useEffect, useState } from "react";
 
-import { Skeleton, Tag } from "@douyinfe/semi-ui";
+import { Skeleton } from "@douyinfe/semi-ui";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { QueuesPanel } from "../../components/operations/QueuesPanel";
@@ -36,11 +36,6 @@ export function QueuesPage({ api }: QueuesPageProps) {
   return (
     <div className="page-stack">
       <PageHeader description="工作流队列状态与积压（Phase 3 运营视图）" title="工作流队列" />
-      {api.dataSource === "in-memory" && (
-        <Tag color="blue" size="small">
-          示例数据（in-memory，后端未就绪）
-        </Tag>
-      )}
       {error !== null ? (
         <ErrorBanner message={`加载失败：${error}`} onRetry={() => setReloadKey((key) => key + 1)} />
       ) : queues === null ? (

@@ -118,16 +118,17 @@ async def list_workflow_runs(
     engine: AsyncEngine,
     *,
     tenant_id: str,
-    workflow_id: str,
+    workflow_id: str | None,
     limit: int,
     offset: int,
 ) -> tuple[list[RowMapping], int]:
-    """tenant 强制 scope 的 workflow run 列表（count + rows 一次取回，无 N+1）。"""
-    base = (
-        select(workflow_run)
-        .where(workflow_run.c.tenant_id == tenant_id)
-        .where(workflow_run.c.workflow_id == workflow_id)
-    )
+    """tenant 强制 scope 的 workflow run 列表（count + rows 一次取回，无 N+1）。
+
+    workflow_id=None → 跨工作流 list-all（Phase 5 TASK-011，S-12）。
+    """
+    base = select(workflow_run).where(workflow_run.c.tenant_id == tenant_id)
+    if workflow_id is not None:
+        base = base.where(workflow_run.c.workflow_id == workflow_id)
     count_statement = select(func.count()).select_from(base.subquery())
     rows_statement = (
         base.order_by(workflow_run.c.created_at.desc(), workflow_run.c.run_id)

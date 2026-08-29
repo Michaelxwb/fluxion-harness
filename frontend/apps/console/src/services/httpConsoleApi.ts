@@ -322,9 +322,9 @@ class HttpConsoleApi implements ConsoleApi {
   }
 
   async listWorkflowRuns(workflowId?: string): Promise<readonly WorkflowRunProjection[]> {
-    // P1-3（review 修复）：对齐 Phase 3 后端真实路由——
-    // GET /api/v1/workflows/{workflow_id}/runs（单工作流列表，{items,...} 分页）；
-    // 跨工作流全量列表为 ⛳依赖缺口（后端待补 list-all 端点），暂用同前缀冻结。
+    // Phase 5 TASK-011：两端点均已落地——
+    // GET /api/v1/workflows/{workflow_id}/runs（单工作流）+
+    // GET /api/v1/workflows/runs（跨工作流 list-all，tenant 分页）。
     const path = workflowId
       ? `/api/v1/workflows/${encodeURIComponent(workflowId)}/runs`
       : "/api/v1/workflows/runs";

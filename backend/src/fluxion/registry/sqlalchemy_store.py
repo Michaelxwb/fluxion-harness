@@ -661,11 +661,14 @@ class SQLAlchemyRegistryStore:
         self,
         *,
         tenant_id: str,
-        workflow_id: str,
+        workflow_id: str | None,
         limit: int,
         offset: int,
     ) -> tuple[list[RowMapping], int]:
-        """tenant 强制 scope 的 run 列表 + 总数（一次取回，无 N+1）。"""
+        """tenant 强制 scope 的 run 列表 + 总数（一次取回，无 N+1）。
+
+        workflow_id=None → 跨工作流 list-all（Phase 5 TASK-011）。
+        """
         return await workflow_run_sqlalchemy.list_workflow_runs(
             self._engine,
             tenant_id=tenant_id,

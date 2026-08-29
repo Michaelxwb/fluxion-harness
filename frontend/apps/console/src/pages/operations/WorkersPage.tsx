@@ -1,7 +1,7 @@
-/** C407 Worker 运营视图（TASK-014）：⛳依赖缺口 in-memory 先行；四态齐全。 */
+/** C407 Worker 运营视图：Phase 5 TASK-010 后端 `/api/v1/operations/workers` 就绪（DBOS sysdb 只读）。 */
 import { useEffect, useState } from "react";
 
-import { Skeleton, Tag } from "@douyinfe/semi-ui";
+import { Skeleton } from "@douyinfe/semi-ui";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { WorkersPanel } from "../../components/operations/WorkersPanel";
@@ -36,11 +36,6 @@ export function WorkersPage({ api }: WorkersPageProps) {
   return (
     <div className="page-stack">
       <PageHeader description="运行 Worker 状态与分摊（Phase 3 运营视图）" title="运行 Worker" />
-      {api.dataSource === "in-memory" && (
-        <Tag color="blue" size="small">
-          示例数据（in-memory，后端未就绪）
-        </Tag>
-      )}
       {error !== null ? (
         <ErrorBanner message={`加载失败：${error}`} onRetry={() => setReloadKey((key) => key + 1)} />
       ) : workers === null ? (

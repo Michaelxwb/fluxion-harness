@@ -38,6 +38,19 @@ def register_workflow_projection_routes(
         detail = await projection_service.get_run_with_history(actor.tenant_id, run_id)
         return success(_run_detail_payload(detail))
 
+    @app.get("/api/v1/workflows/runs")
+    async def list_all_workflow_runs(
+        page: Annotated[int, Query(ge=1)] = 1,
+        page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> JSONResponse:
+        """跨工作流 runs list-all（Phase 5 TASK-011，S-12：tenant scope 分页）。"""
+        actor = _actor(None)
+        result = await projection_service.list_all_runs(
+            actor.tenant_id, page=page, page_size=page_size
+        )
+        items = [_run_payload(item) for item in result.items]
+        return success(_page(items, page, page_size, result.total))
+
     @app.get("/api/v1/workflows/{workflow_id}/runs")
     async def list_workflow_runs(
         workflow_id: str,

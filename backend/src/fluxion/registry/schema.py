@@ -430,6 +430,29 @@ Index(
     secret_credentials.c.name,
 )
 
+# ---- DurableTask（Phase 5 TASK-009 / FEAT-P5-06，P1 条件 FEAT）----
+# task_id PK 即幂等键（重复 enqueue 不重复执行，RISK-P5-05）；attempts 有限重试；
+# worker 默认不启动（B-04 开关关闭零副作用）。V2.2 不引 Event Bus——worker 轮询本表。
+
+durable_task = Table(
+    "durable_task",
+    metadata,
+    Column("task_id", String(128), primary_key=True),
+    Column("tenant_id", String(128), nullable=False),
+    Column("payload", JSON, nullable=False),
+    Column("status", String(16), nullable=False),
+    Column("attempts", Integer, nullable=False),
+    Column("claimed_at", DateTime(timezone=True), nullable=True),
+    Column("done_at", DateTime(timezone=True), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
+Index(
+    "idx_durable_task_status_claimed",
+    durable_task.c.status,
+    durable_task.c.claimed_at,
+)
+
 # ---- User Domain（Gate 1B / TASK-U102..U105，backend brief §3.3）----
 # Profile 带版本（幂等读取取最新版本）；Preference 单行覆盖；Grant 行级撤销。
 

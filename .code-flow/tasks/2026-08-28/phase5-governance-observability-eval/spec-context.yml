@@ -1,7 +1,7 @@
 version: 1
 task: PHASE5-GOVERNANCE-OBSERVABILITY-EVAL
 enforcement: required
-updated_at: '2026-08-29T09:10:24.066916+00:00'
+updated_at: '2026-08-29T12:44:27.349656+00:00'
 sources:
 - type: cli
   ref: bind
@@ -219,6 +219,14 @@ bindings:
           section_id: TASK-002
           item_id: secret-store-dual-db-code
           artifact_sha256: 145b5f96d31e65d03d284a5c1d0913a8097d72b95a64b023a54dec1cac2fe841
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-010
+          item_id: operations-sysdb-readonly-code
+          artifact_sha256: 34bc7648dc11fb67993c5212efe913f3be92a69158a30e96ac60f53dd3a7a31a
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-011
+          item_id: runs-list-all-tenant-scope-code
+          artifact_sha256: 5c14989e2830f6b46e859b554b4c6cab945060180332fcbe2883de1a2f56a611
         decision: null
         evidence: []
       review:
@@ -947,6 +955,14 @@ bindings:
           section_id: TASK-006
           item_id: eval-page-envelope-code
           artifact_sha256: c8799b06afe4f6440bf191903367b6ca27f90c01087ee2a1f90121ca73b8670c
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-010
+          item_id: operations-endpoints-envelope-code
+          artifact_sha256: 34bc7648dc11fb67993c5212efe913f3be92a69158a30e96ac60f53dd3a7a31a
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-011
+          item_id: runs-list-all-envelope-code
+          artifact_sha256: 5c14989e2830f6b46e859b554b4c6cab945060180332fcbe2883de1a2f56a611
         decision: null
         evidence: []
       review:

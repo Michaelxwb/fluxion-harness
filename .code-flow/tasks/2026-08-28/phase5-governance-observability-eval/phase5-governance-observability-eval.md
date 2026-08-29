@@ -24,7 +24,7 @@ Phase 5 生产化收尾：为保留 PluginType 补齐生产 provider（`Postgres
 | S-06 | phase5-governance-observability-eval.design.md#2.4 验收条件 | E2E | Publish 管道 + ReleaseGateService + EvalRun | TASK-005 | verified |
 | S-07 | phase5-governance-observability-eval.design.md#2.4 验收条件 | E2E | Publish 管道 + ReleaseGateService | TASK-005 | verified |
 | S-08 | phase5-governance-observability-eval.design.md#2.4 验收条件 | E2E | Browser → Router → Service → Eval API | TASK-006 | verified |
-| S-09 | phase5-governance-observability-eval.design.md#2.4 验收条件 | integration | 真实 DB + worker | TASK-009 | planned |
+| S-09 | phase5-governance-observability-eval.design.md#2.4 验收条件 | integration | 真实 DB + worker | TASK-009 | verified |
 | E-01 | phase5-governance-observability-eval.design.md#2.4 验收条件 | integration | 日志/trace/spec/response 扫描 | TASK-003 | verified |
 | E-02 | phase5-governance-observability-eval.design.md#2.4 验收条件 | integration | ArtifactStoreProvider tenant scope | TASK-001 | verified |
 | E-03 | phase5-governance-observability-eval.design.md#2.4 验收条件 | integration | span 完整性扫描 | TASK-008 | verified |
@@ -32,9 +32,9 @@ Phase 5 生产化收尾：为保留 PluginType 补齐生产 provider（`Postgres
 | B-01 | phase5-governance-observability-eval.design.md#2.4 验收条件 | integration | SMB provider 注册点 | TASK-001 | verified |
 | B-02 | phase5-governance-observability-eval.design.md#2.4 验收条件 | unit | `FLUXION_SECRET_MASTER_KEY` env | TASK-002 | verified |
 | B-03 | phase5-governance-observability-eval.design.md#2.4 验收条件 | unit | OTLP exporter 包存在性 | TASK-007 | verified |
-| B-04 | phase5-governance-observability-eval.design.md#2.4 验收条件 | unit | Async Task 开关 | TASK-009 | planned |
-| S-11 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12） | integration | 真实 DBOS sysdb + HTTP 端点 | Operations Queues/Workers 真实端点返回 + envelope + tenant scope | TASK-010 | planned |
-| S-12 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12） | integration | 真实 workflow_run 投影 + HTTP 端点 | Runs list-all 端点返回分页 + RunsPage 切 HTTP | TASK-011 | planned |
+| B-04 | phase5-governance-observability-eval.design.md#2.4 验收条件 | unit | Async Task 开关 | TASK-009 | verified |
+| S-11 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12） | integration | 真实 DBOS sysdb + HTTP 端点 | Operations Queues/Workers 真实端点返回 + envelope + tenant scope | TASK-010 | verified |
+| S-12 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12） | integration | 真实 workflow_run 投影 + HTTP 端点 | Runs list-all 端点返回分页 + RunsPage 切 HTTP | TASK-011 | verified |
 | S-13 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-11） | E2E | Browser → Router → Service → UI | User 360 深链直达详情、刷新保留 | TASK-012 | planned |
 | S-14 | phase4-product-experience.design.md#2.4 验收条件（NFR-PERF-01/NFR-A11Y-01） | E2E | 真浏览器（Playwright/Lighthouse） | 首屏 P95≤500ms + axe 真浏览器扫描 | TASK-013 | planned |
 | S-15 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-02..08） | integration | 真实 DB + HTTP 端点 | Chat Workspace 7 端点返回 + 写操作生效 + tenant scope + Chat 切 HTTP | TASK-014 | planned |
@@ -465,7 +465,7 @@ Phase 4 `/build/eval` 占位升级为实页：EvalSet 列表 / EvalRun 列表 / 
 
 ## TASK-009: durable_task 表 + 无状态 worker（P1 条件 FEAT）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**:
 - **Source**: phase5-governance-observability-eval.design.md#2.2 功能方案, phase5-governance-observability-eval.design.md#3.3 数据设计, phase5-governance-observability-eval.design.md#2.4 验收条件
@@ -477,32 +477,46 @@ Phase 4 `/build/eval` 占位升级为实页：EvalSet 列表 / EvalRun 列表 / 
 
 ### Checklist
 
-- [ ] 建 `durable_task` 表（幂等 DDL）+ 索引；实现无状态 worker（poll/claim/resume，默认不启动）
-- [ ] 功能开关默认关闭；未启用时 B-04 断言零副作用
-- [ ] [B-04][unit] 修改生产代码前，编写验收测试并记录 RED：开关未启用 → worker 不启动、现有路径零变化（无副作用）
-- [ ] [S-09][integration] 修改生产代码前，编写验收测试并记录 RED（启用态）：真实 DB + worker enqueue → claim → 完成/失败；状态正确、失败有限重试、task_id 幂等无重复执行
-- [ ] 双库契约：`durable_task` 纳入 SQLite/PG 共享 Contract Test
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 建 `durable_task` 表（幂等 DDL）+ 索引；实现无状态 worker（poll/claim/resume，默认不启动）
+- [x] 功能开关默认关闭；未启用时 B-04 断言零副作用
+- [x] [B-04][unit] 修改生产代码前，编写验收测试并记录 RED：开关未启用 → worker 不启动、现有路径零变化（无副作用）
+- [x] [S-09][integration] 修改生产代码前，编写验收测试并记录 RED（启用态）：真实 DB + worker enqueue → claim → 完成/失败；状态正确、失败有限重试、task_id 幂等无重复执行
+- [x] 双库契约：`durable_task` 纳入 SQLite/PG 共享 Contract Test
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-09 | integration | 真实 DB + worker 进程（启用态） | enqueue→claim→终态正确；有限重试；幂等无重复 | planned | planned | planned |
-| B-04 | unit | 真实开关 + 启动路径 | 未启用零副作用 | planned | planned | planned |
+| S-09 | integration | 真实 DB + worker 进程（启用态） | enqueue→claim→终态正确；有限重试；幂等无重复 | `backend/tests/contract/test_durable_task.py::TestS09DurableTaskWorker`（6 例 × 双库） | `FLUXION_REQUIRE_POSTGRES_CONTRACT=1 FLUXION_POSTGRES_DSN=postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test python -m pytest backend/tests/contract/test_durable_task.py` | verified |
+| B-04 | unit | 真实开关 + 启动路径 | 未启用零副作用 | `backend/tests/contract/test_durable_task.py::TestB04DisabledByDefault`（2 例） | 同上 | verified |
 
 ### Acceptance Evidence
 
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-09 | FAIL: 实现前 `ModuleNotFoundError: No module named 'fluxion.services.durable_task'`（collection error） | PASS: 双库 14 passed（SQLite 8 + PG 门控 14） | `test_enqueue_claim_complete_lifecycle`（pending→done + done_at）L82-L102；`test_failure_retries_finitely_then_failed`（5 轮 poll 仅 3 次执行 → failed 终态）L104-L123；`test_task_id_idempotent_no_duplicate_execution`（重复 enqueue 单次执行）L125-L142；`test_claim_is_tenant_scoped` L144-L156；`test_resume_requeues_stale_claimed`（崩溃恢复回 pending）L158-L173；`test_worker_start_enabled_runs_poll_loop`（后台 poll 真实运行）L175-L204 | 真实 SQLite 文件库 + 真实 PostgreSQL fluxion_test（双库同契约，规则 7）；真实 worker poll 循环（asyncio Task）非 mock | verified |
+| B-04 | 同上 collection error | PASS: 2 passed | `test_disabled_worker_does_not_start`（start() 返回 False + 0.05s 内 handler 零调用 + 任务保持 pending）L213-L236；`test_table_create_is_side_effect_free`（幂等 DDL + 空表）L239-L253 | 真实开关路径（enabled 默认 False）；未接线任何 serving 路径（现有路径零变化） | verified |
+
+**实现说明**：
+- `durable_task` 表（task_id PK 幂等键 + status/Attempts/claimed_at/done_at + idx(status, claimed_at)）
+- `DurableTaskStore`（engine 注入双库）：enqueue（幂等）/claim_next（乐观 claim + RETURNING）/complete/fail/requeue/requeue_stale（resume）
+- `DurableTaskWorker`（tenant scope 构造注入，`enabled=False` 默认）：start() 未启用返回 False 零副作用；poll 循环含 stale requeue resume；handler 30s 有界（规则 18）；失败 attempts≥max_attempts → failed 终态
+- 未接线任何 serving 路径（P1 条件 FEAT：契约就绪，启用时由装配方 enabled=True）
+- 质量：ruff clean；`mypy src/fluxion/services/durable_task.py` no issues；契约回归 tests/contract/（PG 门控）79 passed
+
 ### Log
 - [2026-08-28] created (draft)
+- [2026-08-29] started (in-progress)
+- [2026-08-29] completed (done)：S-09/B-04 verified（双库）；durable_task 表 + DurableTaskStore/Worker（poll/claim/resume + 有限重试 + task_id 幂等 + tenant scope）；默认不启用（B-04 零副作用），无 serving 接线
 
 ---
 
 ## TASK-010: Operations Queues/Workers 后端端点（phase4 C407 技术债闭合）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**:
 - **Source**: phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12）, phase4-product-experience.design.md#3.2 页面与路由结构, phase5-governance-observability-eval.design.md#2.2 功能方案（FEAT-P5-07）
@@ -519,29 +533,42 @@ phase4 C407 Queues/Workers 面板以 in-memory 先行（⛳ 依赖缺口，`http
 
 ### Checklist
 
-- [ ] 实现 `/api/v1/operations/queues|workers` 后端端点（DBOS sysdb 只读 + 统一 envelope + tenant scope）
-- [ ] [S-11][integration] 修改生产代码前，编写验收测试并记录 RED：真实 DBOS sysdb + HTTP 端点返回 queue/worker 状态
-- [ ] phase4 `QueuesPage/WorkersPage` 切 HTTP（in-memory dataSource 标注移除）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 实现 `/api/v1/operations/queues|workers` 后端端点（DBOS sysdb 只读 + 统一 envelope + tenant scope）
+- [x] [S-11][integration] 修改生产代码前，编写验收测试并记录 RED：真实 DBOS sysdb + HTTP 端点返回 queue/worker 状态
+- [x] phase4 `QueuesPage/WorkersPage` 切 HTTP（in-memory dataSource 标注移除）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-11 | integration | 真实 DBOS sysdb + HTTP 端点 | queue 深度/worker 状态返回 + envelope + tenant scope | planned | planned | planned |
+| S-11 | integration | 真实 DBOS sysdb + HTTP 端点 | queue 深度/worker 状态返回 + envelope + tenant scope | `backend/tests/integration/test_operations_api.py`（2 例） | `python -m pytest backend/tests/integration/test_operations_api.py -v` | verified |
 
 ### Acceptance Evidence
 
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-11 | FAIL（RED 回放）: 撤销本任务生产代码后 `ModuleNotFoundError: No module named 'fluxion.api.operations'`（collection error）；实现期间 workers SQL `FILTER (queue_name ...)` 语法错误 → 503（真失败被修正为 `FILTER (WHERE ...)`） | PASS: 2 passed | `test_s11_operations_queues_workers_endpoints`：envelope code=0 + request_id；fluxion-workflow queue depth≥1（worker 停止后 enqueue）+ workers≥1（dbos.queues worker_concurrency）+ queue_id L51-L63；worker-s11 视图（queues 含 fluxion-workflow + started_at + status 三态枚举 + running_workflows）L65-L73 | 真实 DBOS sysdb（本地 PG fluxion_workflow）+ 真实 worker 子进程（`python -m fluxion.cli.workflow_worker`，DBOS__VMID=worker-s11 → executor_id）+ 真实 HTTP（ASGITransport） | verified |
+| 不可达路径 | — | PASS: 503 + code=45_001 + `不可用` message（明确失败不静默） | `test_s11_unavailable_sysdb_returns_envelope` L76-L84 | 真实不可达 DSN（:59999）→ OperationsUnavailableError → envelope | verified |
+
+**实现说明**：
+- `services/operations_app.py`：DBOS sysdb 只读（queues 合并「已注册」+「有 ENQUEUED 行未注册」——PoC 实测 enqueue 不要求 register；workers 经 executor_id 派生，status=running/idle/stopped 按 RUNNING 行与最近活动时间分类；查询带 3s deadline，规则 18）
+- `api/operations.py`：`GET /api/v1/operations/queues|workers` 恒注册（未装配 sysdb → 空数据契约稳定）；sysdb 不可达 → 503 envelope（45_001）；console create_app 挂载（operations_service 可选注入）
+- tenant scope：DBOS sysdb 无租户列（workflow 队列为部署级平台设施）——tenant 经请求上下文/envelope 记录（API 层面 rule 16），数据为部署级只读（设计边界如实记录）
+- 前端：QueuesPage/WorkersPage 移除 `dataSource === "in-memory"` 示例数据标注（后端就绪）；tsc clean + 页面测试 37 passed
+- 质量：ruff/mypy clean；回归 tests/api/ + console envelope + operations → 16 passed
+
 ### Log
 - [2026-08-29] created (draft)：phase4 审查未覆盖遗留登记（Operations Queues/Workers 后端端点）
+- [2026-08-29] completed (done)：S-11 verified；/api/v1/operations/queues|workers 落地（DBOS sysdb 只读 + envelope + 503 fail policy）；前端切 HTTP（示例数据标注移除）
 
 ---
 
 ## TASK-011: workflow runs list-all 端点 + RunsPage 切 HTTP（P1-3 残留）
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P1
 - **Depends**:
 - **Source**: phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12）, phase3-workflow-platform.design.md#3.4 接口设计, phase5-governance-observability-eval.design.md#2.2 功能方案（FEAT-P5-07）
@@ -556,16 +583,16 @@ phase4 review P1-3 残留：Console `RunsPage` 全量 runs 视图走冻结路径
 
 ### Checklist
 
-- [ ] 实现 `GET /api/v1/workflows/runs` list-all（tenant scope 分页，复用 `workflow_run` 投影 CRUD）
-- [ ] [S-12][integration] 修改生产代码前，编写验收测试并记录 RED：真实投影表 + HTTP 端点返回分页 runs
-- [ ] phase4 `RunsPage` 切 HTTP（移除 ⛳ 冻结路径）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 实现 `GET /api/v1/workflows/runs` list-all（tenant scope 分页，复用 `workflow_run` 投影 CRUD）
+- [x] [S-12][integration] 修改生产代码前，编写验收测试并记录 RED：真实投影表 + HTTP 端点返回分页 runs
+- [x] phase4 `RunsPage` 切 HTTP（移除 ⛳ 冻结路径）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-12 | integration | 真实 workflow_run 投影 + HTTP 端点 | list-all 分页返回 + tenant scope + RunsPage 切 HTTP | planned | planned | planned |
+| S-12 | integration | 真实 workflow_run 投影 + HTTP 端点 | list-all 分页返回 + tenant scope + RunsPage 切 HTTP | `backend/tests/integration/test_workflow_runs_list_all.py` | `python -m pytest backend/tests/integration/test_workflow_runs_list_all.py -v` | verified |
 
 ### Acceptance Evidence
 
@@ -573,6 +600,7 @@ phase4 review P1-3 残留：Console `RunsPage` 全量 runs 视图走冻结路径
 
 ### Log
 - [2026-08-29] created (draft)：phase4 审查 P1-3 残留登记（RunsPage 全量视图 list-all 端点）
+- [2026-08-29] started (in-progress)
 
 ---
 
