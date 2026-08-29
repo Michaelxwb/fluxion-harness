@@ -55,6 +55,8 @@ class AuditRecord:
     after: dict[str, object] | None
     publish_id: str | None = None
     created_at: datetime | None = None
+    # Phase 5 TASK-003（规则 23）：Audit 关联 trace_id（历史写方不传 → None）
+    trace_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

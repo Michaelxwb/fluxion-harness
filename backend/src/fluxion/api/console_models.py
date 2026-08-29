@@ -21,11 +21,22 @@ class ResourceUpdatePayload(BaseModel):
     spec: dict[str, object]
 
 
+class ReleaseGatePayload(BaseModel):
+    """publish 附带的 Release Gate 参数（Phase 5 TASK-005）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_eval_run_id: str
+    baseline_eval_run_id: str
+    threshold: float = 0.0
+
+
 class PublishPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     publish_note: str | None = None
     expected_base_version: str | None = None
+    gate: ReleaseGatePayload | None = None
 
 
 class RollbackPayload(BaseModel):

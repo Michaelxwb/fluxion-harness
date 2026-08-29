@@ -23,19 +23,22 @@ from fluxion.registry import SQLiteRegistryStore
 from fluxion.runtime.secrets import CredentialResolver, LocalEncryptedSecretStore
 from fluxion.services.channel_app import ChannelApplicationService
 from fluxion.services.console_app import ConsoleApplicationService
-from fluxion.services.workflow_projection import WorkflowProjectionService
 from fluxion.services.eval_app import (
     EvaluationApplicationService,
     InMemoryEvalRunStore,
     RuleBasedEvalExecutor,
 )
+from fluxion.services.release_gate import ReleaseGateService
 from fluxion.services.runtime_app import RuntimeApplicationService
+from fluxion.services.workflow_projection import WorkflowProjectionService
 
 
 class ApiDispatcher:
     def __init__(self, console: FastAPI, channel: FastAPI, eval: FastAPI) -> None:
         self._routes: tuple[tuple[str, ASGIApp], ...] = (
             ("/api/v1/channels/", channel),
+            # TASK-004：Console Eval 页三端点（/api/v1/admin/evals*）归 eval 域
+            ("/api/v1/admin/evals", eval),
             ("/api/v1/eval/", eval),
             ("/", console),
         )
@@ -61,13 +64,6 @@ def create_dev_bundle_app(
         store,
         credential_resolver=credential_resolver,
     )
-    console = ConsoleApplicationService(
-        store,
-        trace_store=runtime.trace_store,
-        secret_metadata_store=secret_store,
-        plugin_summaries=runtime.plugin_summaries,
-        service_instance_id=runtime.service_instance_id,
-    )
     channel = ChannelApplicationService(store, runtime)
     eval_service = EvaluationApplicationService(
         store,
@@ -75,12 +71,27 @@ def create_dev_bundle_app(
         InMemoryEvalRunStore(),
         RuleBasedEvalExecutor(),
         timeout_seconds=10.0,
+        catalog=store,
     )
     dev_mode = DevModeSettings(enabled=True)
     # P1-13：dev bundle 也接线投影 API（读 dev SQLite registry 投影表；无 DBOS
     # engine → execution history 省略）。production Console 由装配方注入带 engine 的
     # projection service。
     projection = WorkflowProjectionService(store)
+    # Phase 5 TASK-005：publish 管道挂 Release Gate（dev bundle 默认接线）
+    release_gate = ReleaseGateService(
+        eval_service,
+        audit_sink=store,
+        timeout_seconds=2.0,
+    )
+    console = ConsoleApplicationService(
+        store,
+        trace_store=runtime.trace_store,
+        secret_metadata_store=secret_store,
+        plugin_summaries=runtime.plugin_summaries,
+        service_instance_id=runtime.service_instance_id,
+        release_gate=release_gate,
+    )
     api = ApiDispatcher(
         create_console_app(console, dev_mode=dev_mode, projection_service=projection),
         create_channel_app(channel, dev_mode=dev_mode),

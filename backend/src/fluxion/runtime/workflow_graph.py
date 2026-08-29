@@ -42,6 +42,7 @@ from dbos import DBOS, SetWorkflowID
 
 from fluxion.errors.workflow import WORKFLOW_ENGINE_FAILURE, WorkflowEngineError
 from fluxion.observability.logging import emit_workflow_event_log
+from fluxion.observability.tracing import traced_span
 from fluxion.runtime.workflow_expressions import (
     WorkflowExpressionError,
     evaluate_expression,
@@ -132,14 +133,33 @@ async def _run_node(
     node_id = str(node_def.get("id", ""))
     timeout_ms = node_def.get("timeout_ms")
     timeout_seconds = float(timeout_ms) / 1000.0 if timeout_ms is not None else None
-    try:
-        async with asyncio.timeout(timeout_seconds):
-            return await _dispatch_node(kind, node_def, scope, run_meta)
-    except TimeoutError as error:
-        raise WorkflowEngineError(
-            f"node {node_id} timed out after {timeout_ms}ms",
-            code=WORKFLOW_ENGINE_FAILURE,
-        ) from error
+    # O505（TASK-008）：workflow step span——DBOS 独立 event loop 下 ContextVar 不
+    # 保证传播，经 sync 助手 + run_meta 显式传关联字段（trace_id/execution_id）。
+    run_id = str(run_meta.get("run_id", ""))
+    correlation = {
+        "fluxion.trace_id": str(run_meta.get("trace_id", "")),
+        "fluxion.execution_id": str(run_meta.get("execution_id", "")),
+        "fluxion.tenant_id": str(run_meta.get("tenant_id", "")),
+    }
+    # run_id 形如 `{workflow_id}:{execution_id}`（workflow_run_id 组装）
+    workflow_id = run_id.split(":", 1)[0] if ":" in run_id else run_id
+    with traced_span(
+        "workflow.step",
+        attributes={
+            "fluxion.workflow_id": workflow_id,
+            "fluxion.node_id": node_id,
+            "fluxion.node_kind": kind,
+        },
+        correlation=correlation,
+    ):
+        try:
+            async with asyncio.timeout(timeout_seconds):
+                return await _dispatch_node(kind, node_def, scope, run_meta)
+        except TimeoutError as error:
+            raise WorkflowEngineError(
+                f"node {node_id} timed out after {timeout_ms}ms",
+                code=WORKFLOW_ENGINE_FAILURE,
+            ) from error
 
 
 async def _dispatch_node(

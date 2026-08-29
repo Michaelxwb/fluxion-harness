@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
 
+from fluxion.observability.tracing import traced_scope
 from fluxion.plugins.contracts import ModelProviderError, ModelRequest, ModelResponse
 from fluxion.plugins.model_provider import OpenAICompatibleHTTPModelProvider
 from fluxion.registry import RegistryReadStore
@@ -25,13 +26,28 @@ class RegistryOpenAIModelProvider:
         self._credential_resolver = credential_resolver
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
-        provider = await self._resolve_provider(request)
-        return await provider.complete(request)
+        # O503（TASK-008）：Model span 经 traced_scope（model 名/供应商入 attributes）
+        async with traced_scope(
+            "model.complete",
+            attributes={
+                "fluxion.model_provider_id": self._provider_id,
+                "model": request.model or "",
+            },
+        ):
+            provider = await self._resolve_provider(request)
+            return await provider.complete(request)
 
     async def stream(self, request: ModelRequest) -> AsyncIterator[str]:
-        provider = await self._resolve_provider(request)
-        async for token in provider.stream(request):
-            yield token
+        async with traced_scope(
+            "model.stream",
+            attributes={
+                "fluxion.model_provider_id": self._provider_id,
+                "model": request.model or "",
+            },
+        ):
+            provider = await self._resolve_provider(request)
+            async for token in provider.stream(request):
+                yield token
 
     async def _resolve_provider(
         self, request: ModelRequest

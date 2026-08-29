@@ -17,7 +17,7 @@ from fluxion.observability.context import (
     reset_request_context,
 )
 from fluxion.observability.logging import emit_access_log
-from fluxion.observability.tracing import get_tracer
+from fluxion.observability.tracing import traced_scope
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
@@ -71,15 +71,12 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         status_code = 500
         biz_code = INTERNAL_ERROR
         publish_id: str | None = None
-        tracer = get_tracer("fluxion.http")
-        with tracer.start_as_current_span(
-            "http.request",
+        # O501（TASK-008）：HTTP span 经 traced_scope——关联字段 + 脱敏统一入口
+        async with traced_scope(
+            f"http.{request.method.lower()}.{request.url.path}",
             attributes={
                 "http.request.method": request.method,
                 "http.route": request.url.path,
-                "fluxion.trace_id": context.trace_id,
-                "fluxion.request_id": context.request_id,
-                "fluxion.tenant_id": context.tenant_id,
                 "fluxion.actor_id": context.actor_id,
             },
         ) as span:

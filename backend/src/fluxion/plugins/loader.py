@@ -106,6 +106,10 @@ class PluginLoader:
     def loaded(self) -> list[LoadedPlugin]:
         return list(self._records.values())
 
+    def registry_for(self, plugin_type: PluginType) -> InMemoryProviderRegistry:
+        """只读访问 per-PluginType 参考 registry（Phase 5 E506 lifecycle 可观测）。"""
+        return self._registries[plugin_type]
+
     async def load(
         self,
         plugin: Plugin,

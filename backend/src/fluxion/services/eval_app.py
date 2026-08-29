@@ -76,6 +76,9 @@ class RuleBasedEvalExecutor:
 
     A case passes when its ``expected`` string appears in the observable trace
     text — event names, attribute values, tool payloads and any error message.
+    Workflow cases（TASK-004）additionally require every ``expected_steps``
+    marker（step/capability 结果）to appear in the trace text — Step 与 Tool
+    复用 Capability Contract（US-11），评测语义不另起炉灶。
     Kept dependency-free so the Eval API works end-to-end without a model
     harness; scoring is a plain substring match over the serialized trace.
     """
@@ -93,9 +96,32 @@ class RuleBasedEvalExecutor:
         if not cases:
             raise EvalExecutionError("EvalSet 没有评测用例")
         corpus = _trace_text(trace).casefold()
-        matched = sum(1 for case in cases if case.expected.casefold() in corpus)
+        matched = sum(1 for case in cases if self._case_matches(case, corpus))
         score = matched / len(cases)
         return EvalExecutionResult(score=score, passed=score >= self._passed_threshold)
+
+    @staticmethod
+    def _case_matches(case: EvalCaseDefinition, corpus: str) -> bool:
+        if case.expected.casefold() not in corpus:
+            return False
+        return all(step.casefold() in corpus for step in case.expected_steps)
+
+
+class ModelEvalHarness(Protocol):
+    """模型评测 harness SPI（Phase 5 TASK-004：仅预留接口形态，不实现）。
+
+    真实模型评测需外部凭据；按 S-P13-07 约束（无凭据不实现不伪造），
+    当前唯一评测器是 RuleBasedEvalExecutor。接入模型评测时实现本 SPI 并
+    注入 EvaluationApplicationService，接口形态保持稳定。
+    """
+
+    async def score_case(
+        self,
+        case: EvalCaseDefinition,
+        trace: TraceRecord,
+    ) -> float:
+        """对单条用例打分（0.0–1.0）；实现方必须确定性可测或有凭据支撑。"""
+        ...
 
 
 class EvalRunStore(Protocol):
@@ -104,6 +130,19 @@ class EvalRunStore(Protocol):
     async def get(self, run_id: str, *, tenant_id: str) -> EvalRunRecord | None: ...
 
     async def list(self, *, tenant_id: str) -> list[EvalRunRecord]: ...
+
+
+class EvalSetCatalog(Protocol):
+    """EvalSet 目录读取（resource_definitions 版本化 lifecycle 的列表视图）。"""
+
+    async def list_resources(
+        self,
+        kind: ResourceKind,
+        *,
+        tenant_id: str,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[ResourceDefinition], int]: ...
 
 
 class InMemoryEvalRunStore:
@@ -136,6 +175,7 @@ class EvaluationApplicationService:
         executor: EvalExecutor,
         *,
         timeout_seconds: float,
+        catalog: EvalSetCatalog | None = None,
     ) -> None:
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
@@ -144,6 +184,26 @@ class EvaluationApplicationService:
         self._runs = runs
         self._executor = executor
         self._timeout_seconds = timeout_seconds
+        self._catalog = catalog
+
+    async def list_eval_sets(
+        self,
+        *,
+        tenant_id: str,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[ResourceDefinition], int]:
+        """EvalSet 列表（GET /admin/evals 数据源；resource_definitions 版本化视图）。"""
+        if self._catalog is None:
+            raise EvalTraceabilityError("EvalSet 目录不可用（catalog 未注入）")
+        if page < 1 or page_size < 1:
+            raise EvalExecutionError("分页参数无效")
+        return await self._catalog.list_resources(
+            ResourceKind.EVAL_SET,
+            tenant_id=tenant_id,
+            offset=(page - 1) * page_size,
+            limit=page_size,
+        )
 
     async def start_run(self, request: EvalRunRequest) -> EvalRunRecord:
         definition = await self._published_exact(
@@ -160,6 +220,15 @@ class EvaluationApplicationService:
             runtime_ref.version,
             request.tenant_id,
         )
+        # workflow 用例（TASK-004）：workflow_ref pin 精确 published 版本（规则 5/6）
+        for case in eval_set.cases:
+            if case.case_type == "workflow" and case.workflow_ref is not None:
+                await self._published_exact(
+                    ResourceKind.WORKFLOW,
+                    case.workflow_ref.id,
+                    case.workflow_ref.version,
+                    request.tenant_id,
+                )
         trace = await self._exact_trace(request, runtime_ref.id, runtime_ref.version)
         result = await self._evaluate(eval_set, trace)
         record = _run_record(request, eval_set, trace, result)

@@ -37,6 +37,16 @@ class EvalRunCreatePayload(BaseModel):
     trace_id: str
 
 
+class AdminEvalRunPayload(BaseModel):
+    """POST /admin/evals/{id}/run（TASK-004：eval_set_id 由路径提供）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str
+    eval_set_version: str
+    trace_id: str
+
+
 class EvalComparePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -54,6 +64,7 @@ def create_app(
     _register_errors(app)
     _register_runs(app, service)
     _register_compare(app, service)
+    _register_admin(app, service)
     return app
 
 
@@ -151,6 +162,62 @@ def _register_compare(app: FastAPI, service: EvaluationApplicationService) -> No
                 "score_delta": regression.score_delta,
             }
         )
+
+
+def _register_admin(app: FastAPI, service: EvaluationApplicationService) -> None:
+    """Console /build/eval 三端点（Phase 5 TASK-004；统一 envelope）。"""
+
+    @app.get("/api/v1/admin/evals")
+    async def list_eval_sets(
+        page: int = 1, page_size: int = 20
+    ) -> JSONResponse:
+        items, total = await service.list_eval_sets(
+            tenant_id=_tenant_id(), page=page, page_size=page_size
+        )
+        return success(
+            {
+                "items": [_eval_set_payload(item) for item in items],
+                "page": page,
+                "page_size": page_size,
+                "total": total,
+            }
+        )
+
+    @app.post("/api/v1/admin/evals/{eval_set_id}/run")
+    async def trigger_run(eval_set_id: str, payload: AdminEvalRunPayload) -> JSONResponse:
+        record = await service.start_run(
+            EvalRunRequest(
+                run_id=payload.run_id,
+                tenant_id=_tenant_id(),
+                eval_set_id=eval_set_id,
+                eval_set_version=payload.eval_set_version,
+                trace_id=payload.trace_id,
+            )
+        )
+        return success(_run_payload(record))
+
+    @app.get("/api/v1/admin/evals/runs")
+    async def list_admin_runs() -> JSONResponse:
+        records = await service.list_runs(tenant_id=_tenant_id())
+        return success(
+            {
+                "items": [_run_payload(record) for record in records],
+                "total": len(records),
+            }
+        )
+
+
+def _eval_set_payload(resource: object) -> dict[str, object]:
+    spec = getattr(resource, "spec_json", None) or {}
+    cases = spec.get("cases", []) if isinstance(spec, dict) else []
+    return {
+        "id": getattr(resource, "id", ""),
+        "version": getattr(resource, "version", ""),
+        "status": str(getattr(resource, "status", "")),
+        "tenant_id": getattr(resource, "tenant_id", ""),
+        "name": spec.get("name", "") if isinstance(spec, dict) else "",
+        "case_count": len(cases) if isinstance(cases, list) else 0,
+    }
 
 
 def _run_payload(record: EvalRunRecord) -> dict[str, object]:

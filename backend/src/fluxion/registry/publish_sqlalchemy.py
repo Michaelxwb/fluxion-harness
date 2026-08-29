@@ -64,6 +64,7 @@ async def insert_audit(connection: AsyncConnection, record: AuditRecord) -> None
             tenant_id=record.tenant_id,
             actor_id=record.actor_id,
             request_id=record.request_id,
+            trace_id=record.trace_id,
             publish_id=record.publish_id,
             action=record.action,
             target_type=record.target_type,

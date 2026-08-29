@@ -122,6 +122,33 @@ export interface CredentialMetadata {
   readonly lastRotatedAt: string;
 }
 
+/** Phase 5 TASK-006：EvalSet 列表项（GET /api/v1/admin/evals）。 */
+export interface EvalSetSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly version: string;
+  readonly status: string;
+  readonly caseCount: number;
+}
+
+/** Phase 5 TASK-006：EvalRun 列表项/详情（GET /api/v1/admin/evals/runs）。 */
+export interface EvalRunSummary {
+  readonly runId: string;
+  readonly evalSetId: string;
+  readonly evalSetVersion: string;
+  readonly score: number;
+  readonly passed: boolean;
+  readonly traceId: string;
+  readonly createdAt: string;
+}
+
+/** Phase 5 TASK-006：触发评测入参（POST /api/v1/admin/evals/{id}/run）。 */
+export interface EvalTriggerInput {
+  readonly evalSetId: string;
+  readonly evalSetVersion: string;
+  readonly traceId: string;
+}
+
 export interface VersionRef {
   readonly id: string;
   readonly version: string;
@@ -211,6 +238,10 @@ export interface ConsoleApi {
   saveBinding(input: BindingInput): Promise<BindingRecord>;
   listCredentials(): Promise<readonly CredentialMetadata[]>;
   listRuns(): Promise<readonly RunDetail[]>;
+  // ---- Phase 5 TASK-006：Eval 实页契约（in-memory 先行，http 同契约）----
+  listEvalSets(): Promise<readonly EvalSetSummary[]>;
+  listEvalRuns(): Promise<readonly EvalRunSummary[]>;
+  triggerEvalRun(input: EvalTriggerInput): Promise<EvalRunSummary>;
   listAudit(page: PageRequest): Promise<PageData<AuditRecord>>;
   listP1View(view: P1View): Promise<readonly ControlPlaneItem[]>;
   listPlatformUsers(request: PageRequest): Promise<PageData<PlatformUser>>;

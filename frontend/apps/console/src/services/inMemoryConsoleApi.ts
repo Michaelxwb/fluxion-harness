@@ -5,6 +5,9 @@ import type {
   ConsoleApi,
   ControlPlaneItem,
   CredentialMetadata,
+  EvalRunSummary,
+  EvalSetSummary,
+  EvalTriggerInput,
   JsonRecord,
   IssuedChatAccess,
   JsonSchemaNode,
@@ -45,6 +48,12 @@ export interface ConsoleSeed {
   readonly p1ViewErrors?: readonly P1View[];
   readonly p1ViewPending?: readonly P1View[];
   readonly users?: readonly PlatformUser[];
+  // ---- Phase 5 TASK-006：Eval 实页 seed ----
+  readonly evalSets?: readonly EvalSetSummary[];
+  readonly evalRuns?: readonly EvalRunSummary[];
+  readonly evalSetsError?: boolean;
+  readonly evalRunsError?: boolean;
+  readonly evalTriggerError?: string;
 }
 
 export function createInMemoryConsoleApi(seed: ConsoleSeed = defaultConsoleSeed()): ConsoleApi {
@@ -66,6 +75,12 @@ class InMemoryConsoleApi implements ConsoleApi {
   private readonly p1ViewPending: ReadonlySet<P1View>;
   private users: PlatformUser[];
   private readonly chatAccessIds = new Set<string>();
+  // ---- Phase 5 TASK-006：Eval 实页状态 ----
+  private evalSets: EvalSetSummary[];
+  private evalRuns: EvalRunSummary[];
+  private readonly evalSetsError: boolean;
+  private readonly evalRunsError: boolean;
+  private readonly evalTriggerError: string | null;
 
   constructor(seed: ConsoleSeed) {
     this.tenantId = seed.tenantId;
@@ -85,6 +100,11 @@ class InMemoryConsoleApi implements ConsoleApi {
     this.p1ViewErrors = new Set(seed.p1ViewErrors ?? []);
     this.p1ViewPending = new Set(seed.p1ViewPending ?? []);
     this.users = (seed.users ?? []).map((user) => ({ ...user }));
+    this.evalSets = (seed.evalSets ?? []).map((item) => ({ ...item }));
+    this.evalRuns = (seed.evalRuns ?? []).map((item) => ({ ...item }));
+    this.evalSetsError = seed.evalSetsError ?? false;
+    this.evalRunsError = seed.evalRunsError ?? false;
+    this.evalTriggerError = seed.evalTriggerError ?? null;
   }
 
   async listResources(resourceType?: ResourceType): Promise<PageData<ResourceSummary>> {
@@ -346,6 +366,36 @@ class InMemoryConsoleApi implements ConsoleApi {
 
   async revokeChatAccess(accessId: string): Promise<void> {
     if (!this.chatAccessIds.delete(accessId)) throw new Error("chat access not found");
+  }
+
+  // ---- Phase 5 TASK-006：Eval 实页契约（in-memory 先行，http 同契约）----
+
+  async listEvalSets(): Promise<readonly EvalSetSummary[]> {
+    if (this.evalSetsError) throw new Error("评测集加载失败");
+    return this.evalSets.map((item) => ({ ...item }));
+  }
+
+  async listEvalRuns(): Promise<readonly EvalRunSummary[]> {
+    if (this.evalRunsError) throw new Error("评测运行加载失败");
+    return this.evalRuns.map((item) => ({ ...item }));
+  }
+
+  async triggerEvalRun(input: EvalTriggerInput): Promise<EvalRunSummary> {
+    if (this.evalTriggerError !== null) {
+      // 模拟 HTTP envelope 失败路径（如 Release Gate 阻断，message 原样呈现）
+      throw new Error(this.evalTriggerError);
+    }
+    const run: EvalRunSummary = {
+      runId: `run-${input.evalSetId}-${this.evalRuns.length + 1}`,
+      evalSetId: input.evalSetId,
+      evalSetVersion: input.evalSetVersion,
+      score: 1,
+      passed: true,
+      traceId: input.traceId,
+      createdAt: new Date().toISOString()
+    };
+    this.evalRuns = [...this.evalRuns, run];
+    return { ...run };
   }
 
   // ---- TASK-002 workflow V2 契约（in-memory 先行，⛳依赖缺口同契约切 HTTP） ----

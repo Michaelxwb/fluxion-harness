@@ -8,6 +8,7 @@ from sqlalchemy import (
     Float,
     Index,
     Integer,
+    LargeBinary,
     MetaData,
     String,
     Table,
@@ -80,6 +81,8 @@ audit_logs = Table(
     Column("tenant_id", String(128), nullable=False),
     Column("actor_id", String(128), nullable=False),
     Column("request_id", String(128), nullable=False),
+    # Phase 5 TASK-003（规则 23）：Audit 关联 trace_id（历史行 NULL，写方增量补齐）
+    Column("trace_id", String(128), nullable=True),
     Column("publish_id", String(128), nullable=True),
     Column("action", String(64), nullable=False),
     Column("target_type", String(64), nullable=False),
@@ -364,6 +367,68 @@ Index("idx_wf_run_tenant", workflow_run.c.tenant_id)
 Index("idx_wf_run_exec", workflow_run.c.execution_id)
 
 
+
+# ---- ArtifactStore（Phase 5 TASK-001 / remediation §16.2）----
+# 对象存储只存 blob；治理事实（audit/retention/GC/user deletion/access control）
+# 落本表。每次 put 递增 version（artifact://{tenant}/{ns}/{key}@{version}）。
+
+artifact_metadata = Table(
+    "artifact_metadata",
+    metadata,
+    Column("artifact_id", String(64), primary_key=True),
+    Column("tenant_id", String(128), nullable=False),
+    Column("namespace", String(255), nullable=False),
+    Column("key", String(512), nullable=False),
+    Column("version", String(64), nullable=False),
+    Column("owner_type", String(64), nullable=True),
+    Column("owner_id", String(255), nullable=True),
+    Column("execution_id", String(128), nullable=True),
+    Column("workflow_id", String(128), nullable=True),
+    Column("content_type", String(255), nullable=True),
+    Column("size", Integer, nullable=False),
+    Column("sha256", String(64), nullable=False),
+    Column("classification", String(64), nullable=True),
+    Column("retention_policy", String(255), nullable=True),
+    Column("status", String(16), nullable=False, server_default="active"),
+    Column("created_by", String(255), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("deleted_at", DateTime(timezone=True), nullable=True),
+)
+
+# tenant scope 全链路（rule 16）：按 tenant 检索/审计算事实坐标
+Index(
+    "idx_artifact_tenant_ns_key",
+    artifact_metadata.c.tenant_id,
+    artifact_metadata.c.namespace,
+    artifact_metadata.c.key,
+)
+
+# ---- SecretCredentials（Phase 5 TASK-002 / remediation §16.3）----
+# 密文入表（nonce/ciphertext bytea，AES-256-GCM 12B nonce，绝不存明文）；
+# key_id/cipher_version/rotated_at 支撑 master key rotation（按 key_id 解旧密
+# → 新密加密 → 批量 re-encrypt → revoke old key）。SQLite/PG 双库同 DDL（规则 7）。
+
+secret_credentials = Table(
+    "secret_credentials",
+    metadata,
+    Column("tenant_id", String(128), primary_key=True),
+    Column("ref", String(512), primary_key=True),
+    Column("name", String(255), nullable=False),
+    Column("version", String(64), nullable=False),
+    Column("nonce", LargeBinary, nullable=False),
+    Column("ciphertext", LargeBinary, nullable=False),
+    Column("revoked", Boolean, nullable=False),
+    Column("key_id", String(128), nullable=False),
+    Column("cipher_version", String(64), nullable=False),
+    Column("rotated_at", DateTime(timezone=True), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
+Index(
+    "idx_secret_tenant_name",
+    secret_credentials.c.tenant_id,
+    secret_credentials.c.name,
+)
 
 # ---- User Domain（Gate 1B / TASK-U102..U105，backend brief §3.3）----
 # Profile 带版本（幂等读取取最新版本）；Preference 单行覆盖；Grant 行级撤销。

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from time import perf_counter
 
+from fluxion.observability.tracing import traced_scope
 from fluxion.plugins.contracts import ModelRequest, ModelResponse
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.registry import RegistryStore
@@ -23,9 +24,18 @@ from fluxion.services.runtime_contracts import (
 
 class DevEchoModelProvider:
     async def complete(self, request: ModelRequest) -> ModelResponse:
-        content = request.messages[-1].content if request.messages else ""
-        model = request.model or "dev"
-        return ModelResponse(provider_id="dev.echo", content=f"{model}: {content}")
+        # O503（TASK-008）：dev provider 同样经 traced_scope——S-04 全链路在
+        # dev.echo 下也产出 model.complete span（真实 provider，非 mock）。
+        async with traced_scope(
+            "model.complete",
+            attributes={
+                "fluxion.model_provider_id": "dev.echo",
+                "model": request.model or "dev",
+            },
+        ):
+            content = request.messages[-1].content if request.messages else ""
+            model = request.model or "dev"
+            return ModelResponse(provider_id="dev.echo", content=f"{model}: {content}")
 
 
 def _runtime_profile_spec(request: CreateRuntimeProfileRequest) -> dict[str, object]:

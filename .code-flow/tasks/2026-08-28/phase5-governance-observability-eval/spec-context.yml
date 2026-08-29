@@ -1,7 +1,7 @@
 version: 1
 task: PHASE5-GOVERNANCE-OBSERVABILITY-EVAL
 enforcement: required
-updated_at: '2026-08-29T05:00:38.042335+00:00'
+updated_at: '2026-08-29T09:10:24.066916+00:00'
 sources:
 - type: cli
   ref: bind
@@ -38,7 +38,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 3.4-interface-design
           item_id: provider-typed-timeout
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -47,12 +47,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-002
           item_id: secret-store-typed-timeout-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-002
+          item_id: secret-store-quality-code
+          artifact_sha256: 145b5f96d31e65d03d284a5c1d0913a8097d72b95a64b023a54dec1cac2fe841
         decision: null
         evidence: []
       review:
@@ -196,7 +200,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 3.3-data-design
           item_id: secret-credentials-durable-task
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -205,12 +209,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-002
           item_id: secret-credentials-dual-contract-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-002
+          item_id: secret-store-dual-db-code
+          artifact_sha256: 145b5f96d31e65d03d284a5c1d0913a8097d72b95a64b023a54dec1cac2fe841
         decision: null
         evidence: []
       review:
@@ -380,7 +388,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 3.2-architecture-design
           item_id: provider-package-placement
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -389,12 +397,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-001
           item_id: provider-package-boundaries-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-001
+          item_id: artifact-directory-guard-code
+          artifact_sha256: 0f9a6e1c8e8fbc4361c464ab29b20208173401e608e6d690f3f6cac23cb11d52
         decision: null
         evidence: []
       review:
@@ -538,7 +550,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 3.5-quality-impl
           item_id: secret-audit-redaction
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -547,12 +559,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-003
           item_id: secret-leak-audit-gate-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-003
+          item_id: secret-leak-gate-audit-code
+          artifact_sha256: ef799ada4968366a939b833953cb315040170530db1ae33e042505bd9321c0f7
         decision: null
         evidence: []
       review:
@@ -696,7 +712,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 3.4-interface-design
           item_id: gate-control-plane-audit
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -705,12 +721,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-005
           item_id: gate-decision-audit-standard-response-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-005
+          item_id: release-gate-envelope-code
+          artifact_sha256: 74c3d29861357019bde2a8234b825fe5c7c553eee3b56c09c0db3909dc15cceb
         decision: null
         evidence: []
       review:
@@ -908,7 +928,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 3.4-interface-design
           item_id: eval-api-envelope
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -917,12 +937,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-006
           item_id: eval-page-envelope-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-006
+          item_id: eval-page-envelope-code
+          artifact_sha256: c8799b06afe4f6440bf191903367b6ca27f90c01087ee2a1f90121ca73b8670c
         decision: null
         evidence: []
       review:
@@ -1118,7 +1142,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 3.5-quality-impl
           item_id: provider-timeout-gate-async
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -1127,12 +1151,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-005
           item_id: release-gate-timeout-failclosed-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-005
+          item_id: release-gate-dfx-code
+          artifact_sha256: 74c3d29861357019bde2a8234b825fe5c7c553eee3b56c09c0db3909dc15cceb
         decision: null
         evidence: []
       review:
@@ -1173,7 +1201,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 3.3-data-design
           item_id: artifact-pin-evalset-versioning
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -1182,12 +1210,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-004
           item_id: evalset-versioned-artifact-pin-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-004
+          item_id: evalset-workflow-case-code
+          artifact_sha256: 943de9f6f3a75c47eb7e8fe2a01b421206120c8c4e453fde3fcc3d23b429f61d
         decision: null
         evidence: []
       review:
@@ -1228,7 +1260,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 3.2-architecture-design
           item_id: kernel-contract-loader-registry
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -1237,12 +1269,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-001
           item_id: provider-registry-kernel-contract-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-001
+          item_id: artifact-provider-kernel-contract-code
+          artifact_sha256: 0f9a6e1c8e8fbc4361c464ab29b20208173401e608e6d690f3f6cac23cb11d52
         decision: null
         evidence: []
       review:
@@ -1283,7 +1319,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 2.2-feature-plan
           item_id: eval-workflow-capability
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -1292,12 +1328,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-004
           item_id: eval-capability-contract-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-004
+          item_id: capability-contract-eval-code
+          artifact_sha256: 943de9f6f3a75c47eb7e8fe2a01b421206120c8c4e453fde3fcc3d23b429f61d
         decision: null
         evidence: []
       review:
@@ -1337,7 +1377,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 2.2-feature-plan
           item_id: eval-page-components
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -1346,12 +1386,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-006
           item_id: eval-page-component-contract-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-006
+          item_id: eval-page-component-code
+          artifact_sha256: c8799b06afe4f6440bf191903367b6ca27f90c01087ee2a1f90121ca73b8670c
         decision: null
         evidence: []
       review:
@@ -1521,7 +1565,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 2.2-feature-plan
           item_id: eval-page-directory
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -1530,12 +1574,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-006
           item_id: eval-page-directory-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-006
+          item_id: eval-page-directory-code
+          artifact_sha256: c8799b06afe4f6440bf191903367b6ca27f90c01087ee2a1f90121ca73b8670c
         decision: null
         evidence: []
       review:
@@ -1679,7 +1727,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 2.2-feature-plan
           item_id: eval-page-quality
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -1688,12 +1736,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-006
           item_id: eval-page-quality-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-006
+          item_id: eval-page-quality-code
+          artifact_sha256: c8799b06afe4f6440bf191903367b6ca27f90c01087ee2a1f90121ca73b8670c
         decision: null
         evidence: []
       review:
@@ -1837,7 +1889,7 @@ bindings:
         - artifact: phase5-governance-observability-eval.design.md
           section_id: 2.2-feature-plan
           item_id: eval-page-semi
-          artifact_sha256: b0335415272450a95e91fa501cd53d329a8e7647a4bf0fce27bbb1c75e30add4
+          artifact_sha256: b707660c022febaf5a41ded67bf8d0c5ad6bc360321215d930873100819bc5d1
         decision: null
         evidence: []
       plan:
@@ -1846,12 +1898,16 @@ bindings:
         - artifact: phase5-governance-observability-eval.md
           section_id: TASK-006
           item_id: eval-page-semi-plan
-          artifact_sha256: 2b2b5d8ee0ca24553bdb0395c87695cd62a78ee51063bf23749b8206dbf5680e
+          artifact_sha256: 68af752fa76ee25c54d965f571f2c78066d375b61d6c6c238ab45e49a7ad44db
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-006
+          item_id: eval-page-semi-code
+          artifact_sha256: c8799b06afe4f6440bf191903367b6ca27f90c01087ee2a1f90121ca73b8670c
         decision: null
         evidence: []
       review:

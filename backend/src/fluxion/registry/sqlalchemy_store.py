@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from fluxion.observability.tracing import traced_scope
 from fluxion.registry import (
     channel_sqlalchemy,
     publish_sqlalchemy,
@@ -107,7 +108,16 @@ class SQLAlchemyRegistryStore:
         await self._engine.dispose()
 
     async def put(self, definition: ResourceDefinition) -> ResourceDefinition:
-        return await resource_sqlalchemy.put(self._engine, definition)
+        # O506（TASK-008）：DB span 经 traced_scope（kind/id 入 attributes）
+        async with traced_scope(
+            "db.query",
+            attributes={
+                "db.operation": "put",
+                "fluxion.resource_kind": definition.kind.value,
+                "fluxion.resource_id": definition.id,
+            },
+        ):
+            return await resource_sqlalchemy.put(self._engine, definition)
 
     async def get(
         self,
@@ -117,13 +127,21 @@ class SQLAlchemyRegistryStore:
         tenant_id: str,
         version: str | None = None,
     ) -> ResourceDefinition | None:
-        return await resource_sqlalchemy.get(
-            self._engine,
-            kind,
-            resource_id,
-            tenant_id=tenant_id,
-            version=version,
-        )
+        async with traced_scope(
+            "db.query",
+            attributes={
+                "db.operation": "get",
+                "fluxion.resource_kind": kind.value,
+                "fluxion.resource_id": resource_id,
+            },
+        ):
+            return await resource_sqlalchemy.get(
+                self._engine,
+                kind,
+                resource_id,
+                tenant_id=tenant_id,
+                version=version,
+            )
 
     async def publish(
         self,

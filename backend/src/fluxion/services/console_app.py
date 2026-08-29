@@ -34,6 +34,7 @@ from fluxion.services.console_payloads import (
     platform_user_payload,
 )
 from fluxion.services.console_resources import ConsoleResourceOps
+from fluxion.services.release_gate import ReleaseGateService
 from fluxion.services.runtime_contracts import PluginSummary
 from fluxion.services.workflow_app import WorkflowDefinitionValidator
 
@@ -48,6 +49,7 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         approval_store: ApprovalStore | None = None,
         plugin_summaries: Sequence[PluginSummary] = (),
         service_instance_id: str | None = None,
+        release_gate: ReleaseGateService | None = None,
     ) -> None:
         self._store = store
         self._trace_store = trace_store
@@ -58,6 +60,8 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         # 只读运行时身份快照：由装配方（dev bundle）注入，避免 Console 反向依赖 Runtime。
         self._plugin_summaries = tuple(plugin_summaries)
         self._service_instance_id = service_instance_id or "console-standalone"
+        # Phase 5 TASK-005：publish 管道 Release Gate（请求带 gate 参数时评估）
+        self._release_gate = release_gate
         # 单进程内按资源串行化 publish/rollback/deprecate，保证 optimistic-lock
         # 的 check-then-commit 原子；多实例部署需依赖 DB 级串行化（如 advisory lock）。
         self._publication_locks: dict[tuple[str, ResourceKind, str], asyncio.Lock] = {}

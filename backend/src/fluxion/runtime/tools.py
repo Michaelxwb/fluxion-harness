@@ -7,6 +7,7 @@ from enum import StrEnum
 from inspect import isawaitable
 from uuid import uuid4
 
+from fluxion.observability.tracing import traced_scope
 from fluxion.runtime.context import RuntimeContext
 
 
@@ -123,6 +124,33 @@ class ToolRuntime:
         ]
 
     async def call(
+        self,
+        context: RuntimeContext,
+        tool_id: str,
+        arguments: Mapping[str, object],
+        *,
+        user_grants: set[str],
+        agent_allowlist: set[str],
+        tenant_policy: set[str],
+    ) -> ToolResult:
+        # O504（TASK-008）：Tool span 经 traced_scope（tool 入 attributes，参数脱敏）
+        async with traced_scope(
+            "tool.call",
+            attributes={
+                "fluxion.tool_id": tool_id,
+                "arguments": dict(arguments),
+            },
+        ):
+            return await self._call(
+                context,
+                tool_id,
+                arguments,
+                user_grants=user_grants,
+                agent_allowlist=agent_allowlist,
+                tenant_policy=tenant_policy,
+            )
+
+    async def _call(
         self,
         context: RuntimeContext,
         tool_id: str,

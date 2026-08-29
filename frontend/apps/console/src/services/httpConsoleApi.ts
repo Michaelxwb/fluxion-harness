@@ -7,6 +7,9 @@ import type {
   ConsoleApi,
   ControlPlaneItem,
   CredentialMetadata,
+  EvalRunSummary,
+  EvalSetSummary,
+  EvalTriggerInput,
   IssuedChatAccess,
   JsonRecord,
   JsonSchemaNode,
@@ -335,6 +338,28 @@ class HttpConsoleApi implements ConsoleApi {
   async listWorkers(): Promise<readonly WorkflowWorkerSummary[]> {
     return this.client.request("/api/v1/operations/workers", undefined, parseWorkers);
   }
+
+  // ---- Phase 5 TASK-006：Eval 实页（Phase 5 后端三端点，与 in-memory 同契约）----
+
+  async listEvalSets(): Promise<readonly EvalSetSummary[]> {
+    return this.client.request("/api/v1/admin/evals", undefined, parseEvalSets);
+  }
+
+  async listEvalRuns(): Promise<readonly EvalRunSummary[]> {
+    return this.client.request("/api/v1/admin/evals/runs", undefined, parseEvalRuns);
+  }
+
+  async triggerEvalRun(input: EvalTriggerInput): Promise<EvalRunSummary> {
+    return this.client.request(
+      `/api/v1/admin/evals/${encodeURIComponent(input.evalSetId)}/run`,
+      jsonRequest("POST", {
+        run_id: `run-${input.evalSetId}-${Date.now()}`,
+        eval_set_version: input.evalSetVersion,
+        trace_id: input.traceId
+      }),
+      parseEvalRun
+    );
+  }
 }
 
 function jsonRequest(method: "POST" | "PUT", body: object): RequestInit {
@@ -385,6 +410,44 @@ function parseEvalRunItem(value: unknown): ControlPlaneItem {
     name: `${evalSetId}@${requiredString(record.eval_set_version, "eval_run.eval_set_version")}`,
     status: requiredBoolean(record.passed, "eval_run.passed") ? "passed" : "failed",
     detail: `score ${requiredNumber(record.score, "eval_run.score")}`
+  };
+}
+
+// ---- Phase 5 TASK-006：Eval 实页解析（与后端 /api/v1/admin/evals* envelope 契约）----
+
+function parseEvalSets(value: unknown): readonly EvalSetSummary[] {
+  const record = requiredRecord(value, "eval_sets");
+  if (!Array.isArray(record.items)) throw new Error("eval_sets.items 无效");
+  return record.items.map(parseEvalSetItem);
+}
+
+function parseEvalSetItem(value: unknown): EvalSetSummary {
+  const record = requiredRecord(value, "eval_set");
+  return {
+    id: requiredString(record.id, "eval_set.id"),
+    name: requiredString(record.name, "eval_set.name"),
+    version: requiredString(record.version, "eval_set.version"),
+    status: requiredString(record.status, "eval_set.status"),
+    caseCount: requiredNumber(record.case_count, "eval_set.case_count")
+  };
+}
+
+function parseEvalRuns(value: unknown): readonly EvalRunSummary[] {
+  const record = requiredRecord(value, "eval_runs");
+  if (!Array.isArray(record.items)) throw new Error("eval_runs.items 无效");
+  return record.items.map(parseEvalRun);
+}
+
+function parseEvalRun(value: unknown): EvalRunSummary {
+  const record = requiredRecord(value, "eval_run");
+  return {
+    runId: requiredString(record.run_id, "eval_run.run_id"),
+    evalSetId: requiredString(record.eval_set_id, "eval_run.eval_set_id"),
+    evalSetVersion: requiredString(record.eval_set_version, "eval_run.eval_set_version"),
+    score: requiredNumber(record.score, "eval_run.score"),
+    passed: requiredBoolean(record.passed, "eval_run.passed"),
+    traceId: requiredString(record.trace_id, "eval_run.trace_id"),
+    createdAt: requiredString(record.created_at, "eval_run.created_at")
   };
 }
 

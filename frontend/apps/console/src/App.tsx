@@ -31,7 +31,7 @@ import { WorkflowsPage } from "./pages/workflows/WorkflowsPage";
 import { P1ViewPage } from "./pages/p1/P1ViewPage";
 import { CapabilitiesPage } from "./pages/capabilities/CapabilitiesPage";
 import { AgentStudioPage } from "./pages/studio/AgentStudioPage";
-import { EvalPlaceholderPage } from "./pages/eval/EvalPlaceholderPage";
+import { EvalPage } from "./pages/eval/EvalPage";
 import type { ConsoleApi } from "./types/console";
 import { viewToPath, type ConsoleView } from "./types/navigation";
 import { useThemeMode } from "./theme";
@@ -73,7 +73,7 @@ export function ConsoleRoutes({
         />
         <Route path="/build/workflows" element={<WorkflowsPage api={api} />} />
         <Route path="/build/capabilities" element={<CapabilitiesPage api={api} />} />
-        <Route path="/build/eval" element={<EvalPlaceholderPage />} />
+        <Route path="/build/eval" element={<EvalPage api={api} />} />
         <Route path="/users" element={<UsersChannelsPage api={api} />} />
         <Route path="/governance/policies" element={<GovernancePoliciesPage api={api} />} />
         <Route
@@ -149,7 +149,7 @@ const navItems = [
       { icon: <IconServer />, itemKey: "/build/agent-studio", text: "智能体工作台" },
       { icon: <IconFlowChartStroked />, itemKey: "/build/workflows", text: "工作流" },
       { icon: <IconKey />, itemKey: "/build/capabilities", text: "能力" },
-      { icon: <IconTestScore />, itemKey: "/build/eval", text: <PlannedText>评测</PlannedText> }
+      { icon: <IconTestScore />, itemKey: "/build/eval", text: "评测" }
     ]
   },
   {

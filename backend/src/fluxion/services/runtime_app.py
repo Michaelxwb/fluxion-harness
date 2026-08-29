@@ -15,8 +15,9 @@ from opentelemetry.trace import Status, StatusCode
 from pydantic import ValidationError
 
 from fluxion.kernel.events import TypedEventBus
+from fluxion.observability.context import bind_execution_id, reset_execution_id
 from fluxion.observability.logging import emit_runtime_error_log
-from fluxion.observability.tracing import get_tracer
+from fluxion.observability.tracing import traced_scope
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.registry import (
     PublicationCommand,
@@ -256,73 +257,74 @@ class RuntimeApplicationService(RuntimeToolOps):
         context: RuntimeContext | None = None
         step_result: RuntimeStepResult | None = None
         tool_results: list[dict[str, object]] = []
-        tracer = get_tracer("fluxion.runtime")
-        with tracer.start_as_current_span(
-            "runtime.execute",
-            attributes={
-                "fluxion.trace_id": request.trace_id,
-                "fluxion.request_id": request.request_id,
-                "fluxion.execution_id": request.execution_id,
-                "fluxion.tenant_id": request.tenant_id,
-                "fluxion.runtime_profile_id": request.runtime_profile_id,
-            },
-        ) as span:
-            try:
-                context = await self._runtime.start_execution(_request_context(request))
-                context.tool_runtime = self._tool_runtime.clone_for_execution()
-                await self._prepare_registry_model_providers(context)
-                mcp_tool_ids = await self._mcp_runtime.prepare(context, context.tool_runtime)
-                model_tools = await self._model_tool_definitions(context, mcp_tool_ids)
-                allowed_model_tools = {tool.name for tool in model_tools}
-                step_result = await self._runtime.run_step(
-                    context,
-                    request.input_message,
-                    tools=model_tools,
-                    tool_handler=partial(
-                        self._execute_model_tool,
-                        allowed_tool_ids=allowed_model_tools,
-                    ),
-                )
-                tool_results.extend(step_result.tool_results)
-                tool_results.extend(await self._call_tools(context, request.tool_calls))
-                await self._runtime.finish_execution(context)
-                latency_ms = _elapsed_ms(started)
-                await self._append_trace(
-                    context, step_result, tuple(tool_results), latency_ms, None
-                )
-                return _run_result(
-                    request,
-                    context,
-                    step_result,
-                    tuple(tool_results),
-                    latency_ms,
-                    self._service_instance_id,
-                )
-            except Exception as exc:
-                span.set_status(Status(StatusCode.ERROR, str(exc)))
-                if context is not None:
-                    context.emit("execution.error", {"error": _error_code(exc)})
-                    with suppress(Exception):
-                        await self._runtime.finish_execution(context)
+        # O502（TASK-008）：Runtime execution span 经 traced_scope——统一关联字段；
+        # 同时绑定 execution_id ContextVar，使嵌套 Model/Tool span 自动继承。
+        execution_token = bind_execution_id(request.execution_id)
+        try:
+            async with traced_scope(
+                "runtime.execution",
+                attributes={
+                    "fluxion.runtime_profile_id": request.runtime_profile_id,
+                },
+            ) as span:
+                try:
+                    context = await self._runtime.start_execution(_request_context(request))
+                    context.tool_runtime = self._tool_runtime.clone_for_execution()
+                    await self._prepare_registry_model_providers(context)
+                    mcp_tool_ids = await self._mcp_runtime.prepare(context, context.tool_runtime)
+                    model_tools = await self._model_tool_definitions(context, mcp_tool_ids)
+                    allowed_model_tools = {tool.name for tool in model_tools}
+                    step_result = await self._runtime.run_step(
+                        context,
+                        request.input_message,
+                        tools=model_tools,
+                        tool_handler=partial(
+                            self._execute_model_tool,
+                            allowed_tool_ids=allowed_model_tools,
+                        ),
+                    )
+                    tool_results.extend(step_result.tool_results)
+                    tool_results.extend(await self._call_tools(context, request.tool_calls))
+                    await self._runtime.finish_execution(context)
+                    latency_ms = _elapsed_ms(started)
                     await self._append_trace(
+                        context, step_result, tuple(tool_results), latency_ms, None
+                    )
+                    return _run_result(
+                        request,
                         context,
                         step_result,
                         tuple(tool_results),
-                        _elapsed_ms(started),
-                        str(exc),
+                        latency_ms,
+                        self._service_instance_id,
                     )
-                emit_runtime_error_log(
-                    request_id=request.request_id,
-                    trace_id=request.trace_id,
-                    tenant_id=request.tenant_id,
-                    execution_id=request.execution_id,
-                    runtime_profile_id=request.runtime_profile_id,
-                    error_type=type(exc).__name__,
-                    error_code=_error_code(exc),
-                    message=str(exc),
-                    stack=traceback.format_exc(),
-                )
-                raise RuntimeApplicationError(_error_code(exc), str(exc)) from exc
+                except Exception as exc:
+                    span.set_status(Status(StatusCode.ERROR, str(exc)))
+                    if context is not None:
+                        context.emit("execution.error", {"error": _error_code(exc)})
+                        with suppress(Exception):
+                            await self._runtime.finish_execution(context)
+                        await self._append_trace(
+                            context,
+                            step_result,
+                            tuple(tool_results),
+                            _elapsed_ms(started),
+                            str(exc),
+                        )
+                    emit_runtime_error_log(
+                        request_id=request.request_id,
+                        trace_id=request.trace_id,
+                        tenant_id=request.tenant_id,
+                        execution_id=request.execution_id,
+                        runtime_profile_id=request.runtime_profile_id,
+                        error_type=type(exc).__name__,
+                        error_code=_error_code(exc),
+                        message=str(exc),
+                        stack=traceback.format_exc(),
+                    )
+                    raise RuntimeApplicationError(_error_code(exc), str(exc)) from exc
+        finally:
+            reset_execution_id(execution_token)
 
     async def stream(self, request: RunRuntimeRequest) -> AsyncIterator[RuntimeStreamEvent]:
         yield RuntimeStreamEvent(

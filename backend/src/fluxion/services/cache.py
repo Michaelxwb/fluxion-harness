@@ -11,6 +11,8 @@ from typing import Any
 
 from redis.asyncio import Redis, from_url
 
+from fluxion.observability.tracing import traced_scope
+
 
 class TenantRedisCache:
     """tenant-scoped key 的 Redis L2 缓存（degraded fallback 到 miss）。"""
@@ -36,20 +38,27 @@ class TenantRedisCache:
         return self._client is None
 
     async def get(self, key: str) -> str | None:
+        # O506（TASK-008）：Redis cache span（degraded 无 client 时不产 span）
         if self._client is None:
             return None
-        try:
-            return await self._client.get(key)
-        except Exception:
-            return None
+        async with traced_scope(
+            "redis.cache", attributes={"db.operation": "get", "fluxion.cache_key": key}
+        ):
+            try:
+                return await self._client.get(key)
+            except Exception:
+                return None
 
     async def set(self, key: str, value: str, ttl: int = 300) -> None:
         if self._client is None:
             return
-        try:
-            await self._client.set(key, value, ex=ttl)
-        except Exception:
-            pass  # degraded：缓存写失败不影响主流程
+        async with traced_scope(
+            "redis.cache", attributes={"db.operation": "set", "fluxion.cache_key": key}
+        ):
+            try:
+                await self._client.set(key, value, ex=ttl)
+            except Exception:
+                pass  # degraded：缓存写失败不影响主流程
 
     async def invalidate(self, key: str) -> None:
         if self._client is None:

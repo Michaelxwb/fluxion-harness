@@ -46,19 +46,22 @@ describe("S-09 Console Router 迁移 + C401 IA 核对", () => {
     }
   });
 
-  it("Eval 入口置灰占位；点击进入空态占位页", async () => {
+  it("Eval 入口不再置灰（Phase 5 TASK-006 实页）；点击进入评测实页", async () => {
     const { user } = renderConsole({ initialView: "overview" });
     await user.click(sider().getByText("构建"));
 
     const evalItem = sider().getByText("评测");
-    // 置灰：占位文案使用 tertiary 文本样式
+    // Phase 5 实页：导航不再置灰（无 tertiary 包裹）
     const wrapped =
       evalItem.closest(".semi-typography-tertiary") ??
       evalItem.parentElement?.querySelector(".semi-typography-tertiary");
-    expect(wrapped, "Eval 入口应为置灰（tertiary）占位").not.toBeNull();
+    expect(wrapped, "Eval 入口不应再置灰（Phase 5 已升级实页）").toBeNull();
 
     await user.click(evalItem);
-    await screen.findByText("评测能力建设中");
+    await screen.findByRole("heading", { name: "评测" });
+    // 实页结构：评测集/评测运行区块（四态；卡片标题与空态文案同名 → findAllByText）
+    expect((await screen.findAllByText("评测集")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("评测运行")).length).toBeGreaterThan(0);
   });
 
   it("深链路由直达既有页面（ConsoleView 映射无回归）", async () => {

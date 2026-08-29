@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -424,11 +425,35 @@ class ExactResourceVersion(BaseModel):
 
 
 class EvalCaseDefinition(BaseModel):
+    """评测用例（Phase 5 TASK-004：支持 workflow 类型用例与 Capability 契约评测）。
+
+    - `case_type="text"`：文本用例（expected 为期望输出子串）；
+    - `case_type="workflow"`：workflow 用例（US-11 对齐能力层——Step 与 Tool 复用
+      Capability Contract）：`workflow_ref` pin 被测 workflow 精确版本（规则 5/6，
+      published 不可变），`expected_steps` 为期望出现的 step/capability 结果标记。
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(title="用例 ID")
+    case_type: Literal["text", "workflow"] = Field(default="text", title="用例类型")
     input: str = Field(title="输入")
     expected: str = Field(title="期望输出")
+    workflow_ref: ExactResourceVersion | None = Field(
+        default=None, title="被测 workflow 精确版本引用（workflow 用例必填）"
+    )
+    expected_steps: list[str] = Field(
+        default_factory=list, title="期望出现的 workflow step/capability 标记"
+    )
+
+    @model_validator(mode="after")
+    def validate_workflow_case(self) -> Self:
+        if self.case_type == "workflow":
+            if self.workflow_ref is None:
+                raise ValueError("workflow 用例必须提供 workflow_ref（精确版本 pin）")
+            if not self.expected_steps:
+                raise ValueError("workflow 用例必须提供至少一条 expected_steps")
+        return self
 
 
 class EvalSetDefinition(SensitiveSpecModel):
@@ -577,6 +602,11 @@ class MemoryManifest(BaseModel):
     truncated: bool = False
 
 
+# Phase 5 TASK-001（design §3.3）：artifact 引用语法在契约层定义（规范形态），
+# plugins/artifact 的 ref 模型复用同一 grammar——Kernel 不依赖 Plugin 方向保持。
+ARTIFACT_REF_PATTERN = re.compile(r"^artifact://([^/@\s]+)/([^/@\s]+)/([^@\s]+)@([^/@\s]+)$")
+
+
 class ExecutionSnapshot(BaseModel):
     # frozen=True 落实 ADR-005 的执行期不可变：持有者不能原地改写
     # model_resolution 等字段。构造时另对派生自 profile spec_json 的
@@ -609,6 +639,10 @@ class ExecutionSnapshot(BaseModel):
     agent_definition_version: str | None = None
     policy_versions: dict[str, str] | None = None
     credential_versions: dict[str, str] | None = None
+    # Phase 5 TASK-001：本次执行 pin 的 artifact 引用（name →
+    # artifact://{tenant}/{ns}/{key}@{version}，规则 6/10——published 不可变、
+    # 回滚选历史版本）。引用来自 Resource spec（ExecutionSnapshot 固定版本）。
+    artifact_refs: dict[str, str] = Field(default_factory=dict)
     memory_manifest: MemoryManifest | None = None
     snapshot_digest: str | None = None
     created_at: datetime = Field(default_factory=_utc_now)
@@ -619,4 +653,10 @@ class ExecutionSnapshot(BaseModel):
             raise ValueError("tenant_id and user_id are required")
         if not self.trace_id.strip():
             raise ValueError("trace_id is required")
+        for ref_name, ref in self.artifact_refs.items():
+            if ARTIFACT_REF_PATTERN.match(ref) is None:
+                raise ValueError(
+                    f"artifact_ref {ref_name!r} must use "
+                    "artifact://{tenant}/{namespace}/{key}@{version}"
+                )
         return self

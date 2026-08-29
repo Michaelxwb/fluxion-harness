@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import FastAPI, Header, Query
 from fastapi.responses import JSONResponse
 
+from fluxion.api.admin_users import register_admin_user_routes
 from fluxion.api.console_errors import _register_error_handlers
 from fluxion.api.console_helpers import _actor, _kind, _publication_response
 from fluxion.api.console_models import (
@@ -28,6 +29,7 @@ from fluxion.api.console_routes_read import (
 from fluxion.api.middleware import RequestContextMiddleware
 from fluxion.api.responses import success
 from fluxion.api.studio import register_studio_routes
+from fluxion.api.workflow import register_workflow_projection_routes
 from fluxion.config import DevModeSettings
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.console_contracts import (
@@ -37,6 +39,7 @@ from fluxion.services.console_contracts import (
     DecideApprovalRequest,
     DeprecateResourceVersionRequest,
     PublishResourceVersionRequest,
+    ReleaseGateRequest,
     RollbackResourceRequest,
     UpdateResourceDraftRequest,
 )
@@ -48,10 +51,8 @@ from fluxion.services.console_payloads import (
     resource_payload,
 )
 from fluxion.services.runtime_app import RuntimeApplicationService
-from fluxion.users import UserDomainService
-from fluxion.api.admin_users import register_admin_user_routes
-from fluxion.api.workflow import register_workflow_projection_routes
 from fluxion.services.workflow_projection import WorkflowProjectionService
+from fluxion.users import UserDomainService
 
 
 def create_app(
@@ -262,6 +263,15 @@ def _register_publish_resource_route(app: FastAPI, service: ConsoleApplicationSe
         x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
     ) -> JSONResponse:
         actor = _actor(x_actor_id)
+        gate_request = (
+            ReleaseGateRequest(
+                candidate_eval_run_id=payload.gate.candidate_eval_run_id,
+                baseline_eval_run_id=payload.gate.baseline_eval_run_id,
+                threshold=payload.gate.threshold,
+            )
+            if payload.gate is not None
+            else None
+        )
         result = await service.publish_resource_version(
             actor,
             PublishResourceVersionRequest(
@@ -271,6 +281,7 @@ def _register_publish_resource_route(app: FastAPI, service: ConsoleApplicationSe
                 version=version,
                 expected_base_version=payload.expected_base_version,
                 publish_note=payload.publish_note,
+                gate=gate_request,
             ),
         )
         return _publication_response(result)

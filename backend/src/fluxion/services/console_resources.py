@@ -45,6 +45,7 @@ from fluxion.services.console_contracts import (
     RollbackResourceRequest,
     UpdateResourceDraftRequest,
 )
+from fluxion.services.release_gate import ConsoleReleaseGateBlockedError, GateDecision
 from fluxion.services.workflow_app import (
     WorkflowDefinitionValidator,
     WorkflowValidationResult,
@@ -272,6 +273,9 @@ class ConsoleResourceOps:
             expected_base = base.version if base is not None else existing.version
             if request.expected_base_version != expected_base:
                 raise ConsoleVersionConflictError("version conflict")
+        # Phase 5 TASK-005：Release Gate 挂 publish 管道——gate 参数存在即评估；
+        # blocked → 阻断发布（score_delta 诊断入 envelope；决策留档 AuditLog）。
+        await self._evaluate_release_gate(actor, request)
         return await self._commit_publication(
             actor,
             kind=request.kind,
@@ -407,6 +411,45 @@ class ConsoleResourceOps:
         if resource is None:
             raise ConsoleResourceNotFoundError()
         return resource
+
+    async def _evaluate_release_gate(
+        self,
+        actor: ConsoleActor,
+        request: PublishResourceVersionRequest,
+    ) -> None:
+        """Phase 5 TASK-005：请求带 gate 参数时评估 Release Gate。
+
+        gate 未配置（service 无 ReleaseGateService）→ fail-closed 阻断；
+        blocked → ConsoleReleaseGateBlockedError（envelope 带 score_delta 诊断，
+        决策留档由 ReleaseGateService 写 AuditLog）。
+        """
+        if request.gate is None:
+            return
+        gate = getattr(self, "_release_gate", None)
+        if gate is None:
+            raise ConsoleReleaseGateBlockedError(
+                GateDecision(
+                    release_id=f"{request.kind.value}/{request.resource_id}@{request.version}",
+                    tenant_id=request.tenant_id,
+                    blocked=True,
+                    score_delta=None,
+                    reason="Release Gate 未配置（fail-closed）",
+                    candidate_run_id=request.gate.candidate_eval_run_id,
+                    baseline_run_id=request.gate.baseline_eval_run_id,
+                )
+            )
+        decision = await gate.evaluate(
+            release_id=f"{request.kind.value}/{request.resource_id}@{request.version}",
+            tenant_id=request.tenant_id,
+            candidate_eval_run_id=request.gate.candidate_eval_run_id,
+            baseline_eval_run_id=request.gate.baseline_eval_run_id,
+            threshold=request.gate.threshold,
+            actor_id=actor.actor_id,
+            request_id=actor.request_id,
+            trace_id=actor.trace_id,
+        )
+        if decision.blocked:
+            raise ConsoleReleaseGateBlockedError(decision)
 
     async def _commit_publication(
         self,

@@ -12,6 +12,7 @@ from mcp import Client, StdioServerParameters, stdio_client
 from mcp.client.streamable_http import streamable_http_client
 from pydantic import ValidationError
 
+from fluxion.observability.tracing import traced_scope
 from fluxion.registry import RegistryReadStore
 from fluxion.resources import (
     MCPDefinition,
@@ -121,6 +122,18 @@ class OfficialMCPClient:
         return await self._with_timeout(operation())
 
     async def call_tool(
+        self,
+        name: str,
+        arguments: Mapping[str, object],
+    ) -> MCPToolCallResult:
+        # O504（TASK-008）：MCP tool 调用 span（tool 名入 attributes，参数脱敏）
+        async with traced_scope(
+            "mcp.call",
+            attributes={"fluxion.mcp_tool": name, "arguments": dict(arguments)},
+        ):
+            return await self._call_tool(name, arguments)
+
+    async def _call_tool(
         self,
         name: str,
         arguments: Mapping[str, object],

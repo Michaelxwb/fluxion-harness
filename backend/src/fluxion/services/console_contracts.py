@@ -34,6 +34,15 @@ class UpdateResourceDraftRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class ReleaseGateRequest:
+    """publish 附带的 Release Gate 参数（Phase 5 TASK-005）。"""
+
+    candidate_eval_run_id: str
+    baseline_eval_run_id: str
+    threshold: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
 class PublishResourceVersionRequest:
     tenant_id: str
     kind: ResourceKind
@@ -41,6 +50,9 @@ class PublishResourceVersionRequest:
     version: str
     expected_base_version: str | None = None
     publish_note: str | None = None
+    # Phase 5 TASK-005：gate 参数存在且 service 配置 ReleaseGateService 时，
+    # publish 前评估门禁；blocked → 阻断发布（score_delta 诊断入 envelope）。
+    gate: ReleaseGateRequest | None = None
 
 
 @dataclass(frozen=True, slots=True)
