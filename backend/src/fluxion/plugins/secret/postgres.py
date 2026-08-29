@@ -7,6 +7,12 @@
   启动 fail-fast，不静默生成（B-02 / RISK-P5-02）；
 - Key rotation（remediation §16.3）：按 `key_id` 解旧密 → 新密加密 → 批量
   re-encrypt → revoke old key；rotation 进 AuditLog（规则 24）；
+- active key_id 持久化事实源：`secret_master_keys` 注册表（review P1-1 修复）——
+  rotate 与重加密同事务登记新 key/revoke 旧 key，重启后 `from_env` 按注册表
+  active 行绑定 env 密钥材料，无需运维手动传 key_id；
+- 多实例约束（review P1-2 缓解）：keyring 内存态、无 key 分发（rule 17 密钥
+  材料不落库），旋转必须单写者执行 + 滚动重启；窗口期他实例 resolve 未持
+  key 的行 → `secret_key_unavailable` 明确失败（不静默、不误报 revoked）；
 - 全方法 timeout + fail policy（规则 18）：`asyncio.wait_for` deadline，
   超时/库错误 → SecretProviderError，不静默吞。
 """
@@ -28,7 +34,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from fluxion.registry.publish_sqlalchemy import insert_audit
-from fluxion.registry.schema import audit_logs, secret_credentials
+from fluxion.registry.schema import audit_logs, secret_credentials, secret_master_keys
 from fluxion.registry.store import AuditRecord
 from fluxion.runtime.secrets import (
     ResolvedCredential,
@@ -51,7 +57,7 @@ class PostgresEncryptedSecretStore:
         *,
         engine: AsyncEngine,
         master_key: bytes,
-        key_id: str = "k1",
+        key_id: str | None = None,
         timeout_ms: int = 30_000,
     ) -> None:
         if len(master_key) != _MASTER_KEY_BYTES:
@@ -60,8 +66,16 @@ class PostgresEncryptedSecretStore:
                 f"AES-256-GCM key must be {_MASTER_KEY_BYTES} bytes",
             )
         self._engine = engine
-        self._keyring: dict[str, bytes] = {key_id: master_key}
-        self._active_key_id = key_id
+        self._master_key = master_key
+        # key_id 显式给定 → 直接绑定；None → initialize() 按注册表 active 行
+        # 解析（review P1-1：旋转后重启不再依赖运维手动传 key_id）。
+        self._configured_key_id = key_id
+        if key_id is not None:
+            self._keyring: dict[str, bytes] = {key_id: master_key}
+            self._active_key_id = key_id
+        else:
+            self._keyring = {}
+            self._active_key_id = ""
         self._revoked_key_ids: set[str] = set()
         self._timeout_ms = timeout_ms
 
@@ -73,9 +87,13 @@ class PostgresEncryptedSecretStore:
         *,
         engine: AsyncEngine,
         env_name: str = "FLUXION_SECRET_MASTER_KEY",
-        key_id: str = "k1",
+        key_id: str | None = None,
     ) -> PostgresEncryptedSecretStore:
-        """Master Key 外置 env（base64 32B）；缺失/非法 → fail-fast（B-02）。"""
+        """Master Key 外置 env（base64 32B）；缺失/非法 → fail-fast（B-02）。
+
+        key_id 解析顺序：显式参数 > env ``FLUXION_SECRET_MASTER_KEY_ID`` >
+        （initialize 时）注册表 active 行 > "k1"。
+        """
         raw = os.environ.get(env_name)
         if raw is None:
             raise SecretProviderError(
@@ -87,7 +105,8 @@ class PostgresEncryptedSecretStore:
             raise SecretProviderError(
                 "secret_master_key_invalid", "master key must be base64"
             ) from exc
-        return cls(engine=engine, master_key=key, key_id=key_id)
+        explicit = key_id or os.environ.get("FLUXION_SECRET_MASTER_KEY_ID") or None
+        return cls(engine=engine, master_key=key, key_id=explicit)
 
     # ---- 可观测（rotation 断言用只读视图）----
 
@@ -102,7 +121,7 @@ class PostgresEncryptedSecretStore:
     # ---- 生命周期 ----
 
     async def initialize(self) -> None:
-        """幂等建表（secret_credentials + audit_logs——rotation 写审计）。"""
+        """幂等建表（secret_credentials + audit_logs + secret_master_keys）+ active key 解析。"""
         async with self._engine.begin() as conn:
             await conn.run_sync(
                 lambda sync_conn: secret_credentials.create(sync_conn, checkfirst=True)
@@ -110,6 +129,49 @@ class PostgresEncryptedSecretStore:
             await conn.run_sync(
                 lambda sync_conn: audit_logs.create(sync_conn, checkfirst=True)
             )
+            await conn.run_sync(
+                lambda sync_conn: secret_master_keys.create(sync_conn, checkfirst=True)
+            )
+        await self._resolve_active_key()
+
+    async def _resolve_active_key(self) -> None:
+        """active key_id 绑定：显式配置 > 注册表 active 行 > "k1"（首启默认）。
+
+        显式配置且注册表标记 revoked → fail-fast（旋转窗口用旧 key 重启的
+        明确失败，不静默）；显式配置不在注册表（首启/测试）→ 放行。
+        """
+        if self._configured_key_id is not None:
+            if await self._key_revoked(self._configured_key_id):
+                raise SecretProviderError(
+                    "secret_key_revoked",
+                    f"configured key_id {self._configured_key_id} is revoked",
+                )
+            self._active_key_id = self._configured_key_id
+            self._keyring = {self._configured_key_id: self._master_key}
+            return
+        self._active_key_id = await self._read_active_key_id() or "k1"
+        self._keyring = {self._active_key_id: self._master_key}
+
+    async def _read_active_key_id(self) -> str | None:
+        async with self._engine.connect() as conn:
+            row: Any = await conn.execute(
+                select(secret_master_keys.c.key_id)
+                .where(secret_master_keys.c.revoked_at.is_(None))
+                .order_by(secret_master_keys.c.created_at.desc())
+                .limit(1)
+            )
+        active = row.scalar_one_or_none()
+        return str(active) if active is not None else None
+
+    async def _key_revoked(self, key_id: str) -> bool:
+        async with self._engine.connect() as conn:
+            row: Any = await conn.execute(
+                select(secret_master_keys.c.revoked_at).where(
+                    secret_master_keys.c.key_id == key_id
+                )
+            )
+        revoked_at = row.scalar_one_or_none()
+        return revoked_at is not None
 
     # ---- SPI（与 LocalEncryptedSecretStore 同形；audit 参数可选，规则 24）----
 
@@ -210,6 +272,14 @@ class PostgresEncryptedSecretStore:
                 "secret_key_conflict", f"key_id {new_key_id} already exists"
             )
         old_key_id = self._active_key_id
+        if old_key_id not in self._keyring:
+            # review P1-2 缓解：他实例已旋转（本实例未持新 key）→ 明确失败，
+            # 不以 KeyError/错密文静默损坏。
+            raise SecretProviderError(
+                "secret_key_unavailable",
+                f"active key {old_key_id} not held by this instance "
+                "(rotated elsewhere? single-writer rotation + rolling restart required)",
+            )
         now = datetime.now(UTC)
         count = await self._with_deadline(
             self._rotate_master_key(
@@ -232,11 +302,21 @@ class PostgresEncryptedSecretStore:
 
     # ---- 内部实现（deadline 内执行）----
 
+    def _active_key(self) -> bytes:
+        """当前 active key 材料；keyring 未解析（未 initialize）→ 明确失败。"""
+        key = self._keyring.get(self._active_key_id)
+        if key is None:
+            raise SecretProviderError(
+                "secret_key_unavailable",
+                "master key not resolved (initialize required)",
+            )
+        return key
+
     async def _put(self, tenant_id: str, name: str, plaintext: str) -> str:
         version = await self._next_version(tenant_id, name)
         ref = f"secret://{tenant_id}/{name}@{version}"
         nonce = os.urandom(_NONCE_BYTES)
-        ciphertext = AESGCM(self._keyring[self._active_key_id]).encrypt(
+        ciphertext = AESGCM(self._active_key()).encrypt(
             nonce, plaintext.encode("utf-8"), ref.encode()
         )
         async with self._engine.begin() as conn:
@@ -260,7 +340,7 @@ class PostgresEncryptedSecretStore:
         version = await self._next_version(record.tenant_id, record.name)
         new_ref = f"secret://{record.tenant_id}/{record.name}@{version}"
         nonce = os.urandom(_NONCE_BYTES)
-        ciphertext = AESGCM(self._keyring[self._active_key_id]).encrypt(
+        ciphertext = AESGCM(self._active_key()).encrypt(
             nonce, plaintext.encode("utf-8"), new_ref.encode()
         )
         async with self._engine.begin() as conn:
@@ -295,8 +375,9 @@ class PostgresEncryptedSecretStore:
         key = self._keyring.get(record.key_id)
         if key is None:
             raise SecretProviderError(
-                "secret_key_revoked",
-                f"{ref} references revoked key {record.key_id}",
+                "secret_key_unavailable",
+                f"{ref} references key {record.key_id} not held by this instance "
+                "(rotation in progress or master key mismatch)",
             )
         try:
             plaintext = AESGCM(key).decrypt(record.nonce, record.ciphertext, ref.encode())
@@ -353,6 +434,44 @@ class PostgresEncryptedSecretStore:
         old_cipher = AESGCM(self._keyring[old_key_id])
         new_cipher = AESGCM(new_key)
         async with self._engine.begin() as conn:
+            # 注册表（review P1-1）：新 key 登记 + 旧 key revoke 与重加密同事务——
+            # active key_id 事实源原子切换；key_id 已注册 → 拒绝（并发双旋转守护）。
+            existing = (
+                await conn.execute(
+                    select(secret_master_keys.c.key_id).where(
+                        secret_master_keys.c.key_id == new_key_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                raise SecretProviderError(
+                    "secret_key_conflict", f"key_id {new_key_id} already registered"
+                )
+            await conn.execute(
+                insert(secret_master_keys).values(
+                    key_id=new_key_id, created_at=now, revoked_at=None
+                )
+            )
+            registered_old = (
+                await conn.execute(
+                    select(secret_master_keys.c.key_id).where(
+                        secret_master_keys.c.key_id == old_key_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if registered_old is None:
+                # 首次旋转（旧 key 未登记过）：补登记并立即 revoke，注册表完整
+                await conn.execute(
+                    insert(secret_master_keys).values(
+                        key_id=old_key_id, created_at=now, revoked_at=now
+                    )
+                )
+            else:
+                await conn.execute(
+                    update(secret_master_keys)
+                    .where(secret_master_keys.c.key_id == old_key_id)
+                    .values(revoked_at=now)
+                )
             rows = (
                 await conn.execute(
                     select(secret_credentials).where(

@@ -141,7 +141,9 @@ class TestS02SecretCredentialsContract:
         revoke 旧 key；rotate 后旧密文（新 key 下）仍可解。"""
         eng, _kind = engine
         old_key = _master_key()
-        store = await _make_store(eng, old_key, key_id="k-old")
+        # PG 契约门禁共享库表且注册表持久——key_id 取唯一值避免跨用例/跨运行残留
+        old_id, new_id = _unique("k-old"), _unique("k-new")
+        store = await _make_store(eng, old_key, key_id=old_id)
         tenant = _unique("tenant")
         n1, n2 = _unique("alpha"), _unique("beta")
 
@@ -150,7 +152,7 @@ class TestS02SecretCredentialsContract:
 
         new_key = _master_key()
         count = await store.rotate_master_key(
-            new_key_id="k-new",
+            new_key_id=new_id,
             new_key=new_key,
             actor_id="admin-1",
             request_id="req-rot-1",
@@ -158,8 +160,8 @@ class TestS02SecretCredentialsContract:
         assert count == 2
 
         # 旧 key 已 revoke：用旧 key 的 key_id 加密不可再发生（keyring 移除）
-        assert store.active_key_id == "k-new"
-        assert "k-old" not in store.keyring
+        assert store.active_key_id == new_id
+        assert old_id not in store.keyring
 
         # rotate 后所有密文可解（key_id/cipher_version 已更新）
         assert (await store.resolve(ref1)).value == "alpha-secret"
@@ -174,7 +176,7 @@ class TestS02SecretCredentialsContract:
                     )
                 )
             ).fetchall()
-        assert {row.key_id for row in rows} == {"k-new"}
+        assert {row.key_id for row in rows} == {new_id}
         assert all(row.cipher_version == "aes-256-gcm-v1" for row in rows)
         assert all(row.rotated_at is not None for row in rows)
 
@@ -188,8 +190,62 @@ class TestS02SecretCredentialsContract:
         assert any(row.request_id == "req-rot-1" and row.tenant_id == tenant for row in audit_row)
 
         # 重启后新 store（新 key）仍可解
-        rebuilt = await _make_store(eng, new_key, key_id="k-new")
+        rebuilt = await _make_store(eng, new_key, key_id=new_id)
         assert (await rebuilt.resolve(ref1)).value == "alpha-secret"
+
+    async def test_master_key_rotation_survives_restart_via_registry(
+        self, engine: tuple[AsyncEngine, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """review P1-1：旋转后重启（env 换新 key 材料、不传 key_id）→ 注册表
+        active 行绑定 env 材料，既有 secret 仍可解——此前 key_id 无持久化事实源，
+        from_env 默认 k1 → 重启后全量 secret_key_revoked 失效。"""
+        from fluxion.registry.schema import secret_master_keys
+
+        eng, _kind = engine
+        old_key = _master_key()
+        # PG 契约门禁各用例共享库表——key_id 取唯一值避免注册表跨用例残留
+        old_id, new_id = _unique("k-old"), _unique("k-next")
+        store = await _make_store(eng, old_key, key_id=old_id)
+        tenant = _unique("tenant")
+        name = _unique("secret")
+        ref = await store.put(tenant, name, "rotation-secret")
+
+        new_key = _master_key()
+        await store.rotate_master_key(
+            new_key_id=new_id,
+            new_key=new_key,
+            actor_id="admin-p11",
+            request_id="req-p11",
+        )
+
+        # 注册表事实源：k-next 登记 active、k-old revoke（与重加密同事务）
+        async with eng.connect() as conn:
+            rows = {
+                row.key_id: row.revoked_at
+                for row in (
+                    await conn.execute(select(secret_master_keys))
+                ).fetchall()
+            }
+        assert rows.get(new_id) is None
+        assert rows.get(old_id) is not None
+
+        # 运维重启：env 换新 key 材料，不传 key_id
+        monkeypatch.setenv(
+            "FLUXION_SECRET_MASTER_KEY", base64.b64encode(new_key).decode()
+        )
+        monkeypatch.delenv("FLUXION_SECRET_MASTER_KEY_ID", raising=False)
+        restarted = PostgresEncryptedSecretStore.from_env(engine=eng)
+        await restarted.initialize()
+        assert restarted.active_key_id == new_id
+        assert (await restarted.resolve(ref)).value == "rotation-secret"
+
+        # 显式配置已 revoke 的旧 key_id 重启 → fail-fast（旋转窗口明确失败）
+        stale = PostgresEncryptedSecretStore.from_env(engine=eng, key_id=old_id)
+        from fluxion.runtime.secrets import SecretProviderError
+
+        with pytest.raises(SecretProviderError) as excinfo:
+            await stale.initialize()
+        assert excinfo.value.code == "secret_key_revoked"
 
     async def test_revoke_rejects_resolve(
         self, engine: tuple[AsyncEngine, str]

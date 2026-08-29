@@ -422,8 +422,23 @@ class ConsoleResourceOps:
         gate 未配置（service 无 ReleaseGateService）→ fail-closed 阻断；
         blocked → ConsoleReleaseGateBlockedError（envelope 带 score_delta 诊断，
         决策留档由 ReleaseGateService 写 AuditLog）。
+
+        review P1-7：``release_gate_enforced=True`` 时 gate 从 opt-in 变强制
+        策略——不带 gate 参数的 publish 同样 fail-closed 阻断（生产装配开启）。
         """
         if request.gate is None:
+            if getattr(self, "_release_gate_enforced", False):
+                raise ConsoleReleaseGateBlockedError(
+                    GateDecision(
+                        release_id=f"{request.kind.value}/{request.resource_id}@{request.version}",
+                        tenant_id=request.tenant_id,
+                        blocked=True,
+                        score_delta=None,
+                        reason="Release Gate 强制启用：publish 请求必须携带 gate 参数（基线不可用请先跑 EvalRun）",
+                        candidate_run_id=None,
+                        baseline_run_id=None,
+                    )
+                )
             return
         gate = getattr(self, "_release_gate", None)
         if gate is None:

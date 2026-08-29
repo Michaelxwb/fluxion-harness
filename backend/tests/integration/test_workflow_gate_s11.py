@@ -239,7 +239,8 @@ async def test_workflow_gate_s11_get_run_returns_projection() -> None:
             assert data_ok["run_id"] == run_ok
             assert data_ok["status"] == "succeeded"
             assert data_ok["workflow_id"] == PIN_FLOW_ID
-            assert data_ok["workflow_version"] == 1
+            # review P1-5：wire 契约 string（前端 requiredString）
+            assert data_ok["workflow_version"] == "1"
             assert data_ok["pinned_refs"][0] == {
                 "kind": "workflow",
                 "id": PIN_FLOW_ID,

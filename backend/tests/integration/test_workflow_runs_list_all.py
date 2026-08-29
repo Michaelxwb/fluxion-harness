@@ -100,6 +100,10 @@ async def test_s12_list_all_runs_paginated_tenant_scoped(store: SQLiteRegistrySt
     # 跨工作流：items 覆盖 flow-x 与 flow-y
     workflow_ids = {item["workflow_id"] for item in data["items"]}
     assert workflow_ids == {"flow-x", "flow-y"}
+    # review P1-5：workflow_version wire 契约为 string（前端 requiredString）
+    assert all(
+        isinstance(item["workflow_version"], str) for item in data["items"]
+    ), "workflow_version 必须以 string 上 wire"
 
     assert page2.status_code == 200
     data2 = page2.json()["data"]

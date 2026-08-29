@@ -70,23 +70,37 @@ class DurableTaskStore:
     async def enqueue(
         self, task_id: str, tenant_id: str, payload: dict[str, object]
     ) -> DurableTask:
-        """入队（task_id 幂等：已存在 → 返回既有任务，不重复入队）。"""
-        async with self._engine.begin() as conn:
-            existing = await conn.execute(
-                select(durable_task).where(durable_task.c.task_id == task_id)
-            )
-            row = existing.fetchone()
-            if row is not None:
-                return _to_task(row)
-            await conn.execute(
-                insert(durable_task).values(
-                    task_id=task_id,
-                    tenant_id=tenant_id,
-                    payload=payload,
-                    status=STATUS_PENDING,
-                    attempts=0,
+        """入队（task_id 幂等：已存在 → 返回既有任务，不重复入队）。
+
+        review P2：并发 enqueue 同一 task_id 时 SELECT-then-INSERT 竞态 → 后写方
+        PK 冲突（IntegrityError）。捕获后回读返回既有任务——幂等语义闭环，
+        不把竞态当存储错误上抛。
+        """
+        from sqlalchemy.exc import IntegrityError
+
+        try:
+            async with self._engine.begin() as conn:
+                existing = await conn.execute(
+                    select(durable_task).where(durable_task.c.task_id == task_id)
                 )
-            )
+                row = existing.fetchone()
+                if row is not None:
+                    return _to_task(row)
+                await conn.execute(
+                    insert(durable_task).values(
+                        task_id=task_id,
+                        tenant_id=tenant_id,
+                        payload=payload,
+                        status=STATUS_PENDING,
+                        attempts=0,
+                    )
+                )
+        except IntegrityError:
+            # 并发双写败者：回读既有任务（幂等）
+            task = await self.get(task_id)
+            if task is not None:
+                return task
+            raise DurableTaskError(f"enqueue 竞态后任务不可见: {task_id}") from None
         task = await self.get(task_id)
         if task is None:
             raise DurableTaskError(f"enqueue 后任务不可见: {task_id}")

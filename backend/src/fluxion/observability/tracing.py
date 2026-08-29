@@ -81,7 +81,9 @@ async def traced_scope(
       与 execution_id ContextVar，存在才挂）；
     - attributes 经 `observability/redaction.py` 脱敏（Secret 明文不进 span，
       RISK-P5-03）；容器值 JSON 序列化（OTel span attribute 仅接受标量）；
-    - 异常：record_exception + Status(ERROR) 后原样上抛（异常不吞）。
+    - 异常：span 仅记录异常**类型**事件 + Status(ERROR)（review P1-3——异常
+      message/stacktrace 无法证明脱敏完备，rule 17 下不进 span；完整详情保留
+      在结构化错误日志与 AuditLog），原样上抛（异常不吞）。
     """
     tracer = get_tracer(_SERVICE_NAME)
     span = tracer.start_span(name, kind=kind)
@@ -91,11 +93,17 @@ async def traced_scope(
         for attr_key, attr_value in _span_attribute_values(redact_mapping(attributes)).items():
             span.set_attribute(attr_key, attr_value)
     try:
-        with trace.use_span(span, end_on_exit=False):
+        with trace.use_span(
+            span,
+            end_on_exit=False,
+            # review P1-3：SDK 默认自动 record_exception（str(exc)+stacktrace
+            # 未经 redaction 进 events/status）——关闭，统一走下方类型化记录。
+            record_exception=False,
+            set_status_on_exception=False,
+        ):
             yield span
     except Exception as exc:
-        span.record_exception(exc)
-        span.set_status(Status(StatusCode.ERROR, str(exc)))
+        _record_sanitized_exception(span, exc)
         raise
     finally:
         span.end()
@@ -113,7 +121,8 @@ def traced_span(
     线程上下文运行，ContextVar 不保证传播——workflow 侧经 `correlation` 显式
     传入 run_meta 中的关联字段）。
 
-    语义与 traced_scope 一致：关联字段 + redaction 脱敏 + 异常 record/ERROR 不吞。
+    语义与 traced_scope 一致：关联字段 + redaction 脱敏 + 异常类型化记录/ERROR
+    不吞（review P1-3 同修：不写 str(exc)/stacktrace 进 span）。
     """
     tracer = get_tracer(_SERVICE_NAME)
     span = tracer.start_span(name, kind=kind)
@@ -124,14 +133,29 @@ def traced_span(
         for attr_key, attr_value in _span_attribute_values(redact_mapping(attributes)).items():
             span.set_attribute(attr_key, attr_value)
     try:
-        with trace.use_span(span, end_on_exit=False):
+        with trace.use_span(
+            span,
+            end_on_exit=False,
+            record_exception=False,
+            set_status_on_exception=False,
+        ):
             yield span
     except Exception as exc:
-        span.record_exception(exc)
-        span.set_status(Status(StatusCode.ERROR, str(exc)))
+        _record_sanitized_exception(span, exc)
         raise
     finally:
         span.end()
+
+
+def _record_sanitized_exception(span: Span, exc: Exception) -> None:
+    """异常类型化记录（review P1-3）：仅 type 名进 event 与 status description。
+
+    异常 message 可能内嵌 Secret 明文且无法证明脱敏完备（rule 17：Secret 不进
+    Trace）——完整 message/stacktrace 保留在结构化错误日志（emit_error_log）与
+    上抛路径；span 侧只留可观测失败的类型事实。
+    """
+    span.add_event("exception", {"exception.type": type(exc).__name__})
+    span.set_status(Status(StatusCode.ERROR, type(exc).__name__))
 
 
 def _correlation_attributes() -> dict[str, str]:

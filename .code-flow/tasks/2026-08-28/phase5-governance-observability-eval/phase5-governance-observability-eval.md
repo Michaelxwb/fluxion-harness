@@ -2,7 +2,7 @@
 
 - **Source**: `.code-flow/tasks/2026-08-28/phase5-governance-observability-eval/phase5-governance-observability-eval.design.md`
 - **Created**: 2026-08-28
-- **Updated**: 2026-08-29（v1.0：TASK-001..014 全部完成并 verified——Phase 5 收官：P0 主干（Artifact/Secret 生产 provider、安全门禁、Eval+ReleaseGate、traced_scope+O501-O506 埋点）+ durable_task 契约 + Operations/Runs/User360 遗留闭合 + Chat Workspace 后端端点（X402-X408）+ 真浏览器 NFR 验收（P95=83.3ms、axe 无 serious/critical）。Gate 四项全闭合）
+- **Updated**: 2026-08-29（v1.1：DeepSeek review 修复批次——7 P1 全修（rotation 注册表/span 异常类型化/流式 execution_id/版本 wire 契约/TASK-005 证据/gate 强制开关）+ P2 选择性修复与 deferred 登记。v1.0：TASK-001..014 全部完成并 verified——Phase 5 收官：P0 主干（Artifact/Secret 生产 provider、安全门禁、Eval+ReleaseGate、traced_scope+O501-O506 埋点）+ durable_task 契约 + Operations/Runs/User360 遗留闭合 + Chat Workspace 后端端点（X402-X408）+ 真浏览器 NFR 验收（P95=83.3ms、axe 无 serious/critical）。Gate 四项全闭合）
 
 ## Proposal
 
@@ -293,11 +293,25 @@ EvalSet 走 resource_definitions 版本化生命周期（draft→publish→版�
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+> 补记（review P1-6 证据纪律修复）：实现期本表遗漏未填（测试真实存在且已运行）。
+> RED 以「模块缺失回放」补验（移除 release_gate.py → collection error）；GREEN 为
+> 2026-08-29 review 修复批次后复跑（7 passed，行号为当前版本）。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-06 | FAIL（回放）: 移除 `services/release_gate.py` → collection error `ModuleNotFoundError`（6 用例全失败） | PASS: `test_s06_regression_blocks_publish` | 基线 score=1.0 / 候选 score=0.0（弱 trace）L212-L215；publish → 409 + code=38_001 + score_delta/回退诊断 L229-L232；阻断后资源保持 DRAFT（未发布）L236-L237 | 真实 SQLite registry + 真实 TraceStore（强弱 trace 注入）+ 真实 RuleBasedEvalExecutor + 真实 HTTP `:publish` 端点（ASGITransport） | verified |
+| S-07 | 同上 | PASS: `test_s07_passing_gate_publishes_and_keeps_runs` | 达标（score 相等）→ 200 L265；publish+gate 耗时 <500ms（NFR-PERF-01 计时断言）L267；资源 PUBLISHED L272；基线/候选 EvalRun 留档 L275 | 同上（真实 EvalRunStore 留档断言） | verified |
+| E-04 | 同上 | PASS: `test_e04_missing_baseline_blocks_with_clear_error` | 基线 run 不存在 → 409 + message 含「基线不可用」L297-L299 | 真实 EvalRunStore（无基线行） | verified |
+| gate 超时 fail-closed | 同上 | PASS: `test_gate_timeout_fails_closed` | 慢评估（sleep 5s）→ 409 + 超时/fail-closed 提示 + elapsed <2s（有界）L339-L341 | 真实 timeout 机制（asyncio.timeout 2s） | verified |
+| 阻断审计 | 同上 | PASS: `test_blocked_decision_audited` | blocked 决策进 AuditLog（request_id 关联）L372 | 真实 audit_logs 表落库 | verified |
+| NFR-PERF-01 | 同上 | PASS: 含于 S-07 计时断言（<500ms） | L267 | publish 管道真实计时（perf_counter） | verified |
+| P1-7 enforcement（review 新增） | FAIL（回放）: 撤销 console_app/console_resources 修复 → `TypeError: unexpected keyword 'release_gate_enforced'` | PASS: `test_enforced_gate_blocks_publish_without_gate_param` | enforced=True 不带 gate 参数 → 409 + 38_001 + 「强制」提示 + 保持 DRAFT L180-L188；默认（不启用）→ 200 既有语义 L195-L200 | 真实 publish 管道 + HTTP | verified |
 
 ### Log
 - [2026-08-28] created (draft)
 - [2026-08-29] started (in-progress)
+- [2026-08-29] completed (done)：S-06/S-07/E-04/超时/审计 verified；ReleaseGateService（compare 复用 + GateDecision score_delta + ≤2s fail-closed + AuditLog 留档）挂 publish 管道；NFR-PERF-01 计时断言 <500ms
+- [2026-08-29] review P1-6 补记：Acceptance Evidence 表补齐（RED 模块缺失回放 + GREEN 复跑 7 passed）；review P1-7：`release_gate_enforced` 强制开关落地（fail-closed，生产装配须开启，dev 默认关闭保持既有发布流）
 
 ---
 
@@ -745,9 +759,9 @@ phase4 X402–X408（Home/Agents/Tasks/Approvals/History/Memory&Profile）全部
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
-| S-15 读 | FAIL: 实现前 `pytest tests/integration/test_workspace_api.py` → collection error `ModuleNotFoundError: No module named 'fluxion.api.workspace'`（3 用例全失败） | PASS: `test_s15_agents_tasks_history_read` | agents 产品模型断言（display_name/capabilities=`["skill:faq@1"]`/available + `runtime_profile_ref`/`model_ref` 不得出现）L288-L297；tasks 统一列表（workflow running progress=33 + chat succeeded）L300-L316；详情 L319-L324；history 双 kind + 倒序 + trace_id L327-L341；tenant scope（tenant-b 空目录/独立会话）L343-L351；鉴权 401（code=46_001）L353-L362 | 真实 PG registry（PostgreSQLRegistryStore，与 DBOS sysdb 同库）+ 真实 HTTP（ASGITransport）+ Bearer token 真实 resolve_chat_access；发布版目录来自真实 resource_definitions | verified |
-| S-15 审批 decide | 同上 collection error | PASS: `test_s15_approvals_decide_real_worker` | 挂起 human_task 列表（approval_id/task_id=run_id/assignee=user:alice/status=pending）L397-L406；POST decision → 200 → worker `RUN_RESULT` → run 详情 status=succeeded + progress=100 L415-L427；队列清空 L429-L431；跨租户 decide → 404 L433-L440 | **端到端真实链**：真实 worker 子进程运行 pin-flow 阻塞在 review（durable checkpoint）→ POST decision 经真实 `DbosWorkspaceSignalSender`（DBOSClient send，durable notifications）→ worker 真实唤醒跑完 → 投影由 worker 写回 | verified |
-| S-15 写路径 | 同上 collection error | PASS: `test_s15_profile_memory_auto_learn_writes` | profile GET→PUT→GET 生效（display_name 新名字）L452-L472；memory list（source=episodic）→ PATCH 纠正 → DELETE → 剩 1 条 L474-L502；auto-learn GET true → PUT false → GET false + `preference_json.learning_enabled` 落库 L509-L527 | 真实 MemoryUserService（PersonalMemoryStore + embedding 重算）+ 真实 UserDomainService（user_profiles 版本化 + user_preferences + AuditLog） | verified |
+| S-15 读 | FAIL: 实现前 `pytest tests/integration/test_workspace_api.py` → collection error `ModuleNotFoundError: No module named 'fluxion.api.workspace'`（3 用例全失败） | PASS: `test_s15_agents_tasks_history_read` | agents 产品模型断言（display_name/capabilities=`["skill:faq@1"]`/available + `runtime_profile_ref`/`model_ref` 不得出现）L371-L380；tasks 统一列表（workflow running progress=33 + chat succeeded）L382-L398；详情 L400-L406；history 双 kind + 倒序 + trace_id L408-L417；tenant scope（tenant-b 空目录/独立会话）L419-L426；鉴权 401（code=46_001）L428-L438 | 真实 PG registry（PostgreSQLRegistryStore，与 DBOS sysdb 同库）+ 真实 HTTP（ASGITransport）+ Bearer token 真实 resolve_chat_access；发布版目录来自真实 resource_definitions | verified |
+| S-15 审批 decide | 同上 collection error | PASS: `test_s15_approvals_decide_real_worker` | 挂起 human_task 列表（approval_id/task_id=run_id/assignee=user:alice/status=pending）L449-L459；POST decision → 200 → worker `RUN_RESULT` → run 详情 status=succeeded + progress=100 L461-L479；队列清空 L481-L482；跨租户 decide → 404 L484-L490 | **端到端真实链**：真实 worker 子进程运行 pin-flow 阻塞在 review（durable checkpoint）→ POST decision 经真实 `DbosWorkspaceSignalSender`（DBOSClient send，durable notifications）→ worker 真实唤醒跑完 → 投影由 worker 写回 | verified |
+| S-15 写路径 | 同上 collection error | PASS: `test_s15_profile_memory_auto_learn_writes` | profile GET→PUT→GET 生效（display_name 新名字）L505-L525；memory list（source=episodic）→ PATCH 纠正 → DELETE → 剩 1 条 L527-L555；auto-learn GET true → PUT false → GET false + `preference_json.learning_enabled` 落库 L557-L580 | 真实 MemoryUserService（PersonalMemoryStore + embedding 重算）+ 真实 UserDomainService（user_profiles 版本化 + user_preferences + AuditLog） | verified |
 
 **Spec verifier 结果**：
 - `RULE-fluxion-console-api-001`：全部端点经 `success`/`failure` 统一 envelope（`{code,message,data,request_id}`），错误码集中 `errors/console.py`（46xxx Workspace 段），Handler 零手写响应结构；`RequestContextMiddleware` 挂接（require_identity=False——鉴权在 Bearer 层）
@@ -760,3 +774,40 @@ phase4 X402–X408（Home/Agents/Tasks/Approvals/History/Memory&Profile）全部
 - [2026-08-29] created (draft)：phase5 扫描未覆盖登记（Chat Workspace 后端端点，后端无 `/workspace` 路由）
 - [2026-08-29] started (in-progress)：spec context refresh 通过（missing=0）、session spec 生成（3 required rules）
 - [2026-08-29] completed (done)：S-15 verified（3 用例：读路径/审批 decide 真实 worker 端到端/写路径）；`WorkspaceApplicationService` + `DbosWorkspaceSignalSender`（DBOSClient 免 launch）+ `/api/v1/workspace/*` 12 路由 + dev bundle 挂载；httpChatApi ⛳ 注解更新（端点已就绪）
+
+---
+
+## Review 修复批次（2026-08-29 DeepSeek 深度 review：7 P1 全修 + P2 选择性修复）
+
+### P1（全修，均含 RED 回放）
+
+| 项 | 修复 | 验证 |
+|----|------|------|
+| P1-1 Secret rotation 重启失效 | `secret_master_keys` 注册表（schema.py）：rotate 与重加密**同事务**登记新 key/revoke 旧 key——active key_id 持久化事实源；`from_env`/`initialize` 按注册表 active 行绑定 env 密钥材料（顺序：显式参数 > `FLUXION_SECRET_MASTER_KEY_ID` env > 注册表 > "k1"） | `test_master_key_rotation_survives_restart_via_registry`（双库）：旋转后重启不传 key_id → resolve 成功；显式配置已 revoke 旧 key → fail-fast；RED 回放（撤销修复 → ImportError） |
+| P1-2 多实例旋转盲区 | 缓解（key 分发超出 V2.2「不引 Vault」范围）：注册表 DB 级唯一键守护并发双旋转（同 new_key_id → `secret_key_conflict`）；本实例未持 active key → `secret_key_unavailable` 明确失败（不再 KeyError/误报 revoked）；模块注释固化「单写者旋转 + 滚动重启」运维约束 | 同上 + `secret_key_unavailable` 错误路径 |
+| P1-3 span 异常明文 + 双记录 | `use_span(record_exception=False, set_status_on_exception=False)`（关 SDK 自动双写）；异常只记录**类型**事件 + status description=类型名（message 无法证明脱敏完备，rule 17 下不进 span；完整详情留结构化错误日志/AuditLog） | E-01 门禁新增 events/status 面：`test_trace_face_exception_events_no_plaintext`（marker 异常 → events/status 无明文 + 单事件）；RED 回放 |
+| P1-4 流式主路径缺 execution_id | `runtime_app.stream()` bind execution_id + `runtime.execution` span（mode=stream）——Chat Channel 正式入口与非流式 run() 对齐 | `test_stream_path_spans_carry_four_correlation_fields`：流式全链路 span 四字段齐 + mode=stream 断言；RED 回放（撤销 → 断言失败） |
+| P1-5 workflow_version 契约断裂 | API 层序列化收口：`_run_payload` 返回 `str(workflow_version)`（DB 内部 int 不变；前端 requiredString / in-memory fixture "v1" 均为 string） | S-11 断言改 `"1"` + list-all 增 string 类型断言；RED 回放 |
+| P1-6 TASK-005 证据缺失 | Acceptance Evidence 表补齐（见 TASK-005 段：RED 模块缺失回放 + GREEN 复跑 7 passed + 断言行号） | `test_release_gate.py` 全量复跑 |
+| P1-7 Eval Gate opt-in | `release_gate_enforced` 强制开关（ConsoleApplicationService）：True 时不带 gate 参数的 publish fail-closed 阻断（38_001 + 「强制」提示）；dev 默认 False 保持既有发布流——**生产装配必须开启**（生产装配方尚未落地，见 deferred） | `test_enforced_gate_blocks_publish_without_gate_param`（阻断 + 默认语义对照）；RED 回放 |
+
+### P2（本轮修复）
+
+- workspace_app.py 573 行超 500 预算 → 拆出纯视图层 `services/workspace_views.py`（459 + 143 行，tests 3 passed + ruff/mypy clean）
+- durable_task 并发 enqueue 同 task_id 竞态（PK 冲突裸抛）→ IntegrityError 捕获回读，幂等语义闭环（8 passed）
+- a11y `aria-valid-attr-value` 豁免过宽（泛匹配 "semi-select" 子串）→ 收窄为 `class="semi-select` 前缀（chat-nfr 2 passed）
+- S-15 证据断言行号失配（ruff import 重排偏移 ~80 行）→ 行号全部修正
+- 前端陈旧 ⛳/in-memory 注释清理（chat types/MemoryProfilePage/inMemoryChatApi/console types——queues/workers/workspace 端点已落地）
+
+### P2（登记 deferred，含理由）
+
+- Artifact：SHA256 读路径校验、delete 语义两 provider 统一、`artifact://` grammar 收紧、`(tenant,ns,key,version)` 唯一约束+版本原子性、软删旧版本回收、SPI 签名 resolve 形态、audit 与主操作原子性、生产装配点 → 随首个生产装配（phase6）一并处理
+- Secret/Artifact 生产装配点缺失（仅测试接线）→ 生产装配方属部署阶段工作
+- Observability：O506 DB/Redis span 仅 get/put、O505 无 DBOS 全流程 E2E、workflow.step 缺 request_id、HTTP span 名高基数、EvalRunStore 仅内存 → 性能/覆盖增强项
+- Operations service dev_bundle 未接线（无 sysdb → 空数据契约稳定，诚实降级已文档化）
+- test_workspace_api 间歇 flake（本机复跑 4 次未见复发，观察中）；E-03 ≥99% 为机制保证非生产采样（无生产部署）；重集成测试无 skip-if-unavailable（CI 可移植性）
+- **有据反驳**：「rotate 不进 AuditLog」与代码不符——`_rotate_master_key` 在重加密同事务内按 tenant 写 `secret.rotate_master_key` 审计（postgres.py，S-02 测试断言覆盖）
+
+### 回归（修复批次后全量）
+
+contract 双库 43+81 passed；integration（secret_governance/span_correlation/release_gate/workspace/runs list-all/S-11/eval/api）67 passed；unit traced_scope + channel 50 passed；chat vitest 74 passed + tsc clean；console tsc clean；chat-nfr Playwright 2 passed

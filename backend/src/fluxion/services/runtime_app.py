@@ -327,17 +327,32 @@ class RuntimeApplicationService(RuntimeToolOps):
             reset_execution_id(execution_token)
 
     async def stream(self, request: RunRuntimeRequest) -> AsyncIterator[RuntimeStreamEvent]:
-        yield RuntimeStreamEvent(
-            event="started",
-            data={
-                "request_id": request.request_id,
-                "execution_id": request.execution_id,
-                "runtime_profile_id": request.runtime_profile_id,
-                "version_selector": request.runtime_profile_version_selector,
-            },
-        )
-        async for event in self._stream_tokens_or_fallback(request):
-            yield event
+        # review P1-4：流式主路径（Chat Channel 正式入口）此前不 bind
+        # execution_id、无 runtime.execution span → 流式执行中嵌套 Model/Tool
+        # span 缺 fluxion.execution_id（E-03 四字段门禁在主 Chat 路径不达标）。
+        # 与 run() 对齐：ContextVar 绑定 + O502 span（mode=stream 标记）。
+        execution_token = bind_execution_id(request.execution_id)
+        try:
+            async with traced_scope(
+                "runtime.execution",
+                attributes={
+                    "fluxion.runtime_profile_id": request.runtime_profile_id,
+                    "fluxion.execution.mode": "stream",
+                },
+            ):
+                yield RuntimeStreamEvent(
+                    event="started",
+                    data={
+                        "request_id": request.request_id,
+                        "execution_id": request.execution_id,
+                        "runtime_profile_id": request.runtime_profile_id,
+                        "version_selector": request.runtime_profile_version_selector,
+                    },
+                )
+                async for event in self._stream_tokens_or_fallback(request):
+                    yield event
+        finally:
+            reset_execution_id(execution_token)
 
     async def _stream_tokens_or_fallback(
         self, request: RunRuntimeRequest

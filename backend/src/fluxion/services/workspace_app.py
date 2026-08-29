@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from datetime import datetime
 from typing import Any, Protocol, cast
 
 from sqlalchemy import select
@@ -34,6 +33,19 @@ from fluxion.memory.application.memory_user_service import MemoryUserService
 from fluxion.registry.schema import session_memory, workflow_run
 from fluxion.registry.sqlalchemy_store import SQLAlchemyRegistryStore
 from fluxion.resources import ResourceKind
+from fluxion.services.workspace_views import (
+    chat_task,
+    completed_node_ids,
+    definition_steps,
+    entry_id,
+    find_human_task_node,
+    iso,
+    memory_wire,
+    profile_wire,
+    run_status_summary,
+    truncate,
+    workflow_task,
+)
 from fluxion.users.service import UserDomainService
 
 # 列表/时间线上限（读路径有界，防全表扫描放大）。
@@ -41,15 +53,6 @@ _LIST_LIMIT = 50
 # 决策 signal 有界（规则 18：外部调用必须带 deadline）。
 _SIGNAL_TIMEOUT_SECONDS = 5.0
 _SIGNAL_SEND_TIMEOUT_SECONDS = 5.0
-
-_TERMINAL_RUN_STATUSES = {"succeeded", "failed", "cancelled"}
-_RUN_STATUS_SUMMARY = {
-    "running": "运行中",
-    "succeeded": "已完成",
-    "failed": "失败",
-    "cancelled": "已取消",
-}
-
 
 class WorkspaceSignalSender(Protocol):
     """human_task 决策 signal 边界（生产实现：DBOSClient send）。"""
@@ -154,7 +157,7 @@ class WorkspaceApplicationService:
 
     async def list_tasks(self, *, tenant_id: str, user_id: str) -> dict[str, object]:
         items = [
-            self._workflow_task(row, await self._definition_for_row(tenant_id, row))
+            workflow_task(row, await self._definition_for_row(tenant_id, row))
             for row in await self._recent_workflow_runs(tenant_id)
         ]
         items.extend(await self._chat_tasks(tenant_id=tenant_id, user_id=user_id))
@@ -164,7 +167,7 @@ class WorkspaceApplicationService:
     async def get_task(self, *, tenant_id: str, user_id: str, task_id: str) -> dict[str, object]:
         row = await self._store.get_workflow_run(tenant_id=tenant_id, run_id=task_id)
         if row is not None:
-            return self._workflow_task(row, await self._definition_for_row(tenant_id, row))
+            return workflow_task(row, await self._definition_for_row(tenant_id, row))
         chat = await self._chat_task_for_session(
             tenant_id=tenant_id, user_id=user_id, session_id=task_id
         )
@@ -182,8 +185,8 @@ class WorkspaceApplicationService:
                     "entry_id": f"run:{row['run_id']}",
                     "kind": "task",
                     "title": title,
-                    "summary": _RUN_STATUS_SUMMARY.get(str(row["status"]), str(row["status"])),
-                    "at": _iso(row["updated_at"]),
+                    "summary": run_status_summary(str(row["status"])),
+                    "at": iso(row["updated_at"]),
                     "task_id": str(row["run_id"]),
                     "trace_id": str(row["trace_id"]),
                 }
@@ -193,9 +196,9 @@ class WorkspaceApplicationService:
                 {
                     "entry_id": f"chat:{session['session_id']}",
                     "kind": "chat",
-                    "title": _truncate(session["first_content"]),
-                    "summary": _truncate(session["last_content"]),
-                    "at": _iso(session["last_at"]),
+                    "title": truncate(session["first_content"]),
+                    "summary": truncate(session["last_content"]),
+                    "at": iso(session["last_at"]),
                     "conversation_id": str(session["session_id"]),
                 }
             )
@@ -210,8 +213,8 @@ class WorkspaceApplicationService:
             definition = await self._definition_for_row(tenant_id, row)
             if definition is None:
                 continue
-            completed = _completed_node_ids(row)
-            for node in _definition_steps(definition):
+            completed = completed_node_ids(row)
+            for node in definition_steps(definition):
                 if node.get("type") != "human_task":
                     continue
                 node_id = str(node.get("id", ""))
@@ -224,7 +227,7 @@ class WorkspaceApplicationService:
                         "title": str(definition.get("name") or row["workflow_id"]),
                         "message": str(node.get("message", "")),
                         "assignee": str(node.get("assignee", "")),
-                        "created_at": _iso(row["created_at"]),
+                        "created_at": iso(row["created_at"]),
                         "status": "pending",
                     }
                 )
@@ -249,8 +252,8 @@ class WorkspaceApplicationService:
             # tenant scope：他租户 run 与不存在同观感（不泄露存在性）。
             raise ConsoleResourceNotFoundError(f"审批事项不存在: {approval_id}")
         definition = await self._definition_for_row(tenant_id, row)
-        node = _find_human_task_node(definition, node_id) if definition is not None else None
-        if node is None or node_id in _completed_node_ids(row):
+        node = find_human_task_node(definition, node_id) if definition is not None else None
+        if node is None or node_id in completed_node_ids(row):
             raise ConsoleResourceNotFoundError(f"审批事项不存在或已处理: {approval_id}")
         if self._signal_sender is None:
             raise ConsoleError(
@@ -266,7 +269,7 @@ class WorkspaceApplicationService:
 
     async def get_profile(self, *, tenant_id: str, user_id: str) -> dict[str, object]:
         profile_json = await self._profile_json(tenant_id=tenant_id, user_id=user_id)
-        return _profile_wire(user_id, profile_json)
+        return profile_wire(user_id, profile_json)
 
     async def update_profile(
         self,
@@ -290,13 +293,13 @@ class WorkspaceApplicationService:
             actor_id=user_id,
         )
         profile_json = await self._profile_json(tenant_id=tenant_id, user_id=user_id)
-        return _profile_wire(user_id, profile_json)
+        return profile_wire(user_id, profile_json)
 
     # ---- memory（X407：Personal Memory 查看/纠正/删除） ------------------------
 
     async def list_memory(self, *, tenant_id: str, user_id: str) -> dict[str, object]:
         entries = await self._memory.list_entries(tenant_id=tenant_id, user_id=user_id)
-        return {"items": [_memory_wire(entry) for entry in entries]}
+        return {"items": [memory_wire(entry) for entry in entries]}
 
     async def correct_memory(
         self, *, tenant_id: str, user_id: str, memory_id: str, content: str
@@ -304,12 +307,12 @@ class WorkspaceApplicationService:
         entry = await self._memory.correct(
             tenant_id=tenant_id,
             user_id=user_id,
-            entry_id=_entry_id(memory_id),
+            entry_id=entry_id(memory_id),
             content=content,
         )
         if entry is None:
             raise ConsoleResourceNotFoundError(f"记忆不存在: {memory_id}")
-        return _memory_wire(entry)
+        return memory_wire(entry)
 
     async def delete_memory(self, *, tenant_id: str, user_id: str, memory_id: str) -> None:
         entry = next(
@@ -404,34 +407,10 @@ class WorkspaceApplicationService:
                 return definition.spec_json
         return None
 
-    def _workflow_task(self, row: Any, definition: dict[str, object] | None) -> dict[str, object]:
-        status = str(row["status"])
-        progress = 0
-        if status in _TERMINAL_RUN_STATUSES:
-            progress = 100
-        elif definition is not None:
-            steps = _definition_steps(definition)
-            done = sum(
-                1 for node_id in _completed_node_ids(row) if _has_step(steps, node_id)
-            )
-            if steps:
-                progress = int(100 * done / len(steps))
-        title = str(row["workflow_id"])
-        if definition is not None and definition.get("name"):
-            title = str(definition["name"])
-        return {
-            "task_id": str(row["run_id"]),
-            "title": title,
-            "kind": "workflow",
-            "status": status,
-            "progress": progress,
-            "started_at": _iso(row["created_at"]),
-            "updated_at": _iso(row["updated_at"]),
-        }
-
     async def _chat_tasks(self, *, tenant_id: str, user_id: str) -> list[dict[str, object]]:
         return [
-            self._chat_task(session) for session in await self._chat_sessions(tenant_id=tenant_id, user_id=user_id)
+            chat_task(session)
+            for session in await self._chat_sessions(tenant_id=tenant_id, user_id=user_id)
         ]
 
     async def _chat_task_for_session(
@@ -439,20 +418,8 @@ class WorkspaceApplicationService:
     ) -> dict[str, object] | None:
         for session in await self._chat_sessions(tenant_id=tenant_id, user_id=user_id):
             if str(session["session_id"]) == session_id:
-                return self._chat_task(session)
+                return chat_task(session)
         return None
-
-    @staticmethod
-    def _chat_task(session: dict[str, object]) -> dict[str, object]:
-        return {
-            "task_id": str(session["session_id"]),
-            "title": _truncate(session["first_content"]),
-            "kind": "chat",
-            "status": "succeeded",
-            "progress": 100,
-            "started_at": _iso(session["first_at"]),
-            "updated_at": _iso(session["last_at"]),
-        }
 
     async def _chat_sessions(self, *, tenant_id: str, user_id: str) -> list[dict[str, object]]:
         """session_memory（l1）按 session 聚合：首条用户消息 + 末条消息 + 起止时间。"""
@@ -490,84 +457,3 @@ class WorkspaceApplicationService:
                 session["last_content"] = str(row["content"])
                 session["last_at"] = row["created_at"]
         return list(sessions.values())
-
-
-# ---------------------------------------------------------------------------
-# 纯函数辅助
-# ---------------------------------------------------------------------------
-
-
-def _completed_node_ids(row: Any) -> set[str]:
-    """node_states 中已落定（succeeded/skipped/failed）的节点 ID 集合。
-
-    human_task 挂起中的节点不在 node_states（波次完成后才写）——缺位即待审批。
-    """
-    node_states = row["node_states"] or {}
-    if not isinstance(node_states, dict):
-        return set()
-    return {
-        node_id
-        for node_id, state in node_states.items()
-        if isinstance(state, dict) and state.get("status") in ("succeeded", "skipped", "failed")
-    }
-
-
-def _definition_steps(definition: dict[str, object]) -> list[dict[str, object]]:
-    """workflow 定义 steps（spec_json 为 dict[str, object]，过滤出 dict 节点）。"""
-    steps = definition.get("steps")
-    if not isinstance(steps, list):
-        return []
-    return [node for node in steps if isinstance(node, dict)]
-
-
-def _find_human_task_node(
-    definition: dict[str, object], node_id: str
-) -> dict[str, object] | None:
-    for node in _definition_steps(definition):
-        if node.get("type") == "human_task" and str(node.get("id")) == node_id:
-            return node
-    return None
-
-
-def _has_step(steps: list[dict[str, object]], node_id: str) -> bool:
-    return any(str(node.get("id")) == node_id for node in steps)
-
-
-def _entry_id(memory_id: str) -> int:
-    try:
-        return int(memory_id)
-    except ValueError as error:
-        raise ConsoleValidationError(f"memory_id 无效: {memory_id}") from error
-
-
-def _profile_wire(user_id: str, profile_json: dict[str, object]) -> dict[str, object]:
-    wire: dict[str, object] = {
-        "platform_user_id": user_id,
-        "display_name": str(profile_json.get("display_name", "")),
-    }
-    if isinstance(profile_json.get("timezone"), str):
-        wire["timezone"] = profile_json["timezone"]
-    if isinstance(profile_json.get("language"), str):
-        wire["locale"] = profile_json["language"]
-    return wire
-
-
-def _memory_wire(entry: Any) -> dict[str, object]:
-    return {
-        "memory_id": str(entry.id),
-        "content": entry.content,
-        "source": entry.memory_type.value,
-        "created_at": _iso(entry.created_at),
-        "updated_at": _iso(entry.updated_at),
-    }
-
-
-def _iso(value: Any) -> str:
-    if isinstance(value, datetime):
-        return value.isoformat()
-    return str(value)
-
-
-def _truncate(content: object, *, limit: int = 48) -> str:
-    text = str(content)
-    return text if len(text) <= limit else f"{text[:limit]}…"

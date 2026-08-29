@@ -21,8 +21,9 @@ interface InMemoryChatSeed {
 }
 
 /**
- * TASK-001 in-memory ChatApi：workspace/profile/memory 契约先行（⛳依赖缺口）。
- * 审批状态机、学习开关语义与后端 Phase 2/3 契约对齐。
+ * TASK-001 in-memory ChatApi：workspace/profile/memory 契约的测试替身（生产入口
+ * main.tsx 走 httpChatApi；后端 /api/v1/workspace/* 已于 Phase 5 TASK-014 落地）。
+ * 审批状态机、学习开关语义与后端契约对齐。
  */
 export class InMemoryChatApi implements ChatApi {
   readonly runtimeCalls: RuntimeCall[] = [];

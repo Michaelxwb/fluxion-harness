@@ -430,6 +430,20 @@ Index(
     secret_credentials.c.name,
 )
 
+# ---- Master key 注册表（Phase 5 review P1-1 修复）----
+# active key_id 的持久化事实源：rotate_master_key 在重加密同事务内登记新 key、
+# revoke 旧 key——重启后 from_env 无需显式 key_id，按注册表 active 行绑定 env
+# 密钥材料（否则旋转后重启全量 secret 失效）。密钥材料不落库（rule 17 外置 env）；
+# 多实例旋转窗口仍需单写者 + 滚动重启（key 分发超出 V2.2 范围，见 postgres.py
+# 模块注释）。
+secret_master_keys = Table(
+    "secret_master_keys",
+    metadata,
+    Column("key_id", String(128), primary_key=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("revoked_at", DateTime(timezone=True), nullable=True),
+)
+
 # ---- DurableTask（Phase 5 TASK-009 / FEAT-P5-06，P1 条件 FEAT）----
 # task_id PK 即幂等键（重复 enqueue 不重复执行，RISK-P5-05）；attempts 有限重试；
 # worker 默认不启动（B-04 开关关闭零副作用）。V2.2 不引 Event Bus——worker 轮询本表。

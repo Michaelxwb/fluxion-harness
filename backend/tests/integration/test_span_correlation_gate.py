@@ -232,6 +232,83 @@ class TestS04FullExecutionChain:
             assert span.attributes["fluxion.tenant_id"] == tenant_id
             assert span.attributes["fluxion.request_id"] == request_id
 
+    async def test_stream_path_spans_carry_four_correlation_fields(
+        self,
+        exporter: InMemorySpanExporter,
+        tmp_path: Path,
+    ) -> None:
+        """review P1-4：流式主路径（Chat Channel 正式入口）同样 bind
+        execution_id + runtime.execution span——嵌套 Model/Tool span 四关联
+        字段齐全（此前仅非流式 run() 绑定，流式执行缺 fluxion.execution_id）。"""
+        trace_id = _unique_id("trace")
+        request_id = _unique_id("req")
+        tenant_id = _unique_id("tenant")
+        execution_id = _unique_id("exec")
+
+        store = SQLiteRegistryStore(f"sqlite+aiosqlite:///{tmp_path / 'stream.db'}")
+        runtime = RuntimeApplicationService.create_dev_bundle(store)
+        await runtime.initialize()
+        from fluxion.services.runtime_contracts import default_runtime_profile_request
+
+        await runtime.ensure_runtime_profile(
+            default_runtime_profile_request(
+                tenant_id=tenant_id, runtime_profile_id="default"
+            )
+        )
+        try:
+            token = bind_request_context(
+                RequestContext(
+                    request_id=request_id,
+                    trace_id=trace_id,
+                    tenant_id=tenant_id,
+                    actor_id="admin-a",
+                    method="POST",
+                    route="/api/v1/channels/messages:stream",
+                    client_ip="127.0.0.1",
+                    user_agent="pytest",
+                )
+            )
+            try:
+                events: list[str] = []
+                async for event in runtime.stream(
+                    RunRuntimeRequest(
+                        tenant_id=tenant_id,
+                        user_id="user-stream",
+                        runtime_profile_id="default",
+                        session_id="session-stream",
+                        runtime_profile_version_selector=None,
+                        input_message="你好",
+                        tool_calls=(),
+                        request_id=request_id,
+                        trace_id=trace_id,
+                        execution_id=execution_id,
+                    )
+                ):
+                    events.append(event.event)
+            finally:
+                reset_request_context(token)
+        finally:
+            await runtime.close()
+
+        assert "started" in events and "completed" in events, events
+
+        spans = _spans_for(exporter, trace_id)
+        runtime_spans = [span for span in spans if span.name == "runtime.execution"]
+        assert runtime_spans, f"流式路径缺 runtime.execution span：{ {s.name for s in spans} }"
+        assert any(
+            span.attributes.get("fluxion.execution.mode") == "stream"
+            for span in runtime_spans
+        ), "stream 入口的 runtime.execution span 须携带 mode=stream 标记"
+        # 流式执行内产出的全部 span（含嵌套 model/db）四关联字段齐全
+        incomplete = [
+            span.name
+            for span in spans
+            if any(field not in span.attributes for field in _CORRELATION_FIELDS)
+        ]
+        assert not incomplete, f"流式路径 span 缺关联字段：{incomplete[:5]}"
+        for span in spans:
+            assert span.attributes["fluxion.execution_id"] == execution_id
+
     async def test_http_middleware_span(
         self, exporter: InMemorySpanExporter, bound_context: tuple[str, str, str]
     ) -> None:

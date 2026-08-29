@@ -44,7 +44,7 @@ export interface AgentProductFace {
 }
 
 // ---------------------------------------------------------------------------
-// TASK-001：Workspace 契约（⛳依赖缺口端点契约冻结，Phase 2/3 后端就绪后同契约切 HTTP）
+// TASK-001：Workspace 契约（Phase 5 TASK-014 后端 /api/v1/workspace/* 已落地；本组类型即 wire 契约）
 // 端点冻结：GET /api/v1/workspace/agents | /tasks | /tasks/{id} | /approvals
 //           POST /api/v1/workspace/approvals/{id}/decision
 //           GET /api/v1/workspace/history | /profile | /memory

@@ -103,9 +103,10 @@ test.describe("S-14 真浏览器 NFR 验收", () => {
 // 辅助
 // ---------------------------------------------------------------------------
 
-/** Semi Select 根节点判定（class 前缀 semi-select / html 结构含 combobox role）。 */
+/** Semi Select 根节点判定（review P2 收窄：仅 class 属性以 semi-select 开头的
+ *  组件根——泛匹配 "semi-select" 子串会误豁免业务侧含该词的任意节点）。 */
 function isSemiSelectNode(node: { html: string; target: readonly unknown[] }): boolean {
-  return node.html.includes('class="semi-select') || node.html.includes("semi-select");
+  return node.html.includes('class="semi-select');
 }
 
 /** 首屏可交互耗时（ms）：导航起点 → 首页 section 渲染（performance.now 口径）。 */

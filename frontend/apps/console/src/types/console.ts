@@ -441,7 +441,7 @@ export interface WorkflowRunProjection {
   readonly updatedAt: string;
 }
 
-/** ⛳依赖缺口：workflow 队列运营视图（in-memory 先行）。 */
+/** workflow 队列运营视图（Phase 5 TASK-010 后端 /api/v1/operations/queues 已落地）。 */
 export interface WorkflowQueueSummary {
   readonly queueId: string;
   readonly name: string;
@@ -449,7 +449,7 @@ export interface WorkflowQueueSummary {
   readonly workers: number;
 }
 
-/** ⛳依赖缺口：运行 Worker 状态（in-memory 先行）。 */
+/** 运行 Worker 状态（Phase 5 TASK-010 后端 /api/v1/operations/workers 已落地）。 */
 export interface WorkflowWorkerSummary {
   readonly workerId: string;
   readonly status: "running" | "idle" | "stopped";

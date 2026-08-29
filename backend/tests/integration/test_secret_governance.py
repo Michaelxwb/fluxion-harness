@@ -150,6 +150,34 @@ class TestE01LeakGate:
         finally:
             span.end()
 
+    async def test_trace_face_exception_events_no_plaintext(self) -> None:
+        """review P1-3 门禁扩展：异常路径（span events/status description）明文=0。
+
+        携带 secret 明文的异常在 traced_scope 内抛出 → SDK 自动 record_exception
+        已关闭、异常只记录类型 → events 与 status description 不得出现明文；
+        且异常事件不得双写（SDK 自动 + 手动 record 各一条）。
+        """
+        from fluxion.observability.tracing import traced_scope
+
+        span_ref: dict[str, object] = {}
+        with pytest.raises(RuntimeError, match=_E01_MARKER):
+            async with traced_scope("secret.fail") as span:
+                span_ref["span"] = span
+                raise RuntimeError(f"resolve failed: {_E01_MARKER}")
+        span = span_ref["span"]
+        exception_events = [event for event in span.events if event.name == "exception"]
+        # 单事件（无双写）；类型化记录——事件属性与 status description 无明文
+        assert len(exception_events) == 1, "异常事件双写（SDK 自动 + 手动 record）"
+        for event in span.events:
+            for value in event.attributes.values():
+                assert _E01_MARKER not in str(value), (
+                    "span 事件出现 secret 明文（明文=0 门禁失败）"
+                )
+        assert _E01_MARKER not in str(span.status.description or ""), (
+            "status description 出现 secret 明文（明文=0 门禁失败）"
+        )
+        assert exception_events[0].attributes["exception.type"] == "RuntimeError"
+
     def test_spec_face_rejects_plaintext(self) -> None:
         """Resource spec：明文 secret 无法通过 ResourceDefinition 校验（spec 面=0）。"""
         with pytest.raises(ValueError, match="plaintext secret"):

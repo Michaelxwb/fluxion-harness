@@ -156,6 +156,49 @@ async def _create_draft(store: SQLiteRegistryStore, *, version: str) -> None:
 
 
 class TestReleaseGatePublishPipeline:
+    async def test_enforced_gate_blocks_publish_without_gate_param(
+        self, stack: dict[str, object]
+    ) -> None:
+        """review P1-7：enforced=True 时 gate 从 opt-in 变强制策略——不带 gate
+        参数的 publish fail-closed 阻断（生产装配必须开启；此前 request.gate is
+        None 即完全绕过，「Eval 阻断 P0」仅为可选能力）。"""
+        store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
+        gate = ReleaseGateService(
+            stack["evaluation"], audit_sink=store, timeout_seconds=2.0  # type: ignore[arg-type]
+        )
+        enforced = ConsoleApplicationService(
+            store, release_gate=gate, release_gate_enforced=True
+        )
+        app = create_console_app(enforced, dev_mode=DevModeSettings(enabled=True))
+        await _create_draft(store, version="9")
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://console") as client:
+            response = await client.post(
+                "/api/v1/resources/runtime_profile/runtime-main/versions/9:publish",
+                json={},
+            )
+        assert response.status_code == 409, response.text
+        body = response.json()
+        assert body["code"] == 38_001
+        assert "强制" in body["message"]
+        # 阻断后资源仍是 draft（未发布）
+        resource = await store.get(
+            ResourceKind.RUNTIME_PROFILE, "runtime-main", tenant_id="dev", version="9"
+        )
+        assert resource is not None and resource.status is ResourceStatus.DRAFT
+
+        # 对照：未启用 enforcement（默认）→ 不带 gate 参数的 publish 放行（既有语义）
+        legacy = ConsoleApplicationService(store, release_gate=gate)
+        legacy_app = create_console_app(legacy, dev_mode=DevModeSettings(enabled=True))
+        async with AsyncClient(
+            transport=ASGITransport(app=legacy_app), base_url="http://console"
+        ) as client:
+            response = await client.post(
+                "/api/v1/resources/runtime_profile/runtime-main/versions/9:publish",
+                json={},
+            )
+        assert response.status_code == 200, response.text
+
     async def test_s06_regression_blocks_publish(self, stack: dict[str, object]) -> None:
         store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
         evaluation: EvaluationApplicationService = stack["evaluation"]  # type: ignore[assignment]

@@ -88,7 +88,10 @@ def _run_payload(
         "run_id": projection.run_id,
         "status": projection.status,
         "workflow_id": projection.workflow_id,
-        "workflow_version": projection.workflow_version,
+        # review P1-5：wire 契约为 string（前端 requiredString；in-memory fixture
+        # 也是 "v1" 字符串）——DB 内部 int，API 层序列化收口，修复真实投影数据
+        # 下 RunsPage 整卡解析失败。
+        "workflow_version": str(projection.workflow_version),
         "execution_id": projection.execution_id,
         "trace_id": projection.trace_id,
         "pinned_refs": projection.pinned_refs,

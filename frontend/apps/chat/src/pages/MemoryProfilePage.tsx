@@ -52,8 +52,8 @@ export function MemoryProfilePage({ api }: MemoryProfilePageProps) {
     };
   }, [api, reloadKey]);
 
-  // P2（review）：挂载时读取真实学习开关状态（不再首次恒显 true）；⛳ 端点未就绪
-  // 或读取失败容错回退 true，不阻塞页面。
+  // P2（review）：挂载时读取真实学习开关状态（不再首次恒显 true）；读取失败
+  // 容错回退 true，不阻塞页面（端点已就绪：GET /workspace/memory/auto-learn）。
   useEffect(() => {
     let active = true;
     void api
