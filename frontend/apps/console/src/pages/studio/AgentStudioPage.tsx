@@ -1,9 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { Button, Card, Input, Select, Space, Table, Typography } from "@douyinfe/semi-ui";
+import {
+  Banner,
+  Button,
+  Card,
+  Descriptions,
+  Empty,
+  Input,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography
+} from "@douyinfe/semi-ui";
 
 import { PageHeader } from "../../components/PageHeader";
-import type { CapabilitySelection, CapabilitySelectionType, ConsoleApi } from "../../types/console";
+import type {
+  CapabilitySelection,
+  CapabilitySelectionType,
+  ConsoleApi,
+  ResourceVersion
+} from "../../types/console";
 
 interface AgentStudioPageProps {
   readonly api: ConsoleApi;
@@ -112,6 +130,12 @@ export function AgentStudioPage({ api, initialAgentId }: AgentStudioPageProps) {
   const [capabilities, setCapabilities] = useState<readonly CapabilitySelection[]>([]);
   const [memoryPolicyRef, setMemoryPolicyRef] = useState("");
   const [personalizationPolicyRef, setPersonalizationPolicyRef] = useState("");
+  // TASK-017（C402 UX 深化）：版本管理（列表/对比/回滚入口）
+  const [versions, setVersions] = useState<readonly ResourceVersion[] | null>(null);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+  const [versionsReloadKey, setVersionsReloadKey] = useState(0);
+  const [compareTarget, setCompareTarget] = useState<ResourceVersion | null>(null);
+  const [rollbackNotice, setRollbackNotice] = useState<string | null>(null);
 
   useEffect(() => {
     void api.listVisibleResources("model").then((items) => {
@@ -121,6 +145,41 @@ export function AgentStudioPage({ api, initialAgentId }: AgentStudioPageProps) {
       setProfiles(items.map((p) => ({ id: p.resourceId, label: p.displayName || p.resourceId })));
     });
   }, [api]);
+
+  // TASK-017：保存后（或经 initialAgentId 深链）加载版本列表。
+  const versionAgentId = savedAgentId ?? initialAgentId ?? null;
+  useEffect(() => {
+    if (!versionAgentId) {
+      setVersions(null);
+      return;
+    }
+    let active = true;
+    setVersionsError(null);
+    void api
+      .listVersions("agent_definition", versionAgentId, { page: 1, pageSize: 20 })
+      .then((page) => {
+        if (active) setVersions(page.items);
+      })
+      .catch((cause: unknown) => {
+        if (active) {
+          setVersionsError(cause instanceof Error ? cause.message : "未知错误");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, versionAgentId, versionsReloadKey]);
+
+  const rollback = async (target: ResourceVersion) => {
+    if (!versionAgentId) return;
+    try {
+      const result = await api.rollbackVersion(target, target.version);
+      setVersionsReloadKey((key) => key + 1);
+      setRollbackNotice(`已回滚到 ${result.targetVersion}（新版本 ${result.newVersion}）`);
+    } catch (cause) {
+      setRollbackNotice(`回滚失败：${cause instanceof Error ? cause.message : "未知错误"}`);
+    }
+  };
 
   const previewText = useMemo(
     () => [systemPrompt, instructions].filter((v) => v.trim()).join("\n\n"),
@@ -168,6 +227,7 @@ export function AgentStudioPage({ api, initialAgentId }: AgentStudioPageProps) {
     });
     setSavedAgentId(resourceId);
     setSavedNotice("草稿已保存");
+    setRollbackNotice(null);
   };
 
   const runTest = async () => {
@@ -289,16 +349,132 @@ export function AgentStudioPage({ api, initialAgentId }: AgentStudioPageProps) {
         {runError ? (
           <Typography.Text type="danger">试跑失败：{runError}</Typography.Text>
         ) : null}
-        <div data-testid="test-run-output" style={{ marginTop: 8 }}>
+        {/* TASK-017：试跑结果面板（流式输出落面板） */}
+        <div
+          aria-label="试跑结果面板"
+          data-testid="test-run-output"
+          style={{ marginTop: 8, whiteSpace: "pre-wrap" }}
+        >
           {runOutput}
         </div>
       </Card>
 
-      <Card title="能力绑定">
-        <Typography.Text type="tertiary">
-          能力绑定由「构建 → 能力」页统一管理；本页仅展示已绑定数量。
-        </Typography.Text>
+      {/* TASK-017（C402）：能力资产引用展示——typed binding 可视化（type/ref/version 三元组） */}
+      <Card title="能力资产引用">
+        <CapabilityReferences capabilities={capabilities} />
       </Card>
+
+      {/* TASK-017（C402）：版本管理（列表/对比/回滚入口） */}
+      <Card title="版本管理">
+        {rollbackNotice ? <Typography.Text type="success">{rollbackNotice}</Typography.Text> : null}
+        <StudioVersionsPanel
+          agentId={versionAgentId}
+          error={versionsError}
+          onCompare={setCompareTarget}
+          onRetry={() => setVersionsReloadKey((key) => key + 1)}
+          onRollback={(target) => void rollback(target)}
+          versions={versions}
+        />
+      </Card>
+
+      <Modal
+        footer={
+          <Button onClick={() => setCompareTarget(null)}>关闭</Button>
+        }
+        onCancel={() => setCompareTarget(null)}
+        title="版本对比"
+        visible={compareTarget !== null}
+      >
+        <div aria-label="版本对比内容" className="page-stack">
+          <Descriptions row>
+            <Descriptions.Item itemKey="版本">{compareTarget?.version}</Descriptions.Item>
+            <Descriptions.Item itemKey="状态">{compareTarget?.status}</Descriptions.Item>
+            <Descriptions.Item itemKey="更新时间">{compareTarget?.updatedAt}</Descriptions.Item>
+          </Descriptions>
+          <Typography.Text strong>版本 spec</Typography.Text>
+          <pre aria-label="版本 spec JSON" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+            {compareTarget ? JSON.stringify(compareTarget.spec, null, 2) : ""}
+          </pre>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+/** TASK-017：能力资产引用（展示组件：props 只读）。 */
+function CapabilityReferences({
+  capabilities
+}: {
+  readonly capabilities: readonly CapabilitySelection[];
+}) {
+  if (capabilities.length === 0) {
+    return <Empty description="未选择能力" />;
+  }
+  return (
+    <div aria-label="能力资产引用" className="capability-references">
+      {capabilities.map((item) => (
+        <div className="capability-reference" key={`${item.type}:${item.capabilityRef}`}>
+          <Tag color="violet">{item.type}</Tag>
+          <Typography.Text code>{item.capabilityRef}</Typography.Text>
+          <Typography.Text type="tertiary">v{item.versionPin}</Typography.Text>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** TASK-017：版本管理面板（展示组件：列表 + 对比/回滚入口；四态）。 */
+function StudioVersionsPanel(props: {
+  readonly agentId: string | null;
+  readonly versions: readonly ResourceVersion[] | null;
+  readonly error: string | null;
+  readonly onRetry: () => void;
+  readonly onCompare: (version: ResourceVersion) => void;
+  readonly onRollback: (version: ResourceVersion) => void;
+}) {
+  if (props.error !== null) {
+    return (
+      <Banner
+        closeIcon={null}
+        description={
+          <span>
+            {`加载失败：${props.error}`}
+            <Button onClick={props.onRetry} size="small" style={{ marginLeft: 12 }}>
+              重试
+            </Button>
+          </span>
+        }
+        type="danger"
+      />
+    );
+  }
+  if (props.agentId === null || props.versions === null || props.versions.length === 0) {
+    return <Empty description="保存后展示版本" />;
+  }
+  const columns = [
+    { dataIndex: "version", title: "版本" },
+    {
+      render: (_value: unknown, record: ResourceVersion) => <Tag>{record.status}</Tag>,
+      title: "状态"
+    },
+    { dataIndex: "updatedAt", title: "更新时间" },
+    {
+      render: (_value: unknown, record: ResourceVersion) => (
+        <Space>
+          <Button onClick={() => props.onCompare(record)} size="small">
+            对比
+          </Button>
+          <Button onClick={() => props.onRollback(record)} size="small">
+            回滚到此版本
+          </Button>
+        </Space>
+      ),
+      title: "操作"
+    }
+  ];
+  return (
+    <div aria-label="Studio Versions">
+      <Table columns={columns} dataSource={[...props.versions]} pagination={false} rowKey="version" />
     </div>
   );
 }

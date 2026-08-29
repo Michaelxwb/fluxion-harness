@@ -6,7 +6,6 @@ import type {
   ControlPlaneItem,
   CredentialMetadata,
   JsonRecord,
-  JsonValue,
   IssuedChatAccess,
   JsonSchemaNode,
   PageData,
@@ -18,12 +17,20 @@ import type {
   ResourceType,
   ResourceVersion,
   RollbackResult,
+  ConsoleDataSource,
   RunDetail,
   ValidationResult,
-  User360Summary
+  User360Summary,
+  WorkflowDraftV2,
+  WorkflowQueueSummary,
+  WorkflowRunProjection,
+  WorkflowSchemaV2,
+  WorkflowValidationResultV2,
+  WorkflowWorkerSummary
 } from "../types/console";
 import type { P1View } from "../types/navigation";
 import { IN_MEMORY_RESOURCE_SCHEMAS } from "./inMemorySchemas";
+import { validateWorkflowV2, WORKFLOW_V2_SCHEMA } from "./workflowV2";
 
 export interface ConsoleSeed {
   readonly tenantId: string;
@@ -45,6 +52,7 @@ export function createInMemoryConsoleApi(seed: ConsoleSeed = defaultConsoleSeed(
 }
 
 class InMemoryConsoleApi implements ConsoleApi {
+  readonly dataSource: ConsoleDataSource = "in-memory";
   private readonly tenantId: string;
   private readonly actorId: string;
   private resources: ResourceVersion[];
@@ -89,7 +97,9 @@ class InMemoryConsoleApi implements ConsoleApi {
       )
       .map(toSummary)
       .sort((left, right) => left.resourceId.localeCompare(right.resourceId));
-    return page(items, { page: 1, pageSize: items.length || 20 });
+    // P2（review）：后端 page_size ≤ 100（console.py）；in-memory 对齐上限，防 >100 条时
+    // 切 HTTP 后列表静默变少。
+    return page(items, { page: 1, pageSize: Math.min(items.length || 20, 100) });
   }
 
   async getResourceSchema(resourceType: ResourceType): Promise<JsonSchemaNode> {
@@ -160,7 +170,15 @@ class InMemoryConsoleApi implements ConsoleApi {
   async validateDraft(resource: ResourceVersion): Promise<ValidationResult> {
     const current = this.findVersion(resource.resourceType, resource.resourceId, resource.version);
     if (current.resourceType === "workflow") {
-      return validateWorkflow(current.spec, this.capabilities);
+      // TASK-002：V2 九节点判别联合校验（V1 legacy spec 兼容注入 capability）。
+      const result = validateWorkflowV2(
+        current.spec as unknown as WorkflowDraftV2,
+        this.capabilities
+      );
+      return {
+        diagnostics: result.diagnostics.map(formatDiagnostic),
+        valid: result.valid
+      };
     }
     // 对齐后端 validate_resource_version：非 workflow 类型走各 kind 的 pydantic 模型
     // 校验（model_validate），并不统一要求 model/timeout_ms。此前 in-memory 对所有
@@ -330,12 +348,33 @@ class InMemoryConsoleApi implements ConsoleApi {
     if (!this.chatAccessIds.delete(accessId)) throw new Error("chat access not found");
   }
 
+  // ---- TASK-002 workflow V2 契约（in-memory 先行，⛳依赖缺口同契约切 HTTP） ----
+
+  async getWorkflowSchema(): Promise<WorkflowSchemaV2> {
+    return WORKFLOW_V2_SCHEMA;
+  }
+
+  async validateWorkflow(draft: WorkflowDraftV2): Promise<WorkflowValidationResultV2> {
+    return validateWorkflowV2(draft, this.capabilities);
+  }
+
+  async listWorkflowRuns(workflowId?: string): Promise<readonly WorkflowRunProjection[]> {
+    return WORKFLOW_RUNS.filter((run) => workflowId === undefined || run.workflowId === workflowId);
+  }
+
+  async listQueues(): Promise<readonly WorkflowQueueSummary[]> {
+    return WORKFLOW_QUEUES.map((queue) => ({ ...queue }));
+  }
+
+  async listWorkers(): Promise<readonly WorkflowWorkerSummary[]> {
+    return WORKFLOW_WORKERS.map((worker) => ({ ...worker }));
+  }
+
   private createBindingRecord(input: BindingInput): BindingRecord {
     return {
       bindingId: `bind-${this.bindings.length + 1}`,
       credentialRef: input.credentialRef,
       enabled: true,
-      policyId: input.policyId,
       resourceId: input.resourceId,
       resourceType: input.resourceType,
       subjectId: input.subjectId,
@@ -391,33 +430,90 @@ class InMemoryConsoleApi implements ConsoleApi {
   }
 }
 
-function validateWorkflow(spec: JsonRecord, capabilities: ReadonlySet<string>): ValidationResult {
-  if (typeof spec.name !== "string" || !spec.name.trim()) {
-    return invalidWorkflow("name 必须存在");
-  }
-  if (typeof spec.engine_ref !== "string" || !spec.engine_ref.startsWith("workflow-engine://")) {
-    return invalidWorkflow("engine_ref 必须使用 workflow-engine://");
-  }
-  if (!Array.isArray(spec.steps) || spec.steps.length === 0) {
-    return invalidWorkflow("steps 必须是非空数组");
-  }
-  const steps = spec.steps.filter(isJsonRecord);
-  if (steps.length !== spec.steps.length) {
-    return invalidWorkflow("steps 条目必须是对象");
-  }
-  const references = steps.map((step) => step.capability_ref);
-  const invalidRef = references.find(
-    (reference) => typeof reference !== "string" || !capabilities.has(reference)
-  );
-  if (invalidRef !== undefined) {
-    return invalidWorkflow(`Capability ref 不可用: ${String(invalidRef)}`);
-  }
-  return { diagnostics: ["校验通过"], valid: true };
+function formatDiagnostic(
+  diagnostic: WorkflowValidationResultV2["diagnostics"][number]
+): string {
+  return diagnostic.nodeId
+    ? `${diagnostic.nodeId}.${diagnostic.field}: ${diagnostic.message}`
+    : `${diagnostic.field}: ${diagnostic.message}`;
 }
 
-function invalidWorkflow(message: string): ValidationResult {
-  return { diagnostics: [message], valid: false };
-}
+// TASK-002：workflow_run 投影 / 队列 / Worker 运营视图（Phase 3 契约对齐，in-memory 种子）。
+const WORKFLOW_RUNS: readonly WorkflowRunProjection[] = [
+  {
+    runId: "weekly-report:exec-1001",
+    workflowId: "weekly-report",
+    workflowVersion: "v1",
+    executionId: "exec-1001",
+    traceId: "trace-1001",
+    status: "succeeded",
+    nodeStates: {
+      collect: { status: "succeeded" },
+      notify: { status: "succeeded" }
+    },
+    pinnedRefs: [{ id: "weekly-report", kind: "workflow", version: "v1" }],
+    createdAt: "2026-08-28T08:00:00Z",
+    updatedAt: "2026-08-28T08:02:00Z"
+  },
+  {
+    runId: "weekly-report:exec-1002",
+    workflowId: "weekly-report",
+    workflowVersion: "v1",
+    executionId: "exec-1002",
+    traceId: "trace-1002",
+    status: "running",
+    nodeStates: {
+      collect: { status: "succeeded" },
+      review: { status: "running" }
+    },
+    pinnedRefs: [{ id: "weekly-report", kind: "workflow", version: "v1" }],
+    createdAt: "2026-08-29T08:00:00Z",
+    updatedAt: "2026-08-29T08:01:00Z"
+  },
+  {
+    runId: "onboarding:exec-1003",
+    workflowId: "onboarding",
+    workflowVersion: "v2",
+    executionId: "exec-1003",
+    traceId: "trace-1003",
+    status: "failed",
+    nodeStates: {
+      provision: { error: "provider unavailable", status: "failed" }
+    },
+    pinnedRefs: [{ id: "onboarding", kind: "workflow", version: "v2" }],
+    createdAt: "2026-08-27T10:00:00Z",
+    updatedAt: "2026-08-27T10:00:30Z"
+  }
+];
+
+const WORKFLOW_QUEUES: readonly WorkflowQueueSummary[] = [
+  { depth: 3, name: "workflow 主队列", queueId: "workflow-main", workers: 2 },
+  { depth: 0, name: "workflow 低优先级", queueId: "workflow-low", workers: 1 }
+];
+
+const WORKFLOW_WORKERS: readonly WorkflowWorkerSummary[] = [
+  {
+    queues: ["workflow-main"],
+    runningWorkflows: 1,
+    startedAt: "2026-08-29T07:00:00Z",
+    status: "running",
+    workerId: "worker-0"
+  },
+  {
+    queues: ["workflow-main", "workflow-low"],
+    runningWorkflows: 0,
+    startedAt: "2026-08-29T07:00:00Z",
+    status: "idle",
+    workerId: "worker-1"
+  },
+  {
+    queues: [],
+    runningWorkflows: 0,
+    startedAt: "2026-08-28T07:00:00Z",
+    status: "stopped",
+    workerId: "worker-2"
+  }
+];
 
 function p1ViewTitle(view: P1View): string {
   const titles: Record<P1View, string> = {
@@ -428,10 +524,6 @@ function p1ViewTitle(view: P1View): string {
     users_channels: "用户管理"
   };
   return titles[view];
-}
-
-function isJsonRecord(value: JsonValue): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function defaultConsoleSeed(): ConsoleSeed {

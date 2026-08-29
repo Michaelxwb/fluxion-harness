@@ -1,10 +1,12 @@
-import { Banner } from "@douyinfe/semi-ui";
+import { Banner, Button } from "@douyinfe/semi-ui";
 
 interface ErrorBannerProps {
   readonly message: string | null;
+  /** 可选重试入口（TASK-014：运营视图错误态带重试）。 */
+  readonly onRetry?: () => void;
 }
 
-export function ErrorBanner({ message }: ErrorBannerProps) {
+export function ErrorBanner({ message, onRetry }: ErrorBannerProps) {
   if (!message) {
     return null;
   }
@@ -13,7 +15,18 @@ export function ErrorBanner({ message }: ErrorBannerProps) {
     <Banner
       bordered
       closeIcon={null}
-      description={message}
+      description={
+        onRetry ? (
+          <span>
+            {message}
+            <Button onClick={onRetry} size="small" style={{ marginLeft: 12 }}>
+              重试
+            </Button>
+          </span>
+        ) : (
+          message
+        )
+      }
       fullMode={false}
       title="操作未完成"
       type="danger"

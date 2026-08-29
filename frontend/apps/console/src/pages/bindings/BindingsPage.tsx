@@ -89,7 +89,6 @@ export function BindingsPage({ api }: BindingsPageProps) {
     try {
       await api.saveBinding({
         credentialRef: bindCredentialRef,
-        policyId: null,
         resourceId: bindResourceId,
         resourceType: bindType,
         subjectId: bindSubjectId.trim(),
@@ -208,7 +207,6 @@ const bindingColumns = [
   },
   { dataIndex: "subjectId", title: "主体" },
   { dataIndex: "resourceId", title: "资源" },
-  { dataIndex: "policyId", title: "策略" },
   { dataIndex: "credentialRef", title: "凭据引用" },
   {
     render: (_value: unknown, record: BindingRecord) => (

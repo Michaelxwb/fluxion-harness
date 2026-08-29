@@ -6,6 +6,8 @@ import { IconCopy, IconDelete, IconLink, IconPlus } from "@douyinfe/semi-icons";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { ListPager } from "../../components/ListPager";
 import { PageHeader } from "../../components/PageHeader";
+import { User360Header } from "../../components/user360/User360Header";
+import { User360Tabs } from "../../components/user360/User360Tabs";
 import type {
   ConsoleApi,
   User360Summary,
@@ -180,54 +182,8 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
       >
         {view360 ? (
           <div aria-label="User 360" className="page-stack">
-            <Card title="身份">
-              <Descriptions row>
-                <Descriptions.Item itemKey="平台用户">{view360.identity.platform_user_id}</Descriptions.Item>
-                <Descriptions.Item itemKey="显示名">{view360.identity.display_name}</Descriptions.Item>
-                <Descriptions.Item itemKey="渠道数">{view360.identity.channels.length}</Descriptions.Item>
-              </Descriptions>
-            </Card>
-            <Card title="画像">
-              {view360.profile ? (
-                <Descriptions row>
-                  {Object.entries(view360.profile).map(([key, value]) => (
-                    <Descriptions.Item itemKey={key} key={key}>{String(value)}</Descriptions.Item>
-                  ))}
-                </Descriptions>
-              ) : (
-                <Typography.Text type="tertiary">暂无画像</Typography.Text>
-              )}
-            </Card>
-            <Card title="偏好">
-              {view360.preferences ? (
-                <Descriptions row>
-                  {Object.entries(view360.preferences).map(([key, value]) => (
-                    <Descriptions.Item itemKey={key} key={key}>{String(value)}</Descriptions.Item>
-                  ))}
-                </Descriptions>
-              ) : (
-                <Typography.Text type="tertiary">暂无偏好</Typography.Text>
-              )}
-            </Card>
-            <Card title="能力授权">
-              {view360.capabilities.length === 0 ? (
-                <Typography.Text type="tertiary">暂无授权</Typography.Text>
-              ) : (
-                view360.capabilities.map((g: Record<string, unknown>, index: number) => (
-                  <Typography.Text key={index}>{String(g.capability_ref)}</Typography.Text>
-                ))
-              )}
-            </Card>
-            <Card title="策略">
-              {view360.policy.length === 0 ? (
-                <Typography.Text type="tertiary">暂无绑定策略</Typography.Text>
-              ) : (
-                view360.policy.map((b: Record<string, unknown>, index: number) => (
-                  <Typography.Text key={index}>{String(b.resource_id)}</Typography.Text>
-                ))
-              )}
-            </Card>
-            <Typography.Text type="tertiary">活动记录数：{view360.activity_count}</Typography.Text>
+            <User360Header summary={view360} />
+            <User360Tabs summary={view360} />
           </div>
         ) : null}
       </SideSheet>

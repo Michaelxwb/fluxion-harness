@@ -1,7 +1,7 @@
 version: 1
 task: PHASE4-PRODUCT-EXPERIENCE
 enforcement: required
-updated_at: '2026-08-28T03:33:49.912024+00:00'
+updated_at: '2026-08-29T02:54:49.131573+00:00'
 sources:
 - type: cli
   ref: bind
@@ -35,7 +35,7 @@ bindings:
         - artifact: phase4-product-experience.design.md
           section_id: 3.5-data-layer
           item_id: envelope-services
-          artifact_sha256: ee0e73eeed9ffe6a979092dc1f3744c80486a82ad8a8caedf112642bb1e65349
+          artifact_sha256: 0df3311f80450ad6e4ef0587bc8abec065ef3b0e106864b5f5af570a5491c31b
         - artifact: phase4-product-experience.design.md
           section_id: 3.5-state-data-flow
           item_id: service-contract-envelope
@@ -48,12 +48,16 @@ bindings:
         - artifact: phase4-product-experience.md
           section_id: TASK-001
           item_id: chat-service-contract-envelope-plan
-          artifact_sha256: 2c7333534b8c974b22ea6b40948ba6235c18db9b9fb83b11c053f193e514ff99
+          artifact_sha256: 17966d09c662064b395e998a5672827a597e1b3763fbc1d7d0147420319820ce
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase4-product-experience.md
+          section_id: TASK-001
+          item_id: spec-verifier-api-contract
+          artifact_sha256: 045e39530cb027fcb7b9b44d28aa36facf444c5ab3a0604d8f0228103cb179a3
         decision: null
         evidence: []
       review:
@@ -246,7 +250,7 @@ bindings:
         - artifact: phase4-product-experience.design.md
           section_id: 3.2-chat-routes
           item_id: unbound-bind-only
-          artifact_sha256: ee0e73eeed9ffe6a979092dc1f3744c80486a82ad8a8caedf112642bb1e65349
+          artifact_sha256: 0df3311f80450ad6e4ef0587bc8abec065ef3b0e106864b5f5af570a5491c31b
         - artifact: phase4-product-experience.design.md
           section_id: 3.2-page-route-structure
           item_id: workspace-bind-channel
@@ -259,12 +263,16 @@ bindings:
         - artifact: phase4-product-experience.md
           section_id: TASK-003
           item_id: workspace-bind-channel-plan
-          artifact_sha256: 2c7333534b8c974b22ea6b40948ba6235c18db9b9fb83b11c053f193e514ff99
+          artifact_sha256: 17966d09c662064b395e998a5672827a597e1b3763fbc1d7d0147420319820ce
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase4-product-experience.md
+          section_id: TASK-003
+          item_id: spec-verifier-channel
+          artifact_sha256: 045e39530cb027fcb7b9b44d28aa36facf444c5ab3a0604d8f0228103cb179a3
         decision: null
         evidence: []
       review:
@@ -300,7 +308,7 @@ bindings:
         - artifact: phase4-product-experience.design.md
           section_id: 3.6-ui-states
           item_id: four-state
-          artifact_sha256: ee0e73eeed9ffe6a979092dc1f3744c80486a82ad8a8caedf112642bb1e65349
+          artifact_sha256: 0df3311f80450ad6e4ef0587bc8abec065ef3b0e106864b5f5af570a5491c31b
         - artifact: phase4-product-experience.design.md
           section_id: 3.6-ui-state
           item_id: four-state-dfx
@@ -313,12 +321,16 @@ bindings:
         - artifact: phase4-product-experience.md
           section_id: TASK-016
           item_id: four-state-a11y-perf-evidence-plan
-          artifact_sha256: 2c7333534b8c974b22ea6b40948ba6235c18db9b9fb83b11c053f193e514ff99
+          artifact_sha256: 17966d09c662064b395e998a5672827a597e1b3763fbc1d7d0147420319820ce
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase4-product-experience.md
+          section_id: TASK-016
+          item_id: spec-verifier-dfx
+          artifact_sha256: 045e39530cb027fcb7b9b44d28aa36facf444c5ab3a0604d8f0228103cb179a3
         decision: null
         evidence: []
       review:
@@ -355,7 +367,7 @@ bindings:
         - artifact: phase4-product-experience.design.md
           section_id: 2.2-terminology-hiding
           item_id: denylist-stateless
-          artifact_sha256: ee0e73eeed9ffe6a979092dc1f3744c80486a82ad8a8caedf112642bb1e65349
+          artifact_sha256: 0df3311f80450ad6e4ef0587bc8abec065ef3b0e106864b5f5af570a5491c31b
         - artifact: phase4-product-experience.design.md
           section_id: 2.2-feature-plan
           item_id: terminology-denylist
@@ -368,12 +380,16 @@ bindings:
         - artifact: phase4-product-experience.md
           section_id: TASK-015
           item_id: terminology-denylist-plan
-          artifact_sha256: 2c7333534b8c974b22ea6b40948ba6235c18db9b9fb83b11c053f193e514ff99
+          artifact_sha256: 17966d09c662064b395e998a5672827a597e1b3763fbc1d7d0147420319820ce
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase4-product-experience.md
+          section_id: TASK-015
+          item_id: spec-verifier-runtime
+          artifact_sha256: 045e39530cb027fcb7b9b44d28aa36facf444c5ab3a0604d8f0228103cb179a3
         decision: null
         evidence: []
       review:
@@ -409,7 +425,7 @@ bindings:
         - artifact: phase4-product-experience.design.md
           section_id: 3.4-component-contract
           item_id: container-presentation
-          artifact_sha256: ee0e73eeed9ffe6a979092dc1f3744c80486a82ad8a8caedf112642bb1e65349
+          artifact_sha256: 0df3311f80450ad6e4ef0587bc8abec065ef3b0e106864b5f5af570a5491c31b
         - artifact: phase4-product-experience.design.md
           section_id: 3.4-component-contract
           item_id: container-presentational
@@ -422,12 +438,16 @@ bindings:
         - artifact: phase4-product-experience.md
           section_id: TASK-012
           item_id: component-contract-container-presentational-plan
-          artifact_sha256: 2c7333534b8c974b22ea6b40948ba6235c18db9b9fb83b11c053f193e514ff99
+          artifact_sha256: 17966d09c662064b395e998a5672827a597e1b3763fbc1d7d0147420319820ce
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase4-product-experience.md
+          section_id: TASK-012
+          item_id: spec-verifier-component
+          artifact_sha256: 045e39530cb027fcb7b9b44d28aa36facf444c5ab3a0604d8f0228103cb179a3
         decision: null
         evidence: []
       review:
@@ -593,7 +613,7 @@ bindings:
         - artifact: phase4-product-experience.design.md
           section_id: 3.2-routes
           item_id: pages-dir
-          artifact_sha256: ee0e73eeed9ffe6a979092dc1f3744c80486a82ad8a8caedf112642bb1e65349
+          artifact_sha256: 0df3311f80450ad6e4ef0587bc8abec065ef3b0e106864b5f5af570a5491c31b
         - artifact: phase4-product-experience.design.md
           section_id: 3.2-page-route-structure
           item_id: pages-components-placement
@@ -606,12 +626,16 @@ bindings:
         - artifact: phase4-product-experience.md
           section_id: TASK-004
           item_id: console-router-directory-plan
-          artifact_sha256: 2c7333534b8c974b22ea6b40948ba6235c18db9b9fb83b11c053f193e514ff99
+          artifact_sha256: 17966d09c662064b395e998a5672827a597e1b3763fbc1d7d0147420319820ce
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase4-product-experience.md
+          section_id: TASK-004
+          item_id: spec-verifier-directory
+          artifact_sha256: 045e39530cb027fcb7b9b44d28aa36facf444c5ab3a0604d8f0228103cb179a3
         decision: null
         evidence: []
       review:
@@ -751,7 +775,7 @@ bindings:
         - artifact: phase4-product-experience.design.md
           section_id: 3.5-data-layer
           item_id: no-bare-fetch-quality
-          artifact_sha256: ee0e73eeed9ffe6a979092dc1f3744c80486a82ad8a8caedf112642bb1e65349
+          artifact_sha256: 0df3311f80450ad6e4ef0587bc8abec065ef3b0e106864b5f5af570a5491c31b
         - artifact: phase4-product-experience.design.md
           section_id: 3.5-state-data-flow
           item_id: no-bare-fetch
@@ -764,12 +788,16 @@ bindings:
         - artifact: phase4-product-experience.md
           section_id: TASK-016
           item_id: journey-quality-gate-plan
-          artifact_sha256: 2c7333534b8c974b22ea6b40948ba6235c18db9b9fb83b11c053f193e514ff99
+          artifact_sha256: 17966d09c662064b395e998a5672827a597e1b3763fbc1d7d0147420319820ce
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase4-product-experience.md
+          section_id: TASK-016
+          item_id: spec-verifier-quality
+          artifact_sha256: 045e39530cb027fcb7b9b44d28aa36facf444c5ab3a0604d8f0228103cb179a3
         decision: null
         evidence: []
       review:
@@ -909,7 +937,7 @@ bindings:
         - artifact: phase4-product-experience.design.md
           section_id: 3.1-tech-stack
           item_id: semi-only
-          artifact_sha256: ee0e73eeed9ffe6a979092dc1f3744c80486a82ad8a8caedf112642bb1e65349
+          artifact_sha256: 0df3311f80450ad6e4ef0587bc8abec065ef3b0e106864b5f5af570a5491c31b
         - artifact: phase4-product-experience.design.md
           section_id: 3.1-tech-choices
           item_id: semi-only-adapter
@@ -922,12 +950,16 @@ bindings:
         - artifact: phase4-product-experience.md
           section_id: TASK-003
           item_id: workspace-router-semi-plan
-          artifact_sha256: 2c7333534b8c974b22ea6b40948ba6235c18db9b9fb83b11c053f193e514ff99
+          artifact_sha256: 17966d09c662064b395e998a5672827a597e1b3763fbc1d7d0147420319820ce
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase4-product-experience.md
+          section_id: TASK-003
+          item_id: spec-verifier-semi
+          artifact_sha256: 045e39530cb027fcb7b9b44d28aa36facf444c5ab3a0604d8f0228103cb179a3
         decision: null
         evidence: []
       review:

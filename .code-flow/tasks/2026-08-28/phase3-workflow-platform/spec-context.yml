@@ -1,7 +1,7 @@
 version: 1
 task: PHASE3-WORKFLOW-PLATFORM
 enforcement: required
-updated_at: '2026-08-28T16:31:51.904017+00:00'
+updated_at: '2026-08-28T17:14:25.835499+00:00'
 sources:
 - type: cli
   ref: manual
@@ -51,8 +51,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.md
+          section_id: TASK-004
+          item_id: spec-verifier-quality
+          artifact_sha256: 283ddb54f4432993d588756c69d9a6465ecd320c2c74c2ea3cfc41fb19fe110b
         decision: null
         evidence: []
       review:
@@ -209,8 +213,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.md
+          section_id: TASK-008
+          item_id: spec-verifier-database
+          artifact_sha256: 283ddb54f4432993d588756c69d9a6465ecd320c2c74c2ea3cfc41fb19fe110b
         decision: null
         evidence: []
       review:
@@ -393,8 +401,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.md
+          section_id: TASK-001
+          item_id: spec-verifier-directory
+          artifact_sha256: 283ddb54f4432993d588756c69d9a6465ecd320c2c74c2ea3cfc41fb19fe110b
         decision: null
         evidence: []
       review:
@@ -551,8 +563,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.md
+          section_id: TASK-005
+          item_id: spec-verifier-logging
+          artifact_sha256: 283ddb54f4432993d588756c69d9a6465ecd320c2c74c2ea3cfc41fb19fe110b
         decision: null
         evidence: []
       review:
@@ -709,8 +725,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.md
+          section_id: TASK-005
+          item_id: spec-verifier-platform
+          artifact_sha256: 283ddb54f4432993d588756c69d9a6465ecd320c2c74c2ea3cfc41fb19fe110b
         decision: null
         evidence: []
       review:
@@ -917,8 +937,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.md
+          section_id: TASK-008
+          item_id: spec-verifier-api-contract
+          artifact_sha256: 283ddb54f4432993d588756c69d9a6465ecd320c2c74c2ea3cfc41fb19fe110b
         decision: null
         evidence: []
       review:
@@ -1128,8 +1152,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.md
+          section_id: TASK-008
+          item_id: spec-verifier-channel
+          artifact_sha256: 283ddb54f4432993d588756c69d9a6465ecd320c2c74c2ea3cfc41fb19fe110b
         decision: null
         evidence: []
       review:
@@ -1182,8 +1210,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.md
+          section_id: TASK-005
+          item_id: spec-verifier-dfx
+          artifact_sha256: 283ddb54f4432993d588756c69d9a6465ecd320c2c74c2ea3cfc41fb19fe110b
         decision: null
         evidence: []
       review:
@@ -1237,8 +1269,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.md
+          section_id: TASK-002
+          item_id: spec-verifier-resource
+          artifact_sha256: 283ddb54f4432993d588756c69d9a6465ecd320c2c74c2ea3cfc41fb19fe110b
         decision: null
         evidence: []
       review:
@@ -1292,8 +1328,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.md
+          section_id: TASK-001
+          item_id: spec-verifier-runtime
+          artifact_sha256: 283ddb54f4432993d588756c69d9a6465ecd320c2c74c2ea3cfc41fb19fe110b
         decision: null
         evidence: []
       review:
@@ -1347,8 +1387,12 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: phase3-workflow-platform.md
+          section_id: TASK-001
+          item_id: spec-verifier-workflow
+          artifact_sha256: 283ddb54f4432993d588756c69d9a6465ecd320c2c74c2ea3cfc41fb19fe110b
         decision: null
         evidence: []
       review:

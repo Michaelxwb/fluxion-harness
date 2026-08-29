@@ -1,4 +1,8 @@
 import "@testing-library/jest-dom/vitest";
+import { configure } from "@testing-library/react";
+
+// 复审残留①：findBy* 默认 1s 超时在 CPU 争抢下轮换性失败——查询超时余量 5s。
+configure({ asyncUtilTimeout: 5000 });
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 

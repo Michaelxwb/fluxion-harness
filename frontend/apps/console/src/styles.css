@@ -111,3 +111,18 @@ body {
     padding: 16px;
   }
 }
+
+/* C403 Workflow Studio（TASK-012） */
+.studio-form-mode { display: flex; gap: 16px; align-items: flex-start; }
+.workflow-node-list { min-width: 220px; display: flex; flex-direction: column; gap: 8px; }
+.node-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.node-row { display: flex; align-items: center; gap: 4px; }
+.node-row.selected .semi-button { border-color: var(--semi-color-primary); }
+.node-row .node-id { min-width: 80px; text-align: left; }
+.node-config-form { flex: 1; display: flex; flex-direction: column; gap: 8px; max-width: 480px; }
+.studio-toolbar { display: flex; flex-direction: column; gap: 8px; }
+.studio-diagnostics { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+
+/* C405 User 360（TASK-013） */
+.user360-channels { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.user360-tabs .semi-tabs-content { padding-top: 12px; }

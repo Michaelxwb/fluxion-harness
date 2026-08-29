@@ -117,3 +117,146 @@ body {
     max-width: 88%;
   }
 }
+
+/* ------------------------------------------------------------------
+ * X401 WorkspaceLayout（TASK-003）：工作区外壳 + 绑定引导
+ */
+.workspace-shell {
+  min-height: 100vh;
+}
+
+.workspace-sider {
+  background: var(--semi-color-bg-1);
+  border-right: 1px solid var(--semi-color-border);
+}
+
+.workspace-sider .brand {
+  padding: 20px 24px 12px;
+}
+
+.workspace-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--semi-color-border);
+}
+
+.workspace-content {
+  padding: 24px;
+}
+
+.workspace-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.bind-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.bind-card {
+  max-width: 420px;
+  width: 100%;
+}
+
+.bind-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.bind-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.bind-input {
+  flex: 1;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: var(--semi-border-radius-small);
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-0);
+  font-size: 14px;
+}
+
+.bind-input:focus {
+  border-color: var(--semi-color-primary);
+  outline: none;
+}
+
+.settings-page {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.settings-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* X402 首页（TASK-005） */
+.home-page { max-width: 720px; display: flex; flex-direction: column; gap: 24px; }
+.task-list, .agent-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.task-row, .agent-card { display: flex; align-items: center; gap: 12px; width: 100%; }
+.task-row .task-title { flex: 1; text-align: left; }
+.agent-card { flex-direction: column; align-items: flex-start; }
+.agent-card .agent-name { font-weight: 600; }
+.agent-card .agent-desc { color: var(--semi-color-text-2); font-size: 13px; }
+
+/* X403/X404（TASK-006/007） */
+.agents-page, .tasks-page, .task-detail, .agent-detail { max-width: 720px; display: flex; flex-direction: column; gap: 16px; }
+.agent-capabilities { display: flex; gap: 8px; flex-wrap: wrap; }
+.task-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.task-empty-link { color: var(--semi-color-primary); }
+
+/* X405 审批（TASK-008） */
+.approvals-page { max-width: 720px; display: flex; flex-direction: column; gap: 16px; }
+.approval-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.approval-row { border: 1px solid var(--semi-color-border); border-radius: var(--semi-border-radius-medium); padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.approval-head { display: flex; align-items: center; justify-content: space-between; }
+.approval-title { font-weight: 600; }
+.approval-message { margin: 0; color: var(--semi-color-text-2); }
+.approval-actions { display: flex; gap: 8px; }
+
+/* X406 历史（TASK-009） */
+.history-page { max-width: 720px; display: flex; flex-direction: column; gap: 16px; }
+.history-entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.history-row-button { display: flex; align-items: center; gap: 12px; width: 100%; }
+.history-row-button .history-title { flex: 1; text-align: left; }
+.history-row-button .history-at { color: var(--semi-color-text-2); font-size: 12px; }
+.history-detail { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; border-left: 2px solid var(--semi-color-border); margin-left: 8px; }
+
+/* X407 记忆与个人资料（TASK-010） */
+.memory-profile-page { max-width: 720px; display: flex; flex-direction: column; gap: 24px; }
+.profile-form { display: flex; flex-direction: column; gap: 12px; }
+.profile-field { display: flex; align-items: center; gap: 16px; }
+.profile-field .semi-input { flex: 1; max-width: 320px; }
+.memory-head { display: flex; align-items: center; justify-content: space-between; }
+.learning-switch { display: flex; align-items: center; gap: 8px; }
+.memory-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.memory-row { display: flex; align-items: center; gap: 8px; border: 1px solid var(--semi-color-border); border-radius: var(--semi-border-radius-medium); padding: 12px 16px; flex-wrap: wrap; }
+.memory-row .memory-content { flex: 1; text-align: left; }
+
+/* X408 对话（TASK-011） */
+.message-kind { margin-left: 8px; }
+.message-error { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+
+.chat-empty-icon { color: var(--semi-color-primary); }

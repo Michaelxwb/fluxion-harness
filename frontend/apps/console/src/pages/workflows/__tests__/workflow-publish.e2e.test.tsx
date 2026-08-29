@@ -40,7 +40,7 @@ describe("S-C108 WorkflowDefinition management", () => {
     await user.click(within(editor).getByRole("button", { name: "保存草稿" }));
     await screen.findByText("草稿已保存");
     await user.click(within(editor).getByRole("button", { name: "校验" }));
-    await screen.findByText("校验通过");
+    await screen.findByText(/校验通过/);
 
     await user.click(within(editor).getByRole("button", { name: "发布" }));
     const dialog = await screen.findByRole("dialog", { name: "确认发布工作流" });

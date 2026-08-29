@@ -15,7 +15,8 @@ const views: readonly {
   { itemId: "plugin-policy-main", title: "插件钩子", view: "plugin_policy" },
   // capabilities 已在 TASK-014 升级为真实管理页（CapabilitiesPage），
   // 交互由 capabilities.test.tsx 承载，不再走 P1 只读视图。
-  { itemId: "support-quality", title: "能力评测", view: "eval" },
+  // eval 在 Phase 4 改为置灰占位空态页（design 对齐项 B：Eval 实页归 Phase 5；
+  // TASK-004 `pages/eval/EvalPlaceholderPage.tsx`），P1 只读视图断言不再覆盖 eval。
   { itemId: "runtime-pod-7", title: "运行时态", view: "runtime_status" }
 ];
 

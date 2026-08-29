@@ -2,6 +2,7 @@ import "@douyinfe/semi-ui/react19-adapter";
 
 import React from "react";
 import { createRoot } from "react-dom/client";
+import { HashRouter } from "react-router-dom";
 import "@douyinfe/semi-ui/dist/css/semi.min.css";
 
 import { ConsoleApp } from "./App";
@@ -15,6 +16,8 @@ if (!root) {
 
 createRoot(root).render(
   <React.StrictMode>
-    <ConsoleApp api={createHttpConsoleApi()} />
+    <HashRouter>
+      <ConsoleApp api={createHttpConsoleApi()} />
+    </HashRouter>
   </React.StrictMode>
 );

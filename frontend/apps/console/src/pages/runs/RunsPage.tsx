@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react";
 
-import { Button, Card, Descriptions, Empty, Space, Table, Typography } from "@douyinfe/semi-ui";
+import { Button, Card, Descriptions, Empty, Skeleton, Space, Table, Typography } from "@douyinfe/semi-ui";
 import { IconRefresh } from "@douyinfe/semi-icons";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
+import { RunsTable } from "../../components/operations/RunsTable";
 import { PageHeader } from "../../components/PageHeader";
 import { StatusTag } from "../../components/StatusTag";
-import type { ConsoleApi, RunDetail, VersionRef } from "../../types/console";
+import type {
+  ConsoleApi,
+  RunDetail,
+  VersionRef,
+  WorkflowRunProjection
+} from "../../types/console";
 
 interface RunsPageProps {
   readonly api: ConsoleApi;
@@ -16,6 +22,10 @@ export function RunsPage({ api }: RunsPageProps) {
   const [runs, setRuns] = useState<readonly RunDetail[]>([]);
   const [selected, setSelected] = useState<RunDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // C407（TASK-014）：Phase 3 workflow_run 投影（trace 关联）
+  const [workflowRuns, setWorkflowRuns] = useState<readonly WorkflowRunProjection[] | null>(null);
+  const [workflowRunsError, setWorkflowRunsError] = useState<string | null>(null);
+  const [workflowRunsReloadKey, setWorkflowRunsReloadKey] = useState(0);
 
   async function loadRuns(): Promise<void> {
     try {
@@ -27,6 +37,24 @@ export function RunsPage({ api }: RunsPageProps) {
       setError(toErrorMessage(cause));
     }
   }
+
+  useEffect(() => {
+    let active = true;
+    setWorkflowRunsError(null);
+    void api
+      .listWorkflowRuns()
+      .then((items) => {
+        if (active) setWorkflowRuns(items);
+      })
+      .catch((cause: unknown) => {
+        if (active) {
+          setWorkflowRunsError(cause instanceof Error ? cause.message : "未知错误");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, workflowRunsReloadKey]);
 
   useEffect(() => {
     void loadRuns();
@@ -46,6 +74,20 @@ export function RunsPage({ api }: RunsPageProps) {
       <ErrorBanner message={error} />
       <RunTable onSelect={setSelected} runs={runs} />
       {selected ? <RunSnapshot run={selected} /> : null}
+      <Card title="工作流运行（trace 关联）">
+        {workflowRunsError !== null ? (
+          <ErrorBanner
+            message={`加载失败：${workflowRunsError}`}
+            onRetry={() => setWorkflowRunsReloadKey((key) => key + 1)}
+          />
+        ) : workflowRuns === null ? (
+          <div aria-label="工作流运行加载中">
+            <Skeleton.Title />
+          </div>
+        ) : (
+          <RunsTable runs={workflowRuns} />
+        )}
+      </Card>
     </div>
   );
 }

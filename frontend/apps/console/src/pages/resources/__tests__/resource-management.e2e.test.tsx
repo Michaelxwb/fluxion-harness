@@ -26,7 +26,7 @@ describe("S-C114 RuntimeProfile management", () => {
     await user.click(screen.getByRole("button", { name: "保存草稿" }));
     await screen.findByText("草稿已保存");
     await user.click(screen.getByRole("button", { name: "校验" }));
-    await screen.findByText("校验通过");
+    await screen.findByText(/校验通过/);
 
     await user.click(screen.getByRole("button", { name: "发布" }));
     const publishDialog = await screen.findByRole("dialog", { name: "确认发布" });
