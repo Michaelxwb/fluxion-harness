@@ -35,7 +35,7 @@ Phase 5 生产化收尾：为保留 PluginType 补齐生产 provider（`Postgres
 | B-04 | phase5-governance-observability-eval.design.md#2.4 验收条件 | unit | Async Task 开关 | TASK-009 | verified |
 | S-11 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12） | integration | 真实 DBOS sysdb + HTTP 端点 | Operations Queues/Workers 真实端点返回 + envelope + tenant scope | TASK-010 | verified |
 | S-12 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-12） | integration | 真实 workflow_run 投影 + HTTP 端点 | Runs list-all 端点返回分页 + RunsPage 切 HTTP | TASK-011 | verified |
-| S-13 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-11） | E2E | Browser → Router → Service → UI | User 360 深链直达详情、刷新保留 | TASK-012 | planned |
+| S-13 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-11） | E2E | Browser → Router → Service → UI | User 360 深链直达详情、刷新保留 | TASK-012 | verified |
 | S-14 | phase4-product-experience.design.md#2.4 验收条件（NFR-PERF-01/NFR-A11Y-01） | E2E | 真浏览器（Playwright/Lighthouse） | 首屏 P95≤500ms + axe 真浏览器扫描 | TASK-013 | planned |
 | S-15 | phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-02..08） | integration | 真实 DB + HTTP 端点 | Chat Workspace 7 端点返回 + 写操作生效 + tenant scope + Chat 切 HTTP | TASK-014 | planned |
 | S-10 | phase5-governance-observability-eval.design.md#2.4 验收条件 | integration | S3/MinIO（docker）→ S3CompatibleArtifactStore | TASK-001 | verified |
@@ -606,7 +606,7 @@ phase4 review P1-3 残留：Console `RunsPage` 全量 runs 视图走冻结路径
 
 ## TASK-012: User 360 详情 URL 路由（C405 深链）
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P2
 - **Depends**:
 - **Source**: phase4-product-experience.design.md#2.2 功能方案（FEAT-P4-11）, phase4-product-experience.design.md#3.2 页面与路由结构, phase5-governance-observability-eval.design.md#2.2 功能方案（FEAT-P5-08）
@@ -621,16 +621,16 @@ phase4 C405 User 360 详情以 `SideSheet`（组件状态）承载，无 URL 路
 
 ### Checklist
 
-- [ ] 新增 `/users/:platformUserId` 路由 + `User360Page`（复用 `User360Header/User360Tabs`）
-- [ ] `UsersChannelsPage` "查看 360" 改路由跳转（移除 SideSheet 承载）
-- [ ] [S-13][E2E] 修改生产代码前，编写验收测试并记录 RED：深链 `/users/:id` 直达详情、刷新保留
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 新增 `/users/:platformUserId` 路由 + `User360Page`（复用 `User360Header/User360Tabs`）
+- [x] `UsersChannelsPage` "查看 360" 改路由跳转（移除 SideSheet 承载）
+- [x] [S-13][E2E] 修改生产代码前，编写验收测试并记录 RED：深链 `/users/:id` 直达详情、刷新保留
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-13 | E2E | Browser → Router → Service → UI | 深链直达详情、刷新保留、五维 Tab 渲染 | planned | planned | planned |
+| S-13 | E2E | Browser → Router → Service → UI | 深链直达详情、刷新保留、五维 Tab 渲染 | `frontend/apps/console/src/pages/users/__tests__/user360-route.test.tsx`（4 例） | `cd frontend/apps/console && npx vitest run src/pages/users/__tests__/user360-route.test.tsx` | verified |
 
 ### Acceptance Evidence
 
@@ -638,6 +638,7 @@ phase4 C405 User 360 详情以 `SideSheet`（组件状态）承载，无 URL 路
 
 ### Log
 - [2026-08-29] created (draft)：phase4 审查未覆盖遗留登记（User 360 详情深链）
+- [2026-08-29] started (in-progress)
 
 ---
 

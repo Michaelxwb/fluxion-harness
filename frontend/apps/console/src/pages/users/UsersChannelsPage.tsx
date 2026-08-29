@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Button, Card, Descriptions, Empty, Input, Modal, Select, SideSheet, Space, Table, Typography } from "@douyinfe/semi-ui";
+import { useNavigate } from "react-router-dom";
 import { IconCopy, IconDelete, IconLink, IconPlus } from "@douyinfe/semi-icons";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { ListPager } from "../../components/ListPager";
 import { PageHeader } from "../../components/PageHeader";
-import { User360Header } from "../../components/user360/User360Header";
-import { User360Tabs } from "../../components/user360/User360Tabs";
 import type {
   ConsoleApi,
-  User360Summary,
   IssuedChatAccess,
   PlatformUser,
   ResourceSummary
@@ -23,6 +21,7 @@ interface UsersChannelsPageProps {
 const USER_PAGE_SIZE = 20;
 
 export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<readonly PlatformUser[]>([]);
   // closure TASK-010（P1C-06）：选择器数据源切 agent_definition（产品模型），
   // 消除「RuntimeProfile 资源 ID 被当 agentId 签发」的错配。
@@ -30,8 +29,6 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
   const [platformUserId, setPlatformUserId] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [agentId, setAgentId] = useState<string>();
-  const [selected360, setSelected360] = useState<string>();
-  const [view360, setView360] = useState<User360Summary | null>(null);
   const [issued, setIssued] = useState<IssuedChatAccess | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
@@ -136,10 +133,7 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
           columns={userColumns(
             (user) => void issue(user),
             Boolean(agentId),
-            (user) => {
-              setSelected360(user.platformUserId);
-              void api.getUser360(user.platformUserId).then(setView360).catch(() => setView360(null));
-            }
+            (user) => navigate(`/users/${user.platformUserId}`)
           )}
           dataSource={[...users]}
           empty={<Empty description="暂无用户" />}
@@ -174,20 +168,6 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
           </Space>
         </Modal>
       ) : null}
-      <SideSheet
-        onCancel={() => setSelected360(undefined)}
-        title={`User 360 · ${selected360 ?? ""}`}
-        visible={selected360 !== undefined}
-        width={520}
-      >
-        {view360 ? (
-          <div aria-label="User 360" className="page-stack">
-            <User360Header summary={view360} />
-            <User360Tabs summary={view360} />
-          </div>
-        ) : null}
-      </SideSheet>
-
       <SideSheet
         onCancel={() => {
           setIssued(null);

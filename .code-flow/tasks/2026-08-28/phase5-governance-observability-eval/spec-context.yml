@@ -1,7 +1,7 @@
 version: 1
 task: PHASE5-GOVERNANCE-OBSERVABILITY-EVAL
 enforcement: required
-updated_at: '2026-08-29T12:44:27.349656+00:00'
+updated_at: '2026-08-29T13:12:31.114450+00:00'
 sources:
 - type: cli
   ref: bind
@@ -1600,6 +1600,10 @@ bindings:
           section_id: TASK-006
           item_id: eval-page-directory-code
           artifact_sha256: c8799b06afe4f6440bf191903367b6ca27f90c01087ee2a1f90121ca73b8670c
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-012
+          item_id: user360-route-directory-code
+          artifact_sha256: 8fa8a1a356805e5970e7841d85a4b9372578ecd48467ea81422f4e89739268db
         decision: null
         evidence: []
       review:
@@ -1762,6 +1766,10 @@ bindings:
           section_id: TASK-006
           item_id: eval-page-quality-code
           artifact_sha256: c8799b06afe4f6440bf191903367b6ca27f90c01087ee2a1f90121ca73b8670c
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-012
+          item_id: user360-route-quality-code
+          artifact_sha256: 8fa8a1a356805e5970e7841d85a4b9372578ecd48467ea81422f4e89739268db
         decision: null
         evidence: []
       review:
@@ -1924,6 +1932,10 @@ bindings:
           section_id: TASK-006
           item_id: eval-page-semi-code
           artifact_sha256: c8799b06afe4f6440bf191903367b6ca27f90c01087ee2a1f90121ca73b8670c
+        - artifact: phase5-governance-observability-eval.md
+          section_id: TASK-012
+          item_id: user360-route-semi-code
+          artifact_sha256: 8fa8a1a356805e5970e7841d85a4b9372578ecd48467ea81422f4e89739268db
         decision: null
         evidence: []
       review:

@@ -26,6 +26,7 @@ import { ResourcesPage } from "./pages/resources/ResourcesPage";
 import { RunsPage } from "./pages/runs/RunsPage";
 import { QueuesPage } from "./pages/operations/QueuesPage";
 import { WorkersPage } from "./pages/operations/WorkersPage";
+import { User360Page } from "./pages/users/User360Page";
 import { UsersChannelsPage } from "./pages/users/UsersChannelsPage";
 import { WorkflowsPage } from "./pages/workflows/WorkflowsPage";
 import { P1ViewPage } from "./pages/p1/P1ViewPage";
@@ -75,6 +76,7 @@ export function ConsoleRoutes({
         <Route path="/build/capabilities" element={<CapabilitiesPage api={api} />} />
         <Route path="/build/eval" element={<EvalPage api={api} />} />
         <Route path="/users" element={<UsersChannelsPage api={api} />} />
+        <Route path="/users/:platformUserId" element={<User360Page api={api} />} />
         <Route path="/governance/policies" element={<GovernancePoliciesPage api={api} />} />
         <Route
           path="/governance/plugin-policy"
