@@ -17,11 +17,12 @@ from fluxion.resources.contracts import ExactResourceVersion, SensitiveSpecModel
 
 class CapabilityType(StrEnum):
     """capability 来源类型（CLAUDE.md 规则 12：Tool 是 Agent-facing Adapter，
-    skill/tool/mcp 统一经 Capability Contract 绑定，不设独立 tools 字段）。"""
+    skill/tool/mcp/workflow 统一经 Capability Contract 绑定，不设独立 tools 字段）。"""
 
     SKILL = "skill"
     TOOL = "tool"
     MCP = "mcp"
+    WORKFLOW = "workflow"
 
 
 class AgentCapabilityReference(SensitiveSpecModel):

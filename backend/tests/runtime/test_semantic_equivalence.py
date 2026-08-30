@@ -19,13 +19,14 @@ from fluxion.resources import ResourceKind
 from fluxion.runtime.agent import AgentRuntime
 from fluxion.runtime.context import RequestContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 
 
 def _stack(store: SQLiteRegistryStore) -> tuple[AgentRuntime, ResourceResolver]:
     resolver = ResourceResolver(store)
     runtime = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(resolver),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(store)),
         memory_store=InMemorySessionMemoryStore(),
         model_providers=None,  # 本任务只验证解析层等价，不触模型
     )

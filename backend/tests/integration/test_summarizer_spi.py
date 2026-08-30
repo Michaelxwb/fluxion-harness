@@ -24,7 +24,8 @@ from fluxion.registry import RegistryStore
 from fluxion.runtime import AgentRuntime, RequestContext
 from fluxion.runtime.context import RuntimeContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore, MemoryPolicy
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 from fluxion.runtime.summarizer import (
     DeterministicTruncationSummarizer,
     ModelSummarizer,
@@ -84,7 +85,7 @@ async def _make_runtime(
     """建 runtime + 5 轮消息；返回 compact 前的 older 记录（retain=2 → 前 3 条）。"""
     await seed_runtime_profile(sqlite_store)
     runtime = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
         memory_store=memory_store,
         memory_policy=MemoryPolicy(max_context_tokens=12, retain_latest_turns=2),
         summarizer_registry=summarizer_registry,

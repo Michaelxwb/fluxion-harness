@@ -87,7 +87,7 @@ async def _seed_agent(store: SQLiteRegistryStore, *, version: str = "1") -> None
 
 
 def _resolver(store: SQLiteRegistryStore, credential_resolver: object | None = None) -> ContextResolver:
-    return ContextResolver(store.engine, credential_resolver=credential_resolver)
+    return ContextResolver(store, credential_resolver=credential_resolver)
 
 
 @pytest.mark.asyncio
@@ -231,7 +231,7 @@ async def test_s08_execution_immutability_across_publish(store: SQLiteRegistrySt
     assert first.snapshot.agent_definition_version == "1"
 
     # 新 Execution（新 resolver 模拟新实例，无 L1 缓存）解析到 v2
-    resolver_2 = ContextResolver(store.engine)
+    resolver_2 = ContextResolver(store)
     second = await resolver_2.resolve(selector, session_id="s2")
     assert second.snapshot.agent_definition_version == "2"
     # digest 随版本变化

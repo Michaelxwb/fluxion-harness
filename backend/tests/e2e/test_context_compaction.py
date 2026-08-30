@@ -6,7 +6,8 @@ from tests.runtime_helpers import seed_runtime_profile
 from fluxion.registry import RegistryStore
 from fluxion.runtime import AgentRuntime, RequestContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore, MemoryPolicy
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 
 
 @pytest.mark.asyncio
@@ -16,7 +17,7 @@ async def test_S_R18_context_compaction_preserves_latest_raw_and_snapshot(
     await seed_runtime_profile(sqlite_store)
     memory_store = InMemorySessionMemoryStore()
     runtime = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
         memory_store=memory_store,
         memory_policy=MemoryPolicy(max_context_tokens=12, retain_latest_turns=2),
     )
@@ -56,7 +57,7 @@ async def test_S_R18_repeated_compaction_does_not_summarize_summaries(
     await seed_runtime_profile(sqlite_store)
     memory_store = InMemorySessionMemoryStore()
     runtime = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
         memory_store=memory_store,
         memory_policy=MemoryPolicy(max_context_tokens=12, retain_latest_turns=2),
     )

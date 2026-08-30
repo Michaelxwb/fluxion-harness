@@ -16,8 +16,9 @@ from pathlib import Path
 
 from tests.runtime_helpers import runtime_context
 
+from tests.fakes.workflow import StubWorkflowEngine
+
 from fluxion.runtime.workflow import (
-    StubWorkflowEngine,
     WorkflowAdapter,
     WorkflowEngine,
     WorkflowPinnedRef,

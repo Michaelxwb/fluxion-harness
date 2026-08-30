@@ -271,21 +271,21 @@ async def _check_consistency(
     review P2：双独立 engine（分离连接池，强于同池代理；真实跨进程/跨 Pod 由
     S-07 k8s 逐 Pod 对拍承接）。
     """
-    engine_b = create_async_engine(store.engine.url.render_as_string(hide_password=False))
+    store_b = PostgreSQLRegistryStore(store.engine.url.render_as_string(hide_password=False))
     try:
-        await _consistency_pairs(store, engine_b, report, agent_ids)
+        await _consistency_pairs(store, store_b, report, agent_ids)
     finally:
-        await engine_b.dispose()
+        await store_b.close()
 
 
 async def _consistency_pairs(
     store: PostgreSQLRegistryStore,
-    engine_b: AsyncEngine,
+    store_b: PostgreSQLRegistryStore,
     report: CapacityRunReport,
     agent_ids: dict[str, str],
 ) -> None:
-    resolver_a = ContextResolver(store.engine)
-    resolver_b = ContextResolver(engine_b)
+    resolver_a = ContextResolver(store)
+    resolver_b = ContextResolver(store_b)
     for tenant_id, agent_id in agent_ids.items():
         selector = ResolverSelector(
             tenant_id=tenant_id, agent_id=agent_id, user_id="user-consistency"

@@ -18,8 +18,8 @@ def _new_id() -> str:
 class RequestContext:
     tenant_id: str
     user_id: str
-    runtime_profile_id: str
     session_id: str
+    runtime_profile_id: str | None = None
     runtime_profile_version_selector: str = "latest-published"
     # TASK-A104 后 persona/model/capability 产品语义在 AgentDefinition 上；
     # 显式指定优先，缺省回退与 runtime_profile_id 同名的 AGENT_DEFINITION
@@ -34,7 +34,6 @@ class RequestContext:
         required = {
             "tenant_id": self.tenant_id,
             "user_id": self.user_id,
-            "runtime_profile_id": self.runtime_profile_id,
             "session_id": self.session_id,
         }
         for name, value in required.items():

@@ -5,6 +5,10 @@ credential → policy → snapshot。每段记录 resolved version + 耗时进
 resolution_trace（关联 trace_id）。全部 fail-closed：解析失败抛
 ContextResolutionError（slug + status），不产出缺字段 digest。性能：
 L1 内存缓存必备（Redis L2 可选增强，正确性不依赖）。
+
+依赖方向（规则 7 / services 禁 ORM query）：本服务只依赖 RegistryStore/
+ChannelRegistryStore Contract 与注入的 MemoryRetriever，不持有 SQLAlchemy
+engine、不写 raw select（TASK-002 收口）。
 """
 
 from __future__ import annotations
@@ -14,19 +18,10 @@ import time
 from dataclasses import dataclass, replace
 from typing import Any
 
-from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncEngine
-
 from fluxion.agents.definitions import AgentDefinition
 from fluxion.memory.domain.personal_memory import PersonalMemoryRetriever
-from fluxion.plugins.providers.pgvector_semantic import PgVectorSemanticStore
-from fluxion.registry.schema import (
-    channel_identities,
-    resource_bindings,
-    resource_definitions,
-    user_profiles,
-)
+from fluxion.registry import ChannelRegistryStore
+from fluxion.resources import ResourceKind, RuntimeProfile, SkillDefinition
 from fluxion.resources.contracts import (
     ExecutionSnapshot,
     MemoryEntryRef,
@@ -34,8 +29,15 @@ from fluxion.resources.contracts import (
     ModelPolicy,
 )
 from fluxion.resources.snapshot_digest import canonical_digest
+from fluxion.runtime.capabilities import EffectiveCapabilityResolver
 
 logger = logging.getLogger(__name__)
+
+
+class _SkillSpecView(SkillDefinition):
+    """resolver 侧 skill spec 读取视图（extra=ignore 容忍存量 spec 扩展字段）。"""
+
+    model_config = {"extra": "ignore"}
 
 
 class ContextResolutionError(RuntimeError):
@@ -97,22 +99,26 @@ class ContextResolver:
 
     def __init__(
         self,
-        engine: AsyncEngine,
+        store: ChannelRegistryStore,
         *,
         memory_budget: int = 5,
         credential_resolver: Any | None = None,
+        memory_retriever: PersonalMemoryRetriever | None = None,
     ) -> None:
-        self._engine = engine
+        self._store = store
         self._memory_budget = memory_budget
         # closure TASK-007（E-02）：binding 带凭据引用时经真实 CredentialResolver
         # 解析；解析失败 → fail-closed（credential_not_resolvable）。
         self._credential_resolver = credential_resolver
         # L1 缓存（remediation §13.5 / design §3.5）：key = (tenant, agent, user)
-        self._l1_cache: dict[str, tuple[ResolveResult, float]] = {}
-        self._l1_cache_ttl: float = 30.0  # 秒
-        # Memory 段经 PersonalMemoryRetriever（P-04 / §13.4）
-        self._semantic = PgVectorSemanticStore(engine)
-        self._memory_retriever = PersonalMemoryRetriever(self._semantic)
+        self._l1_cache: dict[str, tuple[ResolveResult, float, int]] = {}
+        # TTL=0 禁用跨执行缓存：主 invoke 使用 latest-published 解析，缓存会违反
+        # REQ-EXE-003（热发布后新执行取 latest）。性能优化待 registry revision 正确
+        # bump 的失效机制就绪后再启用。
+        self._l1_cache_ttl: float = 0.0  # 秒
+        # Memory 段经注入的 PersonalMemoryRetriever（P-04 / §13.4）。未注入时
+        # 降级空 manifest（不阻塞、不持有 engine）。
+        self._memory_retriever = memory_retriever
 
     async def resolve(
         self,
@@ -122,21 +128,20 @@ class ContextResolver:
         memory_query: str | None = None,
         memory_budget: int | None = None,
     ) -> ResolveResult:
+        del session_id  # session 维度由调用方承载；本管线按 (tenant, agent, user) 解析
         trace: list[StageTrace] = []
 
         def _stage(stage: str, version: str | None, started: float) -> None:
             trace.append(StageTrace(stage, version, (time.perf_counter() - started) * 1000))
 
-        # L1 缓存检查（remediation §13.5：同 key 短路，不重复查库）。
-        # 内容字段（版本/memory manifest）可跨 Execution 复用；但 execution_id/
-        # trace_id 是 per-Execution 标识（规则 23 日志/Audit/Trace 关联 trace_id），
-        # 命中缓存时必须重新生成——digest 已排除运行时字段（_RUNTIME_FIELDS），
-        # 无需重算 digest。
+        # L1 缓存检查（remediation §13.5：同 key 短路，不重复查库；按 registry revision
+        # 失效，publish 即刷新——避免热发布后 30s 内仍返回旧版本，守住 REQ-EXE-003）。
         cache_key = f"{selector.tenant_id}:{selector.agent_id}:{selector.user_id}"
+        revision = await self._store.read_revision(tenant_id=selector.tenant_id)
         cached = self._l1_cache.get(cache_key)
         if cached is not None:
-            result, ts = cached
-            if time.monotonic() - ts < self._l1_cache_ttl:
+            result, ts, cached_revision = cached
+            if cached_revision == revision and time.monotonic() - ts < self._l1_cache_ttl:
                 return replace(
                     result,
                     snapshot=result.snapshot.model_copy(
@@ -148,7 +153,8 @@ class ContextResolver:
                 )
             del self._l1_cache[cache_key]
         started = time.perf_counter()
-        # 1. identity：ChannelIdentity → PlatformUser 映射（Phase 1 复用）
+        # 1. identity：user_id 视为 platform_user_id（Channel 层已解析；无前缀
+        # 直传，channel_user_id 回退见 _resolve_platform_user）
         started = time.perf_counter()
         if not selector.tenant_id.strip() or not selector.user_id.strip():
             raise ContextResolutionError(code="identity_missing", message="identity required", status_code=401)
@@ -159,7 +165,11 @@ class ContextResolver:
         started = time.perf_counter()
         user_profile_version = selector.user_profile_version
         if user_profile_version is not None:
-            row = await self._user_profile_at(selector.tenant_id, selector.user_id, user_profile_version)
+            row = await self._store.get_user_profile_at(
+                tenant_id=selector.tenant_id,
+                platform_user_id=selector.user_id,
+                version=user_profile_version,
+            )
             if row is None:
                 raise ContextResolutionError(code="user_profile_not_found", message=f"user profile @{user_profile_version} not found", status_code=404)
         else:
@@ -168,24 +178,45 @@ class ContextResolver:
 
         # 3. agent：AgentDefinition（latest published，或 selector pin）
         started = time.perf_counter()
-        agent = await self._get_resource("agent_definition", selector.agent_id, selector.tenant_id)
+        agent = await self._store.get(
+            ResourceKind.AGENT_DEFINITION, selector.agent_id, tenant_id=selector.tenant_id
+        )
         if agent is None:
             raise ContextResolutionError(code="agent_not_found", message=f"agent_not_found: {selector.agent_id}", status_code=404)
-        _stage("agent", agent["version"], started)
+        _stage("agent", agent.version, started)
 
         # 4. runtime：Agent.runtime_profile_ref → RuntimeProfile；缺省同名回退
         started = time.perf_counter()
-        agent_spec = AgentDefinition.model_validate(agent["spec_json"])
+        agent_spec = AgentDefinition.model_validate(agent.spec_json)
         profile_id = (
             agent_spec.runtime_profile_ref.id if agent_spec.runtime_profile_ref else selector.agent_id
         )
         profile_version = selector.runtime_profile_version or agent_spec.runtime_profile_ref.version if agent_spec.runtime_profile_ref else "latest-published"
-        profile_row = await self._get_resource("runtime_profile", profile_id, selector.tenant_id, profile_version)
+        profile_row = await self._store.get(
+            ResourceKind.RUNTIME_PROFILE, profile_id, tenant_id=selector.tenant_id,
+            version=None if profile_version == "latest-published" else profile_version,
+        )
         if profile_row is None:
             raise ContextResolutionError(code="runtime_profile_not_found", message=f"{profile_id}@{profile_version} not found", status_code=404)
-        _stage("runtime", profile_row["version"], started)
+        _stage("runtime", profile_row.version, started)
 
-        # 5. profile：User Profile 版本已解析（stage 2）
+        # 5. model：ModelPolicy（provider 来自 AgentDefinition.model_ref；failover 取
+        # RuntimeProfile.model_failover typed 字段，legacy executor_config 回退）
+        profile_spec = RuntimeProfile.model_validate(profile_row.spec_json)
+        failover = list(profile_spec.model_failover)
+        if not failover:
+            legacy = profile_spec.executor_config.get("model_failover", [])
+            if isinstance(legacy, list):
+                failover = [str(item) for item in legacy]
+        model_resolution = ModelPolicy(
+            provider=agent_spec.model_ref.id,
+            failover=failover,
+            timeout_ms=profile_spec.request_timeout_ms,
+            max_rounds=profile_spec.max_rounds,
+            deadline_ms=max(profile_spec.request_timeout_ms * 2, 120_000),
+        )
+
+        # 6. profile：User Profile 版本已解析（stage 2）
 
         # 6. memory：PersonalMemoryRetriever recall → manifest（失败降级空 manifest）
         started = time.perf_counter()
@@ -200,8 +231,14 @@ class ContextResolver:
             {"type": ref.type.value, "capability_ref": ref.capability_ref, "version_pin": ref.version_pin}
             for ref in agent_spec.capabilities
         ]
-        skill_versions, mcp_versions, plugin_versions = await self._resolve_capability_versions(
-            selector.tenant_id, agent_spec.capabilities
+        (
+            skill_versions,
+            mcp_versions,
+            plugin_versions,
+            skill_instructions,
+            skill_allowed_tools,
+        ) = await self._resolve_capability_versions(
+            selector.tenant_id, agent_spec.capabilities, selector.user_id
         )
         _stage("capability", None, started)
 
@@ -210,10 +247,43 @@ class ContextResolver:
         credential_versions = await self._credential_versions(selector.tenant_id, platform_user_id or selector.user_id)
         _stage("credential", None, started)
 
-        # 9. policy：tenant policy version（未配置时 None 规范参与）
+        # 9. policy：tenant policy version（经 tenant POLICY binding 解析；无则 latest-published）
         started = time.perf_counter()
-        policy_versions = {"tenant": agent.get("policy_version") or "latest-published"}
-        _stage("policy", policy_versions["tenant"], started)
+        policy_bindings = await self._store.list_bindings(
+            subject_type="tenant",
+            subject_id=selector.tenant_id,
+            tenant_id=selector.tenant_id,
+            resource_type=ResourceKind.POLICY,
+        )
+        policy_versions = {
+            binding.resource_id: binding.resource_version_selector
+            for binding in policy_bindings
+        }
+        _stage("policy", policy_versions.get("tenant"), started)
+
+        # effective permissions（tool 授权三元组，构建期冻结，执行期不再实时重算）
+        agent_tool_refs = {c["capability_ref"] for c in capabilities if c["type"] == "tool"}
+        agent_tools = agent_tool_refs | set(skill_allowed_tools)
+        grants = await self._store.list_capability_grants(
+            tenant_id=selector.tenant_id,
+            platform_user_id=platform_user_id or selector.user_id,
+        )
+        user_tools = {g.capability_ref for g in grants if g.capability_kind == "tool"}
+        policy_allowed, policy_denied, policy_configured = (
+            await EffectiveCapabilityResolver(self._store).tenant_policy_tools(
+                tenant_id=selector.tenant_id
+            )
+        )
+        if not policy_configured:
+            tenant_tools = set(user_tools)
+        elif policy_allowed:
+            tenant_tools = set(policy_allowed)
+        else:
+            tenant_tools = set(user_tools)
+        if policy_denied:
+            user_tools = user_tools - policy_denied
+            agent_tools = agent_tools - policy_denied
+            tenant_tools = tenant_tools - policy_denied
 
         # 10. snapshot：V2 全字段 + canonical digest
         started = time.perf_counter()
@@ -221,18 +291,38 @@ class ContextResolver:
             execution_id=f"exec_{uuid4_hex()}",
             tenant_id=selector.tenant_id,
             user_id=platform_user_id or selector.user_id,
-            runtime_profile_id=str(profile_row["resource_id"]),
-            runtime_profile_version=str(profile_row["version"]),
-            agent_definition_id=str(agent["resource_id"]),
-            agent_definition_version=str(agent["version"]),
-            model_resolution=ModelPolicy(),
+            runtime_profile_id=profile_row.id,
+            runtime_profile_version=profile_row.version,
+            agent_definition_id=agent.id,
+            agent_definition_version=agent.version,
+            model_resolution=model_resolution,
+            effective_capability={
+                "skill": sorted(skill_versions.keys()),
+                "mcp": sorted(mcp_versions.keys()),
+                "workflow": [agent_spec.workflow_ref.id] if agent_spec.workflow_ref else [],
+                "tool": [c["capability_ref"] for c in capabilities if c["type"] == "tool"],
+            },
+            effective_permissions={
+                "agent_tools": sorted(agent_tools),
+                "user_tools": sorted(user_tools),
+                "tenant_tools": sorted(tenant_tools),
+            },
             trace_id=f"trace_{uuid4_hex()}",
             system_prompt=agent_spec.system_prompt,
+            skill_instructions=skill_instructions,
+            skill_allowed_tools=skill_allowed_tools,
             skill_versions=skill_versions,
             mcp_versions=mcp_versions,
-            plugin_versions=plugin_versions,
-            policy_version=policy_versions["tenant"],
-            binding_versions={b["binding_id"]: str(b["resource_version_selector"]) for b in await self._bindings(selector.tenant_id, selector.user_id)},
+            plugin_versions={agent_spec.model_ref.id: agent_spec.model_ref.version},
+            policy_version=policy_versions.get("tenant"),
+            binding_versions={
+                b.binding_id: b.resource_version_selector
+                for b in await self._store.list_bindings(
+                    subject_type="user",
+                    subject_id=selector.user_id,
+                    tenant_id=selector.tenant_id,
+                )
+            },
             user_profile_version=user_profile_version,
             policy_versions=policy_versions,
             credential_versions=credential_versions,
@@ -254,63 +344,14 @@ class ContextResolver:
             resolution_trace=trace,
             budget_used=budget_used,
         )
-        self._l1_cache[cache_key] = (result, time.monotonic())
+        self._l1_cache[cache_key] = (result, time.monotonic(), revision)
         return result
 
-    async def _get_resource(
-        self, kind: str, resource_id: str, tenant_id: str, version: str | None = None
-    ) -> dict[str, Any] | None:
-        from sqlalchemy import desc
-
-        stmt = select(
-            resource_definitions.c.resource_id,
-            resource_definitions.c.version,
-            resource_definitions.c.status,
-            resource_definitions.c.spec_json,
-        ).where(
-            resource_definitions.c.kind == kind,
-            resource_definitions.c.resource_id == resource_id,
-            resource_definitions.c.tenant_id == tenant_id,
-        )
-        if version is not None and version != "latest-published":
-            stmt = stmt.where(resource_definitions.c.version == version)
-        else:
-            stmt = stmt.where(resource_definitions.c.status == "published").order_by(
-                desc(resource_definitions.c.created_at)
-            )
-        async with self._engine.connect() as conn:
-            row = (await conn.execute(stmt.limit(1))).mappings().first()
-        return dict(row) if row else None
-
     async def _latest_user_profile_version(self, tenant_id: str, user_id: str) -> str | None:
-        async with self._engine.connect() as conn:
-            row = (
-                await conn.execute(
-                    select(user_profiles.c.version)
-                    .where(
-                        user_profiles.c.tenant_id == tenant_id,
-                        user_profiles.c.platform_user_id == user_id,
-                    )
-                    .order_by(user_profiles.c.version.desc())
-                    .limit(1)
-                )
-            ).first()
-        return str(row[0]) if row else None
-
-    async def _user_profile_at(self, tenant_id: str, user_id: str, version: str) -> Any | None:
-        from sqlalchemy import select
-
-        async with self._engine.connect() as conn:
-            row = (
-                await conn.execute(
-                    select(user_profiles).where(
-                        user_profiles.c.tenant_id == tenant_id,
-                        user_profiles.c.platform_user_id == user_id,
-                        user_profiles.c.version == int(version) if version.isdigit() else user_profiles.c.version == version,
-                    )
-                )
-            ).first()
-        return row
+        row = await self._store.get_latest_user_profile(
+            tenant_id=tenant_id, platform_user_id=user_id
+        )
+        return str(row["version"]) if row else None
 
     async def _memory_manifest(
         self,
@@ -319,12 +360,14 @@ class ContextResolver:
         memory_query: str | None,
         memory_budget: int | None,
     ) -> MemoryManifest:
-        """Memory 段：经 PersonalMemoryRetriever recall（SemanticStoreProvider.recall）。"""
+        """Memory 段：经注入的 PersonalMemoryRetriever recall（SemanticStoreProvider.recall）。"""
         budget = memory_budget if memory_budget is not None else self._memory_budget
+        if self._memory_retriever is None:
+            return MemoryManifest(entry_refs=[], content_hash="unavailable", truncated=True)
         try:
-            semantic = PgVectorSemanticStore(self._engine)
-            retriever = PersonalMemoryRetriever(semantic)
-            entries = await retriever.recall(tenant_id, user_id, query=memory_query or "", top_k=budget + 10)
+            entries = await self._memory_retriever.recall(
+                tenant_id, user_id, query=memory_query or "", top_k=budget + 10
+            )
         except Exception:  # noqa: BLE001 - memory 段降级空 manifest 不阻塞
             return MemoryManifest(entry_refs=[], content_hash="unavailable", truncated=True)
         refs = [
@@ -347,94 +390,119 @@ class ContextResolver:
         )
 
     async def _resolve_platform_user(self, tenant_id: str, user_id: str) -> str | None:
-        """Identity 段：ChannelIdentity → PlatformUser 映射（Phase 1 复用）。
-        user_id 无前缀时视为 platform_user_id 直传（Channel/API 已解析）。"""
+        """Identity 段：user_id 无前缀时视为 platform_user_id 直传（Channel/API 已解析）。"""
         if user_id.startswith(("migration:", "user-")):
             return user_id
-        try:
-            async with self._engine.connect() as conn:
-                row = (
-                    await conn.execute(
-                        select(channel_identities.c.platform_user_id).where(
-                            channel_identities.c.tenant_id == tenant_id,
-                            channel_identities.c.channel_user_id == user_id,
-                        )
-                    )
-                ).first()
-            if row is not None:
-                return str(row[0])
-        except SQLAlchemyError:
-            # 查询失败 → 降级直传（规则：禁止静默吞异常，带堆栈记录）
-            logger.warning(
-                "channel_identity lookup failed; fallback to raw user_id "
-                "tenant=%s user=%s",
-                tenant_id,
-                user_id,
-                exc_info=True,
-            )
-        return user_id
+        resolved = await self._store.resolve_platform_user_by_channel_id(
+            tenant_id=tenant_id, channel_user_id=user_id
+        )
+        return resolved or user_id
 
     async def _resolve_capability_versions(
-        self, tenant_id: str, capabilities: list[Any]
-    ) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
-        """按 Agent capabilities 解析 skill/mcp 的实际 published 版本。
+        self, tenant_id: str, capabilities: list[Any], user_id: str
+    ) -> tuple[
+        dict[str, str],
+        dict[str, str],
+        dict[str, str],
+        dict[str, str],
+        list[str],
+    ]:
+        """按 Agent capabilities + user binding 解析 skill/mcp 实际 published 版本。
 
-        tool 类型不解析版本：builtin/runtime tool 不是版本化 Resource，且
-        ExecutionSnapshot V2 只承载 skill/mcp/plugin 版本字段（CapabilityType
-        无 plugin，plugin_versions 恒空）。不得把 tool 版本写入无效目标。
+        skill 语义 = Agent baseline（agent 声明的 capability）∪ user binding grant
+        （管理员经 grant/binding 给用户扩 skill，binding 可覆盖版本）。tool 类型不解析
+        版本：builtin/runtime tool 不是版本化 Resource。skill 额外提取 instructions
+        （注入 system prompt）与 allowed_tools（进 agent tool 白名单）。
         """
+        # Agent baseline：agent 声明的 skill pin（capability_ref → version_pin）
+        agent_skill_pins: dict[str, str] = {}
+        for cap in capabilities:
+            if cap.type == "skill":
+                agent_skill_pins[cap.capability_ref] = cap.version_pin
+
+        # user binding grant：管理员给用户扩的 skill（ref → version selector）
+        bindings = await self._store.list_bindings(
+            subject_type="user",
+            subject_id=user_id,
+            tenant_id=tenant_id,
+            resource_type=ResourceKind.SKILL,
+        )
+        binding_granted = {binding.resource_id for binding in bindings}
+        effective_skill_pins = dict(agent_skill_pins)
+        for binding in bindings:
+            if binding.resource_id in effective_skill_pins:
+                # binding 覆盖版本（仅当 agent baseline 未显式 pin 时）
+                if effective_skill_pins[binding.resource_id] == "latest-published":
+                    effective_skill_pins[binding.resource_id] = binding.resource_version_selector
+            else:
+                effective_skill_pins[binding.resource_id] = binding.resource_version_selector
+
         skill_versions: dict[str, str] = {}
         mcp_versions: dict[str, str] = {}
         plugin_versions: dict[str, str] = {}
-        for cap in capabilities:
-            if cap.type == "tool":
-                continue
-            row = await self._get_resource(
-                cap.type.value,
-                cap.capability_ref,
-                tenant_id,
-                cap.version_pin if cap.version_pin != "latest-published" else None,
+        skill_instructions: dict[str, str] = {}
+        allowed_tools: set[str] = set()
+        for ref, version_pin in effective_skill_pins.items():
+            row = await self._store.get(
+                ResourceKind.SKILL,
+                ref,
+                tenant_id=tenant_id,
+                version=None if version_pin == "latest-published" else version_pin,
             )
             if row is None:
-                continue
-            version = str(row["version"])
-            if cap.type == "skill":
-                skill_versions[cap.capability_ref] = version
-            elif cap.type == "mcp":
-                mcp_versions[cap.capability_ref] = version
-        return skill_versions, mcp_versions, plugin_versions
-
-    async def _bindings(self, tenant_id: str, user_id: str) -> list[dict[str, Any]]:
-        async with self._engine.connect() as conn:
-            rows = (
-                await conn.execute(
-                    select(
-                        resource_bindings.c.binding_id,
-                        resource_bindings.c.resource_version_selector,
-                        resource_bindings.c.credential_ref,
-                    ).where(
-                        resource_bindings.c.tenant_id == tenant_id,
-                        resource_bindings.c.subject_type == "user",
-                        resource_bindings.c.subject_id == user_id,
-                        resource_bindings.c.enabled == True,
+                if ref in agent_skill_pins:
+                    # agent 声明的 skill 缺 pinned 版本 → fail-closed（不静默降级）
+                    raise ContextResolutionError(
+                        code="skill_version_not_found",
+                        message=f"skill {ref}@{version_pin} not found",
+                        status_code=404,
                     )
-                )
-            ).mappings().all()
-        return [dict(row) for row in rows]
+                continue
+            parsed = _SkillSpecView.model_validate(row.spec_json)
+            # TASK-004：private skill 仅 grant 用户可用（spec 级 visibility）
+            if parsed.visibility == "private" and ref not in binding_granted:
+                continue
+            skill_versions[ref] = row.version
+            if parsed.instructions.strip():
+                skill_instructions[ref] = parsed.instructions.strip()
+            allowed_tools.update(item for item in parsed.allowed_tools if item.strip())
+
+        # mcp 版本（仅 agent 声明；mcp server 级 grant 语义见 TASK-004 后续）
+        for cap in capabilities:
+            if cap.type != "mcp":
+                continue
+            row = await self._store.get(
+                ResourceKind.MCP,
+                cap.capability_ref,
+                tenant_id=tenant_id,
+                version=None if cap.version_pin == "latest-published" else cap.version_pin,
+            )
+            if row is not None:
+                mcp_versions[cap.capability_ref] = row.version
+
+        return (
+            skill_versions,
+            mcp_versions,
+            plugin_versions,
+            skill_instructions,
+            sorted(allowed_tools),
+        )
 
     async def _credential_versions(self, tenant_id: str, user_id: str) -> dict[str, str]:
-        bindings = await self._bindings(tenant_id, user_id)
+        bindings = await self._store.list_bindings(
+            subject_type="user", subject_id=user_id, tenant_id=tenant_id
+        )
         versions: dict[str, str] = {}
         for binding in bindings:
-            ref = binding.get("credential_ref")
+            ref = binding.credential_ref
             if not ref:
                 continue
             if self._credential_resolver is None:
-                versions[str(ref)] = "1"  # 未配置 resolver：仅记录引用（dev）
+                versions[ref] = "1"  # 未配置 resolver：仅记录引用（dev）
                 continue
             try:
                 resolved = await self._credential_resolver.resolve_with_metadata(
-                    str(ref), tenant_id=tenant_id
+                    ref, tenant_id=tenant_id
                 )
             except Exception as exc:
                 raise ContextResolutionError(
@@ -442,8 +510,35 @@ class ContextResolver:
                     message=f"credential {ref} not resolvable",
                     status_code=422,
                 ) from exc
-            versions[str(ref)] = resolved.version
+            versions[ref] = resolved.version
         return versions
+
+
+class ContextResolverSnapshotBuilder:
+    """把 ContextResolver.resolve 适配到 AgentRuntime 的 build(request) 接口。
+
+    TASK-002：主 invoke 从 ExecutionSnapshotBuilder 切到 ContextResolver。
+    request 只需暴露 tenant_id/user_id/agent_definition_id/runtime_profile_id/
+    runtime_profile_version_selector/session_id（与 RequestContext 兼容）。
+    """
+
+    def __init__(self, resolver: ContextResolver) -> None:
+        self._resolver = resolver
+
+    async def build(self, request: Any) -> ExecutionSnapshot:
+        agent_id = request.agent_definition_id or request.runtime_profile_id
+        selector = ResolverSelector(
+            tenant_id=request.tenant_id,
+            agent_id=agent_id,
+            user_id=request.user_id,
+            runtime_profile_version=(
+                None
+                if request.runtime_profile_version_selector == "latest-published"
+                else request.runtime_profile_version_selector
+            ),
+        )
+        result = await self._resolver.resolve(selector, session_id=request.session_id)
+        return result.snapshot
 
 
 def uuid4_hex() -> str:

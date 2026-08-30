@@ -36,6 +36,7 @@ from fluxion.api.channel import create_app as create_channel_app
 from fluxion.api.console import create_app as create_console_app
 from fluxion.api.dev_bundle import ApiDispatcher
 from fluxion.api.eval import create_app as create_eval_app
+from fluxion.api.runtime import create_app as create_runtime_api_app
 from fluxion.api.workspace import create_app as create_workspace_app
 from fluxion.plugins.artifact.s3 import S3CompatibleArtifactStore
 from fluxion.plugins.secret.postgres import PostgresEncryptedSecretStore
@@ -283,6 +284,40 @@ def create_production_bundle_app_from_env(
         sysdb_dsn=os.environ.get("FLUXION_DBOS_SYSDB_DSN") or None,
         s3_config=s3_config,
     )
+
+
+def create_runtime_app_from_env() -> Starlette:
+    """env 驱动装配 Runtime-only app（CLI ``fluxion serve --runtime`` / FLUXION_ROLE=runtime）。
+
+    三服务拆分（TASK-010 / 规则 14）：Runtime 独立进程只装配 AgentLoop 执行所需的
+    store + secret + trace + RuntimeApplicationService，不含 Console/Channel/Eval/
+    Workspace/Operations。api（Control Plane）经 /internal/v1/runtime-profiles/* HTTP
+    调用本服务。
+    """
+    import base64
+
+    registry_dsn = os.environ.get("FLUXION_DATABASE_URL", "")
+    raw_key = os.environ.get("FLUXION_SECRET_MASTER_KEY", "")
+    if not registry_dsn:
+        raise ProductionProfileError("FLUXION_DATABASE_URL 未设置（runtime 必填）")
+    if not raw_key:
+        raise ProductionProfileError("FLUXION_SECRET_MASTER_KEY 未设置（runtime 必填，base64 32B）")
+    try:
+        master_key = base64.b64decode(raw_key, validate=True)
+    except (ValueError, TypeError) as exc:
+        raise ProductionProfileError("FLUXION_SECRET_MASTER_KEY 必须是合法 base64") from exc
+    if not registry_dsn.startswith("postgresql"):
+        raise ProductionProfileError("runtime 装配要求 PostgreSQL DSN")
+
+    store = PostgreSQLRegistryStore(registry_dsn)
+    engine = store.engine
+    secret_store = PostgresEncryptedSecretStore(engine=engine, master_key=master_key)
+    trace_store = PostgresTraceStore(engine=engine)
+    credential_resolver = CredentialResolver(secret_store)
+    runtime_service = RuntimeApplicationService.create_dev_bundle(
+        store, credential_resolver=credential_resolver, trace_store=trace_store
+    )
+    return create_runtime_api_app(runtime_service)
 
 
 async def _redirect_console(_request: Request) -> RedirectResponse:

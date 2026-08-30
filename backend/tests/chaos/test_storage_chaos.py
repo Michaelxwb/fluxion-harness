@@ -292,7 +292,7 @@ class TestE05SemanticDegraded:
         # memory 段降级 no-memory manifest。
         from fluxion.services.context_resolver import ResolverSelector
 
-        resolver = ContextResolver(store.engine)
+        resolver = ContextResolver(store)
         with _raise_semantic_recall():
             result = await resolver.resolve(
                 ResolverSelector(tenant_id=tenant_id, agent_id=agent_id, user_id="user-chaos"),

@@ -5,7 +5,7 @@ import json
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
 from dataclasses import dataclass, replace
 from time import perf_counter
-from typing import cast
+from typing import Any, cast
 from uuid import uuid4
 
 from fluxion.plugins.contracts import (
@@ -22,7 +22,6 @@ from fluxion.plugins.contracts import (
 from fluxion.resources import ExecutionSnapshot, ModelPolicy
 from fluxion.runtime.context import RequestContext, RuntimeContext, TraceEvent
 from fluxion.runtime.memory import MemoryManager, MemoryPolicy, MemoryRecord, SessionMemoryStore
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder
 from fluxion.runtime.summarizer import SummarizerRegistryProtocol
 
 
@@ -62,7 +61,7 @@ class AgentRuntime:
     def __init__(
         self,
         *,
-        snapshot_builder: ExecutionSnapshotBuilder,
+        snapshot_builder: Any,
         memory_store: SessionMemoryStore,
         memory_policy: MemoryPolicy | None = None,
         model_providers: ModelProviderRegistryProtocol | None = None,

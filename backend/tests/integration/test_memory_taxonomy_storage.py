@@ -26,7 +26,8 @@ from fluxion.registry.schema import session_memory
 from fluxion.runtime import AgentRuntime, RequestContext
 from fluxion.runtime.memory import MemoryPolicy, MemoryRecord
 from fluxion.runtime.memory_sql import SQLSessionMemoryStore
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 from tests.runtime_helpers import seed_runtime_profile
 
 
@@ -56,7 +57,7 @@ async def test_s01_flush_writes_only_l1_not_l2(sqlite_store: RegistryStore) -> N
     engine = getattr(sqlite_store, "engine")
     memory_store = SQLSessionMemoryStore(engine)
     runtime = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
         memory_store=memory_store,
         # 5 词 = 5 tokens ≥ threshold(10*0.5=5) → 单条消息即触发 flush
         memory_policy=MemoryPolicy(max_context_tokens=10, flush_threshold_ratio=0.5),

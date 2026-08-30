@@ -15,7 +15,8 @@ from fluxion.resources import (
 from fluxion.runtime.agent import AgentRuntime
 from fluxion.runtime.context import RequestContext, RuntimeContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 
 
 @pytest.fixture
@@ -200,7 +201,7 @@ async def runtime_context() -> tuple[RuntimeContext, AgentRuntime]:
     await seed_runtime_profile(store)
     resolver = ResourceResolver(store)
     runtime = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(resolver),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(store)),
         memory_store=InMemorySessionMemoryStore(),
     )
     context = await runtime.start_execution(

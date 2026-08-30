@@ -90,6 +90,38 @@ async def get_latest_profile(
     }
 
 
+async def get_profile_at(
+    engine: AsyncEngine, *, tenant_id: str, platform_user_id: str, version: str
+) -> dict[str, Any] | None:
+    """按精确版本读 user profile（ContextResolver user pin 校验，fail-closed）。"""
+    version_cond = (
+        user_profiles.c.version == int(version)
+        if version.isdigit()
+        else user_profiles.c.version == version
+    )
+    async with engine.connect() as conn:
+        row = (
+            await conn.execute(
+                select(
+                    user_profiles.c.version,
+                    user_profiles.c.profile_json,
+                    user_profiles.c.created_at,
+                ).where(
+                    user_profiles.c.tenant_id == tenant_id,
+                    user_profiles.c.platform_user_id == platform_user_id,
+                    version_cond,
+                )
+            )
+        ).mappings().first()
+    if row is None:
+        return None
+    return {
+        "version": int(row["version"]),
+        "profile_json": dict(row["profile_json"]),
+        "created_at": row["created_at"],
+    }
+
+
 async def put_preferences(
     engine: AsyncEngine,
     *,

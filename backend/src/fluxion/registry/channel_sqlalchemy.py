@@ -173,6 +173,22 @@ async def resolve_channel_identity(
     return None if row is None else _identity_from_row(row)
 
 
+async def resolve_platform_user_by_channel_id(
+    engine: AsyncEngine, *, tenant_id: str, channel_user_id: str
+) -> str | None:
+    """channel_user_id → platform_user_id（channel_type 无关，ContextResolver 身份回退）。"""
+    async with engine.connect() as connection:
+        row = (
+            await connection.execute(
+                select(channel_identities.c.platform_user_id).where(
+                    channel_identities.c.tenant_id == tenant_id,
+                    channel_identities.c.channel_user_id == channel_user_id,
+                )
+            )
+        ).first()
+    return str(row[0]) if row is not None else None
+
+
 def _is_lock_contention(exc: OperationalError) -> bool:
     # SQLite 并发写以 "database is locked" (SQLITE_BUSY=5) 抛 OperationalError；
     # PG 行锁在 with_for_update 下表现为阻塞后正常读到 consumed_at，不抛

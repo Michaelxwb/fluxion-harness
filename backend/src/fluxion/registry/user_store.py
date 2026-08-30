@@ -66,6 +66,10 @@ class UserDomainStore(Protocol):
         self, *, tenant_id: str, platform_user_id: str
     ) -> dict[str, object] | None: ...
 
+    async def get_user_profile_at(
+        self, *, tenant_id: str, platform_user_id: str, version: str
+    ) -> dict[str, object] | None: ...
+
     async def put_user_preferences(
         self,
         *,

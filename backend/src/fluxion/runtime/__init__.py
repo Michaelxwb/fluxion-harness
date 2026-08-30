@@ -30,7 +30,8 @@ from fluxion.runtime.tools import (
     ToolRuntime,
 )
 from fluxion.runtime.tracing import InMemoryTraceStore, TraceRecord, TraceStore
-from fluxion.runtime.workflow import StubWorkflowEngine, WorkflowAdapter
+from fluxion.runtime.workflow import WorkflowAdapter
+from fluxion.runtime.pool import RuntimeInstance, RuntimePool
 
 __all__ = [
     "AgentRuntime",
@@ -48,6 +49,8 @@ __all__ = [
     "RequestContext",
     "RevisionAwareResourceResolver",
     "RuntimeContext",
+    "RuntimeInstance",
+    "RuntimePool",
     "RuntimeStepResult",
     "SandboxBackendRegistry",
     "SandboxExecBackend",
@@ -55,7 +58,6 @@ __all__ = [
     "SandboxResult",
     "SandboxUnavailableError",
     "SecretProviderError",
-    "StubWorkflowEngine",
     "ToolAuthorizationError",
     "ToolDescriptor",
     "ToolResult",

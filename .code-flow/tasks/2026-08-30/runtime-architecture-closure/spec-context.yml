@@ -1,7 +1,7 @@
 version: 1
 task: TASK-001
 enforcement: required
-updated_at: '2026-08-30T16:21:56.816500+00:00'
+updated_at: '2026-08-30T16:33:58.609795+00:00'
 sources:
 - type: cli
   ref: bind
@@ -34,7 +34,7 @@ bindings:
         - artifact: runtime-architecture-closure.design.md
           section_id: Spec Compliance Matrix
           item_id: backend-code-quality-performance#RULE-backend-quality-001
-          artifact_sha256: 83a3dcbace462758933c61e52fffe7da06547832a71c0b302f900f5bb97328b9
+          artifact_sha256: 0e313b439bcbf4c62e93162eb4f35cef342acae38331f7a0a173e92fe7f07ecf
         decision: null
         evidence: []
       plan:
@@ -43,7 +43,7 @@ bindings:
         - artifact: runtime-architecture-closure.md
           section_id: TASK-001
           item_id: backend-code-quality-performance#RULE-backend-quality-001
-          artifact_sha256: 21b27eae97f91eca66e8124e8686857bf4283985b69fa8d358083700e1c25682
+          artifact_sha256: 7ff71e8bb1f1a15e368d80949c0362838df422739f4c4d63f80519c8df75a233
         - artifact: runtime-architecture-closure.md
           section_id: TASK-002
           item_id: backend-code-quality-performance#RULE-backend-quality-001
@@ -192,7 +192,7 @@ bindings:
         - artifact: runtime-architecture-closure.design.md
           section_id: Spec Compliance Matrix
           item_id: backend-directory-structure#RULE-backend-directory-001
-          artifact_sha256: 83a3dcbace462758933c61e52fffe7da06547832a71c0b302f900f5bb97328b9
+          artifact_sha256: 0e313b439bcbf4c62e93162eb4f35cef342acae38331f7a0a173e92fe7f07ecf
         decision: null
         evidence: []
       plan:
@@ -201,7 +201,7 @@ bindings:
         - artifact: runtime-architecture-closure.md
           section_id: TASK-008
           item_id: backend-directory-structure#RULE-backend-directory-001
-          artifact_sha256: 21b27eae97f91eca66e8124e8686857bf4283985b69fa8d358083700e1c25682
+          artifact_sha256: 7ff71e8bb1f1a15e368d80949c0362838df422739f4c4d63f80519c8df75a233
         - artifact: runtime-architecture-closure.md
           section_id: TASK-009
           item_id: backend-directory-structure#RULE-backend-directory-001
@@ -350,7 +350,7 @@ bindings:
         - artifact: runtime-architecture-closure.design.md
           section_id: Spec Compliance Matrix
           item_id: backend-logging#RULE-backend-logging-001
-          artifact_sha256: 83a3dcbace462758933c61e52fffe7da06547832a71c0b302f900f5bb97328b9
+          artifact_sha256: 0e313b439bcbf4c62e93162eb4f35cef342acae38331f7a0a173e92fe7f07ecf
         decision: null
         evidence: []
       plan:
@@ -359,7 +359,7 @@ bindings:
         - artifact: runtime-architecture-closure.md
           section_id: TASK-004
           item_id: backend-logging#RULE-backend-logging-001
-          artifact_sha256: 21b27eae97f91eca66e8124e8686857bf4283985b69fa8d358083700e1c25682
+          artifact_sha256: 7ff71e8bb1f1a15e368d80949c0362838df422739f4c4d63f80519c8df75a233
         - artifact: runtime-architecture-closure.md
           section_id: TASK-005
           item_id: backend-logging#RULE-backend-logging-001
@@ -509,7 +509,7 @@ bindings:
         - artifact: runtime-architecture-closure.design.md
           section_id: Spec Compliance Matrix
           item_id: fluxion-console-channel#RULE-fluxion-console-001
-          artifact_sha256: 83a3dcbace462758933c61e52fffe7da06547832a71c0b302f900f5bb97328b9
+          artifact_sha256: 0e313b439bcbf4c62e93162eb4f35cef342acae38331f7a0a173e92fe7f07ecf
         decision: null
         evidence: []
       plan:
@@ -518,7 +518,7 @@ bindings:
         - artifact: runtime-architecture-closure.md
           section_id: TASK-009
           item_id: fluxion-console-channel#RULE-fluxion-console-001
-          artifact_sha256: 21b27eae97f91eca66e8124e8686857bf4283985b69fa8d358083700e1c25682
+          artifact_sha256: 7ff71e8bb1f1a15e368d80949c0362838df422739f4c4d63f80519c8df75a233
         - artifact: runtime-architecture-closure.md
           section_id: TASK-010
           item_id: fluxion-console-channel#RULE-fluxion-console-001
@@ -563,7 +563,7 @@ bindings:
         - artifact: runtime-architecture-closure.design.md
           section_id: Spec Compliance Matrix
           item_id: fluxion-dfx#RULE-fluxion-dfx-001
-          artifact_sha256: 83a3dcbace462758933c61e52fffe7da06547832a71c0b302f900f5bb97328b9
+          artifact_sha256: 0e313b439bcbf4c62e93162eb4f35cef342acae38331f7a0a173e92fe7f07ecf
         decision: null
         evidence: []
       plan:
@@ -572,7 +572,7 @@ bindings:
         - artifact: runtime-architecture-closure.md
           section_id: TASK-004
           item_id: fluxion-dfx#RULE-fluxion-dfx-001
-          artifact_sha256: 21b27eae97f91eca66e8124e8686857bf4283985b69fa8d358083700e1c25682
+          artifact_sha256: 7ff71e8bb1f1a15e368d80949c0362838df422739f4c4d63f80519c8df75a233
         - artifact: runtime-architecture-closure.md
           section_id: TASK-005
           item_id: fluxion-dfx#RULE-fluxion-dfx-001
@@ -618,7 +618,7 @@ bindings:
         - artifact: runtime-architecture-closure.design.md
           section_id: Spec Compliance Matrix
           item_id: fluxion-resource-registry#RULE-fluxion-resource-001
-          artifact_sha256: 83a3dcbace462758933c61e52fffe7da06547832a71c0b302f900f5bb97328b9
+          artifact_sha256: 0e313b439bcbf4c62e93162eb4f35cef342acae38331f7a0a173e92fe7f07ecf
         decision: null
         evidence: []
       plan:
@@ -627,7 +627,7 @@ bindings:
         - artifact: runtime-architecture-closure.md
           section_id: TASK-002
           item_id: fluxion-resource-registry#RULE-fluxion-resource-001
-          artifact_sha256: 21b27eae97f91eca66e8124e8686857bf4283985b69fa8d358083700e1c25682
+          artifact_sha256: 7ff71e8bb1f1a15e368d80949c0362838df422739f4c4d63f80519c8df75a233
         - artifact: runtime-architecture-closure.md
           section_id: TASK-001
           item_id: fluxion-resource-registry#RULE-fluxion-resource-001
@@ -635,9 +635,16 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
-        decision: null
+        decision:
+          kind: manual_verification
+          reason: 用户以 project-owner 身份确认 TASK-001 契约改动满足 Resource 治理规则：版本引用 ExactResourceVersion、未新增持久化事实、未触碰
+            SQLite/PG 双库 Contract、用户差异仍在 Binding/Grant 层、无 Secret 明文
+          confirmed_by: project-owner:user
+          confirmed_at: '2026-08-30T16:33:58+00:00'
+          source: chat:user-confirmation:2026-08-31:TASK-001
+          expires_at: null
         evidence: []
       review:
         status: pending
@@ -673,7 +680,7 @@ bindings:
         - artifact: runtime-architecture-closure.design.md
           section_id: Spec Compliance Matrix
           item_id: fluxion-runtime-core#RULE-fluxion-runtime-001
-          artifact_sha256: 83a3dcbace462758933c61e52fffe7da06547832a71c0b302f900f5bb97328b9
+          artifact_sha256: 0e313b439bcbf4c62e93162eb4f35cef342acae38331f7a0a173e92fe7f07ecf
         decision: null
         evidence: []
       plan:
@@ -682,7 +689,7 @@ bindings:
         - artifact: runtime-architecture-closure.md
           section_id: TASK-001
           item_id: fluxion-runtime-core#RULE-fluxion-runtime-001
-          artifact_sha256: 21b27eae97f91eca66e8124e8686857bf4283985b69fa8d358083700e1c25682
+          artifact_sha256: 7ff71e8bb1f1a15e368d80949c0362838df422739f4c4d63f80519c8df75a233
         - artifact: runtime-architecture-closure.md
           section_id: TASK-002
           item_id: fluxion-runtime-core#RULE-fluxion-runtime-001
@@ -728,7 +735,7 @@ bindings:
         - artifact: runtime-architecture-closure.design.md
           section_id: Spec Compliance Matrix
           item_id: fluxion-workflow-capability#RULE-fluxion-workflow-001
-          artifact_sha256: 83a3dcbace462758933c61e52fffe7da06547832a71c0b302f900f5bb97328b9
+          artifact_sha256: 0e313b439bcbf4c62e93162eb4f35cef342acae38331f7a0a173e92fe7f07ecf
         decision: null
         evidence: []
       plan:
@@ -737,7 +744,7 @@ bindings:
         - artifact: runtime-architecture-closure.md
           section_id: TASK-003
           item_id: fluxion-workflow-capability#RULE-fluxion-workflow-001
-          artifact_sha256: 21b27eae97f91eca66e8124e8686857bf4283985b69fa8d358083700e1c25682
+          artifact_sha256: 7ff71e8bb1f1a15e368d80949c0362838df422739f4c4d63f80519c8df75a233
         - artifact: runtime-architecture-closure.md
           section_id: TASK-004
           item_id: fluxion-workflow-capability#RULE-fluxion-workflow-001

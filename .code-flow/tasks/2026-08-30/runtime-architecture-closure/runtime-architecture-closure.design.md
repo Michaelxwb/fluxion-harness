@@ -138,6 +138,8 @@
 | S-05 | FEAT-06 | P1 | integration | Resolver → ModelPolicy | RuntimeProfile 含 `model_failover` 但 ModelPolicy 承载 | 解析 | `model_resolution.failover` 来自 ModelPolicy，非 `executor_config` |
 | S-06 | FEAT-07 | P1 | integration | Service → Store（grant 列表） | 用户已有 skill/tool/mcp grant | `list_grants()` | 返回含 `resource_kind`/`capability_kind`，与 `grant()` 同构 |
 | S-07 | FEAT-08 | P1 | unit | 模块 import 结构 | `StubWorkflowEngine` 已移到新位置 | import `fluxion.runtime.workflow` 断言无 Stub；从新位置 import 并 smoke start | 主模块无 `StubWorkflowEngine`；新位置可 import 且 start 正常返回 |
+| S-08 | FEAT-05 | P1 | unit | Runtime 域符号 | 术语已落地为代码符号 | import `RuntimeInstance`/`RuntimePool` | 符号可 import 且语义正确 |
+| S-09 | FEAT-03 | P1 | integration | 真实 worker 部署、DBOS durable 上下文 | worker 已装配 capability/agent executor | 跑含 capability/agent 节点的 workflow | 内部 step 按发起用户 frozen 图授权，无权 fail-closed |
 
 **异常场景**
 
@@ -332,14 +334,14 @@ graph TB
 |---------|--------|--------|-----------|---------|------|
 | 需求描述（REQ-CAP-006 / RUNTIME-01） | FEAT-01 | `ContextResolver.resolve` / `EffectiveCapabilityResolver.resolve` | S-01, E-01 | integration | 待实现 |
 | 需求描述（ADR-A003） | FEAT-02 | `ExecutionSnapshot`（contract） | S-02, B-02, E-02 | unit/integration | 待实现 |
-| 需求描述（REQ-CAP-005） | FEAT-03 | `ContextResolver` skill 阶段 | S-03, B-01 | integration | 待实现 |
+| 需求描述（REQ-CAP-005） | FEAT-03 | `ContextResolver` skill 阶段 | S-03, B-01, S-09 | integration | 待实现 |
 | 需求描述（REQ-SEC-003/004） | FEAT-04 | `ToolRuntime.call` | S-04, E-03 | E2E | 待实现 |
-| 需求描述（ADR-A001） | FEAT-05 | 术语（RuntimePool） | —（命名对齐） | manual | 待实现 |
+| 需求描述（ADR-A001） | FEAT-05 | 术语（RuntimePool） | S-08 | unit | 待实现 |
 | 需求描述（MODEL-01） | FEAT-06 | `ContextResolver` model 阶段 / `ModelPolicy` | S-05 | integration | 待实现 |
 | 需求描述（USER-01） | FEAT-07 | `UserDomainService.list_grants` | S-06 | integration | 待实现 |
 | 需求描述（WF-01 / REQ-SCH-001） | FEAT-08 | `StubWorkflowEngine` 迁移 | S-07 | unit | 待实现 |
 | 需求描述（部署/运维收口） | FEAT-09 | `scripts/init_db.py` | —（幂等建表 smoke） | manual | 已完成 |
-| 需求描述（规则 14 / ARCH-14） | FEAT-10 | `FLUXION_ROLE=runtime` + helm runtime Deployment | —（部署架构） | manual | 待实现 |
+| 需求描述（规则 14 / ARCH-14） | FEAT-10 | `FLUXION_ROLE=runtime` + helm runtime Deployment | —（部署架构） | integration | 待实现 |
 
 > RULE-01~09 已映射到 S-/E-/B- 场景；FEAT-05（术语）、FEAT-08（Stub 迁移）为纯命名/组织对齐，无运行时行为差异，标 manual 并说明：以 code review / 目录结构断言确认，不产生运行时行为差异。
 

@@ -8,7 +8,8 @@ from tests.runtime_helpers import bind_skill_to_user, seed_runtime_profile, seed
 from fluxion.registry import RegistryStore
 from fluxion.runtime import AgentRuntime, RequestContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 
 
 @pytest.mark.asyncio
@@ -23,11 +24,11 @@ async def test_B_R03_runtime_pool_resolves_same_versions(
     await bind_skill_to_user(sqlite_store)
 
     pod_a = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
         memory_store=InMemorySessionMemoryStore(),
     )
     pod_b = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
         memory_store=InMemorySessionMemoryStore(),
     )
     request = RequestContext(

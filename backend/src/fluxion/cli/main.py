@@ -64,9 +64,18 @@ def serve_command(
     registry_dsn: Annotated[str, typer.Option("--registry-dsn")] = "",
     dev: Annotated[bool, typer.Option("--dev")] = False,
     production: Annotated[bool, typer.Option("--production")] = False,
+    runtime: Annotated[bool, typer.Option("--runtime")] = False,
 ) -> None:
     dsn = _registry_dsn(registry_dsn)
     uvicorn = _load_uvicorn()
+    if runtime:
+        # TASK-010：三服务拆分——Runtime 独立进程（AgentLoop 执行，不含 Console）
+        from fluxion.api.production_bundle import create_runtime_app_from_env
+
+        if registry_dsn:
+            os.environ["FLUXION_DATABASE_URL"] = registry_dsn
+        uvicorn.run(create_runtime_app_from_env(), host=host, port=port)
+        return
     if production:
         # Phase 6 TASK-006：生产装配 composition root（PG + 真实 provider +
         # release_gate_enforced + fail-fast 守卫）。DSN/env 校验在装配内 fail-fast。

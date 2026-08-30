@@ -213,6 +213,7 @@ class UserDomainService:
             {
                 "id": r.id,
                 "capability_ref": r.capability_ref,
+                "resource_kind": r.capability_kind,
                 "granted_scope": r.granted_scope,
                 "version_pin": r.version_pin,
                 "created_at": r.created_at.isoformat(),

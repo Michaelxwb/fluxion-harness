@@ -89,6 +89,10 @@ class ChannelStore(Protocol):
         self, *, tenant_id: str, channel_type: str, channel_user_id: str
     ) -> ChannelIdentityRecord | None: ...
 
+    async def resolve_platform_user_by_channel_id(
+        self, *, tenant_id: str, channel_user_id: str
+    ) -> str | None: ...
+
     async def redeem_bind_code(self, redemption: BindRedemption) -> ChannelIdentityRecord: ...
 
 

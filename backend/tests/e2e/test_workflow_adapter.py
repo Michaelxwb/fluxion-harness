@@ -4,7 +4,8 @@ import pytest
 from tests.runtime_helpers import runtime_context
 
 from fluxion.runtime.tools import ToolResultStatus, ToolRuntime
-from fluxion.runtime.workflow import StubWorkflowEngine, WorkflowAdapter
+from fluxion.runtime.workflow import WorkflowAdapter
+from tests.fakes.workflow import StubWorkflowEngine
 
 
 @pytest.mark.asyncio

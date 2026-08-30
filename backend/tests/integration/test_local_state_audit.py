@@ -75,12 +75,12 @@ class TestS09LocalStateAudit:
         # 清理后恢复通过
         assert audit_mod.audit()["passed"] is True
 
-    def test_s09_scheduler_trace_workflow_stub_covered(self) -> None:
-        """S-09 附属：G5 覆盖检查——Scheduler/Trace/Workflow Stub 关键容器在标注表。"""
+    def test_s09_scheduler_trace_covered(self) -> None:
+        """S-09 附属：G5 覆盖检查——Scheduler/Trace 关键容器在标注表。
+
+        Workflow Stub 已移出主模块（TASK-009），不再进入生产 local-state 扫描范围。
+        """
         result = audit()
         ephemeral = set(result["by_classification"]["Ephemeral"])
         assert "scheduler.py:RuntimeScheduler._tasks" in ephemeral, "Scheduler._tasks 必须标注"
         assert "tracing.py:InMemoryTraceStore._records" in ephemeral, "Trace store 必须标注"
-        assert any(
-            name.startswith("workflow.py:StubWorkflowEngine.") for name in ephemeral
-        ), "Workflow Stub 引擎容器必须标注"

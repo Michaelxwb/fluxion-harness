@@ -43,7 +43,8 @@ from fluxion.registry.schema import metadata, session_memory
 from fluxion.runtime import AgentRuntime, RequestContext
 from fluxion.runtime.memory import MemoryPolicy
 from fluxion.runtime.memory_sql import SQLSessionMemoryStore
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _MEMORY_ROOT = _BACKEND_ROOT / "src" / "fluxion" / "memory"
@@ -374,7 +375,7 @@ async def test_e03_compaction_does_not_auto_commit_summary_into_personal_memory(
     """
     await seed_runtime_profile(sqlite_store)
     runtime = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
         memory_store=SQLSessionMemoryStore(memory_engine),
         memory_policy=MemoryPolicy(max_context_tokens=12, retain_latest_turns=2),
     )

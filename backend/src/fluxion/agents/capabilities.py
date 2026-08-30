@@ -21,6 +21,7 @@ CAPABILITY_TYPE_KINDS: dict[CapabilityType, ResourceKind] = {
     CapabilityType.SKILL: ResourceKind.SKILL,
     CapabilityType.MCP: ResourceKind.MCP,
     CapabilityType.TOOL: ResourceKind.TOOL,
+    CapabilityType.WORKFLOW: ResourceKind.WORKFLOW,
 }
 
 _CAPABILITY_REF = re.compile(r"^(skill|tool|mcp|plugin):([^@]+)@([^@]+)$")

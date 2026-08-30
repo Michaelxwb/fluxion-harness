@@ -64,6 +64,14 @@ if [ "${FLUXION_ROLE}" = "worker" ]; then
   exec fluxion-workflow-worker $WORKER_ARGS $SERVE_ARGS
 fi
 
+# 三服务拆分（TASK-010）：runtime 角色 = AgentLoop 执行独立进程（不含 Console）
+if [ "${FLUXION_ROLE}" = "runtime" ]; then
+  exec fluxion serve --runtime \
+    --host "${FLUXION_HOST}" \
+    --port "${FLUXION_HTTP_PORT}" \
+    --registry-dsn "${FLUXION_DATABASE_URL}"
+fi
+
 # 生产模式启动（--production 生产 bundle）：读取 FLUXION_DATABASE_URL 指向的
 # PostgreSQL；FLUXION_DBOS_SYSDB_DSN / FLUXION_S3_* 由 Helm/env 注入。
 # 如需容器内开发模式（挂载前端），可改为 `--dev`。

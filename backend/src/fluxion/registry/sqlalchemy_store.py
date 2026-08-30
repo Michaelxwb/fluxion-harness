@@ -737,6 +737,13 @@ class SQLAlchemyRegistryStore:
             channel_user_id=channel_user_id,
         )
 
+    async def resolve_platform_user_by_channel_id(
+        self, *, tenant_id: str, channel_user_id: str
+    ) -> str | None:
+        return await channel_sqlalchemy.resolve_platform_user_by_channel_id(
+            self._engine, tenant_id=tenant_id, channel_user_id=channel_user_id
+        )
+
     async def redeem_bind_code(self, redemption: BindRedemption) -> ChannelIdentityRecord:
         return await channel_sqlalchemy.redeem_bind_code(self._engine, redemption)
 
@@ -766,6 +773,16 @@ class SQLAlchemyRegistryStore:
     ) -> dict[str, Any] | None:
         return await user_sqlalchemy.get_latest_profile(
             self.engine, tenant_id=tenant_id, platform_user_id=platform_user_id
+        )
+
+    async def get_user_profile_at(
+        self, *, tenant_id: str, platform_user_id: str, version: str
+    ) -> dict[str, Any] | None:
+        return await user_sqlalchemy.get_profile_at(
+            self.engine,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            version=version,
         )
 
     async def put_user_preferences(

@@ -65,8 +65,8 @@ def _selector(user_id: str = "user-a") -> ResolverSelector:
 async def test_s01_cross_instance_digest_equal(store) -> None:
     """S-01（RULE-P2-01）：双实例 resolve 同一 agent → digest 完全相等。"""
     # 实例 A 和 B 各持独立 ContextResolver 对象，共享同一 Store
-    resolver_a = ContextResolver(store.engine)
-    resolver_b = ContextResolver(store.engine)
+    resolver_a = ContextResolver(store)
+    resolver_b = ContextResolver(store)
 
     await _seed_agent(store, version="1")
 
@@ -80,7 +80,7 @@ async def test_s01_cross_instance_digest_equal(store) -> None:
 @pytest.mark.asyncio
 async def test_s01_v2_fields_complete(store) -> None:
     """digest 覆盖 V2 字段全集（remediation §13.2）。"""
-    resolver = ContextResolver(store.engine)
+    resolver = ContextResolver(store)
     await _seed_agent(store, version="1")
     result = await resolver.resolve(_selector(), session_id="s")
 
@@ -94,8 +94,8 @@ async def test_s01_v2_fields_complete(store) -> None:
 @pytest.mark.asyncio
 async def test_s06_kill_instance_equivalence(store) -> None:
     """S-06：kill 一个实例 → 新请求打到存活实例 → digest 一致 + RPO=0。"""
-    resolver_a = ContextResolver(store.engine)
-    resolver_b = ContextResolver(store.engine)
+    resolver_a = ContextResolver(store)
+    resolver_b = ContextResolver(store)
     await _seed_agent(store, version="1")
 
     # 实例 A 服务请求
@@ -111,7 +111,7 @@ async def test_s06_kill_instance_equivalence(store) -> None:
 @pytest.mark.asyncio
 async def test_s08_g4_execution_immutability_and_version_migration(store) -> None:
     """G4/ARCH-07：Execution-1 pin v1 → 运行中发布 v2 → Execution-1 全程 v1。"""
-    resolver_1 = ContextResolver(store.engine)
+    resolver_1 = ContextResolver(store)
     await _seed_agent(store, version="1")
 
     result_1 = await resolver_1.resolve(_selector(), session_id="s1")
@@ -125,7 +125,7 @@ async def test_s08_g4_execution_immutability_and_version_migration(store) -> Non
     assert result_1.snapshot.snapshot_digest == digest_v1
 
     # 新 Execution 使用 v2（新 resolver 实例 = 无 L1 缓存）
-    resolver_fresh = ContextResolver(store.engine)
+    resolver_fresh = ContextResolver(store)
     result_2 = await resolver_fresh.resolve(_selector(), session_id="s2")
     assert result_2.snapshot.agent_definition_version == "2"
     assert result_2.snapshot.snapshot_digest != digest_v1

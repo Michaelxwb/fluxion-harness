@@ -20,6 +20,7 @@ from fluxion.observability.logging import emit_runtime_error_log
 from fluxion.observability.tracing import traced_scope
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.registry import (
+    ChannelRegistryStore,
     PublicationCommand,
     PublicationOperation,
     RegistryStore,
@@ -38,8 +39,8 @@ from fluxion.runtime.context import RuntimeContext
 from fluxion.runtime.hot_reload import ConfigChangeEvent, RevisionAwareResourceResolver
 from fluxion.runtime.mcp import RegistryMCPRuntime
 from fluxion.runtime.memory import SessionMemoryStore
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder
 from fluxion.runtime.secrets import CredentialResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 from fluxion.runtime.tools import ToolRuntime
 from fluxion.runtime.tracing import InMemoryTraceStore, TraceRecord, TraceStore
 from fluxion.services.outbox import InProcessConfigEventPublisher, OutboxWorker
@@ -88,7 +89,7 @@ __all__ = [
 class RuntimeApplicationService(RuntimeToolOps):
     def __init__(
         self,
-        store: RegistryStore,
+        store: ChannelRegistryStore,
         *,
         cache_ttl_seconds: float = 60.0,
         trace_store: TraceStore | None = None,
@@ -106,7 +107,7 @@ class RuntimeApplicationService(RuntimeToolOps):
         self._model_providers = model_providers or ModelProviderRegistry()
         self._credential_resolver = credential_resolver
         self._runtime = AgentRuntime(
-            snapshot_builder=ExecutionSnapshotBuilder(self._resolver),
+            snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(store)),
             memory_store=memory_store or default_session_memory_store(store),
             model_providers=self._model_providers,
         )
@@ -127,7 +128,7 @@ class RuntimeApplicationService(RuntimeToolOps):
     @classmethod
     def create_dev_bundle(
         cls,
-        store: RegistryStore,
+        store: ChannelRegistryStore,
         *,
         cache_ttl_seconds: float = 60.0,
         trace_store: TraceStore | None = None,
@@ -269,6 +270,7 @@ class RuntimeApplicationService(RuntimeToolOps):
             ) as span:
                 try:
                     context = await self._runtime.start_execution(_request_context(request))
+                    await self._resolver.poll_revision(request.tenant_id)
                     context.tool_runtime = self._tool_runtime.clone_for_execution()
                     await self._prepare_registry_model_providers(context)
                     mcp_tool_ids = await self._mcp_runtime.prepare(context, context.tool_runtime)
@@ -368,6 +370,7 @@ class RuntimeApplicationService(RuntimeToolOps):
         context: RuntimeContext | None = None
         try:
             context = await self._runtime.start_execution(_request_context(request))
+            await self._resolver.poll_revision(request.tenant_id)
             context.tool_runtime = self._tool_runtime.clone_for_execution()
             await self._prepare_registry_model_providers(context)
             mcp_tool_ids = await self._mcp_runtime.prepare(context, context.tool_runtime)

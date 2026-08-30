@@ -7,14 +7,15 @@ from fluxion.registry import RegistryStore, SQLiteRegistryStore
 from fluxion.runtime import AgentRuntime, RequestContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore
 from fluxion.runtime.memory_sql import SQLSessionMemoryStore
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 
 
 def _runtime_with_sql_memory(store: RegistryStore) -> AgentRuntime:
     engine = getattr(store, "engine", None)
     assert engine is not None, "SQLSessionMemoryStore requires a SQLAlchemy-backed store"
     return AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(store)),
         memory_store=SQLSessionMemoryStore(engine),
     )
 
@@ -56,7 +57,7 @@ async def test_S_R05_in_memory_store_remains_supported(sqlite_store: RegistrySto
     """InMemorySessionMemoryStore 仍是合法的无 store 测试夹具实现。"""
     await seed_runtime_profile(sqlite_store)
     pod = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
         memory_store=InMemorySessionMemoryStore(),
     )
     await pod.run(_request(), input_messages=["用户事实: project=atlas"])

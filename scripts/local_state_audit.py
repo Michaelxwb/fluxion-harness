@@ -74,6 +74,7 @@ ANNOTATIONS: dict[str, dict[str, str]] = {
     "tools.py": {
         "ToolRuntime._descriptors": "Ephemeral",
         "ToolRuntime._executors": "Ephemeral",
+        "module:_semantic_validators": "Ephemeral",
     },
     # Workflow Stub 引擎（G5 覆盖检查项；生产走 DbosWorkflowEngine durable store）
     "workflow.py": {
@@ -85,6 +86,7 @@ ANNOTATIONS: dict[str, dict[str, str]] = {
     # capability/agent executor 进程级注册表（worker bootstrap 装配）
     "workflow_graph.py": {
         "module:_capability_executors": "Ephemeral",
+        "module:_agent_executor": "Ephemeral",
     },
     # L1 缓存（miss 后经 L2 Registry 回读重建）
     "hot_reload.py": {

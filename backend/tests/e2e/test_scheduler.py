@@ -8,7 +8,8 @@ from tests.runtime_helpers import seed_runtime_profile
 from fluxion.registry import RegistryStore
 from fluxion.runtime import AgentRuntime
 from fluxion.runtime.memory import InMemorySessionMemoryStore
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 from fluxion.runtime.scheduler import RuntimeScheduler, ScheduledTask
 
 
@@ -18,7 +19,7 @@ async def test_S_R19_scheduler_runs_independent_approved_executions(
 ) -> None:
     await seed_runtime_profile(sqlite_store)
     runtime = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
         memory_store=InMemorySessionMemoryStore(),
     )
     scheduler = RuntimeScheduler(runtime)

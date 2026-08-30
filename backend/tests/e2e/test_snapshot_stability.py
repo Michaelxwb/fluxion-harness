@@ -12,7 +12,8 @@ from fluxion.registry import RegistryStore
 from fluxion.resources import ResourceKind
 from fluxion.runtime import AgentRuntime, RequestContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 
 
 @pytest.mark.asyncio
@@ -29,7 +30,7 @@ async def test_S_R03_execution_snapshot_is_fixed_during_hot_publish(
     await bind_skill_to_user(sqlite_store)
 
     runtime = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
         memory_store=InMemorySessionMemoryStore(),
     )
 

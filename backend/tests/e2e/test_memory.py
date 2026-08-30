@@ -6,7 +6,8 @@ from tests.runtime_helpers import seed_runtime_profile
 from fluxion.registry import RegistryStore
 from fluxion.runtime import AgentRuntime, RequestContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore, MemoryPolicy
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 
 
 @pytest.mark.asyncio
@@ -16,7 +17,7 @@ async def test_S_R17_multi_layer_memory_flush_and_isolation(
     await seed_runtime_profile(sqlite_store)
     memory_store = InMemorySessionMemoryStore()
     runtime = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
         memory_store=memory_store,
         memory_policy=MemoryPolicy(max_context_tokens=10, flush_threshold_ratio=0.5),
     )

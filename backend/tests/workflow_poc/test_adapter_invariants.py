@@ -16,10 +16,11 @@ from fluxion.errors.workflow import (
     WORKFLOW_BACKEND_UNAVAILABLE,
     WorkflowBackendUnavailableError,
 )
+from tests.fakes.workflow import StubWorkflowEngine
+
 from fluxion.runtime.workflow import (
     FailPolicy,
     ResilientWorkflowEngine,
-    StubWorkflowEngine,
     WorkflowAdapter,
     WorkflowStartRequest,
 )

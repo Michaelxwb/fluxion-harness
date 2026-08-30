@@ -13,6 +13,11 @@ worker:
   bootstrap: "fluxion.runtime.workflow_worker_bootstrap:install_production_worker_bootstrap"
   workerConcurrency: 4
 
+# runtime Deployment（TASK-010 三服务拆分）：AgentLoop 执行独立进程（规则 14），
+# 按 Agent 负载横向扩（无状态，HPA 指标后续接 capacity）。
+runtime:
+  replicaCount: 2
+
 image:
   repository: fluxion-harness/fluxion
   tag: "0.1.0"

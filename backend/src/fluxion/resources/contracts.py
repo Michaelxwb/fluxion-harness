@@ -217,6 +217,12 @@ class RuntimeProfile(SensitiveSpecModel):
         title="执行器配置",
         description="Runtime executor 的非敏感装配参数",
     )
+    # TASK-007：模型降级链从 executor_config.model_failover 收口到 typed 字段。
+    model_failover: list[str] = Field(
+        default_factory=list,
+        title="模型降级链",
+        description="主模型 provider 失败时的降级 provider id 列表",
+    )
 
 
 class SkillDefinition(SensitiveSpecModel):
@@ -226,6 +232,10 @@ class SkillDefinition(SensitiveSpecModel):
     )
     allowed_tools: list[str] = Field(
         default_factory=list, title="放行工具", description="该技能放行的工具（并入 agent 工具白名单）"
+    )
+    # TASK-004：用户级可见性——public 全用户可用；private 仅 grant 用户可用。
+    visibility: Literal["public", "private"] = Field(
+        default="public", title="用户级可见性", description="public=全用户；private=仅 grant 用户"
     )
 
 
@@ -622,6 +632,11 @@ class ExecutionSnapshot(BaseModel):
     # Snapshot 冻结 AgentDefinition exact version）；无关联 Agent 时为 None。
     agent_definition_id: str | None = None
     agent_definition_version: str | None = None
+    # FEAT-02：AgentDefinition 的三条运行依赖引用进 Snapshot（exact version 冻结，
+    # 缺省 None 为 fail-safe——解析失败 fail-closed 由 resolver 保证）。
+    workflow_ref: ExactResourceVersion | None = None
+    memory_policy_ref: ExactResourceVersion | None = None
+    personalization_policy_ref: ExactResourceVersion | None = None
     # ADR-012：结构化 ModelPolicy（frozen）。validate 产生的新实例天然与缓存
     # spec_json 断开引用，执行期不可变由 model 层保证（原为 deepcopy dict 防护）。
     model_resolution: ModelPolicy
@@ -636,9 +651,11 @@ class ExecutionSnapshot(BaseModel):
     binding_versions: dict[str, str] = Field(default_factory=dict)
     # closure TASK-001（phase2）V2 字段：版本图谱全集（remediation §13.2）。
     user_profile_version: str | None = None
-    agent_definition_version: str | None = None
     policy_versions: dict[str, str] | None = None
     credential_versions: dict[str, str] | None = None
+    # FEAT-01/02：effective 能力/权限图（授权结果，进 canonical digest，执行期只读）。
+    effective_capability: dict[str, object] = Field(default_factory=dict)
+    effective_permissions: dict[str, object] = Field(default_factory=dict)
     # Phase 5 TASK-001：本次执行 pin 的 artifact 引用（name →
     # artifact://{tenant}/{ns}/{key}@{version}，规则 6/10——published 不可变、
     # 回滚选历史版本）。引用来自 Resource spec（ExecutionSnapshot 固定版本）。

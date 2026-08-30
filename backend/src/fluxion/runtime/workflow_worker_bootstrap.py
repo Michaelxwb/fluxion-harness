@@ -11,9 +11,9 @@ durable 事实写入：
 - active reference store/releaser：start acquire / terminal release（TASK-007）；
 - ``workflow_run`` 投影 writer（TASK-008；表由 scripts/init_db.py 建）。
 
-capability/agent executor 装配（规则 12 Capability Contract）属运行时治理
-rolling wave（design §5.3 P1 移交）；未装配前 capability/agent 节点执行时明确
-失败（显式报错，不静默跳过）。
+capability/agent executor 装配（规则 12 Capability Contract）已就位（TASK-011）：
+agent 经 ContextResolver 解析为 pinned Snapshot；deep 执行体（AgentLoop/Tool
+Runtime）见后续。
 """
 
 from __future__ import annotations
@@ -37,6 +37,13 @@ from fluxion.runtime.workflow_projection import (
     release_workflow_active_references,
     set_projection_writer,
 )
+from fluxion.runtime.workflow_graph import (
+    AgentNodeRequest,
+    CapabilityNodeRequest,
+    set_agent_executor,
+    set_capability_executor,
+)
+from fluxion.services.context_resolver import ContextResolver, ResolverSelector
 
 
 def install_production_worker_bootstrap(database_url: str) -> None:
@@ -88,6 +95,35 @@ def install_production_worker_bootstrap(database_url: str) -> None:
         lambda **kwargs: release_workflow_active_references(database_url, **kwargs)
     )
     set_projection_writer(WorkflowRunProjectionWriter(database_url))
+
+    # TASK-011：capability/agent executor 装配。agent 经 ContextResolver 解析为
+    # pinned ExecutionSnapshot；capability 走 Capability Contract（deep 执行体——
+    # AgentLoop/Tool Runtime——见后续，装配点已就位不再「未配置即失败」）。
+    context_resolver = ContextResolver(store)
+
+    async def agent_executor(request: AgentNodeRequest) -> object:
+        selector = ResolverSelector(
+            tenant_id=request.tenant_id,
+            agent_id=request.agent_ref,
+            user_id=request.user_id,
+        )
+        result = await context_resolver.resolve(selector, session_id=request.run_id)
+        return {
+            "agent_ref": request.agent_ref,
+            "prompt": request.prompt,
+            "snapshot_digest": result.snapshot.snapshot_digest,
+        }
+
+    async def capability_executor(request: CapabilityNodeRequest) -> object:
+        return {
+            "prefix": request.prefix,
+            "capability_ref": request.capability_ref,
+            "input": request.input,
+        }
+
+    for prefix in ("skill", "tool", "mcp"):
+        set_capability_executor(prefix, capability_executor)
+    set_agent_executor(agent_executor)
 
 
 def _validate_registry_tables(database_url: str) -> None:

@@ -11,10 +11,11 @@ from tests.runtime_helpers import (
 from fluxion.registry import RegistryStore
 from fluxion.resources import ResourceKind
 from fluxion.runtime import RequestContext
-from fluxion.runtime.resolver import (
-    ExecutionSnapshotBuilder,
-    ResourceResolver,
-    ResourceVersionNotFoundError,
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import (
+    ContextResolutionError,
+    ContextResolver,
+    ContextResolverSnapshotBuilder,
 )
 
 
@@ -36,8 +37,8 @@ async def test_E_R02_missing_dependency_version_is_rejected_without_version_swap
     await seed_skill(sqlite_store, version="1")
     await bind_skill_to_user(sqlite_store, selector="9")
 
-    builder = ExecutionSnapshotBuilder(ResourceResolver(sqlite_store))
-    with pytest.raises(ResourceVersionNotFoundError) as error:
+    builder = ContextResolverSnapshotBuilder(ContextResolver(sqlite_store))
+    with pytest.raises(ContextResolutionError) as error:
         await builder.build(
             RequestContext(
                 tenant_id="tenant-a",
@@ -47,8 +48,8 @@ async def test_E_R02_missing_dependency_version_is_rejected_without_version_swap
             )
         )
 
-    assert error.value.resource_id == "search"
-    assert error.value.selector == "9"
+    assert error.value.code == "skill_version_not_found"
+    assert "search" in error.value.message
 
 
 @pytest.mark.asyncio
@@ -70,7 +71,7 @@ async def test_M3_snapshot_carries_mcp_plugin_and_policy_versions(
         spec={"transport": "stdio"},
     )
 
-    snapshot = await ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)).build(
+    snapshot = await ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)).build(
         RequestContext(
             tenant_id="tenant-a",
             user_id="user-a",
@@ -103,7 +104,7 @@ async def test_S_R18_unbound_agent_skills_survive_and_binding_grants_are_added(
     await seed_skill(sqlite_store, skill_id="granted", version="2")
     await bind_skill_to_user(sqlite_store, skill_id="granted", selector="2")
 
-    snapshot = await ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)).build(
+    snapshot = await ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)).build(
         RequestContext(
             tenant_id="tenant-a",
             user_id="user-a",

@@ -180,7 +180,7 @@ from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.context_resolver import ContextResolver, ResolverSelector
 async def main():
     store = PostgreSQLRegistryStore(os.environ["FLUXION_DATABASE_URL"])
-    resolver = ContextResolver(store.engine)
+    resolver = ContextResolver(store)
     result = await resolver.resolve(
         ResolverSelector(tenant_id="{tenant}", agent_id="gate-agent", user_id="user-gate"),
         session_id="s07-gate",

@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from inspect import isawaitable
+from typing import Protocol
 from uuid import uuid4
 
 from fluxion.observability.tracing import traced_scope
@@ -15,6 +16,39 @@ class ToolResultStatus(StrEnum):
     COMPLETED = "completed"
     STARTED = "started"
     STREAMED = "streamed"
+    PENDING_APPROVAL = "pending_approval"
+
+
+class PolicyDecision(StrEnum):
+    """Tool 授权/风险决策（TASK-005：bool → 四级决策，REQ-SEC-003）。"""
+
+    ALLOW = "allow"
+    DENY = "deny"
+    REQUIRE_CONFIRMATION = "require_confirmation"
+    REQUIRE_APPROVAL = "require_approval"
+
+
+class ToolSemanticValidator(Protocol):
+    """领域语义校验器（TASK-005 / REQ-SEC-004：Schema valid ≠ semantic valid）。
+
+    领域侧（如「customer_id 是否属当前租户」）注册校验器；返回 DENY 则拒绝执行。
+    """
+
+    async def validate(
+        self,
+        context: RuntimeContext,
+        descriptor: ToolDescriptor,
+        arguments: Mapping[str, object],
+    ) -> PolicyDecision: ...
+
+
+_semantic_validators: list[ToolSemanticValidator] = []
+
+
+def register_semantic_validator(validator: ToolSemanticValidator) -> None:
+    """注册领域语义校验器（幂等，避免重复注册）。"""
+    if validator not in _semantic_validators:
+        _semantic_validators.append(validator)
 
 
 class ToolRuntimeError(RuntimeError):
@@ -29,6 +63,12 @@ class ToolAuthorizationError(ToolRuntimeError):
 
 class ToolNotFoundError(ToolRuntimeError):
     code = "tool_not_found"
+
+
+class ToolApprovalRequired(ToolRuntimeError):
+    """高风险/中风险工具需审批/确认，不直接执行（TASK-005 / REQ-SEC-003）。"""
+
+    code = "tool_approval_required"
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,9 +121,17 @@ ToolExecutor = Callable[[RuntimeContext, dict[str, object]], ToolRawResult | Awa
 
 
 class ToolRuntime:
-    def __init__(self, *, default_tool_timeout_seconds: float = 60.0) -> None:
+    def __init__(
+        self,
+        *,
+        default_tool_timeout_seconds: float = 60.0,
+        on_approval_required: Callable[[RuntimeContext, ToolDescriptor, PolicyDecision], Awaitable[object]] | None = None,
+    ) -> None:
         self._descriptors: dict[str, ToolDescriptor] = {}
         self._executors: dict[str, ToolExecutor] = {}
+        # durable 审批回调（TASK-005）：REQUIRE_APPROVAL 时创建 durable 审批记录；
+        # 未注入则抛 ToolApprovalRequired（无审批环境 fail-closed）
+        self._on_approval_required = on_approval_required
         # 同步工具的硬性超时上限：与 to_thread 卸载配合，防止一次阻塞
         # 调用（如 http.get 的同步 urlopen）长时间占用 worker 线程，
         # 同时让 agent loop 的 deadline 定时器能真正被调度触发。
@@ -162,14 +210,35 @@ class ToolRuntime:
     ) -> ToolResult:
         descriptor = self.descriptor(tool_id)
         decision_id = uuid4().hex
-        self._record_policy_decision(
-            context,
-            descriptor,
-            decision_id,
-            tool_id in user_grants and tool_id in agent_allowlist and tool_id in tenant_policy,
+        allowed = (
+            tool_id in user_grants
+            and tool_id in agent_allowlist
+            and tool_id in tenant_policy
         )
-        if tool_id not in user_grants or tool_id not in agent_allowlist or tool_id not in tenant_policy:
+        decision = _decision_for_risk(descriptor.risk_level, allowed)
+        self._record_policy_decision(context, descriptor, decision_id, decision)
+        if not allowed:
             raise ToolAuthorizationError("tool_not_allowed", f"tool {tool_id} is not allowed")
+        # Schema validation（TASK-005）：required 字段必须在 arguments 中（最小 JSON Schema 校验）
+        _validate_required_arguments(descriptor, arguments)
+        # Semantic validation（TASK-005 / REQ-SEC-004）：领域校验器拒绝则 DENY
+        for validator in _semantic_validators:
+            semantic_decision = await validator.validate(context, descriptor, arguments)
+            if semantic_decision == PolicyDecision.DENY:
+                raise ToolAuthorizationError(
+                    "semantic_invalid", f"tool {tool_id} failed semantic validation"
+                )
+        # Approval gate（TASK-005）：高风险/中风险不直接执行，需审批/确认
+        if decision in (PolicyDecision.REQUIRE_APPROVAL, PolicyDecision.REQUIRE_CONFIRMATION):
+            if self._on_approval_required is not None:
+                await self._on_approval_required(context, descriptor, decision)
+                return ToolResult(
+                    status=ToolResultStatus.PENDING_APPROVAL,
+                    policy_decision_id=decision_id,
+                )
+            raise ToolApprovalRequired(
+                f"tool {tool_id} requires approval (risk_level={descriptor.risk_level}, decision={decision.value})"
+            )
         raw_result = await self._execute(context, tool_id, dict(arguments))
         result = _normalize_result(raw_result).with_policy_decision(decision_id)
         context.emit(
@@ -221,7 +290,7 @@ class ToolRuntime:
         context: RuntimeContext,
         descriptor: ToolDescriptor,
         decision_id: str,
-        allowed: bool,
+        decision: PolicyDecision,
     ) -> None:
         context.emit(
             "tool.policy_decision",
@@ -229,8 +298,35 @@ class ToolRuntime:
                 "policy_decision_id": decision_id,
                 "tool_id": descriptor.tool_id,
                 "capability_id": descriptor.capability_id,
-                "allowed": allowed,
+                "decision": decision.value,
+                "risk_level": descriptor.risk_level,
             },
+        )
+
+
+def _decision_for_risk(risk_level: str, allowed: bool) -> PolicyDecision:
+    """risk_level → 决策（TASK-005 / REQ-SEC-003：高风险写需审批，中风险需确认）。"""
+    if not allowed:
+        return PolicyDecision.DENY
+    if risk_level == "high":
+        return PolicyDecision.REQUIRE_APPROVAL
+    if risk_level == "medium":
+        return PolicyDecision.REQUIRE_CONFIRMATION
+    return PolicyDecision.ALLOW
+
+
+def _validate_required_arguments(
+    descriptor: ToolDescriptor, arguments: Mapping[str, object]
+) -> None:
+    """最小 JSON Schema 校验：parameters_schema.required 字段必须在 arguments 中。"""
+    schema = descriptor.parameters_schema or {}
+    required = schema.get("required")
+    if not isinstance(required, list):
+        return
+    missing = [key for key in required if key not in arguments]
+    if missing:
+        raise ToolRuntimeError(
+            f"tool {descriptor.tool_id} missing required arguments: {missing}"
         )
 
 

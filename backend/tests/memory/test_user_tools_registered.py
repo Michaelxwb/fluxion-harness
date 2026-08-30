@@ -164,9 +164,9 @@ async def test_s10_real_call_through_triple_gate_and_audit(
     # 偏好已落库
     prefs = await users.get_preferences(tenant_id=TENANT, platform_user_id=USER)
     assert prefs["preference_json"]["theme"] == "dark"
-    # 三重交集授权通过：policy_decision event allowed=True
+    # 三重交集授权通过：policy_decision event decision=allow
     decisions = [e for e in ctx.trace if e.name == "tool.policy_decision"]
-    assert decisions and decisions[0].attributes["allowed"] is True
+    assert decisions and decisions[0].attributes["decision"] == "allow"
     # 写操作进 AuditLog（规则 24）
     async with store.engine.connect() as conn:
         row = (
@@ -195,9 +195,9 @@ async def test_s10_real_call_denied_by_gate_no_audit(
             tenant_policy={tool_id},
         )
     assert exc.value.code == "tool_not_allowed"
-    # 拒绝时 policy_decision event 记录 allowed=False（可观测）
+    # 拒绝时 policy_decision event 记录 decision=deny（可观测）
     decisions = [e for e in ctx.trace if e.name == "tool.policy_decision"]
-    assert decisions and decisions[0].attributes["allowed"] is False
+    assert decisions and decisions[0].attributes["decision"] == "deny"
     # 拒绝发生在 executor 之前：不产生该 tool 的 AuditLog
     # （fixture 的 ensure_user 会写 user.create，需按 tool 动作精确断言）
     async with store.engine.connect() as conn:

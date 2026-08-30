@@ -33,7 +33,8 @@ from fluxion.registry import RegistryStore
 from fluxion.resources import ResourceKind
 from fluxion.runtime import AgentRuntime, RequestContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 
 
 class SlowModelProviderPlugin:
@@ -128,7 +129,7 @@ async def test_S_R13_agentloop_uses_model_provider_plugin_tool_calling_and_failo
     await loader.load(slow, PluginContext(tenant_id="tenant-a"))
     await loader.load(stub, PluginContext(tenant_id="tenant-a"))
     runtime = AgentRuntime(
-        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
         memory_store=InMemorySessionMemoryStore(),
         model_providers=registry,
     )

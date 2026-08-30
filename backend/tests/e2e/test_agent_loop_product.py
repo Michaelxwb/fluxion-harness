@@ -27,7 +27,8 @@ from fluxion.resources import ResourceKind
 from fluxion.runtime import AgentRuntime
 from fluxion.runtime.context import RequestContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore
-from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
+from fluxion.runtime.resolver import ResourceResolver
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 from fluxion.runtime.tools import ToolDescriptor, ToolRuntime
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.runtime_contracts import RunRuntimeRequest
@@ -198,7 +199,7 @@ async def test_S_P13_02_published_skill_instructions_are_fixed_in_snapshot_and_p
         )
         await _publish_profile(sqlite_store, allowed_skills=["concise@1"])
         runtime = AgentRuntime(
-            snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver(sqlite_store)),
+            snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
             memory_store=InMemorySessionMemoryStore(),
             model_providers=_model_registry(wire.base_url),
         )

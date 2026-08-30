@@ -104,7 +104,7 @@ class TestDod01Consistency:
         )
         digests = set()
         for _ in range(3):  # 3 个独立 resolver 实例（跨实例对拍）
-            resolver = ContextResolver(store.engine)
+            resolver = ContextResolver(store)
             result = await resolver.resolve(selector, session_id="s-dod")
             digests.add(result.snapshot.snapshot_digest)
         assert len(digests) == 1, f"digest 跨实例不一致: {digests}"
@@ -122,7 +122,7 @@ class TestDod01Consistency:
         )
         results = []
         for _ in range(2):
-            resolver = ContextResolver(store.engine)
+            resolver = ContextResolver(store)
             results.append(await resolver.resolve(selector, session_id="s-dod"))
         a, b = (r.snapshot for r in results)
         for key in (
