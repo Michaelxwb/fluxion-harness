@@ -31,11 +31,6 @@ env:
   FLUXION_ENV: production
   FLUXION_LOG_LEVEL: INFO
 
-# 部署前 schema 迁移（alembic upgrade head；A13/ADR-004——PG serving schema 由
-# alembic 管控，helm pre-install/pre-upgrade Job 先于副本滚动执行）
-dbMigration:
-  enabled: true
-
 # DBOS sysdb DSN（Operations 端点 + worker 执行进程）。
 # 空 → 由 databaseUrl 推导（去掉 +asyncpg 驱动后缀，指向同一库——sysdb schema=dbos）。
 dbosSysdbDsn: ""

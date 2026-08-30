@@ -6,6 +6,8 @@
 
 负向矩阵：UserGrant 缺失、AgentAllow 缺失、Tenant deny 任一情况均拒绝。
 
+Skill 扩展语义（REQ-CAP-005）：允许 User Binding 扩展 Agent baseline，但 Tenant Policy 拒绝时不得生效；Skill 扩展不得改变 Tool/MCP 的 fail-closed（不因挂载 Skill 自动放行 Tool）。
+
 ## G2 Credential Isolation
 
 A/B 使用同一 MCP Definition、不同 CredentialRef。跨用户/跨租户读取、连接池 key、cache key 均不得串用。

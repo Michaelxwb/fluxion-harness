@@ -9,7 +9,7 @@ durable 事实写入：
 - sync psycopg resolver：解释器 subworkflow 在 DBOS 独立 event loop 解析子定义
   （P0-1：async SQLAlchemy engine 不能跨 loop）；
 - active reference store/releaser：start acquire / terminal release（TASK-007）；
-- ``workflow_run`` 投影表 DDL + projection writer（TASK-008）。
+- ``workflow_run`` 投影 writer（TASK-008；表由 scripts/init_db.py 建）。
 
 capability/agent executor 装配（规则 12 Capability Contract）属运行时治理
 rolling wave（design §5.3 P1 移交）；未装配前 capability/agent 节点执行时明确
@@ -34,7 +34,6 @@ from fluxion.runtime.workflow_dbos import (
 )
 from fluxion.runtime.workflow_projection import (
     WorkflowRunProjectionWriter,
-    ensure_workflow_run_table,
     release_workflow_active_references,
     set_projection_writer,
 )
@@ -81,7 +80,6 @@ def install_production_worker_bootstrap(database_url: str) -> None:
             return dict(json.loads(spec))
         return dict(spec)
 
-    ensure_workflow_run_table(database_url)
     set_definition_provider(provider)
     set_sync_definition_resolver(sync_resolver)
     set_reference_store(store)
@@ -103,7 +101,7 @@ def _validate_registry_tables(database_url: str) -> None:
         raise RuntimeError(
             "worker 启动校验失败：--database-url 所指库（DBOS sysdb）上不存在 "
             "resource_definitions 表——sysdb 与 Registry 库混淆？"
-            "Registry 读路径与 DBOS sysdb 必须同库（或先执行 alembic upgrade head）"
+            "Registry 读路径与 DBOS sysdb 必须同库（或先执行 scripts/init_db.py）"
         )
 
 

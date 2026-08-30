@@ -43,13 +43,16 @@ UserDomainService `grant()` 必须支持 Tool grant，或引入统一 `UserCapab
 
 当前 MCP Runtime 已按 user binding 获取 MCP、resolve Credential、per-execution cache config，方向保留。MCP server-level grant 与 discovered tool allowlist 需要共同进入 EffectiveCapability，不允许只靠挂载成功就自动授权所有 Tool。
 
-## 5. Skill
+## 5. Skill（与 Tool/MCP 统一授权）
 
-Skill 允许用户 Binding 扩展 Agent baseline，但必须：
+Skill 与 Tool/MCP 三者「按用户授权」语义一致，统一走 `visibility` + `grant()`（capability_grants）：
 
-- tenant policy 可拒绝；
-- exact version pin；
-- 不因 Skill 扩展规则影响 Tool/MCP fail-closed。
+- public / tenant：全租户用户可用，无需 grant；
+- private：仅被管理员 grant 的用户可用；
+- exact version pin 进 Snapshot；
+- `allowed_tools` 继续参与 Tool/MCP 的 `∩`，不因 Skill 放行 Tool（fail-closed）。
+
+差异仅在：Tool/MCP 有副作用，额外保留 `AgentAllowlist ∩ TenantPolicy` 安全层；Skill 无此层。
 
 ## 6. Tool 与 Plugin
 

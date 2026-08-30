@@ -62,8 +62,8 @@ async def test_S_F05_sqlite_wal_and_busy_timeout_enabled(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_S_A13_postgres_serving_initialize_is_noop() -> None:
     """A13/ADR-004：PG serving 路径（reset=False）initialize() 为 no-op——不在运行
-    路径跑 create_all（否则与 alembic 形成双事实源、绕过迁移版本管理）。迁移由
-    运维 `alembic upgrade head` 带外执行。用不可达 DSN 证明：gate 生效时不触达
+    路径跑 create_all（否则与 scripts/init_db.py 形成双事实源）。schema 由
+    scripts/init_db.py 建。用不可达 DSN 证明：gate 生效时不触达
     DB；若 gate 缺失，create_all 会尝试连接不可达 PG 而失败，本断言即破。"""
     unreachable = "postgresql+asyncpg://nobody:nobody@127.0.0.1:1/fluxion_test"
     serving = PostgreSQLRegistryStore(unreachable, reset_on_initialize=False)

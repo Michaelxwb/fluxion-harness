@@ -2,7 +2,9 @@
 
 ## 1. 边界
 
-AgentLoop 不承担 durable workflow。Workflow 通过粗粒度 Tool/Adapter 暴露给 Agent。
+AgentLoop 不承担 durable workflow。Workflow 通过粗粒度 Tool/Adapter 暴露给 Agent（`workflow.{id}.start`，非经 skill 触发）。
+
+Workflow 是一等能力（`CapabilityType.WORKFLOW`），与 skill/tool/mcp 一样按 `visibility` + 管理员 `grant()` per-user 授权（见 foundation/01 §4.1）。
 
 当前 `WorkflowEngine` Protocol 的 start/resume/signal/cancel/get_status 方向保留；`ResilientWorkflowEngine` 的 timeout/retry/breaker 是调用侧韧性，不等于 workflow durability。
 
@@ -13,6 +15,8 @@ AgentLoop 不承担 durable workflow。Workflow 通过粗粒度 Tool/Adapter 暴
 ## 3. Snapshot 与长流程
 
 Workflow 启动时记录所需 Agent/Capability/Workflow exact version refs。长时间 resume 需要 pinned resource retention/GC policy，不能只依赖"latest"。
+
+Workflow 内部 capability/agent 节点沿用**发起用户**授权：启动时把发起用户的 frozen effective 图（版本 + 权限）一并进 durable 上下文，step 执行按这张图授权（用户无权的 step fail-closed，流程中途不随授权变更漂移）。
 
 ## 4. Workflow Definition
 

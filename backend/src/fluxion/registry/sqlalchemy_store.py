@@ -100,9 +100,9 @@ class SQLAlchemyRegistryStore:
 
     async def initialize(self) -> None:
         # A13/ADR-004：schema 双事实源收口——serving 路径按 DSN 分流，不在运行
-        # 路径对 PG 跑 create_all（否则与 alembic 形成双事实源、绕过迁移版本管理）。
-        # - PostgreSQL serving（reset=False）：alembic 管控，initialize() 为 no-op；
-        #   迁移由运维 `alembic upgrade head` 带外执行。
+        # 路径对 PG 跑 create_all（避免与 scripts/init_db.py 形成双事实源）。
+        # - PostgreSQL serving（reset=False）：schema 由 scripts/init_db.py 建，
+        #   initialize() 为 no-op（已移除 alembic）。
         # - reset_on_initialize=True（契约测试 bootstrap，含 PG testcontainers）：
         #   仍走 drop_all + create_all 重建干净库，与 S-R07 双跑契约一致。
         # - SQLite（dev/tests）：metadata.create_all 自举（ADR-004 dev 零依赖）。

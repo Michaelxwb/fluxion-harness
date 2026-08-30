@@ -18,14 +18,19 @@
 
 当前 main 已经具备大量正确基础：AgentDefinition、RuntimeProfile、ExecutionSnapshot、Registry、SQL Session Memory、PlatformUser/Profile/Preference、MCP Binding、WorkflowEngine Contract、Plugin Contract、A2A、OTel/Trace 基础等。
 
-同时存在必须在继续扩功能前收口的偏差：
+同时存在必须在继续扩功能前收口的偏差。其中一部分已在基线提交收口，剩余仍待收口：
 
-- Tool 用户授权维度在执行侧退化为 `user_tools = agent_tools`；
-- UserDomainService 的 Capability Grant 只允许 Skill/MCP，拒绝 Tool；
-- AgentDefinition 使用 `CapabilityBinding` 命名，容易把 Agent Allowlist 与用户 Binding 混淆；
+**已收口（closure TASK-013 等）：**
+- Tool 用户授权维度已恢复为真实 User Tool Grant（`user_tools = agent_tools` 已移除，见 `runtime_tool_ops._effective_tool_policy`）；
+- UserDomainService 的 Capability Grant 已支持 skill/tool/mcp（kind 落 `capability_grants.capability_kind`）；
+- AgentDefinition 的 `capabilities` 已改用 `AgentCapabilityReference`（Allowlist/Reference 语义）。
+
+**仍待收口：**
 - Scheduler 仍以 Runtime 本地 `_tasks` 表示任务事实；
 - Trace/Approval/Eval 等存在 InMemory 默认/实现，生产边界必须显式收紧；
-- Stateless 主要是"按设计成立"，还缺真实多 Pod Gate 证明。
+- Stateless 真实多 Pod Gate 已落地 `test_k8s_gate.py`（门控 `FLUXION_K8S_TEST=1`），待真实集群跑通验证；
+- 授权解析存在多条路径（`EffectiveCapabilityResolver` / `_effective_skill_selectors` / `ContextResolver._resolve_capability_versions`），未收敛为单一 Resolver（违反 REQ-CAP-006）；
+- `ExecutionSnapshot` 未冻结 `workflow_ref` / `memory_policy_ref` / `personalization_policy_ref`，未落 effective capability/permission 图（ADR-A003「追溯 EffectiveCapability」未满足）。
 
 ## 3. 阅读顺序
 
@@ -41,4 +46,6 @@
 
 ## 4. 历史文档
 
-旧 `docs/problems/design-drivers.md`、ADR-001～013、Runtime V1.7、Console V1.6、V2.2 PRD/整改路线图已随基线切换移除（git 历史可查），不再作为新实现的事实源。
+ADR-001～013、Runtime V1.7、Console V1.6、V2.2 PRD/整改路线图已随基线切换移除（git 历史可查），不再作为新实现的事实源。
+
+`docs/problems/design-drivers.md` 保留为「历史问题索引」——只保存问题证据（P01～P23），不再直接规定 Architecture Response，是 §1 权威链第一环「原始问题证据」的来源。
