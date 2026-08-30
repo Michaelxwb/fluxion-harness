@@ -83,10 +83,19 @@ class SQLAlchemyRegistryStore:
             return {"poolclass": StaticPool, "connect_args": {"check_same_thread": False}}
         if dsn.startswith("postgresql"):
             ssl_mode = os.environ.get("FLUXION_POSTGRES_SSL", "disable")
-            return {
+            kwargs: dict[str, object] = {
                 "connect_args": {"command_timeout": 2.0, "ssl": ssl_mode},
                 "pool_pre_ping": True,
             }
+            # Phase 6 TASK-001：连接池可配置（默认 SQLAlchemy 5+10 在满负载
+            # scale-test / 多副本生产下排队成瓶颈）；FLUXION_PG_POOL_SIZE 显式
+            # 覆盖 pool_size（max_overflow 同步放大，保持弹性）。
+            pool_size = os.environ.get("FLUXION_PG_POOL_SIZE")
+            if pool_size is not None and pool_size.isdigit() and int(pool_size) > 0:
+                size = int(pool_size)
+                kwargs["pool_size"] = size
+                kwargs["max_overflow"] = size
+            return kwargs
         return {}
 
     async def initialize(self) -> None:

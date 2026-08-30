@@ -152,6 +152,20 @@ WORKER_DEFINITIONS: dict[str, dict[str, dict[str, str]]] = {
     },
     # S-09：before（stamp）→ hold（wait 6s durable timer）→ after（stamp）。
     # worker 在 wait 睡眠中被 SIGKILL，重启后按原始 deadline 触发（不重算 sleep）。
+    # wait-flow 与 phase6 TASK-002 fail-flow（E-02 fail policy）一并注册。
+    "fail-flow": {
+        "1": {
+            "name": "fail-flow",
+            "steps": [
+                {
+                    "id": "explode",
+                    "type": "capability",
+                    "capability_ref": "skill:fail@1",
+                    "input": {"seconds": 0.1},
+                }
+            ],
+        }
+    },
     "wait-flow": {
         "1": {
             "name": "wait-flow",

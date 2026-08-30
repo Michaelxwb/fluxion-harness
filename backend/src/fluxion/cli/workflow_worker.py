@@ -117,6 +117,12 @@ async def _mode_serve(args: argparse.Namespace) -> int:
         daemon=True,
     ).start()
     print(f"READY-{args.index}", flush=True)
+    # idle_seconds=0 → 生产常驻（Phase 6 review P0-1：此前纯墙钟计时，默认 3600
+    # 导致 worker 每小时 exit 0 重启——即使正在消费 workflow 也定时退出）。
+    # 正值保留给测试基建控制 worker 生命期（--idle-seconds N）。
+    if args.idle_seconds <= 0:
+        while True:
+            await asyncio.sleep(1.0)
     deadline = time.monotonic() + args.idle_seconds
     while time.monotonic() < deadline:
         await asyncio.sleep(1.0)
@@ -249,7 +255,8 @@ def _build_parser() -> argparse.ArgumentParser:
     serve = sub.add_parser("serve", help="queue 消费常驻（生产 Deployment）")
     serve.add_argument("--index", type=int, default=0)
     serve.add_argument("--worker-concurrency", type=int, default=DEFAULT_WORKER_CONCURRENCY)
-    serve.add_argument("--idle-seconds", type=float, default=3600.0)
+    # 0 = 常驻（生产 Deployment 默认；review P0-1：旧默认 3600 导致定时退出）
+    serve.add_argument("--idle-seconds", type=float, default=0.0)
     serve.add_argument("--launch-timeout", type=float, default=DEFAULT_LAUNCH_TIMEOUT_SECONDS)
 
     start = sub.add_parser("start", help="启动 workflow 并等待结果")

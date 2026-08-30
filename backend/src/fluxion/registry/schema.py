@@ -467,6 +467,93 @@ Index(
     durable_task.c.claimed_at,
 )
 
+# ---- 运营 durable stores（Phase 6 TASK-006 / P0-5「显式 production adapter」）----
+# production profile 禁止 InMemory Trace/Approval/Eval 作为唯一实现（fail-fast）；
+# 以下三表是与 InMemory 实现同形的 PG 持久化实现的事实载体。SQLite/PG 双库同 DDL
+#（规则 7，Contract Test 见 tests/contract/test_durable_stores.py）。
+
+trace_records = Table(
+    "trace_records",
+    metadata,
+    Column("trace_id", String(128), primary_key=True),
+    Column("tenant_id", String(128), nullable=False),
+    Column("execution_id", String(128), nullable=False),
+    Column("runtime_profile_id", String(255), nullable=False),
+    Column("runtime_profile_version", String(64), nullable=False),
+    Column("snapshot_json", JSON, nullable=False),
+    Column("events_json", JSON, nullable=False),
+    Column("latency_ms", Float, nullable=False),
+    Column("error", Text, nullable=True),
+    Column("model_json", JSON, nullable=True),
+    Column("tools_json", JSON, nullable=True),
+    Column("hooks_json", JSON, nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
+Index(
+    "idx_trace_tenant_execution",
+    trace_records.c.tenant_id,
+    trace_records.c.execution_id,
+)
+
+approval_records = Table(
+    "approval_records",
+    metadata,
+    Column("tenant_id", String(128), primary_key=True),
+    Column("approval_id", String(128), primary_key=True),
+    Column("kind", String(64), nullable=False),
+    Column("resource_id", String(255), nullable=False),
+    Column("target_version", String(64), nullable=False),
+    Column("operation", String(64), nullable=False),
+    Column("requester_actor_id", String(128), nullable=False),
+    Column("status", String(32), nullable=False),
+    Column("approver_actor_id", String(128), nullable=True),
+    Column("reason", Text, nullable=True),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("decided_at", DateTime(timezone=True), nullable=True),
+    # A9：一次性消费标记（DB 级 CAS：UPDATE ... WHERE consumed_at IS NULL）
+    Column("consumed_at", DateTime(timezone=True), nullable=True),
+)
+
+eval_runs = Table(
+    "eval_runs",
+    metadata,
+    Column("tenant_id", String(128), primary_key=True),
+    Column("run_id", String(128), primary_key=True),
+    Column("eval_set_id", String(255), nullable=False),
+    Column("eval_set_version", String(64), nullable=False),
+    Column("runtime_profile_id", String(255), nullable=False),
+    Column("runtime_profile_version", String(64), nullable=False),
+    Column("trace_id", String(128), nullable=False),
+    Column("execution_snapshot_json", JSON, nullable=False),
+    Column("score", Float, nullable=False),
+    Column("passed", Boolean, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+# ---- One-time Migration/Rollover（Phase 6 TASK-003 / FEAT-P6-03）----
+# 一次性迁移的持久化事实：分类证据快照 + 阶段推进（dual_written → verified →
+# switched → completed / reset）。RULE-P6-03：仅 SurfaceEvidence 判定
+# EXTERNAL_ACTIVE 才双写；RESET_ALLOWED 直接 reset；UNKNOWN 按 EXTERNAL_ACTIVE
+# 保守处理，禁止 destructive reset。
+
+migration_records = Table(
+    "migration_records",
+    metadata,
+    Column("migration_id", String(128), primary_key=True),
+    Column("kind", String(64), nullable=False),
+    Column("tenant_id", String(128), nullable=False),
+    Column("classification", String(32), nullable=False),
+    Column("status", String(32), nullable=False),
+    Column("evidence_json", JSON, nullable=False),
+    Column("shadow_row_count", Integer, nullable=False),
+    Column("checksum", String(64), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
+
 # ---- User Domain（Gate 1B / TASK-U102..U105，backend brief §3.3）----
 # Profile 带版本（幂等读取取最新版本）；Preference 单行覆盖；Grant 行级撤销。
 

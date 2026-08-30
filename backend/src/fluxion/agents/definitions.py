@@ -95,15 +95,3 @@ class AgentDefinition(SensitiveSpecModel):
     instructions: str = Field(
         default="", max_length=2048, title="补充指令", description="补充指令"
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _strip_legacy_status_keys(cls, data: Any) -> Any:
-        """剥离 legacy lifecycle/visibility 键（P1C-01 SoT 收口的兼容读）。
-
-        TOMBSTONE 是 Registry 软删终态（ADR-SNAPSHOT-001），不经 spec 表达；
-        状态由 envelope 承载，spec 侧不再接收这两类键。
-        """
-        if isinstance(data, dict):
-            data = {k: v for k, v in data.items() if k not in ("lifecycle", "visibility")}
-        return data

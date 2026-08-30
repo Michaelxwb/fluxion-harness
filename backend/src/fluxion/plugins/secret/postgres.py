@@ -15,6 +15,9 @@
   key 的行 → `secret_key_unavailable` 明确失败（不静默、不误报 revoked）；
 - 全方法 timeout + fail policy（规则 18）：`asyncio.wait_for` deadline，
   超时/库错误 → SecretProviderError，不静默吞。
+
+拆分（phase6 review 收尾，行数 <500）：AES-GCM 加解密原语在 `crypto.py`，
+master key 批量重加密在 `rotation.py`——本文件只保留 store 生命周期/编排。
 """
 
 from __future__ import annotations
@@ -28,11 +31,17 @@ from datetime import UTC, datetime
 from typing import Any, TypeVar
 
 from cryptography.exceptions import InvalidTag
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import func, insert, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from fluxion.plugins.secret.crypto import (
+    CIPHER_VERSION,
+    MASTER_KEY_BYTES,
+    decrypt_secret,
+    encrypt_secret,
+)
+from fluxion.plugins.secret.rotation import rotate_master_key_batch
 from fluxion.registry.publish_sqlalchemy import insert_audit
 from fluxion.registry.schema import audit_logs, secret_credentials, secret_master_keys
 from fluxion.registry.store import AuditRecord
@@ -41,10 +50,6 @@ from fluxion.runtime.secrets import (
     SecretMetadata,
     SecretProviderError,
 )
-
-_CIPHER_VERSION = "aes-256-gcm-v1"
-_NONCE_BYTES = 12
-_MASTER_KEY_BYTES = 32
 
 _T = TypeVar("_T")
 
@@ -60,10 +65,10 @@ class PostgresEncryptedSecretStore:
         key_id: str | None = None,
         timeout_ms: int = 30_000,
     ) -> None:
-        if len(master_key) != _MASTER_KEY_BYTES:
+        if len(master_key) != MASTER_KEY_BYTES:
             raise SecretProviderError(
                 "secret_master_key_invalid",
-                f"AES-256-GCM key must be {_MASTER_KEY_BYTES} bytes",
+                f"AES-256-GCM key must be {MASTER_KEY_BYTES} bytes",
             )
         self._engine = engine
         self._master_key = master_key
@@ -261,11 +266,12 @@ class PostgresEncryptedSecretStore:
         """批量重加密：解旧密 → 新密加密 → 更新 key_id/cipher_version → revoke 旧 key。
 
         rotation 按 tenant 分组写入 AuditLog（规则 24，关联 trace_id）；返回重加密记录数。
+        重加密事务逻辑在 `rotation.rotate_master_key_batch`；本方法负责 keyring 守卫与收口。
         """
-        if len(new_key) != _MASTER_KEY_BYTES:
+        if len(new_key) != MASTER_KEY_BYTES:
             raise SecretProviderError(
                 "secret_master_key_invalid",
-                f"AES-256-GCM key must be {_MASTER_KEY_BYTES} bytes",
+                f"AES-256-GCM key must be {MASTER_KEY_BYTES} bytes",
             )
         if new_key_id in self._keyring:
             raise SecretProviderError(
@@ -282,9 +288,11 @@ class PostgresEncryptedSecretStore:
             )
         now = datetime.now(UTC)
         count = await self._with_deadline(
-            self._rotate_master_key(
+            rotate_master_key_batch(
+                engine=self._engine,
                 old_key_id=old_key_id,
                 new_key_id=new_key_id,
+                old_key=self._keyring[old_key_id],
                 new_key=new_key,
                 actor_id=actor_id,
                 request_id=request_id,
@@ -315,10 +323,7 @@ class PostgresEncryptedSecretStore:
     async def _put(self, tenant_id: str, name: str, plaintext: str) -> str:
         version = await self._next_version(tenant_id, name)
         ref = f"secret://{tenant_id}/{name}@{version}"
-        nonce = os.urandom(_NONCE_BYTES)
-        ciphertext = AESGCM(self._active_key()).encrypt(
-            nonce, plaintext.encode("utf-8"), ref.encode()
-        )
+        nonce, ciphertext = encrypt_secret(self._active_key(), ref, plaintext)
         async with self._engine.begin() as conn:
             await conn.execute(
                 insert(secret_credentials).values(
@@ -329,7 +334,7 @@ class PostgresEncryptedSecretStore:
                     nonce=nonce,
                     ciphertext=ciphertext,
                     key_id=self._active_key_id,
-                    cipher_version=_CIPHER_VERSION,
+                    cipher_version=CIPHER_VERSION,
                     revoked=False,
                 )
             )
@@ -339,10 +344,7 @@ class PostgresEncryptedSecretStore:
         record = await self._record(ref)
         version = await self._next_version(record.tenant_id, record.name)
         new_ref = f"secret://{record.tenant_id}/{record.name}@{version}"
-        nonce = os.urandom(_NONCE_BYTES)
-        ciphertext = AESGCM(self._active_key()).encrypt(
-            nonce, plaintext.encode("utf-8"), new_ref.encode()
-        )
+        nonce, ciphertext = encrypt_secret(self._active_key(), new_ref, plaintext)
         async with self._engine.begin() as conn:
             await conn.execute(
                 insert(secret_credentials).values(
@@ -353,7 +355,7 @@ class PostgresEncryptedSecretStore:
                     nonce=nonce,
                     ciphertext=ciphertext,
                     key_id=self._active_key_id,
-                    cipher_version=_CIPHER_VERSION,
+                    cipher_version=CIPHER_VERSION,
                     revoked=False,
                 )
             )
@@ -380,7 +382,7 @@ class PostgresEncryptedSecretStore:
                 "(rotation in progress or master key mismatch)",
             )
         try:
-            plaintext = AESGCM(key).decrypt(record.nonce, record.ciphertext, ref.encode())
+            plaintext = decrypt_secret(key, ref, record.nonce, record.ciphertext)
         except InvalidTag as exc:
             raise SecretProviderError(
                 "secret_decrypt_failed", f"{ref} decrypt failed"
@@ -419,110 +421,6 @@ class PostgresEncryptedSecretStore:
             ],
             total,
         )
-
-    async def _rotate_master_key(
-        self,
-        *,
-        old_key_id: str,
-        new_key_id: str,
-        new_key: bytes,
-        actor_id: str,
-        request_id: str,
-        trace_id: str | None,
-        now: datetime,
-    ) -> int:
-        old_cipher = AESGCM(self._keyring[old_key_id])
-        new_cipher = AESGCM(new_key)
-        async with self._engine.begin() as conn:
-            # 注册表（review P1-1）：新 key 登记 + 旧 key revoke 与重加密同事务——
-            # active key_id 事实源原子切换；key_id 已注册 → 拒绝（并发双旋转守护）。
-            existing = (
-                await conn.execute(
-                    select(secret_master_keys.c.key_id).where(
-                        secret_master_keys.c.key_id == new_key_id
-                    )
-                )
-            ).scalar_one_or_none()
-            if existing is not None:
-                raise SecretProviderError(
-                    "secret_key_conflict", f"key_id {new_key_id} already registered"
-                )
-            await conn.execute(
-                insert(secret_master_keys).values(
-                    key_id=new_key_id, created_at=now, revoked_at=None
-                )
-            )
-            registered_old = (
-                await conn.execute(
-                    select(secret_master_keys.c.key_id).where(
-                        secret_master_keys.c.key_id == old_key_id
-                    )
-                )
-            ).scalar_one_or_none()
-            if registered_old is None:
-                # 首次旋转（旧 key 未登记过）：补登记并立即 revoke，注册表完整
-                await conn.execute(
-                    insert(secret_master_keys).values(
-                        key_id=old_key_id, created_at=now, revoked_at=now
-                    )
-                )
-            else:
-                await conn.execute(
-                    update(secret_master_keys)
-                    .where(secret_master_keys.c.key_id == old_key_id)
-                    .values(revoked_at=now)
-                )
-            rows = (
-                await conn.execute(
-                    select(secret_credentials).where(
-                        secret_credentials.c.key_id == old_key_id
-                    )
-                )
-            ).fetchall()
-            rotated_by_tenant: dict[str, int] = {}
-            for record in rows:
-                try:
-                    plaintext = old_cipher.decrypt(
-                        record.nonce, record.ciphertext, record.ref.encode()
-                    )
-                except InvalidTag as exc:
-                    raise SecretProviderError(
-                        "secret_decrypt_failed", f"{record.ref} decrypt failed"
-                    ) from exc
-                nonce = os.urandom(_NONCE_BYTES)
-                ciphertext = new_cipher.encrypt(nonce, plaintext, record.ref.encode())
-                await conn.execute(
-                    update(secret_credentials)
-                    .where(secret_credentials.c.ref == record.ref)
-                    .values(
-                        nonce=nonce,
-                        ciphertext=ciphertext,
-                        key_id=new_key_id,
-                        cipher_version=_CIPHER_VERSION,
-                        rotated_at=now,
-                    )
-                )
-                rotated_by_tenant[record.tenant_id] = (
-                    rotated_by_tenant.get(record.tenant_id, 0) + 1
-                )
-            # rotation 进 AuditLog（按 tenant 分组，规则 24）
-            for tenant_id, count in rotated_by_tenant.items():
-                await insert_audit(
-                    conn,
-                    AuditRecord(
-                        audit_id=uuid.uuid4().hex,
-                        tenant_id=tenant_id,
-                        actor_id=actor_id,
-                        request_id=request_id,
-                        action="secret.rotate_master_key",
-                        target_type="secret_key",
-                        target_id=new_key_id,
-                        trace_id=trace_id,
-                        before={"key_id": old_key_id},
-                        after={"key_id": new_key_id, "reencrypted": count},
-                    ),
-                )
-        return sum(rotated_by_tenant.values())
 
     async def _audit(
         self,

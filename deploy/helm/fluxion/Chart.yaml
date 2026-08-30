@@ -7,8 +7,11 @@ appVersion: "0.1.0"
 
 # 可选：内置 PostgreSQL（bitnami/postgresql 子 chart），通过 values 的 postgresql.enabled 开关。
 # 版本区间避免绑定某个不存在的具体小版本；生产环境建议在 values 中锁定具体版本。
-dependencies:
-  - name: postgresql
-    version: ">=15.0.0 <17.0.0"
-    repository: https://charts.bitnami.com/bitnami
-    condition: postgresql.enabled
+# Phase 6 TASK-006：本地 k8s 部署使用宿主 PG（externalDatabase，OrbStack host.internal），
+# bitnami OCI registry 在当前网络不可达且子 chart 未随仓库存放——依赖暂时注释，
+# 需要内置 PG 时取消注释并 `helm dependency build`（git 历史可查）。
+# dependencies:
+#   - name: postgresql
+#     version: ">=15.0.0 <17.0.0"
+#     repository: https://charts.bitnami.com/bitnami
+#     condition: postgresql.enabled

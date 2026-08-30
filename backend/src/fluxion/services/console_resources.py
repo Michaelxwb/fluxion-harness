@@ -129,15 +129,31 @@ class ConsoleResourceOps:
         *,
         version: str | None = None,
     ) -> ResourceDefinition:
-        resource = await self._store.get(
+        if version is not None:
+            resource = await self._store.get(
+                kind,
+                resource_id,
+                tenant_id=actor.tenant_id,
+                version=version,
+            )
+            if resource is None:
+                raise ConsoleResourceNotFoundError()
+            return resource
+        # review 残留迁移发现的 UI 缺陷修复：Console 详情页打开资源时不带
+        # version——store.get(None) 只查 latest PUBLISHED，刚创建的 draft 详情
+        # 404（ResourcesPage 创建草稿后立即打开详情必现）。Console「打开详情」
+        # 语义是当前版本（任意状态），经 list_versions 取最新一行；
+        # store.get 的 latest-published 语义（resolver 消费）保持不变。
+        items, _total = await self._store.list_versions(
             kind,
             resource_id,
             tenant_id=actor.tenant_id,
-            version=version,
+            offset=0,
+            limit=1,
         )
-        if resource is None:
+        if not items:
             raise ConsoleResourceNotFoundError()
-        return resource
+        return items[0]
 
     async def list_resource_versions(
         self,
@@ -501,6 +517,13 @@ class ConsoleResourceOps:
             raise ConsoleResourceNotFoundError() from exc
         except VersionConflictError as exc:
             raise ConsoleVersionConflictError(str(exc)) from exc
+        # review 残留修复：不再宽泛捕获 RegistryStoreError 映射 409——commit_publication
+        # 在此路径唯一可达的 RegistryStoreError 是 revision bump 等 infra 错误（应 500，
+        # 由 console_errors 通用 Exception handler 出 INTERNAL_ERROR envelope）；真正的
+        # 客户端冲突 guard（not draft / only published can be deprecated 等）全部抛
+        # VersionConflictError，已被上一条映射 409。active_reference_blocked 是
+        # hard_delete guard、不经 commit_publication 抛，hard-delete HTTP 端点不存在时
+        # 无需映射（新增端点时再定码）。
         return PublishResourceResult(
             resource_id=commit.resource.id,
             version=commit.resource.version,

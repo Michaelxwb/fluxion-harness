@@ -12,6 +12,7 @@ from fluxion.resources import (
     ResourceKind,
     ResourceStatus,
     RuntimeProfile,
+    SkillDefinition,
     SubjectType,
     TenantResourceCache,
 )
@@ -374,21 +375,30 @@ class ExecutionSnapshotBuilder:
         return versions
 
 
+class _SkillSpecView(SkillDefinition):
+    """resolver 侧 skill spec 读取视图（extra=ignore 容忍存量 spec 扩展字段）。
+
+    LEGACY-02（Phase 6 TASK-004）：runtime 侧禁止 raw ``spec_json.get``——经
+    定义模型类型化读取；publish 校验仍用严格 SkillDefinition（extra=forbid）。
+    """
+
+    model_config = {"extra": "ignore"}
+
+
 def _skill_instructions(skills: list[ResourceDefinition]) -> dict[str, str]:
     instructions: dict[str, str] = {}
     for skill in skills:
-        value = skill.spec_json.get("instructions")
-        if isinstance(value, str) and value.strip():
-            instructions[skill.id] = value.strip()
+        parsed = _SkillSpecView.model_validate(skill.spec_json)
+        if parsed.instructions.strip():
+            instructions[skill.id] = parsed.instructions.strip()
     return instructions
 
 
 def _skill_allowed_tools(skills: list[ResourceDefinition]) -> list[str]:
     allowed: set[str] = set()
     for skill in skills:
-        value = skill.spec_json.get("allowed_tools")
-        if isinstance(value, list):
-            allowed.update(item for item in value if isinstance(item, str) and item.strip())
+        parsed = _SkillSpecView.model_validate(skill.spec_json)
+        allowed.update(item for item in parsed.allowed_tools if item.strip())
     return sorted(allowed)
 
 

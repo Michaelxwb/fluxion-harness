@@ -25,8 +25,25 @@ class ScheduledExecution:
     context: RuntimeContext
 
 
+class SchedulerProfileError(RuntimeError):
+    """production profile 禁止本地 `_tasks` scheduler 承载生产任务（P0-4/REQ-SCH-001）。"""
+
+    code = "scheduler_profile_violation"
+
+
 class RuntimeScheduler:
-    def __init__(self, runtime: AgentRuntime) -> None:
+    """本地任务调度（进程内 `_tasks` dict）——仅 test/dev profile 放行。
+
+    P0-4（migration 偏差 / E-08）：生产任务事实必须外置（durable_task 表），
+    本地实现不得承载生产任务——production profile 构造即 fail-fast，不静默降级。
+    """
+
+    def __init__(self, runtime: AgentRuntime, *, profile: str = "dev") -> None:
+        if profile == "production":
+            raise SchedulerProfileError(
+                "RuntimeScheduler 本地 _tasks 实现禁止在 production profile 启用"
+                "（生产任务事实须外置 durable_task 表；仅 test/dev 放行，REQ-SCH-001）"
+            )
         self._runtime = runtime
         self._tasks: dict[str, ScheduledTask] = {}
 

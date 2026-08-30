@@ -481,10 +481,14 @@ class DbosWorkflowEngine:
             raise
 
     async def _release_run_refs(self, tenant_id: str, run_id: str) -> None:
-        releaser = _reference_releaser()
+        # review P1-1 修复：原代码引用未定义名 `_reference_releaser`（自 phase3
+        # 存在）——start 失败回滚路径触发 NameError，acquired 引用残留且原始
+        # 错误被掩盖。releaser 是 sync callable（P0-2 注解修正后两处调用点均
+        # 不 await），此处直接调用。
+        releaser = get_reference_releaser()
         if releaser is None:
             return
-        await releaser(tenant_id=tenant_id, ref_type="workflow", ref_id=run_id)
+        releaser(tenant_id=tenant_id, ref_type="workflow", ref_id=run_id)
 
     async def _release_if_not_live(self, run_id: str, tenant_id: str) -> None:
         """start 失败回滚引用，但仅当 run 确认不存活（不存在/已终态）才释放。
@@ -580,7 +584,7 @@ def get_sync_definition_resolver() -> SyncDefinitionResolver | None:
 # ref_id（run_id）释放，非 Protocol 成员，以进程级回调注入——镜像
 # set_definition_provider 装配模式，不扩展 RegistryStore 核心 Contract（rule 25）。
 _reference_store_instance: RegistryStore | None = None
-_reference_releaser_instance: Callable[..., Awaitable[None]] | None = None
+_reference_releaser_instance: Callable[..., None] | None = None
 
 
 def set_reference_store(store: RegistryStore | None) -> None:
@@ -594,13 +598,13 @@ def get_reference_store() -> RegistryStore | None:
     return _reference_store_instance
 
 
-def set_reference_releaser(releaser: Callable[..., Awaitable[None]] | None) -> None:
+def set_reference_releaser(releaser: Callable[..., None] | None) -> None:
     """装配进程级 terminal releaser：`(tenant_id, ref_type, ref_id) -> None`。"""
     global _reference_releaser_instance
     _reference_releaser_instance = releaser
 
 
-def get_reference_releaser() -> Callable[..., Awaitable[None]] | None:
+def get_reference_releaser() -> Callable[..., None] | None:
     """进程级 terminal releaser（未装配返回 None，release 为 no-op）。"""
     return _reference_releaser_instance
 

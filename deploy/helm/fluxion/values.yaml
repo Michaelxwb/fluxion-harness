@@ -1,8 +1,17 @@
 # Fluxion Harness 默认配置（最小可用）
 # 安装前请至少设置 secrets.masterKey（MASTER_KEY），生产环境务必修改数据库密码。
 
-# 副本数（Runtime 无状态，可水平扩容；此 Deployment 承载 Runtime API）
-replicaCount: 1
+# 副本数（Runtime 无状态，可水平扩缩；此 Deployment 承载 Runtime/Console API
+# 生产 bundle：Phase 6 TASK-006 要求 ≥2 副本，S-07/S-10 多副本 Gate）
+replicaCount: 2
+
+# fluxion-workflow-worker Deployment（Phase 6 TASK-006）：DBOS 执行进程，
+# ≥2 副本分摊 queue；API/Console 进程只做 client 侧 start/signal（rule 13）。
+worker:
+  replicaCount: 2
+  # 生产装配点：Registry 读路径 + sync resolver + active ref + 投影 writer
+  bootstrap: "fluxion.runtime.workflow_worker_bootstrap:install_production_worker_bootstrap"
+  workerConcurrency: 4
 
 image:
   repository: fluxion-harness/fluxion
@@ -22,6 +31,25 @@ env:
   FLUXION_ENV: production
   FLUXION_LOG_LEVEL: INFO
 
+# 部署前 schema 迁移（alembic upgrade head；A13/ADR-004——PG serving schema 由
+# alembic 管控，helm pre-install/pre-upgrade Job 先于副本滚动执行）
+dbMigration:
+  enabled: true
+
+# DBOS sysdb DSN（Operations 端点 + worker 执行进程）。
+# 空 → 由 databaseUrl 推导（去掉 +asyncpg 驱动后缀，指向同一库——sysdb schema=dbos）。
+dbosSysdbDsn: ""
+
+# S3/MinIO artifact 生产 provider（Phase 6 TASK-006；enabled=false 时不装配）。
+# accessKey/secretKey 进 Secret；endpoint/bucket/region 进 ConfigMap。
+s3:
+  enabled: false
+  endpoint: ""
+  accessKey: ""
+  secretKey: ""
+  bucket: "fluxion-artifacts"
+  region: "us-east-1"
+
 # 敏感环境变量（进 Secret）
 secrets:
   # FLUXION_MASTER_KEY：32 字节 AES-256-GCM key 的 base64。
@@ -36,13 +64,18 @@ secrets:
 # 否则使用 externalDatabase.url。
 databaseUrl: ""
 
-# 外部数据库（当 postgresql.enabled=false 时使用）
+# 外部数据库（postgresql.enabled=false 时使用；本地 OrbStack k8s 用宿主 PG：
+# host.internal——见 deploy/README.md 部署示例）
 externalDatabase:
   url: "postgresql+asyncpg://fluxion:fluxion@postgres:5432/fluxion"
 
-# 内置 PostgreSQL（bitnami/postgresql 子 chart）
+# 内置 PostgreSQL（bitnami/postgresql 子 chart）。
+# review P1-6：默认 false——bitnami OCI 依赖未随仓库存放（Chart.yaml 注释说明，
+# 网络受限时无法 dependency build），enabled=true 的默认值渲染出不存在的
+# <release>-postgresql Service。需要内置 PG 时：取消 Chart.yaml 依赖注释 →
+# helm dependency build → 显式 --set postgresql.enabled=true。
 postgresql:
-  enabled: true
+  enabled: false
   auth:
     username: fluxion
     password: fluxion      # 生产环境务必修改

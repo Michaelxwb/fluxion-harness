@@ -81,30 +81,28 @@ def _business_write(
 ) -> int:
     """幂等写业务记录；返回该 (run, node) 的累计执行次数（DBOS retry 可见）。"""
     started = time.time()
-    with psycopg.connect(_resolve_db_url()) as conn:
-        with conn.transaction():
-            row = conn.execute(
-                "INSERT INTO wf_test_records "
-                "(tenant_id, run_id, node_id, payload, executions, started_at, finished_at) "
-                "VALUES (%s, %s, %s, %s, 1, %s, %s) "
-                "ON CONFLICT (tenant_id, run_id, node_id) DO UPDATE "
-                "SET executions = wf_test_records.executions + 1, "
-                "payload = EXCLUDED.payload, finished_at = EXCLUDED.finished_at "
-                "RETURNING executions",
-                (request.tenant_id, request.run_id, request.node_id, payload, started, time.time()),
-            ).fetchone()
+    with psycopg.connect(_resolve_db_url()) as conn, conn.transaction():
+        row = conn.execute(
+            "INSERT INTO wf_test_records "
+            "(tenant_id, run_id, node_id, payload, executions, started_at, finished_at) "
+            "VALUES (%s, %s, %s, %s, 1, %s, %s) "
+            "ON CONFLICT (tenant_id, run_id, node_id) DO UPDATE "
+            "SET executions = wf_test_records.executions + 1, "
+            "payload = EXCLUDED.payload, finished_at = EXCLUDED.finished_at "
+            "RETURNING executions",
+            (request.tenant_id, request.run_id, request.node_id, payload, started, time.time()),
+        ).fetchone()
     return int(row[0]) if row else 1
 
 
 def _business_finish(request: CapabilityNodeRequest) -> None:
     """工作结束后回填 finished_at（stamp 并发窗口测量：started 前/后分别采样）。"""
-    with psycopg.connect(_resolve_db_url()) as conn:
-        with conn.transaction():
-            conn.execute(
-                "UPDATE wf_test_records SET finished_at = %s "
-                "WHERE tenant_id = %s AND run_id = %s AND node_id = %s",
-                (time.time(), request.tenant_id, request.run_id, request.node_id),
-            )
+    with psycopg.connect(_resolve_db_url()) as conn, conn.transaction():
+        conn.execute(
+            "UPDATE wf_test_records SET finished_at = %s "
+            "WHERE tenant_id = %s AND run_id = %s AND node_id = %s",
+            (time.time(), request.tenant_id, request.run_id, request.node_id),
+        )
 
 
 def _resolve_db_url() -> str:
@@ -129,6 +127,11 @@ async def _capability_dispatcher(request: CapabilityNodeRequest) -> object:
         if executions == 1:
             raise RuntimeError("flaky capability first execution fails (E-03)")
         return {"flaky": "recovered", "executions": executions}
+    if resource_id == "fail":
+        # Phase 6 TASK-002 E-02：永久失败 capability（activity timeout 等价故障）——
+        # 触发 DBOS step 有界重试后显式失败（fail policy，不悬挂）
+        _business_write(request, "fail-attempted")
+        raise RuntimeError("chaos capability always fails (E-02 fail policy)")
     if resource_id == "slow":
         _business_write(request, "slow-started")
         await _sleep_no_busy(float(request.input.get("seconds", 1)))

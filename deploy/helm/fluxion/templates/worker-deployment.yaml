@@ -1,0 +1,62 @@
+{{- if gt (int .Values.worker.replicaCount) 0 }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fluxion.fullname" . }}-workflow-worker
+  labels:
+    {{- include "fluxion.labels" . | nindent 4 }}
+    app.kubernetes.io/component: workflow-worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "fluxion.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: workflow-worker
+  template:
+    metadata:
+      labels:
+        {{- include "fluxion.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: workflow-worker
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}-worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            # entrypoint 分派：worker 角色 → fluxion-workflow-worker serve
+            - name: FLUXION_ROLE
+              value: worker
+            - name: FLUXION_WORKER_CONCURRENCY
+              value: {{ .Values.worker.workerConcurrency | quote }}
+            # review 残留修复：values.worker.bootstrap 此前是死配置（未注入，
+            # 仅 entrypoint 默认兜底生效）——显式注入使配置真实可调
+            - name: FLUXION_WORKER_BOOTSTRAP
+              value: {{ .Values.worker.bootstrap | quote }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "fluxion.fullname" . }}-config
+            - secretRef:
+                name: {{ .Values.secrets.existingSecret | default (printf "%s-secret" (include "fluxion.fullname" .)) }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

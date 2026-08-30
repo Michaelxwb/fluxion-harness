@@ -39,7 +39,11 @@ def repository(store: ChannelRegistryStore) -> AgentDefinitionRepository:
 
 
 def _legacy_spec(**overrides: Any) -> dict[str, object]:
-    """带 legacy lifecycle/visibility 键的存量 spec_json 形态（P1C-01 前现场）。"""
+    """P1C-01 前的 legacy spec_json 形态（含 lifecycle/visibility 键）。
+
+    Phase 6 TASK-004（LEGACY-04）：兼容读已删除——该形态现被显式拒绝
+    （extra=forbid fail-fast），仅用于拒绝语义断言。
+    """
     spec: dict[str, object] = {
         "name": "Support Agent",
         "system_prompt": "You are a support agent.",
@@ -52,21 +56,34 @@ def _legacy_spec(**overrides: Any) -> dict[str, object]:
     return spec
 
 
+def _clean_spec(**overrides: Any) -> dict[str, object]:
+    """干净 spec 形态（无 legacy 键）。"""
+    spec: dict[str, object] = {
+        "name": "Support Agent",
+        "system_prompt": "You are a support agent.",
+        "owner": "builder-1",
+        "model_ref": {"id": "model-1", "version": "1"},
+    }
+    spec.update(overrides)
+    return spec
+
+
 def test_s01_agent_spec_has_no_lifecycle_visibility_fields() -> None:
     """SoT 收口后 AgentDefinition 不再声明 lifecycle/visibility 字段。"""
     assert "lifecycle" not in AgentDefinition.model_fields
     assert "visibility" not in AgentDefinition.model_fields
 
 
-def test_s01_legacy_keys_stripped_on_validate() -> None:
-    """存量 spec_json 含 legacy 键可兼容读取（剥离），序列化不再产出。"""
-    spec = AgentDefinition.model_validate(_legacy_spec())
-    dumped = spec.model_dump()
-    assert "lifecycle" not in dumped
-    assert "visibility" not in dumped
-    # 非 legacy 字段不受剥离影响
-    assert dumped["name"] == "Support Agent"
-    assert dumped["owner"] == "builder-1"
+def test_s01_legacy_keys_rejected_on_validate() -> None:
+    """Phase 6 TASK-004（LEGACY-04）：legacy 键兼容读已删——显式拒绝（fail-fast）。
+
+    存量 spec 含 lifecycle/visibility → ValidationError（extra=forbidden），
+    不再静默剥离（permanent legacy path 清零）。
+    """
+    import pytest as _pytest
+
+    with _pytest.raises(Exception, match="Extra inputs are not permitted"):
+        AgentDefinition.model_validate(_legacy_spec())
 
 
 async def test_s01_envelope_is_sole_sot_through_publish_roundtrip(
@@ -82,7 +99,7 @@ async def test_s01_envelope_is_sole_sot_through_publish_roundtrip(
         tenant_id="tenant-1",
         resource_id="agent-sot-1",
         version="1",
-        spec=_legacy_spec(),
+        spec=_clean_spec(),
     )
     # envelope 创建即 DRAFT
     assert created.status is ResourceStatus.DRAFT

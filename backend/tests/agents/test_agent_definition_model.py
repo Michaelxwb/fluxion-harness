@@ -76,8 +76,6 @@ def _agent_spec(
         "description": "客服助手",
         "system_prompt": "You are a support agent.",
         "owner": owner,
-        "visibility": "tenant",
-        "lifecycle": "draft",
         "model_ref": {"id": "provider-1", "version": "1"},
         "runtime_profile_ref": {"id": profile_id, "version": "1"},
         "capabilities": [

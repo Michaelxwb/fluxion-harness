@@ -22,7 +22,6 @@ def _agent_spec() -> dict[str, object]:
         "description": "客服助手",
         "system_prompt": "You are a support agent.",
         "owner": "builder-1",
-        "visibility": "tenant",
         "model_ref": {"id": "provider-1", "version": "1"},
         "runtime_profile_ref": {"id": "profile-1", "version": "1"},
         "capabilities": [

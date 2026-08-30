@@ -63,9 +63,26 @@ def serve_command(
     port: Annotated[int, typer.Option("--port")] = 8000,
     registry_dsn: Annotated[str, typer.Option("--registry-dsn")] = "",
     dev: Annotated[bool, typer.Option("--dev")] = False,
+    production: Annotated[bool, typer.Option("--production")] = False,
 ) -> None:
     dsn = _registry_dsn(registry_dsn)
     uvicorn = _load_uvicorn()
+    if production:
+        # Phase 6 TASK-006：生产装配 composition root（PG + 真实 provider +
+        # release_gate_enforced + fail-fast 守卫）。DSN/env 校验在装配内 fail-fast。
+        from fluxion.api.production_bundle import create_production_bundle_app_from_env
+
+        # review P1-6：显式 CLI 参数优先于 env（与普通 serve 路径
+        # 「--registry-dsn > FLUXION_DATABASE_URL」语义一致；setdefault 会静默
+        # 忽略显式参数）
+        if registry_dsn:
+            os.environ["FLUXION_DATABASE_URL"] = registry_dsn
+        uvicorn.run(
+            create_production_bundle_app_from_env(),
+            host=host,
+            port=port,
+        )
+        return
     if dev:
         console_dist, chat_dist = _ensure_frontend_builds()
         uvicorn.run(

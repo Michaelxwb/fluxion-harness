@@ -26,7 +26,9 @@ def _database_url() -> str:
     raw = os.environ.get("FLUXION_DATABASE_URL") or config.get_main_option("sqlalchemy.url")
     return (
         raw.replace("sqlite+aiosqlite:///", "sqlite:///")
-        .replace("postgresql+asyncpg://", "postgresql://")
+        # PG 用 psycopg v3 sync 驱动（项目声明依赖；psycopg2 未安装）
+        .replace("postgresql+asyncpg://", "postgresql+psycopg://")
+        .replace("postgresql://", "postgresql+psycopg://")
     )
 
 

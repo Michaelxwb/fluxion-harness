@@ -52,3 +52,16 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- .Values.externalDatabase.url -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+DBOS sysdb DSN：worker 执行进程与 Operations 端点使用（psycopg 驱动格式）。
+  1. dbosSysdbDsn 显式指定时优先；
+  2. 否则由 databaseUrl 推导（去 +asyncpg 后缀，指向同一库，DBOS 用 dbos schema）。
+*/}}
+{{- define "fluxion.dbosSysdbDsn" -}}
+{{- if .Values.dbosSysdbDsn -}}
+{{- .Values.dbosSysdbDsn -}}
+{{- else -}}
+{{- include "fluxion.databaseUrl" . | replace "+asyncpg" "" -}}
+{{- end -}}
+{{- end -}}

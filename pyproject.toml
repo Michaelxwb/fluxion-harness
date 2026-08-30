@@ -43,6 +43,10 @@ dev = [
 [project.scripts]
 fluxion = "fluxion.cli.main:app"
 fluxion-workflow-worker = "fluxion.cli.workflow_worker:main"
+fluxion-capacity = "fluxion.cli.capacity:main"
+fluxion-migrate = "fluxion.cli.migrate:main"
+fluxion-chaos = "fluxion.cli.chaos:main"
+fluxion-dod = "fluxion.cli.dod:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["backend/src/fluxion"]
@@ -51,6 +55,14 @@ packages = ["backend/src/fluxion"]
 pythonpath = ["backend/src"]
 testpaths = ["backend/tests"]
 asyncio_mode = "auto"
+markers = [
+    # Phase 6（FEAT-P6-01/02/04）：scale / chaos / dod 分组运行标记
+    "scale: capacity scale-test（fluxion-capacity verify 等价，FEAT-P6-01）",
+    "chaos_runtime: Runtime 组故障注入（FEAT-P6-02）",
+    "chaos_workflow: Workflow 组故障注入（FEAT-P6-02）",
+    "chaos_storage: Storage 组故障注入（FEAT-P6-02）",
+    "dod: Final DoD 14 项验收 verifier（FEAT-P6-04）",
+]
 
 [tool.mypy]
 python_version = "3.12"
