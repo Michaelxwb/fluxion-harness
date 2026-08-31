@@ -1,7 +1,7 @@
 version: 1
 task: TASK-001
 enforcement: required
-updated_at: '2026-08-31T05:00:06.890371+00:00'
+updated_at: '2026-08-31T05:54:36.311852+00:00'
 sources:
 - type: cli
   ref: bind
@@ -43,7 +43,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-004
           item_id: backend-code-quality-performance#RULE-backend-quality-001
-          artifact_sha256: c93f963e0f310b85228e5cb70ae6983b81f07af24a7d3dc464f978c3cd721565
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       code:
@@ -52,7 +52,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-004
           item_id: Spec-Refs/Acceptance Contract
-          artifact_sha256: 6b0fa694ba5b89625fef63d3a9539f536e92e8836ad54de1a9b853f74da01fad
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       review:
@@ -201,7 +201,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-009
           item_id: backend-directory-structure#RULE-backend-directory-001
-          artifact_sha256: c93f963e0f310b85228e5cb70ae6983b81f07af24a7d3dc464f978c3cd721565
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       code:
@@ -210,7 +210,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-009
           item_id: Spec-Refs/Acceptance Contract
-          artifact_sha256: 6b0fa694ba5b89625fef63d3a9539f536e92e8836ad54de1a9b853f74da01fad
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       review:
@@ -359,7 +359,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-005
           item_id: backend-logging#RULE-backend-logging-001
-          artifact_sha256: c93f963e0f310b85228e5cb70ae6983b81f07af24a7d3dc464f978c3cd721565
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       code:
@@ -368,7 +368,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-005
           item_id: Spec-Refs/Acceptance Contract
-          artifact_sha256: 6b0fa694ba5b89625fef63d3a9539f536e92e8836ad54de1a9b853f74da01fad
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       review:
@@ -518,7 +518,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-009
           item_id: fluxion-console-channel#RULE-fluxion-console-001
-          artifact_sha256: c93f963e0f310b85228e5cb70ae6983b81f07af24a7d3dc464f978c3cd721565
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       code:
@@ -527,7 +527,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-009
           item_id: Spec-Refs/Acceptance Contract
-          artifact_sha256: 6b0fa694ba5b89625fef63d3a9539f536e92e8836ad54de1a9b853f74da01fad
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       review:
@@ -572,7 +572,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-005
           item_id: fluxion-dfx#RULE-fluxion-dfx-001
-          artifact_sha256: c93f963e0f310b85228e5cb70ae6983b81f07af24a7d3dc464f978c3cd721565
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       code:
@@ -581,7 +581,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-005
           item_id: Spec-Refs/Acceptance Contract
-          artifact_sha256: 6b0fa694ba5b89625fef63d3a9539f536e92e8836ad54de1a9b853f74da01fad
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       review:
@@ -627,7 +627,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-006
           item_id: fluxion-resource-registry#RULE-fluxion-resource-001
-          artifact_sha256: c93f963e0f310b85228e5cb70ae6983b81f07af24a7d3dc464f978c3cd721565
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       code:
@@ -636,7 +636,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-006
           item_id: Spec-Refs/Acceptance Contract
-          artifact_sha256: 6b0fa694ba5b89625fef63d3a9539f536e92e8836ad54de1a9b853f74da01fad
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       review:
@@ -682,7 +682,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-001
           item_id: fluxion-runtime-core#RULE-fluxion-runtime-001
-          artifact_sha256: c93f963e0f310b85228e5cb70ae6983b81f07af24a7d3dc464f978c3cd721565
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       code:
@@ -691,7 +691,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-001
           item_id: Spec-Refs/Acceptance Contract
-          artifact_sha256: 6b0fa694ba5b89625fef63d3a9539f536e92e8836ad54de1a9b853f74da01fad
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       review:
@@ -737,7 +737,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-003
           item_id: fluxion-workflow-capability#RULE-fluxion-workflow-001
-          artifact_sha256: c93f963e0f310b85228e5cb70ae6983b81f07af24a7d3dc464f978c3cd721565
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       code:
@@ -746,7 +746,7 @@ bindings:
         - artifact: runtime-phase2-hardening.md
           section_id: TASK-003
           item_id: Spec-Refs/Acceptance Contract
-          artifact_sha256: 6b0fa694ba5b89625fef63d3a9539f536e92e8836ad54de1a9b853f74da01fad
+          artifact_sha256: 901d66805fe088923d6e760ca7132a8cdc872f31eceb9bac2613bc2bbaf45661
         decision: null
         evidence: []
       review:

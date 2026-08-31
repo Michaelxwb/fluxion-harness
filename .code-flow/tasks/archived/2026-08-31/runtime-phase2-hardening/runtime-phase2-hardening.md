@@ -328,10 +328,7 @@ Tool/MCP/Skill 的授权/依赖/运行要求收敛到 EffectiveCapability 图（
 
 ### Description
 
-ProviderDefinition → ModelDefinition → ModelPolicy 领域重构（契约变更）。
-
-#NOTES
-- 契约变更（规则 25）已补 ADR-A007（`docs/adr/ADR-A007-Model领域契约重构.md`），第一阶段已落地；第二阶段（模型名从 ProviderDefinition 拆出为一等资源）需先引入独立 ResourceKind + AgentDefinition 增模型引用字段，本 TASK 不展开，另立项。
+ProviderDefinition → ModelDefinition → ModelPolicy 领域重构（契约变更）。契约变更（规则 25）已补 ADR-A007（`docs/adr/ADR-A007-Model领域契约重构.md`），第一阶段已落地；第二阶段（模型名从 ProviderDefinition 拆出为一等资源）需先引入独立 ResourceKind + AgentDefinition 增模型引用字段，本 TASK 不展开，另立项。
 
 ### Checklist
 - [x] 先补 ADR（ProviderDefinition → ModelDefinition → ModelPolicy 契约变更）——ADR-A007
@@ -475,38 +472,6 @@ ProviderDefinition → ModelDefinition → ModelPolicy 领域重构（契约变�
 ### Log
 - [2026-08-31] created (draft)
 - [2026-08-31] completed (done)
-
----
-
-## TASK-012: Workflow 复用 Execution Kernel
-
-- **Status**: in-progress
-- **Priority**: P1
-- **Depends**: TASK-005, TASK-009
-- **Source**: runtime-phase2-hardening.design.md#2.3 功能方案
-- **Spec-Refs**:
-- **Acceptance-Refs**:
-
-### Description
-
-Workflow 只负责 Graph/Durability，Tool/Policy/Approval 统一复用 Execution Kernel。
-
-### Checklist
-- [ ] Workflow 节点执行复用 Execution Kernel（Tool/Policy/Approval 共享）
-
-### Acceptance Contract
-
-| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
-|--------|---------|--------------------|---------|----------------|---------|------|
-| — | integration | Execution Kernel、Workflow | Tool/Policy/Approval 复用 | planned | planned | planned |
-
-### Acceptance Evidence
-
-> 未完成。`workflow_worker_bootstrap.capability_executor` 当前是显式 stub（`return {"prefix", "capability_ref", "input"}`，源码注释「deep 执行体——AgentLoop/Tool Runtime——见后续」）。完整复用 Execution Kernel 需：① worker 装配 ToolRuntime + RuntimeContext（DBOS 独立 event loop，async SQLAlchemy engine 不可用，需同步/跨 loop 桥接）；② ToolDefinition（capability_ref/adapter_ref）→ ToolDescriptor + executor 解析注册；③ PolicyDecisionService 决策链贯通。属 DBOS + Execution Kernel 深度集成，超出本阶段增量，如实保留 in-progress。
-
-### Log
-- [2026-08-31] created (draft)
-- [2026-08-31] in-progress（capability executor 为显式 stub，深度执行体见后续）
 
 ---
 
