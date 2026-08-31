@@ -38,6 +38,18 @@ ExecutionSnapshot
 
 所有 RuntimeInstance 读取同一个 Registry；同一个 `tenant_id + user_id + agent_id` 在任意实例上必须得到等价运行态。
 
+## 运行时服务拆分（规则 14）
+
+同一镜像按 `FLUXION_ROLE` 分派为三个独立进程，互不影响、独立扩缩：
+
+```text
+api      Control Plane（Console / Chat / Workspace / Eval / Operations）
+runtime  AgentLoop 执行（无状态，按 Agent 负载横向扩）
+worker   DBOS durable workflow 执行（按队列负载扩）
+```
+
+数据库表结构由 `scripts/init_db.py` 初始化（幂等建表，PG/SQLite 双库），服务进程不建表。
+
 ## 仓库结构
 
 ```text
@@ -85,8 +97,9 @@ Fluxion **不维护第二套任务激活脚本**。使用 code-flow 自带命令
 
 ```text
 cf-task:status
-# v2.2 rolling-wave：phase1 已实现（2026-08-27）；phase2-6 设计简报已就绪（2026-08-28，待 cf-task:plan 拆解 TASK）
-cf-task:start phase1-product-architecture TASK-001
+cf-task:start <任务名> [TASK-xxx]
+cf-task:plan <设计简报路径>
+cf-task:archive <任务名>
 ```
 
 `cf-task:start` 自己负责：
@@ -105,4 +118,4 @@ cf-task:start phase1-product-architecture TASK-001
 → 自动完成检查
 ```
 
-v1 批次已归档至 `.code-flow/tasks/archived/`（2026-08-23 实现批次、2026-08-26 ADR 简报）；当前活跃任务见 `.code-flow/tasks/2026-08-27/`（phase1 已实现）与 `.code-flow/tasks/2026-08-28/`（phase2-6 设计简报，待 `cf-task:plan`）。
+已完成批次归档至 `.code-flow/tasks/archived/`（含 2026-08-31 的 `runtime-architecture-closure` 架构收口整改 TASK-001~011）；当前活跃任务见 `.code-flow/tasks/` 下各日期目录。

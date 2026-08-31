@@ -21,6 +21,7 @@ deploy/
 | --- | --- | --- |
 | `FLUXION_DATABASE_URL` | 生产必填 | 数据库 DSN，例如 `postgresql+asyncpg://user:pass@host:5432/fluxion` |
 | `FLUXION_MASTER_KEY` | 生产必填 | 32 字节 AES-256-GCM key 的 base64 |
+| `FLUXION_ROLE` | 可选 | 进程角色：`api`（默认，Control Plane）/ `runtime`（AgentLoop 独立进程）/ `worker`（DBOS workflow） |
 | `FLUXION_ENV` | 可选 | 运行环境标识，默认 `development` |
 | `FLUXION_LOG_LEVEL` | 可选 | 日志级别，默认 `INFO` |
 
@@ -135,6 +136,11 @@ curl http://127.0.0.1:8000/healthz
 - **推荐用外部 Secret 管理生产密钥**：设置 `--set secrets.existingSecret=<name>`，该 Secret
   需包含 `FLUXION_MASTER_KEY`、`FLUXION_SECRET_MASTER_KEY`、`FLUXION_DATABASE_URL` 三个键，
   可配合 SealedSecrets / ExternalSecrets 等工具落地。
+- **三服务运行边界分离（规则 14）**：同一镜像按 `FLUXION_ROLE` 分派为三个独立 Deployment，
+  互不影响、独立扩缩：
+  - `api`（Control Plane，`replicaCount`）—— Console / Chat / Workspace / Eval / Operations；
+  - `runtime`（AgentLoop 执行，`runtime.replicaCount`）—— 无状态，按 Agent 负载横向扩；
+  - `worker`（DBOS workflow，`worker.replicaCount`）—— durable 执行，按队列负载扩。
 
 ## 三、生产 PostgreSQL 配置
 
@@ -148,5 +154,9 @@ postgresql+asyncpg://<user>:<password>@<host>:5432/<database>
 
 - 生产建议独立部署 PostgreSQL（托管云数据库或独立 StatefulSet），并开启 TLS；可用
   `FLUXION_POSTGRES_SSL` 控制 SSL 模式（默认 `disable`，可设 `require`/`verify-full` 等）。
-- 数据库表结构由后端启动时自动创建（`metadata.create_all`），无需手工跑迁移脚本。
+- 数据库表结构由 `scripts/init_db.py` 初始化（幂等 `metadata.create_all`，PG/SQLite 双库），
+  服务进程不建表。首次部署前先执行：
+  ```bash
+  python3 scripts/init_db.py --dsn "postgresql+asyncpg://<user>:<pass>@<host>:5432/<database>"
+  ```
 - 密码与 MASTER_KEY 一样，通过 Secret / 外部密钥管理注入，不落仓库、不落镜像。
