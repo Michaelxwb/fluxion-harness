@@ -57,6 +57,9 @@ _T = TypeVar("_T")
 class PostgresEncryptedSecretStore:
     """加密 Secret 持久化 store（生产 PostgreSQL；契约测试复用 SQLite engine）。"""
 
+    # TASK-013：显式 production capability 声明（白名单，durable + multi-replica）。
+    production_capabilities: frozenset[str] = frozenset({"durability", "multi_replica"})
+
     def __init__(
         self,
         *,

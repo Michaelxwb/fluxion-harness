@@ -176,7 +176,7 @@ def _trace_record() -> TraceRecord:
         runtime_profile_version="v1",
         agent_definition_id="assistant",
         agent_definition_version="v1",
-        model_resolution={"provider": "fixture"},
+        model_resolution={"provider_ref": {"id": "fixture", "version": "1"}},
         trace_id="trace-console",
         skill_versions={"review": "v1"},
         mcp_versions={"weather": "v1"},

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from tests.runtime_helpers import runtime_context
+from tests.runtime_helpers import minimal_tool_context
 
 from fluxion.runtime.tools import ToolResultStatus, ToolRuntime
 from fluxion.runtime.workflow import WorkflowAdapter
@@ -10,7 +10,13 @@ from tests.fakes.workflow import StubWorkflowEngine
 
 @pytest.mark.asyncio
 async def test_S_R08_workflow_adapter_returns_run_id_without_runtime_durable_state() -> None:
-    context, _runtime = await runtime_context()
+    context = minimal_tool_context(
+        {
+            "agent_tools": ["workflow.weekly-report.start"],
+            "user_tools": ["workflow.weekly-report.start"],
+            "tenant_tools": ["workflow.weekly-report.start"],
+        }
+    )
     engine = StubWorkflowEngine(run_id="wf-run-1")
     adapter = WorkflowAdapter(workflow_id="weekly-report", engine=engine)
     tool_runtime = ToolRuntime()
@@ -20,9 +26,6 @@ async def test_S_R08_workflow_adapter_returns_run_id_without_runtime_durable_sta
         context,
         "workflow.weekly-report.start",
         {"topic": "revenue"},
-        user_grants={"workflow.weekly-report.start"},
-        agent_allowlist={"workflow.weekly-report.start"},
-        tenant_policy={"workflow.weekly-report.start"},
     )
 
     assert result.status is ToolResultStatus.STARTED

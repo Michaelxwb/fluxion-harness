@@ -24,8 +24,8 @@ from fluxion.registry import (
 from fluxion.resources import (
     EvalSetDefinition,
     MCPDefinition,
-    ModelProviderDefinition,
     PolicyDefinition,
+    ProviderDefinition,
     ResourceDefinition,
     ResourceKind,
     ResourceStatus,
@@ -607,7 +607,7 @@ def _definition_model(kind: ResourceKind) -> type[BaseModel] | None:
     if kind is ResourceKind.RUNTIME_PROFILE:
         return RuntimeProfile
     if kind is ResourceKind.MODEL:
-        return ModelProviderDefinition
+        return ProviderDefinition
     if kind is ResourceKind.TOOL:
         return ToolDefinition
     if kind is ResourceKind.SKILL:
@@ -617,7 +617,7 @@ def _definition_model(kind: ResourceKind) -> type[BaseModel] | None:
     if kind is ResourceKind.SECRET:
         return SecretDefinition
     if kind is ResourceKind.PLUGIN:
-        return ModelProviderDefinition
+        return ProviderDefinition
     if kind is ResourceKind.POLICY:
         return PolicyDefinition
     if kind is ResourceKind.WORKFLOW:

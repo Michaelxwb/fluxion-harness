@@ -97,7 +97,7 @@ async def test_be_s_03_two_pods_resolve_identical_snapshots(tmp_path) -> None:
             "tenant_id", "user_id", "runtime_profile_id", "runtime_profile_version",
             "agent_definition_id", "agent_definition_version",
             "system_prompt", "model_resolution",
-            "skill_instructions", "skill_allowed_tools", "skill_versions",
+            "skill_instructions", "skill_required_capabilities", "skill_versions",
             "mcp_versions", "plugin_versions", "binding_versions",
         )
         for field in stable_fields:
@@ -106,7 +106,7 @@ async def test_be_s_03_two_pods_resolve_identical_snapshots(tmp_path) -> None:
         # PRD §4.3 pin 核对（Phase 1 已覆盖子集）。
         assert snap_a.runtime_profile_version == "1"
         assert snap_a.agent_definition_id == "assistant"
-        assert snap_a.model_resolution.provider == "test"
+        assert snap_a.model_resolution.provider_ref.id == "test"
         assert snap_a.skill_versions == {"search": "2"}
         assert snap_a.system_prompt == "保持严谨。"
 

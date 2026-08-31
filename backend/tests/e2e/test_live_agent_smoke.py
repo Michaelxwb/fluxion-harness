@@ -126,7 +126,7 @@ async def _seed_live_product(
         spec={
             "name": "force-live-lookup",
             "instructions": "必须先调用 mcp__live_lookup__lookup，query 必须是 fluxion。",
-            "allowed_tools": [TOOL_ID],
+            "required_capabilities": [TOOL_ID],
         },
     )
     await publish_resource(

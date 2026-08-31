@@ -11,7 +11,11 @@ from typing import Protocol
 
 from fluxion.registry import OutboxEventRecord, RegistryStore, RegistryStoreError
 from fluxion.resources import ResourceKind
-from fluxion.runtime.hot_reload import ConfigChangeEvent
+from fluxion.runtime.hot_reload import (
+    ConfigChangeEvent,
+    PolicyChangedEvent,
+    ResourcePublishedEvent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -207,17 +211,17 @@ def _config_event(record: OutboxEventRecord) -> ConfigChangeEvent:
         # kind/resource_id 取自 payload（commit_binding 写入 resource_type +
         # resource_id）。handle_config_changed 仅按 tenant_id+revision 做租户级
         # 失效，kind/resource_id 为元数据，但须是合法 ResourceKind 以构造事件。
-        return ConfigChangeEvent(
-            tenant_id=record.tenant_id,
-            kind=ResourceKind(str(record.payload["resource_type"])),
-            resource_id=str(record.payload["resource_id"]),
-            version=record.version,
-            revision=record.revision,
-        )
-    return ConfigChangeEvent(
+        kind = ResourceKind(str(record.payload["resource_type"]))
+        resource_id = str(record.payload["resource_id"])
+    else:
+        kind = ResourceKind(record.aggregate_type)
+        resource_id = record.aggregate_id
+    # TASK-014：按 kind 细化为具体 Domain Event（ResourcePublished / PolicyChanged）。
+    cls = PolicyChangedEvent if kind is ResourceKind.POLICY else ResourcePublishedEvent
+    return cls(
         tenant_id=record.tenant_id,
-        kind=ResourceKind(record.aggregate_type),
-        resource_id=record.aggregate_id,
+        kind=kind,
+        resource_id=resource_id,
         version=record.version,
         revision=record.revision,
     )

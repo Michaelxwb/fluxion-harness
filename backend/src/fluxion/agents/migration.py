@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from pydantic import ValidationError
 
-from fluxion.agents.definitions import AgentDefinition, AgentCapabilityReference, CapabilityType
+from fluxion.agents.definitions import AgentCapabilityReference, AgentDefinition, CapabilityType
 from fluxion.registry import RegistryStore
 from fluxion.resources import (
     ExactResourceVersion,
@@ -97,6 +97,7 @@ def _convert_profile(
     provider = _required_text(policy.get("provider"), "model_policy.provider")
     prompt = _required_text(legacy.get("prompt"), "prompt")
     mechanics_version = _mechanics_version(source.version)
+    legacy_executor = _optional_mapping(legacy.get("executor_config"))
     mechanics_spec = RuntimeProfile(
         request_timeout_ms=_bounded_int(policy.get("timeout_ms", 60_000), "timeout_ms"),
         max_retries=_bounded_int(policy.get("max_retries", 1), "max_retries"),
@@ -105,7 +106,8 @@ def _convert_profile(
         memory_budget_mb=_bounded_int(
             legacy.get("memory_budget_mb", 512), "memory_budget_mb"
         ),
-        executor_config=_optional_mapping(legacy.get("executor_config")),
+        model_failover=_legacy_string_list(legacy_executor.get("model_failover")),
+        bootstrapped_from=_optional_text(legacy_executor.get("bootstrapped_from")),
     )
     agent_spec = _agent_spec(source, owner, provider, prompt, mechanics_version)
     mechanics = _definition(source, mechanics_version, mechanics_spec.model_dump(mode="json"))
@@ -261,6 +263,18 @@ def _optional_mapping(value: object) -> dict[str, object]:
     if value is None:
         return {}
     return dict(_mapping(value, "executor_config"))
+
+
+def _optional_text(value: object) -> str | None:
+    if value is None:
+        return None
+    return str(value).strip() if isinstance(value, str) else None
+
+
+def _legacy_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if isinstance(item, str)]
 
 
 def _required_text(value: object, field: str) -> str:

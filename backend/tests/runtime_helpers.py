@@ -195,6 +195,25 @@ async def bind_skill_to_user(
     return await store.put_binding(binding)
 
 
+def minimal_tool_context(effective_permissions: dict[str, object]) -> RuntimeContext:
+    """构造带指定 effective_permissions 的 RuntimeContext（ToolRuntime.call 隔离测试）。"""
+    from fluxion.resources import ExecutionSnapshot, ModelPolicy
+
+    return RuntimeContext(
+        request=RequestContext(tenant_id="tenant-a", user_id="user-a", session_id="s"),
+        snapshot=ExecutionSnapshot(
+            execution_id="exec-1",
+            tenant_id="tenant-a",
+            user_id="user-a",
+            runtime_profile_id="assistant",
+            runtime_profile_version="1",
+            model_resolution=ModelPolicy(),
+            trace_id="trace-1",
+            effective_permissions=effective_permissions,
+        ),
+    )
+
+
 async def runtime_context() -> tuple[RuntimeContext, AgentRuntime]:
     store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
     await store.initialize()

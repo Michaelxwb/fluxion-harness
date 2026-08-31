@@ -73,7 +73,7 @@ async function createProductResources(page: Page): Promise<void> {
   await createAndPublishResource(page, "skill", "browser-skill", {
     name: "browser-skill",
     instructions: "回答前必须使用 weather MCP。",
-    allowed_tools: [TOOL_ID]
+    required_capabilities: [TOOL_ID]
   });
   await createAndPublishResource(page, "mcp", "weather", {
     name: "weather",

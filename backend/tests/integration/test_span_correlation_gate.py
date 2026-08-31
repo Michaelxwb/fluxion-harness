@@ -364,7 +364,15 @@ class TestToolAndWorkflowSpans:
         register_builtin_tools(tool_runtime, BuiltinToolConfig())
         # 直接经 ToolRuntime.call 调用 builtin.http_get（拒绝非法 scheme → 异常路径
         # 同样要求 span 关联字段完整 + 参数脱敏）
-        context = _minimal_runtime_context(trace_id, tenant_id)
+        context = _minimal_runtime_context(
+            trace_id,
+            tenant_id,
+            {
+                "agent_tools": ["builtin.http_get"],
+                "user_tools": ["builtin.http_get"],
+                "tenant_tools": ["builtin.http_get"],
+            },
+        )
         from fluxion.runtime.tools import ToolRuntimeError
 
         with pytest.raises(ToolRuntimeError):
@@ -372,9 +380,6 @@ class TestToolAndWorkflowSpans:
                 context,
                 "builtin.http_get",
                 {"url": "ftp://example.invalid", "api_key": "PLAINTEXT-7f3a"},
-                user_grants={"builtin.http_get"},
-                agent_allowlist={"builtin.http_get"},
-                tenant_policy={"builtin.http_get"},
             )
         spans = _spans_for(exporter, trace_id)
         tool_spans = [span for span in spans if span.name == "tool.call"]
@@ -425,7 +430,9 @@ class TestToolAndWorkflowSpans:
         assert span.attributes["fluxion.node_id"] == "t1"
 
 
-def _minimal_runtime_context(trace_id: str, tenant_id: str):
+def _minimal_runtime_context(
+    trace_id: str, tenant_id: str, effective_permissions: dict[str, object] | None = None
+):
     """最小 RuntimeContext（builtin tool 执行用；snapshot 满足构造约束）。"""
     from fluxion.resources import ExecutionSnapshot, ModelPolicy
     from fluxion.runtime.context import RequestContext as RuntimeRequestContext
@@ -448,5 +455,6 @@ def _minimal_runtime_context(trace_id: str, tenant_id: str):
         runtime_profile_version="1",
         model_resolution=ModelPolicy(),
         trace_id=trace_id,
+        effective_permissions=effective_permissions or {},
     )
     return RuntimeContext(request=request, snapshot=snapshot)

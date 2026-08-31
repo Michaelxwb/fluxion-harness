@@ -150,15 +150,19 @@ class ModelPolicy(SensitiveSpecModel):
     ADR-012：此前为 dict[str, object]，内部键无校验（拼错键静默空链）；
     结构化后 extra="forbid" 在校验层即拒未知键。frozen 落实执行期不可变
     （ExecutionSnapshot.model_resolution 直接持有本实例，不再 deepcopy）。
+
+    ADR-A007：provider/failover 由裸 string 改为 ExactResourceVersion 引用（version
+    pin，REQ-EXE-002）；模型名经 ModelDefinition（一等资源）表达，模型名本身是自然键
+    无版本语义，故 `model` 保留为 string（显式模型选择走 model_name 引用，后续深做）。
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    provider: str | None = Field(
-        default=None, title="主供应商", description="主模型供应商 plugin_id（插件资源 ID）"
+    provider_ref: ExactResourceVersion | None = Field(
+        default=None, title="主供应商", description="主模型供应商引用（id+version pin）"
     )
-    failover: list[str] = Field(
-        default_factory=list, title="降级链", description="主供应商失败时的降级链（plugin_id 列表）"
+    failover: list[ExactResourceVersion] = Field(
+        default_factory=list, title="降级链", description="主供应商失败时的降级链（provider 引用列表）"
     )
     model: str | None = Field(
         default=None, title="模型名", description="模型名；留空则用 provider 默认模型"
@@ -212,12 +216,13 @@ class RuntimeProfile(SensitiveSpecModel):
         title="内存预算",
         description="单次执行可使用的内存预算（MiB）",
     )
-    executor_config: dict[str, object] = Field(
-        default_factory=dict,
-        title="执行器配置",
-        description="Runtime executor 的非敏感装配参数",
+    # TASK-011：删除 executor_config generic dict，装配参数全部强类型化。
+    # 模型降级链已在 TASK-007 收口为 model_failover；自举标记收口为 bootstrapped_from。
+    bootstrapped_from: str | None = Field(
+        default=None,
+        title="自举来源",
+        description="由哪个历史版本自举生成（仅观测用，非运行语义）",
     )
-    # TASK-007：模型降级链从 executor_config.model_failover 收口到 typed 字段。
     model_failover: list[str] = Field(
         default_factory=list,
         title="模型降级链",
@@ -230,8 +235,8 @@ class SkillDefinition(SensitiveSpecModel):
     instructions: str = Field(
         default="", title="做法说明", description="固化给助手的任务做法；注入 system prompt"
     )
-    allowed_tools: list[str] = Field(
-        default_factory=list, title="放行工具", description="该技能放行的工具（并入 agent 工具白名单）"
+    required_capabilities: list[str] = Field(
+        default_factory=list, title="所需能力", description="该技能所需的能力（须由 Agent 已声明能力覆盖，不隐式扩权）"
     )
     # TASK-004：用户级可见性——public 全用户可用；private 仅 grant 用户可用。
     visibility: Literal["public", "private"] = Field(
@@ -292,7 +297,9 @@ class MCPDefinition(SensitiveSpecModel):
         return self
 
 
-class ModelProviderDefinition(SensitiveSpecModel):
+class ProviderDefinition(SensitiveSpecModel):
+    """模型供应商连接定义（ADR-A007）：连接与凭据 + 默认模型；运行机制归 ModelPolicy。"""
+
     plugin_type: Literal["model_provider"] = Field(
         title="插件类型", description="插件类型（固定 model_provider）"
     )
@@ -617,6 +624,18 @@ class MemoryManifest(BaseModel):
 ARTIFACT_REF_PATTERN = re.compile(r"^artifact://([^/@\s]+)/([^/@\s]+)/([^@\s]+)@([^/@\s]+)$")
 
 
+class EffectiveCapability(BaseModel):
+    """TASK-007：EffectiveCapability 图——Tool/MCP/Skill/Workflow 授权/依赖/运行
+    要求统一领域模型（替代 ad-hoc dict），构建期冻结进 Snapshot、执行期只读。"""
+
+    model_config = ConfigDict(frozen=True)
+
+    skills: dict[str, str] = Field(default_factory=dict)  # ref -> exact version
+    mcps: dict[str, str] = Field(default_factory=dict)  # ref -> exact version
+    tools: list[str] = Field(default_factory=list)  # tool capability refs
+    workflows: list[str] = Field(default_factory=list)  # workflow refs
+
+
 class ExecutionSnapshot(BaseModel):
     # frozen=True 落实 ADR-005 的执行期不可变：持有者不能原地改写
     # model_resolution 等字段。构造时另对派生自 profile spec_json 的
@@ -643,7 +662,7 @@ class ExecutionSnapshot(BaseModel):
     trace_id: str
     system_prompt: str = ""
     skill_instructions: dict[str, str] = Field(default_factory=dict)
-    skill_allowed_tools: list[str] = Field(default_factory=list)
+    skill_required_capabilities: list[str] = Field(default_factory=list)
     skill_versions: dict[str, str] = Field(default_factory=dict)
     mcp_versions: dict[str, str] = Field(default_factory=dict)
     plugin_versions: dict[str, str] = Field(default_factory=dict)
@@ -654,7 +673,7 @@ class ExecutionSnapshot(BaseModel):
     policy_versions: dict[str, str] | None = None
     credential_versions: dict[str, str] | None = None
     # FEAT-01/02：effective 能力/权限图（授权结果，进 canonical digest，执行期只读）。
-    effective_capability: dict[str, object] = Field(default_factory=dict)
+    effective_capability: EffectiveCapability = Field(default_factory=EffectiveCapability)
     effective_permissions: dict[str, object] = Field(default_factory=dict)
     # Phase 5 TASK-001：本次执行 pin 的 artifact 引用（name →
     # artifact://{tenant}/{ns}/{key}@{version}，规则 6/10——published 不可变、

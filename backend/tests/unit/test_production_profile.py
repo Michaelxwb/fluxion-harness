@@ -32,23 +32,23 @@ def _inmemory_stack() -> dict[str, object]:
 
 
 def _durable_stack() -> dict[str, object]:
-    """durable 替身：类型非 InMemory/Local 即视为显式 production adapter。
+    """durable 替身：显式声明 production_capabilities（白名单判定，TASK-013）。
 
     真实 durable 实现的装配行为由 test_production_assembly.py /
-    test_durable_stores.py 以真实 PG 验证；此处只测守卫的类型判定逻辑。
+    test_durable_stores.py 以真实 PG 验证；此处只测守卫的白名单判定逻辑。
     """
 
     class _DurableTrace:
-        pass
+        production_capabilities = frozenset({"durability", "multi_replica"})
 
     class _DurableApproval:
-        pass
+        production_capabilities = frozenset({"durability", "multi_replica"})
 
     class _DurableEvalRun:
-        pass
+        production_capabilities = frozenset({"durability", "multi_replica"})
 
     class _DurableSecret:
-        pass
+        production_capabilities = frozenset({"durability", "multi_replica"})
 
     return {
         "secret_store": _DurableSecret(),
@@ -86,3 +86,14 @@ class TestProductionProfileGuard:
     def test_durable_assembly_passes(self) -> None:
         """全部显式 production adapter → 守卫放行（不抛异常）。"""
         verify_production_assembly(**_durable_stack())
+
+    def test_partial_capability_declaration_rejected(self) -> None:
+        """白名单校验：只声明 durability 缺 multi-replica → 仍拒绝（不因非 InMemory 放行）。"""
+        stack = _durable_stack()
+
+        class _PartialDurable:
+            production_capabilities = frozenset({"durability"})
+
+        stack["trace_store"] = _PartialDurable()
+        with pytest.raises(ProductionProfileError, match="multi-replica"):
+            verify_production_assembly(**stack)

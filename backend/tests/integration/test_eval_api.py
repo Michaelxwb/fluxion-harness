@@ -146,7 +146,7 @@ def _trace() -> TraceRecord:
         user_id="user-eval",
         runtime_profile_id="runtime-main",
         runtime_profile_version="7",
-        model_resolution={"provider": "dev.echo"},
+        model_resolution={"provider_ref": {"id": "dev.echo", "version": "1"}},
         trace_id="trace-eval",
     )
     return TraceRecord(

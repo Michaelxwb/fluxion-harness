@@ -90,8 +90,8 @@ async def test_S_R13_agentloop_uses_model_provider_plugin_tool_calling_and_failo
             # 慢 provider sleep 50ms；mechanics 超时下限 100ms 仍可触发超时。
             "request_timeout_ms": 100,
             "max_retries": 1,
-            # 失败降级链属 runtime mechanics（executor_config.model_failover）。
-            "executor_config": {"model_failover": ["stub"]},
+            # 失败降级链属 runtime mechanics（typed model_failover）。
+            "model_failover": ["stub"],
         },
     )
     # TASK-A104：persona/model 迁至同名 AgentDefinition。

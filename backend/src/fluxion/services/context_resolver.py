@@ -23,6 +23,8 @@ from fluxion.memory.domain.personal_memory import PersonalMemoryRetriever
 from fluxion.registry import ChannelRegistryStore
 from fluxion.resources import ResourceKind, RuntimeProfile, SkillDefinition
 from fluxion.resources.contracts import (
+    EffectiveCapability,
+    ExactResourceVersion,
     ExecutionSnapshot,
     MemoryEntryRef,
     MemoryManifest,
@@ -201,16 +203,14 @@ class ContextResolver:
         _stage("runtime", profile_row.version, started)
 
         # 5. model：ModelPolicy（provider 来自 AgentDefinition.model_ref；failover 取
-        # RuntimeProfile.model_failover typed 字段，legacy executor_config 回退）
+        # RuntimeProfile.model_failover typed 字段，TASK-011 删除 legacy executor_config 回退）
         profile_spec = RuntimeProfile.model_validate(profile_row.spec_json)
         failover = list(profile_spec.model_failover)
-        if not failover:
-            legacy = profile_spec.executor_config.get("model_failover", [])
-            if isinstance(legacy, list):
-                failover = [str(item) for item in legacy]
         model_resolution = ModelPolicy(
-            provider=agent_spec.model_ref.id,
-            failover=failover,
+            provider_ref=ExactResourceVersion(
+                id=agent_spec.model_ref.id, version=agent_spec.model_ref.version
+            ),
+            failover=[ExactResourceVersion(id=f, version="latest-published") for f in failover],
             timeout_ms=profile_spec.request_timeout_ms,
             max_rounds=profile_spec.max_rounds,
             deadline_ms=max(profile_spec.request_timeout_ms * 2, 120_000),
@@ -234,9 +234,9 @@ class ContextResolver:
         (
             skill_versions,
             mcp_versions,
-            plugin_versions,
+            _plugin_versions,
             skill_instructions,
-            skill_allowed_tools,
+            skill_required_capabilities,
         ) = await self._resolve_capability_versions(
             selector.tenant_id, agent_spec.capabilities, selector.user_id
         )
@@ -263,7 +263,16 @@ class ContextResolver:
 
         # effective permissions（tool 授权三元组，构建期冻结，执行期不再实时重算）
         agent_tool_refs = {c["capability_ref"] for c in capabilities if c["type"] == "tool"}
-        agent_tools = agent_tool_refs | set(skill_allowed_tools)
+        # TASK-006：closure 校验——skill 的 required_capabilities 必须已被 agent 声明
+        # 覆盖；skill 不再隐式扩张 agent 工具权限（RULE-04），越出则 fail-closed。
+        undeclared = set(skill_required_capabilities) - agent_tool_refs
+        if undeclared:
+            raise ContextResolutionError(
+                code="skill_closure_violation",
+                message=f"skill requires capabilities not declared by agent: {sorted(undeclared)}",
+                status_code=422,
+            )
+        agent_tools = agent_tool_refs
         grants = await self._store.list_capability_grants(
             tenant_id=selector.tenant_id,
             platform_user_id=platform_user_id or selector.user_id,
@@ -296,12 +305,12 @@ class ContextResolver:
             agent_definition_id=agent.id,
             agent_definition_version=agent.version,
             model_resolution=model_resolution,
-            effective_capability={
-                "skill": sorted(skill_versions.keys()),
-                "mcp": sorted(mcp_versions.keys()),
-                "workflow": [agent_spec.workflow_ref.id] if agent_spec.workflow_ref else [],
-                "tool": [c["capability_ref"] for c in capabilities if c["type"] == "tool"],
-            },
+            effective_capability=EffectiveCapability(
+                skills=skill_versions,
+                mcps=mcp_versions,
+                workflows=[agent_spec.workflow_ref.id] if agent_spec.workflow_ref else [],
+                tools=[c["capability_ref"] for c in capabilities if c["type"] == "tool"],
+            ),
             effective_permissions={
                 "agent_tools": sorted(agent_tools),
                 "user_tools": sorted(user_tools),
@@ -310,7 +319,7 @@ class ContextResolver:
             trace_id=f"trace_{uuid4_hex()}",
             system_prompt=agent_spec.system_prompt,
             skill_instructions=skill_instructions,
-            skill_allowed_tools=skill_allowed_tools,
+            skill_required_capabilities=skill_required_capabilities,
             skill_versions=skill_versions,
             mcp_versions=mcp_versions,
             plugin_versions={agent_spec.model_ref.id: agent_spec.model_ref.version},
@@ -412,7 +421,7 @@ class ContextResolver:
         skill 语义 = Agent baseline（agent 声明的 capability）∪ user binding grant
         （管理员经 grant/binding 给用户扩 skill，binding 可覆盖版本）。tool 类型不解析
         版本：builtin/runtime tool 不是版本化 Resource。skill 额外提取 instructions
-        （注入 system prompt）与 allowed_tools（进 agent tool 白名单）。
+        （注入 system prompt）与 required_capabilities（closure 校验所需能力）。
         """
         # Agent baseline：agent 声明的 skill pin（capability_ref → version_pin）
         agent_skill_pins: dict[str, str] = {}
@@ -441,7 +450,7 @@ class ContextResolver:
         mcp_versions: dict[str, str] = {}
         plugin_versions: dict[str, str] = {}
         skill_instructions: dict[str, str] = {}
-        allowed_tools: set[str] = set()
+        required_capabilities: set[str] = set()
         for ref, version_pin in effective_skill_pins.items():
             row = await self._store.get(
                 ResourceKind.SKILL,
@@ -465,7 +474,7 @@ class ContextResolver:
             skill_versions[ref] = row.version
             if parsed.instructions.strip():
                 skill_instructions[ref] = parsed.instructions.strip()
-            allowed_tools.update(item for item in parsed.allowed_tools if item.strip())
+            required_capabilities.update(item for item in parsed.required_capabilities if item.strip())
 
         # mcp 版本（仅 agent 声明；mcp server 级 grant 语义见 TASK-004 后续）
         for cap in capabilities:
@@ -485,7 +494,7 @@ class ContextResolver:
             mcp_versions,
             plugin_versions,
             skill_instructions,
-            sorted(allowed_tools),
+            sorted(required_capabilities),
         )
 
     async def _credential_versions(self, tenant_id: str, user_id: str) -> dict[str, str]:
@@ -538,7 +547,13 @@ class ContextResolverSnapshotBuilder:
             ),
         )
         result = await self._resolver.resolve(selector, session_id=request.session_id)
-        return result.snapshot
+        snapshot = result.snapshot
+        # 请求 trace_id 贯通到 snapshot（端到端关联：request → execution → trace store）。
+        # trace_id 属运行时字段，不进 canonical digest（snapshot_digest._RUNTIME_FIELDS），
+        # 覆盖不影响跨实例等价性。
+        if getattr(request, "trace_id", None) and snapshot.trace_id != request.trace_id:
+            snapshot = snapshot.model_copy(update={"trace_id": request.trace_id})
+        return snapshot
 
 
 def uuid4_hex() -> str:

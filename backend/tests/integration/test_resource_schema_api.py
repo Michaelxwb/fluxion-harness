@@ -76,7 +76,7 @@ async def test_RS6_schema_carries_runtime_mechanics_constraints() -> None:
         "max_rounds",
         "concurrency",
         "memory_budget_mb",
-        "executor_config",
+        "bootstrapped_from",
         "model_failover",
     }
     assert properties["request_timeout_ms"]["minimum"] == 100

@@ -7,6 +7,7 @@ from uuid import uuid4
 from fluxion.resources import ExecutionSnapshot, ResourceBinding
 
 if TYPE_CHECKING:
+    from fluxion.runtime.model_providers import ScopedModelProviderResolver
     from fluxion.runtime.tools import ToolRuntime
 
 
@@ -74,6 +75,13 @@ class RuntimeContext:
     # MCP descriptor（含 credential_ref）不共享、执行结束随 context GC、不累积、
     # disable binding 后不 stale。仅 run/stream 执行路径内设值。
     tool_runtime: ToolRuntime | None = None
+    # TASK-010：per-execution Provider Resolver。run/stream 起始用 ScopedModelProviderResolver
+    # 包装 service-level registry 并叠加 store-backed provider，跨租户 provider 不共享、
+    # 执行结束随 context GC、不累积、不 mutate service-level registry。
+    model_provider_resolver: ScopedModelProviderResolver | None = None
+    # F-01 收尾：执行期 MCP prepare 派生的 tool ids（binding 授权），供 _call_tool
+    # 的 frozen 图预检并入 user/tenant 维度（避免 MCP 工具被三重交集误拒）。
+    mcp_tool_ids: set[str] | None = None
     # A18/ADR-005：MCP bindings + config（含已解算 credential）每执行期首次解析
     # 后缓存于此，call_tool/prepare 不再每调用重查 store.list_bindings /
     # store.get / secret resolve（N+1）。值不随执行期变化（执行期版本锚定），

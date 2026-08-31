@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from tests.runtime_helpers import runtime_context
+from tests.runtime_helpers import minimal_tool_context
 
 from fluxion.runtime.tools import ToolDescriptor, ToolResult, ToolResultStatus, ToolRuntime
 from fluxion.runtime.workflow import WorkflowAdapter
@@ -10,7 +10,14 @@ from tests.fakes.workflow import StubWorkflowEngine
 
 @pytest.mark.asyncio
 async def test_S_R14_sync_workflow_and_streaming_tools_return_unified_result_envelopes() -> None:
-    context, _runtime = await runtime_context()
+    granted = {"calc.add", "workflow.invoice.start", "mcp.stream"}
+    context = minimal_tool_context(
+        {
+            "user_tools": sorted(granted),
+            "agent_tools": sorted(granted),
+            "tenant_tools": sorted(granted),
+        }
+    )
     tool_runtime = ToolRuntime()
     workflow = WorkflowAdapter(
         workflow_id="invoice",
@@ -26,14 +33,9 @@ async def test_S_R14_sync_workflow_and_streaming_tools_return_unified_result_env
         lambda _ctx, _args: ToolResult.streamed([{"delta": "a"}, {"delta": "b"}]),
     )
 
-    common = {
-        "user_grants": {"calc.add", "workflow.invoice.start", "mcp.stream"},
-        "agent_allowlist": {"calc.add", "workflow.invoice.start", "mcp.stream"},
-        "tenant_policy": {"calc.add", "workflow.invoice.start", "mcp.stream"},
-    }
-    completed = await tool_runtime.call(context, "calc.add", {}, **common)
-    started = await tool_runtime.call(context, "workflow.invoice.start", {}, **common)
-    streamed = await tool_runtime.call(context, "mcp.stream", {}, **common)
+    completed = await tool_runtime.call(context, "calc.add", {})
+    started = await tool_runtime.call(context, "workflow.invoice.start", {})
+    streamed = await tool_runtime.call(context, "mcp.stream", {})
 
     assert completed.status is ToolResultStatus.COMPLETED
     assert completed.result == {"value": 3}

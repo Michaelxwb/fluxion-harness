@@ -70,7 +70,7 @@ def _context(user_id: str):
         agent_definition_id="assistant",
         agent_definition_version="1",
         runtime_profile_id="assistant",
-        skill_allowed_tools=[],
+        skill_required_capabilities=[],
     )
     return SimpleNamespace(snapshot=snapshot, tool_policy=None)
 
@@ -97,12 +97,11 @@ async def test_e03_grant_supports_tool_capability() -> None:
 
 @pytest.mark.asyncio
 async def test_s11_g1_truth_table_per_user_tool_grants() -> None:
-    """G1 真值表：A/B 同 Agent 不同 Tool 授权 → 有效集合不同；负向全拒。"""
-    from fluxion.services.runtime_app import RuntimeApplicationService
+    """G1 真值表：A/B 同 Agent 不同 Tool 授权 → effective_permissions 不同；负向全拒。"""
+    from fluxion.services.context_resolver import ContextResolver, ResolverSelector
 
     store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
     await store.initialize()
-    runtime = RuntimeApplicationService.create_dev_bundle(store)
     try:
         await _seed(store, tools=["calc", "weather"])
         await store.add_capability_grant(
@@ -122,10 +121,23 @@ async def test_s11_g1_truth_table_per_user_tool_grants() -> None:
             capability_kind="tool",
         )
 
-        user_a, agent_tools, tenant_tools = await runtime._effective_tool_policy(
-            _context("user-a")
-        )
-        user_b, _, _ = await runtime._effective_tool_policy(_context("user-b"))
+        resolver = ContextResolver(store)
+        perms_a = (
+            await resolver.resolve(
+                ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a"),
+                session_id="s-a",
+            )
+        ).snapshot.effective_permissions
+        perms_b = (
+            await resolver.resolve(
+                ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-b"),
+                session_id="s-b",
+            )
+        ).snapshot.effective_permissions
+
+        user_a = set(perms_a["user_tools"])
+        user_b = set(perms_b["user_tools"])
+        agent_tools = set(perms_a["agent_tools"])
 
         # 正向：同一 Agent，不同用户有效集合不同
         assert user_a == {"calc"}
@@ -138,8 +150,6 @@ async def test_s11_g1_truth_table_per_user_tool_grants() -> None:
         assert "calc" not in user_b
         # Tenant deny 优先（显式 deny 从全部维度移除）
         assert "denied-tool" not in (user_a | user_b)
-        assert "denied-tool" not in tenant_tools or True  # tenant 维度由 policy 驱动
     finally:
-        await runtime.close()
         await store.close()
 

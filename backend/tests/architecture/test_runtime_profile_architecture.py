@@ -25,7 +25,8 @@ _MECHANICS_FIELDS = {
     "max_rounds",
     "concurrency",
     "memory_budget_mb",
-    "executor_config",
+    "bootstrapped_from",
+    "model_failover",
 }
 _LEGACY_PRODUCT_FIELDS = {
     "display_name",
@@ -71,7 +72,7 @@ async def test_be_s_04_runtime_profile_is_mechanics_only_and_agents_contracts_ar
         max_retries=2,
         concurrency=4,
         memory_budget_mb=512,
-        executor_config={"executor": "local"},
+        bootstrapped_from="v1",
     )
     with pytest.raises(ValidationError):
         RuntimeProfile.model_validate({**profile.model_dump(), "prompt": "legacy persona"})

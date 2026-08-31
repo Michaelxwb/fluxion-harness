@@ -3,7 +3,13 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping
 
 from fluxion.observability.tracing import traced_scope
-from fluxion.plugins.contracts import ModelProviderError, ModelRequest, ModelResponse
+from fluxion.plugins.contracts import (
+    ModelProvider,
+    ModelProviderError,
+    ModelProviderRegistryProtocol,
+    ModelRequest,
+    ModelResponse,
+)
 from fluxion.plugins.model_provider import OpenAICompatibleHTTPModelProvider
 from fluxion.registry import RegistryReadStore
 from fluxion.resources import ResourceBinding, ResourceKind
@@ -12,6 +18,25 @@ from fluxion.runtime.secrets import CredentialResolver, SecretProviderError
 
 class RegistryModelProviderError(ModelProviderError):
     code = "registry_model_provider_error"
+
+
+class ScopedModelProviderResolver:
+    """execution-scoped Provider Resolver（TASK-010）。
+
+    包装 service-level registry，叠加本次 execution 的 store-backed provider，
+    不 mutate 共享 registry（去跨执行/跨租户 provider 累积与泄漏）。
+    """
+
+    def __init__(self, base: ModelProviderRegistryProtocol) -> None:
+        self._base = base
+        self._scoped: dict[str, ModelProvider] = {}
+
+    def register_scoped(self, provider_id: str, provider: ModelProvider) -> None:
+        self._scoped[provider_id] = provider
+
+    def resolve(self, provider_id: str) -> ModelProvider:
+        scoped = self._scoped.get(provider_id)
+        return scoped if scoped is not None else self._base.resolve(provider_id)
 
 
 class RegistryOpenAIModelProvider:

@@ -275,3 +275,14 @@ class HookRegistryProtocol(Protocol):
     def register(self, registration: object) -> None: ...
 
     def ordered(self, event_type: str) -> list[object]: ...
+
+
+# --- SPI-07: ProductionCapability（显式 production capability 声明，TASK-013）---
+# 替换 production 装配守卫的 isinstance(InMemoryXXX) 黑名单：adapter 显式声明
+# ``production_capabilities``（durability / multi-replica / production-ready），
+# 守卫按白名单校验；未声明或缺能力的 adapter fail-closed（未知 adapter 不静默放行）。
+
+
+@runtime_checkable
+class ProductionCapability(Protocol):
+    production_capabilities: frozenset[str]

@@ -150,7 +150,10 @@ class AgentRuntime:
         provider_ids = _provider_chain(policy)
         if not provider_ids:
             return
-        provider = self._model_providers.resolve(provider_ids[0])
+        # TASK-010：优先 execution-scoped resolver（叠加 store-backed provider），
+        # 无则回退 service-level registry。
+        resolver = context.model_provider_resolver or self._model_providers
+        provider = resolver.resolve(provider_ids[0])
         if not isinstance(provider, StreamingModelProvider):
             return
         streaming = cast(StreamingModelProvider, provider)
@@ -360,7 +363,9 @@ class AgentRuntime:
     ) -> ModelResponse:
         if self._model_providers is None:
             raise ModelProviderError("model provider registry is not configured")
-        provider = self._model_providers.resolve(provider_id)
+        # TASK-010：优先 execution-scoped resolver，无则回退 service-level registry。
+        resolver = context.model_provider_resolver or self._model_providers
+        provider = resolver.resolve(provider_id)
         scoped_request = replace(
             request,
             tenant_id=context.snapshot.tenant_id,
@@ -389,10 +394,9 @@ async def _wait_for_provider(
 
 
 def _provider_chain(policy: ModelPolicy) -> list[str]:
-    # ADR-012：ModelPolicy 结构化后类型/范围由校验层保证；provider 仍沿用
-    # 原 _optional_str 的「非空白」语义，避免空白 provider 被当作有效插件 id。
-    chain = [policy.provider] if policy.provider and policy.provider.strip() else []
-    chain.extend(item for item in policy.failover if item.strip())
+    # ADR-A007：provider/failover 由裸 string 改为 ExactResourceVersion；取 .id 得插件 id。
+    chain = [policy.provider_ref.id] if policy.provider_ref else []
+    chain.extend(ref.id for ref in policy.failover)
     return list(dict.fromkeys(chain))
 
 

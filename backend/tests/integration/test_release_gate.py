@@ -107,7 +107,7 @@ def _trace(trace_id: str, *, include_answer: bool = True) -> TraceRecord:
         user_id="user-gate",
         runtime_profile_id="runtime-main",
         runtime_profile_version="7",
-        model_resolution={"provider": "dev.echo"},
+        model_resolution={"provider_ref": {"id": "dev.echo", "version": "1"}},
         trace_id=trace_id,
     )
     events = (

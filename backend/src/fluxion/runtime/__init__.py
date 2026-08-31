@@ -5,6 +5,8 @@ from fluxion.runtime.context import RequestContext, RuntimeContext, TraceEvent
 from fluxion.runtime.hot_reload import (
     CacheRevisionState,
     ConfigChangeEvent,
+    PolicyChangedEvent,
+    ResourcePublishedEvent,
     RevisionAwareResourceResolver,
 )
 from fluxion.runtime.mcp import MCPClient, MCPClientPool
@@ -39,6 +41,8 @@ __all__ = [
     "BuiltinToolConfig",
     "CacheRevisionState",
     "ConfigChangeEvent",
+    "PolicyChangedEvent",
+    "ResourcePublishedEvent",
     "CredentialResolver",
     "EffectiveCapabilityResolver",
     "InMemoryTraceStore",

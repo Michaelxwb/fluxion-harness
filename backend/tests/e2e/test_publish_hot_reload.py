@@ -92,7 +92,7 @@ def _console_spec(version: str) -> dict[str, object]:
     # TASK-A104：mechanics-only spec；persona/model 随 AgentDefinition 链。
     return {
         **runtime_profile_spec(),
-        "executor_config": {"bootstrapped_from": f"v{version}"},
+        "bootstrapped_from": f"v{version}",
     }
 
 

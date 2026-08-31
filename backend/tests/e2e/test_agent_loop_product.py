@@ -194,7 +194,7 @@ async def test_S_P13_02_published_skill_instructions_are_fixed_in_snapshot_and_p
                 "name": "concise",
                 "description": "简洁回答",
                 "instructions": "回答必须以 SKILL-V1 开头。",
-                "allowed_tools": ["lookup"],
+                "required_capabilities": ["lookup"],
             },
         )
         await _publish_profile(sqlite_store, allowed_skills=["concise@1"])
@@ -221,7 +221,7 @@ async def test_S_P13_02_published_skill_instructions_are_fixed_in_snapshot_and_p
                 "name": "concise",
                 "description": "已更新",
                 "instructions": "回答必须以 SKILL-V2 开头。",
-                "allowed_tools": ["lookup"],
+                "required_capabilities": ["lookup"],
             },
         )
 

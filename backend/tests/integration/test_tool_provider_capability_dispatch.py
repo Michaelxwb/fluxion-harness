@@ -33,7 +33,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 
 import pytest
-from tests.runtime_helpers import runtime_context
+from tests.runtime_helpers import minimal_tool_context
 
 from fluxion.plugins.contracts import (
     CapabilityDescriptor,
@@ -155,15 +155,12 @@ async def test_s02_tool_provider_dispatches_via_capability_contract() -> None:
     assert descriptor.capability_id == "cap.echo"
     assert descriptor.capability_id == loaded.capabilities[0].capability_id
 
-    context, _ = await runtime_context()
-    common = {
-        "user_grants": {"echo"},
-        "agent_allowlist": {"echo"},
-        "tenant_policy": {"echo"},
-    }
+    context = minimal_tool_context(
+        {"user_tools": ["echo"], "agent_tools": ["echo"], "tenant_tools": ["echo"]}
+    )
 
     # 真实边界 2：ToolRuntime dispatch（真实 call + _execute + emit）
-    result = await tool_runtime.call(context, "echo", {"text": "hello"}, **common)
+    result = await tool_runtime.call(context, "echo", {"text": "hello"})
 
     assert result.status is ToolResultStatus.COMPLETED
     assert result.result == {"echo": "hello"}  # 业务在 Capability（plugin.execute）

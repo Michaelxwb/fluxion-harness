@@ -64,7 +64,7 @@ async def _seed_traces(store: InMemoryTraceStore, *, count: int) -> None:
             user_id="user-a",
             runtime_profile_id="runtime-main",
             runtime_profile_version="1",
-            model_resolution={"provider": "dev.echo"},
+            model_resolution={"provider_ref": {"id": "dev.echo", "version": "1"}},
             trace_id=f"trace-{index}",
             created_at=created_at,
         )

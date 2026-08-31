@@ -50,7 +50,7 @@ export const IN_MEMORY_RESOURCE_SCHEMAS: Readonly<Record<string, JsonSchemaNode>
     properties: {
       name: { type: "string", title: "技能名", description: "技能名（展示用）" },
       instructions: { type: "string", default: "", title: "做法说明", description: "固化给助手的任务做法；注入 system prompt" },
-      allowed_tools: { type: "array", items: { type: "string" }, title: "放行工具", description: "该技能放行的工具（并入 agent 工具白名单）" }
+      required_capabilities: { type: "array", items: { type: "string" }, title: "所需能力", description: "该技能所需的能力（须由 Agent 已声明能力覆盖，不隐式扩权）" }
     }
   },
   tool: {

@@ -5,7 +5,7 @@ import pytest
 from fluxion.resources import (
     MCPDefinition,
     ModelPolicy,
-    ModelProviderDefinition,
+    ProviderDefinition,
     PolicyDefinition,
     ResourceDefinition,
     ResourceKind,
@@ -137,7 +137,7 @@ def test_RS2_model_policy_defaults_match_runtime_fallbacks() -> None:
     assert policy.timeout_ms == 60_000
     assert policy.deadline_ms == 120_000
     assert policy.max_rounds == 8
-    assert policy.provider is None
+    assert policy.provider_ref is None
     assert policy.failover == []
     assert policy.model is None
 
@@ -156,11 +156,11 @@ def test_RS2_runtime_profile_accepts_mechanics_and_is_frozen() -> None:
         max_retries=2,
         concurrency=4,
         memory_budget_mb=256,
-        executor_config={"executor": "local"},
+        bootstrapped_from="v1",
     )
     assert profile.request_timeout_ms == 30_000
     assert profile.max_retries == 2
-    assert profile.executor_config == {"executor": "local"}
+    assert profile.bootstrapped_from == "v1"
     with pytest.raises(ValueError):
         profile.__setattr__("concurrency", 8)
 
@@ -173,6 +173,7 @@ def test_RS2_runtime_profile_rejects_removed_dead_fields() -> None:
         ("allowed_mcps", []),
         ("allowed_tools", []),
         ("capabilities", []),
+        ("executor_config", {}),
     ):
         with pytest.raises(ValueError, match=dead_field):
             RuntimeProfile.model_validate({dead_field: payload_value})
@@ -200,7 +201,7 @@ def test_RS2_skill_definition_rejects_removed_fields() -> None:
 
 def test_RS2_model_provider_definition_rejects_removed_name() -> None:
     with pytest.raises(ValueError, match="name"):
-        ModelProviderDefinition.model_validate(
+        ProviderDefinition.model_validate(
             {
                 "name": "deepseek",
                 "plugin_type": "model_provider",

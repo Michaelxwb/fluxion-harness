@@ -24,7 +24,9 @@ TENANT = "tenant-a"
 USER = "user-a"
 
 
-def _real_context() -> RuntimeContext:
+def _real_context(
+    effective_permissions: dict[str, object] | None = None,
+) -> RuntimeContext:
     """真实 RuntimeContext：emit 进 trace，供 runtime.call() 走授权 + event 链路。"""
     return RuntimeContext(
         request=RequestContext(
@@ -45,6 +47,7 @@ def _real_context() -> RuntimeContext:
             runtime_profile_version="1",
             model_resolution=ModelPolicy(),
             trace_id="trace-1",
+            effective_permissions=effective_permissions or {},
         ),
     )
 
@@ -76,7 +79,10 @@ async def users(store: SQLiteRegistryStore) -> UserDomainService:
 
 def _context(user_id: str = USER):
     return SimpleNamespace(
-        snapshot=SimpleNamespace(tenant_id=TENANT, user_id=user_id, agent_definition_id="assistant"),
+        snapshot=SimpleNamespace(
+            tenant_id=TENANT, user_id=user_id, agent_definition_id="assistant",
+            effective_permissions={},
+        ),
         tool_policy=None,
     )
 
@@ -150,15 +156,10 @@ async def test_s10_real_call_through_triple_gate_and_audit(
     policy_decision event 与写操作 AuditLog 全链路。
     """
     tool_id = "user.preference.set"
-    ctx = _real_context()
-    result = await runtime.call(
-        ctx,
-        tool_id,
-        {"key": "theme", "value": "dark"},
-        user_grants={tool_id},
-        agent_allowlist={tool_id},
-        tenant_policy={tool_id},
+    ctx = _real_context(
+        {"agent_tools": [tool_id], "user_tools": [tool_id], "tenant_tools": [tool_id]}
     )
+    result = await runtime.call(ctx, tool_id, {"key": "theme", "value": "dark"})
     assert result.status == ToolResultStatus.COMPLETED
     assert result.result["ok"] is True
     # 偏好已落库
@@ -184,16 +185,11 @@ async def test_s10_real_call_denied_by_gate_no_audit(
 ) -> None:
     """三重交集不满足 → fail-closed 拒绝，executor 不执行、不写 AuditLog。"""
     tool_id = "user.profile.get"
-    ctx = _real_context()
+    ctx = _real_context(
+        {"agent_tools": [tool_id], "user_tools": [], "tenant_tools": [tool_id]}
+    )
     with pytest.raises(ToolAuthorizationError) as exc:
-        await runtime.call(
-            ctx,
-            tool_id,
-            {},
-            user_grants=set(),
-            agent_allowlist={tool_id},
-            tenant_policy={tool_id},
-        )
+        await runtime.call(ctx, tool_id, {})
     assert exc.value.code == "tool_not_allowed"
     # 拒绝时 policy_decision event 记录 decision=deny（可观测）
     decisions = [e for e in ctx.trace if e.name == "tool.policy_decision"]

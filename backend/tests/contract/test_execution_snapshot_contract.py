@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from fluxion.resources import ExecutionSnapshot, ModelPolicy
-from fluxion.resources.contracts import ExactResourceVersion
+from fluxion.resources.contracts import EffectiveCapability, ExactResourceVersion
 
 
 def _snapshot(**overrides) -> ExecutionSnapshot:
@@ -45,10 +45,11 @@ def test_S02_agent_definition_version_declared_once() -> None:
 
 def test_S02_effective_graph_fields_present() -> None:
     snap = _snapshot(
-        effective_capability={"skill": ["s1"], "tool": ["t1"]},
+        effective_capability=EffectiveCapability(skills={"s1": "1"}, tools=["t1"]),
         effective_permissions={"t1": {"user": True, "agent": True, "tenant": True}},
     )
-    assert snap.effective_capability == {"skill": ["s1"], "tool": ["t1"]}
+    assert snap.effective_capability.skills == {"s1": "1"}
+    assert snap.effective_capability.tools == ["t1"]
     assert snap.effective_permissions["t1"]["tenant"] is True
 
 
@@ -57,5 +58,6 @@ def test_B02_refs_optional_none() -> None:
     assert snap.workflow_ref is None
     assert snap.memory_policy_ref is None
     assert snap.personalization_policy_ref is None
-    assert snap.effective_capability == {}
+    assert snap.effective_capability.skills == {}
+    assert snap.effective_capability.tools == []
     assert snap.effective_permissions == {}

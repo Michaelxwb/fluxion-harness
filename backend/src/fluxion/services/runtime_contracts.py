@@ -33,7 +33,7 @@ class CreateRuntimeProfileRequest:
     max_rounds: int = 8
     concurrency: int = 1
     memory_budget_mb: int | None = None
-    executor_config: Mapping[str, object] = field(default_factory=dict)
+    bootstrapped_from: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

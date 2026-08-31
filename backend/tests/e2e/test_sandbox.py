@@ -5,9 +5,13 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
-from tests.runtime_helpers import runtime_context
+from tests.runtime_helpers import minimal_tool_context
 
-from fluxion.runtime.builtin_tools import BuiltinToolConfig, register_builtin_tools
+from fluxion.runtime.builtin_tools import (
+    BuiltinToolConfig,
+    _run_code,
+    _run_command,
+)
 from fluxion.runtime.sandbox import (
     BubblewrapSandboxBackend,
     DevSandboxBackend,
@@ -17,58 +21,34 @@ from fluxion.runtime.sandbox import (
     SandboxRequest,
     SandboxUnavailableError,
 )
-from fluxion.runtime.tools import ToolAuthorizationError, ToolRuntime
+from fluxion.runtime.tools import ToolAuthorizationError
 
 
 @pytest.mark.asyncio
 async def test_S_R16_run_command_uses_sandbox_defaults_and_fails_closed_without_backend() -> None:
-    context, _runtime = await runtime_context()
+    # S_R16 是沙箱 fail-closed 语义（与 TASK-005 审批门正交）：直接测执行器
+    # `_run_command`/`_run_code`，不经 ToolRuntime.call 的 high-risk 审批门。
+    context = minimal_tool_context({})
     sandbox = RecordingSandboxBackend(stdout="ok")
-    tool_runtime = ToolRuntime()
-    register_builtin_tools(
-        tool_runtime,
-        BuiltinToolConfig(sandbox_backend=sandbox, allow_run_command=True),
-    )
-    common = {
-        "user_grants": {"run_command", "code.exec"},
-        "agent_allowlist": {"run_command", "code.exec"},
-        "tenant_policy": {"run_command", "code.exec"},
-    }
+    config = BuiltinToolConfig(sandbox_backend=sandbox, allow_run_command=True)
 
-    result = await tool_runtime.call(
-        context,
-        "run_command",
-        {"command": ["echo", "ok"], "timeout_ms": 100},
-        **common,
+    result = await _run_command(
+        context, {"command": ["echo", "ok"], "timeout_ms": 100}, config
     )
 
-    assert result.result == {"stdout": "ok", "stderr": "", "exit_code": 0}
+    assert result == {"stdout": "ok", "stderr": "", "exit_code": 0}
     assert sandbox.requests[0].network_enabled is False
     assert sandbox.requests[0].root_read_only is True
     assert sandbox.requests[0].timeout_ms == 100
 
-    no_sandbox_runtime = ToolRuntime()
-    register_builtin_tools(
-        no_sandbox_runtime,
-        BuiltinToolConfig(sandbox_backend=None, allow_run_command=True),
-    )
+    no_sandbox_config = BuiltinToolConfig(sandbox_backend=None, allow_run_command=True)
     with pytest.raises(ToolAuthorizationError) as exc_info:
-        await no_sandbox_runtime.call(
-            context,
-            "run_command",
-            {"command": ["echo", "blocked"]},
-            **common,
-        )
+        await _run_command(context, {"command": ["echo", "blocked"]}, no_sandbox_config)
     assert exc_info.value.code == "sandbox_unavailable"
     assert any(event.name == "sandbox.unavailable" for event in context.trace)
 
     with pytest.raises(ToolAuthorizationError) as code_exc_info:
-        await no_sandbox_runtime.call(
-            context,
-            "code.exec",
-            {"code": "print('blocked')"},
-            **common,
-        )
+        await _run_code(context, {"code": "print('blocked')"}, no_sandbox_config)
     assert code_exc_info.value.code == "sandbox_unavailable"
 
 

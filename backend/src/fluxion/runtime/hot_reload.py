@@ -22,14 +22,38 @@ class ConfigChangeEvent:
     version: str
     revision: int
 
+    @property
+    def event_type(self) -> str:
+        """领域事件类型（TASK-014）：按资源 kind 判别 resource_published / policy_changed。"""
+        return "policy_changed" if self.kind is ResourceKind.POLICY else "resource_published"
+
     def to_payload(self) -> dict[str, object]:
         return {
+            "event_type": self.event_type,
             "tenant_id": self.tenant_id,
             "kind": self.kind.value,
             "resource_id": self.resource_id,
             "version": self.version,
             "revision": self.revision,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class ResourcePublishedEvent(ConfigChangeEvent):
+    """资源发布领域事件（TASK-014）：非 POLICY 资源发布。"""
+
+    @property
+    def event_type(self) -> str:
+        return "resource_published"
+
+
+@dataclass(frozen=True, slots=True)
+class PolicyChangedEvent(ConfigChangeEvent):
+    """策略变更领域事件（TASK-014）：POLICY 资源变更。"""
+
+    @property
+    def event_type(self) -> str:
+        return "policy_changed"
 
 
 @dataclass(frozen=True, slots=True)

@@ -8,11 +8,13 @@ from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.registry import RegistryStore
 from fluxion.resources import ResourceKind, ResourceStatus
 from fluxion.runtime.agent import ModelToolResult
-from fluxion.runtime.capabilities import EffectiveCapabilityResolver
 from fluxion.runtime.context import RuntimeContext
-from fluxion.runtime.model_providers import RegistryOpenAIModelProvider
+from fluxion.runtime.model_providers import (
+    RegistryOpenAIModelProvider,
+    ScopedModelProviderResolver,
+)
 from fluxion.runtime.secrets import CredentialResolver
-from fluxion.runtime.tools import ToolResult, ToolRuntime
+from fluxion.runtime.tools import ToolResult, ToolRuntime, frozen_tool_policy
 from fluxion.services.runtime_contracts import RuntimeApplicationError, ToolCallRequest
 from fluxion.services.runtime_utils import _tool_model_content, _tool_result_payload
 
@@ -41,10 +43,15 @@ class RuntimeToolOps:
             results.append(_tool_result_payload(call.tool_id, result))
         return results
 
-    async def _prepare_registry_model_providers(self, context: RuntimeContext) -> None:
+    async def _prepare_execution_model_resolver(
+        self, context: RuntimeContext
+    ) -> ScopedModelProviderResolver:
+        # TASK-010：execution-scoped Provider Resolver——不 mutate service-level registry，
+        # store-backed provider 只叠加在本执行副本上，执行结束随 context GC。
+        resolver = ScopedModelProviderResolver(self._model_providers)
         policy = context.snapshot.model_resolution
-        provider_ids = [policy.provider] if policy.provider else []
-        provider_ids.extend(policy.failover)
+        provider_ids = [policy.provider_ref.id] if policy.provider_ref else []
+        provider_ids.extend(ref.id for ref in policy.failover)
         for provider_id in provider_ids:
             # 双重门槛：①在 snapshot.plugin_versions 中被 agent.model_ref 显式
             # pin；②Registry 存在同 id 的 PLUGIN 资源。两者同时满足才包装为
@@ -58,7 +65,7 @@ class RuntimeToolOps:
             )
             if plugin is None or plugin.status is not ResourceStatus.PUBLISHED:
                 continue
-            self._model_providers.register(
+            resolver.register_scoped(
                 provider_id,
                 RegistryOpenAIModelProvider(
                     provider_id,
@@ -66,6 +73,7 @@ class RuntimeToolOps:
                     self._credential_resolver,
                 ),
             )
+        return resolver
 
     async def _execute_model_tool(
         self,
@@ -102,13 +110,8 @@ class RuntimeToolOps:
         context: RuntimeContext,
         call: ToolCallRequest,
     ) -> ToolResult:
-        user_tools, agent_tools, tenant_tools = await self._effective_tool_policy(context)
-        # A22：授权（与存在性）先于 hook 分发。设计要求
-        # CheckPolicy→CheckGrant→Allowlist→BeforeToolHooks；此前
-        # _dispatch_before_tool 在 ToolRuntime.call 的三重交集之前分发，DLP/安全
-        # hook 会看到用户本无权调用的工具参数，且 fail_closed hook 可在授权结论
-        # 产生前中断。此处做与 ToolRuntime.call 一致的预检，未通过则直接拒绝，
-        # 不进入 hook、不执行。
+        user_tools, agent_tools, tenant_tools = frozen_tool_policy(context, context.mcp_tool_ids)
+        # A22：授权（与存在性）先于 hook 分发。frozen 图三元组预检，未通过直接拒绝。
         self._execution_tool_runtime(context).descriptor(call.tool_id)
         if (
             call.tool_id not in user_tools
@@ -123,9 +126,7 @@ class RuntimeToolOps:
             context,
             call.tool_id,
             call.arguments,
-            user_grants=user_tools,
-            agent_allowlist=agent_tools,
-            tenant_policy=tenant_tools,
+            mcp_tool_ids=context.mcp_tool_ids,
         )
 
     async def _model_tool_definitions(
@@ -133,13 +134,8 @@ class RuntimeToolOps:
         context: RuntimeContext,
         mcp_tool_ids: set[str],
     ) -> list[ToolDefinition]:
-        user_tools, agent_tools, tenant_tools = await self._effective_tool_policy(
-            context, user_mcp_tool_ids=mcp_tool_ids
-        )
         descriptors = self._execution_tool_runtime(context).list_effective_descriptors(
-            user_grants=user_tools,
-            agent_allowlist=agent_tools,
-            tenant_policy=tenant_tools,
+            context, mcp_tool_ids=mcp_tool_ids
         )
         descriptors = [
             descriptor
@@ -155,50 +151,6 @@ class RuntimeToolOps:
             )
             for descriptor in descriptors
         ]
-
-    async def _effective_tool_policy(
-        self,
-        context: RuntimeContext,
-        user_mcp_tool_ids: set[str] | None = None,
-    ) -> tuple[set[str], set[str], set[str]]:
-        # A2/ADR-005：每执行期首次解析后缓存于 context.tool_policy，后续 tool call
-        # 与 model tool 列表构建复用同一结果——消除执行期版本漂移（此前每次调用
-        # 新建 EffectiveCapabilityResolver 按 latest-published 实时解析，执行中途
-        # 租户发布新 Policy 会令后半段授权集合变化、与 trace 记录的 snapshot 版本
-        # 不一致）与每个 tool call 的 N+1 查询。
-        if context.tool_policy is not None:
-            return context.tool_policy
-        agent_tools = await self._allowed_tools(context)
-        capability = EffectiveCapabilityResolver(self._store)
-        # closure TASK-013（ADR-A002 撤销 ADR-012 的 user=agent 推导）：
-        # user 维度恢复为真实 User Tool Grant（capability_grants, kind=tool），
-        # 禁止 user_tools = agent_tools 作为最终语义（ARCH-06 / REQ-CAP-002）。
-        # 用户维度 = 显式 Tool Grant ∪ 用户 MCP binding 派生的工具 id
-        # （后者是挂载层授权到三重交集的映射：binding 按 user 隔离注入）。
-        user_tools = await self._user_granted_tools(context) | set(
-            user_mcp_tool_ids or set()
-        )
-        policy_allowed, policy_denied, configured = await capability.tenant_policy_tools(
-            tenant_id=context.snapshot.tenant_id
-        )
-        if not configured:
-            tenant_tools = set(user_tools)
-        elif policy_allowed:
-            # allow-list 模式：tenant 显式限定可用集合。
-            tenant_tools = set(policy_allowed)
-        else:
-            # deny-only 模式（allowed 为空）：不缩小集合，仅靠 denied 移除。
-            # 此前此分支把 tenant_tools 置空 → tenant 所有工具被锁死。
-            tenant_tools = set(user_tools)
-        # denied 始终优先：从所有维度移除，确保 ToolRuntime 三重交集不会
-        # 放行 tenant 显式拒绝的工具（此前 denied 被直接丢弃，安全洞）。
-        if policy_denied:
-            user_tools = user_tools - policy_denied
-            agent_tools = agent_tools - policy_denied
-            tenant_tools = tenant_tools - policy_denied
-        policy = (user_tools, agent_tools, tenant_tools)
-        context.tool_policy = policy
-        return policy
 
     async def _dispatch_before_tool(
         self,
@@ -216,37 +168,3 @@ class RuntimeToolOps:
             trace_sink=context,
         )
 
-    async def _user_granted_tools(self, context: RuntimeContext) -> set[str]:
-        """用户 Tool 维度：capability_grants(kind=tool) 的授权引用集合。"""
-        grants = await self._store.list_capability_grants(
-            tenant_id=context.snapshot.tenant_id,
-            platform_user_id=context.snapshot.user_id,
-        )
-        return {
-            grant.capability_ref
-            for grant in grants
-            if getattr(grant, "capability_kind", "skill") == "tool"
-        }
-
-    async def _allowed_tools(self, context: RuntimeContext) -> set[str]:
-        # TASK-A104：工具白名单基线从 AgentDefinition.capabilities(type=tool) 取
-        # （RuntimeProfile 已收缩为纯 mechanics，无工具语义）；snapshot 优先，
-        # 缺 agent 关联时回退按 snapshot 的 profile 同名解析（迁移产物同名）。
-        agent_id = context.snapshot.agent_definition_id or context.snapshot.runtime_profile_id
-        agent = await self._store.get(
-            ResourceKind.AGENT_DEFINITION,
-            agent_id,
-            tenant_id=context.snapshot.tenant_id,
-            version=context.snapshot.agent_definition_version,
-        )
-        tool_refs: set[str] = set()
-        if agent is not None:
-            from fluxion.agents.definitions import AgentDefinition, CapabilityType
-
-            agent_spec = AgentDefinition.model_validate(agent.spec_json)
-            tool_refs = {
-                binding.capability_ref
-                for binding in agent_spec.capabilities
-                if binding.type is CapabilityType.TOOL
-            }
-        return tool_refs | set(context.snapshot.skill_allowed_tools)

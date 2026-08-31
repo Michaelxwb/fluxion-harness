@@ -93,7 +93,8 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
         assert completed["output"] == "dev: stream"  # 模型名归 MODEL 链（TASK-004/008）
         assert override.status_code == 400
         assert override.json()["code"] == RUNTIME_APPLICATION_ERROR
-        assert "resource_version_not_found" in override.json()["message"]
+        # TASK-A104：agent 路由后，tenant-b 无同名 agent → agent_not_found（非旧 profile 版本缺失）。
+        assert "agent_not_found" in override.json()["message"]
     finally:
         await service.close()
 

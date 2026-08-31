@@ -21,16 +21,11 @@ from fluxion.observability.tracing import traced_scope
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.registry import (
     ChannelRegistryStore,
-    PublicationCommand,
-    PublicationOperation,
-    RegistryStore,
     RegistryStoreError,
 )
 from fluxion.resources import (
     ResourceDefinition,
     ResourceKind,
-    ResourceStatus,
-    ResourceVisibility,
     TenantResourceCache,
 )
 from fluxion.runtime.agent import AgentRuntime, RuntimeStepResult
@@ -40,9 +35,10 @@ from fluxion.runtime.hot_reload import ConfigChangeEvent, RevisionAwareResourceR
 from fluxion.runtime.mcp import RegistryMCPRuntime
 from fluxion.runtime.memory import SessionMemoryStore
 from fluxion.runtime.secrets import CredentialResolver
-from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 from fluxion.runtime.tools import ToolRuntime
 from fluxion.runtime.tracing import InMemoryTraceStore, TraceRecord, TraceStore
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
+from fluxion.services.execution_session import ExecutionSession
 from fluxion.services.outbox import InProcessConfigEventPublisher, OutboxWorker
 from fluxion.services.runtime_contracts import (
     CreateRuntimeProfileRequest,
@@ -56,6 +52,7 @@ from fluxion.services.runtime_contracts import (
     ToolCallRequest,
     default_runtime_profile_request,
 )
+from fluxion.services.runtime_profile_service import RuntimeProfileService
 from fluxion.services.runtime_tool_ops import RuntimeToolOps
 from fluxion.services.runtime_utils import (
     DevEchoModelProvider,
@@ -64,9 +61,7 @@ from fluxion.services.runtime_utils import (
     _error_code,
     _hook_events,
     _last_event_attrs,
-    _request_context,
     _run_result,
-    _runtime_profile_spec,
     _tool_events,
     default_session_memory_store,
 )
@@ -104,6 +99,9 @@ class RuntimeApplicationService(RuntimeToolOps):
         self._store = store
         self._cache = TenantResourceCache(ttl_seconds=cache_ttl_seconds)
         self._resolver = RevisionAwareResourceResolver(store, cache=self._cache)
+        self._profile_service = RuntimeProfileService(
+            store, on_config_changed=self.handle_config_changed
+        )
         self._model_providers = model_providers or ModelProviderRegistry()
         self._credential_resolver = credential_resolver
         self._runtime = AgentRuntime(
@@ -184,74 +182,19 @@ class RuntimeApplicationService(RuntimeToolOps):
         self,
         request: CreateRuntimeProfileRequest,
     ) -> ResourceDefinition:
-        definition = ResourceDefinition(
-            kind=ResourceKind.RUNTIME_PROFILE,
-            id=request.runtime_profile_id,
-            tenant_id=request.tenant_id,
-            version=request.version,
-            status=ResourceStatus.DRAFT,
-            spec_json=_runtime_profile_spec(request),
-        )
-        return await self._store.put(definition)
+        return await self._profile_service.create_runtime_profile(request)
 
     async def publish_runtime_profile(
         self,
         request: PublishRuntimeProfileRequest,
     ) -> ResourceDefinition:
-        # A8/契约§7：Runtime 发布路径走治理事务（commit_publication）——审计 +
-        # publish_record + outbox + bump_revision 原子化，与 Console 一致。此前走
-        # store.publish() + 独立 bump_revision()：无审计、无 outbox、revision 非原子。
-        # 该路径由 CLI `run --bootstrap` / SDK ensure_runtime_profile 触达，属系统
-        # 发起，actor 归属 system:bootstrap；真实操作员归属需经 SDK 传入（后续）。
-        commit = await self._store.commit_publication(
-            PublicationCommand(
-                publish_id=f"pub_{uuid4().hex}",
-                event_id=f"evt_{uuid4().hex}",
-                tenant_id=request.tenant_id,
-                kind=ResourceKind.RUNTIME_PROFILE,
-                resource_id=request.runtime_profile_id,
-                version=request.version,
-                operation=PublicationOperation.PUBLISH,
-                actor_id="system:bootstrap",
-                request_id=f"bootstrap_{uuid4().hex}",
-                trace_id="bootstrap",
-            )
-        )
-        event = ConfigChangeEvent(
-            tenant_id=request.tenant_id,
-            kind=ResourceKind.RUNTIME_PROFILE,
-            resource_id=request.runtime_profile_id,
-            version=request.version,
-            revision=commit.revision,
-        )
-        if request.notify_runtime:
-            self.handle_config_changed(event)
-        return commit.resource
+        return await self._profile_service.publish_runtime_profile(request)
 
     async def ensure_runtime_profile(
         self,
         request: CreateRuntimeProfileRequest,
     ) -> ResourceDefinition:
-        existing = await self._store.get(
-            ResourceKind.RUNTIME_PROFILE,
-            request.runtime_profile_id,
-            tenant_id=request.tenant_id,
-            version=request.version,
-        )
-        if existing is None:
-            existing = await self.create_runtime_profile(request)
-        # TASK-A104：自举路径同步确保同名默认 AgentDefinition（persona/model 的
-        # SoT），使 `run --bootstrap` / dev bundle 开箱可跑；已存在则不覆盖。
-        await _ensure_default_agent(self._store, request)
-        if existing.status is ResourceStatus.PUBLISHED:
-            return existing
-        return await self.publish_runtime_profile(
-            PublishRuntimeProfileRequest(
-                tenant_id=request.tenant_id,
-                runtime_profile_id=request.runtime_profile_id,
-                version=request.version,
-            )
-        )
+        return await self._profile_service.ensure_runtime_profile(request)
 
     async def run(self, request: RunRuntimeRequest) -> RunRuntimeResult:
         started = perf_counter()
@@ -269,13 +212,10 @@ class RuntimeApplicationService(RuntimeToolOps):
                 },
             ) as span:
                 try:
-                    context = await self._runtime.start_execution(_request_context(request))
-                    await self._resolver.poll_revision(request.tenant_id)
-                    context.tool_runtime = self._tool_runtime.clone_for_execution()
-                    await self._prepare_registry_model_providers(context)
-                    mcp_tool_ids = await self._mcp_runtime.prepare(context, context.tool_runtime)
-                    model_tools = await self._model_tool_definitions(context, mcp_tool_ids)
-                    allowed_model_tools = {tool.name for tool in model_tools}
+                    prepared = await ExecutionSession(self).prepare(request)
+                    context = prepared.context
+                    model_tools = prepared.model_tools
+                    allowed_model_tools = prepared.allowed_model_tools
                     step_result = await self._runtime.run_step(
                         context,
                         request.input_message,
@@ -369,12 +309,9 @@ class RuntimeApplicationService(RuntimeToolOps):
         started = perf_counter()
         context: RuntimeContext | None = None
         try:
-            context = await self._runtime.start_execution(_request_context(request))
-            await self._resolver.poll_revision(request.tenant_id)
-            context.tool_runtime = self._tool_runtime.clone_for_execution()
-            await self._prepare_registry_model_providers(context)
-            mcp_tool_ids = await self._mcp_runtime.prepare(context, context.tool_runtime)
-            model_tools = await self._model_tool_definitions(context, mcp_tool_ids)
+            prepared = await ExecutionSession(self).prepare(request)
+            context = prepared.context
+            model_tools = prepared.model_tools
             if model_tools:
                 # 有工具可用：模型可能发起 tool call，须走完整非流式循环。复用已
                 # start 的 context——此前 finish 后再 run(request) 会重开第二个
@@ -551,45 +488,3 @@ class RuntimeApplicationService(RuntimeToolOps):
                 hooks=_hook_events(events),
             )
         )
-
-
-async def _ensure_default_agent(
-    store: RegistryStore, request: CreateRuntimeProfileRequest
-) -> None:
-    """为自举的 RuntimeProfile 确保同名默认 AgentDefinition（TASK-A104）。
-
-    persona/model 的 SoT 在 AgentDefinition；dev bundle / `run --bootstrap`
-    需要开箱可跑的默认 Agent（provider=dev.echo）。已存在任何版本即不动。
-    """
-    agent = await store.get(
-        ResourceKind.AGENT_DEFINITION,
-        request.runtime_profile_id,
-        tenant_id=request.tenant_id,
-    )
-    if agent is not None:
-        return
-    from fluxion.agents.definitions import AgentDefinition
-
-    spec = AgentDefinition(
-        name=request.runtime_profile_id,
-        description="由 runtime 自举生成的默认 Agent",
-        system_prompt="保持严谨",
-        owner="system:bootstrap",
-        model_ref={"id": "dev.echo", "version": "1"},
-    )
-    draft = ResourceDefinition(
-        kind=ResourceKind.AGENT_DEFINITION,
-        id=request.runtime_profile_id,
-        tenant_id=request.tenant_id,
-        version=request.version,
-        status=ResourceStatus.DRAFT,
-        visibility=ResourceVisibility.PRIVATE,
-        spec_json=spec.model_dump(mode="json"),
-    )
-    existing_draft = await store.put(draft)
-    await store.publish(
-        ResourceKind.AGENT_DEFINITION,
-        request.runtime_profile_id,
-        tenant_id=request.tenant_id,
-        version=existing_draft.version,
-    )

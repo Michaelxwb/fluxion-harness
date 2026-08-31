@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from fluxion.agents.definitions import AgentDefinition, CapabilityType
 from fluxion.registry import RegistryReadStore, RegistryStoreError
 from fluxion.resources import (
+    ExactResourceVersion,
     ExecutionSnapshot,
     ModelPolicy,
     ResourceBinding,
@@ -278,17 +279,16 @@ class ExecutionSnapshotBuilder:
         if instructions:
             system_prompt = f"{system_prompt}\n\n{instructions}".strip()
         provider = None if agent_spec is None else agent_spec.model_ref.id
-        # 失败降级链属 runtime mechanics：从 executor_config.model_failover 取
-        # （产品面不暴露；Phase 2 Model policy 域回收归属）。
-        raw_failover = profile_model.executor_config.get("model_failover", [])
-        failover = (
-            [str(item) for item in raw_failover]
-            if isinstance(raw_failover, list)
-            else []
+        provider_ref = (
+            None
+            if agent_spec is None
+            else ExactResourceVersion(id=provider, version=agent_spec.model_ref.version)
         )
+        # 失败降级链属 runtime mechanics（TASK-011：executor_config 已删，改 typed model_failover）。
+        failover = list(profile_model.model_failover)
         model_resolution = ModelPolicy(
-            provider=provider,
-            failover=failover,
+            provider_ref=provider_ref,
+            failover=[ExactResourceVersion(id=f, version="latest-published") for f in failover],
             timeout_ms=profile_model.request_timeout_ms,
             max_rounds=profile_model.max_rounds,
             # deadline 下限沿用 ModelPolicy 默认值语义（timeout 过短时不缩短总截止）。
@@ -308,7 +308,7 @@ class ExecutionSnapshotBuilder:
             trace_id=request.trace_id,
             system_prompt=system_prompt,
             skill_instructions=_skill_instructions(skills),
-            skill_allowed_tools=_skill_allowed_tools(skills),
+            skill_required_capabilities=_skill_required_capabilities(skills),
             skill_versions={skill.id: skill.version for skill in skills},
             mcp_versions=mcp_versions or {},
             # 主模型 provider 精确版本 pin 来自 AgentDefinition.model_ref
@@ -394,12 +394,12 @@ def _skill_instructions(skills: list[ResourceDefinition]) -> dict[str, str]:
     return instructions
 
 
-def _skill_allowed_tools(skills: list[ResourceDefinition]) -> list[str]:
-    allowed: set[str] = set()
+def _skill_required_capabilities(skills: list[ResourceDefinition]) -> list[str]:
+    required: set[str] = set()
     for skill in skills:
         parsed = _SkillSpecView.model_validate(skill.spec_json)
-        allowed.update(item for item in parsed.allowed_tools if item.strip())
-    return sorted(allowed)
+        required.update(item for item in parsed.required_capabilities if item.strip())
+    return sorted(required)
 
 
 def _selectors(values: list[str]) -> list[ResourceSelector]:

@@ -6,14 +6,31 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 import pytest
-from tests.runtime_helpers import runtime_context
+from tests.runtime_helpers import minimal_tool_context
 
 from fluxion.runtime.builtin_tools import (
     BuiltinToolConfig,
     _http_get,
     register_builtin_tools,
 )
-from fluxion.runtime.tools import ToolAuthorizationError, ToolResultStatus, ToolRuntime
+from fluxion.runtime.context import RuntimeContext
+from fluxion.runtime.tools import (
+    ToolApprovalRequired,
+    ToolAuthorizationError,
+    ToolResultStatus,
+    ToolRuntime,
+)
+
+
+def _granted_context(granted: set[str]) -> RuntimeContext:
+    """构造 frozen effective_permissions 全放行 granted 的 RuntimeContext。"""
+    return minimal_tool_context(
+        {
+            "user_tools": sorted(granted),
+            "agent_tools": sorted(granted),
+            "tenant_tools": sorted(granted),
+        }
+    )
 
 
 @pytest.mark.asyncio
@@ -25,7 +42,6 @@ async def test_S_R15_builtin_tools_use_common_chain_and_enforce_file_allowlist(
     (allowed_root / "note.txt").write_text("hello", encoding="utf-8")
     outside = tmp_path / "secret.txt"
     outside.write_text("secret", encoding="utf-8")
-    context, _runtime = await runtime_context()
     tool_runtime = ToolRuntime()
     register_builtin_tools(
         tool_runtime,
@@ -41,18 +57,13 @@ async def test_S_R15_builtin_tools_use_common_chain_and_enforce_file_allowlist(
         "file.list",
         "file.search",
     }
-    common = {
-        "user_grants": allowed_tools,
-        "agent_allowlist": allowed_tools,
-        "tenant_policy": allowed_tools,
-    }
-    now = await tool_runtime.call(context, "time.now", {}, **common)
-    calc = await tool_runtime.call(context, "calc.eval", {"expression": "1 + 2 * 3"}, **common)
+    context = _granted_context(allowed_tools)
+    now = await tool_runtime.call(context, "time.now", {})
+    calc = await tool_runtime.call(context, "calc.eval", {"expression": "1 + 2 * 3"})
     read = await tool_runtime.call(
         context,
         "file.read",
         {"path": str(allowed_root / "note.txt")},
-        **common,
     )
 
     assert now.status is ToolResultStatus.COMPLETED
@@ -64,22 +75,21 @@ async def test_S_R15_builtin_tools_use_common_chain_and_enforce_file_allowlist(
     assert tool_runtime.descriptor("calc.eval").external_dependency is False
 
     with pytest.raises(ToolAuthorizationError) as outside_error:
-        await tool_runtime.call(context, "file.read", {"path": str(outside)}, **common)
+        await tool_runtime.call(context, "file.read", {"path": str(outside)})
     assert outside_error.value.code == "path_not_allowed"
 
-    with pytest.raises(ToolAuthorizationError) as write_error:
+    with pytest.raises(ToolApprovalRequired) as write_error:
         await tool_runtime.call(
             context,
             "file.write",
             {"path": str(allowed_root / "note.txt"), "content": "new"},
-            **common,
         )
-    assert write_error.value.code == "approval_required"
+    assert write_error.value.code == "tool_approval_required"
 
 
 async def _granted_tool_runtime(
     tmp_path: Path | None,
-) -> tuple[ToolRuntime, dict[str, set[str]]]:
+) -> tuple[ToolRuntime, set[str]]:
     tool_runtime = ToolRuntime()
     register_builtin_tools(
         tool_runtime,
@@ -89,12 +99,7 @@ async def _granted_tool_runtime(
         ),
     )
     granted = {"http.get", "calc.eval"}
-    common = {
-        "user_grants": granted,
-        "agent_allowlist": granted,
-        "tenant_policy": granted,
-    }
-    return tool_runtime, common
+    return tool_runtime, granted
 
 
 @pytest.mark.asyncio
@@ -107,10 +112,10 @@ async def _granted_tool_runtime(
     ],
 )
 async def test_E_R16_http_get_rejects_non_http_schemes(tmp_path: Path, url: str) -> None:
-    tool_runtime, common = await _granted_tool_runtime(tmp_path)
-    context, _runtime = await runtime_context()
+    tool_runtime, granted = await _granted_tool_runtime(tmp_path)
+    context = _granted_context(granted)
     with pytest.raises(ToolAuthorizationError) as exc:
-        await tool_runtime.call(context, "http.get", {"url": url}, **common)
+        await tool_runtime.call(context, "http.get", {"url": url})
     assert exc.value.code == "scheme_not_allowed"
 
 
@@ -130,10 +135,10 @@ async def test_E_R16_http_get_rejects_non_http_schemes(tmp_path: Path, url: str)
 async def test_E_R16_http_get_rejects_loopback_and_private_hosts(
     tmp_path: Path, url: str
 ) -> None:
-    tool_runtime, common = await _granted_tool_runtime(tmp_path)
-    context, _runtime = await runtime_context()
+    tool_runtime, granted = await _granted_tool_runtime(tmp_path)
+    context = _granted_context(granted)
     with pytest.raises(ToolAuthorizationError) as exc:
-        await tool_runtime.call(context, "http.get", {"url": url}, **common)
+        await tool_runtime.call(context, "http.get", {"url": url})
     assert exc.value.code == "host_not_allowed"
 
 
@@ -220,9 +225,9 @@ def test_S5_http_get_resolves_hostname_once_and_pins_ip(
 
 @pytest.mark.asyncio
 async def test_E_R16_calc_eval_rejects_division_by_zero_and_boolean() -> None:
-    tool_runtime, common = await _granted_tool_runtime(tmp_path=None)
-    context, _runtime = await runtime_context()
+    tool_runtime, granted = await _granted_tool_runtime(tmp_path=None)
+    context = _granted_context(granted)
     with pytest.raises(ValueError, match="division by zero"):
-        await tool_runtime.call(context, "calc.eval", {"expression": "1 / 0"}, **common)
+        await tool_runtime.call(context, "calc.eval", {"expression": "1 / 0"})
     with pytest.raises(ValueError, match="unsupported expression"):
-        await tool_runtime.call(context, "calc.eval", {"expression": "True + 1"}, **common)
+        await tool_runtime.call(context, "calc.eval", {"expression": "True + 1"})
