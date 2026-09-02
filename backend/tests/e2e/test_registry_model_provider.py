@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import pytest
-from tests.product_wire import openai_final_response, openai_wire_server
-from tests.runtime_helpers import publish_resource
 
 from fluxion.registry import RegistryStore
 from fluxion.resources import ResourceBinding, ResourceKind
 from fluxion.runtime.secrets import CredentialResolver, LocalEncryptedSecretStore
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.runtime_contracts import RunRuntimeRequest
+from tests.product_wire import openai_final_response, openai_wire_server
+from tests.runtime_helpers import publish_resource, seed_model_definition
 
 
 @pytest.mark.asyncio
@@ -21,15 +21,14 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
         await publish_resource(
             sqlite_store,
             tenant_id="tenant-a",
-            kind=ResourceKind.PLUGIN,
+            kind=ResourceKind.MODEL_PROVIDER,
             resource_id="wire-provider",
             version="1",
             spec={
-                "name": "wire-provider",
-                "plugin_type": "model_provider",
-                "protocol": "openai_compatible",
+                "protocol": "openai-compatible",
                 "base_url": wire.base_url,
-                "model": "wire-model",
+                "credential_ref": "secret://tenant-a/wire-model",
+                "default_model": "wire-model",
                 "request_timeout_ms": 2_000,
                 "max_retries": 0,
             },
@@ -42,7 +41,12 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
             version="1",
             spec={"request_timeout_ms": 30_000, "max_retries": 1},
         )
-        # TASK-A104：persona/model 迁至同名 AgentDefinition（provider=PLUGIN 资源 id）。
+        # TASK-A104：persona/model 迁至同名 AgentDefinition；ADR-A008 三层链：
+        # agent.model_policy → ModelDefinition（model.wire-provider）→ MODEL_PROVIDER
+        # 资源 wire-provider@1（snapshot.plugin_versions pin 解析后的 provider）。
+        await seed_model_definition(
+            sqlite_store, tenant_id="tenant-a", provider_id="wire-provider"
+        )
         await publish_resource(
             sqlite_store,
             tenant_id="tenant-a",
@@ -53,7 +57,9 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
                 "name": "assistant",
                 "system_prompt": "Use the configured provider.",
                 "owner": "fixture",
-                "model_ref": {"id": "wire-provider", "version": "1"},
+                "model_policy": {
+                    "primary_model_ref": {"id": "model.wire-provider", "version": "1"}
+                },
             },
         )
         await sqlite_store.put_binding(
@@ -62,7 +68,7 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
                 tenant_id="tenant-a",
                 subject_type="user",
                 subject_id="user-a",
-                resource_type=ResourceKind.PLUGIN,
+                resource_type=ResourceKind.MODEL_PROVIDER,
                 resource_id="wire-provider",
                 resource_version_selector="1",
                 credential_ref=credential_ref,

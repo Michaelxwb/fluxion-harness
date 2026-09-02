@@ -130,3 +130,15 @@ class ApprovalRecordView:
     expires_at: datetime
     created_at: datetime
     decided_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class PublishValidationResult:
+    """发布完整校验结果（remediation §14.4）：可操作问题清单。
+
+    - valid=False 时 issues 为可定位、可操作的问题列表（如「凭据 X 不可用」）；
+    - 供前端「发布」按钮渲染；发布链自身保持 fail-closed。
+    """
+
+    valid: bool
+    issues: list[str]

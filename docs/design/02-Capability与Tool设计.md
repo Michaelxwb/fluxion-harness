@@ -54,9 +54,46 @@ Skill 与 Tool/MCP 三者「按用户授权」语义一致，统一走 `visibili
 
 差异仅在：Tool/MCP 有副作用，额外保留 `AgentAllowlist ∩ TenantPolicy` 安全层；Skill 无此层。
 
-## 6. Tool 与 Plugin
+## 6. Tool 与 Plugin（领域边界不变量）
 
-不要永久保持 `TOOL == PLUGIN`。Tool 是 Agent-facing capability；Plugin 是实现机制。一个 Plugin 可以提供多个 Tool，也可以提供 Model/Sandbox/SemanticStore 等非 Tool 扩展。
+Tool 与 Plugin 是两个**完全不同层级**的概念，必须彻底拆分：
+
+- **Tool** 是 Agent 可选择、授权和调用的**业务 Capability**（Agent-facing invocation contract）；
+- **Plugin** 是扩展 Fluxion Runtime/Platform 自身能力的**技术扩展机制**（Extension）；
+- Plugin 不是 Tool 的一种类型，Tool 也不通过 Plugin 表达。
+
+```text
+             Fluxion Platform
+                   │
+        ┌──────────┴──────────┐
+        │                     │
+   Capability              Extension
+        │                     │
+  ┌─────┼─────┐               │
+Skill Tool  MCP            Plugin
+        │                     │
+        │               Plugin SPI / Manifest / Lifecycle / Permission / Isolation / SDK
+        │
+ Agent / User 可授权，Runtime 可调用
+```
+
+| 维度 | Tool | Plugin |
+|------|------|--------|
+| 本质 | Agent 的业务能力 | Fluxion 的技术扩展机制 |
+| 谁使用 | Agent / Workflow | Fluxion Runtime / Platform |
+| Agent 可直接调用 | 是 | 否 |
+| 用户可授权 | 是 | 否 |
+| Capability Resolution | 参与 | 不参与 |
+| Agent 能力配置 | 出现 | 不出现 |
+| 示例 | get_customer、refund_order | Hook、Runtime Extension、Adapter |
+| 生命周期 | Tool Definition | Plugin install/load/enable/disable |
+| 权限模型 | Agent/User/Tenant Capability Governance | Plugin Permission / Sandbox |
+| 当前 Console | 能力 → Tool | 暂不开放 |
+| 当前阶段 | 核心能力 | 未来扩展 |
+
+**关键约束**：Plugin 可以「提供 Tool 实现」≠ Plugin 就是 Tool。未来可能出现 `database-plugin` 注册 Tool Executor，但 Agent 最终看到和授权的仍是 `query_customer_database` 这个 Tool，而非 `database-plugin`。
+
+同理 `ModelProvider` / `MCP Server` / `Channel` 均 ≠ Plugin；即使未来 Plugin SPI 可以实现这些类型的 Adapter，也不能因此在领域模型里把它们重新定义成 `PLUGIN` Resource。
 
 ## 7. 执行安全顺序
 

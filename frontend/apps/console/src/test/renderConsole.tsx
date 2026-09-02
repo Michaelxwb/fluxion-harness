@@ -3,23 +3,21 @@ import userEvent from "@testing-library/user-event";
 
 import { ConsoleApp } from "../App";
 import { createInMemoryConsoleApi, type ConsoleSeed } from "../services/inMemoryConsoleApi";
+import type { ConsoleApi } from "../types/console";
 import type { ConsoleView } from "../types/navigation";
 
 interface RenderConsoleOptions {
   readonly initialView?: ConsoleView;
   readonly seed?: ConsoleSeed;
-  readonly initialAgentId?: string;
+  /** 覆盖 in-memory API（四态/故障注入测试用）。 */
+  readonly api?: ConsoleApi;
 }
 
 export function renderConsole(options: RenderConsoleOptions = {}) {
-  const api = createInMemoryConsoleApi(options.seed);
+  const api = options.api ?? createInMemoryConsoleApi(options.seed);
   const user = userEvent.setup();
   const view = render(
-    <ConsoleApp
-      api={api}
-      initialView={options.initialView ?? "resources"}
-      initialAgentId={options.initialAgentId}
-    />
+    <ConsoleApp api={api} initialView={options.initialView ?? "resources"} />
   );
 
   return { ...view, api, user };

@@ -9,7 +9,10 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "test:e2e": "playwright test"
+    "test:e2e": "pnpm run test:e2e:functional",
+    "test:e2e:functional": "playwright test --grep-invert \"S-14 真浏览器 NFR 验收\"",
+    "test:e2e:nfr": "playwright test --grep \"S-14 真浏览器 NFR 验收\"",
+    "test:e2e:all": "playwright test"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

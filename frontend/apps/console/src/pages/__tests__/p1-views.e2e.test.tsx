@@ -12,12 +12,11 @@ const views: readonly {
   readonly title: string;
   readonly view: ConsoleView & P1View;
 }[] = [
-  { itemId: "plugin-policy-main", title: "插件钩子", view: "plugin_policy" },
+  { itemId: "plugin-policy-main", title: "插件钩子", view: "plugin_policy" }
   // capabilities 已在 TASK-014 升级为真实管理页（CapabilitiesPage），
   // 交互由 capabilities.test.tsx 承载，不再走 P1 只读视图。
-  // eval 在 Phase 4 改为置灰占位空态页（design 对齐项 B：Eval 实页归 Phase 5；
-  // TASK-004 `pages/eval/EvalPlaceholderPage.tsx`），P1 只读视图断言不再覆盖 eval。
-  { itemId: "runtime-pod-7", title: "运行时态", view: "runtime_status" }
+  // eval / runtime_status 已随 IA 减法移除（design §3.2 移除路由清单，
+  // TASK-016 返工：运行时态归平台概览/Run Detail）。
 ];
 
 afterEach(() => cleanup());
@@ -33,9 +32,6 @@ describe("S-C118 P1 Console views", () => {
       await rendered.user.click(screen.getByRole("button", { name: target.itemId }));
       const detail = await screen.findByLabelText(`${target.title} 详情`);
       expect(within(detail).getByText(`${target.itemId} detail`)).toBeInTheDocument();
-      if (target.view === "runtime_status") {
-        expect(screen.queryByRole("button", { name: /创建|启动|扩缩容|删除 Pod/ })).not.toBeInTheDocument();
-      }
       rendered.unmount();
     }
 

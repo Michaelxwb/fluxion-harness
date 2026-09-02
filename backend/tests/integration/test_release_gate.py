@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from tests.runtime_helpers import publish_resource
 
 from fluxion.api.console import create_app as create_console_app
 from fluxion.config import DevModeSettings
@@ -30,6 +29,7 @@ from fluxion.services.eval_app import (
     RuleBasedEvalExecutor,
 )
 from fluxion.services.release_gate import ReleaseGateService
+from tests.runtime_helpers import publish_resource
 
 
 @pytest.fixture
@@ -107,7 +107,14 @@ def _trace(trace_id: str, *, include_answer: bool = True) -> TraceRecord:
         user_id="user-gate",
         runtime_profile_id="runtime-main",
         runtime_profile_version="7",
-        model_resolution={"provider_ref": {"id": "dev.echo", "version": "1"}},
+        model_resolution={
+            "routes": [
+                {
+                    "provider_ref": {"id": "dev.echo", "version": "1"},
+                    "model": "echo",
+                }
+            ]
+        },
         trace_id=trace_id,
     )
     events = (

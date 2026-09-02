@@ -12,6 +12,7 @@ import jsonschema
 
 from fluxion.observability.tracing import traced_scope
 from fluxion.runtime.context import RuntimeContext
+from fluxion.runtime.tool_authorization import frozen_tool_policy as _frozen_tool_policy
 
 
 class ToolResultStatus(StrEnum):
@@ -19,6 +20,14 @@ class ToolResultStatus(StrEnum):
     STARTED = "started"
     STREAMED = "streamed"
     PENDING_APPROVAL = "pending_approval"
+
+
+def frozen_tool_policy(
+    context: RuntimeContext,
+    mcp_tool_ids: set[str] | None = None,
+) -> tuple[set[str], set[str], set[str]]:
+    """兼容入口：授权策略实现位于 tool_authorization 模块。"""
+    return _frozen_tool_policy(context, mcp_tool_ids)
 
 
 class PolicyDecision(StrEnum):
@@ -461,30 +470,6 @@ def _decision_for_risk(risk_level: str, allowed: bool) -> PolicyDecision:
     if risk_level == "medium":
         return PolicyDecision.REQUIRE_CONFIRMATION
     return PolicyDecision.ALLOW
-
-
-def frozen_tool_policy(
-    context: RuntimeContext, mcp_tool_ids: set[str] | None = None
-) -> tuple[set[str], set[str], set[str]]:
-    """从 frozen effective_permissions 读 tool 授权三元组（TASK-001 收敛收尾）。
-
-    静态三元组（user grant / agent allowlist / tenant policy）已在构建期冻结进
-    Snapshot；mcp_tool_ids 是执行期 MCP prepare 派生的工具 id（挂载层授权到 user
-    维度的映射），仅此部分执行期合并，不做静态维度实时重算。
-
-    MCP 工具经 binding 授权（prepare 已按 user/tenant binding 过滤），不受 tenant
-    tool policy（allowed_tools/denied_tools，只治理 TOOL capability）约束；因此
-    mcp_tool_ids 同时并入 user 与 tenant 维度，避免无 tenant policy 时 MCP 工具
-    被「tenant 维度为空」的三重交集误拒（F-01 收尾回归修复）。
-    """
-    perms = context.snapshot.effective_permissions or {}
-    user = set(perms.get("user_tools", []))
-    agent = set(perms.get("agent_tools", []))
-    tenant = set(perms.get("tenant_tools", []))
-    if mcp_tool_ids:
-        user = user | set(mcp_tool_ids)
-        tenant = tenant | set(mcp_tool_ids)
-    return user, agent, tenant
 
 
 def _validate_arguments(

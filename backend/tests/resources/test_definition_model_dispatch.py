@@ -5,17 +5,18 @@ from __future__ import annotations
 import inspect
 
 from pydantic import BaseModel
-from tests.console_helpers import console_stack, tenant_headers
 
 from fluxion.resources import ResourceKind
 from fluxion.services.console_resources import (
     ConsoleResourceOps,
     _definition_model,
 )
+from tests.console_helpers import console_stack, tenant_headers
 
 _PRODUCT_KIND_VALUES = {
     "agent_definition",
-    "model",
+    "model_definition",
+    "model_provider",
     "tool",
     "skill",
     "mcp",

@@ -17,30 +17,37 @@ export const IN_MEMORY_RESOURCE_SCHEMAS: Readonly<Record<string, JsonSchemaNode>
   runtime_profile: {
     title: "RuntimeProfile",
     type: "object",
-    required: ["prompt"],
+    required: ["request_timeout_ms", "max_retries"],
     properties: {
-      display_name: { anyOf: [{ type: "string" }, { type: "null" }], default: null, title: "展示名", description: "展示名（仅 UI 显示，运行时不消费）" },
-      prompt: { type: "string", title: "系统提示词", description: "System Prompt：助手的人格与行为准则" },
-      model_policy: { $ref: "#/$defs/ModelPolicy", title: "模型链与超时策略", description: "模型链与超时策略" },
-      allowed_skills: { type: "array", items: { type: "string" }, title: "挂载的技能", description: "挂载的技能资源（id 或 id@version）" },
-      allowed_mcps: { type: "array", items: { type: "string" }, title: "挂载的 MCP", description: "挂载的 MCP server（还需用户级 binding 授权）" },
-      allowed_tools: { type: "array", items: { type: "string" }, title: "工具白名单", description: "agent 工具白名单（tool id）" },
-      plugin_bindings: { type: "array", items: { type: "string" }, title: "模型供应商插件", description: "挂载的模型供应商插件（密钥配在 plugin binding）" },
-      guardrail_policy: { anyOf: [{ type: "string" }, { type: "null" }], default: null, title: "策略引用", description: "策略资源引用（id@version）；执行期仅锚定版本进快照" }
-    },
-    $defs: {
-      ModelPolicy: {
-        title: "ModelPolicy",
-        type: "object",
-        properties: {
-          provider: { anyOf: [{ type: "string" }, { type: "null" }], default: null, title: "主供应商", description: "主模型供应商 plugin_id（插件资源 ID）" },
-          failover: { type: "array", items: { type: "string" }, title: "降级链", description: "主供应商失败时的降级链（plugin_id 列表）" },
-          model: { anyOf: [{ type: "string" }, { type: "null" }], default: null, title: "模型名", description: "模型名；留空则用 provider 默认模型" },
-          timeout_ms: { type: "integer", default: 60000, title: "单次调用超时", description: "单次模型调用超时（毫秒）" },
-          deadline_ms: { type: "integer", default: 120000, title: "执行截止", description: "整次执行截止时间（毫秒）" },
-          max_rounds: { type: "integer", default: 8, title: "轮数上限", description: "agent 工具循环轮数上限（最大 32）" }
-        }
-      }
+      request_timeout_ms: { type: "integer", title: "请求超时", description: "外部调用超时（毫秒）" },
+      max_retries: { type: "integer", title: "重试上限", description: "失败后的有限重试次数" },
+      max_rounds: { type: "integer", default: 8, title: "轮数上限" },
+      concurrency: { type: "integer", default: 1, title: "并发上限" },
+      memory_budget_mb: { type: "integer", default: 512, title: "内存预算" },
+      bootstrapped_from: { anyOf: [{ type: "string" }, { type: "null" }], default: null, title: "自举来源" }
+    }
+  },
+  model_provider: {
+    title: "ProviderDefinition",
+    type: "object",
+    required: ["protocol", "base_url", "credential_ref"],
+    properties: {
+      protocol: { type: "string", const: "openai-compatible", title: "协议" },
+      base_url: { type: "string", title: "API 地址" },
+      credential_ref: { type: "string", title: "凭据引用" },
+      default_model: { anyOf: [{ type: "string" }, { type: "null" }], default: null, title: "默认模型" },
+      request_timeout_ms: { type: "integer", default: 60000, title: "请求超时" },
+      max_retries: { type: "integer", default: 1, title: "重试次数" }
+    }
+  },
+  model_definition: {
+    title: "ModelDefinition",
+    type: "object",
+    required: ["name", "provider_ref"],
+    properties: {
+      name: { type: "string", title: "模型名" },
+      provider_ref: { type: "object", title: "供应商引用" },
+      capabilities: { type: "object", title: "模型能力" }
     }
   },
   skill: {
@@ -94,16 +101,13 @@ export const IN_MEMORY_RESOURCE_SCHEMAS: Readonly<Record<string, JsonSchemaNode>
     }
   },
   plugin: {
-    title: "ModelProviderDefinition",
+    title: "PluginDefinition",
     type: "object",
-    required: ["plugin_type", "protocol", "base_url", "model"],
+    required: ["name", "package", "trust_level"],
     properties: {
-      plugin_type: { type: "string", const: "model_provider", title: "插件类型", description: "插件类型（固定 model_provider）" },
-      protocol: { type: "string", const: "openai_compatible", title: "协议", description: "协议（固定 openai_compatible）" },
-      base_url: { type: "string", title: "API 地址", description: "OpenAI 兼容 API 地址（http/https）" },
-      model: { type: "string", title: "默认模型", description: "默认模型名（如 deepseek-chat）" },
-      request_timeout_ms: { type: "integer", default: 60000, title: "请求超时", description: "请求超时（毫秒）" },
-      max_retries: { type: "integer", default: 1, title: "重试次数", description: "失败重试次数" }
+      name: { type: "string", title: "插件名" },
+      package: { type: "string", title: "包" },
+      trust_level: { type: "string", enum: ["trusted", "untrusted"], title: "信任级别" }
     }
   },
   policy: {

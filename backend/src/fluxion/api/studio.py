@@ -30,7 +30,8 @@ from fluxion.services.console_payloads import resource_payload
 # 产品语义 kind 别名 → Registry kind。白名单即契约：IA 不随 Resource 自动增长。
 _STUDIO_KINDS: dict[str, ResourceKind] = {
     "agents": ResourceKind.AGENT_DEFINITION,
-    "models": ResourceKind.MODEL,
+    "model-providers": ResourceKind.MODEL_PROVIDER,
+    "model-definitions": ResourceKind.MODEL_DEFINITION,
     "tools": ResourceKind.TOOL,
     "skills": ResourceKind.SKILL,
     "mcp": ResourceKind.MCP,

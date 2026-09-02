@@ -14,16 +14,17 @@ import pytest
 from fluxion.agents.definitions import (
     AgentCapabilityReference,
     AgentDefinition,
+    AgentModelPolicy,
     CapabilityType,
 )
 from fluxion.registry import SQLiteRegistryStore
-from fluxion.resources import ResourceKind
+from fluxion.resources import ExactResourceVersion, ResourceKind
 from fluxion.services.context_resolver import (
-    ContextResolver,
     ContextResolutionError,
+    ContextResolver,
     ResolverSelector,
 )
-from tests.runtime_helpers import publish_resource, resource_definition
+from tests.runtime_helpers import publish_resource, resource_definition, seed_model_definition
 
 
 async def _seed_agent_with_skill(
@@ -55,6 +56,8 @@ async def _seed_agent_with_skill(
     ] + [
         AgentCapabilityReference(capability_ref=skill_id, version_pin="1", type=CapabilityType.SKILL)
     ]
+    # ADR-A008：agent.model_policy 指向 ModelDefinition（model.dev.echo）
+    await seed_model_definition(store, tenant_id="tenant-a", provider_id="dev.echo")
     await store.put(
         resource_definition(
             tenant_id="tenant-a",
@@ -65,7 +68,7 @@ async def _seed_agent_with_skill(
                 name="assistant",
                 system_prompt="p",
                 owner="builder",
-                model_ref={"id": "dev.echo", "version": "1"},
+                model_policy=AgentModelPolicy(primary_model_ref=ExactResourceVersion(id="model.dev.echo", version="1")),
                 capabilities=capabilities,
             ).model_dump(mode="json"),
         )

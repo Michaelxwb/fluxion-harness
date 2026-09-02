@@ -12,12 +12,6 @@ from typing import cast
 import pytest
 import uvicorn
 from mcp.server import MCPServer
-from tests.product_wire import (
-    openai_final_response,
-    openai_tool_call_response,
-    openai_wire_server,
-)
-from tests.runtime_helpers import publish_resource
 from uvicorn._types import ASGIApplication
 
 from fluxion.plugins.model_provider import (
@@ -30,6 +24,12 @@ from fluxion.runtime.mcp import MCPHTTPClientPool, MCPHTTPPoolKey, RegistryMCPRu
 from fluxion.runtime.secrets import CredentialResolver, LocalEncryptedSecretStore
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.runtime_contracts import RunRuntimeRequest
+from tests.product_wire import (
+    openai_final_response,
+    openai_tool_call_response,
+    openai_wire_server,
+)
+from tests.runtime_helpers import publish_resource, seed_model_definition, seed_tenant_policy
 
 MCP_TOOL_ID = "mcp__weather__lookup"
 
@@ -153,7 +153,12 @@ async def _seed_mcp_product(
         spec={"request_timeout_ms": 3_000, "max_retries": 1, "max_rounds": max_rounds},
     )
     # TASK-A104：persona/model/能力白名单迁至同名 AgentDefinition（resolver 同名
-    # 回退解析）。TOOL capability 只承载 ref 准入，不做版本解析。
+    # 回退解析）。TOOL capability 只承载 ref 准入，不做版本解析。ADR-A008 三层链：
+    # agent.model_policy → ModelDefinition（model.wire）→ in-process provider wire。
+    await seed_model_definition(store, tenant_id="tenant-a", provider_id="wire")
+    # RULE-02（TASK-003 返工）：三维齐备——无 tenant policy 时 Tool/MCP fail-closed，
+    # 默认 deny-only 策略保住 binding 授权的 MCP 工具可用。
+    await seed_tenant_policy(store, tenant_id="tenant-a")
     await publish_resource(
         store,
         tenant_id="tenant-a",
@@ -164,7 +169,9 @@ async def _seed_mcp_product(
             "name": "assistant",
             "system_prompt": "使用 MCP 查询。",
             "owner": "fixture",
-            "model_ref": {"id": "wire", "version": "1"},
+            "model_policy": {
+                "primary_model_ref": {"id": "model.wire", "version": "1"}
+            },
             "capabilities": [
                 {"capability_ref": "weather", "version_pin": "1", "type": "mcp"},
                 {"capability_ref": tool_id, "version_pin": "1", "type": "tool"},

@@ -183,6 +183,7 @@ def create_production_bundle_app(
         release_gate=release_gate,
         # phase5 P1-7：生产强制 Release Gate——无 gate 参数 publish fail-closed
         release_gate_enforced=True,
+        credential_resolver=credential_resolver,
     )
     operations = OperationsApplicationService(sysdb_dsn)
 

@@ -4,12 +4,6 @@ import json
 from typing import cast
 
 import pytest
-from tests.product_wire import (
-    openai_final_response,
-    openai_tool_call_response,
-    openai_wire_server,
-)
-from tests.runtime_helpers import publish_resource
 
 from fluxion.kernel.events import (
     BeforeToolCallPayload,
@@ -27,11 +21,16 @@ from fluxion.resources import ResourceKind
 from fluxion.runtime import AgentRuntime
 from fluxion.runtime.context import RequestContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore
-from fluxion.runtime.resolver import ResourceResolver
-from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 from fluxion.runtime.tools import ToolDescriptor, ToolRuntime
+from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.runtime_contracts import RunRuntimeRequest
+from tests.product_wire import (
+    openai_final_response,
+    openai_tool_call_response,
+    openai_wire_server,
+)
+from tests.runtime_helpers import publish_resource, seed_model_definition, seed_tenant_policy
 
 
 def _model_registry(base_url: str) -> ModelProviderRegistry:
@@ -66,7 +65,8 @@ async def _publish_profile(
             "max_rounds": 4,
         },
     )
-    # TASK-A104：persona/model/工具准入迁至同名 AgentDefinition。
+    # TASK-A104：persona/model/工具准入迁至同名 AgentDefinition；ADR-A008 三层链：
+    # agent.model_policy → ModelDefinition（model.wire）→ in-process provider wire。
     capabilities = []
     for skill in allowed_skills or []:
         ref, _, pinned = skill.partition("@")
@@ -74,6 +74,9 @@ async def _publish_profile(
             {"capability_ref": ref, "version_pin": pinned or "1", "type": "skill"}
         )
     capabilities.append({"capability_ref": "lookup", "version_pin": "1", "type": "tool"})
+    await seed_model_definition(store, tenant_id="tenant-a", provider_id="wire")
+    # RULE-02：三维齐备（无 tenant policy 时工具 fail-closed）
+    await seed_tenant_policy(store, tenant_id="tenant-a")
     await publish_resource(
         store,
         tenant_id="tenant-a",
@@ -84,7 +87,9 @@ async def _publish_profile(
             "name": "assistant",
             "system_prompt": "你是 Fluxion 助手。",
             "owner": "fixture",
-            "model_ref": {"id": "wire", "version": "1"},
+            "model_policy": {
+                "primary_model_ref": {"id": "model.wire", "version": "1"}
+            },
             "capabilities": capabilities,
         },
     )

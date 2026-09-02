@@ -1,6 +1,6 @@
 """TASK-001 AgentDefinition spec model + repository 验收测试。
 
-- BE-S-02（integration）：AgentDefinition 以引用（model_ref / runtime_profile_ref /
+- BE-S-02（integration）：AgentDefinition 以引用（model_policy / runtime_profile_ref /
   capabilities）表达模型与运行态，spec_json 不内嵌 persona/model/capability；
   DRAFT→PUBLISHED 生命周期；resolve() 经真实 Store 解析引用的 RuntimeProfile。
 - BE-E-02（integration）：重复 (tenant, id, version) 创建 → 领域版本冲突异常。
@@ -25,7 +25,6 @@ from fluxion.agents import (
 )
 from fluxion.registry import ChannelRegistryStore, PostgreSQLRegistryStore, SQLiteRegistryStore
 from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
-
 
 # ---------------------------------------------------------------------------
 # Store 工厂：契约断言参数化（SQLite 恒有；PostgreSQL 门控）
@@ -76,7 +75,7 @@ def _agent_spec(
         "description": "客服助手",
         "system_prompt": "You are a support agent.",
         "owner": owner,
-        "model_ref": {"id": "provider-1", "version": "1"},
+        "model_policy": {"primary_model_ref": {"id": "model.provider-1", "version": "1"}},
         "runtime_profile_ref": {"id": profile_id, "version": "1"},
         "capabilities": [
             {"capability_ref": "skill-1", "version_pin": "3", "type": "skill"},
@@ -111,17 +110,23 @@ async def _seed_model_provider(
     await store.put(
         ResourceDefinition(
             tenant_id=tenant_id,
-            kind=ResourceKind.PLUGIN,
+            kind=ResourceKind.MODEL_PROVIDER,
             id=provider_id,
             version="1",
             status=ResourceStatus.DRAFT,
             spec_json={
-                "plugin_type": "model_provider",
-                "protocol": "openai_compatible",
+                "protocol": "openai-compatible",
                 "base_url": "https://api.example.com/v1",
-                "model": "deepseek-chat",
+                "credential_ref": f"secret://{tenant_id}/{provider_id}",
+                "default_model": "deepseek-chat",
             },
         )
+    )
+    await store.publish(
+        ResourceKind.MODEL_PROVIDER,
+        provider_id,
+        tenant_id=tenant_id,
+        version="1",
     )
 
 
@@ -141,10 +146,11 @@ async def test_be_s_02_agent_spec_references_profile_without_persona(
     )
 
     # 引用而非复制：persona/model/capability 语义全部经 *_ref / capabilities 表达，
-    # agent 自身 spec_json 不得内嵌 RuntimeProfile 的产品语义字段。
+    # agent 自身 spec_json 不得内嵌 RuntimeProfile 的产品语义字段
+    # （model_policy 是 ADR-A008 agent 侧模型路由——指向 ModelDefinition，
+    # 不再属于 RuntimeProfile 产品语义禁用键）。
     forbidden_keys = {
         "prompt",
-        "model_policy",
         "persona",
         "allowed_skills",
         "allowed_mcps",
@@ -153,7 +159,12 @@ async def test_be_s_02_agent_spec_references_profile_without_persona(
         "guardrail_policy",
     }
     assert forbidden_keys.isdisjoint(created.spec_json.keys())
-    assert created.spec_json["model_ref"] == {"id": "provider-1", "version": "1"}
+    assert created.spec_json["model_policy"] == {
+        "primary_model_ref": {"id": "model.provider-1", "version": "1"},
+        "fallback_model_refs": [],
+        "model_timeout_ms": 60_000,
+        "model_deadline_ms": 120_000,
+    }
     assert created.spec_json["runtime_profile_ref"] == {"id": "profile-1", "version": "1"}
     assert created.status is ResourceStatus.DRAFT
     assert created.kind is ResourceKind.AGENT_DEFINITION
@@ -205,7 +216,8 @@ async def test_invalid_spec_rejected_by_typed_model(
     repository: AgentDefinitionRepository,
 ) -> None:
     spec = _agent_spec()
-    del spec["model_ref"]
+    # ADR-A008：model_policy 必填（指向 ModelDefinition），缺失即拒绝。
+    del spec["model_policy"]
     with pytest.raises(AgentSpecValidationError):
         await repository.create(tenant_id="t1", resource_id="agent-bad", spec=spec)
 
@@ -266,7 +278,8 @@ def test_agent_definition_model_fields_match_prd_4_2() -> None:
     # P1C-01 SoT 收口：spec 不再承载状态，status/visibility 只来自 envelope
     assert "visibility" not in AgentDefinition.model_fields
     assert "lifecycle" not in AgentDefinition.model_fields
-    assert spec.model_ref.id == "provider-1"
+    assert spec.model_policy.primary_model_ref.id == "model.provider-1"
+    assert spec.model_policy.fallback_model_refs == []
     assert spec.capabilities[0].type.value == "skill"
     assert spec.capabilities[1].type.value == "mcp"
     assert spec.memory_policy_ref is None

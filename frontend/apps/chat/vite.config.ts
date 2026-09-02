@@ -12,6 +12,18 @@ const semiCssPath = decodeURIComponent(
 
 export default defineConfig({
   base: "/chat/",
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("@douyinfe/semi-icons")) return "semi-icons";
+          if (id.includes("@douyinfe/semi-ui")) return "semi-ui";
+          if (id.includes("node_modules")) return "vendor";
+          return undefined;
+        }
+      }
+    }
+  },
   plugins: [react()],
   resolve: {
     alias: {

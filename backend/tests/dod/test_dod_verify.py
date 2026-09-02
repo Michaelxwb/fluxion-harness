@@ -31,7 +31,7 @@ import pytest
 from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.store import RegistryStoreError
 from fluxion.resources import ResourceKind
-from tests.runtime_helpers import publish_resource
+from tests.runtime_helpers import publish_resource, seed_model_definition
 
 _PG_DSN = os.environ.get(
     "FLUXION_POSTGRES_DSN",
@@ -70,6 +70,8 @@ async def _seed(store: PostgreSQLRegistryStore, tenant_id: str, agent_id: str) -
         version="1",
         spec={"request_timeout_ms": 30_000, "max_retries": 1},
     )
+    # ADR-A008：agent.model_policy 指向 ModelDefinition（model.dev.echo）
+    await seed_model_definition(store, tenant_id=tenant_id, provider_id="dev.echo")
     await publish_resource(
         store,
         tenant_id=tenant_id,
@@ -80,7 +82,9 @@ async def _seed(store: PostgreSQLRegistryStore, tenant_id: str, agent_id: str) -
             "name": "dod-agent",
             "system_prompt": "你是产品助手。",
             "owner": "builder",
-            "model_ref": {"id": "dev.echo", "version": "1"},
+            "model_policy": {
+                "primary_model_ref": {"id": "model.dev.echo", "version": "1"}
+            },
         },
     )
 

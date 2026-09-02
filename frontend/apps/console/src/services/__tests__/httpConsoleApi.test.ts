@@ -14,33 +14,31 @@ function stubClient(responses: Readonly<Record<string, unknown>>): HttpClient {
   };
 }
 
-describe("S-C118 listP1View 全部 P1 视图经真实 HTTP 接线", () => {
-  it("eval 视图映射 GET /api/v1/eval/runs", async () => {
+describe("TASK-021（返工）createDraftFromLatest 走后端 working-draft 端点", () => {
+  it("POST :working-draft 由服务端创建/复用 working draft，客户端不自 fork", async () => {
     const api = createHttpConsoleApi(
       "",
       stubClient({
-        "/api/v1/eval/runs": {
-          items: [
-            {
-              run_id: "run-1",
-              eval_set_id: "support-quality",
-              eval_set_version: "2",
-              passed: true,
-              score: 0.98
-            }
-          ],
-          page: 1,
-          page_size: 20,
-          total: 1
+        "/api/v1/resources/agent_definition/assistant:working-draft": {
+          resource_id: "assistant",
+          resource_type: "agent_definition",
+          spec: { name: "assistant", system_prompt: "x" },
+          status: "draft",
+          tenant_id: "tenant-a",
+          updated_at: "2026-08-23T08:00:00Z",
+          version: "2",
+          visibility: "tenant"
         }
       })
     );
-    const items = await api.listP1View("eval");
-    expect(items).toEqual<ControlPlaneItem[]>([
-      { id: "run-1", name: "support-quality@2", status: "passed", detail: "score 0.98" }
-    ]);
+    const draft = await api.createDraftFromLatest("agent_definition", "assistant");
+    expect(draft.version).toBe("2");
+    expect(draft.status).toBe("draft");
+    expect(draft.resourceId).toBe("assistant");
   });
+});
 
+describe("S-C118 listP1View 全部 P1 视图经真实 HTTP 接线", () => {
   it("users_channels 视图复用 GET /api/v1/platform-users", async () => {
     const api = createHttpConsoleApi(
       "",
@@ -107,24 +105,6 @@ describe("S-C118 listP1View 全部 P1 视图经真实 HTTP 接线", () => {
     const items = await api.listP1View("capabilities");
     expect(items).toEqual<ControlPlaneItem[]>([
       { id: "model.dev.echo", name: "model.dev.echo", status: "loaded", detail: "kind=model_provider · provider=dev.echo" }
-    ]);
-  });
-
-  it("runtime_status 视图映射 GET /api/v1/runtime-status", async () => {
-    const api = createHttpConsoleApi(
-      "",
-      stubClient({
-        "/api/v1/runtime-status": {
-          service_instance_id: "instance-1",
-          status: "healthy",
-          provider_count: 1,
-          plugin_count: 1
-        }
-      })
-    );
-    const items = await api.listP1View("runtime_status");
-    expect(items).toEqual<ControlPlaneItem[]>([
-      { id: "instance-1", name: "Runtime", status: "healthy", detail: "providers=1 · plugins=1" }
     ]);
   });
 });

@@ -24,7 +24,6 @@ from urllib.parse import urlparse
 
 import httpx
 import pytest
-from tests.runtime_helpers import publish_resource
 
 from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceKind
@@ -33,6 +32,7 @@ from fluxion.services.production_profile import (
     ProductionProfileError,
     verify_production_assembly,
 )
+from tests.runtime_helpers import publish_resource, seed_model_definition
 
 _PG_DSN = os.environ.get(
     "FLUXION_POSTGRES_DSN",
@@ -144,6 +144,9 @@ async def _seed_agent(store: PostgreSQLRegistryStore, tenant_id: str, agent_id: 
         version="1",
         spec={"request_timeout_ms": 30_000, "max_retries": 1},
     )
+    # ADR-A008：agent.model_policy → ModelDefinition（model.dev.echo）→ dev.echo；
+    # 真实执行走 ContextResolver，ModelDefinition 缺失会 fail-closed（422）。
+    await seed_model_definition(store, tenant_id=tenant_id, provider_id="dev.echo")
     await publish_resource(
         store,
         tenant_id=tenant_id,
@@ -154,7 +157,9 @@ async def _seed_agent(store: PostgreSQLRegistryStore, tenant_id: str, agent_id: 
             "name": "s08-agent",
             "system_prompt": "你是产品助手。",
             "owner": "builder",
-            "model_ref": {"id": "dev.echo", "version": "1"},
+            "model_policy": {
+                "primary_model_ref": {"id": "model.dev.echo", "version": "1"}
+            },
         },
     )
 

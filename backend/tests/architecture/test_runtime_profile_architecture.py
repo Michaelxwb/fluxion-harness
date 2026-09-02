@@ -26,7 +26,6 @@ _MECHANICS_FIELDS = {
     "concurrency",
     "memory_budget_mb",
     "bootstrapped_from",
-    "model_failover",
 }
 _LEGACY_PRODUCT_FIELDS = {
     "display_name",
@@ -114,6 +113,27 @@ async def test_runtime_profile_migration_moves_product_fields_and_is_idempotent(
     try:
         await store.put(
             ResourceDefinition(
+                kind=ResourceKind.MODEL_PROVIDER,
+                id="dev.echo",
+                tenant_id="tenant-a",
+                version="1",
+                status=ResourceStatus.DRAFT,
+                spec_json={
+                    "protocol": "openai-compatible",
+                    "base_url": "https://dev-echo.invalid/v1",
+                    "credential_ref": "secret://tenant-a/dev-echo",
+                    "default_model": "echo-v1",
+                },
+            )
+        )
+        await store.publish(
+            ResourceKind.MODEL_PROVIDER,
+            "dev.echo",
+            tenant_id="tenant-a",
+            version="1",
+        )
+        await store.put(
+            ResourceDefinition(
                 kind=ResourceKind.RUNTIME_PROFILE,
                 id="assistant",
                 tenant_id="tenant-a",
@@ -155,6 +175,12 @@ async def test_runtime_profile_migration_moves_product_fields_and_is_idempotent(
             tenant_id="tenant-a",
             version=migrated.runtime_profile_version,
         )
+        model_definition = await store.get(
+            ResourceKind.MODEL_DEFINITION,
+            "model.dev.echo",
+            tenant_id="tenant-a",
+            version="1",
+        )
     finally:
         await store.close()
 
@@ -164,7 +190,16 @@ async def test_runtime_profile_migration_moves_product_fields_and_is_idempotent(
     assert agent is not None and mechanics is not None
     assert agent.status is ResourceStatus.PUBLISHED
     assert agent.spec_json["system_prompt"] == "保持严谨"
-    assert agent.spec_json["model_ref"] == {"id": "dev.echo", "version": "1"}
+    # ADR-A008：agent 模型路由经 model_policy 指向迁移生成的 ModelDefinition。
+    assert agent.spec_json["model_policy"] == {
+        "primary_model_ref": {"id": "model.dev.echo", "version": "1"},
+        "fallback_model_refs": [],
+        "model_timeout_ms": 15_000,
+        "model_deadline_ms": 120_000,
+    }
+    assert model_definition is not None
+    assert model_definition.status is ResourceStatus.PUBLISHED
+    assert model_definition.spec_json["provider_ref"] == {"id": "dev.echo", "version": "1"}
     assert agent.spec_json["runtime_profile_ref"] == {
         "id": "assistant",
         "version": "1-mechanics",
@@ -195,7 +230,7 @@ async def test_migration_resumes_when_draft_exists_without_publish() -> None:
             kind=ResourceKind.AGENT_DEFINITION, id="assistant", tenant_id="tenant-a",
             version="1", status=ResourceStatus.PUBLISHED,
             spec_json={"name": "assistant", "system_prompt": "保持严谨", "owner": "migration:system",
-                       "model_ref": {"id": "dev.echo", "version": "1"}},
+                       "model_policy": {"primary_model_ref": {"id": "model.dev.echo", "version": "1"}}},
         )
         # 预置同 spec 的 DRAFT（模拟首次迁移在 publish 前中断）。
         await store.put(target.model_copy(update={"status": ResourceStatus.DRAFT}))

@@ -31,7 +31,11 @@ def _runtime_context() -> RuntimeContext:
         user_id=request.user_id,
         runtime_profile_id=request.runtime_profile_id,
         runtime_profile_version="1",
-        model_resolution={"provider_ref": {"id": "stub", "version": "1"}},
+        model_resolution={
+            "routes": [
+                {"provider_ref": {"id": "stub", "version": "1"}, "model": "stub"}
+            ]
+        },
         trace_id=request.trace_id,
     )
     return RuntimeContext(request=request, snapshot=snapshot)

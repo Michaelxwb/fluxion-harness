@@ -1,10 +1,8 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createInMemoryConsoleApi } from "../../services/inMemoryConsoleApi";
 import { renderConsole } from "../../test/renderConsole";
-import { CapabilitiesPage } from "../capabilities/CapabilitiesPage";
 
 afterEach(() => cleanup());
 
@@ -33,15 +31,11 @@ describe("TASK-014 / FE-S-04 capabilities page", () => {
     expect((await screen.findAllByText(/cap_/)).length).toBeGreaterThanOrEqual(1);  // 列表行以生成的 resource_id 兜底展示
   });
 
-  it("renders tool schema fields when kind is preselected", async () => {
-    // Semi Tabs 受控回写在 jsdom 缺陷（onChange undefined）——预置 kind 直初始化验证字段驱动。
-    const api = createInMemoryConsoleApi({
-      tenantId: "tenant-a", actorId: "admin-a", resources: [], bindings: [],
-      credentials: [], runs: [], audit: []
-    });
+  it("clicking the tool tab loads tool resources and schema", async () => {
     const user = userEvent.setup();
-    render(<CapabilitiesPage api={api} initialKind="tool" />);
+    renderConsole({ initialView: "capabilities" });
 
+    await user.click(screen.getByText("工具"));
     await user.click(screen.getByRole("button", { name: "新建" }));
 
     expect(await screen.findByText("工具名")).toBeDefined();

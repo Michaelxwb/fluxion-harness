@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
+from pathlib import Path
+
 import pytest
 
+from tests.workflow_poc.dbos_testing import _merge_existing_criteria as merge_dbos_evidence
 from tests.workflow_poc.poc_workflow import (
     POC_WORKFLOW_STEPS,
-    PocCriterion,
-    PocCriteriaReport,
     CriterionOutcome,
     MockRetentionGuard,
+    PocCriteriaReport,
+    PocCriterion,
     RetentionBlockedError,
     TraceCorrelator,
+)
+from tests.workflow_poc.restate_testing import (
+    _merge_existing_criteria as merge_restate_evidence,
 )
 
 
@@ -82,3 +90,24 @@ def test_retention_mock_blocks_delete_with_active_refs() -> None:
     guard.assert_delete_allowed(resource_type="skill", resource_id="search", version="3")
     # 其他版本不受影响
     guard.assert_delete_allowed(resource_type="skill", resource_id="search", version="4")
+
+
+@pytest.mark.parametrize("merge", [merge_dbos_evidence, merge_restate_evidence])
+def test_evidence_writer_merges_existing_criteria(
+    tmp_path: Path,
+    merge: Callable[[dict[str, object], Path], dict[str, object]],
+) -> None:
+    """局部 PoC 模块落盘时保留既有口径，当前运行结果优先。"""
+    path = tmp_path / "evidence.json"
+    path.write_text(
+        json.dumps({"criteria": {"P-CRASH": {"passed": True}, "P-PIN": {"passed": False}}}),
+        encoding="utf-8",
+    )
+
+    merged = merge(
+        {"criteria": {"P-PIN": {"passed": True}, "P-SIGNAL": {"passed": True}}},
+        path,
+    )
+
+    assert set(merged) == {"P-CRASH", "P-PIN", "P-SIGNAL"}
+    assert merged["P-PIN"] == {"passed": True}

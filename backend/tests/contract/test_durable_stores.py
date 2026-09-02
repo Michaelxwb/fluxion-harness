@@ -76,7 +76,14 @@ def _trace_record(trace_id: str, *, tenant_id: str = "tenant-a") -> TraceRecord:
         user_id="user-1",
         runtime_profile_id="runtime-main",
         runtime_profile_version="7",
-        model_resolution={"provider_ref": {"id": "dev.echo", "version": "1"}},
+        model_resolution={
+            "routes": [
+                {
+                    "provider_ref": {"id": "dev.echo", "version": "1"},
+                    "model": "echo",
+                }
+            ]
+        },
         trace_id=trace_id,
     )
     events = (

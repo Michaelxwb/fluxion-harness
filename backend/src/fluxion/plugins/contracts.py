@@ -13,10 +13,10 @@ class TrustLevel(StrEnum):
 
 class PluginType(StrEnum):
     # ADR-EXT-001 终态：6 保留类型。TOOL/MEMORY/STORAGE 已删除
-    #（TOOL→TOOL_PROVIDER；MEMORY 由 ADR-MEM-001 删除；STORAGE 拆分为
+    #（TOOL→TOOL_EXECUTOR；MEMORY 由 ADR-MEM-001 删除；STORAGE 拆分为
     # ARTIFACT_STORE + SEMANTIC_STORE + SECRET_PROVIDER）。
     MODEL_PROVIDER = "model_provider"
-    TOOL_PROVIDER = "tool_provider"
+    TOOL_EXECUTOR = "tool_executor"
     ARTIFACT_STORE = "artifact_store"
     SEMANTIC_STORE = "semantic_store"
     SECRET_PROVIDER = "secret_provider"
@@ -77,7 +77,14 @@ class CapabilityProvider(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class ToolDefinition:
+class ToolDescriptor:
+    """ModelProvider SPI 的模型侧工具描述符（ADR-A009）。
+
+    与 `resources/contracts.py ToolDefinition`（Tool 是一等 Capability Resource）
+    区分：本类只描述「给模型的工具 schema」，是 ModelProvider SPI 的一部分，
+    不代表 Plugin 是 Tool。
+    """
+
     name: str
     description: str
     parameters: dict[str, object]
@@ -102,7 +109,7 @@ class ModelMessage:
 @dataclass(frozen=True, slots=True)
 class ModelRequest:
     messages: list[ModelMessage]
-    tools: list[ToolDefinition] = field(default_factory=list)
+    tools: list[ToolDescriptor] = field(default_factory=list)
     timeout_ms: int = 60_000
     model: str | None = None
     tenant_id: str | None = None
@@ -168,8 +175,9 @@ class ProviderNotFoundError(RuntimeError):
 # ---------------------------------------------------------------------------
 
 
-# --- SPI-02: TOOL_PROVIDER（= ADR-009 CapabilityProvider 形状）---
-# TOOL_PROVIDER 的统一模型名称；与 ADR-009 CapabilityProvider 同形。
+# --- SPI-02: TOOL_EXECUTOR（= ADR-A009 CapabilityProvider 形状）---
+# TOOL_EXECUTOR 是 Tool 的 SPI 实现载体（Plugin 提供 Tool 实现，不等于 Plugin 就是
+# Tool）；与 ADR-A009 CapabilityProvider 同形。
 # loader 既有 `isinstance(plugin, CapabilityProvider)` 不受影响。
 ToolProvider = CapabilityProvider
 

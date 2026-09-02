@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from tests.runtime_helpers import publish_resource
 
 from fluxion.api.eval import create_app as create_eval_app
 from fluxion.config import DevModeSettings
@@ -27,6 +26,7 @@ from fluxion.services.eval_app import (
     ModelEvalHarness,
     RuleBasedEvalExecutor,
 )
+from tests.runtime_helpers import publish_resource
 
 
 @pytest.mark.asyncio
@@ -316,7 +316,14 @@ def _trace() -> TraceRecord:
         user_id="user-eval",
         runtime_profile_id="runtime-main",
         runtime_profile_version="7",
-        model_resolution={"provider_ref": {"id": "dev.echo", "version": "1"}},
+        model_resolution={
+            "routes": [
+                {
+                    "provider_ref": {"id": "dev.echo", "version": "1"},
+                    "model": "echo",
+                }
+            ]
+        },
         trace_id="trace-eval",
     )
     return TraceRecord(

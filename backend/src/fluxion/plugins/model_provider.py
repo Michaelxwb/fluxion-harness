@@ -21,7 +21,7 @@ from fluxion.plugins.contracts import (
     PluginManifest,
     PluginType,
     ToolCall,
-    ToolDefinition,
+    ToolDescriptor,
     TrustLevel,
 )
 
@@ -212,7 +212,7 @@ def _tool_call_payload(call: ToolCall) -> dict[str, object]:
     }
 
 
-def _tool_payload(tool: ToolDefinition) -> dict[str, object]:
+def _tool_payload(tool: ToolDescriptor) -> dict[str, object]:
     return {
         "type": "function",
         "function": {

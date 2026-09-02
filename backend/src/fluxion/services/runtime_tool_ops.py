@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from fluxion.kernel.events import BeforeToolCallPayload, TypedEventBus
-from fluxion.plugins.contracts import ToolCall, ToolDefinition
+from fluxion.plugins.contracts import ToolCall, ToolDescriptor
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.registry import RegistryStore
 from fluxion.resources import ResourceKind, ResourceStatus
@@ -50,20 +50,28 @@ class RuntimeToolOps:
         # store-backed provider 只叠加在本执行副本上，执行结束随 context GC。
         resolver = ScopedModelProviderResolver(self._model_providers)
         policy = context.snapshot.model_resolution
-        provider_ids = [policy.provider_ref.id] if policy.provider_ref else []
-        provider_ids.extend(ref.id for ref in policy.failover)
-        for provider_id in provider_ids:
-            # 双重门槛：①在 snapshot.plugin_versions 中被 agent.model_ref 显式
-            # pin；②Registry 存在同 id 的 PLUGIN 资源。两者同时满足才包装为
+        for route in policy.routes:
+            provider_id = route.provider_ref.id
+            # 双重门槛：①在 snapshot.plugin_versions 中被 ADR-A008 三层解析
+            # （model_policy → ModelDefinition → provider_ref）显式 pin；
+            # ②Registry 存在同 id 的 MODEL_PROVIDER 资源。两者同时满足才包装为
             # store-backed 注册——否则保留进程内已注册实现（DevEcho/测试桩等）。
             if provider_id not in context.snapshot.plugin_versions:
                 continue
-            plugin = await self._store.get(
-                ResourceKind.PLUGIN,
+            # ADR-A008（TASK-002）：运行时从 Registry MODEL_PROVIDER 资源解析 provider，
+            # 不再以 PLUGIN(model_provider) 作为模型事实源。
+            provider = await self._store.get(
+                ResourceKind.MODEL_PROVIDER,
                 provider_id,
                 tenant_id=context.snapshot.tenant_id,
+                version=route.provider_ref.version,
             )
-            if plugin is None or plugin.status is not ResourceStatus.PUBLISHED:
+            if provider is None or provider.status is not ResourceStatus.PUBLISHED:
+                raise RuntimeApplicationError(
+                    "model_provider_unavailable",
+                    f"model provider {provider_id}@{route.provider_ref.version} is unavailable",
+                )
+            if provider_id in self._model_providers.provider_ids():
                 continue
             resolver.register_scoped(
                 provider_id,
@@ -133,7 +141,7 @@ class RuntimeToolOps:
         self,
         context: RuntimeContext,
         mcp_tool_ids: set[str],
-    ) -> list[ToolDefinition]:
+    ) -> list[ToolDescriptor]:
         descriptors = self._execution_tool_runtime(context).list_effective_descriptors(
             context, mcp_tool_ids=mcp_tool_ids
         )
@@ -144,7 +152,7 @@ class RuntimeToolOps:
             or descriptor.tool_id in mcp_tool_ids
         ]
         return [
-            ToolDefinition(
+            ToolDescriptor(
                 name=descriptor.tool_id,
                 description=descriptor.name,
                 parameters=descriptor.parameters_schema or {"type": "object"},
@@ -167,4 +175,3 @@ class RuntimeToolOps:
             ),
             trace_sink=context,
         )
-

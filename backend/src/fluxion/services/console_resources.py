@@ -1,51 +1,38 @@
 from __future__ import annotations
 
 import asyncio
-from uuid import uuid4
 
 from pydantic import BaseModel, ValidationError
 
-from fluxion.agents import AgentDefinition
 from fluxion.errors.console import (
-    ConsoleForbiddenError,
     ConsoleResourceConflictError,
     ConsoleResourceNotFoundError,
     ConsoleValidationError,
     ConsoleVersionConflictError,
-    StudioSpecValidationError,
 )
 from fluxion.registry import (
     ChannelRegistryStore,
-    NotFoundError,
-    PublicationCommand,
-    PublicationOperation,
     VersionConflictError,
 )
 from fluxion.resources import (
-    EvalSetDefinition,
-    MCPDefinition,
-    PolicyDefinition,
-    ProviderDefinition,
     ResourceDefinition,
     ResourceKind,
     ResourceStatus,
-    RuntimeProfile,
-    SecretDefinition,
-    SkillDefinition,
-    ToolDefinition,
-    WorkflowDefinition,
 )
-from fluxion.services.approval_app import ApprovalStatus, ApprovalStore, utc_now
+from fluxion.runtime.secrets import CredentialResolver
+from fluxion.services.approval_app import ApprovalStore
 from fluxion.services.console_contracts import (
     ConsoleActor,
     CreateResourceDraftRequest,
-    DeprecateResourceVersionRequest,
-    PublishResourceResult,
-    PublishResourceVersionRequest,
-    RollbackResourceRequest,
     UpdateResourceDraftRequest,
 )
-from fluxion.services.release_gate import ConsoleReleaseGateBlockedError, GateDecision
+from fluxion.services.console_resource_lifecycle import ConsoleResourceLifecycleOps
+from fluxion.services.console_resource_schema import _definition_model as _schema_definition_model
+from fluxion.services.console_resource_schema import (
+    _ensure_same_tenant,
+    _raise_for_invalid_workflow,
+)
+from fluxion.services.console_resource_validation import ConsoleResourceValidationOps
 from fluxion.services.workflow_app import (
     WorkflowDefinitionValidator,
     WorkflowValidationResult,
@@ -57,7 +44,12 @@ from fluxion.services.workflow_app import (
 _PUBLICATION_LOCK_CAP = 4096
 
 
-class ConsoleResourceOps:
+def _definition_model(kind: ResourceKind) -> type[BaseModel] | None:
+    """兼容入口：typed spec 分派实现位于 console_resource_schema。"""
+    return _schema_definition_model(kind)
+
+
+class ConsoleResourceOps(ConsoleResourceLifecycleOps, ConsoleResourceValidationOps):
     """资源生命周期操作 mixin：CRUD、publish/rollback/deprecate 与版本校验。
 
     由 ConsoleApplicationService 继承，依赖属性在主类 __init__ 中装配；此处仅
@@ -68,6 +60,8 @@ class ConsoleResourceOps:
     _workflow_validator: WorkflowDefinitionValidator
     _publication_locks: dict[tuple[str, ResourceKind, str], asyncio.Lock]
     _approval_store: ApprovalStore
+    # 连接测试凭据注入（TASK-019 返工）：由装配方（dev/production bundle）注入。
+    _credential_resolver: CredentialResolver | None
 
     def _publication_lock(
         self,
@@ -241,411 +235,57 @@ class ConsoleResourceOps:
         except VersionConflictError as exc:
             raise ConsoleVersionConflictError("version conflict") from exc
 
-    async def publish_resource_version(
+    async def ensure_working_draft(
         self,
         actor: ConsoleActor,
-        request: PublishResourceVersionRequest,
-    ) -> PublishResourceResult:
-        _ensure_same_tenant(actor, request.tenant_id)
-        # 单进程内串行化同资源的发布，消除 expected_base_version 乐观锁的
-        # check-then-commit 竞态（store 事务内对 base 行不加锁，SQLite 下
-        # FOR UPDATE 无效）。多进程部署需在 store 层加 advisory lock。
-        lock = self._publication_lock(request.tenant_id, request.kind, request.resource_id)
-        async with lock:
-            return await self._publish_resource_version_locked(actor, request)
-
-    async def _publish_resource_version_locked(
-        self,
-        actor: ConsoleActor,
-        request: PublishResourceVersionRequest,
-    ) -> PublishResourceResult:
-        existing = await self._store.get(
-            request.kind,
-            request.resource_id,
-            tenant_id=request.tenant_id,
-            version=request.version,
-        )
-        if existing is None:
-            raise ConsoleResourceNotFoundError()
-        if existing.status is ResourceStatus.PUBLISHED:
-            raise ConsoleVersionConflictError("version conflict")
-        if request.kind is ResourceKind.WORKFLOW:
-            result = await self._workflow_validator.validate(
-                tenant_id=actor.tenant_id,
-                spec=existing.spec_json,
-            )
-            _raise_for_invalid_workflow(result)
-        else:
-            # S_P13_05：非 workflow 资源在发布时也按定义模型校验，invalid spec 不得发布。
-            _raise_for_invalid_workflow(_validate_definition(request.kind, existing.spec_json))
-        if request.expected_base_version is not None:
-            # 乐观并发控制：expected_base_version 对齐当前已发布 base。
-            # 首次发布（尚无 base）时退化为与 draft 版本一致。
-            base = await self._store.get(
-                request.kind,
-                request.resource_id,
-                tenant_id=request.tenant_id,
-            )
-            expected_base = base.version if base is not None else existing.version
-            if request.expected_base_version != expected_base:
-                raise ConsoleVersionConflictError("version conflict")
-        # Phase 5 TASK-005：Release Gate 挂 publish 管道——gate 参数存在即评估；
-        # blocked → 阻断发布（score_delta 诊断入 envelope；决策留档 AuditLog）。
-        await self._evaluate_release_gate(actor, request)
-        return await self._commit_publication(
-            actor,
-            kind=request.kind,
-            resource_id=request.resource_id,
-            version=request.version,
-            operation=PublicationOperation.PUBLISH,
-            expected_base_version=request.expected_base_version,
-            publish_note=request.publish_note,
-        )
-
-    async def rollback_resource(
-        self,
-        actor: ConsoleActor,
-        request: RollbackResourceRequest,
-    ) -> PublishResourceResult:
-        _ensure_same_tenant(actor, request.tenant_id)
-        lock = self._publication_lock(request.tenant_id, request.kind, request.resource_id)
-        async with lock:
-            return await self._rollback_resource_locked(actor, request)
-
-    async def _rollback_resource_locked(
-        self,
-        actor: ConsoleActor,
-        request: RollbackResourceRequest,
-    ) -> PublishResourceResult:
-        target = await self._get_exact_resource(
-            request.kind,
-            request.resource_id,
-            request.tenant_id,
-            request.target_version,
-        )
-        # 回滚到当前已发布版本是空操作，拒绝以避免无意义 revision bump / audit 污染。
-        latest = await self._store.get(
-            request.kind,
-            request.resource_id,
-            tenant_id=request.tenant_id,
-        )
-        if latest is not None and latest.version == request.target_version:
-            raise ConsoleVersionConflictError("目标版本已是当前已发布版本")
-        if _rollback_requires_approval(target):
-            if not request.force or not request.approval_id:
-                raise ConsoleVersionConflictError("回滚目标存在兼容性风险，需要强制审批")
-            await self._verify_and_consume_rollback_approval(actor, request, request.approval_id)
-        return await self._commit_publication(
-            actor,
-            kind=request.kind,
-            resource_id=request.resource_id,
-            version=request.target_version,
-            operation=PublicationOperation.ROLLBACK,
-            approval_id=request.approval_id,
-        )
-
-    async def _verify_and_consume_rollback_approval(
-        self,
-        actor: ConsoleActor,
-        request: RollbackResourceRequest,
-        approval_id: str,
-    ) -> None:
-        record = await self._approval_store.get(approval_id, tenant_id=actor.tenant_id)
-        if record is None:
-            raise ConsoleForbiddenError("审批不存在或不属于当前租户")
-        if record.status is not ApprovalStatus.APPROVED:
-            raise ConsoleForbiddenError("审批未通过")
-        if record.expires_at <= utc_now():
-            raise ConsoleForbiddenError("审批已过期")
-        if (
-            record.kind != request.kind
-            or record.resource_id != request.resource_id
-            or record.target_version != request.target_version
-            or record.operation != "rollback"
-        ):
-            raise ConsoleForbiddenError("审批内容与回滚请求不匹配")
-        if actor.actor_id == record.approver_actor_id:
-            raise ConsoleForbiddenError("审批人不能执行本次回滚")
-        if actor.actor_id != record.requester_actor_id:
-            raise ConsoleForbiddenError("仅审批请求人可执行本次回滚")
-        # A9：审批单一次性消费——校验通过后立即 CAS 置 consumed_at（fail-closed，
-        # 消费先于 _commit_publication）。已消费的审批单重放 → store.consume 抛
-        # ValueError → 403「已消费」。消费先于 commit：若 commit 失败，审批单已
-        # burnt，操作者需重新申请；对高风险回滚而言，宁可 burnt 也不可重放。
-        try:
-            await self._approval_store.consume(
-                approval_id,
-                tenant_id=actor.tenant_id,
-                consumed_at=utc_now(),
-            )
-        except ValueError as exc:
-            raise ConsoleForbiddenError("审批已消费，不可重放") from exc
-
-    async def deprecate_resource_version(
-        self,
-        actor: ConsoleActor,
-        request: DeprecateResourceVersionRequest,
-    ) -> PublishResourceResult:
-        _ensure_same_tenant(actor, request.tenant_id)
-        lock = self._publication_lock(request.tenant_id, request.kind, request.resource_id)
-        async with lock:
-            return await self._deprecate_resource_version_locked(actor, request)
-
-    async def _deprecate_resource_version_locked(
-        self,
-        actor: ConsoleActor,
-        request: DeprecateResourceVersionRequest,
-    ) -> PublishResourceResult:
-        await self._get_exact_resource(
-            request.kind,
-            request.resource_id,
-            request.tenant_id,
-            request.version,
-        )
-        return await self._commit_publication(
-            actor,
-            kind=request.kind,
-            resource_id=request.resource_id,
-            version=request.version,
-            operation=PublicationOperation.DEPRECATE,
-            publish_note=request.reason,
-        )
-
-    async def _get_exact_resource(
-        self,
         kind: ResourceKind,
         resource_id: str,
-        tenant_id: str,
-        version: str,
     ) -> ResourceDefinition:
-        resource = await self._store.get(
+        """编辑已发布资源时自动创建/复用 working draft（remediation §14.3·§25）。
+
+        - 已存在 DRAFT 版本 → 复用（不重复 fork）；
+        - 否则以最新 PUBLISHED 版本为 base，fork 出 next 版本号的 DRAFT。
+
+        已发布版本保持 immutable，绝不原地修改；working draft 对用户无感，
+        用户无需理解「创建草稿」。
+        """
+        versions, _total = await self._store.list_versions(
             kind,
             resource_id,
-            tenant_id=tenant_id,
-            version=version,
+            tenant_id=actor.tenant_id,
+            offset=0,
+            limit=100,
         )
-        if resource is None:
+        if not versions:
             raise ConsoleResourceNotFoundError()
-        return resource
-
-    async def _evaluate_release_gate(
-        self,
-        actor: ConsoleActor,
-        request: PublishResourceVersionRequest,
-    ) -> None:
-        """Phase 5 TASK-005：请求带 gate 参数时评估 Release Gate。
-
-        gate 未配置（service 无 ReleaseGateService）→ fail-closed 阻断；
-        blocked → ConsoleReleaseGateBlockedError（envelope 带 score_delta 诊断，
-        决策留档由 ReleaseGateService 写 AuditLog）。
-
-        review P1-7：``release_gate_enforced=True`` 时 gate 从 opt-in 变强制
-        策略——不带 gate 参数的 publish 同样 fail-closed 阻断（生产装配开启）。
-        """
-        if request.gate is None:
-            if getattr(self, "_release_gate_enforced", False):
-                raise ConsoleReleaseGateBlockedError(
-                    GateDecision(
-                        release_id=f"{request.kind.value}/{request.resource_id}@{request.version}",
-                        tenant_id=request.tenant_id,
-                        blocked=True,
-                        score_delta=None,
-                        reason="Release Gate 强制启用：publish 请求必须携带 gate 参数（基线不可用请先跑 EvalRun）",
-                        candidate_run_id=None,
-                        baseline_run_id=None,
-                    )
-                )
-            return
-        gate = getattr(self, "_release_gate", None)
-        if gate is None:
-            raise ConsoleReleaseGateBlockedError(
-                GateDecision(
-                    release_id=f"{request.kind.value}/{request.resource_id}@{request.version}",
-                    tenant_id=request.tenant_id,
-                    blocked=True,
-                    score_delta=None,
-                    reason="Release Gate 未配置（fail-closed）",
-                    candidate_run_id=request.gate.candidate_eval_run_id,
-                    baseline_run_id=request.gate.baseline_eval_run_id,
-                )
-            )
-        decision = await gate.evaluate(
-            release_id=f"{request.kind.value}/{request.resource_id}@{request.version}",
-            tenant_id=request.tenant_id,
-            candidate_eval_run_id=request.gate.candidate_eval_run_id,
-            baseline_eval_run_id=request.gate.baseline_eval_run_id,
-            threshold=request.gate.threshold,
-            actor_id=actor.actor_id,
-            request_id=actor.request_id,
-            trace_id=actor.trace_id,
+        # 复用已存在的 draft（含并发下已 fork 出的同版本 draft）
+        for version in versions:
+            if version.status is ResourceStatus.DRAFT:
+                return version
+        base = max(versions, key=lambda v: int(v.version) if v.version.isdigit() else 0)
+        if base.status is not ResourceStatus.PUBLISHED:
+            raise ConsoleVersionConflictError("无已发布版本可 fork working draft")
+        next_version = str(
+            max(int(v.version) for v in versions if v.version.isdigit()) + 1
         )
-        if decision.blocked:
-            raise ConsoleReleaseGateBlockedError(decision)
-
-    async def _commit_publication(
-        self,
-        actor: ConsoleActor,
-        *,
-        kind: ResourceKind,
-        resource_id: str,
-        version: str,
-        operation: PublicationOperation,
-        expected_base_version: str | None = None,
-        publish_note: str | None = None,
-        approval_id: str | None = None,
-    ) -> PublishResourceResult:
-        publish_id = f"pub_{uuid4().hex}"
+        draft = ResourceDefinition(
+            kind=kind,
+            id=resource_id,
+            tenant_id=actor.tenant_id,
+            version=next_version,
+            status=ResourceStatus.DRAFT,
+            visibility=base.visibility,
+            spec_json=dict(base.spec_json),
+        )
         try:
-            commit = await self._store.commit_publication(
-                PublicationCommand(
-                    publish_id=publish_id,
-                    event_id=f"evt_{uuid4().hex}",
-                    tenant_id=actor.tenant_id,
-                    kind=kind,
-                    resource_id=resource_id,
-                    version=version,
-                    operation=operation,
-                    actor_id=actor.actor_id,
-                    request_id=actor.request_id,
-                    trace_id=actor.trace_id,
-                    expected_base_version=expected_base_version,
-                    publish_note=publish_note,
-                    approval_id=approval_id,
-                )
-            )
-        except NotFoundError as exc:
-            raise ConsoleResourceNotFoundError() from exc
-        except VersionConflictError as exc:
-            raise ConsoleVersionConflictError(str(exc)) from exc
-        # review 残留修复：不再宽泛捕获 RegistryStoreError 映射 409——commit_publication
-        # 在此路径唯一可达的 RegistryStoreError 是 revision bump 等 infra 错误（应 500，
-        # 由 console_errors 通用 Exception handler 出 INTERNAL_ERROR envelope）；真正的
-        # 客户端冲突 guard（not draft / only published can be deprecated 等）全部抛
-        # VersionConflictError，已被上一条映射 409。active_reference_blocked 是
-        # hard_delete guard、不经 commit_publication 抛，hard-delete HTTP 端点不存在时
-        # 无需映射（新增端点时再定码）。
-        return PublishResourceResult(
-            resource_id=commit.resource.id,
-            version=commit.resource.version,
-            status=commit.resource.status.value,
-            publish_id=commit.publish_id,
-            event_status=commit.event_status.value,
-            kubernetes_workload_created=False,
-        )
-
-    async def validate_resource_version(
-        self,
-        actor: ConsoleActor,
-        kind: ResourceKind,
-        resource_id: str,
-        version: str,
-    ) -> WorkflowValidationResult:
-        resource = await self._get_exact_resource(
-            kind,
-            resource_id,
-            actor.tenant_id,
-            version,
-        )
-        if kind is ResourceKind.WORKFLOW:
-            result = await self._workflow_validator.validate(
+            return await self._store.put(draft)
+        except VersionConflictError:
+            existing = await self._store.get(
+                kind,
+                resource_id,
                 tenant_id=actor.tenant_id,
-                spec=resource.spec_json,
+                version=next_version,
             )
-            # E-C104：workflow DSL / capability 校验失败以 400 返回具体诊断。
-            _raise_for_invalid_workflow(result)
-            return result
-        # 其余资源类型：校验失败返回 valid=false 结果（200），由调用方决定行为。
-        return _validate_definition(kind, resource.spec_json)
-
-    async def resource_schema(self, kind: ResourceKind) -> dict[str, object]:
-        # ADR-012：前端表单 schema 直接取自 spec model 的 model_json_schema()，
-        # 校验模型与表单结构不可能漂移。schema 是 kind 级静态数据，无租户上下文。
-        model = _definition_model(kind)
-        if model is None:
-            raise ConsoleValidationError(f"unsupported resource type: {kind.value}")
-        return {"schema": model.model_json_schema()}
-
-    def validate_spec_shape(
-        self, kind: ResourceKind, spec: dict[str, object]
-    ) -> None:
-        """Product API 前置 typed 校验（TASK-004 E-01）：进入 draft 前定位字段错误。
-
-        slug=agent_definition_invalid（agents 语义），诊断含 pydantic 字段路径；
-        其它 kind 同样前置（schema 驱动表单一套行为）。
-        """
-        result = _validate_definition(kind, spec)
-        if not result.valid:
-            raise StudioSpecValidationError(
-                "agent_definition_invalid：" + "；".join(result.diagnostics)
-            )
-
-
-def _ensure_same_tenant(actor: ConsoleActor, tenant_id: str) -> None:
-    if not tenant_id.strip():
-        raise ConsoleValidationError("tenant_id is required")
-    if tenant_id != actor.tenant_id:
-        raise ConsoleForbiddenError()
-
-
-def _rollback_requires_approval(resource: ResourceDefinition) -> bool:
-    if resource.status is ResourceStatus.DEPRECATED:
-        return True
-    compatibility = resource.spec_json.get("compatibility")
-    if not isinstance(compatibility, dict):
-        return False
-    return compatibility.get("rollback_safe") is False
-
-
-def _raise_for_invalid_workflow(result: WorkflowValidationResult) -> None:
-    if not result.valid:
-        raise ConsoleValidationError("；".join(result.diagnostics))
-
-
-def _definition_model(kind: ResourceKind) -> type[BaseModel] | None:
-    if kind is ResourceKind.AGENT_DEFINITION:
-        return AgentDefinition
-    if kind is ResourceKind.RUNTIME_PROFILE:
-        return RuntimeProfile
-    if kind is ResourceKind.MODEL:
-        return ProviderDefinition
-    if kind is ResourceKind.TOOL:
-        return ToolDefinition
-    if kind is ResourceKind.SKILL:
-        return SkillDefinition
-    if kind is ResourceKind.MCP:
-        return MCPDefinition
-    if kind is ResourceKind.SECRET:
-        return SecretDefinition
-    if kind is ResourceKind.PLUGIN:
-        return ProviderDefinition
-    if kind is ResourceKind.POLICY:
-        return PolicyDefinition
-    if kind is ResourceKind.WORKFLOW:
-        # 发布路径仍走带能力引用存在性检查的 WorkflowDefinitionValidator；
-        # 此处提供结构校验兜底与表单 schema 来源（ADR-012）。
-        return WorkflowDefinition
-    if kind is ResourceKind.EVAL_SET:
-        return EvalSetDefinition
-    return None
-
-
-def _validate_definition(kind: ResourceKind, spec: dict[str, object]) -> WorkflowValidationResult:
-    model = _definition_model(kind)
-    if model is None:
-        return WorkflowValidationResult(True, ("校验通过",))
-    try:
-        model.model_validate(spec)
-    except (ValidationError, ValueError) as exc:
-        return WorkflowValidationResult(False, (_format_definition_error(exc),))
-    return WorkflowValidationResult(True, ("校验通过",))
-
-
-def _format_definition_error(exc: ValidationError | ValueError) -> str:
-    if isinstance(exc, ValidationError):
-        parts: list[str] = []
-        for error in exc.errors(include_url=False)[:5]:
-            path = ".".join(str(part) for part in error["loc"])
-            message = str(error["msg"])
-            parts.append(f"{path}: {message}" if path else message)
-        return "；".join(parts)
-    return str(exc)
+            if existing is not None:
+                return existing
+            raise ConsoleResourceConflictError("working draft fork 冲突") from None

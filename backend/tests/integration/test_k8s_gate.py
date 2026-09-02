@@ -96,10 +96,9 @@ def _wait_deployment_ready(deployment: str, timeout: float = 180.0) -> None:
 
 async def _seed_gate_agent() -> str:
     """在共享 PG（部署库）发布 Gate 用 agent，返回 tenant_id。"""
-    from tests.runtime_helpers import publish_resource
-
     from fluxion.registry import PostgreSQLRegistryStore
     from fluxion.resources import ResourceKind
+    from tests.runtime_helpers import publish_resource, seed_model_definition
 
     tenant_id = f"tenant-s07-{uuid.uuid4().hex[:8]}"
     agent_id = "gate-agent"
@@ -114,6 +113,8 @@ async def _seed_gate_agent() -> str:
             version="1",
             spec={"request_timeout_ms": 30_000, "max_retries": 1},
         )
+        # ADR-A008：agent.model_policy 指向 ModelDefinition（model.dev.echo）
+        await seed_model_definition(store, tenant_id=tenant_id, provider_id="dev.echo")
         await publish_resource(
             store,
             tenant_id=tenant_id,
@@ -124,7 +125,9 @@ async def _seed_gate_agent() -> str:
                 "name": "gate-agent",
                 "system_prompt": "你是产品助手。",
                 "owner": "builder",
-                "model_ref": {"id": "dev.echo", "version": "1"},
+                "model_policy": {
+                    "primary_model_ref": {"id": "model.dev.echo", "version": "1"}
+                },
             },
         )
     finally:
@@ -272,5 +275,8 @@ class TestS07DeploymentGate:
                 "SELECT COUNT(*) FROM resource_definitions WHERE tenant_id = %s",
                 (tenant_id,),
             ).fetchone()[0]
-        # gate-agent v1（runtime_profile + agent_definition）+ gate-rpo-fact v1 = 3 行
-        assert resources == 3, f"租户资源事实零丢失（gate-agent×2 + rpo-fact×1）: {resources}"
+        # gate-agent v1（runtime_profile + agent_definition）+ model.dev.echo v1
+        # （ADR-A008 解析链 fixture）+ gate-rpo-fact v1 = 4 行
+        assert resources == 4, (
+            f"租户资源事实零丢失（gate-agent×2 + model_definition×1 + rpo-fact×1）: {resources}"
+        )

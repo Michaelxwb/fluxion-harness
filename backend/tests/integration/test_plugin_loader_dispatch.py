@@ -244,9 +244,9 @@ async def test_e01_registration_failure_rolls_back_loaded_state() -> None:
 
 
 class _MinimalToolProviderPlugin:
-    """声明 TOOL_PROVIDER 但缺 capabilities() → 注册失败（must implement CapabilityProvider）→ 回滚。"""
+    """声明 TOOL_EXECUTOR 但缺 capabilities() → 注册失败（must implement CapabilityProvider）→ 回滚。"""
 
-    manifest = _manifest("broken.tool.provider", PluginType.TOOL_PROVIDER)
+    manifest = _manifest("broken.tool.provider", PluginType.TOOL_EXECUTOR)
 
     async def setup(self, ctx: PluginContext) -> None:
         del ctx
@@ -259,9 +259,9 @@ class _MinimalToolProviderPlugin:
 
 @pytest.mark.asyncio
 async def test_e01_tool_provider_without_capability_provider_warns_not_blocks() -> None:
-    """TOOL_PROVIDER 无 CapabilityProvider：不阻断（最小插件约定），仅 warn 暴露静默零能力。"""
+    """TOOL_EXECUTOR 无 CapabilityProvider：不阻断（最小插件约定），仅 warn 暴露静默零能力。"""
     loader = PluginLoader()
     record = await loader.load(_MinimalToolProviderPlugin())
 
-    assert record.manifest.plugin_type is PluginType.TOOL_PROVIDER
+    assert record.manifest.plugin_type is PluginType.TOOL_EXECUTOR
     assert loader.loaded == [record]  # 加载成功（非硬拒绝），warn 由 _logger 暴露

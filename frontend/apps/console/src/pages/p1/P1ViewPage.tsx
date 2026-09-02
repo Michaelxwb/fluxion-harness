@@ -15,9 +15,7 @@ interface P1ViewPageProps {
 
 const titles: Record<P1View, string> = {
   capabilities: "能力注册",
-  eval: "能力评测",
   plugin_policy: "插件钩子",
-  runtime_status: "运行时态",
   users_channels: "用户管理"
 };
 

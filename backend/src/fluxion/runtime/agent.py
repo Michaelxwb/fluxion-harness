@@ -17,9 +17,9 @@ from fluxion.plugins.contracts import (
     ModelResponse,
     StreamingModelProvider,
     ToolCall,
-    ToolDefinition,
+    ToolDescriptor,
 )
-from fluxion.resources import ExecutionSnapshot, ModelPolicy
+from fluxion.resources import ExecutionSnapshot, ResolvedModelRoute
 from fluxion.runtime.context import RequestContext, RuntimeContext, TraceEvent
 from fluxion.runtime.memory import MemoryManager, MemoryPolicy, MemoryRecord, SessionMemoryStore
 from fluxion.runtime.summarizer import SummarizerRegistryProtocol
@@ -96,7 +96,7 @@ class AgentRuntime:
         context: RuntimeContext,
         input_message: str,
         *,
-        tools: Iterable[ToolDefinition] = (),
+        tools: Iterable[ToolDescriptor] = (),
         tool_handler: ModelToolHandler | None = None,
     ) -> RuntimeStepResult:
         session_history = await self._memory.read_session_context(context)
@@ -147,52 +147,80 @@ class AgentRuntime:
         if self._model_providers is None:
             return
         policy = context.snapshot.model_resolution
-        provider_ids = _provider_chain(policy)
-        if not provider_ids:
+        routes = policy.routes
+        if not routes:
             return
         # TASK-010：优先 execution-scoped resolver（叠加 store-backed provider），
         # 无则回退 service-level registry。
         resolver = context.model_provider_resolver or self._model_providers
-        provider = resolver.resolve(provider_ids[0])
-        if not isinstance(provider, StreamingModelProvider):
-            return
-        streaming = cast(StreamingModelProvider, provider)
         session_history = await self._memory.read_session_context(context)
         messages = _model_messages(context, session_history, input_message)
-        scoped = ModelRequest(
-            messages=messages,
-            model=policy.model,
-            timeout_ms=policy.timeout_ms,
-            tenant_id=context.snapshot.tenant_id,
-            user_id=context.snapshot.user_id,
-            provider_version=context.snapshot.plugin_versions.get(provider_ids[0]),
-        )
-        deadline_seconds = policy.deadline_ms / 1000
+        deadline_seconds = policy.model_deadline_ms / 1000
         started = perf_counter()
-        sentinel = object()
-        stream = streaming.stream(scoped)
-        try:
-            while True:
-                remaining = deadline_seconds - (perf_counter() - started)
-                try:
-                    token = await asyncio.wait_for(
-                        anext(stream, sentinel), timeout=remaining
-                    )
-                except TimeoutError:
-                    context.emit(
-                        "agent_loop.timeout",
-                        {"deadline_ms": policy.deadline_ms},
-                    )
-                    raise AgentLoopTimeoutError("streaming deadline exceeded")
-                if token is sentinel:
-                    break
-                yield cast(str, token)
-            context.emit(
-                "model.completed",
-                {"provider_id": provider_ids[0], "streamed": True},
+        last_error: ModelProviderError | None = None
+        for route in routes:
+            provider_id = route.provider_ref.id
+            try:
+                provider = resolver.resolve(provider_id)
+            except ModelProviderError as exc:
+                context.emit("model.error", {"provider_id": provider_id, "error": str(exc)})
+                last_error = exc
+                continue
+            if not isinstance(provider, StreamingModelProvider):
+                continue
+            scoped = ModelRequest(
+                messages=messages,
+                model=route.model,
+                timeout_ms=policy.model_timeout_ms,
+                tenant_id=context.snapshot.tenant_id,
+                user_id=context.snapshot.user_id,
+                provider_version=route.provider_ref.version,
             )
-        finally:
-            await stream.aclose()
+            emitted = False
+            error: ModelProviderError | None = None
+            stream = cast(StreamingModelProvider, provider).stream(scoped)
+            route_started = perf_counter()
+            try:
+                while True:
+                    global_remaining = deadline_seconds - (perf_counter() - started)
+                    call_remaining = policy.model_timeout_ms / 1000 - (
+                        perf_counter() - route_started
+                    )
+                    token = await asyncio.wait_for(
+                        anext(stream, None), timeout=min(global_remaining, call_remaining)
+                    )
+                    if token is None:
+                        context.emit(
+                            "model.completed",
+                            {"provider_id": provider_id, "streamed": True},
+                        )
+                        return
+                    emitted = True
+                    yield token
+            except TimeoutError:
+                error = ModelProviderTimeoutError(
+                    f"model provider {provider_id} timed out"
+                )
+                context.emit(
+                    "model.timeout",
+                    {"provider_id": provider_id, "timeout_ms": policy.model_timeout_ms},
+                )
+            except ModelProviderError as exc:
+                error = exc
+                context.emit("model.error", {"provider_id": provider_id, "error": str(exc)})
+            except Exception as exc:  # noqa: BLE001 -- Provider 边界统一转运行时错误
+                error = ModelProviderError(f"model provider {provider_id} failed: {exc}")
+                context.emit("model.error", {"provider_id": provider_id, "error": str(exc)})
+            finally:
+                await stream.aclose()
+            if emitted and error is not None:
+                raise error
+            last_error = error
+        if perf_counter() - started >= deadline_seconds:
+            context.emit("agent_loop.timeout", {"deadline_ms": policy.model_deadline_ms})
+            raise AgentLoopTimeoutError("streaming deadline exceeded")
+        if last_error is not None:
+            raise last_error
 
     async def run(
         self,
@@ -220,7 +248,7 @@ class AgentRuntime:
         self,
         context: RuntimeContext,
         input_message: str,
-        tools: list[ToolDefinition],
+        tools: list[ToolDescriptor],
         *,
         session_history: list[MemoryRecord],
         tool_handler: ModelToolHandler | None,
@@ -228,26 +256,26 @@ class AgentRuntime:
         if self._model_providers is None:
             return None, ()
         policy = context.snapshot.model_resolution
-        provider_ids = _provider_chain(policy)
-        if not provider_ids:
+        routes = policy.routes
+        if not routes:
             return None, ()
         messages = _model_messages(context, session_history, input_message)
         try:
             return await asyncio.wait_for(
                 self._run_model_loop(
                     context,
-                    provider_ids=provider_ids,
+                    routes=routes,
                     messages=messages,
                     tools=tools,
-                    timeout_ms=policy.timeout_ms,
+                    timeout_ms=policy.model_timeout_ms,
                     tool_handler=tool_handler,
                 ),
-                timeout=policy.deadline_ms / 1000,
+                timeout=policy.model_deadline_ms / 1000,
             )
         except TimeoutError as exc:
             context.emit(
                 "agent_loop.timeout",
-                {"deadline_ms": policy.deadline_ms},
+                {"deadline_ms": policy.model_deadline_ms},
             )
             raise AgentLoopTimeoutError("agent loop deadline exceeded") from exc
 
@@ -255,9 +283,9 @@ class AgentRuntime:
         self,
         context: RuntimeContext,
         *,
-        provider_ids: list[str],
+        routes: list[ResolvedModelRoute],
         messages: list[ModelMessage],
-        tools: list[ToolDefinition],
+        tools: list[ToolDescriptor],
         timeout_ms: int,
         tool_handler: ModelToolHandler | None,
     ) -> tuple[ModelResponse, tuple[dict[str, object], ...]]:
@@ -270,11 +298,11 @@ class AgentRuntime:
                 messages=list(messages),
                 tools=tools,
                 timeout_ms=timeout_ms,
-                model=context.snapshot.model_resolution.model,
+                model=routes[0].model,
             )
             response = await self._complete_with_failover(
                 context,
-                provider_ids,
+                routes,
                 request,
                 timeout_ms,
             )
@@ -326,17 +354,18 @@ class AgentRuntime:
     async def _complete_with_failover(
         self,
         context: RuntimeContext,
-        provider_ids: list[str],
+        routes: list[ResolvedModelRoute],
         request: ModelRequest,
         timeout_ms: int,
     ) -> ModelResponse:
         last_error: ModelProviderError | None = None
-        for provider_id in provider_ids:
+        for route in routes:
+            provider_id = route.provider_ref.id
             try:
                 response = await self._complete_once(
                     context,
                     provider_id,
-                    request,
+                    replace(request, model=route.model),
                     timeout_ms,
                 )
                 context.emit(
@@ -391,13 +420,6 @@ async def _wait_for_provider(
     timeout_ms: int,
 ) -> ModelResponse:
     return await asyncio.wait_for(awaitable, timeout=timeout_ms / 1000)
-
-
-def _provider_chain(policy: ModelPolicy) -> list[str]:
-    # ADR-A007：provider/failover 由裸 string 改为 ExactResourceVersion；取 .id 得插件 id。
-    chain = [policy.provider_ref.id] if policy.provider_ref else []
-    chain.extend(ref.id for ref in policy.failover)
-    return list(dict.fromkeys(chain))
 
 
 def _model_messages(

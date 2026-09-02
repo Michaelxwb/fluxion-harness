@@ -190,15 +190,6 @@ describe("B-03 Admin journey（成功率 ≥95%）", () => {
           const workflowRuns = await screen.findByLabelText("Workflow Runs");
           expect(within(workflowRuns).getAllByText(/trace-100\d/).length).toBeGreaterThan(0);
         }
-      },
-      {
-        name: "运营：队列与 Worker 视图",
-        run: async () => {
-          await user.click(sider().getByText("队列"));
-          await screen.findByLabelText("Queues Panel");
-          await user.click(sider().getByText("Worker"));
-          await screen.findByLabelText("Workers Panel");
-        }
       }
     ]);
 

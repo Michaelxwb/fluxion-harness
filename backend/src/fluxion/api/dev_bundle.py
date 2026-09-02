@@ -97,6 +97,7 @@ def create_dev_bundle_app(
         plugin_summaries=runtime.plugin_summaries,
         service_instance_id=runtime.service_instance_id,
         release_gate=release_gate,
+        credential_resolver=credential_resolver,
     )
     api = ApiDispatcher(
         create_console_app(console, dev_mode=dev_mode, projection_service=projection),

@@ -13,6 +13,7 @@ from fluxion.services.runtime_app import (
     RunRuntimeRequest,
     RuntimeApplicationService,
 )
+from tests.runtime_helpers import seed_agent_definition
 
 
 class BenchmarkFixture(Protocol):
@@ -82,6 +83,7 @@ async def _build_service() -> RuntimeApplicationService:
             version="1",
         )
     )
+    await seed_agent_definition(store, agent_id="assistant", provider_id="dev.echo")
     await service.run(
         RunRuntimeRequest(
             tenant_id="tenant-a",

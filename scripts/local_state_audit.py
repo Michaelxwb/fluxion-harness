@@ -74,7 +74,16 @@ ANNOTATIONS: dict[str, dict[str, str]] = {
     "tools.py": {
         "ToolRuntime._descriptors": "Ephemeral",
         "ToolRuntime._executors": "Ephemeral",
+        # 幂等结果去重缓存（key={tool_id}:{key_field}，进程级；无失效即重复执行幂等）
+        "ToolRuntime._idempotency_cache": "Cache",
+        # 语义校验器注册表（随 ToolRuntime 注入，实例隔离无跨执行泄漏——TASK-004）
+        "ValidatorRegistry._validators": "Ephemeral",
         "module:_semantic_validators": "Ephemeral",
+    },
+    # execution-scoped Provider 解析副本（TASK-010：store-backed provider 叠加在
+    # 本执行副本上，执行结束随 RuntimeContext GC；不 mutate service 级注册）
+    "model_providers.py": {
+        "ScopedModelProviderResolver._scoped": "Ephemeral",
     },
     # Workflow Stub 引擎（G5 覆盖检查项；生产走 DbosWorkflowEngine durable store）
     "workflow.py": {

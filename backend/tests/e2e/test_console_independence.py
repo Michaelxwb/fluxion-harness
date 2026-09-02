@@ -3,12 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from sqlalchemy import select
-from tests.console_helpers import console_stack, create_resource, publish_resource
 
 from fluxion.registry import SQLiteRegistryStore
 from fluxion.registry.schema import publish_records
 from fluxion.resources import ResourceKind
 from fluxion.services.runtime_app import RunRuntimeRequest, RuntimeApplicationService
+from tests.console_helpers import console_stack, create_resource, publish_resource
 
 
 async def test_S_C103_runtime_reads_registry_after_console_shutdown(tmp_path: Path) -> None:
@@ -27,7 +27,7 @@ async def test_S_C103_runtime_reads_registry_after_console_shutdown(tmp_path: Pa
         )
         # TASK-A104：persona/model 在同名 AgentDefinition（console 侧同库种入）。
         from tests.runtime_helpers import seed_agent_definition
-        await seed_agent_definition(stack.store, provider_id="dev.echo")
+        await seed_agent_definition(stack.store, provider_id="dev.echo", model_name="dev")
         assert published.json()["data"]["event_status"] == "pending"
 
     runtime_store = SQLiteRegistryStore(f"sqlite+aiosqlite:///{database}")

@@ -6,13 +6,13 @@ import sys
 from pathlib import Path
 
 import pytest
-from tests.runtime_helpers import publish_resource
 
 from fluxion.registry import SQLiteRegistryStore
 from fluxion.resources import ResourceBinding, ResourceKind
 from fluxion.runtime.secrets import CredentialResolver, LocalEncryptedSecretStore
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.runtime_contracts import RunRuntimeRequest
+from tests.runtime_helpers import publish_resource
 
 TOOL_ID = "mcp__live_lookup__lookup"
 
@@ -88,15 +88,14 @@ async def _seed_live_product(
     await publish_resource(
         store,
         tenant_id="dev",
-        kind=ResourceKind.PLUGIN,
+        kind=ResourceKind.MODEL_PROVIDER,
         resource_id="live-provider",
         version="1",
         spec={
-            "name": "live-provider",
-            "plugin_type": "model_provider",
-            "protocol": "openai_compatible",
+            "protocol": "openai-compatible",
             "base_url": base_url,
-            "model": model,
+            "credential_ref": "secret://dev/live-provider",
+            "default_model": model,
             "request_timeout_ms": 60_000,
             "max_retries": 1,
         },
@@ -151,7 +150,7 @@ async def _seed_live_product(
         },
     )
     for binding_id, resource_type, resource_id, ref in (
-        ("bind-live-provider", ResourceKind.PLUGIN, "live-provider", credential_ref),
+        ("bind-live-provider", ResourceKind.MODEL_PROVIDER, "live-provider", credential_ref),
         ("bind-live-skill", ResourceKind.SKILL, "force-live-lookup", None),
         ("bind-live-mcp", ResourceKind.MCP, "live_lookup", None),
     ):

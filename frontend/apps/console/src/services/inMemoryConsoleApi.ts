@@ -32,29 +32,31 @@ import type {
   WorkflowWorkerSummary
 } from "../types/console";
 import type { P1View } from "../types/navigation";
+import {
+  WORKFLOW_QUEUES,
+  WORKFLOW_RUNS,
+  WORKFLOW_WORKERS,
+  cloneBinding,
+  cloneJson,
+  cloneResource,
+  cloneRun,
+  compareVersionDesc,
+  defaultConsoleSeed,
+  formatDiagnostic,
+  nextVersion,
+  nowIso,
+  p1ViewTitle,
+  page,
+  sameVersion,
+  toSummary,
+  uniqueResourceKeys,
+  validateAgentPublish,
+  type ConsoleSeed
+} from "./inMemoryConsoleSupport";
 import { IN_MEMORY_RESOURCE_SCHEMAS } from "./inMemorySchemas";
 import { validateWorkflowV2, WORKFLOW_V2_SCHEMA } from "./workflowV2";
 
-export interface ConsoleSeed {
-  readonly tenantId: string;
-  readonly actorId: string;
-  readonly resources: readonly ResourceVersion[];
-  readonly bindings: readonly BindingRecord[];
-  readonly credentials: readonly CredentialMetadata[];
-  readonly runs: readonly RunDetail[];
-  readonly audit: readonly AuditRecord[];
-  readonly capabilities?: readonly string[];
-  readonly p1Views?: Partial<Record<P1View, readonly ControlPlaneItem[]>>;
-  readonly p1ViewErrors?: readonly P1View[];
-  readonly p1ViewPending?: readonly P1View[];
-  readonly users?: readonly PlatformUser[];
-  // ---- Phase 5 TASK-006：Eval 实页 seed ----
-  readonly evalSets?: readonly EvalSetSummary[];
-  readonly evalRuns?: readonly EvalRunSummary[];
-  readonly evalSetsError?: boolean;
-  readonly evalRunsError?: boolean;
-  readonly evalTriggerError?: string;
-}
+export type { ConsoleSeed } from "./inMemoryConsoleSupport";
 
 export function createInMemoryConsoleApi(seed: ConsoleSeed = defaultConsoleSeed()): ConsoleApi {
   return new InMemoryConsoleApi(seed);
@@ -207,16 +209,31 @@ class InMemoryConsoleApi implements ConsoleApi {
     return { valid: true, diagnostics: ["校验通过"] };
   }
 
+  async validatePublish(resource: ResourceVersion): Promise<ValidationResult> {
+    // TASK-009 对齐（返工）：与后端 console_resources._agent_reference_issues 同源——
+    // skill/mcp 引用可解析 + model_policy.primary_model_ref 存在 + Skill 依赖闭包
+    // （required_capabilities 须由 tool 类型声明覆盖，同名 Skill 不可顶替）。
+    // tool 引用不查资源：builtin/runtime 工具非版本化资源，与后端语义一致。
+    if (resource.resourceType === "agent_definition") {
+      return validateAgentPublish(
+        resource,
+        (kind) => this.listVisibleResources(kind),
+        (kind, id) => this.latestResource(kind, id)
+      );
+    }
+    return this.validateDraft(resource);
+  }
+
   async publishVersion(resource: ResourceVersion): Promise<PublishResult> {
     const current = this.findVersion(resource.resourceType, resource.resourceId, resource.version);
     if (current.status !== "draft") {
       throw new Error("version conflict");
     }
-    if (current.resourceType === "workflow") {
-      const validation = await this.validateDraft(current);
-      if (!validation.valid) {
-        throw new Error(validation.diagnostics.join("；"));
-      }
+    // 与后端发布链同源（RULE-04/S-04）：发布完整校验 fail-closed，失败不产生
+    // published 版本——in-memory 与真实 HTTP 后端行为一致，避免测试误绿。
+    const validation = await this.validatePublish(current);
+    if (!validation.valid) {
+      throw new Error(validation.diagnostics.join("；"));
     }
     const published = cloneResource({ ...current, status: "published", updatedAt: nowIso() });
     this.resources = this.resources.map((candidate) =>
@@ -478,208 +495,4 @@ class InMemoryConsoleApi implements ConsoleApi {
       ...this.audit
     ];
   }
-}
-
-function formatDiagnostic(
-  diagnostic: WorkflowValidationResultV2["diagnostics"][number]
-): string {
-  return diagnostic.nodeId
-    ? `${diagnostic.nodeId}.${diagnostic.field}: ${diagnostic.message}`
-    : `${diagnostic.field}: ${diagnostic.message}`;
-}
-
-// TASK-002：workflow_run 投影 / 队列 / Worker 运营视图（Phase 3 契约对齐，in-memory 种子）。
-const WORKFLOW_RUNS: readonly WorkflowRunProjection[] = [
-  {
-    runId: "weekly-report:exec-1001",
-    workflowId: "weekly-report",
-    workflowVersion: "v1",
-    executionId: "exec-1001",
-    traceId: "trace-1001",
-    status: "succeeded",
-    nodeStates: {
-      collect: { status: "succeeded" },
-      notify: { status: "succeeded" }
-    },
-    pinnedRefs: [{ id: "weekly-report", kind: "workflow", version: "v1" }],
-    createdAt: "2026-08-28T08:00:00Z",
-    updatedAt: "2026-08-28T08:02:00Z"
-  },
-  {
-    runId: "weekly-report:exec-1002",
-    workflowId: "weekly-report",
-    workflowVersion: "v1",
-    executionId: "exec-1002",
-    traceId: "trace-1002",
-    status: "running",
-    nodeStates: {
-      collect: { status: "succeeded" },
-      review: { status: "running" }
-    },
-    pinnedRefs: [{ id: "weekly-report", kind: "workflow", version: "v1" }],
-    createdAt: "2026-08-29T08:00:00Z",
-    updatedAt: "2026-08-29T08:01:00Z"
-  },
-  {
-    runId: "onboarding:exec-1003",
-    workflowId: "onboarding",
-    workflowVersion: "v2",
-    executionId: "exec-1003",
-    traceId: "trace-1003",
-    status: "failed",
-    nodeStates: {
-      provision: { error: "provider unavailable", status: "failed" }
-    },
-    pinnedRefs: [{ id: "onboarding", kind: "workflow", version: "v2" }],
-    createdAt: "2026-08-27T10:00:00Z",
-    updatedAt: "2026-08-27T10:00:30Z"
-  }
-];
-
-const WORKFLOW_QUEUES: readonly WorkflowQueueSummary[] = [
-  { depth: 3, name: "workflow 主队列", queueId: "workflow-main", workers: 2 },
-  { depth: 0, name: "workflow 低优先级", queueId: "workflow-low", workers: 1 }
-];
-
-const WORKFLOW_WORKERS: readonly WorkflowWorkerSummary[] = [
-  {
-    queues: ["workflow-main"],
-    runningWorkflows: 1,
-    startedAt: "2026-08-29T07:00:00Z",
-    status: "running",
-    workerId: "worker-0"
-  },
-  {
-    queues: ["workflow-main", "workflow-low"],
-    runningWorkflows: 0,
-    startedAt: "2026-08-29T07:00:00Z",
-    status: "idle",
-    workerId: "worker-1"
-  },
-  {
-    queues: [],
-    runningWorkflows: 0,
-    startedAt: "2026-08-28T07:00:00Z",
-    status: "stopped",
-    workerId: "worker-2"
-  }
-];
-
-function p1ViewTitle(view: P1View): string {
-  const titles: Record<P1View, string> = {
-    capabilities: "能力注册",
-    eval: "能力评测",
-    plugin_policy: "插件钩子",
-    runtime_status: "运行时态",
-    users_channels: "用户管理"
-  };
-  return titles[view];
-}
-
-function defaultConsoleSeed(): ConsoleSeed {
-  return {
-    actorId: "admin-001",
-    audit: [],
-    bindings: [],
-    credentials: [
-      {
-        credentialRef: "secret://openai-prod",
-        lastRotatedAt: "2026-08-20T08:00:00Z",
-        provider: "openai",
-        status: "active"
-      }
-    ],
-    resources: [
-      {
-        resourceId: "runtime-profile-main",
-        resourceType: "runtime_profile",
-        spec: { display_name: "Main Runtime", model: "gpt-5", timeout_ms: 3000 },
-        status: "published",
-        tenantId: "tenant-a",
-        updatedAt: "2026-08-23T08:00:00Z",
-        version: "v1",
-        visibility: "tenant"
-      }
-    ],
-    runs: [],
-    tenantId: "tenant-a"
-  };
-}
-
-function uniqueResourceKeys(resources: readonly ResourceVersion[]) {
-  const seen = new Set<string>();
-  return resources.flatMap((resource) => {
-    const key = `${resource.resourceType}:${resource.resourceId}`;
-    if (seen.has(key)) {
-      return [];
-    }
-    seen.add(key);
-    return [{ resourceId: resource.resourceId, resourceType: resource.resourceType }];
-  });
-}
-
-function toSummary(resource: ResourceVersion): ResourceSummary {
-  const name = resource.spec.display_name;
-  return {
-    currentVersion: resource.version,
-    displayName: typeof name === "string" ? name : resource.resourceId,
-    resourceId: resource.resourceId,
-    resourceType: resource.resourceType,
-    status: resource.status,
-    updatedAt: resource.updatedAt,
-    visibility: resource.visibility
-  };
-}
-
-function page<T>(items: readonly T[], request: PageRequest): PageData<T> {
-  const start = (request.page - 1) * request.pageSize;
-  return {
-    items: items.slice(start, start + request.pageSize),
-    page: request.page,
-    pageSize: request.pageSize,
-    total: items.length
-  };
-}
-
-function compareVersionDesc(left: ResourceVersion, right: ResourceVersion): number {
-  return versionNumber(right.version) - versionNumber(left.version);
-}
-
-function versionNumber(version: string): number {
-  const match = /^v(\d+)$/.exec(version);
-  return match ? Number(match[1]) : 0;
-}
-
-function nextVersion(resources: readonly ResourceVersion[]): string {
-  const maxVersion = Math.max(0, ...resources.map((resource) => versionNumber(resource.version)));
-  return `v${maxVersion + 1}`;
-}
-
-function sameVersion(left: ResourceVersion, right: ResourceVersion): boolean {
-  return (
-    left.resourceType === right.resourceType &&
-    left.resourceId === right.resourceId &&
-    left.tenantId === right.tenantId &&
-    left.version === right.version
-  );
-}
-
-function nowIso(): string {
-  return new Date().toISOString();
-}
-
-function cloneResource(resource: ResourceVersion): ResourceVersion {
-  return { ...resource, spec: cloneJson(resource.spec) };
-}
-
-function cloneBinding(binding: BindingRecord): BindingRecord {
-  return { ...binding };
-}
-
-function cloneRun(run: RunDetail): RunDetail {
-  return cloneJson(run);
-}
-
-function cloneJson<T extends JsonRecord | RunDetail>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
 }

@@ -41,14 +41,15 @@ def record_evidence(
 
 
 def write_restate_evidence() -> None:
-    """落盘 evidence JSON（幂等；以最后一次调用时的汇总为准）。"""
+    """增量合并落盘 evidence JSON，避免局部用例覆盖其他口径。"""
     try:
         import importlib.metadata
 
         RESTATE_EVIDENCE["library_version"] = importlib.metadata.version("restate-sdk")
     except Exception:  # noqa: BLE001
         RESTATE_EVIDENCE["library_version"] = "unknown"
-    criteria = RESTATE_EVIDENCE["criteria"]
+    criteria = _merge_existing_criteria(RESTATE_EVIDENCE, EVIDENCE_PATH)
+    RESTATE_EVIDENCE["criteria"] = criteria
     assert isinstance(criteria, dict)
     expected = {"P-CRASH", "P-TIMER", "P-IDEMP", "P-PIN", "P-TIMEOUT", "P-SCALE", "P-SIGNAL"}
     RESTATE_EVIDENCE["all_criteria_passed"] = (
@@ -59,6 +60,24 @@ def write_restate_evidence() -> None:
     EVIDENCE_PATH.write_text(
         json.dumps(RESTATE_EVIDENCE, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+
+
+def _merge_existing_criteria(
+    evidence: dict[str, object], path: Path
+) -> dict[str, object]:
+    current = evidence.get("criteria")
+    merged: dict[str, object] = {}
+    if path.exists():
+        try:
+            prior = json.loads(path.read_text(encoding="utf-8"))
+            prior_criteria = prior.get("criteria", {})
+            if isinstance(prior_criteria, dict):
+                merged.update(prior_criteria)
+        except (json.JSONDecodeError, OSError):
+            pass
+    if isinstance(current, dict):
+        merged.update(current)
+    return merged
 
 
 class WorkerProcess:

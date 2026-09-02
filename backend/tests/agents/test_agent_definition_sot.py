@@ -48,7 +48,7 @@ def _legacy_spec(**overrides: Any) -> dict[str, object]:
         "name": "Support Agent",
         "system_prompt": "You are a support agent.",
         "owner": "builder-1",
-        "model_ref": {"id": "model-1", "version": "1"},
+        "model_policy": {"primary_model_ref": {"id": "model.model-1", "version": "1"}},
         "visibility": "tenant",
         "lifecycle": "draft",
     }
@@ -62,7 +62,7 @@ def _clean_spec(**overrides: Any) -> dict[str, object]:
         "name": "Support Agent",
         "system_prompt": "You are a support agent.",
         "owner": "builder-1",
-        "model_ref": {"id": "model-1", "version": "1"},
+        "model_policy": {"primary_model_ref": {"id": "model.model-1", "version": "1"}},
     }
     spec.update(overrides)
     return spec

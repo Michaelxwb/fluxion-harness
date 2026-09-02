@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pydantic import ConfigDict
+
 from fluxion.agents.definitions import AgentDefinition, CapabilityType
 from fluxion.registry import RegistryReadStore, RegistryStoreError
 from fluxion.resources import (
     ExactResourceVersion,
     ExecutionSnapshot,
+    ModelDefinition,
     ModelPolicy,
+    ResolvedModelRoute,
     ResourceBinding,
     ResourceDefinition,
     ResourceKind,
@@ -18,12 +22,9 @@ from fluxion.resources import (
     TenantResourceCache,
 )
 from fluxion.runtime.context import RequestContext
+from fluxion.runtime.resolver_cache_policy import is_non_sensitive
 
 LATEST_PUBLISHED = "latest-published"
-# 与 ModelPolicy.deadline_ms 默认一致（类属性在 pydantic v2 上不可直接读）。
-_DEFAULT_DEADLINE_MS = 120_000
-
-
 class RuntimeKernelError(RuntimeError):
     code = "runtime_kernel_error"
 
@@ -168,7 +169,7 @@ class ResourceResolver:
     ) -> ResourceDefinition:
         if self._policy.allow_stale_non_sensitive:
             cached = self._cache.get(tenant_id, kind, resource_id, selector)
-            if cached is not None and _is_non_sensitive(cached):
+            if cached is not None and is_non_sensitive(cached):
                 self._degraded_read_count += 1
                 return cached
         raise RegistryUnavailableError("registry unavailable") from exc
@@ -205,16 +206,29 @@ def _capability_selectors(
     return grouped
 
 
+@dataclass(frozen=True, slots=True)
+class AgentModelResolution:
+    """ADR-A008 三层解析结果（build_from_resolved 输入）。
+
+    主模型与 fallback 保留完整 ModelDefinition，防止解析后丢失各自模型名。
+    """
+
+    primary: ModelDefinition
+    fallbacks: list[ModelDefinition]
+
+
 class ExecutionSnapshotBuilder:
     def __init__(self, resolver: ResourceResolver) -> None:
         self._resolver = resolver
 
     async def build(self, request: RequestContext) -> ExecutionSnapshot:
+        if request.runtime_profile_id is None:
+            raise RuntimeKernelError("runtime_profile_id is required")
         profile = await self._resolver.resolve_resource(
             request.tenant_id,
             ResourceKind.RUNTIME_PROFILE,
             request.runtime_profile_id,
-            selector=request.runtime_profile_version_selector,
+            selector=request.runtime_profile_version_selector or LATEST_PUBLISHED,
         )
         agent = await self._resolve_agent_definition(request)
         bindings = await self._effective_bindings(request)
@@ -231,6 +245,7 @@ class ExecutionSnapshotBuilder:
             request,
             runtime_profile=profile,
             agent_definition=agent,
+            model_resolution=await self._resolve_agent_model(request, agent),
             skills=skills,
             bindings=bindings,
             mcp_versions=mcp_versions,
@@ -245,17 +260,55 @@ class ExecutionSnapshotBuilder:
         一次性迁移产物即同名。回退未命中返回 None（纯 bindings 驱动执行）。
         """
         explicit = request.agent_definition_id or request.runtime_profile_id
+        if explicit is None:
+            # 无 agent 坐标：纯 bindings 驱动执行（无 AgentDefinition 快照）
+            return None
         try:
             return await self._resolver.resolve_resource(
                 request.tenant_id,
                 ResourceKind.AGENT_DEFINITION,
                 explicit,
-                selector=request.agent_definition_version_selector,
+                selector=request.agent_definition_version_selector or LATEST_PUBLISHED,
             )
         except ResourceVersionNotFoundError:
             if request.agent_definition_id:
                 raise
             return None
+
+    async def _resolve_agent_model(
+        self, request: RequestContext, agent: ResourceDefinition | None
+    ) -> AgentModelResolution | None:
+        """ADR-A008 三层解析（AgentDefinition.model_policy → ModelDefinition →
+        ProviderDefinition）；任一引用缺失 fail-closed，不回退 legacy 直引。"""
+        if agent is None:
+            return None
+        spec = AgentDefinition.model_validate(agent.spec_json)
+        primary = await self._resolve_model_definition(
+            request, spec.model_policy.primary_model_ref
+        )
+        fallbacks = [
+            await self._resolve_model_definition(request, ref)
+            for ref in spec.model_policy.fallback_model_refs
+        ]
+        return AgentModelResolution(primary=primary, fallbacks=fallbacks)
+
+    async def _resolve_model_definition(
+        self, request: RequestContext, model_ref: ExactResourceVersion
+    ) -> ModelDefinition:
+        resource = await self._resolver.resolve_resource(
+            request.tenant_id,
+            ResourceKind.MODEL_DEFINITION,
+            model_ref.id,
+            selector=model_ref.version,
+        )
+        definition = ModelDefinition.model_validate(resource.spec_json)
+        await self._resolver.resolve_resource(
+            request.tenant_id,
+            ResourceKind.MODEL_PROVIDER,
+            definition.provider_ref.id,
+            selector=definition.provider_ref.version,
+        )
+        return definition
 
     def build_from_resolved(
         self,
@@ -263,6 +316,7 @@ class ExecutionSnapshotBuilder:
         *,
         runtime_profile: ResourceDefinition,
         agent_definition: ResourceDefinition | None = None,
+        model_resolution: AgentModelResolution | None = None,
         skills: list[ResourceDefinition],
         bindings: list[ResourceBinding],
         mcp_versions: dict[str, str] | None = None,
@@ -274,25 +328,31 @@ class ExecutionSnapshotBuilder:
             if agent_definition is not None
             else None
         )
+        if agent_spec is not None and model_resolution is None:
+            raise ValueError(
+                "model_resolution is required when agent_definition is present (ADR-A008)"
+            )
         system_prompt = "" if agent_spec is None else agent_spec.system_prompt.strip()
         instructions = "" if agent_spec is None else agent_spec.instructions.strip()
         if instructions:
             system_prompt = f"{system_prompt}\n\n{instructions}".strip()
-        provider = None if agent_spec is None else agent_spec.model_ref.id
-        provider_ref = (
-            None
-            if agent_spec is None
-            else ExactResourceVersion(id=provider, version=agent_spec.model_ref.version)
-        )
-        # 失败降级链属 runtime mechanics（TASK-011：executor_config 已删，改 typed model_failover）。
-        failover = list(profile_model.model_failover)
-        model_resolution = ModelPolicy(
-            provider_ref=provider_ref,
-            failover=[ExactResourceVersion(id=f, version="latest-published") for f in failover],
-            timeout_ms=profile_model.request_timeout_ms,
+        routes = [] if model_resolution is None else [
+            ResolvedModelRoute(provider_ref=item.provider_ref, model=item.name)
+            for item in [model_resolution.primary, *model_resolution.fallbacks]
+        ]
+        model_policy = ModelPolicy(
+            routes=routes,
+            model_timeout_ms=(
+                60_000
+                if agent_spec is None
+                else agent_spec.model_policy.model_timeout_ms
+            ),
             max_rounds=profile_model.max_rounds,
-            # deadline 下限沿用 ModelPolicy 默认值语义（timeout 过短时不缩短总截止）。
-            deadline_ms=max(profile_model.request_timeout_ms * 2, _DEFAULT_DEADLINE_MS),
+            model_deadline_ms=(
+                120_000
+                if agent_spec is None
+                else agent_spec.model_policy.model_deadline_ms
+            ),
         )
         return ExecutionSnapshot(
             execution_id=request.execution_id,
@@ -304,24 +364,24 @@ class ExecutionSnapshotBuilder:
             agent_definition_version=(
                 None if agent_definition is None else agent_definition.version
             ),
-            model_resolution=model_resolution,
+            model_resolution=model_policy,
             trace_id=request.trace_id,
             system_prompt=system_prompt,
             skill_instructions=_skill_instructions(skills),
             skill_required_capabilities=_skill_required_capabilities(skills),
             skill_versions={skill.id: skill.version for skill in skills},
             mcp_versions=mcp_versions or {},
-            # 主模型 provider 精确版本 pin 来自 AgentDefinition.model_ref
-            # （TASK-A104 前来源=profile.plugin_bindings）。failover 链不自动
-            # 入门槛：进程内注册实现优先；store-backed failover 归 Phase 2
-            # Model policy 域统一处理。
-            plugin_versions=(
-                {} if agent_spec is None else {agent_spec.model_ref.id: agent_spec.model_ref.version}
-            ),
+            # 主 + 回退 provider 精确版本 pin（ADR-A008：经 ModelDefinition
+            # provider_ref 解析）：运行期 store-backed 注册门槛；进程内注册实现
+            # 仍优先（kernel 不依赖具体 provider 实现）。
+            plugin_versions={
+                route.provider_ref.id: route.provider_ref.version for route in routes
+            },
             binding_versions={
                 binding.binding_id: binding.resource_version_selector for binding in bindings
             },
         )
+
     async def _effective_bindings(self, request: RequestContext) -> list[ResourceBinding]:
         user_bindings = await self._resolver.list_bindings(
             tenant_id=request.tenant_id,
@@ -382,7 +442,7 @@ class _SkillSpecView(SkillDefinition):
     定义模型类型化读取；publish 校验仍用严格 SkillDefinition（extra=forbid）。
     """
 
-    model_config = {"extra": "ignore"}
+    model_config = ConfigDict(extra="ignore")
 
 
 def _skill_instructions(skills: list[ResourceDefinition]) -> dict[str, str]:
@@ -437,20 +497,3 @@ def _merge_selector(agent_selector: str, binding_selector: str) -> str:
     if agent_selector != LATEST_PUBLISHED:
         return agent_selector
     return binding_selector
-
-
-def _is_non_sensitive(resource: ResourceDefinition) -> bool:
-    return not _contains_sensitive_ref(resource.spec_json)
-
-
-def _contains_sensitive_ref(value: object) -> bool:
-    if isinstance(value, dict):
-        for key, item in value.items():
-            lowered = str(key).lower()
-            if "secret" in lowered or "credential" in lowered:
-                return True
-            if _contains_sensitive_ref(item):
-                return True
-    if isinstance(value, list):
-        return any(_contains_sensitive_ref(item) for item in value)
-    return False

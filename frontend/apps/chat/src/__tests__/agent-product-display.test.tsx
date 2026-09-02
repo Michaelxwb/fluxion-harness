@@ -41,10 +41,6 @@ describe("TASK-009：Chat 头部产品信息展示", () => {
     expect(await screen.findByText("智能体")).toBeDefined();
     // raw id 允许存在于非视觉层（如 data 属性），但不允许作为可见文本出现在 header
     const header = document.body.querySelector(".chat-header");
-    const owners = Array.from(document.body.querySelectorAll("*"))
-      .filter((el) => el.children.length === 0 && el.textContent === "ghost-agent")
-      .map((el) => `${el.tagName}.${el.className}`);
-    console.log("GHOST_OWNERS:", JSON.stringify(owners));
     expect(header?.textContent).not.toContain("ghost-agent");
     expect(header?.textContent).toContain("智能体");
   });

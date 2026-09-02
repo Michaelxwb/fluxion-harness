@@ -13,7 +13,7 @@ from fluxion.plugins.contracts import (
     PluginManifest,
     PluginType,
     ToolCall,
-    ToolDefinition,
+    ToolDescriptor,
     TrustLevel,
 )
 from fluxion.plugins.loader import LoadedPlugin, PluginLoader, PluginTrustError, TrustPolicy
@@ -46,7 +46,7 @@ __all__ = [
     "PluginType",
     "StubModelProviderPlugin",
     "ToolCall",
-    "ToolDefinition",
+    "ToolDescriptor",
     "TrustLevel",
     "TrustPolicy",
 ]

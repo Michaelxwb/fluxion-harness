@@ -33,6 +33,16 @@ export function createConsoleFixture(versionCount = 3): ConsoleSeed {
             id: "trace-001",
             event: "snapshot.resolved",
             at: "2026-08-23T08:30:01Z"
+          },
+          {
+            id: "trace-002",
+            event: "mcp.tool_called",
+            at: "2026-08-23T08:30:02Z"
+          },
+          {
+            id: "trace-003",
+            event: "model.completed",
+            at: "2026-08-23T08:30:03Z"
           }
         ]
       }
@@ -70,6 +80,17 @@ function createResourceVersions(versionCount: number): ConsoleSeed["resources"] 
   });
   return [
     ...versions,
+    // ADR-A008：模型三层链 fixture——ModelDefinition（模型身份 + provider 映射）。
+    {
+      resourceType: "model_definition" as const,
+      resourceId: "model.default",
+      tenantId: "tenant-a",
+      version: "1",
+      status: "published" as const,
+      visibility: "tenant" as const,
+      spec: { name: "default", provider_ref: { id: "wire", version: "1" } },
+      updatedAt: "2026-08-23T08:00:00Z"
+    },
     // closure TASK-010：签发选择器数据源切 agent_definition——fixture 需提供。
     {
       resourceType: "agent_definition" as const,
@@ -83,7 +104,10 @@ function createResourceVersions(versionCount: number): ConsoleSeed["resources"] 
         display_name: "assistant",
         system_prompt: "fixture",
         owner: "fixture",
-        model_ref: { id: "wire", version: "1" },
+        model_policy: {
+          primary_model_ref: { id: "model.default", version: "1" },
+          fallback_model_refs: []
+        },
         capabilities: []
       },
       updatedAt: "2026-08-23T08:00:00Z"

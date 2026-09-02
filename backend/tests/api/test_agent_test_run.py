@@ -17,21 +17,18 @@ import time
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from tests.console_helpers import console_stack, tenant_headers
 
 from fluxion.api.console import create_app as create_console_app
 from fluxion.registry import RegistryStore, SQLiteRegistryStore
 from fluxion.resources import (
     ResourceBinding,
-    ResourceDefinition,
     ResourceKind,
-    ResourceStatus,
-    ResourceVisibility,
     SubjectType,
 )
 from fluxion.runtime.secrets import CredentialResolver, LocalEncryptedSecretStore
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.runtime_app import RuntimeApplicationService
+from tests.console_helpers import console_stack, tenant_headers
 
 DEAD_BASE_URL = "http://127.0.0.1:9/v1"  # discard 协议端口，本机必关
 SECRET_PLAINTEXT = "sk-live-TASK005-sentinel"
@@ -62,34 +59,28 @@ async def _seed_test_run_product(store: RegistryStore) -> None:
         version="1",
         spec={"request_timeout_ms": 30_000, "max_retries": 1},
     )
-    await seed_agent_definition(store, provider_id="dead", system_prompt="你是测试代理。")
-
-    await store.put(
-        ResourceDefinition(
-            tenant_id="tenant-a",
-            kind=ResourceKind.PLUGIN,
-            id="dead",
-            version="1",
-            status=ResourceStatus.DRAFT,
-            visibility=ResourceVisibility.PRIVATE,
-            spec_json={
-                "plugin_type": "model_provider",
-                "protocol": "openai_compatible",
-                "base_url": DEAD_BASE_URL,
-                "model": "boom",
-                "request_timeout_ms": 100,
-                "max_retries": 1,
-                "credential_ref": "secret://tenant-a/dead-key",
-            },
-        )
+    await publish_resource(
+        store,
+        tenant_id="tenant-a",
+        kind=ResourceKind.MODEL_PROVIDER,
+        resource_id="dead",
+        version="1",
+        spec={
+            "protocol": "openai-compatible",
+            "base_url": DEAD_BASE_URL,
+            "default_model": "boom",
+            "request_timeout_ms": 100,
+            "max_retries": 1,
+            "credential_ref": "secret://tenant-a/dead-key",
+        },
     )
-    await store.publish(ResourceKind.PLUGIN, "dead", tenant_id="tenant-a", version="1")
+    await seed_agent_definition(store, provider_id="dead", system_prompt="你是测试代理。")
     binding = ResourceBinding(
         binding_id="binding-dead-key",
         tenant_id="tenant-a",
         subject_type=SubjectType.USER,
         subject_id="studio-test:admin-a",
-        resource_type=ResourceKind.PLUGIN,
+        resource_type=ResourceKind.MODEL_PROVIDER,
         resource_id="dead",
         resource_version_selector="1",
         credential_ref="secret://tenant-a/dead-key",

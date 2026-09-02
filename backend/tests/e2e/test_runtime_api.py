@@ -30,7 +30,7 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
             )
         )
         from tests.runtime_helpers import seed_agent_definition
-        await seed_agent_definition(store, provider_id="dev.echo")
+        await seed_agent_definition(store, provider_id="dev.echo", model_name="dev")
 
         await service.publish_runtime_profile(
             PublishRuntimeProfileRequest(

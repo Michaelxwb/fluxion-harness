@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import pytest
-from tests.console_helpers import console_stack, create_resource, publish_resource
 
 from fluxion.resources import ResourceKind
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.runtime_contracts import RunRuntimeRequest
+from tests.console_helpers import console_stack, create_resource, publish_resource
 
 
 @pytest.mark.asyncio
@@ -25,7 +25,11 @@ async def test_S_C109_console_resource_contract_is_runtime_compatible() -> None:
         )
         # TASK-A104：persona/model 在同名 AgentDefinition。
         from tests.runtime_helpers import seed_agent_definition
-        await seed_agent_definition(stack.store, provider_id="dev.echo")
+        # ADR-A008：模型名显式取自 ModelDefinition.name（三层链）——
+        # 运行时输出前缀即模型名，不再回退 Provider 默认模型。
+        await seed_agent_definition(
+            stack.store, provider_id="dev.echo", model_name="dev"
+        )
 
         runtime = RuntimeApplicationService.create_dev_bundle(stack.store)
         result = await runtime.run(

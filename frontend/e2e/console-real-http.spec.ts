@@ -8,23 +8,26 @@ import { createAndPublishResource, gotoResourcesPage } from "./helpers";
  */
 
 test("S-P13-05 Console production bundle persists real HTTP operations", async ({ page }) => {
-  const apiResponses: string[] = [];
-  page.on("response", (response) => {
-    if (response.url().includes("/api/v1/") && response.headers()["x-request-id"]) {
-      apiResponses.push(response.url());
-    }
-  });
-
   await gotoResourcesPage(page);
   await createAndPublishResource(page, "runtime_profile", "persisted-profile", {
     request_timeout_ms: 30000,
     max_retries: 1
   });
 
-  // 刷新后资源仍在（持久化真实 HTTP 操作）——列表行（详情面板/多处出现取其一）
+  // 刷新后资源仍在（持久化真实 HTTP 操作）。FEAT-F02 领域独立列表页后
+  // 智能体目录只展示 AgentDefinition（runtime_profile 不再混入万能列表），
+  // 持久化断言改经 API GET 回读（真实 HTTP 边界不变）。
   await page.reload();
-  await expect(page.getByText("persisted-profile").first()).toBeVisible();
-  expect(apiResponses.some((url) => url.includes("/api/v1/resources/runtime_profile"))).toBe(true);
+  const persisted = await page.request.get(
+    "/api/v1/resources/runtime_profile/persisted-profile"
+  );
+  expect(persisted.ok(), await persisted.text()).toBeTruthy();
+  expect(((await persisted.json()) as { data: { resource_id: string } }).data.resource_id).toBe(
+    "persisted-profile"
+  );
+  // APIRequestContext（page.request）的响应不经过 page "response" 事件，统一
+  // request_id 语义改在响应头上直接断言（envelope 全量校验见下一用例）。
+  expect(persisted.headers()["x-request-id"]).toBeTruthy();
 });
 
 test("S-P13-05 Console JSON API uses unified envelope with request_id", async ({ page }) => {

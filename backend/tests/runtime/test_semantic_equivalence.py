@@ -11,16 +11,20 @@ RuntimeProfile/AgentDefinition，生成一致 ExecutionSnapshot；Snapshot froze
 from __future__ import annotations
 
 import pytest
-from tests.runtime_helpers import publish_resource, seed_agent_definition, seed_skill
 
-from fluxion.agents.definitions import AgentDefinition
+from fluxion.agents.definitions import AgentDefinition, AgentModelPolicy
 from fluxion.registry import SQLiteRegistryStore
-from fluxion.resources import ResourceKind
+from fluxion.resources import ExactResourceVersion, ResourceKind
 from fluxion.runtime.agent import AgentRuntime
 from fluxion.runtime.context import RequestContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore
 from fluxion.runtime.resolver import ResourceResolver
 from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
+from tests.runtime_helpers import (
+    publish_resource,
+    seed_model_definition,
+    seed_skill,
+)
 
 
 def _stack(store: SQLiteRegistryStore) -> tuple[AgentRuntime, ResourceResolver]:
@@ -46,6 +50,8 @@ async def _seed_bundle(store: SQLiteRegistryStore) -> None:
     """发布完整引用链：mechanics profile + agent(skill cap) + skill 资源。"""
     from fluxion.resources import ResourceDefinition, ResourceStatus
 
+    # ADR-A008：agent.model_policy 指向 ModelDefinition（model.test）
+    await seed_model_definition(store, tenant_id="tenant-a", provider_id="test")
     await publish_resource(
         store,
         tenant_id="tenant-a",
@@ -65,7 +71,7 @@ async def _seed_bundle(store: SQLiteRegistryStore) -> None:
             description="equivalence fixture",
             system_prompt="保持严谨。",
             owner="fixture",
-            model_ref={"id": "test", "version": "1"},
+            model_policy=AgentModelPolicy(primary_model_ref=ExactResourceVersion(id="model.test", version="1")),
             capabilities=[
                 {"capability_ref": "search", "version_pin": "2", "type": "skill"}
             ],
@@ -106,7 +112,7 @@ async def test_be_s_03_two_pods_resolve_identical_snapshots(tmp_path) -> None:
         # PRD §4.3 pin 核对（Phase 1 已覆盖子集）。
         assert snap_a.runtime_profile_version == "1"
         assert snap_a.agent_definition_id == "assistant"
-        assert snap_a.model_resolution.provider_ref.id == "test"
+        assert snap_a.model_resolution.routes[0].provider_ref.id == "test"
         assert snap_a.skill_versions == {"search": "2"}
         assert snap_a.system_prompt == "保持严谨。"
 
@@ -152,7 +158,7 @@ async def test_be_b_01_pinned_agent_survives_hot_publish_of_v2(tmp_path) -> None
                 description="equivalence fixture",
                 system_prompt="v2 严谨提示。",
                 owner="fixture",
-                model_ref={"id": "test", "version": "1"},
+                model_policy=AgentModelPolicy(primary_model_ref=ExactResourceVersion(id="model.test", version="1")),
                 capabilities=[
                     {"capability_ref": "search", "version_pin": "2", "type": "skill"}
                 ],

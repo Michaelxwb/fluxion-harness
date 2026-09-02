@@ -1,10 +1,10 @@
-"""ADR-EXT-001 TASK-003 验收测试：TOOL_PROVIDER plugin 的 tool 经 Capability Contract
+"""ADR-EXT-001 TASK-003 验收测试：TOOL_EXECUTOR plugin 的 tool 经 Capability Contract
 解析，dispatch 到真实 ToolRuntime。
 
 S-02（integration，RULE-fluxion-workflow-001：Tool 是 Agent-facing Adapter，业务在 Capability）：
 
 - 真实边界 1：`ToolProvider.capabilities()` → `CapabilityDescriptor`（真实 PluginLoader.load
-  + 真实 TOOL_PROVIDER plugin 实现 CapabilityProvider 协议，非 mock）。
+  + 真实 TOOL_EXECUTOR plugin 实现 CapabilityProvider 协议，非 mock）。
 - 真实边界 2：`ToolRuntime` dispatch（真实 ToolRuntime.register/call + 真实 _execute +
   真实 emit tool.policy_decision / tool.completed）。
 - 桥接 adapter 为测试装配（reference binding）：把 LoadedPlugin.capabilities 的每个
@@ -33,7 +33,6 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 
 import pytest
-from tests.runtime_helpers import minimal_tool_context
 
 from fluxion.plugins.contracts import (
     CapabilityDescriptor,
@@ -48,13 +47,14 @@ from fluxion.plugins.contracts import (
 from fluxion.plugins.loader import PluginLoader
 from fluxion.runtime.context import RuntimeContext
 from fluxion.runtime.tools import ToolDescriptor, ToolResultStatus, ToolRuntime
+from tests.runtime_helpers import minimal_tool_context
 
 
 def _manifest(plugin_id: str) -> PluginManifest:
     return PluginManifest(
         plugin_id=plugin_id,
         version="1",
-        plugin_type=PluginType.TOOL_PROVIDER,
+        plugin_type=PluginType.TOOL_EXECUTOR,
         entrypoint=f"tests.{plugin_id}:Plugin",
         trust_level=TrustLevel.TRUSTED,
         permissions=[],
@@ -64,11 +64,11 @@ def _manifest(plugin_id: str) -> PluginManifest:
     )
 
 
-# ---- reference TOOL_PROVIDER plugin（test double，实现 Protocol 真实方法）----
+# ---- reference TOOL_EXECUTOR plugin（test double，实现 Protocol 真实方法）----
 
 
 class _EchoToolPlugin:
-    """reference TOOL_PROVIDER plugin：经 capabilities() 声明一个 echo capability，
+    """reference TOOL_EXECUTOR plugin：经 capabilities() 声明一个 echo capability，
     execute() 承载业务（Capability 的 reference 占位；design 未定义独立可执行 Capability
     契约，完整 Capability 执行层分离归 Phase 5 TASK-E501）。"""
 

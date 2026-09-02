@@ -1,19 +1,14 @@
 export type P1View =
   | "users_channels"
   | "plugin_policy"
-  | "capabilities"
-  | "eval"
-  | "runtime_status";
+  | "capabilities";
 
 export type ConsoleView =
   | "overview"
-  | "agent_studio"
-  | "platform_runtime_profiles"
   | "platform_secrets"
   | "platform_models"
   | "policies"
   | "capabilities"
-  | "platform_assets"
   | "resources"
   | "workflows"
   | "bindings"
@@ -24,9 +19,7 @@ export type ConsoleView =
 const p1Views: readonly P1View[] = [
   "users_channels",
   "plugin_policy",
-  "capabilities",
-  "eval",
-  "runtime_status"
+  "capabilities"
 ];
 
 export function isP1View(value: ConsoleView): value is P1View {
@@ -36,13 +29,10 @@ export function isP1View(value: ConsoleView): value is P1View {
 export function isConsoleView(value: string): value is ConsoleView {
   return (
     value === "overview" ||
-    value === "agent_studio" ||
-    value === "platform_runtime_profiles" ||
     value === "platform_secrets" ||
     value === "platform_models" ||
     value === "policies" ||
     value === "capabilities" ||
-    value === "platform_assets" ||
     value === "resources" ||
     value === "workflows" ||
     value === "bindings" ||
@@ -55,24 +45,21 @@ export function isConsoleView(value: string): value is ConsoleView {
 /**
  * TASK-004（RISK-P4-03）：state 导航 → Router 迁移的 `ConsoleView` ↔ 路径映射。
  * IA 对齐 design §3.2（/overview、/build/*、/users、/governance/*、/operations/*、/platform/*）；
- * 视图语义保持不变，测试/深链继续以 ConsoleView 寻址。
+ * agent-studio/eval/queues/workers/runtime-status/runtime-profiles/assets 已随页面
+ * 移除退出映射（TASK-016 返工）。`resources` 保留为智能体目录的 legacy 别名
+ * （迁移前 toConsoleView 默认视图，测试/深链兼容）。
  */
 const VIEW_PATHS: Readonly<Record<ConsoleView, string>> = {
-  agent_studio: "/build/agent-studio",
   audit: "/governance/audit",
   bindings: "/governance/bindings",
   capabilities: "/build/capabilities",
-  eval: "/build/eval",
   overview: "/overview",
-  platform_assets: "/platform/assets",
   platform_models: "/platform/models",
-  platform_runtime_profiles: "/platform/runtime-profiles",
-  platform_secrets: "/platform/secrets",
+  platform_secrets: "/platform/credentials",
   plugin_policy: "/governance/plugin-policy",
   policies: "/governance/policies",
   resources: "/build/agents",
   runs: "/operations/runs",
-  runtime_status: "/operations/runtime-status",
   users_channels: "/users",
   workflows: "/build/workflows"
 };
@@ -83,6 +70,6 @@ export function viewToPath(view: ConsoleView): string {
 
 export function pathToView(path: string): ConsoleView {
   const match = Object.entries(VIEW_PATHS).find(([, route]) => route === path);
-  // 未匹配路径回退 resources（对齐迁移前 toConsoleView 的默认行为）
+  // 未匹配路径回退智能体目录（对齐迁移前 toConsoleView 的默认行为）
   return match ? (match[0] as ConsoleView) : "resources";
 }

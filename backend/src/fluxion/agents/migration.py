@@ -7,10 +7,16 @@ from dataclasses import dataclass
 
 from pydantic import ValidationError
 
-from fluxion.agents.definitions import AgentCapabilityReference, AgentDefinition, CapabilityType
+from fluxion.agents.definitions import (
+    AgentCapabilityReference,
+    AgentDefinition,
+    AgentModelPolicy,
+    CapabilityType,
+)
 from fluxion.registry import RegistryStore
 from fluxion.resources import (
     ExactResourceVersion,
+    ModelDefinition,
     ResourceDefinition,
     ResourceKind,
     ResourceStatus,
@@ -53,14 +59,35 @@ async def migrate_runtime_profiles(
         if _is_mechanics_profile(source):
             skipped += 1
             continue
-        mechanics, agent = _convert_profile(source, owner)
+        mechanics, model_definitions, agent = _convert_profile(source, owner)
+        for model_definition in model_definitions:
+            await _require_published_provider(store, model_definition)
         await _persist_target(store, mechanics)
+        for model_definition in model_definitions:
+            await _persist_target(store, model_definition)
         await _persist_target(store, agent)
-        _verify_conversion(source, mechanics, agent)
+        _verify_conversion(source, mechanics, model_definitions, agent)
         records.append(
             MigrationRecord(agent.id, agent.version, mechanics.id, mechanics.version)
         )
     return MigrationReport(tuple(records), len(records), skipped)
+
+
+async def _require_published_provider(
+    store: RegistryStore, model_definition: ResourceDefinition
+) -> None:
+    model = ModelDefinition.model_validate(model_definition.spec_json)
+    provider = await store.get(
+        ResourceKind.MODEL_PROVIDER,
+        model.provider_ref.id,
+        tenant_id=model_definition.tenant_id,
+        version=model.provider_ref.version,
+    )
+    if provider is None or provider.status is not ResourceStatus.PUBLISHED:
+        raise MigrationConsistencyError(
+            "model provider must be migrated and published before RuntimeProfile: "
+            f"{model.provider_ref.id}@{model.provider_ref.version}"
+        )
 
 
 async def _published_profiles(
@@ -91,7 +118,7 @@ def _is_mechanics_profile(source: ResourceDefinition) -> bool:
 
 def _convert_profile(
     source: ResourceDefinition, owner: str
-) -> tuple[ResourceDefinition, ResourceDefinition]:
+) -> tuple[ResourceDefinition, tuple[ResourceDefinition, ...], ResourceDefinition]:
     legacy = source.spec_json
     policy = _mapping(legacy.get("model_policy"), "model_policy")
     provider = _required_text(policy.get("provider"), "model_policy.provider")
@@ -106,21 +133,57 @@ def _convert_profile(
         memory_budget_mb=_bounded_int(
             legacy.get("memory_budget_mb", 512), "memory_budget_mb"
         ),
-        model_failover=_legacy_string_list(legacy_executor.get("model_failover")),
         bootstrapped_from=_optional_text(legacy_executor.get("bootstrapped_from")),
     )
-    agent_spec = _agent_spec(source, owner, provider, prompt, mechanics_version)
+    model_name = _optional_text(policy.get("model")) or provider
+    fallback_providers = _legacy_string_list(legacy_executor.get("model_failover"))
+    model_definitions = (
+        _model_definition(source, provider, model_name),
+        *(
+            _model_definition(source, fallback, fallback)
+            for fallback in fallback_providers
+        ),
+    )
+    agent_spec = _agent_spec(
+        source,
+        owner,
+        model_definitions,
+        prompt,
+        mechanics_version,
+        model_timeout_ms=_bounded_int(policy.get("timeout_ms", 60_000), "timeout_ms"),
+    )
     mechanics = _definition(source, mechanics_version, mechanics_spec.model_dump(mode="json"))
     agent = _agent_definition(source, agent_spec.model_dump(mode="json"))
-    return mechanics, agent
+    return mechanics, model_definitions, agent
+
+
+def _model_definition(
+    source: ResourceDefinition, provider: str, model_name: str
+) -> ResourceDefinition:
+    """ADR-A008：legacy provider 直引转为 ModelDefinition 资源（确定性
+    id=model.{provider}@source.version，幂等可重复执行）。"""
+    spec = ModelDefinition(
+        name=model_name,
+        provider_ref=ExactResourceVersion(id=provider, version=source.version),
+    )
+    return ResourceDefinition(
+        kind=ResourceKind.MODEL_DEFINITION,
+        id=f"model.{provider}",
+        tenant_id=source.tenant_id,
+        version=source.version,
+        status=ResourceStatus.PUBLISHED,
+        visibility=source.visibility,
+        spec_json=spec.model_dump(mode="json"),
+    )
 
 
 def _agent_spec(
     source: ResourceDefinition,
     owner: str,
-    provider: str,
+    model_definitions: tuple[ResourceDefinition, ...],
     prompt: str,
     mechanics_version: str,
+    model_timeout_ms: int,
 ) -> AgentDefinition:
     legacy = source.spec_json
     return AgentDefinition(
@@ -128,7 +191,17 @@ def _agent_spec(
         description="由 RuntimeProfile 一次性迁移生成",
         system_prompt=prompt,
         owner=owner,
-        model_ref=ExactResourceVersion(id=provider, version=source.version),
+        model_policy=AgentModelPolicy(
+            primary_model_ref=ExactResourceVersion(
+                id=model_definitions[0].id, version=model_definitions[0].version
+            ),
+            fallback_model_refs=[
+                ExactResourceVersion(id=item.id, version=item.version)
+                for item in model_definitions[1:]
+            ],
+            model_timeout_ms=model_timeout_ms,
+            model_deadline_ms=max(model_timeout_ms * 2, 120_000),
+        ),
         runtime_profile_ref=ExactResourceVersion(id=source.id, version=mechanics_version),
         capabilities=_legacy_capabilities(legacy, source.version),
     )
@@ -239,9 +312,12 @@ async def _persist_target(store: RegistryStore, target: ResourceDefinition) -> N
 def _verify_conversion(
     source: ResourceDefinition,
     mechanics: ResourceDefinition,
+    model_definitions: tuple[ResourceDefinition, ...],
     agent: ResourceDefinition,
 ) -> None:
     RuntimeProfile.model_validate(mechanics.spec_json)
+    for model_definition in model_definitions:
+        ModelDefinition.model_validate(model_definition.spec_json)
     definition = AgentDefinition.model_validate(agent.spec_json)
     if definition.system_prompt != source.spec_json.get("prompt"):
         raise MigrationConsistencyError("system prompt was not preserved")
@@ -251,6 +327,13 @@ def _verify_conversion(
     actual = (definition.runtime_profile_ref.id, definition.runtime_profile_ref.version)
     if actual != expected or set(RuntimeProfile.model_fields) != set(mechanics.spec_json):
         raise MigrationConsistencyError("generated RuntimeProfile reference is inconsistent")
+    model_expected = (model_definitions[0].id, model_definitions[0].version)
+    model_actual = (
+        definition.model_policy.primary_model_ref.id,
+        definition.model_policy.primary_model_ref.version,
+    )
+    if model_actual != model_expected:
+        raise MigrationConsistencyError("generated ModelDefinition reference is inconsistent")
 
 
 def _mapping(value: object, field: str) -> Mapping[str, object]:

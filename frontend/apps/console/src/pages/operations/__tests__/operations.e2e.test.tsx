@@ -1,8 +1,9 @@
 /**
- * TASK-014 验收（S-13：C407 Operations 升级——runs trace 关联 + queues/workers 视图）。
+ * TASK-014（返工）：S-13 Operations——执行记录（runs）trace 关联。
  *
- * 真实边界：Browser → Router → Service（真实 in-memory ConsoleApi：listWorkflowRuns/
- * listQueues/listWorkers——Phase 3 投影契约 + ⛳依赖缺口 in-memory 先行）→ UI。
+ * 真实边界：Browser → Router → Service（真实 in-memory ConsoleApi：listWorkflowRuns
+ * ——Phase 3 投影契约）→ UI。Queue/Worker 页面已随 IA 减法移除（FEAT-F08：
+ * 积压归入执行记录/平台概览），深链回退概览。
  */
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -23,21 +24,15 @@ function overrideApi(base: ConsoleApi, overrides: Partial<ConsoleApi>): ConsoleA
 
 function renderOpsAt(path: string, api?: ConsoleApi) {
   const user = userEvent.setup();
-  const view = render(
+  render(
     <MemoryRouter initialEntries={[path]}>
-      <ConsoleApp api={api ?? createInMemoryConsoleApi(createConsoleFixture())} initialView="runs" />
+      <ConsoleApp api={api ?? createInMemoryConsoleApi(createConsoleFixture())} />
     </MemoryRouter>
   );
-  return { ...view, user };
+  return { user };
 }
 
-function sider() {
-  const nav = document.querySelector(".app-sidebar");
-  expect(nav).not.toBeNull();
-  return within(nav as HTMLElement);
-}
-
-describe("S-13 Operations 三视图", () => {
+describe("S-13 Operations 执行记录", () => {
   it("执行记录含 trace 关联（workflow_run 投影）", async () => {
     renderOpsAt("/operations/runs");
 
@@ -47,36 +42,12 @@ describe("S-13 Operations 三视图", () => {
     expect(within(workflowRuns).getAllByText(/trace-100\d/).length).toBeGreaterThanOrEqual(3);
     expect(within(workflowRuns).getByText("succeeded")).toBeInTheDocument();
     expect(within(workflowRuns).getByText("running")).toBeInTheDocument();
+    const infrastructure = await screen.findByLabelText("运行基础设施");
+    expect(within(infrastructure).getByText("workflow 主队列")).toBeInTheDocument();
+    expect(within(infrastructure).getByText("worker-0")).toBeInTheDocument();
   });
 
-  it("切换队列视图：展示状态与数量", async () => {
-    const { user } = renderOpsAt("/operations/runs");
-
-    await user.click(sider().getByText("运营"));
-    await user.click(sider().getByText("队列"));
-    await screen.findByRole("heading", { name: "工作流队列" });
-
-    const queues = await screen.findByLabelText("Queues Panel");
-    expect(within(queues).getByText("workflow-main")).toBeInTheDocument();
-    expect(within(queues).getByText("3")).toBeInTheDocument(); // depth
-    expect(within(queues).getByText("2")).toBeInTheDocument(); // workers 数
-  });
-
-  it("切换 Worker 视图：展示状态与运行数", async () => {
-    const { user } = renderOpsAt("/operations/runs");
-
-    await user.click(sider().getByText("运营"));
-    await user.click(sider().getByText("Worker"));
-    await screen.findByRole("heading", { name: "运行 Worker" });
-
-    const workers = await screen.findByLabelText("Workers Panel");
-    expect(within(workers).getByText("worker-0")).toBeInTheDocument();
-    expect(within(workers).getByText("running")).toBeInTheDocument();
-    expect(within(workers).getByText("idle")).toBeInTheDocument();
-    expect(within(workers).getByText("workflow-main")).toBeInTheDocument();
-  });
-
-  it("四态：无运行中队列/Worker 空态 + runs 加载失败重试", async () => {
+  it("四态：runs 加载失败 → ErrorBanner + 重试恢复", async () => {
     const base = createInMemoryConsoleApi(createConsoleFixture());
     let failed = false;
     const api = overrideApi(base, {
@@ -86,9 +57,7 @@ describe("S-13 Operations 三视图", () => {
           throw new Error("runs unavailable");
         }
         return base.listWorkflowRuns();
-      },
-      listQueues: async () => [],
-      listWorkers: async () => []
+      }
     });
 
     const { user } = renderOpsAt("/operations/runs", api);
@@ -97,11 +66,11 @@ describe("S-13 Operations 三视图", () => {
     await user.click(screen.getByRole("button", { name: "重试" }));
     const workflowRuns = await screen.findByLabelText("Workflow Runs");
     expect(within(workflowRuns).getByText("weekly-report:exec-1001")).toBeInTheDocument();
+  });
 
-    await user.click(sider().getByText("运营"));
-    await user.click(sider().getByText("队列"));
-    await screen.findByText("无运行中队列");
-    await user.click(sider().getByText("Worker"));
-    await screen.findByText("无运行中 Worker");
+  it("Queue/Worker 深链已移除：未匹配路径回退概览（FEAT-F08）", async () => {
+    renderOpsAt("/operations/queues");
+    await screen.findByRole("heading", { name: "概览" });
+    expect(screen.queryByRole("heading", { name: "工作流队列" })).toBeNull();
   });
 });

@@ -36,19 +36,14 @@ function renderForm(schema: JsonSchemaNode): Harness {
 describe("RS7 specFromSchema", () => {
   it("按 schema 默认值预填，必填字符串留空，无默认的数组/可选字段不落键", () => {
     const spec = specFromSchema(runtimeProfileSchema);
-    expect(spec.prompt).toBe("");
-    expect(spec.model_policy).toEqual({
-      timeout_ms: 60000,
-      deadline_ms: 120000,
-      max_rounds: 8
-    });
-    expect("allowed_skills" in spec).toBe(false);
-    expect("guardrail_policy" in spec).toBe(false);
-    expect("display_name" in spec).toBe(false);
+    expect(spec.max_rounds).toBe(8);
+    expect(spec.concurrency).toBe(1);
+    expect(spec.memory_budget_mb).toBe(512);
+    expect("bootstrapped_from" in spec).toBe(false);
   });
 
-  it("默认值直接落在顶层（plugin 的 request_timeout_ms/max_retries）", () => {
-    const spec = specFromSchema(IN_MEMORY_RESOURCE_SCHEMAS.plugin);
+  it("默认值直接落在顶层（Provider 的 request_timeout_ms/max_retries）", () => {
+    const spec = specFromSchema(IN_MEMORY_RESOURCE_SCHEMAS.model_provider);
     expect(spec.request_timeout_ms).toBe(60000);
     expect(spec.max_retries).toBe(1);
   });
@@ -57,20 +52,20 @@ describe("RS7 specFromSchema", () => {
 describe("RS7 SchemaForm 渲染", () => {
   it("必填字段带星号标记，description 作为说明展示", () => {
     renderForm(runtimeProfileSchema);
-    expect(screen.getByText("*")).toBeInTheDocument();
-    expect(screen.getByText("系统提示词")).toBeInTheDocument();
-    expect(screen.getByText("System Prompt：助手的人格与行为准则")).toBeInTheDocument();
+    expect(screen.getAllByText("*")).toHaveLength(2);
+    expect(screen.getByText("请求超时")).toBeInTheDocument();
+    expect(screen.getByText("外部调用超时（毫秒）")).toBeInTheDocument();
   });
 
-  it("$ref 嵌套对象（model_policy）的字段可编辑", async () => {
+  it("运行机制数值字段可编辑", async () => {
     const user = userEvent.setup();
     const { changes } = renderForm(runtimeProfileSchema);
 
-    const timeout = screen.getByDisplayValue("60000");
-    await user.clear(timeout);
-    await user.type(timeout, "30000");
+    const maxRounds = screen.getByDisplayValue("8");
+    await user.clear(maxRounds);
+    await user.type(maxRounds, "12");
 
-    expect(changes.at(-1)?.model_policy).toMatchObject({ timeout_ms: 30000, deadline_ms: 120000 });
+    expect(changes.at(-1)?.max_rounds).toBe(12);
   });
 
   it("枚举字段渲染为下拉选择并回写 spec", async () => {
@@ -109,22 +104,21 @@ describe("RS7 SchemaForm 渲染", () => {
     // pydantic 对 Optional 字段输出 anyOf:[{type:string},{type:null}]；
     // resolveNode 须取首个非 null 子模式，否则退化成「暂不支持的字段类型」。
     const user = userEvent.setup();
-    const { changes } = renderForm(runtimeProfileSchema);
-    const displayName = screen.getByLabelText("展示名");
-    await user.type(displayName, "我的运行态");
-    expect(changes.at(-1)?.display_name).toBe("我的运行态");
+    const { changes } = renderForm(IN_MEMORY_RESOURCE_SCHEMAS.model_provider);
+    const defaultModel = screen.getByLabelText("默认模型");
+    await user.type(defaultModel, "deepseek-chat");
+    expect(changes.at(-1)?.default_model).toBe("deepseek-chat");
   });
 
   it("const（单值 Literal）字段预填固定值并渲染为下拉", () => {
     // pydantic 对单值 Literal 输出 const；specFromSchema 预填固定值、
     // widgetKind 按 enum 渲染为单选项下拉，避免用户手输固定值。
-    const spec = specFromSchema(IN_MEMORY_RESOURCE_SCHEMAS.plugin);
-    expect(spec.plugin_type).toBe("model_provider");
-    expect(spec.protocol).toBe("openai_compatible");
-    renderForm(IN_MEMORY_RESOURCE_SCHEMAS.plugin);
-    // plugin_type / protocol 均为单值 const → 渲染为下拉（2 个 combobox），
+    const spec = specFromSchema(IN_MEMORY_RESOURCE_SCHEMAS.model_provider);
+    expect(spec.protocol).toBe("openai-compatible");
+    renderForm(IN_MEMORY_RESOURCE_SCHEMAS.model_provider);
+    // protocol 为单值 const → 渲染为下拉，
     // 而非退化成「暂不支持的字段类型」。
-    expect(screen.getAllByRole("combobox")).toHaveLength(2);
+    expect(screen.getAllByRole("combobox")).toHaveLength(1);
     expect(screen.queryByText("暂不支持的字段类型")).not.toBeInTheDocument();
   });
 });

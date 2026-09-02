@@ -32,7 +32,8 @@ export interface JsonSchemaNode {
 export type ResourceType =
   | "runtime_profile"
   | "agent_definition"
-  | "model"
+  | "model_provider"
+  | "model_definition"
   | "tool"
   | "secret"
   | "skill"
@@ -230,6 +231,8 @@ export interface ConsoleApi {
   createDraftFromLatest(resourceType: ResourceType, resourceId: string): Promise<ResourceVersion>;
   updateDraft(resource: ResourceVersion, spec: JsonRecord): Promise<ResourceVersion>;
   validateDraft(resource: ResourceVersion): Promise<ValidationResult>;
+  /** 发布完整校验（TASK-009 后端 `:validate-publish`）：返回可操作问题清单。 */
+  validatePublish(resource: ResourceVersion): Promise<ValidationResult>;
   publishVersion(resource: ResourceVersion): Promise<PublishResult>;
   rollbackVersion(resource: ResourceVersion, targetVersion: string): Promise<RollbackResult>;
   listVersions(resourceType: ResourceType, resourceId: string, page: PageRequest): Promise<PageData<ResourceVersion>>;

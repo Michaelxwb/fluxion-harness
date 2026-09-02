@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tests.runtime_helpers import publish_resource
-
 from fluxion.registry import SQLiteRegistryStore
 from fluxion.resources import EvalCaseDefinition, ExecutionSnapshot, ResourceKind
 from fluxion.runtime import InMemoryTraceStore, TraceRecord
@@ -12,6 +10,7 @@ from fluxion.services.eval_app import (
     EvaluationApplicationService,
     InMemoryEvalRunStore,
 )
+from tests.runtime_helpers import publish_resource
 
 
 class FixedEvalExecutor:
@@ -150,7 +149,14 @@ def _trace(*, runtime_version: str) -> TraceRecord:
         user_id="user-eval",
         runtime_profile_id="runtime-main",
         runtime_profile_version=runtime_version,
-        model_resolution={"provider_ref": {"id": "dev.echo", "version": "1"}},
+        model_resolution={
+            "routes": [
+                {
+                    "provider_ref": {"id": "dev.echo", "version": "1"},
+                    "model": "echo",
+                }
+            ]
+        },
         trace_id="trace-eval",
     )
     return TraceRecord(

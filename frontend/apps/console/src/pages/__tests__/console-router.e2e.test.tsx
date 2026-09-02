@@ -30,38 +30,24 @@ describe("S-09 Console Router 迁移 + C401 IA 核对", () => {
     await screen.findByText("平台对象计数与最近操作轨迹");
   });
 
-  it("Build 下单一 Agents 入口；Binding 非一级导航（Closure IA 修正继承）", async () => {
+  it("Build 下单一 Agents 入口；移除项（工作台/评测/Queue/Worker）不再是导航；Binding 非一级导航", async () => {
     const { user } = renderConsole({ initialView: "overview" });
     await user.click(sider().getByText("构建"));
 
-    // Build 子项：智能体/工作流/能力/评测 各恰好一处（单一 Agents 入口）
+    // Build 子项：智能体/工作流/能力 各恰好一处（单一 Agents 入口）
     const nav = sider();
-    for (const item of ["智能体", "工作流", "能力", "评测"]) {
+    for (const item of ["智能体", "工作流", "能力"]) {
       const hits = nav.getAllByText(item);
       expect(hits.length, `${item} 应恰好一处`).toBe(1);
+    }
+    // TASK-010：移除项不再作为导航（工作台/评测并入 Agent，Queue/Worker 退位）
+    for (const gone of ["智能体工作台", "评测", "队列", "Worker", "运行时态"]) {
+      expect(nav.queryByText(gone), `${gone} 不应再是导航项`).toBeNull();
     }
     // Binding 不出现在任何一级/分组导航
     for (const text of ["绑定", "Bindings", "binding"]) {
       expect(nav.queryByText(text), `Binding 不应是导航项: ${text}`).toBeNull();
     }
-  });
-
-  it("Eval 入口不再置灰（Phase 5 TASK-006 实页）；点击进入评测实页", async () => {
-    const { user } = renderConsole({ initialView: "overview" });
-    await user.click(sider().getByText("构建"));
-
-    const evalItem = sider().getByText("评测");
-    // Phase 5 实页：导航不再置灰（无 tertiary 包裹）
-    const wrapped =
-      evalItem.closest(".semi-typography-tertiary") ??
-      evalItem.parentElement?.querySelector(".semi-typography-tertiary");
-    expect(wrapped, "Eval 入口不应再置灰（Phase 5 已升级实页）").toBeNull();
-
-    await user.click(evalItem);
-    await screen.findByRole("heading", { name: "评测" });
-    // 实页结构：评测集/评测运行区块（四态；卡片标题与空态文案同名 → findAllByText）
-    expect((await screen.findAllByText("评测集")).length).toBeGreaterThan(0);
-    expect((await screen.findAllByText("评测运行")).length).toBeGreaterThan(0);
   });
 
   it("深链路由直达既有页面（ConsoleView 映射无回归）", async () => {
@@ -70,9 +56,6 @@ describe("S-09 Console Router 迁移 + C401 IA 核对", () => {
 
     renderConsole({ initialView: "runs" });
     await screen.findByRole("heading", { name: "执行记录" });
-
-    renderConsole({ initialView: "agent_studio" });
-    await screen.findByRole("heading", { name: /智能体|Agent/i });
   });
 
   it("导航点击切换路由（state 导航 → Router 无行为回归）", async () => {

@@ -14,9 +14,9 @@ S-08（integration，Gate G4）：Execution-1 pin v1 → 运行中发布 v2 → 
 from __future__ import annotations
 
 import pytest
-from tests.runtime_helpers import publish_resource
 
 from fluxion.services.context_resolver import ContextResolver, ResolverSelector
+from tests.runtime_helpers import publish_resource, seed_model_definition
 
 
 @pytest.fixture
@@ -42,6 +42,8 @@ async def _seed_agent(store, *, version: str = "1") -> None:
         version=version,
         spec={"request_timeout_ms": 30_000, "max_retries": 1},
     )
+    # ADR-A008：agent.model_policy 指向 ModelDefinition（model.dev.echo）
+    await seed_model_definition(store, tenant_id="tenant-a", provider_id="dev.echo")
     await publish_resource(
         store,
         tenant_id="tenant-a",
@@ -52,7 +54,9 @@ async def _seed_agent(store, *, version: str = "1") -> None:
             "name": "助手",
             "system_prompt": "你是产品助手。",
             "owner": "builder",
-            "model_ref": {"id": "dev.echo", "version": "1"},
+            "model_policy": {
+                "primary_model_ref": {"id": "model.dev.echo", "version": "1"}
+            },
         },
     )
 

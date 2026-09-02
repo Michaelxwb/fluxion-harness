@@ -20,8 +20,6 @@ import uuid
 from dataclasses import dataclass, field
 from statistics import quantiles
 
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
-
 from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceKind, ResourceStatus
 from fluxion.services.context_resolver import ContextResolver, ResolverSelector
@@ -189,6 +187,26 @@ async def _seed_tenants(
             {"request_timeout_ms": 30_000, "max_retries": 1},
         )
         await _publish(
+            ResourceKind.MODEL_PROVIDER,
+            "dev.echo",
+            tenant_id,
+            {
+                "protocol": "openai-compatible",
+                "base_url": "https://dev.echo.invalid/v1",
+                "credential_ref": f"secret://{tenant_id}/dev-echo",
+                "default_model": "echo",
+            },
+        )
+        await _publish(
+            ResourceKind.MODEL_DEFINITION,
+            "model.dev-echo",
+            tenant_id,
+            {
+                "name": "echo",
+                "provider_ref": {"id": "dev.echo", "version": "1"},
+            },
+        )
+        await _publish(
             ResourceKind.AGENT_DEFINITION,
             agent_id,
             tenant_id,
@@ -196,7 +214,9 @@ async def _seed_tenants(
                 "name": f"助手-{index}",
                 "system_prompt": "你是产品助手。",
                 "owner": "builder",
-                "model_ref": {"id": "dev.echo", "version": "1"},
+                "model_policy": {
+                    "primary_model_ref": {"id": "model.dev-echo", "version": "1"}
+                },
             },
         )
         agent_ids[tenant_id] = agent_id

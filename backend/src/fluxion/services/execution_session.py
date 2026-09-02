@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from fluxion.plugins.contracts import ToolDefinition
+from fluxion.plugins.contracts import ToolDescriptor
 from fluxion.runtime.context import RuntimeContext
 
 if TYPE_CHECKING:
@@ -23,7 +23,7 @@ class PreparedExecution:
     """一次 execution 的准备产物（context + 模型工具定义 + 放行工具名）。"""
 
     context: RuntimeContext
-    model_tools: list[ToolDefinition]
+    model_tools: list[ToolDescriptor]
     allowed_model_tools: set[str]
 
 

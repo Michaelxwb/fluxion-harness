@@ -13,7 +13,6 @@ engine、不写 raw select（TASK-002 收口）。
 
 from __future__ import annotations
 
-import logging
 import time
 from dataclasses import dataclass, replace
 from typing import Any
@@ -21,38 +20,24 @@ from typing import Any
 from fluxion.agents.definitions import AgentDefinition
 from fluxion.memory.domain.personal_memory import PersonalMemoryRetriever
 from fluxion.registry import ChannelRegistryStore
-from fluxion.resources import ResourceKind, RuntimeProfile, SkillDefinition
+from fluxion.resources import (
+    ModelDefinition,
+    ResolvedModelRoute,
+    ResourceKind,
+    RuntimeProfile,
+)
 from fluxion.resources.contracts import (
     EffectiveCapability,
-    ExactResourceVersion,
     ExecutionSnapshot,
-    MemoryEntryRef,
     MemoryManifest,
     ModelPolicy,
 )
 from fluxion.resources.snapshot_digest import canonical_digest
 from fluxion.runtime.capabilities import EffectiveCapabilityResolver
-
-logger = logging.getLogger(__name__)
-
-
-class _SkillSpecView(SkillDefinition):
-    """resolver 侧 skill spec 读取视图（extra=ignore 容忍存量 spec 扩展字段）。"""
-
-    model_config = {"extra": "ignore"}
-
-
-class ContextResolutionError(RuntimeError):
-    """解析失败（fail-closed）：code slug + HTTP status + 可选 snapshot_digest。"""
-
-    def __init__(
-        self, *, code: str, message: str, status_code: int = 422, snapshot_digest: str | None = None
-    ) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
-        self.status_code = status_code
-        self.snapshot_digest = snapshot_digest
+from fluxion.services.context_resolution_support import (
+    ContextResolutionError,
+    ContextResolutionSupport,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +81,7 @@ class BudgetExceededEntry:
         )
 
 
-class ContextResolver:
+class ContextResolver(ContextResolutionSupport):
     """十段解析管线（services 应用服务；无状态，实例可跨请求复用）。"""
 
     def __init__(
@@ -193,7 +178,11 @@ class ContextResolver:
         profile_id = (
             agent_spec.runtime_profile_ref.id if agent_spec.runtime_profile_ref else selector.agent_id
         )
-        profile_version = selector.runtime_profile_version or agent_spec.runtime_profile_ref.version if agent_spec.runtime_profile_ref else "latest-published"
+        profile_version = selector.runtime_profile_version or (
+            agent_spec.runtime_profile_ref.version
+            if agent_spec.runtime_profile_ref
+            else "latest-published"
+        )
         profile_row = await self._store.get(
             ResourceKind.RUNTIME_PROFILE, profile_id, tenant_id=selector.tenant_id,
             version=None if profile_version == "latest-published" else profile_version,
@@ -202,19 +191,31 @@ class ContextResolver:
             raise ContextResolutionError(code="runtime_profile_not_found", message=f"{profile_id}@{profile_version} not found", status_code=404)
         _stage("runtime", profile_row.version, started)
 
-        # 5. model：ModelPolicy（provider 来自 AgentDefinition.model_ref；failover 取
-        # RuntimeProfile.model_failover typed 字段，TASK-011 删除 legacy executor_config 回退）
+        # 5. model：ADR-A008 三层解析——AgentDefinition.model_policy →
+        # ModelDefinition → ProviderDefinition。任一引用缺失 fail-closed，
+        # 不回退 legacy 直引（双事实源消灭）；回退链归 ModelPolicy（归属切分），
+        # 不再消费 RuntimeProfile.model_failover。
         profile_spec = RuntimeProfile.model_validate(profile_row.spec_json)
-        failover = list(profile_spec.model_failover)
-        model_resolution = ModelPolicy(
-            provider_ref=ExactResourceVersion(
-                id=agent_spec.model_ref.id, version=agent_spec.model_ref.version
-            ),
-            failover=[ExactResourceVersion(id=f, version="latest-published") for f in failover],
-            timeout_ms=profile_spec.request_timeout_ms,
-            max_rounds=profile_spec.max_rounds,
-            deadline_ms=max(profile_spec.request_timeout_ms * 2, 120_000),
+        primary_model = await self._resolve_model_definition(
+            selector.tenant_id, agent_spec.model_policy.primary_model_ref
         )
+        fallback_models: list[ModelDefinition] = []
+        for ref in agent_spec.model_policy.fallback_model_refs:
+            fallback_models.append(await self._resolve_model_definition(selector.tenant_id, ref))
+        models = [primary_model, *fallback_models]
+        model_resolution = ModelPolicy(
+            routes=[
+                ResolvedModelRoute(provider_ref=item.provider_ref, model=item.name)
+                for item in models
+            ],
+            model_timeout_ms=agent_spec.model_policy.model_timeout_ms,
+            max_rounds=profile_spec.max_rounds,
+            model_deadline_ms=agent_spec.model_policy.model_deadline_ms,
+        )
+        # provider exact version pin（主 + 回退链）：运行期 store-backed 注册门槛
+        model_provider_pins = {
+            item.provider_ref.id: item.provider_ref.version for item in models
+        }
 
         # 6. profile：User Profile 版本已解析（stage 2）
 
@@ -283,12 +284,19 @@ class ContextResolver:
                 tenant_id=selector.tenant_id
             )
         )
+        # RULE-02 三维真值表（design/02 §3）：User/Agent/Tenant 任一维度缺失即
+        # deny。无 tenant policy → tenant 维度为空集（fail-closed），不再拷贝
+        # user_tools（TASK-003 返工）；policy 模式与 denied 集冻结进 snapshot，
+        # 运行期 frozen_tool_policy 按模式展开（deny_only = 除 denied 外全部）。
         if not policy_configured:
-            tenant_tools = set(user_tools)
+            tenant_tools: set[str] = set()
+            tenant_policy_mode = "unconfigured"
         elif policy_allowed:
             tenant_tools = set(policy_allowed)
+            tenant_policy_mode = "allow_list"
         else:
-            tenant_tools = set(user_tools)
+            tenant_tools = set()
+            tenant_policy_mode = "deny_only"
         if policy_denied:
             user_tools = user_tools - policy_denied
             agent_tools = agent_tools - policy_denied
@@ -315,6 +323,8 @@ class ContextResolver:
                 "agent_tools": sorted(agent_tools),
                 "user_tools": sorted(user_tools),
                 "tenant_tools": sorted(tenant_tools),
+                "denied_tools": sorted(policy_denied),
+                "tenant_tool_policy": tenant_policy_mode,
             },
             trace_id=f"trace_{uuid4_hex()}",
             system_prompt=agent_spec.system_prompt,
@@ -322,7 +332,7 @@ class ContextResolver:
             skill_required_capabilities=skill_required_capabilities,
             skill_versions=skill_versions,
             mcp_versions=mcp_versions,
-            plugin_versions={agent_spec.model_ref.id: agent_spec.model_ref.version},
+            plugin_versions=model_provider_pins,
             policy_version=policy_versions.get("tenant"),
             binding_versions={
                 b.binding_id: b.resource_version_selector
@@ -355,173 +365,6 @@ class ContextResolver:
         )
         self._l1_cache[cache_key] = (result, time.monotonic(), revision)
         return result
-
-    async def _latest_user_profile_version(self, tenant_id: str, user_id: str) -> str | None:
-        row = await self._store.get_latest_user_profile(
-            tenant_id=tenant_id, platform_user_id=user_id
-        )
-        return str(row["version"]) if row else None
-
-    async def _memory_manifest(
-        self,
-        tenant_id: str,
-        user_id: str,
-        memory_query: str | None,
-        memory_budget: int | None,
-    ) -> MemoryManifest:
-        """Memory 段：经注入的 PersonalMemoryRetriever recall（SemanticStoreProvider.recall）。"""
-        budget = memory_budget if memory_budget is not None else self._memory_budget
-        if self._memory_retriever is None:
-            return MemoryManifest(entry_refs=[], content_hash="unavailable", truncated=True)
-        try:
-            entries = await self._memory_retriever.recall(
-                tenant_id, user_id, query=memory_query or "", top_k=budget + 10
-            )
-        except Exception:  # noqa: BLE001 - memory 段降级空 manifest 不阻塞
-            return MemoryManifest(entry_refs=[], content_hash="unavailable", truncated=True)
-        refs = [
-            MemoryEntryRef(
-                entry_id=str(entry.id),
-                memory_type=entry.memory_type.value,
-                content_hash=_short_hash(entry.content),
-                priority=index,
-            )
-            for index, entry in enumerate(entries)
-        ]
-        truncated = len(refs) > budget
-        if truncated:
-            refs = refs[:budget]
-        content_hash = _short_hash("|".join(ref.content_hash for ref in refs)) if refs else ""
-        return MemoryManifest(
-            entry_refs=refs,
-            content_hash=content_hash,
-            truncated=truncated,
-        )
-
-    async def _resolve_platform_user(self, tenant_id: str, user_id: str) -> str | None:
-        """Identity 段：user_id 无前缀时视为 platform_user_id 直传（Channel/API 已解析）。"""
-        if user_id.startswith(("migration:", "user-")):
-            return user_id
-        resolved = await self._store.resolve_platform_user_by_channel_id(
-            tenant_id=tenant_id, channel_user_id=user_id
-        )
-        return resolved or user_id
-
-    async def _resolve_capability_versions(
-        self, tenant_id: str, capabilities: list[Any], user_id: str
-    ) -> tuple[
-        dict[str, str],
-        dict[str, str],
-        dict[str, str],
-        dict[str, str],
-        list[str],
-    ]:
-        """按 Agent capabilities + user binding 解析 skill/mcp 实际 published 版本。
-
-        skill 语义 = Agent baseline（agent 声明的 capability）∪ user binding grant
-        （管理员经 grant/binding 给用户扩 skill，binding 可覆盖版本）。tool 类型不解析
-        版本：builtin/runtime tool 不是版本化 Resource。skill 额外提取 instructions
-        （注入 system prompt）与 required_capabilities（closure 校验所需能力）。
-        """
-        # Agent baseline：agent 声明的 skill pin（capability_ref → version_pin）
-        agent_skill_pins: dict[str, str] = {}
-        for cap in capabilities:
-            if cap.type == "skill":
-                agent_skill_pins[cap.capability_ref] = cap.version_pin
-
-        # user binding grant：管理员给用户扩的 skill（ref → version selector）
-        bindings = await self._store.list_bindings(
-            subject_type="user",
-            subject_id=user_id,
-            tenant_id=tenant_id,
-            resource_type=ResourceKind.SKILL,
-        )
-        binding_granted = {binding.resource_id for binding in bindings}
-        effective_skill_pins = dict(agent_skill_pins)
-        for binding in bindings:
-            if binding.resource_id in effective_skill_pins:
-                # binding 覆盖版本（仅当 agent baseline 未显式 pin 时）
-                if effective_skill_pins[binding.resource_id] == "latest-published":
-                    effective_skill_pins[binding.resource_id] = binding.resource_version_selector
-            else:
-                effective_skill_pins[binding.resource_id] = binding.resource_version_selector
-
-        skill_versions: dict[str, str] = {}
-        mcp_versions: dict[str, str] = {}
-        plugin_versions: dict[str, str] = {}
-        skill_instructions: dict[str, str] = {}
-        required_capabilities: set[str] = set()
-        for ref, version_pin in effective_skill_pins.items():
-            row = await self._store.get(
-                ResourceKind.SKILL,
-                ref,
-                tenant_id=tenant_id,
-                version=None if version_pin == "latest-published" else version_pin,
-            )
-            if row is None:
-                if ref in agent_skill_pins:
-                    # agent 声明的 skill 缺 pinned 版本 → fail-closed（不静默降级）
-                    raise ContextResolutionError(
-                        code="skill_version_not_found",
-                        message=f"skill {ref}@{version_pin} not found",
-                        status_code=404,
-                    )
-                continue
-            parsed = _SkillSpecView.model_validate(row.spec_json)
-            # TASK-004：private skill 仅 grant 用户可用（spec 级 visibility）
-            if parsed.visibility == "private" and ref not in binding_granted:
-                continue
-            skill_versions[ref] = row.version
-            if parsed.instructions.strip():
-                skill_instructions[ref] = parsed.instructions.strip()
-            required_capabilities.update(item for item in parsed.required_capabilities if item.strip())
-
-        # mcp 版本（仅 agent 声明；mcp server 级 grant 语义见 TASK-004 后续）
-        for cap in capabilities:
-            if cap.type != "mcp":
-                continue
-            row = await self._store.get(
-                ResourceKind.MCP,
-                cap.capability_ref,
-                tenant_id=tenant_id,
-                version=None if cap.version_pin == "latest-published" else cap.version_pin,
-            )
-            if row is not None:
-                mcp_versions[cap.capability_ref] = row.version
-
-        return (
-            skill_versions,
-            mcp_versions,
-            plugin_versions,
-            skill_instructions,
-            sorted(required_capabilities),
-        )
-
-    async def _credential_versions(self, tenant_id: str, user_id: str) -> dict[str, str]:
-        bindings = await self._store.list_bindings(
-            subject_type="user", subject_id=user_id, tenant_id=tenant_id
-        )
-        versions: dict[str, str] = {}
-        for binding in bindings:
-            ref = binding.credential_ref
-            if not ref:
-                continue
-            if self._credential_resolver is None:
-                versions[ref] = "1"  # 未配置 resolver：仅记录引用（dev）
-                continue
-            try:
-                resolved = await self._credential_resolver.resolve_with_metadata(
-                    ref, tenant_id=tenant_id
-                )
-            except Exception as exc:
-                raise ContextResolutionError(
-                    code="credential_not_resolvable",
-                    message=f"credential {ref} not resolvable",
-                    status_code=422,
-                ) from exc
-            versions[ref] = resolved.version
-        return versions
-
 
 class ContextResolverSnapshotBuilder:
     """把 ContextResolver.resolve 适配到 AgentRuntime 的 build(request) 接口。
@@ -560,9 +403,3 @@ def uuid4_hex() -> str:
     import uuid
 
     return uuid.uuid4().hex
-
-
-def _short_hash(content: str) -> str:
-    import hashlib
-
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]

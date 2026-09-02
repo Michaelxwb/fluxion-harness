@@ -24,13 +24,6 @@ from datetime import UTC, datetime
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import insert
-from tests.workflow_runtime.worker_fixtures import (
-    WorkerProcess,
-    WorkflowTestClient,
-    purge_stale_enqueued,
-    purge_stale_workflows,
-    worker_db_url,
-)
 
 from fluxion.api.workspace import create_app as create_workspace_app
 from fluxion.registry.channel_store import ChatAccessRecord, PlatformUserRecord
@@ -41,6 +34,13 @@ from fluxion.runtime.workflow_dbos import DBOS_QUEUE_NAME, workflow_run_id
 from fluxion.services.workspace_app import (
     DbosWorkspaceSignalSender,
     WorkspaceApplicationService,
+)
+from tests.workflow_runtime.worker_fixtures import (
+    WorkerProcess,
+    WorkflowTestClient,
+    purge_stale_enqueued,
+    purge_stale_workflows,
+    worker_db_url,
 )
 
 REGISTRY_BOOTSTRAP = "tests.workflow_runtime.worker_fixtures:install_registry_worker_bootstrap"
@@ -89,7 +89,9 @@ def _agent_spec() -> dict[str, object]:
         "name": "客服助手",
         "system_prompt": "解答常见问题",
         "owner": "builder-ws",
-        "model_ref": {"id": "dev.echo", "version": "1"},
+        "model_policy": {
+            "primary_model_ref": {"id": "model.dev.echo", "version": "1"}
+        },
         "description": "解答常见问题、发起任务",
         "capabilities": [
             {"capability_ref": "skill:faq@1", "version_pin": "1", "type": "skill"}
@@ -376,8 +378,9 @@ async def test_s15_agents_tasks_history_read(store: PostgreSQLRegistryStore) -> 
             assert agent["capabilities"] == ["skill:faq@1"]
             assert agent["available"] is True
             # 产品模型边界：不得出现 RuntimeProfile / mechanics 字段
+            # （ADR-A008 后模型路由字段为 model_policy，同样不进产品目录）
             assert "runtime_profile_ref" not in agent
-            assert "model_ref" not in agent
+            assert "model_policy" not in agent
 
             # ---- tasks：workflow（运行中）+ chat（会话）统一列表 ----
             resp = await client.get("/api/v1/workspace/tasks", headers=_auth(TOKEN_A))

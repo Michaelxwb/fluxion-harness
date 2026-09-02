@@ -6,23 +6,36 @@ Console 是标准 Control Plane/配置入口，与 Runtime 同仓共享 Contract
 
 ## 2. 信息架构
 
-建议按用户任务而非底层 Resource 类型堆菜单：
+按管理员任务而非底层 Resource 类型组织菜单（Agent-centric）：
 
-### Build
+```text
+平台概览
 
-- Agents
-- Capabilities
-- Workflows
-- Test / Trace / Eval
-- Publish
+构建
+├── 智能体
+├── 工作流
+└── 能力
+    ├── Skill
+    ├── Tool
+    └── MCP
 
-### Admin
+用户
+└── 用户
 
-- Users / User 360
-- Governance / Policy / Approval
-- Channels / Identity
-- Operations
-- Platform / Runtime health
+治理
+├── 授权规则        [高级治理 UI 暂缓]
+├── 插件策略        [暂未开放]
+└── 操作审计
+
+运营
+└── 执行记录
+
+平台
+├── 模型
+└── 凭据
+```
+
+> 产品 UI 围绕 `AgentDefinition` 组织，但不代表领域对象都从属于它：Workflow、ProviderDefinition、ModelDefinition、Skill、Tool、MCP Server 仍是一等可复用定义。**UI 简化 ≠ Domain 简化**：能力治理（User Grant / Agent Allowlist / TenantPolicy 三维）在 UI 可表现为「配置用户在智能体中的能力」，后端不得退化为二维 checkbox 模型。
 
 ## 3. Agent Studio
 
@@ -51,3 +64,17 @@ UI 必须能明确展示"用户拥有但该 Agent 不允许""Agent 允许但用�
 ## 7. 前端
 
 继续使用 Semi Design。Resource 表单由 typed spec JSON Schema 派生；产品级页面可以有领域专用 UI，但最终提交必须经过同一 typed model validate。
+
+统一 UI Surface：
+
+```text
+Table      → 管理
+Modal      → 创建
+SideSheet  → 查看（只读）
+Editor     → 修改
+```
+
+- 每种领域对象独立 Create Modal，禁止「通用 Resource 页 + ResourceKind Select」万能表单（`智能体` 页只展示 AgentDefinition，不混入 Model/RuntimeProfile/Plugin 等其他 kind）；
+- Detail 统一右侧 SideSheet，严格只读；
+- 编辑从列表直接进入专属 Editor / Studio，与 Detail 分离；
+- 创建弹窗只采集最小建档信息（Create ≠ Configure）。

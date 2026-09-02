@@ -161,9 +161,16 @@ def launch_dbos(*, listen: list[str] | None = None) -> Queue:
     """
     global _launched
     if not _launched:
-        if listen is not None:
-            DBOS.listen_queues(listen)  # 必须在 DBOS.launch() 之前调用
-        DBOS.launch()
+        from dbos._dbos import _dbos_global_instance
+
+        globally_launched = (
+            _dbos_global_instance is not None
+            and getattr(_dbos_global_instance, "_launched", False) is True
+        )
+        if not globally_launched:
+            if listen is not None:
+                DBOS.listen_queues(listen)  # 必须在 DBOS.launch() 之前调用
+            DBOS.launch()
         threading.Thread(
             target=DBOS.register_queue,
             kwargs={
@@ -184,11 +191,13 @@ def launch_dbos(*, listen: list[str] | None = None) -> Queue:
 
 async def _business_write(statements: list[tuple[str, tuple[Any, ...]]]) -> None:
     """业务表写入（单事务；信号量限流模拟连接池）。"""
-    async with _DB_CONCURRENCY:
-        async with await psycopg.AsyncConnection.connect(resolve_db_url()) as conn:
-            async with conn.transaction():
-                for sql, params in statements:
-                    await conn.execute(sql, params)
+    async with (
+        _DB_CONCURRENCY,
+        await psycopg.AsyncConnection.connect(resolve_db_url()) as conn,
+        conn.transaction(),
+    ):
+        for sql, params in statements:
+            await conn.execute(sql, params)
 
 
 @DBOS.step()
@@ -197,15 +206,19 @@ async def write_report_record(run_id: str, tenant_id: str, trace_id: str) -> str
     await _business_write(
         [
             (
-                "INSERT INTO poc_step_executions (run_id, step_name, executions) "
-                "VALUES (%s, 'write_report_record', 1) "
-                "ON CONFLICT (run_id, step_name) DO UPDATE "
-                "SET executions = poc_step_executions.executions + 1",
+                (
+                    "INSERT INTO poc_step_executions (run_id, step_name, executions) "
+                    "VALUES (%s, 'write_report_record', 1) "
+                    "ON CONFLICT (run_id, step_name) DO UPDATE "
+                    "SET executions = poc_step_executions.executions + 1"
+                ),
                 (run_id,),
             ),
             (
-                "INSERT INTO poc_records (tenant_id, run_id, kind, value) "
-                "VALUES (%s, %s, 'report', %s) ON CONFLICT DO NOTHING",
+                (
+                    "INSERT INTO poc_records (tenant_id, run_id, kind, value) "
+                    "VALUES (%s, %s, 'report', %s) ON CONFLICT DO NOTHING"
+                ),
                 (tenant_id, run_id, f"report@{run_id}"),
             ),
         ]
@@ -235,22 +248,26 @@ async def notify_http_endpoint(
         import urllib.request
 
         def _post() -> bytes:
-            with urllib.request.urlopen(url, data=b"{}", timeout=5.0) as response:  # noqa: S310
+            with urllib.request.urlopen(url, data=b"{}", timeout=5.0) as response:
                 return response.read()
 
         await asyncio.to_thread(_post)
     await _business_write(
         [
             (
-                "INSERT INTO poc_step_executions (run_id, step_name, executions) "
-                "VALUES (%s, 'notify_http_endpoint', 1) "
-                "ON CONFLICT (run_id, step_name) DO UPDATE "
-                "SET executions = poc_step_executions.executions + 1",
+                (
+                    "INSERT INTO poc_step_executions (run_id, step_name, executions) "
+                    "VALUES (%s, 'notify_http_endpoint', 1) "
+                    "ON CONFLICT (run_id, step_name) DO UPDATE "
+                    "SET executions = poc_step_executions.executions + 1"
+                ),
                 (run_id,),
             ),
             (
-                "INSERT INTO poc_records (tenant_id, run_id, kind, value) "
-                "VALUES (%s, %s, 'http', %s) ON CONFLICT DO NOTHING",
+                (
+                    "INSERT INTO poc_records (tenant_id, run_id, kind, value) "
+                    "VALUES (%s, %s, 'http', %s) ON CONFLICT DO NOTHING"
+                ),
                 (tenant_id, run_id, f"notify@{run_id}"),
             ),
         ]

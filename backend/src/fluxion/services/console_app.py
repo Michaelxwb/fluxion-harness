@@ -23,7 +23,7 @@ from fluxion.registry import (
     PlatformUserRecord,
 )
 from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
-from fluxion.runtime.secrets import SecretMetadata, SecretMetadataStore
+from fluxion.runtime.secrets import CredentialResolver, SecretMetadata, SecretMetadataStore
 from fluxion.runtime.tracing import TraceRecord, TraceStore
 from fluxion.services.approval_app import ApprovalStore, InMemoryApprovalStore
 from fluxion.services.console_contracts import ConsoleActor
@@ -51,11 +51,14 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         service_instance_id: str | None = None,
         release_gate: ReleaseGateService | None = None,
         release_gate_enforced: bool = False,
+        credential_resolver: CredentialResolver | None = None,
     ) -> None:
         self._store = store
         self._trace_store = trace_store
         self._secret_metadata_store = secret_metadata_store
         self._approval_store = approval_store or InMemoryApprovalStore()
+        # TASK-019 返工：连接测试凭据注入（Provider Authorization / MCP transport）。
+        self._credential_resolver = credential_resolver
         self._workflow_validator = WorkflowDefinitionValidator(store)
         self._deployment_actions: list[str] = []
         # 只读运行时身份快照：由装配方（dev bundle）注入，避免 Console 反向依赖 Runtime。

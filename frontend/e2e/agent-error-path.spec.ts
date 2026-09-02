@@ -28,13 +28,19 @@ test("E-P13-03 model dependency failure shows friendly error without stack leak"
   page
 }) => {
   await gotoResourcesPage(page);
-  await createAndPublishResource(page, "plugin", "broken-provider", {
+  // ADR-A008（TASK-002 返工）：MODEL_PROVIDER kind + ModelDefinition + model_policy
+  // 三层链（PLUGIN 退出模型链；legacy model_ref 已删除）。
+  await createAndPublishResource(page, "model_provider", "broken-provider", {
     plugin_type: "model_provider",
     protocol: "openai_compatible",
     base_url: "http://127.0.0.1:1/v1",
     model: "broken-model",
     request_timeout_ms: 1000,
     max_retries: 0
+  });
+  await createAndPublishResource(page, "model_definition", "broken-model", {
+    name: "broken-model",
+    provider_ref: { id: "broken-provider", version: "v1" }
   });
   await createAndPublishResource(page, "runtime_profile", "broken-agent", {
     request_timeout_ms: 1000,
@@ -44,7 +50,10 @@ test("E-P13-03 model dependency failure shows friendly error without stack leak"
     name: "broken-agent",
     system_prompt: "broken agent",
     owner: "e2e-admin",
-    model_ref: { id: "broken-provider", version: "v1" }
+    model_policy: {
+      primary_model_ref: { id: "broken-model", version: "v1" },
+      fallback_model_refs: []
+    }
   });
 
   const chatLink = await createUserAndChatLink(page, "broken-agent");

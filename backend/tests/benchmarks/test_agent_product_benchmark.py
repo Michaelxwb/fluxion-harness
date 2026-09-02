@@ -8,8 +8,6 @@ from statistics import quantiles
 from time import perf_counter_ns
 from typing import Protocol
 
-from tests.channel_helpers import RecordingRuntime
-
 from fluxion.registry import ChatAccessRecord, SQLiteRegistryStore
 from fluxion.runtime.mcp import MCPHTTPClientPool, MCPHTTPPoolKey
 from fluxion.services.channel_app import ChannelApplicationService
@@ -19,6 +17,8 @@ from fluxion.services.runtime_app import (
     RunRuntimeRequest,
     RuntimeApplicationService,
 )
+from tests.channel_helpers import RecordingRuntime
+from tests.runtime_helpers import seed_agent_definition
 
 
 class BenchmarkFixture(Protocol):
@@ -152,6 +152,7 @@ async def _runtime_service() -> RuntimeApplicationService:
             version="1",
         )
     )
+    await seed_agent_definition(store, agent_id="assistant", provider_id="dev.echo")
     return service
 
 

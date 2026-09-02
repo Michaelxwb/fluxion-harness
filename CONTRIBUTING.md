@@ -46,6 +46,33 @@ node frontend/scripts/check-no-inmemory.mjs
 
 CI（`.github/workflows/`）会在 push/PR 时自动运行这些门槛。
 
+### Playwright E2E 分组
+
+日常开发默认只运行功能与错误路径场景，不执行耗时且对环境敏感的性能/A11Y NFR：
+
+```bash
+# 默认：6 个功能与错误路径场景
+pnpm test:e2e
+
+# 仅运行性能与 A11Y NFR
+pnpm test:e2e:nfr
+
+# 单独运行全部 Playwright E2E
+pnpm test:e2e:all
+```
+
+排查具体场景时可以进一步限定文件或用例标题：
+
+```bash
+# 单个 spec 文件
+pnpm exec playwright test frontend/e2e/agent-golden-path.spec.ts
+
+# 标题匹配的单个或一组用例
+pnpm exec playwright test --grep "S-P13-06"
+```
+
+NFR 套件建议在空闲机器或独立 CI 阶段运行，避免本地负载导致性能阈值抖动。
+
 ## 代码规范要点
 
 - 单文件原则上不超过 500 行，单函数原则上不超过 50 行。

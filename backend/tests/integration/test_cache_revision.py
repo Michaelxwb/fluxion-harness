@@ -4,8 +4,6 @@ import asyncio
 
 import pytest
 
-from tests.runtime_helpers import seed_agent_definition
-
 from fluxion.registry import SQLiteRegistryStore
 from fluxion.services.runtime_app import (
     CreateRuntimeProfileRequest,
@@ -13,6 +11,7 @@ from fluxion.services.runtime_app import (
     RunRuntimeRequest,
     RuntimeApplicationService,
 )
+from tests.runtime_helpers import seed_agent_definition
 
 
 @pytest.mark.asyncio
@@ -88,7 +87,10 @@ async def test_B_R01_revision_polling_recovers_after_lost_change_event() -> None
         # 模型名热切随 AgentDefinition/MODEL 链（TASK-004/008）；此处校验新版本
         # 配置已生效并回显本次输入（DevEcho 语义）。
         assert "cache" in second.output
-        assert await store.read_revision(tenant_id="tenant-a") == 2
-        assert runtime_service.last_seen_revision("tenant-a") == 2
+        # revision = profile v1 + v2 两次 commit_publication + tenant-default
+        # policy 的 put_binding（RULE-02 三维齐备 seeding，TASK-003 返工——
+        # binding 变更同样 bump revision，属热生效语义的一部分）。
+        assert await store.read_revision(tenant_id="tenant-a") == 3
+        assert runtime_service.last_seen_revision("tenant-a") == 3
     finally:
         await runtime_service.close()

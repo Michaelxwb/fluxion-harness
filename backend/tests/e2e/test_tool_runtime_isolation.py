@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from tests.runtime_helpers import publish_resource
 
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.resources import ResourceKind
@@ -10,6 +9,7 @@ from fluxion.runtime.tools import ToolDescriptor, ToolNotFoundError, ToolRuntime
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.runtime_contracts import RunRuntimeRequest
 from fluxion.services.runtime_utils import DevEchoModelProvider
+from tests.runtime_helpers import publish_resource, seed_model_definition
 
 
 def test_S_F4_clone_isolates_mcp_descriptors_from_base() -> None:
@@ -96,6 +96,9 @@ async def test_S_F4_mcp_descriptors_isolated_per_execution_and_not_accumulated(
             },
         )
         # TASK-A104：persona/model 迁至同名 AgentDefinition（两租户各一份）。
+        # ADR-A008：model_policy → 各租户的 ModelDefinition（model.dev.echo）→
+        # in-process provider dev.echo。
+        await seed_model_definition(sqlite_store, tenant_id=tenant, provider_id="dev.echo")
         await publish_resource(
             sqlite_store,
             tenant_id=tenant,
@@ -106,7 +109,9 @@ async def test_S_F4_mcp_descriptors_isolated_per_execution_and_not_accumulated(
                 "name": "assistant",
                 "system_prompt": "echo",
                 "owner": "fixture",
-                "model_ref": {"id": "dev.echo", "version": "1"},
+                "model_policy": {
+                    "primary_model_ref": {"id": "model.dev.echo", "version": "1"}
+                },
             },
         )
     model_registry = ModelProviderRegistry()

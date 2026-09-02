@@ -226,7 +226,8 @@ const BINDABLE_RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {
   policy: "策略",
   workflow: "工作流",
   agent_definition: "智能体",
-  model: "模型",
+  model_provider: "模型服务",
+  model_definition: "模型定义",
   tool: "工具",
   secret: "凭据",
   eval_set: "评测集"

@@ -15,7 +15,7 @@ from sqlalchemy import select
 from fluxion.api.console import create_app as create_console_app
 from fluxion.registry import SQLiteRegistryStore
 from fluxion.registry.schema import audit_logs
-from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
+from fluxion.resources import ExactResourceVersion, ResourceDefinition, ResourceKind, ResourceStatus
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.users import UserDomainService
 
@@ -133,14 +133,17 @@ async def test_agent_publish_still_writes_governance_audit_row() -> None:
     from tests.console_helpers import console_stack, tenant_headers
 
     async with console_stack() as stack:
-        from fluxion.agents.definitions import AgentDefinition
+        from fluxion.agents.definitions import AgentDefinition, AgentModelPolicy
+        from tests.runtime_helpers import seed_model_definition
 
+        # ADR-A008：发布校验 model_policy.primary_model_ref 可解析（model.dev.echo）
+        await seed_model_definition(stack.store, tenant_id="tenant-a", provider_id="dev.echo")
         draft = ResourceDefinition(
             kind=ResourceKind.AGENT_DEFINITION, id="assistant", tenant_id="tenant-a",
             version="1", status=ResourceStatus.DRAFT,
             spec_json=AgentDefinition(name="assistant", system_prompt="哨兵。",
                                       owner="fixture",
-                                      model_ref={"id":"dev.echo","version":"1"}).model_dump(mode="json"),
+                                      model_policy=AgentModelPolicy(primary_model_ref=ExactResourceVersion(id="model.dev.echo", version="1"))).model_dump(mode="json"),
         )
         await stack.store.put(draft)
         pub = await stack.client.post(

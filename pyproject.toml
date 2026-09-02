@@ -73,3 +73,8 @@ mypy_path = "backend/src"
 target-version = "py312"
 line-length = 100
 src = ["backend/src", "backend/tests"]
+
+[dependency-groups]
+dev = [
+    "types-jsonschema>=4,<5",
+]

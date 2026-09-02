@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from fluxion.plugins.artifact.local_fs import LocalFileArtifactStore
 from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.context_resolver import ContextResolver
-from tests.runtime_helpers import publish_resource
+from tests.runtime_helpers import publish_resource, seed_model_definition
 
 _PG_DSN = os.environ.get(
     "FLUXION_POSTGRES_DSN",
@@ -95,9 +95,9 @@ class TestS04StorageChaos:
         if not _pg_available():
             pytest.skip("PostgreSQL（fluxion_test）不可达（S-04 真实边界）")
 
-        from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
         from fluxion.registry import PostgreSQLRegistryStore
         from fluxion.registry.store import PublicationCommand, PublicationOperation
+        from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
 
         marker = f"rpo-{uuid.uuid4().hex[:8]}"
         # 1) 故障前：经应用治理事务提交 durable fact（commit_publication：audit_logs +
@@ -270,6 +270,11 @@ class TestE05SemanticDegraded:
                 version="1",
                 spec={"request_timeout_ms": 30_000, "max_retries": 1},
             )
+            # ADR-A008：agent.model_policy → ModelDefinition（model.dev.echo）→
+            # provider dev.echo；resolve 全链路需该资源存在（fail-closed）。
+            await seed_model_definition(
+                store, tenant_id=tenant_id, provider_id="dev.echo"
+            )
             await publish_resource(
                 store,
                 tenant_id=tenant_id,
@@ -280,7 +285,9 @@ class TestE05SemanticDegraded:
                     "name": "sem-agent",
                     "system_prompt": "你是产品助手。",
                     "owner": "builder",
-                    "model_ref": {"id": "dev.echo", "version": "1"},
+                    "model_policy": {
+                        "primary_model_ref": {"id": "model.dev.echo", "version": "1"}
+                    },
                 },
             )
         finally:

@@ -151,6 +151,24 @@ function percentile(samples: readonly number[], q: number): number {
  */
 async function createChatLink(page: Page, agentId: string): Promise<string> {
   const actor = { "X-Actor-ID": "nfr-admin" };
+  // ADR-A008（TASK-002 返工）：三层链——先发布 ModelDefinition（provider 指
+  // in-process dev.echo），agent.model_policy 引用它；legacy model_ref 已删除。
+  // ModelDefinition id 随 agentId 唯一（两个 NFR 用例各自独立资源，不冲突）
+  const modelId = `model.${agentId}`;
+  const model = await page.request.post("/api/v1/resources/model_definition", {
+    headers: actor,
+    data: {
+      resource_id: modelId,
+      version: "1",
+      spec: { name: "nfr-model", provider_ref: { id: "dev.echo", version: "1" } }
+    }
+  });
+  expect(model.ok(), await model.text()).toBeTruthy();
+  const modelPublish = await page.request.post(
+    `/api/v1/resources/model_definition/${modelId}/versions/1:publish`,
+    { headers: actor, data: {} }
+  );
+  expect(modelPublish.ok(), await modelPublish.text()).toBeTruthy();
   const create = await page.request.post("/api/v1/resources/agent_definition", {
     headers: actor,
     data: {
@@ -160,7 +178,10 @@ async function createChatLink(page: Page, agentId: string): Promise<string> {
         name: "NFR 验收助手",
         system_prompt: "首屏与可访问性验收用智能体",
         owner: "nfr-admin",
-        model_ref: { id: "dev", version: "1" },
+        model_policy: {
+          primary_model_ref: { id: `model.${agentId}`, version: "1" },
+          fallback_model_refs: []
+        },
         description: "NFR 验收"
       }
     }

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import pytest
 
+from fluxion.agents.definitions import AgentModelPolicy
 from fluxion.resources import (
+    ExactResourceVersion,
     MCPDefinition,
+    ModelDefinition,
     ModelPolicy,
-    ProviderDefinition,
     PolicyDefinition,
+    ProviderDefinition,
     ResourceDefinition,
     ResourceKind,
     ResourceStatus,
@@ -134,17 +137,15 @@ def test_RS2_model_policy_rejects_unknown_keys() -> None:
 def test_RS2_model_policy_defaults_match_runtime_fallbacks() -> None:
     """默认值与 agent.py 原 _timeout_ms/_deadline_ms/_max_rounds fallback 对齐。"""
     policy = ModelPolicy()
-    assert policy.timeout_ms == 60_000
-    assert policy.deadline_ms == 120_000
+    assert policy.model_timeout_ms == 60_000
+    assert policy.model_deadline_ms == 120_000
     assert policy.max_rounds == 8
-    assert policy.provider_ref is None
-    assert policy.failover == []
-    assert policy.model is None
+    assert policy.routes == []
 
 
 def test_RS2_model_policy_rejects_out_of_range_values() -> None:
     with pytest.raises(ValueError):
-        ModelPolicy(timeout_ms=0)
+        ModelPolicy(model_timeout_ms=0)
     with pytest.raises(ValueError):
         ModelPolicy(max_rounds=33)
 
@@ -208,5 +209,101 @@ def test_RS2_model_provider_definition_rejects_removed_name() -> None:
                 "protocol": "openai_compatible",
                 "base_url": "https://api.deepseek.com",
                 "model": "deepseek-chat",
+            }
+        )
+
+
+# --- ADR-A008：Model 领域三层（TASK-001 增量契约） ----------------------------
+
+
+def test_A008_model_kinds_added() -> None:
+    """ADR-A008：新增 MODEL_PROVIDER / MODEL_DEFINITION 两个一等 kind。"""
+    assert ResourceKind.MODEL_PROVIDER == "model_provider"
+    assert ResourceKind.MODEL_DEFINITION == "model_definition"
+
+
+def test_A008_model_definition_rejects_unknown_keys() -> None:
+    """extra=forbid：拼错键在契约层即拒，不静默。"""
+    with pytest.raises(ValueError, match="provder"):
+        ModelDefinition.model_validate({"name": "deepseek-chat", "provder": "x"})
+
+
+def test_A008_model_definition_requires_exact_version() -> None:
+    """provider_ref 必须是 ExactResourceVersion（id + version pin），缺任一即拒。"""
+    with pytest.raises(ValueError):
+        ModelDefinition.model_validate(
+            {"name": "deepseek-chat", "provider_ref": {"id": "prov-deepseek"}}
+        )
+    with pytest.raises(ValueError):
+        ModelDefinition.model_validate(
+            {"name": "deepseek-chat", "provider_ref": {"version": "v3"}}
+        )
+
+
+def test_A008_model_definition_accepts_valid() -> None:
+    definition = ModelDefinition(
+        name="deepseek-chat",
+        provider_ref=ExactResourceVersion(id="prov-deepseek", version="v3"),
+        capabilities={"context_window": 65536, "tool_calling": True},
+    )
+    assert definition.name == "deepseek-chat"
+    assert definition.provider_ref.id == "prov-deepseek"
+    assert definition.provider_ref.version == "v3"
+    assert definition.capabilities["tool_calling"] is True
+
+
+def test_A008_provider_definition_uses_connection_shape() -> None:
+    definition = ProviderDefinition(
+        protocol="openai-compatible",
+        base_url="https://api.deepseek.com",
+        default_model="deepseek-chat",
+        credential_ref="secret://tenant-a/openai",
+    )
+    assert definition.base_url == "https://api.deepseek.com"
+    assert definition.default_model == "deepseek-chat"
+
+
+def test_A008_provider_definition_rejects_plaintext_credential() -> None:
+    """credential_ref 只允许 secret:// 引用，明文即拒（SecretRef 家族豁免分支）。"""
+    with pytest.raises(ValueError, match="plaintext"):
+        ProviderDefinition(
+            protocol="openai-compatible",
+            base_url="https://api.deepseek.com",
+            default_model="deepseek-chat",
+            credential_ref="sk-live",
+        )
+
+
+def test_A008_agent_model_policy_owns_model_timeouts() -> None:
+    policy = AgentModelPolicy(
+        primary_model_ref=ExactResourceVersion(id="model-a", version="1"),
+        model_timeout_ms=2_000,
+        model_deadline_ms=8_000,
+    )
+
+    assert policy.model_timeout_ms == 2_000
+    assert policy.model_deadline_ms == 8_000
+
+
+def test_A008_runtime_profile_rejects_legacy_model_failover() -> None:
+    with pytest.raises(ValueError, match="model_failover"):
+        RuntimeProfile.model_validate(
+            {
+                "request_timeout_ms": 1_000,
+                "max_retries": 1,
+                "model_failover": ["legacy-provider"],
+            }
+        )
+
+
+def test_A008_provider_definition_rejects_legacy_shape() -> None:
+    with pytest.raises(ValueError):
+        ProviderDefinition.model_validate(
+            {
+                "plugin_type": "model_provider",
+                "protocol": "openai_compatible",
+                "base_url": "https://api.deepseek.com",
+                "model": "deepseek-chat",
+                "credential_ref": "secret://tenant-a/deepseek",
             }
         )

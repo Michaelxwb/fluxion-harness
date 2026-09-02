@@ -14,8 +14,8 @@ import type {
 
 interface CapabilitiesPageProps {
   readonly api: ConsoleApi;
-  /** 测试/嵌入场景可直接指定初始 kind；默认 skill。 */
   readonly initialKind?: CapabilityKind;
+  readonly onKindChange?: (kind: CapabilityKind) => void;
 }
 
 type CapabilityKind = "skill" | "tool" | "mcp";
@@ -47,7 +47,11 @@ interface DraftState {
 }
 
 /** TASK-014 / FEAT-F04：Capabilities 管理页——skill/tool/mcp 三类 Tab + SchemaForm 内联新建。 */
-export function CapabilitiesPage({ api, initialKind = "skill" }: CapabilitiesPageProps) {
+export function CapabilitiesPage({
+  api,
+  initialKind = "skill",
+  onKindChange
+}: CapabilitiesPageProps) {
   const [kind, setKind] = useState<CapabilityKind>(initialKind);
   const [rows, setRows] = useState<readonly ListRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,16 +119,17 @@ export function CapabilitiesPage({ api, initialKind = "skill" }: CapabilitiesPag
   return (
     <div>
       <PageHeader title="能力" description="技能 / 工具 / MCP 三类能力资源的统一管理入口" />
-      {/* 非受控：Semi Tabs 受控回写在 jsdom 下不触发 onChange（同 Select animationend 陷阱家族） */}
       <Tabs
-        defaultActiveKey="skill"
+        activeKey={kind}
         onChange={(key) => {
-          // Semi Tabs 在 jsdom/动画态可能回传 undefined——guard 防御。
-          if (typeof key === "string" && key) setKind(key as CapabilityKind);
+          if (!isCapabilityKind(key)) return;
+          setKind(key);
+          setDraft(null);
+          onKindChange?.(key);
         }}
       >
         {KIND_TABS.map((tab) => (
-          <Tabs.TabPane key={tab.key} tab={tab.text} />
+          <Tabs.TabPane itemKey={tab.key} key={tab.key} tab={tab.text} />
         ))}
       </Tabs>
       <div style={{ margin: "12px 0" }}>
@@ -173,4 +178,8 @@ export function CapabilitiesPage({ api, initialKind = "skill" }: CapabilitiesPag
       ) : null}
     </div>
   );
+}
+
+function isCapabilityKind(value: unknown): value is CapabilityKind {
+  return value === "skill" || value === "tool" || value === "mcp";
 }

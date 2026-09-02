@@ -16,15 +16,16 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 import uuid
 
 import pytest
 
-from fluxion.runtime.workflow import WorkflowStartRequest
-from tests.runtime_helpers import runtime_context
+# restate 是 ADR-WF-001 供应商评估 PoC 的可选依赖（评估已定 DBOS，见
+# docs/development/DBOS测试探索与踩坑记录.md）；未安装时跳过而非中断收集。
+pytest.importorskip("restate", reason="restate PoC dependency not installed")
 
+from fluxion.runtime.workflow import WorkflowStartRequest
 from tests.workflow_poc.poc_workflow import (
     MockRetentionGuard,
     RetentionBlockedError,
@@ -340,7 +341,7 @@ async def test_s06_scale_two_workers(engine: RestateWorkflowEngine) -> None:
     ]
     try:
         workers[0].wait_for("READY-0", timeout=60.0)
-        time.sleep(1.5)
+        time.sleep(1.5)  # noqa: ASYNC251 - PoC：等待 worker-0 在 server 注册后再拉起 worker-1
         workers.append(
             WorkerProcess(["serve", "--index", "1", "--idle-seconds", "240"], extra_env={"RESTATE__WORKER_ID": "worker-1"})
         )

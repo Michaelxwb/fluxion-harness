@@ -1,16 +1,15 @@
 """AgentDefinition typed spec model（TASK-A101，PRD §4.2）。
 
 AgentDefinition 是产品/逻辑实体：persona 与模型、能力、运行态全部经引用表达
-（model_ref / runtime_profile_ref / capabilities），自身 spec_json 不内嵌
+（model_policy / runtime_profile_ref / capabilities），自身 spec_json 不内嵌
 RuntimeProfile 的产品语义字段（TASK-A104 收缩后的边界）。
 """
 
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field
 
 from fluxion.resources.contracts import ExactResourceVersion, SensitiveSpecModel
 
@@ -43,12 +42,46 @@ class AgentCapabilityReference(SensitiveSpecModel):
     type: CapabilityType = Field(title="能力类型", description="能力类型：skill/tool/mcp")
 
 
+class AgentModelPolicy(SensitiveSpecModel):
+    """AgentDefinition.model_policy（ADR-A008）：模型路由引用。
+
+    primary_model_ref 指向 `ModelDefinition`（kind=model_definition）精确版本；
+    fallback_model_refs 为跨 provider 回退链（每个指向一个 ModelDefinition）。
+    原 `model_ref`（provider 直引）语义由本字段承接，不保留兼容回退——
+    引用缺失 fail-closed（ADR-A008「不保留兼容层」）。
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    primary_model_ref: ExactResourceVersion = Field(
+        title="主模型定义", description="主 ModelDefinition 精确版本引用（id + version）"
+    )
+    fallback_model_refs: list[ExactResourceVersion] = Field(
+        default_factory=list,
+        title="回退链",
+        description="跨 provider 回退的 ModelDefinition 引用列表",
+    )
+    model_timeout_ms: int = Field(
+        default=60_000,
+        gt=0,
+        title="模型调用超时",
+        description="单次模型调用超时（毫秒）",
+    )
+    model_deadline_ms: int = Field(
+        default=120_000,
+        gt=0,
+        title="模型执行截止",
+        description="整次模型执行截止时间（毫秒）",
+    )
+
+
 class AgentDefinition(SensitiveSpecModel):
     """Agent 产品领域实体（版本化 Resource 的 spec 形态）。
 
     分组对齐 design/08 与 closure 契约：identity/presentation、owner、
     runtime_profile_ref、default capability/workflow presentation、
-    memory/personalization policy refs；model_ref 由 ExecutionSnapshot 冻结。
+    memory/personalization policy refs；模型引用经 model_policy（ADR-A008）
+    由 ExecutionSnapshot 冻结解析结果。
 
     状态唯一事实源（P1C-01 收口）：status/visibility 只由外层
     ResourceDefinition envelope 承载；spec 内的 legacy ``lifecycle``/
@@ -67,8 +100,9 @@ class AgentDefinition(SensitiveSpecModel):
     owner: str = Field(
         min_length=1, max_length=128, title="归属", description="归属（tenant 内用户/团队）"
     )
-    model_ref: ExactResourceVersion = Field(
-        title="模型引用", description="模型 provider 资源的精确版本引用（id + version）"
+    model_policy: AgentModelPolicy = Field(
+        title="模型策略",
+        description="ADR-A008 模型路由（ModelDefinition 精确版本引用；原 model_ref 语义由此承接）",
     )
     runtime_profile_ref: ExactResourceVersion | None = Field(
         default=None,

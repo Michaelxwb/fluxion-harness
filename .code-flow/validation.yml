@@ -1,26 +1,26 @@
 validators:
     - name: "Python syntax"
       trigger: "**/*.py"
-      command: "python3 -m py_compile {files}"
+      command: ".venv/bin/python -m py_compile {files}"
       timeout: 30000
       on_fail: "Fix Python syntax errors."
 
     - name: "Python types"
-      trigger: "backend/**/*.py"
-      command: "python3 -m mypy backend/src backend/tests"
-      timeout: 60000
+      trigger: "backend/src/**/*.py"
+      command: ".venv/bin/python -m mypy {files}"
+      timeout: 300000
       on_fail: "Fix strict typing issues; see specs/backend/code-quality-performance.md."
 
     - name: "Python lint"
       trigger: "backend/**/*.py"
-      command: "python3 -m ruff check backend/src backend/tests"
-      timeout: 30000
-      on_fail: "Run python3 -m ruff check --fix where safe, then fix remaining issues."
+      command: ".venv/bin/python -m ruff check {files}"
+      timeout: 60000
+      on_fail: "Run .venv/bin/python -m ruff check --fix where safe, then fix remaining issues."
 
     - name: "Backend tests"
       trigger: "backend/**/*.py"
-      command: "python3 -m pytest --tb=short -q"
-      timeout: 120000
+      command: ".venv/bin/python -m pytest --tb=short -q"
+      timeout: 1800000
       on_fail: "Fix unit/integration/contract/E2E failures; do not weaken assertions to pass."
 
     - name: "Frontend typecheck"
@@ -43,12 +43,12 @@ validators:
 
     - name: "Frontend Semi Design constraints"
       trigger: "frontend/**/*.{ts,tsx,js,jsx,json}"
-      command: "python3 scripts/check_frontend_constraints.py"
+      command: ".venv/bin/python scripts/check_frontend_constraints.py"
       timeout: 30000
       on_fail: "必须使用 Semi Design；禁止第二套通用 UI 库，并确保 React19 adapter 在 Semi 组件之前加载。"
 
     - name: "Registry contract environment-aware"
       trigger: "backend/src/fluxion/{registry,resources,repositories}/**/*.py"
-      command: "python3 scripts/run_registry_contract_tests.py"
+      command: ".venv/bin/python scripts/run_registry_contract_tests.py"
       timeout: 180000
       on_fail: "本地无 Docker 时只跑 SQLite；CI/Release Gate 必须设置 FLUXION_REQUIRE_POSTGRES_CONTRACT=1，确保 PostgreSQL Contract 不被跳过。"

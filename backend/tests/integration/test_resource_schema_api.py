@@ -1,23 +1,27 @@
 from __future__ import annotations
 
 import pytest
-from tests.console_helpers import console_stack, tenant_headers
 
 from fluxion.resources import ResourceKind
+from tests.console_helpers import console_stack, tenant_headers
 
 # ADR-012：schema endpoint 是前端表单的单一真相源。每个 kind 的断言锚定
 # 契约里真正会被消费的必填字段（无默认值 → 进 required），避免测试与 schema
 # 全量耦合（schema 加字段不应破坏此测试）。
 REQUIRED_PROPERTIES: dict[ResourceKind, set[str]] = {
     ResourceKind.RUNTIME_PROFILE: {"request_timeout_ms", "max_retries"},
-    # TASK-001：AgentDefinition 必填 = identity(name/system_prompt) + owner + model_ref
-    ResourceKind.AGENT_DEFINITION: {"name", "system_prompt", "owner", "model_ref"},
-    ResourceKind.MODEL: {"plugin_type", "protocol", "base_url", "model"},
+    # TASK-001：AgentDefinition 必填 = identity(name/system_prompt) + owner
+    # + model_policy（ADR-A008：model_ref → model_policy，指向 ModelDefinition）
+    ResourceKind.AGENT_DEFINITION: {"name", "system_prompt", "owner", "model_policy"},
+    # ADR-A008（TASK-001）：ProviderDefinition / ModelDefinition 两个新 kind 暴露到 schema API。
+    ResourceKind.MODEL_PROVIDER: {"protocol", "base_url", "credential_ref"},
+    ResourceKind.MODEL_DEFINITION: {"name", "provider_ref"},
     ResourceKind.TOOL: {"name", "capability_ref", "adapter_ref"},
     ResourceKind.SKILL: {"name"},
     ResourceKind.MCP: {"name", "transport"},
     ResourceKind.SECRET: {"name", "secret_ref"},
-    ResourceKind.PLUGIN: {"plugin_type", "protocol", "base_url", "model"},
+    # ADR-A009（TASK-002）：PLUGIN 是 Extension（PluginDefinition 形状），不再是模型供应商。
+    ResourceKind.PLUGIN: {"name", "package", "trust_level"},
     ResourceKind.POLICY: {"name"},
     ResourceKind.WORKFLOW: {"name", "steps"},
     ResourceKind.EVAL_SET: {"name", "runtime_profile_ref", "cases"},
@@ -77,7 +81,6 @@ async def test_RS6_schema_carries_runtime_mechanics_constraints() -> None:
         "concurrency",
         "memory_budget_mb",
         "bootstrapped_from",
-        "model_failover",
     }
     assert properties["request_timeout_ms"]["minimum"] == 100
     assert properties["request_timeout_ms"]["maximum"] == 120_000

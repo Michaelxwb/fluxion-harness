@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from tests.console_helpers import runtime_profile_spec, tenant_headers
 
 from fluxion.api.channel import create_app as create_channel_app
 from fluxion.api.console import create_app as create_console_app
@@ -13,6 +12,7 @@ from fluxion.services.channel_app import ChannelApplicationService
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.console_contracts import ConsoleActor
 from fluxion.services.runtime_app import RuntimeApplicationService
+from tests.console_helpers import runtime_profile_spec, tenant_headers
 
 
 @pytest.mark.asyncio
@@ -48,7 +48,12 @@ async def test_S_R01_local_console_sqlite_runtime_and_web_chat_golden_path(
             )
             # TASK-A104：persona/model 在同名 AgentDefinition（golden path 数据面）。
             from tests.runtime_helpers import seed_agent_definition
-            await seed_agent_definition(store, provider_id="dev.echo", system_prompt="你是 Fluxion 产品助手。")
+            await seed_agent_definition(
+                store,
+                provider_id="dev.echo",
+                model_name="dev",
+                system_prompt="你是 Fluxion 产品助手。",
+            )
         await channel.create_platform_user("tenant-a", "user-a", display_name="用户 A")
         issued = await channel.issue_bind_code("tenant-a", "user-a")
 

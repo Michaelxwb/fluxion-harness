@@ -40,13 +40,13 @@ from fluxion.plugins.contracts import (
     PluginType,
     TrustLevel,
 )
-from fluxion.plugins.loader import PluginLoader, _PROVIDER_PROTOCOL
+from fluxion.plugins.loader import _PROVIDER_PROTOCOL, PluginLoader
 
 
 def _manifest(
     plugin_id: str,
     *,
-    plugin_type: PluginType = PluginType.TOOL_PROVIDER,
+    plugin_type: PluginType = PluginType.TOOL_EXECUTOR,
     trust: TrustLevel = TrustLevel.TRUSTED,
     execution_mode: PluginExecutionMode = PluginExecutionMode.IN_PROCESS,
 ) -> PluginManifest:

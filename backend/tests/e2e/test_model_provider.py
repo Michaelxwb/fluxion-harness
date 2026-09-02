@@ -5,7 +5,6 @@ from typing import cast
 
 import httpx
 import pytest
-from tests.runtime_helpers import publish_resource
 
 from fluxion.plugins.contracts import (
     CapabilityDescriptor,
@@ -18,7 +17,7 @@ from fluxion.plugins.contracts import (
     PluginManifest,
     PluginType,
     ToolCall,
-    ToolDefinition,
+    ToolDescriptor,
     TrustLevel,
 )
 from fluxion.plugins.loader import PluginLoader
@@ -30,11 +29,18 @@ from fluxion.plugins.model_provider import (
     _tool_call,
 )
 from fluxion.registry import RegistryStore
-from fluxion.resources import ResourceKind
-from fluxion.runtime import AgentRuntime, RequestContext
+from fluxion.resources import (
+    ExactResourceVersion,
+    ExecutionSnapshot,
+    ModelPolicy,
+    ResolvedModelRoute,
+    ResourceKind,
+)
+from fluxion.runtime import AgentRuntime, RequestContext, RuntimeContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore
-from fluxion.runtime.resolver import ResourceResolver
+from fluxion.runtime.resolver import ExecutionSnapshotBuilder, ResourceResolver
 from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
+from tests.runtime_helpers import publish_resource, seed_model_definition
 
 
 class SlowModelProviderPlugin:
@@ -76,6 +82,89 @@ class SlowModelProviderPlugin:
         return ModelResponse(provider_id="slow", content="too late")
 
 
+class FailingStreamingProvider:
+    def __init__(self, seen_models: list[str | None]) -> None:
+        self._seen_models = seen_models
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        raise ModelProviderError("primary unavailable")
+
+    async def stream(self, request: ModelRequest):
+        self._seen_models.append(request.model)
+        if False:
+            yield ""
+        raise ModelProviderError("primary unavailable")
+
+
+class SuccessfulStreamingProvider:
+    def __init__(self, seen_models: list[str | None]) -> None:
+        self._seen_models = seen_models
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        return ModelResponse(provider_id="backup", content="backup answer")
+
+    async def stream(self, request: ModelRequest):
+        self._seen_models.append(request.model)
+        yield "backup"
+        yield " answer"
+
+
+@pytest.mark.asyncio
+async def test_A008_streaming_uses_fallback_route_model_name() -> None:
+    """主流在首 token 前失败时切到 fallback，并使用其 ModelDefinition.name。"""
+    seen_models: list[str | None] = []
+    registry = ModelProviderRegistry()
+    registry.register("primary", FailingStreamingProvider(seen_models))
+    registry.register("backup", SuccessfulStreamingProvider(seen_models))
+    runtime = AgentRuntime(
+        snapshot_builder=ExecutionSnapshotBuilder(ResourceResolver.from_cache()),
+        memory_store=InMemorySessionMemoryStore(),
+        model_providers=registry,
+    )
+    request = RequestContext(
+        tenant_id="tenant-a", user_id="user-a", session_id="session-a"
+    )
+    context = RuntimeContext(
+        request=request,
+        snapshot=ExecutionSnapshot(
+            execution_id=request.execution_id,
+            tenant_id=request.tenant_id,
+            user_id=request.user_id,
+            runtime_profile_id="assistant",
+            runtime_profile_version="1",
+            model_resolution=ModelPolicy(
+                routes=[
+                    ResolvedModelRoute(
+                        provider_ref=ExactResourceVersion(id="primary", version="1"),
+                        model="primary-model",
+                    ),
+                    ResolvedModelRoute(
+                        provider_ref=ExactResourceVersion(id="backup", version="2"),
+                        model="backup-model",
+                    ),
+                ],
+                model_timeout_ms=1_000,
+                model_deadline_ms=5_000,
+            ),
+            trace_id=request.trace_id,
+            plugin_versions={"primary": "1", "backup": "2"},
+        ),
+    )
+
+    tokens = [token async for token in runtime.stream_final_answer(context, "hello")]
+
+    assert tokens == ["backup", " answer"]
+    assert seen_models == ["primary-model", "backup-model"]
+    assert any(
+        event.name == "model.error" and event.attributes["provider_id"] == "primary"
+        for event in context.trace
+    )
+    assert any(
+        event.name == "model.completed" and event.attributes["provider_id"] == "backup"
+        for event in context.trace
+    )
+
+
 @pytest.mark.asyncio
 async def test_S_R13_agentloop_uses_model_provider_plugin_tool_calling_and_failover(
     sqlite_store: RegistryStore,
@@ -87,14 +176,16 @@ async def test_S_R13_agentloop_uses_model_provider_plugin_tool_calling_and_failo
         resource_id="assistant",
         version="1",
         spec={
-            # 慢 provider sleep 50ms；mechanics 超时下限 100ms 仍可触发超时。
+            # 慢 provider sleep 300ms；mechanics 超时下限 100ms 仍可触发超时。
             "request_timeout_ms": 100,
             "max_retries": 1,
-            # 失败降级链属 runtime mechanics（typed model_failover）。
-            "model_failover": ["stub"],
         },
     )
-    # TASK-A104：persona/model 迁至同名 AgentDefinition。
+    # TASK-A104：persona/model 迁至同名 AgentDefinition。ADR-A008 三层链：
+    # agent.model_policy → ModelDefinition → provider；主 slow、回退 stub
+    # （降级链归 ModelPolicy，不再消费 RuntimeProfile.model_failover）。
+    await seed_model_definition(sqlite_store, tenant_id="tenant-a", provider_id="slow")
+    await seed_model_definition(sqlite_store, tenant_id="tenant-a", provider_id="stub")
     await publish_resource(
         sqlite_store,
         tenant_id="tenant-a",
@@ -105,7 +196,11 @@ async def test_S_R13_agentloop_uses_model_provider_plugin_tool_calling_and_failo
             "name": "assistant",
             "system_prompt": "保持严谨",
             "owner": "fixture",
-            "model_ref": {"id": "slow", "version": "1"},
+                "model_policy": {
+                    "primary_model_ref": {"id": "model.slow", "version": "1"},
+                    "fallback_model_refs": [{"id": "model.stub", "version": "1"}],
+                    "model_timeout_ms": 100,
+                },
         },
     )
     registry = ModelProviderRegistry()
@@ -146,7 +241,7 @@ async def test_S_R13_agentloop_uses_model_provider_plugin_tool_calling_and_failo
         context,
         "查询 Fluxion",
         tools=[
-            ToolDefinition(
+            ToolDescriptor(
                 name="lookup",
                 description="fixture tool",
                 parameters={"type": "object"},

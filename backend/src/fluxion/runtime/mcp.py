@@ -414,6 +414,15 @@ def mcp_tool_id(mcp_id: str, tool_name: str) -> str:
     return f"mcp__{_safe_tool_part(mcp_id)}__{_safe_tool_part(tool_name)}"
 
 
+def mcp_server_config(
+    resource: ResourceDefinition,
+    credential: ResolvedCredential | None,
+    credential_ref: str | None,
+) -> MCPServerConfig:
+    """公开入口：Console 连接测试等运行时外部路径复用同一配置构建逻辑。"""
+    return _server_config(resource, credential, credential_ref)
+
+
 def _safe_tool_part(value: str) -> str:
     return "".join(character if character.isalnum() else "_" for character in value)
 

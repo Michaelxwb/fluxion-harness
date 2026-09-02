@@ -60,15 +60,20 @@ test("S-P13-06 Browser Console to real Model and MCP Chat golden path", async ({
 // 为 skill/tool/mcp typed refs），runtime_profile 只放机制（请求超时/重试/轮数）——
 // 旧 golden-path 的 runtime_profile.model_policy/allowed_* 已随重构移除。
 async function createProductResources(page: Page): Promise<void> {
-  // 注意：插件 spec 不含 name 字段（ModelProviderDefinition extra=forbid，name
-  // 会被发布校验拒绝——agent-error-path 迁移时发现并移除的真实缺陷）。
-  await createAndPublishResource(page, "plugin", "browser-provider", {
+  // ADR-A008（TASK-002 返工）：模型供应商经 MODEL_PROVIDER kind 发布——
+  // PLUGIN 退出模型链；三层链 = ProviderDefinition → ModelDefinition → model_policy。
+  // 注意：Provider spec 不含 name 字段（ProviderDefinition extra=forbid）。
+  await createAndPublishResource(page, "model_provider", "browser-provider", {
     plugin_type: "model_provider",
     protocol: "openai_compatible",
     base_url: "http://127.0.0.1:9878/v1",
     model: "browser-model",
     request_timeout_ms: 3000,
     max_retries: 0
+  });
+  await createAndPublishResource(page, "model_definition", "browser-model", {
+    name: "browser-model",
+    provider_ref: { id: "browser-provider", version: "v1" }
   });
   await createAndPublishResource(page, "skill", "browser-skill", {
     name: "browser-skill",
@@ -87,15 +92,38 @@ async function createProductResources(page: Page): Promise<void> {
     max_retries: 0,
     max_rounds: 4
   });
+  // RULE-02 三维齐备（TASK-003 返工）：无 tenant policy 时 Tool/MCP fail-closed；
+  // dev 模式默认租户 dev，播种 deny-only 默认策略（不设 allow-list、不 deny）。
+  await createAndPublishResource(page, "policy", "tenant-default", {
+    name: "tenant-default",
+    allowed_tools: [],
+    denied_tools: []
+  });
+  const policyBinding = await page.request.post("/api/v1/bindings", {
+    data: {
+      subject_type: "tenant",
+      subject_id: "dev",
+      resource_type: "policy",
+      resource_id: "tenant-default",
+      version_selector: "v1"
+    }
+  });
+  expect(policyBinding.ok(), await policyBinding.text()).toBeTruthy();
   await createAndPublishResource(page, "agent_definition", "browser-agent", {
     name: "browser-agent",
     system_prompt: "You are Fluxion browser agent.",
     owner: "e2e-admin",
-    model_ref: { id: "browser-provider", version: "v1" },
+    model_policy: {
+      primary_model_ref: { id: "browser-model", version: "v1" },
+      fallback_model_refs: []
+    },
     runtime_profile_ref: { id: "assistant", version: "v1" },
     capabilities: [
       { capability_ref: "browser-skill", version_pin: "v1", type: "skill" },
-      { capability_ref: "weather", version_pin: "v1", type: "mcp" }
+      { capability_ref: "weather", version_pin: "v1", type: "mcp" },
+      // Skill 依赖闭包（E-05 发布期校验）：browser-skill.required_capabilities
+      // 必须被 tool 类型声明覆盖
+      { capability_ref: TOOL_ID, version_pin: "1", type: "tool" }
     ]
   });
 }
@@ -126,7 +154,7 @@ async function selectAgent(page: Page, agentId: string): Promise<void> {
 // 模型 provider / MCP 的 user→resource binding（HTTP API；browser-user 必须先建）。
 async function createBindings(page: Page): Promise<void> {
   for (const [resourceType, resourceId] of [
-    ["plugin", "browser-provider"],
+    ["model_provider", "browser-provider"],
     ["mcp", "weather"]
   ] as const) {
     const bind = await page.request.post("/api/v1/bindings", {

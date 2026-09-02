@@ -48,7 +48,7 @@ class LoadedPlugin:
 
 
 # ADR-EXT-001 统一扩展模型：per-PluginType 分派表。
-# 仅含 4 个"可 resolve(provider_id)"的 provider SPI。TOOL_PROVIDER 走
+# 仅含 4 个"可 resolve(provider_id)"的 provider SPI。TOOL_EXECUTOR 走
 # CapabilityProvider→LoadedPlugin.capabilities（既有路径，不进 typed registry）；
 # HOOK 走 HookRegistryProtocol（对齐 ADR-007，Phase 5 注入），本阶段不分派。
 _PROVIDER_PROTOCOL: dict[PluginType, type] = {
@@ -175,13 +175,13 @@ class PluginLoader:
         if manifest.plugin_type is PluginType.MODEL_PROVIDER:
             self._register_model_provider(plugin, manifest, capabilities)
             return
-        if manifest.plugin_type is PluginType.TOOL_PROVIDER:
-            # TOOL_PROVIDER = CapabilityProvider 形状（ADR-EXT-001 SPI-02）。不硬拒绝：
-            # 既有最小插件用 TOOL_PROVIDER 作通用类型（无 provider 角色）；但静默零能力
+        if manifest.plugin_type is PluginType.TOOL_EXECUTOR:
+            # TOOL_EXECUTOR = Tool 的 SPI 实现载体（ADR-A009）。不硬拒绝：
+            # 既有最小插件用 TOOL_EXECUTOR 作通用类型（无 provider 角色）；但静默零能力
             # 是误配置信号，故 warn 暴露（review #1：静默 → 显式警告）。
             if not isinstance(plugin, CapabilityProvider):
                 _logger.warning(
-                    "%s: tool_provider plugin lacks CapabilityProvider -> loads with zero capabilities",
+                    "%s: tool_executor plugin lacks CapabilityProvider -> loads with zero capabilities",
                     manifest.plugin_id,
                 )
             return

@@ -1,3 +1,4 @@
+import "@douyinfe/semi-ui/react19-adapter";
 import "@testing-library/jest-dom/vitest";
 import { configure } from "@testing-library/react";
 

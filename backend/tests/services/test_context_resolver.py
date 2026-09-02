@@ -23,15 +23,16 @@ from collections.abc import AsyncGenerator
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine
-from tests.runtime_helpers import publish_resource
 
 from fluxion.registry import SQLiteRegistryStore
+from fluxion.resources import ExactResourceVersion
 from fluxion.services.context_resolver import (
     BudgetExceededEntry,
     ContextResolutionError,
     ContextResolver,
     ResolverSelector,
 )
+from tests.runtime_helpers import publish_resource, seed_model_definition
 
 
 @pytest.fixture
@@ -60,7 +61,10 @@ async def _seed_agent(store: SQLiteRegistryStore, *, version: str = "1") -> None
         version=version,
         spec={"request_timeout_ms": 30_000, "max_retries": 1},
     )
-    from fluxion.agents.definitions import AgentDefinition
+    # ADR-A008：agent.model_policy 指向 ModelDefinition（model.dev.echo），
+    # 解析链必需的 fixture 资源（tenant 与 agent 一致）。
+    await seed_model_definition(store, tenant_id="tenant-a", provider_id="dev.echo")
+    from fluxion.agents.definitions import AgentDefinition, AgentModelPolicy
     from fluxion.registry.schema import resource_definitions
     from fluxion.resources import ResourceKind
 
@@ -79,7 +83,7 @@ async def _seed_agent(store: SQLiteRegistryStore, *, version: str = "1") -> None
                     name="助手",
                     system_prompt="p",
                     owner="builder",
-                    model_ref={"id": "dev.echo", "version": "1"},
+                    model_policy=AgentModelPolicy(primary_model_ref=ExactResourceVersion(id="model.dev.echo", version="1")),
                 ).model_dump(mode="json"),
                 created_at=__import__("datetime").datetime.now(__import__("datetime").UTC),
             )
@@ -104,7 +108,7 @@ async def test_s02_resolve_pipeline_50x_p95_under_300ms(store: SQLiteRegistrySto
     p95 = samples[int(len(samples) * 0.95)]
     assert p95 <= 300, f"resolve p95 {p95:.1f}ms exceeds 300ms"
     # 十段 trace 完整
-    assert [s.stage for s in result.resolution_trace][0] == "identity"
+    assert next(s.stage for s in result.resolution_trace) == "identity"
     assert result.snapshot.snapshot_digest
 
 
@@ -135,10 +139,16 @@ async def test_capability_versions_resolve_published(store: SQLiteRegistryStore)
 
     此前该路径零测试覆盖（_seed_agent 无 capabilities）；tool 类型不解析版本也不抛错。
     """
-    from fluxion.agents.definitions import AgentCapabilityReference, AgentDefinition, CapabilityType
+    from sqlalchemy import insert
+
+    from fluxion.agents.definitions import (
+        AgentCapabilityReference,
+        AgentDefinition,
+        AgentModelPolicy,
+        CapabilityType,
+    )
     from fluxion.registry.schema import resource_definitions
     from fluxion.resources import ResourceKind
-    from sqlalchemy import insert
 
     # skill v3 + mcp v2 已发布
     await publish_resource(
@@ -166,6 +176,8 @@ async def test_capability_versions_resolve_published(store: SQLiteRegistryStore)
         version="1",
         spec={"request_timeout_ms": 30_000, "max_retries": 1},
     )
+    # ADR-A008：解析链需要 ModelDefinition（model.dev.echo）存在
+    await seed_model_definition(store, tenant_id="tenant-a", provider_id="dev.echo")
     # agent 带 skill/mcp/tool 三个 capability
     async with store.engine.begin() as conn:
         await conn.execute(
@@ -180,7 +192,7 @@ async def test_capability_versions_resolve_published(store: SQLiteRegistryStore)
                     name="助手",
                     system_prompt="p",
                     owner="builder",
-                    model_ref={"id": "dev.echo", "version": "1"},
+                    model_policy=AgentModelPolicy(primary_model_ref=ExactResourceVersion(id="model.dev.echo", version="1")),
                     capabilities=[
                         AgentCapabilityReference(
                             type=CapabilityType.SKILL,
@@ -236,6 +248,26 @@ async def test_s08_execution_immutability_across_publish(store: SQLiteRegistrySt
     assert second.snapshot.agent_definition_version == "2"
     # digest 随版本变化
     assert first.snapshot.snapshot_digest != second.snapshot.snapshot_digest
+
+
+@pytest.mark.asyncio
+async def test_runtime_profile_selector_pin_applies_without_agent_profile_ref(
+    store: SQLiteRegistryStore,
+) -> None:
+    await _seed_agent(store, version="1")
+    await _seed_agent(store, version="2")
+
+    result = await _resolver(store).resolve(
+        ResolverSelector(
+            tenant_id="tenant-a",
+            agent_id="assistant",
+            user_id="user-a",
+            runtime_profile_version="1",
+        ),
+        session_id="s-profile-pin",
+    )
+
+    assert result.snapshot.runtime_profile_version == "1"
 
 
 @pytest.mark.asyncio

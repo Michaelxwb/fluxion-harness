@@ -9,18 +9,14 @@ from fluxion.api.admin_users import register_admin_user_routes
 from fluxion.api.console_errors import _register_error_handlers
 from fluxion.api.console_helpers import _actor, _kind, _publication_response
 from fluxion.api.console_models import (
-    ApprovalCreatePayload,
-    ApprovalDecidePayload,
-    BindingCreatePayload,
-    ChatAccessCreatePayload,
     DeprecatePayload,
-    PlatformUserCreatePayload,
     PublishPayload,
     ResourceCreatePayload,
     ResourceUpdatePayload,
     RollbackPayload,
     WorkflowValidatePayload,
 )
+from fluxion.api.console_routes_governance import register_console_governance_routes
 from fluxion.api.console_routes_read import (
     _register_p1_routes,
     _register_read_side_routes,
@@ -34,23 +30,14 @@ from fluxion.api.workflow import register_workflow_projection_routes
 from fluxion.config import DevModeSettings
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.console_contracts import (
-    CreateApprovalRequest,
-    CreateBindingRequest,
     CreateResourceDraftRequest,
-    DecideApprovalRequest,
     DeprecateResourceVersionRequest,
     PublishResourceVersionRequest,
     ReleaseGateRequest,
     RollbackResourceRequest,
     UpdateResourceDraftRequest,
 )
-from fluxion.services.console_payloads import (
-    approval_payload,
-    binding_payload,
-    issued_chat_access_payload,
-    platform_user_payload,
-    resource_payload,
-)
+from fluxion.services.console_payloads import resource_payload
 from fluxion.services.operations_app import OperationsApplicationService
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.workflow_projection import WorkflowProjectionService
@@ -80,12 +67,12 @@ def create_app(
     _register_list_versions_route(app, service)
     _register_update_resource_route(app, service)
     _register_validate_resource_route(app, service)
+    _register_validate_publish_route(app, service)
+    _register_test_connection_route(app, service)
     _register_publish_resource_route(app, service)
     _register_rollback_resource_route(app, service)
     _register_deprecate_resource_route(app, service)
-    _register_approval_routes(app, service)
-    _register_binding_routes(app, service)
-    _register_platform_user_routes(app, service)
+    register_console_governance_routes(app, service)
     _register_p1_routes(app, service)
     _register_read_side_routes(app, service)
     _register_trace_routes(app, service)
@@ -234,6 +221,86 @@ def _register_update_resource_route(app: FastAPI, service: ConsoleApplicationSer
         )
         return success(resource_payload(updated))
 
+    @app.post("/api/v1/resources/{resource_type}/{resource_id}:working-draft")
+    async def ensure_working_draft(
+        resource_type: str,
+        resource_id: str,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        # remediation §14.3/§25：编辑已发布资源自动创建/复用 working draft，
+        # 用户无感，无需显式「创建草稿」。
+        actor = _actor(x_actor_id)
+        working = await service.ensure_working_draft(
+            actor,
+            _kind(resource_type),
+            resource_id,
+        )
+        return success(resource_payload(working))
+
+
+def _register_test_connection_route(
+    app: FastAPI,
+    service: ConsoleApplicationService,
+) -> None:
+    @app.post("/api/v1/model-providers/{provider_id}:test-connection")
+    async def test_connection(
+        provider_id: str,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        # TASK-019：Provider 连接测试（可达性 + 发现模型），凭据/端点错误可操作。
+        actor = _actor(x_actor_id)
+        result = await service.test_model_provider_connection(
+            actor,
+            provider_id,
+        )
+        return success(
+            {
+                "reachable": result.reachable,
+                "discovered_models": result.discovered_models,
+                "error": result.error,
+            }
+        )
+
+    @app.post("/api/v1/mcp-servers/{mcp_id}:test-connection")
+    async def test_mcp_connection(
+        mcp_id: str,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        # B-S-07（TASK-019 返工）：MCP 连接测试（握手 + 发现工具）。
+        actor = _actor(x_actor_id)
+        result = await service.test_mcp_connection(actor, mcp_id)
+        return success(
+            {
+                "reachable": result.reachable,
+                "discovered_tools": result.discovered_tools,
+                "error": result.error,
+            }
+        )
+
+
+def _register_validate_publish_route(
+    app: FastAPI,
+    service: ConsoleApplicationService,
+) -> None:
+    @app.post("/api/v1/resources/{resource_type}/{resource_id}/versions/{version}:validate-publish")
+    async def validate_publish(
+        resource_type: str,
+        resource_id: str,
+        version: str,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        # remediation §14.4：发布前完整校验，返回可操作问题清单。
+        actor = _actor(x_actor_id)
+        result = await service.validate_publish(
+            actor,
+            _kind(resource_type),
+            resource_id,
+            version,
+        )
+        return success(
+            {"valid": result.valid, "issues": result.issues}
+        )
+
 
 def _register_validate_resource_route(
     app: FastAPI,
@@ -341,138 +408,3 @@ def _register_deprecate_resource_route(
             ),
         )
         return _publication_response(result)
-
-
-def _register_approval_routes(app: FastAPI, service: ConsoleApplicationService) -> None:
-    @app.post("/api/v1/approvals")
-    async def create_approval(
-        payload: ApprovalCreatePayload,
-        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
-    ) -> JSONResponse:
-        actor = _actor(x_actor_id)
-        record = await service.create_approval(
-            actor,
-            CreateApprovalRequest(
-                tenant_id=actor.tenant_id,
-                kind=_kind(payload.resource_type),
-                resource_id=payload.resource_id,
-                target_version=payload.target_version,
-                reason=payload.reason,
-                ttl_seconds=payload.ttl_seconds,
-            ),
-        )
-        return success(approval_payload(record))
-
-    @app.post("/api/v1/approvals/{approval_id}:decide")
-    async def decide_approval(
-        approval_id: str,
-        payload: ApprovalDecidePayload,
-        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
-    ) -> JSONResponse:
-        actor = _actor(x_actor_id)
-        record = await service.decide_approval(
-            actor,
-            DecideApprovalRequest(
-                tenant_id=actor.tenant_id,
-                approval_id=approval_id,
-                approved=payload.approved,
-                reason=payload.reason,
-            ),
-        )
-        return success(approval_payload(record))
-
-
-def _register_binding_routes(app: FastAPI, service: ConsoleApplicationService) -> None:
-    @app.get("/api/v1/bindings")
-    async def list_bindings(
-        resource_type: Annotated[str | None, Query()] = None,
-        page: Annotated[int, Query(ge=1)] = 1,
-        page_size: Annotated[int, Query(ge=1, le=100)] = 20,
-    ) -> JSONResponse:
-        bindings, total = await service.list_bindings(
-            _actor(None),
-            page=page,
-            page_size=page_size,
-            resource_type=_kind(resource_type) if resource_type is not None else None,
-        )
-        return success(
-            {
-                "items": [binding_payload(binding) for binding in bindings],
-                "page": page,
-                "page_size": page_size,
-                "total": total,
-            }
-        )
-
-    @app.post("/api/v1/bindings")
-    async def create_binding(
-        payload: BindingCreatePayload,
-        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
-    ) -> JSONResponse:
-        actor = _actor(x_actor_id)
-        binding = await service.create_binding(
-            actor,
-            CreateBindingRequest(
-                tenant_id=actor.tenant_id,
-                subject_type=payload.subject_type,
-                subject_id=payload.subject_id,
-                resource_type=payload.resource_type,
-                resource_id=payload.resource_id,
-                version_selector=payload.version_selector,
-                credential_ref=payload.credential_ref,
-                config=dict(payload.config),
-            ),
-        )
-        return success(binding_payload(binding))
-
-    @app.post("/api/v1/bindings/{binding_id}:disable")
-    async def disable_binding(binding_id: str) -> JSONResponse:
-        await service.disable_binding(_actor(None), binding_id=binding_id)
-        return success({"binding_id": binding_id, "status": "disabled"})
-
-
-def _register_platform_user_routes(app: FastAPI, service: ConsoleApplicationService) -> None:
-    @app.post("/api/v1/platform-users")
-    async def create_platform_user(payload: PlatformUserCreatePayload) -> JSONResponse:
-        user = await service.create_platform_user(
-            _actor(None),
-            platform_user_id=payload.platform_user_id,
-            display_name=payload.display_name,
-        )
-        return success(platform_user_payload(user))
-
-    @app.get("/api/v1/platform-users")
-    async def list_platform_users(
-        page: Annotated[int, Query(ge=1)] = 1,
-        page_size: Annotated[int, Query(ge=1, le=100)] = 20,
-    ) -> JSONResponse:
-        users, total = await service.list_platform_users(
-            _actor(None),
-            page=page,
-            page_size=page_size,
-        )
-        return success(
-            {
-                "items": [platform_user_payload(user) for user in users],
-                "page": page,
-                "page_size": page_size,
-                "total": total,
-            }
-        )
-
-    @app.post("/api/v1/platform-users/{platform_user_id}/chat-access")
-    async def issue_chat_access(
-        platform_user_id: str,
-        payload: ChatAccessCreatePayload,
-    ) -> JSONResponse:
-        issued = await service.issue_chat_access(
-            _actor(None),
-            platform_user_id=platform_user_id,
-            agent_id=payload.agent_id,
-        )
-        return success(issued_chat_access_payload(issued))
-
-    @app.post("/api/v1/chat-access/{access_id}:revoke")
-    async def revoke_chat_access(access_id: str) -> JSONResponse:
-        record = await service.revoke_chat_access(_actor(None), access_id=access_id)
-        return success({"access_id": record.access_id, "status": "revoked"})

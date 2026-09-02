@@ -148,7 +148,9 @@ async def test_e02_issue_with_draft_agent_rejected_and_published_succeeds() -> N
                 "name": "草稿代理",
                 "system_prompt": "draft",
                 "owner": "builder-1",
-                "model_ref": {"id": "dev.echo", "version": "1"},
+                "model_policy": {
+                    "primary_model_ref": {"id": "model.dev.echo", "version": "1"}
+                },
             },
         )
     )

@@ -12,7 +12,7 @@ from fluxion.plugins.contracts import (
 )
 from fluxion.plugins.model_provider import OpenAICompatibleHTTPModelProvider
 from fluxion.registry import RegistryReadStore
-from fluxion.resources import ResourceBinding, ResourceKind
+from fluxion.resources import ResourceBinding, ResourceKind, ResourceStatus
 from fluxion.runtime.secrets import CredentialResolver, SecretProviderError
 
 
@@ -81,12 +81,12 @@ class RegistryOpenAIModelProvider:
         user_id = _required_context(request.user_id, "user_id")
         version = _required_context(request.provider_version, "provider_version")
         resource = await self._store.get(
-            ResourceKind.PLUGIN,
+            ResourceKind.MODEL_PROVIDER,
             self._provider_id,
             tenant_id=tenant_id,
             version=version,
         )
-        if resource is None:
+        if resource is None or resource.status is not ResourceStatus.PUBLISHED:
             raise RegistryModelProviderError("model provider definition not found")
         _validate_protocol(resource.spec_json)
         binding = await self._binding(tenant_id=tenant_id, user_id=user_id)
@@ -98,13 +98,13 @@ class RegistryOpenAIModelProvider:
             subject_type="user",
             subject_id=user_id,
             tenant_id=tenant_id,
-            resource_type=ResourceKind.PLUGIN,
+            resource_type=ResourceKind.MODEL_PROVIDER,
         )
         tenant_bindings = await self._store.list_bindings(
             subject_type="tenant",
             subject_id=tenant_id,
             tenant_id=tenant_id,
-            resource_type=ResourceKind.PLUGIN,
+            resource_type=ResourceKind.MODEL_PROVIDER,
         )
         binding = next(
             (
@@ -139,7 +139,7 @@ def _provider_from_spec(
     return OpenAICompatibleHTTPModelProvider(
         provider_id=provider_id,
         api_base_url=_required_string(spec, "base_url"),
-        model=_required_string(spec, "model"),
+        model=_optional_string(spec, "default_model") or "",
         timeout_seconds=_positive_int(spec.get("request_timeout_ms"), 60_000) / 1000,
         api_key=credential,
         max_retries=_non_negative_int(spec.get("max_retries"), 1),
@@ -147,9 +147,7 @@ def _provider_from_spec(
 
 
 def _validate_protocol(spec: Mapping[str, object]) -> None:
-    if spec.get("plugin_type") != "model_provider":
-        raise RegistryModelProviderError("plugin is not a model provider")
-    if spec.get("protocol") != "openai_compatible":
+    if spec.get("protocol") != "openai-compatible":
         raise RegistryModelProviderError("unsupported model provider protocol")
 
 
@@ -163,6 +161,15 @@ def _required_string(spec: Mapping[str, object], field: str) -> str:
     value = spec.get(field)
     if not isinstance(value, str) or not value.strip():
         raise RegistryModelProviderError(f"model provider {field} is required")
+    return value
+
+
+def _optional_string(spec: Mapping[str, object], field: str) -> str | None:
+    value = spec.get(field)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise RegistryModelProviderError(f"model provider {field} must be a string")
     return value
 
 

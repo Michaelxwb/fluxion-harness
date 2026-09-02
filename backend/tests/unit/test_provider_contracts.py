@@ -26,7 +26,6 @@ from fluxion.plugins.contracts import (
     PluginType,
 )
 
-
 # --------------------------------------------------------------------------
 # B-01: @runtime_checkable Protocol 拒绝缺方法假实现
 # --------------------------------------------------------------------------
@@ -129,6 +128,18 @@ def test_b01_tool_provider_alias_matches_capability_provider_shape() -> None:
     assert ToolProvider is CapabilityProvider
 
 
+def test_a009_tool_executor_replaces_tool_provider_kind() -> None:
+    """ADR-A009（TASK-022）：PluginType.TOOL_EXECUTOR 取代 TOOL_PROVIDER。
+
+    TOOL_PROVIDER 语义暗示「Tool 是 Plugin 类型」；TOOL_EXECUTOR 明确为
+    Tool 的 SPI 实现载体——Plugin 提供 Tool 实现 ≠ Plugin 就是 Tool。
+    """
+    from fluxion.plugins.contracts import PluginType
+
+    assert PluginType.TOOL_EXECUTOR == "tool_executor"
+    assert not hasattr(PluginType, "TOOL_PROVIDER")
+
+
 def test_b01_secret_resolve_signature_tenant_first() -> None:
     """SecretProvider.resolve 签名：tenant_id 首参强制（NFR-SEC-02 tenant scope）。"""
     from fluxion.plugins.contracts import SecretProvider
@@ -147,7 +158,7 @@ def test_b01_secret_resolve_signature_tenant_first() -> None:
 def test_b02_plugin_type_enum_terminal_members() -> None:
     expected = {
         PluginType.MODEL_PROVIDER,
-        PluginType.TOOL_PROVIDER,
+        PluginType.TOOL_EXECUTOR,
         PluginType.ARTIFACT_STORE,
         PluginType.SEMANTIC_STORE,
         PluginType.SECRET_PROVIDER,
@@ -166,7 +177,7 @@ def test_b02_old_plugin_type_members_removed() -> None:
 def test_b02_plugin_type_values_stable() -> None:
     """值字符串与外部存储一致（resource spec_json / DB）。"""
     assert PluginType.MODEL_PROVIDER.value == "model_provider"
-    assert PluginType.TOOL_PROVIDER.value == "tool_provider"
+    assert PluginType.TOOL_EXECUTOR.value == "tool_executor"
     assert PluginType.ARTIFACT_STORE.value == "artifact_store"
     assert PluginType.SEMANTIC_STORE.value == "semantic_store"
     assert PluginType.SECRET_PROVIDER.value == "secret_provider"
@@ -243,7 +254,7 @@ _SIX_SPIS = (
 
 
 def test_b03_six_spis_defined_in_contracts_only() -> None:
-    import fluxion.plugins.contracts as contracts
+    from fluxion.plugins import contracts
 
     for name in _SIX_SPIS:
         cls = getattr(contracts, name, None)

@@ -17,16 +17,16 @@ from types import SimpleNamespace
 
 import pytest
 
-from fluxion.agents.definitions import AgentCapabilityReference, CapabilityType
+from fluxion.agents.definitions import AgentCapabilityReference, AgentModelPolicy, CapabilityType
 from fluxion.registry import SQLiteRegistryStore
+from fluxion.resources import ExactResourceVersion
 from fluxion.users.service import UserDomainService
 
 
 async def _seed(store: SQLiteRegistryStore, *, tools: list[str]) -> None:
-    from tests.runtime_helpers import publish_resource
-
     from fluxion.agents.definitions import AgentDefinition
     from fluxion.resources import ResourceKind
+    from tests.runtime_helpers import publish_resource, seed_model_definition
 
     await publish_resource(
         store,
@@ -36,6 +36,8 @@ async def _seed(store: SQLiteRegistryStore, *, tools: list[str]) -> None:
         version="1",
         spec={"request_timeout_ms": 30_000, "max_retries": 1},
     )
+    # ADR-A008：agent.model_policy 指向 ModelDefinition（model.dev.echo）
+    await seed_model_definition(store, tenant_id="tenant-a", provider_id="dev.echo")
     from tests.runtime_helpers import resource_definition
 
     await store.put(
@@ -48,7 +50,7 @@ async def _seed(store: SQLiteRegistryStore, *, tools: list[str]) -> None:
                 name="助手",
                 system_prompt="p",
                 owner="builder",
-                model_ref={"id": "dev.echo", "version": "1"},
+                model_policy=AgentModelPolicy(primary_model_ref=ExactResourceVersion(id="model.dev.echo", version="1")),
                 capabilities=[
                     AgentCapabilityReference(
                         capability_ref=t, version_pin="1", type=CapabilityType.TOOL

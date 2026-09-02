@@ -36,7 +36,7 @@ from fluxion.services.console_contracts import (
     CreateBindingRequest,
     DecideApprovalRequest,
 )
-from fluxion.services.console_resources import _ensure_same_tenant
+from fluxion.services.console_resource_schema import _ensure_same_tenant
 
 
 class ConsoleGovernanceOps:
