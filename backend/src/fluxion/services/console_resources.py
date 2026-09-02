@@ -174,7 +174,10 @@ class ConsoleResourceOps(ConsoleResourceLifecycleOps, ConsoleResourceValidationO
         page: int,
         page_size: int,
     ) -> tuple[list[ResourceDefinition], int]:
-        return await self._store.list_resources(
+        # console-creation-flow-fix（CF-S-01）：Console 列表语义 = 每资源「当前版本
+        # （任意状态）」一行，新建 draft 立即可见；runtime/resolver 消费的
+        # published-only（store.list_resources）保持不变。
+        return await self._store.list_current_resources(
             kind,
             tenant_id=actor.tenant_id,
             offset=(page - 1) * page_size,
@@ -188,7 +191,9 @@ class ConsoleResourceOps(ConsoleResourceLifecycleOps, ConsoleResourceValidationO
         page: int,
         page_size: int,
     ) -> tuple[list[ResourceDefinition], int]:
-        return await self._store.list_all_resources(
+        # 同 list_resources：Console「当前版本（任意状态）」语义（CF-S-01）。
+        return await self._store.list_current_resources(
+            None,
             tenant_id=actor.tenant_id,
             offset=(page - 1) * page_size,
             limit=page_size,

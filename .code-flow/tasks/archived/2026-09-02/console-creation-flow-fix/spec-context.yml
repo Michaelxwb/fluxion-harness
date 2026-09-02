@@ -1,0 +1,575 @@
+version: 1
+task: console-creation-flow-fix
+enforcement: required
+updated_at: '2026-09-02T05:56:43.955378+00:00'
+sources:
+- type: cli
+  ref: bind
+bindings:
+- spec_id: backend-database
+  path: backend/database.md
+  status: active
+  hashes:
+    file_sha256: ec7dbf940463ec02ed51075a082be00c23da585c69b150864455b03d108266ce
+    metadata_sha256: 5229e1d69a7cbce9500e9a8fa902fe6cc9888dcc5a304f1543476b248971087e
+    rules_sha256: dbe672ee29795f296a5340e78d0ff12b030ecebce4d18422fa33fc2f457b79ec
+  selected_by: requirement
+  reason: RegistryStore 新方法 list_current_resources 的 SQLite/PG 同契约
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-backend-database-001
+    summary: 实现必须满足 Guidance 中所有适用要求，并避免 Avoid 中列出的所有禁止项。
+    text_sha256: bb2e52306aabab63ce3d89c88ff8b88685c0f35b7af5cfa73165cad3fd875dc6
+    enforcement: required
+    verifier_ref: backend-database#RULE-backend-database-001
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: console-creation-flow-fix.md
+          section_id: TASK-001
+          item_id: RULE-backend-database-001
+          artifact_sha256: 3ea4c657ec22b2f225ff588b2ebaa804c3764466841b652b3bdf1e65c9129f02
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: console-creation-flow-fix.md
+          section_id: TASK-001
+          item_id: RULE-backend-database-001
+          artifact_sha256: 3ea4c657ec22b2f225ff588b2ebaa804c3764466841b652b3bdf1e65c9129f02
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: 读写分离场景显式标注读库/写库，强一致读走主库
+    text_sha256: f08e8a46dbd11bf98e06dc740af8142f2471ffac7e042118a38d5cfe9cd805dc
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: N+1 查询用预加载（`joinedload` / `include` / `Preload`）解决
+    text_sha256: 8a707a2a51ad3f66bad6d5fc201b5bd0f8f6138377c842e83538930811b4f9b7
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: 大批量写入分批 + commit，避免单事务过大
+    text_sha256: e42d4712ce5e09c9a2e9b6889f2419a48dee7342bbd03a2af2afac939cc6147d
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: 缓存与数据库一致性：先写库再失效缓存（`cache-aside`）
+    text_sha256: 466033fff3413cb5a97f744faf9520bd7134051513e2362b9f4d6c969cfeaf93
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-005
+    summary: CRUD 基类统一实现 `get / list / create / update / delete / bulk_*`，子类只扩展模型特有查询
+    text_sha256: bf0110f17a8acacfbdd4e3b13349b93c721db883dd0f97963e04b6d30f6950c1
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: fluxion-console-api-contract
+  path: backend/console-api-contract.md
+  status: active
+  hashes:
+    file_sha256: b49848fb91c2fe4c57f1c0c0ea47066eefdef0f79a0c5be99c06a9437f950934
+    metadata_sha256: 43f49336b20d8bf5a7dfedeec5c2c3cf627489ba95f04ef201b7699c6596c829
+    rules_sha256: 1f5fd7ead679f6b3092c8945fa7f73d6ab20a411c0186cf305bb4b5e44ed695b
+  selected_by: requirement
+  reason: Console 列表语义变更须保持统一 envelope/request_id
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-fluxion-console-api-001
+    summary: Console/Control Plane 的 HTTP 响应、业务错误、请求上下文和日志必须通过统一基础设施封装，业务 Handler/Service
+      不得各自拼装响应或自行定义日志字段。
+    text_sha256: eebd23eb552535a106bf7eb01ceb031fd5018d43265c0e65812edf27b648f553
+    enforcement: required
+    verifier_ref: fluxion-console-api-contract#RULE-fluxion-console-api-001
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: console-creation-flow-fix.md
+          section_id: TASK-001
+          item_id: RULE-fluxion-console-api-001
+          artifact_sha256: 3ea4c657ec22b2f225ff588b2ebaa804c3764466841b652b3bdf1e65c9129f02
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: console-creation-flow-fix.md
+          section_id: TASK-001
+          item_id: RULE-fluxion-console-api-001
+          artifact_sha256: 3ea4c657ec22b2f225ff588b2ebaa804c3764466841b652b3bdf1e65c9129f02
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: '`RequestContextMiddleware`：生成/恢复请求上下文。'
+    text_sha256: 54ab4749aa5d0b081c7ed4c64e0b7fd6d8ec7e3a0dd6dbe6efa8bb137d6e4265
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: '`ApiResponse[T]`、`PageData[T]`：统一响应类型。'
+    text_sha256: 0dec8ff0ef6243edaf84841c7785ef22d91c6bbf64e05bf9f9f4909eb40f4119
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: '`ExceptionMapper`：异常到 HTTP + Business Code。'
+    text_sha256: 1253019bf53d6d443336440ab082155d668d8041a8dbc8d72b0b35cfe3e1ec0f
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: '`get_logger()`：返回已绑定 Request Context 的结构化 Logger。'
+    text_sha256: 0ddee84a23d7404bea4962aaf256b29601c3c95b18dd7f27d539a3287d584bae
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-005
+    summary: '`RedactionProcessor`：日志字段级脱敏。'
+    text_sha256: d4eb981893d66195a153f3b456c2234cfbfb6a343ef19ffa5bdc076e6a236125
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-006
+    summary: '`AuditService`：高影响操作独立持久化。'
+    text_sha256: 0d0dfdb2d8354bab3acc5af8bc14ab98804f0c73660404d54767471534f1d963
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: frontend-component-specs
+  path: frontend/component-specs.md
+  status: active
+  hashes:
+    file_sha256: fd86e6785400e33116b628d36f4da2853dd34b3e1d4e9a5cf5c9585f421b0833
+    metadata_sha256: c7dbcb955ddaa212afbf24924011db5f87bc1fc20296af1aa58267e011849fd8
+    rules_sha256: fd27b207dd1b552d62dc696ab307bf46fdbaf06808af54dadf9c40180043853c
+  selected_by: requirement
+  reason: 创建跳转复用既有路由与组件，容器/展示分层
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-frontend-component-001
+    summary: 实现必须满足 Guidance 中所有适用要求，并避免 Avoid 中列出的所有禁止项。
+    text_sha256: bb2e52306aabab63ce3d89c88ff8b88685c0f35b7af5cfa73165cad3fd875dc6
+    enforcement: required
+    verifier_ref: frontend-component-specs#RULE-frontend-component-001
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: console-creation-flow-fix.md
+          section_id: TASK-001
+          item_id: RULE-frontend-component-001
+          artifact_sha256: 3ea4c657ec22b2f225ff588b2ebaa804c3764466841b652b3bdf1e65c9129f02
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: console-creation-flow-fix.md
+          section_id: TASK-001
+          item_id: RULE-frontend-component-001
+          artifact_sha256: 3ea4c657ec22b2f225ff588b2ebaa804c3764466841b652b3bdf1e65c9129f02
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-frontend-001
+    summary: 拆分容器组件（数据获取 / 状态）与展示组件（纯 UI），便于测试和复用
+    text_sha256: 833f911258ed6c41a2e1344083ff475b5b2ee0047f7d1ee96c661ce90cdf9dde
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-frontend-002
+    summary: 复用逻辑提取为 hook（`useXxx`）/ composable，禁止跨组件复制粘贴
+    text_sha256: 184fcfcfbf886bbb3ecd3b66dd2dbe1f4c1ebf5aaf324c76c83119f6823ac368
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-frontend-003
+    summary: 列表渲染必须给 `key`，且 `key` 稳定唯一，避免使用数组索引
+    text_sha256: 4f47c62a59caefc84f80c5ff6535c8a9aae79963814e00d787acfbde48779f64
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-frontend-004
+    summary: 受控表单优先；非受控仅用于不需要回读值的场景
+    text_sha256: c76e47d7afb6906898198c4b458321016bd72039e2b9e2bbbece235e166ab98d
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-frontend-005
+    summary: 样式遵循设计系统：间距用 4 的倍数，强调色 ≤ 2 种
+    text_sha256: f3554878f6913099890d93f4501cf52b7715130135e933d8cc7e6d164fe4203b
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []

@@ -60,7 +60,7 @@ describe("TASK-012 / F-S-03 CreateAgentModal 最小建档", () => {
     expect(within(dialog).queryByLabelText(/规格 JSON|高级 JSON/)).toBeNull();
   });
 
-  it("填写名称创建智能体 → 关闭弹窗 + 列表刷新出现新 Agent", async () => {
+  it("填写名称创建智能体 → 关闭弹窗 + 创建即进入编辑器（CF-S-02 后创建直达编辑）", async () => {
     const { user } = renderConsole({ initialView: "resources", seed: createConsoleFixture() });
     await screen.findByRole("heading", { name: "智能体" });
 
@@ -76,13 +76,12 @@ describe("TASK-012 / F-S-03 CreateAgentModal 最小建档", () => {
     if (leaving) fireEvent.animationEnd(leaving);
     await user.click(screen.getByRole("button", { name: "创建智能体" }));
 
-    // 创建成功 → 弹窗关闭 + 列表刷新出现新 Agent（Toast 在 jsdom 中不可靠，改断言可观测结果）
-    await screen.findByLabelText("智能体列表");
+    // 创建成功 → 弹窗关闭 + 直达编辑器（新建 draft 立即可达，不再依赖列表刷新）
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "新建智能体" })).not.toBeInTheDocument()
     );
-    const list = await screen.findByLabelText("智能体列表");
-    expect(within(list).getAllByText(/客户服务助手/).length).toBeGreaterThanOrEqual(1);
+    await screen.findByLabelText("智能体编辑器");
+    expect(screen.getByDisplayValue("客户服务助手")).toBeInTheDocument();
   });
 
   it("未选模型时创建被拦截并给出可操作提示（model_policy 必填）", async () => {
@@ -96,6 +95,31 @@ describe("TASK-012 / F-S-03 CreateAgentModal 最小建档", () => {
 
     expect(await screen.findByText(/默认模型：必选/)).toBeInTheDocument();
     expect(screen.queryByLabelText("智能体列表")).toBeInTheDocument();
+  });
+});
+
+describe("console-creation-flow-fix / CF-S-02 创建直达编辑器", () => {
+  it("创建提交后携带 resourceId 跳转 /build/agents/:id/edit，编辑器可保存/发布", async () => {
+    const { user } = renderConsole({ initialView: "resources", seed: createConsoleFixture() });
+    await screen.findByRole("heading", { name: "智能体" });
+
+    await user.click(screen.getByRole("button", { name: "新建智能体" }));
+    const dialog = await screen.findByRole("dialog", { name: "新建智能体" });
+    await user.type(screen.getByLabelText("智能体名称"), "数据分析助手");
+    await user.click(within(dialog).getByRole("combobox"));
+    const options = await waitFor(() => screen.getAllByRole("option"));
+    fireEvent.click(options[0]);
+    const leaving = document.querySelector('[class*="animation-hide"]');
+    if (leaving) fireEvent.animationEnd(leaving);
+    await user.click(screen.getByRole("button", { name: "创建智能体" }));
+
+    // 直达编辑器：路由 /build/agents/:resourceId/edit 渲染 AgentEditorPage，
+    // 编辑器加载刚创建的 draft（getResource 任意状态 + working draft 复用）
+    const editor = await screen.findByLabelText("智能体编辑器");
+    expect(screen.getByDisplayValue("数据分析助手")).toBeInTheDocument();
+    // 编辑器可保存/发布（创建 → 编辑 → 发布 闭环入口）
+    expect(within(editor).getByRole("button", { name: "保存" })).toBeInTheDocument();
+    expect(within(editor).getByRole("button", { name: "发布" })).toBeInTheDocument();
   });
 });
 

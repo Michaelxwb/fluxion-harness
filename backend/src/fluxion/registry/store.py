@@ -246,6 +246,15 @@ class RegistryStore(RegistryReadStore, Protocol):
         limit: int,
     ) -> tuple[list[ResourceDefinition], int]: ...
 
+    async def list_current_resources(
+        self,
+        kind: ResourceKind | None,
+        *,
+        tenant_id: str,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[ResourceDefinition], int]: ...
+
     async def append_audit(self, record: AuditRecord) -> None: ...
 
     async def list_audit(

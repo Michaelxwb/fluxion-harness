@@ -219,6 +219,22 @@ class SQLAlchemyRegistryStore:
             limit=limit,
         )
 
+    async def list_current_resources(
+        self,
+        kind: ResourceKind | None,
+        *,
+        tenant_id: str,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[ResourceDefinition], int]:
+        return await resource_sqlalchemy.list_current_resources(
+            self._engine,
+            kind,
+            tenant_id=tenant_id,
+            offset=offset,
+            limit=limit,
+        )
+
     async def append_audit(self, record: AuditRecord) -> None:
         async with self._engine.begin() as connection:
             await self._insert_audit(connection, record)

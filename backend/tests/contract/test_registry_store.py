@@ -203,6 +203,91 @@ async def test_S_R07_list_resources_uses_latest_published_version(
 
 
 @pytest.mark.asyncio
+async def test_CF_E01_list_current_resources_current_version_any_status(
+    store: RegistryStore,
+) -> None:
+    """console-creation-flow-fix（CF-E-01）：Console 列表语义 = 每资源任意状态
+    最新版本一行；旧 list_resources 保持 published-only（runtime/resolver 消费，
+    回归钉保护 workspace_app/eval_app/migration 三个消费方）。"""
+    # solo：draft-only 资源（新建未发布）
+    await store.put(
+        _definition(kind=ResourceKind.RUNTIME_PROFILE, id="solo", tenant_id="t1", version="1")
+    )
+    # multi：published v3 + working draft v4 → 当前行 v4(DRAFT)
+    await store.put(
+        _definition(kind=ResourceKind.RUNTIME_PROFILE, id="multi", tenant_id="t1", version="3")
+    )
+    await store.publish(
+        ResourceKind.RUNTIME_PROFILE, "multi", tenant_id="t1", version="3"
+    )
+    await store.put(
+        _definition(kind=ResourceKind.RUNTIME_PROFILE, id="multi", tenant_id="t1", version="4")
+    )
+    # ver：published v9 + draft v10 → 语义排序取 v10（字典序会错取 "9" > "10"）
+    await store.put(
+        _definition(kind=ResourceKind.RUNTIME_PROFILE, id="ver", tenant_id="t1", version="9")
+    )
+    await store.publish(
+        ResourceKind.RUNTIME_PROFILE, "ver", tenant_id="t1", version="9"
+    )
+    await store.put(
+        _definition(kind=ResourceKind.RUNTIME_PROFILE, id="ver", tenant_id="t1", version="10")
+    )
+    # 跨租户回归钉：t2 资源不出现在 t1 列表
+    await store.put(
+        _definition(kind=ResourceKind.RUNTIME_PROFILE, id="other", tenant_id="t2", version="1")
+    )
+    # kind=None（资源中心）形态：跨 kind 各取当前行
+    await store.put(
+        _definition(kind=ResourceKind.SKILL, id="solo-skill", tenant_id="t1", version="1")
+    )
+
+    current, total = await store.list_current_resources(
+        ResourceKind.RUNTIME_PROFILE,
+        tenant_id="t1",
+        offset=0,
+        limit=10,
+    )
+
+    assert total == 3
+    assert sorted(
+        (resource.id, resource.version, resource.status) for resource in current
+    ) == [
+        ("multi", "4", ResourceStatus.DRAFT),
+        ("solo", "1", ResourceStatus.DRAFT),
+        ("ver", "10", ResourceStatus.DRAFT),
+    ]
+
+    current_all, total_all = await store.list_current_resources(
+        None,
+        tenant_id="t1",
+        offset=0,
+        limit=10,
+    )
+    assert total_all == 4  # 3 × RUNTIME_PROFILE + solo-skill
+    assert {resource.kind for resource in current_all} == {
+        ResourceKind.RUNTIME_PROFILE,
+        ResourceKind.SKILL,
+    }
+
+    # 旧 published-only 语义回归钉：solo/未发布版本不可见，multi/ver 只见已发布行
+    published_only, published_total = await store.list_resources(
+        ResourceKind.RUNTIME_PROFILE,
+        tenant_id="t1",
+        offset=0,
+        limit=10,
+    )
+    assert published_total == 2
+    assert sorted(
+        (resource.id, resource.version, resource.status)
+        for resource in published_only
+    ) == [
+        ("multi", "3", ResourceStatus.PUBLISHED),
+        ("ver", "9", ResourceStatus.PUBLISHED),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_S_R07_publish_and_latest(store: RegistryStore) -> None:
     """发布后 latest-published 命中；未发布版本对默认选择器不可见。"""
     await store.put(

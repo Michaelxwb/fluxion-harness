@@ -43,6 +43,7 @@ cur.execute(f"SELECT * FROM users WHERE email = '{email}'")
 - 大批量写入分批 + commit，避免单事务过大
 - 缓存与数据库一致性：先写库再失效缓存（`cache-aside`）
 - CRUD 基类统一实现 `get / list / create / update / delete / bulk_*`，子类只扩展模型特有查询
+- 版本号字符串（`v1`/`v2`/…/`v10`）排序必须语义化：按版本数值或长度降序（`func.length(version).desc(), version.desc()`），禁止裸字典序（`"10" < "9"` 陷阱）；前端同款展示层排序需保持一致语义
 
 ## Avoid
 - 禁止在事务内发起外部 HTTP / RPC 调用，超时会导致连接池耗尽

@@ -181,12 +181,13 @@ async def list_resources(
     offset: int,
     limit: int,
 ) -> tuple[list[ResourceDefinition], int]:
-    return await _list_published_resources(
+    return await _list_resource_rows(
         engine,
         kind=kind,
         tenant_id=tenant_id,
         offset=offset,
         limit=limit,
+        published_only=True,
     )
 
 
@@ -198,24 +199,64 @@ async def list_all_resources(
     limit: int,
 ) -> tuple[list[ResourceDefinition], int]:
     # 单表 resource_definitions：不带 kind 过滤即列出租户下全部资源类型。
-    return await _list_published_resources(
+    return await _list_resource_rows(
         engine,
         kind=None,
         tenant_id=tenant_id,
         offset=offset,
         limit=limit,
+        published_only=True,
     )
 
 
-async def _list_published_resources(
+async def list_current_resources(
+    engine: AsyncEngine,
+    kind: ResourceKind | None,
+    *,
+    tenant_id: str,
+    offset: int,
+    limit: int,
+) -> tuple[list[ResourceDefinition], int]:
+    """Console「当前版本（任意状态）」列表：每资源取最新版本一行，draft-only
+    资源可见（console-creation-flow-fix CF-S-01）。kind=None 列出租户下全部类型。
+
+    与 `list_resources` 的 latest-published 语义（resolver/runtime 消费）互补，
+    互不影响。"""
+    return await _list_resource_rows(
+        engine,
+        kind=kind,
+        tenant_id=tenant_id,
+        offset=offset,
+        limit=limit,
+        published_only=False,
+    )
+
+
+async def _list_resource_rows(
     engine: AsyncEngine,
     *,
     kind: ResourceKind | None,
     tenant_id: str,
     offset: int,
     limit: int,
+    published_only: bool,
 ) -> tuple[list[ResourceDefinition], int]:
     kind_scope = [resource_definitions.c.kind == kind.value] if kind is not None else []
+    if published_only:
+        status_filters = [resource_definitions.c.status == ResourceStatus.PUBLISHED.value]
+        # 已发布行按发布时间取最近；版本号作平局裁决。
+        window_order = (
+            resource_definitions.c.published_at.desc(),
+            resource_definitions.c.version.desc(),
+        )
+    else:
+        status_filters = []
+        # 当前版本按版本号语义排序：length 优先，避免 "10" < "9" 字典序陷阱
+        # （与前端 VersionHistory 的版本语义排序一致）。
+        window_order = (
+            func.length(resource_definitions.c.version).desc(),
+            resource_definitions.c.version.desc(),
+        )
     ranked = (
         select(
             *resource_definitions.c,
@@ -228,16 +269,13 @@ async def _list_published_resources(
                     resource_definitions.c.kind,
                     resource_definitions.c.resource_id,
                 ],
-                order_by=(
-                    resource_definitions.c.published_at.desc(),
-                    resource_definitions.c.version.desc(),
-                ),
+                order_by=window_order,
             )
             .label("version_rank"),
         )
         .where(resource_definitions.c.tenant_id == tenant_id)
         .where(*kind_scope)
-        .where(resource_definitions.c.status == ResourceStatus.PUBLISHED.value)
+        .where(*status_filters)
         .subquery()
     )
     items_statement = (
@@ -253,7 +291,7 @@ async def _list_published_resources(
         select(resource_definitions.c.kind, resource_definitions.c.resource_id)
         .where(resource_definitions.c.tenant_id == tenant_id)
         .where(*kind_scope)
-        .where(resource_definitions.c.status == ResourceStatus.PUBLISHED.value)
+        .where(*status_filters)
         .distinct()
     )
     count_statement = select(func.count()).select_from(distinct_pairs.subquery())

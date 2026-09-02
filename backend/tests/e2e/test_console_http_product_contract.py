@@ -125,11 +125,14 @@ async def test_S_P13_05_console_http_contract_supports_real_ui_operations() -> N
         assert trace.json()["data"]["agent_definition"] == {"id": "assistant", "version": "v1"}
         assert audit.json()["data"]["total"] >= 4
         assert all("token" not in str(item) for item in audit.json()["data"]["items"])
-        # 单表 resource_definitions，一个 GET /api/v1/resources 返回全部类型（已发布的）。
-        assert all_resources.json()["data"]["total"] == 2
+        # 单表 resource_definitions，一个 GET /api/v1/resources 返回全部类型
+        # （console-creation-flow-fix CF-S-01：Console 列表含未发布资源——invalid-mcp
+        # draft 因发布校验失败留在列表供用户修正；total 3 = profile + skill + mcp）。
+        assert all_resources.json()["data"]["total"] == 3
         assert {item["resource_type"] for item in all_resources.json()["data"]["items"]} == {
             "runtime_profile",
             "skill",
+            "mcp",
         }
         assert [item["resource_id"] for item in filtered_skill.json()["data"]["items"]] == ["review"]
         # 绑定列表同样支持 resource_type 过滤，非法类型返回 400。

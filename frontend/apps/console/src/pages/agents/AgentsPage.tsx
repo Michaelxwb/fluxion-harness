@@ -61,9 +61,12 @@ export function AgentsPage({ api }: AgentsPageProps) {
       <CreateAgentModal
         api={api}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => {
+        onCreated={(resourceId) => {
           setCreateOpen(false);
-          setReloadKey((key) => key + 1);
+          // console-creation-flow-fix（CF-S-02）：创建即编辑——新建 draft 携带
+          // resourceId 直达编辑器（编辑器 getResource 任意状态 + :working-draft 复用，
+          // draft 立即可达，不再依赖列表刷新）。
+          navigate(`/build/agents/${resourceId}/edit`);
         }}
         visible={createOpen}
       />
