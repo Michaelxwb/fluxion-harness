@@ -44,4 +44,18 @@ describe("FEAT-04 CredentialsPage 投影", () => {
     expect(await screen.findByText("beta-key")).toBeInTheDocument();
     expect(screen.queryByText("alpha-key")).toBeNull();
   });
+
+  it("草稿行经更多操作发布后状态变为已发布", async () => {
+    const api = createInMemoryConsoleApi();
+    await api.createCredential({ name: "publish-key", secret: "sk-x", purpose: "model" });
+    const { user } = renderConsole({ initialView: "platform_secrets", api });
+    expect(await screen.findByText("publish-key")).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("row-actions-more"));
+    await user.click(await screen.findByText("发布"));
+    await screen.findByText("凭据已发布");
+    // 发布后行状态跟进为已发布（投影重查）。
+    const statuses = await screen.findAllByText("已发布");
+    expect(statuses.length).toBeGreaterThan(0);
+  });
 });

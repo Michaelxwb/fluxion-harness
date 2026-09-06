@@ -14,6 +14,11 @@ deploy/
 
 > 本地纯开发（不涉及部署产物）直接使用 `fluxion serve --dev`（SQLite + 前端 dev bundle），
 > 见仓库根 `README.md`。
+>
+> dev 凭据持久化：dev 与生产同形态，Secret 明文经 AES-256-GCM 加密后落 SQLite
+> `secret_credentials` 表，重启不丢失；master key 优先级为环境变量
+> `FLUXION_SECRET_MASTER_KEY` > 数据库文件旁 `.fluxion-dev-master-key`（0600，
+> 首次自动生成，仅 dev 便利）> 随机（`:memory:` 无持久化场景并告警）。
 
 ## 环境变量约定
 

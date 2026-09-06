@@ -337,3 +337,18 @@ describe("TASK-017 / 四态完整覆盖", () => {
     expect(screen.getByRole("button", { name: "新建智能体" })).toBeInTheDocument();
   });
 });
+
+describe("RuntimeProfile 缺口：一键创建租户默认配置", () => {
+  it("高级设置可创建并发布 tenant-default，自动选中", async () => {
+    const { user } = renderConsole({ initialView: "resources", seed: createConsoleFixture() });
+    await screen.findByRole("heading", { name: "智能体" });
+
+    const list = await screen.findByLabelText("智能体列表");
+    await user.click(within(list).getByRole("button", { name: "编辑 assistant" }));
+    const editor = await screen.findByLabelText("智能体编辑器");
+    await user.click(within(editor).getByRole("tab", { name: "高级设置" }));
+
+    await user.click(within(editor).getByRole("button", { name: "创建租户默认配置" }));
+    await within(editor).findByText("已创建并发布租户默认配置，已自动选中");
+  });
+});

@@ -20,7 +20,8 @@ const SEARCH_PAGE_SIZE = 100;
 export function useRemoteResourceOptions(
   api: ConsoleApi,
   kinds: readonly ResourceType[],
-  active: boolean
+  active: boolean,
+  reloadSignal = 0
 ): {
   readonly options: readonly RemoteResourceOption[];
   readonly loading: boolean;
@@ -74,7 +75,7 @@ export function useRemoteResourceOptions(
   useEffect(() => {
     if (!active) return;
     void load("");
-  }, [active, load]);
+  }, [active, load, reloadSignal]);
 
   useEffect(
     () => () => {
@@ -100,7 +101,8 @@ export function useRemoteResourceOptions(
 /** FEAT-03：平台用户选择器远程搜索（与 useRemoteResourceOptions 同语义）。 */
 export function useRemoteUserOptions(
   api: ConsoleApi,
-  active: boolean
+  active: boolean,
+  reloadSignal = 0
 ): {
   readonly options: readonly RemoteResourceOption[];
   readonly loading: boolean;
@@ -150,7 +152,7 @@ export function useRemoteUserOptions(
   useEffect(() => {
     if (!active) return;
     void load("");
-  }, [active, load]);
+  }, [active, load, reloadSignal]);
 
   useEffect(
     () => () => {

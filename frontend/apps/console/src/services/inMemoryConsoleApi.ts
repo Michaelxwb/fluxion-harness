@@ -409,7 +409,8 @@ class InMemoryConsoleApi implements ConsoleApi {
         updatedAt: resource.updatedAt,
         consumerCount: deduped.length,
         consumers: deduped,
-        status: resource.status
+        status: resource.status,
+        version: resource.version
       };
     });
     return page(rows, { page: request.page, pageSize: request.pageSize });

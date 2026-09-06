@@ -33,6 +33,7 @@ from fluxion.services.console_resource_schema import (
     _validate_definition,
 )
 from fluxion.services.release_gate import ConsoleReleaseGateBlockedError, GateDecision
+from fluxion.services.runtime_profile_resolution import resolve_default_runtime_profile
 from fluxion.services.workflow_app import WorkflowDefinitionValidator
 
 
@@ -89,6 +90,19 @@ class ConsoleResourceLifecycleOps:
             raise ConsoleResourceNotFoundError()
         if existing.status is ResourceStatus.PUBLISHED:
             raise ConsoleVersionConflictError("version conflict")
+        if request.kind is ResourceKind.RUNTIME_PROFILE and bool(
+            existing.spec_json.get("default", False)
+        ):
+            # ADR-A010：同租户至多一个 default=true 的已发布配置；store 层守卫兜底
+            # 并发竞态（抛 RegistryStoreError），此处前置检查给出可操作 409。
+            current_default = await resolve_default_runtime_profile(
+                self._store, request.tenant_id
+            )
+            if current_default is not None and current_default.id != request.resource_id:
+                raise ConsoleVersionConflictError(
+                    f"租户已存在默认运行配置 '{current_default.id}'，"
+                    "同租户至多一个 default=true"
+                )
         if request.kind is ResourceKind.WORKFLOW:
             result = await self._workflow_validator.validate(
                 tenant_id=actor.tenant_id,

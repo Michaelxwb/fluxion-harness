@@ -253,6 +253,7 @@ export interface CredentialProjection {
   readonly consumerCount: number;
   readonly consumers: readonly CredentialProjectionConsumer[];
   readonly status: ResourceStatus;
+  readonly version: string;
 }
 
 /** FEAT-04：投影服务端过滤（与投影查询参数对齐）。 */

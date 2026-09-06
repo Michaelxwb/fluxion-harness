@@ -67,6 +67,7 @@ from fluxion.services.runtime_app import (
 )
 from fluxion.services.workflow_projection import WorkflowProjectionService
 from fluxion.services.workspace_app import WorkspaceApplicationService
+from fluxion.users import UserDomainService
 
 
 @dataclass(frozen=True, slots=True)
@@ -237,6 +238,7 @@ def create_production_bundle_app(
             projection_service=projection,
             operations_service=operations,
             runtime_service=gateway,
+            user_service=UserDomainService(store),
         ),
         create_channel_app(channel),
         create_eval_app(eval_service),

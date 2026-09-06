@@ -294,7 +294,8 @@ function parseCredentialProjection(value: unknown): CredentialProjection {
         providerName: requiredString(row.provider_name, "provider_name")
       };
     }),
-    status: requiredStatus(record.status)
+    status: requiredStatus(record.status),
+    version: requiredString(record.version, "version")
   };
 }
 

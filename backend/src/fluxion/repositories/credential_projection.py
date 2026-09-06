@@ -49,6 +49,7 @@ class CredentialProjection:
     consumer_count: int
     consumers: tuple[CredentialProjectionConsumer, ...] = ()
     status: str = ResourceStatus.DRAFT.value
+    version: str = "1"
 
     def to_payload(self) -> dict[str, object]:
         return {
@@ -61,6 +62,7 @@ class CredentialProjection:
             "consumer_count": self.consumer_count,
             "consumers": [consumer.to_payload() for consumer in self.consumers],
             "status": self.status,
+            "version": self.version,
         }
 
 
@@ -283,6 +285,7 @@ class CredentialProjectionRepository:
                     consumer_count=len(consumers),
                     consumers=consumers,
                     status=str(row["status"]),
+                    version=str(row["version"]),
                 )
             )
         return items, total

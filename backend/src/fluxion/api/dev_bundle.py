@@ -20,8 +20,9 @@ from fluxion.api.console import create_app as create_console_app
 from fluxion.api.eval import create_app as create_eval_app
 from fluxion.api.workspace import create_app as create_workspace_app
 from fluxion.config import DevModeSettings
-from fluxion.registry import SQLiteRegistryStore
-from fluxion.runtime.secrets import CredentialResolver, LocalEncryptedSecretStore
+from fluxion.plugins.secret.postgres import PostgresEncryptedSecretStore
+from fluxion.registry import PostgreSQLRegistryStore, SQLiteRegistryStore
+from fluxion.runtime.secrets import CredentialResolver, SecretStore
 from fluxion.services.channel_app import ChannelApplicationService
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.eval_app import (
@@ -37,6 +38,7 @@ from fluxion.services.runtime_app import (
 )
 from fluxion.services.workflow_projection import WorkflowProjectionService
 from fluxion.services.workspace_app import WorkspaceApplicationService
+from fluxion.users import UserDomainService
 
 
 class ApiDispatcher:
@@ -67,8 +69,21 @@ def create_dev_bundle_app(
     console_dist: Path,
     chat_dist: Path,
 ) -> Starlette:
-    store = SQLiteRegistryStore(registry_dsn)
-    secret_store = _secret_store()
+    """dev bundle 装配入口（composition root）。
+
+    registry_dsn 缺省为 SQLite 文件（零依赖开箱）；传入 PG DSN 则跑
+    PostgreSQL（与生产同库形态，需先用 scripts/init_db.py 建表，密钥必须
+    经 FLUXION_SECRET_MASTER_KEY 显式给，不再回退随机/file key）。
+    """
+    if registry_dsn.startswith("postgresql"):
+        store = PostgreSQLRegistryStore(registry_dsn)
+    else:
+        store = SQLiteRegistryStore(registry_dsn)
+    # 与生产同形态：Secret 明文落 SQLite 加密行（AES-256-GCM），重启不丢失；
+    # 此前 in-memory store 重启即丢密钥，Registry 引用悬空（执行时 secret_not_found）。
+    secret_store = PostgresEncryptedSecretStore(
+        engine=store.engine, master_key=_dev_master_key(registry_dsn)
+    )
     credential_resolver = CredentialResolver(secret_store)
     # FEAT-07：dev 执行入口装配真实 PersonalMemoryRetriever（与生产同形态）。
     runtime = RuntimeApplicationService.create_dev_bundle(
@@ -116,6 +131,7 @@ def create_dev_bundle_app(
             dev_mode=dev_mode,
             projection_service=projection,
             runtime_service=runtime,
+            user_service=UserDomainService(store),
         ),
         create_channel_app(channel, dev_mode=dev_mode),
         create_eval_app(eval_service, dev_mode=dev_mode),
@@ -127,6 +143,7 @@ def create_dev_bundle_app(
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         await store.initialize()
+        await secret_store.initialize()
         await _seed_environment_credentials(secret_store)
         # FEAT-07：同一事件循环内初始化执行侧（含 memory provider 有限预算探测）。
         await runtime.initialize()
@@ -150,6 +167,7 @@ def create_dev_bundle_app(
     )
     # FEAT-07：运维/测试经此触达执行侧装配（真实 Retriever 断言入口）。
     app.state.runtime_service = runtime
+    app.state.secret_store = secret_store
     return app
 
 
@@ -161,18 +179,55 @@ async def _health(_request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "mode": "dev"})
 
 
-def _secret_store() -> LocalEncryptedSecretStore:
+def _dev_master_key(registry_dsn: str) -> bytes:
+    """dev 密钥来源：环境变量 > PG 必显式给 > DB 旁 key 文件（0600，首次生成）。
+
+    - 环境变量永远优先（与生产同姿势）；
+    - PG DSN 且无环境变量时 fail-fast（生产形态本地 dev 不允许静默随机钥匙，
+      否则密文写一次即永久不可解）；
+    - SQLite 文件 DSN 用 DB 旁 `.fluxion-dev-master-key`（0600，dev-only 便利）；
+    - `:memory:` 等无持久化场景用随机钥匙并告警。
+    """
+    import logging
+
     encoded = os.environ.get("FLUXION_SECRET_MASTER_KEY")
-    if encoded is None:
-        return LocalEncryptedSecretStore(master_key=os.urandom(32))
-    try:
-        key = base64.b64decode(encoded, validate=True)
-    except ValueError as exc:
-        raise RuntimeError("FLUXION_SECRET_MASTER_KEY must be valid base64") from exc
-    return LocalEncryptedSecretStore(master_key=key)
+    if encoded:
+        try:
+            return base64.b64decode(encoded, validate=True)
+        except ValueError as exc:
+            raise RuntimeError("FLUXION_SECRET_MASTER_KEY must be valid base64") from exc
+    if registry_dsn.startswith("postgresql"):
+        raise RuntimeError(
+            "dev PG 模式必须显式设置 FLUXION_SECRET_MASTER_KEY（base64 32B）"
+        )
+    key_path = _dev_key_path(registry_dsn)
+    if key_path is not None:
+        if key_path.exists():
+            return base64.b64decode(key_path.read_bytes().strip(), validate=True)
+        generated = os.urandom(32)
+        key_path.write_bytes(base64.b64encode(generated))
+        os.chmod(key_path, 0o600)
+        logging.getLogger("fluxion.console").warning(
+            "dev master key generated at %s (0600, dev-only convenience)", str(key_path)
+        )
+        return generated
+    logging.getLogger("fluxion.console").warning(
+        "dev registry is non-persistent; using ephemeral master key (secrets lost on restart)"
+    )
+    return os.urandom(32)
 
 
-async def _seed_environment_credentials(store: LocalEncryptedSecretStore) -> None:
+def _dev_key_path(registry_dsn: str) -> Path | None:
+    prefix = "sqlite+aiosqlite:///"
+    if not registry_dsn.startswith(prefix):
+        return None
+    db_path = registry_dsn[len(prefix):]
+    if not db_path or db_path == ":memory:":
+        return None
+    return Path(db_path).expanduser().parent / ".fluxion-dev-master-key"
+
+
+async def _seed_environment_credentials(store: SecretStore) -> None:
     model_key = os.environ.get("FLUXION_MODEL_API_KEY")
     if model_key:
         await store.put("dev", "model", model_key)

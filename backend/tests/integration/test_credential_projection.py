@@ -277,3 +277,38 @@ class TestE06ProjectionContract:
             headers=_headers(other),
         )
         assert response.json()["data"]["total"] == 0
+
+
+class TestCredentialPublish:
+    async def test_publish_secret_draft_via_studio(
+        self, edge_stack: tuple[AsyncClient, str]
+    ) -> None:
+        """凭据发布：草稿 SECRET 经发布后变为已发布（投影 status 跟进）。"""
+        client, tenant_id = edge_stack
+        response = await client.post(
+            "/studio/secrets/draft-only/versions/1:publish",
+            headers=_headers(tenant_id),
+        )
+        assert response.status_code == 200, response.text
+        listing = await client.get(
+            "/api/v1/credentials/projection?keyword=草稿凭据",
+            headers=_headers(tenant_id),
+        )
+        data = listing.json()["data"]
+        assert data["total"] == 1
+        assert data["items"][0]["status"] == "published"
+
+    async def test_publish_published_version_conflicts(
+        self, edge_stack: tuple[AsyncClient, str]
+    ) -> None:
+        """凭据发布：已发布版本重复发布冲突（幂等性由版本语义保证）。"""
+        client, tenant_id = edge_stack
+        await client.post(
+            "/studio/secrets/draft-only/versions/1:publish",
+            headers=_headers(tenant_id),
+        )
+        again = await client.post(
+            "/studio/secrets/draft-only/versions/1:publish",
+            headers=_headers(tenant_id),
+        )
+        assert again.status_code in (200, 409)

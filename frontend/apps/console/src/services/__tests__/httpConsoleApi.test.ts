@@ -192,7 +192,8 @@ describe("FEAT-04 Credential Projection 请求", () => {
               updated_at: "2026-09-06T10:00:00Z",
               consumer_count: 1,
               consumers: [{ provider_id: "provider-a", provider_name: "模型服务" }],
-              status: "published"
+              status: "published",
+              version: "1"
             }
           ],
           page: 1,

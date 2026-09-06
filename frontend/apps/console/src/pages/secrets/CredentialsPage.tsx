@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { Button, Select, Table, Tag } from "@douyinfe/semi-ui";
+import { Button, Select, Table, Tag, Toast } from "@douyinfe/semi-ui";
 
 import { PageHeader } from "../../components/PageHeader";
 import {
@@ -85,7 +85,8 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
             revoked: item.revoked,
             updatedAt: item.updatedAt,
             consumers: item.consumers.map((consumer) => consumer.providerName),
-            status: item.status
+            status: item.status,
+            version: item.version
           }))
         );
         setTotal(result.total);
@@ -101,6 +102,21 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
 
   function reload(): void {
     setReloadKey((key) => key + 1);
+  }
+
+  async function publishRow(row: CredentialRow): Promise<void> {
+    try {
+      const resource = await api.getResource("secret", row.resourceId, row.version);
+      if (resource.status !== "draft") {
+        Toast.warning("仅草稿版本可发布");
+        return;
+      }
+      await api.publishVersion(resource);
+      Toast.success("凭据已发布");
+      reload();
+    } catch (cause) {
+      Toast.error(cause instanceof Error ? cause.message : "发布失败");
+    }
   }
 
   function closeRowModals(): void {
@@ -229,6 +245,15 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
                     }
                   ]}
                   more={[
+                    ...(record.status === "draft"
+                      ? [
+                          {
+                            key: "publish",
+                            content: "发布",
+                            onClick: () => void publishRow(record)
+                          }
+                        ]
+                      : []),
                     {
                       key: "detail",
                       content: "查看详情",

@@ -9,7 +9,9 @@ export interface CredentialRow {
   readonly purpose: string;
   readonly revoked: boolean;
   readonly updatedAt: string;
-  /** 使用方：引用该 SecretRef 的 Provider（客户端 join，TASK-025 Projection 前保持）。 */
+  /** 使用方：引用该 SecretRef 的 Provider 展示名（投影服务端关联）。 */
   readonly consumers: readonly string[];
   readonly status: ResourceSummary["status"];
+  /** 当前版本号（发布操作定位版本用）。 */
+  readonly version: string;
 }

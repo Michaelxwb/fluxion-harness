@@ -1,6 +1,8 @@
+import { useState } from "react";
+
 import { Button, Input, InputNumber, Select, Space, Tabs, TextArea, Typography } from "@douyinfe/semi-ui";
 
-import type { ConsoleApi, ResourceType } from "../../types/console";
+import type { ConsoleApi, ResourceType, ResourceVersion } from "../../types/console";
 import { useRemoteResourceOptions } from "../../components/useRemoteResourceOptions";
 import { AgentChannelsPanel } from "./AgentChannelsPanel";
 import { AgentEvalPanel } from "./AgentEvalPanel";
@@ -26,6 +28,48 @@ interface AgentEditorFormProps {
 /** TASK-012：Agent Editor 按产品职责分区；测试与评测留在 Agent 生命周期内。 */
 export function AgentEditorForm(props: AgentEditorFormProps) {
   const { value, onChange } = props;
+  const [profileReload, setProfileReload] = useState(0);
+  const [creatingProfile, setCreatingProfile] = useState(false);
+  const [profileHint, setProfileHint] = useState<string | null>(null);
+
+  async function createTenantDefaultProfile(): Promise<void> {
+    setCreatingProfile(true);
+    setProfileHint(null);
+    try {
+      // 租户默认运行配置：未给 Agent 指定 RuntimeProfile 时走 ADR-A010 默认链。
+      // 同租户只允许一个 default=true（后端发布治理拒绝并存），已存在则提示选择。
+      let created: ResourceVersion;
+      try {
+        created = await props.api.createResource({
+          resourceType: "runtime_profile",
+          resourceId: "tenant-default",
+          version: "1",
+          visibility: "tenant",
+          spec: {
+            request_timeout_ms: 30000,
+            max_retries: 1,
+            default: true
+          }
+        });
+      } catch (cause) {
+        if (cause instanceof Error && /already exists|conflict/i.test(cause.message)) {
+          setProfileHint("已存在 tenant-default，请在下拉框中搜索选择");
+          setProfileReload((key) => key + 1);
+          return;
+        }
+        throw cause;
+      }
+      await props.api.publishVersion(created);
+      setProfileReload((key) => key + 1);
+      onChange({ runtimeProfile: created.resourceId });
+      setProfileHint("已创建并发布租户默认配置，已自动选中");
+    } catch (cause) {
+      setProfileHint(cause instanceof Error ? `创建失败：${cause.message}` : "创建失败");
+    } finally {
+      setCreatingProfile(false);
+    }
+  }
+
   return (
     <div style={{ display: "grid", rowGap: 16 }}>
       <Tabs defaultActiveKey="basic" keepDOM={false} type="line">
@@ -89,8 +133,24 @@ export function AgentEditorForm(props: AgentEditorFormProps) {
               labelId="agent-runtime-profile-label"
               onChange={(runtimeProfile) => onChange({ runtimeProfile })}
               optional
+              reloadSignal={profileReload}
               value={value.runtimeProfile}
             />
+            <Space>
+              <Button
+                disabled={creatingProfile}
+                loading={creatingProfile}
+                onClick={() => void createTenantDefaultProfile()}
+                size="small"
+              >
+                创建租户默认配置
+              </Button>
+            </Space>
+            {profileHint ? (
+              <Typography.Text type="tertiary" size="small">
+                {profileHint}
+              </Typography.Text>
+            ) : null}
             <TextField label="记忆策略引用" onChange={(memoryPolicy) => onChange({ memoryPolicy })} placeholder="resource-id@version" value={value.memoryPolicy} />
             <TextField label="个性化策略引用" onChange={(personalizationPolicy) => onChange({ personalizationPolicy })} placeholder="resource-id@version" value={value.personalizationPolicy} />
           </EditorSection>
@@ -171,9 +231,10 @@ function ReferenceSelect(props: {
   readonly optional?: boolean;
   readonly value: string;
   readonly onChange: (value: string) => void;
+  readonly reloadSignal?: number;
 }) {
   // FEAT-03：引用选择远程搜索（大数据集不再静默只取 100 条）。
-  const remote = useRemoteResourceOptions(props.api, [props.kind], true);
+  const remote = useRemoteResourceOptions(props.api, [props.kind], true, props.reloadSignal ?? 0);
   const options = props.optional
     ? [{ label: "不设置", value: "" }, ...remote.options]
     : [...remote.options];
