@@ -8,9 +8,10 @@ from typing import Protocol
 
 from httpx import ASGITransport, AsyncClient
 from tests.console_helpers import tenant_headers
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.api.console import create_app
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceDefinition, ResourceKind
 from fluxion.services.console_app import ConsoleApplicationService
 
@@ -30,7 +31,7 @@ def test_B_C104_resource_list_and_detail_p95_under_300ms(
 ) -> None:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = ConsoleApplicationService(store)
     client = AsyncClient(
         transport=ASGITransport(app=create_app(service)),
@@ -69,7 +70,7 @@ def test_B_C104_resource_list_and_detail_p95_under_300ms(
         loop.close()
 
 
-async def _seed_resources(store: SQLiteRegistryStore, *, count: int) -> None:
+async def _seed_resources(store: PostgreSQLRegistryStore, *, count: int) -> None:
     for index in range(count):
         resource_id = f"runtime-{index}"
         # F6：put() 只接受 DRAFT，PUBLISHED 必须经 publish() 过渡——此前 seed 直插

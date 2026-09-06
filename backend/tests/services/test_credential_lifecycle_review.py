@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
+
 import asyncio
 from collections.abc import AsyncIterator
 
 import pytest
 
 from fluxion.plugins.secret.postgres import PostgresEncryptedSecretStore
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.runtime.secrets import CredentialResolver, LocalEncryptedSecretStore, SecretProviderError
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.console_contracts import ConsoleActor
@@ -22,7 +24,7 @@ ACTOR = ConsoleActor("tenant-review", "admin", "req-review", "trace-review")
 async def stack(request: pytest.FixtureRequest) -> AsyncIterator[
     tuple[ConsoleApplicationService, CredentialResolver]
 ]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     secrets: LocalEncryptedSecretStore | PostgresEncryptedSecretStore
     if request.param == "local":

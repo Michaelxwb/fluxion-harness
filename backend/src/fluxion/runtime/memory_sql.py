@@ -27,7 +27,7 @@ class SQLSessionMemoryStore:
     - remove_l1 仅删除 l1 桶中匹配的记录，不影响 l2 / summary。
 
     Runtime 通过此实现把 L1/L2/SessionContextSummary 外置到
-    SQLite(dev)/PostgreSQL(prod)，Pod 重启/替换后记忆不丢失，多 Pod 共享同一
+    PostgreSQL（dev/prod 同形态），Pod 重启/替换后记忆不丢失，多 Pod 共享同一
     Registry 达到等价运行态。
     """
 

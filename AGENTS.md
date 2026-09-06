@@ -18,7 +18,7 @@ Fluxion 是一个无状态、插件化的 Agent Harness。Runtime 负责执行�
 4. **Definition + Binding**：用户/租户相关配置、Credential 和授权放 Binding，不塞进 RuntimeProfile。
 5. **Published Resource 不可原地修改**：修改必须产生新 Draft/Version；回滚选择历史不可变版本。
 6. **ExecutionSnapshot**：一次 Execution 从开始到结束固定资源版本。
-7. **Dev SQLite / Prod PostgreSQL**：两者实现同一 RegistryStore/Repository Contract，并运行同一套 Contract Test。
+7. **Dev/Prod 同 PostgreSQL**（ADR-A007）：同一 RegistryStore 实现与同一套 Contract Test（单库）。
 8. **YAML 不是事实源**：仅允许 import/export；运行事实存 Registry。
 9. **Microkernel + Plugin**：Kernel 只依赖 Contract，不依赖具体 Provider/Plugin 实现。
 10. **Hook 必须类型化**：定义 priority、timeout、fail policy、scope。
@@ -69,7 +69,7 @@ Codex 只读取当前 active code-flow TASK 引用的文档。全局基线（权
 
 - `backend/src/fluxion/kernel/`：最小 Microkernel。
 - `backend/src/fluxion/resources/`：Resource Contract 和 Resolver。
-- `backend/src/fluxion/registry/`：Store 抽象和 SQLite/PostgreSQL Adapter。
+- `backend/src/fluxion/registry/`：Store 抽象和 PostgreSQL Adapter。
 - `backend/src/fluxion/plugins/`：Plugin 实现/Adapter。
 - `backend/src/fluxion/runtime/`：Execution 编排。
 - `backend/src/fluxion/protocols/`：MCP/A2A/Workflow 边界协议。
@@ -110,7 +110,7 @@ api / cli / sdk
 - 单函数原则上不超过 50 行；确有必要必须在评审中说明。
 - 单文件原则上不超过 500 行，按职责拆分。
 - 禁止硬编码 Secret、非参数化 SQL、循环内无界网络调用。
-- SQLite/PostgreSQL 必须共享 Contract Test。
+- PostgreSQL 单库 Contract Test（ADR-A007）。
 - P0/P1 验收场景自动化率 ≥95%，无法自动化需说明原因。
 - 新外部依赖必须明确 timeout、retry、circuit breaker/fail policy。
 - 新 Cache 必须明确 key scope、TTL、invalidation、stale 行为。

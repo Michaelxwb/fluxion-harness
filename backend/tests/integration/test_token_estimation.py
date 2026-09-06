@@ -9,18 +9,18 @@ from __future__ import annotations
 
 import pytest
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.runtime_app import (
     CreateRuntimeProfileRequest,
     PublishRuntimeProfileRequest,
     RunRuntimeRequest,
     RuntimeApplicationService,
 )
-from tests.runtime_helpers import seed_agent_definition
+from tests.runtime_helpers import seed_agent_definition, TEST_POSTGRES_DSN
 
 
 async def _step_attributes(input_message: str) -> dict[str, object]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = RuntimeApplicationService.create_dev_bundle(store)
     await service.initialize()
     try:
@@ -102,7 +102,7 @@ class TestS06MemoryStoreTokens:
         """S-06：SessionMemoryStore 落库 tokens 与共享估算一致（单一工具）。"""
         from fluxion.runtime.tokens import estimate_text_tokens
 
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         service = RuntimeApplicationService.create_dev_bundle(store)
         await service.initialize()
         try:

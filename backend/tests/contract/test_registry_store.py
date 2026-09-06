@@ -1,9 +1,7 @@
-"""S-R07 / S-R10 RegistryStore 契约测试。
+"""S-R07 RegistryStore 契约测试（ADR-A007：PG 单库）。
 
-- S-R07（integration）：SQLiteRegistryStore 与 PostgreSQLRegistryStore 对同一
-  Fixture 返回相同语义。同一套契约断言参数化跑两种 Store —— SQLite 恒执行；
-  PostgreSQL 由环境变量 FLUXION_REQUIRE_POSTGRES_CONTRACT=1 门控（S-R10，
-  需要真实 PostgreSQL / testcontainers）。
+- S-R07（integration）：PostgreSQLRegistryStore 对同一 Fixture 的契约语义。
+  需要真实 PostgreSQL（本地 `fluxion_test`，`FLUXION_POSTGRES_DSN` 可覆盖）。
 
 - RULE-13：Runtime 只依赖 RegistryStore Contract，不依赖具体 Store。因此本
   文件是契约的唯一事实源：任何 Store 实现必须通过同一套断言。
@@ -16,7 +14,6 @@
 import os
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
-from typing import Any
 
 import pytest
 
@@ -31,7 +28,6 @@ from fluxion.registry import (
     PublicationOperation,
     RegistryStore,
     RegistryStoreError,
-    SQLiteRegistryStore,
     VersionConflictError,
 )
 from fluxion.resources import (
@@ -42,39 +38,27 @@ from fluxion.resources import (
 )
 
 # ---------------------------------------------------------------------------
-# Store 工厂：契约套件参数化的来源
+# Store 工厂：PG 单库（ADR-A007），默认本地 mmuser 库，CI 经 env 覆盖。
 # ---------------------------------------------------------------------------
-
-
-def _sqlite_factory() -> ChannelRegistryStore:
-    return SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
 
 
 def _postgres_factory() -> ChannelRegistryStore:
     dsn = os.environ.get(
         "FLUXION_POSTGRES_DSN",
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/fluxion_test",
+        "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test",
     )
     return PostgreSQLRegistryStore(dsn, reset_on_initialize=True)
 
 
-def _store_params() -> list[Any]:
-    params: list[Any] = [pytest.param(_sqlite_factory, id="sqlite")]
-    if os.environ.get("FLUXION_REQUIRE_POSTGRES_CONTRACT") == "1":
-        params.append(pytest.param(_postgres_factory, id="postgres"))
-    return params
-
-
-@pytest.fixture(params=_store_params())
-async def store(request: pytest.FixtureRequest) -> AsyncGenerator[ChannelRegistryStore, None]:
-    """为契约套件提供一种 Store 实例（SQLite 恒有；Postgres 门控）。"""
-    factory: Any = request.param
-    store = factory()
-    await store.initialize()
+@pytest.fixture
+async def store() -> AsyncGenerator[ChannelRegistryStore, None]:
+    """PG Store 实例（每次重建隔离）。"""
+    instance = _postgres_factory()
+    await instance.initialize()
     try:
-        yield store
+        yield instance
     finally:
-        await store.close()
+        await instance.close()
 
 
 # ---------------------------------------------------------------------------
@@ -448,7 +432,7 @@ async def test_S_R07_publish_missing_version_not_found(store: RegistryStore) -> 
 
 
 @pytest.mark.asyncio
-async def test_publication_outbox_contract_is_shared_by_sqlite_and_postgres(
+async def test_publication_outbox_contract_pg(
     store: RegistryStore,
 ) -> None:
     await store.put(

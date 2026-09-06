@@ -5,7 +5,7 @@ from typing import cast
 
 from sqlalchemy import func, insert, or_, select, update
 from sqlalchemy.engine import RowMapping
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from fluxion.registry.channel_store import (
@@ -227,49 +227,31 @@ async def resolve_platform_user_by_channel_id(
     return str(row[0]) if row is not None else None
 
 
-def _is_lock_contention(exc: OperationalError) -> bool:
-    # SQLite 并发写以 "database is locked" (SQLITE_BUSY=5) 抛 OperationalError；
-    # PG 行锁在 with_for_update 下表现为阻塞后正常读到 consumed_at，不抛
-    # OperationalError。故仅识别 SQLite BUSY；其余 OperationalError（磁盘满/
-    # 连接中断/约束等）不属锁竞争，由调用方原样向上抛（F7：避免 code 未消费
-    # 却误报 used，令用户无法重试）。
-    orig = getattr(exc, "orig", exc)
-    if getattr(orig, "sqlite_errorcode", None) == 5:  # SQLITE_BUSY
-        return True
-    return "database is locked" in str(exc).lower()
-
-
 async def redeem_bind_code(
     engine: AsyncEngine, redemption: BindRedemption
 ) -> ChannelIdentityRecord:
     rejection: str | None = None
     identity: ChannelIdentityRecord | None = None
-    try:
-        async with engine.begin() as connection:
-            row = (
-                await connection.execute(
-                    select(bind_codes)
-                    .where(bind_codes.c.code_hash == redemption.code_hash)
-                    .with_for_update()
-                )
-            ).mappings().first()
-            rejection = _rejection_reason(row, redemption)
-            if rejection is not None:
-                await _record_failed_attempt(connection, row, redemption.now)
-                await connection.execute(
-                    insert(audit_logs).values(**_rejection_audit_values(redemption, rejection))
-                )
-            else:
-                assert row is not None
-                identity = await _consume_and_bind(connection, row, redemption)
-    except OperationalError as exc:
-        # SQLite 并发写以 "database is locked" (SQLITE_BUSY) 视作「另一个请求正在
-        # 消耗该 code」→ 干净的 used 拒绝。但 OperationalError 还覆盖磁盘满/连接
-        # 中断等——这些 code 未消费却误报 used 会让用户无法重试。故仅锁竞争转
-        # used，其余原样向上抛（F7）。
-        if _is_lock_contention(exc):
-            raise BindCodeRejected("used") from exc
-        raise
+    # PG-Only（ADR-A007）：with_for_update 行锁下并发兑换串行化，后到的读到
+    # consumed_at 走正常 used 路径；OperationalError（连接中断等）直接向上抛，
+    # 不转译（F7：避免 code 未消费却误报 used，令用户无法重试）。
+    async with engine.begin() as connection:
+        row = (
+            await connection.execute(
+                select(bind_codes)
+                .where(bind_codes.c.code_hash == redemption.code_hash)
+                .with_for_update()
+            )
+        ).mappings().first()
+        rejection = _rejection_reason(row, redemption)
+        if rejection is not None:
+            await _record_failed_attempt(connection, row, redemption.now)
+            await connection.execute(
+                insert(audit_logs).values(**_rejection_audit_values(redemption, rejection))
+            )
+        else:
+            assert row is not None
+            identity = await _consume_and_bind(connection, row, redemption)
     if rejection is not None:
         raise BindCodeRejected(rejection)
     if identity is None:

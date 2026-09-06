@@ -5,10 +5,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select
 from tests.channel_helpers import RecordingRuntime
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.plugins.channel_adapters import WebChannelAdapter
 from fluxion.protocols.channel import ChannelResult, ExternalChannelMessage
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import audit_logs, bind_codes
 from fluxion.services.channel_app import ChannelApplicationService, ChannelBindError
 
@@ -17,7 +18,7 @@ from fluxion.services.channel_app import ChannelApplicationService, ChannelBindE
 async def test_E_C109_expired_used_and_wrong_tenant_codes_are_rejected() -> None:
     now = datetime(2026, 8, 24, tzinfo=UTC)
     codes = iter(("EXPIRED-CODE", "USED-CODE", "TENANT-CODE"))
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = ChannelApplicationService(
         store,
         RecordingRuntime(),

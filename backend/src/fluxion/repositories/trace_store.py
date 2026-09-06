@@ -7,7 +7,7 @@ production profile 的「显式 production adapter」——与 ``InMemoryTraceSt
 - 同 trace_id 重复 append 为 upsert（与 InMemory 覆盖语义一致）；
 - 全方法 deadline（规则 18）：超时/库错误 → TraceStoreError，不静默吞；
 - tenant scope 全链路（规则 16）：查询强制带 tenant；
-- SQLite/PG 双库同 DDL（规则 7，Contract Test 与 InMemory 实现同形）。
+- PG 同 DDL（ADR-A007，Contract Test 与 InMemory 实现同形）。
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ class TraceStoreError(RuntimeError):
 
 
 class PostgresTraceStore:
-    """Trace 落库实现（engine 注入：SQLite 契约 / PostgreSQL 生产）。"""
+    """Trace 落库实现（engine 注入：PostgreSQL）。"""
 
     # TASK-013：显式 production capability 声明（白名单，durable + multi-replica）。
     production_capabilities: frozenset[str] = frozenset({"durability", "multi_replica"})

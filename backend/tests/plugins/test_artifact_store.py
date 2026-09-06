@@ -3,13 +3,15 @@
 S-01 / E-02 / B-01 / S-10 / E506 lifecycle·isolation。
 
 真实边界：
-- S-01：真实文件系统（tmp）+ 真实 aiosqlite 引擎 + artifact_metadata 表落库；
+- S-01：真实文件系统（tmp）+ 真实 PG 引擎 + artifact_metadata 表落库；
 - E-02：真实 provider 双租户数据（跨租户读取拒绝）；
 - B-01：真实 provider 工厂 + SMB 配置；
 - S-10：真实 MinIO（docker）端点（不可达时 skip——S-P13-07 不伪造 GREEN）。
 """
 
 from __future__ import annotations
+
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 import hashlib
 import os
@@ -36,7 +38,7 @@ from fluxion.registry.schema import artifact_metadata
 
 @pytest_asyncio.fixture
 async def engine() -> AsyncGenerator[AsyncEngine, None]:
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    engine = create_async_engine(TEST_POSTGRES_DSN)
     async with engine.begin() as conn:
         await conn.run_sync(
             lambda sync_conn: artifact_metadata.create(sync_conn, checkfirst=True)

@@ -54,8 +54,8 @@ def create_app(service: RuntimeApplicationService) -> FastAPI:
     @asynccontextmanager
     async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
         # A15：initialize 必须在 serving 事件循环内执行——此前 cli serve（非 dev）
-        # 用 asyncio.run(service.initialize()) 起一个临时 loop 初始化，aiosqlite
-        # 连接绑回该 loop 后关闭，随后 uvicorn 新 loop 复用池中连接 → "Future
+        # 用 asyncio.run(service.initialize()) 起一个临时 loop 初始化，连接绑回
+        # 该 loop 后关闭，随后 uvicorn 新 loop 复用池中连接 → "Future
         # attached to a different loop"。改为 lifespan 在 uvicorn loop 内初始化
         # （与 dev bundle 一致）。httpx ASGITransport 不触发 lifespan，测试仍手动
         # initialize，无双重初始化。

@@ -15,11 +15,11 @@ from fluxion.runtime.scheduler import RuntimeScheduler, ScheduledTask
 
 @pytest.mark.asyncio
 async def test_S_R19_scheduler_runs_independent_approved_executions(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     runtime = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=InMemorySessionMemoryStore(),
     )
     scheduler = RuntimeScheduler(runtime)

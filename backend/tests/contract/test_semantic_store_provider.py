@@ -1,12 +1,10 @@
 """TASK-003（phase2）pgvector SemanticStore provider 验收测试。
 
-S-07（E2E，fluxion-resource-registry / fluxion-resource-registry 双库契约）：
+S-07（E2E，fluxion-resource-registry 单库契约，ADR-A007）：
 - recall 语义：cosine 相关性排序 + memory_type 过滤 + tenant/user 隔离；
-- 双库契约：SQLite 与 PostgreSQL 实现同一 provider 契约
-  （PG 由 FLUXION_REQUIRE_POSTGRES_CONTRACT=1 门控，复用 local-pg-test-env）；
 - pgvector 扩展不可用时降级 JSON+Python cosine（记录于 Evidence，不伪造 GREEN）。
 
-真实边界：真实 PG/SQLite personal_memory 表 + 真实 embedding 计算；不 mock。
+真实边界：真实 PG personal_memory 表 + 真实 embedding 计算；不 mock。
 """
 
 from __future__ import annotations
@@ -18,11 +16,7 @@ from typing import Any
 import pytest
 
 from fluxion.plugins.providers.pgvector_semantic import PgVectorSemanticStore
-from fluxion.registry import PostgreSQLRegistryStore, SQLiteRegistryStore
-
-
-def _sqlite_factory() -> SQLiteRegistryStore:
-    return SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+from fluxion.registry import PostgreSQLRegistryStore
 
 
 def _postgres_factory() -> PostgreSQLRegistryStore:
@@ -33,16 +27,9 @@ def _postgres_factory() -> PostgreSQLRegistryStore:
     return PostgreSQLRegistryStore(dsn, reset_on_initialize=True)
 
 
-def _store_params() -> list[Any]:
-    params: list[Any] = [pytest.param(_sqlite_factory, id="sqlite")]
-    if os.environ.get("FLUXION_REQUIRE_POSTGRES_CONTRACT") == "1":
-        params.append(pytest.param(_postgres_factory, id="postgres"))
-    return params
-
-
-@pytest.fixture(params=_store_params())
-async def store(request: pytest.FixtureRequest) -> AsyncGenerator[Any, None]:
-    instance = request.param()
+@pytest.fixture
+async def store() -> AsyncGenerator[Any, None]:
+    instance = _postgres_factory()
     await instance.initialize()
     try:
         yield instance

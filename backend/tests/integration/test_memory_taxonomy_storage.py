@@ -2,7 +2,7 @@
 
 S-01 / S-02（integration，RULE-fluxion-runtime-001 verifier: session-memory-externalized）：
 
-- 真实边界：`SQLSessionMemoryStore`（sqlite+aiosqlite，非 mock）的 flush 写入路径
+- 真实边界：`SQLSessionMemoryStore`（PostgreSQL，非 mock）的 flush 写入路径
   + read_l2/read_l1 真实 SQL level 过滤。
 - S-01 断言：flush 一批 records 只写 L1（`session_memory.level=l1`），不写 L2
   ——双写缺陷：`_flush_new_records` 既 `append_l1` 又 `append_l2`
@@ -52,12 +52,12 @@ async def _level_counts(store: RegistryStore, tenant_id: str) -> dict[str, int]:
 
 
 @pytest.mark.asyncio
-async def test_s01_flush_writes_only_l1_not_l2(sqlite_store: RegistryStore) -> None:
-    await seed_runtime_profile(sqlite_store)
-    engine = getattr(sqlite_store, "engine")
+async def test_s01_flush_writes_only_l1_not_l2(pg_store: RegistryStore) -> None:
+    await seed_runtime_profile(pg_store)
+    engine = getattr(pg_store, "engine")
     memory_store = SQLSessionMemoryStore(engine)
     runtime = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=memory_store,
         # 5 词 = 5 tokens ≥ threshold(10*0.5=5) → 单条消息即触发 flush
         memory_policy=MemoryPolicy(max_context_tokens=10, flush_threshold_ratio=0.5),
@@ -75,7 +75,7 @@ async def test_s01_flush_writes_only_l1_not_l2(sqlite_store: RegistryStore) -> N
     await runtime.memory.add_message(context, "user", "alpha beta gamma delta epsilon")
 
     # 双写缺陷修复（memory.py:190-191）：flush 只写 L1，session_memory 不应出现 level=l2 行
-    counts = await _level_counts(sqlite_store, "tenant-a")
+    counts = await _level_counts(pg_store, "tenant-a")
     assert counts.get("l1", 0) >= 1, "flush 应写入 L1（session raw）"
     assert counts.get("l2", 0) == 0, "ADR-MEM-001: flush 停双写，不应写入 L2（legacy user-raw）"
 
@@ -89,9 +89,9 @@ async def test_s01_flush_writes_only_l1_not_l2(sqlite_store: RegistryStore) -> N
 
 @pytest.mark.asyncio
 async def test_s02_read_l2_excludes_session_context_summary(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
-    engine = getattr(sqlite_store, "engine")
+    engine = getattr(pg_store, "engine")
     store = SQLSessionMemoryStore(engine)
 
     # SessionContextSummary（session-scoped compaction 输出，由 append_summary 写入）

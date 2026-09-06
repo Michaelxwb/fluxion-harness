@@ -217,7 +217,7 @@ def _model_registry(base_url: str) -> ModelProviderRegistry:
 @pytest.mark.parametrize("transport", ["stdio", "streamable_http"])
 @pytest.mark.asyncio
 async def test_S_P13_03_official_mcp_transports_complete_agent_loop(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
     tmp_path: Path,
     transport: str,
 ) -> None:
@@ -230,11 +230,11 @@ async def test_S_P13_03_official_mcp_transports_complete_agent_loop(
             ]
         ) as wire,
     ):
-        await _seed_mcp_product(sqlite_store, mcp_spec=spec)
+        await _seed_mcp_product(pg_store, mcp_spec=spec)
         runtime = RuntimeApplicationService(
-            sqlite_store,
+            pg_store,
             model_providers=_model_registry(wire.base_url),
-            mcp_runtime=RegistryMCPRuntime(sqlite_store),
+            mcp_runtime=RegistryMCPRuntime(pg_store),
         )
 
         result = await runtime.run(
@@ -271,7 +271,7 @@ async def test_S_P13_03_official_mcp_transports_complete_agent_loop(
 
 @pytest.mark.asyncio
 async def test_S_P13_03_streamable_http_reuses_tenant_scoped_transport_pool(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
     tmp_path: Path,
 ) -> None:
     pool = MCPHTTPClientPool(ttl_seconds=30, max_clients=4)
@@ -281,10 +281,10 @@ async def test_S_P13_03_streamable_http_reuses_tenant_scoped_transport_pool(
             [openai_tool_call_response(MCP_TOOL_ID), openai_final_response("pooled")]
         ) as wire,
     ):
-        await _seed_mcp_product(sqlite_store, mcp_spec=spec)
-        mcp_runtime = RegistryMCPRuntime(sqlite_store, http_pool=pool)
+        await _seed_mcp_product(pg_store, mcp_spec=spec)
+        mcp_runtime = RegistryMCPRuntime(pg_store, http_pool=pool)
         runtime = RuntimeApplicationService(
-            sqlite_store,
+            pg_store,
             model_providers=_model_registry(wire.base_url),
             mcp_runtime=mcp_runtime,
         )
@@ -341,18 +341,18 @@ async def test_S_P13_03_mcp_pool_invalidates_changed_version_and_ttl() -> None:
 
 @pytest.mark.asyncio
 async def test_E_P13_01_unbound_mcp_tool_call_fails_closed_before_server(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
     tmp_path: Path,
 ) -> None:
     async with (
         mcp_resource_spec("streamable_http", tmp_path) as (spec, http_calls, _pid_file),
         openai_wire_server([openai_tool_call_response(MCP_TOOL_ID)]) as wire,
     ):
-        await _seed_mcp_product(sqlite_store, mcp_spec=spec, bind_user=False)
+        await _seed_mcp_product(pg_store, mcp_spec=spec, bind_user=False)
         runtime = RuntimeApplicationService(
-            sqlite_store,
+            pg_store,
             model_providers=_model_registry(wire.base_url),
-            mcp_runtime=RegistryMCPRuntime(sqlite_store),
+            mcp_runtime=RegistryMCPRuntime(pg_store),
         )
         request = RunRuntimeRequest(
             tenant_id="tenant-a",
@@ -377,18 +377,18 @@ async def test_E_P13_01_unbound_mcp_tool_call_fails_closed_before_server(
 
 @pytest.mark.asyncio
 async def test_E_P13_01_agent_loop_budget_stops_after_real_mcp_call(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
     tmp_path: Path,
 ) -> None:
     async with (
         mcp_resource_spec("stdio", tmp_path) as (spec, _http_calls, pid_file),
         openai_wire_server([openai_tool_call_response(MCP_TOOL_ID)]) as wire,
     ):
-        await _seed_mcp_product(sqlite_store, mcp_spec=spec, max_rounds=1)
+        await _seed_mcp_product(pg_store, mcp_spec=spec, max_rounds=1)
         runtime = RuntimeApplicationService(
-            sqlite_store,
+            pg_store,
             model_providers=_model_registry(wire.base_url),
-            mcp_runtime=RegistryMCPRuntime(sqlite_store),
+            mcp_runtime=RegistryMCPRuntime(pg_store),
         )
         request = RunRuntimeRequest(
             tenant_id="tenant-a",
@@ -417,7 +417,7 @@ async def test_E_P13_01_agent_loop_budget_stops_after_real_mcp_call(
 
 @pytest.mark.asyncio
 async def test_E_P13_01_revoked_credential_is_not_reused_by_mcp_transport(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
     tmp_path: Path,
 ) -> None:
     secrets = LocalEncryptedSecretStore(master_key=b"m" * 32)
@@ -432,16 +432,16 @@ async def test_E_P13_01_revoked_credential_is_not_reused_by_mcp_transport(
         ) as wire,
     ):
         await _seed_mcp_product(
-            sqlite_store,
+            pg_store,
             mcp_spec=spec,
             credential_ref=credential_ref,
         )
         pool = MCPHTTPClientPool(ttl_seconds=30, max_clients=4)
         runtime = RuntimeApplicationService(
-            sqlite_store,
+            pg_store,
             model_providers=_model_registry(wire.base_url),
             mcp_runtime=RegistryMCPRuntime(
-                sqlite_store,
+                pg_store,
                 credential_resolver=CredentialResolver(secrets),
                 http_pool=pool,
             ),
@@ -479,7 +479,7 @@ async def test_E_P13_01_revoked_credential_is_not_reused_by_mcp_transport(
 
 @pytest.mark.asyncio
 async def test_E_P13_01_mcp_timeout_closes_real_streamable_http_client(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
     tmp_path: Path,
 ) -> None:
     slow_tool_id = "mcp__weather__slow_lookup"
@@ -489,11 +489,11 @@ async def test_E_P13_01_mcp_timeout_closes_real_streamable_http_client(
     ):
         spec["allowed_tools"] = ["slow_lookup"]
         spec["timeout_ms"] = 700
-        await _seed_mcp_product(sqlite_store, mcp_spec=spec, tool_id=slow_tool_id)
+        await _seed_mcp_product(pg_store, mcp_spec=spec, tool_id=slow_tool_id)
         runtime = RuntimeApplicationService(
-            sqlite_store,
+            pg_store,
             model_providers=_model_registry(wire.base_url),
-            mcp_runtime=RegistryMCPRuntime(sqlite_store),
+            mcp_runtime=RegistryMCPRuntime(pg_store),
         )
         request = RunRuntimeRequest(
             tenant_id="tenant-a",

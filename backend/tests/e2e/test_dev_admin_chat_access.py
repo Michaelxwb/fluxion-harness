@@ -6,11 +6,12 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from tests.channel_helpers import RecordingRuntime
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.api.channel import create_app as create_channel_app
 from fluxion.api.console import create_app as create_console_app
 from fluxion.config import DevModeSettings
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import chat_access_tokens, platform_users
 from fluxion.services.channel_app import ChannelApplicationService
 from fluxion.services.console_app import ConsoleApplicationService
@@ -18,7 +19,7 @@ from fluxion.services.console_app import ConsoleApplicationService
 
 @pytest.mark.asyncio
 async def test_S_P13_04_fixed_admin_creates_user_and_resolvable_chat_link() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     runtime = RecordingRuntime()
     settings = DevModeSettings(enabled=True)
     console = ConsoleApplicationService(store)

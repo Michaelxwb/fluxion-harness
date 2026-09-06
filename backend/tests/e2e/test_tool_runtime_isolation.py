@@ -75,7 +75,7 @@ class _RecordingMCPRuntime:
 
 
 async def test_S_F4_mcp_descriptors_isolated_per_execution_and_not_accumulated(
-    sqlite_store,  # type: ignore[no-untyped-def]  # fixture: RegistryStore
+    pg_store,  # type: ignore[no-untyped-def]  # fixture: RegistryStore
 ) -> None:
     """F4 行为：ToolRuntime 原为进程级单例跨租户共享，prepare 累积注册 MCP
     descriptor（含 credential_ref）、无 unregister → 跨租户泄漏 + 无界增长 +
@@ -84,7 +84,7 @@ async def test_S_F4_mcp_descriptors_isolated_per_execution_and_not_accumulated(
     互不可见、各驻各自 clone。"""
     for tenant in ("tenant-a", "tenant-b"):
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id=tenant,
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="assistant",
@@ -99,9 +99,9 @@ async def test_S_F4_mcp_descriptors_isolated_per_execution_and_not_accumulated(
         # TASK-A104：persona/model 迁至同名 AgentDefinition（两租户各一份）。
         # ADR-A008：model_policy → 各租户的 ModelDefinition（model.dev.echo）→
         # in-process provider dev.echo。
-        await seed_model_definition(sqlite_store, tenant_id=tenant, provider_id="dev.echo")
+        await seed_model_definition(pg_store, tenant_id=tenant, provider_id="dev.echo")
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id=tenant,
             kind=ResourceKind.AGENT_DEFINITION,
             resource_id="assistant",
@@ -120,7 +120,7 @@ async def test_S_F4_mcp_descriptors_isolated_per_execution_and_not_accumulated(
     base = ToolRuntime()
     stub = _RecordingMCPRuntime()
     service = RuntimeApplicationService(
-        sqlite_store,
+        pg_store,
         model_providers=model_registry,
         tool_runtime=base,
         mcp_runtime=stub,

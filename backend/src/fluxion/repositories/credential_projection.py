@@ -3,7 +3,7 @@
 只读投影：每个当前 SECRET 资源一行，附带其 Provider 配置引用（消费者）。
 固定 3 查询（A：当前 SECRET 行 + 过滤 + 分页；B：同集合 count；C：本页
 distinct SecretRef 对应的当前 MODEL_PROVIDER），同一请求在一致读事务内
-完成（PostgreSQL 只读 REPEATABLE READ / SQLite 显式读事务）。
+完成（PostgreSQL 只读 REPEATABLE READ）。
 
 - 只读资源元数据：不读密文、不解密；`secret_credentials`（SecretStore 持久
   化表）永不参与本投影。
@@ -87,11 +87,9 @@ def _escape_like_literal(value: str) -> str:
 
 
 def _spec_text(columns: Any, engine: AsyncEngine, key: str) -> Any:
-    """双库 spec_json 字段提取（子查询列 comparator 不可用，用显式 func）。"""
+    """spec_json 字段提取（子查询列 comparator 不可用，用显式 func）。"""
     spec_json = columns.spec_json
-    if engine.dialect.name == "postgresql":
-        return func.json_extract_path_text(spec_json, key)
-    return func.json_extract(spec_json, f"$.{key}")
+    return func.json_extract_path_text(spec_json, key)
 
 
 def _as_bool(value: object) -> bool:
@@ -154,14 +152,9 @@ def _secret_filters(
         filters.append(ranked.c.status == status.value)
     if revoked is not None:
         revoked_expr = _spec_text(ranked.c, engine, "revoked")
-        if engine.dialect.name == "postgresql":
-            filters.append(
-                revoked_expr == "true" if revoked else or_(revoked_expr == "false", revoked_expr.is_(None))
-            )
-        else:
-            filters.append(
-                revoked_expr == 1 if revoked else or_(revoked_expr == 0, revoked_expr.is_(None))
-            )
+        filters.append(
+            revoked_expr == "true" if revoked else or_(revoked_expr == "false", revoked_expr.is_(None))
+        )
     return filters
 
 
@@ -186,11 +179,10 @@ class CredentialProjectionRepository:
         async with engine.connect() as connection:
             transaction = await connection.begin()
             try:
-                if engine.dialect.name == "postgresql":
-                    # 一致读：同一只读事务内完成 3 查询（快照隔离）。
-                    await connection.execute(
-                        text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
-                    )
+                # 一致读：同一只读事务内完成 3 查询（快照隔离）。
+                await connection.execute(
+                    text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+                )
                 ranked = _current_rows(ResourceKind.SECRET, tenant_id)
                 filters = _secret_filters(
                     ranked, engine, keyword=keyword, purpose=purpose, status=status, revoked=revoked

@@ -78,14 +78,14 @@ class FixedModelProvider:
 
 
 async def _make_runtime(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
     memory_store: InMemorySessionMemoryStore,
     summarizer_registry: SummarizerRegistry,
 ) -> tuple[AgentRuntime, RuntimeContext, list]:
     """建 runtime + 5 轮消息；返回 compact 前的 older 记录（retain=2 → 前 3 条）。"""
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     runtime = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=memory_store,
         memory_policy=MemoryPolicy(max_context_tokens=12, retain_latest_turns=2),
         summarizer_registry=summarizer_registry,
@@ -117,7 +117,7 @@ def _fallback_events(context: RuntimeContext) -> list:
 
 @pytest.mark.asyncio
 async def test_s03_compact_uses_summarizer_spi_not_string_concat(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """compact_context 经 registry resolve 调 Summarizer SPI，非 `_summarize` 拼接。"""
     summarizer = RecordingSummarizer()
@@ -125,7 +125,7 @@ async def test_s03_compact_uses_summarizer_spi_not_string_concat(
     registry.register("model", summarizer)
     registry.register("deterministic", DeterministicTruncationSummarizer())
     memory_store = InMemorySessionMemoryStore()
-    runtime, context, _ = await _make_runtime(sqlite_store, memory_store, registry)
+    runtime, context, _ = await _make_runtime(pg_store, memory_store, registry)
 
     compacted = await runtime.memory.compact_context(context)
 
@@ -142,14 +142,14 @@ async def test_s03_compact_uses_summarizer_spi_not_string_concat(
 
 @pytest.mark.asyncio
 async def test_s03_model_summarizer_via_registry_uses_model_output(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """ModelSummarizer 经 registry 分派：摘要 = model 输出 + 真实 source_range_hash。"""
     registry = SummarizerRegistry()
     registry.register("model", ModelSummarizer(FixedModelProvider()))
     registry.register("deterministic", DeterministicTruncationSummarizer())
     memory_store = InMemorySessionMemoryStore()
-    runtime, context, older = await _make_runtime(sqlite_store, memory_store, registry)
+    runtime, context, older = await _make_runtime(pg_store, memory_store, registry)
 
     compacted = await runtime.memory.compact_context(context)
 
@@ -160,14 +160,14 @@ async def test_s03_model_summarizer_via_registry_uses_model_output(
 
 @pytest.mark.asyncio
 async def test_s03_model_unavailable_falls_back_to_deterministic_truncation(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """model 不可用（provider 异常）→ 降级 DeterministicTruncationSummarizer。"""
     registry = SummarizerRegistry()
     registry.register("model", ModelSummarizer(OfflineModelProvider()))
     registry.register("deterministic", DeterministicTruncationSummarizer())
     memory_store = InMemorySessionMemoryStore()
-    runtime, context, older = await _make_runtime(sqlite_store, memory_store, registry)
+    runtime, context, older = await _make_runtime(pg_store, memory_store, registry)
 
     compacted = await runtime.memory.compact_context(context)
 
@@ -184,7 +184,7 @@ async def test_s03_model_unavailable_falls_back_to_deterministic_truncation(
 
 @pytest.mark.asyncio
 async def test_e02_model_timeout_falls_back_with_log_and_trace_without_blocking(
-    sqlite_store: RegistryStore, caplog: pytest.LogCaptureFixture
+    pg_store: RegistryStore, caplog: pytest.LogCaptureFixture
 ) -> None:
     """model 超时 → 降级 fallback（带日志+trace），不阻断主对话。"""
     registry = SummarizerRegistry()
@@ -193,7 +193,7 @@ async def test_e02_model_timeout_falls_back_with_log_and_trace_without_blocking(
     )
     registry.register("deterministic", DeterministicTruncationSummarizer())
     memory_store = InMemorySessionMemoryStore()
-    runtime, context, older = await _make_runtime(sqlite_store, memory_store, registry)
+    runtime, context, older = await _make_runtime(pg_store, memory_store, registry)
 
     started = time.monotonic()
     with caplog.at_level("WARNING", logger="fluxion.runtime.memory"):
@@ -224,14 +224,14 @@ async def test_e02_model_timeout_falls_back_with_log_and_trace_without_blocking(
 
 @pytest.mark.asyncio
 async def test_e02_model_error_falls_back_not_silent(
-    sqlite_store: RegistryStore, caplog: pytest.LogCaptureFixture
+    pg_store: RegistryStore, caplog: pytest.LogCaptureFixture
 ) -> None:
     """model 异常（provider error）→ 降级 fallback，日志+trace 记录 error_type。"""
     registry = SummarizerRegistry()
     registry.register("model", ModelSummarizer(OfflineModelProvider()))
     registry.register("deterministic", DeterministicTruncationSummarizer())
     memory_store = InMemorySessionMemoryStore()
-    runtime, context, older = await _make_runtime(sqlite_store, memory_store, registry)
+    runtime, context, older = await _make_runtime(pg_store, memory_store, registry)
 
     with caplog.at_level("WARNING", logger="fluxion.runtime.memory"):
         compacted = await runtime.memory.compact_context(context)

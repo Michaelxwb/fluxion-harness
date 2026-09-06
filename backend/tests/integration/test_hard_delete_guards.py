@@ -1,6 +1,6 @@
 """ADR-SNAPSHOT-001 TASK-003：hard_delete 三重 guard + GC safety（S-02/S-03/S-04/E-02）。
 
-真实边界（契约声明）：真实 store（sqlite+aiosqlite）；E-02 并发用文件级 SQLite +
+真实边界（契约声明）：真实 store（PostgreSQL）；E-02 并发用 PG 行锁 +
 WAL + busy_timeout（F5）双 store 真实写竞争，非 mock。
 
 RED 约定（cf-task:start #7）：`hard_delete` 未实现 → AttributeError，即真实 RED。
@@ -14,7 +14,7 @@ from datetime import timedelta
 
 import pytest
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.store import (
     DeleteResult,
     NotFoundError,
@@ -25,7 +25,7 @@ from fluxion.registry.store import (
 )
 from fluxion.runtime.resolver import ResourceResolver, ResourceVersionNotFoundError
 from fluxion.resources import ResourceKind, ResourceStatus
-from tests.runtime_helpers import publish_resource, sqlite_store
+from tests.runtime_helpers import publish_resource, pg_store, TEST_POSTGRES_DSN
 
 _TENANT = "tenant-a"
 _KIND = ResourceKind.WORKFLOW
@@ -98,19 +98,19 @@ async def _hard_delete(
 # --- S-02：active 引用时 hard-delete 拒绝，行保留 ---
 
 
-async def test_s02_active_reference_blocks_hard_delete(sqlite_store: RegistryStore) -> None:
+async def test_s02_active_reference_blocks_hard_delete(pg_store: RegistryStore) -> None:
     await publish_resource(
-        sqlite_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v3",
+        pg_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v3",
         spec={"name": "checkout"},
     )
-    await _tombstone(sqlite_store, "v3")
-    await _add_ref(sqlite_store, "v3", "exec-001")
+    await _tombstone(pg_store, "v3")
+    await _add_ref(pg_store, "v3", "exec-001")
 
     with pytest.raises(RegistryStoreError, match="active_reference_blocked"):
-        await _hard_delete(sqlite_store, "v3", retention_period=timedelta(0))
+        await _hard_delete(pg_store, "v3", retention_period=timedelta(0))
 
     # 行保留：仍 TOMBSTONE、spec_json 不动
-    retained = await sqlite_store.recall_pinned(
+    retained = await pg_store.recall_pinned(
         _KIND, _RESOURCE, tenant_id=_TENANT, version="v3"
     )
     assert retained.status is ResourceStatus.TOMBSTONE
@@ -119,98 +119,98 @@ async def test_s02_active_reference_blocks_hard_delete(sqlite_store: RegistrySto
 # --- S-03：guard 顺序 + 全过物理删除 ---
 
 
-async def test_s03_active_ref_guard_precedes_retention(sqlite_store: RegistryStore) -> None:
+async def test_s03_active_ref_guard_precedes_retention(pg_store: RegistryStore) -> None:
     # active_ref>0 且 retention 已过 → 仍 active_reference_blocked（证明 active_ref 优先）
     await publish_resource(
-        sqlite_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v4",
+        pg_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v4",
         spec={"name": "checkout"},
     )
-    await _tombstone(sqlite_store, "v4")
-    await _add_ref(sqlite_store, "v4", "exec-001")
+    await _tombstone(pg_store, "v4")
+    await _add_ref(pg_store, "v4", "exec-001")
     with pytest.raises(RegistryStoreError, match="active_reference_blocked"):
-        await _hard_delete(sqlite_store, "v4", retention_period=timedelta(0))
+        await _hard_delete(pg_store, "v4", retention_period=timedelta(0))
 
 
-async def test_s03_retention_not_elapsed_blocks(sqlite_store: RegistryStore) -> None:
+async def test_s03_retention_not_elapsed_blocks(pg_store: RegistryStore) -> None:
     await publish_resource(
-        sqlite_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v4b",
+        pg_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v4b",
         spec={"name": "checkout"},
     )
-    await _tombstone(sqlite_store, "v4b")
+    await _tombstone(pg_store, "v4b")
     # active_ref=0 但 retention 未过 → retention_period_not_elapsed
     with pytest.raises(RegistryStoreError, match="retention_period_not_elapsed"):
-        await _hard_delete(sqlite_store, "v4b", retention_period=timedelta(days=1))
+        await _hard_delete(pg_store, "v4b", retention_period=timedelta(days=1))
 
 
-async def test_s03_all_guards_pass_physical_delete(sqlite_store: RegistryStore) -> None:
+async def test_s03_all_guards_pass_physical_delete(pg_store: RegistryStore) -> None:
     await publish_resource(
-        sqlite_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v4c",
+        pg_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v4c",
         spec={"name": "checkout"},
     )
-    await _tombstone(sqlite_store, "v4c")
+    await _tombstone(pg_store, "v4c")
     # active_ref=0、retention=0（已过）、GC 通过 → 物理删除
-    result = await _hard_delete(sqlite_store, "v4c", retention_period=timedelta(0))
+    result = await _hard_delete(pg_store, "v4c", retention_period=timedelta(0))
     assert result.version == "v4c"
 
     with pytest.raises(NotFoundError):
-        await sqlite_store.recall_pinned(_KIND, _RESOURCE, tenant_id=_TENANT, version="v4c")
+        await pg_store.recall_pinned(_KIND, _RESOURCE, tenant_id=_TENANT, version="v4c")
 
 
 # --- S-04：TOMBSTONE 保留 spec_json、resolver 不解析、active_ref 阻断 ---
 
 
 async def test_s04_tombstone_retains_payload_resolver_skips_active_ref_blocks(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     published = await publish_resource(
-        sqlite_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v5",
+        pg_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v5",
         spec={"name": "checkout", "steps": 3},
     )
     # PUBLISHED→DEPRECATED→TOMBSTONE 完整链
-    await _deprecate(sqlite_store, "v5")
-    await _tombstone(sqlite_store, "v5")
+    await _deprecate(pg_store, "v5")
+    await _tombstone(pg_store, "v5")
 
-    recalled = await sqlite_store.recall_pinned(_KIND, _RESOURCE, tenant_id=_TENANT, version="v5")
+    recalled = await pg_store.recall_pinned(_KIND, _RESOURCE, tenant_id=_TENANT, version="v5")
     assert recalled.status is ResourceStatus.TOMBSTONE
     assert recalled.spec_json == published.spec_json
 
     # resolver 不解析 TOMBSTONE（PUBLISHED-only check）
-    resolver = ResourceResolver(sqlite_store)
+    resolver = ResourceResolver(pg_store)
     with pytest.raises(ResourceVersionNotFoundError):
         await resolver.resolve_resource(_TENANT, _KIND, _RESOURCE, selector="v5")
 
     # active_ref>0 时不可 hard-delete
-    await _add_ref(sqlite_store, "v5", "exec-001")
+    await _add_ref(pg_store, "v5", "exec-001")
     with pytest.raises(RegistryStoreError, match="active_reference_blocked"):
-        await _hard_delete(sqlite_store, "v5", retention_period=timedelta(0))
+        await _hard_delete(pg_store, "v5", retention_period=timedelta(0))
 
 
 # --- E-02：重复删除幂等 + 并发 race 失败方 gc_safety_check_failed ---
 
 
-async def test_e02_repeat_hard_delete_is_idempotent(sqlite_store: RegistryStore) -> None:
+async def test_e02_repeat_hard_delete_is_idempotent(pg_store: RegistryStore) -> None:
     await publish_resource(
-        sqlite_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v6",
+        pg_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v6",
         spec={"name": "checkout"},
     )
-    await _tombstone(sqlite_store, "v6")
-    await _hard_delete(sqlite_store, "v6", retention_period=timedelta(0))
+    await _tombstone(pg_store, "v6")
+    await _hard_delete(pg_store, "v6", retention_period=timedelta(0))
 
     # 第二次重复删除：幂等 NotFound（行已不存在），不产生重复治理
     with pytest.raises(NotFoundError):
-        await _hard_delete(sqlite_store, "v6", retention_period=timedelta(0))
+        await _hard_delete(pg_store, "v6", retention_period=timedelta(0))
 
-    audits, _ = await sqlite_store.list_audit(tenant_id=_TENANT, offset=0, limit=100)
+    audits, _ = await pg_store.list_audit(tenant_id=_TENANT, offset=0, limit=100)
     hard_delete_audits = [a for a in audits if a.action == "hard_delete"]
     assert len(hard_delete_audits) == 1
 
 
 @pytest.fixture
 async def file_store_pair(tmp_path) -> AsyncGenerator[tuple[RegistryStore, RegistryStore], None]:
-    """文件级 SQLite + WAL + busy_timeout（F5）：双 store 真实写竞争（E-02）。"""
-    dsn = f"sqlite+aiosqlite:///{tmp_path / 'hd_race.db'}"
-    store1 = SQLiteRegistryStore(dsn)
-    store2 = SQLiteRegistryStore(dsn)
+    """PG 行锁真实写竞争（E-02）：双 store 并发 hard_delete。"""
+    dsn = TEST_POSTGRES_DSN
+    store1 = PostgreSQLRegistryStore(dsn, reset_on_initialize=True)
+    store2 = PostgreSQLRegistryStore(dsn)
     await store1.initialize()
     await store2.initialize()
     try:

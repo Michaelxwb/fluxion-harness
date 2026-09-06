@@ -1,7 +1,7 @@
 """TASK-004: Credential Projection API 验收（S-04/E-06）。
 
 真实边界：真实 Console HTTP API → 真实 Projection Repository →
-真实 SQLite/PostgreSQL（当前版本选择 + 固定 3 查询 + 一致读事务）。
+真实 PostgreSQL（当前版本选择 + 固定 3 查询 + 一致读事务）。
 PG 不可达时 PG 参数 skip，不伪造 GREEN。
 
 SQL 计数经 SQLAlchemy before_cursor_execute 事件监听（真实计数，
@@ -11,32 +11,18 @@ ciphertext/nonce 键，且凭据密文哨兵（仅 SecretStore 持有）不泄�
 
 from __future__ import annotations
 
-import socket
 import uuid
 from collections.abc import AsyncGenerator
-from urllib.parse import urlparse
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event
 
 from fluxion.api.console import create_app
-from fluxion.registry import PostgreSQLRegistryStore, SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceKind
 from fluxion.services.console_app import ConsoleApplicationService
-from tests.runtime_helpers import publish_resource, resource_definition
-
-_PG_DSN = "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test"
-
-
-def _pg_available() -> bool:
-    parsed = urlparse(_PG_DSN)
-    try:
-        with socket.create_connection((parsed.hostname, parsed.port or 5432), timeout=1):
-            return True
-    except OSError:
-        return False
-
+from tests.runtime_helpers import publish_resource, resource_definition, TEST_POSTGRES_DSN
 
 class _QueryCounter:
     """只计 SELECT 数据查询（事务/隔离级会话命令不计入查询预算）。"""
@@ -52,10 +38,7 @@ class _QueryCounter:
 
 async def _make_stack(dsn: str) -> tuple[AsyncClient, object, _QueryCounter]:
     counter = _QueryCounter()
-    if dsn.startswith("postgresql"):
-        store: object = PostgreSQLRegistryStore(dsn)
-    else:
-        store = SQLiteRegistryStore(dsn)
+    store: object = PostgreSQLRegistryStore(dsn)
     await store.initialize()  # type: ignore[union-attr]
     event.listen(store._engine.sync_engine, "before_cursor_execute", counter)  # type: ignore[union-attr]
     service = ConsoleApplicationService(store)  # type: ignore[arg-type]
@@ -105,13 +88,10 @@ async def _seed_scale(store: object, tenant_id: str, *, secrets: int, providers_
             )
 
 
-@pytest.fixture(params=["sqlite", pytest.param("postgres", marks=pytest.mark.skipif(not _pg_available(), reason="PG 不可达"))])
-async def stack(request: pytest.FixtureRequest) -> AsyncGenerator[tuple[AsyncClient, str, _QueryCounter]]:
+@pytest.fixture
+async def stack() -> AsyncGenerator[tuple[AsyncClient, str, _QueryCounter]]:
     tenant_id = f"tenant-cred-{uuid.uuid4().hex[:8]}"
-    if request.param == "postgres":
-        client, service, counter = await _make_stack(_PG_DSN)
-    else:
-        client, service, counter = await _make_stack("sqlite+aiosqlite:///:memory:")
+    client, service, counter = await _make_stack(TEST_POSTGRES_DSN)
     await _seed_scale(service._store, tenant_id, secrets=200, providers_per_secret=3)
     counter.count = 0
     try:
@@ -181,13 +161,10 @@ class TestS04CredentialProjection:
         assert data["items"][0]["credential_id"] == "cred-0199"
 
 
-@pytest.fixture(params=["sqlite", pytest.param("postgres", marks=pytest.mark.skipif(not _pg_available(), reason="PG 不可达"))])
-async def edge_stack(request: pytest.FixtureRequest) -> AsyncGenerator[tuple[AsyncClient, str]]:
+@pytest.fixture
+async def edge_stack() -> AsyncGenerator[tuple[AsyncClient, str]]:
     tenant_id = f"tenant-edge-{uuid.uuid4().hex[:8]}"
-    if request.param == "postgres":
-        client, service, _ = await _make_stack(_PG_DSN)
-    else:
-        client, service, _ = await _make_stack("sqlite+aiosqlite:///:memory:")
+    client, service, _ = await _make_stack(TEST_POSTGRES_DSN)
     store = service._store
     # 同名跨 kind：TOOL 与 SECRET 同名，投影只出 SECRET 行。
     await publish_resource(store, tenant_id=tenant_id, kind=ResourceKind.TOOL, resource_id="same-name", version="1", spec={"name": "同名工具"})

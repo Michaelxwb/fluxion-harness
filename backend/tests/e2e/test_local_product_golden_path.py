@@ -1,26 +1,22 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from fluxion.api.channel import create_app as create_channel_app
 from fluxion.api.console import create_app as create_console_app
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.channel_app import ChannelApplicationService
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.console_contracts import ConsoleActor
 from fluxion.services.runtime_app import RuntimeApplicationService
 from tests.console_helpers import runtime_profile_spec, tenant_headers
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 
 @pytest.mark.asyncio
-async def test_S_R01_local_console_sqlite_runtime_and_web_chat_golden_path(
-    tmp_path: Path,
-) -> None:
-    database = tmp_path / "fluxion-product.db"
-    store = SQLiteRegistryStore(f"sqlite+aiosqlite:///{database}")
+async def test_S_R01_local_console_pg_runtime_and_web_chat_golden_path() -> None:
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     runtime = RuntimeApplicationService.create_dev_bundle(store, cache_ttl_seconds=600)
     console = ConsoleApplicationService(store)
     channel = ChannelApplicationService(store, runtime, code_factory=lambda: "LOCAL-BIND-CODE")
@@ -99,7 +95,6 @@ async def test_S_R01_local_console_sqlite_runtime_and_web_chat_golden_path(
         assert streamed.headers["content-type"].startswith("text/event-stream")
         assert 'event: completed' in streamed.text
         assert '"output": "dev: hello product"' in streamed.text  # 模型名归 MODEL 链
-        assert database.exists()
     finally:
         await store.close()
 

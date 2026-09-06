@@ -89,10 +89,10 @@ class FailingReadStore:
 
 @pytest.mark.asyncio
 async def test_E_R01_registry_unavailable_degrades_only_with_safe_stale_cache(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
-    await seed_runtime_profile(sqlite_store)
-    failing_store = FailingReadStore(sqlite_store)
+    await seed_runtime_profile(pg_store)
+    failing_store = FailingReadStore(pg_store)
     cache = TenantResourceCache(ttl_seconds=60)
     resolver = ResourceResolver(
         failing_store,
@@ -130,7 +130,7 @@ async def test_E_R01_registry_unavailable_degrades_only_with_safe_stale_cache(
         )
 
 
-def test_E_R01_failing_store_matches_read_protocol(sqlite_store: RegistryStore) -> None:
-    wrapper = FailingReadStore(sqlite_store)
+def test_E_R01_failing_store_matches_read_protocol(pg_store: RegistryStore) -> None:
+    wrapper = FailingReadStore(pg_store)
     assert isinstance(wrapper, RegistryReadStore)
     assert not isinstance(wrapper, RegistryStore)

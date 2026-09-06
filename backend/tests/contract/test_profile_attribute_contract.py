@@ -1,23 +1,17 @@
-"""TASK-004（phase1-closure）profile_attributes 双库契约测试。
+"""TASK-004（phase1-closure）profile_attributes 单库契约测试（ADR-A007）。
 
-Spec verifier（backend-database#RULE-backend-database-001）：SQLite 与 PostgreSQL
-实现同一 CRUD 契约——同 fixture、同断言；PG 由 FLUXION_REQUIRE_POSTGRES_CONTRACT=1
-门控（复用 local-pg-test-env 的 fluxion_test 库自举）。
+Spec verifier（backend-database#RULE-backend-database-001）：PostgreSQL
+实现 CRUD 契约（本地 fluxion_test）。
 """
 
 from __future__ import annotations
 
 import os
 from collections.abc import AsyncGenerator
-from typing import Any
 
 import pytest
 
-from fluxion.registry import ChannelRegistryStore, PostgreSQLRegistryStore, SQLiteRegistryStore
-
-
-def _sqlite_factory() -> ChannelRegistryStore:
-    return SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+from fluxion.registry import ChannelRegistryStore, PostgreSQLRegistryStore
 
 
 def _postgres_factory() -> ChannelRegistryStore:
@@ -28,16 +22,9 @@ def _postgres_factory() -> ChannelRegistryStore:
     return PostgreSQLRegistryStore(dsn, reset_on_initialize=True)
 
 
-def _store_params() -> list[Any]:
-    params: list[Any] = [pytest.param(_sqlite_factory, id="sqlite")]
-    if os.environ.get("FLUXION_REQUIRE_POSTGRES_CONTRACT") == "1":
-        params.append(pytest.param(_postgres_factory, id="postgres"))
-    return params
-
-
-@pytest.fixture(params=_store_params())
-async def store(request: pytest.FixtureRequest) -> AsyncGenerator[ChannelRegistryStore, None]:
-    instance = request.param()
+@pytest.fixture
+async def store() -> AsyncGenerator[ChannelRegistryStore, None]:
+    instance = _postgres_factory()
     await instance.initialize()
     try:
         yield instance

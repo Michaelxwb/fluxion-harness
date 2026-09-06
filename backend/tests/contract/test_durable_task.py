@@ -3,7 +3,7 @@
 S-09 / B-04（design §2.2 FEAT-P5-06 / §3.3 durable_task 表）。
 
 真实边界：
-- S-09：真实 DB（SQLite 恒有 + PG 门控）+ 真实 worker poll/claim/resume；
+- S-09：真实 PG（本地 fluxion_test）+ 真实 worker poll/claim/resume；
 - B-04：真实开关路径——未启用（默认）worker 不启动、零副作用；
 - 幂等（RISK-P5-05）：task_id PK，重复 enqueue 不产生重复执行。
 - 隔离：task_id 与 tenant 均唯一（共享 PG fluxion_test 跨运行/跨测试残留）。
@@ -15,7 +15,6 @@ import asyncio
 import os
 import uuid
 from collections.abc import AsyncGenerator
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -23,33 +22,23 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from fluxion.registry.schema import durable_task
 from fluxion.services.durable_task import DurableTaskStore, DurableTaskWorker
 
 # ---------------------------------------------------------------------------
-# 双库引擎参数化（SQLite 恒有；PostgreSQL 门控）
-#
+# PG 单库引擎（ADR-A007）：setup 时 TRUNCATE durable_task 表隔离（可重复跑）。
+# ---------------------------------------------------------------------------
 
 
-def _engine_params() -> list[object]:
-    params: list[object] = [pytest.param("sqlite", id="sqlite")]
-    if os.environ.get("FLUXION_REQUIRE_POSTGRES_CONTRACT") == "1":
-        params.append(pytest.param("postgres", id="postgres"))
-    return params
-
-
-@pytest.fixture(params=_engine_params())
-async def engine(
-    request: pytest.FixtureRequest, tmp_path: Path
-) -> AsyncGenerator[AsyncEngine, None]:
-    kind: str = request.param
-    if kind == "sqlite":
-        engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'tasks.db'}")
-    else:
-        dsn = os.environ.get(
-            "FLUXION_POSTGRES_DSN",
-            "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test",
-        )
-        engine = create_async_engine(dsn)
+@pytest.fixture
+async def engine() -> AsyncGenerator[AsyncEngine, None]:
+    dsn = os.environ.get(
+        "FLUXION_POSTGRES_DSN",
+        "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test",
+    )
+    engine = create_async_engine(dsn)
+    async with engine.begin() as connection:
+        await connection.execute(text(f"TRUNCATE TABLE {durable_task.name}"))
     try:
         yield engine
     finally:
@@ -211,43 +200,35 @@ class TestS09DurableTaskWorker:
 
 class TestB04DisabledByDefault:
     async def test_disabled_worker_does_not_start(
-        self, tmp_path: Path, tenant: str
+        self, engine: AsyncEngine, tenant: str
     ) -> None:
         """开关关闭：start() 不启动 poll 循环、不创建后台任务。"""
-        engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'b04.db'}")
-        try:
-            store = DurableTaskStore(engine)
-            await store.initialize()
-            handler_calls: list[str] = []
+        store = DurableTaskStore(engine)
+        await store.initialize()
+        handler_calls: list[str] = []
 
-            async def handler(task: Any) -> None:
-                handler_calls.append(task.task_id)
+        async def handler(task: Any) -> None:
+            handler_calls.append(task.task_id)
 
-            worker = DurableTaskWorker(store, handler, tenant_id=tenant)  # 默认 enabled=False
-            assert worker.enabled is False
-            assert worker.start() is False, "未启用的 worker 不得启动"
-            task_id = _unique("task")
-            await store.enqueue(task_id, tenant, {"n": 1})
-            await asyncio.sleep(0.05)
-            assert handler_calls == [], "未启用 worker 不得执行任务"
-            task = await store.get(task_id)
-            assert task is not None and task.status == "pending"
-        finally:
-            await engine.dispose()
+        worker = DurableTaskWorker(store, handler, tenant_id=tenant)  # 默认 enabled=False
+        assert worker.enabled is False
+        assert worker.start() is False, "未启用的 worker 不得启动"
+        task_id = _unique("task")
+        await store.enqueue(task_id, tenant, {"n": 1})
+        await asyncio.sleep(0.05)
+        assert handler_calls == [], "未启用 worker 不得执行任务"
+        task = await store.get(task_id)
+        assert task is not None and task.status == "pending"
 
-    async def test_table_create_is_side_effect_free(self, tmp_path: Path) -> None:
+    async def test_table_create_is_side_effect_free(self, engine: AsyncEngine) -> None:
         """表可独立建（幂等 DDL），不影响现有路径（无 worker、无消费者）。"""
-        engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'b04b.db'}")
-        try:
-            store = DurableTaskStore(engine)
-            await store.initialize()
-            await store.initialize()  # 幂等
-            async with engine.connect() as conn:
-                tables = await conn.run_sync(
-                    lambda sync_conn: sa_inspect(sync_conn).get_table_names()
-                )
-                result = await conn.execute(text("SELECT COUNT(*) FROM durable_task"))
-                assert result.scalar_one() == 0
-        finally:
-            await engine.dispose()
+        store = DurableTaskStore(engine)
+        await store.initialize()
+        await store.initialize()  # 幂等
+        async with engine.connect() as conn:
+            tables = await conn.run_sync(
+                lambda sync_conn: sa_inspect(sync_conn).get_table_names()
+            )
+            result = await conn.execute(text("SELECT COUNT(*) FROM durable_task"))
+            assert result.scalar_one() == 0
         assert "durable_task" in tables

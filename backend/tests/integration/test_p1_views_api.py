@@ -12,9 +12,10 @@ from tests.console_helpers import (
     publish_resource,
     tenant_headers,
 )
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.api.console import create_app
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceKind
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.runtime_contracts import PluginSummary
@@ -154,7 +155,7 @@ async def test_S_C118_users_channels_view_reuses_platform_users() -> None:
 class _P1Stack:
     client: AsyncClient
     service: ConsoleApplicationService
-    store: SQLiteRegistryStore
+    store: PostgreSQLRegistryStore
 
 
 @asynccontextmanager
@@ -163,7 +164,7 @@ async def _p1_stack(
     plugin_summaries: tuple[PluginSummary, ...] = (),
     service_instance_id: str | None = None,
 ) -> AsyncIterator[_P1Stack]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = ConsoleApplicationService(
         store,
         plugin_summaries=plugin_summaries,

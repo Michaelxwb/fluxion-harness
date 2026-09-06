@@ -4,13 +4,11 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import text
 
 from fluxion.registry import (
     PostgreSQLRegistryStore,
     RegistryStore,
     RegistryStoreError,
-    SQLiteRegistryStore,
 )
 from fluxion.resources import (
     ResourceBinding,
@@ -20,11 +18,12 @@ from fluxion.resources import (
     SubjectType,
     TenantResourceCache,
 )
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 
 @pytest.fixture
 async def store() -> AsyncGenerator[RegistryStore, None]:
-    registry = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    registry = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await registry.initialize()
     try:
         yield registry
@@ -41,22 +40,6 @@ def _definition(tenant_id: str) -> ResourceDefinition:
         status=ResourceStatus.DRAFT,
         spec_json={"name": "shared-skill", "capability": "review"},
     )
-
-
-@pytest.mark.asyncio
-async def test_S_F05_sqlite_wal_and_busy_timeout_enabled(tmp_path) -> None:
-    """F5：SQLite 文件库启用 WAL + 5s busy_timeout，缓解 dev 并发写 "database is locked"。"""
-    dsn = f"sqlite+aiosqlite:///{tmp_path / 'fluxion-f5.db'}"
-    store = SQLiteRegistryStore(dsn)
-    await store.initialize()
-    try:
-        async with store.engine.connect() as connection:
-            journal = (await connection.execute(text("PRAGMA journal_mode"))).scalar()
-            busy = (await connection.execute(text("PRAGMA busy_timeout"))).scalar()
-    finally:
-        await store.close()
-    assert journal == "wal"
-    assert busy == 5000
 
 
 @pytest.mark.asyncio

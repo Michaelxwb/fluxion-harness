@@ -1,9 +1,11 @@
 """TASK-011（phase2）用户自助 tool 注册 + 调用验收测试。
 
-真实边界：真实 ToolRuntime 注册 + SQLiteRegistryStore + UserDomainService。
+真实边界：真实 ToolRuntime 注册 + PostgreSQLRegistryStore + UserDomainService。
 """
 
 from __future__ import annotations
+
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from collections.abc import AsyncGenerator
 from types import SimpleNamespace
@@ -13,7 +15,7 @@ from sqlalchemy import select
 
 from fluxion.memory.application.user_tools import register_user_tools
 from fluxion.observability.context import RequestContext
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import audit_logs
 from fluxion.resources.contracts import ExecutionSnapshot, ModelPolicy
 from fluxion.runtime.context import RuntimeContext
@@ -53,8 +55,8 @@ def _real_context(
 
 
 @pytest.fixture
-async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+async def store() -> AsyncGenerator[PostgreSQLRegistryStore, None]:
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         yield store
@@ -63,7 +65,7 @@ async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
 
 
 @pytest.fixture
-async def runtime(store: SQLiteRegistryStore) -> ToolRuntime:
+async def runtime(store: PostgreSQLRegistryStore) -> ToolRuntime:
     rt = ToolRuntime()
     users = UserDomainService(store)
     register_user_tools(rt, engine=store.engine, users=users)
@@ -71,7 +73,7 @@ async def runtime(store: SQLiteRegistryStore) -> ToolRuntime:
 
 
 @pytest.fixture
-async def users(store: SQLiteRegistryStore) -> UserDomainService:
+async def users(store: PostgreSQLRegistryStore) -> UserDomainService:
     svc = UserDomainService(store)
     await svc.ensure_user(tenant_id=TENANT, platform_user_id=USER, display_name="A")
     return svc
@@ -104,7 +106,7 @@ async def test_user_tools_registered(runtime: ToolRuntime) -> None:
 
 @pytest.mark.asyncio
 async def test_s10_preference_set_then_read(
-    runtime: ToolRuntime, store: SQLiteRegistryStore, users: UserDomainService
+    runtime: ToolRuntime, store: PostgreSQLRegistryStore, users: UserDomainService
 ) -> None:
     """经 tool 设偏好 → user_preferences 表生效。"""
     ctx = _context()
@@ -117,7 +119,7 @@ async def test_s10_preference_set_then_read(
 
 @pytest.mark.asyncio
 async def test_s10_profile_get_returns_data(
-    runtime: ToolRuntime, store: SQLiteRegistryStore, users: UserDomainService
+    runtime: ToolRuntime, store: PostgreSQLRegistryStore, users: UserDomainService
 ) -> None:
     """经 tool 读 profile → 返回 display_name。"""
     await users.upsert_profile(
@@ -132,7 +134,7 @@ async def test_s10_profile_get_returns_data(
 
 @pytest.mark.asyncio
 async def test_s10_learning_disabled_blocks_memory_delete(
-    runtime: ToolRuntime, store: SQLiteRegistryStore, users: UserDomainService
+    runtime: ToolRuntime, store: PostgreSQLRegistryStore, users: UserDomainService
 ) -> None:
     """停学用户 → user.memory.delete 被拒。"""
     await users.set_preferences(
@@ -148,7 +150,7 @@ async def test_s10_learning_disabled_blocks_memory_delete(
 
 @pytest.mark.asyncio
 async def test_s10_real_call_through_triple_gate_and_audit(
-    runtime: ToolRuntime, store: SQLiteRegistryStore, users: UserDomainService
+    runtime: ToolRuntime, store: PostgreSQLRegistryStore, users: UserDomainService
 ) -> None:
     """真实调用链：ToolRuntime.call → 三重交集 gate → executor → AuditLog。
 
@@ -181,7 +183,7 @@ async def test_s10_real_call_through_triple_gate_and_audit(
 
 @pytest.mark.asyncio
 async def test_s10_real_call_denied_by_gate_no_audit(
-    runtime: ToolRuntime, store: SQLiteRegistryStore, users: UserDomainService
+    runtime: ToolRuntime, store: PostgreSQLRegistryStore, users: UserDomainService
 ) -> None:
     """三重交集不满足 → fail-closed 拒绝，executor 不执行、不写 AuditLog。"""
     tool_id = "user.profile.get"

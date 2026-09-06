@@ -4,7 +4,7 @@ RULE-fluxion-runtime-001：相同 tenant+user+agent 在不同 Pod 解析出等�
 RuntimeProfile/AgentDefinition，生成一致 ExecutionSnapshot；Snapshot frozen
 语义保证已启动执行不受后续发布漂移影响（PRD §4.3 pinned versions）。
 
-真实边界：两个 SQLiteRegistryStore 独立实例指向同一文件库（模拟双 Pod 读
+真实边界：两个 PostgreSQLRegistryStore 独立实例指向同一文件库（模拟双 Pod 读
 同一 Registry），各自 L1 cache；seed 经真实 store.publish；无 mock。
 """
 
@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 
 from fluxion.agents.definitions import AgentDefinition, AgentModelPolicy
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ExactResourceVersion, ResourceKind
 from fluxion.runtime.agent import AgentRuntime
 from fluxion.runtime.context import RequestContext
@@ -24,10 +24,11 @@ from tests.runtime_helpers import (
     publish_resource,
     seed_model_definition,
     seed_skill,
+    TEST_POSTGRES_DSN,
 )
 
 
-def _stack(store: SQLiteRegistryStore) -> tuple[AgentRuntime, ResourceResolver]:
+def _stack(store: PostgreSQLRegistryStore) -> tuple[AgentRuntime, ResourceResolver]:
     resolver = ResourceResolver(store)
     runtime = AgentRuntime(
         snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(store)),
@@ -48,7 +49,7 @@ def _request(tenant: str = "tenant-a", user: str = "user-a", session: str = "s")
     )
 
 
-async def _seed_bundle(store: SQLiteRegistryStore) -> None:
+async def _seed_bundle(store: PostgreSQLRegistryStore) -> None:
     """发布完整引用链：mechanics profile + agent(skill cap) + skill 资源。"""
     from fluxion.resources import ResourceDefinition, ResourceStatus
 
@@ -84,11 +85,11 @@ async def _seed_bundle(store: SQLiteRegistryStore) -> None:
 
 
 @pytest.mark.asyncio
-async def test_be_s_03_two_pods_resolve_identical_snapshots(tmp_path) -> None:
+async def test_be_s_03_two_pods_resolve_identical_snapshots() -> None:
     """BE-S-03：同一库、独立两 Pod 的 Resolver 逐字段产出一致快照。"""
-    db_file = tmp_path / "registry.db"
-    pod_a_store = SQLiteRegistryStore(f"sqlite+aiosqlite:///{db_file}")
-    pod_b_store = SQLiteRegistryStore(f"sqlite+aiosqlite:///{db_file}")
+    # PG-Only：双 Pod 直连同一 PG 库（pod_a 建库，pod_b 不重建，保数据可见）。
+    pod_a_store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
+    pod_b_store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN)
     await pod_a_store.initialize()
     await pod_b_store.initialize()
     try:
@@ -128,7 +129,7 @@ async def test_be_s_03_two_pods_resolve_identical_snapshots(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_be_b_01_pinned_agent_survives_hot_publish_of_v2(tmp_path) -> None:
     """BE-B-01：v1 pinned 执行中发布 v2——在途执行按 v1 收束；新执行取 v2。"""
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await _seed_bundle(store)

@@ -12,12 +12,12 @@ from fluxion.services.context_resolver import ContextResolver, ContextResolverSn
 
 @pytest.mark.asyncio
 async def test_S_R18_context_compaction_preserves_latest_raw_and_snapshot(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     memory_store = InMemorySessionMemoryStore()
     runtime = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=memory_store,
         memory_policy=MemoryPolicy(max_context_tokens=12, retain_latest_turns=2),
     )
@@ -54,12 +54,12 @@ async def test_S_R18_context_compaction_preserves_latest_raw_and_snapshot(
 
 @pytest.mark.asyncio
 async def test_S_R18_repeated_compaction_does_not_summarize_summaries(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     memory_store = InMemorySessionMemoryStore()
     runtime = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=memory_store,
         memory_policy=MemoryPolicy(max_context_tokens=12, retain_latest_turns=2),
     )

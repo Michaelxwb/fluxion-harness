@@ -5,14 +5,13 @@ Repository 层：业务代码只调这些函数（RULE-backend-database-001 "CRU
 JSON 列，整批读取/写入，PATTERN-backend-003）。
 
 写入方是 DBOS worker 进程（`runtime/workflow_projection.py` 的 psycopg writer，
-同表跨驱动）；本模块是 API/Console 读路径 + 双库契约的 async SQLAlchemy 侧。
+同表跨驱动）；本模块是 API/Console 读路径的 async SQLAlchemy 侧。
 """
 
 from __future__ import annotations
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.sql.dml import Insert
@@ -33,7 +32,7 @@ def _upsert_statement(
     status: str = "running",
     node_states: dict[str, object] | None = None,
 ) -> Insert:
-    """跨 dialect INSERT ... ON CONFLICT（sqlite + pg 双库契约）幂等 upsert。"""
+    """PostgreSQL INSERT ... ON CONFLICT 幂等 upsert。"""
     values: dict[str, object] = {
         "run_id": run_id,
         "tenant_id": tenant_id,
@@ -46,17 +45,7 @@ def _upsert_statement(
         "node_states": node_states,
         "updated_at": func.now(),
     }
-    if engine.dialect.name == "postgresql":
-        return postgresql_insert(workflow_run).values(**values).on_conflict_do_update(
-            index_elements=[workflow_run.c.tenant_id, workflow_run.c.run_id],
-            set_={
-                "status": status,
-                "node_states": node_states,
-                "pinned_refs": pinned_refs,
-                "updated_at": func.now(),
-            },
-        )
-    return sqlite_insert(workflow_run).values(**values).on_conflict_do_update(
+    return postgresql_insert(workflow_run).values(**values).on_conflict_do_update(
         index_elements=[workflow_run.c.tenant_id, workflow_run.c.run_id],
         set_={
             "status": status,

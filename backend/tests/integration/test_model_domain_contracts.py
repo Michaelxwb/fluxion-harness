@@ -1,16 +1,18 @@
 """ADR-A008 Model 领域三层 · Registry 版本化契约（TASK-001）。
 
 验证新增 `MODEL_PROVIDER` / `MODEL_DEFINITION` 两个一等 kind 可经
-Registry（SQLite）版本化发布并取回，spec 形状与 ProviderDefinition /
+Registry（PG）版本化发布并取回，spec 形状与 ProviderDefinition /
 ModelDefinition typed spec 一致。Store 为 kind 无关（spec_json 通用存储），
 本测试证明新 kind 在版本化链路开箱可用。
 """
 
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
+
 import pytest
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import (
     ResourceDefinition,
     ResourceKind,
@@ -20,7 +22,7 @@ from fluxion.resources import (
 
 @pytest.mark.asyncio
 async def test_A008_model_kinds_versioned_roundtrip() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await store.put(

@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceBinding, ResourceKind
 from fluxion.runtime.secrets import CredentialResolver, LocalEncryptedSecretStore
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.runtime_contracts import RunRuntimeRequest
-from tests.runtime_helpers import publish_resource
+from tests.runtime_helpers import publish_resource, TEST_POSTGRES_DSN
 
 TOOL_ID = "mcp__live_lookup__lookup"
 
@@ -26,7 +26,7 @@ async def test_S_P13_07_live_openai_compatible_model_calls_real_mcp(
     base_url = _required_env("FLUXION_LIVE_MODEL_BASE_URL")
     api_key = _required_env("FLUXION_LIVE_MODEL_API_KEY")
     model = _required_env("FLUXION_LIVE_MODEL_NAME")
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     secrets = LocalEncryptedSecretStore(master_key=os.urandom(32))
     credential_ref = await secrets.put("dev", "live-model", api_key)
     call_log = tmp_path / "live-mcp-call.log"
@@ -77,7 +77,7 @@ async def test_S_P13_07_live_openai_compatible_model_calls_real_mcp(
 
 
 async def _seed_live_product(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
     *,
     base_url: str,
     model: str,

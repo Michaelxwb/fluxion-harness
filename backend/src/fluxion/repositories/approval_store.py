@@ -34,7 +34,7 @@ class ApprovalStorePersistenceError(RuntimeError):
 
 
 class PostgresApprovalStore:
-    """审批决策落库实现（engine 注入：SQLite 契约 / PostgreSQL 生产）。"""
+    """审批决策落库实现（engine 注入：PostgreSQL）。"""
 
     # TASK-013：显式 production capability 声明（白名单，durable + multi-replica）。
     production_capabilities: frozenset[str] = frozenset({"durability", "multi_replica"})

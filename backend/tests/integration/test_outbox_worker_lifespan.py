@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
+
 import asyncio
 
 from sqlalchemy import select
@@ -7,7 +9,7 @@ from sqlalchemy import select
 from fluxion.registry import (
     BindingCommand,
     BindingOperation,
-    SQLiteRegistryStore,
+    PostgreSQLRegistryStore,
 )
 from fluxion.registry.schema import outbox_events
 from fluxion.resources import ResourceBinding, ResourceKind, SubjectType
@@ -20,7 +22,7 @@ async def test_S_A7_outbox_worker_drains_binding_event_and_maps_kind() -> None:
     outbox 行（aggregate_type="binding"）正确映射 ConfigChangeEvent——此前
     _config_event 做 ResourceKind("binding") 必崩。publisher 收到 kind=MCP、
     resource_id=github 的事件，push-invalidation 路径打通。"""
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await store.commit_binding(
@@ -85,7 +87,7 @@ async def test_S_A7_outbox_worker_drains_binding_event_and_maps_kind() -> None:
 
 async def test_S_A7_outbox_worker_start_is_idempotent_and_stop_cancels() -> None:
     """A7：start() 幂等（重复 start 不起第二个 task），stop() 清理 task。"""
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         worker = OutboxWorker(

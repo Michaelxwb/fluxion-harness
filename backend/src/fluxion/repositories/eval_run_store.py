@@ -32,7 +32,7 @@ class EvalRunStorePersistenceError(RuntimeError):
 
 
 class PostgresEvalRunStore:
-    """EvalRun 落库实现（engine 注入：SQLite 契约 / PostgreSQL 生产）。"""
+    """EvalRun 落库实现（engine 注入：PostgreSQL）。"""
 
     # TASK-013：显式 production capability 声明（白名单，durable + multi-replica）。
     production_capabilities: frozenset[str] = frozenset({"durability", "multi_replica"})
@@ -117,8 +117,7 @@ class PostgresEvalRunStore:
 def _migrate_target_columns(sync_conn: Any) -> None:
     """幂等补齐 target 列（旧 eval_runs 表无 target_kind/id/version）。
 
-    SQLite 不支持 ADD COLUMN IF NOT EXISTS，改用 inspect 检查列存在性后补齐；
-    PG 同样走检查路径（跨方言幂等）。
+    用 inspect 检查列存在性后补齐（幂等）。
     """
     from sqlalchemy import inspect, text
 

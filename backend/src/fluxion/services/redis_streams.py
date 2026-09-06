@@ -29,7 +29,7 @@ class RedisAsyncClient(Protocol):
 class RedisStreamsClient:
     """生产配置通知的 Redis Streams 客户端，包装 redis.asyncio.Redis。
 
-    dev 模式用 SQLite revision polling；生产用 Redis Streams + Transactional Outbox，
+    dev 模式用 InProcess 发布/订阅（同进程）；生产用 Redis Streams + Transactional Outbox，
     本客户端是 RedisStreamClient Protocol 的真实实现，供
     RedisStreamsConfigEventPublisher 与 RedisConfigEventSubscriber 共用。
     """

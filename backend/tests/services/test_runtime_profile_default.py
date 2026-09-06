@@ -6,7 +6,7 @@ platform-default → fail-closed `runtime_profile_default_missing`（区分于�
 默认链（integration）：未配置 ref → 租户 default=true 的 published RuntimeProfile
 → platform-default；显式 ref 优先于默认链。
 
-真实边界：真实 SQLite RegistryStore + ContextResolver 十段管线；不 mock。
+真实边界：真实 PG RegistryStore + ContextResolver 十段管线；不 mock。
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import pytest
 from sqlalchemy import insert
 
 from fluxion.agents.definitions import AgentDefinition, AgentModelPolicy
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import resource_definitions
 from fluxion.resources import ExactResourceVersion, ResourceKind
 from fluxion.services.context_resolver import (
@@ -26,14 +26,14 @@ from fluxion.services.context_resolver import (
     ContextResolver,
     ResolverSelector,
 )
-from tests.runtime_helpers import publish_resource, resource_definition, seed_model_definition
+from tests.runtime_helpers import publish_resource, resource_definition, seed_model_definition, TEST_POSTGRES_DSN
 
 TENANT = "tenant-a"
 
 
 @pytest.fixture
-async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+async def store() -> AsyncGenerator[PostgreSQLRegistryStore, None]:
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         yield store
@@ -41,7 +41,7 @@ async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
         await store.close()
 
 
-async def _seed_agent(store: SQLiteRegistryStore, *, agent_id: str = "agent-x") -> None:
+async def _seed_agent(store: PostgreSQLRegistryStore, *, agent_id: str = "agent-x") -> None:
     """无 runtime_profile_ref 的 Agent（B-E-01/默认链的被测对象）。"""
     await seed_model_definition(store, tenant_id=TENANT, provider_id="dev.echo")
     async with store.engine.begin() as conn:
@@ -67,7 +67,7 @@ async def _seed_agent(store: SQLiteRegistryStore, *, agent_id: str = "agent-x") 
 
 
 async def _seed_profile(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
     *,
     resource_id: str,
     default: bool = False,
@@ -89,7 +89,7 @@ async def _seed_profile(
 
 @pytest.mark.asyncio
 async def test_be01_no_default_and_no_platform_default_fail_closed(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
 ) -> None:
     """B-E-01：默认链断链 → 明确错误码 runtime_profile_default_missing。"""
     await _seed_agent(store)
@@ -104,7 +104,7 @@ async def test_be01_no_default_and_no_platform_default_fail_closed(
 
 @pytest.mark.asyncio
 async def test_tenant_default_resolves_without_same_name_profile(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
 ) -> None:
     """未配置 ref → 租户 default=true 的 published profile 生效（无同名 seed）。"""
     await _seed_agent(store)
@@ -118,7 +118,7 @@ async def test_tenant_default_resolves_without_same_name_profile(
 
 @pytest.mark.asyncio
 async def test_platform_default_fallback_when_no_tenant_default(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
 ) -> None:
     """无租户默认 → platform-default 显式回退。"""
     await _seed_agent(store)
@@ -131,7 +131,7 @@ async def test_platform_default_fallback_when_no_tenant_default(
 
 
 @pytest.mark.asyncio
-async def test_explicit_ref_wins_over_default_chain(store: SQLiteRegistryStore) -> None:
+async def test_explicit_ref_wins_over_default_chain(store: PostgreSQLRegistryStore) -> None:
     """显式 runtime_profile_ref 优先于租户默认（现状语义防回归）。"""
     await _seed_agent(store)
     await _seed_profile(store, resource_id="tenant-standard", default=True)
@@ -166,7 +166,7 @@ async def test_explicit_ref_wins_over_default_chain(store: SQLiteRegistryStore) 
 
 
 @pytest.mark.asyncio
-async def test_unpublished_tenant_default_not_used(store: SQLiteRegistryStore) -> None:
+async def test_unpublished_tenant_default_not_used(store: PostgreSQLRegistryStore) -> None:
     """default=true 但仅 draft → 不作为默认（published 语义）。"""
     await _seed_agent(store)
     await store.put(

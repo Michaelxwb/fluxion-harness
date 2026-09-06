@@ -2,7 +2,7 @@
 
 - 密文入 `secret_credentials` 表（AES-256-GCM 12B nonce，绝不存明文）；
 - 与 `LocalEncryptedSecretStore` 同形 API（put/rotate/revoke/resolve/list_metadata）；
-- engine 注入：SQLite（dev/契约）与 PostgreSQL（生产）跑同一套 Contract Test（规则 7）；
+- engine 注入：PostgreSQL 单库 Contract（ADR-A007）；
 - Master Key 外置 env `FLUXION_SECRET_MASTER_KEY`（base64 32B），缺失/长度≠32
   启动 fail-fast，不静默生成（B-02 / RISK-P5-02）；
 - Key rotation（remediation §16.3）：按 `key_id` 解旧密 → 新密加密 → 批量
@@ -55,7 +55,7 @@ _T = TypeVar("_T")
 
 
 class PostgresEncryptedSecretStore:
-    """加密 Secret 持久化 store（生产 PostgreSQL；契约测试复用 SQLite engine）。"""
+    """加密 Secret 持久化 store（PostgreSQL）。"""
 
     # TASK-013：显式 production capability 声明（白名单，durable + multi-replica）。
     production_capabilities: frozenset[str] = frozenset({"durability", "multi_replica"})

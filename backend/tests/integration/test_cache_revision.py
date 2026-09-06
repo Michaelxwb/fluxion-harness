@@ -4,19 +4,19 @@ import asyncio
 
 import pytest
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.runtime_app import (
     CreateRuntimeProfileRequest,
     PublishRuntimeProfileRequest,
     RunRuntimeRequest,
     RuntimeApplicationService,
 )
-from tests.runtime_helpers import seed_agent_definition
+from tests.runtime_helpers import seed_agent_definition, TEST_POSTGRES_DSN
 
 
 @pytest.mark.asyncio
 async def test_B_R01_revision_polling_recovers_after_lost_change_event() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     runtime_service = RuntimeApplicationService.create_dev_bundle(
         store,
         cache_ttl_seconds=600,

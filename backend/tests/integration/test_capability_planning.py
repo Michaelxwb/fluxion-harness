@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
+
 import pytest
 
 from fluxion.agents.definitions import (
@@ -14,13 +16,13 @@ from fluxion.agents.definitions import (
     AgentModelPolicy,
     CapabilityType,
 )
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ExactResourceVersion, ResourceDefinition, ResourceKind, ResourceStatus
 from fluxion.services.capability_planning import CapabilityPlanningService
 
 
 async def _put_skill(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
     resource_id: str,
     required: list[str],
     version: str = "1",
@@ -53,7 +55,7 @@ def _cap(ref: str, cap_type: CapabilityType) -> AgentCapabilityReference:
 
 @pytest.mark.asyncio
 async def test_B_S06_skill_closure_covered_plan_valid() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await _put_skill(store, "refund-skill", ["refund_order"])
@@ -72,7 +74,7 @@ async def test_B_S06_skill_closure_covered_plan_valid() -> None:
 
 @pytest.mark.asyncio
 async def test_B_E05_skill_closure_missing_tool_returns_actionable() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await _put_skill(store, "refund-skill", ["refund_order"])

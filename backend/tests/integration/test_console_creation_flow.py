@@ -3,7 +3,7 @@
 Console 列表 = 每资源「当前版本（任意状态）」一行：新建 draft Agent 立即可见，
 发布后状态翻转。修复前 `GET /api/v1/resources` 只列 PUBLISHED（detail 半边已由
 console_resources.get 修复），新建 draft 在 UI 不可达；本测试在真实 HTTP 边界
-（ASGITransport + SQLiteRegistryStore）钉住列表半边。
+（ASGITransport + PostgreSQLRegistryStore）钉住列表半边。
 """
 
 from __future__ import annotations

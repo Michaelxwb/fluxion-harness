@@ -217,6 +217,8 @@ async def _seed_tenants(
                 "model_policy": {
                     "primary_model_ref": {"id": "model.dev-echo", "version": "1"}
                 },
+                # ADR-A010：同名回退已废弃，agent 显式指 profile。
+                "runtime_profile_ref": {"id": agent_id, "version": "1"},
             },
         )
         agent_ids[tenant_id] = agent_id
@@ -233,6 +235,7 @@ async def _warmup(service: RuntimeApplicationService, agent_ids: dict[str, str])
                 tenant_id=tenant_id,
                 user_id="warmup-user",
                 runtime_profile_id=agent_id,
+                agent_definition_id=agent_id,
                 session_id="warmup",
                 input_message="warmup",
             )
@@ -255,6 +258,7 @@ async def _run_load(
                     tenant_id=tenant_id,
                     user_id=f"user-{session_index % 10}",
                     runtime_profile_id=agent_id,
+                    agent_definition_id=agent_id,
                     session_id=f"session-{session_index}",
                     input_message="capacity-ping",
                 )

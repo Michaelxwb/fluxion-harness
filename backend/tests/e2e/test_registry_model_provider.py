@@ -13,13 +13,13 @@ from tests.runtime_helpers import publish_resource, seed_model_definition
 
 @pytest.mark.asyncio
 async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_credential(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     secrets = LocalEncryptedSecretStore(master_key=b"m" * 32)
     credential_ref = await secrets.put("tenant-a", "wire-model", "wire-secret")
     async with openai_wire_server([openai_final_response("registry provider answer")]) as wire:
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id="tenant-a",
             kind=ResourceKind.MODEL_PROVIDER,
             resource_id="wire-provider",
@@ -34,7 +34,7 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
             },
         )
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id="tenant-a",
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="assistant",
@@ -45,10 +45,10 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
         # agent.model_policy → ModelDefinition（model.wire-provider）→ MODEL_PROVIDER
         # 资源 wire-provider@1（snapshot.provider_versions pin 解析后的 provider）。
         await seed_model_definition(
-            sqlite_store, tenant_id="tenant-a", provider_id="wire-provider"
+            pg_store, tenant_id="tenant-a", provider_id="wire-provider"
         )
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id="tenant-a",
             kind=ResourceKind.AGENT_DEFINITION,
             resource_id="assistant",
@@ -62,7 +62,7 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
                 },
             },
         )
-        await sqlite_store.put_binding(
+        await pg_store.put_binding(
             ResourceBinding(
                 binding_id="provider-binding",
                 tenant_id="tenant-a",
@@ -75,7 +75,7 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
             )
         )
         runtime = RuntimeApplicationService(
-            sqlite_store,
+            pg_store,
             credential_resolver=CredentialResolver(secrets),
         )
 

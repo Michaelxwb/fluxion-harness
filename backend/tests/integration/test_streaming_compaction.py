@@ -11,7 +11,7 @@ import pytest
 
 from fluxion.plugins.contracts import ModelProviderError, ModelRequest, ModelResponse
 from fluxion.plugins.model_provider import ModelProviderRegistry
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceKind
 from fluxion.runtime import AgentRuntime
 from fluxion.runtime.context import RequestContext
@@ -24,7 +24,7 @@ from fluxion.services.runtime_app import (
     RunRuntimeRequest,
     RuntimeApplicationService,
 )
-from tests.runtime_helpers import publish_resource, seed_agent_definition, seed_tenant_policy
+from tests.runtime_helpers import publish_resource, seed_agent_definition, seed_tenant_policy, TEST_POSTGRES_DSN
 
 OLD_FACT = "流式旧事实ZZ999"
 SUMMARY_BOUNDARY = "历史会话摘要，仅作上下文资料"
@@ -59,7 +59,7 @@ def _registry(provider: RecordingStreamProvider) -> ModelProviderRegistry:
     return registry
 
 
-async def _seed_chain(store: SQLiteRegistryStore) -> None:
+async def _seed_chain(store: PostgreSQLRegistryStore) -> None:
     await publish_resource(
         store,
         tenant_id="tenant-a",
@@ -73,7 +73,7 @@ async def _seed_chain(store: SQLiteRegistryStore) -> None:
 
 
 def _runtime(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
     provider: RecordingStreamProvider,
     *,
     max_context_tokens: int = 20,
@@ -106,7 +106,7 @@ class TestS09StreamingCompaction:
     @pytest.mark.asyncio
     async def test_stream_triggers_compaction_before_model_call(self) -> None:
         """S-09：无工具流式在模型调用前触发压缩（与非流式一致的历史准备）。"""
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         await store.initialize()
         try:
             await _seed_chain(store)
@@ -127,7 +127,7 @@ class TestS09StreamingCompaction:
     @pytest.mark.asyncio
     async def test_stream_history_equivalent_to_non_stream(self) -> None:
         """S-09：流式与非流式得到等价历史（同摘要 + 同保留）。"""
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         await store.initialize()
         try:
             await _seed_chain(store)
@@ -164,7 +164,7 @@ class TestS09StreamingCompaction:
     @pytest.mark.asyncio
     async def test_service_stream_persists_input_output_once(self) -> None:
         """S-09：成功流式输入输出各持久化一次（service 保存分支）。"""
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         provider = RecordingStreamProvider()
         service = RuntimeApplicationService(store, model_providers=_registry(provider))
         await service.initialize()
@@ -207,7 +207,7 @@ class TestE05StreamingFailurePolicy:
         """E-05：摘要彻底失败时不删旧消息（有界失败策略，无静默丢数据）。"""
         from fluxion.runtime.summarizer import SUMMARIZER_DETERMINISTIC
 
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         await store.initialize()
         try:
             await _seed_chain(store)
@@ -240,7 +240,7 @@ class TestE05StreamingFailurePolicy:
     @pytest.mark.asyncio
     async def test_stream_failure_does_not_reexecute(self) -> None:
         """E-05：流式失败不重复执行（不回退静默重试，不调 complete）。"""
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         await store.initialize()
         try:
             await _seed_chain(store)
@@ -280,7 +280,7 @@ class TestE05StreamingFailurePolicy:
                 self.requests.append(request)
                 return _LeakyStream()
 
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         await store.initialize()
         try:
             await _seed_chain(store)

@@ -3,7 +3,7 @@
 phase5 review 指出生产 provider「全仓 grep 无构造点，仅测试接线」——本模块是
 生产 app 的唯一装配点（composition root，依赖方向规则 9/14）：
 
-- Registry：``PostgreSQLRegistryStore``（PG DSN，拒绝 SQLite——fail-fast）；
+- Registry：``PostgreSQLRegistryStore``（PG DSN，非 PG 直接 fail-fast）；
 - Secret：``PostgresEncryptedSecretStore``（PG 密文，替换内存 LocalEncryptedSecretStore）；
 - Trace / Approval / EvalRun：PG durable adapter（P0-5「显式 production adapter」）；
 - Artifact：``S3CompatibleArtifactStore``（S3/MinIO endpoint 配置，规则 18）；

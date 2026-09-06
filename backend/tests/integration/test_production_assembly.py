@@ -350,10 +350,10 @@ class TestS10ProductionAssembly:
     async def test_production_bundle_rejects_non_postgres_dsn(
         self, tmp_path: Path
     ) -> None:
-        """S-10：production 装配拒绝非 PostgreSQL DSN（fail-fast，不静默降级 SQLite）。"""
+        """S-10：production 装配拒绝非 PostgreSQL DSN（fail-fast，不静默降级）。"""
         with pytest.raises(ProductionProfileError, match="PostgreSQL"):
             create_production_bundle_app(
-                registry_dsn="sqlite+aiosqlite:///./dev.db",
+                registry_dsn="mysql://localhost:3306/fluxion",
                 master_key=os.urandom(32),
                 console_dist=tmp_path,
                 chat_dist=tmp_path,

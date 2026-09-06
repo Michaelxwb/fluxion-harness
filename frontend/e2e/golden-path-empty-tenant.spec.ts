@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * golden-path-closure TASK-026 / F-S-20：空租户纯浏览器 Golden Path。
  *
- * fixture 仅提供：dev bundle（空 SQLite Registry + LocalEncryptedSecretStore）
+ * fixture 仅提供：dev bundle（PostgreSQL Registry + PostgresEncryptedSecretStore，ADR-A007）
  * 与外部 stub 服务（OpenAI-compatible + MCP，9878）。产品资源（凭据/Provider/
  * 模型/Skill/Tool/MCP/Agent/用户/授权/渠道）一律经真实 UI 创建。
  *

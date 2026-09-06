@@ -6,7 +6,6 @@ from typing import cast
 
 from sqlalchemy import and_, insert, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
@@ -113,7 +112,7 @@ async def claim_outbox(
         .where(claimable)
         .order_by(outbox_events.c.created_at, outbox_events.c.event_id)
         .limit(limit)
-        .with_for_update(skip_locked=engine.dialect.name == "postgresql")
+        .with_for_update(skip_locked=True)
     )
     async with engine.begin() as connection:
         rows = (await connection.execute(statement)).mappings().all()
@@ -215,8 +214,7 @@ async def _check_expected_base(
         # A6：CAS 读 latest published 须带行锁。PG READ COMMITTED 下，并发 publish
         # 阻塞于此；先提交者释放锁后，本 SELECT 重算 ORDER BY...LIMIT 1 指向新
         # latest，后到者读到更新后的 base 与 expected_base_version 不符 →
-        # VersionConflict，CAS 原子生效。SQLite 方言省略 FOR UPDATE（靠
-        # service-layer asyncio.Lock + StaticPool 单连接串行化），无副作用。
+        # VersionConflict，CAS 原子生效。
         .with_for_update()
     )
     row = (await connection.execute(statement)).first()
@@ -285,28 +283,16 @@ async def _bump_revision(
 ) -> int:
     values = {"tenant_id": tenant_id, "revision": 1, "updated_at": now}
     updates = {"revision": config_revisions.c.revision + 1, "updated_at": now}
-    if connection.dialect.name == "postgresql":
-        pg_upsert = (
-            postgresql_insert(config_revisions)
-            .values(**values)
-            .on_conflict_do_update(
-                index_elements=[config_revisions.c.tenant_id],
-                set_=updates,
-            )
-            .returning(config_revisions.c.revision)
+    upsert = (
+        postgresql_insert(config_revisions)
+        .values(**values)
+        .on_conflict_do_update(
+            index_elements=[config_revisions.c.tenant_id],
+            set_=updates,
         )
-        row = (await connection.execute(pg_upsert)).first()
-    else:
-        sqlite_upsert = (
-            sqlite_insert(config_revisions)
-            .values(**values)
-            .on_conflict_do_update(
-                index_elements=[config_revisions.c.tenant_id],
-                set_=updates,
-            )
-            .returning(config_revisions.c.revision)
-        )
-        row = (await connection.execute(sqlite_upsert)).first()
+        .returning(config_revisions.c.revision)
+    )
+    row = (await connection.execute(upsert)).first()
     if row is None:
         raise RegistryStoreError(f"failed to bump revision for tenant {tenant_id}")
     return int(row[0])

@@ -23,7 +23,7 @@ verifiers:
 - Cache 必须定义 key scope、TTL、invalidation 和 stale 行为。
 - Plugin/Hook 必须定义 trust、timeout、fail policy 和观测指标。
 - 关键路径必须可 Trace，并关联 execution_id 和资源版本。
-- SQLite/PostgreSQL Contract Test 通过率 100%。
+- PostgreSQL Contract Test 通过率 100%（ADR-A007，单库）。
 - P0/P1 验收自动化率至少 95%。
 - Runtime 框架开销满足设计文档性能预算。
 - 通过依赖边界测试保证 Kernel 不引用具体 Provider/Plugin。

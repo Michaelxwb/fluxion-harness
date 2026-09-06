@@ -12,13 +12,13 @@ deploy/
 └── README.md                   本文件
 ```
 
-> 本地纯开发（不涉及部署产物）直接使用 `fluxion serve --dev`（SQLite + 前端 dev bundle），
-> 见仓库根 `README.md`。
+> 本地纯开发（不涉及部署产物）直接使用 `fluxion serve --dev`（PostgreSQL + 前端 dev bundle），
+> 见仓库根 `README.md`。前置：本地 PG 常驻（`mmuser/mmuser@localhost:5432`，
+> `fluxion`/`fluxion_test` 库）+ 显式 `FLUXION_SECRET_MASTER_KEY`。
 >
-> dev 凭据持久化：dev 与生产同形态，Secret 明文经 AES-256-GCM 加密后落 SQLite
-> `secret_credentials` 表，重启不丢失；master key 优先级为环境变量
-> `FLUXION_SECRET_MASTER_KEY` > 数据库文件旁 `.fluxion-dev-master-key`（0600，
-> 首次自动生成，仅 dev 便利）> 随机（`:memory:` 无持久化场景并告警）。
+> dev 凭据持久化：dev 与生产同形态，Secret 明文经 AES-256-GCM 加密后落 PG
+> `secret_credentials` 表，重启不丢失；master key 必须经环境变量
+> `FLUXION_SECRET_MASTER_KEY` 显式给（与生产同姿势，无文件钥匙回退）。
 
 ## 环境变量约定
 
@@ -163,7 +163,7 @@ postgresql+asyncpg://<user>:<password>@<host>:5432/<database>
 
 - 生产建议独立部署 PostgreSQL（托管云数据库或独立 StatefulSet），并开启 TLS；可用
   `FLUXION_POSTGRES_SSL` 控制 SSL 模式（默认 `disable`，可设 `require`/`verify-full` 等）。
-- 数据库表结构由 `scripts/init_db.py` 初始化（幂等 `metadata.create_all`，PG/SQLite 双库），
+- 数据库表结构由 `scripts/init_db.py` 初始化（幂等 `metadata.create_all`，PostgreSQL 单库），
   服务进程不建表。首次部署前先执行：
   ```bash
   python3 scripts/init_db.py --dsn "postgresql+asyncpg://<user>:<pass>@<host>:5432/<database>"

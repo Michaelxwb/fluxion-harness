@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
  * golden-path-closure TASK-010 / F-S-03：连接模型服务完整 Journey（Golden Path 第二环）。
  *
  * 真实边界：Browser → ConnectModelProviderModal → 真实 HTTP API（/studio/model-providers
- * + :test-connection + /studio/model-definitions + :publish）→ SQLite RegistryStore；
+ * + :test-connection + /studio/model-definitions + :publish）→ PostgreSQL RegistryStore（ADR-A007）；
  * Test Connection / Discover 真实探测本地 OpenAI-compatible stub（:9878/v1/models）。
  * 禁止 mock：不经 page.request seed 产品资源，全链路 UI 操作。
  */

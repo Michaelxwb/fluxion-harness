@@ -69,8 +69,8 @@ class ConsoleResourceLifecycleOps:
     ) -> PublishResourceResult:
         _ensure_same_tenant(actor, request.tenant_id)
         # 单进程内串行化同资源的发布，消除 expected_base_version 乐观锁的
-        # check-then-commit 竞态（store 事务内对 base 行不加锁，SQLite 下
-        # FOR UPDATE 无效）。多进程部署需在 store 层加 advisory lock。
+        # check-then-commit 竞态（store 事务内对 base 行加锁，进程内串行做双保险）。
+        # 多进程部署需在 store 层加 advisory lock。
         lock = self._publication_lock(request.tenant_id, request.kind, request.resource_id)
         async with lock:
             return await self._publish_resource_version_locked(actor, request)

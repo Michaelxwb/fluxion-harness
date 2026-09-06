@@ -1,12 +1,10 @@
-"""PgVectorSemanticStore：SemanticStoreProvider 的 PG 生产实现（closure TASK-003）。
-
-双库契约（规则 7）：SQLite 与 PostgreSQL 走同一 provider 契约、同一测试。
+"""PgVectorSemanticStore：SemanticStoreProvider 的 PG 实现（closure TASK-003）。
 
 embedding 存储双层：
 - **native pgvector**（探测到扩展时）：VECTOR 列 + `<=>` 余弦距离 SQL 排序；
-- **降级**（扩展不可用）：embedding JSON 列 + Python 侧 cosine 排序——真实 PG
-  表可测（local-pg-test-env），语义一致，仅排序在应用侧完成（行数受
-  user/tenant scope 约束）。native 路径在扩展可用时自动接管。
+- **降级**（扩展不可用时）：embedding JSON 列 + Python 侧 cosine 排序——语义
+  一致，仅排序在应用侧完成（行数受 user/tenant scope 约束）。native 路径在
+  扩展可用时自动接管。
 
 全部查询按 tenant_id + user_id scope（NFR-SEC-01）；memory_type 过滤由
 provider 承担。超时/失败语义：查询异常 → SemanticStoreError（调用方降级空
@@ -68,7 +66,7 @@ class PgVectorSemanticStore:
                 ).scalar()
                 self._pgvector_available = bool(row)
         except SQLAlchemyError:
-            # 探测失败（如 SQLite 无 pg_extension 表）→ 降级非 native 路径；
+            # 探测失败（如 PG 未装 pgvector 扩展）→ 降级非 native 路径；
             # 属预期降级，记 debug 可观测、不告警（规则：禁止静默吞异常）
             logger.debug("pgvector probe failed; degraded to Python cosine", exc_info=True)
             self._pgvector_available = False

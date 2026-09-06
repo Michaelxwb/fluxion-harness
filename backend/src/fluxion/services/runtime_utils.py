@@ -156,7 +156,7 @@ def default_session_memory_store(store: RegistryStore) -> SessionMemoryStore:
     """从 RegistryStore 派生默认的会话记忆后端。
 
     当 store 暴露 SQLAlchemy engine 时使用 SQLSessionMemoryStore，把 L1/L2/summary
-    持久化到共享 Registry（SQLite dev / PostgreSQL prod），保证 Runtime 无本地
+    持久化到共享 Registry（PostgreSQL，dev/prod 同形态），保证 Runtime 无本地
     持久事实；否则回退 InMemorySessionMemoryStore（仅用于无 store 的测试夹具）。
     """
     engine = getattr(store, "engine", None)

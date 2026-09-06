@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
-from tests.runtime_helpers import seed_runtime_profile
+from tests.runtime_helpers import seed_runtime_profile, TEST_POSTGRES_DSN
 
 from fluxion.memory.domain.personal_memory import (
     ConsentDecision,
@@ -57,10 +57,20 @@ _ALLOW_CONSENT = ConsentDecision(allowed=True)
 
 @pytest.fixture
 async def memory_engine() -> AsyncGenerator[AsyncEngine, None]:
-    """真实 async SQLite engine：personal_memory / session_memory 等真实建表。"""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    """真实 async PG engine：personal_memory / session_memory 等真实建表。
+
+    setup 时 TRUNCATE 两表（本文件用固定 tenant-a/user-a，跨 run 残留会撑大
+    recall 计数断言）。
+    """
+    from sqlalchemy import text
+
+    from fluxion.registry.schema import personal_memory, session_memory
+
+    engine = create_async_engine(TEST_POSTGRES_DSN)
     async with engine.begin() as connection:
         await connection.run_sync(metadata.create_all)
+        for table in (personal_memory, session_memory):
+            await connection.execute(text(f"TRUNCATE TABLE {table.name}"))
     try:
         yield engine
     finally:
@@ -366,16 +376,16 @@ def test_e03_session_side_modules_do_not_reference_personal_memory() -> None:
 
 async def test_e03_compaction_does_not_auto_commit_summary_into_personal_memory(
     memory_engine: AsyncEngine,
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """行为证据：真实 compaction 产出 summary 后，personal_memory 表零行。
 
     summary 只回 session compaction（§4.6 行 276），不 auto-commit 进
     UserProfile/personal memory。
     """
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     runtime = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=SQLSessionMemoryStore(memory_engine),
         memory_policy=MemoryPolicy(max_context_tokens=12, retain_latest_turns=2),
     )

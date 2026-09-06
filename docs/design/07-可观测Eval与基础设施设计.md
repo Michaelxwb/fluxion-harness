@@ -18,9 +18,9 @@ EvalSet、EvalCase、EvalRun 与 AgentDefinition/ExecutionSnapshot exact version
 
 ## 4. Storage
 
-- Dev：SQLite，零额外数据库依赖；
-- Prod：PostgreSQL 为 Resource/User/Session 等 SoT；
-- 两者共享 schema/migration/repository contract tests。
+- Dev/Prod 同 PostgreSQL（ADR-A007 PG-Only）：Resource/User/Session 等 SoT；
+  dev 直连本地 PG（`mmuser/mmuser@localhost:5432/fluxion`），测试用 `fluxion_test`；
+- 同一套 schema/migration/contract tests（单库）。
 
 Redis 只做 cache/event/coordination，不作为无法重建的唯一事实源。
 

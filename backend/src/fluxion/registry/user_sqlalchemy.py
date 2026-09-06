@@ -93,12 +93,13 @@ async def get_latest_profile(
 async def get_profile_at(
     engine: AsyncEngine, *, tenant_id: str, platform_user_id: str, version: str
 ) -> dict[str, Any] | None:
-    """按精确版本读 user profile（ContextResolver user pin 校验，fail-closed）。"""
-    version_cond = (
-        user_profiles.c.version == int(version)
-        if version.isdigit()
-        else user_profiles.c.version == version
-    )
+    """按精确版本读 user profile（ContextResolver user pin 校验，fail-closed）。
+
+    version 列是整数；非数字版本永不可能命中，直接返回 None（PG 对
+    integer = varchar 直接报错；历史行为静默返回空行）。
+    """
+    if not version.isdigit():
+        return None
     async with engine.connect() as conn:
         row = (
             await conn.execute(
@@ -109,7 +110,7 @@ async def get_profile_at(
                 ).where(
                     user_profiles.c.tenant_id == tenant_id,
                     user_profiles.c.platform_user_id == platform_user_id,
-                    version_cond,
+                    user_profiles.c.version == int(version),
                 )
             )
         ).mappings().first()

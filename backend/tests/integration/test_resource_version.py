@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 
 import pytest
 from sqlalchemy import select
@@ -12,8 +11,9 @@ from tests.console_helpers import (
     runtime_profile_spec,
     tenant_headers,
 )
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import audit_logs
 from fluxion.resources import ResourceKind
 
@@ -75,8 +75,8 @@ async def test_B_C101_concurrent_publish_on_same_base_allows_only_one_success() 
 
 
 @pytest.mark.asyncio
-async def test_publish_writes_audit_record(tmp_path: Path) -> None:
-    async with console_stack(db_path=tmp_path / "audit.db") as stack:
+async def test_publish_writes_audit_record() -> None:
+    async with console_stack() as stack:
         await create_resource(
             stack.client,
             kind=ResourceKind.RUNTIME_PROFILE,
@@ -89,7 +89,8 @@ async def test_publish_writes_audit_record(tmp_path: Path) -> None:
             resource_id="assistant",
             request_id="req-audit-publish",
         )
-        reader = SQLiteRegistryStore(f"sqlite+aiosqlite:///{tmp_path / 'audit.db'}")
+        # PG-Only：reader 直连同一库（不重建，否则 wipe 掉待读数据），读 console 写入的 audit 行。
+        reader = PostgreSQLRegistryStore(TEST_POSTGRES_DSN)
         await reader.initialize()
         try:
             async with reader.engine.connect() as connection:

@@ -12,14 +12,14 @@ import pytest
 
 from fluxion.plugins.contracts import ModelRequest, ModelResponse
 from fluxion.plugins.model_provider import ModelProviderRegistry
-from fluxion.registry import RegistryStore, SQLiteRegistryStore
+from fluxion.registry import RegistryStore, PostgreSQLRegistryStore
 from fluxion.resources import ResourceKind
 from fluxion.runtime import AgentRuntime
 from fluxion.runtime.agent import _model_messages
 from fluxion.runtime.context import RequestContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore, MemoryPolicy
 from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
-from tests.runtime_helpers import publish_resource, seed_agent_definition, seed_tenant_policy
+from tests.runtime_helpers import publish_resource, seed_agent_definition, seed_tenant_policy, TEST_POSTGRES_DSN
 
 OLD_FACT = "我的快递单号是SF888"
 SUMMARY_BOUNDARY = "历史会话摘要，仅作上下文资料"
@@ -94,7 +94,7 @@ class TestS08SummaryInPrompt:
     @pytest.mark.asyncio
     async def test_compacted_fact_reaches_model_request(self) -> None:
         """S-08：旧事实只存在于已压缩摘要时，普通模型请求仍含该事实。"""
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         await store.initialize()
         try:
             await _seed_chain(store)
@@ -115,7 +115,7 @@ class TestS08SummaryInPrompt:
     @pytest.mark.asyncio
     async def test_stream_request_contains_summary(self) -> None:
         """S-08：流式模型请求同样包含摘要事实。"""
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         await store.initialize()
         try:
             await _seed_chain(store)
@@ -135,7 +135,7 @@ class TestS08SummaryInPrompt:
     @pytest.mark.asyncio
     async def test_latest_messages_and_current_input_preserved_once(self) -> None:
         """S-08：保留最新消息与当前输入且不重复。"""
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         await store.initialize()
         try:
             await _seed_chain(store)
@@ -156,7 +156,7 @@ class TestS08SummaryInPrompt:
         """S-08：命令式摘要不改变 system prompt，且摘要以 user 身份进入。"""
         from fluxion.runtime.memory import MemoryRecord
 
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         await store.initialize()
         try:
             await _seed_chain(store)
@@ -198,7 +198,7 @@ class TestS08SummaryInPrompt:
         """S-08：重复压缩产生多摘要时各出现一次且保序，不重复压缩摘要本身。"""
         from fluxion.runtime.memory import MemoryRecord
 
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         await store.initialize()
         try:
             await _seed_chain(store)
@@ -238,7 +238,7 @@ class TestS08SummaryInPrompt:
     @pytest.mark.asyncio
     async def test_snapshot_not_mutated_by_prompt_building(self) -> None:
         """S-08：Prompt 构建不原地修改 Snapshot（资源版本与 hash 稳定）。"""
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         await store.initialize()
         try:
             await _seed_chain(store)

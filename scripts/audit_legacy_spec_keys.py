@@ -6,9 +6,7 @@ P1C-01 SoT 收口的只读巡检：扫描 Registry 中 agent_definition 资源�
 这类键由 typed model 读取时剥离，不影响运行语义；本报告用于评估存量清理时机。
 
 用法（RegistryStore 契约按租户枚举，租户需显式给出）：
-    python3 scripts/audit_legacy_spec_keys.py --sqlite path/to/fluxion.db \
-        --tenant tenant-a --tenant tenant-b
-    python3 scripts/audit_legacy_spec_keys.py --postgres "$DSN" --tenant tenant-a
+    python3 scripts/audit_legacy_spec_keys.py --dsn "$DSN" --tenant tenant-a
 
 输出：逐条 `tenant/id@version status=... legacy=[...]`；末行汇总；退出码 0。
 """
@@ -22,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend" / "src"))
 
-from fluxion.registry import PostgreSQLRegistryStore, SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceKind
 
 _LEGACY_KEYS = ("lifecycle", "visibility")
@@ -67,19 +65,14 @@ async def _audit_tenant(store: object, tenant_id: str) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--sqlite", help="SQLite Registry 数据库文件路径")
-    source.add_argument("--postgres", help="PostgreSQL DSN（生产巡检）")
+    parser.add_argument("--dsn", required=True, help="PostgreSQL DSN")
     parser.add_argument(
         "--tenant", action="append", required=True, help="要巡检的租户（可重复）"
     )
     args = parser.parse_args()
 
     async def run() -> int:
-        if args.sqlite:
-            store = SQLiteRegistryStore(f"sqlite+aiosqlite:///{args.sqlite}")
-        else:
-            store = PostgreSQLRegistryStore(args.postgres or "")
+        store = PostgreSQLRegistryStore(args.dsn)
         await store.initialize()
         try:
             findings = 0

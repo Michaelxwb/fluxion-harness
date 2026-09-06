@@ -18,19 +18,19 @@ from fluxion.services.context_resolver import ContextResolver, ContextResolverSn
 
 @pytest.mark.asyncio
 async def test_S_R03_execution_snapshot_is_fixed_during_hot_publish(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     await seed_runtime_profile(
-        sqlite_store,
+        pg_store,
         capabilities=[
             {"capability_ref": "search", "version_pin": "latest-published", "type": "skill"}
         ],
     )
-    await seed_skill(sqlite_store, version="1")
-    await bind_skill_to_user(sqlite_store)
+    await seed_skill(pg_store, version="1")
+    await bind_skill_to_user(pg_store)
 
     runtime = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=InMemorySessionMemoryStore(),
     )
 
@@ -47,7 +47,7 @@ async def test_S_R03_execution_snapshot_is_fixed_during_hot_publish(
     assert context.snapshot.skill_versions == {"search": "1"}
 
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.SKILL,
         resource_id="search",

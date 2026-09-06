@@ -5,7 +5,7 @@
 - B-E-03（integration）：MODEL_PROVIDER Binding 逻辑 ID 匹配（跨版本继承），`resource_version_selector` 不参与；
 - B-S-02（E2E）：仅配置 ProviderDefinition.credential_ref（无任何 binding）→ 模型调用成功。
 
-真实边界：真实 SQLite RegistryStore + LocalEncryptedSecretStore + 本地 OpenAI-compatible
+真实边界：真实 PG RegistryStore + LocalEncryptedSecretStore + 本地 OpenAI-compatible
 stub server（`tests/product_wire`）；不 mock Store/Resolver/Provider。
 """
 
@@ -102,7 +102,7 @@ def _run_request(user_id: str = "user-a") -> RunRuntimeRequest:
 
 @pytest.mark.asyncio
 async def test_be02_unresolvable_credential_fails_closed_without_outbound_call(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """B-E-02：链上无可解析 credential → fail-closed，无 `api_key=None` 出站。
 
@@ -112,13 +112,13 @@ async def test_be02_unresolvable_credential_fails_closed_without_outbound_call(
     secrets = LocalEncryptedSecretStore(master_key=b"m" * 32)
     async with openai_wire_server([openai_final_response("unreachable")]) as wire:
         await _seed_agent_chain(
-            sqlite_store,
+            pg_store,
             provider_id="wire-provider",
             base_url=wire.base_url,
             # 指向不存在的 Secret（凭据库空，resolve 必失败）
             credential_ref="secret://tenant-a/missing-cred",
         )
-        runtime = _runtime(sqlite_store, secrets)
+        runtime = _runtime(pg_store, secrets)
         with pytest.raises(Exception) as exc_info:
             await runtime.run(_run_request())
         assert "provider_credential_unresolvable" in str(exc_info.value)
@@ -128,7 +128,7 @@ async def test_be02_unresolvable_credential_fails_closed_without_outbound_call(
 
 
 @pytest.mark.asyncio
-async def test_bs03_override_priority_user_tenant_spec(sqlite_store: RegistryStore) -> None:
+async def test_bs03_override_priority_user_tenant_spec(pg_store: RegistryStore) -> None:
     """B-S-03：override 优先级 User > Tenant > spec；binding 不构成运行前提。"""
     secrets = LocalEncryptedSecretStore(master_key=b"m" * 32)
     spec_ref = await secrets.put(TENANT, "spec-cred", "spec-secret")
@@ -139,7 +139,7 @@ async def test_bs03_override_priority_user_tenant_spec(sqlite_store: RegistrySto
         [openai_final_response("user"), openai_final_response("tenant"), openai_final_response("spec")]
     ) as wire:
         await _seed_agent_chain(
-            sqlite_store,
+            pg_store,
             provider_id="wire-provider",
             base_url=wire.base_url,
             credential_ref=spec_ref,
@@ -148,7 +148,7 @@ async def test_bs03_override_priority_user_tenant_spec(sqlite_store: RegistrySto
         async def _put_binding(
             subject_type: str, subject_id: str, credential_ref: str
         ) -> None:
-            await sqlite_store.put_binding(
+            await pg_store.put_binding(
                 ResourceBinding(
                     binding_id=f"bind-{subject_type}-{subject_id}",
                     tenant_id=TENANT,
@@ -164,12 +164,12 @@ async def test_bs03_override_priority_user_tenant_spec(sqlite_store: RegistrySto
         # 三层齐备 → User override 生效
         await _put_binding("tenant", TENANT, tenant_ref)
         await _put_binding("user", "user-a", user_ref)
-        runtime = _runtime(sqlite_store, secrets)
+        runtime = _runtime(pg_store, secrets)
         assert (await runtime.run(_run_request())).output == "user"
         assert wire.request_headers[0]["authorization"] == "Bearer user-secret"
 
         # 仅 Tenant + spec → Tenant override 生效
-        runtime2 = _runtime(sqlite_store, secrets)
+        runtime2 = _runtime(pg_store, secrets)
         result2 = await runtime2.run(_run_request(user_id="user-b"))
         assert result2.output == "tenant"
         assert wire.request_headers[1]["authorization"] == "Bearer tenant-secret"
@@ -178,16 +178,16 @@ async def test_bs03_override_priority_user_tenant_spec(sqlite_store: RegistrySto
         # （user-c 无 user binding；tenant 有 binding 但 user 无——这里显式验证
         #  仅 spec：用独立 provider 避免 tenant binding 干扰）
         await _seed_provider(
-            sqlite_store,
+            pg_store,
             provider_id="spec-only-provider",
             base_url=wire.base_url,
             credential_ref=spec_ref,
         )
         await seed_model_definition(
-            sqlite_store, tenant_id=TENANT, provider_id="spec-only-provider"
+            pg_store, tenant_id=TENANT, provider_id="spec-only-provider"
         )
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id=TENANT,
             kind=ResourceKind.AGENT_DEFINITION,
             resource_id="spec-agent",
@@ -204,7 +204,7 @@ async def test_bs03_override_priority_user_tenant_spec(sqlite_store: RegistrySto
                 },
             },
         )
-        runtime3 = _runtime(sqlite_store, secrets)
+        runtime3 = _runtime(pg_store, secrets)
         result3 = await runtime3.run(
             RunRuntimeRequest(
                 tenant_id=TENANT,
@@ -225,7 +225,7 @@ async def test_bs03_override_priority_user_tenant_spec(sqlite_store: RegistrySto
 
 @pytest.mark.asyncio
 async def test_be03_binding_matches_logical_id_ignoring_version_selector(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """B-E-03：Binding 绑定逻辑 Provider ID 跨版本继承，selector 不参与匹配。
 
@@ -238,14 +238,14 @@ async def test_be03_binding_matches_logical_id_ignoring_version_selector(
 
     async with openai_wire_server([openai_final_response("override")]) as wire:
         await _seed_provider(
-            sqlite_store,
+            pg_store,
             provider_id="versioned-provider",
             base_url=wire.base_url,
             credential_ref=spec_ref,
         )
         # 发布 v2（当前 published 版本）
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id=TENANT,
             kind=ResourceKind.MODEL_PROVIDER,
             resource_id="versioned-provider",
@@ -260,7 +260,7 @@ async def test_be03_binding_matches_logical_id_ignoring_version_selector(
             },
         )
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id=TENANT,
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="assistant",
@@ -268,10 +268,10 @@ async def test_be03_binding_matches_logical_id_ignoring_version_selector(
             spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
         )
         await seed_model_definition(
-            sqlite_store, tenant_id=TENANT, provider_id="versioned-provider"
+            pg_store, tenant_id=TENANT, provider_id="versioned-provider"
         )
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id=TENANT,
             kind=ResourceKind.AGENT_DEFINITION,
             resource_id="assistant",
@@ -289,7 +289,7 @@ async def test_be03_binding_matches_logical_id_ignoring_version_selector(
             },
         )
         # binding 填精确版本 "1"，但 provider 当前 published 是 v2
-        await sqlite_store.put_binding(
+        await pg_store.put_binding(
             ResourceBinding(
                 binding_id="bind-versioned",
                 tenant_id=TENANT,
@@ -301,7 +301,7 @@ async def test_be03_binding_matches_logical_id_ignoring_version_selector(
                 credential_ref=override_ref,
             )
         )
-        runtime = _runtime(sqlite_store, secrets)
+        runtime = _runtime(pg_store, secrets)
         result = await runtime.run(_run_request())
         # override 生效（binding 命中逻辑 ID），而非回退 spec
         assert result.output == "override"
@@ -311,7 +311,7 @@ async def test_be03_binding_matches_logical_id_ignoring_version_selector(
 
 @pytest.mark.asyncio
 async def test_bs02_spec_credential_only_succeeds_without_binding(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """B-S-02：仅配置 ProviderDefinition.credential_ref（无任何 binding）→ 成功。"""
     secrets = LocalEncryptedSecretStore(master_key=b"m" * 32)
@@ -319,19 +319,19 @@ async def test_bs02_spec_credential_only_succeeds_without_binding(
 
     async with openai_wire_server([openai_final_response("spec only answer")]) as wire:
         await _seed_agent_chain(
-            sqlite_store,
+            pg_store,
             provider_id="wire-provider",
             base_url=wire.base_url,
             credential_ref=spec_ref,
         )
         # 显式断言：无任何 MODEL_PROVIDER binding
-        bindings = await sqlite_store.list_bindings(
+        bindings = await pg_store.list_bindings(
             subject_type="user",
             subject_id="user-a",
             tenant_id=TENANT,
             resource_type=ResourceKind.MODEL_PROVIDER,
         )
-        tenant_bindings = await sqlite_store.list_bindings(
+        tenant_bindings = await pg_store.list_bindings(
             subject_type="tenant",
             subject_id=TENANT,
             tenant_id=TENANT,
@@ -339,7 +339,7 @@ async def test_bs02_spec_credential_only_succeeds_without_binding(
         )
         assert bindings == [] and tenant_bindings == []
 
-        runtime = _runtime(sqlite_store, secrets)
+        runtime = _runtime(pg_store, secrets)
         result = await runtime.run(_run_request())
         assert result.output == "spec only answer"
         assert wire.request_headers[0]["authorization"] == "Bearer spec-only-secret"

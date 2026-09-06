@@ -13,11 +13,11 @@ from fluxion.services.context_resolver import ContextResolver, ContextResolverSn
 
 @pytest.mark.asyncio
 async def test_S_R20_plan_execute_replans_failed_step_in_current_execution(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     runtime = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=InMemorySessionMemoryStore(),
     )
     context = await runtime.start_execution(

@@ -4,7 +4,7 @@
 # `fluxion-workflow-worker serve`。
 #
 # 为什么需要这个脚本而不是直接 `fluxion serve`：
-# 1. CLI 的 serve 命令通过 `--registry-dsn` 接收数据库 DSN（默认 SQLite），
+# 1. CLI 的 serve 命令通过 `--registry-dsn` 接收数据库 DSN（默认本地 PG），
 #    不会自动读取 FLUXION_DATABASE_URL，因此这里显式桥接。
 # 2. 代码内 Secret Store 实际读取的环境变量是 FLUXION_SECRET_MASTER_KEY（base64），
 #    而 .env.example / 部署约定使用 FLUXION_MASTER_KEY，这里做兼容桥接。
@@ -19,7 +19,7 @@ set -eu
 # 端口用 FLUXION_HTTP_PORT：k8s 会给同名 Service 自动注入 docker-link 风格的
 # FLUXION_PORT（tcp://10.x.x.x:8000），直接读会被注入值污染。
 : "${FLUXION_HTTP_PORT:=8000}"
-: "${FLUXION_DATABASE_URL:=sqlite+aiosqlite:///./fluxion-dev.db}"
+: "${FLUXION_DATABASE_URL:=postgresql+asyncpg://fluxion:fluxion@postgres:5432/fluxion}"
 : "${FLUXION_ROLE:=api}"
 
 # MASTER_KEY：AES-256-GCM 需要 32 字节 key，部署约定为 base64 编码。

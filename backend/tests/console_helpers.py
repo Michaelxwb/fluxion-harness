@@ -3,15 +3,15 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from pathlib import Path
 
 from httpx import ASGITransport, AsyncClient, Response
 
 from fluxion.api.console import create_app
-from fluxion.registry import RegistryStore, SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore, RegistryStore
 from fluxion.resources import ResourceKind
 from fluxion.runtime.secrets import LocalEncryptedSecretStore
 from fluxion.services.console_app import ConsoleApplicationService
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 
 @dataclass(slots=True)
@@ -25,14 +25,13 @@ class ConsoleTestStack:
 async def console_stack(
     *,
     dsn: str | None = None,
-    db_path: Path | None = None,
+    reset: bool = True,
 ) -> AsyncIterator[ConsoleTestStack]:
-    database_dsn = dsn or (
-        "sqlite+aiosqlite:///:memory:"
-        if db_path is None
-        else f"sqlite+aiosqlite:///{db_path}"
-    )
-    store = SQLiteRegistryStore(database_dsn)
+    """Console 测试栈（ADR-A007）：默认连本地 PG 并重建隔离。
+
+    同一测试内多栈共享数据时（如 writer/reader），后开的栈传 `reset=False`。
+    """
+    store = PostgreSQLRegistryStore(dsn or TEST_POSTGRES_DSN, reset_on_initialize=reset)
     # TASK-009：注入可写 SecretStore（dev LocalEncryptedSecretStore），使
     # Credential 创建 Journey（明文只写）可测。
     secret_store = LocalEncryptedSecretStore(master_key=b"c" * 32)

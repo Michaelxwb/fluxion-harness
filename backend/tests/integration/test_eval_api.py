@@ -5,7 +5,7 @@ from httpx import ASGITransport, AsyncClient
 
 from fluxion.api.eval import create_app as create_eval_app
 from fluxion.config import DevModeSettings
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ExecutionSnapshot, ResourceKind
 from fluxion.runtime import InMemoryTraceStore, TraceRecord
 from fluxion.runtime.context import TraceEvent
@@ -14,12 +14,12 @@ from fluxion.services.eval_app import (
     InMemoryEvalRunStore,
     RuleBasedEvalExecutor,
 )
-from tests.runtime_helpers import publish_resource
+from tests.runtime_helpers import publish_resource, TEST_POSTGRES_DSN
 
 
 @pytest.mark.asyncio
 async def test_S_P13_02_eval_api_creates_lists_gets_and_compares_runs() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     trace_store = InMemoryTraceStore()
     await store.initialize()
     try:
@@ -69,7 +69,7 @@ async def test_S_P13_02_eval_api_creates_lists_gets_and_compares_runs() -> None:
 
 @pytest.mark.asyncio
 async def test_E_P13_02_eval_api_rejects_unavailable_trace_with_envelope() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     trace_store = InMemoryTraceStore()
     await store.initialize()
     try:
@@ -98,7 +98,7 @@ async def test_E_P13_02_eval_api_rejects_unavailable_trace_with_envelope() -> No
     assert "Trace 不可用" in body["message"]
 
 
-def _service(store: SQLiteRegistryStore, trace_store: InMemoryTraceStore) -> EvaluationApplicationService:
+def _service(store: PostgreSQLRegistryStore, trace_store: InMemoryTraceStore) -> EvaluationApplicationService:
     return EvaluationApplicationService(
         store,
         trace_store,
@@ -108,7 +108,7 @@ def _service(store: SQLiteRegistryStore, trace_store: InMemoryTraceStore) -> Eva
     )
 
 
-async def _publish_runtime_profile(store: SQLiteRegistryStore) -> None:
+async def _publish_runtime_profile(store: PostgreSQLRegistryStore) -> None:
     await publish_resource(
         store,
         tenant_id="dev",
@@ -124,7 +124,7 @@ async def _publish_runtime_profile(store: SQLiteRegistryStore) -> None:
     )
 
 
-async def _publish_eval_set(store: SQLiteRegistryStore) -> None:
+async def _publish_eval_set(store: PostgreSQLRegistryStore) -> None:
     await publish_resource(
         store,
         tenant_id="dev",

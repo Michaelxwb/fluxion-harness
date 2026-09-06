@@ -8,6 +8,8 @@ httpx.MockTransport 模拟真实 HTTP；真实边界 = 服务经 HTTP 探测 + P
 
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
+
 import httpx
 
 
@@ -18,14 +20,14 @@ from pathlib import Path
 
 import pytest
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
 from fluxion.runtime.secrets import SecretProviderError
 from fluxion.services.connection_test import ConnectionTestService
 
 
 async def _put_provider(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
     provider_id: str,
     *,
     base_url: str = "https://api.deepseek.com",
@@ -55,7 +57,7 @@ def _client_factory(handler: httpx.MockTransport) -> object:
 
 @pytest.mark.asyncio
 async def test_B_S07_connection_reachable_discovers_models() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await _put_provider(store, "prov-deepseek")
@@ -80,7 +82,7 @@ async def test_B_S07_connection_reachable_discovers_models() -> None:
 
 @pytest.mark.asyncio
 async def test_B_E04_connection_error_actionable() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await _put_provider(store, "prov-bad")
@@ -108,7 +110,7 @@ async def test_B_E04_credential_resolution_failure_actionable() -> None:
     async def _broken_provider(_ref: str) -> str | None:
         raise SecretProviderError("secret_not_found", "secret://tenant-a/openai not found")
 
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await _put_provider(store, "prov-no-secret")
@@ -130,7 +132,7 @@ async def test_B_E04_credential_resolution_failure_actionable() -> None:
         await store.close()
 
 
-async def _put_mcp_stdio(store: SQLiteRegistryStore, mcp_id: str) -> None:
+async def _put_mcp_stdio(store: PostgreSQLRegistryStore, mcp_id: str) -> None:
     fixture = Path(__file__).parents[1] / "fixtures" / "mcp_product_server.py"
     await store.put(
         ResourceDefinition(
@@ -155,7 +157,7 @@ async def _put_mcp_stdio(store: SQLiteRegistryStore, mcp_id: str) -> None:
 @pytest.mark.asyncio
 async def test_B_S07_mcp_stdio_connection_discovers_tools() -> None:
     """B-S-07：MCP 连接测试经真实 stdio 握手发现工具（进程边界真实，非 mock）。"""
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await _put_mcp_stdio(store, "weather")
@@ -172,7 +174,7 @@ async def test_B_S07_mcp_stdio_connection_discovers_tools() -> None:
 
 @pytest.mark.asyncio
 async def test_B_E04_mcp_missing_actionable_error() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         service = ConnectionTestService(store)

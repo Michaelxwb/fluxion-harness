@@ -6,7 +6,6 @@ from typing import cast
 from pydantic import ValidationError
 from sqlalchemy import Select, Subquery, delete, func, insert, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
@@ -340,13 +339,9 @@ def _current_row_filters(
     cleaned = (keyword or "").strip()
     if cleaned:
         pattern = f"%{_escape_like_literal(cleaned).lower()}%"
-        # 子查询列会丢失 JSON comparator（astext 不可用），按方言用显式
-        # func 提取 spec.name：PG 用 json_extract_path_text（json/jsonb 均可），
-        # SQLite 用 json_extract。
-        if engine.dialect.name == "postgresql":
-            name_expr = func.json_extract_path_text(columns.spec_json, "name")
-        else:
-            name_expr = func.json_extract(columns.spec_json, "$.name")
+        # 子查询列会丢失 JSON comparator（astext 不可用），用显式 func 提取
+        # spec.name（PG json/jsonb 均可走 json_extract_path_text）。
+        name_expr = func.json_extract_path_text(columns.spec_json, "name")
         filters.append(
             or_(
                 func.lower(name_expr).like(pattern, escape="\\"),
@@ -456,7 +451,7 @@ async def add_active_reference(
     存在——父版本不存在抛 `NotFoundError`（与 recall_pinned 一致），杜绝指向已删/
     不存在版本的悬空引用。PG 下 `FOR SHARE` 与 hard_delete 删除事务内的 `FOR
     UPDATE` 行锁互斥：add 在 delete 前完成则引用随后被 GC guard 拦，delete 在 add
-    前完成则 add 读到父行缺失而失败；SQLite 方言 no-op（靠文件锁/单连接串行化）。
+    前完成则 add 读到父行缺失而失败。
     """
     values: dict[str, object] = {
         "tenant_id": tenant_id,
@@ -468,7 +463,7 @@ async def add_active_reference(
         "created_at": _now(),
     }
     async with engine.begin() as connection:
-        # 父行存在性校验 + 共享锁（PG `FOR SHARE`；SQLite 忽略锁语义）。
+        # 父行存在性校验 + 共享锁（PG `FOR SHARE` 行锁）。
         parent = (
             await connection.execute(
                 select(resource_definitions.c.version)
@@ -481,21 +476,13 @@ async def add_active_reference(
         ).mappings().first()
         if parent is None:
             raise NotFoundError(f"{tenant_id}/{kind.value}/{resource_id}@{version} not found")
-        # 方言 upsert ON CONFLICT DO NOTHING（同 _bump_revision 模式）：并发下重复
-        # add 不抛 IntegrityError，幂等落单行。
-        statement: Insert
-        if engine.dialect.name == "postgresql":
-            statement = (
-                postgresql_insert(active_references)
-                .values(**values)
-                .on_conflict_do_nothing(index_elements=_REFERENCE_PK)
-            )
-        else:
-            statement = (
-                sqlite_insert(active_references)
-                .values(**values)
-                .on_conflict_do_nothing(index_elements=_REFERENCE_PK)
-            )
+        # upsert ON CONFLICT DO NOTHING：并发下重复 add 不抛 IntegrityError，
+        # 幂等落单行。
+        statement: Insert = (
+            postgresql_insert(active_references)
+            .values(**values)
+            .on_conflict_do_nothing(index_elements=_REFERENCE_PK)
+        )
         await connection.execute(statement)
 
 

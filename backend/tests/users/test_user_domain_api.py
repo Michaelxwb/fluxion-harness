@@ -12,13 +12,14 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from fluxion.api.console import create_app as create_console_app
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.users import UserDomainService
 from tests.console_helpers import tenant_headers
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 
-async def _admin_client(store: SQLiteRegistryStore) -> AsyncClient:
+async def _admin_client(store: PostgreSQLRegistryStore) -> AsyncClient:
     console = ConsoleApplicationService(store)
     users = UserDomainService(store)
     app = create_console_app(console, user_service=users)
@@ -27,7 +28,7 @@ async def _admin_client(store: SQLiteRegistryStore) -> AsyncClient:
 
 @pytest.mark.asyncio
 async def test_be_s_08_create_profile_grant_then_360() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     async with await _admin_client(store) as client:
         created = await client.post(
@@ -79,7 +80,7 @@ async def test_be_s_08_create_profile_grant_then_360() -> None:
 
 @pytest.mark.asyncio
 async def test_be_s_10_user_360_exposes_all_five_regions() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     async with await _admin_client(store) as client:
         await client.post(
@@ -100,7 +101,7 @@ async def test_be_s_10_user_360_exposes_all_five_regions() -> None:
 
 @pytest.mark.asyncio
 async def test_be_e_06_unbound_channel_identity_maps_to_user_not_bound() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     async with await _admin_client(store) as client:
         response = await client.get(

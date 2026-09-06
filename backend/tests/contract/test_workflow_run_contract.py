@@ -1,9 +1,8 @@
-"""workflow_run 投影表双库契约（TASK-008 / RULE-backend-database-001）。
+"""workflow_run 投影表单库契约（TASK-008 / RULE-backend-database-001，ADR-A007）。
 
-SQLite 恒执行；PostgreSQL 由 `FLUXION_REQUIRE_POSTGRES_CONTRACT=1` 门控（S-R10，
-需要真实 PostgreSQL）。断言：
+PostgreSQL 单库（本地 fluxion_test）。断言：
 - schema：全字段可读写、status 默认 running、node_states/pinned_refs JSON 列；
-- upsert 幂等（ON CONFLICT (run_id)，双 dialect 一致）；
+- upsert 幂等（ON CONFLICT (tenant_id, run_id)）；
 - tenant scope：跨租户 get/list 隔离（rule 16 / RULE-P3-06）；
 - node_states 整列批写（PATTERN-backend-003：单行 JSON 列，无逐节点行、无 N+1）；
 - 索引 `idx_wf_run_tenant` / `idx_wf_run_exec` 存在。
@@ -16,16 +15,9 @@ from collections.abc import AsyncGenerator
 
 import pytest
 
-from fluxion.registry import (
-    PostgreSQLRegistryStore,
-    SQLiteRegistryStore,
-)
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import metadata
 from fluxion.registry.sqlalchemy_store import SQLAlchemyRegistryStore
-
-
-def _sqlite_factory() -> SQLAlchemyRegistryStore:
-    return SQLiteRegistryStore("sqlite+aiosqlite:///:memory:", reset_on_initialize=True)
 
 
 def _postgres_factory() -> SQLAlchemyRegistryStore:
@@ -36,17 +28,9 @@ def _postgres_factory() -> SQLAlchemyRegistryStore:
     return PostgreSQLRegistryStore(dsn, reset_on_initialize=True)
 
 
-def _store_params() -> list[object]:
-    params: list[object] = [pytest.param(_sqlite_factory, id="sqlite")]
-    if os.environ.get("FLUXION_REQUIRE_POSTGRES_CONTRACT") == "1":
-        params.append(pytest.param(_postgres_factory, id="postgres"))
-    return params
-
-
-@pytest.fixture(params=_store_params())
-async def store(request: pytest.FixtureRequest) -> AsyncGenerator[SQLAlchemyRegistryStore, None]:
-    factory: object = request.param
-    instance = factory()  # type: ignore[operator]
+@pytest.fixture
+async def store() -> AsyncGenerator[SQLAlchemyRegistryStore, None]:
+    instance = _postgres_factory()
     await instance.initialize()
     try:
         yield instance

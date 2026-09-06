@@ -1,6 +1,6 @@
 """ADR-SNAPSHOT-001 TASK-001：active_references 表 + add/release/check API（B-01）。
 
-真实边界（契约声明）：真实 `active_references` 表（sqlite+aiosqlite +
+真实边界（契约声明）：真实 `active_references` 表（PostgreSQL +
 metadata.create_all，非 mock）+ 真实 Registry SQL 路径。
 
 RED 约定（cf-task:start #7）：`add_active_reference` 等模块函数未实现 →
@@ -9,19 +9,24 @@ collection ImportError，即真实 RED。
 
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
+
 from collections.abc import AsyncGenerator
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from fluxion.registry.resource_sqlalchemy import (
     add_active_reference,
     check_active_references,
+    get,
     publish,
     put,
     release_active_reference,
     release_active_references_for_ref,
 )
 from fluxion.registry.schema import metadata
+from fluxion.registry.store import VersionConflictError
 from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
 
 _TENANT = "tenant-a"
@@ -31,23 +36,41 @@ _VERSION = "v3"
 
 
 async def _references_engine() -> AsyncGenerator[AsyncEngine, None]:
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    engine = create_async_engine(TEST_POSTGRES_DSN)
     async with engine.begin() as connection:
         await connection.run_sync(metadata.create_all)
+    # 隔离：清掉本文件固定 scope 的引用行（共享 PG 跨 run 残留；精确到
+    # tenant/resource，不影响其他测试的引用行）。
+    from fluxion.registry.schema import active_references
+
+    async with engine.begin() as connection:
+        await connection.execute(
+            active_references.delete()
+            .where(active_references.c.tenant_id == _TENANT)
+            .where(active_references.c.resource_id == _RESOURCE)
+        )
     # REVIEW-A：add_active_reference 现在校验父版本存在（防悬空引用），先经真实
     # put/publish 路径 seed 一条 PUBLISHED 父行（DRAFT 不可 publish 到引用坐标）。
-    await put(
-        engine,
-        ResourceDefinition(
-            tenant_id=_TENANT,
-            kind=_KIND,
-            id=_RESOURCE,
-            version=_VERSION,
-            status=ResourceStatus.DRAFT,
-            spec_json={},
-        ),
-    )
-    await publish(engine, _KIND, _RESOURCE, tenant_id=_TENANT, version=_VERSION)
+    # 幂等：共享 PG 跨 run 复用已存在的父行（put 转译 IntegrityError 为
+    # VersionConflictError，即已存在，跳过）。
+    try:
+        await put(
+            engine,
+            ResourceDefinition(
+                tenant_id=_TENANT,
+                kind=_KIND,
+                id=_RESOURCE,
+                version=_VERSION,
+                status=ResourceStatus.DRAFT,
+                spec_json={},
+            ),
+        )
+        await publish(engine, _KIND, _RESOURCE, tenant_id=_TENANT, version=_VERSION)
+    except (IntegrityError, VersionConflictError):
+        # 跨 run 复用：已 PUBLISHED 直接跳过；残留 DRAFT（上次崩溃窗口）则补 publish。
+        existing = await get(engine, _KIND, _RESOURCE, tenant_id=_TENANT, version=_VERSION)
+        if existing is not None and existing.status is ResourceStatus.DRAFT:
+            await publish(engine, _KIND, _RESOURCE, tenant_id=_TENANT, version=_VERSION)
     try:
         yield engine
     finally:

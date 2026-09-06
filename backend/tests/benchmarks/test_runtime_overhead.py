@@ -6,14 +6,14 @@ from statistics import quantiles
 from time import perf_counter_ns
 from typing import Protocol
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.runtime_app import (
     CreateRuntimeProfileRequest,
     PublishRuntimeProfileRequest,
     RunRuntimeRequest,
     RuntimeApplicationService,
 )
-from tests.runtime_helpers import seed_agent_definition
+from tests.runtime_helpers import seed_agent_definition, TEST_POSTGRES_DSN
 
 
 class BenchmarkFixture(Protocol):
@@ -66,7 +66,7 @@ def test_B_R06_runtime_framework_overhead_p95_under_50ms_p99_under_100ms(
 
 
 async def _build_service() -> RuntimeApplicationService:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = RuntimeApplicationService.create_dev_bundle(store, cache_ttl_seconds=600)
     await service.initialize()
     await service.create_runtime_profile(

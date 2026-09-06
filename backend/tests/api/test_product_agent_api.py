@@ -6,7 +6,7 @@ S-04（E2E，fluxion-runtime-core / fluxion-console-api-contract / RULE-C-03）�
 - 产品面响应零 `runtime_profile_id`（mechanics 内聚 internal）；
 - `/internal/v1/runtime-profiles/{id}/runs` 仍可用于 internal/testing。
 
-真实边界：真实 RuntimeApplicationService + AgentDefinitionRepository + SQLite
+真实边界：真实 RuntimeApplicationService + AgentDefinitionRepository + PG
 Registry；不 mock。
 """
 
@@ -16,16 +16,16 @@ from collections.abc import AsyncGenerator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from tests.runtime_helpers import publish_resource, seed_agent_definition
+from tests.runtime_helpers import publish_resource, seed_agent_definition, TEST_POSTGRES_DSN
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.agents_app import ProductAgentApplicationService
 from fluxion.services.runtime_app import RuntimeApplicationService
 
 
 @pytest.fixture
-async def stack() -> AsyncGenerator[tuple[AsyncClient, AsyncClient, SQLiteRegistryStore], None]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+async def stack() -> AsyncGenerator[tuple[AsyncClient, AsyncClient, PostgreSQLRegistryStore], None]:
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     await publish_resource(
         store,

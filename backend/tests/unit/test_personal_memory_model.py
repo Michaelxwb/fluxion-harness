@@ -1,11 +1,13 @@
 """ADR-MEM-001 TASK-003 B-01：personal_memory 模型 + MemoryLearner.commit。
 
-真实边界（契约声明）：真实 SQLAlchemy async SQLite engine + create_all 建出
+真实边界（契约声明）：真实 SQLAlchemy async PG engine + create_all 建出
 真实 `personal_memory` 表（非 mock schema），commit / list / update / delete
 全部走真实表查询。
 """
 
 from __future__ import annotations
+
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from collections.abc import AsyncGenerator
 
@@ -25,7 +27,7 @@ from fluxion.memory.domain.personal_memory import (
 
 @pytest.fixture
 async def personal_memory_store() -> AsyncGenerator[PersonalMemoryStore, None]:
-    engine: AsyncEngine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    engine: AsyncEngine = create_async_engine(TEST_POSTGRES_DSN)
     async with engine.begin() as connection:
         await connection.run_sync(metadata.create_all)
     try:

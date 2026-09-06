@@ -7,7 +7,7 @@
 - **有限重试**：attempts ≥ max_attempts → failed 终态（无无限重试）。
 - **resume**：claimed 超时未完成（worker 崩溃）→ `requeue_stale` 回 pending。
 - **tenant scope 全链路**：enqueue/claim/requeue 均按 tenant 收口。
-- engine 注入：SQLite（dev/契约）与 PostgreSQL（生产）跑同一套 Contract Test（规则 7）。
+- engine 注入：PostgreSQL 单库 Contract（ADR-A007）。
 - 全方法 timeout + fail policy（规则 18）：DB IO 经 `asyncio.wait_for` deadline。
 """
 
@@ -54,7 +54,7 @@ class DurableTaskError(RuntimeError):
 
 
 class DurableTaskStore:
-    """durable_task 表 CRUD（engine 注入，SQLite/PG 双库同契约）。"""
+    """durable_task 表 CRUD（engine 注入，PostgreSQL 单库契约）。"""
 
     def __init__(self, engine: AsyncEngine, *, timeout_ms: int = _DEFAULT_TIMEOUT_MS) -> None:
         self._engine = engine

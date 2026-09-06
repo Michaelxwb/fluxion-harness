@@ -2,18 +2,18 @@ from __future__ import annotations
 
 import pytest
 from tests.channel_helpers import RecordingRuntime
-from tests.runtime_helpers import seed_runtime_profile
+from tests.runtime_helpers import seed_runtime_profile, TEST_POSTGRES_DSN
 
 from fluxion.plugins.channel_adapters import StubImChannelAdapter, WebChannelAdapter
 from fluxion.protocols.channel import ExternalChannelMessage
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.channel_app import ChannelApplicationService
 
 
 @pytest.mark.asyncio
 async def test_S_C119_web_and_stub_im_share_channel_contract_and_runtime() -> None:
     codes = iter(("WEB-CODE", "IM-CODE"))
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     runtime = RecordingRuntime()
     service = ChannelApplicationService(store, runtime, code_factory=lambda: next(codes))
     await store.initialize()

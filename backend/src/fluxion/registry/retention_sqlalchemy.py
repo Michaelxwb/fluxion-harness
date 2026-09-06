@@ -82,7 +82,8 @@ async def hard_delete(
         # add_active_reference 的 FOR SHARE 互斥——PG 下 add 若先持有共享锁并插入
         # 引用，此处阻塞至 add 提交后重算，re-check 读到引用 → gc_safety_check_failed；
         # add 若后到则阻塞至此事务提交（行已删），随后 FOR SHARE 读到父行缺失而失败。
-        # SQLite 方言忽略 FOR UPDATE，靠文件锁 + busy_timeout + 下方 CAS rowcount 兜底。
+        # 单库化后（ADR-A007）无方言分支；PG 下行锁阻塞至引用事务提交，下方
+        # CAS rowcount 做最终一致性兜底。
         await _select_definition(
             connection, tenant_id, kind, resource_id, version, for_update=True
         )
@@ -271,5 +272,5 @@ def _now() -> datetime:
 
 
 def _as_aware(value: datetime) -> datetime:
-    """SQLite 经 aiosqlite 读 DateTime(timezone=True) 列返回 naive；PG 返回 aware。"""
+    """PG 返回 aware 时间；防御性保留 naive→aware 兜底。"""
     return value if value.tzinfo is not None else value.replace(tzinfo=UTC)

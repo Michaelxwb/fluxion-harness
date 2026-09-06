@@ -15,13 +15,13 @@ import json
 import logging
 import uuid
 from collections.abc import AsyncGenerator
-from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from tests.console_helpers import tenant_headers
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.api.console import create_app
 from fluxion.observability.context import RequestContext
@@ -29,7 +29,7 @@ from fluxion.observability.logging import emit_access_log
 from fluxion.observability.redaction import redact_mapping
 from fluxion.observability.tracing import get_tracer
 from fluxion.plugins.secret.postgres import PostgresEncryptedSecretStore
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import audit_logs, secret_credentials
 from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
 from fluxion.runtime.secrets import CredentialResolver, SecretProviderError
@@ -39,8 +39,17 @@ _E01_MARKER = "E01-KNOWN-PLAINTEXT-7f3a9c"
 
 
 @pytest.fixture
-async def engine(tmp_path: Path) -> AsyncGenerator[AsyncEngine, None]:
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'gov.db'}")
+async def engine() -> AsyncGenerator[AsyncEngine, None]:
+    """PG 引擎（ADR-A007）：setup 时 TRUNCATE 密文/审计/主钥表，防跨 run 残留
+    （固定租户 tenant-a/tenant-b + 固定 key_id k1，revoke 状态会跨 run 污染）。"""
+    from sqlalchemy import text
+
+    from fluxion.registry.schema import audit_logs, secret_credentials, secret_master_keys
+
+    engine = create_async_engine(TEST_POSTGRES_DSN)
+    async with engine.begin() as connection:
+        for table in (secret_credentials, audit_logs, secret_master_keys):
+            await connection.execute(text(f"TRUNCATE TABLE {table.name}"))
     try:
         yield engine
     finally:
@@ -191,12 +200,12 @@ class TestE01LeakGate:
             )
 
     async def test_response_face_no_plaintext(
-        self, secret_store: PostgresEncryptedSecretStore, tmp_path: Path
+        self, secret_store: PostgresEncryptedSecretStore
     ) -> None:
         """Console API：写入真实 secret 后 GET /api/v1/credentials → 响应体无明文。"""
         await secret_store.put("tenant-a", _unique("leak"), _E01_MARKER)
 
-        registry = SQLiteRegistryStore(f"sqlite+aiosqlite:///{tmp_path / 'console.db'}")
+        registry = PostgreSQLRegistryStore(TEST_POSTGRES_DSN)
         service = ConsoleApplicationService(registry, secret_metadata_store=secret_store)
         await service.initialize()
         app = create_app(service)

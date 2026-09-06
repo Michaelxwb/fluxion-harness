@@ -2,7 +2,7 @@
 
 真实边界：
 - 应用层：真实 RuntimeApplicationService + 真实 Runtime API（ASGITransport）
-  + 真实 SQLiteRegistryStore；故障注入经“故障 Registry”（抛错/挂起），不断言
+  + 真实 PostgreSQLRegistryStore；故障注入经“故障 Registry”（抛错/挂起），不断言
   mock——service.ready() 读路径真实执行，超时预算真实计时。
 - Chart 层：真实 `helm template` 渲染断言探针参数。
 - K8s 层（FLUXION_K8S_TEST=1）：真实集群自包含 fixtures——python:http 服务
@@ -12,6 +12,7 @@
 """
 
 from __future__ import annotations
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 import asyncio
 import os
@@ -27,7 +28,7 @@ import yaml
 from httpx import ASGITransport, AsyncClient
 
 from fluxion.api.runtime import create_app as create_runtime_api_app
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.store import RegistryStoreError
 from fluxion.resources import ResourceKind
 from fluxion.services.runtime_app import RuntimeApplicationService
@@ -41,7 +42,7 @@ _k8s_enabled = os.environ.get("FLUXION_K8S_TEST") == "1"
 _kubectl_available = shutil.which("kubectl") is not None
 
 
-class _BrokenRegistry(SQLiteRegistryStore):
+class _BrokenRegistry(PostgreSQLRegistryStore):
     """故障 Registry：读路径抛库错误（含 DSN/SQL 文本，验证脱敏）。"""
 
     async def get(self, kind: ResourceKind, resource_id: str, **kwargs: object):  # type: ignore[no-untyped-def]
@@ -50,7 +51,7 @@ class _BrokenRegistry(SQLiteRegistryStore):
         )
 
 
-class _HangingRegistry(SQLiteRegistryStore):
+class _HangingRegistry(PostgreSQLRegistryStore):
     """挂起 Registry：读路径永不返回（验证 readiness 预算内 503）。"""
 
     async def get(self, kind: ResourceKind, resource_id: str, **kwargs: object):  # type: ignore[no-untyped-def]
@@ -64,7 +65,7 @@ async def _healthy_service() -> RuntimeApplicationService:
     )
     from tests.runtime_helpers import seed_agent_definition
 
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = RuntimeApplicationService.create_dev_bundle(store)
     await service.initialize()
     await service.create_runtime_profile(
@@ -154,7 +155,7 @@ class TestS05ReadinessBehavior:
         """S-05：Registry 故障 /readyz 503 摘流信号；响应不含 DSN/SQL/Secret。"""
         import logging
 
-        store = _BrokenRegistry("sqlite+aiosqlite:///:memory:")
+        store = _BrokenRegistry(TEST_POSTGRES_DSN)
         service = RuntimeApplicationService.create_dev_bundle(store)
         await service.initialize()
         try:
@@ -176,7 +177,7 @@ class TestS05ReadinessBehavior:
     @pytest.mark.asyncio
     async def test_liveness_survives_registry_failure(self) -> None:
         """S-05：liveness 不因单纯依赖故障失败（/healthz 仍 200）。"""
-        store = _BrokenRegistry("sqlite+aiosqlite:///:memory:")
+        store = _BrokenRegistry(TEST_POSTGRES_DSN)
         service = RuntimeApplicationService.create_dev_bundle(store)
         await service.initialize()
         try:
@@ -192,7 +193,7 @@ class TestE03ReadinessTimeout:
     @pytest.mark.asyncio
     async def test_hanging_registry_returns_503_within_budget(self) -> None:
         """E-03：连接/查询挂起时预算内 503（默认 1s 检测预算 < 2s 探针超时）。"""
-        store = _HangingRegistry("sqlite+aiosqlite:///:memory:")
+        store = _HangingRegistry(TEST_POSTGRES_DSN)
         service = RuntimeApplicationService.create_dev_bundle(store)
         await service.initialize()
         try:

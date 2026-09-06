@@ -3,7 +3,7 @@
 - target=agent_definition → published 校验通过 → EvalRun 执行产出 score；
 - target 不可解析（agent 未发布）→ fail-closed（EvalTraceabilityError）。
 
-真实边界：真实 SQLite RegistryStore + InMemoryTraceStore + RuleBasedEvalExecutor；
+真实边界：真实 PG RegistryStore + InMemoryTraceStore + RuleBasedEvalExecutor；
 不 mock。
 """
 
@@ -13,7 +13,7 @@ from dataclasses import replace
 
 import pytest
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ExecutionSnapshot, ResourceKind
 from fluxion.runtime import InMemoryTraceStore, TraceRecord
 from fluxion.runtime.context import TraceEvent
@@ -24,10 +24,10 @@ from fluxion.services.eval_app import (
     InMemoryEvalRunStore,
     RuleBasedEvalExecutor,
 )
-from tests.runtime_helpers import publish_resource
+from tests.runtime_helpers import publish_resource, TEST_POSTGRES_DSN
 
 
-def _service(store: SQLiteRegistryStore, trace_store: InMemoryTraceStore) -> EvaluationApplicationService:
+def _service(store: PostgreSQLRegistryStore, trace_store: InMemoryTraceStore) -> EvaluationApplicationService:
     return EvaluationApplicationService(
         store, trace_store, InMemoryEvalRunStore(), RuleBasedEvalExecutor(), timeout_seconds=1.0
     )
@@ -75,7 +75,7 @@ def _trace() -> TraceRecord:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("agent_id,version", [("support-agent", "1"), (None, None), ("other-agent", "1"), ("support-agent", "2")])
 async def test_bs08_agent_definition_target_resolves_and_scores(agent_id: str | None, version: str | None) -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     trace_store = InMemoryTraceStore()
     await store.initialize()
     try:
@@ -145,7 +145,7 @@ async def test_bs08_agent_definition_target_resolves_and_scores(agent_id: str | 
 
 @pytest.mark.asyncio
 async def test_bs08_unresolvable_agent_target_fails_closed() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     trace_store = InMemoryTraceStore()
     await store.initialize()
     try:

@@ -72,11 +72,11 @@ async def _build_snapshot(
 
 @pytest.mark.asyncio
 async def test_B_S01_model_policy_resolves_model_definition_to_provider(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.MODEL_PROVIDER,
         resource_id="prov-deepseek",
@@ -89,7 +89,7 @@ async def test_B_S01_model_policy_resolves_model_definition_to_provider(
         },
     )
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.MODEL_DEFINITION,
         resource_id="deepseek-chat",
@@ -97,12 +97,12 @@ async def test_B_S01_model_policy_resolves_model_definition_to_provider(
         spec={"name": "deepseek-chat", "provider_ref": {"id": "prov-deepseek", "version": "1"}},
     )
     await _seed_agent(
-        sqlite_store,
+        pg_store,
         agent_id="model-policy-agent",
         primary_model_ref={"id": "deepseek-chat", "version": "1"},
     )
 
-    snapshot = await _build_snapshot(sqlite_store, "model-policy-agent")
+    snapshot = await _build_snapshot(pg_store, "model-policy-agent")
 
     # provider_ref 经 ModelDefinition 解析（exact version 冻结）
     assert snapshot.model_resolution.routes[0].provider_ref.id == "prov-deepseek"
@@ -117,14 +117,14 @@ async def test_B_S01_model_policy_resolves_model_definition_to_provider(
 
 @pytest.mark.asyncio
 async def test_B_S01_fallback_chain_freezes_exact_provider_versions(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """fallback_model_refs 经 ModelDefinition 解析为 provider exact version
     （不降级 latest-published）；主 + 回退 provider 全部进 provider_versions。"""
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     for provider_id, version in (("prov-a", "1"), ("prov-b", "2")):
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id="tenant-a",
             kind=ResourceKind.MODEL_PROVIDER,
             resource_id=provider_id,
@@ -137,7 +137,7 @@ async def test_B_S01_fallback_chain_freezes_exact_provider_versions(
             },
         )
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.MODEL_DEFINITION,
         resource_id="model-a",
@@ -145,7 +145,7 @@ async def test_B_S01_fallback_chain_freezes_exact_provider_versions(
         spec={"name": "deepseek-chat", "provider_ref": {"id": "prov-a", "version": "1"}},
     )
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.MODEL_DEFINITION,
         resource_id="model-b",
@@ -153,13 +153,13 @@ async def test_B_S01_fallback_chain_freezes_exact_provider_versions(
         spec={"name": "backup-chat", "provider_ref": {"id": "prov-b", "version": "2"}},
     )
     await _seed_agent(
-        sqlite_store,
+        pg_store,
         agent_id="failover-agent",
         primary_model_ref={"id": "model-a", "version": "1"},
         fallback_model_refs=[{"id": "model-b", "version": "1"}],
     )
 
-    snapshot = await _build_snapshot(sqlite_store, "failover-agent")
+    snapshot = await _build_snapshot(pg_store, "failover-agent")
 
     assert [route.model_dump(mode="python") for route in snapshot.model_resolution.routes] == [
         {
@@ -179,30 +179,30 @@ async def test_B_S01_fallback_chain_freezes_exact_provider_versions(
 
 @pytest.mark.asyncio
 async def test_B_S01_missing_model_definition_fails_closed(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """ADR-A008 失败模式：primary ModelDefinition 缺失 → fail-closed，
     不静默回退 legacy 直引。"""
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     await _seed_agent(
-        sqlite_store,
+        pg_store,
         agent_id="broken-model-agent",
         primary_model_ref={"id": "missing-model", "version": "1"},
     )
 
     with pytest.raises(ContextResolutionError) as exc_info:
-        await _build_snapshot(sqlite_store, "broken-model-agent")
+        await _build_snapshot(pg_store, "broken-model-agent")
     assert exc_info.value.code == "model_definition_not_found"
 
 
 @pytest.mark.asyncio
 async def test_B_S01_missing_fallback_model_definition_fails_closed(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """回退链引用缺失同样 fail-closed（不丢版本、不静默跳过）。"""
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.MODEL_PROVIDER,
         resource_id="prov-a",
@@ -214,7 +214,7 @@ async def test_B_S01_missing_fallback_model_definition_fails_closed(
         },
     )
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.MODEL_DEFINITION,
         resource_id="model-a",
@@ -222,24 +222,24 @@ async def test_B_S01_missing_fallback_model_definition_fails_closed(
         spec={"name": "deepseek-chat", "provider_ref": {"id": "prov-a", "version": "1"}},
     )
     await _seed_agent(
-        sqlite_store,
+        pg_store,
         agent_id="broken-fallback-agent",
         primary_model_ref={"id": "model-a", "version": "1"},
         fallback_model_refs=[{"id": "missing-fallback", "version": "1"}],
     )
 
     with pytest.raises(ContextResolutionError) as exc_info:
-        await _build_snapshot(sqlite_store, "broken-fallback-agent")
+        await _build_snapshot(pg_store, "broken-fallback-agent")
     assert exc_info.value.code == "model_definition_not_found"
 
 
 @pytest.mark.asyncio
 async def test_B_S01_draft_model_definition_fails_closed(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """ExecutionSnapshot 只能解析已发布的 exact ModelDefinition。"""
-    await seed_runtime_profile(sqlite_store)
-    await sqlite_store.put(
+    await seed_runtime_profile(pg_store)
+    await pg_store.put(
         ResourceDefinition(
             tenant_id="tenant-a",
             kind=ResourceKind.MODEL_DEFINITION,
@@ -253,24 +253,24 @@ async def test_B_S01_draft_model_definition_fails_closed(
         )
     )
     await _seed_agent(
-        sqlite_store,
+        pg_store,
         agent_id="draft-model-agent",
         primary_model_ref={"id": "draft-model", "version": "1"},
     )
 
     with pytest.raises(ContextResolutionError) as exc_info:
-        await _build_snapshot(sqlite_store, "draft-model-agent")
+        await _build_snapshot(pg_store, "draft-model-agent")
     assert exc_info.value.code == "model_definition_not_published"
 
 
 @pytest.mark.asyncio
 async def test_B_S01_missing_provider_definition_fails_closed(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """ModelDefinition 指向缺失 ProviderDefinition 时不得生成快照。"""
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.MODEL_DEFINITION,
         resource_id="orphan-model",
@@ -278,11 +278,11 @@ async def test_B_S01_missing_provider_definition_fails_closed(
         spec={"name": "orphan", "provider_ref": {"id": "ghost-provider", "version": "1"}},
     )
     await _seed_agent(
-        sqlite_store,
+        pg_store,
         agent_id="orphan-model-agent",
         primary_model_ref={"id": "orphan-model", "version": "1"},
     )
 
     with pytest.raises(ContextResolutionError) as exc_info:
-        await _build_snapshot(sqlite_store, "orphan-model-agent")
+        await _build_snapshot(pg_store, "orphan-model-agent")
     assert exc_info.value.code == "model_provider_not_found"

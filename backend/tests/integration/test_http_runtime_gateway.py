@@ -2,11 +2,12 @@
 
 真实边界：httpx.AsyncClient（ASGITransport）→ 真实 Runtime API
 （api/runtime.py 真实路由 + §3.3.1 wire 格式）→ 真实
-RuntimeApplicationService（dev.echo Provider）→ 真实 SQLiteRegistryStore。
+RuntimeApplicationService（dev.echo Provider）→ 真实 PostgreSQLRegistryStore。
 不新增 /internal/v1/runtime/run，不 mock Store/Resolver/Provider。
 """
 
 from __future__ import annotations
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 import json
 
@@ -14,7 +15,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient, MockTransport, Request, Response
 
 from fluxion.api.runtime import create_app as create_runtime_api_app
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceKind
 from fluxion.services.runtime_app import (
     PublishRuntimeProfileRequest,
@@ -24,7 +25,7 @@ from fluxion.services.runtime_app import (
 from fluxion.services.runtime_contracts import RuntimeApplicationError
 
 
-async def _seed_assistant(store: SQLiteRegistryStore) -> RuntimeApplicationService:
+async def _seed_assistant(store: PostgreSQLRegistryStore) -> RuntimeApplicationService:
     from fluxion.services.runtime_app import CreateRuntimeProfileRequest
     from tests.runtime_helpers import seed_agent_definition
 
@@ -68,7 +69,7 @@ async def test_s01_run_delegates_to_real_runtime_service() -> None:
     """S-01: 普通 run 经 HTTP 到真实 Runtime，返回正确结果且 trace 指向远端实例。"""
     from fluxion.services.http_runtime_gateway import HttpRuntimeGateway
 
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = await _seed_assistant(store)
     try:
         app = create_runtime_api_app(service)
@@ -89,7 +90,7 @@ async def test_s01_stream_restores_sse_events() -> None:
     """S-01: 流式还原 started/completed SSE 事件，不缓冲伪装流式。"""
     from fluxion.services.http_runtime_gateway import HttpRuntimeGateway
 
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = await _seed_assistant(store)
     try:
         app = create_runtime_api_app(service)
@@ -113,7 +114,7 @@ async def test_s01_channel_uses_gateway_not_local_runtime() -> None:
     from fluxion.services.channel_app import ChannelApplicationService
     from fluxion.services.http_runtime_gateway import HttpRuntimeGateway
 
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = await _seed_assistant(store)
     try:
         app = create_runtime_api_app(service)

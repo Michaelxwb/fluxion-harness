@@ -57,7 +57,7 @@ API Pod。主 Service 只选 `api` Pod，独立 `<fullname>-runtime` ClusterIP
 Service 只选 `runtime` Pod（见 `deploy/helm/fluxion/templates/NOTES.txt`
 升级指引：Deployment selector 不可原地变更，需分阶段升级）。
 
-数据库表结构由 `scripts/init_db.py` 初始化（幂等建表，PG/SQLite 双库），服务进程不建表。
+数据库表结构由 `scripts/init_db.py` 初始化（幂等建表，PostgreSQL 单库），服务进程不建表。
 
 ## 仓库结构
 

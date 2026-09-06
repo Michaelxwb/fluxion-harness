@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 import pytest
 
@@ -9,7 +10,7 @@ from fluxion.kernel.events import (
     HookScope,
     TypedEventBus,
 )
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.runtime_app import (
     CreateRuntimeProfileRequest,
     PublishRuntimeProfileRequest,
@@ -38,7 +39,7 @@ async def test_S_R09_trace_contains_snapshot_model_tool_hook_latency_and_error()
             handler=record_tool,
         )
     )
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = RuntimeApplicationService.create_dev_bundle(
         store,
         cache_ttl_seconds=600,

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
+
 import ast
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus, RuntimeProfile
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -78,7 +80,7 @@ async def test_be_s_04_runtime_profile_is_mechanics_only_and_agents_contracts_ar
     with pytest.raises(ValidationError):
         RuntimeProfile.model_validate({**profile.model_dump(), "prompt": "legacy persona"})
 
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await store.put(
@@ -110,7 +112,7 @@ async def test_be_s_04_runtime_profile_is_mechanics_only_and_agents_contracts_ar
 async def test_runtime_profile_migration_moves_product_fields_and_is_idempotent() -> None:
     from fluxion.agents.migration import migrate_runtime_profiles
 
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await store.put(
@@ -225,7 +227,7 @@ async def test_migration_resumes_when_draft_exists_without_publish() -> None:
     """M4：put 与 publish 之间崩溃后重跑——同 spec DRAFT 续跑直接补发布。"""
     from fluxion.agents.migration import _persist_target
 
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         target = ResourceDefinition(

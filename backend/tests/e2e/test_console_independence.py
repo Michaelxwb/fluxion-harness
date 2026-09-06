@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from sqlalchemy import select
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import publish_records
 from fluxion.resources import ResourceKind
 from fluxion.services.runtime_app import RunRuntimeRequest, RuntimeApplicationService
 from tests.console_helpers import console_stack, create_resource, publish_resource
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 
-async def test_S_C103_runtime_reads_registry_after_console_shutdown(tmp_path: Path) -> None:
-    database = tmp_path / "console-independent.db"
-    async with console_stack(db_path=database) as stack:
+async def test_S_C103_runtime_reads_registry_after_console_shutdown() -> None:
+    async with console_stack() as stack:
         await create_resource(
             stack.client,
             kind=ResourceKind.RUNTIME_PROFILE,
@@ -30,7 +28,8 @@ async def test_S_C103_runtime_reads_registry_after_console_shutdown(tmp_path: Pa
         await seed_agent_definition(stack.store, provider_id="dev.echo", model_name="dev")
         assert published.json()["data"]["event_status"] == "pending"
 
-    runtime_store = SQLiteRegistryStore(f"sqlite+aiosqlite:///{database}")
+    # PG-Only：runtime 直连同一 PG 库（不重建，否则 wipe 掉 console 种的数据），验证 console 关闭后数据仍在。
+    runtime_store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN)
     runtime = RuntimeApplicationService.create_dev_bundle(runtime_store)
     await runtime.initialize()
     try:

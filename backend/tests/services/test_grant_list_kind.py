@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
+
 from datetime import UTC, datetime
 
 from fluxion.agents.definitions import AgentCapabilityReference, CapabilityType
-from fluxion.registry import PlatformUserRecord, SQLiteRegistryStore
+from fluxion.registry import PlatformUserRecord, PostgreSQLRegistryStore
 from fluxion.users.service import UserDomainService
 
 
-async def _seed_user(store: SQLiteRegistryStore) -> None:
+async def _seed_user(store: PostgreSQLRegistryStore) -> None:
     await store.create_platform_user(
         PlatformUserRecord(
             tenant_id="t1",
@@ -21,7 +23,7 @@ async def _seed_user(store: SQLiteRegistryStore) -> None:
 
 
 async def test_S06_list_grants_returns_kind() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         svc = UserDomainService(store)

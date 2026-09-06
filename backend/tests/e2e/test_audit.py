@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
-
 import pytest
 from sqlalchemy import select
 from tests.console_helpers import (
@@ -17,8 +15,8 @@ from fluxion.registry.schema import audit_logs
 from fluxion.resources import ResourceKind
 
 
-async def test_S_C106_publish_and_rollback_write_complete_audit(tmp_path: Path) -> None:
-    async with console_stack(db_path=tmp_path / "audit.db") as stack:
+async def test_S_C106_publish_and_rollback_write_complete_audit() -> None:
+    async with console_stack() as stack:
         for version in ("1", "2"):
             await create_resource(
                 stack.client,
@@ -62,10 +60,9 @@ async def test_S_C106_publish_and_rollback_write_complete_audit(tmp_path: Path) 
 
 async def test_S_C113_access_log_and_audit_share_publish_correlation(
     caplog: pytest.LogCaptureFixture,
-    tmp_path: Path,
 ) -> None:
     caplog.set_level(logging.INFO, logger="fluxion.console.access")
-    async with console_stack(db_path=tmp_path / "correlation.db") as stack:
+    async with console_stack() as stack:
         await create_resource(
             stack.client,
             kind=ResourceKind.RUNTIME_PROFILE,

@@ -19,7 +19,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from fluxion.api.console import create_app as create_console_app
-from fluxion.registry import RegistryStore, SQLiteRegistryStore
+from fluxion.registry import RegistryStore, PostgreSQLRegistryStore
 from fluxion.resources import (
     ResourceBinding,
     ResourceKind,
@@ -35,7 +35,7 @@ SECRET_PLAINTEXT = "sk-live-TASK005-sentinel"
 
 
 def _dual_stack(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
 ) -> tuple[AsyncClient, ConsoleApplicationService]:
     runtime = RuntimeApplicationService.create_dev_bundle(
         store,

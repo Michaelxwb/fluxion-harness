@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import pytest
-from tests.runtime_helpers import seed_runtime_profile
+from tests.runtime_helpers import seed_runtime_profile, TEST_POSTGRES_DSN
 
-from fluxion.registry import RegistryStore, SQLiteRegistryStore
+from fluxion.registry import RegistryStore, PostgreSQLRegistryStore
 from fluxion.runtime import AgentRuntime, RequestContext
 from fluxion.runtime.memory import InMemorySessionMemoryStore
 from fluxion.runtime.memory_sql import SQLSessionMemoryStore
@@ -33,9 +33,9 @@ def _request() -> RequestContext:
 @pytest.mark.asyncio
 async def test_S_R05_memory_persists_across_store_instances(tmp_path) -> None:
     """Pod 替换/重启后，用户级记忆从共享 Registry 读取而非进程内 dict。"""
-    dsn = f"sqlite+aiosqlite:///{tmp_path}/fluxion-memory.db"
+    dsn = TEST_POSTGRES_DSN
 
-    store1 = SQLiteRegistryStore(dsn)
+    store1 = PostgreSQLRegistryStore(dsn, reset_on_initialize=True)
     await store1.initialize()
     await seed_runtime_profile(store1)
     pod1 = _runtime_with_sql_memory(store1)
@@ -43,7 +43,7 @@ async def test_S_R05_memory_persists_across_store_instances(tmp_path) -> None:
     await store1.close()
 
     # 全新 store/engine 模拟旧 Pod 已销毁、新 Pod 启动；runtime_profile 已持久化在同一文件。
-    store2 = SQLiteRegistryStore(dsn)
+    store2 = PostgreSQLRegistryStore(dsn)
     await store2.initialize()
     pod2 = _runtime_with_sql_memory(store2)
     context = await pod2.start_execution(_request().with_new_execution())
@@ -54,11 +54,11 @@ async def test_S_R05_memory_persists_across_store_instances(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_S_R05_in_memory_store_remains_supported(sqlite_store: RegistryStore) -> None:
+async def test_S_R05_in_memory_store_remains_supported(pg_store: RegistryStore) -> None:
     """InMemorySessionMemoryStore 仍是合法的无 store 测试夹具实现。"""
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     pod = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=InMemorySessionMemoryStore(),
     )
     await pod.run(_request(), input_messages=["用户事实: project=atlas"])

@@ -1,4 +1,4 @@
-from fluxion.registry.sqlalchemy_store import PostgreSQLRegistryStore, SQLiteRegistryStore
+from fluxion.registry.sqlalchemy_store import PostgreSQLRegistryStore
 from fluxion.registry.store import (
     AuditRecord,
     NotFoundError,
@@ -32,7 +32,6 @@ __all__ = [
     "RegistryReadStore",
     "RegistryStore",
     "RegistryStoreError",
-    "SQLiteRegistryStore",
     "VersionConflictError",
 ]
 from fluxion.registry.channel_store import (

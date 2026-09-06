@@ -1,6 +1,6 @@
 """用户查看 360 回归：dev/production 装配必须注入 UserDomainService。
 
-真实边界：真实 bundle 装配（dev file-SQLite；production 门控 PG）+
+真实边界：真实 bundle 装配（dev/prod 同 PG，production 门控 PG）+
 真实 HTTP（ASGITransport）+ 真实 UserDomainService + 真实 Store。
 此前两 bundle 均未注入，`/admin/users/*` 全 503。
 """
@@ -15,6 +15,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from tests.console_helpers import tenant_headers
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 _PG_DSN = os.environ.get(
     "FLUXION_POSTGRES_DSN",
@@ -32,18 +33,24 @@ def _pg_available() -> bool:
 
 
 @pytest.mark.asyncio
-async def test_dev_bundle_admin_users_wired(tmp_path) -> None:  # type: ignore[no-untyped-def]
-    from fluxion.api.dev_bundle import create_dev_bundle_app
-    from fluxion.registry import SQLiteRegistryStore
+async def test_dev_bundle_admin_users_wired(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:  # type: ignore[no-untyped-def]
+    import base64
 
+    from fluxion.api.dev_bundle import create_dev_bundle_app
+    from fluxion.registry import PostgreSQLRegistryStore
+
+    # ADR-A007：dev bundle 要求显式 master key。
+    monkeypatch.setenv(
+        "FLUXION_SECRET_MASTER_KEY", base64.b64encode(os.urandom(32)).decode()
+    )
     console_dist = tmp_path / "console"
     chat_dist = tmp_path / "chat"
     console_dist.mkdir()
     chat_dist.mkdir()
-    dsn = f"sqlite+aiosqlite:///{tmp_path}/dev.db"
+    dsn = TEST_POSTGRES_DSN
     # ASGITransport 不触发 lifespan：先经同 DSN store 初始化 schema
     #（生产由 scripts/init_db.py 建表，dev lifespan 同义）。
-    bootstrap = SQLiteRegistryStore(dsn)
+    bootstrap = PostgreSQLRegistryStore(dsn, reset_on_initialize=True)
     await bootstrap.initialize()
     await bootstrap.close()
     app = create_dev_bundle_app(

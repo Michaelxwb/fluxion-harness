@@ -7,7 +7,7 @@ Fluxion 后端是 Python 3.12+ 的无状态、插件化 Agent Runtime 与 Contro
 ## Architecture
 
 - Framework/typing：FastAPI、Pydantic v2、strict mypy、ruff。
-- Registry：SQLAlchemy async，同一 `RegistryStore` Contract 覆盖 SQLite 与 PostgreSQL。
+- Registry：SQLAlchemy async，`RegistryStore` Contract 唯一实现为 PostgreSQL（ADR-A007）。
 - Runtime：`RequestContext -> ResourceResolver -> ExecutionSnapshot -> RuntimeContext -> AgentRuntime`。
 - Plugin/Hook：Kernel 只依赖 typed event/hook contract；Plugin 通过 trust policy 和 capability contract 接入。
 - External I/O：`httpx` model provider 必须带 timeout、retry/failover 行为。
@@ -19,20 +19,20 @@ Fluxion 后端是 Python 3.12+ 的无状态、插件化 Agent Runtime 与 Contro
 | `pyproject.toml` | Python 依赖、pytest/mypy/ruff 配置 |
 | `backend/src/fluxion/resources/contracts.py` | Resource/Binding/ExecutionSnapshot schema，拒绝明文 Secret |
 | `backend/src/fluxion/registry/store.py` | `RegistryStore` Protocol 与错误契约 |
-| `backend/src/fluxion/registry/sqlalchemy_store.py` | SQLite/PostgreSQL async Store 实现 |
+| `backend/src/fluxion/registry/sqlalchemy_store.py` | PostgreSQL async Store 实现 |
 | `backend/src/fluxion/runtime/resolver.py` | Resource 解析、L1 cache、ExecutionSnapshot 构建 |
 | `backend/src/fluxion/runtime/agent.py` | 无状态 `AgentRuntime`、model provider failover |
 | `backend/src/fluxion/kernel/events.py` | typed Hook/Event bus、priority、timeout、fail policy |
 | `backend/src/fluxion/plugins/loader.py` | Plugin trust enforcement 与 provider 注册 |
 | `backend/src/fluxion/plugins/model_provider.py` | Stub 与 OpenAI-compatible model provider |
-| `scripts/run_registry_contract_tests.py` | SQLite/PostgreSQL Contract Test runner |
+| `scripts/run_registry_contract_tests.py` | PostgreSQL Contract Test runner（直连本地 PG，失败即退出） |
 
 ## Module Map
 
 ```text
 backend/src/fluxion/
 ├── resources/   # 版本化 Resource/Binding contract + tenant cache
-├── registry/    # Store Protocol、SQLAlchemy schema、SQLite/PostgreSQL adapter
+├── registry/    # Store Protocol、SQLAlchemy schema、PostgreSQL adapter
 ├── runtime/     # Context、resolver/snapshot、AgentRuntime、memory、scheduler、planning
 ├── kernel/      # typed Event/Hook scheduler
 └── plugins/     # Plugin manifest/contract、trust loader、model provider

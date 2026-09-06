@@ -3,7 +3,7 @@
 S-06 / S-07 / E-04 / NFR-PERF-01（design §3.4 / §3.5：score 回退阻断、达标放行
 留档、基线不可用阻断、gate 超时 ≤2s fail-closed、publish 附加延迟 ≤500ms）。
 
-真实边界：真实 SQLite registry + 真实 TraceStore/EvalRunStore + 真实
+真实边界：真实 PG registry + 真实 TraceStore/EvalRunStore + 真实
 RuleBasedEvalExecutor + 真实 Console publish 管道（HTTP :publish 端点）。
 """
 
@@ -19,7 +19,7 @@ from httpx import ASGITransport, AsyncClient
 
 from fluxion.api.console import create_app as create_console_app
 from fluxion.config import DevModeSettings
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ExecutionSnapshot, ResourceKind, ResourceStatus
 from fluxion.runtime import InMemoryTraceStore, TraceRecord
 from fluxion.services.console_app import ConsoleApplicationService
@@ -29,12 +29,12 @@ from fluxion.services.eval_app import (
     RuleBasedEvalExecutor,
 )
 from fluxion.services.release_gate import ReleaseGateService
-from tests.runtime_helpers import publish_resource
+from tests.runtime_helpers import publish_resource, TEST_POSTGRES_DSN
 
 
 @pytest.fixture
-async def store(tmp_path: Path) -> AsyncGenerator[SQLiteRegistryStore, None]:
-    store = SQLiteRegistryStore(f"sqlite+aiosqlite:///{tmp_path / 'gate.db'}")
+async def store(tmp_path: Path) -> AsyncGenerator[PostgreSQLRegistryStore, None]:
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         yield store
@@ -43,7 +43,7 @@ async def store(tmp_path: Path) -> AsyncGenerator[SQLiteRegistryStore, None]:
 
 
 @pytest.fixture
-async def stack(store: SQLiteRegistryStore) -> AsyncGenerator[dict[str, object], None]:
+async def stack(store: PostgreSQLRegistryStore) -> AsyncGenerator[dict[str, object], None]:
     """组装 eval service + release gate + console service/app（同一 store）。"""
     trace_store = InMemoryTraceStore()
     run_store = InMemoryEvalRunStore()
@@ -70,7 +70,7 @@ async def stack(store: SQLiteRegistryStore) -> AsyncGenerator[dict[str, object],
     }
 
 
-async def _seed_agent_chain(store: SQLiteRegistryStore) -> None:
+async def _seed_agent_chain(store: PostgreSQLRegistryStore) -> None:
     """seed 可发布的 AGENT_DEFINITION 链（ADR-A008 三层模型链；runtime_profile
     默认链已由 _publish_runtime_profile 提供 default=true）。"""
     from tests.runtime_helpers import seed_model_definition
@@ -78,7 +78,7 @@ async def _seed_agent_chain(store: SQLiteRegistryStore) -> None:
     await seed_model_definition(store, tenant_id="dev", provider_id="test")
 
 
-async def _publish_runtime_profile(store: SQLiteRegistryStore) -> None:
+async def _publish_runtime_profile(store: PostgreSQLRegistryStore) -> None:
     # ADR-A010：runtime-main 标记租户默认（default=true），供无 ref 的 agent
     # 默认链解析；mechanics-only spec（TASK-A104）。
     await publish_resource(
@@ -91,7 +91,7 @@ async def _publish_runtime_profile(store: SQLiteRegistryStore) -> None:
     )
 
 
-async def _publish_eval_set(store: SQLiteRegistryStore) -> None:
+async def _publish_eval_set(store: PostgreSQLRegistryStore) -> None:
     await publish_resource(
         store,
         tenant_id="dev",
@@ -148,7 +148,7 @@ def _trace(trace_id: str, *, include_answer: bool = True) -> TraceRecord:
     )
 
 
-async def _create_draft(store: SQLiteRegistryStore, *, version: str) -> None:
+async def _create_draft(store: PostgreSQLRegistryStore, *, version: str) -> None:
     """创建 AGENT_DEFINITION draft（ADR-A011：gate 只作用于 Agent）。"""
     from fluxion.resources import ResourceDefinition
 
@@ -185,7 +185,7 @@ class TestReleaseGatePublishPipeline:
         """review P1-7：enforced=True 时 gate 从 opt-in 变强制策略——不带 gate
         参数的 publish fail-closed 阻断（生产装配必须开启；此前 request.gate is
         None 即完全绕过，「Eval 阻断 P0」仅为可选能力）。"""
-        store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
+        store: PostgreSQLRegistryStore = stack["store"]  # type: ignore[assignment]
         gate = ReleaseGateService(
             stack["evaluation"], audit_sink=store, timeout_seconds=2.0  # type: ignore[arg-type]
         )
@@ -227,7 +227,7 @@ class TestReleaseGatePublishPipeline:
     ) -> None:
         """B-S-04（ADR-A011）：enforced 装配下非门 kind（RUNTIME_PROFILE）空 body
         发布成功——ReleaseGate 只作用于 AGENT_DEFINITION，不阻断其余资源。"""
-        store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
+        store: PostgreSQLRegistryStore = stack["store"]  # type: ignore[assignment]
         gate = ReleaseGateService(
             stack["evaluation"], audit_sink=store, timeout_seconds=2.0  # type: ignore[arg-type]
         )
@@ -259,7 +259,7 @@ class TestReleaseGatePublishPipeline:
     ) -> None:
         """B-S-05（ADR-A011）：enforced 装配下 AGENT_DEFINITION 携带合法 gate →
         发布成功（与无 gate 的 409 对照，见 test_enforced_gate_blocks...）。"""
-        store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
+        store: PostgreSQLRegistryStore = stack["store"]  # type: ignore[assignment]
         evaluation: EvaluationApplicationService = stack["evaluation"]  # type: ignore[assignment]
         gate = ReleaseGateService(
             evaluation, audit_sink=store, timeout_seconds=2.0
@@ -295,7 +295,7 @@ class TestReleaseGatePublishPipeline:
         assert resource is not None and resource.status is ResourceStatus.PUBLISHED
 
     async def test_s06_regression_blocks_publish(self, stack: dict[str, object]) -> None:
-        store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
+        store: PostgreSQLRegistryStore = stack["store"]  # type: ignore[assignment]
         evaluation: EvaluationApplicationService = stack["evaluation"]  # type: ignore[assignment]
         trace_store: InMemoryTraceStore = stack["trace_store"]  # type: ignore[assignment]
         # 弱 trace：不含期望「清晰答复」→ 候选 run score=0.0
@@ -334,7 +334,7 @@ class TestReleaseGatePublishPipeline:
     async def test_s07_passing_gate_publishes_and_keeps_runs(
         self, stack: dict[str, object]
     ) -> None:
-        store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
+        store: PostgreSQLRegistryStore = stack["store"]  # type: ignore[assignment]
         evaluation: EvaluationApplicationService = stack["evaluation"]  # type: ignore[assignment]
         run_store: InMemoryEvalRunStore = stack["run_store"]  # type: ignore[assignment]
         await _create_draft(store, version="9")
@@ -372,7 +372,7 @@ class TestReleaseGatePublishPipeline:
     async def test_e04_missing_baseline_blocks_with_clear_error(
         self, stack: dict[str, object]
     ) -> None:
-        store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
+        store: PostgreSQLRegistryStore = stack["store"]  # type: ignore[assignment]
         evaluation: EvaluationApplicationService = stack["evaluation"]  # type: ignore[assignment]
         await _create_draft(store, version="10")
         await evaluation.start_run(_run_request("run-candidate-10", trace_id="trace-gate"))
@@ -395,7 +395,7 @@ class TestReleaseGatePublishPipeline:
 
     async def test_gate_timeout_fails_closed(self, stack: dict[str, object]) -> None:
         """compare 超时 → fail-closed 阻断（≤2s 有界），不无限等待。"""
-        store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
+        store: PostgreSQLRegistryStore = stack["store"]  # type: ignore[assignment]
         await _create_draft(store, version="11")
 
         class _SlowEvaluation:
@@ -436,7 +436,7 @@ class TestReleaseGatePublishPipeline:
         assert elapsed < 2.0, "gate 超时须有界（≤2s）"
 
     async def test_blocked_decision_audited(self, stack: dict[str, object]) -> None:
-        store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
+        store: PostgreSQLRegistryStore = stack["store"]  # type: ignore[assignment]
         evaluation: EvaluationApplicationService = stack["evaluation"]  # type: ignore[assignment]
         await _create_draft(store, version="12")
         await evaluation.start_run(_run_request("run-base-12", trace_id="trace-gate"))
@@ -489,7 +489,7 @@ class TestGateDecisionShape:
         self, stack: dict[str, object]
     ) -> None:
         evaluation: EvaluationApplicationService = stack["evaluation"]  # type: ignore[assignment]
-        store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
+        store: PostgreSQLRegistryStore = stack["store"]  # type: ignore[assignment]
         await _create_draft(store, version="13")
         # 两条真实 run：同 trace → delta = 0 → 放行
         await evaluation.start_run(_run_request("run-b-13", trace_id="trace-gate"))

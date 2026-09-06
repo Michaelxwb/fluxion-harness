@@ -6,8 +6,7 @@ S-06（E2E，RULE-P2-07）：N 实例运行 → kill 一个 → 新请求打到�
 一致 + RPO=0。
 S-08（integration，Gate G4）：Execution-1 pin v1 → 运行中发布 v2 → 全程 v1。
 
-真实边界：两个独立 ContextResolver（各持独立 SQLite Registry 实例不可行——
-共享同一真实 Store）+ 独立 resolver 对象模拟跨实例；SQLite 内存库。
+真实边界：两个独立 ContextResolver（共享同一真实 Store）+ 独立 resolver 对象模拟跨实例。
 多实例真实部署 Gate 由 phase6 FEAT-P6-05/S-07 承接（设计分层 §13.6）。
 """
 
@@ -16,14 +15,14 @@ from __future__ import annotations
 import pytest
 
 from fluxion.services.context_resolver import ContextResolver, ResolverSelector
-from tests.runtime_helpers import publish_resource, seed_model_definition
+from tests.runtime_helpers import publish_resource, seed_model_definition, TEST_POSTGRES_DSN
 
 
 @pytest.fixture
 async def store():
-    from fluxion.registry import SQLiteRegistryStore
+    from fluxion.registry import PostgreSQLRegistryStore
 
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         yield store

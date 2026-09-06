@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 import json
 
@@ -7,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 
 from fluxion.api.runtime import create_app
 from fluxion.errors.console import RUNTIME_APPLICATION_ERROR
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.runtime_app import (
     CreateRuntimeProfileRequest,
     PublishRuntimeProfileRequest,
@@ -17,7 +18,7 @@ from fluxion.services.runtime_app import (
 
 @pytest.mark.asyncio
 async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = RuntimeApplicationService.create_dev_bundle(store, cache_ttl_seconds=600)
     await service.initialize()
     try:

@@ -1,7 +1,7 @@
 """TASK-007（phase2）ContextResolver 十段管线验收测试。
 
 S-02（integration，RULE-P2-02）：典型数据量（≤100 memory）连续 50 次 resolve，
-P95 ≤ 300ms（真实 SQLite Store）。
+P95 ≤ 300ms（真实 PG Store）。
 S-08（integration，Gate G4 / ARCH-07）：Execution-1 pin v1 → 运行中发布 v2 →
 Execution-1 全程 v1 → 新 Execution 使用 v2。
 S-09（integration，Gate G2 / REQ-CAP-004）：同一 MCP Definition，User-A/B 不同
@@ -11,7 +11,7 @@ E-02（integration）：Secret 检索失败 → fail-closed、无 digest、日�
 E-04（integration）：user_profile_version 不存在 → fail-closed + 明确错误码。
 B-01（unit）：memory manifest 超 budget → 按优先级截断 + truncated=true。
 
-真实边界：真实 SQLite Registry/Store + AgentDefinitionRepository +
+真实边界：真实 PG Registry/Store + AgentDefinitionRepository +
 PersonalMemoryRetriever + CredentialResolver + 真实 ASGI middleware；不 mock。
 """
 
@@ -24,7 +24,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ExactResourceVersion
 from fluxion.services.context_resolver import (
     BudgetExceededEntry,
@@ -32,12 +32,12 @@ from fluxion.services.context_resolver import (
     ContextResolver,
     ResolverSelector,
 )
-from tests.runtime_helpers import publish_resource, seed_model_definition
+from tests.runtime_helpers import publish_resource, seed_model_definition, TEST_POSTGRES_DSN
 
 
 @pytest.fixture
-async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+async def store() -> AsyncGenerator[PostgreSQLRegistryStore, None]:
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         yield store
@@ -46,11 +46,11 @@ async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
 
 
 @pytest.fixture
-async def engine(store: SQLiteRegistryStore) -> AsyncEngine:
+async def engine(store: PostgreSQLRegistryStore) -> AsyncEngine:
     return store.engine
 
 
-async def _seed_agent(store: SQLiteRegistryStore, *, version: str = "1") -> None:
+async def _seed_agent(store: PostgreSQLRegistryStore, *, version: str = "1") -> None:
     from fluxion.resources import ResourceKind
 
     await publish_resource(
@@ -90,12 +90,12 @@ async def _seed_agent(store: SQLiteRegistryStore, *, version: str = "1") -> None
         )
 
 
-def _resolver(store: SQLiteRegistryStore, credential_resolver: object | None = None) -> ContextResolver:
+def _resolver(store: PostgreSQLRegistryStore, credential_resolver: object | None = None) -> ContextResolver:
     return ContextResolver(store, credential_resolver=credential_resolver)
 
 
 @pytest.mark.asyncio
-async def test_s02_resolve_pipeline_50x_p95_under_300ms(store: SQLiteRegistryStore) -> None:
+async def test_s02_resolve_pipeline_50x_p95_under_300ms(store: PostgreSQLRegistryStore) -> None:
     await _seed_agent(store)
     resolver = _resolver(store)
     selector = ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a")
@@ -113,7 +113,7 @@ async def test_s02_resolve_pipeline_50x_p95_under_300ms(store: SQLiteRegistrySto
 
 
 @pytest.mark.asyncio
-async def test_l1_cache_hit_regenerates_execution_identity(store: SQLiteRegistryStore) -> None:
+async def test_l1_cache_hit_regenerates_execution_identity(store: PostgreSQLRegistryStore) -> None:
     """L1 缓存命中复用内容字段，但必须重新生成 execution_id/trace_id。
 
     同一 resolver + 同一 selector，30s TTL 内两个不同 session 的独立 Execution：
@@ -134,7 +134,7 @@ async def test_l1_cache_hit_regenerates_execution_identity(store: SQLiteRegistry
 
 
 @pytest.mark.asyncio
-async def test_capability_versions_resolve_published(store: SQLiteRegistryStore) -> None:
+async def test_capability_versions_resolve_published(store: PostgreSQLRegistryStore) -> None:
     """Agent capabilities（skill/mcp）→ skill_versions/mcp_versions 填充实际 published 版本。
 
     此前该路径零测试覆盖（_seed_agent 无 capabilities）；tool 类型不解析版本也不抛错。
@@ -227,7 +227,7 @@ async def test_capability_versions_resolve_published(store: SQLiteRegistryStore)
 
 
 @pytest.mark.asyncio
-async def test_s08_execution_immutability_across_publish(store: SQLiteRegistryStore) -> None:
+async def test_s08_execution_immutability_across_publish(store: PostgreSQLRegistryStore) -> None:
     """Gate G4：Execution-1 pin v1 → 运行中发布 v2 → Execution-1 全程 v1。"""
     await _seed_agent(store, version="1")
     resolver_1 = _resolver(store)
@@ -252,7 +252,7 @@ async def test_s08_execution_immutability_across_publish(store: SQLiteRegistrySt
 
 @pytest.mark.asyncio
 async def test_runtime_profile_selector_pin_requires_ref(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
 ) -> None:
     """ADR-A010：无 ref 的版本 pin 是矛盾输入 → fail-closed（同名回退已废弃）。"""
     await _seed_agent(store, version="1")
@@ -272,7 +272,7 @@ async def test_runtime_profile_selector_pin_requires_ref(
 
 
 @pytest.mark.asyncio
-async def test_s09_credential_isolation_per_user(store: SQLiteRegistryStore) -> None:
+async def test_s09_credential_isolation_per_user(store: PostgreSQLRegistryStore) -> None:
     """Gate G2：同一 Agent，A/B 不同凭据引用 → credential_versions 不串用。"""
     from fluxion.registry.schema import resource_bindings
 
@@ -325,7 +325,7 @@ async def test_s09_credential_isolation_per_user(store: SQLiteRegistryStore) -> 
 
 
 @pytest.mark.asyncio
-async def test_e04_user_profile_version_missing_fail_closed(store: SQLiteRegistryStore) -> None:
+async def test_e04_user_profile_version_missing_fail_closed(store: PostgreSQLRegistryStore) -> None:
     await _seed_agent(store)
     resolver = _resolver(store)
     with pytest.raises(ContextResolutionError) as error:
@@ -343,7 +343,7 @@ async def test_e04_user_profile_version_missing_fail_closed(store: SQLiteRegistr
 
 
 @pytest.mark.asyncio
-async def test_e02_credential_missing_fail_closed(store: SQLiteRegistryStore) -> None:
+async def test_e02_credential_missing_fail_closed(store: PostgreSQLRegistryStore) -> None:
     from fluxion.registry.schema import resource_bindings
 
     await _seed_agent(store)

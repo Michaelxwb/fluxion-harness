@@ -4,26 +4,28 @@ S-07（integration，backend-database / RULE-C-06）：
 - ProfileAttribute 行级属性承载 provenance（source/source_ref/confidence/
   is_explicit），支持 查看/修改/删除；
 - learned 自动写入受 UserPreference.learning_enabled 停学 gate 约束；
-- 双库契约（SQLite 恒跑；PG 由 FLUXION_REQUIRE_POSTGRES_CONTRACT=1 门控）。
+- 单库契约（PG，ADR-A007）。
 
-真实边界：真实 SQLiteRegistryStore + UserDomainService + SQLAlchemy schema；
+真实边界：真实 PostgreSQLRegistryStore + UserDomainService + SQLAlchemy schema；
 不 mock。
 """
 
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
+
 from collections.abc import AsyncGenerator
 
 import pytest
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.users.models import ProfileAttribute
 from fluxion.users.service import UserDomainService
 
 
 @pytest.fixture
-async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
-    instance = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+async def store() -> AsyncGenerator[PostgreSQLRegistryStore, None]:
+    instance = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await instance.initialize()
     try:
         yield instance
@@ -32,7 +34,7 @@ async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
 
 
 @pytest.fixture
-async def service(store: SQLiteRegistryStore) -> UserDomainService:
+async def service(store: PostgreSQLRegistryStore) -> UserDomainService:
     svc = UserDomainService(store)
     await svc.ensure_user(
         tenant_id="tenant-1", platform_user_id="user-a", display_name="用户A"
@@ -113,7 +115,7 @@ async def test_s07_attribute_crud_roundtrip_preserves_provenance(
 
 
 async def test_s07_learning_gate_blocks_learned_writes_when_disabled(
-    service: UserDomainService, store: SQLiteRegistryStore
+    service: UserDomainService, store: PostgreSQLRegistryStore
 ) -> None:
     """停学（learning_enabled=False）后 learned 写入被拒；显式写入不受限。"""
     from fluxion.users.models import UserPreferenceSpec

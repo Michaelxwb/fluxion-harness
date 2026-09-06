@@ -7,20 +7,21 @@ Trace 关联（request_id/trace_id 贯穿）由 test_trace.py / test_agent_test_
 """
 
 from __future__ import annotations
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 from fluxion.api.console import create_app as create_console_app
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import audit_logs
 from fluxion.resources import ExactResourceVersion, ResourceDefinition, ResourceKind, ResourceStatus
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.users import UserDomainService
 
 
-async def _admin_client(store: SQLiteRegistryStore):
+async def _admin_client(store: PostgreSQLRegistryStore):
     console = ConsoleApplicationService(store)
     users = UserDomainService(store)
     app = create_console_app(console, user_service=users)
@@ -38,7 +39,7 @@ def _headers(request_id: str) -> dict[str, str]:
 
 @pytest.mark.asyncio
 async def test_be_s_08_extension_user_mutations_write_audit_rows() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     async with await _admin_client(store) as client:
         await client.post(
@@ -103,7 +104,7 @@ async def test_be_s_08_extension_user_mutations_write_audit_rows() -> None:
 @pytest.mark.asyncio
 async def test_user_360_activity_region_backed_by_audit_log() -> None:
     """360 Activity 区的数据源就是独立 AuditLog（非普通日志）。"""
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     async with await _admin_client(store) as client:
         await client.post(
@@ -134,10 +135,20 @@ async def test_agent_publish_still_writes_governance_audit_row() -> None:
 
     async with console_stack() as stack:
         from fluxion.agents.definitions import AgentDefinition, AgentModelPolicy
-        from tests.runtime_helpers import seed_model_definition
+        from tests.runtime_helpers import publish_resource, seed_model_definition
 
         # ADR-A008：发布校验 model_policy.primary_model_ref 可解析（model.dev.echo）
         await seed_model_definition(stack.store, tenant_id="tenant-a", provider_id="dev.echo")
+        # ADR-A010：Agent 发布要求租户默认链可解析，此处显式种一个默认 profile。
+        # （预存问题：此前缺默认 profile，在任何后端下都是 400，PG 迁移时发现并补齐。）
+        await publish_resource(
+            stack.store,
+            tenant_id="tenant-a",
+            kind=ResourceKind.RUNTIME_PROFILE,
+            resource_id="tenant-default",
+            version="1",
+            spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+        )
         draft = ResourceDefinition(
             kind=ResourceKind.AGENT_DEFINITION, id="assistant", tenant_id="tenant-a",
             version="1", status=ResourceStatus.DRAFT,

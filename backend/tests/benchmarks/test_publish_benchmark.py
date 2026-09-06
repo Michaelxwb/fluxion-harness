@@ -8,9 +8,10 @@ from typing import Protocol
 
 from httpx import ASGITransport, AsyncClient
 from tests.console_helpers import create_resource, publish_resource
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.api.console import create_app
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceKind
 from fluxion.services.console_app import ConsoleApplicationService
 
@@ -28,7 +29,7 @@ class BenchmarkFixture(Protocol):
 def test_B_C105_publish_api_p95_under_500ms(benchmark: BenchmarkFixture) -> None:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = ConsoleApplicationService(store)
     client = AsyncClient(transport=ASGITransport(app=create_app(service)), base_url="http://console")
     loop.run_until_complete(service.initialize())

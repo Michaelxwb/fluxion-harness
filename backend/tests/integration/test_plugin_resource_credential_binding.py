@@ -3,10 +3,10 @@
 S-03（integration，RULE-fluxion-resource-001 + RULE-EXT-04）：
 
 - 真实边界 1：`resource_definitions` 行——发布 Plugin Resource（kind=plugin）经
-  真实 `SQLiteRegistryStore.put` + `publish`，落真实 `resource_definitions` 表行
+  真实 `PostgreSQLRegistryStore.put` + `publish`，落真实 `resource_definitions` 表行
   （kind=plugin, version, status=published, spec_json=PluginManifest spec）。
 - 真实边界 2：`resource_bindings.credential_ref`——绑定 SECRET_PROVIDER credential
-  经真实 `SQLiteRegistryStore.put_binding`，落真实 `resource_bindings` 表行
+  经真实 `PostgreSQLRegistryStore.put_binding`，落真实 `resource_bindings` 表行
   （resource_type=plugin, credential_ref=secret:// SecretRef）。
 - spec_json 无明文 secret（RULE-EXT-04：credential 不入 spec）：
   `ResourceDefinition.validate_definition` 的 `assert_no_plaintext_secret` 拒绝明文
@@ -14,7 +14,7 @@ S-03（integration，RULE-fluxion-resource-001 + RULE-EXT-04）：
 
 RED 约定（cf-task:start #7）：已有行为补测——产品原语（`ResourceKind.PLUGIN` +
 `ResourceBinding.credential_ref` + secret:// validator + `assert_no_plaintext_secret`
-+ `SQLiteRegistryStore.put/publish/put_binding`）在 RS 阶段已落地，S-03 集成验证为
++ `PostgreSQLRegistryStore.put/publish/put_binding`）在 RS 阶段已落地，S-03 集成验证为
 green-before；真实 RED 由 RS 阶段契约定义承载（`ResourceKind.PLUGIN` enum 加入 +
 credential_ref + secret:// validator + `assert_no_plaintext_secret` 落地时的 RED）。
 不得伪造失败。
@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import (
     ResourceBinding,
     ResourceDefinition,
@@ -32,13 +32,13 @@ from fluxion.resources import (
     ResourceStatus,
     SubjectType,
 )
-from tests.runtime_helpers import publish_resource
+from tests.runtime_helpers import publish_resource, TEST_POSTGRES_DSN
 
 
 @pytest.mark.asyncio
 async def test_s03_plugin_resource_publish_and_credential_binding() -> None:
-    # 真实边界：SQLiteRegistryStore（sqlite+aiosqlite:///:memory:），非 mock。
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    # 真实边界：PostgreSQLRegistryStore（本地 PG），非 mock。
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         # PluginManifest spec——无明文 secret（RULE-EXT-04：credential 不入 spec）。

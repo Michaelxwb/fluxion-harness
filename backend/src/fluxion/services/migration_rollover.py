@@ -101,7 +101,7 @@ def _source_filter(kind: MigrationKind, tenant_id: str) -> list[Any]:
 
 
 class RolloverService:
-    """一次性迁移执行体（engine 注入：SQLite 契约 / PostgreSQL 生产）。"""
+    """一次性迁移执行体（engine 注入：PostgreSQL）。"""
 
     def __init__(self, *, engine: AsyncEngine, tenant_id: str) -> None:
         self._engine = engine

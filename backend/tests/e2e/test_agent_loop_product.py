@@ -107,12 +107,12 @@ async def _publish_profile(
 
 @pytest.mark.asyncio
 async def test_S_P13_01_model_tool_result_returns_to_second_real_http_call(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     async with openai_wire_server(
         [openai_tool_call_response(), openai_final_response("来自 lookup 的最终答案")]
     ) as wire:
-        await _publish_profile(sqlite_store)
+        await _publish_profile(pg_store)
         tools = ToolRuntime()
         tool_invocations: list[dict[str, object]] = []
         tools.register(
@@ -143,7 +143,7 @@ async def test_S_P13_01_model_tool_result_returns_to_second_real_http_call(
             )
         )
         runtime = RuntimeApplicationService(
-            sqlite_store,
+            pg_store,
             model_providers=_model_registry(wire.base_url),
             tool_runtime=tools,
             event_bus=event_bus,
@@ -188,11 +188,11 @@ async def test_S_P13_01_model_tool_result_returns_to_second_real_http_call(
 
 @pytest.mark.asyncio
 async def test_S_P13_02_published_skill_instructions_are_fixed_in_snapshot_and_prompt(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     async with openai_wire_server([openai_final_response("按 Skill 回答")]) as wire:
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id="tenant-a",
             kind=ResourceKind.SKILL,
             resource_id="concise",
@@ -204,9 +204,9 @@ async def test_S_P13_02_published_skill_instructions_are_fixed_in_snapshot_and_p
                 "required_capabilities": ["lookup"],
             },
         )
-        await _publish_profile(sqlite_store, allowed_skills=["concise@1"])
+        await _publish_profile(pg_store, allowed_skills=["concise@1"])
         runtime = AgentRuntime(
-            snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+            snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
             memory_store=InMemorySessionMemoryStore(),
             model_providers=_model_registry(wire.base_url),
         )
@@ -220,7 +220,7 @@ async def test_S_P13_02_published_skill_instructions_are_fixed_in_snapshot_and_p
             )
         )
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id="tenant-a",
             kind=ResourceKind.SKILL,
             resource_id="concise",

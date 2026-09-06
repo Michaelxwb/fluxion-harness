@@ -1,21 +1,22 @@
-"""dev Secret 落库回归：重启不丢密钥（与生产同形态）。
+"""dev Secret 落库回归：重启不丢密钥（ADR-A007 PG-Only，与生产同形态）。
 
-真实边界：真实 dev bundle 装配（file-SQLite）+ 真实 HTTP 创建凭据 +
+真实边界：真实 dev bundle 装配（PG）+ 真实 HTTP 创建凭据 +
 真实 AES-256-GCM 加密行；“重启”以重建 app + 新 engine 模拟。
-此前 dev 用纯内存 store，重启后 Registry 引用悬空（secret_not_found）。
+密钥一律经 FLUXION_SECRET_MASTER_KEY 显式给（文件钥匙已删）。
 """
 
 from __future__ import annotations
 
 import base64
 import os
-import stat
+import uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from fluxion.plugins.secret.postgres import PostgresEncryptedSecretStore
 from tests.console_helpers import tenant_headers
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 
 def _app(tmp_path, dsn: str):  # type: ignore[no-untyped-def]
@@ -28,44 +29,26 @@ def _app(tmp_path, dsn: str):  # type: ignore[no-untyped-def]
     return create_dev_bundle_app(registry_dsn=dsn, console_dist=console_dist, chat_dist=chat_dist)
 
 
-def _pg_available() -> bool:
-    from urllib.parse import urlparse
-    import socket
-
-    dsn = os.environ.get(
-        "FLUXION_POSTGRES_DSN",
-        "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test",
-    )
-    parsed = urlparse(dsn)
-    try:
-        with socket.create_connection((parsed.hostname, parsed.port or 5432), timeout=1):
-            return True
-    except OSError:
-        return False
+def _env_key(monkeypatch: pytest.MonkeyPatch) -> bytes:
+    raw = os.urandom(32)
+    monkeypatch.setenv("FLUXION_SECRET_MASTER_KEY", base64.b64encode(raw).decode())
+    return raw
 
 
-@pytest.mark.skipif(not _pg_available(), reason="PG 不可达")
 class TestDevBundleOnPostgres:
     @pytest.mark.asyncio
     async def test_pg_dsn_uses_postgres_store_and_key_required(
         self, tmp_path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import base64
-
         from fluxion.registry import PostgreSQLRegistryStore
 
-        dsn = os.environ.get(
-            "FLUXION_POSTGRES_DSN",
-            "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test",
-        )
+        dsn = TEST_POSTGRES_DSN
         # 无显式 key 时 fail-fast（不允许静默随机钥匙写 PG）。
         monkeypatch.delenv("FLUXION_SECRET_MASTER_KEY", raising=False)
         with pytest.raises(RuntimeError, match="FLUXION_SECRET_MASTER_KEY"):
             _app(tmp_path, dsn)
 
-        monkeypatch.setenv(
-            "FLUXION_SECRET_MASTER_KEY", base64.b64encode(os.urandom(32)).decode()
-        )
+        _env_key(monkeypatch)
         app = _app(tmp_path, dsn)
         assert isinstance(app.state.runtime_service._store, PostgreSQLRegistryStore)
         await app.state.secret_store.initialize()
@@ -74,34 +57,31 @@ class TestDevBundleOnPostgres:
         assert resolved.value == "sk-pg-sentinel"
 
 
-class TestDevMasterKey:
-    def test_env_key_honored(self, tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+class TestDevMasterKeyExplicit:
+    def test_env_key_honored(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from fluxion.api.dev_bundle import _dev_master_key
 
-        raw = os.urandom(32)
-        monkeypatch.setenv("FLUXION_SECRET_MASTER_KEY", base64.b64encode(raw).decode())
-        assert _dev_master_key(f"sqlite+aiosqlite:///{tmp_path}/dev.db") == raw
+        raw = _env_key(monkeypatch)
+        assert _dev_master_key() == raw
 
-    def test_key_file_generated_once_with_strict_mode(
-        self, tmp_path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_missing_key_fail_fast(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from fluxion.api.dev_bundle import _dev_master_key
 
         monkeypatch.delenv("FLUXION_SECRET_MASTER_KEY", raising=False)
-        dsn = f"sqlite+aiosqlite:///{tmp_path}/dev.db"
-        first = _dev_master_key(dsn)
-        key_file = tmp_path / ".fluxion-dev-master-key"
-        assert key_file.exists()
-        assert stat.S_IMODE(key_file.stat().st_mode) == 0o600
-        assert _dev_master_key(dsn) == first
+        with pytest.raises(RuntimeError, match="FLUXION_SECRET_MASTER_KEY"):
+            _dev_master_key()
 
-    def test_memory_dsn_ephemeral(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_bad_key_fail_fast(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from fluxion.api.dev_bundle import _dev_master_key
 
-        monkeypatch.delenv("FLUXION_SECRET_MASTER_KEY", raising=False)
-        assert _dev_master_key("sqlite+aiosqlite:///:memory:") != _dev_master_key(
-            "sqlite+aiosqlite:///:memory:"
+        monkeypatch.setenv("FLUXION_SECRET_MASTER_KEY", "!!!not-base64!!!")
+        with pytest.raises(RuntimeError, match="base64"):
+            _dev_master_key()
+        monkeypatch.setenv(
+            "FLUXION_SECRET_MASTER_KEY", base64.b64encode(b"short").decode()
         )
+        with pytest.raises(RuntimeError, match="32 bytes"):
+            _dev_master_key()
 
 
 class TestDevSecretSurvivesRestart:
@@ -109,31 +89,26 @@ class TestDevSecretSurvivesRestart:
     async def test_create_resolve_across_rebuilds(
         self, tmp_path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.delenv("FLUXION_SECRET_MASTER_KEY", raising=False)
+        _env_key(monkeypatch)
         monkeypatch.delenv("FLUXION_MODEL_API_KEY", raising=False)
         monkeypatch.delenv("FLUXION_MCP_TOKEN", raising=False)
-        dsn = f"sqlite+aiosqlite:///{tmp_path}/dev.db"
-        # ASGITransport 不触发 lifespan：先建 registry + secret 两套表
-        #（生产由 scripts/init_db.py 建表，dev lifespan 同义）。
-        from fluxion.registry import SQLiteRegistryStore
-
-        bootstrap = SQLiteRegistryStore(dsn)
-        await bootstrap.initialize()
-        await bootstrap.close()
-
+        dsn = TEST_POSTGRES_DSN
+        name = f"restart-key-{uuid.uuid4().hex[:8]}"
+        # ASGITransport 不触发 lifespan：secret initialize 幂等建表
+        #（生产由 scripts/init_db.py 建表；Registry 表由 session 夹具建）。
         app1 = _app(tmp_path, dsn)
         assert isinstance(app1.state.secret_store, PostgresEncryptedSecretStore)
         await app1.state.secret_store.initialize()
         async with AsyncClient(transport=ASGITransport(app=app1), base_url="http://dev") as client:
             created = await client.post(
                 "/api/v1/credentials",
-                json={"name": "restart-key", "secret": "sk-restart-sentinel", "purpose": "model"},
+                json={"name": name, "secret": "sk-restart-sentinel", "purpose": "model"},
                 headers=tenant_headers(request_id="req-create"),
             )
             assert created.status_code == 200, created.text
             ref = created.json()["data"]["spec"]["secret_ref"]
 
-        # “重启”：全新 app + 全新 engine（同 DSN 文件 + 同 key 文件）。
+        # “重启”：全新 app + 全新 engine（同 DSN + 同显式 key）。
         app2 = _app(tmp_path, dsn)
         await app2.state.secret_store.initialize()
         try:

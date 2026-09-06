@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import EvalCaseDefinition, ExecutionSnapshot, ResourceKind
 from fluxion.runtime import InMemoryTraceStore, TraceRecord
 from fluxion.services.eval_app import (
@@ -10,7 +10,7 @@ from fluxion.services.eval_app import (
     EvaluationApplicationService,
     InMemoryEvalRunStore,
 )
-from tests.runtime_helpers import publish_resource
+from tests.runtime_helpers import publish_resource, TEST_POSTGRES_DSN
 
 
 class FixedEvalExecutor:
@@ -27,7 +27,7 @@ class FixedEvalExecutor:
 
 
 async def test_S_C117_eval_run_pins_eval_set_snapshot_resource_and_trace_versions() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     trace_store = InMemoryTraceStore()
     run_store = InMemoryEvalRunStore()
     await store.initialize()
@@ -68,7 +68,7 @@ async def test_S_C117_eval_run_pins_eval_set_snapshot_resource_and_trace_version
 
 
 async def test_E_C114_missing_exact_version_is_rejected_without_latest_fallback() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     trace_store = InMemoryTraceStore()
     run_store = InMemoryEvalRunStore()
     await store.initialize()
@@ -97,7 +97,7 @@ async def test_E_C114_missing_exact_version_is_rejected_without_latest_fallback(
     assert await run_store.list(tenant_id="tenant-a") == []
 
 
-async def _publish_runtime_profile(store: SQLiteRegistryStore, *, version: str) -> None:
+async def _publish_runtime_profile(store: PostgreSQLRegistryStore, *, version: str) -> None:
     await publish_resource(
         store,
         tenant_id="tenant-a",
@@ -114,7 +114,7 @@ async def _publish_runtime_profile(store: SQLiteRegistryStore, *, version: str) 
 
 
 async def _publish_eval_set(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
     *,
     runtime_version: str,
 ) -> None:

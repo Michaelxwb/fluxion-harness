@@ -1,6 +1,6 @@
 """ADR-SNAPSHOT-001 TASK-004：deprecated 语义形式化 + pinned recall 不受 deprecated 影响（S-01）。
 
-真实边界（契约声明）：真实 store（sqlite+aiosqlite）+ 真实 ResourceResolver
+真实边界（契约声明）：真实 store（PostgreSQL）+ 真实 ResourceResolver
 （`resolver.py:144` PUBLISHED-only check）+ 真实 recall_pinned（TASK-002 落地，
 仅拒 DRAFT/missing/LATEST，DEPRECATED/TOMBSTONE 可 recall）。
 
@@ -20,7 +20,7 @@ from fluxion.registry.store import (
 )
 from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
 from fluxion.runtime.resolver import ResourceResolver, ResourceVersionNotFoundError
-from tests.runtime_helpers import publish_resource, sqlite_store
+from tests.runtime_helpers import publish_resource, pg_store
 
 _TENANT = "tenant-a"
 _KIND = ResourceKind.WORKFLOW
@@ -66,19 +66,19 @@ async def _tombstone(store: RegistryStore, version: str) -> None:
 
 
 async def test_s01_deprecated_excluded_from_latest_but_pinned_recall_unaffected(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     v1 = await publish_resource(
-        sqlite_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v1",
+        pg_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v1",
         spec={"name": "checkout", "steps": 2},
     )
-    await _deprecate(sqlite_store, "v1")
+    await _deprecate(pg_store, "v1")
     await publish_resource(
-        sqlite_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v2",
+        pg_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v2",
         spec={"name": "checkout", "steps": 3},
     )
 
-    resolver = ResourceResolver(sqlite_store)
+    resolver = ResourceResolver(pg_store)
 
     # 新解析只返回 v2（唯一 PUBLISHED；rule 2：deprecated 阻止新解析）
     resolved = await resolver.resolve_resource(_TENANT, _KIND, _RESOURCE)
@@ -86,7 +86,7 @@ async def test_s01_deprecated_excluded_from_latest_but_pinned_recall_unaffected(
     assert resolved.status is ResourceStatus.PUBLISHED
 
     # 在飞 Execution 按 snapshot pinned v1 recall 成功，不受 deprecated 影响
-    pinned_v1: ResourceDefinition = await sqlite_store.recall_pinned(
+    pinned_v1: ResourceDefinition = await pg_store.recall_pinned(
         _KIND, _RESOURCE, tenant_id=_TENANT, version="v1"
     )
     assert pinned_v1.version == "v1"
@@ -102,21 +102,21 @@ async def test_s01_deprecated_excluded_from_latest_but_pinned_recall_unaffected(
 
 
 async def test_s01_resolver_rejects_deprecated_and_tombstone_explicit(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     await publish_resource(
-        sqlite_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v3",
+        pg_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v3",
         spec={"name": "checkout"},
     )
-    await _deprecate(sqlite_store, "v3")
+    await _deprecate(pg_store, "v3")
     await publish_resource(
-        sqlite_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v4",
+        pg_store, tenant_id=_TENANT, kind=_KIND, resource_id=_RESOURCE, version="v4",
         spec={"name": "checkout"},
     )
-    await _deprecate(sqlite_store, "v4")
-    await _tombstone(sqlite_store, "v4")
+    await _deprecate(pg_store, "v4")
+    await _tombstone(pg_store, "v4")
 
-    resolver = ResourceResolver(sqlite_store)
+    resolver = ResourceResolver(pg_store)
 
     # DEPRECATED 显式版本不被 resolver 解析
     with pytest.raises(ResourceVersionNotFoundError):

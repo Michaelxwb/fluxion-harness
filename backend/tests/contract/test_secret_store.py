@@ -1,10 +1,9 @@
-"""TASK-002（Phase 5）PostgresEncryptedSecretStore 双库契约测试。
+"""TASK-002（Phase 5）PostgresEncryptedSecretStore 单库契约测试（ADR-A007）。
 
 S-02 / B-02（design §3.3 secret_credentials 表 + §16.3 key rotation）。
 
 真实边界：
-- S-02：真实 SQLite（文件库，进程级重建 = 新 store 实例）+ 真实 PostgreSQL
-  （FLUXION_REQUIRE_POSTGRES_CONTRACT=1 门控，复用 local-pg-test-env）；
+- S-02：真实 PostgreSQL（本地 fluxion_test）；
 - B-02：真实 env 读取路径（FLUXION_SECRET_MASTER_KEY）；
 - 契约：put/rotate/revoke/resolve/list_metadata 与 LocalEncryptedSecretStore 同形；
   ciphertext 字节存储非明文；key rotation 批量重加密经 key_id/cipher_version 可解。
@@ -16,43 +15,32 @@ import base64
 import os
 import uuid
 from collections.abc import AsyncGenerator
-from pathlib import Path
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from fluxion.plugins.secret.postgres import PostgresEncryptedSecretStore
-from fluxion.registry.schema import audit_logs, secret_credentials
+from fluxion.registry.schema import audit_logs, secret_credentials, secret_master_keys
 
 # ---------------------------------------------------------------------------
-# 双库引擎参数化（SQLite 恒有；PostgreSQL 门控——与 test_registry_store 同模式）
-#
+# PG 单库引擎（ADR-A007）：setup 时 TRUNCATE 密文/审计/主钥表隔离（可重复跑）。
+# ---------------------------------------------------------------------------
 
 
-def _engine_params() -> list[object]:
-    params: list[object] = [pytest.param("sqlite", id="sqlite")]
-    if os.environ.get("FLUXION_REQUIRE_POSTGRES_CONTRACT") == "1":
-        params.append(pytest.param("postgres", id="postgres"))
-    return params
-
-
-@pytest.fixture(params=_engine_params())
-async def engine(
-    request: pytest.FixtureRequest, tmp_path: Path
-) -> AsyncGenerator[tuple[AsyncEngine, str], None]:
-    """返回 (engine, kind)。SQLite 用文件库（跨 store 实例持久）；PG 复用 fluxion_test。"""
-    kind: str = request.param
-    if kind == "sqlite":
-        engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'secrets.db'}")
-    else:
-        dsn = os.environ.get(
-            "FLUXION_POSTGRES_DSN",
-            "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test",
-        )
-        engine = create_async_engine(dsn)
+@pytest.fixture
+async def engine() -> AsyncGenerator[tuple[AsyncEngine, str], None]:
+    """返回 (engine, kind)，kind 恒为 "postgres"（tuple 形状保持，调用方不动）。"""
+    dsn = os.environ.get(
+        "FLUXION_POSTGRES_DSN",
+        "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test",
+    )
+    engine = create_async_engine(dsn)
+    async with engine.begin() as connection:
+        for table in (secret_credentials, audit_logs, secret_master_keys):
+            await connection.execute(text(f"TRUNCATE TABLE {table.name}"))
     try:
-        yield engine, kind
+        yield engine, "postgres"
     finally:
         await engine.dispose()
 

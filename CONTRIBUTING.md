@@ -21,7 +21,7 @@
 
 - 后端：Python 3.12 + uv（`uv sync --extra dev`）。
 - 前端：Node 22 + pnpm 10（`pnpm install --frozen-lockfile`）。
-- 本地跑通：`fluxion serve --dev`（组合 Console API + Channel API + Runtime + SQLite + 前端静态资源）。
+- 本地跑通：`fluxion serve --dev`（组合 Console API + Channel API + Runtime + PostgreSQL + 前端静态资源；前置：本地 PG 常驻 + `FLUXION_SECRET_MASTER_KEY`）。
 
 ## 提交规范
 

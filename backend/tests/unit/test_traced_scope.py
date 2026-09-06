@@ -119,11 +119,11 @@ class TestTracedScope:
         async with traced_scope(
             "db.query",
             kind=SpanKind.CLIENT,
-            attributes={"db.system": "sqlite", "rows": 42},
+            attributes={"db.system": "postgresql", "rows": 42},
         ) as span:
             attrs = dict(span.attributes)
         assert span.kind is SpanKind.CLIENT
-        assert attrs["db.system"] == "sqlite"
+        assert attrs["db.system"] == "postgresql"
         assert attrs["rows"] == 42
 
     async def test_sensitive_attributes_redacted(self, bound_context: None) -> None:

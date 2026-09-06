@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
+
 import pytest
 
 from fluxion.agents.capabilities import (
@@ -15,7 +17,7 @@ from fluxion.agents.capabilities import (
     resolve_binding_reference,
 )
 from fluxion.agents.definitions import AgentCapabilityReference, CapabilityType
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import (
     ResourceDefinition,
     ResourceKind,
@@ -71,7 +73,7 @@ def test_no_standalone_tools_field_regression() -> None:
 
 async def test_be_s_05_agent_and_workflow_step_share_the_same_store_target() -> None:
     """BE-S-05：绑定与 Step 各自表达，最终落回同一 Registry 版本对象。"""
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         # P1C-02 统一后：TOOL capability 落 ResourceKind.TOOL 资源。

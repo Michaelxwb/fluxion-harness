@@ -17,18 +17,18 @@ from fluxion.agents.definitions import (
     AgentModelPolicy,
     CapabilityType,
 )
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ExactResourceVersion, ResourceKind
 from fluxion.services.context_resolver import (
     ContextResolutionError,
     ContextResolver,
     ResolverSelector,
 )
-from tests.runtime_helpers import publish_resource, resource_definition, seed_model_definition
+from tests.runtime_helpers import publish_resource, resource_definition, seed_model_definition, TEST_POSTGRES_DSN
 
 
 async def _seed_agent_with_skill(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
     *,
     skill_id: str,
     required_capabilities: list[str],
@@ -78,7 +78,7 @@ async def _seed_agent_with_skill(
 
 @pytest.mark.asyncio
 async def test_S04_skill_required_capabilities_covered_resolves_without_expansion() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await _seed_agent_with_skill(
@@ -104,7 +104,7 @@ async def test_S04_skill_required_capabilities_covered_resolves_without_expansio
 
 @pytest.mark.asyncio
 async def test_E02_skill_required_capabilities_beyond_agent_fails_closed() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await _seed_agent_with_skill(

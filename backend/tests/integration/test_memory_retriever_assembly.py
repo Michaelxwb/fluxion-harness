@@ -1,6 +1,6 @@
 """TASK-007: PersonalMemoryRetriever 真实装配验收（S-07/E-04）。
 
-真实边界：真实 RegistryStore（SQLite/PG）+ 真实 personal_memory 表 +
+真实边界：真实 RegistryStore（PG）+ 真实 personal_memory 表 +
 真实 PgVectorSemanticStore + 真实 PersonalMemoryRetriever +
 真实 ContextResolver → ExecutionSnapshot manifest。不注入 Noop，
 不用错误 retrieve 方法。
@@ -8,18 +8,16 @@
 
 from __future__ import annotations
 
-import socket
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
-from urllib.parse import urlparse
 
 import pytest
 from sqlalchemy import insert
 
 from fluxion.memory.domain.personal_memory import PersonalMemoryRetriever
 from fluxion.plugins.providers.pgvector_semantic import PgVectorSemanticStore
-from fluxion.registry import PostgreSQLRegistryStore, SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import personal_memory
 from fluxion.services.execution_session import ExecutionSession
 from fluxion.services.runtime_app import (
@@ -28,18 +26,7 @@ from fluxion.services.runtime_app import (
     RunRuntimeRequest,
     RuntimeApplicationService,
 )
-from tests.runtime_helpers import seed_agent_definition
-
-_PG_DSN = "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test"
-
-
-def _pg_available() -> bool:
-    parsed = urlparse(_PG_DSN)
-    try:
-        with socket.create_connection((parsed.hostname, parsed.port or 5432), timeout=1):
-            return True
-    except OSError:
-        return False
+from tests.runtime_helpers import seed_agent_definition, TEST_POSTGRES_DSN
 
 
 async def _ensure_personal_memory_table(store: object) -> None:
@@ -115,14 +102,11 @@ async def _resolve_manifest(service: RuntimeApplicationService, tenant_id: str, 
     return prepared.context.snapshot.memory_manifest
 
 
-@pytest.fixture(params=["sqlite", pytest.param("postgres", marks=pytest.mark.skipif(not _pg_available(), reason="PG 不可达"))])
-async def assembly(request: pytest.FixtureRequest) -> AsyncGenerator[tuple[RuntimeApplicationService, object, str, str]]:
+@pytest.fixture
+async def assembly() -> AsyncGenerator[tuple[RuntimeApplicationService, object, str, str]]:
     tenant_id = f"tenant-s07-{uuid.uuid4().hex[:8]}"
     user_id = f"user-s07-{uuid.uuid4().hex[:8]}"
-    if request.param == "postgres":
-        store: object = PostgreSQLRegistryStore(_PG_DSN)
-    else:
-        store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store: object = PostgreSQLRegistryStore(TEST_POSTGRES_DSN)
     await store.initialize()  # type: ignore[union-attr]
     await _ensure_personal_memory_table(store)
     service = _service_with_real_retriever(store)
@@ -167,16 +151,23 @@ class TestS07MemoryManifestAssembly:
         assert first.content_hash == second.content_hash
         assert [ref.entry_id for ref in first.entry_refs] == [ref.entry_id for ref in second.entry_refs]
 
-    async def test_dev_bundle_factory_wires_retriever(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    async def test_dev_bundle_factory_wires_retriever(self, tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:  # type: ignore[no-untyped-def]
         """S-07：dev 装配入口持有真实 Retriever（非本地直连的旧生命周期）。"""
+        import base64
+        import os
+
         from fluxion.api.dev_bundle import create_dev_bundle_app
 
+        # ADR-A007：dev bundle 要求显式 master key。
+        monkeypatch.setenv(
+            "FLUXION_SECRET_MASTER_KEY", base64.b64encode(os.urandom(32)).decode()
+        )
         console_dist = tmp_path / "console"
         chat_dist = tmp_path / "chat"
         console_dist.mkdir()
         chat_dist.mkdir()
         app = create_dev_bundle_app(
-            registry_dsn=f"sqlite+aiosqlite:///{tmp_path}/dev.db",
+            registry_dsn=TEST_POSTGRES_DSN,
             console_dist=console_dist,
             chat_dist=chat_dist,
         )
@@ -192,11 +183,9 @@ class TestS07MemoryManifestAssembly:
 
         from fluxion.api.production_bundle import create_runtime_app_from_env
 
-        monkeypatch.setenv("FLUXION_DATABASE_URL", _PG_DSN)
+        monkeypatch.setenv("FLUXION_DATABASE_URL", TEST_POSTGRES_DSN)
         monkeypatch.setenv("FLUXION_SECRET_MASTER_KEY", base64.b64encode(os.urandom(32)).decode())
         pytest.importorskip("asyncpg")
-        if not _pg_available():
-            pytest.skip("PG 不可达")
         app = create_runtime_app_from_env()
         assert app is not None
 

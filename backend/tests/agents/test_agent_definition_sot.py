@@ -7,11 +7,13 @@ S-01（integration，RULE-fluxion-resource-001 / RULE-C-01）：
 - spec 序列化（model_dump）不再产出 legacy 键——修复前 envelope=PUBLISHED 而
   spec.lifecycle=DRAFT 的双事实源不一致被旧实现允许（P1C-01）。
 
-真实边界：SQLiteRegistryStore（PostgreSQL 由 FLUXION_REQUIRE_POSTGRES_CONTRACT=1
+真实边界：PostgreSQLRegistryStore（PostgreSQL 由 FLUXION_REQUIRE_POSTGRES_CONTRACT=1
 门控，模式同 tests/agents/test_agent_definition_model.py）。
 """
 
 from __future__ import annotations
+
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -19,13 +21,13 @@ from typing import Any
 import pytest
 
 from fluxion.agents import AgentDefinition, AgentDefinitionRepository
-from fluxion.registry import ChannelRegistryStore, SQLiteRegistryStore
+from fluxion.registry import ChannelRegistryStore, PostgreSQLRegistryStore
 from fluxion.resources import ResourceStatus
 
 
 @pytest.fixture
 async def store() -> AsyncGenerator[ChannelRegistryStore, None]:
-    instance = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    instance = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await instance.initialize()
     try:
         yield instance

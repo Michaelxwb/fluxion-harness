@@ -40,4 +40,4 @@ Schema valid 但 semantic invalid 拒绝；高风险写操作命中审批；LLM 
 
 ## G9 Store Contract
 
-SQLite/PostgreSQL 使用同一 fixture 跑 Registry/User/Session/Binding contract suite，行为一致。
+PostgreSQL 单库跑 Registry/User/Session/Binding contract suite（ADR-A007）。

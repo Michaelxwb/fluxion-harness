@@ -47,8 +47,8 @@ validators:
       timeout: 30000
       on_fail: "必须使用 Semi Design；禁止第二套通用 UI 库，并确保 React19 adapter 在 Semi 组件之前加载。"
 
-    - name: "Registry contract environment-aware"
+    - name: "Registry contract PG-only"
       trigger: "backend/src/fluxion/{registry,resources,repositories}/**/*.py"
       command: ".venv/bin/python scripts/run_registry_contract_tests.py"
       timeout: 180000
-      on_fail: "本地无 Docker 时只跑 SQLite；CI/Release Gate 必须设置 FLUXION_REQUIRE_POSTGRES_CONTRACT=1，确保 PostgreSQL Contract 不被跳过。"
+      on_fail: "本地 PG 未启动则直接失败（ADR-A007：不自拉容器、不回落）；CI 由 postgres 服务容器提供 PG。"

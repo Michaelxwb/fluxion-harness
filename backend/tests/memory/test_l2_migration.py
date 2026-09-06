@@ -1,10 +1,12 @@
 """TASK-009（phase2）L2 legacy 迁移验收测试（M202 dry-run 自动化）。
 
-真实边界：真实 SQLite session_memory + personal_memory 表；不 mock。
+真实边界：真实 PG session_memory + personal_memory 表；不 mock。
 幂等：二次执行零变更。
 """
 
 from __future__ import annotations
+
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from datetime import UTC, datetime
 
@@ -13,13 +15,13 @@ from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from fluxion.memory.application.l2_migration import audit_l2, migrate_l2
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import personal_memory, session_memory
 
 
 @pytest.fixture
 async def engine() -> AsyncGenerator[AsyncEngine, None]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         yield store.engine

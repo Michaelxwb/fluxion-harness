@@ -12,18 +12,19 @@ Registry 读取；context 载体用 SimpleNamespace（仅承载 snapshot/tool_po
 """
 
 from __future__ import annotations
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from types import SimpleNamespace
 
 import pytest
 
 from fluxion.agents.definitions import AgentCapabilityReference, AgentModelPolicy, CapabilityType
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ExactResourceVersion
 from fluxion.users.service import UserDomainService
 
 
-async def _seed(store: SQLiteRegistryStore, *, tools: list[str]) -> None:
+async def _seed(store: PostgreSQLRegistryStore, *, tools: list[str]) -> None:
     from fluxion.agents.definitions import AgentDefinition
     from fluxion.resources import ResourceKind
     from tests.runtime_helpers import publish_resource, seed_model_definition
@@ -80,7 +81,7 @@ def _context(user_id: str):
 @pytest.mark.asyncio
 async def test_e03_grant_supports_tool_capability() -> None:
     """E-03 RED：当前 grant 拒绝 tool-capability（P0-1 授予端缺陷）。"""
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     svc = UserDomainService(store)
     await svc.ensure_user(tenant_id="tenant-a", platform_user_id="user-a", display_name="A")
@@ -102,7 +103,7 @@ async def test_s11_g1_truth_table_per_user_tool_grants() -> None:
     """G1 真值表：A/B 同 Agent 不同 Tool 授权 → effective_permissions 不同；负向全拒。"""
     from fluxion.services.context_resolver import ContextResolver, ResolverSelector
 
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await _seed(store, tools=["calc", "weather"])

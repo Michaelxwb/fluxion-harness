@@ -14,7 +14,7 @@ from httpx import ASGITransport, AsyncClient
 
 from fluxion.api.channel import create_app as create_channel_app
 from fluxion.errors.console import CHANNEL_AGENT_NOT_FOUND, ConsoleError
-from fluxion.registry import ChatAccessRecord, SQLiteRegistryStore
+from fluxion.registry import ChatAccessRecord, PostgreSQLRegistryStore
 from fluxion.services.channel_app import ChannelApplicationService
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.console_contracts import ConsoleActor
@@ -26,10 +26,10 @@ def _actor() -> ConsoleActor:
     return ConsoleActor(tenant_id="tenant-a", actor_id="admin-a",
                         request_id="req-direct", trace_id="trace-direct")
 
-from tests.runtime_helpers import publish_resource, seed_agent_definition
+from tests.runtime_helpers import publish_resource, seed_agent_definition, TEST_POSTGRES_DSN
 
 
-async def _stack(store: SQLiteRegistryStore):
+async def _stack(store: PostgreSQLRegistryStore):
     from fluxion.resources import ResourceKind
 
     await publish_resource(
@@ -51,7 +51,7 @@ async def _stack(store: SQLiteRegistryStore):
 
 @pytest.mark.asyncio
 async def test_be_s_09_chat_message_routes_via_agent_id() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
 
     runtime, _channel, console, client = await _stack(store)
@@ -96,7 +96,7 @@ async def test_be_s_09_chat_message_routes_via_agent_id() -> None:
 
 @pytest.mark.asyncio
 async def test_be_e_05_issue_with_unknown_agent_maps_to_agent_not_found() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     runtime = RuntimeApplicationService.create_dev_bundle(store)
     console = ConsoleApplicationService(store)
@@ -127,7 +127,7 @@ async def test_e02_issue_with_draft_agent_rejected_and_published_succeeds() -> N
     「已发布」放行两条分支（TASK-006 增量，属于已有实现的行为补测——见
     Acceptance Evidence 的无 RED 说明）。
     """
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     runtime = RuntimeApplicationService.create_dev_bundle(store)
     console = ConsoleApplicationService(store)

@@ -1,16 +1,10 @@
-"""TASK-006（Phase 6）生产 durable store 双库契约测试（FEAT-P6-06 装配前提）。
+"""TASK-006（Phase 6）生产 durable store 单库契约测试（ADR-A007）。
 
 S-10 支撑：PostgresTraceStore / PostgresApprovalStore / PostgresEvalRunStore
 是 production profile fail-fast 守卫（E-07/P0-5）要求的「显式 production
-adapter」——本文件验证三者与 InMemory 实现同形（规则 7：SQLite/PG 双库共享
-Contract Test）。
+adapter」——本文件验证三者契约（本地 fluxion_test）。
 
-真实边界：
-- SQLite 恒有（文件库，进程级重建 = 新 store 实例）；
-- PostgreSQL 门控（FLUXION_REQUIRE_POSTGRES_CONTRACT=1，复用 local-pg-test-env
-  fluxion_test 库）；
-- 契约：TraceStore（append/get/query_by_execution/list_recent/get_by_execution）、
-  ApprovalStore（create/get/decide/consume + CAS）、EvalRunStore（put/get/list）。
+真实边界：真实 PG 三表；不 mock。
 """
 
 from __future__ import annotations
@@ -20,7 +14,6 @@ import uuid
 from collections.abc import AsyncGenerator
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -35,32 +28,27 @@ from fluxion.services.approval_app import ApprovalRecord, ApprovalStatus
 from fluxion.services.eval_app import EvalRunRecord
 
 # ---------------------------------------------------------------------------
-# 双库引擎参数化（与 test_secret_store 同模式）
-#
+# PG 单库引擎（ADR-A007）：直连本地 fluxion_test，setup 时 TRUNCATE 三表隔离
+# （serial 执行，无 FK，可重复跑）。
+# ---------------------------------------------------------------------------
 
 
-def _engine_params() -> list[object]:
-    params: list[object] = [pytest.param("sqlite", id="sqlite")]
-    if os.environ.get("FLUXION_REQUIRE_POSTGRES_CONTRACT") == "1":
-        params.append(pytest.param("postgres", id="postgres"))
-    return params
+@pytest.fixture
+async def engine() -> AsyncGenerator[tuple[AsyncEngine, str], None]:
+    from sqlalchemy import text
 
+    from fluxion.registry.schema import approval_records, eval_runs, trace_records
 
-@pytest.fixture(params=_engine_params())
-async def engine(
-    request: pytest.FixtureRequest, tmp_path: Path
-) -> AsyncGenerator[tuple[AsyncEngine, str], None]:
-    kind: str = request.param
-    if kind == "sqlite":
-        engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'durable.db'}")
-    else:
-        dsn = os.environ.get(
-            "FLUXION_POSTGRES_DSN",
-            "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test",
-        )
-        engine = create_async_engine(dsn)
+    dsn = os.environ.get(
+        "FLUXION_POSTGRES_DSN",
+        "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test",
+    )
+    engine = create_async_engine(dsn)
+    async with engine.begin() as connection:
+        for table in (trace_records, approval_records, eval_runs):
+            await connection.execute(text(f"TRUNCATE TABLE {table.name}"))
     try:
-        yield engine, kind
+        yield engine, "postgres"
     finally:
         await engine.dispose()
 

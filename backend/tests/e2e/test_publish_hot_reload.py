@@ -3,9 +3,10 @@ from __future__ import annotations
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from tests.console_helpers import create_resource, publish_resource, runtime_profile_spec
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.api.console import create_app
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import outbox_events
 from fluxion.resources import ResourceKind
 from fluxion.services.console_app import ConsoleApplicationService
@@ -19,7 +20,7 @@ from fluxion.services.runtime_app import (
 
 
 async def test_S_C102_publish_event_invalidates_runtime_for_new_execution() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     runtime = RuntimeApplicationService.create_dev_bundle(store, cache_ttl_seconds=600)
     console = ConsoleApplicationService(store)
     await runtime.initialize()

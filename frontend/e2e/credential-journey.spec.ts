@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
  * golden-path-closure TASK-009 / F-S-02：凭据完整 Journey（Golden Path 第一环）。
  *
  * 真实边界：Browser → CreateCredentialModal → 真实 HTTP API（/api/v1/credentials）
- * → SQLite RegistryStore + LocalEncryptedSecretStore（serve --dev 装配）。
+ * → PostgreSQL RegistryStore + PostgresEncryptedSecretStore（serve --dev 装配，ADR-A007）。
  * 禁止 mock：不经 page.request seed 产品资源，创建动作走 UI。
  */
 test("F-S-02 凭据创建 → 列表 → 详情 SideSheet 只读（明文不回显）", async ({ page }) => {

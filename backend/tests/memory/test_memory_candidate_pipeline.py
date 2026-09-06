@@ -4,11 +4,13 @@ S-04（E2E，RULE-P2-05 / NFR-PRIV-01）：关闭自动学习的用户 → candi
 被拒，`personal_memory` 无新行；开启时正常提交。
 E-03（integration）：Policy/Consent 拒绝 → commit 拒绝并记录 reason。
 
-真实边界：真实 SQLite personal_memory 表 + user_preferences 表 + MemoryLearner
+真实边界：真实 PG personal_memory 表 + user_preferences 表 + MemoryLearner
 + MemoryLearnerService；不 mock。
 """
 
 from __future__ import annotations
+
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from collections.abc import AsyncGenerator
 
@@ -22,12 +24,12 @@ from fluxion.memory.domain.personal_memory import (
     MemoryType,
     PolicyDecision,
 )
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 
 
 @pytest.fixture
-async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+async def store() -> AsyncGenerator[PostgreSQLRegistryStore, None]:
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         yield store
@@ -36,12 +38,12 @@ async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
 
 
 @pytest.fixture
-async def engine(store: SQLiteRegistryStore) -> AsyncGenerator[AsyncEngine, None]:
+async def engine(store: PostgreSQLRegistryStore) -> AsyncGenerator[AsyncEngine, None]:
     yield store.engine
 
 
 @pytest.fixture
-async def service(store: SQLiteRegistryStore) -> MemoryLearnerService:
+async def service(store: PostgreSQLRegistryStore) -> MemoryLearnerService:
     svc = MemoryLearnerService(store)
     await svc.ensure_user(tenant_id="tenant-a", platform_user_id="user-a")
     return svc

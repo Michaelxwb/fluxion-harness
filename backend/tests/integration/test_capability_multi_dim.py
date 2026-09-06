@@ -83,7 +83,7 @@ async def test_B_E01_user_grant_without_agent_allowlist_fails_closed() -> None:
 
 @pytest.mark.asyncio
 async def test_B_S02_real_chain_grant_store_to_runtime(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """B-S-02（TASK-003 返工）：真实边界 Grant Store → ContextResolver →
     ToolRuntime 三重交集。
@@ -98,16 +98,16 @@ async def test_B_S02_real_chain_grant_store_to_runtime(
     ]
     for tenant_id, allowed in (("tenant-a", ["time.now", "calc.eval"]), ("tenant-b", None)):
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id=tenant_id,
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="assistant",
             version="1",
             spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
         )
-        await seed_model_definition(sqlite_store, tenant_id=tenant_id, provider_id="dev.echo")
+        await seed_model_definition(pg_store, tenant_id=tenant_id, provider_id="dev.echo")
         await publish_resource(
-            sqlite_store,
+            pg_store,
             tenant_id=tenant_id,
             kind=ResourceKind.AGENT_DEFINITION,
             resource_id="assistant",
@@ -123,7 +123,7 @@ async def test_B_S02_real_chain_grant_store_to_runtime(
             },
         )
         for tool in ("time.now", "calc.eval"):
-            await sqlite_store.add_capability_grant(
+            await pg_store.add_capability_grant(
                 tenant_id=tenant_id,
                 platform_user_id="user-a",
                 capability_ref=tool,
@@ -133,10 +133,10 @@ async def test_B_S02_real_chain_grant_store_to_runtime(
             )
         if allowed is not None:
             await seed_tenant_policy(
-                sqlite_store, tenant_id=tenant_id, allowed_tools=allowed
+                pg_store, tenant_id=tenant_id, allowed_tools=allowed
             )
 
-    resolver = ContextResolver(sqlite_store)
+    resolver = ContextResolver(pg_store)
     runtime = _tool_runtime()
 
     # tenant-a：三维齐备 → 快照冻结三元组 + policy 模式，工具可调用
@@ -176,7 +176,7 @@ async def test_B_S02_real_chain_grant_store_to_runtime(
 
 @pytest.mark.asyncio
 async def test_B_S02_deny_only_policy_allows_unless_denied(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     """deny-only 模式（allowed 为空）：除 denied 外全部放行——tenant 维度不设
     allow-list；denied 始终优先（含被 deny 的工具不可调用）。"""
@@ -185,16 +185,16 @@ async def test_B_S02_deny_only_policy_allows_unless_denied(
         for tool in ("time.now", "calc.eval")
     ]
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
         spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
-    await seed_model_definition(sqlite_store, tenant_id="tenant-a", provider_id="dev.echo")
+    await seed_model_definition(pg_store, tenant_id="tenant-a", provider_id="dev.echo")
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.AGENT_DEFINITION,
         resource_id="assistant",
@@ -208,7 +208,7 @@ async def test_B_S02_deny_only_policy_allows_unless_denied(
         },
     )
     for tool in ("time.now", "calc.eval"):
-        await sqlite_store.add_capability_grant(
+        await pg_store.add_capability_grant(
             tenant_id="tenant-a",
             platform_user_id="user-a",
             capability_ref=tool,
@@ -217,10 +217,10 @@ async def test_B_S02_deny_only_policy_allows_unless_denied(
             capability_kind="tool",
         )
     await seed_tenant_policy(
-        sqlite_store, tenant_id="tenant-a", denied_tools=["calc.eval"]
+        pg_store, tenant_id="tenant-a", denied_tools=["calc.eval"]
     )
 
-    result = await ContextResolver(sqlite_store).resolve(
+    result = await ContextResolver(pg_store).resolve(
         ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a"),
         session_id="s-a",
     )

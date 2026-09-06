@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncGenerator
 
 import pytest
 
-from fluxion.registry import RegistryStore, SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore, RegistryStore
 from fluxion.resources import (
     ExactResourceVersion,
     ResourceBinding,
@@ -19,9 +20,20 @@ from fluxion.runtime.memory import InMemorySessionMemoryStore
 from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
 
 
+TEST_POSTGRES_DSN = os.environ.get(
+    "FLUXION_POSTGRES_DSN",
+    "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test",
+)
+"""测试 PG DSN（ADR-A007）：`FLUXION_POSTGRES_DSN` 可覆盖，默认本地 mmuser 库。"""
+
+
 @pytest.fixture
-async def sqlite_store() -> AsyncGenerator[RegistryStore, None]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+async def pg_store() -> AsyncGenerator[RegistryStore, None]:
+    """PG 测试夹具（ADR-A007）：连本地 `fluxion_test`，每次重建隔离。
+
+    前置：本地 PG 常驻（`FLUXION_POSTGRES_DSN` 可覆盖，默认 mmuser 本地库）。
+    """
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         yield store
@@ -334,7 +346,7 @@ def minimal_tool_context(effective_permissions: dict[str, object]) -> RuntimeCon
 
 
 async def runtime_context() -> tuple[RuntimeContext, AgentRuntime]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     await seed_runtime_profile(store)
     runtime = AgentRuntime(

@@ -12,15 +12,13 @@ import typer
 
 from fluxion.api.dev_bundle import create_dev_bundle_app
 from fluxion.api.runtime import create_app
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.runtime_app import (
-    RunRuntimeRequest,
     RuntimeApplicationError,
     RuntimeApplicationService,
-    default_runtime_profile_request,
 )
 
-DEFAULT_REGISTRY_DSN = "sqlite+aiosqlite:///./fluxion-dev.db"
+DEFAULT_REGISTRY_DSN = "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion"
 
 
 class UvicornModule(Protocol):
@@ -30,31 +28,6 @@ class UvicornModule(Protocol):
 app = typer.Typer(no_args_is_help=True)
 plugins_app = typer.Typer(no_args_is_help=True)
 app.add_typer(plugins_app, name="plugins")
-
-
-@app.command("run")
-def run_command(
-    agent: Annotated[str, typer.Option("--agent")] = "assistant",
-    input_message: Annotated[str, typer.Option("--input")] = "",
-    tenant: Annotated[str, typer.Option("--tenant")] = "dev-tenant",
-    user: Annotated[str, typer.Option("--user")] = "dev-user",
-    session: Annotated[str, typer.Option("--session")] = "dev-session",
-    registry_dsn: Annotated[str, typer.Option("--registry-dsn")] = "",
-    bootstrap: Annotated[bool, typer.Option("--bootstrap")] = False,
-    json_output: Annotated[bool, typer.Option("--json")] = False,
-) -> None:
-    payload = asyncio.run(
-        _run(
-            agent=agent,
-            input_message=input_message,
-            tenant=tenant,
-            user=user,
-            session=session,
-            registry_dsn=_registry_dsn(registry_dsn),
-            bootstrap=bootstrap,
-        )
-    )
-    _emit(payload, json_output)
 
 
 @app.command("serve")
@@ -132,42 +105,6 @@ def plugins_list_command(
     _emit(_envelope("ok", "ok", data, "plugins-list"), json_output)
 
 
-async def _run(
-    *,
-    agent: str,
-    input_message: str,
-    tenant: str,
-    user: str,
-    session: str,
-    registry_dsn: str,
-    bootstrap: bool,
-) -> dict[str, object]:
-    service = _create_service(registry_dsn)
-    await service.initialize()
-    try:
-        if bootstrap:
-            await service.ensure_runtime_profile(
-                default_runtime_profile_request(
-                    tenant_id=tenant,
-                    runtime_profile_id=agent,
-                )
-            )
-        result = await service.run(
-            service_run_request(
-                tenant=tenant,
-                user=user,
-                agent=agent,
-                session=session,
-                input_message=input_message,
-            )
-        )
-        return _envelope("ok", "ok", result.to_payload(), result.request_id)
-    except RuntimeApplicationError as exc:
-        return _envelope(exc.code, str(exc), None, "runtime-error")
-    finally:
-        await service.close()
-
-
 async def _validate(path: Path, registry_dsn: str) -> dict[str, object]:
     service = _create_service(registry_dsn)
     await service.initialize()
@@ -180,28 +117,8 @@ async def _validate(path: Path, registry_dsn: str) -> dict[str, object]:
         await service.close()
 
 
-def service_run_request(
-    *,
-    tenant: str,
-    user: str,
-    agent: str,
-    session: str,
-    input_message: str,
-) -> RunRuntimeRequest:
-    # ADR-A010：`--agent` 是执行主坐标（AgentDefinition id）；profile 经
-    # 租户默认链解析（runtime_profile_id 仅作 mechanics 透传坐标）。
-    return RunRuntimeRequest(
-        tenant_id=tenant,
-        user_id=user,
-        runtime_profile_id=agent,
-        session_id=session,
-        input_message=input_message,
-        agent_definition_id=agent,
-    )
-
-
 def _create_service(registry_dsn: str) -> RuntimeApplicationService:
-    return RuntimeApplicationService.create_dev_bundle(SQLiteRegistryStore(registry_dsn))
+    return RuntimeApplicationService.create_dev_bundle(PostgreSQLRegistryStore(registry_dsn))
 
 
 def _ensure_frontend_builds() -> tuple[Path, Path]:

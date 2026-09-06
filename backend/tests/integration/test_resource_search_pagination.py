@@ -1,49 +1,26 @@
 """TASK-003: 服务端分页与搜索验收（S-03/E-02）。
 
 真实边界：真实 Console HTTP API（ASGITransport）→ 真实
-ConsoleApplicationService → 真实 SQLiteRegistryStore /
-PostgreSQLRegistryStore（共享 resource_sqlalchemy 实现，双库同语义）。
-PG 不可达时 PG 参数 skip，不伪造 GREEN。
-
-浏览器渲染腿（真实浏览器断言）本环境不可用，已在 Evidence 如实记录；
-此处覆盖 API + Store + 双库 Contract 层。
+ConsoleApplicationService → 真实 PostgreSQLRegistryStore（ADR-A007 单库）。
 """
 
 from __future__ import annotations
 
-import socket
 import uuid
 from collections.abc import AsyncGenerator
-from urllib.parse import urlparse
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from fluxion.api.console import create_app
-from fluxion.registry import PostgreSQLRegistryStore, SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceKind
 from fluxion.services.console_app import ConsoleApplicationService
-from tests.runtime_helpers import publish_resource, resource_definition
-
-_PG_DSN = (
-    "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test"
-)
-
-
-def _pg_available() -> bool:
-    parsed = urlparse(_PG_DSN)
-    try:
-        with socket.create_connection((parsed.hostname, parsed.port or 5432), timeout=1):
-            return True
-    except OSError:
-        return False
+from tests.runtime_helpers import publish_resource, resource_definition, TEST_POSTGRES_DSN
 
 
 async def _make_stack(dsn: str) -> tuple[AsyncClient, object]:
-    if dsn.startswith("postgresql"):
-        store: object = PostgreSQLRegistryStore(dsn)
-    else:
-        store = SQLiteRegistryStore(dsn)
+    store: object = PostgreSQLRegistryStore(dsn)
     await store.initialize()  # type: ignore[union-attr]
     service = ConsoleApplicationService(store)  # type: ignore[arg-type]
     await service.initialize()
@@ -95,13 +72,10 @@ def _headers(tenant_id: str) -> dict[str, str]:
     }
 
 
-@pytest.fixture(params=["sqlite", pytest.param("postgres", marks=pytest.mark.skipif(not _pg_available(), reason="PG 不可达"))])
-async def stack(request: pytest.FixtureRequest) -> AsyncGenerator[tuple[AsyncClient, str]]:
+@pytest.fixture
+async def stack() -> AsyncGenerator[tuple[AsyncClient, str]]:
     tenant_id = f"tenant-s03-{uuid.uuid4().hex[:8]}"
-    if request.param == "postgres":
-        client, service = await _make_stack(_PG_DSN)
-    else:
-        client, service = await _make_stack("sqlite+aiosqlite:///:memory:")
+    client, service = await _make_stack(TEST_POSTGRES_DSN)
     await _seed_150(service._store, tenant_id)
     try:
         yield client, tenant_id
@@ -222,7 +196,7 @@ class TestE02PaginationBoundaries:
 
     async def test_empty_store_total_zero(self) -> None:
         """E-02：空数据 total=0 且 items 为空。"""
-        client, service = await _make_stack("sqlite+aiosqlite:///:memory:")
+        client, service = await _make_stack(TEST_POSTGRES_DSN)
         try:
             response = await client.get(
                 "/api/v1/resources?resource_type=tool",
@@ -281,25 +255,18 @@ def _trace_record(
     )
 
 
-@pytest.fixture(params=["sqlite", pytest.param("postgres", marks=pytest.mark.skipif(not _pg_available(), reason="PG 不可达"))])
-async def runs_stack(request: pytest.FixtureRequest) -> AsyncGenerator[tuple[AsyncClient, str]]:
-    """真实 Console API + 真实 TraceStore（InMemory over SQLite registry /
-    PostgresTraceStore over PG）的 runs 列表栈。"""
-    from fluxion.runtime.tracing import InMemoryTraceStore
+@pytest.fixture
+async def runs_stack() -> AsyncGenerator[tuple[AsyncClient, str]]:
+    """真实 Console API + 真实 PostgresTraceStore 的 runs 列表栈。"""
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from fluxion.repositories.trace_store import PostgresTraceStore
 
     tenant_id = f"tenant-runs-{uuid.uuid4().hex[:8]}"
-    if request.param == "postgres":
-        from sqlalchemy.ext.asyncio import create_async_engine
-
-        from fluxion.repositories.trace_store import PostgresTraceStore
-
-        engine = create_async_engine(_PG_DSN)
-        trace_store: object = PostgresTraceStore(engine=engine)
-        await trace_store.initialize()  # type: ignore[union-attr]
-        registry: object = PostgreSQLRegistryStore(_PG_DSN)
-    else:
-        trace_store = InMemoryTraceStore()
-        registry = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    engine = create_async_engine(TEST_POSTGRES_DSN)
+    trace_store: object = PostgresTraceStore(engine=engine)
+    await trace_store.initialize()  # type: ignore[union-attr]
+    registry: object = PostgreSQLRegistryStore(TEST_POSTGRES_DSN)
     await registry.initialize()  # type: ignore[union-attr]
     for index in range(1, 26):
         execution_id = f"exec-{index:03d}-{tenant_id[-4:]}"
@@ -322,8 +289,7 @@ async def runs_stack(request: pytest.FixtureRequest) -> AsyncGenerator[tuple[Asy
     finally:
         await client.aclose()
         await service.close()
-        if request.param == "postgres":
-            await engine.dispose()  # type: ignore[possibly-undefined]
+        await engine.dispose()
 
 
 class TestRunsServerFilter:

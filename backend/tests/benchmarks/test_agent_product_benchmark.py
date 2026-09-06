@@ -8,7 +8,7 @@ from statistics import quantiles
 from time import perf_counter_ns
 from typing import Protocol
 
-from fluxion.registry import ChatAccessRecord, SQLiteRegistryStore
+from fluxion.registry import ChatAccessRecord, PostgreSQLRegistryStore
 from fluxion.runtime.mcp import MCPHTTPClientPool, MCPHTTPPoolKey
 from fluxion.services.channel_app import ChannelApplicationService
 from fluxion.services.runtime_app import (
@@ -18,7 +18,7 @@ from fluxion.services.runtime_app import (
     RuntimeApplicationService,
 )
 from tests.channel_helpers import RecordingRuntime
-from tests.runtime_helpers import seed_agent_definition
+from tests.runtime_helpers import seed_agent_definition, TEST_POSTGRES_DSN
 
 
 class BenchmarkFixture(Protocol):
@@ -73,7 +73,7 @@ def test_B_P13_01_chat_pre_model_p95_under_200ms(
 ) -> None:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = ChannelApplicationService(store, RecordingRuntime())
     token = "benchmark-access-token"
     loop.run_until_complete(store.initialize())
@@ -139,7 +139,7 @@ def test_B_P13_01_mcp_pool_hit_p95_under_10ms(
 
 
 async def _runtime_service() -> RuntimeApplicationService:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = RuntimeApplicationService.create_dev_bundle(store, cache_ttl_seconds=600)
     await service.initialize()
     await service.create_runtime_profile(

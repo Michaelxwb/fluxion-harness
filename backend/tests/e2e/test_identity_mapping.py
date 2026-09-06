@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import pytest
 from tests.channel_helpers import RecordingRuntime
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.plugins.channel_adapters import WebChannelAdapter
 from fluxion.protocols.channel import ExternalChannelMessage
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.channel_app import ChannelApplicationService
 
 
 @pytest.mark.asyncio
 async def test_S_C105_channel_identity_maps_to_platform_user_store() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     runtime = RecordingRuntime()
     service = ChannelApplicationService(store, runtime, code_factory=lambda: "BIND-S-C105")
     await store.initialize()

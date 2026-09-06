@@ -4,7 +4,7 @@
 #   1. TypeScript 类型检查（shared / console / chat）
 #   2. ESLint 静态检查 + Vitest 单元测试
 #   3. Console / Chat 生产构建 + InMemory-import 守卫
-#   4. Playwright 浏览器 E2E（Chromium → 真实 HTTP → FastAPI → SQLite）
+#   4. Playwright 浏览器 E2E（Chromium → 真实 HTTP → FastAPI → PostgreSQL）
 #
 # 说明：
 #   - pnpm 版本锁定在根 package.json 的 packageManager 字段（pnpm@10.15.0）
@@ -90,6 +90,27 @@ jobs:
     name: 浏览器 E2E（Playwright + 后端 dev bundle）
     runs-on: ubuntu-latest
     timeout-minutes: 40
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fluxion_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fluxion_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      FLUXION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/fluxion_test
+      # E2E 测试固定 key（仅 CI E2E 用，不得用于生产）。
+      FLUXION_SECRET_MASTER_KEY: ZTJlLXRlc3Qtb25seS1rZXktMDAwMDAwMDAwMDAwMDA=
+
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -133,6 +154,10 @@ jobs:
       # 共享库齐全（--with-deps 会经 apt 补齐依赖）。
       - name: 安装 Playwright 浏览器与系统依赖
         run: pnpm exec playwright install --with-deps chromium
+
+      # dev bundle serving 不建表：先初始化 PG 表结构（幂等）。
+      - name: 初始化 PG 表结构
+        run: uv run python scripts/init_db.py
 
       - name: 运行 Playwright E2E
         run: pnpm exec playwright test

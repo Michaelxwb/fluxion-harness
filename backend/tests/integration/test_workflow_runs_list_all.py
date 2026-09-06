@@ -1,6 +1,6 @@
 """TASK-011（Phase 5）workflow runs list-all 端点（S-12）。
 
-真实边界：真实 SQLite registry（workflow_run 投影表真实 upsert 行）+ 真实
+真实边界：真实 PG registry（workflow_run 投影表真实 upsert 行）+ 真实
 WorkflowProjectionService + 真实 HTTP（ASGITransport + 统一 envelope）。
 
 覆盖：跨工作流 list-all（GET /api/v1/workflows/runs，无 workflow_id 过滤）+
@@ -9,6 +9,7 @@ WorkflowProjectionService + 真实 HTTP（ASGITransport + 统一 envelope）。
 
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 import uuid
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -20,13 +21,13 @@ from httpx import ASGITransport, AsyncClient
 from fluxion.api.middleware import RequestContextMiddleware
 from fluxion.api.responses import success  # noqa: F401 —— 同一 envelope 家族
 from fluxion.api.workflow import register_workflow_projection_routes
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.workflow_projection import WorkflowProjectionService
 
 
 @pytest.fixture
-async def store(tmp_path: Path) -> AsyncGenerator[SQLiteRegistryStore, None]:
-    store = SQLiteRegistryStore(f"sqlite+aiosqlite:///{tmp_path / 'runs.db'}")
+async def store(tmp_path: Path) -> AsyncGenerator[PostgreSQLRegistryStore, None]:
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         yield store
@@ -39,7 +40,7 @@ def _unique(prefix: str) -> str:
 
 
 async def _seed_run(
-    store: SQLiteRegistryStore,
+    store: PostgreSQLRegistryStore,
     *,
     tenant_id: str,
     workflow_id: str,
@@ -59,7 +60,7 @@ async def _seed_run(
 
 
 @pytest.mark.asyncio
-async def test_s12_list_all_runs_paginated_tenant_scoped(store: SQLiteRegistryStore) -> None:
+async def test_s12_list_all_runs_paginated_tenant_scoped(store: PostgreSQLRegistryStore) -> None:
     tenant = _unique("tenant")
     other = _unique("tenant")
     # 两个工作流 × 3 条 run（本租户）+ 他租户 2 条

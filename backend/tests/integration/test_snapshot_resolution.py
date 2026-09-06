@@ -29,15 +29,15 @@ def _mcp_capability(resource_id: str, version_pin: str) -> dict[str, object]:
 
 @pytest.mark.asyncio
 async def test_E_R02_missing_dependency_version_is_rejected_without_version_swap(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     await seed_runtime_profile(
-        sqlite_store, capabilities=[_skill_capability("search", "9")]
+        pg_store, capabilities=[_skill_capability("search", "9")]
     )
-    await seed_skill(sqlite_store, version="1")
-    await bind_skill_to_user(sqlite_store, selector="9")
+    await seed_skill(pg_store, version="1")
+    await bind_skill_to_user(pg_store, selector="9")
 
-    builder = ContextResolverSnapshotBuilder(ContextResolver(sqlite_store))
+    builder = ContextResolverSnapshotBuilder(ContextResolver(pg_store))
     with pytest.raises(ContextResolutionError) as error:
         await builder.build(
             RequestContext(
@@ -55,16 +55,16 @@ async def test_E_R02_missing_dependency_version_is_rejected_without_version_swap
 
 @pytest.mark.asyncio
 async def test_M3_snapshot_carries_mcp_plugin_and_policy_versions(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     # TASK-A104 语义迁移：profile 只承载 mechanics；MCP/Skill 版本来自 AgentDefinition
     # capabilities；plugin/policy 引用不再经 profile（failover/provider 编排在
     # Phase 2 Model policy / Policy 域回收），快照对应字段为空集合。
     await seed_runtime_profile(
-        sqlite_store, capabilities=[_mcp_capability("weather", "1")]
+        pg_store, capabilities=[_mcp_capability("weather", "1")]
     )
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.MCP,
         resource_id="weather",
@@ -72,7 +72,7 @@ async def test_M3_snapshot_carries_mcp_plugin_and_policy_versions(
         spec={"transport": "stdio"},
     )
 
-    snapshot = await ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)).build(
+    snapshot = await ContextResolverSnapshotBuilder(ContextResolver(pg_store)).build(
         RequestContext(
             tenant_id="tenant-a",
             user_id="user-a",
@@ -90,23 +90,23 @@ async def test_M3_snapshot_carries_mcp_plugin_and_policy_versions(
 
 @pytest.mark.asyncio
 async def test_S_R18_unbound_agent_skills_survive_and_binding_grants_are_added(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     await seed_runtime_profile(
-        sqlite_store,
+        pg_store,
         capabilities=[
             _skill_capability("search", "1"),
             _skill_capability("weather", "1"),
         ],
     )
-    await seed_skill(sqlite_store, skill_id="search", version="1")
-    await seed_skill(sqlite_store, skill_id="weather", version="1")
+    await seed_skill(pg_store, skill_id="search", version="1")
+    await seed_skill(pg_store, skill_id="weather", version="1")
     # binding pins "search" to a version, and grants a skill absent from the agent
-    await bind_skill_to_user(sqlite_store, skill_id="search", selector="1")
-    await seed_skill(sqlite_store, skill_id="granted", version="2")
-    await bind_skill_to_user(sqlite_store, skill_id="granted", selector="2")
+    await bind_skill_to_user(pg_store, skill_id="search", selector="1")
+    await seed_skill(pg_store, skill_id="granted", version="2")
+    await bind_skill_to_user(pg_store, skill_id="granted", selector="2")
 
-    snapshot = await ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)).build(
+    snapshot = await ContextResolverSnapshotBuilder(ContextResolver(pg_store)).build(
         RequestContext(
             tenant_id="tenant-a",
             user_id="user-a",

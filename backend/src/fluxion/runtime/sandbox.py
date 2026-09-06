@@ -101,7 +101,7 @@ class SandboxExecBackend:
             # NOTE: file-read 未做 subpath 收口。尝试限制为最小系统根时，macOS
             # dyld 共享缓存依赖使严格 allow-list 致进程启动即 SIGABRT（exit -6）。
             # env 清空（_run_process）已封堵主密钥经环境变量泄漏的最严重路径；
-            # 文件级隔离（dev SQLite / K8s SA token）需跨 seatbelt+bubblewrap 的
+            # 文件级隔离（本地凭据文件 / K8s SA token）需跨 seatbelt+bubblewrap 的
             # 分平台 allow-list 调优（含 dyld 缓存路径），单独跟踪，不交付半成品。
             "(allow file-read*)",
         ]

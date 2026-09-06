@@ -584,7 +584,7 @@ class RuntimeApplicationService(RuntimeToolOps):
 def build_personal_memory_retriever(engine: object) -> PersonalMemoryRetriever:
     """FEAT-07 执行侧装配：PgVectorSemanticStore(engine) → PersonalMemoryRetriever。
 
-    双库通用（SQLite 自动降级 Python cosine，不以名字推断不可用）；engine 由
+    PG 通用（无 pgvector 扩展时自动降级 Python cosine，不以名字推断不可用）；engine 由
     store 持有并关闭，此处仅引用。provider 初始化在 serving 事件循环内经
     service.initialize() 完成（有限启动预算，失败明确报错）。
     """

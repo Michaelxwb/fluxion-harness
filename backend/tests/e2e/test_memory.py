@@ -12,12 +12,12 @@ from fluxion.services.context_resolver import ContextResolver, ContextResolverSn
 
 @pytest.mark.asyncio
 async def test_S_R17_multi_layer_memory_flush_and_isolation(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
-    await seed_runtime_profile(sqlite_store)
+    await seed_runtime_profile(pg_store)
     memory_store = InMemorySessionMemoryStore()
     runtime = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=memory_store,
         memory_policy=MemoryPolicy(max_context_tokens=10, flush_threshold_ratio=0.5),
     )

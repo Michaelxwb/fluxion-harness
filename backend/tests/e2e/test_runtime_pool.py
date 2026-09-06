@@ -14,21 +14,21 @@ from fluxion.services.context_resolver import ContextResolver, ContextResolverSn
 
 @pytest.mark.asyncio
 async def test_B_R03_runtime_pool_resolves_same_versions(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     await seed_runtime_profile(
-        sqlite_store,
+        pg_store,
         capabilities=[{"capability_ref": "search", "version_pin": "1", "type": "skill"}],
     )
-    await seed_skill(sqlite_store, version="1")
-    await bind_skill_to_user(sqlite_store)
+    await seed_skill(pg_store, version="1")
+    await bind_skill_to_user(pg_store)
 
     pod_a = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=InMemorySessionMemoryStore(),
     )
     pod_b = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=InMemorySessionMemoryStore(),
     )
     request = RequestContext(

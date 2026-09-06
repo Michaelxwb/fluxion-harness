@@ -1,10 +1,11 @@
 from __future__ import annotations
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 import pytest
 
 from fluxion.plugins.contracts import ModelRequest, ModelResponse
 from fluxion.plugins.model_provider import ModelProviderRegistry
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.runtime_app import (
     CreateRuntimeProfileRequest,
     PublishRuntimeProfileRequest,
@@ -30,7 +31,7 @@ class StreamingEchoProvider:
 async def test_stream_yields_tokens_when_provider_supports_streaming() -> None:
     registry = ModelProviderRegistry()
     registry.register("custom-stream", StreamingEchoProvider())
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = RuntimeApplicationService(store, model_providers=registry)
     await service.initialize()
     try:

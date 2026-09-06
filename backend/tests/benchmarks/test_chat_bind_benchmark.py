@@ -7,10 +7,11 @@ from time import perf_counter_ns
 from typing import Protocol
 
 from tests.channel_helpers import RecordingRuntime
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.plugins.channel_adapters import WebChannelAdapter
 from fluxion.protocols.channel import ExternalChannelMessage
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.channel_app import ChannelApplicationService
 
 
@@ -29,7 +30,7 @@ def test_B_C106_bind_p95_under_300ms_and_chat_p95_under_200ms(
 ) -> None:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     runtime = RecordingRuntime()
     counter = 0
 

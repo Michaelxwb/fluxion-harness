@@ -2,7 +2,7 @@
 
 S-05（design §2.4 / FEAT-P5-05）。
 
-真实边界：真实 SQLite registry（resource_definitions 版本化 lifecycle）+ 真实
+真实边界：真实 PG registry（resource_definitions 版本化 lifecycle）+ 真实
 TraceStore + 真实 RuleBasedEvalExecutor + 真实 HTTP（ASGITransport）——
 `/api/v1/admin/evals` 三端点经统一 envelope。
 
@@ -16,7 +16,7 @@ from httpx import ASGITransport, AsyncClient
 
 from fluxion.api.eval import create_app as create_eval_app
 from fluxion.config import DevModeSettings
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ExecutionSnapshot, ResourceKind
 from fluxion.runtime import InMemoryTraceStore, TraceRecord
 from fluxion.runtime.context import TraceEvent
@@ -26,12 +26,12 @@ from fluxion.services.eval_app import (
     ModelEvalHarness,
     RuleBasedEvalExecutor,
 )
-from tests.runtime_helpers import publish_resource
+from tests.runtime_helpers import publish_resource, TEST_POSTGRES_DSN
 
 
 @pytest.mark.asyncio
 async def test_S05_workflow_eval_set_run_and_admin_api() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     trace_store = InMemoryTraceStore()
     await store.initialize()
     try:
@@ -79,7 +79,7 @@ async def test_S05_workflow_eval_set_run_and_admin_api() -> None:
 @pytest.mark.asyncio
 async def test_S05_workflow_case_partial_failure_scores_deterministically() -> None:
     """workflow 用例 expected_steps 缺失 → score 反映；同输入同 score（确定性）。"""
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     trace_store = InMemoryTraceStore()
     await store.initialize()
     try:
@@ -139,7 +139,7 @@ async def test_S05_workflow_case_partial_failure_scores_deterministically() -> N
 @pytest.mark.asyncio
 async def test_S05_workflow_ref_must_be_published_exact() -> None:
     """workflow 用例引用未发布 workflow → 拒绝（版本化 pin，规则 5/6）。"""
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     trace_store = InMemoryTraceStore()
     await store.initialize()
     try:
@@ -186,7 +186,7 @@ async def test_S05_workflow_ref_must_be_published_exact() -> None:
 @pytest.mark.asyncio
 async def test_S05_eval_set_version_increments_on_republish() -> None:
     """EvalSet 走 resource_definitions 版本化 lifecycle：publish → 版本递增。"""
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         await _publish_runtime_profile(store)
@@ -230,7 +230,7 @@ def test_model_eval_harness_is_spi_only() -> None:
 
 
 def _service(
-    store: SQLiteRegistryStore, trace_store: InMemoryTraceStore
+    store: PostgreSQLRegistryStore, trace_store: InMemoryTraceStore
 ) -> EvaluationApplicationService:
     return EvaluationApplicationService(
         store,
@@ -242,7 +242,7 @@ def _service(
     )
 
 
-async def _publish_runtime_profile(store: SQLiteRegistryStore) -> None:
+async def _publish_runtime_profile(store: PostgreSQLRegistryStore) -> None:
     await publish_resource(
         store,
         tenant_id="dev",
@@ -258,7 +258,7 @@ async def _publish_runtime_profile(store: SQLiteRegistryStore) -> None:
     )
 
 
-async def _publish_workflow(store: SQLiteRegistryStore, *, version: str) -> None:
+async def _publish_workflow(store: PostgreSQLRegistryStore, *, version: str) -> None:
     await publish_resource(
         store,
         tenant_id="dev",
@@ -285,7 +285,7 @@ async def _publish_workflow(store: SQLiteRegistryStore, *, version: str) -> None
     )
 
 
-async def _publish_eval_set(store: SQLiteRegistryStore, *, version: str = "3") -> None:
+async def _publish_eval_set(store: PostgreSQLRegistryStore, *, version: str = "3") -> None:
     await publish_resource(
         store,
         tenant_id="dev",

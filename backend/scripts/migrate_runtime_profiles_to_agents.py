@@ -8,7 +8,7 @@ import json
 from dataclasses import asdict
 
 from fluxion.agents.migration import migrate_runtime_profiles
-from fluxion.registry import PostgreSQLRegistryStore, RegistryStore, SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore, RegistryStore
 
 
 def _arguments() -> argparse.Namespace:
@@ -20,11 +20,9 @@ def _arguments() -> argparse.Namespace:
 
 
 def _store(database_url: str) -> RegistryStore:
-    if database_url.startswith("sqlite"):
-        return SQLiteRegistryStore(database_url)
     if database_url.startswith("postgresql"):
         return PostgreSQLRegistryStore(database_url)
-    raise ValueError("database-url must use sqlite or postgresql")
+    raise ValueError("database-url must use postgresql")
 
 
 async def _run(args: argparse.Namespace) -> None:

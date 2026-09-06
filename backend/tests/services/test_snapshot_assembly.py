@@ -3,7 +3,7 @@
 - credential_resolver 注入 → snapshot.credential_versions 为真实解析版本（非占位 "1"）；
 - memory_retriever 注入 → snapshot.memory_manifest 非 unavailable 占位。
 
-真实边界：真实 SQLite RegistryStore + LocalEncryptedSecretStore + 真实
+真实边界：真实 PG RegistryStore + LocalEncryptedSecretStore + 真实
 PersonalMemoryRetriever(PgVectorSemanticStore) + 真实 ContextResolver 十段管线。
 """
 
@@ -25,7 +25,7 @@ TENANT = "tenant-a"
 
 
 @pytest.mark.asyncio
-async def test_be04_composition_root_injects_credential_and_memory(sqlite_store: RegistryStore) -> None:
+async def test_be04_composition_root_injects_credential_and_memory(pg_store: RegistryStore) -> None:
     """B-E-04：注入 credential_resolver + memory_retriever 后，snapshot 的
     credential_versions 为真实版本、memory_manifest 非 unavailable 占位。"""
     secrets = LocalEncryptedSecretStore(master_key=b"m" * 32)
@@ -34,28 +34,28 @@ async def test_be04_composition_root_injects_credential_and_memory(sqlite_store:
     credential_ref = await secrets.rotate(credential_ref, "agent-secret-v2")
     credential_resolver = CredentialResolver(secrets)
 
-    memory_provider = PgVectorSemanticStore(sqlite_store.engine)
+    memory_provider = PgVectorSemanticStore(pg_store.engine)
     await memory_provider.initialize()
     memory_retriever = PersonalMemoryRetriever(memory_provider)
 
     runtime = RuntimeApplicationService.create_dev_bundle(
-        sqlite_store,
+        pg_store,
         credential_resolver=credential_resolver,
         memory_retriever=memory_retriever,
     )
 
     # seed 模型链 + 默认 runtime_profile + agent + user credential binding
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id=TENANT,
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
         spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
-    await seed_model_definition(sqlite_store, tenant_id=TENANT, provider_id="dev.echo")
+    await seed_model_definition(pg_store, tenant_id=TENANT, provider_id="dev.echo")
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id=TENANT,
         kind=ResourceKind.AGENT_DEFINITION,
         resource_id="assistant",
@@ -70,7 +70,7 @@ async def test_be04_composition_root_injects_credential_and_memory(sqlite_store:
         },
     )
     # user credential binding（MODEL_PROVIDER 逻辑 ID 绑定；credential_ref 指向真实 Secret）
-    await sqlite_store.put_binding(
+    await pg_store.put_binding(
         ResourceBinding(
             binding_id="bind-cred",
             tenant_id=TENANT,
@@ -107,7 +107,7 @@ async def test_be04_composition_root_injects_credential_and_memory(sqlite_store:
 
 
 @pytest.mark.asyncio
-async def test_bs07_snapshot_freezes_provider_credential_selection(sqlite_store: RegistryStore) -> None:
+async def test_bs07_snapshot_freezes_provider_credential_selection(pg_store: RegistryStore) -> None:
     """B-S-07：Snapshot 构建期冻结 provider credential 选择——新增 binding 后，
     旧 snapshot 的 provider_credentials 不变（运行期按冻结 ref 解密，不重选）。"""
     secrets = LocalEncryptedSecretStore(master_key=b"m" * 32)
@@ -117,7 +117,7 @@ async def test_bs07_snapshot_freezes_provider_credential_selection(sqlite_store:
 
     # seed provider（spec credential_ref）+ 默认 runtime_profile + agent
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id=TENANT,
         kind=ResourceKind.MODEL_PROVIDER,
         resource_id="wire-provider",
@@ -132,16 +132,16 @@ async def test_bs07_snapshot_freezes_provider_credential_selection(sqlite_store:
         },
     )
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id=TENANT,
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
         spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
-    await seed_model_definition(sqlite_store, tenant_id=TENANT, provider_id="wire-provider")
+    await seed_model_definition(pg_store, tenant_id=TENANT, provider_id="wire-provider")
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id=TENANT,
         kind=ResourceKind.AGENT_DEFINITION,
         resource_id="assistant",
@@ -156,7 +156,7 @@ async def test_bs07_snapshot_freezes_provider_credential_selection(sqlite_store:
         },
     )
 
-    resolver = ContextResolver(sqlite_store, credential_resolver=credential_resolver)
+    resolver = ContextResolver(pg_store, credential_resolver=credential_resolver)
     selector = ResolverSelector(tenant_id=TENANT, agent_id="assistant", user_id="user-a")
 
     # 第一次 resolve：无 binding → provider_credentials 冻结 spec credential_ref
@@ -164,7 +164,7 @@ async def test_bs07_snapshot_freezes_provider_credential_selection(sqlite_store:
     assert first.snapshot.provider_credentials["wire-provider"] == spec_ref
 
     # 新增 user binding（override）→ 第二次 resolve 冻结 override；第一次不受影响
-    await sqlite_store.put_binding(
+    await pg_store.put_binding(
         ResourceBinding(
             binding_id="bind-override",
             tenant_id=TENANT,

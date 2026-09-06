@@ -4,7 +4,7 @@
   聚合结构（消费方 ModelsPage 由 3+3N 请求降为 1 请求）。
 - 网络请求数常数断言：Playwright 侧（frontend/e2e/model-projection.spec.ts）。
 
-真实边界：真实 SQLite RegistryStore + Console HTTP ASGI，无 mock Store。
+真实边界：真实 PG RegistryStore + Console HTTP ASGI，无 mock Store。
 """
 
 from __future__ import annotations

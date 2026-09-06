@@ -7,7 +7,7 @@ Fluxion 是无状态、插件化、Resource 驱动的 Agent Harness。`AgentDefi
 ## Spec Navigation
 
 - `runtime-core.md` — Runtime 无状态、ExecutionSnapshot、Microkernel、Plugin/Hook 边界。
-- `resource-registry.md` — Resource/Binding、SQLite/PostgreSQL Store、tenant scope、SecretRef。
+- `resource-registry.md` — Resource/Binding、PostgreSQL Store、tenant scope、SecretRef。
 - `console-channel.md` — Console、Web Chat、PlatformUser、`/bind` 与用户绑定。
 - `workflow-capability.md` — Tool、Capability、Workflow、A2A 边界。
 - `dfx.md` — 编码阶段 DFX、性能、安全、测试、观测与运维约束。

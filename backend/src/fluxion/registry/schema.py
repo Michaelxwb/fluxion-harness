@@ -245,7 +245,9 @@ session_memory = Table(
     Column("role", String(32), nullable=False),
     Column("content", Text, nullable=False),
     Column("tokens", Integer, nullable=False),
-    Column("level", String(16), nullable=False),
+    # ADR-A007 迁移修复：level 含 "session_context_summary"（23 字符），旧宽度
+    # 16 在 PG 长度强制下导致摘要写入全挂。拓宽至 32。
+    Column("level", String(32), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
 
@@ -267,8 +269,8 @@ Index(
 
 # ADR-MEM-001：user-scoped personal memory（Episodic/Semantic）。写侧唯一入口是
 # MemoryLearner.commit（learning_enabled gate + Policy/Consent）；用户可见操作
-# 只有 查看/纠正/删除（NFR-PRIV-01）。embedding Phase 0 存 JSON（SQLite/
-# PostgreSQL 共享 schema，可移植）；pgvector ivfflat 是 Phase 1 FEAT-17 范围。
+# 只有 查看/纠正/删除（NFR-PRIV-01）。embedding Phase 0 存 JSON
+#（PostgreSQL 共享 schema）；pgvector ivfflat 是 Phase 1 FEAT-17 范围。
 personal_memory = Table(
     "personal_memory",
     metadata,
@@ -406,7 +408,7 @@ Index(
 # ---- SecretCredentials（Phase 5 TASK-002 / remediation §16.3）----
 # 密文入表（nonce/ciphertext bytea，AES-256-GCM 12B nonce，绝不存明文）；
 # key_id/cipher_version/rotated_at 支撑 master key rotation（按 key_id 解旧密
-# → 新密加密 → 批量 re-encrypt → revoke old key）。SQLite/PG 双库同 DDL（规则 7）。
+# → 新密加密 → 批量 re-encrypt → revoke old key）。单库 DDL（ADR-A007）。
 
 secret_credentials = Table(
     "secret_credentials",
@@ -469,8 +471,8 @@ Index(
 
 # ---- 运营 durable stores（Phase 6 TASK-006 / P0-5「显式 production adapter」）----
 # production profile 禁止 InMemory Trace/Approval/Eval 作为唯一实现（fail-fast）；
-# 以下三表是与 InMemory 实现同形的 PG 持久化实现的事实载体。SQLite/PG 双库同 DDL
-#（规则 7，Contract Test 见 tests/contract/test_durable_stores.py）。
+# 以下三表是与 InMemory 实现同形的 PG 持久化实现的事实载体。单库 DDL
+#（ADR-A007，Contract Test 见 tests/contract/test_durable_stores.py）。
 
 trace_records = Table(
     "trace_records",

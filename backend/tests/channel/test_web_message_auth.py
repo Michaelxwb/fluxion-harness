@@ -10,11 +10,12 @@ RED 语义：当前实现逐消息信任 payload.channel_user_id（S2 残留）�
 """
 
 from __future__ import annotations
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.channel_app import ChannelApplicationService
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.console_contracts import ConsoleActor
@@ -44,7 +45,7 @@ def _chat_payload(channel_user_id: str, content: str, message_id: str) -> dict[s
 
 @pytest.mark.asyncio
 async def test_s06_forged_bound_identity_rejected() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     runtime = RuntimeApplicationService.create_dev_bundle(store)
     channel = ChannelApplicationService(store, runtime)
@@ -80,7 +81,7 @@ async def test_s06_forged_bound_identity_rejected() -> None:
 
 @pytest.mark.asyncio
 async def test_s06_valid_bearer_message_executes_as_token_user() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     runtime = RuntimeApplicationService.create_dev_bundle(store)
     channel = ChannelApplicationService(store, runtime)
@@ -119,7 +120,7 @@ def _channel_app(channel: ChannelApplicationService):
     return create_channel_app(channel)
 
 
-async def _publish_agent(store: SQLiteRegistryStore) -> str:
+async def _publish_agent(store: PostgreSQLRegistryStore) -> str:
     from tests.runtime_helpers import publish_resource, seed_agent_definition
 
     from fluxion.resources import ResourceKind

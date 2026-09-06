@@ -1,6 +1,6 @@
 """ADR-SNAPSHOT-001 TASK-002：recall_pinned pinned 版本恢复（E-01）。
 
-真实边界（契约声明）：真实 store（sqlite+aiosqlite，`sqlite_store` fixture）+
+真实边界（契约声明）：真实 store（PostgreSQL，`pg_store` fixture）+
 真实治理路径（commit_publication TOMBSTONE：audit + publish_record + outbox）。
 
 RED 约定（cf-task:start #7）：`recall_pinned` 与 `PublicationOperation.TOMBSTONE`
@@ -19,7 +19,7 @@ from fluxion.registry.store import (
     RegistryStoreError,
 )
 from fluxion.resources import ResourceKind, ResourceStatus
-from tests.runtime_helpers import publish_resource, sqlite_store
+from tests.runtime_helpers import publish_resource, pg_store
 
 _TENANT = "tenant-a"
 _KIND = ResourceKind.WORKFLOW
@@ -49,9 +49,9 @@ async def _tombstone(
     )
 
 
-async def test_e01_recall_pinned_rejects_latest_selector(sqlite_store: RegistryStore) -> None:
+async def test_e01_recall_pinned_rejects_latest_selector(pg_store: RegistryStore) -> None:
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id=_TENANT,
         kind=_KIND,
         resource_id=_RESOURCE,
@@ -61,7 +61,7 @@ async def test_e01_recall_pinned_rejects_latest_selector(sqlite_store: RegistryS
     # rule 6：resume 永不 resolve latest——recall_pinned 拒绝一切 LATEST 回退形态
     for selector in ("latest", "LATEST", " latest-published "):
         with pytest.raises(RegistryStoreError, match="latest"):
-            await sqlite_store.recall_pinned(
+            await pg_store.recall_pinned(
                 _KIND,
                 _RESOURCE,
                 tenant_id=_TENANT,
@@ -70,19 +70,19 @@ async def test_e01_recall_pinned_rejects_latest_selector(sqlite_store: RegistryS
 
 
 async def test_e01_tombstoned_pinned_version_still_recallable(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     published = await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id=_TENANT,
         kind=_KIND,
         resource_id=_RESOURCE,
         version="v1",
         spec={"name": "checkout", "steps": 3},
     )
-    await _tombstone(sqlite_store, "v1")
+    await _tombstone(pg_store, "v1")
 
-    recalled = await sqlite_store.recall_pinned(
+    recalled = await pg_store.recall_pinned(
         _KIND,
         _RESOURCE,
         tenant_id=_TENANT,
@@ -94,13 +94,13 @@ async def test_e01_tombstoned_pinned_version_still_recallable(
     assert recalled.spec_json == published.spec_json
 
     # 治理落账：tombstone 操作进 audit（action == "tombstone"）
-    audits, _ = await sqlite_store.list_audit(tenant_id=_TENANT, offset=0, limit=10)
+    audits, _ = await pg_store.list_audit(tenant_id=_TENANT, offset=0, limit=10)
     assert any(audit.action == "tombstone" for audit in audits)
 
 
-async def test_e01_missing_version_not_found(sqlite_store: RegistryStore) -> None:
+async def test_e01_missing_version_not_found(pg_store: RegistryStore) -> None:
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id=_TENANT,
         kind=_KIND,
         resource_id=_RESOURCE,
@@ -108,7 +108,7 @@ async def test_e01_missing_version_not_found(sqlite_store: RegistryStore) -> Non
         spec={"name": "checkout"},
     )
     with pytest.raises(NotFoundError):
-        await sqlite_store.recall_pinned(
+        await pg_store.recall_pinned(
             _KIND,
             _RESOURCE,
             tenant_id=_TENANT,
@@ -116,7 +116,7 @@ async def test_e01_missing_version_not_found(sqlite_store: RegistryStore) -> Non
         )
     # 跨租户同样 NotFound（rule 16 tenant scope）
     with pytest.raises(NotFoundError):
-        await sqlite_store.recall_pinned(
+        await pg_store.recall_pinned(
             _KIND,
             _RESOURCE,
             tenant_id="tenant-b",

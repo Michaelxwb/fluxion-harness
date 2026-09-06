@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncConnection
 from tests.console_helpers import create_resource, publish_resource
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.api.console import create_app
 from fluxion.registry import (
@@ -11,14 +12,14 @@ from fluxion.registry import (
     BindingCommand,
     BindingOperation,
     RegistryStoreError,
-    SQLiteRegistryStore,
+    PostgreSQLRegistryStore,
 )
 from fluxion.registry.schema import audit_logs, outbox_events, publish_records, resource_bindings
 from fluxion.resources import ResourceBinding, ResourceKind, ResourceStatus, SubjectType
 from fluxion.services.console_app import ConsoleApplicationService
 
 
-class AuditFailingStore(SQLiteRegistryStore):
+class AuditFailingStore(PostgreSQLRegistryStore):
     async def _insert_audit(
         self,
         connection: AsyncConnection,
@@ -29,7 +30,7 @@ class AuditFailingStore(SQLiteRegistryStore):
 
 
 async def test_E_C112_audit_failure_rolls_back_high_impact_publish() -> None:
-    store = AuditFailingStore("sqlite+aiosqlite:///:memory:")
+    store = AuditFailingStore(TEST_POSTGRES_DSN)
     service = ConsoleApplicationService(store)
     await service.initialize()
     from httpx import ASGITransport, AsyncClient
@@ -80,7 +81,7 @@ async def test_E_C112_binding_grant_rolls_back_when_audit_fails() -> None:
     _append_audit——失败时 binding 已落地，A20 的 fail-closed 对 binding 仅为
     装饰性。commit_binding 把 audit 收进同事务后，fail-closed 对 binding 真正
     生效（与 publish 治理 commit_publication 一致）。"""
-    store = AuditFailingStore("sqlite+aiosqlite:///:memory:")
+    store = AuditFailingStore(TEST_POSTGRES_DSN)
     await store.initialize()
     try:
         command = BindingCommand(

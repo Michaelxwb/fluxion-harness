@@ -4,11 +4,10 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
-from sqlalchemy import Select, event, func, insert, select, update
+from sqlalchemy import Select, func, insert, select, update
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
-from sqlalchemy.pool import StaticPool
 
 from fluxion.observability.tracing import traced_scope
 from fluxion.registry import (
@@ -60,58 +59,39 @@ from fluxion.resources import (
 
 class SQLAlchemyRegistryStore:
     def __init__(self, dsn: str, *, reset_on_initialize: bool = False) -> None:
+        if not dsn.startswith("postgresql"):
+            raise ValueError(f"registry DSN must use postgresql (got {dsn!r})")
         self._dsn = dsn
         self._reset_on_initialize = reset_on_initialize
-        self._engine = create_async_engine(dsn, **self._engine_kwargs(dsn))
-        if dsn.startswith("sqlite"):
-            # F5：SQLite 默认 rollback journal + 5s busy timeout；dev 并发写（多
-            # worker publish 同资源 / outbox claim）下易抛 "database is locked"
-            # → 500。WAL 让读不阻塞写、写不阻塞读；busy_timeout 让写锁竞争排队
-            # 而非立即失败。PG 不经此路径（行锁由 with_for_update 保证）。
-            # :memory: 库 WAL 被 SQLite 忽略（保持 memory 模式），无副作用。
-            @event.listens_for(self._engine.sync_engine, "connect")
-            def _apply_sqlite_pragmas(
-                dbapi_connection: Any, _connection_record: object
-            ) -> None:
-                cursor = dbapi_connection.cursor()
-                cursor.execute("PRAGMA journal_mode=WAL")
-                cursor.execute("PRAGMA busy_timeout=5000")
-                cursor.close()
+        self._engine = create_async_engine(dsn, **self._engine_kwargs())
 
     @staticmethod
-    def _engine_kwargs(dsn: str) -> dict[str, object]:
-        if dsn.startswith("sqlite") and ":memory:" in dsn:
-            return {"poolclass": StaticPool, "connect_args": {"check_same_thread": False}}
-        if dsn.startswith("postgresql"):
-            ssl_mode = os.environ.get("FLUXION_POSTGRES_SSL", "disable")
-            kwargs: dict[str, object] = {
-                "connect_args": {"command_timeout": 2.0, "ssl": ssl_mode},
-                "pool_pre_ping": True,
-            }
-            # Phase 6 TASK-001：连接池可配置（默认 SQLAlchemy 5+10 在满负载
-            # scale-test / 多副本生产下排队成瓶颈）；FLUXION_PG_POOL_SIZE 显式
-            # 覆盖 pool_size（max_overflow 同步放大，保持弹性）。
-            pool_size = os.environ.get("FLUXION_PG_POOL_SIZE")
-            if pool_size is not None and pool_size.isdigit() and int(pool_size) > 0:
-                size = int(pool_size)
-                kwargs["pool_size"] = size
-                kwargs["max_overflow"] = size
-            return kwargs
-        return {}
+    def _engine_kwargs() -> dict[str, object]:
+        # PG-Only（ADR-A007）：构造器已拒绝非 postgresql DSN，此处只配 PG。
+        ssl_mode = os.environ.get("FLUXION_POSTGRES_SSL", "disable")
+        kwargs: dict[str, object] = {
+            "connect_args": {"command_timeout": 2.0, "ssl": ssl_mode},
+            "pool_pre_ping": True,
+        }
+        # Phase 6 TASK-001：连接池可配置（默认 SQLAlchemy 5+10 在满负载
+        # scale-test / 多副本生产下排队成瓶颈）；FLUXION_PG_POOL_SIZE 显式
+        # 覆盖 pool_size（max_overflow 同步放大，保持弹性）。
+        pool_size = os.environ.get("FLUXION_PG_POOL_SIZE")
+        if pool_size is not None and pool_size.isdigit() and int(pool_size) > 0:
+            size = int(pool_size)
+            kwargs["pool_size"] = size
+            kwargs["max_overflow"] = size
+        return kwargs
 
     async def initialize(self) -> None:
-        # A13/ADR-004：schema 双事实源收口——serving 路径按 DSN 分流，不在运行
-        # 路径对 PG 跑 create_all（避免与 scripts/init_db.py 形成双事实源）。
-        # - PostgreSQL serving（reset=False）：schema 由 scripts/init_db.py 建，
-        #   initialize() 为 no-op（已移除 alembic）。
-        # - reset_on_initialize=True（契约测试 bootstrap，含 PG testcontainers）：
-        #   仍走 drop_all + create_all 重建干净库，与 S-R07 双跑契约一致。
-        # - SQLite（dev/tests）：metadata.create_all 自举（ADR-004 dev 零依赖）。
-        if not self._reset_on_initialize and self._dsn.startswith("postgresql"):
+        # A13/ADR-004 + ADR-A007：schema 事实源唯一是 scripts/init_db.py。
+        # - serving（reset=False）：no-op，不建表（已移除 alembic）。
+        # - reset_on_initialize=True（契约测试 bootstrap）：drop_all + create_all
+        #   重建干净库。
+        if not self._reset_on_initialize:
             return
         async with self._engine.begin() as connection:
-            if self._reset_on_initialize:
-                await connection.run_sync(metadata.drop_all)
+            await connection.run_sync(metadata.drop_all)
             await connection.run_sync(metadata.create_all)
 
     async def close(self) -> None:
@@ -977,9 +957,6 @@ class SQLAlchemyRegistryStore:
         return await user_sqlalchemy.list_channel_identities_for_user(
             self.engine, tenant_id=tenant_id, platform_user_id=platform_user_id
         )
-
-class SQLiteRegistryStore(SQLAlchemyRegistryStore):
-    pass
 
 
 class PostgreSQLRegistryStore(SQLAlchemyRegistryStore):

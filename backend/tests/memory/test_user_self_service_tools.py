@@ -6,11 +6,13 @@ UserDomainService + 真实 Store。对话触发：
 - Memory 删除生效且进 AuditLog；
 - 停学用户写工具拒绝。
 
-真实边界：真实 AgentLoop（MemoryLearnerService + UserDomainService）+ SQLite
+真实边界：真实 AgentLoop（MemoryLearnerService + UserDomainService）+ PG
 表；不 mock。
 """
 
 from __future__ import annotations
+
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -23,13 +25,13 @@ from fluxion.memory.domain.personal_memory import (
     MemoryType,
     PolicyDecision,
 )
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.users.service import UserDomainService
 
 
 @pytest.fixture
-async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+async def store() -> AsyncGenerator[PostgreSQLRegistryStore, None]:
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         yield store
@@ -38,7 +40,7 @@ async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
 
 
 @pytest.fixture
-async def services(store: SQLiteRegistryStore):
+async def services(store: PostgreSQLRegistryStore):
     users = UserDomainService(store)
     memory = MemoryLearnerService(store)
     user_memory = MemoryUserService(store)

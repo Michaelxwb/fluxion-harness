@@ -14,6 +14,7 @@ E-03 / S-04（design §2.4 / §3.2 O501–O506：trace 关联 ≥99%，NFR-OBS-0
 
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 import uuid
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -36,7 +37,7 @@ from fluxion.observability.context import (
     reset_request_context,
 )
 from fluxion.observability.tracing import traced_scope
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.runtime_contracts import RunRuntimeRequest
 
@@ -167,7 +168,7 @@ class TestS04FullExecutionChain:
         tenant_id = _unique_id("tenant")
         execution_id = _unique_id("exec")
 
-        store = SQLiteRegistryStore(f"sqlite+aiosqlite:///{tmp_path / 'chain.db'}")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         runtime = RuntimeApplicationService.create_dev_bundle(store)
         await runtime.initialize()
         # 自举 default RuntimeProfile + AgentDefinition（dev bundle 开箱语义）
@@ -246,7 +247,7 @@ class TestS04FullExecutionChain:
         tenant_id = _unique_id("tenant")
         execution_id = _unique_id("exec")
 
-        store = SQLiteRegistryStore(f"sqlite+aiosqlite:///{tmp_path / 'stream.db'}")
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
         runtime = RuntimeApplicationService.create_dev_bundle(store)
         await runtime.initialize()
         from fluxion.services.runtime_contracts import default_runtime_profile_request

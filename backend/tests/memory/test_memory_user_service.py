@@ -6,11 +6,13 @@ NFR-PRIV-01 后端契约（design §2.3.1 FEAT-P2-08）：
 - 纠正/删除后缓存失效钩子被调用（cache-aside：先写库再失效）；
 - reindex 不存在的条目 → 明确错误（不静默）。
 
-真实边界：真实 SQLite personal_memory 表 + PersonalMemoryStore + MemoryLearner
+真实边界：真实 PG personal_memory 表 + PersonalMemoryStore + MemoryLearner
 + PgVectorSemanticStore（embedding 重算）+ 记录式缓存失效钩子；不 mock。
 """
 
 from __future__ import annotations
+
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 import pytest
 
@@ -21,7 +23,7 @@ from fluxion.memory.domain.personal_memory import (
     MemoryType,
     PolicyDecision,
 )
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 
 TENANT = "tenant-a"
 USER = "user-a"
@@ -39,8 +41,8 @@ def _candidate(content: str) -> MemoryCandidate:
 
 
 @pytest.fixture
-async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+async def store() -> AsyncGenerator[PostgreSQLRegistryStore, None]:
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     await store.initialize()
     try:
         yield store
@@ -49,7 +51,7 @@ async def store() -> AsyncGenerator[SQLiteRegistryStore, None]:
 
 
 @pytest.fixture
-async def service(store: SQLiteRegistryStore) -> MemoryUserService:
+async def service(store: PostgreSQLRegistryStore) -> MemoryUserService:
     svc = MemoryUserService(store)
     await svc.commit_candidate(
         candidate=_candidate("旧内容"),

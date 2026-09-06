@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.runtime_helpers import TEST_POSTGRES_DSN
+
 from datetime import UTC, datetime
 
 import pytest
@@ -7,7 +9,7 @@ from httpx import ASGITransport, AsyncClient, Response
 
 from fluxion.api.console import create_app
 from fluxion.config import DevModeSettings
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ExecutionSnapshot
 from fluxion.runtime.context import TraceEvent
 from fluxion.runtime.secrets import LocalEncryptedSecretStore
@@ -17,7 +19,7 @@ from fluxion.services.console_app import ConsoleApplicationService
 
 @pytest.mark.asyncio
 async def test_S_P13_05_console_http_contract_supports_real_ui_operations() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     traces = InMemoryTraceStore()
     await traces.append(_trace_record())
     secrets = LocalEncryptedSecretStore(master_key=b"s" * 32)

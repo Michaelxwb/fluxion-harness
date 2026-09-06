@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 from tests.console_helpers import (
     console_stack,
@@ -16,11 +14,9 @@ from fluxion.runtime.resolver import ResourceResolver
 
 
 @pytest.mark.asyncio
-async def test_S_C104_user_binding_is_visible_to_any_runtime_store_instance(
-    tmp_path: Path,
-) -> None:
-    db_path = tmp_path / "bindings.db"
-    async with console_stack(db_path=db_path) as writer:
+async def test_S_C104_user_binding_is_visible_to_any_runtime_store_instance() -> None:
+    # PG-Only：writer 建库写入，reader 直连同一库（reset=False）验证跨栈可见。
+    async with console_stack() as writer:
         await create_resource(
             writer.client,
             kind=ResourceKind.MCP,
@@ -51,7 +47,7 @@ async def test_S_C104_user_binding_is_visible_to_any_runtime_store_instance(
         assert response.status_code == 200
         assert response.json()["code"] == 0
 
-    async with console_stack(db_path=db_path) as reader:
+    async with console_stack(reset=False) as reader:
         resolver = ResourceResolver(reader.store)
         bindings = await resolver.list_bindings(
             tenant_id="tenant-a",

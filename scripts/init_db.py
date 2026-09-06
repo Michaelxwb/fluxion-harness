@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""初始化 Fluxion 域数据库表（PostgreSQL / SQLite 双库，幂等）。
+"""初始化 Fluxion 域数据库表（PostgreSQL，幂等，ADR-A007）。
 
 服务进程（`fluxion serve` / `fluxion-workflow-worker`）启动时**不**建表——
 schema 由本脚本负责初始化。已移除 alembic，本脚本是 Fluxion 域 schema 的唯一
@@ -8,13 +8,10 @@ workflow_run / artifact_metadata / secret_credentials / trace_records /
 approval_records / eval_runs 等）。
 
 用法：
-    # SQLite（dev）
-    python3 scripts/init_db.py --dsn "sqlite+aiosqlite:///./fluxion-dev.db"
-
     # PostgreSQL（本地 / 生产；数据库本身需已存在，CREATE DATABASE 属 DBA 操作）
     python3 scripts/init_db.py --dsn "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion"
 
-    # 缺省：读环境变量 FLUXION_DATABASE_URL；再缺省 SQLite 文件 fluxion-dev.db
+    # 缺省：读环境变量 FLUXION_DATABASE_URL；再缺省本地 PG fluxion 库
 
 幂等：metadata.create_all（checkfirst）只建缺失表，不删已有数据、不改既有表结构。
 """
@@ -37,7 +34,7 @@ from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 
 from fluxion.registry.schema import metadata  # noqa: E402
 
-_DEFAULT_SQLITE_DSN = "sqlite+aiosqlite:///./fluxion-dev.db"
+_DEFAULT_PG_DSN = "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion"
 
 
 async def _init(dsn: str) -> None:
@@ -52,11 +49,11 @@ async def _init(dsn: str) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="初始化 Fluxion 域数据库表（PG/SQLite）")
+    parser = argparse.ArgumentParser(description="初始化 Fluxion 域数据库表（PostgreSQL）")
     parser.add_argument(
         "--dsn",
-        default=os.environ.get("FLUXION_DATABASE_URL", _DEFAULT_SQLITE_DSN),
-        help="数据库 DSN（缺省读 FLUXION_DATABASE_URL，再缺省 SQLite 文件）",
+        default=os.environ.get("FLUXION_DATABASE_URL", _DEFAULT_PG_DSN),
+        help="数据库 DSN（缺省读 FLUXION_DATABASE_URL，再缺省本地 PG fluxion 库）",
     )
     args = parser.parse_args()
     asyncio.run(_init(args.dsn))

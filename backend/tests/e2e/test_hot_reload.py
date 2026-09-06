@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from tests.runtime_helpers import seed_agent_definition
+from tests.runtime_helpers import seed_agent_definition, TEST_POSTGRES_DSN
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.resources import ResourceKind
 from fluxion.services.runtime_app import (
     CreateRuntimeProfileRequest,
@@ -16,7 +16,7 @@ from fluxion.services.runtime_app import (
 
 @pytest.mark.asyncio
 async def test_S_R02_new_runtime_profile_version_takes_effect_without_restart() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = RuntimeApplicationService.create_dev_bundle(store, cache_ttl_seconds=600)
     await service.initialize()
     try:

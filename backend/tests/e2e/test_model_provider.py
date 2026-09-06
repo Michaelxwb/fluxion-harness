@@ -170,10 +170,10 @@ async def test_A008_streaming_uses_fallback_route_model_name() -> None:
 
 @pytest.mark.asyncio
 async def test_S_R13_agentloop_uses_model_provider_plugin_tool_calling_and_failover(
-    sqlite_store: RegistryStore,
+    pg_store: RegistryStore,
 ) -> None:
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
@@ -189,10 +189,10 @@ async def test_S_R13_agentloop_uses_model_provider_plugin_tool_calling_and_failo
     # TASK-A104：persona/model 迁至同名 AgentDefinition。ADR-A008 三层链：
     # agent.model_policy → ModelDefinition → provider；主 slow、回退 stub
     # （降级链归 ModelPolicy，不再消费 RuntimeProfile.model_failover）。
-    await seed_model_definition(sqlite_store, tenant_id="tenant-a", provider_id="slow")
-    await seed_model_definition(sqlite_store, tenant_id="tenant-a", provider_id="stub")
+    await seed_model_definition(pg_store, tenant_id="tenant-a", provider_id="slow")
+    await seed_model_definition(pg_store, tenant_id="tenant-a", provider_id="stub")
     await publish_resource(
-        sqlite_store,
+        pg_store,
         tenant_id="tenant-a",
         kind=ResourceKind.AGENT_DEFINITION,
         resource_id="assistant",
@@ -229,7 +229,7 @@ async def test_S_R13_agentloop_uses_model_provider_plugin_tool_calling_and_failo
     await loader.load(slow, PluginContext(tenant_id="tenant-a"))
     await loader.load(stub, PluginContext(tenant_id="tenant-a"))
     runtime = AgentRuntime(
-        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(sqlite_store)),
+        snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(pg_store)),
         memory_store=InMemorySessionMemoryStore(),
         model_providers=registry,
     )

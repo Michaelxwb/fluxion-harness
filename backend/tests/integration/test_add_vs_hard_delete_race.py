@@ -1,6 +1,6 @@
 """ADR-SNAPSHOT-001 REVIEW-A：add_active_reference 与 hard_delete 并发竞态。
 
-真实边界（契约声明）：真实 store（sqlite+aiosqlite）；文件级 SQLite + WAL +
+真实边界（契约声明）：真实 store（PostgreSQL）；PG 行锁 +
 busy_timeout（F5）双 store 真实写竞争，非 mock。
 
 不变量：add_active_reference 与 hard_delete 并发结束后，`active_references` 不得
@@ -8,7 +8,7 @@ busy_timeout（F5）双 store 真实写竞争，非 mock。
 - add 先完成并插入引用 → hard_delete 被 active_reference_blocked / GC re-check
   拦下（版本保留，引用指向仍存在的版本）；
 - hard_delete 先完成（物理删除） → add 的父行校验读到父版本缺失而失败
-  （NotFoundError），或 SQLite 写快照冲突被锁失败。
+  （NotFoundError），或 PG 写冲突失败。
 最终若版本已物理删除，则 active_references 中不得有指向它的行。
 """
 
@@ -19,9 +19,9 @@ from collections.abc import AsyncGenerator
 from datetime import timedelta
 
 import pytest
-from tests.runtime_helpers import publish_resource
+from tests.runtime_helpers import publish_resource, TEST_POSTGRES_DSN
 
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.store import (
     DeleteResult,
     NotFoundError,
@@ -38,10 +38,10 @@ _RESOURCE = "wf-checkout"
 
 @pytest.fixture
 async def file_store_pair(tmp_path) -> AsyncGenerator[tuple[RegistryStore, RegistryStore], None]:
-    """文件级 SQLite + WAL + busy_timeout（F5）：双 store 真实写竞争。"""
-    dsn = f"sqlite+aiosqlite:///{tmp_path / 'add_vs_hd_race.db'}"
-    store1 = SQLiteRegistryStore(dsn)
-    store2 = SQLiteRegistryStore(dsn)
+    """PG 行锁真实写竞争：双 store 并发 add/hard_delete。"""
+    dsn = TEST_POSTGRES_DSN
+    store1 = PostgreSQLRegistryStore(dsn, reset_on_initialize=True)
+    store2 = PostgreSQLRegistryStore(dsn)
     await store1.initialize()
     await store2.initialize()
     try:

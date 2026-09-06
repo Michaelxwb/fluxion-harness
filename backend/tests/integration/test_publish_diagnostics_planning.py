@@ -6,7 +6,7 @@
 - Version Diff 为前端组件能力（spec 双版本客户端对比），jsdom 覆盖
   （frontend/apps/console/src/components/__tests__/SpecDiffModal.test.tsx）。
 
-真实边界：真实 SQLite RegistryStore + Console HTTP ASGI，不 mock Store。
+真实边界：真实 PG RegistryStore + Console HTTP ASGI，不 mock Store。
 """
 
 from __future__ import annotations

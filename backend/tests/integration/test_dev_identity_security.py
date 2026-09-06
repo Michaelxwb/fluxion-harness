@@ -4,13 +4,14 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from tests.channel_helpers import RecordingRuntime
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.api import console_errors
 from fluxion.api.channel import create_app as create_channel_app
 from fluxion.api.console import create_app as create_console_app
 from fluxion.config import DevModeSettings
 from fluxion.resources import ResourceKind
-from fluxion.registry import SQLiteRegistryStore
+from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import audit_logs, chat_access_tokens
 from fluxion.services.channel_app import ChannelApplicationService
 from fluxion.services.console_app import ConsoleApplicationService
@@ -18,7 +19,7 @@ from fluxion.services.console_app import ConsoleApplicationService
 
 @pytest.mark.asyncio
 async def test_E_P13_02_forged_headers_tampered_and_revoked_tokens_fail_closed() -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     runtime = RecordingRuntime()
     settings = DevModeSettings(enabled=True)
     console = ConsoleApplicationService(store)
@@ -100,7 +101,7 @@ def _message_payload(content: str) -> dict[str, str]:
 @pytest.mark.asyncio
 async def test_H1_console_missing_identity_headers_fail_closed() -> None:
     """H1：Console 非 dev 模式身份头缺失 → 401 fail-closed（不落 "unknown" 租户）。"""
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     console = ConsoleApplicationService(store)
     await store.initialize()
     try:
@@ -129,7 +130,7 @@ async def test_H1_console_missing_identity_headers_fail_closed() -> None:
 async def test_E_P13_02_error_log_uses_trusted_dev_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    store = SQLiteRegistryStore("sqlite+aiosqlite:///:memory:")
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
     service = ConsoleApplicationService(store)
     emitted: list[dict[str, object]] = []
 
