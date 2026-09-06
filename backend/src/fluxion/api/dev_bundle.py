@@ -30,7 +30,11 @@ from fluxion.services.eval_app import (
     RuleBasedEvalExecutor,
 )
 from fluxion.services.release_gate import ReleaseGateService
-from fluxion.services.runtime_app import RuntimeApplicationService
+from fluxion.services.runtime_app import (
+    RuntimeApplicationService,
+    build_personal_memory_retriever,
+    memory_recall_timeout_from_env,
+)
 from fluxion.services.workflow_projection import WorkflowProjectionService
 from fluxion.services.workspace_app import WorkspaceApplicationService
 
@@ -66,9 +70,12 @@ def create_dev_bundle_app(
     store = SQLiteRegistryStore(registry_dsn)
     secret_store = _secret_store()
     credential_resolver = CredentialResolver(secret_store)
+    # FEAT-07：dev 执行入口装配真实 PersonalMemoryRetriever（与生产同形态）。
     runtime = RuntimeApplicationService.create_dev_bundle(
         store,
         credential_resolver=credential_resolver,
+        memory_retriever=build_personal_memory_retriever(store.engine),
+        memory_recall_timeout_ms=memory_recall_timeout_from_env(),
     )
     channel = ChannelApplicationService(store, runtime)
     eval_service = EvaluationApplicationService(
@@ -121,6 +128,8 @@ def create_dev_bundle_app(
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         await store.initialize()
         await _seed_environment_credentials(secret_store)
+        # FEAT-07：同一事件循环内初始化执行侧（含 memory provider 有限预算探测）。
+        await runtime.initialize()
         outbox_worker = runtime.build_outbox_worker()
         outbox_worker.start()
         try:
@@ -129,7 +138,7 @@ def create_dev_bundle_app(
             await outbox_worker.stop()
             await runtime.close()
 
-    return Starlette(
+    app = Starlette(
         routes=[
             Route("/", _redirect_console),
             Route("/healthz", _health),
@@ -139,6 +148,9 @@ def create_dev_bundle_app(
         ],
         lifespan=lifespan,
     )
+    # FEAT-07：运维/测试经此触达执行侧装配（真实 Retriever 断言入口）。
+    app.state.runtime_service = runtime
+    return app
 
 
 async def _redirect_console(_request: Request) -> RedirectResponse:

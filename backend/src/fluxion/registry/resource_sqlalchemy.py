@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import cast
 
 from pydantic import ValidationError
-from sqlalchemy import Select, delete, func, insert, select, update
+from sqlalchemy import Select, Subquery, delete, func, insert, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import RowMapping
@@ -246,6 +246,9 @@ async def list_resources(
     tenant_id: str,
     offset: int,
     limit: int,
+    keyword: str | None = None,
+    resource_id: str | None = None,
+    status: ResourceStatus | None = None,
 ) -> tuple[list[ResourceDefinition], int]:
     return await _list_resource_rows(
         engine,
@@ -254,6 +257,9 @@ async def list_resources(
         offset=offset,
         limit=limit,
         published_only=True,
+        keyword=keyword,
+        resource_id=resource_id,
+        status=status,
     )
 
 
@@ -263,6 +269,9 @@ async def list_all_resources(
     tenant_id: str,
     offset: int,
     limit: int,
+    keyword: str | None = None,
+    resource_id: str | None = None,
+    status: ResourceStatus | None = None,
 ) -> tuple[list[ResourceDefinition], int]:
     # 单表 resource_definitions：不带 kind 过滤即列出租户下全部资源类型。
     return await _list_resource_rows(
@@ -272,6 +281,9 @@ async def list_all_resources(
         offset=offset,
         limit=limit,
         published_only=True,
+        keyword=keyword,
+        resource_id=resource_id,
+        status=status,
     )
 
 
@@ -282,6 +294,9 @@ async def list_current_resources(
     tenant_id: str,
     offset: int,
     limit: int,
+    keyword: str | None = None,
+    resource_id: str | None = None,
+    status: ResourceStatus | None = None,
 ) -> tuple[list[ResourceDefinition], int]:
     """Console「当前版本（任意状态）」列表：每资源取最新版本一行，draft-only
     资源可见（console-creation-flow-fix CF-S-01）。kind=None 列出租户下全部类型。
@@ -295,7 +310,50 @@ async def list_current_resources(
         offset=offset,
         limit=limit,
         published_only=False,
+        keyword=keyword,
+        resource_id=resource_id,
+        status=status,
     )
+
+
+def _escape_like_literal(value: str) -> str:
+    r"""转义 LIKE 通配符（`\`、`%`、`_`），使 keyword 按字面子串匹配。"""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _current_row_filters(
+    ranked: Subquery,
+    engine: AsyncEngine,
+    *,
+    keyword: str | None,
+    resource_id: str | None,
+    status: ResourceStatus | None,
+) -> tuple[ColumnElement[bool], ...]:
+    """当前版本行（rank==1 子查询）上的过滤：先选当前行再过滤，避免旧版本
+    命中导致历史资源被重新显示。同一集合用于分页与 count。"""
+    filters: list[ColumnElement[bool]] = []
+    columns = ranked.c
+    if resource_id is not None and resource_id.strip():
+        filters.append(columns.resource_id == resource_id.strip())
+    if status is not None:
+        filters.append(columns.status == status.value)
+    cleaned = (keyword or "").strip()
+    if cleaned:
+        pattern = f"%{_escape_like_literal(cleaned).lower()}%"
+        # 子查询列会丢失 JSON comparator（astext 不可用），按方言用显式
+        # func 提取 spec.name：PG 用 json_extract_path_text（json/jsonb 均可），
+        # SQLite 用 json_extract。
+        if engine.dialect.name == "postgresql":
+            name_expr = func.json_extract_path_text(columns.spec_json, "name")
+        else:
+            name_expr = func.json_extract(columns.spec_json, "$.name")
+        filters.append(
+            or_(
+                func.lower(name_expr).like(pattern, escape="\\"),
+                func.lower(columns.resource_id).like(pattern, escape="\\"),
+            )
+        )
+    return tuple(filters)
 
 
 async def _list_resource_rows(
@@ -306,6 +364,9 @@ async def _list_resource_rows(
     offset: int,
     limit: int,
     published_only: bool,
+    keyword: str | None = None,
+    resource_id: str | None = None,
+    status: ResourceStatus | None = None,
 ) -> tuple[list[ResourceDefinition], int]:
     kind_scope = [resource_definitions.c.kind == kind.value] if kind is not None else []
     if published_only:
@@ -347,20 +408,32 @@ async def _list_resource_rows(
     items_statement = (
         select(ranked)
         .where(ranked.c.version_rank == 1)
+        .where(*_current_row_filters(ranked, engine, keyword=keyword, resource_id=resource_id, status=status))
         .order_by(ranked.c.kind.asc(), ranked.c.resource_id.asc())
         .offset(offset)
         .limit(limit)
     )
     # count 必须按 (kind, resource_id) 去重，与分区键一致；否则跨 kind
     # 同名资源只计 1，与 items 的实际行数不符（total 低估）。
-    distinct_pairs = (
-        select(resource_definitions.c.kind, resource_definitions.c.resource_id)
-        .where(resource_definitions.c.tenant_id == tenant_id)
-        .where(*kind_scope)
-        .where(*status_filters)
-        .distinct()
-    )
-    count_statement = select(func.count()).select_from(distinct_pairs.subquery())
+    # 有 name/status 过滤时，过滤作用于当前版本行（rank==1），count 必须用
+    # 同一过滤集合——此时按 distinct 对计数（同一集合已去重）。
+    current_filters = _current_row_filters(ranked, engine, keyword=keyword, resource_id=resource_id, status=status)
+    if current_filters:
+        count_statement = (
+            select(func.count())
+            .select_from(ranked)
+            .where(ranked.c.version_rank == 1)
+            .where(*current_filters)
+        )
+    else:
+        distinct_pairs = (
+            select(resource_definitions.c.kind, resource_definitions.c.resource_id)
+            .where(resource_definitions.c.tenant_id == tenant_id)
+            .where(*kind_scope)
+            .where(*status_filters)
+            .distinct()
+        )
+        count_statement = select(func.count()).select_from(distinct_pairs.subquery())
     async with engine.connect() as connection:
         rows = (await connection.execute(items_statement)).mappings().all()
         total = int((await connection.execute(count_statement)).scalar_one())

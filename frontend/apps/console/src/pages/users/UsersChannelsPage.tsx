@@ -15,9 +15,9 @@ import {
 import type {
   ConsoleApi,
   IssuedChatAccess,
-  PlatformUser,
-  ResourceSummary
+  PlatformUser
 } from "../../types/console";
+import { useRemoteResourceOptions } from "../../components/useRemoteResourceOptions";
 
 interface UsersChannelsPageProps {
   readonly api: ConsoleApi;
@@ -31,14 +31,15 @@ const USER_PAGE_SIZE = 20;
 export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
   const navigate = useNavigate();
   const [users, setUsers] = useState<readonly PlatformUser[] | null>(null);
-  // closure TASK-010（P1C-06）：签发目标数据源切 agent_definition（产品模型）。
-  const [profiles, setProfiles] = useState<readonly ResourceSummary[]>([]);
   const [platformUserId, setPlatformUserId] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [issued, setIssued] = useState<IssuedChatAccess | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [issueTarget, setIssueTarget] = useState<PlatformUser | null>(null);
+  // closure TASK-010（P1C-06）：签发目标数据源切 agent_definition（产品模型）。
+  // FEAT-03：签发弹窗的智能体选择器远程搜索（大数据集可达）。
+  const agentOptions = useRemoteResourceOptions(api, ["agent_definition"], issueTarget !== null);
   const [issueAgentId, setIssueAgentId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
@@ -48,14 +49,10 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
 
   async function load(page: number): Promise<void> {
     try {
-      const [userPageResult, profileItems] = await Promise.all([
-        api.listPlatformUsers({ page, pageSize: USER_PAGE_SIZE }),
-        api.listVisibleResources("agent_definition")
-      ]);
+      const userPageResult = await api.listPlatformUsers({ page, pageSize: USER_PAGE_SIZE });
       setUsers(userPageResult.items);
       setUserPage(page);
       setUserTotal(userPageResult.total);
-      setProfiles(profileItems);
       setError(null);
     } catch (cause) {
       setError(toErrorMessage(cause));
@@ -215,10 +212,20 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
             <Select
               aria-label="签发目标智能体"
               data-testid="agent-select"
-              filter
+              filter={false}
+              loading={agentOptions.loading}
               onChange={(value) => setIssueAgentId(typeof value === "string" ? value : "")}
-              optionList={profiles.map((profile) => ({ label: profile.displayName, value: profile.resourceId }))}
-              placeholder="选择智能体"
+              onSearch={agentOptions.onSearch}
+              optionList={agentOptions.options.map((profile) => ({ label: profile.label, value: profile.resourceId }))}
+              outerBottomSlot={
+                agentOptions.truncated ? (
+                  <Typography.Text type="tertiary" size="small">
+                    仅显示前 {agentOptions.options.length} 条匹配，请细化关键词
+                  </Typography.Text>
+                ) : undefined
+              }
+              placeholder="输入关键词搜索智能体"
+              remote
               style={{ width: "100%" }}
               value={issueAgentId}
             />

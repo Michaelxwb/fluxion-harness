@@ -53,6 +53,8 @@ const OrderRow = ({ id }) => {
 - 单组件文件 ≤ 300 行，超出拆成子组件或提取 hook
 - 组件内禁止直接修改 props，需改值通过事件 / 回调上抛
 - **样式与逻辑/数据分离**：样式走 CSS Modules / 原子类 / 设计 token，不与数据获取或业务逻辑混在同一处；展示组件不发起请求
+- 列表过滤 / 搜索 / 分页必须服务端化（同一集合分页与 count）；需要完整枚举的选择器必须远程搜索，禁止页内 slice / filter 冒充全量（cf-learn 2026-09-06：6 页面 + `useRemoteResourceOptions`；ModelsPage 聚合投影单查询除外，需注明 cap）
+- 选择器结果被截断时必须显式提示（"仅显示前 N 条，请细化关键词"），禁止静默 top-N（cf-learn 2026-09-06：6 选择器 `outerBottomSlot`）
 
 ## Patterns
 - 拆分容器组件（数据获取 / 状态）与展示组件（纯 UI），便于测试和复用

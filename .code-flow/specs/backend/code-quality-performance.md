@@ -45,6 +45,7 @@ except Exception:
 - 数据对象统一 `@dataclass(frozen=True, slots=True)`（110 处）——不可变 + `__slots__`，防可变默认值/属性漂移
 - 模块以 `from __future__ import annotations` 开头（全仓库仅 13 文件缺该行）——延迟注解求值，避免 forward-ref 循环，mypy 友好
 - 外部调用方法带显式 `timeout_ms` 参数（Rule 18 的代码形态；contracts/summarizer/personal_memory 统一 `timeout_ms: int = 30_000`），禁止无超时签名
+- 调用方必须用 `wait_for` 包夹外部调用超时，禁止假设 provider 内部遵守 `timeout_ms`（cf-learn 2026-09-06：PgVector recall 实证忽略该参数；resolver/readiness/provider 初始化三处包夹）
 - SPI Protocol 用 `@runtime_checkable`（12 处）——loader 以 isinstance 分派 typed provider，依赖运行时结构校验
 - 公共函数完整类型注解（pyproject `[tool.mypy] strict=true` 硬门禁），禁止裸 `dict`/未注解参数
 

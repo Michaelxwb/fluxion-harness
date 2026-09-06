@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 
 from fluxion.api.admin_users import register_admin_user_routes
 from fluxion.api.console_errors import _register_error_handlers
-from fluxion.api.console_helpers import _actor, _kind, _publication_response
+from fluxion.api.console_helpers import _actor, _kind, _publication_response, _status
 from fluxion.api.console_models import (
     DeprecatePayload,
     PublishPayload,
@@ -29,6 +29,7 @@ from fluxion.api.responses import success
 from fluxion.api.studio import register_studio_routes
 from fluxion.api.workflow import register_workflow_projection_routes
 from fluxion.config import DevModeSettings
+from fluxion.services.channel_app import RuntimeGateway
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.console_contracts import (
     CreateResourceDraftRequest,
@@ -49,7 +50,7 @@ def create_app(
     service: ConsoleApplicationService,
     *,
     dev_mode: DevModeSettings | None = None,
-    runtime_service: RuntimeApplicationService | None = None,
+    runtime_service: RuntimeApplicationService | RuntimeGateway | None = None,
     user_service: UserDomainService | None = None,
     projection_service: WorkflowProjectionService | None = None,
     operations_service: OperationsApplicationService | None = None,
@@ -175,14 +176,21 @@ def _register_list_resources_route(app: FastAPI, service: ConsoleApplicationServ
         resource_type: Annotated[str | None, Query()] = None,
         page: Annotated[int, Query(ge=1)] = 1,
         page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+        keyword: Annotated[str | None, Query()] = None,
+        resource_id: Annotated[str | None, Query()] = None,
+        status: Annotated[str | None, Query()] = None,
         x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
     ) -> JSONResponse:
         actor = _actor(x_actor_id)
+        status_filter = _status(status)
         if resource_type is None:
             resources, total = await service.list_all_resources(
                 actor,
                 page=page,
                 page_size=page_size,
+                keyword=keyword,
+                resource_id=resource_id,
+                status=status_filter,
             )
         else:
             resources, total = await service.list_resources(
@@ -190,6 +198,9 @@ def _register_list_resources_route(app: FastAPI, service: ConsoleApplicationServ
                 _kind(resource_type),
                 page=page,
                 page_size=page_size,
+                keyword=keyword,
+                resource_id=resource_id,
+                status=status_filter,
             )
         return success(
             {

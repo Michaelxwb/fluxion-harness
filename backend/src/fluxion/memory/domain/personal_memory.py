@@ -209,6 +209,11 @@ class PersonalMemoryRetriever:
     def __init__(self, provider: SemanticStoreProvider) -> None:
         self._provider = provider
 
+    @property
+    def provider(self) -> SemanticStoreProvider:
+        """底层 SemanticStoreProvider（供装配层做 lifespan 初始化）。"""
+        return self._provider
+
     async def recall(
         self,
         tenant_id: str,

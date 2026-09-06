@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from fluxion.api.responses import success
 from fluxion.errors.console import VALIDATION_FAILED, ConsoleError
 from fluxion.observability.context import current_context
-from fluxion.resources import ResourceKind
+from fluxion.resources import ResourceKind, ResourceStatus
 from fluxion.services.console_contracts import ConsoleActor, PublishResourceResult
 from fluxion.services.console_payloads import publish_payload
 
@@ -42,3 +42,12 @@ def _kind(value: str) -> ResourceKind:
         return ResourceKind(value)
     except ValueError as exc:
         raise ConsoleError(VALIDATION_FAILED, "invalid resource type", 400) from exc
+
+
+def _status(value: str | None) -> ResourceStatus | None:
+    if value is None:
+        return None
+    try:
+        return ResourceStatus(value)
+    except ValueError as exc:
+        raise ConsoleError(VALIDATION_FAILED, "invalid status", 400) from exc

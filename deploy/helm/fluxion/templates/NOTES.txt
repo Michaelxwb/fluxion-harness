@@ -1,0 +1,19 @@
+Fluxion 已部署（FEAT-02 Service 角色隔离）。
+
+流量归属：
+- 主 Service {{ include "fluxion.fullname" . }} 只选 component=api 的 Pod；
+- Runtime Service {{ include "fluxion.fullname" . }}-runtime（ClusterIP :8000）只选
+  component=runtime 的 Pod；二者均排除 workflow-worker。
+- API 经 FLUXION_RUNTIME_SERVICE_URL=http://{{ include "fluxion.fullname" . }}-runtime:8000
+  调用独立 Runtime；runtime.replicaCount=0 时该 Service 无 endpoint，
+  远程请求按 E-01 失败，不回退 API 本地执行。
+
+存量升级（Deployment selector 不可原地变更）：
+1. 先升级 chart 使旧 API Pod template 带上 app.kubernetes.io/component=api 并完成滚动；
+2. 确认旧 Pod 全带 api 标签后，再收紧主 Service selector（含 component=api）；
+3. 如需变更 Deployment 自身 selector，必须创建替代 Deployment 切换流量后退出旧对象，
+   禁止直接提交不可升级的 selector 变更。
+4. 查询时按实际渲染名（helm template/getter 输出），不硬编码 release 名。
+
+探针与摘流见独立 Runtime Deployment（TASK-005）；远程执行认证缺口（P-10）启用前
+必须完成服务身份与租户授权评审。

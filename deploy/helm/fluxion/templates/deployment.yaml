@@ -4,15 +4,18 @@ metadata:
   name: {{ include "fluxion.fullname" . }}
   labels:
     {{- include "fluxion.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       {{- include "fluxion.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
   template:
     metadata:
       labels:
         {{- include "fluxion.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -31,6 +34,10 @@ spec:
                 name: {{ include "fluxion.fullname" . }}-config
             - secretRef:
                 name: {{ .Values.secrets.existingSecret | default (printf "%s-secret" (include "fluxion.fullname" .)) }}
+          env:
+            # FEAT-01：API 经独立 Runtime Service 执行（与 runtime-service.yaml 同名）。
+            - name: FLUXION_RUNTIME_SERVICE_URL
+              value: http://{{ include "fluxion.fullname" . }}-runtime:8000
           livenessProbe:
             httpGet:
               path: {{ .Values.probes.liveness.path }}

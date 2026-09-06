@@ -53,13 +53,18 @@ from fluxion.services.eval_app import (
     EvaluationApplicationService,
     RuleBasedEvalExecutor,
 )
+from fluxion.services.http_runtime_gateway import HttpRuntimeGateway
 from fluxion.services.operations_app import OperationsApplicationService
 from fluxion.services.production_profile import (
     ProductionProfileError,
     verify_production_assembly,
 )
 from fluxion.services.release_gate import ReleaseGateService
-from fluxion.services.runtime_app import RuntimeApplicationService
+from fluxion.services.runtime_app import (
+    RuntimeApplicationService,
+    build_personal_memory_retriever,
+    memory_recall_timeout_from_env,
+)
 from fluxion.services.workflow_projection import WorkflowProjectionService
 from fluxion.services.workspace_app import WorkspaceApplicationService
 
@@ -77,7 +82,12 @@ class ProductionS3Config:
 
 @dataclass
 class ProductionAssembly:
-    """生产装配持有者（app.state.assembly；测试与运维经此触达真实 provider）。"""
+    """生产装配持有者（app.state.assembly；测试与运维经此触达真实 provider）。
+
+    FEAT-01：API 进程不再装配本地 AgentRuntime——执行面经
+    ``runtime_gateway``（HttpRuntimeGateway）调用独立 Runtime Service；
+    outbox worker 等执行侧生命周期留在 Runtime 进程。
+    """
 
     store: PostgreSQLRegistryStore
     secret_store: PostgresEncryptedSecretStore
@@ -87,7 +97,7 @@ class ProductionAssembly:
     artifact_store: S3CompatibleArtifactStore | None
     operations: OperationsApplicationService
     console: ConsoleApplicationService
-    runtime: RuntimeApplicationService
+    runtime_gateway: HttpRuntimeGateway
 
     async def initialize(self) -> None:
         await self.store.initialize()
@@ -102,8 +112,24 @@ class ProductionAssembly:
         if self.artifact_store is not None:
             await self.artifact_store.close()
         await self.operations.close()
-        await self.runtime.close()
+        await self.runtime_gateway.aclose()
         await self.store.close()
+
+
+def _runtime_service_url(explicit: str | None = None) -> str:
+    """解析独立 Runtime Service 基址（FEAT-01）。
+
+    Helm 经 ``FLUXION_RUNTIME_SERVICE_URL`` 注入
+    ``http://<fullname>-runtime:8000``；非 Helm 远程模式必须显式配置，
+    缺失 fail-fast，不静默回退本地执行。
+    """
+    url = (explicit or os.environ.get("FLUXION_RUNTIME_SERVICE_URL", "")).strip().rstrip("/")
+    if not url:
+        raise ProductionProfileError(
+            "FLUXION_RUNTIME_SERVICE_URL 未设置（production 远程执行必填，"
+            "形如 http://<fullname>-runtime:8000）；不回退本地执行"
+        )
+    return url
 
 
 def create_production_bundle_app(
@@ -114,10 +140,14 @@ def create_production_bundle_app(
     chat_dist: Path,
     sysdb_dsn: str | None = None,
     s3_config: ProductionS3Config | None = None,
+    runtime_service_url: str | None = None,
 ) -> Starlette:
     """生产 bundle 装配入口（composition root）。
 
     - registry_dsn 必须 PostgreSQL（非 PG → ProductionProfileError，不静默降级）；
+    - 执行面经 HttpRuntimeGateway 调用独立 Runtime Service（FEAT-01），
+      ``runtime_service_url`` 缺省读 ``FLUXION_RUNTIME_SERVICE_URL``，
+      缺失 fail-fast，不回退本地/dev 执行；
     - 装配后经 ``verify_production_assembly`` 守卫（InMemory 唯一实现 fail-fast）。
     """
     if not registry_dsn.startswith("postgresql"):
@@ -153,12 +183,10 @@ def create_production_bundle_app(
     )
 
     credential_resolver = CredentialResolver(secret_store)
-    runtime = RuntimeApplicationService.create_dev_bundle(
-        store,
-        credential_resolver=credential_resolver,
-        trace_store=trace_store,
-    )
-    channel = ChannelApplicationService(store, runtime)
+    # FEAT-01：执行面拆分——API 进程不创建本地 RuntimeApplicationService；
+    # Channel 与 Studio test-run 均经 Gateway 调用独立 Runtime Service。
+    gateway = HttpRuntimeGateway(base_url=_runtime_service_url(runtime_service_url))
+    channel = ChannelApplicationService(store, gateway)
     eval_service = EvaluationApplicationService(
         store,
         trace_store,
@@ -178,8 +206,8 @@ def create_production_bundle_app(
         trace_store=trace_store,
         secret_metadata_store=secret_store,
         approval_store=approval_store,
-        plugin_summaries=runtime.plugin_summaries,
-        service_instance_id=runtime.service_instance_id,
+        # FEAT-01：API 侧无本地执行体，Console 侧用默认实例标识/空插件摘要；
+        # 执行 trace 指向远端 RuntimeInstance（见 Gateway 返回）。
         release_gate=release_gate,
         # phase5 P1-7：生产强制 Release Gate——无 gate 参数 publish fail-closed
         release_gate_enforced=True,
@@ -199,16 +227,16 @@ def create_production_bundle_app(
         artifact_store=artifact_store,
         operations=operations,
         console=console,
-        runtime=runtime,
+        runtime_gateway=gateway,
     )
 
     api = ApiDispatcher(
-        # TASK-012：与 dev bundle 一致，bundle 内 Runtime 直连支持 studio test-run。
+        # FEAT-01：Studio test-run 经 Gateway 走独立 Runtime，不再直连本地 bundle。
         create_console_app(
             console,
             projection_service=projection,
             operations_service=operations,
-            runtime_service=runtime,
+            runtime_service=gateway,
         ),
         create_channel_app(channel),
         create_eval_app(eval_service),
@@ -218,12 +246,9 @@ def create_production_bundle_app(
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         await assembly.initialize()
-        outbox_worker = runtime.build_outbox_worker()
-        outbox_worker.start()
         try:
             yield
         finally:
-            await outbox_worker.stop()
             await assembly.close()
 
     app = Starlette(
@@ -251,6 +276,8 @@ def create_production_bundle_app_from_env(
     - FLUXION_DBOS_SYSDB_DSN：DBOS sysdb（Operations 端点；缺省不装配 → 空数据）；
     - FLUXION_S3_ENDPOINT/ACCESS_KEY/SECRET_KEY/BUCKET[/REGION]：S3/MinIO
       （缺省不装配 artifact store——S3 是可选生产组件）；
+    - FLUXION_RUNTIME_SERVICE_URL：独立 Runtime Service 基址（必填，FEAT-01，
+      形如 http://<fullname>-runtime:8000；缺失 fail-fast，不回退本地执行）；
     - FLUXION_CONSOLE_DIST / FLUXION_CHAT_DIST：前端产物目录（缺省用仓库布局）。
     """
     import base64
@@ -324,8 +351,13 @@ def create_runtime_app_from_env() -> Starlette:
     secret_store = PostgresEncryptedSecretStore(engine=engine, master_key=master_key)
     trace_store = PostgresTraceStore(engine=engine)
     credential_resolver = CredentialResolver(secret_store)
+    # FEAT-07：生产远程执行侧装配真实 PersonalMemoryRetriever（共享 PG engine）。
     runtime_service = RuntimeApplicationService.create_dev_bundle(
-        store, credential_resolver=credential_resolver, trace_store=trace_store
+        store,
+        credential_resolver=credential_resolver,
+        trace_store=trace_store,
+        memory_retriever=build_personal_memory_retriever(engine),
+        memory_recall_timeout_ms=memory_recall_timeout_from_env(),
     )
     return create_runtime_api_app(runtime_service)
 
@@ -356,4 +388,5 @@ __all__ = [
     "ProductionS3Config",
     "create_production_bundle_app",
     "create_production_bundle_app_from_env",
+    "create_runtime_app_from_env",
 ]

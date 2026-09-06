@@ -132,6 +132,9 @@ async def bundle(
         console_dist=console_dist,
         chat_dist=chat_dist,
         sysdb_dsn=worker_db_url(),
+        runtime_service_url=os.environ.get(
+            "FLUXION_RUNTIME_SERVICE_URL", "http://fluxion-runtime:8000"
+        ),
         s3_config=ProductionS3Config(
             endpoint=_minio_endpoint(),
             access_key=os.environ.get("FLUXION_MINIO_ACCESS_KEY", "minioadmin"),

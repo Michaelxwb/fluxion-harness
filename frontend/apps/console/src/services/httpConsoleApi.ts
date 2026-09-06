@@ -13,6 +13,8 @@ import type {
   ControlPlaneItem,
   CredentialCreateInput,
   CredentialMetadata,
+  CredentialProjection,
+  CredentialProjectionPage,
   EvalRunSummary,
   EvalSetSummary,
   EvalTriggerInput,
@@ -26,7 +28,9 @@ import type {
   PublishOptions,
   PublishResult,
   ResourceCreateInput,
+  ResourceListPage,
   ResourceSummary,
+  RunListPage,
   McpConnectionTestResult,
   ModelLabProjection,
   ToolCallTestResult,
@@ -53,6 +57,7 @@ import {
   parseBindingPage,
   parseCapabilityList,
   parseCredentialPage,
+  parseCredentialProjectionPage,
   parseEvalRun,
   parseEvalRuns,
   parseEvalSets,
@@ -87,14 +92,23 @@ class HttpConsoleApi implements ConsoleApi {
   readonly dataSource: ConsoleDataSource = "http";
   constructor(private readonly client: HttpClient) {}
 
-  async listResources(resourceType?: ResourceType): Promise<PageData<ResourceSummary>> {
-    const filter = resourceType ? `&resource_type=${encodeURIComponent(resourceType)}` : "";
-    const page = await this.client.request(
-      `/api/v1/resources?page=1&page_size=100${filter}`,
+  async listResources(
+    resourceType?: ResourceType,
+    page: ResourceListPage = { page: 1, pageSize: 100 }
+  ): Promise<PageData<ResourceSummary>> {
+    const params = new URLSearchParams({
+      page: String(page.page),
+      page_size: String(page.pageSize)
+    });
+    if (resourceType) params.set("resource_type", resourceType);
+    if (page.keyword?.trim()) params.set("keyword", page.keyword.trim());
+    if (page.status) params.set("status", page.status);
+    const result = await this.client.request(
+      `/api/v1/resources?${params.toString()}`,
       undefined,
       parseResourcePage
     );
-    return { ...page, items: page.items.map(toResourceSummary) };
+    return { ...result, items: result.items.map(toResourceSummary) };
   }
 
   async getResource(
@@ -253,12 +267,32 @@ class HttpConsoleApi implements ConsoleApi {
     );
   }
 
-  async listCredentials(): Promise<readonly CredentialMetadata[]> {
+  async listCredentialProjection(
+    page: CredentialProjectionPage = { page: 1, pageSize: 20 }
+  ): Promise<PageData<CredentialProjection>> {
+    const params = new URLSearchParams({
+      page: String(page.page),
+      page_size: String(page.pageSize)
+    });
+    if (page.keyword?.trim()) params.set("keyword", page.keyword.trim());
+    if (page.purpose?.trim()) params.set("purpose", page.purpose.trim());
+    if (page.status) params.set("status", page.status);
+    if (page.revoked !== undefined) params.set("revoked", String(page.revoked));
     return this.client.request(
-      "/api/v1/credentials?page=1&page_size=100",
+      `/api/v1/credentials/projection?${params.toString()}`,
+      undefined,
+      parseCredentialProjectionPage
+    );
+  }
+
+  async listCredentials(page: PageRequest = { page: 1, pageSize: 100 }): Promise<readonly CredentialMetadata[]> {
+    // FEAT-04 说明：凭据列表最终由 Credential Projection API 承载（含服务端
+    // 搜索/消费者关联）；本参数化仅消除固定 100，调用方按页取数。
+    return this.client.request(
+      `/api/v1/credentials?page=${page.page}&page_size=${page.pageSize}`,
       undefined,
       parseCredentialPage
-    ).then((page) => page.items);
+    ).then((result) => result.items);
   }
 
   async createCredential(input: CredentialCreateInput): Promise<ResourceVersion> {
@@ -427,12 +461,18 @@ class HttpConsoleApi implements ConsoleApi {
     );
   }
 
-  async listRuns(): Promise<readonly RunDetail[]> {
+  async listRuns(page: RunListPage = { page: 1, pageSize: 100 }): Promise<PageData<RunDetail>> {
+    const params = new URLSearchParams({
+      page: String(page.page),
+      page_size: String(page.pageSize)
+    });
+    if (page.status) params.set("status", page.status);
+    if (page.keyword?.trim()) params.set("keyword", page.keyword.trim());
     return this.client.request(
-      "/api/v1/runs?page=1&page_size=100",
+      `/api/v1/runs?${params.toString()}`,
       undefined,
       parseRunPage
-    ).then((page) => page.items);
+    );
   }
 
   async listAudit(request: PageRequest, filters?: AuditFilters): Promise<PageData<AuditRecord>> {
@@ -448,14 +488,14 @@ class HttpConsoleApi implements ConsoleApi {
     return this.client.request(`/api/v1/audit?${params.toString()}`, undefined, parseAuditPage);
   }
 
-  async listP1View(view: P1View): Promise<readonly ControlPlaneItem[]> {
+  async listP1View(view: P1View, page: PageRequest = { page: 1, pageSize: 100 }): Promise<readonly ControlPlaneItem[]> {
     if (view === "users_channels") {
-      const page = await this.client.request(
-        "/api/v1/platform-users?page=1&page_size=100",
+      const result = await this.client.request(
+        `/api/v1/platform-users?page=${page.page}&page_size=${page.pageSize}`,
         undefined,
         parsePlatformUserPage
       );
-      return page.items.map((user) => ({
+      return result.items.map((user) => ({
         id: user.platformUserId,
         name: user.displayName,
         status: "active",
@@ -464,7 +504,7 @@ class HttpConsoleApi implements ConsoleApi {
     }
     if (view === "plugin_policy") {
       return this.client.request(
-        "/api/v1/policies?page=1&page_size=100",
+        `/api/v1/policies?page=${page.page}&page_size=${page.pageSize}`,
         undefined,
         parsePolicyList
       );
@@ -499,9 +539,14 @@ class HttpConsoleApi implements ConsoleApi {
     );
   }
 
-  async listPlatformUsers(request: PageRequest): Promise<PageData<PlatformUser>> {
+  async listPlatformUsers(request: PageRequest & { keyword?: string }): Promise<PageData<PlatformUser>> {
+    const params = new URLSearchParams({
+      page: String(request.page),
+      page_size: String(request.pageSize)
+    });
+    if (request.keyword?.trim()) params.set("keyword", request.keyword.trim());
     return this.client.request(
-      `/api/v1/platform-users?page=${request.page}&page_size=${request.pageSize}`,
+      `/api/v1/platform-users?${params.toString()}`,
       undefined,
       parsePlatformUserPage
     );

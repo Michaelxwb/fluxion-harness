@@ -36,7 +36,9 @@ export function ModelDetailSideSheet({
     void (async () => {
       try {
         const loaded = await api.getResource("model_provider", resourceId);
-        const modelsPage = await api.listResources("model_definition");
+        // FEAT-03 有意 top-N：该 Provider 下属模型关联需服务端 provider 维度
+        // 过滤支持（另行设计），此处明确取首屏 100 做关联展示，不做全量断言。
+        const modelsPage = await api.listResources("model_definition", { page: 1, pageSize: 100 });
         const details = await Promise.all(
           modelsPage.items.map((item) => api.getResource("model_definition", item.resourceId))
         );

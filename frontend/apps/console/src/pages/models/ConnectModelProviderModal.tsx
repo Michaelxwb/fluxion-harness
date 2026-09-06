@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button, Checkbox, Input, Modal, Select, Space, Toast, Typography } from "@douyinfe/semi-ui";
 
@@ -43,6 +43,9 @@ export function ConnectModelProviderModal({
   const [endpoint, setEndpoint] = useState("");
   const [credentialRef, setCredentialRef] = useState("");
   const [credentialOptions, setCredentialOptions] = useState<readonly CredentialOption[]>([]);
+  const [credentialTruncated, setCredentialTruncated] = useState(false);
+  const [credentialLoading, setCredentialLoading] = useState(false);
+  const credentialSeq = useRef(0);
   const [credentialModalVisible, setCredentialModalVisible] = useState(false);
   const [createdProvider, setCreatedProvider] = useState<ResourceVersion | null>(null);
   const [testing, setTesting] = useState(false);
@@ -54,6 +57,39 @@ export function ConnectModelProviderModal({
   const [manualInput, setManualInput] = useState("");
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // FEAT-03：凭据选择器远程搜索（details join 随页有界 20 条；大数据集可达）。
+  // 完整凭据搜索/消费者关联由 FEAT-04 Projection API 承载。
+  async function loadCredentialOptions(keyword: string): Promise<void> {
+    credentialSeq.current += 1;
+    const requestId = credentialSeq.current;
+    setCredentialLoading(true);
+    try {
+      const pageData = await api.listResources("secret", {
+        page: 1,
+        pageSize: 20,
+        keyword: keyword.trim() || undefined
+      });
+      const details = await Promise.all(
+        pageData.items.map((item) => api.getResource("secret", item.resourceId))
+      );
+      if (requestId !== credentialSeq.current) return;
+      setCredentialOptions(
+        pageData.items.map((item, index) => ({
+          label: String((details[index].spec as JsonRecord).name ?? item.resourceId),
+          value: String((details[index].spec as JsonRecord).secret_ref ?? "")
+        }))
+      );
+      setCredentialTruncated(pageData.total > pageData.items.length);
+    } catch {
+      // 凭据列表加载失败时 Select 呈现空选项，内嵌新增入口仍可用
+      if (requestId !== credentialSeq.current) return;
+      setCredentialOptions([]);
+      setCredentialTruncated(false);
+    } finally {
+      if (requestId === credentialSeq.current) setCredentialLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (!visible) return;
@@ -94,27 +130,9 @@ export function ConnectModelProviderModal({
 
   useEffect(() => {
     if (!visible) return;
-    let active = true;
-    void (async () => {
-      try {
-        const pageData = await api.listResources("secret");
-        const details = await Promise.all(
-          pageData.items.map((item) => api.getResource("secret", item.resourceId))
-        );
-        if (!active) return;
-        setCredentialOptions(
-          pageData.items.map((item, index) => ({
-            label: String((details[index].spec as JsonRecord).name ?? item.resourceId),
-            value: String((details[index].spec as JsonRecord).secret_ref ?? "")
-          }))
-        );
-      } catch {
-        // 凭据列表加载失败时 Select 呈现空选项，内嵌新增入口仍可用
-        if (active) setCredentialOptions([]);
-      }
-    })();
+    void loadCredentialOptions("");
     return () => {
-      active = false;
+      credentialSeq.current += 1;
     };
   }, [api, visible, credentialModalVisible]);
 
@@ -306,13 +324,23 @@ export function ConnectModelProviderModal({
             <Select
               aria-labelledby="connect-provider-credential-label"
               disabled={createdProvider !== null}
-              filter
+              filter={false}
+              loading={credentialLoading}
               onChange={(value) => setCredentialRef(String(value ?? ""))}
+              onSearch={(keyword) => void loadCredentialOptions(String(keyword))}
               optionList={credentialOptions.map((option) => ({
                 label: option.label,
                 value: option.value
               }))}
-              placeholder="选择凭据（不可手填 raw ref）"
+              outerBottomSlot={
+                credentialTruncated ? (
+                  <Typography.Text type="tertiary" size="small">
+                    仅显示前 {credentialOptions.length} 条匹配，请细化关键词
+                  </Typography.Text>
+                ) : undefined
+              }
+              placeholder="输入关键词搜索凭据（不可手填 raw ref）"
+              remote
               style={{ flex: 1 }}
               value={credentialRef}
             />

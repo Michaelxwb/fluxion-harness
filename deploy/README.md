@@ -24,6 +24,8 @@ deploy/
 | `FLUXION_ROLE` | 可选 | 进程角色：`api`（默认，Control Plane）/ `runtime`（AgentLoop 独立进程）/ `worker`（DBOS workflow） |
 | `FLUXION_ENV` | 可选 | 运行环境标识，默认 `development` |
 | `FLUXION_LOG_LEVEL` | 可选 | 日志级别，默认 `INFO` |
+| `FLUXION_RUNTIME_SERVICE_URL` | 生产必填（api 角色） | 独立 Runtime Service 基址，如 `http://<fullname>-runtime:8000`；Helm 自动注入，非 Helm 部署必须显式配置，缺失 fail-fast 不回退本地执行 |
+| `FLUXION_MEMORY_RECALL_TIMEOUT_MS` | 可选 | Personal Memory recall 超时（默认 `1000`，>0 有效） |
 
 > 说明：后端 CLI 的 `fluxion serve` 通过 `--registry-dsn` 接收数据库 DSN（不会自动读取
 > `FLUXION_DATABASE_URL`），且代码内 Secret Store 实际读取的变量名是
@@ -130,7 +132,9 @@ curl http://127.0.0.1:8000/healthz
   `FLUXION_SECRET_MASTER_KEY`、含密码的 `FLUXION_DATABASE_URL`）都写入 Secret，Deployment
   通过 `envFrom.secretRef` 注入，不进入 ConfigMap 或 Deployment spec。
 - **非敏感配置用 ConfigMap**：`FLUXION_ENV`、`FLUXION_LOG_LEVEL` 通过 `envFrom.configMapRef` 注入。
-- **探针**：liveness 指向 `/healthz`，readiness 指向 `/readyz`（后端生产模式已实现）。
+- **探针**：API 沿用 `values.probes`（liveness/readiness `/healthz` + `/readyz`）；独立 Runtime 用 `values.runtime.probes`——liveness `/healthz`（10s/2s/3），readiness `/readyz`（5s/2s/3，initialDelay 5s，走 `RuntimeApplicationService.ready()` 的 Registry 读路径，应用内检测预算默认 1s、无重试）；慢启动可开 `values.runtime.startupProbe.enabled`。后端生产模式已实现。
+- **Service 角色隔离**：主 Service 只选 `component=api` 的 Pod；独立 `<fullname>-runtime` ClusterIP Service（8000→http）只选 `component=runtime`；两者均排除 workflow-worker。`runtime.replicaCount=0` 时 Runtime Service 允许无 endpoint，远程执行按无可用实例失败。
+- **存量升级**：Deployment `selector` 不可原地变更——先升级 chart 让旧 API Pod 带上 `component=api` 并完成滚动，再收紧 Service selector；需改 Deployment 自身 selector 时用替代 Deployment 切换流量（详见 chart 内 `NOTES.txt`）。
 - **PostgreSQL 开关**：`postgresql.enabled=true` 时自动拼子 chart DSN；`false` 时用
   `externalDatabase.url`。也可直接 `--set databaseUrl=...` 显式覆盖。
 - **推荐用外部 Secret 管理生产密钥**：设置 `--set secrets.existingSecret=<name>`，该 Secret

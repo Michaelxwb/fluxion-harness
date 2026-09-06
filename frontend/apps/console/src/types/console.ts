@@ -55,6 +55,22 @@ export interface PageData<T> extends PageRequest {
   readonly total: number;
 }
 
+/** FEAT-03：资源列表服务端过滤（与 GET /api/v1/resources 查询参数对齐）。 */
+export interface ResourceListFilters {
+  readonly keyword?: string;
+  readonly status?: ResourceStatus;
+}
+
+export type ResourceListPage = PageRequest & ResourceListFilters;
+
+/** FEAT-03：执行记录服务端过滤（与 GET /api/v1/runs 查询参数对齐）。 */
+export interface RunListFilters {
+  readonly status?: string;
+  readonly keyword?: string;
+}
+
+export type RunListPage = PageRequest & RunListFilters;
+
 export interface ResourceVersion {
   readonly resourceType: ResourceType;
   readonly resourceId: string;
@@ -221,6 +237,34 @@ export interface CredentialMetadata {
   readonly lastRotatedAt: string;
 }
 
+/** FEAT-04：Credential Projection 行（GET /api/v1/credentials/projection，snake_case）。 */
+export interface CredentialProjectionConsumer {
+  readonly providerId: string;
+  readonly providerName: string;
+}
+
+export interface CredentialProjection {
+  readonly credentialId: string;
+  readonly displayName: string;
+  readonly secretRef: string;
+  readonly purpose: string;
+  readonly revoked: boolean;
+  readonly updatedAt: string;
+  readonly consumerCount: number;
+  readonly consumers: readonly CredentialProjectionConsumer[];
+  readonly status: ResourceStatus;
+}
+
+/** FEAT-04：投影服务端过滤（与投影查询参数对齐）。 */
+export interface CredentialProjectionFilters {
+  readonly keyword?: string;
+  readonly purpose?: string;
+  readonly status?: ResourceStatus;
+  readonly revoked?: boolean;
+}
+
+export type CredentialProjectionPage = PageRequest & CredentialProjectionFilters;
+
 /** TASK-009：凭据创建输入（明文只写，服务端不回显）。 */
 export interface CredentialCreateInput {
   readonly name: string;
@@ -345,7 +389,7 @@ export type ConsoleDataSource = "http" | "in-memory";
 export interface ConsoleApi {
   /** 数据源标记（P2 review）：⛳ 依赖缺口端点当前仅 in-memory 展示，UI 据此标注"示例数据"。 */
   readonly dataSource: ConsoleDataSource;
-  listResources(resourceType?: ResourceType): Promise<PageData<ResourceSummary>>;
+  listResources(resourceType?: ResourceType, page?: ResourceListPage): Promise<PageData<ResourceSummary>>;
   getResourceSchema(resourceType: ResourceType): Promise<JsonSchemaNode>;
   getResource(resourceType: ResourceType, resourceId: string, version?: string): Promise<ResourceVersion>;
   createResource(input: ResourceCreateInput): Promise<ResourceVersion>;
@@ -361,7 +405,9 @@ export interface ConsoleApi {
   listVisibleResources(resourceType: ResourceType): Promise<readonly ResourceSummary[]>;
   listBindings(request: PageRequest, resourceType?: ResourceType): Promise<PageData<BindingRecord>>;
   saveBinding(input: BindingInput): Promise<BindingRecord>;
-  listCredentials(): Promise<readonly CredentialMetadata[]>;
+  listCredentials(page?: PageRequest): Promise<readonly CredentialMetadata[]>;
+  /** FEAT-04：Credential Projection 只读查询（单请求替代客户端逐条 join）。 */
+  listCredentialProjection(page?: CredentialProjectionPage): Promise<PageData<CredentialProjection>>;
   createCredential(input: CredentialCreateInput): Promise<ResourceVersion>;
   /** TASK-009 行操作·轮换：新明文只写，服务端生成新版本 SecretRef。 */
   rotateCredential(resourceId: string, secret: string): Promise<ResourceVersion>;
@@ -390,7 +436,7 @@ export interface ConsoleApi {
   testMcpConnection(mcpId: string): Promise<McpConnectionTestResult>;
   /** TASK-017：Tool Test Call（http_api 真实出站，规则 18 timeout）。 */
   testToolCall(toolId: string): Promise<ToolCallTestResult>;
-  listRuns(): Promise<readonly RunDetail[]>;
+  listRuns(page?: RunListPage): Promise<PageData<RunDetail>>;
   // ---- Phase 5 TASK-006：Eval 实页契约（in-memory 先行，http 同契约）----
   listEvalSets(): Promise<readonly EvalSetSummary[]>;
   listEvalRuns(): Promise<readonly EvalRunSummary[]>;
@@ -399,8 +445,8 @@ export interface ConsoleApi {
     page: PageRequest,
     filters?: AuditFilters
   ): Promise<PageData<AuditRecord>>;
-  listP1View(view: P1View): Promise<readonly ControlPlaneItem[]>;
-  listPlatformUsers(request: PageRequest): Promise<PageData<PlatformUser>>;
+  listP1View(view: P1View, page?: PageRequest): Promise<readonly ControlPlaneItem[]>;
+  listPlatformUsers(request: PageRequest & { readonly keyword?: string }): Promise<PageData<PlatformUser>>;
   createPlatformUser(platformUserId: string, displayName: string): Promise<PlatformUser>;
   /** TASK-013（§9.1）：Agent 用户授权——Binding 产品投影 + 授权/撤销。 */
   listAuthorizedUsers(agentId: string): Promise<readonly AuthorizedUserSummary[]>;

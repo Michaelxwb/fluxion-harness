@@ -14,6 +14,11 @@ from fluxion.registry import (
     ChannelRegistryStore,
     VersionConflictError,
 )
+from fluxion.repositories.credential_projection import (
+    CredentialProjection,
+    CredentialProjectionReader,
+    CredentialProjectionRepository,
+)
 from fluxion.resources import (
     ResourceDefinition,
     ResourceKind,
@@ -62,6 +67,8 @@ class ConsoleResourceOps(ConsoleResourceLifecycleOps, ConsoleResourceValidationO
     _approval_store: ApprovalStore
     # 连接测试凭据注入（TASK-019 返工）：由装配方（dev/production bundle）注入。
     _credential_resolver: CredentialResolver | None
+    # FEAT-04：Credential Projection 查询接口注入（None 时懒装配默认实现）。
+    _credential_projection_reader: CredentialProjectionReader | None
 
     def _publication_lock(
         self,
@@ -173,6 +180,9 @@ class ConsoleResourceOps(ConsoleResourceLifecycleOps, ConsoleResourceValidationO
         *,
         page: int,
         page_size: int,
+        keyword: str | None = None,
+        resource_id: str | None = None,
+        status: ResourceStatus | None = None,
     ) -> tuple[list[ResourceDefinition], int]:
         # console-creation-flow-fix（CF-S-01）：Console 列表语义 = 每资源「当前版本
         # （任意状态）」一行，新建 draft 立即可见；runtime/resolver 消费的
@@ -182,6 +192,9 @@ class ConsoleResourceOps(ConsoleResourceLifecycleOps, ConsoleResourceValidationO
             tenant_id=actor.tenant_id,
             offset=(page - 1) * page_size,
             limit=page_size,
+            keyword=keyword,
+            resource_id=resource_id,
+            status=status,
         )
 
     async def list_all_resources(
@@ -190,6 +203,9 @@ class ConsoleResourceOps(ConsoleResourceLifecycleOps, ConsoleResourceValidationO
         *,
         page: int,
         page_size: int,
+        keyword: str | None = None,
+        resource_id: str | None = None,
+        status: ResourceStatus | None = None,
     ) -> tuple[list[ResourceDefinition], int]:
         # 同 list_resources：Console「当前版本（任意状态）」语义（CF-S-01）。
         return await self._store.list_current_resources(
@@ -197,6 +213,40 @@ class ConsoleResourceOps(ConsoleResourceLifecycleOps, ConsoleResourceValidationO
             tenant_id=actor.tenant_id,
             offset=(page - 1) * page_size,
             limit=page_size,
+            keyword=keyword,
+            resource_id=resource_id,
+            status=status,
+        )
+
+    async def list_credential_projection(
+        self,
+        actor: ConsoleActor,
+        *,
+        page: int,
+        page_size: int,
+        keyword: str | None = None,
+        purpose: str | None = None,
+        status: ResourceStatus | None = None,
+        revoked: bool | None = None,
+    ) -> tuple[list[CredentialProjection], int]:
+        """Credential Projection 只读查询（FEAT-04）：固定 3 查询替代客户端
+        逐条详情与关联。tenant 取可信 Actor 上下文，不接受切换。"""
+        reader = self._credential_projection_reader
+        if reader is None:
+            engine = getattr(self._store, "engine", None)
+            if engine is None:
+                raise ConsoleResourceNotFoundError(
+                    "credential projection unavailable: store exposes no engine"
+                )
+            reader = CredentialProjectionRepository(engine)
+        return await reader.list_projection(
+            tenant_id=actor.tenant_id,
+            offset=(page - 1) * page_size,
+            limit=page_size,
+            keyword=keyword,
+            purpose=purpose,
+            status=status,
+            revoked=revoked,
         )
 
     async def validate_workflow_version(

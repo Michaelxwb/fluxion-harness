@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import cast
 
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import func, insert, or_, select, update
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
@@ -65,11 +65,24 @@ async def list_platform_users(
     tenant_id: str,
     offset: int,
     limit: int,
+    keyword: str | None = None,
 ) -> tuple[list[PlatformUserRecord], int]:
-    scope = platform_users.c.tenant_id == tenant_id
+    filters = [platform_users.c.tenant_id == tenant_id]
+    cleaned = (keyword or "").strip()
+    if cleaned:
+        escaped = (
+            cleaned.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_").lower()
+        )
+        pattern = f"%{escaped}%"
+        filters.append(
+            or_(
+                func.lower(platform_users.c.platform_user_id).like(pattern, escape="\\"),
+                func.lower(platform_users.c.display_name).like(pattern, escape="\\"),
+            )
+        )
     statement = (
         select(platform_users)
-        .where(scope)
+        .where(*filters)
         .order_by(platform_users.c.created_at.desc())
         .offset(offset)
         .limit(limit)
@@ -77,7 +90,7 @@ async def list_platform_users(
     async with engine.connect() as connection:
         rows = (await connection.execute(statement)).mappings().all()
         total = int(
-            (await connection.execute(select(func.count()).select_from(platform_users).where(scope)))
+            (await connection.execute(select(func.count()).select_from(platform_users).where(*filters)))
             .scalar_one()
         )
     return [_platform_user_from_row(row) for row in rows], total

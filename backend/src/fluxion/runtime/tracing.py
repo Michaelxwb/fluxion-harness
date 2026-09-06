@@ -8,6 +8,26 @@ from fluxion.resources import ExecutionSnapshot
 from fluxion.runtime.context import TraceEvent
 
 
+def _trace_status(record: TraceRecord) -> str:
+    return "failed" if record.error is not None else "succeeded"
+
+
+def _filter_trace_records(
+    records: list[TraceRecord],
+    *,
+    status: str | None,
+    keyword: str | None,
+) -> list[TraceRecord]:
+    cleaned = (keyword or "").strip().lower()
+    result = records
+    if status is not None and status.strip():
+        wanted = status.strip()
+        result = [record for record in result if _trace_status(record) == wanted]
+    if cleaned:
+        result = [record for record in result if cleaned in record.execution_id.lower()]
+    return result
+
+
 @dataclass(frozen=True, slots=True)
 class TraceRecord:
     trace_id: str
@@ -39,8 +59,17 @@ class TraceStore(Protocol):
     ) -> list[TraceRecord]: ...
 
     async def list_recent(
-        self, *, tenant_id: str, offset: int, limit: int
+        self,
+        *,
+        tenant_id: str,
+        offset: int,
+        limit: int,
+        status: str | None = None,
+        keyword: str | None = None,
     ) -> tuple[list[TraceRecord], int]: ...
+    """执行记录分页；status 为 succeeded/failed（按 error 是否为空推导），
+    keyword 对 execution_id 大小写不敏感字面子串匹配。过滤在分页前执行，
+    同一集合用于分页与 count。"""
 
     async def get_by_execution(
         self, *, tenant_id: str, execution_id: str
@@ -101,8 +130,11 @@ class InMemoryTraceStore:
         tenant_id: str,
         offset: int,
         limit: int,
+        status: str | None = None,
+        keyword: str | None = None,
     ) -> tuple[list[TraceRecord], int]:
         records = [record for record in self._records.values() if record.tenant_id == tenant_id]
+        records = _filter_trace_records(records, status=status, keyword=keyword)
         records.sort(key=lambda record: record.snapshot.created_at, reverse=True)
         return records[offset : offset + limit], len(records)
 

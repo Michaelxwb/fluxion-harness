@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-import re
 import hashlib
+import re
 import secrets
 import traceback
 from collections.abc import Sequence
@@ -24,8 +24,14 @@ from fluxion.registry import (
     NotFoundError,
     PlatformUserRecord,
 )
+from fluxion.repositories.credential_projection import CredentialProjectionReader
 from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus, ResourceVisibility
-from fluxion.runtime.secrets import CredentialResolver, SecretMetadata, SecretMetadataStore, SecretStore
+from fluxion.runtime.secrets import (
+    CredentialResolver,
+    SecretMetadata,
+    SecretMetadataStore,
+    SecretStore,
+)
 from fluxion.runtime.tracing import TraceRecord, TraceStore
 from fluxion.services.approval_app import ApprovalStore, InMemoryApprovalStore
 from fluxion.services.console_contracts import (
@@ -59,6 +65,7 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         release_gate_enforced: bool = False,
         credential_resolver: CredentialResolver | None = None,
         secret_store: SecretStore | None = None,
+        credential_projection_reader: CredentialProjectionReader | None = None,
     ) -> None:
         self._store = store
         self._trace_store = trace_store
@@ -68,6 +75,9 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         self._credential_resolver = credential_resolver
         # golden-path-closure TASK-009：明文 Secret 写入（Credential 创建 Journey）。
         self._secret_store = secret_store
+        # FEAT-04：Credential Projection 查询接口注入；None 时按 store engine
+        # 懒装配默认 Repository（双库同语义），保持旧装配点零改动。
+        self._credential_projection_reader = credential_projection_reader
         self._workflow_validator = WorkflowDefinitionValidator(store)
         self._deployment_actions: list[str] = []
         # 只读运行时身份快照：由装配方（dev bundle）注入，避免 Console 反向依赖 Runtime。
@@ -129,11 +139,13 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         *,
         page: int,
         page_size: int,
+        keyword: str | None = None,
     ) -> tuple[list[PlatformUserRecord], int]:
         return await self._store.list_platform_users(
             tenant_id=actor.tenant_id,
             offset=(page - 1) * page_size,
             limit=page_size,
+            keyword=keyword,
         )
 
     async def list_policies(
@@ -142,6 +154,8 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         *,
         page: int,
         page_size: int,
+        keyword: str | None = None,
+        status: ResourceStatus | None = None,
     ) -> tuple[list[ResourceDefinition], int]:
         """列出 tenant 已注册的 Policy 资源（P1 Plugin/Hook Policy 视图只读数据源）。"""
         return await self._store.list_resources(
@@ -149,6 +163,8 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
             tenant_id=actor.tenant_id,
             offset=(page - 1) * page_size,
             limit=page_size,
+            keyword=keyword,
+            status=status,
         )
 
     async def list_capabilities(
@@ -308,6 +324,8 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         *,
         page: int,
         page_size: int,
+        status: str | None = None,
+        keyword: str | None = None,
     ) -> tuple[list[TraceRecord], int]:
         if self._trace_store is None:
             return [], 0
@@ -315,6 +333,8 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
             tenant_id=actor.tenant_id,
             offset=(page - 1) * page_size,
             limit=page_size,
+            status=status,
+            keyword=keyword,
         )
 
     async def get_run(self, actor: ConsoleActor, execution_id: str) -> TraceRecord:

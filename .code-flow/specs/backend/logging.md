@@ -48,3 +48,4 @@ logger.error("failed")                 # 丢失原始错误与上下文
 - 禁止在循环或热路径中无脱敏地打印请求体
 - 禁止用 `print` / `console.log` 替代日志框架
 - 禁止吞掉异常仅打 `logger.error("failed")`，必须保留原始错误与上下文
+- 禁止把 `traceback.format_exc()` 原文直接入日志：其尾行含异常消息（可带 DSN / SQL / 密钥），改用 `extract_tb` 帧栈（无局部变量值、无异常消息）或先脱敏（cf-learn 2026-09-06：readiness 日志泄漏被测试真实抓到）

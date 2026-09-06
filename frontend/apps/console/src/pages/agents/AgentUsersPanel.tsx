@@ -16,9 +16,9 @@ import {
 import type {
   AuthorizedUserSummary,
   ConsoleApi,
-  IssuedChatAccess,
-  PlatformUser
+  IssuedChatAccess
 } from "../../types/console";
+import { useRemoteUserOptions } from "../../components/useRemoteResourceOptions";
 
 interface AgentUsersPanelProps {
   readonly agentId: string;
@@ -34,7 +34,8 @@ interface AgentUsersPanelProps {
  */
 export function AgentUsersPanel({ agentId, api }: AgentUsersPanelProps) {
   const [rows, setRows] = useState<readonly AuthorizedUserSummary[] | null>(null);
-  const [users, setUsers] = useState<readonly PlatformUser[]>([]);
+  // FEAT-03：授权候选用户远程搜索（大数据集可达；已授权排除仍在页内执行）。
+  const userOptions = useRemoteUserOptions(api, true);
   const [selectedUser, setSelectedUser] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [newUserId, setNewUserId] = useState("");
@@ -45,12 +46,8 @@ export function AgentUsersPanel({ agentId, api }: AgentUsersPanelProps) {
 
   const reload = useCallback(async (): Promise<void> => {
     try {
-      const [authorized, userPage] = await Promise.all([
-        api.listAuthorizedUsers(agentId),
-        api.listPlatformUsers({ page: 1, pageSize: 100 })
-      ]);
+      const authorized = await api.listAuthorizedUsers(agentId);
       setRows(authorized);
-      setUsers(userPage.items);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "授权数据加载失败");
@@ -129,7 +126,7 @@ export function AgentUsersPanel({ agentId, api }: AgentUsersPanelProps) {
   if (rows === null && !error) return <Spin />;
 
   const authorizedIds = new Set((rows ?? []).map((row) => row.platformUserId));
-  const selectable = users.filter((user) => !authorizedIds.has(user.platformUserId));
+  const selectable = userOptions.options.filter((user) => !authorizedIds.has(user.resourceId));
 
   return (
     <div aria-label="Agent 用户授权" style={{ display: "grid", gap: 16 }}>
@@ -138,13 +135,23 @@ export function AgentUsersPanel({ agentId, api }: AgentUsersPanelProps) {
           <Typography.Text id="agent-authorize-user-label">授权用户</Typography.Text>
           <Select
             aria-labelledby="agent-authorize-user-label"
-            filter
+            filter={false}
+            loading={userOptions.loading}
             onChange={(value) => setSelectedUser(String(value ?? ""))}
+            onSearch={userOptions.onSearch}
             optionList={selectable.map((user) => ({
-              label: `${user.displayName}（${user.platformUserId}）`,
-              value: user.platformUserId
+              label: user.label,
+              value: user.resourceId
             }))}
-            placeholder="选择要授权的用户"
+            outerBottomSlot={
+              userOptions.truncated ? (
+                <Typography.Text type="tertiary" size="small">
+                  仅显示前 {userOptions.options.length} 条匹配，请细化关键词
+                </Typography.Text>
+              ) : undefined
+            }
+            placeholder="输入关键词搜索要授权的用户"
+            remote
             style={{ width: "100%" }}
             value={selectedUser}
           />

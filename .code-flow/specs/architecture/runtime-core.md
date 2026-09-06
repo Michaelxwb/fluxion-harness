@@ -22,6 +22,8 @@ verifiers:
 - RuntimeProfile 是逻辑 Resource，不是 Pod。
 - Runtime Pod 可以随时销毁和替换，不能丢失 Agent/User/Workflow 事实状态。
 - Session、Memory、Credential、Workflow durable state 全部外置。
+- 降级语义必须区分成功空结果与不可用（如 memory manifest `content_hash` 为空 vs `"unavailable"`），禁止用空实现冒充接通（cf-learn 2026-09-06：PersonalMemoryRetriever 装配 + 双分支验收）。
+- Session、Memory、Credential、Workflow durable state 全部外置。
 - Execution 开始时解析精确 Agent/Skill/MCP/Plugin/Policy 版本并生成 Snapshot。
 - 当前 Execution 不得因配置热更新切换版本；新 Execution 使用最新 Published Version。
 - Plugin/Hook 必须类型化并有 timeout、fail policy、scope、priority。

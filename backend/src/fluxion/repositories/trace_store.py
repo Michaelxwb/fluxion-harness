@@ -92,19 +92,40 @@ class PostgresTraceStore:
         return [_from_row(row) for row in rows]
 
     async def list_recent(
-        self, *, tenant_id: str, offset: int, limit: int
+        self,
+        *,
+        tenant_id: str,
+        offset: int,
+        limit: int,
+        status: str | None = None,
+        keyword: str | None = None,
     ) -> tuple[list[TraceRecord], int]:
+        filters = [trace_records.c.tenant_id == tenant_id]
+        wanted = (status or "").strip()
+        if wanted == "succeeded":
+            filters.append(trace_records.c.error.is_(None))
+        elif wanted == "failed":
+            filters.append(trace_records.c.error.is_not(None))
+        cleaned = (keyword or "").strip()
+        if cleaned:
+            escaped = cleaned.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            filters.append(
+                func.lower(trace_records.c.execution_id).like(
+                    f"%{escaped.lower()}%", escape="\\"
+                )
+            )
+
         async def _query() -> tuple[list[Any], int]:
             async with self._engine.connect() as conn:
                 total_row: Any = await conn.execute(
                     select(func.count())
                     .select_from(trace_records)
-                    .where(trace_records.c.tenant_id == tenant_id)
+                    .where(*filters)
                 )
                 total = int(total_row.scalar_one())
                 result = await conn.execute(
                     select(trace_records)
-                    .where(trace_records.c.tenant_id == tenant_id)
+                    .where(*filters)
                     .order_by(trace_records.c.created_at.desc())
                     .offset(offset)
                     .limit(limit)

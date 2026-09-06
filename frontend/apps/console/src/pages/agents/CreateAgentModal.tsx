@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button, Input, Modal, Select, Space, TextArea, Toast, Typography } from "@douyinfe/semi-ui";
 
-import type { ConsoleApi, ResourceSummary } from "../../types/console";
+import type { ConsoleApi } from "../../types/console";
+import { useRemoteResourceOptions } from "../../components/useRemoteResourceOptions";
 
 interface CreateAgentModalProps {
   readonly api: ConsoleApi;
@@ -22,26 +23,11 @@ interface CreateAgentModalProps {
 export function CreateAgentModal({ api, visible, onClose, onCreated }: CreateAgentModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [model, setModel] = useState<ResourceSummary | null>(null);
-  const [models, setModels] = useState<readonly ResourceSummary[] | null>(null);
+  const [modelValue, setModelValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!visible) return;
-    let active = true;
-    void api.listResources("model_definition").then(
-      (page) => {
-        if (active) setModels(page.items);
-      },
-      () => {
-        if (active) setModels([]);
-      }
-    );
-    return () => {
-      active = false;
-    };
-  }, [api, visible]);
+  // FEAT-03：模型选择器远程搜索（大数据集不再静默只取 100 条）。
+  const models = useRemoteResourceOptions(api, ["model_definition"], visible);
 
   async function submit(): Promise<void> {
     const trimmed = name.trim();
@@ -49,7 +35,8 @@ export function CreateAgentModal({ api, visible, onClose, onCreated }: CreateAge
       setError("智能体名称：必填");
       return;
     }
-    if (!model) {
+    const selected = models.options.find((item) => item.value === modelValue) ?? null;
+    if (!selected) {
       setError("默认模型：必选（选择一个 ModelDefinition）");
       return;
     }
@@ -62,14 +49,14 @@ export function CreateAgentModal({ api, visible, onClose, onCreated }: CreateAge
         system_prompt: `你是${trimmed}，请严谨、专业地完成任务。`,
         owner: "default",
         model_policy: {
-          primary_model_ref: { id: model.resourceId, version: model.currentVersion },
+          primary_model_ref: { id: selected.resourceId, version: selected.version },
           fallback_model_refs: []
         },
         capabilities: []
       });
       setName("");
       setDescription("");
-      setModel(null);
+      setModelValue("");
       // 先关闭 + 刷新列表（可观测结果），Toast 独立 try/catch 不阻断建档流程
       onCreated(created.resourceId);
       try {
@@ -131,19 +118,29 @@ export function CreateAgentModal({ api, visible, onClose, onCreated }: CreateAge
           <Typography.Text id="create-agent-model-label">默认模型 *</Typography.Text>
           <Select
             aria-labelledby="create-agent-model-label"
+            filter={false}
+            loading={models.loading}
             onChange={(value) => {
-              const id = String(value ?? "");
-              setModel(models?.find((item) => item.resourceId === id) ?? null);
+              setModelValue(String(value ?? ""));
               setError(null);
             }}
-            optionList={(models ?? []).map((item) => ({
-              value: item.resourceId,
-              label: `${item.displayName}（${item.resourceId}）`
+            onSearch={models.onSearch}
+            optionList={models.options.map((item) => ({
+              value: item.value,
+              label: item.label
             }))}
-            placeholder={models === null ? "加载模型…" : "选择模型"}
-            value={model?.resourceId}
+            outerBottomSlot={
+              models.truncated ? (
+                <Typography.Text type="tertiary" size="small">
+                  仅显示前 {models.options.length} 条匹配，请细化关键词
+                </Typography.Text>
+              ) : undefined
+            }
+            placeholder="输入关键词搜索模型"
+            remote
+            value={modelValue || undefined}
           />
-          {models !== null && models.length === 0 ? (
+          {models.options.length === 0 && !models.loading ? (
             <Typography.Text type="tertiary">
               暂无可用模型，请先在「平台 → 模型」创建 ModelDefinition
             </Typography.Text>

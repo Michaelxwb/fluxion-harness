@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 import { Card, Spin, Typography } from "@douyinfe/semi-ui";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
-import type { ConsoleApi, ResourceSummary, ResourceVersion } from "../../types/console";
+import type { ConsoleApi, ResourceVersion } from "../../types/console";
 import { AgentEditorForm } from "./AgentEditorForm";
 import {
   EMPTY_AGENT_EDITOR_VALUE,
@@ -28,9 +28,6 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
   const { resourceId } = useParams<{ resourceId: string }>();
   const [resource, setResource] = useState<ResourceVersion | null>(null);
   const [value, setValue] = useState<AgentEditorValue>(EMPTY_AGENT_EDITOR_VALUE);
-  const [modelOptions, setModelOptions] = useState<readonly ResourceSummary[]>([]);
-  const [profileOptions, setProfileOptions] = useState<readonly ResourceSummary[]>([]);
-  const [workflowOptions, setWorkflowOptions] = useState<readonly ResourceSummary[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -45,12 +42,7 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
     let active = true;
     void (async () => {
       try {
-        const [loaded, models, profiles, workflows] = await Promise.all([
-          api.getResource("agent_definition", resourceId),
-          api.listVisibleResources("model_definition"),
-          api.listVisibleResources("runtime_profile"),
-          api.listVisibleResources("workflow")
-        ]);
+        const loaded = await api.getResource("agent_definition", resourceId);
         // 已发布 → 自动 working draft（用户无感）；draft → 直接编辑
         const draft =
           loaded.status === "published"
@@ -61,9 +53,6 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
         // ADR-A011：published 资源编辑记录乐观并发 base（fork 前的 published 版本）
         setPublishedBaseVersion(loaded.status === "published" ? loaded.version : undefined);
         setValue(editorValueFrom(draft));
-        setModelOptions(models);
-        setProfileOptions(profiles);
-        setWorkflowOptions(workflows);
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : "加载失败");
       }
@@ -146,17 +135,14 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
             agentId={resource.resourceId}
             api={api}
             busy={busy}
-            modelOptions={modelOptions}
             notice={notice}
             onChange={(change) => setValue((current) => ({ ...current, ...change }))}
             onPublish={() => void publish()}
             onSave={() => void save()}
             onTestCompleted={setLatestTraceId}
-            profileOptions={profileOptions}
             publishIssues={publishIssues}
             value={value}
             latestTraceId={latestTraceId}
-            workflowOptions={workflowOptions}
           />
         </Card>
       )}

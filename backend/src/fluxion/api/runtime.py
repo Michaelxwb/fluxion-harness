@@ -81,7 +81,11 @@ def create_app(service: RuntimeApplicationService) -> FastAPI:
 
     @app.get("/readyz")
     async def readyz() -> JSONResponse:
-        ready = await service.ready()
+        context = current_context()
+        ready = await service.ready(
+            request_id=_context_request_id(),
+            trace_id=context.trace_id if context is not None else "",
+        )
         return success(ready.to_payload())
 
     @app.get("/health")

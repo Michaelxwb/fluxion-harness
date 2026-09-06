@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
-from fluxion.resources import ResourceBinding, ResourceDefinition, ResourceKind
+from fluxion.resources import ResourceBinding, ResourceDefinition, ResourceKind, ResourceStatus
 
 
 class RegistryStoreError(RuntimeError):
@@ -236,6 +236,9 @@ class RegistryStore(RegistryReadStore, Protocol):
         tenant_id: str,
         offset: int,
         limit: int,
+        keyword: str | None = None,
+        resource_id: str | None = None,
+        status: ResourceStatus | None = None,
     ) -> tuple[list[ResourceDefinition], int]: ...
 
     async def list_all_resources(
@@ -244,6 +247,9 @@ class RegistryStore(RegistryReadStore, Protocol):
         tenant_id: str,
         offset: int,
         limit: int,
+        keyword: str | None = None,
+        resource_id: str | None = None,
+        status: ResourceStatus | None = None,
     ) -> tuple[list[ResourceDefinition], int]: ...
 
     async def list_current_resources(
@@ -253,6 +259,9 @@ class RegistryStore(RegistryReadStore, Protocol):
         tenant_id: str,
         offset: int,
         limit: int,
+        keyword: str | None = None,
+        resource_id: str | None = None,
+        status: ResourceStatus | None = None,
     ) -> tuple[list[ResourceDefinition], int]: ...
 
     async def append_audit(self, record: AuditRecord) -> None: ...

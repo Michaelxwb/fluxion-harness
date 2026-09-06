@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { IconPlus } from "@douyinfe/semi-icons";
 import { Button, Modal, Select, Table, Toast, Typography } from "@douyinfe/semi-ui";
@@ -15,7 +15,7 @@ import {
 } from "../../components/StandardListShell";
 import { SpecDiffModal } from "../../components/SpecDiffModal";
 import { StatusTag } from "../../components/StatusTag";
-import type { ConsoleApi, JsonRecord, ResourceSummary, ResourceVersion } from "../../types/console";
+import type { ConsoleApi, JsonRecord, ResourceStatus, ResourceSummary, ResourceVersion } from "../../types/console";
 import { CreateWorkflowModal } from "./CreateWorkflowModal";
 
 interface WorkflowsPageProps {
@@ -35,54 +35,52 @@ interface WorkflowRow extends ResourceSummary {
 export function WorkflowsPage({ api }: WorkflowsPageProps) {
   const navigate = useNavigate();
   const [rows, setRows] = useState<readonly WorkflowRow[] | null>(null);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [versionsFor, setVersionsFor] = useState<ResourceSummary | null>(null);
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     let active = true;
+    requestSeq.current += 1;
+    const requestId = requestSeq.current;
     setError(null);
     setRows(null);
     void (async () => {
       try {
-        const result = await api.listResources("workflow");
-        if (!active) return;
-        setRows(
-          result.items
-            .map((item) => ({ ...item, key: item.resourceId }))
-            .sort((left, right) =>
-              (left.displayName || left.resourceId).localeCompare(
-                right.displayName || right.resourceId,
-                "zh-CN",
-                { numeric: true }
-              )
-            )
-        );
+        // FEAT-03：分页/搜索/状态全部服务端化，防乱序覆盖。
+        const result = await api.listResources("workflow", {
+          page,
+          pageSize: PAGE_SIZE,
+          keyword: debouncedSearch.trim() || undefined,
+          status: (statusFilter || undefined) as ResourceStatus | undefined
+        });
+        if (!active || requestId !== requestSeq.current) return;
+        setRows(result.items.map((item) => ({ ...item, key: item.resourceId })));
+        setTotal(result.total);
       } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : "加载失败");
+        if (!active || requestId !== requestSeq.current) return;
+        setError(cause instanceof Error ? cause.message : "加载失败");
       }
     })();
     return () => {
       active = false;
     };
-  }, [api, reloadKey]);
-
-  const filtered = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    return (rows ?? []).filter((row) => {
-      if (statusFilter && row.status !== statusFilter) return false;
-      return (
-        !keyword ||
-        (row.displayName || "").toLowerCase().includes(keyword) ||
-        row.resourceId.toLowerCase().includes(keyword)
-      );
-    });
-  }, [rows, search, statusFilter]);
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  }, [api, debouncedSearch, page, reloadKey, statusFilter]);
 
   function reload(): void {
     setReloadKey((key) => key + 1);
@@ -122,16 +120,16 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
       <ErrorBanner message={error} />
       <div aria-label="工作流列表">
         <StandardListCard
-          empty={rows !== null && filtered.length === 0}
+          empty={rows !== null && total === 0}
           emptyDescription="暂无工作流"
           error={error}
           footer={
-            rows !== null && filtered.length > 0 ? (
+            rows !== null && total > 0 ? (
               <StandardListFooter
                 onPageChange={setPage}
                 page={page}
                 pageSize={PAGE_SIZE}
-                total={filtered.length}
+                total={total}
               />
             ) : undefined
           }
@@ -177,7 +175,6 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
                 <StandardListSearch
                   onChange={(value) => {
                     setSearch(value);
-                    setPage(1);
                   }}
                   placeholder="搜索工作流"
                   value={search}
@@ -234,7 +231,7 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
                 title: "操作"
               }
             ]}
-            dataSource={[...paged]}
+            dataSource={[...(rows ?? [])]}
             pagination={false}
             rowKey="key"
           />

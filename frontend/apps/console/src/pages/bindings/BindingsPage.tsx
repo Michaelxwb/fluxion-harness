@@ -11,9 +11,9 @@ import type {
   BindingRecord,
   ConsoleApi,
   CredentialMetadata,
-  ResourceSummary,
   ResourceType
 } from "../../types/console";
+import { useRemoteResourceOptions } from "../../components/useRemoteResourceOptions";
 
 interface BindingsPageProps {
   readonly api: ConsoleApi;
@@ -25,7 +25,6 @@ export function BindingsPage({ api }: BindingsPageProps) {
   const [bindings, setBindings] = useState<readonly BindingRecord[]>([]);
   const [bindingTotal, setBindingTotal] = useState(0);
   const [bindingPage, setBindingPage] = useState(1);
-  const [resources, setResources] = useState<readonly ResourceSummary[]>([]);
   const [credentials, setCredentials] = useState<readonly CredentialMetadata[]>([]);
   const [resourceType, setResourceType] = useState<ResourceType | "all">("all");
   const [bindOpen, setBindOpen] = useState(false);
@@ -37,7 +36,8 @@ export function BindingsPage({ api }: BindingsPageProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // 绑定列表按资源类型过滤走后端分页；可绑定资源/凭据与过滤无关，加载一次即可。
+  // 绑定列表按资源类型过滤走后端分页；绑定弹窗的资源选择器远程搜索
+  // （FEAT-03，大数据集可达）；凭据选项待 FEAT-04 投影统一。
   useEffect(() => {
     void loadBindings(1);
   }, [resourceType]);
@@ -48,11 +48,7 @@ export function BindingsPage({ api }: BindingsPageProps) {
 
   async function loadSupportingData(): Promise<void> {
     try {
-      const [resourcePage, credentialPage] = await Promise.all([
-        api.listResources(),
-        api.listCredentials()
-      ]);
-      setResources(resourcePage.items);
+      const credentialPage = await api.listCredentials();
       setCredentials(credentialPage);
       setError(null);
     } catch (cause) {
@@ -103,7 +99,7 @@ export function BindingsPage({ api }: BindingsPageProps) {
     }
   }
 
-  const modalResources = resources.filter((resource) => resource.resourceType === bindType);
+  const modalResources = useRemoteResourceOptions(api, [bindType], bindOpen);
 
   return (
     <div className="page-stack">
@@ -179,9 +175,20 @@ export function BindingsPage({ api }: BindingsPageProps) {
             <Select
               key={`${bindType}-${bindNonce}`}
               aria-label="资源"
+              filter={false}
+              loading={modalResources.loading}
               onChange={(value) => setBindResourceId(typeof value === "string" ? value : undefined)}
-              optionList={modalResources.map((resource) => ({ label: resource.resourceId, value: resource.resourceId }))}
-              placeholder="选择要绑定的资源"
+              onSearch={modalResources.onSearch}
+              optionList={modalResources.options.map((resource) => ({ label: resource.label, value: resource.resourceId }))}
+              outerBottomSlot={
+                modalResources.truncated ? (
+                  <Typography.Text type="tertiary" size="small">
+                    仅显示前 {modalResources.options.length} 条匹配，请细化关键词
+                  </Typography.Text>
+                ) : undefined
+              }
+              placeholder="输入关键词搜索要绑定的资源"
+              remote
               style={{ width: 200 }}
             />
             <Input aria-label="主体 ID" onChange={setBindSubjectId} placeholder="主体 ID" value={bindSubjectId} />

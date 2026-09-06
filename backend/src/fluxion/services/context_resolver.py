@@ -21,7 +21,6 @@ from fluxion.agents.definitions import AgentDefinition
 from fluxion.memory.domain.personal_memory import PersonalMemoryRetriever
 from fluxion.registry import ChannelRegistryStore
 from fluxion.resources import (
-    ModelDefinition,
     ResolvedModelRoute,
     ResourceKind,
     ResourceStatus,
@@ -94,6 +93,7 @@ class ContextResolver(ContextResolutionSupport):
         memory_budget: int = 5,
         credential_resolver: Any | None = None,
         memory_retriever: PersonalMemoryRetriever | None = None,
+        memory_recall_timeout_ms: int = 1000,
     ) -> None:
         self._store = store
         self._memory_budget = memory_budget
@@ -109,6 +109,8 @@ class ContextResolver(ContextResolutionSupport):
         # Memory 段经注入的 PersonalMemoryRetriever（P-04 / §13.4）。未注入时
         # 降级空 manifest（不阻塞、不持有 engine）。
         self._memory_retriever = memory_retriever
+        # FEAT-07：recall 有限超时（默认 1000ms，可配置），不自动重试。
+        self._memory_recall_timeout_ms = memory_recall_timeout_ms
 
     async def resolve(
         self,
@@ -117,6 +119,8 @@ class ContextResolver(ContextResolutionSupport):
         session_id: str,
         memory_query: str | None = None,
         memory_budget: int | None = None,
+        request_id: str = "",
+        trace_id: str = "",
     ) -> ResolveResult:
         del session_id  # session 维度由调用方承载；本管线按 (tenant, agent, user) 解析
         trace: list[StageTrace] = []
@@ -245,7 +249,8 @@ class ContextResolver(ContextResolutionSupport):
         # 6. memory：PersonalMemoryRetriever recall → manifest（失败降级空 manifest）
         started = time.perf_counter()
         manifest = await self._memory_manifest(
-            selector.tenant_id, platform_user_id or selector.user_id, memory_query, memory_budget
+            selector.tenant_id, platform_user_id or selector.user_id, memory_query, memory_budget,
+            request_id=request_id, trace_id=trace_id,
         )
         _stage("memory", manifest.content_hash or None, started)
 
@@ -447,7 +452,12 @@ class ContextResolverSnapshotBuilder:
                 else request.runtime_profile_version_selector
             ),
         )
-        result = await self._resolver.resolve(selector, session_id=request.session_id)
+        result = await self._resolver.resolve(
+            selector,
+            session_id=request.session_id,
+            request_id=getattr(request, "request_id", "") or "",
+            trace_id=getattr(request, "trace_id", "") or "",
+        )
         snapshot = result.snapshot
         # 请求 trace_id 贯通到 snapshot（端到端关联：request → execution → trace store）。
         # trace_id 属运行时字段，不进 canonical digest（snapshot_digest._RUNTIME_FIELDS），

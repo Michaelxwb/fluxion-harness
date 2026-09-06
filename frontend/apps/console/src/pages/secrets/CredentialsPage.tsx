@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button, Select, Table, Tag } from "@douyinfe/semi-ui";
 
@@ -11,7 +11,7 @@ import {
   StandardListToolbar
 } from "../../components/StandardListShell";
 import { StatusTag } from "../../components/StatusTag";
-import type { ConsoleApi, JsonRecord } from "../../types/console";
+import type { ConsoleApi, ResourceStatus } from "../../types/console";
 import { CreateCredentialModal } from "./CreateCredentialModal";
 import { CredentialDetailSideSheet } from "./CredentialDetailSideSheet";
 import {
@@ -31,15 +31,18 @@ const PAGE_SIZE = 20;
  *
  * 标准列表 Shell（左上新增/右上过滤+搜索/右下总数+分页）+ 创建 Modal（明文只写，
  * 规则 17）+ 行操作（编辑元数据/轮换/禁用，高风险带二次确认与影响说明）+
- * 只读详情 SideSheet。SecretRef 保留展示（元数据非明文）。使用方为客户端 join
- * （Provider spec.credential_ref 匹配），TASK-025 Projection API 统一消除。
+ * 只读详情 SideSheet。SecretRef 保留展示（元数据非明文）。
+ * FEAT-04：列表经 Credential Projection 单请求（固定 3 SQL），删除此前的
+ * 2+N+M 客户端 join；用途（purpose）下拉因需服务端枚举支持而移除（follow-up），
+ * 可经搜索框按名称/ID 检索，purpose 精确过滤走接口参数保留。
  */
 export function CredentialsPage({ api }: CredentialsPageProps) {
   const [rows, setRows] = useState<readonly CredentialRow[] | null>(null);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string | undefined>(undefined);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [modalVisible, setModalVisible] = useState(false);
@@ -47,88 +50,54 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
   const [editRow, setEditRow] = useState<CredentialRow | null>(null);
   const [rotateRow, setRotateRow] = useState<CredentialRow | null>(null);
   const [disableRow, setDisableRow] = useState<CredentialRow | null>(null);
+  const requestSeq = useRef(0);
 
   useEffect(() => {
-    let active = true;
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    requestSeq.current += 1;
+    const requestId = requestSeq.current;
+    setError(null);
+    setRows(null);
     void (async () => {
       try {
-        const pageData = await api.listResources("secret");
-        const [details, providerDetails] = await Promise.all([
-          Promise.all(
-            pageData.items.map((item) => api.getResource("secret", item.resourceId))
-          ),
-          api.listResources("model_provider").then((result) =>
-            Promise.all(
-              result.items.map((provider) =>
-                api.getResource("model_provider", provider.resourceId)
-              )
-            )
-          )
-        ]);
-        if (!active) return;
+        const result = await api.listCredentialProjection({
+          page,
+          pageSize: PAGE_SIZE,
+          keyword: debouncedSearch.trim() || undefined,
+          status: (statusFilter === "revoked" ? undefined : statusFilter) as ResourceStatus | undefined,
+          revoked: statusFilter === undefined ? undefined : statusFilter === "revoked"
+        });
+        if (requestId !== requestSeq.current) return;
         setRows(
-          pageData.items.map((item, index) => {
-            const spec = (details[index]?.spec ?? {}) as JsonRecord;
-            const secretRef = String(spec.secret_ref ?? "-");
-            return {
-              key: item.resourceId,
-              displayName: String(spec.name ?? item.displayName),
-              resourceId: item.resourceId,
-              secretRef,
-              purpose: String(spec.purpose ?? ""),
-              revoked: spec.revoked === true,
-              updatedAt: details[index]?.updatedAt ?? "-",
-              // 使用方 join：Provider spec.credential_ref → 该凭据 SecretRef
-              consumers: providerDetails
-                .filter((provider) => {
-                  const credentialRef = String(
-                    (provider.spec as JsonRecord | undefined)?.credential_ref ?? ""
-                  );
-                  return credentialRef === secretRef;
-                })
-                .map(
-                  (provider) =>
-                    String((provider.spec as JsonRecord | undefined)?.name ?? provider.resourceId)
-                ),
-              status: item.status
-            };
-          })
+          result.items.map((item) => ({
+            key: item.credentialId,
+            displayName: item.displayName,
+            resourceId: item.credentialId,
+            secretRef: item.secretRef,
+            purpose: item.purpose,
+            revoked: item.revoked,
+            updatedAt: item.updatedAt,
+            consumers: item.consumers.map((consumer) => consumer.providerName),
+            status: item.status
+          }))
         );
+        setTotal(result.total);
       } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : "加载失败");
+        if (requestId !== requestSeq.current) return;
+        setError(cause instanceof Error ? cause.message : "加载失败");
       }
     })();
     return () => {
-      active = false;
+      requestSeq.current += 1;
     };
-  }, [api, reloadKey]);
-
-  const typeOptions = useMemo(() => {
-    const purposes = new Set((rows ?? []).map((row) => row.purpose).filter(Boolean));
-    return Array.from(purposes, (purpose) => ({
-      label: purpose,
-      value: purpose
-    }));
-  }, [rows]);
-
-  const filtered = useMemo(() => {
-    if (!rows) return [];
-    const keyword = search.trim().toLowerCase();
-    return rows.filter((row) => {
-      if (typeFilter !== undefined && row.purpose !== typeFilter) return false;
-      if (statusFilter !== undefined) {
-        if (statusFilter === "revoked" ? !row.revoked : row.status !== statusFilter) return false;
-      }
-      if (!keyword) return true;
-      return (
-        row.displayName.toLowerCase().includes(keyword) ||
-        row.resourceId.toLowerCase().includes(keyword)
-      );
-    });
-  }, [rows, search, typeFilter, statusFilter]);
-
-  const total = filtered.length;
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  }, [api, debouncedSearch, page, reloadKey, statusFilter]);
 
   function reload(): void {
     setReloadKey((key) => key + 1);
@@ -147,9 +116,11 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
         title="凭据"
       />
       <StandardListCard
+        empty={rows !== null && total === 0}
+        emptyDescription="暂无凭据"
         error={error}
         footer={
-          rows !== null && rows.length > 0 ? (
+          rows !== null && total > 0 ? (
             <StandardListFooter
               onPageChange={setPage}
               page={page}
@@ -164,21 +135,6 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
           <StandardListToolbar
             filters={
               <>
-                <span className="sr-only" id="credential-type-filter-label">
-                  凭据类型过滤
-                </span>
-                <Select
-                  aria-labelledby="credential-type-filter-label"
-                  onChange={(value) => {
-                    setTypeFilter(value === "" ? undefined : String(value));
-                    setPage(1);
-                  }}
-                  optionList={[{ label: "全部类型", value: "" }, ...typeOptions]}
-                  placeholder="类型"
-                  showClear
-                  style={{ width: 140 }}
-                  value={typeFilter ?? ""}
-                />
                 <span className="sr-only" id="credential-status-filter-label">
                   凭据状态过滤
                 </span>
@@ -293,7 +249,7 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
               )
             }
           ]}
-          dataSource={paged.map((row) => row)}
+          dataSource={[...(rows ?? [])]}
           pagination={false}
           rowKey="key"
         />

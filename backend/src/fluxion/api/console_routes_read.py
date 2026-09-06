@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 
-from fluxion.api.console_helpers import _actor, _page
+from fluxion.api.console_helpers import _actor, _page, _status
 from fluxion.api.responses import success
 from fluxion.services.console_app import ConsoleApplicationService
 from fluxion.services.console_payloads import (
@@ -22,9 +22,12 @@ def _register_p1_routes(app: FastAPI, service: ConsoleApplicationService) -> Non
     async def list_policies(
         page: Annotated[int, Query(ge=1)] = 1,
         page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+        keyword: Annotated[str | None, Query()] = None,
+        status: Annotated[str | None, Query()] = None,
     ) -> JSONResponse:
         items, total = await service.list_policies(
-            _actor(None), page=page, page_size=page_size
+            _actor(None), page=page, page_size=page_size, keyword=keyword,
+            status=_status(status),
         )
         return success(_page([policy_payload(item) for item in items], page, page_size, total))
 
@@ -45,6 +48,34 @@ def _register_trace_routes(app: FastAPI, service: ConsoleApplicationService) -> 
 
 
 def _register_read_side_routes(app: FastAPI, service: ConsoleApplicationService) -> None:
+    # FEAT-04：静态投影路由必须先于任何动态 credential 路由注册，避免被捕获。
+    @app.get("/api/v1/credentials/projection")
+    async def get_credential_projection(
+        page: Annotated[int, Query(ge=1)] = 1,
+        page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+        keyword: Annotated[str | None, Query()] = None,
+        purpose: Annotated[str | None, Query()] = None,
+        status: Annotated[str | None, Query()] = None,
+        revoked: Annotated[bool | None, Query()] = None,
+    ) -> JSONResponse:
+        """Credential Projection 只读查询：固定 3 SQL 替代客户端 N+1。
+
+        tenant 取可信认证上下文，不接受查询参数切换；响应经统一 success
+        envelope，Handler 不手写结构；不读密文、不解密。
+        """
+        items, total = await service.list_credential_projection(
+            _actor(None),
+            page=page,
+            page_size=page_size,
+            keyword=keyword,
+            purpose=purpose,
+            status=_status(status),
+            revoked=revoked,
+        )
+        return success(
+            _page([item.to_payload() for item in items], page, page_size, total)
+        )
+
     @app.get("/api/v1/credentials")
     async def list_credentials(
         page: Annotated[int, Query(ge=1)] = 1,
@@ -59,8 +90,12 @@ def _register_read_side_routes(app: FastAPI, service: ConsoleApplicationService)
     async def list_runs(
         page: Annotated[int, Query(ge=1)] = 1,
         page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+        status: Annotated[str | None, Query()] = None,
+        keyword: Annotated[str | None, Query()] = None,
     ) -> JSONResponse:
-        items, total = await service.list_runs(_actor(None), page=page, page_size=page_size)
+        items, total = await service.list_runs(
+            _actor(None), page=page, page_size=page_size, status=status, keyword=keyword
+        )
         return success(_page([run_payload(item) for item in items], page, page_size, total))
 
     @app.get("/api/v1/runs/{execution_id}")

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { IconPlus } from "@douyinfe/semi-icons";
 import { Button, Descriptions, Modal, Select, SideSheet, Table, Tag, Toast, Typography } from "@douyinfe/semi-ui";
@@ -36,21 +36,42 @@ const PAGE_SIZE = 10;
 export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
   const navigate = useNavigate();
   const [rows, setRows] = useState<readonly ListRow[] | null>(null);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [detail, setDetail] = useState<ListRow | null>(null);
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const refresh = useCallback(async () => {
+    requestSeq.current += 1;
+    const requestId = requestSeq.current;
     setError(null);
     setRows(null);
     try {
-      const result = await api.listVisibleResources("policy");
+      // FEAT-03：分页/搜索/状态全部服务端化（GET /api/v1/resources，同一集合
+      // 分页与 count），受控状态 + 请求序号 guard 防乱序覆盖。
+      const result = await api.listResources("policy", {
+        page,
+        pageSize: PAGE_SIZE,
+        keyword: debouncedSearch.trim() || undefined,
+        status: (statusFilter || undefined) as ResourceStatus | undefined
+      });
+      if (requestId !== requestSeq.current) return;
       setRows(
-        result.map((item) => ({
+        result.items.map((item) => ({
           key: `${item.resourceId}@${item.currentVersion}`,
           name: item.displayName || item.resourceId,
           resourceId: item.resourceId,
@@ -58,10 +79,12 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
           status: item.status
         }))
       );
+      setTotal(result.total);
     } catch (cause) {
+      if (requestId !== requestSeq.current) return;
       setError(cause instanceof Error ? cause.message : "加载失败");
     }
-  }, [api]);
+  }, [api, debouncedSearch, page, statusFilter]);
 
   useEffect(() => {
     void refresh();
@@ -70,19 +93,6 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
   function reload(): void {
     setReloadKey((key) => key + 1);
   }
-
-  const filtered = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    return (rows ?? []).filter((row) => {
-      if (statusFilter && row.status !== statusFilter) return false;
-      return (
-        !keyword ||
-        row.name.toLowerCase().includes(keyword) ||
-        row.resourceId.toLowerCase().includes(keyword)
-      );
-    });
-  }, [rows, search, statusFilter]);
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   function confirmDelete(row: ListRow): void {
     Modal.confirm({
@@ -128,16 +138,16 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
       />
       <div aria-label="授权规则列表">
         <StandardListCard
-          empty={rows !== null && filtered.length === 0}
+          empty={rows !== null && total === 0}
           emptyDescription="暂无授权规则"
           error={error}
           footer={
-            rows !== null && filtered.length > 0 ? (
+            rows !== null && total > 0 ? (
               <StandardListFooter
                 onPageChange={setPage}
                 page={page}
                 pageSize={PAGE_SIZE}
-                total={filtered.length}
+                total={total}
               />
             ) : undefined
           }
@@ -183,7 +193,6 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
                 <StandardListSearch
                   onChange={(value) => {
                     setSearch(value);
-                    setPage(1);
                   }}
                   placeholder="搜索授权规则"
                   value={search}
@@ -235,7 +244,7 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
                 title: "操作"
               }
             ]}
-            dataSource={[...paged]}
+            dataSource={[...(rows ?? [])]}
             pagination={false}
             rowKey="key"
           />

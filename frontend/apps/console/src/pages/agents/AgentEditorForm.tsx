@@ -1,25 +1,22 @@
 import { Button, Input, InputNumber, Select, Space, Tabs, TextArea, Typography } from "@douyinfe/semi-ui";
 
-import type { ConsoleApi, ResourceSummary } from "../../types/console";
+import type { ConsoleApi, ResourceType } from "../../types/console";
+import { useRemoteResourceOptions } from "../../components/useRemoteResourceOptions";
 import { AgentChannelsPanel } from "./AgentChannelsPanel";
 import { AgentEvalPanel } from "./AgentEvalPanel";
 import { AgentTestPanel } from "./AgentTestPanel";
 import { AgentUsersPanel } from "./AgentUsersPanel";
 import { CapabilityPicker } from "./CapabilityPicker";
 import type { AgentEditorValue } from "./agentEditorModel";
-import { referenceOptions } from "./agentEditorModel";
 
 interface AgentEditorFormProps {
   readonly agentId: string;
   readonly api: ConsoleApi;
   readonly busy: boolean;
   readonly latestTraceId: string | null;
-  readonly modelOptions: readonly ResourceSummary[];
   readonly notice: string | null;
-  readonly profileOptions: readonly ResourceSummary[];
   readonly publishIssues: readonly string[] | null;
   readonly value: AgentEditorValue;
-  readonly workflowOptions: readonly ResourceSummary[];
   readonly onChange: (change: Partial<AgentEditorValue>) => void;
   readonly onPublish: () => void;
   readonly onSave: () => void;
@@ -51,10 +48,11 @@ export function AgentEditorForm(props: AgentEditorFormProps) {
         <Tabs.TabPane itemKey="model" tab="模型">
           <EditorSection>
             <ReferenceSelect
+              api={props.api}
+              kind="model_definition"
               label="主模型 *"
               labelId="agent-primary-model-label"
               onChange={(primaryModel) => onChange({ primaryModel })}
-              options={referenceOptions(props.modelOptions)}
               value={value.primaryModel}
             />
             <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
@@ -72,11 +70,12 @@ export function AgentEditorForm(props: AgentEditorFormProps) {
         <Tabs.TabPane itemKey="workflow" tab="工作流">
           <EditorSection>
             <ReferenceSelect
+              api={props.api}
+              kind="workflow"
               label="默认工作流"
               labelId="agent-workflow-label"
               onChange={(workflow) => onChange({ workflow })}
               optional
-              options={referenceOptions(props.workflowOptions)}
               value={value.workflow}
             />
           </EditorSection>
@@ -84,11 +83,12 @@ export function AgentEditorForm(props: AgentEditorFormProps) {
         <Tabs.TabPane itemKey="advanced" tab="高级设置">
           <EditorSection>
             <ReferenceSelect
+              api={props.api}
+              kind="runtime_profile"
               label="RuntimeProfile"
               labelId="agent-runtime-profile-label"
               onChange={(runtimeProfile) => onChange({ runtimeProfile })}
               optional
-              options={referenceOptions(props.profileOptions)}
               value={value.runtimeProfile}
             />
             <TextField label="记忆策略引用" onChange={(memoryPolicy) => onChange({ memoryPolicy })} placeholder="resource-id@version" value={value.memoryPolicy} />
@@ -164,18 +164,23 @@ function NumberField(props: { readonly label: string; readonly value: number; re
 }
 
 function ReferenceSelect(props: {
+  readonly api: ConsoleApi;
+  readonly kind: ResourceType;
   readonly label: string;
   readonly labelId: string;
   readonly optional?: boolean;
-  readonly options: readonly { readonly label: string; readonly value: string }[];
   readonly value: string;
   readonly onChange: (value: string) => void;
 }) {
-  const options = props.optional ? [{ label: "不设置", value: "" }, ...props.options] : [...props.options];
+  // FEAT-03：引用选择远程搜索（大数据集不再静默只取 100 条）。
+  const remote = useRemoteResourceOptions(props.api, [props.kind], true);
+  const options = props.optional
+    ? [{ label: "不设置", value: "" }, ...remote.options]
+    : [...remote.options];
   return (
     <div>
       <Typography.Text id={props.labelId}>{props.label}</Typography.Text>
-      <Select aria-labelledby={props.labelId} filter onChange={(next) => props.onChange(String(next ?? ""))} optionList={options} style={{ width: "100%" }} value={props.value} />
+      <Select aria-labelledby={props.labelId} filter={false} loading={remote.loading} onChange={(next) => props.onChange(String(next ?? ""))} onSearch={remote.onSearch} optionList={options.map((item) => ({ label: item.label, value: item.value }))} outerBottomSlot={remote.truncated ? (<Typography.Text type="tertiary" size="small">仅显示前 {remote.options.length} 条匹配，请细化关键词</Typography.Text>) : undefined} remote style={{ width: "100%" }} value={props.value} />
     </div>
   );
 }

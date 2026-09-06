@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ConfigDict
 
+from fluxion.observability.logging import emit_memory_event_log
 from fluxion.resources import ModelDefinition, ResourceKind, ResourceStatus, SkillDefinition
 from fluxion.resources.contracts import ExactResourceVersion, MemoryEntryRef, MemoryManifest
 
@@ -42,6 +44,7 @@ class ContextResolutionSupport:
         _memory_budget: int
         _credential_resolver: Any | None
         _memory_retriever: PersonalMemoryRetriever | None
+        _memory_recall_timeout_ms: int
 
     async def _latest_user_profile_version(self, tenant_id: str, user_id: str) -> str | None:
         row = await self._store.get_latest_user_profile(
@@ -55,16 +58,44 @@ class ContextResolutionSupport:
         user_id: str,
         memory_query: str | None,
         memory_budget: int | None,
+        *,
+        request_id: str = "",
+        trace_id: str = "",
     ) -> MemoryManifest:
-        """经 PersonalMemoryRetriever recall；故障时降级为空 manifest。"""
+        """经 PersonalMemoryRetriever recall；失败降级为空 manifest。
+
+        FEAT-07：recall 经有限 timeout（默认 1000ms，可配置）包夹，不自动
+        重试；异常/超时降级为 unavailable 并记脱敏 warning（错误类型 +
+        request_id/trace_id 关联，不记 query 内容与异常原文）。成功空结果为
+        正常空 manifest（content_hash 为空），与失败严格区分。
+        """
         budget = memory_budget if memory_budget is not None else self._memory_budget
         if self._memory_retriever is None:
             return MemoryManifest(entry_refs=[], content_hash="unavailable", truncated=True)
         try:
-            entries = await self._memory_retriever.recall(
-                tenant_id, user_id, query=memory_query or "", top_k=budget + 10
+            entries = await asyncio.wait_for(
+                self._memory_retriever.recall(
+                    tenant_id, user_id, query=memory_query or "", top_k=budget + 10
+                ),
+                timeout=self._memory_recall_timeout_ms / 1000.0,
             )
-        except Exception:  # noqa: BLE001 - memory 段按设计降级，不阻塞执行
+        except TimeoutError:
+            emit_memory_event_log(
+                event="memory.recall.degraded",
+                level="warning",
+                tenant_id=tenant_id,
+                trace_id=trace_id or None,
+                detail=f"timeout budget_ms={self._memory_recall_timeout_ms} request_id={request_id}",
+            )
+            return MemoryManifest(entry_refs=[], content_hash="unavailable", truncated=True)
+        except Exception as exc:  # noqa: BLE001 - FEAT-07 设计要求：recall 任何失败降级 unavailable，不阻塞执行
+            emit_memory_event_log(
+                event="memory.recall.degraded",
+                level="warning",
+                tenant_id=tenant_id,
+                trace_id=trace_id or None,
+                detail=f"{type(exc).__name__} request_id={request_id}",
+            )
             return MemoryManifest(entry_refs=[], content_hash="unavailable", truncated=True)
         refs = [
             MemoryEntryRef(

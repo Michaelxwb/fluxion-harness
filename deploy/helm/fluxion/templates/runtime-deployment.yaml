@@ -30,6 +30,33 @@ spec:
             - name: http
               containerPort: 8000
               protocol: TCP
+          # FEAT-05：独立 Runtime 探针（参数来自 values.runtime.probes，
+          # 与应用内 readiness 1s 预算配套发布）。
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.runtime.probes.liveness.path }}
+              port: {{ .Values.runtime.probes.liveness.port }}
+            periodSeconds: {{ .Values.runtime.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.runtime.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.runtime.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.runtime.probes.readiness.path }}
+              port: {{ .Values.runtime.probes.readiness.port }}
+            initialDelaySeconds: {{ .Values.runtime.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.runtime.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.runtime.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.runtime.probes.readiness.failureThreshold }}
+          {{- if .Values.runtime.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.runtime.startupProbe.path }}
+              port: {{ .Values.runtime.startupProbe.port }}
+            initialDelaySeconds: {{ .Values.runtime.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.runtime.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.runtime.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.runtime.startupProbe.failureThreshold }}
+          {{- end }}
           env:
             # entrypoint 分派：runtime 角色 → fluxion serve --runtime（AgentLoop 独立进程，规则 14）
             - name: FLUXION_ROLE

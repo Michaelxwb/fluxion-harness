@@ -23,6 +23,7 @@ from fluxion.resources import ExecutionSnapshot, ResolvedModelRoute
 from fluxion.runtime.context import RequestContext, RuntimeContext, TraceEvent
 from fluxion.runtime.memory import MemoryManager, MemoryPolicy, MemoryRecord, SessionMemoryStore
 from fluxion.runtime.summarizer import SummarizerRegistryProtocol
+from fluxion.runtime.tokens import estimate_text_tokens
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +92,22 @@ class AgentRuntime:
         )
         return context
 
+    async def _prepare_history(self, context: RuntimeContext) -> list[MemoryRecord]:
+        """模型调用前共享历史准备（FEAT-09）：读取历史 → maybe_compact →
+        如压缩则重读 → 交共同 Prompt 构建函数。
+
+        run_step 与 stream_final_answer 均经此进入 `_model_messages`；幂等
+        （重复调用不重复摘要：二次进入时总量已低于阈值）；不请求模型、
+        不持久化消息（调用方各负其责）。
+        """
+        session_history = await self._memory.read_session_context(context)
+        # 上下文超预算时摘要压缩：此前 compact_context 是死代码，L1 无界增长
+        # 直到 provider context length exceeded（中文场景尤甚——CJK 此前整段
+        # 计 1 token 永不触发）。压缩后重读以反映截断后的历史。
+        if await self._memory.maybe_compact(context):
+            session_history = await self._memory.read_session_context(context)
+        return session_history
+
     async def run_step(
         self,
         context: RuntimeContext,
@@ -99,14 +116,19 @@ class AgentRuntime:
         tools: Iterable[ToolDescriptor] = (),
         tool_handler: ModelToolHandler | None = None,
     ) -> RuntimeStepResult:
-        session_history = await self._memory.read_session_context(context)
-        # 上下文超预算时摘要压缩：此前 compact_context 是死代码，L1 无界增长
-        # 直到 provider context length exceeded（中文场景尤甚——CJK 此前整段
-        # 计 1 token 永不触发）。压缩后重读以反映截断后的历史。
-        if await self._memory.maybe_compact(context):
-            session_history = await self._memory.read_session_context(context)
+        session_history = await self._prepare_history(context)
         await self._memory.add_message(context, "user", input_message)
-        context.emit("execution.step", {"input_tokens": len(input_message.split())})
+        # FEAT-06：复用 Memory 共享估算修复中文低估；保留「当前输入估算」语义，
+        # 口径标记经可扩展事件 payload 明示（TraceEvent.attributes 为开放 dict，
+        # 无需契约评审），不冒充 Provider 计费 usage。
+        context.emit(
+            "execution.step",
+            {
+                "input_tokens": estimate_text_tokens(input_message),
+                "token_source": "estimate",
+                "token_scope": "input_message",
+            },
+        )
         model_response, tool_results = await self._maybe_complete_model(
             context,
             input_message,
@@ -153,7 +175,8 @@ class AgentRuntime:
         # TASK-010：优先 execution-scoped resolver（叠加 store-backed provider），
         # 无则回退 service-level registry。
         resolver = context.model_provider_resolver or self._model_providers
-        session_history = await self._memory.read_session_context(context)
+        # FEAT-09：流式与非流式一致的压缩准备（不额外调 run_step，不重复请求/保存）。
+        session_history = await self._prepare_history(context)
         messages = _model_messages(context, session_history, input_message)
         deadline_seconds = policy.model_deadline_ms / 1000
         started = perf_counter()
@@ -429,10 +452,27 @@ def _model_messages(
     session_history: list[MemoryRecord],
     input_message: str,
 ) -> list[ModelMessage]:
+    """普通与流式共用的 Prompt 构建（FEAT-08：摘要进入模型上下文）。
+
+    - session_context_summary（role="summary"）转为 user 上下文消息并置于
+      其后最新原始消息之前，带显式「历史会话摘要，仅作上下文资料」边界；
+      不得提升为 system 指令（摘要内容按不可信历史处理）。
+    - 沿用 Store 返回顺序：摘要与原始消息各自保序；摘要不参与重复压缩
+      （压缩候选选择在 MemoryManager 侧，本函数只消费）。
+    - 不修改 Snapshot（纯函数）。
+    """
     messages: list[ModelMessage] = []
     system = _system_prompt(context.snapshot.system_prompt, context.snapshot.skill_instructions)
     if system:
         messages.append(ModelMessage(role="system", content=system))
+    for record in session_history:
+        if record.role == "summary":
+            messages.append(
+                ModelMessage(
+                    role="user",
+                    content=f"【历史会话摘要，仅作上下文资料】\n{record.content}",
+                )
+            )
     for record in session_history:
         if record.role in {"user", "assistant"}:
             messages.append(ModelMessage(role=record.role, content=record.content))

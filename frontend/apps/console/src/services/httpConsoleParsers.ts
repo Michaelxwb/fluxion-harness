@@ -8,6 +8,7 @@ import type {
   ChannelVerifyResult,
   ControlPlaneItem,
   CredentialMetadata,
+  CredentialProjection,
   EvalRunSummary,
   EvalSetSummary,
   IssuedChatAccess,
@@ -266,6 +267,34 @@ export function parseIssuedChatAccess(value: unknown): IssuedChatAccess {
     platformUserId: requiredString(record.platform_user_id, "platform_user_id"),
     agentId: requiredString(record.agent_id, "agent_id"),
     token: requiredString(record.token, "token")
+  };
+}
+
+export function parseCredentialProjectionPage(value: unknown): PageData<CredentialProjection> {
+  const page = parsePage(value);
+  return { ...page, items: page.items.map(parseCredentialProjection) };
+}
+
+function parseCredentialProjection(value: unknown): CredentialProjection {
+  const record = requiredRecord(value, "credential_projection");
+  const consumers = record.consumers;
+  if (!Array.isArray(consumers)) throw new Error("consumers 无效");
+  return {
+    credentialId: requiredString(record.credential_id, "credential_id"),
+    displayName: requiredString(record.display_name, "display_name"),
+    secretRef: requiredString(record.secret_ref, "secret_ref"),
+    purpose: typeof record.purpose === "string" ? record.purpose : "",
+    revoked: requiredBoolean(record.revoked, "revoked"),
+    updatedAt: requiredString(record.updated_at, "updated_at"),
+    consumerCount: requiredNumber(record.consumer_count, "consumer_count"),
+    consumers: consumers.map((item) => {
+      const row = requiredRecord(item, "consumers[]");
+      return {
+        providerId: requiredString(row.provider_id, "provider_id"),
+        providerName: requiredString(row.provider_name, "provider_name")
+      };
+    }),
+    status: requiredStatus(record.status)
   };
 }
 

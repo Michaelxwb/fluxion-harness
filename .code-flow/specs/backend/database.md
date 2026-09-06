@@ -9,6 +9,12 @@ verifiers:
     config:
       checklist: Confirm all Guidance and Avoid items for this Spec.
       owner: project-owner
+checks:
+  - id: no-unescaped-like
+    type: regex
+    pattern: '\.like\(f[''"]'
+    files: backend/src/**/*.py
+    message: LIKE 必须用转义后的 pattern 变量并传 escape 参数，禁止 f-string 直插（cf-learn 2026-09-06：三处同形证据）
 ---
 
 # Backend Database
@@ -32,6 +38,9 @@ cur.execute(f"SELECT * FROM users WHERE email = '{email}'")
 
 ## Guidance
 - 所有 SQL 必须参数化，禁止字符串拼接 / 模板插值用户输入
+- LIKE 字面子串匹配必须转义 `\`、`%`、`_`，大小写不敏感，keyword 去首尾空格（cf-learn 2026-09-06：`resource_sqlalchemy` / `channel_sqlalchemy` / `repositories/trace_store` 三处同形）
+- JSON 字段 SQL 提取必须按方言分支（PostgreSQL `json_extract_path_text` / SQLite `json_extract`）；子查询列会丢失 JSON comparator，禁止用 `["key"].astext`（cf-learn 2026-09-06：PG 测试腿真实捕获该退化）
+- 同一请求多查询走单事务一致读（PostgreSQL 只读 REPEATABLE READ / SQLite 显式事务）；count 与分页必须使用同一过滤集合（cf-learn 2026-09-06：Credential Projection 固定 3 查询）
 - 迁移脚本必须可回滚，或写成幂等脚本（`IF NOT EXISTS` / `ON CONFLICT`）
 - 事务边界明确：跨表写入必须在同一事务内，禁止"半提交"状态
 - 涉及索引/锁的 schema 变更必须评估线上影响，大表慎用 `ALTER TABLE` 阻塞操作

@@ -48,6 +48,15 @@ runtime  AgentLoop 执行（无状态，按 Agent 负载横向扩）
 worker   DBOS durable workflow 执行（按队列负载扩）
 ```
 
+API 进程不执行模型：Channel 与 Studio 试跑经 `HttpRuntimeGateway` 调用独立
+Runtime Service（`POST /internal/v1/runtime-profiles/{id}/runs[/:stream]`），
+基址由 `FLUXION_RUNTIME_SERVICE_URL` 配置（Helm 自动注入
+`http://<fullname>-runtime:8000`，非 Helm 部署必须显式配置；缺失 fail-fast，
+不回退本地执行）。Runtime 副本为 0 时远程执行按无可用实例失败，不自动选
+API Pod。主 Service 只选 `api` Pod，独立 `<fullname>-runtime` ClusterIP
+Service 只选 `runtime` Pod（见 `deploy/helm/fluxion/templates/NOTES.txt`
+升级指引：Deployment selector 不可原地变更，需分阶段升级）。
+
 数据库表结构由 `scripts/init_db.py` 初始化（幂等建表，PG/SQLite 双库），服务进程不建表。
 
 ## 仓库结构
@@ -118,4 +127,4 @@ cf-task:archive <任务名>
 → 自动完成检查
 ```
 
-已完成批次归档至 `.code-flow/tasks/archived/`（含 2026-08-31 的 `runtime-architecture-closure` 架构收口整改 TASK-001~011）；当前活跃任务见 `.code-flow/tasks/` 下各日期目录。
+已完成批次归档至 `.code-flow/tasks/archived/`（含 2026-08-31 的 `runtime-architecture-closure` 架构收口整改 TASK-001~011，以及 2026-09-06 的 `71-commits-critical-issues` 关键问题整改 TASK-001~009：执行面拆分、Service 隔离、服务端分页、Credential 投影、健康检查、token 估算、Memory 装配、摘要进 Prompt、流式压缩）；当前活跃任务见 `.code-flow/tasks/` 下各日期目录。

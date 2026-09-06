@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 
 import { Input, Modal, Select, TextArea, Typography } from "@douyinfe/semi-ui";
 
-import type { ConsoleApi, ResourceSummary, ResourceVersion } from "../../types/console";
+import type { ConsoleApi, ResourceVersion } from "../../types/console";
+import { useRemoteResourceOptions } from "../../components/useRemoteResourceOptions";
 
 interface CreateWorkflowModalProps {
   readonly api: ConsoleApi;
@@ -26,31 +27,11 @@ export function CreateWorkflowModal({
 }: CreateWorkflowModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [capabilities, setCapabilities] = useState<readonly ResourceSummary[]>([]);
+  // FEAT-03：能力选择器远程搜索（skill/tool/mcp 三 kind，大数据集可达）。
+  const capabilities = useRemoteResourceOptions(api, ["skill", "tool", "mcp"], visible);
   const [capabilityRef, setCapabilityRef] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!visible) return;
-    let active = true;
-    void (async () => {
-      try {
-        const [skills, tools, mcps] = await Promise.all([
-          api.listVisibleResources("skill"),
-          api.listVisibleResources("tool"),
-          api.listVisibleResources("mcp")
-        ]);
-        if (!active) return;
-        setCapabilities([...skills, ...tools, ...mcps]);
-      } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : "能力列表加载失败");
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [api, visible]);
 
   useEffect(() => {
     if (visible) {
@@ -126,13 +107,23 @@ export function CreateWorkflowModal({
           <Typography.Text id="workflow-first-capability-label">首个步骤能力 *</Typography.Text>
           <Select
             aria-labelledby="workflow-first-capability-label"
-            filter
+            filter={false}
+            loading={capabilities.loading}
             onChange={(value) => setCapabilityRef(String(value ?? ""))}
-            optionList={capabilities.map((item) => ({
-              label: `${item.displayName || item.resourceId}（${item.currentVersion}）`,
-              value: `${item.resourceType}:${item.resourceId}@${item.currentVersion}`
+            onSearch={capabilities.onSearch}
+            optionList={capabilities.options.map((item) => ({
+              label: item.label,
+              value: item.value
             }))}
-            placeholder="选择已发布的能力（skill/tool/mcp）"
+            outerBottomSlot={
+              capabilities.truncated ? (
+                <Typography.Text type="tertiary" size="small">
+                  仅显示前 {capabilities.options.length} 条匹配，请细化关键词
+                </Typography.Text>
+              ) : undefined
+            }
+            placeholder="输入关键词搜索已发布的能力（skill/tool/mcp）"
+            remote
             style={{ width: "100%" }}
             value={capabilityRef}
           />

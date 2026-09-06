@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button, Card, Descriptions, Select, SideSheet, Space, Table, Timeline, Typography } from "@douyinfe/semi-ui";
 import { IconRefresh } from "@douyinfe/semi-icons";
@@ -27,31 +27,61 @@ interface RunsPageProps {
 const PAGE_SIZE = 10;
 
 /** TASK-020（§8.9）：执行记录页标准化——Run Detail 迁入只读 SideSheet（默认
- * 不选中）；移除 Queue/Worker Summary 区块（§8.9 明确删除，运维信息不进产品页）；
- * Agent Run / Workflow Run 类型过滤统一呈现（不拆两页）。 */
+ * 不选中）；移除 Queue/Worker Summary 区块（§8.9 明确删除，运维信息不进产品页）。
+ * FEAT-03：分页/状态/keyword 全部服务端化（同一集合分页与 count），受控状态 +
+ * 请求序号 guard 防乱序覆盖。类型分型（Agent/Workflow）需服务端 workflow 归属
+ * 过滤支持，另行设计——本页不再做页内 kind 过滤（曾静默只看已加载页）。 */
 export function RunsPage({ api }: RunsPageProps) {
   const [runs, setRuns] = useState<readonly RunDetail[] | null>(null);
+  const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<RunDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   // TASK-023：异常工作台跳转带过滤参数（?statusFilter=failed → 过滤态直达）
   const [searchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("statusFilter") ?? "");
-  const [kindFilter, setKindFilter] = useState("");
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
   // C407（TASK-014）：Phase 3 workflow_run 投影（trace 关联）
   const [workflowRuns, setWorkflowRuns] = useState<readonly WorkflowRunProjection[] | null>(null);
+  const requestSeq = useRef(0);
 
-  async function loadRuns(): Promise<void> {
-    try {
-      const loaded = await api.listRuns();
-      setRuns(loaded);
-      setError(null);
-    } catch (cause) {
-      setError(toErrorMessage(cause));
-    }
-  }
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    let active = true;
+    requestSeq.current += 1;
+    const requestId = requestSeq.current;
+    setError(null);
+    setRuns(null);
+    void api
+      .listRuns({
+        page,
+        pageSize: PAGE_SIZE,
+        status: statusFilter || undefined,
+        keyword: debouncedSearch.trim() || undefined
+      })
+      .then((result) => {
+        // E-02 乱序防护：仅最新请求可写状态。
+        if (!active || requestId !== requestSeq.current) return;
+        setRuns(result.items);
+        setTotal(result.total);
+      })
+      .catch((cause: unknown) => {
+        if (!active || requestId !== requestSeq.current) return;
+        setError(toErrorMessage(cause));
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, page, statusFilter, debouncedSearch, reloadKey]);
 
   useEffect(() => {
     let active = true;
@@ -68,26 +98,6 @@ export function RunsPage({ api }: RunsPageProps) {
     };
   }, [api, reloadKey]);
 
-  useEffect(() => {
-    void loadRuns();
-  }, [reloadKey]);
-
-  const filtered = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    return (runs ?? []).filter((run) => {
-      if (statusFilter && run.status !== statusFilter) return false;
-      if (kindFilter) {
-        const isWorkflowRun = workflowRuns?.some(
-          (workflowRun) => workflowRun.workflowId === run.snapshot.runtimeProfile.id
-        );
-        if (kindFilter === "workflow" && !isWorkflowRun) return false;
-        if (kindFilter === "agent" && isWorkflowRun) return false;
-      }
-      return !keyword || run.executionId.toLowerCase().includes(keyword);
-    });
-  }, [kindFilter, runs, search, statusFilter, workflowRuns]);
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
   return (
     <div className="page-stack">
       <PageHeader
@@ -102,16 +112,16 @@ export function RunsPage({ api }: RunsPageProps) {
       <ErrorBanner message={error} />
       <div aria-label="执行记录列表">
         <StandardListCard
-          empty={runs !== null && filtered.length === 0}
+          empty={runs !== null && total === 0}
           emptyDescription="暂无运行记录"
           error={error}
           footer={
-            runs !== null && filtered.length > 0 ? (
+            runs !== null && total > 0 ? (
               <StandardListFooter
                 onPageChange={setPage}
                 page={page}
                 pageSize={PAGE_SIZE}
-                total={filtered.length}
+                total={total}
               />
             ) : undefined
           }
@@ -122,24 +132,6 @@ export function RunsPage({ api }: RunsPageProps) {
               primary={<span aria-hidden />}
               filters={
                 <>
-                  <span className="sr-only" id="run-kind-filter-label">
-                    类型过滤
-                  </span>
-                  <Select
-                    aria-labelledby="run-kind-filter-label"
-                    onChange={(value) => {
-                      setKindFilter(String(value ?? ""));
-                      setPage(1);
-                    }}
-                    optionList={[
-                      { label: "全部类型", value: "" },
-                      { label: "Agent Run", value: "agent" },
-                      { label: "Workflow Run", value: "workflow" }
-                    ]}
-                    placeholder="全部类型"
-                    style={{ width: 150 }}
-                    value={kindFilter}
-                  />
                   <span className="sr-only" id="run-status-filter-label">
                     状态过滤
                   </span>
@@ -165,7 +157,6 @@ export function RunsPage({ api }: RunsPageProps) {
                 <StandardListSearch
                   onChange={(value) => {
                     setSearch(value);
-                    setPage(1);
                   }}
                   placeholder="搜索执行 ID / Trace"
                   value={search}
@@ -174,7 +165,7 @@ export function RunsPage({ api }: RunsPageProps) {
             />
           }
         >
-          <RunTable onSelect={setSelected} runs={paged} />
+          <RunTable onSelect={setSelected} runs={runs ?? []} />
         </StandardListCard>
       </div>
       {workflowRuns !== null ? <RunsTable runs={workflowRuns} /> : null}

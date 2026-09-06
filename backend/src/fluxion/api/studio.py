@@ -218,9 +218,9 @@ def register_studio_routes(
         payload: TestRunPayload,
         x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
     ) -> JSONResponse | StreamingResponse:
-        # TASK-005：Agent Studio 试跑。执行链复用 RuntimeApplicationService
-        # （failover/retry/deadline 有界 + 结构化脱敏日志）；Console 单独部署时
-        # 未装配 runtime → 显式 503，不静默。
+        # TASK-005 / FEAT-01：Agent Studio 试跑经 RuntimeGateway（本地
+        # RuntimeApplicationService 或远程 HttpRuntimeGateway，二者均暴露
+        # stream()）；未装配 runtime → 显式 503，不静默。
         from fluxion.api.runtime import _sse_events
 
         if runtime_service is None:
@@ -386,6 +386,14 @@ def register_studio_routes(
 
         resolve_summary: dict[str, object] | None = None
         if not problems:
+            if not hasattr(runtime_service, "resolve_context"):
+                # FEAT-01：远程 Gateway 只暴露 run/stream 执行面，
+                # 本地 resolve（免模型快照预检）需要本地执行体 → 显式 503。
+                raise ConsoleError(
+                    RUNTIME_APPLICATION_ERROR,
+                    "channel verify requires local runtime resolve",
+                    503,
+                )
             verify_user = str(entries[0]["platform_user_id"])
             request = RunRuntimeRequest(
                 tenant_id=actor.tenant_id,

@@ -34,11 +34,14 @@ export function OverviewPage({ api }: OverviewProps) {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [agents, workflows, users, runs, auditPage, credentials] = await Promise.all([
-        api.listVisibleResources("agent_definition"),
-        api.listResources("workflow").then((page) => page.items),
+      // FEAT-03：计数取服务端 total（不再依赖首屏 100 条数组长度）；
+      // 异常工作台取最近 5 条失败记录（有意 top-N）。
+      const [agents, workflows, users, runs, failed, auditPage, credentials] = await Promise.all([
+        api.listResources("agent_definition", { page: 1, pageSize: 1 }),
+        api.listResources("workflow", { page: 1, pageSize: 1 }),
         api.listPlatformUsers({ page: 1, pageSize: 1 }),
-        api.listRuns(),
+        api.listRuns({ page: 1, pageSize: 1 }),
+        api.listRuns({ page: 1, pageSize: 5, status: "failed" }),
         api.listAudit({ page: 1, pageSize: 5 }),
         api.listCredentials().catch(() => [])
       ]);
@@ -46,13 +49,13 @@ export function OverviewPage({ api }: OverviewProps) {
         return;
       }
       setCounts([
-        { label: "智能体", value: agents.length },
-        { label: "工作流", value: workflows.length },
+        { label: "智能体", value: agents.total },
+        { label: "工作流", value: workflows.total },
         { label: "用户", value: users.total },
-        { label: "执行记录", value: runs.length }
+        { label: "执行记录", value: runs.total }
       ]);
       setActivity(auditPage.items);
-      setFailedRuns(runs.filter((run) => run.status === "failed"));
+      setFailedRuns(failed.items);
       setRevokedCredentials(credentials.filter((item) => item.status === "disabled").length);
     })();
     return () => {

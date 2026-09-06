@@ -54,6 +54,7 @@ from fluxion.resources import (
     ResourceBinding,
     ResourceDefinition,
     ResourceKind,
+    ResourceStatus,
 )
 
 
@@ -196,6 +197,9 @@ class SQLAlchemyRegistryStore:
         tenant_id: str,
         offset: int,
         limit: int,
+        keyword: str | None = None,
+        resource_id: str | None = None,
+        status: ResourceStatus | None = None,
     ) -> tuple[list[ResourceDefinition], int]:
         return await resource_sqlalchemy.list_resources(
             self._engine,
@@ -203,6 +207,9 @@ class SQLAlchemyRegistryStore:
             tenant_id=tenant_id,
             offset=offset,
             limit=limit,
+            keyword=keyword,
+            resource_id=resource_id,
+            status=status,
         )
 
     async def list_all_resources(
@@ -211,12 +218,18 @@ class SQLAlchemyRegistryStore:
         tenant_id: str,
         offset: int,
         limit: int,
+        keyword: str | None = None,
+        resource_id: str | None = None,
+        status: ResourceStatus | None = None,
     ) -> tuple[list[ResourceDefinition], int]:
         return await resource_sqlalchemy.list_all_resources(
             self._engine,
             tenant_id=tenant_id,
             offset=offset,
             limit=limit,
+            keyword=keyword,
+            resource_id=resource_id,
+            status=status,
         )
 
     async def list_current_resources(
@@ -226,6 +239,9 @@ class SQLAlchemyRegistryStore:
         tenant_id: str,
         offset: int,
         limit: int,
+        keyword: str | None = None,
+        resource_id: str | None = None,
+        status: ResourceStatus | None = None,
     ) -> tuple[list[ResourceDefinition], int]:
         return await resource_sqlalchemy.list_current_resources(
             self._engine,
@@ -233,6 +249,9 @@ class SQLAlchemyRegistryStore:
             tenant_id=tenant_id,
             offset=offset,
             limit=limit,
+            keyword=keyword,
+            resource_id=resource_id,
+            status=status,
         )
 
     async def append_audit(self, record: AuditRecord) -> None:
@@ -737,13 +756,14 @@ class SQLAlchemyRegistryStore:
         )
 
     async def list_platform_users(
-        self, *, tenant_id: str, offset: int, limit: int
+        self, *, tenant_id: str, offset: int, limit: int, keyword: str | None = None
     ) -> tuple[list[PlatformUserRecord], int]:
         return await channel_sqlalchemy.list_platform_users(
             self._engine,
             tenant_id=tenant_id,
             offset=offset,
             limit=limit,
+            keyword=keyword,
         )
 
     async def create_chat_access(self, record: ChatAccessRecord) -> ChatAccessRecord:

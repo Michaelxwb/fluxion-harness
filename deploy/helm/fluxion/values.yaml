@@ -17,6 +17,33 @@ worker:
 # 按 Agent 负载横向扩（无状态，HPA 指标后续接 capacity）。
 runtime:
   replicaCount: 2
+  # FEAT-05 独立 Runtime 探针（发布时同步记录应用预算）：
+  # - readiness 走 RuntimeApplicationService.ready()（Registry 读路径），
+  #   应用内检测预算默认 1s、无重试，必须小于探针 timeoutSeconds；
+  # - liveness 只判断进程可服务（/healthz），不依赖 Registry；
+  # - startupProbe 慢启动可配（默认关闭），单独验证启动窗口。
+  probes:
+    liveness:
+      path: /healthz
+      port: http
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    readiness:
+      path: /readyz
+      port: http
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+  startupProbe:
+    enabled: false
+    path: /readyz
+    port: http
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 12
 
 image:
   repository: fluxion-harness/fluxion

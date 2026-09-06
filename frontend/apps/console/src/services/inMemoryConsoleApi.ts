@@ -27,9 +27,13 @@ import type {
   PageData,
   PageRequest,
   PlatformUser,
+  CredentialProjection,
+  CredentialProjectionPage,
   PublishOptions,
   PublishResult,
+  ResourceListPage,
   ResourceSummary,
+  RunListPage,
   ResourceCreateInput,
   ResourceType,
   ResourceVersion,
@@ -123,7 +127,11 @@ class InMemoryConsoleApi implements ConsoleApi {
     this.evalTriggerError = seed.evalTriggerError ?? null;
   }
 
-  async listResources(resourceType?: ResourceType): Promise<PageData<ResourceSummary>> {
+  async listResources(
+    resourceType?: ResourceType,
+    request: ResourceListPage = { page: 1, pageSize: 100 }
+  ): Promise<PageData<ResourceSummary>> {
+    const keyword = request.keyword?.trim().toLowerCase() ?? "";
     const items = uniqueResourceKeys(this.resources)
       .map((key) => this.latestResource(key.resourceType, key.resourceId))
       .filter(
@@ -132,10 +140,15 @@ class InMemoryConsoleApi implements ConsoleApi {
           this.canSee(resource)
       )
       .map(toSummary)
+      .filter(
+        (item) =>
+          (!request.status || item.status === request.status) &&
+          (!keyword ||
+            item.displayName.toLowerCase().includes(keyword) ||
+            item.resourceId.toLowerCase().includes(keyword))
+      )
       .sort((left, right) => left.resourceId.localeCompare(right.resourceId));
-    // P2（review）：后端 page_size ≤ 100（console.py）；in-memory 对齐上限，防 >100 条时
-    // 切 HTTP 后列表静默变少。
-    return page(items, { page: 1, pageSize: Math.min(items.length || 20, 100) });
+    return page(items, { page: request.page, pageSize: request.pageSize });
   }
 
   async getResourceSchema(resourceType: ResourceType): Promise<JsonSchemaNode> {
@@ -344,8 +357,62 @@ class InMemoryConsoleApi implements ConsoleApi {
     return cloneBinding(record);
   }
 
-  async listCredentials(): Promise<readonly CredentialMetadata[]> {
-    return this.credentials.map((credential) => ({ ...credential }));
+  async listCredentials(request: PageRequest = { page: 1, pageSize: 100 }): Promise<readonly CredentialMetadata[]> {
+    const start = (request.page - 1) * request.pageSize;
+    return this.credentials.slice(start, start + request.pageSize).map((credential) => ({ ...credential }));
+  }
+
+  async listCredentialProjection(
+    request: CredentialProjectionPage = { page: 1, pageSize: 20 }
+  ): Promise<PageData<CredentialProjection>> {
+    // FEAT-04：与 HTTP 投影同语义（当前 SECRET 行 + Provider 配置引用关联）。
+    const keyword = request.keyword?.trim().toLowerCase() ?? "";
+    const secrets = uniqueResourceKeys(this.resources)
+      .map((key) => this.latestResource(key.resourceType, key.resourceId))
+      .filter((resource) => resource.resourceType === "secret" && this.canSee(resource))
+      .filter((resource) => {
+        const spec = resource.spec as Record<string, unknown>;
+        if (request.status !== undefined && resource.status !== request.status) return false;
+        if (request.purpose !== undefined && String(spec.purpose ?? "") !== request.purpose) return false;
+        if (request.revoked !== undefined && (spec.revoked === true) !== request.revoked) return false;
+        return (
+          !keyword ||
+          String(spec.name ?? "").toLowerCase().includes(keyword) ||
+          resource.resourceId.toLowerCase().includes(keyword)
+        );
+      })
+      .sort((left, right) => left.resourceId.localeCompare(right.resourceId));
+    const providers = uniqueResourceKeys(this.resources)
+      .map((key) => this.latestResource(key.resourceType, key.resourceId))
+      .filter((resource) => resource.resourceType === "model_provider" && this.canSee(resource));
+    const rows: CredentialProjection[] = secrets.map((resource) => {
+      const spec = resource.spec as Record<string, unknown>;
+      const secretRef = String(spec.secret_ref ?? "");
+      const consumers = providers
+        .filter((provider) => String((provider.spec as Record<string, unknown>).credential_ref ?? "") === secretRef)
+        .map((provider) => {
+          const providerSpec = provider.spec as Record<string, unknown>;
+          return {
+            providerId: provider.resourceId,
+            providerName: String(providerSpec.display_name ?? provider.resourceId)
+          };
+        })
+        .sort((left, right) => left.providerId.localeCompare(right.providerId));
+      const seen = new Map(consumers.map((consumer) => [consumer.providerId, consumer]));
+      const deduped = [...seen.values()];
+      return {
+        credentialId: resource.resourceId,
+        displayName: String(spec.name ?? resource.resourceId),
+        secretRef,
+        purpose: String(spec.purpose ?? ""),
+        revoked: spec.revoked === true,
+        updatedAt: resource.updatedAt,
+        consumerCount: deduped.length,
+        consumers: deduped,
+        status: resource.status
+      };
+    });
+    return page(rows, { page: request.page, pageSize: request.pageSize });
   }
 
   async createCredential(input: CredentialCreateInput): Promise<ResourceVersion> {
@@ -579,8 +646,14 @@ class InMemoryConsoleApi implements ConsoleApi {
     return { reachable: true, statusCode: 200, bodyExcerpt: "{}", error: null };
   }
 
-  async listRuns(): Promise<readonly RunDetail[]> {
-    return this.runs.map(cloneRun);
+  async listRuns(request: RunListPage = { page: 1, pageSize: 100 }): Promise<PageData<RunDetail>> {
+    const keyword = request.keyword?.trim().toLowerCase() ?? "";
+    const filtered = this.runs.filter(
+      (run) =>
+        (!request.status || run.status === request.status) &&
+        (!keyword || run.executionId.toLowerCase().includes(keyword))
+    );
+    return page(filtered.map(cloneRun), { page: request.page, pageSize: request.pageSize });
   }
 
   async listAudit(request: PageRequest, filters?: AuditFilters): Promise<PageData<AuditRecord>> {
@@ -592,18 +665,27 @@ class InMemoryConsoleApi implements ConsoleApi {
     return page(filtered.map((record) => ({ ...record })), request);
   }
 
-  async listP1View(view: P1View): Promise<readonly ControlPlaneItem[]> {
+  async listP1View(view: P1View, request: PageRequest = { page: 1, pageSize: 100 }): Promise<readonly ControlPlaneItem[]> {
     if (this.p1ViewPending.has(view)) {
       return await new Promise<readonly ControlPlaneItem[]>(() => undefined);
     }
     if (this.p1ViewErrors.has(view)) {
       throw new Error(`${p1ViewTitle(view)} 加载失败`);
     }
-    return (this.p1Views[view] ?? []).map((item) => ({ ...item }));
+    const items = this.p1Views[view] ?? [];
+    const start = (request.page - 1) * request.pageSize;
+    return items.slice(start, start + request.pageSize).map((item) => ({ ...item }));
   }
 
-  async listPlatformUsers(request: PageRequest): Promise<PageData<PlatformUser>> {
-    return page(this.users.map((user) => ({ ...user })), request);
+  async listPlatformUsers(request: PageRequest & { keyword?: string }): Promise<PageData<PlatformUser>> {
+    const keyword = request.keyword?.trim().toLowerCase() ?? "";
+    const filtered = this.users.filter(
+      (user) =>
+        !keyword ||
+        user.platformUserId.toLowerCase().includes(keyword) ||
+        user.displayName.toLowerCase().includes(keyword)
+    );
+    return page(filtered.map((user) => ({ ...user })), request);
   }
 
   async createPlatformUser(platformUserId: string, displayName: string): Promise<PlatformUser> {

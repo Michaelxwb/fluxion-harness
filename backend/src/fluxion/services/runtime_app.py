@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import traceback
 from collections import deque
 from collections.abc import AsyncIterator, Sequence
@@ -20,6 +22,7 @@ from fluxion.observability.context import bind_execution_id, reset_execution_id
 from fluxion.observability.logging import emit_runtime_error_log
 from fluxion.observability.tracing import traced_scope
 from fluxion.plugins.model_provider import ModelProviderRegistry
+from fluxion.plugins.providers.pgvector_semantic import PgVectorSemanticStore
 from fluxion.registry import (
     ChannelRegistryStore,
     RegistryStoreError,
@@ -78,7 +81,9 @@ __all__ = [
     "RuntimeApplicationService",
     "RuntimeStreamEvent",
     "ToolCallRequest",
+    "build_personal_memory_retriever",
     "default_runtime_profile_request",
+    "memory_recall_timeout_from_env",
 ]
 
 
@@ -97,6 +102,8 @@ class RuntimeApplicationService(RuntimeToolOps):
         credential_resolver: CredentialResolver | None = None,
         plugin_summaries: Sequence[PluginSummary] = (),
         memory_retriever: PersonalMemoryRetriever | None = None,
+        ready_timeout_seconds: float = 1.0,
+        memory_recall_timeout_ms: int = 1000,
     ) -> None:
         self._store = store
         self._cache = TenantResourceCache(ttl_seconds=cache_ttl_seconds)
@@ -115,6 +122,7 @@ class RuntimeApplicationService(RuntimeToolOps):
                     store,
                     credential_resolver=credential_resolver,
                     memory_retriever=memory_retriever,
+                    memory_recall_timeout_ms=memory_recall_timeout_ms,
                 )
             ),
             memory_store=memory_store or default_session_memory_store(store),
@@ -129,6 +137,11 @@ class RuntimeApplicationService(RuntimeToolOps):
         )
         self._plugin_summaries = tuple(plugin_summaries)
         self._service_instance_id = uuid4().hex
+        # FEAT-07：memory provider 引用（engine 由 store 持有并关闭，此处仅引用）。
+        self._memory_provider = memory_retriever.provider if memory_retriever is not None else None
+        # FEAT-05：readiness 检测预算（默认 1s、无重试），必须小于探针超时；
+        # 覆盖 Registry 连接/查询超时与故障，统一 503。
+        self._ready_timeout_seconds = ready_timeout_seconds
         # F10：config change event 环形缓冲（长跑进程此前无界 append → OOM）。
         # 仅 dev 观测用途（config_events 属性 + 测试读 [-1]），maxlen 覆盖最近
         # 变更窗口即可；超出自动丢弃最旧。
@@ -145,6 +158,8 @@ class RuntimeApplicationService(RuntimeToolOps):
         memory_store: SessionMemoryStore | None = None,
         credential_resolver: CredentialResolver | None = None,
         memory_retriever: PersonalMemoryRetriever | None = None,
+        ready_timeout_seconds: float = 1.0,
+        memory_recall_timeout_ms: int = 1000,
     ) -> RuntimeApplicationService:
         model_registry = ModelProviderRegistry()
         model_registry.register("dev.echo", DevEchoModelProvider())
@@ -166,6 +181,8 @@ class RuntimeApplicationService(RuntimeToolOps):
             credential_resolver=credential_resolver,
             plugin_summaries=_derive_plugin_summaries(model_registry),
             memory_retriever=memory_retriever,
+            ready_timeout_seconds=ready_timeout_seconds,
+            memory_recall_timeout_ms=memory_recall_timeout_ms,
         )
 
     @property
@@ -186,6 +203,19 @@ class RuntimeApplicationService(RuntimeToolOps):
 
     async def initialize(self) -> None:
         await self._store.initialize()
+        # FEAT-07：memory provider 初始化放 serving 事件循环（lifespan 经此进入），
+        # 受有限启动预算控制（默认 5s）；失败明确报错（fail-fast），不静默降级。
+        provider = self._memory_provider
+        initialize = getattr(provider, "initialize", None)
+        if provider is not None and callable(initialize):
+            try:
+                await asyncio.wait_for(initialize(), timeout=5.0)
+            except TimeoutError as exc:
+                raise RuntimeApplicationError(
+                    "memory_provider_init_timeout",
+                    "personal memory provider initialization timed out",
+                    status_code=503,
+                ) from exc
 
     async def close(self) -> None:
         await self._mcp_runtime.close()
@@ -458,19 +488,53 @@ class RuntimeApplicationService(RuntimeToolOps):
     async def health(self) -> HealthResult:
         return HealthResult("ok", self._service_instance_id)
 
-    async def ready(self) -> HealthResult:
+    async def ready(self, *, request_id: str = "", trace_id: str = "") -> HealthResult:
+        """Readiness：Registry 读路径检测（FEAT-05）。
+
+        预算内完成、无重试；任何连接/查询超时与故障统一 503。错误原文可能
+        含 DSN/SQL——响应只给固定文案，原始错误类型进结构化日志（脱敏，
+        request_id/trace_id 关联），永不回传调用方。
+        """
         try:
-            await self._store.get(
-                ResourceKind.RUNTIME_PROFILE,
-                "_ready",
-                tenant_id="_ready",
-                version="_ready",
+            await asyncio.wait_for(
+                self._store.get(
+                    ResourceKind.RUNTIME_PROFILE,
+                    "_ready",
+                    tenant_id="_ready",
+                    version="_ready",
+                ),
+                timeout=self._ready_timeout_seconds,
             )
-        except RegistryStoreError as exc:
+        except (RegistryStoreError, TimeoutError) as exc:
+            self._log_readiness_error(request_id, trace_id, exc)
             raise RuntimeApplicationError(
-                "runtime_not_ready", str(exc), status_code=503
+                "runtime_not_ready", "registry unavailable", status_code=503
+            ) from exc
+        except Exception as exc:
+            self._log_readiness_error(request_id, trace_id, exc)
+            raise RuntimeApplicationError(
+                "runtime_not_ready", "registry unavailable", status_code=503
             ) from exc
         return HealthResult("ok", self._service_instance_id)
+
+    def _log_readiness_error(self, request_id: str, trace_id: str, exc: BaseException) -> None:
+        """readiness 失败结构化日志：只记错误类型 + 帧栈，不记异常原文。
+
+        `traceback.format_exc()` 尾行会带异常消息（可能含 DSN/SQL），此处用
+        `extract_tb` 只取帧（无局部变量值、无异常消息），满足脱敏要求。
+        """
+        frames = traceback.extract_tb(exc.__traceback__)
+        emit_runtime_error_log(
+            request_id=request_id,
+            trace_id=trace_id,
+            tenant_id="system",
+            execution_id="",
+            runtime_profile_id="_ready",
+            error_type=type(exc).__name__,
+            error_code="runtime_not_ready",
+            message="readiness registry check failed",
+            stack="".join(traceback.format_list(frames)),
+        )
 
     def last_seen_revision(self, tenant_id: str) -> int:
         return self._resolver.last_seen_revision(tenant_id)
@@ -515,3 +579,22 @@ class RuntimeApplicationService(RuntimeToolOps):
                 hooks=_hook_events(events),
             )
         )
+
+
+def build_personal_memory_retriever(engine: object) -> PersonalMemoryRetriever:
+    """FEAT-07 执行侧装配：PgVectorSemanticStore(engine) → PersonalMemoryRetriever。
+
+    双库通用（SQLite 自动降级 Python cosine，不以名字推断不可用）；engine 由
+    store 持有并关闭，此处仅引用。provider 初始化在 serving 事件循环内经
+    service.initialize() 完成（有限启动预算，失败明确报错）。
+    """
+    return PersonalMemoryRetriever(PgVectorSemanticStore(engine))
+
+
+def memory_recall_timeout_from_env(default_ms: int = 1000) -> int:
+    """FLUXION_MEMORY_RECALL_TIMEOUT_MS 解析（默认 1000ms；非法值回退默认）。"""
+    try:
+        value = int(os.environ.get("FLUXION_MEMORY_RECALL_TIMEOUT_MS", "") or default_ms)
+    except ValueError:
+        return default_ms
+    return value if value > 0 else default_ms

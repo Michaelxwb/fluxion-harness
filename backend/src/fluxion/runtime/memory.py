@@ -12,6 +12,7 @@ from fluxion.runtime.summarizer import (
     SummaryResult,
     default_summarizer_registry,
 )
+from fluxion.runtime.tokens import estimate_text_tokens
 
 
 @dataclass(frozen=True, slots=True)
@@ -284,32 +285,8 @@ def _memory_record(context: RuntimeContext, role: str, content: str) -> MemoryRe
 
 
 def _estimate_tokens(content: str) -> int:
-    # 拉丁文沿用按词计（split）；CJK 无空格分词，此前整段中文计为 1 token，
-    # 导致 flush/compact 永不触发、L1 无界增长 → provider context length
-    # exceeded（中文场景的必然崩溃，见 FEAT-22/23）。修正：CJK 按单字计
-    # （≈1 token/字，略过估但远胜低估；过估早 flush 不丢数据）。
-    if not content:
-        return 1
-    word_tokens = len(content.split())
-    cjk_chars = sum(1 for char in content if _is_cjk(ord(char)))
-    return max(1, word_tokens + cjk_chars)
-
-
-_CJK_RANGES = (
-    (0x1100, 0x11FF),    # Hangul Jamo
-    (0x2E80, 0x9FFF),    # CJK Radicals / Unified Ideographs
-    (0xA000, 0xA4FF),    # Yi
-    (0xAC00, 0xD7AF),    # Hangul Syllables
-    (0xF900, 0xFAFF),    # CJK Compatibility Ideographs
-    (0xFE30, 0xFE4F),    # CJK Compatibility Forms
-    (0xFF00, 0xFFEF),    # Fullwidth / Halfwidth
-    (0x3000, 0x30FF),    # CJK Symbols / Hiragana / Katakana
-    (0x20000, 0x2FA1F),  # CJK Extensions A–F
-)
-
-
-def _is_cjk(codepoint: int) -> bool:
-    return any(low <= codepoint <= high for low, high in _CJK_RANGES)
+    """Memory 内部估算（FEAT-06 后为共享工具的兼容别名，单一实现见 runtime.tokens）。"""
+    return estimate_text_tokens(content)
 
 
 def _registered_summarizer_ids(registry: SummarizerRegistryProtocol) -> set[str]:

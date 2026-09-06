@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { IconPlus } from "@douyinfe/semi-icons";
 import { Button, Empty, Modal, Select, Table, Toast } from "@douyinfe/semi-ui";
@@ -56,20 +56,40 @@ export function AgentsPage({ api }: AgentsPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [modelFilter, setModelFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     let active = true;
+    requestSeq.current += 1;
+    const requestId = requestSeq.current;
     setError(null);
     setRows(null);
     void (async () => {
       try {
+        // FEAT-03：分页/搜索/状态全部服务端化（GET /api/v1/resources）。
+        // 主模型过滤因需服务端 spec 过滤支持而移除（另行设计），模型保留为展示列；
+        // 页内 details join 随页大小有界（PAGE_SIZE 次详情请求）。
         const [agentsPage, bindingsPage] = await Promise.all([
-          api.listResources("agent_definition"),
+          api.listResources("agent_definition", {
+            page,
+            pageSize: PAGE_SIZE,
+            keyword: debouncedSearch.trim() || undefined,
+            status: (statusFilter || undefined) as ResourceStatus | undefined
+          }),
           api.listBindings({ page: 1, pageSize: 100 }, "agent_definition")
         ]);
         const details = await Promise.all(
@@ -77,45 +97,25 @@ export function AgentsPage({ api }: AgentsPageProps) {
             api.getResource("agent_definition", agent.resourceId, agent.currentVersion)
           )
         );
-        if (!active) return;
+        if (!active || requestId !== requestSeq.current) return;
         setRows(
-          agentsPage.items
-            .map((agent, index) => ({
-              ...agent,
-              key: agent.resourceId,
-              modelId: primaryModelId(details[index].spec)
-            }))
-            .sort((left, right) =>
-              left.displayName.localeCompare(right.displayName, "zh-CN", { numeric: true })
-            )
+          agentsPage.items.map((agent, index) => ({
+            ...agent,
+            key: agent.resourceId,
+            modelId: primaryModelId(details[index].spec)
+          }))
         );
+        setTotal(agentsPage.total);
         setBindingCounts(countBindings(bindingsPage.items));
       } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : "加载失败");
+        if (!active || requestId !== requestSeq.current) return;
+        setError(cause instanceof Error ? cause.message : "加载失败");
       }
     })();
     return () => {
       active = false;
     };
-  }, [api, reloadKey]);
-
-  const modelOptions = useMemo(
-    () => [...new Set((rows ?? []).map((row) => row.modelId).filter((id) => id !== "-"))].sort(),
-    [rows]
-  );
-  const filtered = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    return (rows ?? []).filter((row) => {
-      if (statusFilter && row.status !== statusFilter) return false;
-      if (modelFilter && row.modelId !== modelFilter) return false;
-      return (
-        !keyword ||
-        row.displayName.toLowerCase().includes(keyword) ||
-        row.resourceId.toLowerCase().includes(keyword)
-      );
-    });
-  }, [modelFilter, rows, search, statusFilter]);
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  }, [api, debouncedSearch, page, reloadKey, statusFilter]);
 
   function reload(): void {
     setReloadKey((key) => key + 1);
@@ -176,16 +176,16 @@ export function AgentsPage({ api }: AgentsPageProps) {
       />
       <div aria-label="智能体列表">
         <StandardListCard
-          empty={rows !== null && rows.length === 0}
+          empty={rows !== null && total === 0}
           emptyDescription="暂无智能体"
           error={error}
           footer={
-            rows !== null && rows.length > 0 ? (
+            rows !== null && total > 0 ? (
               <StandardListFooter
                 onPageChange={setPage}
                 page={page}
                 pageSize={PAGE_SIZE}
-                total={filtered.length}
+                total={total}
               />
             ) : undefined
           }
@@ -214,23 +214,6 @@ export function AgentsPage({ api }: AgentsPageProps) {
                     style={{ width: 130 }}
                     value={statusFilter}
                   />
-                  <span className="sr-only" id="agent-model-filter-label">
-                    主模型过滤
-                  </span>
-                  <Select
-                    aria-labelledby="agent-model-filter-label"
-                    onChange={(value) => {
-                      setModelFilter(String(value ?? ""));
-                      setPage(1);
-                    }}
-                    optionList={[
-                      { label: "全部模型", value: "" },
-                      ...modelOptions.map((modelId) => ({ label: modelId, value: modelId }))
-                    ]}
-                    placeholder="主模型"
-                    style={{ width: 180 }}
-                    value={modelFilter}
-                  />
                 </>
               }
               primary={
@@ -248,7 +231,6 @@ export function AgentsPage({ api }: AgentsPageProps) {
                 <StandardListSearch
                   onChange={(value) => {
                     setSearch(value);
-                    setPage(1);
                   }}
                   placeholder="搜索名称 / 资源 ID"
                   value={search}
@@ -319,7 +301,7 @@ export function AgentsPage({ api }: AgentsPageProps) {
                 )
               }
             ]}
-            dataSource={paged}
+            dataSource={[...(rows ?? [])]}
             empty={<Empty description="暂无智能体" />}
             pagination={false}
             rowKey="key"

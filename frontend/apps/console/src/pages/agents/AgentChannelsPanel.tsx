@@ -15,9 +15,9 @@ import {
 import type {
   AgentWebChannel,
   ChannelVerifyResult,
-  ConsoleApi,
-  PlatformUser
+  ConsoleApi
 } from "../../types/console";
+import { useRemoteUserOptions } from "../../components/useRemoteResourceOptions";
 
 interface AgentChannelsPanelProps {
   readonly agentId: string;
@@ -34,9 +34,10 @@ interface AgentChannelsPanelProps {
  */
 export function AgentChannelsPanel({ agentId, api }: AgentChannelsPanelProps) {
   const [channel, setChannel] = useState<AgentWebChannel | null>(null);
-  const [users, setUsers] = useState<readonly PlatformUser[]>([]);
   const [selectedUser, setSelectedUser] = useState("");
   const [openModal, setOpenModal] = useState(false);
+  // FEAT-03：入口用户远程搜索（大数据集可达；已授权排除仍在页内执行）。
+  const userOptions = useRemoteUserOptions(api, openModal);
   const [issuedToken, setIssuedToken] = useState<string | null>(null);
   const [verify, setVerify] = useState<ChannelVerifyResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -44,12 +45,8 @@ export function AgentChannelsPanel({ agentId, api }: AgentChannelsPanelProps) {
 
   const reload = useCallback(async (): Promise<void> => {
     try {
-      const [web, userPage] = await Promise.all([
-        api.listAgentChannels(agentId),
-        api.listPlatformUsers({ page: 1, pageSize: 100 })
-      ]);
+      const web = await api.listAgentChannels(agentId);
       setChannel(web);
-      setUsers(userPage.items);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "渠道数据加载失败");
@@ -113,7 +110,7 @@ export function AgentChannelsPanel({ agentId, api }: AgentChannelsPanelProps) {
   const authorized = new Set(
     (channel?.entries ?? []).map((entry) => entry.platformUserId)
   );
-  const selectable = users.filter((user) => !authorized.has(user.platformUserId));
+  const selectable = userOptions.options.filter((user) => !authorized.has(user.resourceId));
 
   return (
     <div aria-label="Agent 渠道" style={{ display: "grid", gap: 16 }}>
@@ -148,13 +145,23 @@ export function AgentChannelsPanel({ agentId, api }: AgentChannelsPanelProps) {
           </Typography.Text>
           <Select
             aria-label="入口用户"
-            filter
+            filter={false}
+            loading={userOptions.loading}
             onChange={(value) => setSelectedUser(String(value ?? ""))}
+            onSearch={userOptions.onSearch}
             optionList={selectable.map((user) => ({
-              label: `${user.displayName}（${user.platformUserId}）`,
-              value: user.platformUserId
+              label: user.label,
+              value: user.resourceId
             }))}
-            placeholder="选择用户"
+            outerBottomSlot={
+              userOptions.truncated ? (
+                <Typography.Text type="tertiary" size="small">
+                  仅显示前 {userOptions.options.length} 条匹配，请细化关键词
+                </Typography.Text>
+              ) : undefined
+            }
+            placeholder="输入关键词搜索用户"
+            remote
             style={{ width: "100%" }}
             value={selectedUser}
           />
