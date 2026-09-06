@@ -1,10 +1,15 @@
 # =============================================================================
-# Fluxion Harness 后端镜像（多阶段构建）
+# Fluxion Harness 后端镜像（多阶段构建，三 target）
 #
 # 构建上下文必须是仓库根目录（Dockerfile 需要 backend/、frontend/、pyproject.toml、
 # uv.lock、package.json、pnpm-lock.yaml、pnpm-workspace.yaml），示例：
 #
-#   docker build -f deploy/docker/Dockerfile -t fluxion-harness/fluxion:0.1.0 .
+#   docker build -f deploy/docker/Dockerfile --target api -t ghcr.io/<owner>/fluxion-api:0.1.0 .
+#   docker build -f deploy/docker/Dockerfile --target runtime -t ghcr.io/<owner>/fluxion-runtime:0.1.0 .
+#   docker build -f deploy/docker/Dockerfile --target worker -t ghcr.io/<owner>/fluxion-worker:0.1.0 .
+#
+# 三个 target 共用 frontend/backend/base 层，仅默认 FLUXION_ROLE 不同
+# （运行时仍可用 -e FLUXION_ROLE 覆盖）。CI 见 .github/workflows/docker-build.yml。
 #
 # 关于前端 dist 的路径约定（重要，见阶段三注释）：
 #   后端 CLI 的 `_ensure_frontend_builds` 用 `Path(__file__).resolve().parents[4]`
@@ -63,9 +68,9 @@ COPY backend ./backend
 RUN uv sync --frozen --no-dev
 
 # -----------------------------------------------------------------------------
-# 阶段三：最终运行镜像
+# 阶段三：公共运行层（三 target 共用）
 # -----------------------------------------------------------------------------
-FROM python:3.12-slim AS runtime
+FROM python:3.12-slim AS base
 
 # PYTHONPATH 指向源码目录：保证 `import fluxion` 解析到 /app/backend/src/fluxion，
 # 于是 cli/main.py 的 __file__ = /app/backend/src/fluxion/cli/main.py，其 parents[4]
@@ -97,3 +102,21 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 EXPOSE 8000
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+# -----------------------------------------------------------------------------
+# 三角色 target：仅默认角色不同（entrypoint 按 FLUXION_ROLE 分流，
+# 运行时 -e FLUXION_ROLE 仍可覆盖）。注意 docker-compose 本地联调显式写 target。
+# -----------------------------------------------------------------------------
+FROM base AS api
+
+ENV FLUXION_ROLE=api
+
+
+FROM base AS runtime
+
+ENV FLUXION_ROLE=runtime
+
+
+FROM base AS worker
+
+ENV FLUXION_ROLE=worker
