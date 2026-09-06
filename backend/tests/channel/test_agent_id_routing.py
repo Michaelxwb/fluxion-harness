@@ -38,7 +38,7 @@ async def _stack(store: SQLiteRegistryStore):
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
     await seed_agent_definition(store, system_prompt="你是测试代理。", provider_id="dev.echo")
     runtime = RuntimeApplicationService.create_dev_bundle(store)

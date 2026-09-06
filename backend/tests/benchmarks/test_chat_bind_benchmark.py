@@ -41,6 +41,10 @@ def test_B_C106_bind_p95_under_300ms_and_chat_p95_under_200ms(
     service = ChannelApplicationService(store, runtime, code_factory=code_factory)
     adapter = WebChannelAdapter()
     loop.run_until_complete(store.initialize())
+    # ADR-A010：chat 的 profile 解析走真实路径（agent + default profile 必须存在）
+    from tests.runtime_helpers import seed_runtime_profile
+
+    loop.run_until_complete(seed_runtime_profile(store, tenant_id="tenant-a", runtime_profile_id="assistant"))
     bind_ms: list[float] = []
     chat_ms: list[float] = []
     run_index = 0

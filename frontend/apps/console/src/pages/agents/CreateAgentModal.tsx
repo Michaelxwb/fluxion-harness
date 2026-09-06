@@ -56,29 +56,22 @@ export function CreateAgentModal({ api, visible, onClose, onCreated }: CreateAge
     setSubmitting(true);
     setError(null);
     try {
-      const resourceId = `agent-${slugify(trimmed)}-${Date.now().toString(36)}`;
-      await api.createResource({
-        resourceType: "agent_definition",
-        resourceId,
-        version: "1",
-        visibility: "private",
-        spec: {
-          name: trimmed,
-          description: description.trim(),
-          system_prompt: `你是${trimmed}，请严谨、专业地完成任务。`,
-          owner: "default",
-          model_policy: {
-            primary_model_ref: { id: model.resourceId, version: model.currentVersion },
-            fallback_model_refs: []
-          },
-          capabilities: []
-        }
+      const created = await api.createAgent({
+        name: trimmed,
+        description: description.trim(),
+        system_prompt: `你是${trimmed}，请严谨、专业地完成任务。`,
+        owner: "default",
+        model_policy: {
+          primary_model_ref: { id: model.resourceId, version: model.currentVersion },
+          fallback_model_refs: []
+        },
+        capabilities: []
       });
       setName("");
       setDescription("");
       setModel(null);
       // 先关闭 + 刷新列表（可观测结果），Toast 独立 try/catch 不阻断建档流程
-      onCreated(resourceId);
+      onCreated(created.resourceId);
       try {
         Toast.success("智能体已创建");
       } catch {
@@ -135,9 +128,9 @@ export function CreateAgentModal({ api, visible, onClose, onCreated }: CreateAge
           />
         </div>
         <div>
-          <Typography.Text>默认模型 *</Typography.Text>
+          <Typography.Text id="create-agent-model-label">默认模型 *</Typography.Text>
           <Select
-            aria-label="默认模型"
+            aria-labelledby="create-agent-model-label"
             onChange={(value) => {
               const id = String(value ?? "");
               setModel(models?.find((item) => item.resourceId === id) ?? null);
@@ -164,11 +157,4 @@ export function CreateAgentModal({ api, visible, onClose, onCreated }: CreateAge
       </div>
     </Modal>
   );
-}
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9一-龥]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }

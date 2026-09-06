@@ -25,6 +25,8 @@ async def test_S_R17_multi_layer_memory_flush_and_isolation(
         RequestContext(
             tenant_id="tenant-a",
             user_id="user-a",
+            # ADR-A010：AgentDefinition 是执行主坐标（同名回退已删除）
+            agent_definition_id="assistant",
             runtime_profile_id="assistant",
             session_id="session-a",
         )

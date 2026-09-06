@@ -6,21 +6,21 @@
       "passed": true,
       "detail": "E2E Adapter→DBOS→Postgres；start 返回即同步持久化（status 可查）",
       "metrics": {
-        "start_ms": 34.7
+        "start_ms": 17.7
       }
     },
     "P-CRASH": {
       "passed": true,
       "detail": "SIGKILL 后新进程 startup recovery 续跑；已完成 step 未重执行",
       "metrics": {
-        "recovery_seconds": 5.14
+        "recovery_seconds": 5.1
       }
     },
     "P-TIMER": {
       "passed": true,
       "detail": "kill+restart 后 timer 按原始 deadline 触发（elapsed 落在 [5.5, 9.5]s 窗口）",
       "metrics": {
-        "elapsed_seconds": 8.65,
+        "elapsed_seconds": 7.25,
         "timer_seconds": 6.0
       }
     },
@@ -38,7 +38,7 @@
       "passed": true,
       "detail": "step timeout=0.5s 触发（external_delay=5s），workflow 有界转 ERROR",
       "metrics": {
-        "elapsed_seconds": 0.55
+        "elapsed_seconds": 0.56
       }
     },
     "P-IDEMP": {
@@ -66,10 +66,10 @@
     },
     "SLO-OBS-01": {
       "passed": true,
-      "detail": "trace 关联完整率 1.0000（75/75）",
+      "detail": "trace 关联完整率 1.0000（59/59）",
       "metrics": {
-        "total_events": 75,
-        "correlated": 75
+        "total_events": 59,
+        "correlated": 59
       }
     },
     "baseline": {
@@ -77,10 +77,10 @@
       "detail": "1000 并发 workflow 全部 SUCCESS；单进程 start 吞吐见 metrics",
       "metrics": {
         "count": 1000,
-        "start_p95_ms": 6.5,
-        "start_max_ms": 42.0,
-        "total_seconds": 4.8,
-        "start_throughput_per_sec": 208.3
+        "start_p95_ms": 7.2,
+        "start_max_ms": 127.0,
+        "total_seconds": 5.3,
+        "start_throughput_per_sec": 187.2
       }
     }
   },

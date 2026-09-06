@@ -47,6 +47,11 @@ class ResolvedCredential:
 class SecretStore(Protocol):
     async def resolve(self, ref: str) -> ResolvedCredential: ...
 
+    # 明文写入（golden-path-closure TASK-009）：写明文 → secret_ref；明文不回显。
+    async def put(self, tenant_id: str, name: str, plaintext: str) -> str: ...
+    async def rotate(self, ref: str, plaintext: str) -> str: ...
+    async def revoke(self, ref: str) -> None: ...
+
 
 class SecretMetadataStore(Protocol):
     async def list_metadata(
@@ -84,7 +89,11 @@ class LocalEncryptedSecretStore:
 
     async def revoke(self, ref: str) -> None:
         current = self._record(ref)
-        self._records[ref] = replace(current, revoked=True)
+        # review-fixes S-02：逻辑凭据禁用必须覆盖轮换保留的所有版本——同租户同名
+        # 全部版本一并 revoked，旧 Provider 引用后续 resolve 同样 fail-closed。
+        for record in list(self._records.values()):
+            if record.tenant_id == current.tenant_id and record.name == current.name:
+                self._records[record.ref] = replace(record, revoked=True)
 
     async def resolve(self, ref: str) -> ResolvedCredential:
         record = self._record(ref)

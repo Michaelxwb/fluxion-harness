@@ -187,11 +187,6 @@ class ExecutionSnapshot(BaseModel):
     # Snapshot 冻结 AgentDefinition exact version）；无关联 Agent 时为 None。
     agent_definition_id: str | None = None
     agent_definition_version: str | None = None
-    # FEAT-02：AgentDefinition 的三条运行依赖引用进 Snapshot（exact version 冻结，
-    # 缺省 None 为 fail-safe——解析失败 fail-closed 由 resolver 保证）。
-    workflow_ref: ExactResourceVersion | None = None
-    memory_policy_ref: ExactResourceVersion | None = None
-    personalization_policy_ref: ExactResourceVersion | None = None
     # ADR-012：结构化 ModelPolicy（frozen）。validate 产生的新实例天然与缓存
     # spec_json 断开引用，执行期不可变由 model 层保证（原为 deepcopy dict 防护）。
     model_resolution: ModelPolicy
@@ -201,7 +196,13 @@ class ExecutionSnapshot(BaseModel):
     skill_required_capabilities: list[str] = Field(default_factory=list)
     skill_versions: dict[str, str] = Field(default_factory=dict)
     mcp_versions: dict[str, str] = Field(default_factory=dict)
-    plugin_versions: dict[str, str] = Field(default_factory=dict)
+    # ADR-A003 amend：typed pins 定型——provider/model exact version pin；
+    # plugin_versions（原模型 provider pins）废弃迁移至 provider_versions。
+    provider_versions: dict[str, str] = Field(default_factory=dict)
+    model_versions: dict[str, str] = Field(default_factory=dict)
+    # ADR-A003 amend：provider → 最终选择的 credential_ref（构建期收口，运行期
+    # 只按此 ref 解密，不重新选择——执行中新增 binding 不影响进行中 Execution）。
+    provider_credentials: dict[str, str] = Field(default_factory=dict)
     policy_version: str | None = None
     binding_versions: dict[str, str] = Field(default_factory=dict)
     # closure TASK-001（phase2）V2 字段：版本图谱全集（remediation §13.2）。

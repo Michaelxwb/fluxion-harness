@@ -31,7 +31,7 @@ def _snapshot(**overrides: object) -> ExecutionSnapshot:
         "trace_id": "trace-1",
         "skill_versions": {"search": "3.1.0"},
         "mcp_versions": {"weather": "2.4.7"},
-        "plugin_versions": {"openai-compatible": "1"},
+        "provider_versions": {"openai-compatible": "1"},
         "policy_version": "7",
         "binding_versions": {"binding-1": "2"},
         "policy_versions": {"tenant": "p1", "personalization": "pp2"},

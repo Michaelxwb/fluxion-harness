@@ -27,20 +27,29 @@ def _snapshot(**overrides) -> ExecutionSnapshot:
     return ExecutionSnapshot(**base)
 
 
-def test_S02_snapshot_freezes_three_refs_exact_version() -> None:
+def test_S02_snapshot_freezes_typed_pins_exact_version() -> None:
+    """ADR-A003 amend：provider/model 分别 exact version pin；废弃字段移除。"""
     snap = _snapshot(
-        workflow_ref=ExactResourceVersion(id="wf-1", version="3"),
-        memory_policy_ref=ExactResourceVersion(id="mem-1", version="2"),
-        personalization_policy_ref=ExactResourceVersion(id="per-1", version="1"),
+        provider_versions={"prov-1": "3"},
+        model_versions={"model-1": "2"},
     )
-    assert snap.workflow_ref == ExactResourceVersion(id="wf-1", version="3")
-    assert snap.memory_policy_ref == ExactResourceVersion(id="mem-1", version="2")
-    assert snap.personalization_policy_ref == ExactResourceVersion(id="per-1", version="1")
+    assert snap.provider_versions == {"prov-1": "3"}
+    assert snap.model_versions == {"model-1": "2"}
 
 
 def test_S02_agent_definition_version_declared_once() -> None:
     names = list(ExecutionSnapshot.model_fields.keys())
     assert names.count("agent_definition_version") == 1
+
+
+def test_S02_deprecated_refs_removed() -> None:
+    """ADR-A003 amend：workflow_ref / memory_policy_ref / personalization_policy_ref
+    从 Snapshot 契约移除（workflow 上下文归 durable state；memory 归 memory_manifest）。"""
+    names = set(ExecutionSnapshot.model_fields.keys())
+    assert "workflow_ref" not in names
+    assert "memory_policy_ref" not in names
+    assert "personalization_policy_ref" not in names
+    assert "plugin_versions" not in names
 
 
 def test_S02_effective_graph_fields_present() -> None:
@@ -53,11 +62,10 @@ def test_S02_effective_graph_fields_present() -> None:
     assert snap.effective_permissions["t1"]["tenant"] is True
 
 
-def test_B02_refs_optional_none() -> None:
+def test_B02_typed_pins_default_empty() -> None:
     snap = _snapshot()
-    assert snap.workflow_ref is None
-    assert snap.memory_policy_ref is None
-    assert snap.personalization_policy_ref is None
+    assert snap.provider_versions == {}
+    assert snap.model_versions == {}
     assert snap.effective_capability.skills == {}
     assert snap.effective_capability.tools == []
     assert snap.effective_permissions == {}

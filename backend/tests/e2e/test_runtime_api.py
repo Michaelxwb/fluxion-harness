@@ -27,6 +27,7 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
                 runtime_profile_id="assistant",
                 version="1",
                 request_timeout_ms=1_000,
+                default=True,
             )
         )
         from tests.runtime_helpers import seed_agent_definition
@@ -50,6 +51,7 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
                     "user_id": "user-a",
                     "session_id": "session-a",
                     "input": "hello",
+                    "agent_definition_id": "assistant",
                 },
                 headers={"X-Request-ID": "req-run"},
             )
@@ -60,6 +62,7 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
                     "user_id": "user-a",
                     "session_id": "session-a",
                     "input": "stream",
+                    "agent_definition_id": "assistant",
                 },
                 headers={"X-Request-ID": "req-stream"},
             )
@@ -70,6 +73,7 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
                     "user_id": "user-a",
                     "session_id": "session-a",
                     "input": "hello",
+                    "agent_definition_id": "assistant",
                 },
                 headers={"X-Request-ID": "req-override", "X-Tenant-ID": "tenant-b"},
             )

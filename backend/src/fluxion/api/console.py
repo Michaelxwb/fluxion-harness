@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import FastAPI, Header, Query
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict
 
 from fluxion.api.admin_users import register_admin_user_routes
 from fluxion.api.console_errors import _register_error_handlers
@@ -61,6 +62,7 @@ def create_app(
     register_admin_user_routes(app, service, user_service=user_service)
     register_operations_routes(app, operations_service)
     _register_create_resource_route(app, service)
+    _register_create_credential_route(app, service)
     _register_list_resources_route(app, service)
     _register_resource_schema_route(app, service)
     _register_get_resource_route(app, service)
@@ -77,7 +79,10 @@ def create_app(
     _register_read_side_routes(app, service)
     _register_trace_routes(app, service)
     if projection_service is not None:
-        register_workflow_projection_routes(app, projection_service=projection_service)
+        # TASK-015：注入 console service → V2 schema/validate 端点（Designer 依赖）
+        register_workflow_projection_routes(
+            app, projection_service=projection_service, service=service
+        )
     return app
 
 
@@ -107,6 +112,59 @@ def _register_create_resource_route(app: FastAPI, service: ConsoleApplicationSer
             ),
         )
         return success(resource_payload(created))
+
+
+class CredentialCreatePayload(BaseModel):
+    """golden-path-closure TASK-009：明文只写不回显的凭据创建请求体。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    secret: str
+    purpose: str = ""
+
+
+class CredentialRotatePayload(BaseModel):
+    """TASK-009 轮换请求体：新明文只写不回显。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    secret: str
+
+
+def _register_create_credential_route(app: FastAPI, service: ConsoleApplicationService) -> None:
+    @app.post("/api/v1/credentials")
+    async def create_credential(
+        payload: CredentialCreatePayload,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        actor = _actor(x_actor_id)
+        created = await service.create_credential(
+            actor, name=payload.name, plaintext=payload.secret, purpose=payload.purpose
+        )
+        # 明文不回显：payload 只含 SecretRef 元数据（规则 17）。
+        return success(resource_payload(created))
+
+    @app.post("/api/v1/credentials/{credential_id}:rotate")
+    async def rotate_credential(
+        credential_id: str,
+        payload: CredentialRotatePayload,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        actor = _actor(x_actor_id)
+        updated = await service.rotate_credential(
+            actor, credential_id=credential_id, plaintext=payload.secret
+        )
+        return success(resource_payload(updated))
+
+    @app.post("/api/v1/credentials/{credential_id}:disable")
+    async def disable_credential(
+        credential_id: str,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        actor = _actor(x_actor_id)
+        updated = await service.disable_credential(actor, credential_id=credential_id)
+        return success(resource_payload(updated))
 
 
 def _register_list_resources_route(app: FastAPI, service: ConsoleApplicationService) -> None:
@@ -257,6 +315,24 @@ def _register_test_connection_route(
             {
                 "reachable": result.reachable,
                 "discovered_models": result.discovered_models,
+                "error": result.error,
+            }
+        )
+
+    @app.post("/api/v1/tools/{tool_id}:test-call")
+    async def test_tool_call(
+        tool_id: str,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        # golden-path-closure TASK-017（§8.4）：Tool Editor Test Call——真实出站
+        # （规则 18：timeout 取 spec.timeout_ms；失败返回可操作 error）。
+        actor = _actor(x_actor_id)
+        result = await service.test_tool_call(actor, tool_id)
+        return success(
+            {
+                "reachable": result.reachable,
+                "status_code": result.status_code,
+                "body_excerpt": result.body_excerpt,
                 "error": result.error,
             }
         )

@@ -31,10 +31,10 @@ test("E-P13-03 model dependency failure shows friendly error without stack leak"
   // ADR-A008（TASK-002 返工）：MODEL_PROVIDER kind + ModelDefinition + model_policy
   // 三层链（PLUGIN 退出模型链；legacy model_ref 已删除）。
   await createAndPublishResource(page, "model_provider", "broken-provider", {
-    plugin_type: "model_provider",
-    protocol: "openai_compatible",
+    protocol: "openai-compatible",
     base_url: "http://127.0.0.1:1/v1",
-    model: "broken-model",
+    credential_ref: await seedCredential(page),
+    default_model: "broken-model",
     request_timeout_ms: 1000,
     max_retries: 0
   });
@@ -53,7 +53,9 @@ test("E-P13-03 model dependency failure shows friendly error without stack leak"
     model_policy: {
       primary_model_ref: { id: "broken-model", version: "v1" },
       fallback_model_refs: []
-    }
+    },
+    // ADR-A010：显式引用（多 spec 共享 server 时避免 default 冲突）
+    runtime_profile_ref: { id: "broken-agent", version: "v1" }
   });
 
   const chatLink = await createUserAndChatLink(page, "broken-agent");
@@ -79,11 +81,21 @@ test("E-P13-03 model dependency failure shows friendly error without stack leak"
  * 用户创建 + Chat 链接签发（UsersChannelsPage 新 UI：新增用户弹窗 →
  * agent-select（data-testid）选择 agent_definition → 行内生成对话链接）。
  */
+async function seedCredential(page: Page): Promise<string> {
+  const credential = await page.request.post("/api/v1/credentials", {
+    data: { name: "broken-provider-key", secret: "sk-broken", purpose: "error-path" }
+  });
+  expect(credential.ok(), await credential.text()).toBeTruthy();
+  return ((await credential.json()) as { data: { spec: { secret_ref: string } } }).data.spec
+    .secret_ref;
+}
+
 async function createUserAndChatLink(page: Page, agentId: string): Promise<string> {
   await page.goto("/console/#/users");
-  await expect(page.getByRole("button", { name: "新增" })).toBeVisible();
+  // TASK-019：入口改「新增用户」
+  await expect(page.getByRole("button", { name: "新增用户" })).toBeVisible();
 
-  await page.getByRole("button", { name: "新增" }).click();
+  await page.getByRole("button", { name: "新增用户" }).click();
   const dialog = page.locator(".semi-modal-content").filter({ hasText: "新增用户" });
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("用户 ID").fill("error-user");
@@ -100,12 +112,31 @@ async function createUserAndChatLink(page: Page, agentId: string): Promise<strin
   // 智能体选择（Semi Select：aria-label 不渲染，经 data-testid 定位）。
   // review 修复：验证-重试（与 golden-path 同——整套件下 programmatic option
   // click 偶发因下拉开启动画竞态失焦/错选）。
-  await selectAgentRobust(page, agentId);
-
+  // TASK-019：签发目标选择迁入「生成对话链接」弹窗
   await page
     .getByRole("row", { name: /error-user/ })
     .getByRole("button", { name: "生成对话链接" })
     .click();
+  const issueDialog = page.getByRole("dialog", { name: "生成对话链接" });
+  await expect(issueDialog).toBeVisible();
+  const select = issueDialog.getByTestId("agent-select");
+  const option = (): ReturnType<typeof page.locator> =>
+    page
+      .locator(".semi-select-option")
+      .filter({ hasText: new RegExp(`^${agentId}$`) });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      if (attempt > 0) await page.keyboard.press("Escape").catch(() => undefined);
+      await select.click();
+      await expect(option().first()).toBeVisible();
+      await option().first().evaluate((element) => (element as HTMLElement).click());
+      await expect(select).toContainText(agentId, { timeout: 3000 });
+      break;
+    } catch {
+      if (attempt === 2) throw new Error(`agent-select 3 次尝试后仍未选中 ${agentId}`);
+    }
+  }
+  await issueDialog.getByRole("button", { name: "confirm" }).click();
   const value = await page.getByLabel("专属对话链接").inputValue();
   expect(value).toContain("/chat/#/");
   return value;

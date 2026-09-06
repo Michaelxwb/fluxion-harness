@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import cast
 
+from pydantic import ValidationError
 from sqlalchemy import Select, delete, func, insert, select, update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -24,6 +25,7 @@ from fluxion.resources import (
     ResourceKind,
     ResourceStatus,
     ResourceVisibility,
+    RuntimeProfile,
 )
 
 
@@ -62,6 +64,63 @@ async def get(
     return None if row is None else _definition_from_row(row)
 
 
+async def assert_single_default_profile(
+    connection: AsyncConnection,
+    *,
+    tenant_id: str,
+    resource_id: str,
+    spec_json: dict[str, object] | None,
+) -> None:
+    """ADR-A010（golden-path-closure TASK-002）：同租户 published RUNTIME_PROFILE
+    至多一个 default=true；写入即拒绝并存（跨 resource_id），fail-closed。
+
+    review-fixes S-04：唯一默认检查只看各逻辑 Profile 的最新 published 版本，
+    与 Resolver 选择一致——历史 default=true（已被新版本清除）不阻挡新默认。
+    同 resource_id 的版本更替不受限（新旧版本同属一个逻辑资源）；draft 的
+    default 标记不生效，仅 publish 治理写入时校验。
+    """
+    if spec_json is None or not _profile_spec_default(spec_json):
+        return
+    ranked = (
+        select(
+            resource_definitions.c.resource_id,
+            resource_definitions.c.spec_json,
+            func.row_number()
+            .over(
+                partition_by=[resource_definitions.c.resource_id],
+                order_by=(
+                    resource_definitions.c.published_at.desc(),
+                    resource_definitions.c.version.desc(),
+                ),
+            )
+            .label("version_rank"),
+        )
+        .where(resource_definitions.c.tenant_id == tenant_id)
+        .where(resource_definitions.c.kind == ResourceKind.RUNTIME_PROFILE.value)
+        .where(resource_definitions.c.status == ResourceStatus.PUBLISHED.value)
+        .where(resource_definitions.c.resource_id != resource_id)
+        .subquery()
+    )
+    statement = (
+        select(ranked.c.resource_id, ranked.c.spec_json).where(ranked.c.version_rank == 1)
+    )
+    for row in (await connection.execute(statement)).mappings():
+        other_json = row["spec_json"]
+        if isinstance(other_json, dict) and _profile_spec_default(other_json):
+            raise RegistryStoreError(
+                f"tenant {tenant_id} already has default RuntimeProfile "
+                f"'{row['resource_id']}' (ADR-A010: at most one default=true per tenant)"
+            )
+
+
+def _profile_spec_default(spec_json: dict[str, object]) -> bool:
+    """spec 的 default 标记；spec 非法（缺字段/类型错误）不视为 default。"""
+    try:
+        return RuntimeProfile.model_validate(spec_json).default
+    except ValidationError:
+        return False
+
+
 async def publish(
     engine: AsyncEngine,
     kind: ResourceKind,
@@ -82,6 +141,13 @@ async def publish(
         )
         if current is None:
             raise NotFoundError(f"{tenant_id}/{kind}/{resource_id}@{version} not found")
+        if kind is ResourceKind.RUNTIME_PROFILE:
+            await assert_single_default_profile(
+                connection,
+                tenant_id=tenant_id,
+                resource_id=resource_id,
+                spec_json=current["spec_json"],
+            )
         result = await connection.execute(
             _publish_definition(kind, resource_id, tenant_id, version)
         )

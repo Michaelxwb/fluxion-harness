@@ -44,11 +44,13 @@ class PostgresEvalRunStore:
         self._timeout_seconds = timeout_seconds
 
     async def initialize(self) -> None:
-        """幂等建表（eval_runs）。"""
+        """幂等建表（eval_runs）+ target 列迁移（remediation §4.7 / TASK-006）。"""
         async with self._engine.begin() as conn:
             await conn.run_sync(
                 lambda sync_conn: eval_runs.create(sync_conn, checkfirst=True)
             )
+            # 幂等迁移：已有表（旧 schema）补 target 列（ADD COLUMN IF NOT EXISTS）。
+            await conn.run_sync(_migrate_target_columns)
 
     async def put(self, record: EvalRunRecord) -> None:
         async def _put() -> None:
@@ -112,12 +114,33 @@ class PostgresEvalRunStore:
 #
 
 
+def _migrate_target_columns(sync_conn: Any) -> None:
+    """幂等补齐 target 列（旧 eval_runs 表无 target_kind/id/version）。
+
+    SQLite 不支持 ADD COLUMN IF NOT EXISTS，改用 inspect 检查列存在性后补齐；
+    PG 同样走检查路径（跨方言幂等）。
+    """
+    from sqlalchemy import inspect, text
+
+    existing = {c["name"] for c in inspect(sync_conn).get_columns("eval_runs")}
+    for name, ddl in (
+        ("target_kind", "VARCHAR(64) NOT NULL DEFAULT 'runtime_profile'"),
+        ("target_id", "VARCHAR(255) NOT NULL DEFAULT ''"),
+        ("target_version", "VARCHAR(64) NOT NULL DEFAULT ''"),
+    ):
+        if name not in existing:
+            sync_conn.execute(text(f"ALTER TABLE eval_runs ADD COLUMN {name} {ddl}"))
+
+
 def _to_row(record: EvalRunRecord) -> dict[str, Any]:
     return {
         "tenant_id": record.tenant_id,
         "run_id": record.run_id,
         "eval_set_id": record.eval_set_id,
         "eval_set_version": record.eval_set_version,
+        "target_kind": record.target_kind,
+        "target_id": record.target_id,
+        "target_version": record.target_version,
         "runtime_profile_id": record.runtime_profile_id,
         "runtime_profile_version": record.runtime_profile_version,
         "trace_id": record.trace_id,
@@ -134,6 +157,9 @@ def _from_row(row: Any) -> EvalRunRecord:
         tenant_id=str(row["tenant_id"]),
         eval_set_id=str(row["eval_set_id"]),
         eval_set_version=str(row["eval_set_version"]),
+        target_kind=str(row["target_kind"]),
+        target_id=str(row["target_id"]),
+        target_version=str(row["target_version"]),
         runtime_profile_id=str(row["runtime_profile_id"]),
         runtime_profile_version=str(row["runtime_profile_version"]),
         trace_id=str(row["trace_id"]),

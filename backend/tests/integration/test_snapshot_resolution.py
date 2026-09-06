@@ -44,6 +44,7 @@ async def test_E_R02_missing_dependency_version_is_rejected_without_version_swap
                 tenant_id="tenant-a",
                 user_id="user-a",
                 runtime_profile_id="assistant",
+                agent_definition_id="assistant",
                 session_id="session-a",
             )
         )
@@ -76,13 +77,14 @@ async def test_M3_snapshot_carries_mcp_plugin_and_policy_versions(
             tenant_id="tenant-a",
             user_id="user-a",
             runtime_profile_id="assistant",
+            agent_definition_id="assistant",
             session_id="session-a",
         )
     )
 
     assert snapshot.mcp_versions == {"weather": "1"}
     # 主 provider 版本 pin 现来自 fixture agent 的 model_ref（id=test）。
-    assert snapshot.plugin_versions == {"test": "1"}
+    assert snapshot.provider_versions == {"test": "1"}
     assert snapshot.policy_version is None
 
 
@@ -109,6 +111,7 @@ async def test_S_R18_unbound_agent_skills_survive_and_binding_grants_are_added(
             tenant_id="tenant-a",
             user_id="user-a",
             runtime_profile_id="assistant",
+            agent_definition_id="assistant",
             session_id="session-a",
         )
     )

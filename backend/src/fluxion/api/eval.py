@@ -210,6 +210,10 @@ def _register_admin(app: FastAPI, service: EvaluationApplicationService) -> None
 def _eval_set_payload(resource: object) -> dict[str, object]:
     spec = getattr(resource, "spec_json", None) or {}
     cases = spec.get("cases", []) if isinstance(spec, dict) else []
+    target = spec.get("target") if isinstance(spec, dict) else None
+    if not isinstance(target, dict):
+        target = spec.get("runtime_profile_ref", {}) if isinstance(spec, dict) else {}
+        target = {"kind": "runtime_profile", **target} if isinstance(target, dict) else {}
     return {
         "id": getattr(resource, "id", ""),
         "version": getattr(resource, "version", ""),
@@ -217,6 +221,9 @@ def _eval_set_payload(resource: object) -> dict[str, object]:
         "tenant_id": getattr(resource, "tenant_id", ""),
         "name": spec.get("name", "") if isinstance(spec, dict) else "",
         "case_count": len(cases) if isinstance(cases, list) else 0,
+        "target_kind": target.get("kind", ""),
+        "target_id": target.get("id", ""),
+        "target_version": target.get("version", ""),
     }
 
 

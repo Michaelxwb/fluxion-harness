@@ -12,7 +12,7 @@ describe("TASK-017 / FE-S-09 users list and chat-link bind", () => {
     const user = userEvent.setup();
     renderConsole({ initialView: "users_channels" });
 
-    await user.click(screen.getByRole("button", { name: "新增" }));
+    await user.click(screen.getByRole("button", { name: "新增用户" }));
     await user.type(screen.getByLabelText("用户 ID"), "u-fe-17");
     await user.type(screen.getByLabelText("显示名"), "前端用户");
     await user.click(screen.getByRole("button", { name: "创建用户" }));
@@ -29,7 +29,7 @@ describe("TASK-017 / FE-S-10 user 360 view", () => {
     renderConsole({ initialView: "users_channels" });
 
     // 先建一个用户使行按钮可用。
-    await user.click(screen.getByRole("button", { name: "新增" }));
+    await user.click(screen.getByRole("button", { name: "新增用户" }));
     await user.type(screen.getByLabelText("用户 ID"), "u-360");
     await user.type(screen.getByLabelText("显示名"), "三百六十");
     await user.click(screen.getByRole("button", { name: "创建用户" }));

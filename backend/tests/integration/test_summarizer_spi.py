@@ -95,6 +95,7 @@ async def _make_runtime(
             tenant_id="tenant-a",
             user_id="user-a",
             runtime_profile_id="assistant",
+            agent_definition_id="assistant",
             session_id="session-a",
         )
     )

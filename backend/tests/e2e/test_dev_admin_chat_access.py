@@ -41,8 +41,10 @@ async def test_S_P13_04_fixed_admin_creates_user_and_resolvable_chat_link() -> N
                 headers={"X-Tenant-ID": "tenant-a", "X-Actor-ID": "admin-a"},
             )
             # TASK-A105：chat access 发行前置校验目标 agent 已发布（fixture 补种）。
-            from tests.runtime_helpers import seed_agent_definition
-            await seed_agent_definition(store, tenant_id="dev", provider_id="dev.echo")
+            # ADR-A010：agent 无 runtime_profile_ref 时走租户默认链，
+            # 需同时 seed default=true profile（platform-default 未自举）。
+            from tests.runtime_helpers import seed_runtime_profile
+            await seed_runtime_profile(store, tenant_id="dev")
             issued = await console_client.post(
                 "/api/v1/platform-users/user-a/chat-access",
                 json={"agent_id": "assistant"},

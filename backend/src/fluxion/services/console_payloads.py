@@ -113,7 +113,8 @@ def trace_payload(trace: TraceRecord) -> dict[str, object]:
         ),
         "skills": snapshot.skill_versions,
         "mcps": snapshot.mcp_versions,
-        "plugins": snapshot.plugin_versions,
+        "plugins": snapshot.provider_versions,
+        "models": snapshot.model_versions,
         "policy_version": snapshot.policy_version,
         "tools": list(trace.tools),
         "error": trace.error,
@@ -150,7 +151,8 @@ def run_payload(trace: TraceRecord) -> dict[str, object]:
             },
             "skills": _version_refs(snapshot.skill_versions),
             "mcps": _version_refs(snapshot.mcp_versions),
-            "plugins": _version_refs(snapshot.plugin_versions),
+            "plugins": _version_refs(snapshot.provider_versions),
+            "models": _version_refs(snapshot.model_versions),
             "policies": policies,
         },
         "trace_events": [
@@ -165,6 +167,8 @@ def run_payload(trace: TraceRecord) -> dict[str, object]:
 
 
 def audit_payload(record: AuditRecord) -> dict[str, object]:
+    # TASK-021（§8.10）：详情 SideSheet 需要 request_id/trace_id（规则 23 关联）
+    # 与 before/after 快照 diff；列表列保持原有精简结构不变。
     return {
         "id": record.audit_id,
         "action": record.action,
@@ -172,6 +176,11 @@ def audit_payload(record: AuditRecord) -> dict[str, object]:
         "resource_id": record.target_id,
         "resource_version": _audit_version(record),
         "at": record.created_at.isoformat() if record.created_at is not None else "",
+        "request_id": record.request_id,
+        "trace_id": record.trace_id,
+        "target_type": record.target_type,
+        "before": record.before,
+        "after": record.after,
     }
 
 

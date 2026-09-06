@@ -68,7 +68,7 @@ async def _seed(store: PostgreSQLRegistryStore, tenant_id: str, agent_id: str) -
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id=agent_id,
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
     # ADR-A008：agent.model_policy 指向 ModelDefinition（model.dev.echo）
     await seed_model_definition(store, tenant_id=tenant_id, provider_id="dev.echo")
@@ -167,6 +167,7 @@ class TestDod03Reliability:
                 tenant_id=tenant_id,
                 user_id="user-dod",
                 runtime_profile_id="dod-agent",
+                agent_definition_id="dod-agent",
                 session_id="s-recovery",
                 input_message="dod-ping",
             )

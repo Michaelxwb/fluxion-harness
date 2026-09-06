@@ -99,7 +99,12 @@ class RuntimeProfileService:
             existing = await self.create_runtime_profile(request)
         # TASK-A104：自举路径同步确保同名默认 AgentDefinition（persona/model 的
         # SoT），使 `run --bootstrap` / dev bundle 开箱可跑；已存在则不覆盖。
+        # ADR-A010：agent 不设 runtime_profile_ref，执行经租户默认链解析 profile，
+        # 不再依赖「同名成对」隐式约定（同名仅是 CLI `--agent` 的显式坐标）。
         await _ensure_default_agent(self._store, request)
+        # ADR-A010：自举同步确保系统级 `platform-default` RuntimeProfile（租户
+        # scope 内的固定 ID 内置资源，作为默认链第二级；幂等，已存在不动）。
+        await _ensure_platform_default_profile(self._store, request.tenant_id)
         # RULE-02（TASK-003 返工）：无 tenant policy 时 Tool/MCP fail-closed；
         # 自举播种默认 deny-only 策略（不设 allow-list、不 deny）保住 dev 开箱
         # 可用——生产租户按需显式配置自己的 Policy。
@@ -219,6 +224,46 @@ async def _ensure_default_agent(
 
 
 _DEFAULT_POLICY_ID = "tenant-default"
+
+PLATFORM_DEFAULT_PROFILE_ID = "platform-default"
+
+
+async def _ensure_platform_default_profile(store: RegistryStore, tenant_id: str) -> None:
+    """确保租户存在内置 `platform-default` RuntimeProfile（ADR-A010 默认链第二级）。
+
+    租户 scope 资源（规则 16），每租户一份固定 ID；不标记 default=true（不与
+    租户自建默认并存）。幂等：任意版本存在即不动；缺失时创建并发布。
+    """
+    existing = await store.get(
+        ResourceKind.RUNTIME_PROFILE,
+        PLATFORM_DEFAULT_PROFILE_ID,
+        tenant_id=tenant_id,
+        version="1",
+    )
+    if existing is not None:
+        if existing.status is not ResourceStatus.PUBLISHED:
+            await store.publish(
+                ResourceKind.RUNTIME_PROFILE,
+                PLATFORM_DEFAULT_PROFILE_ID,
+                tenant_id=tenant_id,
+                version="1",
+            )
+        return
+    draft = ResourceDefinition(
+        kind=ResourceKind.RUNTIME_PROFILE,
+        id=PLATFORM_DEFAULT_PROFILE_ID,
+        tenant_id=tenant_id,
+        version="1",
+        status=ResourceStatus.DRAFT,
+        spec_json={"request_timeout_ms": 30_000, "max_retries": 1},
+    )
+    await store.put(draft)
+    await store.publish(
+        ResourceKind.RUNTIME_PROFILE,
+        PLATFORM_DEFAULT_PROFILE_ID,
+        tenant_id=tenant_id,
+        version="1",
+    )
 
 
 async def _ensure_default_tenant_policy(store: RegistryStore, tenant_id: str) -> None:

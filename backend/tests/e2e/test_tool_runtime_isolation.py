@@ -93,6 +93,7 @@ async def test_S_F4_mcp_descriptors_isolated_per_execution_and_not_accumulated(
                 "request_timeout_ms": 2_000,
                 "max_retries": 1,
                 "max_rounds": 1,
+                "default": True,
             },
         )
         # TASK-A104：persona/model 迁至同名 AgentDefinition（两租户各一份）。
@@ -130,6 +131,7 @@ async def test_S_F4_mcp_descriptors_isolated_per_execution_and_not_accumulated(
             RunRuntimeRequest(
                 tenant_id=tenant,
                 user_id=f"{tenant}-user",
+                agent_definition_id="assistant",
                 runtime_profile_id="assistant",
                 session_id=f"{tenant}-session",
                 input_message="hi",

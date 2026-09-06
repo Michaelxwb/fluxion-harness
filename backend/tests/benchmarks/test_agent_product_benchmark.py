@@ -52,6 +52,7 @@ def test_B_P13_01_runtime_framework_p95_p99(
                     runtime_profile_id="assistant",
                     session_id=f"benchmark-{index}",
                     input_message="ping",
+                    agent_definition_id="assistant",
                 )
             )
         )
@@ -76,6 +77,10 @@ def test_B_P13_01_chat_pre_model_p95_under_200ms(
     service = ChannelApplicationService(store, RecordingRuntime())
     token = "benchmark-access-token"
     loop.run_until_complete(store.initialize())
+    # ADR-A010：channel profile 解析走真实路径（agent + default profile 必须存在）
+    from tests.runtime_helpers import seed_runtime_profile
+
+    loop.run_until_complete(seed_runtime_profile(store, runtime_profile_id="assistant"))
     loop.run_until_complete(store.create_chat_access(_chat_access(token)))
     samples: list[float] = []
     index = 0
@@ -143,6 +148,7 @@ async def _runtime_service() -> RuntimeApplicationService:
             runtime_profile_id="assistant",
             version="1",
             request_timeout_ms=1_000,
+            default=True,
         )
     )
     await service.publish_runtime_profile(

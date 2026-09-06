@@ -254,12 +254,14 @@ def test_A008_model_definition_accepts_valid() -> None:
 
 def test_A008_provider_definition_uses_connection_shape() -> None:
     definition = ProviderDefinition(
+        display_name="DeepSeek",
         protocol="openai-compatible",
         base_url="https://api.deepseek.com",
         default_model="deepseek-chat",
         credential_ref="secret://tenant-a/openai",
     )
     assert definition.base_url == "https://api.deepseek.com"
+    assert definition.display_name == "DeepSeek"
     assert definition.default_model == "deepseek-chat"
 
 

@@ -2,7 +2,10 @@ import { isRecord } from "@fluxion/shared";
 
 import type {
   AuditRecord,
+  AgentWebChannel,
+  AuthorizedUserSummary,
   BindingRecord,
+  ChannelVerifyResult,
   ControlPlaneItem,
   CredentialMetadata,
   EvalRunSummary,
@@ -20,7 +23,8 @@ import type {
   ResourceVersion,
   ResourceVisibility,
   RunDetail,
-  ValidationResult
+  ValidationResult,
+  ModelConnectionTestResult
 } from "../types/console";
 
 export function parseResourcePage(value: unknown): PageData<ResourceVersion> {
@@ -36,6 +40,61 @@ export function parseBindingPage(value: unknown): PageData<BindingRecord> {
 export function parsePlatformUserPage(value: unknown): PageData<PlatformUser> {
   const page = parsePage(value);
   return { ...page, items: page.items.map(parsePlatformUser) };
+}
+
+export function parseAgentWebChannel(value: unknown): AgentWebChannel {
+  const record = requiredRecord(value, "agent_channels");
+  const web = requiredRecord(record.web, "agent_channels.web");
+  const entries = web.entries;
+  if (!Array.isArray(entries)) {
+    throw new Error("agent_channels.web.entries 无效");
+  }
+  return {
+    channelType: "web",
+    status: web.status === "active" ? "active" : "inactive",
+    entries: entries.map((item) => {
+      const row = requiredRecord(item, "web.entries[]");
+      return {
+        accessId: requiredString(row.access_id, "access_id"),
+        platformUserId: requiredString(row.platform_user_id, "platform_user_id"),
+        displayName: requiredString(row.display_name, "display_name"),
+        createdAt: requiredString(row.created_at, "created_at")
+      };
+    })
+  };
+}
+
+export function parseChannelVerifyResult(value: unknown): ChannelVerifyResult {
+  const record = requiredRecord(value, "channel_verify");
+  return {
+    channelType: "web",
+    ok: requiredBoolean(record.ok, "ok"),
+    problems: optionalStringArray(record.problems)
+  };
+}
+
+export function parseAuthorizedUserList(value: unknown): readonly AuthorizedUserSummary[] {
+  const record = requiredRecord(value, "authorized_users");
+  const items = record.items;
+  if (!Array.isArray(items)) {
+    throw new Error("authorized_users.items 无效");
+  }
+  return items.map((item) => {
+    const row = requiredRecord(item, "authorized_users[]");
+    return {
+      platformUserId: requiredString(row.platform_user_id, "platform_user_id"),
+      displayName: requiredString(row.display_name, "display_name"),
+      bindingId: requiredString(row.binding_id, "binding_id"),
+      enabled: requiredBoolean(row.enabled, "enabled"),
+      capabilityOverlap: optionalStringArray(row.capability_overlap),
+      capabilityAdditions: optionalStringArray(row.capability_additions)
+    } satisfies AuthorizedUserSummary;
+  });
+}
+
+function optionalStringArray(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
 }
 
 export function parseCredentialPage(value: unknown): PageData<CredentialMetadata> {
@@ -68,8 +127,18 @@ function parseEvalSetItem(value: unknown): EvalSetSummary {
     name: requiredString(record.name, "eval_set.name"),
     version: requiredString(record.version, "eval_set.version"),
     status: requiredString(record.status, "eval_set.status"),
-    caseCount: requiredNumber(record.case_count, "eval_set.case_count")
+    caseCount: requiredNumber(record.case_count, "eval_set.case_count"),
+    targetKind: requiredEvalTargetKind(record.target_kind),
+    targetId: requiredString(record.target_id, "eval_set.target_id"),
+    targetVersion: requiredString(record.target_version, "eval_set.target_version")
   };
+}
+
+function requiredEvalTargetKind(value: unknown): EvalSetSummary["targetKind"] {
+  if (value === "agent_definition" || value === "workflow" || value === "runtime_profile") {
+    return value;
+  }
+  throw new Error("eval_set.target_kind 无效");
 }
 
 export function parseEvalRuns(value: unknown): readonly EvalRunSummary[] {
@@ -267,7 +336,13 @@ function parseAudit(value: unknown): AuditRecord {
     at: requiredString(record.at, "at"),
     id: requiredString(record.id, "id"),
     resourceId: requiredString(record.resource_id, "resource_id"),
-    resourceVersion: requiredString(record.resource_version, "resource_version")
+    resourceVersion: requiredString(record.resource_version, "resource_version"),
+    // TASK-021（§8.10）：SideSheet 关联字段（规则 23）+ before/after 快照
+    requestId: typeof record.request_id === "string" ? record.request_id : undefined,
+    traceId: typeof record.trace_id === "string" ? record.trace_id : null,
+    targetType: typeof record.target_type === "string" ? record.target_type : undefined,
+    before: isRecord(record.before) ? record.before : null,
+    after: isRecord(record.after) ? record.after : null
   };
 }
 
@@ -305,6 +380,20 @@ export function parsePublish(value: unknown): PublishResult {
     resourceId: requiredString(record.resource_id, "resource_id"),
     status: requiredStatus(record.status),
     version: requiredString(record.version, "version")
+  };
+}
+
+/** TASK-010：`:test-connection` 返回 `{ reachable, discovered_models, error }`。 */
+export function parseModelConnectionTest(value: unknown): ModelConnectionTestResult {
+  const record = requiredRecord(value, "test-connection");
+  const discovered = record.discovered_models;
+  if (!Array.isArray(discovered) || !discovered.every((item) => typeof item === "string")) {
+    throw new Error("discovered_models 无效");
+  }
+  return {
+    reachable: requiredBoolean(record.reachable, "reachable"),
+    discoveredModels: discovered,
+    error: optionalString(record.error)
   };
 }
 
@@ -383,4 +472,3 @@ function isJsonValue(value: unknown): value is JsonValue {
   if (Array.isArray(value)) return value.every(isJsonValue);
   return isJsonRecord(value);
 }
-

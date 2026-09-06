@@ -155,6 +155,39 @@ async function createChatLink(page: Page, agentId: string): Promise<string> {
   // in-process dev.echo），agent.model_policy 引用它；legacy model_ref 已删除。
   // ModelDefinition id 随 agentId 唯一（两个 NFR 用例各自独立资源，不冲突）
   const modelId = `model.${agentId}`;
+  // dev.echo 资源幂等预置（in-process DevEchoModelProvider 的资源面；TASK-026：
+  // 单 spec 独立跑时自举不经过 serve --dev，需自行确保三层链第一环存在）
+  const devEcho = await page.request.get("/api/v1/resources/model_provider/dev.echo");
+  if (!devEcho.ok()) {
+    // in-process DevEchoModelProvider 不真正解密凭据，但契约要求 secret:// 引用
+    const credential = await page.request.post("/api/v1/credentials", {
+      data: { name: "dev-echo-key", secret: "sk-dev-echo", purpose: "NFR" }
+    });
+    expect(credential.ok(), await credential.text()).toBeTruthy();
+    const secretRef = ((await credential.json()) as { data: { spec: { secret_ref: string } } })
+      .data.spec.secret_ref;
+    const devEchoCreate = await page.request.post("/api/v1/resources/model_provider", {
+      headers: actor,
+      data: {
+        resource_id: "dev.echo",
+        version: "1",
+        spec: {
+          protocol: "openai-compatible",
+          base_url: "https://dev-echo.invalid/v1",
+          credential_ref: secretRef,
+          default_model: "echo",
+          request_timeout_ms: 3000,
+          max_retries: 0
+        }
+      }
+    });
+    expect(devEchoCreate.ok(), await devEchoCreate.text()).toBeTruthy();
+    const devEchoPublish = await page.request.post(
+      "/api/v1/resources/model_provider/dev.echo/versions/1:publish",
+      { headers: actor, data: {} }
+    );
+    expect(devEchoPublish.ok(), await devEchoPublish.text()).toBeTruthy();
+  }
   const model = await page.request.post("/api/v1/resources/model_definition", {
     headers: actor,
     data: {
@@ -187,6 +220,27 @@ async function createChatLink(page: Page, agentId: string): Promise<string> {
     }
   });
   expect(create.ok()).toBeTruthy();
+  // 租户默认链基础设施（ADR-A010）：agent 无 runtime_profile_ref，发布前需
+  // default RuntimeProfile 存在（幂等——多 spec 共享 server 时跳过）
+  const profileExists = await page.request.get(
+    "/api/v1/resources/runtime_profile/e2e-default-profile"
+  );
+  if (!profileExists.ok()) {
+    const profile = await page.request.post("/api/v1/resources/runtime_profile", {
+      headers: actor,
+      data: {
+        resource_id: "e2e-default-profile",
+        version: "1",
+        spec: { request_timeout_ms: 30_000, max_retries: 1, max_rounds: 4, default: true }
+      }
+    });
+    expect(profile.ok(), await profile.text()).toBeTruthy();
+    const profilePublish = await page.request.post(
+      "/api/v1/resources/runtime_profile/nfr-default-profile/versions/1:publish",
+      { headers: actor, data: {} }
+    );
+    expect(profilePublish.ok(), await profilePublish.text()).toBeTruthy();
+  }
   const publish = await page.request.post(
     `/api/v1/resources/agent_definition/${agentId}/versions/1:publish`,
     { headers: actor, data: {} }

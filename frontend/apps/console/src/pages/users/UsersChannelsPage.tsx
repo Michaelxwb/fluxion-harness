@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { Button, Card, Descriptions, Empty, Input, Modal, Select, SideSheet, Space, Table, Typography } from "@douyinfe/semi-ui";
+import { Button, Descriptions, Empty, Input, Modal, Select, SideSheet, Space, Table, Typography } from "@douyinfe/semi-ui";
 import { useNavigate } from "react-router-dom";
 import { IconCopy, IconDelete, IconLink, IconPlus } from "@douyinfe/semi-icons";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
-import { ListPager } from "../../components/ListPager";
 import { PageHeader } from "../../components/PageHeader";
+import {
+  StandardListCard,
+  StandardListFooter,
+  StandardListSearch,
+  StandardListToolbar
+} from "../../components/StandardListShell";
 import type {
   ConsoleApi,
   IssuedChatAccess,
@@ -20,18 +25,22 @@ interface UsersChannelsPageProps {
 
 const USER_PAGE_SIZE = 20;
 
+/** TASK-019（§8.8）：用户页标准化——搜索 + 右下单套分页（StandardListShell）；
+ * Agent Select 从列表卡片头迁入「生成对话链接」弹窗（消除过滤错觉）；
+ * Agent 授权入口引导至 Agent Editor 用户 tab（TASK-013，授权放 Agent 维度）。 */
 export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
   const navigate = useNavigate();
-  const [users, setUsers] = useState<readonly PlatformUser[]>([]);
-  // closure TASK-010（P1C-06）：选择器数据源切 agent_definition（产品模型），
-  // 消除「RuntimeProfile 资源 ID 被当 agentId 签发」的错配。
+  const [users, setUsers] = useState<readonly PlatformUser[] | null>(null);
+  // closure TASK-010（P1C-06）：签发目标数据源切 agent_definition（产品模型）。
   const [profiles, setProfiles] = useState<readonly ResourceSummary[]>([]);
   const [platformUserId, setPlatformUserId] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [agentId, setAgentId] = useState<string>();
   const [issued, setIssued] = useState<IssuedChatAccess | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
+  const [issueTarget, setIssueTarget] = useState<PlatformUser | null>(null);
+  const [issueAgentId, setIssueAgentId] = useState<string>("");
+  const [search, setSearch] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userPage, setUserPage] = useState(1);
@@ -47,7 +56,6 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
       setUserPage(page);
       setUserTotal(userPageResult.total);
       setProfiles(profileItems);
-      setAgentId((current) => current ?? profileItems[0]?.resourceId);
       setError(null);
     } catch (cause) {
       setError(toErrorMessage(cause));
@@ -70,10 +78,10 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
     });
   }
 
-  async function issue(user: PlatformUser): Promise<void> {
-    if (!agentId) return;
+  async function issue(user: PlatformUser, agentId: string): Promise<void> {
     await runAction(async () => {
       setIssued(await api.issueChatAccess(user.platformUserId, agentId));
+      setIssueTarget(null);
       setNotice("Chat 链接已生成，仅本次显示 token");
     });
   }
@@ -102,46 +110,70 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
     [issued]
   );
 
+  const filtered = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    return (users ?? []).filter(
+      (user) =>
+        !keyword ||
+        user.platformUserId.toLowerCase().includes(keyword) ||
+        user.displayName.toLowerCase().includes(keyword)
+    );
+  }, [search, users]);
+
   return (
     <div className="page-stack">
       <PageHeader description="创建本地用户并签发可撤销的专属对话链接。" title="用户管理" />
       <ErrorBanner message={error} />
       {!issued && notice ? <Typography.Text type="success">{notice}</Typography.Text> : null}
-      <Card
-        aria-label="用户列表"
-        bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }}
-        header={
-          <div className="list-card-header list-card-header--spread">
-            <Space>
-              <Button aria-label="新增" icon={<IconPlus />} onClick={() => setCreateOpen(true)} type="primary">新增</Button>
-            </Space>
-            <Space align="center">
-              <Typography.Text>智能体</Typography.Text>
-              <Select
-                aria-label="智能体"
-                data-testid="agent-select"
-                onChange={(value) => setAgentId(typeof value === "string" ? value : undefined)}
-                optionList={profiles.map((profile) => ({ label: profile.displayName, value: profile.resourceId }))}
-                style={{ width: 160 }}
-                value={agentId}
+      <div aria-label="用户列表">
+        <StandardListCard
+          empty={users !== null && filtered.length === 0}
+          emptyDescription="暂无用户"
+          error={error}
+          footer={
+            users !== null && filtered.length > 0 ? (
+              <StandardListFooter
+                onPageChange={(page) => void load(page)}
+                page={userPage}
+                pageSize={USER_PAGE_SIZE}
+                total={userTotal}
               />
-            </Space>
-          </div>
-        }
-      >
-        <Table
-          columns={userColumns(
-            (user) => void issue(user),
-            Boolean(agentId),
-            (user) => navigate(`/users/${user.platformUserId}`)
-          )}
-          dataSource={[...users]}
-          empty={<Empty description="暂无用户" />}
-          pagination={false}
-          rowKey="platformUserId"
-        />
-        <ListPager onChange={(page) => void load(page)} page={userPage} pageSize={USER_PAGE_SIZE} total={userTotal} />
-      </Card>
+            ) : undefined
+          }
+          loading={users === null && !error}
+          onRetry={() => void load(userPage)}
+          toolbar={
+            <StandardListToolbar
+              primary={
+                <Button aria-label="新增用户" icon={<IconPlus />} onClick={() => setCreateOpen(true)} type="primary">
+                  新增用户
+                </Button>
+              }
+              search={
+                <StandardListSearch
+                  onChange={setSearch}
+                  placeholder="搜索用户"
+                  value={search}
+                />
+              }
+            />
+          }
+        >
+          <Table
+            columns={userColumns(
+              setIssueTarget,
+              (user) => navigate(`/users/${user.platformUserId}`)
+            )}
+            dataSource={[...filtered]}
+            empty={<Empty description="暂无用户" />}
+            pagination={false}
+            rowKey="platformUserId"
+          />
+        </StandardListCard>
+      </div>
+      <Typography.Text type="tertiary">
+        用户级 Agent 授权在智能体编辑器「用户」tab 管理（Agent 维度授权，不塞进用户创建流程）。
+      </Typography.Text>
       {createOpen ? (
         <Modal
           footer={
@@ -166,6 +198,31 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
             <Input aria-label="用户 ID" onChange={setPlatformUserId} placeholder="用户 ID" value={platformUserId} />
             <Input aria-label="显示名" onChange={setDisplayName} placeholder="显示名" value={displayName} />
           </Space>
+        </Modal>
+      ) : null}
+      {issueTarget ? (
+        <Modal
+          cancelText="取 消"
+          okButtonProps={{ disabled: !issueAgentId }}
+          okText="确 定"
+          onOk={() => void issue(issueTarget, issueAgentId)}
+          onCancel={() => setIssueTarget(null)}
+          title="生成对话链接"
+          visible
+        >
+          <div style={{ display: "grid", gap: 12, paddingTop: 8 }}>
+            <Typography.Text>{`为用户「${issueTarget.displayName || issueTarget.platformUserId}」签发对话链接；选择目标智能体：`}</Typography.Text>
+            <Select
+              aria-label="签发目标智能体"
+              data-testid="agent-select"
+              filter
+              onChange={(value) => setIssueAgentId(typeof value === "string" ? value : "")}
+              optionList={profiles.map((profile) => ({ label: profile.displayName, value: profile.resourceId }))}
+              placeholder="选择智能体"
+              style={{ width: "100%" }}
+              value={issueAgentId}
+            />
+          </div>
         </Modal>
       ) : null}
       <SideSheet
@@ -215,7 +272,6 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
 
 function userColumns(
   onIssue: (user: PlatformUser) => void,
-  enabled: boolean,
   onView360: (user: PlatformUser) => void
 ) {
   return [
@@ -227,7 +283,6 @@ function userColumns(
         <Space>
           <Button
             aria-label="生成对话链接"
-            disabled={!enabled}
             icon={<IconLink />}
             onClick={() => onIssue(user)}
             type="primary"

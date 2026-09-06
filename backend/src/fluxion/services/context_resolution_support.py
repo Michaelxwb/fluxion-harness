@@ -146,7 +146,6 @@ class ContextResolutionSupport:
         dict[str, str],
         dict[str, str],
         dict[str, str],
-        dict[str, str],
         list[str],
     ]:
         """解析 Agent baseline 与用户扩展的 Skill/MCP published 版本。"""
@@ -210,7 +209,6 @@ class ContextResolutionSupport:
         return (
             skill_versions,
             mcp_versions,
-            {},
             skill_instructions,
             sorted(required_capabilities),
         )

@@ -67,6 +67,7 @@ async def test_s01_flush_writes_only_l1_not_l2(sqlite_store: RegistryStore) -> N
             tenant_id="tenant-a",
             user_id="user-a",
             runtime_profile_id="assistant",
+            agent_definition_id="assistant",
             session_id="session-a",
         )
     )

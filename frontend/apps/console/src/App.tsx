@@ -26,6 +26,11 @@ import { CredentialsPage } from "./pages/secrets/CredentialsPage";
 import { RunsPage } from "./pages/runs/RunsPage";
 import { User360Page } from "./pages/users/User360Page";
 import { UsersChannelsPage } from "./pages/users/UsersChannelsPage";
+import { WorkflowDesignerPage } from "./pages/workflows/WorkflowDesignerPage";
+import { SkillEditorPage } from "./pages/capabilities/SkillEditorPage";
+import { McpEditorPage } from "./pages/capabilities/McpEditorPage";
+import { PolicyEditorPage } from "./pages/governance/PolicyEditorPage";
+import { ToolEditorPage } from "./pages/capabilities/ToolEditorPage";
 import { WorkflowsPage } from "./pages/workflows/WorkflowsPage";
 import { P1ViewPage } from "./pages/p1/P1ViewPage";
 import { CapabilitiesPage } from "./pages/capabilities/CapabilitiesPage";
@@ -63,8 +68,16 @@ export function ConsoleRoutes({
         <Route path="/build/agents" element={<AgentsPage api={api} />} />
         <Route path="/build/agents/:resourceId/edit" element={<AgentEditorPage api={api} />} />
         <Route path="/build/workflows" element={<WorkflowsPage api={api} />} />
+        <Route
+          path="/build/workflows/:resourceId/edit"
+          element={<WorkflowDesignerPage api={api} />}
+        />
         <Route path="/build/capabilities" element={<Navigate replace to="/build/capabilities/skill" />} />
         <Route path="/build/capabilities/:type" element={<CapabilitiesRoute api={api} />} />
+        <Route path="/build/skills/:resourceId/edit" element={<SkillEditorPage api={api} />} />
+        <Route path="/build/tools/:resourceId/edit" element={<ToolEditorPage api={api} />} />
+        <Route path="/build/mcp/:resourceId/edit" element={<McpEditorPage api={api} />} />
+        <Route path="/build/policies/:resourceId/edit" element={<PolicyEditorPage api={api} />} />
         <Route path="/users" element={<UsersChannelsPage api={api} />} />
         <Route path="/users/:platformUserId" element={<User360Page api={api} />} />
         <Route path="/governance/policies" element={<GovernancePoliciesPage api={api} />} />

@@ -62,3 +62,62 @@ timeout / retry / failover 归属切分（消除 ModelPolicy 与 RuntimeProfile 
 **重新评估条件**：
 
 - 若「同一模型名跨大量 provider」需求密度暴增，可把 `ModelDefinition` 进一步拆为「模型身份」与「provider binding」两层；否则维持本 ADR 的三层定型。
+
+---
+
+## Amend 2026-09-03：Provider Credential 真相源统一与 Binding 逻辑 ID 继承
+
+**引用**：ADR-A003（amend 2026-09-03）、REQ-SEC-002、ARCH-04、ARCH-09、规则 25。
+
+**背景**（2026-09-02 核实）：
+
+- 本 ADR 定型的 `ProviderDefinition.credential_ref`（必填）与 `ResourceBinding.credential_ref`（`kind=model_provider` binding）构成新的双事实源：Console 连接测试/发布校验读 spec（`connection_test.py:73-75`、`console_resource_validation.py:203-238`），Runtime 只读 binding（`runtime/model_providers.py:96-131`，优先级仅 User → Tenant，无 spec 回退）；
+- 无任何 binding 时 Runtime 报 `model provider binding not found`——「Console 配了 credential 却跑不起来」；
+- 更隐蔽：binding 存在但 `credential_ref=None` 时 Runtime 以 `api_key=None` 静默出站裸调（`model_providers.py:122-123`）；
+- `resource_version_selector` 在 MODEL_PROVIDER binding 匹配中被完全忽略（`:109-116` 仅比对 `resource_id`），Console 却允许填精确版本——死配置制造「已绑版本」错觉。
+
+**决策**：
+
+1. **EffectiveCredential 单链**（消灭双源）：
+
+```text
+EffectiveCredential =
+      User Binding Credential Override
+      ?? Tenant Binding Credential Override
+      ?? ProviderDefinition.credential_ref（默认真相源）
+```
+
+   - **Binding 是 Override，不是 Provider 可运行的强制前提**：仅配置 spec `credential_ref`（无任何 binding）即可运行；
+   - 链上无可解析 credential → fail-closed `provider_credential_unresolvable`，禁止 `api_key=None` 出站；
+   - Snapshot 冻结最终选择的 Credential Ref / Version（ADR-A003 amend）。
+
+2. **Binding 逻辑 ID 继承**（方案 B，做干净）：
+
+   - MODEL_PROVIDER Binding 绑定**逻辑 Provider ID**，credential/override 跨 Provider 版本继承（credential 是连接级配置，不随 Provider 版本变化）；
+   - **移除版本 selector 死配置**：Console 建 model-provider binding 不再暴露 `version_selector` 输入；`resource_version_selector` 字段语义仅保留给有版本语义的 binding kind（policy/skill 等），对 MODEL_PROVIDER 无效；
+   - 未来出现版本级敏感参数时引入显式 typed override 字段，不允许隐式混用。
+
+3. **发布校验**：Provider 发布（validate-publish）检查 `spec.credential_ref` 指向的 Secret 存在且可用。
+
+**代价**：
+
+- Console binding 创建表单与 `console_governance` 契约调整（model-provider 类型去掉 version 输入）；
+- Runtime credential 解析链重写（spec 回退 + fail-closed）；
+- 既有「必须建 binding 才能跑」的 fixture/e2e 全部需要重新审视（部分应改为只配 spec）。
+
+**失败模式**：
+
+- User/Tenant binding 存在但其 `credential_ref` 指向的 Secret 已删除 → **跳过该 override 继续回退**还是 **fail-closed**？——fail-closed：显式 override 指向的 Secret 缺失是配置错误，不得静默降级到 spec credential（错误码 `provider_credential_unresolvable`，信息标明是哪级 override 失效）；
+- spec `credential_ref` 为空或指向 Secret 缺失（且无可用 override）→ 发布校验拦截；运行期兜底 fail-closed。
+
+**验收**：
+
+- 仅配置 `ProviderDefinition.credential_ref`（无任何 binding）→ 模型调用成功（B-S-02）；
+- override 优先级 User > Tenant > spec 契约测试（B-S-03）；
+- 链上无可解析 credential → fail-closed，无 `api_key=None` 出站（B-E-02）；
+- MODEL_PROVIDER binding 匹配语义（逻辑 ID、selector 不参与）钉死契约测试（B-E-03）。
+
+**重新评估条件**：
+
+- 若 Provider 出现版本级敏感参数（如某版本起强制 mTLS client cert），引入 typed override；届时再评估 binding 是否需要版本感知。
+

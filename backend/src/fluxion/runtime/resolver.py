@@ -210,11 +210,14 @@ def _capability_selectors(
 class AgentModelResolution:
     """ADR-A008 三层解析结果（build_from_resolved 输入）。
 
-    主模型与 fallback 保留完整 ModelDefinition，防止解析后丢失各自模型名。
+    主模型与 fallback 保留完整 ModelDefinition，防止解析后丢失各自模型名；
+    ADR-A003 amend：同时保留 exact ref（model version pin）。
     """
 
     primary: ModelDefinition
     fallbacks: list[ModelDefinition]
+    primary_ref: ExactResourceVersion
+    fallback_refs: list[ExactResourceVersion]
 
 
 class ExecutionSnapshotBuilder:
@@ -256,24 +259,19 @@ class ExecutionSnapshotBuilder:
     ) -> ResourceDefinition | None:
         """解析本次执行的 AgentDefinition（persona/model/capability 的 SoT）。
 
-        显式 agent_definition_id 必须存在；缺省回退与 runtime_profile_id 同名——
-        一次性迁移产物即同名。回退未命中返回 None（纯 bindings 驱动执行）。
+        仅显式 agent_definition_id 参与解析（ADR-A010：与 runtime_profile_id
+        同名的回退已废弃）；未提供返回 None（纯 bindings 驱动执行）。
         """
-        explicit = request.agent_definition_id or request.runtime_profile_id
+        explicit = request.agent_definition_id
         if explicit is None:
             # 无 agent 坐标：纯 bindings 驱动执行（无 AgentDefinition 快照）
             return None
-        try:
-            return await self._resolver.resolve_resource(
-                request.tenant_id,
-                ResourceKind.AGENT_DEFINITION,
-                explicit,
-                selector=request.agent_definition_version_selector or LATEST_PUBLISHED,
-            )
-        except ResourceVersionNotFoundError:
-            if request.agent_definition_id:
-                raise
-            return None
+        return await self._resolver.resolve_resource(
+            request.tenant_id,
+            ResourceKind.AGENT_DEFINITION,
+            explicit,
+            selector=request.agent_definition_version_selector or LATEST_PUBLISHED,
+        )
 
     async def _resolve_agent_model(
         self, request: RequestContext, agent: ResourceDefinition | None
@@ -283,14 +281,18 @@ class ExecutionSnapshotBuilder:
         if agent is None:
             return None
         spec = AgentDefinition.model_validate(agent.spec_json)
-        primary = await self._resolve_model_definition(
-            request, spec.model_policy.primary_model_ref
-        )
+        primary_ref = spec.model_policy.primary_model_ref
+        fallback_refs = list(spec.model_policy.fallback_model_refs)
+        primary = await self._resolve_model_definition(request, primary_ref)
         fallbacks = [
-            await self._resolve_model_definition(request, ref)
-            for ref in spec.model_policy.fallback_model_refs
+            await self._resolve_model_definition(request, ref) for ref in fallback_refs
         ]
-        return AgentModelResolution(primary=primary, fallbacks=fallbacks)
+        return AgentModelResolution(
+            primary=primary,
+            fallbacks=fallbacks,
+            primary_ref=primary_ref,
+            fallback_refs=fallback_refs,
+        )
 
     async def _resolve_model_definition(
         self, request: RequestContext, model_ref: ExactResourceVersion
@@ -337,8 +339,15 @@ class ExecutionSnapshotBuilder:
         if instructions:
             system_prompt = f"{system_prompt}\n\n{instructions}".strip()
         routes = [] if model_resolution is None else [
-            ResolvedModelRoute(provider_ref=item.provider_ref, model=item.name)
-            for item in [model_resolution.primary, *model_resolution.fallbacks]
+            ResolvedModelRoute(
+                provider_ref=item.provider_ref,
+                model_ref=ref,
+                model=item.name,
+            )
+            for item, ref in zip(
+                [model_resolution.primary, *model_resolution.fallbacks],
+                [model_resolution.primary_ref, *model_resolution.fallback_refs],
+            )
         ]
         model_policy = ModelPolicy(
             routes=routes,
@@ -371,12 +380,11 @@ class ExecutionSnapshotBuilder:
             skill_required_capabilities=_skill_required_capabilities(skills),
             skill_versions={skill.id: skill.version for skill in skills},
             mcp_versions=mcp_versions or {},
-            # 主 + 回退 provider 精确版本 pin（ADR-A008：经 ModelDefinition
-            # provider_ref 解析）：运行期 store-backed 注册门槛；进程内注册实现
-            # 仍优先（kernel 不依赖具体 provider 实现）。
-            plugin_versions={
+            # ADR-A003 amend：typed pins——provider 与 model 分别 exact version pin。
+            provider_versions={
                 route.provider_ref.id: route.provider_ref.version for route in routes
             },
+            model_versions={route.model_ref.id: route.model_ref.version for route in routes},
             binding_versions={
                 binding.binding_id: binding.resource_version_selector for binding in bindings
             },

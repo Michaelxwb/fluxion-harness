@@ -258,7 +258,17 @@ class RegistryStore(RegistryReadStore, Protocol):
     async def append_audit(self, record: AuditRecord) -> None: ...
 
     async def list_audit(
-        self, *, tenant_id: str, offset: int, limit: int
+        self,
+        *,
+        tenant_id: str,
+        offset: int,
+        limit: int,
+        # TASK-021（§8.10）：审计过滤（操作类型/操作者/对象类型/时间范围）
+        action: str | None = None,
+        actor_id: str | None = None,
+        target_type: str | None = None,
+        created_from: str | None = None,
+        created_to: str | None = None,
     ) -> tuple[list[AuditRecord], int]: ...
 
     async def commit_publication(self, command: PublicationCommand) -> PublicationCommit: ...
@@ -296,6 +306,8 @@ class RegistryStore(RegistryReadStore, Protocol):
         offset: int,
         limit: int,
         resource_type: ResourceKind | None = None,
+        resource_id: str | None = None,
+        subject_type: str | None = None,
     ) -> tuple[list[ResourceBinding], int]: ...
 
     async def disable_binding(self, binding_id: str, *, tenant_id: str) -> None: ...

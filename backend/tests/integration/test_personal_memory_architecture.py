@@ -384,6 +384,7 @@ async def test_e03_compaction_does_not_auto_commit_summary_into_personal_memory(
             tenant_id="tenant-a",
             user_id="user-a",
             runtime_profile_id="assistant",
+            agent_definition_id="assistant",
             session_id="session-a",
         )
     )

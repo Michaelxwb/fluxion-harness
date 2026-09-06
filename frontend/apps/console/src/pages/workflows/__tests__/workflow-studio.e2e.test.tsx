@@ -50,14 +50,22 @@ function studioSeed() {
   };
 }
 
+/** TASK-015：Editor 迁独立路由，published 自动 working draft（无「创建草稿」）。 */
 async function openStudioDraft() {
   const view = renderConsole({ initialView: "workflows", seed: studioSeed() });
   await screen.findByRole("heading", { name: "流程编排" });
-  await view.user.click(screen.getByRole("button", { name: "weekly-report" }));
-  await screen.findByLabelText("Workflow Editor");
-  await view.user.click(screen.getByRole("button", { name: "创建草稿" }));
-  await screen.findByText(/草稿 v2 已创建/);
+  await view.user.click(screen.getByRole("button", { name: "Weekly Report" }));
+  await screen.findByLabelText("Workflow Designer");
   return view;
+}
+
+/** 发布 = 校验底层自动：invalid → 诊断呈现、无确认弹窗；valid → 确认后发布。 */
+async function publishViaAutoValidation(
+  user: ReturnType<typeof userEvent.setup>
+): Promise<void> {
+  await user.click(screen.getByRole("button", { name: "发布" }));
+  const dialog = await screen.findByRole("dialog");
+  await user.click(within(dialog).getByRole("button", { name: "确认发布" }));
 }
 
 /** Semi 受控 Select 的 jsdom 规避：点击 option 后补发 animationend（见 SchemaForm.test 注释）。 */
@@ -89,16 +97,9 @@ describe("S-10 Studio 表单建流并发布", () => {
     await user.type(screen.getByLabelText("capability_ref"), "tool:mailer@2");
     await user.type(screen.getByLabelText("depends_on"), "collect");
 
-    // 校验通过（notice 显式告知已保存，可发布）
-    await user.click(screen.getByRole("button", { name: "校验" }));
-    await screen.findByText(/校验通过/);
-
-    // 发布 → 版本列表出现 v2
-    await user.click(screen.getByRole("button", { name: "发布" }));
-    const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "确认发布" }));
-    await screen.findByText("已发布 v2");
-    expect(within(await screen.findByLabelText("Workflow Versions")).getByText("v2")).toBeInTheDocument();
+    // 发布（校验底层自动）→ 确认 → v2 发布成功
+    await publishViaAutoValidation(user);
+    await screen.findByText(/已发布 v2/);
   });
 });
 
@@ -148,7 +149,7 @@ describe("S-11 节点类型切换与插值校验", () => {
     fireEvent.change(screen.getByLabelText("expression"), {
       target: { value: "{{ ghost.output }} > 0" }
     });
-    await user.click(screen.getByRole("button", { name: "校验" }));
+    await user.click(screen.getByRole("button", { name: "发布" }));
 
     const diagnostics = await screen.findByLabelText("校验诊断");
     expect(within(diagnostics).getAllByText(/expression/).length).toBeGreaterThan(0);
@@ -167,12 +168,12 @@ describe("E-02 校验诊断逐字段定位", () => {
     await user.type(screen.getByLabelText("id"), "broken");
     // capability_ref 留空
 
-    await user.click(screen.getByRole("button", { name: "校验" }));
+    await user.click(screen.getByRole("button", { name: "发布" }));
     const diagnostics = await screen.findByLabelText("校验诊断");
+    // 校验未通过：不弹确认框（发布被诊断阻断）
     expect(within(diagnostics).getAllByText(/capability_ref/).length).toBeGreaterThan(0);
     expect(within(diagnostics).getAllByText(/broken/).length).toBeGreaterThan(0);
-    // 校验未通过：发布保持禁用
-    expect(screen.getByRole("button", { name: "发布" })).toBeDisabled();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
 

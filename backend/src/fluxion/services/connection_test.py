@@ -31,6 +31,8 @@ class ConnectionTestResult:
     discovered_models: list[str] = field(default_factory=list)
     discovered_tools: list[str] = field(default_factory=list)
     error: str | None = None
+    status_code: int | None = None
+    body_excerpt: str | None = None
 
 
 ClientFactory = Callable[[], httpx.AsyncClient]
@@ -50,6 +52,66 @@ class ConnectionTestService:
         self._store = store
         self._client_factory = client_factory or (lambda: httpx.AsyncClient(timeout=10.0))
         self._api_key_provider = api_key_provider
+
+    async def test_tool_call(
+        self,
+        *,
+        tenant_id: str,
+        tool_id: str,
+        api_key_provider: ApiKeyProvider | None = None,
+    ) -> ConnectionTestResult:
+        """golden-path-closure TASK-017（§8.4）：Tool Test Call（真实出站）。
+
+        - http_api：按 spec.method/url/headers 真实请求；timeout 取 spec.timeout_ms
+          （规则 18：显式超时，无无限等待）；credential_ref 经 resolver 注入
+          Authorization（规则 17：Secret 不进日志/trace）。
+        - platform_service：本仓无 Platform Service registry，诚实返回不支持
+          （不伪造成功）。
+        """
+        tool = await self._latest_resource(ResourceKind.TOOL, tool_id, tenant_id)
+        if tool is None:
+            return ConnectionTestResult(reachable=False, error=f"tool {tool_id} not found")
+        from fluxion.resources.resource_specs import ToolDefinition
+
+        spec = ToolDefinition.model_validate(tool.spec_json)
+        if spec.tool_kind == "platform_service":
+            return ConnectionTestResult(
+                reachable=False,
+                error="platform_service 类型暂不支持 Test Call（无 Platform Service registry）",
+            )
+        assert spec.url is not None
+        headers = dict(spec.headers)
+        if spec.credential_ref is not None:
+            if api_key_provider is None:
+                return ConnectionTestResult(
+                    reachable=False,
+                    error="credential_resolver_missing: 凭据解析器未配置，无法注入 Authorization",
+                )
+            try:
+                key = await api_key_provider(spec.credential_ref)
+            except SecretProviderError as exc:
+                return ConnectionTestResult(reachable=False, error=f"凭据解析失败: {exc}")
+            if key is not None:
+                headers["Authorization"] = f"Bearer {key}"
+        try:
+            async with self._client_factory() as client:
+                response = await client.request(
+                    spec.method,
+                    spec.url,
+                    headers=headers,
+                    timeout=spec.timeout_ms / 1000,
+                )
+        except httpx.TimeoutException:
+            return ConnectionTestResult(reachable=False, error=f"timeout after {spec.timeout_ms}ms")
+        except httpx.HTTPError as exc:
+            return ConnectionTestResult(reachable=False, error=f"request failed: {exc}")
+        body = response.text[:200]
+        return ConnectionTestResult(
+            reachable=response.is_success,
+            status_code=response.status_code,
+            body_excerpt=body,
+            error=None if response.is_success else f"HTTP {response.status_code}",
+        )
 
     async def _latest_resource(
         self, kind: ResourceKind, resource_id: str, tenant_id: str

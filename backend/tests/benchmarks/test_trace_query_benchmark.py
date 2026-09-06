@@ -68,6 +68,7 @@ async def _seed_traces(store: InMemoryTraceStore, *, count: int) -> None:
                 "routes": [
                     {
                         "provider_ref": {"id": "dev.echo", "version": "1"},
+                        "model_ref": {"id": "model.dev.echo", "version": "1"},
                         "model": "echo",
                     }
                 ]

@@ -63,11 +63,20 @@ async function createProductResources(page: Page): Promise<void> {
   // ADR-A008（TASK-002 返工）：模型供应商经 MODEL_PROVIDER kind 发布——
   // PLUGIN 退出模型链；三层链 = ProviderDefinition → ModelDefinition → model_policy。
   // 注意：Provider spec 不含 name 字段（ProviderDefinition extra=forbid）。
+  // TASK-026 契约对齐：ProviderDefinition 现契约（protocol 连字符；无
+  // plugin_type/model 字段——模型身份由 ModelDefinition 承载，credential_ref
+  // 走 SecretStore 引用）。测试管理员凭据经 /api/v1/credentials 预置。
+  const credential = await page.request.post("/api/v1/credentials", {
+    data: { name: "browser-provider-key", secret: "sk-browser", purpose: "S-P13-06" }
+  });
+  expect(credential.ok(), await credential.text()).toBeTruthy();
+  const secretRef = ((await credential.json()) as { data: { spec: { secret_ref: string } } })
+    .data.spec.secret_ref;
   await createAndPublishResource(page, "model_provider", "browser-provider", {
-    plugin_type: "model_provider",
-    protocol: "openai_compatible",
+    protocol: "openai-compatible",
     base_url: "http://127.0.0.1:9878/v1",
-    model: "browser-model",
+    credential_ref: secretRef,
+    default_model: "browser-model",
     request_timeout_ms: 3000,
     max_retries: 0
   });
@@ -191,12 +200,32 @@ async function createUserAndChatLink(page: Page, agentId: string): Promise<strin
   // review 修复：程序化 option click 在整套件下偶发错选（下拉开启动画未完成
   // 时失焦，回退到上一 agent，golden-path 解析成 broken-agent）——改为
   // 验证-重试循环：点选后校验 select 显示值，未生效则重试。
-  await selectAgent(page, agentId);
-
+  // TASK-019：签发目标 Agent 选择迁入「生成对话链接」弹窗（原列表卡片头
+  // agent-select 已移除，消除过滤错觉）。
   await page
     .getByRole("row", { name: /browser-user/ })
     .getByRole("button", { name: "生成对话链接" })
     .click();
+  const issueDialog = page.getByRole("dialog", { name: "生成对话链接" });
+  await expect(issueDialog).toBeVisible();
+  const select = issueDialog.getByTestId("agent-select");
+  const option = (): ReturnType<typeof page.locator> =>
+    page
+      .locator(".semi-select-option")
+      .filter({ hasText: new RegExp(`^${agentId}$`) });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      if (attempt > 0) await page.keyboard.press("Escape").catch(() => undefined);
+      await select.click();
+      await expect(option().first()).toBeVisible();
+      await option().first().evaluate((element) => (element as HTMLElement).click());
+      await expect(select).toContainText(agentId, { timeout: 3000 });
+      break;
+    } catch {
+      if (attempt === 2) throw new Error(`agent-select 3 次尝试后仍未选中 ${agentId}`);
+    }
+  }
+  await issueDialog.getByRole("button", { name: "confirm" }).click();
   const value = await page.getByLabel("专属对话链接").inputValue();
   expect(value).toContain("/chat/#/");
   return value;

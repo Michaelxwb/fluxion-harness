@@ -38,6 +38,7 @@ async def test_S_C103_runtime_reads_registry_after_console_shutdown(tmp_path: Pa
             RunRuntimeRequest(
                 tenant_id="tenant-a",
                 user_id="user-a",
+                agent_definition_id="assistant",
                 runtime_profile_id="assistant",
                 session_id="session-S-C103",
                 input_message="console is down",

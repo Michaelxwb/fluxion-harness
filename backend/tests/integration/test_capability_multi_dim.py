@@ -103,7 +103,7 @@ async def test_B_S02_real_chain_grant_store_to_runtime(
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="assistant",
             version="1",
-            spec={"request_timeout_ms": 30_000, "max_retries": 1},
+            spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
         )
         await seed_model_definition(sqlite_store, tenant_id=tenant_id, provider_id="dev.echo")
         await publish_resource(
@@ -190,7 +190,7 @@ async def test_B_S02_deny_only_policy_allows_unless_denied(
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
     await seed_model_definition(sqlite_store, tenant_id="tenant-a", provider_id="dev.echo")
     await publish_resource(

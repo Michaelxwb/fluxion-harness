@@ -34,6 +34,8 @@ class CreateRuntimeProfileRequest:
     concurrency: int = 1
     memory_budget_mb: int | None = None
     bootstrapped_from: str | None = None
+    # ADR-A010：租户默认标记（同租户至多一个 default=true 的 published 版本）。
+    default: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,7 +60,8 @@ class RunRuntimeRequest:
     session_id: str
     input_message: str
     runtime_profile_version_selector: str = LATEST_PUBLISHED
-    # TASK-A104：显式指定执行的 AgentDefinition；缺省回退同名（迁移产物）。
+    # TASK-A104/ADR-A010：显式指定执行的 AgentDefinition（主坐标）；
+    # 同名回退已废弃，ContextResolver 链缺省 fail-closed。
     agent_definition_id: str | None = None
     request_id: str = field(default_factory=_new_id)
     trace_id: str = field(default_factory=_new_id)
@@ -133,9 +136,12 @@ def default_runtime_profile_request(
     tenant_id: str,
     runtime_profile_id: str,
 ) -> CreateRuntimeProfileRequest:
+    # ADR-A010：CLI `--bootstrap` 自举的 profile 标记为租户默认（无 ref 的
+    # agent 经默认链解析）；同名成对隐式约定已废弃。
     return CreateRuntimeProfileRequest(
         tenant_id=tenant_id,
         runtime_profile_id=runtime_profile_id,
         version="1",
         request_timeout_ms=1_000,
+        default=True,
     )

@@ -1,39 +1,52 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { Button, Card, Descriptions, Empty, Skeleton, Space, Table, Timeline, Typography } from "@douyinfe/semi-ui";
+import { Button, Card, Descriptions, Select, SideSheet, Space, Table, Timeline, Typography } from "@douyinfe/semi-ui";
 import { IconRefresh } from "@douyinfe/semi-icons";
-
+import { useSearchParams } from "react-router-dom";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { RunsTable } from "../../components/operations/RunsTable";
 import { PageHeader } from "../../components/PageHeader";
+import {
+  StandardListCard,
+  StandardListFooter,
+  StandardListSearch,
+  StandardListToolbar
+} from "../../components/StandardListShell";
 import { StatusTag } from "../../components/StatusTag";
 import type {
   ConsoleApi,
   RunDetail,
   VersionRef,
-  WorkflowQueueSummary,
-  WorkflowRunProjection,
-  WorkflowWorkerSummary
+  WorkflowRunProjection
 } from "../../types/console";
 
 interface RunsPageProps {
   readonly api: ConsoleApi;
 }
 
+const PAGE_SIZE = 10;
+
+/** TASK-020（§8.9）：执行记录页标准化——Run Detail 迁入只读 SideSheet（默认
+ * 不选中）；移除 Queue/Worker Summary 区块（§8.9 明确删除，运维信息不进产品页）；
+ * Agent Run / Workflow Run 类型过滤统一呈现（不拆两页）。 */
 export function RunsPage({ api }: RunsPageProps) {
-  const [runs, setRuns] = useState<readonly RunDetail[]>([]);
+  const [runs, setRuns] = useState<readonly RunDetail[] | null>(null);
   const [selected, setSelected] = useState<RunDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  // TASK-023：异常工作台跳转带过滤参数（?statusFilter=failed → 过滤态直达）
+  const [searchParams] = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("statusFilter") ?? "");
+  const [kindFilter, setKindFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [reloadKey, setReloadKey] = useState(0);
   // C407（TASK-014）：Phase 3 workflow_run 投影（trace 关联）
   const [workflowRuns, setWorkflowRuns] = useState<readonly WorkflowRunProjection[] | null>(null);
-  const [workflowRunsError, setWorkflowRunsError] = useState<string | null>(null);
-  const [workflowRunsReloadKey, setWorkflowRunsReloadKey] = useState(0);
 
   async function loadRuns(): Promise<void> {
     try {
       const loaded = await api.listRuns();
       setRuns(loaded);
-      setSelected(loaded[0] ?? null);
       setError(null);
     } catch (cause) {
       setError(toErrorMessage(cause));
@@ -42,116 +55,131 @@ export function RunsPage({ api }: RunsPageProps) {
 
   useEffect(() => {
     let active = true;
-    setWorkflowRunsError(null);
     void api
       .listWorkflowRuns()
       .then((items) => {
         if (active) setWorkflowRuns(items);
       })
-      .catch((cause: unknown) => {
-        if (active) {
-          setWorkflowRunsError(cause instanceof Error ? cause.message : "未知错误");
-        }
+      .catch(() => {
+        // workflow 投影加载失败不阻断主列表（追踪查询失败只影响本页区块）
       });
     return () => {
       active = false;
     };
-  }, [api, workflowRunsReloadKey]);
+  }, [api, reloadKey]);
 
   useEffect(() => {
     void loadRuns();
-  }, []);
+  }, [reloadKey]);
+
+  const filtered = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    return (runs ?? []).filter((run) => {
+      if (statusFilter && run.status !== statusFilter) return false;
+      if (kindFilter) {
+        const isWorkflowRun = workflowRuns?.some(
+          (workflowRun) => workflowRun.workflowId === run.snapshot.runtimeProfile.id
+        );
+        if (kindFilter === "workflow" && !isWorkflowRun) return false;
+        if (kindFilter === "agent" && isWorkflowRun) return false;
+      }
+      return !keyword || run.executionId.toLowerCase().includes(keyword);
+    });
+  }, [kindFilter, runs, search, statusFilter, workflowRuns]);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="page-stack">
       <PageHeader
         description="追踪查询失败只影响本页，不阻断资源发布。"
         extra={
-          <Button icon={<IconRefresh />} onClick={() => void loadRuns()}>
+          <Button icon={<IconRefresh />} onClick={() => setReloadKey((key) => key + 1)}>
             刷新
           </Button>
         }
         title="执行记录"
       />
       <ErrorBanner message={error} />
-      <RunTable onSelect={setSelected} runs={runs} />
-      <OperationsHealth api={api} />
-      {selected ? <RunSnapshot run={selected} /> : null}
-      <Card title="工作流运行（trace 关联）">
-        {workflowRunsError !== null ? (
-          <ErrorBanner
-            message={`加载失败：${workflowRunsError}`}
-            onRetry={() => setWorkflowRunsReloadKey((key) => key + 1)}
-          />
-        ) : workflowRuns === null ? (
-          <div aria-label="工作流运行加载中">
-            <Skeleton.Title />
-          </div>
-        ) : (
-          <RunsTable runs={workflowRuns} />
-        )}
-      </Card>
+      <div aria-label="执行记录列表">
+        <StandardListCard
+          empty={runs !== null && filtered.length === 0}
+          emptyDescription="暂无运行记录"
+          error={error}
+          footer={
+            runs !== null && filtered.length > 0 ? (
+              <StandardListFooter
+                onPageChange={setPage}
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={filtered.length}
+              />
+            ) : undefined
+          }
+          loading={runs === null && !error}
+          onRetry={() => setReloadKey((key) => key + 1)}
+          toolbar={
+            <StandardListToolbar
+              primary={<span aria-hidden />}
+              filters={
+                <>
+                  <span className="sr-only" id="run-kind-filter-label">
+                    类型过滤
+                  </span>
+                  <Select
+                    aria-labelledby="run-kind-filter-label"
+                    onChange={(value) => {
+                      setKindFilter(String(value ?? ""));
+                      setPage(1);
+                    }}
+                    optionList={[
+                      { label: "全部类型", value: "" },
+                      { label: "Agent Run", value: "agent" },
+                      { label: "Workflow Run", value: "workflow" }
+                    ]}
+                    placeholder="全部类型"
+                    style={{ width: 150 }}
+                    value={kindFilter}
+                  />
+                  <span className="sr-only" id="run-status-filter-label">
+                    状态过滤
+                  </span>
+                  <Select
+                    aria-labelledby="run-status-filter-label"
+                    onChange={(value) => {
+                      setStatusFilter(String(value ?? ""));
+                      setPage(1);
+                    }}
+                    optionList={[
+                      { label: "全部状态", value: "" },
+                      { label: "成功", value: "succeeded" },
+                      { label: "失败", value: "failed" },
+                      { label: "运行中", value: "running" }
+                    ]}
+                    placeholder="状态"
+                    style={{ width: 120 }}
+                    value={statusFilter}
+                  />
+                </>
+              }
+              search={
+                <StandardListSearch
+                  onChange={(value) => {
+                    setSearch(value);
+                    setPage(1);
+                  }}
+                  placeholder="搜索执行 ID / Trace"
+                  value={search}
+                />
+              }
+            />
+          }
+        >
+          <RunTable onSelect={setSelected} runs={paged} />
+        </StandardListCard>
+      </div>
+      {workflowRuns !== null ? <RunsTable runs={workflowRuns} /> : null}
+      <RunDetailSideSheet onClose={() => setSelected(null)} run={selected} />
     </div>
-  );
-}
-
-function OperationsHealth({ api }: { readonly api: ConsoleApi }) {
-  const [queues, setQueues] = useState<readonly WorkflowQueueSummary[] | null>(null);
-  const [workers, setWorkers] = useState<readonly WorkflowWorkerSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void Promise.all([api.listQueues(), api.listWorkers()]).then(
-      ([nextQueues, nextWorkers]) => {
-        if (!active) return;
-        setQueues(nextQueues);
-        setWorkers(nextWorkers);
-      },
-      (cause: unknown) => {
-        if (active) setError(toErrorMessage(cause));
-      }
-    );
-    return () => {
-      active = false;
-    };
-  }, [api]);
-
-  return (
-    <section aria-label="运行基础设施" className="operations-health">
-      <Typography.Title heading={5}>运行基础设施</Typography.Title>
-      <ErrorBanner message={error} />
-      {queues === null || workers === null ? (
-        <Skeleton.Title />
-      ) : (
-        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr" }}>
-          <Table
-            aria-label="队列摘要"
-            columns={[
-              { title: "队列", dataIndex: "name" },
-              { title: "积压", dataIndex: "depth" },
-              { title: "Worker", dataIndex: "workers" }
-            ]}
-            dataSource={queues.map((queue) => ({ ...queue }))}
-            pagination={false}
-            rowKey="queueId"
-            size="small"
-          />
-          <Table
-            aria-label="Worker 摘要"
-            columns={[
-              { title: "Worker", dataIndex: "workerId" },
-              { title: "状态", dataIndex: "status" },
-              { title: "执行中", dataIndex: "runningWorkflows" }
-            ]}
-            dataSource={workers.map((worker) => ({ ...worker }))}
-            pagination={false}
-            rowKey="workerId"
-            size="small"
-          />
-        </div>
-      )}
-    </section>
   );
 }
 
@@ -180,75 +208,93 @@ function RunTable({ onSelect, runs }: RunTableProps) {
   ];
   return (
     <Table
+      aria-label="运行记录表格"
       columns={columns}
       dataSource={[...runs]}
-      empty={<Empty description="暂无运行记录" />}
       pagination={false}
       rowKey="executionId"
     />
   );
 }
 
-function RunSnapshot({ run }: { readonly run: RunDetail }) {
-  // FEAT-F11：Tool · Model Calls 从 trace 事件派生（runtime 侧发出
-  // mcp.tool_called / model.completed 等），只读呈现，不重复建模。
-  const toolModelCalls = run.traceEvents.filter((event) => /tool|model/i.test(event.event));
+/** 只读 Run Detail SideSheet（§8.9）：Summary/Timeline/Tool·Model Calls/Trace/
+ * ExecutionSnapshot 分区；无任何可写控件（Edit 与 Detail 分离，§7.3）。 */
+function RunDetailSideSheet({
+  onClose,
+  run
+}: {
+  readonly onClose: () => void;
+  readonly run: RunDetail | null;
+}) {
+  const toolModelCalls = (run?.traceEvents ?? []).filter((event) => /tool|model/i.test(event.event));
   return (
-    <div className="run-detail" aria-label="Run Detail">
-      <Card title="Timeline">
-        <Timeline>
-          {run.traceEvents.map((event) => (
-            <Timeline.Item key={event.id} time={event.at}>
-              {event.event}
-            </Timeline.Item>
-          ))}
-        </Timeline>
-      </Card>
-      <Card title="Trace">
-        <Table
-          aria-label="Trace 事件"
-          columns={[
-            { title: "事件", dataIndex: "event" },
-            { title: "时间", dataIndex: "at" }
-          ]}
-          dataSource={run.traceEvents.map((event) => ({ key: event.id, ...event }))}
-          pagination={false}
-          size="small"
-        />
-      </Card>
-      <Card title="Tool · Model Calls">
-        {toolModelCalls.length === 0 ? (
-          <Typography.Text type="tertiary">本次执行无 Tool/Model 调用</Typography.Text>
-        ) : (
-          <div aria-label="Tool/Model 调用">
+    <SideSheet
+      onCancel={onClose}
+      title="Run Detail"
+      visible={run !== null}
+      width={860}
+    >
+      {run ? (
+        <div className="run-detail" aria-label="Run Detail" style={{ display: "grid", gap: 16 }}>
+          <Card title="Summary">
+            <Descriptions row>
+              <Descriptions.Item itemKey="执行 ID">{run.executionId}</Descriptions.Item>
+              <Descriptions.Item itemKey="状态"><StatusTag status={run.status} /></Descriptions.Item>
+              <Descriptions.Item itemKey="开始时间">{run.startedAt}</Descriptions.Item>
+            </Descriptions>
+          </Card>
+          <Card title="Timeline">
+            <Timeline aria-label="执行 Timeline">
+              {run.traceEvents.map((event) => (
+                <Timeline.Item key={event.id} time={event.at}>
+                  {event.event}
+                </Timeline.Item>
+              ))}
+            </Timeline>
+          </Card>
+          <Card title="Tool · Model Calls">
+            {toolModelCalls.length === 0 ? (
+              <Typography.Text type="tertiary">本次执行无 Tool/Model 调用</Typography.Text>
+            ) : (
+              <div aria-label="Tool/Model 调用">
+              <Table
+                columns={[
+                  { title: "调用", dataIndex: "event" },
+                  { title: "时间", dataIndex: "at" }
+                ]}
+                dataSource={toolModelCalls.map((event) => ({ key: event.id, ...event }))}
+                pagination={false}
+                size="small"
+              />
+            </div>
+            )}
+          </Card>
+          <Card title="Trace">
             <Table
+              aria-label="Trace 事件"
               columns={[
-                { title: "调用", dataIndex: "event" },
+                { title: "事件", dataIndex: "event" },
                 { title: "时间", dataIndex: "at" }
               ]}
-              dataSource={toolModelCalls.map((event) => ({ key: event.id, ...event }))}
+              dataSource={run.traceEvents.map((event) => ({ key: event.id, ...event }))}
               pagination={false}
               size="small"
             />
-          </div>
-        )}
-      </Card>
-      <Card
-        aria-label="执行快照"
-        bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }}
-        title="Execution Snapshot"
-      >
-        <Descriptions row>
-          <Descriptions.Item itemKey="运行态">
-            {versionLabel(run.snapshot.runtimeProfile)}
-          </Descriptions.Item>
-        </Descriptions>
-        <VersionGroup refs={run.snapshot.skills} title="技能" />
-        <VersionGroup refs={run.snapshot.mcps} title="MCP 工具" />
-        <VersionGroup refs={run.snapshot.plugins} title="插件" />
-        <VersionGroup refs={run.snapshot.policies} title="策略" />
-      </Card>
-    </div>
+          </Card>
+          <Card aria-label="Execution Snapshot" title="Execution Snapshot">
+            <Descriptions row>
+              <Descriptions.Item itemKey="运行态">
+                {versionLabel(run.snapshot.runtimeProfile)}
+              </Descriptions.Item>
+            </Descriptions>
+            <VersionGroup refs={run.snapshot.skills} title="技能" />
+            <VersionGroup refs={run.snapshot.mcps} title="MCP 工具" />
+            <VersionGroup refs={run.snapshot.plugins} title="插件" />
+            <VersionGroup refs={run.snapshot.policies} title="策略" />
+          </Card>
+        </div>
+      ) : null}
+    </SideSheet>
   );
 }
 

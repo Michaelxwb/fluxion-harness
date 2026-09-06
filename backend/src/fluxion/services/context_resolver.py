@@ -24,6 +24,7 @@ from fluxion.resources import (
     ModelDefinition,
     ResolvedModelRoute,
     ResourceKind,
+    ResourceStatus,
     RuntimeProfile,
 )
 from fluxion.resources.contracts import (
@@ -34,10 +35,12 @@ from fluxion.resources.contracts import (
 )
 from fluxion.resources.snapshot_digest import canonical_digest
 from fluxion.runtime.capabilities import EffectiveCapabilityResolver
+from fluxion.runtime.model_providers import resolve_effective_credential_ref
 from fluxion.services.context_resolution_support import (
     ContextResolutionError,
     ContextResolutionSupport,
 )
+from fluxion.services.runtime_profile_resolution import resolve_default_runtime_profile
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,23 +175,42 @@ class ContextResolver(ContextResolutionSupport):
             raise ContextResolutionError(code="agent_not_found", message=f"agent_not_found: {selector.agent_id}", status_code=404)
         _stage("agent", agent.version, started)
 
-        # 4. runtime：Agent.runtime_profile_ref → RuntimeProfile；缺省同名回退
+        # 4. runtime：Agent.runtime_profile_ref → RuntimeProfile；未配置时走
+        # ADR-A010 默认链（Tenant Default → platform-default），同名回退已废弃。
         started = time.perf_counter()
         agent_spec = AgentDefinition.model_validate(agent.spec_json)
-        profile_id = (
-            agent_spec.runtime_profile_ref.id if agent_spec.runtime_profile_ref else selector.agent_id
-        )
-        profile_version = selector.runtime_profile_version or (
-            agent_spec.runtime_profile_ref.version
-            if agent_spec.runtime_profile_ref
-            else "latest-published"
-        )
-        profile_row = await self._store.get(
-            ResourceKind.RUNTIME_PROFILE, profile_id, tenant_id=selector.tenant_id,
-            version=None if profile_version == "latest-published" else profile_version,
-        )
-        if profile_row is None:
-            raise ContextResolutionError(code="runtime_profile_not_found", message=f"{profile_id}@{profile_version} not found", status_code=404)
+        if agent_spec.runtime_profile_ref is not None:
+            profile_id = agent_spec.runtime_profile_ref.id
+            profile_version = selector.runtime_profile_version or agent_spec.runtime_profile_ref.version
+            profile_row = await self._store.get(
+                ResourceKind.RUNTIME_PROFILE, profile_id, tenant_id=selector.tenant_id,
+                version=None if profile_version == "latest-published" else profile_version,
+            )
+            if profile_row is None:
+                raise ContextResolutionError(code="runtime_profile_not_found", message=f"{profile_id}@{profile_version} not found", status_code=404)
+        elif selector.runtime_profile_version is not None:
+            # 版本 pin 依赖 ref 提供目标坐标；无 ref 的 pin 是矛盾输入，fail-closed。
+            raise ContextResolutionError(
+                code="runtime_profile_ref_required",
+                message=(
+                    "runtime_profile_version pin requires Agent.runtime_profile_ref "
+                    "(same-name fallback removed per ADR-A010)"
+                ),
+                status_code=409,
+            )
+        else:
+            profile_row = await resolve_default_runtime_profile(
+                self._store, selector.tenant_id
+            )
+            if profile_row is None:
+                raise ContextResolutionError(
+                    code="runtime_profile_default_missing",
+                    message=(
+                        "no default RuntimeProfile: tenant default (default=true, published) "
+                        "and platform-default both missing (ADR-A010)"
+                    ),
+                    status_code=409,
+                )
         _stage("runtime", profile_row.version, started)
 
         # 5. model：ADR-A008 三层解析——AgentDefinition.model_policy →
@@ -196,26 +218,27 @@ class ContextResolver(ContextResolutionSupport):
         # 不回退 legacy 直引（双事实源消灭）；回退链归 ModelPolicy（归属切分），
         # 不再消费 RuntimeProfile.model_failover。
         profile_spec = RuntimeProfile.model_validate(profile_row.spec_json)
-        primary_model = await self._resolve_model_definition(
-            selector.tenant_id, agent_spec.model_policy.primary_model_ref
-        )
-        fallback_models: list[ModelDefinition] = []
-        for ref in agent_spec.model_policy.fallback_model_refs:
-            fallback_models.append(await self._resolve_model_definition(selector.tenant_id, ref))
-        models = [primary_model, *fallback_models]
+        model_refs = [
+            agent_spec.model_policy.primary_model_ref,
+            *agent_spec.model_policy.fallback_model_refs,
+        ]
+        models = [
+            await self._resolve_model_definition(selector.tenant_id, ref) for ref in model_refs
+        ]
         model_resolution = ModelPolicy(
             routes=[
-                ResolvedModelRoute(provider_ref=item.provider_ref, model=item.name)
-                for item in models
+                ResolvedModelRoute(provider_ref=item.provider_ref, model_ref=ref, model=item.name)
+                for ref, item in zip(model_refs, models)
             ],
             model_timeout_ms=agent_spec.model_policy.model_timeout_ms,
             max_rounds=profile_spec.max_rounds,
             model_deadline_ms=agent_spec.model_policy.model_deadline_ms,
         )
-        # provider exact version pin（主 + 回退链）：运行期 store-backed 注册门槛
-        model_provider_pins = {
+        # ADR-A003 amend：typed pins——provider 与 model 分别 exact version pin。
+        provider_versions = {
             item.provider_ref.id: item.provider_ref.version for item in models
         }
+        model_versions = {ref.id: ref.version for ref in model_refs}
 
         # 6. profile：User Profile 版本已解析（stage 2）
 
@@ -235,7 +258,6 @@ class ContextResolver(ContextResolutionSupport):
         (
             skill_versions,
             mcp_versions,
-            _plugin_versions,
             skill_instructions,
             skill_required_capabilities,
         ) = await self._resolve_capability_versions(
@@ -246,6 +268,29 @@ class ContextResolver(ContextResolutionSupport):
         # 8. credential：bindings credential_ref → versions（只存 ref→version）
         started = time.perf_counter()
         credential_versions = await self._credential_versions(selector.tenant_id, platform_user_id or selector.user_id)
+        # ADR-A003 amend（TASK-005）：provider credential 选择在构建期收口——
+        # 对每个 provider 冻结最终 credential_ref（运行期按此 ref 解密，不重选）。
+        provider_credentials: dict[str, str] = {}
+        for route in model_resolution.routes:
+            provider_spec = await self._store.get(
+                ResourceKind.MODEL_PROVIDER,
+                route.provider_ref.id,
+                tenant_id=selector.tenant_id,
+                version=route.provider_ref.version,
+            )
+            if provider_spec is None or provider_spec.status is not ResourceStatus.PUBLISHED:
+                raise ContextResolutionError(
+                    code="model_provider_not_found",
+                    message=f"model_provider {route.provider_ref.id}@{route.provider_ref.version} not found",
+                    status_code=422,
+                )
+            provider_credentials[route.provider_ref.id] = await resolve_effective_credential_ref(
+                self._store,
+                provider_id=route.provider_ref.id,
+                tenant_id=selector.tenant_id,
+                user_id=selector.user_id,
+                spec=provider_spec.spec_json,
+            )
         _stage("credential", None, started)
 
         # 9. policy：tenant policy version（经 tenant POLICY binding 解析；无则 latest-published）
@@ -332,7 +377,8 @@ class ContextResolver(ContextResolutionSupport):
             skill_required_capabilities=skill_required_capabilities,
             skill_versions=skill_versions,
             mcp_versions=mcp_versions,
-            plugin_versions=model_provider_pins,
+            provider_versions=provider_versions,
+            model_versions=model_versions,
             policy_version=policy_versions.get("tenant"),
             binding_versions={
                 b.binding_id: b.resource_version_selector
@@ -345,6 +391,7 @@ class ContextResolver(ContextResolutionSupport):
             user_profile_version=user_profile_version,
             policy_versions=policy_versions,
             credential_versions=credential_versions,
+            provider_credentials=provider_credentials,
             memory_manifest=manifest,
         )
         snapshot = snapshot.model_copy(update={"snapshot_digest": canonical_digest(snapshot)})
@@ -378,7 +425,18 @@ class ContextResolverSnapshotBuilder:
         self._resolver = resolver
 
     async def build(self, request: Any) -> ExecutionSnapshot:
-        agent_id = request.agent_definition_id or request.runtime_profile_id
+        # ADR-A010：Agent 是执行主坐标（persona/model/capability SoT）；
+        # 与 runtime_profile_id 同名的回退已废弃，缺省 fail-closed。
+        agent_id = request.agent_definition_id
+        if agent_id is None:
+            raise ContextResolutionError(
+                code="agent_coordinate_required",
+                message=(
+                    "execution requires agent_definition_id "
+                    "(same-name profile fallback removed per ADR-A010)"
+                ),
+                status_code=409,
+            )
         selector = ResolverSelector(
             tenant_id=request.tenant_id,
             agent_id=agent_id,

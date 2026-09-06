@@ -150,10 +150,16 @@ async def _seed_mcp_product(
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 3_000, "max_retries": 1, "max_rounds": max_rounds},
+        spec={
+            "request_timeout_ms": 3_000,
+            "max_retries": 1,
+            "max_rounds": max_rounds,
+            "default": True,
+        },
     )
-    # TASK-A104：persona/model/能力白名单迁至同名 AgentDefinition（resolver 同名
-    # 回退解析）。TOOL capability 只承载 ref 准入，不做版本解析。ADR-A008 三层链：
+    # TASK-A104：persona/model/能力白名单迁至同名 AgentDefinition。ADR-A010：
+    # agent 无 runtime_profile_ref，经租户默认链（profile default=true）解析。
+    # TOOL capability 只承载 ref 准入，不做版本解析。ADR-A008 三层链：
     # agent.model_policy → ModelDefinition（model.wire）→ in-process provider wire。
     await seed_model_definition(store, tenant_id="tenant-a", provider_id="wire")
     # RULE-02（TASK-003 返工）：三维齐备——无 tenant policy 时 Tool/MCP fail-closed，
@@ -235,6 +241,7 @@ async def test_S_P13_03_official_mcp_transports_complete_agent_loop(
             RunRuntimeRequest(
                 tenant_id="tenant-a",
                 user_id="user-a",
+                agent_definition_id="assistant",
                 runtime_profile_id="assistant",
                 session_id=f"session-{transport}",
                 input_message="查询 fluxion",
@@ -286,6 +293,7 @@ async def test_S_P13_03_streamable_http_reuses_tenant_scoped_transport_pool(
             RunRuntimeRequest(
                 tenant_id="tenant-a",
                 user_id="user-a",
+                agent_definition_id="assistant",
                 runtime_profile_id="assistant",
                 session_id="session-pool",
                 input_message="验证连接复用",
@@ -349,6 +357,7 @@ async def test_E_P13_01_unbound_mcp_tool_call_fails_closed_before_server(
         request = RunRuntimeRequest(
             tenant_id="tenant-a",
             user_id="user-a",
+            agent_definition_id="assistant",
             runtime_profile_id="assistant",
             session_id="session-unbound",
             input_message="尝试越权查询",
@@ -384,6 +393,7 @@ async def test_E_P13_01_agent_loop_budget_stops_after_real_mcp_call(
         request = RunRuntimeRequest(
             tenant_id="tenant-a",
             user_id="user-a",
+            agent_definition_id="assistant",
             runtime_profile_id="assistant",
             session_id="session-loop-budget",
             input_message="只允许一轮",
@@ -440,6 +450,7 @@ async def test_E_P13_01_revoked_credential_is_not_reused_by_mcp_transport(
             RunRuntimeRequest(
                 tenant_id="tenant-a",
                 user_id="user-a",
+                agent_definition_id="assistant",
                 runtime_profile_id="assistant",
                 session_id="session-credential-first",
                 input_message="首次调用",
@@ -452,6 +463,7 @@ async def test_E_P13_01_revoked_credential_is_not_reused_by_mcp_transport(
                 RunRuntimeRequest(
                     tenant_id="tenant-a",
                     user_id="user-a",
+                    agent_definition_id="assistant",
                     runtime_profile_id="assistant",
                     session_id="session-credential-revoked",
                     input_message="撤销后调用",
@@ -486,6 +498,7 @@ async def test_E_P13_01_mcp_timeout_closes_real_streamable_http_client(
         request = RunRuntimeRequest(
             tenant_id="tenant-a",
             user_id="user-a",
+            agent_definition_id="assistant",
             runtime_profile_id="assistant",
             session_id="session-timeout",
             input_message="触发 MCP timeout",

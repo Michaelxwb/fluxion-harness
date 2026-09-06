@@ -54,14 +54,3 @@ test("S-P13-05 Console JSON API uses unified envelope with request_id", async ({
     expect(typeof body.request_id).toBe("string");
   }
 });
-
-
-test("PROBE error-path style", async ({ browser, page }) => {
-  await page.goto("/console/#/build/agents");
-  await expect(page.getByRole("button", { name: "新建智能体" })).toBeVisible();
-  await page.screenshot({ path: "/tmp/probe-before-click.png", fullPage: true });
-  await page.getByRole("button", { name: "新建智能体" }).click({ timeout: 15000 });
-  await page.waitForTimeout(1000);
-  await page.screenshot({ path: "/tmp/probe-after-click.png" });
-  console.log("PROBE_OK");
-});

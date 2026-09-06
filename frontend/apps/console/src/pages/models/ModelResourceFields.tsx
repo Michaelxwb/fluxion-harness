@@ -9,9 +9,23 @@ interface EditorFieldsProps {
   readonly onChange: (spec: JsonRecord) => void;
 }
 
-export function ProviderFields({ spec, onChange }: EditorFieldsProps) {
+export function ProviderFields({
+  spec,
+  onChange,
+  credentialOptions = []
+}: EditorFieldsProps & {
+  /** TASK-010：凭据选择器替换自由文本（§10 禁止 raw credential_ref 输入）。 */
+  readonly credentialOptions?: readonly { readonly label: string; readonly value: string }[];
+}) {
   return (
     <>
+      <Field label="名称">
+        <Input
+          aria-label="模型服务名称"
+          onChange={(value) => onChange({ ...spec, display_name: value })}
+          value={String(spec.display_name ?? "")}
+        />
+      </Field>
       <Field label="协议">
         <Select
           aria-label="协议"
@@ -28,10 +42,17 @@ export function ProviderFields({ spec, onChange }: EditorFieldsProps) {
           value={String(spec.base_url ?? "")}
         />
       </Field>
-      <Field label="凭据引用">
-        <Input
-          aria-label="凭据引用"
-          onChange={(value) => onChange({ ...spec, credential_ref: value })}
+      <Field label="凭据" labelId="provider-credential-label">
+        <Select
+          aria-labelledby="provider-credential-label"
+          filter
+          onChange={(value) => onChange({ ...spec, credential_ref: String(value ?? "") })}
+          optionList={credentialOptions.map((option) => ({
+            label: option.label,
+            value: option.value
+          }))}
+          placeholder="选择凭据（不可手填 raw ref）"
+          style={{ width: "100%" }}
           value={String(spec.credential_ref ?? "")}
         />
       </Field>

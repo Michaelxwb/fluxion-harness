@@ -23,8 +23,7 @@ class RequestContext:
     runtime_profile_id: str | None = None
     runtime_profile_version_selector: str = "latest-published"
     # TASK-A104 后 persona/model/capability 产品语义在 AgentDefinition 上；
-    # 显式指定优先，缺省回退与 runtime_profile_id 同名的 AGENT_DEFINITION
-    # （迁移产物即为同名——TASK-008 的 agent_id 路由会取代该回退）。
+    # ADR-A010：仅显式 agent_definition_id 参与解析，同名回退已废弃。
     agent_definition_id: str | None = None
     agent_definition_version_selector: str = "latest-published"
     request_id: str = field(default_factory=_new_id)

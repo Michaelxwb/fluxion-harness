@@ -34,7 +34,8 @@ describe("TASK-016 / FE-S-07 platform secrets", () => {
   it("lists secret resources exposing only refs", async () => {
     renderConsole({ initialView: "platform_secrets", seed: baseSeed() as unknown as ConsoleSeed });
 
-    expect((await screen.findAllByText("secret-db")).length).toBeGreaterThanOrEqual(1);
+    // TASK-009 标准列契约：名称列取 spec.name（不再以资源 ID 兜底展示）
+    expect((await screen.findAllByText("db 凭据")).length).toBeGreaterThanOrEqual(1);
     // SecretRef 引用形态可见（SecretRef 不暴露明文——规则 17）
     expect((await screen.findAllByText("secret://tenant-a/db-pass")).length).toBeGreaterThanOrEqual(1);
     const html = document.body.innerHTML;

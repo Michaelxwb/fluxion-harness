@@ -1,12 +1,17 @@
 import { createHttpClient, type HttpClient } from "@fluxion/shared";
 
 import type {
+  AgentWebChannel,
+  AuditFilters,
   AuditRecord,
+  AuthorizedUserSummary,
+  ChannelVerifyResult,
   BindingInput,
   BindingRecord,
   ConsoleApi,
   ConsoleDataSource,
   ControlPlaneItem,
+  CredentialCreateInput,
   CredentialMetadata,
   EvalRunSummary,
   EvalSetSummary,
@@ -14,12 +19,17 @@ import type {
   IssuedChatAccess,
   JsonRecord,
   JsonSchemaNode,
+  ModelConnectionTestResult,
   PageData,
   PageRequest,
   PlatformUser,
+  PublishOptions,
   PublishResult,
   ResourceCreateInput,
   ResourceSummary,
+  McpConnectionTestResult,
+  ModelLabProjection,
+  ToolCallTestResult,
   ResourceType,
   ResourceVersion,
   RollbackResult,
@@ -35,7 +45,10 @@ import type {
 } from "../types/console";
 import type { P1View } from "../types/navigation";
 import {
+  parseAgentWebChannel,
   parseAuditPage,
+  parseAuthorizedUserList,
+  parseChannelVerifyResult,
   parseBinding,
   parseBindingPage,
   parseCapabilityList,
@@ -47,6 +60,7 @@ import {
   parsePlatformUser,
   parsePlatformUserPage,
   parsePolicyList,
+  parseModelConnectionTest,
   parsePublish,
   parsePublishValidation,
   parseResource,
@@ -157,10 +171,24 @@ class HttpConsoleApi implements ConsoleApi {
     );
   }
 
-  async publishVersion(resource: ResourceVersion): Promise<PublishResult> {
+  async publishVersion(resource: ResourceVersion, options: PublishOptions = {}): Promise<PublishResult> {
+    // ADR-A011：前后端发布契约统一——三字段可选传递（publish_note /
+    // expected_base_version / gate）；乐观并发检查不再被空 body 静默跳过。
+    const body: Record<string, unknown> = {};
+    if (options.publishNote) body.publish_note = options.publishNote;
+    if (options.expectedBaseVersion) body.expected_base_version = options.expectedBaseVersion;
+    if (options.gate) body.gate = options.gate;
     return this.client.request(
       `/api/v1/resources/${resource.resourceType}/${encodeURIComponent(resource.resourceId)}/versions/${encodeURIComponent(resource.version)}:publish`,
-      jsonRequest("POST", {}),
+      jsonRequest("POST", body),
+      parsePublish
+    );
+  }
+
+  async deprecateVersion(resource: ResourceVersion, reason?: string): Promise<PublishResult> {
+    return this.client.request(
+      `/api/v1/resources/${resource.resourceType}/${encodeURIComponent(resource.resourceId)}/versions/${encodeURIComponent(resource.version)}:deprecate`,
+      jsonRequest("POST", { reason: reason ?? null }),
       parsePublish
     );
   }
@@ -233,6 +261,172 @@ class HttpConsoleApi implements ConsoleApi {
     ).then((page) => page.items);
   }
 
+  async createCredential(input: CredentialCreateInput): Promise<ResourceVersion> {
+    // TASK-009：明文只写——POST /api/v1/credentials，服务端生成 id，响应不回显明文。
+    return this.client.request(
+      "/api/v1/credentials",
+      jsonRequest("POST", {
+        name: input.name,
+        secret: input.secret,
+        purpose: input.purpose ?? ""
+      }),
+      parseResource
+    );
+  }
+
+  async rotateCredential(resourceId: string, secret: string): Promise<ResourceVersion> {
+    // TASK-009 行操作·轮换：新明文只写；旧引用版本化保留，消费者按需重新 pin。
+    return this.client.request(
+      `/api/v1/credentials/${encodeURIComponent(resourceId)}:rotate`,
+      jsonRequest("POST", { secret }),
+      parseResource
+    );
+  }
+
+  async disableCredential(resourceId: string): Promise<ResourceVersion> {
+    // TASK-009 行操作·禁用：store revoke 后 resolve fail-closed。
+    return this.client.request(
+      `/api/v1/credentials/${encodeURIComponent(resourceId)}:disable`,
+      jsonRequest("POST", {}),
+      parseResource
+    );
+  }
+
+  async createModelProvider(spec: JsonRecord): Promise<ResourceVersion> {
+    // TASK-010：连接模型服务——studio 产品端点（服务端生成 id/version；
+    // 注意 studio 路由无 /api/v1 前缀）。
+    return this.client.request(
+      "/studio/model-providers",
+      jsonRequest("POST", { spec }),
+      parseResource
+    );
+  }
+
+  async createModelDefinition(spec: JsonRecord): Promise<ResourceVersion> {
+    // TASK-010：Discover/手工添加模型——studio 产品端点。
+    return this.client.request(
+      "/studio/model-definitions",
+      jsonRequest("POST", { spec }),
+      parseResource
+    );
+  }
+
+  async testModelProviderConnection(providerId: string): Promise<ModelConnectionTestResult> {
+    // TASK-010：Test Connection 接线既有端点（可达性 + discovered_models）。
+    return this.client.request(
+      `/api/v1/model-providers/${encodeURIComponent(providerId)}:test-connection`,
+      jsonRequest("POST", {}),
+      parseModelConnectionTest
+    );
+  }
+
+  async createAgent(spec: JsonRecord): Promise<ResourceVersion> {
+    return this.client.request(
+      "/studio/agents",
+      jsonRequest("POST", { spec }),
+      parseResource
+    );
+  }
+
+  async createWorkflow(spec: JsonRecord): Promise<ResourceVersion> {
+    return this.client.request(
+      "/studio/workflows",
+      jsonRequest("POST", { spec }),
+      parseResource
+    );
+  }
+
+  async createSkill(spec: JsonRecord): Promise<ResourceVersion> {
+    return this.client.request(
+      "/studio/skills",
+      jsonRequest("POST", { spec }),
+      parseResource
+    );
+  }
+
+  async createTool(spec: JsonRecord): Promise<ResourceVersion> {
+    return this.client.request(
+      "/studio/tools",
+      jsonRequest("POST", { spec }),
+      parseResource
+    );
+  }
+
+  async createMcpServer(spec: JsonRecord): Promise<ResourceVersion> {
+    return this.client.request(
+      "/studio/mcp",
+      jsonRequest("POST", { spec }),
+      parseResource
+    );
+  }
+
+  async createPolicy(spec: JsonRecord): Promise<ResourceVersion> {
+    return this.client.request(
+      "/studio/policies",
+      jsonRequest("POST", { spec }),
+      parseResource
+    );
+  }
+
+  async getModelLabProjection(): Promise<ModelLabProjection> {
+    return this.client.request("/studio/model-lab/projection", undefined, (value) => {
+      const record = value as Record<string, unknown>;
+      return {
+        providers: ((record.providers as readonly Record<string, unknown>[]) ?? []).map((item) => ({
+          resourceId: String(item.resource_id),
+          displayName: String(item.display_name),
+          version: String(item.version),
+          status: String(item.status),
+          baseUrl: String(item.base_url),
+          credentialRef: String(item.credential_ref)
+        })),
+        models: ((record.models as readonly Record<string, unknown>[]) ?? []).map((item) => ({
+          resourceId: String(item.resource_id),
+          name: String(item.name),
+          version: String(item.version),
+          providerId: String(item.provider_id)
+        })),
+        credentials: ((record.credentials as readonly Record<string, unknown>[]) ?? []).map((item) => ({
+          label: String(item.label),
+          value: String(item.value)
+        }))
+      };
+    });
+  }
+
+  async testMcpConnection(mcpId: string): Promise<McpConnectionTestResult> {
+    return this.client.request(
+      `/api/v1/mcp-servers/${encodeURIComponent(mcpId)}:test-connection`,
+      jsonRequest("POST", {}),
+      (value) => {
+        const record = value as Record<string, unknown>;
+        return {
+          reachable: record.reachable === true,
+          discoveredTools: Array.isArray(record.discovered_tools)
+            ? record.discovered_tools.filter((item): item is string => typeof item === "string")
+            : [],
+          error: typeof record.error === "string" ? record.error : null
+        };
+      }
+    );
+  }
+
+  async testToolCall(toolId: string): Promise<ToolCallTestResult> {
+    return this.client.request(
+      `/api/v1/tools/${encodeURIComponent(toolId)}:test-call`,
+      jsonRequest("POST", {}),
+      (value) => {
+        const record = value as Record<string, unknown>;
+        return {
+          reachable: record.reachable === true,
+          statusCode: typeof record.status_code === "number" ? record.status_code : null,
+          bodyExcerpt: typeof record.body_excerpt === "string" ? record.body_excerpt : null,
+          error: typeof record.error === "string" ? record.error : null
+        };
+      }
+    );
+  }
+
   async listRuns(): Promise<readonly RunDetail[]> {
     return this.client.request(
       "/api/v1/runs?page=1&page_size=100",
@@ -241,12 +435,17 @@ class HttpConsoleApi implements ConsoleApi {
     ).then((page) => page.items);
   }
 
-  async listAudit(request: PageRequest): Promise<PageData<AuditRecord>> {
-    return this.client.request(
-      `/api/v1/audit?page=${request.page}&page_size=${request.pageSize}`,
-      undefined,
-      parseAuditPage
-    );
+  async listAudit(request: PageRequest, filters?: AuditFilters): Promise<PageData<AuditRecord>> {
+    const params = new URLSearchParams({
+      page: String(request.page),
+      page_size: String(request.pageSize)
+    });
+    if (filters?.action) params.set("action", filters.action);
+    if (filters?.actorId) params.set("actor_id", filters.actorId);
+    if (filters?.targetType) params.set("target_type", filters.targetType);
+    if (filters?.createdFrom) params.set("created_from", filters.createdFrom);
+    if (filters?.createdTo) params.set("created_to", filters.createdTo);
+    return this.client.request(`/api/v1/audit?${params.toString()}`, undefined, parseAuditPage);
   }
 
   async listP1View(view: P1View): Promise<readonly ControlPlaneItem[]> {
@@ -273,6 +472,33 @@ class HttpConsoleApi implements ConsoleApi {
     return this.client.request("/api/v1/capabilities", undefined, parseCapabilityList);
   }
 
+  async listAuthorizedUsers(agentId: string): Promise<readonly AuthorizedUserSummary[]> {
+    return this.client.request(
+      `/studio/agents/${encodeURIComponent(agentId)}/authorized-users`,
+      undefined,
+      parseAuthorizedUserList
+    );
+  }
+
+  async authorizeAgentUser(agentId: string, platformUserId: string): Promise<void> {
+    await this.client.request(
+      `/studio/agents/${encodeURIComponent(agentId)}/authorized-users`,
+      jsonRequest("POST", { platform_user_id: platformUserId }),
+      () => undefined
+    );
+  }
+
+  async revokeAgentUserAuthorization(
+    agentId: string,
+    platformUserId: string
+  ): Promise<void> {
+    await this.client.request(
+      `/studio/agents/${encodeURIComponent(agentId)}/authorized-users/${encodeURIComponent(platformUserId)}:revoke`,
+      jsonRequest("POST", {}),
+      () => undefined
+    );
+  }
+
   async listPlatformUsers(request: PageRequest): Promise<PageData<PlatformUser>> {
     return this.client.request(
       `/api/v1/platform-users?page=${request.page}&page_size=${request.pageSize}`,
@@ -286,6 +512,22 @@ class HttpConsoleApi implements ConsoleApi {
       "/api/v1/platform-users",
       jsonRequest("POST", { display_name: displayName, platform_user_id: platformUserId }),
       parsePlatformUser
+    );
+  }
+
+  async listAgentChannels(agentId: string): Promise<AgentWebChannel> {
+    return this.client.request(
+      `/studio/agents/${encodeURIComponent(agentId)}/channels`,
+      undefined,
+      parseAgentWebChannel
+    );
+  }
+
+  async verifyAgentWebChannel(agentId: string): Promise<ChannelVerifyResult> {
+    return this.client.request(
+      `/studio/agents/${encodeURIComponent(agentId)}/channels/web:verify`,
+      jsonRequest("POST", {}),
+      parseChannelVerifyResult
     );
   }
 

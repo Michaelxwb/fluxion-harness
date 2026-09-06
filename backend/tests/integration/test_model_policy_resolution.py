@@ -112,7 +112,7 @@ async def test_B_S01_model_policy_resolves_model_definition_to_provider(
     assert snapshot.model_resolution.model_timeout_ms == 60_000
     assert snapshot.model_resolution.model_deadline_ms == 120_000
     # 运行期 provider pin 来自解析结果（而非 legacy model_ref）
-    assert snapshot.plugin_versions == {"prov-deepseek": "1"}
+    assert snapshot.provider_versions == {"prov-deepseek": "1"}
 
 
 @pytest.mark.asyncio
@@ -120,7 +120,7 @@ async def test_B_S01_fallback_chain_freezes_exact_provider_versions(
     sqlite_store: RegistryStore,
 ) -> None:
     """fallback_model_refs 经 ModelDefinition 解析为 provider exact version
-    （不降级 latest-published）；主 + 回退 provider 全部进 plugin_versions。"""
+    （不降级 latest-published）；主 + 回退 provider 全部进 provider_versions。"""
     await seed_runtime_profile(sqlite_store)
     for provider_id, version in (("prov-a", "1"), ("prov-b", "2")):
         await publish_resource(
@@ -164,14 +164,17 @@ async def test_B_S01_fallback_chain_freezes_exact_provider_versions(
     assert [route.model_dump(mode="python") for route in snapshot.model_resolution.routes] == [
         {
             "provider_ref": {"id": "prov-a", "version": "1"},
+            "model_ref": {"id": "model-a", "version": "1"},
             "model": "deepseek-chat",
         },
         {
             "provider_ref": {"id": "prov-b", "version": "2"},
+            "model_ref": {"id": "model-b", "version": "1"},
             "model": "backup-chat",
         },
     ]
-    assert snapshot.plugin_versions == {"prov-a": "1", "prov-b": "2"}
+    assert snapshot.provider_versions == {"prov-a": "1", "prov-b": "2"}
+    assert snapshot.model_versions == {"model-a": "1", "model-b": "1"}
 
 
 @pytest.mark.asyncio

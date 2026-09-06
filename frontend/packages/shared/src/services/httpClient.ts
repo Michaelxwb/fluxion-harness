@@ -27,7 +27,7 @@ export function createHttpClient(baseUrl = "", fetcher: typeof fetch = fetch): H
   return {
     async request(path, init, parse) {
       const response = await fetcher(`${baseUrl}${path}`, withJsonHeaders(init));
-      const envelope = parseEnvelope(await response.json());
+      const envelope = parseEnvelope(await readEnvelope(response));
       if (!response.ok || envelope.code !== 0) {
         throw new ApiError(envelope.message, envelope.code, envelope.requestId, response.status);
       }
@@ -36,13 +36,15 @@ export function createHttpClient(baseUrl = "", fetcher: typeof fetch = fetch): H
     async readEventStream(path, init) {
       const response = await fetcher(`${baseUrl}${path}`, init);
       if (!response.ok) {
-        const envelope = parseEnvelope(await response.json());
+        const envelope = parseEnvelope(await readEnvelope(response));
         throw new ApiError(envelope.message, envelope.code, envelope.requestId, response.status);
       }
       return response.text();
     },
     async streamEvents(path, init, onEvent) {
-      const response = await fetcher(`${baseUrl}${path}`, init);
+      // 与 request 同默认：POST JSON 体必须带 Content-Type，否则 FastAPI 请求体
+      // 校验 400（F-S-05 抓到的真实缺陷——此前仅 chat 侧手动带 header）。
+      const response = await fetcher(`${baseUrl}${path}`, withJsonHeaders(init));
       if (!response.ok) {
         const envelope = parseEnvelope(await response.json());
         throw new ApiError(envelope.message, envelope.code, envelope.requestId, response.status);
@@ -126,4 +128,21 @@ function parseEnvelope(value: unknown): {
     message: value.message,
     requestId: value.request_id
   };
+}
+
+/** 非 JSON 响应（网关 502/503 纯文本、错误页等）→ 可读 ApiError，
+ * 不让 JSON 解析 SyntaxError 裸露到 UI。 */
+async function readEnvelope(response: Response): Promise<unknown> {
+  const raw = await response.text();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const excerpt = raw.trim().slice(0, 120) || "(空响应)";
+    throw new ApiError(
+      `服务响应异常（HTTP ${response.status}）：${excerpt}`,
+      -1,
+      "",
+      response.status
+    );
+  }
 }

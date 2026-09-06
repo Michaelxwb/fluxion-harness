@@ -12,6 +12,8 @@ interface ModelResourceEditorProps {
   readonly api: ConsoleApi;
   readonly kind: EditableModelKind;
   readonly providerOptions: readonly { readonly label: string; readonly value: string }[];
+  /** TASK-010：Provider 凭据选择器选项（凭据列表投影，禁止 raw ref 输入）。 */
+  readonly credentialOptions?: readonly { readonly label: string; readonly value: string }[];
   readonly resourceId: string;
   readonly onClose: () => void;
   readonly onSaved: () => void;
@@ -22,6 +24,7 @@ export function ModelResourceEditor({
   api,
   kind,
   providerOptions,
+  credentialOptions = [],
   resourceId,
   onClose,
   onSaved
@@ -31,6 +34,8 @@ export function ModelResourceEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [issues, setIssues] = useState<readonly string[]>([]);
+  // ADR-A011：乐观并发检查 base（published 资源 fork 前的版本）。
+  const [publishedBaseVersion, setPublishedBaseVersion] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
@@ -43,6 +48,7 @@ export function ModelResourceEditor({
         if (active) {
           setResource(draft);
           setSpec({ ...draft.spec });
+          setPublishedBaseVersion(loaded.status === "published" ? loaded.version : undefined);
         }
       } catch (cause) {
         if (active) setError(messageFrom(cause, "加载失败"));
@@ -84,7 +90,7 @@ export function ModelResourceEditor({
         setIssues(validation.diagnostics);
         return;
       }
-      await api.publishVersion(saved);
+      await api.publishVersion(saved, { expectedBaseVersion: publishedBaseVersion });
       onSaved();
       onClose();
     } catch (cause) {
@@ -109,7 +115,11 @@ export function ModelResourceEditor({
       ) : (
         <div aria-label="模型资源编辑器" style={{ display: "grid", gap: 14 }}>
           {kind === "model_provider" ? (
-            <ProviderFields onChange={setSpec} spec={spec} />
+            <ProviderFields
+              credentialOptions={credentialOptions}
+              onChange={setSpec}
+              spec={spec}
+            />
           ) : (
             <ModelFields onChange={setSpec} providerOptions={providerOptions} spec={spec} />
           )}

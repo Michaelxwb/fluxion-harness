@@ -10,6 +10,7 @@ from httpx import ASGITransport, AsyncClient, Response
 from fluxion.api.console import create_app
 from fluxion.registry import RegistryStore, SQLiteRegistryStore
 from fluxion.resources import ResourceKind
+from fluxion.runtime.secrets import LocalEncryptedSecretStore
 from fluxion.services.console_app import ConsoleApplicationService
 
 
@@ -32,7 +33,10 @@ async def console_stack(
         else f"sqlite+aiosqlite:///{db_path}"
     )
     store = SQLiteRegistryStore(database_dsn)
-    service = ConsoleApplicationService(store)
+    # TASK-009：注入可写 SecretStore（dev LocalEncryptedSecretStore），使
+    # Credential 创建 Journey（明文只写）可测。
+    secret_store = LocalEncryptedSecretStore(master_key=b"c" * 32)
+    service = ConsoleApplicationService(store, secret_store=secret_store)
     await service.initialize()
     client = AsyncClient(
         transport=ASGITransport(app=create_app(service)),
@@ -149,7 +153,8 @@ def runtime_profile_spec() -> dict[str, object]:
     # ADR-012 / TASK-A104：与收缩后的 RuntimeProfile 字段集一致（纯 mechanics；
     # persona/model/capability 在 AgentDefinition）。id/version/status 由资源外层
     # ResourceDefinition 承载，不进 spec。
-    return {"request_timeout_ms": 30_000, "max_retries": 1}
+    # ADR-A010（TASK-002）：fixture profile 作为租户默认（同名回退已废弃）。
+    return {"request_timeout_ms": 30_000, "max_retries": 1, "default": True}
 
 
 def mcp_spec(display_name: str = "github") -> dict[str, object]:

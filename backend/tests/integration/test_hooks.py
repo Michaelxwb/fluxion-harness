@@ -33,7 +33,11 @@ def _runtime_context() -> RuntimeContext:
         runtime_profile_version="1",
         model_resolution={
             "routes": [
-                {"provider_ref": {"id": "stub", "version": "1"}, "model": "stub"}
+                {
+                    "provider_ref": {"id": "stub", "version": "1"},
+                    "model_ref": {"id": "model-stub", "version": "1"},
+                    "model": "stub",
+                }
             ]
         },
         trace_id=request.trace_id,

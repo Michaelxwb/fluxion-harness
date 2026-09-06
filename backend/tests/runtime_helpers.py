@@ -132,8 +132,9 @@ async def seed_runtime_profile(
     agent_version: str | None = None,
     capabilities: list[dict[str, object]] | None = None,
 ) -> ResourceDefinition:
-    """TASK-A104 后的 seeding：profile 只含 mechanics；产品语义落在同名
-    AgentDefinition（resolver 缺省回退按同名解析）。旧签名的 allowed_skills/
+    """TASK-A104 后的 seeding：profile 只含 mechanics；产品语义落在
+    AgentDefinition。ADR-A010 后同名回退废弃——profile 标记为租户默认
+    （default=true），无 ref 的 agent 经默认链解析。旧签名的 allowed_skills/
     allowed_mcps 已由 capabilities（AgentCapabilityReference dump 列表）取代。"""
     from fluxion.agents.definitions import AgentDefinition, AgentModelPolicy
 
@@ -143,7 +144,7 @@ async def seed_runtime_profile(
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id=runtime_profile_id,
         version=version,
-        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
     model = await seed_model_definition(store, tenant_id=tenant_id, provider_id="test")
     return await publish_resource(
@@ -178,7 +179,8 @@ async def seed_agent_definition(
     instructions: str = "",
     capabilities: list[dict[str, object]] | None = None,
 ) -> ResourceDefinition:
-    """独立发布一个 AgentDefinition（默认与 fixture profile 同名以便回退解析）。
+    """独立发布一个 AgentDefinition（ADR-A010 后不再依赖同名 profile 回退；
+    调用方需确保租户存在 default=true 的 RuntimeProfile 或 platform-default）。
 
     ADR-A008：同时确保 provider 对应的 fixture ModelDefinition 存在，
     agent.model_policy 指向它。"""
@@ -344,6 +346,7 @@ async def runtime_context() -> tuple[RuntimeContext, AgentRuntime]:
             tenant_id="tenant-a",
             user_id="user-a",
             runtime_profile_id="assistant",
+            agent_definition_id="assistant",
             session_id="session-a",
         )
     )

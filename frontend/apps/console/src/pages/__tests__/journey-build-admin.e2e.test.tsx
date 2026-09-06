@@ -72,6 +72,7 @@ function sider() {
 describe("B-03 Build journey（成功率 ≥95%）", () => {
   it("Studio 新建草稿 → 添加节点 → 校验 → 发布 → 版本出现", async () => {
     let user!: ReturnType<typeof userEvent.setup>;
+    let api!: ReturnType<typeof createInMemoryConsoleApi>;
 
     const result = await runJourney("build", [
       {
@@ -79,16 +80,11 @@ describe("B-03 Build journey（成功率 ≥95%）", () => {
         run: async () => {
           const view = mountConsole("/build/workflows");
           user = view.user;
+          api = view.api;
           await screen.findByRole("heading", { name: "流程编排" });
-          await user.click(screen.getByRole("button", { name: "weekly-report" }));
-          await screen.findByLabelText("Workflow Editor");
-        }
-      },
-      {
-        name: "创建草稿",
-        run: async () => {
-          await user.click(screen.getByRole("button", { name: "创建草稿" }));
-          await screen.findByText(/草稿 v2 已创建/);
+          await user.click(screen.getByRole("button", { name: "Weekly Report" }));
+          // TASK-015：独立 Designer + published 自动 working draft
+          await screen.findByLabelText("Workflow Designer");
         }
       },
       {
@@ -104,10 +100,10 @@ describe("B-03 Build journey（成功率 ≥95%）", () => {
         }
       },
       {
-        name: "校验通过",
+        name: "保存",
         run: async () => {
-          await user.click(screen.getByRole("button", { name: "校验" }));
-          await screen.findByText(/校验通过/);
+          await user.click(screen.getByRole("button", { name: "保存" }));
+          await screen.findByText("已保存");
         }
       },
       {
@@ -122,8 +118,12 @@ describe("B-03 Build journey（成功率 ≥95%）", () => {
       {
         name: "版本列表出现新版本",
         run: async () => {
-          const versions = await screen.findByLabelText("Workflow Versions");
-          expect(within(versions).getByText("v2")).toBeInTheDocument();
+          // TASK-015：版本历史经 API 校验（列表行操作呈现同一数据）
+          const versions = await api.listVersions("workflow", "weekly-report", {
+            page: 1,
+            pageSize: 20
+          });
+          expect(versions.items.map((item) => item.version)).toContain("v2");
         }
       }
     ]);
@@ -147,7 +147,7 @@ describe("B-03 Admin journey（成功率 ≥95%）", () => {
         run: async () => {
           const view = mountConsole("/users");
           user = view.user;
-          await user.click(screen.getByRole("button", { name: "新增" }));
+          await user.click(screen.getByRole("button", { name: "新增用户" }));
           await user.type(screen.getByLabelText("用户 ID"), "u-admin-journey");
           await user.type(screen.getByLabelText("显示名"), "运营管理员");
           await user.click(screen.getByRole("button", { name: "创建用户" }));

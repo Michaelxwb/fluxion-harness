@@ -523,6 +523,11 @@ eval_runs = Table(
     Column("run_id", String(128), primary_key=True),
     Column("eval_set_id", String(255), nullable=False),
     Column("eval_set_version", String(64), nullable=False),
+    # remediation §4.7（TASK-006）：被测目标（agent_definition | workflow |
+    # runtime_profile）；runtime_profile_id/version 保留（执行时 profile 关联）。
+    Column("target_kind", String(64), nullable=False, server_default="runtime_profile"),
+    Column("target_id", String(255), nullable=False, server_default=""),
+    Column("target_version", String(64), nullable=False, server_default=""),
     Column("runtime_profile_id", String(255), nullable=False),
     Column("runtime_profile_version", String(64), nullable=False),
     Column("trace_id", String(128), nullable=False),

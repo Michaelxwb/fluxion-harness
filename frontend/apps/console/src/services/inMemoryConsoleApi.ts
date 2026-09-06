@@ -1,19 +1,33 @@
 import type {
+  AgentWebChannel,
+  ChannelVerifyResult,
+  WebChannelEntry,
+  AuthorizedUserSummary,
+  McpConnectionTestResult,
+  ModelLabProjection,
+  ProjectionCredential,
+  ProjectionModel,
+  ProjectionProvider,
+  ToolCallTestResult,
+  AuditFilters,
   AuditRecord,
   BindingInput,
   BindingRecord,
   ConsoleApi,
   ControlPlaneItem,
+  CredentialCreateInput,
   CredentialMetadata,
   EvalRunSummary,
   EvalSetSummary,
   EvalTriggerInput,
   JsonRecord,
+  ModelConnectionTestResult,
   IssuedChatAccess,
   JsonSchemaNode,
   PageData,
   PageRequest,
   PlatformUser,
+  PublishOptions,
   PublishResult,
   ResourceSummary,
   ResourceCreateInput,
@@ -68,7 +82,7 @@ class InMemoryConsoleApi implements ConsoleApi {
   private readonly actorId: string;
   private resources: ResourceVersion[];
   private bindings: BindingRecord[];
-  private readonly credentials: CredentialMetadata[];
+  private credentials: CredentialMetadata[];
   private readonly runs: RunDetail[];
   private audit: AuditRecord[];
   private readonly capabilities: ReadonlySet<string>;
@@ -179,7 +193,11 @@ class InMemoryConsoleApi implements ConsoleApi {
   }
 
   async updateDraft(resource: ResourceVersion, spec: JsonRecord): Promise<ResourceVersion> {
-    if (resource.status !== "draft") {
+    // 与后端 console_resources.update_draft 同语义：按存储态判定可变性——
+    // 陈旧客户端拿着发布前的 draft 对象直接写已发布版本必须拒绝（此前只看
+    // 传入对象自带的 status，脏写会把 published 翻回 draft，掩盖 S-06 类缺陷）。
+    const stored = this.findVersion(resource.resourceType, resource.resourceId, resource.version);
+    if (stored.status !== "draft") {
       throw new Error("已发布版本不可直接修改，请创建新的 Draft Version");
     }
     const updated = cloneResource({ ...resource, spec: cloneJson(spec), updatedAt: nowIso() });
@@ -224,10 +242,21 @@ class InMemoryConsoleApi implements ConsoleApi {
     return this.validateDraft(resource);
   }
 
-  async publishVersion(resource: ResourceVersion): Promise<PublishResult> {
+  async publishVersion(resource: ResourceVersion, options: PublishOptions = {}): Promise<PublishResult> {
     const current = this.findVersion(resource.resourceType, resource.resourceId, resource.version);
     if (current.status !== "draft") {
       throw new Error("version conflict");
+    }
+    // ADR-A011：乐观并发检查——expectedBaseVersion 与当前 published base 不符 → 冲突
+    // （与后端 _check_expected_base 同语义；缺省 None 跳过检查，保持既有行为）。
+    if (options.expectedBaseVersion) {
+      const publishedBase = this.versionsFor(resource.resourceType, resource.resourceId)
+        .filter((v) => v.status === "published")
+        .map((v) => v.version)
+        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0];
+      if (publishedBase !== undefined && publishedBase !== options.expectedBaseVersion) {
+        throw new Error("version conflict");
+      }
     }
     // 与后端发布链同源（RULE-04/S-04）：发布完整校验 fail-closed，失败不产生
     // published 版本——in-memory 与真实 HTTP 后端行为一致，避免测试误绿。
@@ -246,6 +275,24 @@ class InMemoryConsoleApi implements ConsoleApi {
       resourceId: published.resourceId,
       status: "published",
       version: published.version
+    };
+  }
+
+  async deprecateVersion(resource: ResourceVersion, reason?: string): Promise<PublishResult> {
+    void reason;
+    const current = this.findVersion(resource.resourceType, resource.resourceId, resource.version);
+    if (current.status !== "published") throw new Error("only published versions can be deprecated");
+    const deprecated = cloneResource({ ...current, status: "deprecated", updatedAt: nowIso() });
+    this.resources = this.resources.map((candidate) =>
+      sameVersion(candidate, deprecated) ? deprecated : candidate
+    );
+    this.recordAudit("deprecate", deprecated.resourceId, deprecated.version);
+    return {
+      eventStatus: "published",
+      kubernetesWorkloadCreated: false,
+      resourceId: deprecated.resourceId,
+      status: "deprecated",
+      version: deprecated.version
     };
   }
 
@@ -301,12 +348,248 @@ class InMemoryConsoleApi implements ConsoleApi {
     return this.credentials.map((credential) => ({ ...credential }));
   }
 
+  async createCredential(input: CredentialCreateInput): Promise<ResourceVersion> {
+    // TASK-009：in-memory 明文只写（不回显明文）；与真实 HTTP 后端同语义。
+    // 同时落 resources（服务端生成 id/version），保证列表/详情链路同 HTTP 一致。
+    const resourceId = `cred_${input.name}`;
+    const credentialRef = `secret://${this.tenantId}/${resourceId}@1`;
+    this.credentials.push({
+      credentialRef,
+      provider: input.name,
+      status: "active",
+      lastRotatedAt: nowIso()
+    });
+    const resource: ResourceVersion = {
+      resourceType: "secret",
+      resourceId,
+      tenantId: this.tenantId,
+      version: "1",
+      status: "draft",
+      visibility: "private",
+      spec: { name: input.name, secret_ref: credentialRef, purpose: input.purpose ?? "" },
+      updatedAt: nowIso()
+    };
+    this.resources = [...this.resources, resource];
+    return cloneResource(resource);
+  }
+
+  async rotateCredential(resourceId: string, secret: string): Promise<ResourceVersion> {
+    // TASK-009 行操作·轮换：新版本 SecretRef + working draft 落档（明文只写）。
+    void secret; // in-memory 不存明文（同 HTTP 语义：明文不回显、不落资源）
+    const working = await this.createDraftFromLatest("secret", resourceId);
+    const previousRef = String(working.spec.secret_ref ?? "");
+    const rotatedRef = previousRef.replace(/@\d+$/, "") + "@2";
+    this.credentials = this.credentials.map((credential) =>
+      credential.credentialRef === previousRef
+        ? { ...credential, credentialRef: rotatedRef, lastRotatedAt: nowIso() }
+        : credential
+    );
+    const updated = await this.updateDraft(working, {
+      ...working.spec,
+      secret_ref: rotatedRef
+    });
+    return updated;
+  }
+
+  async disableCredential(resourceId: string): Promise<ResourceVersion> {
+    // TASK-009 行操作·禁用：spec 标记 revoked；resolve fail-closed 由真实 store 承担。
+    const working = await this.createDraftFromLatest("secret", resourceId);
+    this.credentials = this.credentials.map((credential) =>
+      credential.credentialRef === String(working.spec.secret_ref ?? "")
+        ? { ...credential, status: "disabled" }
+        : credential
+    );
+    return this.updateDraft(working, { ...working.spec, revoked: true });
+  }
+
+  async createModelProvider(spec: JsonRecord): Promise<ResourceVersion> {
+    // TASK-010：studio 产品端点同契约——服务端生成 id/version。
+    return this.createResource({
+      resourceId: `model-provider_${nowIso().slice(11, 19).replace(/:/g, "")}`,
+      resourceType: "model_provider",
+      spec,
+      version: "1",
+      visibility: "private"
+    });
+  }
+
+  async createModelDefinition(spec: JsonRecord): Promise<ResourceVersion> {
+    return this.createResource({
+      resourceId: `model-definition_${nowIso().slice(11, 19).replace(/:/g, "")}`,
+      resourceType: "model_definition",
+      spec,
+      version: "1",
+      visibility: "private"
+    });
+  }
+
+  async testModelProviderConnection(providerId: string): Promise<ModelConnectionTestResult> {
+    // TASK-010：in-memory 与真实 HTTP 同语义——provider 存在即可达，
+    // discovered_models 镜像本地 stub（deepseek-chat/reasoner）。
+    const exists = this.resources.some(
+      (resource) =>
+        resource.resourceType === "model_provider" && resource.resourceId === providerId
+    );
+    if (!exists) {
+      return { reachable: false, discoveredModels: [], error: `Provider ${providerId} 不存在` };
+    }
+    return {
+      reachable: true,
+      discoveredModels: ["deepseek-chat", "deepseek-reasoner"],
+      error: null
+    };
+  }
+
+  async createAgent(spec: JsonRecord): Promise<ResourceVersion> {
+    const sequence = this.resources.filter(
+      (resource) => resource.resourceType === "agent_definition"
+    ).length + 1;
+    return this.createResource({
+      resourceId: `agent_${String(sequence).padStart(4, "0")}`,
+      resourceType: "agent_definition",
+      spec,
+      version: "1",
+      visibility: "private"
+    });
+  }
+
+  async createWorkflow(spec: JsonRecord): Promise<ResourceVersion> {
+    const sequence = this.resources.filter(
+      (resource) => resource.resourceType === "workflow"
+    ).length + 1;
+    return this.createResource({
+      resourceId: `workflow_${String(sequence).padStart(4, "0")}`,
+      resourceType: "workflow",
+      spec,
+      version: "1",
+      visibility: "private"
+    });
+  }
+
+  async createSkill(spec: JsonRecord): Promise<ResourceVersion> {
+    const sequence = this.resources.filter(
+      (resource) => resource.resourceType === "skill"
+    ).length + 1;
+    return this.createResource({
+      resourceId: `skill_${String(sequence).padStart(4, "0")}`,
+      resourceType: "skill",
+      spec,
+      version: "1",
+      visibility: "private"
+    });
+  }
+
+  async createTool(spec: JsonRecord): Promise<ResourceVersion> {
+    const sequence = this.resources.filter(
+      (resource) => resource.resourceType === "tool"
+    ).length + 1;
+    return this.createResource({
+      resourceId: `tool_${String(sequence).padStart(4, "0")}`,
+      resourceType: "tool",
+      spec,
+      version: "1",
+      visibility: "private"
+    });
+  }
+
+  async createMcpServer(spec: JsonRecord): Promise<ResourceVersion> {
+    const sequence = this.resources.filter(
+      (resource) => resource.resourceType === "mcp"
+    ).length + 1;
+    return this.createResource({
+      resourceId: `mcp_${String(sequence).padStart(4, "0")}`,
+      resourceType: "mcp",
+      spec,
+      version: "1",
+      visibility: "private"
+    });
+  }
+
+  async getModelLabProjection(): Promise<ModelLabProjection> {
+    const current = new Map<string, ResourceVersion>();
+    for (const resource of this.resources) {
+      const existing = current.get(`${resource.resourceType}:${resource.resourceId}`);
+      if (!existing || resource.version > existing.version) {
+        current.set(`${resource.resourceType}:${resource.resourceId}`, resource);
+      }
+    }
+    const providers: ProjectionProvider[] = [];
+    const models: ProjectionModel[] = [];
+    const credentials: ProjectionCredential[] = [];
+    for (const resource of current.values()) {
+      if (resource.resourceType === "model_provider") {
+        const spec = resource.spec as { base_url?: string; credential_ref?: string };
+        providers.push({
+          resourceId: resource.resourceId,
+          displayName: (resource.spec.name as string) ?? resource.resourceId,
+          version: resource.version,
+          status: resource.status,
+          baseUrl: spec.base_url ?? "-",
+          credentialRef: spec.credential_ref ?? ""
+        });
+      } else if (resource.resourceType === "model_definition") {
+        const spec = resource.spec as { name?: string; provider_ref?: { id?: string } };
+        models.push({
+          resourceId: resource.resourceId,
+          name: spec.name ?? resource.resourceId,
+          version: resource.version,
+          providerId: spec.provider_ref?.id ?? ""
+        });
+      } else if (resource.resourceType === "secret") {
+        const spec = resource.spec as { name?: string; secret_ref?: string };
+        credentials.push({
+          label: spec.name ?? resource.resourceId,
+          value: spec.secret_ref ?? ""
+        });
+      }
+    }
+    return { providers, models, credentials };
+  }
+
+  async createPolicy(spec: JsonRecord): Promise<ResourceVersion> {
+    const sequence = this.resources.filter(
+      (resource) => resource.resourceType === "policy"
+    ).length + 1;
+    return this.createResource({
+      resourceId: `policy_${String(sequence).padStart(4, "0")}`,
+      resourceType: "policy",
+      spec,
+      version: "1",
+      visibility: "private"
+    });
+  }
+
+  async testMcpConnection(mcpId: string): Promise<McpConnectionTestResult> {
+    const resource = this.resources.find(
+      (item) => item.resourceType === "mcp" && item.resourceId === mcpId
+    );
+    if (!resource) throw new Error("mcp not found");
+    return { reachable: true, discoveredTools: ["mcp__weather__lookup"], error: null };
+  }
+
+  async testToolCall(toolId: string): Promise<ToolCallTestResult> {
+    const resource = this.resources.find(
+      (item) => item.resourceType === "tool" && item.resourceId === toolId
+    );
+    if (!resource) throw new Error("tool not found");
+    const spec = resource.spec as { url?: string };
+    if (!spec.url) {
+      return { reachable: false, statusCode: null, bodyExcerpt: null, error: "platform_service 类型暂不支持 Test Call" };
+    }
+    return { reachable: true, statusCode: 200, bodyExcerpt: "{}", error: null };
+  }
+
   async listRuns(): Promise<readonly RunDetail[]> {
     return this.runs.map(cloneRun);
   }
 
-  async listAudit(request: PageRequest): Promise<PageData<AuditRecord>> {
-    return page(this.audit.map((record) => ({ ...record })), request);
+  async listAudit(request: PageRequest, filters?: AuditFilters): Promise<PageData<AuditRecord>> {
+    const filtered = this.audit.filter((record) => {
+      if (filters?.action && record.action !== filters.action) return false;
+      if (filters?.actorId && record.actorId !== filters.actorId) return false;
+      return true;
+    });
+    return page(filtered.map((record) => ({ ...record })), request);
   }
 
   async listP1View(view: P1View): Promise<readonly ControlPlaneItem[]> {
@@ -332,6 +615,96 @@ class InMemoryConsoleApi implements ConsoleApi {
     return { ...user };
   }
 
+  // ---- TASK-013（§9.1）：Agent 用户授权（jsdom 测试与 http 同契约）----
+  private authorizedUsers: AuthorizedUserSummary[] = [];
+
+  async listAuthorizedUsers(agentId: string): Promise<readonly AuthorizedUserSummary[]> {
+    return this.authorizedUsers
+      .filter((row) => row.bindingId.startsWith(`${agentId}:`) && row.enabled)
+      .map((row) => ({ ...row }));
+  }
+
+  async authorizeAgentUser(agentId: string, platformUserId: string): Promise<void> {
+    const user = this.users.find((item) => item.platformUserId === platformUserId);
+    if (!user) {
+      throw new Error("platform user not found");
+    }
+    if (
+      this.authorizedUsers.some(
+        (row) => row.platformUserId === platformUserId && row.enabled && row.bindingId.startsWith(`${agentId}:`)
+      )
+    ) {
+      throw new Error("user already authorized");
+    }
+    const agent = this.resources.find(
+      (item) =>
+        item.resourceType === "agent_definition" && item.resourceId === agentId
+    );
+    const overlap: string[] = [];
+    const additions: string[] = [];
+    for (const ref of this.capabilities) {
+      const inAgent = (agent?.spec as { capabilities?: { capability_ref?: string }[] } | undefined)
+        ?.capabilities?.some((item) => item.capability_ref === ref) ?? false;
+      (inAgent ? overlap : additions).push(ref);
+    }
+    this.authorizedUsers = [
+      ...this.authorizedUsers,
+      {
+        platformUserId,
+        displayName: user.displayName,
+        bindingId: `${agentId}:${platformUserId}`,
+        enabled: true,
+        capabilityOverlap: overlap,
+        capabilityAdditions: additions
+      }
+    ];
+  }
+
+  async revokeAgentUserAuthorization(
+    agentId: string,
+    platformUserId: string
+  ): Promise<void> {
+    const exists = this.authorizedUsers.some(
+      (row) => row.platformUserId === platformUserId && row.enabled && row.bindingId.startsWith(`${agentId}:`)
+    );
+    if (!exists) {
+      throw new Error("authorization not found");
+    }
+    this.authorizedUsers = this.authorizedUsers.map((row) =>
+      row.platformUserId === platformUserId && row.bindingId.startsWith(`${agentId}:`)
+        ? { ...row, enabled: false }
+        : row
+    );
+  }
+
+  // ---- TASK-014（§9.2）：渠道投影 + verify（jsdom 与 http 同契约）----
+  private channelEntries: { agentId: string; entry: WebChannelEntry }[] = [];
+
+  async listAgentChannels(agentId: string): Promise<AgentWebChannel> {
+    const agent = this.resources.find(
+      (item) => item.resourceType === "agent_definition" && item.resourceId === agentId
+    );
+    return {
+      channelType: "web",
+      status: agent?.status === "published" ? "active" : "inactive",
+      entries: this.channelEntries
+        .filter((row) => row.agentId === agentId)
+        .map((row) => ({ ...row.entry }))
+    };
+  }
+
+  async verifyAgentWebChannel(agentId: string): Promise<ChannelVerifyResult> {
+    const channel = await this.listAgentChannels(agentId);
+    const problems: string[] = [];
+    if (channel.status !== "active") {
+      problems.push("Agent 未发布：Web Chat 入口要求已发布 Agent");
+    }
+    if (channel.entries.length === 0) {
+      problems.push("无活跃 Web Chat 入口：请先开通渠道并生成入口");
+    }
+    return { channelType: "web", ok: problems.length === 0, problems };
+  }
+
   async issueChatAccess(
     platformUserId: string,
     agentId: string
@@ -339,6 +712,20 @@ class InMemoryConsoleApi implements ConsoleApi {
     const accessId = `chat-access-${this.chatAccessIds.size + 1}`;
     const token = `test-token-${this.chatAccessIds.size + 1}`;
     this.chatAccessIds.add(accessId);
+    this.channelEntries = [
+      ...this.channelEntries,
+      {
+        agentId,
+        entry: {
+          accessId,
+          platformUserId,
+          displayName:
+            this.users.find((user) => user.platformUserId === platformUserId)
+              ?.displayName ?? platformUserId,
+          createdAt: nowIso()
+        }
+      }
+    ];
     return {
       accessId,
       chatPath: `/chat/#/${token}`,
@@ -383,6 +770,9 @@ class InMemoryConsoleApi implements ConsoleApi {
 
   async revokeChatAccess(accessId: string): Promise<void> {
     if (!this.chatAccessIds.delete(accessId)) throw new Error("chat access not found");
+    this.channelEntries = this.channelEntries.filter(
+      (row) => row.entry.accessId !== accessId
+    );
   }
 
   // ---- Phase 5 TASK-006：Eval 实页契约（in-memory 先行，http 同契约）----

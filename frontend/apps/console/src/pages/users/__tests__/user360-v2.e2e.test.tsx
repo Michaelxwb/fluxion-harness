@@ -13,7 +13,7 @@ import { renderConsole } from "../../../test/renderConsole";
 afterEach(() => cleanup());
 
 async function createUserAndView360(user: ReturnType<typeof userEvent.setup>, id: string, name: string) {
-  await user.click(screen.getByRole("button", { name: "新增" }));
+  await user.click(screen.getByRole("button", { name: "新增用户" }));
   await user.type(screen.getByLabelText("用户 ID"), id);
   await user.type(screen.getByLabelText("显示名"), name);
   await user.click(screen.getByRole("button", { name: "创建用户" }));

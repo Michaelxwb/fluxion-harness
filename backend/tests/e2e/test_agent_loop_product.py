@@ -63,6 +63,7 @@ async def _publish_profile(
             "request_timeout_ms": 2_000,
             "max_retries": 1,
             "max_rounds": 4,
+            "default": True,
         },
     )
     # TASK-A104：persona/model/工具准入迁至同名 AgentDefinition；ADR-A008 三层链：
@@ -152,6 +153,7 @@ async def test_S_P13_01_model_tool_result_returns_to_second_real_http_call(
             RunRuntimeRequest(
                 tenant_id="tenant-a",
                 user_id="user-a",
+                agent_definition_id="assistant",
                 runtime_profile_id="assistant",
                 session_id="session-a",
                 input_message="查询 Fluxion",
@@ -212,6 +214,7 @@ async def test_S_P13_02_published_skill_instructions_are_fixed_in_snapshot_and_p
             RequestContext(
                 tenant_id="tenant-a",
                 user_id="user-a",
+                agent_definition_id="assistant",
                 runtime_profile_id="assistant",
                 session_id="session-a",
             )

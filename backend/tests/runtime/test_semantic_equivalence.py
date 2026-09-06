@@ -41,6 +41,8 @@ def _request(tenant: str = "tenant-a", user: str = "user-a", session: str = "s")
     return RequestContext(
         tenant_id=tenant,
         user_id=user,
+        # ADR-A010：AgentDefinition 是执行主坐标（同名回退已删除）
+        agent_definition_id="assistant",
         runtime_profile_id="assistant",
         session_id=session,
     )
@@ -58,7 +60,7 @@ async def _seed_bundle(store: SQLiteRegistryStore) -> None:
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
     await publish_resource(
         store,
@@ -104,7 +106,7 @@ async def test_be_s_03_two_pods_resolve_identical_snapshots(tmp_path) -> None:
             "agent_definition_id", "agent_definition_version",
             "system_prompt", "model_resolution",
             "skill_instructions", "skill_required_capabilities", "skill_versions",
-            "mcp_versions", "plugin_versions", "binding_versions",
+            "mcp_versions", "provider_versions", "model_versions", "binding_versions",
         )
         for field in stable_fields:
             assert getattr(snap_a, field) == getattr(snap_b, field), f"漂移字段: {field}"
@@ -145,7 +147,9 @@ async def test_be_b_01_pinned_agent_survives_hot_publish_of_v2(tmp_path) -> None
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="assistant",
             version="2",
-            spec={"request_timeout_ms": 5_000, "max_retries": 1},
+            # ADR-A010：版本更替后 default 不自动延续，新版本须显式保留
+            # default=true，否则租户默认链断供。
+            spec={"request_timeout_ms": 5_000, "max_retries": 1, "default": True},
         )
         await publish_resource(
             store,

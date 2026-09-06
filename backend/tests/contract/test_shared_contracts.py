@@ -37,6 +37,7 @@ async def test_S_C109_console_resource_contract_is_runtime_compatible() -> None:
                 tenant_id="tenant-a",
                 user_id="user-a",
                 runtime_profile_id="assistant",
+                agent_definition_id="assistant",
                 session_id="session-a",
                 input_message="hello",
                 request_id="req-S-C109-run",

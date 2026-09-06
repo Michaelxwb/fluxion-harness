@@ -48,6 +48,7 @@ def _runtime_profile_spec(request: CreateRuntimeProfileRequest) -> dict[str, obj
         concurrency=request.concurrency,
         memory_budget_mb=request.memory_budget_mb or 512,
         bootstrapped_from=request.bootstrapped_from,
+        default=request.default,
     )
     return profile.model_dump(mode="json")
 

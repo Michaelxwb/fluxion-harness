@@ -1,16 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { Button, Table, Tabs, Typography } from "@douyinfe/semi-ui";
+import { IconPlus } from "@douyinfe/semi-icons";
+import { Button, Modal, Select, Table, Tabs, Toast } from "@douyinfe/semi-ui";
+import { useNavigate } from "react-router-dom";
 
 import { PageHeader } from "../../components/PageHeader";
-import { SchemaForm, specFromSchema } from "../../components/SchemaForm";
+import {
+  RowActions,
+  StandardListCard,
+  StandardListFooter,
+  StandardListSearch,
+  StandardListToolbar
+} from "../../components/StandardListShell";
+import { StatusTag } from "../../components/StatusTag";
 import type {
   ConsoleApi,
-  JsonRecord,
-  JsonSchemaNode,
   ResourceSummary,
+  ResourceStatus,
   ResourceType
 } from "../../types/console";
+import { CreateSkillModal } from "./CreateSkillModal";
+import { CreateMcpServerModal } from "./CreateMcpServerModal";
+import { CreateToolModal } from "./CreateToolModal";
 
 interface CapabilitiesPageProps {
   readonly api: ConsoleApi;
@@ -26,12 +37,6 @@ const KIND_TABS: readonly { readonly key: CapabilityKind; readonly text: string 
   { key: "mcp", text: "MCP" }
 ];
 
-const KIND_LABELS: Record<CapabilityKind, string> = {
-  skill: "技能",
-  tool: "工具",
-  mcp: "MCP"
-};
-
 interface ListRow {
   readonly key: string;
   readonly name: string;
@@ -40,81 +45,165 @@ interface ListRow {
   readonly status: string;
 }
 
-interface DraftState {
-  readonly schema: JsonSchemaNode;
-  readonly value: JsonRecord;
-  readonly errors: Record<string, string>;
-}
+const PAGE_SIZE = 10;
 
-/** TASK-014 / FEAT-F04：Capabilities 管理页——skill/tool/mcp 三类 Tab + SchemaForm 内联新建。 */
+/** TASK-016（§8.3）：Capabilities 管理页。skill tab 已产品化（CreateSkillModal +
+ * 独立 Editor + StandardListShell）；tool/mcp tab 维持 SchemaForm 内联新建，
+ * 由 TASK-017/018 逐一收敛（收敛后 skill/tool/mcp 均不再 import SchemaForm）。 */
 export function CapabilitiesPage({
   api,
   initialKind = "skill",
   onKindChange
 }: CapabilitiesPageProps) {
+  const navigate = useNavigate();
   const [kind, setKind] = useState<CapabilityKind>(initialKind);
-  const [rows, setRows] = useState<readonly ListRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [draft, setDraft] = useState<DraftState | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
+  const [rows, setRows] = useState<readonly ListRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [createSkillOpen, setCreateSkillOpen] = useState(false);
+  const [createToolOpen, setCreateToolOpen] = useState(false);
+  const [createMcpOpen, setCreateMcpOpen] = useState(false);
   const refresh = useCallback(async () => {
-    setLoading(true);
-    const page = await api.listVisibleResources(kind as ResourceType);
-    const list = page.map((item: ResourceSummary) => ({
-      key: `${item.resourceId}@${item.currentVersion}`,
-      name: item.displayName || item.resourceId,
-      resourceId: item.resourceId,
-      version: item.currentVersion,
-      status: item.status
-    }));
-    setRows(list);
-    setLoading(false);
+    setError(null);
+    setRows(null);
+    try {
+      const result = await api.listVisibleResources(kind as ResourceType);
+      const list = result.map((item: ResourceSummary) => ({
+        key: `${item.resourceId}@${item.currentVersion}`,
+        name: item.displayName || item.resourceId,
+        resourceId: item.resourceId,
+        version: item.currentVersion,
+        status: item.status
+      }));
+      setRows(list);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "加载失败");
+    }
   }, [api, kind]);
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, reloadKey]);
 
-  const openCreate = async () => {
-    const schema = await api.getResourceSchema(kind as ResourceType);
-    setDraft({ schema, value: specFromSchema(schema), errors: {} });
-  };
+  function reload(): void {
+    setReloadKey((key) => key + 1);
+  }
 
-  const submitDraft = async () => {
-    if (draft === null) {
-      return;
-    }
-    // FE-E-03：必填缺失 → 字段定位 + 不提交。
-    const required = (draft.schema.required ?? []) as readonly string[];
-    const errors: Record<string, string> = {};
-    for (const key of required) {
-      const raw = draft.value[key];
-      if (raw === undefined || (typeof raw === "string" && raw.trim() === "")) {
-        const title = (draft.schema.properties?.[key] as { title?: string } | undefined)?.title ?? key;
-        errors[key] = `${title}：必填`;
+  // ---- skill 行操作（TASK-016） ----
+
+  function confirmDeleteSkill(row: ListRow): void {
+    Modal.confirm({
+      title: `删除技能「${row.name}」？`,
+      content:
+        "将把当前发布版本标记为已弃用；引用此技能的 Workflow/Agent 需重新校验。运行中的 ExecutionSnapshot 不受影响。",
+      okText: "确认删除",
+      okType: "danger",
+      cancelText: "取消",
+      onOk: async () => {
+        try {
+          const resource = await api.getResource("skill", row.resourceId, row.version);
+          if (resource.status !== "published") {
+            Toast.warning("草稿不可删除；请先发布，或在版本治理中处理未发布版本");
+            return;
+          }
+          await api.deprecateVersion(resource, "Console 列表删除操作");
+          Toast.success("技能版本已弃用");
+          reload();
+        } catch (cause) {
+          Toast.error(cause instanceof Error ? cause.message : "删除失败");
+        }
       }
-    }
-    if (Object.keys(errors).length > 0) {
-      setDraft({ ...draft, errors });
-      return;
-    }
-    setSubmitting(true);
+    });
+  }
+
+  async function publishSkill(row: ListRow): Promise<void> {
     try {
-      const resourceId = `cap_${Math.random().toString(36).slice(2, 10)}`;
-      await api.createResource({
-        resourceType: kind as ResourceType,
-        resourceId,
-        version: "1",
-        visibility: "private",
-        spec: draft.value
-      });
-      setDraft(null);
-      await refresh();
-    } finally {
-      setSubmitting(false);
+      const resource = await api.getResource("skill", row.resourceId, row.version);
+      await api.publishVersion(resource);
+      Toast.success("技能已发布");
+      reload();
+    } catch (cause) {
+      Toast.error(cause instanceof Error ? cause.message : "发布失败");
     }
-  };
+  }
+
+  function confirmDeleteTool(row: ListRow): void {
+    Modal.confirm({
+      title: `删除工具「${row.name}」？`,
+      content:
+        "将把当前发布版本标记为已弃用；引用此工具的 Agent 需重新校验授权链。运行中的 ExecutionSnapshot 不受影响。",
+      okText: "确认删除",
+      okType: "danger",
+      cancelText: "取消",
+      onOk: async () => {
+        try {
+          const resource = await api.getResource("tool", row.resourceId, row.version);
+          if (resource.status !== "published") {
+            Toast.warning("草稿不可删除；请先发布，或在版本治理中处理未发布版本");
+            return;
+          }
+          await api.deprecateVersion(resource, "Console 列表删除操作");
+          Toast.success("工具版本已弃用");
+          reload();
+        } catch (cause) {
+          Toast.error(cause instanceof Error ? cause.message : "删除失败");
+        }
+      }
+    });
+  }
+
+  async function publishTool(row: ListRow): Promise<void> {
+    try {
+      const resource = await api.getResource("tool", row.resourceId, row.version);
+      await api.publishVersion(resource);
+      Toast.success("工具已发布");
+      reload();
+    } catch (cause) {
+      Toast.error(cause instanceof Error ? cause.message : "发布失败");
+    }
+  }
+
+  function confirmDeleteMcp(row: ListRow): void {
+    Modal.confirm({
+      title: `删除 MCP Server「${row.name}」？`,
+      content:
+        "将把当前发布版本标记为已弃用；引用此 MCP 的 Agent 用户授权链需重新校验。运行中的 ExecutionSnapshot 不受影响。",
+      okText: "确认删除",
+      okType: "danger",
+      cancelText: "取消",
+      onOk: async () => {
+        try {
+          const resource = await api.getResource("mcp", row.resourceId, row.version);
+          if (resource.status !== "published") {
+            Toast.warning("草稿不可删除；请先发布，或在版本治理中处理未发布版本");
+            return;
+          }
+          await api.deprecateVersion(resource, "Console 列表删除操作");
+          Toast.success("MCP 版本已弃用");
+          reload();
+        } catch (cause) {
+          Toast.error(cause instanceof Error ? cause.message : "删除失败");
+        }
+      }
+    });
+  }
+
+  async function publishMcp(row: ListRow): Promise<void> {
+    try {
+      const resource = await api.getResource("mcp", row.resourceId, row.version);
+      await api.publishVersion(resource);
+      Toast.success("MCP 已发布");
+      reload();
+    } catch (cause) {
+      Toast.error(cause instanceof Error ? cause.message : "发布失败");
+    }
+  }
+
+  const filtered = filterRows(rows, search, statusFilter);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div>
@@ -124,7 +213,9 @@ export function CapabilitiesPage({
         onChange={(key) => {
           if (!isCapabilityKind(key)) return;
           setKind(key);
-          setDraft(null);
+          setSearch("");
+          setStatusFilter("");
+          setPage(1);
           onKindChange?.(key);
         }}
       >
@@ -132,52 +223,402 @@ export function CapabilitiesPage({
           <Tabs.TabPane itemKey={tab.key} key={tab.key} tab={tab.text} />
         ))}
       </Tabs>
-      <div style={{ margin: "12px 0" }}>
-        <Button theme="solid" onClick={() => void openCreate()}>
-          新建
-        </Button>
-      </div>
-      <Table
-        loading={loading}
-        dataSource={rows.map((row) => ({ ...row }))}
-        rowKey="key"
-        pagination={false}
-        columns={[
-          { title: "名称", dataIndex: "name" },
-          { title: "ID", dataIndex: "resourceId" },
-          { title: "版本", dataIndex: "version" },
-          { title: "状态", dataIndex: "status" }
-        ]}
-        empty="暂无数据"
-      />
 
-      {draft !== null ? (
-        <div
-          style={{ marginTop: 12, padding: 16, border: "1px solid var(--semi-color-border)" }}
-          aria-label={`新建${KIND_LABELS[kind]}`}
-          data-debug="draft-panel"
-        >
-            <SchemaForm
-              schema={draft.schema}
-              value={draft.value}
-              onChange={(next) => setDraft({ ...draft, value: next })}
-              disabled={submitting}
+      {kind === "tool" ? (
+        <div aria-label="工具列表">
+          <StandardListCard
+            empty={rows !== null && filtered.length === 0}
+            emptyDescription="暂无工具"
+            error={error}
+            footer={
+              rows !== null && filtered.length > 0 ? (
+                <StandardListFooter
+                  onPageChange={setPage}
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  total={filtered.length}
+                />
+              ) : undefined
+            }
+            loading={rows === null && !error}
+            onRetry={reload}
+            toolbar={
+              <StandardListToolbar
+                filters={
+                  <>
+                    <span className="sr-only" id="tool-status-filter-label">
+                      工具状态过滤
+                    </span>
+                    <Select
+                    aria-labelledby="tool-status-filter-label"
+                    onChange={(value) => {
+                      setStatusFilter(String(value ?? ""));
+                      setPage(1);
+                    }}
+                    optionList={[
+                      { label: "全部状态", value: "" },
+                      { label: "草稿", value: "draft" },
+                      { label: "已发布", value: "published" },
+                      { label: "已弃用", value: "deprecated" }
+                    ]}
+                    placeholder="状态"
+                    style={{ width: 130 }}
+                    value={statusFilter}
+                    />
+                  </>
+                }
+                primary={
+                  <Button
+                    aria-label="新建 Tool"
+                    icon={<IconPlus />}
+                    onClick={() => setCreateToolOpen(true)}
+                    theme="solid"
+                    type="primary"
+                  >
+                    新建 Tool
+                  </Button>
+                }
+                search={
+                  <StandardListSearch
+                    onChange={(value) => {
+                      setSearch(value);
+                      setPage(1);
+                    }}
+                    placeholder="搜索工具"
+                    value={search}
+                  />
+                }
+              />
+            }
+          >
+            <Table<ListRow>
+              aria-label="工具列表表格"
+              columns={[
+                {
+                  dataIndex: "name",
+                  render: (_value, record) => (
+                    <Button
+                      onClick={() => navigate(`/build/tools/${record.resourceId}/edit`)}
+                      type="tertiary"
+                    >
+                      {record.name}
+                    </Button>
+                  ),
+                  title: "名称"
+                },
+                { dataIndex: "resourceId", title: "ID" },
+                { dataIndex: "version", title: "版本" },
+                {
+                  dataIndex: "status",
+                  render: (status: string) => <StatusTag status={status as ResourceStatus} />,
+                  title: "状态"
+                },
+                {
+                  dataIndex: "resourceId",
+                  render: (_value, record) => (
+                    <RowActions
+                      immediate={[
+                        {
+                          key: "edit",
+                          content: "编辑",
+                          onClick: () => navigate(`/build/tools/${record.resourceId}/edit`)
+                        }
+                      ]}
+                      more={[
+                        { key: "publish", content: "发布", onClick: () => void publishTool(record) },
+                        { key: "delete", content: "删除", onClick: () => confirmDeleteTool(record) }
+                      ]}
+                    />
+                  ),
+                  title: "操作"
+                }
+              ]}
+              dataSource={[...paged]}
+              pagination={false}
+              rowKey="key"
             />
-            {Object.entries(draft.errors).map(([field, message]) => (
-              <Typography.Text type="danger" key={field}>
-                {message}
-              </Typography.Text>
-            ))}
-          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-            <Button theme="solid" onClick={() => void submitDraft()} loading={submitting}>
-              提交
-            </Button>
-            <Button onClick={() => setDraft(null)}>取消</Button>
-          </div>
+          </StandardListCard>
         </div>
-      ) : null}
+      ) : kind === "skill" ? (
+        <div aria-label="技能列表">
+          <StandardListCard
+            empty={rows !== null && filtered.length === 0}
+            emptyDescription="暂无技能"
+            error={error}
+            footer={
+              rows !== null && filtered.length > 0 ? (
+                <StandardListFooter
+                  onPageChange={setPage}
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  total={filtered.length}
+                />
+              ) : undefined
+            }
+            loading={rows === null && !error}
+            onRetry={reload}
+            toolbar={
+              <StandardListToolbar
+                filters={
+                  <>
+                    <span className="sr-only" id="skill-status-filter-label">
+                      技能状态过滤
+                    </span>
+                    <Select
+                    aria-labelledby="skill-status-filter-label"
+                    onChange={(value) => {
+                      setStatusFilter(String(value ?? ""));
+                      setPage(1);
+                    }}
+                    optionList={[
+                      { label: "全部状态", value: "" },
+                      { label: "草稿", value: "draft" },
+                      { label: "已发布", value: "published" },
+                      { label: "已弃用", value: "deprecated" }
+                    ]}
+                    placeholder="状态"
+                    style={{ width: 130 }}
+                    value={statusFilter}
+                    />
+                  </>
+                }
+                primary={
+                  <Button
+                    aria-label="新建 Skill"
+                    icon={<IconPlus />}
+                    onClick={() => setCreateSkillOpen(true)}
+                    theme="solid"
+                    type="primary"
+                  >
+                    新建 Skill
+                  </Button>
+                }
+                search={
+                  <StandardListSearch
+                    onChange={(value) => {
+                      setSearch(value);
+                      setPage(1);
+                    }}
+                    placeholder="搜索技能"
+                    value={search}
+                  />
+                }
+              />
+            }
+          >
+            <Table<ListRow>
+              aria-label="技能列表表格"
+              columns={[
+                {
+                  dataIndex: "name",
+                  render: (_value, record) => (
+                    <Button
+                      onClick={() => navigate(`/build/skills/${record.resourceId}/edit`)}
+                      type="tertiary"
+                    >
+                      {record.name}
+                    </Button>
+                  ),
+                  title: "名称"
+                },
+                { dataIndex: "resourceId", title: "ID" },
+                { dataIndex: "version", title: "版本" },
+                {
+                  dataIndex: "status",
+                  render: (status: string) => <StatusTag status={status as ResourceStatus} />,
+                  title: "状态"
+                },
+                {
+                  dataIndex: "resourceId",
+                  render: (_value, record) => (
+                    <RowActions
+                      immediate={[
+                        {
+                          key: "edit",
+                          content: "编辑",
+                          onClick: () => navigate(`/build/skills/${record.resourceId}/edit`)
+                        }
+                      ]}
+                      more={[
+                        { key: "publish", content: "发布", onClick: () => void publishSkill(record) },
+                        { key: "delete", content: "删除", onClick: () => confirmDeleteSkill(record) }
+                      ]}
+                    />
+                  ),
+                  title: "操作"
+                }
+              ]}
+              dataSource={[...paged]}
+              pagination={false}
+              rowKey="key"
+            />
+          </StandardListCard>
+        </div>
+      ) : (
+        <div aria-label="MCP 列表">
+          <StandardListCard
+            empty={rows !== null && filtered.length === 0}
+            emptyDescription="暂无 MCP Server"
+            error={error}
+            footer={
+              rows !== null && filtered.length > 0 ? (
+                <StandardListFooter
+                  onPageChange={setPage}
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  total={filtered.length}
+                />
+              ) : undefined
+            }
+            loading={rows === null && !error}
+            onRetry={reload}
+            toolbar={
+              <StandardListToolbar
+                filters={
+                  <>
+                    <span className="sr-only" id="mcp-status-filter-label">
+                      MCP 状态过滤
+                    </span>
+                    <Select
+                    aria-labelledby="mcp-status-filter-label"
+                    onChange={(value) => {
+                      setStatusFilter(String(value ?? ""));
+                      setPage(1);
+                    }}
+                    optionList={[
+                      { label: "全部状态", value: "" },
+                      { label: "草稿", value: "draft" },
+                      { label: "已发布", value: "published" },
+                      { label: "已弃用", value: "deprecated" }
+                    ]}
+                    placeholder="状态"
+                    style={{ width: 130 }}
+                    value={statusFilter}
+                    />
+                  </>
+                }
+                primary={
+                  <Button
+                    aria-label="添加 MCP Server"
+                    icon={<IconPlus />}
+                    onClick={() => setCreateMcpOpen(true)}
+                    theme="solid"
+                    type="primary"
+                  >
+                    添加 MCP Server
+                  </Button>
+                }
+                search={
+                  <StandardListSearch
+                    onChange={(value) => {
+                      setSearch(value);
+                      setPage(1);
+                    }}
+                    placeholder="搜索 MCP"
+                    value={search}
+                  />
+                }
+              />
+            }
+          >
+            <Table<ListRow>
+              aria-label="MCP 列表表格"
+              columns={[
+                {
+                  dataIndex: "name",
+                  render: (_value, record) => (
+                    <Button
+                      onClick={() => navigate(`/build/mcp/${record.resourceId}/edit`)}
+                      type="tertiary"
+                    >
+                      {record.name}
+                    </Button>
+                  ),
+                  title: "名称"
+                },
+                { dataIndex: "resourceId", title: "ID" },
+                { dataIndex: "version", title: "版本" },
+                {
+                  dataIndex: "status",
+                  render: (status: string) => <StatusTag status={status as ResourceStatus} />,
+                  title: "状态"
+                },
+                {
+                  dataIndex: "resourceId",
+                  render: (_value, record) => (
+                    <RowActions
+                      immediate={[
+                        {
+                          key: "edit",
+                          content: "编辑",
+                          onClick: () => navigate(`/build/mcp/${record.resourceId}/edit`)
+                        }
+                      ]}
+                      more={[
+                        { key: "publish", content: "发布", onClick: () => void publishMcp(record) },
+                        { key: "delete", content: "删除", onClick: () => confirmDeleteMcp(record) }
+                      ]}
+                    />
+                  ),
+                  title: "操作"
+                }
+              ]}
+              dataSource={[...paged]}
+              pagination={false}
+              rowKey="key"
+            />
+          </StandardListCard>
+        </div>
+      )}
+
+      <CreateMcpServerModal
+        api={api}
+        onClose={() => setCreateMcpOpen(false)}
+        onCreated={(created) => {
+          setCreateMcpOpen(false);
+          reload();
+          navigate(`/build/mcp/${created.resourceId}/edit`);
+        }}
+        visible={createMcpOpen}
+      />
+      <CreateToolModal
+        api={api}
+        onClose={() => setCreateToolOpen(false)}
+        onCreated={(created) => {
+          setCreateToolOpen(false);
+          reload();
+          navigate(`/build/tools/${created.resourceId}/edit`);
+        }}
+        visible={createToolOpen}
+      />
+      <CreateSkillModal
+        api={api}
+        onClose={() => setCreateSkillOpen(false)}
+        onCreated={(created) => {
+          setCreateSkillOpen(false);
+          reload();
+          navigate(`/build/skills/${created.resourceId}/edit`);
+        }}
+        visible={createSkillOpen}
+      />
     </div>
   );
+}
+
+function filterRows(
+  rows: readonly ListRow[] | null,
+  search: string,
+  statusFilter: string
+): readonly ListRow[] {
+  const keyword = search.trim().toLowerCase();
+  return (rows ?? []).filter((row) => {
+    if (statusFilter && row.status !== statusFilter) return false;
+    return (
+      !keyword ||
+      row.name.toLowerCase().includes(keyword) ||
+      row.resourceId.toLowerCase().includes(keyword)
+    );
+  });
 }
 
 function isCapabilityKind(value: unknown): value is CapabilityKind {

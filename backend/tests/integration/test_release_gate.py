@@ -49,6 +49,9 @@ async def stack(store: SQLiteRegistryStore) -> AsyncGenerator[dict[str, object],
     run_store = InMemoryEvalRunStore()
     await _publish_runtime_profile(store)
     await _publish_eval_set(store)
+    # ADR-A011（TASK-004）：gate 只作用于 AGENT_DEFINITION——seed 可发布的
+    # agent 链（model + default runtime_profile），供 gate 测试用 agent 作目标。
+    await _seed_agent_chain(store)
     await trace_store.append(_trace("trace-gate"))
 
     evaluation = EvaluationApplicationService(
@@ -67,19 +70,24 @@ async def stack(store: SQLiteRegistryStore) -> AsyncGenerator[dict[str, object],
     }
 
 
+async def _seed_agent_chain(store: SQLiteRegistryStore) -> None:
+    """seed 可发布的 AGENT_DEFINITION 链（ADR-A008 三层模型链；runtime_profile
+    默认链已由 _publish_runtime_profile 提供 default=true）。"""
+    from tests.runtime_helpers import seed_model_definition
+
+    await seed_model_definition(store, tenant_id="dev", provider_id="test")
+
+
 async def _publish_runtime_profile(store: SQLiteRegistryStore) -> None:
+    # ADR-A010：runtime-main 标记租户默认（default=true），供无 ref 的 agent
+    # 默认链解析；mechanics-only spec（TASK-A104）。
     await publish_resource(
         store,
         tenant_id="dev",
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="runtime-main",
         version="7",
-        spec={
-            "id": "runtime-main",
-            "version": "7",
-            "prompt": "gate",
-            "model_policy": {"provider": "dev.echo", "timeout_ms": 1000},
-        },
+        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
 
 
@@ -111,6 +119,7 @@ def _trace(trace_id: str, *, include_answer: bool = True) -> TraceRecord:
             "routes": [
                 {
                     "provider_ref": {"id": "dev.echo", "version": "1"},
+                    "model_ref": {"id": "model.dev.echo", "version": "1"},
                     "model": "echo",
                 }
             ]
@@ -140,17 +149,24 @@ def _trace(trace_id: str, *, include_answer: bool = True) -> TraceRecord:
 
 
 async def _create_draft(store: SQLiteRegistryStore, *, version: str) -> None:
+    """创建 AGENT_DEFINITION draft（ADR-A011：gate 只作用于 Agent）。"""
     from fluxion.resources import ResourceDefinition
 
     await store.put(
         ResourceDefinition(
-            kind=ResourceKind.RUNTIME_PROFILE,
-            id="runtime-main",
+            kind=ResourceKind.AGENT_DEFINITION,
+            id="agent-main",
             tenant_id="dev",
             version=version,
             status=ResourceStatus.DRAFT,
-            # RuntimeProfile 定义模型（console 发布校验）：仅运行机制字段
-            spec_json={"request_timeout_ms": 1000, "max_retries": 2},
+            spec_json={
+                "name": "agent-main",
+                "system_prompt": "p",
+                "owner": "builder",
+                "model_policy": {
+                    "primary_model_ref": {"id": "model.test", "version": "1"}
+                },
+            },
         )
     )
 
@@ -181,7 +197,7 @@ class TestReleaseGatePublishPipeline:
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://console") as client:
             response = await client.post(
-                "/api/v1/resources/runtime_profile/runtime-main/versions/9:publish",
+                "/api/v1/resources/agent_definition/agent-main/versions/9:publish",
                 json={},
             )
         assert response.status_code == 409, response.text
@@ -190,7 +206,7 @@ class TestReleaseGatePublishPipeline:
         assert "强制" in body["message"]
         # 阻断后资源仍是 draft（未发布）
         resource = await store.get(
-            ResourceKind.RUNTIME_PROFILE, "runtime-main", tenant_id="dev", version="9"
+            ResourceKind.AGENT_DEFINITION, "agent-main", tenant_id="dev", version="9"
         )
         assert resource is not None and resource.status is ResourceStatus.DRAFT
 
@@ -201,10 +217,82 @@ class TestReleaseGatePublishPipeline:
             transport=ASGITransport(app=legacy_app), base_url="http://console"
         ) as client:
             response = await client.post(
-                "/api/v1/resources/runtime_profile/runtime-main/versions/9:publish",
+                "/api/v1/resources/agent_definition/agent-main/versions/9:publish",
                 json={},
             )
         assert response.status_code == 200, response.text
+
+    async def test_bs04_enforced_non_gate_kind_publishes_without_gate(
+        self, stack: dict[str, object]
+    ) -> None:
+        """B-S-04（ADR-A011）：enforced 装配下非门 kind（RUNTIME_PROFILE）空 body
+        发布成功——ReleaseGate 只作用于 AGENT_DEFINITION，不阻断其余资源。"""
+        store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
+        gate = ReleaseGateService(
+            stack["evaluation"], audit_sink=store, timeout_seconds=2.0  # type: ignore[arg-type]
+        )
+        enforced = ConsoleApplicationService(
+            store, release_gate=gate, release_gate_enforced=True
+        )
+        app = create_console_app(enforced, dev_mode=DevModeSettings(enabled=True))
+        from fluxion.resources import ResourceDefinition
+
+        await store.put(
+            ResourceDefinition(
+                kind=ResourceKind.RUNTIME_PROFILE,
+                id="runtime-other",
+                tenant_id="dev",
+                version="1",
+                status=ResourceStatus.DRAFT,
+                spec_json={"request_timeout_ms": 1000, "max_retries": 2},
+            )
+        )
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://console") as client:
+            response = await client.post(
+                "/api/v1/resources/runtime_profile/runtime-other/versions/1:publish",
+                json={},
+            )
+        assert response.status_code == 200, response.text
+
+    async def test_bs05_enforced_agent_publishes_with_valid_gate(
+        self, stack: dict[str, object]
+    ) -> None:
+        """B-S-05（ADR-A011）：enforced 装配下 AGENT_DEFINITION 携带合法 gate →
+        发布成功（与无 gate 的 409 对照，见 test_enforced_gate_blocks...）。"""
+        store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
+        evaluation: EvaluationApplicationService = stack["evaluation"]  # type: ignore[assignment]
+        gate = ReleaseGateService(
+            evaluation, audit_sink=store, timeout_seconds=2.0
+        )
+        enforced = ConsoleApplicationService(
+            store, release_gate=gate, release_gate_enforced=True
+        )
+        app = create_console_app(enforced, dev_mode=DevModeSettings(enabled=True))
+        await _create_draft(store, version="20")
+        baseline = await evaluation.start_run(
+            _run_request("run-baseline-20", trace_id="trace-gate")
+        )
+        candidate = await evaluation.start_run(
+            _run_request("run-candidate-20", trace_id="trace-gate")
+        )
+        assert baseline.score == candidate.score == 1.0
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://console") as client:
+            response = await client.post(
+                "/api/v1/resources/agent_definition/agent-main/versions/20:publish",
+                json={
+                    "gate": {
+                        "candidate_eval_run_id": "run-candidate-20",
+                        "baseline_eval_run_id": "run-baseline-20",
+                        "threshold": 0.0,
+                    }
+                },
+            )
+        assert response.status_code == 200, response.text
+        resource = await store.get(
+            ResourceKind.AGENT_DEFINITION, "agent-main", tenant_id="dev", version="20"
+        )
+        assert resource is not None and resource.status is ResourceStatus.PUBLISHED
 
     async def test_s06_regression_blocks_publish(self, stack: dict[str, object]) -> None:
         store: SQLiteRegistryStore = stack["store"]  # type: ignore[assignment]
@@ -224,7 +312,7 @@ class TestReleaseGatePublishPipeline:
         app = stack["app"]
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://console") as client:
             response = await client.post(
-                "/api/v1/resources/runtime_profile/runtime-main/versions/8:publish",
+                "/api/v1/resources/agent_definition/agent-main/versions/8:publish",
                 json={
                     "gate": {
                         "candidate_eval_run_id": "run-candidate",
@@ -239,7 +327,7 @@ class TestReleaseGatePublishPipeline:
         assert "score_delta" in body["message"] or "回退" in body["message"]
         # 阻断后资源仍是 draft（未发布）
         resource = await store.get(
-            ResourceKind.RUNTIME_PROFILE, "runtime-main", tenant_id="dev", version="8"
+            ResourceKind.AGENT_DEFINITION, "agent-main", tenant_id="dev", version="8"
         )
         assert resource is not None and resource.status is ResourceStatus.DRAFT
 
@@ -259,7 +347,7 @@ class TestReleaseGatePublishPipeline:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://console") as client:
             started = time.monotonic()
             response = await client.post(
-                "/api/v1/resources/runtime_profile/runtime-main/versions/9:publish",
+                "/api/v1/resources/agent_definition/agent-main/versions/9:publish",
                 json={
                     "gate": {
                         "candidate_eval_run_id": "run-candidate-9",
@@ -274,7 +362,7 @@ class TestReleaseGatePublishPipeline:
         assert elapsed < 0.5, f"publish+gate 耗时 {elapsed:.3f}s 超出 500ms 预算"
         # 发布成功：版本 9 变 published
         resource = await store.get(
-            ResourceKind.RUNTIME_PROFILE, "runtime-main", tenant_id="dev", version="9"
+            ResourceKind.AGENT_DEFINITION, "agent-main", tenant_id="dev", version="9"
         )
         assert resource is not None and resource.status is ResourceStatus.PUBLISHED
         # EvalRun 记录留档（run store 可查）
@@ -292,7 +380,7 @@ class TestReleaseGatePublishPipeline:
         app = stack["app"]
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://console") as client:
             response = await client.post(
-                "/api/v1/resources/runtime_profile/runtime-main/versions/10:publish",
+                "/api/v1/resources/agent_definition/agent-main/versions/10:publish",
                 json={
                     "gate": {
                         "candidate_eval_run_id": "run-candidate-10",
@@ -333,7 +421,7 @@ class TestReleaseGatePublishPipeline:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://console") as client:
             started = time.monotonic()
             response = await client.post(
-                "/api/v1/resources/runtime_profile/runtime-main/versions/11:publish",
+                "/api/v1/resources/agent_definition/agent-main/versions/11:publish",
                 json={
                     "gate": {
                         "candidate_eval_run_id": "run-x",

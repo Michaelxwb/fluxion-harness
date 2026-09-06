@@ -25,6 +25,8 @@ async def test_S_R18_context_compaction_preserves_latest_raw_and_snapshot(
         RequestContext(
             tenant_id="tenant-a",
             user_id="user-a",
+            # ADR-A010：AgentDefinition 是执行主坐标（同名回退已删除）
+            agent_definition_id="assistant",
             runtime_profile_id="assistant",
             session_id="session-a",
         )
@@ -65,6 +67,8 @@ async def test_S_R18_repeated_compaction_does_not_summarize_summaries(
         RequestContext(
             tenant_id="tenant-a",
             user_id="user-a",
+            # ADR-A010：AgentDefinition 是执行主坐标（同名回退已删除）
+            agent_definition_id="assistant",
             runtime_profile_id="assistant",
             session_id="session-a",
         )

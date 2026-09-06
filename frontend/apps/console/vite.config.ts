@@ -31,8 +31,12 @@ export default defineConfig({
     }
   },
   server: {
+    // dev 模式 API 代理：前端调用的后端前缀全集（TASK-025 后含 /studio 产品
+    // 端点与 /admin 用户域——缺项会导致 Vite dev 下对应列表 404）。
     proxy: {
-      "/api": { target: "http://localhost:8000", changeOrigin: true }
+      "/api": { target: "http://localhost:8000", changeOrigin: true },
+      "/studio": { target: "http://localhost:8000", changeOrigin: true },
+      "/admin": { target: "http://localhost:8000", changeOrigin: true }
     }
   }
 });

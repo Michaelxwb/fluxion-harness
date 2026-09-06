@@ -97,6 +97,20 @@ export interface PublishResult {
   readonly kubernetesWorkloadCreated: false;
 }
 
+/** Release Gate 参数（ADR-A011：仅 AGENT_DEFINITION 发布评估 gate）。 */
+export interface ReleaseGateParams {
+  readonly candidateEvalRunId: string;
+  readonly baselineEvalRunId: string;
+  readonly threshold?: number;
+}
+
+/** publish 可选参数（ADR-A011 前后端契约统一：三字段可选）。 */
+export interface PublishOptions {
+  readonly publishNote?: string;
+  readonly expectedBaseVersion?: string;
+  readonly gate?: ReleaseGateParams;
+}
+
 export interface RollbackResult {
   readonly resourceId: string;
   readonly targetVersion: string;
@@ -116,11 +130,109 @@ export interface BindingRecord {
   readonly enabled: boolean;
 }
 
+/** TASK-025：Model 页聚合投影（一次请求返回页面所需数据）。 */
+export interface ProjectionProvider {
+  readonly resourceId: string;
+  readonly displayName: string;
+  readonly version: string;
+  readonly status: string;
+  readonly baseUrl: string;
+  readonly credentialRef: string;
+}
+
+export interface ProjectionModel {
+  readonly resourceId: string;
+  readonly name: string;
+  readonly version: string;
+  readonly providerId: string;
+}
+
+export interface ProjectionCredential {
+  readonly label: string;
+  readonly value: string;
+}
+
+export interface ModelLabProjection {
+  readonly providers: readonly ProjectionProvider[];
+  readonly models: readonly ProjectionModel[];
+  readonly credentials: readonly ProjectionCredential[];
+}
+
+/** TASK-021（§8.10）：审计组合过滤（后端查询参数下推）。 */
+export interface AuditFilters {
+  readonly action?: string;
+  readonly actorId?: string;
+  readonly targetType?: string;
+  readonly createdFrom?: string;
+  readonly createdTo?: string;
+}
+
+/** TASK-018：MCP 连接测试结果（:test-connection 契约）。 */
+export interface McpConnectionTestResult {
+  readonly reachable: boolean;
+  readonly discoveredTools: readonly string[];
+  readonly error: string | null;
+}
+
+/** TASK-017：Tool Test Call 结果（http_api 真实出站）。 */
+export interface ToolCallTestResult {
+  readonly reachable: boolean;
+  readonly statusCode: number | null;
+  readonly bodyExcerpt: string | null;
+  readonly error: string | null;
+}
+
+/** TASK-014（§9.2）：Agent 渠道产品投影——Web Chat 入口（token 不回显）。 */
+export interface WebChannelEntry {
+  readonly accessId: string;
+  readonly platformUserId: string;
+  readonly displayName: string;
+  readonly createdAt: string;
+}
+
+export interface AgentWebChannel {
+  readonly channelType: "web";
+  readonly status: "active" | "inactive";
+  readonly entries: readonly WebChannelEntry[];
+}
+
+export interface ChannelVerifyResult {
+  readonly channelType: "web";
+  readonly ok: boolean;
+  readonly problems: readonly string[];
+}
+
+/** TASK-013：Agent → 用户授权产品投影（§9.1；不暴露 Binding 内部结构）。 */
+export interface AuthorizedUserSummary {
+  readonly platformUserId: string;
+  readonly displayName: string;
+  readonly bindingId: string;
+  readonly enabled: boolean;
+  /** 用户 grant 与 Agent 默认能力的交集（生效能力）。 */
+  readonly capabilityOverlap: readonly string[];
+  /** 用户持有但 Agent 未默认开放的能力（相对增项）。 */
+  readonly capabilityAdditions: readonly string[];
+}
+
 export interface CredentialMetadata {
   readonly credentialRef: string;
   readonly provider: string;
   readonly status: "active" | "rotating" | "disabled";
   readonly lastRotatedAt: string;
+}
+
+/** TASK-009：凭据创建输入（明文只写，服务端不回显）。 */
+export interface CredentialCreateInput {
+  readonly name: string;
+  readonly secret: string;
+  readonly purpose?: string;
+}
+
+/** TASK-010：Provider 连接测试结果（:test-connection 契约）。 */
+export interface ModelConnectionTestResult {
+  readonly reachable: boolean;
+  readonly discoveredModels: readonly string[];
+  readonly error: string | null;
 }
 
 /** Phase 5 TASK-006：EvalSet 列表项（GET /api/v1/admin/evals）。 */
@@ -130,6 +242,9 @@ export interface EvalSetSummary {
   readonly version: string;
   readonly status: string;
   readonly caseCount: number;
+  readonly targetKind: "agent_definition" | "workflow" | "runtime_profile";
+  readonly targetId: string;
+  readonly targetVersion: string;
 }
 
 /** Phase 5 TASK-006：EvalRun 列表项/详情（GET /api/v1/admin/evals/runs）。 */
@@ -182,6 +297,12 @@ export interface AuditRecord {
   readonly resourceId: string;
   readonly resourceVersion: string;
   readonly at: string;
+  /** TASK-021（§8.10）：详情 SideSheet 关联字段（规则 23）与 before/after 快照。 */
+  readonly requestId?: string;
+  readonly traceId?: string | null;
+  readonly targetType?: string;
+  readonly before?: Record<string, unknown> | null;
+  readonly after?: Record<string, unknown> | null;
 }
 
 export interface ControlPlaneItem {
@@ -233,22 +354,61 @@ export interface ConsoleApi {
   validateDraft(resource: ResourceVersion): Promise<ValidationResult>;
   /** 发布完整校验（TASK-009 后端 `:validate-publish`）：返回可操作问题清单。 */
   validatePublish(resource: ResourceVersion): Promise<ValidationResult>;
-  publishVersion(resource: ResourceVersion): Promise<PublishResult>;
+  publishVersion(resource: ResourceVersion, options?: PublishOptions): Promise<PublishResult>;
+  deprecateVersion(resource: ResourceVersion, reason?: string): Promise<PublishResult>;
   rollbackVersion(resource: ResourceVersion, targetVersion: string): Promise<RollbackResult>;
   listVersions(resourceType: ResourceType, resourceId: string, page: PageRequest): Promise<PageData<ResourceVersion>>;
   listVisibleResources(resourceType: ResourceType): Promise<readonly ResourceSummary[]>;
   listBindings(request: PageRequest, resourceType?: ResourceType): Promise<PageData<BindingRecord>>;
   saveBinding(input: BindingInput): Promise<BindingRecord>;
   listCredentials(): Promise<readonly CredentialMetadata[]>;
+  createCredential(input: CredentialCreateInput): Promise<ResourceVersion>;
+  /** TASK-009 行操作·轮换：新明文只写，服务端生成新版本 SecretRef。 */
+  rotateCredential(resourceId: string, secret: string): Promise<ResourceVersion>;
+  /** TASK-009 行操作·禁用：store 层 revoke（resolve fail-closed），spec 标记 revoked。 */
+  disableCredential(resourceId: string): Promise<ResourceVersion>;
+  /** TASK-010：连接模型服务——studio 产品端点创建（服务端生成 id/version）。 */
+  createModelProvider(spec: JsonRecord): Promise<ResourceVersion>;
+  createModelDefinition(spec: JsonRecord): Promise<ResourceVersion>;
+  /** TASK-010：Provider 连接测试（可达性 + 模型发现，真实探测 base_url/models）。 */
+  testModelProviderConnection(providerId: string): Promise<ModelConnectionTestResult>;
+  /** TASK-011：产品语义 Agent 创建；resource_id/version 均由服务端生成。 */
+  createAgent(spec: JsonRecord): Promise<ResourceVersion>;
+  /** TASK-015：产品语义 Workflow 创建（studio 端点，服务端生成 id/version）。 */
+  createWorkflow(spec: JsonRecord): Promise<ResourceVersion>;
+  /** TASK-016：产品语义 Skill 创建（studio 端点，服务端生成 id/version）。 */
+  createSkill(spec: JsonRecord): Promise<ResourceVersion>;
+  /** TASK-017：产品语义 Tool 创建（studio 端点，服务端生成 id/version）。 */
+  createTool(spec: JsonRecord): Promise<ResourceVersion>;
+  /** TASK-018：产品语义 MCP Server 创建（studio 端点，服务端生成 id/version）。 */
+  createMcpServer(spec: JsonRecord): Promise<ResourceVersion>;
+  /** TASK-022：产品语义 Policy 创建（studio 端点，服务端生成 id/version）。 */
+  createPolicy(spec: JsonRecord): Promise<ResourceVersion>;
+  /** TASK-025：Model 页聚合投影（单请求消除 O(N)）。 */
+  getModelLabProjection(): Promise<ModelLabProjection>;
+  /** TASK-018：MCP 连接测试（真实握手 + 发现远端工具）。 */
+  testMcpConnection(mcpId: string): Promise<McpConnectionTestResult>;
+  /** TASK-017：Tool Test Call（http_api 真实出站，规则 18 timeout）。 */
+  testToolCall(toolId: string): Promise<ToolCallTestResult>;
   listRuns(): Promise<readonly RunDetail[]>;
   // ---- Phase 5 TASK-006：Eval 实页契约（in-memory 先行，http 同契约）----
   listEvalSets(): Promise<readonly EvalSetSummary[]>;
   listEvalRuns(): Promise<readonly EvalRunSummary[]>;
   triggerEvalRun(input: EvalTriggerInput): Promise<EvalRunSummary>;
-  listAudit(page: PageRequest): Promise<PageData<AuditRecord>>;
+  listAudit(
+    page: PageRequest,
+    filters?: AuditFilters
+  ): Promise<PageData<AuditRecord>>;
   listP1View(view: P1View): Promise<readonly ControlPlaneItem[]>;
   listPlatformUsers(request: PageRequest): Promise<PageData<PlatformUser>>;
   createPlatformUser(platformUserId: string, displayName: string): Promise<PlatformUser>;
+  /** TASK-013（§9.1）：Agent 用户授权——Binding 产品投影 + 授权/撤销。 */
+  listAuthorizedUsers(agentId: string): Promise<readonly AuthorizedUserSummary[]>;
+  authorizeAgentUser(agentId: string, platformUserId: string): Promise<void>;
+  revokeAgentUserAuthorization(agentId: string, platformUserId: string): Promise<void>;
+  /** TASK-014（§9.2）：渠道投影 + Web Chat verify（真实 resolve 链检查）。 */
+  listAgentChannels(agentId: string): Promise<AgentWebChannel>;
+  verifyAgentWebChannel(agentId: string): Promise<ChannelVerifyResult>;
   issueChatAccess(platformUserId: string, agentId: string): Promise<IssuedChatAccess>;
   revokeChatAccess(accessId: string): Promise<void>;
   getUser360(platformUserId: string): Promise<User360Summary>;

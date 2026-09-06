@@ -85,6 +85,7 @@ def _runtime_profile(version: str) -> CreateRuntimeProfileRequest:
         runtime_profile_id="assistant",
         version=version,
         request_timeout_ms=1_000,
+        default=True,
     )
 
 
@@ -100,6 +101,7 @@ def _run_request(message: str) -> RunRuntimeRequest:
     return RunRuntimeRequest(
         tenant_id="tenant-a",
         user_id="user-a",
+        agent_definition_id="assistant",
         runtime_profile_id="assistant",
         session_id=f"session-{message}",
         input_message=message,

@@ -57,7 +57,7 @@ async def _seed_test_run_product(store: RegistryStore) -> None:
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
     await publish_resource(
         store,

@@ -17,6 +17,9 @@ class ScheduledTask:
     due_at: datetime
     approval_required: bool = True
     approved: bool = False
+    # ADR-A010：执行主坐标是 AgentDefinition（同名回退已废弃）；未指定时
+    # fail-closed（ContextResolverSnapshotBuilder 缺 agent 坐标报错）。
+    agent_definition_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +68,7 @@ class RuntimeScheduler:
             due_at=task.due_at,
             approval_required=task.approval_required,
             approved=True,
+            agent_definition_id=task.agent_definition_id,
         )
 
     async def run_due(self, now: datetime) -> list[ScheduledExecution]:
@@ -90,5 +94,6 @@ def _request_from_task(task: ScheduledTask) -> RequestContext:
         tenant_id=task.tenant_id,
         user_id=task.user_id,
         runtime_profile_id=task.runtime_profile_id,
+        agent_definition_id=task.agent_definition_id,
         session_id=task.session_id,
     )

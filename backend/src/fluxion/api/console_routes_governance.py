@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from fluxion.api.console_helpers import _actor, _kind
 from fluxion.api.console_models import (
+    AgentAuthorizationPayload,
     ApprovalCreatePayload,
     ApprovalDecidePayload,
     BindingCreatePayload,
@@ -35,6 +36,7 @@ def register_console_governance_routes(
     _register_approval_routes(app, service)
     _register_binding_routes(app, service)
     _register_platform_user_routes(app, service)
+    _register_agent_authorization_routes(app, service)
 
 
 def _register_approval_routes(app: FastAPI, service: ConsoleApplicationService) -> None:
@@ -170,3 +172,52 @@ def _register_platform_user_routes(app: FastAPI, service: ConsoleApplicationServ
     async def revoke_chat_access(access_id: str) -> JSONResponse:
         record = await service.revoke_chat_access(_actor(None), access_id=access_id)
         return success({"access_id": record.access_id, "status": "revoked"})
+
+
+def _register_agent_authorization_routes(
+    app: FastAPI, service: ConsoleApplicationService
+) -> None:
+    """TASK-013（§9.1）：Agent → 用户授权产品端点。
+
+    授权语义 = user→agent_definition ResourceBinding；投影只暴露用户/状态/
+    能力差异，不暴露 Binding 内部结构（version_selector/config 等）。
+    """
+
+    @app.get("/studio/agents/{agent_id}/authorized-users")
+    async def list_authorized_users(agent_id: str) -> JSONResponse:
+        rows = await service.list_agent_authorized_users(
+            _actor(None), agent_id=agent_id
+        )
+        return success({"items": rows, "total": len(rows)})
+
+    @app.post("/studio/agents/{agent_id}/authorized-users")
+    async def authorize_user(
+        agent_id: str,
+        payload: AgentAuthorizationPayload,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        actor = _actor(x_actor_id)
+        binding = await service.authorize_agent_user(
+            actor,
+            agent_id=agent_id,
+            platform_user_id=payload.platform_user_id,
+        )
+        return success(binding_payload(binding))
+
+    @app.post(
+        "/studio/agents/{agent_id}/authorized-users/{platform_user_id}:revoke"
+    )
+    async def revoke_user_authorization(
+        agent_id: str,
+        platform_user_id: str,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        actor = _actor(x_actor_id)
+        await service.revoke_agent_user_authorization(
+            actor,
+            agent_id=agent_id,
+            platform_user_id=platform_user_id,
+        )
+        return success(
+            {"agent_id": agent_id, "platform_user_id": platform_user_id, "revoked": True}
+        )

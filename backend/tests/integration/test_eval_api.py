@@ -150,6 +150,7 @@ def _trace() -> TraceRecord:
             "routes": [
                 {
                     "provider_ref": {"id": "dev.echo", "version": "1"},
+                    "model_ref": {"id": "model.dev.echo", "version": "1"},
                     "model": "echo",
                 }
             ]

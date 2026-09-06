@@ -27,7 +27,7 @@ describe("S-09 Console Router 迁移 + C401 IA 核对", () => {
     for (const group of IA_GROUPS) {
       expect(nav.getAllByText(group).length, `导航缺少分组 ${group}`).toBeGreaterThanOrEqual(1);
     }
-    await screen.findByText("平台对象计数与最近操作轨迹");
+    await screen.findByText("平台对象计数、异常工作台与最近操作轨迹");
   });
 
   it("Build 下单一 Agents 入口；移除项（工作台/评测/Queue/Worker）不再是导航；Binding 非一级导航", async () => {

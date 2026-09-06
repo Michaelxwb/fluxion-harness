@@ -365,11 +365,14 @@ class PostgresEncryptedSecretStore:
         return new_ref
 
     async def _revoke(self, ref: str) -> None:
-        await self._record(ref)  # 不存在 → secret_not_found
+        record = await self._record(ref)  # 不存在 → secret_not_found
+        # review-fixes S-02：逻辑凭据禁用覆盖轮换保留的所有版本——按租户+逻辑名
+        # 全量 revoke（旧 Provider 引用后续 resolve 同样 fail-closed，租户隔离）。
         async with self._engine.begin() as conn:
             await conn.execute(
                 update(secret_credentials)
-                .where(secret_credentials.c.ref == ref)
+                .where(secret_credentials.c.tenant_id == record.tenant_id)
+                .where(secret_credentials.c.name == record.name)
                 .values(revoked=True)
             )
 

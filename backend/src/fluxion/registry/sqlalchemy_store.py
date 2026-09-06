@@ -245,19 +245,34 @@ class SQLAlchemyRegistryStore:
         tenant_id: str,
         offset: int,
         limit: int,
+        action: str | None = None,
+        actor_id: str | None = None,
+        target_type: str | None = None,
+        created_from: str | None = None,
+        created_to: str | None = None,
     ) -> tuple[list[AuditRecord], int]:
+        # TASK-021（§8.10）：过滤条件下推 SQL（时间范围走后端查询参数，不做前端全量过滤）
+        conditions = [audit_logs.c.tenant_id == tenant_id]
+        if action is not None:
+            conditions.append(audit_logs.c.action == action)
+        if actor_id is not None:
+            conditions.append(audit_logs.c.actor_id == actor_id)
+        if target_type is not None:
+            conditions.append(audit_logs.c.target_type == target_type)
+        if created_from is not None:
+            conditions.append(audit_logs.c.created_at >= created_from)
+        if created_to is not None:
+            conditions.append(audit_logs.c.created_at <= created_to)
         statement = (
             select(audit_logs)
-            .where(audit_logs.c.tenant_id == tenant_id)
+            .where(*conditions)
             # F8：同事务批量写入的 audit created_at 相同，缺 tiebreak 会跨页重复/丢失。
             # audit_id 作确定性次序键，保证分页稳定。
             .order_by(audit_logs.c.created_at.desc(), audit_logs.c.audit_id.desc())
             .offset(offset)
             .limit(limit)
         )
-        count_statement = select(func.count()).select_from(audit_logs).where(
-            audit_logs.c.tenant_id == tenant_id
-        )
+        count_statement = select(func.count()).select_from(audit_logs).where(*conditions)
         async with self._engine.connect() as connection:
             rows = (await connection.execute(statement)).mappings().all()
             total = int((await connection.execute(count_statement)).scalar_one())
@@ -497,10 +512,17 @@ class SQLAlchemyRegistryStore:
         offset: int,
         limit: int,
         resource_type: ResourceKind | None = None,
+        resource_id: str | None = None,
+        subject_type: str | None = None,
     ) -> tuple[list[ResourceBinding], int]:
         conditions = [resource_bindings.c.tenant_id == tenant_id]
         if resource_type is not None:
             conditions.append(resource_bindings.c.resource_type == resource_type.value)
+        # TASK-013：Agent 授权投影按 resource_id + subject_type 过滤（user→agent）
+        if resource_id is not None:
+            conditions.append(resource_bindings.c.resource_id == resource_id)
+        if subject_type is not None:
+            conditions.append(resource_bindings.c.subject_type == subject_type)
         statement = (
             select(resource_bindings)
             .where(*conditions)
@@ -729,6 +751,20 @@ class SQLAlchemyRegistryStore:
 
     async def resolve_chat_access(self, *, token_hash: str) -> ChatAccessRecord | None:
         return await channel_sqlalchemy.resolve_chat_access(self._engine, token_hash=token_hash)
+
+    async def list_chat_access(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str | None = None,
+        agent_id: str | None = None,
+    ) -> list[ChatAccessRecord]:
+        return await channel_sqlalchemy.list_chat_access(
+            self._engine,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            agent_id=agent_id,
+        )
 
     async def revoke_chat_access(
         self, *, tenant_id: str, access_id: str, revoked_at: datetime

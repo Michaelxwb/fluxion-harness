@@ -127,6 +127,17 @@ async def _seed_model_definition(stack: ConsoleTestStack) -> None:
     await publish_resource(
         stack.client, kind=ResourceKind.MODEL_DEFINITION, resource_id="model.ok"
     )
+    # ADR-A010：Agent 无 runtime_profile_ref 时发布校验走默认链——seed 部署级
+    # platform-default，使「可解析引用」的 agent 不被默认链校验误阻断。
+    await create_resource(
+        stack.client,
+        kind=ResourceKind.RUNTIME_PROFILE,
+        resource_id="platform-default",
+        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+    )
+    await publish_resource(
+        stack.client, kind=ResourceKind.RUNTIME_PROFILE, resource_id="platform-default"
+    )
 
 
 @pytest.mark.asyncio

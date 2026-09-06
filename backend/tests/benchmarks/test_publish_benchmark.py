@@ -40,7 +40,14 @@ def test_B_C105_publish_api_p95_under_500ms(benchmark: BenchmarkFixture) -> None
         run_index += 1
         resource_id = f"assistant-{run_index}"
         loop.run_until_complete(
-            create_resource(client, kind=ResourceKind.RUNTIME_PROFILE, resource_id=resource_id)
+            create_resource(
+                client,
+                kind=ResourceKind.RUNTIME_PROFILE,
+                resource_id=resource_id,
+                # ADR-A010：本 benchmark 每轮新建 profile，不标记 default
+                # （同租户 default 唯一，避免触发唯一性校验阻断）。
+                spec={"request_timeout_ms": 30_000, "max_retries": 1},
+            )
         )
         started = perf_counter_ns()
         response = loop.run_until_complete(

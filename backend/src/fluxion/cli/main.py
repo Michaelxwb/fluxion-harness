@@ -188,12 +188,15 @@ def service_run_request(
     session: str,
     input_message: str,
 ) -> RunRuntimeRequest:
+    # ADR-A010：`--agent` 是执行主坐标（AgentDefinition id）；profile 经
+    # 租户默认链解析（runtime_profile_id 仅作 mechanics 透传坐标）。
     return RunRuntimeRequest(
         tenant_id=tenant,
         user_id=user,
         runtime_profile_id=agent,
         session_id=session,
         input_message=input_message,
+        agent_definition_id=agent,
     )
 
 

@@ -78,7 +78,6 @@ class RegistryOpenAIModelProvider:
         self, request: ModelRequest
     ) -> OpenAICompatibleHTTPModelProvider:
         tenant_id = _required_context(request.tenant_id, "tenant_id")
-        user_id = _required_context(request.user_id, "user_id")
         version = _required_context(request.provider_version, "provider_version")
         resource = await self._store.get(
             ResourceKind.MODEL_PROVIDER,
@@ -89,46 +88,62 @@ class RegistryOpenAIModelProvider:
         if resource is None or resource.status is not ResourceStatus.PUBLISHED:
             raise RegistryModelProviderError("model provider definition not found")
         _validate_protocol(resource.spec_json)
-        binding = await self._binding(tenant_id=tenant_id, user_id=user_id)
-        credential = await self._credential(binding)
+        # ADR-A003 amend（TASK-005）：运行期只按冻结的 credential_ref 解密，
+        # 不重新选择（选择链在 Snapshot 构建期收口）。
+        if request.credential_ref is None:
+            raise RegistryModelProviderError("model request credential_ref is required")
+        credential = await self._credential(request.credential_ref, tenant_id=tenant_id)
         return _provider_from_spec(self._provider_id, resource.spec_json, credential)
 
-    async def _binding(self, *, tenant_id: str, user_id: str) -> ResourceBinding:
-        user_bindings = await self._store.list_bindings(
-            subject_type="user",
-            subject_id=user_id,
-            tenant_id=tenant_id,
-            resource_type=ResourceKind.MODEL_PROVIDER,
-        )
-        tenant_bindings = await self._store.list_bindings(
-            subject_type="tenant",
-            subject_id=tenant_id,
-            tenant_id=tenant_id,
-            resource_type=ResourceKind.MODEL_PROVIDER,
-        )
-        binding = next(
-            (
-                item
-                for item in [*user_bindings, *tenant_bindings]
-                if item.resource_id == self._provider_id and item.enabled
-            ),
-            None,
-        )
-        if binding is None:
-            raise RegistryModelProviderError("model provider binding not found")
-        return binding
-
-    async def _credential(self, binding: ResourceBinding) -> str | None:
-        if binding.credential_ref is None:
-            return None
+    async def _credential(self, ref: str, *, tenant_id: str) -> str:
         if self._credential_resolver is None:
             raise RegistryModelProviderError("model credential resolver is not configured")
         try:
-            return await self._credential_resolver.resolve(
-                binding.credential_ref, tenant_id=binding.tenant_id
-            )
+            return await self._credential_resolver.resolve(ref, tenant_id=tenant_id)
         except SecretProviderError as exc:
-            raise RegistryModelProviderError("model credential is unavailable") from exc
+            raise RegistryModelProviderError(
+                f"provider_credential_unresolvable: credential {ref} "
+                f"unavailable for provider {self._provider_id}"
+            ) from exc
+
+
+async def resolve_effective_credential_ref(
+    store: RegistryReadStore,
+    *,
+    provider_id: str,
+    tenant_id: str,
+    user_id: str,
+    spec: Mapping[str, object],
+) -> str:
+    """EffectiveCredential 单链的选择段（只选 ref 不解密，供 Snapshot 构建期收口）。
+
+    User Binding ?? Tenant Binding ?? ProviderDefinition.credential_ref。
+    Binding 是 override 不是运行前提；`credential_ref=None` 的 binding 跳过。
+    与 RegistryOpenAIModelProvider 的语义一致（ADR-A008 amend 方案 B）。
+    """
+    user_bindings = await store.list_bindings(
+        subject_type="user",
+        subject_id=user_id,
+        tenant_id=tenant_id,
+        resource_type=ResourceKind.MODEL_PROVIDER,
+    )
+    tenant_bindings = await store.list_bindings(
+        subject_type="tenant",
+        subject_id=tenant_id,
+        tenant_id=tenant_id,
+        resource_type=ResourceKind.MODEL_PROVIDER,
+    )
+    override = next(
+        (
+            item
+            for item in [*user_bindings, *tenant_bindings]
+            if item.resource_id == provider_id and item.enabled and item.credential_ref is not None
+        ),
+        None,
+    )
+    if override is not None:
+        return override.credential_ref
+    return _required_string(spec, "credential_ref")
 
 
 def _provider_from_spec(

@@ -35,6 +35,10 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [publishIssues, setPublishIssues] = useState<readonly string[] | null>(null);
+  const [latestTraceId, setLatestTraceId] = useState<string | null>(null);
+  // ADR-A011：乐观并发检查 base——published 资源编辑时记录其当前 published 版本，
+  // 发布携带 expected_base_version 防止并发覆盖（首次发布无 base 则为 undefined）。
+  const [publishedBaseVersion, setPublishedBaseVersion] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!resourceId) return;
@@ -54,6 +58,8 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
             : loaded;
         if (!active) return;
         setResource(draft);
+        // ADR-A011：published 资源编辑记录乐观并发 base（fork 前的 published 版本）
+        setPublishedBaseVersion(loaded.status === "published" ? loaded.version : undefined);
         setValue(editorValueFrom(draft));
         setModelOptions(models);
         setProfileOptions(profiles);
@@ -72,7 +78,8 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
     setBusy(true);
     setError(null);
     try {
-      const saved = await api.updateDraft(resource, editorSpec(resource, value));
+      const target = await ensureDraft();
+      const saved = await api.updateDraft(target, editorSpec(target, value));
       setResource(saved);
       setNotice("已保存");
     } catch (cause) {
@@ -80,6 +87,17 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
     } finally {
       setBusy(false);
     }
+  }
+
+  /** S-06：已发布版本不可变——写前若工作态已是 published，先 fork 新 Draft
+   * 再写，否则直接 update 会 409。draft 态零额外请求直接返回。
+   */
+  async function ensureDraft(): Promise<ResourceVersion> {
+    if (!resource) throw new Error("资源尚未加载");
+    if (resource.status !== "published") return resource;
+    const next = await api.createDraftFromLatest("agent_definition", resource.resourceId);
+    setResource(next);
+    return next;
   }
 
   async function publish(): Promise<void> {
@@ -90,7 +108,8 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
       // 发布前自动完整校验（TASK-009 返工）：先保存当前表单为 working draft，
       // 对保存后的版本做完整校验——校验对象是即将发布的 spec，用户刚加入的
       // 非法引用不可绕过预检；失败渲染可操作问题清单，不静默发布
-      const saved = await api.updateDraft(resource, editorSpec(resource, value));
+      const target = await ensureDraft();
+      const saved = await api.updateDraft(target, editorSpec(target, value));
       const validation = await api.validatePublish(saved);
       if (!validation.valid) {
         setResource(saved);
@@ -99,10 +118,10 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
         return;
       }
       setPublishIssues(null);
-      await api.publishVersion(saved);
-      // publishVersion 返回 PublishResult 而非 ResourceVersion；保留 saved draft 作为
-      // 编辑态资源（已发布版本不可变，新一轮编辑走 working draft）
-      setResource(saved);
+      const result = await api.publishVersion(saved, { expectedBaseVersion: publishedBaseVersion });
+      // S-06：发布成功即为 published 态；后续保存经 ensureDraft fork 新版。
+      setResource({ ...saved, status: "published" });
+      setPublishedBaseVersion(result.version);
       setNotice("已发布");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "发布失败");
@@ -124,6 +143,7 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
       ) : (
         <Card aria-label="智能体编辑器">
           <AgentEditorForm
+            agentId={resource.resourceId}
             api={api}
             busy={busy}
             modelOptions={modelOptions}
@@ -131,9 +151,11 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
             onChange={(change) => setValue((current) => ({ ...current, ...change }))}
             onPublish={() => void publish()}
             onSave={() => void save()}
+            onTestCompleted={setLatestTraceId}
             profileOptions={profileOptions}
             publishIssues={publishIssues}
             value={value}
+            latestTraceId={latestTraceId}
             workflowOptions={workflowOptions}
           />
         </Card>

@@ -279,7 +279,13 @@ class ConsoleResourceLifecycleOps:
 
         review P1-7：``release_gate_enforced=True`` 时 gate 从 opt-in 变强制
         策略——不带 gate 参数的 publish 同样 fail-closed 阻断（生产装配开启）。
+
+        ADR-A011（TASK-004）：ReleaseGate 只作用于 Release Target，非所有
+        Versioned Resource——`applies_to(kind)` 白名单仅 AGENT_DEFINITION
+        （WORKFLOW V1 不纳入），其余 kind 默认不评估 gate。
         """
+        if request.kind is not ResourceKind.AGENT_DEFINITION:
+            return
         if request.gate is None:
             if getattr(self, "_release_gate_enforced", False):
                 raise ConsoleReleaseGateBlockedError(

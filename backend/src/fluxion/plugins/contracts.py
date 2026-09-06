@@ -115,6 +115,9 @@ class ModelRequest:
     tenant_id: str | None = None
     user_id: str | None = None
     provider_version: str | None = None
+    # ADR-A003 amend（TASK-005）：Snapshot 构建期收口的 credential_ref——
+    # 运行期只按此 ref 解密，不重新选择（执行中新增 binding 不影响进行中 Execution）。
+    credential_ref: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

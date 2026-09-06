@@ -16,6 +16,7 @@ from fluxion.agents.repository import AgentDefinitionRepository
 from fluxion.errors.console import RESOURCE_NOT_FOUND, ConsoleError
 from fluxion.registry import ChannelRegistryStore
 from fluxion.resources import ResourceKind
+from fluxion.services.runtime_profile_resolution import resolve_default_runtime_profile
 from fluxion.services.runtime_app import (
     RunRuntimeRequest,
     RuntimeApplicationService,
@@ -110,12 +111,20 @@ class ProductAgentApplicationService:
             yield event
 
     async def _resolve_profile_id(self, tenant_id: str, agent_id: str) -> str:
-        """mechanics 解析：Agent.runtime_profile_ref；缺省同名回退（fixture/迁移约定）。"""
+        """mechanics 解析：Agent.runtime_profile_ref；未配置走 ADR-A010 租户默认链。"""
         agent, profile = await self._agents.resolve(
             tenant_id=tenant_id, resource_id=agent_id
         )
         del agent
         if profile is not None:
             return profile.id
-        return agent_id
+        default = await resolve_default_runtime_profile(self._store, tenant_id)
+        if default is None:
+            raise ConsoleError(
+                RESOURCE_NOT_FOUND,
+                "no default RuntimeProfile: tenant default and platform-default "
+                f"both missing for agent {agent_id} (ADR-A010)",
+                409,
+            )
+        return default.id
 

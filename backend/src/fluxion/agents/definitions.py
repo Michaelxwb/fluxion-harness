@@ -107,7 +107,7 @@ class AgentDefinition(SensitiveSpecModel):
     runtime_profile_ref: ExactResourceVersion | None = Field(
         default=None,
         title="运行态引用",
-        description="RuntimeProfile 引用；留空由解析层取租户默认",
+        description="RuntimeProfile 引用；留空走 ADR-A010 默认链（租户 default=true → platform-default）",
     )
     capabilities: list[AgentCapabilityReference] = Field(
         default_factory=list,

@@ -123,6 +123,7 @@ class TestS08ConsoleIndependence:
                     "user_id": "user-s08",
                     "session_id": "s-console-down",
                     "input": "console-down-ping",
+                    "agent_definition_id": agent_id,
                 },
                 timeout=30.0,
             )
@@ -142,7 +143,7 @@ async def _seed_agent(store: PostgreSQLRegistryStore, tenant_id: str, agent_id: 
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id=agent_id,
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
     # ADR-A008：agent.model_policy → ModelDefinition（model.dev.echo）→ dev.echo；
     # 真实执行走 ContextResolver，ModelDefinition 缺失会 fail-closed（422）。

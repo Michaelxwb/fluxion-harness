@@ -10,6 +10,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
+from fluxion.registry.resource_sqlalchemy import assert_single_default_profile
 from fluxion.registry.schema import (
     audit_logs,
     config_revisions,
@@ -42,6 +43,18 @@ async def commit_publication(
     async with engine.begin() as connection:
         current = await _locked_resource(connection, command)
         await _check_expected_base(connection, command)
+        # ADR-A010（TASK-002）：RUNTIME_PROFILE 发布校验租户 default 唯一性
+        # （拒绝并存，fail-closed）；DEPRECATE/ROLLBACK 不引入新 default，无需校验。
+        if (
+            command.operation is PublicationOperation.PUBLISH
+            and command.kind is ResourceKind.RUNTIME_PROFILE
+        ):
+            await assert_single_default_profile(
+                connection,
+                tenant_id=command.tenant_id,
+                resource_id=command.resource_id,
+                spec_json=current["spec_json"],
+            )
         published = await _apply_operation(connection, command, current, now)
         revision = await _bump_revision(connection, command.tenant_id, now)
         audit = _audit_record(command, current, published, revision)

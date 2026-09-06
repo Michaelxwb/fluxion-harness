@@ -80,6 +80,7 @@ def _trace_record(trace_id: str, *, tenant_id: str = "tenant-a") -> TraceRecord:
             "routes": [
                 {
                     "provider_ref": {"id": "dev.echo", "version": "1"},
+                    "model_ref": {"id": "model.dev.echo", "version": "1"},
                     "model": "echo",
                 }
             ]
@@ -332,6 +333,9 @@ def _eval_run_record(run_id: str, *, tenant_id: str = "tenant-a") -> EvalRunReco
         tenant_id=tenant_id,
         eval_set_id="quality",
         eval_set_version="3",
+        target_kind="runtime_profile",
+        target_id="runtime-main",
+        target_version="7",
         runtime_profile_id="runtime-main",
         runtime_profile_version="7",
         trace_id=f"trace-{run_id}",

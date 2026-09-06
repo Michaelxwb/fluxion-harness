@@ -59,7 +59,7 @@ async def _seed_agent(store: SQLiteRegistryStore, *, version: str = "1") -> None
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version=version,
-        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
     # ADR-A008：agent.model_policy 指向 ModelDefinition（model.dev.echo），
     # 解析链必需的 fixture 资源（tenant 与 agent 一致）。
@@ -167,14 +167,14 @@ async def test_capability_versions_resolve_published(store: SQLiteRegistryStore)
         version="2",
         spec={"name": "weather", "endpoint": "..."},
     )
-    # runtime_profile（agent 解析依赖）
+    # runtime_profile（agent 解析依赖；ADR-A010：租户默认）
     await publish_resource(
         store,
         tenant_id="tenant-a",
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
     )
     # ADR-A008：解析链需要 ModelDefinition（model.dev.echo）存在
     await seed_model_definition(store, tenant_id="tenant-a", provider_id="dev.echo")
@@ -251,23 +251,24 @@ async def test_s08_execution_immutability_across_publish(store: SQLiteRegistrySt
 
 
 @pytest.mark.asyncio
-async def test_runtime_profile_selector_pin_applies_without_agent_profile_ref(
+async def test_runtime_profile_selector_pin_requires_ref(
     store: SQLiteRegistryStore,
 ) -> None:
+    """ADR-A010：无 ref 的版本 pin 是矛盾输入 → fail-closed（同名回退已废弃）。"""
     await _seed_agent(store, version="1")
     await _seed_agent(store, version="2")
 
-    result = await _resolver(store).resolve(
-        ResolverSelector(
-            tenant_id="tenant-a",
-            agent_id="assistant",
-            user_id="user-a",
-            runtime_profile_version="1",
-        ),
-        session_id="s-profile-pin",
-    )
-
-    assert result.snapshot.runtime_profile_version == "1"
+    with pytest.raises(ContextResolutionError) as exc_info:
+        await _resolver(store).resolve(
+            ResolverSelector(
+                tenant_id="tenant-a",
+                agent_id="assistant",
+                user_id="user-a",
+                runtime_profile_version="1",
+            ),
+            session_id="s-profile-pin",
+        )
+    assert exc_info.value.code == "runtime_profile_ref_required"
 
 
 @pytest.mark.asyncio

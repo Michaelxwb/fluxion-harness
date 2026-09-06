@@ -172,6 +172,14 @@ class ConsoleGovernanceOps:
         )
         if resource is None:
             raise ConsoleResourceNotFoundError()
+        # ADR-A008 amend（方案 B）：MODEL_PROVIDER Binding 绑定逻辑 Provider ID
+        # 跨版本继承；`resource_version_selector` 对该类型无效（死配置移除），
+        # 统一写 latest-published，不承载版本敏感语义。
+        effective_selector = (
+            "latest-published"
+            if request.resource_type is ResourceKind.MODEL_PROVIDER
+            else request.version_selector
+        )
         try:
             binding = ResourceBinding(
                 binding_id=f"bind_{uuid4().hex}",
@@ -180,7 +188,7 @@ class ConsoleGovernanceOps:
                 subject_id=request.subject_id,
                 resource_type=request.resource_type,
                 resource_id=request.resource_id,
-                resource_version_selector=request.version_selector,
+                resource_version_selector=effective_selector,
                 config_json=dict(request.config),
                 credential_ref=request.credential_ref,
                 enabled=True,
@@ -243,6 +251,179 @@ class ConsoleGovernanceOps:
             )
         except NotFoundError as exc:
             raise ConsoleResourceNotFoundError("binding not found") from exc
+
+    # ---- TASK-013：Agent → 用户授权产品投影（§9.1 添加用户 / Agent Access /
+    # User Binding 产品投影；授权语义 = user→agent_definition ResourceBinding，
+    # 不暴露 Binding 内部结构）----
+
+    async def list_agent_authorized_users(
+        self,
+        actor: ConsoleActor,
+        *,
+        agent_id: str,
+    ) -> list[dict[str, object]]:
+        agent = await self._store.get(
+            ResourceKind.AGENT_DEFINITION, agent_id, tenant_id=actor.tenant_id
+        )
+        if agent is None:
+            raise ConsoleResourceNotFoundError("agent not found")
+        agent_capability_refs = {
+            item["capability_ref"]
+            for item in agent.spec_json.get("capabilities", [])
+            if isinstance(item, dict) and "capability_ref" in item
+        }
+        bindings, _total = await self._store.list_bindings_page(
+            tenant_id=actor.tenant_id,
+            offset=0,
+            limit=1000,
+            resource_type=ResourceKind.AGENT_DEFINITION,
+            resource_id=agent_id,
+            subject_type="user",
+        )
+        rows: list[dict[str, object]] = []
+        for binding in bindings:
+            if not binding.enabled:
+                # 已撤销授权不再出现在 Agent Access 列表（撤销 = 退出投影）
+                continue
+            user = await self._store.get_platform_user(
+                tenant_id=actor.tenant_id,
+                platform_user_id=binding.subject_id,
+            )
+            grants = await self._store.list_capability_grants(
+                tenant_id=actor.tenant_id,
+                platform_user_id=binding.subject_id,
+            )
+            grant_refs = {grant.capability_ref for grant in grants}
+            rows.append(
+                {
+                    "platform_user_id": binding.subject_id,
+                    "display_name": user.display_name if user else binding.subject_id,
+                    "binding_id": binding.binding_id,
+                    "enabled": binding.enabled,
+                    "capability_overlap": sorted(grant_refs & agent_capability_refs),
+                    "capability_additions": sorted(grant_refs - agent_capability_refs),
+                }
+            )
+        return rows
+
+    async def authorize_agent_user(
+        self,
+        actor: ConsoleActor,
+        *,
+        agent_id: str,
+        platform_user_id: str,
+    ) -> ResourceBinding:
+        user = await self._store.get_platform_user(
+            tenant_id=actor.tenant_id,
+            platform_user_id=platform_user_id,
+        )
+        if user is None:
+            raise ConsoleResourceNotFoundError("platform user not found")
+        return await self.create_binding(
+            actor,
+            CreateBindingRequest(
+                tenant_id=actor.tenant_id,
+                subject_type="user",
+                subject_id=platform_user_id,
+                resource_type=ResourceKind.AGENT_DEFINITION,
+                resource_id=agent_id,
+            ),
+        )
+
+    async def revoke_agent_user_authorization(
+        self,
+        actor: ConsoleActor,
+        *,
+        agent_id: str,
+        platform_user_id: str,
+    ) -> None:
+        """撤销授权：disable binding + revoke 该 (user, agent) 全部 Chat Access。
+
+        高影响操作：binding 撤销经 commit_binding 审计；chat access 撤销补独立
+        AuditLog（规则 24），保证撤销后已签发链接立即失效（fail-closed）。
+        """
+        bindings, _total = await self._store.list_bindings_page(
+            tenant_id=actor.tenant_id,
+            offset=0,
+            limit=1000,
+            resource_type=ResourceKind.AGENT_DEFINITION,
+            resource_id=agent_id,
+            subject_type="user",
+        )
+        matched = [
+            binding
+            for binding in bindings
+            if binding.subject_id == platform_user_id and binding.enabled
+        ]
+        if not matched:
+            raise ConsoleResourceNotFoundError("authorization not found")
+        for binding in matched:
+            await self.disable_binding(actor, binding_id=binding.binding_id)
+        accesses = await self._store.list_chat_access(
+            tenant_id=actor.tenant_id,
+            platform_user_id=platform_user_id,
+            agent_id=agent_id,
+        )
+        for access in accesses:
+            await self._store.revoke_chat_access(
+                tenant_id=actor.tenant_id,
+                access_id=access.access_id,
+                revoked_at=utc_now(),
+            )
+            await self._append_audit(
+                actor,
+                action="chat_access.revoke",
+                target_type="chat_access",
+                target_id=access.access_id,
+                before={"agent_id": agent_id, "platform_user_id": platform_user_id},
+                after={"revoked": True},
+            )
+
+    # ---- TASK-014（§9.2）：Agent → 渠道产品投影。Web Chat 是正式 Channel（规则
+    # 15）；渠道条目 = 该 Agent 的活跃 Chat Access 入口（token 不回显，仅元数据）。
+
+    async def list_agent_channels(
+        self,
+        actor: ConsoleActor,
+        *,
+        agent_id: str,
+    ) -> dict[str, object]:
+        # 渠道状态锚定「存在已发布版本」（latest-published），而非当前 working
+        # draft 状态——编辑器打开即产生 draft，不应使已发布渠道误判为未发布。
+        agent = await self._store.get(
+            ResourceKind.AGENT_DEFINITION,
+            agent_id,
+            tenant_id=actor.tenant_id,
+            version=None,
+        )
+        if agent is None:
+            raise ConsoleResourceNotFoundError("agent not found")
+        entries = await self._store.list_chat_access(
+            tenant_id=actor.tenant_id,
+            agent_id=agent_id,
+        )
+        platform_users, _user_total = await self._store.list_platform_users(
+            tenant_id=actor.tenant_id, offset=0, limit=1000
+        )
+        users = {user.platform_user_id: user.display_name for user in platform_users}
+        return {
+            "web": {
+                "channel_type": "web",
+                # Web Chat 渠道状态锚定 Agent 发布态：入口签发即校验 PUBLISHED
+                "status": "active" if agent.status.value == "published" else "inactive",
+                "entries": [
+                    {
+                        "access_id": access.access_id,
+                        "platform_user_id": access.platform_user_id,
+                        "display_name": users.get(
+                            access.platform_user_id, access.platform_user_id
+                        ),
+                        "created_at": access.created_at.isoformat(),
+                    }
+                    for access in entries
+                ],
+            }
+        }
 
 
 def _approval_view(record: ApprovalRecord) -> ApprovalRecordView:

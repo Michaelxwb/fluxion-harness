@@ -98,9 +98,18 @@ def create_dev_bundle_app(
         service_instance_id=runtime.service_instance_id,
         release_gate=release_gate,
         credential_resolver=credential_resolver,
+        # golden-path-closure TASK-009：凭据创建/轮换/禁用的明文写入能力。
+        secret_store=secret_store,
     )
     api = ApiDispatcher(
-        create_console_app(console, dev_mode=dev_mode, projection_service=projection),
+        # TASK-012：test-run 需要 runtime 执行链；dev bundle 与 production 同为
+        # 同进程 bundle 装配，Console 单独部署时 register_studio_routes 显式 503。
+        create_console_app(
+            console,
+            dev_mode=dev_mode,
+            projection_service=projection,
+            runtime_service=runtime,
+        ),
         create_channel_app(channel, dev_mode=dev_mode),
         create_eval_app(eval_service, dev_mode=dev_mode),
         # TASK-014：dev bundle 无 DBOS → signal sender 缺省（审批 decide 返回 503

@@ -39,11 +39,11 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="assistant",
             version="1",
-            spec={"request_timeout_ms": 30_000, "max_retries": 1},
+            spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
         )
         # TASK-A104：persona/model 迁至同名 AgentDefinition；ADR-A008 三层链：
         # agent.model_policy → ModelDefinition（model.wire-provider）→ MODEL_PROVIDER
-        # 资源 wire-provider@1（snapshot.plugin_versions pin 解析后的 provider）。
+        # 资源 wire-provider@1（snapshot.provider_versions pin 解析后的 provider）。
         await seed_model_definition(
             sqlite_store, tenant_id="tenant-a", provider_id="wire-provider"
         )
@@ -83,6 +83,7 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
             RunRuntimeRequest(
                 tenant_id="tenant-a",
                 user_id="user-a",
+                agent_definition_id="assistant",
                 runtime_profile_id="assistant",
                 session_id="session-a",
                 input_message="hello",
@@ -93,5 +94,5 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
         assert wire.request_headers[0]["authorization"] == "Bearer wire-secret"
         trace = await runtime.trace_store.get(result.trace_id)
         assert trace is not None
-        assert trace.snapshot.plugin_versions == {"wire-provider": "1"}
+        assert trace.snapshot.provider_versions == {"wire-provider": "1"}
         assert "wire-secret" not in repr(trace)

@@ -47,6 +47,12 @@ class EvalRunRecord:
     tenant_id: str
     eval_set_id: str
     eval_set_version: str
+    # remediation §4.7：被测目标（agent_definition | workflow | runtime_profile）。
+    # runtime_profile_id/version 语义扩展为「被测目标 id/version」（target.id/version），
+    # target_kind 区分类型——兼容既有 runtime_profile 语义（default）。
+    target_kind: str
+    target_id: str
+    target_version: str
     runtime_profile_id: str
     runtime_profile_version: str
     trace_id: str
@@ -214,10 +220,19 @@ class EvaluationApplicationService:
         )
         eval_set = _parse_eval_set(definition)
         runtime_ref = eval_set.runtime_profile_ref
+        # remediation §4.7（TASK-006）：target 转向完整执行对象——按 kind 校验
+        # published 精确版本（agent_definition/workflow 为真实产品评测对象，
+        # runtime_profile 保留兼容）；trace 关联仍用 runtime_profile（执行时 profile）。
+        target = eval_set.effective_target()
+        target_kind = {
+            "agent_definition": ResourceKind.AGENT_DEFINITION,
+            "workflow": ResourceKind.WORKFLOW,
+            "runtime_profile": ResourceKind.RUNTIME_PROFILE,
+        }[target.kind]
         await self._published_exact(
-            ResourceKind.RUNTIME_PROFILE,
-            runtime_ref.id,
-            runtime_ref.version,
+            target_kind,
+            target.id,
+            target.version,
             request.tenant_id,
         )
         # workflow 用例（TASK-004）：workflow_ref pin 精确 published 版本（规则 5/6）
@@ -230,6 +245,18 @@ class EvaluationApplicationService:
                     request.tenant_id,
                 )
         trace = await self._exact_trace(request, runtime_ref.id, runtime_ref.version)
+        # review-fixes S-03：Agent target 必须匹配 Trace Snapshot 的 Agent ID 与精确
+        # 版本——缺失/错 Agent/错版本拒绝且不写 EvalRun（不凭共享 RuntimeProfile
+        # 冒认目标）；workflow/runtime_profile target 沿用现有执行证据校验。
+        if target.kind == "agent_definition":
+            snapshot = trace.snapshot
+            if (
+                snapshot.agent_definition_id != target.id
+                or snapshot.agent_definition_version != target.version
+            ):
+                raise EvalTraceabilityError(
+                    "Trace Snapshot Agent 与 EvalSet target 不一致"
+                )
         result = await self._evaluate(eval_set, trace)
         record = _run_record(request, eval_set, trace, result)
         await self._runs.put(record)
@@ -352,6 +379,7 @@ def _run_record(
     trace: TraceRecord,
     result: EvalExecutionResult,
 ) -> EvalRunRecord:
+    target = eval_set.effective_target()
     runtime_ref = eval_set.runtime_profile_ref
     snapshot = trace.snapshot.model_dump(mode="python")
     return EvalRunRecord(
@@ -359,6 +387,9 @@ def _run_record(
         tenant_id=request.tenant_id,
         eval_set_id=request.eval_set_id,
         eval_set_version=request.eval_set_version,
+        target_kind=target.kind,
+        target_id=target.id,
+        target_version=target.version,
         runtime_profile_id=runtime_ref.id,
         runtime_profile_version=runtime_ref.version,
         trace_id=request.trace_id,

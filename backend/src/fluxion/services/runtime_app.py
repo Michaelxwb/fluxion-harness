@@ -15,6 +15,7 @@ from opentelemetry.trace import Status, StatusCode
 from pydantic import ValidationError
 
 from fluxion.kernel.events import TypedEventBus
+from fluxion.memory.domain.personal_memory import PersonalMemoryRetriever
 from fluxion.observability.context import bind_execution_id, reset_execution_id
 from fluxion.observability.logging import emit_runtime_error_log
 from fluxion.observability.tracing import traced_scope
@@ -95,6 +96,7 @@ class RuntimeApplicationService(RuntimeToolOps):
         mcp_runtime: RegistryMCPRuntime | None = None,
         credential_resolver: CredentialResolver | None = None,
         plugin_summaries: Sequence[PluginSummary] = (),
+        memory_retriever: PersonalMemoryRetriever | None = None,
     ) -> None:
         self._store = store
         self._cache = TenantResourceCache(ttl_seconds=cache_ttl_seconds)
@@ -104,8 +106,17 @@ class RuntimeApplicationService(RuntimeToolOps):
         )
         self._model_providers = model_providers or ModelProviderRegistry()
         self._credential_resolver = credential_resolver
+        # ADR-A003 amend（TASK-005）：composition root 注入 credential_resolver
+        # 与 memory_retriever——ContextResolver 不再裸构造，credential_versions
+        # 真实化（非占位 "1"）、memory manifest 经注入 retriever 而非 unavailable。
         self._runtime = AgentRuntime(
-            snapshot_builder=ContextResolverSnapshotBuilder(ContextResolver(store)),
+            snapshot_builder=ContextResolverSnapshotBuilder(
+                ContextResolver(
+                    store,
+                    credential_resolver=credential_resolver,
+                    memory_retriever=memory_retriever,
+                )
+            ),
             memory_store=memory_store or default_session_memory_store(store),
             model_providers=self._model_providers,
         )
@@ -133,6 +144,7 @@ class RuntimeApplicationService(RuntimeToolOps):
         event_bus: TypedEventBus | None = None,
         memory_store: SessionMemoryStore | None = None,
         credential_resolver: CredentialResolver | None = None,
+        memory_retriever: PersonalMemoryRetriever | None = None,
     ) -> RuntimeApplicationService:
         model_registry = ModelProviderRegistry()
         model_registry.register("dev.echo", DevEchoModelProvider())
@@ -153,6 +165,7 @@ class RuntimeApplicationService(RuntimeToolOps):
             memory_store=memory_store,
             credential_resolver=credential_resolver,
             plugin_summaries=_derive_plugin_summaries(model_registry),
+            memory_retriever=memory_retriever,
         )
 
     @property
@@ -427,6 +440,20 @@ class RuntimeApplicationService(RuntimeToolOps):
 
     def list_plugins(self) -> list[PluginSummary]:
         return list(self._plugin_summaries)
+
+    async def resolve_context(self, request: RunRuntimeRequest) -> dict[str, object]:
+        """TASK-014：渠道 verify 专用——只构建 ExecutionSnapshot（真实 resolve 链：
+        profile/agent/model/capability/credential 全量解析），不执行模型与工具。
+        失败 fail-closed 抛 RuntimeApplicationError（规则 18：显式错误，不静默）。
+        """
+        prepared = await ExecutionSession(self).prepare(request)
+        snapshot = prepared.context.snapshot
+        return {
+            "execution_id": snapshot.execution_id,
+            "runtime_profile_id": snapshot.runtime_profile_id,
+            "agent_definition_id": snapshot.agent_definition_id,
+            "model_routes": len(snapshot.model_resolution.routes),
+        }
 
     async def health(self) -> HealthResult:
         return HealthResult("ok", self._service_instance_id)

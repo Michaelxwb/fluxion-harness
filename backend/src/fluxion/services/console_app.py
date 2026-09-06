@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import hashlib
 import secrets
 import traceback
@@ -11,6 +12,7 @@ from uuid import uuid4
 from fluxion.errors.console import (
     CHANNEL_AGENT_NOT_FOUND,
     INTERNAL_ERROR,
+    VALIDATION_FAILED,
     ConsoleError,
     ConsoleResourceNotFoundError,
 )
@@ -22,11 +24,15 @@ from fluxion.registry import (
     NotFoundError,
     PlatformUserRecord,
 )
-from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus
-from fluxion.runtime.secrets import CredentialResolver, SecretMetadata, SecretMetadataStore
+from fluxion.resources import ResourceDefinition, ResourceKind, ResourceStatus, ResourceVisibility
+from fluxion.runtime.secrets import CredentialResolver, SecretMetadata, SecretMetadataStore, SecretStore
 from fluxion.runtime.tracing import TraceRecord, TraceStore
 from fluxion.services.approval_app import ApprovalStore, InMemoryApprovalStore
-from fluxion.services.console_contracts import ConsoleActor
+from fluxion.services.console_contracts import (
+    ConsoleActor,
+    CreateResourceDraftRequest,
+    UpdateResourceDraftRequest,
+)
 from fluxion.services.console_governance import ConsoleGovernanceOps
 from fluxion.services.console_payloads import (
     IssuedChatAccess,
@@ -52,6 +58,7 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         release_gate: ReleaseGateService | None = None,
         release_gate_enforced: bool = False,
         credential_resolver: CredentialResolver | None = None,
+        secret_store: SecretStore | None = None,
     ) -> None:
         self._store = store
         self._trace_store = trace_store
@@ -59,6 +66,8 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         self._approval_store = approval_store or InMemoryApprovalStore()
         # TASK-019 返工：连接测试凭据注入（Provider Authorization / MCP transport）。
         self._credential_resolver = credential_resolver
+        # golden-path-closure TASK-009：明文 Secret 写入（Credential 创建 Journey）。
+        self._secret_store = secret_store
         self._workflow_validator = WorkflowDefinitionValidator(store)
         self._deployment_actions: list[str] = []
         # 只读运行时身份快照：由装配方（dev bundle）注入，避免 Console 反向依赖 Runtime。
@@ -73,6 +82,11 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         # 单进程内按资源串行化 publish/rollback/deprecate，保证 optimistic-lock
         # 的 check-then-commit 原子；多实例部署需依赖 DB 级串行化（如 advisory lock）。
         self._publication_locks: dict[tuple[str, ResourceKind, str], asyncio.Lock] = {}
+
+    @property
+    def store(self) -> ChannelRegistryStore:
+        """Registry 只读入口（ADR-A010：API 层解析租户默认 RuntimeProfile 等场景）。"""
+        return self._store
 
     @property
     def deployment_actions(self) -> tuple[str, ...]:
@@ -181,6 +195,113 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
             limit=page_size,
         )
 
+    async def create_credential(
+        self,
+        actor: ConsoleActor,
+        *,
+        name: str,
+        plaintext: str,
+        purpose: str = "",
+    ) -> ResourceDefinition:
+        """golden-path-closure TASK-009：明文只写不回显——写 SecretStore 得 secret_ref，
+        创建 Secret 元数据资源（spec 只保存 SecretRef，规则 17）。"""
+        if self._secret_store is None:
+            raise ConsoleError(
+                VALIDATION_FAILED, "secret store is not configured for credential creation", 503
+            )
+        # SecretRef 的逻辑名必须与 Registry SECRET resource_id 一致：发布校验、
+        # Binding 和运行期 Resolver 都以该逻辑 ID 关联资源。显示名只保留在 spec.name。
+        # 逻辑 ID 由服务端生成唯一 ID（review-fixes S-01）：显示名独立，同名/并发
+        # 创建不得覆盖既有 SecretRef——slug 前缀保可读，hex 后缀保证唯一。
+        slug = re.sub(r"[^a-z0-9-]+", "-", name.strip().lower()).strip("-") or "cred"
+        credential_id = f"{slug}-{uuid4().hex[:8]}"
+        secret_ref = await self._secret_store.put(actor.tenant_id, credential_id, plaintext)
+        return await self.create_resource_draft(
+            actor,
+            CreateResourceDraftRequest(
+                tenant_id=actor.tenant_id,
+                kind=ResourceKind.SECRET,
+                resource_id=credential_id,
+                version="1",
+                visibility=ResourceVisibility.PRIVATE,
+                spec={"name": name, "secret_ref": secret_ref, "purpose": purpose},
+            ),
+        )
+
+    async def rotate_credential(
+        self,
+        actor: ConsoleActor,
+        *,
+        credential_id: str,
+        plaintext: str,
+    ) -> ResourceDefinition:
+        """golden-path-closure TASK-009：轮换——store 层写入新版本 SecretRef，
+        working draft spec 更新指向新 ref；旧版本 ref 保留（版本化，消费者按需
+        重新 pin，ADR-A003 快照冻结语义不受影响）。明文不进 Registry。"""
+        if self._secret_store is None:
+            raise ConsoleError(
+                VALIDATION_FAILED, "secret store is not configured for credential rotation", 503
+            )
+        # ensure_working_draft 兼容 draft（复用）与 published（fork 下一版），
+        # 并在资源不存在时 fail-closed（store.get 无版本时只解析 published）。
+        working = await self.ensure_working_draft(actor, ResourceKind.SECRET, credential_id)
+        old_ref = str(working.spec_json.get("secret_ref", ""))
+        new_ref = await self._secret_store.rotate(old_ref, plaintext)
+        updated = await self.update_resource_draft(
+            actor,
+            UpdateResourceDraftRequest(
+                tenant_id=actor.tenant_id,
+                kind=ResourceKind.SECRET,
+                resource_id=credential_id,
+                version=working.version,
+                spec={**working.spec_json, "secret_ref": new_ref},
+            ),
+        )
+        await self._append_audit(
+            actor,
+            action="credential.rotate",
+            target_type="secret",
+            target_id=credential_id,
+            before={"secret_ref": old_ref},
+            after={"secret_ref": new_ref},
+        )
+        return updated
+
+    async def disable_credential(
+        self,
+        actor: ConsoleActor,
+        *,
+        credential_id: str,
+    ) -> ResourceDefinition:
+        """golden-path-closure TASK-009：禁用——store 层 revoke（后续 resolve
+        fail-closed `secret_revoked`），spec 标记 revoked 供 UI 呈现与治理。"""
+        if self._secret_store is None:
+            raise ConsoleError(
+                VALIDATION_FAILED, "secret store is not configured for credential disabling", 503
+            )
+        working = await self.ensure_working_draft(actor, ResourceKind.SECRET, credential_id)
+        secret_ref = str(working.spec_json.get("secret_ref", ""))
+        await self._secret_store.revoke(secret_ref)
+        updated = await self.update_resource_draft(
+            actor,
+            UpdateResourceDraftRequest(
+                tenant_id=actor.tenant_id,
+                kind=ResourceKind.SECRET,
+                resource_id=credential_id,
+                version=working.version,
+                spec={**working.spec_json, "revoked": True},
+            ),
+        )
+        await self._append_audit(
+            actor,
+            action="credential.disable",
+            target_type="secret",
+            target_id=credential_id,
+            before={"revoked": False},
+            after={"revoked": True},
+        )
+        return updated
+
     async def list_runs(
         self,
         actor: ConsoleActor,
@@ -213,9 +334,20 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         *,
         page: int,
         page_size: int,
+        action: str | None = None,
+        actor_id: str | None = None,
+        target_type: str | None = None,
+        created_from: str | None = None,
+        created_to: str | None = None,
     ) -> tuple[list[AuditRecord], int]:
+        # TASK-021（§8.10）：审计过滤透传（SQL 下推，时间范围不做前端全量过滤）
         return await self._store.list_audit(
             tenant_id=actor.tenant_id,
+            action=action,
+            actor_id=actor_id,
+            target_type=target_type,
+            created_from=created_from,
+            created_to=created_to,
             offset=(page - 1) * page_size,
             limit=page_size,
         )

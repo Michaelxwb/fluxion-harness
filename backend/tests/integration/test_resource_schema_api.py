@@ -81,6 +81,8 @@ async def test_RS6_schema_carries_runtime_mechanics_constraints() -> None:
         "concurrency",
         "memory_budget_mb",
         "bootstrapped_from",
+        # ADR-A010：租户默认标记（同租户至多一个 default=true）
+        "default",
     }
     assert properties["request_timeout_ms"]["minimum"] == 100
     assert properties["request_timeout_ms"]["maximum"] == 120_000

@@ -26,6 +26,8 @@ _MECHANICS_FIELDS = {
     "concurrency",
     "memory_budget_mb",
     "bootstrapped_from",
+    # ADR-A010（TASK-002）：租户默认标记（解析链，非产品语义）。
+    "default",
 }
 _LEGACY_PRODUCT_FIELDS = {
     "display_name",

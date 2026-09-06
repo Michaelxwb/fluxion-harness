@@ -42,12 +42,15 @@ describe("S-13 Operations 执行记录", () => {
     expect(within(workflowRuns).getAllByText(/trace-100\d/).length).toBeGreaterThanOrEqual(3);
     expect(within(workflowRuns).getByText("succeeded")).toBeInTheDocument();
     expect(within(workflowRuns).getByText("running")).toBeInTheDocument();
-    const infrastructure = await screen.findByLabelText("运行基础设施");
-    expect(within(infrastructure).getByText("workflow 主队列")).toBeInTheDocument();
-    expect(within(infrastructure).getByText("worker-0")).toBeInTheDocument();
+    // TASK-020（§8.9）：Queue/Worker Summary 区块已从产品页删除
+    expect(screen.queryByLabelText("运行基础设施")).toBeNull();
+    expect(screen.queryByLabelText("队列摘要")).toBeNull();
+    expect(screen.queryByLabelText("Worker 摘要")).toBeNull();
   });
 
-  it("四态：runs 加载失败 → ErrorBanner + 重试恢复", async () => {
+  it("四态：投影加载失败 → 静默降级不阻断主列表，恢复后投影呈现", async () => {
+    // TASK-020（§8.9）：投影加载失败静默降级——不渲染错误区块、不阻断 Agent Run
+    // 主列表；Store 恢复后下次加载即呈现（权威验收在 F-S-14 Playwright）。
     const base = createInMemoryConsoleApi(createConsoleFixture());
     let failed = false;
     const api = overrideApi(base, {
@@ -60,12 +63,17 @@ describe("S-13 Operations 执行记录", () => {
       }
     });
 
-    const { user } = renderOpsAt("/operations/runs", api);
+    renderOpsAt("/operations/runs", api);
+    await screen.findByRole("heading", { name: "执行记录" });
 
-    await screen.findByText(/加载失败/);
-    await user.click(screen.getByRole("button", { name: "重试" }));
-    const workflowRuns = await screen.findByLabelText("Workflow Runs");
-    expect(within(workflowRuns).getByText("weekly-report:exec-1001")).toBeInTheDocument();
+    // 投影失败：无错误区块、主列表正常（run_exec_001 行可点）
+    expect(screen.queryByLabelText("Workflow Runs")).toBeNull();
+    const runButton = await screen.findByRole("button", { name: "run_exec_001" });
+    expect(runButton).toBeInTheDocument();
+
+    // Store 恢复后直调 API 即返回投影（降级不丢数据）
+    const restored = await api.listWorkflowRuns();
+    expect(restored.length).toBeGreaterThan(0);
   });
 
   it("Queue/Worker 深链已移除：未匹配路径回退概览（FEAT-F08）", async () => {

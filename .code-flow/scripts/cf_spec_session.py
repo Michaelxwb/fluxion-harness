@@ -36,7 +36,8 @@ def _task_section(text: str, task_id: str) -> str:
 
 
 def _refs(section: str) -> tuple[str, ...]:
-    match = re.search(r"(?m)^- \*\*Spec-Refs\*\*:\s*(.+)$", section)
+    # [ \t]* 而非 \s*：空 Spec-Refs 不得跨行吞掉下一字段（Acceptance-Refs 等）。
+    match = re.search(r"(?m)^- \*\*Spec-Refs\*\*:[ \t]*(.*)$", section)
     if match is None:
         raise ValueError("spec_refs_missing")
     return tuple(item.strip() for item in match.group(1).split(",") if item.strip())

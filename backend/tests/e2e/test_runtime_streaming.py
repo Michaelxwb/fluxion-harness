@@ -40,6 +40,7 @@ async def test_stream_yields_tokens_when_provider_supports_streaming() -> None:
                 runtime_profile_id="assistant",
                 version="1",
                 request_timeout_ms=1_000,
+                default=True,
             )
         )
         from tests.runtime_helpers import seed_agent_definition
@@ -58,6 +59,7 @@ async def test_stream_yields_tokens_when_provider_supports_streaming() -> None:
                 RunRuntimeRequest(
                     tenant_id="tenant-a",
                     user_id="user-a",
+                    agent_definition_id="assistant",
                     runtime_profile_id="assistant",
                     session_id="session-a",
                     input_message="hi",

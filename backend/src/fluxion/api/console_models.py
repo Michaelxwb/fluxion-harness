@@ -82,6 +82,14 @@ class ChatAccessCreatePayload(BaseModel):
     agent_id: str
 
 
+class AgentAuthorizationPayload(BaseModel):
+    """TASK-013：Agent 用户授权创建（产品语义：仅指定用户，其余服务端定）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    platform_user_id: str
+
+
 class ApprovalCreatePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

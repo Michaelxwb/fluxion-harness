@@ -30,6 +30,7 @@ from fluxion.registry import (
     PublicationCommand,
     PublicationOperation,
     RegistryStore,
+    RegistryStoreError,
     SQLiteRegistryStore,
     VersionConflictError,
 )
@@ -121,6 +122,100 @@ async def test_S_R07_crud_roundtrip(store: RegistryStore) -> None:
 
     missing = await store.get(ResourceKind.RUNTIME_PROFILE, "nope", tenant_id="t1", version="1")
     assert missing is None
+
+
+@pytest.mark.asyncio
+async def test_be_e_05_runtime_profile_default_uniqueness(store: RegistryStore) -> None:
+    """ADR-A010（golden-path-closure TASK-002）：同租户 published RUNTIME_PROFILE
+    至多一个 default=true——publish 治理写入拒绝并存（跨 resource_id）；
+    同 resource_id 版本更替不受限；非 default 并存不受限。"""
+    profile_spec = {"request_timeout_ms": 30_000, "max_retries": 1}
+
+    # 第一个 default profile 正常发布
+    await store.put(
+        _definition(
+            kind=ResourceKind.RUNTIME_PROFILE,
+            id="tenant-standard",
+            tenant_id="t-default",
+            version="1",
+            spec={**profile_spec, "default": True},
+        )
+    )
+    await store.publish(
+        ResourceKind.RUNTIME_PROFILE, "tenant-standard", tenant_id="t-default", version="1"
+    )
+
+    # 第二个 default=true 的不同 resource_id → publish 拒绝（fail-closed）
+    await store.put(
+        _definition(
+            kind=ResourceKind.RUNTIME_PROFILE,
+            id="tenant-other",
+            tenant_id="t-default",
+            version="1",
+            spec={**profile_spec, "default": True},
+        )
+    )
+    with pytest.raises(RegistryStoreError):
+        await store.publish(
+            ResourceKind.RUNTIME_PROFILE, "tenant-other", tenant_id="t-default", version="1"
+        )
+
+    # 非 default 与已存在 default 并存 → 允许
+    await store.put(
+        _definition(
+            kind=ResourceKind.RUNTIME_PROFILE,
+            id="tenant-plain",
+            tenant_id="t-default",
+            version="1",
+            spec=profile_spec,
+        )
+    )
+    published = await store.publish(
+        ResourceKind.RUNTIME_PROFILE, "tenant-plain", tenant_id="t-default", version="1"
+    )
+    assert published.status is ResourceStatus.PUBLISHED
+
+    # 同 resource_id 新版本保持 default → 版本更替允许
+    await store.put(
+        _definition(
+            kind=ResourceKind.RUNTIME_PROFILE,
+            id="tenant-standard",
+            tenant_id="t-default",
+            version="2",
+            spec={**profile_spec, "default": True},
+        )
+    )
+    republished = await store.publish(
+        ResourceKind.RUNTIME_PROFILE, "tenant-standard", tenant_id="t-default", version="2"
+    )
+    assert republished.status is ResourceStatus.PUBLISHED
+
+    # commit_publication（治理事务路径）同样拒绝并存
+    import uuid as _uuid
+
+    command = PublicationCommand(
+        publish_id=f"pub_{_uuid.uuid4().hex}",
+        event_id=f"evt_{_uuid.uuid4().hex}",
+        tenant_id="t-default",
+        kind=ResourceKind.RUNTIME_PROFILE,
+        resource_id="tenant-via-commit",
+        version="1",
+        operation=PublicationOperation.PUBLISH,
+        actor_id="actor-1",
+        request_id="req-1",
+        trace_id="trace-1",
+    )
+    await store.put(
+        _definition(
+            kind=ResourceKind.RUNTIME_PROFILE,
+            id="tenant-via-commit",
+            tenant_id="t-default",
+            version="1",
+            spec={**profile_spec, "default": True},
+        )
+    )
+    with pytest.raises(RegistryStoreError):
+        await store.commit_publication(command)
 
 
 @pytest.mark.asyncio
@@ -487,3 +582,19 @@ async def test_S_R07_concurrent_put_version_conflict(store: RegistryStore) -> No
     conflict_count = sum(1 for r in results if isinstance(r, VersionConflictError))
     assert ok_count == 1
     assert conflict_count == 2
+
+
+@pytest.mark.parametrize("governed", [False, True])
+async def test_S_04_default_can_move_after_latest_version_clears_flag(store: RegistryStore, governed: bool) -> None:
+    """历史 published 默认不阻挡切换；两条发布路径共享相同契约。"""
+    for resource_id, version, default in [("old-default", "1", True), ("old-default", "2", False), ("new-default", "1", True)]:
+        await store.put(_definition(kind=ResourceKind.RUNTIME_PROFILE, id=resource_id, tenant_id="review-default", version=version, spec={"request_timeout_ms": 30000, "max_retries": 1, "default": default}))
+        if governed:
+            await store.commit_publication(PublicationCommand(publish_id=f"publish-{resource_id}-{version}", event_id=f"event-{resource_id}-{version}", tenant_id="review-default", kind=ResourceKind.RUNTIME_PROFILE, resource_id=resource_id, version=version, operation=PublicationOperation.PUBLISH, actor_id="review", request_id="req-review", trace_id="trace-review"))
+        else:
+            await store.publish(ResourceKind.RUNTIME_PROFILE, resource_id, tenant_id="review-default", version=version)
+    from fluxion.services.runtime_profile_resolution import resolve_default_runtime_profile
+    selected = await resolve_default_runtime_profile(store, "review-default")
+    assert selected is not None and selected.id == "new-default"
+    historical = await store.get(ResourceKind.RUNTIME_PROFILE, "old-default", tenant_id="review-default", version="1")
+    assert historical is not None and historical.spec_json["default"] is True

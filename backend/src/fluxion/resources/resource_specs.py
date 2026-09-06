@@ -12,10 +12,17 @@ from fluxion.resources.workflow_nodes import ConditionNode, ParallelNode, Switch
 
 
 class ResolvedModelRoute(SensitiveSpecModel):
-    """ExecutionSnapshot 中冻结的单条模型路由。"""
+    """ExecutionSnapshot 中冻结的单条模型路由。
+
+    ADR-A003 amend：模型路由从「provider 版本 + 模型名」升级为「provider 版本
+    + 模型版本」——model_ref 补 ModelDefinition exact version pin。
+    """
 
     provider_ref: ExactResourceVersion = Field(
         title="供应商引用", description="ProviderDefinition 精确版本引用"
+    )
+    model_ref: ExactResourceVersion = Field(
+        title="模型引用", description="ModelDefinition 精确版本引用（id + version）"
     )
     model: str = Field(min_length=1, title="模型名", description="ModelDefinition.name")
 
@@ -84,6 +91,13 @@ class RuntimeProfile(SensitiveSpecModel):
         default=None,
         title="自举来源",
         description="由哪个历史版本自举生成（仅观测用，非运行语义）",
+    )
+    # ADR-A010（TASK-002）：租户默认标记——Agent.runtime_profile_ref 未配置时
+    # 解析到同租户唯一 default=true 的 published 版本；写入侧拒绝并存。
+    default: bool = Field(
+        default=False,
+        title="租户默认",
+        description="标记为租户默认 RuntimeProfile；同租户至多一个 default=true",
     )
 
 
@@ -157,6 +171,9 @@ class MCPDefinition(SensitiveSpecModel):
 class ProviderDefinition(SensitiveSpecModel):
     """模型供应商连接定义；不承载模型身份或 Agent 路由策略。"""
 
+    display_name: str | None = Field(
+        default=None, title="展示名", description="Provider 展示名（仅用于 Console UI）"
+    )
     protocol: Literal["openai-compatible"] = Field(
         title="协议", description="连接协议（V1 支持 openai-compatible）"
     )
@@ -207,10 +224,54 @@ class ModelDefinition(SensitiveSpecModel):
 
 
 class ToolDefinition(SensitiveSpecModel):
-    """Agent-facing Tool Adapter 的版本化资源定义。"""
+    """Agent-facing Tool Adapter 的版本化资源定义。
+
+    golden-path-closure TASK-017（§8.4）：工具类型判别——http_api（URL/Method/
+    Headers）或 platform_service（service_name/operation）。规则 12 边界不变：
+    Tool 是 Agent-facing Adapter，业务能力仍走 Capability Contract。
+    """
 
     name: str = Field(min_length=1, max_length=128, title="工具名")
     description: str = Field(default="", max_length=1024, title="说明")
+    tool_kind: Literal["http_api", "platform_service"] = Field(
+        default="http_api",
+        title="工具类型",
+        description="http_api=外部 HTTP 端点；platform_service=平台内置服务",
+    )
+    # http_api 分支配置
+    url: str | None = Field(
+        default=None,
+        max_length=2048,
+        title="调用地址",
+        description="http_api 类型必填；完整 URL（含 scheme）",
+    )
+    method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"] = Field(
+        default="GET",
+        title="HTTP 方法",
+    )
+    headers: dict[str, str] = Field(
+        default_factory=dict,
+        title="请求头",
+        description="静态请求头；动态凭据走 credential_ref（规则 17 不落明文）",
+    )
+    # platform_service 分支配置
+    service_name: str | None = Field(
+        default=None,
+        max_length=128,
+        title="平台服务名",
+        description="platform_service 类型必填",
+    )
+    operation: str | None = Field(
+        default=None,
+        max_length=128,
+        title="服务操作",
+        description="platform_service 类型必填（如 query_order）",
+    )
+    credential_ref: str | None = Field(
+        default=None,
+        title="凭据引用",
+        description="secret:// 引用（可选；出站认证。ADR-A008：spec 级默认凭据）",
+    )
     capability_ref: str = Field(
         min_length=1,
         max_length=255,
@@ -229,6 +290,17 @@ class ToolDefinition(SensitiveSpecModel):
         title="失败策略",
     )
 
+    @model_validator(mode="after")
+    def _validate_tool_kind_config(self) -> "ToolDefinition":
+        """类型分支配置约束（fail-closed：缺配置即 spec 无效，不留悬空引用）。"""
+        if self.tool_kind == "http_api" and not self.url:
+            raise ValueError("http_api 类型必须配置 url")
+        if self.tool_kind == "platform_service" and (not self.service_name or not self.operation):
+            raise ValueError("platform_service 类型必须配置 service_name 与 operation")
+        if self.credential_ref is not None and not self.credential_ref.startswith("secret://"):
+            raise ValueError("credential_ref 必须是 secret:// 引用（规则 17）")
+        return self
+
 
 class SecretDefinition(SensitiveSpecModel):
     """Secret 元数据；Resource spec 只保存 SecretRef，不保存密文或明文。"""
@@ -241,6 +313,9 @@ class SecretDefinition(SensitiveSpecModel):
         description="外部 SecretStore 引用（secret://...）",
     )
     purpose: str = Field(default="", max_length=512, title="用途")
+    # golden-path-closure TASK-009：禁用标记（Console 行操作）——store 层 revoke 后
+    # resolve fail-closed；spec 只承载 UI 呈现与治理语义，不存任何密文。
+    revoked: bool = Field(default=False, title="已禁用")
 
 
 class PluginDefinition(SensitiveSpecModel):
@@ -352,14 +427,43 @@ class EvalCaseDefinition(BaseModel):
         return self
 
 
+class EvalTarget(SensitiveSpecModel):
+    """EvalSet 被测目标（remediation §4.7 / ADR-A008 关联）：typed target。
+
+    kind: agent_definition | workflow | runtime_profile。agent_definition 与
+    workflow 是真实产品评测对象；runtime_profile 保留为 kind 之一兼容既有数据。
+    """
+
+    kind: Literal["agent_definition", "workflow", "runtime_profile"] = Field(
+        title="被测目标类型"
+    )
+    id: str = Field(title="目标资源 ID")
+    version: str = Field(title="目标精确版本")
+
+
 class EvalSetDefinition(SensitiveSpecModel):
     name: str = Field(title="评测集名", description="评测集名")
+    # remediation §4.7：target 转向完整执行对象（agent_definition/workflow 优先）。
+    # 兼容既有数据：无 target 时从 runtime_profile_ref 派生 kind=runtime_profile。
+    target: EvalTarget | None = Field(
+        default=None, title="被测目标", description="typed target（kind + id + version）"
+    )
     runtime_profile_ref: ExactResourceVersion = Field(
-        title="被测运行态引用", description="被测运行态的精确版本引用（id + version）"
+        title="被测运行态引用", description="被测运行态的精确版本引用（id + version，兼容保留）"
     )
     cases: list[EvalCaseDefinition] = Field(
         min_length=1, title="评测用例", description="评测用例（至少 1 条）"
     )
+
+    def effective_target(self) -> EvalTarget:
+        """target 缺失时回退 runtime_profile_ref（兼容旧 EvalSet）。"""
+        if self.target is not None:
+            return self.target
+        return EvalTarget(
+            kind="runtime_profile",
+            id=self.runtime_profile_ref.id,
+            version=self.runtime_profile_ref.version,
+        )
 
 
 def _validate_workflow_dependencies(
@@ -408,4 +512,3 @@ def _validate_routing_refs(steps: Sequence[WorkflowNode], node_ids: set[str]) ->
         elif isinstance(node, ParallelNode):
             for branch in node.branches:
                 check(node.id, branch.node_ids)
-

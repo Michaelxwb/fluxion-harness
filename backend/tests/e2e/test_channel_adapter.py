@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from tests.channel_helpers import RecordingRuntime
+from tests.runtime_helpers import seed_runtime_profile
 
 from fluxion.plugins.channel_adapters import StubImChannelAdapter, WebChannelAdapter
 from fluxion.protocols.channel import ExternalChannelMessage
@@ -16,6 +17,9 @@ async def test_S_C119_web_and_stub_im_share_channel_contract_and_runtime() -> No
     runtime = RecordingRuntime()
     service = ChannelApplicationService(store, runtime, code_factory=lambda: next(codes))
     await store.initialize()
+    # ADR-A010：执行主坐标是 AgentDefinition（agent_id=assistant），
+    # 需 seed 同名 agent + 租户 default profile（同名回退已删除）。
+    await seed_runtime_profile(store)
     try:
         await service.create_platform_user("tenant-a", "user-a", display_name="用户 A")
         web_code = await service.issue_bind_code("tenant-a", "user-a")

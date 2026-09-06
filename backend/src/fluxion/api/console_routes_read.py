@@ -71,6 +71,21 @@ def _register_read_side_routes(app: FastAPI, service: ConsoleApplicationService)
     async def list_audit(
         page: Annotated[int, Query(ge=1)] = 1,
         page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+        action: Annotated[str | None, Query()] = None,
+        actor_id: Annotated[str | None, Query()] = None,
+        target_type: Annotated[str | None, Query()] = None,
+        created_from: Annotated[str | None, Query()] = None,
+        created_to: Annotated[str | None, Query()] = None,
     ) -> JSONResponse:
-        items, total = await service.list_audit(_actor(None), page=page, page_size=page_size)
+        # TASK-021（§8.10）：审计组合过滤（后端查询参数下推）
+        items, total = await service.list_audit(
+            _actor(None),
+            page=page,
+            page_size=page_size,
+            action=action,
+            actor_id=actor_id,
+            target_type=target_type,
+            created_from=created_from,
+            created_to=created_to,
+        )
         return success(_page([audit_payload(item) for item in items], page, page_size, total))

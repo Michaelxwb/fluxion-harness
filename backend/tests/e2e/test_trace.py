@@ -52,6 +52,7 @@ async def test_S_R09_trace_contains_snapshot_model_tool_hook_latency_and_error()
                 runtime_profile_id="assistant",
                 version="1",
                 request_timeout_ms=1_000,
+                default=True,
             )
         )
         from tests.runtime_helpers import seed_agent_definition
@@ -83,6 +84,7 @@ async def test_S_R09_trace_contains_snapshot_model_tool_hook_latency_and_error()
             RunRuntimeRequest(
                 tenant_id="tenant-a",
                 user_id="user-a",
+                agent_definition_id="assistant",
                 runtime_profile_id="assistant",
                 session_id="session-a",
                 input_message="trace",

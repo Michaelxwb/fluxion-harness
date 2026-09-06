@@ -175,6 +175,7 @@ class AgentRuntime:
                 tenant_id=context.snapshot.tenant_id,
                 user_id=context.snapshot.user_id,
                 provider_version=route.provider_ref.version,
+                credential_ref=context.snapshot.provider_credentials.get(provider_id),
             )
             emitted = False
             error: ModelProviderError | None = None
@@ -399,7 +400,8 @@ class AgentRuntime:
             request,
             tenant_id=context.snapshot.tenant_id,
             user_id=context.snapshot.user_id,
-            provider_version=context.snapshot.plugin_versions.get(provider_id),
+            provider_version=context.snapshot.provider_versions.get(provider_id),
+            credential_ref=context.snapshot.provider_credentials.get(provider_id),
         )
         try:
             return await _wait_for_provider(provider.complete(scoped_request), timeout_ms)

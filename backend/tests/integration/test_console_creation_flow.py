@@ -55,11 +55,20 @@ def _agent_spec() -> dict[str, object]:
 
 
 async def _seed_model_chain(client: AsyncClient) -> None:
-    """ADR-A008 三层链前置：SECRET + MODEL_PROVIDER + MODEL_DEFINITION 全部发布。"""
+    """ADR-A008 三层链前置：SECRET + MODEL_PROVIDER + MODEL_DEFINITION 全部发布。
+
+    ADR-A010：Agent 无 runtime_profile_ref 时发布校验走默认链——需 seed 部署级
+    platform-default RuntimeProfile（bootstrap 等价），否则 fail-closed。
+    """
     for kind, resource_id, spec in (
         (ResourceKind.SECRET, "openai", _secret_spec()),
         (ResourceKind.MODEL_PROVIDER, "prov-a", _provider_spec()),
         (ResourceKind.MODEL_DEFINITION, "model.prov-a", _model_spec()),
+        (
+            ResourceKind.RUNTIME_PROFILE,
+            "platform-default",
+            {"request_timeout_ms": 30_000, "max_retries": 1},
+        ),
     ):
         await create_resource(
             client, kind=kind, resource_id=resource_id, version="1", spec=spec

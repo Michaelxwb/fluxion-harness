@@ -160,13 +160,18 @@ describe("TASK-014 / F-S-05 独立 Editor + draft 无感", () => {
     // 专属 Editor（published → 自动 working draft，用户无感）
     const editor = await screen.findByLabelText("智能体编辑器");
     expect(within(editor).getByLabelText("智能体名")).toBeInTheDocument();
+    // TASK-012 Tabs 化后，模型/工作流/高级/能力在对应 tab 分区
+    await user.click(within(editor).getByRole("tab", { name: "模型" }));
     expect(within(editor).getByRole("combobox", { name: /主模型/ })).toBeInTheDocument();
     expect(within(editor).getByLabelText("模型调用超时")).toBeInTheDocument();
     expect(within(editor).getByLabelText("模型执行截止")).toBeInTheDocument();
+    await user.click(within(editor).getByRole("tab", { name: "高级设置" }));
     expect(within(editor).getByRole("combobox", { name: "RuntimeProfile" })).toBeInTheDocument();
-    expect(within(editor).getByRole("combobox", { name: "默认工作流" })).toBeInTheDocument();
     expect(within(editor).getByLabelText("记忆策略引用")).toBeInTheDocument();
     expect(within(editor).getByLabelText("个性化策略引用")).toBeInTheDocument();
+    await user.click(within(editor).getByRole("tab", { name: "工作流" }));
+    expect(within(editor).getByRole("combobox", { name: "默认工作流" })).toBeInTheDocument();
+    await user.click(within(editor).getByRole("tab", { name: "能力" }));
     expect(within(editor).getByText("能力绑定")).toBeInTheDocument();
     expect(within(editor).getByRole("button", { name: "保存" })).toBeInTheDocument();
     expect(within(editor).getByRole("button", { name: "发布" })).toBeInTheDocument();

@@ -45,6 +45,7 @@ def test_B_R06_runtime_framework_overhead_p95_under_50ms_p99_under_100ms(
                     tenant_id="tenant-a",
                     user_id="user-a",
                     runtime_profile_id="assistant",
+                    agent_definition_id="assistant",
                     session_id=f"session-{run_index}",
                     input_message="ping",
                 )
@@ -74,6 +75,7 @@ async def _build_service() -> RuntimeApplicationService:
             runtime_profile_id="assistant",
             version="1",
             request_timeout_ms=1_000,
+            default=True,
         )
     )
     await service.publish_runtime_profile(
@@ -89,6 +91,7 @@ async def _build_service() -> RuntimeApplicationService:
             tenant_id="tenant-a",
             user_id="user-a",
             runtime_profile_id="assistant",
+            agent_definition_id="assistant",
             session_id="warmup",
             input_message="warmup",
         )

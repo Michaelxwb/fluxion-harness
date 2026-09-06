@@ -139,6 +139,31 @@ async def revoke_chat_access(
     return _chat_access_from_row(row)
 
 
+async def list_chat_access(
+    engine: AsyncEngine,
+    *,
+    tenant_id: str,
+    platform_user_id: str | None = None,
+    agent_id: str | None = None,
+) -> list[ChatAccessRecord]:
+    """按 (tenant, user, agent) 维度列出未撤销 Chat Access（授权撤销链路使用）。"""
+    statement = (
+        select(chat_access_tokens)
+        .where(chat_access_tokens.c.tenant_id == tenant_id)
+        .where(chat_access_tokens.c.revoked_at.is_(None))
+        .order_by(chat_access_tokens.c.created_at.desc())
+    )
+    if platform_user_id is not None:
+        statement = statement.where(
+            chat_access_tokens.c.platform_user_id == platform_user_id
+        )
+    if agent_id is not None:
+        statement = statement.where(chat_access_tokens.c.agent_id == agent_id)
+    async with engine.connect() as connection:
+        rows = (await connection.execute(statement)).mappings().all()
+    return [_chat_access_from_row(row) for row in rows]
+
+
 async def create_bind_code(engine: AsyncEngine, record: BindCodeRecord) -> BindCodeRecord:
     values = {
         "bind_code_id": record.bind_code_id,

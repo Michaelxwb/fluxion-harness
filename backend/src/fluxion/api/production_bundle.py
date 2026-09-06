@@ -184,6 +184,9 @@ def create_production_bundle_app(
         # phase5 P1-7：生产强制 Release Gate——无 gate 参数 publish fail-closed
         release_gate_enforced=True,
         credential_resolver=credential_resolver,
+        # golden-path-closure TASK-009：凭据创建/轮换/禁用的明文写入能力
+        # （PostgresEncryptedSecretStore 实现完整 SecretStore 协议）。
+        secret_store=secret_store,
     )
     operations = OperationsApplicationService(sysdb_dsn)
 
@@ -200,7 +203,13 @@ def create_production_bundle_app(
     )
 
     api = ApiDispatcher(
-        create_console_app(console, projection_service=projection, operations_service=operations),
+        # TASK-012：与 dev bundle 一致，bundle 内 Runtime 直连支持 studio test-run。
+        create_console_app(
+            console,
+            projection_service=projection,
+            operations_service=operations,
+            runtime_service=runtime,
+        ),
         create_channel_app(channel),
         create_eval_app(eval_service),
         create_workspace_app(WorkspaceApplicationService(store)),

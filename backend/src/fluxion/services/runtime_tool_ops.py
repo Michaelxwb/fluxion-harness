@@ -52,11 +52,11 @@ class RuntimeToolOps:
         policy = context.snapshot.model_resolution
         for route in policy.routes:
             provider_id = route.provider_ref.id
-            # 双重门槛：①在 snapshot.plugin_versions 中被 ADR-A008 三层解析
+            # 双重门槛：①在 snapshot.provider_versions 中被 ADR-A008 三层解析
             # （model_policy → ModelDefinition → provider_ref）显式 pin；
             # ②Registry 存在同 id 的 MODEL_PROVIDER 资源。两者同时满足才包装为
             # store-backed 注册——否则保留进程内已注册实现（DevEcho/测试桩等）。
-            if provider_id not in context.snapshot.plugin_versions:
+            if provider_id not in context.snapshot.provider_versions:
                 continue
             # ADR-A008（TASK-002）：运行时从 Registry MODEL_PROVIDER 资源解析 provider，
             # 不再以 PLUGIN(model_provider) 作为模型事实源。

@@ -24,6 +24,7 @@ def _request() -> RequestContext:
     return RequestContext(
         tenant_id="tenant-a",
         user_id="user-a",
+        agent_definition_id="assistant",
         runtime_profile_id="assistant",
         session_id="session-a",
     )

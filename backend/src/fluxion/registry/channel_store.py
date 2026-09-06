@@ -79,6 +79,14 @@ class ChannelStore(Protocol):
 
     async def resolve_chat_access(self, *, token_hash: str) -> ChatAccessRecord | None: ...
 
+    async def list_chat_access(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str | None = None,
+        agent_id: str | None = None,
+    ) -> list[ChatAccessRecord]: ...
+
     async def revoke_chat_access(
         self, *, tenant_id: str, access_id: str, revoked_at: datetime
     ) -> ChatAccessRecord: ...

@@ -33,6 +33,7 @@ async def test_B_R01_revision_polling_recovers_after_lost_change_event() -> None
                 runtime_profile_id="assistant",
                 version="1",
                 request_timeout_ms=1_000,
+                default=True,
             )
         )
         # TASK-A104：persona/model 在 AgentDefinition；此处关注 revision 热生效。
@@ -49,6 +50,7 @@ async def test_B_R01_revision_polling_recovers_after_lost_change_event() -> None
                 tenant_id="tenant-a",
                 user_id="user-a",
                 runtime_profile_id="assistant",
+                agent_definition_id="assistant",
                 session_id="session-a",
                 input_message="cache",
             )
@@ -60,6 +62,7 @@ async def test_B_R01_revision_polling_recovers_after_lost_change_event() -> None
                 runtime_profile_id="assistant",
                 version="2",
                 request_timeout_ms=1_000,
+                default=True,
             )
         )
         await publisher_service.publish_runtime_profile(
@@ -76,6 +79,7 @@ async def test_B_R01_revision_polling_recovers_after_lost_change_event() -> None
                 tenant_id="tenant-a",
                 user_id="user-a",
                 runtime_profile_id="assistant",
+                agent_definition_id="assistant",
                 session_id="session-a",
                 input_message="cache",
             )

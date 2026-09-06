@@ -29,18 +29,16 @@ describe("S-C108 WorkflowDefinition management", () => {
     });
 
     await screen.findByRole("heading", { name: "流程编排" });
-    await user.click(screen.getByRole("button", { name: "weekly-report" }));
-    await user.click(screen.getByRole("button", { name: "创建草稿" }));
+    await user.click(screen.getByRole("button", { name: "Weekly Report" }));
 
-    const editor = await screen.findByLabelText("Workflow Editor");
+    // TASK-015：独立 Designer + 自动 working draft（无「创建草稿/校验」显式概念）
+    const editor = await screen.findByLabelText("Workflow Designer");
     const dsl = within(editor).getByLabelText("工作流 DSL JSON");
     await user.clear(dsl);
     await user.click(dsl);
     await user.paste(JSON.stringify(workflowSpec()));
-    await user.click(within(editor).getByRole("button", { name: "保存草稿" }));
-    await screen.findByText("草稿已保存");
-    await user.click(within(editor).getByRole("button", { name: "校验" }));
-    await screen.findByText(/校验通过/);
+    await user.click(within(editor).getByRole("button", { name: "保存" }));
+    await screen.findByText("已保存");
 
     await user.click(within(editor).getByRole("button", { name: "发布" }));
     const dialog = await screen.findByRole("dialog", { name: "确认发布工作流" });

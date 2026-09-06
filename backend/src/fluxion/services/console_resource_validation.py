@@ -12,6 +12,7 @@ from fluxion.runtime.secrets import CredentialResolver, ResolvedCredential, Secr
 from fluxion.services.capability_planning import CapabilityPlanningService
 from fluxion.services.connection_test import ConnectionTestResult, ConnectionTestService
 from fluxion.services.console_contracts import ConsoleActor, PublishValidationResult
+from fluxion.services.runtime_profile_resolution import resolve_default_runtime_profile
 from fluxion.services.console_resource_schema import (
     _definition_model,
     _raise_for_invalid_workflow,
@@ -176,7 +177,41 @@ class ConsoleResourceValidationOps:
             agent_spec=agent_spec,
         )
         issues.extend(plan.missing)
+        issues.extend(
+            await self._agent_runtime_profile_issues(tenant_id, agent_spec)
+        )
         return issues
+
+    async def _agent_runtime_profile_issues(
+        self,
+        tenant_id: str,
+        agent_spec: AgentDefinition,
+    ) -> list[str]:
+        """ADR-A010（TASK-002）：Agent 发布时 RuntimeProfile 可解析性校验。
+
+        显式 runtime_profile_ref → 指向的 RuntimeProfile 必须存在且 published；
+        未配置 → 租户默认链（tenant default → platform-default）必须可解析。
+        """
+        ref = agent_spec.runtime_profile_ref
+        if ref is not None:
+            row = await self._store.get(
+                ResourceKind.RUNTIME_PROFILE,
+                ref.id,
+                tenant_id=tenant_id,
+                version=None if ref.version == "latest-published" else ref.version,
+            )
+            if row is None:
+                return [f"运行配置 {ref.id}@{ref.version} 不存在（不可发布）"]
+            if row.status is not ResourceStatus.PUBLISHED:
+                return [f"运行配置 {ref.id}@{ref.version} 未发布（不可运行）"]
+            return []
+        default = await resolve_default_runtime_profile(self._store, tenant_id)
+        if default is None:
+            return [
+                "未配置 runtime_profile_ref 且租户默认链不可解析"
+                "（无 default=true 的已发布 RuntimeProfile，也无 platform-default）"
+            ]
+        return []
 
     async def _model_definition_reference_issues(
         self,
@@ -261,6 +296,29 @@ class ConsoleResourceValidationOps:
         ).test_connection(
             tenant_id=actor.tenant_id,
             provider_id=provider_id,
+        )
+
+    async def test_tool_call(
+        self,
+        actor: ConsoleActor,
+        tool_id: str,
+    ) -> ConnectionTestResult:
+        """golden-path-closure TASK-017：Tool Test Call（http_api 真实出站）。"""
+
+        async def api_key_provider(ref: str) -> str | None:
+            if self._credential_resolver is None:
+                raise SecretProviderError(
+                    "credential_resolver_missing",
+                    "凭据解析器未配置（Console 装配缺失），无法注入 Authorization",
+                )
+            return await self._credential_resolver.resolve(ref, tenant_id=actor.tenant_id)
+
+        return await ConnectionTestService(
+            self._store, api_key_provider=api_key_provider
+        ).test_tool_call(
+            tenant_id=actor.tenant_id,
+            tool_id=tool_id,
+            api_key_provider=api_key_provider,
         )
 
     async def test_mcp_connection(

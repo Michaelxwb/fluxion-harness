@@ -26,6 +26,7 @@ async def test_S_R02_new_runtime_profile_version_takes_effect_without_restart() 
                 runtime_profile_id="assistant",
                 version="1",
                 request_timeout_ms=1_000,
+                default=True,
             )
         )
         await seed_agent_definition(store, provider_id="dev.echo")
@@ -41,6 +42,7 @@ async def test_S_R02_new_runtime_profile_version_takes_effect_without_restart() 
                 tenant_id="tenant-a",
                 user_id="user-a",
                 runtime_profile_id="assistant",
+                agent_definition_id="assistant",
                 session_id="session-a",
                 input_message="ping",
             )
@@ -52,6 +54,9 @@ async def test_S_R02_new_runtime_profile_version_takes_effect_without_restart() 
                 runtime_profile_id="assistant",
                 version="2",
                 request_timeout_ms=2_000,
+                # ADR-A010：版本更替后 default 不自动延续——新版本显式保留
+                # 租户默认标记（发布 v2 后默认链继续命中本资源）。
+                default=True,
             )
         )
         await service.publish_runtime_profile(
@@ -66,6 +71,7 @@ async def test_S_R02_new_runtime_profile_version_takes_effect_without_restart() 
                 tenant_id="tenant-a",
                 user_id="user-a",
                 runtime_profile_id="assistant",
+                agent_definition_id="assistant",
                 session_id="session-a",
                 input_message="ping",
             )

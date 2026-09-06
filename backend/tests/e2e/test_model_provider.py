@@ -136,10 +136,12 @@ async def test_A008_streaming_uses_fallback_route_model_name() -> None:
                 routes=[
                     ResolvedModelRoute(
                         provider_ref=ExactResourceVersion(id="primary", version="1"),
+                        model_ref=ExactResourceVersion(id="model-primary", version="1"),
                         model="primary-model",
                     ),
                     ResolvedModelRoute(
                         provider_ref=ExactResourceVersion(id="backup", version="2"),
+                        model_ref=ExactResourceVersion(id="model-backup", version="1"),
                         model="backup-model",
                     ),
                 ],
@@ -147,7 +149,8 @@ async def test_A008_streaming_uses_fallback_route_model_name() -> None:
                 model_deadline_ms=5_000,
             ),
             trace_id=request.trace_id,
-            plugin_versions={"primary": "1", "backup": "2"},
+            provider_versions={"primary": "1", "backup": "2"},
+            model_versions={"primary": "1", "backup": "2"},
         ),
     )
 
@@ -179,6 +182,8 @@ async def test_S_R13_agentloop_uses_model_provider_plugin_tool_calling_and_failo
             # 慢 provider sleep 300ms；mechanics 超时下限 100ms 仍可触发超时。
             "request_timeout_ms": 100,
             "max_retries": 1,
+            # ADR-A010：agent 无 runtime_profile_ref，走租户默认链需 default=true。
+            "default": True,
         },
     )
     # TASK-A104：persona/model 迁至同名 AgentDefinition。ADR-A008 三层链：
@@ -233,6 +238,8 @@ async def test_S_R13_agentloop_uses_model_provider_plugin_tool_calling_and_failo
         RequestContext(
             tenant_id="tenant-a",
             user_id="user-a",
+            # ADR-A010：AgentDefinition 是执行主坐标（同名回退已删除）
+            agent_definition_id="assistant",
             runtime_profile_id="assistant",
             session_id="session-a",
         )

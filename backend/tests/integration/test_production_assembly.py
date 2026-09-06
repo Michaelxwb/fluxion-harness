@@ -211,19 +211,43 @@ class TestS10ProductionAssembly:
         self, bundle: tuple[object, object]
     ) -> None:
         """S-10：production 装配 release_gate_enforced=True——无 gate 参数 publish
-        fail-closed（38_001），资源保持 draft。"""
+        fail-closed（38_001），资源保持 draft。
+
+        ADR-A011：gate 只作用于 AGENT_DEFINITION——改用 agent 作发布目标
+        （非门 kind 不再评估 gate，见 test_release_gate.py B-S-04）。
+        """
         app, assembly = bundle
         store = assembly.store
         tag = uuid.uuid4().hex[:8]
-        resource_id = f"runtime-s10-{tag}"
+        tenant_id = f"tenant-s10-{tag}"
+        resource_id = f"agent-s10-{tag}"
+        # seed 模型链 + 默认 runtime_profile（store 层，绕过 HTTP 发布校验）
+        from tests.runtime_helpers import publish_resource, seed_model_definition
+
+        await seed_model_definition(store, tenant_id=tenant_id, provider_id="test")
+        await publish_resource(
+            store,
+            tenant_id=tenant_id,
+            kind=ResourceKind.RUNTIME_PROFILE,
+            resource_id=f"default-profile-{tag}",
+            version="1",
+            spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+        )
         await store.put(
             ResourceDefinition(
-                kind=ResourceKind.RUNTIME_PROFILE,
+                kind=ResourceKind.AGENT_DEFINITION,
                 id=resource_id,
-                tenant_id="tenant-s10",
+                tenant_id=tenant_id,
                 version="1",
                 status=ResourceStatus.DRAFT,
-                spec_json={"request_timeout_ms": 1000, "max_retries": 2},
+                spec_json={
+                    "name": resource_id,
+                    "system_prompt": "p",
+                    "owner": "admin-s10",
+                    "model_policy": {
+                        "primary_model_ref": {"id": "model.test", "version": "1"}
+                    },
+                },
             )
         )
 
@@ -231,9 +255,9 @@ class TestS10ProductionAssembly:
             transport=ASGITransport(app=app), base_url="http://production"
         ) as client:
             response = await client.post(
-                f"/api/v1/resources/runtime_profile/{resource_id}/versions/1:publish",
+                f"/api/v1/resources/agent_definition/{resource_id}/versions/1:publish",
                 json={},
-                headers={"X-Tenant-ID": "tenant-s10", "X-Actor-ID": "admin-s10"},
+                headers={"X-Tenant-ID": tenant_id, "X-Actor-ID": "admin-s10"},
             )
         assert response.status_code == 409, response.text
         body = response.json()
@@ -241,9 +265,9 @@ class TestS10ProductionAssembly:
         assert "强制" in body["message"]
 
         resource = await store.get(
-            ResourceKind.RUNTIME_PROFILE,
+            ResourceKind.AGENT_DEFINITION,
             resource_id,
-            tenant_id="tenant-s10",
+            tenant_id=tenant_id,
             version="1",
         )
         assert resource is not None and resource.status is ResourceStatus.DRAFT

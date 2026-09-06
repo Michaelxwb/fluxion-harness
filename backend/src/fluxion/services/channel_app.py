@@ -50,6 +50,14 @@ class ChannelAccessError(RuntimeError):
         super().__init__("Chat 访问链接无效或已撤销")
 
 
+class ChannelProfileResolutionError(RuntimeError):
+    """ADR-A010：Agent 的 RuntimeProfile 不可解析（同名回退已废弃，fail-closed）。"""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(reason)
+
+
 @dataclass(frozen=True, slots=True)
 class IssuedBindCode:
     code: str
@@ -257,18 +265,29 @@ class ChannelApplicationService:
         )
 
     async def _profile_id_for(self, tenant_id: str, agent_id: str) -> str:
-        """TASK-A104/A105：执行仍需 mechanics profile 键，来源为 Agent 的
-        runtime_profile_ref；缺省同名回退（迁移产物与 fixture 同名约定）。"""
+        """TASK-A104/A105：执行所需 mechanics profile 键，来源为 Agent 的
+        runtime_profile_ref；未配置走 ADR-A010 租户默认链（同名回退已废弃）。"""
         from fluxion.agents.definitions import AgentDefinition
         from fluxion.resources import ResourceKind
+        from fluxion.services.runtime_profile_resolution import (
+            resolve_default_runtime_profile,
+        )
 
         row = await self._store.get(
             ResourceKind.AGENT_DEFINITION, agent_id, tenant_id=tenant_id
         )
         if row is None:
-            return agent_id
+            raise ChannelProfileResolutionError(f"agent_not_found: {agent_id}")
         spec = AgentDefinition.model_validate(row.spec_json)
-        return spec.runtime_profile_ref.id if spec.runtime_profile_ref else agent_id
+        if spec.runtime_profile_ref is not None:
+            return spec.runtime_profile_ref.id
+        default = await resolve_default_runtime_profile(self._store, tenant_id)
+        if default is None:
+            raise ChannelProfileResolutionError(
+                f"no default RuntimeProfile for agent {agent_id} "
+                "(tenant default and platform-default both missing, ADR-A010)"
+            )
+        return default.id
 
 
 

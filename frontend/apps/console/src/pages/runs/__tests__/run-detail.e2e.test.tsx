@@ -15,6 +15,7 @@ describe("TASK-020 / F-S-07 Run Detail 分区", () => {
     await screen.findByRole("heading", { name: "执行记录" });
 
     await user.click(await screen.findByRole("button", { name: "run_exec_001" }));
+    // TASK-020：Run Detail 迁入 SideSheet（默认不选中，点击后弹出）
     const detail = await screen.findByLabelText("Run Detail");
 
     // 四分区（FEAT-F11：Timeline / Trace / Tool·Model Calls / Execution Snapshot）

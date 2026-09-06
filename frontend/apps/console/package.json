@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node ../../scripts/check-no-inmemory.mjs && node ../../scripts/check-semi-compliance.mjs && tsc -b && vite build",
+    "build": "node ../../scripts/check-no-inmemory.mjs && node ../../scripts/check-semi-compliance.mjs && node ../../scripts/check-product-pages.mjs && tsc -b && vite build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "node ../../scripts/check-semi-compliance.mjs && pnpm run lint && node ../../scripts/check-no-bare-fetch.mjs && node ../../scripts/check-directory-structure.mjs && node ../../scripts/check-ts-hygiene.mjs && node scripts/run-vitest.mjs"

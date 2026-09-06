@@ -64,6 +64,16 @@ async def test_be_s_01_studio_agent_create_publish_and_list() -> None:
             version="1",
             spec={"name": "mcp-1", "transport": "stdio", "command": "node", "args": []},
         )
+        # ADR-A010（TASK-002）：显式 runtime_profile_ref 的存在/发布校验——
+        # profile-1 需先发布，否则 publish fail-closed。
+        await publish_resource(
+            stack.store,
+            tenant_id="tenant-a",
+            kind=ResourceKind.RUNTIME_PROFILE,
+            resource_id="profile-1",
+            version="1",
+            spec={"request_timeout_ms": 30_000, "max_retries": 1},
+        )
         created = await stack.client.post(
             "/studio/agents",
             json={"resource_id": "agent-1", "version": "1", "spec": _agent_spec()},
@@ -186,3 +196,170 @@ async def test_be_e_02_duplicate_agent_version_conflicts() -> None:
         assert second.status_code == 409
         payload = second.json()
         assert payload["code"] != 0
+
+
+@pytest.mark.asyncio
+async def test_bs09_product_endpoints_server_side_id_and_audit() -> None:
+    """B-S-09（TASK-007）：产品端点服务端生成 id + 统一 envelope + 高影响操作入 AuditLog。"""
+    async with console_stack() as stack:
+        # 1) secrets：不传 resource_id → 服务端生成 id + envelope
+        secret = await stack.client.post(
+            "/studio/secrets",
+            json={"spec": {"name": "api-key", "secret_ref": "secret://tenant-a/api-key@1"}},
+            headers=tenant_headers(request_id="req-bs09-secret"),
+        )
+        assert secret.status_code == 200, secret.text
+        secret_body = secret.json()
+        assert secret_body["code"] == 0 and secret_body["request_id"] == "req-bs09-secret"
+        secret_id = secret_body["data"]["resource_id"]
+        assert secret_id  # 服务端生成，非空
+        assert secret_id != "api-key"  # 非用户给定 id
+
+        # 2) workflows：新白名单 + 服务端 id（TASK-007 收口缺口）
+        workflow = await stack.client.post(
+            "/studio/workflows",
+            json={
+                "spec": {
+                    "name": "weekly-report",
+                    "description": "每周报表",
+                    "engine_ref": "workflow-engine://primary",
+                    "steps": [
+                        {
+                            "id": "collect",
+                            "capability_ref": "collect",
+                            "depends_on": [],
+                            "input": {"period": "last-week"},
+                        }
+                    ],
+                }
+            },
+            headers=tenant_headers(request_id="req-bs09-workflow"),
+        )
+        assert workflow.status_code == 200, workflow.text
+        assert workflow.json()["data"]["resource_id"]
+
+        # 3) 高影响操作（发布）入 AuditLog
+        await stack.client.post(
+            f"/studio/secrets/{secret_id}/versions/1:publish",
+            headers=tenant_headers(request_id="req-bs09-publish"),
+        )
+        audit = await stack.client.get(
+            "/api/v1/audit", headers=tenant_headers(request_id="req-bs09-audit")
+        )
+        assert audit.status_code == 200
+        actions = [item.get("action") for item in audit.json()["data"]["items"]]
+        assert "publish" in actions, f"AuditLog 应记录 publish 高影响操作: {actions}"
+
+
+@pytest.mark.asyncio
+async def test_bs09_credential_create_plaintext_write_only() -> None:
+    """TASK-009：POST /api/v1/credentials 明文只写不回显（规则 17）。"""
+    async with console_stack() as stack:
+        created = await stack.client.post(
+            "/api/v1/credentials",
+            json={"name": "openai-key", "secret": "sk-plaintext-secret", "purpose": "模型供应商"},
+            headers=tenant_headers(request_id="req-cred-create"),
+        )
+        assert created.status_code == 200, created.text
+        body = created.json()
+        assert body["code"] == 0 and body["request_id"] == "req-cred-create"
+        # 明文不回显：响应 payload 不含明文 secret
+        assert "sk-plaintext-secret" not in str(body)
+        secret_id = body["data"]["resource_id"]
+        # Secret 元数据落档，spec 只保存 SecretRef（非明文）
+        raw = await stack.store.get(
+            ResourceKind.SECRET, secret_id, tenant_id="tenant-a", version="1"
+        )
+        assert raw is not None
+        assert "sk-plaintext-secret" not in str(raw.spec_json)
+        assert raw.spec_json["secret_ref"] == f"secret://tenant-a/{secret_id}@1"
+
+
+async def test_t009_credential_rotate_versions_secret_and_audits() -> None:
+    """TASK-009 行操作·轮换：store 层生成新 SecretRef 版本 + working draft 落档
+    + 高影响操作入 AuditLog（规则 24）+ 明文不回显（规则 17）。"""
+    async with console_stack() as stack:
+        created = await stack.client.post(
+            "/api/v1/credentials",
+            json={"name": "rotate-key", "secret": "sk-old", "purpose": "模型供应商"},
+            headers=tenant_headers(request_id="req-cred-rotate"),
+        )
+        assert created.status_code == 200, created.text
+        created_body = created.json()
+        credential_id = created_body["data"]["resource_id"]
+        old_ref = created_body["data"]["spec"]["secret_ref"]
+
+        rotated = await stack.client.post(
+            f"/api/v1/credentials/{credential_id}:rotate",
+            json={"secret": "sk-new"},
+            headers=tenant_headers(request_id="req-cred-rotate-2"),
+        )
+        assert rotated.status_code == 200, rotated.text
+        body = rotated.json()
+        assert body["code"] == 0 and body["request_id"] == "req-cred-rotate-2"
+        new_ref = body["data"]["spec"]["secret_ref"]
+        assert new_ref != old_ref and new_ref.endswith("@2")
+        # 明文不回显
+        assert "sk-new" not in str(body)
+
+        # Registry 落档：working draft spec 指向新 ref
+        raw = await stack.store.get(
+            ResourceKind.SECRET,
+            credential_id,
+            tenant_id="tenant-a",
+            version=body["data"]["version"],
+        )
+        assert raw is not None
+        assert raw.spec_json["secret_ref"] == new_ref
+
+        # 旧版本 ref 仍可解析（版本化保留），新 ref 解析到新明文
+        secret_store = stack.service._secret_store
+        assert secret_store is not None
+        assert (await secret_store.resolve(new_ref)).value == "sk-new"
+        assert (await secret_store.resolve(old_ref)).value == "sk-old"
+
+        # 审计：credential.rotate 入 AuditLog
+        audits, _total = await stack.store.list_audit(tenant_id="tenant-a", offset=0, limit=50)
+        assert any(
+            record.action == "credential.rotate" and record.target_id == credential_id
+            for record in audits
+        )
+
+
+async def test_t009_credential_disable_revokes_and_fails_closed() -> None:
+    """TASK-009 行操作·禁用：store revoke 后 resolve fail-closed（secret_revoked），
+    spec 标记 revoked 供 UI 呈现，审计入 AuditLog。"""
+    async with console_stack() as stack:
+        created = await stack.client.post(
+            "/api/v1/credentials",
+            json={"name": "disable-key", "secret": "sk-live", "purpose": "模型供应商"},
+            headers=tenant_headers(request_id="req-cred-disable"),
+        )
+        assert created.status_code == 200, created.text
+        credential_id = created.json()["data"]["resource_id"]
+        ref = created.json()["data"]["spec"]["secret_ref"]
+
+        disabled = await stack.client.post(
+            f"/api/v1/credentials/{credential_id}:disable",
+            headers=tenant_headers(request_id="req-cred-disable-2"),
+        )
+        assert disabled.status_code == 200, disabled.text
+        body = disabled.json()
+        assert body["code"] == 0
+        assert body["data"]["spec"]["revoked"] is True
+
+        # store 层 fail-closed：revoked 后 resolve 拒绝（运行期不会再裸调旧值）
+        from fluxion.runtime.secrets import SecretProviderError
+
+        secret_store = stack.service._secret_store
+        assert secret_store is not None
+        with pytest.raises(SecretProviderError) as excinfo:
+            await secret_store.resolve(ref)
+        assert excinfo.value.code == "secret_revoked"
+
+        # 审计：credential.disable 入 AuditLog
+        audits, _total = await stack.store.list_audit(tenant_id="tenant-a", offset=0, limit=50)
+        assert any(
+            record.action == "credential.disable" and record.target_id == credential_id
+            for record in audits
+        )
