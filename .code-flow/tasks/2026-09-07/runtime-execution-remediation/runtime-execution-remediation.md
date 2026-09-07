@@ -37,7 +37,7 @@
 | S-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | 真实 Console Schema/Resource 服务 → PG Registry | TASK-009 | verified |
 | B-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | PG 历史 Published → 实际 Profile 解析器 | TASK-009 | verified |
 | S-CFG-02 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | CLI/bootstrap/create/import → Profile 服务 → PG | TASK-010 | verified |
-| S-CFG-03 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | planned |
+| S-CFG-03 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | verified |
 | S-CFG-04 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | Console Publish → PG Registry → Runtime 工具循环 | TASK-012 | planned |
 | B-CFG-02 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | 旧 Profile → Publish/Rollback → 新执行 | TASK-012 | planned |
 | B-LIFE-DESIGN-01 | source-review.md#P1-03 执行生命周期(L46-L52) | unit | 终态与生命周期契约校验器 | TASK-013 | verified |
@@ -72,9 +72,9 @@
 | RULE-backend-quality-001 | source-review.md#Spec Compliance Matrix | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | TASK-015 | planned |
 | RULE-backend-platform-001 | source-review.md#Spec Compliance Matrix | E2E | Compose → 三角色真实进程 → PostgreSQL | TASK-001 | blocked |
 | RULE-backend-database-001 | source-review.md#Spec Compliance Matrix | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | TASK-025 | planned |
-| RULE-frontend-quality-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | planned |
-| RULE-frontend-semi-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | planned |
-| RULE-frontend-component-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | planned |
+| RULE-frontend-quality-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | verified |
+| RULE-frontend-semi-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | verified |
+| RULE-frontend-component-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | verified |
 | RULE-fluxion-console-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | verified |
 
 ---
@@ -496,7 +496,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ## TASK-011: 更新 Console 配置交互
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-009, TASK-010
 - **Source**: source-review.md#P1-02 Profile 参数(L38-L44)
@@ -510,30 +510,33 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ### Checklist
 
-- [ ] [S-CFG-03][E2E] 先补验收并记录RED，真实边界：真实浏览器 → Console API → PostgreSQL → Schema 驱动表单；关键断言：无无效参数可编辑入口；非法提交反馈可见；历史值不被前端重新写入。
-- [ ] 沿用 Semi Form 与 React19 adapter；类型明确，API 经 services；发布确认说明版本影响，覆盖加载、成功、错误三态。
-- [ ] verifier `RULE-frontend-quality-001`：保持 Context 中 verifier_ref 原定义；以 `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` 验证 S-CFG-03 的 类型与异步三态。记录自动化结果与必要评审证据，不能将计划视为verified。
-- [ ] verifier `RULE-frontend-semi-001`：保持 Context 中 verifier_ref 原定义；以 `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` 验证 S-CFG-03 的 Semi与React19 adapter。记录自动化结果与必要评审证据，不能将计划视为verified。
-- [ ] verifier `RULE-frontend-component-001`：保持 Context 中 verifier_ref 原定义；以 `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` 验证 S-CFG-03 的 受控表单与组件/API职责。记录自动化结果与必要评审证据，不能将计划视为verified。
-- [ ] 运行 `pnpm -r typecheck`、`pnpm -r lint`、`.venv/bin/python scripts/check_frontend_constraints.py`，记录Semi/adapter、受控表单和类型检查证据。
-- [ ] 运行 `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-CFG-03][E2E] 先补验收并记录RED，真实边界：真实浏览器 → Console API → PostgreSQL → Schema 驱动表单；关键断言：无无效参数可编辑入口；非法提交反馈可见；历史值不被前端重新写入。
+- [x] 沿用 Semi Form 与 React19 adapter；类型明确，API 经 services；发布确认说明版本影响，覆盖加载、成功、错误三态。
+- [x] verifier `RULE-frontend-quality-001`：保持 Context 中 verifier_ref 原定义；以 `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` 验证 S-CFG-03 的 类型与异步三态。记录自动化结果与必要评审证据，不能将计划视为verified。
+- [x] verifier `RULE-frontend-semi-001`：保持 Context 中 verifier_ref 原定义；以 `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` 验证 S-CFG-03 的 Semi与React19 adapter。记录自动化结果与必要评审证据，不能将计划视为verified。
+- [x] verifier `RULE-frontend-component-001`：保持 Context 中 verifier_ref 原定义；以 `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` 验证 S-CFG-03 的 受控表单与组件/API职责。记录自动化结果与必要评审证据，不能将计划视为verified。
+- [x] 运行 `pnpm -r typecheck`、`pnpm -r lint`、`.venv/bin/python scripts/check_frontend_constraints.py`，记录Semi/adapter、受控表单和类型检查证据。
+- [x] 运行 `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-CFG-03 | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | 无无效参数可编辑入口；非法提交反馈可见；历史值不被前端重新写入 | frontend/e2e/runtime-profile-contract.spec.ts（以场景ID标记用例，planned） | `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` | planned |
-| RULE-frontend-quality-001 | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | 类型与异步三态，由S-CFG-03提供行为证据；补充命令见Checklist | frontend/e2e/runtime-profile-contract.spec.ts | `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` | planned |
-| RULE-frontend-semi-001 | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | Semi与React19 adapter，由S-CFG-03提供行为证据；补充命令见Checklist | frontend/e2e/runtime-profile-contract.spec.ts | `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` | planned |
-| RULE-frontend-component-001 | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | 受控表单与组件/API职责，由S-CFG-03提供行为证据；补充命令见Checklist | frontend/e2e/runtime-profile-contract.spec.ts | `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` | planned |
+| S-CFG-03 | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | 无无效参数可编辑入口；非法提交反馈可见；历史值不被前端重新写入 | frontend/e2e/runtime-profile-contract.spec.ts（以场景ID标记用例，verified） | `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` | verified |
+| RULE-frontend-quality-001 | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | 类型与异步三态，由S-CFG-03提供行为证据；补充命令见Checklist | frontend/e2e/runtime-profile-contract.spec.ts | `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` | verified |
+| RULE-frontend-semi-001 | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | Semi与React19 adapter，由S-CFG-03提供行为证据；补充命令见Checklist | frontend/e2e/runtime-profile-contract.spec.ts | `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` | verified |
+| RULE-frontend-component-001 | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | 受控表单与组件/API职责，由S-CFG-03提供行为证据；补充命令见Checklist | frontend/e2e/runtime-profile-contract.spec.ts | `pnpm exec playwright test frontend/e2e/runtime-profile-contract.spec.ts` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-CFG-03 | seed 缺 model 链 / 坏 DRAFT 卡死 / dist 陈旧致文案缺席 / label 误配 fill 超时（均为环境与用例问题，非生产缺陷） | playwright 3/3 真机通过；console vitest 157 passed；typecheck+lint+约束脚本全过（chat 1 flake 重跑过） | runtime-profile-contract.spec.ts | 真浏览器 chromium + fluxion serve --dev + fluxion_test PG；dist 已重打 | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] completed (done)：默认创建带版本戳 + mirror 兼容文案 + playwright 真机 3/3，S-CFG-03 verified
 
 ---
 

@@ -108,7 +108,10 @@ export function AgentEditorForm(props: AgentEditorFormProps) {
           spec: {
             request_timeout_ms: 30000,
             max_retries: 1,
-            default: true
+            default: true,
+            // TASK-011（ADR-A013）：默认创建请求带显式版本戳；超时/重试为
+            // v1 历史兼容值（透传保存、执行不读取），不宣称生效。
+            schema_version: "v1"
           }
         });
       } catch (cause) {
@@ -233,6 +236,9 @@ export function AgentEditorForm(props: AgentEditorFormProps) {
                   {profileHint}
                 </Typography.Text>
               ) : null}
+              <Typography.Text type="tertiary" size="small">
+                租户默认配置为 v1 兼容值（轮数上限生效；超时/重试/并发/内存预算为历史兼容字段，执行不读取）
+              </Typography.Text>
               <TextField label="记忆策略引用" onChange={(memoryPolicy) => onChange({ memoryPolicy })} placeholder="resource-id@version" value={value.memoryPolicy} />
               <TextField label="个性化策略引用" onChange={(personalizationPolicy) => onChange({ personalizationPolicy })} placeholder="resource-id@version" value={value.personalizationPolicy} />
             </EditorSection>
