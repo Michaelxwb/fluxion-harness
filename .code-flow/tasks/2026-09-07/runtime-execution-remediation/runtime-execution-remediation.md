@@ -36,7 +36,7 @@
 | B-CFG-DESIGN-01 | source-review.md#P1-02 Profile 参数(L38-L44) | unit | 版本化 Profile 契约和实际校验器 | TASK-008 | verified |
 | S-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | 真实 Console Schema/Resource 服务 → PG Registry | TASK-009 | verified |
 | B-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | PG 历史 Published → 实际 Profile 解析器 | TASK-009 | verified |
-| S-CFG-02 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | CLI/bootstrap/create/import → Profile 服务 → PG | TASK-010 | planned |
+| S-CFG-02 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | CLI/bootstrap/create/import → Profile 服务 → PG | TASK-010 | verified |
 | S-CFG-03 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | planned |
 | S-CFG-04 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | Console Publish → PG Registry → Runtime 工具循环 | TASK-012 | planned |
 | B-CFG-02 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | 旧 Profile → Publish/Rollback → 新执行 | TASK-012 | planned |
@@ -455,7 +455,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ## TASK-010: 更新后端 Profile 配置生产入口
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-009
 - **Source**: source-review.md#P1-02 Profile 参数(L38-L44)
@@ -470,24 +470,27 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ### Checklist
 
-- [ ] [S-CFG-02][integration] 先补验收并记录RED，真实边界：CLI/bootstrap/create/import → Profile 服务 → PG；关键断言：每个新配置入口遵循版本契约；不再注入无效字段；旧导入按 ADR 处理。
-- [ ] 盘点 runtime_profile_service 等默认创建点；如超出局部范围，先细分本任务再改，禁止遗漏入口冒充完成。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_profile_producers.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-CFG-02][integration] 先补验收并记录RED，真实边界：CLI/bootstrap/create/import → Profile 服务 → PG；关键断言：每个新配置入口遵循版本契约；不再注入无效字段；旧导入按 ADR 处理。
+- [x] 盘点 runtime_profile_service 等默认创建点；如超出局部范围，先细分本任务再改，禁止遗漏入口冒充完成。盘点结论：bootstrap 工厂（default_runtime_profile_request）、platform-default 自举、service.create（经 _runtime_profile_spec）、Console 创建（spec 直写 + 形状校验）、无独立 YAML 导入路径（旧导入即 Console 创建兼容形状）。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_profile_producers.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-CFG-02 | integration | CLI/bootstrap/create/import → Profile 服务 → PG | 每个新配置入口遵循版本契约；不再注入无效字段；旧导入按 ADR 处理 | backend/tests/integration/test_runtime_profile_producers.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_profile_producers.py` | planned |
+| S-CFG-02 | integration | CLI/bootstrap/create/import → Profile 服务 → PG | 每个新配置入口遵循版本契约；不再注入无效字段；旧导入按 ADR 处理 | backend/tests/integration/test_runtime_profile_producers.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_profile_producers.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-CFG-02 | 2 failed（工厂注入 1000；构造器报裸 ValidationError 非类型化） | 3 passed；dev-bundle/profile/validate 回归 26 passed；改动文件 ruff+mypy clean | test_runtime_profile_producers.py::test_S_CFG_02_* | bootstrap 工厂 + _runtime_profile_spec + service.ensure PG 落盘；旧导入形状兼容 v1 | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订：删除已不存在的 CLI run 路径，点名 7 处默认创建点启动时盘点（was draft）
+- [2026-09-08] completed (done)：入口版本契约收敛 + 停止注入未接入字段值，S-CFG-02 verified
 
 ---
 

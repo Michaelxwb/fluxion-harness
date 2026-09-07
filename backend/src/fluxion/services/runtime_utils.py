@@ -7,7 +7,7 @@ from fluxion.observability.tracing import traced_scope
 from fluxion.plugins.contracts import ModelRequest, ModelResponse
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.registry import RegistryStore
-from fluxion.resources import RuntimeProfile
+from fluxion.resources.resource_specs import validate_profile_write
 from fluxion.runtime.agent import RuntimeStepResult
 from fluxion.runtime.context import RequestContext, RuntimeContext, TraceEvent
 from fluxion.runtime.memory import InMemorySessionMemoryStore, SessionMemoryStore
@@ -41,14 +41,18 @@ class DevEchoModelProvider:
 def _runtime_profile_spec(request: CreateRuntimeProfileRequest) -> dict[str, object]:
     # ADR-012：以 RuntimeProfile model 为单一真相源——构造即校验。TASK-A104 后
     # 只承载 mechanics，persona/model/capability 由 AgentDefinition 承载。
-    profile = RuntimeProfile(
-        request_timeout_ms=request.request_timeout_ms,
-        max_retries=request.max_retries,
-        max_rounds=request.max_rounds,
-        concurrency=request.concurrency,
-        memory_budget_mb=request.memory_budget_mb or 512,
-        bootstrapped_from=request.bootstrapped_from,
-        default=request.default,
+    # TASK-010（ADR-A013）：走严格写校验（类型化错误）+ 显式版本戳。
+    profile = validate_profile_write(
+        {
+            "request_timeout_ms": request.request_timeout_ms,
+            "max_retries": request.max_retries,
+            "max_rounds": request.max_rounds,
+            "concurrency": request.concurrency,
+            "memory_budget_mb": request.memory_budget_mb or 512,
+            "bootstrapped_from": request.bootstrapped_from,
+            "default": request.default,
+            "schema_version": "v1",
+        }
     )
     return profile.model_dump(mode="json")
 

@@ -292,10 +292,11 @@ def default_runtime_profile_request(
 ) -> CreateRuntimeProfileRequest:
     # ADR-A010：CLI `--bootstrap` 自举的 profile 标记为租户默认（无 ref 的
     # agent 经默认链解析）；同名成对隐式约定已废弃。
+    # ADR-A013（TASK-010）：不隐式注入未接入字段值（request_timeout_ms 等未被
+    # 执行读取，覆盖非默认值会造成"配置了但不生效"的虚假承诺）——保持默认。
     return CreateRuntimeProfileRequest(
         tenant_id=tenant_id,
         runtime_profile_id=runtime_profile_id,
         version="1",
-        request_timeout_ms=1_000,
         default=True,
     )
