@@ -1,5 +1,5 @@
 # Fluxion Harness 默认配置（最小可用）
-# 安装前请至少设置 secrets.masterKey（MASTER_KEY），生产环境务必修改数据库密码。
+# 安装前请至少设置 secrets.masterKey，生产环境务必修改数据库密码。
 
 # 副本数（Runtime 无状态，可水平扩缩；此 Deployment 承载 Runtime/Console API
 # 生产 bundle：Phase 6 TASK-006 要求 ≥2 副本，S-07/S-10 多副本 Gate）
@@ -79,12 +79,12 @@ s3:
 
 # 敏感环境变量（进 Secret）
 secrets:
-  # FLUXION_MASTER_KEY：32 字节 AES-256-GCM key 的 base64。
+  # FLUXION_SECRET_MASTER_KEY：32 字节 AES-256-GCM key 的 base64。
   # 生成：openssl rand -base64 32
   # 生产环境请用 helm --set-file 或外部 Secret 管理，不要明文提交到仓库。
   masterKey: ""
   # 若指定 existingSecret，则跳过内置 Secret 创建，Deployment 直接引用该已存在 Secret；
-  # 该 Secret 必须包含 FLUXION_MASTER_KEY / FLUXION_SECRET_MASTER_KEY / FLUXION_DATABASE_URL。
+  # 该 Secret 必须包含 FLUXION_SECRET_MASTER_KEY / FLUXION_DATABASE_URL。
   existingSecret: ""
 
 # 数据库连接 DSN（优先级最高）。为空时：若 postgresql.enabled 则用子 chart 自动拼 DSN，

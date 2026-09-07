@@ -25,7 +25,7 @@ deploy/
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
 | `FLUXION_DATABASE_URL` | 生产必填 | 数据库 DSN，例如 `postgresql+asyncpg://user:pass@host:5432/fluxion` |
-| `FLUXION_MASTER_KEY` | 生产必填 | 32 字节 AES-256-GCM key 的 base64 |
+| `FLUXION_SECRET_MASTER_KEY` | 生产必填 | 32 字节 AES-256-GCM key 的 base64 |
 | `FLUXION_ROLE` | 可选 | 进程角色：`api`（默认，Control Plane）/ `runtime`（AgentLoop 独立进程）/ `worker`（DBOS workflow） |
 | `FLUXION_ENV` | 可选 | 运行环境标识，默认 `development` |
 | `FLUXION_LOG_LEVEL` | 可选 | 日志级别，默认 `INFO` |
@@ -33,13 +33,13 @@ deploy/
 | `FLUXION_MEMORY_RECALL_TIMEOUT_MS` | 可选 | Personal Memory recall 超时（默认 `1000`，>0 有效） |
 
 > 说明：后端 CLI 的 `fluxion serve` 通过 `--registry-dsn` 接收数据库 DSN（不会自动读取
-> `FLUXION_DATABASE_URL`），且代码内 Secret Store 实际读取的变量名是
-> `FLUXION_SECRET_MASTER_KEY`。`entrypoint.sh` 会自动完成这两个变量的桥接，部署时你只需
-> 提供 `FLUXION_DATABASE_URL` 与 `FLUXION_MASTER_KEY`。
+> `FLUXION_DATABASE_URL`），且 Secret Store 读取的变量名是
+> `FLUXION_SECRET_MASTER_KEY`（唯一变量名，不做兼容）。部署时你只需
+> 提供 `FLUXION_DATABASE_URL` 与 `FLUXION_SECRET_MASTER_KEY`。
 
-## MASTER_KEY 生成
+## SECRET_MASTER_KEY 生成
 
-`FLUXION_MASTER_KEY` 是 AES-256-GCM 所需的 32 字节随机 key，部署时以 base64 提供：
+`FLUXION_SECRET_MASTER_KEY` 是 AES-256-GCM 所需的 32 字节随机 key，部署时以 base64 提供：
 
 ```bash
 openssl rand -base64 32
@@ -58,8 +58,8 @@ x8Q3uVn1yR4tP6aZ9cW2eF5hJ7kL0mN8oQ1sT3uV6wY=
 前置：本机已安装 Docker（含 Compose v2），并在**仓库根目录**执行。
 
 ```bash
-# 1. 生成并导出 MASTER_KEY
-export FLUXION_MASTER_KEY="$(openssl rand -base64 32)"
+# 1. 生成并导出 SECRET_MASTER_KEY
+export FLUXION_SECRET_MASTER_KEY="$(openssl rand -base64 32)"
 
 # 2. 构建并启动（postgres + fluxion）
 docker compose -f deploy/docker/docker-compose.yml up --build -d
@@ -133,8 +133,8 @@ curl http://127.0.0.1:8000/healthz
 
 ### 关键设计
 
-- **MASTER_KEY 用 Secret**：`FLUXION_MASTER_KEY`（及代码实际读取的
-  `FLUXION_SECRET_MASTER_KEY`、含密码的 `FLUXION_DATABASE_URL`）都写入 Secret，Deployment
+- **SECRET_MASTER_KEY 用 Secret**：`FLUXION_SECRET_MASTER_KEY`（及含密码的
+  `FLUXION_DATABASE_URL`）都写入 Secret，Deployment
   通过 `envFrom.secretRef` 注入，不进入 ConfigMap 或 Deployment spec。
 - **非敏感配置用 ConfigMap**：`FLUXION_ENV`、`FLUXION_LOG_LEVEL` 通过 `envFrom.configMapRef` 注入。
 - **探针**：API 沿用 `values.probes`（liveness/readiness `/healthz` + `/readyz`）；独立 Runtime 用 `values.runtime.probes`——liveness `/healthz`（10s/2s/3），readiness `/readyz`（5s/2s/3，initialDelay 5s，走 `RuntimeApplicationService.ready()` 的 Registry 读路径，应用内检测预算默认 1s、无重试）；慢启动可开 `values.runtime.startupProbe.enabled`。后端生产模式已实现。

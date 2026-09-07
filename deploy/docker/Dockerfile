@@ -94,7 +94,7 @@ RUN mkdir -p /app/frontend/apps/console /app/frontend/apps/chat
 COPY --from=frontend /build/frontend/apps/console/dist /app/frontend/apps/console/dist
 COPY --from=frontend /build/frontend/apps/chat/dist /app/frontend/apps/chat/dist
 
-# 入口脚本：桥接 FLUXION_DATABASE_URL / FLUXION_MASTER_KEY 到 fluxion serve
+# 入口脚本：桥接 FLUXION_DATABASE_URL 到 fluxion serve（密钥变量直读 FLUXION_SECRET_MASTER_KEY）
 COPY deploy/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

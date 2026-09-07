@@ -6,10 +6,8 @@
 # 为什么需要这个脚本而不是直接 `fluxion serve`：
 # 1. CLI 的 serve 命令通过 `--registry-dsn` 接收数据库 DSN（默认本地 PG），
 #    不会自动读取 FLUXION_DATABASE_URL，因此这里显式桥接。
-# 2. 代码内 Secret Store 实际读取的环境变量是 FLUXION_SECRET_MASTER_KEY（base64），
-#    而 .env.example / 部署约定使用 FLUXION_MASTER_KEY，这里做兼容桥接。
-# 3. CLI 默认监听 127.0.0.1，容器内必须监听 0.0.0.0 才能被宿主机访问。
-# 4. Phase 6 TASK-006：FLUXION_ROLE=api（默认，--production 生产 bundle：Console/
+# 2. CLI 默认监听 127.0.0.1，容器内必须监听 0.0.0.0 才能被宿主机访问。
+# 3. Phase 6 TASK-006：FLUXION_ROLE=api（默认，--production 生产 bundle：Console/
 #    Chat/Workspace/Eval/Operations + PG + 真实 provider + enforced release gate）
 #    或 FLUXION_ROLE=worker（fluxion-workflow-worker serve，DBOS 执行进程）。
 # -----------------------------------------------------------------------------
@@ -22,29 +20,26 @@ set -eu
 : "${FLUXION_DATABASE_URL:=postgresql+asyncpg://fluxion:fluxion@postgres:5432/fluxion}"
 : "${FLUXION_ROLE:=api}"
 
-# MASTER_KEY：AES-256-GCM 需要 32 字节 key，部署约定为 base64 编码。
+# SECRET_MASTER_KEY：AES-256-GCM 需要 32 字节 key，base64 编码（唯一变量名，不做兼容）。
 # 生成方式：openssl rand -base64 32
-if [ -z "${FLUXION_MASTER_KEY:-}" ]; then
-  echo "错误：缺少 FLUXION_MASTER_KEY（32 字节 AES-256-GCM key 的 base64）。" >&2
+if [ -z "${FLUXION_SECRET_MASTER_KEY:-}" ]; then
+  echo "错误：缺少 FLUXION_SECRET_MASTER_KEY（32 字节 AES-256-GCM key 的 base64）。" >&2
   echo "      生成命令：openssl rand -base64 32" >&2
   exit 1
 fi
 
 # 校验 key 为合法 base64 且解码后为 32 字节
-python - "${FLUXION_MASTER_KEY}" <<'PY'
+python - "${FLUXION_SECRET_MASTER_KEY}" <<'PY'
 import base64
 import sys
 
 try:
     key = base64.b64decode(sys.argv[1], validate=True)
 except Exception as exc:
-    raise SystemExit(f"FLUXION_MASTER_KEY 不是合法 base64：{exc}") from exc
+    raise SystemExit(f"FLUXION_SECRET_MASTER_KEY 不是合法 base64：{exc}") from exc
 if len(key) != 32:
-    raise SystemExit(f"FLUXION_MASTER_KEY 解码后为 {len(key)} 字节，必须是 32 字节")
+    raise SystemExit(f"FLUXION_SECRET_MASTER_KEY 解码后为 {len(key)} 字节，必须是 32 字节")
 PY
-
-# 兼容代码内实际读取的变量名（PostgresEncryptedSecretStore.from_env 读此变量）
-export FLUXION_SECRET_MASTER_KEY="${FLUXION_MASTER_KEY}"
 
 # worker 角色：DBOS 执行进程（fluxion-workflow-worker serve，唯一执行进程；
 # API/Console 进程只做 client 侧 start/signal，rule 13）。DBOS sysdb 用
