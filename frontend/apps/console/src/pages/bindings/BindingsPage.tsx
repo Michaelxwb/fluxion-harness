@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 
-import { Button, Card, Empty, Input, Modal, Select, Space, Table, Typography } from "@douyinfe/semi-ui";
+import { Button, Card, Input, Modal, Select, Space, Table, Typography } from "@douyinfe/semi-ui";
 import { IconPlus } from "@douyinfe/semi-icons";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
-import { ListPager } from "../../components/ListPager";
+import { EmptyState } from "../../components/EmptyState";
 import { PageHeader } from "../../components/PageHeader";
+import { StandardListFooter } from "../../components/StandardListShell";
 import { StatusTag } from "../../components/StatusTag";
 import type {
   BindingRecord,
@@ -107,7 +108,7 @@ export function BindingsPage({ api }: BindingsPageProps) {
       <ErrorBanner message={error} />
       {notice ? <Typography.Text type="success">{notice}</Typography.Text> : null}
       <Card
-        aria-label="绑定列表"
+        aria-label="资源绑定列表"
         bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }}
         header={
           <div className="list-card-header list-card-header--spread">
@@ -133,11 +134,23 @@ export function BindingsPage({ api }: BindingsPageProps) {
         <Table
           columns={bindingColumns}
           dataSource={[...bindings]}
-          empty={<Empty description="暂无绑定" />}
+          empty={
+            <EmptyState
+              description="绑定承载用户级差异（如用户专属凭据引用）；凭据只展示 SecretRef，不出现明文。"
+              title="暂无绑定"
+            />
+          }
           pagination={false}
           rowKey="bindingId"
         />
-        <ListPager onChange={(page) => void loadBindings(page)} page={bindingPage} pageSize={BINDING_PAGE_SIZE} total={bindingTotal} />
+        {bindingTotal > 0 ? (
+          <StandardListFooter
+            onPageChange={(page) => void loadBindings(page)}
+            page={bindingPage}
+            pageSize={BINDING_PAGE_SIZE}
+            total={bindingTotal}
+          />
+        ) : null}
       </Card>
       {bindOpen ? (
         <Modal

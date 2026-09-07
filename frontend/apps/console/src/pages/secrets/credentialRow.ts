@@ -1,5 +1,14 @@
 import type { ResourceSummary } from "../../types/console";
 
+/** 凭据用途预设（创建/编辑共用；allowCreate 支持自定义输入）。 */
+export const CREDENTIAL_PURPOSES: readonly string[] = [
+  "api-key",
+  "token",
+  "password",
+  "certificate",
+  "模型供应商连接"
+];
+
 /** TASK-009：凭据列表行投影（列表页与元数据/轮换/禁用 Modal 共享）。 */
 export interface CredentialRow {
   readonly key: string;

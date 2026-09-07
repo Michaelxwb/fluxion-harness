@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { Descriptions, Select, SideSheet, Table, Typography } from "@douyinfe/semi-ui";
+import { Button, Descriptions, Select, SideSheet, Table, Typography } from "@douyinfe/semi-ui";
 
+import { ActionTag } from "../../components/ActionTag";
 import { ErrorBanner } from "../../components/ErrorBanner";
+import { RelativeTime } from "../../components/RelativeTime";
+import { ResourceId } from "../../components/ResourceId";
 import { PageHeader } from "../../components/PageHeader";
 import {
   StandardListCard,
@@ -28,6 +31,7 @@ export function AuditPage({ api }: AuditPageProps) {
   const [actionFilter, setActionFilter] = useState("");
   const [actorFilter, setActorFilter] = useState("");
   const [targetTypeFilter, setTargetTypeFilter] = useState("");
+  const [range, setRange] = useState<TimeRangeKey>("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<AuditRecord | null>(null);
 
@@ -37,13 +41,18 @@ export function AuditPage({ api }: AuditPageProps) {
       setPage(
         await api.listAudit(
           { page: nextPage, pageSize: PAGE_SIZE },
-          filters ?? buildFilters(actionFilter, actorFilter, targetTypeFilter)
+          filters ?? buildFilters(actionFilter, actorFilter, targetTypeFilter, range)
         )
       );
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "未知错误");
     }
+  }
+
+  function applyRange(next: TimeRangeKey): void {
+    setRange(next);
+    void loadAudit(1, buildFilters(actionFilter, actorFilter, targetTypeFilter, next));
   }
 
   useEffect(() => {
@@ -100,6 +109,17 @@ export function AuditPage({ api }: AuditPageProps) {
               primary={null}
               filters={
                 <>
+                  {TIME_RANGES.map((option) => (
+                    <Button
+                      key={option.key}
+                      onClick={() => applyRange(option.key)}
+                      size="small"
+                      theme={range === option.key ? "solid" : "borderless"}
+                      type={range === option.key ? "primary" : "tertiary"}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
                   <span className="sr-only" id="audit-action-filter-label">
                     操作类型过滤
                   </span>
@@ -109,7 +129,7 @@ export function AuditPage({ api }: AuditPageProps) {
                     onChange={(value) => {
                       const next = String(value ?? "");
                       setActionFilter(next);
-                      void loadAudit(1, buildFilters(next, actorFilter, targetTypeFilter));
+                      void loadAudit(1, buildFilters(next, actorFilter, targetTypeFilter, range));
                     }}
                     optionList={[{ label: "全部操作", value: "" }, ...actionOptions]}
                     placeholder="操作类型"
@@ -125,7 +145,7 @@ export function AuditPage({ api }: AuditPageProps) {
                     onChange={(value) => {
                       const next = String(value ?? "");
                       setActorFilter(next);
-                      void loadAudit(1, buildFilters(actionFilter, next, targetTypeFilter));
+                      void loadAudit(1, buildFilters(actionFilter, next, targetTypeFilter, range));
                     }}
                     optionList={[{ label: "全部操作者", value: "" }, ...actorOptions]}
                     placeholder="操作者"
@@ -141,7 +161,7 @@ export function AuditPage({ api }: AuditPageProps) {
                     onChange={(value) => {
                       const next = String(value ?? "");
                       setTargetTypeFilter(next);
-                      void loadAudit(1, buildFilters(actionFilter, actorFilter, next));
+                      void loadAudit(1, buildFilters(actionFilter, actorFilter, next, range));
                     }}
                     optionList={[{ label: "全部对象", value: "" }, ...targetTypeOptions]}
                     placeholder="对象类型"
@@ -163,11 +183,23 @@ export function AuditPage({ api }: AuditPageProps) {
           <Table<AuditRecord>
             aria-label="审计表格"
             columns={[
-              { dataIndex: "action", title: "操作" },
+              {
+                dataIndex: "action",
+                render: (value: string) => <ActionTag action={value} />,
+                title: "操作"
+              },
               { dataIndex: "actorId", title: "操作者" },
-              { dataIndex: "resourceId", title: "资源" },
+              {
+                dataIndex: "resourceId",
+                render: (value: string) => <ResourceId id={value} />,
+                title: "资源"
+              },
               { dataIndex: "resourceVersion", title: "版本" },
-              { dataIndex: "at", title: "时间" }
+              {
+                dataIndex: "at",
+                render: (value: string) => <RelativeTime value={value} />,
+                title: "时间"
+              }
             ]}
             dataSource={[...rows]}
             onRow={(record) => ({
@@ -194,7 +226,9 @@ export function AuditPage({ api }: AuditPageProps) {
               <Descriptions.Item itemKey="对象类型">{selected.targetType ?? "-"}</Descriptions.Item>
               <Descriptions.Item itemKey="资源">{selected.resourceId}</Descriptions.Item>
               <Descriptions.Item itemKey="版本">{selected.resourceVersion}</Descriptions.Item>
-              <Descriptions.Item itemKey="时间">{selected.at}</Descriptions.Item>
+              <Descriptions.Item itemKey="时间">
+                <RelativeTime value={selected.at} />
+              </Descriptions.Item>
             </Descriptions>
             <div>
               <Typography.Text strong>链路关联（规则 23）</Typography.Text>
@@ -216,11 +250,22 @@ export function AuditPage({ api }: AuditPageProps) {
   );
 }
 
-function buildFilters(action: string, actorId: string, targetType: string): AuditFilters {
+type TimeRangeKey = "" | "1h" | "24h" | "7d";
+
+const TIME_RANGES: readonly { readonly key: TimeRangeKey; readonly label: string; readonly hours: number }[] = [
+  { key: "", label: "全部时间", hours: 0 },
+  { key: "1h", label: "近 1 小时", hours: 1 },
+  { key: "24h", label: "近 24 小时", hours: 24 },
+  { key: "7d", label: "近 7 天", hours: 24 * 7 }
+];
+
+function buildFilters(action: string, actorId: string, targetType: string, range: TimeRangeKey = ""): AuditFilters {
+  const hours = TIME_RANGES.find((option) => option.key === range)?.hours ?? 0;
   return {
     action: action || undefined,
     actorId: actorId || undefined,
-    targetType: targetType || undefined
+    targetType: targetType || undefined,
+    createdFrom: hours > 0 ? new Date(Date.now() - hours * 3600 * 1000).toISOString() : undefined
   };
 }
 

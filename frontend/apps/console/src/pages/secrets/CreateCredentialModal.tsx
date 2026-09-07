@@ -1,8 +1,9 @@
 import { useState } from "react";
 
-import { Button, Input, Modal, Space, TextArea, Toast, Typography } from "@douyinfe/semi-ui";
+import { Button, Input, Modal, Select, Space, Toast, Typography } from "@douyinfe/semi-ui";
 
 import type { ConsoleApi } from "../../types/console";
+import { CREDENTIAL_PURPOSES } from "./credentialRow";
 
 interface CreateCredentialModalProps {
   readonly api: ConsoleApi;
@@ -43,6 +44,10 @@ export function CreateCredentialModal({
     }
     if (!secret.trim()) {
       setError("Secret：必填");
+      return;
+    }
+    if (!purpose.trim()) {
+      setError("用途：必填（选择预设或自定义输入）");
       return;
     }
     setSubmitting(true);
@@ -115,12 +120,19 @@ export function CreateCredentialModal({
           />
         </div>
         <div>
-          <Typography.Text>用途</Typography.Text>
-          <TextArea
+          <Typography.Text>用途 *</Typography.Text>
+          <Select
+            allowCreate
             aria-label="凭据用途"
-            onChange={(value) => setPurpose(String(value))}
-            placeholder="如：模型供应商连接"
-            value={purpose}
+            data-testid="purpose-select"
+            onChange={(value) => {
+              setPurpose(String(value ?? ""));
+              setError(null);
+            }}
+            optionList={CREDENTIAL_PURPOSES.map((item) => ({ label: item, value: item }))}
+            placeholder="选择预设或自定义输入，如：模型供应商连接"
+            style={{ width: "100%" }}
+            value={purpose || undefined}
           />
         </div>
         {error ? (

@@ -3,7 +3,7 @@
  * （Identity 身份 / Profile 画像（含偏好）/ Capability 能力授权 / Policy 策略 / Activity 活动）。
  * 展示组件：props 只读；无数据维度显示「该用户暂无数据」。
  */
-import { Card, Descriptions, Empty, Tabs, Typography } from "@douyinfe/semi-ui";
+import { Card, Descriptions, Empty, Tabs, Tag, Typography } from "@douyinfe/semi-ui";
 
 import type { User360Summary } from "../../types/console";
 
@@ -28,13 +28,17 @@ export function User360Tabs({ summary }: User360TabsProps) {
     <div aria-label="User 360 Tabs" className="user360-tabs">
       <Tabs type="line" defaultActiveKey="identity">
         <Tabs.TabPane itemKey="identity" tab="身份">
-          <Descriptions row>
-            <Descriptions.Item itemKey="平台用户">
-              {summary.identity.platform_user_id}
-            </Descriptions.Item>
-            <Descriptions.Item itemKey="显示名">{summary.identity.display_name}</Descriptions.Item>
-            <Descriptions.Item itemKey="渠道数">{summary.identity.channels.length}</Descriptions.Item>
-          </Descriptions>
+          {summary.identity.channels.length === 0 ? (
+            <Empty description="该用户暂无绑定渠道" />
+          ) : (
+            <div className="user360-channels">
+              {summary.identity.channels.map((channel) => (
+                <Tag key={`${channel.channel_type}:${channel.channel_user_id}`}>
+                  {channel.channel_type} · {channel.channel_user_id}
+                </Tag>
+              ))}
+            </div>
+          )}
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="profile" tab="画像">
           {summary.profile === null && summary.preferences === null ? (

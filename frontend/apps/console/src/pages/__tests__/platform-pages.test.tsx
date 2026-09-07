@@ -36,8 +36,10 @@ describe("TASK-016 / FE-S-07 platform secrets", () => {
 
     // TASK-009 标准列契约：名称列取 spec.name（不再以资源 ID 兜底展示）
     expect((await screen.findAllByText("db 凭据")).length).toBeGreaterThanOrEqual(1);
-    // SecretRef 引用形态可见（SecretRef 不暴露明文——规则 17）
-    expect((await screen.findAllByText("secret://tenant-a/db-pass")).length).toBeGreaterThanOrEqual(1);
+    // SecretRef 引用形态可见（截断 + hover 全文 + 复制；SecretRef 不暴露明文——规则 17）
+    expect(
+      document.querySelector('[title="secret://tenant-a/db-pass"]')
+    ).not.toBeNull();
     const html = document.body.innerHTML;
     // 凭据条目不携带明文（seed 中不存在明文字段，哨兵值一并断言）。
     expect(html).not.toContain("password-value");

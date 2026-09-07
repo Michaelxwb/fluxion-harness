@@ -115,11 +115,11 @@ describe("console-creation-flow-fix / CF-S-02 创建直达编辑器", () => {
 
     // 直达编辑器：路由 /build/agents/:resourceId/edit 渲染 AgentEditorPage，
     // 编辑器加载刚创建的 draft（getResource 任意状态 + working draft 复用）
-    const editor = await screen.findByLabelText("智能体编辑器");
+    await screen.findByLabelText("智能体编辑器");
     expect(screen.getByDisplayValue("数据分析助手")).toBeInTheDocument();
-    // 编辑器可保存/发布（创建 → 编辑 → 发布 闭环入口）
-    expect(within(editor).getByRole("button", { name: "保存" })).toBeInTheDocument();
-    expect(within(editor).getByRole("button", { name: "发布" })).toBeInTheDocument();
+    // 编辑器可保存/发布（吸顶操作栏；创建 → 编辑 → 发布 闭环入口）
+    expect(screen.getByRole("button", { name: "保存" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "发布" })).toBeInTheDocument();
   });
 });
 
@@ -160,21 +160,22 @@ describe("TASK-014 / F-S-05 独立 Editor + draft 无感", () => {
     // 专属 Editor（published → 自动 working draft，用户无感）
     const editor = await screen.findByLabelText("智能体编辑器");
     expect(within(editor).getByLabelText("智能体名")).toBeInTheDocument();
-    // TASK-012 Tabs 化后，模型/工作流/高级/能力在对应 tab 分区
-    await user.click(within(editor).getByRole("tab", { name: "模型" }));
+    // TASK-012 分区（重做后为左侧分组导航）；模型/工作流/高级/能力在对应分组
+    await user.click(within(editor).getByText("模型"));
     expect(within(editor).getByRole("combobox", { name: /主模型/ })).toBeInTheDocument();
     expect(within(editor).getByLabelText("模型调用超时")).toBeInTheDocument();
     expect(within(editor).getByLabelText("模型执行截止")).toBeInTheDocument();
-    await user.click(within(editor).getByRole("tab", { name: "高级设置" }));
+    await user.click(within(editor).getByText("高级设置"));
     expect(within(editor).getByRole("combobox", { name: "RuntimeProfile" })).toBeInTheDocument();
     expect(within(editor).getByLabelText("记忆策略引用")).toBeInTheDocument();
     expect(within(editor).getByLabelText("个性化策略引用")).toBeInTheDocument();
-    await user.click(within(editor).getByRole("tab", { name: "工作流" }));
+    await user.click(within(editor).getByText("工作流"));
     expect(within(editor).getByRole("combobox", { name: "默认工作流" })).toBeInTheDocument();
-    await user.click(within(editor).getByRole("tab", { name: "能力" }));
+    await user.click(within(editor).getByText("能力"));
     expect(within(editor).getByText("能力绑定")).toBeInTheDocument();
-    expect(within(editor).getByRole("button", { name: "保存" })).toBeInTheDocument();
-    expect(within(editor).getByRole("button", { name: "发布" })).toBeInTheDocument();
+    // 保存/发布在吸顶操作栏（编辑器 Card 之外）
+    expect(screen.getByRole("button", { name: "保存" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "发布" })).toBeInTheDocument();
     // 无显式「创建草稿/保存草稿」（Working Draft 用户无感）
     expect(screen.queryByText("保存草稿")).toBeNull();
     expect(screen.queryByText("创建草稿")).toBeNull();
@@ -230,7 +231,7 @@ describe("TASK-015 / F-S-06 发布校验呈现", () => {
     await user.click(within(list).getByRole("button", { name: "编辑 ghost-agent" }));
     const editor = await screen.findByLabelText("智能体编辑器");
 
-    await user.click(within(editor).getByRole("button", { name: "发布" }));
+    await user.click(screen.getByRole("button", { name: "发布" }));
 
     // 可操作问题清单（定位到缺失能力引用，与后端发布校验同源），不静默失败
     const issues = await screen.findByLabelText("发布校验问题");
@@ -346,7 +347,7 @@ describe("RuntimeProfile 缺口：一键创建租户默认配置", () => {
     const list = await screen.findByLabelText("智能体列表");
     await user.click(within(list).getByRole("button", { name: "编辑 assistant" }));
     const editor = await screen.findByLabelText("智能体编辑器");
-    await user.click(within(editor).getByRole("tab", { name: "高级设置" }));
+    await user.click(within(editor).getByText("高级设置"));
 
     await user.click(within(editor).getByRole("button", { name: "创建租户默认配置" }));
     await within(editor).findByText("已创建并发布租户默认配置，已自动选中");

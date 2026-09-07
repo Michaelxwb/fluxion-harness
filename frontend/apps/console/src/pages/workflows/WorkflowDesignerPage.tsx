@@ -20,6 +20,11 @@ interface WorkflowDesignerPageProps {
   readonly api: ConsoleApi;
 }
 
+interface PublishIssue {
+  readonly nodeId: string | null;
+  readonly text: string;
+}
+
 /** TASK-015（§8.2）：独立 Workflow Designer 路由（`/build/workflows/:id/edit`）。
  *
  * - FEAT-F06 无感化：published 资源打开即自动 working draft（对齐 Agent/Model
@@ -36,7 +41,7 @@ export function WorkflowDesignerPage({ api }: WorkflowDesignerPageProps) {
   const [selectedNodeIndex, setSelectedNodeIndex] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [publishIssues, setPublishIssues] = useState<readonly string[] | null>(null);
+  const [publishIssues, setPublishIssues] = useState<readonly PublishIssue[] | null>(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   // ADR-A011：乐观并发 base（fork 前的 published 版本）
@@ -99,7 +104,6 @@ export function WorkflowDesignerPage({ api }: WorkflowDesignerPageProps) {
     });
     setSelectedNodeIndex(draft.steps.length);
   }
-
   function removeNode(index: number): void {
     if (!draft) return;
     updateDraft({ ...draft, steps: draft.steps.filter((_, i) => i !== index) });
@@ -108,6 +112,13 @@ export function WorkflowDesignerPage({ api }: WorkflowDesignerPageProps) {
       if (current === index) return null;
       return current > index ? current - 1 : current;
     });
+  }
+
+  /** 诊断定位：按节点 ID 选中对应步骤（找不到则保持现状）。 */
+  function selectNodeById(nodeId: string): void {
+    if (!draft) return;
+    const index = draft.steps.findIndex((node) => node.id === nodeId);
+    if (index >= 0) setSelectedNodeIndex(index);
   }
 
   async function save(): Promise<void> {
@@ -147,9 +158,10 @@ export function WorkflowDesignerPage({ api }: WorkflowDesignerPageProps) {
       const v2 = await api.validateWorkflow(draft);
       if (!v2.valid) {
         setPublishIssues(
-          v2.diagnostics.map(
-            (item) => `${item.nodeId ? `节点 ${item.nodeId} ` : ""}${item.field}: ${item.message}`
-          )
+          v2.diagnostics.map((item) => ({
+            nodeId: item.nodeId ?? null,
+            text: `${item.nodeId ? `节点 ${item.nodeId} ` : ""}${item.field}: ${item.message}`
+          }))
         );
         setNotice("无法发布");
         return;
@@ -159,7 +171,7 @@ export function WorkflowDesignerPage({ api }: WorkflowDesignerPageProps) {
       const validation = await api.validatePublish(updated);
       if (!validation.valid) {
         setResource(updated);
-        setPublishIssues(validation.diagnostics);
+        setPublishIssues(validation.diagnostics.map((text) => ({ nodeId: null, text })));
         setNotice("无法发布");
         return;
       }
@@ -237,10 +249,20 @@ export function WorkflowDesignerPage({ api }: WorkflowDesignerPageProps) {
           {publishIssues?.length ? (
             <div aria-label="校验诊断">
               <Typography.Text type="danger">无法发布，发现 {publishIssues.length} 个问题：</Typography.Text>
-              <ul>
+              <ul className="studio-diagnostics">
                 {publishIssues.map((issue) => (
-                  <li key={issue}>
-                    <Typography.Text type="danger">{issue}</Typography.Text>
+                  <li key={issue.text}>
+                    {issue.nodeId ? (
+                      <Button
+                        onClick={() => selectNodeById(issue.nodeId as string)}
+                        theme="borderless"
+                        type="danger"
+                      >
+                        {issue.text}（点击定位）
+                      </Button>
+                    ) : (
+                      <Typography.Text type="danger">{issue.text}</Typography.Text>
+                    )}
                   </li>
                 ))}
               </ul>

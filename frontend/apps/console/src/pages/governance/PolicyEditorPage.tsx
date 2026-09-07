@@ -4,17 +4,19 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   Button,
   Card,
-  Input,
   Modal,
+  Select,
   Space,
   Spin,
+  Steps,
   Tag,
   Typography
 } from "@douyinfe/semi-ui";
-import { IconPlus, IconDelete } from "@douyinfe/semi-icons";
+import { IconDelete, IconPlus } from "@douyinfe/semi-icons";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { StatusTag } from "../../components/StatusTag";
+import { useRemoteResourceOptions } from "../../components/useRemoteResourceOptions";
 import type { ConsoleApi, JsonRecord, ResourceVersion } from "../../types/console";
 
 interface PolicyEditorPageProps {
@@ -36,10 +38,12 @@ export function PolicyEditorPage({ api }: PolicyEditorPageProps) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [allowedInput, setAllowedInput] = useState("");
-  const [deniedInput, setDeniedInput] = useState("");
+  const [allowedPick, setAllowedPick] = useState<string>("");
+  const [deniedPick, setDeniedPick] = useState<string>("");
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [publishedBaseVersion, setPublishedBaseVersion] = useState<string | undefined>(undefined);
+  // 名单能力选择器：远程搜索已发布 skill/tool/mcp（大数据集可达），手输保留经 allowCreate。
+  const capabilityOptions = useRemoteResourceOptions(api, ["skill", "tool", "mcp"], resource !== null);
 
   useEffect(() => {
     if (!resourceId) return;
@@ -158,7 +162,7 @@ export function PolicyEditorPage({ api }: PolicyEditorPageProps) {
   if (loading) {
     return (
       <div className="page-stack">
-        <Typography.Title heading={3}>Policy Editor</Typography.Title>
+        <Typography.Title heading={3}>策略编辑</Typography.Title>
         <Card>
           <div aria-label="编辑器加载中">
             <Spin />
@@ -175,7 +179,7 @@ export function PolicyEditorPage({ api }: PolicyEditorPageProps) {
   return (
     <div className="page-stack">
       <Space align="center">
-        <Typography.Title heading={3}>Policy Editor</Typography.Title>
+        <Typography.Title heading={3}>策略编辑</Typography.Title>
         {resource ? (
           <Button onClick={() => navigate("/governance/policies")} type="tertiary">
             返回列表
@@ -195,19 +199,36 @@ export function PolicyEditorPage({ api }: PolicyEditorPageProps) {
           <div>
             <Typography.Text>工具白名单（非空时仅放行所列）</Typography.Text>
             <Space style={{ paddingTop: 8 }}>
-              <Input
-                aria-label="工具白名单输入"
-                onChange={(value) => setAllowedInput(String(value))}
-                placeholder="tool:mailer@1"
+              <Select
+                allowCreate
+                aria-label="白名单能力选择"
+                data-testid="allowlist-select"
+                filter={false}
+                loading={capabilityOptions.loading}
+                onChange={(value) => setAllowedPick(typeof value === "string" ? value : "")}
+                onSearch={capabilityOptions.onSearch}
+                optionList={capabilityOptions.options.map((option) => ({
+                  label: option.label,
+                  value: option.value
+                }))}
+                outerBottomSlot={
+                  capabilityOptions.truncated ? (
+                    <Typography.Text size="small" type="tertiary">
+                      仅显示前 {capabilityOptions.options.length} 条匹配，请细化关键词
+                    </Typography.Text>
+                  ) : undefined
+                }
+                placeholder="搜索已发布能力，或直接输入 tool:xxx@1"
+                remote
                 style={{ width: 320 }}
-                value={allowedInput}
+                value={allowedPick}
               />
               <Button
                 aria-label="添加白名单工具"
                 icon={<IconPlus />}
                 onClick={() => {
-                  addTool("allowed_tools", allowedInput);
-                  setAllowedInput("");
+                  addTool("allowed_tools", allowedPick);
+                  setAllowedPick("");
                 }}
               >
                 添加
@@ -233,19 +254,36 @@ export function PolicyEditorPage({ api }: PolicyEditorPageProps) {
           <div>
             <Typography.Text>工具黑名单（始终优先拒绝）</Typography.Text>
             <Space style={{ paddingTop: 8 }}>
-              <Input
-                aria-label="工具黑名单输入"
-                onChange={(value) => setDeniedInput(String(value))}
-                placeholder="tool:dangerous@1"
+              <Select
+                allowCreate
+                aria-label="黑名单能力选择"
+                data-testid="denylist-select"
+                filter={false}
+                loading={capabilityOptions.loading}
+                onChange={(value) => setDeniedPick(typeof value === "string" ? value : "")}
+                onSearch={capabilityOptions.onSearch}
+                optionList={capabilityOptions.options.map((option) => ({
+                  label: option.label,
+                  value: option.value
+                }))}
+                outerBottomSlot={
+                  capabilityOptions.truncated ? (
+                    <Typography.Text size="small" type="tertiary">
+                      仅显示前 {capabilityOptions.options.length} 条匹配，请细化关键词
+                    </Typography.Text>
+                  ) : undefined
+                }
+                placeholder="搜索已发布能力，或直接输入 tool:xxx@1"
+                remote
                 style={{ width: 320 }}
-                value={deniedInput}
+                value={deniedPick}
               />
               <Button
                 aria-label="添加黑名单工具"
                 icon={<IconDelete />}
                 onClick={() => {
-                  addTool("denied_tools", deniedInput);
-                  setDeniedInput("");
+                  addTool("denied_tools", deniedPick);
+                  setDeniedPick("");
                 }}
               >
                 添加
@@ -267,10 +305,21 @@ export function PolicyEditorPage({ api }: PolicyEditorPageProps) {
             </div>
           </div>
 
-          <Typography.Text type="tertiary">
-            生效链路：发布 → 经「治理 / 绑定管理」绑定到租户（subject_type=tenant）→ 运行期
-            TenantPolicy 工具面收口（Grant ∩ Allowlist ∩ TenantPolicy）。
-          </Typography.Text>
+          <div>
+            <Typography.Text strong>生效链路</Typography.Text>
+            <div style={{ paddingTop: 8 }}>
+              <Steps size="small" type="basic" current={resource.status === "published" ? 1 : 0}>
+                <Steps.Step title="发布策略" description="版本不可变" />
+                <Steps.Step title="绑定到租户" description="subject_type=tenant" />
+                <Steps.Step title="运行期收口" description="Grant ∩ Allowlist ∩ TenantPolicy" />
+              </Steps>
+            </div>
+            <div style={{ paddingTop: 8 }}>
+              <Button onClick={() => navigate("/governance/bindings")} type="tertiary">
+                去绑定管理
+              </Button>
+            </div>
+          </div>
 
           <Space>
             <Button loading={busy} onClick={() => void save()} theme="solid" type="primary">

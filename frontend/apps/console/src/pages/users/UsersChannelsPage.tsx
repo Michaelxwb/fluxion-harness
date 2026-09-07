@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { Button, Descriptions, Empty, Input, Modal, Select, SideSheet, Space, Table, Typography } from "@douyinfe/semi-ui";
+import { Avatar, Button, Descriptions, Input, Modal, Select, SideSheet, Space, Table, Tooltip, Typography } from "@douyinfe/semi-ui";
 import { useNavigate } from "react-router-dom";
 import { IconCopy, IconDelete, IconLink, IconPlus } from "@douyinfe/semi-icons";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
+import { EmptyState } from "../../components/EmptyState";
 import { PageHeader } from "../../components/PageHeader";
+import { RelativeTime } from "../../components/RelativeTime";
+import { RiskConfirm } from "../../components/RiskConfirm";
 import {
   StandardListCard,
   StandardListFooter,
@@ -162,15 +165,15 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
               (user) => navigate(`/users/${user.platformUserId}`)
             )}
             dataSource={[...filtered]}
-            empty={<Empty description="暂无用户" />}
+            empty={<EmptyState description="暂无用户，点击右上「新增用户」创建本地用户。" title="暂无用户" />}
             pagination={false}
             rowKey="platformUserId"
           />
         </StandardListCard>
       </div>
-      <Typography.Text type="tertiary">
-        用户级 Agent 授权在智能体编辑器「用户」tab 管理（Agent 维度授权，不塞进用户创建流程）。
-      </Typography.Text>
+      <Tooltip content="用户级 Agent 授权在智能体编辑器「用户」tab 管理（Agent 维度授权，不塞进用户创建流程）。">
+        <Typography.Text type="tertiary">用户级授权说明</Typography.Text>
+      </Tooltip>
       {createOpen ? (
         <Modal
           footer={
@@ -200,8 +203,8 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
       {issueTarget ? (
         <Modal
           cancelText="取 消"
-          okButtonProps={{ disabled: !issueAgentId }}
-          okText="确 定"
+          okButtonProps={{ "aria-label": "确定", disabled: !issueAgentId }}
+          okText="确定"
           onOk={() => void issue(issueTarget, issueAgentId)}
           onCancel={() => setIssueTarget(null)}
           title="生成对话链接"
@@ -248,27 +251,25 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
             <Descriptions row>
               <Descriptions.Item itemKey="用户">{issued.platformUserId}</Descriptions.Item>
               <Descriptions.Item itemKey="运行态">{issued.agentId}</Descriptions.Item>
-              <Descriptions.Item itemKey="创建时间">{formatDateTime(issued.createdAt)}</Descriptions.Item>
+              <Descriptions.Item itemKey="创建时间">
+                <RelativeTime value={issued.createdAt} />
+              </Descriptions.Item>
             </Descriptions>
             <Typography.Text type="tertiary">链接仅本次显示 token，复制后请妥善保存；撤销后链接立即失效。</Typography.Text>
             <Input aria-label="专属对话链接" readOnly value={link} />
             <Space>
-              <Button icon={<IconCopy />} onClick={() => void navigator.clipboard.writeText(link)}>复制链接</Button>
-              <Button icon={<IconLink />} onClick={() => window.open(link, "_blank", "noopener,noreferrer")}>打开对话</Button>
-              <Button icon={<IconDelete />} onClick={() => setRevokeOpen(true)} type="danger">撤销</Button>
+              <Button aria-label="复制链接" icon={<IconCopy />} onClick={() => void navigator.clipboard.writeText(link)}>复制链接</Button>
+              <Button aria-label="打开对话" icon={<IconLink />} onClick={() => window.open(link, "_blank", "noopener,noreferrer")}>打开对话</Button>
+              <Button aria-label="撤销" icon={<IconDelete />} onClick={() => setRevokeOpen(true)} type="danger">撤销</Button>
             </Space>
             {revokeOpen ? (
-              <Modal
-                cancelText="取消"
-                okButtonProps={{ type: "danger" }}
-                okText="确认撤销"
+              <RiskConfirm
+                impact={["当前链接会立即失效", "用户无法继续通过该链接对话", "已产生的对话记录不受影响"]}
                 onCancel={() => setRevokeOpen(false)}
-                onOk={() => void revoke()}
+                onConfirm={() => void revoke()}
                 title="撤销对话链接"
                 visible
-              >
-                撤销后，当前链接会立即失效，用户无法继续通过该链接对话。
-              </Modal>
+              />
             ) : null}
           </div>
         ) : null}
@@ -282,9 +283,22 @@ function userColumns(
   onView360: (user: PlatformUser) => void
 ) {
   return [
-    { dataIndex: "platformUserId", title: "用户 ID" },
+    {
+      dataIndex: "platformUserId",
+      render: (value: string) => (
+        <span className="agent-name-cell">
+          <Avatar size="small">{value.slice(0, 1).toUpperCase()}</Avatar>
+          {value}
+        </span>
+      ),
+      title: "用户 ID"
+    },
     { dataIndex: "displayName", title: "名称" },
-    { dataIndex: "createdAt", title: "创建时间" },
+    {
+      dataIndex: "createdAt",
+      render: (value: string) => <RelativeTime value={value} />,
+      title: "创建时间"
+    },
     {
       render: (_value: unknown, user: PlatformUser) => (
         <Space>
@@ -296,20 +310,14 @@ function userColumns(
           >
             生成对话链接
           </Button>
-          <Button aria-label={`查看 360 ${user.platformUserId}`} onClick={() => onView360(user)}>
-            查看 360
+          <Button aria-label={`用户详情 ${user.platformUserId}`} onClick={() => onView360(user)}>
+            用户详情
           </Button>
         </Space>
       ),
       title: "操作"
     }
   ];
-}
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function toErrorMessage(cause: unknown): string {

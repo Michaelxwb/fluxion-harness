@@ -81,13 +81,13 @@ describe("TASK-012 / S-13 User 360 深链路由", () => {
       expect(await screen.findByText(/加载失败|不存在/)).toBeInTheDocument();
       const user = userEvent.setup();
       await user.click(screen.getByRole("button", { name: /返回用户列表/ }));
-      expect(await screen.findByRole("heading", { name: /用户/ })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "用户管理" })).toBeInTheDocument();
     } finally {
       view.unmount();
     }
   });
 
-  it("列表页「查看 360」路由跳转到详情页", async () => {
+  it("列表页「用户详情」路由跳转到详情页", async () => {
     const user = userEvent.setup();
     const rendered = renderConsole({
       initialView: "users_channels",
@@ -95,7 +95,7 @@ describe("TASK-012 / S-13 User 360 深链路由", () => {
     });
     try {
       await screen.findByText("u-360");
-      await user.click(screen.getByRole("button", { name: /查看 360 u-360/ }));
+      await user.click(screen.getByRole("button", { name: /用户详情 u-360/ }));
       // 路由跳转后：360 详情页可见（URL 路由承载，非 SideSheet）
       await screen.findByLabelText("User 360 Header");
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

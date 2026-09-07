@@ -81,7 +81,7 @@ describe("B-03 Build journey（成功率 ≥95%）", () => {
           const view = mountConsole("/build/workflows");
           user = view.user;
           api = view.api;
-          await screen.findByRole("heading", { name: "流程编排" });
+          await screen.findByRole("heading", { name: "工作流" });
           await user.click(screen.getByRole("button", { name: "Weekly Report" }));
           // TASK-015：独立 Designer + published 自动 working draft
           await screen.findByLabelText("Workflow Designer");
@@ -157,7 +157,7 @@ describe("B-03 Admin journey（成功率 ≥95%）", () => {
       {
         name: "查看用户 360 五维度",
         run: async () => {
-          await user.click(screen.getByRole("button", { name: /查看 360/ }));
+          await user.click(screen.getByRole("button", { name: /用户详情/ }));
           const panel = await screen.findByLabelText("User 360");
           const tabs = within(panel).getAllByRole("tab");
           const names = tabs.map((tab) => tab.textContent ?? "");
@@ -171,7 +171,7 @@ describe("B-03 Admin journey（成功率 ≥95%）", () => {
         run: async () => {
           await user.click(sider().getByText("治理"));
           await user.click(sider().getByText("授权规则"));
-          await screen.findByRole("heading", { name: /授权规则|策略/ });
+          await screen.findByRole("heading", { name: "授权规则" });
         }
       },
       {

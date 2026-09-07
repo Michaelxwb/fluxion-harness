@@ -19,7 +19,7 @@ async function createUserAndView360(user: ReturnType<typeof userEvent.setup>, id
   await user.click(screen.getByRole("button", { name: "创建用户" }));
   await screen.findByText("用户已创建");
 
-  await user.click(screen.getByRole("button", { name: /查看 360/ }));
+  await user.click(screen.getByRole("button", { name: /用户详情/ }));
   return screen.findByLabelText("User 360");
 }
 

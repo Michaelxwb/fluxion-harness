@@ -5,6 +5,7 @@ import { Button, Modal, Select, Table, Tabs, Toast } from "@douyinfe/semi-ui";
 import { useNavigate } from "react-router-dom";
 
 import { PageHeader } from "../../components/PageHeader";
+import { EmptyState } from "../../components/EmptyState";
 import {
   RowActions,
   StandardListCard,
@@ -43,7 +44,23 @@ interface ListRow {
   readonly resourceId: string;
   readonly version: string;
   readonly status: string;
+  readonly refCount: number;
 }
+
+const KIND_EMPTY_TEXT: Record<CapabilityKind, { readonly title: string; readonly description: string }> = {
+  skill: {
+    description: "技能是可复用的 Prompt 与指令包，可被智能体挂载。先新建技能，再到智能体编辑器中挂载使用。",
+    title: "暂无技能"
+  },
+  tool: {
+    description: "工具是可被模型函数调用的外部操作。发布后即可在授权白名单与工作流节点中引用。",
+    title: "暂无工具"
+  },
+  mcp: {
+    description: "MCP 接入外部服务的能力网关。添加 Server 后，其下工具自动注册为可用能力。",
+    title: "暂无 MCP Server"
+  }
+};
 
 const PAGE_SIZE = 10;
 
@@ -91,11 +108,23 @@ export function CapabilitiesPage({
         keyword: debouncedSearch.trim() || undefined,
         status: (statusFilter || undefined) as ResourceStatus | undefined
       });
+      // 被引用数：绑定页内 join（有界 100 条），失败不阻断列表。
+      let counts = new Map<string, number>();
+      try {
+        const bindings = await api.listBindings({ page: 1, pageSize: 100 }, kind as ResourceType);
+        counts = new Map<string, number>();
+        for (const binding of bindings.items) {
+          counts.set(binding.resourceId, (counts.get(binding.resourceId) ?? 0) + 1);
+        }
+      } catch {
+        counts = new Map<string, number>();
+      }
       if (requestId !== requestSeq.current) return;
       setRows(
         result.items.map((item: ResourceSummary) => ({
           key: `${item.resourceId}@${item.currentVersion}`,
           name: item.displayName || item.resourceId,
+          refCount: counts.get(item.resourceId) ?? 0,
           resourceId: item.resourceId,
           version: item.currentVersion,
           status: item.status
@@ -313,6 +342,12 @@ export function CapabilitiesPage({
           >
             <Table<ListRow>
               aria-label="工具列表表格"
+              empty={
+                <EmptyState
+                  description={KIND_EMPTY_TEXT.tool.description}
+                  title={KIND_EMPTY_TEXT.tool.title}
+                />
+              }
               columns={[
                 {
                   dataIndex: "name",
@@ -332,6 +367,11 @@ export function CapabilitiesPage({
                   dataIndex: "status",
                   render: (status: string) => <StatusTag status={status as ResourceStatus} />,
                   title: "状态"
+                },
+                {
+                  dataIndex: "refCount",
+                  render: (value: number) => (value > 0 ? `${value} 处引用` : "—"),
+                  title: "引用"
                 },
                 {
                   dataIndex: "resourceId",
@@ -427,6 +467,12 @@ export function CapabilitiesPage({
           >
             <Table<ListRow>
               aria-label="技能列表表格"
+              empty={
+                <EmptyState
+                  description={KIND_EMPTY_TEXT.skill.description}
+                  title={KIND_EMPTY_TEXT.skill.title}
+                />
+              }
               columns={[
                 {
                   dataIndex: "name",
@@ -446,6 +492,11 @@ export function CapabilitiesPage({
                   dataIndex: "status",
                   render: (status: string) => <StatusTag status={status as ResourceStatus} />,
                   title: "状态"
+                },
+                {
+                  dataIndex: "refCount",
+                  render: (value: number) => (value > 0 ? `${value} 处引用` : "—"),
+                  title: "引用"
                 },
                 {
                   dataIndex: "resourceId",
@@ -541,6 +592,12 @@ export function CapabilitiesPage({
           >
             <Table<ListRow>
               aria-label="MCP 列表表格"
+              empty={
+                <EmptyState
+                  description={KIND_EMPTY_TEXT.mcp.description}
+                  title={KIND_EMPTY_TEXT.mcp.title}
+                />
+              }
               columns={[
                 {
                   dataIndex: "name",
@@ -560,6 +617,11 @@ export function CapabilitiesPage({
                   dataIndex: "status",
                   render: (status: string) => <StatusTag status={status as ResourceStatus} />,
                   title: "状态"
+                },
+                {
+                  dataIndex: "refCount",
+                  render: (value: number) => (value > 0 ? `${value} 处引用` : "—"),
+                  title: "引用"
                 },
                 {
                   dataIndex: "resourceId",

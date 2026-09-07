@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { useParams } from "react-router-dom";
-import { Card, Spin, Typography } from "@douyinfe/semi-ui";
+import { Button, Card, Space, Spin, Typography } from "@douyinfe/semi-ui";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
+import { StatusTag } from "../../components/StatusTag";
 import type { ConsoleApi, ResourceVersion } from "../../types/console";
 import { AgentEditorForm } from "./AgentEditorForm";
 import {
@@ -28,6 +29,7 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
   const { resourceId } = useParams<{ resourceId: string }>();
   const [resource, setResource] = useState<ResourceVersion | null>(null);
   const [value, setValue] = useState<AgentEditorValue>(EMPTY_AGENT_EDITOR_VALUE);
+  const [savedValue, setSavedValue] = useState<AgentEditorValue>(EMPTY_AGENT_EDITOR_VALUE);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -36,6 +38,20 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
   // ADR-A011：乐观并发检查 base——published 资源编辑时记录其当前 published 版本，
   // 发布携带 expected_base_version 防止并发覆盖（首次发布无 base 则为 undefined）。
   const [publishedBaseVersion, setPublishedBaseVersion] = useState<string | undefined>(undefined);
+  // 回滚后刷新编辑器资源（working draft 可能已过期，重新 fork）。
+  const [rollbackNonce, setRollbackNonce] = useState(0);
+
+  const dirty = JSON.stringify(value) !== JSON.stringify(savedValue);
+
+  // 未保存离开守卫（Prompt 大文本防丢）。
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const guard = (event: BeforeUnloadEvent): void => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [dirty]);
 
   useEffect(() => {
     if (!resourceId) return;
@@ -52,7 +68,9 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
         setResource(draft);
         // ADR-A011：published 资源编辑记录乐观并发 base（fork 前的 published 版本）
         setPublishedBaseVersion(loaded.status === "published" ? loaded.version : undefined);
-        setValue(editorValueFrom(draft));
+        const nextValue = editorValueFrom(draft);
+        setValue(nextValue);
+        setSavedValue(nextValue);
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : "加载失败");
       }
@@ -60,7 +78,7 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
     return () => {
       active = false;
     };
-  }, [api, resourceId]);
+  }, [api, resourceId, rollbackNonce]);
 
   async function save(): Promise<void> {
     if (!resource) return;
@@ -70,6 +88,7 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
       const target = await ensureDraft();
       const saved = await api.updateDraft(target, editorSpec(target, value));
       setResource(saved);
+      setSavedValue(value);
       setNotice("已保存");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "保存失败");
@@ -110,6 +129,7 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
       const result = await api.publishVersion(saved, { expectedBaseVersion: publishedBaseVersion });
       // S-06：发布成功即为 published 态；后续保存经 ensureDraft fork 新版。
       setResource({ ...saved, status: "published" });
+      setSavedValue(value);
       setPublishedBaseVersion(result.version);
       setNotice("已发布");
     } catch (cause) {
@@ -130,21 +150,39 @@ export function AgentEditorPage({ api }: AgentEditorPageProps) {
           </div>
         </Card>
       ) : (
-        <Card aria-label="智能体编辑器">
-          <AgentEditorForm
-            agentId={resource.resourceId}
-            api={api}
-            busy={busy}
-            notice={notice}
-            onChange={(change) => setValue((current) => ({ ...current, ...change }))}
-            onPublish={() => void publish()}
-            onSave={() => void save()}
-            onTestCompleted={setLatestTraceId}
-            publishIssues={publishIssues}
-            value={value}
-            latestTraceId={latestTraceId}
-          />
-        </Card>
+        <>
+          <div className="editor-sticky-bar" aria-label="编辑器操作栏">
+            <Space align="center">
+              <Typography.Text strong>{value.name || resource.resourceId}</Typography.Text>
+              <StatusTag status={resource.status} />
+              <Typography.Text type="tertiary">{`v${resource.version}`}</Typography.Text>
+              {dirty ? (
+                <Typography.Text type="warning">未保存</Typography.Text>
+              ) : null}
+            </Space>
+            <Space>
+              <Button loading={busy} onClick={() => void save()} theme="solid" type="primary">
+                保存
+              </Button>
+              <Button loading={busy} onClick={() => void publish()} type="primary">
+                发布
+              </Button>
+            </Space>
+          </div>
+          <Card aria-label="智能体编辑器">
+            <AgentEditorForm
+              agentId={resource.resourceId}
+              api={api}
+              notice={notice}
+              onChange={(change) => setValue((current) => ({ ...current, ...change }))}
+              onRollbackDone={() => setRollbackNonce((nonce) => nonce + 1)}
+              onTestCompleted={setLatestTraceId}
+              publishIssues={publishIssues}
+              value={value}
+              latestTraceId={latestTraceId}
+            />
+          </Card>
+        </>
       )}
     </div>
   );

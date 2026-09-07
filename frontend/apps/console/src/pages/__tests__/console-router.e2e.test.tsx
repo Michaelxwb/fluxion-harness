@@ -52,7 +52,7 @@ describe("S-09 Console Router 迁移 + C401 IA 核对", () => {
 
   it("深链路由直达既有页面（ConsoleView 映射无回归）", async () => {
     renderConsole({ initialView: "workflows" });
-    await screen.findByRole("heading", { name: "流程编排" });
+    await screen.findByRole("heading", { name: "工作流" });
 
     renderConsole({ initialView: "runs" });
     await screen.findByRole("heading", { name: "执行记录" });
@@ -62,7 +62,7 @@ describe("S-09 Console Router 迁移 + C401 IA 核对", () => {
     const { user } = renderConsole({ initialView: "overview" });
     await user.click(sider().getByText("构建"));
     await user.click(sider().getByText("工作流"));
-    await screen.findByRole("heading", { name: "流程编排" });
+    await screen.findByRole("heading", { name: "工作流" });
 
     await user.click(sider().getByText("运营"));
     await user.click(sider().getByText("执行记录"));

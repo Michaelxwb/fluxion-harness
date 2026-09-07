@@ -1,4 +1,6 @@
-import { Button, Layout, Nav, Typography } from "@douyinfe/semi-ui";
+import { useEffect, useState } from "react";
+
+import { Breadcrumb, Button, Layout, Nav, Tag, Typography } from "@douyinfe/semi-ui";
 import {
   IconActivity,
   IconFlowChartStroked,
@@ -102,7 +104,24 @@ function ConsoleLayout() {
   const { mode, toggle } = useThemeMode();
   const navigate = useNavigate();
   const location = useLocation();
-  const selectedKey = navItemKeys.find((key) => location.pathname.startsWith(key)) ?? "/overview";
+  // BUG-SHELL1 修复：最长前缀匹配（如 /build/policies/:id/edit 归属授权规则，
+  // 而不是回退高亮平台概览）。
+  const selectedKey =
+    [...navItemKeys].sort((a, b) => b.length - a.length).find((key) => location.pathname.startsWith(key)) ??
+    "/overview";
+  const [openKeys, setOpenKeys] = useState<string[]>(() => initialOpenKeys(selectedKey));
+  // 路由切到未展开分组时自动展开并持久化。
+  useEffect(() => {
+    setOpenKeys((current) => {
+      const group = groupKeyOf(selectedKey);
+      const next = group && !current.includes(group) ? [...current, group] : current;
+      persistOpenKeys(next);
+      return next;
+    });
+  }, [selectedKey]);
+  const crumbs = breadcrumbOf(location.pathname, selectedKey);
+  const host = window.location.hostname;
+  const isLocal = host === "localhost" || host === "127.0.0.1";
 
   return (
     <Layout className="app-shell">
@@ -112,25 +131,92 @@ function ConsoleLayout() {
           <Typography.Text type="tertiary">控制面</Typography.Text>
         </div>
         <Nav
-          defaultOpenKeys={OPEN_GROUP_KEYS}
           items={navItems}
+          onOpenChange={(data) => {
+            const next = [...(data.openKeys ?? [])].map(String);
+            persistOpenKeys(next);
+            setOpenKeys(next);
+          }}
           onSelect={(data) => navigate(String(data.itemKey))}
+          openKeys={openKeys}
           selectedKeys={[selectedKey]}
         />
       </Layout.Sider>
       <Layout.Content className="app-content">
-        <div className="theme-switch">
-          <Button
-            aria-label={mode === "dark" ? "切换到亮色模式" : "切换到暗色模式"}
-            icon={mode === "dark" ? <IconSun /> : <IconMoon />}
-            onClick={toggle}
-            theme="borderless"
-          />
+        <div className="topbar">
+          <Breadcrumb aria-label="当前位置">
+            {crumbs.map((crumb) => (
+              <Breadcrumb.Item key={crumb}>{crumb}</Breadcrumb.Item>
+            ))}
+          </Breadcrumb>
+          <span className="topbar__right">
+            {isLocal ? <Tag color="blue">本地环境</Tag> : null}
+            <Button
+              aria-label={mode === "dark" ? "切换到亮色模式" : "切换到暗色模式"}
+              icon={mode === "dark" ? <IconSun /> : <IconMoon />}
+              onClick={toggle}
+              theme="borderless"
+            />
+          </span>
         </div>
         <Outlet />
       </Layout.Content>
     </Layout>
   );
+}
+
+const NAV_OPEN_KEYS_STORAGE = "fluxion.console.navOpen";
+
+function groupKeyOf(itemKey: string): string | null {
+  for (const group of navItems) {
+    if (group.items.some((item) => itemKey === item.itemKey || itemKey.startsWith(`${item.itemKey}/`))) {
+      return group.itemKey;
+    }
+  }
+  return null;
+}
+
+function initialOpenKeys(selectedKey: string): string[] {
+  try {
+    const stored = localStorage.getItem(NAV_OPEN_KEYS_STORAGE);
+    if (stored) {
+      return (JSON.parse(stored) as string[]).filter((key) =>
+        navItems.some((group) => group.itemKey === key)
+      );
+    }
+  } catch {
+    // localStorage 不可用时回退默认
+  }
+  const group = groupKeyOf(selectedKey);
+  return group ? [group] : OPEN_GROUP_KEYS;
+}
+
+function persistOpenKeys(keys: string[]): void {
+  try {
+    localStorage.setItem(NAV_OPEN_KEYS_STORAGE, JSON.stringify(keys));
+  } catch {
+    // 忽略持久化失败
+  }
+}
+
+function breadcrumbOf(pathname: string, selectedKey: string): string[] {
+  // 非字符串菜单文本（如规划中置灰项）走显式映射。
+  const planned: Record<string, string[]> = {
+    "/governance/plugin-policy": ["治理", "插件策略"]
+  };
+  if (planned[selectedKey]) {
+    return planned[selectedKey];
+  }
+  for (const group of navItems) {
+    for (const item of group.items) {
+      const label = typeof item.text === "string" ? item.text : null;
+      if (selectedKey === item.itemKey && label) {
+        const tail = pathname.slice(item.itemKey.length).split("/").filter(Boolean);
+        return tail.length > 0 ? [group.text, label, decodeURIComponent(tail[tail.length - 1])] : [group.text, label];
+      }
+    }
+  }
+  return ["概览", "平台概览"];
 }
 
 const navItems = [

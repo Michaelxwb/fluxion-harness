@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 
-import { Button, Input, Modal, Space, TextArea, Toast, Typography } from "@douyinfe/semi-ui";
+import { Button, Input, Modal, Select, Space, Toast, Typography } from "@douyinfe/semi-ui";
 
 import type { ConsoleApi } from "../../types/console";
 import type { CredentialRow } from "./credentialRow";
+import { CREDENTIAL_PURPOSES } from "./credentialRow";
 
 interface SharedModalProps {
   readonly api: ConsoleApi;
@@ -31,6 +32,10 @@ export function EditCredentialModal({ api, row, onClose, onDone }: SharedModalPr
     if (row === null) return;
     if (!name.trim()) {
       setError("凭据名称：必填");
+      return;
+    }
+    if (!purpose.trim()) {
+      setError("类型 / 用途：必填（选择预设或自定义输入）");
       return;
     }
     setSubmitting(true);
@@ -89,11 +94,15 @@ export function EditCredentialModal({ api, row, onClose, onDone }: SharedModalPr
           />
         </div>
         <div>
-          <Typography.Text>类型 / 用途</Typography.Text>
-          <TextArea
+          <Typography.Text>类型 / 用途 *</Typography.Text>
+          <Select
+            allowCreate
             aria-label="凭据用途"
-            onChange={(value) => setPurpose(String(value))}
-            value={purpose}
+            onChange={(value) => setPurpose(String(value ?? ""))}
+            optionList={CREDENTIAL_PURPOSES.map((item) => ({ label: item, value: item }))}
+            placeholder="选择预设或自定义输入"
+            style={{ width: "100%" }}
+            value={purpose || undefined}
           />
         </div>
         <Typography.Text type="tertiary">

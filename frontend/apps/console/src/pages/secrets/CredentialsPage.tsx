@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
-import { Button, Select, Table, Tag, Toast } from "@douyinfe/semi-ui";
+import { Button, Select, Space, Table, Tag, Toast, Typography } from "@douyinfe/semi-ui";
 
 import { PageHeader } from "../../components/PageHeader";
+import { EmptyState } from "../../components/EmptyState";
+import { RelativeTime } from "../../components/RelativeTime";
+import { ResourceId } from "../../components/ResourceId";
 import {
   RowActions,
   StandardListCard,
@@ -131,6 +134,7 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
         description="凭据以 SecretRef 引用外部 SecretStore；Console 只管理元数据，不出现明文。"
         title="凭据"
       />
+      <div aria-label="凭据列表">
       <StandardListCard
         empty={rows !== null && total === 0}
         emptyDescription="暂无凭据"
@@ -154,8 +158,9 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
                 <span className="sr-only" id="credential-status-filter-label">
                   凭据状态过滤
                 </span>
-                <Select
-                  aria-labelledby="credential-status-filter-label"
+                  <Select
+                    aria-labelledby="credential-status-filter-label"
+                    data-testid="credential-status-filter"
                   onChange={(value) => {
                     setStatusFilter(value === "" ? undefined : String(value));
                     setPage(1);
@@ -203,13 +208,15 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
                   aria-label={`查看凭据 ${value}`}
                   onClick={() => setDetailId(record.resourceId)}
                   theme="borderless"
-                  type="tertiary"
+                  type={record.revoked ? "tertiary" : "tertiary"}
                 >
-                  {value}
+                  <Typography.Text delete={record.revoked} type={record.revoked ? "tertiary" : undefined}>
+                    {value}
+                  </Typography.Text>
                 </Button>
               )
             },
-            { title: "类型", dataIndex: "purpose", render: (value: string) => value || "-" },
+            { title: "类型", dataIndex: "purpose", render: (value: string) => <PurposeTag purpose={value} /> },
             {
               title: "状态",
               dataIndex: "status",
@@ -228,10 +235,26 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
               title: "使用方",
               dataIndex: "consumers",
               render: (value: readonly string[]) =>
-                value.length > 0 ? value.join("、") : "-"
+                value.length > 0 ? (
+                  <Space wrap>
+                    {value.map((consumer) => (
+                      <Tag key={consumer}>{consumer}</Tag>
+                    ))}
+                  </Space>
+                ) : (
+                  "-"
+                )
             },
-            { title: "SecretRef", dataIndex: "secretRef" },
-            { title: "更新时间", dataIndex: "updatedAt" },
+            {
+              title: "SecretRef",
+              dataIndex: "secretRef",
+              render: (value: string) => <ResourceId id={value} />
+            },
+            {
+              title: "更新时间",
+              dataIndex: "updatedAt",
+              render: (value: string) => <RelativeTime value={value} />
+            },
             {
               title: "操作",
               dataIndex: "resourceId",
@@ -275,10 +298,17 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
             }
           ]}
           dataSource={[...(rows ?? [])]}
+          empty={
+            <EmptyState
+              description="凭据以 SecretRef 引用外部 SecretStore；先新增凭据，再到模型服务中引用。"
+              title="暂无凭据"
+            />
+          }
           pagination={false}
           rowKey="key"
         />
       </StandardListCard>
+      </div>
       <CreateCredentialModal
         api={api}
         onClose={() => setModalVisible(false)}
@@ -318,4 +348,12 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
       />
     </div>
   );
+}
+
+/** 用途缺失显示"未分类"（warn 色），不再裸奔横线；存量随编辑补齐。 */
+function PurposeTag({ purpose }: { readonly purpose: string }) {
+  if (!purpose) {
+    return <Tag color="amber">未分类</Tag>;
+  }
+  return <Tag>{purpose}</Tag>;
 }

@@ -19,10 +19,10 @@ describe("TASK-022 / FE-S-11 governance policies", () => {
     await user.type(screen.getByLabelText("策略名称"), "禁用危险工具");
     await user.click(screen.getByText("创 建", { selector: "button span" }));
 
-    // 创建即跳独立 Editor（typed 表单，白/黑名单结构化编辑）
+    // 创建即跳独立 Editor（typed 表单，白/黑名单为能力选择器）
     const editor = await screen.findByLabelText("Policy Editor");
     expect(editor).toBeInTheDocument();
-    expect(screen.getByLabelText("工具白名单输入")).toBeInTheDocument();
-    expect(screen.getByLabelText("工具黑名单输入")).toBeInTheDocument();
+    expect(screen.getByTestId("allowlist-select")).toBeInTheDocument();
+    expect(screen.getByTestId("denylist-select")).toBeInTheDocument();
   });
 });

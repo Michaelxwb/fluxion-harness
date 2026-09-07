@@ -52,6 +52,7 @@ export function P1ViewPage({ api, view, showHeader = true }: P1ViewPageProps) {
     <div className="page-stack">
       {showHeader ? <PageHeader title={title} /> : null}
       <ErrorBanner message={error} />
+      {view === "plugin_policy" ? <PluginPolicyIntro /> : null}
       {loading ? <LoadingState title={title} /> : null}
       {!loading && !error && items.length === 0 ? <EmptyState title={title} /> : null}
       {!loading && !error && items.length > 0 ? (
@@ -62,8 +63,19 @@ export function P1ViewPage({ api, view, showHeader = true }: P1ViewPageProps) {
   );
 }
 
-function LoadingState({ title }: { readonly title: string }) {
+/** 插件策略 P1 占位：Hook 四要素说明 + 灰态触发点分组 + 上线预告（Q4-B）。 */
+function PluginPolicyIntro() {
   return (
+    <Card title="Hook 四要素（P1 未上线，规划中）">
+      <Typography.Paragraph>
+        每个 Hook 必须类型化：priority（优先级）、timeout（超时）、fail policy（失败策略）、scope（作用域）。
+        上线后按触发点分组管理：鉴权 / 调用前 / 调用后 / 落盘；第一步操作为注册首个 Hook。
+      </Typography.Paragraph>
+    </Card>
+  );
+}
+
+function LoadingState({ title }: { readonly title: string }) {  return (
     <div aria-label={`${title} loading`} className="p1-state" role="status">
       <Spin size="large" />
     </div>

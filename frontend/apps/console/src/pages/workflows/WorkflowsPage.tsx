@@ -5,6 +5,7 @@ import { Button, Modal, Select, Table, Toast, Typography } from "@douyinfe/semi-
 import { useNavigate } from "react-router-dom";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
+import { EmptyState } from "../../components/EmptyState";
 import { PageHeader } from "../../components/PageHeader";
 import {
   RowActions,
@@ -115,7 +116,7 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
     <div className="page-stack">
       <PageHeader
         description="管理工作流定义（WorkflowDefinition）DSL、校验与不可变版本。"
-        title="流程编排"
+        title="工作流"
       />
       <ErrorBanner message={error} />
       <div aria-label="工作流列表">
@@ -185,6 +186,12 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
         >
           <Table<WorkflowRow>
             aria-label="工作流列表表格"
+            empty={
+              <EmptyState
+                description="三步走：定义节点 → 校验 DSL → 发布不可变版本。发布后只能新增版本，不可原地修改。"
+                title="暂无工作流"
+              />
+            }
             columns={[
               {
                 dataIndex: "displayName",

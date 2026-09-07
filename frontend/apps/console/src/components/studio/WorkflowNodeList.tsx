@@ -33,6 +33,7 @@ export function WorkflowNodeList({
                 onClick={() => onSelect(index)}
                 theme="light"
               >
+                <Tag size="small">{index + 1}</Tag>
                 <span className="node-id">{node.id || `#${index + 1}`}</span>
                 <Tag color="cyan" size="small">
                   {node.type}

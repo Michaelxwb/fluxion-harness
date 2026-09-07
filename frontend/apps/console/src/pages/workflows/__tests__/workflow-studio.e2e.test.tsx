@@ -53,7 +53,7 @@ function studioSeed() {
 /** TASK-015：Editor 迁独立路由，published 自动 working draft（无「创建草稿」）。 */
 async function openStudioDraft() {
   const view = renderConsole({ initialView: "workflows", seed: studioSeed() });
-  await screen.findByRole("heading", { name: "流程编排" });
+  await screen.findByRole("heading", { name: "工作流" });
   await view.user.click(screen.getByRole("button", { name: "Weekly Report" }));
   await screen.findByLabelText("Workflow Designer");
   return view;

@@ -663,6 +663,9 @@ class InMemoryConsoleApi implements ConsoleApi {
     const filtered = this.audit.filter((record) => {
       if (filters?.action && record.action !== filters.action) return false;
       if (filters?.actorId && record.actorId !== filters.actorId) return false;
+      if (filters?.targetType && record.targetType !== filters.targetType) return false;
+      if (filters?.createdFrom && record.at < filters.createdFrom) return false;
+      if (filters?.createdTo && record.at > filters.createdTo) return false;
       return true;
     });
     return page(filtered.map((record) => ({ ...record })), request);

@@ -56,7 +56,7 @@ export function User360Page({ api }: User360PageProps) {
             返回用户列表
           </Button>
         }
-        title="User 360"
+        title="用户详情"
       />
       {error !== null ? (
         <ErrorBanner

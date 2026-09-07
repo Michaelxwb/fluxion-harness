@@ -4,7 +4,10 @@ import { Button, Card, Table, Typography } from "@douyinfe/semi-ui";
 import { useNavigate } from "react-router-dom";
 
 import type { AuditRecord, ConsoleApi, RunDetail } from "../../types/console";
+import { ActionTag, isRiskyAction } from "../../components/ActionTag";
 import { PageHeader } from "../../components/PageHeader";
+import { RelativeTime } from "../../components/RelativeTime";
+import { ResourceId } from "../../components/ResourceId";
 import { StatusTag } from "../../components/StatusTag";
 
 interface OverviewProps {
@@ -13,6 +16,7 @@ interface OverviewProps {
 
 interface CountCard {
   readonly label: string;
+  readonly path: string;
   readonly value: number | null;
 }
 
@@ -22,10 +26,10 @@ interface CountCard {
 export function OverviewPage({ api }: OverviewProps) {
   const navigate = useNavigate();
   const [counts, setCounts] = useState<CountCard[]>(() => [
-    { label: "智能体", value: null },
-    { label: "工作流", value: null },
-    { label: "用户", value: null },
-    { label: "执行记录", value: null }
+    { label: "智能体", path: "/build/agents", value: null },
+    { label: "工作流", path: "/build/workflows", value: null },
+    { label: "用户", path: "/users", value: null },
+    { label: "执行记录", path: "/operations/runs", value: null }
   ]);
   const [activity, setActivity] = useState<readonly AuditRecord[] | null>(null);
   const [failedRuns, setFailedRuns] = useState<readonly RunDetail[] | null>(null);
@@ -49,10 +53,10 @@ export function OverviewPage({ api }: OverviewProps) {
         return;
       }
       setCounts([
-        { label: "智能体", value: agents.total },
-        { label: "工作流", value: workflows.total },
-        { label: "用户", value: users.total },
-        { label: "执行记录", value: runs.total }
+        { label: "智能体", path: "/build/agents", value: agents.total },
+        { label: "工作流", path: "/build/workflows", value: workflows.total },
+        { label: "用户", path: "/users", value: users.total },
+        { label: "执行记录", path: "/operations/runs", value: runs.total }
       ]);
       setActivity(auditPage.items);
       setFailedRuns(failed.items);
@@ -64,6 +68,8 @@ export function OverviewPage({ api }: OverviewProps) {
   }, [api]);
 
   const abnormal = failedRuns !== null && failedRuns.length > 0;
+  const credentialsAbnormal = (revokedCredentials ?? 0) > 0;
+  const allQuiet = !abnormal && !credentialsAbnormal && failedRuns !== null && revokedCredentials !== null;
 
   return (
     <div>
@@ -71,6 +77,9 @@ export function OverviewPage({ api }: OverviewProps) {
 
       <div aria-label="异常工作台" className="page-stack" style={{ gap: 12 }}>
         <Typography.Title heading={5}>异常工作台</Typography.Title>
+        {allQuiet ? (
+          <Typography.Text type="tertiary">一切正常：暂无失败执行，凭据状态正常。</Typography.Text>
+        ) : (
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
           <Card aria-label="异常卡片-最近异常运行">
             <Typography.Text strong>最近异常运行</Typography.Text>
@@ -85,7 +94,12 @@ export function OverviewPage({ api }: OverviewProps) {
               {failedRuns === null
                 ? "加载中"
                 : abnormal
-                  ? `最近失败：${failedRuns[0]?.executionId.slice(0, 16)}…`
+                  ? (
+                    <span>
+                      最近失败：
+                      <ResourceId id={failedRuns[0]?.executionId ?? ""} />
+                    </span>
+                  )
                   : "暂无失败执行"}
             </Typography.Text>
             <div style={{ paddingTop: 12 }}>
@@ -103,18 +117,18 @@ export function OverviewPage({ api }: OverviewProps) {
             <Typography.Text strong>已撤销凭据</Typography.Text>
             <Typography.Title
               heading={3}
-              type={revokedCredentials ? "danger" : undefined}
+              type={credentialsAbnormal ? "danger" : undefined}
               style={{ margin: "8px 0 4px" }}
             >
               {revokedCredentials === null ? "…" : revokedCredentials}
             </Typography.Title>
             <Typography.Text type="tertiary">
-              {revokedCredentials ? "存在已撤销凭据，绑定方将 fail-closed" : "凭据状态正常"}
+              {credentialsAbnormal ? "存在已撤销凭据，绑定方将 fail-closed" : "凭据状态正常"}
             </Typography.Text>
             <div style={{ paddingTop: 12 }}>
               <Button
                 aria-label="查看凭据"
-                disabled={!revokedCredentials}
+                disabled={!credentialsAbnormal}
                 onClick={() => navigate("/platform/credentials")}
                 size="small"
               >
@@ -127,7 +141,7 @@ export function OverviewPage({ api }: OverviewProps) {
             <div style={{ display: "grid", gap: 4, paddingTop: 8 }}>
               {(activity ?? []).slice(0, 3).map((record) => (
                 <Typography.Text key={record.id} type={isRiskyAction(record.action) ? "danger" : undefined} style={{ fontSize: 12 }}>
-                  {`${record.action} · ${record.resourceId}`}
+                  <ActionTag action={record.action} /> <ResourceId id={record.resourceId} />
                 </Typography.Text>
               ))}
               {activity !== null && activity.length === 0 ? (
@@ -145,6 +159,7 @@ export function OverviewPage({ api }: OverviewProps) {
             </div>
           </Card>
         </div>
+        )}
       </div>
 
       <div aria-label="异常运行列表" style={{ marginTop: 16 }}>
@@ -153,11 +168,7 @@ export function OverviewPage({ api }: OverviewProps) {
             columns={[
               {
                 dataIndex: "executionId",
-                render: (value: string) => (
-                  <Typography.Text code style={{ fontSize: 12 }}>
-                    {value}
-                  </Typography.Text>
-                ),
+                render: (value: string) => <ResourceId id={value} />,
                 title: "异常执行"
               },
               {
@@ -165,7 +176,11 @@ export function OverviewPage({ api }: OverviewProps) {
                 render: (status: RunDetail["status"]) => <StatusTag status={status} />,
                 title: "状态"
               },
-              { dataIndex: "startedAt", title: "开始时间" }
+              {
+                dataIndex: "startedAt",
+                render: (value: string) => <RelativeTime value={value} />,
+                title: "开始时间"
+              }
             ]}
             dataSource={[...(failedRuns ?? [])].slice(0, 5)}
             pagination={false}
@@ -178,14 +193,29 @@ export function OverviewPage({ api }: OverviewProps) {
       <Typography.Title heading={5} style={{ marginTop: 16 }} type="tertiary">
         平台对象
       </Typography.Title>
-      <div className="overview-cards" style={{ opacity: 0.75 }}>
+      <div className="overview-cards">
         {counts.map((card) => (
-          <Card key={card.label} className="overview-card" aria-label={`count-${card.label}`}>
-            <Typography.Title heading={4}>
-              {card.value === null ? "…" : card.value}
-            </Typography.Title>
-            <Typography.Text type="tertiary">{card.label}</Typography.Text>
-          </Card>
+          <div
+            key={card.label}
+            aria-label={`count-${card.label}`}
+            className="overview-card--link"
+            onClick={() => navigate(card.path)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                navigate(card.path);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+          >
+            <Card className="overview-card">
+              <Typography.Title heading={4}>
+                {card.value === null ? "…" : card.value}
+              </Typography.Title>
+              <Typography.Text type="tertiary">{card.label}</Typography.Text>
+            </Card>
+          </div>
         ))}
       </div>
 
@@ -199,15 +229,24 @@ export function OverviewPage({ api }: OverviewProps) {
         pagination={false}
         rowKey={(row?: AuditRecord) => row?.id ?? ""}
         columns={[
-          { title: "操作", dataIndex: "action" },
-          { title: "对象", dataIndex: "resourceId" },
-          { title: "执行者", dataIndex: "actorId" }
+          {
+            dataIndex: "action",
+            render: (value: string) => <ActionTag action={value} />,
+            title: "操作"
+          },
+          {
+            dataIndex: "resourceId",
+            render: (value: string) => <ResourceId id={value} />,
+            title: "对象"
+          },
+          { dataIndex: "actorId", title: "执行者" },
+          {
+            dataIndex: "at",
+            render: (value: string) => <RelativeTime value={value} />,
+            title: "时间"
+          }
         ]}
       />
     </div>
   );
-}
-
-function isRiskyAction(action: string): boolean {
-  return /revoke|disable|deprecate|rollback/i.test(action);
 }

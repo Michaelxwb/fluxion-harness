@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { IconPlus } from "@douyinfe/semi-icons";
-import { Button, Descriptions, Modal, Select, SideSheet, Table, Tag, Toast, Typography } from "@douyinfe/semi-ui";
+import { Button, Descriptions, Modal, Select, SideSheet, Space, Table, Tag, Toast, Typography } from "@douyinfe/semi-ui";
 import { useNavigate } from "react-router-dom";
 
 import { PageHeader } from "../../components/PageHeader";
+import { EmptyState } from "../../components/EmptyState";
+import { RelativeTime } from "../../components/RelativeTime";
+import { ResourceId } from "../../components/ResourceId";
 import {
   RowActions,
   StandardListCard,
@@ -26,6 +29,9 @@ interface ListRow {
   readonly resourceId: string;
   readonly version: string;
   readonly status: string;
+  readonly updatedAt: string;
+  readonly allowCount: number;
+  readonly denyCount: number;
 }
 
 const PAGE_SIZE = 10;
@@ -70,13 +76,32 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
         status: (statusFilter || undefined) as ResourceStatus | undefined
       });
       if (requestId !== requestSeq.current) return;
+      // 名单计数页内 join（随页大小有界），失败回退 0。
+      const specs = await Promise.all(
+        result.items.map(async (item) => {
+          try {
+            const detail = await api.getResource("policy", item.resourceId, item.currentVersion);
+            const spec = detail.spec as Record<string, unknown>;
+            return {
+              allow: Array.isArray(spec.allowed_tools) ? spec.allowed_tools.length : 0,
+              deny: Array.isArray(spec.denied_tools) ? spec.denied_tools.length : 0
+            };
+          } catch {
+            return { allow: 0, deny: 0 };
+          }
+        })
+      );
+      if (requestId !== requestSeq.current) return;
       setRows(
-        result.items.map((item) => ({
+        result.items.map((item, index) => ({
           key: `${item.resourceId}@${item.currentVersion}`,
           name: item.displayName || item.resourceId,
           resourceId: item.resourceId,
           version: item.currentVersion,
-          status: item.status
+          status: item.status,
+          updatedAt: item.updatedAt,
+          allowCount: specs[index]?.allow ?? 0,
+          denyCount: specs[index]?.deny ?? 0
         }))
       );
       setTotal(result.total);
@@ -203,6 +228,12 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
         >
           <Table<ListRow>
             aria-label="授权规则表格"
+            empty={
+              <EmptyState
+                description="白名单非空时仅放行所列工具；黑名单始终优先拒绝。先新建规则，再进入编辑器配置名单。"
+                title="暂无授权规则"
+              />
+            }
             columns={[
               {
                 dataIndex: "name",
@@ -216,12 +247,31 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
                 ),
                 title: "规则名"
               },
-              { dataIndex: "resourceId", title: "ID" },
+              {
+                dataIndex: "resourceId",
+                render: (value: string) => <ResourceId id={value} />,
+                title: "ID"
+              },
               { dataIndex: "version", title: "版本" },
               {
                 dataIndex: "status",
                 render: (status: string) => <StatusTag status={status as ResourceStatus} />,
                 title: "状态"
+              },
+              {
+                dataIndex: "updatedAt",
+                render: (value: string) => <RelativeTime value={value} />,
+                title: "更新时间"
+              },
+              {
+                dataIndex: "allowCount",
+                render: (_value, record) => (
+                  <Space>
+                    <Tag>白 {record.allowCount}</Tag>
+                    <Tag color="red">黑 {record.denyCount}</Tag>
+                  </Space>
+                ),
+                title: "名单"
               },
               {
                 dataIndex: "resourceId",

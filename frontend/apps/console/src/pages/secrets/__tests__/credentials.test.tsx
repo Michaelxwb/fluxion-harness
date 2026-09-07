@@ -13,7 +13,7 @@ async function selectOption(
   selectLabel: string,
   optionText: string
 ) {
-  await user.click(screen.getByLabelText(selectLabel));
+  await user.click(screen.getByTestId(selectLabel));
   const option = await waitFor(() => {
     const match = screen
       .getAllByRole("option")
@@ -39,7 +39,7 @@ describe("TASK-009 credentials journey", () => {
     await user.click(screen.getByRole("button", { name: "新增凭据" }));
     await user.type(screen.getByLabelText("凭据名称"), "openai-key");
     await user.type(screen.getByLabelText("凭据 Secret"), "sk-plaintext");
-    await user.type(screen.getByLabelText("凭据用途"), "模型供应商");
+    await selectOption(user, "purpose-select", "模型供应商连接");
     await user.click(screen.getByRole("button", { name: "创建凭据" }));
 
     expect(await screen.findByText("openai-key")).toBeTruthy();
@@ -53,6 +53,7 @@ describe("TASK-009 credentials journey", () => {
     await user.click(screen.getByRole("button", { name: "新增凭据" }));
     await user.type(screen.getByLabelText("凭据名称"), "detail-key");
     await user.type(screen.getByLabelText("凭据 Secret"), "sk-plaintext");
+    await selectOption(user, "purpose-select", "模型供应商连接");
     await user.click(screen.getByRole("button", { name: "创建凭据" }));
     await screen.findByText("detail-key");
 
@@ -71,16 +72,16 @@ describe("TASK-009 credentials journey", () => {
     await user.click(screen.getByRole("button", { name: "新增凭据" }));
     await user.type(screen.getByLabelText("凭据名称"), "filter-key");
     await user.type(screen.getByLabelText("凭据 Secret"), "sk-plaintext");
-    await user.type(screen.getByLabelText("凭据用途"), "模型供应商");
+    await selectOption(user, "purpose-select", "模型供应商连接");
     await user.click(screen.getByRole("button", { name: "创建凭据" }));
     await screen.findByText("filter-key");
 
     // 状态过滤：未禁用凭据在「已禁用」过滤下隐藏
-    await selectOption(user, "凭据状态过滤", "已禁用");
+    await selectOption(user, "credential-status-filter", "已禁用");
     await waitFor(() => expect(screen.queryByText("filter-key")).toBeNull());
 
     // 重置回全部状态后恢复
-    await selectOption(user, "凭据状态过滤", "全部状态");
+    await selectOption(user, "credential-status-filter", "全部状态");
     expect(await screen.findByText("filter-key")).toBeTruthy();
 
     // 模糊搜索：不匹配关键词隐藏
@@ -94,6 +95,7 @@ describe("TASK-009 credentials journey", () => {
     await user.click(screen.getByRole("button", { name: "新增凭据" }));
     await user.type(screen.getByLabelText("凭据名称"), "disable-key");
     await user.type(screen.getByLabelText("凭据 Secret"), "sk-plaintext");
+    await selectOption(user, "purpose-select", "模型供应商连接");
     await user.click(screen.getByRole("button", { name: "创建凭据" }));
     await screen.findByText("disable-key");
 
@@ -115,6 +117,7 @@ describe("TASK-009 credentials journey", () => {
     await user.click(screen.getByRole("button", { name: "新增凭据" }));
     await user.type(screen.getByLabelText("凭据名称"), "rotate-key");
     await user.type(screen.getByLabelText("凭据 Secret"), "sk-old");
+    await selectOption(user, "purpose-select", "模型供应商连接");
     await user.click(screen.getByRole("button", { name: "创建凭据" }));
     await screen.findByText("rotate-key");
 

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
-import { Button, Card, Descriptions, Select, SideSheet, Space, Table, Timeline, Typography } from "@douyinfe/semi-ui";
+import { Button, Card, Descriptions, Select, SideSheet, Space, Table, Tabs, Timeline, Typography } from "@douyinfe/semi-ui";
 import { IconRefresh } from "@douyinfe/semi-icons";
 import { useSearchParams } from "react-router-dom";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { RunsTable } from "../../components/operations/RunsTable";
 import { PageHeader } from "../../components/PageHeader";
+import { RelativeTime } from "../../components/RelativeTime";
 import {
   StandardListCard,
   StandardListFooter,
@@ -45,6 +46,7 @@ export function RunsPage({ api }: RunsPageProps) {
   const [reloadKey, setReloadKey] = useState(0);
   // C407（TASK-014）：Phase 3 workflow_run 投影（trace 关联）
   const [workflowRuns, setWorkflowRuns] = useState<readonly WorkflowRunProjection[] | null>(null);
+  const [runTab, setRunTab] = useState("agent");
   const requestSeq = useRef(0);
 
   useEffect(() => {
@@ -110,65 +112,71 @@ export function RunsPage({ api }: RunsPageProps) {
         title="执行记录"
       />
       <ErrorBanner message={error} />
-      <div aria-label="执行记录列表">
-        <StandardListCard
-          empty={runs !== null && total === 0}
-          emptyDescription="暂无运行记录"
-          error={error}
-          footer={
-            runs !== null && total > 0 ? (
-              <StandardListFooter
-                onPageChange={setPage}
-                page={page}
-                pageSize={PAGE_SIZE}
-                total={total}
-              />
-            ) : undefined
-          }
-          loading={runs === null && !error}
-          onRetry={() => setReloadKey((key) => key + 1)}
-          toolbar={
-            <StandardListToolbar
-              primary={<span aria-hidden />}
-              filters={
-                <>
-                  <span className="sr-only" id="run-status-filter-label">
-                    状态过滤
-                  </span>
-                  <Select
-                    aria-labelledby="run-status-filter-label"
-                    onChange={(value) => {
-                      setStatusFilter(String(value ?? ""));
-                      setPage(1);
-                    }}
-                    optionList={[
-                      { label: "全部状态", value: "" },
-                      { label: "成功", value: "succeeded" },
-                      { label: "失败", value: "failed" },
-                      { label: "运行中", value: "running" }
-                    ]}
-                    placeholder="状态"
-                    style={{ width: 120 }}
-                    value={statusFilter}
+      <Tabs activeKey={runTab} onChange={setRunTab} type="line">
+        <Tabs.TabPane itemKey="agent" tab="智能体执行">
+          <div aria-label="执行记录列表">
+            <StandardListCard
+              empty={runs !== null && total === 0}
+              emptyDescription="暂无运行记录"
+              error={error}
+              footer={
+                runs !== null && total > 0 ? (
+                  <StandardListFooter
+                    onPageChange={setPage}
+                    page={page}
+                    pageSize={PAGE_SIZE}
+                    total={total}
                   />
-                </>
+                ) : undefined
               }
-              search={
-                <StandardListSearch
-                  onChange={(value) => {
-                    setSearch(value);
-                  }}
-                  placeholder="搜索执行 ID / Trace"
-                  value={search}
+              loading={runs === null && !error}
+              onRetry={() => setReloadKey((key) => key + 1)}
+              toolbar={
+                <StandardListToolbar
+                  primary={<span aria-hidden />}
+                  filters={
+                    <>
+                      <span className="sr-only" id="run-status-filter-label">
+                        状态过滤
+                      </span>
+                      <Select
+                        aria-labelledby="run-status-filter-label"
+                        onChange={(value) => {
+                          setStatusFilter(String(value ?? ""));
+                          setPage(1);
+                        }}
+                        optionList={[
+                          { label: "全部状态", value: "" },
+                          { label: "成功", value: "succeeded" },
+                          { label: "失败", value: "failed" },
+                          { label: "运行中", value: "running" }
+                        ]}
+                        placeholder="状态"
+                        style={{ width: 120 }}
+                        value={statusFilter}
+                      />
+                    </>
+                  }
+                  search={
+                    <StandardListSearch
+                      onChange={(value) => {
+                        setSearch(value);
+                      }}
+                      placeholder="搜索执行 ID / Trace"
+                      value={search}
+                    />
+                  }
                 />
               }
-            />
-          }
-        >
-          <RunTable onSelect={setSelected} runs={runs ?? []} />
-        </StandardListCard>
-      </div>
-      {workflowRuns !== null ? <RunsTable runs={workflowRuns} /> : null}
+            >
+              <RunTable onSelect={setSelected} runs={runs ?? []} />
+            </StandardListCard>
+          </div>
+        </Tabs.TabPane>
+        <Tabs.TabPane itemKey="workflow" tab="工作流运行">
+          {workflowRuns !== null ? <RunsTable runs={workflowRuns} /> : null}
+        </Tabs.TabPane>
+      </Tabs>
       <RunDetailSideSheet onClose={() => setSelected(null)} run={selected} />
     </div>
   );
@@ -184,8 +192,12 @@ function RunTable({ onSelect, runs }: RunTableProps) {
     {
       dataIndex: "executionId",
       render: (_value: unknown, record: RunDetail) => (
-        <Button onClick={() => onSelect(record)} type="tertiary">
-          {record.executionId}
+        <Button
+          onClick={() => onSelect(record)}
+          title={record.executionId}
+          type="tertiary"
+        >
+          {truncateId(record.executionId)}
         </Button>
       ),
       title: "执行"
@@ -195,7 +207,23 @@ function RunTable({ onSelect, runs }: RunTableProps) {
       render: (_value: unknown, record: RunDetail) => <StatusTag status={record.status} />,
       title: "状态"
     },
-    { dataIndex: "startedAt", title: "开始时间" }
+    {
+      render: (_value: unknown, record: RunDetail) => (
+        <Typography.Text type={record.status === "failed" ? "danger" : "tertiary"}>
+          {failureSummary(record)}
+        </Typography.Text>
+      ),
+      title: "失败摘要"
+    },
+    {
+      render: () => <Typography.Text type="tertiary">—</Typography.Text>,
+      title: "耗时"
+    },
+    {
+      dataIndex: "startedAt",
+      render: (value: string) => <RelativeTime value={value} />,
+      title: "开始时间"
+    }
   ];
   return (
     <Table
@@ -206,6 +234,19 @@ function RunTable({ onSelect, runs }: RunTableProps) {
       rowKey="executionId"
     />
   );
+}
+
+/** 执行 ID 截断展示（hover 全文）；耗时无 endedAt 字段，后端补齐前显示占位。 */
+function truncateId(id: string): string {
+  return id.length > 24 ? `${id.slice(0, 16)}…${id.slice(-6)}` : id;
+}
+
+function failureSummary(run: RunDetail): string {
+  if (run.status !== "failed") {
+    return "—";
+  }
+  const clue = run.traceEvents.find((event) => /error|fail/i.test(event.event));
+  return clue ? clue.event : "失败（详情见 Trace）";
 }
 
 /** 只读 Run Detail SideSheet（§8.9）：Summary/Timeline/Tool·Model Calls/Trace/
@@ -231,7 +272,12 @@ function RunDetailSideSheet({
             <Descriptions row>
               <Descriptions.Item itemKey="执行 ID">{run.executionId}</Descriptions.Item>
               <Descriptions.Item itemKey="状态"><StatusTag status={run.status} /></Descriptions.Item>
-              <Descriptions.Item itemKey="开始时间">{run.startedAt}</Descriptions.Item>
+              <Descriptions.Item itemKey="开始时间">
+                <RelativeTime value={run.startedAt} />
+              </Descriptions.Item>
+              {run.status === "failed" ? (
+                <Descriptions.Item itemKey="失败摘要">{failureSummary(run)}</Descriptions.Item>
+              ) : null}
             </Descriptions>
           </Card>
           <Card title="Timeline">

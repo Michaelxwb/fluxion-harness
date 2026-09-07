@@ -35,7 +35,7 @@ describe("TASK-017 / FE-S-10 user 360 view", () => {
     await user.click(screen.getByRole("button", { name: "创建用户" }));
     await screen.findByText("u-360");
 
-    await user.click(screen.getByRole("button", { name: /查看 360/ }));
+    await user.click(screen.getByRole("button", { name: /用户详情/ }));
     const panel = await screen.findByLabelText("User 360");
     // C405（Phase 4 TASK-013）：360 升级为五维度 Tab（偏好并入画像维度，空态统一「该用户暂无数据」）
     for (const region of ["身份", "画像", "能力授权", "策略", "活动"]) {

@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
 
-import { Space, Table, Tag, Typography } from "@douyinfe/semi-ui";
+import { Button, Space, Table, Tag, Toast, Typography } from "@douyinfe/semi-ui";
 
+import { RiskConfirm } from "./RiskConfirm";
+import { RelativeTime } from "./RelativeTime";
 import { StatusTag } from "./StatusTag";
-import type { ConsoleApi, ResourceType, ResourceVersion } from "../types/console";
+import type { ConsoleApi, ResourceType, ResourceVersion, RollbackResult } from "../types/console";
 
 interface VersionHistoryProps {
   readonly api: ConsoleApi;
   readonly resourceType: ResourceType;
   readonly resourceId: string;
+  /** 允许回滚：每行（除最新版）出现回滚入口，走 RiskConfirm 二次确认。 */
+  readonly enableRollback?: boolean;
+  readonly onRollbackDone?: (result: RollbackResult) => void;
 }
 
 /** TASK-021（返工）：只读版本历史 + Diff（remediation §3.7 / §14.2）。
@@ -16,9 +21,12 @@ interface VersionHistoryProps {
  * 版本列表按版本号语义排序（"2" < "10"，非数字回退字符串序）；
  * 默认对比最近两个版本：键级变更摘要（+/±/-）+ spec 只读并排。
  */
-export function VersionHistory({ api, resourceType, resourceId }: VersionHistoryProps) {
+export function VersionHistory({ api, resourceType, resourceId, enableRollback, onRollbackDone }: VersionHistoryProps) {
   const [versions, setVersions] = useState<readonly ResourceVersion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [rollbackTarget, setRollbackTarget] = useState<ResourceVersion | null>(null);
+  const [rollingBack, setRollingBack] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -35,11 +43,27 @@ export function VersionHistory({ api, resourceType, resourceId }: VersionHistory
     return () => {
       active = false;
     };
-  }, [api, resourceType, resourceId]);
+  }, [api, resourceType, resourceId, reloadKey]);
 
   const sorted = [...(versions ?? [])].sort((a, b) => compareVersionDesc(a.version, b.version));
   const latest = sorted[0];
   const previous = sorted[1];
+
+  async function confirmRollback(): Promise<void> {
+    if (!rollbackTarget) return;
+    setRollingBack(true);
+    try {
+      const result = await api.rollbackVersion(rollbackTarget, rollbackTarget.version);
+      setRollbackTarget(null);
+      setReloadKey((key) => key + 1);
+      Toast.success(`已回滚，产生新版本 ${result.newVersion}`);
+      onRollbackDone?.(result);
+    } catch (cause) {
+      Toast.error(cause instanceof Error ? cause.message : "回滚失败");
+    } finally {
+      setRollingBack(false);
+    }
+  }
 
   return (
     <div aria-label="版本历史">
@@ -56,7 +80,27 @@ export function VersionHistory({ api, resourceType, resourceId }: VersionHistory
               dataIndex: "status",
               render: (value: string) => <StatusTag status={value as ResourceVersion["status"]} />
             },
-            { title: "更新时间", dataIndex: "updatedAt" }
+            { title: "更新时间", dataIndex: "updatedAt", render: (value: string) => <RelativeTime value={value} /> },
+            ...(enableRollback
+              ? [
+                  {
+                    title: "操作",
+                    render: (_value: unknown, record: ResourceVersion) =>
+                      record.version === latest?.version ? (
+                        <Typography.Text type="tertiary">当前版本</Typography.Text>
+                      ) : (
+                        <Button
+                          aria-label={`回滚到 ${record.version}`}
+                          onClick={() => setRollbackTarget(record)}
+                          size="small"
+                          type="danger"
+                        >
+                          {`回滚到 ${record.version}`}
+                        </Button>
+                      )
+                  }
+                ]
+              : [])
           ]}
           dataSource={sorted.map((version) => ({ key: version.version, ...version }))}
           pagination={false}
@@ -80,6 +124,20 @@ export function VersionHistory({ api, resourceType, resourceId }: VersionHistory
             <pre className="version-diff">{formatSpec(latest.spec)}</pre>
           </Space>
         </div>
+      ) : null}
+      {rollbackTarget ? (
+        <RiskConfirm
+          confirmText={rollingBack ? "回滚中…" : "确认回滚"}
+          impact={[
+            `基于 ${rollbackTarget.version} 创建新发布版本`,
+            "当前编辑中的草稿不受影响，但后续保存可能产生版本冲突"
+          ]}
+          onCancel={() => setRollbackTarget(null)}
+          onConfirm={() => void confirmRollback()}
+          requireName={resourceId}
+          title="确认回滚"
+          visible
+        />
       ) : null}
     </div>
   );

@@ -28,7 +28,7 @@ describe("S-C108 WorkflowDefinition management", () => {
       }
     });
 
-    await screen.findByRole("heading", { name: "流程编排" });
+    await screen.findByRole("heading", { name: "工作流" });
     await user.click(screen.getByRole("button", { name: "Weekly Report" }));
 
     // TASK-015：独立 Designer + 自动 working draft（无「创建草稿/校验」显式概念）

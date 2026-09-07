@@ -27,7 +27,7 @@ describe("S-P13-04 Users / Channels", () => {
     fireEvent.click(options[0]!);
     const leaving = document.querySelector('[class*="animation-hide"]');
     if (leaving) fireEvent.animationEnd(leaving);
-    await user.click(within(issueDialog).getByRole("button", { name: "confirm" }));
+    await user.click(within(issueDialog).getByRole("button", { name: "确定" }));
 
     // 链接展示在右侧抽屉里，而不是列表底部（Semi SideSheet 无 accessible name）
     const link = await screen.findByLabelText("专属对话链接");

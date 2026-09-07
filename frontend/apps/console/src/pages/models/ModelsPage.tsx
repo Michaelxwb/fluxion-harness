@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { Button, Select, Table, Tag, Typography } from "@douyinfe/semi-ui";
+import { Button, Select, Table, Tag, Toast, Typography } from "@douyinfe/semi-ui";
 
 import { PageHeader } from "../../components/PageHeader";
 import {
@@ -61,6 +61,20 @@ export function ModelsPage({ api }: ModelsPageProps) {
   const [credentialOptions, setCredentialOptions] = useState<
     readonly { readonly label: string; readonly value: string }[]
   >([]);
+
+  /** 连通探测：一次性 test-connection，结果 Toast 呈现（不写回资源）。 */
+  async function probeProvider(row: ProviderRow): Promise<void> {
+    try {
+      const result = await api.testModelProviderConnection(row.resourceId);
+      if (result.reachable) {
+        Toast.success(`连通正常，发现 ${result.discoveredModels.length} 个模型`);
+      } else {
+        Toast.error(`连通失败：${result.error ?? "未知错误"}`);
+      }
+    } catch (cause) {
+      Toast.error(cause instanceof Error ? cause.message : "探测失败");
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -219,7 +233,11 @@ export function ModelsPage({ api }: ModelsPageProps) {
                 </Button>
               )
             },
-            { title: "Base URL", dataIndex: "baseUrl" },
+            { title: "Base URL", dataIndex: "baseUrl", render: (value: string) => (
+              <Typography.Text ellipsis={{ showTooltip: true }} style={{ maxWidth: 280 }}>
+                {value}
+              </Typography.Text>
+            ) },
             {
               title: "模型（ModelDefinition）",
               render: (_value: unknown, record: ProviderRow) =>
@@ -262,18 +280,23 @@ export function ModelsPage({ api }: ModelsPageProps) {
                       })
                     }
                   ]}
-                  more={[
-                    {
-                      key: "detail",
-                      content: "查看详情",
-                      onClick: () => setDetailId(record.resourceId)
-                    },
-                    {
-                      key: "refresh-models",
-                      content: "刷新模型",
-                      onClick: () => setRefreshTarget(record)
-                    }
-                  ]}
+                    more={[
+                      {
+                        key: "detail",
+                        content: "查看详情",
+                        onClick: () => setDetailId(record.resourceId)
+                      },
+                      {
+                        key: "probe",
+                        content: "探测连通",
+                        onClick: () => void probeProvider(record)
+                      },
+                      {
+                        key: "refresh-models",
+                        content: "刷新模型",
+                        onClick: () => setRefreshTarget(record)
+                      }
+                    ]}
                 />
               )
             }

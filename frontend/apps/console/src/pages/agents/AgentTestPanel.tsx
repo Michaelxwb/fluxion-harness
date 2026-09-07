@@ -77,13 +77,29 @@ export function AgentTestPanel({ agentId, api, onCompleted }: AgentTestPanelProp
         {traceId ? <Typography.Text copyable>{`Trace ID: ${traceId}`}</Typography.Text> : null}
       </Space>
       {started ? (
+        <div aria-label="测试对话" style={{ display: "grid", gap: 8 }}>
+          <div aria-label="测试输入回显" className="test-bubble test-bubble--user">
+            <Typography.Text>{prompt}</Typography.Text>
+          </div>
+          {running && !output ? (
+            <div className="test-bubble test-bubble--assistant">
+              <Typography.Text type="tertiary">正在输入…</Typography.Text>
+            </div>
+          ) : null}
+          {output ? (
+            <div aria-label="测试输出" className="test-bubble test-bubble--assistant">
+              <Typography.Text>{output}</Typography.Text>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {started ? (
         <Timeline aria-label="测试 Timeline">
           <Timeline.Item>输入 Prompt</Timeline.Item>
           {output ? <Timeline.Item>Model 调用</Timeline.Item> : null}
           {completed ? <Timeline.Item>执行完成</Timeline.Item> : null}
         </Timeline>
       ) : null}
-      {output ? <Typography.Paragraph aria-label="测试输出">{output}</Typography.Paragraph> : null}
       {error ? <Typography.Text type="danger">{error}</Typography.Text> : null}
     </div>
   );

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
 import { IconPlus } from "@douyinfe/semi-icons";
-import { Button, Empty, Modal, Select, Table, Toast } from "@douyinfe/semi-ui";
+import { Avatar, Button, Empty, Modal, Select, Table, Toast, Typography } from "@douyinfe/semi-ui";
 import { useNavigate } from "react-router-dom";
 
 import { PageHeader } from "../../components/PageHeader";
+import { RelativeTime } from "../../components/RelativeTime";
+import { ResourceId } from "../../components/ResourceId";
 import {
   RowActions,
   StandardListCard,
@@ -30,6 +32,8 @@ interface AgentsPageProps {
 interface AgentRow extends ResourceSummary {
   readonly key: string;
   readonly modelId: string;
+  readonly modelName: string | null;
+  readonly capabilityCount: number;
 }
 
 const PAGE_SIZE = 10;
@@ -46,6 +50,10 @@ function primaryModelId(spec: JsonRecord): string {
   const policy = spec.model_policy as JsonRecord | undefined;
   const reference = policy?.primary_model_ref as JsonRecord | undefined;
   return String(reference?.id ?? "-");
+}
+
+function capabilityCountOf(spec: JsonRecord): number {
+  return Array.isArray(spec.capabilities) ? spec.capabilities.length : 0;
 }
 
 /** TASK-011：智能体标准列表——领域筛选、单套分页、只读详情与受治理行操作。 */
@@ -98,11 +106,27 @@ export function AgentsPage({ api }: AgentsPageProps) {
           )
         );
         if (!active || requestId !== requestSeq.current) return;
+        // 主模型名页内 join（随页大小有界），失败回退裸 ID 展示。
+        const modelNames = await Promise.all(
+          details.map(async (detail) => {
+            const id = primaryModelId(detail.spec);
+            if (id === "-") return null;
+            try {
+              const model = await api.getResource("model_definition", id);
+              return String(model.spec.name ?? model.resourceId);
+            } catch {
+              return null;
+            }
+          })
+        );
+        if (!active || requestId !== requestSeq.current) return;
         setRows(
           agentsPage.items.map((agent, index) => ({
             ...agent,
             key: agent.resourceId,
-            modelId: primaryModelId(details[index].spec)
+            modelId: primaryModelId(details[index].spec),
+            modelName: modelNames[index],
+            capabilityCount: capabilityCountOf(details[index].spec)
           }))
         );
         setTotal(agentsPage.total);
@@ -245,25 +269,46 @@ export function AgentsPage({ api }: AgentsPageProps) {
                 title: "名称",
                 dataIndex: "displayName",
                 render: (value: string, record: AgentRow) => (
-                  <Button
-                    aria-label={`查看智能体 ${value}`}
-                    onClick={() => setSelectedAgentId(record.resourceId)}
-                    theme="borderless"
-                    type="tertiary"
-                  >
-                    {value}
-                  </Button>
+                  <span className="agent-name-cell">
+                    <Avatar size="small">{value.slice(0, 1).toUpperCase()}</Avatar>
+                    <span className="agent-name-cell__text">
+                      <Button
+                        aria-label={`查看智能体 ${value}`}
+                        onClick={() => setSelectedAgentId(record.resourceId)}
+                        theme="borderless"
+                        type="tertiary"
+                      >
+                        {value}
+                      </Button>
+                      <Typography.Text type="tertiary" className="agent-name-cell__sub">
+                        {`${record.capabilityCount} 个能力 · v${record.currentVersion}`}
+                      </Typography.Text>
+                    </span>
+                  </span>
                 )
               },
-              { title: "资源 ID", dataIndex: "resourceId" },
-              { title: "主模型", dataIndex: "modelId" },
+              {
+                title: "资源 ID",
+                dataIndex: "resourceId",
+                render: (value: string) => <ResourceId id={value} />
+              },
+              {
+                title: "主模型",
+                dataIndex: "modelId",
+                render: (value: string, record: AgentRow) =>
+                  record.modelName ?? <ResourceId id={value} />
+              },
               {
                 title: "状态",
                 dataIndex: "status",
                 render: (value: string) => <StatusTag status={value as ResourceStatus} />
               },
               { title: "版本", dataIndex: "currentVersion" },
-              { title: "更新时间", dataIndex: "updatedAt" },
+              {
+                title: "更新时间",
+                dataIndex: "updatedAt",
+                render: (value: string) => <RelativeTime value={value} />
+              },
               {
                 title: "操作",
                 render: (_value: unknown, record: AgentRow) => (
