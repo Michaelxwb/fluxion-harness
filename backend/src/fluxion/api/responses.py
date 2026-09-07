@@ -33,13 +33,16 @@ class PageData(BaseModel):
 
 def success(data: object | None, *, status_code: int = 200) -> JSONResponse:
     request_id = _request_id()
-    content = ApiResponse(
+    response = ApiResponse(
         code=SUCCESS,
         message="success",
         data=data,
         request_id=request_id,
         error=None,
-    ).model_dump(mode="json")
+    )
+    # 规则 22：Console 四字段 wire 契约不变——error 仅在有 slug 时出现；
+    # data 键恒在（null 亦保留）。
+    content = response.model_dump(mode="json", exclude={"error"})
     return _json_response(content, status_code=status_code, biz_code=SUCCESS)
 
 
@@ -52,13 +55,16 @@ def failure(
     error: str | None = None,
 ) -> JSONResponse:
     request_id = _request_id(request)
-    content = ApiResponse(
+    response = ApiResponse(
         code=code,
         message=message,
         data=None,
         request_id=request_id,
         error=error,
-    ).model_dump(mode="json")
+    )
+    content = response.model_dump(
+        mode="json", exclude={"error"} if error is None else None
+    )
     return _json_response(content, status_code=status_code, biz_code=code, request=request)
 
 

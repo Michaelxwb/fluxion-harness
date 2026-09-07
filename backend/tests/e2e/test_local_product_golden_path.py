@@ -82,7 +82,7 @@ async def test_S_R01_local_console_pg_runtime_and_web_chat_golden_path() -> None
                     "content": "hello product",
                 },
                 headers={
-                    **tenant_headers(actor_id="browser-a", request_id="req-chat"),
+                    **tenant_headers(actor_id="browser-a", request_id="req_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", trace_id="trace_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
                     "Authorization": f"Bearer {access.token}",
                 },
             )

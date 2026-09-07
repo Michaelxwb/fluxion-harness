@@ -160,7 +160,11 @@ async def test_bs07_snapshot_freezes_provider_credential_selection(pg_store: Reg
     selector = ResolverSelector(tenant_id=TENANT, agent_id="assistant", user_id="user-a")
 
     # 第一次 resolve：无 binding → provider_credentials 冻结 spec credential_ref
-    first = await resolver.resolve(selector, session_id="s-1")
+    first = await resolver.resolve(selector, session_id="s-1",
+            request_id="req_00000000000000000000000000000000",
+            trace_id="trace_00000000000000000000000000000000",
+            execution_id="exec_00000000000000000000000000000000"
+        )
     assert first.snapshot.provider_credentials["wire-provider"] == spec_ref
 
     # 新增 user binding（override）→ 第二次 resolve 冻结 override；第一次不受影响
@@ -175,7 +179,11 @@ async def test_bs07_snapshot_freezes_provider_credential_selection(pg_store: Reg
             credential_ref=override_ref,
         )
     )
-    second = await resolver.resolve(selector, session_id="s-2")
+    second = await resolver.resolve(selector, session_id="s-2",
+            request_id="req_11111111111111111111111111111111",
+            trace_id="trace_11111111111111111111111111111111",
+            execution_id="exec_11111111111111111111111111111111"
+        )
     assert first.snapshot.provider_credentials["wire-provider"] == spec_ref
     assert second.snapshot.provider_credentials["wire-provider"] == override_ref
 

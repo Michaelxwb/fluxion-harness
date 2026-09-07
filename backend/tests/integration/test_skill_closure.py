@@ -88,6 +88,9 @@ async def test_S04_skill_required_capabilities_covered_resolves_without_expansio
             await ContextResolver(store).resolve(
                 ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a"),
                 session_id="s",
+                request_id="req_cccccccccccccccccccccccccccccccc",
+                trace_id="trace_cccccccccccccccccccccccccccccccc",
+                execution_id="exec_cccccccccccccccccccccccccccccccc",
             )
         ).snapshot
 
@@ -115,6 +118,9 @@ async def test_E02_skill_required_capabilities_beyond_agent_fails_closed() -> No
             await resolver.resolve(
                 ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a"),
                 session_id="s",
+                request_id="req_dddddddddddddddddddddddddddddddd",
+                trace_id="trace_dddddddddddddddddddddddddddddddd",
+                execution_id="exec_dddddddddddddddddddddddddddddddd",
             )
         assert exc.value.code == "skill_closure_violation"
         assert "weather" in exc.value.message

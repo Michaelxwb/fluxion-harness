@@ -11,8 +11,16 @@ if TYPE_CHECKING:
     from fluxion.runtime.tools import ToolRuntime
 
 
-def _new_id() -> str:
-    return uuid4().hex
+def _new_request_id() -> str:
+    return f"req_{uuid4().hex}"
+
+
+def _new_trace_id() -> str:
+    return f"trace_{uuid4().hex}"
+
+
+def _new_execution_id() -> str:
+    return f"exec_{uuid4().hex}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,9 +34,10 @@ class RequestContext:
     # ADR-A010：仅显式 agent_definition_id 参与解析，同名回退已废弃。
     agent_definition_id: str | None = None
     agent_definition_version_selector: str = "latest-published"
-    request_id: str = field(default_factory=_new_id)
-    trace_id: str = field(default_factory=_new_id)
-    execution_id: str = field(default_factory=_new_id)
+    # TASK-006（ADR-A012）：缺省即受信入口补齐，必须带前缀——下游校验 fail-closed。
+    request_id: str = field(default_factory=_new_request_id)
+    trace_id: str = field(default_factory=_new_trace_id)
+    execution_id: str = field(default_factory=_new_execution_id)
 
     def __post_init__(self) -> None:
         required = {
@@ -43,9 +52,9 @@ class RequestContext:
     def with_new_execution(self) -> RequestContext:
         return replace(
             self,
-            request_id=_new_id(),
-            trace_id=_new_id(),
-            execution_id=_new_id(),
+            request_id=_new_request_id(),
+            trace_id=_new_trace_id(),
+            execution_id=_new_execution_id(),
         )
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import traceback
 from collections.abc import AsyncIterator
 from typing import Annotated
@@ -33,7 +34,7 @@ from fluxion.services.channel_app import (
     is_bind_command as _is_bind_command,
 )
 from fluxion.services.channel_auth import ChannelAuthError, WebBearerAuthenticator
-from fluxion.services.runtime_contracts import RuntimeApplicationError
+from fluxion.services.runtime_contracts import RequestIdentityError, RuntimeApplicationError
 
 
 class ChannelMessagePayload(BaseModel):
@@ -107,6 +108,19 @@ def _register_errors(app: FastAPI, service: ChannelApplicationService) -> None:
             request=request,
         )
 
+    @app.exception_handler(RequestIdentityError)
+    async def identity_error(request: Request, exc: RequestIdentityError) -> JSONResponse:
+        # TASK-007（ADR-A012 §4 的 channel 入口决策）：执行路径入口校验，
+        # fail-closed 并提示；缺席则沿用 middleware 已补齐的合法 ID。
+        del exc
+        return failure(
+            CHANNEL_VALIDATION_FAILED,
+            "请求身份无效",
+            status_code=400,
+            request=request,
+            error=RequestIdentityError.code,
+        )
+
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         del exc
@@ -150,6 +164,7 @@ def _register_message(
     @app.post("/api/v1/channels/web/messages")
     async def post_message(
         payload: ChannelMessagePayload,
+        request: Request,
         authorization: Annotated[str | None, Header(alias="Authorization")] = None,
         x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
     ) -> JSONResponse:
@@ -158,6 +173,7 @@ def _register_message(
         token = _bearer_token(authorization) if authorization else ""
         if token:
             await auth.verify(token)
+            _validate_entry_identity(request)
             request_id, trace_id = _request_ids(payload.message_id)
             result = await service.handle_chat_access(
                 token,
@@ -179,12 +195,14 @@ def _register_stream(
     @app.post("/api/v1/channels/web/messages:stream")
     async def stream_message(
         payload: ChannelMessagePayload,
+        request: Request,
         authorization: Annotated[str | None, Header(alias="Authorization")] = None,
         x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
     ) -> StreamingResponse:
         token = _bearer_token(authorization) if authorization else ""
         if token:
             await auth.verify(token)
+            _validate_entry_identity(request)
             request_id, trace_id = _request_ids(payload.message_id)
             events = _access_events(
                 service,
@@ -228,8 +246,10 @@ def _register_access_routes(app: FastAPI, service: ChannelApplicationService) ->
     @app.post("/api/v1/channels/web/access/messages")
     async def post_access_message(
         payload: ChatAccessMessagePayload,
+        request: Request,
         authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     ) -> JSONResponse:
+        _validate_entry_identity(request)
         request_id, trace_id = _request_ids(payload.message_id)
         result = await service.handle_chat_access(
             _bearer_token(authorization),
@@ -243,8 +263,10 @@ def _register_access_routes(app: FastAPI, service: ChannelApplicationService) ->
     @app.post("/api/v1/channels/web/access/messages:stream")
     async def stream_access_message(
         payload: ChatAccessMessagePayload,
+        request: Request,
         authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     ) -> StreamingResponse:
+        _validate_entry_identity(request)
         events = _access_events(service, payload, _bearer_token(authorization))
         return StreamingResponse(
             events,
@@ -364,6 +386,25 @@ def _request_ids(fallback: str) -> tuple[str, str]:
     if context is None:
         return fallback, fallback
     return context.request_id, context.trace_id
+
+
+_ENTRY_ID_PATTERN = re.compile(r"^(req|trace)_[0-9a-f]{32}$")
+
+
+def _validate_entry_identity(request: Request) -> None:
+    """执行路径入口身份校验（TASK-007）：header 出席且非法即 fail-closed。
+
+    /bind 等非执行路径不调用本函数（无执行身份可言，保持宽容）。
+    """
+    for header, kind in (("X-Request-ID", "req"), ("X-Trace-ID", "trace")):
+        value = request.headers.get(header)
+        if (
+            value is not None
+            and (not _ENTRY_ID_PATTERN.match(value) or not value.startswith(f"{kind}_"))
+        ):
+            raise RequestIdentityError(
+                f"request_identity_invalid: 非法 {kind} 格式（须为 {kind}_<32hex>）"
+            )
 
 
 def _state_or_header(request: Request, state_key: str, header_name: str) -> str:

@@ -35,10 +35,11 @@ def test_B_ERR_DESIGN_01_failure_carries_slug_request_id_safe_message() -> None:
 
 
 def test_B_ERR_DESIGN_01_success_error_is_none() -> None:
-    """B-ERR-DESIGN-01：成功信封 error 为 None（加法字段，不污染成功语义）。"""
+    """B-ERR-DESIGN-01：成功信封无 error 键（规则 22 四字段，加法兼容）。"""
     body = _body(success({"ok": True}))
     assert body["code"] == 0
-    assert body["error"] is None
+    assert body.get("error") is None
+    assert set(body) == {"code", "message", "data", "request_id"}
 
 
 def test_B_ERR_DESIGN_01_legacy_payload_without_error_parses() -> None:

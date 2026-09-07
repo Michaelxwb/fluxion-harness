@@ -64,7 +64,8 @@ def exporter() -> InMemorySpanExporter:
 
 
 def _unique_id(prefix: str) -> str:
-    return f"{prefix}-{uuid.uuid4().hex[:8]}"
+    # TASK-006（ADR-A012）：测试身份必须合法格式（prefix_<32hex>）。
+    return f"{prefix}_{uuid.uuid4().hex}"
 
 
 def _spans_for(exporter: InMemorySpanExporter, trace_id: str) -> list:
@@ -446,9 +447,9 @@ def _minimal_runtime_context(
         user_id="user-probe",
         runtime_profile_id="default",
         session_id="session-probe",
-        request_id="req-probe",
+        request_id="req_ffffffffffffffffffffffffffffffff",
         trace_id=trace_id,
-        execution_id="exec-probe",
+        execution_id="exec_ffffffffffffffffffffffffffffffff",
     )
     snapshot = ExecutionSnapshot(
         execution_id="exec-probe",

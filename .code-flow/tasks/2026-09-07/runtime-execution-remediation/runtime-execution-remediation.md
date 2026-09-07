@@ -32,7 +32,7 @@
 | S-ID-01 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 httpx Gateway → FastAPI → RunRuntimeRequest | TASK-005 | verified |
 | S-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | ContextResolver → PG Registry → SnapshotBuilder | TASK-006 | verified |
 | B-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 Resolver 缓存分支 → Snapshot | TASK-006 | verified |
-| S-ID-03 | source-review.md#P1-01 执行身份(L30-L36) | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | planned |
+| S-ID-03 | source-review.md#P1-01 执行身份(L30-L36) | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | verified |
 | B-CFG-DESIGN-01 | source-review.md#P1-02 Profile 参数(L38-L44) | unit | 版本化 Profile 契约和实际校验器 | TASK-008 | verified |
 | S-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | 真实 Console Schema/Resource 服务 → PG Registry | TASK-009 | verified |
 | B-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | PG 历史 Published → 实际 Profile 解析器 | TASK-009 | verified |
@@ -68,14 +68,14 @@
 | RULE-fluxion-resource-001 | source-review.md#Spec Compliance Matrix | E2E | 旧 Profile → Publish/Rollback → 新执行 | TASK-012 | planned |
 | RULE-fluxion-dfx-001 | source-review.md#Spec Compliance Matrix | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | planned |
 | RULE-fluxion-console-api-001 | source-review.md#Spec Compliance Matrix | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | TASK-020 | planned |
-| RULE-backend-logging-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | planned |
+| RULE-backend-logging-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | verified |
 | RULE-backend-quality-001 | source-review.md#Spec Compliance Matrix | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | TASK-015 | planned |
 | RULE-backend-platform-001 | source-review.md#Spec Compliance Matrix | E2E | Compose → 三角色真实进程 → PostgreSQL | TASK-001 | blocked |
 | RULE-backend-database-001 | source-review.md#Spec Compliance Matrix | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | TASK-025 | planned |
 | RULE-frontend-quality-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | planned |
 | RULE-frontend-semi-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | planned |
 | RULE-frontend-component-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | planned |
-| RULE-fluxion-console-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | planned |
+| RULE-fluxion-console-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | verified |
 
 ---
 
@@ -327,7 +327,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ## TASK-007: 补齐身份全链路验收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-005, TASK-006
 - **Source**: source-review.md#P1-01 执行身份(L30-L36)
@@ -341,9 +341,9 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ### Checklist
 
-- [ ] [S-ID-03][E2E] 先补验收并记录RED，真实边界：真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace；关键断言：各观测点关联同一身份；并发无串扰；未绑定执行被拒绝；日志无 Secret。
-- [ ] 从正式绑定身份进入（含 chat-access Bearer token 直聊路径）；覆盖并发隔离、失败和取消日志脱敏；未绑定用户仅允许 bind；同一执行的 ID 不要求无关执行相同。
-- [ ] channel 入口 ID 策略（TASK-006 后续跟进）：任意 X-Request-ID 直达 runtime 会被 fail-closed；确定 channel 入口校验/兼容（拒绝并提示 vs 入口补齐），覆盖之。
+- [x] [S-ID-03][E2E] 先补验收并记录RED，真实边界：真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace；关键断言：各观测点关联同一身份；并发无串扰；未绑定执行被拒绝；日志无 Secret。
+- [x] 从正式绑定身份进入（含 chat-access Bearer token 直聊路径）；覆盖并发隔离、失败和取消日志脱敏；未绑定用户仅允许 bind；同一执行的 ID 不要求无关执行相同。
+- [x] channel 入口 ID 策略（TASK-006 后续跟进）：任意 X-Request-ID 直达 runtime 会被 fail-closed；确定 channel 入口校验/兼容（拒绝并提示 vs 入口补齐），覆盖之。决策：执行路径入口校验 fail-closed（400 + slug），/bind 非执行路径保持宽容。
 - [ ] verifier `RULE-backend-logging-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` 验证 S-ID-03 的 关联ID和日志脱敏。记录自动化结果与必要评审证据，不能将计划视为verified。
 - [ ] verifier `RULE-fluxion-console-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` 验证 S-ID-03 的 正式Channel绑定与独立Runtime边界。记录自动化结果与必要评审证据，不能将计划视为verified。
 - [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
@@ -352,18 +352,21 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-ID-03 | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | 各观测点关联同一身份；并发无串扰；未绑定执行被拒绝；日志无 Secret | backend/tests/e2e/test_execution_identity_chain.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` | planned |
-| RULE-backend-logging-001 | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | 关联ID和日志脱敏，由S-ID-03提供行为证据；补充命令见Checklist | backend/tests/e2e/test_execution_identity_chain.py | `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` | planned |
-| RULE-fluxion-console-001 | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | 正式Channel绑定与独立Runtime边界，由S-ID-03提供行为证据；补充命令见Checklist | backend/tests/e2e/test_execution_identity_chain.py | `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` | planned |
+| S-ID-03 | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | 各观测点关联同一身份；并发无串扰；未绑定执行被拒绝；日志无 Secret | backend/tests/e2e/test_execution_identity_chain.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` | verified |
+| RULE-backend-logging-001 | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | 关联ID和日志脱敏，由S-ID-03提供行为证据；补充命令见Checklist | backend/tests/e2e/test_execution_identity_chain.py | `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` | verified |
+| RULE-fluxion-console-001 | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | 正式Channel绑定与独立Runtime边界，由S-ID-03提供行为证据；补充命令见Checklist | backend/tests/e2e/test_execution_identity_chain.py | `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-ID-03 | 4 failed（console.initialize 清 seed；POST+stream 双执行 trace 歧义；channel 入口无校验深层 500） | 4 passed；channel+api 43 passed；integration 318 passed；e2e/services/unit/memory/contract/api/channel 405 passed；改动文件 ruff+mypy clean（RUF059×2 既有） | test_execution_identity_chain.py::test_S_ID_03_* + execution_observation_helpers.py | Channel App→真实 Gateway→真实 Runtime API→真实 service→PG；_Recording 无（全真实）；caplog 断言 token 缺席（access 日志 Authorization 已 [REDACTED]） | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订：进入身份覆盖 chat-access token 直聊路径（was draft）
+- [2026-09-08] completed (done)：ChainStack 全真实链 + channel 入口校验，S-ID-03 verified
 
 ---
 

@@ -83,6 +83,8 @@ async def test_RS6_schema_carries_runtime_mechanics_constraints() -> None:
         "bootstrapped_from",
         # ADR-A010：租户默认标记（同租户至多一个 default=true）
         "default",
+        # ADR-A013（TASK-008）：契约版本标识。
+        "schema_version",
     }
     assert properties["request_timeout_ms"]["minimum"] == 100
     assert properties["request_timeout_ms"]["maximum"] == 120_000

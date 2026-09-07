@@ -143,6 +143,9 @@ async def test_B_S02_real_chain_grant_store_to_runtime(
     result_a = await resolver.resolve(
         ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a"),
         session_id="s-a",
+        request_id="req_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        trace_id="trace_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        execution_id="exec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     )
     perms_a = result_a.snapshot.effective_permissions
     assert perms_a["user_tools"] == ["calc.eval", "time.now"]
@@ -160,6 +163,9 @@ async def test_B_S02_real_chain_grant_store_to_runtime(
     result_b = await resolver.resolve(
         ResolverSelector(tenant_id="tenant-b", agent_id="assistant", user_id="user-a"),
         session_id="s-b",
+        request_id="req_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        trace_id="trace_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        execution_id="exec_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     )
     perms_b = result_b.snapshot.effective_permissions
     assert perms_b["user_tools"] == ["calc.eval", "time.now"]
@@ -223,6 +229,9 @@ async def test_B_S02_deny_only_policy_allows_unless_denied(
     result = await ContextResolver(pg_store).resolve(
         ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a"),
         session_id="s-a",
+        request_id="req_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        trace_id="trace_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        execution_id="exec_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
     )
     perms = result.snapshot.effective_permissions
     # deny-only：tenant 冻结图为空集（运行期按「除 denied 外全部」展开），

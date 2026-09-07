@@ -73,8 +73,16 @@ async def test_s01_cross_instance_digest_equal(store) -> None:
 
     await _seed_agent(store, version="1")
 
-    result_a = await resolver_a.resolve(_selector(), session_id="s-a")
-    result_b = await resolver_b.resolve(_selector(), session_id="s-b")
+    result_a = await resolver_a.resolve(_selector(), session_id="s-a",
+            request_id="req_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            trace_id="trace_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            execution_id="exec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        )
+    result_b = await resolver_b.resolve(_selector(), session_id="s-b",
+            request_id="req_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            trace_id="trace_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            execution_id="exec_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        )
 
     assert result_a.snapshot.snapshot_digest == result_b.snapshot.snapshot_digest
     assert result_a.snapshot.snapshot_digest  # 非空
@@ -85,7 +93,11 @@ async def test_s01_v2_fields_complete(store) -> None:
     """digest 覆盖 V2 字段全集（remediation §13.2）。"""
     resolver = ContextResolver(store)
     await _seed_agent(store, version="1")
-    result = await resolver.resolve(_selector(), session_id="s")
+    result = await resolver.resolve(_selector(), session_id="s",
+            request_id="req_cccccccccccccccccccccccccccccccc",
+            trace_id="trace_cccccccccccccccccccccccccccccccc",
+            execution_id="exec_cccccccccccccccccccccccccccccccc"
+        )
 
     snap = result.snapshot
     assert snap.user_profile_version is None or isinstance(snap.user_profile_version, str)
@@ -102,11 +114,19 @@ async def test_s06_kill_instance_equivalence(store) -> None:
     await _seed_agent(store, version="1")
 
     # 实例 A 服务请求
-    r_a = await resolver_a.resolve(_selector(), session_id="s-kill")
+    r_a = await resolver_a.resolve(_selector(), session_id="s-kill",
+            request_id="req_dddddddddddddddddddddddddddddddd",
+            trace_id="trace_dddddddddddddddddddddddddddddddd",
+            execution_id="exec_dddddddddddddddddddddddddddddddd"
+        )
     # kill 实例 A（模拟：丢弃 resolver_a 引用）
     del resolver_a
     # 新请求打到实例 B
-    r_b = await resolver_b.resolve(_selector(), session_id="s-kill")
+    r_b = await resolver_b.resolve(_selector(), session_id="s-kill",
+            request_id="req_dddddddddddddddddddddddddddddddd",
+            trace_id="trace_dddddddddddddddddddddddddddddddd",
+            execution_id="exec_dddddddddddddddddddddddddddddddd"
+        )
 
     assert r_a.snapshot.snapshot_digest == r_b.snapshot.snapshot_digest
 
@@ -117,7 +137,11 @@ async def test_s08_g4_execution_immutability_and_version_migration(store) -> Non
     resolver_1 = ContextResolver(store)
     await _seed_agent(store, version="1")
 
-    result_1 = await resolver_1.resolve(_selector(), session_id="s1")
+    result_1 = await resolver_1.resolve(_selector(), session_id="s1",
+            request_id="req_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            trace_id="trace_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            execution_id="exec_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        )
     digest_v1 = result_1.snapshot.snapshot_digest
 
     # 运行中发布 v2
@@ -129,6 +153,10 @@ async def test_s08_g4_execution_immutability_and_version_migration(store) -> Non
 
     # 新 Execution 使用 v2（新 resolver 实例 = 无 L1 缓存）
     resolver_fresh = ContextResolver(store)
-    result_2 = await resolver_fresh.resolve(_selector(), session_id="s2")
+    result_2 = await resolver_fresh.resolve(_selector(), session_id="s2",
+            request_id="req_ffffffffffffffffffffffffffffffff",
+            trace_id="trace_ffffffffffffffffffffffffffffffff",
+            execution_id="exec_ffffffffffffffffffffffffffffffff"
+        )
     assert result_2.snapshot.agent_definition_version == "2"
     assert result_2.snapshot.snapshot_digest != digest_v1
