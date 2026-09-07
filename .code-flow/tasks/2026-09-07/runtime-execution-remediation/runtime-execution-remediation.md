@@ -41,8 +41,8 @@
 | S-CFG-04 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | Console Publish → PG Registry → Runtime 工具循环 | TASK-012 | verified |
 | B-CFG-02 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | 旧 Profile → Publish/Rollback → 新执行 | TASK-012 | verified |
 | B-LIFE-DESIGN-01 | source-review.md#P1-03 执行生命周期(L46-L52) | unit | 终态与生命周期契约校验器 | TASK-013 | verified |
-| S-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 ExecutionSession → AgentRuntime → MemoryManager | TASK-014 | planned |
-| E-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实准备流水线 → 故障 Adapter → finalizer | TASK-014 | planned |
+| S-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 ExecutionSession → AgentRuntime → MemoryManager | TASK-014 | verified |
+| E-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实准备流水线 → 故障 Adapter → finalizer | TASK-014 | verified |
 | E-LIFE-02 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | TASK-015 | planned |
 | S-LIFE-02 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | RuntimeApplicationService.run/stream → ExecutionSession | TASK-016 | planned |
 | E-LIFE-03 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实运行应用 → 取消/关闭/模型超时 | TASK-016 | planned |
@@ -626,7 +626,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ## TASK-014: 由 ExecutionSession 管理完整生命周期
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-013
 - **Source**: source-review.md#P1-03 执行生命周期(L46-L52)
@@ -640,25 +640,29 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ### Checklist
 
-- [ ] [S-LIFE-01][integration] 先补验收并记录RED，真实边界：真实 ExecutionSession → AgentRuntime → MemoryManager；关键断言：成功结束只结算一次。
-- [ ] [E-LIFE-01][integration] 先补验收并记录RED，真实边界：真实准备流水线 → 故障 Adapter → finalizer；关键断言：部分初始化失败也释放；重复 finalize 不重复 flush/Trace。
-- [ ] finalize 幂等且并发安全；有限 shield 必须有 timeout，不能无限延长客户端取消；不引入长期后台垃圾任务。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_execution_session_lifecycle.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-LIFE-01][integration] 先补验收并记录RED，真实边界：真实 ExecutionSession → AgentRuntime → MemoryManager；关键断言：成功结束只结算一次。
+- [x] [E-LIFE-01][integration] 先补验收并记录RED，真实边界：真实准备流水线 → 故障 Adapter → finalizer；关键断言：部分初始化失败也释放；重复 finalize 不重复 flush/Trace。
+- [x] finalize 幂等且并发安全；有限 shield 必须有 timeout，不能无限延长客户端取消；不引入长期后台垃圾任务。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_execution_session_lifecycle.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-LIFE-01 | integration | 真实 ExecutionSession → AgentRuntime → MemoryManager | 成功结束只结算一次 | backend/tests/integration/test_execution_session_lifecycle.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_execution_session_lifecycle.py` | planned |
-| E-LIFE-01 | integration | 真实准备流水线 → 故障 Adapter → finalizer | 部分初始化失败也释放；重复 finalize 不重复 flush/Trace | backend/tests/integration/test_execution_session_lifecycle.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_execution_session_lifecycle.py` | planned |
+| S-LIFE-01 | integration | 真实 ExecutionSession → AgentRuntime → MemoryManager | 成功结束只结算一次 | backend/tests/integration/test_execution_session_lifecycle.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_execution_session_lifecycle.py` | verified |
+| E-LIFE-01 | integration | 真实准备流水线 → 故障 Adapter → finalizer | 部分初始化失败也释放；重复 finalize 不重复 flush/Trace | backend/tests/integration/test_execution_session_lifecycle.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_execution_session_lifecycle.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-LIFE-01 | AttributeError（finalize 不存在，实现前） | 3 passed；services+contract 132 passed；ruff+mypy clean | test_execution_session_lifecycle.py::test_S_LIFE_01_* | 真实 session + 真实 AgentRuntime + PG；finish 计数 1 | verified |
+| E-LIFE-01 | 同上 | 同上（卡住用例 5.9s = 预算内返回） | test_E_LIFE_01_* | MCP prepare 故障注入 + hang finish；清理有界（5s 预算）；取消重传播按契约实现 | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] completed (done)：session finalize_once + 准备失败清理 + 有界预算，S-LIFE-01/E-LIFE-01 verified
 
 ---
 
