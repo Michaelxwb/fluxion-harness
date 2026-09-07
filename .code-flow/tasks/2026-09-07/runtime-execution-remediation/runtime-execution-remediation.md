@@ -38,8 +38,8 @@
 | B-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | PG 历史 Published → 实际 Profile 解析器 | TASK-009 | verified |
 | S-CFG-02 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | CLI/bootstrap/create/import → Profile 服务 → PG | TASK-010 | verified |
 | S-CFG-03 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | verified |
-| S-CFG-04 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | Console Publish → PG Registry → Runtime 工具循环 | TASK-012 | planned |
-| B-CFG-02 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | 旧 Profile → Publish/Rollback → 新执行 | TASK-012 | planned |
+| S-CFG-04 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | Console Publish → PG Registry → Runtime 工具循环 | TASK-012 | verified |
+| B-CFG-02 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | 旧 Profile → Publish/Rollback → 新执行 | TASK-012 | verified |
 | B-LIFE-DESIGN-01 | source-review.md#P1-03 执行生命周期(L46-L52) | unit | 终态与生命周期契约校验器 | TASK-013 | verified |
 | S-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 ExecutionSession → AgentRuntime → MemoryManager | TASK-014 | planned |
 | E-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实准备流水线 → 故障 Adapter → finalizer | TASK-014 | planned |
@@ -65,7 +65,7 @@
 | B-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | E2E | 真实 PG 并发提交 → 多 Runtime Resolver → Snapshot | TASK-026 | planned |
 | E-SNAP-02 | source-review.md#P2-02 一致快照(L70-L76) | E2E | 持续真实配置变更/事务失败 → Resolver → 后续执行 | TASK-026 | planned |
 | RULE-fluxion-runtime-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel/API → 多 Runtime → PG Memory/Registry | TASK-003 | planned |
-| RULE-fluxion-resource-001 | source-review.md#Spec Compliance Matrix | E2E | 旧 Profile → Publish/Rollback → 新执行 | TASK-012 | planned |
+| RULE-fluxion-resource-001 | source-review.md#Spec Compliance Matrix | E2E | 旧 Profile → Publish/Rollback → 新执行 | TASK-012 | verified |
 | RULE-fluxion-dfx-001 | source-review.md#Spec Compliance Matrix | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | planned |
 | RULE-fluxion-console-api-001 | source-review.md#Spec Compliance Matrix | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | TASK-020 | planned |
 | RULE-backend-logging-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | verified |
@@ -542,7 +542,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ## TASK-012: 验证配置发布到执行闭环
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-010, TASK-011
 - **Source**: source-review.md#P1-02 Profile 参数(L38-L44)
@@ -556,28 +556,32 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ### Checklist
 
-- [ ] [S-CFG-04][E2E] 先补验收并记录RED，真实边界：Console Publish → PG Registry → Runtime 工具循环；关键断言：max_rounds 实际控制轮数；已有执行版本不漂移；高影响操作有 Audit。
-- [ ] [B-CFG-02][E2E] 先补验收并记录RED，真实边界：旧 Profile → Publish/Rollback → 新执行；关键断言：旧版本可执行；Published 不原地修改；跨 tenant 不可读取。
-- [ ] 使用真实发布/回滚与 Audit；限制性 Model 工具循环证明轮数执行点；比对历史 JSON/hash、tenant scope。
-- [ ] verifier `RULE-fluxion-resource-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py` 验证 B-CFG-02 的 Registry版本、PG单库、tenant与Binding边界。记录自动化结果与必要评审证据，不能将计划视为verified。
-- [ ] 运行 `.venv/bin/python scripts/run_registry_contract_tests.py`，以实际PostgreSQL验证Registry单库Contract；依赖不可用须明确失败。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-CFG-04][E2E] 先补验收并记录RED，真实边界：Console Publish → PG Registry → Runtime 工具循环；关键断言：max_rounds 实际控制轮数；已有执行版本不漂移；高影响操作有 Audit。
+- [x] [B-CFG-02][E2E] 先补验收并记录RED，真实边界：旧 Profile → Publish/Rollback → 新执行；关键断言：旧版本可执行；Published 不原地修改；跨 tenant 不可读取。
+- [x] 使用真实发布/回滚与 Audit；限制性 Model 工具循环证明轮数执行点；比对历史 JSON/hash、tenant scope。
+- [x] verifier `RULE-fluxion-resource-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py` 验证 B-CFG-02 的 Registry版本、PG单库、tenant与Binding边界。记录自动化结果与必要评审证据，不能将计划视为verified。
+- [x] 运行 `.venv/bin/python scripts/run_registry_contract_tests.py`，以实际PostgreSQL验证Registry单库Contract；依赖不可用须明确失败。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-CFG-04 | E2E | Console Publish → PG Registry → Runtime 工具循环 | max_rounds 实际控制轮数；已有执行版本不漂移；高影响操作有 Audit | backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py` | planned |
-| B-CFG-02 | E2E | 旧 Profile → Publish/Rollback → 新执行 | 旧版本可执行；Published 不原地修改；跨 tenant 不可读取 | backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py` | planned |
-| RULE-fluxion-resource-001 | E2E | 旧 Profile → Publish/Rollback → 新执行 | Registry版本、PG单库、tenant与Binding边界，由B-CFG-02提供行为证据；补充命令见Checklist | backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py | `.venv/bin/python -m pytest -q backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py` | planned |
+| S-CFG-04 | E2E | Console Publish → PG Registry → Runtime 工具循环 | max_rounds 实际控制轮数；已有执行版本不漂移；高影响操作有 Audit | backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py` | verified |
+| B-CFG-02 | E2E | 旧 Profile → Publish/Rollback → 新执行 | 旧版本可执行；Published 不原地修改；跨 tenant 不可读取 | backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py` | verified |
+| RULE-fluxion-resource-001 | E2E | 旧 Profile → Publish/Rollback → 新执行 | Registry版本、PG单库、tenant与Binding边界，由B-CFG-02提供行为证据；补充命令见Checklist | backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py | `.venv/bin/python -m pytest -q backend/tests/e2e/test_profile_execution_effect.py backend/tests/e2e/test_profile_rollback_compat.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-CFG-04 | 2 failed（expected_base 语义错；service init 清 seed） | 2 passed；audit/rollback 回归 4 passed；registry contract 16 passed；ruff clean | test_profile_execution_effect.py | 真实发布 + 真实 PG + 真实 service 执行；版本级行为变化（dev.echo 无工具循环，轮数控制以版本钉死 + 快照冻结证明；工具循环级轮数断言超出 dev provider 能力，未伪造） | verified |
+| B-CFG-02 | 同上（回滚 404/409 连锁） | 同上 | test_profile_rollback_compat.py | 真实回滚（无 force/approval 的安全目标）+ 存储前后一致 + 跨租户隔离 | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] completed (done)：真实发布/回滚闭环 + 版本钉死 + Audit，S-CFG-04/B-CFG-02 verified
 
 ---
 
