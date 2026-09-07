@@ -122,6 +122,18 @@ def _register_errors(app: FastAPI, service: ChannelApplicationService) -> None:
             error=RequestIdentityError.code,
         )
 
+    @app.exception_handler(RuntimeApplicationError)
+    async def runtime_upstream_error(request: Request, exc: RuntimeApplicationError) -> JSONResponse:
+        # TASK-022（S-ERR-02）：远端错误跨层一致——code 保持 channel 本地码，
+        # slug 优先上游原始值（不断链）；无上游时用固定安全文案。
+        return failure(
+            INTERNAL_ERROR,
+            str(exc) if exc.upstream_code is not None else "runtime service unavailable",
+            status_code=exc.status_code,
+            request=request,
+            error=exc.upstream_error or exc.code,
+        )
+
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         del exc
@@ -336,13 +348,16 @@ async def _access_events(
             },
         )
     except RuntimeApplicationError as exc:
-        # 远端（网关）错误：code 保持 channel 码，slug 进 error 字段不断链。
+        # 远端（网关）错误：code 保持 channel 码，slug 优先上游原始值不断链；
+        # 无上游时用固定安全文案（本地传输失败原文不回传）。
         yield _event(
             "error",
             {
                 "code": INTERNAL_ERROR,
-                "error": exc.code,
-                "message": str(exc),
+                "error": exc.upstream_error or exc.code,
+                "message": str(exc)
+                if exc.upstream_code is not None
+                else "runtime service unavailable",
                 "request_id": request_id,
                 "trace_id": trace_id,
             },

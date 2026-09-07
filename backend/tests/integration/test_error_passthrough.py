@@ -76,5 +76,6 @@ async def test_e03_channel_keeps_upstream_slug() -> None:
     ]
     assert len(frames) == 1 and frames[0].startswith("event: error")
     data = json.loads(frames[0].split("data:", 1)[1])
-    assert data["error"] == "runtime_upstream_timeout"
+    # TASK-022（S-ERR-02）：slug 优先上游原始值，不断链。
+    assert data["error"] == "agent_not_found"
     assert "timeout" in data["message"]

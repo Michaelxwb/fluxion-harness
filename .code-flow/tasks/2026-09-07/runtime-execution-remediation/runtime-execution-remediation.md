@@ -54,8 +54,8 @@
 | E-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实异常映射/脱敏 → HTTP/SSE 响应 | TASK-020 | verified |
 | B-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 HTTP Gateway → 真实/故障响应边界 | TASK-021 | verified |
 | E-ERR-02 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 Gateway HTTP/SSE 解码 → RuntimeApplicationError | TASK-021 | verified |
-| S-ERR-02 | source-review.md#P1-04 错误契约(L54-L60) | E2E | 真实 Runtime → Gateway → Channel → 客户端 | TASK-022 | planned |
-| E-ERR-03 | source-review.md#P1-04 错误契约(L54-L60) | E2E | 真实 Runtime + 受控模型故障 → HTTP/SSE | TASK-022 | planned |
+| S-ERR-02 | source-review.md#P1-04 错误契约(L54-L60) | E2E | 真实 Runtime → Gateway → Channel → 客户端 | TASK-022 | verified |
+| E-ERR-03 | source-review.md#P1-04 错误契约(L54-L60) | E2E | 真实 Runtime + 受控模型故障 → HTTP/SSE | TASK-022 | verified |
 | S-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实 AgentRuntime + 可计数 Provider → ApplicationService | TASK-023 | planned |
 | B-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实流式分派 → 非流式 Provider/空字符串token | TASK-023 | planned |
 | E-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实流式迭代 → 部分输出后 Provider 错误 | TASK-023 | planned |
@@ -968,7 +968,7 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 
 ## TASK-022: 补真实服务错误契约验收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-005, TASK-021
 - **Source**: source-review.md#P1-04 错误契约(L54-L60)
@@ -983,26 +983,30 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 
 ### Checklist
 
-- [ ] [S-ERR-02][E2E] 先补验收并记录RED，真实边界：真实 Runtime → Gateway → Channel → 客户端；关键断言：资源不存在等错误 code/slug/ID 跨层一致。
-- [ ] [E-ERR-03][E2E] 先补验收并记录RED，真实边界：真实 Runtime + 受控模型故障 → HTTP/SSE；关键断言：模型不可用/超时/未知异常安全映射；一次执行不重复调用。
-- [ ] 不存在 Agent/版本、模型不可用、超时、内部异常覆盖两种 transport；断连本身不要求向已断开的客户端发 SSE error。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_error_chain.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-ERR-02][E2E] 先补验收并记录RED，真实边界：真实 Runtime → Gateway → Channel → 客户端；关键断言：资源不存在等错误 code/slug/ID 跨层一致。
+- [x] [E-ERR-03][E2E] 先补验收并记录RED，真实边界：真实 Runtime + 受控模型故障 → HTTP/SSE；关键断言：模型不可用/超时/未知异常安全映射；一次执行不重复调用。
+- [x] 不存在 Agent/版本、模型不可用、超时、内部异常覆盖两种 transport；断连本身不要求向已断开的客户端发 SSE error。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_error_chain.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-ERR-02 | E2E | 真实 Runtime → Gateway → Channel → 客户端 | 资源不存在等错误 code/slug/ID 跨层一致 | backend/tests/e2e/test_runtime_error_chain.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_error_chain.py` | planned |
-| E-ERR-03 | E2E | 真实 Runtime + 受控模型故障 → HTTP/SSE | 模型不可用/超时/未知异常安全映射；一次执行不重复调用 | backend/tests/e2e/test_runtime_error_chain.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_error_chain.py` | planned |
+| S-ERR-02 | E2E | 真实 Runtime → Gateway → Channel → 客户端 | 资源不存在等错误 code/slug/ID 跨层一致 | backend/tests/e2e/test_runtime_error_chain.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_error_chain.py` | verified |
+| E-ERR-03 | E2E | 真实 Runtime + 受控模型故障 → HTTP/SSE | 模型不可用/超时/未知异常安全映射；一次执行不重复调用 | backend/tests/e2e/test_runtime_error_chain.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_error_chain.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-ERR-02 | 2 failed（channel HTTP 无远端映射，500 丢 slug；stash 验证） | 2 passed；chain+channel+identity 17 passed；passthrough 扩展 2 passed；ruff+mypy clean（RUF059 既有） | test_runtime_error_chain.py::test_S_ERR_02_* | ChainStack 全真实链；HTTP/SSE 同三元组；E-03 旧断言按新契约更新 | verified |
+| E-ERR-03 | 同上 | 同上 | test_E_ERR_03_* | 受控故障 Adapter（计数）；超时 slug + 单次调用计数 == 1 | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订：test_error_passthrough.py 已存在，明确为扩展（was draft）
+- [2026-09-08] completed (done)：channel 远端错误映射 + upstream-first，S-ERR-02/E-ERR-03 verified
 
 ---
 
