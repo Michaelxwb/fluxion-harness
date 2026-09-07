@@ -11,6 +11,7 @@ from functools import partial
 from json import JSONDecodeError
 from pathlib import Path
 from time import perf_counter
+from typing import Any
 from uuid import uuid4
 
 from opentelemetry.trace import Status, StatusCode
@@ -42,7 +43,7 @@ from fluxion.runtime.secrets import CredentialResolver
 from fluxion.runtime.tools import ToolRuntime
 from fluxion.runtime.tracing import InMemoryTraceStore, TraceRecord, TraceStore
 from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
-from fluxion.services.execution_session import ExecutionSession
+from fluxion.services.execution_session import ExecutionSession, PreparedExecution
 from fluxion.services.outbox import InProcessConfigEventPublisher, OutboxWorker
 from fluxion.services.runtime_contracts import (
     TRACE_WRITE_BUDGET_MS,
@@ -242,8 +243,6 @@ class RuntimeApplicationService(RuntimeToolOps):
 
     async def run(self, request: RunRuntimeRequest) -> RunRuntimeResult:
         started = perf_counter()
-        step_result: RuntimeStepResult | None = None
-        tool_results: list[dict[str, object]] = []
         # O502（TASK-008）：Runtime execution span 经 traced_scope——统一关联字段；
         # 同时绑定 execution_id ContextVar，使嵌套 Model/Tool span 自动继承。
         execution_token = bind_execution_id(request.execution_id)
@@ -295,82 +294,102 @@ class RuntimeApplicationService(RuntimeToolOps):
                         str(exc),
                         status_code=getattr(exc, "status_code", 400),
                     ) from exc
-                context = prepared.context
-                model_tools = prepared.model_tools
-                allowed_model_tools = prepared.allowed_model_tools
-                try:
-                    step_result = await self._runtime.run_step(
-                        context,
-                        request.input_message,
-                        tools=model_tools,
-                        tool_handler=partial(
-                            self._execute_model_tool,
-                            allowed_tool_ids=allowed_model_tools,
-                        ),
-                    )
-                    tool_results.extend(step_result.tool_results)
-                    tool_results.extend(await self._call_tools(context, request.tool_calls))
-                    await session.finalize(context)
-                    latency_ms = _elapsed_ms(started)
-                    await self._append_trace(
-                        request,
-                        context,
-                        step_result,
-                        tuple(tool_results),
-                        latency_ms,
-                        None,
-                    )
-                    return _run_result(
-                        request,
-                        context,
-                        step_result,
-                        tuple(tool_results),
-                        latency_ms,
-                        self._service_instance_id,
-                    )
-                except (asyncio.CancelledError, GeneratorExit) as exc:
-                    # 取消/关闭：结算为 CANCELLED（尽力），留痕后必须重新传播。
-                    with suppress(asyncio.CancelledError):
-                        await session.finalize(context, error=exc)
-                    await self._append_trace(
-                        request,
-                        context,
-                        step_result,
-                        tuple(tool_results),
-                        _elapsed_ms(started),
-                        "cancelled",
-                    )
-                    raise
-                except Exception as exc:
-                    span.set_status(Status(StatusCode.ERROR, str(exc)))
-                    context.emit("execution.error", {"error": _error_code(exc)})
-                    await session.finalize(context, error=exc)
-                    await self._append_trace(
-                        request,
-                        context,
-                        step_result,
-                        tuple(tool_results),
-                        _elapsed_ms(started),
-                        str(exc),
-                    )
-                    emit_runtime_error_log(
-                        request_id=request.request_id,
-                        trace_id=request.trace_id,
-                        tenant_id=request.tenant_id,
-                        execution_id=request.execution_id,
-                        runtime_profile_id=request.runtime_profile_id,
-                        error_type=type(exc).__name__,
-                        error_code=_error_code(exc),
-                        message=str(exc),
-                        stack=traceback.format_exc(),
-                    )
-                    raise RuntimeApplicationError(
-                        _error_code(exc),
-                        str(exc),
-                        status_code=getattr(exc, "status_code", 400),
-                    ) from exc
+                return await self._run_prepared(
+                    session, prepared, request, started, span
+                )
         finally:
             reset_execution_id(execution_token)
+
+    async def _run_prepared(
+        self,
+        session: ExecutionSession,
+        prepared: PreparedExecution,
+        request: RunRuntimeRequest,
+        started: float,
+        span: Any | None,
+    ) -> RunRuntimeResult:
+        """已准备执行的非流式主体（TASK-023）：run() 与流式 fallback 共用。
+
+        fallback 复用同次 execution/context（不重开会话、不丢首个 context 的 trace）。
+        所有出口走会话 finalizer（恰好一次终态），见 TASK-016。
+        """
+        context = prepared.context
+        model_tools = prepared.model_tools
+        allowed_model_tools = prepared.allowed_model_tools
+        step_result: RuntimeStepResult | None = None
+        tool_results: list[dict[str, object]] = []
+        try:
+            step_result = await self._runtime.run_step(
+                context,
+                request.input_message,
+                tools=model_tools,
+                tool_handler=partial(
+                    self._execute_model_tool,
+                    allowed_tool_ids=allowed_model_tools,
+                ),
+            )
+            tool_results.extend(step_result.tool_results)
+            tool_results.extend(await self._call_tools(context, request.tool_calls))
+            await session.finalize(context)
+            latency_ms = _elapsed_ms(started)
+            await self._append_trace(
+                request,
+                context,
+                step_result,
+                tuple(tool_results),
+                latency_ms,
+                None,
+            )
+            return _run_result(
+                request,
+                context,
+                step_result,
+                tuple(tool_results),
+                latency_ms,
+                self._service_instance_id,
+            )
+        except (asyncio.CancelledError, GeneratorExit) as exc:
+            # 取消/关闭：结算为 CANCELLED（尽力），留痕后必须重新传播。
+            with suppress(asyncio.CancelledError):
+                await session.finalize(context, error=exc)
+            await self._append_trace(
+                request,
+                context,
+                step_result,
+                tuple(tool_results),
+                _elapsed_ms(started),
+                "cancelled",
+            )
+            raise
+        except Exception as exc:
+            if span is not None:
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
+            context.emit("execution.error", {"error": _error_code(exc)})
+            await session.finalize(context, error=exc)
+            await self._append_trace(
+                request,
+                context,
+                step_result,
+                tuple(tool_results),
+                _elapsed_ms(started),
+                str(exc),
+            )
+            emit_runtime_error_log(
+                request_id=request.request_id,
+                trace_id=request.trace_id,
+                tenant_id=request.tenant_id,
+                execution_id=request.execution_id,
+                runtime_profile_id=request.runtime_profile_id,
+                error_type=type(exc).__name__,
+                error_code=_error_code(exc),
+                message=str(exc),
+                stack=traceback.format_exc(),
+            )
+            raise RuntimeApplicationError(
+                _error_code(exc),
+                str(exc),
+                status_code=getattr(exc, "status_code", 400),
+            ) from exc
 
     async def stream(self, request: RunRuntimeRequest) -> AsyncGenerator[RuntimeStreamEvent, None]:
         # review P1-4：流式主路径（Chat Channel 正式入口）此前不 bind
@@ -509,16 +528,43 @@ class RuntimeApplicationService(RuntimeToolOps):
                     ).to_payload(),
                 )
                 return
-            # 流式不被支持（provider 非 StreamingModelProvider / 无 provider）→
-            # 回退非流式 run（单次模型调用）。先结算外层 context，再由 run() 自起
-            # 内层会话（自负 error log + trace + 包装）。同次 execution 身份复用
-            # 的语义由 TASK-023 收敛，本任务只保证各 context 恰结算一次。
-            await session.finalize(context)
-            context = None
-            result = await self.run(request)
+            if _stream_completed(context):
+                # TASK-023：支持流式但零 token——正常空结果，不回退、不二次请求。
+                # 与上分支同语义（output=""），复用同次 execution/context 结算。
+                output = ""
+                await self._runtime.memory.add_message(context, "user", request.input_message)
+                await self._runtime.memory.add_message(context, "assistant", output)
+                await session.finalize(context)
+                latency_ms = _elapsed_ms(started)
+                await self._append_trace(request, context, None, (), latency_ms, None)
+                yield RuntimeStreamEvent(
+                    event="completed",
+                    data=RunRuntimeResult(
+                        request_id=request.request_id,
+                        trace_id=context.snapshot.trace_id,
+                        execution_id=context.snapshot.execution_id,
+                        service_instance_id=self._service_instance_id,
+                        runtime_profile_id=context.snapshot.runtime_profile_id,
+                        runtime_profile_version=context.snapshot.runtime_profile_version,
+                        output=output,
+                        latency_ms=latency_ms,
+                        model_provider_id=_streamed_provider_id(context),
+                        tool_results=(),
+                    ).to_payload(),
+                )
+                return
+            # 明确 unsupported（model.stream_unsupported 事件）才 fallback。
+            # TASK-023：复用同次 execution/context 跑非流式主体，不重开会话、
+            # 不丢首个 context 的 trace；span 沿用外层流式 span（传 None 免重复）。
+            reused = PreparedExecution(
+                context=context,
+                model_tools=[],
+                allowed_model_tools=set(),
+            )
+            result = await self._run_prepared(session, reused, request, started, None)
             yield RuntimeStreamEvent(event="completed", data=result.to_payload())
         except RuntimeApplicationError:
-            # 来自 fallback 的 run()：run() 自身已完成 error log + trace + 包装，直接上抛。
+            # 来自 fallback 的 _run_prepared：已完成 error log + trace + 包装，直接上抛。
             raise
         except Exception as exc:
             if context is not None:
@@ -725,6 +771,18 @@ def _streamed_provider_id(context: RuntimeContext) -> str | None:
             if isinstance(candidate, str) and candidate:
                 provider_id = candidate
     return provider_id
+
+
+def _stream_completed(context: RuntimeContext) -> bool:
+    """流式正常结束标记（TASK-023）：model.completed 且 streamed=True。
+
+    有此标记说明 provider 支持流式（零 token 也是正常空结果），调用方不得
+    fallback 二次请求模型；无标记（unsupported/无路由）才允许 fallback。
+    """
+    return any(
+        event.name == "model.completed" and event.attributes.get("streamed") is True
+        for event in context.trace
+    )
 
 
 def build_personal_memory_retriever(engine: object) -> PersonalMemoryRetriever:

@@ -56,9 +56,9 @@
 | E-ERR-02 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 Gateway HTTP/SSE 解码 → RuntimeApplicationError | TASK-021 | verified |
 | S-ERR-02 | source-review.md#P1-04 错误契约(L54-L60) | E2E | 真实 Runtime → Gateway → Channel → 客户端 | TASK-022 | verified |
 | E-ERR-03 | source-review.md#P1-04 错误契约(L54-L60) | E2E | 真实 Runtime + 受控模型故障 → HTTP/SSE | TASK-022 | verified |
-| S-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实 AgentRuntime + 可计数 Provider → ApplicationService | TASK-023 | planned |
-| B-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实流式分派 → 非流式 Provider/空字符串token | TASK-023 | planned |
-| E-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实流式迭代 → 部分输出后 Provider 错误 | TASK-023 | planned |
+| S-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实 AgentRuntime + 可计数 Provider → ApplicationService | TASK-023 | verified |
+| B-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实流式分派 → 非流式 Provider/空字符串token | TASK-023 | verified |
+| E-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实流式迭代 → 部分输出后 Provider 错误 | TASK-023 | verified |
 | B-SNAP-DESIGN-01 | source-review.md#P2-02 一致快照(L70-L76) | unit | Store scoped-read Protocol 与事务契约声明 | TASK-024 | verified |
 | S-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | TASK-025 | planned |
 | E-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | integration | 真实事务读 → 超时/配置冲突 → Resolver/cache | TASK-025 | planned |
@@ -1012,7 +1012,7 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 
 ## TASK-023: 区分流式能力与空输出
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P2
 - **Depends**: TASK-006, TASK-016
 - **Source**: source-review.md#P2-01 空流式结果(L62-L68)
@@ -1026,27 +1026,32 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 
 ### Checklist
 
-- [ ] [S-STR-01][integration] 先补验收并记录RED，真实边界：真实 AgentRuntime + 可计数 Provider → ApplicationService；关键断言：正常空结束只请求模型一次，completed output为空。
-- [ ] [B-STR-01][integration] 先补验收并记录RED，真实边界：真实流式分派 → 非流式 Provider/空字符串token；关键断言：明确 unsupported 才 fallback；身份不变。
-- [ ] [E-STR-01][integration] 先补验收并记录RED，真实边界：真实流式迭代 → 部分输出后 Provider 错误；关键断言：错误传播；不二次请求模型；Trace/finalizer 完整。
-- [ ] 零 token、单空字符串、非流式 Provider、部分输出后错误分别处理；仅 unsupported 可 fallback，复用同次 execution/context。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_empty_stream_outcome.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-STR-01][integration] 先补验收并记录RED，真实边界：真实 AgentRuntime + 可计数 Provider → ApplicationService；关键断言：正常空结束只请求模型一次，completed output为空。
+- [x] [B-STR-01][integration] 先补验收并记录RED，真实边界：真实流式分派 → 非流式 Provider/空字符串token；关键断言：明确 unsupported 才 fallback；身份不变。
+- [x] [E-STR-01][integration] 先补验收并记录RED，真实边界：真实流式迭代 → 部分输出后 Provider 错误；关键断言：错误传播；不二次请求模型；Trace/finalizer 完整。
+- [x] 零 token、单空字符串、非流式 Provider、部分输出后错误分别处理；仅 unsupported 可 fallback，复用同次 execution/context。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_empty_stream_outcome.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-STR-01 | integration | 真实 AgentRuntime + 可计数 Provider → ApplicationService | 正常空结束只请求模型一次，completed output为空 | backend/tests/integration/test_empty_stream_outcome.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_empty_stream_outcome.py` | planned |
-| B-STR-01 | integration | 真实流式分派 → 非流式 Provider/空字符串token | 明确 unsupported 才 fallback；身份不变 | backend/tests/integration/test_empty_stream_outcome.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_empty_stream_outcome.py` | planned |
-| E-STR-01 | integration | 真实流式迭代 → 部分输出后 Provider 错误 | 错误传播；不二次请求模型；Trace/finalizer 完整 | backend/tests/integration/test_empty_stream_outcome.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_empty_stream_outcome.py` | planned |
+| S-STR-01 | integration | 真实 AgentRuntime + 可计数 Provider → ApplicationService | 正常空结束只请求模型一次，completed output为空 | backend/tests/integration/test_empty_stream_outcome.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_empty_stream_outcome.py` | verified |
+| B-STR-01 | integration | 真实流式分派 → 非流式 Provider/空字符串token | 明确 unsupported 才 fallback；身份不变 | backend/tests/integration/test_empty_stream_outcome.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_empty_stream_outcome.py` | verified |
+| E-STR-01 | integration | 真实流式迭代 → 部分输出后 Provider 错误 | 错误传播；不二次请求模型；Trace/finalizer 完整 | backend/tests/integration/test_empty_stream_outcome.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_empty_stream_outcome.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-STR-01 | complete_calls==1（空流回退二次请求） | 3 passed；channel/api/e2e 163 passed；integration 344 passed；ruff+mypy clean（唯一既有错误） | test_empty_stream_outcome.py::test_S_STR_01_* | 可计数空流式 Provider；stream 1 次、complete 0 次、output "" | verified |
+| B-STR-01 | 通过（回退本就工作，守卫） | 同上 | test_B_STR_01_* | 非流式 Provider 经 model.stream_unsupported 事件显式 fallback；身份不变；与 run 结果一致 | verified |
+| E-STR-01 | 通过（错误本就传播，守卫） | 同上 | test_E_STR_01_* | 部分输出后错误传播；stream 1 次 complete 0 次；Trace 完整 | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] completed (done)：stream_unsupported 事件区分 + fallback 复用同 context（_run_prepared 抽取），S/B/E-STR-01 verified
 
 ---
 

@@ -175,6 +175,14 @@ class AgentRuntime:
         # TASK-010：优先 execution-scoped resolver（叠加 store-backed provider），
         # 无则回退 service-level registry。
         resolver = context.model_provider_resolver or self._model_providers
+        # TASK-023：显式标记"无路由支持流式"——调用方仅此时可 fallback；
+        # 支持但零 token 是正常空结果，不得二次请求模型。
+        if not _any_streaming_route(resolver, routes):
+            context.emit(
+                "model.stream_unsupported",
+                {"provider_ids": [route.provider_ref.id for route in routes]},
+            )
+            return
         # FEAT-09：流式与非流式一致的压缩准备（不额外调 run_step，不重复请求/保存）。
         session_history = await self._prepare_history(context)
         messages = _model_messages(context, session_history, input_message)
@@ -445,6 +453,18 @@ async def _wait_for_provider(
     timeout_ms: int,
 ) -> ModelResponse:
     return await asyncio.wait_for(awaitable, timeout=timeout_ms / 1000)
+
+
+def _any_streaming_route(resolver: Any, routes: Any) -> bool:
+    """任一路由的 provider 支持流式即 True；解析失败的路由视为不支持。"""
+    for route in routes:
+        try:
+            provider = resolver.resolve(route.provider_ref.id)
+        except ModelProviderError:
+            continue
+        if isinstance(provider, StreamingModelProvider):
+            return True
+    return False
 
 
 def _model_messages(
