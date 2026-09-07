@@ -1,7 +1,7 @@
 version: 1
 task: runtime-execution-remediation
 enforcement: required
-updated_at: '2026-09-07T13:00:51.840709+00:00'
+updated_at: '2026-09-07T16:05:22.971055+00:00'
 sources:
 - type: cli
   ref: bind
@@ -10,7 +10,7 @@ bindings:
   path: backend/code-quality-performance.md
   status: active
   hashes:
-    file_sha256: 794707bc60824369db57e1d533dcb729568a2d5e4a8a3e22bb9d5d9d9f263046
+    file_sha256: 5f3488502ae27c692da4d28116d9c35739856145d455232bc2d38a1df4add793
     metadata_sha256: b47ce10c1c4909938b6e81de279a1f79ff668396723faa5a07a6582843fa42bc
     rules_sha256: 0be3ab4ac115124aa531b6d35ffe5648a81186f417e708abb10005aa14407e3c
   selected_by: plan
@@ -39,7 +39,7 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-015
           item_id: RULE-backend-quality-001
-          artifact_sha256: fb29e2a8ce724c43660aa514f88edc520764e4011174ecc297547d17a9371e35
+          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
         decision: null
         evidence: []
       code:
@@ -160,8 +160,8 @@ bindings:
   path: backend/database.md
   status: active
   hashes:
-    file_sha256: 3c018ee3cc6b0810cc97584e4e2fa40d925573865087e231c581bb2fec48cc03
-    metadata_sha256: 7de4b2312302afd0902e3860561d49ad28fa770a35a9abfb633d808a703e693b
+    file_sha256: 0fe944cb1d13fcad5510bcb498d9cb9b2cc2a9b79a3adc1d42884844ac6d2e89
+    metadata_sha256: 23726bc7810935c87049b93f391406b467bc104f9b37f97405d49c8c7ff7369d
     rules_sha256: dbe672ee29795f296a5340e78d0ff12b030ecebce4d18422fa33fc2f457b79ec
   selected_by: plan
   reason: 只读一致事务、参数化查询与tenant
@@ -189,7 +189,7 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-025
           item_id: RULE-backend-database-001
-          artifact_sha256: fb29e2a8ce724c43660aa514f88edc520764e4011174ecc297547d17a9371e35
+          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
         decision: null
         evidence: []
       code:
@@ -359,6 +359,33 @@ bindings:
         refs: []
         decision: null
         evidence: []
+  - ref: PATTERN-backend-007
+    summary: PG 测试统一连本地 `fluxion_test` 库（`TEST_POSTGRES_DSN`），夹具在初始化时重建隔离（`reset_on_initialize`/TRUNCATE），禁止跨测试串数据；Console
+      侧复用 `console_stack` + `tenant_headers`（cf-learn 2026-09-08：100 个测试文件同形，ADR-A007）
+    text_sha256: 46f7c027c6af3e6b7fff900ae6fd9cb44598f8267c613ae448bae5e682a5fb66
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
 - spec_id: backend-logging
   path: backend/logging.md
   status: active
@@ -392,7 +419,7 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-007
           item_id: RULE-backend-logging-001
-          artifact_sha256: fb29e2a8ce724c43660aa514f88edc520764e4011174ecc297547d17a9371e35
+          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
         decision: null
         evidence: []
       code:
@@ -513,7 +540,7 @@ bindings:
   path: backend/platform-rules.md
   status: active
   hashes:
-    file_sha256: 49a6b26684741785c685f5c5c345839a7bace16340e40ebe3318a30a247164bc
+    file_sha256: 0ab4bdfb2b719e3368b73067ac3a922ea3d38865cba62cda82b16bde73e9d5be
     metadata_sha256: 08e544fb358be1b0c1e6a346ee6076f72ae784b921e3bd5dc6838771c7376828
     rules_sha256: 6b656795a6660ba5d2a9088dbfc999299eb5a99e0d433df110e68de6e670bfa6
   selected_by: plan
@@ -542,7 +569,7 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-001
           item_id: RULE-backend-platform-001
-          artifact_sha256: fb29e2a8ce724c43660aa514f88edc520764e4011174ecc297547d17a9371e35
+          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
         decision: null
         evidence: []
       code:
@@ -716,7 +743,7 @@ bindings:
   path: backend/console-api-contract.md
   status: active
   hashes:
-    file_sha256: b49848fb91c2fe4c57f1c0c0ea47066eefdef0f79a0c5be99c06a9437f950934
+    file_sha256: 0eba20ee9920988e6142badbec84e95bcd7116ea2cd073ef5f34be7eb5bd663d
     metadata_sha256: 43f49336b20d8bf5a7dfedeec5c2c3cf627489ba95f04ef201b7699c6596c829
     rules_sha256: 1f5fd7ead679f6b3092c8945fa7f73d6ab20a411c0186cf305bb4b5e44ed695b
   selected_by: plan
@@ -746,7 +773,7 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-020
           item_id: RULE-fluxion-console-api-001
-          artifact_sha256: fb29e2a8ce724c43660aa514f88edc520764e4011174ecc297547d17a9371e35
+          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
         decision: null
         evidence: []
       code:
@@ -949,7 +976,7 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-007
           item_id: RULE-fluxion-console-001
-          artifact_sha256: fb29e2a8ce724c43660aa514f88edc520764e4011174ecc297547d17a9371e35
+          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
         decision: null
         evidence: []
       code:
@@ -995,7 +1022,7 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-018
           item_id: RULE-fluxion-dfx-001
-          artifact_sha256: fb29e2a8ce724c43660aa514f88edc520764e4011174ecc297547d17a9371e35
+          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
         decision: null
         evidence: []
       code:
@@ -1042,7 +1069,7 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-012
           item_id: RULE-fluxion-resource-001
-          artifact_sha256: fb29e2a8ce724c43660aa514f88edc520764e4011174ecc297547d17a9371e35
+          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
         decision: null
         evidence: []
       code:
@@ -1089,7 +1116,7 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-003
           item_id: RULE-fluxion-runtime-001
-          artifact_sha256: fb29e2a8ce724c43660aa514f88edc520764e4011174ecc297547d17a9371e35
+          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
         decision: null
         evidence: []
       code:
@@ -1106,7 +1133,7 @@ bindings:
   path: frontend/component-specs.md
   status: active
   hashes:
-    file_sha256: 5e7854747f2dcd19cb30b6532099db44986f4e6cb91848b6e024a523904603fb
+    file_sha256: 6eadc0d62c3b197cbbccbfce7f7ce97aeedf9149914bd28bced500701cd31495
     metadata_sha256: c7dbcb955ddaa212afbf24924011db5f87bc1fc20296af1aa58267e011849fd8
     rules_sha256: fd27b207dd1b552d62dc696ab307bf46fdbaf06808af54dadf9c40180043853c
   selected_by: plan
@@ -1135,7 +1162,7 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-011
           item_id: RULE-frontend-component-001
-          artifact_sha256: fb29e2a8ce724c43660aa514f88edc520764e4011174ecc297547d17a9371e35
+          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
         decision: null
         evidence: []
       code:
@@ -1201,60 +1228,114 @@ bindings:
         decision: null
         evidence: []
   - ref: PATTERN-frontend-003
-    summary: 列表渲染必须给 `key`，且 `key` 稳定唯一，避免使用数组索引
-    text_sha256: 4f47c62a59caefc84f80c5ff6535c8a9aae79963814e00d787acfbde48779f64
+    summary: 列表渲染必须给 `key`，且 `key` 稳定唯一；动态增删/重排的列表必须用实体 id，禁止用数组索引
+    text_sha256: e8a75eb854df77cb3e33b2e9cf4f73ec56c3a259b5ade4d4d7050ddaa69c2d01
     enforcement: advisory
     verifier_ref: advisory:none
     stage_status:
       design:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
   - ref: PATTERN-frontend-004
+    summary: 静态或派生有序列表（如校验诊断、只读选项）可用 `index` 做 `key`，但必须就近注释说明该列表不重排（cf-learn 2026-09-08：StudioToolbar/WorkflowNodeList/SchemaForm
+      三处同形）
+    text_sha256: f558d7627ae2a1de6c813935fa74c36238facf2e6f4daf71732a380b7431f951
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-frontend-005
     summary: 受控表单优先；非受控仅用于不需要回读值的场景
     text_sha256: c76e47d7afb6906898198c4b458321016bd72039e2b9e2bbbece235e166ab98d
     enforcement: advisory
     verifier_ref: advisory:none
     stage_status:
       design:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
-  - ref: PATTERN-frontend-005
+  - ref: PATTERN-frontend-006
     summary: 样式遵循设计系统：间距用 4 的倍数，强调色 ≤ 2 种
     text_sha256: f3554878f6913099890d93f4501cf52b7715130135e933d8cc7e6d164fe4203b
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-frontend-007
+    summary: 列表「新建成功」的 `onCreated` 回调必须携带新建实体 id（`onCreated(resourceId)`），由调用方据此导航到编辑/详情闭环；禁止只触发列表刷新——新建实体（如
+      draft）可能因后端列表过滤而不可见，依赖重查 list 会引入跨层时序耦合
+    text_sha256: 0e9e44703119e6a9d4a4d81c65d3ff6aa0879876e4447fdba906b85a2597a5ac
     enforcement: advisory
     verifier_ref: advisory:none
     stage_status:
@@ -1278,10 +1359,10 @@ bindings:
         refs: []
         decision: null
         evidence: []
-  - ref: PATTERN-frontend-006
-    summary: 列表「新建成功」的 `onCreated` 回调必须携带新建实体 id（`onCreated(resourceId)`），由调用方据此导航到编辑/详情闭环；禁止只触发列表刷新——新建实体（如
-      draft）可能因后端列表过滤而不可见，依赖重查 list 会引入跨层时序耦合
-    text_sha256: 0e9e44703119e6a9d4a4d81c65d3ff6aa0879876e4447fdba906b85a2597a5ac
+  - ref: PATTERN-frontend-008
+    summary: 多 Tab 页面的选中态必须同步到 URL（`?tab=`），保证深链可用、刷新不丢位（cf-learn 2026-09-08：AgentEditorForm/AuditPage/RunsPage
+      三页同形）
+    text_sha256: a52696ad3f289da00466091d94fa96bc6f10b10b87f9ee9d346c497336e87d68
     enforcement: advisory
     verifier_ref: advisory:none
     stage_status:
@@ -1338,7 +1419,7 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-011
           item_id: RULE-frontend-quality-001
-          artifact_sha256: fb29e2a8ce724c43660aa514f88edc520764e4011174ecc297547d17a9371e35
+          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
         decision: null
         evidence: []
       code:
@@ -1541,7 +1622,7 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-011
           item_id: RULE-frontend-semi-001
-          artifact_sha256: fb29e2a8ce724c43660aa514f88edc520764e4011174ecc297547d17a9371e35
+          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
         decision: null
         evidence: []
       code:

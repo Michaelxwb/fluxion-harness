@@ -102,7 +102,14 @@ async def test_s02_resolve_pipeline_50x_p95_under_300ms(store: PostgreSQLRegistr
     samples: list[float] = []
     for index in range(50):
         start = time.perf_counter()
-        result = await resolver.resolve(selector, session_id=f"s-{index}")
+        request_id, trace_id, execution_id = _identity("9")
+        result = await resolver.resolve(
+            selector,
+            session_id=f"s-{index}",
+            request_id=request_id,
+            trace_id=trace_id,
+            execution_id=execution_id,
+        )
         samples.append((time.perf_counter() - start) * 1000)
     samples.sort()
     p95 = samples[int(len(samples) * 0.95)]
@@ -113,24 +120,42 @@ async def test_s02_resolve_pipeline_50x_p95_under_300ms(store: PostgreSQLRegistr
 
 
 @pytest.mark.asyncio
-async def test_l1_cache_hit_regenerates_execution_identity(store: PostgreSQLRegistryStore) -> None:
-    """L1 缓存命中复用内容字段，但必须重新生成 execution_id/trace_id。
+async def test_l1_cache_hit_uses_current_request_identity(store: PostgreSQLRegistryStore) -> None:
+    """L1 缓存命中复用内容字段，但身份必须用本次请求的（TASK-006 / B-ID-02）。
 
-    同一 resolver + 同一 selector，30s TTL 内两个不同 session 的独立 Execution：
-    digest 相等（内容一致），但 execution_id/trace_id 必须不同（规则 23 可区分）。
+    同一 resolver + 同一 selector，两个不同 session 的独立 Execution：
+    digest 相等（内容一致），snapshot 身份等于各自传入值——旧行为"重新生成"
+    已废弃（ADR-A012：内部层禁止创建身份）。
     """
     await _seed_agent(store)
     resolver = _resolver(store)
     selector = ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a")
 
-    first = await resolver.resolve(selector, session_id="s-1")
-    second = await resolver.resolve(selector, session_id="s-2", memory_query="different-query")
+    request_id, trace_id, execution_id = _identity("d")
+    first = await resolver.resolve(
+        selector,
+        session_id="s-1",
+        request_id=request_id,
+        trace_id=trace_id,
+        execution_id=execution_id,
+    )
+    request_id2, trace_id2, execution_id2 = _identity("e")
+    second = await resolver.resolve(
+        selector,
+        session_id="s-2",
+        memory_query="different-query",
+        request_id=request_id2,
+        trace_id=trace_id2,
+        execution_id=execution_id2,
+    )
 
     # 内容复用：digest 相等
     assert first.snapshot.snapshot_digest == second.snapshot.snapshot_digest
-    # per-Execution 标识必须新鲜
-    assert first.snapshot.execution_id != second.snapshot.execution_id
-    assert first.snapshot.trace_id != second.snapshot.trace_id
+    # 身份跟请求走
+    assert first.snapshot.execution_id == execution_id
+    assert second.snapshot.execution_id == execution_id2
+    assert first.snapshot.trace_id == trace_id
+    assert second.snapshot.trace_id == trace_id2
 
 
 @pytest.mark.asyncio
@@ -215,9 +240,13 @@ async def test_capability_versions_resolve_published(store: PostgreSQLRegistrySt
             )
         )
     resolver = _resolver(store)
+    request_id, trace_id, execution_id = _identity("f")
     result = await resolver.resolve(
         ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a"),
         session_id="s-cap",
+        request_id=request_id,
+        trace_id=trace_id,
+        execution_id=execution_id,
     )
     assert result.snapshot.skill_versions["survey-skill"] == "3"
     assert result.snapshot.mcp_versions["weather"] == "2"
@@ -233,7 +262,13 @@ async def test_s08_execution_immutability_across_publish(store: PostgreSQLRegist
     resolver_1 = _resolver(store)
     selector = ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a")
 
-    first = await resolver_1.resolve(selector, session_id="s1")
+    first = await resolver_1.resolve(
+        selector,
+        session_id="s1",
+        request_id=_identity("5")[0],
+        trace_id=_identity("5")[1],
+        execution_id=_identity("5")[2],
+    )
     assert first.snapshot.agent_definition_version == "1"
 
     # 运行中发布 v2（真实写入 resource_definitions）
@@ -244,7 +279,13 @@ async def test_s08_execution_immutability_across_publish(store: PostgreSQLRegist
 
     # 新 Execution（新 resolver 模拟新实例，无 L1 缓存）解析到 v2
     resolver_2 = ContextResolver(store)
-    second = await resolver_2.resolve(selector, session_id="s2")
+    second = await resolver_2.resolve(
+        selector,
+        session_id="s2",
+        request_id=_identity("6")[0],
+        trace_id=_identity("6")[1],
+        execution_id=_identity("6")[2],
+    )
     assert second.snapshot.agent_definition_version == "2"
     # digest 随版本变化
     assert first.snapshot.snapshot_digest != second.snapshot.snapshot_digest
@@ -259,6 +300,7 @@ async def test_runtime_profile_selector_pin_requires_ref(
     await _seed_agent(store, version="2")
 
     with pytest.raises(ContextResolutionError) as exc_info:
+        request_id, trace_id, execution_id = _identity("0")
         await _resolver(store).resolve(
             ResolverSelector(
                 tenant_id="tenant-a",
@@ -267,6 +309,9 @@ async def test_runtime_profile_selector_pin_requires_ref(
                 runtime_profile_version="1",
             ),
             session_id="s-profile-pin",
+            request_id=request_id,
+            trace_id=trace_id,
+            execution_id=execution_id,
         )
     assert exc_info.value.code == "runtime_profile_ref_required"
 
@@ -309,13 +354,21 @@ async def test_s09_credential_isolation_per_user(store: PostgreSQLRegistryStore)
             )
         )
     resolver = _resolver(store)
+    request_id_a, trace_id_a, execution_id_a = _identity("1")
     result_a = await resolver.resolve(
         ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a"),
         session_id="s-a",
+        request_id=request_id_a,
+        trace_id=trace_id_a,
+        execution_id=execution_id_a,
     )
+    request_id_b, trace_id_b, execution_id_b = _identity("2")
     result_b = await resolver.resolve(
         ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-b"),
         session_id="s-b",
+        request_id=request_id_b,
+        trace_id=trace_id_b,
+        execution_id=execution_id_b,
     )
     cred_a = result_a.snapshot.credential_versions or {}
     cred_b = result_b.snapshot.credential_versions or {}
@@ -329,6 +382,7 @@ async def test_e04_user_profile_version_missing_fail_closed(store: PostgreSQLReg
     await _seed_agent(store)
     resolver = _resolver(store)
     with pytest.raises(ContextResolutionError) as error:
+        request_id, trace_id, execution_id = _identity("4")
         await resolver.resolve(
             ResolverSelector(
                 tenant_id="tenant-a",
@@ -337,6 +391,9 @@ async def test_e04_user_profile_version_missing_fail_closed(store: PostgreSQLReg
                 user_profile_version="v-missing",
             ),
             session_id="s-e04",
+            request_id=request_id,
+            trace_id=trace_id,
+            execution_id=execution_id,
         )
     assert error.value.code == "user_profile_not_found"
     assert error.value.snapshot_digest is None
@@ -371,9 +428,13 @@ async def test_e02_credential_missing_fail_closed(store: PostgreSQLRegistryStore
         credential_resolver=CredentialResolver(secret_store),
     )
     with pytest.raises(ContextResolutionError) as error:
+        request_id, trace_id, execution_id = _identity("3")
         await resolver.resolve(
             ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a"),
             session_id="s-e02",
+            request_id=request_id,
+            trace_id=trace_id,
+            execution_id=execution_id,
         )
     assert error.value.code == "credential_not_resolvable"
     assert error.value.snapshot_digest is None
@@ -422,3 +483,85 @@ async def test_e01_non_dev_missing_identity_headers_401() -> None:
         assert "request_id" in body or "code" in body
     finally:
         await client.aclose()
+
+
+def _identity(char: str) -> tuple[str, str, str]:
+    return (f"req_{char * 32}", f"trace_{char * 32}", f"exec_{char * 32}")
+
+
+@pytest.mark.asyncio
+async def test_S_ID_02_snapshot_identity_matches_request(store: PostgreSQLRegistryStore) -> None:
+    """S-ID-02：Snapshot 身份与请求一致；配置固定（TASK-006 / ADR-A012）。"""
+    await _seed_agent(store)
+    resolver = _resolver(store)
+    selector = ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a")
+    request_id, trace_id, execution_id = _identity("a")
+    result = await resolver.resolve(
+        selector,
+        session_id="s-id-02",
+        request_id=request_id,
+        trace_id=trace_id,
+        execution_id=execution_id,
+    )
+    assert result.snapshot.execution_id == execution_id
+    assert result.snapshot.trace_id == trace_id
+    assert result.snapshot.tenant_id == "tenant-a"
+    assert result.snapshot.runtime_profile_id == "assistant"
+    assert result.snapshot.runtime_profile_version == "1"
+
+    # 同一配置、不同执行：身份跟请求走，配置 digest 不变。
+    request_id2, trace_id2, execution_id2 = _identity("b")
+    second = await resolver.resolve(
+        selector,
+        session_id="s-id-02-2",
+        request_id=request_id2,
+        trace_id=trace_id2,
+        execution_id=execution_id2,
+    )
+    assert second.snapshot.execution_id == execution_id2
+    assert second.snapshot.trace_id == trace_id2
+    assert second.snapshot.snapshot_digest == result.snapshot.snapshot_digest
+
+
+@pytest.mark.asyncio
+async def test_B_ID_02_cache_hit_does_not_reuse_previous_identity(
+    store: PostgreSQLRegistryStore,
+) -> None:
+    """B-ID-02：缓存命中不复用前次执行身份；运行 ID 变化不改变配置 digest。
+
+    L1 默认 TTL=0（跨执行不缓存）；本用例显式开 TTL 演练命中分支——命中返回的
+    snapshot 必须携带本次请求身份，而非缓存时的旧身份。
+    """
+    await _seed_agent(store)
+    resolver = _resolver(store)
+    resolver._l1_cache_ttl = 3600.0
+    selector = ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a")
+    _, _, execution_a = _identity("a")
+    first = await resolver.resolve(
+        selector, session_id="s-hit-1", request_id=_identity("a")[0],
+        trace_id=_identity("a")[1], execution_id=execution_a,
+    )
+    _, trace_b, execution_b = _identity("b")
+    second = await resolver.resolve(
+        selector, session_id="s-hit-2", request_id=_identity("b")[0],
+        trace_id=trace_b, execution_id=execution_b,
+    )
+    assert second.snapshot.execution_id == execution_b
+    assert second.snapshot.trace_id == trace_b
+    assert second.snapshot.execution_id != first.snapshot.execution_id
+    assert second.snapshot.snapshot_digest == first.snapshot.snapshot_digest
+
+
+@pytest.mark.asyncio
+async def test_S_ID_02_unknown_tenant_fails_closed(store: PostgreSQLRegistryStore) -> None:
+    """S-ID-02：不同租户请求隔离——tenant-b 无该 Agent 即 fail-closed。"""
+    await _seed_agent(store)
+    resolver = _resolver(store)
+    with pytest.raises(ContextResolutionError):
+        await resolver.resolve(
+            ResolverSelector(tenant_id="tenant-b", agent_id="assistant", user_id="user-a"),
+            session_id="s-tenant-b",
+            request_id=_identity("c")[0],
+            trace_id=_identity("c")[1],
+            execution_id=_identity("c")[2],
+        )

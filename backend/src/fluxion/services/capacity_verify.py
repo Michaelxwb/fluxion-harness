@@ -27,6 +27,7 @@ from fluxion.services.runtime_app import (
     RunRuntimeRequest,
     RuntimeApplicationService,
 )
+from fluxion.services.runtime_contracts import resolve_request_identity
 
 # ---------------------------------------------------------------------------
 # V1 契约（与 docs/capacity/capacity-profile-v1.md 一致；RULE-P6-01 只紧不松）
@@ -314,8 +315,24 @@ async def _consistency_pairs(
         selector = ResolverSelector(
             tenant_id=tenant_id, agent_id=agent_id, user_id="user-consistency"
         )
-        result_a = await resolver_a.resolve(selector, session_id="s-consistency-a")
-        result_b = await resolver_b.resolve(selector, session_id="s-consistency-b")
+        # TASK-006（ADR-A012 §1）：内部调用方显式传身份；两实例用不同执行身份，
+        # digest 一致即证明身份不进配置 digest。
+        identity_a = resolve_request_identity(None, None, None, None, None)
+        identity_b = resolve_request_identity(None, None, None, None, None)
+        result_a = await resolver_a.resolve(
+            selector,
+            session_id="s-consistency-a",
+            request_id=identity_a.request_id,
+            trace_id=identity_a.trace_id,
+            execution_id=identity_a.execution_id,
+        )
+        result_b = await resolver_b.resolve(
+            selector,
+            session_id="s-consistency-b",
+            request_id=identity_b.request_id,
+            trace_id=identity_b.trace_id,
+            execution_id=identity_b.execution_id,
+        )
 
         report.digest_checks += 1
         if (

@@ -100,6 +100,21 @@ def resolve_request_identity(
     )
 
 
+def validate_run_identity(
+    request_id: str, trace_id: str, execution_id: str
+) -> RunIdentity:
+    """内部层身份校验（ADR-A012 §1）：三 ID 必须全部合法，缺失/非法即 fail-closed。
+
+    内部层（Resolver/Snapshot/Execution）禁止创建或替换身份；缺省只允许受信
+    入口补齐。本函数不生成任何 ID——空串即非法。
+    """
+    return RunIdentity(
+        request_id=_check_identity("req", request_id),
+        trace_id=_check_identity("trace", trace_id),
+        execution_id=_check_identity("exec", execution_id),
+    )
+
+
 class RuntimeApplicationError(RuntimeError):
     code = "runtime_application_error"
 

@@ -30,8 +30,8 @@
 | E-DEP-01 | source-review.md#P0-01 多角色部署(L22-L28) | E2E | 真实 Runtime 进程终止 → 代理 → 后续请求 | TASK-003 | planned |
 | B-ID-01 | source-review.md#P1-01 执行身份(L30-L36) | unit | 实际请求契约/类型校验器 | TASK-004 | verified |
 | S-ID-01 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 httpx Gateway → FastAPI → RunRuntimeRequest | TASK-005 | verified |
-| S-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | ContextResolver → PG Registry → SnapshotBuilder | TASK-006 | planned |
-| B-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 Resolver 缓存分支 → Snapshot | TASK-006 | planned |
+| S-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | ContextResolver → PG Registry → SnapshotBuilder | TASK-006 | verified |
+| B-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 Resolver 缓存分支 → Snapshot | TASK-006 | verified |
 | S-ID-03 | source-review.md#P1-01 执行身份(L30-L36) | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | planned |
 | B-CFG-DESIGN-01 | source-review.md#P1-02 Profile 参数(L38-L44) | unit | 版本化 Profile 契约和实际校验器 | TASK-008 | verified |
 | S-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | 真实 Console Schema/Resource 服务 → PG Registry | TASK-009 | planned |
@@ -281,7 +281,7 @@ Runtime 不配置固定 container_name 或冲突宿主端口；负载均衡发�
 
 ## TASK-006: 修复 Resolver 与 Snapshot 的 ID 重建
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-004
 - **Source**: source-review.md#P1-01 执行身份(L30-L36)
@@ -296,26 +296,32 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ### Checklist
 
-- [ ] [S-ID-02][integration] 先补验收并记录RED，真实边界：ContextResolver → PG Registry → SnapshotBuilder；关键断言：Snapshot 身份与请求一致；配置固定。
-- [ ] [B-ID-02][integration] 先补验收并记录RED，真实边界：真实 Resolver 缓存分支 → Snapshot；关键断言：缓存不复用前次执行身份；运行 ID 变化不改变配置 digest。
-- [ ] 保留配置 digest 对运行身份的排除；覆盖 cache miss/hit、两个执行复用配置、不同租户请求。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/services/test_context_resolver.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-ID-02][integration] 先补验收并记录RED，真实边界：ContextResolver → PG Registry → SnapshotBuilder；关键断言：Snapshot 身份与请求一致；配置固定。
+- [x] [B-ID-02][integration] 先补验收并记录RED，真实边界：真实 Resolver 缓存分支 → Snapshot；关键断言：缓存不复用前次执行身份；运行 ID 变化不改变配置 digest。
+- [x] 保留配置 digest 对运行身份的排除；覆盖 cache miss/hit、两个执行复用配置、不同租户请求。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/services/test_context_resolver.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-ID-02 | integration | ContextResolver → PG Registry → SnapshotBuilder | Snapshot 身份与请求一致；配置固定 | backend/tests/services/test_context_resolver.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/services/test_context_resolver.py` | planned |
-| B-ID-02 | integration | 真实 Resolver 缓存分支 → Snapshot | 缓存不复用前次执行身份；运行 ID 变化不改变配置 digest | backend/tests/services/test_context_resolver.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/services/test_context_resolver.py` | planned |
+| S-ID-02 | integration | ContextResolver → PG Registry → SnapshotBuilder | Snapshot 身份与请求一致；配置固定 | backend/tests/services/test_context_resolver.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/services/test_context_resolver.py` | verified |
+| B-ID-02 | integration | 真实 Resolver 缓存分支 → Snapshot | 缓存不复用前次执行身份；运行 ID 变化不改变配置 digest | backend/tests/services/test_context_resolver.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/services/test_context_resolver.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-ID-02 | TypeError（resolve() 无 execution_id 参数，实现前） | services 13 passed；contract+services 回归 122 passed；改动源文件 ruff+mypy clean（4 测试文件 I001 + worker_bootstrap I001 为既有） | test_context_resolver.py::test_S_ID_02_* | 真实 ContextResolver → 真实 PG Registry → SnapshotBuilder；不同租户 fail-closed | verified |
+| B-ID-02 | 同上（缓存分支刷旧身份） | 同上 | test_context_resolver.py::test_B_ID_02_*（TTL 显式开 3600 演练命中分支；旧 test_l1_cache_hit_* 按新契约重写） | 缓存命中返回本次请求身份；两执行 digest 相等（身份不进 digest） | verified |
+
+后续跟进（TASK-007）：channel 入口任意 X-Request-ID（如测试用的 req-s09 类）直达 runtime 会被 fail-closed；channel 入口的 ID 校验/兼容策略在 TASK-007（S-ID-03）中确定，本任务仅把 channel 测试数据改为合法格式。
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订：两测试文件已存在，明确为扩展；contract 文件复用 snapshot 断言（was draft）
+- [2026-09-08] completed (done)：resolve 接 execution_id + 身份校验 + 缓存用本次身份，S-ID-02/B-ID-02 verified
 
 ---
 
@@ -337,6 +343,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 - [ ] [S-ID-03][E2E] 先补验收并记录RED，真实边界：真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace；关键断言：各观测点关联同一身份；并发无串扰；未绑定执行被拒绝；日志无 Secret。
 - [ ] 从正式绑定身份进入（含 chat-access Bearer token 直聊路径）；覆盖并发隔离、失败和取消日志脱敏；未绑定用户仅允许 bind；同一执行的 ID 不要求无关执行相同。
+- [ ] channel 入口 ID 策略（TASK-006 后续跟进）：任意 X-Request-ID 直达 runtime 会被 fail-closed；确定 channel 入口校验/兼容（拒绝并提示 vs 入口补齐），覆盖之。
 - [ ] verifier `RULE-backend-logging-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` 验证 S-ID-03 的 关联ID和日志脱敏。记录自动化结果与必要评审证据，不能将计划视为verified。
 - [ ] verifier `RULE-fluxion-console-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` 验证 S-ID-03 的 正式Channel绑定与独立Runtime边界。记录自动化结果与必要评审证据，不能将计划视为verified。
 - [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。

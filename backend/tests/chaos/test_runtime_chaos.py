@@ -223,7 +223,13 @@ class TestS02RuntimeChaos:
 
 async def _digest(store: PostgreSQLRegistryStore, selector: ResolverSelector) -> str:
     resolver = ContextResolver(store)
-    result = await resolver.resolve(selector, session_id="s-chaos-digest")
+    result = await resolver.resolve(
+        selector,
+        session_id="s-chaos-digest",
+        request_id="req_dddddddddddddddddddddddddddddddd",
+        trace_id="trace_dddddddddddddddddddddddddddddddd",
+        execution_id="exec_dddddddddddddddddddddddddddddddd",
+    )
     assert result.snapshot.snapshot_digest
     return str(result.snapshot.snapshot_digest)
 

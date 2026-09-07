@@ -77,8 +77,8 @@ async def test_be_s_09_chat_message_routes_via_agent_id() -> None:
                 "Authorization": f"Bearer {issued.token}",
                 "X-Tenant-ID": "tenant-a",
                 "X-Actor-ID": "admin-a",
-                "X-Request-ID": "req-s09",
-                "X-Trace-ID": "trace-s09",
+                "X-Request-ID": "req_99999999999999999999999999999999",
+                "X-Trace-ID": "trace_99999999999999999999999999999999",
             },
         )
         assert response.status_code == 200, response.text

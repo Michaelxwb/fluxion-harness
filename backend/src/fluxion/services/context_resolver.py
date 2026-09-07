@@ -39,6 +39,7 @@ from fluxion.services.context_resolution_support import (
     ContextResolutionError,
     ContextResolutionSupport,
 )
+from fluxion.services.runtime_contracts import validate_run_identity
 from fluxion.services.runtime_profile_resolution import resolve_default_runtime_profile
 
 
@@ -121,8 +122,12 @@ class ContextResolver(ContextResolutionSupport):
         memory_budget: int | None = None,
         request_id: str = "",
         trace_id: str = "",
+        execution_id: str = "",
     ) -> ResolveResult:
         del session_id  # session 维度由调用方承载；本管线按 (tenant, agent, user) 解析
+        # TASK-006（ADR-A012 §1）：内部层禁止创建/替换身份——调用方传入三 ID，
+        # 缺失/非法即 fail-closed；snapshot 与缓存一律使用传入身份。
+        identity = validate_run_identity(request_id, trace_id, execution_id)
         trace: list[StageTrace] = []
 
         def _stage(stage: str, version: str | None, started: float) -> None:
@@ -136,12 +141,14 @@ class ContextResolver(ContextResolutionSupport):
         if cached is not None:
             result, ts, cached_revision = cached
             if cached_revision == revision and time.monotonic() - ts < self._l1_cache_ttl:
+                # TASK-006（B-ID-02）：缓存命中复用配置内容，但身份必须用本次
+                # 请求的——禁止复用前次执行身份。
                 return replace(
                     result,
                     snapshot=result.snapshot.model_copy(
                         update={
-                            "execution_id": f"exec_{uuid4_hex()}",
-                            "trace_id": f"trace_{uuid4_hex()}",
+                            "execution_id": identity.execution_id,
+                            "trace_id": identity.trace_id,
                         }
                     ),
                 )
@@ -355,7 +362,7 @@ class ContextResolver(ContextResolutionSupport):
         # 10. snapshot：V2 全字段 + canonical digest
         started = time.perf_counter()
         snapshot = ExecutionSnapshot(
-            execution_id=f"exec_{uuid4_hex()}",
+            execution_id=identity.execution_id,
             tenant_id=selector.tenant_id,
             user_id=platform_user_id or selector.user_id,
             runtime_profile_id=profile_row.id,
@@ -376,7 +383,7 @@ class ContextResolver(ContextResolutionSupport):
                 "denied_tools": sorted(policy_denied),
                 "tenant_tool_policy": tenant_policy_mode,
             },
-            trace_id=f"trace_{uuid4_hex()}",
+            trace_id=identity.trace_id,
             system_prompt=agent_spec.system_prompt,
             skill_instructions=skill_instructions,
             skill_required_capabilities=skill_required_capabilities,
@@ -457,17 +464,7 @@ class ContextResolverSnapshotBuilder:
             session_id=request.session_id,
             request_id=getattr(request, "request_id", "") or "",
             trace_id=getattr(request, "trace_id", "") or "",
+            execution_id=getattr(request, "execution_id", "") or "",
         )
-        snapshot = result.snapshot
-        # 请求 trace_id 贯通到 snapshot（端到端关联：request → execution → trace store）。
-        # trace_id 属运行时字段，不进 canonical digest（snapshot_digest._RUNTIME_FIELDS），
-        # 覆盖不影响跨实例等价性。
-        if getattr(request, "trace_id", None) and snapshot.trace_id != request.trace_id:
-            snapshot = snapshot.model_copy(update={"trace_id": request.trace_id})
-        return snapshot
-
-
-def uuid4_hex() -> str:
-    import uuid
-
-    return uuid.uuid4().hex
+        # TASK-006：resolve 已使用传入身份组装 snapshot，不再事后覆盖。
+        return result.snapshot

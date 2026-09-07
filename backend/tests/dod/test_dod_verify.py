@@ -107,9 +107,17 @@ class TestDod01Consistency:
             tenant_id=tenant_id, agent_id="dod-agent", user_id="user-dod"
         )
         digests = set()
-        for _ in range(3):  # 3 个独立 resolver 实例（跨实例对拍）
+        for i in range(3):  # 3 个独立 resolver 实例（跨实例对拍）
             resolver = ContextResolver(store)
-            result = await resolver.resolve(selector, session_id="s-dod")
+            # TASK-006：不同执行身份 digest 仍一致（身份不进配置 digest）。
+            suffix = f"{i:032x}"
+            result = await resolver.resolve(
+                selector,
+                session_id="s-dod",
+                request_id=f"req_{suffix}",
+                trace_id=f"trace_{suffix}",
+                execution_id=f"exec_{suffix}",
+            )
             digests.add(result.snapshot.snapshot_digest)
         assert len(digests) == 1, f"digest 跨实例不一致: {digests}"
 
@@ -125,9 +133,18 @@ class TestDod01Consistency:
             tenant_id=tenant_id, agent_id="dod-agent", user_id="user-dod"
         )
         results = []
-        for _ in range(2):
+        for i in range(2):
             resolver = ContextResolver(store)
-            results.append(await resolver.resolve(selector, session_id="s-dod"))
+            suffix = f"{10 + i:032x}"
+            results.append(
+                await resolver.resolve(
+                    selector,
+                    session_id="s-dod",
+                    request_id=f"req_{suffix}",
+                    trace_id=f"trace_{suffix}",
+                    execution_id=f"exec_{suffix}",
+                )
+            )
         a, b = (r.snapshot for r in results)
         for key in (
             "runtime_profile_version",

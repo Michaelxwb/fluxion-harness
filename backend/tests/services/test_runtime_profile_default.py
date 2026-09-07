@@ -98,6 +98,9 @@ async def test_be01_no_default_and_no_platform_default_fail_closed(
         await resolver.resolve(
             ResolverSelector(tenant_id=TENANT, agent_id="agent-x", user_id="user-a"),
             session_id="s-1",
+            request_id="req_cccccccccccccccccccccccccccccccc",
+            trace_id="trace_cccccccccccccccccccccccccccccccc",
+            execution_id="exec_cccccccccccccccccccccccccccccccc",
         )
     assert exc_info.value.code == "runtime_profile_default_missing"
 
@@ -112,6 +115,9 @@ async def test_tenant_default_resolves_without_same_name_profile(
     result = await ContextResolver(store).resolve(
         ResolverSelector(tenant_id=TENANT, agent_id="agent-x", user_id="user-a"),
         session_id="s-2",
+            request_id="req_ffffffffffffffffffffffffffffffff",
+            trace_id="trace_ffffffffffffffffffffffffffffffff",
+            execution_id="exec_ffffffffffffffffffffffffffffffff",
     )
     assert result.snapshot.runtime_profile_id == "tenant-standard"
 
@@ -126,6 +132,9 @@ async def test_platform_default_fallback_when_no_tenant_default(
     result = await ContextResolver(store).resolve(
         ResolverSelector(tenant_id=TENANT, agent_id="agent-x", user_id="user-a"),
         session_id="s-3",
+            request_id="req_00000000000000000000000000000000",
+            trace_id="trace_00000000000000000000000000000000",
+            execution_id="exec_00000000000000000000000000000000",
     )
     assert result.snapshot.runtime_profile_id == "platform-default"
 
@@ -161,6 +170,9 @@ async def test_explicit_ref_wins_over_default_chain(store: PostgreSQLRegistrySto
     result = await ContextResolver(store).resolve(
         ResolverSelector(tenant_id=TENANT, agent_id="agent-x", user_id="user-a"),
         session_id="s-4",
+            request_id="req_11111111111111111111111111111111",
+            trace_id="trace_11111111111111111111111111111111",
+            execution_id="exec_11111111111111111111111111111111",
     )
     assert result.snapshot.runtime_profile_id == "explicit-profile"
 
@@ -182,5 +194,8 @@ async def test_unpublished_tenant_default_not_used(store: PostgreSQLRegistryStor
         await ContextResolver(store).resolve(
             ResolverSelector(tenant_id=TENANT, agent_id="agent-x", user_id="user-a"),
             session_id="s-5",
+            request_id="req_22222222222222222222222222222222",
+            trace_id="trace_22222222222222222222222222222222",
+            execution_id="exec_22222222222222222222222222222222",
         )
     assert exc_info.value.code == "runtime_profile_default_missing"

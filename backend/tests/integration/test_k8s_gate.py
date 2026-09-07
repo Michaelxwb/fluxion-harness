@@ -187,6 +187,9 @@ async def main():
     result = await resolver.resolve(
         ResolverSelector(tenant_id="{tenant}", agent_id="gate-agent", user_id="user-gate"),
         session_id="s07-gate",
+        request_id="req_77777777777777777777777777777777",
+        trace_id="trace_77777777777777777777777777777777",
+        execution_id="exec_77777777777777777777777777777777",
     )
     print("DIGEST", result.snapshot.snapshot_digest)
     await store.close()

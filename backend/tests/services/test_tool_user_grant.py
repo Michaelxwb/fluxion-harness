@@ -129,12 +129,18 @@ async def test_s11_g1_truth_table_per_user_tool_grants() -> None:
             await resolver.resolve(
                 ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-a"),
                 session_id="s-a",
+                request_id="req_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                trace_id="trace_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                execution_id="exec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             )
         ).snapshot.effective_permissions
         perms_b = (
             await resolver.resolve(
                 ResolverSelector(tenant_id="tenant-a", agent_id="assistant", user_id="user-b"),
                 session_id="s-b",
+                request_id="req_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                trace_id="trace_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                execution_id="exec_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             )
         ).snapshot.effective_permissions
 

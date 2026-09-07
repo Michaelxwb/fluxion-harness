@@ -44,6 +44,7 @@ from fluxion.runtime.workflow_graph import (
     set_capability_executor,
 )
 from fluxion.services.context_resolver import ContextResolver, ResolverSelector
+from fluxion.services.runtime_contracts import resolve_request_identity
 
 
 def install_production_worker_bootstrap(database_url: str) -> None:
@@ -107,7 +108,15 @@ def install_production_worker_bootstrap(database_url: str) -> None:
             agent_id=request.agent_ref,
             user_id=request.user_id,
         )
-        result = await context_resolver.resolve(selector, session_id=request.run_id)
+        # TASK-006（ADR-A012 §1/§4）：workflow 路径是独立受信入口，在此补齐身份。
+        identity = resolve_request_identity(None, None, None, None, None)
+        result = await context_resolver.resolve(
+            selector,
+            session_id=request.run_id,
+            request_id=identity.request_id,
+            trace_id=identity.trace_id,
+            execution_id=identity.execution_id,
+        )
         return {
             "agent_ref": request.agent_ref,
             "prompt": request.prompt,

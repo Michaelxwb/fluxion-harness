@@ -304,6 +304,9 @@ class TestE05SemanticDegraded:
             result = await resolver.resolve(
                 ResolverSelector(tenant_id=tenant_id, agent_id=agent_id, user_id="user-chaos"),
                 session_id="s-e05",
+                request_id="req_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                trace_id="trace_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                execution_id="exec_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
             )
         # resolve 整体成功（不崩溃）+ memory 段降级语义
         manifest = result.snapshot.memory_manifest
