@@ -59,15 +59,17 @@ const OrderRow = ({ id }) => {
 ## Patterns
 - 拆分容器组件（数据获取 / 状态）与展示组件（纯 UI），便于测试和复用
 - 复用逻辑提取为 hook（`useXxx`）/ composable，禁止跨组件复制粘贴
-- 列表渲染必须给 `key`，且 `key` 稳定唯一，避免使用数组索引
+- 列表渲染必须给 `key`，且 `key` 稳定唯一；动态增删/重排的列表必须用实体 id，禁止用数组索引
+- 静态或派生有序列表（如校验诊断、只读选项）可用 `index` 做 `key`，但必须就近注释说明该列表不重排（cf-learn 2026-09-08：StudioToolbar/WorkflowNodeList/SchemaForm 三处同形）
 - 受控表单优先；非受控仅用于不需要回读值的场景
 - 样式遵循设计系统：间距用 4 的倍数，强调色 ≤ 2 种
 - 列表「新建成功」的 `onCreated` 回调必须携带新建实体 id（`onCreated(resourceId)`），由调用方据此导航到编辑/详情闭环；禁止只触发列表刷新——新建实体（如 draft）可能因后端列表过滤而不可见，依赖重查 list 会引入跨层时序耦合
+- 多 Tab 页面的选中态必须同步到 URL（`?tab=`），保证深链可用、刷新不丢位（cf-learn 2026-09-08：AgentEditorForm/AuditPage/RunsPage 三页同形）
 
 ## Avoid
 - 禁止在组件内直接修改 props 或 store 内部状态
 - 禁止把大量逻辑塞进 JSX 表达式，复杂条件提取变量或子组件
-- 禁止用 `index` 作为列表 `key`（顺序变更会触发错误复用）
+- 禁止在动态增删/重排的列表中用 `index` 作为 `key`（顺序变更会触发错误复用）；静态/派生有序列表除外（见 Patterns）
 - 禁止省略 `alt` / `aria-*` 等可访问性属性
 
 ## Semi Design 组件约束

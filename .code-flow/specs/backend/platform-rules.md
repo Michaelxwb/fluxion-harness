@@ -37,6 +37,7 @@ return {"code": 1, "message": "order not found", "data": None}
 - readiness 检测必须有界（检测预算小于探针超时、无重试）；liveness 只判断进程可服务，不得依赖 Registry 等外部依赖（cf-learn 2026-09-06：1s 预算 / 2s 探针超时 + live 摘流实测 14.9s）
 - 新增外部依赖必须更新部署文档与 `requirements` / `package.json` 锁文件
 - 灰度 / 实验性功能必须由 feature flag 控制，默认关闭
+- dev bundle 必须与生产同形态：运行时状态（含 trace）走 PG 等持久化 store，禁止用 in-memory 默认实现导致后端 reload 即丢数（cf-learn 2026-09-08：FU-05 dev_bundle 接 PostgresTraceStore）
 - API 响应必须走统一封装：`success(data)` / `fail(code, message?)`，handler 禁止手写 `{code, message, data, request_id}` 字面量
 - 错误码 → message 映射定义为常量，按业务模块拆分（`errors/order.py`、`errors/user.py`），错误码全局唯一，禁止重复
 

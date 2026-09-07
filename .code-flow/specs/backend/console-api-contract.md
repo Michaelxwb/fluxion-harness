@@ -102,6 +102,7 @@ user_agent
 - `X-Request-ID` 必须回写响应头。
 - request_id 必须进入 Log、Audit、Trace 和 API Response。
 - tenant_id / actor_id 必须来自可信认证上下文，禁止直接信任普通请求 Body。
+- dev 模式下中间件 pin 租户（`DevModeSettings.tenant_id="dev"`），忽略请求头 `X-Tenant-ID`；API 测试的 seed 数据与租户断言必须用 dev 租户，header 里的租户只在非 dev 生效（cf-learn 2026-09-08：FU-05 排障实录）。
 
 ### 5. 统一结构化日志
 

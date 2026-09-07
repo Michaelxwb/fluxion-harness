@@ -15,6 +15,11 @@ checks:
     pattern: '\.like\(f[''"]'
     files: backend/src/**/*.py
     message: LIKE 必须用转义后的 pattern 变量并传 escape 参数，禁止 f-string 直插（cf-learn 2026-09-06：三处同形证据）
+  - id: no-sqlite-backend
+    type: regex
+    pattern: 'sqlite'
+    files: backend/src/**/*.py
+    message: ADR-A007 PG-only，禁止 backend 源码引入 sqlite（cf-learn 2026-09-08：今日零命中，防回退）
 ---
 
 # Backend Database
@@ -53,6 +58,7 @@ cur.execute(f"SELECT * FROM users WHERE email = '{email}'")
 - 缓存与数据库一致性：先写库再失效缓存（`cache-aside`）
 - CRUD 基类统一实现 `get / list / create / update / delete / bulk_*`，子类只扩展模型特有查询
 - 版本号字符串（`v1`/`v2`/…/`v10`）排序必须语义化：按版本数值或长度降序（`func.length(version).desc(), version.desc()`），禁止裸字典序（`"10" < "9"` 陷阱）；前端同款展示层排序需保持一致语义
+- PG 测试统一连本地 `fluxion_test` 库（`TEST_POSTGRES_DSN`），夹具在初始化时重建隔离（`reset_on_initialize`/TRUNCATE），禁止跨测试串数据；Console 侧复用 `console_stack` + `tenant_headers`（cf-learn 2026-09-08：100 个测试文件同形，ADR-A007）
 
 ## Avoid
 - 禁止在事务内发起外部 HTTP / RPC 调用，超时会导致连接池耗尽
