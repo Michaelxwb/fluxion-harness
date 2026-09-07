@@ -124,3 +124,31 @@ StandardListShell 行操作 hover 露出（CSS）；编辑器左导航折叠态 
 
 - [2026-09-08] created (draft)
 - [2026-09-08] completed (done)
+
+---
+
+## FU-05: dev bundle trace 统一走 PG（持久化，重启不丢）
+
+- **Status**: done
+- **Priority**: P0
+- **Depends**:
+
+### Description
+
+dev_bundle 改用 `PostgresTraceStore`（runtime 写入 + console 读取同一 PG store，与生产同形态）；lifespan 初始化 trace_records 表。
+
+### Checklist
+
+- [x] dev_bundle 装配 PG trace store（runtime + console 同实例）
+- [x] RED→GREEN：`test_dev_trace_pg_persistence.py`（bundle 重启前后 GET /runs 均可读 + latency_ms）
+- [x] ruff + mypy + 相关套件（dev_bundle/channel/agent_test_run 17 passed）
+
+### Evidence
+
+- 根因：dev 经 `runtime.trace_store` 默认 `InMemoryTraceStore`，后端 reload 即失；PG trace_records 一直为空。
+- 附带发现：dev 模式中间件 pin 租户（忽略 X-Tenant-ID header），测试 seed 须用 dev 租户。
+
+### Log
+
+- [2026-09-08] created (draft)
+- [2026-09-08] completed (done)

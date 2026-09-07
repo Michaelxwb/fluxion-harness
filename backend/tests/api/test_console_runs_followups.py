@@ -104,8 +104,6 @@ async def test_memory_keyword_matches_trace_id() -> None:
 
 @pytest.fixture
 async def pg_engine() -> AsyncGenerator[AsyncEngine, None]:
-    from fluxion.registry.schema import trace_records
-
     dsn = os.environ.get(
         "FLUXION_POSTGRES_DSN",
         "postgresql+asyncpg://mmuser:mmuser@localhost:5432/fluxion_test",

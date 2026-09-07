@@ -22,6 +22,7 @@ from fluxion.api.workspace import create_app as create_workspace_app
 from fluxion.config import DevModeSettings
 from fluxion.plugins.secret.postgres import PostgresEncryptedSecretStore
 from fluxion.registry import PostgreSQLRegistryStore
+from fluxion.repositories import PostgresTraceStore
 from fluxion.runtime.secrets import CredentialResolver, SecretStore
 from fluxion.services.channel_app import ChannelApplicationService
 from fluxion.services.console_app import ConsoleApplicationService
@@ -83,10 +84,14 @@ def create_dev_bundle_app(
         engine=store.engine, master_key=_dev_master_key()
     )
     credential_resolver = CredentialResolver(secret_store)
+    # Trace 统一走 PG（与生产同形态）：dev 重启不丢执行记录。
+    # InMemoryTraceStore 只留给单测/无 DSN 场景。
+    trace_store = PostgresTraceStore(engine=store.engine)
     # FEAT-07：dev 执行入口装配真实 PersonalMemoryRetriever（与生产同形态）。
     runtime = RuntimeApplicationService.create_dev_bundle(
         store,
         credential_resolver=credential_resolver,
+        trace_store=trace_store,
         memory_retriever=build_personal_memory_retriever(store.engine),
         memory_recall_timeout_ms=memory_recall_timeout_from_env(),
     )
@@ -112,7 +117,7 @@ def create_dev_bundle_app(
     )
     console = ConsoleApplicationService(
         store,
-        trace_store=runtime.trace_store,
+        trace_store=trace_store,
         secret_metadata_store=secret_store,
         plugin_summaries=runtime.plugin_summaries,
         service_instance_id=runtime.service_instance_id,
@@ -142,6 +147,7 @@ def create_dev_bundle_app(
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         await store.initialize()
         await secret_store.initialize()
+        await trace_store.initialize()
         await _seed_environment_credentials(secret_store)
         # FEAT-07：同一事件循环内初始化执行侧（含 memory provider 有限预算探测）。
         await runtime.initialize()
