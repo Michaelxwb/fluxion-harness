@@ -140,9 +140,13 @@ class MemoryManager:
         return await self._store.read_l1(context.snapshot.tenant_id, context.request.session_id)
 
     async def finish_execution(self, context: RuntimeContext) -> None:
-        await self._flush_new_records(context)
-        self._l0.pop(context.snapshot.execution_id, None)
-        self._flushed_counts.pop(context.snapshot.execution_id, None)
+        # TASK-015（ADR-A014 §9）：flush 异常不能阻止本地执行字典释放——
+        # 释放放 finally，flush 错误继续上抛由调用方记录（不覆盖业务终态）。
+        try:
+            await self._flush_new_records(context)
+        finally:
+            self._l0.pop(context.snapshot.execution_id, None)
+            self._flushed_counts.pop(context.snapshot.execution_id, None)
 
     async def compact_context(self, context: RuntimeContext) -> CompactionResult:
         messages = await self._context_messages(context)

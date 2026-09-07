@@ -45,6 +45,7 @@ from fluxion.services.context_resolver import ContextResolver, ContextResolverSn
 from fluxion.services.execution_session import ExecutionSession
 from fluxion.services.outbox import InProcessConfigEventPublisher, OutboxWorker
 from fluxion.services.runtime_contracts import (
+    TRACE_WRITE_BUDGET_MS,
     CreateRuntimeProfileRequest,
     HealthResult,
     PluginSummary,
@@ -270,10 +271,20 @@ class RuntimeApplicationService(RuntimeToolOps):
                     )
                     tool_results.extend(step_result.tool_results)
                     tool_results.extend(await self._call_tools(context, request.tool_calls))
-                    await self._runtime.finish_execution(context)
+                    # TASK-015（ADR-A014 §9）：成功路径清理失败不改变业务终态——
+                    # 记录后继续返回 completed 结果（重构统一见 TASK-016）。
+                    try:
+                        await self._runtime.finish_execution(context)
+                    except Exception as exc:  # noqa: BLE001 -- 清理失败只记录
+                        self._emit_cleanup_error(request, context, exc)
                     latency_ms = _elapsed_ms(started)
                     await self._append_trace(
-                        context, step_result, tuple(tool_results), latency_ms, None
+                        request,
+                        context,
+                        step_result,
+                        tuple(tool_results),
+                        latency_ms,
+                        None,
                     )
                     return _run_result(
                         request,
@@ -290,6 +301,7 @@ class RuntimeApplicationService(RuntimeToolOps):
                         with suppress(Exception):
                             await self._runtime.finish_execution(context)
                         await self._append_trace(
+                            request,
                             context,
                             step_result,
                             tuple(tool_results),
@@ -374,7 +386,7 @@ class RuntimeApplicationService(RuntimeToolOps):
                 await self._runtime.finish_execution(context)
                 latency_ms = _elapsed_ms(started)
                 await self._append_trace(
-                    context, step_result, tuple(tool_results), latency_ms, None
+                    request, context, step_result, tuple(tool_results), latency_ms, None
                 )
                 yield RuntimeStreamEvent(
                     event="completed",
@@ -402,7 +414,7 @@ class RuntimeApplicationService(RuntimeToolOps):
                 latency_ms = _elapsed_ms(started)
                 # 此前流式成功分支只 yield completed、从不 append_trace，
                 # 流式执行在 trace_store 中完全不可观测。
-                await self._append_trace(context, None, (), latency_ms, None)
+                await self._append_trace(request, context, None, (), latency_ms, None)
                 yield RuntimeStreamEvent(
                     event="completed",
                     data=RunRuntimeResult(
@@ -436,6 +448,7 @@ class RuntimeApplicationService(RuntimeToolOps):
                 with suppress(Exception):
                     await self._runtime.finish_execution(context)
                 await self._append_trace(
+                    request,
                     context,
                     None,
                     (),
@@ -557,28 +570,65 @@ class RuntimeApplicationService(RuntimeToolOps):
 
     async def _append_trace(
         self,
+        request: RunRuntimeRequest,
         context: RuntimeContext,
         step_result: RuntimeStepResult | None,
         tool_results: tuple[dict[str, object], ...],
         latency_ms: float,
         error: str | None,
     ) -> None:
+        """Trace 持久化（TASK-015 / ADR-A014 §7 §9）：永不抛异常、有界、可观测。
+
+        失败只记录（带 IDs 关联的 error log + 脱敏），不覆盖业务错误/终态。
+        """
         events = tuple(context.trace)
-        await self._trace_store.append(
-            TraceRecord(
-                trace_id=context.snapshot.trace_id,
-                execution_id=context.snapshot.execution_id,
-                tenant_id=context.snapshot.tenant_id,
-                runtime_profile_id=context.snapshot.runtime_profile_id,
-                runtime_profile_version=context.snapshot.runtime_profile_version,
-                snapshot=context.snapshot,
-                events=events,
-                latency_ms=latency_ms,
-                error=error,
-                model=_last_event_attrs(events, "model.completed"),
-                tools=tool_results or _tool_events(events),
-                hooks=_hook_events(events),
+        try:
+            await asyncio.wait_for(
+                self._trace_store.append(
+                    TraceRecord(
+                        trace_id=context.snapshot.trace_id,
+                        execution_id=context.snapshot.execution_id,
+                        tenant_id=context.snapshot.tenant_id,
+                        runtime_profile_id=context.snapshot.runtime_profile_id,
+                        runtime_profile_version=context.snapshot.runtime_profile_version,
+                        snapshot=context.snapshot,
+                        events=events,
+                        latency_ms=latency_ms,
+                        error=error,
+                        model=_last_event_attrs(events, "model.completed"),
+                        tools=tool_results or _tool_events(events),
+                        hooks=_hook_events(events),
+                    )
+                ),
+                timeout=TRACE_WRITE_BUDGET_MS / 1000,
             )
+        except TimeoutError:
+            self._emit_cleanup_error(
+                request, context, TimeoutError(f"trace append 超 {TRACE_WRITE_BUDGET_MS}ms 预算")
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 -- Trace 失败只记录
+            self._emit_cleanup_error(request, context, exc)
+
+    def _emit_cleanup_error(
+        self,
+        request: RunRuntimeRequest,
+        context: RuntimeContext,
+        exc: Exception,
+    ) -> None:
+        """清理失败记录（TASK-015）：失败日志脱敏且有 ID，不抛异常。"""
+        context.emit("execution.cleanup_error", {"error": f"{type(exc).__name__}: {exc}"})
+        emit_runtime_error_log(
+            request_id=request.request_id,
+            trace_id=request.trace_id,
+            tenant_id=request.tenant_id,
+            execution_id=request.execution_id,
+            runtime_profile_id=request.runtime_profile_id,
+            error_type="cleanup_error",
+            error_code=_error_code(exc),
+            message=f"cleanup failed: {exc}",
+            stack=traceback.format_exc(),
         )
 
 

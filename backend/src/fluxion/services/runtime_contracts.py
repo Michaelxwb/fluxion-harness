@@ -148,6 +148,10 @@ class ExecutionTerminalState(StrEnum):
 FINALIZE_BUDGET_MS: int = 5_000
 
 
+# TASK-015（ADR-A014 §7）：Trace 持久化预算（毫秒）。超时只记录，不阻塞执行。
+TRACE_WRITE_BUDGET_MS: int = 5_000
+
+
 def resolve_terminal_state(error: BaseException | None) -> ExecutionTerminalState:
     """异常 → 终态映射（ADR-A014 §1）。超时与取消必须区分。
 

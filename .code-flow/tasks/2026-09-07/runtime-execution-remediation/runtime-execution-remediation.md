@@ -43,7 +43,7 @@
 | B-LIFE-DESIGN-01 | source-review.md#P1-03 执行生命周期(L46-L52) | unit | 终态与生命周期契约校验器 | TASK-013 | verified |
 | S-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 ExecutionSession → AgentRuntime → MemoryManager | TASK-014 | verified |
 | E-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实准备流水线 → 故障 Adapter → finalizer | TASK-014 | verified |
-| E-LIFE-02 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | TASK-015 | planned |
+| E-LIFE-02 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | TASK-015 | verified |
 | S-LIFE-02 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | RuntimeApplicationService.run/stream → ExecutionSession | TASK-016 | planned |
 | E-LIFE-03 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实运行应用 → 取消/关闭/模型超时 | TASK-016 | planned |
 | E-LIFE-04 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 Channel/SSE iterator → Gateway HTTP response → Runtime iterator | TASK-017 | planned |
@@ -69,7 +69,7 @@
 | RULE-fluxion-dfx-001 | source-review.md#Spec Compliance Matrix | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | planned |
 | RULE-fluxion-console-api-001 | source-review.md#Spec Compliance Matrix | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | TASK-020 | planned |
 | RULE-backend-logging-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | verified |
-| RULE-backend-quality-001 | source-review.md#Spec Compliance Matrix | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | TASK-015 | planned |
+| RULE-backend-quality-001 | source-review.md#Spec Compliance Matrix | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | TASK-015 | verified |
 | RULE-backend-platform-001 | source-review.md#Spec Compliance Matrix | E2E | Compose → 三角色真实进程 → PostgreSQL | TASK-001 | blocked |
 | RULE-backend-database-001 | source-review.md#Spec Compliance Matrix | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | TASK-025 | planned |
 | RULE-frontend-quality-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | verified |
@@ -668,7 +668,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ## TASK-015: 修复 Memory 与 Trace 清理失败分支
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-013
 - **Source**: source-review.md#P1-03 执行生命周期(L46-L52)
@@ -682,25 +682,28 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 ### Checklist
 
-- [ ] [E-LIFE-02][integration] 先补验收并记录RED，真实边界：真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入；关键断言：L0/flushed_counts 释放；flush/Trace 超时有界；错误记录可关联且原始原因保留。
-- [ ] 清理释放放可靠 finally；正常路径检查真实 PG，错误通过边界故障注入；失败日志脱敏且有 ID；不静默 suppress。
-- [ ] verifier `RULE-backend-quality-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/integration/test_finalization_storage_failures.py` 验证 E-LIFE-02 的 异常保留、有界外部调用和可靠资源释放。记录自动化结果与必要评审证据，不能将计划视为verified。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_finalization_storage_failures.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [E-LIFE-02][integration] 先补验收并记录RED，真实边界：真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入；关键断言：L0/flushed_counts 释放；flush/Trace 超时有界；错误记录可关联且原始原因保留。
+- [x] 清理释放放可靠 finally；正常路径检查真实 PG，错误通过边界故障注入；失败日志脱敏且有 ID；不静默 suppress。
+- [x] verifier `RULE-backend-quality-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/integration/test_finalization_storage_failures.py` 验证 E-LIFE-02 的 异常保留、有界外部调用和可靠资源释放。记录自动化结果与必要评审证据，不能将计划视为verified。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_finalization_storage_failures.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-LIFE-02 | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | L0/flushed_counts 释放；flush/Trace 超时有界；错误记录可关联且原始原因保留 | backend/tests/integration/test_finalization_storage_failures.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_finalization_storage_failures.py` | planned |
-| RULE-backend-quality-001 | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | 异常保留、有界外部调用和可靠资源释放，由E-LIFE-02提供行为证据；补充命令见Checklist | backend/tests/integration/test_finalization_storage_failures.py | `.venv/bin/python -m pytest -q backend/tests/integration/test_finalization_storage_failures.py` | planned |
+| E-LIFE-02 | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | L0/flushed_counts 释放；flush/Trace 超时有界；错误记录可关联且原始原因保留 | backend/tests/integration/test_finalization_storage_failures.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_finalization_storage_failures.py` | verified |
+| RULE-backend-quality-001 | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | 异常保留、有界外部调用和可靠资源释放，由E-LIFE-02提供行为证据；补充命令见Checklist | backend/tests/integration/test_finalization_storage_failures.py | `.venv/bin/python -m pytest -q backend/tests/integration/test_finalization_storage_failures.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-LIFE-02 | 3 failed（flush 杀结果；trace 杀结果/60s 超时） | 4 passed；lifecycle/identity/gateway/chain/effect/channel/api 64 passed；改动文件 ruff clean、mypy 唯一既有错误 | test_finalization_storage_failures.py::test_E_LIFE_02_* | 真实 Manager/Writer + PG；故障/卡住 Adapter 注入；caplog 断言关联 ID；stream 成功路径 finish 未动（016 统一，见证据注记） | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] completed (done)：flush finally释放 + trace 永不抛/有界/可观测 + 成功路径业务终态保留，E-LIFE-02 verified
 
 ---
 
