@@ -37,13 +37,14 @@ export function RunsPage({ api }: RunsPageProps) {
   const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<RunDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   // TASK-023：异常工作台跳转带过滤参数（?statusFilter=failed → 过滤态直达）
   const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get("keyword") ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("keyword") ?? "");
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("statusFilter") ?? "");
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
+  const [agentNames, setAgentNames] = useState<ReadonlyMap<string, string>>(new Map());
   // C407（TASK-014）：Phase 3 workflow_run 投影（trace 关联）
   const [workflowRuns, setWorkflowRuns] = useState<readonly WorkflowRunProjection[] | null>(null);
   const [runTab, setRunTab] = useState("agent");
@@ -75,6 +76,28 @@ export function RunsPage({ api }: RunsPageProps) {
         if (!active || requestId !== requestSeq.current) return;
         setRuns(result.items);
         setTotal(result.total);
+        // 智能体名页内 join（随页大小有界），失败回退 ID。
+        void (async () => {
+          const names = new Map<string, string>();
+          await Promise.all(
+            result.items.map(async (run) => {
+              const ref = run.agentDefinition;
+              if (!ref || names.has(ref.id)) return;
+              try {
+                const detail = await api.getResource("agent_definition", ref.id);
+                const spec = detail.spec as Record<string, unknown>;
+                names.set(
+                  ref.id,
+                  String(spec.display_name ?? spec.name ?? ref.id)
+                );
+              } catch {
+                names.set(ref.id, ref.id);
+              }
+            })
+          );
+          if (!active || requestId !== requestSeq.current) return;
+          setAgentNames(names);
+        })();
       })
       .catch((cause: unknown) => {
         if (!active || requestId !== requestSeq.current) return;
@@ -169,7 +192,7 @@ export function RunsPage({ api }: RunsPageProps) {
                 />
               }
             >
-              <RunTable onSelect={setSelected} runs={runs ?? []} />
+              <RunTable agentNames={agentNames} onSelect={setSelected} runs={runs ?? []} />
             </StandardListCard>
           </div>
         </Tabs.TabPane>
@@ -181,13 +204,13 @@ export function RunsPage({ api }: RunsPageProps) {
     </div>
   );
 }
-
 interface RunTableProps {
   readonly runs: readonly RunDetail[];
+  readonly agentNames: ReadonlyMap<string, string>;
   readonly onSelect: (run: RunDetail) => void;
 }
 
-function RunTable({ onSelect, runs }: RunTableProps) {
+function RunTable({ agentNames, onSelect, runs }: RunTableProps) {
   const columns = [
     {
       dataIndex: "executionId",
@@ -203,20 +226,36 @@ function RunTable({ onSelect, runs }: RunTableProps) {
       title: "执行"
     },
     {
+      render: (_value: unknown, record: RunDetail) => (
+        <Typography.Text type="tertiary">
+          {record.agentDefinition
+            ? (agentNames.get(record.agentDefinition.id) ?? record.agentDefinition.id)
+            : "—"}
+        </Typography.Text>
+      ),
+      title: "智能体"
+    },
+    {
       dataIndex: "status",
       render: (_value: unknown, record: RunDetail) => <StatusTag status={record.status} />,
       title: "状态"
     },
     {
       render: (_value: unknown, record: RunDetail) => (
-        <Typography.Text type={record.status === "failed" ? "danger" : "tertiary"}>
+        <Typography.Text
+          ellipsis={{ showTooltip: true }}
+          style={{ maxWidth: 240 }}
+          type={record.status === "failed" ? "danger" : "tertiary"}
+        >
           {failureSummary(record)}
         </Typography.Text>
       ),
       title: "失败摘要"
     },
     {
-      render: () => <Typography.Text type="tertiary">—</Typography.Text>,
+      render: (_value: unknown, record: RunDetail) => (
+        <Typography.Text type="tertiary">{formatLatency(record.latencyMs)}</Typography.Text>
+      ),
       title: "耗时"
     },
     {
@@ -242,11 +281,25 @@ function truncateId(id: string): string {
 }
 
 function failureSummary(run: RunDetail): string {
+  if (run.error) {
+    return run.error;
+  }
   if (run.status !== "failed") {
     return "—";
   }
   const clue = run.traceEvents.find((event) => /error|fail/i.test(event.event));
   return clue ? clue.event : "失败（详情见 Trace）";
+}
+
+/** 耗时格式化（latency_ms；缺失显示占位，后端补字段前）。 */
+function formatLatency(latencyMs: number | null | undefined): string {
+  if (latencyMs === null || latencyMs === undefined) {
+    return "—";
+  }
+  if (latencyMs >= 1000) {
+    return `${(latencyMs / 1000).toFixed(1)}s`;
+  }
+  return `${Math.round(latencyMs)}ms`;
 }
 
 /** 只读 Run Detail SideSheet（§8.9）：Summary/Timeline/Tool·Model Calls/Trace/
@@ -274,6 +327,9 @@ function RunDetailSideSheet({
               <Descriptions.Item itemKey="状态"><StatusTag status={run.status} /></Descriptions.Item>
               <Descriptions.Item itemKey="开始时间">
                 <RelativeTime value={run.startedAt} />
+              </Descriptions.Item>
+              <Descriptions.Item itemKey="耗时">
+                {formatLatency(run.latencyMs)}
               </Descriptions.Item>
               {run.status === "failed" ? (
                 <Descriptions.Item itemKey="失败摘要">{failureSummary(run)}</Descriptions.Item>

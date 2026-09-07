@@ -17,7 +17,7 @@ from collections.abc import Coroutine
 from datetime import datetime
 from typing import Any, TypeVar
 
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import func, insert, or_, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -109,9 +109,11 @@ class PostgresTraceStore:
         cleaned = (keyword or "").strip()
         if cleaned:
             escaped = cleaned.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            lowered = f"%{escaped.lower()}%"
             filters.append(
-                func.lower(trace_records.c.execution_id).like(
-                    f"%{escaped.lower()}%", escape="\\"
+                or_(
+                    func.lower(trace_records.c.execution_id).like(lowered, escape="\\"),
+                    func.lower(trace_records.c.trace_id).like(lowered, escape="\\"),
                 )
             )
 

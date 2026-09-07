@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { Button, Input, Space, Timeline, Typography } from "@douyinfe/semi-ui";
+import { useNavigate } from "react-router-dom";
 
 import type { ConsoleApi, JsonRecord } from "../../types/console";
 
@@ -18,6 +19,7 @@ function eventData(value: unknown): JsonRecord {
 
 /** TASK-012：Editor 内真实 test-run SSE 面板，按执行阶段投影 Timeline。 */
 export function AgentTestPanel({ agentId, api, onCompleted }: AgentTestPanelProps) {
+  const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
   const [output, setOutput] = useState("");
   const [traceId, setTraceId] = useState<string | null>(null);
@@ -75,6 +77,15 @@ export function AgentTestPanel({ agentId, api, onCompleted }: AgentTestPanelProp
           运行测试
         </Button>
         {traceId ? <Typography.Text copyable>{`Trace ID: ${traceId}`}</Typography.Text> : null}
+        {traceId ? (
+          <Button
+            onClick={() => navigate(`/operations/runs?keyword=${encodeURIComponent(traceId)}`)}
+            size="small"
+            type="tertiary"
+          >
+            跳转执行记录
+          </Button>
+        ) : null}
       </Space>
       {started ? (
         <div aria-label="测试对话" style={{ display: "grid", gap: 8 }}>

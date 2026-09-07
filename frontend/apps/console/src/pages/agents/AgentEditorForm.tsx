@@ -75,6 +75,20 @@ export function AgentEditorForm(props: AgentEditorFormProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab") ?? "basic";
   const activeTab = EDITOR_TAB_KEYS.includes(requestedTab) ? requestedTab : "basic";
+  const [editorOpenKeys, setEditorOpenKeys] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("fluxion.console.editorNavOpen");
+      if (stored) {
+        const keys = (JSON.parse(stored) as string[]).filter((key) =>
+          EDITOR_TAB_GROUPS.some((group) => group.key === key)
+        );
+        if (keys.length > 0) return keys;
+      }
+    } catch {
+      // 回退默认全展开
+    }
+    return EDITOR_TAB_GROUPS.map((group) => group.key);
+  });
   const [profileReload, setProfileReload] = useState(0);
   const [creatingProfile, setCreatingProfile] = useState(false);
   const [profileHint, setProfileHint] = useState<string | null>(null);
@@ -127,7 +141,17 @@ export function AgentEditorForm(props: AgentEditorFormProps) {
             text: group.text,
             items: group.items.map((item) => ({ itemKey: item.key, text: item.text }))
           }))}
+          onOpenChange={(data) => {
+            const next = [...(data.openKeys ?? [])].map(String);
+            setEditorOpenKeys(next);
+            try {
+              localStorage.setItem("fluxion.console.editorNavOpen", JSON.stringify(next));
+            } catch {
+              // 忽略持久化失败
+            }
+          }}
           onSelect={(data) => setSearchParams({ tab: String(data.itemKey) }, { replace: true })}
+          openKeys={editorOpenKeys}
           selectedKeys={[activeTab]}
         />
         <div className="agent-editor__content">

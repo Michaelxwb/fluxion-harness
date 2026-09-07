@@ -344,7 +344,7 @@ Console 全站 17 屏走查后，70% 糙面来自三个全局缺失（裸 ISO �
 
 ---
 
-## Follow-ups（归档时未完成项，需另立任务）
+## Follow-ups（已另立任务并完成：`.code-flow/tasks/2026-09-08/console-followups/console-followups.md`，FU-01~FU-04 全 done）
 
 - F1：执行记录智能体名列 + 耗时列——缺后端字段（RunDetail 无 agent/endedAt，trace_events[].at 全填 started_at）。前端已留 `—` 占位。
 - F2：用户维度链接查询 API（详情页链接 Tab + 测试面板 trace 跳转反查同类缺口）——前后端都要加。

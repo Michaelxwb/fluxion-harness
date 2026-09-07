@@ -1,6 +1,7 @@
 import type {
   AgentWebChannel,
   ChannelVerifyResult,
+  UserChatAccess,
   WebChannelEntry,
   AuthorizedUserSummary,
   McpConnectionTestResult,
@@ -654,7 +655,9 @@ class InMemoryConsoleApi implements ConsoleApi {
     const filtered = this.runs.filter(
       (run) =>
         (!request.status || run.status === request.status) &&
-        (!keyword || run.executionId.toLowerCase().includes(keyword))
+        (!keyword ||
+          run.executionId.toLowerCase().includes(keyword) ||
+          (run.traceId ?? "").toLowerCase().includes(keyword))
     );
     return page(filtered.map(cloneRun), { page: request.page, pageSize: request.pageSize });
   }
@@ -781,6 +784,16 @@ class InMemoryConsoleApi implements ConsoleApi {
     };
   }
 
+  async listUserChatAccess(platformUserId: string): Promise<readonly UserChatAccess[]> {
+    return this.channelEntries
+      .filter((row) => row.entry.platformUserId === platformUserId)
+      .map((row) => ({
+        accessId: row.entry.accessId,
+        agentId: row.agentId,
+        createdAt: row.entry.createdAt
+      }));
+  }
+
   async verifyAgentWebChannel(agentId: string): Promise<ChannelVerifyResult> {
     const channel = await this.listAgentChannels(agentId);
     const problems: string[] = [];
@@ -835,7 +848,7 @@ class InMemoryConsoleApi implements ConsoleApi {
     }
     onEvent({ event: "token", data: { text: "你好" } });
     onEvent({ event: "token", data: { text: "！" } });
-    onEvent({ event: "completed", data: { output: "你好！" } });
+    onEvent({ event: "completed", data: { output: "你好！", trace_id: `trace-test-${agentId}` } });
   }
 
   async getUser360(platformUserId: string): Promise<User360Summary> {

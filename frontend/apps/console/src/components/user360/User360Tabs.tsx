@@ -5,10 +5,13 @@
  */
 import { Card, Descriptions, Empty, Tabs, Tag, Typography } from "@douyinfe/semi-ui";
 
-import type { User360Summary } from "../../types/console";
+import type { ConsoleApi, User360Summary } from "../../types/console";
+import { UserChatAccessTab } from "./UserChatAccessTab";
 
 interface User360TabsProps {
   readonly summary: User360Summary;
+  readonly api?: ConsoleApi;
+  readonly platformUserId?: string;
 }
 
 const EMPTY_TEXT = "该用户暂无数据";
@@ -23,7 +26,7 @@ function displayValue(value: unknown): string {
   return String(value);
 }
 
-export function User360Tabs({ summary }: User360TabsProps) {
+export function User360Tabs({ api, platformUserId, summary }: User360TabsProps) {
   return (
     <div aria-label="User 360 Tabs" className="user360-tabs">
       <Tabs type="line" defaultActiveKey="identity">
@@ -114,6 +117,11 @@ export function User360Tabs({ summary }: User360TabsProps) {
             <Typography.Text type="tertiary">最近活动经操作审计追溯</Typography.Text>
           )}
         </Tabs.TabPane>
+        {api && platformUserId ? (
+          <Tabs.TabPane itemKey="links" tab="对话链接">
+            <UserChatAccessTab api={api} platformUserId={platformUserId} />
+          </Tabs.TabPane>
+        ) : null}
       </Tabs>
     </div>
   );

@@ -143,6 +143,16 @@ def run_payload(trace: TraceRecord) -> dict[str, object]:
         "trace_id": trace.trace_id,
         "status": "failed" if trace.error is not None else "succeeded",
         "started_at": started_at,
+        "latency_ms": trace.latency_ms,
+        "error": trace.error[:500] if trace.error is not None else None,
+        "agent_definition": (
+            {
+                "id": snapshot.agent_definition_id,
+                "version": snapshot.agent_definition_version,
+            }
+            if snapshot.agent_definition_id
+            else None
+        ),
         "snapshot": {
             "runtime_profile": {
                 # TASK-A105：机械替换误伤点还原——该键语义为执行 mechanics 版本。

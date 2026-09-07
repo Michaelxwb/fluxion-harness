@@ -39,6 +39,7 @@ import type {
   RollbackResult,
   RunDetail,
   User360Summary,
+  UserChatAccess,
   ValidationResult,
   WorkflowDraftV2,
   WorkflowQueueSummary,
@@ -72,6 +73,7 @@ import {
   parseResourcePage,
   parseResourceSchema,
   parseRunPage,
+  parseUserChatAccessList,
   parseValidation,
   toResourceSummary
 } from "./httpConsoleParsers";
@@ -565,6 +567,14 @@ class HttpConsoleApi implements ConsoleApi {
       `/studio/agents/${encodeURIComponent(agentId)}/channels`,
       undefined,
       parseAgentWebChannel
+    );
+  }
+
+  async listUserChatAccess(platformUserId: string): Promise<readonly UserChatAccess[]> {
+    return this.client.request(
+      `/api/v1/platform-users/${encodeURIComponent(platformUserId)}/chat-access`,
+      undefined,
+      parseUserChatAccessList
     );
   }
 

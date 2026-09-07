@@ -442,6 +442,24 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         )
         return record
 
+    async def list_user_chat_access(
+        self,
+        actor: ConsoleActor,
+        *,
+        platform_user_id: str,
+    ) -> list[ChatAccessRecord]:
+        """按用户列出未撤销对话链接（只读，供用户详情链接 Tab）。"""
+        user = await self._store.get_platform_user(
+            tenant_id=actor.tenant_id,
+            platform_user_id=platform_user_id,
+        )
+        if user is None:
+            raise ConsoleResourceNotFoundError("platform user not found")
+        return await self._store.list_chat_access(
+            tenant_id=actor.tenant_id,
+            platform_user_id=platform_user_id,
+        )
+
     async def _append_audit(
         self,
         actor: ConsoleActor,

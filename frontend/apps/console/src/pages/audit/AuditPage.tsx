@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Button, Descriptions, Select, SideSheet, Table, Typography } from "@douyinfe/semi-ui";
+import { useSearchParams } from "react-router-dom";
 
 import { ActionTag } from "../../components/ActionTag";
 import { ErrorBanner } from "../../components/ErrorBanner";
@@ -32,7 +33,8 @@ export function AuditPage({ api }: AuditPageProps) {
   const [actorFilter, setActorFilter] = useState("");
   const [targetTypeFilter, setTargetTypeFilter] = useState("");
   const [range, setRange] = useState<TimeRangeKey>("");
-  const [search, setSearch] = useState("");
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get("keyword") ?? "");
   const [selected, setSelected] = useState<AuditRecord | null>(null);
 
   async function loadAudit(nextPage: number, filters?: AuditFilters): Promise<void> {

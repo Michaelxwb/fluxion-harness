@@ -24,6 +24,7 @@ import type {
   ResourceVersion,
   ResourceVisibility,
   RunDetail,
+  UserChatAccess,
   ValidationResult,
   ModelConnectionTestResult
 } from "../types/console";
@@ -63,6 +64,20 @@ export function parseAgentWebChannel(value: unknown): AgentWebChannel {
       };
     })
   };
+}
+
+export function parseUserChatAccessList(value: unknown): readonly UserChatAccess[] {
+  const record = requiredRecord(value, "user_chat_access");
+  const items = record.items;
+  if (!Array.isArray(items)) throw new Error("user_chat_access.items 无效");
+  return items.map((item) => {
+    const row = requiredRecord(item, "user_chat_access.items[]");
+    return {
+      accessId: requiredString(row.access_id, "access_id"),
+      agentId: requiredString(row.agent_id, "agent_id"),
+      createdAt: requiredString(row.created_at, "created_at")
+    };
+  });
 }
 
 export function parseChannelVerifyResult(value: unknown): ChannelVerifyResult {
@@ -321,8 +336,24 @@ function parseRun(value: unknown): RunDetail {
     throw new Error("run status 无效");
   }
   if (!Array.isArray(record.trace_events)) throw new Error("trace_events 无效");
+  const agentDefinition = record.agent_definition;
   return {
     executionId: requiredString(record.execution_id, "execution_id"),
+    agentDefinition:
+      agentDefinition === null || agentDefinition === undefined
+        ? null
+        : {
+            id: requiredString(
+              (agentDefinition as Record<string, unknown>).id,
+              "agent_definition.id"
+            ),
+            version: requiredString(
+              (agentDefinition as Record<string, unknown>).version,
+              "agent_definition.version"
+            )
+          },
+    error: typeof record.error === "string" ? record.error : null,
+    latencyMs: typeof record.latency_ms === "number" ? record.latency_ms : null,
     snapshot: {
       mcps: parseVersionRefs(snapshot.mcps, "mcps"),
       plugins: parseVersionRefs(snapshot.plugins, "plugins"),
@@ -332,7 +363,8 @@ function parseRun(value: unknown): RunDetail {
     },
     startedAt: requiredString(record.started_at, "started_at"),
     status,
-    traceEvents: record.trace_events.map(parseTraceEvent)
+    traceEvents: record.trace_events.map(parseTraceEvent),
+    traceId: optionalString(record.trace_id) ?? ""
   };
 }
 

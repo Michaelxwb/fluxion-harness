@@ -213,6 +213,13 @@ export interface AgentWebChannel {
   readonly entries: readonly WebChannelEntry[];
 }
 
+/** FU-03：用户维度对话链接（列表不含 token 明文）。 */
+export interface UserChatAccess {
+  readonly accessId: string;
+  readonly agentId: string;
+  readonly createdAt: string;
+}
+
 export interface ChannelVerifyResult {
   readonly channelType: "web";
   readonly ok: boolean;
@@ -326,6 +333,14 @@ export interface RunDetail {
   readonly executionId: string;
   readonly status: "running" | "succeeded" | "failed";
   readonly startedAt: string;
+  /** FU-02：trace 跳转（后端 run_payload.trace_id；旧种子缺失时容忍 undefined）。 */
+  readonly traceId?: string;
+  /** FU-02：耗时毫秒（trace_records.latency_ms；缺失为 null）。 */
+  readonly latencyMs?: number | null;
+  /** FU-02：失败原因原文（截断 500；成功为 null）。 */
+  readonly error?: string | null;
+  /** FU-02：归属智能体（非 Agent 执行为 null）。 */
+  readonly agentDefinition?: { readonly id: string; readonly version: string } | null;
   readonly snapshot: {
     readonly runtimeProfile: VersionRef;
     readonly skills: readonly VersionRef[];
@@ -456,6 +471,7 @@ export interface ConsoleApi {
   revokeAgentUserAuthorization(agentId: string, platformUserId: string): Promise<void>;
   /** TASK-014（§9.2）：渠道投影 + Web Chat verify（真实 resolve 链检查）。 */
   listAgentChannels(agentId: string): Promise<AgentWebChannel>;
+  listUserChatAccess(platformUserId: string): Promise<readonly UserChatAccess[]>;
   verifyAgentWebChannel(agentId: string): Promise<ChannelVerifyResult>;
   issueChatAccess(platformUserId: string, agentId: string): Promise<IssuedChatAccess>;
   revokeChatAccess(accessId: string): Promise<void>;

@@ -70,7 +70,7 @@ export function User360Page({ api }: User360PageProps) {
       ) : (
         <div aria-label="User 360" className="page-stack">
           <User360Header summary={summary} />
-          <User360Tabs summary={summary} />
+          <User360Tabs api={api} platformUserId={platformUserId} summary={summary} />
           <Typography.Text type="tertiary">活动记录数：{summary.activity_count}</Typography.Text>
         </div>
       )}

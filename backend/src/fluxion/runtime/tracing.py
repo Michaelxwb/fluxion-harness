@@ -24,7 +24,11 @@ def _filter_trace_records(
         wanted = status.strip()
         result = [record for record in result if _trace_status(record) == wanted]
     if cleaned:
-        result = [record for record in result if cleaned in record.execution_id.lower()]
+        result = [
+            record
+            for record in result
+            if cleaned in record.execution_id.lower() or cleaned in record.trace_id.lower()
+        ]
     return result
 
 
@@ -68,7 +72,7 @@ class TraceStore(Protocol):
         keyword: str | None = None,
     ) -> tuple[list[TraceRecord], int]: ...
     """执行记录分页；status 为 succeeded/failed（按 error 是否为空推导），
-    keyword 对 execution_id 大小写不敏感字面子串匹配。过滤在分页前执行，
+    keyword 对 execution_id/trace_id 大小写不敏感字面子串匹配。过滤在分页前执行，
     同一集合用于分页与 count。"""
 
     async def get_by_execution(

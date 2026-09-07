@@ -175,6 +175,24 @@ def _register_platform_user_routes(app: FastAPI, service: ConsoleApplicationServ
         record = await service.revoke_chat_access(_actor(None), access_id=access_id)
         return success({"access_id": record.access_id, "status": "revoked"})
 
+    @app.get("/api/v1/platform-users/{platform_user_id}/chat-access")
+    async def list_user_chat_access(platform_user_id: str) -> JSONResponse:
+        records = await service.list_user_chat_access(
+            _actor(None), platform_user_id=platform_user_id
+        )
+        return success(
+            {
+                "items": [
+                    {
+                        "access_id": record.access_id,
+                        "agent_id": record.agent_id,
+                        "created_at": record.created_at.isoformat(),
+                    }
+                    for record in records
+                ]
+            }
+        )
+
 
 def _register_agent_authorization_routes(
     app: FastAPI, service: ConsoleApplicationService

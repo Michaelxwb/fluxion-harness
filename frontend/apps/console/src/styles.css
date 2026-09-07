@@ -277,6 +277,14 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  opacity: 0.45;
+  transition: opacity 0.15s ease;
+}
+
+tr:hover .row-actions,
+.row-actions:hover,
+.row-actions:focus-within {
+  opacity: 1;
 }
 
 /* TASK-009：过滤 Select 的无障碍标签（视觉隐藏，aria-labelledby 引用）。 */
