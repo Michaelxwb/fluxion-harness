@@ -44,8 +44,8 @@
 | S-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 ExecutionSession → AgentRuntime → MemoryManager | TASK-014 | verified |
 | E-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实准备流水线 → 故障 Adapter → finalizer | TASK-014 | verified |
 | E-LIFE-02 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | TASK-015 | verified |
-| S-LIFE-02 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | RuntimeApplicationService.run/stream → ExecutionSession | TASK-016 | planned |
-| E-LIFE-03 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实运行应用 → 取消/关闭/模型超时 | TASK-016 | planned |
+| S-LIFE-02 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | RuntimeApplicationService.run/stream → ExecutionSession | TASK-016 | verified |
+| E-LIFE-03 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实运行应用 → 取消/关闭/模型超时 | TASK-016 | verified |
 | E-LIFE-04 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 Channel/SSE iterator → Gateway HTTP response → Runtime iterator | TASK-017 | planned |
 | E-LIFE-05 | source-review.md#P1-03 执行生命周期(L46-L52) | E2E | 真实 TCP client → Channel → Gateway → Runtime → PG Trace/Memory | TASK-018 | planned |
 | B-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | planned |
@@ -709,7 +709,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 ## TASK-016: 统一 run 和 stream 的 finalization
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-014, TASK-015
 - **Source**: source-review.md#P1-03 执行生命周期(L46-L52)
@@ -723,25 +723,29 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 ### Checklist
 
-- [ ] [S-LIFE-02][integration] 先补验收并记录RED，真实边界：RuntimeApplicationService.run/stream → ExecutionSession；关键断言：成功只有一次终态和 finalization。
-- [ ] [E-LIFE-03][integration] 先补验收并记录RED，真实边界：真实运行应用 → 取消/关闭/模型超时；关键断言：取消与超时正确终态；显式 aclose 无本地残留。
-- [ ] 避免 finish 后 append_trace 失败触发二次结算；成功 completed 只能在结算策略满足后发送；不依赖 except Exception 覆盖取消。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_terminal_paths.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-LIFE-02][integration] 先补验收并记录RED，真实边界：RuntimeApplicationService.run/stream → ExecutionSession；关键断言：成功只有一次终态和 finalization。
+- [x] [E-LIFE-03][integration] 先补验收并记录RED，真实边界：真实运行应用 → 取消/关闭/模型超时；关键断言：取消与超时正确终态；显式 aclose 无本地残留。
+- [x] 避免 finish 后 append_trace 失败触发二次结算；成功 completed 只能在结算策略满足后发送；不依赖 except Exception 覆盖取消。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_terminal_paths.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-LIFE-02 | integration | RuntimeApplicationService.run/stream → ExecutionSession | 成功只有一次终态和 finalization | backend/tests/integration/test_runtime_terminal_paths.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_terminal_paths.py` | planned |
-| E-LIFE-03 | integration | 真实运行应用 → 取消/关闭/模型超时 | 取消与超时正确终态；显式 aclose 无本地残留 | backend/tests/integration/test_runtime_terminal_paths.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_terminal_paths.py` | planned |
+| S-LIFE-02 | integration | RuntimeApplicationService.run/stream → ExecutionSession | 成功只有一次终态和 finalization | backend/tests/integration/test_runtime_terminal_paths.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_terminal_paths.py` | verified |
+| E-LIFE-03 | integration | 真实运行应用 → 取消/关闭/模型超时 | 取消与超时正确终态；显式 aclose 无本地残留 | backend/tests/integration/test_runtime_terminal_paths.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_terminal_paths.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-LIFE-02 | finish 计数/单终态在重构前无统一口径（行为分散） | 4 passed；channel/api/e2e/services/contract 278 passed；integration 332 passed；ruff clean、mypy 唯一既有错误 | test_runtime_terminal_paths.py::test_S_LIFE_02_* | 真实 service run/stream → session；每 context finish 恰一次（id 记录）；trace 对齐 | verified |
+| E-LIFE-03 | cancel 无 trace（aclose 静默丢）；超时映射缺 provider 码 | 同上 | test_E_LIFE_03_* | 受控慢 Adapter + 真实 deadline（agent model_deadline_ms）触发 agent_loop_timeout/model_provider_timeout；工作中取消留痕 + 后续可跑；附带补终态映射（code→TIMED_OUT，TASK-013 契约测试同步+1） | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] completed (done)：run/stream 出口统一走 session.finalize + 超时码映射，S-LIFE-02/E-LIFE-03 verified
 
 ---
 

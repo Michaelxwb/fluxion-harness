@@ -54,6 +54,25 @@ def test_B_LIFE_DESIGN_01_cancel_and_timeout_distinguished() -> None:
     assert asyncio.TimeoutError is TimeoutError
 
 
+def test_B_LIFE_DESIGN_01_provider_timeout_codes_map_timed_out() -> None:
+    """B-LIFE-DESIGN-01：模型超时类型化 code 映射为 TIMED_OUT（TASK-016 补齐）。
+
+    ModelProviderTimeoutError / AgentLoopTimeoutError 均非 TimeoutError 子类，
+    按 code 映射——超时与取消区分落到模型层。
+    """
+    from fluxion.plugins.contracts import ModelProviderTimeoutError
+    from fluxion.runtime.agent import AgentLoopTimeoutError
+
+    assert (
+        resolve_terminal_state(ModelProviderTimeoutError("slow"))
+        is ExecutionTerminalState.TIMED_OUT
+    )
+    assert (
+        resolve_terminal_state(AgentLoopTimeoutError("deadline"))
+        is ExecutionTerminalState.TIMED_OUT
+    )
+
+
 def test_B_LIFE_DESIGN_01_repeat_and_conflict_deterministic() -> None:
     """B-LIFE-DESIGN-01：重复/冲突结束语义确定（首次业务终态获胜）。"""
     assert (

@@ -158,6 +158,8 @@ def resolve_terminal_state(error: BaseException | None) -> ExecutionTerminalStat
     注意：asyncio.wait_for 超时抛 TimeoutError；客户端取消抛 CancelledError
    （BaseException，不进 except Exception）。调用方捕获 GeneratorExit 后
     同样映射为 CANCELLED 并重新传播。
+    模型超时以类型化 code 表达（ModelProviderTimeoutError/AgentLoopTimeoutError
+    均非 TimeoutError 子类）：按 code 映射为 TIMED_OUT（TASK-016 补齐）。
     """
     if error is None:
         return ExecutionTerminalState.COMPLETED
@@ -165,7 +167,15 @@ def resolve_terminal_state(error: BaseException | None) -> ExecutionTerminalStat
         return ExecutionTerminalState.TIMED_OUT
     if isinstance(error, (asyncio.CancelledError, GeneratorExit)):
         return ExecutionTerminalState.CANCELLED
+    if getattr(error, "code", "") in _TIMEOUT_CODES:
+        return ExecutionTerminalState.TIMED_OUT
     return ExecutionTerminalState.FAILED
+
+
+# 超时语义的业务错误码（非 TimeoutError 子类，按 code 映射）。
+_TIMEOUT_CODES: frozenset[str] = frozenset(
+    {"model_provider_timeout", "agent_loop_timeout"}
+)
 
 
 def first_terminal_wins(
