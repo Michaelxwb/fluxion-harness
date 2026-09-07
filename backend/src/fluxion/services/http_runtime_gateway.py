@@ -249,12 +249,18 @@ def _error_from_envelope(response: httpx.Response, *, default_code: str) -> Runt
         message = str(envelope.get("message") or f"runtime service HTTP {response.status_code}")
         upstream_code = envelope.get("code")
         upstream_error = envelope.get("error")
+        # TASK-021（ADR-A015 §5 兼容矩阵）：老载荷无 error 字段时，有整数码则
+        # slug 回落 unknown_error（不读 message 反推）；无码走默认网关码。
+        if not isinstance(upstream_error, str):
+            upstream_error = (
+                "unknown_error" if isinstance(upstream_code, int) else None
+            )
         return RuntimeApplicationError(
             default_code,
             message,
             status_code=response.status_code,
             upstream_code=upstream_code if isinstance(upstream_code, int) else None,
-            upstream_error=str(upstream_error) if isinstance(upstream_error, str) else None,
+            upstream_error=upstream_error,
         )
     return RuntimeApplicationError(
         default_code,

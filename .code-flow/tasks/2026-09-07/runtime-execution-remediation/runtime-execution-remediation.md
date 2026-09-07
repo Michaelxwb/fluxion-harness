@@ -52,8 +52,8 @@
 | B-ERR-DESIGN-01 | source-review.md#P1-04 错误契约(L54-L60) | unit | 实际错误载荷类型/校验器 | TASK-019 | verified |
 | S-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | TASK-020 | verified |
 | E-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实异常映射/脱敏 → HTTP/SSE 响应 | TASK-020 | verified |
-| B-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 HTTP Gateway → 真实/故障响应边界 | TASK-021 | planned |
-| E-ERR-02 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 Gateway HTTP/SSE 解码 → RuntimeApplicationError | TASK-021 | planned |
+| B-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 HTTP Gateway → 真实/故障响应边界 | TASK-021 | verified |
+| E-ERR-02 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 Gateway HTTP/SSE 解码 → RuntimeApplicationError | TASK-021 | verified |
 | S-ERR-02 | source-review.md#P1-04 错误契约(L54-L60) | E2E | 真实 Runtime → Gateway → Channel → 客户端 | TASK-022 | planned |
 | E-ERR-03 | source-review.md#P1-04 错误契约(L54-L60) | E2E | 真实 Runtime + 受控模型故障 → HTTP/SSE | TASK-022 | planned |
 | S-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实 AgentRuntime + 可计数 Provider → ApplicationService | TASK-023 | planned |
@@ -924,7 +924,7 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 
 ## TASK-021: 统一 Gateway 错误解码和透传
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-019, TASK-020
 - **Source**: source-review.md#P1-04 错误契约(L54-L60)
@@ -938,25 +938,31 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 
 ### Checklist
 
-- [ ] [B-ERR-01][integration] 先补验收并记录RED，真实边界：真实 HTTP Gateway → 真实/故障响应边界；关键断言：旧载荷兼容；畸形响应变为稳定网关错误。
-- [ ] [E-ERR-02][integration] 先补验收并记录RED，真实边界：真实 Gateway HTTP/SSE 解码 → RuntimeApplicationError；关键断言：上游 slug 保留；无 message 匹配；无自动重试。
-- [ ] 覆盖非 JSON、字段缺失、畸形类型、旧 envelope、HTTP200 SSE error；执行 POST 不自动重放。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_decoding.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [B-ERR-01][integration] 先补验收并记录RED，真实边界：真实 HTTP Gateway → 真实/故障响应边界；关键断言：旧载荷兼容；畸形响应变为稳定网关错误。
+- [x] [E-ERR-02][integration] 先补验收并记录RED，真实边界：真实 Gateway HTTP/SSE 解码 → RuntimeApplicationError；关键断言：上游 slug 保留；无 message 匹配；无自动重试。
+- [x] 覆盖非 JSON、字段缺失、畸形类型、旧 envelope、HTTP200 SSE error；执行 POST 不自动重放。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_decoding.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-ERR-01 | integration | 真实 HTTP Gateway → 真实/故障响应边界 | 旧载荷兼容；畸形响应变为稳定网关错误 | backend/tests/integration/test_runtime_error_decoding.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_decoding.py` | planned |
-| E-ERR-02 | integration | 真实 Gateway HTTP/SSE 解码 → RuntimeApplicationError | 上游 slug 保留；无 message 匹配；无自动重试 | backend/tests/integration/test_runtime_error_decoding.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_decoding.py` | planned |
+| B-ERR-01 | integration | 真实 HTTP Gateway → 真实/故障响应边界 | 旧载荷兼容；畸形响应变为稳定网关错误 | backend/tests/integration/test_runtime_error_decoding.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_decoding.py` | verified |
+| E-ERR-02 | integration | 真实 Gateway HTTP/SSE 解码 → RuntimeApplicationError | 上游 slug 保留；无 message 匹配；无自动重试 | backend/tests/integration/test_runtime_error_decoding.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_decoding.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-ERR-01 | 1 failed（老载荷 upstream_error 恒 None，未回落） | 4 passed；gateway 回归 12 passed；ruff+mypy clean | test_runtime_error_decoding.py::test_B_ERR_01_* | 真实 Gateway + MockTransport 故障边界；非 JSON/缺字段/畸形类型/旧 envelope 全覆盖 | verified |
+| E-ERR-02 | 同上（解码路径同一函数） | 同上 | test_E_ERR_02_* | slug 保留 + 单次 POST 计数（无重放）；HTTP200 SSE error 事件透传不断链 | verified |
+
+注：scope 中的 runtime_contracts.py 无需变更（upstream_code/upstream_error 字段自 TASK-004 已存在并经 019/020 沿用）。
 
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] completed (done)：老载荷兼容回落 + 畸形稳定错误 + POST 不重放，B-ERR-01/E-ERR-02 verified
 
 ---
 
