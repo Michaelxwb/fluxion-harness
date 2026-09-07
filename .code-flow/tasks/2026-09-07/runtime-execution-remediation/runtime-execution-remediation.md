@@ -2,7 +2,7 @@
 
 - **Source**: source-review.md（原文与源码证据已归档为摘要）
 - **Created**: 2026-09-07
-- **Updated**: 2026-09-07
+- **Updated**: 2026-09-08（审查修订：对齐最新代码，见各 TASK Log）
 
 ## Proposal
 
@@ -11,12 +11,12 @@
 ### Alignment
 
 - **Scope**: 原问题7/7，26个子任务；P0=3、P1=19、P2=4。
-- **Decisions**: 用户确认按编号写入；TASK-001挂起不处理；其余draft。参数收缩并兼容历史版本；ID/Error/终态/一致读先ADR。新增ADR编号在编码前检查冲突，不覆盖现有ADR。
+- **Decisions**: 用户确认按编号写入；TASK-001挂起不处理；其余draft。参数收缩并兼容历史版本；ID/Error/终态/一致读先ADR。新增ADR编号在编码前检查冲突，不覆盖现有ADR（现存至 A011 及 A007-PG-Only，新 ADR 从 A012 起，编码前复核）。
 - **Non-goals**: 主架构重构、Redis/EventBus、ServiceJWT、CI测试策略变更、Worker业务能力补齐。
 - **Acceptance**: 40个场景全部自动化计划；12个required Rule唯一owner；场景与行为证据均planned，未执行RED/GREEN。
 - **Blocked impact**: 001阻断002，002阻断003和026的多实例验收；保留真实依赖，不能跳过或伪造完成。其他任务不依赖001即可按编号选择满足依赖者。
 - **Order**: 编号为优先审阅/执行顺序，Depends是硬约束，不人为改成全串行链；当前首个无挂起依赖任务为004。
-- **Test environment**: PG单库使用隔离测试数据库/租户；禁止reset开发/生产库。E2E真实服务、真实PG；网络断连用TCP，不能ASGITransport替代。仅Model/Tool外部边界允许受控Adapter/故障注入。
+- **Test environment**: PG单库使用隔离测试数据库/租户；禁止reset开发/生产库。E2E真实服务、真实PG；网络断连用TCP，不能ASGITransport替代。仅Model/Tool外部边界允许受控Adapter/故障注入。Compose/PG 等基础设施由用户手动启动，agent 不执行 docker 拉起，只验证前置条件，不满足则明确失败（不静默skip）。dev bundle 下中间件 pin 租户（忽略 X-Tenant-ID），tenant 相关 seed/断言须用 dev 租户。
 - **Future commands**: 下方测试文件可能尚不存在；对应TASK必须创建/扩展并先记录RED。命令是编码期验收目标，不是本次执行结果。部署测试必须有界启动/清理资源并验证前置条件，不能静默skip。
 - **Spec gates**: plan applied只表示责任承接；manual verifier保留待审，禁止伪造人工确认。此轮不修改生产代码、不激活TASK。
 
@@ -28,7 +28,7 @@
 | S-DEP-02 | source-review.md#P0-01 多角色部署(L22-L28) | E2E | API → 真实代理 → Runtime×3 → PostgreSQL | TASK-002 | planned |
 | S-DEP-03 | source-review.md#P0-01 多角色部署(L22-L28) | E2E | 真实 Channel/API → 多 Runtime → PG Memory/Registry | TASK-003 | planned |
 | E-DEP-01 | source-review.md#P0-01 多角色部署(L22-L28) | E2E | 真实 Runtime 进程终止 → 代理 → 后续请求 | TASK-003 | planned |
-| B-ID-01 | source-review.md#P1-01 执行身份(L30-L36) | unit | 实际请求契约/类型校验器 | TASK-004 | planned |
+| B-ID-01 | source-review.md#P1-01 执行身份(L30-L36) | unit | 实际请求契约/类型校验器 | TASK-004 | verified |
 | S-ID-01 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 httpx Gateway → FastAPI → RunRuntimeRequest | TASK-005 | planned |
 | S-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | ContextResolver → PG Registry → SnapshotBuilder | TASK-006 | planned |
 | B-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 Resolver 缓存分支 → Snapshot | TASK-006 | planned |
@@ -132,6 +132,7 @@
 ### Description
 
 Runtime 不配置固定 container_name 或冲突宿主端口；负载均衡发现扩缩容实例，不将执行 POST 自动重放。
+启动前先决策部署目标：compose 与 Helm/K8s 二选一（AGENTS.md 由 K8s 调度计算资源，且 CI 已单镜像化，"Compose 三角色"与"单镜像 + FLUXION_ROLE"的关系须先澄清）；本任务默认覆盖 compose，如目标为 K8s 则先重对齐范围。结论影响 TASK-003/026 的验收环境。
 范围：deploy/docker/docker-compose.yml；deploy/docker/runtime-proxy.conf（新增，实现时确定代理格式）；backend/tests/e2e/test_runtime_load_balance.py。目标测试：backend/tests/e2e/test_runtime_load_balance.py。
 
 ### Checklist
@@ -153,6 +154,7 @@ Runtime 不配置固定 container_name 或冲突宿主端口；负载均衡发�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订：启动前先决策部署目标（compose vs Helm/K8s），结论影响 003/026（was draft）
 
 ---
 
@@ -168,6 +170,7 @@ Runtime 不配置固定 container_name 或冲突宿主端口；负载均衡发�
 ### Description
 
 验证已提交业务事实跨实例不丢失；区分正在执行的请求失败与后续请求恢复。
+"发布版本固定"断言在 TASK-012 未完成前可用现有 publish 路径先行验证，不被 012 隐性阻塞。
 范围：backend/tests/e2e/test_runtime_failover_state.py；backend/tests/e2e/runtime_topology_helpers.py（新增）；部署运行说明（新增 docs/development/runtime-compose.md）。目标测试：backend/tests/e2e/test_runtime_failover_state.py。
 
 ### Checklist
@@ -194,12 +197,13 @@ Runtime 不配置固定 container_name 或冲突宿主端口；负载均衡发�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订："发布版本固定"可用现有 publish 路径先行，不被 012 隐性阻塞（was draft）
 
 ---
 
 ## TASK-004: 确定执行身份契约
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: 
 - **Source**: source-review.md#P1-01 执行身份(L30-L36)
@@ -213,23 +217,26 @@ Runtime 不配置固定 container_name 或冲突宿主端口；负载均衡发�
 
 ### Checklist
 
-- [ ] [B-ID-01][unit] 先补验收并记录RED，真实边界：实际请求契约/类型校验器；关键断言：合法 ID 原样保留；非法输入失败；缺省只在明确入口补齐。
-- [ ] 用类型化契约覆盖有效值、非法值、缺省值；保持 request_id 现有沿用语义；不把请求身份纳入配置 digest。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_identity_contract.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [B-ID-01][unit] 先补验收并记录RED，真实边界：实际请求契约/类型校验器；关键断言：合法 ID 原样保留；非法输入失败；缺省只在明确入口补齐。
+- [x] 用类型化契约覆盖有效值、非法值、缺省值；保持 request_id 现有沿用语义；不把请求身份纳入配置 digest。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_identity_contract.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-ID-01 | unit | 实际请求契约/类型校验器 | 合法 ID 原样保留；非法输入失败；缺省只在明确入口补齐 | backend/tests/contract/test_runtime_identity_contract.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_identity_contract.py` | planned |
+| B-ID-01 | unit | 实际请求契约/类型校验器 | 合法 ID 原样保留；非法输入失败；缺省只在明确入口补齐 | backend/tests/contract/test_runtime_identity_contract.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_identity_contract.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-ID-01 | ImportError（RunIdentity 不存在，实现前） | 10 passed；contract 全目录 73 passed；ruff+mypy  clean | test_runtime_identity_contract.py::test_B_ID_01_* | 纯契约层单测：实际 `resolve_request_identity` + 正则校验器，无 mock | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] completed (done)：ADR-A012 + RunIdentity/resolve_request_identity，B-ID-01 verified
 
 ---
 
@@ -281,6 +288,7 @@ Runtime 不配置固定 container_name 或冲突宿主端口；负载均衡发�
 ### Description
 
 ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同一次执行身份；处理缓存命中路径。
+两测试文件均已存在，本任务为扩展（不新建）：`test_context_resolver.py` 扩展身份断言；`test_execution_snapshot_contract.py` 复用其 snapshot 断言、必要时扩展。
 范围：backend/src/fluxion/services/context_resolver.py；backend/tests/services/test_context_resolver.py；backend/tests/contract/test_execution_snapshot_contract.py。目标测试：backend/tests/services/test_context_resolver.py。
 
 ### Checklist
@@ -304,6 +312,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订：两测试文件已存在，明确为扩展；contract 文件复用 snapshot 断言（was draft）
 
 ---
 
@@ -324,7 +333,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 ### Checklist
 
 - [ ] [S-ID-03][E2E] 先补验收并记录RED，真实边界：真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace；关键断言：各观测点关联同一身份；并发无串扰；未绑定执行被拒绝；日志无 Secret。
-- [ ] 从正式绑定身份进入；覆盖并发隔离、失败和取消日志脱敏；未绑定用户仅允许 bind；同一执行的 ID 不要求无关执行相同。
+- [ ] 从正式绑定身份进入（含 chat-access Bearer token 直聊路径）；覆盖并发隔离、失败和取消日志脱敏；未绑定用户仅允许 bind；同一执行的 ID 不要求无关执行相同。
 - [ ] verifier `RULE-backend-logging-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` 验证 S-ID-03 的 关联ID和日志脱敏。记录自动化结果与必要评审证据，不能将计划视为verified。
 - [ ] verifier `RULE-fluxion-console-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` 验证 S-ID-03 的 正式Channel绑定与独立Runtime边界。记录自动化结果与必要评审证据，不能将计划视为verified。
 - [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
@@ -344,6 +353,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订：进入身份覆盖 chat-access token 直聊路径（was draft）
 
 ---
 
@@ -358,13 +368,13 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ### Description
 
-按用户已采纳方案：新配置只暴露有效参数；先 ADR 明确旧 API 至少一个发布周期的兼容、Published 不变、导入/回滚/新 Draft 的迁移规则。
-范围：docs/adr/RuntimeProfile 参数版本化 ADR（编号待分配）；backend/src/fluxion/resources/resource_specs.py（版本标识与契约声明）；backend/tests/contract/test_runtime_profile_versions.py。目标测试：backend/tests/contract/test_runtime_profile_versions.py。
+按用户已采纳方案：新配置只暴露有效参数；先 ADR 明确旧 API 至少一个发布周期的兼容、Published 不变、导入/回滚/新 Draft 的迁移规则。ADR 必须在 ADR-A010（默认解析链）之上增量，不从零重定解析语义。
+范围：docs/adr/RuntimeProfile 参数版本化 ADR（A012 起，编码前复核）；backend/src/fluxion/resources/resource_specs.py（版本标识与契约声明）；backend/tests/contract/test_runtime_profile_versions.py。目标测试：backend/tests/contract/test_runtime_profile_versions.py。
 
 ### Checklist
 
 - [ ] [B-CFG-DESIGN-01][unit] 先补验收并记录RED，真实边界：版本化 Profile 契约和实际校验器；关键断言：新旧版本可判别；历史样本可识别；未定义版本失败关闭。
-- [ ] 列出四个无效字段及 max_rounds 执行点；禁止原地修改历史 Published；不把单次 timeout 改成总 deadline；已有 Provider 超时重试不受字段收缩影响。
+- [ ] 以 resource_specs.py 为准盘点所有未接入的有效参数声明之外的字段（含 max_rounds 执行点），不预设数量；禁止原地修改历史 Published；不把单次 timeout 改成总 deadline；已有 Provider 超时重试不受字段收缩影响。
 - [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_profile_versions.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
@@ -380,6 +390,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订：ADR 以 A010 为增量起点（A012 起）；"四个无效字段"改为启动时盘点、不预设数量（was draft）
 
 ---
 
@@ -394,7 +405,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ### Description
 
-分离历史读取兼容和新版本写入校验；兼容版本入口按 ADR 处理并返回明确行为，不静默丢字段。
+分离历史读取兼容和新版本写入校验；兼容版本入口按 ADR 处理并返回明确行为，不静默丢字段。实现须遵循 ADR-A010 已决策的默认解析链（租户默认 + platform-default），不另起解析语义。
 范围：backend/src/fluxion/resources/resource_specs.py；backend/src/fluxion/services/console_resource_validation.py；backend/tests/integration/test_runtime_profile_schema_compat.py。目标测试：backend/tests/integration/test_runtime_profile_schema_compat.py。
 
 ### Checklist
@@ -418,6 +429,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订：实现遵循 ADR-A010 默认解析链（was draft）
 
 ---
 
@@ -432,7 +444,8 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ### Description
 
-同步创建请求、默认工厂、CLI/bootstrap/import 的真实调用路径，移除新配置的旧字段隐式注入。
+同步创建请求、默认工厂、bootstrap/create/import 的真实调用路径（`fluxion run` 已删除，CLI 仅剩 serve/validate/plugins，不含 run 路径），移除新配置的旧字段隐式注入。
+启动时先盘点全部默认创建点（已知含 agents/migration.py、registry/resource_sqlalchemy.py、api/studio.py、services/channel_app.py、services/runtime_app.py、services/runtime_utils.py、services/console_resource_validation.py 等），超出先细分本任务再改，禁止遗漏入口冒充完成。
 范围：backend/src/fluxion/services/runtime_contracts.py；backend/src/fluxion/services/runtime_utils.py；backend/tests/integration/test_runtime_profile_producers.py（入口若超出三文件须再拆分）。目标测试：backend/tests/integration/test_runtime_profile_producers.py。
 
 ### Checklist
@@ -454,6 +467,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订：删除已不存在的 CLI run 路径，点名 7 处默认创建点启动时盘点（was draft）
 
 ---
 
@@ -731,7 +745,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 - **Status**: draft
 - **Priority**: P1
-- **Depends**: TASK-005, TASK-006, TASK-017
+- **Depends**: TASK-005, TASK-006, TASK-016, TASK-017
 - **Source**: source-review.md#P1-03 执行生命周期(L46-L52)
 - **Spec-Refs**: fluxion-dfx#RULE-fluxion-dfx-001
 - **Acceptance-Refs**: E-LIFE-05, B-LIFE-01, RULE-fluxion-dfx-001
@@ -764,6 +778,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订：Depends 补 TASK-016（取消终态语义须先实现，was draft）
 
 ---
 
@@ -778,8 +793,8 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 ### Description
 
-保留现有四字段 envelope；确定结构化 slug 放置位置、整数码映射、安全文案和旧 SSE error 字段兼容，不直接照搬外部示例。
-范围：docs/adr/Runtime 错误契约 ADR（编号待分配）；backend/src/fluxion/api/responses.py（类型/共享错误契约）；backend/tests/contract/test_runtime_error_contract.py。目标测试：backend/tests/contract/test_runtime_error_contract.py。
+保留现有四字段 envelope；确定结构化 slug 放置位置、整数码映射、安全文案和旧 SSE error 字段兼容，不直接照搬外部示例。ADR 必须以 sse-streaming-contracts 已验收结论（streaming 错误 `upstream_code` + slug 保留，见 archived/2026-09-07/sse-streaming-contracts）为输入，在其上确定 HTTP 侧映射与兼容窗口，不重复设计 streaming 语义。
+范围：docs/adr/Runtime 错误契约 ADR（A012 起，编码前复核）；backend/src/fluxion/api/responses.py（类型/共享错误契约）；backend/tests/contract/test_runtime_error_contract.py。目标测试：backend/tests/contract/test_runtime_error_contract.py。
 
 ### Checklist
 
@@ -800,6 +815,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订：ADR 以 sse-streaming-contracts 已验收结论为输入（A012 起，不重复设计 streaming 语义）（was draft）
 
 ---
 
@@ -814,7 +830,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 ### Description
 
-用共享映射和 Response Factory 生成 HTTP/SSE 错误；集中处理 Domain/Validation/Unexpected 异常。
+SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug），本任务以其为基准统一 HTTP 侧并收敛共享映射；用共享映射和 Response Factory 生成 HTTP/SSE 错误；集中处理 Domain/Validation/Unexpected 异常。
 范围：backend/src/fluxion/api/runtime.py；backend/src/fluxion/api/responses.py；backend/tests/integration/test_runtime_error_encoding.py。目标测试：backend/tests/integration/test_runtime_error_encoding.py。
 
 ### Checklist
@@ -840,6 +856,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订：以 sse 已落地语义为基准统一 HTTP 侧（was draft）
 
 ---
 
@@ -893,6 +910,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 ### Description
 
 真实 Runtime FastAPI/ApplicationService/PG 经 Gateway 到 Channel；可使用受控 Provider 注入外部故障，但不能 Mock Runtime 错误响应。
+`test_error_passthrough.py` 已存在，本任务扩展它；`test_runtime_error_chain.py` 与 helpers 为新建。
 范围：backend/tests/e2e/test_runtime_error_chain.py；backend/tests/integration/test_error_passthrough.py；backend/tests/e2e/runtime_error_helpers.py（新增）。目标测试：backend/tests/e2e/test_runtime_error_chain.py。
 
 ### Checklist
@@ -916,6 +934,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订：test_error_passthrough.py 已存在，明确为扩展（was draft）
 
 ---
 
@@ -1013,7 +1032,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 - [ ] [S-SNAP-01][integration] 先补验收并记录RED，真实边界：真实 ContextResolver → Store scoped read → PostgreSQL；关键断言：所有配置来自一致视图；只读和 tenant scope 有效。
 - [ ] [E-SNAP-01][integration] 先补验收并记录RED，真实边界：真实事务读 → 超时/配置冲突 → Resolver/cache；关键断言：有界失败；缓存无半成品；外部 I/O 不持有配置事务。
-- [ ] 有界事务/重试；外部 HTTP/RPC 不进入事务；tenant 强制；异常不污染缓存；若需扩展多个 repository 文件先细分实现任务。
+- [ ] 有界事务/重试；外部 HTTP/RPC 不进入事务；tenant 强制；异常不污染缓存；缓存语义必须同时满足 B-ID-02（缓存不复用前次执行身份），与 TASK-006 互引；若需扩展多个 repository 文件先细分实现任务。
 - [ ] verifier `RULE-backend-database-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` 验证 S-SNAP-01 的 只读一致事务、参数化查询与tenant。记录自动化结果与必要评审证据，不能将计划视为verified。
 - [ ] 运行 `.venv/bin/python scripts/run_registry_contract_tests.py`，以实际PostgreSQL验证Registry单库Contract；依赖不可用须明确失败。
 - [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
@@ -1033,6 +1052,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订：缓存语义与 TASK-006（B-ID-02）互引（was draft）
 
 ---
 
@@ -1048,6 +1068,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 ### Description
 
 用同步屏障安排真实 PG 读写交错；禁止仅 sleep 或只 Mock Revision；以完整提交视图验证一致性。
+`test_snapshot_benchmark.py` 已存在，本任务扩展它；两个 e2e 测试文件为新建。
 范围：backend/tests/e2e/test_snapshot_publication_race.py；backend/tests/e2e/test_snapshot_cross_instance.py；backend/tests/benchmarks/test_snapshot_benchmark.py。目标测试：backend/tests/e2e/test_snapshot_publication_race.py backend/tests/e2e/test_snapshot_cross_instance.py backend/tests/benchmarks/test_snapshot_benchmark.py。
 
 ### Checklist
@@ -1071,3 +1092,4 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] review 修订：test_snapshot_benchmark.py 已存在，明确为扩展（was draft）

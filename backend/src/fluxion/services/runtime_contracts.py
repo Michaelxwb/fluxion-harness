@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from uuid import uuid4
@@ -9,6 +10,80 @@ from fluxion.runtime.resolver import LATEST_PUBLISHED
 
 def _new_id() -> str:
     return uuid4().hex
+
+
+# ADR-A012（TASK-004）：执行身份格式契约。受信入口之外禁止创建/替换身份。
+_IDENTITY_PATTERN = re.compile(r"^(req|trace|exec)_[0-9a-f]{32}$")
+
+
+class RequestIdentityError(ValueError):
+    """执行身份非法（fail-closed）；API 层映射为 400 request_identity_invalid。"""
+
+    code = "request_identity_invalid"
+
+
+def _check_identity(kind: str, value: str) -> str:
+    if not _IDENTITY_PATTERN.match(value) or not value.startswith(f"{kind}_"):
+        raise RequestIdentityError(
+            f"request_identity_invalid: 非法 {kind} 格式（须为 {kind}_<32hex>）"
+        )
+    return value
+
+
+def _new_identity(kind: str) -> str:
+    return f"{kind}_{uuid4().hex}"
+
+
+@dataclass(frozen=True, slots=True)
+class RunIdentity:
+    """一次执行的身份三元组（ADR-A012）。仅受信入口可构造缺省值。"""
+
+    request_id: str
+    trace_id: str
+    execution_id: str
+
+
+def resolve_request_identity(
+    header_request_id: str | None,
+    header_trace_id: str | None,
+    body_request_id: str | None,
+    body_trace_id: str | None,
+    body_execution_id: str | None,
+) -> RunIdentity:
+    """合并 header/body 身份并校验（ADR-A012 §3）：header 优先，冲突即失败，
+    缺省仅此处补齐。内部层禁止调用本函数“补”身份——缺失传 None 即非法。"""
+    if (
+        header_request_id is not None
+        and body_request_id is not None
+        and header_request_id != body_request_id
+    ):
+        raise RequestIdentityError(
+            "request_identity_invalid: header 与 body 的 request_id 不一致"
+        )
+    if (
+        header_trace_id is not None
+        and body_trace_id is not None
+        and header_trace_id != body_trace_id
+    ):
+        raise RequestIdentityError(
+            "request_identity_invalid: header 与 body 的 trace_id 不一致"
+        )
+    raw_request = header_request_id if header_request_id is not None else body_request_id
+    raw_trace = header_trace_id if header_trace_id is not None else body_trace_id
+    request_id = (
+        _check_identity("req", raw_request) if raw_request is not None else _new_identity("req")
+    )
+    trace_id = (
+        _check_identity("trace", raw_trace) if raw_trace is not None else _new_identity("trace")
+    )
+    execution_id = (
+        _check_identity("exec", body_execution_id)
+        if body_execution_id is not None
+        else _new_identity("exec")
+    )
+    return RunIdentity(
+        request_id=request_id, trace_id=trace_id, execution_id=execution_id
+    )
 
 
 class RuntimeApplicationError(RuntimeError):
