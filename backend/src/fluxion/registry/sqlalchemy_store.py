@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
@@ -46,6 +49,9 @@ from fluxion.registry.store import (
     PublicationCommand,
     PublicationCommit,
     RegistryStoreError,
+    ScopedReadStore,
+    ScopedReadTimeoutError,
+    ScopedRegistryReader,
     VersionConflictError,
 )
 from fluxion.registry.user_store import CapabilityGrantRecord
@@ -57,7 +63,74 @@ from fluxion.resources import (
 )
 
 
-class SQLAlchemyRegistryStore:
+class _ScopedRegistryReader:
+    """一致视图 reader（ADR-A016）：绑定租户 + 固定 revision。
+
+    只读三方法（配置读）；Credential/Memory/外部 I/O 不在此（事务外分段）。
+    同包行映射复用（resource_sqlalchemy），不重复列逻辑。
+    """
+
+    def __init__(
+        self, connection: AsyncConnection, tenant_id: str, revision: int
+    ) -> None:
+        self._connection = connection
+        self._tenant_id = tenant_id
+        self._revision = revision
+
+    def _check_tenant(self, tenant_id: str) -> None:
+        if tenant_id != self._tenant_id:
+            raise ValueError(
+                f"scoped read tenant mismatch: scope={self._tenant_id} "
+                f"request={tenant_id}（禁止跨租户复用一致视图）"
+            )
+
+    async def get(
+        self,
+        kind: ResourceKind,
+        resource_id: str,
+        *,
+        tenant_id: str,
+        version: str | None = None,
+    ) -> ResourceDefinition | None:
+        self._check_tenant(tenant_id)
+        row = (
+            (
+                await self._connection.execute(
+                    resource_sqlalchemy._select_definition(
+                        kind, resource_id, tenant_id, version
+                    )
+                )
+            )
+            .mappings()
+            .first()
+        )
+        return None if row is None else resource_sqlalchemy._definition_from_row(row)
+
+    async def read_revision(self) -> int:
+        return self._revision
+
+    async def list_bindings(
+        self,
+        *,
+        subject_type: str,
+        subject_id: str,
+        tenant_id: str,
+        resource_type: ResourceKind | None = None,
+    ) -> list[ResourceBinding]:
+        self._check_tenant(tenant_id)
+        rows = (
+            (
+                await self._connection.execute(
+                    _select_bindings(subject_type, subject_id, tenant_id, resource_type)
+                )
+            )
+            .mappings()
+            .all()
+        )
+        return [_binding_from_row(row) for row in rows]
+
+
+class SQLAlchemyRegistryStore(ScopedReadStore):
     def __init__(self, dsn: str, *, reset_on_initialize: bool = False) -> None:
         if not dsn.startswith("postgresql"):
             raise ValueError(f"registry DSN must use postgresql (got {dsn!r})")
@@ -453,6 +526,37 @@ class SQLAlchemyRegistryStore:
         if row is None:
             return 0
         return int(row[0])
+
+    @asynccontextmanager
+    async def begin_scoped_read(
+        self, *, tenant_id: str, timeout_ms: int = 5_000
+    ) -> AsyncIterator[ScopedRegistryReader]:
+        """一致读入口（ADR-A016）：REPEATABLE READ 只读视图 + 固定 revision。
+
+        同一 scope 内全部配置读落同一快照（混合发布窗口不可见）；外部 I/O
+        禁止持有本连接（调用方分段）。连接拿不到即类型化超时，无无穷等待。
+        """
+        branched = self._engine.execution_options(isolation_level="REPEATABLE READ")
+        try:
+            async with asyncio.timeout(timeout_ms / 1000):
+                connection_cm = branched.connect()
+                connection = await connection_cm.__aenter__()
+        except TimeoutError as exc:
+            raise ScopedReadTimeoutError(
+                f"scoped_read_timeout: 一致读连接 {timeout_ms}ms 未拿到"
+            ) from exc
+        try:
+            row = (
+                await connection.execute(
+                    select(config_revisions.c.revision).where(
+                        config_revisions.c.tenant_id == tenant_id
+                    )
+                )
+            ).first()
+            revision = int(row[0]) if row is not None else 0
+            yield _ScopedRegistryReader(connection, tenant_id, revision)
+        finally:
+            await connection.close()
 
     async def bump_revision(self, *, tenant_id: str) -> int:
         for _attempt in range(2):

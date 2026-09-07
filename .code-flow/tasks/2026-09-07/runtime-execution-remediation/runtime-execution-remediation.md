@@ -60,8 +60,8 @@
 | B-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实流式分派 → 非流式 Provider/空字符串token | TASK-023 | verified |
 | E-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实流式迭代 → 部分输出后 Provider 错误 | TASK-023 | verified |
 | B-SNAP-DESIGN-01 | source-review.md#P2-02 一致快照(L70-L76) | unit | Store scoped-read Protocol 与事务契约声明 | TASK-024 | verified |
-| S-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | TASK-025 | planned |
-| E-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | integration | 真实事务读 → 超时/配置冲突 → Resolver/cache | TASK-025 | planned |
+| S-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | TASK-025 | verified |
+| E-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | integration | 真实事务读 → 超时/配置冲突 → Resolver/cache | TASK-025 | verified |
 | B-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | E2E | 真实 PG 并发提交 → 多 Runtime Resolver → Snapshot | TASK-026 | planned |
 | E-SNAP-02 | source-review.md#P2-02 一致快照(L70-L76) | E2E | 持续真实配置变更/事务失败 → Resolver → 后续执行 | TASK-026 | planned |
 | RULE-fluxion-runtime-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel/API → 多 Runtime → PG Memory/Registry | TASK-003 | planned |
@@ -71,7 +71,7 @@
 | RULE-backend-logging-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | verified |
 | RULE-backend-quality-001 | source-review.md#Spec Compliance Matrix | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | TASK-015 | verified |
 | RULE-backend-platform-001 | source-review.md#Spec Compliance Matrix | E2E | Compose → 三角色真实进程 → PostgreSQL | TASK-001 | blocked |
-| RULE-backend-database-001 | source-review.md#Spec Compliance Matrix | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | TASK-025 | planned |
+| RULE-backend-database-001 | source-review.md#Spec Compliance Matrix | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | TASK-025 | verified |
 | RULE-frontend-quality-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | verified |
 | RULE-frontend-semi-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | verified |
 | RULE-frontend-component-001 | source-review.md#Spec Compliance Matrix | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | verified |
@@ -1096,7 +1096,7 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 
 ## TASK-025: 实现一致配置读取与快照组装
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P2
 - **Depends**: TASK-006, TASK-024
 - **Source**: source-review.md#P2-02 一致快照(L70-L76)
@@ -1110,29 +1110,33 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 
 ### Checklist
 
-- [ ] [S-SNAP-01][integration] 先补验收并记录RED，真实边界：真实 ContextResolver → Store scoped read → PostgreSQL；关键断言：所有配置来自一致视图；只读和 tenant scope 有效。
-- [ ] [E-SNAP-01][integration] 先补验收并记录RED，真实边界：真实事务读 → 超时/配置冲突 → Resolver/cache；关键断言：有界失败；缓存无半成品；外部 I/O 不持有配置事务。
-- [ ] 有界事务/重试；外部 HTTP/RPC 不进入事务；tenant 强制；异常不污染缓存；缓存语义必须同时满足 B-ID-02（缓存不复用前次执行身份），与 TASK-006 互引；若需扩展多个 repository 文件先细分实现任务。
-- [ ] verifier `RULE-backend-database-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` 验证 S-SNAP-01 的 只读一致事务、参数化查询与tenant。记录自动化结果与必要评审证据，不能将计划视为verified。
-- [ ] 运行 `.venv/bin/python scripts/run_registry_contract_tests.py`，以实际PostgreSQL验证Registry单库Contract；依赖不可用须明确失败。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-SNAP-01][integration] 先补验收并记录RED，真实边界：真实 ContextResolver → Store scoped read → PostgreSQL；关键断言：所有配置来自一致视图；只读和 tenant scope 有效。
+- [x] [E-SNAP-01][integration] 先补验收并记录RED，真实边界：真实事务读 → 超时/配置冲突 → Resolver/cache；关键断言：有界失败；缓存无半成品；外部 I/O 不持有配置事务。
+- [x] 有界事务/重试；外部 HTTP/RPC 不进入事务；tenant 强制；异常不污染缓存；缓存语义必须同时满足 B-ID-02（缓存不复用前次执行身份），与 TASK-006 互引；若需扩展多个 repository 文件先细分实现任务。
+- [x] verifier `RULE-backend-database-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` 验证 S-SNAP-01 的 只读一致事务、参数化查询与tenant。记录自动化结果与必要评审证据，不能将计划视为verified。
+- [x] 运行 `.venv/bin/python scripts/run_registry_contract_tests.py`，以实际PostgreSQL验证Registry单库Contract；依赖不可用须明确失败。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-SNAP-01 | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | 所有配置来自一致视图；只读和 tenant scope 有效 | backend/tests/integration/test_registry_consistent_resolution.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` | planned |
-| E-SNAP-01 | integration | 真实事务读 → 超时/配置冲突 → Resolver/cache | 有界失败；缓存无半成品；外部 I/O 不持有配置事务 | backend/tests/integration/test_registry_consistent_resolution.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` | planned |
-| RULE-backend-database-001 | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | 只读一致事务、参数化查询与tenant，由S-SNAP-01提供行为证据；补充命令见Checklist | backend/tests/integration/test_registry_consistent_resolution.py | `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` | planned |
+| S-SNAP-01 | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | 所有配置来自一致视图；只读和 tenant scope 有效 | backend/tests/integration/test_registry_consistent_resolution.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` | verified |
+| E-SNAP-01 | integration | 真实事务读 → 超时/配置冲突 → Resolver/cache | 有界失败；缓存无半成品；外部 I/O 不持有配置事务 | backend/tests/integration/test_registry_consistent_resolution.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` | verified |
+| RULE-backend-database-001 | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | 只读一致事务、参数化查询与tenant，由S-SNAP-01提供行为证据；补充命令见Checklist | backend/tests/integration/test_registry_consistent_resolution.py | `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-SNAP-01 | AttributeError（begin_scoped_read 不存在，实现前） | 4 passed；registry contract 16 passed；store contract 41 passed；ruff+mypy clean | test_registry_consistent_resolution.py::test_S_SNAP_01_* | 真实 PG：scope 内并发发布 v2 不可见（REPEATABLE READ 实证）；tenant 串户 fail-closed | verified |
+| E-SNAP-01 | 同上 | 同上 | test_E_SNAP_01_* | 超时类型化（timeout_ms=0 确定性触发）；失败 resolve 不污染缓存（后继有效）；reader 仅三读方法（外部 I/O 无事务可持） | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订：缓存语义与 TASK-006（B-ID-02）互引（was draft）
+- [2026-09-08] completed (done)：PG REPEATABLE READ scoped reader 落地，S-SNAP-01/E-SNAP-01 verified
 
 ---
 
