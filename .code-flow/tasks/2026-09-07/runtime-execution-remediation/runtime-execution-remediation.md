@@ -50,8 +50,8 @@
 | E-LIFE-05 | source-review.md#P1-03 执行生命周期(L46-L52) | E2E | 真实 TCP client → Channel → Gateway → Runtime → PG Trace/Memory | TASK-018 | verified |
 | B-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | verified |
 | B-ERR-DESIGN-01 | source-review.md#P1-04 错误契约(L54-L60) | unit | 实际错误载荷类型/校验器 | TASK-019 | verified |
-| S-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | TASK-020 | planned |
-| E-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实异常映射/脱敏 → HTTP/SSE 响应 | TASK-020 | planned |
+| S-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | TASK-020 | verified |
+| E-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实异常映射/脱敏 → HTTP/SSE 响应 | TASK-020 | verified |
 | B-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 HTTP Gateway → 真实/故障响应边界 | TASK-021 | planned |
 | E-ERR-02 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 Gateway HTTP/SSE 解码 → RuntimeApplicationError | TASK-021 | planned |
 | S-ERR-02 | source-review.md#P1-04 错误契约(L54-L60) | E2E | 真实 Runtime → Gateway → Channel → 客户端 | TASK-022 | planned |
@@ -67,7 +67,7 @@
 | RULE-fluxion-runtime-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel/API → 多 Runtime → PG Memory/Registry | TASK-003 | planned |
 | RULE-fluxion-resource-001 | source-review.md#Spec Compliance Matrix | E2E | 旧 Profile → Publish/Rollback → 新执行 | TASK-012 | verified |
 | RULE-fluxion-dfx-001 | source-review.md#Spec Compliance Matrix | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | verified |
-| RULE-fluxion-console-api-001 | source-review.md#Spec Compliance Matrix | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | TASK-020 | planned |
+| RULE-fluxion-console-api-001 | source-review.md#Spec Compliance Matrix | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | TASK-020 | verified |
 | RULE-backend-logging-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | verified |
 | RULE-backend-quality-001 | source-review.md#Spec Compliance Matrix | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | TASK-015 | verified |
 | RULE-backend-platform-001 | source-review.md#Spec Compliance Matrix | E2E | Compose → 三角色真实进程 → PostgreSQL | TASK-001 | blocked |
@@ -879,7 +879,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 ## TASK-020: 统一 Runtime HTTP 与 SSE 错误编码
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-019
 - **Source**: source-review.md#P1-04 错误契约(L54-L60)
@@ -893,28 +893,32 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 
 ### Checklist
 
-- [ ] [S-ERR-01][integration] 先补验收并记录RED，真实边界：真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器；关键断言：相同异常产生相同 code/slug/安全文案与关联ID。
-- [ ] [E-ERR-01][integration] 先补验收并记录RED，真实边界：真实异常映射/脱敏 → HTTP/SSE 响应；关键断言：未知异常安全；状态码正确；无敏感原文。
-- [ ] 禁止 handler 拼 envelope；不以字符串 message 保存唯一 slug；不回传 SQL/DSN/Secret/堆栈。
-- [ ] verifier `RULE-fluxion-console-api-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_encoding.py` 验证 S-ERR-01 的 统一响应与错误映射。记录自动化结果与必要评审证据，不能将计划视为verified。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_encoding.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-ERR-01][integration] 先补验收并记录RED，真实边界：真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器；关键断言：相同异常产生相同 code/slug/安全文案与关联ID。
+- [x] [E-ERR-01][integration] 先补验收并记录RED，真实边界：真实异常映射/脱敏 → HTTP/SSE 响应；关键断言：未知异常安全；状态码正确；无敏感原文。
+- [x] 禁止 handler 拼 envelope；不以字符串 message 保存唯一 slug；不回传 SQL/DSN/Secret/堆栈。
+- [x] verifier `RULE-fluxion-console-api-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_encoding.py` 验证 S-ERR-01 的 统一响应与错误映射。记录自动化结果与必要评审证据，不能将计划视为verified。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_encoding.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-ERR-01 | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | 相同异常产生相同 code/slug/安全文案与关联ID | backend/tests/integration/test_runtime_error_encoding.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_encoding.py` | planned |
-| E-ERR-01 | integration | 真实异常映射/脱敏 → HTTP/SSE 响应 | 未知异常安全；状态码正确；无敏感原文 | backend/tests/integration/test_runtime_error_encoding.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_encoding.py` | planned |
-| RULE-fluxion-console-api-001 | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | 统一响应与错误映射，由S-ERR-01提供行为证据；补充命令见Checklist | backend/tests/integration/test_runtime_error_encoding.py | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_encoding.py` | planned |
+| S-ERR-01 | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | 相同异常产生相同 code/slug/安全文案与关联ID | backend/tests/integration/test_runtime_error_encoding.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_encoding.py` | verified |
+| E-ERR-01 | integration | 真实异常映射/脱敏 → HTTP/SSE 响应 | 未知异常安全；状态码正确；无敏感原文 | backend/tests/integration/test_runtime_error_encoding.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_encoding.py` | verified |
+| RULE-fluxion-console-api-001 | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | 统一响应与错误映射，由S-ERR-01提供行为证据；补充命令见Checklist | backend/tests/integration/test_runtime_error_encoding.py | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_error_encoding.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-ERR-01 | 400 vs 期望 404（状态丢失）；transport 缺 raise_app_exceptions | 2 passed；channel/api/contract 135 passed；e2e/services 回归；integration 337 passed；ruff clean、mypy 唯一既有错误 | test_runtime_error_encoding.py::test_S_ERR_01_* | 真实 FastAPI + 真实 service + PG；HTTP/SSE 同异常同编码 | verified |
+| E-ERR-01 | ValueError 直抛（transport 透传） | 同上 | test_E_ERR_01_* | 受控未知异常（DSN 明文）；响应固定文案 + error slug + 404/500 正确 | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订：以 sse 已落地语义为基准统一 HTTP 侧（was draft）
+- [2026-09-08] completed (done)：slug 独立 error 字段 + 状态透传 + 共享 SSE 工厂，S-ERR-01/E-ERR-01 verified
 
 ---
 

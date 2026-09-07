@@ -31,6 +31,23 @@ class PageData(BaseModel):
     total: int
 
 
+# ADR-A015（TASK-020）：未知/兜底错误的固定安全文案——原文（含 SQL/DSN/Secret/
+# 堆栈）永不回传，只进日志。已知 slug 的 message 由抛出处精心编写，保持可读。
+SAFE_FALLBACK_MESSAGE = "execution failed"
+
+
+def runtime_sse_error_data(code: int, slug: str | None, message: str, request_id: str) -> dict[str, object]:
+    """SSE error 帧与 HTTP envelope 同一映射（TASK-020）：整数码 + slug + 安全文案。"""
+    data: dict[str, object] = {
+        "code": code,
+        "message": message,
+        "request_id": request_id,
+    }
+    if slug is not None:
+        data["error"] = slug
+    return data
+
+
 def success(data: object | None, *, status_code: int = 200) -> JSONResponse:
     request_id = _request_id()
     response = ApiResponse(

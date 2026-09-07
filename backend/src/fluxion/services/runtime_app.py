@@ -5,7 +5,7 @@ import json
 import os
 import traceback
 from collections import deque
-from collections.abc import AsyncGenerator, AsyncIterator, Sequence
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import suppress
 from functools import partial
 from json import JSONDecodeError
@@ -290,7 +290,11 @@ class RuntimeApplicationService(RuntimeToolOps):
                         message=str(exc),
                         stack=traceback.format_exc(),
                     )
-                    raise RuntimeApplicationError(_error_code(exc), str(exc)) from exc
+                    raise RuntimeApplicationError(
+                        _error_code(exc),
+                        str(exc),
+                        status_code=getattr(exc, "status_code", 400),
+                    ) from exc
                 context = prepared.context
                 model_tools = prepared.model_tools
                 allowed_model_tools = prepared.allowed_model_tools
@@ -360,7 +364,11 @@ class RuntimeApplicationService(RuntimeToolOps):
                         message=str(exc),
                         stack=traceback.format_exc(),
                     )
-                    raise RuntimeApplicationError(_error_code(exc), str(exc)) from exc
+                    raise RuntimeApplicationError(
+                        _error_code(exc),
+                        str(exc),
+                        status_code=getattr(exc, "status_code", 400),
+                    ) from exc
         finally:
             reset_execution_id(execution_token)
 
@@ -535,7 +543,11 @@ class RuntimeApplicationService(RuntimeToolOps):
                 message=str(exc),
                 stack=traceback.format_exc(),
             )
-            raise RuntimeApplicationError(_error_code(exc), str(exc)) from exc
+            raise RuntimeApplicationError(
+                _error_code(exc),
+                str(exc),
+                status_code=getattr(exc, "status_code", 400),
+            ) from exc
 
     async def validate_resource_file(self, path: Path) -> dict[str, object]:
         try:

@@ -15,7 +15,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from fluxion.api.middleware import RequestContextMiddleware
-from fluxion.api.responses import failure, success
+from fluxion.api.responses import (
+    SAFE_FALLBACK_MESSAGE,
+    failure,
+    runtime_sse_error_data,
+    success,
+)
 from fluxion.errors.console import (
     INTERNAL_ERROR,
     RESOURCE_NOT_FOUND,
@@ -142,14 +147,15 @@ def _register_error_handlers(app: FastAPI) -> None:
     async def runtime_error_handler(
         request: Request, exc: RuntimeApplicationError
     ) -> JSONResponse:
-        # RuntimeApplicationError.code 是字符串 slug（如 resource_version_not_found），
-        # 统一映射到 RUNTIME_APPLICATION_ERROR 整数码，slug 保留在 message 中追溯，
-        # 不再回传字符串 code——与 Console 共用 responses.failure 整数码契约对齐。
+        # TASK-020（ADR-A015）：slug 进独立 error 字段（不再拼 message）；
+        # 已知 slug 的 message 由抛出处编写；兜底码用固定安全文案（原文只进日志）。
+        curated = exc.code != RuntimeApplicationError.code
         return failure(
             RUNTIME_APPLICATION_ERROR,
-            f"{exc.code}: {exc}",
+            str(exc) if curated else SAFE_FALLBACK_MESSAGE,
             status_code=exc.status_code,
             request=request,
+            error=exc.code,
         )
 
     @app.exception_handler(RequestIdentityError)
@@ -174,7 +180,11 @@ def _register_error_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         del exc
         return failure(
-            VALIDATION_FAILED, "validation failed", status_code=400, request=request
+            VALIDATION_FAILED,
+            "validation failed",
+            status_code=400,
+            request=request,
+            error="validation_failed",
         )
 
     @app.exception_handler(StarletteHTTPException)
@@ -186,13 +196,18 @@ def _register_error_handlers(app: FastAPI) -> None:
         # 通用 Exception handler 变成 500 INTERNAL_ERROR。
         if exc.status_code == 404:
             return failure(
-                RESOURCE_NOT_FOUND, "not found", status_code=404, request=request
+                RESOURCE_NOT_FOUND,
+                "not found",
+                status_code=404,
+                request=request,
+                error="resource_not_found",
             )
         return failure(
             VALIDATION_FAILED,
             str(exc.detail),
             status_code=exc.status_code,
             request=request,
+            error="validation_failed",
         )
 
     @app.exception_handler(Exception)
@@ -211,7 +226,11 @@ def _register_error_handlers(app: FastAPI) -> None:
             stack=traceback.format_exc(),
         )
         return failure(
-            INTERNAL_ERROR, "internal error", status_code=500, request=request
+            INTERNAL_ERROR,
+            "internal error",
+            status_code=500,
+            request=request,
+            error="internal_error",
         )
 
 
@@ -264,14 +283,14 @@ async def _sse_events(
         await events.aclose()
         raise
     except RuntimeApplicationError as exc:
-        # SSE error 帧同样用整数码（与 HTTP envelope 一致），slug 保留在 error 字段。
+        # SSE error 帧与 HTTP envelope 同一映射（整数码 + slug + 安全文案）。
         data = json.dumps(
-            {
-                "code": RUNTIME_APPLICATION_ERROR,
-                "error": exc.code,
-                "message": str(exc),
-                "request_id": request.request_id,
-            },
+            runtime_sse_error_data(
+                RUNTIME_APPLICATION_ERROR,
+                exc.code,
+                str(exc) if exc.code != RuntimeApplicationError.code else SAFE_FALLBACK_MESSAGE,
+                request.request_id,
+            ),
             ensure_ascii=False,
         )
         yield f"event: error\ndata: {data}\n\n"
