@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from enum import StrEnum
 from uuid import uuid4
 
 from fluxion.runtime.resolver import LATEST_PUBLISHED
@@ -104,6 +106,43 @@ class RuntimeApplicationError(RuntimeError):
         self.upstream_code = upstream_code
         self.upstream_error = upstream_error
         super().__init__(message)
+
+
+class ExecutionTerminalState(StrEnum):
+    """执行终态四类（ADR-A014）。单次执行恰好其一，映射见 resolve_terminal_state。"""
+
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    TIMED_OUT = "timed_out"
+
+
+# ADR-A014 §6：清理预算（毫秒）。有限 shield 必须带 timeout，不得无限延长取消。
+FINALIZE_BUDGET_MS: int = 5_000
+
+
+def resolve_terminal_state(error: BaseException | None) -> ExecutionTerminalState:
+    """异常 → 终态映射（ADR-A014 §1）。超时与取消必须区分。
+
+    注意：asyncio.wait_for 超时抛 TimeoutError；客户端取消抛 CancelledError
+   （BaseException，不进 except Exception）。调用方捕获 GeneratorExit 后
+    同样映射为 CANCELLED 并重新传播。
+    """
+    if error is None:
+        return ExecutionTerminalState.COMPLETED
+    if isinstance(error, TimeoutError):
+        return ExecutionTerminalState.TIMED_OUT
+    if isinstance(error, (asyncio.CancelledError, GeneratorExit)):
+        return ExecutionTerminalState.CANCELLED
+    return ExecutionTerminalState.FAILED
+
+
+def first_terminal_wins(
+    first: ExecutionTerminalState, _late: ExecutionTerminalState
+) -> ExecutionTerminalState:
+    """重复/冲突结束语义（ADR-A014 §2）：首次业务终态获胜，后到者 no-op。
+    清理失败独立记录（cleanup_error），永不改变已确定的业务终态。"""
+    return first
 
 
 @dataclass(frozen=True, slots=True)
