@@ -33,7 +33,7 @@
 | S-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | ContextResolver → PG Registry → SnapshotBuilder | TASK-006 | planned |
 | B-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 Resolver 缓存分支 → Snapshot | TASK-006 | planned |
 | S-ID-03 | source-review.md#P1-01 执行身份(L30-L36) | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | planned |
-| B-CFG-DESIGN-01 | source-review.md#P1-02 Profile 参数(L38-L44) | unit | 版本化 Profile 契约和实际校验器 | TASK-008 | planned |
+| B-CFG-DESIGN-01 | source-review.md#P1-02 Profile 参数(L38-L44) | unit | 版本化 Profile 契约和实际校验器 | TASK-008 | verified |
 | S-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | 真实 Console Schema/Resource 服务 → PG Registry | TASK-009 | planned |
 | B-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | PG 历史 Published → 实际 Profile 解析器 | TASK-009 | planned |
 | S-CFG-02 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | CLI/bootstrap/create/import → Profile 服务 → PG | TASK-010 | planned |
@@ -359,7 +359,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ## TASK-008: 确定 RuntimeProfile 参数废弃与兼容 ADR
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: 
 - **Source**: source-review.md#P1-02 Profile 参数(L38-L44)
@@ -373,24 +373,27 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ### Checklist
 
-- [ ] [B-CFG-DESIGN-01][unit] 先补验收并记录RED，真实边界：版本化 Profile 契约和实际校验器；关键断言：新旧版本可判别；历史样本可识别；未定义版本失败关闭。
-- [ ] 以 resource_specs.py 为准盘点所有未接入的有效参数声明之外的字段（含 max_rounds 执行点），不预设数量；禁止原地修改历史 Published；不把单次 timeout 改成总 deadline；已有 Provider 超时重试不受字段收缩影响。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_profile_versions.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [B-CFG-DESIGN-01][unit] 先补验收并记录RED，真实边界：版本化 Profile 契约和实际校验器；关键断言：新旧版本可判别；历史样本可识别；未定义版本失败关闭。
+- [x] 以 resource_specs.py 为准盘点所有未接入的有效参数声明之外的字段（含 max_rounds 执行点），不预设数量；禁止原地修改历史 Published；不把单次 timeout 改成总 deadline；已有 Provider 超时重试不受字段收缩影响。盘点结论：未接入 4 字段为 request_timeout_ms/max_retries/concurrency/memory_budget_mb（执行期零读取，见 ADR-A013）。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_profile_versions.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-CFG-DESIGN-01 | unit | 版本化 Profile 契约和实际校验器 | 新旧版本可判别；历史样本可识别；未定义版本失败关闭 | backend/tests/contract/test_runtime_profile_versions.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_profile_versions.py` | planned |
+| B-CFG-DESIGN-01 | unit | 版本化 Profile 契约和实际校验器 | 新旧版本可判别；历史样本可识别；未定义版本失败关闭 | backend/tests/contract/test_runtime_profile_versions.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_profile_versions.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-CFG-DESIGN-01 | ImportError（PROFILE_SCHEMA_VERSIONS 不存在，实现前） | 3 passed；contract+architecture 88 passed；改动文件 ruff clean、mypy clean（resource_specs.py 唯一 UP037 为改动前既有，已验证 stash） | test_runtime_profile_versions.py::test_B_CFG_DESIGN_01_* | 实际 RuntimeProfile pydantic 校验器；附带修复 architecture 既有断言集（+schema_version，意图不变） | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订：ADR 以 A010 为增量起点（A012 起）；"四个无效字段"改为启动时盘点、不预设数量（was draft）
+- [2026-09-08] completed (done)：ADR-A013 + schema_version 契约声明，B-CFG-DESIGN-01 verified
 
 ---
 

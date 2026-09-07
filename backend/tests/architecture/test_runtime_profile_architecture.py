@@ -30,6 +30,8 @@ _MECHANICS_FIELDS = {
     "bootstrapped_from",
     # ADR-A010（TASK-002）：租户默认标记（解析链，非产品语义）。
     "default",
+    # ADR-A013（TASK-008）：契约版本标识（mechanic 元数据，非产品语义）。
+    "schema_version",
 }
 _LEGACY_PRODUCT_FIELDS = {
     "display_name",

@@ -53,6 +53,13 @@ class RuntimeProfile(SensitiveSpecModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    # ADR-A013（TASK-008）：版本标识。历史数据无此字段即 v1；未知版本 fail-closed。
+    schema_version: str = Field(
+        default="v1",
+        title="契约版本",
+        description="RuntimeProfile 参数契约版本；未知版本拒绝解析",
+    )
+
     request_timeout_ms: int = Field(
         ge=100,
         le=120_000,
@@ -99,6 +106,18 @@ class RuntimeProfile(SensitiveSpecModel):
         title="租户默认",
         description="标记为租户默认 RuntimeProfile；同租户至多一个 default=true",
     )
+
+    @model_validator(mode="after")
+    def _check_schema_version(self) -> Self:
+        if self.schema_version not in PROFILE_SCHEMA_VERSIONS:
+            raise ValueError(
+                f"profile_schema_version_unknown: 未定义版本 {self.schema_version!r}"
+            )
+        return self
+
+
+# ADR-A013：已知契约版本。v1=冻结现状（含 4 个未接入字段）；v2 由 TASK-009/010 定义。
+PROFILE_SCHEMA_VERSIONS: tuple[str, ...] = ("v1",)
 
 
 class SkillDefinition(SensitiveSpecModel):
