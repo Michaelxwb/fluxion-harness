@@ -44,7 +44,7 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
         app = create_app(service)
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-            health = await client.get("/healthz", headers={"X-Request-ID": "req-health"})
+            health = await client.get("/healthz", headers={"X-Request-ID": "req_11111111111111111111111111111111"})
             response = await client.post(
                 "/internal/v1/runtime-profiles/assistant/runs",
                 json={
@@ -54,7 +54,7 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
                     "input": "hello",
                     "agent_definition_id": "assistant",
                 },
-                headers={"X-Request-ID": "req-run"},
+                headers={"X-Request-ID": "req_22222222222222222222222222222222"},
             )
             stream = await client.post(
                 "/internal/v1/runtime-profiles/assistant/runs:stream",
@@ -65,7 +65,7 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
                     "input": "stream",
                     "agent_definition_id": "assistant",
                 },
-                headers={"X-Request-ID": "req-stream"},
+                headers={"X-Request-ID": "req_33333333333333333333333333333333"},
             )
             override = await client.post(
                 "/internal/v1/runtime-profiles/assistant/runs",
@@ -76,17 +76,17 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
                     "input": "hello",
                     "agent_definition_id": "assistant",
                 },
-                headers={"X-Request-ID": "req-override", "X-Tenant-ID": "tenant-b"},
+                headers={"X-Request-ID": "req_44444444444444444444444444444444", "X-Tenant-ID": "tenant-b"},
             )
 
         assert health.status_code == 200
-        assert health.json()["request_id"] == "req-health"
+        assert health.json()["request_id"] == "req_11111111111111111111111111111111"
         assert response.status_code == 200
-        assert response.headers["X-Request-ID"] == "req-run"
+        assert response.headers["X-Request-ID"] == "req_22222222222222222222222222222222"
         payload = response.json()
         assert payload["code"] == 0
         assert payload["message"] == "success"
-        assert payload["request_id"] == "req-run"
+        assert payload["request_id"] == "req_22222222222222222222222222222222"
         # 模型名随 MODEL 资源链（TASK-004/008）；DevEcho 回显 provider 默认名。
         assert payload["data"]["output"] == "dev: hello"
         assert payload["data"]["runtime_profile_version"] == "1"

@@ -14,6 +14,18 @@ def _new_id() -> str:
     return uuid4().hex
 
 
+def _new_request_id() -> str:
+    return f"req_{uuid4().hex}"
+
+
+def _new_trace_id() -> str:
+    return f"trace_{uuid4().hex}"
+
+
+def _new_execution_id() -> str:
+    return f"exec_{uuid4().hex}"
+
+
 # ADR-A012（TASK-004）：执行身份格式契约。受信入口之外禁止创建/替换身份。
 _IDENTITY_PATTERN = re.compile(r"^(req|trace|exec)_[0-9a-f]{32}$")
 
@@ -188,9 +200,11 @@ class RunRuntimeRequest:
     # TASK-A104/ADR-A010：显式指定执行的 AgentDefinition（主坐标）；
     # 同名回退已废弃，ContextResolver 链缺省 fail-closed。
     agent_definition_id: str | None = None
-    request_id: str = field(default_factory=_new_id)
-    trace_id: str = field(default_factory=_new_id)
-    execution_id: str = field(default_factory=_new_id)
+    # TASK-005（ADR-A012）：进程内入口的缺省即“受信入口补齐”，必须带前缀——
+    # Gateway 会原样透传缺省值，裸 hex 会在 Runtime 入口被 fail-closed。
+    request_id: str = field(default_factory=_new_request_id)
+    trace_id: str = field(default_factory=_new_trace_id)
+    execution_id: str = field(default_factory=_new_execution_id)
     tool_calls: Sequence[ToolCallRequest] = ()
 
 

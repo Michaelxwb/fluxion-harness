@@ -59,8 +59,9 @@ def _run_request() -> RunRuntimeRequest:
         session_id="session-a",
         input_message="hello",
         agent_definition_id="assistant",
-        request_id="req-s01",
-        trace_id="trace-s01",
+        request_id="req_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        trace_id="trace_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        execution_id="exec_cccccccccccccccccccccccccccccccc",
     )
 
 

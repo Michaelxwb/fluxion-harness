@@ -29,6 +29,10 @@ from fluxion.services.runtime_app import (
     RuntimeApplicationService,
     ToolCallRequest,
 )
+from fluxion.services.runtime_contracts import (
+    RequestIdentityError,
+    resolve_request_identity,
+)
 
 
 class ToolCallPayload(BaseModel):
@@ -48,6 +52,10 @@ class RunPayload(BaseModel):
     runtime_profile_version_selector: str = "latest-published"
     agent_definition_id: str | None = None
     tool_calls: list[ToolCallPayload] = Field(default_factory=list)
+    # TASK-005（ADR-A012）：Gateway 透传的执行身份；缺省由受信入口补齐。
+    request_id: str | None = None
+    trace_id: str | None = None
+    execution_id: str | None = None
 
 
 def create_app(service: RuntimeApplicationService) -> FastAPI:
@@ -100,11 +108,11 @@ def create_app(service: RuntimeApplicationService) -> FastAPI:
     async def run_profile(
         runtime_profile_id: str,
         payload: RunPayload,
+        request: Request,
         x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
     ) -> JSONResponse:
-        request_id = _context_request_id()
         result = await service.run(
-            _run_request(runtime_profile_id, payload, request_id, x_tenant_id)
+            _run_request(runtime_profile_id, payload, request, x_tenant_id)
         )
         return success(result.to_payload())
 
@@ -112,12 +120,12 @@ def create_app(service: RuntimeApplicationService) -> FastAPI:
     async def stream_profile(
         runtime_profile_id: str,
         payload: RunPayload,
+        request: Request,
         x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
     ) -> StreamingResponse:
-        request_id = _context_request_id()
         events = _sse_events(
             service,
-            _run_request(runtime_profile_id, payload, request_id, x_tenant_id),
+            _run_request(runtime_profile_id, payload, request, x_tenant_id),
         )
         return StreamingResponse(
             events,
@@ -141,6 +149,21 @@ def _register_error_handlers(app: FastAPI) -> None:
             f"{exc.code}: {exc}",
             status_code=exc.status_code,
             request=request,
+        )
+
+    @app.exception_handler(RequestIdentityError)
+    async def identity_error_handler(
+        request: Request,
+        exc: RequestIdentityError,
+    ) -> JSONResponse:
+        # TASK-005（ADR-A012）：非法执行身份 fail-closed，不静默替换。
+        del exc
+        return failure(
+            VALIDATION_FAILED,
+            "invalid execution identity",
+            status_code=400,
+            request=request,
+            error=RequestIdentityError.code,
         )
 
     @app.exception_handler(RequestValidationError)
@@ -194,9 +217,19 @@ def _register_error_handlers(app: FastAPI) -> None:
 def _run_request(
     runtime_profile_id: str,
     payload: RunPayload,
-    request_id: str,
+    request: Request,
     x_tenant_id: str | None = None,
 ) -> RunRuntimeRequest:
+    # TASK-005（ADR-A012）：用原始 header（缺席即 None，不拿 middleware 已补齐的
+    # context 值冒充 header）+ body 合并身份；非法 fail-closed，缺省此处补齐。
+    # run/stream 同走本函数，两 transport 一致。
+    identity = resolve_request_identity(
+        header_request_id=request.headers.get("X-Request-ID"),
+        header_trace_id=request.headers.get("X-Trace-ID"),
+        body_request_id=payload.request_id,
+        body_trace_id=payload.trace_id,
+        body_execution_id=payload.execution_id,
+    )
     return RunRuntimeRequest(
         tenant_id=_tenant_id(x_tenant_id, payload.tenant_id),
         user_id=payload.user_id,
@@ -205,7 +238,9 @@ def _run_request(
         input_message=payload.input_message,
         runtime_profile_version_selector=payload.runtime_profile_version_selector,
         agent_definition_id=payload.agent_definition_id,
-        request_id=request_id,
+        request_id=identity.request_id,
+        trace_id=identity.trace_id,
+        execution_id=identity.execution_id,
         tool_calls=[
             ToolCallRequest(tool_id=call.tool_id, arguments=call.arguments)
             for call in payload.tool_calls

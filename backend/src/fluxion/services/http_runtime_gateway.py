@@ -155,6 +155,10 @@ def _request_payload(request: RunRuntimeRequest) -> dict[str, object]:
         "session_id": request.session_id,
         "input": request.input_message,
         "runtime_profile_version_selector": request.runtime_profile_version_selector,
+        # TASK-005（ADR-A012）：三 ID 随 body 透传；Runtime 入口合并校验。
+        "request_id": request.request_id,
+        "trace_id": request.trace_id,
+        "execution_id": request.execution_id,
         "tool_calls": [
             {"tool_id": call.tool_id, "arguments": dict(call.arguments)}
             for call in request.tool_calls
@@ -168,6 +172,7 @@ def _request_payload(request: RunRuntimeRequest) -> dict[str, object]:
 def _request_headers(request: RunRuntimeRequest) -> dict[str, str]:
     return {
         "X-Request-ID": request.request_id,
+        "X-Trace-ID": request.trace_id,
         "X-Tenant-ID": request.tenant_id,
     }
 

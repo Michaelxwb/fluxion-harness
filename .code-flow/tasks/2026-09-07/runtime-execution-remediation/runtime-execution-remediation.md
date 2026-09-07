@@ -29,7 +29,7 @@
 | S-DEP-03 | source-review.md#P0-01 多角色部署(L22-L28) | E2E | 真实 Channel/API → 多 Runtime → PG Memory/Registry | TASK-003 | planned |
 | E-DEP-01 | source-review.md#P0-01 多角色部署(L22-L28) | E2E | 真实 Runtime 进程终止 → 代理 → 后续请求 | TASK-003 | planned |
 | B-ID-01 | source-review.md#P1-01 执行身份(L30-L36) | unit | 实际请求契约/类型校验器 | TASK-004 | verified |
-| S-ID-01 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 httpx Gateway → FastAPI → RunRuntimeRequest | TASK-005 | planned |
+| S-ID-01 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 httpx Gateway → FastAPI → RunRuntimeRequest | TASK-005 | verified |
 | S-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | ContextResolver → PG Registry → SnapshotBuilder | TASK-006 | planned |
 | B-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 Resolver 缓存分支 → Snapshot | TASK-006 | planned |
 | S-ID-03 | source-review.md#P1-01 执行身份(L30-L36) | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | planned |
@@ -242,7 +242,7 @@ Runtime 不配置固定 container_name 或冲突宿主端口；负载均衡发�
 
 ## TASK-005: 修复 Gateway 到 Runtime 的 ID 透传
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-004
 - **Source**: source-review.md#P1-01 执行身份(L30-L36)
@@ -256,23 +256,26 @@ Runtime 不配置固定 container_name 或冲突宿主端口；负载均衡发�
 
 ### Checklist
 
-- [ ] [S-ID-01][integration] 先补验收并记录RED，真实边界：真实 httpx Gateway → FastAPI → RunRuntimeRequest；关键断言：request_id/trace_id/execution_id 逐一等于传入值；HTTP/SSE 一致。
-- [ ] 使用真实 Gateway 和 FastAPI 路由验证传输；不修改不相关身份认证模型；规范缺省和旧请求兼容。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_identity_transport.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-ID-01][integration] 先补验收并记录RED，真实边界：真实 httpx Gateway → FastAPI → RunRuntimeRequest；关键断言：request_id/trace_id/execution_id 逐一等于传入值；HTTP/SSE 一致。
+- [x] 使用真实 Gateway 和 FastAPI 路由验证传输；不修改不相关身份认证模型；规范缺省和旧请求兼容。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_identity_transport.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-ID-01 | integration | 真实 httpx Gateway → FastAPI → RunRuntimeRequest | request_id/trace_id/execution_id 逐一等于传入值；HTTP/SSE 一致 | backend/tests/integration/test_runtime_identity_transport.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_identity_transport.py` | planned |
+| S-ID-01 | integration | 真实 httpx Gateway → FastAPI → RunRuntimeRequest | request_id/trace_id/execution_id 逐一等于传入值；HTTP/SSE 一致 | backend/tests/integration/test_runtime_identity_transport.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_identity_transport.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-ID-01 | 4 failed（body 不带 trace/execution、trace 裸 hex；非法 ID 返回 200 而非 400） | 4 passed；gateway+e2e 回归 13 passed；channel/dev-bundle 15 passed；改动文件 ruff+mypy clean（2 处 I001 为既有） | test_runtime_identity_transport.py::test_S_ID_01_* | 真实 Gateway + 真实 FastAPI + 真实 dev service + PG；_RecordingService 仅记录后委托（行为不变） | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] completed (done)：Gateway/body/headers 三 ID 透传 + 入口合并校验 + 缺省前缀化，S-ID-01 verified
 
 ---
 
