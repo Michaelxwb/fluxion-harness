@@ -364,7 +364,7 @@ class RuntimeApplicationService(RuntimeToolOps):
         finally:
             reset_execution_id(execution_token)
 
-    async def stream(self, request: RunRuntimeRequest) -> AsyncIterator[RuntimeStreamEvent]:
+    async def stream(self, request: RunRuntimeRequest) -> AsyncGenerator[RuntimeStreamEvent, None]:
         # review P1-4：流式主路径（Chat Channel 正式入口）此前不 bind
         # execution_id、无 runtime.execution span → 流式执行中嵌套 Model/Tool
         # span 缺 fluxion.execution_id（E-03 四字段门禁在主 Chat 路径不达标）。

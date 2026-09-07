@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
@@ -168,7 +168,7 @@ class ChannelApplicationService:
         content: str,
         request_id: str,
         trace_id: str,
-    ) -> AsyncIterator[RuntimeStreamEvent]:
+    ) -> AsyncGenerator[RuntimeStreamEvent, None]:
         """流式转发 Runtime 的 started/token 事件，completed 包装为 ChannelResult 结构。"""
         access = await self.resolve_chat_access(token)
         request = RunRuntimeRequest(

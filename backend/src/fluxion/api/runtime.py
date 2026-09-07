@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import traceback
 from collections.abc import AsyncIterator
@@ -252,10 +253,16 @@ async def _sse_events(
     service: RuntimeApplicationService,
     request: RunRuntimeRequest,
 ) -> AsyncIterator[str]:
+    # TASK-017：下游关闭必须逐层传播——显式 aclose 服务迭代器（使其 finally/
+    # finalizer 生效），不依赖 GC；未结束的流不产出成功帧。
+    events = service.stream(request)
     try:
-        async for event in service.stream(request):
+        async for event in events:
             data = json.dumps(event.data, ensure_ascii=False)
             yield f"event: {event.event}\ndata: {data}\n\n"
+    except (asyncio.CancelledError, GeneratorExit):
+        await events.aclose()
+        raise
     except RuntimeApplicationError as exc:
         # SSE error 帧同样用整数码（与 HTTP envelope 一致），slug 保留在 error 字段。
         data = json.dumps(

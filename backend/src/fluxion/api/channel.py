@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import traceback
@@ -310,15 +311,20 @@ async def _access_events(
     token: str,
 ) -> AsyncIterator[str]:
     request_id, trace_id = _request_ids(payload.message_id)
+    # TASK-017：下游关闭逐层传播——显式 aclose 服务迭代器，不依赖 GC。
+    events = service.stream_chat_access(
+        token,
+        conversation_id=payload.conversation_id,
+        content=payload.content,
+        request_id=request_id,
+        trace_id=trace_id,
+    )
     try:
-        async for event in service.stream_chat_access(
-            token,
-            conversation_id=payload.conversation_id,
-            content=payload.content,
-            request_id=request_id,
-            trace_id=trace_id,
-        ):
+        async for event in events:
             yield _event(event.event, event.data)
+    except (asyncio.CancelledError, GeneratorExit):
+        await events.aclose()
+        raise
     except ChannelAccessError:
         yield _event(
             "error",

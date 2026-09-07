@@ -46,7 +46,7 @@
 | E-LIFE-02 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | TASK-015 | verified |
 | S-LIFE-02 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | RuntimeApplicationService.run/stream → ExecutionSession | TASK-016 | verified |
 | E-LIFE-03 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实运行应用 → 取消/关闭/模型超时 | TASK-016 | verified |
-| E-LIFE-04 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 Channel/SSE iterator → Gateway HTTP response → Runtime iterator | TASK-017 | planned |
+| E-LIFE-04 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 Channel/SSE iterator → Gateway HTTP response → Runtime iterator | TASK-017 | verified |
 | E-LIFE-05 | source-review.md#P1-03 执行生命周期(L46-L52) | E2E | 真实 TCP client → Channel → Gateway → Runtime → PG Trace/Memory | TASK-018 | planned |
 | B-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | planned |
 | B-ERR-DESIGN-01 | source-review.md#P1-04 错误契约(L54-L60) | unit | 实际错误载荷类型/校验器 | TASK-019 | verified |
@@ -751,7 +751,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 ## TASK-017: 打通逐层 SSE 关闭传播
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-016
 - **Source**: source-review.md#P1-03 执行生命周期(L46-L52)
@@ -765,23 +765,28 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 ### Checklist
 
-- [ ] [E-LIFE-04][integration] 先补验收并记录RED，真实边界：真实 Channel/SSE iterator → Gateway HTTP response → Runtime iterator；关键断言：关闭逐层传播；连接释放；借用 client 仍可用。
-- [ ] 显式关闭嵌套迭代器；借用 client 只关 response；首 token 后失败不重试；按具体修改拆分测试文件，不跨任务暗改。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_sse_close_propagation.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [E-LIFE-04][integration] 先补验收并记录RED，真实边界：真实 Channel/SSE iterator → Gateway HTTP response → Runtime iterator；关键断言：关闭逐层传播；连接释放；借用 client 仍可用。
+- [x] 显式关闭嵌套迭代器；借用 client 只关 response；首 token 后失败不重试；按具体修改拆分测试文件，不跨任务暗改。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_sse_close_propagation.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-LIFE-04 | integration | 真实 Channel/SSE iterator → Gateway HTTP response → Runtime iterator | 关闭逐层传播；连接释放；借用 client 仍可用 | backend/tests/integration/test_sse_close_propagation.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_sse_close_propagation.py` | planned |
+| E-LIFE-04 | integration | 真实 Channel/SSE iterator → Gateway HTTP response → Runtime iterator | 关闭逐层传播；连接释放；借用 client 仍可用 | backend/tests/integration/test_sse_close_propagation.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_sse_close_propagation.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-LIFE-04 | 3 failed（wrapper 无显式 aclose；channel execution 断言误用） | 3 passed；channel/api/chain/golden/contract 138 passed；改动文件 ruff clean（RUF059×2 既有）、mypy 唯一既有错误 | test_sse_close_propagation.py::test_E_LIFE_04_* | runtime/_sse_events 真流式；gateway/channel 经 ASGI 内联展开确定性验证关闭→结算；借用 client 复用验证 | verified |
+
+重大发现（跟进项，非本任务范围）：RequestContextMiddleware 系 BaseHTTPMiddleware（Starlette 1.6），会缓冲整个 SSE 响应体——首帧在执行完成后才到客户端，真增量直达目前不可能。关闭→结算机制不受影响（展开/取消照常确定性运行）。真流式直达需 pure-ASGI 中间件重写，另起任务，不在本任务修。
 
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] completed (done)：wrapper 显式 aclose + AsyncGenerator 类型收敛，E-LIFE-04 verified（含 BaseHTTPMiddleware 缓冲发现，另起跟进）
 
 ---
 
