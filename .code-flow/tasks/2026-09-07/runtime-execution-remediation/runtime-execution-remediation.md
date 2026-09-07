@@ -47,8 +47,8 @@
 | S-LIFE-02 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | RuntimeApplicationService.run/stream → ExecutionSession | TASK-016 | verified |
 | E-LIFE-03 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实运行应用 → 取消/关闭/模型超时 | TASK-016 | verified |
 | E-LIFE-04 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 Channel/SSE iterator → Gateway HTTP response → Runtime iterator | TASK-017 | verified |
-| E-LIFE-05 | source-review.md#P1-03 执行生命周期(L46-L52) | E2E | 真实 TCP client → Channel → Gateway → Runtime → PG Trace/Memory | TASK-018 | planned |
-| B-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | planned |
+| E-LIFE-05 | source-review.md#P1-03 执行生命周期(L46-L52) | E2E | 真实 TCP client → Channel → Gateway → Runtime → PG Trace/Memory | TASK-018 | verified |
+| B-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | verified |
 | B-ERR-DESIGN-01 | source-review.md#P1-04 错误契约(L54-L60) | unit | 实际错误载荷类型/校验器 | TASK-019 | verified |
 | S-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | TASK-020 | planned |
 | E-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实异常映射/脱敏 → HTTP/SSE 响应 | TASK-020 | planned |
@@ -66,7 +66,7 @@
 | E-SNAP-02 | source-review.md#P2-02 一致快照(L70-L76) | E2E | 持续真实配置变更/事务失败 → Resolver → 后续执行 | TASK-026 | planned |
 | RULE-fluxion-runtime-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel/API → 多 Runtime → PG Memory/Registry | TASK-003 | planned |
 | RULE-fluxion-resource-001 | source-review.md#Spec Compliance Matrix | E2E | 旧 Profile → Publish/Rollback → 新执行 | TASK-012 | verified |
-| RULE-fluxion-dfx-001 | source-review.md#Spec Compliance Matrix | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | planned |
+| RULE-fluxion-dfx-001 | source-review.md#Spec Compliance Matrix | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | verified |
 | RULE-fluxion-console-api-001 | source-review.md#Spec Compliance Matrix | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | TASK-020 | planned |
 | RULE-backend-logging-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | verified |
 | RULE-backend-quality-001 | source-review.md#Spec Compliance Matrix | integration | 真实 MemoryManager/TraceWriter → PostgreSQL + 边界故障注入 | TASK-015 | verified |
@@ -792,7 +792,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 ## TASK-018: 补真实断连端到端验收
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P1
 - **Depends**: TASK-005, TASK-006, TASK-016, TASK-017
 - **Source**: source-review.md#P1-03 执行生命周期(L46-L52)
@@ -806,28 +806,34 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 ### Checklist
 
-- [ ] [E-LIFE-05][E2E] 先补验收并记录RED，真实边界：真实 TCP client → Channel → Gateway → Runtime → PG Trace/Memory；关键断言：取消终态、Trace/部分消息遵循 ADR；连接和执行局部状态释放。
-- [ ] [B-LIFE-01][E2E] 先补验收并记录RED，真实边界：重复真实断连 → 运行时状态/框架性能采集；关键断言：不积累 active execution；正常请求仍成功；框架 P95≤50ms/P99≤100ms（排除模型/外部Tool）。
-- [ ] 部分 token 后断连、prepare 阶段取消、服务端 deadline、重复取消分别验证；持久化不可用时以可观测失败而非假成功验收。
-- [ ] verifier `RULE-fluxion-dfx-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py` 验证 B-LIFE-01 的 有界清理、可靠性和框架性能。记录自动化结果与必要评审证据，不能将计划视为verified。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [E-LIFE-05][E2E] 先补验收并记录RED，真实边界：真实 TCP client → Channel → Gateway → Runtime → PG Trace/Memory；关键断言：取消终态、Trace/部分消息遵循 ADR；连接和执行局部状态释放。
+- [x] [B-LIFE-01][E2E] 先补验收并记录RED，真实边界：重复真实断连 → 运行时状态/框架性能采集；关键断言：不积累 active execution；正常请求仍成功；框架 P95≤50ms/P99≤100ms（排除模型/外部Tool）。
+- [ ] 部分 token 后断连、prepare 阶段取消、服务端 deadline、重复取消分别验证；持久化不可用时以可观测失败而非假成功验收。覆盖映射：飞行中断连 ✅（E-LIFE-05×2）；重复取消 ✅（B-LIFE-01 5 连断）；服务端 deadline ✅（E-LIFE-03 真实 deadline 触发，TASK-016）；持久化不可用 ✅（E-LIFE-02，TASK-015）。缺口：部分 token 后断连（缓冲中间件下首帧晚到，无真增量可断；等价飞行中断连已覆盖）、prepare 阶段取消（时序竞态，016 的 prepare 失败清理覆盖失败语义、取消语义由 cancel 映射单测覆盖）——留待缓冲中间件重写后补真增量用例。
+- [x] verifier `RULE-fluxion-dfx-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py` 验证 B-LIFE-01 的 有界清理、可靠性和框架性能。记录自动化结果与必要评审证据，不能将计划视为verified。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-LIFE-05 | E2E | 真实 TCP client → Channel → Gateway → Runtime → PG Trace/Memory | 取消终态、Trace/部分消息遵循 ADR；连接和执行局部状态释放 | backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py` | planned |
-| B-LIFE-01 | E2E | 重复真实断连 → 运行时状态/框架性能采集 | 不积累 active execution；正常请求仍成功；框架 P95≤50ms/P99≤100ms（排除模型/外部Tool） | backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py` | planned |
-| RULE-fluxion-dfx-001 | E2E | 重复真实断连 → 运行时状态/框架性能采集 | 有界清理、可靠性和框架性能，由B-LIFE-01提供行为证据；补充命令见Checklist | backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py | `.venv/bin/python -m pytest -q backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py` | planned |
+| E-LIFE-05 | E2E | 真实 TCP client → Channel → Gateway → Runtime → PG Trace/Memory | 取消终态、Trace/部分消息遵循 ADR；连接和执行局部状态释放 | backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py` | verified |
+| B-LIFE-01 | E2E | 重复真实断连 → 运行时状态/框架性能采集 | 不积累 active execution；正常请求仍成功；框架 P95≤50ms/P99≤100ms（排除模型/外部Tool） | backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py` | verified |
+| RULE-fluxion-dfx-001 | E2E | 重复真实断连 → 运行时状态/框架性能采集 | 有界清理、可靠性和框架性能，由B-LIFE-01提供行为证据；补充命令见Checklist | backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py | `.venv/bin/python -m pytest -q backend/tests/e2e/test_sse_disconnect_lifecycle.py backend/tests/benchmarks/test_execution_cleanup_overhead.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-LIFE-05 | 2 failed（lifespan reset 清 seed；expected_base 语义） | 2 passed；benchmark 1 passed；ruff clean | test_sse_disconnect_lifecycle.py | 真实 TCP（uvicorn loopback 双服务）+ 真实 httpx；lifespan-reset 顺序教训已注记 | verified |
+| B-LIFE-01 | p95 抖动（n=10）→ n=30 稳定 | 同上 | test_execution_cleanup_overhead.py | 5 连断无积累（L0 空）+ 后续 p95≤50ms；纯开销基准仍由 B-R06 承担 | verified |
+
+缺口（保持 in-progress）：checklist 第 3 项部分覆盖——部分 token 后断连与 prepare 阶段取消待缓冲中间件重写后补真增量用例；服务端 deadline/重复取消/持久化不可用已分别由 016/015/benchmark 覆盖。
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订：Depends 补 TASK-016（取消终态语义须先实现，was draft）
+- [2026-09-08] in-progress：E-LIFE-05/B-LIFE-01 verified；缺口见上（部分 token/prepare 取消待缓冲中间件重写）
 
 ---
 
