@@ -17,6 +17,9 @@ class ApiResponse(BaseModel):
     message: str
     data: object | None
     request_id: str
+    # ADR-A015（TASK-019）：稳定机器可读 slug（snake_case），与 SSE error 事件
+    # 同一词汇。成功时 None；旧载荷缺失时 None（解码侧回落 unknown_error，不读 message）。
+    error: str | None = None
 
 
 class PageData(BaseModel):
@@ -35,6 +38,7 @@ def success(data: object | None, *, status_code: int = 200) -> JSONResponse:
         message="success",
         data=data,
         request_id=request_id,
+        error=None,
     ).model_dump(mode="json")
     return _json_response(content, status_code=status_code, biz_code=SUCCESS)
 
@@ -45,6 +49,7 @@ def failure(
     *,
     status_code: int,
     request: Request | None = None,
+    error: str | None = None,
 ) -> JSONResponse:
     request_id = _request_id(request)
     content = ApiResponse(
@@ -52,6 +57,7 @@ def failure(
         message=message,
         data=None,
         request_id=request_id,
+        error=error,
     ).model_dump(mode="json")
     return _json_response(content, status_code=status_code, biz_code=code, request=request)
 

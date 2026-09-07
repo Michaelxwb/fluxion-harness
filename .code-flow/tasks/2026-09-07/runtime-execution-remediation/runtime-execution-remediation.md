@@ -49,7 +49,7 @@
 | E-LIFE-04 | source-review.md#P1-03 执行生命周期(L46-L52) | integration | 真实 Channel/SSE iterator → Gateway HTTP response → Runtime iterator | TASK-017 | planned |
 | E-LIFE-05 | source-review.md#P1-03 执行生命周期(L46-L52) | E2E | 真实 TCP client → Channel → Gateway → Runtime → PG Trace/Memory | TASK-018 | planned |
 | B-LIFE-01 | source-review.md#P1-03 执行生命周期(L46-L52) | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | planned |
-| B-ERR-DESIGN-01 | source-review.md#P1-04 错误契约(L54-L60) | unit | 实际错误载荷类型/校验器 | TASK-019 | planned |
+| B-ERR-DESIGN-01 | source-review.md#P1-04 错误契约(L54-L60) | unit | 实际错误载荷类型/校验器 | TASK-019 | verified |
 | S-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | TASK-020 | planned |
 | E-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实异常映射/脱敏 → HTTP/SSE 响应 | TASK-020 | planned |
 | B-ERR-01 | source-review.md#P1-04 错误契约(L54-L60) | integration | 真实 HTTP Gateway → 真实/故障响应边界 | TASK-021 | planned |
@@ -790,7 +790,7 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 ## TASK-019: 确定统一错误契约与兼容 ADR
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: 
 - **Source**: source-review.md#P1-04 错误契约(L54-L60)
@@ -804,24 +804,27 @@ flush 异常不能阻止本地执行字典释放；Trace 持久化失败可观�
 
 ### Checklist
 
-- [ ] [B-ERR-DESIGN-01][unit] 先补验收并记录RED，真实边界：实际错误载荷类型/校验器；关键断言：统一整数码、slug、request_id、安全 message；旧载荷按兼容矩阵解析。
-- [ ] 先 ADR 后 Contract；HTTP status 与业务码分别定义；未知异常不把原文加入响应；保留版本化兼容窗口。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_error_contract.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [B-ERR-DESIGN-01][unit] 先补验收并记录RED，真实边界：实际错误载荷类型/校验器；关键断言：统一整数码、slug、request_id、安全 message；旧载荷按兼容矩阵解析。
+- [x] 先 ADR 后 Contract；HTTP status 与业务码分别定义；未知异常不把原文加入响应；保留版本化兼容窗口。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_error_contract.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-ERR-DESIGN-01 | unit | 实际错误载荷类型/校验器 | 统一整数码、slug、request_id、安全 message；旧载荷按兼容矩阵解析 | backend/tests/contract/test_runtime_error_contract.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_error_contract.py` | planned |
+| B-ERR-DESIGN-01 | unit | 实际错误载荷类型/校验器 | 统一整数码、slug、request_id、安全 message；旧载荷按兼容矩阵解析 | backend/tests/contract/test_runtime_error_contract.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/contract/test_runtime_error_contract.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-ERR-DESIGN-01 | TypeError（failure() 无 error 参数，实现前） | 3 passed；api+channel+contract 128 passed；ruff+mypy clean | test_runtime_error_contract.py::test_B_ERR_DESIGN_01_* | 实际 ApiResponse/failure() 类型；旧载荷无 error 字段可解析（加法兼容已验证） | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订：ADR 以 sse-streaming-contracts 已验收结论为输入（A012 起，不重复设计 streaming 语义）（was draft）
+- [2026-09-08] completed (done)：ADR-A015 + envelope error 字段，B-ERR-DESIGN-01 verified
 
 ---
 
