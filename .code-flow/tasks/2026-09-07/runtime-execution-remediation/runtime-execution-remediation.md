@@ -59,7 +59,7 @@
 | S-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实 AgentRuntime + 可计数 Provider → ApplicationService | TASK-023 | planned |
 | B-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实流式分派 → 非流式 Provider/空字符串token | TASK-023 | planned |
 | E-STR-01 | source-review.md#P2-01 空流式结果(L62-L68) | integration | 真实流式迭代 → 部分输出后 Provider 错误 | TASK-023 | planned |
-| B-SNAP-DESIGN-01 | source-review.md#P2-02 一致快照(L70-L76) | unit | Store scoped-read Protocol 与事务契约声明 | TASK-024 | planned |
+| B-SNAP-DESIGN-01 | source-review.md#P2-02 一致快照(L70-L76) | unit | Store scoped-read Protocol 与事务契约声明 | TASK-024 | verified |
 | S-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | TASK-025 | planned |
 | E-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | integration | 真实事务读 → 超时/配置冲突 → Resolver/cache | TASK-025 | planned |
 | B-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | E2E | 真实 PG 并发提交 → 多 Runtime Resolver → Snapshot | TASK-026 | planned |
@@ -989,7 +989,7 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 
 ## TASK-024: 对齐 Snapshot 一致读方案
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P2
 - **Depends**: 
 - **Source**: source-review.md#P2-02 一致快照(L70-L76)
@@ -1003,23 +1003,26 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 
 ### Checklist
 
-- [ ] [B-SNAP-DESIGN-01][unit] 先补验收并记录RED，真实边界：Store scoped-read Protocol 与事务契约声明；关键断言：只读scope/tenant/timeout/错误类型齐全；本任务仅契约校验，PG行为由025/026最终验收。
-- [ ] 定义事务内配置读取与事务外 Credential/Memory I/O 分段；固定所需精确版本；双读 Revision 若不能覆盖全部写入不得声称一致。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/contract/test_registry_snapshot_read.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [B-SNAP-DESIGN-01][unit] 先补验收并记录RED，真实边界：Store scoped-read Protocol 与事务契约声明；关键断言：只读scope/tenant/timeout/错误类型齐全；本任务仅契约校验，PG行为由025/026最终验收。
+- [x] 定义事务内配置读取与事务外 Credential/Memory I/O 分段；固定所需精确版本；双读 Revision 若不能覆盖全部写入不得声称一致。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/contract/test_registry_snapshot_read.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-SNAP-DESIGN-01 | unit | Store scoped-read Protocol 与事务契约声明 | 只读scope/tenant/timeout/错误类型齐全；本任务仅契约校验，PG行为由025/026最终验收 | backend/tests/contract/test_registry_snapshot_read.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/contract/test_registry_snapshot_read.py` | planned |
+| B-SNAP-DESIGN-01 | unit | Store scoped-read Protocol 与事务契约声明 | 只读scope/tenant/timeout/错误类型齐全；本任务仅契约校验，PG行为由025/026最终验收 | backend/tests/contract/test_registry_snapshot_read.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/contract/test_registry_snapshot_read.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-SNAP-DESIGN-01 | ImportError（ScopedReadConflictError 不存在，实现前） | 4 passed；contract 全目录 89 passed；ruff+mypy clean | test_registry_snapshot_read.py::test_B_SNAP_DESIGN_01_* | 实际 store Protocol 签名 + 假实现 isinstance 满足（仅契约，不涉 PG） | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
+- [2026-09-08] completed (done)：ADR-A016 + ScopedRead 契约，B-SNAP-DESIGN-01 verified
 
 ---
 

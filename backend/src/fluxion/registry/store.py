@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -18,6 +19,18 @@ class NotFoundError(RegistryStoreError):
 
 class VersionConflictError(RegistryStoreError):
     """Versioned resource or binding already exists."""
+
+
+class ScopedReadTimeoutError(RegistryStoreError):
+    """Scoped 一致读超时（有界失败，无无穷重试）。"""
+
+    code = "scoped_read_timeout"
+
+
+class ScopedReadConflictError(RegistryStoreError):
+    """Scoped 一致读遇到并发冲突（类型化失败，由调用方决定重试/降级）。"""
+
+    code = "scoped_read_conflict"
 
 
 class PublicationOperation(StrEnum):
@@ -178,6 +191,43 @@ class RegistryReadStore(Protocol):
         tenant_id: str,
         resource_type: ResourceKind | None = None,
     ) -> list[ResourceBinding]: ...
+
+
+@runtime_checkable
+class ScopedRegistryReader(Protocol):
+    """一致视图 reader（ADR-A016）：方法语义均为 revision-pinned。
+
+    由 begin_scoped_read 产生；事务内只做配置读，Credential/Memory I/O 在外。
+    """
+
+    async def get(
+        self,
+        kind: ResourceKind,
+        resource_id: str,
+        *,
+        tenant_id: str,
+        version: str | None = None,
+    ) -> ResourceDefinition | None: ...
+
+    async def read_revision(self) -> int: ...
+
+    async def list_bindings(
+        self,
+        *,
+        subject_type: str,
+        subject_id: str,
+        tenant_id: str,
+        resource_type: ResourceKind | None = None,
+    ) -> list[ResourceBinding]: ...
+
+
+@runtime_checkable
+class ScopedReadStore(RegistryReadStore, Protocol):
+    """支持一致读的 Store（ADR-A016）。现有实现不受影响，迁移由 TASK-025 落。"""
+
+    def begin_scoped_read(
+        self, *, tenant_id: str, timeout_ms: int = 5_000
+    ) -> AbstractAsyncContextManager[ScopedRegistryReader]: ...
 
 
 @runtime_checkable
