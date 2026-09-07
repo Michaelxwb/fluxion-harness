@@ -10,7 +10,7 @@ const pgDsn =
 // ADR-A007：dev bundle 要求显式 master key；未设置时用测试固定 key
 //（仅本地/CI E2E 用，不得用于生产）。
 if (!process.env.FLUXION_SECRET_MASTER_KEY) {
-  process.env.FLUXION_SECRET_MASTER_KEY = Buffer.from("e2e-test-only-key-0000000000000000").toString("base64");
+  process.env.FLUXION_SECRET_MASTER_KEY = Buffer.from("e2e-test-only-key-00000000000000").toString("base64");
 }
 
 export default defineConfig({

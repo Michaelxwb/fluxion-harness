@@ -33,6 +33,7 @@ from fluxion.services.channel_app import (
     is_bind_command as _is_bind_command,
 )
 from fluxion.services.channel_auth import ChannelAuthError, WebBearerAuthenticator
+from fluxion.services.runtime_contracts import RuntimeApplicationError
 
 
 class ChannelMessagePayload(BaseModel):
@@ -194,10 +195,18 @@ def _register_stream(
                 ),
                 token,
             )
-            return StreamingResponse(events, media_type="text/event-stream")
+            return StreamingResponse(
+            events,
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
         if _is_bind_command(payload.content):
             events = _events(service, _external(payload, x_tenant_id))
-            return StreamingResponse(events, media_type="text/event-stream")
+            return StreamingResponse(
+            events,
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
         raise ChannelAuthError(method="bearer_chat_access", reason="missing_credentials")
 
 
@@ -237,7 +246,11 @@ def _register_access_routes(app: FastAPI, service: ChannelApplicationService) ->
         authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     ) -> StreamingResponse:
         events = _access_events(service, payload, _bearer_token(authorization))
-        return StreamingResponse(events, media_type="text/event-stream")
+        return StreamingResponse(
+            events,
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
 
 async def _events(
@@ -290,6 +303,18 @@ async def _access_events(
             {
                 "code": CHANNEL_ACCESS_DENIED,
                 "message": "Chat 访问链接无效或已撤销",
+                "request_id": request_id,
+                "trace_id": trace_id,
+            },
+        )
+    except RuntimeApplicationError as exc:
+        # 远端（网关）错误：code 保持 channel 码，slug 进 error 字段不断链。
+        yield _event(
+            "error",
+            {
+                "code": INTERNAL_ERROR,
+                "error": exc.code,
+                "message": str(exc),
                 "request_id": request_id,
                 "trace_id": trace_id,
             },

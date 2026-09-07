@@ -22,13 +22,8 @@ test("S-P13-06 Browser Console to real Model and MCP Chat golden path", async ({
     }
   });
   await chat.goto(chatLink);
-  // access-token 入口 `#/{token}` 摘 token 后清 hash → HashRouter 落 `/home`
-  //（token 在内存）；切 `#/chat` 渲染消息框（与 agent-error-path / chat-nfr 同模式）。
-  await chat.evaluate(() => {
-    window.location.hash = "#/chat";
-  });
-  // 绑定态断言：ChatPage header 的 Tag（WorkspaceLayout 侧栏也有「已绑定」Tag——
-  // getByText 全局匹配歧义，限定 .chat-header 精确命中可见元素）。
+  // 瘦身后单页：token 启动直落 `/` 对话框（与 agent-error-path 同模式）。
+  // 绑定态断言：ChatPage header 的 Tag（瘦身后唯一头部）。
   await expect(chat.locator(".chat-header").getByText("已绑定 browser-user")).toBeVisible();
   await chat.getByLabel("消息").fill("查询 fluxion");
   await chat.getByRole("button", { name: "发送" }).click();

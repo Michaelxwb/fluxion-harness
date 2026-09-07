@@ -119,7 +119,11 @@ def create_app(service: RuntimeApplicationService) -> FastAPI:
             service,
             _run_request(runtime_profile_id, payload, request_id, x_tenant_id),
         )
-        return StreamingResponse(events, media_type="text/event-stream")
+        return StreamingResponse(
+            events,
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     return app
 

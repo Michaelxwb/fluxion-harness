@@ -239,6 +239,35 @@ export function accessTokenFromHash(hash: string): string {
   return extractAccessToken(hash) ?? "";
 }
 
+const CHAT_TOKEN_KEY = "fluxion.chat.access_token";
+
+/** 读缓存 token（刷新保持会话，免重复绑定）。 */
+export function loadStoredAccessToken(): string | null {
+  try {
+    return localStorage.getItem(CHAT_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** 写缓存 token（链接进入时调用）。 */
+export function storeAccessToken(token: string): void {
+  try {
+    localStorage.setItem(CHAT_TOKEN_KEY, token);
+  } catch {
+    // 无痕/禁用存储：退化为单次会话（刷新重绑）。
+  }
+}
+
+/** 清缓存 token（401/403 失效时调用，避免死循环）。 */
+export function clearStoredAccessToken(): void {
+  try {
+    localStorage.removeItem(CHAT_TOKEN_KEY);
+  } catch {
+    // 忽略
+  }
+}
+
 function handleStreamEvent(
   event: { readonly event: string; readonly data: unknown },
   onEvent: (event: ChatStreamEvent) => void

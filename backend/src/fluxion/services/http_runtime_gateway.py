@@ -109,18 +109,31 @@ class HttpRuntimeGateway:
             f"{self._base_url}/internal/v1/runtime-profiles/"
             f"{quote(request.runtime_profile_id, safe='')}/runs:stream"
         )
+        # client.stream() 构造期不做 IO（建连在 __aenter__），异常全在 async with 内处理。
+        stream_cm = self._client.stream(
+            "POST",
+            url,
+            json=_request_payload(request),
+            headers=_request_headers(request),
+            timeout=httpx.Timeout(
+                connect=_DEFAULT_CONNECT_TIMEOUT,
+                read=self._stream_read_timeout,
+                write=_DEFAULT_WRITE_TIMEOUT,
+                pool=_DEFAULT_POOL_TIMEOUT,
+            ),
+        )
         try:
-            response = await self._client.post(
-                url,
-                json=_request_payload(request),
-                headers=_request_headers(request),
-                timeout=httpx.Timeout(
-                    connect=_DEFAULT_CONNECT_TIMEOUT,
-                    read=self._stream_read_timeout,
-                    write=_DEFAULT_WRITE_TIMEOUT,
-                    pool=_DEFAULT_POOL_TIMEOUT,
-                ),
-            )
+            async with stream_cm as response:
+                if response.status_code != 200:
+                    # 流式建连后非 200：先读完 body 再转错误，不进入事件流。
+                    await response.aread()
+                    error = _error_from_envelope(response, default_code="runtime_upstream_error")
+                    _log_gateway_error(request, "stream", error)
+                    raise error
+                async for event in _iter_sse(response):
+                    yield event
+        except RuntimeApplicationError:
+            raise
         except httpx.TimeoutException as exc:
             error = RuntimeApplicationError(
                 "runtime_upstream_timeout", f"runtime service timeout: {exc}", status_code=503
@@ -133,12 +146,6 @@ class HttpRuntimeGateway:
             )
             _log_gateway_error(request, "stream", error)
             raise error from exc
-        if response.status_code != 200:
-            error = _error_from_envelope(response, default_code="runtime_upstream_error")
-            _log_gateway_error(request, "stream", error)
-            raise error
-        async for event in _iter_sse(response):
-            yield event
 
 
 def _request_payload(request: RunRuntimeRequest) -> dict[str, object]:
@@ -235,8 +242,14 @@ def _error_from_envelope(response: httpx.Response, *, default_code: str) -> Runt
         )
     if isinstance(envelope, dict):
         message = str(envelope.get("message") or f"runtime service HTTP {response.status_code}")
+        upstream_code = envelope.get("code")
+        upstream_error = envelope.get("error")
         return RuntimeApplicationError(
-            default_code, message, status_code=response.status_code
+            default_code,
+            message,
+            status_code=response.status_code,
+            upstream_code=upstream_code if isinstance(upstream_code, int) else None,
+            upstream_error=str(upstream_error) if isinstance(upstream_error, str) else None,
         )
     return RuntimeApplicationError(
         default_code,

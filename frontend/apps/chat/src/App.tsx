@@ -1,22 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { Button, Layout, Space, Spin, Tag, TextArea, Typography } from "@douyinfe/semi-ui";
-import { IconMoon, IconSend, IconSun, IconUser } from "@douyinfe/semi-icons";
+import { Avatar, Button, Layout, Space, Tag, TextArea, Typography } from "@douyinfe/semi-ui";
+import { IconMoon, IconSend, IconSun } from "@douyinfe/semi-icons";
 
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { WorkspaceLayout } from "./components/WorkspaceLayout";
+import { HistoryDrawer } from "./components/HistoryDrawer";
+import { InvalidLink } from "./components/InvalidLink";
+import { MarkdownMessage } from "./components/MarkdownMessage";
+import { TypingIndicator } from "./components/TypingIndicator";
 import { ChatPage } from "./pages/ChatPage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { HomePage } from "./pages/HomePage";
-import { AgentsPage } from "./pages/AgentsPage";
-import { AgentDetailPage } from "./pages/AgentDetailPage";
-import { TasksPage } from "./pages/TasksPage";
-import { TaskDetailPage } from "./pages/TaskDetailPage";
-import { ApprovalsPage } from "./pages/ApprovalsPage";
-import { HistoryPage } from "./pages/HistoryPage";
-import { MemoryProfilePage } from "./pages/MemoryProfilePage";
-import type { ChatAccess, ChatApi, ChatRequest, ChatResultKind } from "./types/chat";
+import type {
+  ChatAccess,
+  ChatApi,
+  ChatRequest,
+  ChatResultKind,
+  WorkspaceHistoryEntry
+} from "./types/chat";
+import { clearStoredAccessToken } from "./services/httpChatApi";
 import { useThemeMode } from "./theme";
 import "./styles.css";
 
@@ -27,26 +29,16 @@ interface ChatAppProps {
 }
 
 /**
- * TASK-003：Workspace 路由表（design §3.2 Chat Web 路由结构）。
- * Router 实例（HashRouter/MemoryRouter）由调用方注入；`/` 重定向 `/home`。
+ * Chat 单页路由：`/` 即对话框，其余全部收敛回 `/`（瘦身后唯一页面）。
+ * Router 实例（HashRouter/MemoryRouter）由调用方注入。
  */
 export function WorkspaceApp({ api }: ChatAppProps) {
   return (
     <Routes>
       <Route element={<WorkspaceLayout api={api} />}>
-        <Route path="/" element={<Navigate replace to="/home" />} />
-        <Route path="/home" element={<HomePage api={api} />} />
-        <Route path="/agents" element={<AgentsPage api={api} />} />
-        <Route path="/agents/:agentId" element={<AgentDetailPage api={api} />} />
-        <Route path="/tasks" element={<TasksPage api={api} />} />
-        <Route path="/tasks/:taskId" element={<TaskDetailPage api={api} />} />
-        <Route path="/approvals" element={<ApprovalsPage api={api} />} />
-        <Route path="/history" element={<HistoryPage api={api} />} />
-        <Route path="/memory" element={<MemoryProfilePage api={api} />} />
-        <Route path="/chat" element={<ChatPage api={api} />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        {/* P2（review）：未知路径回首页，避免空白页 */}
-        <Route path="*" element={<Navigate replace to="/home" />} />
+        <Route path="/" element={<ChatPage api={api} />} />
+        {/* 未知路径回对话框，避免空白页 */}
+        <Route path="*" element={<Navigate replace to="/" />} />
       </Route>
     </Routes>
   );
@@ -73,6 +65,14 @@ export function ChatApp({ api, initialAgentId }: ChatAppProps) {
   const [sending, setSending] = useState(false);
   // TASK-011（E-04）：最近失败消息内容，供 error 帧重试。
   const [lastFailedContent, setLastFailedContent] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyEntries, setHistoryEntries] = useState<readonly WorkspaceHistoryEntry[]>([]);
+
+  /** 空态快捷提问（FEAT-07）：点击即发送。 */
+  const SUGGESTIONS = useMemo(
+    () => ["帮我介绍一下你能做什么", "介绍一下当前智能体", "怎么开始使用"],
+    []
+  );
   const conversationId = useMemo(() => `conversation-${Date.now()}`, []);
   const requiresAccess = api.resolveAccess !== undefined;
 
@@ -116,6 +116,17 @@ export function ChatApp({ api, initialAgentId }: ChatAppProps) {
           });
       })
       .catch((cause: unknown) => {
+        // 缓存 token 失效（401/403）则清缓存，避免刷新死循环回绑定页；
+        // 其他错误（断网等）保留缓存，下次刷新重试。
+        if (
+          typeof cause === "object" &&
+          cause !== null &&
+          "status" in cause &&
+          (((cause as { status?: unknown }).status === 401) ||
+            ((cause as { status?: unknown }).status === 403))
+        ) {
+          clearStoredAccessToken();
+        }
         if (active) setAccessError(cause instanceof Error ? cause.message : "Chat 访问链接无效");
       })
       .finally(() => {
@@ -125,6 +136,15 @@ export function ChatApp({ api, initialAgentId }: ChatAppProps) {
       active = false;
     };
   }, [api, initialAgentId]);
+
+  async function openHistory(): Promise<void> {
+    setHistoryOpen(true);
+    try {
+      setHistoryEntries(await api.listHistory());
+    } catch {
+      setHistoryEntries([]);
+    }
+  }
 
   async function submit(submitContent?: string): Promise<void> {
     const trimmed = (submitContent ?? content).trim();
@@ -238,6 +258,9 @@ export function ChatApp({ api, initialAgentId }: ChatAppProps) {
           <Tag color={platformUserId ? "green" : "grey"}>
             {platformUserId ? `已绑定 ${platformUserId}` : "未绑定"}
           </Tag>
+          <Button aria-label="历史会话" onClick={() => void openHistory()}>
+            历史
+          </Button>
           <Button
             aria-label={mode === "dark" ? "切换到亮色模式" : "切换到暗色模式"}
             icon={mode === "dark" ? <IconSun /> : <IconMoon />}
@@ -247,29 +270,64 @@ export function ChatApp({ api, initialAgentId }: ChatAppProps) {
         </Space>
       </header>
       <Layout.Content className="chat-content" aria-live="polite">
-        {accessError ? <Typography.Text role="alert" type="danger">{accessError}</Typography.Text> : null}
-        {messages.length === 0 ? (
+        {accessError ? (
+          <InvalidLink />
+        ) : null}
+        {accessError ? null : messages.length === 0 ? (
           <div className="chat-empty">
-            {/* NFR-A11Y-01：Semi Avatar 硬编码 role="listitem"（无列表父级触发
-                axe aria-required-parent 且不接受覆盖）——空态直接渲染图标 */}
-            <IconUser className="chat-empty-icon" size="extra-large" />
-            <Typography.Text type="tertiary">开始对话</Typography.Text>
+            <Typography.Title heading={4}>你好，我是{agentDisplayName}</Typography.Title>
+            <Typography.Text type="tertiary">有什么可以帮你的吗？</Typography.Text>
+            <Space wrap style={{ marginTop: 12 }}>
+              {SUGGESTIONS.map((text) => (
+                <Button key={text} theme="borderless" onClick={() => void submit(text)}>
+                  {text}
+                </Button>
+              ))}
+            </Space>
           </div>
         ) : (
           <div className="message-list">
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <article
-                className={`message message-${message.kind}`}
+                className={`message ${
+                  message.kind === "user"
+                    ? "message-user"
+                    : message.kind === "error"
+                      ? "message-error"
+                      : "message-flat"
+                }`}
                 key={message.id}
                 aria-label={message.kind === "user" ? "我的消息" : "Fluxion 回复"}
               >
-                {message.content}
-                {message.kind !== "user" && message.kind !== "error" ? (
-                  // TASK-011（S-08）：完成后显示 kind 标签。
-                  <span className="message-kind">
-                    <Tag size="small">{message.kind}</Tag>
-                  </span>
-                ) : null}
+                {message.kind === "user" ? (
+                  message.content
+                ) : message.kind === "error" ? (
+                  // E-04：中断保留已收内容（纯文本，避免半截 Markdown 误渲染）。
+                  message.content || null
+                ) : (
+                  <div className="message-assistant-head">
+                    <Avatar size="extra-small" className="message-avatar">
+                      {agentDisplayName.slice(0, 1)}
+                    </Avatar>
+                    <Typography.Text strong className="message-name">
+                      {agentDisplayName}
+                    </Typography.Text>
+                  </div>
+                )}
+                {message.kind === "user" || message.kind === "error" ? null : sending &&
+                  index === messages.length - 1 &&
+                  message.content.length === 0 ? (
+                  // 首 token 未到：打字机指示器（替代光标 + 底部转圈）。
+                  <TypingIndicator />
+                ) : (
+                  <MarkdownMessage
+                    content={
+                      sending && index === messages.length - 1
+                        ? `${message.content}▍`
+                        : message.content
+                    }
+                  />
+                )}
                 {message.kind === "error" ? (
                   <span className="message-error">
                     {message.errorMessage ? (
@@ -306,12 +364,18 @@ export function ChatApp({ api, initialAgentId }: ChatAppProps) {
             ))}
           </div>
         )}
-        {sending ? <Spin size="small" aria-label="正在发送" /> : null}
+        {/* 发送中状态由消息区 TypingIndicator 承载，此处不再重复转圈 */}
       </Layout.Content>
+      <HistoryDrawer
+        open={historyOpen}
+        sessions={historyEntries}
+        onClose={() => setHistoryOpen(false)}
+        onSelect={() => setHistoryOpen(false)}
+      />
       <footer className="composer">
         <TextArea
           aria-label="消息"
-          autosize={{ minRows: 1, maxRows: 5 }}
+          autosize={{ minRows: 2, maxRows: 6 }}
           disabled={sending || resolvingAccess || (requiresAccess && !access)}
           onChange={setContent}
           onEnterPress={(event) => {

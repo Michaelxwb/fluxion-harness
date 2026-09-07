@@ -4,7 +4,7 @@
  * 真实边界：in-memory 与 http 双实现 vs 同一 `ChatApi` TS 契约（不 mock 契约本身；
  * http 侧经真实 createHttpClient + fake fetcher 验证 envelope 解包路径唯一）。
  */
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createHttpClient } from "@fluxion/shared";
 
@@ -459,3 +459,24 @@ function jsonResponse(status: number, body: unknown): Response {
     headers: { "Content-Type": "application/json" }
   });
 }
+
+describe("access token 持久化（刷新免重绑）", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("store 后 load 取回", async () => {
+    const { storeAccessToken, loadStoredAccessToken } = await import("../httpChatApi");
+    expect(loadStoredAccessToken()).toBeNull();
+    storeAccessToken("tok-abc");
+    expect(loadStoredAccessToken()).toBe("tok-abc");
+  });
+
+  it("clear 后取空（401/403 失效路径）", async () => {
+    const { storeAccessToken, loadStoredAccessToken, clearStoredAccessToken } =
+      await import("../httpChatApi");
+    storeAccessToken("tok-abc");
+    clearStoredAccessToken();
+    expect(loadStoredAccessToken()).toBeNull();
+  });
+});

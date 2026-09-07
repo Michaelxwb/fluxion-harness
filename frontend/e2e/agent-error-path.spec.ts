@@ -61,12 +61,7 @@ test("E-P13-03 model dependency failure shows friendly error without stack leak"
   const chatLink = await createUserAndChatLink(page, "broken-agent");
   const chat = await browser.newPage();
   await chat.goto(chatLink);
-  // review 修复：access-token 入口 `#/{token}` 摘 token 后清 hash → HashRouter
-  // 落 `/home`（token 在内存，chat-nfr a11y 同模式）——切到 `#/chat` 才渲染
-  // 消息框（ChatPage）。不切 hash 时 getByLabel("消息") 永不可见。
-  await chat.evaluate(() => {
-    window.location.hash = "#/chat";
-  });
+  // 瘦身后单页：token 启动直落 `/` 对话框，无需切 hash。
   await chat.getByLabel("消息").fill("触发模型失败");
   await chat.getByRole("button", { name: "发送" }).click();
 

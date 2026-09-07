@@ -15,19 +15,13 @@ import { expect, test, type Page } from "@playwright/test";
 
 const PERF_SAMPLES = 20;
 const PERF_BUDGET_MS = 500;
+// 瘦身后单页：只测 `/` 对话框。
 const A11Y_ROUTES = [
-  { hash: "#/home", sentinel: 'section[aria-label="首页"]' },
-  { hash: "#/agents", sentinel: 'section[aria-label="智能体"]' },
-  { hash: "#/tasks", sentinel: 'section[aria-label="任务"]' },
-  { hash: "#/approvals", sentinel: 'section[aria-label="审批"]' },
-  { hash: "#/history", sentinel: 'section[aria-label="历史"]' },
-  { hash: "#/memory", sentinel: 'section[aria-label="记忆"]' },
-  { hash: "#/chat", sentinel: 'textarea[aria-label="消息"]' },
-  { hash: "#/settings", sentinel: 'section[aria-label="设置"]' }
+  { hash: "#/", sentinel: 'textarea[aria-label="消息"]' }
 ] as const;
 
 test.describe("S-14 真浏览器 NFR 验收", () => {
-  test("NFR-PERF-01：/home 首屏可交互 P95 ≤ 500ms（真实 Chrome + 真实 HTTP）", async ({
+  test("NFR-PERF-01：对话框首屏可交互 P95 ≤ 500ms（真实 Chrome + 真实 HTTP）", async ({
     browser,
     page
   }) => {

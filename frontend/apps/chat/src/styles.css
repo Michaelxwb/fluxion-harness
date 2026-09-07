@@ -41,18 +41,10 @@ body {
   overflow-y: auto;
 }
 
-.chat-empty {
-  min-height: 50vh;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 12px;
-}
-
 .message-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  width: 100%;
 }
 
 .message {
@@ -70,11 +62,94 @@ body {
   background: var(--semi-color-primary);
 }
 
-.message-message,
-.message-bound,
-.message-unbound {
-  align-self: flex-start;
-  background: var(--semi-color-fill-0);
+/* FEAT-07 去气泡扁平风：助手消息透明底，头像 + 名字行 + 正文 */
+.message-flat {
+  align-self: stretch;
+  max-width: 100%;
+  padding: 4px 0;
+  background: transparent;
+}
+
+.message-assistant-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.message-avatar {
+  flex: none;
+}
+
+.message-name {
+  font-size: 13px;
+}
+
+/* 对话内容列：长文阅读宽度，居中 */
+.chat-content {
+  max-width: 880px;
+  margin-inline: auto;
+  width: 100%;
+}
+
+/* 空态引导 */
+.chat-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 15%;
+  text-align: center;
+}
+
+/* 打字机指示器：三圆点跳动 */
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--semi-color-text-2);
+  animation: typing-bounce 1.2s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+
+  30% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-dot {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* 输入框胶囊化 */
+.composer .semi-input-textarea-wrapper {
+  border-radius: 20px;
 }
 
 .message-error {
@@ -82,6 +157,78 @@ body {
   color: var(--semi-color-danger);
   background: rgba(var(--semi-red-0), 1);
   border: 1px solid var(--semi-color-danger);
+}
+
+/* Markdown 消息排版：覆盖 pre-wrap 继承，标题/列表/代码块按 4 倍数间距 */
+.markdown-message {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.markdown-message > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-message > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-message p,
+.markdown-message ul,
+.markdown-message ol {
+  margin: 8px 0;
+}
+
+.markdown-message h1,
+.markdown-message h2,
+.markdown-message h3,
+.markdown-message h4 {
+  margin: 12px 0 8px;
+  line-height: 1.4;
+}
+
+.markdown-message ul,
+.markdown-message ol {
+  padding-left: 20px;
+}
+
+.markdown-message code {
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: var(--semi-color-fill-1);
+  font-size: 0.92em;
+}
+
+.markdown-message pre {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--semi-color-fill-1);
+  overflow-x: auto;
+}
+
+.markdown-message pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.markdown-message table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  display: block;
+  overflow-x: auto;
+}
+
+.markdown-message th,
+.markdown-message td {
+  padding: 4px 12px;
+  border: 1px solid var(--semi-color-border);
+}
+
+.markdown-message blockquote {
+  margin: 8px 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--semi-color-border);
+  color: var(--semi-color-text-2);
 }
 
 .composer {
@@ -256,7 +403,6 @@ body {
 .memory-row .memory-content { flex: 1; text-align: left; }
 
 /* X408 对话（TASK-011） */
-.message-kind { margin-left: 8px; }
 .message-error { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
 
 .chat-empty-icon { color: var(--semi-color-primary); }

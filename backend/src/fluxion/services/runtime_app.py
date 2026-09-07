@@ -405,18 +405,19 @@ class RuntimeApplicationService(RuntimeToolOps):
                 await self._append_trace(context, None, (), latency_ms, None)
                 yield RuntimeStreamEvent(
                     event="completed",
-                    data={
-                        "request_id": request.request_id,
-                        "trace_id": context.snapshot.trace_id,
-                        "execution_id": context.snapshot.execution_id,
-                        "service_instance_id": self._service_instance_id,
-                        "runtime_profile_id": context.snapshot.runtime_profile_id,
-                        "runtime_profile_version": context.snapshot.runtime_profile_version,
-                        "output": output,
-                        "latency_ms": latency_ms,
-                        "model_provider_id": None,
-                        "tool_results": [],
-                    },
+                    data=RunRuntimeResult(
+                        request_id=request.request_id,
+                        trace_id=context.snapshot.trace_id,
+                        execution_id=context.snapshot.execution_id,
+                        service_instance_id=self._service_instance_id,
+                        runtime_profile_id=context.snapshot.runtime_profile_id,
+                        runtime_profile_version=context.snapshot.runtime_profile_version,
+                        output=output,
+                        latency_ms=latency_ms,
+                        model_provider_id=_streamed_provider_id(context),
+                        # 该分支仅当 model_tools 为空进入（见上方），恒空是语义正确。
+                        tool_results=(),
+                    ).to_payload(),
                 )
                 return
             # 流式不被支持（provider 非 StreamingModelProvider / 无 provider）→
@@ -579,6 +580,20 @@ class RuntimeApplicationService(RuntimeToolOps):
                 hooks=_hook_events(events),
             )
         )
+
+
+def _streamed_provider_id(context: RuntimeContext) -> str | None:
+    """取流式实际使用的 provider（agent 在 `model.completed` 事件里记录）。
+
+    无事件则 None（与非流式无 provider 时一致）。
+    """
+    provider_id: str | None = None
+    for event in context.trace:
+        if event.name == "model.completed":
+            candidate = event.attributes.get("provider_id")
+            if isinstance(candidate, str) and candidate:
+                provider_id = candidate
+    return provider_id
 
 
 def build_personal_memory_retriever(engine: object) -> PersonalMemoryRetriever:

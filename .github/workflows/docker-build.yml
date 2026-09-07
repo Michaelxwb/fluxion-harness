@@ -1,9 +1,10 @@
-# Fluxion Harness 镜像构建与推送（ADR-A007 之后的三角色形态）
+# Fluxion Harness 镜像构建与推送（单制品 + 运行时 role）
 #
 # 产物（GHCR，双架构 linux/amd64 + linux/arm64）：
-#   - ghcr.io/<owner>/fluxion-api
-#   - ghcr.io/<owner>/fluxion-runtime
-#   - ghcr.io/<owner>/fluxion-worker
+#   - ghcr.io/<owner>/fluxion
+#
+# 单制品模型：同一镜像跑 api/runtime/worker，角色由 FLUXION_ROLE 环境变量
+# 决定（默认 api；Helm 三部署各自显式设 role）。与 Helm 单镜像三部署一致。
 #
 # Tag 规则（docker/metadata-action）：
 #   - 主分支：<sha> + latest
@@ -11,7 +12,6 @@
 #   - tag 推送：v*.*.* → 对应版本号 + latest
 #
 # 触发：main 分支 push、v* tag、手动 dispatch。PR 只做构建验证（不推送）。
-# 说明：Dockerfile 三 target 共用 frontend/backend/base 层，buildx 一次构建多架构。
 
 name: docker-build
 
@@ -32,13 +32,9 @@ concurrency:
 
 jobs:
   build:
-    name: 构建推送 ${{ matrix.target }}（amd64+arm64）
+    name: 构建推送 fluxion（amd64+arm64）
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [api, runtime, worker]
 
     steps:
       - name: 检出代码
@@ -66,7 +62,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ steps.owner.outputs.value }}/fluxion-${{ matrix.target }}
+          images: ghcr.io/${{ steps.owner.outputs.value }}/fluxion
           tags: |
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
@@ -78,7 +74,6 @@ jobs:
         with:
           context: .
           file: deploy/docker/Dockerfile
-          target: ${{ matrix.target }}
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}

@@ -33,13 +33,13 @@ services:
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
-      # 本地联调默认 api 角色；三角色镜像见 docker-build.yml（api/runtime/worker）
-      target: api
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
+      # 单制品：角色由环境决定，此处显式声明便于阅读（entrypoint 默认即 api）。
+      FLUXION_ROLE: api
       FLUXION_ENV: production
       FLUXION_LOG_LEVEL: INFO
       FLUXION_DATABASE_URL: postgresql+asyncpg://fluxion:fluxion@postgres:5432/fluxion
