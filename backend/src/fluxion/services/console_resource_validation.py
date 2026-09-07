@@ -8,6 +8,7 @@ from fluxion.agents import AgentDefinition
 from fluxion.errors.console import ConsoleValidationError, StudioSpecValidationError
 from fluxion.registry import ChannelRegistryStore
 from fluxion.resources import ModelDefinition, ResourceDefinition, ResourceKind, ResourceStatus
+from fluxion.resources.resource_specs import ProfileSchemaError, validate_profile_write
 from fluxion.runtime.secrets import CredentialResolver, ResolvedCredential, SecretProviderError
 from fluxion.services.capability_planning import CapabilityPlanningService
 from fluxion.services.connection_test import ConnectionTestResult, ConnectionTestService
@@ -89,6 +90,14 @@ class ConsoleResourceValidationOps:
         result = _validate_definition(kind, resource.spec_json)
         if not result.valid:
             issues.extend(result.diagnostics)
+        # 1b. RuntimeProfile 版本化写校验（TASK-009 / ADR-A013）：版本感知诊断，
+        # 未知版本/禁用字段明确指错；tenant/version scope 由上游 get_resource 保证。
+        if kind is ResourceKind.RUNTIME_PROFILE and isinstance(resource.spec_json, dict):
+            try:
+                validate_profile_write(resource.spec_json)
+            except ProfileSchemaError as exc:
+                if str(exc) not in issues:
+                    issues.append(str(exc))
         # 2. workflow 引用完整性（带能力引用存在性检查）
         if kind is ResourceKind.WORKFLOW:
             wf_result = await self._workflow_validator.validate(

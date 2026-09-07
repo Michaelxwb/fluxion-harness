@@ -34,8 +34,8 @@
 | B-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 Resolver 缓存分支 → Snapshot | TASK-006 | verified |
 | S-ID-03 | source-review.md#P1-01 执行身份(L30-L36) | E2E | 真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace | TASK-007 | planned |
 | B-CFG-DESIGN-01 | source-review.md#P1-02 Profile 参数(L38-L44) | unit | 版本化 Profile 契约和实际校验器 | TASK-008 | verified |
-| S-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | 真实 Console Schema/Resource 服务 → PG Registry | TASK-009 | planned |
-| B-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | PG 历史 Published → 实际 Profile 解析器 | TASK-009 | planned |
+| S-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | 真实 Console Schema/Resource 服务 → PG Registry | TASK-009 | verified |
+| B-CFG-01 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | PG 历史 Published → 实际 Profile 解析器 | TASK-009 | verified |
 | S-CFG-02 | source-review.md#P1-02 Profile 参数(L38-L44) | integration | CLI/bootstrap/create/import → Profile 服务 → PG | TASK-010 | planned |
 | S-CFG-03 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | 真实浏览器 → Console API → PostgreSQL → Schema 驱动表单 | TASK-011 | planned |
 | S-CFG-04 | source-review.md#P1-02 Profile 参数(L38-L44) | E2E | Console Publish → PG Registry → Runtime 工具循环 | TASK-012 | planned |
@@ -409,7 +409,7 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ## TASK-009: 实现 Profile Schema 校验与兼容读取
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-008
 - **Source**: source-review.md#P1-02 Profile 参数(L38-L44)
@@ -423,26 +423,30 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 
 ### Checklist
 
-- [ ] [S-CFG-01][integration] 先补验收并记录RED，真实边界：真实 Console Schema/Resource 服务 → PG Registry；关键断言：新版本拒绝无效配置；错误定位字段。
-- [ ] [B-CFG-01][integration] 先补验收并记录RED，真实边界：PG 历史 Published → 实际 Profile 解析器；关键断言：旧版本可读可解析；存储 JSON/hash 未改写。
-- [ ] 覆盖发布前校验、旧版本载入、禁用字段错误提示；保留 tenant/version scope；Schema 变化不得破坏回滚解析。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_profile_schema_compat.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-CFG-01][integration] 先补验收并记录RED，真实边界：真实 Console Schema/Resource 服务 → PG Registry；关键断言：新版本拒绝无效配置；错误定位字段。
+- [x] [B-CFG-01][integration] 先补验收并记录RED，真实边界：PG 历史 Published → 实际 Profile 解析器；关键断言：旧版本可读可解析；存储 JSON/hash 未改写。
+- [x] 覆盖发布前校验、旧版本载入、禁用字段错误提示；保留 tenant/version scope；Schema 变化不得破坏回滚解析。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_profile_schema_compat.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-CFG-01 | integration | 真实 Console Schema/Resource 服务 → PG Registry | 新版本拒绝无效配置；错误定位字段 | backend/tests/integration/test_runtime_profile_schema_compat.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_profile_schema_compat.py` | planned |
-| B-CFG-01 | integration | PG 历史 Published → 实际 Profile 解析器 | 旧版本可读可解析；存储 JSON/hash 未改写 | backend/tests/integration/test_runtime_profile_schema_compat.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_profile_schema_compat.py` | planned |
+| S-CFG-01 | integration | 真实 Console Schema/Resource 服务 → PG Registry | 新版本拒绝无效配置；错误定位字段 | backend/tests/integration/test_runtime_profile_schema_compat.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_profile_schema_compat.py` | verified |
+| B-CFG-01 | integration | PG 历史 Published → 实际 Profile 解析器 | 旧版本可读可解析；存储 JSON/hash 未改写 | backend/tests/integration/test_runtime_profile_schema_compat.py（以场景ID标记用例，verified） | `.venv/bin/python -m pytest -q backend/tests/integration/test_runtime_profile_schema_compat.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-CFG-01 | 2/3 通过（泛型路径已拒无效；版本感知诊断缺失由实现补齐并断言） | 3 passed；validate_publish+contract+architecture 107 passed；改动文件 ruff+mypy clean（UP037/I001 为既有） | test_runtime_profile_schema_compat.py::test_S_CFG_01_* | 真实 Console 服务 + PG（console_stack）；:validate-publish 端到端 | verified |
+| B-CFG-01 | ImportError（read_published_profile 不存在，实现前） | 同上 | test_B_CFG_01_* | PG 历史行 → read_published_profile；存储 dict 前后一致；跨 tenant 不可读 | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订：实现遵循 ADR-A010 默认解析链（was draft）
+- [2026-09-08] completed (done)：read_published_profile/validate_profile_write + 发布版本感知诊断，S-CFG-01/B-CFG-01 verified
 
 ---
 

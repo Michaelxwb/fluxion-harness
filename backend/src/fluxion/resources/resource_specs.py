@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from fluxion.resources.contract_base import SensitiveSpecModel
 from fluxion.resources.workflow_nodes import ConditionNode, ParallelNode, SwitchNode, WorkflowNode
@@ -118,6 +118,56 @@ class RuntimeProfile(SensitiveSpecModel):
 
 # ADR-A013：已知契约版本。v1=冻结现状（含 4 个未接入字段）；v2 由 TASK-009/010 定义。
 PROFILE_SCHEMA_VERSIONS: tuple[str, ...] = ("v1",)
+
+
+class ProfileSchemaError(ValueError):
+    """Profile Schema 校验失败（字段定位，发布前/兼容读统一错误类型）。"""
+
+    code = "runtime_profile_schema_invalid"
+
+
+def validate_profile_write(spec: dict[str, object]) -> RuntimeProfile:
+    """新版本写入校验（ADR-A013 §3）：严格按当前契约校验，不静默丢字段。
+
+    未知字段（extra=forbid）、越界值、未知 schema_version 一律失败关闭，
+    错误带字段路径。输入 dict 不被修改。
+    """
+    try:
+        return RuntimeProfile.model_validate(dict(spec))
+    except (ValidationError, ValueError) as exc:
+        raise ProfileSchemaError(
+            f"runtime_profile_schema_invalid：{_profile_error_text(exc)}"
+        ) from exc
+
+
+def read_published_profile(spec_json: dict[str, object]) -> RuntimeProfile:
+    """历史读取兼容（ADR-A013 §2）：缺 schema_version 即 v1；未知版本失败关闭。
+
+    只读不写：不修改输入 dict，不回写存储（存储 JSON/hash 不变由调用方保证，
+    见 B-CFG-01）。v1 读出保留全部历史字段（含 4 个未接入字段）。
+    """
+    version = spec_json.get("schema_version", "v1")
+    if version not in PROFILE_SCHEMA_VERSIONS:
+        raise ProfileSchemaError(
+            f"runtime_profile_schema_invalid：profile_schema_version_unknown: 未定义版本 {version!r}"
+        )
+    try:
+        return RuntimeProfile.model_validate(dict(spec_json))
+    except (ValidationError, ValueError) as exc:
+        raise ProfileSchemaError(
+            f"runtime_profile_schema_invalid：{_profile_error_text(exc)}"
+        ) from exc
+
+
+def _profile_error_text(exc: ValidationError | ValueError) -> str:
+    if isinstance(exc, ValidationError):
+        parts: list[str] = []
+        for error in exc.errors(include_url=False)[:5]:
+            path = ".".join(str(part) for part in error["loc"])
+            message = str(error["msg"])
+            parts.append(f"{path}: {message}" if path else message)
+        return "；".join(parts)
+    return str(exc)
 
 
 class SkillDefinition(SensitiveSpecModel):
