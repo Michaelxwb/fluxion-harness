@@ -10,7 +10,8 @@ class ResourceCreatePayload(BaseModel):
 
     tenant_id: str | None = None
     resource_id: str
-    version: str
+    # 服务端生成默认值（与 /studio 一致）：pages 禁止写死 version（前端门禁）。
+    version: str = "1"
     spec: dict[str, object]
     visibility: ResourceVisibility = ResourceVisibility.PRIVATE
 

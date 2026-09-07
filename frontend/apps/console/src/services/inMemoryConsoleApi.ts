@@ -173,11 +173,13 @@ class InMemoryConsoleApi implements ConsoleApi {
   }
 
   async createResource(input: ResourceCreateInput): Promise<ResourceVersion> {
-    if (this.resources.some((resource) => sameVersion(resource, { ...input, status: "draft", tenantId: this.tenantId, updatedAt: "" }))) {
+    // 与服务端一致：不传 version 时默认 "1"。
+    const versioned = { version: "1", ...input };
+    if (this.resources.some((resource) => sameVersion(resource, { ...versioned, status: "draft", tenantId: this.tenantId, updatedAt: "" }))) {
       throw new Error("resource version already exists");
     }
     const resource: ResourceVersion = {
-      ...input,
+      ...versioned,
       spec: cloneJson(input.spec),
       status: "draft",
       tenantId: this.tenantId,

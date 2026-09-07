@@ -95,7 +95,8 @@ export interface ResourceSummary {
 export interface ResourceCreateInput {
   readonly resourceType: ResourceType;
   readonly resourceId: string;
-  readonly version: string;
+  // 可选：不传时服务端生成默认 "1"（pages 禁止写死 version，前端门禁）。
+  readonly version?: string;
   readonly visibility: ResourceVisibility;
   readonly spec: JsonRecord;
 }

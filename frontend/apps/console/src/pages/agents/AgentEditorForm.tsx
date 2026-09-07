@@ -43,7 +43,6 @@ export function AgentEditorForm(props: AgentEditorFormProps) {
         created = await props.api.createResource({
           resourceType: "runtime_profile",
           resourceId: "tenant-default",
-          version: "1",
           visibility: "tenant",
           spec: {
             request_timeout_ms: 30000,
