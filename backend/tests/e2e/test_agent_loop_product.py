@@ -128,6 +128,10 @@ async def test_S_P13_01_model_tool_result_returns_to_second_real_http_call(
         )
         hook_calls: list[str] = []
         event_bus = TypedEventBus()
+
+        async def _record_tool(payload: BeforeToolCallPayload) -> None:
+            hook_calls.append(payload.tool_id)
+
         event_bus.register(
             HookRegistration(
                 registration_id="test-before-tool",
@@ -135,7 +139,7 @@ async def test_S_P13_01_model_tool_result_returns_to_second_real_http_call(
                 priority=10,
                 timeout_ms=500,
                 fail_policy=FailPolicy.FAIL_CLOSED,
-                handler=lambda payload: hook_calls.append(payload.tool_id),
+                handler=_record_tool,
             )
         )
         runtime = RuntimeApplicationService(

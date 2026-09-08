@@ -22,6 +22,10 @@ from fluxion.kernel.events import (
     AfterModelCallPayload,
     BeforeExecutionPayload,
     BeforeModelCallPayload,
+    HookRegistration,
+    ModelCallAttempt,
+    ModelCallObserver,
+    ModelCallResult,
     OnExecutionCancelledPayload,
     OnExecutionErrorPayload,
     TypedEventBus,
@@ -30,6 +34,8 @@ from fluxion.memory.domain.personal_memory import PersonalMemoryRetriever
 from fluxion.observability.context import bind_execution_id, reset_execution_id
 from fluxion.observability.logging import emit_runtime_error_log
 from fluxion.observability.tracing import traced_scope
+from fluxion.plugins.contracts import HookRegistrationSinkProtocol
+from fluxion.plugins.loader import PluginLoader
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.plugins.providers.pgvector_semantic import PgVectorSemanticStore
 from fluxion.registry import (
@@ -97,6 +103,46 @@ __all__ = [
 ]
 
 
+class _HookRegistrationSink(HookRegistrationSinkProtocol):
+    """TypedEventBus→HookRegistrationSinkProtocol 显式适配（TASK-005/P2-01）。
+
+    总线的泛型 register 与接收端的 object 形参结构不兼容（mypy 拒绝隐式匹配），
+    此处显式转交并做运行时类型守卫；排序/调度仍是 Kernel 内部事，不进 Plugin SPI。
+    """
+
+    def __init__(self, bus: TypedEventBus) -> None:
+        self._bus = bus
+
+    def register(self, registration: object) -> None:
+        if not isinstance(registration, HookRegistration):
+            raise TypeError(
+                "hook registration must be HookRegistration, "
+                f"got {type(registration).__name__}"
+            )
+        self._bus.register(registration)
+
+
+class _ModelCallHookBridge:
+    """ModelCallObserver→typed hook 分发桥（TASK-001/P1-01）。
+
+    每次执行构建一次并持有 context；AgentRuntime 经稳定 Protocol 回调，
+    本桥把 attempt/result 转为 frozen payload 经 service 事件总线分发。
+    Hook/Plugin 细节不出 service 层（RULE-fluxion-runtime-001）。
+    """
+
+    def __init__(
+        self, service: RuntimeApplicationService, context: RuntimeContext
+    ) -> None:
+        self._service = service
+        self._context = context
+
+    async def before_attempt(self, attempt: ModelCallAttempt) -> None:
+        await self._service._dispatch_before_model_attempt(self._context, attempt)
+
+    async def after_attempt(self, result: ModelCallResult) -> None:
+        await self._service._dispatch_after_model_attempt(self._context, result)
+
+
 class RuntimeApplicationService(RuntimeToolOps):
     def __init__(
         self,
@@ -141,6 +187,9 @@ class RuntimeApplicationService(RuntimeToolOps):
         self._trace_store = trace_store or InMemoryTraceStore()
         self._tool_runtime = tool_runtime or ToolRuntime()
         self._event_bus = event_bus or TypedEventBus()
+        # TASK-003（P1-03）：持有 Hook Plugin loader，close/rollback 可达；
+        # None＝未安装或已关闭/回滚（close 幂等、无 initialize 也可安全 close）。
+        self._hook_plugin_loader: PluginLoader | None = None
         self._mcp_runtime = mcp_runtime or RegistryMCPRuntime(
             store,
             credential_resolver=credential_resolver,
@@ -218,38 +267,77 @@ class RuntimeApplicationService(RuntimeToolOps):
         await self._install_hook_plugins()
         # FEAT-07：memory provider 初始化放 serving 事件循环（lifespan 经此进入），
         # 受有限启动预算控制（默认 5s）；失败明确报错（fail-fast），不静默降级。
-        provider = self._memory_provider
-        initialize = getattr(provider, "initialize", None)
-        if provider is not None and callable(initialize):
+        # TASK-003：后续阶段失败必须 rollback 已安装的 Hook Plugins，不留运行资源。
+        # TASK-007：保留原始初始化异常，清理错误附带为 notes，不覆盖主因。
+        try:
+            provider = self._memory_provider
+            initialize = getattr(provider, "initialize", None)
+            if provider is not None and callable(initialize):
+                try:
+                    await asyncio.wait_for(initialize(), timeout=5.0)
+                except TimeoutError as exc:
+                    raise RuntimeApplicationError(
+                        "memory_provider_init_timeout",
+                        "personal memory provider initialization timed out",
+                        status_code=503,
+                    ) from exc
+        except BaseException as exc:
             try:
-                await asyncio.wait_for(initialize(), timeout=5.0)
-            except TimeoutError as exc:
-                raise RuntimeApplicationError(
-                    "memory_provider_init_timeout",
-                    "personal memory provider initialization timed out",
-                    status_code=503,
-                ) from exc
+                await self._shutdown_hook_plugins()
+            except Exception as cleanup_exc:  # noqa: BLE001 -- 附 notes 后重抛主因
+                exc.add_note(f"hook plugin rollback failed: {cleanup_exc}")
+            raise
 
     async def _install_hook_plugins(self) -> None:
         """启动时安装 entry_points Hook 插件（105 P1-02 / TASK-005）。
 
-        self._event_bus 结构匹配 HookRegistryProtocol（register 方法），
-        直接作为 registry 传入 loader。
+        经 _HookRegistrationSink 显式适配为注册接收端传入 loader（TASK-005：
+        无需 type: ignore）。loader 由 service 持有（TASK-003），
+        安装中途失败时 rollback 已加载插件后重抛。
         """
-        from fluxion.plugins.loader import PluginLoader, discover_hook_plugins
+        from fluxion.plugins.loader import discover_hook_plugins
 
-        loader = PluginLoader(hook_registry=self._event_bus)  # type: ignore[arg-type]
-        for plugin in discover_hook_plugins():
-            await loader.load(plugin)
+        loader = PluginLoader(hook_registry=_HookRegistrationSink(self._event_bus))
+        self._hook_plugin_loader = loader
+        try:
+            for plugin in discover_hook_plugins():
+                await loader.load(plugin)
+        except Exception:
+            # TASK-007：复用保持引用语义——回滚成功的保留失败可重试，
+            # 全清才释放（S-PL-02a/b 的全成功回滚仍回到 None）。
+            await self._shutdown_hook_plugins()
+            raise
+
+    async def _shutdown_hook_plugins(self) -> None:
+        """关闭已安装的 Hook Plugins（幂等，可重入）。
+
+        TASK-007：仅在 Loader 清空后释放引用——部分失败时保留 loader 供重试。
+        """
+        loader = self._hook_plugin_loader
+        if loader is None:
+            return
+        await loader.shutdown_all()
+        if not loader.loaded:
+            self._hook_plugin_loader = None
 
     async def close(self) -> None:
+        # TASK-003：先关 Hook Plugins（释放 client/task/socket），再关 mcp/store。
+        # TASK-007：Hook/MCP/Store 全部尝试清理；Hook 侧失败在收尾后聚合抛出，不吞。
+        hook_error: Exception | None = None
+        try:
+            await self._shutdown_hook_plugins()
+        except Exception as exc:  # noqa: BLE001 -- 聚合后重抛，见下
+            hook_error = exc
         await self._mcp_runtime.close()
         await self._store.close()
+        if hook_error is not None:
+            raise hook_error
 
     # 105 P1-02（TASK-006）：固定 Hook Point 分发（全部在 service 层，kernel 不动，
     # 守住 RULE-fluxion-runtime-001）。三件套：frozen payload＋构造即拷贝＋返回值
-    # 丢弃；授权先于 hook（tool 路径在 _call_tool 内保持）；失败语义复用 dispatch
-    # 既有 fail_policy 逻辑，新点位不自创异常语义。
+    # 丢弃；授权先于 hook（tool 路径在 _call_tool 内保持）；失败语义走 kernel 矩阵
+    # （TASK-002：before_* 可 FAIL_CLOSED，after_*/on_* 强制 FAIL_OPEN），
+    # 新点位不自创异常语义。
     async def _dispatch_before_execution(self, request: RunRuntimeRequest) -> None:
         await self._event_bus.dispatch(
             BeforeExecutionPayload(
@@ -276,30 +364,40 @@ class RuntimeApplicationService(RuntimeToolOps):
             trace_sink=context,
         )
 
-    async def _dispatch_before_model(self, context: RuntimeContext) -> None:
-        routes = context.snapshot.model_resolution.routes
+    async def _dispatch_before_model_attempt(
+        self, context: RuntimeContext, attempt: ModelCallAttempt
+    ) -> None:
+        # TASK-001（P1-01）：attempt 身份来自 AgentRuntime 真实调用边界，
+        # 不再取 snapshot.routes[0] 猜测 provider。
         await self._event_bus.dispatch(
             BeforeModelCallPayload(
                 tenant_id=context.snapshot.tenant_id,
                 execution_id=context.snapshot.execution_id,
                 trace_id=context.snapshot.trace_id,
-                provider_id=routes[0].provider_ref.id if routes else "",
-                model=routes[0].model if routes else None,
+                provider_id=attempt.provider_id,
+                model=attempt.model,
+                round=attempt.round,
+                attempt=attempt.attempt,
+                streaming=attempt.streaming,
             ),
             trace_sink=context,
         )
 
-    async def _dispatch_after_model(
-        self, context: RuntimeContext, output_chars: int
+    async def _dispatch_after_model_attempt(
+        self, context: RuntimeContext, result: ModelCallResult
     ) -> None:
-        routes = context.snapshot.model_resolution.routes
         await self._event_bus.dispatch(
             AfterModelCallPayload(
                 tenant_id=context.snapshot.tenant_id,
                 execution_id=context.snapshot.execution_id,
                 trace_id=context.snapshot.trace_id,
-                provider_id=routes[0].provider_ref.id if routes else "",
-                output_chars=output_chars,
+                provider_id=result.attempt.provider_id,
+                output_chars=result.output_chars,
+                round=result.attempt.round,
+                attempt=result.attempt.attempt,
+                streaming=result.attempt.streaming,
+                status=result.status,
+                latency_ms=result.latency_ms,
             ),
             trace_sink=context,
         )
@@ -433,9 +531,8 @@ class RuntimeApplicationService(RuntimeToolOps):
         step_result: RuntimeStepResult | None = None
         tool_results: list[dict[str, object]] = []
         try:
-            # 105 P1-02（TASK-006）：模型调用前后分发（service 层包 run_step，
-            # kernel 内不感知 hook）。
-            await self._dispatch_before_model(context)
+            # TASK-001（P1-01）：model hook 改由 AgentRuntime 经 observer 在真实
+            # Provider Attempt 边界触发；service 只注入 bridge，不再外层包 run_step。
             step_result = await self._runtime.run_step(
                 context,
                 request.input_message,
@@ -444,8 +541,8 @@ class RuntimeApplicationService(RuntimeToolOps):
                     self._execute_model_tool,
                     allowed_tool_ids=allowed_model_tools,
                 ),
+                model_call_observer=_ModelCallHookBridge(self, context),
             )
-            await self._dispatch_after_model(context, len(step_result.output))
             tool_results.extend(step_result.tool_results)
             tool_results.extend(await self._call_tools(context, request.tool_calls))
             state = await session.finalize(context)
@@ -618,8 +715,10 @@ class RuntimeApplicationService(RuntimeToolOps):
                 )
                 return
             chunks: list[str] = []
+            # TASK-001：流式真实调用同样经 observer 触发 model hook（与非流式同语义）。
+            bridge: ModelCallObserver = _ModelCallHookBridge(self, context)
             async for token in self._runtime.stream_final_answer(
-                context, request.input_message
+                context, request.input_message, model_call_observer=bridge
             ):
                 chunks.append(token)
                 yield RuntimeStreamEvent(event="token", data={"content": token})

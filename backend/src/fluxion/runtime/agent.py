@@ -8,6 +8,10 @@ from time import perf_counter
 from typing import Any, cast
 from uuid import uuid4
 
+from fluxion.kernel.events import (
+    ModelCallAttempt,
+    ModelCallObserver,
+)
 from fluxion.plugins.contracts import (
     ModelMessage,
     ModelProviderError,
@@ -20,6 +24,7 @@ from fluxion.plugins.contracts import (
     ToolDescriptor,
 )
 from fluxion.resources import ExecutionSnapshot, ResolvedModelRoute
+from fluxion.runtime.attempt_budget import AttemptBudget, fire_after, fire_before
 from fluxion.runtime.context import RequestContext, RuntimeContext, TraceEvent
 from fluxion.runtime.memory import MemoryManager, MemoryPolicy, MemoryRecord, SessionMemoryStore
 from fluxion.runtime.summarizer import SummarizerRegistryProtocol
@@ -56,6 +61,15 @@ class AgentLoopTimeoutError(AgentLoopError):
 
 
 ModelToolHandler = Callable[[RuntimeContext, ToolCall], Awaitable[ModelToolResult]]
+
+
+def _deadline_exceeded(context: RuntimeContext) -> AgentLoopTimeoutError:
+    """累计业务 deadline 耗尽（TASK-007）：统一留痕后抛错。"""
+    context.emit(
+        "agent_loop.timeout",
+        {"deadline_ms": context.snapshot.model_resolution.model_deadline_ms},
+    )
+    return AgentLoopTimeoutError("agent loop deadline exceeded")
 
 
 class AgentRuntime:
@@ -115,6 +129,9 @@ class AgentRuntime:
         *,
         tools: Iterable[ToolDescriptor] = (),
         tool_handler: ModelToolHandler | None = None,
+        # TASK-001（P1-01）：真实模型调用观测注入点。None 时行为零变化；
+        # 内核只依赖 ModelCallObserver 稳定契约，不感知 Hook 总线/Plugin。
+        model_call_observer: ModelCallObserver | None = None,
     ) -> RuntimeStepResult:
         session_history = await self._prepare_history(context)
         await self._memory.add_message(context, "user", input_message)
@@ -135,6 +152,7 @@ class AgentRuntime:
             list(tools),
             session_history=session_history,
             tool_handler=tool_handler,
+            model_call_observer=model_call_observer,
         )
         output = model_response.content if model_response is not None else "ok"
         if model_response is not None and model_response.content:
@@ -155,6 +173,8 @@ class AgentRuntime:
         self,
         context: RuntimeContext,
         input_message: str,
+        *,
+        model_call_observer: ModelCallObserver | None = None,
     ) -> AsyncIterator[str]:
         """流式输出最终答案 token；provider 不支持流式时返回空迭代（不抛错）。
 
@@ -186,9 +206,13 @@ class AgentRuntime:
         # FEAT-09：流式与非流式一致的压缩准备（不额外调 run_step，不重复请求/保存）。
         session_history = await self._prepare_history(context)
         messages = _model_messages(context, session_history, input_message)
-        deadline_seconds = policy.model_deadline_ms / 1000
-        started = perf_counter()
+        # TASK-007：流式同样走累计业务预算（Hook 等待扣除）；token 读取上限按
+        # 剩余预算动态计算，不再用墙钟 deadline。
+        budget = AttemptBudget(policy.model_deadline_ms)
         last_error: ModelProviderError | None = None
+        # TASK-001：仅真实建流的路由计为 attempt（解析失败/不支持流式直接
+        # continue，不产 hook 对；context.emit 保留原有可观测）。
+        stream_attempt = 0
         for route in routes:
             provider_id = route.provider_ref.id
             try:
@@ -199,6 +223,19 @@ class AgentRuntime:
                 continue
             if not isinstance(provider, StreamingModelProvider):
                 continue
+            # TASK-007：预算耗尽时连 before 也不触发。
+            if budget.exhausted():
+                break
+            stream_attempt += 1
+            attempt = ModelCallAttempt(
+                provider_id=provider_id,
+                model=route.model,
+                round=1,
+                attempt=stream_attempt,
+                streaming=True,
+            )
+            await fire_before(budget, model_call_observer, attempt)
+            attempt_started = perf_counter()
             scoped = ModelRequest(
                 messages=messages,
                 model=route.model,
@@ -209,12 +246,14 @@ class AgentRuntime:
                 credential_ref=context.snapshot.provider_credentials.get(provider_id),
             )
             emitted = False
+            chars = 0
             error: ModelProviderError | None = None
+            outcome: str | None = None
             stream = cast(StreamingModelProvider, provider).stream(scoped)
             route_started = perf_counter()
             try:
                 while True:
-                    global_remaining = deadline_seconds - (perf_counter() - started)
+                    global_remaining = budget.remaining_ms() / 1000
                     call_remaining = policy.model_timeout_ms / 1000 - (
                         perf_counter() - route_started
                     )
@@ -226,10 +265,20 @@ class AgentRuntime:
                             "model.completed",
                             {"provider_id": provider_id, "streamed": True},
                         )
+                        await fire_after(
+                            budget,
+                            model_call_observer,
+                            attempt,
+                            attempt_started,
+                            status="ok",
+                            output_chars=chars,
+                        )
                         return
                     emitted = True
+                    chars += len(token)
                     yield token
             except TimeoutError:
+                outcome = "timeout"
                 error = ModelProviderTimeoutError(
                     f"model provider {provider_id} timed out"
                 )
@@ -238,17 +287,50 @@ class AgentRuntime:
                     {"provider_id": provider_id, "timeout_ms": policy.model_timeout_ms},
                 )
             except ModelProviderError as exc:
+                outcome = "error"
                 error = exc
                 context.emit("model.error", {"provider_id": provider_id, "error": str(exc)})
             except Exception as exc:  # noqa: BLE001 -- Provider 边界统一转运行时错误
+                outcome = "error"
                 error = ModelProviderError(f"model provider {provider_id} failed: {exc}")
                 context.emit("model.error", {"provider_id": provider_id, "error": str(exc)})
+            except asyncio.CancelledError:
+                # TASK-007：外部取消成对收尾（error 语义）后继续传播。
+                await fire_after(
+                    budget,
+                    model_call_observer,
+                    attempt,
+                    attempt_started,
+                    status="error",
+                    output_chars=0,
+                )
+                raise
+            except GeneratorExit:
+                # TASK-007：生成器关闭（aclose）同样收尾后结束，不再产 token。
+                await fire_after(
+                    budget,
+                    model_call_observer,
+                    attempt,
+                    attempt_started,
+                    status="error",
+                    output_chars=0,
+                )
+                return
             finally:
                 await stream.aclose()
+            if outcome is not None:
+                await fire_after(
+                    budget,
+                    model_call_observer,
+                    attempt,
+                    attempt_started,
+                    status=outcome,
+                    output_chars=0,
+                )
             if emitted and error is not None:
                 raise error
             last_error = error
-        if perf_counter() - started >= deadline_seconds:
+        if budget.exhausted():
             context.emit("agent_loop.timeout", {"deadline_ms": policy.model_deadline_ms})
             raise AgentLoopTimeoutError("streaming deadline exceeded")
         if last_error is not None:
@@ -284,6 +366,7 @@ class AgentRuntime:
         *,
         session_history: list[MemoryRecord],
         tool_handler: ModelToolHandler | None,
+        model_call_observer: ModelCallObserver | None = None,
     ) -> tuple[ModelResponse | None, tuple[dict[str, object], ...]]:
         if self._model_providers is None:
             return None, ()
@@ -292,24 +375,18 @@ class AgentRuntime:
         if not routes:
             return None, ()
         messages = _model_messages(context, session_history, input_message)
-        try:
-            return await asyncio.wait_for(
-                self._run_model_loop(
-                    context,
-                    routes=routes,
-                    messages=messages,
-                    tools=tools,
-                    timeout_ms=policy.model_timeout_ms,
-                    tool_handler=tool_handler,
-                ),
-                timeout=policy.model_deadline_ms / 1000,
-            )
-        except TimeoutError as exc:
-            context.emit(
-                "agent_loop.timeout",
-                {"deadline_ms": policy.model_deadline_ms},
-            )
-            raise AgentLoopTimeoutError("agent loop deadline exceeded") from exc
+        # TASK-007：累计 deadline 改由 _run_model_loop 内显式预算强制（含 tool 耗时、
+        # 不含 Hook 等待）；此处不再外层 wait_for——外层统一截断会取消合法的 Hook
+        # 上报等待，把慢 Hook 的成功翻成 deadline 失败（S-MB-01）。
+        return await self._run_model_loop(
+            context,
+            routes=routes,
+            messages=messages,
+            tools=tools,
+            timeout_ms=policy.model_timeout_ms,
+            tool_handler=tool_handler,
+            model_call_observer=model_call_observer,
+        )
 
     async def _run_model_loop(
         self,
@@ -320,8 +397,11 @@ class AgentRuntime:
         tools: list[ToolDescriptor],
         timeout_ms: int,
         tool_handler: ModelToolHandler | None,
+        model_call_observer: ModelCallObserver | None = None,
     ) -> tuple[ModelResponse, tuple[dict[str, object], ...]]:
         max_rounds = context.snapshot.model_resolution.max_rounds
+        # TASK-007：整轮共享的累计业务预算（Hook 等待扣除）；tool 耗时计入。
+        budget = AttemptBudget(context.snapshot.model_resolution.model_deadline_ms)
         seen_call_ids: set[str] = set()
         seen_signatures: set[str] = set()
         tool_results: list[dict[str, object]] = []
@@ -332,50 +412,38 @@ class AgentRuntime:
                 timeout_ms=timeout_ms,
                 model=routes[0].model,
             )
+            if budget.exhausted():
+                raise _deadline_exceeded(context)
             response = await self._complete_with_failover(
                 context,
                 routes,
                 request,
                 timeout_ms,
+                round_index=round_index,
+                model_call_observer=model_call_observer,
+                budget=budget,
             )
             if not response.tool_calls:
                 return response, tuple(tool_results)
             if tool_handler is None:
                 return response, tuple(tool_results)
-            messages.append(
-                ModelMessage(
-                    role="assistant",
-                    content=response.content,
-                    tool_calls=response.tool_calls,
+            # TASK-007：tool 段同样受累计预算约束（替代此前外层 wait_for 对挂起
+            # tool 的兜底）；模型侧 attempt 已闭环，此处超时无未结 pair。
+            try:
+                await asyncio.wait_for(
+                    self._run_round_tools(
+                        context,
+                        messages,
+                        response,
+                        tool_handler,
+                        tool_results,
+                        seen_call_ids,
+                        seen_signatures,
+                    ),
+                    timeout=budget.remaining_ms() / 1000,
                 )
-            )
-            for call in response.tool_calls:
-                call = _ensure_call_id(call)
-                if _remember_tool_call(call, seen_call_ids, seen_signatures):
-                    # 重复调用（同 id 或同名同参）：不硬失败也不重复执行
-                    # （避免副作用双发）；把 "已调用过" 作为 tool result 喂回，
-                    # 让模型改道，循环仍由 max_rounds 兜底。此前直接 raise
-                    # 会因模型合法的重复查询（轮询/重读）终止整个 execution。
-                    result = ModelToolResult(
-                        call_id=call.call_id,
-                        tool_id=call.name,
-                        content=(
-                            f"tool {call.name} already called with identical "
-                            "arguments; change approach"
-                        ),
-                        payload={"tool_id": call.name, "duplicate": True},
-                    )
-                else:
-                    result = await tool_handler(context, call)
-                tool_results.append(result.payload)
-                messages.append(
-                    ModelMessage(
-                        role="tool",
-                        content=result.content,
-                        tool_call_id=result.call_id,
-                        name=result.tool_id,
-                    )
-                )
+            except TimeoutError:
+                raise _deadline_exceeded(context)
             context.emit(
                 "agent_loop.round_completed",
                 {"round": round_index, "tool_call_count": len(response.tool_calls)},
@@ -383,34 +451,168 @@ class AgentRuntime:
         context.emit("agent_loop.limit_exceeded", {"max_rounds": max_rounds})
         raise AgentLoopLimitError(f"agent loop exceeded {max_rounds} rounds")
 
+    async def _run_round_tools(
+        self,
+        context: RuntimeContext,
+        messages: list[ModelMessage],
+        response: ModelResponse,
+        tool_handler: ModelToolHandler,
+        tool_results: list[dict[str, object]],
+        seen_call_ids: set[str],
+        seen_signatures: set[str],
+    ) -> None:
+        """单轮 tool 调用处理（TASK-007：由调用方按累计预算约束）。"""
+        messages.append(
+            ModelMessage(
+                role="assistant",
+                content=response.content,
+                tool_calls=response.tool_calls,
+            )
+        )
+        for call in response.tool_calls:
+            call = _ensure_call_id(call)
+            if _remember_tool_call(call, seen_call_ids, seen_signatures):
+                # 重复调用（同 id 或同名同参）：不硬失败也不重复执行
+                # （避免副作用双发）；把 "已调用过" 作为 tool result 喂回，
+                # 让模型改道，循环仍由 max_rounds 兜底。此前直接 raise
+                # 会因模型合法的重复查询（轮询/重读）终止整个 execution。
+                result = ModelToolResult(
+                    call_id=call.call_id,
+                    tool_id=call.name,
+                    content=(
+                        f"tool {call.name} already called with identical "
+                        "arguments; change approach"
+                    ),
+                    payload={"tool_id": call.name, "duplicate": True},
+                )
+            else:
+                result = await tool_handler(context, call)
+            tool_results.append(result.payload)
+            messages.append(
+                ModelMessage(
+                    role="tool",
+                    content=result.content,
+                    tool_call_id=result.call_id,
+                    name=result.tool_id,
+                )
+            )
+
     async def _complete_with_failover(
         self,
         context: RuntimeContext,
         routes: list[ResolvedModelRoute],
         request: ModelRequest,
         timeout_ms: int,
+        *,
+        round_index: int = 1,
+        model_call_observer: ModelCallObserver | None = None,
+        budget: AttemptBudget,
     ) -> ModelResponse:
         last_error: ModelProviderError | None = None
-        for route in routes:
+        # TASK-001：每个真实 _complete_once 即一次 attempt（1-based），前后各一次
+        # observer 回调；observer 缺省时控制流与此前逐字一致。
+        # TASK-007：累计预算在 attempt 级强制——Hook 等待已扣除；超时按来源分流
+        # （业务 deadline 耗尽 abort，单 provider 超时继续 failover）；外部取消也
+        # 成对收尾后继续传播。
+        for attempt_no, route in enumerate(routes, start=1):
             provider_id = route.provider_ref.id
+            attempt = ModelCallAttempt(
+                provider_id=provider_id,
+                model=route.model,
+                round=round_index,
+                attempt=attempt_no,
+            )
+            # 预算耗尽时连 before 也不触发（不制造未开始调用的 after）。
+            if budget.exhausted():
+                raise _deadline_exceeded(context)
+            await fire_before(budget, model_call_observer, attempt)
+            # before 自身耗时已扣除；本次调用上限取业务超时与剩余预算之小。
+            attempt_timeout_ms = min(timeout_ms, max(budget.remaining_ms(), 0.0))
+            attempt_started = perf_counter()
             try:
-                response = await self._complete_once(
-                    context,
-                    provider_id,
-                    replace(request, model=route.model),
-                    timeout_ms,
+                response = await asyncio.wait_for(
+                    self._complete_once(
+                        context,
+                        provider_id,
+                        replace(request, model=route.model),
+                        timeout_ms,
+                    ),
+                    timeout=attempt_timeout_ms / 1000,
                 )
-                context.emit(
-                    "model.completed",
-                    {"provider_id": provider_id, "tool_call_count": len(response.tool_calls)},
+            except TimeoutError:
+                await fire_after(
+                    budget,
+                    model_call_observer,
+                    attempt,
+                    attempt_started,
+                    status="timeout",
+                    output_chars=0,
                 )
-                return response
+                if budget.exhausted():
+                    raise _deadline_exceeded(context)
+                last_error = ModelProviderTimeoutError(
+                    f"model provider {provider_id} timed out"
+                )
+                context.emit("model.timeout", {"provider_id": provider_id, "timeout_ms": timeout_ms})
+                continue
             except ModelProviderTimeoutError as exc:
+                await fire_after(
+                    budget,
+                    model_call_observer,
+                    attempt,
+                    attempt_started,
+                    status="timeout",
+                    output_chars=0,
+                )
                 context.emit("model.timeout", {"provider_id": provider_id, "timeout_ms": timeout_ms})
                 last_error = exc
+                continue
             except ModelProviderError as exc:
+                await fire_after(
+                    budget,
+                    model_call_observer,
+                    attempt,
+                    attempt_started,
+                    status="error",
+                    output_chars=0,
+                )
                 context.emit("model.error", {"provider_id": provider_id, "error": str(exc)})
                 last_error = exc
+                continue
+            except asyncio.CancelledError:
+                await fire_after(
+                    budget,
+                    model_call_observer,
+                    attempt,
+                    attempt_started,
+                    status="error",
+                    output_chars=0,
+                )
+                raise
+            except Exception:
+                # 非预期异常此前直接穿透（终止 execution）：保持穿透，但先报告 attempt。
+                await fire_after(
+                    budget,
+                    model_call_observer,
+                    attempt,
+                    attempt_started,
+                    status="error",
+                    output_chars=0,
+                )
+                raise
+            await fire_after(
+                budget,
+                model_call_observer,
+                attempt,
+                attempt_started,
+                status="ok",
+                output_chars=len(response.content),
+            )
+            context.emit(
+                "model.completed",
+                {"provider_id": provider_id, "tool_call_count": len(response.tool_calls)},
+            )
+            return response
         if last_error is None:
             raise ModelProviderError("no model provider configured")
         raise last_error

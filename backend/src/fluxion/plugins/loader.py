@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import suppress
 from dataclasses import dataclass
@@ -10,7 +11,7 @@ from fluxion.plugins.contracts import (
     CapabilityDescriptor,
     CapabilityProvider,
     HookProvider,
-    HookRegistryProtocol,
+    HookRegistrationSinkProtocol,
     ModelProvider,
     ModelProviderRegistryProtocol,
     Plugin,
@@ -42,6 +43,24 @@ class PluginTrustError(PluginLoadError):
         super().__init__(f"{plugin_id}: {message}")
 
 
+class PluginShutdownError(PluginLoadError):
+    """聚合关闭错误（TASK-007/S-CL-01）。
+
+    shutdown_all 逐一尝试、失败项保留可重试；全部尝试后仍有失败即抛本异常，
+    message 内含全部失败插件 id（可观测），不再让单个失败吞掉其余清理。
+    """
+
+    code = "plugin_shutdown_error"
+
+    def __init__(self, failures: dict[str, BaseException]) -> None:
+        self.plugin_ids = tuple(failures)
+        self.failures = dict(failures)
+        details = "; ".join(f"{pid}: {exc!r}" for pid, exc in failures.items())
+        super().__init__(
+            f"plugin shutdown failed for {len(failures)} plugin(s): {details}"
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class TrustPolicy:
     allow_untrusted_in_process: bool = False
@@ -56,7 +75,7 @@ class LoadedPlugin:
 # ADR-EXT-001 统一扩展模型：per-PluginType 分派表。
 # 仅含 4 个"可 resolve(provider_id)"的 provider SPI。TOOL_EXECUTOR 走
 # CapabilityProvider→LoadedPlugin.capabilities（既有路径，不进 typed registry）；
-# HOOK 走 HookRegistryProtocol（对齐 ADR-007，Phase 5 注入），本阶段不分派。
+# HOOK 走 HookRegistrationSinkProtocol（纯注册接收端），本阶段不分派。
 _PROVIDER_PROTOCOL: dict[PluginType, type] = {
     PluginType.MODEL_PROVIDER: ModelProvider,
     PluginType.SEMANTIC_STORE: SemanticStoreProvider,
@@ -96,11 +115,15 @@ class PluginLoader:
         *,
         trust_policy: TrustPolicy | None = None,
         model_provider_registry: ModelProviderRegistryProtocol | None = None,
-        hook_registry: HookRegistryProtocol | None = None,
+        hook_registry: HookRegistrationSinkProtocol | None = None,
+        # TASK-007：单插件 shutdown 有界（默认 5000ms，与 FEAT-07 启动预算同量级）；
+        # 超时/失败不跳过后续插件，失败项保留可重试。
+        shutdown_timeout_ms: int = 5000,
     ) -> None:
         self._trust_policy = trust_policy or TrustPolicy()
         self._model_provider_registry = model_provider_registry
         self._hook_registry = hook_registry
+        self._shutdown_timeout_ms = shutdown_timeout_ms
         self._loaded: dict[str, Plugin] = {}
         self._records: dict[str, LoadedPlugin] = {}
         # 非 MODEL_PROVIDER 的 typed provider SPI：per-PluginType 参考 registry。
@@ -144,10 +167,28 @@ class PluginLoader:
             raise
 
     async def shutdown_all(self) -> None:
+        """逐一关闭已加载插件（TASK-007/S-CL-01/E-CL-01）。
+
+        成功项移除、失败项（含超时）保留可重试；全部尝试后汇总抛
+        PluginShutdownError，不提前退出。外部取消直接穿透（插件保留）。
+        """
+        failures: dict[str, BaseException] = {}
         for plugin_id in tuple(self._loaded):
-            await self._loaded[plugin_id].shutdown()
+            plugin = self._loaded.get(plugin_id)
+            if plugin is None:
+                continue
+            try:
+                await asyncio.wait_for(
+                    plugin.shutdown(),
+                    timeout=self._shutdown_timeout_ms / 1000,
+                )
+            except Exception as exc:  # noqa: BLE001 -- 汇总后抛 PluginShutdownError
+                failures[plugin_id] = exc
+                continue
             self._loaded.pop(plugin_id, None)
             self._records.pop(plugin_id, None)
+        if failures:
+            raise PluginShutdownError(failures)
 
     def _enforce_trust(self, manifest: PluginManifest) -> None:
         untrusted = manifest.trust_level is TrustLevel.UNTRUSTED

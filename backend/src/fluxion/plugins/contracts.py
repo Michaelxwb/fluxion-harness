@@ -24,8 +24,9 @@ class PluginType(StrEnum):
 
 
 class PluginExecutionMode(StrEnum):
+    # TASK-004（P1-04）：ISOLATED 已删除——V1 无隔离执行实现，
+    # 保留该枚举即虚假信任边界。V1 只支持 IN_PROCESS（须配合 TRUSTED）。
     IN_PROCESS = "in_process"
-    ISOLATED = "isolated"
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +81,7 @@ class CapabilityProvider(Protocol):
 class HookProvider(Protocol):
     """HOOK 插件：暴露 Hook 注册表（105 P1-02 / TASK-005）。
 
-    loader 将返回的注册逐条转交 HookRegistryProtocol；空列表即 fail-closed
+    loader 将返回的注册逐条转交 HookRegistrationSinkProtocol；空列表即 fail-closed
     （防静默零能力挂载）。
     """
 
@@ -286,17 +287,15 @@ class SecretRegistryProtocol(Protocol):
     def resolve(self, provider_id: str) -> SecretProvider: ...
 
 
-# --- SPI-06: HOOK（typed-lifecycle-hook registry，对齐 ADR-007）---
-# 形状对齐 kernel/events.py:HookScheduler（register / ordered）；registration 携带
-# priority / timeout_ms / fail_policy / scope（ADR-007 HookRegistration）。本 SPI 只定
-# registry 形状、不锁 registration 字段；kernel HookScheduler 为既有实现，Phase 5
-# 对齐注入。非 @runtime_checkable（registration 为泛型字段），仅作结构契约。
+# --- SPI-06: HOOK（typed-lifecycle-hook 注册接收端，对齐 ADR-007）---
+# TASK-005（P2-01）：收敛为纯注册接收端——Plugin 层只提交 Registration，
+# 排序/调度/执行是 Kernel（HookScheduler）内部能力，不进 Plugin SPI。
+# 本 SPI 只定接收形状、不锁 registration 字段；非 @runtime_checkable
+# （registration 为泛型字段），仅作结构契约。
 
 
-class HookRegistryProtocol(Protocol):
+class HookRegistrationSinkProtocol(Protocol):
     def register(self, registration: object) -> None: ...
-
-    def ordered(self, event_type: str) -> list[object]: ...
 
 
 # --- SPI-07: ProductionCapability（显式 production capability 声明，TASK-013）---

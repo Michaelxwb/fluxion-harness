@@ -363,3 +363,75 @@ async def runtime_context() -> tuple[RuntimeContext, AgentRuntime]:
         )
     )
     return context, runtime
+
+
+async def hook_test_service(bus=None):  # type: ignore[no-untyped-def]
+    """真实 service（dev bundle＋PG）：profile/agent/授权齐备，可执行 time.now。
+
+    由 test_hooks._hook_test_service 提升为共享 harness（hook-plugin-remediation
+    TASK-002 起多任务复用）。bus 非空时用它作为服务事件总线；entry_points 插件
+    安装走 initialize 内 discover→load 真实路径（调用方先 monkeypatch
+    discover_hook_plugins）。调用方负责 `await service.close()`。
+    """
+    from fluxion.kernel.events import TypedEventBus
+    from fluxion.services.runtime_app import (
+        CreateRuntimeProfileRequest,
+        PublishRuntimeProfileRequest,
+        RuntimeApplicationService,
+    )
+
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
+    service = RuntimeApplicationService.create_dev_bundle(
+        store, event_bus=bus or TypedEventBus()
+    )
+    await service.initialize()
+    try:
+        await service.create_runtime_profile(
+            CreateRuntimeProfileRequest(
+                tenant_id="tenant-a",
+                runtime_profile_id="assistant",
+                version="1",
+                default=True,
+            )
+        )
+        await seed_agent_definition(
+            store,
+            provider_id="dev.echo",
+            capabilities=[{"capability_ref": "time.now", "version_pin": "1", "type": "tool"}],
+        )
+        await store.add_capability_grant(
+            tenant_id="tenant-a",
+            platform_user_id="user-a",
+            capability_ref="time.now",
+            capability_kind="tool",
+            granted_scope="invoke",
+            version_pin="1",
+        )
+        await service.publish_runtime_profile(
+            PublishRuntimeProfileRequest(
+                tenant_id="tenant-a",
+                runtime_profile_id="assistant",
+                version="1",
+            )
+        )
+        return service, store
+    except BaseException:
+        await service.close()
+        raise
+
+
+def hook_run_request(**overrides: object):  # type: ignore[no-untyped-def]
+    """hook 测试默认 RunRuntimeRequest（tenant-a/user-a/assistant/time.now）。"""
+    from fluxion.services.runtime_app import RunRuntimeRequest, ToolCallRequest
+
+    params: dict[str, object] = {
+        "tenant_id": "tenant-a",
+        "user_id": "user-a",
+        "agent_definition_id": "assistant",
+        "runtime_profile_id": "assistant",
+        "session_id": "session-hook",
+        "input_message": "hook",
+        "tool_calls": [ToolCallRequest(tool_id="time.now", arguments={})],
+    }
+    params.update(overrides)
+    return RunRuntimeRequest(**params)  # type: ignore[arg-type]

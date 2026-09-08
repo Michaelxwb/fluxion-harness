@@ -249,7 +249,7 @@ _SIX_SPIS = (
     "SemanticStoreProvider",
     "ArtifactStoreProvider",
     "SecretProvider",
-    "HookRegistryProtocol",
+    "HookRegistrationSinkProtocol",
 )
 
 

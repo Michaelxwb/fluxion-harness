@@ -17,6 +17,7 @@ from fluxion.kernel.events import (
 )
 from fluxion.resources import ExecutionSnapshot
 from fluxion.runtime import RequestContext, RuntimeContext
+from tests.runtime_helpers import hook_run_request, hook_test_service
 
 # 105 P1-02（TASK-006）：S-04/E-02 服务级验收用真实示例插件
 #（backend/examples/audit_hook），经 composition root 真实安装路径。
@@ -210,20 +211,17 @@ async def test_E_R06_string_fail_policy_is_coerced_and_fail_closed_enforced() ->
 
 
 @pytest.mark.asyncio
-async def test_E_R06_sync_handler_timeout_is_enforced() -> None:
-    bus = TypedEventBus()
-    payload = BeforeToolCallPayload(
-        tenant_id="tenant-a",
-        execution_id="execution-a",
-        trace_id="trace-a",
-        tool_id="deploy",
-        arguments={},
-    )
+async def test_E_R06_sync_handler_is_rejected() -> None:
+    """E-R06（TASK-006 新契约）：sync handler 注册期被拒绝（async-only）。
+
+    旧语义（to_thread＋wait_for 约束执行时间）已删除：timeout 只能停止等待、
+    不能终止后台线程，注释与实现一并收敛。
+    """
 
     def blocking_hook(_payload: BeforeToolCallPayload) -> None:
         time.sleep(0.1)
 
-    bus.register(
+    with pytest.raises(ValueError, match="async"):
         HookRegistration(
             registration_id="sync-slow",
             event_type=BeforeToolCallPayload,
@@ -232,83 +230,11 @@ async def test_E_R06_sync_handler_timeout_is_enforced() -> None:
             fail_policy=FailPolicy.FAIL_CLOSED,
             handler=blocking_hook,
         )
-    )
-
-    with pytest.raises(HookDispatchError):
-        await bus.dispatch(payload)
 
 
 # --- 105 P1-02（TASK-006）：S-04/E-02 服务级最终验收 ---
-
-
-async def _hook_test_service(bus: TypedEventBus | None = None):  # type: ignore[no-untyped-def]
-    """真实 service（dev bundle＋PG）：profile/agent/授权齐备，可执行 time.now。
-
-    bus 非空时用它作为服务事件总线；entry_points 插件安装走 initialize 内
-    discover→load 真实路径（调用方先 monkeypatch discover_hook_plugins）。
-    """
-    from fluxion.registry import PostgreSQLRegistryStore
-    from fluxion.services.runtime_app import (
-        CreateRuntimeProfileRequest,
-        PublishRuntimeProfileRequest,
-        RuntimeApplicationService,
-    )
-    from tests.runtime_helpers import TEST_POSTGRES_DSN, seed_agent_definition
-
-    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
-    service = RuntimeApplicationService.create_dev_bundle(
-        store, event_bus=bus or TypedEventBus()
-    )
-    await service.initialize()
-    try:
-        await service.create_runtime_profile(
-            CreateRuntimeProfileRequest(
-                tenant_id="tenant-a",
-                runtime_profile_id="assistant",
-                version="1",
-                default=True,
-            )
-        )
-        await seed_agent_definition(
-            store,
-            provider_id="dev.echo",
-            capabilities=[{"capability_ref": "time.now", "version_pin": "1", "type": "tool"}],
-        )
-        await store.add_capability_grant(
-            tenant_id="tenant-a",
-            platform_user_id="user-a",
-            capability_ref="time.now",
-            capability_kind="tool",
-            granted_scope="invoke",
-            version_pin="1",
-        )
-        await service.publish_runtime_profile(
-            PublishRuntimeProfileRequest(
-                tenant_id="tenant-a",
-                runtime_profile_id="assistant",
-                version="1",
-            )
-        )
-        return service, store
-    except BaseException:
-        await service.close()
-        raise
-
-
-def _hook_run_request(**overrides: object):  # type: ignore[no-untyped-def]
-    from fluxion.services.runtime_app import RunRuntimeRequest, ToolCallRequest
-
-    params: dict[str, object] = {
-        "tenant_id": "tenant-a",
-        "user_id": "user-a",
-        "agent_definition_id": "assistant",
-        "runtime_profile_id": "assistant",
-        "session_id": "session-hook",
-        "input_message": "hook",
-        "tool_calls": [ToolCallRequest(tool_id="time.now", arguments={})],
-    }
-    params.update(overrides)
-    return RunRuntimeRequest(**params)  # type: ignore[arg-type]
+# harness 已提升至 tests.runtime_helpers（hook_test_service/hook_run_request），
+# 本文件直接使用共享实现。
 
 
 @pytest.mark.asyncio
@@ -326,9 +252,9 @@ async def test_S_04_all_eight_hook_points_fire_via_service_run(
     monkeypatch.setattr(
         "fluxion.plugins.loader.discover_hook_plugins", lambda: [plugin]
     )
-    service, _store = await _hook_test_service()
+    service, _store = await hook_test_service()
     try:
-        result = await service.run(_hook_run_request())
+        result = await service.run(hook_run_request())
         assert result.runtime_profile_version == "1"
 
         points = {record.point for record in plugin.records}
@@ -353,7 +279,7 @@ async def test_S_04_all_eight_hook_points_fire_via_service_run(
 
         with pytest.raises(RuntimeApplicationError):
             await service.run(
-                _hook_run_request(
+                hook_run_request(
                     session_id="session-error",
                     tool_calls=[ToolCallRequest(tool_id="calc.eval", arguments={})],
                 )
@@ -377,7 +303,7 @@ async def test_S_04_all_eight_hook_points_fire_via_service_run(
             )
         )
         with pytest.raises(asyncio.CancelledError):
-            await service.run(_hook_run_request(session_id="session-cancel"))
+            await service.run(hook_run_request(session_id="session-cancel"))
         assert any(r.point == "on_cancelled" for r in plugin.records)
     finally:
         await service.close()
@@ -403,14 +329,14 @@ async def test_E_02_service_fail_policy_blocks_or_continues() -> None:
             handler=_boom,
         )
     )
-    service, _store = await _hook_test_service(closed_bus)
+    service, _store = await hook_test_service(closed_bus)
     try:
         # FAIL_CLOSED 阻断业务：HookDispatchError 经服务层规范包装为
         # RuntimeApplicationError（hook_dispatch_failed）上抛。
         from fluxion.services.runtime_app import RuntimeApplicationError
 
         with pytest.raises(RuntimeApplicationError) as exc_info:
-            await service.run(_hook_run_request())
+            await service.run(hook_run_request())
         assert exc_info.value.code == "hook_dispatch_failed"
     finally:
         await service.close()
@@ -427,9 +353,9 @@ async def test_E_02_service_fail_policy_blocks_or_continues() -> None:
             handler=_boom,
         )
     )
-    service2, _store2 = await _hook_test_service(open_bus)
+    service2, _store2 = await hook_test_service(open_bus)
     try:
-        result = await service2.run(_hook_run_request())
+        result = await service2.run(hook_run_request())
         trace = await service2.trace_store.get(result.trace_id)
         assert trace is not None and trace.error is None
         hook_errors = [e for e in trace.events if e.name == "hook.error"]
