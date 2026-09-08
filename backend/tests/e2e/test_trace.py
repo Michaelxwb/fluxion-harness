@@ -7,7 +7,6 @@ from fluxion.kernel.events import (
     BeforeToolCallPayload,
     FailPolicy,
     HookRegistration,
-    HookScope,
     TypedEventBus,
 )
 from fluxion.registry import PostgreSQLRegistryStore
@@ -35,7 +34,6 @@ async def test_S_R09_trace_contains_snapshot_model_tool_hook_latency_and_error()
             priority=10,
             timeout_ms=100,
             fail_policy=FailPolicy.FAIL_CLOSED,
-            scope=HookScope.GLOBAL,
             handler=record_tool,
         )
     )

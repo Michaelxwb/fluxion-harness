@@ -11,7 +11,6 @@ from fluxion.kernel.events import (
     FailPolicy,
     HookDispatchError,
     HookRegistration,
-    HookScope,
     TypedEventBus,
 )
 from fluxion.resources import ExecutionSnapshot
@@ -64,7 +63,6 @@ async def test_S_R06_hook_priority_order_and_trace_are_recorded() -> None:
             priority=20,
             timeout_ms=100,
             fail_policy=FailPolicy.FAIL_CLOSED,
-            scope=HookScope.GLOBAL,
             handler=audit_hook,
         )
     )
@@ -75,7 +73,6 @@ async def test_S_R06_hook_priority_order_and_trace_are_recorded() -> None:
             priority=10,
             timeout_ms=100,
             fail_policy=FailPolicy.FAIL_CLOSED,
-            scope=HookScope.GLOBAL,
             handler=security_hook,
         )
     )
@@ -122,7 +119,6 @@ async def test_E_R06_timeout_fail_policy_controls_dispatch_flow() -> None:
             priority=1,
             timeout_ms=1,
             fail_policy=FailPolicy.FAIL_OPEN,
-            scope=HookScope.GLOBAL,
             handler=slow_open,
         )
     )
@@ -133,7 +129,6 @@ async def test_E_R06_timeout_fail_policy_controls_dispatch_flow() -> None:
             priority=2,
             timeout_ms=100,
             fail_policy=FailPolicy.FAIL_CLOSED,
-            scope=HookScope.GLOBAL,
             handler=after_open,
         )
     )
@@ -158,7 +153,6 @@ async def test_E_R06_timeout_fail_policy_controls_dispatch_flow() -> None:
             priority=1,
             timeout_ms=1,
             fail_policy=FailPolicy.FAIL_CLOSED,
-            scope=HookScope.GLOBAL,
             handler=slow_closed,
         )
     )
@@ -169,7 +163,6 @@ async def test_E_R06_timeout_fail_policy_controls_dispatch_flow() -> None:
             priority=2,
             timeout_ms=100,
             fail_policy=FailPolicy.FAIL_CLOSED,
-            scope=HookScope.GLOBAL,
             handler=after_closed,
         )
     )
@@ -200,7 +193,6 @@ async def test_E_R06_string_fail_policy_is_coerced_and_fail_closed_enforced() ->
             priority=1,
             timeout_ms=100,
             fail_policy=cast(FailPolicy, "fail_closed"),
-            scope=cast(HookScope, "global"),
             handler=failing_hook,
         )
     )
@@ -230,7 +222,6 @@ async def test_E_R06_sync_handler_timeout_is_enforced() -> None:
             priority=1,
             timeout_ms=1,
             fail_policy=FailPolicy.FAIL_CLOSED,
-            scope=HookScope.GLOBAL,
             handler=blocking_hook,
         )
     )

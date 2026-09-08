@@ -9,7 +9,6 @@ from fluxion.kernel.events import (
     BeforeToolCallPayload,
     FailPolicy,
     HookRegistration,
-    HookScope,
     TypedEventBus,
 )
 from fluxion.plugins.model_provider import (
@@ -136,7 +135,6 @@ async def test_S_P13_01_model_tool_result_returns_to_second_real_http_call(
                 priority=10,
                 timeout_ms=500,
                 fail_policy=FailPolicy.FAIL_CLOSED,
-                scope=HookScope.GLOBAL,
                 handler=lambda payload: hook_calls.append(payload.tool_id),
             )
         )

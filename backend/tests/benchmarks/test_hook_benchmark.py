@@ -10,7 +10,6 @@ from fluxion.kernel.events import (
     BeforeToolCallPayload,
     FailPolicy,
     HookRegistration,
-    HookScope,
     TypedEventBus,
 )
 
@@ -39,7 +38,6 @@ def test_B_R05_hook_dispatch_p95_under_10ms(benchmark: BenchmarkFixture) -> None
                 priority=index,
                 timeout_ms=100,
                 fail_policy=FailPolicy.FAIL_CLOSED,
-                scope=HookScope.GLOBAL,
                 handler=_noop,
             )
         )

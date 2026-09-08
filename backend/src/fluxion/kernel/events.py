@@ -13,14 +13,6 @@ from typing import Protocol, cast
 class FailPolicy(StrEnum):
     FAIL_OPEN = "fail_open"
     FAIL_CLOSED = "fail_closed"
-    IGNORE = "ignore"
-
-
-class HookScope(StrEnum):
-    GLOBAL = "global"
-    TENANT = "tenant"
-    AGENT = "agent"
-    USER = "user"
 
 
 class HookStatus(StrEnum):
@@ -90,14 +82,13 @@ type HookHandler[PayloadT: EventPayload] = Callable[[PayloadT], Awaitable[None] 
 
 @dataclass(frozen=True, slots=True)
 class HookRegistration[PayloadT: EventPayload]:
+    # 105 P2-03（TASK-007）：收敛五字段；scope/scope_id 已删（从未被消费）。
     registration_id: str
     event_type: type[PayloadT]
     priority: int
     timeout_ms: int | None
     fail_policy: FailPolicy
-    scope: HookScope
     handler: HookHandler[PayloadT]
-    scope_id: str | None = None
 
     def __post_init__(self) -> None:
         if not self.registration_id.strip():
@@ -106,7 +97,6 @@ class HookRegistration[PayloadT: EventPayload]:
             raise ValueError("timeout_ms must be positive")
         # 字符串值（如 "fail_closed"）统一强制转换为枚举，避免身份比较被绕过
         object.__setattr__(self, "fail_policy", FailPolicy(self.fail_policy))
-        object.__setattr__(self, "scope", HookScope(self.scope))
 
 
 @dataclass(frozen=True, slots=True)

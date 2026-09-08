@@ -5,7 +5,6 @@ from fluxion.kernel.events import (
     FailPolicy,
     HookRegistration,
     HookScheduler,
-    HookScope,
 )
 
 
@@ -23,7 +22,6 @@ def test_B_R02_same_priority_hook_order_is_stable() -> None:
                 priority=10,
                 timeout_ms=100,
                 fail_policy=FailPolicy.FAIL_CLOSED,
-                scope=HookScope.GLOBAL,
                 handler=_noop,
             )
         )

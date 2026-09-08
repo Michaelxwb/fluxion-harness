@@ -18,7 +18,7 @@
 | E-01 | final-remediation.backend.design.md#2.5 验收条件 | unit | 纯契约层（model＋validation） | TASK-002 | verified |
 | S-04 | final-remediation.backend.design.md#2.5 验收条件 | integration | 真实 service＋entry_points fixture 包 | TASK-006 | planned |
 | E-02 | final-remediation.backend.design.md#2.5 验收条件 | integration | 真实 service＋故障 hook | TASK-006 | planned |
-| S-05 | final-remediation.backend.design.md#2.5 验收条件 | unit | 纯契约层（enum＋dispatch） | TASK-007 | planned |
+| S-05 | final-remediation.backend.design.md#2.5 验收条件 | unit | 纯契约层（enum＋dispatch） | TASK-007 | verified |
 | S-06 | final-remediation.backend.design.md#2.5 验收条件 | unit | 真实 resolver＋PG，大量不同 user | TASK-008 | planned |
 | S-07 | final-remediation.backend.design.md#2.5 验收条件 | integration | 真实 PG＋并发 publish | TASK-009 | planned |
 | B-01 | final-remediation.backend.design.md#2.5 验收条件 | integration | 真实 PG 事务超时路径 | TASK-009 | planned |
@@ -252,7 +252,7 @@
 
 ## TASK-007: 删除 HookScope/scope_id/IGNORE
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P2
 - **Depends**:
 - **Source**: final-remediation.backend.design.md#2.3 功能方案
@@ -264,21 +264,24 @@
 删 `HookScope` 枚举、`HookRegistration.scope/scope_id`、`FailPolicy.IGNORE`（dispatch 中与 FAIL_OPEN 同分支合并）；约 10 个测试文件的 `scope=HookScope.GLOBAL` 参数机械删除；`P1ViewPage` 占位文案保留（非菜单，不动）。
 
 ### Checklist
-- [ ] [S-05][unit] 先写测试并记录 RED：`HookScope`/`IGNORE` import 即失败；既有 hook 30+ 用例全绿（仅删参数，行为不变）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] [S-05][unit] 先写测试并记录 RED：`HookScope`/`IGNORE` import 即失败（RED：3 failed）；既有 hook 30+ 用例全绿（仅删参数，行为不变）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-05 | unit | 纯契约层 | 死抽象不存在；行为无变化 | backend/tests/unit/test_hook_scheduler.py 等 | `.venv/bin/python -m pytest -q backend/tests/unit/test_hook_scheduler.py backend/tests/integration/test_hooks.py` | planned |
+| S-05 | unit | 纯契约层 | 死抽象不存在；行为无变化 | backend/tests/unit/test_hook_minimal.py＋既有 hook 套件 | `.venv/bin/python -m pytest -q backend/tests/unit/test_hook_minimal.py backend/tests/unit/test_hook_scheduler.py backend/tests/integration/test_hooks.py` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-05 | 3 failed（死抽象存在） | 3 passed；hook 相关 13＋e2e 3 passed；ruff+mypy clean（1 处 I001 既有） | test_hook_minimal.py | 纯契约层 hasattr 断言＋五字段精确断言；7 文件机械删参 | verified |
 
 ### Log
 - [2026-09-08] created (draft)
+- [2026-09-08] completed (done)：删死抽象＋7 文件同步，S-05 verified
 
 ---
 

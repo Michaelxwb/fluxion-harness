@@ -17,7 +17,6 @@ from fluxion.kernel.events import (
     FailPolicy,
     HookRegistration,
     HookScheduler,
-    HookScope,
 )
 from fluxion.plugins.contracts import (
     PluginContext,
@@ -66,7 +65,6 @@ class _AuditHookPlugin:
                 priority=10,
                 timeout_ms=100,
                 fail_policy=FailPolicy.FAIL_OPEN,
-                scope=HookScope.GLOBAL,
                 handler=_noop,
             ),
             HookRegistration(
@@ -75,7 +73,6 @@ class _AuditHookPlugin:
                 priority=10,
                 timeout_ms=100,
                 fail_policy=FailPolicy.FAIL_OPEN,
-                scope=HookScope.GLOBAL,
                 handler=_noop,
             ),
         ]
