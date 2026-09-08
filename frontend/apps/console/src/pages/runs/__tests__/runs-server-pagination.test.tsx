@@ -12,7 +12,7 @@ import type { PageData, RunDetail, RunListPage } from "../../../types/console";
 import { createConsoleFixture } from "../../../test/fixtures";
 import { renderConsole } from "../../../test/renderConsole";
 
-function runSeed(status: "succeeded" | "failed", executionId: string): RunDetail {
+function runSeed(status: RunDetail["status"], executionId: string): RunDetail {
   return {
     executionId,
     status,
@@ -106,5 +106,37 @@ describe("FEAT-03 RunsPage 服务端分页", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(screen.queryByRole("button", { name: "run_exec_001" })).toBeNull();
     expect(screen.getByRole("button", { name: "run_exec_002" })).toBeInTheDocument();
+  });
+});
+
+describe("S-F3 runs 落盘终态徽标（105 P2-02 / TASK-012）", () => {
+  it("四种终态徽标一一对应", async () => {
+    const seed = {
+      ...createConsoleFixture(),
+      runs: [
+        runSeed("completed", "run_exec_completed"),
+        runSeed("failed", "run_exec_failed"),
+        runSeed("cancelled", "run_exec_cancelled"),
+        runSeed("timed_out", "run_exec_timed_out")
+      ]
+    };
+    renderConsole({ initialView: "runs", api: createInMemoryConsoleApi(seed) });
+
+    await screen.findByRole("button", { name: "run_exec_completed" });
+    // 徽标经 .semi-tag-content 断言（失败摘要列可能复用同文案，不 Cascade 误命中）。
+    const listEl = screen.getByLabelText("执行记录列表");
+    const badges = Array.from(listEl.querySelectorAll(".semi-tag-content")).map(
+      (el) => el.textContent
+    );
+    for (const label of ["完成", "失败", "已取消", "超时"]) {
+      expect(badges).toContain(label);
+    }
+  });
+
+  it("未知终态回落灰色未知（防御未来值）", async () => {
+    const { render } = await import("@testing-library/react");
+    const { StatusTag } = await import("../../../components/StatusTag");
+    render(<StatusTag status={"archived" as RunDetail["status"]} />);
+    expect(screen.getByText("未知")).toBeInTheDocument();
   });
 });

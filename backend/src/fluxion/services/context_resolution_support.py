@@ -15,6 +15,7 @@ from fluxion.resources.contracts import ExactResourceVersion, MemoryEntryRef, Me
 if TYPE_CHECKING:
     from fluxion.memory.domain.personal_memory import PersonalMemoryRetriever
     from fluxion.registry import ChannelRegistryStore
+    from fluxion.registry.store import ScopedRegistryReader
 
 
 class ContextResolutionError(RuntimeError):
@@ -46,8 +47,13 @@ class ContextResolutionSupport:
         _memory_retriever: PersonalMemoryRetriever | None
         _memory_recall_timeout_ms: int
 
-    async def _latest_user_profile_version(self, tenant_id: str, user_id: str) -> str | None:
-        row = await self._store.get_latest_user_profile(
+    async def _latest_user_profile_version(
+        self,
+        store: ChannelRegistryStore | ScopedRegistryReader,
+        tenant_id: str,
+        user_id: str,
+    ) -> str | None:
+        row = await store.get_latest_user_profile(
             tenant_id=tenant_id, platform_user_id=user_id
         )
         return str(row["version"]) if row else None
@@ -127,11 +133,12 @@ class ContextResolutionSupport:
 
     async def _resolve_model_definition(
         self,
+        store: ChannelRegistryStore | ScopedRegistryReader,
         tenant_id: str,
         model_ref: ExactResourceVersion,
     ) -> ModelDefinition:
         """加载已发布 ModelDefinition，并校验其精确 Provider 引用。"""
-        definition = await self._store.get(
+        definition = await store.get(
             ResourceKind.MODEL_DEFINITION,
             model_ref.id,
             tenant_id=tenant_id,
@@ -150,7 +157,7 @@ class ContextResolutionSupport:
                 status_code=422,
             )
         model = ModelDefinition.model_validate(definition.spec_json)
-        provider = await self._store.get(
+        provider = await store.get(
             ResourceKind.MODEL_PROVIDER,
             model.provider_ref.id,
             tenant_id=tenant_id,
@@ -172,7 +179,11 @@ class ContextResolutionSupport:
         return model
 
     async def _resolve_capability_versions(
-        self, tenant_id: str, capabilities: list[Any], user_id: str
+        self,
+        store: ChannelRegistryStore | ScopedRegistryReader,
+        tenant_id: str,
+        capabilities: list[Any],
+        user_id: str,
     ) -> tuple[
         dict[str, str],
         dict[str, str],
@@ -183,7 +194,7 @@ class ContextResolutionSupport:
         agent_skill_pins = {
             cap.capability_ref: cap.version_pin for cap in capabilities if cap.type == "skill"
         }
-        bindings = await self._store.list_bindings(
+        bindings = await store.list_bindings(
             subject_type="user",
             subject_id=user_id,
             tenant_id=tenant_id,
@@ -201,7 +212,7 @@ class ContextResolutionSupport:
         skill_instructions: dict[str, str] = {}
         required_capabilities: set[str] = set()
         for ref, version_pin in effective_skill_pins.items():
-            row = await self._store.get(
+            row = await store.get(
                 ResourceKind.SKILL,
                 ref,
                 tenant_id=tenant_id,
@@ -228,7 +239,7 @@ class ContextResolutionSupport:
         for cap in capabilities:
             if cap.type != "mcp":
                 continue
-            row = await self._store.get(
+            row = await store.get(
                 ResourceKind.MCP,
                 cap.capability_ref,
                 tenant_id=tenant_id,
@@ -244,15 +255,24 @@ class ContextResolutionSupport:
             sorted(required_capabilities),
         )
 
-    async def _credential_versions(self, tenant_id: str, user_id: str) -> dict[str, str]:
-        bindings = await self._store.list_bindings(
+    async def _credential_binding_refs(
+        self,
+        store: ChannelRegistryStore | ScopedRegistryReader,
+        tenant_id: str,
+        user_id: str,
+    ) -> list[str]:
+        """用户 binding 上的凭据引用（纯配置读；scoped 一致读内调用）。"""
+        bindings = await store.list_bindings(
             subject_type="user", subject_id=user_id, tenant_id=tenant_id
         )
+        return list(dict.fromkeys(b.credential_ref for b in bindings if b.credential_ref))
+
+    async def _credential_versions_from_refs(
+        self, refs: list[str], tenant_id: str
+    ) -> dict[str, str]:
+        """凭据版本解析（外部 SecretStore I/O；必须在 scoped read 之外调用）。"""
         versions: dict[str, str] = {}
-        for binding in bindings:
-            ref = binding.credential_ref
-            if not ref:
-                continue
+        for ref in refs:
             if self._credential_resolver is None:
                 versions[ref] = "1"
                 continue

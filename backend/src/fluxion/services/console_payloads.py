@@ -119,6 +119,8 @@ def trace_payload(trace: TraceRecord) -> dict[str, object]:
         "tools": list(trace.tools),
         "error": trace.error,
         "latency_ms": trace.latency_ms,
+        # 105 P2-02（TASK-010）：落盘终态透传；历史 None 由前端回落"未知"。
+        "status": trace.status,
     }
 
 
@@ -141,7 +143,8 @@ def run_payload(trace: TraceRecord) -> dict[str, object]:
     return {
         "execution_id": trace.execution_id,
         "trace_id": trace.trace_id,
-        "status": "failed" if trace.error is not None else "succeeded",
+        # 105 P2-02（TASK-010）：落盘终态；历史 None 回落 legacy error 二分。
+        "status": trace.status or ("failed" if trace.error is not None else "succeeded"),
         "started_at": started_at,
         "latency_ms": trace.latency_ms,
         "error": trace.error[:500] if trace.error is not None else None,

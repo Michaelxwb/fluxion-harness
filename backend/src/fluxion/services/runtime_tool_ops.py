@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from fluxion.kernel.events import BeforeToolCallPayload, TypedEventBus
+from fluxion.kernel.events import (
+    AfterToolCallPayload,
+    BeforeToolCallPayload,
+    TypedEventBus,
+)
 from fluxion.plugins.contracts import ToolCall, ToolDescriptor
 from fluxion.plugins.model_provider import ModelProviderRegistry
 from fluxion.registry import RegistryStore
@@ -130,12 +134,16 @@ class RuntimeToolOps:
                 "tool_not_allowed", f"tool {call.tool_id} is not allowed"
             )
         await self._dispatch_before_tool(context, call)
-        return await self._execution_tool_runtime(context).call(
+        result = await self._execution_tool_runtime(context).call(
             context,
             call.tool_id,
             call.arguments,
             mcp_tool_ids=context.mcp_tool_ids,
         )
+        # 105 P1-02（TASK-006）：工具调用后分发（与 before 配对；返回值丢弃，
+        # handler 只读观测，不得篡改结果）。
+        await self._dispatch_after_tool(context, call, result)
+        return result
 
     async def _model_tool_definitions(
         self,
@@ -172,6 +180,23 @@ class RuntimeToolOps:
                 trace_id=context.snapshot.trace_id,
                 tool_id=call.tool_id,
                 arguments=dict(call.arguments),
+            ),
+            trace_sink=context,
+        )
+
+    async def _dispatch_after_tool(
+        self,
+        context: RuntimeContext,
+        call: ToolCallRequest,
+        result: ToolResult,
+    ) -> None:
+        await self._event_bus.dispatch(
+            AfterToolCallPayload(
+                tenant_id=context.snapshot.tenant_id,
+                execution_id=context.snapshot.execution_id,
+                trace_id=context.snapshot.trace_id,
+                tool_id=call.tool_id,
+                status=result.status.value,
             ),
             trace_sink=context,
         )

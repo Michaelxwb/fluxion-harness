@@ -232,3 +232,137 @@ async def test_production_bundle_wires_gateway_no_local_runtime(tmp_path) -> Non
     finally:
         await app.state.assembly.close()
     _ = ChannelApplicationService
+
+
+# --- TASK-013（S-09/E-03）：客户端侧轮询＋故障重试 ---
+
+
+def _s09_envelope() -> dict:
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "request_id": "req_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "trace_id": "trace_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "execution_id": "exec_cccccccccccccccccccccccccccccccc",
+            "service_instance_id": "instance-x",
+            "runtime_profile_id": "assistant",
+            "runtime_profile_version": "1",
+            "output": "ok",
+            "latency_ms": 1.0,
+            "model_provider_id": "dev.echo",
+            "tool_results": [],
+        },
+    }
+
+
+async def _fake_dns(*args: object, **kwargs: object) -> list[str]:
+    return ["10.0.0.1", "10.0.0.2"]
+
+
+@pytest.mark.asyncio
+async def test_S_09_requests_spread_across_endpoints(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """S-09：多 endpoint 下连续请求打散（RR），而非粘滞单实例。"""
+    import httpx
+
+    from fluxion.services import http_runtime_gateway as gw
+    from fluxion.services.http_runtime_gateway import HttpRuntimeGateway
+
+    monkeypatch.setattr(gw, "_resolve_endpoint_ips", _fake_dns)
+    hits: list[str] = []
+
+    def _handler(request: Request) -> Response:
+        hits.append(str(request.url.host))
+        return Response(200, json=_s09_envelope())
+
+    transport = MockTransport(_handler)
+    async with AsyncClient(transport=transport, base_url="http://runtime:8000") as raw:
+        gateway = HttpRuntimeGateway(base_url="http://runtime:8000", client=raw)
+        for _ in range(4):
+            await gateway.run(_run_request())
+    assert hits == ["10.0.0.1", "10.0.0.2", "10.0.0.1", "10.0.0.2"]
+    assert isinstance(httpx.ConnectError("x"), httpx.TransportError)
+
+
+@pytest.mark.asyncio
+async def test_E_03_connect_error_retries_next_endpoint_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """E-03：首选 endpoint 建连失败 → 换下一个重试一次且业务成功。"""
+    import httpx
+
+    from fluxion.services import http_runtime_gateway as gw
+    from fluxion.services.http_runtime_gateway import HttpRuntimeGateway
+
+    monkeypatch.setattr(gw, "_resolve_endpoint_ips", _fake_dns)
+    hits: list[str] = []
+
+    def _handler(request: Request) -> Response:
+        hits.append(str(request.url.host))
+        if str(request.url.host) == "10.0.0.1":
+            raise httpx.ConnectError("connection refused", request=request)
+        return Response(200, json=_s09_envelope())
+
+    transport = MockTransport(_handler)
+    async with AsyncClient(transport=transport, base_url="http://runtime:8000") as raw:
+        gateway = HttpRuntimeGateway(base_url="http://runtime:8000", client=raw)
+        result = await gateway.run(_run_request())
+    assert result.output == "ok"
+    assert hits == ["10.0.0.1", "10.0.0.2"]
+
+
+@pytest.mark.asyncio
+async def test_E_03_stream_connect_error_retries_before_first_byte(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """E-03：流式建连失败（首字节前）同样换 endpoint 重试；首字节后失败不重试。"""
+    import httpx
+
+    from fluxion.services import http_runtime_gateway as gw
+    from fluxion.services.http_runtime_gateway import HttpRuntimeGateway
+
+    monkeypatch.setattr(gw, "_resolve_endpoint_ips", _fake_dns)
+    hits: list[str] = []
+    body = 'event: completed\ndata: {"output": "ok"}\n\n'
+
+    def _handler(request: Request) -> Response:
+        hits.append(str(request.url.host))
+        if str(request.url.host) == "10.0.0.1":
+            raise httpx.ConnectError("connection refused", request=request)
+        return Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    transport = MockTransport(_handler)
+    async with AsyncClient(transport=transport, base_url="http://runtime:8000") as raw:
+        gateway = HttpRuntimeGateway(base_url="http://runtime:8000", client=raw)
+        events = [event async for event in gateway.stream(_run_request())]
+    assert [event.event for event in events] == ["completed"]
+    assert hits == ["10.0.0.1", "10.0.0.2"]
+
+
+@pytest.mark.asyncio
+async def test_E_03_read_timeout_never_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """E-03 安全 invariant：读超时（请求可能已执行）只试一次，直接 503。"""
+    import httpx
+
+    from fluxion.services import http_runtime_gateway as gw
+    from fluxion.services.http_runtime_gateway import HttpRuntimeGateway
+
+    monkeypatch.setattr(gw, "_resolve_endpoint_ips", _fake_dns)
+    calls = 0
+
+    def _handler(request: Request) -> Response:
+        nonlocal calls
+        calls += 1
+        raise httpx.ReadTimeout("slow", request=request)
+
+    transport = MockTransport(_handler)
+    async with AsyncClient(transport=transport, base_url="http://runtime:8000") as raw:
+        gateway = HttpRuntimeGateway(base_url="http://runtime:8000", client=raw)
+        with pytest.raises(RuntimeApplicationError) as exc_info:
+            await gateway.run(_run_request())
+        assert exc_info.value.code == "runtime_upstream_timeout"
+    assert calls == 1

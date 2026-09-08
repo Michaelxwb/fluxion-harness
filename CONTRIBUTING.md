@@ -73,6 +73,20 @@ pnpm exec playwright test --grep "S-P13-06"
 
 NFR 套件建议在空闲机器或独立 CI 阶段运行，避免本地负载导致性能阈值抖动。
 
+### E2E 本地排障（实机经验）
+
+- 测的是预构建包：Playwright 测的是 `frontend/apps/console/dist`，改完 console 先
+  `pnpm --filter @fluxion/console build` 再跑，否则断言的是旧包。
+- 共享 dev 库种子多为非幂等：重跑遇到 `31009 resource version already exists` /
+  `33009` 先清理对应资源残留，不要为迁就重跑去改种子逻辑。
+- 宿主端口占用：跑之前确认无残留 `fluxion serve` 进程占用目标端口
+  （`lsof -nP -iTCP:<port> -sTCP:LISTEN`），playwright webServer 异常退出会遗留进程，
+  导致请求打到旧服务上（曾出现宿主 8000 返回 `mode: dev` 而容器内是 `production`）。
+- Compose topology live-fire（S-01 类）：外部 PG 用独立容器提供（compose 内禁自带），
+  用临时 override 文件把三角色容器接入外部网段（不改 `deploy/docker/docker-compose.yml`
+  本体），先跑 `scripts/init_db.py` 建表；生产 `publish` 默认强制 Release Gate，
+  seeding 如被 gate 拦住属于预期行为，与拓扑验证无关。
+
 ## 代码规范要点
 
 - 单文件原则上不超过 500 行，单函数原则上不超过 50 行。

@@ -331,7 +331,8 @@ export interface TraceEvent {
 
 export interface RunDetail {
   readonly executionId: string;
-  readonly status: "running" | "succeeded" | "failed";
+  // 105 P2-02（TASK-012/FEAT-F3）：落盘终态四值；running/succeeded/failed 保留兼容历史种子。
+  readonly status: "running" | "succeeded" | "failed" | "completed" | "cancelled" | "timed_out";
   readonly startedAt: string;
   /** FU-02：trace 跳转（后端 run_payload.trace_id；旧种子缺失时容忍 undefined）。 */
   readonly traceId?: string;

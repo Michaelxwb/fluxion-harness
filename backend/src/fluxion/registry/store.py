@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
+from fluxion.registry.user_store import CapabilityGrantRecord
 from fluxion.resources import ResourceBinding, ResourceDefinition, ResourceKind, ResourceStatus
 
 
@@ -198,6 +199,7 @@ class ScopedRegistryReader(Protocol):
     """一致视图 reader（ADR-A016）：方法语义均为 revision-pinned。
 
     由 begin_scoped_read 产生；事务内只做配置读，Credential/Memory I/O 在外。
+    105 P2-01（TASK-009）：覆盖 resolve 配置阶段全部 6 类读。
     """
 
     async def get(
@@ -220,6 +222,29 @@ class ScopedRegistryReader(Protocol):
         resource_type: ResourceKind | None = None,
     ) -> list[ResourceBinding]: ...
 
+    async def get_user_profile_at(
+        self, *, tenant_id: str, platform_user_id: str, version: str
+    ) -> dict[str, object] | None: ...
+
+    async def get_latest_user_profile(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> dict[str, object] | None: ...
+
+    async def list_capability_grants(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> list[CapabilityGrantRecord]: ...
+    async def list_resources(
+        self,
+        kind: ResourceKind,
+        *,
+        tenant_id: str,
+        offset: int,
+        limit: int,
+        keyword: str | None = None,
+        resource_id: str | None = None,
+        status: ResourceStatus | None = None,
+    ) -> tuple[list[ResourceDefinition], int]: ...
+
 
 @runtime_checkable
 class ScopedReadStore(RegistryReadStore, Protocol):
@@ -231,7 +256,12 @@ class ScopedReadStore(RegistryReadStore, Protocol):
 
 
 @runtime_checkable
-class RegistryStore(RegistryReadStore, Protocol):
+class RegistryStore(ScopedReadStore, Protocol):
+    """Registry 主契约（105 P2-01 / TASK-009 起含 scoped read 入口）。
+
+    PG 为唯一实现（ADR-A007），所有实现必须支持一致读。
+    """
+
     async def initialize(self) -> None: ...
 
     async def close(self) -> None: ...

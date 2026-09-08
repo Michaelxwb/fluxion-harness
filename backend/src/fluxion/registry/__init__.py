@@ -4,6 +4,7 @@ from fluxion.registry.store import (
     NotFoundError,
     RegistryStore,
     RegistryStoreError,
+    ScopedRegistryReader,
     VersionConflictError,
 )
 from fluxion.registry.user_store import ProfileAttributeRecord
@@ -32,6 +33,7 @@ __all__ = [
     "RegistryReadStore",
     "RegistryStore",
     "RegistryStoreError",
+    "ScopedRegistryReader",
     "VersionConflictError",
 ]
 from fluxion.registry.channel_store import (

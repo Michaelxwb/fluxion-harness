@@ -361,7 +361,23 @@ def create_runtime_app_from_env() -> Starlette:
         memory_retriever=build_personal_memory_retriever(engine),
         memory_recall_timeout_ms=memory_recall_timeout_from_env(),
     )
-    return create_runtime_api_app(runtime_service)
+    app = create_runtime_api_app(runtime_service)
+
+    # S-01 实机发现：runtime 角色此前从不 initialize secret_store，keyring 为空，
+    # 一切凭据模型调用失败（secret_key_unavailable）。composition root 在 serving
+    # loop 内补初始化（A15：跨 loop 持有连接会坏首请求，故必须走 lifespan）。
+    inner_lifespan = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def _lifespan_with_secret_init(app: Starlette):  # type: ignore[no-untyped-def]
+        await secret_store.initialize()
+        async with inner_lifespan(app):
+            yield
+
+    app.router.lifespan_context = _lifespan_with_secret_init
+    # 可观测（dev_bundle 同款）：secret_store 挂 state 供运维/测试断言初始化。
+    app.state.secret_store = secret_store
+    return app
 
 
 async def _redirect_console(_request: Request) -> RedirectResponse:

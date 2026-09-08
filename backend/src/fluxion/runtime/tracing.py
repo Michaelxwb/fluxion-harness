@@ -12,6 +12,10 @@ def _trace_status(record: TraceRecord) -> str:
     return "failed" if record.error is not None else "succeeded"
 
 
+# 105 P2-02（TASK-010）：落盘终态四值（复用 ExecutionTerminalState）。
+TERMINAL_STATUSES = ("completed", "failed", "cancelled", "timed_out")
+
+
 def _filter_trace_records(
     records: list[TraceRecord],
     *,
@@ -22,7 +26,11 @@ def _filter_trace_records(
     result = records
     if status is not None and status.strip():
         wanted = status.strip()
-        result = [record for record in result if _trace_status(record) == wanted]
+        if wanted in TERMINAL_STATUSES:
+            # 四态按落盘 status 精确匹配（历史 None 值不命中任何终态）。
+            result = [record for record in result if record.status == wanted]
+        else:
+            result = [record for record in result if _trace_status(record) == wanted]
     if cleaned:
         result = [
             record
@@ -43,6 +51,9 @@ class TraceRecord:
     events: tuple[TraceEvent, ...]
     latency_ms: float
     error: str | None
+    # 105 P2-02（TASK-010）：落盘终态（completed/failed/cancelled/timed_out，
+    # 复用 ExecutionTerminalState）；nullable——历史记录为 None，前端回落"未知"。
+    status: str | None = None
     model: dict[str, object] | None = None
     tools: tuple[dict[str, object], ...] = ()
     hooks: tuple[dict[str, object], ...] = ()
@@ -71,7 +82,8 @@ class TraceStore(Protocol):
         status: str | None = None,
         keyword: str | None = None,
     ) -> tuple[list[TraceRecord], int]: ...
-    """执行记录分页；status 为 succeeded/failed（按 error 是否为空推导），
+    """执行记录分页；status 为四态终态（completed/failed/cancelled/timed_out，
+    按落盘 status 精确匹配）或 legacy succeeded/failed（按 error 是否为空推导），
     keyword 对 execution_id/trace_id 大小写不敏感字面子串匹配。过滤在分页前执行，
     同一集合用于分页与 count。"""
 

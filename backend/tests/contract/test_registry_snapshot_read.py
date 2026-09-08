@@ -60,6 +60,38 @@ class _FakeScopedReader:
         assert tenant_id == self._tenant_id
         return []
 
+    async def get_user_profile_at(
+        self, *, tenant_id: str, platform_user_id: str, version: str
+    ) -> dict[str, object] | None:
+        assert tenant_id == self._tenant_id
+        return None
+
+    async def get_latest_user_profile(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> dict[str, object] | None:
+        assert tenant_id == self._tenant_id
+        return None
+
+    async def list_capability_grants(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> list[object]:
+        assert tenant_id == self._tenant_id
+        return []
+
+    async def list_resources(
+        self,
+        kind: ResourceKind,
+        *,
+        tenant_id: str,
+        offset: int,
+        limit: int,
+        keyword: str | None = None,
+        resource_id: str | None = None,
+        status: object | None = None,
+    ) -> tuple[list[ResourceDefinition], int]:
+        assert tenant_id == self._tenant_id
+        return [], 0
+
 
 class _FakeScopedStore:
     @asynccontextmanager

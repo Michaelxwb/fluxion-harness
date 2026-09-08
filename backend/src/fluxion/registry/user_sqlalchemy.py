@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import delete, insert, select, update
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from fluxion.registry.schema import (
     capability_grants,
@@ -66,21 +66,33 @@ async def get_latest_profile(
     engine: AsyncEngine, *, tenant_id: str, platform_user_id: str
 ) -> dict[str, Any] | None:
     async with engine.connect() as conn:
-        row = (
-            await conn.execute(
-                select(
-                    user_profiles.c.version,
-                    user_profiles.c.profile_json,
-                    user_profiles.c.created_at,
-                )
-                .where(
-                    user_profiles.c.tenant_id == tenant_id,
-                    user_profiles.c.platform_user_id == platform_user_id,
-                )
-                .order_by(user_profiles.c.version.desc())
-                .limit(1)
+        return await fetch_latest_profile(
+            conn, tenant_id=tenant_id, platform_user_id=platform_user_id
+        )
+
+
+async def fetch_latest_profile(
+    connection: AsyncConnection, *, tenant_id: str, platform_user_id: str
+) -> dict[str, Any] | None:
+    """get_latest_profile 的连接内变体（105 P2-01 / TASK-009）：scoped 一致读共用连接。
+
+    调用方保证已在一致视图事务内；本函数不开新事务。
+    """
+    row = (
+        await connection.execute(
+            select(
+                user_profiles.c.version,
+                user_profiles.c.profile_json,
+                user_profiles.c.created_at,
             )
-        ).mappings().first()
+            .where(
+                user_profiles.c.tenant_id == tenant_id,
+                user_profiles.c.platform_user_id == platform_user_id,
+            )
+            .order_by(user_profiles.c.version.desc())
+            .limit(1)
+        )
+    ).mappings().first()
     if row is None:
         return None
     return {
@@ -101,19 +113,37 @@ async def get_profile_at(
     if not version.isdigit():
         return None
     async with engine.connect() as conn:
-        row = (
-            await conn.execute(
-                select(
-                    user_profiles.c.version,
-                    user_profiles.c.profile_json,
-                    user_profiles.c.created_at,
-                ).where(
-                    user_profiles.c.tenant_id == tenant_id,
-                    user_profiles.c.platform_user_id == platform_user_id,
-                    user_profiles.c.version == int(version),
-                )
+        return await fetch_profile_at(
+            conn, tenant_id=tenant_id, platform_user_id=platform_user_id, version=version
+        )
+
+
+async def fetch_profile_at(
+    connection: AsyncConnection,
+    *,
+    tenant_id: str,
+    platform_user_id: str,
+    version: str,
+) -> dict[str, Any] | None:
+    """get_profile_at 的连接内变体（105 P2-01 / TASK-009）：scoped 一致读共用连接。
+
+    调用方保证已在一致视图事务内；本函数不开新事务。
+    """
+    if not version.isdigit():
+        return None
+    row = (
+        await connection.execute(
+            select(
+                user_profiles.c.version,
+                user_profiles.c.profile_json,
+                user_profiles.c.created_at,
+            ).where(
+                user_profiles.c.tenant_id == tenant_id,
+                user_profiles.c.platform_user_id == platform_user_id,
+                user_profiles.c.version == int(version),
             )
-        ).mappings().first()
+        )
+    ).mappings().first()
     if row is None:
         return None
     return {
@@ -197,16 +227,23 @@ async def list_grants(
     engine: AsyncEngine, *, tenant_id: str, platform_user_id: str
 ) -> list[dict[str, Any]]:
     async with engine.connect() as conn:
-        rows = (
-            await conn.execute(
-                select(capability_grants)
-                .where(
-                    capability_grants.c.tenant_id == tenant_id,
-                    capability_grants.c.platform_user_id == platform_user_id,
-                )
-                .order_by(capability_grants.c.id.asc())
+        return await fetch_grants(conn, tenant_id=tenant_id, platform_user_id=platform_user_id)
+
+
+async def fetch_grants(
+    connection: AsyncConnection, *, tenant_id: str, platform_user_id: str
+) -> list[dict[str, Any]]:
+    """list_grants 的连接内变体（105 P2-01 / TASK-009）：scoped 一致读共用连接。"""
+    rows = (
+        await connection.execute(
+            select(capability_grants)
+            .where(
+                capability_grants.c.tenant_id == tenant_id,
+                capability_grants.c.platform_user_id == platform_user_id,
             )
-        ).mappings().all()
+            .order_by(capability_grants.c.id.asc())
+        )
+    ).mappings().all()
     return [dict(row) for row in rows]
 
 

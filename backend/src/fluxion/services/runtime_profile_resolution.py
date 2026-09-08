@@ -12,7 +12,7 @@ Agent ID == RuntimeProfile ID 的同名回退已废弃；本模块供 ContextRes
 
 from __future__ import annotations
 
-from fluxion.registry.store import RegistryStore
+from fluxion.registry.store import RegistryStore, ScopedRegistryReader
 from fluxion.resources import ResourceKind
 from fluxion.resources.contract_base import ResourceStatus
 from fluxion.resources.contracts import ResourceDefinition
@@ -24,7 +24,7 @@ _PAGE_SIZE = 100
 
 
 async def resolve_default_runtime_profile(
-    store: RegistryStore, tenant_id: str
+    store: RegistryStore | ScopedRegistryReader, tenant_id: str
 ) -> ResourceDefinition | None:
     """租户默认 → platform-default；两者皆无返回 None（调用方 fail-closed）。
 

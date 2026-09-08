@@ -46,6 +46,13 @@ PY
 # FLUXION_DBOS_SYSDB_DSN（psycopg 格式），缺省回落 FLUXION_DATABASE_URL。
 if [ "${FLUXION_ROLE}" = "worker" ]; then
   WORKER_DB="${FLUXION_DBOS_SYSDB_DSN:-${FLUXION_DATABASE_URL}}"
+  # psycopg 不识别 SQLAlchemy 方言后缀（postgresql+asyncpg://）；回落值为
+  # 应用 DSN 时转回标准 postgresql://（S-01 实机发现：未转义直接 crash）。
+  case "${WORKER_DB}" in
+    postgresql+asyncpg://*)
+      WORKER_DB="postgresql://${WORKER_DB#postgresql+asyncpg://}"
+      ;;
+  esac
   # argparse 顶层参数（--database-url/--bootstrap）必须在子命令 serve 之前
   WORKER_ARGS="--database-url ${WORKER_DB} --bootstrap ${FLUXION_WORKER_BOOTSTRAP:-fluxion.runtime.workflow_worker_bootstrap:install_production_worker_bootstrap}"
   SERVE_ARGS="serve"

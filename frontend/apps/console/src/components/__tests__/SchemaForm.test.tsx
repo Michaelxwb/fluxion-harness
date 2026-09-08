@@ -55,6 +55,19 @@ describe("RS7 SchemaForm 渲染", () => {
     expect(screen.getByText("轮数上限")).toBeInTheDocument();
   });
 
+  it("S-F1 已删 4 字段无输入入口（删除优于隐藏）", () => {
+    renderForm(runtimeProfileSchema);
+    expect(screen.queryByText("请求超时")).not.toBeInTheDocument();
+    expect(screen.queryByText("重试上限")).not.toBeInTheDocument();
+    expect(screen.queryByText("并发")).not.toBeInTheDocument();
+    expect(screen.queryByText("内存预算")).not.toBeInTheDocument();
+    const spec = specFromSchema(runtimeProfileSchema);
+    expect("request_timeout_ms" in spec).toBe(false);
+    expect("max_retries" in spec).toBe(false);
+    expect("concurrency" in spec).toBe(false);
+    expect("memory_budget_mb" in spec).toBe(false);
+  });
+
   it("运行机制数值字段可编辑", async () => {
     const user = userEvent.setup();
     const { changes } = renderForm(runtimeProfileSchema);

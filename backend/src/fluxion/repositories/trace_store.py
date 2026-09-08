@@ -102,7 +102,10 @@ class PostgresTraceStore:
     ) -> tuple[list[TraceRecord], int]:
         filters = [trace_records.c.tenant_id == tenant_id]
         wanted = (status or "").strip()
-        if wanted == "succeeded":
+        if wanted in ("completed", "failed", "cancelled", "timed_out"):
+            # 105 P2-02（TASK-010）：四态按落盘 status 列精确匹配。
+            filters.append(trace_records.c.status == wanted)
+        elif wanted == "succeeded":
             filters.append(trace_records.c.error.is_(None))
         elif wanted == "failed":
             filters.append(trace_records.c.error.is_not(None))
@@ -219,6 +222,7 @@ def _to_row(record: TraceRecord) -> dict[str, Any]:
         ],
         "latency_ms": record.latency_ms,
         "error": record.error,
+        "status": record.status,
         "model_json": record.model,
         "tools_json": list(record.tools),
         "hooks_json": list(record.hooks),
@@ -238,6 +242,7 @@ def _from_row(row: Any) -> TraceRecord:
         )
         for event in (row["events_json"] or [])
     )
+    columns = set(row.keys())
     return TraceRecord(
         trace_id=str(row["trace_id"]),
         execution_id=str(row["execution_id"]),
@@ -248,6 +253,8 @@ def _from_row(row: Any) -> TraceRecord:
         events=events,
         latency_ms=float(row["latency_ms"]),
         error=row["error"],
+        # 105 P2-02（TASK-010）：旧表无 status 列时回落 None（DB 重建后恒有值）。
+        status=str(row["status"]) if "status" in columns and row["status"] is not None else None,
         model=row["model_json"],
         tools=tuple(row["tools_json"] or ()),
         hooks=tuple(row["hooks_json"] or ()),

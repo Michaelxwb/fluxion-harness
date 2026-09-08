@@ -352,7 +352,7 @@ def _current_row_filters(
 
 
 async def _list_resource_rows(
-    engine: AsyncEngine,
+    engine_or_connection: AsyncEngine | AsyncConnection,
     *,
     kind: ResourceKind | None,
     tenant_id: str,
@@ -363,6 +363,11 @@ async def _list_resource_rows(
     resource_id: str | None = None,
     status: ResourceStatus | None = None,
 ) -> tuple[list[ResourceDefinition], int]:
+    engine = (
+        engine_or_connection.engine
+        if isinstance(engine_or_connection, AsyncConnection)
+        else engine_or_connection
+    )
     kind_scope = [resource_definitions.c.kind == kind.value] if kind is not None else []
     if published_only:
         status_filters = [resource_definitions.c.status == ResourceStatus.PUBLISHED.value]
@@ -429,9 +434,15 @@ async def _list_resource_rows(
             .distinct()
         )
         count_statement = select(func.count()).select_from(distinct_pairs.subquery())
-    async with engine.connect() as connection:
-        rows = (await connection.execute(items_statement)).mappings().all()
-        total = int((await connection.execute(count_statement)).scalar_one())
+    # 105 P2-01（TASK-009）：连接复用分支——scoped 一致读在持有连接上执行，
+    # 不另开事务；engine 分支行为不变。
+    if isinstance(engine_or_connection, AsyncConnection):
+        rows = (await engine_or_connection.execute(items_statement)).mappings().all()
+        total = int((await engine_or_connection.execute(count_statement)).scalar_one())
+    else:
+        async with engine_or_connection.connect() as connection:
+            rows = (await connection.execute(items_statement)).mappings().all()
+            total = int((await connection.execute(count_statement)).scalar_one())
     return [_definition_from_row(row) for row in rows], total
 
 

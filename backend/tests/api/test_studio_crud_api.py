@@ -72,7 +72,8 @@ async def test_be_s_01_studio_agent_create_publish_and_list() -> None:
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="profile-1",
             version="1",
-            spec={"request_timeout_ms": 30_000, "max_retries": 1},
+            # V2（105 P1-01 方案A / TASK-004）：仅有效字段。
+            spec={"max_rounds": 8, "default": True},
         )
         created = await stack.client.post(
             "/studio/agents",

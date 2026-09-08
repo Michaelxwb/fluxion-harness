@@ -171,7 +171,10 @@ export function RunsPage({ api }: RunsPageProps) {
                         optionList={[
                           { label: "全部状态", value: "" },
                           { label: "成功", value: "succeeded" },
+                          { label: "完成", value: "completed" },
                           { label: "失败", value: "failed" },
+                          { label: "已取消", value: "cancelled" },
+                          { label: "超时", value: "timed_out" },
                           { label: "运行中", value: "running" }
                         ]}
                         placeholder="状态"
@@ -245,7 +248,7 @@ function RunTable({ agentNames, onSelect, runs }: RunTableProps) {
         <Typography.Text
           ellipsis={{ showTooltip: true }}
           style={{ maxWidth: 240 }}
-          type={record.status === "failed" ? "danger" : "tertiary"}
+          type={isUnsuccessfulRun(record.status) ? "danger" : "tertiary"}
         >
           {failureSummary(record)}
         </Typography.Text>
@@ -284,11 +287,19 @@ function failureSummary(run: RunDetail): string {
   if (run.error) {
     return run.error;
   }
-  if (run.status !== "failed") {
+  if (!isUnsuccessfulRun(run.status)) {
     return "—";
   }
   const clue = run.traceEvents.find((event) => /error|fail/i.test(event.event));
-  return clue ? clue.event : "失败（详情见 Trace）";
+  if (clue) return clue.event;
+  if (run.status === "cancelled") return "已取消";
+  if (run.status === "timed_out") return "超时";
+  return "失败（详情见 Trace）";
+}
+
+/** 非成功终态（失败/取消/超时；兼容 legacy failed）。 */
+function isUnsuccessfulRun(status: RunDetail["status"]): boolean {
+  return status === "failed" || status === "cancelled" || status === "timed_out";
 }
 
 /** 耗时格式化（latency_ms；缺失显示占位，后端补字段前）。 */
@@ -331,7 +342,7 @@ function RunDetailSideSheet({
               <Descriptions.Item itemKey="耗时">
                 {formatLatency(run.latencyMs)}
               </Descriptions.Item>
-              {run.status === "failed" ? (
+              {isUnsuccessfulRun(run.status) ? (
                 <Descriptions.Item itemKey="失败摘要">{failureSummary(run)}</Descriptions.Item>
               ) : null}
             </Descriptions>

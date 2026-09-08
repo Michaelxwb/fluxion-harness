@@ -162,216 +162,254 @@ class ContextResolver(ContextResolutionSupport):
             del self._l1_cache[cache_key]
         started = time.perf_counter()
         # 1. identity：user_id 视为 platform_user_id（Channel 层已解析；无前缀
-        # 直传，channel_user_id 回退见 _resolve_platform_user）
+        # 直传，channel_user_id 回退见 _resolve_platform_user）。
+        # 105 P2-01（TASK-009）：身份映射在 scope 之外——channel 映射非版本化
+        # 快照配置；scope 内只做 6 类配置读。
         started = time.perf_counter()
         if not selector.tenant_id.strip() or not selector.user_id.strip():
             raise ContextResolutionError(code="identity_missing", message="identity required", status_code=401)
         platform_user_id = await self._resolve_platform_user(selector.tenant_id, selector.user_id)
         _stage("identity", platform_user_id, started)
+        user_key = platform_user_id or selector.user_id
 
-        # 2. user：User Profile 版本（可选；pin 校验 fail-closed）
-        started = time.perf_counter()
-        user_profile_version = selector.user_profile_version
-        if user_profile_version is not None:
-            row = await self._store.get_user_profile_at(
-                tenant_id=selector.tenant_id,
-                platform_user_id=selector.user_id,
-                version=user_profile_version,
-            )
-            if row is None:
-                raise ContextResolutionError(code="user_profile_not_found", message=f"user profile @{user_profile_version} not found", status_code=404)
-        else:
-            user_profile_version = await self._latest_user_profile_version(selector.tenant_id, selector.user_id)
-        _stage("user", user_profile_version, started)
+        # 105 P2-01（TASK-009）：单次 scoped read 包裹"读 revision→读 6 类配置"；
+        # Credential/Memory 外部 I/O 在 scope 之外（见 scope 后的两段）。
+        # helper 显式传 scope reader（无 self._store 替换、无 hasattr 分叉；
+        # resolver 跨请求复用，禁止可变共享状态）。
+        async with self._store.begin_scoped_read(
+            tenant_id=selector.tenant_id
+        ) as scope:
+            # 2. user：User Profile 版本（可选；pin 校验 fail-closed）
+            started = time.perf_counter()
+            user_profile_version = selector.user_profile_version
+            if user_profile_version is not None:
+                row = await scope.get_user_profile_at(
+                    tenant_id=selector.tenant_id,
+                    platform_user_id=selector.user_id,
+                    version=user_profile_version,
+                )
+                if row is None:
+                    raise ContextResolutionError(code="user_profile_not_found", message=f"user profile @{user_profile_version} not found", status_code=404)
+            else:
+                user_profile_version = await self._latest_user_profile_version(
+                    scope, selector.tenant_id, selector.user_id
+                )
+            _stage("user", user_profile_version, started)
 
-        # 3. agent：AgentDefinition（latest published，或 selector pin）
-        started = time.perf_counter()
-        agent = await self._store.get(
-            ResourceKind.AGENT_DEFINITION, selector.agent_id, tenant_id=selector.tenant_id
-        )
-        if agent is None:
-            raise ContextResolutionError(code="agent_not_found", message=f"agent_not_found: {selector.agent_id}", status_code=404)
-        _stage("agent", agent.version, started)
+            # 3. agent：AgentDefinition（latest published，或 selector pin）
+            started = time.perf_counter()
+            agent = await scope.get(
+                ResourceKind.AGENT_DEFINITION, selector.agent_id, tenant_id=selector.tenant_id
+            )
+            if agent is None:
+                raise ContextResolutionError(code="agent_not_found", message=f"agent_not_found: {selector.agent_id}", status_code=404)
+            _stage("agent", agent.version, started)
 
-        # 4. runtime：Agent.runtime_profile_ref → RuntimeProfile；未配置时走
-        # ADR-A010 默认链（Tenant Default → platform-default），同名回退已废弃。
-        started = time.perf_counter()
-        agent_spec = AgentDefinition.model_validate(agent.spec_json)
-        if agent_spec.runtime_profile_ref is not None:
-            profile_id = agent_spec.runtime_profile_ref.id
-            profile_version = selector.runtime_profile_version or agent_spec.runtime_profile_ref.version
-            profile_row = await self._store.get(
-                ResourceKind.RUNTIME_PROFILE, profile_id, tenant_id=selector.tenant_id,
-                version=None if profile_version == "latest-published" else profile_version,
-            )
-            if profile_row is None:
-                raise ContextResolutionError(code="runtime_profile_not_found", message=f"{profile_id}@{profile_version} not found", status_code=404)
-        elif selector.runtime_profile_version is not None:
-            # 版本 pin 依赖 ref 提供目标坐标；无 ref 的 pin 是矛盾输入，fail-closed。
-            raise ContextResolutionError(
-                code="runtime_profile_ref_required",
-                message=(
-                    "runtime_profile_version pin requires Agent.runtime_profile_ref "
-                    "(same-name fallback removed per ADR-A010)"
-                ),
-                status_code=409,
-            )
-        else:
-            profile_row = await resolve_default_runtime_profile(
-                self._store, selector.tenant_id
-            )
-            if profile_row is None:
+            # 4. runtime：Agent.runtime_profile_ref → RuntimeProfile；未配置时走
+            # ADR-A010 默认链（Tenant Default → platform-default），同名回退已废弃。
+            started = time.perf_counter()
+            agent_spec = AgentDefinition.model_validate(agent.spec_json)
+            if agent_spec.runtime_profile_ref is not None:
+                profile_id = agent_spec.runtime_profile_ref.id
+                profile_version = selector.runtime_profile_version or agent_spec.runtime_profile_ref.version
+                profile_row = await scope.get(
+                    ResourceKind.RUNTIME_PROFILE, profile_id, tenant_id=selector.tenant_id,
+                    version=None if profile_version == "latest-published" else profile_version,
+                )
+                if profile_row is None:
+                    raise ContextResolutionError(code="runtime_profile_not_found", message=f"{profile_id}@{profile_version} not found", status_code=404)
+            elif selector.runtime_profile_version is not None:
+                # 版本 pin 依赖 ref 提供目标坐标；无 ref 的 pin 是矛盾输入，fail-closed。
                 raise ContextResolutionError(
-                    code="runtime_profile_default_missing",
+                    code="runtime_profile_ref_required",
                     message=(
-                        "no default RuntimeProfile: tenant default (default=true, published) "
-                        "and platform-default both missing (ADR-A010)"
+                        "runtime_profile_version pin requires Agent.runtime_profile_ref "
+                        "(same-name fallback removed per ADR-A010)"
                     ),
                     status_code=409,
                 )
-        _stage("runtime", profile_row.version, started)
-
-        # 5. model：ADR-A008 三层解析——AgentDefinition.model_policy →
-        # ModelDefinition → ProviderDefinition。任一引用缺失 fail-closed，
-        # 不回退 legacy 直引（双事实源消灭）；回退链归 ModelPolicy（归属切分），
-        # 不再消费 RuntimeProfile.model_failover。
-        profile_spec = RuntimeProfile.model_validate(profile_row.spec_json)
-        model_refs = [
-            agent_spec.model_policy.primary_model_ref,
-            *agent_spec.model_policy.fallback_model_refs,
-        ]
-        models = [
-            await self._resolve_model_definition(selector.tenant_id, ref) for ref in model_refs
-        ]
-        model_resolution = ModelPolicy(
-            routes=[
-                ResolvedModelRoute(provider_ref=item.provider_ref, model_ref=ref, model=item.name)
-                for ref, item in zip(model_refs, models)
-            ],
-            model_timeout_ms=agent_spec.model_policy.model_timeout_ms,
-            max_rounds=profile_spec.max_rounds,
-            model_deadline_ms=agent_spec.model_policy.model_deadline_ms,
-        )
-        # ADR-A003 amend：typed pins——provider 与 model 分别 exact version pin。
-        provider_versions = {
-            item.provider_ref.id: item.provider_ref.version for item in models
-        }
-        model_versions = {ref.id: ref.version for ref in model_refs}
-
-        # 6. profile：User Profile 版本已解析（stage 2）
-
-        # 6. memory：PersonalMemoryRetriever recall → manifest（失败降级空 manifest）
-        started = time.perf_counter()
-        manifest = await self._memory_manifest(
-            selector.tenant_id, platform_user_id or selector.user_id, memory_query, memory_budget,
-            request_id=request_id, trace_id=trace_id,
-        )
-        _stage("memory", manifest.content_hash or None, started)
-
-        # 7. capability：Agent capabilities（typed 三元组）+ skill/mcp/plugin 版本解析
-        started = time.perf_counter()
-        capabilities = [
-            {"type": ref.type.value, "capability_ref": ref.capability_ref, "version_pin": ref.version_pin}
-            for ref in agent_spec.capabilities
-        ]
-        (
-            skill_versions,
-            mcp_versions,
-            skill_instructions,
-            skill_required_capabilities,
-        ) = await self._resolve_capability_versions(
-            selector.tenant_id, agent_spec.capabilities, selector.user_id
-        )
-        _stage("capability", None, started)
-
-        # 8. credential：bindings credential_ref → versions（只存 ref→version）
-        started = time.perf_counter()
-        credential_versions = await self._credential_versions(selector.tenant_id, platform_user_id or selector.user_id)
-        # ADR-A003 amend（TASK-005）：provider credential 选择在构建期收口——
-        # 对每个 provider 冻结最终 credential_ref（运行期按此 ref 解密，不重选）。
-        provider_credentials: dict[str, str] = {}
-        for route in model_resolution.routes:
-            provider_spec = await self._store.get(
-                ResourceKind.MODEL_PROVIDER,
-                route.provider_ref.id,
-                tenant_id=selector.tenant_id,
-                version=route.provider_ref.version,
-            )
-            if provider_spec is None or provider_spec.status is not ResourceStatus.PUBLISHED:
-                raise ContextResolutionError(
-                    code="model_provider_not_found",
-                    message=f"model_provider {route.provider_ref.id}@{route.provider_ref.version} not found",
-                    status_code=422,
+            else:
+                profile_row = await resolve_default_runtime_profile(
+                    scope, selector.tenant_id
                 )
-            provider_credentials[route.provider_ref.id] = await resolve_effective_credential_ref(
-                self._store,
+                if profile_row is None:
+                    raise ContextResolutionError(
+                        code="runtime_profile_default_missing",
+                        message=(
+                            "no default RuntimeProfile: tenant default (default=true, published) "
+                            "and platform-default both missing (ADR-A010)"
+                        ),
+                        status_code=409,
+                    )
+            _stage("runtime", profile_row.version, started)
+
+            # 5. model：ADR-A008 三层解析——AgentDefinition.model_policy →
+            # ModelDefinition → ProviderDefinition。任一引用缺失 fail-closed，
+            # 不回退 legacy 直引（双事实源消灭）；回退链归 ModelPolicy（归属切分），
+            # 不再消费 RuntimeProfile.model_failover。
+            profile_spec = RuntimeProfile.model_validate(profile_row.spec_json)
+            model_refs = [
+                agent_spec.model_policy.primary_model_ref,
+                *agent_spec.model_policy.fallback_model_refs,
+            ]
+            models = [
+                await self._resolve_model_definition(scope, selector.tenant_id, ref) for ref in model_refs
+            ]
+            model_resolution = ModelPolicy(
+                routes=[
+                    ResolvedModelRoute(provider_ref=item.provider_ref, model_ref=ref, model=item.name)
+                    for ref, item in zip(model_refs, models)
+                ],
+                model_timeout_ms=agent_spec.model_policy.model_timeout_ms,
+                max_rounds=profile_spec.max_rounds,
+                model_deadline_ms=agent_spec.model_policy.model_deadline_ms,
+            )
+            # ADR-A003 amend：typed pins——provider 与 model 分别 exact version pin。
+            provider_versions = {
+                item.provider_ref.id: item.provider_ref.version for item in models
+            }
+            model_versions = {ref.id: ref.version for ref in model_refs}
+
+            # 6. profile：User Profile 版本已解析（stage 2）
+
+            # 6. memory：PersonalMemoryRetriever recall → manifest（失败降级空 manifest）
+            # store-free（只经注入 retriever），在 scope 内外均可；放 scope 外，
+            # 与 credential 外部 I/O 同段，保持 scope 纯配置读。
+            # （具体调用见 scope 后的外部 I/O 段。)
+
+            # 7. capability：Agent capabilities（typed 三元组）+ skill/mcp/plugin 版本解析
+            started = time.perf_counter()
+            capabilities = [
+                {"type": ref.type.value, "capability_ref": ref.capability_ref, "version_pin": ref.version_pin}
+                for ref in agent_spec.capabilities
+            ]
+            (
+                skill_versions,
+                mcp_versions,
+                skill_instructions,
+                skill_required_capabilities,
+            ) = await self._resolve_capability_versions(
+                scope, selector.tenant_id, agent_spec.capabilities, selector.user_id
+            )
+            _stage("capability", None, started)
+
+            # 8a. credential：bindings credential_ref 收集（纯配置读，scope 内）；
+            # 元数据解析（外部 SecretStore I/O）在 scope 外，见 8b。
+            started = time.perf_counter()
+            credential_refs = await self._credential_binding_refs(
+                scope, selector.tenant_id, user_key
+            )
+            # ADR-A003 amend（TASK-005）：provider credential 选择在构建期收口——
+            # 对每个 provider 冻结最终 credential_ref（运行期按此 ref 解密，不重选）。
+            provider_credentials: dict[str, str] = {}
+            for route in model_resolution.routes:
+                provider_spec = await scope.get(
+                    ResourceKind.MODEL_PROVIDER,
+                    route.provider_ref.id,
+                    tenant_id=selector.tenant_id,
+                    version=route.provider_ref.version,
+                )
+                if provider_spec is None or provider_spec.status is not ResourceStatus.PUBLISHED:
+                    raise ContextResolutionError(
+                        code="model_provider_not_found",
+                        message=f"model_provider {route.provider_ref.id}@{route.provider_ref.version} not found",
+                        status_code=422,
+                    )
+                assert provider_spec is not None  # 上分支已 fail-closed
+                provider_credentials[route.provider_ref.id] = await resolve_effective_credential_ref(
+                scope,
                 provider_id=route.provider_ref.id,
                 tenant_id=selector.tenant_id,
                 user_id=selector.user_id,
                 spec=provider_spec.spec_json,
             )
+            # stage 记时点在 scope 外 8b（元数据解析完成后）统一记录。
+
+            # 9. policy：tenant policy version（经 tenant POLICY binding 解析；无则 latest-published）
+            started = time.perf_counter()
+            policy_bindings = await scope.list_bindings(
+                subject_type="tenant",
+                subject_id=selector.tenant_id,
+                tenant_id=selector.tenant_id,
+                resource_type=ResourceKind.POLICY,
+            )
+            policy_versions = {
+                binding.resource_id: binding.resource_version_selector
+                for binding in policy_bindings
+            }
+            _stage("policy", policy_versions.get("tenant"), started)
+
+            # effective permissions（tool 授权三元组，构建期冻结，执行期不再实时重算）
+            agent_tool_refs = {c["capability_ref"] for c in capabilities if c["type"] == "tool"}
+            # TASK-006：closure 校验——skill 的 required_capabilities 必须已被 agent 声明
+            # 覆盖；skill 不再隐式扩张 agent 工具权限（RULE-04），越出则 fail-closed。
+            undeclared = set(skill_required_capabilities) - agent_tool_refs
+            if undeclared:
+                raise ContextResolutionError(
+                    code="skill_closure_violation",
+                    message=f"skill requires capabilities not declared by agent: {sorted(undeclared)}",
+                    status_code=422,
+                )
+            agent_tools = agent_tool_refs
+            grants = await scope.list_capability_grants(
+                tenant_id=selector.tenant_id,
+                platform_user_id=user_key,
+            )
+            user_tools = {g.capability_ref for g in grants if g.capability_kind == "tool"}
+            policy_allowed, policy_denied, policy_configured = (
+                await EffectiveCapabilityResolver(scope).tenant_policy_tools(
+                    tenant_id=selector.tenant_id
+                )
+            )
+            # RULE-02 三维真值表（design/02 §3）：User/Agent/Tenant 任一维度缺失即
+            # deny。无 tenant policy → tenant 维度为空集（fail-closed），不再拷贝
+            # user_tools（TASK-003 返工）；policy 模式与 denied 集冻结进 snapshot，
+            # 运行期 frozen_tool_policy 按模式展开（deny_only = 除 denied 外全部）。
+            if not policy_configured:
+                tenant_tools: set[str] = set()
+                tenant_policy_mode = "unconfigured"
+            elif policy_allowed:
+                tenant_tools = set(policy_allowed)
+                tenant_policy_mode = "allow_list"
+            else:
+                tenant_tools = set()
+                tenant_policy_mode = "deny_only"
+            if policy_denied:
+                user_tools = user_tools - policy_denied
+                agent_tools = agent_tools - policy_denied
+                tenant_tools = tenant_tools - policy_denied
+
+            # 用户 binding 版本（纯配置读，scope 内收集；组装在 scope 外）。
+            user_bindings = await scope.list_bindings(
+                subject_type="user",
+                subject_id=selector.user_id,
+                tenant_id=selector.tenant_id,
+            )
+            binding_versions = {
+                b.binding_id: b.resource_version_selector for b in user_bindings
+            }
+
+        # 105 P2-01（TASK-009）：scope 出口——之后只有外部 I/O（Memory/Secret）
+        # 与纯组装，不再读 Registry，同一快照无混合 revision。
+        started = time.perf_counter()
+        manifest = await self._memory_manifest(
+            selector.tenant_id, user_key, memory_query, memory_budget,
+            request_id=request_id, trace_id=trace_id,
+        )
+        _stage("memory", manifest.content_hash or None, started)
+
+        started = time.perf_counter()
+        credential_versions = await self._credential_versions_from_refs(
+            credential_refs, selector.tenant_id
+        )
         _stage("credential", None, started)
 
-        # 9. policy：tenant policy version（经 tenant POLICY binding 解析；无则 latest-published）
-        started = time.perf_counter()
-        policy_bindings = await self._store.list_bindings(
-            subject_type="tenant",
-            subject_id=selector.tenant_id,
-            tenant_id=selector.tenant_id,
-            resource_type=ResourceKind.POLICY,
-        )
-        policy_versions = {
-            binding.resource_id: binding.resource_version_selector
-            for binding in policy_bindings
-        }
-        _stage("policy", policy_versions.get("tenant"), started)
-
-        # effective permissions（tool 授权三元组，构建期冻结，执行期不再实时重算）
-        agent_tool_refs = {c["capability_ref"] for c in capabilities if c["type"] == "tool"}
-        # TASK-006：closure 校验——skill 的 required_capabilities 必须已被 agent 声明
-        # 覆盖；skill 不再隐式扩张 agent 工具权限（RULE-04），越出则 fail-closed。
-        undeclared = set(skill_required_capabilities) - agent_tool_refs
-        if undeclared:
-            raise ContextResolutionError(
-                code="skill_closure_violation",
-                message=f"skill requires capabilities not declared by agent: {sorted(undeclared)}",
-                status_code=422,
-            )
-        agent_tools = agent_tool_refs
-        grants = await self._store.list_capability_grants(
-            tenant_id=selector.tenant_id,
-            platform_user_id=platform_user_id or selector.user_id,
-        )
-        user_tools = {g.capability_ref for g in grants if g.capability_kind == "tool"}
-        policy_allowed, policy_denied, policy_configured = (
-            await EffectiveCapabilityResolver(self._store).tenant_policy_tools(
-                tenant_id=selector.tenant_id
-            )
-        )
-        # RULE-02 三维真值表（design/02 §3）：User/Agent/Tenant 任一维度缺失即
-        # deny。无 tenant policy → tenant 维度为空集（fail-closed），不再拷贝
-        # user_tools（TASK-003 返工）；policy 模式与 denied 集冻结进 snapshot，
-        # 运行期 frozen_tool_policy 按模式展开（deny_only = 除 denied 外全部）。
-        if not policy_configured:
-            tenant_tools: set[str] = set()
-            tenant_policy_mode = "unconfigured"
-        elif policy_allowed:
-            tenant_tools = set(policy_allowed)
-            tenant_policy_mode = "allow_list"
-        else:
-            tenant_tools = set()
-            tenant_policy_mode = "deny_only"
-        if policy_denied:
-            user_tools = user_tools - policy_denied
-            agent_tools = agent_tools - policy_denied
-            tenant_tools = tenant_tools - policy_denied
-
-        # 10. snapshot：V2 全字段 + canonical digest
+        # 10. snapshot：V2 全字段 + canonical digest（纯组装，无 I/O）
         started = time.perf_counter()
         snapshot = ExecutionSnapshot(
             execution_id=identity.execution_id,
             tenant_id=selector.tenant_id,
-            user_id=platform_user_id or selector.user_id,
+            user_id=user_key,
             runtime_profile_id=profile_row.id,
             runtime_profile_version=profile_row.version,
             agent_definition_id=agent.id,
@@ -399,14 +437,7 @@ class ContextResolver(ContextResolutionSupport):
             provider_versions=provider_versions,
             model_versions=model_versions,
             policy_version=policy_versions.get("tenant"),
-            binding_versions={
-                b.binding_id: b.resource_version_selector
-                for b in await self._store.list_bindings(
-                    subject_type="user",
-                    subject_id=selector.user_id,
-                    tenant_id=selector.tenant_id,
-                )
-            },
+            binding_versions=binding_versions,
             user_profile_version=user_profile_version,
             policy_versions=policy_versions,
             credential_versions=credential_versions,
@@ -417,7 +448,7 @@ class ContextResolver(ContextResolutionSupport):
         _stage("snapshot", (snapshot.snapshot_digest or "")[:12], started)
 
         user_context = {
-            "user_id": platform_user_id or selector.user_id,
+            "user_id": user_key,
             "profile_version": user_profile_version,
             "capabilities": capabilities,
             "memory_manifest": manifest.model_dump(),

@@ -11,7 +11,7 @@ from fluxion.plugins.contracts import (
     ModelResponse,
 )
 from fluxion.plugins.model_provider import OpenAICompatibleHTTPModelProvider
-from fluxion.registry import RegistryReadStore
+from fluxion.registry import RegistryReadStore, ScopedRegistryReader
 from fluxion.resources import ResourceBinding, ResourceKind, ResourceStatus
 from fluxion.runtime.secrets import CredentialResolver, SecretProviderError
 
@@ -108,7 +108,7 @@ class RegistryOpenAIModelProvider:
 
 
 async def resolve_effective_credential_ref(
-    store: RegistryReadStore,
+    store: RegistryReadStore | ScopedRegistryReader,
     *,
     provider_id: str,
     tenant_id: str,
@@ -151,6 +151,8 @@ def _provider_from_spec(
     spec: Mapping[str, object],
     credential: str | None,
 ) -> OpenAICompatibleHTTPModelProvider:
+    # 105 P1-01（TASK-003）隔离声明：此处的 request_timeout_ms/max_retries 是
+    # ModelProvider 自身连接语义，与已删除的 RuntimeProfile 幽灵字段同名不同义，保留不动。
     return OpenAICompatibleHTTPModelProvider(
         provider_id=provider_id,
         api_base_url=_required_string(spec, "base_url"),

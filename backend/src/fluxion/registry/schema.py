@@ -486,6 +486,9 @@ trace_records = Table(
     Column("events_json", JSON, nullable=False),
     Column("latency_ms", Float, nullable=False),
     Column("error", Text, nullable=True),
+    # 105 P2-02（TASK-010）：落盘终态（completed/failed/cancelled/timed_out）；
+    # nullable（DB 删除重建消化，无迁移；新写入必带值由类型保证）。
+    Column("status", String(32), nullable=True),
     Column("model_json", JSON, nullable=True),
     Column("tools_json", JSON, nullable=True),
     Column("hooks_json", JSON, nullable=True),

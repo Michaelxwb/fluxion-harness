@@ -1,7 +1,7 @@
 version: 1
 task: final-remediation
 enforcement: required
-updated_at: '2026-09-07T23:23:46.837295+00:00'
+updated_at: '2026-09-08T03:53:07.715562+00:00'
 sources:
 - type: cli
   ref: align
@@ -43,12 +43,16 @@ bindings:
         - artifact: final-remediation.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 1bc1ef6e1c03b86e5bc176f800369b2a9f9a758dac99bbef5511f8d7dd3f213b
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: final-remediation.md
+          section_id: TASK-009
+          item_id: B-01
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       review:
@@ -197,12 +201,16 @@ bindings:
         - artifact: final-remediation.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 1bc1ef6e1c03b86e5bc176f800369b2a9f9a758dac99bbef5511f8d7dd3f213b
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: final-remediation.md
+          section_id: TASK-009
+          item_id: S-07
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       review:
@@ -431,12 +439,16 @@ bindings:
         - artifact: final-remediation.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 1bc1ef6e1c03b86e5bc176f800369b2a9f9a758dac99bbef5511f8d7dd3f213b
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: final-remediation.md
+          section_id: TASK-006
+          item_id: E-02
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       review:
@@ -585,12 +597,16 @@ bindings:
         - artifact: final-remediation.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 1bc1ef6e1c03b86e5bc176f800369b2a9f9a758dac99bbef5511f8d7dd3f213b
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: final-remediation.md
+          section_id: TASK-001
+          item_id: S-01
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       review:
@@ -792,12 +808,16 @@ bindings:
         - artifact: final-remediation.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 1bc1ef6e1c03b86e5bc176f800369b2a9f9a758dac99bbef5511f8d7dd3f213b
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: final-remediation.md
+          section_id: TASK-008
+          item_id: S-06
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       review:
@@ -843,12 +863,16 @@ bindings:
         - artifact: final-remediation.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 1bc1ef6e1c03b86e5bc176f800369b2a9f9a758dac99bbef5511f8d7dd3f213b
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: final-remediation.md
+          section_id: TASK-002
+          item_id: S-02
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       review:
@@ -894,12 +918,16 @@ bindings:
         - artifact: final-remediation.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 1bc1ef6e1c03b86e5bc176f800369b2a9f9a758dac99bbef5511f8d7dd3f213b
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: final-remediation.md
+          section_id: TASK-006
+          item_id: S-04
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       review:
@@ -944,12 +972,16 @@ bindings:
         - artifact: final-remediation.md
           section_id: TASK-011
           item_id: TASK-011
-          artifact_sha256: 1bc1ef6e1c03b86e5bc176f800369b2a9f9a758dac99bbef5511f8d7dd3f213b
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: final-remediation.md
+          section_id: TASK-011
+          item_id: S-F2
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       review:
@@ -1205,12 +1237,16 @@ bindings:
         - artifact: final-remediation.md
           section_id: TASK-011
           item_id: TASK-011
-          artifact_sha256: 1bc1ef6e1c03b86e5bc176f800369b2a9f9a758dac99bbef5511f8d7dd3f213b
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: final-remediation.md
+          section_id: TASK-011
+          item_id: S-F1
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       review:
@@ -1412,12 +1448,16 @@ bindings:
         - artifact: final-remediation.md
           section_id: TASK-012
           item_id: TASK-012
-          artifact_sha256: 1bc1ef6e1c03b86e5bc176f800369b2a9f9a758dac99bbef5511f8d7dd3f213b
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: final-remediation.md
+          section_id: TASK-012
+          item_id: S-F3
+          artifact_sha256: 4d3d2557360a6f733dd11b19279c04935d074504ee88532042d3d0ae33669bb3
         decision: null
         evidence: []
       review:

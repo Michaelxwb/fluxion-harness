@@ -39,8 +39,7 @@ async function seedAndRun(request: APIRequestContext): Promise<void> {
     provider_ref: { id: "dev.echo", version: "1" }
   });
   await ensureCreated(request, "runtime_profile", "runs-profile", {
-    request_timeout_ms: 3000,
-    max_retries: 0,
+    // V2（105 P1-01 方案 A）：仅有效字段。
     max_rounds: 2
   });
   await ensureCreated(request, "agent_definition", "runs-agent", {
@@ -95,8 +94,9 @@ test("F-S-14 Run 点击 → SideSheet 全分区只读；无 Queue/Worker 区块"
   // 2. 默认不选中：无内联 Run Detail
   await expect(page.getByLabel("Run Detail")).toHaveCount(0);
 
-  // 3. 类型过滤统一呈现（Agent/Workflow）
-  await expect(page.getByText("全部类型", { exact: true })).toBeVisible();
+  // 3. 类型分型经 Tabs 呈现（Agent/Workflow；TASK-020 后不再有"全部类型"下拉）
+  await expect(page.getByText("智能体执行")).toBeVisible();
+  await expect(page.getByText("工作流运行")).toBeVisible();
 
   // 4. 点击执行 → SideSheet 打开只读呈现全部分区
   await page.locator(".semi-table-tbody").getByRole("button").first().click();

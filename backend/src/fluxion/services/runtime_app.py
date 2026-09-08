@@ -17,7 +17,15 @@ from uuid import uuid4
 from opentelemetry.trace import Status, StatusCode
 from pydantic import ValidationError
 
-from fluxion.kernel.events import TypedEventBus
+from fluxion.kernel.events import (
+    AfterExecutionPayload,
+    AfterModelCallPayload,
+    BeforeExecutionPayload,
+    BeforeModelCallPayload,
+    OnExecutionCancelledPayload,
+    OnExecutionErrorPayload,
+    TypedEventBus,
+)
 from fluxion.memory.domain.personal_memory import PersonalMemoryRetriever
 from fluxion.observability.context import bind_execution_id, reset_execution_id
 from fluxion.observability.logging import emit_runtime_error_log
@@ -238,6 +246,89 @@ class RuntimeApplicationService(RuntimeToolOps):
         await self._mcp_runtime.close()
         await self._store.close()
 
+    # 105 P1-02（TASK-006）：固定 Hook Point 分发（全部在 service 层，kernel 不动，
+    # 守住 RULE-fluxion-runtime-001）。三件套：frozen payload＋构造即拷贝＋返回值
+    # 丢弃；授权先于 hook（tool 路径在 _call_tool 内保持）；失败语义复用 dispatch
+    # 既有 fail_policy 逻辑，新点位不自创异常语义。
+    async def _dispatch_before_execution(self, request: RunRuntimeRequest) -> None:
+        await self._event_bus.dispatch(
+            BeforeExecutionPayload(
+                tenant_id=request.tenant_id,
+                execution_id=request.execution_id,
+                trace_id=request.trace_id,
+                agent_id=request.agent_definition_id or "",
+                runtime_profile_id=request.runtime_profile_id,
+            ),
+            trace_sink=None,
+        )
+
+    async def _dispatch_after_execution(
+        self, context: RuntimeContext, terminal_state: str
+    ) -> None:
+        await self._event_bus.dispatch(
+            AfterExecutionPayload(
+                tenant_id=context.snapshot.tenant_id,
+                execution_id=context.snapshot.execution_id,
+                trace_id=context.snapshot.trace_id,
+                agent_id=context.snapshot.agent_definition_id or "",
+                terminal_state=terminal_state,
+            ),
+            trace_sink=context,
+        )
+
+    async def _dispatch_before_model(self, context: RuntimeContext) -> None:
+        routes = context.snapshot.model_resolution.routes
+        await self._event_bus.dispatch(
+            BeforeModelCallPayload(
+                tenant_id=context.snapshot.tenant_id,
+                execution_id=context.snapshot.execution_id,
+                trace_id=context.snapshot.trace_id,
+                provider_id=routes[0].provider_ref.id if routes else "",
+                model=routes[0].model if routes else None,
+            ),
+            trace_sink=context,
+        )
+
+    async def _dispatch_after_model(
+        self, context: RuntimeContext, output_chars: int
+    ) -> None:
+        routes = context.snapshot.model_resolution.routes
+        await self._event_bus.dispatch(
+            AfterModelCallPayload(
+                tenant_id=context.snapshot.tenant_id,
+                execution_id=context.snapshot.execution_id,
+                trace_id=context.snapshot.trace_id,
+                provider_id=routes[0].provider_ref.id if routes else "",
+                output_chars=output_chars,
+            ),
+            trace_sink=context,
+        )
+
+    async def _dispatch_execution_error(
+        self, context: RuntimeContext, exc: Exception
+    ) -> None:
+        await self._event_bus.dispatch(
+            OnExecutionErrorPayload(
+                tenant_id=context.snapshot.tenant_id,
+                execution_id=context.snapshot.execution_id,
+                trace_id=context.snapshot.trace_id,
+                error_code=_error_code(exc),
+                error_message=str(exc),
+            ),
+            trace_sink=context,
+        )
+
+    async def _dispatch_execution_cancelled(self, context: RuntimeContext) -> None:
+        await self._event_bus.dispatch(
+            OnExecutionCancelledPayload(
+                tenant_id=context.snapshot.tenant_id,
+                execution_id=context.snapshot.execution_id,
+                trace_id=context.snapshot.trace_id,
+                reason="cancelled",
+            ),
+            trace_sink=context,
+        )
+
     async def create_runtime_profile(
         self,
         request: CreateRuntimeProfileRequest,
@@ -271,6 +362,9 @@ class RuntimeApplicationService(RuntimeToolOps):
                     "fluxion.runtime_profile_id": request.runtime_profile_id,
                 },
             ) as span:
+                # 105 P1-02（TASK-006）：执行入口分发（prepare 之前；FAIL_CLOSED
+                # 在此阻断，不建会话不留痕）。
+                await self._dispatch_before_execution(request)
                 try:
                     prepared = await session.prepare(request)
                 except RuntimeApplicationError:
@@ -285,6 +379,8 @@ class RuntimeApplicationService(RuntimeToolOps):
                         failed_context.emit(
                             "execution.error", {"error": _error_code(exc)}
                         )
+                        # 105 P2-02（TASK-010）：prepare 内已结算，取终态落盘。
+                        prepare_state = await session.finalize(failed_context, error=exc)
                         await self._append_trace(
                             request,
                             failed_context,
@@ -292,7 +388,10 @@ class RuntimeApplicationService(RuntimeToolOps):
                             (),
                             _elapsed_ms(started),
                             str(exc),
+                            prepare_state.value,
                         )
+                        # 105 P1-02（TASK-006）：准备期失败同样走 on_error 点位。
+                        await self._dispatch_execution_error(failed_context, exc)
                     emit_runtime_error_log(
                         request_id=request.request_id,
                         trace_id=request.trace_id,
@@ -334,6 +433,9 @@ class RuntimeApplicationService(RuntimeToolOps):
         step_result: RuntimeStepResult | None = None
         tool_results: list[dict[str, object]] = []
         try:
+            # 105 P1-02（TASK-006）：模型调用前后分发（service 层包 run_step，
+            # kernel 内不感知 hook）。
+            await self._dispatch_before_model(context)
             step_result = await self._runtime.run_step(
                 context,
                 request.input_message,
@@ -343,9 +445,11 @@ class RuntimeApplicationService(RuntimeToolOps):
                     allowed_tool_ids=allowed_model_tools,
                 ),
             )
+            await self._dispatch_after_model(context, len(step_result.output))
             tool_results.extend(step_result.tool_results)
             tool_results.extend(await self._call_tools(context, request.tool_calls))
-            await session.finalize(context)
+            state = await session.finalize(context)
+            await self._dispatch_after_execution(context, state.value)
             latency_ms = _elapsed_ms(started)
             await self._append_trace(
                 request,
@@ -354,6 +458,7 @@ class RuntimeApplicationService(RuntimeToolOps):
                 tuple(tool_results),
                 latency_ms,
                 None,
+                state.value,
             )
             return _run_result(
                 request,
@@ -365,8 +470,9 @@ class RuntimeApplicationService(RuntimeToolOps):
             )
         except (asyncio.CancelledError, GeneratorExit) as exc:
             # 取消/关闭：结算为 CANCELLED（尽力），留痕后必须重新传播。
+            cancelled_state = "cancelled"
             with suppress(asyncio.CancelledError):
-                await session.finalize(context, error=exc)
+                cancelled_state = (await session.finalize(context, error=exc)).value
             await self._append_trace(
                 request,
                 context,
@@ -374,13 +480,15 @@ class RuntimeApplicationService(RuntimeToolOps):
                 tuple(tool_results),
                 _elapsed_ms(started),
                 "cancelled",
+                cancelled_state,
             )
+            await self._dispatch_execution_cancelled(context)
             raise
         except Exception as exc:
             if span is not None:
                 span.set_status(Status(StatusCode.ERROR, str(exc)))
             context.emit("execution.error", {"error": _error_code(exc)})
-            await session.finalize(context, error=exc)
+            error_state = await session.finalize(context, error=exc)
             await self._append_trace(
                 request,
                 context,
@@ -388,7 +496,9 @@ class RuntimeApplicationService(RuntimeToolOps):
                 tuple(tool_results),
                 _elapsed_ms(started),
                 str(exc),
+                error_state.value,
             )
+            await self._dispatch_execution_error(context, exc)
             emit_runtime_error_log(
                 request_id=request.request_id,
                 trace_id=request.trace_id,
@@ -428,6 +538,8 @@ class RuntimeApplicationService(RuntimeToolOps):
                 session = ExecutionSession(self)
                 events: AsyncGenerator[RuntimeStreamEvent, None] | None = None
                 try:
+                    # 105 P1-02（TASK-006）：流式入口分发（started 事件之前）。
+                    await self._dispatch_before_execution(request)
                     yield RuntimeStreamEvent(
                         event="started",
                         data={
@@ -447,8 +559,11 @@ class RuntimeApplicationService(RuntimeToolOps):
                         session.context is not None
                         and session.terminal is None
                     ):
+                        stream_cancelled = "cancelled"
                         with suppress(asyncio.CancelledError):
-                            await session.finalize(session.context, error=exc)
+                            stream_cancelled = (
+                                await session.finalize(session.context, error=exc)
+                            ).value
                         await self._append_trace(
                             request,
                             session.context,
@@ -456,7 +571,9 @@ class RuntimeApplicationService(RuntimeToolOps):
                             (),
                             _elapsed_ms(started),
                             "cancelled",
+                            stream_cancelled,
                         )
+                        await self._dispatch_execution_cancelled(session.context)
                     raise
         finally:
             reset_execution_id(execution_token)
@@ -481,34 +598,23 @@ class RuntimeApplicationService(RuntimeToolOps):
                 # 有工具可用：模型可能发起 tool call，须走完整非流式循环。复用已
                 # start 的 context——此前 finish 后再 run(request) 会重开第二个
                 # context，首个 context 的 trace 被丢弃且 mcp/模型定义重复准备。
+                # 105 P1-02（TASK-006）：复用 _run_prepared 主体，hook 点位、
+                # trace 落盘与终态与 run() 完全一致，不再分支自建语义。
                 allowed_model_tools = {tool.name for tool in model_tools}
-                step_result = await self._runtime.run_step(
-                    context,
-                    request.input_message,
-                    tools=model_tools,
-                    tool_handler=partial(
-                        self._execute_model_tool,
-                        allowed_tool_ids=allowed_model_tools,
+                result = await self._run_prepared(
+                    session,
+                    PreparedExecution(
+                        context=context,
+                        model_tools=model_tools,
+                        allowed_model_tools=allowed_model_tools,
                     ),
-                )
-                tool_results = list(step_result.tool_results)
-                tool_results.extend(await self._call_tools(context, request.tool_calls))
-                # TASK-016：成功出口走会话 finalizer（恰好一次终态）。
-                await session.finalize(context)
-                latency_ms = _elapsed_ms(started)
-                await self._append_trace(
-                    request, context, step_result, tuple(tool_results), latency_ms, None
+                    request,
+                    started,
+                    None,
                 )
                 yield RuntimeStreamEvent(
                     event="completed",
-                    data=_run_result(
-                        request,
-                        context,
-                        step_result,
-                        tuple(tool_results),
-                        latency_ms,
-                        self._service_instance_id,
-                    ).to_payload(),
+                    data=result.to_payload(),
                 )
                 return
             chunks: list[str] = []
@@ -521,11 +627,12 @@ class RuntimeApplicationService(RuntimeToolOps):
                 output = "".join(chunks)
                 await self._runtime.memory.add_message(context, "user", request.input_message)
                 await self._runtime.memory.add_message(context, "assistant", output)
-                await session.finalize(context)
+                state = await session.finalize(context)
                 latency_ms = _elapsed_ms(started)
                 # 此前流式成功分支只 yield completed、从不 append_trace，
                 # 流式执行在 trace_store 中完全不可观测。
-                await self._append_trace(request, context, None, (), latency_ms, None)
+                await self._append_trace(request, context, None, (), latency_ms, None, state.value)
+                await self._dispatch_after_execution(context, state.value)
                 yield RuntimeStreamEvent(
                     event="completed",
                     data=RunRuntimeResult(
@@ -549,9 +656,10 @@ class RuntimeApplicationService(RuntimeToolOps):
                 output = ""
                 await self._runtime.memory.add_message(context, "user", request.input_message)
                 await self._runtime.memory.add_message(context, "assistant", output)
-                await session.finalize(context)
+                state = await session.finalize(context)
                 latency_ms = _elapsed_ms(started)
-                await self._append_trace(request, context, None, (), latency_ms, None)
+                await self._append_trace(request, context, None, (), latency_ms, None, state.value)
+                await self._dispatch_after_execution(context, state.value)
                 yield RuntimeStreamEvent(
                     event="completed",
                     data=RunRuntimeResult(
@@ -584,7 +692,7 @@ class RuntimeApplicationService(RuntimeToolOps):
         except Exception as exc:
             if context is not None:
                 context.emit("execution.error", {"error": _error_code(exc)})
-                await session.finalize(context, error=exc)
+                stream_error_state = await session.finalize(context, error=exc)
                 await self._append_trace(
                     request,
                     context,
@@ -592,7 +700,9 @@ class RuntimeApplicationService(RuntimeToolOps):
                     (),
                     _elapsed_ms(started),
                     str(exc),
+                    stream_error_state.value,
                 )
+                await self._dispatch_execution_error(context, exc)
             emit_runtime_error_log(
                 request_id=request.request_id,
                 trace_id=request.trace_id,
@@ -718,10 +828,12 @@ class RuntimeApplicationService(RuntimeToolOps):
         tool_results: tuple[dict[str, object], ...],
         latency_ms: float,
         error: str | None,
+        status: str | None,
     ) -> None:
         """Trace 持久化（TASK-015 / ADR-A014 §7 §9）：永不抛异常、有界、可观测。
 
         失败只记录（带 IDs 关联的 error log + 脱敏），不覆盖业务错误/终态。
+        status 为落盘终态（105 P2-02 / TASK-010：取 finalize() 返回值）。
         """
         events = tuple(context.trace)
         try:
@@ -737,6 +849,7 @@ class RuntimeApplicationService(RuntimeToolOps):
                         events=events,
                         latency_ms=latency_ms,
                         error=error,
+                        status=status,
                         model=_last_event_attrs(events, "model.completed"),
                         tools=tool_results or _tool_events(events),
                         hooks=_hook_events(events),

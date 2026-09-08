@@ -358,3 +358,29 @@ class TestS10ProductionAssembly:
                 console_dist=tmp_path,
                 chat_dist=tmp_path,
             )
+
+    @pytest.mark.asyncio
+    async def test_S_01_runtime_role_lifespan_initializes_secret_store(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """S-01 回归：runtime 角色 lifespan 初始化 secret_store（keyring 非空）。
+
+        真实边界：真实 PG（fluxion_test）＋真实 lifespan；修前 keyring 为空，
+        一切凭据模型调用报 secret_key_unavailable（S-01 实机发现）。
+        """
+        import base64
+
+        from fluxion.api.production_bundle import create_runtime_app_from_env
+
+        if not _pg_available():
+            pytest.skip("PG 不可达，跳过（不伪造 GREEN）")
+        monkeypatch.setenv("FLUXION_DATABASE_URL", _PG_DSN)
+        monkeypatch.setenv(
+            "FLUXION_SECRET_MASTER_KEY", base64.b64encode(os.urandom(32)).decode()
+        )
+        app = create_runtime_app_from_env()
+        async with app.router.lifespan_context(app):
+            keyring = app.state.secret_store.keyring
+            assert keyring, "lifespan 必须初始化 secret_store（keyring 非空）"
+            ref = await app.state.secret_store.put("tenant-s01", "rt", "s3cr3t")
+            assert (await app.state.secret_store.resolve(ref)).value == "s3cr3t"

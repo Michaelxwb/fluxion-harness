@@ -47,7 +47,8 @@ async function seedAgent(request: APIRequestContext): Promise<void> {
       resource_id: "user-journey-profile",
       version: "1",
       // 不设 default：与其它 spec 的 default profile 并存（ADR-A010 单 default 约束）
-      spec: { request_timeout_ms: 3000, max_retries: 0, max_rounds: 2 }
+      // V2（105 P1-01 方案 A）：仅有效字段。
+      spec: { max_rounds: 2 }
     }
   });
   expect(profile.ok(), await profile.text()).toBeTruthy();

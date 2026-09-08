@@ -129,6 +129,72 @@ class _ScopedRegistryReader:
         )
         return [_binding_from_row(row) for row in rows]
 
+    async def get_user_profile_at(
+        self, *, tenant_id: str, platform_user_id: str, version: str
+    ) -> dict[str, object] | None:
+        self._check_tenant(tenant_id)
+        return await user_sqlalchemy.fetch_profile_at(
+            self._connection,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            version=version,
+        )
+
+    async def get_latest_user_profile(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> dict[str, object] | None:
+        self._check_tenant(tenant_id)
+        return await user_sqlalchemy.fetch_latest_profile(
+            self._connection,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+        )
+
+    async def list_capability_grants(
+        self, *, tenant_id: str, platform_user_id: str
+    ) -> list[CapabilityGrantRecord]:
+        self._check_tenant(tenant_id)
+        rows = await user_sqlalchemy.fetch_grants(
+            self._connection, tenant_id=tenant_id, platform_user_id=platform_user_id
+        )
+        return [
+            CapabilityGrantRecord(
+                id=int(r["id"]),
+                tenant_id=r["tenant_id"],
+                platform_user_id=r["platform_user_id"],
+                capability_ref=r["capability_ref"],
+                capability_kind=r.get("capability_kind", "skill"),
+                granted_scope=r["granted_scope"],
+                version_pin=r["version_pin"],
+                created_at=r["created_at"],
+            )
+            for r in rows
+        ]
+
+    async def list_resources(
+        self,
+        kind: ResourceKind,
+        *,
+        tenant_id: str,
+        offset: int,
+        limit: int,
+        keyword: str | None = None,
+        resource_id: str | None = None,
+        status: ResourceStatus | None = None,
+    ) -> tuple[list[ResourceDefinition], int]:
+        self._check_tenant(tenant_id)
+        return await resource_sqlalchemy._list_resource_rows(
+            self._connection,
+            kind=kind,
+            tenant_id=tenant_id,
+            offset=offset,
+            limit=limit,
+            published_only=True,
+            keyword=keyword,
+            resource_id=resource_id,
+            status=status,
+        )
+
 
 class SQLAlchemyRegistryStore(ScopedReadStore):
     def __init__(self, dsn: str, *, reset_on_initialize: bool = False) -> None:

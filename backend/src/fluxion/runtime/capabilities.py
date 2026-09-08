@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fluxion.registry import RegistryStore
+from fluxion.registry import RegistryStore, ScopedRegistryReader
 from fluxion.resources import (
     PolicyDefinition,
     ResourceDefinition,
@@ -26,7 +26,7 @@ class EffectiveCapabilityResolver:
     runtime_tool_ops._effective_tool_policy。
     """
 
-    def __init__(self, store: RegistryStore) -> None:
+    def __init__(self, store: RegistryStore | ScopedRegistryReader) -> None:
         self._store = store
 
     async def tenant_policy_tools(

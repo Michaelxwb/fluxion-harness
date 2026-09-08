@@ -352,4 +352,20 @@ describe("RuntimeProfile 缺口：一键创建租户默认配置", () => {
     await user.click(within(editor).getByRole("button", { name: "创建租户默认配置" }));
     await within(editor).findByText("已创建并发布租户默认配置，已自动选中");
   });
+
+  it("S-F2 默认创建请求体为最小集（仅 max_rounds＋default）", async () => {
+    const { api, user } = renderConsole({ initialView: "resources", seed: createConsoleFixture() });
+    await screen.findByRole("heading", { name: "智能体" });
+
+    const list = await screen.findByLabelText("智能体列表");
+    await user.click(within(list).getByRole("button", { name: "编辑 assistant" }));
+    const editor = await screen.findByLabelText("智能体编辑器");
+    await user.click(within(editor).getByText("高级设置"));
+
+    await user.click(within(editor).getByRole("button", { name: "创建租户默认配置" }));
+    await within(editor).findByText("已创建并发布租户默认配置，已自动选中");
+
+    const created = await api.getResource("runtime_profile", "tenant-default");
+    expect(Object.keys(created.spec).sort()).toEqual(["default", "max_rounds"]);
+  });
 });

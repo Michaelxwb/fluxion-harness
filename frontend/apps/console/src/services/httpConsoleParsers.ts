@@ -332,7 +332,14 @@ function parseRun(value: unknown): RunDetail {
   const record = requiredRecord(value, "run");
   const snapshot = requiredRecord(record.snapshot, "snapshot");
   const status = requiredString(record.status, "status");
-  if (status !== "running" && status !== "succeeded" && status !== "failed") {
+  if (
+    status !== "running" &&
+    status !== "succeeded" &&
+    status !== "failed" &&
+    status !== "completed" &&
+    status !== "cancelled" &&
+    status !== "timed_out"
+  ) {
     throw new Error("run status 无效");
   }
   if (!Array.isArray(record.trace_events)) throw new Error("trace_events 无效");

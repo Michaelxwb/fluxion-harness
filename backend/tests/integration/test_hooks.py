@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 import time
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -15,6 +17,12 @@ from fluxion.kernel.events import (
 )
 from fluxion.resources import ExecutionSnapshot
 from fluxion.runtime import RequestContext, RuntimeContext
+
+# 105 P1-02（TASK-006）：S-04/E-02 服务级验收用真实示例插件
+#（backend/examples/audit_hook），经 composition root 真实安装路径。
+_EXAMPLES_DIR = str(Path(__file__).resolve().parents[2] / "examples")
+if _EXAMPLES_DIR not in sys.path:
+    sys.path.insert(0, _EXAMPLES_DIR)
 
 
 def _runtime_context() -> RuntimeContext:
@@ -228,3 +236,205 @@ async def test_E_R06_sync_handler_timeout_is_enforced() -> None:
 
     with pytest.raises(HookDispatchError):
         await bus.dispatch(payload)
+
+
+# --- 105 P1-02（TASK-006）：S-04/E-02 服务级最终验收 ---
+
+
+async def _hook_test_service(bus: TypedEventBus | None = None):  # type: ignore[no-untyped-def]
+    """真实 service（dev bundle＋PG）：profile/agent/授权齐备，可执行 time.now。
+
+    bus 非空时用它作为服务事件总线；entry_points 插件安装走 initialize 内
+    discover→load 真实路径（调用方先 monkeypatch discover_hook_plugins）。
+    """
+    from fluxion.registry import PostgreSQLRegistryStore
+    from fluxion.services.runtime_app import (
+        CreateRuntimeProfileRequest,
+        PublishRuntimeProfileRequest,
+        RuntimeApplicationService,
+    )
+    from tests.runtime_helpers import TEST_POSTGRES_DSN, seed_agent_definition
+
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
+    service = RuntimeApplicationService.create_dev_bundle(
+        store, event_bus=bus or TypedEventBus()
+    )
+    await service.initialize()
+    try:
+        await service.create_runtime_profile(
+            CreateRuntimeProfileRequest(
+                tenant_id="tenant-a",
+                runtime_profile_id="assistant",
+                version="1",
+                default=True,
+            )
+        )
+        await seed_agent_definition(
+            store,
+            provider_id="dev.echo",
+            capabilities=[{"capability_ref": "time.now", "version_pin": "1", "type": "tool"}],
+        )
+        await store.add_capability_grant(
+            tenant_id="tenant-a",
+            platform_user_id="user-a",
+            capability_ref="time.now",
+            capability_kind="tool",
+            granted_scope="invoke",
+            version_pin="1",
+        )
+        await service.publish_runtime_profile(
+            PublishRuntimeProfileRequest(
+                tenant_id="tenant-a",
+                runtime_profile_id="assistant",
+                version="1",
+            )
+        )
+        return service, store
+    except BaseException:
+        await service.close()
+        raise
+
+
+def _hook_run_request(**overrides: object):  # type: ignore[no-untyped-def]
+    from fluxion.services.runtime_app import RunRuntimeRequest, ToolCallRequest
+
+    params: dict[str, object] = {
+        "tenant_id": "tenant-a",
+        "user_id": "user-a",
+        "agent_definition_id": "assistant",
+        "runtime_profile_id": "assistant",
+        "session_id": "session-hook",
+        "input_message": "hook",
+        "tool_calls": [ToolCallRequest(tool_id="time.now", arguments={})],
+    }
+    params.update(overrides)
+    return RunRuntimeRequest(**params)  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_S_04_all_eight_hook_points_fire_via_service_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """S-04（最终验收）：真实 service＋entry_points fixture 包，8 点位各至少触发一次。
+
+    成功执行覆盖 6 点；失败执行覆盖 on_error；取消执行覆盖 on_cancelled。
+    tool 调用前后各一条 audit 记录落插件；hook.completed 进 trace（audit 落点）。
+    """
+    from audit_hook import AuditHookPlugin
+
+    plugin = AuditHookPlugin()
+    monkeypatch.setattr(
+        "fluxion.plugins.loader.discover_hook_plugins", lambda: [plugin]
+    )
+    service, _store = await _hook_test_service()
+    try:
+        result = await service.run(_hook_run_request())
+        assert result.runtime_profile_version == "1"
+
+        points = {record.point for record in plugin.records}
+        assert {
+            "before_execution",
+            "before_model",
+            "after_model",
+            "before_tool",
+            "after_tool",
+            "after_execution",
+        } <= points
+        tool_points = [r for r in plugin.records if r.point in {"before_tool", "after_tool"}]
+        assert any(r.summary == "tool=time.now" for r in tool_points)
+        assert any(r.summary == "tool=time.now status=completed" for r in tool_points)
+
+        trace = await service.trace_store.get(result.trace_id)
+        assert trace is not None
+        assert trace.hooks, "hook 执行须经 trace_sink 落点"
+
+        # 失败执行 → on_error（有上下文的业务失败：已存在但未授权的工具）。
+        from fluxion.services.runtime_app import RuntimeApplicationError, ToolCallRequest
+
+        with pytest.raises(RuntimeApplicationError):
+            await service.run(
+                _hook_run_request(
+                    session_id="session-error",
+                    tool_calls=[ToolCallRequest(tool_id="calc.eval", arguments={})],
+                )
+            )
+        assert any(r.point == "on_error" for r in plugin.records)
+
+        # 取消执行 → on_cancelled（FAIL_CLOSED 取消钩子阻断模型调用）。
+        from fluxion.kernel.events import BeforeModelCallPayload
+
+        async def _cancel(_payload: BeforeModelCallPayload) -> None:
+            raise asyncio.CancelledError
+
+        service._event_bus.register(
+            HookRegistration(
+                registration_id="cancel-hook",
+                event_type=BeforeModelCallPayload,
+                priority=1,
+                timeout_ms=100,
+                fail_policy=FailPolicy.FAIL_CLOSED,
+                handler=_cancel,
+            )
+        )
+        with pytest.raises(asyncio.CancelledError):
+            await service.run(_hook_run_request(session_id="session-cancel"))
+        assert any(r.point == "on_cancelled" for r in plugin.records)
+    finally:
+        await service.close()
+
+
+@pytest.mark.asyncio
+async def test_E_02_service_fail_policy_blocks_or_continues() -> None:
+    """E-02（最终验收）：FAIL_CLOSED 阻断业务；FAIL_OPEN 业务继续＋异常记录。"""
+    from fluxion.kernel.events import BeforeToolCallPayload
+
+    async def _boom(_payload: BeforeToolCallPayload) -> None:
+        raise ValueError("hook-boom")
+
+    # FAIL_CLOSED：业务被阻断。
+    closed_bus = TypedEventBus()
+    closed_bus.register(
+        HookRegistration(
+            registration_id="closed-boom",
+            event_type=BeforeToolCallPayload,
+            priority=1,
+            timeout_ms=100,
+            fail_policy=FailPolicy.FAIL_CLOSED,
+            handler=_boom,
+        )
+    )
+    service, _store = await _hook_test_service(closed_bus)
+    try:
+        # FAIL_CLOSED 阻断业务：HookDispatchError 经服务层规范包装为
+        # RuntimeApplicationError（hook_dispatch_failed）上抛。
+        from fluxion.services.runtime_app import RuntimeApplicationError
+
+        with pytest.raises(RuntimeApplicationError) as exc_info:
+            await service.run(_hook_run_request())
+        assert exc_info.value.code == "hook_dispatch_failed"
+    finally:
+        await service.close()
+
+    # FAIL_OPEN：业务继续＋hook.error 记录（带执行关联 ID）。
+    open_bus = TypedEventBus()
+    open_bus.register(
+        HookRegistration(
+            registration_id="open-boom",
+            event_type=BeforeToolCallPayload,
+            priority=1,
+            timeout_ms=100,
+            fail_policy=FailPolicy.FAIL_OPEN,
+            handler=_boom,
+        )
+    )
+    service2, _store2 = await _hook_test_service(open_bus)
+    try:
+        result = await service2.run(_hook_run_request())
+        trace = await service2.trace_store.get(result.trace_id)
+        assert trace is not None and trace.error is None
+        hook_errors = [e for e in trace.events if e.name == "hook.error"]
+        assert any(
+            e.attributes.get("registration_id") == "open-boom" for e in hook_errors
+        )
+    finally:
+        await service2.close()

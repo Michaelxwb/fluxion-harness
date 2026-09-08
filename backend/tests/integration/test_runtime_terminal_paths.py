@@ -227,3 +227,66 @@ async def test_E_LIFE_03_model_timeout_terminal() -> None:
         DevEchoModelProvider.complete = real_complete  # type: ignore[method-assign]
         await service.close()
         await store.close()
+
+
+@pytest.mark.asyncio
+async def test_S_08_trace_status_matches_terminal_state() -> None:
+    """S-08（TASK-010 最终验收）：四种终态执行 → trace status 一一对应。
+
+    真实边界：真实 service＋PG，四种终态各一次真实执行。
+    """
+    from fluxion.services.runtime_app import ToolCallRequest
+    from fluxion.services.runtime_contracts import RuntimeApplicationError
+    from fluxion.services.runtime_utils import DevEchoModelProvider
+
+    service, store = await _service()
+    real_complete = DevEchoModelProvider.complete
+
+    async def slow_complete(self, request):  # type: ignore[no-untyped-def]
+        await asyncio.sleep(30)
+        return await real_complete(self, request)
+
+    try:
+        # completed：正常执行。
+        completed = await service.run(_run_request("f"))
+        assert completed.output == "dev: hello"
+        record = await service.trace_store.get(_ids("f")[1])
+        assert record is not None
+        assert record.status == "completed"
+        assert record.error is None
+
+        # failed：未授权工具调用（准备期之后失败，有 trace）。
+        with pytest.raises(RuntimeApplicationError):
+            await service.run(
+                _run_request(
+                    "a",
+                    tool_calls=[ToolCallRequest(tool_id="calc.eval", arguments={})],
+                )
+            )
+        record = await service.trace_store.get(_ids("a")[1])
+        assert record is not None
+        assert record.status == "failed"
+        assert record.error is not None
+
+        # timed_out：慢模型触发单次调用超时。
+        await _seed_deadline_agent(store)
+        DevEchoModelProvider.complete = slow_complete  # type: ignore[method-assign]
+        with pytest.raises(RuntimeApplicationError):
+            await service.run(_run_request("b", agent_definition_id="slow-agent"))
+        record = await service.trace_store.get(_ids("b")[1])
+        assert record is not None
+        assert record.status == "timed_out"
+
+        # cancelled：慢模型执行中取消。
+        task = asyncio.create_task(service.run(_run_request("c")))
+        await asyncio.sleep(1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        record = await service.trace_store.get(_ids("c")[1])
+        assert record is not None
+        assert record.status == "cancelled"
+    finally:
+        DevEchoModelProvider.complete = real_complete  # type: ignore[method-assign]
+        await service.close()
+        await store.close()

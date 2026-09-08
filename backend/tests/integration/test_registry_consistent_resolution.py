@@ -149,3 +149,156 @@ async def test_E_SNAP_01_failed_resolve_does_not_poison_cache() -> None:
         assert result.snapshot.runtime_profile_version == "1"
     finally:
         await store.close()
+
+
+@pytest.mark.asyncio
+async def test_S_SNAP_01_resolve_opens_single_scoped_read() -> None:
+    """S-SNAP-01：resolve 走单次 scoped read（配置读在同一一致视图内）。"""
+    from fluxion.services.context_resolver import (
+        ContextResolver,
+        ResolverSelector,
+    )
+    from tests.runtime_helpers import seed_agent_definition
+
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
+    await store.initialize()
+    try:
+        await _seed_profile(store, "1", default=True)
+        await seed_agent_definition(store, provider_id="dev.echo", model_name="dev")
+        opened: list[str] = []
+        real_begin = store.begin_scoped_read
+
+        def _recording_begin(*, tenant_id: str, timeout_ms: int = 5_000):  # type: ignore[no-untyped-def]
+            opened.append(tenant_id)
+            return real_begin(tenant_id=tenant_id, timeout_ms=timeout_ms)
+
+        store.begin_scoped_read = _recording_begin  # type: ignore[method-assign]
+        resolver = ContextResolver(store)
+        request_id = f"req_{'b' * 32}"
+        trace_id = f"trace_{'b' * 32}"
+        execution_id = f"exec_{'b' * 32}"
+        result = await resolver.resolve(
+            ResolverSelector(
+                tenant_id="tenant-a", agent_id="assistant", user_id="user-a"
+            ),
+            session_id="s-scope",
+            request_id=request_id,
+            trace_id=trace_id,
+            execution_id=execution_id,
+        )
+        assert opened == ["tenant-a"]
+        assert result.snapshot.runtime_profile_version == "1"
+    finally:
+        await store.close()
+
+
+@pytest.mark.asyncio
+async def test_S_SNAP_01_resolve_across_publish_never_mixed() -> None:
+    """S-SNAP-01：publish 前后两次 resolve 各自完整（全旧/全新，无混合）。"""
+    from fluxion.services.context_resolver import (
+        ContextResolver,
+        ResolverSelector,
+    )
+    from tests.runtime_helpers import seed_agent_definition
+
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
+    await store.initialize()
+    try:
+        await _seed_profile(store, "1", default=True)
+        await seed_agent_definition(store, provider_id="dev.echo", model_name="dev")
+        resolver = ContextResolver(store)
+
+        def _ids(char: str) -> tuple[str, str, str]:
+            return (f"req_{char * 32}", f"trace_{char * 32}", f"exec_{char * 32}")
+
+        request_id, trace_id, execution_id = _ids("c")
+        first = await resolver.resolve(
+            ResolverSelector(
+                tenant_id="tenant-a", agent_id="assistant", user_id="user-a"
+            ),
+            session_id="s-before",
+            request_id=request_id,
+            trace_id=trace_id,
+            execution_id=execution_id,
+        )
+        assert first.snapshot.runtime_profile_version == "1"
+        # v2 显式携带 default（版本更替后默认不自动延续，治理语义）。
+        await _seed_profile(store, "2", default=True)
+        request_id2, trace_id2, execution_id2 = _ids("d")
+        second = await resolver.resolve(
+            ResolverSelector(
+                tenant_id="tenant-a", agent_id="assistant", user_id="user-a"
+            ),
+            session_id="s-after",
+            request_id=request_id2,
+            trace_id=trace_id2,
+            execution_id=execution_id2,
+        )
+        assert second.snapshot.runtime_profile_version == "2"
+        assert (
+            first.snapshot.snapshot_digest != second.snapshot.snapshot_digest
+        )
+    finally:
+        await store.close()
+
+
+@pytest.mark.asyncio
+async def test_S_07_resolve_mid_publish_snapshot_all_old(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """S-07（TASK-009 最终验收）：resolve 中途并发 publish → 快照全旧版，无混合。
+
+    在 agent 读取后、profile 读取前提交 v2（独立连接）；REPEATABLE READ 下
+    scope 内后续读仍见 v1。无 scope 接线时 profile 会读到 v2（混合）而失败。
+    """
+    from fluxion.registry.sqlalchemy_store import _ScopedRegistryReader
+    from fluxion.resources import ResourceKind as _Kind
+    from fluxion.services.context_resolver import (
+        ContextResolver,
+        ResolverSelector,
+    )
+    from tests.runtime_helpers import seed_agent_definition
+
+    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
+    await store.initialize()
+    try:
+        await _seed_profile(store, "1", default=True)
+        await seed_agent_definition(store, provider_id="dev.echo", model_name="dev")
+        resolver = ContextResolver(store)
+        published: list[str] = []
+        real_get = _ScopedRegistryReader.get
+
+        async def _publishing_get(self, kind, resource_id, **kwargs):  # type: ignore[no-untyped-def]
+            if kind is _Kind.AGENT_DEFINITION and not published:
+                second = PostgreSQLRegistryStore(TEST_POSTGRES_DSN)
+                await second.initialize()
+                try:
+                    await _seed_profile(second, "2", default=True)
+                finally:
+                    await second.close()
+                published.append("2")
+            return await real_get(self, kind, resource_id, **kwargs)
+
+        monkeypatch.setattr(_ScopedRegistryReader, "get", _publishing_get)
+        request_id = f"req_{'e' * 32}"
+        trace_id = f"trace_{'e' * 32}"
+        execution_id = f"exec_{'e' * 32}"
+        result = await resolver.resolve(
+            ResolverSelector(
+                tenant_id="tenant-a", agent_id="assistant", user_id="user-a"
+            ),
+            session_id="s-mid-publish",
+            request_id=request_id,
+            trace_id=trace_id,
+            execution_id=execution_id,
+        )
+        assert published == ["2"]
+        assert result.snapshot.agent_definition_version == "1"
+        assert result.snapshot.runtime_profile_version == "1"
+        # scope 外已可见 v2：快照是旧视图，不是读不到新数据。
+        latest = await store.get(
+            _Kind.RUNTIME_PROFILE, "assistant", tenant_id="tenant-a"
+        )
+        assert latest is not None and latest.version == "2"
+    finally:
+        await store.close()

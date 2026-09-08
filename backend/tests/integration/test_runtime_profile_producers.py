@@ -65,7 +65,7 @@ def test_S_CFG_02_profile_spec_builder_stamps_version_strict() -> None:
 async def test_S_CFG_02_platform_default_and_create_are_versioned() -> None:
     """S-CFG-02：platform-default 自举与 service 创建落盘均为 V2 形状。
 
-    注：入口同步（工厂去字段/构造器严格化）属 TASK-003；本用例只断言落盘形状。
+    TASK-003 最终验收：精确 V2 集合，无幽灵字段。
     """
     from fluxion.registry import PostgreSQLRegistryStore
     from fluxion.services.runtime_app import RuntimeApplicationService
@@ -88,8 +88,16 @@ async def test_S_CFG_02_platform_default_and_create_are_versioned() -> None:
                 version="1",
             )
             assert row is not None
-            # V2 形状断言在 TASK-003 入口同步后收紧；此处只记录现状。
-            assert "max_rounds" in row.spec_json
+            # TASK-003：精确 V2 形状（仅 max_rounds/bootstrapped_from/default）。
+            assert set(row.spec_json) == {"max_rounds", "bootstrapped_from", "default"}
+            platform_default = await store.get(
+                ResourceKind.RUNTIME_PROFILE,
+                "platform-default",
+                tenant_id="tenant-a",
+                version="1",
+            )
+            assert platform_default is not None
+            assert set(platform_default.spec_json) == {"max_rounds"}
         finally:
             await service.close()
     finally:

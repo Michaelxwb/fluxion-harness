@@ -27,7 +27,8 @@ RuntimeInstance
 = 实际运行的 Runtime Pod / Process（共享 RuntimePool 承载）
 
 RuntimeProfile
-= 执行机制配置（超时/重试/并发/预算），所有 RuntimeInstance 从 Registry 读取
+= 执行机制配置（V2 仅保留 max_rounds 上限、default 租户默认标记、bootstrapped_from
+自举来源；超时/重试/并发/预算等幽灵字段已删，无兼容、无迁移）
 
 UserRuntimeState
 = 用户 Skill/MCP/Tool/Credential/Profile/Memory 等绑定与状态
@@ -52,7 +53,9 @@ API 进程不执行模型：Channel 与 Studio 试跑经 `HttpRuntimeGateway` �
 Runtime Service（`POST /internal/v1/runtime-profiles/{id}/runs[/:stream]`），
 基址由 `FLUXION_RUNTIME_SERVICE_URL` 配置（Helm 自动注入
 `http://<fullname>-runtime:8000`，非 Helm 部署必须显式配置；缺失 fail-fast，
-不回退本地执行）。Runtime 副本为 0 时远程执行按无可用实例失败，不自动选
+不回退本地执行）。网关做客户端侧均衡：每次请求解析多 endpoint 并 RR 选择
+（keep-alive 保留），建连失败换实例重试一次，读超时与业务错误不重试；
+单 endpoint / K8s ClusterIP 下行为不变。Runtime 副本为 0 时远程执行按无可用实例失败，不自动选
 API Pod。主 Service 只选 `api` Pod，独立 `<fullname>-runtime` ClusterIP
 Service 只选 `runtime` Pod（见 `deploy/helm/fluxion/templates/NOTES.txt`
 升级指引：Deployment selector 不可原地变更，需分阶段升级）。
@@ -127,4 +130,4 @@ cf-task:archive <任务名>
 → 自动完成检查
 ```
 
-已完成批次归档至 `.code-flow/tasks/archived/`（含 2026-08-31 的 `runtime-architecture-closure` 架构收口整改 TASK-001~011，以及 2026-09-06 的 `71-commits-critical-issues` 关键问题整改 TASK-001~009：执行面拆分、Service 隔离、服务端分页、Credential 投影、健康检查、token 估算、Memory 装配、摘要进 Prompt、流式压缩）；当前活跃任务见 `.code-flow/tasks/` 下各日期目录。
+已完成批次归档至 `.code-flow/tasks/archived/`（含 2026-08-31 的 `runtime-architecture-closure` 架构收口整改 TASK-001~011，以及 2026-09-06 的 `71-commits-critical-issues` 关键问题整改 TASK-001~009：执行面拆分、Service 隔离、服务端分页、Credential 投影、健康检查、token 估算、Memory 装配、摘要进 Prompt、流式压缩；2026-09-08 的 `final-remediation` 终版整改 TASK-001~013 与 `console-followups`：Compose 三角色拓扑＋外部依赖、RuntimeProfile V2、Hook 8 点位、L1/Scoped/Trace、Console V2 字段与 status 列、网关轮询重试、console-redesign F1~F4 收口）；当前活跃任务见 `.code-flow/tasks/` 下各日期目录。
