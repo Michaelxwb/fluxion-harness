@@ -30,8 +30,6 @@ async def _seed_profile(
             tenant_id="tenant-a",
             runtime_profile_id="assistant",
             version=version,
-            request_timeout_ms=30_000,
-            max_retries=1,
             default=default,
         )
     )

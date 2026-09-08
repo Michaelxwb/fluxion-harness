@@ -151,8 +151,6 @@ async def _seed_mcp_product(
         resource_id="assistant",
         version="1",
         spec={
-            "request_timeout_ms": 3_000,
-            "max_retries": 1,
             "max_rounds": max_rounds,
             "default": True,
         },

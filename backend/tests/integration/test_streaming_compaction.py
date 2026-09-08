@@ -66,7 +66,7 @@ async def _seed_chain(store: PostgreSQLRegistryStore) -> None:
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+        spec={"max_rounds": 8, "default": True},
     )
     await seed_agent_definition(store, provider_id="recording-stream", model_name="rec")
     await seed_tenant_policy(store, tenant_id="tenant-a")
@@ -172,7 +172,7 @@ class TestS09StreamingCompaction:
             await service.create_runtime_profile(
                 CreateRuntimeProfileRequest(
                     tenant_id="tenant-a", runtime_profile_id="assistant",
-                    version="1", request_timeout_ms=10_000, default=True,
+                    version="1", default=True,
                 )
             )
             await seed_agent_definition(store, provider_id="recording-stream", model_name="rec")

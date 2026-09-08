@@ -68,7 +68,6 @@ async def _seed_agent_chain(service: RuntimeApplicationService, store: object, t
             tenant_id=tenant_id,
             runtime_profile_id="assistant",
             version="1",
-            request_timeout_ms=10_000,
             default=True,
         )
     )

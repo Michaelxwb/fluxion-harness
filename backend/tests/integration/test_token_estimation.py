@@ -29,7 +29,6 @@ async def _step_attributes(input_message: str) -> dict[str, object]:
                 tenant_id="tenant-a",
                 runtime_profile_id="assistant",
                 version="1",
-                request_timeout_ms=10_000,
                 default=True,
             )
         )
@@ -111,7 +110,6 @@ class TestS06MemoryStoreTokens:
                     tenant_id="tenant-a",
                     runtime_profile_id="assistant",
                     version="1",
-                    request_timeout_ms=10_000,
                     default=True,
                 )
             )

@@ -51,7 +51,7 @@ async def test_be04_composition_root_injects_credential_and_memory(pg_store: Reg
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+        spec={"max_rounds": 8, "default": True},
     )
     await seed_model_definition(pg_store, tenant_id=TENANT, provider_id="dev.echo")
     await publish_resource(
@@ -137,7 +137,7 @@ async def test_bs07_snapshot_freezes_provider_credential_selection(pg_store: Reg
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+        spec={"max_rounds": 8, "default": True},
     )
     await seed_model_definition(pg_store, tenant_id=TENANT, provider_id="wire-provider")
     await publish_resource(

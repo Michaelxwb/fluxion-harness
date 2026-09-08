@@ -43,8 +43,7 @@ test("E-P13-03 model dependency failure shows friendly error without stack leak"
     provider_ref: { id: "broken-provider", version: "v1" }
   });
   await createAndPublishResource(page, "runtime_profile", "broken-agent", {
-    request_timeout_ms: 1000,
-    max_retries: 0
+    max_rounds: 8
   });
   await createAndPublishResource(page, "agent_definition", "broken-agent", {
     name: "broken-agent",

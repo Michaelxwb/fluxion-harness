@@ -26,7 +26,7 @@ test.beforeAll(async ({ request }) => {
     data: {
       resource_id: "e2e-default-profile",
       version: "1",
-      spec: { request_timeout_ms: 30_000, max_retries: 1, max_rounds: 4, default: true }
+      spec: { max_rounds: 4, default: true }
     }
   });
   expect(created.ok(), await created.text()).toBeTruthy();

@@ -234,7 +234,7 @@ class TestS10ProductionAssembly:
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id=f"default-profile-{tag}",
             version="1",
-            spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+            spec={"max_rounds": 8, "default": True},
         )
         await store.put(
             ResourceDefinition(

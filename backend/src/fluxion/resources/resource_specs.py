@@ -49,29 +49,15 @@ class ModelPolicy(SensitiveSpecModel):
 
 
 class RuntimeProfile(SensitiveSpecModel):
-    """运行机制配置，不承载 Agent 人设、模型或 Capability 产品语义。"""
+    """运行机制配置，不承载 Agent 人设、模型或 Capability 产品语义。
+
+    V2（105 P1-01 方案 A）：仅保留有明确执行点的字段；request_timeout_ms /
+    max_retries / concurrency / memory_budget_mb 及 schema_version 标记已删除，
+    无 v1 兼容（DB 删除重建）。
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    # ADR-A013（TASK-008）：版本标识。历史数据无此字段即 v1；未知版本 fail-closed。
-    schema_version: str = Field(
-        default="v1",
-        title="契约版本",
-        description="RuntimeProfile 参数契约版本；未知版本拒绝解析",
-    )
-
-    request_timeout_ms: int = Field(
-        ge=100,
-        le=120_000,
-        title="请求超时",
-        description="单次模型或外部调用的超时（毫秒）",
-    )
-    max_retries: int = Field(
-        ge=0,
-        le=5,
-        title="重试上限",
-        description="失败后的有限重试次数",
-    )
     # agent 工具循环预算属 runtime mechanics（非产品语义）——TASK-A104 收缩时
     # 从旧 model_policy.max_rounds 迁入，快照 ModelPolicy 仍由此驱动。
     max_rounds: int = Field(
@@ -80,18 +66,6 @@ class RuntimeProfile(SensitiveSpecModel):
         le=32,
         title="轮数上限",
         description="agent 工具循环轮数上限（最大 32）",
-    )
-    concurrency: int = Field(
-        default=1,
-        ge=1,
-        title="并发上限",
-        description="单个 RuntimeProfile 的执行并发上限",
-    )
-    memory_budget_mb: int = Field(
-        default=512,
-        ge=1,
-        title="内存预算",
-        description="单次执行可使用的内存预算（MiB）",
     )
     # TASK-011：删除 executor_config generic dict，装配参数全部强类型化。
     bootstrapped_from: str | None = Field(
@@ -107,52 +81,21 @@ class RuntimeProfile(SensitiveSpecModel):
         description="标记为租户默认 RuntimeProfile；同租户至多一个 default=true",
     )
 
-    @model_validator(mode="after")
-    def _check_schema_version(self) -> Self:
-        if self.schema_version not in PROFILE_SCHEMA_VERSIONS:
-            raise ValueError(
-                f"profile_schema_version_unknown: 未定义版本 {self.schema_version!r}"
-            )
-        return self
-
-
-# ADR-A013：已知契约版本。v1=冻结现状（含 4 个未接入字段）；v2 由 TASK-009/010 定义。
-PROFILE_SCHEMA_VERSIONS: tuple[str, ...] = ("v1",)
-
 
 class ProfileSchemaError(ValueError):
-    """Profile Schema 校验失败（字段定位，发布前/兼容读统一错误类型）。"""
+    """Profile Schema 校验失败（字段定位，统一错误类型）。"""
 
     code = "runtime_profile_schema_invalid"
 
 
 def validate_profile_write(spec: dict[str, object]) -> RuntimeProfile:
-    """新版本写入校验（ADR-A013 §3）：严格按当前契约校验，不静默丢字段。
+    """V2 写入校验：严格按当前契约校验，不静默丢字段。
 
-    未知字段（extra=forbid）、越界值、未知 schema_version 一律失败关闭，
-    错误带字段路径。输入 dict 不被修改。
+    未知字段（extra=forbid）、越界值一律失败关闭，错误带字段路径。
+    输入 dict 不被修改。无 v1 兼容（DB 删除重建）。
     """
     try:
         return RuntimeProfile.model_validate(dict(spec))
-    except (ValidationError, ValueError) as exc:
-        raise ProfileSchemaError(
-            f"runtime_profile_schema_invalid：{_profile_error_text(exc)}"
-        ) from exc
-
-
-def read_published_profile(spec_json: dict[str, object]) -> RuntimeProfile:
-    """历史读取兼容（ADR-A013 §2）：缺 schema_version 即 v1；未知版本失败关闭。
-
-    只读不写：不修改输入 dict，不回写存储（存储 JSON/hash 不变由调用方保证，
-    见 B-CFG-01）。v1 读出保留全部历史字段（含 4 个未接入字段）。
-    """
-    version = spec_json.get("schema_version", "v1")
-    if version not in PROFILE_SCHEMA_VERSIONS:
-        raise ProfileSchemaError(
-            f"runtime_profile_schema_invalid：profile_schema_version_unknown: 未定义版本 {version!r}"
-        )
-    try:
-        return RuntimeProfile.model_validate(dict(spec_json))
     except (ValidationError, ValueError) as exc:
         raise ProfileSchemaError(
             f"runtime_profile_schema_invalid：{_profile_error_text(exc)}"

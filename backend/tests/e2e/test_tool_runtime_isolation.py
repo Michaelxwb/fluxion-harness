@@ -90,8 +90,6 @@ async def test_S_F4_mcp_descriptors_isolated_per_execution_and_not_accumulated(
             resource_id="assistant",
             version="1",
             spec={
-                "request_timeout_ms": 2_000,
-                "max_retries": 1,
                 "max_rounds": 1,
                 "default": True,
             },

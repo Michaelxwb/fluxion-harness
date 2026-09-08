@@ -9,7 +9,8 @@ from tests.console_helpers import console_stack, tenant_headers
 # 契约里真正会被消费的必填字段（无默认值 → 进 required），避免测试与 schema
 # 全量耦合（schema 加字段不应破坏此测试）。
 REQUIRED_PROPERTIES: dict[ResourceKind, set[str]] = {
-    ResourceKind.RUNTIME_PROFILE: {"request_timeout_ms", "max_retries"},
+    # V2（105 P1-01 方案 A）：全部字段有默认值，无必填。
+    ResourceKind.RUNTIME_PROFILE: set(),
     # TASK-001：AgentDefinition 必填 = identity(name/system_prompt) + owner
     # + model_policy（ADR-A008：model_ref → model_policy，指向 ModelDefinition）
     ResourceKind.AGENT_DEFINITION: {"name", "system_prompt", "owner", "model_policy"},
@@ -75,21 +76,13 @@ async def test_RS6_schema_carries_runtime_mechanics_constraints() -> None:
     schema = response.json()["data"]["schema"]
     properties = schema["properties"]
     assert set(properties) == {
-        "request_timeout_ms",
-        "max_retries",
         "max_rounds",
-        "concurrency",
-        "memory_budget_mb",
         "bootstrapped_from",
         # ADR-A010：租户默认标记（同租户至多一个 default=true）
         "default",
-        # ADR-A013（TASK-008）：契约版本标识。
-        "schema_version",
     }
-    assert properties["request_timeout_ms"]["minimum"] == 100
-    assert properties["request_timeout_ms"]["maximum"] == 120_000
-    assert properties["max_retries"]["maximum"] == 5
-    assert properties["concurrency"]["default"] == 1
+    assert properties["max_rounds"]["default"] == 8
+    assert properties["max_rounds"]["maximum"] == 32
 
 
 @pytest.mark.asyncio

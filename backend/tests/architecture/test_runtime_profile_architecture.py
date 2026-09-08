@@ -21,17 +21,12 @@ _CONTRACT_PATHS = (
     _FLUXION_ROOT / "resources" / "contracts.py",
 )
 _MECHANICS_FIELDS = {
-    "request_timeout_ms",
-    "max_retries",
     # agent 工具循环预算：runtime mechanics（原 model_policy.max_rounds 迁入）。
     "max_rounds",
-    "concurrency",
-    "memory_budget_mb",
     "bootstrapped_from",
     # ADR-A010（TASK-002）：租户默认标记（解析链，非产品语义）。
     "default",
-    # ADR-A013（TASK-008）：契约版本标识（mechanic 元数据，非产品语义）。
-    "schema_version",
+    # V2（105 P1-01 方案 A）：幽灵字段已删，无兼容。
 }
 _LEGACY_PRODUCT_FIELDS = {
     "display_name",
@@ -73,10 +68,7 @@ async def test_be_s_04_runtime_profile_is_mechanics_only_and_agents_contracts_ar
     """真实 Store 持久化 mechanics-only profile，AST 守护领域契约依赖方向。"""
     assert set(RuntimeProfile.model_fields) == _MECHANICS_FIELDS
     profile = RuntimeProfile(
-        request_timeout_ms=30_000,
-        max_retries=2,
-        concurrency=4,
-        memory_budget_mb=512,
+        max_rounds=8,
         bootstrapped_from="v1",
     )
     with pytest.raises(ValidationError):
@@ -222,7 +214,7 @@ async def test_runtime_profile_migration_moves_product_fields_and_is_idempotent(
     pins = {item["capability_ref"]: item["version_pin"] for item in capabilities if isinstance(item, dict)}
     assert pins["builtin.time"] == "latest-published"
     assert mechanics.status is ResourceStatus.PUBLISHED
-    assert mechanics.spec_json["request_timeout_ms"] == 15_000
+    assert mechanics.spec_json["max_rounds"] == 8
     assert set(mechanics.spec_json) == _MECHANICS_FIELDS
 
 async def test_migration_resumes_when_draft_exists_without_publish() -> None:

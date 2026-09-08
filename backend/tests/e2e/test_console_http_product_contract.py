@@ -42,7 +42,7 @@ async def test_S_P13_05_console_http_contract_supports_real_ui_operations() -> N
                 "runtime_profile",
                 "assistant",
                 # TASK-A104：mechanics-only spec（persona/model 在 AgentDefinition）。
-                {"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+{"max_rounds": 8, "default": True},
             )
             exact = await client.get(
                 "/api/v1/resources/runtime_profile/assistant?version=v1"

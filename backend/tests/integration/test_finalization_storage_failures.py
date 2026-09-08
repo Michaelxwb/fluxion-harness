@@ -62,7 +62,6 @@ async def _seeded_service(**stores):  # type: ignore[no-untyped-def]
             tenant_id="tenant-a",
             runtime_profile_id="assistant",
             version="1",
-            request_timeout_ms=10_000,
             default=True,
         )
     )

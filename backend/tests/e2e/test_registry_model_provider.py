@@ -39,7 +39,7 @@ async def test_S_P13_01_registry_provider_resolves_versioned_definition_and_cred
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="assistant",
             version="1",
-            spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+            spec={"max_rounds": 8, "default": True},
         )
         # TASK-A104：persona/model 迁至同名 AgentDefinition；ADR-A008 三层链：
         # agent.model_policy → ModelDefinition（model.wire-provider）→ MODEL_PROVIDER

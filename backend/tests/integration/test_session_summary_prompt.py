@@ -54,7 +54,7 @@ async def _seed_chain(store: RegistryStore) -> None:
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+        spec={"max_rounds": 8, "default": True},
     )
     await seed_agent_definition(store, provider_id="recording", model_name="rec")
     await seed_tenant_policy(store, tenant_id="tenant-a")

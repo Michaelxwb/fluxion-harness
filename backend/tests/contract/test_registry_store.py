@@ -113,7 +113,7 @@ async def test_be_e_05_runtime_profile_default_uniqueness(store: RegistryStore) 
     """ADR-A010（golden-path-closure TASK-002）：同租户 published RUNTIME_PROFILE
     至多一个 default=true——publish 治理写入拒绝并存（跨 resource_id）；
     同 resource_id 版本更替不受限；非 default 并存不受限。"""
-    profile_spec = {"request_timeout_ms": 30_000, "max_retries": 1}
+    profile_spec = {"max_rounds": 8}
 
     # 第一个 default profile 正常发布
     await store.put(
@@ -572,7 +572,7 @@ async def test_S_R07_concurrent_put_version_conflict(store: RegistryStore) -> No
 async def test_S_04_default_can_move_after_latest_version_clears_flag(store: RegistryStore, governed: bool) -> None:
     """历史 published 默认不阻挡切换；两条发布路径共享相同契约。"""
     for resource_id, version, default in [("old-default", "1", True), ("old-default", "2", False), ("new-default", "1", True)]:
-        await store.put(_definition(kind=ResourceKind.RUNTIME_PROFILE, id=resource_id, tenant_id="review-default", version=version, spec={"request_timeout_ms": 30000, "max_retries": 1, "default": default}))
+        await store.put(_definition(kind=ResourceKind.RUNTIME_PROFILE, id=resource_id, tenant_id="review-default", version=version, spec={"max_rounds": 8, "default": default}))
         if governed:
             await store.commit_publication(PublicationCommand(publish_id=f"publish-{resource_id}-{version}", event_id=f"event-{resource_id}-{version}", tenant_id="review-default", kind=ResourceKind.RUNTIME_PROFILE, resource_id=resource_id, version=version, operation=PublicationOperation.PUBLISH, actor_id="review", request_id="req-review", trace_id="trace-review"))
         else:

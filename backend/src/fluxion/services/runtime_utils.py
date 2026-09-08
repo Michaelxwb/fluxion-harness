@@ -41,17 +41,12 @@ class DevEchoModelProvider:
 def _runtime_profile_spec(request: CreateRuntimeProfileRequest) -> dict[str, object]:
     # ADR-012：以 RuntimeProfile model 为单一真相源——构造即校验。TASK-A104 后
     # 只承载 mechanics，persona/model/capability 由 AgentDefinition 承载。
-    # TASK-010（ADR-A013）：走严格写校验（类型化错误）+ 显式版本戳。
+    # V2（105 P1-01 方案 A）：仅有效字段，无版本标记、无兼容。
     profile = validate_profile_write(
         {
-            "request_timeout_ms": request.request_timeout_ms,
-            "max_retries": request.max_retries,
             "max_rounds": request.max_rounds,
-            "concurrency": request.concurrency,
-            "memory_budget_mb": request.memory_budget_mb or 512,
             "bootstrapped_from": request.bootstrapped_from,
             "default": request.default,
-            "schema_version": "v1",
         }
     )
     return profile.model_dump(mode="json")

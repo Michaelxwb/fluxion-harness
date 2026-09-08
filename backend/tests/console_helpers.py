@@ -149,11 +149,10 @@ async def deprecate_resource(
 
 
 def runtime_profile_spec() -> dict[str, object]:
-    # ADR-012 / TASK-A104：与收缩后的 RuntimeProfile 字段集一致（纯 mechanics；
-    # persona/model/capability 在 AgentDefinition）。id/version/status 由资源外层
+    # V2（105 P1-01 方案 A）：仅有效字段；id/version/status 由资源外层
     # ResourceDefinition 承载，不进 spec。
     # ADR-A010（TASK-002）：fixture profile 作为租户默认（同名回退已废弃）。
-    return {"request_timeout_ms": 30_000, "max_retries": 1, "default": True}
+    return {"max_rounds": 8, "default": True}
 
 
 def mcp_spec(display_name: str = "github") -> dict[str, object]:

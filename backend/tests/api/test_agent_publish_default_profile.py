@@ -60,7 +60,7 @@ async def test_create_and_publish_tenant_default_unblocks_agent_publish() -> Non
                 "resource_id": "tenant-default",
                 "version": "1",
                 "visibility": "tenant",
-                "spec": {"request_timeout_ms": 30000, "max_retries": 1, "default": True},
+                "spec": {"max_rounds": 8, "default": True},
             },
             headers=tenant_headers(request_id="req-create-profile"),
         )
@@ -91,7 +91,7 @@ async def test_second_default_rejected() -> None:
                     "resource_id": resource_id,
                     "version": "1",
                     "visibility": "tenant",
-                    "spec": {"request_timeout_ms": 30000, "max_retries": 1, "default": True},
+                    "spec": {"max_rounds": 8, "default": True},
                 },
                 headers=tenant_headers(request_id=f"req-{resource_id}"),
             )

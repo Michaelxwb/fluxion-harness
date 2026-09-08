@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "task_file": "final-remediation.md",
+  "task_sha256": "13319ea8117fbc24bb4a85bd1d35d4c129f61d2531f8a9d65865844ba977ceb3",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "final-remediation.backend.design.md#2.5 验收条件",
+      "level": "manual",
+      "kind": "manual",
+      "boundary": "docker 引擎＋用户自备外部 PG",
+      "owner": "TASK-001",
+      "status": "planned"
+    },
+    {
+      "id": "S-02",
+      "source": "final-remediation.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Console 服务 → PG",
+      "owner": "TASK-003",
+      "status": "planned"
+    },
+    {
+      "id": "S-03",
+      "source": "final-remediation.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Console 服务 → PG → 真实执行",
+      "owner": "TASK-003",
+      "status": "planned"
+    },
+    {
+      "id": "E-01",
+      "source": "final-remediation.backend.design.md#2.5 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "纯契约层（model＋validation）",
+      "owner": "TASK-002",
+      "status": "planned"
+    },
+    {
+      "id": "S-04",
+      "source": "final-remediation.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 service＋entry_points fixture 包",
+      "owner": "TASK-006",
+      "status": "planned"
+    },
+    {
+      "id": "E-02",
+      "source": "final-remediation.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 service＋故障 hook",
+      "owner": "TASK-006",
+      "status": "planned"
+    },
+    {
+      "id": "S-05",
+      "source": "final-remediation.backend.design.md#2.5 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "纯契约层（enum＋dispatch）",
+      "owner": "TASK-007",
+      "status": "planned"
+    },
+    {
+      "id": "S-06",
+      "source": "final-remediation.backend.design.md#2.5 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "真实 resolver＋PG，大量不同 user",
+      "owner": "TASK-008",
+      "status": "planned"
+    },
+    {
+      "id": "S-07",
+      "source": "final-remediation.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PG＋并发 publish",
+      "owner": "TASK-009",
+      "status": "planned"
+    },
+    {
+      "id": "B-01",
+      "source": "final-remediation.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PG 事务超时路径",
+      "owner": "TASK-009",
+      "status": "planned"
+    },
+    {
+      "id": "S-08",
+      "source": "final-remediation.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 service＋PG，四种终态执行",
+      "owner": "TASK-010",
+      "status": "planned"
+    }
+  ]
+}

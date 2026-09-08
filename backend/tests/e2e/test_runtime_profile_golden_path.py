@@ -47,7 +47,7 @@ async def test_bs01_console_agent_without_profile_ref_resolves_via_default_chain
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="platform-default",
             version="1",
-            spec={"request_timeout_ms": 30_000, "max_retries": 1},
+            spec={"max_rounds": 8},
         )
         model = await seed_model_definition(
             stack.store, tenant_id=TENANT, provider_id="dev.echo", model_name="echo"

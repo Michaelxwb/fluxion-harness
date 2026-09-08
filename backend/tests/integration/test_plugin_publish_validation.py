@@ -133,7 +133,7 @@ async def _seed_model_definition(stack: ConsoleTestStack) -> None:
         stack.client,
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="platform-default",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1},
+        spec={"max_rounds": 8},
     )
     await publish_resource(
         stack.client, kind=ResourceKind.RUNTIME_PROFILE, resource_id="platform-default"

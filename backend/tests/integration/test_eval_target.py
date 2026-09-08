@@ -85,7 +85,7 @@ async def test_bs08_agent_definition_target_resolves_and_scores(agent_id: str | 
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="runtime-main",
             version="7",
-            spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+            spec={"max_rounds": 8, "default": True},
         )
         await publish_resource(
             store,
@@ -155,7 +155,7 @@ async def test_bs08_unresolvable_agent_target_fails_closed() -> None:
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="runtime-main",
             version="7",
-            spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+            spec={"max_rounds": 8, "default": True},
         )
         # 未发布 agent（target 指向不存在的 agent）
         await publish_resource(

@@ -61,7 +61,7 @@ async def _seed_bundle(store: PostgreSQLRegistryStore) -> None:
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+        spec={"max_rounds": 8, "default": True},
     )
     await publish_resource(
         store,
@@ -150,7 +150,7 @@ async def test_be_b_01_pinned_agent_survives_hot_publish_of_v2(tmp_path) -> None
             version="2",
             # ADR-A010：版本更替后 default 不自动延续，新版本须显式保留
             # default=true，否则租户默认链断供。
-            spec={"request_timeout_ms": 5_000, "max_retries": 1, "default": True},
+            spec={"max_rounds": 8, "default": True},
         )
         await publish_resource(
             store,

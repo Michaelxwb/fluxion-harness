@@ -80,8 +80,7 @@ async def _seed_profile(
         resource_id=resource_id,
         version=version,
         spec={
-            "request_timeout_ms": 30_000,
-            "max_retries": 1,
+            "max_rounds": 8,
             **({"default": True} if default else {}),
         },
     )
@@ -187,7 +186,7 @@ async def test_unpublished_tenant_default_not_used(store: PostgreSQLRegistryStor
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="draft-default",
             version="1",
-            spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+            spec={"max_rounds": 8, "default": True},
         )
     )
     with pytest.raises(ContextResolutionError) as exc_info:

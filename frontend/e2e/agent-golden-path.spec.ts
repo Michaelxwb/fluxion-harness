@@ -92,8 +92,6 @@ async function createProductResources(page: Page): Promise<void> {
     allowed_tools: ["lookup"]
   });
   await createAndPublishResource(page, "runtime_profile", "assistant", {
-    request_timeout_ms: 3000,
-    max_retries: 0,
     max_rounds: 4
   });
   // RULE-02 三维齐备（TASK-003 返工）：无 tenant policy 时 Tool/MCP fail-closed；

@@ -61,8 +61,6 @@ async function seedLifecycle(request: APIRequestContext): Promise<void> {
     provider_ref: { id: "dev.echo", version: "1" }
   });
   await createAndPublish(request, "runtime_profile", PROFILE_ID, {
-    request_timeout_ms: 3_000,
-    max_retries: 0,
     max_rounds: 2
   });
   await createAgent(request, "agent-test-run");

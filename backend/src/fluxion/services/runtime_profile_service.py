@@ -255,12 +255,8 @@ async def _ensure_platform_default_profile(store: RegistryStore, tenant_id: str)
         tenant_id=tenant_id,
         version="1",
         status=ResourceStatus.DRAFT,
-        # TASK-010（ADR-A013）：新写入显式版本戳。
-        spec_json={
-            "request_timeout_ms": 30_000,
-            "max_retries": 1,
-            "schema_version": "v1",
-        },
+        # V2（105 P1-01 方案 A）：仅有效字段。
+        spec_json={"max_rounds": 8},
     )
     await store.put(draft)
     await store.publish(

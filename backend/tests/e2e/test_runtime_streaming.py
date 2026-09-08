@@ -40,7 +40,6 @@ async def test_stream_yields_tokens_when_provider_supports_streaming() -> None:
                 tenant_id="tenant-a",
                 runtime_profile_id="assistant",
                 version="1",
-                request_timeout_ms=1_000,
                 default=True,
             )
         )

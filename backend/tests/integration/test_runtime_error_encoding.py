@@ -33,7 +33,6 @@ async def _service() -> tuple[RuntimeApplicationService, object]:
             tenant_id="tenant-a",
             runtime_profile_id="assistant",
             version="1",
-            request_timeout_ms=10_000,
             default=True,
         )
     )

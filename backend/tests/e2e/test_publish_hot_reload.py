@@ -85,7 +85,6 @@ def _runtime_profile(version: str) -> CreateRuntimeProfileRequest:
         tenant_id="tenant-a",
         runtime_profile_id="assistant",
         version=version,
-        request_timeout_ms=1_000,
         default=True,
     )
 

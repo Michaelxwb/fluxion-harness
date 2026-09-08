@@ -52,7 +52,6 @@ async def test_S_R09_trace_contains_snapshot_model_tool_hook_latency_and_error()
                 tenant_id="tenant-a",
                 runtime_profile_id="assistant",
                 version="1",
-                request_timeout_ms=1_000,
                 default=True,
             )
         )

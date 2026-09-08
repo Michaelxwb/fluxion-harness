@@ -40,7 +40,7 @@ async def _seed_agent_with_skill(
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+        spec={"max_rounds": 8, "default": True},
     )
     await publish_resource(
         store,

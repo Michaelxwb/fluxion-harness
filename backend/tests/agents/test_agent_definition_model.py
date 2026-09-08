@@ -76,7 +76,7 @@ async def _seed_runtime_profile(
         status=ResourceStatus.DRAFT,
         # TASK-A104 收缩后的合法 mechanics 形状（store 层虽不按 kind 校验，
         # fixture 不得依赖该实现细节——见 review P2）。
-        spec_json={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+        spec_json={"max_rounds": 8, "default": True},
     )
     created = await store.put(definition)
     return await store.publish(

@@ -112,7 +112,7 @@ class TestS04StorageChaos:
                     tenant_id="tenant-chaos-st",
                     version="1",
                     status=ResourceStatus.DRAFT,
-                    spec_json={"request_timeout_ms": 1000, "max_retries": 1},
+                    spec_json={"max_rounds": 8},
                 )
             )
             await store.commit_publication(
@@ -170,7 +170,7 @@ class TestS04StorageChaos:
                     tenant_id="tenant-chaos-st",
                     version="2",
                     status=ResourceStatus.DRAFT,
-                    spec_json={"request_timeout_ms": 1000, "max_retries": 1},
+                    spec_json={"max_rounds": 8},
                 )
             )
             await store2.commit_publication(
@@ -268,7 +268,7 @@ class TestE05SemanticDegraded:
                 kind=ResourceKind.RUNTIME_PROFILE,
                 resource_id=agent_id,
                 version="1",
-                spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+                spec={"max_rounds": 8, "default": True},
             )
             # ADR-A008：agent.model_policy → ModelDefinition（model.dev.echo）→
             # provider dev.echo；resolve 全链路需该资源存在（fail-closed）。

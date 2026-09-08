@@ -147,7 +147,7 @@ async def test_agent_publish_still_writes_governance_audit_row() -> None:
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="tenant-default",
             version="1",
-            spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+            spec={"max_rounds": 8, "default": True},
         )
         draft = ResourceDefinition(
             kind=ResourceKind.AGENT_DEFINITION, id="assistant", tenant_id="tenant-a",

@@ -87,7 +87,7 @@ async def _publish_runtime_profile(store: PostgreSQLRegistryStore) -> None:
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="runtime-main",
         version="7",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+        spec={"max_rounds": 8, "default": True},
     )
 
 
@@ -244,7 +244,7 @@ class TestReleaseGatePublishPipeline:
                 tenant_id="dev",
                 version="1",
                 status=ResourceStatus.DRAFT,
-                spec_json={"request_timeout_ms": 1000, "max_retries": 2},
+                spec_json={"max_rounds": 8},
             )
         )
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://console") as client:

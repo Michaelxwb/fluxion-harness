@@ -45,7 +45,7 @@ async def test_E_P13_02_forged_headers_tampered_and_revoked_tokens_fail_closed()
             from tests.runtime_helpers import publish_resource, seed_agent_definition as _sd
             await publish_resource(store, tenant_id="dev", kind=ResourceKind.RUNTIME_PROFILE,
                                    resource_id="assistant", version="1",
-                                   spec={"request_timeout_ms":30_000,"max_retries":1})
+                                   spec={"max_rounds": 8})
             await _sd(store, tenant_id="dev", provider_id="dev.echo")
             issued = await console_client.post(
                 "/api/v1/platform-users/user-a/chat-access",

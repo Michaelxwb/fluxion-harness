@@ -17,18 +17,12 @@ export const IN_MEMORY_RESOURCE_SCHEMAS: Readonly<Record<string, JsonSchemaNode>
   runtime_profile: {
     title: "RuntimeProfile",
     type: "object",
-    required: ["request_timeout_ms", "max_retries"],
+    required: [],
     properties: {
-      // TASK-011（ADR-A013）：4 个未接入字段为 v1 历史兼容（仅透传保存，执行
-      // 不读取）；description 即兼容说明，表单只读展示、不宣称生效。
-      request_timeout_ms: { type: "integer", title: "请求超时", description: "外部调用超时（毫秒，v1 历史兼容字段，执行不读取）" },
-      max_retries: { type: "integer", title: "重试上限", description: "失败后的有限重试次数（v1 历史兼容字段，执行不读取）" },
+      // V2（105 P1-01 方案 A）：仅有效字段，无兼容。
       max_rounds: { type: "integer", default: 8, title: "轮数上限" },
-      concurrency: { type: "integer", default: 1, title: "并发上限（v1 历史兼容字段，执行不读取）" },
-      memory_budget_mb: { type: "integer", default: 512, title: "内存预算（v1 历史兼容字段，执行不读取）" },
       bootstrapped_from: { anyOf: [{ type: "string" }, { type: "null" }], default: null, title: "自举来源" },
-      default: { type: "boolean", default: false, title: "租户默认" },
-      schema_version: { type: "string", default: "v1", title: "契约版本" }
+      default: { type: "boolean", default: false, title: "租户默认" }
     }
   },
   model_provider: {

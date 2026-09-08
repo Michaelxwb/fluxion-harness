@@ -27,7 +27,6 @@ async def test_runtime_api_uses_unified_envelope_and_sse_stream() -> None:
                 tenant_id="tenant-a",
                 runtime_profile_id="assistant",
                 version="1",
-                request_timeout_ms=1_000,
                 default=True,
             )
         )

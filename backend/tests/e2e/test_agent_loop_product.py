@@ -60,8 +60,6 @@ async def _publish_profile(
         resource_id="assistant",
         version="1",
         spec={
-            "request_timeout_ms": 2_000,
-            "max_retries": 1,
             "max_rounds": 4,
             "default": True,
         },

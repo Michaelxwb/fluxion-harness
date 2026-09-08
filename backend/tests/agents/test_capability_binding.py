@@ -68,7 +68,7 @@ def test_no_standalone_tools_field_regression() -> None:
     profile_fields = set(RuntimeProfile.model_fields)
     assert profile_fields.isdisjoint({"allowed_tools", "allowed_skills", "prompt"})
     with pytest.raises(ValidationError):
-        RuntimeProfile(allowed_tools=["x"], request_timeout_ms=30_000, max_retries=1)
+        RuntimeProfile(max_rounds=8, allowed_tools=["x"])  # type: ignore[call-arg]
 
 
 async def test_be_s_05_agent_and_workflow_step_share_the_same_store_target() -> None:

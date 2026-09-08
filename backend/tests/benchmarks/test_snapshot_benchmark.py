@@ -27,7 +27,7 @@ def test_B_R07_snapshot_builder_p95_under_20ms(benchmark: BenchmarkFixture) -> N
         id="assistant",
         version="1",
         status=ResourceStatus.PUBLISHED,
-        spec_json={"request_timeout_ms": 30_000, "max_retries": 1},
+        spec_json={"max_rounds": 8},
     )
     skill = ResourceDefinition(
         tenant_id="tenant-a",

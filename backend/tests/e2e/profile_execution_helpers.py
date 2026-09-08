@@ -11,12 +11,9 @@ from tests.runtime_helpers import seed_agent_definition
 
 
 def profile_spec(*, max_rounds: int) -> dict[str, object]:
+    # V2（105 P1-01 方案 A）：仅有效字段。
     return {
-        "request_timeout_ms": 30_000,
-        "max_retries": 1,
         "max_rounds": max_rounds,
-        "concurrency": 1,
-        "memory_budget_mb": 512,
         "default": True,
     }
 

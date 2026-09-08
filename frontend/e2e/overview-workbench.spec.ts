@@ -37,7 +37,7 @@ async function seedFailedRun(request: APIRequestContext): Promise<void> {
     data: {
       resource_id: "ov-profile",
       version: "1",
-      spec: { request_timeout_ms: 500, max_retries: 0, max_rounds: 1 }
+      spec: { max_rounds: 1 }
     }
   });
   expect(profile.ok(), await profile.text()).toBeTruthy();

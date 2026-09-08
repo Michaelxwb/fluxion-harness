@@ -111,7 +111,7 @@ async def _seed_gate_agent() -> str:
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id=agent_id,
             version="1",
-            spec={"request_timeout_ms": 30_000, "max_retries": 1},
+            spec={"max_rounds": 8},
         )
         # ADR-A008：agent.model_policy 指向 ModelDefinition（model.dev.echo）
         await seed_model_definition(store, tenant_id=tenant_id, provider_id="dev.echo")
@@ -155,7 +155,7 @@ async def _publish_rpo_fact(tenant_id: str) -> None:
                 tenant_id=tenant_id,
                 version="1",
                 status=ResourceStatus.DRAFT,
-                spec_json={"request_timeout_ms": 30_000, "max_retries": 1},
+                spec_json={"max_rounds": 8},
             )
         )
         await store.commit_publication(

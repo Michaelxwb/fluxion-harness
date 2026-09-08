@@ -179,9 +179,8 @@ async def test_S_R13_agentloop_uses_model_provider_plugin_tool_calling_and_failo
         resource_id="assistant",
         version="1",
         spec={
-            # 慢 provider sleep 300ms；mechanics 超时下限 100ms 仍可触发超时。
-            "request_timeout_ms": 100,
-            "max_retries": 1,
+            # V2（105 P1-01 方案 A）：仅有效字段；超时走 agent model_policy。
+            "max_rounds": 8,
             # ADR-A010：agent 无 runtime_profile_ref，走租户默认链需 default=true。
             "default": True,
         },

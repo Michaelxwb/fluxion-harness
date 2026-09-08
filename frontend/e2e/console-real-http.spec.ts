@@ -10,8 +10,7 @@ import { createAndPublishResource, gotoResourcesPage } from "./helpers";
 test("S-P13-05 Console production bundle persists real HTTP operations", async ({ page }) => {
   await gotoResourcesPage(page);
   await createAndPublishResource(page, "runtime_profile", "persisted-profile", {
-    request_timeout_ms: 30000,
-    max_retries: 1
+    max_rounds: 8
   });
 
   // 刷新后资源仍在（持久化真实 HTTP 操作）。FEAT-F02 领域独立列表页后

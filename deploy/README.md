@@ -7,7 +7,7 @@ deploy/
 ├── docker/                     Docker 镜像与本地一键编排
 │   ├── Dockerfile              多阶段构建（前端 Vite + 后端 Python 3.12）
 │   ├── entrypoint.sh           入口脚本：桥接环境变量到 fluxion serve
-│   └── docker-compose.yml      本地 PostgreSQL + Fluxion 后端
+│   └── docker-compose.yml      本地一键编排（仅 Fluxion 应用角色；PG/Redis 外部提供）
 ├── helm/fluxion/               最小可用 Helm Chart（Deployment/Service/Secret/ConfigMap）
 └── README.md                   本文件
 ```
@@ -24,7 +24,8 @@ deploy/
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
-| `FLUXION_DATABASE_URL` | 生产必填 | 数据库 DSN，例如 `postgresql+asyncpg://user:pass@host:5432/fluxion` |
+| `FLUXION_DATABASE_URL` | 生产必填 | 外部 PostgreSQL DSN，例如 `postgresql+asyncpg://user:pass@host:5432/fluxion`（compose 内不自带 PG，由用户单独提供） |
+| `FLUXION_REDIS_URL` | 可选 | 外部 Redis URL（L2 缓存用），例如 `redis://host:6379/0`；不设即禁用，不影响正确性 |
 | `FLUXION_SECRET_MASTER_KEY` | 生产必填 | 32 字节 AES-256-GCM key 的 base64 |
 | `FLUXION_ROLE` | 可选 | 进程角色：`api`（默认，Control Plane）/ `runtime`（AgentLoop 独立进程）/ `worker`（DBOS workflow） |
 | `FLUXION_ENV` | 可选 | 运行环境标识，默认 `development` |
@@ -61,8 +62,16 @@ x8Q3uVn1yR4tP6aZ9cW2eF5hJ7kL0mN8oQ1sT3uV6wY=
 # 1. 生成并导出 SECRET_MASTER_KEY
 export FLUXION_SECRET_MASTER_KEY="$(openssl rand -base64 32)"
 
-# 2. 构建并启动（postgres + fluxion）
+# 1b. 导出外部依赖（用户单独提供，不由 compose 启动）：
+#     PostgreSQL 必填；需要 Redis/L2 缓存时同样外部提供
+export FLUXION_DATABASE_URL="postgresql+asyncpg://user:pass@host:5432/fluxion"
+export FLUXION_REDIS_URL="redis://host:6379/0"  # 可选，不设即禁用 L2
+
+# 2. 构建并启动（api + runtime + worker，同镜像三角色）
 docker compose -f deploy/docker/docker-compose.yml up --build -d
+
+# 2b. 多 Runtime 验证无状态（Runtime 水平扩展）
+docker compose -f deploy/docker/docker-compose.yml up --build -d --scale runtime=3
 
 # 3. 查看状态
 docker compose -f deploy/docker/docker-compose.yml ps
@@ -74,8 +83,7 @@ curl http://127.0.0.1:8000/healthz
 停止与清理：
 
 ```bash
-docker compose -f deploy/docker/docker-compose.yml down          # 停止并删除容器
-docker compose -f deploy/docker/docker-compose.yml down -v       # 连同 postgres 数据卷一起删除
+docker compose -f deploy/docker/docker-compose.yml down          # 停止并删除容器（PG/Redis 为外部依赖，不受影响）
 ```
 
 说明：

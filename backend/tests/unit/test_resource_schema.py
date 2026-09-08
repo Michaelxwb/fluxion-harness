@@ -151,19 +151,15 @@ def test_RS2_model_policy_rejects_out_of_range_values() -> None:
 
 
 def test_RS2_runtime_profile_accepts_mechanics_and_is_frozen() -> None:
-    """RuntimeProfile 只承载运行机制字段，且发布/执行期不可原地修改。"""
+    """RuntimeProfile 只承载运行机制字段（V2），且发布/执行期不可原地修改。"""
     profile = RuntimeProfile(
-        request_timeout_ms=30_000,
-        max_retries=2,
-        concurrency=4,
-        memory_budget_mb=256,
+        max_rounds=8,
         bootstrapped_from="v1",
     )
-    assert profile.request_timeout_ms == 30_000
-    assert profile.max_retries == 2
+    assert profile.max_rounds == 8
     assert profile.bootstrapped_from == "v1"
     with pytest.raises(ValueError):
-        profile.__setattr__("concurrency", 8)
+        profile.__setattr__("max_rounds", 16)
 
 
 def test_RS2_runtime_profile_rejects_removed_dead_fields() -> None:
@@ -175,6 +171,12 @@ def test_RS2_runtime_profile_rejects_removed_dead_fields() -> None:
         ("allowed_tools", []),
         ("capabilities", []),
         ("executor_config", {}),
+        # V2（105 P1-01 方案 A）：幽灵字段已删，无兼容。
+        ("request_timeout_ms", 30_000),
+        ("max_retries", 1),
+        ("concurrency", 1),
+        ("memory_budget_mb", 512),
+        ("schema_version", "v1"),
     ):
         with pytest.raises(ValueError, match=dead_field):
             RuntimeProfile.model_validate({dead_field: payload_value})
@@ -182,11 +184,9 @@ def test_RS2_runtime_profile_rejects_removed_dead_fields() -> None:
 
 def test_RS2_runtime_profile_rejects_invalid_mechanics_ranges() -> None:
     with pytest.raises(ValueError):
-        RuntimeProfile(request_timeout_ms=99, max_retries=1)
+        RuntimeProfile(max_rounds=0)
     with pytest.raises(ValueError):
-        RuntimeProfile(request_timeout_ms=100, max_retries=6)
-    with pytest.raises(ValueError):
-        RuntimeProfile(request_timeout_ms=100, max_retries=1, concurrency=0)
+        RuntimeProfile(max_rounds=33)
 
 
 def test_RS2_skill_definition_rejects_removed_fields() -> None:
@@ -291,8 +291,7 @@ def test_A008_runtime_profile_rejects_legacy_model_failover() -> None:
     with pytest.raises(ValueError, match="model_failover"):
         RuntimeProfile.model_validate(
             {
-                "request_timeout_ms": 1_000,
-                "max_retries": 1,
+                "max_rounds": 8,
                 "model_failover": ["legacy-provider"],
             }
         )

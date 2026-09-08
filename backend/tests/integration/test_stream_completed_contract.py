@@ -42,7 +42,6 @@ async def _service() -> RuntimeApplicationService:
             tenant_id="tenant-a",
             runtime_profile_id="assistant",
             version="1",
-            request_timeout_ms=1_000,
             default=True,
         )
     )

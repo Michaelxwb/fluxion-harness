@@ -32,7 +32,6 @@ async def test_B_R01_revision_polling_recovers_after_lost_change_event() -> None
                 tenant_id="tenant-a",
                 runtime_profile_id="assistant",
                 version="1",
-                request_timeout_ms=1_000,
                 default=True,
             )
         )
@@ -61,7 +60,6 @@ async def test_B_R01_revision_polling_recovers_after_lost_change_event() -> None
                 tenant_id="tenant-a",
                 runtime_profile_id="assistant",
                 version="2",
-                request_timeout_ms=1_000,
                 default=True,
             )
         )

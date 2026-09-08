@@ -23,14 +23,9 @@ def _actor() -> ConsoleActor:
     )
 
 
-def _profile_spec(timeout_ms: int) -> dict[str, object]:
-    return {
-        "request_timeout_ms": timeout_ms,
-        "max_retries": 1,
-        "max_rounds": 8,
-        "concurrency": 1,
-        "memory_budget_mb": 512,
-    }
+def _profile_spec(rounds: int) -> dict[str, object]:
+    # V2（105 P1-01 方案 A）：仅有效字段；用 max_rounds 区分版本内容。
+    return {"max_rounds": rounds}
 
 
 @pytest.mark.asyncio
@@ -48,7 +43,7 @@ async def test_B_S05_working_draft_forks_published_and_keeps_it_immutable() -> N
                     kind=ResourceKind.RUNTIME_PROFILE,
                     resource_id="asst",
                     version=v,
-                    spec=_profile_spec(1000 + i),
+                    spec=_profile_spec(8 + i),
                 ),
             )
             await svc.publish_resource_version(
@@ -94,7 +89,7 @@ async def test_B_S05_working_draft_forks_published_and_keeps_it_immutable() -> N
                 kind=ResourceKind.RUNTIME_PROFILE,
                 resource_id="asst",
                 version="4",
-                spec=_profile_spec(9999),
+                spec=_profile_spec(9),
             ),
         )
         await svc.publish_resource_version(
@@ -109,7 +104,7 @@ async def test_B_S05_working_draft_forks_published_and_keeps_it_immutable() -> N
         )
         v4 = await svc.get_resource(actor, ResourceKind.RUNTIME_PROFILE, "asst", version="4")
         assert v4.status is ResourceStatus.PUBLISHED
-        assert v4.spec_json["request_timeout_ms"] == 9999
+        assert v4.spec_json["max_rounds"] == 9
         # v3 仍不可变
         v3_final = await svc.get_resource(
             actor, ResourceKind.RUNTIME_PROFILE, "asst", version="3"
@@ -123,7 +118,7 @@ async def test_B_S05_working_draft_endpoint_returns_draft() -> None:
     async with console_stack() as stack:
         await create_resource(
             stack.client, kind=ResourceKind.RUNTIME_PROFILE, resource_id="asst", version="1",
-            spec=_profile_spec(1000),
+            spec=_profile_spec(8),
         )
         await publish_resource(
             stack.client, kind=ResourceKind.RUNTIME_PROFILE, resource_id="asst", version="1",

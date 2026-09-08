@@ -67,7 +67,7 @@ async def _seed_model_chain(client: AsyncClient) -> None:
         (
             ResourceKind.RUNTIME_PROFILE,
             "platform-default",
-            {"request_timeout_ms": 30_000, "max_retries": 1},
+            {"max_rounds": 8},
         ),
     ):
         await create_resource(

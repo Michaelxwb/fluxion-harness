@@ -69,7 +69,7 @@ async def _seed_agent_chain(
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id="assistant",
         version="1",
-        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+        spec={"max_rounds": 8, "default": True},
     )
     await seed_model_definition(store, tenant_id=TENANT, provider_id=provider_id)
     await publish_resource(
@@ -265,7 +265,7 @@ async def test_be03_binding_matches_logical_id_ignoring_version_selector(
             kind=ResourceKind.RUNTIME_PROFILE,
             resource_id="assistant",
             version="1",
-            spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+            spec={"max_rounds": 8, "default": True},
         )
         await seed_model_definition(
             pg_store, tenant_id=TENANT, provider_id="versioned-provider"

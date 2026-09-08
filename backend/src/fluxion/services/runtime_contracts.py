@@ -189,16 +189,15 @@ def first_terminal_wins(
 @dataclass(frozen=True, slots=True)
 class CreateRuntimeProfileRequest:
     """TASK-A104：RuntimeProfile 只承载 runtime mechanics（不再含 persona/
-    model/capability 产品语义——见 RuntimeProfile spec model）。"""
+    model/capability 产品语义——见 RuntimeProfile spec model）。
+
+    V2（105 P1-01 方案 A）：仅 max_rounds 有执行语义；幽灵字段已删，无兼容。
+    """
 
     tenant_id: str
     runtime_profile_id: str
     version: str
-    request_timeout_ms: int = 60_000
-    max_retries: int = 1
     max_rounds: int = 8
-    concurrency: int = 1
-    memory_budget_mb: int | None = None
     bootstrapped_from: str | None = None
     # ADR-A010：租户默认标记（同租户至多一个 default=true 的 published 版本）。
     default: bool = False

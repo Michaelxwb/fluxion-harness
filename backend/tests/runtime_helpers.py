@@ -156,7 +156,7 @@ async def seed_runtime_profile(
         kind=ResourceKind.RUNTIME_PROFILE,
         resource_id=runtime_profile_id,
         version=version,
-        spec={"request_timeout_ms": 30_000, "max_retries": 1, "default": True},
+        spec={"max_rounds": 8, "default": True},
     )
     model = await seed_model_definition(store, tenant_id=tenant_id, provider_id="test")
     return await publish_resource(

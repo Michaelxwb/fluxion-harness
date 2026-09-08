@@ -37,8 +37,7 @@ describe("RS7 specFromSchema", () => {
   it("按 schema 默认值预填，必填字符串留空，无默认的数组/可选字段不落键", () => {
     const spec = specFromSchema(runtimeProfileSchema);
     expect(spec.max_rounds).toBe(8);
-    expect(spec.concurrency).toBe(1);
-    expect(spec.memory_budget_mb).toBe(512);
+    expect(spec.default).toBe(false);
     expect("bootstrapped_from" in spec).toBe(false);
   });
 
@@ -50,16 +49,10 @@ describe("RS7 specFromSchema", () => {
 });
 
 describe("RS7 SchemaForm 渲染", () => {
-  it("必填字段带星号标记，description 作为说明展示（含 v1 兼容说明）", () => {
+  it("必填星号无（V2 全字段有缺省），轮数上限可编辑", () => {
     renderForm(runtimeProfileSchema);
-    expect(screen.getAllByText("*")).toHaveLength(2);
-    expect(screen.getByText("请求超时")).toBeInTheDocument();
-    expect(screen.getByText("外部调用超时（毫秒，v1 历史兼容字段，执行不读取）")).toBeInTheDocument();
-  });
-
-  it("版本戳带 v1 缺省（TASK-011：新建请求遵循版本契约）", () => {
-    const spec = specFromSchema(runtimeProfileSchema);
-    expect(spec.schema_version).toBe("v1");
+    expect(screen.queryByText("*")).not.toBeInTheDocument();
+    expect(screen.getByText("轮数上限")).toBeInTheDocument();
   });
 
   it("运行机制数值字段可编辑", async () => {

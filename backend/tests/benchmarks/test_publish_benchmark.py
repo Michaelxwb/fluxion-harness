@@ -47,7 +47,7 @@ def test_B_C105_publish_api_p95_under_500ms(benchmark: BenchmarkFixture) -> None
                 resource_id=resource_id,
                 # ADR-A010：本 benchmark 每轮新建 profile，不标记 default
                 # （同租户 default 唯一，避免触发唯一性校验阻断）。
-                spec={"request_timeout_ms": 30_000, "max_retries": 1},
+                spec={"max_rounds": 8},
             )
         )
         started = perf_counter_ns()
