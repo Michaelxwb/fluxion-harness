@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
-import { Button, Select, Space, Table, Tag, Toast, Typography } from "@douyinfe/semi-ui";
+import { Button, Select, Space, Table, Tag, Toast } from "@douyinfe/semi-ui";
 
 import { PageHeader } from "../../components/PageHeader";
 import { EmptyState } from "../../components/EmptyState";
 import { RelativeTime } from "../../components/RelativeTime";
 import { ResourceId } from "../../components/ResourceId";
 import {
+  DEFAULT_PAGE_SIZE,
   RowActions,
   StandardListCard,
   StandardListFooter,
@@ -28,7 +29,7 @@ interface CredentialsPageProps {
   readonly api: ConsoleApi;
 }
 
-const PAGE_SIZE = 20;
+/** TASK-009：凭据完整 Journey（Golden Path blocker）。
 
 /** TASK-009：凭据完整 Journey（Golden Path blocker）。
  *
@@ -48,6 +49,7 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [modalVisible, setModalVisible] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [editRow, setEditRow] = useState<CredentialRow | null>(null);
@@ -72,7 +74,7 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
       try {
         const result = await api.listCredentialProjection({
           page,
-          pageSize: PAGE_SIZE,
+          pageSize,
           keyword: debouncedSearch.trim() || undefined,
           status: (statusFilter === "revoked" ? undefined : statusFilter) as ResourceStatus | undefined,
           revoked: statusFilter === undefined ? undefined : statusFilter === "revoked"
@@ -101,7 +103,7 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
     return () => {
       requestSeq.current += 1;
     };
-  }, [api, debouncedSearch, page, reloadKey, statusFilter]);
+  }, [api, debouncedSearch, page, pageSize, reloadKey, statusFilter]);
 
   function reload(): void {
     setReloadKey((key) => key + 1);
@@ -143,8 +145,12 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
           rows !== null && total > 0 ? (
             <StandardListFooter
               onPageChange={setPage}
+              onPageSizeChange={(next) => {
+                setPageSize(next);
+                setPage(1);
+              }}
               page={page}
-              pageSize={PAGE_SIZE}
+              pageSize={pageSize}
               total={total}
             />
           ) : undefined
@@ -207,12 +213,11 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
                 <Button
                   aria-label={`查看凭据 ${value}`}
                   onClick={() => setDetailId(record.resourceId)}
+                  style={record.revoked ? { textDecoration: "line-through" } : undefined}
                   theme="borderless"
-                  type={record.revoked ? "tertiary" : "tertiary"}
+                  type="primary"
                 >
-                  <Typography.Text delete={record.revoked} type={record.revoked ? "tertiary" : undefined}>
-                    {value}
-                  </Typography.Text>
+                  {value}
                 </Button>
               )
             },
@@ -277,11 +282,6 @@ export function CredentialsPage({ api }: CredentialsPageProps) {
                           }
                         ]
                       : []),
-                    {
-                      key: "detail",
-                      content: "查看详情",
-                      onClick: () => setDetailId(record.resourceId)
-                    },
                     {
                       key: "rotate",
                       content: "轮换",

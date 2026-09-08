@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -45,8 +45,9 @@ describe("StandardListShell 布局契约 (F-S-01)", () => {
 
   it("F-S-01: footer 渲染总数文本与单套 Semi Pagination，无独立上一页/下一页按钮", () => {
     const onPageChange = vi.fn();
+    const onPageSizeChange = vi.fn();
     const { container } = render(
-      <StandardListFooter total={128} page={2} pageSize={10} onPageChange={onPageChange} />
+      <StandardListFooter total={128} page={2} pageSize={10} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} />
     );
 
     const footer = container.querySelector(".standard-list-footer");
@@ -64,10 +65,29 @@ describe("StandardListShell 布局契约 (F-S-01)", () => {
   it("F-S-01: footer Pagination 翻页回调生效", async () => {
     const user = userEvent.setup();
     const onPageChange = vi.fn();
-    render(<StandardListFooter total={30} page={1} pageSize={10} onPageChange={onPageChange} />);
+    const onPageSizeChange = vi.fn();
+    render(<StandardListFooter total={30} page={1} pageSize={10} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} />);
     // Semi Pagination 页码项为 li.semi-page-item（文本即页码）
     await user.click(screen.getByText("3"));
     expect(onPageChange).toHaveBeenCalledWith(3);
+  });
+
+  it("F-S-01: footer 提供每页条数切换（10/15/20/50/100），切换回调生效", async () => {
+    const user = userEvent.setup();
+    const onPageSizeChange = vi.fn();
+    const { container } = render(
+      <StandardListFooter total={128} page={1} pageSize={10} onPageChange={vi.fn()} onPageSizeChange={onPageSizeChange} />
+    );
+    // Semi 页量切换器为 combobox（触发器文案"每页条数：10"，选项在 portal 下拉中，
+    // 沿用凭据测试的驱动方式：fireEvent 点 role=option；受控 Select 的 onChange
+    // 在关闭动画 afterClose 回调里触发，jsdom 需手动补 animationEnd）
+    const footer = container.querySelector(".standard-list-footer") as HTMLElement;
+    await user.click(within(footer).getByRole("combobox"));
+    const option = await screen.findByRole("option", { name: /每页条数：50/ });
+    fireEvent.click(option);
+    const leaving = document.querySelector('[class*="animation-hide"]');
+    if (leaving) fireEvent.animationEnd(leaving);
+    expect(onPageSizeChange).toHaveBeenCalledWith(50);
   });
 
   it("F-S-01: RowActions 直出高频操作、低频操作收进 Dropdown 触发器", () => {

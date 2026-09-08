@@ -101,7 +101,7 @@ function P1Table({
     {
       dataIndex: "id",
       render: (_value: unknown, record: ControlPlaneItem) => (
-        <Button onClick={() => onSelect(record)} type="tertiary">{record.id}</Button>
+        <Button onClick={() => onSelect(record)} theme="borderless" type="primary">{record.id}</Button>
       ),
       title: "ID"
     },

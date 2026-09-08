@@ -87,11 +87,4 @@ describe("后续缺口收敛 (FU)", () => {
     const search = await screen.findByPlaceholderText("搜索执行 ID / Trace");
     expect((search as HTMLInputElement).value).not.toBe("");
   });
-
-  it("FU-04: 顶栏全局搜索跳执行记录并带 keyword", async () => {
-    const { user } = renderConsole({ initialView: "overview" });
-    await user.type(screen.getByLabelText("全局搜索"), "exec-failed-1{enter}");
-    const search = await screen.findByPlaceholderText("搜索执行 ID / Trace");
-    expect((search as HTMLInputElement).value).toBe("exec-failed-1");
-  });
 });

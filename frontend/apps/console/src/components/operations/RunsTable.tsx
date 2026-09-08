@@ -1,6 +1,7 @@
 /** C407 RunsTable（TASK-014 / CMP-11）：workflow_run 投影表（trace 关联；展示组件）。 */
 import { Table, Tag } from "@douyinfe/semi-ui";
 
+import { RelativeTime } from "../RelativeTime";
 import type { WorkflowRunProjection } from "../../types/console";
 
 interface RunsTableProps {
@@ -33,7 +34,11 @@ export function RunsTable({ runs }: RunsTableProps) {
       render: (_value: unknown, record: WorkflowRunProjection) => record.traceId,
       title: "Trace"
     },
-    { dataIndex: "updatedAt", title: "更新时间" }
+    {
+      dataIndex: "updatedAt",
+      render: (value: string) => <RelativeTime value={value} />,
+      title: "更新时间"
+    }
   ];
   return (
     <section aria-label="Workflow Runs">

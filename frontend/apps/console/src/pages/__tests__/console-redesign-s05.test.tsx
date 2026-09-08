@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -60,13 +60,14 @@ describe("治理页组 (S-05)", () => {
     expect(screen.getByRole("button", { name: "去绑定管理" })).toBeDefined();
   });
 
-  it("S-05: 审计时间快捷过滤（近 24 小时藏起 8 天前记录）", async () => {
+  it("S-05: 审计时间范围筛选（近 24 小时藏起 8 天前记录）", async () => {
     const { user } = renderConsole({ initialView: "audit", seed: policySeed() });
     await screen.findByLabelText("审计列表");
     expect(await screen.findByText("old-thing")).toBeDefined();
-    await user.click(screen.getByRole("button", { name: "近 24 小时" }));
+    await user.click(screen.getByPlaceholderText("开始时间"));
+    await user.click(await screen.findByText("近 24 小时"));
     await screen.findByLabelText("审计列表");
-    expect(screen.queryByText("old-thing")).toBeNull();
+    await waitFor(() => expect(screen.queryByText("old-thing")).toBeNull());
   });
 
   it("S-05: 绑定页单套分页 + 空态说明", async () => {

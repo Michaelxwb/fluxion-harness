@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../../components/PageHeader";
 import { EmptyState } from "../../components/EmptyState";
 import {
+  DEFAULT_PAGE_SIZE,
   RowActions,
   StandardListCard,
   StandardListFooter,
@@ -62,8 +63,6 @@ const KIND_EMPTY_TEXT: Record<CapabilityKind, { readonly title: string; readonly
   }
 };
 
-const PAGE_SIZE = 10;
-
 /** TASK-016（§8.3）：Capabilities 管理页。skill tab 已产品化（CreateSkillModal +
  * 独立 Editor + StandardListShell）；tool/mcp tab 维持 SchemaForm 内联新建，
  * 由 TASK-017/018 逐一收敛（收敛后 skill/tool/mcp 均不再 import SchemaForm）。 */
@@ -82,6 +81,7 @@ export function CapabilitiesPage({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [createSkillOpen, setCreateSkillOpen] = useState(false);
   const [createToolOpen, setCreateToolOpen] = useState(false);
   const [createMcpOpen, setCreateMcpOpen] = useState(false);
@@ -104,7 +104,7 @@ export function CapabilitiesPage({
       // FEAT-03：分页/搜索/状态全部服务端化（GET /api/v1/resources），防乱序覆盖。
       const result = await api.listResources(kind as ResourceType, {
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
         keyword: debouncedSearch.trim() || undefined,
         status: (statusFilter || undefined) as ResourceStatus | undefined
       });
@@ -135,7 +135,7 @@ export function CapabilitiesPage({
       if (requestId !== requestSeq.current) return;
       setError(cause instanceof Error ? cause.message : "加载失败");
     }
-  }, [api, debouncedSearch, kind, page, statusFilter]);
+  }, [api, debouncedSearch, kind, page, pageSize, statusFilter]);
 
   useEffect(() => {
     void refresh();
@@ -284,8 +284,12 @@ export function CapabilitiesPage({
               rows !== null && total > 0 ? (
                 <StandardListFooter
                   onPageChange={setPage}
+                  onPageSizeChange={(next) => {
+                    setPageSize(next);
+                    setPage(1);
+                  }}
                   page={page}
-                  pageSize={PAGE_SIZE}
+                  pageSize={pageSize}
                   total={total}
                 />
               ) : undefined
@@ -354,7 +358,8 @@ export function CapabilitiesPage({
                   render: (_value, record) => (
                     <Button
                       onClick={() => navigate(`/build/tools/${record.resourceId}/edit`)}
-                      type="tertiary"
+                      theme="borderless"
+                      type="primary"
                     >
                       {record.name}
                     </Button>
@@ -409,8 +414,12 @@ export function CapabilitiesPage({
               rows !== null && total > 0 ? (
                 <StandardListFooter
                   onPageChange={setPage}
+                  onPageSizeChange={(next) => {
+                    setPageSize(next);
+                    setPage(1);
+                  }}
                   page={page}
-                  pageSize={PAGE_SIZE}
+                  pageSize={pageSize}
                   total={total}
                 />
               ) : undefined
@@ -479,7 +488,8 @@ export function CapabilitiesPage({
                   render: (_value, record) => (
                     <Button
                       onClick={() => navigate(`/build/skills/${record.resourceId}/edit`)}
-                      type="tertiary"
+                      theme="borderless"
+                      type="primary"
                     >
                       {record.name}
                     </Button>
@@ -534,8 +544,12 @@ export function CapabilitiesPage({
               rows !== null && total > 0 ? (
                 <StandardListFooter
                   onPageChange={setPage}
+                  onPageSizeChange={(next) => {
+                    setPageSize(next);
+                    setPage(1);
+                  }}
                   page={page}
-                  pageSize={PAGE_SIZE}
+                  pageSize={pageSize}
                   total={total}
                 />
               ) : undefined
@@ -604,7 +618,8 @@ export function CapabilitiesPage({
                   render: (_value, record) => (
                     <Button
                       onClick={() => navigate(`/build/mcp/${record.resourceId}/edit`)}
-                      type="tertiary"
+                      theme="borderless"
+                      type="primary"
                     >
                       {record.name}
                     </Button>

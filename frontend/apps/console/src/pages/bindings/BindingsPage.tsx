@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button, Card, Input, Modal, Select, Space, Table, Typography } from "@douyinfe/semi-ui";
 import { IconPlus } from "@douyinfe/semi-icons";
@@ -6,7 +6,7 @@ import { IconPlus } from "@douyinfe/semi-icons";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { EmptyState } from "../../components/EmptyState";
 import { PageHeader } from "../../components/PageHeader";
-import { StandardListFooter } from "../../components/StandardListShell";
+import { DEFAULT_PAGE_SIZE, StandardListFooter } from "../../components/StandardListShell";
 import { StatusTag } from "../../components/StatusTag";
 import type {
   BindingRecord,
@@ -20,12 +20,14 @@ interface BindingsPageProps {
   readonly api: ConsoleApi;
 }
 
-const BINDING_PAGE_SIZE = 20;
-
 export function BindingsPage({ api }: BindingsPageProps) {
   const [bindings, setBindings] = useState<readonly BindingRecord[]>([]);
   const [bindingTotal, setBindingTotal] = useState(0);
   const [bindingPage, setBindingPage] = useState(1);
+  const [bindingPageSize, setBindingPageSize] = useState(DEFAULT_PAGE_SIZE);
+  // 页量 ref：Semi 切换页量时会连带触发 onChange，两次回调同 tick 执行，
+  // ref 保证第二次（翻页）请求读到最新页量，避免新旧页量请求竞态。
+  const bindingPageSizeRef = useRef(DEFAULT_PAGE_SIZE);
   const [credentials, setCredentials] = useState<readonly CredentialMetadata[]>([]);
   const [resourceType, setResourceType] = useState<ResourceType | "all">("all");
   const [bindOpen, setBindOpen] = useState(false);
@@ -57,10 +59,11 @@ export function BindingsPage({ api }: BindingsPageProps) {
     }
   }
 
-  async function loadBindings(page: number): Promise<void> {
+  async function loadBindings(page: number, size?: number): Promise<void> {
+    const pageSizeForRequest = size ?? bindingPageSizeRef.current;
     try {
       const pageData = await api.listBindings(
-        { page, pageSize: BINDING_PAGE_SIZE },
+        { page, pageSize: pageSizeForRequest },
         resourceType === "all" ? undefined : resourceType
       );
       setBindings(pageData.items);
@@ -146,8 +149,13 @@ export function BindingsPage({ api }: BindingsPageProps) {
         {bindingTotal > 0 ? (
           <StandardListFooter
             onPageChange={(page) => void loadBindings(page)}
+            onPageSizeChange={(next) => {
+              bindingPageSizeRef.current = next;
+              setBindingPageSize(next);
+              void loadBindings(1, next);
+            }}
             page={bindingPage}
-            pageSize={BINDING_PAGE_SIZE}
+            pageSize={bindingPageSize}
             total={bindingTotal}
           />
         ) : null}

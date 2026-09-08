@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Descriptions, SideSheet, Spin, Tag } from "@douyinfe/semi-ui";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
+import { RelativeTime } from "../../components/RelativeTime";
 import { StatusTag } from "../../components/StatusTag";
 import { VersionHistory } from "../../components/VersionHistory";
 import type { ConsoleApi, ResourceVersion } from "../../types/console";
@@ -58,7 +59,7 @@ export function CredentialDetailSideSheet({
       onCancel={onClose}
       title="凭据详情"
       visible={resourceId !== null}
-      width={480}
+      width={800}
     >
       <ErrorBanner message={error} />
       {resource === null ? (
@@ -88,7 +89,7 @@ export function CredentialDetailSideSheet({
                 )
               },
               { key: "版本", value: resource.version },
-              { key: "更新时间", value: resource.updatedAt }
+              { key: "更新时间", value: <RelativeTime value={resource.updatedAt} /> }
             ]}
           />
           <VersionHistory api={api} resourceId={resource.resourceId} resourceType="secret" />

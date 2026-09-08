@@ -6,7 +6,7 @@ import { renderConsole } from "../../test/renderConsole";
 
 /** S-04：用户行信息层级 + 撤销走 RiskConfirm + 详情页去重。 */
 describe("用户列表与详情 (S-04)", () => {
-  it("S-04: 用户行展示 Avatar 与相对时间，操作项改名用户详情", async () => {
+  it("S-04: 用户行展示 Avatar 与固定格式时间，操作项改名用户详情", async () => {
     const { user } = renderConsole({ initialView: "users_channels", seed: createConsoleFixture() });
     await user.click(screen.getByRole("button", { name: "新增用户" }));
     await user.type(screen.getByLabelText("用户 ID"), "u-s04");
@@ -14,8 +14,7 @@ describe("用户列表与详情 (S-04)", () => {
     await user.click(screen.getByRole("button", { name: "创建用户" }));
     const row = (await screen.findByText("u-s04")).closest("tr");
     expect(row?.textContent).toContain("U");
-    expect(row?.textContent).toContain("刚刚");
-    expect(row?.textContent).not.toMatch(/T\d{2}:\d{2}:\d{2}/);
+    expect(row?.textContent).toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
     expect(
       within(row as HTMLElement).getByRole("button", { name: "用户详情 u-s04" })
     ).toBeDefined();

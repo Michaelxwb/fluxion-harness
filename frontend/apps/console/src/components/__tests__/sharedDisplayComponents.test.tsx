@@ -7,14 +7,13 @@ import { RelativeTime } from "../RelativeTime";
 import { ResourceId } from "../ResourceId";
 import { RiskConfirm } from "../RiskConfirm";
 
-/** S-01：全局展示组件（相对时间/资源 ID/空态/高风险确认）。 */
+/** S-01：全局展示组件（固定格式时间/资源 ID/空态/高风险确认）。 */
 describe("全局展示组件 (S-01)", () => {
-  it("S-01: RelativeTime 渲染相对时间且 hover 显示完整本地时间", () => {
-    const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
-    const { container } = render(<RelativeTime value={threeMinutesAgo} />);
-    expect(container.textContent).toContain("3 分钟前");
+  it("S-01: RelativeTime 渲染固定格式本地时间", () => {
+    const { container } = render(<RelativeTime value="2025-03-20T10:56:05.000Z" />);
     const time = container.querySelector("time");
-    expect(time?.getAttribute("title")).toContain(new Date(threeMinutesAgo).getFullYear().toString());
+    expect(time?.getAttribute("dateTime")).toBe("2025-03-20T10:56:05.000Z");
+    expect(container.textContent).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   });
 
   it("S-01: RelativeTime 非法输入原样透出", () => {

@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  Banner,
   Button,
   Empty,
+  Input,
   Modal,
   Popconfirm,
   Select,
+  Space,
   Spin,
   Table,
   Tag,
+  Toast,
   Typography
 } from "@douyinfe/semi-ui";
+import { IconCopy, IconExternalOpen, IconPlus } from "@douyinfe/semi-icons";
 
 import type {
   AgentWebChannel,
@@ -18,6 +23,7 @@ import type {
   ConsoleApi
 } from "../../types/console";
 import { useRemoteUserOptions } from "../../components/useRemoteResourceOptions";
+import { RelativeTime } from "../../components/RelativeTime";
 
 interface AgentChannelsPanelProps {
   readonly agentId: string;
@@ -39,6 +45,7 @@ export function AgentChannelsPanel({ agentId, api }: AgentChannelsPanelProps) {
   // FEAT-03：入口用户远程搜索（大数据集可达；已授权排除仍在页内执行）。
   const userOptions = useRemoteUserOptions(api, openModal);
   const [issuedToken, setIssuedToken] = useState<string | null>(null);
+  const [issuedFor, setIssuedFor] = useState<string | null>(null);
   const [verify, setVerify] = useState<ChannelVerifyResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +75,7 @@ export function AgentChannelsPanel({ agentId, api }: AgentChannelsPanelProps) {
     try {
       const issued = await api.issueChatAccess(selectedUser, agentId);
       setIssuedToken(issued.token);
+      setIssuedFor(selectedUser);
       setOpenModal(false);
       setSelectedUser("");
       await reload();
@@ -75,6 +83,20 @@ export function AgentChannelsPanel({ agentId, api }: AgentChannelsPanelProps) {
       setError(cause instanceof Error ? cause.message : "入口生成失败");
     } finally {
       setBusy(false);
+    }
+  }
+
+  function closeIssued(): void {
+    setIssuedToken(null);
+    setIssuedFor(null);
+  }
+
+  async function copyIssuedLink(link: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(link);
+      Toast.success("入口链接已复制");
+    } catch {
+      Toast.error("复制失败，请手动复制");
     }
   }
 
@@ -114,20 +136,37 @@ export function AgentChannelsPanel({ agentId, api }: AgentChannelsPanelProps) {
 
   return (
     <div aria-label="Agent 渠道" style={{ display: "grid", gap: 16 }}>
-      <div style={{ alignItems: "center", display: "flex", gap: 12 }}>
-        <Typography.Text strong>Web Chat</Typography.Text>
+      <div style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 12 }}>
+        <Typography.Title heading={5} style={{ margin: 0 }}>
+          Web Chat
+        </Typography.Title>
         <Tag color={channel?.status === "active" ? "green" : "grey"}>
           {channel?.status === "active" ? "可用" : "未发布"}
         </Tag>
-        <Button onClick={() => setOpenModal(true)} theme="solid" type="primary">
+        <Typography.Text type="tertiary">
+          内置对话通道：为已授权用户开通专属入口，对方即可经 Web Chat 与此智能体对话。
+        </Typography.Text>
+      </div>
+
+      <Space wrap>
+        <Button aria-label="开通并生成入口" icon={<IconPlus />} onClick={() => setOpenModal(true)} theme="solid" type="primary">
           开通并生成入口
         </Button>
         <Button loading={busy} onClick={() => void runVerify()}>
           验证渠道
         </Button>
-        <Tag color="grey">企业微信 · 暂未开放</Tag>
-        <Tag color="grey">Mattermost · 暂未开放</Tag>
-        <Tag color="grey">微信 · 暂未开放</Tag>
+      </Space>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        <Typography.Text strong>IM 通道</Typography.Text>
+        <Space wrap>
+          <Tag color="grey">企业微信 · 暂未开放</Tag>
+          <Tag color="grey">Mattermost · 暂未开放</Tag>
+          <Tag color="grey">微信 · 暂未开放</Tag>
+        </Space>
+        <Typography.Text size="small" type="tertiary">
+          企业微信 / Mattermost / 微信后端仅有鉴权器，入站链路尚未开放，故不提供开通开关。
+        </Typography.Text>
       </div>
 
       <Modal
@@ -171,18 +210,43 @@ export function AgentChannelsPanel({ agentId, api }: AgentChannelsPanelProps) {
       <Modal
         cancelText="关 闭"
         footer={null}
-        onCancel={() => setIssuedToken(null)}
+        onCancel={closeIssued}
         title="Web Chat 渠道入口"
         visible={issuedToken !== null}
+        width={640}
       >
         {issuedToken ? (
-          <div style={{ display: "grid", gap: 8 }}>
-            <Typography.Text copyable aria-label="Web Chat 入口链接">
-              {`${window.location.origin}/chat/#/${issuedToken}`}
+          <div style={{ display: "grid", gap: 12 }}>
+            <Typography.Text type="tertiary">
+              {issuedFor ? `已为用户「${issuedFor}」生成专属入口：` : "专属入口已生成："}
             </Typography.Text>
-            <Typography.Text type="warning">
-              链接仅本次显示 token，复制后请妥善保存；撤销入口后立即失效。
-            </Typography.Text>
+            <Input
+              aria-label="Web Chat 入口链接"
+              readOnly
+              value={`${window.location.origin}/chat/#/${issuedToken}`}
+            />
+            <Space>
+              <Button
+                aria-label="复制链接"
+                icon={<IconCopy />}
+                onClick={() => void copyIssuedLink(`${window.location.origin}/chat/#/${issuedToken}`)}
+                theme="solid"
+                type="primary"
+              >
+                复制链接
+              </Button>
+              <Button
+                aria-label="打开对话"
+                icon={<IconExternalOpen />}
+                onClick={() => window.open(`${window.location.origin}/chat/#/${issuedToken}`, "_blank", "noopener,noreferrer")}
+              >
+                打开对话
+              </Button>
+            </Space>
+            <Banner
+              description="链接仅本次显示 token，复制后请妥善保存；撤销入口后立即失效。"
+              type="warning"
+            />
           </div>
         ) : null}
       </Modal>
@@ -197,7 +261,7 @@ export function AgentChannelsPanel({ agentId, api }: AgentChannelsPanelProps) {
             { dataIndex: "platformUserId", title: "用户 ID" },
             {
               dataIndex: "createdAt",
-              render: (value: string) => new Date(value).toLocaleString(),
+              render: (value: string) => <RelativeTime value={value} />,
               title: "开通时间"
             },
             {

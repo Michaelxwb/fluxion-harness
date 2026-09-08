@@ -34,19 +34,28 @@ export function StandardListToolbar({ filters, primary, search }: StandardListTo
 
 interface StandardListFooterProps {
   readonly onPageChange: (page: number) => void;
+  /** 必传：页脚统一带每页条数切换，切换后调用方回到第 1 页重载。 */
+  readonly onPageSizeChange: (pageSize: number) => void;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
 }
 
-export function StandardListFooter({ onPageChange, page, pageSize, total }: StandardListFooterProps) {
+/** 标准分页页脚：总数 + Semi Pagination（含每页条数切换 10/15/20/50/100）。 */
+export const DEFAULT_PAGE_SIZE = 10;
+export const PAGE_SIZE_OPTIONS: readonly number[] = [10, 15, 20, 50, 100];
+
+export function StandardListFooter({ onPageChange, onPageSizeChange, page, pageSize, total }: StandardListFooterProps) {
   return (
     <div className="standard-list-footer">
       <Typography.Text type="tertiary">共 {total} 条</Typography.Text>
       <Pagination
         currentPage={page}
         onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
         pageSize={pageSize}
+        pageSizeOpts={[...PAGE_SIZE_OPTIONS]}
+        showSizeChanger
         total={total}
       />
     </div>

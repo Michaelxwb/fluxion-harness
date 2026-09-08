@@ -398,9 +398,9 @@ class SQLAlchemyRegistryStore(ScopedReadStore):
         if target_type is not None:
             conditions.append(audit_logs.c.target_type == target_type)
         if created_from is not None:
-            conditions.append(audit_logs.c.created_at >= created_from)
+            conditions.append(audit_logs.c.created_at >= _parse_audit_instant(created_from, name="created_from"))
         if created_to is not None:
-            conditions.append(audit_logs.c.created_at <= created_to)
+            conditions.append(audit_logs.c.created_at <= _parse_audit_instant(created_to, name="created_to"))
         statement = (
             select(audit_logs)
             .where(*conditions)
@@ -1135,6 +1135,26 @@ class PostgreSQLRegistryStore(SQLAlchemyRegistryStore):
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+def _parse_audit_instant(value: str, *, name: str) -> datetime:
+    """审计时间过滤参数解析：ISO-8601 字符串 → tz-aware datetime。
+
+    created_at 列是 DateTime(timezone=True)，直接拿字符串比较会在
+    PostgreSQL 报 `operator does not exist: timestamptz >= varchar`
+    （500 internal error）；必须先解析成 datetime 再比较。
+    无时区输入按 UTC 理解；非法格式抛 ValueError，由 Service 层转 400。
+    """
+    text = value.strip()
+    if text.endswith(("Z", "z")):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        raise ValueError(f"invalid {name}: {value!r}") from None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed
 
 
 def _binding_values(binding: ResourceBinding) -> dict[str, object]:

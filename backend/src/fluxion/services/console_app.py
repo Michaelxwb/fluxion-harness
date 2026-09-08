@@ -15,6 +15,7 @@ from fluxion.errors.console import (
     VALIDATION_FAILED,
     ConsoleError,
     ConsoleResourceNotFoundError,
+    ConsoleValidationError,
 )
 from fluxion.observability.logging import emit_error_log
 from fluxion.registry import (
@@ -361,16 +362,19 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         created_to: str | None = None,
     ) -> tuple[list[AuditRecord], int]:
         # TASK-021（§8.10）：审计过滤透传（SQL 下推，时间范围不做前端全量过滤）
-        return await self._store.list_audit(
-            tenant_id=actor.tenant_id,
-            action=action,
-            actor_id=actor_id,
-            target_type=target_type,
-            created_from=created_from,
-            created_to=created_to,
-            offset=(page - 1) * page_size,
-            limit=page_size,
-        )
+        try:
+            return await self._store.list_audit(
+                tenant_id=actor.tenant_id,
+                action=action,
+                actor_id=actor_id,
+                target_type=target_type,
+                created_from=created_from,
+                created_to=created_to,
+                offset=(page - 1) * page_size,
+                limit=page_size,
+            )
+        except ValueError as cause:
+            raise ConsoleValidationError(f"invalid audit time range: {cause}") from None
 
     async def issue_chat_access(
         self,

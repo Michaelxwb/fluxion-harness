@@ -4,6 +4,7 @@ import { Button, Select, Table, Tag, Toast, Typography } from "@douyinfe/semi-ui
 
 import { PageHeader } from "../../components/PageHeader";
 import {
+  DEFAULT_PAGE_SIZE,
   RowActions,
   StandardListCard,
   StandardListFooter,
@@ -31,8 +32,6 @@ interface ProviderRow {
   readonly models: readonly { readonly id: string; readonly name: string; readonly version: string }[];
 }
 
-const PAGE_SIZE = 20;
-
 /** TASK-016（返工 / FEAT-F09）+ TASK-010：模型页标准 Shell 化。
  *
  * Provider 承载连接与凭据（ProviderDefinition），Model 承载模型身份
@@ -51,6 +50,7 @@ export function ModelsPage({ api }: ModelsPageProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [connectVisible, setConnectVisible] = useState(false);
   const [refreshTarget, setRefreshTarget] = useState<ProviderRow | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -143,7 +143,7 @@ export function ModelsPage({ api }: ModelsPageProps) {
   }, [rows, search, statusFilter]);
 
   const total = filtered.length;
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   function reload(): void {
     setReloadKey((key) => key + 1);
@@ -164,8 +164,12 @@ export function ModelsPage({ api }: ModelsPageProps) {
           rows !== null && rows.length > 0 ? (
             <StandardListFooter
               onPageChange={setPage}
+              onPageSizeChange={(next) => {
+                setPageSize(next);
+                setPage(1);
+              }}
               page={page}
-              pageSize={PAGE_SIZE}
+              pageSize={pageSize}
               total={total}
             />
           ) : undefined
@@ -227,7 +231,7 @@ export function ModelsPage({ api }: ModelsPageProps) {
                   aria-label={`查看模型服务 ${value}`}
                   onClick={() => setDetailId(record.resourceId)}
                   theme="borderless"
-                  type="tertiary"
+                  type="primary"
                 >
                   {value}
                 </Button>
@@ -281,11 +285,6 @@ export function ModelsPage({ api }: ModelsPageProps) {
                     }
                   ]}
                     more={[
-                      {
-                        key: "detail",
-                        content: "查看详情",
-                        onClick: () => setDetailId(record.resourceId)
-                      },
                       {
                         key: "probe",
                         content: "探测连通",

@@ -8,6 +8,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { RelativeTime } from "../../components/RelativeTime";
 import { ResourceId } from "../../components/ResourceId";
 import {
+  DEFAULT_PAGE_SIZE,
   RowActions,
   StandardListCard,
   StandardListFooter,
@@ -35,8 +36,6 @@ interface AgentRow extends ResourceSummary {
   readonly modelName: string | null;
   readonly capabilityCount: number;
 }
-
-const PAGE_SIZE = 10;
 
 function countBindings(bindings: readonly BindingRecord[]): ReadonlyMap<string, number> {
   const counts = new Map<string, number>();
@@ -67,6 +66,7 @@ export function AgentsPage({ api }: AgentsPageProps) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -90,11 +90,11 @@ export function AgentsPage({ api }: AgentsPageProps) {
       try {
         // FEAT-03：分页/搜索/状态全部服务端化（GET /api/v1/resources）。
         // 主模型过滤因需服务端 spec 过滤支持而移除（另行设计），模型保留为展示列；
-        // 页内 details join 随页大小有界（PAGE_SIZE 次详情请求）。
+        // 页内 details join 随页大小有界（单页详情请求数与页大小一致）。
         const [agentsPage, bindingsPage] = await Promise.all([
           api.listResources("agent_definition", {
             page,
-            pageSize: PAGE_SIZE,
+            pageSize,
             keyword: debouncedSearch.trim() || undefined,
             status: (statusFilter || undefined) as ResourceStatus | undefined
           }),
@@ -139,7 +139,7 @@ export function AgentsPage({ api }: AgentsPageProps) {
     return () => {
       active = false;
     };
-  }, [api, debouncedSearch, page, reloadKey, statusFilter]);
+  }, [api, debouncedSearch, page, pageSize, reloadKey, statusFilter]);
 
   function reload(): void {
     setReloadKey((key) => key + 1);
@@ -207,8 +207,12 @@ export function AgentsPage({ api }: AgentsPageProps) {
             rows !== null && total > 0 ? (
               <StandardListFooter
                 onPageChange={setPage}
+                onPageSizeChange={(next) => {
+                  setPageSize(next);
+                  setPage(1);
+                }}
                 page={page}
-                pageSize={PAGE_SIZE}
+                pageSize={pageSize}
                 total={total}
               />
             ) : undefined
@@ -276,7 +280,7 @@ export function AgentsPage({ api }: AgentsPageProps) {
                         aria-label={`查看智能体 ${value}`}
                         onClick={() => setSelectedAgentId(record.resourceId)}
                         theme="borderless"
-                        type="tertiary"
+                        type="primary"
                       >
                         {value}
                       </Button>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Avatar, Breadcrumb, Button, Input, Layout, Nav, Select, Tag, Tooltip, Typography } from "@douyinfe/semi-ui";
+import { Avatar, Breadcrumb, Button, Layout, Nav, Tag, Tooltip, Typography } from "@douyinfe/semi-ui";
 import {
   IconActivity,
   IconFlowChartStroked,
@@ -10,7 +10,6 @@ import {
   IconMoon,
   IconPulse,
   IconPuzzle,
-  IconSearch,
   IconShield,
   IconSun,
   IconUserGroup
@@ -123,15 +122,6 @@ function ConsoleLayout() {
   const crumbs = breadcrumbOf(location.pathname, selectedKey);
   const host = window.location.hostname;
   const isLocal = host === "localhost" || host === "127.0.0.1";
-  const [searchScope, setSearchScope] = useState<string>("/operations/runs");
-  const [searchKeyword, setSearchKeyword] = useState("");
-
-  function submitSearch(): void {
-    const keyword = searchKeyword.trim();
-    if (!keyword) return;
-    navigate(`${searchScope}?keyword=${encodeURIComponent(keyword)}`);
-    setSearchKeyword("");
-  }
 
   return (
     <Layout className="app-shell">
@@ -160,25 +150,6 @@ function ConsoleLayout() {
             ))}
           </Breadcrumb>
           <span className="topbar__right">
-            <Select
-              aria-label="全局搜索范围"
-              onChange={(value) => setSearchScope(String(value))}
-              optionList={[
-                { label: "执行", value: "/operations/runs" },
-                { label: "审计", value: "/governance/audit" }
-              ]}
-              style={{ width: 90 }}
-              value={searchScope}
-            />
-            <Input
-              aria-label="全局搜索"
-              onChange={(value) => setSearchKeyword(String(value))}
-              onEnterPress={submitSearch}
-              placeholder="搜索执行 ID / Trace / 审计"
-              prefix={<IconSearch />}
-              style={{ width: 240 }}
-              value={searchKeyword}
-            />
             {isLocal ? <Tag color="blue">本地环境</Tag> : null}
             <Tooltip content="管理员（单租户本地，无登录体系）">
               <Avatar size="small">A</Avatar>

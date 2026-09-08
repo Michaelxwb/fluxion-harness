@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Button, Descriptions, Select, SideSheet, Table, Typography } from "@douyinfe/semi-ui";
+import { DatePicker, Descriptions, Select, SideSheet, Table, Typography } from "@douyinfe/semi-ui";
 import { useSearchParams } from "react-router-dom";
-
-import { ActionTag } from "../../components/ActionTag";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { RelativeTime } from "../../components/RelativeTime";
 import { ResourceId } from "../../components/ResourceId";
 import { PageHeader } from "../../components/PageHeader";
 import {
+  DEFAULT_PAGE_SIZE,
   StandardListCard,
   StandardListFooter,
   StandardListSearch,
@@ -20,8 +19,6 @@ interface AuditPageProps {
   readonly api: ConsoleApi;
 }
 
-const PAGE_SIZE = 20;
-
 /** TASK-021（§8.10）：审计页标准化——操作类型/操作者/对象类型组合过滤（后端
  * 查询参数下推，时间范围不做前端全量过滤）+ 搜索 + 右下单套分页 + 详情只读
  * SideSheet（request_id/trace_id 关联呈现，规则 23；before/after 快照 diff）。 */
@@ -32,18 +29,23 @@ export function AuditPage({ api }: AuditPageProps) {
   const [actionFilter, setActionFilter] = useState("");
   const [actorFilter, setActorFilter] = useState("");
   const [targetTypeFilter, setTargetTypeFilter] = useState("");
-  const [range, setRange] = useState<TimeRangeKey>("");
+  const [timeRange, setTimeRange] = useState<readonly [Date, Date] | null>(null);
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(() => searchParams.get("keyword") ?? "");
   const [selected, setSelected] = useState<AuditRecord | null>(null);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  // 页量 ref：Semi 切换页量时会连带触发 onChange，两次回调同 tick 执行，
+  // ref 保证第二次（翻页）请求读到最新页量，避免新旧页量请求竞态。
+  const pageSizeRef = useRef(DEFAULT_PAGE_SIZE);
 
-  async function loadAudit(nextPage: number, filters?: AuditFilters): Promise<void> {
+  async function loadAudit(nextPage: number, filters?: AuditFilters, size?: number): Promise<void> {
+    const pageSizeForRequest = size ?? pageSizeRef.current;
     try {
       setCurrentPage(nextPage);
       setPage(
         await api.listAudit(
-          { page: nextPage, pageSize: PAGE_SIZE },
-          filters ?? buildFilters(actionFilter, actorFilter, targetTypeFilter, range)
+          { page: nextPage, pageSize: pageSizeForRequest },
+          filters ?? buildFilters(actionFilter, actorFilter, targetTypeFilter, timeRange)
         )
       );
       setError(null);
@@ -52,8 +54,8 @@ export function AuditPage({ api }: AuditPageProps) {
     }
   }
 
-  function applyRange(next: TimeRangeKey): void {
-    setRange(next);
+  function applyTimeRange(next: readonly [Date, Date] | null): void {
+    setTimeRange(next);
     void loadAudit(1, buildFilters(actionFilter, actorFilter, targetTypeFilter, next));
   }
 
@@ -98,8 +100,13 @@ export function AuditPage({ api }: AuditPageProps) {
             page !== null && page.total > 0 ? (
               <StandardListFooter
                 onPageChange={(next) => void loadAudit(next)}
+                onPageSizeChange={(next) => {
+                  pageSizeRef.current = next;
+                  setPageSize(next);
+                  void loadAudit(1, undefined, next);
+                }}
                 page={currentPage}
-                pageSize={PAGE_SIZE}
+                pageSize={pageSize}
                 total={page.total}
               />
             ) : undefined
@@ -111,17 +118,30 @@ export function AuditPage({ api }: AuditPageProps) {
               primary={null}
               filters={
                 <>
-                  {TIME_RANGES.map((option) => (
-                    <Button
-                      key={option.key}
-                      onClick={() => applyRange(option.key)}
-                      size="small"
-                      theme={range === option.key ? "solid" : "borderless"}
-                      type={range === option.key ? "primary" : "tertiary"}
-                    >
-                      {option.label}
-                    </Button>
-                  ))}
+                  <span className="sr-only" id="audit-time-range-label">
+                    时间范围过滤
+                  </span>
+                  <DatePicker
+                    aria-labelledby="audit-time-range-label"
+                    data-testid="audit-time-range"
+                    format="yyyy-MM-dd HH:mm:ss"
+                    onChange={(dates: Date | Date[] | string | string[] | undefined) => {
+                      applyTimeRange(
+                        Array.isArray(dates) &&
+                          dates.length === 2 &&
+                          dates[0] instanceof Date &&
+                          dates[1] instanceof Date
+                          ? [dates[0], dates[1]]
+                          : null
+                      );
+                    }}
+                    placeholder={["开始时间", "结束时间"]}
+                    presets={TIME_PRESETS}
+                    showClear
+                    style={{ width: 320 }}
+                    type="dateTimeRange"
+                    value={timeRange === null ? [] : [...timeRange]}
+                  />
                   <span className="sr-only" id="audit-action-filter-label">
                     操作类型过滤
                   </span>
@@ -131,7 +151,7 @@ export function AuditPage({ api }: AuditPageProps) {
                     onChange={(value) => {
                       const next = String(value ?? "");
                       setActionFilter(next);
-                      void loadAudit(1, buildFilters(next, actorFilter, targetTypeFilter, range));
+                      void loadAudit(1, buildFilters(next, actorFilter, targetTypeFilter, timeRange));
                     }}
                     optionList={[{ label: "全部操作", value: "" }, ...actionOptions]}
                     placeholder="操作类型"
@@ -147,7 +167,7 @@ export function AuditPage({ api }: AuditPageProps) {
                     onChange={(value) => {
                       const next = String(value ?? "");
                       setActorFilter(next);
-                      void loadAudit(1, buildFilters(actionFilter, next, targetTypeFilter, range));
+                      void loadAudit(1, buildFilters(actionFilter, next, targetTypeFilter, timeRange));
                     }}
                     optionList={[{ label: "全部操作者", value: "" }, ...actorOptions]}
                     placeholder="操作者"
@@ -163,7 +183,7 @@ export function AuditPage({ api }: AuditPageProps) {
                     onChange={(value) => {
                       const next = String(value ?? "");
                       setTargetTypeFilter(next);
-                      void loadAudit(1, buildFilters(actionFilter, actorFilter, next, range));
+                      void loadAudit(1, buildFilters(actionFilter, actorFilter, next, timeRange));
                     }}
                     optionList={[{ label: "全部对象", value: "" }, ...targetTypeOptions]}
                     placeholder="对象类型"
@@ -187,7 +207,7 @@ export function AuditPage({ api }: AuditPageProps) {
             columns={[
               {
                 dataIndex: "action",
-                render: (value: string) => <ActionTag action={value} />,
+                render: (value: string) => <Typography.Text link>{value}</Typography.Text>,
                 title: "操作"
               },
               { dataIndex: "actorId", title: "操作者" },
@@ -218,7 +238,7 @@ export function AuditPage({ api }: AuditPageProps) {
         onCancel={() => setSelected(null)}
         title="审计详情"
         visible={selected !== null}
-        width={720}
+        width={800}
       >
         {selected ? (
           <div aria-label="审计详情" style={{ display: "grid", gap: 16 }}>
@@ -252,22 +272,27 @@ export function AuditPage({ api }: AuditPageProps) {
   );
 }
 
-type TimeRangeKey = "" | "1h" | "24h" | "7d";
+/** 审计时间范围：开始-结束双端筛选（Semi DatePicker dateTimeRange），
+ * 快捷预设保留近 1 小时/近 24 小时/近 7 天，清空即全部时间。 */
+type AuditTimeRange = readonly [Date, Date] | null;
 
-const TIME_RANGES: readonly { readonly key: TimeRangeKey; readonly label: string; readonly hours: number }[] = [
-  { key: "", label: "全部时间", hours: 0 },
-  { key: "1h", label: "近 1 小时", hours: 1 },
-  { key: "24h", label: "近 24 小时", hours: 24 },
-  { key: "7d", label: "近 7 天", hours: 24 * 7 }
+const TIME_PRESETS: { readonly text: string; readonly start: () => Date; readonly end: () => Date }[] = [
+  { text: "近 1 小时", start: () => hoursAgo(1), end: () => new Date() },
+  { text: "近 24 小时", start: () => hoursAgo(24), end: () => new Date() },
+  { text: "近 7 天", start: () => hoursAgo(24 * 7), end: () => new Date() }
 ];
 
-function buildFilters(action: string, actorId: string, targetType: string, range: TimeRangeKey = ""): AuditFilters {
-  const hours = TIME_RANGES.find((option) => option.key === range)?.hours ?? 0;
+function hoursAgo(hours: number): Date {
+  return new Date(Date.now() - hours * 3600 * 1000);
+}
+
+function buildFilters(action: string, actorId: string, targetType: string, timeRange: AuditTimeRange = null): AuditFilters {
   return {
     action: action || undefined,
     actorId: actorId || undefined,
     targetType: targetType || undefined,
-    createdFrom: hours > 0 ? new Date(Date.now() - hours * 3600 * 1000).toISOString() : undefined
+    createdFrom: timeRange === null ? undefined : timeRange[0].toISOString(),
+    createdTo: timeRange === null ? undefined : timeRange[1].toISOString()
   };
 }
 

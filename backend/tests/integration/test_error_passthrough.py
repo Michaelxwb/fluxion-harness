@@ -79,3 +79,66 @@ async def test_e03_channel_keeps_upstream_slug() -> None:
     # TASK-022（S-ERR-02）：slug 优先上游原始值，不断链。
     assert data["error"] == "agent_not_found"
     assert "timeout" in data["message"]
+
+
+@pytest.mark.asyncio
+async def test_e04_local_runtime_failure_is_user_facing() -> None:
+    """E-04：本地执行失败（无上游，如存量 profile 漂移的 ValidationError）
+    不回传内部原文，给中文兜底文案 + request_id。"""
+    import json
+
+    from fluxion.api.channel import ChatAccessMessagePayload, _access_events
+
+    class _StubService:
+        async def stream_chat_access(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeApplicationError(
+                "snapshot_build_failed",
+                "2 validation errors for RuntimeProfile\nrequest_timeout_ms\n  Extra inputs are not permitted",
+                status_code=400,
+            )
+            yield  # pragma: no cover - 使其成为异步生成器
+
+    frames = [
+        frame
+        async for frame in _access_events(
+            _StubService(),  # type: ignore[arg-type]
+            ChatAccessMessagePayload(
+                conversation_id="c1", message_id="m1", content="hi"
+            ),
+            token="tok",
+        )
+    ]
+    assert len(frames) == 1 and frames[0].startswith("event: error")
+    data = json.loads(frames[0].split("data:", 1)[1])
+    assert "request_timeout_ms" not in data["message"]
+    assert "ValidationError" not in data["message"]
+    assert "服务暂时不可用" in data["message"]
+    assert "request_id=m1" in data["message"]
+
+
+@pytest.mark.asyncio
+async def test_e04_unexpected_error_is_user_facing() -> None:
+    """E-04：未知异常同样走中文兜底，不回传 internal error 英文原文。"""
+    import json
+
+    from fluxion.api.channel import ChatAccessMessagePayload, _access_events
+
+    class _StubService:
+        async def stream_chat_access(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise ValueError("boom")
+            yield  # pragma: no cover - 使其成为异步生成器
+
+    frames = [
+        frame
+        async for frame in _access_events(
+            _StubService(),  # type: ignore[arg-type]
+            ChatAccessMessagePayload(
+                conversation_id="c1", message_id="m1", content="hi"
+            ),
+            token="tok",
+        )
+    ]
+    assert len(frames) == 1 and frames[0].startswith("event: error")
+    data = json.loads(frames[0].split("data:", 1)[1])
+    assert data["message"] != "internal error"
+    assert "服务暂时不可用" in data["message"]

@@ -310,7 +310,7 @@ async def _events(
             "error",
             {
                 "code": INTERNAL_ERROR,
-                "message": "internal error",
+                "message": _user_facing_unavailable(message.request_id),
                 "request_id": message.request_id,
                 "trace_id": message.trace_id,
             },
@@ -357,7 +357,7 @@ async def _access_events(
                 "error": exc.upstream_error or exc.code,
                 "message": str(exc)
                 if exc.upstream_code is not None
-                else "runtime service unavailable",
+                else _user_facing_unavailable(request_id),
                 "request_id": request_id,
                 "trace_id": trace_id,
             },
@@ -367,7 +367,7 @@ async def _access_events(
             "error",
             {
                 "code": INTERNAL_ERROR,
-                "message": "internal error",
+                "message": _user_facing_unavailable(request_id),
                 "request_id": request_id,
                 "trace_id": trace_id,
             },
@@ -376,6 +376,11 @@ async def _access_events(
 
 def _event(name: str, data: dict[str, object]) -> str:
     return f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def _user_facing_unavailable(request_id: str) -> str:
+    """用户侧统一兜底文案：中文可读 + request_id 可追溯，不泄露内部原文。"""
+    return f"服务暂时不可用，请稍后重试（request_id={request_id}）"
 
 
 def _external(payload: ChannelMessagePayload, tenant_header: str | None) -> ExternalChannelMessage:

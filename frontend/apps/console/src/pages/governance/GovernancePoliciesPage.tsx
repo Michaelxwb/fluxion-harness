@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { IconPlus } from "@douyinfe/semi-icons";
-import { Button, Descriptions, Modal, Select, SideSheet, Space, Table, Tag, Toast, Typography } from "@douyinfe/semi-ui";
+import { Button, Modal, Select, Space, Table, Tag, Toast } from "@douyinfe/semi-ui";
 import { useNavigate } from "react-router-dom";
 
 import { PageHeader } from "../../components/PageHeader";
@@ -9,6 +9,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { RelativeTime } from "../../components/RelativeTime";
 import { ResourceId } from "../../components/ResourceId";
 import {
+  DEFAULT_PAGE_SIZE,
   RowActions,
   StandardListCard,
   StandardListFooter,
@@ -34,10 +35,8 @@ interface ListRow {
   readonly denyCount: number;
 }
 
-const PAGE_SIZE = 10;
-
 /** TASK-022（§8.11 用户决策 B：完整开放）：授权规则页——CreatePolicyModal +
- * 独立 Policy Editor + 只读 SideSheet + StandardListShell（搜索/过滤/分页/行操作）。
+ * 独立 Policy Editor + StandardListShell（搜索/过滤/分页/行操作）。
  * policy 变更影响 Agent 可调用的工具面。 */
 export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
   const navigate = useNavigate();
@@ -49,8 +48,8 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [createOpen, setCreateOpen] = useState(false);
-  const [detail, setDetail] = useState<ListRow | null>(null);
   const requestSeq = useRef(0);
 
   useEffect(() => {
@@ -71,7 +70,7 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
       // 分页与 count），受控状态 + 请求序号 guard 防乱序覆盖。
       const result = await api.listResources("policy", {
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
         keyword: debouncedSearch.trim() || undefined,
         status: (statusFilter || undefined) as ResourceStatus | undefined
       });
@@ -109,7 +108,7 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
       if (requestId !== requestSeq.current) return;
       setError(cause instanceof Error ? cause.message : "加载失败");
     }
-  }, [api, debouncedSearch, page, statusFilter]);
+  }, [api, debouncedSearch, page, pageSize, statusFilter]);
 
   useEffect(() => {
     void refresh();
@@ -170,8 +169,12 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
             rows !== null && total > 0 ? (
               <StandardListFooter
                 onPageChange={setPage}
+                onPageSizeChange={(next) => {
+                  setPageSize(next);
+                  setPage(1);
+                }}
                 page={page}
-                pageSize={PAGE_SIZE}
+                pageSize={pageSize}
                 total={total}
               />
             ) : undefined
@@ -238,10 +241,11 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
               {
                 dataIndex: "name",
                 render: (_value, record) => (
-                  <Button
-                    onClick={() => navigate(`/build/policies/${record.resourceId}/edit`)}
-                    type="tertiary"
-                  >
+                    <Button
+                      onClick={() => navigate(`/build/policies/${record.resourceId}/edit`)}
+                      theme="borderless"
+                      type="primary"
+                    >
                     {record.name}
                   </Button>
                 ),
@@ -286,7 +290,6 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
                     ]}
                     more={[
                       { key: "publish", content: "发布", onClick: () => void publish(record) },
-                      { key: "detail", content: "详情", onClick: () => setDetail(record) },
                       { key: "delete", content: "删除", onClick: () => confirmDelete(record) }
                     ]}
                   />
@@ -310,62 +313,6 @@ export function GovernancePoliciesPage({ api }: GovernancePoliciesPageProps) {
         }}
         visible={createOpen}
       />
-      <SideSheet
-        onCancel={() => setDetail(null)}
-        title="授权规则详情"
-        visible={detail !== null}
-        width={640}
-      >
-        {detail ? <PolicyDetail api={api} resourceId={detail.resourceId} /> : null}
-      </SideSheet>
-    </div>
-  );
-}
-
-function PolicyDetail({ api, resourceId }: { readonly api: ConsoleApi; readonly resourceId: string }) {
-  const [spec, setSpec] = useState<Record<string, unknown> | null>(null);
-  useEffect(() => {
-    let active = true;
-    void (async () => {
-      const resource = await api.getResource("policy", resourceId);
-      if (active) setSpec(resource.spec);
-    })();
-    return () => {
-      active = false;
-    };
-  }, [api, resourceId]);
-  const allowed = Array.isArray(spec?.allowed_tools) ? (spec?.allowed_tools as string[]) : [];
-  const denied = Array.isArray(spec?.denied_tools) ? (spec?.denied_tools as string[]) : [];
-  return (
-    <div aria-label="授权规则详情" style={{ display: "grid", gap: 16 }}>
-      <Descriptions row>
-        <Descriptions.Item itemKey="ID">{resourceId}</Descriptions.Item>
-        <Descriptions.Item itemKey="名称">{String(spec?.name ?? "-")}</Descriptions.Item>
-      </Descriptions>
-      <div>
-        <Typography.Text strong>工具白名单</Typography.Text>
-        <div style={{ paddingTop: 8 }}>
-          {allowed.length ? (
-            allowed.map((tool) => <Tag key={tool}>{tool}</Tag>)
-          ) : (
-            <Typography.Text type="tertiary">留空（不限定）</Typography.Text>
-          )}
-        </div>
-      </div>
-      <div>
-        <Typography.Text strong>工具黑名单</Typography.Text>
-        <div style={{ paddingTop: 8 }}>
-          {denied.length ? (
-            denied.map((tool) => (
-              <Tag color="red" key={tool}>
-                {tool}
-              </Tag>
-            ))
-          ) : (
-            <Typography.Text type="tertiary">无</Typography.Text>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

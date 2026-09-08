@@ -404,7 +404,16 @@ def register_studio_routes(
                 runtime_profile_version_selector=profile_selector,
                 agent_definition_id=agent_id,
             )
-            resolve_summary = await runtime_service.resolve_context(request)  # type: ignore[arg-type]
+            resolve_summary = None
+            try:
+                resolve_summary = await runtime_service.resolve_context(request)  # type: ignore[arg-type]
+            except ConsoleError:
+                raise
+            except Exception as cause:
+                # 验证接口的契约是返回失败清单而非 500：存量 RuntimeProfile
+                # spec 与当前模型漂移（如已移除的 request_timeout_ms /
+                # max_retries 字段）导致的快照构建失败也应显式报告（规则 18）。
+                problems.append(f"resolve 链构建失败：{type(cause).__name__}：{cause}")
         return success(
             {
                 "channel_type": "web",

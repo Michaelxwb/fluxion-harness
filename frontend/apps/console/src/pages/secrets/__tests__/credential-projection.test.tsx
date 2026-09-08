@@ -19,7 +19,7 @@ describe("FEAT-04 CredentialsPage 投影", () => {
 
     expect(await screen.findByText("proj-key")).toBeInTheDocument();
     expect(projectionSpy).toHaveBeenCalledTimes(1);
-    expect(projectionSpy.mock.calls[0][0]).toMatchObject({ page: 1, pageSize: 20 });
+    expect(projectionSpy.mock.calls[0][0]).toMatchObject({ page: 1, pageSize: 10 });
     // 无 N+1：详情接口在列表加载中零调用（详情 SideSheet 未打开）。
     expect(detailSpy).not.toHaveBeenCalled();
   });

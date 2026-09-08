@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Descriptions, SideSheet, Spin } from "@douyinfe/semi-ui";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
+import { RelativeTime } from "../../components/RelativeTime";
 import { StatusTag } from "../../components/StatusTag";
 import { VersionHistory } from "../../components/VersionHistory";
 import type { ConsoleApi, ResourceVersion } from "../../types/console";
@@ -54,7 +55,7 @@ export function AgentDetailSideSheet({ api, resourceId, onClose }: AgentDetailSi
       onCancel={onClose}
       title="智能体详情"
       visible={resourceId !== null}
-      width={480}
+      width={800}
     >
       <ErrorBanner message={error} />
       {resource === null ? (
@@ -73,7 +74,7 @@ export function AgentDetailSideSheet({ api, resourceId, onClose }: AgentDetailSi
               { key: "可见性", value: resource.visibility },
               { key: "默认模型", value: modelPolicy?.primary_model_ref?.id ?? "-" },
               { key: "能力数", value: String(capabilityCount) },
-              { key: "更新时间", value: resource.updatedAt }
+              { key: "更新时间", value: <RelativeTime value={resource.updatedAt} /> }
             ]}
           />
           <VersionHistory api={api} resourceId={resource.resourceId} resourceType="agent_definition" />

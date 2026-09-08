@@ -8,6 +8,7 @@ import { RunsTable } from "../../components/operations/RunsTable";
 import { PageHeader } from "../../components/PageHeader";
 import { RelativeTime } from "../../components/RelativeTime";
 import {
+  DEFAULT_PAGE_SIZE,
   StandardListCard,
   StandardListFooter,
   StandardListSearch,
@@ -25,8 +26,6 @@ interface RunsPageProps {
   readonly api: ConsoleApi;
 }
 
-const PAGE_SIZE = 10;
-
 /** TASK-020（§8.9）：执行记录页标准化——Run Detail 迁入只读 SideSheet（默认
  * 不选中）；移除 Queue/Worker Summary 区块（§8.9 明确删除，运维信息不进产品页）。
  * FEAT-03：分页/状态/keyword 全部服务端化（同一集合分页与 count），受控状态 +
@@ -43,6 +42,7 @@ export function RunsPage({ api }: RunsPageProps) {
   const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("keyword") ?? "");
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("statusFilter") ?? "");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [reloadKey, setReloadKey] = useState(0);
   const [agentNames, setAgentNames] = useState<ReadonlyMap<string, string>>(new Map());
   // C407（TASK-014）：Phase 3 workflow_run 投影（trace 关联）
@@ -67,7 +67,7 @@ export function RunsPage({ api }: RunsPageProps) {
     void api
       .listRuns({
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
         status: statusFilter || undefined,
         keyword: debouncedSearch.trim() || undefined
       })
@@ -106,7 +106,7 @@ export function RunsPage({ api }: RunsPageProps) {
     return () => {
       active = false;
     };
-  }, [api, page, statusFilter, debouncedSearch, reloadKey]);
+  }, [api, page, pageSize, statusFilter, debouncedSearch, reloadKey]);
 
   useEffect(() => {
     let active = true;
@@ -146,8 +146,12 @@ export function RunsPage({ api }: RunsPageProps) {
                 runs !== null && total > 0 ? (
                   <StandardListFooter
                     onPageChange={setPage}
+                    onPageSizeChange={(next) => {
+                      setPageSize(next);
+                      setPage(1);
+                    }}
                     page={page}
-                    pageSize={PAGE_SIZE}
+                    pageSize={pageSize}
                     total={total}
                   />
                 ) : undefined
@@ -220,8 +224,9 @@ function RunTable({ agentNames, onSelect, runs }: RunTableProps) {
       render: (_value: unknown, record: RunDetail) => (
         <Button
           onClick={() => onSelect(record)}
+          theme="borderless"
           title={record.executionId}
-          type="tertiary"
+          type="primary"
         >
           {truncateId(record.executionId)}
         </Button>
@@ -328,7 +333,7 @@ function RunDetailSideSheet({
       onCancel={onClose}
       title="Run Detail"
       visible={run !== null}
-      width={860}
+      width={800}
     >
       {run ? (
         <div className="run-detail" aria-label="Run Detail" style={{ display: "grid", gap: 16 }}>

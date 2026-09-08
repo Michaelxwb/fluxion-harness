@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Button, Modal, Space, Spin, Typography } from "@douyinfe/semi-ui";
+import { Banner, Button, Modal, Space, Spin, Typography } from "@douyinfe/semi-ui";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
 import type { ConsoleApi, JsonRecord, ResourceVersion } from "../../types/console";
@@ -113,7 +113,12 @@ export function ModelResourceEditor({
       {resource === null ? (
         <div aria-label="模型编辑器加载中"><Spin /></div>
       ) : (
-        <div aria-label="模型资源编辑器" style={{ display: "grid", gap: 14 }}>
+        <div aria-label="模型资源编辑器" style={{ display: "grid", gap: 16 }}>
+          <Typography.Text type="tertiary">
+            {kind === "model_provider"
+              ? "模型服务承载连接与凭据；Base URL 与凭据保存后即时生效。"
+              : "模型承载模型身份；能力开关决定该模型可用的调用面。"}
+          </Typography.Text>
           {kind === "model_provider" ? (
             <ProviderFields
               credentialOptions={credentialOptions}
@@ -125,16 +130,25 @@ export function ModelResourceEditor({
           )}
           {issues.length > 0 ? (
             <div aria-label="模型发布校验问题">
-              {issues.map((issue) => (
-                <Typography.Paragraph key={issue} type="danger">{issue}</Typography.Paragraph>
-              ))}
+              <Banner
+                description={
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {issues.map((issue) => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
+                }
+                type="danger"
+              />
             </div>
           ) : null}
-          <Space>
-            <Button loading={busy} onClick={() => void save()} theme="solid">保存</Button>
-            <Button loading={busy} onClick={() => void publish()} type="primary">发布</Button>
-            <Button disabled={busy} onClick={onClose}>取消</Button>
-          </Space>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <Space>
+              <Button disabled={busy} onClick={onClose}>取消</Button>
+              <Button loading={busy} onClick={() => void publish()} type="primary">发布</Button>
+              <Button loading={busy} onClick={() => void save()} theme="solid" type="primary">保存</Button>
+            </Space>
+          </div>
         </div>
       )}
     </Modal>

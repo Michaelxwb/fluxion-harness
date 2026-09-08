@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""初始化 Fluxion 域数据库（建库 + 建表，PostgreSQL，幂等，ADR-A007）。
+"""初始化 Fluxion 域数据库（建库 + 建表 + 补列，PostgreSQL，幂等，ADR-A007）。
 
 服务进程（`fluxion serve` / `fluxion-workflow-worker`）启动时**不**建表——
 schema 由本脚本负责初始化。已移除 alembic，本脚本是 Fluxion 域 schema 的唯一
@@ -14,7 +14,9 @@ approval_records / eval_runs 等）。
     # 缺省：读环境变量 FLUXION_DATABASE_URL；再缺省本地 PG fluxion 库
 
 幂等：库已存在则跳过创建；metadata.create_all（checkfirst）只建缺失表，
-不删已有数据、不改既有表结构。
+不删已有数据、不改既有表结构；建表后再按 metadata 补齐存量表缺失的列
+（如 trace_records.status），同样不删数据（2026-09-08：旧库缺 status 列
+导致 /api/v1/runs 500）。
 """
 
 from __future__ import annotations
@@ -78,8 +80,49 @@ async def _init(dsn: str) -> None:
             await connection.run_sync(metadata.create_all)
         print(f"[OK] 表初始化完成：{dsn}")
         print(f"     共 {len(metadata.tables)} 张表（幂等，已存在的不重建）")
+        await _ensure_missing_columns(engine)
     finally:
         await engine.dispose()
+
+
+async def _ensure_missing_columns(engine) -> None:  # type: ignore[no-untyped-def]
+    """按 metadata 补齐存量表缺失的列（幂等，只加列不删改）。
+
+    create_all 不碰已有表结构；旧库（如缺 trace_records.status）会在运行时
+    500。用 information_schema 对 metadata 做差集后 ADD COLUMN IF NOT EXISTS。
+    """
+    from sqlalchemy import text
+
+    async with engine.begin() as connection:
+        for table_name, table in metadata.tables.items():
+            rows = (
+                await connection.execute(
+                    text(
+                        "select column_name from information_schema.columns "
+                        "where table_name = :table"
+                    ),
+                    {"table": table_name},
+                )
+            ).all()
+            existing = {row[0] for row in rows}
+            for column in table.columns.values():
+                if column.name in existing:
+                    continue
+                assert column.type is not None
+                try:
+                    compiled = str(
+                        column.type.compile(dialect=connection.dialect)
+                    )
+                except Exception:  # noqa: BLE001 -- 单列跳过，不中断整库初始化
+                    print(f"[SKIP] 列类型无法编译，跳过：{table_name}.{column.name}")
+                    continue
+                await connection.execute(
+                    text(
+                        f'alter table "{table_name}" '
+                        f'add column if not exists "{column.name}" {compiled}'
+                    )
+                )
+                print(f"[OK] 补列：{table_name}.{column.name} {compiled}")
 
 
 def main() -> int:

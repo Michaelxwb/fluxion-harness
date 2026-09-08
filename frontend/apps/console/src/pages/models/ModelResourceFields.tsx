@@ -121,19 +121,23 @@ export function ModelFields({
           value={Number(capabilities.max_tokens ?? 1)}
         />
       </div>
-      <Space spacing="loose">
-        <Switch
-          aria-label="支持工具调用"
-          checked={Boolean(capabilities.tool_calling)}
-          onChange={(checked) => updateCapability("tool_calling", checked)}
-        />
-        <Typography.Text>工具调用</Typography.Text>
-        <Switch
-          aria-label="支持视觉"
-          checked={Boolean(capabilities.vision)}
-          onChange={(checked) => updateCapability("vision", checked)}
-        />
-        <Typography.Text>视觉</Typography.Text>
+      <Space spacing="loose" align="start" style={{ width: "100%" }}>
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr", width: "100%" }}>
+          <CapabilitySwitch
+            checked={Boolean(capabilities.tool_calling)}
+            hint="允许模型发起工具调用"
+            label="工具调用"
+            labelId="支持工具调用"
+            onChange={(checked) => updateCapability("tool_calling", checked)}
+          />
+          <CapabilitySwitch
+            checked={Boolean(capabilities.vision)}
+            hint="支持图像输入"
+            label="视觉"
+            labelId="支持视觉"
+            onChange={(checked) => updateCapability("vision", checked)}
+          />
+        </div>
       </Space>
     </>
   );
@@ -163,6 +167,30 @@ function NumberField({
   );
 }
 
+function CapabilitySwitch({
+  checked,
+  hint,
+  label,
+  labelId,
+  onChange
+}: {
+  readonly checked: boolean;
+  readonly hint: string;
+  readonly label: string;
+  readonly labelId: string;
+  readonly onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div style={{ alignItems: "flex-start", display: "flex", gap: 10 }}>
+      <Switch aria-label={labelId} checked={checked} onChange={onChange} />
+      <div style={{ display: "grid", gap: 2 }}>
+        <Typography.Text strong>{label}</Typography.Text>
+        <Typography.Text size="small" type="tertiary">{hint}</Typography.Text>
+      </div>
+    </div>
+  );
+}
+
 function Field({
   children,
   label,
@@ -172,7 +200,12 @@ function Field({
   readonly label: string;
   readonly labelId?: string;
 }) {
-  return <div><Typography.Text id={labelId}>{label}</Typography.Text>{children}</div>;
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      <Typography.Text id={labelId} strong>{label}</Typography.Text>
+      {children}
+    </div>
+  );
 }
 
 function recordFrom(value: unknown): JsonRecord {

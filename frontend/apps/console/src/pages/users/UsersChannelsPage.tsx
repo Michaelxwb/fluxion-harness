@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Avatar, Button, Descriptions, Input, Modal, Select, SideSheet, Space, Table, Tooltip, Typography } from "@douyinfe/semi-ui";
 import { useNavigate } from "react-router-dom";
@@ -10,6 +10,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { RelativeTime } from "../../components/RelativeTime";
 import { RiskConfirm } from "../../components/RiskConfirm";
 import {
+  DEFAULT_PAGE_SIZE,
   StandardListCard,
   StandardListFooter,
   StandardListSearch,
@@ -25,8 +26,6 @@ import { useRemoteResourceOptions } from "../../components/useRemoteResourceOpti
 interface UsersChannelsPageProps {
   readonly api: ConsoleApi;
 }
-
-const USER_PAGE_SIZE = 20;
 
 /** TASK-019（§8.8）：用户页标准化——搜索 + 右下单套分页（StandardListShell）；
  * Agent Select 从列表卡片头迁入「生成对话链接」弹窗（消除过滤错觉）；
@@ -49,10 +48,15 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [userPage, setUserPage] = useState(1);
   const [userTotal, setUserTotal] = useState(0);
+  const [userPageSize, setUserPageSize] = useState(DEFAULT_PAGE_SIZE);
+  // 页量 ref：Semi 切换页量时会连带触发 onChange，两次回调同 tick 执行，
+  // ref 保证第二次（翻页）请求读到最新页量，避免新旧页量请求竞态。
+  const userPageSizeRef = useRef(DEFAULT_PAGE_SIZE);
 
-  async function load(page: number): Promise<void> {
+  async function load(page: number, size?: number): Promise<void> {
+    const pageSizeForRequest = size ?? userPageSizeRef.current;
     try {
-      const userPageResult = await api.listPlatformUsers({ page, pageSize: USER_PAGE_SIZE });
+      const userPageResult = await api.listPlatformUsers({ page, pageSize: pageSizeForRequest });
       setUsers(userPageResult.items);
       setUserPage(page);
       setUserTotal(userPageResult.total);
@@ -134,8 +138,13 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
             users !== null && filtered.length > 0 ? (
               <StandardListFooter
                 onPageChange={(page) => void load(page)}
+                onPageSizeChange={(next) => {
+                  userPageSizeRef.current = next;
+                  setUserPageSize(next);
+                  void load(1, next);
+                }}
                 page={userPage}
-                pageSize={USER_PAGE_SIZE}
+                pageSize={userPageSize}
                 total={userTotal}
               />
             ) : undefined
@@ -242,7 +251,7 @@ export function UsersChannelsPage({ api }: UsersChannelsPageProps) {
         }}
         title="对话链接"
         visible={issued !== null}
-        width={720}
+        width={800}
       >
         {issued ? (
           <div className="page-stack">
@@ -293,7 +302,20 @@ function userColumns(
       ),
       title: "用户 ID"
     },
-    { dataIndex: "displayName", title: "名称" },
+    {
+      dataIndex: "displayName",
+      render: (value: string, record: PlatformUser) => (
+        <Button
+          aria-label={`用户详情 ${record.platformUserId}`}
+          onClick={() => onView360(record)}
+          theme="borderless"
+          type="primary"
+        >
+          {value || record.platformUserId}
+        </Button>
+      ),
+      title: "名称"
+    },
     {
       dataIndex: "createdAt",
       render: (value: string) => <RelativeTime value={value} />,
@@ -309,9 +331,6 @@ function userColumns(
             type="primary"
           >
             生成对话链接
-          </Button>
-          <Button aria-label={`用户详情 ${user.platformUserId}`} onClick={() => onView360(user)}>
-            用户详情
           </Button>
         </Space>
       ),

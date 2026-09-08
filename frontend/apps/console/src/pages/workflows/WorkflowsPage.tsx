@@ -5,9 +5,11 @@ import { Button, Modal, Select, Table, Toast, Typography } from "@douyinfe/semi-
 import { useNavigate } from "react-router-dom";
 
 import { ErrorBanner } from "../../components/ErrorBanner";
+import { RelativeTime } from "../../components/RelativeTime";
 import { EmptyState } from "../../components/EmptyState";
 import { PageHeader } from "../../components/PageHeader";
 import {
+  DEFAULT_PAGE_SIZE,
   RowActions,
   StandardListCard,
   StandardListFooter,
@@ -22,8 +24,6 @@ import { CreateWorkflowModal } from "./CreateWorkflowModal";
 interface WorkflowsPageProps {
   readonly api: ConsoleApi;
 }
-
-const PAGE_SIZE = 10;
 
 interface WorkflowRow extends ResourceSummary {
   readonly key: string;
@@ -43,6 +43,7 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [createOpen, setCreateOpen] = useState(false);
   const [versionsFor, setVersionsFor] = useState<ResourceSummary | null>(null);
   const requestSeq = useRef(0);
@@ -66,7 +67,7 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
         // FEAT-03：分页/搜索/状态全部服务端化，防乱序覆盖。
         const result = await api.listResources("workflow", {
           page,
-          pageSize: PAGE_SIZE,
+          pageSize,
           keyword: debouncedSearch.trim() || undefined,
           status: (statusFilter || undefined) as ResourceStatus | undefined
         });
@@ -81,7 +82,7 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
     return () => {
       active = false;
     };
-  }, [api, debouncedSearch, page, reloadKey, statusFilter]);
+  }, [api, debouncedSearch, page, pageSize, reloadKey, statusFilter]);
 
   function reload(): void {
     setReloadKey((key) => key + 1);
@@ -128,8 +129,12 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
             rows !== null && total > 0 ? (
               <StandardListFooter
                 onPageChange={setPage}
+                onPageSizeChange={(next) => {
+                  setPageSize(next);
+                  setPage(1);
+                }}
                 page={page}
-                pageSize={PAGE_SIZE}
+                pageSize={pageSize}
                 total={total}
               />
             ) : undefined
@@ -198,7 +203,8 @@ export function WorkflowsPage({ api }: WorkflowsPageProps) {
                 render: (_value, record) => (
                   <Button
                     onClick={() => navigate(`/build/workflows/${record.resourceId}/edit`)}
-                    type="tertiary"
+                    theme="borderless"
+                    type="primary"
                   >
                     {record.displayName || record.resourceId}
                   </Button>
@@ -310,7 +316,7 @@ function VersionsModal({
           columns={[
             { dataIndex: "version", title: "版本" },
             { dataIndex: "status", title: "状态" },
-            { dataIndex: "updatedAt", title: "更新时间" }
+            { dataIndex: "updatedAt", title: "更新时间", render: (value: string) => <RelativeTime value={value} /> }
           ]}
           dataSource={[...versions]}
           pagination={false}
