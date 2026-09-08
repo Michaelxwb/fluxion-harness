@@ -58,6 +58,16 @@ x8Q3uVn1yR4tP6aZ9cW2eF5hJ7kL0mN8oQ1sT3uV6wY=
 
 前置：本机已安装 Docker（含 Compose v2），并在**仓库根目录**执行。
 
+快捷脚本（推荐，环境变量来自仓库根 `.env`，不存在则首次运行自动创建；密钥缺失自动生成写回）：
+
+```bash
+./deploy/docker/up.sh                        # 构建 + 启动（默认 runtime x3）
+./deploy/docker/up.sh up --with-postgres     # 无外部 PG 时顺手起一个（独立容器）
+./deploy/docker/up.sh ps|logs|down|config    # 查看 / 日志 / 停止 / 校验
+```
+
+手动等价流程（脚本只是下面命令的薄封装，不改编排本体）：
+
 ```bash
 # 1. 生成并导出 SECRET_MASTER_KEY
 export FLUXION_SECRET_MASTER_KEY="$(openssl rand -base64 32)"

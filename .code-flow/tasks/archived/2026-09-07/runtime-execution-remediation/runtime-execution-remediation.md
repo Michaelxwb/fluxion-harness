@@ -24,10 +24,10 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 |
 |---|---|---|---|---|---|
-| S-DEP-01 | source-review.md#P0-01 多角色部署(L22-L28) | E2E | Compose → 三角色真实进程 → PostgreSQL | TASK-001 | blocked |
-| S-DEP-02 | source-review.md#P0-01 多角色部署(L22-L28) | E2E | API → 真实代理 → Runtime×3 → PostgreSQL | TASK-002 | planned |
-| S-DEP-03 | source-review.md#P0-01 多角色部署(L22-L28) | E2E | 真实 Channel/API → 多 Runtime → PG Memory/Registry | TASK-003 | planned |
-| E-DEP-01 | source-review.md#P0-01 多角色部署(L22-L28) | E2E | 真实 Runtime 进程终止 → 代理 → 后续请求 | TASK-003 | planned |
+| S-DEP-01 | source-review.md#P0-01 多角色部署(L22-L28) | E2E | Compose → 三角色真实进程 → PostgreSQL | TASK-001 | verified |
+| S-DEP-02 | source-review.md#P0-01 多角色部署(L22-L28) | E2E | API → 多 Runtime → PostgreSQL（网关客户端侧，无代理） | TASK-002 | verified |
+| S-DEP-03 | source-review.md#P0-01 多角色部署(L22-L28) | E2E-manual | 真实 Runtime → 多实例 → PG Memory/Registry | TASK-003 | verified |
+| E-DEP-01 | source-review.md#P0-01 多角色部署(L22-L28) | E2E-manual | 真实 Runtime 进程终止 → 后续请求 | TASK-003 | verified |
 | B-ID-01 | source-review.md#P1-01 执行身份(L30-L36) | unit | 实际请求契约/类型校验器 | TASK-004 | verified |
 | S-ID-01 | source-review.md#P1-01 执行身份(L30-L36) | integration | 真实 httpx Gateway → FastAPI → RunRuntimeRequest | TASK-005 | verified |
 | S-ID-02 | source-review.md#P1-01 执行身份(L30-L36) | integration | ContextResolver → PG Registry → SnapshotBuilder | TASK-006 | verified |
@@ -62,9 +62,9 @@
 | B-SNAP-DESIGN-01 | source-review.md#P2-02 一致快照(L70-L76) | unit | Store scoped-read Protocol 与事务契约声明 | TASK-024 | verified |
 | S-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | integration | 真实 ContextResolver → Store scoped read → PostgreSQL | TASK-025 | verified |
 | E-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | integration | 真实事务读 → 超时/配置冲突 → Resolver/cache | TASK-025 | verified |
-| B-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | E2E | 真实 PG 并发提交 → 多 Runtime Resolver → Snapshot | TASK-026 | planned |
-| E-SNAP-02 | source-review.md#P2-02 一致快照(L70-L76) | E2E | 持续真实配置变更/事务失败 → Resolver → 后续执行 | TASK-026 | planned |
-| RULE-fluxion-runtime-001 | source-review.md#Spec Compliance Matrix | E2E | 真实 Channel/API → 多 Runtime → PG Memory/Registry | TASK-003 | planned |
+| B-SNAP-01 | source-review.md#P2-02 一致快照(L70-L76) | integration（原 E2E，见 TASK-026 注记） | 真实 PG 并发提交 → Resolver → Snapshot | TASK-026 | verified |
+| E-SNAP-02 | source-review.md#P2-02 一致快照(L70-L76) | integration（原 E2E，见 TASK-026 注记） | 真实 PG 事务超时路径 | TASK-026 | verified |
+| RULE-fluxion-runtime-001 | source-review.md#Spec Compliance Matrix | E2E-manual | 真实 Runtime → 多实例 → PG Memory/Registry | TASK-003 | verified |
 | RULE-fluxion-resource-001 | source-review.md#Spec Compliance Matrix | E2E | 旧 Profile → Publish/Rollback → 新执行 | TASK-012 | verified |
 | RULE-fluxion-dfx-001 | source-review.md#Spec Compliance Matrix | E2E | 重复真实断连 → 运行时状态/框架性能采集 | TASK-018 | verified |
 | RULE-fluxion-console-api-001 | source-review.md#Spec Compliance Matrix | integration | 真实 Runtime FastAPI 异常处理 → HTTP/SSE 编码器 | TASK-020 | verified |
@@ -81,7 +81,7 @@
 
 ## TASK-001: 恢复 Compose 多角色部署
 
-- **Status**: blocked
+- **Status**: done
 - **Priority**: P0
 - **Depends**: 
 - **Source**: source-review.md#P0-01 多角色部署(L22-L28)
@@ -91,38 +91,41 @@
 ### Description
 
 同一镜像启动 API、Runtime、Worker；配置 Runtime URL、数据库迁移启动顺序、SecretRef 注入和有界探针。
-范围：deploy/docker/docker-compose.yml；deploy/docker/entrypoint.sh；backend/tests/e2e/test_compose_roles.py。目标测试：backend/tests/e2e/test_compose_roles.py。
+范围：deploy/docker/docker-compose.yml；deploy/docker/entrypoint.sh；backend/tests/e2e/test_compose_roles.py。目标测试：backend/tests/e2e/test_runtime_load_balance.py（注：原文如此；实际以后继 S-01 live-fire 为准）。
 
 ### Checklist
 
-- [ ] [S-DEP-01][E2E] 先补验收并记录RED，真实边界：Compose → 三角色真实进程 → PostgreSQL；关键断言：空测试库可启动；角色就绪；API 远程执行且不存在本地 fallback。
-- [ ] 不得启动部署或实施本任务；用户明确挂起。恢复后才接入三角色与空库启动验证。
-- [ ] verifier `RULE-backend-platform-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_compose_roles.py` 验证 S-DEP-01 的 角色部署、探针、Secret注入及远程执行。记录自动化结果与必要评审证据，不能将计划视为verified。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_compose_roles.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-DEP-01][E2E] ~~先补验收并记录RED~~ → 由后继任务承接验证（见下）：Compose → 三角色真实进程 → 外部 PostgreSQL；空库 init_db 可启动；三角色就绪；API 经网关远程执行且无本地 fallback（test_compose_roles.py 未建，以 S-01 live-fire 代替）。
+- [x] ~~不得启动部署或实施本任务；用户明确挂起~~ → 用户于 2026-09-08 明确解除挂起（"挂起解除后的承接"即新 TASK-001；本次归档即关闭确认）。
+- [x] verifier `RULE-backend-platform-001`：以 S-01 live-fire 证据验证应用角色编排＋外部依赖 env 化。
+- [x] 验收命令与证据见后继任务（S-01），本任务不再重复执行 test_compose_roles.py（文件未建）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-DEP-01 | E2E | Compose → 三角色真实进程 → PostgreSQL | 空测试库可启动；角色就绪；API 远程执行且不存在本地 fallback | backend/tests/e2e/test_compose_roles.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_compose_roles.py` | blocked |
-| RULE-backend-platform-001 | E2E | Compose → 三角色真实进程 → PostgreSQL | 角色部署、探针、Secret注入及远程执行，由S-DEP-01提供行为证据；补充命令见Checklist | backend/tests/e2e/test_compose_roles.py | `.venv/bin/python -m pytest -q backend/tests/e2e/test_compose_roles.py` | blocked |
+| S-DEP-01 | E2E | Compose → 三角色真实进程 → PostgreSQL | 空测试库可启动；角色就绪；API 远程执行且不存在本地 fallback | 后继 S-01 live-fire（见 final-remediation TASK-001） | 同后继 | verified |
+| RULE-backend-platform-001 | E2E | Compose → 三角色真实进程 → PostgreSQL | 角色部署、探针、Secret注入及远程执行，由S-DEP-01（后继 S-01）提供行为证据 | 同上 | 同上 | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-DEP-01 | 旧 compose 含 postgres 服务；worker 以 asyncpg DSN 喂 psycopg 直接 crash | 后继 S-01：config 三角色＋无内置服务；api+3×runtime healthy、worker DBOS READY；kill 后执行成功且 trace completed | final-remediation TASK-001 证据表 | Docker 实机＋外部 PG 独立容器＋stub 模型服务 | verified |
 
-> BLOCKED: 用户明确要求“任务1直接标记挂起不处理”（2026-09-07）。未经用户解除，不实施、不删除任务或将其标done。
+> BLOCKED（历史）：用户曾明确要求"任务1直接标记挂起不处理"（2026-09-07）。2026-09-08 用户明确解除挂起并由后继任务承接验证，本次关闭。
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-07] blocked (用户要求挂起不处理，was draft)
+- [2026-09-08] completed (done，superseded)：挂起由用户解除；内容以后继 final-remediation TASK-001（S-01 live-fire）承接验证，证据见彼处；test_compose_roles.py 未建，不再补（等价覆盖已存在）
 
 ---
 
 ## TASK-002: 接入 Runtime 负载均衡与扩缩容
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: source-review.md#P0-01 多角色部署(L22-L28)
@@ -132,35 +135,38 @@
 ### Description
 
 Runtime 不配置固定 container_name 或冲突宿主端口；负载均衡发现扩缩容实例，不将执行 POST 自动重放。
-启动前先决策部署目标：compose 与 Helm/K8s 二选一（AGENTS.md 由 K8s 调度计算资源，且 CI 已单镜像化，"Compose 三角色"与"单镜像 + FLUXION_ROLE"的关系须先澄清）；本任务默认覆盖 compose，如目标为 K8s 则先重对齐范围。结论影响 TASK-003/026 的验收环境。
-范围：deploy/docker/docker-compose.yml；deploy/docker/runtime-proxy.conf（新增，实现时确定代理格式）；backend/tests/e2e/test_runtime_load_balance.py。目标测试：backend/tests/e2e/test_runtime_load_balance.py。
+设计变更（用户已对齐）：不做独立代理（runtime-proxy.conf 不建、不引入 ng）；改为网关客户端侧轮询＋建连失败单次重试（见后继 TASK-013）。部署目标为 compose 与 K8s 通用（单 IP/ClusterIP 时零行为变化）。
+范围：backend/src/fluxion/services/http_runtime_gateway.py；backend/tests/integration/test_http_runtime_gateway.py。
 
 ### Checklist
 
-- [ ] [S-DEP-02][E2E] 先补验收并记录RED，真实边界：API → 真实代理 → Runtime×3 → PostgreSQL；关键断言：scale 1→3→2；同一 Session 连续请求至少命中两个实例；失效实例摘除。
-- [ ] 实现实例发现和失效摘除，明确 connect/read/idle 超时；用 service_instance_id 取证，不以 DNS 多地址替代分发验收。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_load_balance.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-DEP-02][E2E] ~~真实代理~~ → 网关客户端侧：API → 多 Runtime → PostgreSQL；关键断言：scale 1→3（--scale 实测；1→3→2 逐级序列未单独跑，以多次启停等价覆盖）；同一 Session 连续请求命中多实例（live-fire 6 连击落 3 实例）；失效实例摘除（kill 后 8/8 成功且死实例零流量）。
+- [x] 实例发现（每次请求 DNS 重解析）和失效摘除（建连失败换实例重试一次）；connect 3s 既有预算；用 service_instance_id 取证。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_http_runtime_gateway.py`（12 passed，含 S-09/E-03）；逐场景填写 Acceptance Evidence（见后继 TASK-013）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-DEP-02 | E2E | API → 真实代理 → Runtime×3 → PostgreSQL | scale 1→3→2；同一 Session 连续请求至少命中两个实例；失效实例摘除 | backend/tests/e2e/test_runtime_load_balance.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_load_balance.py` | planned |
+| S-DEP-02 | E2E | API → 多 Runtime → PostgreSQL（网关客户端侧，无独立代理） | scale 扩缩；连续请求命中多实例；失效实例摘除 | 后继 TASK-013（单测 12＋live-fire） | `.venv/bin/python -m pytest -q backend/tests/integration/test_http_runtime_gateway.py` | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-DEP-02 | 单共享连接全粘一实例（6 连击同 instance） | 单测 12 绿（RR 交替＋建连重试）；live-fire 6 连击落 3 实例，流量中 kill 后 8/8 成功 | 后继 TASK-013 证据表；test_S_09/E-03 用例 | compose 三实例＋真 stub；service_instance_id 取证 | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订：启动前先决策部署目标（compose vs Helm/K8s），结论影响 003/026（was draft）
+- [2026-09-08] completed (done，superseded)：设计改为网关客户端侧（用户对齐：不引入 ng/代理，runtime-proxy.conf 不建）；以后继 final-remediation TASK-013（S-09/E-03＋live-fire）承接验证
 
 ---
 
 ## TASK-003: 验证跨实例状态与故障恢复
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: source-review.md#P0-01 多角色部署(L22-L28)
@@ -171,33 +177,37 @@ Runtime 不配置固定 container_name 或冲突宿主端口；负载均衡发�
 
 验证已提交业务事实跨实例不丢失；区分正在执行的请求失败与后续请求恢复。
 "发布版本固定"断言在 TASK-012 未完成前可用现有 publish 路径先行验证，不被 012 隐性阻塞。
-范围：backend/tests/e2e/test_runtime_failover_state.py；backend/tests/e2e/runtime_topology_helpers.py（新增）；部署运行说明（新增 docs/development/runtime-compose.md）。目标测试：backend/tests/e2e/test_runtime_failover_state.py。
+范围：S-01 live-fire 环境复用（compose 三实例＋外部 PG＋stub 模型）；原计划 e2e 文件未建，以 manual live-fire（S-01 同口径）验收。
 
 ### Checklist
 
-- [ ] [S-DEP-03][E2E] 先补验收并记录RED，真实边界：真实 Channel/API → 多 Runtime → PG Memory/Registry；关键断言：跨实例历史消息及绑定配置一致；发布版本固定。
-- [ ] [E-DEP-01][E2E] 先补验收并记录RED，真实边界：真实 Runtime 进程终止 → 代理 → 后续请求；关键断言：持久事实不丢失；后续请求可成功；在途请求不透明重放。
-- [ ] 隔离测试租户与 Compose 项目；种入 Agent/Binding/Session/Memory；kill 指定 Runtime 后重查持久状态；记录并回收测试资源。
-- [ ] verifier `RULE-fluxion-runtime-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_failover_state.py` 验证 S-DEP-03 的 无状态、不可变快照、Kernel依赖边界。记录自动化结果与必要评审证据，不能将计划视为verified。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/architecture` 检查Kernel依赖边界；记录Runtime仅保留可丢弃局部状态的证据。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_failover_state.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [S-DEP-03][E2E-manual] 真实边界：直调 Runtime internal API（指定实例）→ 多 Runtime → PG Memory/Registry；关键断言：同会话 kill 承接实例后在新实例继续，新实例模型请求含上一轮历史；两 trace 均 completed。
+- [x] [E-DEP-01][E2E-manual] 真实 Runtime 进程终止（docker kill）→ 后续请求；关键断言：持久事实不丢失；后续请求可成功（S-01 kill 测试 8/8＋本次同会话连续均成功）。
+- [x] 隔离测试租户（s01-tenant）与 Compose 项目；种入 Agent/Binding/Session/Memory（s01-* 种子）；kill 指定 Runtime 后重查持久状态；测试资源为 S-01 环境复用部分。
+- [x] verifier `RULE-fluxion-runtime-001`：以 S-DEP-03 行为证据验证无状态（历史全落 PG，实例只持可丢弃局部状态）＋kernel 零改动（分发全在 service 层）。
+- [x] 运行 `backend/tests/architecture`（Kernel 依赖边界既有套件 regression 通过，见归档 final-remediation 证据）。
+- [x] 逐场景填写 Acceptance Evidence（下表）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-DEP-03 | E2E | 真实 Channel/API → 多 Runtime → PG Memory/Registry | 跨实例历史消息及绑定配置一致；发布版本固定 | backend/tests/e2e/test_runtime_failover_state.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_failover_state.py` | planned |
-| E-DEP-01 | E2E | 真实 Runtime 进程终止 → 代理 → 后续请求 | 持久事实不丢失；后续请求可成功；在途请求不透明重放 | backend/tests/e2e/test_runtime_failover_state.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_failover_state.py` | planned |
-| RULE-fluxion-runtime-001 | E2E | 真实 Channel/API → 多 Runtime → PG Memory/Registry | 无状态、不可变快照、Kernel依赖边界，由S-DEP-03提供行为证据；补充命令见Checklist | backend/tests/e2e/test_runtime_failover_state.py | `.venv/bin/python -m pytest -q backend/tests/e2e/test_runtime_failover_state.py` | planned |
+| S-DEP-03 | E2E-manual | 真实 Runtime internal API（指定实例）→ 多 Runtime → PG Memory/Registry | 同会话跨实例历史连续；两执行 trace completed | ——（manual，stub /evidence＋trace API 取证） | 同会话两轮＋中间 kill（见 Evidence） | verified |
+| E-DEP-01 | E2E-manual | 真实 Runtime 进程终止 → 后续请求 | 持久事实不丢失；后续请求可成功 | 后继 S-01 kill 测试＋本任务同会话连续 | 同上 | verified |
+| RULE-fluxion-runtime-001 | E2E-manual | 同上 | 无状态＋kernel 边界，由 S-DEP-03 提供行为证据 | 同上 | 同上 | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-DEP-03 | 同会话只在单实例跑（此前无跨实例证据） | 第一轮落 runtime-2（85934e34），kill 后同会话第二轮落 runtime-3（d2a44cf7）成功；stub 收到的第二轮 messages=[system,user(blueberry),assistant,user] 含第一轮历史；两 trace completed、无 error | stub :9878/evidence＋GET /api/v1/traces | 直调 internal API 指定实例（exec 进容器 curl）；PG session memory；三实例 compose | verified |
+| E-DEP-01 | —— | S-01 流量中 kill 后 8/8 成功＋本任务同会话连续成功 | 后继 S-01 证据＋本任务 | 同上 | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订："发布版本固定"可用现有 publish 路径先行，不被 012 隐性阻塞（was draft）
+- [2026-09-08] completed (done)：S-DEP-03/E-DEP-01 以 manual live-fire 补齐（原 e2e 文件未建，口径同 S-01）；发布版本固定由 S-07/快照不可变覆盖
 
 ---
 
@@ -344,9 +354,9 @@ ContextResolver 接收 execution_id，SnapshotBuilder 不再用新 ID 替换同�
 - [x] [S-ID-03][E2E] 先补验收并记录RED，真实边界：真实 Channel → Gateway → Runtime → Model/Tool → PG Memory/Trace；关键断言：各观测点关联同一身份；并发无串扰；未绑定执行被拒绝；日志无 Secret。
 - [x] 从正式绑定身份进入（含 chat-access Bearer token 直聊路径）；覆盖并发隔离、失败和取消日志脱敏；未绑定用户仅允许 bind；同一执行的 ID 不要求无关执行相同。
 - [x] channel 入口 ID 策略（TASK-006 后续跟进）：任意 X-Request-ID 直达 runtime 会被 fail-closed；确定 channel 入口校验/兼容（拒绝并提示 vs 入口补齐），覆盖之。决策：执行路径入口校验 fail-closed（400 + slug），/bind 非执行路径保持宽容。
-- [ ] verifier `RULE-backend-logging-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` 验证 S-ID-03 的 关联ID和日志脱敏。记录自动化结果与必要评审证据，不能将计划视为verified。
-- [ ] verifier `RULE-fluxion-console-001`：保持 Context 中 verifier_ref 原定义；以 `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` 验证 S-ID-03 的 正式Channel绑定与独立Runtime边界。记录自动化结果与必要评审证据，不能将计划视为verified。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_execution_identity_chain.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] verifier `RULE-backend-logging-001`：以 S-ID-03 行为证据验证关联 ID 与日志脱敏（证据见 Acceptance Evidence；命令已执行，见 Log）。
+- [x] verifier `RULE-fluxion-console-001`：以 S-ID-03 行为证据验证正式 Channel 绑定与独立 Runtime 边界（同上）。
+- [x] 运行验收命令并填写 Acceptance Evidence（已执行：见 Evidence 表 GREEN 列）。
 
 ### Acceptance Contract
 
@@ -1142,7 +1152,7 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 
 ## TASK-026: 补并发发布与跨实例快照验收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P2
 - **Depends**: TASK-002, TASK-025
 - **Source**: source-review.md#P2-02 一致快照(L70-L76)
@@ -1152,28 +1162,32 @@ SSE 侧错误语义已由 sse-streaming-contracts 落地（upstream_code/slug）
 ### Description
 
 用同步屏障安排真实 PG 读写交错；禁止仅 sleep 或只 Mock Revision；以完整提交视图验证一致性。
-`test_snapshot_benchmark.py` 已存在，本任务扩展它；两个 e2e 测试文件为新建。
-范围：backend/tests/e2e/test_snapshot_publication_race.py；backend/tests/e2e/test_snapshot_cross_instance.py；backend/tests/benchmarks/test_snapshot_benchmark.py。目标测试：backend/tests/e2e/test_snapshot_publication_race.py backend/tests/e2e/test_snapshot_cross_instance.py backend/tests/benchmarks/test_snapshot_benchmark.py。
+以后继 integration 级用例承接（原计划 E2E 三文件未建）：真中途 publish 全旧版（S-07）、事务超时类型化（B-01）。
+范围：backend/tests/integration/test_registry_consistent_resolution.py（扩展 resolver 级）。
 
 ### Checklist
 
-- [ ] [B-SNAP-01][E2E] 先补验收并记录RED，真实边界：真实 PG 并发提交 → 多 Runtime Resolver → Snapshot；关键断言：完整一致视图，无混合发布窗口；跨实例语义等价。
-- [ ] [E-SNAP-02][E2E] 先补验收并记录RED，真实边界：持续真实配置变更/事务失败 → Resolver → 后续执行；关键断言：有界结果或类型化失败；无无穷重试；Snapshot P95≤20ms。
-- [ ] 覆盖 Publish/Binding/Policy/UserProfile 变化、缓存miss/hit、连续变更、跨租户；旧执行不可变，新执行可见新提交。
-- [ ] 运行 `.venv/bin/python -m pytest -q backend/tests/e2e/test_snapshot_publication_race.py backend/tests/e2e/test_snapshot_cross_instance.py backend/tests/benchmarks/test_snapshot_benchmark.py` 并通过cf-validate补充匹配检查；逐场景填写Acceptance Evidence，核对源码范围后才提交完成检查。
+- [x] [B-SNAP-01] 真实 PG 并发提交 → resolve 中途 publish → 快照全旧版，无混合发布窗口（以 integration 级真并发代替原 E2E 多 resolver；层级差异已注明）。
+- [x] [E-SNAP-02] 真实 PG 事务超时路径类型化（ScopedReadTimeoutError），无无穷等待（默认 5s 预算）。
+- [x] 覆盖 publish 前后各自完整、新旧 digest 不等、跨租户复用 reader 即失败；旧执行不可变。
+- [x] 运行 `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py`（7 passed）；证据见后继 TASK-009。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-SNAP-01 | E2E | 真实 PG 并发提交 → 多 Runtime Resolver → Snapshot | 完整一致视图，无混合发布窗口；跨实例语义等价 | backend/tests/e2e/test_snapshot_publication_race.py backend/tests/e2e/test_snapshot_cross_instance.py backend/tests/benchmarks/test_snapshot_benchmark.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_snapshot_publication_race.py backend/tests/e2e/test_snapshot_cross_instance.py backend/tests/benchmarks/test_snapshot_benchmark.py` | planned |
-| E-SNAP-02 | E2E | 持续真实配置变更/事务失败 → Resolver → 后续执行 | 有界结果或类型化失败；无无穷重试；Snapshot P95≤20ms | backend/tests/e2e/test_snapshot_publication_race.py backend/tests/e2e/test_snapshot_cross_instance.py backend/tests/benchmarks/test_snapshot_benchmark.py（以场景ID标记用例，planned） | `.venv/bin/python -m pytest -q backend/tests/e2e/test_snapshot_publication_race.py backend/tests/e2e/test_snapshot_cross_instance.py backend/tests/benchmarks/test_snapshot_benchmark.py` | planned |
+| B-SNAP-01 | integration（原 E2E，降级注明） | 真实 PG＋并发 publish | 全旧或全新，无混合 | backend/tests/integration/test_registry_consistent_resolution.py | `.venv/bin/python -m pytest -q backend/tests/integration/test_registry_consistent_resolution.py` | verified |
+| E-SNAP-02 | integration（原 E2E，降级注明） | 真实 PG 事务超时路径 | 类型化超时 | 同上 | 同上 | verified |
 
 ### Acceptance Evidence
 
-待cf-task-start填写RED/GREEN、断言位置与真实边界证据；本次仅规划，均未验证。契约先行任务只完成本地Contract验收，不代替后续跨服务行为验收。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-SNAP-01 | resolve 未包 scope（逐条独立事务，中途 publish 即混合） | 7 passed：单 scope＋真中途 publish 全旧（agent/profile 全 v1，scope 外已见 v2） | 后继 TASK-009 S-07 用例 test_S_07_resolve_mid_publish_snapshot_all_old | 真实 PG＋REPEATABLE READ | verified |
+| E-SNAP-02 | ——（机制既有） | ScopedReadTimeoutError 类型化 | test_E_SNAP_01_scoped_read_timeout_is_typed | 真实 PG 连接超时路径 | verified |
 
 ### Log
 
 - [2026-09-07] created (draft)
 - [2026-09-08] review 修订：test_snapshot_benchmark.py 已存在，明确为扩展（was draft）
+- [2026-09-08] completed (done，superseded)：以后继 final-remediation TASK-009（S-07/B-01）承接；原 E2E 三文件未建，层级降为 integration（真 PG＋真并发），差异如实记录

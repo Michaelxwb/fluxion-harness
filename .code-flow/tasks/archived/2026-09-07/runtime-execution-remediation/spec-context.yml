@@ -1,7 +1,7 @@
 version: 1
 task: runtime-execution-remediation
 enforcement: required
-updated_at: '2026-09-07T16:05:22.971055+00:00'
+updated_at: '2026-09-08T04:34:11.507328+00:00'
 sources:
 - type: cli
   ref: bind
@@ -39,12 +39,16 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-015
           item_id: RULE-backend-quality-001
-          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: runtime-execution-remediation.md
+          section_id: TASK-015
+          item_id: E-LIFE-02
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       review:
@@ -189,12 +193,16 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-025
           item_id: RULE-backend-database-001
-          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: runtime-execution-remediation.md
+          section_id: TASK-025
+          item_id: S-SNAP-01
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       review:
@@ -419,12 +427,16 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-007
           item_id: RULE-backend-logging-001
-          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: runtime-execution-remediation.md
+          section_id: TASK-007
+          item_id: S-ID-03
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       review:
@@ -569,12 +581,16 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-001
           item_id: RULE-backend-platform-001
-          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: runtime-execution-remediation.md
+          section_id: TASK-001
+          item_id: S-DEP-01
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       review:
@@ -773,12 +789,16 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-020
           item_id: RULE-fluxion-console-api-001
-          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: runtime-execution-remediation.md
+          section_id: TASK-019
+          item_id: S-ERR-01
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       review:
@@ -976,12 +996,16 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-007
           item_id: RULE-fluxion-console-001
-          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: runtime-execution-remediation.md
+          section_id: TASK-007
+          item_id: S-ID-03
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       review:
@@ -1022,12 +1046,16 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-018
           item_id: RULE-fluxion-dfx-001
-          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: runtime-execution-remediation.md
+          section_id: TASK-018
+          item_id: B-LIFE-01
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       review:
@@ -1069,12 +1097,16 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-012
           item_id: RULE-fluxion-resource-001
-          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: runtime-execution-remediation.md
+          section_id: TASK-012
+          item_id: S-CFG-04
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       review:
@@ -1116,12 +1148,16 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-003
           item_id: RULE-fluxion-runtime-001
-          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: runtime-execution-remediation.md
+          section_id: TASK-003
+          item_id: S-DEP-03
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       review:
@@ -1162,12 +1198,16 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-011
           item_id: RULE-frontend-component-001
-          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: runtime-execution-remediation.md
+          section_id: TASK-011
+          item_id: S-CFG-03
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       review:
@@ -1419,12 +1459,16 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-011
           item_id: RULE-frontend-quality-001
-          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: runtime-execution-remediation.md
+          section_id: TASK-011
+          item_id: S-CFG-03
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       review:
@@ -1622,12 +1666,16 @@ bindings:
         - artifact: runtime-execution-remediation.md
           section_id: TASK-011
           item_id: RULE-frontend-semi-001
-          artifact_sha256: 0dfdf833a94341db426c41c219e0fd46e90173f7333ce9755a9e9be9dd0c5462
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       code:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: runtime-execution-remediation.md
+          section_id: TASK-011
+          item_id: S-CFG-03
+          artifact_sha256: eded2e494118b8fab437ad00d7d9b7568adf1b1a323820c150275ae566067cc7
         decision: null
         evidence: []
       review:
