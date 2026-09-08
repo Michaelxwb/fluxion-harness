@@ -1,4 +1,9 @@
 from fluxion.kernel.events import (
+    AfterExecutionPayload,
+    AfterModelCallPayload,
+    AfterToolCallPayload,
+    BeforeExecutionPayload,
+    BeforeModelCallPayload,
     BeforeToolCallPayload,
     EventPayload,
     FailPolicy,
@@ -8,10 +13,17 @@ from fluxion.kernel.events import (
     HookScheduler,
     HookScope,
     HookStatus,
+    OnExecutionCancelledPayload,
+    OnExecutionErrorPayload,
     TypedEventBus,
 )
 
 __all__ = [
+    "AfterExecutionPayload",
+    "AfterModelCallPayload",
+    "AfterToolCallPayload",
+    "BeforeExecutionPayload",
+    "BeforeModelCallPayload",
     "BeforeToolCallPayload",
     "EventPayload",
     "FailPolicy",
@@ -21,5 +33,7 @@ __all__ = [
     "HookScheduler",
     "HookScope",
     "HookStatus",
+    "OnExecutionCancelledPayload",
+    "OnExecutionErrorPayload",
     "TypedEventBus",
 ]

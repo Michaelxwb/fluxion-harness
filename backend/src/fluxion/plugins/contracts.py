@@ -76,6 +76,17 @@ class CapabilityProvider(Protocol):
     def capabilities(self) -> list[CapabilityDescriptor]: ...
 
 
+@runtime_checkable
+class HookProvider(Protocol):
+    """HOOK 插件：暴露 Hook 注册表（105 P1-02 / TASK-005）。
+
+    loader 将返回的注册逐条转交 HookRegistryProtocol；空列表即 fail-closed
+    （防静默零能力挂载）。
+    """
+
+    def hook_registrations(self) -> list[object]: ...
+
+
 @dataclass(frozen=True, slots=True)
 class ToolDescriptor:
     """ModelProvider SPI 的模型侧工具描述符（ADR-A009）。

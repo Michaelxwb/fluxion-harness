@@ -3,11 +3,14 @@ from __future__ import annotations
 import logging
 from contextlib import suppress
 from dataclasses import dataclass
+from importlib.metadata import entry_points
 
 from fluxion.plugins.contracts import (
     ArtifactStoreProvider,
     CapabilityDescriptor,
     CapabilityProvider,
+    HookProvider,
+    HookRegistryProtocol,
     ModelProvider,
     ModelProviderRegistryProtocol,
     Plugin,
@@ -20,6 +23,9 @@ from fluxion.plugins.contracts import (
     SemanticStoreProvider,
     TrustLevel,
 )
+
+#: Hook 插件 entry_points 组名（pip 包声明即被发现，无需改核心代码）。
+HOOK_ENTRY_POINTS_GROUP = "fluxion.hooks"
 
 _logger = logging.getLogger(__name__)
 
@@ -90,9 +96,11 @@ class PluginLoader:
         *,
         trust_policy: TrustPolicy | None = None,
         model_provider_registry: ModelProviderRegistryProtocol | None = None,
+        hook_registry: HookRegistryProtocol | None = None,
     ) -> None:
         self._trust_policy = trust_policy or TrustPolicy()
         self._model_provider_registry = model_provider_registry
+        self._hook_registry = hook_registry
         self._loaded: dict[str, Plugin] = {}
         self._records: dict[str, LoadedPlugin] = {}
         # 非 MODEL_PROVIDER 的 typed provider SPI：per-PluginType 参考 registry。
@@ -187,7 +195,10 @@ class PluginLoader:
             return
         protocol = _PROVIDER_PROTOCOL.get(manifest.plugin_type)
         if protocol is None:
-            # HOOK 不进 typed provider registry（见 _PROVIDER_PROTOCOL 注释）
+            # HOOK 走 HookRegistry（105 P1-02 / TASK-005）：不再早退。
+            if manifest.plugin_type is PluginType.HOOK:
+                self._register_hook(plugin, manifest)
+                return
             return
         if not isinstance(plugin, protocol):
             raise PluginLoadError(
@@ -195,6 +206,58 @@ class PluginLoader:
             )
         provider_id = _provider_id(manifest, capabilities)
         self._registries[manifest.plugin_type].register(provider_id, plugin)
+
+    def _register_hook(self, plugin: Plugin, manifest: PluginManifest) -> None:
+        """HOOK 分派：插件注册逐条转交 HookRegistry（105 P1-02 / TASK-005）。
+
+        未注入 hook_registry 时静默通过（纯 provider 场景不受影响）。
+        """
+        if self._hook_registry is None:
+            return
+        if not isinstance(plugin, HookProvider):
+            raise PluginLoadError(
+                f"{manifest.plugin_id}: hook plugin lacks hook_registrations()"
+            )
+        registrations = plugin.hook_registrations()
+        if not registrations:
+            raise PluginLoadError(
+                f"{manifest.plugin_id}: hook plugin provides zero registrations"
+            )
+        for registration in registrations:
+            self._hook_registry.register(registration)
+
+
+def discover_hook_plugins() -> list[Plugin]:
+    """经 entry_points 发现 Hook 插件实例（105 P1-02 / TASK-005）。
+
+    entry_points 组 ``fluxion.hooks``，每项 ``name = module:attr``，attr 为
+    Plugin 实例（零参可调用工厂亦可，调用求值）；任一项解析/求值失败即
+    fail-fast，不静默跳过。
+    """
+    plugins: list[Plugin] = []
+    for entry in entry_points(group=HOOK_ENTRY_POINTS_GROUP):
+        try:
+            target = entry.load()
+        except Exception as exc:
+            raise PluginLoadError(
+                f"hook entry_point {entry.name!r} failed to load: {exc}"
+            ) from exc
+        try:
+            plugin = (
+                target()
+                if callable(target) and not isinstance(target, Plugin)
+                else target
+            )
+        except Exception as exc:
+            raise PluginLoadError(
+                f"hook entry_point {entry.name!r} factory failed: {exc}"
+            ) from exc
+        if not isinstance(plugin, Plugin):
+            raise PluginLoadError(
+                f"hook entry_point {entry.name!r} is not a Plugin"
+            )
+        plugins.append(plugin)
+    return plugins
 
 
 def _capabilities(plugin: Plugin) -> list[CapabilityDescriptor]:

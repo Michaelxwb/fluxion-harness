@@ -205,6 +205,9 @@ class RuntimeApplicationService(RuntimeToolOps):
 
     async def initialize(self) -> None:
         await self._store.initialize()
+        # 105 P1-02（TASK-005）：启动时自动安装 entry_points Hook 插件到本服务
+        # 事件总线；无插件即空操作。格式错误 fail-fast，不带病启动。
+        await self._install_hook_plugins()
         # FEAT-07：memory provider 初始化放 serving 事件循环（lifespan 经此进入），
         # 受有限启动预算控制（默认 5s）；失败明确报错（fail-fast），不静默降级。
         provider = self._memory_provider
@@ -218,6 +221,18 @@ class RuntimeApplicationService(RuntimeToolOps):
                     "personal memory provider initialization timed out",
                     status_code=503,
                 ) from exc
+
+    async def _install_hook_plugins(self) -> None:
+        """启动时安装 entry_points Hook 插件（105 P1-02 / TASK-005）。
+
+        self._event_bus 结构匹配 HookRegistryProtocol（register 方法），
+        直接作为 registry 传入 loader。
+        """
+        from fluxion.plugins.loader import PluginLoader, discover_hook_plugins
+
+        loader = PluginLoader(hook_registry=self._event_bus)  # type: ignore[arg-type]
+        for plugin in discover_hook_plugins():
+            await loader.load(plugin)
 
     async def close(self) -> None:
         await self._mcp_runtime.close()

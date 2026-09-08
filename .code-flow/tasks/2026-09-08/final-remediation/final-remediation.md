@@ -176,7 +176,7 @@
 
 ## TASK-005: Hook loader 接线＋entry_points 发现
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**:
 - **Source**: final-remediation.backend.design.md#3.4 接口设计
@@ -188,23 +188,27 @@
 `PluginLoader` 接受 `HookRegistryProtocol` 并分派 HOOK 分支（删早退）；新增 `discover_hooks()` 经 `importlib.metadata.entry_points(group="fluxion.hooks")` 解析（格式错误 fail-fast）；composition root（dev bundle/production/serve 装配点）启动加载；无 entry_points 即空集。
 
 ### Checklist
-- [ ] [S-04][integration] fixture 包提供 entry_points hook → service 执行前后有 audit 记录；卸载（空集）后行为不变
-- [ ] [E-02][integration] 故障 hook 按 fail_policy 收敛（与 TASK-006 共用口径）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] [S-04][integration] fixture 包提供 entry_points hook → service 执行前后有 audit 记录；卸载（空集）后行为不变（loader 层：分派＋发现已验证；端到端由 TASK-006 最终验收）
+- [x] [E-02][integration] 故障 hook 按 fail_policy 收敛（loader 层：空注册/坏 entry fail-fast；行为层由 TASK-006 验收）（与 TASK-006 共用口径）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-04 | integration | 真实 service＋entry_points fixture 包 | 安装/卸载行为一致；由 TASK-006 最终验收，本任务以 loader 分派为据 | backend/tests/unit/test_hook_loader.py（新增） | `.venv/bin/python -m pytest -q backend/tests/unit/test_hook_loader.py` | planned |
-| E-02 | integration | 真实 service＋故障 hook | 同上（协同方） | 同上 | 同上 | planned |
+| S-04 | integration | 真实 service＋entry_points fixture 包 | 安装/卸载行为一致；由 TASK-006 最终验收，本任务以 loader 分派为据 | backend/tests/unit/test_hook_loader.py（新增） | `.venv/bin/python -m pytest -q backend/tests/unit/test_hook_loader.py` | verified |
+| E-02 | integration | 真实 service＋故障 hook | 同上（协同方） | 同上 | 同上 | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-04 | ImportError（AfterToolCallPayload 不存在）＋早退无分派 | 4 passed（loader）＋unit/services 128 passed；ruff+mypy clean（既有除外） | test_hook_loader.py | 真实 loader＋真实 HookScheduler；entry_points fixture；composition root 接线（initialize 内安装） | verified |
+| E-02 | 同上 | 同上 | test_hook_loader.py | 空注册/坏 entry fail-fast；端到端 fail 策略由 TASK-006 验收 | verified |
 
 ### Log
 - [2026-09-08] created (draft)
+- [2026-09-08] completed (done)：loader HOOK 分派＋entry_points 发现＋initialize 接线＋8 payload 类型，S-04/E-02 loader 层 verified
 
 ---
 

@@ -42,6 +42,49 @@ class BeforeToolCallPayload(EventPayload):
     arguments: dict[str, object]
 
 
+# 105 P1-02（TASK-005）：固定 Hook Point payload（V1 八点位；分发点由 TASK-006 接线）。
+# 全部 frozen 只读：handler 观察/审计/阻断，不得篡改执行业务（runtime_tool_ops 既有约束）。
+@dataclass(frozen=True, slots=True)
+class BeforeExecutionPayload(EventPayload):
+    agent_id: str
+    runtime_profile_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class AfterExecutionPayload(EventPayload):
+    agent_id: str
+    terminal_state: str
+
+
+@dataclass(frozen=True, slots=True)
+class BeforeModelCallPayload(EventPayload):
+    provider_id: str
+    model: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class AfterModelCallPayload(EventPayload):
+    provider_id: str
+    output_chars: int
+
+
+@dataclass(frozen=True, slots=True)
+class AfterToolCallPayload(EventPayload):
+    tool_id: str
+    status: str
+
+
+@dataclass(frozen=True, slots=True)
+class OnExecutionErrorPayload(EventPayload):
+    error_code: str
+    error_message: str
+
+
+@dataclass(frozen=True, slots=True)
+class OnExecutionCancelledPayload(EventPayload):
+    reason: str
+
+
 type HookHandler[PayloadT: EventPayload] = Callable[[PayloadT], Awaitable[None] | None]
 
 
