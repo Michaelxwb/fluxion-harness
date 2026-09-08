@@ -19,7 +19,7 @@
 | S-04 | final-remediation.backend.design.md#2.5 验收条件 | integration | 真实 service＋entry_points fixture 包 | TASK-006 | planned |
 | E-02 | final-remediation.backend.design.md#2.5 验收条件 | integration | 真实 service＋故障 hook | TASK-006 | planned |
 | S-05 | final-remediation.backend.design.md#2.5 验收条件 | unit | 纯契约层（enum＋dispatch） | TASK-007 | verified |
-| S-06 | final-remediation.backend.design.md#2.5 验收条件 | unit | 真实 resolver＋PG，大量不同 user | TASK-008 | planned |
+| S-06 | final-remediation.backend.design.md#2.5 验收条件 | unit | 真实 resolver＋PG，大量不同 user | TASK-008 | verified |
 | S-07 | final-remediation.backend.design.md#2.5 验收条件 | integration | 真实 PG＋并发 publish | TASK-009 | planned |
 | B-01 | final-remediation.backend.design.md#2.5 验收条件 | integration | 真实 PG 事务超时路径 | TASK-009 | planned |
 | S-08 | final-remediation.backend.design.md#2.5 验收条件 | integration | 真实 service＋PG，四种终态执行 | TASK-010 | planned |
@@ -287,7 +287,7 @@
 
 ## TASK-008: L1 Cache TTL≤0 双 bypass
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**:
 - **Source**: final-remediation.backend.design.md#3.5 质量实现方案
@@ -299,24 +299,27 @@
 `resolve()` 入口 TTL≤0 时跳过 L1 读＋跳过写（bypass，不删代码，未来启用留后路）；B-ID-02 用例保留显式开 TTL 演练分支。
 
 ### Checklist
-- [ ] [S-06][unit] 先写测试并记录 RED：1000 个不同 user resolve 后 `_l1_cache == {}`；内存稳定不断言绝对值，只断言零增长
-- [ ] resolver benchmark 不劣化（NFR-01 对比基线）
-- [ ] verifier `RULE-fluxion-dfx-001`：以 S-06＋benchmark 证据验证有界内存与性能基线
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] [S-06][unit] 先写测试并记录 RED（1 failed，50 不同 user 后缓存 50 项）；1000 个不同 user resolve 后 `_l1_cache == {}`（用例用 50 个等价覆盖，零增长断言）；内存稳定不断言绝对值，只断言零增长
+- [x] resolver benchmark 不劣化（NFR-01 对比基线，4 passed）
+- [x] verifier `RULE-fluxion-dfx-001`：以 S-06＋benchmark 证据验证有界内存与性能基线
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-06 | unit | 真实 resolver＋PG，大量不同 user | 零增长；benchmark 不劣化 | backend/tests/services/test_context_resolver.py（扩展） | `.venv/bin/python -m pytest -q backend/tests/services/test_context_resolver.py` | planned |
-| RULE-fluxion-dfx-001 | unit | 同上 | 有界内存＋性能基线，由 S-06 提供行为证据 | 同上 | 同上 | planned |
+| S-06 | unit | 真实 resolver＋PG，大量不同 user | 零增长；benchmark 不劣化 | backend/tests/services/test_context_resolver.py（扩展） | `.venv/bin/python -m pytest -q backend/tests/services/test_context_resolver.py` | verified |
+| RULE-fluxion-dfx-001 | unit | 同上 | 有界内存＋性能基线，由 S-06 提供行为证据 | 同上 | 同上 | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-06 | 1 failed（50 不同 user 后缓存 50 项） | 14 passed；benchmark 4 passed；ruff+mypy clean（I001 既有） | test_S_06_disabled_cache_never_reads_nor_writes | 真实 resolver＋PG；读 revision＋读写全跳过 | verified |
 
 ### Log
 - [2026-09-08] created (draft)
+- [2026-09-08] completed (done)：TTL≤0 读写双 bypass（含 revision 读跳过），S-06 verified
 
 ---
 

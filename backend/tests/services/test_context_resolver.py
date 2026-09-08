@@ -565,3 +565,30 @@ async def test_S_ID_02_unknown_tenant_fails_closed(store: PostgreSQLRegistryStor
             trace_id=_identity("c")[1],
             execution_id=_identity("c")[2],
         )
+
+
+def _ids(char: str, index: int = 0) -> tuple[str, str, str]:
+    suffix = f"{index:032x}"
+    return (f"req_{suffix}", f"trace_{suffix}", f"exec_{suffix}")
+
+
+@pytest.mark.asyncio
+async def test_S_06_disabled_cache_never_reads_nor_writes(
+    store: PostgreSQLRegistryStore,
+) -> None:
+    """S-06（105 P1-03）：TTL=0 时不读不写 L1，大量不同 key 后内存不增长。"""
+    await _seed_agent(store)
+    resolver = _resolver(store)
+    assert resolver._l1_cache_ttl <= 0
+    for index in range(50):
+        request_id, trace_id, execution_id = _ids("a", index)
+        await resolver.resolve(
+            ResolverSelector(
+                tenant_id="tenant-a", agent_id="assistant", user_id=f"user-{index}"
+            ),
+            session_id=f"s-{index}",
+            request_id=request_id,
+            trace_id=trace_id,
+            execution_id=execution_id,
+        )
+    assert resolver._l1_cache == {}

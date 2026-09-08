@@ -135,9 +135,16 @@ class ContextResolver(ContextResolutionSupport):
 
         # L1 缓存检查（remediation §13.5：同 key 短路，不重复查库；按 registry revision
         # 失效，publish 即刷新——避免热发布后 30s 内仍返回旧版本，守住 REQ-EXE-003）。
+        # 105 P1-03（TASK-008）：TTL≤0 时读写双 bypass——禁用即零开销零增长，
+        # 不做无意义写入（未来启用再完整实现 TTL/max_entries/LRU/invalidation）。
         cache_key = f"{selector.tenant_id}:{selector.agent_id}:{selector.user_id}"
-        revision = await self._store.read_revision(tenant_id=selector.tenant_id)
-        cached = self._l1_cache.get(cache_key)
+        use_cache = self._l1_cache_ttl > 0
+        revision = 0
+        if use_cache:
+            revision = await self._store.read_revision(tenant_id=selector.tenant_id)
+            cached = self._l1_cache.get(cache_key)
+        else:
+            cached = None
         if cached is not None:
             result, ts, cached_revision = cached
             if cached_revision == revision and time.monotonic() - ts < self._l1_cache_ttl:
@@ -422,7 +429,8 @@ class ContextResolver(ContextResolutionSupport):
             resolution_trace=trace,
             budget_used=budget_used,
         )
-        self._l1_cache[cache_key] = (result, time.monotonic(), revision)
+        if use_cache:
+            self._l1_cache[cache_key] = (result, time.monotonic(), revision)
         return result
 
 class ContextResolverSnapshotBuilder:
