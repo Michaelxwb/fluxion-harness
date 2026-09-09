@@ -5,7 +5,7 @@ import json
 import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, Header, Request
@@ -36,6 +36,8 @@ from fluxion.services.runtime_app import (
     ToolCallRequest,
 )
 from fluxion.services.runtime_contracts import (
+    InvocationDirective,
+    InvocationKind,
     RequestIdentityError,
     resolve_request_identity,
 )
@@ -46,6 +48,26 @@ class ToolCallPayload(BaseModel):
 
     tool_id: str
     arguments: dict[str, object] = Field(default_factory=dict)
+
+
+class InvocationDirectivePayload(BaseModel):
+    """显式激活意图（typed，不接受 version：用户不得 pin 版本，§14.1）."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["skill"]
+    capability_id: str
+
+
+class SessionExecutionPayload(BaseModel):
+    """Session 执行控制请求体（§18）：四元组寻址，不接受 execution_id。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: str
+    user_id: str
+    agent_definition_id: str
+    session_id: str
 
 
 class RunPayload(BaseModel):
@@ -62,6 +84,7 @@ class RunPayload(BaseModel):
     request_id: str | None = None
     trace_id: str | None = None
     execution_id: str | None = None
+    invocation_directive: InvocationDirectivePayload | None = None
 
 
 def create_app(service: RuntimeApplicationService) -> FastAPI:
@@ -137,6 +160,37 @@ def create_app(service: RuntimeApplicationService) -> FastAPI:
             events,
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    @app.post("/internal/v1/session-executions:cancel")
+    async def cancel_session_execution(payload: SessionExecutionPayload) -> JSONResponse:
+        """Runtime Control：取消指定 Session 的 active execution（§18）。"""
+        result = await service.cancel_active_execution(
+            tenant_id=payload.tenant_id,
+            user_id=payload.user_id,
+            agent_definition_id=payload.agent_definition_id,
+            session_id=payload.session_id,
+        )
+        return success({"code": result.code})
+
+    @app.post("/internal/v1/session-executions:resolve")
+    async def resolve_session_execution(payload: SessionExecutionPayload) -> JSONResponse:
+        """Runtime Control：查询指定 Session 的执行状态（§18，只读）。"""
+        status = await service.get_session_status(
+            tenant_id=payload.tenant_id,
+            user_id=payload.user_id,
+            agent_definition_id=payload.agent_definition_id,
+            session_id=payload.session_id,
+        )
+        return success(
+            {
+                "state": status.state,
+                "session_id": status.session_id,
+                "agent_id": status.agent_id,
+                "execution_id": status.execution_id,
+                "requested_skill_id": status.requested_skill_id,
+                "started_at": status.started_at,
+            }
         )
 
     return app
@@ -265,6 +319,7 @@ def _run_request(
             ToolCallRequest(tool_id=call.tool_id, arguments=call.arguments)
             for call in payload.tool_calls
         ],
+        invocation_directive=_invocation_directive(payload.invocation_directive),
     )
 
 
@@ -307,3 +362,20 @@ def _tenant_id(header: str | None, body: str) -> str:
     if header is not None and header.strip():
         return header.strip()
     return body
+
+
+def _invocation_directive(
+    payload: InvocationDirectivePayload | None,
+) -> InvocationDirective | None:
+    """wire directive → 领域 directive（版本恒为 None：exact version 由 Snapshot 固化）。"""
+    if payload is None:
+        return None
+    if payload.kind != "skill" or not payload.capability_id.strip():
+        raise RuntimeApplicationError(
+            "command_usage_invalid",
+            "非法 invocation_directive（仅支持 skill 意图）",
+            status_code=400,
+        )
+    return InvocationDirective(
+        kind=InvocationKind.SKILL, capability_id=payload.capability_id.strip()
+    )

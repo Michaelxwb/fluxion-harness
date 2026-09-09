@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import pytest
-from tests.channel_helpers import RecordingRuntime
-from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.plugins.channel_adapters import WebChannelAdapter
 from fluxion.protocols.channel import ExternalChannelMessage
 from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.channel_app import ChannelApplicationService
+from tests.channel_helpers import RecordingRuntime
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 
 @pytest.mark.asyncio
@@ -30,6 +30,7 @@ async def test_S_C105_channel_identity_maps_to_platform_user_store() -> None:
                 content=f"/bind {issued.code}",
                 agent_id="assistant",
             ),
+            verified=None,
         )
         identity = await service.resolve_identity("tenant-a", "web", "browser-a")
 

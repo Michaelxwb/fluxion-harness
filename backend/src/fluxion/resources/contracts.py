@@ -172,6 +172,16 @@ class EffectiveCapability(BaseModel):
     workflows: list[str] = Field(default_factory=list)  # workflow refs
 
 
+class ResolvedInvocationDirective(BaseModel):
+    """ADR-A017 §1：本轮显式激活意图的固化表达（exact version，进 digest）。"""
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: str = Field(description="意图类型，首版仅 skill")
+    capability_id: str = Field(description="显式激活的 skill id")
+    version: str = Field(description="解析时刻的 exact published version")
+
+
 class ExecutionSnapshot(BaseModel):
     # frozen=True 落实 ADR-005 的执行期不可变：持有者不能原地改写
     # model_resolution 等字段。构造时另对派生自 profile spec_json 的
@@ -193,6 +203,11 @@ class ExecutionSnapshot(BaseModel):
     trace_id: str
     system_prompt: str = ""
     skill_instructions: dict[str, str] = Field(default_factory=dict)
+    # ADR-A017 §2：显式激活时仅选中 skill 的 instruction 进入本字段；
+    # 无 directive 时执行侧回退读取全量 skill_instructions（行为不变）。
+    active_skill_instruction: dict[str, str] = Field(default_factory=dict)
+    # ADR-A017 §1：本轮显式激活意图（exact version，进 canonical digest）。
+    invocation_directive: ResolvedInvocationDirective | None = None
     skill_required_capabilities: list[str] = Field(default_factory=list)
     skill_versions: dict[str, str] = Field(default_factory=dict)
     mcp_versions: dict[str, str] = Field(default_factory=dict)

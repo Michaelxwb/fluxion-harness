@@ -31,6 +31,7 @@ from fluxion.resources.contracts import (
     ExecutionSnapshot,
     MemoryManifest,
     ModelPolicy,
+    ResolvedInvocationDirective,
 )
 from fluxion.resources.snapshot_digest import canonical_digest
 from fluxion.runtime.capabilities import EffectiveCapabilityResolver
@@ -123,6 +124,7 @@ class ContextResolver(ContextResolutionSupport):
         request_id: str = "",
         trace_id: str = "",
         execution_id: str = "",
+        requested_skill_id: str | None = None,
     ) -> ResolveResult:
         del session_id  # session 维度由调用方承载；本管线按 (tenant, agent, user) 解析
         # TASK-006（ADR-A012 §1）：内部层禁止创建/替换身份——调用方传入三 ID，
@@ -138,6 +140,9 @@ class ContextResolver(ContextResolutionSupport):
         # 105 P1-03（TASK-008）：TTL≤0 时读写双 bypass——禁用即零开销零增长，
         # 不做无意义写入（未来启用再完整实现 TTL/max_entries/LRU/invalidation）。
         cache_key = f"{selector.tenant_id}:{selector.agent_id}:{selector.user_id}"
+        if requested_skill_id is not None:
+            # 显式意图改变快照内容（directive 进 digest），不得复用无意图缓存。
+            cache_key += f":skill={requested_skill_id}"
         use_cache = self._l1_cache_ttl > 0
         revision = 0
         if use_cache:
@@ -293,6 +298,28 @@ class ContextResolver(ContextResolutionSupport):
             )
             _stage("capability", None, started)
 
+            # ADR-A017 §1（/skill 显式激活）：requested skill 必须落在本次
+            # effective 集合（Agent 声明 ∩ 用户授权 ∩ Published ∩ 可见性），
+            # 否则 fail-closed；exact version 固化进 directive。
+            invocation_directive: ResolvedInvocationDirective | None = None
+            active_skill_instruction: dict[str, str] = {}
+            if requested_skill_id is not None:
+                exact_version = skill_versions.get(requested_skill_id)
+                if exact_version is None:
+                    raise ContextResolutionError(
+                        code="skill_not_available",
+                        message=f"skill {requested_skill_id} not available for this agent/user",
+                        status_code=403,
+                    )
+                invocation_directive = ResolvedInvocationDirective(
+                    kind="skill",
+                    capability_id=requested_skill_id,
+                    version=exact_version,
+                )
+                instruction = skill_instructions.get(requested_skill_id)
+                if instruction:
+                    active_skill_instruction = {requested_skill_id: instruction}
+
             # 8a. credential：bindings credential_ref 收集（纯配置读，scope 内）；
             # 元数据解析（外部 SecretStore I/O）在 scope 外，见 8b。
             started = time.perf_counter()
@@ -431,6 +458,8 @@ class ContextResolver(ContextResolutionSupport):
             trace_id=identity.trace_id,
             system_prompt=agent_spec.system_prompt,
             skill_instructions=skill_instructions,
+            active_skill_instruction=active_skill_instruction,
+            invocation_directive=invocation_directive,
             skill_required_capabilities=skill_required_capabilities,
             skill_versions=skill_versions,
             mcp_versions=mcp_versions,
@@ -504,6 +533,20 @@ class ContextResolverSnapshotBuilder:
             request_id=getattr(request, "request_id", "") or "",
             trace_id=getattr(request, "trace_id", "") or "",
             execution_id=getattr(request, "execution_id", "") or "",
+            requested_skill_id=_requested_skill_id(request),
         )
         # TASK-006：resolve 已使用传入身份组装 snapshot，不再事后覆盖。
         return result.snapshot
+
+
+def _requested_skill_id(request: Any) -> str | None:
+    """从 RunRuntimeRequest.invocation_directive 提取显式 skill 意图。
+
+    仅 kind == "skill" 的 directive 生效；其余（None/未知 kind）视为无意图。
+    版本 pin 在 resolve 侧固化 exact version，此处只传 id。
+    """
+    directive = getattr(request, "invocation_directive", None)
+    if directive is None or getattr(directive, "kind", None) != "skill":
+        return None
+    capability_id = getattr(directive, "capability_id", "")
+    return capability_id or None

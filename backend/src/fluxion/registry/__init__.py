@@ -10,6 +10,7 @@ from fluxion.registry.store import (
 from fluxion.registry.user_store import ProfileAttributeRecord
 
 __all__ = [
+    "ActiveExecutionExists",
     "AuditRecord",
     "BindCodeRecord",
     "BindCodeRejected",
@@ -21,6 +22,8 @@ __all__ = [
     "ChannelRegistryStore",
     "ChannelStore",
     "ChatAccessRecord",
+    "ChatSessionHead",
+    "ExecutionRecord",
     "NotFoundError",
     "OutboxEventRecord",
     "OutboxStatus",
@@ -44,8 +47,10 @@ from fluxion.registry.channel_store import (
     ChannelRegistryStore,
     ChannelStore,
     ChatAccessRecord,
+    ChatSessionHead,
     PlatformUserRecord,
 )
+from fluxion.registry.execution_control import ActiveExecutionExists, ExecutionRecord
 from fluxion.registry.store import (
     BindingCommand,
     BindingCommit,

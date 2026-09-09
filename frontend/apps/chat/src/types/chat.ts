@@ -1,4 +1,4 @@
-export type ChatResultKind = "bound" | "unbound" | "message";
+export type ChatResultKind = "bound" | "unbound" | "message" | "command";
 
 export interface ChatRequest {
   readonly content: string;
@@ -21,6 +21,10 @@ export interface ChatResponse {
   readonly platformUserId?: string;
   readonly requestId: string;
   readonly traceId: string;
+  /** 命令名（kind === "command" 时存在，对应后端 §20 返回协议）。 */
+  readonly command?: string;
+  /** 命令结果码（kind === "command" 时存在，如 ok/unknown_command）。 */
+  readonly code?: string;
 }
 
 export interface RuntimeCall {

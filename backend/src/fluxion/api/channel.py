@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 from fluxion.api.middleware import RequestContextMiddleware
 from fluxion.api.responses import failure, success
+from fluxion.commands import is_bind_command as _is_bind_command
 from fluxion.config import DevModeSettings
 from fluxion.errors.console import (
     CHANNEL_ACCESS_DENIED,
@@ -30,9 +31,6 @@ from fluxion.services.channel_app import (
     ChannelAccessError,
     ChannelApplicationService,
     ChannelBindError,
-)
-from fluxion.services.channel_app import (
-    is_bind_command as _is_bind_command,
 )
 from fluxion.services.channel_auth import ChannelAuthError, WebBearerAuthenticator
 from fluxion.services.runtime_contracts import RequestIdentityError, RuntimeApplicationError
@@ -62,17 +60,17 @@ def create_app(
     dev_mode: DevModeSettings | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Fluxion Channel API")
-    # H1：chat 面鉴权在 Bearer token / bind 层；/bind 前置匿名无身份头，
-    # 故不强制 X-Tenant-ID/X-Actor-ID（messages 依赖 header-tenant 属 S2 已文档残留）。
+    # S1（channel-permessage-auth TASK-001）：匿名仅放行 /bind（H1 语义），其余
+    # 无凭据消息 401；已绑定执行必须持验证身份——service.handle() 签名强制，
+    # 不再依赖 content 门禁（结构性保证，见 ChannelApplicationService.handle）。
+    # /bind 前置匿名无身份头，故不强制 X-Tenant-ID/X-Actor-ID。
     app.add_middleware(
         RequestContextMiddleware, dev_mode=dev_mode, require_identity=False
     )
     _register_errors(app, service)
-    # S2 残留：/channels/web/messages 对已绑定 channel_user_id 逐消息信任、不重新
-    # 鉴权 → 可冒充任意已绑定用户。真正收口需引入真实认证中间件（S1，per-message
-    # token），属较大功能构建而非最小修复。dev_mode 门控会破坏该端点的多租户
-    # header-tenant 设计（golden-path 契约依赖 X-Tenant-ID），且 dev bundle 已置
-    # dev_mode、门控对实际部署无增益，故不采用。S2 随 S1 一并落地。
+    # S1（channel-permessage-auth TASK-001，已收口）：/channels/web/messages 持
+    # Bearer 逐消息验证（身份来自 token，不信任 payload.channel_user_id）；匿名
+    # 仅放行 /bind；service.handle() 要求 verified，冒充在结构上不可能。
     auth = WebBearerAuthenticator(service)
     _register_message(app, service, auth)
     _register_stream(app, service, auth)
@@ -197,7 +195,9 @@ def _register_message(
             )
             return success(result.to_payload())
         if _is_bind_command(payload.content):
-            result = await service.handle(WebChannelAdapter(), _external(payload, x_tenant_id))
+            result = await service.handle(
+                WebChannelAdapter(), _external(payload, x_tenant_id), verified=None
+            )
             return success(result.to_payload())
         raise ChannelAuthError(method="bearer_chat_access", reason="missing_credentials")
 
@@ -291,9 +291,10 @@ def _register_access_routes(app: FastAPI, service: ChannelApplicationService) ->
 async def _events(
     service: ChannelApplicationService, message: ExternalChannelMessage
 ) -> AsyncIterator[str]:
-    yield _event("started", {"request_id": message.request_id, "message_id": message.message_id})
+    # §20：匿名入口只可能是 /bind 命令——直接产出 terminal completed，
+    # 不伪造 started 事件。
     try:
-        result = await service.handle(WebChannelAdapter(), message)
+        result = await service.handle(WebChannelAdapter(), message, verified=None)
         yield _event("completed", result.to_payload())
     except ChannelBindError:
         yield _event(

@@ -142,39 +142,31 @@ describe("TASK-001 Chat workspace 契约一致性", () => {
     expect(requests.at(-1)?.path).toBe("/api/v1/workspace/tasks");
   });
 
-  it("P1-1/P1-5 回归：getAgentProduct 单次解包 + X-Tenant-ID（tenant 经 resolveAccess 捕获）", async () => {
+  it("getAgentProduct 经 workspace 列表解析（GET /api/v1/agents/{id} 未挂载，不再调用）", async () => {
     const { api, requests } = httpApiWithEnvelopes({
-      "GET /api/v1/channels/web/access": {
-        access_id: "access-1",
-        agent_id: "agent-1",
-        platform_user_id: "user-a",
-        tenant_id: "tenant-a"
-      },
-      "GET /api/v1/agents/agent-1": {
-        agent_id: "agent-1",
-        available: true,
-        description: "解答常见问题",
-        display_name: "客服助手"
+      "GET /api/v1/workspace/agents": {
+        items: [
+          {
+            agent_id: "agent-1",
+            available: true,
+            description: "解答常见问题",
+            display_name: "客服助手",
+            capabilities: []
+          }
+        ]
       }
     });
 
-    // 未 resolveAccess 前不发起产品请求（无 tenant → 降级 undefined，不 422）
-    expect(await api.getAgentProduct?.("agent-1")).toBeUndefined();
-
-    await api.resolveAccess?.();
     const face = await api.getAgentProduct?.("agent-1");
-    // P1-1：face 直接来自 envelope.data（不再二次取 .data）
     expect(face).toEqual({
       agentId: "agent-1",
       available: true,
       description: "解答常见问题",
       displayName: "客服助手"
     });
-    // P1-5：产品请求携带 X-Tenant-ID（经 resolveAccess 捕获的 tenant_id）
-    const agentCall = requests.find((r) => r.path === "/api/v1/agents/agent-1");
-    expect(agentCall).toBeDefined();
-    expect(agentCall?.headers["X-Tenant-ID"]).toBe("tenant-a");
-    expect(agentCall?.headers.Authorization).toBe("Bearer token-1");
+    // 只走列表接口，不再请求 dormant 的单体端点
+    expect(requests.some((r) => r.path.startsWith("/api/v1/agents/"))).toBe(false);
+    expect(await api.getAgentProduct?.("missing")).toBeUndefined();
   });
 
   it("http 写操作命中冻结端点与 envelope 解包路径", async () => {

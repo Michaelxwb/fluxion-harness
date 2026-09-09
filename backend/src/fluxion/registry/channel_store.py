@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
+from fluxion.registry.execution_control import ExecutionRecord
 from fluxion.registry.store import RegistryStore
 from fluxion.registry.user_store import UserDomainStore
 
@@ -50,6 +51,21 @@ class ChannelIdentityRecord:
     channel_user_id: str
     platform_user_id: str
     created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ChatSessionHead:
+    """外部会话 → Runtime 逻辑 Session 映射头（ADR-A017 §5）。"""
+
+    tenant_id: str
+    channel_type: str
+    external_conversation_id: str
+    platform_user_id: str
+    agent_id: str
+    active_session_id: str
+    revision: int
+    created_at: datetime
+    updated_at: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +118,66 @@ class ChannelStore(Protocol):
     ) -> str | None: ...
 
     async def redeem_bind_code(self, redemption: BindRedemption) -> ChannelIdentityRecord: ...
+
+    async def get_session_head(
+        self,
+        *,
+        tenant_id: str,
+        channel_type: str,
+        external_conversation_id: str,
+        platform_user_id: str,
+        agent_id: str,
+    ) -> ChatSessionHead | None: ...
+
+    async def create_session_head(self, head: ChatSessionHead) -> ChatSessionHead: ...
+
+    async def rotate_session_head(
+        self, head: ChatSessionHead, *, expected_revision: int
+    ) -> ChatSessionHead: ...
+
+    async def get_execution(
+        self, *, tenant_id: str, execution_id: str
+    ) -> ExecutionRecord | None: ...
+
+    async def get_active_execution_for_session(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        agent_id: str,
+        session_id: str,
+    ) -> ExecutionRecord | None: ...
+
+    async def create_execution(self, record: ExecutionRecord) -> ExecutionRecord: ...
+
+    async def mark_execution_running(
+        self, *, tenant_id: str, execution_id: str
+    ) -> ExecutionRecord | None: ...
+
+    async def request_execution_cancel(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        agent_id: str,
+        session_id: str,
+        reason: str,
+        now: datetime,
+    ) -> ExecutionRecord | None: ...
+
+    async def finish_execution(
+        self,
+        *,
+        tenant_id: str,
+        execution_id: str,
+        state: str,
+        now: datetime,
+        error_code: str | None = None,
+    ) -> ExecutionRecord | None: ...
+
+    async def list_stale_cancelling(
+        self, *, before: datetime, limit: int = 100
+    ) -> list[ExecutionRecord]: ...
 
 
 @runtime_checkable

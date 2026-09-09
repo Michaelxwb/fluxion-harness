@@ -57,18 +57,24 @@ from fluxion.runtime.secrets import CredentialResolver
 from fluxion.runtime.tools import ToolRuntime
 from fluxion.runtime.tracing import InMemoryTraceStore, TraceRecord, TraceStore
 from fluxion.services.context_resolver import ContextResolver, ContextResolverSnapshotBuilder
+from fluxion.services.execution_control_service import ExecutionControlService, SessionBusyError
 from fluxion.services.execution_session import ExecutionSession, PreparedExecution
 from fluxion.services.outbox import InProcessConfigEventPublisher, OutboxWorker
+from fluxion.services.redis_cancel import RedisCancelBus
 from fluxion.services.runtime_contracts import (
     TRACE_WRITE_BUDGET_MS,
+    CancelExecutionResult,
     CreateRuntimeProfileRequest,
     HealthResult,
+    InvocationDirective,
+    InvocationKind,
     PluginSummary,
     PublishRuntimeProfileRequest,
     RunRuntimeRequest,
     RunRuntimeResult,
     RuntimeApplicationError,
     RuntimeStreamEvent,
+    SessionExecutionStatus,
     ToolCallRequest,
     default_runtime_profile_request,
 )
@@ -87,8 +93,11 @@ from fluxion.services.runtime_utils import (
 )
 
 __all__ = [
+    "CancelExecutionResult",
     "CreateRuntimeProfileRequest",
     "HealthResult",
+    "InvocationDirective",
+    "InvocationKind",
     "PluginSummary",
     "PublishRuntimeProfileRequest",
     "RunRuntimeRequest",
@@ -96,6 +105,7 @@ __all__ = [
     "RuntimeApplicationError",
     "RuntimeApplicationService",
     "RuntimeStreamEvent",
+    "SessionExecutionStatus",
     "ToolCallRequest",
     "build_personal_memory_retriever",
     "default_runtime_profile_request",
@@ -160,6 +170,7 @@ class RuntimeApplicationService(RuntimeToolOps):
         memory_retriever: PersonalMemoryRetriever | None = None,
         ready_timeout_seconds: float = 1.0,
         memory_recall_timeout_ms: int = 1000,
+        cancel_bus: RedisCancelBus | None = None,
     ) -> None:
         self._store = store
         self._cache = TenantResourceCache(ttl_seconds=cache_ttl_seconds)
@@ -196,6 +207,13 @@ class RuntimeApplicationService(RuntimeToolOps):
         )
         self._plugin_summaries = tuple(plugin_summaries)
         self._service_instance_id = uuid4().hex
+        # TASK-005：Durable Execution Control 编排（PG 事实源 + 本实例取消索引）。
+        self._control = ExecutionControlService(
+            store, service_instance_id=self._service_instance_id
+        )
+        # TASK-006：Redis 取消信号总线（多 Pod 低延迟通知；None＝单 Pod/测试）。
+        self._cancel_bus = cancel_bus
+        self._cancel_listener: asyncio.Task[None] | None = None
         # FEAT-07：memory provider 引用（engine 由 store 持有并关闭，此处仅引用）。
         self._memory_provider = memory_retriever.provider if memory_retriever is not None else None
         # FEAT-05：readiness 检测预算（默认 1s、无重试），必须小于探针超时；
@@ -287,6 +305,25 @@ class RuntimeApplicationService(RuntimeToolOps):
             except Exception as cleanup_exc:  # noqa: BLE001 -- 附 notes 后重抛主因
                 exc.add_note(f"hook plugin rollback failed: {cleanup_exc}")
             raise
+        # TASK-006：启动认领超期 CANCELLING 孤儿 + 启动取消信号订阅。
+        # 认领失败即 fail-fast（PG 刚初始化成功，此处失败说明状态机损坏，必须显式报错）。
+        await self._control.reconcile_orphans()
+        if self._cancel_bus is not None:
+            self._cancel_listener = asyncio.ensure_future(self._listen_cancel_signals())
+
+    async def _listen_cancel_signals(self) -> None:
+        """取消信号订阅循环（后台任务；取消即退出，由 close() 驱动）。
+
+        事件只加速本实例取消；PG CANCELLING 才是事实源，信号丢失不影响正确性。
+        """
+        assert self._cancel_bus is not None
+        registry = self._control.active_registry
+
+        async def _on_cancel(tenant_id: str, execution_id: str) -> None:
+            del tenant_id  # registry 按 execution_id 索引；租户隔离由 PG 四元组保证
+            registry.cancel_local(execution_id)
+
+        await self._cancel_bus.listen_forever(_on_cancel)
 
     async def _install_hook_plugins(self) -> None:
         """启动时安装 entry_points Hook 插件（105 P1-02 / TASK-005）。
@@ -328,6 +365,12 @@ class RuntimeApplicationService(RuntimeToolOps):
             await self._shutdown_hook_plugins()
         except Exception as exc:  # noqa: BLE001 -- 聚合后重抛，见下
             hook_error = exc
+        # TASK-006：先停取消订阅（取消后台任务并等其退出），再关 mcp/store。
+        listener, self._cancel_listener = self._cancel_listener, None
+        if listener is not None and not listener.done():
+            listener.cancel()
+            with suppress(asyncio.CancelledError):
+                await listener
         await self._mcp_runtime.close()
         await self._store.close()
         if hook_error is not None:
@@ -506,9 +549,45 @@ class RuntimeApplicationService(RuntimeToolOps):
                         str(exc),
                         status_code=getattr(exc, "status_code", 400),
                     ) from exc
-                return await self._run_prepared(
-                    session, prepared, request, started, span
-                )
+                # TASK-005：Durable Execution Control——prepare 成功后建控制记录
+                # 并注册本实例取消句柄；Session 已有 active 即 session_busy（409）。
+                # shield 保护：ASGI/anyio 取消域会在 finally 的 await 处重复投递
+                # 取消；begin/end 必须是"全有或全无"，否则记录 eternal-RUNNING。
+                # task 在 shield 之外捕获（shield 内 current_task 是内层任务）。
+                owner = asyncio.current_task()
+                assert owner is not None  # serving 内 run() 恒在 task 中执行
+                try:
+                    await asyncio.shield(
+                        self._control.begin_execution(
+                            tenant_id=request.tenant_id,
+                            user_id=request.user_id,
+                            agent_id=request.agent_definition_id or "",
+                            session_id=request.session_id,
+                            execution_id=request.execution_id,
+                            request_id=request.request_id,
+                            trace_id=request.trace_id,
+                            requested_skill_id=_directed_skill_id(request),
+                            task=owner,
+                            context=prepared.context,
+                        )
+                    )
+                except SessionBusyError as exc:
+                    raise RuntimeApplicationError(
+                        exc.code, str(exc), status_code=409
+                    ) from exc
+                try:
+                    return await self._run_prepared(
+                        session, prepared, request, started, span
+                    )
+                finally:
+                    await asyncio.shield(
+                        self._control.end_execution(
+                            tenant_id=request.tenant_id,
+                            execution_id=request.execution_id,
+                            terminal=session.terminal,
+                            context=prepared.context,
+                        )
+                    )
         finally:
             reset_execution_id(execution_token)
 
@@ -687,9 +766,34 @@ class RuntimeApplicationService(RuntimeToolOps):
         """
         started = perf_counter()
         context: RuntimeContext | None = None
+        control_begun = False
         try:
             prepared = await session.prepare(request)
             context = prepared.context
+            # TASK-005：流式同样建控制记录（与 run() 同语义；session_busy 亦然）。
+            # shield 保护见 run()（anyio 取消域重复投递）。
+            stream_owner = asyncio.current_task()
+            assert stream_owner is not None  # serving 内 stream 恒在 task 中执行
+            try:
+                await asyncio.shield(
+                    self._control.begin_execution(
+                        tenant_id=request.tenant_id,
+                        user_id=request.user_id,
+                        agent_id=request.agent_definition_id or "",
+                        session_id=request.session_id,
+                        execution_id=request.execution_id,
+                        request_id=request.request_id,
+                        trace_id=request.trace_id,
+                        requested_skill_id=_directed_skill_id(request),
+                        task=stream_owner,
+                        context=context,
+                    )
+                )
+            except SessionBusyError as exc:
+                raise RuntimeApplicationError(
+                    exc.code, str(exc), status_code=409
+                ) from exc
+            control_begun = True
             model_tools = prepared.model_tools
             if model_tools:
                 # 有工具可用：模型可能发起 tool call，须走完整非流式循环。复用已
@@ -818,6 +922,17 @@ class RuntimeApplicationService(RuntimeToolOps):
                 str(exc),
                 status_code=getattr(exc, "status_code", 400),
             ) from exc
+        finally:
+            # TASK-005：流式控制记录结算（begin 成功才结算；幂等 finish；shield 见上）。
+            if control_begun and context is not None:
+                await asyncio.shield(
+                    self._control.end_execution(
+                        tenant_id=request.tenant_id,
+                        execution_id=request.execution_id,
+                        terminal=session.terminal,
+                        context=context,
+                    )
+                )
 
     async def validate_resource_file(self, path: Path) -> dict[str, object]:
         try:
@@ -852,6 +967,72 @@ class RuntimeApplicationService(RuntimeToolOps):
 
     async def health(self) -> HealthResult:
         return HealthResult("ok", self._service_instance_id)
+
+    async def cancel_active_execution(
+        self,
+        *,
+        tenant_id: str,
+        user_id: str,
+        agent_definition_id: str,
+        session_id: str,
+    ) -> CancelExecutionResult:
+        """Runtime Control：取消当前 principal 指定 Session 的 active execution（§18）。
+
+        四元组缺一不可；只做状态机转换 + 本实例立即取消，不回滚副作用。
+        TASK-006：stop_requested 后尽力发布 Redis 加速信号；publish 失败只记录，
+        不改变取消语义（PG CANCELLING 才是事实源）。
+        """
+        result = await self._control.request_cancel(
+            tenant_id=tenant_id,
+            platform_user_id=user_id,
+            agent_id=agent_definition_id,
+            session_id=session_id,
+        )
+        if (
+            result.code == "stop_requested"
+            and result.execution_id is not None
+            and self._cancel_bus is not None
+        ):
+            try:
+                await self._cancel_bus.publish_cancel(tenant_id, result.execution_id)
+            except Exception as exc:  # noqa: BLE001 -- 加速信号失败只记录
+                emit_runtime_error_log(
+                    request_id="",
+                    trace_id="",
+                    tenant_id=tenant_id,
+                    execution_id=result.execution_id,
+                    runtime_profile_id="",
+                    error_type="cancel_signal_publish_failed",
+                    error_code="cancel_signal_publish_failed",
+                    message=f"cancel signal publish failed: {exc}",
+                    stack=traceback.format_exc(),
+                )
+        return result
+
+    async def get_session_status(
+        self,
+        *,
+        tenant_id: str,
+        user_id: str,
+        agent_definition_id: str,
+        session_id: str,
+    ) -> SessionExecutionStatus:
+        """Runtime Control：查询 Session 执行状态（§18）。只读，不建 Snapshot、不执行模型。"""
+        active = await self._control.get_active_for_session(
+            tenant_id, user_id, agent_definition_id, session_id
+        )
+        if active is None:
+            return SessionExecutionStatus(
+                state="idle", session_id=session_id, agent_id=agent_definition_id
+            )
+        return SessionExecutionStatus(
+            state=active.state,
+            session_id=session_id,
+            agent_id=agent_definition_id,
+            execution_id=active.execution_id,
+            requested_skill_id=active.requested_skill_id,
+            started_at=active.started_at.isoformat(),
+        )
 
     async def ready(self, *, request_id: str = "", trace_id: str = "") -> HealthResult:
         """Readiness：Registry 读路径检测（FEAT-05）。
@@ -984,6 +1165,14 @@ class RuntimeApplicationService(RuntimeToolOps):
             message=f"cleanup failed: {exc}",
             stack=traceback.format_exc(),
         )
+
+
+def _directed_skill_id(request: RunRuntimeRequest) -> str | None:
+    """RunRuntimeRequest.invocation_directive → 控制记录的 requested_skill_id。"""
+    directive = request.invocation_directive
+    if directive is None or directive.kind.value != "skill":
+        return None
+    return directive.capability_id or None
 
 
 def _streamed_provider_id(context: RuntimeContext) -> str | None:

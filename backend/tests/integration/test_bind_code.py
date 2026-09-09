@@ -4,14 +4,14 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
-from tests.channel_helpers import RecordingRuntime
-from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.plugins.channel_adapters import WebChannelAdapter
 from fluxion.protocols.channel import ChannelResult, ExternalChannelMessage
 from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.registry.schema import audit_logs, bind_codes
 from fluxion.services.channel_app import ChannelApplicationService, ChannelBindError
+from tests.channel_helpers import RecordingRuntime
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 
 @pytest.mark.asyncio
@@ -97,4 +97,5 @@ async def _bind(
             content=f"/bind {code}",
             agent_id="assistant",
         ),
+        verified=None,
     )

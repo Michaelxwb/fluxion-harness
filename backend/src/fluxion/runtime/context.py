@@ -7,6 +7,7 @@ from uuid import uuid4
 from fluxion.resources import ExecutionSnapshot, ResourceBinding
 
 if TYPE_CHECKING:
+    from fluxion.runtime.cancellation import CancellationToken
     from fluxion.runtime.model_providers import ScopedModelProviderResolver
     from fluxion.runtime.tools import ToolRuntime
 
@@ -96,6 +97,9 @@ class RuntimeContext:
     # 随 context 生命周期释放，无跨执行泄漏。
     mcp_bindings_cache: dict[str, ResourceBinding] | None = None
     mcp_configs_cache: dict[str, object] | None = None
+    # TASK-005（/stop）：协作式取消令牌。None＝未接入控制（旧路径/单测），
+    # 视为永不取消；begin_execution 注入真实令牌，随执行结束释放。
+    cancellation: CancellationToken | None = None
 
     def emit(self, name: str, attributes: dict[str, object] | None = None) -> None:
         self.trace.append(

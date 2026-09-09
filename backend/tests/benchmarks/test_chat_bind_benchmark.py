@@ -6,7 +6,7 @@ from statistics import quantiles
 from time import perf_counter_ns
 from typing import Protocol
 
-from tests.channel_helpers import RecordingRuntime
+from tests.channel_helpers import RecordingRuntime, verified_identity
 from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 from fluxion.plugins.channel_adapters import WebChannelAdapter
@@ -62,10 +62,10 @@ def test_B_C106_bind_p95_under_300ms_and_chat_p95_under_200ms(
         loop.run_until_complete(_sd(store, tenant_id="tenant-a"))
         issued = loop.run_until_complete(service.issue_bind_code("tenant-a", user_id))
         started = perf_counter_ns()
-        loop.run_until_complete(service.handle(adapter, _message(channel_user_id, f"/bind {issued.code}")))
+        loop.run_until_complete(service.handle(adapter, _message(channel_user_id, f"/bind {issued.code}"), verified=None))
         bind_ms.append((perf_counter_ns() - started) / 1_000_000)
         started = perf_counter_ns()
-        result = loop.run_until_complete(service.handle(adapter, _message(channel_user_id, "ping")))
+        result = loop.run_until_complete(service.handle(adapter, _message(channel_user_id, "ping"), verified=verified_identity(channel_user_id)))
         chat_ms.append((perf_counter_ns() - started) / 1_000_000)
         return result
 

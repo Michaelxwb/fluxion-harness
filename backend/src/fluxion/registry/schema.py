@@ -638,3 +638,59 @@ Index(
     capability_grants.c.platform_user_id,
     capability_grants.c.capability_ref,
 )
+
+# ADR-A017 §4：Durable 执行状态（Execution Control 事实源，PG）。
+# 一个 Session 至多一个 active execution 由 partial unique index 保证。
+runtime_executions = Table(
+    "runtime_executions",
+    metadata,
+    Column("execution_id", String(128), primary_key=True),
+    Column("tenant_id", String(128), nullable=False),
+    Column("platform_user_id", String(128), nullable=False),
+    Column("agent_id", String(128), nullable=False),
+    Column("session_id", String(128), nullable=False),
+    Column("state", String(16), nullable=False),
+    Column("request_id", String(128), nullable=False),
+    Column("trace_id", String(128), nullable=False),
+    Column("owner_instance_id", String(128), nullable=False),
+    Column("requested_skill_id", String(128), nullable=True),
+    Column("started_at", DateTime(timezone=True), nullable=False),
+    Column("cancel_requested_at", DateTime(timezone=True), nullable=True),
+    Column("cancel_reason", String(255), nullable=True),
+    Column("finished_at", DateTime(timezone=True), nullable=True),
+    Column("error_code", String(128), nullable=True),
+    Column("revision", Integer, nullable=False),
+)
+
+Index(
+    "idx_executions_session_active",
+    runtime_executions.c.tenant_id,
+    runtime_executions.c.platform_user_id,
+    runtime_executions.c.agent_id,
+    runtime_executions.c.session_id,
+    unique=True,
+    postgresql_where=runtime_executions.c.state.in_(["created", "running", "cancelling"]),
+)
+
+Index(
+    "idx_executions_execution",
+    runtime_executions.c.tenant_id,
+    runtime_executions.c.execution_id,
+)
+
+# ADR-A017 §5：外部会话 → Runtime 逻辑 Session 映射头。IM 通道的
+# conversation/thread ID 不随 /new 改变，服务端 Head 持有 active 指针；
+# /new 只轮换指针，不删长期数据。主键五元组（含 agent_id：同 DM 切 Agent 分 Head）。
+chat_session_heads = Table(
+    "chat_session_heads",
+    metadata,
+    Column("tenant_id", String(128), primary_key=True),
+    Column("channel_type", String(64), primary_key=True),
+    Column("external_conversation_id", String(255), primary_key=True),
+    Column("platform_user_id", String(128), primary_key=True),
+    Column("agent_id", String(128), primary_key=True),
+    Column("active_session_id", String(128), nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)

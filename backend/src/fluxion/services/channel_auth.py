@@ -1,7 +1,8 @@
-"""ChannelAuthenticator：渠道身份验证收口（closure TASK-005 / P1C-07）。
+"""ChannelAuthenticator：渠道身份验证收口（closure TASK-005 / P1C-07，S1 加固）。
 
-进入 Fluxion 的 Channel Identity 必须经验证（VerifiedChannelIdentity），而不是
-信任请求自带的 channel_user_id（S2 残留收口）。三实现：
+进入 Fluxion 的 Channel Identity 必须经验证（VerifiedChannelIdentity）；
+`ChannelApplicationService.handle()` 签名强制要求 verified（None 仅匿名），
+不再信任请求自带的 channel_user_id。三实现：
 
 - Web：Bearer Chat Access Token 逐消息校验（token → ChatAccessRecord）；
 - WeCom：HMAC-SHA256 签名（secret + timestamp + nonce）；

@@ -85,6 +85,11 @@ ANNOTATIONS: dict[str, dict[str, str]] = {
     "model_providers.py": {
         "ScopedModelProviderResolver._scoped": "Ephemeral",
     },
+    # Execution Control 本实例取消索引（TASK-005/ADR-A017：仅用于立即取消本实例
+    # 任务，非事实源；随执行结束注销，不跨执行泄漏）
+    "active_execution_registry.py": {
+        "ActiveExecutionRegistry._entries": "Ephemeral",
+    },
     # Workflow Stub 引擎（G5 覆盖检查项；生产走 DbosWorkflowEngine durable store）
     "workflow.py": {
         "StubWorkflowEngine.started_requests": "Ephemeral",

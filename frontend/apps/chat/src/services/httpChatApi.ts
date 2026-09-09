@@ -21,6 +21,8 @@ interface ChannelPayload {
   readonly platform_user_id: string | null;
   readonly request_id: string;
   readonly trace_id: string;
+  readonly command: string | null;
+  readonly code: string | null;
 }
 
 export function createHttpChatApi(
@@ -29,8 +31,6 @@ export function createHttpChatApi(
   client: HttpClient = createHttpClient(baseUrl)
 ): ChatApi {
   const authorization = { Authorization: `Bearer ${accessToken}` };
-  // P1-5（review 修复）：产品 API 要求 X-Tenant-ID——tenant 从 resolveAccess 响应捕获。
-  let tenantId: string | null = null;
   const messageInit = (request: ChatRequest): RequestInit => ({
     body: JSON.stringify(toPayload(request)),
     headers: { ...authorization, "Content-Type": "application/json" },
@@ -44,27 +44,20 @@ export function createHttpChatApi(
         { headers: authorization },
         parseAccess
       );
-      tenantId = access.tenantId ?? null;
       return access;
     },
-    // closure TASK-009：经产品 API（GET /api/v1/agents/{id}）解析产品面信息。
-    // P1-1（review 修复）：client.request 已解包 envelope.data，直接消费返回值，
-    // 不再二次取 .data；并携带 X-Tenant-ID（缺失时后端 422 会被吞成降级占位）。
+    // 产品面信息经 workspace 列表解析（GET /api/v1/agents/{id} 未挂载到
+    // serving 入口，dormant；workspace 复用同一 Bearer token，直接列表查找）。
     async getAgentProduct(agentId) {
-      if (tenantId === null) return undefined;
       try {
-        const face = await client.request(
-          `/api/v1/agents/${encodeURIComponent(agentId)}`,
-          { headers: { ...authorization, "X-Tenant-ID": tenantId } },
-          (value: unknown) => value
-        );
-        if (!isRecord(face)) return undefined;
-        const name = face.display_name ?? face.name;
+        const agents = await this.listAgents();
+        const found = agents.find((agent) => agent.agentId === agentId);
+        if (!found) return undefined;
         return {
           agentId,
-          displayName: typeof name === "string" ? name : "智能体",
-          description: typeof face.description === "string" ? face.description : "",
-          available: face.available === true
+          displayName: found.displayName,
+          description: found.description,
+          available: found.available
         };
       } catch {
         return undefined; // 降级占位，不暴露 raw agent_id
@@ -306,7 +299,7 @@ function parseAccess(value: unknown): ChatAccess {
 function parseChannelPayload(value: unknown): ChannelPayload {
   if (!isRecord(value)) throw new Error("Channel completed 事件无效");
   const kind = value.kind;
-  if (kind !== "bound" && kind !== "unbound" && kind !== "message") {
+  if (kind !== "bound" && kind !== "unbound" && kind !== "message" && kind !== "command") {
     throw new Error("Channel kind 无效");
   }
   return {
@@ -315,7 +308,9 @@ function parseChannelPayload(value: unknown): ChannelPayload {
     output: requiredString(value.output, "output"),
     platform_user_id: nullableString(value.platform_user_id),
     request_id: requiredString(value.request_id, "request_id"),
-    trace_id: requiredString(value.trace_id, "trace_id")
+    trace_id: requiredString(value.trace_id, "trace_id"),
+    command: nullableString(value.command),
+    code: nullableString(value.code)
   };
 }
 
@@ -330,7 +325,9 @@ function fromPayload(payload: ChannelPayload): ChatResponse {
     output: payload.output,
     platformUserId: payload.platform_user_id ?? undefined,
     requestId: payload.request_id,
-    traceId: payload.trace_id
+    traceId: payload.trace_id,
+    command: payload.command ?? undefined,
+    code: payload.code ?? undefined
   };
 }
 

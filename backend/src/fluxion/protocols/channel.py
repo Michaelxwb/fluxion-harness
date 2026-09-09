@@ -36,12 +36,16 @@ class ChannelMessage:
 
 @dataclass(frozen=True, slots=True)
 class ChannelResult:
-    kind: Literal["bound", "unbound", "message"]
+    kind: Literal["bound", "unbound", "message", "command"]
     output: str
     platform_user_id: str | None = None
     request_id: str = ""
     trace_id: str = ""
     execution_id: str | None = None
+    # §20 命令返回协议：command 命令名、code 结果码、data 结构化载荷。
+    command: str | None = None
+    code: str = "ok"
+    data: dict[str, object] = field(default_factory=dict)
 
     def to_payload(self) -> dict[str, object]:
         return {
@@ -51,6 +55,9 @@ class ChannelResult:
             "request_id": self.request_id,
             "trace_id": self.trace_id,
             "execution_id": self.execution_id,
+            "command": self.command,
+            "code": self.code,
+            "data": dict(self.data),
         }
 
 

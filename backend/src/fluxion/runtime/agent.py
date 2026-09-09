@@ -72,6 +72,17 @@ def _deadline_exceeded(context: RuntimeContext) -> AgentLoopTimeoutError:
     return AgentLoopTimeoutError("agent loop deadline exceeded")
 
 
+def _raise_if_cancelled(context: RuntimeContext) -> None:
+    """协作式取消检查（TASK-005 /stop）：令牌触发即抛 ExecutionCancelledError。
+
+    无令牌（None）视为永不取消；错误类型为 CancelledError 子类，复用现有
+    CANCELLED 终态映射与清理链。
+    """
+    token = context.cancellation
+    if token is not None:
+        token.raise_if_cancelled()
+
+
 class AgentRuntime:
     def __init__(
         self,
@@ -406,6 +417,8 @@ class AgentRuntime:
         seen_signatures: set[str] = set()
         tool_results: list[dict[str, object]] = []
         for round_index in range(1, max_rounds + 1):
+            # TASK-005（/stop 检查点 1/3：每轮 loop 前）。
+            _raise_if_cancelled(context)
             request = ModelRequest(
                 messages=list(messages),
                 tools=tools,
@@ -486,6 +499,8 @@ class AgentRuntime:
                     payload={"tool_id": call.name, "duplicate": True},
                 )
             else:
+                # TASK-005（/stop 检查点 3/3：工具调用前）。
+                _raise_if_cancelled(context)
                 result = await tool_handler(context, call)
             tool_results.append(result.payload)
             messages.append(
@@ -516,6 +531,8 @@ class AgentRuntime:
         # 成对收尾后继续传播。
         for attempt_no, route in enumerate(routes, start=1):
             provider_id = route.provider_ref.id
+            # TASK-005（/stop 检查点 2/3：模型调用前）。
+            _raise_if_cancelled(context)
             attempt = ModelCallAttempt(
                 provider_id=provider_id,
                 model=route.model,
@@ -684,7 +701,9 @@ def _model_messages(
     - 不修改 Snapshot（纯函数）。
     """
     messages: list[ModelMessage] = []
-    system = _system_prompt(context.snapshot.system_prompt, context.snapshot.skill_instructions)
+    system = _system_prompt(
+        context.snapshot.system_prompt, _active_skill_instructions(context.snapshot)
+    )
     if system:
         messages.append(ModelMessage(role="system", content=system))
     for record in session_history:
@@ -700,6 +719,21 @@ def _model_messages(
             messages.append(ModelMessage(role=record.role, content=record.content))
     messages.append(ModelMessage(role="user", content=input_message))
     return messages
+
+
+def _active_skill_instructions(snapshot: ExecutionSnapshot) -> dict[str, str]:
+    """本轮激活的 skill instructions（ADR-A017 §2）。
+
+    有 skill directive 时仅注入选中 skill（显式激活 ≠ 临时授权，Tool 权限
+    仍源自完整 effective 图）；无 directive 时全量注入（行为零变化）。
+    """
+    directive = snapshot.invocation_directive
+    if directive is None or directive.kind != "skill":
+        return snapshot.skill_instructions
+    selected = snapshot.active_skill_instruction.get(directive.capability_id)
+    if selected:
+        return {directive.capability_id: selected}
+    return {}
 
 
 def _system_prompt(system_prompt: str, skill_instructions: dict[str, str]) -> str:

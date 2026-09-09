@@ -37,10 +37,12 @@ import httpx
 from fluxion.errors.console import SUCCESS
 from fluxion.observability.logging import emit_runtime_error_log
 from fluxion.services.runtime_contracts import (
+    CancelExecutionResult,
     RunRuntimeRequest,
     RunRuntimeResult,
     RuntimeApplicationError,
     RuntimeStreamEvent,
+    SessionExecutionStatus,
 )
 
 _DEFAULT_CONNECT_TIMEOUT = 3.0
@@ -113,6 +115,85 @@ class HttpRuntimeGateway:
     async def aclose(self) -> None:
         if self._owns_client:
             await self._client.aclose()
+
+    async def cancel_active_execution(
+        self,
+        *,
+        tenant_id: str,
+        user_id: str,
+        agent_definition_id: str,
+        session_id: str,
+    ) -> CancelExecutionResult:
+        """Runtime Control 透传（§17）：业务 POST，不自动重试（防重复取消语义漂移）。"""
+        try:
+            response = await self._client.post(
+                f"{self._base_url}/internal/v1/session-executions:cancel",
+                json={
+                    "tenant_id": tenant_id,
+                    "user_id": user_id,
+                    "agent_definition_id": agent_definition_id,
+                    "session_id": session_id,
+                },
+                timeout=_DEFAULT_WRITE_TIMEOUT,
+            )
+        except httpx.TransportError as exc:
+            raise RuntimeApplicationError(
+                "runtime_unavailable", f"runtime service unavailable: {exc}", status_code=503
+            ) from exc
+        if response.status_code != 200:
+            raise _error_from_envelope(response, default_code="runtime_upstream_error")
+        try:
+            code = str(response.json()["data"]["code"])
+        except (ValueError, KeyError, TypeError) as exc:
+            raise RuntimeApplicationError(
+                "runtime_upstream_error",
+                f"runtime service returned malformed data: {exc}",
+                status_code=502,
+            ) from exc
+        return CancelExecutionResult(code=code)
+
+    async def get_session_status(
+        self,
+        *,
+        tenant_id: str,
+        user_id: str,
+        agent_definition_id: str,
+        session_id: str,
+    ) -> SessionExecutionStatus:
+        """状态查询透传（只读，失败不重试，调用方可降级提示）。"""
+        try:
+            response = await self._client.post(
+                f"{self._base_url}/internal/v1/session-executions:resolve",
+                json={
+                    "tenant_id": tenant_id,
+                    "user_id": user_id,
+                    "agent_definition_id": agent_definition_id,
+                    "session_id": session_id,
+                },
+                timeout=_DEFAULT_WRITE_TIMEOUT,
+            )
+        except httpx.TransportError as exc:
+            raise RuntimeApplicationError(
+                "runtime_unavailable", f"runtime service unavailable: {exc}", status_code=503
+            ) from exc
+        if response.status_code != 200:
+            raise _error_from_envelope(response, default_code="runtime_upstream_error")
+        try:
+            data = response.json()["data"]
+            return SessionExecutionStatus(
+                state=str(data["state"]),
+                session_id=str(data["session_id"]),
+                agent_id=str(data["agent_id"]),
+                execution_id=data.get("execution_id"),
+                requested_skill_id=data.get("requested_skill_id"),
+                started_at=data.get("started_at"),
+            )
+        except (ValueError, KeyError, TypeError) as exc:
+            raise RuntimeApplicationError(
+                "runtime_upstream_error",
+                f"runtime service returned malformed data: {exc}",
+                status_code=502,
+            ) from exc
 
     async def _endpoint_order(self) -> list[str]:
         """本次请求的 endpoint 尝试顺序（TASK-013）。
@@ -266,6 +347,11 @@ def _request_payload(request: RunRuntimeRequest) -> dict[str, object]:
             for call in request.tool_calls
         ],
     }
+    if request.invocation_directive is not None:
+        payload["invocation_directive"] = {
+            "kind": request.invocation_directive.kind.value,
+            "capability_id": request.invocation_directive.capability_id,
+        }
     if request.agent_definition_id is not None:
         payload["agent_definition_id"] = request.agent_definition_id
     return payload

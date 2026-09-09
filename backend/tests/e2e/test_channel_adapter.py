@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import pytest
-from tests.channel_helpers import RecordingRuntime
-from tests.runtime_helpers import seed_runtime_profile, TEST_POSTGRES_DSN
 
 from fluxion.plugins.channel_adapters import StubImChannelAdapter, WebChannelAdapter
 from fluxion.protocols.channel import ExternalChannelMessage
 from fluxion.registry import PostgreSQLRegistryStore
 from fluxion.services.channel_app import ChannelApplicationService
+from tests.channel_helpers import RecordingRuntime, verified_identity
+from tests.runtime_helpers import TEST_POSTGRES_DSN, seed_runtime_profile
 
 
 @pytest.mark.asyncio
@@ -27,10 +27,10 @@ async def test_S_C119_web_and_stub_im_share_channel_contract_and_runtime() -> No
         web = WebChannelAdapter()
         im = StubImChannelAdapter()
 
-        await service.handle(web, _message("browser-a", f"/bind {web_code.code}", "bind-web"))
-        await service.handle(im, _message("im-a", f"/bind {im_code.code}", "bind-im"))
-        web_result = await service.handle(web, _message("browser-a", "hello", "web-message"))
-        im_result = await service.handle(im, _message("im-a", "hello", "im-message"))
+        await service.handle(web, _message("browser-a", f"/bind {web_code.code}", "bind-web"), verified=None)
+        await service.handle(im, _message("im-a", f"/bind {im_code.code}", "bind-im"), verified=None)
+        web_result = await service.handle(web, _message("browser-a", "hello", "web-message"), verified=verified_identity("browser-a"))
+        im_result = await service.handle(im, _message("im-a", "hello", "im-message"), verified=verified_identity("im-a"))
 
         assert web_result.output == im_result.output == "echo: hello"
         assert [request.user_id for request in runtime.requests] == ["user-a", "user-a"]

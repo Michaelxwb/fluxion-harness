@@ -144,6 +144,44 @@ class ExecutionTerminalState(StrEnum):
     TIMED_OUT = "timed_out"
 
 
+class ExecutionState(StrEnum):
+    """Durable 执行状态机（ADR-A017 §3）：PostgreSQL 为事实源。
+
+    CREATED → RUNNING → COMPLETED / FAILED / TIMED_OUT；
+    RUNNING → CANCELLING → CANCELLED。终态不可出，首次终态获胜。
+    """
+
+    CREATED = "created"
+    RUNNING = "running"
+    CANCELLING = "cancelling"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    TIMED_OUT = "timed_out"
+
+
+ACTIVE_EXECUTION_STATES: frozenset[str] = frozenset(
+    {ExecutionState.CREATED, ExecutionState.RUNNING, ExecutionState.CANCELLING}
+)
+"""未终态集合（一个 Session 至多一个）。"""
+
+
+@dataclass(frozen=True, slots=True)
+class CancelExecutionResult:
+    code: str  # stop_requested | stop_already_requested | nothing_to_stop
+    execution_id: str | None = None  # stop_requested 时为被取消的 execution（加速信号用）
+
+
+@dataclass(frozen=True, slots=True)
+class SessionExecutionStatus:
+    state: str  # idle | created | running | cancelling | completed | ...
+    session_id: str
+    agent_id: str
+    execution_id: str | None = None
+    requested_skill_id: str | None = None
+    started_at: str | None = None
+
+
 # ADR-A014 §6：清理预算（毫秒）。有限 shield 必须带 timeout，不得无限延长取消。
 FINALIZE_BUDGET_MS: int = 5_000
 
@@ -217,6 +255,22 @@ class ToolCallRequest:
     arguments: Mapping[str, object] = field(default_factory=dict)
 
 
+class InvocationKind(StrEnum):
+    """显式调用意图类型（设计 §14.2，首版仅 skill）。"""
+
+    SKILL = "skill"
+
+
+@dataclass(frozen=True, slots=True)
+class InvocationDirective:
+    """本轮显式激活意图：只表达用户意图（skill_id），版本由 Snapshot 解析时
+    固化 exact version。用户不得 pin 版本（§14.1）。"""
+
+    kind: InvocationKind
+    capability_id: str
+    version: str | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class RunRuntimeRequest:
     tenant_id: str
@@ -234,6 +288,8 @@ class RunRuntimeRequest:
     trace_id: str = field(default_factory=_new_trace_id)
     execution_id: str = field(default_factory=_new_execution_id)
     tool_calls: Sequence[ToolCallRequest] = ()
+    # ADR-A017 §1：本轮显式激活意图（/skill），版本在 Snapshot 构建时固化。
+    invocation_directive: InvocationDirective | None = None
 
 
 @dataclass(frozen=True, slots=True)

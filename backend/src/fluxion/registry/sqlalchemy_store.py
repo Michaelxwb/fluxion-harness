@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_en
 from fluxion.observability.tracing import traced_scope
 from fluxion.registry import (
     channel_sqlalchemy,
+    chat_session,
+    execution_control,
     publish_sqlalchemy,
     resource_sqlalchemy,
     retention_sqlalchemy,
@@ -26,8 +28,10 @@ from fluxion.registry.channel_store import (
     BindRedemption,
     ChannelIdentityRecord,
     ChatAccessRecord,
+    ChatSessionHead,
     PlatformUserRecord,
 )
+from fluxion.registry.execution_control import ExecutionRecord
 from fluxion.registry.schema import (
     audit_logs,
     config_revisions,
@@ -968,6 +972,112 @@ class SQLAlchemyRegistryStore(ScopedReadStore):
 
     async def redeem_bind_code(self, redemption: BindRedemption) -> ChannelIdentityRecord:
         return await channel_sqlalchemy.redeem_bind_code(self._engine, redemption)
+
+    async def get_session_head(
+        self,
+        *,
+        tenant_id: str,
+        channel_type: str,
+        external_conversation_id: str,
+        platform_user_id: str,
+        agent_id: str,
+    ) -> ChatSessionHead | None:
+        return await chat_session.get_session_head(
+            self._engine,
+            tenant_id=tenant_id,
+            channel_type=channel_type,
+            external_conversation_id=external_conversation_id,
+            platform_user_id=platform_user_id,
+            agent_id=agent_id,
+        )
+
+    async def create_session_head(self, head: ChatSessionHead) -> ChatSessionHead:
+        return await chat_session.create_session_head(self._engine, head)
+
+    async def rotate_session_head(
+        self, head: ChatSessionHead, *, expected_revision: int
+    ) -> ChatSessionHead:
+        return await chat_session.rotate_session_head(
+            self._engine, head, expected_revision=expected_revision
+        )
+
+    async def get_execution(
+        self, *, tenant_id: str, execution_id: str
+    ) -> ExecutionRecord | None:
+        return await execution_control.get_execution(
+            self._engine, tenant_id=tenant_id, execution_id=execution_id
+        )
+
+    async def get_active_execution_for_session(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        agent_id: str,
+        session_id: str,
+    ) -> ExecutionRecord | None:
+        return await execution_control.get_active_for_session(
+            self._engine,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            agent_id=agent_id,
+            session_id=session_id,
+        )
+
+    async def create_execution(self, record: ExecutionRecord) -> ExecutionRecord:
+        return await execution_control.create_execution(self._engine, record)
+
+    async def mark_execution_running(
+        self, *, tenant_id: str, execution_id: str
+    ) -> ExecutionRecord | None:
+        return await execution_control.mark_running(
+            self._engine, tenant_id=tenant_id, execution_id=execution_id
+        )
+
+    async def request_execution_cancel(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: str,
+        agent_id: str,
+        session_id: str,
+        reason: str,
+        now: datetime,
+    ) -> ExecutionRecord | None:
+        return await execution_control.request_cancel(
+            self._engine,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            agent_id=agent_id,
+            session_id=session_id,
+            reason=reason,
+            now=now,
+        )
+
+    async def finish_execution(
+        self,
+        *,
+        tenant_id: str,
+        execution_id: str,
+        state: str,
+        now: datetime,
+        error_code: str | None = None,
+    ) -> ExecutionRecord | None:
+        return await execution_control.finish_execution(
+            self._engine,
+            tenant_id=tenant_id,
+            execution_id=execution_id,
+            state=state,
+            now=now,
+            error_code=error_code,
+        )
+
+    async def list_stale_cancelling(
+        self, *, before: datetime, limit: int = 100
+    ) -> list[ExecutionRecord]:
+        return await execution_control.list_stale_cancelling(
+            self._engine, before=before, limit=limit
+        )
 
     @property
     def engine(self) -> AsyncEngine:

@@ -16,6 +16,20 @@ import pytest
 from tests.e2e.execution_observation_helpers import ChainStack, mint_ids
 
 
+async def _active_session(stack: ChainStack, conversation: str = "conv-chain") -> str:
+    """经 ChatSessionHead 解析 Runtime 逻辑 Session（TASK-003 起不再直传 conversation）。"""
+    assert stack.store is not None
+    head = await stack.store.get_session_head(
+        tenant_id="tenant-a",
+        channel_type="web",
+        external_conversation_id=conversation,
+        platform_user_id="user-a",
+        agent_id="assistant",
+    )
+    assert head is not None
+    return head.active_session_id
+
+
 @pytest.mark.asyncio
 async def test_S_ID_03_identity_propagates_end_to_end() -> None:
     """S-ID-03：各观测点关联同一身份（Channel 结果 / Trace / Memory / SSE）。"""
@@ -37,7 +51,7 @@ async def test_S_ID_03_identity_propagates_end_to_end() -> None:
         assert record.execution_id == execution_id
         assert record.snapshot.agent_definition_id == "assistant"
 
-        messages = await stack.memory_store.read_l1("tenant-a", "conv-chain")
+        messages = await stack.memory_store.read_l1("tenant-a", await _active_session(stack))
         contents = [m.content for m in messages]
         assert "hello chain" in contents
         assert any(c.startswith("dev: ") for c in contents)

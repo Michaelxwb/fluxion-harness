@@ -28,7 +28,8 @@ class RequestContextMiddleware:
     不落到 "unknown" 租户（否则匿名请求可与名为 unknown 的真实租户串户）。
     生产由鉴权网关/身份代理在认证后注入 X-Tenant-ID/X-Actor-ID，中间件把该
     假设变成可强制契约。Channel（用户 Chat）传 require_identity=False——/bind
-    前置匿名、messages 用 Bearer token + header-tenant（S2 残留另有文档化）。
+    前置匿名、messages 用 Bearer token + header-tenant（S1 已收口：未验证身份
+    永不映射 PlatformUser，见 ChannelApplicationService.handle）。
 
     与旧实现逐项一致的四职责：身份门禁、RequestContext 绑定、access 日志、
     OTel span。唯一行为差异：响应体透传（来一块发一块），不再攒完再发——
