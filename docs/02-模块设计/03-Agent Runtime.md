@@ -33,6 +33,7 @@
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：resolve current revision 不读 published release（D04） |
 | v1.2 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
+| v1.3 | 2026-09-10 | 新增 S-06：实时问答路径不落库（不写 execution_step、不建 knowledge_retrieval_event 表、不产生 ServiceExecution），依据 V1.7 D07 |
 
 ---
 
@@ -101,6 +102,7 @@
 | S-03 | FEAT-04 | P0 | integration | Agent Runtime → ExecutionService → PostgreSQL | 本模块 + 后置段 → 模块 05 / 06 | 已完成基础配置 | 用户确认一个 worker_preferred Service | 创建 Execution 后实时请求结束，后台继续 |
 | S-04 | FEAT-01 | P0 | integration | Agent Runtime → Current Revision Resolver → PostgreSQL | 本模块 | 已完成基础配置 | 请求两个不同 agent_id | 同一 Runtime 实例动态解析对应 AgentDefinition 当前 revision，不创建新 Pod |
 | S-05 | FEAT-05 | P0 | integration | Agent Runtime → Internal Stream → Channel Gateway | 本模块 + 后置段 → 模块 10 | 已完成基础配置 | Agent 生成多段增量输出 | 按统一流式事件向 Gateway 发送；断连不产生本地业务 SoT |
+| S-06 | FEAT-02 | P0 | integration | Agent Runtime、KnowledgeRuntime、PostgreSQL | 本模块 | 模块 08 KnowledgeRuntime 已落地（V1.7 D07） | 实时问答触发知识检索并返回回答 | 实时路径**不产生任何落库**：不写 `execution_step`、不建 `knowledge_retrieval_event` 表、不产生 ServiceExecution 记录；证据只在执行追踪侧（Trace 由模块 15 承接，不在本场景断言） |
 
 **异常场景**
 
@@ -301,7 +303,7 @@ active turns、LLM latency/errors、capability errors、stream disconnect、cont
 | 来源 | 功能ID | 接口ID | 测试场景 | 测试层级 | 状态 |
 |---|---|---|---|---|---|
 | 总体设计 V1.6 | FEAT-01 | API-01, LIB-01 | S-04 | integration/E2E | 待实现 |
-| 总体设计 V1.6 | FEAT-02 | API-01 | S-01, E-03 | integration/E2E | 待实现 |
+| 总体设计 V1.6 | FEAT-02 | API-01 | S-01, S-06, E-03 | integration/E2E | 待实现（S-06 依据 V1.7 D07：实时路径不落库） |
 | 总体设计 V1.6 | FEAT-03 | LIB-02 | S-02, E-01 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-04 | LIB-03 | S-03, E-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-05 | API-01 | S-05 | integration/E2E | 待实现 |
