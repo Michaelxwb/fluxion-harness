@@ -15,6 +15,13 @@
 | 测试负责人 | 待定 |
 | 首次版本 | v0.1 / 2026-09-10 |
 
+### 1.2 修订历史
+
+| 版本 | 日期 | 变更描述 |
+|---|---|---|
+| v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
+| v0.2 | 2026-09-10 | 新增 S-03（OTel Trace 与 execution_id/conversation_id 关联）；补「归属」列；补 1.2 修订历史 |
+
 ---
 
 ## 2. 需求分析
@@ -49,17 +56,18 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 操作步骤 | 预期结果 |
-|---|---|---|---|---|---|---|
-| S-01 | FEAT-01 | P0 | integration | FastAPI → Middleware → Response | 请求普通 JSON API | 响应带统一 Envelope 与 X-Request-ID |
-| S-02 | FEAT-03 | P0 | integration | Request → Log Context | 请求触发业务日志 | 所有日志带同一 request_id/service/event |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-01 | P0 | integration | FastAPI → Middleware → Response | 本模块 | 请求普通 JSON API | 响应带统一 Envelope 与 X-Request-ID |
+| S-02 | FEAT-03 | P0 | integration | Request → Log Context | 本模块 | 请求触发业务日志 | 所有日志带同一 request_id/service/event |
+| S-03 | FEAT-04 | P0 | integration | Request/Worker → OTel Span → Exporter | 本模块 | 触发一次带 execution_id 的 REST 请求，并跑一次 Worker step | span 建立且与 `request_id`/`trace_id` 及 `execution_id`/`conversation_id` 关联；V1 字段 Contract 固定（不随 backend 变化）；exporter 异步/批量，不阻塞请求链路 |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 |
-|---|---|---|---|---|---|
-| E-01 | FEAT-02 | integration | Exception Pipeline | Pydantic 校验失败或 AppError | 统一错误 Envelope，不返回框架堆栈 |
-| E-02 | FEAT-03 | integration | Redaction | 日志 extra 中出现 Authorization/token/password | 字段脱敏 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 |
+|---|---|---|---|---|---|---|
+| E-01 | FEAT-02 | integration | Exception Pipeline | 本模块 | Pydantic 校验失败或 AppError | 统一错误 Envelope，不返回框架堆栈 |
+| E-02 | FEAT-03 | integration | Redaction | 本模块 | 日志 extra 中出现 Authorization/token/password | 字段脱敏 |
 
 性能数值没有实测依据时统一记为“待定”，不照抄模板示例值。
 
