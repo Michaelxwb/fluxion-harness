@@ -33,6 +33,7 @@
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：Manifest=YAML+Pydantic+canonical JSON+SHA256（D08）、resource_scope_types 声明（D01）、第二 Demo=local-weekly-report |
 | v1.2 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
+| v1.3 | 2026-09-10 | 补 FEAT-06/LIB-03/S-05/E-03：Scope Registry 装载此前无模块认领，导致模块 01 的 RULE-05 与模块 05 的执行校验都没有数据来源 |
 
 ---
 
@@ -69,6 +70,7 @@
 | FEAT-03 | 部署装配 | apps 启动时加载选定 Integration。 | P0 | 总体设计 V1.6 |
 | FEAT-04 | Core Purity Gate | 禁止 Framework Core 反向 import Project Integration。 | P0 | 总体设计 V1.6 |
 | FEAT-05 | 第二样例 | 锁定 `local-weekly-report`（Workspace glob/read → Agent summarize → write → Artifact，零 MSS/外部API/Auth，V1.7 D08）。 | P0 | 总体设计 V1.7 |
+| FEAT-06 | Scope Registry 装载 | 把 manifest 的 `resource_scope_types`（`{<type>: {schema: <JSON Schema>}}`）投影为 scope registry（type name → JSON Schema + `schema_hash`），供模块 01（发布时冻结 schema_hash）与模块 05（执行时校验 `Proposal.resource_scope`）消费；type 重复或 schema 非法 fail-fast。 | P0 | 总体设计 V1.7 D01 |
 
 #### 2.4 范围与边界
 
@@ -99,6 +101,7 @@
 | S-02 | FEAT-05 | P0 | integration | MSS Demo + Generic Demo → same Runtime/Worker/DB model | 本模块 + 后置段 → 模块 03 / 06 | 已完成基础配置 | 分别注册两个 Integration 的 Service/Capability | 均不修改 Core 即可执行 |
 | S-03 | FEAT-01 | P0 | integration | Integration Package → Loader | 本模块 | 已完成基础配置 | 按约定目录提供 services/agents/capabilities/auth/knowledge/tests | Loader 可发现 manifest 声明的扩展，不要求 Core import 项目包 |
 | S-04 | FEAT-02 | P0 | integration | Manifest → Registry | 本模块 | 已完成基础配置 | 加载 manifest_hash 与 provider/seed definition 清单 | registration 可审计，provider key 唯一且冲突显式失败 |
+| S-05 | FEAT-06 | P0 | integration | Manifest → ResourceScopeRegistry | 本模块 | 已完成基础配置 | 加载声明了 `resource_scope_types` 的 manifest | registry 含全部声明 type，各自 `schema_hash` 对同一 schema 可复现（canonical JSON + SHA-256）；**未声明的 type 查不到结果**（消费方据此 fail-closed） |
 
 **异常场景**
 
@@ -106,6 +109,7 @@
 |---|---|---|---|---|---|---|---|
 | E-01 | FEAT-04 | integration | Architecture Gate | 本模块 | framework/capability import integrations/mss | CI 失败 | 返回可识别错误，不泄露内部细节 |
 | E-02 | FEAT-03 | integration | Integration Loader | 本模块 | Manifest 声明未知/冲突 Provider key | 启动失败并给出明确冲突错误，不静默覆盖 | 返回可识别错误，不泄露内部细节 |
+| E-03 | FEAT-06 | integration | ResourceScopeRegistry | 本模块 | 两个 manifest 声明同名 scope type，或某 type 的 schema 非法 | 加载失败并给出明确冲突/校验错误，**不静默覆盖** | 返回可识别错误，不泄露内部 schema 细节 |
 
 #### 2.5.3 非功能指标
 
@@ -191,6 +195,7 @@ flowchart LR
 |---|---|---|---|---|
 | LIB-01 | IntegrationLoader.load(manifest) | 函数库 | 加载/校验 | FEAT-02,FEAT-03 |
 | LIB-02 | IntegrationRegistry.register(provider) | 函数库 | 注册扩展 | FEAT-02 |
+| LIB-03 | IntegrationLoader.load_resource_scope_types(manifest) -> ResourceScopeRegistry | 函数库 | 把 manifest 的 `resource_scope_types` 投影为 scope registry | FEAT-06 |
 | FILE-01 | integration manifest | 配置契约 | 声明 Service/Agent/Provider | FEAT-01,FEAT-02 |
 
 Manifest 不保存 Secret 明文，只保存 secret/profile ref。冲突 key 默认 fail-fast，不采用隐式后注册覆盖。
@@ -292,6 +297,7 @@ integration load failures、missing provider、registry conflicts；阈值待定
 | 总体设计 V1.6 | FEAT-03 | LIB-01 | E-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-04 | 内部契约 | S-01, E-01 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-05 | 内部契约 | S-02 | integration/E2E | 待实现 |
+| 总体设计 V1.7 | FEAT-06 | LIB-03 | S-05, E-03 | integration | 待实现（装载动作此前无归属：模块 01 的发布冻结与模块 05 的执行校验都依赖它） |
 
 > **后置 E2E 承接方登记**（依据 design-full 模板 §2.5.2「归属」列规则：标 `后置` 的场景必须写出承接方）：
 >
