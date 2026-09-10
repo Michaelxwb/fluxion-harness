@@ -32,6 +32,7 @@
 |---|---|---|
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：不建 knowledge_retrieval_event 表；durable 证据写 step.output，realtime 只写 Trace（D07） |
+| v1.2 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
 
 ---
 
@@ -94,7 +95,7 @@
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
 | S-01 | FEAT-02 | P0 | integration | AgentExecutor → KnowledgeRuntime → Provider | 本模块 | 已完成基础配置 | 把 provider 从 fake/http 替换为另一实现 | Agent Runtime/Worker 不修改 |
-| S-02 | FEAT-04 | P0 | integration | KnowledgeRuntime → ExecutionStep Evidence | 本模块 + 后置段 → 模块 05 | 已完成基础配置 | Agent Step 查询实时 KB | 保存文档引用、时间和可用 revision/hash，不复制整个 KB |
+| S-02 | FEAT-04 | P0 | integration | KnowledgeRuntime → ExecutionStep Evidence | 本模块 + 后置段 → 模块 06 | 已完成基础配置 | Agent Step 查询实时 KB | 保存文档引用、时间和可用 revision/hash，不复制整个 KB |
 | S-03 | FEAT-01 | P0 | integration | Control Plane → Knowledge Source Store → Agent Resolver | 本模块 + 后置段 → 模块 02 | 已完成基础配置 | 新增外部 Knowledge Source 并绑定 Agent | 保存后 revision 增加，后续 Agent resolve 可获得逻辑 Source；不暴露底层数据库连接给 Agent |
 
 **异常场景**
@@ -283,6 +284,14 @@ provider availability、latency、empty-hit rate、evidence write failure；阈�
 | 总体设计 V1.6 | FEAT-02 | SPI-01, SPI-02 | S-01, E-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-03 | SPI-01, LIB-01 | E-01 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-04 | LIB-01 | S-02 | integration/E2E | 待实现 |
+
+> **后置 E2E 承接方登记**（依据 design-full 模板 §2.5.2「归属」列规则：标 `后置` 的场景必须写出承接方）：
+>
+> | 本模块场景 | 后置段 | 承接方 | 承接场景 |
+> |---|---|---|---|
+> | S-02 | ExecutionStep Evidence 落库（step.output） | `06-Worker Engine.md` | **待补**：06 尚无「Step 输出持久化」场景，需在其需求中补一条 |
+> | S-03 | Control Plane 写入 Knowledge Source | `02-Platform API 与控制面.md` | `02-S-04`（Console/API → Repository → Runtime Config） |
+
 
 ---
 

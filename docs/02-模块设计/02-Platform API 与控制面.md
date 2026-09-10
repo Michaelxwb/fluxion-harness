@@ -32,6 +32,7 @@
 |---|---|---|
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：Agent 仅 Save/Enable/Disable（D04）、补 AuditLog ER/索引（P1-05） |
+| v1.2 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
 
 ---
 
@@ -307,6 +308,13 @@ health/readiness、HTTP error rate、publish failures、DB latency、command cre
 | 总体设计 V1.6 | FEAT-03 | 内部契约 | E-01 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-04 | API-06, API-07 | S-03 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-05 | 内部契约 | E-02 | integration/E2E | 待实现 |
+
+> **后置 E2E 承接方登记**（依据 design-full 模板 §2.5.2「归属」列规则：标 `后置` 的场景必须写出承接方）：
+>
+> | 本模块场景 | 后置段 | 承接方 | 承接场景 |
+> |---|---|---|---|
+> | S-03 | Worker 继续执行，不因管理面故障而中断 | `docs/04-追溯与验收/设计验收Gate.md` | `G07 Control Plane Down`（管理面故障不终止已运行 Execution） |
+
 
 ---
 

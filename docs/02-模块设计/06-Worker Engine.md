@@ -30,9 +30,10 @@
 
 | 版本 | 日期 | 变更描述 |
 |---|---|---|
-| v0.3 | 2026-09-10 | 承接模块 01 后置的 S-03 后置段：新增 S-06/E-03（执行期重新解析 Auth/Authorization） |
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：Human RESUME/CANCEL+HUMAN_TIMEOUT=USER_INACTION（D02）、Delivery Owner max5/base30s（D03）、治理拆 P0/P1、REQ-EXEC-002/003 |
+| v1.2 | 2026-09-10 | 承接模块 01 后置的 S-03 后置段：新增 S-06/E-03（执行期重新解析 Auth/Authorization） |
+| v1.3 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
 
 ---
 
@@ -316,6 +317,13 @@ queue lag、expired lease count、retry rate、stuck RUNNING、command backlog�
 | 总体设计 V1.6 | FEAT-04 | 内部契约 | S-02, S-03 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-05 | LIB-04 | E-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-06 | 内部契约 | S-05 | integration/E2E | 待实现 |
+
+> **后置 E2E 承接方登记**（依据 design-full 模板 §2.5.2「归属」列规则：标 `后置` 的场景必须写出承接方）：
+>
+> | 本模块场景 | 后置段 | 承接方 | 承接场景 |
+> |---|---|---|---|
+> | S-03 | Redis Down → PostgreSQL Polling | `14-存储与基础设施适配.md` + `docs/04-追溯与验收/设计验收Gate.md` | `14-S-02`、`G06 Redis Down` |
+
 
 ---
 

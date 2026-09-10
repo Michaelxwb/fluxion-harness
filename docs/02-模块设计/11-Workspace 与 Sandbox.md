@@ -32,6 +32,7 @@
 |---|---|---|
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：生产可执行门 ALLOW=scan通过+隔离沙箱+无内嵌凭据（G24） |
+| v1.2 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
 
 ---
 
@@ -297,6 +298,14 @@ workspace count/expiry cleanup、sandbox failures/timeouts、forbidden operation
 | 总体设计 V1.6 | FEAT-03 | LIB-01 | S-02, E-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-04 | SPI-02 | S-04 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-05 | 内部契约 | E-01 | integration/E2E | 待实现 |
+
+> **后置 E2E 承接方登记**（依据 design-full 模板 §2.5.2「归属」列规则：标 `后置` 的场景必须写出承接方）：
+>
+> | 本模块场景 | 后置段 | 承接方 | 承接场景 |
+> |---|---|---|---|
+> | S-02 | CapabilityRuntime 派发 + Worker 执行 | `07-Capability Runtime.md` + `06-Worker Engine.md` | `07-S-02`（返回 requires execution，不执行 Provider）、`06-S-01`（Worker claim 执行） |
+> | S-03 | Execution / Conversation 作为 owner 落库 | `05-ExecutionService.md` + `12-Conversation 与 User Memory.md` | `05-S-01`（生成 Execution）、`12-S-04`（ConversationRepository 持久化） |
+
 
 ---
 

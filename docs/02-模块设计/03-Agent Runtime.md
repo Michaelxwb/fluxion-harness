@@ -32,6 +32,7 @@
 |---|---|---|
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：resolve current revision 不读 published release（D04） |
+| v1.2 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
 
 ---
 
@@ -304,6 +305,14 @@ active turns、LLM latency/errors、capability errors、stream disconnect、cont
 | 总体设计 V1.6 | FEAT-03 | LIB-02 | S-02, E-01 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-04 | LIB-03 | S-03, E-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-05 | API-01 | S-05 | integration/E2E | 待实现 |
+
+> **后置 E2E 承接方登记**（依据 design-full 模板 §2.5.2「归属」列规则：标 `后置` 的场景必须写出承接方）：
+>
+> | 本模块场景 | 后置段 | 承接方 | 承接场景 |
+> |---|---|---|---|
+> | S-03 | 后台继续执行（Worker 接管） | `05-ExecutionService.md` + `06-Worker Engine.md` | `05-S-01`（生成 Execution，状态 PENDING）、`06-S-02`（等待/重试后重新 claim） |
+> | S-05 | Gateway 侧接收流式事件 | `10-Channel Gateway.md` | `10-S-06`（Agent Stream → Gateway → Channel Adapter） |
+
 
 ---
 

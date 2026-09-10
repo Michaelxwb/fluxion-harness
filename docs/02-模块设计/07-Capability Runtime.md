@@ -32,6 +32,7 @@
 |---|---|---|
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：回滚口径同步 D04；风险路由口径不变（D01/D03 见 05/06/10） |
+| v1.2 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
 
 ---
 
@@ -300,6 +301,13 @@ provider latency/errors/timeout、forbidden count、requires-execution count；�
 | 总体设计 V1.6 | FEAT-03 | LIB-01, SPI-01 | S-01, E-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-04 | LIB-01 | S-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-05 | 内部契约 | S-04 | integration/E2E | 待实现 |
+
+> **后置 E2E 承接方登记**（依据 design-full 模板 §2.5.2「归属」列规则：标 `后置` 的场景必须写出承接方）：
+>
+> | 本模块场景 | 后置段 | 承接方 | 承接场景 |
+> |---|---|---|---|
+> | S-03 | Integration Loader 发现 manifest 声明的扩展 | `13-Project Integration 与 Registry.md` | `13-S-03`（Loader 可发现 manifest 声明的扩展，不要求 Core import 项目包） |
+
 
 ---
 

@@ -32,6 +32,7 @@
 |---|---|---|
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：Gateway 单次投递禁业务重试（D03）、单镜像+CHANNELS（D05）、owner lease 30s/10s + restart E2E |
+| v1.2 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
 
 ---
 
@@ -308,6 +309,16 @@ connected accounts、reconnect rate、delivery failures/backlog、inbound error�
 | 总体设计 V1.6 | FEAT-04 | INT-02 | S-06 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-05 | INT-03 | S-03, E-01 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-06 | SPI-01 | S-01, E-02 | integration/E2E | 待实现 |
+
+> **后置 E2E 承接方登记**（依据 design-full 模板 §2.5.2「归属」列规则：标 `后置` 的场景必须写出承接方）：
+>
+> | 本模块场景 | 后置段 | 承接方 | 承接场景 |
+> |---|---|---|---|
+> | S-02 | Agent Runtime 侧接收统一 Contract | `03-Agent Runtime.md` | `03-S-01`（Channel → Pod，上下文连续） |
+> | S-03 | Worker → DeliveryRoute 投递 | `06-Worker Engine.md` | `06-S-DELIVERY-001`（RETRY_WAIT + next_run_at，复用 dedupe_key 重试） |
+> | S-05 | Agent Route 解析目标 Agent/Conversation | `03-Agent Runtime.md` | `03-S-04`（Current Revision Resolver 动态解析 AgentDefinition） |
+> | S-06 | Agent Stream 侧产生流式事件 | `03-Agent Runtime.md` | `03-S-05`（Internal Runtime Stream → Channel Gateway） |
+
 
 ---
 

@@ -32,6 +32,7 @@
 |---|---|---|
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：Manifest=YAML+Pydantic+canonical JSON+SHA256（D08）、resource_scope_types 声明（D01）、第二 Demo=local-weekly-report |
+| v1.2 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
 
 ---
 
@@ -291,6 +292,13 @@ integration load failures、missing provider、registry conflicts；阈值待定
 | 总体设计 V1.6 | FEAT-03 | LIB-01 | E-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-04 | 内部契约 | S-01, E-01 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-05 | 内部契约 | S-02 | integration/E2E | 待实现 |
+
+> **后置 E2E 承接方登记**（依据 design-full 模板 §2.5.2「归属」列规则：标 `后置` 的场景必须写出承接方）：
+>
+> | 本模块场景 | 后置段 | 承接方 | 承接场景 |
+> |---|---|---|---|
+> | S-02 | 同一 Runtime/Worker 执行两个 Integration | `03-Agent Runtime.md` + `06-Worker Engine.md` | `03-S-04`（动态解析 AgentDefinition）、`06-S-01`（Worker claim 执行） |
+
 
 ---
 

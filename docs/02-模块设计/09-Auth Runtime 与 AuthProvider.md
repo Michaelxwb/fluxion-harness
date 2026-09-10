@@ -32,6 +32,7 @@
 |---|---|---|
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：补 E-AUTH-03~07 故障注入（session/refresh/SecretDown/ControlDown fail-closed） |
+| v1.2 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
 
 ---
 
@@ -285,6 +286,13 @@ refresh failure、401/403 rate、session expired count、SecretProvider errors�
 | 总体设计 V1.6 | FEAT-02 | 内部契约 | E-01 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-03 | SPI-03, SPI-04 | S-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-04 | SPI-02 | E-02 | integration/E2E | 待实现 |
+
+> **后置 E2E 承接方登记**（依据 design-full 模板 §2.5.2「归属」列规则：标 `后置` 的场景必须写出承接方）：
+>
+> | 本模块场景 | 后置段 | 承接方 | 承接场景 |
+> |---|---|---|---|
+> | S-01 | CapabilityRuntime 经 AuthProvider 取凭据 | `07-Capability Runtime.md` | `07-S-01`（同一 Contract、Provider、Auth、错误语义） |
+
 
 ---
 

@@ -30,9 +30,10 @@
 
 | 版本 | 日期 | 变更描述 |
 |---|---|---|
-| v0.3 | 2026-09-10 | 承接模块 01 后置的 S-04 后置段：新增 S-04/E-03（Published Resolver 取发布时冻结值） |
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：ResourceScopeRegistry+JSON Schema+三错误码（D01）、Human deadline 快照语义（D02）、REQ-EXEC-001/002 |
+| v1.2 | 2026-09-10 | 承接模块 01 后置的 S-04 后置段：新增 S-04/E-03（Published Resolver 取发布时冻结值） |
+| v1.3 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
 
 ---
 
@@ -311,6 +312,13 @@ create latency、idempotent hits、validation reject、snapshot build failures�
 | 总体设计 V1.6 | FEAT-04 | LIB-01, LIB-02 | E-01, S-04 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-04 | LIB-02 | E-03 | integration/E2E | 待实现（承接模块 01 S-04 的后置 E2E 段） |
 | 总体设计 V1.6 | FEAT-05 | LIB-01, LIB-03 | S-03 | integration/E2E | 待实现 |
+
+> **后置 E2E 承接方登记**（依据 design-full 模板 §2.5.2「归属」列规则：标 `后置` 的场景必须写出承接方）：
+>
+> | 本模块场景 | 后置段 | 承接方 | 承接场景 |
+> |---|---|---|---|
+> | S-03 | Redis wake-up 失败不回滚数据库事实 | `14-存储与基础设施适配.md` + `docs/04-追溯与验收/设计验收Gate.md` | `14-S-02`（Redis Down → PG Polling）、`G06 Redis Down` |
+
 
 ---
 
