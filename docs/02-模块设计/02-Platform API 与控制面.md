@@ -93,19 +93,19 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
-|---|---|---|---|---|---|---|---|
-| S-01 | FEAT-01 | P0 | integration | HTTP → Application → PostgreSQL → Response | 已完成基础配置 | 保存 Agent 并查询 | 返回统一 Envelope，带 request_id；保存直接生效（revision+1），无 Draft/Published |
-| S-02 | FEAT-01 | P0 | integration | HTTP → Publish Service → PostgreSQL Transaction | 已完成基础配置 | 校验 Service Draft 并发布 | 原子生成 Published Snapshot（含当时 Agent 配置快照），后续 Runtime 解析新 release |
-| S-03 | FEAT-04 | P0 | integration | platform-api Down → PostgreSQL → Worker | 已完成基础配置 | Execution 已运行后停止 platform-api | Worker 继续执行，恢复后 Console 能查询完整状态 |
-| S-04 | FEAT-02 | P0 | integration | Console/API → Repository → Runtime Config | 已完成基础配置 | 更新 Knowledge/Model/Capability Implementation 配置 | 校验通过后 revision 增加并直接对后续解析生效 |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-01 | P0 | integration | HTTP → Application → PostgreSQL → Response | 本模块 | 已完成基础配置 | 保存 Agent 并查询 | 返回统一 Envelope，带 request_id；保存直接生效（revision+1），无 Draft/Published |
+| S-02 | FEAT-01 | P0 | integration | HTTP → Publish Service → PostgreSQL Transaction | 本模块 | 已完成基础配置 | 校验 Service Draft 并发布 | 原子生成 Published Snapshot（含当时 Agent 配置快照），后续 Runtime 解析新 release |
+| S-03 | FEAT-04 | P0 | integration | platform-api Down → PostgreSQL → Worker | 后置 → 模块 06 | 已完成基础配置 | Execution 已运行后停止 platform-api | Worker 继续执行，恢复后 Console 能查询完整状态 |
+| S-04 | FEAT-02 | P0 | integration | Console/API → Repository → Runtime Config | 本模块 | 已完成基础配置 | 更新 Knowledge/Model/Capability Implementation 配置 | 校验通过后 revision 增加并直接对后续解析生效 |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-01 | FEAT-03 | integration | HTTP Exception Pipeline | 非法参数/未授权管理请求 | 返回统一错误 Envelope 与正确 HTTP status | 返回可识别错误，不泄露内部细节 |
-| E-02 | FEAT-05 | integration | Architecture Gate | 新增通过 platform-api 创建 Runtime Pod 的代码 | 架构评审/测试失败 | 返回可识别错误，不泄露内部细节 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
+|---|---|---|---|---|---|---|---|
+| E-01 | FEAT-03 | integration | HTTP Exception Pipeline | 本模块 | 非法参数/未授权管理请求 | 返回统一错误 Envelope 与正确 HTTP status | 返回可识别错误，不泄露内部细节 |
+| E-02 | FEAT-05 | integration | Architecture Gate | 本模块 | 新增通过 platform-api 创建 Runtime Pod 的代码 | 架构评审/测试失败 | 返回可识别错误，不泄露内部细节 |
 
 #### 2.5.3 非功能指标
 

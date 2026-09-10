@@ -95,21 +95,21 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
-|---|---|---|---|---|---|---|---|
-| S-01 | FEAT-06 | P0 | integration | Gateway A restart → Route Store → Gateway B | 已完成基础配置 | 用户已发消息后 Gateway 重启 | 业务 Conversation/Execution 不丢，重连后继续接收/投递 |
-| S-02 | FEAT-02 | P0 | integration | Adapter → ChannelEnvelope → Agent Runtime | 已完成基础配置 | 两个不同 Channel 发送同一语义消息 | Agent Runtime 收到统一 Contract |
-| S-03 | FEAT-05 | P0 | integration | Worker → DeliveryRoute → Gateway → Adapter | 已完成基础配置 | 后台任务完成后用户已离开实时连接 | 按 route 主动发送或记录可恢复投递失败 |
-| S-04 | FEAT-01 | P0 | integration | ChannelAdapter → Gateway Contract Test | 已完成基础配置 | 注册一个 Demo ChannelAdapter 并启动/停止/发送测试消息 | 通过统一 Adapter SPI，无需修改 Gateway Core |
-| S-05 | FEAT-03 | P0 | integration | ChannelEnvelope → Binding Resolver → Agent Route | 已完成基础配置 | 已绑定用户发送消息 | 通过 channel/account/peer 解析 PlatformUser 与目标 Agent/Conversation |
-| S-06 | FEAT-04 | P0 | integration | Agent Stream → Gateway → Channel Adapter | 已完成基础配置 | Agent 返回增量消息 | Gateway 转换为目标 Channel 支持的回复协议；不修改业务正文语义 |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-06 | P0 | integration | Gateway A restart → Route Store → Gateway B | 本模块 | 已完成基础配置 | 用户已发消息后 Gateway 重启 | 业务 Conversation/Execution 不丢，重连后继续接收/投递 |
+| S-02 | FEAT-02 | P0 | integration | Adapter → ChannelEnvelope → Agent Runtime | 本模块 + 后置段 → 模块 03 | 已完成基础配置 | 两个不同 Channel 发送同一语义消息 | Agent Runtime 收到统一 Contract |
+| S-03 | FEAT-05 | P0 | integration | Worker → DeliveryRoute → Gateway → Adapter | 本模块 + 后置段 → 模块 06 | 已完成基础配置 | 后台任务完成后用户已离开实时连接 | 按 route 主动发送或记录可恢复投递失败 |
+| S-04 | FEAT-01 | P0 | integration | ChannelAdapter → Gateway Contract Test | 本模块 | 已完成基础配置 | 注册一个 Demo ChannelAdapter 并启动/停止/发送测试消息 | 通过统一 Adapter SPI，无需修改 Gateway Core |
+| S-05 | FEAT-03 | P0 | integration | ChannelEnvelope → Binding Resolver → Agent Route | 本模块 + 后置段 → 模块 03 | 已完成基础配置 | 已绑定用户发送消息 | 通过 channel/account/peer 解析 PlatformUser 与目标 Agent/Conversation |
+| S-06 | FEAT-04 | P0 | integration | Agent Stream → Gateway → Channel Adapter | 本模块 + 后置段 → 模块 03 | 已完成基础配置 | Agent 返回增量消息 | Gateway 转换为目标 Channel 支持的回复协议；不修改业务正文语义 |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-01 | FEAT-05 | integration | Architecture Gate | Worker 直接 import WeCom SDK | Core Purity/依赖 Gate 失败 | 返回可识别错误，不泄露内部细节 |
-| E-02 | FEAT-06 | integration | Channel Disconnect | 连接断开 | 重连；业务结果仍保存在 SoT，不丢失 | 返回可识别错误，不泄露内部细节 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
+|---|---|---|---|---|---|---|---|
+| E-01 | FEAT-05 | integration | Architecture Gate | 本模块 | Worker 直接 import WeCom SDK | Core Purity/依赖 Gate 失败 | 返回可识别错误，不泄露内部细节 |
+| E-02 | FEAT-06 | integration | Channel Disconnect | 本模块 | 连接断开 | 重连；业务结果仍保存在 SoT，不丢失 | 返回可识别错误，不泄露内部细节 |
 
 #### 2.5.3 非功能指标
 

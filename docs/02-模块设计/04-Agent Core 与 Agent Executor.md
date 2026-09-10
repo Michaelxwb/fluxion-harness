@@ -91,18 +91,18 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
-|---|---|---|---|---|---|---|---|
-| S-01 | FEAT-01 | P0 | integration | Agent Runtime/Worker → AgentExecutor | 已完成基础配置 | 同一 AgentDefinition 分别从实时路径和 Worker Agent Step 调用 | 使用同一 Resolver/Skill/Knowledge/Capability 规则 |
-| S-02 | FEAT-03 | P0 | integration | Effective Resolver → LLM tool schema | 已完成基础配置 | 用户只被授权 capability A | Agent prompt/tool schema 中不存在 capability B |
-| S-03 | FEAT-02 | P0 | integration | AgentDefinition → Prompt/Skill Assembler → Model | 已完成基础配置 | 为 Agent 绑定 instructions 与 Skill artifact | Executor 按固定装配顺序生成上下文，Skill 内容不修改 AgentDefinition |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-01 | P0 | integration | Agent Runtime/Worker → AgentExecutor | 本模块 | 已完成基础配置 | 同一 AgentDefinition 分别从实时路径和 Worker Agent Step 调用 | 使用同一 Resolver/Skill/Knowledge/Capability 规则 |
+| S-02 | FEAT-03 | P0 | integration | Effective Resolver → LLM tool schema | 本模块 | 已完成基础配置 | 用户只被授权 capability A | Agent prompt/tool schema 中不存在 capability B |
+| S-03 | FEAT-02 | P0 | integration | AgentDefinition → Prompt/Skill Assembler → Model | 本模块 | 已完成基础配置 | 为 Agent 绑定 instructions 与 Skill artifact | Executor 按固定装配顺序生成上下文，Skill 内容不修改 AgentDefinition |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-01 | FEAT-01 | integration | Architecture Gate | Domain/Execution 表开始依赖 LangGraph run_id 作为唯一业务状态 | 设计/CI Gate 阻止 | 返回可识别错误，不泄露内部细节 |
-| E-02 | FEAT-04 | integration | LLM → Structured Parser | 模型输出不符合 Schema | 有限纠错/重试；超过上限返回结构化失败 | 返回可识别错误，不泄露内部细节 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
+|---|---|---|---|---|---|---|---|
+| E-01 | FEAT-01 | integration | Architecture Gate | 本模块 | Domain/Execution 表开始依赖 LangGraph run_id 作为唯一业务状态 | 设计/CI Gate 阻止 | 返回可识别错误，不泄露内部细节 |
+| E-02 | FEAT-04 | integration | LLM → Structured Parser | 本模块 | 模型输出不符合 Schema | 有限纠错/重试；超过上限返回结构化失败 | 返回可识别错误，不泄露内部细节 |
 
 #### 2.5.3 非功能指标
 

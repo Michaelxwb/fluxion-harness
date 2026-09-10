@@ -93,21 +93,21 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
-|---|---|---|---|---|---|---|---|
-| S-01 | FEAT-02 | P0 | integration | Channel → Pod A/Pod B → PostgreSQL/Checkpointer | 已完成基础配置 | 同一 Conversation 连续两轮分别路由到不同 Pod | 上下文连续、Memory/Conversation 正确，无 Pod 粘性要求 |
-| S-02 | FEAT-03 | P0 | integration | Agent Runtime → Capability Runtime → Provider | 已完成基础配置 | 调用 read-only resource.get | 实时返回结果，不创建 ServiceExecution |
-| S-03 | FEAT-04 | P0 | integration | Agent Runtime → ExecutionService → PostgreSQL | 已完成基础配置 | 用户确认一个 worker_preferred Service | 创建 Execution 后实时请求结束，后台继续 |
-| S-04 | FEAT-01 | P0 | integration | Agent Runtime → Current Revision Resolver → PostgreSQL | 已完成基础配置 | 请求两个不同 agent_id | 同一 Runtime 实例动态解析对应 AgentDefinition 当前 revision，不创建新 Pod |
-| S-05 | FEAT-05 | P0 | integration | Agent Runtime → Internal Stream → Channel Gateway | 已完成基础配置 | Agent 生成多段增量输出 | 按统一流式事件向 Gateway 发送；断连不产生本地业务 SoT |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-02 | P0 | integration | Channel → Pod A/Pod B → PostgreSQL/Checkpointer | 本模块 | 已完成基础配置 | 同一 Conversation 连续两轮分别路由到不同 Pod | 上下文连续、Memory/Conversation 正确，无 Pod 粘性要求 |
+| S-02 | FEAT-03 | P0 | integration | Agent Runtime → Capability Runtime → Provider | 本模块 | 已完成基础配置 | 调用 read-only resource.get | 实时返回结果，不创建 ServiceExecution |
+| S-03 | FEAT-04 | P0 | integration | Agent Runtime → ExecutionService → PostgreSQL | 本模块 + 后置段 → 模块 05 / 06 | 已完成基础配置 | 用户确认一个 worker_preferred Service | 创建 Execution 后实时请求结束，后台继续 |
+| S-04 | FEAT-01 | P0 | integration | Agent Runtime → Current Revision Resolver → PostgreSQL | 本模块 | 已完成基础配置 | 请求两个不同 agent_id | 同一 Runtime 实例动态解析对应 AgentDefinition 当前 revision，不创建新 Pod |
+| S-05 | FEAT-05 | P0 | integration | Agent Runtime → Internal Stream → Channel Gateway | 本模块 + 后置段 → 模块 10 | 已完成基础配置 | Agent 生成多段增量输出 | 按统一流式事件向 Gateway 发送；断连不产生本地业务 SoT |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-01 | FEAT-03 | integration | CapabilityRuntime Policy | realtime 调用 shell.execute/high-risk capability | 返回 CAPABILITY_REQUIRES_EXECUTION，引导进入 ServiceExecution | 返回可识别错误，不泄露内部细节 |
-| E-02 | FEAT-04 | integration | Trusted Context Builder | 模型输出伪造 user_id/tenant_id | 忽略模型字段，只使用服务端上下文 | 返回可识别错误，不泄露内部细节 |
-| E-03 | FEAT-02 | integration | Architecture Gate | agent-runtime 源码直接 import subprocess/os.system | CI 失败 | 返回可识别错误，不泄露内部细节 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
+|---|---|---|---|---|---|---|---|
+| E-01 | FEAT-03 | integration | CapabilityRuntime Policy | 本模块 | realtime 调用 shell.execute/high-risk capability | 返回 CAPABILITY_REQUIRES_EXECUTION，引导进入 ServiceExecution | 返回可识别错误，不泄露内部细节 |
+| E-02 | FEAT-04 | integration | Trusted Context Builder | 本模块 | 模型输出伪造 user_id/tenant_id | 忽略模型字段，只使用服务端上下文 | 返回可识别错误，不泄露内部细节 |
+| E-03 | FEAT-02 | integration | Architecture Gate | 本模块 | agent-runtime 源码直接 import subprocess/os.system | CI 失败 | 返回可识别错误，不泄露内部细节 |
 
 #### 2.5.3 非功能指标
 

@@ -93,19 +93,19 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
-|---|---|---|---|---|---|---|---|
-| S-01 | FEAT-03 | P0 | integration | Agent Runtime/Worker → CapabilityRuntime → Provider | 已完成基础配置 | 同一 resource.get 从实时和 Worker 路径调用 | 使用同一 Contract、Provider、Auth、错误语义 |
-| S-02 | FEAT-04 | P0 | integration | Capability Policy | 已完成基础配置 | realtime 请求调用 worker_preferred 能力 | 返回 requires execution，不执行 Provider |
-| S-03 | FEAT-01 | P0 | integration | Integration Loader → Capability Registry | 已完成基础配置 | 注册 Contract 与 Provider 后按 capability name resolve | 返回唯一有效 Provider；冲突注册 fail-fast |
-| S-04 | FEAT-05 | P0 | integration | Capability Runtime → Async Provider → Worker | 已完成基础配置 | 调用 Async Capability 并依次执行 submit/status/result | external_task_ref 持久化，WAITING 后可恢复继续查询 |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-03 | P0 | integration | Agent Runtime/Worker → CapabilityRuntime → Provider | 本模块 | 已完成基础配置 | 同一 resource.get 从实时和 Worker 路径调用 | 使用同一 Contract、Provider、Auth、错误语义 |
+| S-02 | FEAT-04 | P0 | integration | Capability Policy | 本模块 | 已完成基础配置 | realtime 请求调用 worker_preferred 能力 | 返回 requires execution，不执行 Provider |
+| S-03 | FEAT-01 | P0 | integration | Integration Loader → Capability Registry | 本模块 + 后置段 → 模块 13 | 已完成基础配置 | 注册 Contract 与 Provider 后按 capability name resolve | 返回唯一有效 Provider；冲突注册 fail-fast |
+| S-04 | FEAT-05 | P0 | integration | Capability Runtime → Async Provider → Worker | 本模块 | 已完成基础配置 | 调用 Async Capability 并依次执行 submit/status/result | external_task_ref 持久化，WAITING 后可恢复继续查询 |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-01 | FEAT-02 | integration | Effective Resolver | Agent 尝试调用未授权 capability | CAPABILITY_FORBIDDEN，Provider 不被调用 | 返回可识别错误，不泄露内部细节 |
-| E-02 | FEAT-03 | integration | Provider Adapter | 某 MCP Provider 试图跳过 AuthContext/timeout | Contract test/architecture review 失败 | 返回可识别错误，不泄露内部细节 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
+|---|---|---|---|---|---|---|---|
+| E-01 | FEAT-02 | integration | Effective Resolver | 本模块 | Agent 尝试调用未授权 capability | CAPABILITY_FORBIDDEN，Provider 不被调用 | 返回可识别错误，不泄露内部细节 |
+| E-02 | FEAT-03 | integration | Provider Adapter | 本模块 | 某 MCP Provider 试图跳过 AuthContext/timeout | Contract test/architecture review 失败 | 返回可识别错误，不泄露内部细节 |
 
 #### 2.5.3 非功能指标
 

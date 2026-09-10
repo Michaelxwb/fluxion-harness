@@ -92,19 +92,19 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
-|---|---|---|---|---|---|---|---|
-| S-01 | FEAT-02 | P0 | integration | Conversation → Summary → Context Builder | 已完成基础配置 | 长会话触发 summary | 后续上下文使用 summary，但长期 Memory 表无自动写入 |
-| S-02 | FEAT-03 | P0 | integration | Channel A/B → PlatformUser → UserMemory | 已完成基础配置 | 同一用户换 Channel/新 Conversation | 读取同一用户长期偏好 |
-| S-03 | FEAT-04 | P0 | integration | Memory Writer → PostgreSQL | 已完成基础配置 | 用户明确要求记住输出格式 | 写入 Memory 并带 source/ref/time |
-| S-04 | FEAT-01 | P0 | integration | Channel → ConversationRepository → PostgreSQL | 已完成基础配置 | 创建 Conversation 并追加两条 Message | 消息按 conversation_id/create_time 有序读取，跨 Pod 可见 |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-02 | P0 | integration | Conversation → Summary → Context Builder | 本模块 | 已完成基础配置 | 长会话触发 summary | 后续上下文使用 summary，但长期 Memory 表无自动写入 |
+| S-02 | FEAT-03 | P0 | integration | Channel A/B → PlatformUser → UserMemory | 本模块 | 已完成基础配置 | 同一用户换 Channel/新 Conversation | 读取同一用户长期偏好 |
+| S-03 | FEAT-04 | P0 | integration | Memory Writer → PostgreSQL | 本模块 | 已完成基础配置 | 用户明确要求记住输出格式 | 写入 Memory 并带 source/ref/time |
+| S-04 | FEAT-01 | P0 | integration | Channel → ConversationRepository → PostgreSQL | 本模块 | 已完成基础配置 | 创建 Conversation 并追加两条 Message | 消息按 conversation_id/create_time 有序读取，跨 Pod 可见 |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-01 | FEAT-03 | integration | Memory Policy | Agent 尝试把外部系统“当前有20个资源”写长期 Memory 并下次直接使用 | 不作为权威事实；需要时重新 Capability 查询 | 返回可识别错误，不泄露内部细节 |
-| E-02 | FEAT-04 | integration | Tenant Isolation | tenant A 查询 tenant B memory | 拒绝/查无数据 | 返回可识别错误，不泄露内部细节 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
+|---|---|---|---|---|---|---|---|
+| E-01 | FEAT-03 | integration | Memory Policy | 本模块 | Agent 尝试把外部系统“当前有20个资源”写长期 Memory 并下次直接使用 | 不作为权威事实；需要时重新 Capability 查询 | 返回可识别错误，不泄露内部细节 |
+| E-02 | FEAT-04 | integration | Tenant Isolation | 本模块 | tenant A 查询 tenant B memory | 拒绝/查无数据 | 返回可识别错误，不泄露内部细节 |
 
 #### 2.5.3 非功能指标
 

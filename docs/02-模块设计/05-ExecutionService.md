@@ -30,6 +30,7 @@
 
 | 版本 | 日期 | 变更描述 |
 |---|---|---|
+| v0.3 | 2026-09-10 | 承接模块 01 后置的 S-04 后置段：新增 S-04/E-03（Published Resolver 取发布时冻结值） |
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：ResourceScopeRegistry+JSON Schema+三错误码（D01）、Human deadline 快照语义（D02）、REQ-EXEC-001/002 |
 
@@ -95,26 +96,28 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-01 | P0 | integration | Agent Runtime → ExecutionService → PostgreSQL | 本模块 | 已完成基础配置 | 提交已确认的 Service Proposal | 生成 Execution + Snapshot，状态 PENDING |
+| S-02 | FEAT-03 | P0 | integration | Repository unique key | 本模块 | 已完成基础配置 | 相同 idempotency_key 连续提交两次 | 返回同一 execution_id，不产生重复副作用 |
+| S-03 | FEAT-05 | P0 | integration | ExecutionService → PostgreSQL Transaction → Redis Hint | 本模块 + 后置段 → 模块 14 | 已完成基础配置 | 创建新的 ServiceExecution | Execution 与 Snapshot 同事务成功；Redis wake-up 失败不回滚数据库事实 |
+| S-EXEC-001 | FEAT-01 | P0 | integration | Proposal → ResourceScopeRegistry → ServiceExecution | 本模块 | 已完成基础配置 | 提交合法 ResourceScope | 创建成功；scope schema_hash 随 Snapshot 冻结 |
+| S-04 | FEAT-04 | P0 | integration | Proposal → ServiceRelease → Published Resolver → Snapshot | 本模块 | Service 已发布（模块 01 LIB-01），存在 current published release | Service 发布后修改 Draft 但**不再发布**，再创建 Execution | Execution 的 Snapshot 使用**发布时冻结**的 release ref 与 skill checksum，不随后续 Draft 或 live 配置漂移 |
+
+**异常场景**
+
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
 |---|---|---|---|---|---|---|---|
-| S-01 | FEAT-01 | P0 | integration | Agent Runtime → ExecutionService → PostgreSQL | 已完成基础配置 | 提交已确认的 Service Proposal | 生成 Execution + Snapshot，状态 PENDING |
-| S-02 | FEAT-03 | P0 | integration | Repository unique key | 已完成基础配置 | 相同 idempotency_key 连续提交两次 | 返回同一 execution_id，不产生重复副作用 |
-| S-03 | FEAT-05 | P0 | integration | ExecutionService → PostgreSQL Transaction → Redis Hint | 已完成基础配置 | 创建新的 ServiceExecution | Execution 与 Snapshot 同事务成功；Redis wake-up 失败不回滚数据库事实 |
-| S-EXEC-001 | FEAT-01 | P0 | integration | Proposal → ResourceScopeRegistry → ServiceExecution | 已完成基础配置 | 提交合法 ResourceScope | 创建成功；scope schema_hash 随 Snapshot 冻结 |
+| E-EXEC-003 | FEAT-01 | integration | ResourceScopeRegistry | 本模块 | scope 不符 Service 声明 schema | SCOPE_INVALID(400)，不创建 Execution | 返回可识别错误，不泄露内部细节 |
+| E-EXEC-004 | FEAT-01 | integration | ServiceRelease → Registry | 本模块 | Service 引用不存在的 scope type | SERVICE_CONFIGURATION_INVALID(500)，不创建 Execution | 返回可识别错误，不泄露内部细节 |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-EXEC-003 | FEAT-01 | integration | ResourceScopeRegistry | scope 不符 Service 声明 schema | SCOPE_INVALID(400)，不创建 Execution | 返回可识别错误，不泄露内部细节 |
-| E-EXEC-004 | FEAT-01 | integration | ServiceRelease → Registry | Service 引用不存在的 scope type | SERVICE_CONFIGURATION_INVALID(500)，不创建 Execution | 返回可识别错误，不泄露内部细节 |
-
-**异常场景**
-
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-01 | FEAT-04 | integration | Snapshot Builder | Snapshot Builder 尝试写 credential/token | Schema/安全测试失败 | 返回可识别错误，不泄露内部细节 |
-| E-02 | FEAT-02 | integration | Trusted Context | Proposal input 中包含伪造 actor_user_id | 忽略/拒绝该字段，使用 context actor | 返回可识别错误，不泄露内部细节 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
+|---|---|---|---|---|---|---|---|
+| E-01 | FEAT-04 | integration | Snapshot Builder | 本模块 | Snapshot Builder 尝试写 credential/token | Schema/安全测试失败 | 返回可识别错误，不泄露内部细节 |
+| E-02 | FEAT-02 | integration | Trusted Context | 本模块 | Proposal input 中包含伪造 actor_user_id | 忽略/拒绝该字段，使用 context actor | 返回可识别错误，不泄露内部细节 |
+| E-03 | FEAT-04 | integration | Published Resolver | 本模块 | Service 无 current published release（仅 Draft） | 拒绝创建 | 抛可识别错误，**不落 ServiceExecution / Snapshot 行** |
 
 #### 2.5.3 非功能指标
 
@@ -305,7 +308,8 @@ create latency、idempotent hits、validation reject、snapshot build failures�
 | 总体设计 V1.6 | FEAT-01 | LIB-01 | S-01 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-02 | LIB-01 | E-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-03 | LIB-01 | S-02 | integration/E2E | 待实现 |
-| 总体设计 V1.6 | FEAT-04 | LIB-01, LIB-02 | E-01 | integration/E2E | 待实现 |
+| 总体设计 V1.6 | FEAT-04 | LIB-01, LIB-02 | E-01, S-04 | integration/E2E | 待实现 |
+| 总体设计 V1.6 | FEAT-04 | LIB-02 | E-03 | integration/E2E | 待实现（承接模块 01 S-04 的后置 E2E 段） |
 | 总体设计 V1.6 | FEAT-05 | LIB-01, LIB-03 | S-03 | integration/E2E | 待实现 |
 
 ---

@@ -94,19 +94,19 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
-|---|---|---|---|---|---|---|---|
-| S-01 | FEAT-02 | P0 | integration | TrustedContext → WorkspaceManager → SandboxExecutor | 已完成基础配置 | 在 execution workspace 写/读相对路径 reports/result.md | 只能访问该 Workspace root 内文件 |
-| S-02 | FEAT-03 | P0 | integration | CapabilityRuntime → ExecutionService/Worker → Sandbox | 已完成基础配置 | Agent 请求 shell.execute | realtime 被拒，Worker mode 执行已授权命令 |
-| S-03 | FEAT-01 | P0 | integration | Execution/Conversation → WorkspaceManager → PostgreSQL Metadata | 已完成基础配置 | 分别为 Conversation 和 Execution 创建 Workspace | owner_type/owner_id 正确持久化，可跨进程按 workspace_id 解析 |
-| S-04 | FEAT-04 | P0 | integration | SandboxProvider → SandboxExecutor SPI | 已完成基础配置 | 将 LocalSandboxExecutor 替换为 fake isolated executor | Agent/Worker/Capability Contract 无需修改 |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-02 | P0 | integration | TrustedContext → WorkspaceManager → SandboxExecutor | 本模块 | 已完成基础配置 | 在 execution workspace 写/读相对路径 reports/result.md | 只能访问该 Workspace root 内文件 |
+| S-02 | FEAT-03 | P0 | integration | CapabilityRuntime → ExecutionService/Worker → Sandbox | 本模块 + 后置段 → 模块 07 / 05 | 已完成基础配置 | Agent 请求 shell.execute | realtime 被拒，Worker mode 执行已授权命令 |
+| S-03 | FEAT-01 | P0 | integration | Execution/Conversation → WorkspaceManager → PostgreSQL Metadata | 本模块 + 后置段 → 模块 05 / 12 | 已完成基础配置 | 分别为 Conversation 和 Execution 创建 Workspace | owner_type/owner_id 正确持久化，可跨进程按 workspace_id 解析 |
+| S-04 | FEAT-04 | P0 | integration | SandboxProvider → SandboxExecutor SPI | 本模块 | 已完成基础配置 | 将 LocalSandboxExecutor 替换为 fake isolated executor | Agent/Worker/Capability Contract 无需修改 |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-01 | FEAT-05 | integration | Path Guard | 输入 /etc/passwd 或 ../escape 或 symlink 越界 | SANDBOX_PATH_INVALID/ESCAPE，拒绝访问 | 返回可识别错误，不泄露内部细节 |
-| E-02 | FEAT-03 | integration | Sandbox Policy | shell 未启用或 executable 不在 allowlist | 拒绝执行 | 返回可识别错误，不泄露内部细节 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
+|---|---|---|---|---|---|---|---|
+| E-01 | FEAT-05 | integration | Path Guard | 本模块 | 输入 /etc/passwd 或 ../escape 或 symlink 越界 | SANDBOX_PATH_INVALID/ESCAPE，拒绝访问 | 返回可识别错误，不泄露内部细节 |
+| E-02 | FEAT-03 | integration | Sandbox Policy | 本模块 | shell 未启用或 executable 不在 allowlist | 拒绝执行 | 返回可识别错误，不泄露内部细节 |
 
 #### 2.5.3 非功能指标
 

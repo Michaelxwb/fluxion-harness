@@ -92,22 +92,22 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
-|---|---|---|---|---|---|---|---|
-| S-01 | FEAT-01 | P0 | integration | CapabilityRuntime → AuthProvider → Secret/External System | 已完成基础配置 | 调用需要认证的 Capability | 根据 actor/tenant 获取当前 credential/token，不暴露给 LLM |
-| S-02 | FEAT-03 | P0 | integration | Control Plane Down → AuthRuntime | 已完成基础配置 | 停止 platform-api 后 Worker 恢复任务 | 可从共享存储/SecretProvider 解析 AuthContext |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-01 | P0 | integration | CapabilityRuntime → AuthProvider → Secret/External System | 本模块 + 后置段 → 模块 07 | 已完成基础配置 | 调用需要认证的 Capability | 根据 actor/tenant 获取当前 credential/token，不暴露给 LLM |
+| S-02 | FEAT-03 | P0 | integration | Control Plane Down → AuthRuntime | 本模块 | 已完成基础配置 | 停止 platform-api 后 Worker 恢复任务 | 可从共享存储/SecretProvider 解析 AuthContext |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-01 | FEAT-02 | integration | Logging/Snapshot Gate | token/password 被写入日志或 snapshot | 安全测试失败/脱敏 | 返回可识别错误，不泄露内部细节 |
-| E-02 | FEAT-04 | integration | External System 403 | 用户当前权限已被撤销 | Capability 失败并按业务授权失败终止/等待人工，不自动换更高权限账号 | 返回可识别错误，不泄露内部细节 |
-| E-AUTH-03 | FEAT-03 | integration | Session expired | session 过期 | refresh 成功后继续 | 返回可识别错误，不泄露内部细节 |
-| E-AUTH-04 | FEAT-03 | integration | Refresh timeout | refresh 超时 | fail-closed，不绕过 | 返回可识别错误，不泄露内部细节 |
-| E-AUTH-05 | FEAT-03 | integration | Refresh 401 | refresh 被拒 | AUTH_FAILED，不提权重试 | 返回可识别错误，不泄露内部细节 |
-| E-AUTH-06 | FEAT-02 | integration | SecretProvider down | Secret 不可用 | fail-closed | 返回可识别错误，不泄露内部细节 |
-| E-AUTH-07 | FEAT-04 | E2E | platform-api down | Control 面下线后 Worker 恢复 | 仍可从共享存储/Secret 解析 AuthContext | 返回可识别错误，不泄露内部细节 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
+|---|---|---|---|---|---|---|---|
+| E-01 | FEAT-02 | integration | Logging/Snapshot Gate | 本模块 | token/password 被写入日志或 snapshot | 安全测试失败/脱敏 | 返回可识别错误，不泄露内部细节 |
+| E-02 | FEAT-04 | integration | External System 403 | 本模块 | 用户当前权限已被撤销 | Capability 失败并按业务授权失败终止/等待人工，不自动换更高权限账号 | 返回可识别错误，不泄露内部细节 |
+| E-AUTH-03 | FEAT-03 | integration | Session expired | 本模块 | session 过期 | refresh 成功后继续 | 返回可识别错误，不泄露内部细节 |
+| E-AUTH-04 | FEAT-03 | integration | Refresh timeout | 本模块 | refresh 超时 | fail-closed，不绕过 | 返回可识别错误，不泄露内部细节 |
+| E-AUTH-05 | FEAT-03 | integration | Refresh 401 | 本模块 | refresh 被拒 | AUTH_FAILED，不提权重试 | 返回可识别错误，不泄露内部细节 |
+| E-AUTH-06 | FEAT-02 | integration | SecretProvider down | 本模块 | Secret 不可用 | fail-closed | 返回可识别错误，不泄露内部细节 |
+| E-AUTH-07 | FEAT-04 | E2E | platform-api down | 本模块 | Control 面下线后 Worker 恢复 | 仍可从共享存储/Secret 解析 AuthContext | 返回可识别错误，不泄露内部细节 |
 
 #### 2.5.3 非功能指标
 

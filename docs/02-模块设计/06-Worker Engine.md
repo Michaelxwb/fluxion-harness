@@ -30,6 +30,7 @@
 
 | 版本 | 日期 | 变更描述 |
 |---|---|---|
+| v0.3 | 2026-09-10 | 承接模块 01 后置的 S-03 后置段：新增 S-06/E-03（执行期重新解析 Auth/Authorization） |
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：Human RESUME/CANCEL+HUMAN_TIMEOUT=USER_INACTION（D02）、Delivery Owner max5/base30s（D03）、治理拆 P0/P1、REQ-EXEC-002/003 |
 
@@ -96,26 +97,28 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
-|---|---|---|---|---|---|---|---|
-| S-01 | FEAT-02 | P0 | integration | Worker A SIGKILL → PostgreSQL Lease → Worker B | 已完成基础配置 | Worker A claim 后崩溃，等待 lease 过期 | Worker B reclaim 同一 Execution 并继续 |
-| S-02 | FEAT-04 | P0 | integration | Worker → PostgreSQL → Time → Worker | 已完成基础配置 | 外部任务返回 PENDING，设置 next_run_at | Worker 释放资源，时间到后重新 claim |
-| S-03 | FEAT-04 | P0 | integration | Redis Down → PostgreSQL Polling | 已完成基础配置 | 停止 Redis 后创建/等待任务 | 通知延迟可能增加但任务最终继续 |
-| S-04 | FEAT-01 | P0 | integration | Worker A/B → PostgreSQL SKIP LOCKED | 已完成基础配置 | 两个 Worker 并发 claim 同一批 due Execution | 同一 Execution 同时只被一个 Worker 获得 lease |
-| S-05 | FEAT-06 | P0 | integration | Scheduler → Resource Governance → Step Executor | 已完成基础配置 | 同一 tenant/capability 同时超过配置并发上限 | 超限 Execution 保持可调度状态但不超配执行，其他资源类不被永久阻塞 |
-| S-HUMAN-001 | FEAT-05 | P0 | integration | WAITING_HUMAN → ExecutionCommand | 已完成基础配置 | RESUME | 回 RUNNING |
-| S-HUMAN-002 | FEAT-05 | P0 | integration | WAITING_HUMAN → ExecutionCommand | 已完成基础配置 | CANCEL | 经 CANCELLING 到 CANCELLED |
-| S-DELIVERY-001 | FEAT-03 | P0 | integration | Worker → Gateway → Route | 已完成基础配置 | 首次投递 RETRYABLE_FAILURE | 写 RETRY_WAIT + next_run_at，复用同一 dedupe_key 重试 |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-02 | P0 | integration | Worker A SIGKILL → PostgreSQL Lease → Worker B | 本模块 | 已完成基础配置 | Worker A claim 后崩溃，等待 lease 过期 | Worker B reclaim 同一 Execution 并继续 |
+| S-02 | FEAT-04 | P0 | integration | Worker → PostgreSQL → Time → Worker | 本模块 | 已完成基础配置 | 外部任务返回 PENDING，设置 next_run_at | Worker 释放资源，时间到后重新 claim |
+| S-03 | FEAT-04 | P0 | integration | Redis Down → PostgreSQL Polling | 本模块 + 后置段 → 模块 14 | 已完成基础配置 | 停止 Redis 后创建/等待任务 | 通知延迟可能增加但任务最终继续 |
+| S-04 | FEAT-01 | P0 | integration | Worker A/B → PostgreSQL SKIP LOCKED | 本模块 | 已完成基础配置 | 两个 Worker 并发 claim 同一批 due Execution | 同一 Execution 同时只被一个 Worker 获得 lease |
+| S-05 | FEAT-06 | P0 | integration | Scheduler → Resource Governance → Step Executor | 本模块 | 已完成基础配置 | 同一 tenant/capability 同时超过配置并发上限 | 超限 Execution 保持可调度状态但不超配执行，其他资源类不被永久阻塞 |
+| S-HUMAN-001 | FEAT-05 | P0 | integration | WAITING_HUMAN → ExecutionCommand | 本模块 | 已完成基础配置 | RESUME | 回 RUNNING |
+| S-HUMAN-002 | FEAT-05 | P0 | integration | WAITING_HUMAN → ExecutionCommand | 本模块 | 已完成基础配置 | CANCEL | 经 CANCELLING 到 CANCELLED |
+| S-DELIVERY-001 | FEAT-03 | P0 | integration | Worker → Gateway → Route | 本模块 | 已完成基础配置 | 首次投递 RETRYABLE_FAILURE | 写 RETRY_WAIT + next_run_at，复用同一 dedupe_key 重试 |
+| S-06 | FEAT-03 | P0 | integration | Worker → Auth/Authorization Resolver → Capability | 本模块 | 模块 09 Auth Runtime 已落地；Execution 已创建 | Execution 创建后撤销用户权限，Worker 恢复任务并调用 Capability | Worker 按**当前** Auth/Authorization 重新解析，**不沿用 Snapshot 中的旧授权**（§3.5 规则的可验证化） |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-01 | FEAT-03 | integration | Capability Adapter → Idempotency | 外部 submit 成功后 Worker 在持久化 external_task_id 前崩溃 | 恢复时使用相同 idempotency_key 防止重复创建，或进入人工确认状态 | 返回可识别错误，不泄露内部细节 |
-| E-02 | FEAT-05 | integration | ExecutionCommand | 收到重复 Cancel/Retry 命令 | 命令幂等，状态机拒绝非法迁移 | 返回可识别错误，不泄露内部细节 |
-| E-HUMAN-001 | FEAT-05 | integration | Timer → WAITING_HUMAN | 超过 deadline | FAILED/HUMAN_TIMEOUT（USER_INACTION），超时后命令拒绝 | Console 单独归类，不计业务失败率 |
-| E-DELIVERY-001 | FEAT-03 | integration | Worker Retry | 连续 5 次 retryable failure | 写 DELIVERY_DEAD_LETTER，Execution 成功与 Delivery 失败分开展示 | 返回可识别错误，不泄露内部细节 |
-| E-DELIVERY-002 | FEAT-03 | integration | Gateway restart | Gateway 重启/重连 | 不自行重放历史 DeliveryCommand，重试时机只由 Worker 决定 | 返回可识别错误，不泄露内部细节 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
+|---|---|---|---|---|---|---|---|
+| E-01 | FEAT-03 | integration | Capability Adapter → Idempotency | 本模块 | 外部 submit 成功后 Worker 在持久化 external_task_id 前崩溃 | 恢复时使用相同 idempotency_key 防止重复创建，或进入人工确认状态 | 返回可识别错误，不泄露内部细节 |
+| E-02 | FEAT-05 | integration | ExecutionCommand | 本模块 | 收到重复 Cancel/Retry 命令 | 命令幂等，状态机拒绝非法迁移 | 返回可识别错误，不泄露内部细节 |
+| E-03 | FEAT-03 | integration | Worker → Auth Resolver | 本模块 | 权限已撤销 | Capability 调用被拒 | Execution 按策略失败或进入等待人工，**不自动提权、不换更高权限账号** |
+| E-HUMAN-001 | FEAT-05 | integration | Timer → WAITING_HUMAN | 本模块 | 超过 deadline | FAILED/HUMAN_TIMEOUT（USER_INACTION），超时后命令拒绝 | Console 单独归类，不计业务失败率 |
+| E-DELIVERY-001 | FEAT-03 | integration | Worker Retry | 本模块 | 连续 5 次 retryable failure | 写 DELIVERY_DEAD_LETTER，Execution 成功与 Delivery 失败分开展示 | 返回可识别错误，不泄露内部细节 |
+| E-DELIVERY-002 | FEAT-03 | integration | Gateway restart | 本模块 | Gateway 重启/重连 | 不自行重放历史 DeliveryCommand，重试时机只由 Worker 决定 | 返回可识别错误，不泄露内部细节 |
 
 #### 2.5.3 非功能指标
 
@@ -309,7 +312,7 @@ queue lag、expired lease count、retry rate、stuck RUNNING、command backlog�
 |---|---|---|---|---|---|
 | 总体设计 V1.6 | FEAT-01 | LIB-01, LIB-02 | S-04 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-02 | LIB-01, LIB-02 | S-01 | integration/E2E | 待实现 |
-| 总体设计 V1.6 | FEAT-03 | LIB-03 | E-01 | integration/E2E | 待实现 |
+| 总体设计 V1.6 | FEAT-03 | LIB-03 | E-01, S-06, E-03 | integration/E2E | 待实现（S-06/E-03 承接模块 01 S-03 的后置 E2E 段） |
 | 总体设计 V1.6 | FEAT-04 | 内部契约 | S-02, S-03 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-05 | LIB-04 | E-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-06 | 内部契约 | S-05 | integration/E2E | 待实现 |

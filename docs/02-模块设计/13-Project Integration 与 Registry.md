@@ -92,19 +92,19 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
-|---|---|---|---|---|---|---|---|
-| S-01 | FEAT-04 | P0 | integration | CI dependency scan | 已完成基础配置 | 新增 integrations/demo 并运行 Core Purity test | Core 无反向依赖，测试通过 |
-| S-02 | FEAT-05 | P0 | integration | MSS Demo + Generic Demo → same Runtime/Worker/DB model | 已完成基础配置 | 分别注册两个 Integration 的 Service/Capability | 均不修改 Core 即可执行 |
-| S-03 | FEAT-01 | P0 | integration | Integration Package → Loader | 已完成基础配置 | 按约定目录提供 services/agents/capabilities/auth/knowledge/tests | Loader 可发现 manifest 声明的扩展，不要求 Core import 项目包 |
-| S-04 | FEAT-02 | P0 | integration | Manifest → Registry | 已完成基础配置 | 加载 manifest_hash 与 provider/seed definition 清单 | registration 可审计，provider key 唯一且冲突显式失败 |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-04 | P0 | integration | CI dependency scan | 本模块 | 已完成基础配置 | 新增 integrations/demo 并运行 Core Purity test | Core 无反向依赖，测试通过 |
+| S-02 | FEAT-05 | P0 | integration | MSS Demo + Generic Demo → same Runtime/Worker/DB model | 本模块 + 后置段 → 模块 03 / 06 | 已完成基础配置 | 分别注册两个 Integration 的 Service/Capability | 均不修改 Core 即可执行 |
+| S-03 | FEAT-01 | P0 | integration | Integration Package → Loader | 本模块 | 已完成基础配置 | 按约定目录提供 services/agents/capabilities/auth/knowledge/tests | Loader 可发现 manifest 声明的扩展，不要求 Core import 项目包 |
+| S-04 | FEAT-02 | P0 | integration | Manifest → Registry | 本模块 | 已完成基础配置 | 加载 manifest_hash 与 provider/seed definition 清单 | registration 可审计，provider key 唯一且冲突显式失败 |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-01 | FEAT-04 | integration | Architecture Gate | framework/capability import integrations/mss | CI 失败 | 返回可识别错误，不泄露内部细节 |
-| E-02 | FEAT-03 | integration | Integration Loader | Manifest 声明未知/冲突 Provider key | 启动失败并给出明确冲突错误，不静默覆盖 | 返回可识别错误，不泄露内部细节 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
+|---|---|---|---|---|---|---|---|
+| E-01 | FEAT-04 | integration | Architecture Gate | 本模块 | framework/capability import integrations/mss | CI 失败 | 返回可识别错误，不泄露内部细节 |
+| E-02 | FEAT-03 | integration | Integration Loader | 本模块 | Manifest 声明未知/冲突 Provider key | 启动失败并给出明确冲突错误，不静默覆盖 | 返回可识别错误，不泄露内部细节 |
 
 #### 2.5.3 非功能指标
 

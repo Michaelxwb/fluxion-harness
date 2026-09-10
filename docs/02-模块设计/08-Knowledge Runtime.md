@@ -91,18 +91,18 @@
 
 **正常场景**
 
-| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 前置条件 | 操作步骤 | 预期结果 |
-|---|---|---|---|---|---|---|---|
-| S-01 | FEAT-02 | P0 | integration | AgentExecutor → KnowledgeRuntime → Provider | 已完成基础配置 | 把 provider 从 fake/http 替换为另一实现 | Agent Runtime/Worker 不修改 |
-| S-02 | FEAT-04 | P0 | integration | KnowledgeRuntime → ExecutionStep Evidence | 已完成基础配置 | Agent Step 查询实时 KB | 保存文档引用、时间和可用 revision/hash，不复制整个 KB |
-| S-03 | FEAT-01 | P0 | integration | Control Plane → Knowledge Source Store → Agent Resolver | 已完成基础配置 | 新增外部 Knowledge Source 并绑定 Agent | 保存后 revision 增加，后续 Agent resolve 可获得逻辑 Source；不暴露底层数据库连接给 Agent |
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| S-01 | FEAT-02 | P0 | integration | AgentExecutor → KnowledgeRuntime → Provider | 本模块 | 已完成基础配置 | 把 provider 从 fake/http 替换为另一实现 | Agent Runtime/Worker 不修改 |
+| S-02 | FEAT-04 | P0 | integration | KnowledgeRuntime → ExecutionStep Evidence | 本模块 + 后置段 → 模块 05 | 已完成基础配置 | Agent Step 查询实时 KB | 保存文档引用、时间和可用 revision/hash，不复制整个 KB |
+| S-03 | FEAT-01 | P0 | integration | Control Plane → Knowledge Source Store → Agent Resolver | 本模块 + 后置段 → 模块 02 | 已完成基础配置 | 新增外部 Knowledge Source 并绑定 Agent | 保存后 revision 增加，后续 Agent resolve 可获得逻辑 Source；不暴露底层数据库连接给 Agent |
 
 **异常场景**
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 用户感知 |
-|---|---|---|---|---|---|---|
-| E-01 | FEAT-03 | integration | Agent Core | Memory/Knowledge 中有“资源状态”但外部业务数据已变化 | 需要权威数据时强制通过 Capability 获取，Knowledge 仅作参考 | 返回可识别错误，不泄露内部细节 |
-| E-02 | FEAT-02 | integration | Provider timeout | 外部 KB 超时 | 有界失败/降级；不无限重试，不阻塞 Worker 永久 | 返回可识别错误，不泄露内部细节 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
+|---|---|---|---|---|---|---|---|
+| E-01 | FEAT-03 | integration | Agent Core | 本模块 | Memory/Knowledge 中有“资源状态”但外部业务数据已变化 | 需要权威数据时强制通过 Capability 获取，Knowledge 仅作参考 | 返回可识别错误，不泄露内部细节 |
+| E-02 | FEAT-02 | integration | Provider timeout | 本模块 | 外部 KB 超时 | 有界失败/降级；不无限重试，不阻塞 Worker 永久 | 返回可识别错误，不泄露内部细节 |
 
 #### 2.5.3 非功能指标
 
