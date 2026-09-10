@@ -1,0 +1,861 @@
+version: 1
+task: core-domain-publish
+enforcement: required
+updated_at: '2026-09-10T13:50:48.736327+00:00'
+sources:
+- type: cli
+  ref: bind
+bindings:
+- spec_id: backend-code-quality-performance
+  path: backend/code-quality-performance.md
+  status: active
+  hashes:
+    file_sha256: 74d259d047e19624be48da2b1cbebf06b662492a94cbb67e38a36123d526b852
+    metadata_sha256: b47ce10c1c4909938b6e81de279a1f79ff668396723faa5a07a6582843fa42bc
+    rules_sha256: ef2e3f56d8ee7b82849e1d29f88f820861f474a02e38ba5aace29bfa5e6d4532
+  selected_by: agent
+  reason: 函数库接口错误处理/超时/测试约束，LIB-01/02/03
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-backend-quality-001
+    summary: The implementation must satisfy every applicable item in Guidance and
+      avoid every item in Avoid.
+    text_sha256: 05196ce1956d168f15169fc3ddce8185d8c726957db2c9cad0e4b13026caab22
+    enforcement: required
+    verifier_ref: backend-code-quality-performance#RULE-backend-quality-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: core-domain-publish.design.md
+          section_id: '3.4'
+          item_id: matrix-quality
+          artifact_sha256: e552a625c4e605069568daef3f6e3e27591181e8ef8dc542f670157dae2b4a8c
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: core-domain-publish.design.md
+          section_id: '3.4'
+          item_id: matrix-quality
+          artifact_sha256: e552a625c4e605069568daef3f6e3e27591181e8ef8dc542f670157dae2b4a8c
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: 缓存可计算结果以减少重复 IO，明确缓存 key、TTL 与失效策略
+    text_sha256: d3c551240f59be0274a0d4fa6d5d9a188376bc9e0a4371b6dc50ffe6f08863cb
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: 重 IO 用异步或批处理，CPU 密集任务下沉到 worker / 队列
+    text_sha256: f6c084b30fa2236d8558ba80c020e53722f7ef69e3731a110ba4e4261b2f5372
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: 资源（连接、文件、锁）使用 `with` / `using` / `defer` 确保释放
+    text_sha256: 377d1e608abb7ddff68ec3034fc34c3867872c860e64f4400726c5413f5f6470
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: 性能敏感路径加监控指标（QPS / P95 延迟 / 错误率）
+    text_sha256: 564937ed8e066a6fa638cd8aaea01c6530f3fe79f8e946dc2b95d6497e69e5ba
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: backend-database
+  path: backend/database.md
+  status: active
+  hashes:
+    file_sha256: 6cce2ed521b13d1ba4e57ed68e0dc74d434b65bd98def25e4c3e6fa1945da27d
+    metadata_sha256: 5229e1d69a7cbce9500e9a8fa902fe6cc9888dcc5a304f1543476b248971087e
+    rules_sha256: e9dee85500810f07885dac5a52ccc648d0316d6500bc6e23c8af4fd9bc9fe8f7
+  selected_by: agent
+  reason: 数据设计含5张表+迁移策略expand-contract
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-backend-database-001
+    summary: The implementation must satisfy every applicable item in Guidance and
+      avoid every item in Avoid.
+    text_sha256: 05196ce1956d168f15169fc3ddce8185d8c726957db2c9cad0e4b13026caab22
+    enforcement: required
+    verifier_ref: backend-database#RULE-backend-database-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: core-domain-publish.design.md
+          section_id: '3.3'
+          item_id: matrix-db
+          artifact_sha256: e552a625c4e605069568daef3f6e3e27591181e8ef8dc542f670157dae2b4a8c
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: core-domain-publish.design.md
+          section_id: '3.3'
+          item_id: matrix-db
+          artifact_sha256: e552a625c4e605069568daef3f6e3e27591181e8ef8dc542f670157dae2b4a8c
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: 读写分离场景显式标注读库/写库，强一致读走主库
+    text_sha256: f08e8a46dbd11bf98e06dc740af8142f2471ffac7e042118a38d5cfe9cd805dc
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: N+1 查询用预加载（`joinedload` / `include` / `Preload`）解决
+    text_sha256: 8a707a2a51ad3f66bad6d5fc201b5bd0f8f6138377c842e83538930811b4f9b7
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: 大批量写入分批 + commit，避免单事务过大
+    text_sha256: e42d4712ce5e09c9a2e9b6889f2419a48dee7342bbd03a2af2afac939cc6147d
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: 缓存与数据库一致性：先写库再失效缓存（`cache-aside`）
+    text_sha256: 466033fff3413cb5a97f744faf9520bd7134051513e2362b9f4d6c969cfeaf93
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-005
+    summary: CRUD 基类统一实现 `get / list / create / update / delete / bulk_*`，子类只扩展模型特有查询
+    text_sha256: bf0110f17a8acacfbdd4e3b13349b93c721db883dd0f97963e04b6d30f6950c1
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: backend-directory-structure
+  path: backend/directory-structure.md
+  status: active
+  hashes:
+    file_sha256: 0c6a270a9652f27ca3ffa7b1875391e1e586adca4e9ba89f9496bb9f66b20159
+    metadata_sha256: e4195df6c2ece3686dd5a90e9adf8ea70245e54d9ac0bd069a3ad6c6a12693b1
+    rules_sha256: 6f263c6dad52617b90fa637d6202d04e0940cd7669dffc3253229392aade0c12
+  selected_by: agent
+  reason: framework/adapters分层落点约束
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-backend-directory-001
+    summary: The implementation must satisfy every applicable item in Guidance and
+      avoid every item in Avoid.
+    text_sha256: 05196ce1956d168f15169fc3ddce8185d8c726957db2c9cad0e4b13026caab22
+    enforcement: required
+    verifier_ref: backend-directory-structure#RULE-backend-directory-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: core-domain-publish.design.md
+          section_id: '3.2'
+          item_id: matrix-dir
+          artifact_sha256: e552a625c4e605069568daef3f6e3e27591181e8ef8dc542f670157dae2b4a8c
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: core-domain-publish.design.md
+          section_id: '3.2'
+          item_id: matrix-dir
+          artifact_sha256: e552a625c4e605069568daef3f6e3e27591181e8ef8dc542f670157dae2b4a8c
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: 模块按业务域拆分（如 `services/order/`、`services/user/`），目录深度建议 ≤ 3 层
+    text_sha256: 44d146f5250498316354553ed06bc879c80d0a7d231d9dd3f297255a42a2ab4e
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: 公共工具放 `utils/`，无业务依赖；与业务相关的 helper 放对应 service 子目录
+    text_sha256: bb3ae84681d8990b97a06944ceb99f363e74e865b10a9dea22042ba6246425a3
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: 常量命名用 UPPER_SNAKE_CASE，枚举优先使用语言原生 `Enum`
+    text_sha256: 1ec0507a9df84581c3a4d00c20eef80e267b0efe6fa56bf85eae56c6c716c280
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: 测试目录与源码同构（`tests/services/order/test_*`）
+    text_sha256: 63e00ea4d6a00318bd9fa0be80aff7025e68dcf18eef9725800aea8eb5b7fe3e
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: backend-logging
+  path: backend/logging.md
+  status: active
+  hashes:
+    file_sha256: e2389d2cb38f926f5991abc4e535654e673217b2bcac808a00a3cc6dfa04f3a1
+    metadata_sha256: 5fb3af58c537326ee22b8092285328b19b9dac152a18f937ce931ced9d2603a5
+    rules_sha256: affa7245dc65af084c9876741d05fdccb5e484101ca91761992e5e9952e016f5
+  selected_by: agent
+  reason: NFR-OBS-01与audit/可观测性设计
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-backend-logging-001
+    summary: The implementation must satisfy every applicable item in Guidance and
+      avoid every item in Avoid.
+    text_sha256: 05196ce1956d168f15169fc3ddce8185d8c726957db2c9cad0e4b13026caab22
+    enforcement: required
+    verifier_ref: backend-logging#RULE-backend-logging-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: core-domain-publish.design.md
+          section_id: '3.5'
+          item_id: matrix-log
+          artifact_sha256: e552a625c4e605069568daef3f6e3e27591181e8ef8dc542f670157dae2b4a8c
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: core-domain-publish.design.md
+          section_id: '3.5'
+          item_id: matrix-log
+          artifact_sha256: e552a625c4e605069568daef3f6e3e27591181e8ef8dc542f670157dae2b4a8c
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: 统一字段命名：`request_id`、`user_id`、`route`、`status`、`latency_ms`、`error`
+    text_sha256: 134c5edc27ebb35c0e067021e138b32742d4c8c4e02675c7cf4affa673686a52
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: 异常日志必须带堆栈（`exc_info=True` 或等价机制）
+    text_sha256: 66c209961fa768c267a66445894e8a953bb6b8d19e30928969ffb4b921d09ca6
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: 高频路径用采样日志，避免 IO 阻塞主流程
+    text_sha256: f7bf8c03ace95eb9aecbdd720a99860364c2a90d96d09741166306704b648f30
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: 日志输出到 stdout/stderr，由部署环境采集，禁止业务代码写文件
+    text_sha256: 647e583469c78fe69df5ffcdc5782f6297c6e0a8b7afdbb7947953bc50cfeac9
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: backend-platform-rules
+  path: backend/platform-rules.md
+  status: active
+  hashes:
+    file_sha256: 9f49689a3b0f77c6521047bc76622ce0f212b277debf6612d5b4c14a83700321
+    metadata_sha256: 1f48bd3ea2ea5502302192e1d495d9096820ba5f5ed7804be45b9596cad8ba84
+    rules_sha256: 984b2cfa4e961d50f646b462a2977ecc833ef2a0ca502200bc3fcd5b95fac154
+  selected_by: agent
+  reason: 统一Envelope+错误码taxonomy+发布回滚
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-backend-platform-001
+    summary: The implementation must satisfy every applicable item in Guidance and
+      avoid every item in Avoid.
+    text_sha256: 05196ce1956d168f15169fc3ddce8185d8c726957db2c9cad0e4b13026caab22
+    enforcement: required
+    verifier_ref: backend-platform-rules#RULE-backend-platform-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: core-domain-publish.design.md
+          section_id: '3.4'
+          item_id: matrix-platform
+          artifact_sha256: e552a625c4e605069568daef3f6e3e27591181e8ef8dc542f670157dae2b4a8c
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: applied
+        refs:
+        - artifact: core-domain-publish.design.md
+          section_id: '3.4'
+          item_id: matrix-platform
+          artifact_sha256: e552a625c4e605069568daef3f6e3e27591181e8ef8dc542f670157dae2b4a8c
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-001
+    summary: API 响应统一结构：`{ code, message, data }`（`code=0` 表示成功），全项目一致
+    text_sha256: 649045e0b1a99cfce698643b5d5911901bdbe87f064c690f21da711fc45931e7
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
+    summary: 错误码命名空间：模块前缀 + 顺序号（如订单错误码 `10xxx`、用户 `20xxx`），便于定位归属
+    text_sha256: 1bef76f9c272a89f48adf4a2d41a854f73fdde387702987a6ff187d94bf78a22
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
+    summary: 异常 → 错误码：自定义业务异常类携带 `code`，由中间件统一转 `fail(code)` 响应
+    text_sha256: a4d4d871aaca43ba3411a00539e6d36f38cb5ebda2d9c77847c5a6fdf0dc8f3d
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-004
+    summary: 配置加载优先级：环境变量 > 配置文件 > 默认值
+    text_sha256: 19990b2e45fb8725c5ec2befae319b817d06dbb638f9e6c5ec36f0b0145e8f1a
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-005
+    summary: 健康检查端点（`/healthz`、`/readyz`）必须独立于业务认证
+    text_sha256: 56b5d679f4265db2d63c45fef1252ff9998c5ef36ae8ae625059ca05bdce4ab4
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-006
+    summary: 部署前跑 smoke test，覆盖核心路径
+    text_sha256: bea13c57d089aa9db43ca0a296380114b34e581302a2193dc7922d6817006cce
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []

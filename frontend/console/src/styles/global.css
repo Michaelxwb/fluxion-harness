@@ -1,0 +1,45 @@
+* { box-sizing: border-box; }
+html, body, #root { min-height: 100%; margin: 0; }
+body {
+  background: var(--semi-color-bg-0);
+  color: var(--semi-color-text-0);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.app-shell { min-height: 100vh; }
+.app-content { padding: 24px; }
+.page-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.standard-list-card { width: 100%; }
+.standard-list-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.standard-list-toolbar-left,
+.standard-list-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.standard-list-toolbar-left { justify-content: flex-start; }
+.standard-list-toolbar-right { justify-content: flex-end; margin-left: auto; }
+.standard-list-table { width: 100%; }
+.standard-list-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .standard-list-toolbar { flex-direction: column; }
+  .standard-list-toolbar-right { margin-left: 0; width: 100%; justify-content: flex-start; }
+}

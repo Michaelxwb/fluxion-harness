@@ -1,0 +1,49 @@
+[project]
+name = "fluxion-harness"
+version = "0.3.0"
+description = "Project-agnostic Agent + Service Execution framework"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.32,<1",
+  "pydantic>=2.10,<3",
+  "pydantic-settings>=2.7,<3",
+  "sqlalchemy[asyncio]>=2.0,<3",
+  "asyncpg>=0.30,<1",
+  "psycopg[binary]>=3.2,<4",
+  "alembic>=1.14,<2",
+  "httpx>=0.28,<1",
+]
+
+[project.optional-dependencies]
+agent = [
+  "langgraph>=1,<2",
+  "langchain-core>=1,<2",
+]
+redis = ["redis>=5,<7"]
+dev = [
+  "pytest>=8,<9",
+  "pytest-asyncio>=0.25,<1",
+  "ruff>=0.9,<1",
+  "mypy>=1.14,<2",
+]
+
+[tool.uv]
+default-groups = []
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+exclude = ["frontend", "apps/channel_gateway"]
