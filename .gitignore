@@ -26,6 +26,7 @@ playwright-report/
 .code-flow/.session-log.jsonl
 .code-flow/.session-state.json
 .code-flow/.catalog-state.json
+.code-flow/.artifact-hash-cache.json
 .code-flow/_session/
 .code-flow/specs/_session/
 .DS_Store
