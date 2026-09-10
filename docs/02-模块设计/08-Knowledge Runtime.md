@@ -33,6 +33,7 @@
 | v0.1 | 2026-09-10 | 基于总体设计 V1.6 首次形成模块详细设计 |
 | v1.1 | 2026-09-10 | V1.7 整改：不建 knowledge_retrieval_event 表；durable 证据写 step.output，realtime 只写 Trace（D07） |
 | v1.2 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
+| v1.3 | 2026-09-10 | S-02 的 ExecutionStep Evidence 后置段由模块 06 新增的 S-07 承接 |
 
 ---
 
@@ -289,7 +290,7 @@ provider availability、latency、empty-hit rate、evidence write failure；阈�
 >
 > | 本模块场景 | 后置段 | 承接方 | 承接场景 |
 > |---|---|---|---|
-> | S-02 | ExecutionStep Evidence 落库（step.output） | `06-Worker Engine.md` | **待补**：06 尚无「Step 输出持久化」场景，需在其需求中补一条 |
+> | S-02 | ExecutionStep Evidence 落库（step.output） | `06-Worker Engine.md` | `S-07`（知识证据写入 `execution_step.output.knowledge_evidence[]`，不新建表） |
 > | S-03 | Control Plane 写入 Knowledge Source | `02-Platform API 与控制面.md` | `02-S-04`（Console/API → Repository → Runtime Config） |
 
 

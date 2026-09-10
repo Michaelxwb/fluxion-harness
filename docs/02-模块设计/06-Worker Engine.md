@@ -34,6 +34,7 @@
 | v1.1 | 2026-09-10 | V1.7 整改：Human RESUME/CANCEL+HUMAN_TIMEOUT=USER_INACTION（D02）、Delivery Owner max5/base30s（D03）、治理拆 P0/P1、REQ-EXEC-002/003 |
 | v1.2 | 2026-09-10 | 承接模块 01 后置的 S-03 后置段：新增 S-06/E-03（执行期重新解析 Auth/Authorization） |
 | v1.3 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
+| v1.4 | 2026-09-10 | 承接模块 08 后置的 S-02 后置段：新增 S-07（Agent Step 知识证据写入 execution_step.output，V1.7 D07） |
 
 ---
 
@@ -109,6 +110,7 @@
 | S-HUMAN-002 | FEAT-05 | P0 | integration | WAITING_HUMAN → ExecutionCommand | 本模块 | 已完成基础配置 | CANCEL | 经 CANCELLING 到 CANCELLED |
 | S-DELIVERY-001 | FEAT-03 | P0 | integration | Worker → Gateway → Route | 本模块 | 已完成基础配置 | 首次投递 RETRYABLE_FAILURE | 写 RETRY_WAIT + next_run_at，复用同一 dedupe_key 重试 |
 | S-06 | FEAT-03 | P0 | integration | Worker → Auth/Authorization Resolver → Capability | 本模块 | 模块 09 Auth Runtime 已落地；Execution 已创建 | Execution 创建后撤销用户权限，Worker 恢复任务并调用 Capability | Worker 按**当前** Auth/Authorization 重新解析，**不沿用 Snapshot 中的旧授权**（§3.5 规则的可验证化） |
+| S-07 | FEAT-03 | P0 | integration | Worker → Agent Step → ExecutionStep.output | 本模块 | 模块 08 KnowledgeRuntime 已落地 | Durable Agent Step 调用知识检索并持久化 | 证据写入 `execution_step.output.knowledge_evidence[]`，每条含 `source_id`/`document_ref`/`retrieved_at`（`source_revision`/`content_hash` 可选）；**不新建 `knowledge_retrieval_event` 表**，不复制 KB 全文（V1.7 D07） |
 
 **异常场景**
 
@@ -313,7 +315,7 @@ queue lag、expired lease count、retry rate、stuck RUNNING、command backlog�
 |---|---|---|---|---|---|
 | 总体设计 V1.6 | FEAT-01 | LIB-01, LIB-02 | S-04 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-02 | LIB-01, LIB-02 | S-01 | integration/E2E | 待实现 |
-| 总体设计 V1.6 | FEAT-03 | LIB-03 | E-01, S-06, E-03 | integration/E2E | 待实现（S-06/E-03 承接模块 01 S-03 的后置 E2E 段） |
+| 总体设计 V1.6 | FEAT-03 | LIB-03 | E-01, S-06, S-07, E-03 | integration/E2E | 待实现（S-06/E-03 承接模块 01 S-03 的后置 E2E 段；S-07 承接模块 08 S-02 的后置 E2E 段） |
 | 总体设计 V1.6 | FEAT-04 | 内部契约 | S-02, S-03 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-05 | LIB-04 | E-02 | integration/E2E | 待实现 |
 | 总体设计 V1.6 | FEAT-06 | 内部契约 | S-05 | integration/E2E | 待实现 |
