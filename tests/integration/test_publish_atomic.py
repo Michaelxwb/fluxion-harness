@@ -31,6 +31,8 @@ async def factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
         async with engine.connect():
             pass
     except Exception as exc:
+        if os.environ.get("REQUIRE_PG") == "1":
+            pytest.fail(f"REQUIRE_PG=1 but the database is unreachable: {exc}")
         pytest.skip(f"no local PG for integration test: {exc}")
     yield factory
     await engine.dispose()

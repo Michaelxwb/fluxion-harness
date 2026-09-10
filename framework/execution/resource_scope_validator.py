@@ -18,8 +18,13 @@ def validate_resource_scope(
 ) -> ValidatedResourceScope:
     """Validate an unvalidated proposal scope (V1.7 D01, REQ-EXEC-001).
 
-    `scope_type`/`frozen_schema_hash` come from the ServiceRelease published
-    payload snapshot, never from the LLM proposal itself.
+    ``scope_type`` / ``frozen_schema_hash`` come from the ServiceRelease
+    published payload snapshot, never from the LLM proposal itself.
+
+    Every failure here is a **runtime** fault (500): the proposal's scope value
+    is the only caller-supplied input, and a bad value raises ``SCOPE_INVALID``
+    (400). A missing or drifted *declaration* means the framework's own frozen
+    state disagrees with the loaded registry — the caller cannot fix that.
     """
     if not scope_type:
         raise AppError(
@@ -28,7 +33,8 @@ def validate_resource_scope(
             status_code=500,
         )
     declared = registry.get(scope_type)
-    if declared is None:
+    validator = registry.validator(scope_type)
+    if declared is None or validator is None:
         raise AppError(
             code=SERVICE_CONFIGURATION_INVALID,
             message=f"unknown resource_scope_type: {scope_type}",
@@ -41,11 +47,19 @@ def validate_resource_scope(
             status_code=500,
         )
     try:
-        jsonschema.validate(instance=candidate, schema=declared.schema_)
-    except jsonschema.ValidationError as exc:
+        # jsonschema types its instance parameter as a recursive JSON alias;
+        # the proposal scope is a JSON mapping by construction.
+        first_error = next(validator.iter_errors(candidate), None)  # type: ignore[arg-type]
+    except jsonschema.SchemaError as exc:  # defensive: the registry checks+compiles at load
+        raise AppError(
+            code=SERVICE_CONFIGURATION_INVALID,
+            message=f"resource_scope schema unusable for type: {scope_type}",
+            status_code=500,
+        ) from exc
+    if first_error is not None:
         raise AppError(
             code=SCOPE_INVALID,
-            message=f"resource_scope invalid: {exc.message}",
+            message=f"resource_scope invalid: {first_error.message}",
             status_code=400,
-        ) from exc
+        )
     return ValidatedResourceScope(scope_type=scope_type, schema_hash=declared.schema_hash, value=candidate)

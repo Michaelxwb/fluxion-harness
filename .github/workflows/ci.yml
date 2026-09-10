@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mmuser
+          POSTGRES_PASSWORD: mmuser
+          POSTGRES_DB: isf
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mmuser -d isf"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Integration tests hit this database for real. REQUIRE_PG makes an
+      # unreachable database a hard failure instead of a silent skip, so a
+      # broken service container can never turn the suite green.
+      TEST_DATABASE_URL: postgresql+asyncpg://mmuser:mmuser@localhost:5432/isf
+      REQUIRE_PG: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: Apply schema
+        run: uv run alembic upgrade head
+
+      - name: Tests (real PostgreSQL)
+        run: uv run pytest -q
+
+      - name: Lint
+        run: uv run ruff check apps framework adapters tests
+
+      - name: Type check
+        run: uv run mypy .

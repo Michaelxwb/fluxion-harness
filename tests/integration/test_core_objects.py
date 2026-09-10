@@ -23,7 +23,6 @@ from adapters.postgres.models import (
     UserServiceAuthModel,
 )
 from adapters.postgres.session import create_engine_and_session_factory
-from framework.contracts.context import TrustedExecutionContext
 from framework.contracts.resource_scope import ValidatedResourceScope
 from framework.domain.agent import AgentDefinition
 from framework.execution.snapshot import build_execution_snapshot
@@ -41,6 +40,8 @@ async def factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
         async with engine.connect():
             pass
     except Exception as exc:
+        if os.environ.get("REQUIRE_PG") == "1":
+            pytest.fail(f"REQUIRE_PG=1 but the database is unreachable: {exc}")
         pytest.skip(f"no local PG for integration test: {exc}")
     yield session_factory
     await engine.dispose()
@@ -88,17 +89,19 @@ async def test_s01_generic_objects_persist_and_share(factory: async_sessionmaker
 async def test_s03_snapshot_stable_across_permission_revoke(
     factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    """S-03: 建 Execution 后撤销权限，业务逻辑仍按 Snapshot。"""
+    """S-03: 建 Execution 后撤销权限，业务逻辑仍按 Snapshot。
+
+    RULE-04：快照只冻结业务逻辑（Agent 绑定、scope、execution_spec），
+    不冻结 actor 的授权——授权在执行/恢复时按当前状态重新解析。
+    """
     suffix = _suffix()
     snapshot = build_execution_snapshot(
         service_release_ref="svc:r-1",
         service_content_hash="c" * 64,
         execution_spec={"goal": "weekly summary"},
         validated_scope=ValidatedResourceScope(scope_type="tenant", schema_hash="h" * 64, value={"t": "1"}),
-        context=TrustedExecutionContext(
-            actor_user_id=uuid.uuid4(), tenant_id="t1", effective_capability_set={"email.send"}
-        ),
         agent_revision=3,
+        capability_contracts=["email.send"],
     )
     payload = snapshot.model_dump(mode="json")
     async with factory() as session:

@@ -2,9 +2,25 @@ import hashlib
 import json
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from framework.web.errors import AppError
+
+
+class ServiceDraft(BaseModel):
+    """Typed shape of a Service draft payload (01 FEAT-02).
+
+    The draft is validated **before** anything is frozen. An untyped dict would
+    let a malformed draft reach the release payload, where it would only fail
+    when an Execution tried to use it. ``extra="allow"`` keeps the payload's
+    open-ended sections (execution_spec / confirmation_rules / ...) intact.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str = Field(min_length=1, max_length=256)
+    goal: str = Field(min_length=1)
+    resource_scope_type: str | None = None
 
 
 class PublishedService(BaseModel):
@@ -38,14 +54,17 @@ def build_service_release(
     draft payload; ``resource_scope_schema_hash`` is derived by the caller from
     the Integration manifest registry (RULE-05) and never trusted from input.
     """
-    for field in ("name", "goal"):
-        if not draft.get(field):
-            raise AppError(
-                code="SERVICE_DRAFT_INVALID",
-                message=f"service draft missing required field: {field}",
-                status_code=422,
-            )
-    declared_scope = draft.get("resource_scope_type")
+    try:
+        validated = ServiceDraft.model_validate(draft)
+    except ValidationError as exc:
+        first = exc.errors()[0]
+        location = ".".join(str(part) for part in first["loc"]) or "<root>"
+        raise AppError(
+            code="SERVICE_DRAFT_INVALID",
+            message=f"service draft invalid at {location}: {first['msg']}",
+            status_code=422,
+        ) from exc
+    declared_scope = validated.resource_scope_type
     frozen: dict[str, object] = {
         "service_key": service_key,
         "draft": draft,

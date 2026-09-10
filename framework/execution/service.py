@@ -25,6 +25,38 @@ class PublishedServiceResolver:
         return f"{service_key}:published", "TODO_HASH", {}
 
 
+def _frozen_binding_sets(
+    execution_spec: dict[str, object],
+) -> tuple[list[str], list[str], list[str]]:
+    """Flatten the bindings frozen into a ServiceRelease into snapshot inputs.
+
+    ``ServiceRepository.publish`` stores the bound Agents under ``agent_snapshot``;
+    each entry carries that Agent's skills (id + checksum), knowledge sources and
+    capability bindings as of publish time. Skills are reduced to
+    ``<skill id>@<checksum>`` so a later checksum change stays visible in the
+    snapshot (S-04).
+
+    Returns ``(skill_artifacts, knowledge_bindings, capability_contracts)``.
+    """
+    frozen = execution_spec.get("agent_snapshot")
+    skills: set[str] = set()
+    knowledge: set[str] = set()
+    capabilities: set[str] = set()
+    for agent in frozen.values() if isinstance(frozen, dict) else []:
+        if not isinstance(agent, dict):
+            continue
+        raw_skills = agent.get("skill_bindings")
+        for entry in raw_skills if isinstance(raw_skills, list) else []:
+            if isinstance(entry, dict) and entry.get("id"):
+                skills.add(f"{entry['id']}@{entry.get('checksum', '')}")
+        for key, target in (("knowledge_bindings", knowledge), ("capability_bindings", capabilities)):
+            raw = agent.get(key)
+            for item in raw if isinstance(raw, list) else []:
+                if isinstance(item, str):
+                    target.add(item)
+    return sorted(skills), sorted(knowledge), sorted(capabilities)
+
+
 class ExecutionService:
     def __init__(
         self,
@@ -56,12 +88,16 @@ class ExecutionService:
             frozen_schema_hash=hash_value if isinstance(hash_value, str) else None,
             candidate=proposal.resource_scope,
         )
+        spec_dict = execution_spec if isinstance(execution_spec, dict) else {}
+        frozen_skills, frozen_knowledge, frozen_capabilities = _frozen_binding_sets(spec_dict)
         snapshot = build_execution_snapshot(
             service_release_ref=release_ref,
             service_content_hash=content_hash,
-            execution_spec=execution_spec if isinstance(execution_spec, dict) else {},
+            execution_spec=spec_dict,
             validated_scope=validated,
-            context=context,
+            skill_artifacts=frozen_skills,
+            knowledge_bindings=frozen_knowledge,
+            capability_contracts=frozen_capabilities,
         )
         execution = ServiceExecution(
             id=uuid4(),

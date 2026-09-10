@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from adapters.postgres.models import ServiceDefinitionModel, ServiceReleaseModel
 from adapters.postgres.service_repository import ServiceRepository
 from adapters.postgres.session import create_engine_and_session_factory
-from framework.contracts.resource_scope import SERVICE_CONFIGURATION_INVALID
+from framework.contracts.resource_scope import SERVICE_SCOPE_TYPE_UNKNOWN
 from framework.integration.resource_scope_registry import ResourceScopeRegistry
 from framework.web.errors import AppError
 
@@ -33,6 +33,8 @@ async def factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
         async with engine.connect():
             pass
     except Exception as exc:
+        if os.environ.get("REQUIRE_PG") == "1":
+            pytest.fail(f"REQUIRE_PG=1 but the database is unreachable: {exc}")
         pytest.skip(f"no local PG for integration test: {exc}")
     yield session_factory
     await engine.dispose()
@@ -92,14 +94,18 @@ async def test_s05_declared_scope_freezes_registry_schema_hash(
 async def test_e04_unknown_scope_type_rejected_without_writing_release(
     factory: async_sessionmaker[AsyncSession], registry: ResourceScopeRegistry
 ) -> None:
-    """E-04: 未知 type 抛 SERVICE_CONFIGURATION_INVALID，且无 release 行落库。"""
+    """E-04: 发布侧未知 type 抛 SERVICE_SCOPE_TYPE_UNKNOWN（422），且无 release 行落库。
+
+    发布侧是**管理员输入错**（作者可修），与执行侧的
+    SERVICE_CONFIGURATION_INVALID(500)（框架冻结态与 registry 不一致）分开。
+    """
     repo = ServiceRepository(factory, scope_registry=registry)
     draft: dict[str, object] = {"name": "n", "goal": "g", "resource_scope_type": "customer"}
     service_id = await _make_service(factory, f"e04-{uuid.uuid4().hex[:8]}", draft)
     try:
         with pytest.raises(AppError) as exc_info:
             await repo.publish(service_id)
-        assert exc_info.value.code == SERVICE_CONFIGURATION_INVALID
+        assert exc_info.value.code == SERVICE_SCOPE_TYPE_UNKNOWN
         async with factory() as session:
             count = await session.scalar(
                 select(func.count())

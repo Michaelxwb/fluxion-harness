@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from adapters.postgres.models import AgentDefinitionModel
+from adapters.postgres.models import (
+    AgentCapabilityBindingModel,
+    AgentDefinitionModel,
+    AgentKnowledgeBindingModel,
+    AgentServiceBindingModel,
+    AgentSkillBindingModel,
+    AuditLogModel,
+)
 from framework.domain.agent import AgentDefinition
 from framework.web.errors import AppError
 
@@ -16,13 +24,20 @@ class AgentRepository:
         self._session_factory = session_factory
 
     @staticmethod
-    def to_domain(row: AgentDefinitionModel) -> AgentDefinition:
-        """Translate a persisted row into the domain object (S-01 boundary).
+    def to_domain(
+        row: AgentDefinitionModel,
+        *,
+        skill_bindings: Sequence[UUID] = (),
+        knowledge_bindings: Sequence[UUID] = (),
+        capability_bindings: Sequence[UUID] = (),
+        service_bindings: Sequence[UUID] = (),
+    ) -> AgentDefinition:
+        """Translate a row **plus its binding rows** into the domain aggregate.
 
-        The adapter is the only layer that knows the table shape, so the
-        Domain Model ↔ Repository Schema translation lives here. Binding
-        collections (skill/knowledge/capability/service) are stored in their own
-        tables and are not loaded by this mapping.
+        Bindings live in four separate tables, so a row alone cannot produce a
+        complete ``AgentDefinition``. Every binding set must be passed
+        explicitly; callers that only have the row must use :meth:`resolve` so
+        an incomplete aggregate can never be built by omission.
         """
         return AgentDefinition(
             id=row.id,
@@ -30,14 +45,65 @@ class AgentRepository:
             description=row.description,
             instructions=row.instructions,
             model_config_ref=str(row.model_config_id) if row.model_config_id else "",
+            skill_bindings=[str(item) for item in skill_bindings],
+            knowledge_bindings=[str(item) for item in knowledge_bindings],
+            capability_bindings=[str(item) for item in capability_bindings],
+            service_bindings=[str(item) for item in service_bindings],
             memory_policy=row.memory_policy,
             revision=row.revision,
             enabled=row.enabled,
         )
 
     async def resolve(self, agent_id: UUID) -> AgentDefinition:
-        """Load an agent and return it as a domain object (LIB-02)."""
-        return self.to_domain(await self.get(agent_id))
+        """Load an agent with all four binding sets as a full aggregate (LIB-02)."""
+        async with self._session_factory() as session:
+            row = await session.scalar(
+                select(AgentDefinitionModel).where(
+                    AgentDefinitionModel.id == agent_id,
+                    AgentDefinitionModel.is_deleted.is_(False),
+                )
+            )
+            if row is None:
+                raise AppError(code="AGENT_NOT_FOUND", message="agent not found", status_code=404)
+            skills = (
+                await session.scalars(
+                    select(AgentSkillBindingModel.skill_id).where(
+                        AgentSkillBindingModel.agent_id == agent_id,
+                        AgentSkillBindingModel.is_deleted.is_(False),
+                    )
+                )
+            ).all()
+            knowledge = (
+                await session.scalars(
+                    select(AgentKnowledgeBindingModel.knowledge_source_id).where(
+                        AgentKnowledgeBindingModel.agent_id == agent_id,
+                        AgentKnowledgeBindingModel.is_deleted.is_(False),
+                    )
+                )
+            ).all()
+            capabilities = (
+                await session.scalars(
+                    select(AgentCapabilityBindingModel.capability_id).where(
+                        AgentCapabilityBindingModel.agent_id == agent_id,
+                        AgentCapabilityBindingModel.is_deleted.is_(False),
+                    )
+                )
+            ).all()
+            services = (
+                await session.scalars(
+                    select(AgentServiceBindingModel.service_id).where(
+                        AgentServiceBindingModel.agent_id == agent_id,
+                        AgentServiceBindingModel.is_deleted.is_(False),
+                    )
+                )
+            ).all()
+        return self.to_domain(
+            row,
+            skill_bindings=skills,
+            knowledge_bindings=knowledge,
+            capability_bindings=capabilities,
+            service_bindings=services,
+        )
 
     async def list(
         self,
@@ -78,6 +144,33 @@ class AgentRepository:
                 raise AppError(code="AGENT_NOT_FOUND", message="agent not found", status_code=404)
             return row
 
+    @staticmethod
+    def _record_audit(
+        session: AsyncSession,
+        *,
+        action: str,
+        entity_id: UUID,
+        revision: int,
+        actor_user_id: UUID | None,
+        request_id: str | None,
+    ) -> None:
+        """Write one audit event per management action (02 RULE-06).
+
+        ``details`` carries only revision identity — never the full payload
+        (RULE-06: details 禁完整 payload).
+        """
+        session.add(
+            AuditLogModel(
+                actor_user_id=actor_user_id,
+                action=action,
+                entity_type="agent_definition",
+                entity_id=str(entity_id),
+                request_id=request_id,
+                after_ref=f"r{revision}",
+                details={"revision": revision},
+            )
+        )
+
     async def create(
         self,
         *,
@@ -86,6 +179,8 @@ class AgentRepository:
         instructions: str,
         model_config_id: UUID | None,
         memory_policy: dict[str, Any],
+        actor_user_id: UUID | None = None,
+        request_id: str | None = None,
     ) -> AgentDefinitionModel:
         async with self._session_factory() as session:
             async with session.begin():
@@ -109,6 +204,15 @@ class AgentRepository:
                 )
                 session.add(row)
                 await session.flush()
+                self._record_audit(
+                    session,
+                    action="agent.created",
+                    entity_id=row.id,
+                    revision=row.revision,
+                    actor_user_id=actor_user_id,
+                    request_id=request_id,
+                )
+                await session.flush()
                 await session.refresh(row)
                 return row
 
@@ -121,6 +225,9 @@ class AgentRepository:
         instructions: str,
         model_config_id: UUID | None,
         memory_policy: dict[str, Any],
+        expected_revision: int,
+        actor_user_id: UUID | None = None,
+        request_id: str | None = None,
     ) -> AgentDefinitionModel:
         async with self._session_factory() as session:
             async with session.begin():
@@ -134,6 +241,17 @@ class AgentRepository:
                 )
                 if row is None:
                     raise AppError(code="AGENT_NOT_FOUND", message="agent not found", status_code=404)
+                # Optimistic concurrency: the caller must state the revision it
+                # read. Without this, two managers editing the same Agent
+                # silently clobber each other (last write wins, no signal).
+                if row.revision != expected_revision:
+                    raise AppError(
+                        code="AGENT_REVISION_CONFLICT",
+                        message=(
+                            f"agent revision changed: expected {expected_revision}, found {row.revision}"
+                        ),
+                        status_code=409,
+                    )
                 row.name = name
                 row.description = description
                 row.instructions = instructions
@@ -141,10 +259,26 @@ class AgentRepository:
                 row.memory_policy = memory_policy
                 row.revision += 1
                 await session.flush()
+                self._record_audit(
+                    session,
+                    action="agent.saved",
+                    entity_id=row.id,
+                    revision=row.revision,
+                    actor_user_id=actor_user_id,
+                    request_id=request_id,
+                )
+                await session.flush()
                 await session.refresh(row)
                 return row
 
-    async def set_enabled(self, agent_id: UUID, *, enabled: bool) -> None:
+    async def set_enabled(
+        self,
+        agent_id: UUID,
+        *,
+        enabled: bool,
+        actor_user_id: UUID | None = None,
+        request_id: str | None = None,
+    ) -> None:
         async with self._session_factory() as session:
             async with session.begin():
                 row = await session.scalar(
@@ -158,8 +292,22 @@ class AgentRepository:
                 if row is None:
                     raise AppError(code="AGENT_NOT_FOUND", message="agent not found", status_code=404)
                 row.enabled = enabled
+                self._record_audit(
+                    session,
+                    action="agent.enabled" if enabled else "agent.disabled",
+                    entity_id=row.id,
+                    revision=row.revision,
+                    actor_user_id=actor_user_id,
+                    request_id=request_id,
+                )
 
-    async def soft_delete(self, agent_id: UUID) -> None:
+    async def soft_delete(
+        self,
+        agent_id: UUID,
+        *,
+        actor_user_id: UUID | None = None,
+        request_id: str | None = None,
+    ) -> None:
         async with self._session_factory() as session:
             async with session.begin():
                 row = await session.scalar(
@@ -172,4 +320,12 @@ class AgentRepository:
                 )
                 if row is None:
                     return
+                self._record_audit(
+                    session,
+                    action="agent.deleted",
+                    entity_id=row.id,
+                    revision=row.revision,
+                    actor_user_id=actor_user_id,
+                    request_id=request_id,
+                )
                 row.is_deleted = True

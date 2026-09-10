@@ -7,13 +7,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from adapters.postgres.models import (
+    AgentCapabilityBindingModel,
     AgentDefinitionModel,
+    AgentKnowledgeBindingModel,
     AgentServiceBindingModel,
+    AgentSkillBindingModel,
     AuditLogModel,
     ServiceDefinitionModel,
     ServiceReleaseModel,
+    SkillArtifactModel,
 )
-from framework.contracts.resource_scope import SERVICE_CONFIGURATION_INVALID
+from framework.contracts.resource_scope import SERVICE_SCOPE_TYPE_UNKNOWN
 from framework.domain.publish import PublishedService, build_service_release
 from framework.integration.resource_scope_registry import ResourceScopeRegistry
 from framework.web.errors import AppError
@@ -122,33 +126,88 @@ class ServiceRepository:
         registered = self._scope_registry.get(scope_type)
         if registered is None:
             raise AppError(
-                code=SERVICE_CONFIGURATION_INVALID,
+                code=SERVICE_SCOPE_TYPE_UNKNOWN,
                 message=f"unknown resource_scope_type: {scope_type}",
                 status_code=422,
             )
         return registered.schema_hash
 
     async def _freeze_bound_agents(self, session: AsyncSession, service_id: UUID) -> dict[str, object]:
-        """Freeze the current config of every Agent bound to this Service (FEAT-02).
+        """Freeze each bound Agent's **full aggregate** as of publish time (FEAT-02).
 
-        D04 makes Agent edits direct-effect, so a published Service must carry
-        its own copy of the Agent config it was published against. Keyed by
-        agent id and ordered by id so the canonical content hash is reproducible.
-        A Service with no bound Agent freezes an empty snapshot.
+        Freezing the ``agent_definition`` row alone is not enough: the Agent's
+        skills (with their checksums), knowledge sources and capability bindings
+        also determine what the Service does, and D04 makes Agent edits
+        direct-effect. All four binding sets are captured here.
+
+        Keyed by agent id, ordered by id, so the canonical content hash is
+        reproducible. A Service with no bound Agent freezes an empty snapshot.
         """
-        result = await session.execute(
-            select(AgentDefinitionModel)
-            .join(
-                AgentServiceBindingModel,
-                AgentServiceBindingModel.agent_id == AgentDefinitionModel.id,
+        agents = (
+            await session.scalars(
+                select(AgentDefinitionModel)
+                .join(
+                    AgentServiceBindingModel,
+                    AgentServiceBindingModel.agent_id == AgentDefinitionModel.id,
+                )
+                .where(
+                    AgentServiceBindingModel.service_id == service_id,
+                    AgentServiceBindingModel.is_deleted.is_(False),
+                    AgentDefinitionModel.is_deleted.is_(False),
+                )
+                .order_by(AgentDefinitionModel.id)
             )
-            .where(
-                AgentServiceBindingModel.service_id == service_id,
-                AgentServiceBindingModel.is_deleted.is_(False),
-                AgentDefinitionModel.is_deleted.is_(False),
+        ).all()
+        if not agents:
+            return {}
+        agent_ids = [agent.id for agent in agents]
+
+        # Three batched queries (not per-agent) to keep the freeze O(1) in round trips.
+        skills: dict[UUID, list[dict[str, str]]] = {agent_id: [] for agent_id in agent_ids}
+        for binding_agent_id, skill_id, checksum in (
+            await session.execute(
+                select(
+                    AgentSkillBindingModel.agent_id,
+                    AgentSkillBindingModel.skill_id,
+                    SkillArtifactModel.checksum,
+                )
+                .join(SkillArtifactModel, SkillArtifactModel.id == AgentSkillBindingModel.skill_id)
+                .where(
+                    AgentSkillBindingModel.agent_id.in_(agent_ids),
+                    AgentSkillBindingModel.is_deleted.is_(False),
+                    SkillArtifactModel.is_deleted.is_(False),
+                )
+                .order_by(AgentSkillBindingModel.agent_id, AgentSkillBindingModel.skill_id)
             )
-            .order_by(AgentDefinitionModel.id)
-        )
+        ).all():
+            skills[binding_agent_id].append({"id": str(skill_id), "checksum": checksum})
+
+        knowledge: dict[UUID, list[str]] = {agent_id: [] for agent_id in agent_ids}
+        for binding_agent_id, source_id in (
+            await session.execute(
+                select(AgentKnowledgeBindingModel.agent_id, AgentKnowledgeBindingModel.knowledge_source_id)
+                .where(
+                    AgentKnowledgeBindingModel.agent_id.in_(agent_ids),
+                    AgentKnowledgeBindingModel.is_deleted.is_(False),
+                )
+                .order_by(AgentKnowledgeBindingModel.agent_id, AgentKnowledgeBindingModel.knowledge_source_id)
+            )
+        ).all():
+            knowledge[binding_agent_id].append(str(source_id))
+
+        capabilities: dict[UUID, list[str]] = {agent_id: [] for agent_id in agent_ids}
+        for binding_agent_id, capability_id in (
+            await session.execute(
+                select(AgentCapabilityBindingModel.agent_id, AgentCapabilityBindingModel.capability_id)
+                .where(
+                    AgentCapabilityBindingModel.agent_id.in_(agent_ids),
+                    AgentCapabilityBindingModel.is_deleted.is_(False),
+                )
+                .order_by(AgentCapabilityBindingModel.agent_id, AgentCapabilityBindingModel.capability_id)
+            )
+        ).all():
+            capabilities[binding_agent_id].append(str(capability_id))
+
         return {
             str(agent.id): {
                 "name": agent.name,
@@ -158,8 +217,11 @@ class ServiceRepository:
                 "memory_policy": agent.memory_policy,
                 "revision": agent.revision,
                 "enabled": agent.enabled,
+                "skill_bindings": skills[agent.id],
+                "knowledge_bindings": knowledge[agent.id],
+                "capability_bindings": capabilities[agent.id],
             }
-            for agent in result.scalars().all()
+            for agent in agents
         }
 
     async def _switch_current_release(

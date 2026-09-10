@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from adapters.postgres.agent_repository import AgentRepository
 from adapters.postgres.models import AgentDefinitionModel
 from apps.platform_api.dependencies import get_session_factory
+from framework.observability.context import request_id_ctx
 from framework.web.pagination import PageData
 from framework.web.response import ApiResponse, ok
 
@@ -18,6 +19,17 @@ class AgentUpsert(BaseModel):
     instructions: str = Field(min_length=1)
     model_config_id: UUID | None = None
     memory_policy: dict[str, object] = Field(default_factory=dict)
+
+
+class AgentSave(AgentUpsert):
+    """Update body.
+
+    ``revision`` is required: the caller must state the revision it read, so a
+    concurrent edit conflicts (409) instead of silently clobbering — last write
+    wins with no signal.
+    """
+
+    revision: int = Field(ge=1)
 
 
 class AgentSummary(BaseModel):
@@ -59,23 +71,34 @@ async def list_agents(
 
 @router.post("", response_model=ApiResponse[AgentSummary], status_code=201)
 async def create_agent(request: AgentUpsert) -> ApiResponse[AgentSummary]:
-    row = await _repo().create(**request.model_dump())
+    row = await _repo().create(**request.model_dump(), request_id=request_id_ctx.get())
     return ok(_summary(row), message="created")
 
 
 @router.put("/{agent_id}", response_model=ApiResponse[AgentSummary])
-async def save_agent(agent_id: UUID, request: AgentUpsert) -> ApiResponse[AgentSummary]:
-    row = await _repo().save(agent_id, **request.model_dump())
+async def save_agent(agent_id: UUID, request: AgentSave) -> ApiResponse[AgentSummary]:
+    row = await _repo().save(
+        agent_id,
+        **request.model_dump(exclude={"revision"}),
+        expected_revision=request.revision,
+        request_id=request_id_ctx.get(),
+    )
     return ok(_summary(row))
+
+
+@router.post("/{agent_id}/enable", response_model=ApiResponse[dict[str, bool]])
+async def enable_agent(agent_id: UUID) -> ApiResponse[dict[str, bool]]:
+    await _repo().set_enabled(agent_id, enabled=True, request_id=request_id_ctx.get())
+    return ok({"enabled": True})
 
 
 @router.post("/{agent_id}/disable", response_model=ApiResponse[dict[str, bool]])
 async def disable_agent(agent_id: UUID) -> ApiResponse[dict[str, bool]]:
-    await _repo().set_enabled(agent_id, enabled=False)
+    await _repo().set_enabled(agent_id, enabled=False, request_id=request_id_ctx.get())
     return ok({"enabled": False})
 
 
 @router.delete("/{agent_id}", response_model=ApiResponse[dict[str, bool]])
 async def delete_agent(agent_id: UUID) -> ApiResponse[dict[str, bool]]:
-    await _repo().soft_delete(agent_id)
+    await _repo().soft_delete(agent_id, request_id=request_id_ctx.get())
     return ok({"deleted": True})
