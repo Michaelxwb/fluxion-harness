@@ -7,12 +7,37 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from adapters.postgres.models import AgentDefinitionModel
+from framework.domain.agent import AgentDefinition
 from framework.web.errors import AppError
 
 
 class AgentRepository:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
         self._session_factory = session_factory
+
+    @staticmethod
+    def to_domain(row: AgentDefinitionModel) -> AgentDefinition:
+        """Translate a persisted row into the domain object (S-01 boundary).
+
+        The adapter is the only layer that knows the table shape, so the
+        Domain Model ↔ Repository Schema translation lives here. Binding
+        collections (skill/knowledge/capability/service) are stored in their own
+        tables and are not loaded by this mapping.
+        """
+        return AgentDefinition(
+            id=row.id,
+            name=row.name,
+            description=row.description,
+            instructions=row.instructions,
+            model_config_ref=str(row.model_config_id) if row.model_config_id else "",
+            memory_policy=row.memory_policy,
+            revision=row.revision,
+            enabled=row.enabled,
+        )
+
+    async def resolve(self, agent_id: UUID) -> AgentDefinition:
+        """Load an agent and return it as a domain object (LIB-02)."""
+        return self.to_domain(await self.get(agent_id))
 
     async def list(
         self,

@@ -11,10 +11,12 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from adapters.postgres.agent_repository import AgentRepository
 from adapters.postgres.models import (
     AgentDefinitionModel,
     CapabilityDefinitionModel,
     ExecutionSnapshotModel,
+    ModelConfigModel,
     PlatformUserModel,
     ServiceDefinitionModel,
     SkillArtifactModel,
@@ -23,6 +25,7 @@ from adapters.postgres.models import (
 from adapters.postgres.session import create_engine_and_session_factory
 from framework.contracts.context import TrustedExecutionContext
 from framework.contracts.resource_scope import ValidatedResourceScope
+from framework.domain.agent import AgentDefinition
 from framework.execution.snapshot import build_execution_snapshot
 
 TEST_DATABASE_URL = os.environ.get(
@@ -176,3 +179,74 @@ async def test_s04_skill_artifact_checksum_immutable(factory: async_sessionmaker
                 await session.execute(
                     delete(SkillArtifactModel).where(SkillArtifactModel.id.in_([old_id, new_id]))
                 )
+
+
+async def _hard_delete_agent(factory: async_sessionmaker[AsyncSession], agent_id: uuid.UUID) -> None:
+    async with factory() as session:
+        async with session.begin():
+            await session.execute(delete(AgentDefinitionModel).where(AgentDefinitionModel.id == agent_id))
+
+
+async def _hard_delete_model_config(
+    factory: async_sessionmaker[AsyncSession], model_config_id: uuid.UUID
+) -> None:
+    async with factory() as session:
+        async with session.begin():
+            await session.execute(delete(ModelConfigModel).where(ModelConfigModel.id == model_config_id))
+
+
+async def test_s01_domain_object_round_trips_through_repository(
+    factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """S-01: Domain Model → Repository Schema 边界（不直接插 ORM Model）。
+
+    这条边界存在的意义就是发现域对象与持久化 schema 的漂移：对象必须经
+    Repository 落库、再映射回域对象，且字段无损。直接插 ORM Model 的写法
+    绕过了域对象，测不出这类漂移。
+    """
+    repo = AgentRepository(factory)
+    suffix = _suffix()
+    async with factory() as session:
+        async with session.begin():
+            model_config = ModelConfigModel(
+                name=f"model-{suffix}", provider="demo", model="demo-1", config={}
+            )
+            session.add(model_config)
+            await session.flush()
+            model_config_id = model_config.id
+    created = await repo.create(
+        name=f"agent-{suffix}",
+        description="domain-roundtrip",
+        instructions="be helpful",
+        model_config_id=model_config_id,
+        memory_policy={"window": 5},
+    )
+    try:
+        agent = await repo.resolve(created.id)
+        assert isinstance(agent, AgentDefinition)
+        assert agent.id == created.id
+        assert agent.name == f"agent-{suffix}"
+        assert agent.description == "domain-roundtrip"
+        assert agent.instructions == "be helpful"
+        assert agent.memory_policy == {"window": 5}
+        assert agent.model_config_ref == str(model_config_id)
+        assert agent.revision == 1
+        assert agent.enabled is True
+        # RULE-01: 域对象只暴露框架通用字段，无任何项目专属字段
+        assert set(AgentDefinition.model_fields) == {
+            "id",
+            "name",
+            "description",
+            "instructions",
+            "model_config_ref",
+            "skill_bindings",
+            "knowledge_bindings",
+            "capability_bindings",
+            "service_bindings",
+            "memory_policy",
+            "revision",
+            "enabled",
+        }
+    finally:
+        await _hard_delete_agent(factory, created.id)
+        await _hard_delete_model_config(factory, model_config_id)
