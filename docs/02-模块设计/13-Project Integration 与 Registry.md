@@ -34,6 +34,7 @@
 | v1.1 | 2026-09-10 | V1.7 整改：Manifest=YAML+Pydantic+canonical JSON+SHA256（D08）、resource_scope_types 声明（D01）、第二 Demo=local-weekly-report |
 | v1.2 | 2026-09-10 | 补「归属」列；后置 E2E 段登记承接方 |
 | v1.3 | 2026-09-10 | 补 FEAT-06/LIB-03/S-05/E-03：Scope Registry 装载此前无模块认领，导致模块 01 的 RULE-05 与模块 05 的执行校验都没有数据来源 |
+| v1.4 | 2026-09-10 | 明确两点：`IntegrationRegistration` 为运行时登记、**不落库**（§3.3，权威来源是 manifest 文件；「可审计」改由启动日志 + health 承载）；装配点**跟随消费方**（FEAT-03），不做全局统一装配 |
 
 ---
 
@@ -66,8 +67,8 @@
 | 功能ID | 功能名称 | 功能描述 | 优先级 | 来源 |
 |---|---|---|---|---|
 | FEAT-01 | Integration Package | 封装 services/agents/capabilities/auth/knowledge/tests。 | P0 | 总体设计 V1.6 |
-| FEAT-02 | Manifest/Registry | V1.7 D08：Authoring=YAML → Pydantic 校验 → canonical JSON → SHA-256；声明 provider/seed/channel adapter + resource_scope_types；key 冲突 fail-fast。 | P0 | 总体设计 V1.7 |
-| FEAT-03 | 部署装配 | apps 启动时加载选定 Integration。 | P0 | 总体设计 V1.6 |
+| FEAT-02 | Manifest/Registry | V1.7 D08：Authoring=YAML → Pydantic 校验 → canonical JSON → SHA-256；声明 provider/seed/channel adapter + resource_scope_types；key 冲突 fail-fast。登记为运行时行为，**不落库**（见 §3.3）。 | P0 | 总体设计 V1.7 |
+| FEAT-03 | 部署装配 | **装配点跟随消费方：哪个进程消费某类 Integration 产物，就由哪个进程装配它。** 不做全局统一装配。当前消费关系——`platform-api`：scope registry（发布时冻结 `schema_hash`，模块 01 LIB-01）；`worker` / `agent-runtime`：scope registry（创建 Execution 时校验 `Proposal.resource_scope`，模块 05 LIB-01）——后两者待模块 05 落地后接入。**未消费的进程不装配。** | P0 | 总体设计 V1.6 |
 | FEAT-04 | Core Purity Gate | 禁止 Framework Core 反向 import Project Integration。 | P0 | 总体设计 V1.6 |
 | FEAT-05 | 第二样例 | 锁定 `local-weekly-report`（Workspace glob/read → Agent summarize → write → Artifact，零 MSS/外部API/Auth，V1.7 D08）。 | P0 | 总体设计 V1.7 |
 | FEAT-06 | Scope Registry 装载 | 把 manifest 的 `resource_scope_types`（`{<type>: {schema: <JSON Schema>}}`）投影为 scope registry（type name → JSON Schema + `schema_hash`），供模块 01（发布时冻结 schema_hash）与模块 05（执行时校验 `Proposal.resource_scope`）消费；type 重复或 schema 非法 fail-fast。 | P0 | 总体设计 V1.7 D01 |
@@ -183,9 +184,21 @@ flowchart LR
 > **统一数据库公共字段约束**：本模块凡新增 Framework 自建表，均必须包含 `is_deleted BOOLEAN NOT NULL DEFAULT FALSE`、`create_time TIMESTAMPTZ NOT NULL DEFAULT now()`、`update_time TIMESTAMPTZ NOT NULL DEFAULT now()`；Repository 默认过滤 `is_deleted=false`，删除默认逻辑删除。第三方自管理表（如 LangGraph Checkpointer）不修改其内部 Schema。
 
 
-| 数据对象/表 | 关键字段 | 约束/索引 | 说明 |
-|---|---|---|---|
-| integration_registration | key、name、package_ref、integration_type、manifest_hash、enabled、loaded_at | key unique | 装配登记，不做重版本 |
+**本模块 V1 不落库——不新增、也不写入任何 Framework 自建表。**
+
+`IntegrationRegistration`（key / name / package_ref / integration_type / manifest_hash / enabled / loaded_at）是**运行时登记**：装配结果的内存投影，只用于启动自检与 `/health` 展示。
+
+**权威来源是部署制品中的 manifest 文件本身**，不是数据库。理由：
+
+1. 它是**派生数据**——总设 §「IntegrationRegistration」定义为「只登记当前部署已装配的项目扩展」，
+   即装配结果的记录，不是来源；
+2. Integration 在**部署时选定**（§2.4 前置假设），manifest 随部署制品分发，进程重启即可重建，
+   落库只会在「库里的行」与「实际部署的 manifest」之间引入失配风险；
+3. 它不在架构基线 §8「状态事实源」清单内。
+
+「registration 可审计」的承载方式是**启动日志事件 + `/health` 加载状态**（见 §3.5），
+不是数据库留痕。**代价**：查不到历史（例如「上周部署用的 manifest_hash」）——日志会轮转、
+health 只看当前。这是有意接受的取舍，不是遗漏。
 
 
 
@@ -227,6 +240,9 @@ SSE/WebSocket/文件流属于协议例外，但必须复用统一错误码 taxon
 #### 可观测性
 
 integration_loaded/failed、provider registration、manifest hash、conflict；health 中显示加载状态。
+
+**这是「registration 可审计」的唯一承载方式**（§3.3：不落库）。启动日志事件需含：integration key、
+manifest_hash、加载结果、冲突详情；`/health` 暴露当前已装配的 integration 清单与其 manifest_hash。
 
 #### 测试策略
 
