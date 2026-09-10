@@ -8,9 +8,11 @@ validators:
       timeout: 30000
       on_fail: "检查语法错误"
 
+    # tsconfig.json 在 frontend/console/，项目根没有；在根执行 npx tsc 会去下载
+    # TypeScript 并报 "you are looking for ..." —— 凡是改过 .ts/.tsx 的会话都会假失败。
     - name: "TypeScript 类型检查"
       trigger: "**/*.{ts,tsx}"
-      command: "npx tsc --noEmit"
+      command: "cd frontend/console && npx tsc --noEmit"
       timeout: 30000
       on_fail: "检查类型定义，参见 specs/frontend/quality-standards.md"
 

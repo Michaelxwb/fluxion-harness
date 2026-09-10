@@ -87,10 +87,26 @@ def session_edited_files(project_root: str, sid: str) -> list:
         if event.get("sid") != sid:
             continue
         rel = (event.get("data") or {}).get("file")
-        if rel and rel not in seen:
-            seen.add(rel)
-            files.append(rel)
+        if not rel or rel in seen:
+            continue
+        # 会话日志是 append-only：文件被删除或移动后 edit 事件仍然留在里面。
+        # 把已不存在的路径交给 validators 会让 py_compile / mypy 报
+        # "No such file or directory" 并使该 sid 的校验从此永久失败。
+        if not os.path.exists(os.path.join(project_root, rel)):
+            continue
+        seen.add(rel)
+        files.append(rel)
     return files
+
+
+def _is_harness_path(rel_path: str) -> bool:
+    """`.code-flow/` 是 code-flow 工具链自身，不属于项目源码。
+
+    项目质量门禁（py_compile / mypy / ruff）描述的是项目代码的规则，不应作用于
+    工具链脚本——否则编辑 hook 本身会让 hook 去 lint 自己，而该目录的 strict 违规
+    与本项目无关。mypy 默认也跳过点目录，这里保持一致。
+    """
+    return normalize_path(rel_path).startswith(".code-flow/")
 
 
 def _is_active_task_file(rel_path: str) -> bool:
@@ -178,7 +194,11 @@ def run_validators(
     for validator in validators:
         if not isinstance(validator, dict):
             continue
-        matched = [f for f in files if trigger_matches(validator.get("trigger", ""), f)]
+        matched = [
+            f
+            for f in files
+            if not _is_harness_path(f) and trigger_matches(validator.get("trigger", ""), f)
+        ]
         if not matched:
             continue
         remaining = deadline - time.monotonic()
