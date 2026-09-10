@@ -5,6 +5,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+import adapters.postgres.models  # noqa: F401  (触发 ORM 表注册)
 from adapters.postgres.base import Base
 
 config = context.config

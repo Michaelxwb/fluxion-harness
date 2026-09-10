@@ -2,6 +2,7 @@ from pathlib import Path
 
 from sqlalchemy import Boolean, DateTime
 
+import adapters.postgres.models  # noqa: F401  (触发 ORM 表注册)
 from adapters.postgres.base import Base
 
 MANDATORY_COLUMNS = {"is_deleted", "create_time", "update_time"}
