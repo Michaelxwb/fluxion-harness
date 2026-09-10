@@ -211,6 +211,10 @@ class ExecutionSnapshot(BaseModel):
     skill_required_capabilities: list[str] = Field(default_factory=list)
     skill_versions: dict[str, str] = Field(default_factory=dict)
     mcp_versions: dict[str, str] = Field(default_factory=dict)
+    # TASK-003：各 bound MCP 精确版本下 approved + enabled 策略的
+    # {tool_name: schema_hash}（resolve 期冻结，进 canonical digest；
+    # prepare 期漂移比对见 TASK-005 B-02）。
+    mcp_tool_policies: dict[str, dict[str, str]] = Field(default_factory=dict)
     # ADR-A003 amend：typed pins 定型——provider/model exact version pin；
     # plugin_versions（原模型 provider pins）废弃迁移至 provider_versions。
     provider_versions: dict[str, str] = Field(default_factory=dict)

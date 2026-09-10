@@ -36,6 +36,7 @@ import type {
   ToolCallTestResult,
   ResourceType,
   ResourceVersion,
+  SkillPackageInfo,
   RollbackResult,
   RunDetail,
   User360Summary,
@@ -71,6 +72,8 @@ import {
   parsePublishValidation,
   parseResource,
   parseResourcePage,
+  parseSkillPublication,
+  parseSkillPackageInfo,
   parseResourceSchema,
   parseRunPage,
   parseUserChatAccessList,
@@ -378,6 +381,25 @@ class HttpConsoleApi implements ConsoleApi {
       jsonRequest("POST", { spec }),
       parseResource
     );
+  }
+
+  async getSkillPackage(skillId: string, version: string): Promise<SkillPackageInfo> {
+    return this.client.request(
+      `/api/v1/skills/${encodeURIComponent(skillId)}/versions/${encodeURIComponent(version)}/package`,
+      undefined,
+      parseSkillPackageInfo
+    );
+  }
+
+  async uploadSkillPackage(file: File): Promise<ResourceVersion> {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    const publication = await this.client.requestForm(
+      "/api/v1/skills/packages",
+      form,
+      parseSkillPublication
+    );
+    return this.getResource("skill", publication.skillId, publication.version);
   }
 
   async createTool(spec: JsonRecord): Promise<ResourceVersion> {

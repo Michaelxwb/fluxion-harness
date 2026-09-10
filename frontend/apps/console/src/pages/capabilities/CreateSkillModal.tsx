@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Input, Modal, Typography } from "@douyinfe/semi-ui";
+import { Modal, Typography } from "@douyinfe/semi-ui";
 
 import type { ConsoleApi, ResourceVersion } from "../../types/console";
 
@@ -11,41 +11,55 @@ interface CreateSkillModalProps {
   readonly visible: boolean;
 }
 
-/** TASK-016（§8.3）：新建 Skill Modal——名称/描述；创建即进入独立 Skill Editor
- * 编辑复杂内容（instructions/required_capabilities）。id/version 服务端生成。 */
+/** TASK-012：新建 Skill = Skill Package 上传（ZIP→解析预览→上传发布）。
+ * instructions 编辑创建路径已删除（后端 FEAT-08）。 */
 export function CreateSkillModal({
   api,
   onClose,
   onCreated,
   visible
 }: CreateSkillModalProps) {
-  const [name, setName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
-      setName("");
+      setFile(null);
       setError(null);
+      setPreview(null);
     }
   }, [visible]);
 
-  async function create(): Promise<void> {
-    if (!name.trim()) {
-      setError("请输入技能名称");
+  function onFileChange(event: React.ChangeEvent<HTMLInputElement>): void {
+    const selected = event.target.files?.[0] ?? null;
+    setError(null);
+    setPreview(null);
+    if (!selected) {
+      setFile(null);
+      return;
+    }
+    if (!selected.name.toLowerCase().endsWith(".zip")) {
+      setError("不是有效的 Skill Package（仅支持 .zip）");
+      setFile(null);
+      return;
+    }
+    setFile(selected);
+    setPreview(`已选择 ${selected.name}（${(selected.size / 1024).toFixed(1)} KB），上传后解析发布`);
+  }
+
+  async function upload(): Promise<void> {
+    if (!file) {
+      setError("请先选择 Skill Package（.zip）");
       return;
     }
     setBusy(true);
     try {
-      const created = await api.createSkill({
-        name: name.trim(),
-        instructions: "",
-        required_capabilities: [],
-        visibility: "public"
-      });
+      const created = await api.uploadSkillPackage(file);
       onCreated(created);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "创建失败");
+      setError(cause instanceof Error ? cause.message : "上传失败");
     } finally {
       setBusy(false);
     }
@@ -54,25 +68,32 @@ export function CreateSkillModal({
   return (
     <Modal
       cancelText="取 消"
-      okText="创 建"
       okButtonProps={{ loading: busy }}
-      onOk={() => void create()}
+      okText="上传发布"
       onCancel={onClose}
+      onOk={() => void upload()}
       title="新建 Skill"
       visible={visible}
     >
       <div style={{ display: "grid", gap: 12, paddingTop: 8 }}>
         <div>
-          <Typography.Text>技能名称 *</Typography.Text>
-          <Input
-            aria-label="技能名称"
-            onChange={(value) => setName(String(value))}
-            placeholder="如 周报汇总"
-            value={name}
-          />
+          <Typography.Text>Skill Package（.zip） *</Typography.Text>
+          <div style={{ marginTop: 8 }}>
+            <input
+              aria-label="Skill Package（.zip）"
+              accept=".zip"
+              onChange={onFileChange}
+              type="file"
+            />
+          </div>
         </div>
+        {preview ? (
+          <Typography.Text type="tertiary" size="small">
+            解析成功：{preview}
+          </Typography.Text>
+        ) : null}
         <Typography.Text type="tertiary" size="small">
-          创建后进入 Skill Editor 编辑做法说明与所需能力。
+          Package 须含 manifest.yaml 与 SKILL.md；发布后进入版本治理。
         </Typography.Text>
         {error ? <Typography.Text type="danger">{error}</Typography.Text> : null}
       </div>

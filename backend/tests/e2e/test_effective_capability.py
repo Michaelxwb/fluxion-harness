@@ -47,7 +47,7 @@ async def test_RS4_tenant_policy_allow_list_mode(pg_store: RegistryStore) -> Non
 
 
 @pytest.mark.asyncio
-async def test_RS4_tenant_policy_deny_only_mode(pg_store: RegistryStore) -> None:
+async def test_RS4_tenant_policy_empty_allow_list_mode(pg_store: RegistryStore) -> None:
     await publish_resource(
         pg_store,
         tenant_id="tenant-a",
@@ -61,7 +61,8 @@ async def test_RS4_tenant_policy_deny_only_mode(pg_store: RegistryStore) -> None
     resolver = EffectiveCapabilityResolver(pg_store)
     allowed, denied, configured = await resolver.tenant_policy_tools(tenant_id="tenant-a")
 
-    # deny-only（allowed 为空）：调用方不缩小集合，仅从各维度移除 denied
+    # TASK-001 起 deny-only 已删除：allowed 为空 = allow_list 空集，
+    # 调用方按空集执行三维交集（fail-closed）；denied 仍优先移除
     assert configured is True
     assert allowed == set()
     assert denied == {"mcp__weather__delete"}

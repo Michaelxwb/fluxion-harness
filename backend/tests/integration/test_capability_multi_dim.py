@@ -181,11 +181,11 @@ async def test_B_S02_real_chain_grant_store_to_runtime(
 
 
 @pytest.mark.asyncio
-async def test_B_S02_deny_only_policy_allows_unless_denied(
+async def test_B_S02_configured_policy_without_allow_list_fails_closed(
     pg_store: RegistryStore,
 ) -> None:
-    """deny-only 模式（allowed 为空）：除 denied 外全部放行——tenant 维度不设
-    allow-list；denied 始终优先（含被 deny 的工具不可调用）。"""
+    """TASK-001（E-01 侧）：已配置 policy 但无 allow 列表（旧 deny-only 形态）→
+    fail-closed：tenant 维度为空集，user/agent 有也不可调用；denied 仍优先移除。"""
     capabilities = [
         {"capability_ref": tool, "version_pin": "1", "type": "tool"}
         for tool in ("time.now", "calc.eval")
@@ -234,9 +234,8 @@ async def test_B_S02_deny_only_policy_allows_unless_denied(
         execution_id="exec_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
     )
     perms = result.snapshot.effective_permissions
-    # deny-only：tenant 冻结图为空集（运行期按「除 denied 外全部」展开），
-    # denied 已从 user/agent 维度移除
-    assert perms["tenant_tool_policy"] == "deny_only"
+    # 已配置但无 allow 列表 → allow_list 空集（fail-closed），deny_only 模式已删除
+    assert perms["tenant_tool_policy"] == "allow_list"
     assert perms["tenant_tools"] == []
     assert perms["denied_tools"] == ["calc.eval"]
     assert "calc.eval" not in perms["user_tools"]
@@ -247,7 +246,7 @@ async def test_B_S02_deny_only_policy_allows_unless_denied(
         snapshot=result.snapshot,
     )
     runtime = _tool_runtime()
-    ok = await runtime.call(context, "time.now", {})
-    assert ok.status is ToolResultStatus.COMPLETED
+    with pytest.raises(ToolAuthorizationError):
+        await runtime.call(context, "time.now", {})
     with pytest.raises(ToolAuthorizationError):
         await runtime.call(context, "calc.eval", {})

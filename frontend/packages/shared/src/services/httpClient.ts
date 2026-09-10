@@ -7,6 +7,7 @@ export interface SseEvent {
 
 export interface HttpClient {
   request<T>(path: string, init: RequestInit | undefined, parse: ResponseParser<T>): Promise<T>;
+  requestForm<T>(path: string, form: FormData, parse: ResponseParser<T>): Promise<T>;
   readEventStream(path: string, init: RequestInit): Promise<string>;
   streamEvents(path: string, init: RequestInit, onEvent: (event: SseEvent) => void): Promise<void>;
 }
@@ -27,6 +28,15 @@ export function createHttpClient(baseUrl = "", fetcher: typeof fetch = fetch): H
   return {
     async request(path, init, parse) {
       const response = await fetcher(`${baseUrl}${path}`, withJsonHeaders(init));
+      const envelope = parseEnvelope(await readEnvelope(response));
+      if (!response.ok || envelope.code !== 0) {
+        throw new ApiError(envelope.message, envelope.code, envelope.requestId, response.status);
+      }
+      return parse(envelope.data);
+    },
+    async requestForm(path, form, parse) {
+      // multipart：不强制 JSON Content-Type（浏览器自动带 boundary）。
+      const response = await fetcher(`${baseUrl}${path}`, { body: form, method: "POST" });
       const envelope = parseEnvelope(await readEnvelope(response));
       if (!response.ok || envelope.code !== 0) {
         throw new ApiError(envelope.message, envelope.code, envelope.requestId, response.status);

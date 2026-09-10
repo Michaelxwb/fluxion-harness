@@ -35,8 +35,8 @@ class EffectiveCapabilityResolver:
         """返回 (allowed, denied, configured)。
 
         - configured=False：未配置 tenant policy，不施加约束。
-        - configured=True 且 allowed 非空：allow-list 模式，仅放行 allowed。
-        - configured=True 且 allowed 为空：deny-only 模式，放行除 denied 外的全部。
+        - configured=True：allow-list 模式，仅放行 allowed（为空即全拒绝，
+          TASK-001 起 deny-only 已删除）。
         denied 始终优先，调用方必须从所有维度移除。
         """
         policy = await self._tenant_policy_tools(tenant_id)

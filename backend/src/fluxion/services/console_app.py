@@ -18,6 +18,7 @@ from fluxion.errors.console import (
     ConsoleValidationError,
 )
 from fluxion.observability.logging import emit_error_log
+from fluxion.plugins.contracts import ArtifactStoreProvider
 from fluxion.registry import (
     AuditRecord,
     ChannelRegistryStore,
@@ -66,6 +67,7 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         release_gate_enforced: bool = False,
         credential_resolver: CredentialResolver | None = None,
         secret_store: SecretStore | None = None,
+        artifact_store: ArtifactStoreProvider | None = None,
         credential_projection_reader: CredentialProjectionReader | None = None,
     ) -> None:
         self._store = store
@@ -76,6 +78,8 @@ class ConsoleApplicationService(ConsoleResourceOps, ConsoleGovernanceOps):
         self._credential_resolver = credential_resolver
         # golden-path-closure TASK-009：明文 Secret 写入（Credential 创建 Journey）。
         self._secret_store = secret_store
+        # TASK-007：Skill Package artifact 落盘（None 则 publish_skill_package 明确失败）。
+        self._artifact_store = artifact_store
         # FEAT-04：Credential Projection 查询接口注入；None 时按 store engine
         # 懒装配默认 Repository（双库同语义），保持旧装配点零改动。
         self._credential_projection_reader = credential_projection_reader

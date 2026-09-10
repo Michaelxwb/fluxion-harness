@@ -15,6 +15,7 @@ import type {
   JsonRecord,
   JsonSchemaNode,
   JsonValue,
+  SkillPackageInfo,
   PageData,
   PlatformUser,
   PublishResult,
@@ -219,6 +220,36 @@ function parsePage(value: unknown): { items: unknown[]; page: number; pageSize: 
     page: requiredNumber(record.page, "page"),
     pageSize: requiredNumber(record.page_size, "page_size"),
     total: requiredNumber(record.total, "total")
+  };
+}
+
+export interface SkillPublication {
+  readonly artifactHash: string;
+  readonly artifactUri: string;
+  readonly skillId: string;
+  readonly version: string;
+}
+
+export function parseSkillPublication(value: unknown): SkillPublication {
+  const record = requiredRecord(value, "skills.packages");
+  return {
+    artifactHash: requiredString(record.artifact_hash, "artifact_hash"),
+    artifactUri: requiredString(record.artifact_uri, "artifact_uri"),
+    skillId: requiredString(record.skill_id, "skill_id"),
+    version: requiredString(record.version, "version")
+  };
+}
+
+export function parseSkillPackageInfo(value: unknown): SkillPackageInfo {
+  const record = requiredRecord(value, "skills.package");
+  return {
+    artifactHash: typeof record.artifact_hash === "string" ? record.artifact_hash : null,
+    artifactUri: typeof record.artifact_uri === "string" ? record.artifact_uri : null,
+    knowledgeManifest: isRecord(record.knowledge_manifest) ? record.knowledge_manifest as JsonRecord : {},
+    manifest: isRecord(record.manifest) ? record.manifest as JsonRecord : {},
+    skillId: requiredString(record.skill_id, "skill_id"),
+    status: requiredString(record.status, "status"),
+    version: requiredString(record.version, "version")
   };
 }
 

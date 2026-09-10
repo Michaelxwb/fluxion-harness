@@ -97,6 +97,14 @@ ANNOTATIONS: dict[str, dict[str, str]] = {
         "StubWorkflowEngine.signals": "Ephemeral",
         "StubWorkflowEngine.cancelled": "Ephemeral",
     },
+    # TASK-004/008：执行器 kind 注册与平台服务目录（进程级装配，启动期填充；
+    # 非执行期数据事实；service 条目变更需重启/重装配）
+    "tool_executors.py": {
+        "ToolExecutorRegistry._factories": "Ephemeral",
+    },
+    "platform_services.py": {
+        "PlatformServiceRegistry._services": "Ephemeral",
+    },
     # capability/agent executor 进程级注册表（worker bootstrap 装配）
     "workflow_graph.py": {
         "module:_capability_executors": "Ephemeral",

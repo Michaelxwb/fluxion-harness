@@ -694,3 +694,124 @@ chat_session_heads = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
 )
+
+# capability-remediation TASK-002：能力专用表（V4 §63 修订版）。
+# 状态值沿用 ResourceStatus 小写（draft/published/deprecated）；版本不可变，
+# exact version 经 UNIQUE（tenant, id, version）召回；credential 只活在
+# resource_bindings.credential_ref，专用表不设凭证列；MCP 无 transport 系字段。
+capability_skills = Table(
+    "capability_skills",
+    metadata,
+    Column("skill_id", String(255), nullable=False),
+    Column("tenant_id", String(128), nullable=False),
+    Column("name", String(255), nullable=False),
+    Column("description", String(1024), nullable=False, default=""),
+    Column("version", Integer, nullable=False),
+    Column("status", String(32), nullable=False),
+    Column("artifact_uri", String(1024), nullable=True),
+    Column("artifact_hash", String(128), nullable=True),
+    Column("manifest_json", JSON, nullable=True),
+    Column("knowledge_manifest_json", JSON, nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    Column("published_at", DateTime(timezone=True), nullable=True),
+)
+
+Index(
+    "idx_capability_skills_tenant",
+    capability_skills.c.tenant_id,
+)
+
+Index(
+    "uq_capability_skills_version",
+    capability_skills.c.tenant_id,
+    capability_skills.c.skill_id,
+    capability_skills.c.version,
+    unique=True,
+)
+
+capability_tools = Table(
+    "capability_tools",
+    metadata,
+    Column("tool_id", String(255), nullable=False),
+    Column("tenant_id", String(128), nullable=False),
+    Column("name", String(128), nullable=False),
+    Column("description", String(1024), nullable=False, default=""),
+    Column("kind", String(32), nullable=False),
+    Column("version", Integer, nullable=False),
+    Column("status", String(32), nullable=False),
+    Column("spec_json", JSON, nullable=False),
+    Column("governance_json", JSON, nullable=False),
+    Column("spec_hash", String(128), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    Column("published_at", DateTime(timezone=True), nullable=True),
+)
+
+Index(
+    "idx_capability_tools_tenant",
+    capability_tools.c.tenant_id,
+)
+
+Index(
+    "uq_capability_tools_version",
+    capability_tools.c.tenant_id,
+    capability_tools.c.tool_id,
+    capability_tools.c.version,
+    unique=True,
+)
+
+capability_mcps = Table(
+    "capability_mcps",
+    metadata,
+    Column("mcp_id", String(255), nullable=False),
+    Column("tenant_id", String(128), nullable=False),
+    Column("name", String(255), nullable=False),
+    Column("description", String(1024), nullable=False, default=""),
+    Column("url", String(2048), nullable=False),
+    Column("version", Integer, nullable=False),
+    Column("status", String(32), nullable=False),
+    Column("spec_json", JSON, nullable=False),
+    Column("spec_hash", String(128), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    Column("published_at", DateTime(timezone=True), nullable=True),
+)
+
+Index(
+    "idx_capability_mcps_tenant",
+    capability_mcps.c.tenant_id,
+)
+
+Index(
+    "uq_capability_mcps_version",
+    capability_mcps.c.tenant_id,
+    capability_mcps.c.mcp_id,
+    capability_mcps.c.version,
+    unique=True,
+)
+
+capability_mcp_tool_policies = Table(
+    "capability_mcp_tool_policies",
+    metadata,
+    Column("tenant_id", String(128), nullable=False),
+    Column("mcp_id", String(255), nullable=False),
+    Column("mcp_version", Integer, nullable=False),
+    Column("tool_name", String(255), nullable=False),
+    Column("schema_hash", String(128), nullable=False),
+    Column("operation", String(32), nullable=False),
+    Column("side_effect", String(32), nullable=False),
+    Column("risk_level", String(16), nullable=False),
+    Column("idempotency_json", JSON, nullable=False),
+    Column("approval_policy_json", JSON, nullable=False),
+    Column("enabled", Boolean, nullable=False),
+)
+
+Index(
+    "uq_capability_mcp_tool_policy",
+    capability_mcp_tool_policies.c.tenant_id,
+    capability_mcp_tool_policies.c.mcp_id,
+    capability_mcp_tool_policies.c.mcp_version,
+    capability_mcp_tool_policies.c.tool_name,
+    unique=True,
+)

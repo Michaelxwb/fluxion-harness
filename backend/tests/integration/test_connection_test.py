@@ -8,15 +8,13 @@ httpx.MockTransport 模拟真实 HTTP；真实边界 = 服务经 HTTP 探测 + P
 
 from __future__ import annotations
 
-from tests.runtime_helpers import TEST_POSTGRES_DSN
-
 import httpx
+
+from tests.runtime_helpers import TEST_POSTGRES_DSN
 
 
 async def _async_value(value: str) -> str:
     return value
-import sys
-from pathlib import Path
 
 import pytest
 
@@ -132,8 +130,9 @@ async def test_B_E04_credential_resolution_failure_actionable() -> None:
         await store.close()
 
 
-async def _put_mcp_stdio(store: PostgreSQLRegistryStore, mcp_id: str) -> None:
-    fixture = Path(__file__).parents[1] / "fixtures" / "mcp_product_server.py"
+async def _put_mcp_http(
+    store: PostgreSQLRegistryStore, mcp_id: str, url: str
+) -> None:
     await store.put(
         ResourceDefinition(
             kind=ResourceKind.MCP,
@@ -143,10 +142,7 @@ async def _put_mcp_stdio(store: PostgreSQLRegistryStore, mcp_id: str) -> None:
             status=ResourceStatus.DRAFT,
             spec_json={
                 "name": "weather",
-                "transport": "stdio",
-                "command": sys.executable,
-                "args": [str(fixture)],
-                "env": {},
+                "url": url,
                 "timeout_ms": 5_000,
                 "allowed_tools": [],
             },
@@ -155,21 +151,57 @@ async def _put_mcp_stdio(store: PostgreSQLRegistryStore, mcp_id: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_B_S07_mcp_stdio_connection_discovers_tools() -> None:
-    """B-S-07：MCP 连接测试经真实 stdio 握手发现工具（进程边界真实，非 mock）。"""
-    store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
-    await store.initialize()
-    try:
-        await _put_mcp_stdio(store, "weather")
-        service = ConnectionTestService(store)
-        result = await service.test_mcp_connection(
-            tenant_id="tenant-a", mcp_id="weather"
+async def test_B_S07_mcp_http_connection_discovers_tools() -> None:
+    """B-S-07：MCP 连接测试经真实 streamable-http 握手发现工具（TASK-005 起唯一方式）。"""
+    import asyncio
+    import socket
+    from typing import cast
+
+    import uvicorn
+    from mcp.server import MCPServer
+    from uvicorn._types import ASGIApplication
+
+    server = MCPServer("fluxion-connection-fixture")
+
+    @server.tool()
+    def lookup(query: str) -> dict[str, str]:
+        return {"answer": query}
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("127.0.0.1", 0))
+    port = cast(tuple[str, int], sock.getsockname())[1]
+    app = uvicorn.Server(
+        uvicorn.Config(
+            cast(ASGIApplication, server.streamable_http_app(json_response=True, stateless_http=True)),
+            log_level="warning",
+            lifespan="on",
         )
-        assert result.reachable is True
-        assert result.discovered_tools == ["lookup"]
-        assert result.error is None
+    )
+    sock.listen()
+    task = asyncio.create_task(app.serve(sockets=[sock]))
+    try:
+        for _attempt in range(100):
+            if app.started:
+                break
+            await asyncio.sleep(0.01)
+        store = PostgreSQLRegistryStore(TEST_POSTGRES_DSN, reset_on_initialize=True)
+        await store.initialize()
+        try:
+            await _put_mcp_http(store, "weather", f"http://127.0.0.1:{port}/mcp")
+            service = ConnectionTestService(store)
+            result = await service.test_mcp_connection(
+                tenant_id="tenant-a", mcp_id="weather"
+            )
+            assert result.reachable is True
+            assert result.discovered_tools == ["lookup"]
+            assert result.error is None
+        finally:
+            await store.close()
     finally:
-        await store.close()
+        app.should_exit = True
+        await asyncio.wait_for(task, timeout=3)
+        sock.close()
 
 
 @pytest.mark.asyncio

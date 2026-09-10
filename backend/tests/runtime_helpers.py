@@ -190,6 +190,7 @@ async def seed_agent_definition(
     model_name: str = "default",
     instructions: str = "",
     capabilities: list[dict[str, object]] | None = None,
+    tenant_allowed_tools: list[str] | None = None,
 ) -> ResourceDefinition:
     """独立发布一个 AgentDefinition（ADR-A010 后不再依赖同名 profile 回退；
     调用方需确保租户存在 default=true 的 RuntimeProfile 或 platform-default）。
@@ -202,8 +203,11 @@ async def seed_agent_definition(
         store, tenant_id=tenant_id, provider_id=provider_id, model_name=model_name
     )
     # RULE-02 三维齐备：无 tenant policy 时 Tool/MCP fail-closed；fixture 与 dev
-    # 自举同语义，播种默认 deny-only 策略（不设 allow-list、不 deny）。
-    await seed_tenant_policy(store, tenant_id=tenant_id)
+    # 自举同语义。TASK-001 起默认不再播种 permissive 策略（deny_only 已删除）：
+    # 调用方按需经 tenant_allowed_tools 显式声明 tenant allow-list。
+    await seed_tenant_policy(
+        store, tenant_id=tenant_id, allowed_tools=tenant_allowed_tools
+    )
     # 幂等：重复 seeding（多轮 benchmark / 并发 fixture）直接复用现有发布版。
     existing = await store.get(
         ResourceKind.AGENT_DEFINITION,
@@ -243,8 +247,9 @@ async def seed_tenant_policy(
 ) -> ResourceDefinition:
     """发布 fixture tenant Policy + tenant binding（RULE-02 三维齐备）。
 
-    默认 deny-only（allowed/denied 均空 = 除 denied 外全部放行）；无任何
-    tenant policy 时 Tool/MCP fail-closed（design/02 §3 三维真值表）。
+    TASK-001 起 deny-only 已删除：allowed 为空 = allow_list 空集
+    fail-closed（不再是"除 denied 外全部放行"）；无任何 tenant policy 时
+    Tool/MCP fail-closed（design/02 §3 三维真值表）。
     """
     existing = await store.get(ResourceKind.POLICY, policy_id, tenant_id=tenant_id)
     if existing is not None:
@@ -398,6 +403,7 @@ async def hook_test_service(bus=None):  # type: ignore[no-untyped-def]
             store,
             provider_id="dev.echo",
             capabilities=[{"capability_ref": "time.now", "version_pin": "1", "type": "tool"}],
+            tenant_allowed_tools=["time.now"],
         )
         await store.add_capability_grant(
             tenant_id="tenant-a",

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import tempfile
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from pathlib import Path
 
 from httpx import ASGITransport, AsyncClient, Response
 
@@ -35,7 +37,16 @@ async def console_stack(
     # TASK-009：注入可写 SecretStore（dev LocalEncryptedSecretStore），使
     # Credential 创建 Journey（明文只写）可测。
     secret_store = LocalEncryptedSecretStore(master_key=b"c" * 32)
-    service = ConsoleApplicationService(store, secret_store=secret_store)
+    from fluxion.plugins.artifact import LocalFileArtifactStore
+
+    service = ConsoleApplicationService(
+        store,
+        secret_store=secret_store,
+        artifact_store=LocalFileArtifactStore(
+            root=Path(tempfile.mkdtemp(prefix="fluxion-artifacts-")),
+            engine=store.engine,
+        ),
+    )
     await service.initialize()
     client = AsyncClient(
         transport=ASGITransport(app=create_app(service)),
@@ -156,14 +167,11 @@ def runtime_profile_spec() -> dict[str, object]:
 
 
 def mcp_spec(display_name: str = "github") -> dict[str, object]:
-    # 与 MCPDefinition / runtime 契约一致：stdio 必须提供 command（server_uri
-    # 由 runtime 自行构造，不读取 spec 字段）。
+    # TASK-005：仅 streamable_http（server_uri 由 runtime 自行构造，不读取
+    # spec 字段）。
     return {
         "name": display_name,
         "display_name": display_name,
-        "transport": "stdio",
-        "command": "node",
-        "args": ["github-mcp"],
-        "env": {},
+        "url": "https://mcp.example.com/mcp",
         "allowed_tools": ["list_pr", "get_repository"],
     }

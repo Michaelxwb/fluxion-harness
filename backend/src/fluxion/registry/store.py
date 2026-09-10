@@ -57,6 +57,43 @@ class OutboxStatus(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class McpToolPolicyRecord:
+    """MCP Tool 治理策略行（capability_mcp_tool_policies）。
+
+    TASK-003 起快照冻结 approved enabled 策略的 {tool_name: schema_hash}；
+    写路径（CRUD）TASK-005 落地，本任务只提供一致读。
+    """
+
+    tenant_id: str
+    mcp_id: str
+    mcp_version: int
+    tool_name: str
+    schema_hash: str
+    operation: str
+    side_effect: str
+    risk_level: str
+    idempotency_json: dict[str, object]
+    approval_policy_json: dict[str, object]
+    enabled: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CapabilitySkillRecord:
+    """Skill Package 行（capability_skills）。TASK-009 发布写入，解析读 artifact。"""
+
+    skill_id: str
+    tenant_id: str
+    name: str
+    description: str
+    version: int
+    status: str
+    artifact_uri: str | None = None
+    artifact_hash: str | None = None
+    manifest_json: dict[str, object] | None = None
+    knowledge_manifest_json: dict[str, object] | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class AuditRecord:
     audit_id: str
     tenant_id: str
@@ -193,6 +230,14 @@ class RegistryReadStore(Protocol):
         resource_type: ResourceKind | None = None,
     ) -> list[ResourceBinding]: ...
 
+    async def list_mcp_tool_policies(
+        self, *, tenant_id: str, mcp_id: str, mcp_version: int
+    ) -> list[McpToolPolicyRecord]: ...
+
+    async def get_capability_skill(
+        self, *, tenant_id: str, skill_id: str, version: int
+    ) -> CapabilitySkillRecord | None: ...
+
 
 @runtime_checkable
 class ScopedRegistryReader(Protocol):
@@ -233,6 +278,14 @@ class ScopedRegistryReader(Protocol):
     async def list_capability_grants(
         self, *, tenant_id: str, platform_user_id: str
     ) -> list[CapabilityGrantRecord]: ...
+
+    async def list_mcp_tool_policies(
+        self, *, tenant_id: str, mcp_id: str, mcp_version: int
+    ) -> list[McpToolPolicyRecord]: ...
+
+    async def get_capability_skill(
+        self, *, tenant_id: str, skill_id: str, version: int
+    ) -> CapabilitySkillRecord | None: ...
     async def list_resources(
         self,
         kind: ResourceKind,
@@ -267,6 +320,14 @@ class RegistryStore(ScopedReadStore, Protocol):
     async def close(self) -> None: ...
 
     async def put(self, definition: ResourceDefinition) -> ResourceDefinition: ...
+
+    async def put_capability_skill(
+        self, record: CapabilitySkillRecord
+    ) -> CapabilitySkillRecord: ...
+
+    async def put_mcp_tool_policy(
+        self, record: McpToolPolicyRecord
+    ) -> McpToolPolicyRecord: ...
 
     async def publish(
         self,

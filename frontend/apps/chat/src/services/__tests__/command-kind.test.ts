@@ -10,6 +10,9 @@ function commandClient() {
   return {
     request: vi.fn(),
     readEventStream: vi.fn(async () => ""),
+    requestForm: vi.fn(async () => {
+      throw new Error("not used in chat");
+    }),
     streamEvents: vi.fn(
       async (
         _url: string,

@@ -115,8 +115,18 @@ def create_dev_bundle_app(
         audit_sink=store,
         timeout_seconds=2.0,
     )
+    # TASK-007：Skill Package artifact 落盘（local-fs；root 可经 env 覆盖）。
+    from fluxion.plugins.artifact import LocalFileArtifactStore
+
+    artifact_store = LocalFileArtifactStore(
+        root=Path(
+            os.environ.get("FLUXION_ARTIFACT_ROOT", ".data/artifacts")
+        ),
+        engine=store.engine,
+    )
     console = ConsoleApplicationService(
         store,
+        artifact_store=artifact_store,
         trace_store=trace_store,
         secret_metadata_store=secret_store,
         plugin_summaries=runtime.plugin_summaries,

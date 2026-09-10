@@ -33,16 +33,14 @@ def test_E_R04_definition_rejects_plaintext_credential() -> None:
         )
 
 
-def test_E_R04_mcp_env_secret_ref_only_passes() -> None:
-    # ADR-012 后 model_policy 为结构化 ModelPolicy（无 secret 键），secret-ref
-    # 豁免机制改由 MCPDefinition.env（dict[str, str] 任意键）承载验证。
-    definition = MCPDefinition(
-        name="mcp-a",
-        transport="stdio",
-        command="run-server",
-        env={"token_secret_ref": "secret://tenant-a/mcp"},
-    )
-    assert definition.env["token_secret_ref"] == "secret://tenant-a/mcp"
+def test_E_R04_mcp_env_field_removed() -> None:
+    # TASK-005：MCPDefinition.env 已随 stdio 删除；任意 env 键均被拒绝。
+    with pytest.raises(ValueError, match="env"):
+        MCPDefinition(
+            name="mcp-a",
+            url="https://mcp.example.com/mcp",
+            env={"token_secret_ref": "secret://tenant-a/mcp"},
+        )
 
 
 def test_E_R04_binding_style_credential_field_is_rejected_in_definition() -> None:

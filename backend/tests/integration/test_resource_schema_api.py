@@ -19,7 +19,8 @@ REQUIRED_PROPERTIES: dict[ResourceKind, set[str]] = {
     ResourceKind.MODEL_DEFINITION: {"name", "provider_ref"},
     ResourceKind.TOOL: {"name", "capability_ref", "adapter_ref"},
     ResourceKind.SKILL: {"name"},
-    ResourceKind.MCP: {"name", "transport"},
+    # TASK-005：transport 已删除，url 必填。
+    ResourceKind.MCP: {"name", "url"},
     ResourceKind.SECRET: {"name", "secret_ref"},
     # ADR-A009（TASK-002）：PLUGIN 是 Extension（PluginDefinition 形状），不再是模型供应商。
     ResourceKind.PLUGIN: {"name", "package", "trust_level"},

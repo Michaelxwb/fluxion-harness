@@ -189,6 +189,8 @@ class ContextResolutionSupport:
         dict[str, str],
         dict[str, str],
         list[str],
+        dict[str, dict[str, str]],
+        dict[str, str],
     ]:
         """解析 Agent baseline 与用户扩展的 Skill/MCP published 版本。"""
         agent_skill_pins = {
@@ -226,6 +228,10 @@ class ContextResolutionSupport:
                         status_code=404,
                     )
                 continue
+            # TASK-006：Draft Skill 不进快照（SKL-01 语义：声明草稿仅排除，
+            # 解析继续；显式 /skill 调用落空到 skill_not_available）。
+            if row.status is not ResourceStatus.PUBLISHED:
+                continue
             parsed = _SkillSpecView.model_validate(row.spec_json)
             if parsed.visibility == "private" and ref not in binding_granted:
                 continue
@@ -245,14 +251,47 @@ class ContextResolutionSupport:
                 tenant_id=tenant_id,
                 version=None if cap.version_pin == "latest-published" else cap.version_pin,
             )
-            if row is not None:
-                mcp_versions[cap.capability_ref] = row.version
+            if row is None:
+                continue
+            # TASK-006：Draft MCP 不进快照（与 Skill 同语义；显式调用落空拒绝）。
+            if row.status is not ResourceStatus.PUBLISHED:
+                continue
+            mcp_versions[cap.capability_ref] = row.version
+
+        # TASK-003：各 bound MCP 精确版本 approved + enabled 策略冻结
+        # {tool_name: schema_hash}（纯配置读，scope 内）。
+        mcp_tool_policies: dict[str, dict[str, str]] = {}
+        for mcp_id, mcp_version in mcp_versions.items():
+            policies = await store.list_mcp_tool_policies(
+                tenant_id=tenant_id,
+                mcp_id=mcp_id,
+                mcp_version=int(mcp_version),
+            )
+            frozen = {
+                p.tool_name: p.schema_hash for p in policies if p.enabled
+            }
+            if frozen:
+                mcp_tool_policies[mcp_id] = frozen
+
+        # TASK-009：已冻结 Skill 的 artifact_uri 钉入 artifact_refs（scope 内配置读）。
+        skill_artifacts: dict[str, str] = {}
+        for skill_id, version in skill_versions.items():
+            try:
+                skill_row = await store.get_capability_skill(
+                    tenant_id=tenant_id, skill_id=skill_id, version=int(version)
+                )
+            except (ValueError, TypeError):
+                continue
+            if skill_row is not None and skill_row.artifact_uri:
+                skill_artifacts[skill_id] = skill_row.artifact_uri
 
         return (
             skill_versions,
             mcp_versions,
             skill_instructions,
             sorted(required_capabilities),
+            mcp_tool_policies,
+            skill_artifacts,
         )
 
     async def _credential_binding_refs(

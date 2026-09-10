@@ -46,7 +46,10 @@ from fluxion.registry.store import (
     BindingCommand,
     BindingCommit,
     BindingOperation,
+    CapabilitySkillRecord,
+    McpToolPolicyRecord,
     DeleteResult,
+    McpToolPolicyRecord,
     NotFoundError,
     OutboxEventRecord,
     OutboxStatus,
@@ -175,6 +178,27 @@ class _ScopedRegistryReader:
             for r in rows
         ]
 
+    async def list_mcp_tool_policies(
+        self, *, tenant_id: str, mcp_id: str, mcp_version: int
+    ) -> list[McpToolPolicyRecord]:
+        self._check_tenant(tenant_id)
+        rows = await resource_sqlalchemy.fetch_mcp_tool_policies(
+            self._connection,
+            tenant_id=tenant_id,
+            mcp_id=mcp_id,
+            mcp_version=mcp_version,
+        )
+        return [_policy_record_from_row(r) for r in rows]
+
+    async def get_capability_skill(
+        self, *, tenant_id: str, skill_id: str, version: int
+    ) -> CapabilitySkillRecord | None:
+        self._check_tenant(tenant_id)
+        row = await resource_sqlalchemy.fetch_capability_skill(
+            self._connection, tenant_id=tenant_id, skill_id=skill_id, version=version
+        )
+        return None if row is None else _skill_record_from_row(row)
+
     async def list_resources(
         self,
         kind: ResourceKind,
@@ -198,6 +222,44 @@ class _ScopedRegistryReader:
             resource_id=resource_id,
             status=status,
         )
+
+
+def _policy_record_from_row(row: dict[str, object]) -> McpToolPolicyRecord:
+    idempotency = row.get("idempotency_json") or {}
+    approval = row.get("approval_policy_json") or {}
+    assert isinstance(idempotency, dict) and isinstance(approval, dict)
+    return McpToolPolicyRecord(
+        tenant_id=str(row["tenant_id"]),
+        mcp_id=str(row["mcp_id"]),
+        mcp_version=int(cast(int, row["mcp_version"])),
+        tool_name=str(row["tool_name"]),
+        schema_hash=str(row["schema_hash"]),
+        operation=str(row["operation"]),
+        side_effect=str(row["side_effect"]),
+        risk_level=str(row["risk_level"]),
+        idempotency_json=cast(dict[str, object], idempotency),
+        approval_policy_json=cast(dict[str, object], approval),
+        enabled=bool(row["enabled"]),
+    )
+
+
+def _skill_record_from_row(row: dict[str, object]) -> CapabilitySkillRecord:
+    manifest = row.get("manifest_json")
+    knowledge = row.get("knowledge_manifest_json")
+    assert manifest is None or isinstance(manifest, dict)
+    assert knowledge is None or isinstance(knowledge, dict)
+    return CapabilitySkillRecord(
+        skill_id=str(row["skill_id"]),
+        tenant_id=str(row["tenant_id"]),
+        name=str(row["name"]),
+        description=str(row.get("description") or ""),
+        version=int(cast(int, row["version"])),
+        status=str(row["status"]),
+        artifact_uri=str(row["artifact_uri"]) if row.get("artifact_uri") else None,
+        artifact_hash=str(row["artifact_hash"]) if row.get("artifact_hash") else None,
+        manifest_json=cast(dict[str, object] | None, manifest),
+        knowledge_manifest_json=cast(dict[str, object] | None, knowledge),
+    )
 
 
 class SQLAlchemyRegistryStore(ScopedReadStore):
@@ -252,6 +314,56 @@ class SQLAlchemyRegistryStore(ScopedReadStore):
         ):
             return await resource_sqlalchemy.put(self._engine, definition)
 
+    async def put_capability_skill(
+        self, record: CapabilitySkillRecord
+    ) -> CapabilitySkillRecord:
+        # TASK-009：发布服务写入 capability_skills 行。
+        async with self._engine.begin() as connection:
+            await resource_sqlalchemy.insert_capability_skill(
+                connection,
+                tenant_id=record.tenant_id,
+                skill_id=record.skill_id,
+                name=record.name,
+                description=record.description,
+                version=record.version,
+                status=record.status,
+                artifact_uri=record.artifact_uri,
+                artifact_hash=record.artifact_hash,
+                manifest_json=record.manifest_json,
+                knowledge_manifest_json=record.knowledge_manifest_json,
+            )
+        return record
+
+    async def get_capability_skill(
+        self, *, tenant_id: str, skill_id: str, version: int
+    ) -> CapabilitySkillRecord | None:
+        async with self._engine.connect() as connection:
+            row = await resource_sqlalchemy.fetch_capability_skill(
+                connection, tenant_id=tenant_id, skill_id=skill_id, version=version
+            )
+        return None if row is None else _skill_record_from_row(row)
+
+    async def put_mcp_tool_policy(
+        self, record: McpToolPolicyRecord
+    ) -> McpToolPolicyRecord:
+        # TASK-007：策略行 upsert（Console tool-policies API 调用）。
+        async with self._engine.begin() as connection:
+            await resource_sqlalchemy.upsert_mcp_tool_policy(
+                connection,
+                tenant_id=record.tenant_id,
+                mcp_id=record.mcp_id,
+                mcp_version=record.mcp_version,
+                tool_name=record.tool_name,
+                schema_hash=record.schema_hash,
+                operation=record.operation,
+                side_effect=record.side_effect,
+                risk_level=record.risk_level,
+                idempotency_json=record.idempotency_json,
+                approval_policy_json=record.approval_policy_json,
+                enabled=record.enabled,
+            )
+        return record
+
     async def get(
         self,
         kind: ResourceKind,
@@ -275,6 +387,18 @@ class SQLAlchemyRegistryStore(ScopedReadStore):
                 tenant_id=tenant_id,
                 version=version,
             )
+
+    async def list_mcp_tool_policies(
+        self, *, tenant_id: str, mcp_id: str, mcp_version: int
+    ) -> list[McpToolPolicyRecord]:
+        async with self._engine.connect() as connection:
+            rows = await resource_sqlalchemy.fetch_mcp_tool_policies(
+                connection,
+                tenant_id=tenant_id,
+                mcp_id=mcp_id,
+                mcp_version=mcp_version,
+            )
+        return [_policy_record_from_row(r) for r in rows]
 
     async def publish(
         self,

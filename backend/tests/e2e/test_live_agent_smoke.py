@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from pathlib import Path
 
 import pytest
@@ -12,7 +11,7 @@ from fluxion.resources import ResourceBinding, ResourceKind
 from fluxion.runtime.secrets import CredentialResolver, LocalEncryptedSecretStore
 from fluxion.services.runtime_app import RuntimeApplicationService
 from fluxion.services.runtime_contracts import RunRuntimeRequest
-from tests.runtime_helpers import publish_resource, TEST_POSTGRES_DSN
+from tests.runtime_helpers import TEST_POSTGRES_DSN, publish_resource
 
 TOOL_ID = "mcp__live_lookup__lookup"
 
@@ -30,7 +29,22 @@ async def test_S_P13_07_live_openai_compatible_model_calls_real_mcp(
     secrets = LocalEncryptedSecretStore(master_key=os.urandom(32))
     credential_ref = await secrets.put("dev", "live-model", api_key)
     call_log = tmp_path / "live-mcp-call.log"
-    fixture = Path(__file__).parents[1] / "fixtures" / "mcp_product_server.py"
+    # TASK-005：stdio 已删除，live 烟雾改用进程内 streamable-http fixture。
+    from mcp.server import MCPServer
+
+    live_server = MCPServer("fluxion-live-fixture")
+
+    @live_server.tool()
+    def lookup(query: str) -> dict[str, str]:
+        call_log.write_text(query, encoding="utf-8")
+        return {"answer": f"live {query} result"}
+
+    from tests.integration.test_mcp_governance import _UvicornMCPServer
+
+    fixture_server = _UvicornMCPServer(
+        live_server.streamable_http_app(json_response=True, stateless_http=True)
+    )
+    await fixture_server.start()
     await store.initialize()
     try:
         await _seed_live_product(
@@ -38,8 +52,7 @@ async def test_S_P13_07_live_openai_compatible_model_calls_real_mcp(
             base_url=base_url,
             model=model,
             credential_ref=credential_ref,
-            fixture=fixture,
-            call_log=call_log,
+            mcp_url=fixture_server.url,
         )
         runtime = RuntimeApplicationService(
             store,
@@ -73,6 +86,7 @@ async def test_S_P13_07_live_openai_compatible_model_calls_real_mcp(
             )
         )
     finally:
+        await fixture_server.close()
         await store.close()
 
 
@@ -82,8 +96,7 @@ async def _seed_live_product(
     base_url: str,
     model: str,
     credential_ref: str,
-    fixture: Path,
-    call_log: Path,
+    mcp_url: str,
 ) -> None:
     await publish_resource(
         store,
@@ -108,14 +121,50 @@ async def _seed_live_product(
         version="1",
         spec={
             "name": "live_lookup",
-            "transport": "stdio",
-            "command": sys.executable,
-            "args": [str(fixture)],
-            "env": {"MCP_TEST_CALL_LOG": str(call_log)},
+            "url": mcp_url,
             "timeout_ms": 10_000,
             "allowed_tools": ["lookup"],
         },
     )
+    # TASK-005：租户 allow + enabled 策略行（真发现取 hash）。
+    from mcp import Client
+    from mcp.client.streamable_http import streamable_http_client
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from fluxion.registry.schema import capability_mcp_tool_policies
+    from fluxion.runtime.mcp import mcp_tool_schema_hash
+    from tests.runtime_helpers import TEST_POSTGRES_DSN, seed_tenant_policy
+
+    await seed_tenant_policy(store, tenant_id="dev", allowed_tools=[TOOL_ID])
+    async with Client(
+        streamable_http_client(mcp_url), read_timeout_seconds=10
+    ) as mcp_client:
+        discovered = await mcp_client.list_tools()
+    live_hash = next(
+        mcp_tool_schema_hash(tool.input_schema)
+        for tool in discovered.tools
+        if tool.name == "lookup"
+    )
+    engine = create_async_engine(TEST_POSTGRES_DSN)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                capability_mcp_tool_policies.insert().values(
+                    tenant_id="dev",
+                    mcp_id="live_lookup",
+                    mcp_version=1,
+                    tool_name="lookup",
+                    schema_hash=live_hash,
+                    operation="read",
+                    side_effect="none",
+                    risk_level="low",
+                    idempotency_json={},
+                    approval_policy_json={},
+                    enabled=True,
+                )
+            )
+    finally:
+        await engine.dispose()
     await publish_resource(
         store,
         tenant_id="dev",

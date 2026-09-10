@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import socket
-import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -32,6 +30,51 @@ from tests.product_wire import (
 from tests.runtime_helpers import publish_resource, seed_model_definition, seed_tenant_policy
 
 MCP_TOOL_ID = "mcp__weather__lookup"
+
+
+async def _seed_mcp_tool_policy_row(
+    store: RegistryStore, mcp_spec: dict[str, object], tool_id: str
+) -> None:
+    """TASK-005：真发现取 schema hash，直写策略行（写 API 归 TASK-007）。"""
+    from mcp import Client
+    from mcp.client.streamable_http import streamable_http_client
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from fluxion.registry.schema import capability_mcp_tool_policies
+    from fluxion.runtime.mcp import mcp_tool_schema_hash
+    from tests.runtime_helpers import TEST_POSTGRES_DSN
+
+    short_name = tool_id.split("__")[-1]
+    url = str(mcp_spec["url"])
+    async with Client(
+        streamable_http_client(url), read_timeout_seconds=10
+    ) as client:
+        result = await client.list_tools()
+    schema_hash = next(
+        mcp_tool_schema_hash(tool.input_schema)
+        for tool in result.tools
+        if tool.name == short_name
+    )
+    engine = create_async_engine(TEST_POSTGRES_DSN)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                capability_mcp_tool_policies.insert().values(
+                    tenant_id="tenant-a",
+                    mcp_id="weather",
+                    mcp_version=1,
+                    tool_name=short_name,
+                    schema_hash=schema_hash,
+                    operation="read",
+                    side_effect="none",
+                    risk_level="low",
+                    idempotency_json={},
+                    approval_policy_json={},
+                    enabled=True,
+                )
+            )
+    finally:
+        await engine.dispose()
 
 
 class UvicornMCPServer:
@@ -70,29 +113,8 @@ async def mcp_resource_spec(
     transport: str,
     tmp_path: Path,
 ) -> AsyncIterator[tuple[dict[str, object], list[str], Path | None]]:
-    if transport == "stdio":
-        call_log = tmp_path / "stdio-call.log"
-        pid_file = tmp_path / "stdio.pid"
-        fixture = Path(__file__).parents[1] / "fixtures" / "mcp_product_server.py"
-        yield (
-            {
-                "name": "weather",
-                "transport": "stdio",
-                "command": sys.executable,
-                "args": [str(fixture)],
-                "env": {
-                    "MCP_TEST_CALL_LOG": str(call_log),
-                    "MCP_TEST_PID_FILE": str(pid_file),
-                },
-                "timeout_ms": 3_000,
-                "allowed_tools": ["lookup"],
-            },
-            [],
-            pid_file,
-        )
-        assert call_log.read_text(encoding="utf-8") == "fluxion"
-        return
-
+    # TASK-005：stdio 已删除，仅 streamable_http（transport 参数保留占位）。
+    assert transport == "streamable_http"
     calls: list[str] = []
     server = MCPServer("fluxion-product-http-fixture")
 
@@ -115,7 +137,6 @@ async def mcp_resource_spec(
         yield (
             {
                 "name": "weather",
-                "transport": "streamable_http",
                 "url": fixture_server.url,
                 "timeout_ms": 3_000,
                 "allowed_tools": ["lookup"],
@@ -160,9 +181,11 @@ async def _seed_mcp_product(
     # TOOL capability 只承载 ref 准入，不做版本解析。ADR-A008 三层链：
     # agent.model_policy → ModelDefinition（model.wire）→ in-process provider wire。
     await seed_model_definition(store, tenant_id="tenant-a", provider_id="wire")
-    # RULE-02（TASK-003 返工）：三维齐备——无 tenant policy 时 Tool/MCP fail-closed，
-    # 默认 deny-only 策略保住 binding 授权的 MCP 工具可用。
-    await seed_tenant_policy(store, tenant_id="tenant-a")
+    # RULE-02 三维齐备：TASK-001 起 deny-only 已删除，tenant allow-list 必须
+    # 显式包含本用例的 MCP tool（否则 fail-closed）。
+    await seed_tenant_policy(store, tenant_id="tenant-a", allowed_tools=[tool_id])
+    # TASK-005：MCP Tool 须有 enabled 策略行（真发现取 hash 直写；写 API 归 TASK-007）。
+    await _seed_mcp_tool_policy_row(store, mcp_spec, tool_id)
     await publish_resource(
         store,
         tenant_id="tenant-a",
@@ -212,7 +235,7 @@ def _model_registry(base_url: str) -> ModelProviderRegistry:
     return registry
 
 
-@pytest.mark.parametrize("transport", ["stdio", "streamable_http"])
+@pytest.mark.parametrize("transport", ["streamable_http"])
 @pytest.mark.asyncio
 async def test_S_P13_03_official_mcp_transports_complete_agent_loop(
     pg_store: RegistryStore,
@@ -220,7 +243,7 @@ async def test_S_P13_03_official_mcp_transports_complete_agent_loop(
     transport: str,
 ) -> None:
     async with (
-        mcp_resource_spec(transport, tmp_path) as (spec, http_calls, pid_file),
+        mcp_resource_spec(transport, tmp_path) as (spec, http_calls, _pid_file),
         openai_wire_server(
             [
                 openai_tool_call_response(MCP_TOOL_ID),
@@ -258,13 +281,7 @@ async def test_S_P13_03_official_mcp_transports_complete_agent_loop(
         assert trace.snapshot.mcp_versions == {"weather": "1"}
         assert any(event.name == "mcp.tools_listed" for event in trace.events)
         assert any(event.name == "mcp.tool_called" for event in trace.events)
-        if transport == "streamable_http":
-            assert http_calls == ["fluxion"]
-
-    if pid_file is not None:
-        pid = int(pid_file.read_text(encoding="ascii"))
-        with pytest.raises(ProcessLookupError):
-            os.kill(pid, 0)
+        assert http_calls == ["fluxion"]
 
 
 @pytest.mark.asyncio
@@ -379,7 +396,7 @@ async def test_E_P13_01_agent_loop_budget_stops_after_real_mcp_call(
     tmp_path: Path,
 ) -> None:
     async with (
-        mcp_resource_spec("stdio", tmp_path) as (spec, _http_calls, pid_file),
+        mcp_resource_spec("streamable_http", tmp_path) as (spec, _http_calls, _pid_file),
         openai_wire_server([openai_tool_call_response(MCP_TOOL_ID)]) as wire,
     ):
         await _seed_mcp_product(pg_store, mcp_spec=spec, max_rounds=1)
@@ -406,11 +423,6 @@ async def test_E_P13_01_agent_loop_budget_stops_after_real_mcp_call(
         assert trace is not None
         assert any(event.name == "mcp.tool_called" for event in trace.events)
         assert any(event.name == "agent_loop.limit_exceeded" for event in trace.events)
-
-    assert pid_file is not None
-    pid = int(pid_file.read_text(encoding="ascii"))
-    with pytest.raises(ProcessLookupError):
-        os.kill(pid, 0)
 
 
 @pytest.mark.asyncio

@@ -7,7 +7,6 @@ import {
   Checkbox,
   Input,
   Modal,
-  Select,
   Space,
   Spin,
   Typography
@@ -210,17 +209,8 @@ export function McpEditorPage({ api }: McpEditorPageProps) {
           </Space>
 
           <div>
-            <Typography.Text id="mcp-edit-transport-label">连接方式</Typography.Text>
-            <Select
-              aria-labelledby="mcp-edit-transport-label"
-              onChange={(next) => updateSpecField("transport", String(next))}
-              optionList={[
-                { label: "Streamable HTTP（远程服务）", value: "streamable_http" },
-                { label: "stdio（本地进程）", value: "stdio" }
-              ]}
-              style={{ width: 280 }}
-              value={String(spec.transport ?? "streamable_http")}
-            />
+            <Typography.Text>连接方式</Typography.Text>
+            <Typography.Text type="tertiary">Streamable HTTP（远程服务）</Typography.Text>
           </div>
           <div>
             <Typography.Text>服务地址（URL）</Typography.Text>
@@ -266,7 +256,7 @@ export function McpEditorPage({ api }: McpEditorPageProps) {
 
           {discovered.length > 0 ? (
             <div aria-label="工具白名单">
-              <Typography.Text>工具白名单（勾选生成 allowed_tools；留空放行全部）</Typography.Text>
+              <Typography.Text>工具白名单（勾选生成 allowed_tools；留空拒绝全部）</Typography.Text>
               <div style={{ display: "grid", gap: 8, paddingTop: 8 }}>
                 {discovered.map((tool) => (
                   <Checkbox

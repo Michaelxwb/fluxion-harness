@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Input, Modal, Select, Typography } from "@douyinfe/semi-ui";
+import { Input, Modal, Typography } from "@douyinfe/semi-ui";
 
 import type { ConsoleApi, ResourceVersion } from "../../types/console";
 
@@ -11,9 +11,9 @@ interface CreateMcpServerModalProps {
   readonly visible: boolean;
 }
 
-/** TASK-018（§8.5）：添加 MCP Server Modal——名称/Transport/URL。
- * transport+url 满足 MCPDefinition validator（fail-closed）；连接测试/工具发现
- * 在独立 MCP Editor 完成。id/version 服务端生成。 */
+/** TASK-013：添加 MCP Server Modal——名称/服务地址（仅 streamable_http）。
+ * transport/command/args/env/headers 已删除；连接测试/工具发现在独立 MCP
+ * Editor 完成。id/version 服务端生成。 */
 export function CreateMcpServerModal({
   api,
   onClose,
@@ -21,7 +21,6 @@ export function CreateMcpServerModal({
   visible
 }: CreateMcpServerModalProps) {
   const [name, setName] = useState("");
-  const [transport, setTransport] = useState<"streamable_http" | "stdio">("streamable_http");
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +28,6 @@ export function CreateMcpServerModal({
   useEffect(() => {
     if (visible) {
       setName("");
-      setTransport("streamable_http");
       setUrl("");
       setError(null);
     }
@@ -40,20 +38,17 @@ export function CreateMcpServerModal({
       setError("请输入 MCP 名称");
       return;
     }
-    if (transport === "streamable_http" && !url.trim()) {
-      setError("streamable_http 类型必须填写服务地址");
+    if (!url.trim()) {
+      setError("必须填写服务地址");
       return;
     }
     setBusy(true);
     try {
       const created = await api.createMcpServer({
-        name: name.trim(),
+        allowed_tools: [],
         display_name: name.trim(),
-        transport,
-        url: transport === "streamable_http" ? url.trim() : null,
-        command: transport === "stdio" ? "npx" : null,
-        args: [],
-        allowed_tools: []
+        name: name.trim(),
+        url: url.trim()
       });
       onCreated(created);
     } catch (cause) {
@@ -84,31 +79,16 @@ export function CreateMcpServerModal({
           />
         </div>
         <div>
-          <Typography.Text id="mcp-transport-label">连接方式 *</Typography.Text>
-          <Select
-            aria-labelledby="mcp-transport-label"
-            onChange={(value) => setTransport(value === "stdio" ? "stdio" : "streamable_http")}
-            optionList={[
-              { label: "Streamable HTTP（远程服务）", value: "streamable_http" },
-              { label: "stdio（本地进程）", value: "stdio" }
-            ]}
-            style={{ width: "100%" }}
-            value={transport}
+          <Typography.Text>服务地址 *</Typography.Text>
+          <Input
+            aria-label="MCP 服务地址"
+            onChange={(value) => setUrl(String(value))}
+            placeholder="https://host/mcp"
+            value={url}
           />
         </div>
-        {transport === "streamable_http" ? (
-          <div>
-            <Typography.Text>服务地址 *</Typography.Text>
-            <Input
-              aria-label="MCP 服务地址"
-              onChange={(value) => setUrl(String(value))}
-              placeholder="https://host/mcp"
-              value={url}
-            />
-          </div>
-        ) : null}
         <Typography.Text type="tertiary" size="small">
-          创建后进入 MCP Editor 测试连接并发现远端工具。
+          仅支持 Streamable HTTP（远程服务）。创建后进入 MCP Editor 测试连接并发现远端工具。
         </Typography.Text>
         {error ? <Typography.Text type="danger">{error}</Typography.Text> : null}
       </div>

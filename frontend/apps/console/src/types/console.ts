@@ -106,6 +106,16 @@ export interface ValidationResult {
   readonly diagnostics: readonly string[];
 }
 
+export interface SkillPackageInfo {
+  readonly artifactHash: string | null;
+  readonly artifactUri: string | null;
+  readonly knowledgeManifest: JsonRecord;
+  readonly manifest: JsonRecord;
+  readonly skillId: string;
+  readonly status: string;
+  readonly version: string;
+}
+
 export interface PublishResult {
   readonly resourceId: string;
   readonly version: string;
@@ -442,6 +452,11 @@ export interface ConsoleApi {
   createWorkflow(spec: JsonRecord): Promise<ResourceVersion>;
   /** TASK-016：产品语义 Skill 创建（studio 端点，服务端生成 id/version）。 */
   createSkill(spec: JsonRecord): Promise<ResourceVersion>;
+  /** TASK-012：Skill Package 上传发布（ZIP→版本+artifact；替代 instructions 编辑创建）。 */
+  uploadSkillPackage(file: File): Promise<ResourceVersion>;
+
+  /** Skill Package 信息（artifact + knowledge manifest 只读）。 */
+  getSkillPackage(skillId: string, version: string): Promise<SkillPackageInfo>;
   /** TASK-017：产品语义 Tool 创建（studio 端点，服务端生成 id/version）。 */
   createTool(spec: JsonRecord): Promise<ResourceVersion>;
   /** TASK-018：产品语义 MCP Server 创建（studio 端点，服务端生成 id/version）。 */

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import FastAPI, Header, Query
+from fastapi import FastAPI, File, Header, Query, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
@@ -17,6 +17,12 @@ from fluxion.api.console_models import (
     RollbackPayload,
     WorkflowValidatePayload,
 )
+
+
+class ToolPoliciesPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    policies: list[dict[str, object]]
 from fluxion.api.console_routes_governance import register_console_governance_routes
 from fluxion.api.console_routes_read import (
     _register_p1_routes,
@@ -72,6 +78,7 @@ def create_app(
     _register_validate_resource_route(app, service)
     _register_validate_publish_route(app, service)
     _register_test_connection_route(app, service)
+    _register_capability_routes(app, service)
     _register_publish_resource_route(app, service)
     _register_rollback_resource_route(app, service)
     _register_deprecate_resource_route(app, service)
@@ -307,6 +314,63 @@ def _register_update_resource_route(app: FastAPI, service: ConsoleApplicationSer
         return success(resource_payload(working))
 
 
+def _register_capability_routes(
+    app: FastAPI,
+    service: ConsoleApplicationService,
+) -> None:
+    @app.post("/api/v1/skills/packages")
+    async def upload_skill_package(
+        file: Annotated[UploadFile, File()],
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        # TASK-007 API-01：Skill Package 上传发布。
+        actor = _actor(x_actor_id)
+        publication = await service.publish_skill_package(actor, await file.read())
+        return success(
+            {
+                "skill_id": publication.skill_id,
+                "version": publication.version,
+                "artifact_uri": publication.artifact_uri,
+                "artifact_hash": publication.artifact_hash,
+            }
+        )
+
+    @app.get("/api/v1/skills/{skill_id}/versions/{version}/package")
+    async def get_skill_package(
+        skill_id: str,
+        version: str,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        # TASK-014：Skill Package 信息（artifact + knowledge manifest 只读）。
+        actor = _actor(x_actor_id)
+        return success(await service.get_skill_package_info(actor, skill_id, version))
+
+    @app.post("/api/v1/mcp-servers/{mcp_id}/versions/{version}:discover")
+    async def discover_mcp_tools(
+        mcp_id: str,
+        version: str,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        # TASK-007 API-07：discover（不写策略；写入经 tool-policies）。
+        actor = _actor(x_actor_id)
+        tools = await service.discover_mcp_tools(actor, mcp_id, version)
+        return success({"tools": tools})
+
+    @app.put("/api/v1/mcp-servers/{mcp_id}/versions/{version}/tool-policies")
+    async def put_mcp_tool_policies(
+        mcp_id: str,
+        version: str,
+        payload: ToolPoliciesPayload,
+        x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+    ) -> JSONResponse:
+        # TASK-007 API-08：策略配置（逐行校验 + upsert）。
+        actor = _actor(x_actor_id)
+        saved = await service.put_mcp_tool_policies(
+            actor, mcp_id, version, list(payload.policies)
+        )
+        return success({"saved": saved})
+
+
 def _register_test_connection_route(
     app: FastAPI,
     service: ConsoleApplicationService,
@@ -334,11 +398,16 @@ def _register_test_connection_route(
     async def test_tool_call(
         tool_id: str,
         x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
+        version: Annotated[str | None, Query()] = None,
+        credential_ref: Annotated[str | None, Query(alias="credential_ref")] = None,
     ) -> JSONResponse:
         # golden-path-closure TASK-017（§8.4）：Tool Editor Test Call——真实出站
         # （规则 18：timeout 取 spec.timeout_ms；失败返回可操作 error）。
+        # TASK-007 起支持 version pin 与操作员临时 credential_ref（不落库）。
         actor = _actor(x_actor_id)
-        result = await service.test_tool_call(actor, tool_id)
+        result = await service.test_tool_call(
+            actor, tool_id, version=version, credential_ref=credential_ref
+        )
         return success(
             {
                 "reachable": result.reachable,

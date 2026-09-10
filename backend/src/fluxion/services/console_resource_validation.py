@@ -5,21 +5,32 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 
 from fluxion.agents import AgentDefinition
-from fluxion.errors.console import ConsoleValidationError, StudioSpecValidationError
+from fluxion.errors.console import (
+    ConsoleResourceNotFoundError,
+    ConsoleValidationError,
+    StudioSpecValidationError,
+)
+from fluxion.plugins.contracts import ArtifactStoreProvider
 from fluxion.registry import ChannelRegistryStore
+from fluxion.registry.store import McpToolPolicyRecord, NotFoundError
 from fluxion.resources import ModelDefinition, ResourceDefinition, ResourceKind, ResourceStatus
 from fluxion.resources.resource_specs import ProfileSchemaError, validate_profile_write
+from fluxion.runtime.mcp import mcp_tool_schema_hash, validate_mcp_tool_policy_row
 from fluxion.runtime.secrets import CredentialResolver, ResolvedCredential, SecretProviderError
 from fluxion.services.capability_planning import CapabilityPlanningService
 from fluxion.services.connection_test import ConnectionTestResult, ConnectionTestService
 from fluxion.services.console_contracts import ConsoleActor, PublishValidationResult
-from fluxion.services.runtime_profile_resolution import resolve_default_runtime_profile
 from fluxion.services.console_resource_schema import (
     _definition_model,
     _raise_for_invalid_workflow,
     _validate_definition,
 )
+from fluxion.services.runtime_profile_resolution import resolve_default_runtime_profile
 from fluxion.services.workflow_app import WorkflowDefinitionValidator, WorkflowValidationResult
+
+
+def _as_str_map(value: object) -> dict[str, object]:
+    return dict(value) if isinstance(value, dict) else {}
 
 
 class ConsoleResourceValidationOps:
@@ -28,6 +39,10 @@ class ConsoleResourceValidationOps:
     _store: ChannelRegistryStore
     _workflow_validator: WorkflowDefinitionValidator
     _credential_resolver: CredentialResolver | None
+    _artifact_store: ArtifactStoreProvider | None
+
+    if TYPE_CHECKING:
+        from fluxion.services.skill_package_service import SkillPackagePublication
 
     if TYPE_CHECKING:
 
@@ -311,8 +326,13 @@ class ConsoleResourceValidationOps:
         self,
         actor: ConsoleActor,
         tool_id: str,
+        version: str | None = None,
+        credential_ref: str | None = None,
     ) -> ConnectionTestResult:
-        """golden-path-closure TASK-017：Tool Test Call（http_api 真实出站）。"""
+        """golden-path-closure TASK-017：Tool Test Call（http_api 真实出站）。
+
+        TASK-007 起支持 version pin 与操作员临时 credential_ref（不落库）。
+        """
 
         async def api_key_provider(ref: str) -> str | None:
             if self._credential_resolver is None:
@@ -328,6 +348,7 @@ class ConsoleResourceValidationOps:
             tenant_id=actor.tenant_id,
             tool_id=tool_id,
             api_key_provider=api_key_provider,
+            credential_ref=credential_ref,
         )
 
     async def test_mcp_connection(
@@ -338,7 +359,7 @@ class ConsoleResourceValidationOps:
         """测试 MCP 连接（B-S-07）：握手 + 发现工具。
 
         凭据取 tenant binding 的 credential_ref（Console 管理上下文），经
-        CredentialResolver 解析后注入 transport（stdio env / http header）。
+        CredentialResolver 解析后注入 http header。
         """
         credential, credential_ref = await self._mcp_binding_credential(actor, mcp_id)
         return await ConnectionTestService(self._store).test_mcp_connection(
@@ -347,6 +368,121 @@ class ConsoleResourceValidationOps:
             credential=credential,
             credential_ref=credential_ref,
         )
+
+    async def publish_skill_package(
+        self, actor: ConsoleActor, data: bytes
+    ) -> SkillPackagePublication:
+        """TASK-007 API-01：Skill Package 上传发布（ZIP→版本+artifact）。"""
+        if self._artifact_store is None:
+            raise ConsoleValidationError(
+                "artifact store 未配置（Console 装配缺失），无法发布 Skill Package"
+            )
+        from fluxion.services.skill_package_service import SkillPackageService
+
+        return await SkillPackageService(
+            self._store, self._artifact_store
+        ).publish_package(tenant_id=actor.tenant_id, data=data)
+
+    async def get_skill_package_info(
+        self, actor: ConsoleActor, skill_id: str, version: str
+    ) -> dict[str, object]:
+        """TASK-014 API：Skill Package 信息（artifact + knowledge manifest）。"""
+        try:
+            numeric_version = int(version)
+        except ValueError as exc:
+            raise ConsoleValidationError(f"version 非法: {version}") from exc
+        row = await self._store.get_capability_skill(
+            tenant_id=actor.tenant_id, skill_id=skill_id, version=numeric_version
+        )
+        if row is None:
+            raise ConsoleResourceNotFoundError(
+                f"Skill Package {skill_id}@{version} 不存在"
+            )
+        return {
+            "skill_id": row.skill_id,
+            "version": str(row.version),
+            "status": row.status,
+            "artifact_uri": row.artifact_uri,
+            "artifact_hash": row.artifact_hash,
+            "manifest": row.manifest_json or {},
+            "knowledge_manifest": row.knowledge_manifest_json or {},
+        }
+
+    async def discover_mcp_tools(
+        self, actor: ConsoleActor, mcp_id: str, version: str
+    ) -> list[dict[str, object]]:
+        """TASK-007 API-07：discover（握手 + tools/list + schema hash，不写策略）。"""
+        from fluxion.resources.resource_specs import MCPDefinition
+        from fluxion.runtime.mcp import OfficialMCPClient
+
+        try:
+            row = await self._store.recall_pinned(
+                ResourceKind.MCP, mcp_id, tenant_id=actor.tenant_id, version=version
+            )
+        except NotFoundError as exc:
+            raise ConsoleResourceNotFoundError(f"MCP {mcp_id}@{version} 不存在") from exc
+        if row is None:
+            raise ConsoleResourceNotFoundError(f"MCP {mcp_id}@{version} 不存在")
+        credential, credential_ref = await self._mcp_binding_credential(actor, mcp_id)
+        try:
+            MCPDefinition.model_validate(row.spec_json)
+        except ValidationError as exc:
+            raise ConsoleValidationError(f"MCP spec 非法: {exc}") from exc
+        from fluxion.runtime.mcp import _server_config
+
+        config = _server_config(row, credential, credential_ref)
+        try:
+            tools = await OfficialMCPClient(config).list_tools()
+        except Exception as exc:
+            raise ConsoleValidationError(f"discover 失败: {exc}") from exc
+        return [
+            {"tool_name": tool.name, "schema_hash": mcp_tool_schema_hash(tool.input_schema)}
+            for tool in tools
+        ]
+
+    async def put_mcp_tool_policies(
+        self,
+        actor: ConsoleActor,
+        mcp_id: str,
+        version: str,
+        policies: list[dict[str, object]],
+    ) -> list[str]:
+        """TASK-007 API-08：策略配置（逐行校验 + upsert；未知字段拒绝）。"""
+        try:
+            row = await self._store.recall_pinned(
+                ResourceKind.MCP, mcp_id, tenant_id=actor.tenant_id, version=version
+            )
+        except NotFoundError as exc:
+            raise ConsoleResourceNotFoundError(f"MCP {mcp_id}@{version} 不存在") from exc
+        if row is None:
+            raise ConsoleResourceNotFoundError(f"MCP {mcp_id}@{version} 不存在")
+        try:
+            mcp_version = int(version)
+        except ValueError as exc:
+            raise ConsoleValidationError(f"version 非法: {version}") from exc
+        saved: list[str] = []
+        for item in policies:
+            try:
+                validate_mcp_tool_policy_row(item)
+            except ValueError as exc:
+                raise ConsoleValidationError(f"策略行非法: {exc}") from exc
+            await self._store.put_mcp_tool_policy(
+                McpToolPolicyRecord(
+                    tenant_id=actor.tenant_id,
+                    mcp_id=mcp_id,
+                    mcp_version=mcp_version,
+                    tool_name=str(item["tool_name"]),
+                    schema_hash=str(item.get("schema_hash") or ""),
+                    operation=str(item.get("operation") or "read"),
+                    side_effect=str(item.get("side_effect") or "none"),
+                    risk_level=str(item.get("risk_level") or "low"),
+                    idempotency_json=_as_str_map(item.get("idempotency_json")),
+                    approval_policy_json=_as_str_map(item.get("approval_policy_json")),
+                    enabled=bool(item.get("enabled", True)),
+                )
+            )
+            saved.append(str(item["tool_name"]))
+        return saved
 
     async def _mcp_binding_credential(
         self, actor: ConsoleActor, mcp_id: str

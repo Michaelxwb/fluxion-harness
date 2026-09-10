@@ -43,6 +43,7 @@ export function ToolEditorPage({ api }: ToolEditorPageProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<ToolCallTestResult | null>(null);
+  const [schemaDraft, setSchemaDraft] = useState<{ readonly input: string; readonly output: string } | null>(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [publishedBaseVersion, setPublishedBaseVersion] = useState<string | undefined>(undefined);
 
@@ -61,6 +62,14 @@ export function ToolEditorPage({ api }: ToolEditorPageProps) {
         setResource(target);
         setPublishedBaseVersion(loaded.status === "published" ? loaded.version : undefined);
         setSpecText(JSON.stringify(target.spec, null, 2));
+        setSchemaDraft({
+          input: JSON.stringify(
+            (target.spec as Record<string, unknown>).input_schema ?? {}, null, 2
+          ),
+          output: JSON.stringify(
+            (target.spec as Record<string, unknown>).output_schema ?? {}, null, 2
+          )
+        });
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : "加载失败");
       } finally {
@@ -88,6 +97,32 @@ export function ToolEditorPage({ api }: ToolEditorPageProps) {
       setTestResult(null);
     } catch {
       // specText 中间态（JSON 不完整）忽略
+    }
+  }
+
+  function updateGovernanceField(field: string, value: unknown): void {
+    try {
+      const parsed = JSON.parse(specText) as Record<string, unknown>;
+      const governance =
+        parsed.governance && typeof parsed.governance === "object"
+          ? { ...(parsed.governance as Record<string, unknown>) }
+          : {};
+      governance[field] = value;
+      parsed.governance = governance;
+      setSpecText(JSON.stringify(parsed, null, 2));
+      setTestResult(null);
+    } catch {
+      // specText 中间态（JSON 不完整）忽略
+    }
+  }
+
+  function commitSchemaField(field: "input_schema" | "output_schema", text: string): void {
+    try {
+      const parsed = JSON.parse(text) as unknown;
+      updateSpecField(field, parsed);
+      setError(null);
+    } catch {
+      setError(`${field === "input_schema" ? "输入" : "输出"} Schema 不是合法 JSON，本次修改未写入`);
     }
   }
 
@@ -240,6 +275,89 @@ export function ToolEditorPage({ api }: ToolEditorPageProps) {
               ]}
               style={{ width: 280 }}
               value={String(spec.fail_policy ?? "fail_closed")}
+            />
+          </div>
+          <div>
+            <Typography.Text id="tool-kind-label">工具类型</Typography.Text>
+            <Select
+              aria-labelledby="tool-kind-label"
+              onChange={(next) =>
+                updateSpecField("tool_kind", next === "platform_service" ? "platform_service" : "http_api")
+              }
+              optionList={[
+                { label: "HTTP API", value: "http_api" },
+                { label: "Platform Service", value: "platform_service" }
+              ]}
+              style={{ width: 280 }}
+              value={toolKind}
+            />
+          </div>
+          {toolKind === "platform_service" ? (
+            <>
+              <div>
+                <Typography.Text>平台服务名 *</Typography.Text>
+                <Input
+                  aria-label="平台服务名"
+                  onChange={(next) => updateSpecField("service_name", String(next))}
+                  placeholder="如 customer-service-mgr"
+                  value={String(spec.service_name ?? "")}
+                />
+              </div>
+              <div>
+                <Typography.Text>服务操作 *</Typography.Text>
+                <Input
+                  aria-label="服务操作"
+                  onChange={(next) => updateSpecField("operation", String(next))}
+                  placeholder="如 get_customer"
+                  value={String(spec.operation ?? "")}
+                />
+              </div>
+            </>
+          ) : null}
+          <div>
+            <Typography.Text id="tool-risk-label">风险等级</Typography.Text>
+            <Select
+              aria-labelledby="tool-risk-label"
+              onChange={(next) => updateGovernanceField("risk_level", String(next))}
+              optionList={[
+                { label: "low（低）", value: "low" },
+                { label: "medium（中）", value: "medium" },
+                { label: "high（高）", value: "high" }
+              ]}
+              style={{ width: 280 }}
+              value={String(
+                spec.governance && typeof spec.governance === "object"
+                  ? ((spec.governance as Record<string, unknown>).risk_level ?? "low")
+                  : "low"
+              )}
+            />
+          </div>
+          <div>
+            <Typography.Text>输入 Schema（JSON）</Typography.Text>
+            <TextArea
+              aria-label="输入 Schema"
+              onBlur={() => {
+                if (schemaDraft) commitSchemaField("input_schema", schemaDraft.input);
+              }}
+              onChange={(next) =>
+                setSchemaDraft((current) => ({ input: String(next), output: current?.output ?? "{}" }))
+              }
+              rows={3}
+              value={schemaDraft?.input ?? ""}
+            />
+          </div>
+          <div>
+            <Typography.Text>输出 Schema（JSON，可空）</Typography.Text>
+            <TextArea
+              aria-label="输出 Schema"
+              onBlur={() => {
+                if (schemaDraft) commitSchemaField("output_schema", schemaDraft.output);
+              }}
+              onChange={(next) =>
+                setSchemaDraft((current) => ({ input: current?.input ?? "{}", output: String(next) }))
+              }
+              rows={3}
+              value={schemaDraft?.output ?? ""}
             />
           </div>
           <div>

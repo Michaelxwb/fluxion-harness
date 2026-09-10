@@ -5,7 +5,13 @@ import { Button, Card, Input, Modal, Select, Space, Spin, TextArea, Typography }
 
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { StatusTag } from "../../components/StatusTag";
-import type { ConsoleApi, JsonRecord, ResourceVersion } from "../../types/console";
+import type {
+  ConsoleApi,
+  JsonRecord,
+  ResourceVersion,
+  SkillPackageInfo
+} from "../../types/console";
+import { CreateSkillModal } from "./CreateSkillModal";
 
 interface SkillEditorPageProps {
   readonly api: ConsoleApi;
@@ -36,6 +42,9 @@ export function SkillEditorPage({ api }: SkillEditorPageProps) {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [publishedBaseVersion, setPublishedBaseVersion] = useState<string | undefined>(undefined);
   const [confirmPublish, setConfirmPublish] = useState<(() => Promise<void>) | null>(null);
+  const [packageInfo, setPackageInfo] = useState<SkillPackageInfo | null>(null);
+  const [reuploadVisible, setReuploadVisible] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!resourceId) return;
@@ -50,6 +59,12 @@ export function SkillEditorPage({ api }: SkillEditorPageProps) {
             : loaded;
         if (!active) return;
         setResource(target);
+        try {
+          const info = await api.getSkillPackage(resourceId, target.version);
+          if (active) setPackageInfo(info);
+        } catch {
+          if (active) setPackageInfo(null);
+        }
         setPublishedBaseVersion(loaded.status === "published" ? loaded.version : undefined);
         setValue({
           name: String(target.spec.name ?? ""),
@@ -67,7 +82,7 @@ export function SkillEditorPage({ api }: SkillEditorPageProps) {
     return () => {
       active = false;
     };
-  }, [api, resourceId]);
+  }, [api, resourceId, reloadKey]);
 
   function spec(): JsonRecord {
     return {
@@ -171,6 +186,23 @@ export function SkillEditorPage({ api }: SkillEditorPageProps) {
             <Typography.Text type="tertiary">{`v${resource.version}`}</Typography.Text>
             <StatusTag status={resource.status} />
           </Space>
+          {packageInfo ? (
+            <Card aria-label="Skill Package 信息" bodyStyle={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <Space>
+                <Typography.Text strong>来源 Package</Typography.Text>
+                <Typography.Text type="tertiary">{`artifact ${packageInfo.artifactHash?.slice(0, 12) ?? "—"}`}</Typography.Text>
+                <Button onClick={() => setReuploadVisible(true)} size="small">
+                  重新上传
+                </Button>
+              </Space>
+              <Typography.Text type="tertiary" size="small">
+                {`知识文件：${knowledgeFiles(packageInfo).join("、") || "无"}`}
+              </Typography.Text>
+              <Typography.Text type="warning" size="small">
+                直接编辑做法说明将与 Package 分叉；建议改包后重新上传。
+              </Typography.Text>
+            </Card>
+          ) : null}
           <div>
             <Typography.Text>技能名称 *</Typography.Text>
             <Input
@@ -228,6 +260,16 @@ export function SkillEditorPage({ api }: SkillEditorPageProps) {
           ) : null}
         </Card>
       ) : null}
+      <CreateSkillModal
+        api={api}
+        onClose={() => setReuploadVisible(false)}
+        onCreated={(created) => {
+          setReuploadVisible(false);
+          setNotice(`已上传发布 ${created.version}`);
+          setReloadKey((key) => key + 1);
+        }}
+        visible={reuploadVisible}
+      />
       <Modal
         cancelText="取 消"
         okText="确认发布"
@@ -243,4 +285,9 @@ export function SkillEditorPage({ api }: SkillEditorPageProps) {
       </Modal>
     </div>
   );
+}
+
+function knowledgeFiles(info: SkillPackageInfo): readonly string[] {
+  const files = info.knowledgeManifest.files;
+  return Array.isArray(files) ? files.filter((item): item is string => typeof item === "string") : [];
 }

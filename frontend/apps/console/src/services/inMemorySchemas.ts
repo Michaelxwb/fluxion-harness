@@ -80,22 +80,15 @@ export const IN_MEMORY_RESOURCE_SCHEMAS: Readonly<Record<string, JsonSchemaNode>
   mcp: {
     title: "MCPDefinition",
     type: "object",
-    required: ["name", "transport"],
+    required: ["name", "url"],
     properties: {
       name: { type: "string", title: "MCP 名", description: "MCP server 名（展示用）" },
       display_name: { anyOf: [{ type: "string" }, { type: "null" }], default: null, title: "展示名", description: "展示名（仅 UI 显示）" },
-      transport: { type: "string", enum: ["stdio", "streamable_http"], title: "连接方式", description: "连接方式：stdio（本地进程）或 streamable_http（远程服务）" },
-      command: { anyOf: [{ type: "string" }, { type: "null" }], default: null, title: "启动命令", description: "stdio 必填：启动命令（如 npx / python）" },
-      args: { type: "array", items: { type: "string" }, title: "命令参数", description: "stdio：命令参数" },
-      env: { type: "object", additionalProperties: { type: "string" }, title: "环境变量", description: "stdio：环境变量（密钥不要写这里）" },
-      cwd: { anyOf: [{ type: "string" }, { type: "null" }], default: null, title: "工作目录", description: "stdio：工作目录" },
-      url: { anyOf: [{ type: "string" }, { type: "null" }], default: null, title: "服务地址", description: "streamable_http 必填：服务地址（https://…/mcp）" },
-      headers: { type: "object", additionalProperties: { type: "string" }, title: "请求头", description: "streamable_http：附加请求头（密钥不要写这里）" },
-      credential_env: { anyOf: [{ type: "string" }, { type: "null" }], default: null, title: "密钥环境变量", description: "stdio：binding 密钥注入到的环境变量名（如 API_KEY）" },
-      credential_header: { type: "string", default: "Authorization", title: "密钥请求头", description: "streamable_http：binding 密钥注入到的请求头名" },
-      credential_scheme: { type: "string", default: "Bearer", title: "请求头前缀", description: "streamable_http：请求头前缀（如 Bearer）" },
+      url: { type: "string", title: "服务地址", description: "streamable_http 服务地址（https://…/mcp）" },
+      credential_header: { type: "string", default: "Authorization", title: "密钥请求头", description: "binding 密钥注入到的请求头名" },
+      credential_scheme: { type: "string", default: "Bearer", title: "请求头前缀", description: "请求头前缀（如 Bearer）" },
       timeout_ms: { type: "integer", default: 30000, title: "连接超时", description: "连接与读超时（毫秒）" },
-      allowed_tools: { type: "array", items: { type: "string" }, title: "工具白名单", description: "server 工具白名单；留空放行全部已发现工具" }
+      allowed_tools: { type: "array", items: { type: "string" }, title: "工具白名单", description: "server 工具白名单；留空拒绝全部" }
     }
   },
   plugin: {

@@ -20,7 +20,7 @@ async def test_E_R08_mcp_client_pool_key_includes_credential_version_and_revoke_
     client_v1 = await pool.get_client(
         tenant_id="tenant-a",
         user_id="user-a",
-        server_uri="stdio://weather",
+        server_uri="https://mcp.example.com/mcp",
         credential_ref=ref_v1,
     )
     assert client_v1.credential_version == "1"
@@ -29,7 +29,7 @@ async def test_E_R08_mcp_client_pool_key_includes_credential_version_and_revoke_
     client_v2 = await pool.get_client(
         tenant_id="tenant-a",
         user_id="user-a",
-        server_uri="stdio://weather",
+        server_uri="https://mcp.example.com/mcp",
         credential_ref=ref_v2,
     )
     assert client_v2 is not client_v1
@@ -40,7 +40,7 @@ async def test_E_R08_mcp_client_pool_key_includes_credential_version_and_revoke_
         await pool.get_client(
             tenant_id="tenant-a",
             user_id="user-a",
-            server_uri="stdio://weather",
+            server_uri="https://mcp.example.com/mcp",
             credential_ref=ref_v2,
         )
 

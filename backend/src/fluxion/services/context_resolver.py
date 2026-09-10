@@ -223,6 +223,13 @@ class ContextResolver(ContextResolutionSupport):
                 )
                 if profile_row is None:
                     raise ContextResolutionError(code="runtime_profile_not_found", message=f"{profile_id}@{profile_version} not found", status_code=404)
+                # TASK-006：Draft Profile 不可执行（解析层硬拒绝）。
+                if profile_row.status is not ResourceStatus.PUBLISHED:
+                    raise ContextResolutionError(
+                        code="runtime_profile_not_published",
+                        message=f"{profile_id}@{profile_row.version} is not published",
+                        status_code=422,
+                    )
             elif selector.runtime_profile_version is not None:
                 # 版本 pin 依赖 ref 提供目标坐标；无 ref 的 pin 是矛盾输入，fail-closed。
                 raise ContextResolutionError(
@@ -293,6 +300,8 @@ class ContextResolver(ContextResolutionSupport):
                 mcp_versions,
                 skill_instructions,
                 skill_required_capabilities,
+                mcp_tool_policies,
+                skill_artifacts,
             ) = await self._resolve_capability_versions(
                 scope, selector.tenant_id, agent_spec.capabilities, selector.user_id
             )
@@ -390,17 +399,15 @@ class ContextResolver(ContextResolutionSupport):
             )
             # RULE-02 三维真值表（design/02 §3）：User/Agent/Tenant 任一维度缺失即
             # deny。无 tenant policy → tenant 维度为空集（fail-closed），不再拷贝
-            # user_tools（TASK-003 返工）；policy 模式与 denied 集冻结进 snapshot，
-            # 运行期 frozen_tool_policy 按模式展开（deny_only = 除 denied 外全部）。
+            # user_tools（TASK-003 返工）；policy 模式与 denied 集冻结进 snapshot。
+            # TASK-001：deny_only 模式已删除。已配置但无 allow 列表 → allow_list
+            # 空集（fail-closed），不再按「除 denied 外全部」放行。
             if not policy_configured:
                 tenant_tools: set[str] = set()
                 tenant_policy_mode = "unconfigured"
-            elif policy_allowed:
+            else:
                 tenant_tools = set(policy_allowed)
                 tenant_policy_mode = "allow_list"
-            else:
-                tenant_tools = set()
-                tenant_policy_mode = "deny_only"
             if policy_denied:
                 user_tools = user_tools - policy_denied
                 agent_tools = agent_tools - policy_denied
@@ -462,7 +469,9 @@ class ContextResolver(ContextResolutionSupport):
             invocation_directive=invocation_directive,
             skill_required_capabilities=skill_required_capabilities,
             skill_versions=skill_versions,
+            artifact_refs=skill_artifacts,
             mcp_versions=mcp_versions,
+            mcp_tool_policies=mcp_tool_policies,
             provider_versions=provider_versions,
             model_versions=model_versions,
             policy_version=policy_versions.get("tenant"),

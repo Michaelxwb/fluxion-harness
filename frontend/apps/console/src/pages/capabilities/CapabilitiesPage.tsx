@@ -141,114 +141,76 @@ export function CapabilitiesPage({
     void refresh();
   }, [refresh, reloadKey]);
 
+  // ---- 通用发布/弃用确认（TASK-011 CMP-05：引用数 + 影响说明） ----
+
+  const KIND_LABEL: Record<CapabilityKind, string> = {
+    mcp: "MCP Server",
+    skill: "技能",
+    tool: "工具"
+  };
+
+  function confirmDeprecate(targetKind: CapabilityKind, row: ListRow): void {
+    Modal.confirm({
+      cancelText: "取消",
+      content:
+        row.refCount > 0
+          ? `该版本被 ${row.refCount} 处引用；确认后标记为已弃用，引用方需重新校验。运行中的 ExecutionSnapshot 不受影响。`
+          : "确认后将当前发布版本标记为已弃用。运行中的 ExecutionSnapshot 不受影响。",
+      okText: "确认删除",
+      okType: "danger",
+      onOk: async () => {
+        try {
+          const resource = await api.getResource(targetKind, row.resourceId, row.version);
+          if (resource.status !== "published") {
+            Toast.warning("草稿不可删除；请先发布，或在版本治理中处理未发布版本");
+            return;
+          }
+          await api.deprecateVersion(resource, "Console 列表删除操作");
+          Toast.success(`${KIND_LABEL[targetKind]}版本已弃用`);
+          reload();
+        } catch (cause) {
+          Toast.error(cause instanceof Error ? cause.message : "删除失败");
+        }
+      },
+      title: `删除${KIND_LABEL[targetKind]}「${row.name}」？`
+    });
+  }
+
+  async function publishRow(targetKind: CapabilityKind, row: ListRow): Promise<void> {
+    try {
+      const resource = await api.getResource(targetKind, row.resourceId, row.version);
+      await api.publishVersion(resource);
+      Toast.success(`${KIND_LABEL[targetKind]}已发布`);
+      reload();
+    } catch (cause) {
+      Toast.error(cause instanceof Error ? cause.message : "发布失败");
+    }
+  }
+
   // ---- skill 行操作（TASK-016） ----
 
   function confirmDeleteSkill(row: ListRow): void {
-    Modal.confirm({
-      title: `删除技能「${row.name}」？`,
-      content:
-        "将把当前发布版本标记为已弃用；引用此技能的 Workflow/Agent 需重新校验。运行中的 ExecutionSnapshot 不受影响。",
-      okText: "确认删除",
-      okType: "danger",
-      cancelText: "取消",
-      onOk: async () => {
-        try {
-          const resource = await api.getResource("skill", row.resourceId, row.version);
-          if (resource.status !== "published") {
-            Toast.warning("草稿不可删除；请先发布，或在版本治理中处理未发布版本");
-            return;
-          }
-          await api.deprecateVersion(resource, "Console 列表删除操作");
-          Toast.success("技能版本已弃用");
-          reload();
-        } catch (cause) {
-          Toast.error(cause instanceof Error ? cause.message : "删除失败");
-        }
-      }
-    });
+    confirmDeprecate("skill", row);
   }
 
   async function publishSkill(row: ListRow): Promise<void> {
-    try {
-      const resource = await api.getResource("skill", row.resourceId, row.version);
-      await api.publishVersion(resource);
-      Toast.success("技能已发布");
-      reload();
-    } catch (cause) {
-      Toast.error(cause instanceof Error ? cause.message : "发布失败");
-    }
+    await publishRow("skill", row);
   }
 
   function confirmDeleteTool(row: ListRow): void {
-    Modal.confirm({
-      title: `删除工具「${row.name}」？`,
-      content:
-        "将把当前发布版本标记为已弃用；引用此工具的 Agent 需重新校验授权链。运行中的 ExecutionSnapshot 不受影响。",
-      okText: "确认删除",
-      okType: "danger",
-      cancelText: "取消",
-      onOk: async () => {
-        try {
-          const resource = await api.getResource("tool", row.resourceId, row.version);
-          if (resource.status !== "published") {
-            Toast.warning("草稿不可删除；请先发布，或在版本治理中处理未发布版本");
-            return;
-          }
-          await api.deprecateVersion(resource, "Console 列表删除操作");
-          Toast.success("工具版本已弃用");
-          reload();
-        } catch (cause) {
-          Toast.error(cause instanceof Error ? cause.message : "删除失败");
-        }
-      }
-    });
+    confirmDeprecate("tool", row);
   }
 
   async function publishTool(row: ListRow): Promise<void> {
-    try {
-      const resource = await api.getResource("tool", row.resourceId, row.version);
-      await api.publishVersion(resource);
-      Toast.success("工具已发布");
-      reload();
-    } catch (cause) {
-      Toast.error(cause instanceof Error ? cause.message : "发布失败");
-    }
+    await publishRow("tool", row);
   }
 
   function confirmDeleteMcp(row: ListRow): void {
-    Modal.confirm({
-      title: `删除 MCP Server「${row.name}」？`,
-      content:
-        "将把当前发布版本标记为已弃用；引用此 MCP 的 Agent 用户授权链需重新校验。运行中的 ExecutionSnapshot 不受影响。",
-      okText: "确认删除",
-      okType: "danger",
-      cancelText: "取消",
-      onOk: async () => {
-        try {
-          const resource = await api.getResource("mcp", row.resourceId, row.version);
-          if (resource.status !== "published") {
-            Toast.warning("草稿不可删除；请先发布，或在版本治理中处理未发布版本");
-            return;
-          }
-          await api.deprecateVersion(resource, "Console 列表删除操作");
-          Toast.success("MCP 版本已弃用");
-          reload();
-        } catch (cause) {
-          Toast.error(cause instanceof Error ? cause.message : "删除失败");
-        }
-      }
-    });
+    confirmDeprecate("mcp", row);
   }
 
   async function publishMcp(row: ListRow): Promise<void> {
-    try {
-      const resource = await api.getResource("mcp", row.resourceId, row.version);
-      await api.publishVersion(resource);
-      Toast.success("MCP 已发布");
-      reload();
-    } catch (cause) {
-      Toast.error(cause instanceof Error ? cause.message : "发布失败");
-    }
+    await publishRow("mcp", row);
   }
 
   function reload(): void {

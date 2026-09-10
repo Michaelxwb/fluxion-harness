@@ -132,28 +132,13 @@ class MCPDefinition(SensitiveSpecModel):
     display_name: str | None = Field(
         default=None, title="展示名", description="展示名（仅 UI 显示）"
     )
-    transport: Literal["stdio", "streamable_http"] = Field(
-        title="连接方式", description="连接方式：stdio（本地进程）或 streamable_http（远程服务）"
+    # TASK-005：仅 streamable_http。stdio/command/args/env/cwd/credential_env
+    # 已彻底删除（无 transport 字段、无兼容分支）。
+    url: str = Field(
+        title="服务地址", description="streamable_http 服务地址（https://…/mcp）"
     )
-    command: str | None = Field(
-        default=None, title="启动命令", description="stdio 必填：启动命令（如 npx / python）"
-    )
-    args: list[str] = Field(default_factory=list, title="命令参数", description="stdio：命令参数")
-    env: dict[str, str] = Field(
-        default_factory=dict, title="环境变量", description="stdio：环境变量（密钥不要写这里）"
-    )
-    cwd: str | None = Field(default=None, title="工作目录", description="stdio：工作目录")
-    url: str | None = Field(
-        default=None, title="服务地址", description="streamable_http 必填：服务地址（https://…/mcp）"
-    )
-    headers: dict[str, str] = Field(
-        default_factory=dict, title="请求头", description="streamable_http：附加请求头（密钥不要写这里）"
-    )
-    credential_env: str | None = Field(
-        default=None,
-        title="密钥环境变量",
-        description="stdio：binding 密钥注入到的环境变量名（如 API_KEY）",
-    )
+    # TASK-006：headers 字段已删除（Secret 易混入；认证只走 Binding credential
+    # 经 credential_header 注入）。
     credential_header: str = Field(
         default="Authorization",
         title="密钥请求头",
@@ -168,14 +153,12 @@ class MCPDefinition(SensitiveSpecModel):
     allowed_tools: list[str] = Field(
         default_factory=list,
         title="工具白名单",
-        description="server 工具白名单；留空放行全部已发现工具",
+        description="server 工具白名单；留空拒绝全部（deny-by-default，TASK-005）",
     )
 
     @model_validator(mode="after")
-    def validate_transport(self) -> Self:
-        if self.transport == "stdio" and not (self.command or "").strip():
-            raise ValueError("stdio MCP command is required")
-        if self.transport == "streamable_http" and not (self.url or "").strip():
+    def validate_endpoint(self) -> Self:
+        if not self.url.strip():
             raise ValueError("streamable_http MCP url is required")
         return self
 
@@ -264,7 +247,7 @@ class ToolDefinition(SensitiveSpecModel):
     headers: dict[str, str] = Field(
         default_factory=dict,
         title="请求头",
-        description="静态请求头；动态凭据走 credential_ref（规则 17 不落明文）",
+        description="静态请求头；动态凭据只走 Binding credential 注入（规则 17 不落明文）",
     )
     # platform_service 分支配置
     service_name: str | None = Field(
@@ -279,11 +262,24 @@ class ToolDefinition(SensitiveSpecModel):
         title="服务操作",
         description="platform_service 类型必填（如 query_order）",
     )
-    credential_ref: str | None = Field(
-        default=None,
-        title="凭据引用",
-        description="secret:// 引用（可选；出站认证。ADR-A008：spec 级默认凭据）",
+    # TASK-004：调用契约（LLM 参数 schema + 输出校验 + 治理分级）。
+    input_schema: dict[str, object] = Field(
+        default_factory=dict,
+        title="输入 Schema",
+        description="JSON Schema（LLM 参数约束，可为空对象）",
     )
+    output_schema: dict[str, object] | None = Field(
+        default=None,
+        title="输出 Schema",
+        description="JSON Schema（响应校验；None 不校验）",
+    )
+    governance: dict[str, object] = Field(
+        default_factory=dict,
+        title="治理分级",
+        description="risk_level/operation/side_effect（执行器与 descriptor 消费）",
+    )
+    # TASK-006：spec 级 credential_ref 已删除。凭据只属于 User Binding
+    #（binding.credential_ref，REQ-CAP-004）；Definition 不得携带任何凭据引用。
     capability_ref: str = Field(
         min_length=1,
         max_length=255,
@@ -309,8 +305,6 @@ class ToolDefinition(SensitiveSpecModel):
             raise ValueError("http_api 类型必须配置 url")
         if self.tool_kind == "platform_service" and (not self.service_name or not self.operation):
             raise ValueError("platform_service 类型必须配置 service_name 与 operation")
-        if self.credential_ref is not None and not self.credential_ref.startswith("secret://"):
-            raise ValueError("credential_ref 必须是 secret:// 引用（规则 17）")
         return self
 
 

@@ -10,6 +10,8 @@ function stubClient(responses: Readonly<Record<string, unknown>>): HttpClient {
       return parse(responses[path]);
     },
     readEventStream: vi.fn(async () => ""),
+    requestForm: (async <T,>(_path: string, _form: FormData, parse: (v: unknown) => T): Promise<T> =>
+      parse(null)) as HttpClient["requestForm"],
     streamEvents: vi.fn(async () => undefined)
   };
 }
@@ -117,6 +119,8 @@ describe("FEAT-03 服务端分页与搜索：动态请求参数", () => {
         return parse(response);
       },
       readEventStream: vi.fn(async () => ""),
+      requestForm: (async <T,>(_path: string, _form: FormData, parse: (v: unknown) => T): Promise<T> =>
+        parse(null)) as HttpClient["requestForm"],
       streamEvents: vi.fn(async () => undefined)
     };
   }
@@ -202,6 +206,8 @@ describe("FEAT-04 Credential Projection 请求", () => {
         });
       },
       readEventStream: vi.fn(async () => ""),
+      requestForm: (async <T,>(_path: string, _form: FormData, parse: (v: unknown) => T): Promise<T> =>
+        parse(null)) as HttpClient["requestForm"],
       streamEvents: vi.fn(async () => undefined)
     };
     const api = createHttpConsoleApi("", client);

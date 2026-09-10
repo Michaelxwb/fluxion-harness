@@ -15,12 +15,12 @@ def frozen_tool_policy(
     agent = _permission_set(permissions, "agent_tools")
     tenant = _permission_set(permissions, "tenant_tools")
     denied = _permission_set(permissions, "denied_tools")
-    mode = str(permissions.get("tenant_tool_policy", "allow_list"))
+    # TASK-001：deny_only 模式已删除。tenant 维度只认冻结集合本身：
+    # allow_list（含空集）与 unconfigured 均为 fail-closed，不再按
+    #「除 denied 外全部」展开。
     mcp = set(mcp_tool_ids or ()) - denied
     user |= mcp
     agent |= mcp
-    if mode == "deny_only":
-        tenant = (user | agent) - denied
     return user, agent, tenant
 
 

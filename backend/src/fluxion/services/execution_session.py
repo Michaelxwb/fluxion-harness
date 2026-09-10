@@ -66,6 +66,16 @@ class ExecutionSession:
             )
             mcp_tool_ids = await self._app._mcp_runtime.prepare(context, context.tool_runtime)
             context.mcp_tool_ids = mcp_tool_ids
+            # TASK-004：Registry Tool 装配（snapshot effective tools →
+            # recall pinned spec → binding credential → 同一 Executor 注册表）。
+            from fluxion.runtime.tool_executors import prepare_registry_tools
+
+            await prepare_registry_tools(
+                context,
+                context.tool_runtime,
+                store=self._app._store,
+                credential_resolver=self._app._credential_resolver,
+            )
             model_tools = await self._app._model_tool_definitions(context, mcp_tool_ids)
         except BaseException as exc:
             await self.finalize(context, error=exc)

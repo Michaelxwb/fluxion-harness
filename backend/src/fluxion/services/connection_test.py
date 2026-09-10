@@ -23,6 +23,7 @@ from fluxion.runtime.mcp import (
     mcp_server_config,
 )
 from fluxion.runtime.secrets import ResolvedCredential, SecretProviderError
+from fluxion.runtime.tools import ToolRuntimeError
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,12 +60,15 @@ class ConnectionTestService:
         tenant_id: str,
         tool_id: str,
         api_key_provider: ApiKeyProvider | None = None,
+        credential_ref: str | None = None,
+        version: str | None = None,
     ) -> ConnectionTestResult:
         """golden-path-closure TASK-017（§8.4）：Tool Test Call（真实出站）。
 
         - http_api：按 spec.method/url/headers 真实请求；timeout 取 spec.timeout_ms
-          （规则 18：显式超时，无无限等待）；credential_ref 经 resolver 注入
-          Authorization（规则 17：Secret 不进日志/trace）。
+          （规则 18：显式超时，无无限等待）；凭据由调用方经 credential_ref 参数
+          临时提供（TASK-006：Definition 不再携带 credential_ref，测试期不落库），
+          经 resolver 注入 Authorization（规则 17：Secret 不进日志/trace）。
         - platform_service：本仓无 Platform Service registry，诚实返回不支持
           （不伪造成功）。
         """
@@ -72,46 +76,30 @@ class ConnectionTestService:
         if tool is None:
             return ConnectionTestResult(reachable=False, error=f"tool {tool_id} not found")
         from fluxion.resources.resource_specs import ToolDefinition
-
-        spec = ToolDefinition.model_validate(tool.spec_json)
-        if spec.tool_kind == "platform_service":
-            return ConnectionTestResult(
-                reachable=False,
-                error="platform_service 类型暂不支持 Test Call（无 Platform Service registry）",
-            )
-        assert spec.url is not None
-        headers = dict(spec.headers)
-        if spec.credential_ref is not None:
-            if api_key_provider is None:
-                return ConnectionTestResult(
-                    reachable=False,
-                    error="credential_resolver_missing: 凭据解析器未配置，无法注入 Authorization",
-                )
-            try:
-                key = await api_key_provider(spec.credential_ref)
-            except SecretProviderError as exc:
-                return ConnectionTestResult(reachable=False, error=f"凭据解析失败: {exc}")
-            if key is not None:
-                headers["Authorization"] = f"Bearer {key}"
-        try:
-            async with self._client_factory() as client:
-                response = await client.request(
-                    spec.method,
-                    spec.url,
-                    headers=headers,
-                    timeout=spec.timeout_ms / 1000,
-                )
-        except httpx.TimeoutException:
-            return ConnectionTestResult(reachable=False, error=f"timeout after {spec.timeout_ms}ms")
-        except httpx.HTTPError as exc:
-            return ConnectionTestResult(reachable=False, error=f"request failed: {exc}")
-        body = response.text[:200]
-        return ConnectionTestResult(
-            reachable=response.is_success,
-            status_code=response.status_code,
-            body_excerpt=body,
-            error=None if response.is_success else f"HTTP {response.status_code}",
+        from fluxion.services.capability_test_service import (
+            CapabilityTestError,
+            CapabilityTestService,
         )
+
+        ToolDefinition.model_validate(tool.spec_json)
+        # RULE-CAP-06：测试与正式执行共用同一 Executor（CapabilityTestService；
+        # TASK-008 起 platform_service 同样经注册表执行器，不再返回不支持）。
+        tester = CapabilityTestService(
+            self._store,
+            api_key_provider=api_key_provider,
+            client_factory=self._client_factory,
+        )
+        try:
+            result = await tester.test_tool(
+                tenant_id=tenant_id,
+                tool_id=tool_id,
+                version=version,
+                credential_ref=credential_ref,
+            )
+        except (CapabilityTestError, ToolRuntimeError) as exc:
+            return ConnectionTestResult(reachable=False, error=str(exc))
+        body = str(result)[:200]
+        return ConnectionTestResult(reachable=True, status_code=200, body_excerpt=body, error=None)
 
     async def _latest_resource(
         self, kind: ResourceKind, resource_id: str, tenant_id: str

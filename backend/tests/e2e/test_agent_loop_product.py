@@ -73,8 +73,8 @@ async def _publish_profile(
         )
     capabilities.append({"capability_ref": "lookup", "version_pin": "1", "type": "tool"})
     await seed_model_definition(store, tenant_id="tenant-a", provider_id="wire")
-    # RULE-02：三维齐备（无 tenant policy 时工具 fail-closed）
-    await seed_tenant_policy(store, tenant_id="tenant-a")
+    # RULE-02：三维齐备（TASK-001 起 deny-only 已删除，tenant allow-list 显式声明）
+    await seed_tenant_policy(store, tenant_id="tenant-a", allowed_tools=["lookup"])
     await publish_resource(
         store,
         tenant_id="tenant-a",

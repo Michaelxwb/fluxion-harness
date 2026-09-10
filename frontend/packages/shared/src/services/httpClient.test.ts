@@ -19,6 +19,30 @@ describe("共享 HTTP envelope contract", () => {
     expect(resourceId).toBe("assistant");
   });
 
+  it("requestForm 发送 multipart 且不强制 JSON Content-Type", async () => {
+    let seenContentType: string | null = "unset";
+    let seenMethod = "";
+    const fetcher = async (url: string | URL | Request, init?: RequestInit) => {
+      seenMethod = init?.method ?? "";
+      const headers = new Headers(init?.headers);
+      seenContentType = headers.get("Content-Type");
+      return new Response(
+        JSON.stringify({ code: 0, data: { ok: true }, message: "success", request_id: "req-3" }),
+        { headers: { "Content-Type": "application/json" }, status: 200 }
+      );
+    };
+    const client = createHttpClient("http://console", fetcher);
+    const form = new FormData();
+    form.append("file", new Blob(["x"]), "helper.zip");
+    const result = await client.requestForm("/api/v1/skills/packages", form, (value) => {
+      if (!isRecord(value) || typeof value.ok !== "boolean") throw new Error("invalid");
+      return value.ok;
+    });
+    expect(result).toBe(true);
+    expect(seenMethod).toBe("POST");
+    expect(seenContentType).toBeNull();
+  });
+
   it("保留业务错误码和 request_id", async () => {
     const fetcher = async () =>
       new Response(JSON.stringify({ code: 36003, data: null, message: "链接无效", request_id: "req-2" }), {

@@ -81,11 +81,12 @@ describe("RS7 SchemaForm 渲染", () => {
 
   it("枚举字段渲染为下拉选择并回写 spec", async () => {
     const user = userEvent.setup();
-    const { changes } = renderForm(IN_MEMORY_RESOURCE_SCHEMAS.mcp);
+    // TASK-005 起 MCP schema 已无 transport 枚举；改用 plugin 信任级别枚举。
+    const { changes } = renderForm(IN_MEMORY_RESOURCE_SCHEMAS.plugin);
 
     await user.click(screen.getByRole("combobox"));
     const options = await waitFor(() => screen.getAllByRole("option"));
-    expect(options[0].textContent).toContain("stdio");
+    expect(options[0].textContent).toContain("trusted");
     fireEvent.click(options[0]);
     // Semi 受控 Select 的 onChange 在下拉关闭动画的 afterClose 回调里触发
     //（semi-foundation select _handleSingleSelect → close({closeCb})）。
@@ -94,7 +95,7 @@ describe("RS7 SchemaForm 渲染", () => {
     const leaving = document.querySelector('[class*="animation-hide"]');
     if (leaving) fireEvent.animationEnd(leaving);
 
-    await waitFor(() => expect(changes.at(-1)?.transport).toBe("stdio"));
+    await waitFor(() => expect(changes.at(-1)?.trust_level).toBe("trusted"));
   });
 
   it("数组字段动态增删，清空后整键移除", async () => {

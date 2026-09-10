@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import AsyncIterator, Awaitable, Mapping
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
-from pathlib import Path
 from typing import cast
 
 import httpx2
-from mcp import Client, StdioServerParameters, stdio_client
+from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from pydantic import ValidationError
 
@@ -66,13 +67,10 @@ class MCPToolCallError(MCPRuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class MCPServerConfig:
+    # TASK-005：仅 streamable_http（stdio 已彻底删除）。
     transport: str
     server_uri: str
     timeout_ms: int
-    command: str | None = None
-    args: tuple[str, ...] = ()
-    env: Mapping[str, str] | None = None
-    cwd: Path | None = None
     url: str | None = None
     headers: Mapping[str, str] | None = None
     allowed_tools: frozenset[str] = frozenset()
@@ -85,6 +83,33 @@ class MCPDiscoveredTool:
     name: str
     description: str
     input_schema: dict[str, object]
+
+
+# TASK-005：MCP 治理常量与 helper（发布写入见 TASK-007 API，同函数复用）。
+MCP_TOOL_RISK_LEVELS = ("low", "medium", "high")
+MCP_TOOL_OPERATIONS = ("read", "write")
+MCP_TOOL_SIDE_EFFECTS = ("none", "reads", "writes")
+
+
+def mcp_tool_schema_hash(input_schema: Mapping[str, object]) -> str:
+    """工具输入 schema 规范哈希（漂移检测与快照冻结共用）。"""
+    canonical = json.dumps(dict(input_schema), sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def validate_mcp_tool_policy_row(row: Mapping[str, object]) -> None:
+    """策略行合法性（未知 RiskLevel/operation/side_effect 即非法 → 发布失败）。"""
+    risk = row.get("risk_level")
+    if risk not in MCP_TOOL_RISK_LEVELS:
+        raise ValueError(f"unknown risk_level: {risk!r}")
+    operation = row.get("operation")
+    if operation not in MCP_TOOL_OPERATIONS:
+        raise ValueError(f"unknown operation: {operation!r}")
+    side_effect = row.get("side_effect")
+    if side_effect not in MCP_TOOL_SIDE_EFFECTS:
+        raise ValueError(f"unknown side_effect: {side_effect!r}")
+    if not str(row.get("tool_name") or "").strip():
+        raise ValueError("tool_name is required")
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,21 +202,7 @@ class OfficialMCPClient:
     @asynccontextmanager
     async def _open(self) -> AsyncIterator[Client]:
         timeout_seconds = self._config.timeout_ms / 1000
-        if self._config.transport == "stdio":
-            if self._config.command is None:
-                raise MCPTransportError("stdio MCP command is required")
-            params = StdioServerParameters(
-                command=self._config.command,
-                args=list(self._config.args),
-                env=dict(self._config.env or {}),
-                cwd=self._config.cwd,
-            )
-            async with Client(
-                stdio_client(params),
-                read_timeout_seconds=timeout_seconds,
-            ) as client:
-                yield client
-            return
+        # TASK-005：仅 streamable_http 分支（stdio 已删除）。
         if self._config.transport != "streamable_http" or self._config.url is None:
             raise MCPTransportError(f"unsupported MCP transport: {self._config.transport}")
         if self._pool_session is not None:
@@ -267,8 +278,13 @@ class RegistryMCPRuntime:
             config = await self._resolve_config(context, mcp_id, version, binding)
             client = await self._official_client(context, version, config)
             tools = await client.list_tools()
+            # TASK-005 deny-by-default：allowed 为空 = deny all；工具须同时满足
+            # allow-list 成员 + enabled 策略行 + schema_hash 一致（漂移重审）。
+            governed = await self._governed_tools(context, mcp_id, version)
             for tool in tools:
-                if config.allowed_tools and tool.name not in config.allowed_tools:
+                if not config.allowed_tools or tool.name not in config.allowed_tools:
+                    continue
+                if governed.get(tool.name) != mcp_tool_schema_hash(tool.input_schema):
                     continue
                 tool_id = mcp_tool_id(mcp_id, tool.name)
                 tool_runtime.register(
@@ -298,6 +314,36 @@ class RegistryMCPRuntime:
 
         return execute
 
+    async def _governed_tools(
+        self, context: RuntimeContext, mcp_id: str, version: str
+    ) -> dict[str, str]:
+        """{tool_name: schema_hash}（enabled + 行合法；非法行按 deny 处理）。"""
+        try:
+            policies = await self._store.list_mcp_tool_policies(
+                tenant_id=context.snapshot.tenant_id,
+                mcp_id=mcp_id,
+                mcp_version=int(version),
+            )
+        except (ValueError, TypeError):
+            return {}
+        governed: dict[str, str] = {}
+        for policy in policies:
+            if not policy.enabled:
+                continue
+            try:
+                validate_mcp_tool_policy_row(
+                    {
+                        "tool_name": policy.tool_name,
+                        "operation": policy.operation,
+                        "side_effect": policy.side_effect,
+                        "risk_level": policy.risk_level,
+                    }
+                )
+            except ValueError:
+                continue
+            governed[policy.tool_name] = policy.schema_hash
+        return governed
+
     async def call_tool(
         self,
         context: RuntimeContext,
@@ -312,8 +358,12 @@ class RegistryMCPRuntime:
         if binding is None:
             raise MCPToolCallError(f"MCP {mcp_id} is not granted to user")
         config = await self._resolve_config(context, mcp_id, version, binding)
-        if config.allowed_tools and tool_name not in config.allowed_tools:
+        if not config.allowed_tools or tool_name not in config.allowed_tools:
             raise MCPToolCallError(f"MCP tool {mcp_id}/{tool_name} is not allowed")
+        # TASK-005：快照冻结一致性（prepare 期已做漂移比对；此处零 I/O 复核）。
+        frozen = (context.snapshot.mcp_tool_policies or {}).get(mcp_id, {})
+        if tool_name not in frozen:
+            raise MCPToolCallError(f"MCP tool {mcp_id}/{tool_name} is not approved")
         client = await self._official_client(context, version, config)
         result = await client.call_tool(tool_name, arguments)
         if result.is_error:
@@ -432,46 +482,31 @@ def _server_config(
     credential: ResolvedCredential | None,
     credential_ref: str | None,
 ) -> MCPServerConfig:
-    # ADR-012：从 MCPDefinition 实例取字段（单一真相源）；transport 必填、
-    # stdio command / http url 必填、timeout 为正等约束由 model 校验保证。
+    # ADR-012：从 MCPDefinition 实例取字段（单一真相源）；url 必填、timeout
+    # 为正等约束由 model 校验保证。TASK-005：仅 streamable_http。
     try:
         definition = MCPDefinition.model_validate(resource.spec_json)
     except ValidationError as exc:
         raise MCPTransportError(f"MCP {resource.id} spec invalid: {exc}") from exc
     allowed_tools = frozenset(definition.allowed_tools)
-    if definition.transport == "stdio":
-        env = dict(definition.env)
-        if credential is not None and definition.credential_env is not None:
-            env[definition.credential_env] = credential.value
-        return MCPServerConfig(
-            transport=definition.transport,
-            server_uri=f"stdio://{resource.id}@{resource.version}",
-            timeout_ms=definition.timeout_ms,
-            command=definition.command or "",
-            args=tuple(definition.args),
-            env=env,
-            cwd=Path(definition.cwd) if definition.cwd else None,
-            allowed_tools=allowed_tools,
-            credential_ref=credential_ref,
-            credential_version=credential.version if credential is not None else "none",
+    if not definition.url:
+        raise MCPTransportError(f"MCP {resource.id} url is required")
+    # TASK-006：definition.headers 已删除；认证只走 Binding credential 注入。
+    headers: dict[str, str] = {}
+    if credential is not None:
+        headers[definition.credential_header] = (
+            f"{definition.credential_scheme} {credential.value}"
         )
-    if definition.transport == "streamable_http":
-        headers = dict(definition.headers)
-        if credential is not None:
-            headers[definition.credential_header] = (
-                f"{definition.credential_scheme} {credential.value}"
-            )
-        return MCPServerConfig(
-            transport=definition.transport,
-            server_uri=definition.url or "",
-            timeout_ms=definition.timeout_ms,
-            url=definition.url or "",
-            headers=headers,
-            allowed_tools=allowed_tools,
-            credential_ref=credential_ref,
-            credential_version=credential.version if credential is not None else "none",
-        )
-    raise MCPTransportError(f"unsupported MCP transport: {definition.transport}")
+    return MCPServerConfig(
+        transport="streamable_http",
+        server_uri=definition.url,
+        timeout_ms=definition.timeout_ms,
+        url=definition.url,
+        headers=headers,
+        allowed_tools=allowed_tools,
+        credential_ref=credential_ref,
+        credential_version=credential.version if credential is not None else "none",
+    )
 
 
 def _contains_timeout(exc: BaseException) -> bool:

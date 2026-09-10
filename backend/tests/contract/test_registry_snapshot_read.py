@@ -66,6 +66,18 @@ class _FakeScopedReader:
         assert tenant_id == self._tenant_id
         return None
 
+    async def list_mcp_tool_policies(
+        self, *, tenant_id: str, mcp_id: str, mcp_version: int
+    ) -> list:
+        assert tenant_id == self._tenant_id
+        return []
+
+    async def get_capability_skill(
+        self, *, tenant_id: str, skill_id: str, version: int
+    ) -> None:
+        assert tenant_id == self._tenant_id
+        return None
+
     async def get_latest_user_profile(
         self, *, tenant_id: str, platform_user_id: str
     ) -> dict[str, object] | None:
@@ -99,6 +111,16 @@ class _FakeScopedStore:
         self, *, tenant_id: str, timeout_ms: int = 5_000
     ) -> AsyncIterator[_FakeScopedReader]:
         yield _FakeScopedReader(tenant_id, 7)
+
+    async def list_mcp_tool_policies(
+        self, *, tenant_id: str, mcp_id: str, mcp_version: int
+    ) -> list:
+        return []
+
+    async def get_capability_skill(
+        self, *, tenant_id: str, skill_id: str, version: int
+    ) -> None:
+        return None
 
     async def get(
         self,

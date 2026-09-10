@@ -12,7 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from sqlalchemy.sql.dml import Insert, Update
 from sqlalchemy.sql.elements import ColumnElement
 
-from fluxion.registry.schema import active_references, resource_definitions
+from fluxion.registry.schema import (
+    active_references,
+    capability_mcp_tool_policies,
+    capability_skills,
+    resource_definitions,
+)
 from fluxion.registry.store import (
     ActiveReference,
     NotFoundError,
@@ -721,3 +726,135 @@ def _definition_from_row(row: RowMapping) -> ResourceDefinition:
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+async def fetch_mcp_tool_policies(
+    connection: AsyncConnection,
+    *,
+    tenant_id: str,
+    mcp_id: str,
+    mcp_version: int,
+) -> list[dict[str, object]]:
+    """TASK-003：一致读内 MCP Tool 策略行（scoped reader 与 store 共用连接变体）。"""
+    rows = (
+        await connection.execute(
+            select(capability_mcp_tool_policies)
+            .where(
+                capability_mcp_tool_policies.c.tenant_id == tenant_id,
+                capability_mcp_tool_policies.c.mcp_id == mcp_id,
+                capability_mcp_tool_policies.c.mcp_version == mcp_version,
+            )
+            .order_by(capability_mcp_tool_policies.c.tool_name.asc())
+        )
+    ).mappings().all()
+    return [dict(row) for row in rows]
+
+
+async def insert_capability_skill(
+    connection: AsyncConnection,
+    *,
+    tenant_id: str,
+    skill_id: str,
+    name: str,
+    description: str,
+    version: int,
+    status: str,
+    artifact_uri: str | None,
+    artifact_hash: str | None,
+    manifest_json: dict[str, object] | None,
+    knowledge_manifest_json: dict[str, object] | None,
+) -> None:
+    """TASK-009：capability_skills 行写入（发布服务调用）。"""
+    now = datetime.now(UTC)
+
+    now = datetime.now(UTC)
+    await connection.execute(
+        insert(capability_skills).values(
+            skill_id=skill_id,
+            tenant_id=tenant_id,
+            name=name,
+            description=description,
+            version=version,
+            status=status,
+            artifact_uri=artifact_uri,
+            artifact_hash=artifact_hash,
+            manifest_json=manifest_json,
+            knowledge_manifest_json=knowledge_manifest_json,
+            created_at=now,
+            updated_at=now,
+            published_at=now if status == "published" else None,
+        )
+    )
+
+
+async def upsert_mcp_tool_policy(
+    connection: AsyncConnection,
+    *,
+    tenant_id: str,
+    mcp_id: str,
+    mcp_version: int,
+    tool_name: str,
+    schema_hash: str,
+    operation: str,
+    side_effect: str,
+    risk_level: str,
+    idempotency_json: dict[str, object],
+    approval_policy_json: dict[str, object],
+    enabled: bool,
+) -> None:
+    """TASK-007：策略行 upsert（UNIQUE 四元组冲突即更新）。"""
+    from fluxion.registry.schema import capability_mcp_tool_policies
+
+    await connection.execute(
+        postgresql_insert(capability_mcp_tool_policies)
+        .values(
+            tenant_id=tenant_id,
+            mcp_id=mcp_id,
+            mcp_version=mcp_version,
+            tool_name=tool_name,
+            schema_hash=schema_hash,
+            operation=operation,
+            side_effect=side_effect,
+            risk_level=risk_level,
+            idempotency_json=idempotency_json,
+            approval_policy_json=approval_policy_json,
+            enabled=enabled,
+        )
+        .on_conflict_do_update(
+            index_elements=[
+                capability_mcp_tool_policies.c.tenant_id,
+                capability_mcp_tool_policies.c.mcp_id,
+                capability_mcp_tool_policies.c.mcp_version,
+                capability_mcp_tool_policies.c.tool_name,
+            ],
+            set_={
+                "schema_hash": schema_hash,
+                "operation": operation,
+                "side_effect": side_effect,
+                "risk_level": risk_level,
+                "idempotency_json": idempotency_json,
+                "approval_policy_json": approval_policy_json,
+                "enabled": enabled,
+            },
+        )
+    )
+
+
+async def fetch_capability_skill(
+    connection: AsyncConnection,
+    *,
+    tenant_id: str,
+    skill_id: str,
+    version: int,
+) -> dict[str, object] | None:
+    """TASK-009：capability_skills exact version 读（scoped reader 共用）。"""
+    row = (
+        await connection.execute(
+            select(capability_skills).where(
+                capability_skills.c.tenant_id == tenant_id,
+                capability_skills.c.skill_id == skill_id,
+                capability_skills.c.version == version,
+            )
+        )
+    ).mappings().first()
+    return None if row is None else dict(row)

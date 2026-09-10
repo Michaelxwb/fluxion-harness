@@ -80,6 +80,24 @@ class FailingReadStore:
             raise RegistryStoreError("registry unavailable")
         return await self._delegate.read_revision(tenant_id=tenant_id)
 
+    async def list_mcp_tool_policies(
+        self, *, tenant_id: str, mcp_id: str, mcp_version: int
+    ) -> list:
+        if self.fail_reads:
+            raise RegistryStoreError("registry unavailable")
+        return await self._delegate.list_mcp_tool_policies(
+            tenant_id=tenant_id, mcp_id=mcp_id, mcp_version=mcp_version
+        )
+
+    async def get_capability_skill(
+        self, *, tenant_id: str, skill_id: str, version: int
+    ) -> None:
+        if self.fail_reads:
+            raise RegistryStoreError("registry unavailable")
+        return await self._delegate.get_capability_skill(
+            tenant_id=tenant_id, skill_id=skill_id, version=version
+        )
+
     async def bump_revision(self, *, tenant_id: str) -> int:
         return await self._delegate.bump_revision(tenant_id=tenant_id)
 

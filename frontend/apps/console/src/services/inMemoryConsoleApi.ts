@@ -39,6 +39,7 @@ import type {
   ResourceType,
   ResourceVersion,
   RollbackResult,
+  SkillPackageInfo,
   ConsoleDataSource,
   RunDetail,
   ValidationResult,
@@ -535,6 +536,38 @@ class InMemoryConsoleApi implements ConsoleApi {
       version: "1",
       visibility: "private"
     });
+  }
+
+  async getSkillPackage(skillId: string, version: string): Promise<SkillPackageInfo> {
+    const resource = this.resources.find(
+      (item) => item.resourceType === "skill" && item.resourceId === skillId && item.version === version
+    );
+    if (!resource) throw new Error("skill package not found");
+    return {
+      artifactHash: `hash-${skillId}-${version}`,
+      artifactUri: `artifact://tenant-a/skills/${skillId}-${version}.zip@${version}`,
+      knowledgeManifest: { files: [] },
+      manifest: { name: skillId, version },
+      skillId,
+      status: resource.status,
+      version: resource.version
+    };
+  }
+
+  async uploadSkillPackage(file: File): Promise<ResourceVersion> {
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      throw new Error("不是有效的 Skill Package（仅支持 .zip）");
+    }
+    // 与后端一致：上传即发布（SkillPackageService.publish_package）。
+    const created = await this.createResource({
+      resourceId: file.name.replace(/\.zip$/i, ""),
+      resourceType: "skill",
+      spec: { instructions: "", name: file.name.replace(/\.zip$/i, ""), required_capabilities: [] },
+      version: "1",
+      visibility: "private"
+    });
+    await this.publishVersion(created);
+    return { ...created, status: "published" };
   }
 
   async createSkill(spec: JsonRecord): Promise<ResourceVersion> {

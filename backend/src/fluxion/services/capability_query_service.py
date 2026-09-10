@@ -74,7 +74,7 @@ class CapabilityQueryService(ContextResolutionSupport):
                 )
                 if row is not None:
                     live_capabilities.append(cap)
-            skill_versions, _, _, _ = await self._resolve_capability_versions(
+            skill_versions, _, _, _, _, _ = await self._resolve_capability_versions(
                 scope, tenant_id, live_capabilities, platform_user_id
             )
             if not skill_versions:
@@ -120,8 +120,8 @@ class CapabilityQueryService(ContextResolutionSupport):
 
         required ⊆ 返回集合才算闭合：
         - 未配置 tenant policy → 空集（fail-closed，仅零 required 可用）；
-        - allow-list → 三维交集 ∩ allowed；
-        - deny-only → 三维交集（denied 已移除）。
+        - allow-list → 三维交集 ∩ allowed（TASK-001 起 deny-only 已删除，
+          空 allow 即全拒绝）。
         """
         agent_tools = {
             ref.capability_ref for ref in agent_spec.capabilities if ref.type.value == "tool"

@@ -69,7 +69,7 @@ async def test_M3_snapshot_carries_mcp_plugin_and_policy_versions(
         kind=ResourceKind.MCP,
         resource_id="weather",
         version="1",
-        spec={"transport": "stdio"},
+        spec={"name": "weather", "url": "https://mcp.example.com/mcp"},
     )
 
     snapshot = await ContextResolverSnapshotBuilder(ContextResolver(pg_store)).build(

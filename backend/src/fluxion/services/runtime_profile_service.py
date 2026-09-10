@@ -105,9 +105,9 @@ class RuntimeProfileService:
         # ADR-A010：自举同步确保系统级 `platform-default` RuntimeProfile（租户
         # scope 内的固定 ID 内置资源，作为默认链第二级；幂等，已存在不动）。
         await _ensure_platform_default_profile(self._store, request.tenant_id)
-        # RULE-02（TASK-003 返工）：无 tenant policy 时 Tool/MCP fail-closed；
-        # 自举播种默认 deny-only 策略（不设 allow-list、不 deny）保住 dev 开箱
-        # 可用——生产租户按需显式配置自己的 Policy。
+        # RULE-02（TASK-003 返工）：无 tenant policy 时 Tool/MCP fail-closed。
+        # TASK-001：deny_only 已删除。自举播种显式 allow_list（只读型内置工具），
+        # 保住 dev 开箱可用；生产租户按需显式配置自己的 Policy。
         await _ensure_default_tenant_policy(self._store, request.tenant_id)
         if existing.status is ResourceStatus.PUBLISHED:
             return existing
@@ -267,12 +267,24 @@ async def _ensure_platform_default_profile(store: RegistryStore, tenant_id: str)
     )
 
 
+# TASK-001：dev 自举默认 allow_list（只读型内置工具；写操作 file.write /
+# run_command / code.exec 另有审批与配置门禁，不在默认放行之列）。
+_DEV_DEFAULT_ALLOWED_TOOLS = (
+    "time.now",
+    "calc.eval",
+    "http.get",
+    "file.read",
+    "file.list",
+    "file.search",
+)
+
+
 async def _ensure_default_tenant_policy(store: RegistryStore, tenant_id: str) -> None:
-    """确保租户存在默认 deny-only Policy + tenant binding（幂等）。
+    """确保租户存在默认 allow_list Policy + tenant binding（幂等）。
 
     RULE-02 三维 fail-closed 后，无任何 tenant policy 的租户 Tool/MCP 全部
-    不可用；dev 自举播种「不设 allow-list、不 deny」的默认策略，使
-    grant + agent 声明即用。生产租户可发布自己的 Policy 覆盖默认行为。
+    不可用；dev 自举播种只读型内置工具的显式 allow_list，使开箱可用。
+    生产租户可发布自己的 Policy 覆盖默认行为。
     """
     policy = await store.get(ResourceKind.POLICY, _DEFAULT_POLICY_ID, tenant_id=tenant_id)
     if policy is None:
@@ -283,7 +295,11 @@ async def _ensure_default_tenant_policy(store: RegistryStore, tenant_id: str) ->
             version="1",
             status=ResourceStatus.DRAFT,
             visibility=ResourceVisibility.TENANT,
-            spec_json={"name": "tenant-default", "allowed_tools": [], "denied_tools": []},
+            spec_json={
+                "name": "tenant-default",
+                "allowed_tools": list(_DEV_DEFAULT_ALLOWED_TOOLS),
+                "denied_tools": [],
+            },
         )
         existing = await store.put(draft)
         await store.publish(

@@ -62,7 +62,7 @@ async def test_be_s_01_studio_agent_create_publish_and_list() -> None:
             kind=ResourceKind.MCP,
             resource_id="mcp-1",
             version="1",
-            spec={"name": "mcp-1", "transport": "stdio", "command": "node", "args": []},
+            spec={"name": "mcp-1", "url": "https://mcp.example.com/mcp"},
         )
         # ADR-A010（TASK-002）：显式 runtime_profile_ref 的存在/发布校验——
         # profile-1 需先发布，否则 publish fail-closed。
