@@ -27,22 +27,22 @@ def test_build_service_release_freezes_agent_and_scope() -> None:
     first = build_service_release(
         service_id=service_id,
         service_key="demo",
-        draft={"name": "Demo", "goal": "g"},
+        draft={"name": "Demo", "goal": "g", "resource_scope_type": "demo.scope"},
         agent_snapshot={"revision": 3},
-        resource_scope_type="demo.scope",
         resource_scope_schema_hash="h" * 64,
     )
     second = build_service_release(
         service_id=service_id,
         service_key="demo",
-        draft={"name": "Demo", "goal": "g"},
+        draft={"name": "Demo", "goal": "g", "resource_scope_type": "demo.scope"},
         agent_snapshot={"revision": 3},
-        resource_scope_type="demo.scope",
         resource_scope_schema_hash="h" * 64,
     )
     assert first.content_hash == second.content_hash
     assert first.release_id == second.release_id
     assert first.frozen_payload["agent_snapshot"] == {"revision": 3}
+    # FEAT-04: the declared scope type travels in the payload, the hash is derived
+    assert first.frozen_payload["resource_scope_type"] == "demo.scope"
     assert first.frozen_payload["resource_scope_schema_hash"] == "h" * 64
 
 

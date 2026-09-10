@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
@@ -26,9 +27,7 @@ class PlatformUserModel(Base, IdMixin, SoftDeleteTimestampMixin):
     display_name: Mapped[str] = mapped_column(String(256), nullable=False, default="")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
 
-    __table_args__ = (
-        Index("ix_platform_user_tenant_status", "tenant_id", "status"),
-    )
+    __table_args__ = (Index("ix_platform_user_tenant_status", "tenant_id", "status"),)
 
 
 class ChannelAccountModel(Base, IdMixin, SoftDeleteTimestampMixin):
@@ -36,7 +35,9 @@ class ChannelAccountModel(Base, IdMixin, SoftDeleteTimestampMixin):
 
     channel: Mapped[str] = mapped_column(String(64), nullable=False)
     account_key: Mapped[str] = mapped_column(String(256), nullable=False)
-    default_agent_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("agent_definition.id"))
+    default_agent_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("agent_definition.id")
+    )
     config_ref: Mapped[str | None] = mapped_column(String(512))
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -128,14 +129,12 @@ class UserMemoryModel(Base, IdMixin, SoftDeleteTimestampMixin):
         PGUUID(as_uuid=True), ForeignKey("platform_user.id"), nullable=False
     )
     memory_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    content: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    content: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     source: Mapped[str] = mapped_column(String(64), nullable=False)
     source_ref: Mapped[str | None] = mapped_column(String(512))
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
 
-    __table_args__ = (
-        Index("ix_user_memory_lookup", "tenant_id", "platform_user_id", "memory_type"),
-    )
+    __table_args__ = (Index("ix_user_memory_lookup", "tenant_id", "platform_user_id", "memory_type"),)
 
 
 class ModelConfigModel(Base, IdMixin, SoftDeleteTimestampMixin):
@@ -144,12 +143,14 @@ class ModelConfigModel(Base, IdMixin, SoftDeleteTimestampMixin):
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     provider: Mapped[str] = mapped_column(String(128), nullable=False)
     model: Mapped[str] = mapped_column(String(256), nullable=False)
-    config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    config: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     __table_args__ = (
-        Index("uq_model_config_active_name", "name", unique=True, postgresql_where=text("is_deleted = false")),
+        Index(
+            "uq_model_config_active_name", "name", unique=True, postgresql_where=text("is_deleted = false")
+        ),
     )
 
 
@@ -160,12 +161,17 @@ class AgentDefinitionModel(Base, IdMixin, SoftDeleteTimestampMixin):
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     instructions: Mapped[str] = mapped_column(Text, nullable=False, default="")
     model_config_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("model_config.id"))
-    memory_policy: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    memory_policy: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     __table_args__ = (
-        Index("uq_agent_definition_active_name", "name", unique=True, postgresql_where=text("is_deleted = false")),
+        Index(
+            "uq_agent_definition_active_name",
+            "name",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
     )
 
 
@@ -175,8 +181,15 @@ class ServiceDefinitionModel(Base, IdMixin, SoftDeleteTimestampMixin):
     service_key: Mapped[str] = mapped_column(String(256), nullable=False)
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     goal: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    draft_payload: Mapped[dict | None] = mapped_column(JSONB)
-    current_release_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("service_release.id", use_alter=True, name="fk_service_definition_current_release_id_service_release"))
+    draft_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    current_release_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey(
+            "service_release.id",
+            use_alter=True,
+            name="fk_service_definition_current_release_id_service_release",
+        ),
+    )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
@@ -198,7 +211,7 @@ class ServiceReleaseModel(Base, IdMixin, SoftDeleteTimestampMixin):
     )
     release_id: Mapped[str] = mapped_column(String(128), nullable=False)
     content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
-    published_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    published_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     published_by: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("platform_user.id"))
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -240,12 +253,17 @@ class KnowledgeSourceModel(Base, IdMixin, SoftDeleteTimestampMixin):
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     provider_type: Mapped[str] = mapped_column(String(128), nullable=False)
     config_ref: Mapped[str | None] = mapped_column(String(1024))
-    metadata_json: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, nullable=False, default=dict)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     __table_args__ = (
-        Index("uq_knowledge_source_active_name", "name", unique=True, postgresql_where=text("is_deleted = false")),
+        Index(
+            "uq_knowledge_source_active_name",
+            "name",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
     )
 
 
@@ -254,17 +272,22 @@ class CapabilityDefinitionModel(Base, IdMixin, SoftDeleteTimestampMixin):
 
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    input_schema: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    output_schema: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    input_schema: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    output_schema: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     side_effect: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="low")
-    auth_requirement: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    auth_requirement: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     idempotency_semantics: Mapped[str] = mapped_column(String(64), nullable=False, default="none")
     execution_characteristic: Mapped[str] = mapped_column(String(64), nullable=False, default="sync")
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     __table_args__ = (
-        Index("uq_capability_definition_active_name", "name", unique=True, postgresql_where=text("is_deleted = false")),
+        Index(
+            "uq_capability_definition_active_name",
+            "name",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
     )
 
 
@@ -277,14 +300,12 @@ class CapabilityImplementationModel(Base, IdMixin, SoftDeleteTimestampMixin):
     impl_type: Mapped[str] = mapped_column(String(64), nullable=False)
     config_ref: Mapped[str | None] = mapped_column(String(1024))
     adapter: Mapped[str] = mapped_column(String(256), nullable=False)
-    timeout_policy: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    retry_policy: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    timeout_policy: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    retry_policy: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    __table_args__ = (
-        Index("ix_capability_impl_lookup", "capability_id", "enabled", "is_deleted"),
-    )
+    __table_args__ = (Index("ix_capability_impl_lookup", "capability_id", "enabled", "is_deleted"),)
 
 
 class IntegrationRegistrationModel(Base, SoftDeleteTimestampMixin):
@@ -342,37 +363,77 @@ class UserServiceAuthModel(Base, IdMixin, SoftDeleteTimestampMixin):
 
 class AgentSkillBindingModel(Base, IdMixin, SoftDeleteTimestampMixin):
     __tablename__ = "agent_skill_binding"
-    agent_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("agent_definition.id"), nullable=False)
-    skill_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("skill_artifact.id"), nullable=False)
+    agent_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("agent_definition.id"), nullable=False
+    )
+    skill_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("skill_artifact.id"), nullable=False
+    )
     __table_args__ = (
-        Index("uq_agent_skill_binding_active", "agent_id", "skill_id", unique=True, postgresql_where=text("is_deleted = false")),
+        Index(
+            "uq_agent_skill_binding_active",
+            "agent_id",
+            "skill_id",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
     )
 
 
 class AgentKnowledgeBindingModel(Base, IdMixin, SoftDeleteTimestampMixin):
     __tablename__ = "agent_knowledge_binding"
-    agent_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("agent_definition.id"), nullable=False)
-    knowledge_source_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("knowledge_source.id"), nullable=False)
+    agent_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("agent_definition.id"), nullable=False
+    )
+    knowledge_source_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("knowledge_source.id"), nullable=False
+    )
     __table_args__ = (
-        Index("uq_agent_knowledge_binding_active", "agent_id", "knowledge_source_id", unique=True, postgresql_where=text("is_deleted = false")),
+        Index(
+            "uq_agent_knowledge_binding_active",
+            "agent_id",
+            "knowledge_source_id",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
     )
 
 
 class AgentCapabilityBindingModel(Base, IdMixin, SoftDeleteTimestampMixin):
     __tablename__ = "agent_capability_binding"
-    agent_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("agent_definition.id"), nullable=False)
-    capability_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("capability_definition.id"), nullable=False)
+    agent_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("agent_definition.id"), nullable=False
+    )
+    capability_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("capability_definition.id"), nullable=False
+    )
     __table_args__ = (
-        Index("uq_agent_capability_binding_active", "agent_id", "capability_id", unique=True, postgresql_where=text("is_deleted = false")),
+        Index(
+            "uq_agent_capability_binding_active",
+            "agent_id",
+            "capability_id",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
     )
 
 
 class AgentServiceBindingModel(Base, IdMixin, SoftDeleteTimestampMixin):
     __tablename__ = "agent_service_binding"
-    agent_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("agent_definition.id"), nullable=False)
-    service_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("service_definition.id"), nullable=False)
+    agent_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("agent_definition.id"), nullable=False
+    )
+    service_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("service_definition.id"), nullable=False
+    )
     __table_args__ = (
-        Index("uq_agent_service_binding_active", "agent_id", "service_id", unique=True, postgresql_where=text("is_deleted = false")),
+        Index(
+            "uq_agent_service_binding_active",
+            "agent_id",
+            "service_id",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
     )
 
 
@@ -385,9 +446,7 @@ class ConversationModel(Base, IdMixin, SoftDeleteTimestampMixin):
     channel: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
 
-    __table_args__ = (
-        Index("ix_conversation_user_time", "platform_user_id", "create_time"),
-    )
+    __table_args__ = (Index("ix_conversation_user_time", "platform_user_id", "create_time"),)
 
 
 class MessageModel(Base, IdMixin, SoftDeleteTimestampMixin):
@@ -398,12 +457,10 @@ class MessageModel(Base, IdMixin, SoftDeleteTimestampMixin):
     )
     role: Mapped[str] = mapped_column(String(32), nullable=False)
     content_ref: Mapped[str | None] = mapped_column(String(1024))
-    content: Mapped[dict | None] = mapped_column(JSONB)
+    content: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     channel_message_ref: Mapped[str | None] = mapped_column(String(512))
 
-    __table_args__ = (
-        Index("ix_message_conversation_time", "conversation_id", "create_time"),
-    )
+    __table_args__ = (Index("ix_message_conversation_time", "conversation_id", "create_time"),)
 
 
 class ChannelDeliveryRouteModel(Base, IdMixin, SoftDeleteTimestampMixin):
@@ -419,9 +476,7 @@ class ChannelDeliveryRouteModel(Base, IdMixin, SoftDeleteTimestampMixin):
     peer_id: Mapped[str] = mapped_column(String(512), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
 
-    __table_args__ = (
-        Index("ix_delivery_route_user_conv", "platform_user_id", "conversation_id"),
-    )
+    __table_args__ = (Index("ix_delivery_route_user_conv", "platform_user_id", "conversation_id"),)
 
 
 class ExecutionSnapshotModel(Base, IdMixin, SoftDeleteTimestampMixin):
@@ -431,20 +486,28 @@ class ExecutionSnapshotModel(Base, IdMixin, SoftDeleteTimestampMixin):
     service_content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     agent_release_ref: Mapped[str | None] = mapped_column(String(256))
     agent_revision: Mapped[int | None] = mapped_column(Integer)
-    snapshot_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    snapshot_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
 
 class ServiceExecutionModel(Base, IdMixin, SoftDeleteTimestampMixin):
     __tablename__ = "service_execution"
 
-    service_release_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("service_release.id"))
-    actor_user_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("platform_user.id"), nullable=False)
-    delivery_route_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("channel_delivery_route.id"))
-    snapshot_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("execution_snapshot.id"), nullable=False)
+    service_release_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("service_release.id")
+    )
+    actor_user_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("platform_user.id"), nullable=False
+    )
+    delivery_route_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("channel_delivery_route.id")
+    )
+    snapshot_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("execution_snapshot.id"), nullable=False
+    )
     workspace_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("workspace.id"))
     service_release_ref: Mapped[str] = mapped_column(String(256), nullable=False)
-    resource_scope: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    input: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    resource_scope: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    input: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
     current_step: Mapped[str | None] = mapped_column(String(256))
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -483,8 +546,8 @@ class ExecutionStepModel(Base, IdMixin, SoftDeleteTimestampMixin):
     idempotency_key: Mapped[str | None] = mapped_column(String(512))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    result: Mapped[dict | None] = mapped_column(JSONB)
-    error: Mapped[dict | None] = mapped_column(JSONB)
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    error: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     __table_args__ = (
         Index("ix_execution_step_execution_status", "execution_id", "status"),
@@ -507,7 +570,7 @@ class ExecutionCommandModel(Base, IdMixin, SoftDeleteTimestampMixin):
     )
     actor_user_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("platform_user.id"))
     command_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     idempotency_key: Mapped[str | None] = mapped_column(String(512))
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
 
@@ -532,12 +595,10 @@ class TaskProgressEventModel(Base, IdMixin, SoftDeleteTimestampMixin):
     stage: Mapped[str | None] = mapped_column(String(256))
     progress: Mapped[int | None] = mapped_column(Integer)
     visibility: Mapped[str] = mapped_column(String(32), nullable=False, default="user")
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    __table_args__ = (
-        Index("ix_progress_event_execution_time", "execution_id", "occurred_at"),
-    )
+    __table_args__ = (Index("ix_progress_event_execution_time", "execution_id", "occurred_at"),)
 
 
 class ArtifactModel(Base, IdMixin, SoftDeleteTimestampMixin):
@@ -546,15 +607,15 @@ class ArtifactModel(Base, IdMixin, SoftDeleteTimestampMixin):
     execution_id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("service_execution.id"), nullable=False
     )
-    execution_step_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("execution_step.id"))
+    execution_step_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("execution_step.id")
+    )
     artifact_type: Mapped[str] = mapped_column(String(64), nullable=False)
     object_ref: Mapped[str] = mapped_column(String(1024), nullable=False)
     checksum: Mapped[str | None] = mapped_column(String(128))
-    metadata_json: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, nullable=False, default=dict)
 
-    __table_args__ = (
-        Index("ix_artifact_execution", "execution_id", "execution_step_id"),
-    )
+    __table_args__ = (Index("ix_artifact_execution", "execution_id", "execution_step_id"),)
 
 
 class AuditLogModel(Base, IdMixin, SoftDeleteTimestampMixin):
@@ -569,7 +630,7 @@ class AuditLogModel(Base, IdMixin, SoftDeleteTimestampMixin):
     trace_id: Mapped[str | None] = mapped_column(String(128))
     before_ref: Mapped[str | None] = mapped_column(String(1024))
     after_ref: Mapped[str | None] = mapped_column(String(1024))
-    details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
 
     __table_args__ = (
         Index("ix_audit_log_entity_time", "entity_type", "entity_id", "create_time"),

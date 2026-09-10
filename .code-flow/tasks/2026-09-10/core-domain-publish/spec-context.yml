@@ -39,8 +39,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: tasks.md
+          section_id: TASK-003
+          item_id: checklist
+          artifact_sha256: fc1aa84d2f5b90f54aa4154c042eb5606ee7e57b100e88a2734a5b70bc71f727
         decision: null
         evidence: []
       code:
@@ -194,8 +198,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: tasks.md
+          section_id: TASK-001
+          item_id: checklist
+          artifact_sha256: fc1aa84d2f5b90f54aa4154c042eb5606ee7e57b100e88a2734a5b70bc71f727
         decision: null
         evidence: []
       code:
@@ -375,8 +383,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: tasks.md
+          section_id: TASK-002
+          item_id: checklist
+          artifact_sha256: fc1aa84d2f5b90f54aa4154c042eb5606ee7e57b100e88a2734a5b70bc71f727
         decision: null
         evidence: []
       code:
@@ -530,8 +542,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: tasks.md
+          section_id: TASK-004
+          item_id: checklist
+          artifact_sha256: fc1aa84d2f5b90f54aa4154c042eb5606ee7e57b100e88a2734a5b70bc71f727
         decision: null
         evidence: []
       code:
@@ -685,8 +701,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: tasks.md
+          section_id: TASK-005
+          item_id: checklist
+          artifact_sha256: fc1aa84d2f5b90f54aa4154c042eb5606ee7e57b100e88a2734a5b70bc71f727
         decision: null
         evidence: []
       code:

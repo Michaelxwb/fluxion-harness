@@ -1,7 +1,10 @@
+# NOTE: 项目解释器是 `.venv/bin/python`（Python >=3.12，见 pyproject requires-python）。
+# 裸 `python3` 在 macOS 上会落到 /usr/bin/python3 (3.9)，既没有依赖也没有 mypy，
+# 会让每条校验永久失败。`uv` 不在非交互 shell 的 PATH 上，故不用于此处。
 validators:
     - name: "Python 语法检查"
       trigger: "**/*.py"
-      command: "python3 -m py_compile {files}"
+      command: ".venv/bin/python -m py_compile {files}"
       timeout: 30000
       on_fail: "检查语法错误"
 
@@ -13,12 +16,12 @@ validators:
 
     - name: "Python 类型检查"
       trigger: "**/*.py"
-      command: "python3 -m mypy {files}"
+      command: ".venv/bin/python -m mypy {files}"
       timeout: 30000
       on_fail: "检查类型注解，参见 specs/backend/code-quality-performance.md"
 
     - name: "Pytest"
       trigger: "**/*.py"
-      command: "python3 -m pytest --tb=short -q"
+      command: ".venv/bin/python -m pytest --tb=short -q"
       timeout: 60000
       on_fail: "测试失败，检查断言和 mock 是否需要更新"
