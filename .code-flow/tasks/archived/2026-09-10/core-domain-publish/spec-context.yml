@@ -1,7 +1,7 @@
 version: 1
 task: core-domain-publish
 enforcement: required
-updated_at: '2026-09-10T13:50:48.736327+00:00'
+updated_at: '2026-09-10T14:43:40.287639+00:00'
 sources:
 - type: cli
   ref: bind
@@ -10,7 +10,7 @@ bindings:
   path: backend/code-quality-performance.md
   status: active
   hashes:
-    file_sha256: 74d259d047e19624be48da2b1cbebf06b662492a94cbb67e38a36123d526b852
+    file_sha256: 15855c72dc663a8dc9f26f826392785c1fca1bc1c4661a4c4a2aa823f81c117c
     metadata_sha256: b47ce10c1c4909938b6e81de279a1f79ff668396723faa5a07a6582843fa42bc
     rules_sha256: ef2e3f56d8ee7b82849e1d29f88f820861f474a02e38ba5aace29bfa5e6d4532
   selected_by: agent
@@ -44,7 +44,7 @@ bindings:
         - artifact: tasks.md
           section_id: TASK-003
           item_id: checklist
-          artifact_sha256: fc1aa84d2f5b90f54aa4154c042eb5606ee7e57b100e88a2734a5b70bc71f727
+          artifact_sha256: d74f60fd8631ce4c17c51577407cc6e75085eb433945b7c9425e990b405dfe30
         decision: null
         evidence: []
       code:
@@ -169,7 +169,7 @@ bindings:
   path: backend/database.md
   status: active
   hashes:
-    file_sha256: 6cce2ed521b13d1ba4e57ed68e0dc74d434b65bd98def25e4c3e6fa1945da27d
+    file_sha256: ce54d9be710d8a0332269803fdc8fc634463e1717cf6961bb61e34c24f119187
     metadata_sha256: 5229e1d69a7cbce9500e9a8fa902fe6cc9888dcc5a304f1543476b248971087e
     rules_sha256: e9dee85500810f07885dac5a52ccc648d0316d6500bc6e23c8af4fd9bc9fe8f7
   selected_by: agent
@@ -203,7 +203,7 @@ bindings:
         - artifact: tasks.md
           section_id: TASK-001
           item_id: checklist
-          artifact_sha256: fc1aa84d2f5b90f54aa4154c042eb5606ee7e57b100e88a2734a5b70bc71f727
+          artifact_sha256: d74f60fd8631ce4c17c51577407cc6e75085eb433945b7c9425e990b405dfe30
         decision: null
         evidence: []
       code:
@@ -221,110 +221,137 @@ bindings:
         decision: null
         evidence: []
   - ref: PATTERN-backend-001
+    summary: 'Repository 双件套：`async with factory() as session: async with session.begin():`
+      包住读写；一切查询带 `.where(Model.is_deleted.is_(False))` 软删谓词'
+    text_sha256: 1636c20e64f1e6312c1bf7a452ffbbb7ac3ad0c43c18bb5bbfe208c8b0e9e687
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-002
     summary: 读写分离场景显式标注读库/写库，强一致读走主库
     text_sha256: f08e8a46dbd11bf98e06dc740af8142f2471ffac7e042118a38d5cfe9cd805dc
     enforcement: advisory
     verifier_ref: advisory:none
     stage_status:
       design:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
-  - ref: PATTERN-backend-002
+  - ref: PATTERN-backend-003
     summary: N+1 查询用预加载（`joinedload` / `include` / `Preload`）解决
     text_sha256: 8a707a2a51ad3f66bad6d5fc201b5bd0f8f6138377c842e83538930811b4f9b7
     enforcement: advisory
     verifier_ref: advisory:none
     stage_status:
       design:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
-  - ref: PATTERN-backend-003
+  - ref: PATTERN-backend-004
     summary: 大批量写入分批 + commit，避免单事务过大
     text_sha256: e42d4712ce5e09c9a2e9b6889f2419a48dee7342bbd03a2af2afac939cc6147d
     enforcement: advisory
     verifier_ref: advisory:none
     stage_status:
       design:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
-  - ref: PATTERN-backend-004
+  - ref: PATTERN-backend-005
     summary: 缓存与数据库一致性：先写库再失效缓存（`cache-aside`）
     text_sha256: 466033fff3413cb5a97f744faf9520bd7134051513e2362b9f4d6c969cfeaf93
     enforcement: advisory
     verifier_ref: advisory:none
     stage_status:
       design:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
-  - ref: PATTERN-backend-005
+  - ref: PATTERN-backend-006
     summary: CRUD 基类统一实现 `get / list / create / update / delete / bulk_*`，子类只扩展模型特有查询
     text_sha256: bf0110f17a8acacfbdd4e3b13349b93c721db883dd0f97963e04b6d30f6950c1
     enforcement: advisory
@@ -354,7 +381,7 @@ bindings:
   path: backend/directory-structure.md
   status: active
   hashes:
-    file_sha256: 0c6a270a9652f27ca3ffa7b1875391e1e586adca4e9ba89f9496bb9f66b20159
+    file_sha256: 39248c1e28c924795b1648ae53d782ba6357c8d591a6ee7e9686175035bb9bdb
     metadata_sha256: e4195df6c2ece3686dd5a90e9adf8ea70245e54d9ac0bd069a3ad6c6a12693b1
     rules_sha256: 6f263c6dad52617b90fa637d6202d04e0940cd7669dffc3253229392aade0c12
   selected_by: agent
@@ -388,7 +415,7 @@ bindings:
         - artifact: tasks.md
           section_id: TASK-002
           item_id: checklist
-          artifact_sha256: fc1aa84d2f5b90f54aa4154c042eb5606ee7e57b100e88a2734a5b70bc71f727
+          artifact_sha256: d74f60fd8631ce4c17c51577407cc6e75085eb433945b7c9425e990b405dfe30
         decision: null
         evidence: []
       code:
@@ -406,106 +433,106 @@ bindings:
         decision: null
         evidence: []
   - ref: PATTERN-backend-001
-    summary: 模块按业务域拆分（如 `services/order/`、`services/user/`），目录深度建议 ≤ 3 层
-    text_sha256: 44d146f5250498316354553ed06bc879c80d0a7d231d9dd3f297255a42a2ab4e
+    summary: 测试目录按测试层级分 `tests/{unit,architecture,integration}`，不对源码目录做镜像同构
+    text_sha256: 8b15000b45309550bf5658edc9a9df56aec15bb6166f47ffe9f1fb6dbc54fde5
     enforcement: advisory
     verifier_ref: advisory:none
     stage_status:
       design:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
   - ref: PATTERN-backend-002
+    summary: 模块按能力包拆分（如 `framework/domain/`、`framework/execution/`），目录深度建议 ≤ 3 层
+    text_sha256: 034e4f992d72b277807b6b0a194e6ef939e340438033bccfe0021d8ae0b3f706
+    enforcement: advisory
+    verifier_ref: advisory:none
+    stage_status:
+      design:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+  - ref: PATTERN-backend-003
     summary: 公共工具放 `utils/`，无业务依赖；与业务相关的 helper 放对应 service 子目录
     text_sha256: bb3ae84681d8990b97a06944ceb99f363e74e865b10a9dea22042ba6246425a3
     enforcement: advisory
     verifier_ref: advisory:none
     stage_status:
       design:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
-  - ref: PATTERN-backend-003
+  - ref: PATTERN-backend-004
     summary: 常量命名用 UPPER_SNAKE_CASE，枚举优先使用语言原生 `Enum`
     text_sha256: 1ec0507a9df84581c3a4d00c20eef80e267b0efe6fa56bf85eae56c6c716c280
     enforcement: advisory
     verifier_ref: advisory:none
     stage_status:
       design:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-  - ref: PATTERN-backend-004
-    summary: 测试目录与源码同构（`tests/services/order/test_*`）
-    text_sha256: 63e00ea4d6a00318bd9fa0be80aff7025e68dcf18eef9725800aea8eb5b7fe3e
-    enforcement: advisory
-    verifier_ref: advisory:none
-    stage_status:
-      design:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      plan:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      code:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
@@ -513,7 +540,7 @@ bindings:
   path: backend/logging.md
   status: active
   hashes:
-    file_sha256: e2389d2cb38f926f5991abc4e535654e673217b2bcac808a00a3cc6dfa04f3a1
+    file_sha256: 7d77adf7f60d0e707d9b7c355a0094ef4e5029ba2b9132d690ddbcc9d69e820e
     metadata_sha256: 5fb3af58c537326ee22b8092285328b19b9dac152a18f937ce931ced9d2603a5
     rules_sha256: affa7245dc65af084c9876741d05fdccb5e484101ca91761992e5e9952e016f5
   selected_by: agent
@@ -547,7 +574,7 @@ bindings:
         - artifact: tasks.md
           section_id: TASK-004
           item_id: checklist
-          artifact_sha256: fc1aa84d2f5b90f54aa4154c042eb5606ee7e57b100e88a2734a5b70bc71f727
+          artifact_sha256: d74f60fd8631ce4c17c51577407cc6e75085eb433945b7c9425e990b405dfe30
         decision: null
         evidence: []
       code:
@@ -672,7 +699,7 @@ bindings:
   path: backend/platform-rules.md
   status: active
   hashes:
-    file_sha256: 9f49689a3b0f77c6521047bc76622ce0f212b277debf6612d5b4c14a83700321
+    file_sha256: 8b6cf85cd73e858f8c338721bcec62f5b15fc0cf27a4c86c1896fae29dffd012
     metadata_sha256: 1f48bd3ea2ea5502302192e1d495d9096820ba5f5ed7804be45b9596cad8ba84
     rules_sha256: 984b2cfa4e961d50f646b462a2977ecc833ef2a0ca502200bc3fcd5b95fac154
   selected_by: agent
@@ -706,7 +733,7 @@ bindings:
         - artifact: tasks.md
           section_id: TASK-005
           item_id: checklist
-          artifact_sha256: fc1aa84d2f5b90f54aa4154c042eb5606ee7e57b100e88a2734a5b70bc71f727
+          artifact_sha256: d74f60fd8631ce4c17c51577407cc6e75085eb433945b7c9425e990b405dfe30
         decision: null
         evidence: []
       code:
