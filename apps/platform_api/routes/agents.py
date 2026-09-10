@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
 from adapters.postgres.agent_repository import AgentRepository
+from adapters.postgres.models import AgentDefinitionModel
 from apps.platform_api.dependencies import get_session_factory
 from framework.web.pagination import PageData
 from framework.web.response import ApiResponse, ok
@@ -33,7 +34,7 @@ def _repo() -> AgentRepository:
     return AgentRepository(get_session_factory())
 
 
-def _summary(row) -> AgentSummary:
+def _summary(row: AgentDefinitionModel) -> AgentSummary:
     return AgentSummary(
         id=row.id,
         name=row.name,
@@ -51,30 +52,30 @@ async def list_agents(
     page_size: int = Query(default=20, ge=1, le=200),
     keyword: str | None = Query(default=None, max_length=256),
     enabled: bool | None = Query(default=None),
-):
+) -> ApiResponse[PageData[AgentSummary]]:
     rows, total = await _repo().list(page=page, page_size=page_size, keyword=keyword, enabled=enabled)
     return ok(PageData(items=[_summary(row) for row in rows], total=total, page=page, page_size=page_size))
 
 
 @router.post("", response_model=ApiResponse[AgentSummary], status_code=201)
-async def create_agent(request: AgentUpsert):
+async def create_agent(request: AgentUpsert) -> ApiResponse[AgentSummary]:
     row = await _repo().create(**request.model_dump())
     return ok(_summary(row), message="created")
 
 
 @router.put("/{agent_id}", response_model=ApiResponse[AgentSummary])
-async def save_agent(agent_id: UUID, request: AgentUpsert):
+async def save_agent(agent_id: UUID, request: AgentUpsert) -> ApiResponse[AgentSummary]:
     row = await _repo().save(agent_id, **request.model_dump())
     return ok(_summary(row))
 
 
 @router.post("/{agent_id}/disable", response_model=ApiResponse[dict[str, bool]])
-async def disable_agent(agent_id: UUID):
+async def disable_agent(agent_id: UUID) -> ApiResponse[dict[str, bool]]:
     await _repo().set_enabled(agent_id, enabled=False)
     return ok({"enabled": False})
 
 
 @router.delete("/{agent_id}", response_model=ApiResponse[dict[str, bool]])
-async def delete_agent(agent_id: UUID):
+async def delete_agent(agent_id: UUID) -> ApiResponse[dict[str, bool]]:
     await _repo().soft_delete(agent_id)
     return ok({"deleted": True})

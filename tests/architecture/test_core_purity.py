@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 FORBIDDEN_IMPORT_FRAGMENTS = (
     "integrations.mss",
     "integrations.channels.wecom",
@@ -8,7 +7,7 @@ FORBIDDEN_IMPORT_FRAGMENTS = (
 )
 
 
-def test_framework_core_does_not_import_project_integrations():
+def test_framework_core_does_not_import_project_integrations() -> None:
     root = Path(__file__).parents[2] / "framework"
     violations: list[str] = []
     for path in root.rglob("*.py"):

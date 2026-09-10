@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -59,7 +60,7 @@ class AgentRepository:
         description: str,
         instructions: str,
         model_config_id: UUID | None,
-        memory_policy: dict,
+        memory_policy: dict[str, Any],
     ) -> AgentDefinitionModel:
         async with self._session_factory() as session:
             async with session.begin():
@@ -70,7 +71,9 @@ class AgentRepository:
                     )
                 )
                 if duplicate is not None:
-                    raise AppError(code="AGENT_NAME_CONFLICT", message="agent name already exists", status_code=409)
+                    raise AppError(
+                        code="AGENT_NAME_CONFLICT", message="agent name already exists", status_code=409
+                    )
                 row = AgentDefinitionModel(
                     name=name,
                     description=description,
@@ -92,7 +95,7 @@ class AgentRepository:
         description: str,
         instructions: str,
         model_config_id: UUID | None,
-        memory_policy: dict,
+        memory_policy: dict[str, Any],
     ) -> AgentDefinitionModel:
         async with self._session_factory() as session:
             async with session.begin():

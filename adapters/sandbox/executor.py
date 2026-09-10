@@ -33,13 +33,23 @@ class LocalSandboxExecutor:
     ) -> SandboxResult:
         workspace = await self.workspace_manager.get(workspace_id)
         if workspace.tenant_id != context.tenant_id:
-            raise AppError(code="WORKSPACE_FORBIDDEN", message="workspace does not belong to current tenant", status_code=403)
+            raise AppError(
+                code="WORKSPACE_FORBIDDEN",
+                message="workspace does not belong to current tenant",
+                status_code=403,
+            )
 
         if operation == "shell.execute":
             if not self.policy.allow_shell:
-                raise AppError(code="SANDBOX_SHELL_DISABLED", message="shell execution is disabled", status_code=403)
+                raise AppError(
+                    code="SANDBOX_SHELL_DISABLED", message="shell execution is disabled", status_code=403
+                )
         elif operation not in self.policy.allowed_operations:
-            raise AppError(code="SANDBOX_OPERATION_FORBIDDEN", message="sandbox operation is not allowed", status_code=403)
+            raise AppError(
+                code="SANDBOX_OPERATION_FORBIDDEN",
+                message="sandbox operation is not allowed",
+                status_code=403,
+            )
 
         root = Path(workspace.root_ref).resolve()
 
@@ -51,7 +61,9 @@ class LocalSandboxExecutor:
             path = resolve_confined_path(root, str(arguments.get("path", "")))
             content = arguments.get("content")
             if not isinstance(content, str):
-                raise AppError(code="SANDBOX_CONTENT_INVALID", message="content must be a string", status_code=400)
+                raise AppError(
+                    code="SANDBOX_CONTENT_INVALID", message="content must be a string", status_code=400
+                )
             return SandboxResult(data=write_file(path, content, max_bytes=self.policy.max_write_bytes))
 
         if operation == "filesystem.edit":
@@ -59,7 +71,9 @@ class LocalSandboxExecutor:
             old_text = arguments.get("old_text")
             new_text = arguments.get("new_text")
             if not isinstance(old_text, str) or not isinstance(new_text, str):
-                raise AppError(code="SANDBOX_EDIT_INVALID", message="old_text/new_text must be strings", status_code=400)
+                raise AppError(
+                    code="SANDBOX_EDIT_INVALID", message="old_text/new_text must be strings", status_code=400
+                )
             return SandboxResult(
                 data=edit_file(
                     path,
@@ -82,7 +96,9 @@ class LocalSandboxExecutor:
         if operation == "filesystem.grep":
             pattern = arguments.get("pattern")
             if not isinstance(pattern, str):
-                raise AppError(code="SANDBOX_GREP_INVALID", message="pattern must be a string", status_code=400)
+                raise AppError(
+                    code="SANDBOX_GREP_INVALID", message="pattern must be a string", status_code=400
+                )
             return SandboxResult(
                 data=grep_files(
                     root,
@@ -96,8 +112,15 @@ class LocalSandboxExecutor:
         if operation == "shell.execute":
             argv = arguments.get("argv")
             if not isinstance(argv, list):
-                raise AppError(code="SANDBOX_SHELL_ARGV_INVALID", message="argv must be a list", status_code=400)
-            requested = int(arguments.get("timeout_seconds", self.policy.max_shell_timeout_seconds))
+                raise AppError(
+                    code="SANDBOX_SHELL_ARGV_INVALID", message="argv must be a list", status_code=400
+                )
+            raw_timeout = arguments.get("timeout_seconds", self.policy.max_shell_timeout_seconds)
+            requested = (
+                int(raw_timeout)
+                if isinstance(raw_timeout, (int, float, str))
+                else self.policy.max_shell_timeout_seconds
+            )
             timeout_seconds = min(max(requested, 1), self.policy.max_shell_timeout_seconds)
             return SandboxResult(
                 data=await run_shell(

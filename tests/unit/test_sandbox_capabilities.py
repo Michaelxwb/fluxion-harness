@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -11,14 +12,21 @@ from adapters.sandbox import (
 )
 from framework.capability.registry import CapabilityRegistry
 from framework.capability.runtime import CapabilityRuntime
+from framework.contracts.capability import CapabilityResult
 from framework.contracts.context import TrustedExecutionContext
 from framework.web.errors import AppError
 from framework.workspace.models import WorkspaceOwnerType
 from framework.workspace.policy import SandboxPolicy
 
 
+def _data(result: CapabilityResult) -> dict[str, Any]:
+    """Narrow CapabilityResult.data (typed as object) for assertion access."""
+    assert isinstance(result.data, dict), f"capability returned non-mapping data: {result.data!r}"
+    return result.data
+
+
 @pytest.mark.asyncio
-async def test_workspace_file_read_write_edit_glob_and_grep(tmp_path: Path):
+async def test_workspace_file_read_write_edit_glob_and_grep(tmp_path: Path) -> None:
     manager = LocalWorkspaceManager(tmp_path)
     workspace = await manager.create(
         tenant_id="tenant-a",
@@ -54,7 +62,7 @@ async def test_workspace_file_read_write_edit_glob_and_grep(tmp_path: Path):
         input={"path": "reports/result.md"},
         context=context,
     )
-    assert result.data["content"] == "alpha\nbeta\n"
+    assert _data(result)["content"] == "alpha\nbeta\n"
 
     await runtime.invoke(
         name="filesystem.edit",
@@ -67,18 +75,18 @@ async def test_workspace_file_read_write_edit_glob_and_grep(tmp_path: Path):
         input={"pattern": "reports/*.md"},
         context=context,
     )
-    assert glob_result.data["matches"] == ["reports/result.md"]
+    assert _data(glob_result)["matches"] == ["reports/result.md"]
 
     grep_result = await runtime.invoke(
         name="filesystem.grep",
         input={"pattern": "gamma", "glob": "reports/*.md"},
         context=context,
     )
-    assert grep_result.data["matches"][0]["line"] == 2
+    assert _data(grep_result)["matches"][0]["line"] == 2
 
 
 @pytest.mark.asyncio
-async def test_workspace_rejects_absolute_and_parent_escape(tmp_path: Path):
+async def test_workspace_rejects_absolute_and_parent_escape(tmp_path: Path) -> None:
     manager = LocalWorkspaceManager(tmp_path)
     workspace = await manager.create(
         tenant_id="tenant-a",
@@ -114,7 +122,7 @@ async def test_workspace_rejects_absolute_and_parent_escape(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_workspace_tenant_isolation(tmp_path: Path):
+async def test_workspace_tenant_isolation(tmp_path: Path) -> None:
     manager = LocalWorkspaceManager(tmp_path)
     workspace = await manager.create(
         tenant_id="tenant-a",
@@ -143,16 +151,14 @@ async def test_workspace_tenant_isolation(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_shell_is_disabled_and_realtime_high_risk_is_blocked(tmp_path: Path):
+async def test_shell_is_disabled_and_realtime_high_risk_is_blocked(tmp_path: Path) -> None:
     manager = LocalWorkspaceManager(tmp_path)
     workspace = await manager.create(
         tenant_id="tenant-a",
         owner_type=WorkspaceOwnerType.EXECUTION,
         owner_id=uuid4(),
     )
-    provider = SandboxCapabilityProvider(
-        LocalSandboxExecutor(manager, SandboxPolicy(allow_shell=False))
-    )
+    provider = SandboxCapabilityProvider(LocalSandboxExecutor(manager, SandboxPolicy(allow_shell=False)))
     registry = CapabilityRegistry()
     register_builtin_sandbox_capabilities(registry, provider)
     runtime = CapabilityRuntime(registry)
@@ -182,7 +188,7 @@ async def test_shell_is_disabled_and_realtime_high_risk_is_blocked(tmp_path: Pat
 
 
 @pytest.mark.asyncio
-async def test_shell_executable_allowlist(tmp_path: Path):
+async def test_shell_executable_allowlist(tmp_path: Path) -> None:
     manager = LocalWorkspaceManager(tmp_path)
     workspace = await manager.create(
         tenant_id="tenant-a",

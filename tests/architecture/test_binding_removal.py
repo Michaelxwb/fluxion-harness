@@ -29,21 +29,23 @@ def _hits(token: str) -> list[str]:
     return hits
 
 
-def test_no_user_agent_binding_references_in_code():
+def test_no_user_agent_binding_references_in_code() -> None:
     assert _hits("user_agent_binding") == []
 
 
-def test_migration_0002_is_head_and_follows_0001():
+def test_migration_0002_is_head_and_follows_0001() -> None:
     versions = ROOT / "migrations" / "versions"
     revs: dict[str, str | None] = {}
     for path in versions.glob("*.py"):
         ns: dict[str, object] = {}
         exec(path.read_text(encoding="utf-8"), ns)  # noqa: S102 - controlled migration files
-        revs[str(ns["revision"])] = ns["down_revision"]  # type: ignore[typeddict-item]
+        revision = ns.get("revision")
+        down_revision = ns.get("down_revision")
+        revs[str(revision)] = str(down_revision) if down_revision is not None else None
     assert revs.get("0002") == "0001"
     assert "0002" not in revs.values(), "0002 must be the migration head"
 
 
-def test_routing_goes_through_default_agent():
+def test_routing_goes_through_default_agent() -> None:
     models = (ROOT / "adapters" / "postgres" / "models.py").read_text(encoding="utf-8")
     assert "default_agent" in models

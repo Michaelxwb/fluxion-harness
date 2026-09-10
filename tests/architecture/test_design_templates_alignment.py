@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).parents[2]
 DOCS = ROOT / "docs"
 
@@ -69,7 +68,7 @@ def _assert_sections(path: Path, required: list[str]) -> None:
     assert "{模块名称}" not in text
 
 
-def test_full_design_documents_follow_full_template():
+def test_full_design_documents_follow_full_template() -> None:
     module_dir = DOCS / "02-模块设计"
     full_docs = sorted(module_dir.glob("*.md"))[:13]
     assert len(full_docs) == 13
@@ -77,7 +76,7 @@ def test_full_design_documents_follow_full_template():
         _assert_sections(path, FULL_REQUIRED)
 
 
-def test_lite_design_documents_follow_lite_template():
+def test_lite_design_documents_follow_lite_template() -> None:
     module_dir = DOCS / "02-模块设计"
     lite_docs = sorted(module_dir.glob("*.md"))[13:]
     assert len(lite_docs) == 2
@@ -85,12 +84,12 @@ def test_lite_design_documents_follow_lite_template():
         _assert_sections(path, LITE_REQUIRED)
 
 
-def test_console_design_follows_frontend_template():
+def test_console_design_follows_frontend_template() -> None:
     path = DOCS / "03-前端设计" / "01-Console前端模块设计.md"
     _assert_sections(path, FRONTEND_REQUIRED)
 
 
-def test_all_database_module_designs_reference_common_columns():
+def test_all_database_module_designs_reference_common_columns() -> None:
     for path in sorted((DOCS / "02-模块设计").glob("*.md")):
         text = path.read_text(encoding="utf-8")
         if "数据设计" in text or "数据库" in text:

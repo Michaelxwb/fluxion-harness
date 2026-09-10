@@ -15,4 +15,4 @@ def delivery_backoff_seconds(attempt: int, *, base_seconds: int | None = None) -
         from framework.settings import get_settings
 
         base_seconds = get_settings().delivery_backoff_base_seconds
-    return base_seconds * (2 ** (attempt - 1)) + random.uniform(0, base_seconds)
+    return base_seconds * (2.0 ** (attempt - 1)) + random.uniform(0, base_seconds)

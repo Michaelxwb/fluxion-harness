@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/v1")
 
 
 @router.get("/health", response_model=ApiResponse[dict[str, str]])
-async def health():
+async def health() -> ApiResponse[dict[str, str]]:
     return ok({"status": "ok", "service": "platform-api"})
 
 

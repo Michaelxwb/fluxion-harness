@@ -25,7 +25,7 @@ def create_app(*, title: str, service_name: str) -> FastAPI:
     app.add_middleware(RequestContextMiddleware)
 
     @app.exception_handler(AppError)
-    async def app_error_handler(_: Request, exc: AppError):
+    async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
         logger.warning(
             "application_error",
             extra={"event": "application_error", "code": exc.code, "status_code": exc.status_code},
@@ -38,7 +38,7 @@ def create_app(*, title: str, service_name: str) -> FastAPI:
         )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_error_handler(_: Request, exc: RequestValidationError):
+    async def validation_error_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
         return _json_error(
             status_code=422,
             code="VALIDATION_ERROR",
@@ -47,7 +47,7 @@ def create_app(*, title: str, service_name: str) -> FastAPI:
         )
 
     @app.exception_handler(HTTPException)
-    async def http_error_handler(_: Request, exc: HTTPException):
+    async def http_error_handler(_: Request, exc: HTTPException) -> JSONResponse:
         return _json_error(
             status_code=exc.status_code,
             code="HTTP_ERROR",
@@ -55,7 +55,7 @@ def create_app(*, title: str, service_name: str) -> FastAPI:
         )
 
     @app.exception_handler(Exception)
-    async def unknown_error_handler(_: Request, exc: Exception):
+    async def unknown_error_handler(_: Request, exc: Exception) -> JSONResponse:
         logger.exception("unhandled_exception", extra={"event": "unhandled_exception"})
         return _json_error(
             status_code=500,

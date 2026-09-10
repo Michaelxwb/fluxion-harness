@@ -15,12 +15,12 @@ class ChatRequest(BaseModel):
 
 
 @router.get("/health", response_model=ApiResponse[dict[str, str]])
-async def health():
+async def health() -> ApiResponse[dict[str, str]]:
     return ok({"status": "ok", "service": "agent-runtime"})
 
 
 @router.post("/chat", response_model=ApiResponse[dict[str, str]])
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest) -> ApiResponse[dict[str, str]]:
     # TODO: resolve AgentDefinition + Conversation + UserMemory + capabilities,
     # then invoke the shared LangGraph AgentExecutor.
     return ok({"agent_id": request.agent_id, "content": "agent-runtime scaffold"})

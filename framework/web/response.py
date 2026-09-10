@@ -12,7 +12,7 @@ class ApiResponse(BaseModel, Generic[T]):
     code: str = "OK"
     message: str = "success"
     data: T | None = None
-    request_id: str = Field(default_factory=request_id_ctx.get)
+    request_id: str = Field(default_factory=lambda: request_id_ctx.get())
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
