@@ -1,0 +1,7 @@
+{
+  "core": "0.6.3",
+  "adapters": {
+    "claude": "0.6.3",
+    "opencode": "0.6.3"
+  }
+}

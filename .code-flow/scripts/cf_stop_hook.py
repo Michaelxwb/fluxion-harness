@@ -12,14 +12,17 @@ continued session is never re-blocked (no loops). All-pass → silent exit 0.
 """
 import fnmatch
 import json
+import math
 import os
 import re
-import subprocess
 import sys
+import time
 
 import cf_log
+from cf_exec_base import build_argv, remaining_seconds, run_command, execution_session
 from cf_spec_context import load_active_task
 from cf_task_runtime import run_done_gate
+from cf_acceptance_evidence import line_status, scenario_line
 from cf_core import (
     _log,
     ensure_utf8_io,
@@ -87,26 +90,10 @@ def session_edited_files(project_root: str, sid: str) -> list:
         if event.get("sid") != sid:
             continue
         rel = (event.get("data") or {}).get("file")
-        if not rel or rel in seen:
-            continue
-        # 会话日志是 append-only：文件被删除或移动后 edit 事件仍然留在里面。
-        # 把已不存在的路径交给 validators 会让 py_compile / mypy 报
-        # "No such file or directory" 并使该 sid 的校验从此永久失败。
-        if not os.path.exists(os.path.join(project_root, rel)):
-            continue
-        seen.add(rel)
-        files.append(rel)
+        if rel and rel not in seen:
+            seen.add(rel)
+            files.append(rel)
     return files
-
-
-def _is_harness_path(rel_path: str) -> bool:
-    """`.code-flow/` 是 code-flow 工具链自身，不属于项目源码。
-
-    项目质量门禁（py_compile / mypy / ruff）描述的是项目代码的规则，不应作用于
-    工具链脚本——否则编辑 hook 本身会让 hook 去 lint 自己，而该目录的 strict 违规
-    与本项目无关。mypy 默认也跳过点目录，这里保持一致。
-    """
-    return normalize_path(rel_path).startswith(".code-flow/")
 
 
 def _is_active_task_file(rel_path: str) -> bool:
@@ -126,7 +113,9 @@ def _subsection(section: str, heading: str) -> str:
 
 def _acceptance_gap(task_id: str, section: str, coverage: str) -> str:
     status = re.search(r"(?m)^- \*\*Status\*\*: ([^\n]+)", section)
-    if not status or status.group(1).strip() != "done":
+    # done = implementation finished; verified = E2E/final acceptance closed.
+    # Both enter the same contract checks; anything else is still in flight.
+    if not status or status.group(1).strip() not in ("done", "verified"):
         return ""
     refs_match = re.search(r"(?m)^- \*\*Acceptance-Refs\*\*: ([^\n]+)", section)
     if not refs_match:
@@ -141,17 +130,17 @@ def _acceptance_gap(task_id: str, section: str, coverage: str) -> str:
     evidence = _subsection(section, "Acceptance Evidence")
     if not contract or not evidence:
         return f"{task_id} 缺少 Acceptance Contract 或 Acceptance Evidence"
-    if _UNVERIFIED_RE.search(contract) or _UNVERIFIED_RE.search(evidence):
-        return f"{task_id} 验收契约仍有 planned/pending/TBD"
     for scenario in scenarios:
-        contract_ok = any(scenario in line and "verified" in line.lower()
-                          for line in contract.splitlines())
-        evidence_ok = any(scenario in line and "verified" in line.lower()
-                          for line in evidence.splitlines())
-        coverage_ok = any(scenario in line and "verified" in line.lower()
-                          for line in coverage.splitlines())
-        if not contract_ok or not evidence_ok or not coverage_ok:
-            return f"{task_id} 的 {scenario} 未在覆盖表、契约和证据中全部 verified"
+        coverage_rows = [line for line in coverage.splitlines() if scenario_line(line, scenario)]
+        cells = coverage_rows[0].strip().strip("|").split("|") if coverage_rows else []
+        deferred = status.group(1).strip() == "done" and len(cells) >= 3 and cells[2].strip().lower() == "e2e"
+        allowed = {"verified", "e2e_deferred"} if deferred else {"verified"}
+        states = []
+        for body in (contract, evidence, coverage):
+            found = [line_status(line, scenario) for line in body.splitlines() if scenario_line(line, scenario)]
+            states.append(found[-1] if found else "")
+        if not all(state in allowed for state in states):
+            return f"{task_id} 的 {scenario} 状态未闭环（planned/pending/TBD/failed 或缺少 verified；仅实现阶段 E2E 可 e2e_deferred）"
     return ""
 
 
@@ -182,74 +171,92 @@ def task_acceptance_failures(project_root: str, files: list) -> list:
     return failures
 
 
+def _validator_failure(validator: dict, detail: str, incomplete: bool = False) -> dict:
+    result = {"name": validator.get("name", "validator"),
+              "on_fail": validator.get("on_fail", ""), "detail": detail}
+    if incomplete:
+        result["incomplete"] = True
+    return result
+
+
+def _validator_argv(root: str, validator: dict, matched: list, strict: bool) -> list:
+    existing = [name for name in matched if os.path.isfile(os.path.join(root, name))]
+    template = str(validator.get("command", ""))
+    if "{files}" in template and not existing:
+        return []
+    argv = build_argv(template, existing)
+    if not argv and strict:
+        raise ValueError("validator command missing")
+    return argv
+
+
+def _validator_result(root: str, validator: dict, argv: list, sid: str,
+                      deadline: float, strict: bool) -> tuple[list, bool]:
+    try:
+        timeout = float(validator.get("timeout", 30000)) / 1000.0
+    except (ValueError, TypeError):
+        if strict:
+            return [_validator_failure(validator, "invalid validator timeout")], False
+        timeout = 30.0
+    if not math.isfinite(timeout) or timeout <= 0:
+        return [_validator_failure(validator, "invalid validator timeout")], False
+    outcome = run_command(argv, root, timeout, deadline)
+    passed = outcome["status"] == "ok" and outcome["returncode"] == 0
+    if outcome["status"] == "deadline_exceeded":
+        return [_validator_failure(validator, "预算耗尽未执行", True)], True
+    timed_out = outcome["status"] == "timeout"
+    detail = (f"超时（>{timeout:.0f}s），未完成" if timed_out else
+              (str(outcome.get("stdout", "")) + str(outcome.get("stderr", ""))).strip()[-400:])
+    if outcome["status"] == "spawn_error":
+        cf_log.degrade(root, "stop_check", f"{validator.get('name')}:{outcome['stderr']}", sid)
+        if not strict:
+            return [], False
+    cf_log.append_event(root, "stop_check",
+                        {"trigger": validator.get("trigger", ""),
+                         "cmd": str(validator.get("command", ""))[:120], "passed": passed}, sid)
+    return ([] if passed else [_validator_failure(validator, detail)]), timed_out
+
+
 def run_validators(
     project_root: str, validators: list, files: list, sid: str,
     total_budget: float = TOTAL_BUDGET_SECONDS,
+    deadline: float = 0.0,
+    strict: bool = False,
 ) -> tuple:
-    """Run matching validators serially → (failures, truncated)."""
-    import time
-    failures = []
-    truncated = False
-    deadline = time.monotonic() + total_budget
+    """Match validators, execute argv under one deadline, report unrun work."""
+    failures, truncated = [], False
+    deadline = deadline or time.monotonic() + total_budget
     for validator in validators:
         if not isinstance(validator, dict):
+            if strict:
+                failures.append(_validator_failure({}, "invalid validator record"))
             continue
-        matched = [
-            f
-            for f in files
-            if not _is_harness_path(f) and trigger_matches(validator.get("trigger", ""), f)
-        ]
+        matched = [f for f in files if trigger_matches(validator.get("trigger", ""), f)]
         if not matched:
             continue
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
+        remaining = remaining_seconds(deadline)
+        if remaining is not None and remaining <= 0:
+            failures.append(_validator_failure(validator, "预算耗尽未执行", True))
             truncated = True
-            break
-        try:
-            timeout = min(float(validator.get("timeout", 30000)) / 1000.0, remaining)
-        except (ValueError, TypeError):
-            timeout = remaining
-        command = str(validator.get("command", "")).replace(
-            "{files}", " ".join(matched)
-        )
-        if not command.strip():
             continue
-        passed = False
-        detail = ""
         try:
-            proc = subprocess.run(
-                command, shell=True, cwd=project_root,
-                capture_output=True, text=True, timeout=timeout,
-            )
-            passed = proc.returncode == 0
-            if not passed:
-                detail = (proc.stdout + proc.stderr).strip()[-400:]
-        except subprocess.TimeoutExpired:
-            detail = f"超时（>{timeout:.0f}s），跳过"
-            truncated = True
-        except Exception as exc:
-            # 命令在环境中不可用等：降级跳过，不打扰（E 场景）
-            cf_log.degrade(project_root, "stop_check", f"{validator.get('name')}:{exc}", sid)
+            argv = _validator_argv(project_root, validator, matched, strict)
+        except ValueError as exc:
+            failures.append(_validator_failure(validator, f"validator 配置错误: {exc}"))
             continue
-        cf_log.append_event(
-            project_root, "stop_check",
-            {"trigger": validator.get("trigger", ""),
-             "cmd": str(validator.get("command", ""))[:120], "passed": passed},
-            sid,
-        )
-        if not passed:
-            failures.append({
-                "name": validator.get("name", "validator"),
-                "on_fail": validator.get("on_fail", ""),
-                "detail": detail,
-            })
+        if not argv:
+            continue
+        errors, incomplete = _validator_result(project_root, validator, argv, sid, deadline, strict)
+        failures.extend(errors)
+        truncated = truncated or incomplete
     return failures, truncated
 
 
 def _reason_text(failures: list, truncated: bool) -> str:
     lines = ["收尾校验未通过（cf-stop）："]
     for item in failures:
-        lines.append(f"✗ {item['name']}：{item['on_fail']}")
+        tag = "（未执行）" if item.get("incomplete") else ""
+        lines.append(f"✗ {item['name']}{tag}：{item['on_fail']}")
         if item["detail"]:
             lines.append(f"  输出片段: {item['detail'][:200]}")
     if truncated:
@@ -258,7 +265,7 @@ def _reason_text(failures: list, truncated: bool) -> str:
     return "\n".join(lines)
 
 
-def main() -> None:
+def _main() -> None:
     try:
         ensure_utf8_io()
         raw = sys.stdin.read()
@@ -278,11 +285,16 @@ def main() -> None:
         marker = os.path.join(project_root, ".code-flow", ".active-task.json")
         has_active = os.path.exists(marker)
         files = []
+        # Single entry deadline constrains the whole chain (Done + validators),
+        # so long checks end as `incomplete` instead of being killed by the
+        # host without a verdict.
+        deadline = time.monotonic() + TOTAL_BUDGET_SECONDS
         if has_active:
             try:
                 active = load_active_task(project_root)
                 task_dir = os.path.join(project_root, active.task_dir)
-                done = run_done_gate(project_root, task_dir, budget=GATE_BUDGET_SECONDS)
+                gate_remaining = deadline - time.monotonic()
+                done = run_done_gate(project_root, task_dir, budget=min(GATE_BUDGET_SECONDS, max(gate_remaining, 0.01)))
             except (OSError, ValueError) as exc:
                 if enforcement == "required":
                     payload = {"decision": "block", "reason": f"SPEC_WORKFLOW_BLOCKED: active task is invalid: {exc}"}
@@ -310,7 +322,7 @@ def main() -> None:
         acceptance_failures = task_acceptance_failures(project_root, files)
         validators = load_validators(project_root)
         failures, truncated = run_validators(
-            project_root, validators, files, sid
+            project_root, validators, files, sid, deadline=deadline
         ) if validators else ([], False)
         failures = acceptance_failures + failures
         if not failures:
@@ -326,7 +338,14 @@ def main() -> None:
         sys.stdout.write(json.dumps(payload, ensure_ascii=False))
     except Exception as exc:
         _log(f"cf_stop_hook error: {exc}")
+        if locals().get("enforcement") == "required":
+            sys.stdout.write(json.dumps({"decision": "block", "reason": f"SPEC_WORKFLOW_BLOCKED: {exc}"}, ensure_ascii=False))
         return
+
+
+def main() -> None:
+    with execution_session():
+        _main()
 
 
 if __name__ == "__main__":
