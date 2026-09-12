@@ -25,6 +25,7 @@
 | V1.13 | 2026-09-12 | 第三轮 Review 修复：补 Step 条件必填控件（`wait_seconds`/`human_deadline_seconds`/`deliverable_template`）与失败策略全枚举；登记新增/编辑路由与 Tab 子路由；补 `FEAT-02-05` 与场景 `S-02-05`；场景 ID 前缀拆分（integration → `I-02-01`） |
 | V1.13.1 | 2026-09-12 | 第四轮 Review 裁决修复（Claude Code）：列表筛选拆为「草稿状态/启用状态/执行方式」三个正交控件（Z-07）；步骤表单新增 `human_policy`（B11）；测试弹窗补「测试用户」控件（B13）；补场景 `S-02-07`/`S-02-08`/`S-02-09` |
 | V1.13.1 | 2026-09-12 | 第四轮 Review 修复（D5=A）：Tab C 业务范围按 `resource_scope` 最小 typed 形态 `{type, refs[], attributes?}` 收敛——删除 Service 级 Scope Schema 与 `Schema Hash`，改为类型白名单（`resource_scope_types`）下拉 + `refs[]` + `attributes` 动态渲染；补 Tab C 字段映射、空白名单空态与场景 `S-02-06`；`SVC-API-04` 保存合同映射同步 |
+| V1.14.1 第五轮契约同步 | 2026-09-13 | 第五轮 D8~D15 契约同步：步骤表单新增**执行模式**（`execution_mode`，`SYNC` 默认 / `ASYNC`，仅 Capability 可选）及 ASYNC 步骤专属的「对账时限（`reconcile_timeout_seconds`，默认 86400）/ 轮询上限（`max_poll_attempts`，默认 100）」（ADR-062）；范围类型候选来源改为 `GET /api/v1/meta/resource-scope-types`（`INT-API-01`，Owner=模块 12，空集合返回 `items: []`）（ADR-067/D2）；测试用户链路改为「`GET /api/v1/auth/me` 取默认 `user_id` + `GET /api/v1/services/{service_id}/test-user-candidates` 取候选」（`AUTH-API-01`/`SVC-API-11`）（ADR-067/D14）；API 映射表补上述三个接口 |
 
 ## 2. 需求分析
 
@@ -78,7 +79,7 @@
 | S-02-06 | FEAT-02-03 | E2E | Tab C 范围类型白名单（`resource_scope_types`） | 在 Tab C 选择类型 → 填 `refs[]` → 填该类型声明的 `attributes` 并保存 Draft；再以未声明范围类型的部署重开同一页面 | 保存请求 `resource_scope` 为 `{type, refs[], attributes}` 且**不含** `schema_hash`；读回与提交一致。空白名单部署下「范围类型」控件**不渲染**，只提示“当前部署未声明范围类型”，不出现硬编码枚举或空下拉；提交不携带伪造 `type` |
 | S-02-07 | FEAT-02-01 | E2E | 独立筛选维度 | 在服务列表分别设置「草稿状态=有未发布修改」「启用状态=停用」「执行方式=HYBRID」三项筛选 | 列表请求为 `GET /api/v1/services?draft_state=dirty&enabled=false&execution_type=HYBRID&page=1`（三项 AND 同时下发，无合并的单一 `status` 参数）；地址栏包含同样的查询串；三处筛选控件各自独立显示且互不覆盖；在 `page=2` 时改动任一筛选后请求的 `page` 重置为 `1` |
 | S-02-08 | FEAT-02-03 | E2E | 人工策略字段 | 在 Tab B 对同一服务新增 ①`human_policy=never` + 失败策略 `MANUAL` 的步骤 ②`human_policy=on_uncertainty` 的步骤 | ①保存被就地拦截：`human_policy` 控件内显示冲突错误且 Network 面板无 `SVC-API-04` 请求；②改成 `on_uncertainty` 后保存返回 200，读回该步骤 `human_policy=on_uncertainty`；新增 Step 类型 = Human 的步骤时 `human_policy` 控件只读显示 `always` 且不可改为 `never` |
-| S-02-09 | FEAT-02-04 | E2E | 测试用户控件 | Builder 对引用了 `auth_mode=USER_PLATFORM` 能力的服务打开测试弹窗；再对一个未引用该类能力的服务打开同一弹窗 | 前者的测试弹窗在「测试输入」上方显示「测试用户」选择器且默认选中**当前登录用户**，请求体含非空 `test_user_id`；后者**不渲染**该控件，但请求体仍携带默认的当前登录用户；mock 后端返回 `TEST_USER_ACCESS_INVALID`(403) 时错误定位到该控件且弹窗内输入保留 |
+| S-02-09 | FEAT-02-04 | E2E | 测试用户链路 | Builder 对引用了 `auth_mode=USER_PLATFORM` 能力的服务打开测试弹窗；再对一个未引用该类能力的服务打开同一弹窗 | 前者的测试弹窗在「测试输入」上方显示「测试用户」选择器且默认选中**当前登录用户**（取 `GET /api/v1/auth/me` 的 `user_id`），候选来自 `GET /api/v1/services/{service_id}/test-user-candidates`（`SVC-API-11`，空候选时仅保留默认当前用户），请求体含非空 `test_user_id`；后者**不渲染**该控件，但请求体仍携带默认的当前登录用户；mock 后端返回 `TEST_USER_ACCESS_INVALID`(403) 时错误定位到该控件且弹窗内输入保留（**不得**用候选列表事先过滤来掩盖）；网络面板中**不出现**对 `USR-API-01` 用户列表的调用 |
 | E-02-01 | FEAT-02-04 | E2E | 发布按钮角色 | Builder 打开 Tab D | 无发布按钮（不渲染）；Admin 有发布+Release 预览 |
 | I-02-01 | FEAT-02-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
@@ -142,7 +143,7 @@
 | 执行方式 | 是 | 是 |
 | 启用状态 | 是 | 创建后仅 Admin 即时启停，Draft 只读 |
 
-**执行步骤字段**：步骤名称、Step 类型、执行对象、输入映射、输出变量、超时、失败策略、最大重试、人工说明、步骤说明，以及三类**条件必填**控件（V1.13，T-19）：
+**执行步骤字段**：步骤名称、Step 类型、执行对象、输入映射、输出变量、超时、**执行模式**、失败策略、最大重试、人工说明、步骤说明，以及三类**条件必填**控件（V1.13，T-19）：
 
 | 控件 | DTO 字段 | 出现条件 | 必填性 |
 |---|---|---|---|
@@ -151,6 +152,16 @@
 | 交付模板 | `deliverable_template` | Step 类型 = Delivery | **必填**；受控变量语法文本（D6）；空值就地报错且不发请求 |
 
 条件必填由控件显隐驱动：隐藏字段不参与校验，显示字段为空时错误定位到该控件且不发起 `SVC-API-04` 请求。
+
+**执行模式 `execution_mode`（ADR-062，V1.14.1 新增）**
+
+| 控件 | DTO 字段 | 取值 | 出现条件与必填性 |
+|---|---|---|---|
+| 执行模式 | `execution_mode` | `SYNC`（默认，同步）/ `ASYNC`（异步外部任务） | 全部步骤显示；**`ASYNC` 仅 `Step 类型 = Capability` 可选**，其他类型只能 `SYNC` |
+| 对账时限（秒） | `reconcile_timeout_seconds` | 正整数 | **仅 `execution_mode=ASYNC` 的步骤**出现；默认 `86400` |
+| 轮询上限 | `max_poll_attempts` | 正整数 | **仅 `execution_mode=ASYNC` 的步骤**出现；默认 `100` |
+
+**异步能力与执行模式的合取校验**：服务引用的能力**不支持异步提交**而选择 `ASYNC`、或能力**仅支持异步**而选择 `SYNC` 时，控件**就地报错并禁止提交**（不发 `SVC-API-04`）；后端 `SVC-API-05` 返回 `CAPABILITY_ASYNC_NOT_INVOKABLE`(422) 时错误定位到该步骤。能力的异步支持标记由能力 Contract 提供，前端不自行推导。
 
 **人工策略 `human_policy`（B11，V1.13.1 新增，取代原型「人工介入（否/必要时/始终）」）**
 
@@ -162,26 +173,26 @@
 
 
 
-**保存合同**：前端直接构造模块 05 service-draft-schema：主 Agent→primary_agent_id；步骤名称→name、说明→description、稳定键→step_key、类型→type；执行对象→agent_id/capability_key；范围→resource_scope.type/refs/attributes。输入映射控件输出 `{source:INPUT,path:JSON Pointer}`、`{source:STEP,step_key,path}` 或 `{literal:value}`，不使用字符串插值。output_var 仅显示别名。
+**保存合同**：前端直接构造模块 05 service-draft-schema：主 Agent→primary_agent_id；步骤名称→name、说明→description、稳定键→step_key、类型→type；执行对象→agent_id/capability_key；执行模式→`execution_mode`（**省略即默认 `SYNC`**），`execution_mode=ASYNC` 时同时提交 `reconcile_timeout_seconds`（默认 `86400`）与 `max_poll_attempts`（默认 `100`）；范围→resource_scope.type/refs/attributes。输入映射控件输出 `{source:INPUT,path:JSON Pointer}`、`{source:STEP,step_key,path}` 或 `{literal:value}`，不使用字符串插值。output_var 仅显示别名。
 
 **业务范围字段（Tab C，D5=A 收敛口径，`resource_scope` = `{type, refs[], attributes?}`）**
 
 | 控件 | DTO 字段 | 取值/控件形态 | 说明 |
 |---|---|---|---|
-| 范围类型 | `resource_scope.type` | 下拉（单选） | 候选来自后端 `resource_scope_types` 白名单（当前部署 Integration manifest 声明，装配期校验、不落库）；前端不硬编码枚举 |
+| 范围类型 | `resource_scope.type` | 下拉（单选） | 候选来自 `GET /api/v1/meta/resource-scope-types`（`INT-API-01`，Owner=模块 12；响应 `{items:[{type, display_name, attributes_schema}]}`，即当前部署 Integration manifest 的 `resource_scope_types` 只读投影，装配期校验、不落库）；前端不硬编码枚举 |
 | 范围引用 | `resource_scope.refs[]` | 标签输入/多选 | 对外展示与筛选用的范围引用；执行列表的 `scope_refs` 直接投影它 |
 | 范围属性 | `resource_scope.attributes` | 按所选类型**动态渲染** | 仅渲染该类型声明的字段；未声明字段不渲染也不提交，前端不做额外 schema 校验 |
 | 业务说明 | —（不进入 draft schema 校验） | textarea | 面向 Builder 的说明 |
 
-**空白名单空态**：`resource_scope_types` 为空（当前部署未声明范围类型）时，「范围类型」控件**不渲染**，仅提示“当前部署未声明范围类型”；`refs` 与 `attributes` 不提交伪造 `type`。
+**空白名单空态**：`GET /api/v1/meta/resource-scope-types` 返回空集合（`items: []`，当前部署未声明范围类型）时，「范围类型」控件**不渲染**，仅提示“当前部署未声明范围类型”；`refs` 与 `attributes` 不提交伪造 `type`。
 
 **已删除**（D5=A）：Service 级 Scope JSON Schema 与 `Schema Hash`；`resource_scope` 不再有 scope schema 参与快照/摘要，也不再按类型元数据做投影脱敏。Input/Output Schema 仍按模块 05 的 Draft Schema 展示/编辑。
 
 失败策略四项（全枚举，V1.13 补全）：`FAIL_FAST`（终止）/ `SKIP_ON_ERROR`（显式跳过）/ `RETRY`（有界重试，选中后才出现「最大重试」）/ `MANUAL`（转人工等待）。WAIT 必填 `wait_seconds`，HUMAN 的 `human_prompt` 与 `human_deadline_seconds`（默认 86400s），DELIVERY 必填 `deliverable_template`；同一表单提交的 schema 与后端共用文档中的 JSON Schema 样例测试。非法引用定位到具体 Step/字段。
 
-**测试面板**：传当前 draft_revision/test_user_id/input/mode/idempotency_key；默认 DRY_RUN，无 mock 返回明确错误。结果显示 TEST、修订、test_mode、expired；草稿修改后旧测试显示“草稿已变更，请重测”。测试列表传 execution_source=TEST，不能混入运营统计。
+**测试面板**：传当前 draft_revision/test_user_id/input/mode/idempotency_key；默认 DRY_RUN，无 mock 返回明确错误。结果显示 TEST、修订、test_mode、expired；草稿修改后旧测试显示“草稿已变更，请重测”。测试列表传 `execution_source=TEST`，不能混入运营统计（默认列表只查 `FORMAL`）。
 
-**测试用户控件（B13，`test_user_id` 的落点）**：测试弹窗内「测试输入」上方，**仅当**服务引用的能力实现中存在 `auth_mode=USER_PLATFORM`（用户平台认证）时显示；默认值为**当前登录用户**；候选为当前调用者有权选择的测试用户；控件隐藏时仍提交默认的当前登录用户；后端 `TEST_USER_ACCESS_INVALID`(403) 错误定位到该控件并在弹窗内保留输入。
+**测试用户控件（B13，`test_user_id` 的落点；ADR-067/D14）**：测试弹窗内「测试输入」上方，**仅当**服务引用的能力实现中存在 `auth_mode=USER_PLATFORM`（用户平台认证）时显示；默认值为**当前登录用户**，取自 `GET /api/v1/auth/me` 的 `user_id`（`AUTH-API-01`，Owner=模块 09；不使用登录响应的快照字段）；候选取自 `GET /api/v1/services/{service_id}/test-user-candidates`（`SVC-API-11`，Builder+Admin，响应 `{items:[{user_id,user_key,display_name}],page,page_size,total,default_user_id}`，**空候选合法**，此时仅保留默认当前用户）；控件隐藏时仍提交默认的当前登录用户；后端 `TEST_USER_ACCESS_INVALID`(403) 仍是**最终判定**，错误定位到该控件并在弹窗内保留输入——**前端不得用候选列表事先过滤来掩盖**（候选为空/不含目标用户不等于无权，`USR-API-01` 用户列表仅 Admin，不得用它做测试候选取代）。
 
 **即时启停**：Admin 在列表行/详情独立“紧急停用/恢复”，调用 SVC-API-10，停用二次确认并刷新 enabled。Draft 编辑只读展示即时 enabled，不将其放进 draft_payload；保存/发布不能覆盖该开关，Builder 不显示操作。
 
@@ -209,6 +220,9 @@
 | 测试 Service Draft | `SVC-API-06` | `POST /api/v1/services/{service_id}/test` | Service 与 Execution |
 | 发布 Service | `SVC-API-07` | `POST /api/v1/services/{service_id}/publish` | Service 与 Execution |
 | 紧急停用/恢复 | `SVC-API-10` | `PATCH /api/v1/services/{service_id}/enabled` | Service 与 Execution |
+| 测试用户候选 | `SVC-API-11` | `GET /api/v1/services/{service_id}/test-user-candidates` | Service 与 Execution |
+| 当前登录用户 | `AUTH-API-01` | `GET /api/v1/auth/me` | Auth 与项目平台 |
+| 范围类型元数据 | `INT-API-01` | `GET /api/v1/meta/resource-scope-types` | Project Integration 与 Registry |
 | Release 列表 | `SVC-API-08` | `GET /api/v1/services/{service_id}/releases` | Service 与 Execution |
 | Release 详情 | `SVC-API-09` | `GET /api/v1/services/{service_id}/releases/{release_id}` | Service 与 Execution |
 

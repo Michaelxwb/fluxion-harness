@@ -19,10 +19,24 @@ class StartServiceExecutionProposal(BaseModel):
     idempotency_key: str
 
 
+class ResolvedRelease(BaseModel):
+    """Frozen release lookup result (module 05 EXE-LIB-01 inputs).
+
+    Carries identifiers, not a display ref: the execution and its snapshot point
+    at `service_id`/`service_release_id` so no reader depends on a denormalised
+    "<key>:<release_no>" string that the schema does not have.
+    """
+
+    service_id: UUID
+    service_release_id: UUID
+    content_hash: str
+    published_payload: dict[str, object] = Field(default_factory=dict)
+
+
 class PublishedServiceResolver:
-    async def resolve(self, service_key: str) -> tuple[str, str, dict[str, object]]:
+    async def resolve(self, service_key: str) -> ResolvedRelease:
         # TODO: resolve published service release from PostgreSQL/runtime registry.
-        return f"{service_key}:published", "TODO_HASH", {}
+        raise NotImplementedError("published service resolver is not bound")
 
 
 def _frozen_binding_sets(
@@ -78,10 +92,11 @@ class ExecutionService:
         if existing:
             return existing
 
-        release_ref, content_hash, execution_spec = await self.resolver.resolve(proposal.service_key)
-        spec = execution_spec if isinstance(execution_spec, dict) else {}
-        scope_value = spec.get("resource_scope_type")
-        hash_value = spec.get("resource_scope_schema_hash")
+        resolved = await self.resolver.resolve(proposal.service_key)
+        content_hash = resolved.content_hash
+        execution_spec = resolved.published_payload
+        scope_value = execution_spec.get("resource_scope_type")
+        hash_value = execution_spec.get("resource_scope_schema_hash")
         validated = validate_resource_scope(
             registry=self.scope_registry,
             scope_type=scope_value if isinstance(scope_value, str) else None,
@@ -91,8 +106,9 @@ class ExecutionService:
         spec_dict = execution_spec if isinstance(execution_spec, dict) else {}
         frozen_skills, frozen_knowledge, frozen_capabilities = _frozen_binding_sets(spec_dict)
         snapshot = build_execution_snapshot(
-            service_release_ref=release_ref,
-            service_content_hash=content_hash,
+            service_id=resolved.service_id,
+            service_release_id=resolved.service_release_id,
+            content_hash=content_hash,
             execution_spec=spec_dict,
             validated_scope=validated,
             skill_artifacts=frozen_skills,
@@ -102,9 +118,10 @@ class ExecutionService:
         execution = ServiceExecution(
             id=uuid4(),
             actor_user_id=context.actor_user_id,
-            service_release_ref=release_ref,
-            resource_scope=validated.value,
-            input=proposal.input,
+            service_id=resolved.service_id,
+            service_release_id=resolved.service_release_id,
+            resource_scope_json=validated.value,
+            input_json=proposal.input,
             idempotency_key=proposal.idempotency_key,
             delivery_route_id=context.delivery_route_id,
         )

@@ -38,6 +38,7 @@
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 新增 AUTH-LIB-02/03（内部服务 token、Developer token）；Console 身份映射与 configured/session 字段补齐；Builder 安全只读 DTO 字段级冻结；auth_type↔ProviderKey 冻结；用户授权 revision_token 移除；Skill 入口校验与审核后置声明 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D2 字段级授权：PLAT-API-02/04 由「仅 Admin」改为「Builder + Admin（敏感字段仅 Admin）」，`auth_type`/`auth_schema` 仅 Admin 可写、非 Admin 携带即 403 `FIELD_ADMIN_ONLY` 并原子拒绝；明确认证模板由 Admin 维护、Builder 只读 `auth_type`/`configured`（同步 §3.2.3 与 PLAT-API-01/03 投影）；PLAT-API-05 维持仅 Admin 并写明理由 |
+| V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
 
 ## 2. 需求分析
 
@@ -196,6 +197,8 @@ Console 登录入口 `POST /api/v1/auth/login`（及 `POST /api/v1/auth/logout`�
 | 表名 | 职责 | 所有权 |
 |---|---|---|
 | project_platform | MSS/CRM/ERP 等业务平台产品对象；承载用户认证模板并被 PLATFORM_SERVICE Capability 引用。与 ProjectIntegration 分离。 | Auth 与项目平台 |
+| auth_account | Console 登录账号（口令哈希）；ADR-021 的管理面身份入口。 | Auth 与项目平台 |
+| auth_session | Bearer 会话令牌（只存哈希，12h 有效）。 | Auth 与项目平台 |
 | user_project_credential | 同一 PlatformUser × ProjectPlatform 的唯一用户认证投影；敏感值在 Secret Provider。 | Auth 与项目平台 |
 
 #### 表 `project_platform`
@@ -230,6 +233,48 @@ Console 登录入口 `POST /api/v1/auth/login`（及 `POST /api/v1/auth/logout`�
 |---|---|---|---|
 | uk_project_platform_key | UNIQUE | tenant_id,key | 按 key 引用 |
 | idx_project_platform_status | BTREE | tenant_id,enabled,is_deleted | 控制面列表 |
+
+#### 表 `auth_account`
+
+**职责**：Console 登录账号（ADR-021）；只存口令哈希，不存明文。
+
+| 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
+|---|---|---|---|---|---|
+| tenant_id | UUID | N |  | IDX | 租户 |
+| username | VARCHAR(128) | N |  | IDX | 登录名（同租户内唯一，软删不占位） |
+| password_hash | VARCHAR(512) | N |  |  | 口令哈希（PBKDF2），**永不返回、永不记录** |
+| role | VARCHAR(32) | N | BUILDER |  | ADMIN/BUILDER（`platform_user.role` 的登录侧投影，见 §3.2.3） |
+| enabled | BOOLEAN | N | TRUE | IDX | 是否允许登录 |
+| id | UUID | N | gen_random_uuid() | PK | 主键 |
+| is_deleted | BOOLEAN | N | FALSE |  | 默认过滤 FALSE |
+| create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
+
+**约束与索引**
+
+- UNIQUE (tenant_id,username) WHERE is_deleted=false；停用用 `enabled`，不复用软删。
+- `role` 与 `platform_user.role` 一一对应；登录响应只返回 `{token, username, role}`，身份与角色的权威读取入口是 `AUTH-API-01`（ADR-067/D14）。
+
+#### 表 `auth_session`
+
+**职责**：Bearer 会话令牌存储；只持久化 token 哈希。
+
+| 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
+|---|---|---|---|---|---|
+| tenant_id | UUID | N |  | IDX | 租户 |
+| account_id | UUID | N |  | FK,IDX | `auth_account.id` |
+| token_hash | VARCHAR(128) | N |  | UK | SHA-256 哈希；明文只在登录响应出现一次 |
+| expires_at | TIMESTAMPTZ | N |  | IDX | 过期时间（默认 12h） |
+| revoked_at | TIMESTAMPTZ | Y |  |  | 登出/撤销时间 |
+| id | UUID | N | gen_random_uuid() | PK | 主键 |
+| is_deleted | BOOLEAN | N | FALSE |  | 默认过滤 FALSE |
+| create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
+
+**约束与索引**
+
+- UNIQUE (token_hash)；(account_id,expires_at) 支持按账号批量失效。
+- 过期或 `revoked_at` 非空的会话一律 401 `SESSION_INVALID`，不做滑动续期。
 
 #### 表 `user_project_credential`
 
@@ -313,9 +358,48 @@ erDiagram
 | CRED-API-02 | 保存用户平台认证 | HTTP | PUT | /api/v1/users/{user_id}/platform-credentials/{platform_id} |
 | CRED-API-03 | 验证用户平台认证 | HTTP | POST | /api/v1/users/{user_id}/platform-credentials/{platform_id}/verify |
 | CRED-API-04 | 删除用户平台认证 | HTTP | DELETE | /api/v1/users/{user_id}/platform-credentials/{platform_id} |
+| AUTH-API-01 | 当前会话身份 | HTTP | GET | /api/v1/auth/me（会话身份与角色的唯一读取入口） |
 | AUTH-LIB-01 | 运行时用户认证解析 | Library | async def resolve_user_platform_auth(ctx: TrustedExecutionContext, project_platform_id: UUID) -> AuthContext |  |
 | AUTH-LIB-02 | InternalServiceToken 签发与校验 | Library | def issue_internal_service_token(service_role, *, audience, tenant_id, scope, ttl_seconds=300) -> str；async def verify_internal_service_token(token, *, expected_audience) -> InternalServiceIdentity | 服务间身份（模块 10/03 的 `/internal/*` 统一引用） |
 | AUTH-LIB-03 | Developer Token 与测试用户白名单 | Library | async def verify_developer_token(token: str, *, expected_tenant: UUID) -> DeveloperIdentity | 仅 dev/test 环境（模块 17 Dev Gateway 联调） |
+
+#### AUTH-API-01: 当前会话身份
+
+**入口类型**：HTTP
+
+**契约**：`GET /api/v1/auth/me`
+
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；角色 ∈ {ADMIN, BUILDER}（END_USER 不可登录 Console，`END_USER_NOT_ALLOWED` 401/403 沿用登录契约）。
+
+**请求体**：无。
+
+**响应 data**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| user_id | uuid | 当前会话对应的唯一 `platform_user.id`——**所有授权判定、`granted_by`、`audit_log.actor_user_id` 的主语** |
+| username | string | 登录名 |
+| display_name | string | 展示名（缺省回退 `username`） |
+| role | string | ADMIN/BUILDER（**每次请求实时读取**，不缓存登录瞬间的快照） |
+| tenant_id | string | 当前租户 |
+
+**语义（ADR-067/D14）**：Console 的**身份与角色一律取自本端点**；登录响应（`POST /api/v1/auth/login`）保持 `{token, username, role}` 冻结不变，**不得**作为“我是谁/我是什么角色”的事实源。理由：身份是授权主语、角色是权限承载字段，把登录瞬间的响应缓存进客户端会让角色降级/停用后 UI 仍按旧角色渲染；本端点每次返回当前权威值，与“动作最终以后端为准”一致。
+
+**消费方**：Console 全站身份引导；服务测试弹窗的 `test_user_id` 默认值（当前登录用户）；能力测试面板的同名字段。候选范围另经 `SVC-API-11`（测试用户候选）解析，`USR-API-01` 用户列表仍仅 Admin。
+
+**错误码**
+
+| 错误码 | 场景 | HTTP 状态 |
+|---|---|---|
+| SESSION_INVALID | token 缺失/过期/撤销 | 401 |
+| END_USER_NOT_ALLOWED | END_USER 访问 Console 接口 | 403 |
+
+**处理逻辑**
+
+```text
+中间件解析 Bearer → 取 platform_user 当前行（status=ACTIVE 校验）→ 返回 user_id/username/display_name/role/tenant_id。
+不返回 Secret、不返回授权明细、不缓存角色快照。
+```
 
 #### PLAT-API-01: 项目平台列表
 

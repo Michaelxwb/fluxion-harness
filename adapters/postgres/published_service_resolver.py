@@ -4,27 +4,27 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from adapters.postgres.models import ServiceDefinitionModel, ServiceReleaseModel
-from framework.execution.service import PublishedServiceResolver
+from framework.execution.service import PublishedServiceResolver, ResolvedRelease
 from framework.web.errors import AppError
 
 
 class SqlPublishedServiceResolver(PublishedServiceResolver):
     """Resolve the current published release of a service key from PostgreSQL.
 
-    Returns ``(release_ref, content_hash, published_payload)`` where
-    ``release_ref`` is ``<service_key>:<release_no>``. Unpublished or disabled
-    services are execution-time errors, not 404s, so the caller can surface a
-    stable error code to the proposing Agent.
+    Returns a :class:`ResolvedRelease` (service_id / service_release_id /
+    content_hash / published_payload). Unpublished or disabled services are
+    execution-time errors, not 404s, so the caller can surface a stable error
+    code to the proposing Agent.
     """
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
 
-    async def resolve(self, service_key: str) -> tuple[str, str, dict[str, object]]:
+    async def resolve(self, service_key: str) -> ResolvedRelease:
         async with self._session_factory() as session:
             service = await session.scalar(
                 select(ServiceDefinitionModel).where(
-                    ServiceDefinitionModel.service_key == service_key,
+                    ServiceDefinitionModel.key == service_key,
                     ServiceDefinitionModel.is_deleted.is_(False),
                 )
             )
@@ -46,6 +46,10 @@ class SqlPublishedServiceResolver(PublishedServiceResolver):
                     message=f"service has no published release: {service_key}",
                     status_code=409,
                 )
-            release_ref = f"{service.service_key}:{release.release_no}"
             payload = release.published_payload if isinstance(release.published_payload, dict) else {}
-            return release_ref, release.content_hash, payload
+            return ResolvedRelease(
+                service_id=service.id,
+                service_release_id=release.id,
+                content_hash=release.content_hash,
+                published_payload=payload,
+            )

@@ -70,7 +70,8 @@ def _execution() -> ServiceExecution:
     return ServiceExecution(
         id=uuid4(),
         actor_user_id=uuid4(),
-        service_release_ref="svc:r-1",
+        service_id=uuid4(),
+        service_release_id=uuid4(),
         idempotency_key=f"idem-{uuid4().hex[:8]}",
     )
 

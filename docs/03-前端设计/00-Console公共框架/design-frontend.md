@@ -24,6 +24,7 @@
 | V1.11 | 2026-09-11 | 从大一统 Console 文档拆成独立产品模块设计 |
 | V1.13 | 2026-09-12 | 第三轮 Review 修复：场景 ID 前缀拆分（E2E 保留 `E-00-01`，integration 改名 `I-00-01`） |
 | V1.13.1 | 2026-09-12 | Claude Code：第四轮 Review 修复——§3.4 新增 `StandardListQuery` 统一列表查询契约（Z-08：`page`/`page_size`/`keyword`/`sort`，服务端筛选、筛选变更重置 `page=1`、URL 为唯一事实源），并补场景 `S-00-03` |
+| V1.14.1 第五轮契约同步 | 2026-09-13 | 第五轮 D8~D15 契约同步（ADR-067/D14）：§3.3.1 登录与身份合同补身份再查询入口 `GET /api/v1/auth/me`（`AUTH-API-01`，Owner=模块 09，返回 `{user_id, username, role, tenant_id}`），说明需要 `user_id` 或以当前身份渲染角色 UI 时读该接口、不以登录会话快照为准；登录响应契约 `{token, username, role}` 不变 |
 
 ## 2. 需求分析
 
@@ -106,7 +107,7 @@
 - 注销：`POST /api/v1/auth/logout`（吊销当前 token）；
 - 初始账号：`python -m apps.platform_api.bootstrap_admin <user> <pass>` 一次性创建 ADMIN，已存在则拒绝；
 - 守卫：除 `POST /api/v1/auth/login` 外，所有 `/api/v1/*` 需 Bearer 会话（RULE-API-02）；Admin-only 接口 Builder 调用返回 403；失效/过期 token 返回 401，前端统一跳登录页；
-- 角色来源：登录响应的 `role`（ADMIN/BUILDER）即 ConsoleLayout 角色上下文，无需额外接口。
+- 角色来源：登录响应的 `role`（ADMIN/BUILDER）即 ConsoleLayout 角色上下文；**身份与角色的权威再查询入口为 `GET /api/v1/auth/me`（`AUTH-API-01`，Owner=模块 09，返回 `{user_id, username, role, tenant_id}`）**——需要 `user_id`（如服务测试的测试用户默认值）或以当前身份渲染角色相关 UI 时读该接口，不以登录响应的会话快照为准（V1.14.1）。
 
 ### 3.4 组件接口契约与字段
 

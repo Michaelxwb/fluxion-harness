@@ -17,11 +17,31 @@ class ExecutionStatus(StrEnum):
     CANCELLED = "CANCELLED"
 
 
+class ExecutionSnapshotSource(StrEnum):
+    FORMAL = "FORMAL"
+    TEST = "TEST"
+
+
 class ExecutionSnapshot(BaseModel):
-    service_release_ref: str
-    service_content_hash: str
-    agent_release_ref: str | None = None
-    agent_revision: int | None = None
+    """Identity + frozen projection of one snapshot row (module 05 §3.3).
+
+    Identity columns (service/release/source/hash) stay queryable; the frozen
+    business projection itself lives in ``snapshot_json`` so a running execution
+    never re-reads current configuration (RULE-SVC-03).
+    """
+
+    service_id: UUID | None = None
+    source: ExecutionSnapshotSource = ExecutionSnapshotSource.FORMAL
+    service_release_id: UUID | None = None
+    draft_revision: int | None = None
+    test_mode: str | None = None
+    content_hash: str
+    snapshot_schema_version: int = 1
+    snapshot_json: dict[str, object] = Field(default_factory=dict)
+    snapshot_ref: str | None = None
+
+    # Convenience projections of snapshot_json, kept for readers that need the
+    # frozen business answers without unpacking the dict.
     resource_scope_type: str | None = None
     resource_scope_schema_hash: str | None = None
     skill_artifacts: list[str] = Field(default_factory=list)
@@ -34,9 +54,11 @@ class ExecutionSnapshot(BaseModel):
 class ServiceExecution(BaseModel):
     id: UUID
     actor_user_id: UUID
-    service_release_ref: str
-    resource_scope: dict[str, object] = Field(default_factory=dict)
-    input: dict[str, object] = Field(default_factory=dict)
+    service_id: UUID | None = None
+    service_release_id: UUID | None = None
+    snapshot_id: UUID | None = None
+    resource_scope_json: dict[str, object] = Field(default_factory=dict)
+    input_json: dict[str, object] = Field(default_factory=dict)
     status: ExecutionStatus = ExecutionStatus.PENDING
     next_run_at: datetime | None = None
     lease_owner: str | None = None

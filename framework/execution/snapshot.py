@@ -1,16 +1,20 @@
 from collections.abc import Sequence
+from uuid import UUID
 
 from framework.contracts.resource_scope import ValidatedResourceScope
-from framework.domain.execution import ExecutionSnapshot
+from framework.domain.execution import ExecutionSnapshot, ExecutionSnapshotSource
 
 
 def build_execution_snapshot(
     *,
-    service_release_ref: str,
-    service_content_hash: str,
+    service_id: UUID | None,
+    content_hash: str,
     execution_spec: dict[str, object],
     validated_scope: ValidatedResourceScope,
-    agent_revision: int | None = None,
+    service_release_id: UUID | None = None,
+    source: ExecutionSnapshotSource = ExecutionSnapshotSource.FORMAL,
+    draft_revision: int | None = None,
+    test_mode: str | None = None,
     skill_artifacts: Sequence[str] = (),
     knowledge_bindings: Sequence[str] = (),
     capability_contracts: Sequence[str] = (),
@@ -28,10 +32,23 @@ def build_execution_snapshot(
     since been revoked. This is why the snapshot takes the Agent's binding
     sets — not a ``TrustedExecutionContext``.
     """
+    frozen: dict[str, object] = {
+        "execution_spec": execution_spec,
+        "resource_scope_type": validated_scope.scope_type,
+        "resource_scope_schema_hash": validated_scope.schema_hash,
+        "skill_artifacts": sorted(skill_artifacts),
+        "knowledge_bindings": sorted(knowledge_bindings),
+        "capability_contracts": sorted(capability_contracts),
+        "model_config_snapshot": {},
+    }
     return ExecutionSnapshot(
-        service_release_ref=service_release_ref,
-        service_content_hash=service_content_hash,
-        agent_revision=agent_revision,
+        service_id=service_id,
+        source=source,
+        service_release_id=service_release_id,
+        draft_revision=draft_revision,
+        test_mode=test_mode,
+        content_hash=content_hash,
+        snapshot_json=frozen,
         resource_scope_type=validated_scope.scope_type,
         resource_scope_schema_hash=validated_scope.schema_hash,
         skill_artifacts=sorted(skill_artifacts),

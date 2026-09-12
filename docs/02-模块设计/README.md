@@ -64,7 +64,7 @@
 - 所有 `/api/v1/*` 接口必须登录会话（中间件解析身份），唯一豁免为 `POST /api/v1/auth/login`（及 `logout`）；Console 登录的 `role ∈ {ADMIN, BUILDER}` 与 `platform_user.role` 一一对应，`END_USER` 不登录 Console（契约见模块 09 §3.2.3）。
 - **写操作**按 ADR-021 页面级权限授予：用户/授权/绑定码/凭据/发布/紧急启停/执行控制/Bot 密钥类接口**仅 Admin**；配置开发类接口 Builder+Admin。**模型与项目平台采用字段级授权（ADR-058）**：新增/编辑对 Builder 开放，但模型 `api_key`/`extra_headers`、平台 `auth_type`/`auth_schema` **仅 Admin 可写**，非 Admin 携带（含 `null`/`{}`/空串）即 `FIELD_ADMIN_ONLY`(403) 并原子拒绝。
 - **读操作**允许 Builder 读取其定义所需的安全只读 DTO（ADR-046）：模型列表两角色同一组摘要字段（不含 `base_url`/`default_parameters`/`extra_headers`）；模型详情 Builder 可见 `base_url`/`default_parameters`/`request_timeout_seconds`（非凭据），仅 `api_key`/`extra_headers` 不回显；平台 `auth_type` **对 Builder 可见**（它是 Provider 机器 key，不含凭据与模板），`auth_schema` 仅 Admin 可见。
-- **执行可见范围（ADR-052）**：Admin = 当前租户全部；Builder = 自己创建的 Service（`service_definition.created_by`）的执行与自己被授权 Agent 相关的执行的**交集（INTERSECT）**；越界视为不存在（`EXECUTION_NOT_FOUND`）。
+- **执行可见范围（ADR-052/ADR-067）**：Admin = 当前租户全部；Builder = 自己创建的 Service（`service_definition.created_by`）的执行 **∪** 自己被授权 Agent 相关的执行（**并集，两侧各自单独成立即可见**）；越界视为不存在（`EXECUTION_NOT_FOUND`）。口径唯一，不得写成交集。
 - `/internal/*` 一律使用模块 09 `AUTH-LIB-02` 签发的 service-to-service JWT（`audience` + `scope`），身份字段一律来自 token，禁止请求体覆盖。
 - 各模块接口表的"认证/授权"列为权威，**且不得为空**（含 Library/Internal 段）。
 - 错误码以 `01-架构与规范/10-错误码与错误分类基线.md` 为唯一注册表。

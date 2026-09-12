@@ -17,6 +17,22 @@
 | 10 | 执行记录 | `/console/executions, /console/executions/:id` | Frontend | `10-执行记录/design-frontend.md` |
 | 11 | 审计查询 | `/console/audit-logs` | Frontend | `11-审计查询/design-frontend.md` |
 
+## 2026-09-13 第五轮契约同步（D8~D15）
+
+后端契约（模块 05/06/07/09/12/18 与 ADR-062..067）本轮已完成裁决修正，前端设计同步如下 9 条：
+
+| # | 前端落点 | 同步内容 |
+|---|---|---|
+| 1 | `04-能力管理/design-frontend.md`、`10-执行记录/design-frontend.md` | 执行源三态 `{FORMAL, TEST, CAPABILITY_TEST}`：能力测试产生 `execution_source=CAPABILITY_TEST` 的执行（有 `execution_id`），仅能力测试面板可见、不进默认执行列表；产物按其 `execution_id` 走 `EXE-API-06` 下载 |
+| 2 | `04-能力管理/design-frontend.md` | `auth_mode` 是 `implementation` **顶层必填字段**（默认 `NONE`，三值 `USER_PLATFORM`/`SHARED_SECRET`/`NONE`），从 PLATFORM_SERVICE 的 `config` 字段行删除，`config` 内出现一律 400 `CAPABILITY_IMPLEMENTATION_INVALID`；`USER_PLATFORM` 必填项目平台、`SHARED_SECRET` 必填共享 Secret 引用 |
+| 3 | `10-执行记录/design-frontend.md`、`90-Console交互规格.md` | 普通取消与人工决策分开映射（ADR-065）：运行态走 `EXE-API-03`（Console 必须调用），仅 `status=WAITING_HUMAN` 走 `EXE-API-05`（decision=RESUME/CANCEL）；对 RUNNING 调 `EXE-API-05` 得 409 `EXECUTION_NOT_WAITING_HUMAN` |
+| 4 | `10-执行记录/design-frontend.md`、`90-Console交互规格.md` | Builder 执行可见范围 = **并集**（ADR-052/ADR-067），删除全部交集表述，与 `RULE-SVC-09`/`EXE-API-01` 一致 |
+| 5 | `10-执行记录/design-frontend.md`、`90-Console交互规格.md` | 投递状态按逻辑消息取有效尝试聚合（ADR-066）：重投成功后收敛 `DELIVERED`（保留历史失败行），补 `DELIVERY_IN_FLIGHT`(409) |
+| 6 | `03-智能体管理/design-frontend.md` | 授权编辑改为**单条操作**（ADR-064）：保留「全量加载 + 预勾选 + 差异确认」，提交改为逐条 `grants` / `grants/{grant_id}/revoke`，删除乐观锁/409 覆盖措辞，补授权读侧有效状态 |
+| 7 | `02-服务管理/design-frontend.md` | 步骤表单新增**执行模式**（`execution_mode`，`SYNC` 默认 / `ASYNC`）与 ASYNC 专属的对账时限 / 轮询上限（ADR-062），并写死异步能力的合取校验 |
+| 8 | `02-服务管理/design-frontend.md`、`90-Console交互规格.md` | 测试用户链路：默认取 `GET /api/v1/auth/me` 的 `user_id`（`AUTH-API-01`），候选取 `GET /api/v1/services/{service_id}/test-user-candidates`（`SVC-API-11`），`USR-API-01` 不得用作候选（ADR-067/D14） |
+| 9 | `02-服务管理/design-frontend.md`、`90-Console交互规格.md` | 范围类型元数据来源改为 `GET /api/v1/meta/resource-scope-types`（`INT-API-01`，Owner=模块 12），空集合返回 `items: []` 且不渲染控件（ADR-067/D2） |
+
 ## 事实源优先级
 
 1. 已评审的 `90-Console交互规格.md` 与 `archive/` 下归档的 V0.8 HTML 交互稿（仅作交互形态参考）；
@@ -33,12 +49,12 @@
 3. **字段必填性**：以各页面 `design-frontend.md` 的 DTO 映射（及其引用的后端 Create/Update DTO）为准，**不以 HTML 输入框标注为准**（例：能力「输出结果定义」为必填、能力「是否幂等」为三值枚举）。
 4. **原型「人工介入（否/必要时/始终）」被 `human_policy` 取代（B11，V1.13.1 更新）**：V1.13 判定的"无 DTO 落点"作废——步骤表单**新增** `human_policy` 控件，取值 `never`（本步不转人工）/ `on_uncertainty`（语义不确定或失败时可转人工）/ `always`（强制人工检查点），见 `90` §2.3 Tab B。原型三值映射：否→`never`、必要时→`on_uncertainty`、始终→`always`。该控件与「失败策略 = `MANUAL`（转人工等待）」**正交且并存**，不互相替代。
 5. **知识库菜单**：保留**可点击**的规划页（不置灰），菜单项带「规划中」标记（`90` §1.3 的"置灰"措辞已修正）。
-6. **服务「业务范围」表单（D5=A）**：原型的业务范围表单（业务对象类型 / 对象标识参数 / 允许的业务动作 / 范围校验规则）**不作为范围语义事实源**，以 `90` §2.3 Tab C 的 `{type, refs[], attributes?}`（`type` 取自后端 `resource_scope_types` 白名单、`refs[]` 为范围引用、`attributes` 按类型动态渲染）为准；V1 无 Service 级 Scope Schema 与 `Schema Hash`。
+6. **服务「业务范围」表单（D5=A）**：原型的业务范围表单（业务对象类型 / 对象标识参数 / 允许的业务动作 / 范围校验规则）**不作为范围语义事实源**，以 `90` §2.3 Tab C 的 `{type, refs[], attributes?}`（`type` 取自 `GET /api/v1/meta/resource-scope-types`（`INT-API-01`，Owner=模块 12）白名单、`refs[]` 为范围引用、`attributes` 按类型动态渲染）为准；V1 无 Service 级 Scope Schema 与 `Schema Hash`。
 
 **（二）原型缺失、但设计已冻结的内容（实现时以设计为准）**
 
 7. **能力测试**与**模型连通性测试**入口（均为 P0 功能，原型无按钮）：能力为详情页顶部「测试」按钮（`90` §4.7，`CAP-API-05`，Builder + Admin）；模型为列表行内「测试」与详情顶部（`90` §6.3，`MODEL-API-05`，仅 Admin）。
-8. **服务测试弹窗的「测试用户」控件**（平台服务能力的用户平台认证必须有该输入）：默认当前登录用户，仅当服务引用的能力实现中存在 `auth_mode=USER_PLATFORM` 时显示（`90` §2.3 Tab D）。
+8. **服务测试弹窗的「测试用户」控件**（平台服务能力的用户平台认证必须有该输入）：默认取 `GET /api/v1/auth/me` 的 `user_id`（`AUTH-API-01`），候选取 `GET /api/v1/services/{service_id}/test-user-candidates`（`SVC-API-11`），仅当服务引用的能力实现中存在 `auth_mode=USER_PLATFORM` 时显示（`90` §2.3 Tab D）。
 9. **执行详情的审批上下文面板**（`waiting_reason`/`context_summary`/deadline 倒计时）与**产物受权下载**入口。
 10. **审计查询页**（原型早于审计设计；Admin 菜单 + 页面见 `90` §15 与 FE-11）。
 11. **执行列表的搜索范围包含「追踪标识」（`trace_id`）**；服务列表按「**草稿状态** / **启用状态** / **执行方式**」三项**独立**筛选（原型单一「状态」筛选用作废，V1.13.1 拆分）。

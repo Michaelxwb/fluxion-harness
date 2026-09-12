@@ -38,6 +38,7 @@
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 新增 AUTH-LIB-02/03（内部服务 token、Developer token）；Console 身份映射与 configured/session 字段补齐；Builder 安全只读 DTO 字段级冻结；auth_type↔ProviderKey 冻结；用户授权 revision_token 移除；Skill 入口校验与审核后置声明 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | Z-12 角色守卫：USR-API-04 补三条服务端校验（不得改当前登录用户自己的 `role` → 403 `SELF_ROLE_CHANGE_DENIED`；提升为 ADMIN 需前端二次确认且服务端接受；禁止降级/停用最后一名 Admin → 409 `LAST_ADMIN_PROTECTED`）；明确「最后一名 Admin」判定口径；补场景 E-USER-04/E-USER-05 并同步 §6 与合规矩阵 verifier |
+| V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
 
 ## 2. 需求分析
 
@@ -113,6 +114,7 @@
 | E-USER-01 | FEAT-USER-02 | integration | Unique grant | 本模块 | 重复授权同 user-agent | 幂等/enable existing | 无重复 row |
 | E-USER-02 | FEAT-USER-04 | E2E | Runtime grant check | 本模块 | 用户无 grant 请求 Agent | AGENT_ACCESS_DENIED | 不调用模型/Skill/Capability |
 | E-USER-03 | FEAT-USER-01 | E2E | Console 写权限与审计 | 本模块 | Builder 登录 Console 调 USR-API-02 或 USR-API-06 | 403 ADMIN_REQUIRED；写 audit_log（actor_user_id=该登录用户唯一 platform_user.id，含 action 与目标） | 写操作被拒绝，授权变更与操作者可追踪 |
+| E-USER-04 | FEAT-USER-01 | integration | 授权并发不丢失 | 本模块 + 03 | 两个 Admin 基于同一份授权快照并发操作（A 新增 user-1，B 新增 user-2） | 各自提交单条 grant 操作 | 两条授权**都生效**（不存在后写者覆盖先写者）；同一 pair 并发重复操作由唯一约束收敛为一行并幂等返回（ADR-064） |
 | E-USER-04 | FEAT-USER-01 | E2E | Admin 自改角色守卫 | 本模块 | 当前登录 Admin 编辑自己并提交 `role` 变更 | 403 SELF_ROLE_CHANGE_DENIED；整次请求原子拒绝，该用户 role 仍为 ADMIN、其他字段未被修改 | 角色未变；不会被自己降权锁死，其余字段修改需分次提交 |
 | E-USER-05 | FEAT-USER-01 | E2E | 最后一名 Admin 保护 | 本模块 | 租户内仅剩一名 `role=ADMIN AND status=ACTIVE AND is_deleted=false` 用户时，降级（ADMIN→非 ADMIN）或停用（ACTIVE→DISABLED）该 Admin | 409 LAST_ADMIN_PROTECTED；不落库（原角色/状态不变） | 平台仍有至少一名可用 Admin，管理面不会自我锁死 |
 
@@ -286,9 +288,11 @@ erDiagram
 | USR-API-03 | 用户详情 | HTTP | GET | /api/v1/users/{user_id} |
 | USR-API-04 | 编辑用户 | HTTP | PUT | /api/v1/users/{user_id} |
 | USR-API-05 | 获取用户 Agent 授权 | HTTP | GET | /api/v1/users/{user_id}/agent-grants |
-| USR-API-06 | 覆盖用户 Agent 授权 | HTTP | PUT | /api/v1/users/{user_id}/agent-grants |
+| USR-API-06 | 新增用户 Agent 授权 | HTTP | POST | /api/v1/users/{user_id}/agent-grants |
+| USR-API-06R | 撤销用户 Agent 授权 | HTTP | POST | /api/v1/users/{user_id}/agent-grants/{grant_id}/revoke |
 | USR-API-07 | Agent 反向授权用户 | HTTP | GET | /api/v1/agents/{agent_id}/users |
-| USR-API-08 | 覆盖 Agent 授权用户 | HTTP | PUT | /api/v1/agents/{agent_id}/users |
+| USR-API-08 | 新增 Agent 授权用户 | HTTP | POST | /api/v1/agents/{agent_id}/grants |
+| USR-API-08R | 撤销 Agent 授权用户 | HTTP | POST | /api/v1/agents/{agent_id}/grants/{grant_id}/revoke |
 | USR-LIB-01 | 运行时 Agent 授权校验 | Library | def require_agent_access(ctx: TrustedExecutionContext, agent_id: UUID) -> AgentAccessDecision |  |
 
 #### USR-API-01: 用户列表
@@ -559,7 +563,7 @@ Admin 鉴权 → tenant scoped read platform_user → 聚合 count（批量子�
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| items | array<AgentGrantView> | Agent ID/名称/key/enabled/granted_at |
+| items | array<AgentGrantView> | 每条授权（含已撤销）：`grant_id`/`agent_id`/名称/key/`enabled`/`granted_by`/`granted_at`/`revoked_at?` |
 
 **响应示例**
 
@@ -583,14 +587,16 @@ Admin 鉴权 → tenant scoped read platform_user → 聚合 count（批量子�
 **处理逻辑**
 
 ```text
-tenant scoped 用户存在性检查 → JOIN agent_access_grant + agent_definition → 返回有效/停用授权。
+tenant scoped 用户存在性检查 → JOIN agent_access_grant + agent_definition → 返回每条授权的有效状态。
 ```
 
-#### USR-API-06: 覆盖用户 Agent 授权
+**读侧契约（ADR-064）**：返回**逐条授权的状态投影**（`grant_id` 是后续撤销操作的可寻址身份）。前端「全量加载 + 预勾选 + 差异确认」的交互据此实现，但**提交的是逐条显式操作**，不再有“整体集合覆盖”语义。`enabled=false` 的历史行保留并可见（`revoked_at` 非空），用于审计与“重新授权”判断；默认列表只展示 `enabled=true`，`include_revoked=true` 时附带历史。
+
+#### USR-API-06: 新增用户 Agent 授权
 
 **入口类型**：HTTP
 
-**契约**：`PUT /api/v1/users/{user_id}/agent-grants`
+**契约**：`POST /api/v1/users/{user_id}/agent-grants`
 
 **认证/授权**：Admin
 
@@ -598,53 +604,56 @@ tenant scoped 用户存在性检查 → JOIN agent_access_grant + agent_definiti
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| agent_ids | array<uuid> | Y | 目标有效授权集合（整体替换，即最终集合） |
+| agent_id | uuid | Y | 目标 Agent |
+| idempotency_key | string | Y | 操作幂等键（同键同参返回原结果） |
 
-**请求示例**
+**响应 data**：`{grant_id, user_id, agent_id, enabled: true, granted_at, granted_by}`
 
-```json
-{
-  "agent_ids": []
-}
+**处理逻辑**
+
+```text
+Admin 鉴权 → 校验 Agent 同租户 → 单事务：pair 未删除行不存在则 INSERT（enabled=true, granted_by=登录用户），
+已存在且 enabled=false 则重新启用（enabled=true, granted_at=now, revoked_at=NULL）并保留原 grant_id →
+幂等返回 → audit。
 ```
 
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| granted | array<uuid> | 最终有效 Agent IDs |
-| added | array<uuid> | 新增 |
-| revoked | array<uuid> | 撤销 |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "granted": [],
-    "added": [],
-    "revoked": []
-  },
-  "request_id": "req_xxx"
-}
-```
+**一致性/幂等**：单条操作、单事务；`UNIQUE (tenant_id,platform_user_id,agent_definition_id) WHERE is_deleted=false` 保证同一 pair 恒为一行；重复提交按 `idempotency_key` 返回原结果，换参 `IDEMPOTENCY_CONFLICT`(409)。**并发安全由结构保证**：两个 Admin 分别新增不同用户/Agent 互不覆盖（不存在“后写者撤销先写者”的路径）。
 
 **错误码**
 
 | 错误码 | 场景 | HTTP 状态 |
 |---|---|---|
 | USER_NOT_FOUND | 用户不存在 | 404 |
-| AGENT_NOT_FOUND | 包含不存在/跨租户 Agent | 400 |
+| AGENT_NOT_FOUND | Agent 不存在/跨租户 | 400 |
+| IDEMPOTENCY_CONFLICT | 同 idempotency_key 换参 | 409 |
+
+#### USR-API-06R: 撤销用户 Agent 授权
+
+**入口类型**：HTTP
+
+**契约**：`POST /api/v1/users/{user_id}/agent-grants/{grant_id}/revoke`
+
+**认证/授权**：Admin
+
+**请求体**：`{idempotency_key: string}`；additionalProperties=false。
+
+**响应 data**：`{grant_id, user_id, agent_id, enabled: false, revoked_at}`
 
 **处理逻辑**
 
 ```text
-Admin 鉴权 → 校验所有 Agent 同租户 → 单事务：对差集 upsert/enable，对撤销集 enabled=false+revoked_at → audit。
+Admin 鉴权 → 按 tenant + user_id + grant_id 定位未删除行（不存在 404 GRANT_NOT_FOUND）→
+单事务：enabled=false, revoked_at=now, granted_by=操作者 → audit。
 ```
 
-**一致性/幂等**：语义为**整体集合替换、单事务、幂等**——`agent_ids` 即最终有效集合，重复提交同一集合返回相同结果（相同 granted/added/revoked）。不做乐观锁：`agent_access_grant` 无独立 revision（同一 tenant+user+agent 只有一条未删除记录，重复授权仅切换 enabled），因此请求体不携带 `revision_token`，响应也不返回集合版本。
+**一致性/幂等**：对已 `enabled=false` 的行重复撤销幂等返回原 `revoked_at`；**只影响该 grant_id 指向的一条授权**，不影响同一用户/Agent 的其他授权行。
+
+**错误码**
+
+| 错误码 | 场景 | HTTP 状态 |
+|---|---|---|
+| USER_NOT_FOUND | 用户不存在 | 404 |
+| GRANT_NOT_FOUND | 授权不存在/已删除/不属于该用户 | 404 |
 
 #### USR-API-07: Agent 反向授权用户
 
@@ -668,7 +677,7 @@ Admin 鉴权 → 校验所有 Agent 同租户 → 单事务：对差集 upsert/e
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| items | array<UserGrantSummary> | 有效授权用户 |
+| items | array<UserGrantSummary> | 每条授权：`grant_id`/`user_id`/`user_key`/`display_name`/`enabled`/`granted_by`/`granted_at`/`revoked_at?` |
 | total | integer | 总数 |
 
 **响应示例**
@@ -697,46 +706,26 @@ Admin 鉴权 → 校验所有 Agent 同租户 → 单事务：对差集 upsert/e
 JOIN grant/user 分页；只读反向视图。
 ```
 
-#### USR-API-08: 覆盖 Agent 授权用户
+#### USR-API-08: 新增 Agent 授权用户
 
 **入口类型**：HTTP
 
-**契约**：`PUT /api/v1/agents/{agent_id}/users`
+**契约**：`POST /api/v1/agents/{agent_id}/grants`
 
 **认证/授权**：Admin
 
-**请求体**
+**请求体**：`{user_id: uuid, idempotency_key: string}`；additionalProperties=false。
 
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| user_ids | array<uuid> | Y | 目标有效用户集合 |
+**响应 data**：`{grant_id, agent_id, user_id, enabled: true, granted_at, granted_by}`
 
-**请求示例**
+**处理逻辑**
 
-```json
-{
-  "user_ids": []
-}
+```text
+与 USR-API-06 操作同一 agent_access_grant 事实源（禁止建立第二张 AgentUserBinding 表）；
+单事务：pair 不存在则 INSERT，已存在且 enabled=false 则重新启用并保留 grant_id → 幂等返回 → audit。
 ```
 
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| granted | array<uuid> | 最终授权用户 IDs |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "granted": []
-  },
-  "request_id": "req_xxx"
-}
-```
+**一致性/幂等**：单条操作、单事务、`idempotency_key` 幂等；并发安全由“逐条可寻址操作 + pair 唯一约束”保证，不存在集合覆盖写的丢失更新路径。
 
 **错误码**
 
@@ -744,14 +733,35 @@ JOIN grant/user 分页；只读反向视图。
 |---|---|---|
 | AGENT_NOT_FOUND | Agent 不存在 | 404 |
 | USER_NOT_FOUND | 用户不存在或跨租户 | 400 |
+| IDEMPOTENCY_CONFLICT | 同 idempotency_key 换参 | 409 |
+
+#### USR-API-08R: 撤销 Agent 授权用户
+
+**入口类型**：HTTP
+
+**契约**：`POST /api/v1/agents/{agent_id}/grants/{grant_id}/revoke`
+
+**认证/授权**：Admin
+
+**请求体**：`{idempotency_key: string}`；additionalProperties=false。
+
+**响应 data**：`{grant_id, agent_id, user_id, enabled: false, revoked_at}`
 
 **处理逻辑**
 
 ```text
-与 USR-API-06 操作同一 agent_access_grant 事实源；禁止建立第二张 AgentUserBinding 表。
+Admin 鉴权 → 按 tenant + agent_id + grant_id 定位未删除行（不存在 404 GRANT_NOT_FOUND）→ 单事务置
+enabled=false/revoked_at=now/granted_by=操作者 → audit。
 ```
 
-**一致性/幂等**：重复提交同一集合幂等。
+**一致性/幂等**：重复撤销幂等返回原 `revoked_at`；只影响该 grant_id。
+
+**错误码**
+
+| 错误码 | 场景 | HTTP 状态 |
+|---|---|---|
+| AGENT_NOT_FOUND | Agent 不存在 | 404 |
+| GRANT_NOT_FOUND | 授权不存在/已删除/不属于该 Agent | 404 |
 
 #### USR-LIB-01: 运行时 Agent 授权校验
 
@@ -847,10 +857,10 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
 | FEAT-USER-01 | USR-API-01, USR-API-02, USR-API-03, USR-API-04 | S-USER-01, E-USER-03, E-USER-04, E-USER-05 | E2E/integration | 待实现/评审 |
-| FEAT-USER-02 | USR-API-05, USR-API-06, USR-API-08 | S-USER-02, E-USER-01 | E2E/integration | 待实现/评审 |
+| FEAT-USER-02 | USR-API-05, USR-API-06/R, USR-API-08/R | S-USER-02, E-USER-01, E-USER-04 | E2E/integration | 待实现/评审 |
 | FEAT-USER-03 | USR-API-07 | S-USER-02 | E2E/integration | 待实现/评审 |
 | FEAT-USER-04 | USR-LIB-01 | S-USER-03, S-USER-04, E-USER-02 | E2E/integration | 待实现/评审 |
-| FEAT-USER-05 | USR-API-06, USR-API-08 | E-USER-03 | E2E/integration | 待实现/评审 |
+| FEAT-USER-05 | USR-API-06/R, USR-API-08/R | E-USER-03, E-USER-04 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 

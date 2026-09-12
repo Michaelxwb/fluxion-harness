@@ -38,6 +38,7 @@
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | 新增 `CH-LIB-02 enqueue_delivery(tx, …)`（显式接收调用方事务）；支持 `EXE-API-07` 重新投递的 `event_id` 规则（`:redeliver:<n>`）与场景 `S-CHAN-10`；新增 `S-WORK-13` 对应的槽位协调表登记 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 场景行归位与表格修复；新增 human_wait/progress_stage 投递与 RULE-CHAN-09；命令集对齐与 MEM-INT-01 去重；Bot Secret lease 与连接状态数据源；删除 Console 会话接口；message_type 补 PROPOSAL 与 CONV-LIB-03 |
+| V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
 
 ## 2. 需求分析
 
@@ -218,6 +219,7 @@ flowchart LR
 | delivery_route_id | UUID | N |  | FK | 持久路由；创建 Execution 时从可信 ctx 固定写入，投递只按该持久路由，不按会话临时解析 |
 | event_type | VARCHAR(32) | N |  | IDX | completed/failed/human_wait/progress_stage |
 | event_id | VARCHAR(256) | N |  |  | 事件/用户取件命令唯一身份；同一事件重复入队返回同一行。规则见下 |
+| message_key | VARCHAR(256) | N |  | IDX | **逻辑消息键（D11 修复）**：同一“要对用户说的那句话”跨多次投递尝试的唯一身份；重新投递不改变它，只有 `event_id` 追加 `:redeliver:<n>`。常规事件 `message_key = event_id`；重投行 = 被重投那条的 `message_key`。`execution.delivery_status` 按本键聚合**有效尝试**，历史失败尝试因此不永久污染汇总 |
 | channel | VARCHAR(32) | N |  |  | 渠道类型 |
 | payload_json | JSONB | N |  |  | 不可变 DeliveryMessage，TEXT 或 FILE artifact_id；不保存短期 URL |
 | status | VARCHAR(16) | N | PENDING | IDX | PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN |
@@ -246,6 +248,7 @@ flowchart LR
 - 业务 Execution 终态不删除待投递行，重试不得重跑业务步骤。
 - `event_type` 四值：`completed`/`failed`（执行终态）、`human_wait`（进入人工等待）、`progress_stage`（STAGE 级阶段进度；V1 不推 PROGRESS 级）。
 - `event_id` 规则：完成/失败 = `execution_id:completed` 或 `execution_id:failed`；人工等待 = `execution_id:human_wait:<step_key>:<entered_at_epoch>`（同一步持续等待不重复通知，重新进入等待产生新 epoch 才形成新事件）；阶段进度 = `progress_event.id`（保证同一进度事件不重复投递）；**管理员重新投递**（`EXE-API-07`）= `<原 event_id>:redeliver:<n>`（n 为该执行重新投递的序号，从 1 递增）——这是**有意产生新 dedupe_key** 的动作，因此不会被 UNIQUE 拦下；同一 `idempotency_key` 的重复请求由模块 05 幂等返回原 `delivery_id`，不新增行。`event_id` 参与 dedupe_key 的 canonical 计算。
+- `message_key` 规则（D11）：常规入队时 `message_key = event_id`；重新投递时**沿用被重投行的 `message_key`**。同一逻辑消息只允许一条处于非终态（PENDING/SENDING/RETRY_WAIT）的行：重投前必须已判定该消息的有效尝试为 FAILED/UNKNOWN（模块 05 EXE-API-07 的前置条件），否则 `DELIVERY_IN_FLIGHT`(409)。`execution.delivery_status` 只按 `message_key` 聚合，`deliveries[]` 明细仍返回全部尝试行。
 - `human_wait` 与 `progress_stage` 两类行由 **Worker 在写状态的事务内预建**（模块 06 负责调度与事件生成），Gateway 只按 CH-INT-01 的 attempt_token 单次发送，不自行决定是否通知。
 
 #### 表 `channel_account`
@@ -476,7 +479,7 @@ erDiagram
 | CH-INT-01 | 后台主动投递 | HTTP | POST | /internal/v1/channels/deliver |
 | CH-INT-02 | IM 用户命令内部转发 | HTTP | POST | /internal/v1/commands |
 | CH-LIB-01 | 统一入站 Envelope 处理 | Library | async def handle_channel_envelope(envelope: ChannelEnvelope) -> None |  |
-| CH-LIB-02 | 预建投递行（调用方事务） | Library | async def enqueue_delivery(tx: AsyncSession, *, delivery_route_id: UUID, event_type: str, event_id: str, payload: DeliveryPayload) -> UUID | 供模块 05/06 在同一事务写 channel_delivery |
+| CH-LIB-02 | 预建投递行（调用方事务） | Library | async def enqueue_delivery(tx: AsyncSession, *, delivery_route_id: UUID, event_type: str, event_id: str, payload: DeliveryPayload, message_key: str | None = None) -> UUID | 供模块 05/06 在同一事务写 channel_delivery |
 
 #### CH-API-01: 读取 Agent WeCom 接入
 
@@ -857,7 +860,7 @@ transaction：撤销同 user+channel 未使用 PENDING → 生成高熵随机 co
 **路由与结果**：
 - SKILLS：按当前 Agent 的有效 Skill 绑定查询 `{groups:[{platform_label,skills:[id,key,name]}]}`。
 - NEW：CONV-LIB-02 同事务切换当前会话，返回 `{conversation_id, previous_conversation_id}`。
-- STOP：显式 target 优先；无 target 时先停止本会话非终态 Chat Run（RT-INT-02），否则取消本会话唯一非终态 Execution；多个候选 COMMAND_TARGET_AMBIGUOUS（409）并返回本人候选摘要，禁止猜测。无目标 COMMAND_TARGET_NOT_FOUND（404）。
+- STOP：显式 target 优先；无 target 时先停止本会话非终态 Chat Run（RT-INT-02），否则取消本会话唯一非终态 Execution；多个候选 COMMAND_TARGET_AMBIGUOUS（409）并返回本人候选摘要，禁止猜测。无目标 COMMAND_TARGET_NOT_FOUND（404）。**取消 Execution 时调用 `EXE-API-03` 背后的同一个 Application**（ADR-065）：授权按可信 principal 判定（必须是执行 `actor_user_id` 本人；跨用户 403，越权/不存在按 404），可取消状态集合与 `EXE-API-03` 完全一致（PENDING/RUNNING/WAITING/WAITING_HUMAN/RETRY_WAIT），**不新增 `/internal/v1/executions/*/cancel` 端点**。
 - RESUME/CANCEL：同 EXE-API-05 Application，校验本人执行和等待状态，不接受改参。
 - MEMORY_LIST/MEMORY_CLEAR：MEM-LIB-02，key 可选，省略 clear 表示全部本人记忆；不改变授权。
 - RESULT：EXE-API-06 的 Artifact Application，必须本人且 artifact 属于 execution，返回 `{delivery_id,status}`；投递原生 FILE，无公开签名链接。
@@ -949,12 +952,12 @@ Python Channel Application 原子校验 SENDING/current epoch/租约、ChannelAc
 **函数签名**
 
 ```python
-async def enqueue_delivery(tx: AsyncSession, *, delivery_route_id: UUID, event_type: str, event_id: str, payload: DeliveryPayload) -> UUID
+async def enqueue_delivery(tx: AsyncSession, *, delivery_route_id: UUID, event_type: str, event_id: str, payload: DeliveryPayload, message_key: str | None = None) -> UUID
 ```
 
 **认证/授权**：进程内 Library；调用方仅限模块 05（EXE-LIB-01/03）与模块 06（WORK-LIB-03/06 的 HUMAN/COMPLETE/DELIVERY/进度分支）。**必须传入调用方已开启的事务**（`tx` 为必填位置参数）：本函数不自开事务、不自行提交，从而保证"业务状态与投递行同一事务落库"，消除"状态已变但没人通知"的窗口。
 
-**入参**：`delivery_route_id`（必填；`human_wait`/`failed`/`completed` 由 Execution 的固定路由给出）、`event_type ∈ {completed, failed, human_wait, progress_stage}`、`event_id`（幂等键，规则见 `channel_delivery` 约束段）、`payload`（已冻结文本或 FILE 引用，**不含** Secret）。
+**入参**：`delivery_route_id`（必填；`human_wait`/`failed`/`completed` 由 Execution 的固定路由给出）、`event_type ∈ {completed, failed, human_wait, progress_stage}`、`event_id`（幂等键，规则见 `channel_delivery` 约束段）、`payload`（已冻结文本或 FILE 引用，**不含** Secret）、`message_key`（可选；D11 逻辑消息键：省略时按 `event_id` 取值，**重新投递必须传被重投行的原 `message_key`**，使同一逻辑消息的多次尝试可按键聚合）。
 
 **返回**：新建或命中的 `channel_delivery.id`（同 `event_id` 重复入队返回既有行 ID，不新增）。
 
@@ -964,12 +967,14 @@ async def enqueue_delivery(tx: AsyncSession, *, delivery_route_id: UUID, event_t
 |---|---|---|
 | DELIVERY_ROUTE_INVALID | 路由不存在/已失效/不属于该 actor | 409 |
 | DELIVERY_EVENT_INVALID | event_type 或 event_id 规则不合法 | 422 |
+| DELIVERY_IN_FLIGHT | 同一 `message_key` 已有非终态投递尝试（并发重投） | 409 |
 
 **处理逻辑**
 
 ```text
 校验路由归属与安全开关 → 按 (tenant_id, dedupe_key=SHA256(tenant,execution,step,route,event_id)) upsert →
-写 PENDING 行（attempt=0 / lease_epoch=0 / payload 冻结）→ 返回 id；不发送（发送由 CH-INT-01 与 WORK-LIB-06 负责）。
+写 PENDING 行（attempt=0 / lease_epoch=0 / payload 冻结 / message_key=入参或 event_id）→ 返回 id；不发送（发送由 CH-INT-01 与 WORK-LIB-06 负责）。
+同一 message_key 已存在非终态行（PENDING/SENDING/RETRY_WAIT）时拒绝新建并返回 DELIVERY_IN_FLIGHT(409)，防止并发重投。
 ```
 
 #### CH-LIB-01: 统一入站 Envelope 处理

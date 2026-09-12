@@ -3,6 +3,7 @@
 > **用途**：本文是交互稿 HTML 的文字合同，用于反推 API DTO 与 DB。  
 > **事实优先级**：已评审交互结论 > 旧前端文档；字段变更必须同步本文、API 基线和 DB 追溯矩阵。  
 > **展示约束**：所有业务字段中文；技术 key/schema/path 可英文；所有时间展示 `YYYY-MM-DD HH:mm:ss`。
+> **本轮同步（2026-09-13，第五轮 D8~D15 / ADR-062..067）**：`resource_scope_types` 读取改为 `INT-API-01`；测试用户链路改为 `AUTH-API-01` + `SVC-API-11`；`implementation.auth_mode` 定为顶层字段；能力测试产物走 `EXE-API-06`（带 `execution_id`）；授权编辑合同改为单条操作（ADR-064）；Step Form 补执行模式/对账时限/轮询上限；执行列表 `execution_source` 三态；Builder 可见范围并集；终止按钮按 `EXE-API-03`/`EXE-API-05` 分流；重新投递后汇总收敛 `DELIVERED`。
 
 ## 1. 全局页面规范
 
@@ -135,6 +136,9 @@ Step Form：
 | 超时时间 | 否/默认 | |
 | 失败策略 | 是 | `FAIL_FAST` / `SKIP_ON_ERROR` / `RETRY` / `MANUAL`（MANUAL = 转人工等待） |
 | 最大重试 | 条件 | 仅 `RETRY` 时出现 |
+| 执行模式 `execution_mode` | 是 | `SYNC`（默认）/ `ASYNC`；**仅 Step 类型 = Capability 时可选 `ASYNC`**（ADR-062）。ASYNC = Worker 经 `CAP-LIB-03` 提交外部任务后进入轮询/对账，不是“同步阻塞调用”的反义 |
+| 对账时限 `reconcile_timeout_seconds` | 条件可选 | **仅 `execution_mode=ASYNC` 时出现**；单位秒，默认 86400 |
+| 轮询上限 `max_poll_attempts` | 条件可选 | **仅 `execution_mode=ASYNC` 时出现**；默认 100 |
 | 人工策略 `human_policy` | 是 | 三选一，**控件无空态**：`never`（本步不转人工）/ `on_uncertainty`（语义不确定或失败时可转人工）/ `always`（强制人工检查点）；控制器默认选中项随模块 05 step schema 的默认值，前后端共用同一 JSON Schema 样例测试。**取代原型「人工介入（否/必要时/始终）」**（映射：否→`never`、必要时→`on_uncertainty`、始终→`always`） |
 | 人工说明 | Human 时 | 进入等待时对用户展示的说明 |
 | Step 类型 = Wait：`wait_seconds`（等待时长） | **条件必填** | Step 类型 = Wait 时**必填**；单位秒，正整数 |
@@ -143,6 +147,8 @@ Step Form：
 | 步骤说明 | 否 | |
 
 条件必填规则：控件随 Step 类型切换显隐；隐藏的必填字段不参与校验，显示的必填字段为空时就地报错（错误定位到该控件）且不发起请求。详情模式不出现新增/编辑/删除按钮。
+
+**异步合取校验（ADR-062）**：所引用能力**不支持异步提交**而选择 `ASYNC`、或能力**仅支持异步**而选择 `SYNC` 时，`execution_mode` 控件就地报错并禁止提交；后端 `SVC-API-05` 返回 `CAPABILITY_ASYNC_NOT_INVOKABLE`(422) 并定位到该步骤（不得拖到 Worker 运行期）。
 
 **`human_policy` 与既有控件的关系（三者正交，不互相替代）**：
 
@@ -156,12 +162,12 @@ Step Form：
 
 - Input Schema；
 - Output Schema；
-- **范围类型**（`resource_scope.type`）：下拉，取值来自后端 `resource_scope_types` 白名单（当前部署 Integration manifest 声明）；
+- **范围类型**（`resource_scope.type`）：下拉，取值来自 `GET /api/v1/meta/resource-scope-types`（`INT-API-01`，Owner=模块 12；响应 `{items:[{type, display_name, attributes_schema}]}`，即当前部署 Integration manifest 的 `resource_scope_types` 只读投影）；
 - **范围引用**（`resource_scope.refs[]`）：标签输入/多选；对外展示与筛选用的范围引用，执行列表的 `scope_refs` 直接投影它；
 - **范围属性**（`resource_scope.attributes`）：按所选类型**动态渲染**，仅渲染该类型声明的字段，未声明字段不渲染也不提交；
 - 业务说明。
 
-**类型白名单为空时**（当前部署未声明 `resource_scope_types`）：本 Tab 提示“当前部署未声明范围类型”，**不渲染类型控件**，也不提供空枚举兜底或前端硬编码枚举。
+**类型白名单为空时**（`GET /api/v1/meta/resource-scope-types` 返回空集合 `items: []`，即当前部署未声明 `resource_scope_types`）：本 Tab 提示“当前部署未声明范围类型”，**不渲染类型控件**，也不提供空枚举兜底或前端硬编码枚举。
 
 **已删除**（D5=A）：Service 级 **Scope JSON Schema** 与 **`Schema Hash`**。`resource_scope` 收敛为最小 typed 形态 `{type, refs[], attributes?}`，不再有 scope schema 参与快照/摘要，也不再按类型元数据做投影脱敏；Input/Output Schema 仍按模块 05 的 Draft Schema 展示/编辑。
 
@@ -190,8 +196,8 @@ Admin 增加：
 |---|---|
 | 位置 | 测试弹窗内「测试输入」上方 |
 | 显示条件 | **仅当**该服务引用的能力实现中存在 `auth_mode=USER_PLATFORM`（用户平台认证）时显示；否则不渲染该控件（无用户认证上下文） |
-| 默认值 | **当前登录用户**（来自登录响应的 `username`/`user_id`）；不使用空占位 |
-| 可选范围 | 下拉候选为当前调用者有权选择的测试用户；Builder 只能选其权限范围内的测试用户（`SVC-API-06` 的 `TEST_USER_ACCESS_INVALID`(403) 不得由前端“事先过滤掉”来掩盖） |
+| 默认值 | **当前登录用户**，取自 `GET /api/v1/auth/me` 的 `user_id`（`AUTH-API-01`，Owner=模块 09）；不使用空占位 |
+| 可选范围 | 下拉候选取自 `GET /api/v1/services/{service_id}/test-user-candidates`（`SVC-API-11`，Builder+Admin，响应 `{items:[{user_id,user_key,display_name}],page,page_size,total,default_user_id}`，**空候选合法**）；`SVC-API-06` 的 `TEST_USER_ACCESS_INVALID`(403) 是最终判定，不得由前端“事先过滤掉”来掩盖；`USR-API-01` 用户列表仅 Admin，不得用它做测试候选取代 |
 | 提交 | 随测试请求提交 `test_user_id`；控件隐藏时该字段仍提交默认的当前登录用户 |
 | 错误呈现 | 后端返回 `TEST_USER_ACCESS_INVALID`(403) 时错误定位到该控件并在弹窗内保留输入 |
 
@@ -292,13 +298,14 @@ Admin 可：
 
 **Builder 定死为只读**（T-23，V1.13 冻结）：Builder **可见**该 Tab 与授权列表，但**不渲染**任何写按钮（无「添加用户」「撤销授权」；无「保存」）；不是「隐藏或只读二选一」。Builder 直接调用 `USR-API-08` 得 403。DB 事实源仍 `AgentAccessGrant`。
 
-**授权/绑定编辑合同（Z-06，`PUT` 全量覆盖类的统一规则）**
+**授权/绑定编辑合同（Z-06，ADR-064：单条授权操作）**
 
-`USR-API-08`（Agent 授权用户）、`USR-API-06`（用户 Agent 授权）、`AGENT-API-05/06/07`（直接能力/Skill/可调用服务）都是**全量集合覆盖**写接口，交互统一为：
+`USR-API-08`（Agent 授权用户）、`USR-API-06`（用户 Agent 授权）改为**单条授权操作**；`AGENT-API-05/06/07`（直接能力/Skill/可调用服务）保持各自的 `agent_definition.revision` 乐观锁语义不变。三者**交互一致（全量加载 + 差异确认），提交语义按各自 Owner 模块定义**：
 
 1. **已授权预勾选**：打开编辑弹窗时，候选列表**全量加载**并**预勾选当前已授权对象**（不是“只列未授权对象再逐行增删”）；
 2. **保存前差异确认**：提交前展示差异摘要——“**新增 N 个 / 移除 M 个**”，并列出被移除对象的名称；N=M=0 时保存按钮禁用并提示“无变更”；
-3. **提交 `PUT` 全量覆盖**：一次 `PUT` 提交完整集合（含未变更项）；冲突语义以后端 409/幂等覆盖为准（`agent_access_grant` 无独立 `revision`，后端 18 L237；`AGENT-API-05/06/07` 携带的是 `agent_definition` 本体 `revision`）；409 冲突时保留弹窗内容并提示“授权已被他人修改，请重新加载”（防止两个 Admin 静默互相覆盖）。
+3. **逐条显式操作提交**：增授权 `POST /api/v1/agents/{agent_id}/grants`（body `{user_id, idempotency_key}`）、撤授权 `POST /api/v1/agents/{agent_id}/grants/{grant_id}/revoke`（body `{idempotency_key}`）；用户侧对应 `POST /api/v1/users/{user_id}/agent-grants` 与 `POST /api/v1/users/{user_id}/agent-grants/{grant_id}/revoke`。并发安全由**单条操作的结构**保证：两个 Admin 分别操作不同用户互不覆盖；同一 (user, agent) 重复操作按 `idempotency_key` **幂等返回**。不再使用集合覆盖写，因此不出现「授权已被他人修改，请重新加载」的乐观锁冲突提示。
+4. **授权读侧**：返回**每条授权的有效状态**（含 `grant_id`/`enabled`/`granted_by`/`granted_at`/`revoked_at`），弹窗按该集合预勾选。
 
 差异摘要中的移除项必须逐条列出对象名与标识，不得只显示计数。
 
@@ -336,7 +343,7 @@ Admin 可：
 |---|---:|---|
 | `project_platform_id` | **是** | 只有本类型出现；下拉来自 `PLAT-API-01` 安全选项（`name`/`key`/`configured`/`enabled`） |
 | `service_key` | 是 | 注册发现 service name |
-| `auth_mode` | 是 | 当前用户项目平台认证/共享/无，按支持 |
+| `auth_mode` | 是 | **`implementation` 顶层字段（与 `implementation_type`/`config`/`execution_policy` 并列，不写进 `config`；`config` 内出现一律 400 `CAPABILITY_IMPLEMENTATION_INVALID`）**：`USER_PLATFORM`（当前用户项目平台认证，必填平台选择）/ `SHARED_SECRET`（必填共享 Secret 引用）/ `NONE`，默认 `NONE` |
 | `request_mapping` | 是 | 入参映射 |
 | `response_mapping` | 是 | 出参映射 |
 
@@ -436,8 +443,8 @@ Admin 可：
 |---|---|
 | 控件位置 | 能力**详情页顶部**「测试」按钮（与「编辑」并列）；列表行内**不**放测试（测试需要 JSON 输入，行内无法承载） |
 | 权限 | **Builder + Admin**（与模块 07 `CAP-API-05` 授权列一致）；对 Builder 不隐藏按钮 |
-| 弹窗输入 | ① 测试输入：按该能力 `input_schema` 渲染的 JSON 编辑器（Schema 不合法的 JSON 就地报错，不发请求）；② **测试用户**（`test_user_id`）：**仅当**该能力的 `auth_mode=USER_PLATFORM`（平台用户认证；凭据来源唯一由实现层 `auth_mode` 表达，不再由能力声明）时显示，默认当前登录用户；③ 结果模式（`result_mode`）：`INLINE` / `SUMMARY`，默认跟随后端实现策略 |
-| 输出 | 成功：`ok=true` + 归一化输出（inline 直接展开；外置时显示 summary + `artifact_id` 与「下载产物」入口，经 `EXE-API-06` 受权字节流，不下发对象存储直链）；**耗时**取自 `stats.latency`（毫秒，前端渲染为 `N ms`，不使用客户端计时）；失败：`ok=false` + 脱敏错误码/消息，错误定位到输入控件 |
+| 弹窗输入 | ① 测试输入：按该能力 `input_schema` 渲染的 JSON 编辑器（Schema 不合法的 JSON 就地报错，不发请求）；② **测试用户**（`test_user_id`）：**仅当**该能力的 `auth_mode=USER_PLATFORM`（平台用户认证；凭据来源唯一由实现层 `auth_mode` 表达，不再由能力声明）时显示，默认当前登录用户（取 `GET /api/v1/auth/me` 的 `user_id`，`AUTH-API-01`；候选经 `GET /api/v1/services/{service_id}/test-user-candidates`，`SVC-API-11`）；③ 结果模式（`result_mode`）：`INLINE` / `SUMMARY`，默认跟随后端实现策略 |
+| 输出 | 成功：`ok=true` + 归一化输出（inline 直接展开；外置时显示 summary + `artifact_id` + `execution_id` 与「下载产物」入口，`GET /api/v1/executions/{execution_id}/artifacts/{artifact_id}/download` 受权字节流，不下发对象存储直链）；**耗时**取自 `stats.latency`（毫秒，前端渲染为 `N ms`，不使用客户端计时）；失败：`ok=false` + 脱敏错误码/消息，错误定位到输入控件 |
 | 统计行 | 显示 `stats` 的 `downstream_calls` / `pages` / `items` / `retries`（后端返回才显示，缺字段不渲染该项，前端不补 0） |
 | 追踪 | 显示响应 `trace_id`（可复制），便于与执行记录/审计对齐 |
 | 错误呈现 | `DRY_RUN_UNSUPPORTED` 等能力级错误在弹窗内以错误条展示，不清空已填输入；弹窗不提供“自动改配置”快捷操作 |
@@ -772,9 +779,11 @@ password  密码    password  required secret
 
 列表投递筛选 Query=delivery_status；业务状态与投递状态独立。投递枚举 NONE/PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN；UNKNOWN 明确送达未确认，不触发业务重试。Builder 只读，取消/重试/审批仅 Admin；重试返回 new_execution_id 后打开新执行。
 
+**执行源 `execution_source`（V1.14.1）**：取值为 `{FORMAL, TEST, CAPABILITY_TEST}`。常规执行列表**默认只查 `FORMAL`**；服务测试面板查 `TEST`；能力测试面板查 `CAPABILITY_TEST`（能力测试执行不进默认执行列表）。
+
 **搜索范围包含「追踪标识」（Z-14）**：列表搜索框覆盖「执行编号 / 服务 / 智能体 / 触发用户 / **`trace_id`**」；`trace_id` 同时提供独立筛选输入（`EXE-API-01` Query 已有 `trace_id`）。两者都走**服务端**筛选，不做客户端过滤。
 
-**Builder 可见范围（D6=A，V1.13.1）**：Admin 看本租户全部执行；**Builder 只看到**①自己创建的 Service（`service_definition.created_by = self`）的执行，②自己被授权 Agent（`AgentAccessGrant`）相关的执行——两者的**交集（INTERSECT）**（后端 05 L1582；场景：自建 Service + 未授权 Agent → 不可见）。**无权限的执行不返回**（不是返回后前端隐藏）；对越权 execution id 的详情请求按 `EXECUTION_NOT_FOUND`(404) 呈现，不返回 403（不泄露存在性）。
+**Builder 可见范围（ADR-052/ADR-067，V1.14.1）**：Admin 看本租户全部执行；**Builder 看到**①自己创建的 Service（`service_definition.created_by = self`）的执行 **∪** ②自己被授权 Agent（`AgentAccessGrant`）相关的执行——**并集（UNION），两侧各自单独成立即可见**（与 ADR-052、后端 `RULE-SVC-09`、`EXE-API-01` 完全一致，**不得写成交集**）。**无权限的执行不返回**（不是返回后前端隐藏）；对越权 execution id 的详情请求按 `EXECUTION_NOT_FOUND`(404) 呈现，不返回 403（不泄露存在性）。
 
 **「重新执行」与「重新投递」是两个动作（D4=A）**：列表行操作仍只有「详情」，四个动作都在详情（见 §9.2）；列表与详情**不再出现**含义模糊的单一「重试」按钮。
 
@@ -810,14 +819,15 @@ password  密码    password  required secret
 | 按钮 | API | 可用条件 | 禁用时 tooltip 原因（示例，文案随状态变化） |
 |---|---|---|---|
 | 继续 | `EXE-API-05`（decision=RESUME） | `status=WAITING_HUMAN` 且 `available_actions` 含 RESUME；仅 Admin | “执行不在等待人工状态” / “执行已进入取消流程” |
-| 终止 | `EXE-API-05`（decision=CANCEL） | `available_actions` 含 CANCEL；仅 Admin | “执行已结束（SUCCEEDED/FAILED/CANCELLED）” / “等待自动重试，第 2/3 次” |
+| 终止 | `EXE-API-03`（运行态取消）/ `EXE-API-05`（`status=WAITING_HUMAN` 时 decision=CANCEL） | `available_actions` 含 CANCEL；仅 Admin | “执行已结束（SUCCEEDED/FAILED/CANCELLED）” / “等待自动重试，第 2/3 次” |
 | 重新执行 | `EXE-API-04` | `status=FAILED` 且 `available_actions` 含 RETRY；仅 Admin | “仅失败的执行可重新执行” / “执行仍在运行中” |
 | 重新投递 | `EXE-API-07` | `delivery_status ∈ {FAILED, UNKNOWN}`；仅 Admin | “投递尚未失败（当前 DELIVERED）” / “等待自动重试，第 2/3 次” |
 
 - **Builder**：`available_actions` 为 `[]` → 四个按钮**都不渲染**（不是禁用态）。
 - **禁用而非隐藏**：处于 `available_actions` 之外但状态相关的动作以**禁用态 + 原因 tooltip** 呈现，避免“按钮忽隐忽现”；与角色无关的动作（Admin-only）对 Builder 一律不渲染。
+- **「终止」按状态分流（ADR-065）**：`status=WAITING_HUMAN` 走 `EXE-API-05`（`decision=CANCEL`）；其余可取消状态（PENDING/RUNNING/WAITING/RETRY_WAIT）走 `EXE-API-03`（`POST /api/v1/executions/{execution_id}/cancel`），两者收敛到同一 CANCEL 语义。**普通取消不再走 `EXE-API-05`**——对 RUNNING 调 `EXE-API-05` 返回 409 `EXECUTION_NOT_WAITING_HUMAN`。
 - tooltip 中“第 N/M 次”的 N 取执行当前重试次数（`retry_count`），M 取后端返回的最大重试上限；M 未返回时省略 “/M”，不臆造上限。
-- 「重新执行」成功返回 `new_execution_id`：打开新执行详情并显示 `parent_execution_id`；原执行状态**不变**。「重新投递」**不新建执行**：触发一次新的投递 attempt（遵守 `attempt_token`/epoch 语义，幂等键防重复点击），成功后 `delivery_status` 回到 `PENDING` 并刷新 deliveries 列表。
+- 「重新执行」成功返回 `new_execution_id`：打开新执行详情并显示 `parent_execution_id`；原执行状态**不变**。「重新投递」**不新建执行**：触发一次新的投递 attempt（遵守 `attempt_token`/epoch 语义，幂等键防重复点击），新增 attempt 且**保留历史失败行**；`delivery_status` **按逻辑消息取有效尝试聚合**（ADR-066），新尝试成功时收敛为 `DELIVERED`（不是回到 `PENDING`）；同一逻辑消息已有非终态尝试时返回 409 `DELIVERY_IN_FLIGHT`。
 - 动作不可回滚时给出确认（终止需二次确认）；提交期间按钮 loading，不接受重复点击。
 
 > **进入等待时的用户通知（D1）**：执行进入 `WAITING_HUMAN` 时由**平台自动**向触发用户的渠道推送通知（无需用户在 Console 操作、也不依赖服务作者额外编排 DELIVERY 步骤）。Console 侧只读展示该通知是否已生成；不提供「手动补发」按钮。

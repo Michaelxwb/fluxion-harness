@@ -18,9 +18,11 @@ def _execution_to_domain(row: ServiceExecutionModel) -> ServiceExecution:
     return ServiceExecution(
         id=row.id,
         actor_user_id=row.actor_user_id,
-        service_release_ref=row.service_release_ref,
-        resource_scope=row.resource_scope or {},
-        input=row.input or {},
+        service_id=row.service_id,
+        service_release_id=row.service_release_id,
+        snapshot_id=row.snapshot_id,
+        resource_scope_json=row.resource_scope_json or {},
+        input_json=row.input_json or {},
         status=ExecutionStatus(row.status),
         next_run_at=row.next_run_at,
         lease_owner=row.lease_owner,
@@ -56,11 +58,15 @@ class SqlAlchemyExecutionRepository:
         async with self._session_factory() as session:
             async with session.begin():
                 snapshot_row = ExecutionSnapshotModel(
-                    service_release_ref=snapshot.service_release_ref,
-                    service_content_hash=snapshot.service_content_hash,
-                    agent_release_ref=snapshot.agent_release_ref,
-                    agent_revision=snapshot.agent_revision,
-                    snapshot_payload=snapshot.model_dump(mode="json"),
+                    service_id=snapshot.service_id,
+                    source=snapshot.source.value,
+                    service_release_id=snapshot.service_release_id,
+                    draft_revision=snapshot.draft_revision,
+                    test_mode=snapshot.test_mode,
+                    content_hash=snapshot.content_hash,
+                    snapshot_schema_version=snapshot.snapshot_schema_version,
+                    snapshot_json=snapshot.snapshot_json,
+                    snapshot_ref=snapshot.snapshot_ref,
                 )
                 session.add(snapshot_row)
                 await session.flush()
@@ -69,10 +75,14 @@ class SqlAlchemyExecutionRepository:
                     ServiceExecutionModel(
                         id=execution.id,
                         actor_user_id=execution.actor_user_id,
+                        service_id=execution.service_id,
+                        service_release_id=execution.service_release_id,
                         snapshot_id=snapshot_row.id,
-                        service_release_ref=execution.service_release_ref,
-                        resource_scope=execution.resource_scope,
-                        input=execution.input,
+                        execution_source=snapshot.source.value,
+                        draft_revision=snapshot.draft_revision,
+                        test_mode=snapshot.test_mode,
+                        resource_scope_json=execution.resource_scope_json,
+                        input_json=execution.input_json,
                         status=execution.status.value,
                         next_run_at=execution.next_run_at,
                         lease_owner=execution.lease_owner,

@@ -21,8 +21,8 @@ class Workspace(BaseModel):
     tenant_id: str
     owner_type: WorkspaceOwnerType
     owner_id: UUID
-    storage_backend: str
-    root_ref: str
+    backend_type: str
+    workspace_ref: str
     status: WorkspaceStatus = WorkspaceStatus.ACTIVE
     created_at: datetime
     expires_at: datetime | None = None

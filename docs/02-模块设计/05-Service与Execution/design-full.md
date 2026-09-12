@@ -38,6 +38,7 @@
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 新增受控变量模板契约与 RULE-SVC-07/08；`requested_action` 语义定死为“决策接受后写入”；`context_summary` 补 U03 六要素；ExecutionView 补脱敏 `resource_scope_summary`/`scope_refs` 与 `scope_ref` 筛选；EXE-LIB-02 补确定性渲染/confirmation_ref 签发；EXE-LIB-03 明确 confirmation_ref 双路径；EXE-LIB-01 补 `delivery_route_id`/`execution_mode` 写入规则；进度事件投递触发与幂等键定义；ArtifactSummary 统一 `artifact_id`；矩阵与 verifier 修正 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D5：`resource_scope` 收敛为 `{type, refs[], attributes?}`（删除 Service 级 scope JSON Schema、`schema_hash`、Scope Registry 推导），`resource_scope_summary`/`scope_refs` 改为直接投影；Q-10：`execution_proposal` 状态收敛为 PENDING/CONFIRMED + `superseded_at`（过期/被取代改为派生判定）；Q-04：`confirmation_digest` 去掉 `rendered_summary`、改用 `template_hash`；B2：新增 `current_step_name` 与 EXE-API-01 的 `error_code` 筛选；D6：新增 Builder 执行可见范围（依赖 `service_definition.created_by`，ADR-052）；B6：产物访问判定以 `artifact` 表 FK 为准、`artifact_ids` 仅作复制来源记录；D4：新增 EXE-API-07「重新投递」并定义与重试的边界（ADR-054）；B11：步骤 schema 新增 `human_policy`（ADR-055）；B3：保留与清理按《11-数据保留与清理策略》；D7：自助重试与来源会话查看显式后置 |
+| V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
 
 ## 2. 需求分析
 
@@ -122,6 +123,11 @@
 | S-SVC-10 | FEAT-SVC-04 | P1 | integration | ExecutionView 范围摘要 | 本模块 | 执行含非空 `resource_scope_json` | Admin 打开执行详情并按其范围引用筛选 | 详情返回脱敏 `resource_scope_summary`/`scope_refs`；列表按 `scope_ref` 只返回匹配执行；不返回原始 `resource_scope_json` |
 | S-SVC-11 | FEAT-SVC-07 | P0 | E2E | Artifact→DeliveryRoute→本人重取 | 本模块 + 10/14 | 执行产出 Artifact 且用户已离线 | 后台投递；用户稍后 `/result` 重取 | 渠道收到原生文件或受权下载；EXE-API-06 返回字节流且校验归属；跨用户取流 403；已清理 410 `ARTIFACT_EXPIRED`；响应中不出现 `object_ref`/公开签名 URL |
 | S-SVC-12 | FEAT-SVC-07 | P1 | integration | 重新投递 vs 重新执行 | 本模块 + 10 | 执行 SUCCEEDED 但 `delivery_status=FAILED` | Admin 调 EXE-API-07 重新投递 | 新建一条投递尝试（`attempt+1`）且**不重跑任何业务步骤**；`FAILED` 情形无重复通知风险；对 `delivery_status=DELIVERED` 或 `NONE` 调用返回 409 `EXECUTION_DELIVERY_NOT_RETRYABLE` |
+| S-SVC-13 | FEAT-SVC-04 | P0 | integration | 同会话连续签发提案 | 本模块 | 会话内已有一条 PENDING 提案 | 用户改范围后重新生成确认摘要并再次签发 | 旧提案置 `superseded_at`；**新提案插入成功（无唯一冲突）**；按 `tenant+actor+conversation` 取当前提案只返回新的那一条（D8 修复） |
+| S-SVC-14 | FEAT-SVC-05 | P0 | integration | ASYNC 步骤配置链路 | 本模块 + 06/07 | Service 引用支持异步提交的能力 | Builder 声明 `execution_mode=ASYNC` 并保存/发布/测试 | Draft 校验通过；`execution_step.execution_mode=ASYNC`、`service_execution.execution_mode=ASYNC`；Worker 走 ASYNC 提交分支（D9 修复） |
+| S-SVC-15 | FEAT-SVC-01 | P0 | E2E | 能力测试产物归属与下载 | 本模块 + 07 | 能力返回大结果（外置） | Builder 在能力测试面板执行并点「下载产物」 | 产生 `execution_source=CAPABILITY_TEST` 执行；`artifact.execution_id` 指向它；`EXE-API-06` 返回字节流；该执行不出现在默认执行列表（D10 修复） |
+| S-SVC-16 | FEAT-SVC-04 | P1 | E2E | Builder 可见范围并集 | 本模块 + 18 | 存在两个执行：A 由 Builder 自建 Service、B 属于 Builder 被授权 Agent（Service 由他人创建） | Builder 打开执行列表并直连两个 id | A、B **都可见**（并集两侧各自成立）；两者都不满足的执行 404（D13 修复） |
+| S-SVC-17 | FEAT-SVC-07 | P1 | integration | 重投后汇总收敛 | 本模块 + 10 | 执行 `delivery_status=FAILED`（某逻辑消息有效尝试失败） | Admin 重新投递且新尝试送达成功 | `deliveries[]` 新增 attempt 行且保留历史失败行；`delivery_status` 收敛为 `DELIVERED`；再次重投返回 409（D11 修复） |
 
 **异常场景**
 
@@ -132,6 +138,9 @@
 | E-SVC-03 | FEAT-SVC-05 | integration | AsyncTaskRun | 本模块 | provider 不支持 cancel | 平台停止后续步骤并记录外部任务不可取消 | 用户可见明确提示 |
 | E-SVC-04 | FEAT-SVC-04 | integration | 提案消费 | 本模块 + 10 | 提案已过期 / 已被消费 / 另一个 actor 复制 ref | 确认请求 | 过期 `PROPOSAL_EXPIRED`、已消费返回原执行（幂等）、跨 actor `PROPOSAL_ACCESS_DENIED`；均不创建第二个 Execution |
 | E-SVC-05 | FEAT-SVC-08 | integration | 决策与 deadline 竞争 | 本模块 + 06 | 决策与 deadline 同时到达（含重复决策、相反决策） | 决策请求 / 超时扫描并发 | 唯一终态：deadline 前已接受决策优先并 RESUME/CANCEL；无有效决策且已过期 → `FAILED(HUMAN_TIMEOUT)`；相反决策 `HUMAN_DECISION_CONFLICT`；重复请求返回原结果 |
+| E-SVC-06 | FEAT-SVC-05 | integration | 异步能力被声明为同步 | 本模块 + 07 | 服务引用的能力仅支持异步提交，步骤声明 `execution_mode=SYNC`（或反向） | Builder 保存/校验 Draft | `SVC-API-05` 阶段即返回 `CAPABILITY_ASYNC_NOT_INVOKABLE`(422) 并定位到该步骤；**不得**等到 Worker 运行期才失败（D9 修复） |
+| E-SVC-07 | FEAT-SVC-06 | integration | 取消入口边界 | 本模块 + 06 | ① 对 RUNNING 执行调 EXE-API-03；② 对 RUNNING 执行调 EXE-API-05；③ 对 WAITING_HUMAN 调两个入口 | 分别发起请求 | ① 接受并置 CANCELLING；② `EXECUTION_NOT_WAITING_HUMAN`(409)；③ 两者收敛到同一 `execution_command(CANCEL)` 语义（不产生第二份实现）（D12 修复） |
+| E-SVC-08 | FEAT-SVC-07 | integration | 并发重投 | 本模块 + 10 | 同一逻辑消息已有非终态投递尝试 | 并发触发两次 EXE-API-07 | 至多一条新建尝试；其余 `DELIVERY_IN_FLIGHT`(409)；不产生两条并行投递（D11） |
 
 **边界场景**
 
@@ -254,7 +263,7 @@ flowchart LR
 
 **约束与索引**
 
-- UNIQUE (tenant_id,conversation_id) WHERE status='PENDING' AND is_deleted=false；签发新提案时旧 PENDING 同事务置 `superseded_at=now`（不引入 SUPERSEDED 状态）。
+- UNIQUE (tenant_id,conversation_id) WHERE status='PENDING' AND superseded_at IS NULL AND is_deleted=false；签发新提案时旧 PENDING 同事务置 `superseded_at=now`（不引入 SUPERSEDED 状态）。**该谓词即“当前提案”的唯一判定**：被取代的行即使 `status` 仍为 PENDING 也不再占用唯一槽位，因此同一会话可连续签发、替换待确认提案（D8 修复：原谓词只查 `status='PENDING'`，旧提案置 `superseded_at` 后仍满足条件，新提案必然唯一冲突）。
 - 签发后禁止修改身份/输入/范围/snapshot/digest/expires_at，只允许状态及消费关联更新。
 - CHECK: status=CONFIRMED 当且仅当 execution_id、confirmed_message_id、confirmed_at 全部非空；其他状态均为空。
 - confirmed_message_id 对同 tenant 唯一（非空时）；消费与创建执行在同一事务。
@@ -337,8 +346,8 @@ flowchart LR
 | 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
 |---|---|---|---|---|---|
 | tenant_id | UUID | N |  | IDX | 租户 |
-| service_id | UUID | N |  | FK | ServiceDefinition |
-| source | VARCHAR(16) | N |  |  | FORMAL/TEST |
+| service_id | UUID | Y |  | FK | ServiceDefinition；FORMAL/TEST 必填，CAPABILITY_TEST 必须为空 |
+| source | VARCHAR(16) | N |  |  | FORMAL/TEST（能力测试不落快照，见 execution-source-check） |
 | service_release_id | UUID | Y |  | FK,IDX | FORMAL 必填，TEST 必须为空 |
 | draft_revision | BIGINT | Y |  |  | TEST 必填，FORMAL 为空 |
 | test_mode | VARCHAR(16) | Y |  |  | TEST=DRY_RUN/REAL_TEST；FORMAL 为空 |
@@ -353,15 +362,28 @@ flowchart LR
 
 **约束与索引**
 
-- UNIQUE (tenant_id,service_id,source,content_hash)；hash 覆盖 revision/test_mode/步骤及全部业务投影，不用 nullable release 作去重身份。
+- UNIQUE (tenant_id,service_id,source,content_hash) WHERE service_id IS NOT NULL；hash 覆盖 revision/test_mode/步骤及全部业务投影，不用 nullable release 作去重身份。能力测试不产生快照行，因此无需第二套去重身份。
+- 快照只服务 FORMAL/TEST；`CAPABILITY_TEST` 只有执行行没有快照行，`service_execution.snapshot_id` 对该 source 必须为空（见 execution-source-check）。
 - source 与 release/draft/test_mode 按下方 executable predicate 校验；根对象必须匹配同一个 snapshot 的 source/service/version/mode。
 - 禁止业务 UPDATE/DELETE。
 
 <!-- contract:execution-source-check -->
 ```sql
-(source = 'FORMAL' AND service_release_id IS NOT NULL AND draft_revision IS NULL AND test_mode IS NULL) OR (source = 'TEST' AND service_release_id IS NULL AND draft_revision IS NOT NULL AND test_mode IN ('DRY_RUN', 'REAL_TEST'))
+(source = 'FORMAL' AND service_id IS NOT NULL AND capability_id IS NULL AND snapshot_id IS NOT NULL AND service_release_id IS NOT NULL AND draft_revision IS NULL AND test_mode IS NULL)
+OR (source = 'TEST' AND service_id IS NOT NULL AND capability_id IS NULL AND snapshot_id IS NOT NULL AND service_release_id IS NULL AND draft_revision IS NOT NULL AND test_mode IN ('DRY_RUN', 'REAL_TEST'))
+OR (source = 'CAPABILITY_TEST' AND service_id IS NULL AND capability_id IS NOT NULL AND snapshot_id IS NULL AND service_release_id IS NULL AND draft_revision IS NULL AND test_mode IN ('DRY_RUN', 'REAL_TEST'))
 ```
 <!-- /contract:execution-source-check -->
+
+**三分支语义（D10/A3）**：
+
+| `execution_source` | 归属 | 冻结内容 | 典型入口 |
+|---|---|---|---|
+| `FORMAL` | Service（`service_id`）+ 不可变 Release | `snapshot_id`（业务投影） | EXE-LIB-01 提案确认 |
+| `TEST` | Service（`service_id`）+ 当前 Draft | `snapshot_id`（草稿投影）+ `draft_revision` | SVC-API-06 服务测试 |
+| `CAPABILITY_TEST` | Capability（`capability_id`） | 无 `snapshot_id`：测试输入/输出与解析到的 implementation 由 `async_task_run` 同源的测试产物与审计记录冻结 | CAP-API-05 能力测试 |
+
+`CAPABILITY_TEST` 存在的唯一理由是**产物授权单点**（ADR-053）：产物身份 `artifact_id` 的读取权限只以所属执行判定，因此能力测试的大结果外置产物必须有执行归属，**不得**为能力测试另开下载契约或扩展 `artifact.owner_type`。`CAPABILITY_TEST` 与 `TEST` 一样不入正式统计（见下表字段说明与 EXE-API-01 默认筛选）。
 
 #### 表 `service_execution`
 
@@ -370,17 +392,18 @@ flowchart LR
 | 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
 |---|---|---|---|---|---|
 | tenant_id | UUID | N |  | IDX | 租户 |
-| service_id | UUID | N |  | FK,IDX | ServiceDefinition |
-| service_release_id | UUID | Y |  | FK,IDX | FORMAL 必填；TEST 必须为空 |
+| service_id | UUID | Y |  | FK,IDX | ServiceDefinition；FORMAL/TEST 必填，CAPABILITY_TEST 必须为空 |
+| capability_id | UUID | Y |  | FK,IDX | 仅 CAPABILITY_TEST 必填：被测 Capability（归属与授权的判定依据） |
+| service_release_id | UUID | Y |  | FK,IDX | FORMAL 必填；TEST/CAPABILITY_TEST 必须为空 |
 | actor_user_id | UUID | N |  | FK,IDX | 发起 PlatformUser |
-| primary_agent_id | UUID | N |  | FK | 启动时主 Agent 引用 |
+| primary_agent_id | UUID | Y |  | FK | 启动时主 Agent 引用；CAPABILITY_TEST 为空 |
 | conversation_id | UUID | Y |  | FK,IDX | 来源 Conversation |
 | delivery_route_id | UUID | Y |  | FK | 主动投递路由；**创建时由可信上下文固定写入**（ADR-045），此后不随用户会话漂移；无活跃路由时为空 |
-| snapshot_id | UUID | N |  | FK | ExecutionSnapshot |
+| snapshot_id | UUID | Y |  | FK | ExecutionSnapshot；FORMAL/TEST 必填，CAPABILITY_TEST 必须为空 |
 | workspace_id | UUID | Y |  | FK | 受控 Workspace |
 | resource_scope_json | JSONB | N | {} |  | 业务资源范围 |
 | input_json | JSONB | N | {} |  | 经 Schema 校验的输入 |
-| execution_mode | VARCHAR(16) | N | ASYNC |  | SYNC/ASYNC；由 ServiceDraft 编译时推导——存在任一步骤 `execution_mode=ASYNC` 即 ASYNC，否则 SYNC。SYNC 仅表示本次执行不含异步外部任务，**仍由 Worker 执行**，不等于“同步阻塞调用” |
+| execution_mode | VARCHAR(16) | N | SYNC |  | SYNC/ASYNC；由 ServiceDraft/能力测试编译结果推导（FORMAL/TEST：存在任一步骤 `execution_mode=ASYNC` 即 ASYNC；CAPABILITY_TEST：单次同步调用即 SYNC）。SYNC 仅表示本次执行不含异步外部任务，**仍由 Worker 执行**，不等于“同步阻塞调用” |
 | status | VARCHAR(32) | N | PENDING | IDX | PENDING/RUNNING/WAITING/WAITING_HUMAN/RETRY_WAIT/CANCELLING/SUCCEEDED/FAILED/CANCELLED（终态统一 SUCCEEDED） |
 | waiting_reason | VARCHAR(256) | Y |  |  | 进入 WAITING_HUMAN/RETRY_WAIT 的原因（人工等待为审批说明） |
 | human_deadline | TIMESTAMPTZ | Y |  | IDX | 进入 WAITING_HUMAN 的截止时间，默认 +24h；超时置 FAILED(error_code=HUMAN_TIMEOUT) |
@@ -388,9 +411,9 @@ flowchart LR
 | channel_source | VARCHAR(32) | Y |  |  | 接入渠道（V1=wechat_wecom；API 发起为空） |
 | retry_count | INTEGER | N | 0 |  | 业务重试次数（EXE-API-04 触发） |
 | parent_execution_id | UUID | Y |  | FK,UK | 重试的直接父执行；每个父执行最多派生一个子执行 |
-| execution_source | VARCHAR(16) | N | FORMAL | IDX | FORMAL/TEST；TEST 不入正式统计 |
-| draft_revision | BIGINT | Y |  |  | TEST 必填，FORMAL 为空 |
-| test_mode | VARCHAR(16) | Y |  |  | TEST 必填 DRY_RUN/REAL_TEST；FORMAL 为空 |
+| execution_source | VARCHAR(16) | N | FORMAL | IDX | FORMAL/TEST/CAPABILITY_TEST；TEST 与 CAPABILITY_TEST 不入正式统计（EXE-API-01 默认只查 FORMAL） |
+| draft_revision | BIGINT | Y |  |  | TEST 必填；FORMAL/CAPABILITY_TEST 为空 |
+| test_mode | VARCHAR(16) | Y |  |  | TEST/CAPABILITY_TEST 必填 DRY_RUN/REAL_TEST；FORMAL 为空 |
 | root_execution_id | UUID | N |  | FK | 初次执行指向自身；重试沿用 |
 | max_retries | INTEGER | N | 3 |  | 管理重试上限，与 claim 的 max_attempts 分离 |
 | context_summary | JSONB | Y |  |  | 人工等待摘要，**进入等待时固化、禁止用 current 配置重渲染**，必须覆盖 Playbook U03 六要素：`step_key`、`human_prompt`、`input_digest`、`evidence_refs`（脱敏）、`completed_steps[]`（已完成步骤 key + 摘要 =“系统已经做了什么”）、`options[]`（`{action, label, meaning}` = “有哪些选择/意味着什么”）；全部脱敏 |
@@ -398,6 +421,7 @@ flowchart LR
 | lease_epoch | BIGINT | N | 0 |  | 每次 claim +1；所有状态写入校验 fencing token |
 | priority | INTEGER | N | 0 |  | Worker claim 排序权重（总设 §5.2 治理 P1） |
 | current_step | VARCHAR(256) | Y |  | 当前阶段（当前步骤 key；初始为空） |
+| current_step_name | VARCHAR(128) | Y |  | **当前阶段的业务可读名**（ADR-051）：取 snapshot 中该 step 的 `name`（终态取最后一条 STAGE 事件的 `stage`）；列表/详情的「当前阶段」渲染本列，`current_step` 仅作技术标识 |
 | next_run_at | TIMESTAMPTZ | Y |  | IDX | 可再次 claim 时间 |
 | lease_owner | VARCHAR(256) | Y |  | IDX | Worker owner |
 | lease_expires_at | TIMESTAMPTZ | Y |  | IDX | lease 到期 |
@@ -421,7 +445,9 @@ flowchart LR
 
 - UNIQUE (tenant_id,idempotency_key)
 - 终态不可回到非终态
-- source/version/test_mode 按 execution-source-check（source 映射 execution_source）校验，且与 snapshot 一致。
+- source/version/test_mode/capability_id/snapshot_id 按 execution-source-check（source 映射 execution_source）校验，FORMAL/TEST 且与 snapshot 一致；CAPABILITY_TEST 无 snapshot，禁止伪造 `snapshot_id`。
+- CAPABILITY_TEST 的 `capability_id` 必须指向同租户非删除的 `capability_definition`；被测能力后来被停用/软删，不级联删除测试执行与其产物（产物授权与保留清理以执行为准，ADR-053）。
+- CAPABILITY_TEST 不进入 `channel_delivery` 投递链（无 END_USER 投递对象），也不占用集群级 Resource Class 槽位以外的业务重试语义：`retry_count`/`max_retries` 对其无意义，重试走重新测试。
 - UNIQUE (tenant_id,parent_execution_id) WHERE parent_execution_id IS NOT NULL；每个失败节点只有一个重试子执行。
 - 创建时由可信上下文写入 `delivery_route_id`（取当前会话对应的持久路由；无活跃路由时留空并在结果生成时回退本会话路由），此后**不随用户切换会话而漂移**（ADR-045）。
 - WAITING_HUMAN：deadline 非空；`requested_action` 进入等待时为 NULL，**只有决策被事务接受后才写入**；在 deadline 前已被事务接受的 requested_action 优先应用，即使 Worker 稍后才运行。到期且没有有效已接受决策才 FAILED(HUMAN_TIMEOUT)；截止后新决策拒绝，已接受请求重放返回原结果。
@@ -452,7 +478,8 @@ flowchart LR
 | operation_id | UUID | N |  | IDX | 首次创建生成；重试同一逻辑步骤沿用；绑定 input hash |
 | source_step_id | UUID | Y |  | FK execution_step | 重试复制的来源步骤 |
 | checkpoint_ref | VARCHAR(512) | Y |  |  | 最近已提交的图恢复点 |
-| execution_mode | VARCHAR(16) | N | SYNC |  | SYNC/ASYNC |
+| execution_mode | VARCHAR(16) | N | SYNC | IDX | SYNC/ASYNC；**来自 Draft 的显式声明**（ADR-062），Worker 按本列分流 |
+| slot_resource_class | VARCHAR(32) | Y |  | IDX | **集群级槽位占用标记**（ADR-068）：抢占到 `browser`/`external-scan`/`large-report` 槽位时同事务写入；**持久占用结束**（SYNC=终态；ASYNC=含对账收敛的终态）时同事务清空并 `used-1`。maintenance 对账按本列统计持久占用——ASYNC 提交后 lease 已释放但本列仍非空，因此不会被漏算 |
 | status | VARCHAR(32) | N | PENDING | IDX | PENDING/RUNNING/WAITING/SUCCEEDED/FAILED/CANCELLED/SKIPPED |
 | attempt | INTEGER | N | 0 |  | 步骤重试计数 |
 | idempotency_key | VARCHAR(256) | Y |  | IDX | effect:{operation_id}；跨重试沿用，因此不做全局唯一 |
@@ -726,6 +753,7 @@ erDiagram
 | SVC-API-08 | Release 列表 | HTTP | GET | /api/v1/services/{service_id}/releases |
 | SVC-API-09 | Release 详情 | HTTP | GET | /api/v1/services/{service_id}/releases/{release_id} |
 | SVC-API-10 | 紧急启停 | HTTP | PATCH | /api/v1/services/{service_id}/enabled |
+| SVC-API-11 | 测试用户候选 | HTTP | GET | /api/v1/services/{service_id}/test-user-candidates |
 | EXE-API-01 | Execution 列表 | HTTP | GET | /api/v1/executions |
 | EXE-API-02 | Execution 详情/Timeline | HTTP | GET | /api/v1/executions/{execution_id} |
 | EXE-API-03 | 取消 Execution | HTTP | POST | /api/v1/executions/{execution_id}/cancel |
@@ -1143,6 +1171,28 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
           "deliverable_template": {
             "type": "string",
             "minLength": 1
+          },
+          "execution_mode": {
+            "enum": [
+              "SYNC",
+              "ASYNC"
+            ],
+            "default": "SYNC",
+            "description": "本步骤的调用契约（ADR-062）：SYNC=Worker 同步调用并拿到结果；ASYNC=Worker 经 CAP-LIB-03 提交外部任务后进入轮询/对账。**只在 Draft 显式声明**，不在运行期按能力语义隐式派生——快照必须自解释（RULE-SVC-03）。仅 type=CAPABILITY 可声明 ASYNC；与能力侧异步支持标记必须同时成立（见 §3.2 编译与校验）"
+          },
+          "reconcile_timeout_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 604800,
+            "default": 86400,
+            "description": "仅 execution_mode=ASYNC 生效：结果未知时的对账截止（`async_task_run.reconcile_deadline = 首次提交时间 + 本值`）"
+          },
+          "max_poll_attempts": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "仅 execution_mode=ASYNC 生效：轮询次数上限（`async_task_run.poll_attempts` 的有界口径）"
           }
         },
         "allOf": [
@@ -1231,6 +1281,50 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
                 ]
               }
             }
+          },
+          {
+            "if": {
+              "properties": {
+                "execution_mode": {
+                  "const": "ASYNC"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "type": {
+                  "const": "CAPABILITY"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "execution_mode": {
+                  "const": "SYNC"
+                }
+              }
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "reconcile_timeout_seconds"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "max_poll_attempts"
+                    ]
+                  }
+                ]
+              }
+            }
           }
         ]
       }
@@ -1290,6 +1384,19 @@ primary_agent_id 的修改进入 Draft，发布时冻结；service_definition.pr
 失败策略：FAIL_FAST 终止；RETRY 按同 operation_id 有界重试；MANUAL 进入 WAITING_HUMAN，RESUME 从相同失败点继续且沿用副作用身份；SKIP_ON_ERROR 显式标 SKIPPED 并继续，依赖缺失输出时必须提供 literal 默认，否则保存时拒绝。WAIT 不占用长睡眠线程，详情见 WORK-LIB-03。
 
 人工介入策略（ADR-055）：步骤级 `human_policy` 与失败策略**正交**——`always` 由编译器在该步骤**之前**插入一个 HUMAN 检查点（消费后继续原步骤）；`on_uncertainty` 允许该步骤在语义不确定、业务拒绝或达自动恢复上限时转 WAITING_HUMAN（**不得**仅因技术故障转人工）；`never` 禁止本步转人工，命中时按 `failure_policy` 收敛。Service 级 `confirmation.required` 仍只决定「发起前是否需要用户确认」，三者互不替代。
+
+**执行模式编译与校验（ADR-062，D9 修复）**：`execution_mode` 是**步骤显式声明**，其传递链唯一且必须可验收：
+
+```text
+Draft.steps[].execution_mode
+  → 发布/测试编译：execution_step.execution_mode（快照冻结）
+  → service_execution.execution_mode = 存在任一步 ASYNC ? ASYNC : SYNC（派生，不接受调用方传入）
+  → Worker WORK-LIB-03 按 execution_step.execution_mode 分流 SYNC/ASYNC 分支
+```
+
+- 能力侧只声明**是否支持异步提交**（`capability_implementation` 的异步支持标记，见模块 07），步骤声明**是否要走异步**；`SVC-API-05` 校验阶段必须**合取两者**：能力不支持异步而步骤声明 ASYNC → `CAPABILITY_ASYNC_NOT_INVOKABLE`(422)；能力仅支持异步而步骤声明 SYNC → 同样 `CAPABILITY_ASYNC_NOT_INVOKABLE`(422)。**禁止拖到 Worker 运行期才发现**。
+- `execution_mode=ASYNC` 仅允许 `type=CAPABILITY`；`reconcile_timeout_seconds`/`max_poll_attempts` 仅 ASYNC 步骤可提交（SYNC 步骤携带即 Schema 拒绝）。
+- 原实现路径的缺口（D9 修复记录）：Draft Schema 未声明 `execution_mode` 且 `additionalProperties=false`，而 Worker 却按 `execution_step.execution_mode=ASYNC` 分流，导致“有执行设计、无合法配置入口”。现补齐 Draft→快照→Worker 的完整传递与表单控件（前端见《03-前端设计/02-服务管理》）。
 
 **请求示例**：
 
@@ -1583,9 +1690,13 @@ DRY_RUN：可信 ctx.projection.test_mode 注入 Worker→Agent→Skill 宿主�
 
 **契约**：`GET /api/v1/executions`
 
-**认证/授权**：Builder + Admin。**可见范围（ADR-052）**：Admin = 当前 tenant 全部；Builder = 仅「自己创建的 Service（`service_definition.created_by`）的执行」与「自己被授权 Agent 相关的执行」的交集，其余执行不返回（不是 403，而是列表/详情视为不存在 `EXECUTION_NOT_FOUND`）
+**认证/授权**：Builder + Admin。**可见范围（ADR-052，D13 修复为并集）**：Admin = 当前 tenant 全部；Builder = 「自己创建的 Service（`service_definition.created_by` = 登录用户）的执行」**∪**「自己被授权 Agent（`agent_access_grant.enabled`，按执行的 `primary_agent_id`）相关的执行」；其余执行不返回（不是 403，而是列表/详情视为不存在 `EXECUTION_NOT_FOUND`）。
 
-**Query**：page=1/page_size=20（max100）；service_id/user_id/agent_id 可选；status 为九态；execution_mode=SYNC/ASYNC；execution_source=FORMAL（默认）/TEST；delivery_status=NONE/PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN；channel_source/trace_id/scope_ref/error_code/from/to 可选（`scope_ref` 按范围引用筛选，用于 A04 定位“哪个客户/范围”的执行；`error_code` 用于概览「今日人工超时」卡跳转 `status=FAILED&error_code=HUMAN_TIMEOUT`）。测试面板显式传 TEST 和 service_id，常规执行列表保持 FORMAL。
+- **唯一有效裁决 = 并集**：`RULE-SVC-09`、ADR-052、前端 `S-10-06` 与本接口必须完全一致；本文档早期版本在本接口写“交集”属笔误，已纠正（原表述会让“只看自己 Service、未被授权该 Agent”的 Builder 看不到任何执行）。
+- 并集的两侧**各自单独成立即可见**，必须分别验收：① 自建 Service 的执行（`created_by` 命中）可见；② 被授权 Agent 的执行（grant 命中，即使 Service 由他人创建）可见；③ 两侧都不命中 → 404（不是 403）。
+- `CAPABILITY_TEST` 执行归其发起人（`actor_user_id`）与能力的管理可见范围；Builder 只能看自己发起的测试执行。
+
+**Query**：page=1/page_size=20（max100）；service_id/user_id/agent_id/capability_id 可选；status 为九态；execution_mode=SYNC/ASYNC；execution_source=FORMAL（默认）/TEST/CAPABILITY_TEST；delivery_status=NONE/PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN；channel_source/trace_id/scope_ref/error_code/from/to 可选（`scope_ref` 按范围引用筛选，用于 A04 定位“哪个客户/范围”的执行；`error_code` 用于概览「今日人工超时」卡跳转 `status=FAILED&error_code=HUMAN_TIMEOUT`）。测试面板显式传 TEST + service_id，能力测试面板显式传 CAPABILITY_TEST + capability_id，常规执行列表保持 FORMAL。
 
 **响应**：`{items: ExecutionSummary[], total: integer}`；Summary 的所有字段见 EXE-API-02 的根 View（列表可不返回 input/context_summary）。delivery_status 以持久队列关联查询，先筛选再分页；所有 SQL 有 tenant 条件，批量关联名称，禁止 N+1。未知枚举/非法时间范围 REQUEST_SCHEMA_INVALID（422）。
 
@@ -1599,11 +1710,11 @@ DRY_RUN：可信 ctx.projection.test_mode 注入 Worker→Agent→Skill 宿主�
 
 | ExecutionView 字段 | 类型 | 来源/派生 |
 |---|---|---|
-| id / service_id / agent_id / user_id | UUID | root.id/service_id/primary_agent_id/actor_user_id |
-| service_name / agent_name / user_name | string | 关联摘要；对象已删除仍保留 id 与快照名 |
-| service_release_id / release_no | UUID/null、integer/null | FORMAL 固定版本；TEST=null |
+| id / service_id / capability_id / agent_id / user_id | UUID、UUID/null、UUID/null | root.id/service_id（CAPABILITY_TEST 为 null）/capability_id（仅 CAPABILITY_TEST）/primary_agent_id/actor_user_id |
+| service_name / agent_name / user_name / capability_name | string/null | 关联摘要；对象已删除仍保留 id 与快照名；CAPABILITY_TEST 只填 capability_name |
+| service_release_id / release_no | UUID/null、integer/null | FORMAL 固定版本；TEST/CAPABILITY_TEST=null |
 | conversation_id / parent_execution_id | UUID/null | 根对象关联 |
-| execution_source / test_mode / draft_revision / expired | enum、enum/null、integer/null、boolean | TEST 修订与当前 Draft 比较；FORMAL expired=false |
+| execution_source / test_mode / draft_revision / expired | enum、enum/null、integer/null、boolean | TEST 修订与当前 Draft 比较；FORMAL/CAPABILITY_TEST expired=false |
 | status / execution_mode / execution_type | enum | 九态、SYNC/ASYNC、snapshot 执行方式 |
 | trace_id / channel_source / retry_count | string、string/null、integer | root 字段 |
 | current_step | string/null | 当前 step_key（技术标识，用于筛选与跳转）；统一此名，取消 current_step_key 别名 |
@@ -1613,8 +1724,8 @@ DRY_RUN：可信 ctx.projection.test_mode 注入 Worker→Agent→Skill 宿主�
 | waiting_reason / context_summary / human_deadline / requested_action | string/null、object/null、datetime/null、enum/null | 等待进入时固化；禁止 current 重渲染。`context_summary` 覆盖 U03 六要素（含 `completed_steps[]` 与 `options[{action,label,meaning}]`） |
 | resource_scope_summary | object/null | **脱敏**范围摘要（ADR-048/050）：`{type, refs[], labels?}` —— `type` 与其展示名、`refs` 原样（引用本身是可展示标识），供 A04 排障回答"哪个客户/哪个范围"；`attributes` 不进摘要；仅 Builder/Admin 可见 |
 | scope_refs | string[] | `resource_scope.refs` 的直接投影（供筛选与跳转）；空表示无范围 |
-| delivery_status | enum | 无队列 NONE；否则优先 UNKNOWN > FAILED > SENDING > RETRY_WAIT > PENDING；全成功 DELIVERED |
-| available_actions | string[] | 当前状态和角色计算：Builder=[]；Admin 按 CANCEL/RETRY/RESUME 条件提供 |
+| delivery_status | enum | **按逻辑消息取有效尝试**（D11 修复）：无队列 NONE；否则按逻辑消息键（`channel_delivery.event_id` 去掉 `:redeliver:<n>` 后缀）聚合，取该消息**有效尝试**（`attempt` 最大、同 attempt 取最新）的状态：有效尝试 DELIVERED 且该消息无更晚的非终态尝试 → DELIVERED；否则按 UNKNOWN > FAILED > SENDING > RETRY_WAIT > PENDING 取最严重态。**历史失败尝试不永久污染汇总**——重新投递成功后必须收敛为 DELIVERED |
+| available_actions | string[] | 当前状态和角色计算：Builder=[]；Admin 按 CANCEL/RETRY/RESUME 条件提供（取消的可执行状态见 EXE-API-03，决策见 EXE-API-05） |
 
 ExecutionSummary 除 input/context_summary 外包含上述字段，等待字段可空，后端不省略不支持字段以免 UI 猜测。
 
@@ -1632,7 +1743,17 @@ ArtifactSummary={artifact_id,name,content_type,size_bytes,checksum,download_path
 
 **契约**：`POST /api/v1/executions/{execution_id}/cancel`
 
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
+**认证/授权（ADR-065，D12 修复）**：本端点承载**全部“普通运行态取消”**，是唯一的取消能力实现；授权按调用方分别判定，**不合并为一个 authority**：
+
+| 调用方 | 身份来源 | 判定 |
+|---|---|---|
+| Console（Admin 会话） | 登录会话（中间件解析，RULE-API-02） | 角色 Admin + 当前租户内执行 |
+| IM `/stop`（END_USER） | CH-INT-02 校验后的本人 verified 身份 → trusted runtime 上下文 | 执行 `actor_user_id` 必须是本人；跨用户 403，越权/不存在按 404 |
+
+- Console 端**必须调用本端点**（不再声明“Console 不调用 /cancel”）；`EXE-API-05` 只负责 WAITING_HUMAN 的决策，不承担普通取消。
+- IM 侧 `/stop` 经 CH-INT-02 STOP → Agent Runtime → **同一个 Application**（不新增 `/internal/v1/executions/*/cancel` 端点，避免同一命令的双入口）。
+- 可取消状态集合（唯一事实源）：`PENDING` / `RUNNING` / `WAITING` / `WAITING_HUMAN` / `RETRY_WAIT` / `CANCELLING`。前五者原子置 `cancel_requested_at` + `status=CANCELLING`；`CANCELLING` 幂等返回；终态（SUCCEEDED/FAILED/CANCELLED）返回 `EXECUTION_TERMINAL`(409)。
+- `WAITING_HUMAN` 经本端点取消等价于 `EXE-API-05` 的 `decision=CANCEL`：两条入口必须收敛到同一 `execution_command(CANCEL)` 语义与同一 Worker 应用路径，**不得产生两份实现**。
 
 **请求体**
 
@@ -1677,6 +1798,7 @@ ArtifactSummary={artifact_id,name,content_type,size_bytes,checksum,download_path
 |---|---|---|
 | EXECUTION_TERMINAL | 已终态，无需取消 | 409 |
 | EXECUTION_ACCESS_DENIED | 非本人/无管理权限 | 403 |
+| EXECUTION_NOT_FOUND | 执行不存在或不在调用方可见范围 | 404 |
 
 **处理逻辑**
 
@@ -1706,6 +1828,8 @@ ArtifactSummary={artifact_id,name,content_type,size_bytes,checksum,download_path
 
 **认证/授权**：仅 Admin；END_USER 调同一 Application 经 CH-INT-02 校验本人
 
+**语义边界（D12 修复）**：本端点**只处理 `status=WAITING_HUMAN` 的人工决策**（RESUME=继续，CANCEL=终止该次人工等待）。普通运行态取消（PENDING/RUNNING/WAITING/RETRY_WAIT）一律走 `EXE-API-03`，本端点对非 WAITING_HUMAN 状态返回 `EXECUTION_NOT_WAITING_HUMAN`(409)。两条入口共享同一个 CANCEL 能力实现与 `execution_command(CANCEL)` 语义，但**前置条件不同、不得互相替代**：`EXE-API-05` 要求等待态 + 未超时 + `requested_action` 为空（决策事实），`EXE-API-03` 要求可取消状态集合（命令事实）。
+
 **请求体**：`{decision: RESUME|CANCEL, idempotency_key: string, comment?: string}`；additionalProperties=false，禁止 input/改参。仅表达继续原执行或终止。
 
 **请求示例**：`{"decision":"RESUME","idempotency_key":"human-decision-01","comment":"已核对范围"}`。
@@ -1725,6 +1849,31 @@ Worker 必须持有效 lease_epoch 才应用：先处理已接受决策，再判
 **认证/授权**：仅 Admin
 
 请求 `{enabled: boolean}`，响应 `{id, enabled, update_time}`。直接更新定义的即时安全开关并审计；与 Draft revision/current Release 无关，发布和保存 Draft 不得覆盖 enabled。禁用后新提案、确认创建和新测试返回 EXECUTION_SERVICE_DISABLED（409），已有 Execution 继续受其他动态安全状态控制，不因此自动取消。Console 服务列表/详情提供 Admin“紧急停用/恢复”独立动作，停用二次确认。
+
+#### SVC-API-11: 测试用户候选
+
+**入口类型**：HTTP
+
+**契约**：`GET /api/v1/services/{service_id}/test-user-candidates`
+
+**认证/授权**：Builder + Admin。Builder 只能取**自己有权选择**的候选（服务 `created_by` 命中，或自己对服务主 Agent / 其引用能力的平台有授权）；越权服务返回 404 `SERVICE_NOT_FOUND`。
+
+**Query**：`page=1/page_size=50（max100）`；`keyword` 可选（display_name/user_key 模糊）。
+
+**响应 data**：`{items: [{user_id, user_key, display_name}], page, page_size, total, default_user_id}`。
+
+- `default_user_id` = 当前登录用户的 `platform_user.id`（取自会话身份端点 `AUTH-API-01`，**不从请求体接受**）；用于测试弹窗“默认当前登录用户”。
+- `items` 为**受控候选**，不是用户目录：Builder 只看到自己权限范围内的用户，Admin 看到租户内 ACTIVE 用户；`END_USER` 不进候选。
+- 该接口只服务 Builder 的测试选择，**不得**替代或放宽 `USR-API-01`（用户列表仅 Admin）。
+- 候选为空返回 `items: []`（合法空态：控件仍显示并提示“无可选测试用户”，默认仍是当前登录用户）。
+
+**错误码**
+
+| 错误码 | 场景 | HTTP 状态 |
+|---|---|---|
+| SERVICE_NOT_FOUND | 服务不存在或不在调用方可见范围 | 404 |
+
+**语义边界（D14 修复）**：控制台 `test_user_id` 默认值与候选的完整链路为：`AUTH-API-01`（我是谁）→ 本接口（我能选谁）→ `SVC-API-06` 提交 `test_user_id`。后端仍以 `TEST_USER_ACCESS_INVALID`(403) 做最终判定，前端**不得**用候选列表“事先过滤掉”越权用户来掩盖该错误。
 
 #### EXE-API-06: Artifact 授权下载
 
@@ -1752,9 +1901,10 @@ V1 不支持原生文件的 Adapter 返回 CHANNEL_FILE_UNSUPPORTED，不静默�
 
 ```text
 锁 execution → 幂等查询（同 idempotency_key 返回原结果）→
-校验 delivery_status ∈ {FAILED, UNKNOWN}（其余状态 EXECUTION_DELIVERY_NOT_RETRYABLE 409）→
+校验该执行的 delivery_status ∈ {FAILED, UNKNOWN}（按逻辑消息取有效尝试后的汇总；其余状态 EXECUTION_DELIVERY_NOT_RETRYABLE 409）→
 取该执行最近一条 channel_delivery 的 route/内容（或按 artifact_id 指定产物）→
-经 CH-LIB-02 在同一事务预建新的 channel_delivery 行（event_type 不变、event_id 追加 :redeliver:<n>）→
+经 CH-LIB-02 在同一事务预建新的 channel_delivery 行（event_type 不变、event_id 追加 :redeliver:<n>、
+message_key 沿用被重投行，见模块 10）→
 提交后由 WORK-LIB-06 调度发送。
 ```
 
@@ -1766,8 +1916,11 @@ V1 不支持原生文件的 Adapter 返回 CHANNEL_FILE_UNSUPPORTED，不静默�
 |---|---|---|
 | EXECUTION_NOT_FOUND | 执行不存在或不在可见范围 | 404 |
 | EXECUTION_DELIVERY_NOT_RETRYABLE | 当前 `delivery_status` 不属于 {FAILED, UNKNOWN} | 409 |
+| DELIVERY_IN_FLIGHT | 该逻辑消息已有非终态投递尝试（不可并发重投） | 409 |
 | ARTIFACT_NOT_FOUND | 指定的产物不属于该执行 | 404 |
 | DELIVERY_ROUTE_INVALID | 该执行无有效投递路由（从未建立路由） | 409 |
+
+**聚合收敛（D11 修复）**：重新投递成功后，该逻辑消息的有效尝试变为 DELIVERED，`execution.delivery_status` 随之收敛为 DELIVERED（不再被历史 FAILED 尝试永久钉死），因此**同一消息不会无限重投**；历史失败尝试仍完整保留在 `deliveries[]` 明细与审计中。`S-SVC-12` 必须同时验收“新增 attempt 行”与“汇总状态收敛”。
 
 **与重试的边界（ADR-054）**：`UNKNOWN` 表示"远端可能已收到"，重新投递因此**可能造成重复通知**——这是产品已接受的语义（不宣称端到端 exactly-once），前端必须在按钮上给出二次确认与说明；`FAILED` 是已证明未送达，重新投递无此风险。
 

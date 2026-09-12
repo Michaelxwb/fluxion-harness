@@ -38,13 +38,18 @@ async def factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
 
 async def test_publish_emits_audit_event_without_sensitive_payload(
     factory: async_sessionmaker[AsyncSession],
+    test_actor_id: uuid.UUID,
 ) -> None:
     repo = ServiceRepository(factory)
     key = f"audit-{uuid.uuid4().hex[:8]}"
     async with factory() as session:
         async with session.begin():
             service = ServiceDefinitionModel(
-                service_key=key, name="n", goal="g", draft_payload={"name": "n", "goal": "g"}
+                key=key,
+                name="n",
+                description="g",
+                draft_payload={"name": "n", "goal": "g"},
+                created_by=test_actor_id,
             )
             session.add(service)
             await session.flush()
@@ -64,7 +69,7 @@ async def test_publish_emits_audit_event_without_sensitive_payload(
             event = events[0]
             assert event.action == "service.published"
             assert event.request_id == "req-audit-1"
-            assert event.after_ref == release.release_no
+            assert event.after_digest["release_no"] == release.release_no
             assert event.details["content_hash"] == release.content_hash
             assert event.details["release_no"] == release.release_no
             assert "draft" not in event.details

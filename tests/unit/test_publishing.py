@@ -94,18 +94,18 @@ def test_build_execution_snapshot_freezes_bindings_not_authorization() -> None:
     TrustedExecutionContext 入口——本用例守住这一点。
     """
     snapshot = build_execution_snapshot(
-        service_release_ref="svc:r-abc",
-        service_content_hash="c" * 64,
+        service_id=uuid4(),
+        service_release_id=uuid4(),
+        content_hash="c" * 64,
         execution_spec={"goal": "weekly summary"},
         validated_scope=_scope(),
-        agent_revision=7,
         skill_artifacts=["skill-1@aaa"],
         knowledge_bindings=["kb-1"],
         capability_contracts=["cap-1"],
     )
     assert snapshot.resource_scope_type == "demo.scope"
     assert snapshot.resource_scope_schema_hash == "h" * 64
-    assert snapshot.agent_revision == 7
+    assert snapshot.snapshot_json["execution_spec"] == {"goal": "weekly summary"}
     assert snapshot.skill_artifacts == ["skill-1@aaa"]
     assert snapshot.knowledge_bindings == ["kb-1"]
     assert snapshot.capability_contracts == ["cap-1"]

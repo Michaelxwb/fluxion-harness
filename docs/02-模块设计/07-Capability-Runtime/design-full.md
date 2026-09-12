@@ -38,6 +38,7 @@
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | Capability Contract 补 execution_characteristic/authorization_requirement/error_semantics 与 side_effect 四值枚举；新增 implementation 判别式 Schema；artifact_id 收敛；内置工具注册幂等；Skill 入口契约与 call 返回形态冻结 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D1：判定元数据收敛为 `invocation_policy(DIRECT/EXECUTION_ONLY)`，删除 `execution_characteristic`/`authorization_requirement`/`error_semantics` 三列与全部 DTO/示例/索引引用，凭据来源唯一由 `implementation.auth_mode` 表达（config 内 `auth_mode` 键删除）；重写 `contract:direct-invocation-predicate` 为唯一事实源并加「write/destructive 或 HIGH 不得 DIRECT」兜底 CHECK；B10：PLATFORM_SERVICE config 必填寻址字段 `service_key`+`path`+`method`；B15(a)：CAP-API-05 `result_mode` 默认值分路径冻结（Skill 直调固定 `INLINE`，新增 `CAPABILITY_RESULT_MODE_NOT_ALLOWED`）；内置 6 工具默认元数据与 S-CAP-07 同步新字段 |
+| V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
 
 ## 2. 需求分析
 
@@ -261,7 +262,8 @@ direct_invocation = ALLOWED
 | capability_id | UUID | N |  | FK,IDX | 所属 Contract |
 | implementation_type | VARCHAR(32) | N |  | IDX | PLATFORM_SERVICE/HTTP/MCP/SANDBOX |
 | project_platform_id | UUID | Y |  | FK,IDX | 仅 PLATFORM_SERVICE 必填 |
-| auth_mode | VARCHAR(64) | N | NONE |  | **凭据来源的唯一事实源**：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。definition 侧不再重复声明授权/凭据要求 |
+| auth_mode | VARCHAR(64) | N | NONE | IDX | **凭据来源的唯一事实源**：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。definition 侧不再重复声明授权/凭据要求 |
+| async_submittable | BOOLEAN | N | FALSE |  | 本实现是否支持异步提交（`CAP-LIB-03 submit_async`）；与 Step `execution_mode` 合取校验（ADR-062），Worker 的 ASYNC 分支只对 true 的实现提交 |
 | config | JSONB | N | {} |  | 按 type 的 discriminated config；只放「实现身份/映射」字段，见 contract:capability-implementation-schema；**不得包含 `auth_mode` 键** |
 | shared_secret_ref | VARCHAR(512) | Y |  |  | HTTP/MCP 等共享 Secret 引用 |
 | execution_policy | JSONB | N | {} |  | deadline/retry/backoff；超时与重试唯一归属，不进 config |
@@ -288,7 +290,7 @@ direct_invocation = ALLOWED
 
 **三列归属（T-21 裁决）**：`config` 只承载下表中「实现身份/映射」字段；**超时与重试不放 config**，一律进 implementation 的 `execution_policy`（`deadline_ms` 必填、`max_retries` 默认 0、`backoff_ms`）；`data_retrieval_policy` 沿用既有 Data Retrieval Policy 字段，仅列表类 Capability 需要。三列的字段名即 CAP-API-02/04 的 `implementation.*` 字段名与前端控件名（D14），前端控件集合以本 contract 块为唯一事实源。
 
-**凭据来源单点声明（D1 收敛）**：`auth_mode` **只以 `capability_implementation.auth_mode` 列为事实源**，不得在 `config` 内重复声明同名键；definition 侧不再声明授权/凭据要求。CAP-API-02/04 的 `implementation.auth_mode` 必须与列取值一致，`config.auth_mode` 一律拒绝（`CAPABILITY_IMPLEMENTATION_INVALID`）。
+**凭据来源单点声明（D1 收敛，D3 修复落点）**：`auth_mode` **只以 `capability_implementation.auth_mode` 列为事实源**，不得在 `config` 内重复声明同名键；definition 侧不再声明授权/凭据要求。CAP-API-02/04 的 `implementation.auth_mode` 是**顶层必填字段**（判别式 Schema 四个分支均已声明并列入 `required`），必须与列取值一致；`config.auth_mode` 一律拒绝（`CAPABILITY_IMPLEMENTATION_INVALID`）。原缺陷：正文要求 `implementation.auth_mode`，但四个 Schema 分支都未声明该键且 `additionalProperties=false`，前端又把它放在 `config` 内，导致两种提交方式都被拒——现统一为“顶层字段 + Schema 声明 + 列落库”三处一致。
 
 <!-- contract:capability-implementation-schema -->
 ```json
@@ -302,9 +304,11 @@ direct_invocation = ALLOWED
       "title": "PLATFORM_SERVICE",
       "type": "object",
       "additionalProperties": false,
-      "required": ["implementation_type", "config", "execution_policy"],
+      "required": ["implementation_type", "auth_mode", "config", "execution_policy"],
       "properties": {
         "implementation_type": { "const": "PLATFORM_SERVICE" },
+        "auth_mode": { "enum": ["USER_PLATFORM", "SHARED_SECRET", "NONE"], "default": "NONE", "description": "凭据来源唯一事实源（D1）：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。与 capability_implementation.auth_mode 列一一对应；**不得**在 config 内重复声明" },
+        "async_submittable": { "type": "boolean", "default": false, "description": "本实现是否支持异步提交（CAP-LIB-03 submit_async）。与 Step 的 execution_mode 合取校验（ADR-062）：能力不支持异步而步骤声明 ASYNC、或能力仅支持异步而步骤声明 SYNC，均在 SVC-API-05 阶段拒绝" },
         "config": {
           "type": "object",
           "additionalProperties": false,
@@ -326,9 +330,11 @@ direct_invocation = ALLOWED
       "title": "HTTP",
       "type": "object",
       "additionalProperties": false,
-      "required": ["implementation_type", "config", "execution_policy"],
+      "required": ["implementation_type", "auth_mode", "config", "execution_policy"],
       "properties": {
         "implementation_type": { "const": "HTTP" },
+        "auth_mode": { "enum": ["USER_PLATFORM", "SHARED_SECRET", "NONE"], "default": "NONE", "description": "凭据来源唯一事实源（D1）：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。与 capability_implementation.auth_mode 列一一对应；**不得**在 config 内重复声明" },
+        "async_submittable": { "type": "boolean", "default": false, "description": "本实现是否支持异步提交（CAP-LIB-03 submit_async）。与 Step 的 execution_mode 合取校验（ADR-062）：能力不支持异步而步骤声明 ASYNC、或能力仅支持异步而步骤声明 SYNC，均在 SVC-API-05 阶段拒绝" },
         "config": {
           "type": "object",
           "additionalProperties": false,
@@ -355,9 +361,11 @@ direct_invocation = ALLOWED
       "title": "MCP",
       "type": "object",
       "additionalProperties": false,
-      "required": ["implementation_type", "config", "execution_policy"],
+      "required": ["implementation_type", "auth_mode", "config", "execution_policy"],
       "properties": {
         "implementation_type": { "const": "MCP" },
+        "auth_mode": { "enum": ["USER_PLATFORM", "SHARED_SECRET", "NONE"], "default": "NONE", "description": "凭据来源唯一事实源（D1）：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。与 capability_implementation.auth_mode 列一一对应；**不得**在 config 内重复声明" },
+        "async_submittable": { "type": "boolean", "default": false, "description": "本实现是否支持异步提交（CAP-LIB-03 submit_async）。与 Step 的 execution_mode 合取校验（ADR-062）：能力不支持异步而步骤声明 ASYNC、或能力仅支持异步而步骤声明 SYNC，均在 SVC-API-05 阶段拒绝" },
         "config": {
           "type": "object",
           "additionalProperties": false,
@@ -377,9 +385,11 @@ direct_invocation = ALLOWED
       "title": "SANDBOX",
       "type": "object",
       "additionalProperties": false,
-      "required": ["implementation_type", "config", "execution_policy"],
+      "required": ["implementation_type", "auth_mode", "config", "execution_policy"],
       "properties": {
         "implementation_type": { "const": "SANDBOX" },
+        "auth_mode": { "enum": ["USER_PLATFORM", "SHARED_SECRET", "NONE"], "default": "NONE", "description": "凭据来源唯一事实源（D1）：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。与 capability_implementation.auth_mode 列一一对应；**不得**在 config 内重复声明" },
+        "async_submittable": { "type": "boolean", "default": false, "description": "本实现是否支持异步提交（CAP-LIB-03 submit_async）。与 Step 的 execution_mode 合取校验（ADR-062）：能力不支持异步而步骤声明 ASYNC、或能力仅支持异步而步骤声明 SYNC，均在 SVC-API-05 阶段拒绝" },
         "config": {
           "type": "object",
           "additionalProperties": false,
@@ -482,7 +492,7 @@ CapabilityCallContext={trusted tenant_id/actor_user_id/execution_id/operation_id
 
 #### CAP-LIB-03: 异步提交与未知结果对账
 
-**认证/授权**：`ctx` 必须是宿主从 `async_task_run` 行与 Execution 可信关联重建的 CapabilityCallContext；tenant/actor 一致性校验通过才可提交，Secret 每次按当前 Credential 解析；handle 不得携带身份覆盖字段。调用方仅为 Worker（Service Step 声明 `execution_mode=ASYNC`），Skill 路径不得调用。
+**认证/授权**：`ctx` 必须是宿主从 `async_task_run` 行与 Execution 可信关联重建的 CapabilityCallContext；tenant/actor 一致性校验通过才可提交，Secret 每次按当前 Credential 解析；handle 不得携带身份覆盖字段。调用方仅为 Worker（Service Step 声明 `execution_mode=ASYNC`），Skill 路径不得调用。**能力合取校验**：解析到的 implementation 必须 `async_submittable=true`，否则拒绝并返回 `CAPABILITY_ASYNC_NOT_INVOKABLE`(422)（不静默降级为同步调用，见模块 06 ASYNC 分支与 ADR-062）。
 
 **签名**：`async def submit_async(ctx: CapabilityCallContext, capability_key: str, input: JsonObject, *, idempotency_key: str) -> AsyncTaskHandle`
 
@@ -596,7 +606,7 @@ Sandbox 隔离不可用等失败码由模块 13 承接；失败分类不在此�
 | side_effect | string | Y | none/read/write/destructive（四值枚举，总设 §5.1） |
 | invocation_policy | string | N | DIRECT/EXECUTION_ONLY；默认 DIRECT。write/destructive 或 HIGH 时服务端强制 EXECUTION_ONLY（非法组合 400） |
 | idempotency_semantics | string | Y | NONE/KEYED/NATURAL |
-| implementation | object | Y | 判别式 typed implementation，Schema 见 §3.3 的 contract:capability-implementation-schema（implementation_type + config + execution_policy + 可选 data_retrieval_policy）；凭据来源只由 `implementation.auth_mode` 声明 |
+| implementation | object | Y | 判别式 typed implementation，Schema 见 §3.3 的 contract:capability-implementation-schema（**implementation_type + auth_mode + config + execution_policy** + 可选 data_retrieval_policy）；凭据来源只由**顶层** `implementation.auth_mode` 声明（必填，默认 NONE）；`implementation.async_submittable` 声明是否支持异步提交 |
 
 **请求示例**
 
@@ -645,12 +655,12 @@ Sandbox 隔离不可用等失败码由模块 13 承接；失败分类不在此�
 | CAPABILITY_KEY_EXISTS | key 重复 | 409 |
 | CAPABILITY_SCHEMA_INVALID | I/O schema 非法 | 400 |
 | CAPABILITY_CONTRACT_INVALID | side_effect/risk_level/invocation_policy 枚举非法，或 `invocation_policy=DIRECT` 与 `write`/`destructive`/`HIGH` 组合 | 400 |
-| CAPABILITY_IMPLEMENTATION_INVALID | 实现配置不满足类型约束，或 `config` 含 `auth_mode` 重复声明 | 400 |
+| CAPABILITY_IMPLEMENTATION_INVALID | 实现配置不满足类型约束、缺 `implementation.auth_mode`，或 `config` 含 `auth_mode` 重复声明 | 400 |
 
 **处理逻辑**
 
 ```text
-校验 Contract（side_effect 四值 + risk_level + invocation_policy 枚举 + 「write/destructive 或 HIGH 不得 DIRECT」安全兜底，与 DB CHECK 同源）→ 按 capability-implementation-schema 判别式校验 implementation（deadline_ms 必须在 implementation.execution_policy，不得混入 config；PLATFORM_SERVICE 必须含 service_key/path/method 寻址字段；config 不得含 auth_mode）→ 校验 PLATFORM_SERVICE↔ProjectPlatform → transaction INSERT definition+implementation → audit。
+校验 Contract（side_effect 四值 + risk_level + invocation_policy 枚举 + 「write/destructive 或 HIGH 不得 DIRECT」安全兜底，与 DB CHECK 同源）→ 按 capability-implementation-schema 判别式校验 implementation（**顶层 auth_mode 必填**；deadline_ms 必须在 implementation.execution_policy，不得混入 config；PLATFORM_SERVICE 必须含 service_key/path/method 寻址字段；config 不得含 auth_mode）→ 校验 PLATFORM_SERVICE↔ProjectPlatform → transaction INSERT definition+implementation → audit。
 ```
 
 #### CAP-API-03: Capability 详情
@@ -668,7 +678,7 @@ Sandbox 隔离不可用等失败码由模块 13 承接；失败分类不在此�
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | definition | object | Contract；字段同 CAP-API-06 响应（含 risk_level、side_effect 四值枚举、invocation_policy），无授权/凭据与错误语义字段 |
-| implementation | object | 脱敏实现配置；结构按 §3.3 的 contract:capability-implementation-schema（implementation_type/config/execution_policy/data_retrieval_policy），含凭据来源 `auth_mode`（唯一声明处） |
+| implementation | object | 脱敏实现配置；结构按 §3.3 的 contract:capability-implementation-schema（implementation_type/**auth_mode**/async_submittable/config/execution_policy/data_retrieval_policy），含凭据来源 `auth_mode`（唯一声明处、顶层字段） |
 | project_platform | object | 仅 Platform Service |
 | used_by_agents | integer | 直接绑定数 |
 | used_by_skills | integer | Artifact 依赖数 |
@@ -724,7 +734,7 @@ tenant scoped definition → active implementation → 聚合反向依赖；shar
 | side_effect | string | Y | none/read/write/destructive |
 | invocation_policy | string | N | DIRECT/EXECUTION_ONLY；默认 DIRECT。write/destructive 或 HIGH 时服务端强制 EXECUTION_ONLY（非法组合 400） |
 | idempotency_semantics | string | Y | 幂等语义 |
-| implementation | object | Y | 判别式 typed implementation，Schema 见 §3.3 的 contract:capability-implementation-schema；凭据来源只由 `implementation.auth_mode` 声明 |
+| implementation | object | Y | 判别式 typed implementation，Schema 见 §3.3 的 contract:capability-implementation-schema；凭据来源只由**顶层** `implementation.auth_mode` 声明（必填） |
 | enabled | boolean | Y | 状态 |
 | revision | integer | Y | 乐观锁 |
 
@@ -813,8 +823,9 @@ tenant scoped definition → active implementation → 聚合反向依赖；shar
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | ok | boolean | 成功 |
+| execution_id | uuid | **本次测试的执行身份**（`service_execution`，`execution_source=CAPABILITY_TEST`，ADR-063）：产物归属与下载授权的唯一落点；每次测试都返回，即使没有外置产物 |
 | output | object | 归一化输出或大结果外置时的 summary；可能为空 |
-| artifact_id | uuid | 大结果外置时的产物身份（= 模块 05 `artifact.id` 主键）；外置时返回 summary + artifact_id (+stats) |
+| artifact_id | uuid | 大结果外置时的产物身份（= 模块 05 `artifact.id` 主键，`artifact.execution_id` 指向本响应的 `execution_id`）；外置时返回 summary + artifact_id (+execution_id +stats) |
 | stats | object | downstream_calls/pages/items/latency/retries |
 | trace_id | string | 追踪 |
 
@@ -826,6 +837,7 @@ tenant scoped definition → active implementation → 聚合反向依赖；shar
   "message": "success",
   "data": {
     "ok": true,
+    "execution_id": "<execution_id>",
     "output": {},
     "artifact_id": "<artifact_id>",
     "stats": {},
@@ -851,6 +863,19 @@ tenant scoped definition → active implementation → 聚合反向依赖；shar
 ```text
 构造受控 TestExecutionContext → 调统一 CapabilityExecutor.invoke → 不绕过认证/分页/timeout → 返回脱敏 stats。result_mode 解析：Skill 直调路径强制 INLINE（非 INLINE 直接 422），非 Skill 路径缺省 SUMMARY。
 ```
+
+**测试执行身份（ADR-063，D10 修复）**：每次 `CAP-API-05` 调用在**同一事务**内创建一条最小执行身份：
+
+```text
+service_execution(execution_source='CAPABILITY_TEST', capability_id=<被测能力>, actor_user_id=登录用户,
+                  service_id=NULL, snapshot_id=NULL, service_release_id=NULL, draft_revision=NULL,
+                  test_mode='DRY_RUN', execution_mode='SYNC', status=SUCCEEDED|FAILED)
+```
+
+- 该执行**不写** `channel_delivery`、不进默认执行列表（`EXE-API-01` 默认只查 `FORMAL`）、不参与业务重试；测试面板按 `execution_source=CAPABILITY_TEST&capability_id=...` 查询。
+- 外置产物一律以 `artifact.execution_id = 该 execution_id` 落库，因此**下载必须且只能走 `EXE-API-06`**（`GET /api/v1/executions/{execution_id}/artifacts/{artifact_id}/download`），不新增能力侧下载端点、不扩展 `artifact.owner_type`——产物授权必须单点（`RULE-SVC-10`/ADR-053）。
+- 产物归属与保留/清理随该执行（TEST 类数据 30 天，见《11-数据保留与清理策略》）；被测能力后来被停用/软删不级联删除该执行与其产物。
+- 写入失败与测试调用同一事务：不得出现“有 artifact 无执行”或“有执行无 artifact”的半态。
 
 #### CAP-API-06: 读取 Capability Contract
 

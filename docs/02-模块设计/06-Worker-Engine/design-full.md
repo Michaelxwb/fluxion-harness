@@ -39,6 +39,7 @@
 | V1.14 最简重设 | 2026-09-12 | Claude Code | N-1：`worker_slot_lease` 槽位行表改为单行计数器 `worker_slot_counter(resource_class PK, used, slot_limit)`（原子 UPDATE 抢占 + maintenance 对账，删 slot_no 分配/过期回收/抢占重试）；S-WORK-13 同步 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | B4：`browser`/`external-scan`/`large-report` 槽位改为集群级 PG 信号量（新增协调表 `worker_slot_lease` + S-WORK-13），其余 class 保持进程内计数；Q-02：租约默认值自洽（TTL=900000/心跳 300000）+ 启动自检拒绝启动 + RULE-WORK-08 失联语义改为可验收三行为；Y-02：RULE-WORK-04 增副作用合取条件与 `CREDENTIAL_INVALID` 处置、SYNC 分支补 `effect:{operation_id}`；B1：claim/renew/fencing 改为基于 `CORE-LIB-08 LeaseQueue`；B3：保留与清理按《11-数据保留与清理策略》 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 补齐 ASYNC 首次提交分支（SUBMITTING→submit→WAITING，幂等键 `effect:{operation_id}`）；WAITING_HUMAN 唤醒条件改为 pending-command/deadline（修复会被反复领取与决策 409 的缺陷）；新增 RULE-WORK-08 租约参数与心跳调用时机、RULE-WORK-09 投递触发；RULE-WORK-04 补错误分类与三层计数口径；WORK-LIB-06 补 human_wait/progress_stage 调度；新增 S-WORK-07..12 与 E-WORK-03；矩阵与 verifier 修正 |
+| V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
 
 ## 2. 需求分析
 
@@ -113,7 +114,17 @@
 | WORKER_CLAIM_BATCH | 8 | 单轮 claim 批量 |
 | WORKER_POLL_INTERVAL_MS | 1000 | PG polling 兜底周期（Redis 仅唤醒，不影响正确性） |
 
-**集群级槽位（PG 计数器，ADR-056 V1.14 修订）**：`browser` / `external-scan` / `large-report` 三类槽位以 **单行计数器**实现——`worker_slot_counter(resource_class PK, used, slot_limit, CHECK used<=slot_limit)`，部署时预置 3 行（limit 取自 `WORKER_RESOURCE_CLASS_SLOTS`）。分发前同事务原子抢占：`UPDATE worker_slot_counter SET used=used+1 WHERE resource_class=:rc AND used<slot_limit RETURNING used`；`rowcount=0` 即无槽位，本轮跳过并按 `next_run_at` 退避（不忙轮询）。步骤终态同事务 `used=used-1` 释放。崩溃泄漏方向是**安全的**（只会少用、不会超用），由 maintenance 定期对账：`used := 该 class 下租约仍有效的 RUNNING 步骤数`（lease_owner 存活 + lease 未过期），并告警 `worker_slot_in_use{resource_class}`/`worker_slot_wait_ms`。其余 Resource Class 保持进程内计数。
+**集群级槽位（PG 计数器，ADR-056 V1.14 修订，对账口径见 ADR-068）**：`browser` / `external-scan` / `large-report` 三类槽位以 **单行计数器**实现——`worker_slot_counter(resource_class PK, used, slot_limit, CHECK used<=slot_limit)`，部署时预置 3 行（limit 取自 `WORKER_RESOURCE_CLASS_SLOTS`）。分发前同事务原子抢占：`UPDATE worker_slot_counter SET used=used+1 WHERE resource_class=:rc AND used<slot_limit RETURNING used`；`rowcount=0` 即无槽位，本轮跳过并按 `next_run_at` 退避（不忙轮询）。**占用生命周期 = 从抢占到该步骤的持久占用结束**：
+
+- **SYNC 步骤**：步骤终态同事务 `used=used-1` 释放；
+- **ASYNC 步骤**：提交成功后会释放 **lease**（`06:380` 置 root=WAITING），但**不释放槽位**——外部任务仍在跑，占用必须持续到步骤终态（`SUCCEEDED`/`FAILED`/`CANCELLED`，含对账收敛）才 `used=used-1`。lease 是调度所有权，槽位是下游压力配额，**两者语义不同、释放时机不同**（D16 修复：原设计只在“步骤终态”释放、却按“租约有效的 RUNNING 步骤”对账，异步提交后 lease 已释放，对账会把仍在占用外部容量的步骤算成 0）。
+
+**maintenance 对账口径（ADR-068）**：`used := 该 class 下“持久占用未结束”的步骤数`，即同时计入：
+
+1. 仍持有有效租约的 **RUNNING** 步骤（`lease_owner` 存活 + `lease_expires_at > now`）；
+2. **未终态的 ASYNC 步骤**：`execution_step.execution_mode='ASYNC'` 且 `slot_resource_class = :rc` 且步骤状态非终态（覆盖 SUBMITTING / SUBMITTED_UNKNOWN / SUBMITTED / RUNNING / 轮询等待中——这些步骤**没有有效租约**）。
+
+判定依据是 `execution_step.slot_resource_class`（抢占时同事务写入的持久占用标记），不是租约与状态的组合推导；对账只读 owner 表，不引入第二事实源。告警改为 `worker_slot_in_use{resource_class}`/`worker_slot_wait_ms`，**`used` 持续大于“实际持久占用数”即告警**（泄漏方向仍安全：只会少用）。其余 Resource Class 保持进程内计数。
 
 #### 2.5.2 功能验收场景
 
@@ -140,7 +151,7 @@
 |---|---|---|---|---|---|---|---|
 | E-WORK-01 | FEAT-WORK-01 | integration | Lease conditional update | 本模块 | Worker lease 已被抢走 | renew/advance 返回 LEASE_LOST | 停止执行 |
 | E-WORK-02 | FEAT-WORK-03 | integration | Retry policy | 本模块 | 非可重试/超上限错误 | 直接按 failure policy 终止/人工 | 不无限 retry |
-| S-WORK-13 | FEAT-WORK-01 | P1 | integration | 集群级槽位 | 本模块 | `external-scan` 槽位=2，两个 Worker 共提交 5 个该 class 的 Step | 并发执行 | 任一时刻最多 2 个在跑；槽位 owner 被 SIGKILL 后计数泄漏（`used` 偏大），maintenance 对账后恢复满额，不出现永久占用；泄漏期间只会少用、不会超用 |
+| S-WORK-13 | FEAT-WORK-01 | P1 | integration | 集群级槽位 | 本模块 | `external-scan` 槽位=2，两个 Worker 共提交 5 个该 class 的 Step（含 ASYNC 步骤） | 并发执行；ASYNC 步骤提交成功后清空/篡改计数器再触发 maintenance 对账 | 任一时刻最多 2 个在跑；**ASYNC 步骤提交后释放 lease 期间 `used` 不下降**（对账按持久占用计算，D16）；槽位 owner 被 SIGKILL 后计数泄漏（`used` 偏大），对账后恢复满额且**仍不超上限**；泄漏期间只会少用、不会超用 |
 | E-WORK-03 | FEAT-WORK-03 | integration | 错误分类 | 本模块 | 分别抛出 `AUTH_EXPIRED`、`BUSINESS_REJECTED`、`RETRYABLE_TECHNICAL` | Worker 按 RULE-WORK-04 分类判定 | 三类的重试次数与最终状态唯一确定：AUTH_EXPIRED 刷新后重试一次、BUSINESS_REJECTED 不重试且按 failure_policy 收敛、RETRYABLE_TECHNICAL 有界退避后收敛；无 `while True` |
 
 #### 2.5.3 非功能指标
@@ -218,14 +229,17 @@ Worker 不新建独立 queue 表；直接操作 Service/Execution 模块拥有�
 
 | 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
 |---|---|---|---|---|---|
-| resource_class | VARCHAR(32) | N |  | PK | browser/external-scan/large-report（预置 3 行） |
+| resource_class | VARCHAR(32) | N |  | PK | browser/external-scan/large-report（预置 3 行）；**主键即业务键，不用代理 `id`** |
 | used | INTEGER | N | 0 |  | 当前占用数 |
 | slot_limit | INTEGER | N |  |  | 上限（取自 `WORKER_RESOURCE_CLASS_SLOTS`） |
-| id / create_time / update_time | — | — | — | — | 公共字段（无 `is_deleted`：行永久存在，不软删） |
+| create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
+
+**公共字段豁免（本表是全库唯一例外）**：协调表不是业务事实表，因此**不带** `id`、`is_deleted`、`tenant_id` —— 集群级上限由所有租户共享，且行永久存在、可整体清空重建（重建后由 maintenance 对账回填 `used`）。若本表被加上 `tenant_id`/`is_deleted`，原子抢占 `UPDATE ... WHERE resource_class=:rc` 就可能命中错误行或留下孤儿计数，集群并发上限随之失效。该豁免由 `tests/architecture/test_database_common_fields.py` 的 `COORDINATION_TABLES` 正反两向守卫（既豁免公共字段检查，也断言不得新增业务列、PK 必须是 `resource_class`）。
 
 - CHECK (used >= 0 AND used <= slot_limit)。
-- 抢占：同事务 `UPDATE ... SET used=used+1 WHERE resource_class=:rc AND used<slot_limit RETURNING used`；`rowcount=0` 即无槽位，跳过本步骤并退避，不重试抢占（≤1 次判断，无 slot_no 分配竞争）。
-- 释放：步骤终态同事务 `UPDATE ... SET used=used-1 WHERE resource_class=:rc AND used>0`；崩溃泄漏由 maintenance 对账修复（见上），`worker_slot_in_use`/`worker_slot_wait_ms` 监控泄漏（`used` 持续大于实际 RUNNING 数即告警）。
+- 抢占：同事务 `UPDATE ... SET used=used+1 WHERE resource_class=:rc AND used<slot_limit RETURNING used`；`rowcount=0` 即无槽位，跳过本步骤并退避，不重试抢占（≤1 次判断，无 slot_no 分配竞争）。抢占成功的同一事务在 `execution_step.slot_resource_class` 写入本 class（持久占用标记，供对账使用）。
+- 释放：**步骤持久占用结束**时同事务 `UPDATE ... SET used=used-1 WHERE resource_class=:rc AND used>0`。SYNC 步骤=终态；ASYNC 步骤=终态（含对账收敛为 `SUCCEEDED`/`FAILED`/`CANCELLED`），**提交成功后释放 lease 不释放槽位**。崩溃泄漏由 maintenance 对账修复（见上），`worker_slot_in_use`/`worker_slot_wait_ms` 监控泄漏（`used` 持续大于实际持久占用数即告警）。
 
 ### 3.4 接口设计
 
@@ -377,6 +391,9 @@ CAPABILITY（ASYNC，`execution_mode=ASYNC`）——**首次提交分支（本�
      reconcile_timeout_seconds（默认 86400）** / max_poll_attempts），把 step 置 RUNNING 后提交，再发起外部提交
    - 已存在且非终态 → 不重复提交，直接转第 2 步
 2) 调 CAP-LIB-03 submit_async(ctx, capability_key, input, idempotency_key=effect:{operation_id})
+   该调用内部先校验解析到的 implementation `async_submittable=true`（ADR-062）；为 false 时返回
+   CAPABILITY_ASYNC_NOT_INVOKABLE(422)，**不静默降级为同步调用**（Draft 阶段已由 SVC-API-05 拦截，
+   此处是运行期兜底：能力被改配或实现被替换后仍必须确定失败）
 3) 成功：同事务回写 external_task_id/status=SUBMITTED|RUNNING/next_poll_at → root 置 WAITING（next_run_at=next_poll_at）并释放 lease
 4) 结果未知（超时/连接断开，无法证明是否受理）：status=SUBMITTED_UNKNOWN，next_poll_at=now+backoff，
    **不重发**；由 WORK-LIB-05 走 CAP-LIB-03 reconcile 对账

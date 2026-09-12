@@ -31,8 +31,8 @@ class LocalWorkspaceManager:
             tenant_id=tenant_id,
             owner_type=owner_type,
             owner_id=owner_id,
-            storage_backend="local-dev",
-            root_ref=str(path),
+            backend_type="SANDBOX",
+            workspace_ref=str(path),
             created_at=now,
             expires_at=(now + timedelta(seconds=ttl_seconds)) if ttl_seconds else None,
         )

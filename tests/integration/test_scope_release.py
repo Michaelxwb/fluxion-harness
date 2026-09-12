@@ -46,11 +46,16 @@ def registry() -> ResourceScopeRegistry:
 
 
 async def _make_service(
-    factory: async_sessionmaker[AsyncSession], key: str, draft: dict[str, object]
+    factory: async_sessionmaker[AsyncSession],
+    key: str,
+    draft: dict[str, object],
+    test_actor_id: uuid.UUID,
 ) -> uuid.UUID:
     async with factory() as session:
         async with session.begin():
-            row = ServiceDefinitionModel(service_key=key, name="svc", goal="g", draft_payload=draft)
+            row = ServiceDefinitionModel(
+                key=key, name="svc", description="g", draft_payload=draft, created_by=test_actor_id
+            )
             session.add(row)
             await session.flush()
             return row.id
@@ -74,14 +79,16 @@ async def _teardown(factory: async_sessionmaker[AsyncSession], service_id: uuid.
 
 
 async def test_s05_declared_scope_freezes_registry_schema_hash(
-    factory: async_sessionmaker[AsyncSession], registry: ResourceScopeRegistry
+    factory: async_sessionmaker[AsyncSession],
+    registry: ResourceScopeRegistry,
+    test_actor_id: uuid.UUID,
 ) -> None:
     """S-05: 合法 scope 发布成功，payload 含 registry 派生的 schema_hash。"""
     declared = registry.get("tenant")
     assert declared is not None
     repo = ServiceRepository(factory, scope_registry=registry)
     draft: dict[str, object] = {"name": "n", "goal": "g", "resource_scope_type": "tenant"}
-    service_id = await _make_service(factory, f"s05-{uuid.uuid4().hex[:8]}", draft)
+    service_id = await _make_service(factory, f"s05-{uuid.uuid4().hex[:8]}", draft, test_actor_id)
     try:
         release = await repo.publish(service_id, request_id="req-s05")
         payload = release.published_payload
@@ -92,7 +99,9 @@ async def test_s05_declared_scope_freezes_registry_schema_hash(
 
 
 async def test_e04_unknown_scope_type_rejected_without_writing_release(
-    factory: async_sessionmaker[AsyncSession], registry: ResourceScopeRegistry
+    factory: async_sessionmaker[AsyncSession],
+    registry: ResourceScopeRegistry,
+    test_actor_id: uuid.UUID,
 ) -> None:
     """E-04: 发布侧未知 type 抛 SERVICE_SCOPE_TYPE_UNKNOWN（422），且无 release 行落库。
 
@@ -101,7 +110,7 @@ async def test_e04_unknown_scope_type_rejected_without_writing_release(
     """
     repo = ServiceRepository(factory, scope_registry=registry)
     draft: dict[str, object] = {"name": "n", "goal": "g", "resource_scope_type": "customer"}
-    service_id = await _make_service(factory, f"e04-{uuid.uuid4().hex[:8]}", draft)
+    service_id = await _make_service(factory, f"e04-{uuid.uuid4().hex[:8]}", draft, test_actor_id)
     try:
         with pytest.raises(AppError) as exc_info:
             await repo.publish(service_id)
@@ -123,11 +132,15 @@ async def test_e04_unknown_scope_type_rejected_without_writing_release(
 
 
 async def test_service_without_declared_scope_still_publishes(
-    factory: async_sessionmaker[AsyncSession], registry: ResourceScopeRegistry
+    factory: async_sessionmaker[AsyncSession],
+    registry: ResourceScopeRegistry,
+    test_actor_id: uuid.UUID,
 ) -> None:
     """未声明 scope 的 Service 保持可发布，payload 两个 scope 字段均为 None。"""
     repo = ServiceRepository(factory, scope_registry=registry)
-    service_id = await _make_service(factory, f"noscope-{uuid.uuid4().hex[:8]}", {"name": "n", "goal": "g"})
+    service_id = await _make_service(
+        factory, f"noscope-{uuid.uuid4().hex[:8]}", {"name": "n", "goal": "g"}, test_actor_id
+    )
     try:
         release = await repo.publish(service_id)
         assert release.published_payload["resource_scope_type"] is None

@@ -1,6 +1,7 @@
 """S-06: user_agent_binding 已删除（V1.7 D06）回归门禁。
 
-路由只走 ChannelAccount.default_agent + Routing Policy；任何残留引用都必须失败。
+路由只走 `channel_account.agent_id`（design 模块 10 §3.3）+ Routing Policy；
+任何残留引用都必须失败。
 """
 
 from pathlib import Path
@@ -47,6 +48,13 @@ def test_migration_chain_has_single_head() -> None:
     assert "0001" not in revs.values(), "0001 must be the migration head"
 
 
-def test_routing_goes_through_default_agent() -> None:
-    models = (ROOT / "adapters" / "postgres" / "models.py").read_text(encoding="utf-8")
-    assert "default_agent" in models
+def test_routing_goes_through_the_channel_account_agent() -> None:
+    """Routing target is the account's agent column, named per the design.
+
+    The retired V1.7 name (`default_agent_id`) must not come back: the design
+    (module 10 §3.3) freezes `channel_account.agent_id` as the routing target.
+    """
+    from adapters.postgres.models import ChannelAccountModel
+
+    assert "agent_id" in ChannelAccountModel.__table__.c
+    assert "default_agent_id" not in ChannelAccountModel.__table__.c

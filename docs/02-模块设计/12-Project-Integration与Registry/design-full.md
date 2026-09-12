@@ -38,6 +38,7 @@
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 展开 ProviderKind 11 值枚举并冻结 key 作用域与 auth_type 映射；补 S-INT-05（Provider 切换/Gate M）与场景重排；补 Library 认证/授权行；同步 Browser 后置声明；修正 §2.5.1 RULE→场景指向并重写 §6 追溯矩阵与合规矩阵 verifier |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | Y-08：`INT-LIB-02 register_provider` 签名补 `display_name`（人类可读认证方式名，供 Console「用户认证方式」列渲染），并声明其仅展示用、不参与路由与认证判定 |
+| V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
 
 ## 2. 需求分析
 
@@ -188,6 +189,7 @@ flowchart LR
 | INT-LIB-01 | Integration Loader | Library | def load_integrations(manifest_paths: list[Path]) -> LoadedIntegrationSet |  |
 | INT-LIB-02 | Provider Registry 注册 | Library | def register_provider(kind: ProviderKind, key: str, display_name: str, provider: Provider, source: IntegrationInfo) -> None |  |
 | INT-LIB-03 | Seed Applier | Library | async def apply_seed(seed: IntegrationSeed, services: ControlPlaneServices) -> SeedApplyReport |  |
+| INT-API-01 | 范围类型元数据只读投影 | HTTP | GET | /api/v1/meta/resource-scope-types（供 Console 服务表单；装配期内存投影，不落库） |
 
 #### INT-LIB-01: Integration Loader
 
@@ -308,6 +310,39 @@ async def apply_seed(seed: IntegrationSeed, services: ControlPlaneServices) -> S
 
 ```text
 只调用各领域 Application Service 的 create/update API，不直接操作领域表；stable key 幂等；不会让运行时依赖 Console 在线。
+```
+
+#### INT-API-01: 范围类型元数据只读投影
+
+**入口类型**：HTTP
+
+**契约**：`GET /api/v1/meta/resource-scope-types`
+
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）。只读，无写操作。
+
+**响应 data**：`{items: [{type, display_name, attributes_schema}]}`
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| type | string | `resource_scope_types` 声明的类型名（即 `resource_scope.type` 的合法取值） |
+| display_name | string | 展示名（缺省回退 `type`） |
+| attributes_schema | object | 该类型 `attributes` 的字段定义（JSON Schema），前端据此动态渲染范围属性控件；未声明的字段不渲染也不提交 |
+
+**语义**（ADR-067/D2）：
+
+- 数据源是 INT-LIB-01 装配期构建的 `ResourceScopeRegistry` 的**内存投影**（`framework/integration/resource_scope_registry.py`），**不落库、不新建第二事实源**，与模块 05 Draft 校验使用的是同一个注册表实例（因此“表单可选项 = 校验白名单”恒成立）。
+- 该接口是**只读投影**，不改变“装配期加载、运行期不接受请求驱动加载”的边界：Console 读取失败不影响执行面；执行面校验不依赖 Console。
+- 空白名单（当前部署未声明任何范围类型）返回 `{"items": []}`，是合法空态：前端不渲染范围类型控件，`refs[]` 仍可提交、不提交 `attributes`、不得伪造 `type`。
+- 无租户过滤语义：范围类型是部署级声明，同一部署内所有租户一致。
+- **前端不得硬编码枚举**；候选只来自本接口。
+
+**错误码**：无业务错误码（仅标准 401/403 会话与角色判定）。
+
+**处理逻辑**
+
+```text
+读取内存 ResourceScopeRegistry → 输出 {type, display_name, attributes_schema} 列表 → 按 type 字典序稳定排序。
+不查询业务表、不落库、不触发 Provider 调用。
 ```
 
 ### 3.5 质量实现方案

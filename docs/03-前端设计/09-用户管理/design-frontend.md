@@ -171,7 +171,8 @@
 | 用户详情 | `USR-API-03` | `GET /api/v1/users/{user_id}` | 用户与 Agent 授权 |
 | 编辑用户 | `USR-API-04` | `PUT /api/v1/users/{user_id}` | 用户与 Agent 授权 |
 | 获取用户 Agent 授权 | `USR-API-05` | `GET /api/v1/users/{user_id}/agent-grants` | 用户与 Agent 授权 |
-| 覆盖用户 Agent 授权 | `USR-API-06` | `PUT /api/v1/users/{user_id}/agent-grants` | 用户与 Agent 授权 |
+| 新增用户 Agent 授权 | `USR-API-06` | `POST /api/v1/users/{user_id}/agent-grants`（body: `agent_id` + `idempotency_key`） | 用户与 Agent 授权 |
+| 撤销用户 Agent 授权 | `USR-API-06R` | `POST /api/v1/users/{user_id}/agent-grants/{grant_id}/revoke`（body: `idempotency_key`） | 用户与 Agent 授权 |
 | 用户平台认证列表 | `CRED-API-01` | `GET /api/v1/users/{user_id}/platform-credentials` | Auth 与项目平台 |
 | 保存用户平台认证 | `CRED-API-02` | `PUT /api/v1/users/{user_id}/platform-credentials/{platform_id}` | Auth 与项目平台 |
 | 验证用户平台认证 | `CRED-API-03` | `POST /api/v1/users/{user_id}/platform-credentials/{platform_id}/verify` | Auth 与项目平台 |

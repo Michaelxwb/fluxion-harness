@@ -8,7 +8,7 @@ import uuid
 from collections.abc import AsyncIterator
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from adapters.postgres.agent_repository import AgentRepository
@@ -19,8 +19,10 @@ from adapters.postgres.models import (
     ModelConfigModel,
     PlatformUserModel,
     ServiceDefinitionModel,
+    ServiceReleaseModel,
     SkillArtifactModel,
 )
+from adapters.postgres.service_repository import ServiceRepository
 from adapters.postgres.session import create_engine_and_session_factory
 from framework.contracts.resource_scope import ValidatedResourceScope
 from framework.domain.agent import AgentDefinition
@@ -50,14 +52,33 @@ def _suffix() -> str:
     return uuid.uuid4().hex[:8]
 
 
-async def test_s01_generic_objects_persist_and_share(factory: async_sessionmaker[AsyncSession]) -> None:
+async def _make_service(
+    factory: async_sessionmaker[AsyncSession],
+    key: str,
+    draft: dict[str, object],
+    test_actor_id: uuid.UUID,
+) -> uuid.UUID:
+    async with factory() as session:
+        async with session.begin():
+            row = ServiceDefinitionModel(
+                key=key, name="n", description="g", draft_payload=draft, created_by=test_actor_id
+            )
+            session.add(row)
+            await session.flush()
+            return row.id
+
+async def test_s01_generic_objects_persist_and_share(
+    factory: async_sessionmaker[AsyncSession], test_actor_id: uuid.UUID
+) -> None:
     """S-01: 不含项目专属字段的通用对象可持久化并被共用。"""
     suffix = _suffix()
     async with factory() as session:
         async with session.begin():
             agent = AgentDefinitionModel(name=f"agent-{suffix}", instructions="i")
             capability = CapabilityDefinitionModel(name=f"cap-{suffix}")
-            service = ServiceDefinitionModel(service_key=f"svc-{suffix}", name="n", goal="g")
+            service = ServiceDefinitionModel(
+                key=f"svc-{suffix}", name="n", description="g", created_by=test_actor_id
+            )
             session.add_all([agent, capability, service])
             await session.flush()
             agent_id, cap_id, service_id = agent.id, capability.id, service.id
@@ -87,6 +108,7 @@ async def test_s01_generic_objects_persist_and_share(factory: async_sessionmaker
 
 async def test_s03_snapshot_stable_across_permission_revoke(
     factory: async_sessionmaker[AsyncSession],
+    test_actor_id: uuid.UUID,
 ) -> None:
     """S-03: 建 Execution 后撤销权限，业务逻辑仍按 Snapshot。
 
@@ -94,24 +116,33 @@ async def test_s03_snapshot_stable_across_permission_revoke(
     不冻结 actor 的授权——授权在执行/恢复时按当前状态重新解析。
     """
     suffix = _suffix()
+    # A FORMAL snapshot is FK-bound to a real release, so publish one first:
+    # the schema no longer allows the old free-form "<key>:<release_no>" ref.
+    release = await ServiceRepository(factory).publish(
+        await _make_service(factory, f"svc-{suffix}", {"name": "n", "goal": "g"}, test_actor_id)
+    )
+    service_id = release.service_id
     snapshot = build_execution_snapshot(
-        service_release_ref="svc:r-1",
-        service_content_hash="c" * 64,
+        service_id=service_id,
+        service_release_id=release.id,
+        content_hash=release.content_hash,
         execution_spec={"goal": "weekly summary"},
         validated_scope=ValidatedResourceScope(scope_type="tenant", schema_hash="h" * 64, value={"t": "1"}),
-        agent_revision=3,
         capability_contracts=["email.send"],
     )
-    payload = snapshot.model_dump(mode="json")
+    payload = snapshot.snapshot_json
     async with factory() as session:
         async with session.begin():
             user = PlatformUserModel(tenant_id="t1", user_key=f"user-{suffix}")
-            service = ServiceDefinitionModel(service_key=f"svc-{suffix}", name="n", goal="g")
-            session.add_all([user, service])
+            session.add(user)
             await session.flush()
-            user_id, service_id = user.id, service.id
+            user_id = user.id
             row = ExecutionSnapshotModel(
-                service_release_ref="svc:r-1", service_content_hash="c" * 64, snapshot_payload=payload
+                service_id=service_id,
+                source="FORMAL",
+                service_release_id=release.id,
+                content_hash=release.content_hash,
+                snapshot_json=payload,
             )
             session.add(row)
             await session.flush()
@@ -125,9 +156,10 @@ async def test_s03_snapshot_stable_across_permission_revoke(
                 select(ExecutionSnapshotModel).where(ExecutionSnapshotModel.id == snapshot_id)
             )
             assert stored is not None
-            assert stored.snapshot_payload == payload
-            assert stored.snapshot_payload["execution_spec"] == {"goal": "weekly summary"}
-            assert stored.snapshot_payload["agent_revision"] == 3
+            assert stored.snapshot_json == payload
+            assert stored.snapshot_json["execution_spec"] == {"goal": "weekly summary"}
+            assert stored.content_hash == release.content_hash
+            assert stored.service_release_id == release.id
     finally:
         async with factory() as session:
             async with session.begin():
@@ -135,6 +167,14 @@ async def test_s03_snapshot_stable_across_permission_revoke(
                     delete(ExecutionSnapshotModel).where(ExecutionSnapshotModel.id == snapshot_id)
                 )
                 await session.execute(delete(PlatformUserModel).where(PlatformUserModel.id == user_id))
+                await session.execute(
+                    update(ServiceDefinitionModel)
+                    .where(ServiceDefinitionModel.id == service_id)
+                    .values(current_release_id=None)
+                )
+                await session.execute(
+                    delete(ServiceReleaseModel).where(ServiceReleaseModel.service_id == service_id)
+                )
                 await session.execute(
                     delete(ServiceDefinitionModel).where(ServiceDefinitionModel.id == service_id)
                 )
@@ -145,8 +185,12 @@ async def test_s04_skill_artifact_checksum_immutable(factory: async_sessionmaker
     suffix = _suffix()
     async with factory() as session:
         async with session.begin():
-            old = SkillArtifactModel(name=f"skill-{suffix}", artifact_ref="s3://b/old.zip", checksum="aaa")
-            new = SkillArtifactModel(name=f"skill-{suffix}", artifact_ref="s3://b/new.zip", checksum="bbb")
+            old = SkillArtifactModel(
+                skill_id=None, name=f"skill-{suffix}", artifact_ref="s3://b/old.zip", checksum="aaa"
+            )
+            new = SkillArtifactModel(
+                skill_id=None, name=f"skill-{suffix}", artifact_ref="s3://b/new.zip", checksum="bbb"
+            )
             session.add_all([old, new])
             await session.flush()
             old_id, new_id = old.id, new.id
@@ -201,7 +245,8 @@ async def test_s01_domain_object_round_trips_through_repository(
     async with factory() as session:
         async with session.begin():
             model_config = ModelConfigModel(
-                name=f"model-{suffix}", provider="demo", model="demo-1", config={}
+                name=f"model-{suffix}", key=f"model-{suffix}", protocol="OPENAI_COMPATIBLE",
+                base_url="https://example.invalid", model_name="demo-1"
             )
             session.add(model_config)
             await session.flush()

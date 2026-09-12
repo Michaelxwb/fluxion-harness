@@ -264,6 +264,7 @@ flowchart LR
 |---|---|---|---|---|---|
 | tenant_id | UUID | N |  | IDX | 租户 |
 | skill_id | UUID | N |  | FK,IDX | 所属 SkillDefinition |
+| name | VARCHAR(256) | N |  |  | 展示名（导入包名/文件名；供 Console 列表渲染与排障） |
 | artifact_ref | VARCHAR(1024) | N |  |  | Object Store URI/ref |
 | checksum | VARCHAR(128) | N |  | UK | SHA-256 checksum |
 | manifest_json | JSONB | N | {} |  | skill.yaml 规范化内容 |

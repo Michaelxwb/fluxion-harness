@@ -51,7 +51,7 @@ class LocalSandboxExecutor:
                 status_code=403,
             )
 
-        root = Path(workspace.root_ref).resolve()
+        root = Path(workspace.workspace_ref).resolve()
 
         if operation == "filesystem.read":
             path = resolve_confined_path(root, str(arguments.get("path", "")), must_exist=True)

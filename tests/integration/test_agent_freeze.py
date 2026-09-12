@@ -76,6 +76,7 @@ async def _teardown(
 
 async def test_publish_freezes_bound_agent_and_survives_later_agent_edit(
     factory: async_sessionmaker[AsyncSession],
+    test_actor_id: uuid.UUID,
 ) -> None:
     """S-02: 发布后修改 Agent，已发布 release 的 Agent 快照不变。"""
     repo = ServiceRepository(factory)
@@ -84,11 +85,17 @@ async def test_publish_freezes_bound_agent_and_survives_later_agent_edit(
         async with session.begin():
             agent = AgentDefinitionModel(name=f"agent-{suffix}", instructions="v1", revision=1)
             service = ServiceDefinitionModel(
-                service_key=f"svc-{suffix}", name="svc", goal="g", draft_payload=dict(DRAFT)
+                key=f"svc-{suffix}",
+                name="svc",
+                description="g",
+                draft_payload=dict(DRAFT),
+                created_by=test_actor_id,
             )
             session.add_all([agent, service])
             await session.flush()
-            binding = AgentServiceBindingModel(agent_id=agent.id, service_id=service.id)
+            binding = AgentServiceBindingModel(
+                agent_definition_id=agent.id, service_definition_id=service.id
+            )
             session.add(binding)
             await session.flush()
             agent_id, service_id, binding_id = agent.id, service.id, binding.id
@@ -119,6 +126,7 @@ async def test_publish_freezes_bound_agent_and_survives_later_agent_edit(
 
 async def test_publish_without_bound_agent_is_still_valid(
     factory: async_sessionmaker[AsyncSession],
+    test_actor_id: uuid.UUID,
 ) -> None:
     """无绑定 Agent 时发布仍合法，快照为空。"""
     repo = ServiceRepository(factory)
@@ -126,7 +134,11 @@ async def test_publish_without_bound_agent_is_still_valid(
     async with factory() as session:
         async with session.begin():
             service = ServiceDefinitionModel(
-                service_key=f"svc-{suffix}", name="svc", goal="g", draft_payload=dict(DRAFT)
+                key=f"svc-{suffix}",
+                name="svc",
+                description="g",
+                draft_payload=dict(DRAFT),
+                created_by=test_actor_id,
             )
             session.add(service)
             await session.flush()

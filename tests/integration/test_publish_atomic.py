@@ -39,11 +39,16 @@ async def factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
 
 
 async def _make_service(
-    factory: async_sessionmaker[AsyncSession], key: str, draft: dict[str, object] | None
+    factory: async_sessionmaker[AsyncSession],
+    key: str,
+    draft: dict[str, object] | None,
+    test_actor_id: uuid.UUID,
 ) -> uuid.UUID:
     async with factory() as session:
         async with session.begin():
-            row = ServiceDefinitionModel(service_key=key, name="svc", goal="g", draft_payload=draft)
+            row = ServiceDefinitionModel(
+                key=key, name="svc", description="g", draft_payload=draft, created_by=test_actor_id
+            )
             session.add(row)
             await session.flush()
             return row.id
@@ -66,9 +71,11 @@ async def _teardown(factory: async_sessionmaker[AsyncSession], service_id: uuid.
             )
 
 
-async def test_publish_switches_current_pointer_atomically(factory: async_sessionmaker[AsyncSession]) -> None:
+async def test_publish_switches_current_pointer_atomically(
+    factory: async_sessionmaker[AsyncSession], test_actor_id: uuid.UUID
+) -> None:
     repo = ServiceRepository(factory)
-    service_id = await _make_service(factory, f"s02-{uuid.uuid4().hex[:8]}", dict(DRAFT))
+    service_id = await _make_service(factory, f"s02-{uuid.uuid4().hex[:8]}", dict(DRAFT), test_actor_id)
     try:
         release = await repo.publish(service_id)
         assert release.content_hash
@@ -78,7 +85,9 @@ async def test_publish_switches_current_pointer_atomically(factory: async_sessio
             )
             assert service is not None
             assert service.current_release_id == release.id
-            assert service.status == "published"
+            # design has no service_definition.status column: published state is
+            # the current pointer (FE-02 derives draft_state from it).
+            assert service.current_release_id is not None
             # republish identical content: idempotent, no duplicate row
             again = await repo.publish(service_id)
             assert again.id == release.id
@@ -103,12 +112,12 @@ async def _set_draft(
 
 
 async def test_republishing_earlier_content_switches_current_pointer(
-    factory: async_sessionmaker[AsyncSession],
+    factory: async_sessionmaker[AsyncSession], test_actor_id: uuid.UUID
 ) -> None:
     """S-02: 回滚到历史 payload 必须是可观察的指针切换，不能静默失败。"""
     repo = ServiceRepository(factory)
     service_id = await _make_service(
-        factory, f"s02-rollback-{uuid.uuid4().hex[:8]}", {"name": "A", "goal": "gA"}
+        factory, f"s02-rollback-{uuid.uuid4().hex[:8]}", {"name": "A", "goal": "gA"}, test_actor_id
     )
     try:
         release_a = await repo.publish(service_id)
@@ -138,9 +147,13 @@ async def test_republishing_earlier_content_switches_current_pointer(
         await _teardown(factory, service_id)
 
 
-async def test_failed_publish_leaves_no_half_state(factory: async_sessionmaker[AsyncSession]) -> None:
+async def test_failed_publish_leaves_no_half_state(
+    factory: async_sessionmaker[AsyncSession], test_actor_id: uuid.UUID
+) -> None:
     repo = ServiceRepository(factory)
-    service_id = await _make_service(factory, f"s02-bad-{uuid.uuid4().hex[:8]}", {"name": "no-goal"})
+    service_id = await _make_service(
+        factory, f"s02-bad-{uuid.uuid4().hex[:8]}", {"name": "no-goal"}, test_actor_id
+    )
     try:
         with pytest.raises(AppError):
             await repo.publish(service_id)

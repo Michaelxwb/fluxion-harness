@@ -76,7 +76,7 @@ class ServiceRepository:
                     )
                 release = build_service_release(
                     service_id=service_id,
-                    service_key=service.service_key,
+                    service_key=service.key,
                     draft=service.draft_payload,
                     agent_snapshot=await self._freeze_bound_agents(session, service_id),
                     resource_scope_schema_hash=self._resolve_scope_schema_hash(service.draft_payload),
@@ -148,10 +148,10 @@ class ServiceRepository:
                 select(AgentDefinitionModel)
                 .join(
                     AgentServiceBindingModel,
-                    AgentServiceBindingModel.agent_id == AgentDefinitionModel.id,
+                    AgentServiceBindingModel.agent_definition_id == AgentDefinitionModel.id,
                 )
                 .where(
-                    AgentServiceBindingModel.service_id == service_id,
+                    AgentServiceBindingModel.service_definition_id == service_id,
                     AgentServiceBindingModel.is_deleted.is_(False),
                     AgentDefinitionModel.is_deleted.is_(False),
                 )
@@ -164,46 +164,61 @@ class ServiceRepository:
 
         # Three batched queries (not per-agent) to keep the freeze O(1) in round trips.
         skills: dict[UUID, list[dict[str, str]]] = {agent_id: [] for agent_id in agent_ids}
+        skill_binding = AgentSkillBindingModel
         for binding_agent_id, skill_id, checksum in (
             await session.execute(
                 select(
-                    AgentSkillBindingModel.agent_id,
-                    AgentSkillBindingModel.skill_id,
+                    skill_binding.agent_definition_id,
+                    skill_binding.skill_id,
                     SkillArtifactModel.checksum,
                 )
-                .join(SkillArtifactModel, SkillArtifactModel.id == AgentSkillBindingModel.skill_id)
+                .join(SkillArtifactModel, SkillArtifactModel.id == skill_binding.skill_id)
                 .where(
-                    AgentSkillBindingModel.agent_id.in_(agent_ids),
-                    AgentSkillBindingModel.is_deleted.is_(False),
+                    skill_binding.agent_definition_id.in_(agent_ids),
+                    skill_binding.is_deleted.is_(False),
                     SkillArtifactModel.is_deleted.is_(False),
                 )
-                .order_by(AgentSkillBindingModel.agent_id, AgentSkillBindingModel.skill_id)
+                .order_by(skill_binding.agent_definition_id, skill_binding.skill_id)
             )
         ).all():
             skills[binding_agent_id].append({"id": str(skill_id), "checksum": checksum})
 
         knowledge: dict[UUID, list[str]] = {agent_id: [] for agent_id in agent_ids}
+        knowledge_binding = AgentKnowledgeBindingModel
         for binding_agent_id, source_id in (
             await session.execute(
-                select(AgentKnowledgeBindingModel.agent_id, AgentKnowledgeBindingModel.knowledge_source_id)
-                .where(
-                    AgentKnowledgeBindingModel.agent_id.in_(agent_ids),
-                    AgentKnowledgeBindingModel.is_deleted.is_(False),
+                select(
+                    knowledge_binding.agent_definition_id,
+                    knowledge_binding.knowledge_source_id,
                 )
-                .order_by(AgentKnowledgeBindingModel.agent_id, AgentKnowledgeBindingModel.knowledge_source_id)
+                .where(
+                    knowledge_binding.agent_definition_id.in_(agent_ids),
+                    knowledge_binding.is_deleted.is_(False),
+                )
+                .order_by(
+                    knowledge_binding.agent_definition_id,
+                    knowledge_binding.knowledge_source_id,
+                )
             )
         ).all():
             knowledge[binding_agent_id].append(str(source_id))
 
         capabilities: dict[UUID, list[str]] = {agent_id: [] for agent_id in agent_ids}
+        capability_binding = AgentCapabilityBindingModel
         for binding_agent_id, capability_id in (
             await session.execute(
-                select(AgentCapabilityBindingModel.agent_id, AgentCapabilityBindingModel.capability_id)
-                .where(
-                    AgentCapabilityBindingModel.agent_id.in_(agent_ids),
-                    AgentCapabilityBindingModel.is_deleted.is_(False),
+                select(
+                    capability_binding.agent_definition_id,
+                    capability_binding.capability_id,
                 )
-                .order_by(AgentCapabilityBindingModel.agent_id, AgentCapabilityBindingModel.capability_id)
+                .where(
+                    capability_binding.agent_definition_id.in_(agent_ids),
+                    capability_binding.is_deleted.is_(False),
+                )
+                .order_by(
+                    capability_binding.agent_definition_id,
+                    capability_binding.capability_id,
+                )
             )
         ).all():
             capabilities[binding_agent_id].append(str(capability_id))
@@ -266,9 +281,11 @@ class ServiceRepository:
                 resource_type="service_release",
                 resource_id=str(release_row_id),
                 request_id=request_id,
-                after_ref=release.release_no,
+                # after_digest carries hashes, never the payload itself (design
+                # audit_log.before_digest/after_digest are JSONB summaries).
+                after_digest={"release_no": release.release_no, "content_hash": release.content_hash},
                 details={
-                    "service_key": service.service_key,
+                    "service_key": service.key,
                     "release_no": release.release_no,
                     "content_hash": release.content_hash,
                 },

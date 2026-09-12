@@ -68,7 +68,7 @@ class AgentRepository:
             skills = (
                 await session.scalars(
                     select(AgentSkillBindingModel.skill_id).where(
-                        AgentSkillBindingModel.agent_id == agent_id,
+                        AgentSkillBindingModel.agent_definition_id == agent_id,
                         AgentSkillBindingModel.is_deleted.is_(False),
                     )
                 )
@@ -76,7 +76,7 @@ class AgentRepository:
             knowledge = (
                 await session.scalars(
                     select(AgentKnowledgeBindingModel.knowledge_source_id).where(
-                        AgentKnowledgeBindingModel.agent_id == agent_id,
+                        AgentKnowledgeBindingModel.agent_definition_id == agent_id,
                         AgentKnowledgeBindingModel.is_deleted.is_(False),
                     )
                 )
@@ -84,15 +84,15 @@ class AgentRepository:
             capabilities = (
                 await session.scalars(
                     select(AgentCapabilityBindingModel.capability_id).where(
-                        AgentCapabilityBindingModel.agent_id == agent_id,
+                        AgentCapabilityBindingModel.agent_definition_id == agent_id,
                         AgentCapabilityBindingModel.is_deleted.is_(False),
                     )
                 )
             ).all()
             services = (
                 await session.scalars(
-                    select(AgentServiceBindingModel.service_id).where(
-                        AgentServiceBindingModel.agent_id == agent_id,
+                    select(AgentServiceBindingModel.service_definition_id).where(
+                        AgentServiceBindingModel.agent_definition_id == agent_id,
                         AgentServiceBindingModel.is_deleted.is_(False),
                     )
                 )
@@ -166,7 +166,7 @@ class AgentRepository:
                 resource_type="agent_definition",
                 resource_id=str(resource_id),
                 request_id=request_id,
-                after_ref=f"r{revision}",
+                after_digest={"revision": revision},
                 details={"revision": revision},
             )
         )
@@ -196,7 +196,7 @@ class AgentRepository:
                     )
                 row = AgentDefinitionModel(
                     name=name,
-                    agent_key=name,
+                    key=name,
                     description=description,
                     instructions=instructions,
                     model_config_id=model_config_id,
