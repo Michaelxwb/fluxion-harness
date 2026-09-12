@@ -375,6 +375,8 @@ Developer identity → dev tenant/scope → 查询 enabled Capability Contract�
 
 **入口类型**：CLI
 
+**认证/授权**：本地 CLI 无服务端会话；dev 模式经模块 09 AUTH-LIB-03 校验（Developer Token），mock/validate 本地模式无需 token。
+
 **命令**
 
 ```bash
@@ -396,7 +398,7 @@ fluxion-skill validate <skill-dir-or-archive> [--json]
 
 **退出码/错误**
 
-| 错误码 | 场景 | HTTP 状态 |
+| 退出码 | 场景 | HTTP 映射 |
 |---|---|---|
 | 0 | 校验通过 | 200 |
 | 2 | manifest/archive/entrypoint/sdk/dependency 校验失败（含缺少 `run` 或 `async def run` 的 SKILL_ENTRYPOINT_INVALID） | 400 |
@@ -410,6 +412,8 @@ fluxion-skill validate <skill-dir-or-archive> [--json]
 #### SDK-CLI-02: 运行 Skill 测试
 
 **入口类型**：CLI
+
+**认证/授权**：本地 CLI 无服务端会话；dev 模式经模块 09 AUTH-LIB-03 校验（Developer Token），mock 模式无需 token。
 
 **命令**
 
@@ -432,7 +436,7 @@ fluxion-skill test <skill-dir> [--mode mock|dev] [--case CASE]
 
 **退出码/错误**
 
-| 错误码 | 场景 | HTTP 状态 |
+| 退出码 | 场景 | HTTP 映射 |
 |---|---|---|
 | 0 | 测试通过 | 200 |
 | 3 | 测试失败 | 400 |
@@ -447,6 +451,8 @@ mock 模式构造 MockSkillContext；dev 模式构造 HttpCapabilityClient；执
 #### SDK-CLI-03: 打包 Skill
 
 **入口类型**：CLI
+
+**认证/授权**：本地 CLI 无服务端会话；dev 模式经模块 09 AUTH-LIB-03 校验（Developer Token），本地 pack 无需 token。
 
 **命令**
 
@@ -468,7 +474,7 @@ fluxion-skill pack <skill-dir> --output <file.zip>
 
 **退出码/错误**
 
-| 错误码 | 场景 | HTTP 状态 |
+| 退出码 | 场景 | HTTP 映射 |
 |---|---|---|
 | 0 | 成功 | 200 |
 | 2 | validate 未通过 | 400 |

@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../fluxion-console-interaction-prototype-v0.8-final.html`
+> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
 
 ## 1. 文档控制
 
@@ -75,7 +75,7 @@
 | S-04-03 | FEAT-04-05 | E2E | 能力测试 | Admin 测试能力 | 测试结果展示 inline/summary；失败显示脱敏错误 |
 | S-04-04 | FEAT-04-03 | E2E | 四类实现配置字段名与判定元数据 | 四类实现各保存一条（PLATFORM_SERVICE / HTTP / MCP / SANDBOX）；另一条把 `invocation_policy` 选为 `EXECUTION_ONLY` 后保存 | 请求体字段名与模块 07 `capability-implementation-schema` **逐字一致**；PLATFORM_SERVICE 缺 `project_platform_id` 时返回 422 且错误定位到该字段；`deadline_ms`/`max_retries` 出现在 `execution_policy` 而非 `config`；分页键出现在 `data_retrieval_policy`；`invocation_policy`/`side_effect`/`risk_level` 是公共字段，**不出现** 在实现 `config` 内，且请求体**不含** `execution_characteristic`/`authorization_requirement`/`error_semantics` |
 | E-04-01 | FEAT-04-06 | E2E | 副作用字段必填与直调策略约束 | 创建能力不选"是否有副作用"；另选 `side_effect=write`（或 `risk_level=HIGH`）后再把 `invocation_policy` 选成 `DIRECT` 并提交 | 校验失败并定位到 `side_effect` 控件，不发起 `CAP-API-02`；选 `write`/`destructive` 时显示风险等级建议提升提示；`side_effect=write`/`destructive` 或 `risk_level=HIGH` 时 `invocation_policy` 只能为 `EXECUTION_ONLY`——前端就地提示并禁用非法项，强行提交由后端 400 `CAPABILITY_CONTRACT_INVALID` 拒绝 |
-| S-04-05 | FEAT-04-05 | E2E | 能力测试弹窗 | Admin 在能力详情点「测试」，填入合法 JSON 提交；再次填入非法 JSON 提交 | 弹窗显示 `ok=true`；耗时以 `N ms` 呈现且取自 `stats.latency`（非客户端计时）；`trace_id` 可复制；`artifact_id` 非空时出现「下载产物」入口；填入非法 JSON 时**就地报错**，且 Network 面板**无 `CAP-API-05` 请求** |
+| S-04-05 | FEAT-04-05 | E2E | 能力测试弹窗 | Admin 与 Builder 分别在能力详情点「测试」，填入合法 JSON 提交；再次填入非法 JSON 提交 | 两角色详情顶部均渲染「测试」按钮（`90` §4.7：Builder + Admin，不隐藏）；弹窗显示 `ok=true`；耗时以 `N ms` 呈现且取自 `stats.latency`（非客户端计时）；`trace_id` 可复制；`artifact_id` 非空时出现「下载产物」入口；填入非法 JSON 时**就地报错**，且 Network 面板**无 `CAP-API-05` 请求** |
 | I-04-01 | FEAT-04-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
@@ -143,6 +143,8 @@ HTTP/MCP/SANDBOX **不显示** `project_platform_id`；SANDBOX 禁止自由 shel
 **平台选择与安全**：PLATFORM_SERVICE 的项目平台下拉使用 **`PLAT-API-01` 响应**中的 `name`/`key`/`configured`/`enabled`（`configured` 与 `enabled` 均为后端返回字段，前端不自行推导）；UNCONFIGURED 不能用于测试/启用运行并显示“待配置认证模板”。Builder 可选择已配置平台，但不能打开认证管理写操作。
 
 **能力自身 `enabled` 的状态来源**：列表筛选、详情与编辑页展示的 `enabled` 取自 **`CAP-API-01` / `CAP-API-03` 响应**；Create（`CAP-API-02`）不接受 `enabled`，只有 Update（`CAP-API-04`）可改。
+
+**列表查询**：通用契约见 FE-00 §3.4 `StandardListQuery`，本页领域筛选：`implementation_type`/`risk_level`/`invocation_policy`/`enabled`（另加 `keyword` 按名称/标识搜索），服务端筛选、改筛选重置 `page=1`、状态进 URL。
 
 **能力测试（`CAP-API-05`，Z-04）**：契约与文案见 `../90-Console交互规格.md` §4.7（`FEAT-04-05`），组件为 `CMP-04-05 CapabilityTestPanel`。
 
@@ -213,6 +215,7 @@ HTTP/MCP/SANDBOX **不显示** `project_platform_id`；SANDBOX 禁止自由 shel
 |---|---|---|---|---|---|
 | Console-V0.8#READONLY-DETAIL | required | 详情不得变成编辑入口 | §3.3/§3.7 | S-04-01 | applied |
 | Console-V0.8#SERVICE-LAYER | required | API 统一从 services 层发起 | §3.5 | S-04-01 | applied |
+| BACKEND-07#ADR-057-DIRECT-INVOCATION | required | `invocation_policy` 与 `side_effect`/`risk_level` 强制组合（非法 400 `CAPABILITY_CONTRACT_INVALID`） | §3.4 | E-04-01 | applied |
 
 ## 附录：后端追溯
 

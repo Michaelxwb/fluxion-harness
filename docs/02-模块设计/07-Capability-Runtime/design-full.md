@@ -224,7 +224,7 @@ flowchart LR
 - CHECK: invocation_policy IN ('DIRECT','EXECUTION_ONLY')
 - CHECK: invocation_policy='EXECUTION_ONLY' OR (side_effect IN ('none','read') AND risk_level IN ('LOW','MEDIUM'))——安全兜底：`write`/`destructive` 或 `HIGH` 一律不得为 `DIRECT`
 
-**同名不同表说明**：`capability_definition.execution_policy`（VARCHAR 枚举，直调结论）与 `capability_implementation.execution_policy`（JSONB，deadline/retry 策略）同名但不同表、不同语义；CAP-API-02/04 中前者是顶层字段、后者只在 `implementation.` 之下，落码与前端控件绑定不得混用。
+**两层策略字段说明（不同名不同表）**：`capability_definition.invocation_policy`（VARCHAR 枚举，直调结论）与 `capability_implementation.execution_policy`（JSONB，deadline/retry 策略）不同名不同表、不同语义；CAP-API-02/04 中前者是顶层字段、后者只在 `implementation.` 之下，落码与前端控件绑定不得混用。
 
 **直调分流判定（唯一事实源）**：判定结果是 Contract 元数据的纯函数，只在本模块定义一次；其他模块与调用方（模块 04 的 Agent Tool、Skill 宿主、模块 06 的 Worker、Dev Gateway）**只比较 CAP-API-06 返回的 `direct_invocation`**，不得各自复刻下列谓词。
 
@@ -403,7 +403,7 @@ direct_invocation = ALLOWED
       "type": "object",
       "additionalProperties": false,
       "required": ["deadline_ms"],
-      "description": "**implementation 层**的超时/重试策略（与 capability_definition.execution_policy 的同名枚举无关）；只在 implementation.* 之下出现",
+      "description": "**implementation 层**的超时/重试策略（与 capability_definition.invocation_policy 的直调结论枚举无关，两层字段名不同）；只在 implementation.* 之下出现",
       "properties": {
         "deadline_ms": { "type": "integer", "minimum": 1, "description": "必填；本实现的硬截止" },
         "max_retries": { "type": "integer", "minimum": 0, "default": 0, "description": "Provider 层重试上限：同一次 invoke 内部的立即重试；与 Worker 层的步骤重试（模块 06 RULE-WORK-04 按错误分类判定）互不替代" },
@@ -504,14 +504,14 @@ CapabilityCallContext={trusted tenant_id/actor_user_id/execution_id/operation_id
 
 **注册幂等与冲突策略**：
 
-- upsert 只补齐缺失行；**不得覆盖管理员管理的字段**：`enabled`、`risk_level`、`side_effect`、definition 的 `execution_policy`（直调结论），以及 implementation 的 `execution_policy`（超时/重试）。已存在的行原样保留。
+- upsert 只补齐缺失行；**不得覆盖管理员管理的字段**：`enabled`、`risk_level`、`side_effect`、definition 的 `invocation_policy`（直调结论），以及 implementation 的 `execution_policy`（超时/重试）。已存在的行原样保留。
 - 与模块 12 Integration Seed 同名（同 tenant+key）时 **Seed 优先**：本次 upsert 记冲突并 fail-fast（启动失败，不静默跳过），冲突明细写日志与指标。
 - 注册失败（DB 不可用/约束冲突）时进程 `readiness=degraded` 并暴露指标 `capability_builtin_registration_failed`；已注册的 Capability 目录仍可读。
 - 默认 `enabled=false`，由管理员在 Console 显式启用后再配置风险等级/超时/Sandbox policy。
 
 **内置工具默认元数据**（首次 INSERT 的默认值，管理员可覆盖）：
 
-| 工具 | side_effect | risk_level | execution_policy |
+| 工具 | side_effect | risk_level | invocation_policy |
 |---|---|---|---|
 | filesystem.read | read | LOW | DIRECT |
 | filesystem.glob | read | LOW | DIRECT |
@@ -594,7 +594,7 @@ Sandbox 隔离不可用等失败码由模块 13 承接；失败分类不在此�
 | output_schema | object | Y | JSON Schema |
 | risk_level | string | Y | LOW/MEDIUM/HIGH |
 | side_effect | string | Y | none/read/write/destructive（四值枚举，总设 §5.1） |
-| execution_policy | string | N | DIRECT/EXECUTION_ONLY；默认 DIRECT。write/destructive 或 HIGH 时服务端强制 EXECUTION_ONLY（非法组合 400） |
+| invocation_policy | string | N | DIRECT/EXECUTION_ONLY；默认 DIRECT。write/destructive 或 HIGH 时服务端强制 EXECUTION_ONLY（非法组合 400） |
 | idempotency_semantics | string | Y | NONE/KEYED/NATURAL |
 | implementation | object | Y | 判别式 typed implementation，Schema 见 §3.3 的 contract:capability-implementation-schema（implementation_type + config + execution_policy + 可选 data_retrieval_policy）；凭据来源只由 `implementation.auth_mode` 声明 |
 
@@ -667,7 +667,7 @@ Sandbox 隔离不可用等失败码由模块 13 承接；失败分类不在此�
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| definition | object | Contract；字段同 CAP-API-06 响应（含 risk_level、side_effect 四值枚举、execution_policy），无授权/凭据与错误语义字段 |
+| definition | object | Contract；字段同 CAP-API-06 响应（含 risk_level、side_effect 四值枚举、invocation_policy），无授权/凭据与错误语义字段 |
 | implementation | object | 脱敏实现配置；结构按 §3.3 的 contract:capability-implementation-schema（implementation_type/config/execution_policy/data_retrieval_policy），含凭据来源 `auth_mode`（唯一声明处） |
 | project_platform | object | 仅 Platform Service |
 | used_by_agents | integer | 直接绑定数 |
@@ -722,7 +722,7 @@ tenant scoped definition → active implementation → 聚合反向依赖；shar
 | output_schema | object | Y | Schema |
 | risk_level | string | Y | 风险 |
 | side_effect | string | Y | none/read/write/destructive |
-| execution_policy | string | N | DIRECT/EXECUTION_ONLY；默认 DIRECT。write/destructive 或 HIGH 时服务端强制 EXECUTION_ONLY（非法组合 400） |
+| invocation_policy | string | N | DIRECT/EXECUTION_ONLY；默认 DIRECT。write/destructive 或 HIGH 时服务端强制 EXECUTION_ONLY（非法组合 400） |
 | idempotency_semantics | string | Y | 幂等语义 |
 | implementation | object | Y | 判别式 typed implementation，Schema 见 §3.3 的 contract:capability-implementation-schema；凭据来源只由 `implementation.auth_mode` 声明 |
 | enabled | boolean | Y | 状态 |
@@ -872,7 +872,7 @@ tenant scoped definition → active implementation → 聚合反向依赖；shar
 | output_schema | object | 输出 |
 | risk_level | string | LOW/MEDIUM/HIGH |
 | side_effect | string | none/read/write/destructive |
-| execution_policy | string | DIRECT/EXECUTION_ONLY（直调结论的声明值） |
+| invocation_policy | string | DIRECT/EXECUTION_ONLY（直调结论的声明值） |
 | direct_invocation | string | **派生结论（唯一判定入口）**：`ALLOWED` / `REQUIRES_EXECUTION`，按 `contract:direct-invocation-predicate` 计算。调用方（Agent Tool、Skill 宿主、Worker、Dev Gateway）**只比较本字段**，不自行复刻谓词 |
 | idempotency_semantics | string | 幂等语义 |
 

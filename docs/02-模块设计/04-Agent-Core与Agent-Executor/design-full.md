@@ -994,7 +994,7 @@ def build_execution_proposal(ctx: AgentExecutionContext, service_id: UUID, input
 |---|---|---|---|
 | service_id | uuid | Y | 目标 Service |
 | input | object | Y | 候选输入 |
-| resource_scope | object | Y | 候选范围 |
+| resource_scope | object | Y | 候选范围；最小 typed 形态 `{type, refs[], attributes?}`（见模块 01 CORE-LIB-04，模块 05 定义） |
 
 **返回**
 

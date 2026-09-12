@@ -151,9 +151,10 @@
 16. **提案签发→跨 Pod 确认→唯一 Execution**（S-SVC-07）；
 17. **Draft 测试快照（无 current release）**（S-SVC-08）；
 18. **人工等待通知与 RESUME 闭环**（S-SVC-09 / S-CHAN-09）；
-19. **投递重试与 UNKNOWN 对账**（S-WORK-08 / S-WORK-12）；
+19. **投递重试与 UNKNOWN 对账**（S-WORK-08 / S-WORK-12）与**重新投递不重跑步骤**（S-SVC-12，`EXE-API-07`）；
 20. **Redis 停机降级**（S-WORK-07）；
 21. **Sandbox 强制隔离（跨 workspace、宿主路径、网络出站）**（S-WS-06 / S-WS-07）。
+22. **第四轮策略与资源门禁**：步骤 `human_policy` 与 `failure_policy` 正交（B11，S-02-08）、字段级 `FIELD_ADMIN_ONLY` 原子拒绝（D2，E-07-01 / E-08-01）、`browser`/`external-scan`/`large-report` 走 PG 信号量（B4，S-WORK-13）、保留与清理按《11-数据保留与清理策略》（B3）。
 
 ## Gate 7：编码开工条件
 

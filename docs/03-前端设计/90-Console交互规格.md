@@ -298,7 +298,7 @@ Admin 可：
 
 1. **已授权预勾选**：打开编辑弹窗时，候选列表**全量加载**并**预勾选当前已授权对象**（不是“只列未授权对象再逐行增删”）；
 2. **保存前差异确认**：提交前展示差异摘要——“**新增 N 个 / 移除 M 个**”，并列出被移除对象的名称；N=M=0 时保存按钮禁用并提示“无变更”；
-3. **提交 `PUT` 全量覆盖**：一次 `PUT` 提交完整集合（含未变更项），携带 `revision`；409 冲突时保留弹窗内容并提示“授权已被他人修改，请重新加载”（防止两个 Admin 静默互相覆盖）。
+3. **提交 `PUT` 全量覆盖**：一次 `PUT` 提交完整集合（含未变更项）；冲突语义以后端 409/幂等覆盖为准（`agent_access_grant` 无独立 `revision`，后端 18 L237；`AGENT-API-05/06/07` 携带的是 `agent_definition` 本体 `revision`）；409 冲突时保留弹窗内容并提示“授权已被他人修改，请重新加载”（防止两个 Admin 静默互相覆盖）。
 
 差异摘要中的移除项必须逐条列出对象名与标识，不得只显示计数。
 
@@ -532,7 +532,7 @@ Artifact ID / 当前标记 / 文件 / SDK / Checksum / 校验 / 导入时间
 
 ## 6. 模型
 
-**字段级写权限（D2=A，V1.13.1 取代“新增/编辑/测试仅 Admin”）**：模型的新增/编辑**对 Builder 开放**——按钮对 Builder 渲染；但**敏感字段 `api_key` 仅 Admin 可写**，Builder 表单中该控件**不渲染**、提交体**不含**该字段；非 Admin 请求体中出现 `api_key`（含 `null`/空串）一律 **403 `FIELD_ADMIN_ONLY`** 且**原子拒绝**（同请求的非敏感字段变更也不生效，模块 19）。`default_parameters`/`extra_headers` 保持模块 19 已冻结的 Builder 隐藏集（仅 Admin 渲染）。模型**连通性测试仍仅 Admin**（模块 19 `MODEL-API-05` 授权列）：Builder 不渲染测试按钮，直调得 403。
+**字段级写权限（D2=A，V1.13.1 取代“新增/编辑/测试仅 Admin”）**：模型的新增/编辑**对 Builder 开放**——按钮对 Builder 渲染；但**敏感字段 `api_key`/`extra_headers` 仅 Admin 可写**，Builder 表单中这两个控件**不渲染**、提交体**不含**这些字段；非 Admin 请求体中出现 `api_key`/`extra_headers`（含 `null`/空串）一律 **403 `FIELD_ADMIN_ONLY`** 且**原子拒绝**（同请求的非敏感字段变更也不生效，模块 19）。`base_url`/`default_parameters`/`request_timeout_seconds` **不是凭据**，对 Builder 在详情与表单均可见可写（追加裁决#4；`06-接口设计基线`三态投影）。模型**连通性测试仍仅 Admin**（模块 19 `MODEL-API-05` 授权列）：Builder 不渲染测试按钮，直调得 403。
 
 ## 6.1 列表
 
@@ -546,7 +546,7 @@ Artifact ID / 当前标记 / 文件 / SDK / Checksum / 校验 / 导入时间
 | API Key 状态 | `api_key_configured` | Builder / Admin |
 | 更新时间 | `update_time`（`YYYY-MM-DD HH:mm:ss`） | Builder / Admin |
 
-列表**不渲染**接口地址（`base_url`）、默认参数（`default_parameters`）、额外请求头（`extra_headers`）——这三项对 Builder 不可见，对 Admin 也只在详情展示。协议 V1 固定 `OpenAI 兼容`。
+列表**不渲染**接口地址（`base_url`）、默认参数（`default_parameters`）、额外请求头（`extra_headers`）——列表对两角色都不渲染；其中 `base_url`/`default_parameters` 在详情与表单对 Builder 可见可写（见 §6.2），`extra_headers` 仅 Admin 可见。协议 V1 固定 `OpenAI 兼容`。
 
 ## 6.2 新增/编辑
 
@@ -668,7 +668,7 @@ password  密码    password  required secret
 |---|---|---|---|
 | 1 | **不能修改自己的角色** | 当被编辑用户 = 当前登录用户时，角色下拉**禁用** | tooltip：“不能修改自己的角色”；后端 `USR-API-04` 同步拒绝 |
 | 2 | **升级为 Admin 需二次确认** | 角色由 `BUILDER`（或 `END_USER`）改为 `ADMIN` 时，保存前弹 Modal 二次确认 | Modal 正文：“将该用户升级为 Admin？Admin 可管理用户、授权、凭据与正式发布。” 取消则回滚下拉选中项 |
-| 3 | **最后一名启用 Admin 禁止降级或停用** | 当目标用户是当前**唯一** `status=ACTIVE` 的 Admin 时：角色下拉的 `ADMIN` 以外选项**禁用**、状态开关**禁用** | tooltip：“系统必须保留至少一名启用状态的 Admin”；后端 `USR-API-04` 同步校验并返回专用错误码（模块 18 待补），前端按冲突呈现为字段级错误并**回滚**控件到原值 |
+| 3 | **最后一名启用 Admin 禁止降级或停用** | 当目标用户是当前**唯一** `status=ACTIVE` 的 Admin 时：角色下拉的 `ADMIN` 以外选项**禁用**、状态开关**禁用** | tooltip：“系统必须保留至少一名启用状态的 Admin”；后端 `USR-API-04` 同步校验并返回专用错误码（已冻结，`E-USER-04`/`E-USER-05`），前端按冲突呈现为字段级错误并**回滚**控件到原值 |
 
 守卫 1 与 3 的判定数据来自用户详情（`role`/`status`）与当前登录用户身份，**不依赖前端本地缓存**；页面加载后先取详情再启用角色控件（loading 期间控件禁用，避免先改后拉造成状态错乱）。
 
@@ -774,7 +774,7 @@ password  密码    password  required secret
 
 **搜索范围包含「追踪标识」（Z-14）**：列表搜索框覆盖「执行编号 / 服务 / 智能体 / 触发用户 / **`trace_id`**」；`trace_id` 同时提供独立筛选输入（`EXE-API-01` Query 已有 `trace_id`）。两者都走**服务端**筛选，不做客户端过滤。
 
-**Builder 可见范围（D6=A，V1.13.1）**：Admin 看本租户全部执行；**Builder 只看到**①自己创建的 Service（`service_definition.created_by = self`）的执行，②自己被授权 Agent（`AgentAccessGrant`）相关的执行。**无权限的执行不返回**（不是返回后前端隐藏）；对越权 execution id 的详情请求按 `EXECUTION_NOT_FOUND`(404) 呈现，不返回 403（不泄露存在性）。
+**Builder 可见范围（D6=A，V1.13.1）**：Admin 看本租户全部执行；**Builder 只看到**①自己创建的 Service（`service_definition.created_by = self`）的执行，②自己被授权 Agent（`AgentAccessGrant`）相关的执行——两者的**交集（INTERSECT）**（后端 05 L1582；场景：自建 Service + 未授权 Agent → 不可见）。**无权限的执行不返回**（不是返回后前端隐藏）；对越权 execution id 的详情请求按 `EXECUTION_NOT_FOUND`(404) 呈现，不返回 403（不泄露存在性）。
 
 **「重新执行」与「重新投递」是两个动作（D4=A）**：列表行操作仍只有「详情」，四个动作都在详情（见 §9.2）；列表与详情**不再出现**含义模糊的单一「重试」按钮。
 
@@ -855,7 +855,7 @@ Async Task 展开：
 | 能力数 | `capability_count` | 跳 `/console/capabilities` |
 | **项目平台数**（B14） | **`project_platform_count`** | 跳 `/console/project-platforms`（无附加筛选）。**后端 `OPS-API-04` 待补该字段**；字段缺失时该卡不渲染（不显示 0 冒充真实计数） |
 | 今日执行 | `today_execution_total`（失败 `today_execution_failed`、运行中 `running_execution_count` 作副指标） | 跳 `/console/executions` |
-| **今日人工超时**（Z-10） | **`today_human_timeout`** | **只展示计数，不跳转**——`EXE-API-01` Query 当前不支持按 `error_code` 过滤；后端补该筛选后才加跳转（形如 `/console/executions?status=FAILED&error_code=HUMAN_TIMEOUT`） |
+| **今日人工超时**（Z-10） | **`today_human_timeout`** | 跳 `/console/executions?status=FAILED&error_code=HUMAN_TIMEOUT`（`EXE-API-01` 已支持按 `error_code` 过滤，后端 05） |
 | 待发布 Draft | `pending_publish_draft_count` | 跳 `/console/services?draft_state=dirty`（Z-07；筛选值即 `draft_state=dirty`，与 §2.1 的三个独立筛选一致） |
 | 最近执行 | `recent_executions` | 点击行进入 `/console/executions/:id` |
 
@@ -907,7 +907,7 @@ Async Task 展开：
 | 生成 BindCode | `POST /users/{id}/bind-codes` |
 | Execution 详情 | `GET /executions/{id}` |
 | 重新执行 Execution | `POST /executions/{id}/retry`（`EXE-API-04`） |
-| 重新投递 | `POST /executions/{id}/redeliver`（`EXE-API-07`，**后端待登记**，见模块 05） |
+| 重新投递 | `POST /executions/{id}/redeliver`（`EXE-API-07`，已登记，后端 05 L731） |
 | 审计日志查询 | `GET /audit-logs`（`AUDIT-API-01`） |
 
 ---
@@ -957,13 +957,13 @@ Async Task 展开：
 
 ### 15.3 筛选
 
-时间范围（`from`/`to`，**必填**，默认近 7 天；缺失时不发请求并就地提示）、操作人（`actor_user_id`）、资源类型（`resource_type`）、动作（`action`）。全部**服务端**筛选，切换任一筛选重置 `page=1`（FE-00 §3.4）。
+时间范围（`from`/`to`，**必填**，默认近 7 天；缺失时不发请求并就地提示；客户端必填、服务端可选，防全表扫描）、操作人（`actor_user_id`）、资源类型（`resource_type`）、动作（`action`）。全部**服务端**筛选，切换任一筛选重置 `page=1`（FE-00 §3.4）。
 
 ### 15.4 行展开：`details.changed_fields`
 
 行展开展示**字段级 diff**，而不是一坨 JSON 字面量：
 
-- 结构：`changed_fields: [{field, before?, after?}]`，按「字段名 / 原值 / 新值」三列渲染；
+- 结构：`changed_fields: [{field, before?, after?, before_hash?, after_hash?, diff_ref?}]`，按「字段名 / 原值 / 新值」三列渲染；大字段条目（带 `before_hash`/`after_hash`）渲染 hash 前 8 位 + 「大字段，仅记录 hash」标记，`diff_ref` 仅作可复制文本，不提供内容下载；
 - **脱敏口径**：Secret 类字段（`api_key`、`*secret*`、`password`、`*token*`、`*_ref`）**原值与新值一律渲染为 `***`**，仅显示「已变更」标记；后端只记录“已变更”标记的字段，前端**不推断**原值；
 - 超长值在与内截断，hover 展示完整文本；不提供下载；
 - 兼容：响应无 `changed_fields` 时，行展开按普通键值展示 details 的其余脱敏内容，**不显示空块**。

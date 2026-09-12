@@ -1,5 +1,7 @@
 # Workspace 与 Sandbox 设计基线 V1.9.1
 
+> **⚠️ 版本声明**：本文通用边界仍有效；V1.13+ fail-closed 与启动自检见本文 §8，DB/接口 Owner 以《08》与模块 13 为准。
+
 ## 1. 边界
 
 Workspace/Sandbox 只为受控执行提供临时文件和进程隔离，不是用户长期业务状态 SoT。
@@ -53,3 +55,7 @@ Skill import/extract：
 ## 7. 开发环境
 
 Skill SDK 本地 Mock 不要求 Sandbox。Dev Gateway 联调走远端开发 Runtime，不要求开发者复制生产 Sandbox 到本地。
+
+## 8. 隔离后端 fail-closed
+
+未配置隔离后端启动即失败，禁 fallback Local；错误码 `SANDBOX_ISOLATION_UNAVAILABLE`(503)；启动自检必须校验隔离后端可用性（namespace/seccomp/cgroup/无外部网络路由），自检失败拒绝提供服务。

@@ -373,7 +373,7 @@ best-effort publish；失败不得造成业务事实丢失，Worker 必须能依
 
 **入口类型**：Library
 
-**认证/授权**：Library；调用方限模块 05（产物保留期清理）、模块 08（未引用 Artifact 回收）、模块 13（Workspace 过期清理）。必须携带 `ctx`：只允许删除同 `tenant_id` 且 `scope` 匹配的对象。
+**认证/授权**：Library；允许调用方为模块 05（产物保留期清理）、模块 08（未引用 Artifact 回收）、模块 13（Workspace 过期清理）。必须携带 `ctx`：只允许删除同 `tenant_id` 且 `scope` 匹配的对象。
 
 **函数签名**
 
@@ -401,7 +401,7 @@ async def delete_object(ref: ObjectRef, *, reason: str) -> None
 
 **入口类型**：Library
 
-**认证/授权**：Library；调用方限模块 09（凭据撤销的补偿清理，CRED-API-04）与模块 19（模型 Secret 轮换/删除的补偿）。
+**认证/授权**：Library；允许调用方为模块 09（凭据撤销的补偿清理，CRED-API-04）与模块 19（模型 Secret 轮换/删除的补偿）。
 
 **函数签名**
 
@@ -409,7 +409,7 @@ async def delete_object(ref: ObjectRef, *, reason: str) -> None
 async def delete_secret(ref: SecretRef, *, reason: str) -> None
 ```
 
-**异常/错误**：`SECRET_NOT_FOUND`（幂等成功）、`SECRET_STILL_REFERENCED`（409，仍被 Credential/ModelConfig 引用）。
+**异常/错误**：`SECRET_NOT_FOUND`（幂等成功）、`SECRET_STILL_REFERENCED`（409，仍被 Credential/ModelConfig 引用；Owner=本模块 14，已补基线，与对象域 `OBJECT_STILL_REFERENCED` 区分使用）。
 
 **处理逻辑**
 

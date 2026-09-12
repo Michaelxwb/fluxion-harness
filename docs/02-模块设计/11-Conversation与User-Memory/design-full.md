@@ -38,6 +38,7 @@
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 场景行归位与表格修复；新增 human_wait/progress_stage 投递与 RULE-CHAN-09；命令集对齐与 MEM-INT-01 去重；Bot Secret lease 与连接状态数据源；删除 Console 会话接口；message_type 补 PROPOSAL 与 CONV-LIB-03 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | conversation_run 的租约规则改为引用模块 01 的 CORE-LIB-08（claim/renew/assert_owner），本模块只保留 sequence_no 领取排序与“到期 RUNNING 优先于新 turn”，并声明不再维护第二套 epoch 递增/续租语义；conversation_run、channel_command_receipt、message 各补保留期与清理触发者的责任声明（指向 `01-架构与规范/11-数据保留与清理策略`） |
+| V1.14 最简重设 | 2026-09-12 | Claude Code | N-4：租约引用收窄为续租/释放/fencing（claim 领取 SQL 归模块 03 RT-LIB-03），epoch 语义不变 |
 
 ## 2. 需求分析
 
@@ -276,7 +277,7 @@ flowchart LR
 **约束与索引**
 
 - UNIQUE (tenant_id,source_message_id)；UNIQUE (tenant_id,conversation_id) WHERE status IN ('RUNNING','CANCEL_REQUESTED') AND is_deleted=false。
-- 租约规则一律引用 **CORE-LIB-08 LeaseQueue**（模块 01）：claim/renew/release 与 owner+lease_epoch fencing 使用该共享实现与统一 epoch 语义；本表只提供列映射（`lease_owner/lease_expires_at/lease_epoch`）、领取排序键（source message 的 `sequence_no`）与“已到期 RUNNING 优先于新 turn”的谓词。`conversation_run` **不再维护第二套 epoch 递增/续租语义**。
+- 续租/释放与 owner+lease_epoch fencing 一律引用 **CORE-LIB-08**（模块 01）共享实现与统一 epoch 语义；claim 的选择 SQL 在模块 03 RT-LIB-03 内（领取时 `lease_epoch + 1` 语义一致）。本表只提供列映射（`lease_owner/lease_expires_at/lease_epoch`）、领取排序键（source message 的 `sequence_no`）与“已到期 RUNNING 优先于新 turn”的谓词。`conversation_run` **不再维护第二套续租/fencing 语义**。
 - 领取前无有效 lease；Run graph 状态、结果与 checkpoint 写入前必须先经 CORE-LIB-08.assert_owner 校验 owner+lease_epoch，失配 LEASE_LOST 并立即停止推进。
 - QUEUED 按 message.sequence_no 领取，恢复到期 RUNNING 优先于新 turn。
 - 保留与清理按 `01-架构与规范/11-数据保留与清理策略` 执行；本模块不自行决定 conversation_run 的保留期限与清理触发者。
@@ -394,7 +395,7 @@ erDiagram
 
 CONV-LIB-01 以 (tenant,user,agent,origin_scope_key) 的 PG transaction advisory lock 串行解析当前 ACTIVE；无行时在同一锁内创建，并用 partial unique 防重复。此锁保护首次创建与 /new，不只锁可能不存在的 conversation 行。入站消息在该事务内绑定确定 conversation_id/sequence_no；提交即释放锁，不持锁执行 LLM/网络。
 
-同会话 Chat turn 按 sequence_no 排队；conversation_run 同时最多一个非终态 run，运行 owner 的领取/续租/释放与 lease_epoch fencing 统一经 CORE-LIB-08（模块 01）实现，本模块不另写一套。后续消息只排队，不能并发推进同一图。/new 与入站解析用同一映射锁：旧 conversation=CLOSED，旧 Chat Run 标 CANCEL_REQUESTED，新建 ACTIVE；关闭前已绑定的消息仍归旧会话，未开始的旧消息标 PROCESSED 并告知会话已关闭，不挪到新会话。已创建 Execution 和投递路由保持，关闭不取消它们。
+同会话 Chat turn 按 sequence_no 排队；conversation_run 同时最多一个非终态 run，运行 owner 的续租/释放与 lease_epoch fencing 统一经 CORE-LIB-08（模块 01）实现，领取 SQL 在模块 03 RT-LIB-03 内，本模块不另写一套。后续消息只排队，不能并发推进同一图。/new 与入站解析用同一映射锁：旧 conversation=CLOSED，旧 Chat Run 标 CANCEL_REQUESTED，新建 ACTIVE；关闭前已绑定的消息仍归旧会话，未开始的旧消息标 PROCESSED 并告知会话已关闭，不挪到新会话。已创建 Execution 和投递路由保持，关闭不取消它们。
 
 CheckpointIdentity：Chat thread_id=`chat:{conversation_id}`，namespace=`agent:{agent_id}:graph:1`；Worker thread_id=`execution:{root_execution_id}:operation:{operation_id}`，namespace=`agent:{agent_id}:step:{step_key}:graph:1`。operation_id 首次生成且相同逻辑步骤 retry 沿用；同 Agent 在两个步骤有不同 operation_id。checkpoint_ref 存 execution_step/conversation_run，checkpoint metadata 必须匹配 snapshot hash、operation、step、agent，错配 CHECKPOINT_MISMATCH 拒绝。图节点完成持久 checkpoint；Worker Step 终态只在最终 checkpoint 已确认持久后提交（可恢复重放必须复用副作用 key）；checkpoint 不能覆盖 Execution 调度真相。
 
@@ -410,7 +411,7 @@ AGCORE-LIB-05 调 MEM-LIB-02；`memory.remember` 不是任意业务 Capability�
 
 **契约**：`GET /api/v1/users/{user_id}/memory`
 
-**认证/授权**：Admin；未来用户自助页面可复用受限 DTO
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）；未来用户自助页面可复用受限 DTO
 
 **Query 参数**
 

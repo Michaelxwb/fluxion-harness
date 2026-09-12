@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../fluxion-console-interaction-prototype-v0.8-final.html`
+> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
 
 ## 1. 文档控制
 
@@ -113,6 +113,8 @@
 
 **列表**：用户名称、标识、**角色（`role`）**、状态、项目平台认证数、智能体授权数、IM 身份数、更新时间；**筛选**：角色（`role`）、状态（`status`）。冻结交互稿的「角色」列与筛选在 V1 保留（Admin 需按角色找人/筛人，`USR-API-01` 支持 `role` 参数）；V1.13 曾删除该列，V1.13.1 按原型恢复。
 
+**列表查询**：通用契约见 FE-00 §3.4 `StandardListQuery`，本页领域筛选：`role`/`status`（另加 `keyword` 按名称/标识搜索），服务端筛选、改筛选重置 `page=1`、状态进 URL。
+
 **项目平台认证**：平台、认证状态、账号摘要、最近验证时间、操作；Secret 不回显。
 
 **凭据配置 Modal（D12，V1.13 冻结）**：按 `ProjectPlatform.auth_schema` 动态渲染输入控件，Secret 字段每次输入、不回显；保存与验证之外**没有**「状态（启用/停用）」可写控件。Modal 底部为**只读**状态区：
@@ -142,7 +144,7 @@
 |---|---|---|---|
 | 1 | 不能修改自己的角色 | 被编辑用户 = 当前登录用户时，角色下拉 `disabled` | tooltip：「不能修改自己的角色」；后端 `USR-API-04` 同步拒绝 |
 | 2 | 升级为 Admin 需二次确认 | `role` 由 `BUILDER`/`END_USER` 改为 `ADMIN` 时，提交前弹确认 Modal | Modal 正文：「将该用户升级为 Admin？Admin 可管理用户、授权、凭据与正式发布。」；取消则角色下拉**回滚**到修改前的原值 |
-| 3 | 最后一名启用 Admin 禁止降级或停用 | 目标用户是当前唯一 `status=ACTIVE` 的 Admin 时，`ADMIN` 以外的角色选项与状态开关均 `disabled` | tooltip：「系统必须保留至少一名启用状态的 Admin」；后端 `USR-API-04` 返回专用冲突错误码（模块 18 待补），前端按字段级错误呈现并**回滚**控件到原值 |
+| 3 | 最后一名启用 Admin 禁止降级或停用 | 目标用户是当前唯一 `status=ACTIVE` 的 Admin 时，`ADMIN` 以外的角色选项与状态开关均 `disabled` | tooltip：「系统必须保留至少一名启用状态的 Admin」；后端 `USR-API-04` 返回专用冲突错误码（已冻结，`E-USER-04`/`E-USER-05`），前端按字段级错误呈现并**回滚**控件到原值 |
 
 守卫 1/3 的判定数据只读用户详情响应（`USR-API-03` 的 `role`/`status`）与当前会话身份（登录响应 `role`，FE-00 §3.3.1），**不读本地缓存、不硬编码 Admin 数量**；角色控件在详情请求 resolve 之前保持 `disabled`，避免先改后拉造成状态错乱。
 
@@ -209,7 +211,7 @@
 |---|---|---|---|---|
 | RISK-09-01 | 把 /bind 当 Agent 授权 | 高 | UI 明确 IM 身份与 Agent 授权是独立 Tab | E2E/Integration |
 | RISK-09-02 | 绑定码明文长期回显 | 高 | 仅创建响应一次展示；存储 hash | E2E/Integration |
-| RISK-09-03 | 角色守卫 1/3 与「最后一名启用 Admin」专用冲突错误码依赖后端 | 高 | 依赖模块 18 补齐 `USR-API-04`：拒绝修改自己的角色、拒绝最后一名启用 Admin 降级/停用并返回专用错误码；后端未落地前前端仍按字段级冲突回滚控件，不得只靠 UI 禁用 | S-09-06 |
+| RISK-09-03 | 角色守卫 1/3 与「最后一名启用 Admin」专用冲突错误码依赖后端 | 高 | 已冻结（`E-USER-04`/`E-USER-05`）：模块 18 `USR-API-04` 拒绝修改自己的角色（403 `SELF_ROLE_CHANGE_DENIED`）、拒绝最后一名启用 Admin 降级/停用（409 `LAST_ADMIN_PROTECTED`）；前端按字段级冲突回滚控件，不得只靠 UI 禁用 | S-09-06 |
 
 ## Spec Compliance Matrix
 
@@ -217,6 +219,7 @@
 |---|---|---|---|---|---|
 | Console-V0.8#READONLY-DETAIL | required | 详情不得变成编辑入口 | §3.3/§3.7 | S-09-01 | applied |
 | Console-V0.8#SERVICE-LAYER | required | API 统一从 services 层发起 | §3.5 | S-09-01 | applied |
+| BACKEND-18#ADMIN-GUARD-E-USER-04-05 | required | 自改角色 403 `SELF_ROLE_CHANGE_DENIED`、最后一名 Admin 409 `LAST_ADMIN_PROTECTED` | §3.4 | S-09-06 | applied |
 
 ## 附录：后端追溯
 

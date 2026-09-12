@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../fluxion-console-interaction-prototype-v0.8-final.html`
+> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
 
 ## 1. 文档控制
 
@@ -111,6 +111,8 @@
 
 **两阶段状态与 DTO**：idle→previewing（multipart mode=preview/artifact）→preview（valid/manifest/validation_report/preview_token/expires_at/checksum）→committing（JSON mode=commit/preview_token）→done（skill_id/artifact_id/revision）。首导和新版本分别调用 SKILL-API-02/04，同一 mode 判别合同。invalid 无 commit token 且确认禁用；取消不调用 commit；过期显示“请重新预览”，依赖/版本变化 409 保留报告并允许重新预览。重复确认禁用按钮且复用 token，成功后只刷新一次详情/current。
 
+**列表查询**：通用契约见 FE-00 §3.4 `StandardListQuery`，本页领域筛选：`platform_label`/`validation_status`/`enabled`（另加 `keyword` 按名称/标识搜索），服务端筛选、改筛选重置 `page=1`、状态进 URL。
+
 ### 3.5 状态与数据流
 
 ```text
@@ -170,6 +172,7 @@
 |---|---|---|---|---|---|
 | Console-V0.8#READONLY-DETAIL | required | 详情不得变成编辑入口 | §3.3/§3.7 | S-05-01 | applied |
 | Console-V0.8#SERVICE-LAYER | required | API 统一从 services 层发起 | §3.5 | S-05-01 | applied |
+| BACKEND-08#SKILL-TWO-PHASE-IMPORT | required | Skill 两阶段导入（preview_token + commit，不落正式记录直到确认） | §3.4 | S-05-01 | applied |
 
 ## 附录：后端追溯
 

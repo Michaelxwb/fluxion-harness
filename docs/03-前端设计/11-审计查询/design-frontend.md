@@ -71,13 +71,13 @@
 
 **trace 关联**：`execution_id` 非空才渲染「查看执行」跳转 `/console/executions/:id`；`execution_id` 为空时**只**给可复制的 `trace_id` 标签，**不构造死链**。
 
-**筛选**：时间范围（`from`/`to`，**必填**，默认近 7 天；缺失时不发请求并就地提示）、操作人（`actor_user_id`）、资源类型、动作。全部**服务端**筛选，切换任一筛选重置 `page=1`（沿用 FE-00 §3.4 `StandardListQuery`）。
+**筛选**：时间范围（`from`/`to`，**必填**，默认近 7 天；缺失时不发请求并就地提示；客户端必填、服务端可选，防全表扫描）、操作人（`actor_user_id`）、资源类型、动作。全部**服务端**筛选，切换任一筛选重置 `page=1`（沿用 FE-00 §3.4 `StandardListQuery`）。
 
 **行展开（`details.changed_fields`，V1.13.1 冻结）**：行展开展示**字段级 diff**，而不是一坨 JSON 字面量：
 
 | 契约点 | 约束 |
 |---|---|
-| 结构 | `details.changed_fields: [{field, before?, after?}]`，按「字段名 / 原值 / 新值」三列渲染；`before`/`after` 缺失时该单元格显示 `—` |
+| 结构 | `details.changed_fields: [{field, before?, after?, before_hash?, after_hash?, diff_ref?}]`，按「字段名 / 原值 / 新值」三列渲染；`before`/`after` 缺失时该单元格显示 `—`；大字段条目（带 hash）渲染 hash 前 8 位 + 「大字段，仅记录 hash」标记 |
 | 脱敏口径 | Secret 类字段（`api_key`、`*secret*`、`password`、`*token*`、`*_ref`）的**原值与新值一律渲染为 `***`**，只显示「已变更」标记；后端只记录“已变更”标记的字段，前端**不推断**原值 |
 | 超长值 | 单元格内截断，hover 展开完整文本；**不提供下载** |
 | 兼容 | 响应无 `changed_fields` 时，按普通脱敏键值展示 `details` 的其余内容，**不显示空块** |
@@ -125,3 +125,4 @@ services/11AuditService：`fetchAuditLogs(params)` → AUDIT-API-01；列表态 
 |---|---|---|
 | Console-V0.8#READONLY-DETAIL | applied | 全页只读 |
 | ADR-021#ROLE-GUARD | applied | 菜单与 API 双重 Admin-only |
+| BACKEND-15#AUDIT-CHANGED-FIELDS | applied | 行展开按 `details.changed_fields` 字段级 diff，Secret 掩码 `***`（S-11-03）；`from`/`to` 客户端必填、服务端可选 |

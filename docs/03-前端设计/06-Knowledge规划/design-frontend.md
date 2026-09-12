@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../fluxion-console-interaction-prototype-v0.8-final.html`
+> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
 
 ## 1. 文档控制
 
@@ -66,7 +66,7 @@
 |---|---|---|---|---|---|
 | S-06-01 | FEAT-06-01 | E2E | 规划页只读说明 | 打开知识库菜单 | 显示规划说明，无 CRUD 控件、无伪列表 |
 | E-06-01 | FEAT-06-01 | E2E | 无 API 调用 | 网络面板检查 | 页面不发起任何业务 API 请求 |
-| I-06-01 | FEAT-06-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
+| I-06-01 | FEAT-06-01 | integration | 无 API 调用 | 检查 services 层无业务请求 | 不发起任何业务 API 请求（与 `E-06-01` 一致），无 API 映射可测 |
 
 ## 3. 前端技术设计
 
@@ -99,20 +99,7 @@
 
 ### 3.5 状态与数据流
 
-```text
-用户操作
-→ 容器组件校验
-→ services/06Service
-→ 后端 API
-→ 统一错误映射
-→ query/local state
-→ UI 重渲染
-```
-
-**API 映射**
-
-| Service 方法/动作 | API ID | 方法/路径或契约 | 后端 Owner |
-|---|---|---|---|
+本页为纯静态规划说明页，无数据流：不发起任何业务 API 请求（见 `E-06-01`），无 `services/` 调用、无 API 映射。
 
 ### 3.6 UI 状态
 
@@ -145,6 +132,7 @@
 |---|---|---|---|---|---|
 | Console-V0.8#READONLY-DETAIL | required | 详情不得变成编辑入口 | §3.3/§3.7 | S-06-01 | applied |
 | Console-V0.8#SERVICE-LAYER | required | API 统一从 services 层发起 | §3.5 | S-06-01 | applied |
+| ARCH#ADR-022-PLANNING-GATE | required | 规划态禁伪造 CRUD/API/DB（无请求断言） | §3.4/§3.5 | E-06-01 | applied |
 
 ## 附录：后端追溯
 

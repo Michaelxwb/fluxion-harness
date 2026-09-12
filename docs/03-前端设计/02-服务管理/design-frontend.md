@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../fluxion-console-interaction-prototype-v0.8-final.html`
+> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
 
 ## 1. 文档控制
 
@@ -36,7 +36,7 @@
 | 需求类型 | 页面/交互模块 |
 | 业务背景 | Service 是唯一正式发布业务对象，需要 Draft→Validate/Test→Publish 的明确旅程。 |
 | 核心目标 | 完成服务列表、新增、Draft 编辑、步骤编排、业务范围、测试与发布，以及只读详情。 |
-| 路由 | `/console/services, /console/services/:id` |
+| 路由 | `/console/services`、`/console/services/new`、`/console/services/:id`、`/console/services/:id/edit` |
 | 角色 | Builder / Admin（正式发布 Admin） |
 
 ### 2.2 功能方案
@@ -156,7 +156,7 @@
 
 | 控件 | DTO 字段 | 取值 | 必填性 | 原型映射 |
 |---|---|---|---|---|
-| 人工策略 | `human_policy` | `never`（本步不转人工）/ `on_uncertainty`（语义不确定或失败时可转人工）/ `always`（强制人工检查点） | 是；控件**无空态**，默认选中项随模块 05 step schema | 否→`never`、必要时→`on_uncertainty`、始终→`always` |
+| 人工策略 | `human_policy` | `never`（本步不转人工）/ `on_uncertainty`（语义不确定或失败时可转人工）/ `always`（强制人工检查点） | 是；控件**无空态**，默认选中 `never`（后端 05 step schema `default: never`） | 否→`never`、必要时→`on_uncertainty`、始终→`always` |
 
 与前两个既有控件**正交，不互相替代**：① Step 类型 = Human 是*结构*上的人工检查点，其 `human_policy` 控件只读显示 `always`，不允许改成 `never`；② 失败策略 = `MANUAL` 是*失败路径*转人工，与 `human_policy=never` 语义冲突，同时选中时在 `human_policy` 控件就地报错且不发起 `SVC-API-04`；③ `always` 表示本步必须经人工确认后才能继续。
 
@@ -246,6 +246,7 @@
 |---|---|---|---|---|---|
 | Console-V0.8#READONLY-DETAIL | required | 详情不得变成编辑入口 | §3.3/§3.7 | S-02-01 | applied |
 | Console-V0.8#SERVICE-LAYER | required | API 统一从 services 层发起 | §3.5 | S-02-01 | applied |
+| BACKEND-05#HUMAN-POLICY-B11 | required | 步骤 `human_policy` 三值与 `failure_policy=MANUAL` 正交约束（默认 `never`，后端 05 schema） | §3.4 | S-02-08 | applied |
 
 ## 附录：后端追溯
 

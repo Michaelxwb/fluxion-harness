@@ -1,6 +1,6 @@
-# Fluxion 设计文档 V1.13
+# Fluxion 设计文档 V1.14
 
-本版本以完整总体设计、完整 Playbook、Console V0.8 交互稿及 `cf-task:align` 三套模板为基线；V1.13 完成第三轮全库 Review 的裁决修复（见 `05-变更记录/09-V1.13-第三轮Review裁决修复.md`）。
+本版本以完整总体设计、完整 Playbook、Console V0.8 交互稿及 `cf-task:align` 三套模板为基线；V1.13 完成第三轮全库 Review 的裁决修复（见 `05-变更记录/09-V1.13-第三轮Review裁决修复.md`）；V1.14 完成最简重设（N-1~N-5 推翻重设 + V0.8 原型归档，见 `05-变更记录/11-V1.13.1-to-V1.14-最简重设.md` 与 ADR-061）。
 
 ## 目录
 

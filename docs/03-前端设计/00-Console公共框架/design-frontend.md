@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../fluxion-console-interaction-prototype-v0.8-final.html`
+> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
 
 ## 1. 文档控制
 
@@ -191,6 +191,7 @@ URL 是列表筛选状态的**唯一事实源**——列表查询状态不得放
 |---|---|---|---|---|---|
 | Console-V0.8#READONLY-DETAIL | required | 详情不得变成编辑入口 | §3.3/§3.7 | S-00-01 | applied |
 | Console-V0.8#SERVICE-LAYER | required | API 统一从 services 层发起 | §3.5 | S-00-01 | applied |
+| Console-V0.8#STANDARD-LIST-QUERY-Z08 | required | 列表查询统一 `StandardListQuery`（服务端筛选、改筛选重置 `page=1`、URL 唯一事实源） | §3.4 | S-00-03 | applied |
 
 ## 附录：后端追溯
 

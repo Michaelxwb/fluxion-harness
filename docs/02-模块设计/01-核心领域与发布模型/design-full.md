@@ -38,6 +38,7 @@
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 新增 CORE-LIB-06（TrustedExecutionContext 定义与构造）与 CORE-LIB-07（DomainError 与公共错误码引用）；补 S-CORE-06；Snapshot ModelProjection 超时字段改秒并补 extra_headers；修正 §6 追溯矩阵接口指向与合规矩阵 verifier |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | 新增 CORE-LIB-08 LeaseQueue 共享租约原语（claim/renew/release/assert_owner；模块 06 与模块 11 共用同一实现与同一 epoch 语义，消除重复实现）及 FEAT-CORE-06、RULE-CORE-07、S-CORE-07；§3.3 明确租约字段语义的唯一实现；ExecutionProposal.resource_scope 按最小 typed 形态（`{type, refs[], attributes?}`）表述，去除 Service 级 scope JSON Schema 校验措辞 |
+| V1.14 最简重设 | 2026-09-12 | Claude Code | N-4：CORE-LIB-08 拆分——通用 `claim(table, filter)` 删除，领取 SQL 归各域（06 WORK-LIB-01、03 RT-LIB-03），共享只剩 `renew`/`release`/`assert_owner` + epoch 语义；RULE-CORE-07/FEAT-CORE-06/S-CORE-07 同步 |
 
 ## 2. 需求分析
 
@@ -79,7 +80,7 @@
 | FEAT-CORE-03 | Execution Snapshot | 冻结一致性所需业务逻辑，不冻结实时授权/Credential。 | P0 | 总体设计 P6/P8 |
 | FEAT-CORE-04 | 公共持久化规则 | tenant/软删除/revision/immutable/hash。 | P0 | 数据库基线 |
 | FEAT-CORE-05 | 错误与可信上下文 | 统一 DomainError/TrustedExecutionContext。 | P0 | 总体设计 P8 |
-| FEAT-CORE-06 | 共享租约原语 | claim/renew/release/fencing 的唯一实现（LeaseQueue），Execution 与 Chat Run 共用同一 epoch 语义。 | P0 | 第四轮 Review B1 |
+| FEAT-CORE-06 | 共享租约原语 | renew/release/fencing 的唯一实现，Execution 与 Chat Run 共用同一 epoch 语义；claim 领取 SQL 各域独立实现（谓词与排序键见各模块）。 | P0 | 第四轮 Review B1（V1.14 最简重设拆分 claim） |
 
 #### 2.3.2 字段约束
 
@@ -111,7 +112,7 @@
 | RULE-CORE-04 | 快照 | Snapshot 不冻结 AgentAccessGrant/Credential/Capability emergency enabled。 | S-CORE-04 |
 | RULE-CORE-05 | 数据 | Framework 可变表默认软删除并 tenant scoped。 | S-CORE-05 |
 | RULE-CORE-06 | 可信身份 | tenant/actor/projection/test_mode 只能由 CORE-LIB-06 构造入口赋值，不得来自 LLM、请求体或 Skill 入参。 | S-CORE-06 |
-| RULE-CORE-07 | 并发 | 租约领取/续租/释放/fencing 只能由 CORE-LIB-08 实现；使用方（模块 06/11）不得各自实现第二套 epoch 递增与续租语义。 | S-CORE-07 |
+| RULE-CORE-07 | 并发 | 租约续租/释放/fencing 只能由 CORE-LIB-08 实现；claim 领取 SQL 各域独立（06 WORK-LIB-01、03 RT-LIB-03），但 epoch 递增（领取时 +1）/续租不改 epoch/失配语义必须与本原语一致，不得自创第二套。 | S-CORE-07 |
 
 #### 2.5.2 功能验收场景
 
@@ -125,7 +126,7 @@
 | S-CORE-03 | FEAT-CORE-03 | P0 | E2E | Agent config→Runtime | 后置 → 模块 03/04 | Agent r1 | 保存 r2 | 新请求解析 r2，无 Agent publish |
 | S-CORE-04 | FEAT-CORE-03 | P0 | E2E | Snapshot→dynamic auth | 后置 → 模块 05/18 | Execution 已创建 | 撤销 AgentAccessGrant 后恢复 | 恢复阶段被拒绝，不沿用旧授权 |
 | S-CORE-06 | FEAT-CORE-05 | P0 | integration | 中间件/运行时→Library 边界 | 本模块+02 | 已认证调用方 | 请求体/Skill 入参与 IPC 参数携带伪造 tenant_id/actor_user_id/projection/test_mode | 构造入口拒绝或忽略外部传入的身份与 projection；消费方一律使用 ctx 中的可信值，伪造值不生效且不产生跨租户读写 |
-| S-CORE-07 | FEAT-CORE-06 | P0 | integration | 两个 owner 并发 claim 同一行（真 PG）→ 失租方写入被拒 | 本模块+06/11 | service_execution 与 conversation_run 各有一条可领取行 | 两个 owner 经同一 CORE-LIB-08 并发 claim 同一行；失租 owner 随后用旧 lease_epoch 执行 renew/release/状态写入 | 只有一个 owner 领取成功（lease_epoch 只递增一次）；失租 owner 的 renew 返回 false、写入与 release 被 LEASE_LOST(409) 拒绝，并立即停止推进，不产生重复副作用 |
+| S-CORE-07 | FEAT-CORE-06 | P0 | integration | 两个 owner 并发 claim 同一行（真 PG）→ 失租方写入被拒 | 本模块+06/11 | service_execution 与 conversation_run 各有一条可领取行 | 两个 owner 经各域 claim SQL 并发抢同一行；失租 owner 随后用旧 lease_epoch 执行 renew/release/状态写入 | 只有一个 owner 领取成功（lease_epoch 只递增一次）；失租 owner 的 renew 返回 false、写入与 release 被 LEASE_LOST(409) 拒绝，并立即停止推进，不产生重复副作用 |
 
 **异常场景**
 
@@ -206,7 +207,7 @@ flowchart TB
 
 公共表字段是规范，不建立 `core_resource` 万能表。各表由对应领域模块拥有。
 
-`service_execution`（模块 06）与 `conversation_run`（模块 11）各自保留自己的租约字段（`lease_owner/lease_expires_at/lease_epoch`），因为两者的领域语义不同（执行调度事实 vs Chat turn 事实）；但**租约规则只有一处实现**：字段语义、claim 时的 epoch 递增、续租不改 epoch、以及所有状态写入前的 owner+epoch 校验统一由 CORE-LIB-08 提供，两张表不得各自定义第三套 claim/续租/fencing 语义。
+`service_execution`（模块 06）与 `conversation_run`（模块 11）各自保留自己的租约字段（`lease_owner/lease_expires_at/lease_epoch`），因为两者的领域语义不同（执行调度事实 vs Chat turn 事实）；但**续租/释放/fencing 只有一处实现**：字段语义、续租不改 epoch、以及所有状态写入前的 owner+epoch 校验统一由 CORE-LIB-08 提供；claim 的选择 SQL 各域独立（领取时 `lease_epoch + 1` 的递增语义必须一致），两张表不得各自定义第三套续租/fencing 语义。
 
 ### 3.4 接口设计
 
@@ -221,7 +222,7 @@ flowchart TB
 | CORE-LIB-05 | 执行冻结投影 | Library | ExecutionProjection | 数据类；本节 CORE-LIB-05 定义 |
 | CORE-LIB-06 | TrustedExecutionContext 定义与构造 | Library | def build_trusted_context(identity: RuntimeIdentity, *, agent_id=None, conversation_id=None, execution_id=None, projection=None, test_mode=None, deadline=None) -> TrustedExecutionContext | 可信上下文唯一构造入口 |
 | CORE-LIB-07 | DomainError 与公共错误码引用 | Library | class DomainError；def to_envelope(request_id) -> ApiEnvelope | 统一错误结构与公共错误码注册表引用 |
-| CORE-LIB-08 | LeaseQueue 共享租约原语 | Library | async def claim(tx, *, table: LeaseTarget, now: datetime, limit: int, owner: str, ttl_ms: int, filter: ClaimFilter) -> list[Claimed]；async def renew(tx, *, target_id: UUID, owner: str, expected_epoch: int, ttl_ms: int) -> bool；async def release(tx, *, target_id: UUID, owner: str, expected_epoch: int, next_run_at: datetime \| None) -> None；def assert_owner(row_owner, row_epoch, owner, epoch, now, lease_expires_at) -> None | service_execution（模块 06）与 conversation_run（模块 11）的领取/续租/释放/fencing 唯一实现 |
+| CORE-LIB-08 | LeaseQueue 共享租约原语 | Library | async def renew(tx, *, table, target_id, owner, expected_epoch, ttl_ms) -> bool；async def release(tx, *, table, target_id, owner, expected_epoch, next_run_at) -> None；def assert_owner(row_owner, row_epoch, owner, epoch, now, lease_expires_at) -> None | service_execution（模块 06）与 conversation_run（模块 11）的续租/释放/fencing 唯一实现（claim 领取 SQL 分置各域） |
 
 **CORE-LIB-04: ExecutionProposal（模块 01 定义类型；模块 05 签发和消费）**
 
@@ -233,9 +234,9 @@ flowchart TB
 | proposal_id / conversation_id / service_id / agent_id | UUID | 持久定位及归属 |
 | input / resource_scope | object | input 经 Schema 校验；resource_scope 为最小 typed 形态 `{type, refs[], attributes?}`（模块 05 定义，V1 无 scope JSON Schema、无 schema_hash、无 Scope Registry 投影脱敏） |
 | snapshot_id / service_release_id | UUID | 本次展示对应的不可变逻辑 |
-| confirmation_digest | string | tenant/actor/conversation/agent/service/release content_hash/snapshot hash/input/scope/rendered_summary/expires_at 的 canonical SHA-256 |
-| confirmation_ref | string | 服务端签名(proposal_id, confirmation_digest, expires_at)，不代表用户已经批准 |
-| rendered_summary | string | 确认页面/消息实际展示内容 |
+| confirmation_digest | string | `tenant\|actor\|service_release\|input\|resource_scope\|template_hash\|expires_at` 的 canonical SHA-256（只覆盖结构化事实，不含 `rendered_summary`；见模块 05 `contract:confirmation-template-syntax` 第 4 条） |
+| confirmation_ref | string | 服务端 HMAC 签名 `{proposal_id, tenant, actor, service_release, input_hash, refs_hash, template_hash, expires_at}`（SecretProvider key），不代表用户已经批准；与 `confirmation_digest`（内容绑定）不同，`confirmation_ref` 是防篡改的签发凭证 |
+| rendered_summary | string | 确认页面/消息实际展示内容（展示用，不进 `confirmation_digest`；模板×输入的确定性函数） |
 | created_at / expires_at | datetime | 服务端时间；默认有效 300 秒 |
 | status | string | PENDING/CONFIRMED/EXPIRED/SUPERSEDED |
 
@@ -485,18 +486,13 @@ def canonical_json_sha256(value: object) -> str
 ```python
 LeaseTarget = Literal["service_execution", "conversation_run"]
 
-async def claim(
-    tx: AsyncSession, *, table: LeaseTarget, now: datetime,
-    limit: int, owner: str, ttl_ms: int, filter: ClaimFilter,
-) -> list[Claimed]
-
 async def renew(
-    tx: AsyncSession, *, target_id: UUID, owner: str,
+    tx: AsyncSession, *, table: LeaseTarget, target_id: UUID, owner: str,
     expected_epoch: int, ttl_ms: int,
 ) -> bool
 
 async def release(
-    tx: AsyncSession, *, target_id: UUID, owner: str,
+    tx: AsyncSession, *, table: LeaseTarget, target_id: UUID, owner: str,
     expected_epoch: int, next_run_at: datetime | None,
 ) -> None
 
@@ -510,13 +506,10 @@ def assert_owner(
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| tx | AsyncSession | Y | 调用方事务；claim 的选择与占用写入必须在同一事务内完成 |
-| table | LeaseTarget | Y | service_execution / conversation_run；决定列映射与默认排序键 |
-| now | datetime | Y | 服务端时间；到期判定与 lease_expires_at 计算一律以此为准 |
-| limit | integer | Y | 单次 claim 行数上限；由调用方按本实例并发额度给出 |
+| tx | AsyncSession | Y | 调用方事务；续租/释放的条件写入必须在调用方事务内完成 |
+| table | LeaseTarget | Y | service_execution / conversation_run；决定列映射（两表列名相同，见 §3.3） |
 | owner | string | Y | 本实例标识（Worker ID / Runtime 实例 ID） |
-| ttl_ms | integer | Y | 租约时长；claim 与 renew 的到期时间均为 `now + ttl_ms` |
-| filter | ClaimFilter | Y | 可选状态谓词、到期谓词与排序键（见下表） |
+| ttl_ms | integer | Y | 租约时长；renew 的到期时间均为 `now + ttl_ms`（`now` 取服务端时间） |
 | target_id | uuid | Y | renew/release 的目标行 |
 | expected_epoch | integer | Y | 调用方持有的 lease_epoch；与行上值不符即 LEASE_LOST |
 | next_run_at | datetime/null | N | release 时的下次可运行时间；NULL 表示不重新排队 |
@@ -525,7 +518,6 @@ def assert_owner(
 
 | 接口 | 字段 | 类型 | 说明 |
 |---|---|---|---|
-| claim | claimed | array<Claimed> | 每项含 target_id、owner、lease_expires_at 与递增后的 lease_epoch，以及调用方调度所需字段（service_execution 的 priority/next_run_at；conversation_run 的 source_message_id/sequence_no） |
 | renew | ok | boolean | true=续租成功且 epoch 未变；false=失配或已到期，调用方按 LEASE_LOST 处理并停止推进 |
 | release | — | None | 成功即本轮租约结束；owner/epoch 失配抛 LEASE_LOST |
 
@@ -538,10 +530,8 @@ def assert_owner(
 **处理逻辑**
 
 ```text
-claim：SELECT ... WHERE <filter 允许的状态> AND (lease_expires_at IS NULL OR lease_expires_at <= now) AND <filter 到期谓词>
-       ORDER BY <filter 排序键> FOR UPDATE SKIP LOCKED LIMIT :limit
-       → 对选中行在同一事务写 lease_owner=owner、lease_expires_at=now+ttl_ms、lease_epoch = lease_epoch + 1 → 在新 epoch 下返回。
-renew：条件 UPDATE ... WHERE id=:id AND lease_owner=:owner AND lease_epoch=:expected AND lease_expires_at > :now
+claim 各域独立实现（领取 SQL 见 06 WORK-LIB-01、03 RT-LIB-03）：SELECT ... WHERE 可领取状态 AND (lease_expires_at IS NULL OR 已过期) ... FOR UPDATE SKIP LOCKED → 同一事务写 lease_owner=owner、lease_expires_at=now+ttl_ms、lease_epoch = lease_epoch + 1 → 在新 epoch 下返回。领取时 +1 的递增语义两域必须一致。
+renew：条件 UPDATE ... WHERE table=:table AND id=:id AND lease_owner=:owner AND lease_epoch=:expected AND lease_expires_at > :now
        SET lease_expires_at = now+ttl_ms；**不修改 lease_epoch**；rowcount=0 → 返回 false。
 release：同一 owner+epoch 校验下清空 lease_owner/lease_expires_at，并按 next_run_at 决定是否立即重新排队；失配抛 LEASE_LOST。
 assert_owner：owner 字段、lease_epoch、lease_expires_at 三者任一失配（含 owner 为空、已过期）即抛 LEASE_LOST。
@@ -549,7 +539,7 @@ assert_owner：owner 字段、lease_epoch、lease_expires_at 三者任一失配�
 失配 = LEASE_LOST(409)，调用方必须立即停止推进并放弃该 epoch 的副作用，不得以同一 epoch 重试。
 ```
 
-**排序键与谓词：同一实现，两套调用方参数**
+**各域 claim 的状态谓词与排序键（实现分置各模块，本表仅登记契约）**
 
 | 使用方 | table | 排序键 / 状态与到期谓词 |
 |---|---|---|
@@ -558,7 +548,8 @@ assert_owner：owner 字段、lease_epoch、lease_expires_at 三者任一失配�
 
 **补充约束**
 
-- 本原语是 Framework 内**唯一的租约实现**：`service_execution` 与 `conversation_run` 共用本实现与同一 epoch 语义；模块 06 与模块 11 不得各自实现第三套 claim/续租/fencing（RULE-CORE-07）。
+- 本原语是 Framework 内**续租/释放/fencing 的唯一实现**：`service_execution` 与 `conversation_run` 共用本实现与同一 epoch 语义；模块 06 与模块 11 不得各自实现第二套续租/fencing（RULE-CORE-07）；claim 的领取 SQL 分置各域（06 WORK-LIB-01、03 RT-LIB-03），但 epoch 递增与失配语义必须与本节一致。
+- claim 的状态谓词与排序键各域独立（见上表）；共享的只有 `renew`/`release`/`assert_owner` 与 epoch 语义——调度语义不硬塞进一个 `ClaimFilter` 抽象。
 - 两张表仍各自保留（领域语义不同），差异只允许体现在表的列映射、`filter` 与排序键；**租约规则本身不再各写一套**。
 - claim 提交后其他实例仍必须经过同一租约条件，不能仅依靠行锁；`ttl_ms` 由调用方按角色给出（Worker 心跳周期 / Runtime 租约周期），原语不内置默认值。
 

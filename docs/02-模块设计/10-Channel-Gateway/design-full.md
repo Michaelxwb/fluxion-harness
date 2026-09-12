@@ -261,7 +261,7 @@ flowchart LR
 | agent_id | UUID | N |  | FK,IDX | 路由目标 Agent |
 | enabled | BOOLEAN | N | TRUE | IDX | 是否连接/接收 |
 | connection_metadata | JSONB | N | {} |  | corp/app 等非敏感信息 + 连接健康快照 `{state, last_connected_at, updated_at}` |
-| last_connected_at | TIMESTAMPTZ | Y |  |  | 最近一次成功建连（连接健康快照冗余列，仅作查询便利） |
+| last_connected_at | TIMESTAMPTZ | Y |  |  | 最近一次成功建连；与 `connection_metadata.last_connected_at` 单事务双写，以本列为准（查询便利列） |
 | revision | BIGINT | N | 1 |  | 配置 revision |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
@@ -272,7 +272,7 @@ flowchart LR
 
 - UNIQUE (tenant_id,channel_type,account_key) WHERE is_deleted=false
 - WECOM: UNIQUE (tenant_id,agent_id,channel_type) WHERE enabled=true AND is_deleted=false
-- **连接健康数据源**：Gateway 每 30s 将各 account 的连接健康写入 `connection_metadata = {state: CONNECTED|DISCONNECTED, last_connected_at, updated_at}`；这是 `connection_state` 的唯一事实源，其他进程不另行推断。platform-api 读取时若 `updated_at` 距当前超过 90s（3 个上报周期）则降级返回 `UNKNOWN`；Gateway 重启后尚未建连的 account 一律为 `UNKNOWN`，**不得伪造 CONNECTED**。`state` 不再有独立的 Redis/内存权威来源。
+- **连接健康数据源**：Gateway 每 30s 将各 account 的连接健康写入 `connection_metadata = {state: CONNECTED|DISCONNECTED, last_connected_at, updated_at}`，并与 `last_connected_at` 列单事务双写（以列为准）；这是 `connection_state` 的唯一事实源，其他进程不另行推断。platform-api 读取时若 `updated_at` 距当前超过 90s（3 个上报周期）则降级返回 `UNKNOWN`；Gateway 重启后尚未建连的 account 一律为 `UNKNOWN`，**不得伪造 CONNECTED**。`state` 不再有独立的 Redis/内存权威来源。
 
 **索引设计**
 
@@ -609,7 +609,7 @@ Agent scoped read channel_account(WECOM) → 连接状态只读 connection_metad
 
 **契约**：`GET /api/v1/users/{user_id}/channel-identities`
 
-**认证/授权**：Admin
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**：无。
 
@@ -650,7 +650,7 @@ channel_binding JOIN channel_identity；只展示脱敏/必要外部标识。
 
 **契约**：`DELETE /api/v1/users/{user_id}/channel-identities/{identity_id}`
 
-**认证/授权**：Admin
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**：无。
 
@@ -691,7 +691,7 @@ channel_binding JOIN channel_identity；只展示脱敏/必要外部标识。
 
 **契约**：`POST /api/v1/users/{user_id}/bind-codes`
 
-**认证/授权**：Admin
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**
 
@@ -755,7 +755,7 @@ transaction：撤销同 user+channel 未使用 PENDING → 生成高熵随机 co
 
 **契约**：`GET /api/v1/users/{user_id}/bind-codes/current`
 
-**认证/授权**：Admin
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **Query 参数**
 
@@ -806,7 +806,7 @@ transaction：撤销同 user+channel 未使用 PENDING → 生成高熵随机 co
 
 **契约**：`POST /api/v1/users/{user_id}/bind-codes/{bind_code_id}/revoke`
 
-**认证/授权**：Admin
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**：无。
 
@@ -905,7 +905,7 @@ V1 默认 remote_idempotency=false：UNKNOWN 保留诊断并停止自动重发�
 
 **请求体**：无。按 revision/分页增量读取，Gateway 只缓存可丢配置，重新启动可从 PG 读回；管理写入 platform-api 停机不影响本端点。
 
-**响应 data**：`{items:[{id, agent_id, channel_type, account_key, enabled, revision, secret_lease: {lease_id, value_masked: false, ttl_seconds, expires_at}}]}`
+**响应 data**：`{items:[{id, agent_id, channel_type, account_key, enabled, revision, secret_lease: {lease_id, value_present: true, value: "<secret>", ttl_seconds, expires_at}}]}`（`value_present` 为是否携带明文的布尔标记，`value` 仅本次携带短时明文）
 
 **Secret 解析通路**：本端点**不返回裸 `secret_ref`**，而是在受权 scope 内返回**短时 SecretLease**。Secret 值由 agent-runtime 经 `INFRA-LIB-04 resolve_secret` 以 service identity + account scope 解析后下发，`ttl_seconds ≤ 300s`；**不返回其他领域 Secret**（同租户其他 account、其他用途 Secret 都不含在内）。Gateway 侧只持有 lease 内存态，不落盘、不写日志。
 
@@ -930,7 +930,7 @@ V1 默认 remote_idempotency=false：UNKNOWN 保留诊断并停止自动重发�
 
 **契约**：`POST /internal/v1/channel-deliveries/{delivery_id}/dispatch`；agent-runtime 承载。
 
-**认证/授权**：service identity（AUTH-LIB-02 JWT，aud=agent-runtime）+ 有效 attempt_token；token 的签发/校验/audience/scope 由模块 09 AUTH-LIB-02 提供，本模块不重定义。不授予 attempt_token 的调用方一律拒绝；请求不能临时指定 route/payload。
+**认证/授权**：service identity（AUTH-LIB-02 JWT，aud=agent-runtime）+ 有效 attempt_token；token 的签发/校验/audience/scope 由模块 09 AUTH-LIB-02 提供，本模块不重定义。不授予 attempt_token 的调用方一律拒绝；请求不能临时指定 route/payload。`attempt_token` 生命周期：由 agent-runtime Python Port（Channel Application）签发，绑定 `tenant/delivery_id/lease_epoch` 与过期时间，单次有效，TTL 与发送租约（`lease_expires_at`）对齐；复用 AUTH-LIB-02 scope，不接受调用方自填。
 
 Python Channel Application 原子校验 SENDING/current epoch/租约、ChannelAccount enabled、路由归属与 payload；首次登记 dispatch_started_epoch 后返回 `{delivery_id,lease_epoch,route,remote_idempotency,payload}`。同 epoch 已登记时返回持久 outcome 或 UNKNOWN，不再次许可。Worker 的 outbox claim/result 使用同模块 Python Port 直接 PG，不依赖此 HTTP，也不调用管理面。
 

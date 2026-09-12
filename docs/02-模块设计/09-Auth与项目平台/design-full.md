@@ -352,7 +352,7 @@ erDiagram
 | id | uuid | ✓ | ✓ |
 | key | string | ✓ | ✓ |
 | name | string | ✓ | ✓ |
-| description | string | ✓ | ✗ |
+| description | string | ✓ | ✓ |
 | auth_type | string | ✓ | ✓（`UNCONFIGURED` 或已注册 Provider key；不含凭据、不含模板） |
 | auth_schema | object | ✓ | ✗ |
 | enabled | boolean | ✓ | ✓ |
@@ -469,7 +469,7 @@ Builder（未携带敏感字段）：以 auth_type=UNCONFIGURED、auth_schema={}
 
 **请求体**：无。
 
-**安全投影**：Builder 仅安全只读 DTO（ADR-021），字段级清单见响应字段表的「角色投影」列；不含 description/auth_schema——**认证模板字段列表（`auth_schema`）与 description 仅 Admin 可见**；Builder 保留 `auth_type`（模块 12 已注册 Provider 的机器 key，不含凭据与模板），与 PLAT-API-01 的安全投影一致，供 Builder 定义 PLATFORM_SERVICE 能力时选择平台。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；认证模板写入与验证仍仅 Admin（`PLAT-API-02/04` 的 `auth_type`/`auth_schema` 字段级、`PLAT-API-05` 整接口）。
+**安全投影**：Builder 仅安全只读 DTO（ADR-021），字段级清单见响应字段表的「角色投影」列；不含 auth_schema——**认证模板字段列表（`auth_schema`）仅 Admin 可见**，`description` 保留 Builder 可见；Builder 保留 `auth_type`（模块 12 已注册 Provider 的机器 key，不含凭据与模板），与 PLAT-API-01 的安全投影一致，供 Builder 定义 PLATFORM_SERVICE 能力时选择平台。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；认证模板写入与验证仍仅 Admin（`PLAT-API-02/04` 的 `auth_type`/`auth_schema` 字段级、`PLAT-API-05` 整接口）。
 
 **响应 data**
 
@@ -478,7 +478,7 @@ Builder（未携带敏感字段）：以 auth_type=UNCONFIGURED、auth_schema={}
 | id | uuid | ID | Admin + Builder |
 | name | string | 名称 | Admin + Builder |
 | key | string | Key | Admin + Builder |
-| description | string | 说明 | Admin |
+| description | string | 说明 | Admin + Builder |
 | auth_type | string | 类型（UNCONFIGURED 或模块 12 已注册 AUTH Provider key；不含凭据、不含模板） | Admin + Builder |
 | auth_schema | object | 认证字段定义（凭据表单模板） | Admin |
 | enabled | boolean | 状态 | Admin + Builder |
@@ -838,7 +838,7 @@ resolve Secret → AuthProvider.verify → 更新 status/verified_at/expiry → 
 **处理逻辑**
 
 ```text
-先在 DB 标记软删除/失效 → 触发 SecretProvider.delete；Secret 删除失败记录告警并重试清理，不恢复已撤销业务授权。
+先在 DB 标记软删除/失效 → 经 INFRA-LIB-07 `delete_secret` 清理 Secret 引用（幂等；`SECRET_NOT_FOUND` 视为成功）；Secret 删除失败记录告警并重试清理，不恢复已撤销业务授权；同事务写 `audit_log`（`details.changed_fields` + 脱敏，见模块 15）。`attempt_token` 不在本模块定义，复用 AUTH-LIB-02 scope（见模块 10 CH-DATA-03）。
 ```
 
 #### AUTH-LIB-01: 运行时用户认证解析

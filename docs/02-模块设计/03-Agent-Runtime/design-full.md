@@ -38,6 +38,7 @@
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | RT-INT-01 补 proposal/file 事件与签发步骤；新增 RT-LIB-03 Chat Run 领取/恢复；AGCORE-LIB-02 按 Contract 元数据分流（模块 04）；矩阵与 verifier 修正 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | RT-LIB-03 改为基于模块 01 的 CORE-LIB-08 LeaseQueue（claim/renew/assert_owner）实现，本模块只保留租约参数与领取排序键；新增 §3.2.3「运行面 vs 管理面」可用性合同与降级说明（D3=B+）；RT-INT-03 产物访问判定改为以 `artifact` 表 FK 为准（B6） |
+| V1.14 最简重设 | 2026-09-12 | Claude Code | N-4：RT-LIB-03 领取 SQL 收归本模块（固定 table/filter 参数），续租/释放/fencing 仍走 CORE-LIB-08 |
 
 ## 2. 需求分析
 
@@ -423,21 +424,19 @@ async def claim_conversation_run(ctx: TrustedExecutionContext, *, run_id: UUID |
 | 错误码 | 场景 | HTTP 状态 |
 |---|---|---|
 | CONVERSATION_RUN_NOT_FOUND | run_id 不存在或不属于本 tenant/actor | 404 |
-| LEASE_LOST | CORE-LIB-08.claim/renew/release/assert_owner 检测到 owner 或 lease_epoch 不匹配、租约已过期（已被他人接管） | 409 |
+| LEASE_LOST | CORE-LIB-08.renew/release/assert_owner（领取 SQL 见本模块 RT-LIB-03）检测到 owner 或 lease_epoch 不匹配、租约已过期（已被他人接管） | 409 |
 | AGENT_ACCESS_REVOKED | 领取时 current AgentAccessGrant 已撤销 | 403 |
 
 **处理逻辑**
 
 ```text
-领取/续租/释放/fencing 一律走模块 01 的 CORE-LIB-08 LeaseQueue，本模块只提供参数与职责，不实现第二套 epoch 递增或续租语义：
-  table=conversation_run、owner=本 Runtime 实例标识、ttl_ms=本角色租约周期；
-  filter：排序键 = source message 的 sequence_no；状态/到期谓词按“已到期 RUNNING 优先于新 turn”给出。
+领取 SQL 在本模块内（table=conversation_run、owner=本 Runtime 实例标识、ttl_ms=本角色租约周期固定给出，不接受外部透传；排序键 = source message 的 sequence_no；状态/到期谓词按“已到期 RUNNING 优先于新 turn”），领取时 `lease_epoch + 1`（与 CORE-LIB-08 epoch 语义一致）；续租/释放/fencing 一律走模块 01 的 CORE-LIB-08，本模块不实现第二套续租语义。
 同一 conversation_run 同时最多一个 owner；无可领取返回 None，调用方不得 busy-loop。
 领取成功后由本模块负责：构造 ctx、解析 current Agent/Memory、按 CheckpointIdentity（模块 11 §3.4）加载 checkpoint 续跑、不重复写 USER 消息、与 RT-INT-02 共用取消检查；恢复接管时 queued_message_id 为空。
 持有期内所有写入（图节点状态、响应消息、checkpoint 提交）必须先经 CORE-LIB-08.assert_owner 校验 owner+lease_epoch，或先 renew 失败即视为 LEASE_LOST；LEASE_LOST 后立即停止推进，且不得以同一 epoch 重试。
 ```
 
-**补充约束**：模块 03 不持有任何 conversation_run 的租约实现；`lease_epoch` 的递增只发生在 CORE-LIB-08.claim，续租不改 epoch（与模块 06 的 service_execution 共用同一实现与同一并发测试）。
+**补充约束**：模块 03 不持有任何 conversation_run 的续租/fencing 实现；`lease_epoch` 的递增只发生在领取事务（claim 时 +1），续租不改 epoch（与模块 06 的 service_execution 共用同一 epoch 语义与同一并发测试）。
 
 **触发方式**：入站消息处理过程中调用；Runtime 启动及周期性恢复扫描（到期 RUNNING）时调用。
 

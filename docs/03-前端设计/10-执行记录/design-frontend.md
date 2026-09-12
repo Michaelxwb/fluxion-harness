@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../fluxion-console-interaction-prototype-v0.8-final.html`
+> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
 
 ## 1. 文档控制
 
@@ -115,7 +115,7 @@
 
 **搜索范围包含「追踪标识」（Z-14）**：列表搜索框覆盖「执行编号 / 服务 / 智能体 / 触发用户 / **`trace_id`**」；`trace_id` 另提供独立筛选输入（`EXE-API-01` Query 已有 `trace_id`）。两者都走**服务端**筛选，前端不做客户端过滤。
 
-**Builder 可见范围（D6=A，V1.13.1）**：Admin 看本租户全部执行；**Builder 只看到**①自己创建的 Service（`service_definition.created_by = self`）的执行，②自己被授权 Agent（`AgentAccessGrant`）相关的执行。列表与详情同规则，**无权限的执行不返回**（不是返回后前端隐藏）；对越权 execution id 的详情请求按 `EXECUTION_NOT_FOUND`(404) 呈现（不返回 403，不泄露存在性）。Builder 的执行列表与详情**只读**，四个动作按钮一律不渲染。
+**Builder 可见范围（D6=A，V1.13.1）**：Admin 看本租户全部执行；**Builder 只看到**①自己创建的 Service（`service_definition.created_by = self`）的执行，②自己被授权 Agent（`AgentAccessGrant`）相关的执行——两者的**交集（INTERSECT）**（后端 05 L1582；场景：自建 Service + 未授权 Agent → 不可见）。列表与详情同规则，**无权限的执行不返回**（不是返回后前端隐藏）；对越权 execution id 的详情请求按 `EXECUTION_NOT_FOUND`(404) 呈现（不返回 403，不泄露存在性）。Builder 的执行列表与详情**只读**，四个动作按钮一律不渲染。
 
 **业务范围（D15，按 D5=A 最小 typed scope 口径）**：`resource_scope` 为 `{type, refs[], attributes?}`；列表与详情均只展示**范围引用 `refs[]`**（Builder / Admin 均可见），**不展示** `attributes`、不展示原始 `resource_scope_json`、不展示跨租户标识。列表支持按范围引用筛选（后端 `scope_refs` 直接投影 `refs`），候选值取自后端返回的可选范围引用集合，前端不硬编码范围枚举。V1 无 Scope Schema 与 `Schema Hash`，不再按类型元数据做投影脱敏。
 
@@ -149,7 +149,7 @@
 |---|---|---|---|
 | Execution 列表 | `EXE-API-01` | `GET /api/v1/executions` | Service 与 Execution |
 | Execution 详情/Timeline | `EXE-API-02` | `GET /api/v1/executions/{execution_id}` | Service 与 Execution |
-| 取消 Execution | `EXE-API-03` | `POST /api/v1/executions/{execution_id}/cancel` | Service 与 Execution |
+| 取消 Execution | `EXE-API-03` | `POST /api/v1/executions/{execution_id}/cancel`（Console 不调用；终止走 `EXE-API-05` decision=CANCEL，与 `90` §9.2 对齐） | Service 与 Execution |
 | 重试失败 Execution | `EXE-API-04` | `POST /api/v1/executions/{execution_id}/retry` | Service 与 Execution |
 | 重新投递结果 | `EXE-API-07` | `POST /api/v1/executions/{execution_id}/redeliver` | Service 与 Execution |
 | 下载产物 | `EXE-API-06` | `GET /api/v1/executions/{execution_id}/artifacts/{artifact_id}/download` | Service 与 Execution |
@@ -183,7 +183,7 @@
 |---|---|---|---|---|
 | RISK-10-01 | 单独建立 Async Task 菜单导致状态割裂 | 高 | AsyncTask 只在 Execution Detail 展开 | E2E/Integration |
 | RISK-10-02 | 取消按钮假成功 | 高 | 展示 CANCELLING 和 remote cancel capability | E2E/Integration |
-| RISK-10-03 | 本页三处契约依赖后端同轮同步（D6=A 可见范围、B2 `current_step_name`、D4=A `EXE-API-07`） | 高 | `EXE-API-01/02` 需补 `current_step_name` 并把授权从「本租户全量」改为 Builder 范围；`EXE-API-07` 需在模块 05 登记（当前仅 `EXE-API-03/04/05`） | E2E/Integration |
+| RISK-10-03 | 本页三处契约依赖后端同轮同步（D6=A 可见范围、B2 `current_step_name`、D4=A `EXE-API-07`） | 高 | `EXE-API-01/02` 需补 `current_step_name` 并把授权从「本租户全量」改为 Builder 范围；`EXE-API-07` 已在模块 05 登记（L731） | E2E/Integration |
 | RISK-10-04 | 两个「重试」语义被实现者合并回一个按钮 | 中 | 文案与门控写死为两个动作（`EXE-API-04` / `EXE-API-07`），并断言 `EXE-API-07` 不新建执行 | S-10-07, E-10-02 |
 
 ## Spec Compliance Matrix
@@ -192,6 +192,7 @@
 |---|---|---|---|---|---|
 | Console-V0.8#READONLY-DETAIL | required | 详情不得变成编辑入口 | §3.3/§3.7 | S-10-01 | applied |
 | Console-V0.8#SERVICE-LAYER | required | API 统一从 services 层发起 | §3.5 | S-10-01 | applied |
+| BACKEND-05#ADR-052-BUILDER-SCOPE | required | Builder 执行可见范围为自建 Service 与被授权 Agent 的交集（越权 404 `EXECUTION_NOT_FOUND`） | §3.4 | S-10-06 | applied |
 
 ## 附录：后端追溯
 

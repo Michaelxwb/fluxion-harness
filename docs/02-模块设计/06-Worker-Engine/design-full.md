@@ -36,6 +36,7 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.14 最简重设 | 2026-09-12 | Claude Code | N-1：`worker_slot_lease` 槽位行表改为单行计数器 `worker_slot_counter(resource_class PK, used, slot_limit)`（原子 UPDATE 抢占 + maintenance 对账，删 slot_no 分配/过期回收/抢占重试）；S-WORK-13 同步 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | B4：`browser`/`external-scan`/`large-report` 槽位改为集群级 PG 信号量（新增协调表 `worker_slot_lease` + S-WORK-13），其余 class 保持进程内计数；Q-02：租约默认值自洽（TTL=900000/心跳 300000）+ 启动自检拒绝启动 + RULE-WORK-08 失联语义改为可验收三行为；Y-02：RULE-WORK-04 增副作用合取条件与 `CREDENTIAL_INVALID` 处置、SYNC 分支补 `effect:{operation_id}`；B1：claim/renew/fencing 改为基于 `CORE-LIB-08 LeaseQueue`；B3：保留与清理按《11-数据保留与清理策略》 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 补齐 ASYNC 首次提交分支（SUBMITTING→submit→WAITING，幂等键 `effect:{operation_id}`）；WAITING_HUMAN 唤醒条件改为 pending-command/deadline（修复会被反复领取与决策 409 的缺陷）；新增 RULE-WORK-08 租约参数与心跳调用时机、RULE-WORK-09 投递触发；RULE-WORK-04 补错误分类与三层计数口径；WORK-LIB-06 补 human_wait/progress_stage 调度；新增 S-WORK-07..12 与 E-WORK-03；矩阵与 verifier 修正 |
 
@@ -105,14 +106,14 @@
 |---|---|---|
 | WORKER_GLOBAL_CONCURRENCY | 8 | 单 Worker 进程并发 Execution 上限 |
 | WORKER_PER_CAPABILITY_CONCURRENCY | 4 | 同一 capability_definition 并发调用上限 |
-| WORKER_RESOURCE_CLASS_SLOTS | default-io=8,llm-heavy=4,browser=2,external-scan=2,large-report=1 | 按 Resource Class 槽位准入；`browser`/`external-scan`/`large-report` 为**集群级 PG 信号量**，其余为进程内计数 |
+| WORKER_RESOURCE_CLASS_SLOTS | default-io=8,llm-heavy=4,browser=2,external-scan=2,large-report=1 | 按 Resource Class 槽位准入；`browser`/`external-scan`/`large-report` 为**集群级 PG 计数器**（单行 `used/limit`，原子 UPDATE 抢占），其余为进程内计数 |
 | WORKER_STEP_TIMEOUT_MS | default-io=300000,llm-heavy=600000,browser=900000 | Step 级超时；超时按 RULE-WORK-04 有界重试 |
 | WORKER_LEASE_TTL_MS | 900000 | **租约有效期**。启动自检必须满足 `TTL >= max(WORKER_STEP_TIMEOUT_MS)`，不满足则**拒绝启动**（fail-closed）并把两个值写入启动日志；不允许"仅告警继续"。默认值即按 browser 的 900000ms 取值，与默认 step timeout 自洽 |
 | WORKER_HEARTBEAT_INTERVAL_MS | 300000（= TTL/3） | 长步骤心跳间隔；超过一个心跳周期未成功续租即视为失联，本实例立即停止推进（但见 RULE-WORK-08 对"停止副作用"的可实现边界） |
 | WORKER_CLAIM_BATCH | 8 | 单轮 claim 批量 |
 | WORKER_POLL_INTERVAL_MS | 1000 | PG polling 兜底周期（Redis 仅唤醒，不影响正确性） |
 
-**集群级槽位（PG 信号量，ADR-056）**：`browser` / `external-scan` / `large-report` 三类槽位以 **PG 行级计数**实现——`worker_slot_lease(resource_class, slot_no, tenant_id, execution_id, worker_id, lease_expires_at)` 表（+ 公共字段），claim 前 `INSERT ... ON CONFLICT DO NOTHING` 抢占空闲 `slot_no`，释放时删除行或让 lease 过期；**lease 过期即视为释放**，避免 Worker 崩溃后槽位永久占用（与执行租约同源）。其余 Resource Class 保持进程内计数。指标：`worker_slot_in_use{resource_class}`、`worker_slot_wait_ms`。
+**集群级槽位（PG 计数器，ADR-056 V1.14 修订）**：`browser` / `external-scan` / `large-report` 三类槽位以 **单行计数器**实现——`worker_slot_counter(resource_class PK, used, slot_limit, CHECK used<=slot_limit)`，部署时预置 3 行（limit 取自 `WORKER_RESOURCE_CLASS_SLOTS`）。分发前同事务原子抢占：`UPDATE worker_slot_counter SET used=used+1 WHERE resource_class=:rc AND used<slot_limit RETURNING used`；`rowcount=0` 即无槽位，本轮跳过并按 `next_run_at` 退避（不忙轮询）。步骤终态同事务 `used=used-1` 释放。崩溃泄漏方向是**安全的**（只会少用、不会超用），由 maintenance 定期对账：`used := 该 class 下租约仍有效的 RUNNING 步骤数`（lease_owner 存活 + lease 未过期），并告警 `worker_slot_in_use{resource_class}`/`worker_slot_wait_ms`。其余 Resource Class 保持进程内计数。
 
 #### 2.5.2 功能验收场景
 
@@ -139,7 +140,7 @@
 |---|---|---|---|---|---|---|---|
 | E-WORK-01 | FEAT-WORK-01 | integration | Lease conditional update | 本模块 | Worker lease 已被抢走 | renew/advance 返回 LEASE_LOST | 停止执行 |
 | E-WORK-02 | FEAT-WORK-03 | integration | Retry policy | 本模块 | 非可重试/超上限错误 | 直接按 failure policy 终止/人工 | 不无限 retry |
-| S-WORK-13 | FEAT-WORK-01 | P1 | integration | 集群级槽位 | 本模块 | `external-scan` 槽位=2，两个 Worker 共提交 5 个该 class 的 Step | 并发执行 | 任一时刻最多 2 个在跑；槽位 owner 被 SIGKILL 后其 lease 到期即释放，不出现永久占用 |
+| S-WORK-13 | FEAT-WORK-01 | P1 | integration | 集群级槽位 | 本模块 | `external-scan` 槽位=2，两个 Worker 共提交 5 个该 class 的 Step | 并发执行 | 任一时刻最多 2 个在跑；槽位 owner 被 SIGKILL 后计数泄漏（`used` 偏大），maintenance 对账后恢复满额，不出现永久占用；泄漏期间只会少用、不会超用 |
 | E-WORK-03 | FEAT-WORK-03 | integration | 错误分类 | 本模块 | 分别抛出 `AUTH_EXPIRED`、`BUSINESS_REJECTED`、`RETRYABLE_TECHNICAL` | Worker 按 RULE-WORK-04 分类判定 | 三类的重试次数与最终状态唯一确定：AUTH_EXPIRED 刷新后重试一次、BUSINESS_REJECTED 不重试且按 failure_policy 收敛、RETRYABLE_TECHNICAL 有界退避后收敛；无 `while True` |
 
 #### 2.5.3 非功能指标
@@ -205,30 +206,26 @@ flowchart LR
 
 ### 3.3 数据设计
 
-本模块**不拥有独立业务表**。这是刻意设计：权威状态由其领域所有者持久化，本模块只读取/调用 Port。禁止为了实现方便新增 shadow truth、本地 SQLite 或进程内业务事实。
+本模块**不拥有业务事实表，仅拥有计数器协调表 worker_slot_counter（ADR-056 V1.14，可清空重建）**。这是刻意设计：权威状态由其领域所有者持久化，本模块只读取/调用 Port。禁止为了实现方便新增 shadow truth、本地 SQLite 或进程内业务事实。
 
 Worker 不新建独立 queue 表；直接操作 Service/Execution 模块拥有的 `service_execution/execution_step/async_task_run/execution_command`。任何新调度状态必须先评审是否应回归这些 owner 表。
 
-**唯一的例外（协调表，非业务事实）**：集群级 Resource Class 槽位需要跨 Worker 计数，因此本模块拥有 `worker_slot_lease`（ADR-056）——它是**协调/租约表**，不承载任何业务事实，也不与领域 Owner 的表产生第二事实源；lease 过期即视为释放，可随时清空重建。
+**唯一的例外（计数器协调表，非业务事实）**：集群级 Resource Class 槽位需要跨 Worker 计数，因此本模块拥有 `worker_slot_counter`（ADR-056 V1.14）——它是**单行计数器协调表**，不承载任何业务事实，也不与领域 Owner 的表产生第二事实源；行数恒为 3（每 class 一行），可随时清空重建（重建后由 maintenance 对账回填 `used`）。
 
-#### 表 `worker_slot_lease`
+#### 表 `worker_slot_counter`
 
-**职责**：集群级 Resource Class 槽位租约（协调表，非业务事实）。
+**职责**：集群级 Resource Class 槽位计数器（协调表，非业务事实）。
 
 | 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
 |---|---|---|---|---|---|
-| tenant_id | UUID | N |  | IDX | 租户 |
-| resource_class | VARCHAR(32) | N |  | UK | browser/external-scan/large-report |
-| slot_no | INTEGER | N |  | UK | 槽位序号（1..配置上限） |
-| execution_id | UUID | Y |  | IDX | 占用者执行 |
-| execution_step_id | UUID | Y |  |  | 占用者步骤 |
-| worker_id | VARCHAR(256) | N |  | IDX | 占用者实例 |
-| lease_expires_at | TIMESTAMPTZ | N |  | IDX | 到期即视为释放 |
-| id / is_deleted / create_time / update_time | — | — | — | — | 公共字段 |
+| resource_class | VARCHAR(32) | N |  | PK | browser/external-scan/large-report（预置 3 行） |
+| used | INTEGER | N | 0 |  | 当前占用数 |
+| slot_limit | INTEGER | N |  |  | 上限（取自 `WORKER_RESOURCE_CLASS_SLOTS`） |
+| id / create_time / update_time | — | — | — | — | 公共字段（无 `is_deleted`：行永久存在，不软删） |
 
-- UNIQUE (tenant_id, resource_class, slot_no)。
-- 抢占：`INSERT ... ON CONFLICT DO NOTHING`（同事务内先尝试清理已过期行）。
-- 释放：删除本 owner 的行；**不依赖**显式释放（过期即释放），以覆盖 Worker 崩溃。
+- CHECK (used >= 0 AND used <= slot_limit)。
+- 抢占：同事务 `UPDATE ... SET used=used+1 WHERE resource_class=:rc AND used<slot_limit RETURNING used`；`rowcount=0` 即无槽位，跳过本步骤并退避，不重试抢占（≤1 次判断，无 slot_no 分配竞争）。
+- 释放：步骤终态同事务 `UPDATE ... SET used=used-1 WHERE resource_class=:rc AND used>0`；崩溃泄漏由 maintenance 对账修复（见上），`worker_slot_in_use`/`worker_slot_wait_ms` 监控泄漏（`used` 持续大于实际 RUNNING 数即告警）。
 
 ### 3.4 接口设计
 
@@ -237,7 +234,7 @@ Worker 不新建独立 queue 表；直接操作 Service/Execution 模块拥有�
 | 接口ID | 名称 | 形态 | 方法/签名 | 路径/用途 |
 |---|---|---|---|---|
 | WORK-LIB-01 | Claim 可运行 Execution | Library | async def claim_due_executions(worker_id: str, limit: int, now: datetime) -> list[ClaimedExecution] |  |
-| WORK-LIB-02 | 续租 Execution | Library | async def renew_lease(execution_id: UUID, worker_id: str, expected_lease_until: datetime) -> bool |  |
+| WORK-LIB-02 | 续租 Execution | Library | async def renew_lease(tx, target_id: UUID, owner: str, expected_epoch: int, ttl_ms: int) -> bool（CORE-LIB-08 薄包装） |  |
 | WORK-LIB-03 | 推进一个步骤 | Library | async def advance_execution(claim: ClaimedExecution) -> AdvanceResult |  |
 | WORK-LIB-04 | 应用 ExecutionCommand | Library | async def apply_pending_commands(execution_id: UUID, worker_id: str) -> list[AppliedCommand] |  |
 | WORK-LIB-05 | 异步任务轮询/取消 | Library | async def progress_async_task(step: ExecutionStep, run: AsyncTaskRun, now: datetime) -> AsyncProgressResult |  |
@@ -246,6 +243,8 @@ Worker 不新建独立 queue 表；直接操作 Service/Execution 模块拥有�
 #### WORK-LIB-01: Claim 可运行 Execution
 
 **入口类型**：Library
+
+**认证/授权**：仅 Worker 运行角色可调用；`owner` 取本实例标识且须与租约 `lease_owner` 一致，失配按 `LEASE_LOST` 拒绝（CORE-LIB-08 约束，见模块 01）。
 
 **函数签名**
 
@@ -267,7 +266,7 @@ async def claim_due_executions(worker_id: str, limit: int, now: datetime) -> lis
 |---|---|---|
 | items | array<ClaimedExecution> | 已获得 lease 的 Execution |
 
-**领取合同**：本模块的 claim/renew/fencing **基于 `CORE-LIB-08 LeaseQueue` 实现**（唯一租约原语，见模块 01），不自行实现第二套 epoch/续租语义；下表谓词是本模块传给该原语的过滤条件。所有分支先排除其他 Worker 的有效租约；下面谓词是条件事实源。SQL 测试以 0/1 表示 boolean，生产 PG 映射到 FALSE/TRUE；`has_pending_command` 是同 tenant/execution 的 PENDING `CANCEL`/`RESUME` 的 EXISTS 投影（覆盖 WAITING/RETRY_WAIT 与 **WAITING_HUMAN** 三种状态），不是持久第二事实。`WAITING_HUMAN` 的唤醒**只认“有待处理决策”或“deadline 已到”**，不读 `requested_action`（该列仅在决策被接受后写入，见模块 05），因此未决策未到期的等待行不会被反复领取。
+**领取合同**：本模块的续租/释放/fencing **基于 `CORE-LIB-08` 实现**（唯一续租/fencing 原语，见模块 01），不自行实现第二套续租语义；领取 SQL 在本模块内（下述谓词 + 排序即本模块 claim 条件，领取时 `lease_epoch + 1`，epoch 语义与该原语一致）。所有分支先排除其他 Worker 的有效租约；下面谓词是条件事实源。SQL 测试以 0/1 表示 boolean，生产 PG 映射到 FALSE/TRUE；`has_pending_command` 是同 tenant/execution 的 PENDING `CANCEL`/`RESUME` 的 EXISTS 投影（覆盖 WAITING/RETRY_WAIT 与 **WAITING_HUMAN** 三种状态），不是持久第二事实。`WAITING_HUMAN` 的唤醒**只认“有待处理决策”或“deadline 已到”**，不读 `requested_action`（该列仅在决策被接受后写入，见模块 05），因此未决策未到期的等待行不会被反复领取。
 
 <!-- contract:worker-eligibility -->
 ```sql
@@ -292,18 +291,23 @@ NULL：无 lease 可领取，RUNNING 且 lease=NULL 视为恢复；WAITING/RETRY
 
 **入口类型**：Library
 
+**认证/授权**：仅 Worker 运行角色可调用；`owner` 取本实例标识且须与租约 `lease_owner` 一致，失配按 `LEASE_LOST` 拒绝（CORE-LIB-08 约束，见模块 01）。
+
 **函数签名**
 
 ```python
-async def renew_lease(execution_id: UUID, worker_id: str, expected_lease_until: datetime) -> bool
+async def renew_lease(tx, target_id: UUID, owner: str, expected_epoch: int, ttl_ms: int) -> bool
 ```
 
 **入参**
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| execution_id | uuid | Y | Execution |
-| worker_id | string | Y | owner |
+| tx | AsyncSession | Y | 调用方事务；与 CORE-LIB-08 同源 |
+| target_id | uuid | Y | Execution |
+| owner | string | Y | 本实例标识（Worker ID），须与租约 owner 一致 |
+| expected_epoch | integer | Y | 调用方持有的 lease_epoch；不符即 LEASE_LOST |
+| ttl_ms | integer | Y | 续租时长；到期时间=now+ttl_ms |
 
 **返回**
 
@@ -320,7 +324,7 @@ async def renew_lease(execution_id: UUID, worker_id: str, expected_lease_until: 
 **处理逻辑**
 
 ```text
-条件 UPDATE WHERE id=:id AND lease_owner=:owner AND lease_epoch=:epoch AND lease_expires_at=:expected AND lease_expires_at>:now；失败 LEASE_LOST，停止推进。状态/进度写入也校验同一 epoch。
+条件 UPDATE WHERE id=:id AND lease_owner=:owner AND lease_epoch=:expected_epoch AND lease_expires_at>:now（CORE-LIB-08 epoch fencing，不比较时间戳）；失败 LEASE_LOST，停止推进。状态/进度写入也校验同一 epoch。
 ```
 
 **调用时机（ADR-042，本轮补齐）**：
@@ -335,6 +339,8 @@ async def renew_lease(execution_id: UUID, worker_id: str, expected_lease_until: 
 #### WORK-LIB-03: 推进一个步骤
 
 **入口类型**：Library
+
+**认证/授权**：仅 Worker 运行角色可调用；`owner` 取本实例标识且须与租约 `lease_owner` 一致，失配按 `LEASE_LOST` 拒绝（CORE-LIB-08 约束，见模块 01）。
 
 **函数签名**
 
@@ -360,6 +366,7 @@ async def advance_execution(claim: ClaimedExecution) -> AdvanceResult
 读取并校验 CORE-LIB-05 projection → 当前安全校验 → 持租约优先应用命令 → dispatch CAPABILITY/AGENT/WAIT/HUMAN/DELIVERY → fencing transaction 写 Step/root/progress → 释放/续租。
 WAIT：首次进入以数据库时间+snapshot.wait_seconds 写 step.wait_until、root.next_run_at，均在释放 lease 的事务中；恢复只比较已存截止时间，禁止重新起算。未到期 WAITING，到期 Step SUCCEEDED 后前进。
 HUMAN：固化 context_summary（六要素）/human_deadline/next_run_at，**并在同一事务预建 `channel_delivery(event_type='human_wait', event_id=execution:human_wait:<step_key>:<entered_at>)`**（ADR-040），进入 WAITING_HUMAN 后释放 lease；处理顺序和决策竞争按 EXE-API-05。
+HUMAN_POLICY（与模块 05 ADR-055 正交）：`always` 由编译期在该步骤前插入 HUMAN 检查点；`on_uncertainty` 仅语义不确定/业务拒绝/达自动恢复上限可转 `WAITING_HUMAN`，技术故障不得转人工；`never` 命中转人工条件时按 `failure_policy` 收敛。
 DELIVERY：同业务事务写持久 channel_delivery（payload/dedupe），Step SUCCEEDED 表示已排队而非已送达；业务根可 SUCCEEDED，delivery_status 独立投影。投递失败不重跑已完成业务步骤，WORK-LIB-06 持续调度 outbox，即使根已终态。
 CAPABILITY（SYNC，`execution_mode=SYNC`）：注入 projection/source/test_mode → 调 `CAP-LIB-01 invoke_capability`，并传入与 ASYNC 同源的副作用幂等键 **`effect:{operation_id}`**（Provider 支持幂等头时透传）；DRY_RUN 不允许真实外部调用。
 CAPABILITY（ASYNC，`execution_mode=ASYNC`）——**首次提交分支（本轮补齐）**：
@@ -384,6 +391,8 @@ AGENT：注入 projection/source/test_mode，按 operation_id/step_key 恢复 ch
 #### WORK-LIB-04: 应用 ExecutionCommand
 
 **入口类型**：Library
+
+**认证/授权**：仅 Worker 运行角色可调用；`owner` 取本实例标识且须与租约 `lease_owner` 一致，失配按 `LEASE_LOST` 拒绝（CORE-LIB-08 约束，见模块 01）。
 
 **函数签名**
 
@@ -413,6 +422,8 @@ async def apply_pending_commands(execution_id: UUID, worker_id: str) -> list[App
 
 **入口类型**：Library
 
+**认证/授权**：仅 Worker 运行角色可调用；`owner` 取本实例标识且须与租约 `lease_owner` 一致，失配按 `LEASE_LOST` 拒绝（CORE-LIB-08 约束，见模块 01）。
+
 **函数签名**
 
 ```python
@@ -438,6 +449,8 @@ async def progress_async_task(step: ExecutionStep, run: AsyncTaskRun, now: datet
 ```
 
 #### WORK-LIB-06: 持久投递调度
+
+**认证/授权**：仅 Worker 运行角色可调用；`owner` 取本实例标识且须与租约 `lease_owner` 一致，失配按 `LEASE_LOST` 拒绝（CORE-LIB-08 约束，见模块 01）。
 
 **签名**：`async def advance_delivery(delivery_id: UUID, worker_id: str) -> DeliveryOutcome`
 

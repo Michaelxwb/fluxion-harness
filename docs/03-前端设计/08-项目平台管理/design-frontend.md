@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../fluxion-console-interaction-prototype-v0.8-final.html`
+> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
 
 ## 1. 文档控制
 
@@ -122,6 +122,8 @@
 
 **未配置态**：新增只提交 name/key/description/enabled；auth_type 缺省或 null 统一存 UNCONFIGURED，auth_schema={}，列表 configured=false 显示“待配置”。Admin 保存模板后变 configured=true；未配置平台的凭据编辑/验证入口禁用并说明原因；不将空模板当可用用户名密码认证。
 
+**列表查询**：通用契约见 FE-00 §3.4 `StandardListQuery`，本页领域筛选：`enabled`（另加 `keyword` 按名称/标识搜索），服务端筛选、改筛选重置 `page=1`、状态进 URL。
+
 **停用二次确认与影响面（Z-02）**：停用项目平台是**跨对象**危险操作（见 `../90-Console交互规格.md` §1.2.1），**不得**用普通开关停用——必须 Modal 二次确认，主按钮文案「停用」、取消为默认焦点，确认正文为影响面正文（不省略）：
 
 ```text
@@ -191,6 +193,7 @@
 |---|---|---|---|---|---|
 | Console-V0.8#READONLY-DETAIL | required | 详情不得变成编辑入口 | §3.3/§3.7 | S-08-01 | applied |
 | Console-V0.8#SERVICE-LAYER | required | API 统一从 services 层发起 | §3.5 | S-08-01 | applied |
+| BACKEND-09#FIELD-ADMIN-ONLY | required | 非 Admin 携带 `auth_type`/`auth_schema` 即 403 且原子拒绝 | §3.4 | E-08-01 | applied |
 
 ## 附录：后端追溯
 

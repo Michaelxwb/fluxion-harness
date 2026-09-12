@@ -38,6 +38,7 @@
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | OPS-API-03 改为 Prometheus/OpenMetrics 裸文本契约（text/plain; version=0.0.4，显式 Envelope 例外）；补 FEAT-OBS-06（Console 概览聚合）与 S-OBS-05；修正 S-OBS-04 功能归属与 §2.5.1 RULE→场景指向；重写 §6 追溯矩阵与合规矩阵 verifier |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | B7：`audit_log.details` 定死字段级 diff 结构（`changed_fields` + `digest`，Secret 只写 `"***"`）并补写入规则；AUDIT-API-01 行展开投影同步为 `details.changed_fields`；补 S-OBS-06（字段级 diff 且敏感字段不出现在 details）；Z-10：OPS-API-04 `today_human_timeout` 明确「用于概览独立卡片、不并入 `today_execution_failed`」及跳转条件 |
+| V1.14 最简重设 | 2026-09-12 | Claude Code | N-5：`changed_fields` 大小分流——大字段（draft_payload/snapshot_json 类或 >4KB）只存 `{field, before_hash, after_hash, diff_ref?}`，不再存 MB 级原文 |
 
 ## 2. 需求分析
 
@@ -196,7 +197,7 @@ flowchart LR
 | trace_id | VARCHAR(128) | Y |  | IDX | Trace |
 | before_digest | JSONB | N | {} |  | 变更前值的**整体摘要**（脱敏后，保留）；字段级差异见 `details.changed_fields` |
 | after_digest | JSONB | N | {} |  | 变更后值的**整体摘要**（脱敏后，保留）；字段级差异见 `details.changed_fields` |
-| details | JSONB | N | {} |  | 事件明细（脱敏后）；**结构定死（B7）**：`{"changed_fields":[{"field":"<字段名>","before":"<脱敏值或掩码>","after":"<脱敏值或掩码>"}],"digest":{"before":"...","after":"..."}}`；Secret 类字段的 before/after 只写 `"***"`；AUDIT-API-01 行展开即投影本字段的 `changed_fields` |
+| details | JSONB | N | {} |  | 事件明细（脱敏后）；**结构定死（B7，V1.14 大小分流）**：`{"changed_fields":[{"field":"<字段名>","before":"<脱敏值或掩码>","after":"<脱敏值或掩码>"}]}`——小字段存值；**大字段**（`service_definition.draft_payload`、`execution_snapshot.snapshot_json`、skill manifest 类，或单值序列化后 >4KB）只存 `{"field","before_hash","after_hash","diff_ref?"}`（hash = 脱敏后 canonical SHA-256 前…后由脱敏 helper 判定；`diff_ref` 为 ObjectStore 指针，可空，为空表示仅 hash 无 diff 内容）；Secret 类字段的 before/after 只写 `"***"`；AUDIT-API-01 行展开即投影本字段的 `changed_fields`；历史缺 `changed_fields` 的行读取默认 `[]`，新写经脱敏 helper |
 | execution_id | UUID | Y |  | IDX | 关联 Execution（可空：发布/授权/凭据类审计不关联执行；前端无此值时不显示跳转） |
 | result | VARCHAR(32) | N | SUCCESS | IDX | SUCCESS/DENIED/FAILED |
 | occurred_at | TIMESTAMPTZ | N | CURRENT_TIMESTAMP | IDX | 发生时间 |
@@ -208,7 +209,7 @@ flowchart LR
 **约束**
 
 - 禁止记录明文 Secret/password/token
-- **写审计时必须填充 `details.changed_fields`**：按实际变更字段逐项写入 `{field, before, after}`（Secret 类字段只写 `"***"`，不写脱敏前的原值）；无字段级变更的动作（发布、绑定、导入、启停等）可只写 `details.digest`，此时 `changed_fields` 为空数组 `[]`
+- **写审计时必须填充 `details.changed_fields`**：按实际变更字段逐项写入 `{field, before, after}`（Secret 类字段只写 `"***"`，不写脱敏前的原值；新写经脱敏 helper）；**大字段不存值**：单值序列化后 >4KB（或上表点名的大字段）只写 `{field, before_hash, after_hash, diff_ref?}`，`diff_ref` 为 ObjectStore 指针、可空；无字段级变更的动作（发布、绑定、导入、启停等）`changed_fields` 为空数组 `[]`（整体摘要见 `before_digest`/`after_digest` 列，不在 `details` 重复）
 - `before_digest`/`after_digest` 保留为整体摘要（变更前后值的摘要），**不替代** `details.changed_fields`
 - append-only
 
@@ -252,7 +253,7 @@ flowchart LR
 
 **契约**：`GET /health/live`
 
-**认证/授权**：无业务认证；仅部署网络暴露
+**认证/授权**：无业务认证；仅部署网络暴露（部署网段限制，与全局 RULE 豁免并列）
 
 **请求体**：无。
 
@@ -417,7 +418,7 @@ fluxion_execution_backlog{tier="default"} 3
 | items | array<AuditLogView> | 脱敏审计 |
 | total | integer | 总数 |
 
-**AuditLogView**：time、actor（用户名/标识）、action、resource_type、resource_id、result、trace_id、execution_id（可空，空则前端不显示跳转）、details（**行展开投影 `audit_log.details.changed_fields`（`{field, before, after}` 数组），Secret 掩码为 `"***"`**；无字段级变更时为空数组，可回退展示 `details.digest`）。
+**AuditLogView**：time、actor（用户名/标识）、action、resource_type、resource_id、result、trace_id、execution_id（可空，空则前端不显示跳转）、details（**行展开投影 `audit_log.details.changed_fields`（`{field, before, after}` 数组），Secret 掩码为 `"***"`**；无字段级变更时为空数组，可回退展示 `before_digest`/`after_digest` 列）。
 
 **响应示例**
 
@@ -441,7 +442,7 @@ fluxion_execution_backlog{tier="default"} 3
 
 ```text
 时间窗口必须有限；走 tenant/resource/actor/time 索引分页；
-details 只输出 changed_fields 与 digest（均为脱敏后的值；Secret 类字段为 "***"），永不返回 Secret/password/token 原值。
+details 只输出 changed_fields（脱敏后的值；Secret 类字段为 "***"），整体摘要见 before_digest/after_digest 列，永不返回 Secret/password/token 原值。
 ```
 
 ### 3.5 质量实现方案

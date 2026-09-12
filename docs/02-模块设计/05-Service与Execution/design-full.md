@@ -239,10 +239,11 @@ flowchart LR
 | snapshot_id | UUID | N |  | FK | 冻结业务投影 |
 | input_json | JSONB | N | {} |  | 校验后的输入 |
 | resource_scope_json | JSONB | N | {} |  | 确认范围 |
-| rendered_summary | TEXT | N |  |  | 实际展示内容 |
-| confirmation_digest | VARCHAR(64) | N |  |  | 绑定身份/版本/输入/范围/截止时间 |
+| template_hash | VARCHAR(64) | N |  |  | 确认模板版本 hash（Q-04；`confirmation_digest` 输入之一，不含 `rendered_summary`） |
+| confirmation_digest | VARCHAR(64) | N |  |  | 绑定身份/版本/输入/范围/模板/截止时间（`tenant|actor|service_release|input|resource_scope|template_hash|expires_at`，不含 `rendered_summary`） |
 | expires_at | TIMESTAMPTZ | N |  | IDX | 创建后 300 秒 |
 | status | VARCHAR(16) | N | PENDING |  | **PENDING/CONFIRMED 两态**（ADR-049）；"过期"与"被取代"是派生事实——分别按 `expires_at <= now` 与 `superseded_at IS NOT NULL` 判定，不进状态迁移 |
+| superseded_at | TIMESTAMPTZ | Y |  | IDX | 被取代时间；非空即被取代（派生判定），与 `confirmed_at` 互斥 |
 | confirmed_message_id | UUID | Y |  | FK message | 真实 USER 确认事件 |
 | confirmed_at | TIMESTAMPTZ | Y |  |  | 确认事务数据库时间 |
 | execution_id | UUID | Y |  | FK service_execution | 成功消费结果 |
@@ -254,7 +255,6 @@ flowchart LR
 **约束与索引**
 
 - UNIQUE (tenant_id,conversation_id) WHERE status='PENDING' AND is_deleted=false；签发新提案时旧 PENDING 同事务置 `superseded_at=now`（不引入 SUPERSEDED 状态）。
-- CHECK：`status='CONFIRMED'` 当且仅当 execution_id 非空；`superseded_at` 与 `confirmed_at` 互斥。
 - 签发后禁止修改身份/输入/范围/snapshot/digest/expires_at，只允许状态及消费关联更新。
 - CHECK: status=CONFIRMED 当且仅当 execution_id、confirmed_message_id、confirmed_at 全部非空；其他状态均为空。
 - confirmed_message_id 对同 tenant 唯一（非空时）；消费与创建执行在同一事务。
@@ -343,6 +343,7 @@ flowchart LR
 | draft_revision | BIGINT | Y |  |  | TEST 必填，FORMAL 为空 |
 | test_mode | VARCHAR(16) | Y |  |  | TEST=DRY_RUN/REAL_TEST；FORMAL 为空 |
 | content_hash | VARCHAR(64) | N |  | UK | 完整投影 hash |
+| snapshot_schema_version | INT | N | 1 |  | 快照结构版本；未知版本拒绝执行并 `SERVICE_VALIDATION_FAILED`，不静默按新结构解析 |
 | snapshot_json | JSONB | N |  |  | CORE-LIB-05 ExecutionProjection，完整持久化 |
 | snapshot_ref | VARCHAR(1024) | Y |  |  | 超大制品引用；identity/source/hash 仍持久化 |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
@@ -621,6 +622,8 @@ flowchart LR
 
 **归属约束**：owner_type=EXECUTION 时 execution_id=owner_id 且非空；CONVERSATION 时 execution_id/execution_step_id 为空，owner_id 引用同租户 Conversation。读写者必须是对应 actor 或有管理读权限。Chat 产物随对话回复经内部受权流发送，不能冒充后台执行；RESULT 的 execution_id 入口只取 EXECUTION 产物。
 
+**保留与清理**：产物保留期满由本模块按《11-数据保留与清理策略》触发 GC，经 INFRA-LIB-06 `delete_object` 删除对象；凭据类清理经 INFRA-LIB-07（见模块 14）。
+
 #### 3.3.2 ER 图
 
 ```mermaid
@@ -705,6 +708,7 @@ erDiagram
 - Secret/Token/Password 不落业务表明文，只保存 `secret_ref/credential_ref`。
 - 不可变 Release/Snapshot/Artifact 使用 append-only；需要更新时新建记录。
 - `revision` 用于 direct-effect 配置的乐观并发和审计，不等同于发布版本。
+- 关键写操作（发布/执行创建/重试/人工决策）与业务变更同事务写 `audit_log`（`details.changed_fields` + 脱敏），或由中间件兜底（见模块 15）。
 
 ### 3.4 接口设计
 
@@ -1279,7 +1283,7 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
 
 **语义校验**：step_key/output_var 各自唯一；STEP 引用只允许已出现的 step_key，path 是 JSON Pointer；没有隐式字符串插值。前端把“前一步输出/Service 输入/字面量”控件序列化为三种 input_mapping。output_var 是可选显示别名，解析时归一到 step_key，不能创建第二套输出事实。Schema 校验先于依赖/Scope/风险检查。
 
-resource_scope 采用**最小 typed 形态** `{type, refs[], attributes?}`（ADR-050）：`type` 的取值白名单来自当前部署 Integration manifest 的 `resource_scope_types` 声明（**内存投影、装配期校验、不落库、无 schema_hash**）；`refs` 即对外与筛选使用的范围引用（`scope_refs` 直接投影 `refs`，不需要额外的类型元数据推导）；`attributes` 只允许该类型声明的字段。**本模块不再声明 Service 级 scope JSON Schema，也不计算 `scope_hash` 参与摘要**（V1 只有一个参考 Integration，泛化留待第二个 Integration 接入）。
+resource_scope 采用**最小 typed 形态** `{type, refs[], attributes?}`（ADR-050）：`type` 的取值白名单来自当前部署 Integration manifest 的 `resource_scope_types` 声明（**内存投影、装配期校验、不落库、无 schema_hash**）；`refs` 即对外与筛选使用的范围引用（`scope_refs` 直接投影 `refs`，不需要额外的类型元数据推导）；`attributes` 只允许该类型声明的字段。**本模块不再声明 Service 级 scope JSON Schema，也不计算 `scope_hash` 参与摘要**（V1 只有一个参考 Integration，泛化留待第二个 Integration 接入）。`resource_scope` 可为 `null`（无范围），非空须符合上述 typed 形态。
 
 primary_agent_id 的修改进入 Draft，发布时冻结；service_definition.primary_agent_id/execution_type 是当前 Draft 的检索投影，运行使用 Release/快照。AGENTIC 无显式步骤时编译为主 Agent 的一个逻辑步骤；HYBRID/DETERMINISTIC 按给定顺序执行。
 
@@ -1589,7 +1593,7 @@ DRY_RUN：可信 ctx.projection.test_mode 注入 Worker→Agent→Skill 宿主�
 
 **契约**：`GET /api/v1/executions/{execution_id}`
 
-**认证/授权**：Builder + Admin；当前租户的管理只读范围
+**认证/授权**：Builder + Admin；当前租户的管理只读范围（可见范围同 EXE-API-01，ADR-052）
 
 **响应**：`{execution: ExecutionView,steps: ExecutionStepView[],async_tasks: AsyncTaskView[],progress_events: ProgressEvent[],artifacts: ArtifactSummary[],deliveries: DeliveryView[],commands: CommandSummary[]}`。
 
@@ -1771,13 +1775,17 @@ V1 不支持原生文件的 Adapter 返回 CHANNEL_FILE_UNSUPPORTED，不静默�
 
 **签名**：`async def create_from_proposal(ctx: TrustedExecutionContext, proposal_id: UUID) -> ServiceExecution`
 
-仅 EXE-LIB-03 可调用：锁住持久 proposal，检查同租户/本人/会话、已验证 USER 确认事件、digest/截止时间与 current release 未变；动态验证 user/Agent/grant/Skill/Model/Capability enabled；加载已有 snapshot，不重新解析 current 业务逻辑。以 `proposal:{proposal_id}` 为执行幂等键，事务创建 root+steps（每步 operation_id）、记录 confirmed_message_id/confirmed_at/execution_id 并将提案置 CONFIRMED；提交后 wake Worker。已 CONFIRMED 返回原执行。错误：PROPOSAL_EXPIRED/PROPOSAL_STALE/PROPOSAL_DIGEST_MISMATCH（409）、PROPOSAL_ACCESS_DENIED（403）。
+**认证/授权**：仅 EXE-LIB-03 同事务调用；`ctx` 须为可信 Runtime 上下文（tenant/actor 取自 `ctx`，不接受请求体覆盖）。
+
+仅 EXE-LIB-03 可调用：锁住持久 proposal，检查同租户/本人/会话、已验证 USER 确认事件、digest/截止时间与 current release 未变；动态验证 user/Agent/grant/Skill/Model/Capability enabled；加载已有 snapshot，不重新解析 current 业务逻辑，不再写第二份 `snapshot_json`——新建 `service_execution.snapshot_id` **直接复用 `proposal.snapshot_id`**（单快照行两处引用，见 `04-数据库设计基线` §10）。以 `proposal:{proposal_id}` 为执行幂等键，事务创建 root+steps（每步 operation_id）、记录 confirmed_message_id/confirmed_at/execution_id 并将提案置 CONFIRMED；提交后 wake Worker。已 CONFIRMED 返回原执行。错误：PROPOSAL_EXPIRED/PROPOSAL_STALE/PROPOSAL_DIGEST_MISMATCH（409）、PROPOSAL_ACCESS_DENIED（403）。
 
 **创建时补充（服务端、事务内）**：① `delivery_route_id` 取本会话（`conversation_id`）当前持久 DeliveryRoute，无则留空并在结果生成时回退本会话路由，此后不随用户切换会话漂移（ADR-045）；② `execution_mode` 按 ServiceDraft 编译结果推导（存在 ASYNC 步骤即 ASYNC）；③ `execution_source=FORMAL` 且 `service_release_id` = 提案冻结的 release。三者均不接受调用方传入。
 
 #### EXE-LIB-02: 签发待确认提案
 
 **签名**：`async def issue_proposal(ctx: TrustedExecutionContext, candidate: ExecutionProposalCandidate) -> ExecutionProposalView`
+
+**认证/授权**：仅可信 Runtime 内部调用；`ctx` 的 tenant/actor 为唯一身份来源，不接受外部传入。
 
 Runtime 在展示确认前调用。校验 candidate 不含身份字段，从 ctx 注入 tenant/actor/conversation；要求 Service 已发布且 enabled，校验 input/resource_scope 与引用；冻结 CORE-LIB-05 投影。
 
@@ -1790,6 +1798,8 @@ Runtime 在展示确认前调用。校验 candidate 不含身份字段，从 ctx
 #### EXE-LIB-03: 消费真实用户确认
 
 **签名**：`async def confirm_proposal(ctx: TrustedExecutionContext, proposal_id: UUID, user_message_id: UUID, confirmation_ref: str | None = None) -> ServiceExecution`
+
+**认证/授权**：仅可信 Runtime 内部调用；`ctx` 的 tenant/actor 为唯一身份来源，跨租户/跨 actor 拒绝。
 
 **confirmation_ref 的两种合法输入路径**：① 交互卡片回调携带 `confirmation_ref`（由 EXE-LIB-02 签发给渠道），必须与持久 proposal 逐字段匹配（tenant/actor/service_release/input_hash/refs_hash/template_hash/expires_at），不匹配 `PROPOSAL_DIGEST_MISMATCH`；② 纯文本“确认”经 CH-INT-02 CONFIRM 只带 `verified_message_id`，此时 `confirmation_ref=None`，由本函数按 `tenant+actor+conversation` 取当前唯一 PENDING 提案，且必须满足“该会话仅一个 PENDING + 消息为已验证 USER 事件”。两条路径的消费结果一致，均不接受 LLM 生成的确认标记。
 
