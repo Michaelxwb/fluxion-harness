@@ -67,9 +67,8 @@ def test_initial_migration_create_tables_include_mandatory_columns() -> None:
     create_statements = [
         statement for statement in module.UPGRADE_STATEMENTS if statement.startswith("CREATE TABLE ")
     ]
-    # 0003 drops retired tables and creates the V1.12 foundation tables; the
-    # live table set is the net of all migrations, not 0001 alone.
-    retired = {"external_auth_profile", "user_service_auth", "integration_registration"}
+    # V1.14 is a single-baseline chain: the live table set is exactly 0001.
+    retired: set[str] = set()
     created_0001 = {statement.split()[2] for statement in create_statements} - retired
     assert created_0001.issubset(set(Base.metadata.tables)), (
         f"0001 tables missing from live metadata: {created_0001 - set(Base.metadata.tables)}"

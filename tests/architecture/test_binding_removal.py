@@ -42,9 +42,9 @@ def test_migration_chain_has_single_head() -> None:
         revision = ns.get("revision")
         down_revision = ns.get("down_revision")
         revs[str(revision)] = str(down_revision) if down_revision is not None else None
-    assert revs.get("0002") == "0001"
-    assert revs.get("0003") == "0002"
-    assert "0003" not in revs.values(), "0003 must be the migration head"
+    assert revs.get("0001") is None
+    assert len(revs) == 1, f"V1.14 is a single-baseline chain, found: {sorted(revs)}"
+    assert "0001" not in revs.values(), "0001 must be the migration head"
 
 
 def test_routing_goes_through_default_agent() -> None:

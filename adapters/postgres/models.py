@@ -3,7 +3,9 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -280,6 +282,9 @@ class ModelConfigModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
     provider: Mapped[str] = mapped_column(String(128), nullable=False)
     model: Mapped[str] = mapped_column(String(256), nullable=False)
     config: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    api_key_secret_ref: Mapped[str | None] = mapped_column(String(512))
+    extra_headers: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    request_timeout_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
@@ -338,6 +343,9 @@ class ServiceDefinitionModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixi
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="DRAFT")
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_by: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("platform_user.id"), nullable=False
+    )
 
     __table_args__ = (
         Index(
@@ -347,6 +355,7 @@ class ServiceDefinitionModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixi
             unique=True,
             postgresql_where=text("is_deleted = false"),
         ),
+        Index("ix_service_definition_created_by", "tenant_id", "created_by"),
     )
 
 
@@ -466,11 +475,11 @@ class CapabilityDefinitionModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantM
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     input_schema: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     output_schema: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
-    side_effect: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="LOW")
+    side_effect: Mapped[str] = mapped_column(String(32), nullable=False, default="none")
+    risk_level: Mapped[str] = mapped_column(String(16), nullable=False, default="LOW")
+    invocation_policy: Mapped[str] = mapped_column(String(16), nullable=False, default="DIRECT")
     auth_requirement: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     idempotency_semantics: Mapped[str] = mapped_column(String(64), nullable=False, default="NONE")
-    execution_characteristic: Mapped[str] = mapped_column(String(64), nullable=False, default="SYNC")
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     __table_args__ = (
@@ -480,6 +489,23 @@ class CapabilityDefinitionModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantM
             "capability_key",
             unique=True,
             postgresql_where=text("is_deleted = false"),
+        ),
+        CheckConstraint(
+            "side_effect IN ('none','read','write','destructive')",
+            name="ck_capability_definition_side_effect",
+        ),
+        CheckConstraint(
+            "risk_level IN ('LOW','MEDIUM','HIGH')",
+            name="ck_capability_definition_risk_level",
+        ),
+        CheckConstraint(
+            "invocation_policy IN ('DIRECT','EXECUTION_ONLY')",
+            name="ck_capability_definition_invocation_policy",
+        ),
+        CheckConstraint(
+            "invocation_policy = 'EXECUTION_ONLY' OR "
+            "(side_effect IN ('none','read') AND risk_level IN ('LOW','MEDIUM'))",
+            name="ck_capability_definition_direct_safety",
         ),
     )
 
@@ -631,6 +657,14 @@ class MessageModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
     content_ref: Mapped[str | None] = mapped_column(String(1024))
     content: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     external_message_id: Mapped[str | None] = mapped_column(String(512))
+    verified_channel_account_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("channel_account.id")
+    )
+    actor_user_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("platform_user.id")
+    )
+    processing_status: Mapped[str] = mapped_column(String(32), nullable=False, default="QUEUED")
+    sequence_no: Mapped[int | None] = mapped_column(Integer)
 
     __table_args__ = (
         Index("ix_message_conversation_time", "conversation_id", "create_time"),
@@ -677,9 +711,15 @@ class ChannelDeliveryModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin)
         PGUUID(as_uuid=True), ForeignKey("channel_delivery_route.id"), nullable=False
     )
     channel_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    event_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    payload_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
     attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dispatch_started_epoch: Mapped[int | None] = mapped_column(Integer)
+    remote_idempotency: Mapped[str | None] = mapped_column(String(256))
     dedupe_key: Mapped[str] = mapped_column(String(128), nullable=False)
     last_error: Mapped[str | None] = mapped_column(Text)
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -687,6 +727,60 @@ class ChannelDeliveryModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin)
     __table_args__ = (
         Index("uq_channel_delivery_dedupe", "tenant_id", "dedupe_key", unique=True),
         Index("ix_channel_delivery_execution", "execution_id", "status"),
+    )
+
+
+class ExecutionProposalModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
+    __tablename__ = "execution_proposal"
+
+    actor_user_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("platform_user.id"), nullable=False
+    )
+    conversation_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("conversation.id"), nullable=False
+    )
+    service_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("service_definition.id"), nullable=False
+    )
+    agent_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("agent_definition.id"), nullable=False
+    )
+    service_release_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("service_release.id"), nullable=False
+    )
+    snapshot_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("execution_snapshot.id"), nullable=False
+    )
+    input_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    resource_scope_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    template_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    confirmation_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="PENDING")
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    confirmed_message_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("message.id")
+    )
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    execution_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("service_execution.id")
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_execution_proposal_pending_conversation",
+            "tenant_id",
+            "conversation_id",
+            unique=True,
+            postgresql_where=text("is_deleted = false AND status = 'PENDING'"),
+        ),
+        CheckConstraint(
+            "(status = 'CONFIRMED' AND confirmed_message_id IS NOT NULL "
+            "AND confirmed_at IS NOT NULL AND execution_id IS NOT NULL) OR "
+            "(status != 'CONFIRMED' AND confirmed_message_id IS NULL "
+            "AND confirmed_at IS NULL AND execution_id IS NULL)",
+            name="ck_execution_proposal_confirmed_fields",
+        ),
     )
 
 
@@ -700,6 +794,9 @@ class ExecutionSnapshotModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixi
     service_content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     agent_release_ref: Mapped[str | None] = mapped_column(String(256))
     agent_revision: Mapped[int | None] = mapped_column(Integer)
+    snapshot_schema_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default=text("1")
+    )
     snapshot_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
     __table_args__ = (
@@ -742,6 +839,7 @@ class ServiceExecutionModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin
     input: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
     current_step: Mapped[str | None] = mapped_column(String(256))
+    current_step_name: Mapped[str | None] = mapped_column(String(128))
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     lease_owner: Mapped[str | None] = mapped_column(String(256))
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -816,6 +914,7 @@ class AsyncTaskRunModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="SUBMITTED")
     next_poll_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     poll_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reconcile_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
@@ -842,6 +941,11 @@ class ExecutionCommandModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin
     command_type: Mapped[str] = mapped_column(String(64), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     idempotency_key: Mapped[str | None] = mapped_column(String(512))
+    request_digest: Mapped[str | None] = mapped_column(String(128))
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    result_execution_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("service_execution.id")
+    )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
 
     __table_args__ = (
@@ -875,6 +979,9 @@ class TaskProgressEventModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixi
 class ArtifactModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
     __tablename__ = "artifact"
 
+    owner_type: Mapped[str | None] = mapped_column(String(64))
+    owner_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True))
+    workspace_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("workspace.id"))
     execution_id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("service_execution.id"), nullable=False
     )
@@ -905,4 +1012,129 @@ class AuditLogModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
     __table_args__ = (
         Index("ix_audit_log_entity_time", "resource_type", "resource_id", "create_time"),
         Index("ix_audit_log_actor_time", "actor_user_id", "create_time"),
+    )
+
+
+class ConversationRunModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
+    __tablename__ = "conversation_run"
+
+    conversation_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("conversation.id"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="QUEUED")
+    source_message_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True))
+    sequence_no: Mapped[int | None] = mapped_column(Integer)
+    lease_owner: Mapped[str | None] = mapped_column(String(256))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_epoch: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+
+    __table_args__ = (
+        Index("ix_conversation_run_conversation_seq", "tenant_id", "conversation_id", "sequence_no"),
+    )
+
+
+class ChannelCommandReceiptModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
+    __tablename__ = "channel_command_receipt"
+
+    message_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    actor_user_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("platform_user.id"))
+    command: Mapped[str] = mapped_column(String(128), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    request_digest: Mapped[str | None] = mapped_column(String(128))
+    result_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    __table_args__ = (
+        Index(
+            "uq_channel_command_receipt_message",
+            "tenant_id",
+            "message_id",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
+        Index(
+            "uq_channel_command_receipt_idempotency",
+            "tenant_id",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
+    )
+
+
+class SkillImportPreviewModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
+    __tablename__ = "skill_import_preview"
+
+    skill_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("skill_definition.id")
+    )
+    artifact_ref: Mapped[str | None] = mapped_column(String(1024))
+    manifest_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    validation_report: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    preview_token: Mapped[str] = mapped_column(String(256), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    checksum: Mapped[str | None] = mapped_column(String(128))
+
+    __table_args__ = (
+        Index("uq_skill_import_preview_token", "tenant_id", "preview_token", unique=True),
+    )
+
+
+class SkillArtifactValidationEventModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
+    """Append-only review verdicts; never UPDATE the skill_artifact row itself."""
+
+    __tablename__ = "skill_artifact_validation_event"
+
+    skill_artifact_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("skill_artifact.id"), nullable=False
+    )
+    result: Mapped[str] = mapped_column(String(32), nullable=False)
+    report_ref: Mapped[str | None] = mapped_column(String(1024))
+    created_by: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("platform_user.id"))
+
+    __table_args__ = (
+        Index("ix_skill_artifact_validation_event_artifact", "skill_artifact_id", "create_time"),
+    )
+
+
+class SkillArtifactCapabilityModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
+    """Immutable Artifact -> Capability dependency snapshot; importer writes only."""
+
+    __tablename__ = "skill_artifact_capability"
+
+    skill_artifact_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("skill_artifact.id"), nullable=False
+    )
+    capability_key: Mapped[str] = mapped_column(String(256), nullable=False)
+
+    __table_args__ = (
+        Index(
+            "uq_skill_artifact_capability_key",
+            "tenant_id",
+            "skill_artifact_id",
+            "capability_key",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
+    )
+
+
+class WorkerSlotCounterModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
+    """Cluster-level slot counters (ADR-056 V1.14), not business facts.
+
+    Rows are permanent and never soft-deleted (is_deleted/tenant columns exist
+    only to satisfy the framework-wide persistence contract). The table always
+    holds 3 rows (one per resource_class); it may be truncated and rebuilt,
+    with maintenance backfilling `used` by reconciliation. Tenant is always
+    the default tenant; counters are globally shared, not per-tenant.
+    """
+
+    __tablename__ = "worker_slot_counter"
+
+    resource_class: Mapped[str] = mapped_column(String(32), nullable=False)
+    used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    slot_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    __table_args__ = (
+        Index("uq_worker_slot_counter_resource_class", "resource_class", unique=True),
+        CheckConstraint("used >= 0 AND used <= slot_limit", name="ck_worker_slot_counter_used_range"),
     )
