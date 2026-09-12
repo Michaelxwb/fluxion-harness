@@ -6,8 +6,8 @@
 
 # 模型配置与调用 模块需求与设计一体化文档
 
-> **文档编号**: MOD-MODEL-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-MODEL-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | `request_timeout_ms` → `request_timeout_seconds`（秒，默认 60，1..600）；MODEL-API-02/04 补 `extra_headers` 并同步详情响应与 DDL；MODEL-API-01/03 补 Admin/Builder 角色投影与 ModelSummary 字段清单；统一 `api_key_configured`；修正 §2.5.1 RULE→场景指向并重写 §6 追溯矩阵与合规矩阵 verifier |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D2 字段级授权：MODEL-API-02/04 由「仅 Admin」改为「Builder + Admin（敏感字段仅 Admin）」，`api_key` 仅 Admin 可写、非 Admin 携带即 403 `FIELD_ADMIN_ONLY` 并原子拒绝；B9：`extra_headers` 改 Header 名 allowlist（拒绝凭据类 Header + 值 ≤ 1024）；`api_key_secret_ref` 允许为空（`api_key_configured=false`）并明确 fail closed；MODEL-API-05 二选一结论为**维持仅 Admin**并写明理由 |
 
 ## 2. 需求分析
 
@@ -87,9 +89,9 @@
 | ID | 类型 | 描述 | 验证场景 |
 |---|---|---|---|
 | RULE-MODEL-01 | 协议 | V1 protocol 固定 OPENAI_COMPATIBLE。 | S-MODEL-01 |
-| RULE-MODEL-02 | Agent | 一个 Agent V1 只引用一个 ModelConfig。 | S-MODEL-02 |
-| RULE-MODEL-03 | Secret | API key 不落 DB/响应/日志明文。 | S-MODEL-03 |
-| RULE-MODEL-04 | 生效 | 编辑 direct-effect + revision，新请求使用 current。 | S-MODEL-04 |
+| RULE-MODEL-02 | Agent | 一个 Agent V1 只引用一个 ModelConfig。 | S-MODEL-03 |
+| RULE-MODEL-03 | Secret | API key 不落 DB/响应/日志明文。 | S-MODEL-01, E-MODEL-01 |
+| RULE-MODEL-04 | 生效 | 编辑 direct-effect + revision，新请求使用 current。 | S-MODEL-04, E-MODEL-02 |
 | RULE-MODEL-05 | Deadline | 模型调用必须有 request deadline，禁止无限 retry。 | S-MODEL-05 |
 
 #### 2.5.2 功能验收场景
@@ -191,10 +193,10 @@ flowchart LR
 | protocol | VARCHAR(32) | N | OPENAI_COMPATIBLE |  | V1 固定协议 |
 | base_url | VARCHAR(1024) | N |  |  | OpenAI-compatible API Base URL |
 | model_name | VARCHAR(256) | N |  | IDX | 实际模型名 |
-| api_key_secret_ref | VARCHAR(512) | N |  |  | Secret Provider 引用 |
+| api_key_secret_ref | VARCHAR(512) | Y |  |  | Secret Provider 引用；为空 = 尚未配置密钥（`api_key_configured=false`，仅 Admin 可写入） |
 | default_parameters | JSONB | N | {} |  | temperature/max_tokens 等受控参数 |
-| extra_headers | JSONB | N | {} |  | 非 Secret Header；Secret Header 仍用 ref |
-| request_timeout_ms | INTEGER | N | 60000 |  | 请求 deadline，必须 >0 |
+| extra_headers | JSONB | N | {} |  | 附加请求 Header；键值均为字符串，须通过 Header 名 allowlist（见下方 B9 约束），禁止承载凭据 |
+| request_timeout_seconds | INTEGER | N | 60 |  | 请求 deadline（**单位：秒**），允许 1..600 |
 | enabled | BOOLEAN | N | TRUE | IDX | 是否可用于新请求 |
 | revision | BIGINT | N | 1 |  | 乐观并发/审计版本 |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
@@ -207,12 +209,15 @@ flowchart LR
 - UNIQUE (tenant_id,key) WHERE is_deleted=false
 - protocol=OPENAI_COMPATIBLE
 - api_key_secret_ref 不得保存明文 Key
+- api_key_secret_ref 可空：为空表示该模型尚未配置密钥（`api_key_configured=false`）；此时 fail closed——MODEL-API-05 与 MODEL-LIB-01 一律不得以无凭据方式发起调用（`MODEL_AUTH_FAILED` 502）
+- **`extra_headers` Header 名 allowlist 校验（B9）**：以下 Header 名一律拒绝——精确名（大小写不敏感）`Authorization`/`Cookie`/`Set-Cookie`/`Proxy-Authorization`，以及名字中（大小写不敏感）包含 `token`/`key`/`secret`/`auth`/`credential` 的任意 Header；值必须为字符串且长度 ≤ 1024；非法时 `MODEL_EXTRA_HEADERS_INVALID`(400) 并通过 `field_errors` 定位到 `extra_headers`（可精确到具体 Header 名）。需要凭据的 Header 必须走 SecretProvider 引用（`api_key_secret_ref`）而非明文
+- request_timeout_seconds INTEGER NOT NULL DEFAULT 60，CHECK 1..600
 
 **索引设计**
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
-| uk_model_config_key | UNIQUE | tenant_id,key | 稳定引用 |
+| uk_model_config_key | UNIQUE(partial) | tenant_id,key | WHERE is_deleted=false；稳定引用 |
 | idx_model_config_status | BTREE | tenant_id,enabled,is_deleted | 模型列表/解析 |
 
 #### 3.3.2 ER 图
@@ -259,14 +264,26 @@ flowchart LR
 
 **请求体**：无。
 
-**安全投影**：Builder 可读 id/key/name/enabled/revision；模型还可读 model_name/protocol，平台还可读 auth_type/configured。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；敏感写/测试接口仅 Admin。
+**角色投影**
+
+| 字段 | Admin | Builder（ModelSummary 安全只读 DTO） |
+|---|---|---|
+| id / key / name / protocol / model_name / enabled / revision | ✓ | ✓ |
+| api_key_configured（布尔，派生 `api_key_secret_ref IS NOT NULL`） | ✓ | ✓ |
+| base_url（非凭据；写入受 SSRF allowlist 约束） | ✓ | ✓ |
+| default_parameters（temperature/max_tokens 等，非凭据） | ✓ | ✓ |
+| request_timeout_seconds（非凭据） | ✓ | ✓ |
+| extra_headers（**可能承载网关凭据，仅 Admin**） | ✓ | ✗ |
+| api_key_secret_ref | 仅内部使用，任何响应都不返回 | ✗ |
+
+**ModelSummary**：`id`、`key`、`name`、`protocol`、`model_name`、`enabled`、`revision`、`api_key_configured`。**列表对 Builder 与 Admin 返回同一组字段，不含 `base_url`/`default_parameters`/`extra_headers`**（与 `90-Console交互规格.md` §6.1「列表不渲染接口地址、对 Admin 也只在详情展示」一致）。**列表不因角色产生字段差异**（两角色同一组摘要字段）；角色差异只在**详情/表单**按字段级敏感度体现（见下）。写操作是**字段级授权**（ADR-058）：敏感字段只有 `api_key`（Secret 引用）与 `extra_headers`（可能承载网关凭据），其余字段 Builder 与 Admin 均可写。**详情与表单的 Builder 可见字段（V1.13.1 统一口径，见 ADR-046 澄清）**：`id/key/name/protocol/model_name/base_url/default_parameters/request_timeout_seconds/enabled/revision/api_key_configured` —— 即「Builder 能写的字段就能看见」，避免出现「表单可填但详情不可见」的自相矛盾；**仅 Admin** 的是 `api_key` 与 `extra_headers`（`90-Console交互规格.md` §6.2 不渲染这两个控件，提交体不含）。冻结交互稿的模型表单还包含「温度/最大输出令牌数」（= `default_parameters`）与「额外请求头」，前者按本口径对 Builder 开放，后者因可能承载网关凭据保持仅 Admin（已在 `03-前端设计/README.md` 取代声明中登记）。连通性测试 MODEL-API-05 仍仅 Admin（理由见该接口段）。列表投影对两角色一致（不含 Secret/`base_url`/`default_parameters`/`extra_headers`/`request_timeout_seconds`）。
 
 **响应 data**
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| items | array<ModelSummary> | 不返回 api_key_secret_ref 原值 |
-| total | integer | 总数 |
+| 字段 | 类型 | 角色投影 | 说明 |
+|---|---|---|---|
+| items | array<ModelSummary> | Builder + Admin | 仅上述 8 个字段；不返回 base_url/default_parameters/extra_headers/api_key_secret_ref |
+| total | integer | Builder + Admin | 总数 |
 
 **响应示例**
 
@@ -289,7 +306,7 @@ flowchart LR
 **处理逻辑**
 
 ```text
-Builder/Admin 鉴权 → tenant scoped 查询 → Secret 字段只返回 configured=true。
+Builder/Admin 鉴权 → tenant scoped 查询 → 按角色投影（Builder 只返回 ModelSummary 8 字段）→ Secret 只以 api_key_configured 布尔表达。
 ```
 
 #### MODEL-API-02: 新增模型
@@ -298,7 +315,7 @@ Builder/Admin 鉴权 → tenant scoped 查询 → Secret 字段只返回 configu
 
 **契约**：`POST /api/v1/models`
 
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；**Builder + Admin（敏感字段仅 Admin）**——其中 `api_key` 字段仅 Admin 可写（ADR-021 字段级授权）
 
 **请求体**
 
@@ -306,11 +323,12 @@ Builder/Admin 鉴权 → tenant scoped 查询 → Secret 字段只返回 configu
 |---|---|---|---|
 | name | string | Y | 配置名 |
 | key | string | Y | 稳定 Key |
-| base_url | string | Y | OpenAI-compatible URL |
+| base_url | string | Y | OpenAI-compatible URL；非敏感字段，Builder 亦可写，但必须通过 §3.5.3 的 SSRF allowlist |
 | model_name | string | Y | 模型名 |
-| api_key | string | Y | 仅请求中出现，写 Secret Provider |
+| api_key | string | **仅 Admin：Y；非 Admin：必须缺省** | **仅 Admin 可写**；仅请求中出现，写 Secret Provider。非 Admin 请求中出现本字段（含 `null`/空串）一律 403 `FIELD_ADMIN_ONLY` 且不修改任何字段。缺省时 `api_key_secret_ref` 为空（`api_key_configured=false`），由 Admin 后续补齐 |
 | default_parameters | object | N | 受控默认参数 |
-| request_timeout_ms | integer | N | 默认 60000 |
+| extra_headers | object | N | 附加请求 Header；键值均为字符串，须通过 **Header 名 allowlist（B9，见 §3.3 约束）**；命中拒绝名单即 `MODEL_EXTRA_HEADERS_INVALID`(400)，需要凭据的 Header 必须走 SecretProvider 的 `api_key_secret_ref` |
+| request_timeout_seconds | integer | N | 默认 60；允许 1..600，单位为秒 |
 | enabled | boolean | N | 默认 true |
 
 **请求示例**
@@ -323,7 +341,8 @@ Builder/Admin 鉴权 → tenant scoped 查询 → Secret 字段只返回 configu
   "model_name": "<model_name>",
   "api_key": "<api_key>",
   "default_parameters": {},
-  "request_timeout_ms": 1,
+  "extra_headers": {},
+  "request_timeout_seconds": 60,
   "enabled": true
 }
 ```
@@ -357,12 +376,19 @@ Builder/Admin 鉴权 → tenant scoped 查询 → Secret 字段只返回 configu
 |---|---|---|
 | MODEL_KEY_EXISTS | key 重复 | 409 |
 | MODEL_PROTOCOL_UNSUPPORTED | V1 仅 OpenAI-Compatible | 400 |
+| MODEL_TIMEOUT_INVALID | request_timeout_seconds 不在 1..600 | 400 |
+| MODEL_EXTRA_HEADERS_INVALID | extra_headers 值非字符串/长度 > 1024，或 Header 名命中 B9 allowlist（疑似凭据 Header） | 400 |
+| FIELD_ADMIN_ONLY | 非 Admin 请求中出现 `api_key`（含 `null`/空串） | 403 |
 | SECRET_WRITE_FAILED | Secret Provider 写入失败 | 502 |
 
 **处理逻辑**
 
 ```text
-校验 URL/参数 → SecretProvider.put(api_key) → INSERT model_config(secret_ref) → audit；若 DB 失败补偿删除刚写 Secret。
+字段级授权：非 Admin 请求中出现 api_key（含 null/空串）→ 立即 403 FIELD_ADMIN_ONLY（原子拒绝：不得写入任何字段，也不得部分成功）。
+校验 URL/参数（含 request_timeout_seconds 范围、base_url 的 SSRF allowlist、extra_headers 的 B9 Header 名 allowlist 与值长度）
+→ 若请求含 api_key（仅 Admin 可能）：SecretProvider.put(api_key) → INSERT model_config(secret_ref) → audit；
+   若缺省：INSERT model_config(api_key_secret_ref=NULL, api_key_configured=false)，不得发起无凭据调用。
+若 DB 失败补偿删除刚写 Secret。
 ```
 
 #### MODEL-API-03: 模型详情
@@ -375,25 +401,24 @@ Builder/Admin 鉴权 → tenant scoped 查询 → Secret 字段只返回 configu
 
 **请求体**：无。
 
-**安全投影**：Builder 可读 id/key/name/enabled/revision；模型还可读 model_name/protocol，平台还可读 auth_type/configured。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；敏感写/测试接口仅 Admin。
+**响应 data**（按角色投影：Builder 只收到标注 Builder 的字段，Admin 收到全部字段）
 
-**响应 data**
+| 字段 | 类型 | 角色投影 | 说明 |
+|---|---|---|---|
+| id | uuid | Builder + Admin | ID |
+| name | string | Builder + Admin | 名称 |
+| key | string | Builder + Admin | Key |
+| protocol | string | Builder + Admin | OPENAI_COMPATIBLE |
+| model_name | string | Builder + Admin | 模型 |
+| enabled | boolean | Builder + Admin | 状态 |
+| revision | integer | Builder + Admin | revision |
+| api_key_configured | boolean | Builder + Admin | 派生 `api_key_secret_ref IS NOT NULL`；不返回 ref 本体 |
+| base_url | string | 仅 Admin | Base URL；Builder 不渲染内部地址 |
+| default_parameters | object | 仅 Admin | 默认参数 |
+| extra_headers | object | 仅 Admin | 附加非敏感 Header |
+| request_timeout_seconds | integer | 仅 Admin | 超时（秒） |
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| id | uuid | ID |
-| name | string | 名称 |
-| key | string | Key |
-| protocol | string | OPENAI_COMPATIBLE |
-| base_url | string | Base URL |
-| model_name | string | 模型 |
-| default_parameters | object | 默认参数 |
-| request_timeout_ms | integer | 超时 |
-| api_key_configured | boolean | 是否配置 Secret |
-| enabled | boolean | 状态 |
-| revision | integer | revision |
-
-**响应示例**
+**响应示例**（Admin）
 
 ```json
 {
@@ -404,13 +429,14 @@ Builder/Admin 鉴权 → tenant scoped 查询 → Secret 字段只返回 configu
     "name": "<name>",
     "key": "<key>",
     "protocol": "<protocol>",
-    "base_url": "<base_url>",
     "model_name": "<model_name>",
-    "default_parameters": {},
-    "request_timeout_ms": 1,
-    "api_key_configured": true,
     "enabled": true,
-    "revision": 1
+    "revision": 1,
+    "api_key_configured": true,
+    "base_url": "<base_url>",
+    "default_parameters": {},
+    "extra_headers": {},
+    "request_timeout_seconds": 60
   },
   "request_id": "req_xxx"
 }
@@ -425,7 +451,8 @@ Builder/Admin 鉴权 → tenant scoped 查询 → Secret 字段只返回 configu
 **处理逻辑**
 
 ```text
-tenant scoped 查询；永不返回 Secret。
+tenant scoped 查询 → 按调用者角色投影：Builder 只返回 id/name/key/protocol/model_name/enabled/revision/api_key_configured；
+Admin 追加 base_url/default_parameters/extra_headers/request_timeout_seconds。永不返回 api_key_secret_ref 本体或 Secret 值。
 ```
 
 #### MODEL-API-04: 编辑模型
@@ -434,18 +461,19 @@ tenant scoped 查询；永不返回 Secret。
 
 **契约**：`PUT /api/v1/models/{model_id}`
 
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；**Builder + Admin（敏感字段仅 Admin）**——其中 `api_key` 字段仅 Admin 可写（ADR-021 字段级授权）
 
 **请求体**
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | name | string | Y | 名称 |
-| base_url | string | Y | URL |
+| base_url | string | Y | URL；非敏感字段，Builder 亦可写，但必须通过 §3.5.3 的 SSRF allowlist |
 | model_name | string | Y | 模型名 |
-| api_key | string | N | 非空才替换 Secret |
+| api_key | string | N | **仅 Admin 可写**；非空才替换 Secret。非 Admin 请求中出现本字段（含 `null`/空串）一律 403 `FIELD_ADMIN_ONLY` 且不修改任何字段 |
 | default_parameters | object | N | 参数 |
-| request_timeout_ms | integer | Y | >0 |
+| extra_headers | object | N | 附加请求 Header；键值均为字符串，须通过 **Header 名 allowlist（B9，见 §3.3 约束）**；命中拒绝名单即 `MODEL_EXTRA_HEADERS_INVALID`(400)；传空对象即清空 |
+| request_timeout_seconds | integer | Y | 允许 1..600，单位为秒 |
 | enabled | boolean | Y | 状态 |
 | revision | integer | Y | 乐观锁 |
 
@@ -458,7 +486,8 @@ tenant scoped 查询；永不返回 Secret。
   "model_name": "<model_name>",
   "api_key": "<api_key>",
   "default_parameters": {},
-  "request_timeout_ms": 1,
+  "extra_headers": {},
+  "request_timeout_seconds": 60,
   "enabled": true,
   "revision": 1
 }
@@ -491,11 +520,18 @@ tenant scoped 查询；永不返回 Secret。
 |---|---|---|
 | MODEL_NOT_FOUND | 不存在 | 404 |
 | REVISION_CONFLICT | 并发冲突 | 409 |
+| MODEL_TIMEOUT_INVALID | request_timeout_seconds 不在 1..600 | 400 |
+| MODEL_EXTRA_HEADERS_INVALID | extra_headers 值非字符串/长度 > 1024，或 Header 名命中 B9 allowlist（疑似凭据 Header） | 400 |
+| FIELD_ADMIN_ONLY | 非 Admin 请求中出现 `api_key`（含 `null`/空串） | 403 |
 
 **处理逻辑**
 
 ```text
-校验 revision → 可选 rotate Secret → UPDATE config/revision → audit；新请求使用新 revision，运行中调用按其开始时 resolve 语义。
+字段级授权：非 Admin 请求中出现 api_key（含 null/空串）→ 立即 403 FIELD_ADMIN_ONLY（原子拒绝：整次请求不修改任何字段；同一请求里的非敏感字段变更也不生效）。
+校验 revision → 校验 request_timeout_seconds 范围、base_url 的 SSRF allowlist、extra_headers 的 B9 Header 名 allowlist 与值长度
+→ 仅 Admin 且 api_key 非空时才 rotate Secret → UPDATE config/revision → audit（details.changed_fields 记字段级 before/after，api_key 类只记 "***"）；
+新请求使用新 revision，运行中调用按其开始时 resolve 语义。
+Admin 之外的角色编辑其他字段不受影响（同一次请求不含敏感字段时正常成功）。
 ```
 
 #### MODEL-API-05: 模型连通性测试
@@ -504,21 +540,21 @@ tenant scoped 查询；永不返回 Secret。
 
 **契约**：`POST /api/v1/models/{model_id}/test`
 
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；**仅 Admin（ADR-021）**——D2 二选一结论：本接口**不放给 Builder**，理由写死如下：① 测试会用已存 Secret 向 `base_url` 发起真实出站请求，是「凭据使用 + 出站探测」动作而非纯读；② `base_url` 属非敏感字段、Builder 可写，若放开测试，Builder 可采用任意 `base_url` 触发带凭据的出站请求（SSRF/内网探测 oracle，可由 latency 与 `provider_request_id` 反馈），与 RISK-MODEL-01 冲突；③ 响应虽只含 ok/latency_ms/provider_request_id/model_name（不含 base_url/Secret），但上述能力面已属敏感面，且前端规格（`03-前端设计/07-模型管理`）已冻结「测试按钮仅 Admin 渲染、Builder 直调 403」。
 
 **请求体**
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | prompt | string | N | 默认短探针，不存储 |
-| timeout_ms | integer | N | 不得超过模型配置 hard limit |
+| timeout_seconds | integer | N | 本次连通性测试的超时（秒，1..600）；缺省取模型配置的 `request_timeout_seconds`，**不得超过该 hard limit** |
 
 **请求示例**
 
 ```json
 {
   "prompt": "<prompt>",
-  "timeout_ms": 1
+  "timeout_seconds": 1
 }
 ```
 
@@ -559,12 +595,16 @@ tenant scoped 查询；永不返回 Secret。
 **处理逻辑**
 
 ```text
-读取当前模型 → SecretProvider.resolve → OpenAI-compatible client 发最小请求 → 解析 → 返回脱敏结果；不写 Conversation/Execution。
+读取当前模型 → 若 api_key_secret_ref 为空（api_key_configured=false）→ fail closed，直接 MODEL_AUTH_FAILED（502），不得以无凭据方式发起请求
+→ SecretProvider.resolve → 校验 base_url 通过 SSRF allowlist → OpenAI-compatible client 发最小请求 → 解析
+→ 返回脱敏结果（仅 ok/latency_ms/provider_request_id/model_name，永不回显 base_url、请求 Header、上游原始响应体）；不写 Conversation/Execution。
 ```
 
 #### MODEL-LIB-01: 模型流式调用
 
 **入口类型**：Library
+
+**认证/授权**：Library；调用方必须持有 CORE-LIB-06 的可信上下文（AgentExecutor/Runtime 注入）；Execution 路径必须使用 `ctx.projection` 中的模型事实，Chat 路径取 current；Secret 一律按当前 `model_id` 实时解析，不从快照或调用方参数获取。
 
 **函数签名**
 
@@ -593,11 +633,12 @@ async def stream_model(ctx: TrustedExecutionContext, model_id: UUID, messages: l
 |---|---|---|
 | MODEL_DISABLED | 禁用 | 409 |
 | MODEL_TIMEOUT | deadline | 504 |
+| MODEL_AUTH_FAILED | `api_key_secret_ref` 为空（`api_key_configured=false`）或 Secret 解析失败；fail closed | 502 |
 
 **处理逻辑**
 
 ```text
-ctx.execution_id 非空：要求 ctx.projection.models[model_id]，只取冻结 protocol/base_url/model_name/default_parameters/timeouts；禁止缺失时回退 current。Chat 取 current。实时检查 Model enabled，以当前 model_id 定位 SecretProvider，不冻结 Secret。options 只能覆盖快照策略允许项，不得换 endpoint/model；统一 event/error/usage。
+ctx.execution_id 非空：要求 ctx.projection.models[model_id]，只取冻结 protocol/base_url/model_name/default_parameters/extra_headers/request_timeout_seconds；禁止缺失时回退 current。Chat 取 current。实时检查 Model enabled 与 api_key_secret_ref 非空（为空即 fail closed 返回 MODEL_AUTH_FAILED 502，禁止无凭据调用），以当前 model_id 定位 SecretProvider，不冻结 Secret。options 只能覆盖快照策略允许项，不得换 endpoint/model；统一 event/error/usage。
 ```
 
 ### 3.5 质量实现方案
@@ -615,7 +656,7 @@ ctx.execution_id 非空：要求 ctx.projection.models[model_id]，只取冻结 
 
 #### 3.5.3 安全性
 
-Base URL 需要 SSRF allowlist/部署策略；extra_headers 中 Secret 必须以 ref 表示；Prompt/response 日志按隐私策略采样/脱敏。
+Base URL 需要 SSRF allowlist/部署策略——因 `base_url` 是非敏感字段（Builder 可写，见 §3.4 MODEL-API-02/04），该 allowlist 是**强制**控制而非可选项；`extra_headers` 按 Header 名 allowlist（B9）强制校验，禁止承载凭据/密钥类 Header（敏感值必须走 SecretProvider 的 api_key_secret_ref）；`api_key` 为字段级 Admin-only，非 Admin 出现即 403 `FIELD_ADMIN_ONLY` 且原子拒绝；Prompt/response 日志按隐私策略采样/脱敏。
 
 #### 3.5.4 可观测性
 
@@ -654,21 +695,21 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-MODEL-01 | MODEL-API-01, MODEL-API-02 | S-MODEL-01 | E2E/integration | 待实现/评审 |
-| FEAT-MODEL-02 | MODEL-API-02, MODEL-API-03 | 见 §2.5 | E2E/integration | 待实现/评审 |
-| FEAT-MODEL-03 | MODEL-API-03, MODEL-API-04 | S-MODEL-02, E-MODEL-01 | E2E/integration | 待实现/评审 |
-| FEAT-MODEL-04 | MODEL-API-04, MODEL-API-05 | S-MODEL-03 | E2E/integration | 待实现/评审 |
-| FEAT-MODEL-05 | MODEL-API-05, MODEL-LIB-01 | S-MODEL-04, E-MODEL-02 | E2E/integration | 待实现/评审 |
+| FEAT-MODEL-01 | MODEL-API-01, MODEL-API-02, MODEL-API-03, MODEL-API-04 | S-MODEL-01, S-MODEL-04, E-MODEL-02 | E2E/integration | 待实现/评审 |
+| FEAT-MODEL-02 | MODEL-API-02, MODEL-API-03 | S-MODEL-01, E-MODEL-01 | E2E/integration | 待实现/评审 |
+| FEAT-MODEL-03 | MODEL-API-05 | S-MODEL-02, E-MODEL-01 | E2E/integration | 待实现/评审 |
+| FEAT-MODEL-04 | MODEL-LIB-01 | S-MODEL-03, S-MODEL-05 | E2E/integration | 待实现/评审 |
+| FEAT-MODEL-05 | MODEL-API-04 | S-MODEL-04, E-MODEL-02 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/MODEL#RULE-MODEL-01 | design-baseline | 约束实现与验收 | §2.5 RULE-MODEL-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/MODEL#RULE-MODEL-02 | design-baseline | 约束实现与验收 | §2.5 RULE-MODEL-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/MODEL#RULE-MODEL-03 | design-baseline | 约束实现与验收 | §2.5 RULE-MODEL-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/MODEL#RULE-MODEL-04 | design-baseline | 约束实现与验收 | §2.5 RULE-MODEL-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/MODEL#RULE-MODEL-05 | design-baseline | 约束实现与验收 | §2.5 RULE-MODEL-05 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/MODEL#RULE-MODEL-01 | design-baseline | 约束实现与验收 | §2.5 RULE-MODEL-01 / §3.3 DDL 约束 | S-MODEL-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/MODEL#RULE-MODEL-02 | design-baseline | 约束实现与验收 | §2.5 RULE-MODEL-02 / §3.4.1 MODEL-LIB-01 | S-MODEL-03 | applied；仓库 spec-context 待绑定 |
+| DESIGN/MODEL#RULE-MODEL-03 | design-baseline | 约束实现与验收 | §2.5 RULE-MODEL-03 / §3.4.1 MODEL-API-03 | S-MODEL-01, E-MODEL-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/MODEL#RULE-MODEL-04 | design-baseline | 约束实现与验收 | §2.5 RULE-MODEL-04 / §3.4.1 MODEL-API-04 | S-MODEL-04, E-MODEL-02 | applied；仓库 spec-context 待绑定 |
+| DESIGN/MODEL#RULE-MODEL-05 | design-baseline | 约束实现与验收 | §2.5 RULE-MODEL-05 / §3.4.1 MODEL-LIB-01 | S-MODEL-05 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

@@ -6,8 +6,8 @@
 
 # 存储与基础设施适配 模块需求与设计一体化文档
 
-> **文档编号**: MOD-INFRA-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-INFRA-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,7 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 修正 §2.5.1 RULE→场景指向并重写 §6 追溯矩阵（消除错位与空接口列）；补 INFRA-LIB-01..05 认证/授权行；合规矩阵填真实 verifier；修正 S-INFRA-04 场景列缺失 |
 
 ## 2. 需求分析
 
@@ -88,8 +89,8 @@
 |---|---|---|---|
 | RULE-INFRA-01 | 外置 | PG/Redis/ObjectStore/SecretProvider/OTel Backend 外部部署。 | S-INFRA-01 |
 | RULE-INFRA-02 | Redis | Redis 丢失后业务 truth 不丢，Worker 可 PG polling 自愈。 | S-INFRA-02 |
-| RULE-INFRA-03 | Secret | 业务表只保存 secret_ref；上层不拿长期明文。 | S-INFRA-03 |
-| RULE-INFRA-04 | Object | 大内容使用 ObjectRef，不无界写 PostgreSQL JSONB。 | S-INFRA-04 |
+| RULE-INFRA-03 | Secret | 业务表只保存 secret_ref；上层不拿长期明文。 | S-INFRA-04, E-INFRA-01 |
+| RULE-INFRA-04 | Object | 大内容使用 ObjectRef，不无界写 PostgreSQL JSONB。 | S-INFRA-03, E-INFRA-02 |
 
 #### 2.5.2 功能验收场景
 
@@ -100,7 +101,7 @@
 | S-INFRA-01 | FEAT-INFRA-01 | P0 | integration | App→external PG | 本模块 | 外部 PG 可用 | 启动/事务读写 | 健康且事务正确 |
 | S-INFRA-02 | FEAT-INFRA-02 | P0 | E2E | Worker→PG + Redis down | 后置 → 模块 06 | Redis 停止 | 新 due execution | PG polling 仍执行 |
 | S-INFRA-03 | FEAT-INFRA-03 | P0 | integration | ObjectStore | 本模块 | 100MB artifact stream | put/get range | 内存不复制整对象 |
-| S-INFRA-04 | FEAT-INFRA-04 | P0 | integration | SecretProvider | 本模块 | 写/resolve secret | 业务 DB 仅 ref，日志无明文 |
+| S-INFRA-04 | FEAT-INFRA-04 | P0 | integration | SecretProvider | 本模块 | 已配置 SecretProvider | 写/resolve secret | 业务 DB 仅 ref，日志无明文 |
 
 **异常场景**
 
@@ -187,10 +188,14 @@ flowchart TB
 | INFRA-LIB-03 | Secret 写入 | Library | async def put_secret(scope: SecretScope, value: SecretValue, metadata: SecretMetadata) -> SecretRef |  |
 | INFRA-LIB-04 | Secret 解析 | Library | async def resolve_secret(ref: SecretRef, ctx: TrustedExecutionContext) -> SecretLease |  |
 | INFRA-LIB-05 | Redis Wake-up | Library | async def publish_wakeup(topic: str, key: str) -> None |  |
+| INFRA-LIB-06 | ObjectStore 删除对象 | Library | async def delete_object(ref: ObjectRef, *, reason: str) -> None | 幂等；被引用时拒绝 |
+| INFRA-LIB-07 | Secret 删除引用 | Library | async def delete_secret(ref: SecretRef, *, reason: str) -> None | 幂等；凭据轮换/撤销的补偿清理 |
 
 #### INFRA-LIB-01: ObjectStore 写对象
 
 **入口类型**：Library
+
+**认证/授权**：Library；调用方必须持有 CORE-LIB-06 的可信上下文，`StorageScope` 的 tenant 必须取自 `ctx`；不接受上游自报 scope 或 access key。
 
 **函数签名**
 
@@ -228,6 +233,8 @@ async def put_object(scope: StorageScope, stream: AsyncIterator[bytes], metadata
 
 **入口类型**：Library
 
+**认证/授权**：Library；读取前必须由模块 05 校验 Artifact/Workspace 所有权；禁止直接使用外部提供的 `object_ref`。`sign_read` 仅限服务到服务取流，不进入 Console/IM/SDK 响应。
+
 **函数签名**
 
 ```python
@@ -264,6 +271,8 @@ tenant/scope validate → stream；模块 05 校验 Artifact/Workspace owner 后
 
 **入口类型**：Library
 
+**认证/授权**：Library；仅限已认证控制面写路径（Admin 角色或持有 AUTH-LIB-02 service token 的服务身份）经领域 Application Service 调用；`SecretScope` 的 tenant 必须取自 `ctx`。
+
 **函数签名**
 
 ```python
@@ -298,6 +307,8 @@ async def put_secret(scope: SecretScope, value: SecretValue, metadata: SecretMet
 #### INFRA-LIB-04: Secret 解析
 
 **入口类型**：Library
+
+**认证/授权**：Library；调用方必须持有 CORE-LIB-06 的可信上下文并以该 `ctx` 校验 tenant/resource scope；Node 角色（如 channel-gateway）不得直接调用，必须经模块 10 的内部契约入口。
 
 **函数签名**
 
@@ -335,6 +346,8 @@ async def resolve_secret(ref: SecretRef, ctx: TrustedExecutionContext) -> Secret
 
 **入口类型**：Library
 
+**认证/授权**：Library；仅进程内运行角色（platform-api/agent-runtime/worker）在自身 `ctx` 内调用；topic/key 必须基于 `ctx.tenant_id` 派生，不得接受外部指定跨租户 key。
+
 **函数签名**
 
 ```python
@@ -355,6 +368,56 @@ best-effort publish；失败不得造成业务事实丢失，Worker 必须能依
 ```
 
 **补充约束**：Redis 不是 SoT。
+
+#### INFRA-LIB-06: ObjectStore 删除对象
+
+**入口类型**：Library
+
+**认证/授权**：Library；调用方限模块 05（产物保留期清理）、模块 08（未引用 Artifact 回收）、模块 13（Workspace 过期清理）。必须携带 `ctx`：只允许删除同 `tenant_id` 且 `scope` 匹配的对象。
+
+**函数签名**
+
+```python
+async def delete_object(ref: ObjectRef, *, reason: str) -> None
+```
+
+**入参**：`ref`（必填）、`reason`（必填，写入审计）。
+
+**异常/错误**
+
+| 错误码 | 场景 | HTTP 状态 |
+|---|---|---|
+| OBJECT_NOT_FOUND | 对象不存在（幂等：视为成功并记录） | 404 |
+| OBJECT_STILL_REFERENCED | 仍被 artifact/Workspace/执行引用 | 409 |
+
+**处理逻辑**
+
+```text
+校验 tenant/scope → 检查引用（artifact.object_ref / workspace.root_ref）→ 删除对象并写审计；
+幂等：重复删除返回成功；被引用时拒绝并提示先解除引用。
+```
+
+#### INFRA-LIB-07: Secret 删除引用
+
+**入口类型**：Library
+
+**认证/授权**：Library；调用方限模块 09（凭据撤销的补偿清理，CRED-API-04）与模块 19（模型 Secret 轮换/删除的补偿）。
+
+**函数签名**
+
+```python
+async def delete_secret(ref: SecretRef, *, reason: str) -> None
+```
+
+**异常/错误**：`SECRET_NOT_FOUND`（幂等成功）、`SECRET_STILL_REFERENCED`（409，仍被 Credential/ModelConfig 引用）。
+
+**处理逻辑**
+
+```text
+校验 tenant/scope → 检查引用 → 删除并写审计（只记 ref 摘要，不记值）；幂等。
+```
+
+**保留与回收责任（本模块声明边界）**：基础设施 Port 只提供删除能力，**保留期与清理触发点由业务 Owner 决定**——`artifact` 的保留期与 GC 由模块 05 拥有，SkillArtifact 的回收由模块 08 拥有，Workspace 过期清理由模块 13 拥有，Credential/模型 Secret 的补偿清理分别由模块 09/19 拥有。本模块不自行决定"何时删"，也不提供跨租户批量清理。
 
 ### 3.5 质量实现方案
 
@@ -404,26 +467,26 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 风险ID | 描述 | 影响 | 应对措施 | 验证场景 |
 |---|---|---|---|---|
-| RISK-INFRA-01 | 跨模块边界在实现中被绕过 | 形成双事实源/不可测试 | Architecture Gate + code review | E2E/静态检查 |
+| RISK-INFRA-01 | 跨模块边界在实现中被绕过 | 形成双事实源/不可测试 | Architecture Gate + code review | S-INFRA-01 |
 
 ## 6. 需求追溯矩阵
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-INFRA-01 | INFRA-LIB-01, INFRA-LIB-02 | S-INFRA-01 | E2E/integration | 待实现/评审 |
-| FEAT-INFRA-02 | INFRA-LIB-02, INFRA-LIB-03 | S-INFRA-02 | E2E/integration | 待实现/评审 |
-| FEAT-INFRA-03 | INFRA-LIB-03, INFRA-LIB-04 | S-INFRA-03, E-INFRA-02 | E2E/integration | 待实现/评审 |
-| FEAT-INFRA-04 | INFRA-LIB-04, INFRA-LIB-05 | S-INFRA-04, E-INFRA-01 | E2E/integration | 待实现/评审 |
-| FEAT-INFRA-05 | INFRA-LIB-05 | 见 §2.5 | E2E/integration | 待实现/评审 |
+| FEAT-INFRA-01 | （无独立 Library；经各模块 Repository 基类使用 async session/transaction） | S-INFRA-01 | E2E/integration | 待实现/评审 |
+| FEAT-INFRA-02 | INFRA-LIB-05 | S-INFRA-02 | E2E/integration | 待实现/评审 |
+| FEAT-INFRA-03 | INFRA-LIB-01, INFRA-LIB-02, INFRA-LIB-06 | S-INFRA-03, E-INFRA-02 | E2E/integration | 待实现/评审 |
+| FEAT-INFRA-04 | INFRA-LIB-03, INFRA-LIB-04, INFRA-LIB-07 | S-INFRA-04, E-INFRA-01 | E2E/integration | 待实现/评审 |
+| FEAT-INFRA-05 | （无独立 Library；endpoint/pool/readiness 由部署配置与各 Port 适配器加载） | S-INFRA-01 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/INFRA#RULE-INFRA-01 | design-baseline | 约束实现与验收 | §2.5 RULE-INFRA-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/INFRA#RULE-INFRA-02 | design-baseline | 约束实现与验收 | §2.5 RULE-INFRA-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/INFRA#RULE-INFRA-03 | design-baseline | 约束实现与验收 | §2.5 RULE-INFRA-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/INFRA#RULE-INFRA-04 | design-baseline | 约束实现与验收 | §2.5 RULE-INFRA-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/INFRA#RULE-INFRA-01 | design-baseline | 约束实现与验收 | §2.5 RULE-INFRA-01 / §3 | S-INFRA-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/INFRA#RULE-INFRA-02 | design-baseline | 约束实现与验收 | §2.5 RULE-INFRA-02 / §3.4.1 INFRA-LIB-05 | S-INFRA-02 | applied；仓库 spec-context 待绑定 |
+| DESIGN/INFRA#RULE-INFRA-03 | design-baseline | 约束实现与验收 | §2.5 RULE-INFRA-03 / §3.4.1 INFRA-LIB-03/04 | S-INFRA-04, E-INFRA-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/INFRA#RULE-INFRA-04 | design-baseline | 约束实现与验收 | §2.5 RULE-INFRA-04 / §3.4.1 INFRA-LIB-01/02 | S-INFRA-03, E-INFRA-02 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

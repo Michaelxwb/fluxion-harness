@@ -1,21 +1,22 @@
-# Fluxion 设计文档 V1.11 — 模块分档拆分版
+# Fluxion 设计文档 V1.13
 
-本版本以完整总体设计、完整 Playbook、Console V0.8 交互稿及 `cf-task:align` 三套模板为基线，重点解决 V1.10 “内容详细但文档边界仍过大/平铺”的问题。
+本版本以完整总体设计、完整 Playbook、Console V0.8 交互稿及 `cf-task:align` 三套模板为基线；V1.13 完成第三轮全库 Review 的裁决修复（见 `05-变更记录/09-V1.13-第三轮Review裁决修复.md`）。
 
 ## 目录
 
-- `00-总体设计/`：完整总体设计与 Playbook，保持上游设计事实；
-- `01-架构与规范/`：工程、DB、API、Workspace/Sandbox 规范和 Owner 索引（其中 `05-数据库公共字段与表清单.md` 为历史参考，已被 08+模块设计取代）；
+- `00-总体设计/`：完整总体设计与 Playbook、ADR 汇总（V1.13，含 ADR-040..048），保持上游设计事实；
+- `01-架构与规范/`：工程、DB、API、Workspace/Sandbox 规范与 Owner 索引，以及**错误码注册表**（其中 `05-数据库公共字段与表清单.md` 为历史参考，已被 08+模块设计取代）；
 - `02-模块设计/`：后端按一级模块目录拆分，每个模块明确 Full/Lite 分档；
 - `03-前端设计/`：按 Console 产品模块拆分，每个模块独立 Frontend Design；
-- `04-追溯与验收/`：总体设计→模块→页面→API→DB 追溯与 Gate；
+- `04-追溯与验收/`：总体设计→模块→页面→API→DB 追溯、设计验收 Gate（含总设 Gate A–N 与架构 Gate G1–G14 承接映射）与评审报告；
 - `05-变更记录/`：设计演进；
 - `99-cf-task-align模板基线/`：未随 docs 归档；align/full/lite/frontend 模板见 `.code-flow/specs/shared/`。
 
 ## 关键规则
 
 1. 模块目录是架构边界，不是文件整理手段。
-2. DB 表与 API/Library/CLI Contract 必须有唯一 Owner。
+2. DB 表与 API/Library/CLI Contract 必须有唯一 Owner；`08`/`09` 汇总索引与模块 §3.3/§3.4 **机械一致**（不一致以模块 Owner 为准并重生成）。
 3. Full/Lite 按复杂度选择，不追求数量均衡。
-4. 前端按页面/旅程模块拆分，公共列表/Shell 只实现一次。
+4. 前端按页面/旅程模块拆分，公共列表/Shell 只实现一次；按钮可见性必须与后端授权列一致。
 5. Skill 继续采用 IDE 离线开发 + SDK + Dev Gateway 验证 + Console 导入，Console 不做 Skill 在线编排。
+6. 规则必须有**具体场景 ID**作为 verifier；「已写入某段落」不等于需求闭合，闭合声明必须附机械比对结果。

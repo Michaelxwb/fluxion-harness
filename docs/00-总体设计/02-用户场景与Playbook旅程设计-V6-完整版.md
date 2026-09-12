@@ -2081,12 +2081,10 @@ name
 description
 input_schema
 output_schema
-error_semantics
 side_effect
-risk
-authorization_requirement
+risk_level
 idempotency_semantics
-execution_characteristic
+invocation_policy   # 直调结论 DIRECT | EXECUTION_ONLY（V1.13.1 D1 收敛：原 error_semantics/authorization_requirement/execution_characteristic 合并）
 ```
 
 ---

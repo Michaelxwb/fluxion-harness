@@ -6,8 +6,8 @@
 
 # 核心领域与发布模型 模块需求与设计一体化文档
 
-> **文档编号**: MOD-CORE-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-CORE-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 新增 CORE-LIB-06（TrustedExecutionContext 定义与构造）与 CORE-LIB-07（DomainError 与公共错误码引用）；补 S-CORE-06；Snapshot ModelProjection 超时字段改秒并补 extra_headers；修正 §6 追溯矩阵接口指向与合规矩阵 verifier |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | 新增 CORE-LIB-08 LeaseQueue 共享租约原语（claim/renew/release/assert_owner；模块 06 与模块 11 共用同一实现与同一 epoch 语义，消除重复实现）及 FEAT-CORE-06、RULE-CORE-07、S-CORE-07；§3.3 明确租约字段语义的唯一实现；ExecutionProposal.resource_scope 按最小 typed 形态（`{type, refs[], attributes?}`）表述，去除 Service 级 scope JSON Schema 校验措辞 |
 
 ## 2. 需求分析
 
@@ -77,6 +79,7 @@
 | FEAT-CORE-03 | Execution Snapshot | 冻结一致性所需业务逻辑，不冻结实时授权/Credential。 | P0 | 总体设计 P6/P8 |
 | FEAT-CORE-04 | 公共持久化规则 | tenant/软删除/revision/immutable/hash。 | P0 | 数据库基线 |
 | FEAT-CORE-05 | 错误与可信上下文 | 统一 DomainError/TrustedExecutionContext。 | P0 | 总体设计 P8 |
+| FEAT-CORE-06 | 共享租约原语 | claim/renew/release/fencing 的唯一实现（LeaseQueue），Execution 与 Chat Run 共用同一 epoch 语义。 | P0 | 第四轮 Review B1 |
 
 #### 2.3.2 字段约束
 
@@ -107,6 +110,8 @@
 | RULE-CORE-03 | 配置 | Agent/Model/Capability/ProjectPlatform 保存后新请求直接生效并 revision/audit。 | S-CORE-03 |
 | RULE-CORE-04 | 快照 | Snapshot 不冻结 AgentAccessGrant/Credential/Capability emergency enabled。 | S-CORE-04 |
 | RULE-CORE-05 | 数据 | Framework 可变表默认软删除并 tenant scoped。 | S-CORE-05 |
+| RULE-CORE-06 | 可信身份 | tenant/actor/projection/test_mode 只能由 CORE-LIB-06 构造入口赋值，不得来自 LLM、请求体或 Skill 入参。 | S-CORE-06 |
+| RULE-CORE-07 | 并发 | 租约领取/续租/释放/fencing 只能由 CORE-LIB-08 实现；使用方（模块 06/11）不得各自实现第二套 epoch 递增与续租语义。 | S-CORE-07 |
 
 #### 2.5.2 功能验收场景
 
@@ -119,6 +124,8 @@
 | S-CORE-02 | FEAT-CORE-02 | P0 | E2E | Service publish→Execution | 后置 → 模块 05 | Service 有 Draft | 发布 v1 后再修改 Draft | 旧 Execution 仍引用 v1，新请求可用新发布 |
 | S-CORE-03 | FEAT-CORE-03 | P0 | E2E | Agent config→Runtime | 后置 → 模块 03/04 | Agent r1 | 保存 r2 | 新请求解析 r2，无 Agent publish |
 | S-CORE-04 | FEAT-CORE-03 | P0 | E2E | Snapshot→dynamic auth | 后置 → 模块 05/18 | Execution 已创建 | 撤销 AgentAccessGrant 后恢复 | 恢复阶段被拒绝，不沿用旧授权 |
+| S-CORE-06 | FEAT-CORE-05 | P0 | integration | 中间件/运行时→Library 边界 | 本模块+02 | 已认证调用方 | 请求体/Skill 入参与 IPC 参数携带伪造 tenant_id/actor_user_id/projection/test_mode | 构造入口拒绝或忽略外部传入的身份与 projection；消费方一律使用 ctx 中的可信值，伪造值不生效且不产生跨租户读写 |
+| S-CORE-07 | FEAT-CORE-06 | P0 | integration | 两个 owner 并发 claim 同一行（真 PG）→ 失租方写入被拒 | 本模块+06/11 | service_execution 与 conversation_run 各有一条可领取行 | 两个 owner 经同一 CORE-LIB-08 并发 claim 同一行；失租 owner 随后用旧 lease_epoch 执行 renew/release/状态写入 | 只有一个 owner 领取成功（lease_epoch 只递增一次）；失租 owner 的 renew 返回 false、写入与 release 被 LEASE_LOST(409) 拒绝，并立即停止推进，不产生重复副作用 |
 
 **异常场景**
 
@@ -199,18 +206,22 @@ flowchart TB
 
 公共表字段是规范，不建立 `core_resource` 万能表。各表由对应领域模块拥有。
 
+`service_execution`（模块 06）与 `conversation_run`（模块 11）各自保留自己的租约字段（`lease_owner/lease_expires_at/lease_epoch`），因为两者的领域语义不同（执行调度事实 vs Chat turn 事实）；但**租约规则只有一处实现**：字段语义、claim 时的 epoch 递增、续租不改 epoch、以及所有状态写入前的 owner+epoch 校验统一由 CORE-LIB-08 提供，两张表不得各自定义第三套 claim/续租/fencing 语义。
+
 ### 3.4 接口设计
 
 #### 3.4.1 接口清单
 
 | 接口ID | 名称 | 形态 | 方法/签名 | 路径/用途 |
 |---|---|---|---|---|
+| CORE-LIB-01 | 公共软删除过滤 | Library | def active_scope(stmt, model, tenant_id: UUID): ... | Repository 基类强制使用 |
+| CORE-LIB-02 | revision 乐观锁 | Library | async def update_with_revision(repo, id: UUID, expected_revision: int, patch: dict) -> object | direct-effect 配置写入 |
+| CORE-LIB-03 | Canonical JSON Hash | Library | def canonical_json_sha256(value: object) -> str | Release/Snapshot/Manifest 指纹 |
+| CORE-LIB-04 | ExecutionProposal 数据类 | Library | @dataclass class ExecutionProposal | 提案类型定义；模块 05 签发与消费 |
 | CORE-LIB-05 | 执行冻结投影 | Library | ExecutionProjection | 数据类；本节 CORE-LIB-05 定义 |
-
-| CORE-LIB-01 | 公共软删除过滤 | Library | def active_scope(stmt, model, tenant_id: UUID): ... |  |
-| CORE-LIB-02 | revision 乐观锁 | Library | async def update_with_revision(repo, id: UUID, expected_revision: int, patch: dict) -> object |  |
-| CORE-LIB-03 | Canonical JSON Hash | Library | def canonical_json_sha256(value: object) -> str |  |
-| CORE-LIB-04 | ExecutionProposal 数据类 | Library | @dataclass class ExecutionProposal |  |
+| CORE-LIB-06 | TrustedExecutionContext 定义与构造 | Library | def build_trusted_context(identity: RuntimeIdentity, *, agent_id=None, conversation_id=None, execution_id=None, projection=None, test_mode=None, deadline=None) -> TrustedExecutionContext | 可信上下文唯一构造入口 |
+| CORE-LIB-07 | DomainError 与公共错误码引用 | Library | class DomainError；def to_envelope(request_id) -> ApiEnvelope | 统一错误结构与公共错误码注册表引用 |
+| CORE-LIB-08 | LeaseQueue 共享租约原语 | Library | async def claim(tx, *, table: LeaseTarget, now: datetime, limit: int, owner: str, ttl_ms: int, filter: ClaimFilter) -> list[Claimed]；async def renew(tx, *, target_id: UUID, owner: str, expected_epoch: int, ttl_ms: int) -> bool；async def release(tx, *, target_id: UUID, owner: str, expected_epoch: int, next_run_at: datetime \| None) -> None；def assert_owner(row_owner, row_epoch, owner, epoch, now, lease_expires_at) -> None | service_execution（模块 06）与 conversation_run（模块 11）的领取/续租/释放/fencing 唯一实现 |
 
 **CORE-LIB-04: ExecutionProposal（模块 01 定义类型；模块 05 签发和消费）**
 
@@ -220,7 +231,7 @@ flowchart TB
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | proposal_id / conversation_id / service_id / agent_id | UUID | 持久定位及归属 |
-| input / resource_scope | object | 经 Schema 校验的确认内容 |
+| input / resource_scope | object | input 经 Schema 校验；resource_scope 为最小 typed 形态 `{type, refs[], attributes?}`（模块 05 定义，V1 无 scope JSON Schema、无 schema_hash、无 Scope Registry 投影脱敏） |
 | snapshot_id / service_release_id | UUID | 本次展示对应的不可变逻辑 |
 | confirmation_digest | string | tenant/actor/conversation/agent/service/release content_hash/snapshot hash/input/scope/rendered_summary/expires_at 的 canonical SHA-256 |
 | confirmation_ref | string | 服务端签名(proposal_id, confirmation_digest, expires_at)，不代表用户已经批准 |
@@ -239,7 +250,7 @@ flowchart TB
 | service | ServiceProjection | service_id、release_id 或 draft_revision、content_hash、primary_agent_id、完整 ServiceDraft |
 | agents | map[UUID, AgentProjection] | id/revision/instructions/model_id/memory_policy/direct_capability_keys/skill_ids/service_ids |
 | skills | map[UUID, SkillProjection] | skill_id/artifact_id/checksum/entrypoint/sdk_version/dependency_keys |
-| models | map[UUID, ModelProjection] | model_id/revision/protocol/base_url/model_name/default_parameters/request_timeout_ms；不含 Secret 值/认证头 |
+| models | map[UUID, ModelProjection] | model_id/revision/protocol/base_url/model_name/default_parameters/extra_headers/request_timeout_seconds；不含 Secret 值/密钥类认证头（extra_headers 仅非敏感 Header） |
 | test_mode | DRY_RUN/REAL_TEST/null | TEST 必填，FORMAL 必须 null |
 | content_hash | string | 除本字段外的 canonical hash |
 
@@ -247,9 +258,130 @@ Owner：EXE-LIB-02/测试入口在一致读取事务中构建，execution_snapsh
 
 AGENT-LIB-01 显式接收 projection；Agent instructions、绑定、MemoryPolicy、Skill checksum、Model 参数均来自它。当前 Agent/Skill/Model/Capability enabled、tenant/user 状态、AgentAccessGrant、Credential、Secret 始终实时校验；绑定配置变更只影响新请求，紧急禁止使用 enabled/撤销授权完成。Secret 按当前 model_id 或 Credential 解析，不从快照获取。实际 input 经快照内 Schema 校验。
 
+#### CORE-LIB-06: TrustedExecutionContext 定义与构造
+
+**入口类型**：Library
+
+**认证/授权**：Library；本类型是所有数据访问与外部能力调用的唯一可信身份载体。构造入口只能由模块 02 的认证中间件（HTTP 路径，WEB-LIB-03）或模块 03/06 的运行时（Chat/Execution 路径）调用；Handler、Application Service、Repository/Port、Adapter、Provider 与 Skill 只读该上下文，不得自行构造或改写字段。
+
+**函数签名**
+
+```python
+@dataclass(frozen=True)
+class TrustedExecutionContext:
+    tenant_id: UUID
+    actor_user_id: UUID
+    actor_role: str                       # END_USER/BUILDER/ADMIN/SERVICE
+    service_role: str                     # platform-api/agent-runtime/worker/channel-gateway/skill-sandbox
+    request_id: str
+    deadline: datetime
+    agent_id: UUID | None = None
+    conversation_id: UUID | None = None
+    execution_id: UUID | None = None
+    projection: ExecutionProjection | None = None
+    test_mode: TestMode | None = None     # DRY_RUN/REAL_TEST
+
+
+def build_trusted_context(
+    identity: RuntimeIdentity,
+    *,
+    agent_id: UUID | None = None,
+    conversation_id: UUID | None = None,
+    execution_id: UUID | None = None,
+    projection: ExecutionProjection | None = None,
+    test_mode: TestMode | None = None,
+    deadline: datetime | None = None,
+) -> TrustedExecutionContext
+```
+
+**入参**
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| identity | RuntimeIdentity | Y | 唯一身份来源；由模块 02 中间件或模块 03/06 运行时解析 |
+| agent_id / conversation_id / execution_id | uuid | N | 运行时按执行事实补齐，不来自请求体 |
+| projection | ExecutionProjection | N | Execution 路径必填；Chat 路径必须为 None |
+| test_mode | DRY_RUN/REAL_TEST | N | 仅 TEST 来源可赋值；FORMAL 必须为 None |
+| deadline | datetime | N | 缺省由运行时按调用类型给出 |
+
+**字段**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| tenant_id | uuid | 唯一租户来源；后续查询/写入/RPC 一律以此为准 |
+| actor_user_id | uuid | 真实用户；service 路径为服务身份对应的 system actor |
+| actor_role | string | END_USER/BUILDER/ADMIN/SERVICE；Admin-only 判定依据 |
+| service_role | string | 发起调用的运行角色，用于审计与内部调用诊断 |
+| agent_id / conversation_id / execution_id | uuid | 路径标识；三者与 projection 共同决定解析 current 还是冻结投影 |
+| projection | ExecutionProjection | 只读冻结投影；Execution 路径必填，Chat 路径为 None |
+| test_mode | DRY_RUN/REAL_TEST | 仅 TEST 来源可赋值 |
+| request_id | string | 关联 ID，贯穿日志/Trace/审计 |
+| deadline | datetime | 本上下文的调用 deadline |
+
+**处理逻辑**
+
+```text
+identity（模块 02 中间件 / 模块 03、06 运行时）是唯一身份来源；其余关键字参数由运行时按已固化的执行事实补齐；
+构造结果不可变，贯穿 Handler → Application Service → Repository/Port → Provider/Skill。
+```
+
+**补充约束**
+
+- 任何身份/租户/`projection`/`test_mode` 字段**不得**来自 LLM 输出、请求体、Query、Skill 入参或子进程 IPC 参数；构造方只能取认证中间件解析结果或运行时已固化的执行事实。
+- 类型为 frozen dataclass，不提供 setter；身份变化必须重新构造，禁止原地修改或复制后改写。
+- **Execution 路径**：`projection` 必填且 `execution_id` 非空；缺失时由消费方报 `EXECUTION_PROJECTION_REQUIRED`（见 CORE-LIB-05），禁止 fallback current。
+- **Chat 路径**：`projection` 必须为 `None` 且 `execution_id` 为空，按 current 解析。
+- `test_mode` 非空只允许在 TEST 来源路径出现；FORMAL 路径赋值非空即构造错误。
+- 内部服务调用方（`/internal/*`）的身份来自模块 09 的 AUTH-LIB-02 service token 校验结果；本模块只消费该契约，不定义签发与校验。
+
+#### CORE-LIB-07: DomainError 与公共错误码引用
+
+**入口类型**：Library
+
+**认证/授权**：Library；错误对象由服务端构造，调用方只能读取 `code/http_status/message/field_errors/retryable`。禁止把外部/下游原始响应体、堆栈或 Secret 直接放入 `message`/`field_errors`。
+
+**函数签名**
+
+```python
+@dataclass(frozen=True)
+class DomainError(Exception):
+    code: str
+    http_status: int
+    message: str
+    field_errors: dict[str, str] | None = None
+    retryable: bool = False
+
+    def to_envelope(self, request_id: str) -> ApiEnvelope: ...
+```
+
+**字段**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| code | string | 稳定错误码；取值来自公共错误码注册表 |
+| http_status | integer | 对外 HTTP 状态；由错误码决定，Handler 不得另行改写 |
+| message | string | 面向用户的安全消息，不含堆栈/Secret/内部路径 |
+| field_errors | map[string,string] | 可选；字段级校验错误，键为对外字段名 |
+| retryable | boolean | 调用方是否可安全重试；与模块 06 的重试分类保持一致 |
+
+**错误码注册表**
+
+公共错误码清单的唯一权威位于 `01-架构与规范/10-错误码与错误分类基线.md`（本模块只引用，不在此重复定义）。各模块错误码必须登记到该清单后才可对外返回；未登记的错误码禁止出现在响应中。
+
+**`to_envelope` 约定**
+
+```text
+{code, message, data: null, request_id, field_errors?}；HTTP status 取 DomainError.http_status；
+Web 层统一经 WEB-LIB-02 映射（模块 02），SSE/WebSocket/文件/Prometheus 端点沿用同一错误 taxonomy 但不套 JSON Envelope。
+```
+
+**补充约束**：`retryable` 只描述“是否可安全重试”，不代表已重试；重试次数与退避由调用方按模块 06 的失败策略决定。
+
 #### CORE-LIB-01: 公共软删除过滤
 
 **入口类型**：Library
+
+**认证/授权**：Library；由 Repository 基类在 CORE-LIB-06 的 `ctx` 内调用；tenant_id 只能取自 `ctx`，不得来自请求体或调用方自填。
 
 **函数签名**
 
@@ -279,6 +411,8 @@ Repository 基类强制使用；禁止业务 Repository 自行遗漏 tenant filt
 #### CORE-LIB-02: revision 乐观锁
 
 **入口类型**：Library
+
+**认证/授权**：Library；调用方必须已在 CORE-LIB-06 的 `ctx` 内完成对象所有权与角色校验；`expected_revision` 只能来自服务端可信读路径（如详情响应），不得由请求体直接透传。
 
 **函数签名**
 
@@ -314,6 +448,8 @@ UPDATE ... WHERE id=? AND revision=? AND is_deleted=false SET ..., revision=revi
 
 **入口类型**：Library
 
+**认证/授权**：Library；纯函数，不访问租户数据；输入必须是服务端构造的 Release/Snapshot/Manifest payload，不得直接散列客户端原始请求体。
+
 **函数签名**
 
 ```python
@@ -338,6 +474,94 @@ def canonical_json_sha256(value: object) -> str
 稳定 key 排序/编码/禁止非 JSON 数值 → UTF-8 canonical JSON → SHA-256；同语义 payload 必须稳定。
 ```
 
+#### CORE-LIB-08: LeaseQueue 共享租约原语
+
+**入口类型**：Library
+
+**认证/授权**：Library；原语不自行鉴权，接受调用方已在 CORE-LIB-06 的 `ctx` 所属 tenant 范围内开启的事务 `tx`。调用方必须是持租约的运行角色进程（`service_role ∈ {worker, agent-runtime}`）：`owner` 只能取本实例标识（Worker ID / Runtime 实例 ID），不得来自请求体、消息正文或 LLM 输出；`table`、`filter`、`ttl_ms` 由调用方的服务端代码确定性给出，不接受外部入参透传。
+
+**函数签名**
+
+```python
+LeaseTarget = Literal["service_execution", "conversation_run"]
+
+async def claim(
+    tx: AsyncSession, *, table: LeaseTarget, now: datetime,
+    limit: int, owner: str, ttl_ms: int, filter: ClaimFilter,
+) -> list[Claimed]
+
+async def renew(
+    tx: AsyncSession, *, target_id: UUID, owner: str,
+    expected_epoch: int, ttl_ms: int,
+) -> bool
+
+async def release(
+    tx: AsyncSession, *, target_id: UUID, owner: str,
+    expected_epoch: int, next_run_at: datetime | None,
+) -> None
+
+def assert_owner(
+    row_owner: str | None, row_epoch: int, owner: str, epoch: int,
+    now: datetime, lease_expires_at: datetime | None,
+) -> None   # 失配抛 LEASE_LOST
+```
+
+**入参**
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| tx | AsyncSession | Y | 调用方事务；claim 的选择与占用写入必须在同一事务内完成 |
+| table | LeaseTarget | Y | service_execution / conversation_run；决定列映射与默认排序键 |
+| now | datetime | Y | 服务端时间；到期判定与 lease_expires_at 计算一律以此为准 |
+| limit | integer | Y | 单次 claim 行数上限；由调用方按本实例并发额度给出 |
+| owner | string | Y | 本实例标识（Worker ID / Runtime 实例 ID） |
+| ttl_ms | integer | Y | 租约时长；claim 与 renew 的到期时间均为 `now + ttl_ms` |
+| filter | ClaimFilter | Y | 可选状态谓词、到期谓词与排序键（见下表） |
+| target_id | uuid | Y | renew/release 的目标行 |
+| expected_epoch | integer | Y | 调用方持有的 lease_epoch；与行上值不符即 LEASE_LOST |
+| next_run_at | datetime/null | N | release 时的下次可运行时间；NULL 表示不重新排队 |
+
+**返回**
+
+| 接口 | 字段 | 类型 | 说明 |
+|---|---|---|---|
+| claim | claimed | array<Claimed> | 每项含 target_id、owner、lease_expires_at 与递增后的 lease_epoch，以及调用方调度所需字段（service_execution 的 priority/next_run_at；conversation_run 的 source_message_id/sequence_no） |
+| renew | ok | boolean | true=续租成功且 epoch 未变；false=失配或已到期，调用方按 LEASE_LOST 处理并停止推进 |
+| release | — | None | 成功即本轮租约结束；owner/epoch 失配抛 LEASE_LOST |
+
+**异常/错误**
+
+| 错误码 | 场景 | HTTP 状态 |
+|---|---|---|
+| LEASE_LOST | owner/epoch 不匹配、租约已过期或已被他人接管；renew/release 之外的任何租约持有期状态写入都会先经 assert_owner 并同样以本错误终止 | 409 |
+
+**处理逻辑**
+
+```text
+claim：SELECT ... WHERE <filter 允许的状态> AND (lease_expires_at IS NULL OR lease_expires_at <= now) AND <filter 到期谓词>
+       ORDER BY <filter 排序键> FOR UPDATE SKIP LOCKED LIMIT :limit
+       → 对选中行在同一事务写 lease_owner=owner、lease_expires_at=now+ttl_ms、lease_epoch = lease_epoch + 1 → 在新 epoch 下返回。
+renew：条件 UPDATE ... WHERE id=:id AND lease_owner=:owner AND lease_epoch=:expected AND lease_expires_at > :now
+       SET lease_expires_at = now+ttl_ms；**不修改 lease_epoch**；rowcount=0 → 返回 false。
+release：同一 owner+epoch 校验下清空 lease_owner/lease_expires_at，并按 next_run_at 决定是否立即重新排队；失配抛 LEASE_LOST。
+assert_owner：owner 字段、lease_epoch、lease_expires_at 三者任一失配（含 owner 为空、已过期）即抛 LEASE_LOST。
+所有租约持有期的状态写入（根/步骤/图节点状态、进度事件、结果、消息、投递行）必须先调用 assert_owner；
+失配 = LEASE_LOST(409)，调用方必须立即停止推进并放弃该 epoch 的副作用，不得以同一 epoch 重试。
+```
+
+**排序键与谓词：同一实现，两套调用方参数**
+
+| 使用方 | table | 排序键 / 状态与到期谓词 |
+|---|---|---|
+| 模块 06 Worker | service_execution | `priority DESC, next_run_at ASC NULLS FIRST, create_time ASC`；状态 ∈ 可运行集合且 `next_run_at <= now` |
+| 模块 03/11 Chat Run | conversation_run | source message 的 `sequence_no`；`QUEUED` 与**已到期 `RUNNING` 优先于新 turn** 的谓词 |
+
+**补充约束**
+
+- 本原语是 Framework 内**唯一的租约实现**：`service_execution` 与 `conversation_run` 共用本实现与同一 epoch 语义；模块 06 与模块 11 不得各自实现第三套 claim/续租/fencing（RULE-CORE-07）。
+- 两张表仍各自保留（领域语义不同），差异只允许体现在表的列映射、`filter` 与排序键；**租约规则本身不再各写一套**。
+- claim 提交后其他实例仍必须经过同一租约条件，不能仅依靠行锁；`ttl_ms` 由调用方按角色给出（Worker 心跳周期 / Runtime 租约周期），原语不内置默认值。
+
 ### 3.5 质量实现方案
 
 #### 3.5.1 性能与容量
@@ -353,7 +577,7 @@ def canonical_json_sha256(value: object) -> str
 
 #### 3.5.3 安全性
 
-TrustedExecutionContext 由服务端创建；Core 不提供 setter 让 LLM/客户端覆盖 actor/tenant/credential。
+TrustedExecutionContext（CORE-LIB-06）由服务端创建且不可变；Core 不提供 setter 让 LLM/客户端覆盖 actor/tenant/projection/test_mode。身份来源限于模块 02 认证中间件与模块 03/06 运行时；内部服务调用方的身份以模块 09 AUTH-LIB-02 的 service token（audience + scope）校验结果为准。
 
 #### 3.5.4 可观测性
 
@@ -392,21 +616,24 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-CORE-01 | CORE-LIB-01, CORE-LIB-02 | S-CORE-01 | E2E/integration | 待实现/评审 |
+| FEAT-CORE-01 | CORE-LIB-01, CORE-LIB-02, CORE-LIB-04 | S-CORE-01, S-CORE-05 | E2E/integration | 待实现/评审 |
 | FEAT-CORE-02 | CORE-LIB-02, CORE-LIB-03 | S-CORE-02, E-CORE-02 | E2E/integration | 待实现/评审 |
-| FEAT-CORE-03 | CORE-LIB-03 | S-CORE-03, S-CORE-04 | E2E/integration | 待实现/评审 |
-| FEAT-CORE-04 |  | E-CORE-01 | E2E/integration | 待实现/评审 |
-| FEAT-CORE-05 |  | 见 §2.5 | E2E/integration | 待实现/评审 |
+| FEAT-CORE-03 | CORE-LIB-03, CORE-LIB-05 | S-CORE-03, S-CORE-04 | E2E/integration | 待实现/评审 |
+| FEAT-CORE-04 | CORE-LIB-01, CORE-LIB-02 | E-CORE-01 | E2E/integration | 待实现/评审 |
+| FEAT-CORE-05 | CORE-LIB-06, CORE-LIB-07 | S-CORE-06 | E2E/integration | 待实现/评审 |
+| FEAT-CORE-06 | CORE-LIB-08 | S-CORE-07 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/CORE#RULE-CORE-01 | design-baseline | 约束实现与验收 | §2.5 RULE-CORE-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/CORE#RULE-CORE-02 | design-baseline | 约束实现与验收 | §2.5 RULE-CORE-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/CORE#RULE-CORE-03 | design-baseline | 约束实现与验收 | §2.5 RULE-CORE-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/CORE#RULE-CORE-04 | design-baseline | 约束实现与验收 | §2.5 RULE-CORE-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/CORE#RULE-CORE-05 | design-baseline | 约束实现与验收 | §2.5 RULE-CORE-05 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/CORE#RULE-CORE-01 | design-baseline | 约束实现与验收 | §2.5 RULE-CORE-01 / §3 | S-CORE-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/CORE#RULE-CORE-02 | design-baseline | 约束实现与验收 | §2.5 RULE-CORE-02 / §3 | S-CORE-02 | applied；仓库 spec-context 待绑定 |
+| DESIGN/CORE#RULE-CORE-03 | design-baseline | 约束实现与验收 | §2.5 RULE-CORE-03 / §3 | S-CORE-03 | applied；仓库 spec-context 待绑定 |
+| DESIGN/CORE#RULE-CORE-04 | design-baseline | 约束实现与验收 | §2.5 RULE-CORE-04 / §3 | S-CORE-04 | applied；仓库 spec-context 待绑定 |
+| DESIGN/CORE#RULE-CORE-05 | design-baseline | 约束实现与验收 | §2.5 RULE-CORE-05 / §3 | S-CORE-05, E-CORE-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/CORE#RULE-CORE-06 | design-baseline | 约束实现与验收 | §3.4.1 CORE-LIB-06 / §3.5.3 | S-CORE-06 | applied；仓库 spec-context 待绑定 |
+| DESIGN/CORE#RULE-CORE-07 | design-baseline | 约束实现与验收 | §2.5 RULE-CORE-07 / §3.3 / §3.4.1 CORE-LIB-08 | S-CORE-07 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

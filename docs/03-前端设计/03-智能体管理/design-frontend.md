@@ -22,6 +22,8 @@
 | 版本 | 日期 | 变更描述 |
 |---|---|---|
 | V1.11 | 2026-09-11 | 从大一统 Console 文档拆成独立产品模块设计 |
+| V1.13 | 2026-09-12 | 第三轮 Review 修复：用户授权 Tab 对 Builder 定死为「只读（可见列表、无写按钮）」；补 `CH-API-02` 403 断言与「不渲染保存按钮」断言；悬空 FEAT 引用（用户授权场景）改挂 `FEAT-03-05`；场景 ID 前缀拆分（integration → `I-03-01`） |
+| V1.13.1 | 2026-09-12 | Claude Code：第四轮 Review 修复——§3.4 新增「授权/绑定编辑合同（Z-06）」（全量加载+预勾选、保存前「新增 N 个 / 移除 M 个」差异确认并列出移除对象、一次 `PUT` 全量覆盖携带 `revision`、409 保留弹窗），覆盖 `USR-API-08`/`AGENT-API-05/06/07`/`USR-API-06`；补场景 `S-03-04` |
 
 ## 2. 需求分析
 
@@ -70,8 +72,9 @@
 | S-03-01 | FEAT-03-01 | E2E | 必选模型选项 | Builder 新增智能体选择模型 | 模型下拉来自 MODEL-API-01 安全选项（无 Secret）；保存成功 |
 | S-03-02 | FEAT-03-03 | E2E | 绑定选择弹窗 | Builder 在能力/Skill Tab 点绑定 | 选择弹窗展示可绑定对象；保存后 Tab 列表即时刷新 |
 | S-03-03 | FEAT-03-05 | E2E | IM 接入配置 | Admin 配置企微 Bot 密钥 | 保存后仅显示 secret_configured=true；连接状态只读展示 |
-| E-03-01 | FEAT-03-06 | E2E | 用户授权 Tab 角色 | Builder 查看智能体详情 | 用户授权 Tab 隐藏或只读（Admin 可管理） |
-| E-03-01 | FEAT-03-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
+| S-03-04 | FEAT-03-05 | E2E | 授权差异确认 | Admin 打开用户授权编辑弹窗，取消勾选 1 名已授权用户后保存 | 弹窗打开时已授权用户**默认勾选**（候选全量加载）；取消勾选后保存按钮上方显示「新增 0 个 / 移除 1 个」并列出该用户名称；确认后发出**一次** `PUT /api/v1/agents/{agent_id}/users`，请求体为完整集合（含未变更项）且携带 `revision`；并发冲突返回 **409** 时弹窗内容保留并显示「授权已被他人修改，请重新加载」 |
+| E-03-01 | FEAT-03-05 | E2E | 角色写权限边界 | Builder 打开智能体详情：① 查看用户授权 Tab；② 直接调用 `CH-API-02` 保存企微 Bot 密钥 | 用户授权 Tab **可见且只读**（列表正常渲染，无「添加用户」「撤销授权」按钮）；IM Tab **不渲染**保存/停用按钮；网络面板中 `CH-API-02` 返回 **403**，错误映射为无权限提示且不白屏 |
+| I-03-01 | FEAT-03-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
 
@@ -112,11 +115,15 @@
 
 **IM Tab**：企业微信、WebSocket、Bot ID、Secret 输入、启用状态、连接状态/最近连接时间。
 
-**用户授权 Tab**：Admin 添加/撤销用户；Builder 只读或隐藏。
+**用户授权 Tab**：Admin 添加/撤销用户；**Builder 只读**——可见该 Tab 与授权列表，但**不渲染**任何写按钮（无「添加用户」「撤销授权」），且直接调用 `USR-API-08` 得 403。不采用「隐藏或只读二选一」（T-23 定死）。
 
+**授权/绑定编辑合同（Z-06，`PUT` 全量覆盖类的统一交互）**：`USR-API-08`（Agent 授权用户）、`AGENT-API-05/06/07`（直接能力/Skill/可调用服务）、`USR-API-06`（用户 Agent 授权）都是全量集合覆盖写接口，交互**必须一致**（`90` §3.7）：
 
+1. **已授权预勾选**：打开编辑弹窗时**全量加载候选对象**并**预勾选当前已授权对象**（不是「只列未授权行再逐行增删」）；
+2. **保存前差异确认**：提交前显示差异摘要「**新增 N 个 / 移除 M 个**」，并**逐条列出被移除对象的名称与标识**（不得只显示计数）；N=M=0 时保存按钮禁用并提示「无变更」；
+3. **一次 `PUT` 提交完整集合**：携带 `revision`；409 冲突时**保留弹窗内容**并提示「授权已被他人修改，请重新加载」（防止两个 Admin 静默互相覆盖）。
 
-**依赖选择**：模型下拉经 MODEL-API-01 的 Builder 安全 DTO（id/name/model_name/enabled）查询，保存 model_config_id；无可用模型明确空态，不要求 Builder 手填 UUID 或获取 Secret。MemoryPolicy 表单字段 allowed_keys/max_value_bytes/max_items，分别映射 Agent.memory_policy；敏感授权/IM Bot 写操作仅 Admin。
+**依赖选择**：模型下拉经 MODEL-API-01 的 Builder 安全 DTO（id/name/model_name/enabled）查询，保存 model_config_id；无可用模型明确空态，不要求 Builder 手填 UUID 或获取 Secret。MemoryPolicy 表单字段 allowed_keys/max_value_bytes/max_items，分别映射 Agent.memory_policy；敏感授权/IM Bot 写操作仅 Admin——**`CH-API-02 保存 Agent WeCom 接入` 授权收紧为仅 Admin（D8）**，Builder 页面不渲染保存按钮且直接调用得 403。
 
 ### 3.5 状态与数据流
 

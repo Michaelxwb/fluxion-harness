@@ -6,8 +6,8 @@
 
 # 用户与 Agent 授权 模块需求与设计一体化文档
 
-> **文档编号**: MOD-USER-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-USER-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 新增 AUTH-LIB-02/03（内部服务 token、Developer token）；Console 身份映射与 configured/session 字段补齐；Builder 安全只读 DTO 字段级冻结；auth_type↔ProviderKey 冻结；用户授权 revision_token 移除；Skill 入口校验与审核后置声明 |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | Z-12 角色守卫：USR-API-04 补三条服务端校验（不得改当前登录用户自己的 `role` → 403 `SELF_ROLE_CHANGE_DENIED`；提升为 ADMIN 需前端二次确认且服务端接受；禁止降级/停用最后一名 Admin → 409 `LAST_ADMIN_PROTECTED`）；明确「最后一名 Admin」判定口径；补场景 E-USER-04/E-USER-05 并同步 §6 与合规矩阵 verifier |
 
 ## 2. 需求分析
 
@@ -89,7 +91,7 @@
 | RULE-USER-01 | 授权事实 | 唯一产品授权事实是 AgentAccessGrant；不得新建 UserAgentBinding 路由表。 | S-USER-01 |
 | RULE-USER-02 | 跨渠道 | 同一 PlatformUser 的 Agent grant 在所有已绑定身份复用。 | S-USER-02 |
 | RULE-USER-03 | 实时撤销 | 撤销 grant 后新消息/Execution 恢复立即拒绝。 | S-USER-03 |
-| RULE-USER-04 | Admin | V1 Console 用户/授权管理仅 Admin 可写。 | S-USER-04 |
+| RULE-USER-04 | Admin | V1 Console 用户/授权管理仅 Admin 可写；Admin 角色本身受自改/最后一名 Admin 守卫（USR-API-04）。 | S-USER-04, E-USER-04, E-USER-05 |
 | RULE-USER-05 | 外部权限 | Agent grant 不替代 MSS/CRM 等业务数据权限。 | S-USER-05 |
 
 #### 2.5.2 功能验收场景
@@ -109,7 +111,10 @@
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 | 用户感知 |
 |---|---|---|---|---|---|---|---|
 | E-USER-01 | FEAT-USER-02 | integration | Unique grant | 本模块 | 重复授权同 user-agent | 幂等/enable existing | 无重复 row |
-| E-USER-02 | FEAT-USER-04 | E2E | Runtime grant check | 本模块 | 无 grant | 请求 Agent | AGENT_ACCESS_DENIED | 不调用模型/Skill/Capability |
+| E-USER-02 | FEAT-USER-04 | E2E | Runtime grant check | 本模块 | 用户无 grant 请求 Agent | AGENT_ACCESS_DENIED | 不调用模型/Skill/Capability |
+| E-USER-03 | FEAT-USER-01 | E2E | Console 写权限与审计 | 本模块 | Builder 登录 Console 调 USR-API-02 或 USR-API-06 | 403 ADMIN_REQUIRED；写 audit_log（actor_user_id=该登录用户唯一 platform_user.id，含 action 与目标） | 写操作被拒绝，授权变更与操作者可追踪 |
+| E-USER-04 | FEAT-USER-01 | E2E | Admin 自改角色守卫 | 本模块 | 当前登录 Admin 编辑自己并提交 `role` 变更 | 403 SELF_ROLE_CHANGE_DENIED；整次请求原子拒绝，该用户 role 仍为 ADMIN、其他字段未被修改 | 角色未变；不会被自己降权锁死，其余字段修改需分次提交 |
+| E-USER-05 | FEAT-USER-01 | E2E | 最后一名 Admin 保护 | 本模块 | 租户内仅剩一名 `role=ADMIN AND status=ACTIVE AND is_deleted=false` 用户时，降级（ADMIN→非 ADMIN）或停用（ACTIVE→DISABLED）该 Admin | 409 LAST_ADMIN_PROTECTED；不落库（原角色/状态不变） | 平台仍有至少一名可用 Admin，管理面不会自我锁死 |
 
 #### 2.5.3 非功能指标
 
@@ -188,7 +193,7 @@ flowchart LR
 | tenant_id | UUID | N |  | IDX | 租户 |
 | user_key | VARCHAR(128) | N |  | UK | 租户内稳定用户标识 |
 | display_name | VARCHAR(256) | N |  | IDX | 展示名 |
-| role | VARCHAR(32) | N | END_USER |  | END_USER/BUILDER/ADMIN |
+| role | VARCHAR(32) | N | END_USER |  | END_USER/BUILDER/ADMIN；`ADMIN`/`BUILDER` 同时是 Console 登录角色（见模块 09 §3.2.3）；`END_USER` 仅经 IM 使用，不登录 Console |
 | status | VARCHAR(32) | N | ACTIVE | IDX | ACTIVE/DISABLED |
 | revision | BIGINT | N | 1 |  | 乐观锁版本（R17：编辑必填回传；每次更新 +1） |
 | description | TEXT | Y |  |  | 备注 |
@@ -219,7 +224,7 @@ flowchart LR
 | platform_user_id | UUID | N |  | FK,IDX | 用户 |
 | agent_definition_id | UUID | N |  | FK,IDX | Agent |
 | enabled | BOOLEAN | N | TRUE | IDX | 当前授权是否有效 |
-| granted_by | UUID | N |  |  | 管理员/Builder 用户 ID |
+| granted_by | UUID | N |  |  | 操作者的 `platform_user.id`（取登录用户对应的唯一 platform_user 行，见模块 09 的 Console 身份契约 §3.2.3） |
 | granted_at | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 授权时间 |
 | revoked_at | TIMESTAMPTZ | Y |  |  | 撤销时间 |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
@@ -480,8 +485,8 @@ Admin 鉴权 → tenant scoped read platform_user → 聚合 count（批量子�
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | display_name | string | Y | 展示名 |
-| role | string | Y | 角色 |
-| status | string | Y | 状态 |
+| role | string | Y | 角色；① 不得修改当前登录用户自己的角色（403 `SELF_ROLE_CHANGE_DENIED`）；② 提升为 ADMIN 需前端二次确认，服务端接受确认后的请求；③ 不得使启用 Admin 数变为 0（409 `LAST_ADMIN_PROTECTED`） |
+| status | string | Y | 状态 ACTIVE/DISABLED；最后一名启用 Admin 不得停用 |
 | description | string | N | 备注 |
 | revision | integer | Y | 乐观锁版本 |
 
@@ -524,14 +529,21 @@ Admin 鉴权 → tenant scoped read platform_user → 聚合 count（批量子�
 |---|---|---|
 | USER_NOT_FOUND | 用户不存在 | 404 |
 | REVISION_CONFLICT | revision 冲突 | 409 |
+| SELF_ROLE_CHANGE_DENIED | 修改当前登录用户自己的 `role` | 403 |
+| LAST_ADMIN_PROTECTED | 降级（ADMIN→非 ADMIN）或停用（ACTIVE→DISABLED）会使启用 Admin 数变为 0 | 409 |
 
 **处理逻辑**
 
 ```text
-读取 current → 校验 revision → 禁止修改 user_key → UPDATE + revision+1 → audit before/after。
+读取 current → 校验 revision → 禁止修改 user_key → 角色守卫三条 → UPDATE + revision+1 → audit before/after。
+① 自改守卫：目标用户 == 请求上下文中的当前登录用户（同一 platform_user.id）且 role 发生变更 → SELF_ROLE_CHANGE_DENIED（403），整次请求原子拒绝（不修改任何字段）。
+② Admin 升级确认：把某用户 role 提升为 ADMIN 需前端二次确认对话框；服务端接受确认后提交的同一请求（不引入独立确认令牌/二次接口）。
+③ 最后一名 Admin 保护：判定口径为行数 COUNT(*) WHERE tenant_id=? AND role='ADMIN' AND status='ACTIVE' AND is_deleted=false 必须恒 >= 1；
+   当本次变更会使该计数变为 0（ADMIN→非 ADMIN 的降级，或 ACTIVE→DISABLED 的停用，含两者同时）→ LAST_ADMIN_PROTECTED（409），不落库；
+   同一事务内 SELECT ... FOR UPDATE 锁定本租户 Admin 行后再计数，避免两个并发请求各自降级导致同时通过。
 ```
 
-**一致性/幂等**：乐观锁，禁止 last-write-wins 静默覆盖。
+**一致性/幂等**：乐观锁，禁止 last-write-wins 静默覆盖；三条守卫均为原子拒绝（拒绝时不得部分写入）。
 
 #### USR-API-05: 获取用户 Agent 授权
 
@@ -586,15 +598,13 @@ tenant scoped 用户存在性检查 → JOIN agent_access_grant + agent_definiti
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| agent_ids | array<uuid> | Y | 目标有效授权集合 |
-| revision_token | string | N | 可选页面并发 token |
+| agent_ids | array<uuid> | Y | 目标有效授权集合（整体替换，即最终集合） |
 
 **请求示例**
 
 ```json
 {
-  "agent_ids": [],
-  "revision_token": "<revision_token>"
+  "agent_ids": []
 }
 ```
 
@@ -631,10 +641,10 @@ tenant scoped 用户存在性检查 → JOIN agent_access_grant + agent_definiti
 **处理逻辑**
 
 ```text
-Admin 鉴权 → 校验所有 Agent 同租户 → transaction：对差集 upsert/enable，对撤销集 enabled=false+revoked_at → audit。
+Admin 鉴权 → 校验所有 Agent 同租户 → 单事务：对差集 upsert/enable，对撤销集 enabled=false+revoked_at → audit。
 ```
 
-**一致性/幂等**：整体集合替换在单事务内完成；重复提交同一集合幂等。
+**一致性/幂等**：语义为**整体集合替换、单事务、幂等**——`agent_ids` 即最终有效集合，重复提交同一集合返回相同结果（相同 granted/added/revoked）。不做乐观锁：`agent_access_grant` 无独立 revision（同一 tenant+user+agent 只有一条未删除记录，重复授权仅切换 enabled），因此请求体不携带 `revision_token`，响应也不返回集合版本。
 
 #### USR-API-07: Agent 反向授权用户
 
@@ -747,6 +757,8 @@ JOIN grant/user 分页；只读反向视图。
 
 **入口类型**：Library
 
+**认证/授权**：仅宿主内部调用（Channel Gateway/Agent Runtime/ExecutionService）；身份一律取可信 `ctx`（tenant/actor），不接受 LLM/渠道/客户端提交的 user_id 或 access flag。
+
 **函数签名**
 
 ```python
@@ -834,21 +846,21 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-USER-01 | USR-API-01, USR-API-02 | S-USER-01 | E2E/integration | 待实现/评审 |
-| FEAT-USER-02 | USR-API-02, USR-API-03 | S-USER-02, E-USER-01 | E2E/integration | 待实现/评审 |
-| FEAT-USER-03 | USR-API-03, USR-API-04 | 见 §2.5 | E2E/integration | 待实现/评审 |
-| FEAT-USER-04 | USR-API-04, USR-API-05 | S-USER-03, S-USER-04, E-USER-02 | E2E/integration | 待实现/评审 |
-| FEAT-USER-05 | USR-API-05, USR-API-06 | 见 §2.5 | E2E/integration | 待实现/评审 |
+| FEAT-USER-01 | USR-API-01, USR-API-02, USR-API-03, USR-API-04 | S-USER-01, E-USER-03, E-USER-04, E-USER-05 | E2E/integration | 待实现/评审 |
+| FEAT-USER-02 | USR-API-05, USR-API-06, USR-API-08 | S-USER-02, E-USER-01 | E2E/integration | 待实现/评审 |
+| FEAT-USER-03 | USR-API-07 | S-USER-02 | E2E/integration | 待实现/评审 |
+| FEAT-USER-04 | USR-LIB-01 | S-USER-03, S-USER-04, E-USER-02 | E2E/integration | 待实现/评审 |
+| FEAT-USER-05 | USR-API-06, USR-API-08 | E-USER-03 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/USER#RULE-USER-01 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/USER#RULE-USER-02 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/USER#RULE-USER-03 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/USER#RULE-USER-04 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/USER#RULE-USER-05 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-05 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/USER#RULE-USER-01 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-01 / §3 | S-USER-02, E-USER-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/USER#RULE-USER-02 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-02 / §3 | S-USER-03 | applied；仓库 spec-context 待绑定 |
+| DESIGN/USER#RULE-USER-03 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-03 / §3 | S-USER-04, E-USER-02 | applied；仓库 spec-context 待绑定 |
+| DESIGN/USER#RULE-USER-04 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-04 / §3.4.1 USR-API-04 | E-USER-03, E-USER-04, E-USER-05 | applied；仓库 spec-context 待绑定 |
+| DESIGN/USER#RULE-USER-05 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-05 / §3 | S-USER-05 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

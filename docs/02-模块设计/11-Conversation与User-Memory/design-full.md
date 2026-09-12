@@ -6,8 +6,8 @@
 
 # Conversation 与 User Memory 模块需求与设计一体化文档
 
-> **文档编号**: MOD-MEM-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-MEM-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 场景行归位与表格修复；新增 human_wait/progress_stage 投递与 RULE-CHAN-09；命令集对齐与 MEM-INT-01 去重；Bot Secret lease 与连接状态数据源；删除 Console 会话接口；message_type 补 PROPOSAL 与 CONV-LIB-03 |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | conversation_run 的租约规则改为引用模块 01 的 CORE-LIB-08（claim/renew/assert_owner），本模块只保留 sequence_no 领取排序与“到期 RUNNING 优先于新 turn”，并声明不再维护第二套 epoch 递增/续租语义；conversation_run、channel_command_receipt、message 各补保留期与清理触发者的责任声明（指向 `01-架构与规范/11-数据保留与清理策略`） |
 
 ## 2. 需求分析
 
@@ -76,7 +78,7 @@
 | 类别 | 内容 |
 |---|---|
 | 范围（In Scope） | Conversation/Message/UserMemory DB、Runtime load/append、/new 语义、Memory policy/来源/撤销。 |
-| 非范围（Out of Scope） | 业务平台实时数据、Execution Task State、向量语义 Memory 高级平台（后续）。 |
+| 非范围（Out of Scope） | 业务平台实时数据、Execution Task State、向量语义 Memory 高级平台（后续）；**Console 不提供会话管理能力**——总设 §6.6 IA 无会话菜单，故不提供 `CONV-API-01..04`，会话生命周期由 `/new`（CONV-LIB-02）与 Runtime 内部驱动，不再有独立的会话 CRUD 页面或端点。 |
 | 前置假设 | 上游总设、公共 DB/API 规范、外部基础设施可用 |
 | 有意妥协 / 技术债 | 无；未来扩展必须有真实旅程驱动 |
 
@@ -91,7 +93,6 @@
 | RULE-MEM-03 | 新会话 | /new 只创建新 Conversation，不清理 UserMemory/Grant。 | S-MEM-03 |
 | RULE-MEM-04 | 权威数据 | Memory 不存当前设备、实时权限、任务状态等业务权威事实。 | S-MEM-04 |
 | RULE-MEM-05 | 隔离 | 所有 Memory 按 tenant+user 隔离并带来源。 | S-MEM-05 |
-| S-MEM-06 | FEAT-MEM-02 | P1 | E2E | Memory 写入/清理全链 | 本模块 | 用户在会话中 | "记住偏好 X" → /new → 读取 → /memory clear → 再读取 | 写入经 MemoryPolicy；新会话注入；清理后不再注入 |
 
 #### 2.5.2 功能验收场景
 
@@ -104,6 +105,7 @@
 | S-MEM-02 | FEAT-MEM-03 | P0 | E2E | WeCom/WebChat→same user→PG | 后置 → 模块 10 | 两渠道映射同一用户 | 分别发消息 | 读取一致 UserMemory |
 | S-MEM-03 | FEAT-MEM-04 | P0 | E2E | /new→Conversation | 本模块 | 已有会话+Memory | 执行 /new | 新 conversation_id，Memory 保留 |
 | S-MEM-04 | FEAT-MEM-05 | P0 | E2E | Admin API→PG→Runtime | 本模块 | Memory ACTIVE | 撤销 | 下一请求不再注入 |
+| S-MEM-06 | FEAT-MEM-02 | P1 | E2E | Memory 写入/清理全链 | 本模块 | 用户在会话中 | "记住偏好 X" → /new → 读取 → /memory clear → 再读取 | 写入经 MemoryPolicy；新会话注入；清理后不再注入 |
 
 **异常场景**
 
@@ -181,7 +183,6 @@ flowchart LR
 |---|---|---|
 | conversation_run | Chat turn 调度/取消/恢复事实 | Conversation 与 User Memory |
 | channel_command_receipt | 真实入站命令的幂等结果 | Conversation 与 User Memory |
-
 | conversation | 当前会话事实；/new 创建新会话但不清空 User Memory/授权。 | Conversation 与 User Memory |
 | message | Conversation 内消息记录，用于上下文/审计；不等于长期 Memory。 | Conversation 与 User Memory |
 | user_memory | 跨 Conversation/Channel 的受控长期用户上下文；不得保存业务平台实时权威数据。 | Conversation 与 User Memory |
@@ -224,7 +225,7 @@ flowchart LR
 | role | VARCHAR(32) | N |  | IDX | USER/ASSISTANT/SYSTEM/TOOL |
 | content | TEXT | Y |  |  | 小文本内容 |
 | content_ref | VARCHAR(1024) | Y |  |  | 大内容/附件引用 |
-| message_type | VARCHAR(32) | N | TEXT |  | TEXT/TOOL/FILE/EVENT |
+| message_type | VARCHAR(32) | N | TEXT |  | TEXT/TOOL/FILE/EVENT/PROPOSAL；PROPOSAL 承载 EXE-LIB-02 签发的待确认提案（content 存 proposal_id 与摘要文本，content_ref 可指向提案快照） |
 | external_message_id | VARCHAR(512) | Y |  | IDX | 渠道 transport ID |
 | verified_channel_account_id | UUID | Y |  | FK | USER 入站身份来源；系统生成消息为空 |
 | actor_user_id | UUID | Y |  | FK | 受信解析的 USER 作者 |
@@ -240,6 +241,7 @@ flowchart LR
 
 - content/content_ref 至少一个有效
 - UNIQUE (tenant_id,verified_channel_account_id,external_message_id) WHERE external_message_id IS NOT NULL；UNIQUE (tenant_id,conversation_id,sequence_no)。消息正文/来源不可变，processing_status 是唯一允许更新的调度元数据。
+- 会话历史（message）的保留与清理按 `01-架构与规范/11-数据保留与清理策略` 执行；本模块不自行决定保留期限与清理触发者。
 
 **索引设计**
 
@@ -274,8 +276,10 @@ flowchart LR
 **约束与索引**
 
 - UNIQUE (tenant_id,source_message_id)；UNIQUE (tenant_id,conversation_id) WHERE status IN ('RUNNING','CANCEL_REQUESTED') AND is_deleted=false。
-- 领取前无有效 lease；Run graph 状态写入比较 lease_epoch；失租立即停止。
+- 租约规则一律引用 **CORE-LIB-08 LeaseQueue**（模块 01）：claim/renew/release 与 owner+lease_epoch fencing 使用该共享实现与统一 epoch 语义；本表只提供列映射（`lease_owner/lease_expires_at/lease_epoch`）、领取排序键（source message 的 `sequence_no`）与“已到期 RUNNING 优先于新 turn”的谓词。`conversation_run` **不再维护第二套 epoch 递增/续租语义**。
+- 领取前无有效 lease；Run graph 状态、结果与 checkpoint 写入前必须先经 CORE-LIB-08.assert_owner 校验 owner+lease_epoch，失配 LEASE_LOST 并立即停止推进。
 - QUEUED 按 message.sequence_no 领取，恢复到期 RUNNING 优先于新 turn。
+- 保留与清理按 `01-架构与规范/11-数据保留与清理策略` 执行；本模块不自行决定 conversation_run 的保留期限与清理触发者。
 
 #### 表 `channel_command_receipt`
 
@@ -299,6 +303,7 @@ flowchart LR
 
 - UNIQUE (tenant_id,idempotency_key)；UNIQUE (tenant_id,message_id)。
 - 请求结果与 NEW/MEMORY_CLEAR/RESULT/CONFIRM/STOP 的持久操作在同一事务，失败事务不留成功 receipt；同键不同 digest 拒绝。
+- 保留与清理按 `01-架构与规范/11-数据保留与清理策略` 执行；本模块不自行决定 receipt 的保留期限与清理触发者（幂等窗口与其一致）。
 
 #### 表 `user_memory`
 
@@ -376,25 +381,20 @@ erDiagram
 
 | 接口ID | 名称 | 形态 | 方法/签名 | 路径/用途 |
 |---|---|---|---|---|
-| CONV-API-01 | 会话列表 | HTTP | GET | /api/v1/conversations |
-| CONV-API-02 | 会话详情 | HTTP | GET | /api/v1/conversations/{conversation_id} |
-| CONV-API-03 | 创建新会话 | HTTP | POST | /api/v1/conversations |
-| CONV-API-04 | 关闭会话 | HTTP | POST | /api/v1/conversations/{conversation_id}/close |
 | MEM-API-01 | 用户 Memory 列表 | HTTP | GET | /api/v1/users/{user_id}/memory |
 | MEM-API-02 | 写入/更新受控 Memory | HTTP | PUT | /api/v1/users/{user_id}/memory/{memory_key} |
 | MEM-API-03 | 撤销 Memory | HTTP | DELETE | /api/v1/users/{user_id}/memory/{memory_key} |
 | CONV-LIB-01 | 解析或创建 Conversation | Library | async def resolve_conversation(ctx: TrustedExecutionContext, agent_id: UUID, conversation_id: UUID \| None, channel_meta: ChannelMeta \| None) -> Conversation |  |
-| MEM-INT-01 | IM 自助记忆命令（list/clear，ADR-033/037） | HTTP | POST | /internal/v1/commands（command=MEMORY_LIST/MEMORY_CLEAR，经 CH-INT-02） |
 | CONV-LIB-02 | 原子切换会话 | Library | start_new_conversation(ctx, scope, message_id) | NEW |
-| MEM-LIB-02 | 本人 Memory 操作 | Library | manage_memory(ctx, request) | LIST/CLEAR/REMEMBER |
-
+| CONV-LIB-03 | 追加入站/出站消息 | Library | async def append_message(ctx: TrustedExecutionContext, conversation_id: UUID, *, role: str, message_type: str, content: str, content_ref: str \| None = None, external_message_id: str \| None = None) -> MessageView | 消息追加（提案/通知/助手消息） |
 | MEM-LIB-01 | 加载长期 Memory | Library | async def load_user_memory(tenant_id: UUID, user_id: UUID, policy: MemoryPolicy) -> list[MemoryItem] |  |
+| MEM-LIB-02 | 本人 Memory 操作 | Library | manage_memory(ctx, request) | LIST/CLEAR/REMEMBER；由 CH-INT-02 的 MEMORY_LIST/MEMORY_CLEAR 动作调用 |
 
 **当前会话与 Checkpoint 合同**
 
 CONV-LIB-01 以 (tenant,user,agent,origin_scope_key) 的 PG transaction advisory lock 串行解析当前 ACTIVE；无行时在同一锁内创建，并用 partial unique 防重复。此锁保护首次创建与 /new，不只锁可能不存在的 conversation 行。入站消息在该事务内绑定确定 conversation_id/sequence_no；提交即释放锁，不持锁执行 LLM/网络。
 
-同会话 Chat turn 按 sequence_no 排队；conversation_run 同时最多一个非终态 run，运行 owner 用 lease_epoch fencing。后续消息只排队，不能并发推进同一图。/new 与入站解析用同一映射锁：旧 conversation=CLOSED，旧 Chat Run 标 CANCEL_REQUESTED，新建 ACTIVE；关闭前已绑定的消息仍归旧会话，未开始的旧消息标 PROCESSED 并告知会话已关闭，不挪到新会话。已创建 Execution 和投递路由保持，关闭不取消它们。
+同会话 Chat turn 按 sequence_no 排队；conversation_run 同时最多一个非终态 run，运行 owner 的领取/续租/释放与 lease_epoch fencing 统一经 CORE-LIB-08（模块 01）实现，本模块不另写一套。后续消息只排队，不能并发推进同一图。/new 与入站解析用同一映射锁：旧 conversation=CLOSED，旧 Chat Run 标 CANCEL_REQUESTED，新建 ACTIVE；关闭前已绑定的消息仍归旧会话，未开始的旧消息标 PROCESSED 并告知会话已关闭，不挪到新会话。已创建 Execution 和投递路由保持，关闭不取消它们。
 
 CheckpointIdentity：Chat thread_id=`chat:{conversation_id}`，namespace=`agent:{agent_id}:graph:1`；Worker thread_id=`execution:{root_execution_id}:operation:{operation_id}`，namespace=`agent:{agent_id}:step:{step_key}:graph:1`。operation_id 首次生成且相同逻辑步骤 retry 沿用；同 Agent 在两个步骤有不同 operation_id。checkpoint_ref 存 execution_step/conversation_run，checkpoint metadata 必须匹配 snapshot hash、operation、step、agent，错配 CHECKPOINT_MISMATCH 拒绝。图节点完成持久 checkpoint；Worker Step 终态只在最终 checkpoint 已确认持久后提交（可恢复重放必须复用副作用 key）；checkpoint 不能覆盖 Execution 调度真相。
 
@@ -403,197 +403,6 @@ CheckpointIdentity：Chat thread_id=`chat:{conversation_id}`，namespace=`agent:
 AGCORE-LIB-05 调 MEM-LIB-02；`memory.remember` 不是任意业务 Capability。需要本人的 verified USER source_message_id 和显式“记住/请记住”或 `/memory remember` 意图，Runtime 决定可用工具，LLM 不能把其他消息标为授权。memory_key 必须在 Agent MemoryPolicy.allowed_keys 中；max_value_bytes 默认 4096、max_items 默认 100，超限 MEMORY_POLICY_DENIED。拒绝业务权限/实时客户设备状态等权威事实。MemoryPolicy 字段随 Agent 投影，普通 Chat 用 current。
 
 来源落 `source_type=EXPLICIT`、source_ref=message.id；agent_tool 是触发方式，不是新枚举值。upsert 采用 expected_revision：已有键版本冲突 409，初次 expected_revision=null；相同 source_message_id+memory_key 防重，来源与写入结果写审计。END_USER `/memory list|clear` 由 CH-INT-02 调同一服务只处理本人；清理设置 REVOKED 后新 turn 不注入，Runtime 不缓存跨 turn 的旧 Memory。
-
-#### CONV-API-01: 会话列表
-
-**入口类型**：HTTP
-
-**契约**：`GET /api/v1/conversations`
-
-**认证/授权**：Admin/内部 WebChat 用户作用域
-
-**Query 参数**
-
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| page | integer | N | 页码，从 1 开始；默认 1 |
-| page_size | integer | N | 每页条数；默认 20，最大 100 |
-| user_id | uuid | N | Admin 可筛选；用户端隐含当前用户 |
-| agent_id | uuid | N | Agent |
-
-**请求体**：无。
-
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| items | array<ConversationSummary> | id/user/agent/status/title/last_message_at |
-| total | integer | 总数 |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "items": [],
-    "total": 1
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-仅使用公共错误码。
-
-**处理逻辑**
-
-```text
-按当前身份权限 tenant/user scope 查询；服务端分页。
-```
-
-#### CONV-API-02: 会话详情
-
-**入口类型**：HTTP
-
-**契约**：`GET /api/v1/conversations/{conversation_id}`
-
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
-
-**请求体**：无。
-
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| conversation | object | 元数据 |
-| messages | array<Message> | 默认最近窗口；大历史另分页 |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "conversation": {},
-    "messages": []
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| CONVERSATION_NOT_FOUND | 不存在/无权限 | 404 |
-
-**处理逻辑**
-
-```text
-ownership/role check → 加载会话 → 最近消息窗口。
-```
-
-#### CONV-API-03: 创建新会话
-
-**入口类型**：HTTP
-
-**契约**：`POST /api/v1/conversations`
-
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
-
-**请求体**
-
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| agent_id | uuid | Y | 目标 Agent |
-| channel_type | string | N | WEBCHAT 等 |
-
-**请求示例**
-
-```json
-{
-  "agent_id": "<agent_id>",
-  "channel_type": "<channel_type>"
-}
-```
-
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| conversation_id | uuid | 新会话 |
-| agent_id | uuid | Agent |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "conversation_id": "<conversation_id>",
-    "agent_id": "<agent_id>"
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| AGENT_ACCESS_DENIED | 无 AgentAccessGrant | 403 |
-
-**处理逻辑**
-
-```text
-require_agent_access → INSERT conversation；不清空 User Memory。
-```
-
-#### CONV-API-04: 关闭会话
-
-**入口类型**：HTTP
-
-**契约**：`POST /api/v1/conversations/{conversation_id}/close`
-
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
-
-**请求体**：无。
-
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| status | string | CLOSED |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "status": "<status>"
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| CONVERSATION_NOT_FOUND | 不存在 | 404 |
-
-**处理逻辑**
-
-```text
-ownership/role check → status=CLOSED；在途 Execution 不因会话关闭自动取消。
-```
 
 #### MEM-API-01: 用户 Memory 列表
 
@@ -651,6 +460,8 @@ tenant/user scoped query；敏感推断按 policy 过滤。
 **契约**：`PUT /api/v1/users/{user_id}/memory/{memory_key}`
 
 **认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021；Runtime 受控写入走内部 Contract，非本端点）
+
+**用途声明**：本接口是 Admin 治理入口（ADR-037），**V1 Console 不提供写表单**（FE-09 仅只读 + 单条删除）；保留用于排障与批量治理，调用方为 Admin 会话或运维脚本。
 
 **请求体**
 
@@ -755,6 +566,8 @@ soft revoke/status → audit；后续 Runtime 不再注入。
 async def resolve_conversation(ctx: TrustedExecutionContext, agent_id: UUID, conversation_id: UUID | None, channel_meta: ChannelMeta | None) -> Conversation
 ```
 
+**认证/授权**：进程内 Library，不暴露网络端点；调用方为 agent-runtime 的受信组件（CH-DATA-02 入站解析、RT-INT-01、CONV-LIB-02），必须传入平台签发的 `TrustedExecutionContext`；tenant/user/agent 取自 ctx 与已解析的 VerifiedEnvelope，正文提供的身份字段拒绝。
+
 **入参**
 
 | 参数 | 类型 | 必填 | 说明 |
@@ -785,11 +598,74 @@ require_agent_access → 明确 id 时校验 tenant/user/agent/origin_scope 且 
 
 **签名**：`async def start_new_conversation(ctx: TrustedExecutionContext, scope: ChannelScope, message_id: UUID) -> ConversationSwitchResult`
 
+**认证/授权**：进程内 Library，不暴露网络端点；唯一调用方是 CH-INT-02 的 NEW 动作（`/new`），必须传入平台签发的 `TrustedExecutionContext` 与已验证的入站 message_id；tenant/user 取自 ctx，不能由请求参数覆盖。
+
 按当前会话合同取得映射 advisory lock；幂等 receipt 已存在则返回原 result。事务关闭旧会话/标旧 Run 取消/新建 ACTIVE/写 receipt，返回新旧 ID。不得清除长期 Memory、授权或取消后台 Execution。
+
+#### CONV-LIB-03: 追加入站/出站消息
+
+**入口类型**：Library
+
+**函数签名**
+
+```python
+async def append_message(
+    ctx: TrustedExecutionContext,
+    conversation_id: UUID,
+    *,
+    role: str,
+    message_type: str,
+    content: str,
+    content_ref: str | None = None,
+    external_message_id: str | None = None,
+) -> MessageView
+```
+
+**认证/授权**：进程内 Library，不暴露网络端点；调用方必须是 agent-runtime 内的受信服务端组件（EXE-LIB-02、Worker/Channel Application、Runtime 图节点），且必须传入平台签发的 `TrustedExecutionContext` 作为身份来源。tenant/actor 取自 ctx，正文提供的身份字段一律拒绝；渠道侧入站仍必须经 CH-DATA-02 完成验签与身份解析后再调用本 Library，LLM/客户端不能直接构造调用。
+
+**入参**
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| ctx | TrustedExecutionContext | Y | 受信身份（tenant/actor 唯一来源） |
+| conversation_id | uuid | Y | 目标会话 |
+| role | string | Y | USER/ASSISTANT/SYSTEM/TOOL |
+| message_type | string | Y | TEXT/TOOL/FILE/EVENT/PROPOSAL |
+| content | string | Y | 消息文本；PROPOSAL 时存 proposal_id 与摘要文本 |
+| content_ref | string | N | 大内容/附件引用；PROPOSAL 时可指向提案快照 |
+| external_message_id | string | N | 幂等键（渠道 transport ID 或调用方生成的事件键） |
+
+**返回**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| message | MessageView | 已持久化消息（id/conversation_id/role/message_type/sequence_no/create_time） |
+
+**异常/错误**
+
+| 错误码 | 场景 | HTTP 状态 |
+|---|---|---|
+| CONVERSATION_NOT_FOUND | 会话不存在或不属于 ctx 的 tenant/user | 404 |
+| CONVERSATION_CLOSED | 会话非 ACTIVE，不接受新消息 | 409 |
+| MESSAGE_CONTENT_INVALID | content 与 content_ref 同时为空 | 400 |
+| MESSAGE_TYPE_INVALID | message_type 不在枚举内 | 400 |
+
+**处理逻辑**
+
+```text
+校验 ctx 与 conversation 归属/状态 → 幂等检查：external_message_id 非空时按
+UNIQUE (tenant_id,verified_channel_account_id,external_message_id) 命中则直接返回原消息
+→ 在同一事务内分配 conversation.next_message_sequence、INSERT message、更新 last_message_at
+→ 返回 MessageView。正文与身份/来源不可变；本 Library 不改写历史消息，只允许后续更新 processing_status。
+```
+
+**调用方**：EXE-LIB-02（签发待确认提案时以 `message_type=PROPOSAL` 追加 ASSISTANT 消息）、Worker/Channel（`human_wait` 与 completed/failed 结果通知的出站落库）、Runtime（助手消息）。幂等键 `external_message_id`：同键返回原消息，不新建行。
 
 #### MEM-LIB-02: 本人记忆操作
 
 **签名**：`async def manage_memory(ctx: TrustedExecutionContext, request: MemoryRequest) -> MemoryResult`
+
+**认证/授权**：进程内 Library，不暴露网络端点；由 CH-INT-02 的 MEMORY_LIST/MEMORY_CLEAR 动作调用本 Library（`/internal/v1/commands` 的 Owner 是模块 10 的 CH-INT-02，本模块不设独立的 IM 记忆命令端点）。其余调用方为 agent-runtime 的受信组件（如 AGCORE-LIB-05），必须传入平台签发的 `TrustedExecutionContext`；tenant/user 取自 ctx，拒绝 payload 中的 user_id。
 
 MemoryRequest 判别：LIST（可选 key）返回 `{items:[key,value,source_type,revision]}`；CLEAR（可选 key）返回 `{revoked_count}`；REMEMBER（key/value/source_message_id/expected_revision）返回 `{key,revision,status:ACTIVE}`。ctx 决定 tenant/user，拒绝 payload.user_id。REMEMBER 校验真实来源、Agent MemoryPolicy、来源枚举及并发版本；CLEAR 采用入站消息幂等事务，Admin 管理接口另用 Admin actor 审计。错误 MEMORY_POLICY_DENIED（403）、MEMORY_REVISION_CONFLICT（409）、MEMORY_SOURCE_INVALID（403）。
 
@@ -802,6 +678,8 @@ MemoryRequest 判别：LIST（可选 key）返回 `{items:[key,value,source_type
 ```python
 async def load_user_memory(tenant_id: UUID, user_id: UUID, policy: MemoryPolicy) -> list[MemoryItem]
 ```
+
+**认证/授权**：进程内 Library，不暴露网络端点；调用方为 agent-runtime 的受信组件（AgentExecutor/ContextResolver），tenant_id/user_id 只能来自平台已解析的 `TrustedExecutionContext` 与 Agent 投影，不得取自消息正文或 LLM 输出。
 
 **入参**
 
@@ -876,21 +754,21 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-MEM-01 | CONV-API-01, CONV-API-02 | E-MEM-02 | E2E/integration | 待实现/评审 |
-| FEAT-MEM-02 | CONV-API-02, CONV-API-03 | 见 §2.5 | E2E/integration | 待实现/评审 |
-| FEAT-MEM-03 | CONV-API-03, CONV-API-04 | S-MEM-01, S-MEM-02, E-MEM-01 | E2E/integration | 待实现/评审 |
-| FEAT-MEM-04 | CONV-API-04, MEM-API-01 | S-MEM-03 | E2E/integration | 待实现/评审 |
-| FEAT-MEM-05 | MEM-API-01, MEM-API-02 | S-MEM-04 | E2E/integration | 待实现/评审 |
+| FEAT-MEM-01 | CONV-LIB-01, CONV-LIB-02 | S-MEM-05, E-MEM-02 | E2E/integration | 待实现/评审 |
+| FEAT-MEM-02 | CONV-LIB-03 | S-MEM-06 | E2E/integration | 待实现/评审 |
+| FEAT-MEM-03 | MEM-LIB-01, MEM-LIB-02 | S-MEM-01, S-MEM-02, E-MEM-01 | E2E/integration | 待实现/评审 |
+| FEAT-MEM-04 | CONV-LIB-02 | S-MEM-03 | E2E/integration | 待实现/评审 |
+| FEAT-MEM-05 | MEM-API-01, MEM-API-02, MEM-API-03 | S-MEM-04, S-MEM-06 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/MEM#RULE-MEM-01 | design-baseline | 约束实现与验收 | §2.5 RULE-MEM-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/MEM#RULE-MEM-02 | design-baseline | 约束实现与验收 | §2.5 RULE-MEM-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/MEM#RULE-MEM-03 | design-baseline | 约束实现与验收 | §2.5 RULE-MEM-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/MEM#RULE-MEM-04 | design-baseline | 约束实现与验收 | §2.5 RULE-MEM-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/MEM#RULE-MEM-05 | design-baseline | 约束实现与验收 | §2.5 RULE-MEM-05 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/MEM#RULE-MEM-01 | design-baseline | 约束实现与验收 | §2.5 RULE-MEM-01 / §3 | S-MEM-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/MEM#RULE-MEM-02 | design-baseline | 约束实现与验收 | §2.5 RULE-MEM-02 / §3 | S-MEM-02 | applied；仓库 spec-context 待绑定 |
+| DESIGN/MEM#RULE-MEM-03 | design-baseline | 约束实现与验收 | §2.5 RULE-MEM-03 / §3.4 CONV-LIB-02 | S-MEM-03 | applied；仓库 spec-context 待绑定 |
+| DESIGN/MEM#RULE-MEM-04 | design-baseline | 约束实现与验收 | §2.5 RULE-MEM-04 / §3.4 MEM-LIB-02 | S-MEM-04, E-MEM-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/MEM#RULE-MEM-05 | design-baseline | 约束实现与验收 | §2.5 RULE-MEM-05 / §3.3.3 | S-MEM-05, S-MEM-06 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

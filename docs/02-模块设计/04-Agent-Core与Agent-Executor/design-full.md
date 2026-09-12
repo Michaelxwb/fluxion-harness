@@ -6,8 +6,8 @@
 
 # Agent Core 与 Agent Executor 模块需求与设计一体化文档
 
-> **文档编号**: MOD-AGENT-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-AGENT-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | RT-INT-01 补 proposal/file 事件与签发步骤；新增 RT-LIB-03 Chat Run 领取/恢复；AGCORE-LIB-02 按 Contract 元数据分流；矩阵与 verifier 修正 |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D1 消费侧同步：AGCORE-LIB-02 分流只比较 `direct_invocation` 并按新字段 `invocation_policy=EXECUTION_ONLY` 表述（清空旧字段名残留）；B8：`agent_definition.memory_policy` 由裸 JSONB 改为受 `contract:memory-policy-schema` 约束（含默认值与 fail-closed 语义），AGENT-API-02/04 DTO 说明同步；新增场景 S-AGENT-08（`allowed_keys=[]` → `MEMORY_POLICY_DENIED`） |
 
 ## 2. 需求分析
 
@@ -87,10 +89,10 @@
 | ID | 类型 | 描述 | 验证场景 |
 |---|---|---|---|
 | RULE-AGENT-01 | 模型 | V1 一个 Agent 只能引用一个 ModelConfig。 | S-AGENT-01 |
-| RULE-AGENT-02 | 生效 | Agent 无 Draft/Publish；保存后新请求直接使用新 revision。 | S-AGENT-02 |
-| RULE-AGENT-03 | 能力 | SkillArtifact 的 Capability 依赖不会自动成为 Agent LLM Tool。 | S-AGENT-03 |
-| RULE-AGENT-04 | 服务关系 | Service.primary_agent 与 Agent.callable_service 是不同关系。 | S-AGENT-04 |
-| RULE-AGENT-05 | 高风险 | 有副作用/长任务按策略生成 ExecutionProposal，不由 Agent loop 直接可靠执行。 | S-AGENT-05 |
+| RULE-AGENT-02 | 生效 | Agent 无 Draft/Publish；保存后新请求直接使用新 revision。 | S-AGENT-06 |
+| RULE-AGENT-03 | 能力 | SkillArtifact 的 Capability 依赖不会自动成为 Agent LLM Tool。 | S-AGENT-02, E-AGENT-01 |
+| RULE-AGENT-04 | 服务关系 | Service.primary_agent 与 Agent.callable_service 是不同关系。 | S-AGENT-07 |
+| RULE-AGENT-05 | 高风险 | 有副作用/长任务按策略生成 ExecutionProposal，不由 Agent loop 直接可靠执行。 | S-AGENT-04, S-AGENT-05 |
 
 #### 2.5.2 功能验收场景
 
@@ -98,11 +100,14 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
-| S-AGENT-05 | FEAT-AGENT-03 | P1 | integration | 高风险动作产出 Proposal | 本模块 | Agent 请求有副作用能力 | Agent loop 执行高风险意图 | 返回 ExecutionProposal，不直接执行；Proposal 含 evidence/risk |
+| S-AGENT-05 | FEAT-AGENT-05 | P1 | integration | 高风险动作产出 Proposal | 本模块 | Agent 请求有副作用能力 | Agent loop 执行高风险意图 | 返回 ExecutionProposal，不直接执行；Proposal 含 evidence/risk |
 | S-AGENT-01 | FEAT-AGENT-01 | P0 | E2E | Console API→DB→Runtime | 本模块 | Model enabled | 创建 Agent | 列表/详情可见，Runtime 可解析 |
 | S-AGENT-02 | FEAT-AGENT-02 | P0 | E2E | Binding API→Resolver | 本模块 | Agent 已存在 | 绑定 direct capability + Skill | effective view 标记不同 origin |
 | S-AGENT-03 | FEAT-AGENT-04 | P0 | E2E | AgentExecutor→Model→Capability | 后置 → 模块 03/07/19 | 用户有授权 | 请求只读 direct tool | 仅允许已绑定能力 |
 | S-AGENT-04 | FEAT-AGENT-05 | P0 | E2E | Agent→ExecutionService | 后置 → 模块 05 | 请求长任务 | 模型形成服务意图 | 得到 Proposal，由 ExecutionService 再校验 |
+| S-AGENT-06 | FEAT-AGENT-01 | P1 | integration | Console API→DB→Runtime revision | 本模块 | Agent 已存在，current revision=N | 编辑 instructions 保存后由 Runtime 发一条新消息 | Runtime 使用 revision N+1；不存在 Draft/Publish 状态，无需发布 |
+| S-AGENT-07 | FEAT-AGENT-02 | P1 | integration | Service.primary_agent ↔ Agent.callable_service | 本模块 | Service S 的 primary_agent=A；Agent B 已存在 | 经 AGENT-API-07 覆盖 B 的可调用子服务为 S，再查 AGENT-API-03 与 S 详情 | 两条关系独立：B 的 callable_service 变化不改 S.primary_agent；S.primary_agent 变化不改 B 的绑定 |
+| S-AGENT-08 | FEAT-AGENT-04 | P1 | integration | MemoryPolicy fail-closed（contract:memory-policy-schema） | 本模块 | Agent 的 `memory_policy.allowed_keys=[]` | 用户消息"请记住 X"触发 memory.remember（AGCORE-LIB-05 → MEM-LIB-02） | 返回 `MEMORY_POLICY_DENIED`，不写入任何 Memory 行；Agent 不因拒绝而降级为普通任意写 Capability |
 
 **异常场景**
 
@@ -198,7 +203,7 @@ flowchart TB
 | description | TEXT | Y |  |  | 说明 |
 | instructions | TEXT | N |  |  | 系统指令 |
 | model_config_id | UUID | N |  | FK,IDX | V1 唯一模型配置 |
-| memory_policy | JSONB | N | {} |  | 长期 Memory 策略 |
+| memory_policy | JSONB | N | {} |  | 长期 Memory 策略；**必须符合 `contract:memory-policy-schema`**（受 Schema 约束，不接受自由键值；`{}` 按 schema 默认值补齐） |
 | enabled | BOOLEAN | N | TRUE | IDX | 是否接受新请求 |
 | revision | BIGINT | N | 1 |  | direct-effect revision |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
@@ -217,6 +222,31 @@ flowchart TB
 |---|---|---|---|
 | uk_agent_definition_key | UNIQUE | tenant_id,key | 按 key 解析 |
 | idx_agent_definition_model | BTREE | tenant_id,model_config_id,is_deleted | 模型反查 Agent |
+
+**MemoryPolicy Schema（B8 冻结）**：`memory_policy` 不是自由 JSONB，取值空间由下列 contract 块唯一界定；写入（AGENT-API-02/04）与读取（模块 11 MEM-LIB-02 的写入过滤）都以本块为准。
+
+<!-- contract:memory-policy-schema -->
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "enabled": {"type": "boolean", "default": true},
+    "allowed_keys": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.]{0,63}$"}, "maxItems": 50, "default": []},
+    "max_value_bytes": {"type": "integer", "minimum": 64, "maximum": 65536, "default": 4096},
+    "max_items": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100},
+    "write_mode": {"enum": ["EXPLICIT_ONLY", "EXPLICIT_AND_DERIVED"], "default": "EXPLICIT_ONLY"}
+  }
+}
+```
+<!-- /contract:memory-policy-schema -->
+
+语义补充：
+
+- `allowed_keys` 为**空数组表示禁止任何长期 Memory 写入**（fail-closed 默认值）；写入命中未在 `allowed_keys` 中的 key → `MEMORY_POLICY_DENIED`，不落任何 Memory 行。
+- `enabled=false` 等价于整体关闭长期 Memory，`allowed_keys` 不再生效。
+- 该 schema 随 Agent 一起**冻结进 ExecutionProjection**（模块 03/05 已引用的 projection.agents[agent_id].memory_policy），Execution 路径只读投影值、不读 current；Chat 路径使用 current 值。
+- Agent 创建/编辑 DTO 的 `memory_policy` 必须符合本 schema（未知键、越界数值一律 `400`）。
 
 #### 表 `agent_capability_binding`
 
@@ -351,9 +381,8 @@ erDiagram
 | AGCORE-LIB-01 | Agent Executor | Library | async def execute_agent(ctx: AgentExecutionContext, request: AgentRequest) -> AsyncIterator[AgentEvent] |  |
 | AGCORE-LIB-02 | Agent Tool Dispatcher | Library | async def call_tool(ctx: AgentExecutionContext, capability_key: str, input: dict) -> CapabilityResult |  |
 | AGCORE-LIB-03 | Agent Skill Dispatcher | Library | async def run_skill_from_agent(ctx: AgentExecutionContext, skill_key: str, input: dict) -> SkillResult |  |
-| AGCORE-LIB-05 | Memory 工具分派 | Library | remember_from_agent(ctx, request) | MEM-LIB-02 |
-
 | AGCORE-LIB-04 | Execution Proposal Builder | Library | def build_execution_proposal(ctx: AgentExecutionContext, service_id: UUID, input: dict, resource_scope: dict, evidence: ProposalEvidence) -> ExecutionProposalCandidate |  |
+| AGCORE-LIB-05 | Memory 工具分派 | Library | remember_from_agent(ctx, request) | MEM-LIB-02 |
 
 #### AGENT-API-01: Agent 列表
 
@@ -423,7 +452,7 @@ erDiagram
 | description | string | N | 说明 |
 | model_config_id | uuid | Y | V1 一个模型 |
 | instructions | string | Y | 系统指令 |
-| memory_policy | object | N | Memory 策略 |
+| memory_policy | object | N | Memory 策略；必须符合 `contract:memory-policy-schema`，省略时按 schema 默认值（`allowed_keys=[]` 即 fail-closed 禁止长期 Memory 写入） |
 | enabled | boolean | N | 默认 true |
 
 **请求示例**
@@ -541,7 +570,7 @@ tenant scoped agent read → 批量加载 bindings/model/channel account 摘要 
 | description | string | N | 说明 |
 | model_config_id | uuid | Y | 模型 |
 | instructions | string | Y | 指令 |
-| memory_policy | object | N | 策略 |
+| memory_policy | object | N | 策略；必须符合 `contract:memory-policy-schema`（未知键/越界值 400） |
 | enabled | boolean | Y | 状态 |
 | revision | integer | Y | 乐观锁 |
 
@@ -833,6 +862,8 @@ async def resolve_agent_definition(ctx: TrustedExecutionContext, agent_id: UUID)
 ctx.execution_id 非空时要求 ctx.projection 完整且 snapshot hash 匹配，返回 projection.agents[agent_id] 的 instructions/model/bindings/MemoryPolicy；不查询 current 业务字段。Chat 才按 DB current references 解析。两条路径均检查当前 tenant/user/Agent/grant/依赖 enabled；缺冻结 Agent 报 EXECUTION_PROJECTION_REQUIRED。
 ```
 
+**认证/授权**：仅 Agent Runtime/Worker 运行时角色可调用；可信 ctx 由运行时中间件解析（tenant/actor 不接受 LLM 或请求体覆盖），`agent_id` 只在该 ctx 可见范围内解析。
+
 #### AGCORE-LIB-01: Agent Executor
 
 **入口类型**：Library
@@ -854,7 +885,7 @@ async def execute_agent(ctx: AgentExecutionContext, request: AgentRequest) -> As
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| events | AsyncIterator<AgentEvent> | delta/tool/skill/proposal/final |
+| events | AsyncIterator<AgentEvent> | message.delta / tool.status / skill.result / file / proposal / final / error（与模块 03 RT-INT-01 事件枚举一致） |
 
 **异常/错误**
 
@@ -863,10 +894,12 @@ async def execute_agent(ctx: AgentExecutionContext, request: AgentRequest) -> As
 | AGENT_MAX_ROUNDS | 超过 max_rounds | 409 |
 | MODEL_ERROR | 模型错误 | 502 |
 
+**认证/授权**：仅 Agent Runtime/Worker 运行时角色可调用；`ctx` 由运行时中间件构造（tenant/actor/执行身份不接受 LLM 或请求体覆盖），Worker 路径要求 `ctx.projection` 完整，Chat 路径由模块 03 经 RT-LIB-03 领取的 Run 驱动。
+
 **处理逻辑**
 
 ```text
-验证 ctx.projection（Worker 必填，Chat=null）→ 按模块 11 CheckpointIdentity 装载图 → model loop → Tool/Skill/Memory dispatcher → 可靠服务意图产 ExecutionProposalCandidate 后由 Runtime 调 EXE-LIB-02 签发/展示 → final；图状态持久点先于 Step 终态，副作用统一 operation_id。
+验证 ctx.projection（Worker 必填，Chat=null）→ 按模块 11 CheckpointIdentity 装载图 → model loop → Tool/Skill/Memory dispatcher → 可靠服务意图产 ExecutionProposalCandidate 后由 Runtime 调 EXE-LIB-02 签发/展示 → final；图状态持久点先于 Step 终态，副作用统一 operation_id。候选不得直接下发，必须经 EXE-LIB-02 签发后才产生 proposal 事件。
 ```
 
 #### AGCORE-LIB-02: Agent Tool Dispatcher
@@ -897,13 +930,15 @@ async def call_tool(ctx: AgentExecutionContext, capability_key: str, input: dict
 | 错误码 | 场景 | HTTP 状态 |
 |---|---|---|
 | CAPABILITY_NOT_EFFECTIVE | 不在 Agent 直接有效能力集 | 403 |
-| CAPABILITY_CONFIRMATION_REQUIRED | 高风险需转 Execution/确认 | 409 |
+| CAPABILITY_CONFIRMATION_REQUIRED | 命中需转 Execution 的判定（`direct_invocation=REQUIRES_EXECUTION`：write/destructive、HIGH、EXECUTION_ONLY） | 409 |
 
 **处理逻辑**
 
 ```text
-检查 effective direct capability set + risk/side effect policy → input schema/semantic validate → 只读短调用可直接 CapabilityExecutor；高风险/长任务转 ExecutionProposal。
+检查 effective direct capability set → **按 `CAP-API-06` 返回的派生结论 `direct_invocation` 判定**（谓词唯一事实源在模块 07 的 `contract:direct-invocation-predicate`，本模块不复刻）：`ALLOWED` → 直接 CapabilityExecutor；`REQUIRES_EXECUTION` → 返回 `CAPABILITY_CONFIRMATION_REQUIRED(409)` 并转 ExecutionProposal。input schema/semantic validate 先行；destructive 或 HIGH 的 Capability 在 Execution 内仍受 Service confirmation_rules 与人工检查点约束；Contract 字段由能力 Owner 声明，LLM 不得改写。
 ```
+
+**认证/授权**：仅 Agent Executor 运行时角色可调用；`ctx` 为可信执行上下文，`capability_key` 必须命中该 Agent 的 effective direct capability set（否则 CAPABILITY_NOT_EFFECTIVE），且不得由 LLM 传入绕过分流的元数据。
 
 #### AGCORE-LIB-03: Agent Skill Dispatcher
 
@@ -941,6 +976,8 @@ async def run_skill_from_agent(ctx: AgentExecutionContext, skill_key: str, input
 Execution 检查 projection.agents 的 skill_ids 并取 projection.skills 指定 artifact/checksum；Chat 检查 current binding/current artifact。两者动态检查 Skill enabled。构造宿主 SkillInvocationContext（trusted ctx/projection/workspace/manifest dependencies/operation_id/test_mode）→ SkillRunner；Execution 缺投影不 fallback current，Skill 的 Capability 依赖不自动暴露为 LLM tools。
 ```
 
+**认证/授权**：仅 Agent Executor 运行时角色可调用；`ctx` 为可信执行上下文，`skill_key` 必须命中该 Agent 的绑定 Skill（否则 SKILL_NOT_BOUND），Skill 内部再按自身 manifest 依赖受限。
+
 #### AGCORE-LIB-04: Execution Proposal Builder
 
 **入口类型**：Library
@@ -971,11 +1008,15 @@ def build_execution_proposal(ctx: AgentExecutionContext, service_id: UUID, input
 只构造候选意图和 evidence；不得自行写 service_execution/调用 Worker。
 ```
 
+**认证/授权**：仅 Agent Executor 运行时角色可调用；`ctx` 为 AGCORE-LIB-01 传入的可信执行上下文，`service_id` 必须在该 Agent 的可调用子服务绑定的有效集合内，越权不得构造候选。
+
 #### AGCORE-LIB-05: Memory 工具分派
 
 **签名**：`async def remember_from_agent(ctx: AgentExecutionContext, request: MemoryWriteRequest) -> MemoryResult`
 
 仅当当前真实 USER 消息有明确“记住/请记住”或 `/memory remember` 意图时装配 memory.remember；source_message_id 由 Runtime 注入，模型只建议 key/value，不得自行指定来源/用户。向 MEM-LIB-02 传入 ctx、key/value/expected_revision，按 Agent MemoryPolicy 过滤；成功结果说明具体保存的 key/value，拒绝 MEMORY_POLICY_DENIED/MEMORY_SOURCE_INVALID 不降级成普通任意写 Capability。
+
+**认证/授权**：仅 Agent Runtime 运行时角色可调用；`ctx` 为可信执行上下文，写入主体由 Runtime 从已验证 USER 消息解析，模型输出不得指定 user/source。
 
 ### 3.5 质量实现方案
 
@@ -1031,21 +1072,21 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-AGENT-01 | AGENT-API-01, AGENT-API-02 | S-AGENT-01, E-AGENT-02 | E2E/integration | 待实现/评审 |
-| FEAT-AGENT-02 | AGENT-API-02, AGENT-API-03 | S-AGENT-02 | E2E/integration | 待实现/评审 |
-| FEAT-AGENT-03 | AGENT-API-03, AGENT-API-04 | E-AGENT-01 | E2E/integration | 待实现/评审 |
-| FEAT-AGENT-04 | AGENT-API-04, AGENT-API-05 | S-AGENT-03 | E2E/integration | 待实现/评审 |
-| FEAT-AGENT-05 | AGENT-API-05, AGENT-API-06 | S-AGENT-04 | E2E/integration | 待实现/评审 |
+| FEAT-AGENT-01 | AGENT-API-01, AGENT-API-02, AGENT-API-03, AGENT-API-04, AGENT-LIB-01 | S-AGENT-01, S-AGENT-06, E-AGENT-02 | E2E/integration | 待实现/评审 |
+| FEAT-AGENT-02 | AGENT-API-05, AGENT-API-06, AGENT-API-07 | S-AGENT-02, S-AGENT-07 | E2E/integration | 待实现/评审 |
+| FEAT-AGENT-03 | AGENT-API-08, AGCORE-LIB-02 | S-AGENT-02, E-AGENT-01 | E2E/integration | 待实现/评审 |
+| FEAT-AGENT-04 | AGCORE-LIB-01, AGCORE-LIB-02, AGCORE-LIB-03, AGCORE-LIB-05 | S-AGENT-03, S-AGENT-05, S-AGENT-08 | E2E/integration | 待实现/评审 |
+| FEAT-AGENT-05 | AGCORE-LIB-04 | S-AGENT-04, S-AGENT-05 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/AGENT#RULE-AGENT-01 | design-baseline | 约束实现与验收 | §2.5 RULE-AGENT-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/AGENT#RULE-AGENT-02 | design-baseline | 约束实现与验收 | §2.5 RULE-AGENT-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/AGENT#RULE-AGENT-03 | design-baseline | 约束实现与验收 | §2.5 RULE-AGENT-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/AGENT#RULE-AGENT-04 | design-baseline | 约束实现与验收 | §2.5 RULE-AGENT-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/AGENT#RULE-AGENT-05 | design-baseline | 约束实现与验收 | §2.5 RULE-AGENT-05 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/AGENT#RULE-AGENT-01 | design-baseline | 约束实现与验收 | §2.5 RULE-AGENT-01 / §3 | S-AGENT-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/AGENT#RULE-AGENT-02 | design-baseline | 约束实现与验收 | §2.5 RULE-AGENT-02 / §3 | S-AGENT-06 | applied；仓库 spec-context 待绑定 |
+| DESIGN/AGENT#RULE-AGENT-03 | design-baseline | 约束实现与验收 | §2.5 RULE-AGENT-03 / §3 | S-AGENT-02, E-AGENT-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/AGENT#RULE-AGENT-04 | design-baseline | 约束实现与验收 | §2.5 RULE-AGENT-04 / §3 | S-AGENT-07 | applied；仓库 spec-context 待绑定 |
+| DESIGN/AGENT#RULE-AGENT-05 | design-baseline | 约束实现与验收 | §2.5 RULE-AGENT-05 / §3 | S-AGENT-04, S-AGENT-05 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

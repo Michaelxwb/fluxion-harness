@@ -6,8 +6,8 @@
 
 # Agent Runtime 模块需求与设计一体化文档
 
-> **文档编号**: MOD-RT-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-RT-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | RT-INT-01 补 proposal/file 事件与签发步骤；新增 RT-LIB-03 Chat Run 领取/恢复；AGCORE-LIB-02 按 Contract 元数据分流（模块 04）；矩阵与 verifier 修正 |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | RT-LIB-03 改为基于模块 01 的 CORE-LIB-08 LeaseQueue（claim/renew/assert_owner）实现，本模块只保留租约参数与领取排序键；新增 §3.2.3「运行面 vs 管理面」可用性合同与降级说明（D3=B+）；RT-INT-03 产物访问判定改为以 `artifact` 表 FK 为准（B6） |
 
 ## 2. 需求分析
 
@@ -70,6 +72,7 @@
 | FEAT-RT-03 | Conversation/Memory | 加载外置会话和长期 Memory。 | P0 | Playbook U06 |
 | FEAT-RT-04 | SSE Streaming | 真实流式输出与取消/背压。 | P0 | 用户旅程 |
 | FEAT-RT-05 | Stateless Gate | 禁止本地业务权威状态。 | P0 | 架构 Gate |
+| FEAT-RT-06 | Chat Run 领取与恢复 | 领取/恢复 conversation_run（lease_epoch fencing、CheckpointIdentity 续跑）。 | P0 | 架构 Gate B |
 
 ### 2.4 范围与边界
 
@@ -86,10 +89,10 @@
 
 | ID | 类型 | 描述 | 验证场景 |
 |---|---|---|---|
-| RULE-RT-01 | 无状态 | Runtime 本地只能有 cache/连接池/临时 context/metrics，可丢弃。 | S-RT-01 |
-| RULE-RT-02 | 授权 | 每次请求先检查 current AgentAccessGrant。 | S-RT-02 |
-| RULE-RT-03 | 会话 | Conversation/Memory 从外部存储加载；/new 不清空 Memory。 | S-RT-03 |
-| RULE-RT-04 | 流式 | SSE 必须真流式，不先缓冲完整模型结果。 | S-RT-04 |
+| RULE-RT-01 | 无状态 | Runtime 本地只能有 cache/连接池/临时 context/metrics，可丢弃。 | S-RT-01, S-RT-06 |
+| RULE-RT-02 | 授权 | 每次请求先检查 current AgentAccessGrant。 | S-RT-02, E-RT-01 |
+| RULE-RT-03 | 会话 | Conversation/Memory 从外部存储加载；/new 不清空 Memory。 | S-RT-08 |
+| RULE-RT-04 | 流式 | SSE 必须真流式，不先缓冲完整模型结果。 | S-RT-03, S-RT-04 |
 
 #### 2.5.2 功能验收场景
 
@@ -97,10 +100,14 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
-| S-RT-04 | FEAT-RT-02 | P1 | integration | SSE 真流式 | 本模块 | 模型持续输出 | 订阅 /internal/v1/chat 流 | 首 token 即下发；总时长 ≈ 生成时长，无整段缓冲后置 |
+| S-RT-04 | FEAT-RT-04 | P1 | integration | SSE 真流式 | 本模块 | 模型持续输出 | 订阅 /internal/v1/chat 流 | 首 token 即下发；总时长 ≈ 生成时长，无整段缓冲后置 |
 | S-RT-01 | FEAT-RT-05 | P0 | E2E | LB→Runtime×2→PG | 本模块 | 用户同一会话 | 连续两次请求落不同 Pod | 行为一致，会话连续 |
 | S-RT-02 | FEAT-RT-02 | P0 | E2E | Runtime→Grant/Agent/Model | 后置 → 模块 04/18/19 | 用户有授权 | 发消息 | 解析 current Agent 并回复 |
 | S-RT-03 | FEAT-RT-04 | P0 | E2E | Runtime→Model SSE | 本模块 | 模型流式可用 | 发长回复请求 | 客户端逐 delta 收到，不等待最终完成 |
+| S-RT-05 | FEAT-RT-06 | P0 | E2E | Runtime×2→PG conversation_run lease（经 CORE-LIB-08） | 本模块 | Turn 已由 Runtime A 领取且处于 RUNNING | kill -9 owner Runtime A | Runtime B 在一个 lease 周期内领取同一 run，按 CheckpointIdentity 续跑；不重复写 USER/ASSISTANT 消息；被接管者的后续写入被 assert_owner 以 LEASE_LOST 拒绝 |
+| S-RT-06 | FEAT-RT-06 | P0 | E2E | LB→Runtime×2→PG | 本模块 | Turn 1 已由 Runtime A 完成 | 杀掉 Runtime A 后发起 Turn 2 | 由 Runtime B 处理；User/Conversation/Memory/Skill/Capability 视图一致 |
+| S-RT-07 | FEAT-RT-04 | P1 | E2E | Runtime→渠道 proposal 事件 | 后置 → 模块 10 | Agent 识别出需可靠执行的 Service 意图 | 发送需要执行的请求 | 收到含 rendered_summary/confirmed_facts/expires_at 的 proposal 事件；未签发前不产生 Execution |
+| S-RT-08 | FEAT-RT-03 | P1 | integration | Runtime→Conversation/User Memory | 本模块 | 用户已有长期 Memory 条目 | /new 开新会话后发一条依赖长期记忆的消息 | 新会话仍加载同一长期 Memory；/new 只切换 Conversation，不清空 Memory |
 
 **异常场景**
 
@@ -173,6 +180,14 @@ flowchart LR
 | Model Runtime | Library/HTTP | OpenAI-compatible | deadline | 统一模型错误 |
 | Capability/Skill Runtime | Library | Python | deadline/策略 | 稳定错误 |
 
+#### 3.2.3 运行面 vs 管理面（可用性合同）
+
+本进程承载的 `CH-DATA-01..04` 与 `CH-INT-02`（模块 10）属于**运行面**：与 platform-api（**管理面**，Console CRUD 等）在进程与依赖上分离，不共享进程、不互相代理。`CH-DATA-*` 端点只读、幂等、无副作用，可安全重试；**platform-api 停机不影响这些端点**（Gate H）。
+
+**降级说明**：agent-runtime 故障时，IM 入站与投递许可不可用（Gateway 无法读取 Bot 配置/许可/取流）；**已创建的 Execution 不受影响**，仍由 Worker 按自身租约继续推进；投递行由 Worker 保留，并在 agent-runtime 恢复后由 `WORK-LIB-06` 继续调度——`channel_delivery` 的 `RETRY_WAIT`/`UNKNOWN` 语义已覆盖该场景。
+
+**记录备选与触发条件**：若未来要求“Gateway 在 agent-runtime 全挂时仍能读 Bot 配置/取流”，则需给 Gateway 一个**受限只读 DB 角色**（只读视图 + account scope 行级过滤），直接承载 `CH-DATA-01/03/04` 的读，写仍留在 Python 侧。该演进的触发条件是“agent-runtime 故障已成为 IM 可用性的真实瓶颈”的事故，而不是技术栈整洁偏好。**当前 V1 不改拓扑**，运行面仍由 agent-runtime 承载（D3=B+）。
+
 ### 3.3 数据设计
 
 本模块**不拥有独立业务表**。这是刻意设计：权威状态由其领域所有者持久化，本模块只读取/调用 Port。禁止为了实现方便新增 shadow truth、本地 SQLite 或进程内业务事实。
@@ -186,13 +201,12 @@ Runtime 不拥有本地/专属业务表；读取 `agent_definition`、`agent_acc
 
 | 接口ID | 名称 | 形态 | 方法/签名 | 路径/用途 |
 |---|---|---|---|---|
-| RT-INT-03 | Chat 产物内部取流 | HTTP | GET | /internal/v1/runs/{run_id}/artifacts/{artifact_id}/content |
-
-| RT-INT-02 | 停止 Chat Run | HTTP | POST | /internal/v1/runs/{run_id}/cancel |
-
 | RT-INT-01 | 实时 Chat SSE | HTTP | POST | /internal/v1/chat |
+| RT-INT-02 | 停止 Chat Run | HTTP | POST | /internal/v1/runs/{run_id}/cancel |
+| RT-INT-03 | Chat 产物内部取流 | HTTP | GET | /internal/v1/runs/{run_id}/artifacts/{artifact_id}/content |
 | RT-LIB-01 | 构建可信执行上下文 | Library | async def build_trusted_context(identity: RuntimeIdentity, request_meta: RequestMeta) -> TrustedExecutionContext |  |
 | RT-LIB-02 | 加载 Runtime Agent 投影 | Library | async def load_runtime_agent(ctx: TrustedExecutionContext, agent_id: UUID) -> RuntimeAgentView |  |
+| RT-LIB-03 | Chat Run 领取与恢复 | Library | async def claim_conversation_run(ctx: TrustedExecutionContext, *, run_id: UUID \| None = None) -> ClaimedRun \| None |  |
 
 #### RT-INT-01: 实时 Chat SSE
 
@@ -231,7 +245,37 @@ Runtime 不拥有本地/专属业务表；读取 `agent_definition`、`agent_acc
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| event | SSE stream | message.delta/tool.status/final/error |
+| event | SSE stream | 事件枚举：message.delta / tool.status / skill.result / file / proposal / final / error |
+| message.delta | object | 模型增量文本 {seq, text}；真流式下发，不缓冲整段 |
+| tool.status | object | direct Capability 工具调用状态 {call_id, capability_key, status} |
+| skill.result | object | Skill 调用结果摘要 {skill_key, status, summary}；归一化数据始终在此返回，不在此外置大结果 |
+| file | object | Chat 产物下发事件；字段与触发条件见下表；不涉及 Execution |
+| proposal | object | 待确认执行提案事件；字段见下表；与 final 同轮下发 |
+| final | object | 本轮回复终结事件 {run_id, message_id}；到达后 Run 结束 |
+| error | object | 稳定错误 {code, message}；流已开始后以事件表达，不改写 HTTP 状态 |
+
+**proposal 事件字段**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| proposal_id | uuid | EXE-LIB-02 签发后的提案 ID；后续确认/查询的唯一句柄 |
+| rendered_summary | string | 受控变量渲染后的摘要文本（渠道确认卡片正文） |
+| confirmed_facts | object | 客户/范围/时间等已补全事实摘要（key/value） |
+| confirmation_digest | string | 与提案输入/范围绑定的摘要；确认时校验，不匹配即拒绝 |
+| expires_at | timestamptz | 确认截止时间；过期后不再接受 CONFIRM |
+| available_actions | array<string> | 可执行动作：CONFIRM / CANCEL |
+
+**file 事件字段与触发条件**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| run_id | uuid | 源 Chat Run |
+| artifact_id | uuid | 产物身份（模块 05 Artifact），不是对象存储引用 |
+| name | string | 文件名 |
+| content_type | string | MIME |
+| size_bytes | integer | 大小 |
+
+触发条件：仅在 Chat 侧产生可交付产物（如生成文件）时下发，仅携带句柄，字节流由 Gateway 调 RT-INT-03 取回；Chat 产物不创建 Execution，也不宣称具备后台 Execution 的 outbox 保证。
 
 **响应示例**
 
@@ -258,7 +302,7 @@ Runtime 不拥有本地/专属业务表；读取 `agent_definition`、`agent_acc
 **处理逻辑**
 
 ```text
-Internal auth → PG verified_message_id 校验/查回身份 → require_agent_access → CONV-LIB-01 → conversation_run 按消息序列/有效租约领取 → 解析 current Agent 和 Memory → AgentExecutor（Chat projection=null）→ checkpoint/响应消息 fencing 提交 → 结束 Run；不重复创建 USER 消息。排队请求返回 run.queued/run_id，恢复用同一 run_id；Graph 状态不放 Gateway 或 Runtime 内存作为事实源。
+Internal auth → PG verified_message_id 校验/查回身份 → require_agent_access → CONV-LIB-01 → RT-LIB-03 经 CORE-LIB-08（模块 01）领取/恢复 conversation_run（排序键 message.sequence_no；到期 RUNNING 优先于新 turn；assert_owner fencing；无可领取返回 None，不 busy-loop）→ 解析 current Agent 和 Memory → AgentExecutor（Chat projection=null）→ AgentExecutor 产出 ExecutionProposalCandidate → Runtime 调 EXE-LIB-02 签发快照与提案 → 以 proposal 事件下发（与 final 同轮）→ 该事件同时以 ASSISTANT message_type=PROPOSAL 落库（CONV-LIB-03）→ checkpoint/响应消息经 CORE-LIB-08.assert_owner fencing 提交 → 结束 Run；不重复创建 USER 消息。排队请求返回 run.queued/run_id，恢复用同一 run_id；Graph 状态不放 Gateway 或 Runtime 内存作为事实源。
 ```
 
 #### RT-INT-02: 停止 Chat Run
@@ -267,7 +311,7 @@ Internal auth → PG verified_message_id 校验/查回身份 → require_agent_a
 
 **认证/授权**：Gateway/受信 Runtime service identity；当前本人 user/tenant/conversation
 
-请求 `{verified_message_id, reason?}`；查回来源身份并校验 run 归属，事务置 CANCEL_REQUESTED/cancel_requested_at，终态幂等返回当前结果。返回 `{run_id,status}` 表示请求已接受。Runtime owner 在节点边界、每次外部调用前和流式等待期间（最长 1 秒 PG 检查间隔；Redis 只是 hint）检查取消，取消模型流/沙箱并提交 CANCELLED；租约过期由其他 Runtime 只做恢复/取消清理，不能继续被取消的业务。未知/越权 404/403；不取消其他 Conversation 或后台 Execution。
+请求 `{verified_message_id, reason?}`；查回来源身份并校验 run 归属，事务置 CANCEL_REQUESTED/cancel_requested_at，终态幂等返回当前结果。返回 `{run_id,status}` 表示请求已接受。Runtime owner 在节点边界、每次外部调用前和流式等待期间（最长 1 秒 PG 检查间隔；Redis 只是 hint）检查取消，取消模型流/沙箱并提交 CANCELLED；租约过期由其他 Runtime 经 RT-LIB-03 接管后只做恢复/取消清理（与 RT-LIB-03 共用同一取消检查），不能继续被取消的业务。未知/越权 404/403；不取消其他 Conversation 或后台 Execution。
 
 #### RT-INT-03: Chat 产物内部取流
 
@@ -275,7 +319,7 @@ Internal auth → PG verified_message_id 校验/查回身份 → require_agent_a
 
 **认证/授权**：Gateway service identity；account/peer 必须匹配源 Run 的 verified message
 
-Runtime 发送 file event={run_id,artifact_id,name,content_type,size_bytes}，Gateway 调此端点取流并发原生文件。模块 05 Artifact Application 校验 owner_type=CONVERSATION、owner_id=run.conversation_id、workspace/tenant/actor 匹配；不接受任意对象引用。返回 200 字节流，越权 403/已清理 410。实时对话断线只终止即时传输，产物仍按 Workspace 保留策略存在，可由本人同会话后续消息再次请求；不宣称具备后台 Execution 的 outbox 保证。
+Runtime 发送 file event={run_id,artifact_id,name,content_type,size_bytes}，Gateway 调此端点取流并发原生文件。模块 05 Artifact Application 校验 owner_type=CONVERSATION、owner_id=run.conversation_id、workspace/tenant/actor 匹配；**产物归属一律 join `artifact` 表以 FK 为准**（`service_execution.artifact_ids`/`execution_step.artifact_ids` 数组只作重试复制来源记录，不作为访问判定依据，B6），不接受任意对象引用。返回 200 字节流，越权 403/已清理 410。实时对话断线只终止即时传输，产物仍按 Workspace 保留策略存在（保留与清理按 `01-架构与规范/11-数据保留与清理策略`），可由本人同会话后续消息再次请求；不宣称具备后台 Execution 的 outbox 保证。
 
 #### RT-LIB-01: 构建可信执行上下文
 
@@ -305,6 +349,8 @@ async def build_trusted_context(identity: RuntimeIdentity, request_meta: Request
 ```text
 从认证中间件/Channel resolution 解析 tenant/user → 注入 request/trace → 不接受 LLM payload 覆盖。
 ```
+
+**认证/授权**：仅 Agent Runtime 运行时角色可调用；可信 ctx 由中间件解析的 `RuntimeIdentity`（service identity + platform user/tenant）构造，调用方不得传入或覆盖 tenant/actor。
 
 #### RT-LIB-02: 加载 Runtime Agent 投影
 
@@ -340,6 +386,62 @@ async def load_runtime_agent(ctx: TrustedExecutionContext, agent_id: UUID) -> Ru
 ```text
 require_agent_access → resolve AgentDefinition → resolve effective capabilities/skills/services → 构造 request-scoped immutable view；可使用短 TTL revision cache，但 DB 为 SoT。
 ```
+
+**认证/授权**：仅 Agent Runtime 运行时角色可调用；`ctx` 必须为 RT-LIB-01 产出的可信上下文，`agent_id` 仅在该 ctx 的 tenant/actor 可见范围内解析，越权按 AGENT_ACCESS_DENIED 拒绝。
+
+#### RT-LIB-03: Chat Run 领取与恢复
+
+**入口类型**：Library
+
+**函数签名**
+
+```python
+async def claim_conversation_run(ctx: TrustedExecutionContext, *, run_id: UUID | None = None) -> ClaimedRun | None
+```
+
+**入参**
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| ctx | TrustedExecutionContext | Y | 可信 tenant/actor/agent 上下文；不接受请求体覆盖 |
+| run_id | uuid | N | 显式恢复目标；为空则按领取规则挑选 |
+
+**返回**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| run_id | uuid | conversation_run |
+| conversation_id | uuid | 会话 |
+| lease_epoch | bigint | 领取后的 fencing epoch |
+| queued_message_id | uuid | 本次领取的 QUEUED 消息；恢复接管时为空 |
+| resumed | boolean | true=恢复到期 RUNNING；false=新 turn |
+
+无可领取时返回 `None`（调用方不得 busy-loop 轮询）。
+
+**异常/错误**
+
+| 错误码 | 场景 | HTTP 状态 |
+|---|---|---|
+| CONVERSATION_RUN_NOT_FOUND | run_id 不存在或不属于本 tenant/actor | 404 |
+| LEASE_LOST | CORE-LIB-08.claim/renew/release/assert_owner 检测到 owner 或 lease_epoch 不匹配、租约已过期（已被他人接管） | 409 |
+| AGENT_ACCESS_REVOKED | 领取时 current AgentAccessGrant 已撤销 | 403 |
+
+**处理逻辑**
+
+```text
+领取/续租/释放/fencing 一律走模块 01 的 CORE-LIB-08 LeaseQueue，本模块只提供参数与职责，不实现第二套 epoch 递增或续租语义：
+  table=conversation_run、owner=本 Runtime 实例标识、ttl_ms=本角色租约周期；
+  filter：排序键 = source message 的 sequence_no；状态/到期谓词按“已到期 RUNNING 优先于新 turn”给出。
+同一 conversation_run 同时最多一个 owner；无可领取返回 None，调用方不得 busy-loop。
+领取成功后由本模块负责：构造 ctx、解析 current Agent/Memory、按 CheckpointIdentity（模块 11 §3.4）加载 checkpoint 续跑、不重复写 USER 消息、与 RT-INT-02 共用取消检查；恢复接管时 queued_message_id 为空。
+持有期内所有写入（图节点状态、响应消息、checkpoint 提交）必须先经 CORE-LIB-08.assert_owner 校验 owner+lease_epoch，或先 renew 失败即视为 LEASE_LOST；LEASE_LOST 后立即停止推进，且不得以同一 epoch 重试。
+```
+
+**补充约束**：模块 03 不持有任何 conversation_run 的租约实现；`lease_epoch` 的递增只发生在 CORE-LIB-08.claim，续租不改 epoch（与模块 06 的 service_execution 共用同一实现与同一并发测试）。
+
+**触发方式**：入站消息处理过程中调用；Runtime 启动及周期性恢复扫描（到期 RUNNING）时调用。
+
+**认证/授权**：仅 Agent Runtime 运行时角色可调用；可信 ctx 由中间件解析，tenant/actor/agent 不接受请求体覆盖；Gateway/Console 不得直接调用。
 
 ### 3.5 质量实现方案
 
@@ -394,20 +496,21 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-RT-01 | RT-INT-01, RT-LIB-01 | 见 §2.5 | E2E/integration | 待实现/评审 |
+| FEAT-RT-01 | RT-INT-01, RT-LIB-01 | S-RT-02, E-RT-01 | E2E/integration | 待实现/评审 |
 | FEAT-RT-02 | RT-LIB-01, RT-LIB-02 | S-RT-02, E-RT-01 | E2E/integration | 待实现/评审 |
-| FEAT-RT-03 | RT-LIB-02 | 见 §2.5 | E2E/integration | 待实现/评审 |
-| FEAT-RT-04 |  | S-RT-03, E-RT-02 | E2E/integration | 待实现/评审 |
-| FEAT-RT-05 |  | S-RT-01 | E2E/integration | 待实现/评审 |
+| FEAT-RT-03 | RT-LIB-02, RT-LIB-03 | S-RT-08 | E2E/integration | 待实现/评审 |
+| FEAT-RT-04 | RT-INT-01, RT-INT-02, RT-INT-03 | S-RT-03, S-RT-04, S-RT-07, E-RT-02 | E2E/integration | 待实现/评审 |
+| FEAT-RT-05 | RT-LIB-03 | S-RT-01, S-RT-06 | E2E/integration | 待实现/评审 |
+| FEAT-RT-06 | RT-LIB-03（基于 CORE-LIB-08） | S-RT-05, S-RT-06 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/RT#RULE-RT-01 | design-baseline | 约束实现与验收 | §2.5 RULE-RT-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/RT#RULE-RT-02 | design-baseline | 约束实现与验收 | §2.5 RULE-RT-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/RT#RULE-RT-03 | design-baseline | 约束实现与验收 | §2.5 RULE-RT-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/RT#RULE-RT-04 | design-baseline | 约束实现与验收 | §2.5 RULE-RT-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/RT#RULE-RT-01 | design-baseline | 约束实现与验收 | §2.5 RULE-RT-01 / §3 | S-RT-01, S-RT-06 | applied；仓库 spec-context 待绑定 |
+| DESIGN/RT#RULE-RT-02 | design-baseline | 约束实现与验收 | §2.5 RULE-RT-02 / §3 | S-RT-02, E-RT-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/RT#RULE-RT-03 | design-baseline | 约束实现与验收 | §2.5 RULE-RT-03 / §3 | S-RT-08 | applied；仓库 spec-context 待绑定 |
+| DESIGN/RT#RULE-RT-04 | design-baseline | 约束实现与验收 | §2.5 RULE-RT-04 / §3 | S-RT-03, S-RT-04 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

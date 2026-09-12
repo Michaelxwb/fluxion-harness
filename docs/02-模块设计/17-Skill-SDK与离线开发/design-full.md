@@ -6,8 +6,8 @@
 
 # Skill SDK与离线开发 模块需求与设计一体化文档
 
-> **文档编号**: MOD-SDK-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-SDK-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | Capability Contract 补 execution_characteristic/authorization_requirement/error_semantics 与 side_effect 四值枚举；新增 implementation 判别式 Schema；artifact_id 收敛；内置工具注册幂等；Skill 入口契约与 call 返回形态冻结 |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D1：SDK-API-02 的 Contract 投影改用 `execution_policy` + 派生字段 `direct_invocation`，删除 `execution_characteristic`/`authorization_requirement`/`error_semantics`；B15(a)：Skill 直调路径 `result_mode` 固定 `INLINE`（SDK-LIB-01/SDK-API-03 同步，新增 `CAPABILITY_RESULT_MODE_NOT_ALLOWED` 422） |
 
 ## 2. 需求分析
 
@@ -87,11 +89,12 @@
 
 | ID | 类型 | 描述 | 验证场景 |
 |---|---|---|---|
-| RULE-SDK-01 | 包边界 | Skill 只能依赖 fluxion_skill_sdk Public API，不 import runtime/domain/repository/infrastructure 私有模块。 | S-SDK-01 |
-| RULE-SDK-02 | 语义一致 | Mock/HTTP Dev/Production 的 ctx.capability.call 语义一致。 | S-SDK-02 |
-| RULE-SDK-03 | Dev 安全 | Dev Gateway 只在开发环境/受控网络暴露，Developer token 不等于生产用户 Secret。 | S-SDK-03 |
-| RULE-SDK-04 | 版本 | skill.yaml 声明 sdk_version；导入时校验兼容。 | S-SDK-04 |
+| RULE-SDK-01 | 包边界 | Skill 只能依赖 fluxion_skill_sdk Public API，不 import runtime/domain/repository/infrastructure 私有模块。 | E-SDK-01 |
+| RULE-SDK-02 | 语义一致 | Mock/HTTP Dev/Production 的 ctx.capability.call 语义一致。 | S-SDK-02, S-SDK-06 |
+| RULE-SDK-03 | Dev 安全 | Dev Gateway 只在开发环境/受控网络暴露，Developer token 不等于生产用户 Secret。 | S-SDK-02, E-SDK-02 |
+| RULE-SDK-04 | 版本 | skill.yaml 声明 sdk_version；导入时校验兼容。 | E-SDK-03 |
 | RULE-SDK-05 | 打包 | pack 前必须 validate；产物 deterministic checksum。 | S-SDK-05 |
+| RULE-SDK-06 | 入口契约 | 入口模块必须暴露同步 `def run(ctx, input)`；禁止 `async def`；`call` 返回 Capability 归一化输出本身，Skill 路径禁用大结果外置。缺失/签名不符时导入校验失败 `SKILL_ENTRYPOINT_INVALID`。 | E-SDK-04 |
 
 #### 2.5.2 功能验收场景
 
@@ -99,11 +102,12 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
-| S-SDK-05 | FEAT-SDK-03 | P1 | integration | pack 前 validate + 确定性 checksum | 本模块 | 合法 Skill 工程 | 两次 pack 相同内容 | 两次均先 validate；checksum 一致 |
+| S-SDK-05 | FEAT-SDK-05 | P1 | integration | pack 前 validate + 确定性 checksum | 本模块 | 合法 Skill 工程 | 两次 pack 相同内容 | 两次均先 validate；checksum 一致 |
 | S-SDK-01 | FEAT-SDK-02 | P0 | unit | PyCharm→MockSkillContext | 本模块 | Capability mock 已配置 | 运行 Skill pytest | 断点/结果可验证，无平台依赖 |
 | S-SDK-02 | FEAT-SDK-03 | P0 | E2E | PyCharm→HTTP Dev Gateway→Capability Runtime | 本模块 | Dev token/test user | ctx.capability.call | 真实认证/分页/服务发现语义与生产一致 |
 | S-SDK-03 | FEAT-SDK-05 | P0 | integration | CLI→filesystem | 本模块 | 合法 Skill 目录 | validate/test/pack | 得到可导入 zip+checksum |
 | S-SDK-04 | FEAT-SDK-04 | P0 | E2E | Imported Skill→Runtime | 后置 → 模块 08 | 同一 Skill zip | Agent 执行 | 无需修改代码，Production adapter 生效 |
+| S-SDK-06 | FEAT-SDK-02 | P0 | E2E | Playbook D05 原样代码 × Mock/Dev 双环境 | 本模块 | Playbook D05 示例工程（`customer.get` + `order.list` + 列表过滤），sdk_version 兼容 | 同一份 `run` 先在 MockSkillContext、再经 Dev Gateway 执行 | 两环境返回相同结构的结果（列表能力即 list，可直接迭代/下标/过滤）；过滤生效；不出现 coroutine；不出现摘要替代列表 |
 
 **异常场景**
 
@@ -112,6 +116,7 @@
 | E-SDK-01 | FEAT-SDK-01 | integration | import lint | 本模块 | Skill import fluxion.runtime.* | validate 失败 | 提示只能用 Public API |
 | E-SDK-02 | FEAT-SDK-03 | E2E | Dev Gateway auth | 本模块 | 无效 token/超范围 test user | 401/403 | 不调用 Capability |
 | E-SDK-03 | FEAT-SDK-06 | integration | version checker | 本模块 | sdk_version 不兼容 | validate/import fail | 给出支持范围 |
+| E-SDK-04 | FEAT-SDK-05 | integration | Skill 入口契约 | 本模块 | 入口模块声明 `async def run` 或缺少 `run` | 导入校验失败 SKILL_ENTRYPOINT_INVALID；`fluxion-skill validate` 同步报错 | 明确提示入口签名要求，不执行 Skill |
 
 #### 2.5.3 非功能指标
 
@@ -200,7 +205,7 @@ SDK 不拥有业务 DB；Dev Gateway 调用现有 Capability/UserCredential 等 
 
 **契约**：`GET /dev/v1/capabilities`
 
-**认证/授权**：Developer token + dev environment；禁止生产公开
+**认证/授权**：由**模块 09 的 `AUTH-LIB-03`（Developer Token 与 test-user allowlist）**签发与校验——token 由模块 09 签发（dev tenant + scope + TTL），本模块只做校验调用，不定义签发/存储/TTL。认证层错误由模块 09 定义：失效 `DEV_TOKEN_INVALID`(401)、越界 test user `TEST_USER_NOT_ALLOWED`(403)，不计入本接口业务错误表。Mock 本地模式不需要 token。仅 dev environment，禁止生产公开。
 
 **Query 参数**
 
@@ -250,7 +255,7 @@ Developer identity → dev tenant/scope → 查询 enabled Capability Contract�
 
 **契约**：`GET /dev/v1/capabilities/{capability_key}/contract`
 
-**认证/授权**：Developer token + dev environment
+**认证/授权**：模块 09 `AUTH-LIB-03`（Developer Token 与 test-user allowlist）；token 由模块 09 签发，本模块只做校验调用。失效 `DEV_TOKEN_INVALID`(401)、越界 test user `TEST_USER_NOT_ALLOWED`(403)。Mock 本地模式不需要 token。
 
 **请求体**：无。
 
@@ -262,8 +267,11 @@ Developer identity → dev tenant/scope → 查询 enabled Capability Contract�
 | description | string | 说明 |
 | input_schema | object | 输入 |
 | output_schema | object | 输出 |
-| risk_level | string | 风险 |
-| side_effect | boolean | 副作用 |
+| risk_level | string | LOW/MEDIUM/HIGH |
+| side_effect | string | none/read/write/destructive |
+| execution_policy | string | DIRECT/EXECUTION_ONLY（直调结论的声明值） |
+| direct_invocation | string | ALLOWED/REQUIRES_EXECUTION；**开发者据此判断该能力能否在 Skill 内直调**。派生结论，谓词唯一事实源在模块 07 的 `contract:direct-invocation-predicate`，本接口不复刻 |
+| idempotency_semantics | string | NONE/KEYED/NATURAL |
 
 **响应示例**
 
@@ -276,8 +284,11 @@ Developer identity → dev tenant/scope → 查询 enabled Capability Contract�
     "description": "<description>",
     "input_schema": {},
     "output_schema": {},
-    "risk_level": "<risk_level>",
-    "side_effect": true
+    "risk_level": "LOW",
+    "side_effect": "read",
+    "invocation_policy": "DIRECT",
+    "direct_invocation": "ALLOWED",
+    "idempotency_semantics": "NATURAL"
   },
   "request_id": "req_xxx"
 }
@@ -299,7 +310,7 @@ Developer identity → dev tenant/scope → 查询 enabled Capability Contract�
 
 **契约**：`POST /dev/v1/capabilities/{capability_key}/invoke`
 
-**认证/授权**：Developer token + dev environment
+**认证/授权**：模块 09 `AUTH-LIB-03`（Developer Token 与 test-user allowlist）；token 由模块 09 签发（dev tenant + scope + TTL），本模块只做校验调用，不定义签发/存储。失效 `DEV_TOKEN_INVALID`(401)、越界 test user `TEST_USER_NOT_ALLOWED`(403)。Mock 本地模式不需要 token。
 
 **请求体**
 
@@ -307,7 +318,7 @@ Developer identity → dev tenant/scope → 查询 enabled Capability Contract�
 |---|---|---|---|
 | input | object | Y | Capability 输入 |
 | test_user_id | uuid | N | Platform Service 可指定受控测试用户 |
-| result_mode | string | N | INLINE/SUMMARY/ARTIFACT |
+| result_mode | string | N | INLINE/SUMMARY/ARTIFACT；仅供开发者直接诊断。**Skill 调用路径（SDK Dev Client）固定 `INLINE`**（B15a 冻结）：传非 `INLINE` 一律 `CAPABILITY_RESULT_MODE_NOT_ALLOWED`(422)，并按该 Capability 的 limits 截断，见 SDK-LIB-01 |
 
 **请求示例**
 
@@ -315,7 +326,7 @@ Developer identity → dev tenant/scope → 查询 enabled Capability Contract�
 {
   "input": {},
   "test_user_id": "<test_user_id>",
-  "result_mode": "<result_mode>"
+  "result_mode": "INLINE"
 }
 ```
 
@@ -323,8 +334,8 @@ Developer identity → dev tenant/scope → 查询 enabled Capability Contract�
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| output | object | 小结果 |
-| artifact_ref | string | 大结果引用 |
+| output | object | 归一化输出；Skill 调用路径恒为归一化数据（列表能力即数组），超阈值按 limits 截断 |
+| artifact_id | uuid | 大结果产物身份（= 模块 05 `artifact.id`）；仅诊断路径返回，Skill 调用路径不返回摘要替代数据。永不返回 `object_ref` |
 | stats | object | 分页/调用统计 |
 | trace_id | string | 调试 Trace |
 
@@ -336,7 +347,7 @@ Developer identity → dev tenant/scope → 查询 enabled Capability Contract�
   "message": "success",
   "data": {
     "output": {},
-    "artifact_ref": "<artifact_ref>",
+    "artifact_id": "<artifact_id>",
     "stats": {},
     "trace_id": "<trace_id>"
   },
@@ -348,8 +359,10 @@ Developer identity → dev tenant/scope → 查询 enabled Capability Contract�
 
 | 错误码 | 场景 | HTTP 状态 |
 |---|---|---|
-| DEV_TOKEN_INVALID | 开发者认证失败 | 401 |
-| TEST_USER_NOT_ALLOWED | 测试用户超出开发者允许范围 | 403 |
+| DEV_TOKEN_INVALID | 开发者认证失败（模块 09 AUTH-LIB-03 定义） | 401 |
+| TEST_USER_NOT_ALLOWED | 测试用户超出开发者允许范围（模块 09 AUTH-LIB-03 定义） | 403 |
+| CAPABILITY_ASYNC_NOT_INVOKABLE | 该 Capability 声明 async 执行语义，同步 Invoke 不可用；须由 Service Step 以 execution_mode=ASYNC 提交（模块 07 的 CAP-LIB-03） | 409 |
+| CAPABILITY_RESULT_MODE_NOT_ALLOWED | Skill 调用路径传入非 `INLINE` 的 result_mode（模块 07 CAP-API-05/CAP-LIB-01） | 422 |
 | CAPABILITY_ERROR | 透传统一 Capability 错误 taxonomy | 502 |
 
 **处理逻辑**
@@ -386,7 +399,7 @@ fluxion-skill validate <skill-dir-or-archive> [--json]
 | 错误码 | 场景 | HTTP 状态 |
 |---|---|---|
 | 0 | 校验通过 | 200 |
-| 2 | manifest/archive/entrypoint/sdk/dependency 校验失败 | 400 |
+| 2 | manifest/archive/entrypoint/sdk/dependency 校验失败（含缺少 `run` 或 `async def run` 的 SKILL_ENTRYPOINT_INVALID） | 400 |
 
 **处理逻辑**
 
@@ -468,24 +481,41 @@ fluxion-skill pack <skill-dir> --output <file.zip>
 
 #### SDK-LIB-01: 同步 Capability Client
 
+**认证/授权**：无客户端身份参数；`ctx` 由宿主签发——Mock 由本地构造、Dev 经模块 09 `AUTH-LIB-03`（Developer Token）校验后的 Developer 身份、Production 由 SkillInvocationContext 注入可信身份。业务代码不得覆盖 tenant/user/projection/test_mode。
+
 **函数签名**：
 
 ```python
 class CapabilityClient:
-    def call(self, key: str, input: JsonObject, *, result_mode: str | None = None) -> JsonObject: ...
+    def call(self, key: str, input: JsonObject) -> JsonObject | list | str | int | float | bool | None: ...
 ```
 
-Public API 同步，Playbook def run 直接得到数据。Mock 本地执行，Dev 通过 HTTP client，Production 在 LinuxNamespaceExecutor 子进程通过 FD3/4 的 request/response 代理到异步宿主；业务代码不变。宿主只处理 RPC，绝不在工作线程 import/执行 Skill。超时/取消由模块 13 的 cgroup/进程清理处理。
+Public API 同步，Playbook `def run` 直接得到数据。Mock 本地执行，Dev 通过 HTTP client，Production 在 LinuxNamespaceExecutor 子进程通过 FD3/4 的 request/response 代理到异步宿主；业务代码不变。宿主只处理 RPC，绝不在工作线程 import/执行 Skill。超时/取消由模块 13 的 cgroup/进程清理处理。
 
-入参 key 必须在 manifest 依赖中，input 过 Schema/风险校验；返回 CapabilityResult 对应的结构化数据，完整产物用 ArtifactRef。认证/分页/路由均由宿主模块 07 处理，客户端错误与生产 taxonomy 一致；输入中的 tenant/user/projection/test_mode 覆盖字段拒绝。
+**返回形态（冻结）**：`call` 返回 **Capability 归一化输出本身**——列表能力的输出即数组（`list`），映射即对象（`dict`），标量即标量；业务代码可直接迭代/下标/过滤，与 Playbook D05 示例一致。不返回包装对象，不返回 coroutine，不返回摘要替代数据。已去掉 `result_mode` 参数：调用方不能自选结果形态——**Skill 调用路径的结果模式固定为 `INLINE`**（B15a，ADR-034 禁用大结果外置）；Provider 级默认 `SUMMARY` 只对非 Skill 调用（Agent Tool / Worker Step）生效；若宿主收到 Skill 路径的非 `INLINE` 请求，返回 `CAPABILITY_RESULT_MODE_NOT_ALLOWED`(422)。
+
+**Skill 调用路径禁用大结果外置**：上游 Capability 输出超过 inline 阈值时，宿主按该 Capability 的 `data_retrieval_policy.limits`（`max_items`/`max_pages`/`max_duration_ms`）**截断**并在 `ctx.logger` 记录截断警告，返回归一化数据；**不允许**返回 `artifact_id` 摘要替代数据（避免 Skill 代码静默拿到摘要）。需要完整大结果的场景必须由 Service Step 声明 `execution_mode=ASYNC` 并使用 Artifact 能力，不走 Skill 直调。
+
+**错误语义**：Capability 失败按统一错误分类抛 `CapabilityError`（含 `code`/`retryable`，分类由运行时 Provider 错误按《01-架构与规范/10-错误码与错误分类基线》归类；Contract 不再声明失败分类），**不返回 `None` 静默吞错**。Skill 路径**禁止提交 Async Capability**：命中 async 执行语义时抛确定错误 `CAPABILITY_ASYNC_NOT_INVOKABLE`，不得断言"已提交"或自行轮询；异步只能由 Service Step 声明 `execution_mode=ASYNC`（Worker 负责提交，见模块 06）。
+
+入参 key 必须在 manifest 依赖中，input 过 Schema/风险校验；认证/分页/路由均由宿主模块 07 处理，客户端错误与生产 taxonomy 一致；输入中的 tenant/user/projection/test_mode 覆盖字段拒绝。产物身份统一为 `artifact_id`（= 模块 05 `artifact.id` 主键，可带 `name`/`checksum`）；SDK 与 Dev Gateway 都不暴露 `object_ref`（那是模块 14 的对象存储引用）。
 
 #### SDK-LIB-02: SkillContext 与 ArtifactClient
+
+**认证/授权**：`ctx` 由宿主从 TrustedExecutionContext 派生构造（SkillInvocationContext 注入，Public Context 只含安全只读标识）；ArtifactClient 按当前 Workspace 与执行/会话归属校验，越界 `ARTIFACT_SCOPE_DENIED`(403)。不提供读取生产 Secret 的 API。
 
 **Public API**：
 
 ```python
+class ArtifactId(TypedDict):
+    artifact_id: str   # = 模块 05 artifact.id（Owner 表主键）
+    name: str
+    checksum: str
+    content_type: str
+    size_bytes: int
+
 class ArtifactClient:
-    def write(self, name: str, data: bytes, *, content_type: str) -> ArtifactRef: ...
+    def write(self, name: str, data: bytes, *, content_type: str) -> ArtifactId: ...
     def read(self, artifact_id: str) -> bytes: ...
 
 class SkillContext:
@@ -496,11 +526,19 @@ class SkillContext:
     session: PublicSessionContext
 ```
 
+**产物身份**：`ArtifactId` 携带 `artifact_id`（= 模块 05 `artifact.id` 主键）与 `name`/`checksum` 等描述字段；**不含** `object_ref`（模块 14 的对象存储引用，永不进入 SDK / Dev Gateway / CapabilityResult / Console 响应）。
+
 宿主 SkillInvocationContext 包含 trusted identity、projection、operation_id、Workspace 和 test_mode；Public Context 不包含这些对象的可修改引用，也不包含认证材料。user/session 是安全只读标识。
 
 Artifact write：校验 name 为无路径片段的文件名、大小/Workspace quota；SDK 通过 IPC 分块（每帧上限 1 MiB）传输，宿主计算 checksum，ObjectStore.put 完成后模块 05 事务写 artifact 元数据；返回 `{artifact_id,name,checksum,content_type,size_bytes}`。同 invocation request_id 幂等，失败不得返回可读的 finalized ref。Conversation Skill 输出使用 owner_type=CONVERSATION、owner_id=conversation_id 的产物归属（模块 05）；Execution 使用 owner_type=EXECUTION，子进程不能更改归属。
 
 read：宿主根据 id 查元数据，验证属于当前 Workspace 的执行/会话，流式读取并按配额返回 bytes；不返回 ObjectStore 签名 URL，不允许指定任意 object_ref/host path。用户最终下载/取件单独走 EXE-API-06/CH-INT-02 RESULT，不由 SDK 签发外链。错误 ARTIFACT_SCOPE_DENIED（403）、ARTIFACT_TOO_LARGE（413）、ARTIFACT_NOT_FOUND（404）。
+
+**Skill 入口契约（Skill 包结构）**：入口模块（skill.yaml 的 entrypoint 指向者）必须暴露 `def run(ctx: SkillContext, input: dict) -> JsonObject | list | <scalar>`。
+
+- `run` 必须**同步**，不得声明 `async def`；宿主在隔离子进程内同步调用，`ctx.capability.call` 也是同步门面。
+- `run` 返回值经 canonical JSON 序列化后即 Skill 输出（作为 Service Step 输出或 Agent Skill 结果）；形态与 `call` 返回一致，列表即数组。
+- 缺少 `run` 或签名不符（含 `async def run`）时**导入校验失败**，错误码 `SKILL_ENTRYPOINT_INVALID`，不执行 Skill；`fluxion-skill validate` 同步报错（SDK-CLI-01）。校验同时覆盖入口依赖的调用形态（列表能力按数组迭代，见 RULE-SDK-06）。
 
 ### 3.5 质量实现方案
 
@@ -526,6 +564,8 @@ SDK 不提供读取生产 Secret 的 API；Dev token 只允许 dev scope/test us
 #### 3.5.5 测试策略
 
 Domain/validator 单测；Repository/Provider 真 PG/外部 Stub 集成；核心用户旅程做 E2E；安全和崩溃恢复不得只靠 mock。
+
+**Mock/Dev/Production 三环境一致性**：`MockSkillContext.capability.call` 返回与 Dev/Prod **同形态**的数据（列表能力即 `list`、映射即 `dict`），pytest 内可直接断言列表/字典，不按环境分支写断言；同一套 contract test 必须跑通三种 adapter（Playbook D05 示例在 Mock 与 Dev Gateway 原样执行，见 S-SDK-06）。
 
 ## 4. 部署与运维
 
@@ -556,22 +596,23 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-SDK-01 | SDK-API-01, SDK-API-02 | E-SDK-01 | E2E/integration | 待实现/评审 |
-| FEAT-SDK-02 | SDK-API-02, SDK-API-03 | S-SDK-01 | E2E/integration | 待实现/评审 |
-| FEAT-SDK-03 | SDK-API-03, SDK-CLI-01 | S-SDK-02, E-SDK-02 | E2E/integration | 待实现/评审 |
-| FEAT-SDK-04 | SDK-CLI-01, SDK-CLI-02 | S-SDK-04 | E2E/integration | 待实现/评审 |
-| FEAT-SDK-05 | SDK-CLI-02, SDK-CLI-03 | S-SDK-03 | E2E/integration | 待实现/评审 |
-| FEAT-SDK-06 | SDK-CLI-03, SDK-LIB-01 | E-SDK-03 | E2E/integration | 待实现/评审 |
+| FEAT-SDK-01 | SDK-LIB-01, SDK-LIB-02 | E-SDK-01 | E2E/integration | 待实现/评审 |
+| FEAT-SDK-02 | SDK-CLI-02, SDK-LIB-02 | S-SDK-01, S-SDK-06 | E2E/integration | 待实现/评审 |
+| FEAT-SDK-03 | SDK-API-01, SDK-API-02, SDK-API-03 | S-SDK-02, S-SDK-06, E-SDK-02 | E2E/integration | 待实现/评审 |
+| FEAT-SDK-04 | SDK-LIB-01 | S-SDK-04 | E2E/integration | 待实现/评审 |
+| FEAT-SDK-05 | SDK-CLI-01, SDK-CLI-02, SDK-CLI-03 | S-SDK-03, S-SDK-05, E-SDK-04 | E2E/integration | 待实现/评审 |
+| FEAT-SDK-06 | SDK-CLI-01, SDK-LIB-01 | E-SDK-03 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/SDK#RULE-SDK-01 | design-baseline | 约束实现与验收 | §2.5 RULE-SDK-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SDK#RULE-SDK-02 | design-baseline | 约束实现与验收 | §2.5 RULE-SDK-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SDK#RULE-SDK-03 | design-baseline | 约束实现与验收 | §2.5 RULE-SDK-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SDK#RULE-SDK-04 | design-baseline | 约束实现与验收 | §2.5 RULE-SDK-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SDK#RULE-SDK-05 | design-baseline | 约束实现与验收 | §2.5 RULE-SDK-05 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SDK#RULE-SDK-01 | design-baseline | 约束实现与验收 | §2.5 RULE-SDK-01 / §3 | E-SDK-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SDK#RULE-SDK-02 | design-baseline | 约束实现与验收 | §2.5 RULE-SDK-02 / §3.4 SDK-LIB-01 | S-SDK-02, S-SDK-06 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SDK#RULE-SDK-03 | design-baseline | 约束实现与验收 | §2.5 RULE-SDK-03 / §3.4 SDK-API-01..03 | S-SDK-02, E-SDK-02 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SDK#RULE-SDK-04 | design-baseline | 约束实现与验收 | §2.5 RULE-SDK-04 / §3 | E-SDK-03 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SDK#RULE-SDK-05 | design-baseline | 约束实现与验收 | §2.5 RULE-SDK-05 / §3 | S-SDK-05 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SDK#RULE-SDK-06 | design-baseline | 约束实现与验收 | §2.5 RULE-SDK-06 / §3.4 SDK-LIB-01/02 | E-SDK-04 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

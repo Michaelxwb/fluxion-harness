@@ -6,8 +6,8 @@
 
 # Skill Runtime 模块需求与设计一体化文档
 
-> **文档编号**: MOD-SKILL-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-SKILL-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 新增 AUTH-LIB-02/03（内部服务 token、Developer token）；Console 身份映射与 configured/session 字段补齐；Builder 安全只读 DTO 字段级冻结；auth_type↔ProviderKey 冻结；用户授权 revision_token 移除；Skill 入口校验与审核后置声明 |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | B15(b)：`skill_artifact` 复核记录方式**定死为**「追加 `skill_artifact_validation_event`，不 UPDATE artifact」——删除「可追加 validation event 或仅更新状态（实现需选择）」；新增表登记（§3.3.1/ER 图）、SKILL-API-08 与 SKILL-API-01/03 改为取最新事件、新增场景 S-SKILL-07（append-only 复核），并注明表清单与 `01-架构与规范/08-数据库表所有权与字段索引.md` 同步 |
 
 ## 2. 需求分析
 
@@ -78,6 +80,7 @@
 |---|---|
 | 范围（In Scope） | SkillDefinition/Artifact/dependency snapshot、导入/校验、Artifact 历史、只读反向查询、生产 runner。 |
 | 非范围（Out of Scope） | Console 在线写 Python/拖拽编排/人工 bind Capability、Credential/分页实现、Service durable workflow。 |
+| 显式后置（Out of Scope 补充） | 发布审核 / publisher 角色 / 发布范围（scope）治理——V1 不实现（总设 §5.1 列为需治理项）；V1 的缓解手段为：manifest + entrypoint + 依赖 + 供应链静态扫描 + checksum + 不可变 Artifact + 生产隔离子进程执行 + 导入/使用审计。 |
 | 前置假设 | 上游总设、公共 DB/API 规范、外部基础设施可用 |
 | 有意妥协 / 技术债 | 无；未来扩展必须有真实旅程驱动 |
 
@@ -89,7 +92,7 @@
 |---|---|---|---|
 | RULE-SKILL-01 | 开发 | Skill 在线下 IDE 开发；Console 不提供代码编辑/执行编排。 | S-SKILL-01 |
 | RULE-SKILL-02 | 依赖 | Capability dependencies 唯一事实源是 skill.yaml；导入后只读。 | S-SKILL-02 |
-| RULE-SKILL-03 | Artifact | 每次导入新内容创建 immutable SkillArtifact。 | S-SKILL-03 |
+| RULE-SKILL-03 | Artifact | 每次导入新内容创建 immutable SkillArtifact；制品内容与校验结论只追加（`skill_artifact_validation_event`），禁止 UPDATE。 | S-SKILL-03, S-SKILL-07 |
 | RULE-SKILL-04 | Secret | Skill 包不得携带生产用户名/密码/token。 | S-SKILL-04 |
 | RULE-SKILL-05 | 调用 | 外部平台能力必须优先通过 ctx.capability.call。 | S-SKILL-05 |
 | RULE-SKILL-06 | 平台标签 | platform_label 只是文本分类，不是 ProjectPlatform FK。 | S-SKILL-06 |
@@ -106,6 +109,7 @@
 | S-SKILL-02 | FEAT-SKILL-03 | P0 | integration | manifest→cap registry | 本模块 | skill.yaml 列 3 capabilities | 导入 | 3 条 artifact dependency，只读 |
 | S-SKILL-03 | FEAT-SKILL-06 | P0 | E2E | Import v2→current pointer | 本模块 | 已有 v1 | 导入合法 v2 | current=v2，v1 checksum 仍可查询 |
 | S-SKILL-04 | FEAT-SKILL-05 | P0 | E2E | Agent→SkillRunner→Capability | 后置 → 模块 04/07 | Agent 绑定 Skill | 执行 | Python 数据处理 + ctx.capability.call 正常 |
+| S-SKILL-07 | FEAT-SKILL-02 | P1 | integration | 复核记录 append-only（skill_artifact_validation_event） | 本模块 | 某 artifact 已有 1 条 validation event | 对同一 artifact 触发复核（依赖复检/人工复核） | `skill_artifact` 行与其 validation_status/validation_report 未被 UPDATE；新增 1 条 validation event（含 status/report/actor）；SKILL-API-08 返回最新事件的 status/validated_at |
 
 **异常场景**
 
@@ -114,6 +118,8 @@
 | E-SKILL-01 | FEAT-SKILL-01 | integration | SafeExtractor | 本模块 | zip path traversal/symlink escape | 导入失败 ARCHIVE_PATH_TRAVERSAL | 不落 ObjectStore/current |
 | E-SKILL-02 | FEAT-SKILL-03 | integration | manifest validation | 本模块 | 依赖 capability 缺失/禁用 | 校验 INVALID/不切 current | 报告指出依赖 |
 | E-SKILL-03 | FEAT-SKILL-04 | E2E | Console | 本模块 | 打开 Skill 详情 | 无绑定/编辑能力按钮 | 纯展示 |
+| E-SKILL-04 | FEAT-SKILL-02 | integration | supply-chain 静态扫描 | 本模块 | 包内出现生产用户名/密码/token 明文或不允许的 Secret 默认值 | 导入失败 SKILL_SUPPLY_CHAIN_REJECTED（400） | 报告指出命中文件与字段；不落 ObjectStore/current |
+| E-SKILL-05 | FEAT-SKILL-02 | integration | entrypoint 契约 | 本模块 | 入口模块缺少 `run`、签名不符或使用 `async def run` | 校验 SKILL_ENTRYPOINT_INVALID（422）；preview 与 commit 均在返回前拒绝 | 返回脱敏报告，无 preview_token、无正式记录 |
 
 #### 2.5.3 非功能指标
 
@@ -183,10 +189,10 @@ flowchart LR
 | 表名 | 职责 | 所有权 |
 |---|---|---|
 | skill_import_preview | 上传暂存/确认消费 | Skill Runtime |
-
 | skill_definition | Skill 逻辑身份；代码在线下 IDE 开发，Console 只导入不可变 Artifact。 | Skill Runtime |
 | skill_artifact | 每次导入产生不可变 Skill 包制品及校验结果。 | Skill Runtime |
 | skill_artifact_capability | 由 skill.yaml capabilities[] 自动解析出的 Artifact→Capability 依赖快照；Console 不可人工编辑。 | Skill Runtime |
+| skill_artifact_validation_event | Skill 制品校验/复核结论的 append-only 事件流（FEAT-SKILL-02 Immutable Artifact 下的复核记录）；查询取最新事件。 | Skill Runtime |
 
 #### 表 `skill_import_preview`
 
@@ -263,8 +269,8 @@ flowchart LR
 | manifest_json | JSONB | N | {} |  | skill.yaml 规范化内容 |
 | sdk_version | VARCHAR(64) | N |  | IDX | 要求的 SDK 版本 |
 | entrypoint | VARCHAR(512) | N |  |  | 包内 Python 入口 |
-| validation_status | VARCHAR(32) | N | PENDING | IDX | PENDING/VALID/INVALID |
-| validation_report | JSONB | N | {} |  | manifest/sdk/dependency/supply-chain 结果 |
+| validation_status | VARCHAR(32) | N | PENDING | IDX | 导入校验结论（PENDING/VALID/INVALID）；**首次写入后不可 UPDATE**，当前复核结论以 `skill_artifact_validation_event` 最新事件为准 |
+| validation_report | JSONB | N | {} |  | manifest/sdk/entrypoint-sync/entrypoint-signature/dependency/supply-chain 结果（导入时写入，**不可 UPDATE**；复核报告追加到 event 表） |
 | created_by | UUID | N |  |  | 导入者 |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
@@ -274,7 +280,7 @@ flowchart LR
 **约束**
 
 - UNIQUE (tenant_id,skill_id,checksum)（同一 Skill 内去重；同内容可重新导入为新版本记录或回滚指向旧 Artifact）
-- 禁止 UPDATE artifact 内容；validation_report 若需复核可追加 validation event 或仅更新状态（实现需选择并保持审计）
+- 禁止 UPDATE artifact 内容；**`validation_status`/`validation_report` 与制品内容一经写入同样不允许 UPDATE（B15(b) 定死）**——复核结论只能以「追加 `skill_artifact_validation_event` 行」记录，查询时取该 artifact 的最新事件；不存在「仅更新状态」的替代实现路径
 
 **索引设计**
 
@@ -314,6 +320,37 @@ flowchart LR
 
 **不可变约束**：创建后禁止业务 UPDATE/DELETE；如需演进创建新记录并更新上层 current 指针。
 
+#### 表 `skill_artifact_validation_event`
+
+**职责**：Skill 制品校验/复核结论的 append-only 事件流。`skill_artifact` 的内容与 `validation_status`/`validation_report` 一经写入不可 UPDATE；任何复核结论（依赖变化复检、人工复核等）都以**追加一行**表达，查询取该 artifact 的最新事件（B15(b) 冻结）。表所有权：Skill Runtime（挂在 FEAT-SKILL-02 Immutable Artifact 下）。
+
+| 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
+|---|---|---|---|---|---|
+| tenant_id | UUID | N |  | IDX | 租户 |
+| artifact_id | UUID | N |  | FK,IDX | 所属 SkillArtifact |
+| status | VARCHAR(32) | N |  | IDX | 本次复核结论，取值空间同 `skill_artifact.validation_status`（PENDING/VALID/INVALID） |
+| report | JSONB | N | {} |  | 本次复核的脱敏完整报告，结构同 `skill_artifact.validation_report` |
+| actor | UUID | Y |  |  | 复核触发者；系统自动复核为空 |
+| id | UUID | N | gen_random_uuid() | PK | 主键 |
+| is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
+| create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间（= 复核时间；决策中的 `created_at` 即本公共字段） |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
+
+**约束**
+
+- FK `artifact_id` 必须指向同租户的 `skill_artifact`；跨租户引用在 Application Service 拒绝
+- **append-only**：仅复核路径 INSERT，禁止业务 UPDATE/DELETE；`skill_artifact` 行不因复核被改写
+- `skill_artifact` 首次 commit 时写入首条事件（status/report = 导入校验结论），保证「最新事件」总有值
+
+**索引设计**
+
+| 索引名 | 类型 | 字段 | 使用场景 |
+|---|---|---|---|
+| idx_skill_artifact_validation_latest | BTREE | tenant_id,artifact_id,create_time DESC | SKILL-API-08 取最新复核结论 |
+| idx_skill_artifact_validation_status | BTREE | tenant_id,status,create_time DESC | 列表按校验状态筛选 |
+
+> **登记同步**：本表为 V1.13.1 新增表，已登记于 `01-架构与规范/08-数据库表所有权与字段索引.md`（`skill_artifact_validation_event` 行，列集合与本表一致）。该索引文档与 `04-追溯与验收` 追溯矩阵中的**表计数、以及 `02-模块设计/README.md` 的模块 08 表清单**必须与本表保持同步（均为 5 张：`skill_import_preview`/`skill_definition`/`skill_artifact`/`skill_artifact_capability`/`skill_artifact_validation_event`）；本模块不直接改写上述索引文档，故在此注明归属。
+
 #### 3.3.2 ER 图
 
 ```mermaid
@@ -339,6 +376,13 @@ erDiagram
       UUID artifact_id FK
       UUID capability_id FK
       VARCHAR_160_ capability_key_snapshot
+    }
+    SKILL_ARTIFACT_VALIDATION_EVENT {
+      UUID tenant_id FK
+      UUID artifact_id FK
+      VARCHAR_32_ status
+      JSONB report
+      UUID actor
     }
 ```
 
@@ -382,7 +426,7 @@ erDiagram
 | page_size | integer | N | 每页条数；默认 20，最大 100 |
 | keyword | string | N | name/key |
 | platform_label | string | N | 文本分类 |
-| validation_status | string | N | current artifact 校验状态 |
+| validation_status | string | N | current artifact 的**最新 validation event** 结论（LATERAL 取 skill_artifact_validation_event 最新一行） |
 | enabled | boolean | N | 状态 |
 
 **请求体**：无。
@@ -415,7 +459,7 @@ erDiagram
 **处理逻辑**
 
 ```text
-skill_definition JOIN current artifact；聚合 dependency/agent count；Console 只读能力依赖。
+skill_definition JOIN current artifact LEFT JOIN LATERAL（该 artifact 的最新 validation event）取校验结论；聚合 dependency/agent count；Console 只读能力依赖。
 ```
 
 #### SKILL-API-02: 首次导入 Skill
@@ -476,9 +520,14 @@ skill_definition JOIN current artifact；聚合 dependency/agent count；Console
 
 **处理**：preview SafeExtractor→Manifest/SDK/entrypoint/依赖存在及 enabled/Secret/供应链校验→写 skill_import_preview 和 staging 对象，生成高熵 token（仅 hash 落库），不写正式 SkillDefinition/SkillArtifact，不切 current。invalid 也返回脱敏报告但无可 commit token。取消只丢弃 token，30 分钟后暂存清理；不存在立即物理“零文件”的承诺。
 
+**入口契约校验（preview 与 commit 共用同一可执行校验器）**
+
+- ① 入口模块必须暴露**同步** `def run(ctx, input)`；`async def run` 判定为不符（生产 Skill 在隔离子进程内经同步 IPC 桥接调用，不接受协程入口）。
+- ② 缺少 `run`、签名不符（参数名/个数不符、非 callable）或使用 `async def` → `SKILL_ENTRYPOINT_INVALID`（422）；preview 与 commit 均在返回前拒绝，不写 `skill_definition`/`skill_artifact`/依赖快照，不切 current，preview 不返回可 commit 的 `preview_token`。
+
 commit：验证 tenant/actor、token 与 TTL，锁预览和目标，复查暂存 checksum、当前依赖/权限/SDK兼容、expected_revision；首次导入要求 key 尚不存在，新版本要求 manifest key 与目标 skill 匹配。先把同 checksum 内容放不可变 ObjectStore（失败无正式记录；未引用对象后续 GC），再单 PG 事务写 Definition/Artifact/dependencies/current 指针并置 COMMITTED/结果 ID，审计同事务。同 token 已提交先返回原结果，不因后来 TTL 过期再报错；同 checksum 已存在合法 Artifact 时复用它而不写重复制品。
 
-**响应判别**：preview=`{mode:"preview",valid,manifest,validation_report,preview_token:string|null,expires_at,checksum}`；无正式 IDs。commit=`{mode:"commit",skill_id,artifact_id,checksum,revision,current:true}`。错误 SKILL_PREVIEW_EXPIRED（410）、SKILL_PREVIEW_ACCESS_DENIED（403）、SKILL_PREVIEW_CHANGED/SKILL_REVISION_CONFLICT/SKILL_KEY_EXISTS/SKILL_DEPENDENCY_CHANGED（409）、SKILL_ARCHIVE_INVALID（400）。
+**响应判别**：preview=`{mode:"preview",valid,manifest,validation_report,preview_token:string|null,expires_at,checksum}`；无正式 IDs。commit=`{mode:"commit",skill_id,artifact_id,checksum,revision,current:true}`。错误 SKILL_PREVIEW_EXPIRED（410）、SKILL_PREVIEW_ACCESS_DENIED（403）、SKILL_PREVIEW_CHANGED/SKILL_REVISION_CONFLICT/SKILL_KEY_EXISTS/SKILL_DEPENDENCY_CHANGED（409）、SKILL_ARCHIVE_INVALID（400）、SKILL_ENTRYPOINT_INVALID（422）、SKILL_SUPPLY_CHAIN_REJECTED（400）。
 
 **示例**：preview 逻辑请求 `{"mode":"preview","artifact":"report.zip"}`；commit `{"mode":"commit","preview_token":"0123456789abcdef0123456789abcdef"}`。前端拿 preview_token 后确认才调用 commit，取消不发 commit。
 
@@ -500,7 +549,7 @@ commit：验证 tenant/actor、token 与 TTL，锁预览和目标，复查暂存
 | current_artifact | object | checksum/sdk/entrypoint/import_time |
 | dependency_count | integer | 依赖能力数 |
 | agent_count | integer | 使用 Agent 数 |
-| validation_status | string | 校验 |
+| validation_status | string | 该校验结论取 current artifact 的最新 validation event（B15(b)） |
 
 **响应示例**
 
@@ -537,7 +586,7 @@ commit：验证 tenant/actor、token 与 TTL，锁预览和目标，复查暂存
 
 **认证/授权**：Builder + Admin；目标 Skill 当前租户且有编辑权限
 
-请求、分阶段响应、错误与 SKILL-API-02 的 skill-import-schema 完全一致：preview multipart 必填 mode/artifact，commit JSON 必填 mode/preview_token 且禁止 artifact。预览时记录 skill_id/current revision，提交校验 target 与 expected_revision，manifest key 不符 SKILL_KEY_MISMATCH（409）。两阶段都调用 SKILL-API-02 的共用 Application，禁止另写直切 current 流程；preview 响应不包含正式 artifact_id/current=true。
+请求、分阶段响应、错误与 SKILL-API-02 的 skill-import-schema 完全一致：preview multipart 必填 mode/artifact，commit JSON 必填 mode/preview_token 且禁止 artifact。预览时记录 skill_id/current revision，提交校验 target 与 expected_revision，manifest key 不符 SKILL_KEY_MISMATCH（409）。两阶段都调用 SKILL-API-02 的共用 Application，禁止另写直切 current 流程；preview 响应不包含正式 artifact_id/current=true。入口契约校验（同步 `def run(ctx, input)`，不符 `SKILL_ENTRYPOINT_INVALID`(422)）对两条路径同等强制，且 commit 在返回前拒绝、不落库。
 
 #### SKILL-API-05: Artifact 历史
 
@@ -693,9 +742,9 @@ current_artifact_id → skill_artifact_capability JOIN definition/implementation
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | artifact_id | uuid | current artifact |
-| status | string | VALID/INVALID |
-| checks | array<ValidationCheck> | manifest/sdk/entrypoint/capability/archive/supply-chain |
-| validated_at | datetime | 时间 |
+| status | string | VALID/INVALID（取该 artifact **最新 validation event** 的 status） |
+| checks | array<ValidationCheck> | manifest/sdk/entrypoint/entrypoint-sync/entrypoint-signature/capability/archive/supply-chain |
+| validated_at | datetime | 最新 validation event 的 create_time |
 
 **响应示例**
 
@@ -720,12 +769,14 @@ current_artifact_id → skill_artifact_capability JOIN definition/implementation
 **处理逻辑**
 
 ```text
-返回 current artifact validation_report；不得在详情页触发修改。
+current_artifact_id → 取 skill_artifact_validation_event 中该 artifact 的最新一行（create_time DESC LIMIT 1）返回其 status/report；`skill_artifact` 行与 validation_status/validation_report 不可 UPDATE，复核只追加事件（B15(b)）；不得在详情页触发修改。
 ```
 
 #### SKILL-LIB-01: 生产 Skill 执行
 
 **入口类型**：Library
+
+**认证/授权**：仅宿主内部调用（Agent Runtime/ExecutionService Worker）；身份一律取 `ctx`，不接受 SDK/Skill/LLM 传入的 tenant/actor/workspace。
 
 **函数签名**
 
@@ -810,30 +861,30 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 风险ID | 描述 | 影响 | 应对措施 | 验证场景 |
 |---|---|---|---|---|
-| RISK-SKILL-01 | 恶意/不可信可执行 Skill 供应链 | 高 | 审核/校验/checksum/Sandbox/审计 | S-SKILL-01 |
+| RISK-SKILL-01 | 恶意/不可信可执行 Skill 供应链 | 高 | “Builder 导入即在租户内可用（current 切换）”是 V1 **已接受的产品风险**（无发布审核态）：接受理由为 V1 租户内 Skill 由内部 Builder 生产、无外部供给方，导入侧 manifest/entrypoint/依赖/供应链静态扫描 + checksum + 不可变 Artifact + 生产隔离子进程执行 + 导入/使用审计已覆盖主要攻击面；演进触发条件为出现多团队共享租户或外部 Skill 供给方时，必须先引入审核态（publisher/审核状态/发布 scope）再放行 | S-SKILL-01, E-SKILL-04, E-SKILL-05 |
 | RISK-SKILL-02 | SDK 私有模块泄漏导致 Skill 强耦合 Runtime | 中 | import lint + Public API contract test | S-SKILL-04 |
 
 ## 6. 需求追溯矩阵
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-SKILL-01 | SKILL-API-01, SKILL-API-02 | S-SKILL-01, E-SKILL-01 | E2E/integration | 待实现/评审 |
-| FEAT-SKILL-02 | SKILL-API-02, SKILL-API-03 | 见 §2.5 | E2E/integration | 待实现/评审 |
-| FEAT-SKILL-03 | SKILL-API-03, SKILL-API-04 | S-SKILL-02, E-SKILL-02 | E2E/integration | 待实现/评审 |
-| FEAT-SKILL-04 | SKILL-API-04, SKILL-API-05 | E-SKILL-03 | E2E/integration | 待实现/评审 |
-| FEAT-SKILL-05 | SKILL-API-05, SKILL-API-06 | S-SKILL-04 | E2E/integration | 待实现/评审 |
-| FEAT-SKILL-06 | SKILL-API-06, SKILL-API-07 | S-SKILL-03 | E2E/integration | 待实现/评审 |
+| FEAT-SKILL-01 | SKILL-API-02, SKILL-API-04 | S-SKILL-01, E-SKILL-01 | E2E/integration | 待实现/评审 |
+| FEAT-SKILL-02 | SKILL-API-02, SKILL-API-05, SKILL-API-08 | S-SKILL-03, S-SKILL-07, E-SKILL-04, E-SKILL-05 | E2E/integration | 待实现/评审 |
+| FEAT-SKILL-03 | SKILL-API-02, SKILL-API-06 | S-SKILL-02, E-SKILL-02 | E2E/integration | 待实现/评审 |
+| FEAT-SKILL-04 | SKILL-API-01, SKILL-API-03, SKILL-API-05, SKILL-API-06, SKILL-API-07, SKILL-API-08 | S-SKILL-06, E-SKILL-03 | E2E/integration | 待实现/评审 |
+| FEAT-SKILL-05 | SKILL-LIB-01 | S-SKILL-04, S-SKILL-05 | E2E/integration | 待实现/评审 |
+| FEAT-SKILL-06 | SKILL-API-02, SKILL-API-04, SKILL-API-05 | S-SKILL-03 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/SKILL#RULE-SKILL-01 | design-baseline | 约束实现与验收 | §2.5 RULE-SKILL-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SKILL#RULE-SKILL-02 | design-baseline | 约束实现与验收 | §2.5 RULE-SKILL-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SKILL#RULE-SKILL-03 | design-baseline | 约束实现与验收 | §2.5 RULE-SKILL-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SKILL#RULE-SKILL-04 | design-baseline | 约束实现与验收 | §2.5 RULE-SKILL-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SKILL#RULE-SKILL-05 | design-baseline | 约束实现与验收 | §2.5 RULE-SKILL-05 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SKILL#RULE-SKILL-06 | design-baseline | 约束实现与验收 | §2.5 RULE-SKILL-06 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SKILL#RULE-SKILL-01 | design-baseline | 约束实现与验收 | §2.5 RULE-SKILL-01 / §3 | S-SKILL-01, E-SKILL-03 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SKILL#RULE-SKILL-02 | design-baseline | 约束实现与验收 | §2.5 RULE-SKILL-02 / §3 | S-SKILL-02 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SKILL#RULE-SKILL-03 | design-baseline | 约束实现与验收 | §2.5 RULE-SKILL-03 / §3.3 表 skill_artifact + skill_artifact_validation_event | S-SKILL-03, S-SKILL-07 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SKILL#RULE-SKILL-04 | design-baseline | 约束实现与验收 | §2.5 RULE-SKILL-04 / §3 | E-SKILL-04 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SKILL#RULE-SKILL-05 | design-baseline | 约束实现与验收 | §2.5 RULE-SKILL-05 / §3 | S-SKILL-05 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SKILL#RULE-SKILL-06 | design-baseline | 约束实现与验收 | §2.5 RULE-SKILL-06 / §3 | S-SKILL-06 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

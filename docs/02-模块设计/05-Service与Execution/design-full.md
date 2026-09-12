@@ -6,8 +6,8 @@
 
 # Service 与 Execution 模块需求与设计一体化文档
 
-> **文档编号**: MOD-SVC-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-SVC-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 新增受控变量模板契约与 RULE-SVC-07/08；`requested_action` 语义定死为“决策接受后写入”；`context_summary` 补 U03 六要素；ExecutionView 补脱敏 `resource_scope_summary`/`scope_refs` 与 `scope_ref` 筛选；EXE-LIB-02 补确定性渲染/confirmation_ref 签发；EXE-LIB-03 明确 confirmation_ref 双路径；EXE-LIB-01 补 `delivery_route_id`/`execution_mode` 写入规则；进度事件投递触发与幂等键定义；ArtifactSummary 统一 `artifact_id`；矩阵与 verifier 修正 |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D5：`resource_scope` 收敛为 `{type, refs[], attributes?}`（删除 Service 级 scope JSON Schema、`schema_hash`、Scope Registry 推导），`resource_scope_summary`/`scope_refs` 改为直接投影；Q-10：`execution_proposal` 状态收敛为 PENDING/CONFIRMED + `superseded_at`（过期/被取代改为派生判定）；Q-04：`confirmation_digest` 去掉 `rendered_summary`、改用 `template_hash`；B2：新增 `current_step_name` 与 EXE-API-01 的 `error_code` 筛选；D6：新增 Builder 执行可见范围（依赖 `service_definition.created_by`，ADR-052）；B6：产物访问判定以 `artifact` 表 FK 为准、`artifact_ids` 仅作复制来源记录；D4：新增 EXE-API-07「重新投递」并定义与重试的边界（ADR-054）；B11：步骤 schema 新增 `human_policy`（ADR-055）；B3：保留与清理按《11-数据保留与清理策略》；D7：自助重试与来源会话查看显式后置 |
 
 ## 2. 需求分析
 
@@ -72,13 +74,15 @@
 | FEAT-SVC-05 | Step/Async | 同步/异步步骤与外部任务状态。 | P0 | 交互结论 |
 | FEAT-SVC-06 | Command/Progress | cancel/retry 与时间线。 | P0 | /stop/运维 |
 | FEAT-SVC-07 | Artifact | 大结果与可交付产物。 | P0 | Playbook U04 |
+| FEAT-SVC-08 | 人工检查点 | WAITING_HUMAN 的进入、六要素提示、决策消费与超时收敛。 | P0 | Playbook U03 |
 
 ### 2.4 范围与边界
 
 | 类别 | 内容 |
 |---|---|
 | 范围（In Scope） | ServiceDefinition/Release、ExecutionService、Snapshot、Execution/Step/AsyncTask/Command/Progress/Artifact、列表/详情/取消/重试。 |
-| 非范围（Out of Scope） | Worker claim 算法细节（模块06）、Capability Provider 协议（模块07）、Channel 发送协议（模块10）。 |
+| 非范围（Out of Scope） | Worker claim 算法细节（模块06）、Capability Provider 协议（模块07）、Channel 发送协议（模块10）；**END_USER 自助重试**（IM `/retry`，V1 只有 Admin 在 Console 重新执行/重新投递，见 ADR-054）；**Admin 查看来源会话消息**（Console 无会话视图，排障依赖执行 Timeline + `context_summary`，见 ADR-045）。 |
+| 保留与清理 | 本模块拥有的执行侧数据（提案/快照/执行/步骤/进度/产物）按《01-架构与规范/11-数据保留与清理策略》执行；TEST 数据 30 天、FORMAL 365 天、`SUBMITTED_UNKNOWN` 必须收敛为终态后清理。 |
 | 前置假设 | 上游总设、公共 DB/API 规范、外部基础设施可用 |
 | 有意妥协 / 技术债 | 无；未来扩展必须有真实旅程驱动 |
 
@@ -89,11 +93,16 @@
 | ID | 类型 | 描述 | 验证场景 |
 |---|---|---|---|
 | RULE-SVC-01 | 主 Agent | Service.primary_agent_id V1 必填；一个 Agent 可主执行多个 Service。 | S-SVC-01 |
-| RULE-SVC-02 | 发布 | 只有 Service 有 Draft/Validate/Test/Publish；Release immutable。 | S-SVC-02 |
-| RULE-SVC-03 | 一致性 | Execution 固定 service_release_id + snapshot。 | S-SVC-03 |
-| RULE-SVC-04 | 动态安全 | 恢复时重校验 User→AgentAccessGrant、Credential、Capability enabled。 | S-SVC-04 |
-| RULE-SVC-05 | 异步 | Async 是 Step execution_mode/AsyncTaskRun，不是 Capability 实现类型/独立菜单。 | S-SVC-05 |
-| RULE-SVC-06 | 幂等 | 有副作用 Step 与命令必须有稳定 idempotency_key。 | S-SVC-06 |
+| RULE-SVC-02 | 发布 | 只有 Service 有 Draft/Validate/Test/Publish；Release immutable。 | S-SVC-02, E-SVC-01 |
+| RULE-SVC-03 | 一致性 | Execution 固定 service_release_id + snapshot。 | S-SVC-03, S-SVC-07 |
+| RULE-SVC-04 | 动态安全 | 恢复时重校验 User→AgentAccessGrant、Credential、Capability enabled。 | E-SVC-02, E-SVC-04 |
+| RULE-SVC-05 | 异步 | Async 是 Step execution_mode/AsyncTaskRun，不是 Capability 实现类型/独立菜单。 | S-SVC-04, E-SVC-03 |
+| RULE-SVC-06 | 幂等 | 有副作用 Step 与命令必须有稳定 idempotency_key。 | S-SVC-06, B-SVC-01 |
+| RULE-SVC-07 | 摘要冻结 | 确认摘要/交付内容由受控模板确定性渲染，结果随快照冻结且进入 confirmation_digest；禁止 LLM 渲染、禁止用 current 重渲染。 | S-SVC-07, B-SVC-04 |
+| RULE-SVC-09 | 可见范围 | Execution 可见范围：Admin=租户全部；Builder=自己创建的 Service ∪ 被授权 Agent 相关；越界视为不存在（ADR-052）。 | B-SVC-05 |
+| RULE-SVC-10 | 产物访问 | 产物访问判定以 `artifact` 表 FK 为准，`artifact_ids` 仅记录复制来源；已清理一律 410（ADR-053）。 | S-SVC-11 |
+| RULE-SVC-11 | 重新投递 | 重新投递只新建投递尝试，绝不重跑业务步骤；与重新执行是两个动作（ADR-054）。 | S-SVC-12 |
+| RULE-SVC-08 | 人工检查点 | 进入 WAITING_HUMAN 必须固化六要素 context_summary 并预建 human_wait 投递；决策被接受才写 requested_action；deadline 竞争唯一收敛。 | S-SVC-09, E-SVC-05 |
 
 #### 2.5.2 功能验收场景
 
@@ -107,6 +116,12 @@
 | S-SVC-03 | FEAT-SVC-04 | P0 | E2E | Agent Proposal→ExecutionService→PG | 本模块 | 用户有授权/Service 已发布 | 确认创建任务 | 生成 snapshot/execution/steps 且幂等 |
 | S-SVC-04 | FEAT-SVC-05 | P0 | E2E | Worker→Async provider→PG | 后置 → 模块 06/07 | 异步 capability | 提交→等待→轮询完成 | Timeline 显示外部 task 生命周期 |
 | S-SVC-05 | FEAT-SVC-06 | P0 | E2E | Cancel API→command→Worker | 后置 → 模块 06 | Execution RUNNING | 用户 /stop | 状态进入 CANCELLING，停止后续步骤 |
+| S-SVC-07 | FEAT-SVC-04 | P0 | E2E | 签发提案→跨 Pod 确认→Execution | 本模块 + 03/10 | Service 已发布、用户有授权 | A Pod 签发提案并退出 → B Pod 收到用户“确认” | `rendered_summary` 与 input 一致；只创建该用户/该版本/该输入的**一个** Execution；篡改 input、换 actor、换会话均拒绝 |
+| S-SVC-08 | FEAT-SVC-02 | P0 | E2E | 草稿快照→TEST 执行 | 本模块 + 06/07 | Service 从未发布（无 current release） | 用草稿直接测试（DRY_RUN） | 落 `execution_source=TEST` 快照（release 为空、draft_revision/test_mode 非空）；执行成功；不进正式统计；改草稿后旧结果标记 expired |
+| S-SVC-09 | FEAT-SVC-08 | P0 | E2E | HUMAN Step→DeliveryRoute→IM | 本模块 + 06/10 | 执行进入 HUMAN 步骤 | 等待超时前用户收到通知并回复 RESUME | 渠道收到含六要素的通知；RESUME 被接受（**不是 409**）；执行从等待点继续；重复/过期决策返回确定结果 |
+| S-SVC-10 | FEAT-SVC-04 | P1 | integration | ExecutionView 范围摘要 | 本模块 | 执行含非空 `resource_scope_json` | Admin 打开执行详情并按其范围引用筛选 | 详情返回脱敏 `resource_scope_summary`/`scope_refs`；列表按 `scope_ref` 只返回匹配执行；不返回原始 `resource_scope_json` |
+| S-SVC-11 | FEAT-SVC-07 | P0 | E2E | Artifact→DeliveryRoute→本人重取 | 本模块 + 10/14 | 执行产出 Artifact 且用户已离线 | 后台投递；用户稍后 `/result` 重取 | 渠道收到原生文件或受权下载；EXE-API-06 返回字节流且校验归属；跨用户取流 403；已清理 410 `ARTIFACT_EXPIRED`；响应中不出现 `object_ref`/公开签名 URL |
+| S-SVC-12 | FEAT-SVC-07 | P1 | integration | 重新投递 vs 重新执行 | 本模块 + 10 | 执行 SUCCEEDED 但 `delivery_status=FAILED` | Admin 调 EXE-API-07 重新投递 | 新建一条投递尝试（`attempt+1`）且**不重跑任何业务步骤**；`FAILED` 情形无重复通知风险；对 `delivery_status=DELIVERED` 或 `NONE` 调用返回 409 `EXECUTION_DELIVERY_NOT_RETRYABLE` |
 
 **异常场景**
 
@@ -115,6 +130,8 @@
 | E-SVC-01 | FEAT-SVC-03 | E2E | Validate→Publish | 本模块 | 依赖缺失/草稿 revision 变化 | Publish 409，不创建 Release | Console 显示具体校验项 |
 | E-SVC-02 | FEAT-SVC-04 | E2E | Execution resume→Grant | 后置 → 模块 18 | 任务 WAITING 时撤销 Agent 授权 | 恢复 fail closed/进入人工或失败策略 | 不继续写操作 |
 | E-SVC-03 | FEAT-SVC-05 | integration | AsyncTaskRun | 本模块 | provider 不支持 cancel | 平台停止后续步骤并记录外部任务不可取消 | 用户可见明确提示 |
+| E-SVC-04 | FEAT-SVC-04 | integration | 提案消费 | 本模块 + 10 | 提案已过期 / 已被消费 / 另一个 actor 复制 ref | 确认请求 | 过期 `PROPOSAL_EXPIRED`、已消费返回原执行（幂等）、跨 actor `PROPOSAL_ACCESS_DENIED`；均不创建第二个 Execution |
+| E-SVC-05 | FEAT-SVC-08 | integration | 决策与 deadline 竞争 | 本模块 + 06 | 决策与 deadline 同时到达（含重复决策、相反决策） | 决策请求 / 超时扫描并发 | 唯一终态：deadline 前已接受决策优先并 RESUME/CANCEL；无有效决策且已过期 → `FAILED(HUMAN_TIMEOUT)`；相反决策 `HUMAN_DECISION_CONFLICT`；重复请求返回原结果 |
 
 **边界场景**
 
@@ -122,6 +139,9 @@
 |---|---|---|---|---|---|---|
 | B-SVC-01 | integration | idempotency | 本模块 | 重复 create_from_proposal | 相同 idempotency_key | 只创建一个 Execution |
 | B-SVC-02 | integration | state machine | 本模块 | 终态再次 cancel | SUCCEEDED/FAILED/CANCELLED | 返回 409 或幂等终态，不回退状态 |
+| B-SVC-03 | integration | WAIT 恢复计时 | 本模块 + 06 | 等待中重启 Worker | 已持久化的 `wait_until` | 按原截止时间继续，**不重新起算** wait_seconds |
+| B-SVC-05 | integration | Builder 可见范围 | 本模块 | Builder 查询他人创建 Service 的执行（列表 + 详情） | 列表不返回该执行；详情 404 `EXECUTION_NOT_FOUND`（不是 403，避免泄露存在性） |
+| B-SVC-04 | integration | 模板渲染 | 本模块 | `summary_template` 引用未声明字段 | 发布校验 / 签发 | 发布阶段 `SERVICE_DRAFT_INVALID(422)` 并定位到模板；签发阶段不得出现“渲染失败但通过” |
 
 #### 2.5.3 非功能指标
 
@@ -194,7 +214,6 @@ flowchart LR
 | 表名 | 职责 | 所有权 |
 |---|---|---|
 | execution_proposal | 待确认提案、可信确认消费与执行关联 | Service 与 Execution |
-
 | service_definition | 面向最终用户的业务服务定义；唯一拥有 Draft/Validate/Test/Publish 产品生命周期。 | Service 与 Execution |
 | service_release | 发布后的 immutable Service Version；新 Execution 固定引用。 | Service 与 Execution |
 | execution_snapshot | Execution 创建时冻结的轻量运行投影；只冻结一致性所需业务逻辑，不冻结实时授权/Credential/紧急禁用。 | Service 与 Execution |
@@ -223,7 +242,7 @@ flowchart LR
 | rendered_summary | TEXT | N |  |  | 实际展示内容 |
 | confirmation_digest | VARCHAR(64) | N |  |  | 绑定身份/版本/输入/范围/截止时间 |
 | expires_at | TIMESTAMPTZ | N |  | IDX | 创建后 300 秒 |
-| status | VARCHAR(16) | N | PENDING |  | PENDING/CONFIRMED/EXPIRED/SUPERSEDED |
+| status | VARCHAR(16) | N | PENDING |  | **PENDING/CONFIRMED 两态**（ADR-049）；"过期"与"被取代"是派生事实——分别按 `expires_at <= now` 与 `superseded_at IS NOT NULL` 判定，不进状态迁移 |
 | confirmed_message_id | UUID | Y |  | FK message | 真实 USER 确认事件 |
 | confirmed_at | TIMESTAMPTZ | Y |  |  | 确认事务数据库时间 |
 | execution_id | UUID | Y |  | FK service_execution | 成功消费结果 |
@@ -234,7 +253,8 @@ flowchart LR
 
 **约束与索引**
 
-- UNIQUE (tenant_id,conversation_id) WHERE status='PENDING' AND is_deleted=false；签发新提案时旧 PENDING 同事务置 SUPERSEDED。
+- UNIQUE (tenant_id,conversation_id) WHERE status='PENDING' AND is_deleted=false；签发新提案时旧 PENDING 同事务置 `superseded_at=now`（不引入 SUPERSEDED 状态）。
+- CHECK：`status='CONFIRMED'` 当且仅当 execution_id 非空；`superseded_at` 与 `confirmed_at` 互斥。
 - 签发后禁止修改身份/输入/范围/snapshot/digest/expires_at，只允许状态及消费关联更新。
 - CHECK: status=CONFIRMED 当且仅当 execution_id、confirmed_message_id、confirmed_at 全部非空；其他状态均为空。
 - confirmed_message_id 对同 tenant 唯一（非空时）；消费与创建执行在同一事务。
@@ -256,6 +276,7 @@ flowchart LR
 | draft_revision | BIGINT | N | 1 |  | 草稿乐观并发 |
 | current_release_id | UUID | Y |  | FK | 当前发布版本 |
 | enabled | BOOLEAN | N | TRUE | IDX | 是否允许新执行 |
+| created_by | UUID | N |  | FK,IDX | 创建者 `platform_user.id`（不可变）；**Builder 的执行可见范围以此为准**（ADR-052），取自 Console 登录身份，不接受请求体传入 |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
@@ -266,6 +287,7 @@ flowchart LR
 - UNIQUE (tenant_id,key) WHERE is_deleted=false
 - primary_agent_id NOT NULL
 - draft_payload 与 published payload 分离
+- `created_by` 创建后不可变；发布/转交不改变创建者（需要"负责人"概念时另开字段，不复用本列）
 
 **索引设计**
 
@@ -352,16 +374,16 @@ flowchart LR
 | actor_user_id | UUID | N |  | FK,IDX | 发起 PlatformUser |
 | primary_agent_id | UUID | N |  | FK | 启动时主 Agent 引用 |
 | conversation_id | UUID | Y |  | FK,IDX | 来源 Conversation |
-| delivery_route_id | UUID | Y |  | FK | 主动投递路由 |
+| delivery_route_id | UUID | Y |  | FK | 主动投递路由；**创建时由可信上下文固定写入**（ADR-045），此后不随用户会话漂移；无活跃路由时为空 |
 | snapshot_id | UUID | N |  | FK | ExecutionSnapshot |
 | workspace_id | UUID | Y |  | FK | 受控 Workspace |
 | resource_scope_json | JSONB | N | {} |  | 业务资源范围 |
 | input_json | JSONB | N | {} |  | 经 Schema 校验的输入 |
-| execution_mode | VARCHAR(16) | N | ASYNC |  | SYNC/ASYNC |
+| execution_mode | VARCHAR(16) | N | ASYNC |  | SYNC/ASYNC；由 ServiceDraft 编译时推导——存在任一步骤 `execution_mode=ASYNC` 即 ASYNC，否则 SYNC。SYNC 仅表示本次执行不含异步外部任务，**仍由 Worker 执行**，不等于“同步阻塞调用” |
 | status | VARCHAR(32) | N | PENDING | IDX | PENDING/RUNNING/WAITING/WAITING_HUMAN/RETRY_WAIT/CANCELLING/SUCCEEDED/FAILED/CANCELLED（终态统一 SUCCEEDED） |
 | waiting_reason | VARCHAR(256) | Y |  |  | 进入 WAITING_HUMAN/RETRY_WAIT 的原因（人工等待为审批说明） |
 | human_deadline | TIMESTAMPTZ | Y |  | IDX | 进入 WAITING_HUMAN 的截止时间，默认 +24h；超时置 FAILED(error_code=HUMAN_TIMEOUT) |
-| requested_action | VARCHAR(16) | Y |  |  | WAITING_HUMAN 期间请求的动作：RESUME/CANCEL |
+| requested_action | VARCHAR(16) | Y |  |  | RESUME/CANCEL；**决策被事务接受后才写入**，进入 WAITING_HUMAN 时为 NULL（EXE-API-05 的前置条件，也是 Worker 的唤醒信号之一） |
 | channel_source | VARCHAR(32) | Y |  |  | 接入渠道（V1=wechat_wecom；API 发起为空） |
 | retry_count | INTEGER | N | 0 |  | 业务重试次数（EXE-API-04 触发） |
 | parent_execution_id | UUID | Y |  | FK,UK | 重试的直接父执行；每个父执行最多派生一个子执行 |
@@ -370,7 +392,7 @@ flowchart LR
 | test_mode | VARCHAR(16) | Y |  |  | TEST 必填 DRY_RUN/REAL_TEST；FORMAL 为空 |
 | root_execution_id | UUID | N |  | FK | 初次执行指向自身；重试沿用 |
 | max_retries | INTEGER | N | 3 |  | 管理重试上限，与 claim 的 max_attempts 分离 |
-| context_summary | JSONB | Y |  |  | 人工等待摘要：step_key/prompt/input_digest/evidence_refs；脱敏 |
+| context_summary | JSONB | Y |  |  | 人工等待摘要，**进入等待时固化、禁止用 current 配置重渲染**，必须覆盖 Playbook U03 六要素：`step_key`、`human_prompt`、`input_digest`、`evidence_refs`（脱敏）、`completed_steps[]`（已完成步骤 key + 摘要 =“系统已经做了什么”）、`options[]`（`{action, label, meaning}` = “有哪些选择/意味着什么”）；全部脱敏 |
 | human_decision_at | TIMESTAMPTZ | Y |  |  | 接受决策的数据库时间 |
 | lease_epoch | BIGINT | N | 0 |  | 每次 claim +1；所有状态写入校验 fencing token |
 | priority | INTEGER | N | 0 |  | Worker claim 排序权重（总设 §5.2 治理 P1） |
@@ -384,7 +406,7 @@ flowchart LR
 | trace_id | VARCHAR(128) | N |  | IDX | 全链路 Trace |
 | cancel_requested_at | TIMESTAMPTZ | Y |  |  | 取消请求时间 |
 | result_ref | VARCHAR(1024) | Y |  |  | 最终结果引用 |
-| artifact_ids | UUID[] | N | {} |  | 根结果产物；重试复制，访问时校验同 root/actor |
+| artifact_ids | UUID[] | N | {} |  | 根结果产物**复制来源记录**（重试用）；**访问判定以 `artifact` 表 FK 为准**，本数组不作为唯一凭据（ADR-053） |
 | error_code | VARCHAR(128) | Y |  | IDX | 终态错误码 |
 | error_message | TEXT | Y |  |  | 脱敏错误摘要 |
 | started_at | TIMESTAMPTZ | Y |  |  | 开始时间 |
@@ -400,7 +422,9 @@ flowchart LR
 - 终态不可回到非终态
 - source/version/test_mode 按 execution-source-check（source 映射 execution_source）校验，且与 snapshot 一致。
 - UNIQUE (tenant_id,parent_execution_id) WHERE parent_execution_id IS NOT NULL；每个失败节点只有一个重试子执行。
-- WAITING_HUMAN：deadline 非空；在 deadline 前已被事务接受的 requested_action 优先应用，即使 Worker 稍后才运行。到期且没有有效已接受决策才 FAILED(HUMAN_TIMEOUT)；截止后新决策拒绝，已接受请求重放返回原结果。
+- 创建时由可信上下文写入 `delivery_route_id`（取当前会话对应的持久路由；无活跃路由时留空并在结果生成时回退本会话路由），此后**不随用户切换会话而漂移**（ADR-045）。
+- WAITING_HUMAN：deadline 非空；`requested_action` 进入等待时为 NULL，**只有决策被事务接受后才写入**；在 deadline 前已被事务接受的 requested_action 优先应用，即使 Worker 稍后才运行。到期且没有有效已接受决策才 FAILED(HUMAN_TIMEOUT)；截止后新决策拒绝，已接受请求重放返回原结果。
+- 进入 WAITING_HUMAN 的**同一事务**必须写入 `context_summary`、`human_deadline`、`next_run_at = human_deadline`，并**预建恰好一条 `channel_delivery(event_type='human_wait')`**（ADR-040）：通知对象固定为 `actor_user_id` 的 DeliveryRoute；内容按“编排文案优先、缺失六要素由平台补齐”合并为同一条消息（见模块 10 RULE-CHAN-09），**不得因存在编排而产生第二条通知**。
 - lease_owner/lease_expires_at 仅 Worker 管理
 - 创建/恢复时动态重校验 AgentAccessGrant/Credential/Capability enabled
 
@@ -434,7 +458,7 @@ flowchart LR
 | input_json | JSONB | N | {} |  | 步骤输入快照 |
 | output_json | JSONB | N | {} |  | 小结果；大结果用 result_ref |
 | result_ref | VARCHAR(1024) | Y |  |  | Artifact/Object ref |
-| artifact_ids | UUID[] | N | {} |  | 本步骤产物关联；复制结果同时复制 ID |
+| artifact_ids | UUID[] | N | {} |  | 本步骤产物**复制来源记录**；访问判定同样以 `artifact` 表 FK 为准 |
 | wait_until | TIMESTAMPTZ | Y |  | IDX | 等待截止/轮询时间 |
 | error_code | VARCHAR(128) | Y |  | IDX | 错误码 |
 | error_detail_ref | VARCHAR(1024) | Y |  |  | 大错误详情/外部响应脱敏引用 |
@@ -482,7 +506,7 @@ flowchart LR
 | next_poll_at | TIMESTAMPTZ | Y |  | IDX | 轮询或对账到期 |
 | poll_attempts | INTEGER | N | 0 |  | 有界计数 |
 | max_poll_attempts | INTEGER | N | 100 |  | 执行策略冻结上限 |
-| reconcile_deadline | TIMESTAMPTZ | N |  |  | 未知结果对账截止时间 |
+| reconcile_deadline | TIMESTAMPTZ | N |  |  | 未知结果对账截止时间；**由 ASYNC 首次提交事务写入**（`now + 步骤策略 reconcile_timeout_seconds`，默认 86400），不允许为空（见模块 06 的 ASYNC 分支） |
 | cancel_supported | BOOLEAN | N | FALSE |  | Provider 能力 |
 | result_ref | VARCHAR(1024) | Y |  |  | 结果 |
 | error_code | VARCHAR(128) | Y |  |  | 错误分类 |
@@ -559,6 +583,8 @@ flowchart LR
 | idx_progress_execution_time | BTREE | tenant_id,execution_id,occurred_at | Timeline/投递 |
 
 **不可变约束**：创建后禁止业务 UPDATE/DELETE；如需演进创建新记录并更新上层 current 指针。
+
+**投递触发合同（ADR-040 / D13）**：只有 `event_type IN ('STAGE','WAIT','ERROR','COMPLETE')` 且 `visibility='USER'` 的进度事件才产生对用户的投递；`PROGRESS` 级事件与 `ADMIN`/`INTERNAL` 可见性**只进 Timeline，不投递**（避免消息轰炸）。触发方是 **Worker**：写进度事件与其投递行必须**同一事务**，`channel_delivery.event_id = task_progress_event.id`（幂等键，重放不新增投递行），`event_type='progress_stage'`；`COMPLETE`/失败分别用 `completed`/`failed`，与进度事件一并预建。业务 Step 的 `DELIVERY` step 只负责“交付内容”，与阶段通知互不替代。
 
 #### 表 `artifact`
 
@@ -702,9 +728,9 @@ erDiagram
 | EXE-API-04 | 重试失败 Execution | HTTP | POST | /api/v1/executions/{execution_id}/retry |
 | EXE-API-05 | 人工审批决策（继续/终止） | HTTP | POST | /api/v1/executions/{execution_id}/resume |
 | EXE-API-06 | Artifact 授权下载 | HTTP | GET | /api/v1/executions/{execution_id}/artifacts/{artifact_id}/download |
+| EXE-API-07 | 重新投递结果 | HTTP | POST | /api/v1/executions/{execution_id}/redeliver |
 | EXE-LIB-02 | 签发待确认提案 | Library | issue_proposal(ctx, candidate) | PG 提案/快照 |
 | EXE-LIB-03 | 消费用户确认 | Library | confirm_proposal(ctx, proposal_id, user_message_id, confirmation_ref) | 原子确认并创建 |
-
 | EXE-LIB-01 | 从 Proposal 创建可信执行 | Library | async def create_from_proposal(ctx: TrustedExecutionContext, proposal_id: UUID) -> ServiceExecution |  |
 
 #### SVC-API-01: Service 列表
@@ -723,8 +749,10 @@ erDiagram
 | page_size | integer | N | 每页条数；默认 20，最大 100 |
 | keyword | string | N | name/key |
 | execution_type | string | N | AGENTIC/DETERMINISTIC/HYBRID |
+| primary_agent_id | uuid | N | 按主 Agent 筛选（Console 服务列表现有筛选条件） |
 | enabled | boolean | N | 状态 |
 | draft_state | string | N | 是否有未发布修改 |
+| sort | string | N | `update_time_desc`（默认）/`update_time_asc`/`name_asc`；未知值 REQUEST_SCHEMA_INVALID(422) |
 
 **请求体**：无。
 
@@ -773,9 +801,10 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
 |---|---|---|---|
 | name | string | Y | 名称 |
 | key | string | Y | 稳定 Key |
-| description | string | Y | 说明 |
+| description | string | N | 说明；缺省为 `""`（Console 新增表单标为可选） |
 | primary_agent_id | uuid | Y | V1 必填 |
 | execution_type | string | Y | AGENTIC/DETERMINISTIC/HYBRID |
+| enabled | boolean | N | 创建时的初始启用状态；默认 `true`。**创建后该开关只能经 SVC-API-10 变更**，不进 draft_payload |
 
 **请求示例**
 
@@ -922,17 +951,26 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
         "null"
       ],
       "properties": {
-        "scope_type": {
+        "type": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "范围类型名；取值必须命中当前部署 Integration manifest 的 resource_scope_types 声明（内存投影，装配期校验，不落库）"
         },
-        "input_schema": {
-          "type": "object"
+        "refs": {
+          "type": "array",
+          "items": {"type": "string"},
+          "maxItems": 200,
+          "description": "业务对象引用；列表筛选与详情展示直接以本数组为准"
+        },
+        "attributes": {
+          "type": "object",
+          "description": "可选附加属性；仅允许该类型在 manifest 中声明的字段，服务端按声明校验",
+          "default": {}
         }
       },
       "required": [
-        "scope_type",
-        "input_schema"
+        "type",
+        "refs"
       ],
       "additionalProperties": false
     },
@@ -947,7 +985,9 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
           "type": "boolean"
         },
         "summary_template": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 4000,
+          "description": "受控变量模板，语法见 contract:confirmation-template-syntax；由 EXE-LIB-02 在签发时确定性渲染"
         }
       },
       "additionalProperties": false
@@ -1060,6 +1100,15 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
               "MANUAL",
               "SKIP_ON_ERROR"
             ]
+          },
+          "human_policy": {
+            "enum": [
+              "never",
+              "on_uncertainty",
+              "always"
+            ],
+            "default": "never",
+            "description": "步骤级人工介入策略（ADR-055）：never=本步不得转人工；on_uncertainty=语义不确定、业务拒绝或达自动恢复上限时可转 WAITING_HUMAN（等价于按需插入人工检查点）；always=本步之前强制插入人工检查点。与 failure_policy=MANUAL 正交且并存：MANUAL 决定失败后怎么走，human_policy 决定这一步本身是否需要人确认"
           },
           "max_retries": {
             "type": "integer",
@@ -1230,9 +1279,13 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
 
 **语义校验**：step_key/output_var 各自唯一；STEP 引用只允许已出现的 step_key，path 是 JSON Pointer；没有隐式字符串插值。前端把“前一步输出/Service 输入/字面量”控件序列化为三种 input_mapping。output_var 是可选显示别名，解析时归一到 step_key，不能创建第二套输出事实。Schema 校验先于依赖/Scope/风险检查。
 
-resource_scope 是业务输入范围的 Schema，Scope Registry 校验 scope_type 与允许字段，schema_hash 由服务器在发布/快照时计算，不接受客户端 hash。primary_agent_id 的修改进入 Draft，发布时冻结；service_definition.primary_agent_id/execution_type 是当前 Draft 的检索投影，运行使用 Release/快照。AGENTIC 无显式步骤时编译为主 Agent 的一个逻辑步骤；HYBRID/DETERMINISTIC 按给定顺序执行。
+resource_scope 采用**最小 typed 形态** `{type, refs[], attributes?}`（ADR-050）：`type` 的取值白名单来自当前部署 Integration manifest 的 `resource_scope_types` 声明（**内存投影、装配期校验、不落库、无 schema_hash**）；`refs` 即对外与筛选使用的范围引用（`scope_refs` 直接投影 `refs`，不需要额外的类型元数据推导）；`attributes` 只允许该类型声明的字段。**本模块不再声明 Service 级 scope JSON Schema，也不计算 `scope_hash` 参与摘要**（V1 只有一个参考 Integration，泛化留待第二个 Integration 接入）。
+
+primary_agent_id 的修改进入 Draft，发布时冻结；service_definition.primary_agent_id/execution_type 是当前 Draft 的检索投影，运行使用 Release/快照。AGENTIC 无显式步骤时编译为主 Agent 的一个逻辑步骤；HYBRID/DETERMINISTIC 按给定顺序执行。
 
 失败策略：FAIL_FAST 终止；RETRY 按同 operation_id 有界重试；MANUAL 进入 WAITING_HUMAN，RESUME 从相同失败点继续且沿用副作用身份；SKIP_ON_ERROR 显式标 SKIPPED 并继续，依赖缺失输出时必须提供 literal 默认，否则保存时拒绝。WAIT 不占用长睡眠线程，详情见 WORK-LIB-03。
+
+人工介入策略（ADR-055）：步骤级 `human_policy` 与失败策略**正交**——`always` 由编译器在该步骤**之前**插入一个 HUMAN 检查点（消费后继续原步骤）；`on_uncertainty` 允许该步骤在语义不确定、业务拒绝或达自动恢复上限时转 WAITING_HUMAN（**不得**仅因技术故障转人工）；`never` 禁止本步转人工，命中时按 `failure_policy` 收敛。Service 级 `confirmation.required` 仍只决定「发起前是否需要用户确认」，三者互不替代。
 
 **请求示例**：
 
@@ -1282,6 +1335,26 @@ resource_scope 是业务输入范围的 Schema，Scope Registry 校验 scope_typ
 }
 ```
 <!-- /contract:service-draft-example -->
+
+**受控变量模板契约（Owner 合同，ADR-043）**：`confirmation.summary_template`、步骤级 `deliverable_template` 与 `deliverable.template` 使用下文语法；渲染由 **EXE-LIB-02 在签发时确定性执行**，禁止 LLM 参与渲染。
+
+<!-- contract:confirmation-template-syntax -->
+```text
+变量：
+  ${input.<path>}                       业务输入（点路径）
+  ${scope.<path>}                       资源范围（type / refs[] / attributes 的已声明字段）
+  ${steps.<step_key>.output.<path>}     已成功步骤的输出（仅可引用序列更早的步骤）
+  ${service.name} / ${agent.name} / ${actor.display_name} / ${now}
+
+约束：
+  1) 变量必须能在发布校验时解析为已声明字段，否则 SERVICE_DRAFT_INVALID(422)（field_errors 定位到模板）
+  2) 模板长度 <= 4000；渲染结果必须非空
+  3) 渲染结果随 ExecutionProjection 冻结，禁止在确认或详情页用 current 配置重新渲染
+  4) confirmation_digest = sha256(tenant|actor|service_release|input|resource_scope|template_hash|expires_at)
+     —— **只覆盖结构化事实**；`rendered_summary` 是"模板 × 上述输入"的确定性函数，纳入摘要不增加绑定力，只把"渲染必须成功"变成确认链路上的硬失败点（ADR-049）。模板版本由 `template_hash` 表达。
+  5) 交付内容模板在结果生成时渲染，禁止引用未完成或失败的步骤
+```
+<!-- /contract:confirmation-template-syntax -->
 
 **响应**：`{draft_revision: 2, draft_hash: "sha256"}`。非法结构/引用/缺条件字段统一 SERVICE_DRAFT_INVALID（422，field_errors）；并发 DRAFT_REVISION_CONFLICT（409）；不存在 SERVICE_NOT_FOUND（404）。保存只更新 Draft 及其检索字段，不能改变 current_release、enabled；禁用走 SVC-API-10。
 
@@ -1506,9 +1579,9 @@ DRY_RUN：可信 ctx.projection.test_mode 注入 Worker→Agent→Skill 宿主�
 
 **契约**：`GET /api/v1/executions`
 
-**认证/授权**：Builder + Admin；仅当前 tenant 的管理可见范围
+**认证/授权**：Builder + Admin。**可见范围（ADR-052）**：Admin = 当前 tenant 全部；Builder = 仅「自己创建的 Service（`service_definition.created_by`）的执行」与「自己被授权 Agent 相关的执行」的交集，其余执行不返回（不是 403，而是列表/详情视为不存在 `EXECUTION_NOT_FOUND`）
 
-**Query**：page=1/page_size=20（max100）；service_id/user_id/agent_id 可选；status 为九态；execution_mode=SYNC/ASYNC；execution_source=FORMAL（默认）/TEST；delivery_status=NONE/PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN；channel_source/trace_id/from/to 可选。测试面板显式传 TEST 和 service_id，常规执行列表保持 FORMAL。
+**Query**：page=1/page_size=20（max100）；service_id/user_id/agent_id 可选；status 为九态；execution_mode=SYNC/ASYNC；execution_source=FORMAL（默认）/TEST；delivery_status=NONE/PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN；channel_source/trace_id/scope_ref/error_code/from/to 可选（`scope_ref` 按范围引用筛选，用于 A04 定位“哪个客户/范围”的执行；`error_code` 用于概览「今日人工超时」卡跳转 `status=FAILED&error_code=HUMAN_TIMEOUT`）。测试面板显式传 TEST 和 service_id，常规执行列表保持 FORMAL。
 
 **响应**：`{items: ExecutionSummary[], total: integer}`；Summary 的所有字段见 EXE-API-02 的根 View（列表可不返回 input/context_summary）。delivery_status 以持久队列关联查询，先筛选再分页；所有 SQL 有 tenant 条件，批量关联名称，禁止 N+1。未知枚举/非法时间范围 REQUEST_SCHEMA_INVALID（422）。
 
@@ -1529,10 +1602,13 @@ DRY_RUN：可信 ctx.projection.test_mode 注入 Worker→Agent→Skill 宿主�
 | execution_source / test_mode / draft_revision / expired | enum、enum/null、integer/null、boolean | TEST 修订与当前 Draft 比较；FORMAL expired=false |
 | status / execution_mode / execution_type | enum | 九态、SYNC/ASYNC、snapshot 执行方式 |
 | trace_id / channel_source / retry_count | string、string/null、integer | root 字段 |
-| current_step | string/null | 当前 step_key；统一此名，取消 current_step_key 别名 |
+| current_step | string/null | 当前 step_key（技术标识，用于筛选与跳转）；统一此名，取消 current_step_key 别名 |
+| current_step_name | string/null | **当前阶段的业务可读名**（ADR-051）：取 snapshot 中该 step 的 `name`；终态取最后一条 STAGE 事件的 `stage`。列表与详情的「当前阶段」列渲染本字段，`current_step` 仅作 hover/复制用 |
 | started_at / finished_at | datetime/null | root 字段 |
 | result_ref / error_code / error_message | string/null | 根结果/脱敏错误 |
-| waiting_reason / context_summary / human_deadline / requested_action | string/null、object/null、datetime/null、enum/null | 等待进入时固化；禁止 current 重渲染 |
+| waiting_reason / context_summary / human_deadline / requested_action | string/null、object/null、datetime/null、enum/null | 等待进入时固化；禁止 current 重渲染。`context_summary` 覆盖 U03 六要素（含 `completed_steps[]` 与 `options[{action,label,meaning}]`） |
+| resource_scope_summary | object/null | **脱敏**范围摘要（ADR-048/050）：`{type, refs[], labels?}` —— `type` 与其展示名、`refs` 原样（引用本身是可展示标识），供 A04 排障回答"哪个客户/哪个范围"；`attributes` 不进摘要；仅 Builder/Admin 可见 |
+| scope_refs | string[] | `resource_scope.refs` 的直接投影（供筛选与跳转）；空表示无范围 |
 | delivery_status | enum | 无队列 NONE；否则优先 UNKNOWN > FAILED > SENDING > RETRY_WAIT > PENDING；全成功 DELIVERED |
 | available_actions | string[] | 当前状态和角色计算：Builder=[]；Admin 按 CANCEL/RETRY/RESUME 条件提供 |
 
@@ -1540,11 +1616,11 @@ ExecutionSummary 除 input/context_summary 外包含上述字段，等待字段�
 
 ExecutionStepView={id,operation_id,step_key,name,type,status,attempt,started_at,finished_at,duration_ms,summary,wait_until,result_ref,error_code}，name/type 取 snapshot，duration=结束或当前时间减开始，summary 取脱敏最新进度。AsyncTaskView={operation_id,step_key,external_task_id?,status,submitted_at?,last_polled_at?,completed_at?,poll_attempts,cancel_supported,result_ref?,error_code?}，以 operation_id 关联当前重试 Step，未知外部 ID 显示“待确认”。ProgressEvent={id,time,step_key?,stage,progress?,message,visibility}。
 
-ArtifactSummary={id,name,content_type,size_bytes,checksum,download_path}；download_path 指向当前可访问 execution 的 EXE-API-06。DeliveryView={id,channel,status,attempt,max_attempts,last_error?,delivered_at?,next_attempt_at?}。CommandSummary={id,type,status,accepted_at,applied_at?,result_execution_id?}。
+ArtifactSummary={artifact_id,name,content_type,size_bytes,checksum,download_path}；`artifact_id` 是唯一对外产物身份（= `artifact.id`，**不是** ObjectStore 的 `object_ref`），download_path 指向当前可访问 execution 的 EXE-API-06。DeliveryView={id,event_type,channel,status,attempt,max_attempts,last_error?,delivered_at?,next_attempt_at?}。CommandSummary={id,type,status,accepted_at,applied_at?,result_execution_id?}。
 
 **响应示例（节选字段，完整字段由上表确定）**：`{"execution":{"id":"…","status":"SUCCEEDED","current_step":"deliver","delivery_status":"UNKNOWN","available_actions":[]},"steps":[],"async_tasks":[],"progress_events":[],"artifacts":[],"deliveries":[{"id":"…","channel":"wechat_wecom","status":"UNKNOWN","attempt":1,"max_attempts":5,"last_error":"ACK_TIMEOUT","delivered_at":null,"next_attempt_at":null}],"commands":[]}`。
 
-**处理**：tenant scoped 读取根 + 批量 steps/op tasks/events/artifact associations/deliveries/commands；按发生时间排 Timeline。artifact 仅通过本执行 artifact_ids 或其 Step 的复制结果关联，且同 root_execution_id/actor，不能凭任意 ID 跨用户查文件。不存在/无读取权限 EXECUTION_NOT_FOUND（404）。
+**处理**：tenant scoped 读取根 + 批量 steps/op tasks/events/artifact associations/deliveries/commands；按发生时间排 Timeline。artifact 的访问判定**以 `artifact` 表的 `execution_id`/`execution_step_id` FK 为准**（并与执行同 root_execution_id/actor）；`artifact_ids` 数组只记录重试复制来源，不能凭任意 ID 跨用户查文件，也不因数组残留而放行已清理的产物（已清理仍返回 410）。不存在/无读取权限 EXECUTION_NOT_FOUND（404）。
 
 #### EXE-API-03: 取消 Execution
 
@@ -1650,7 +1726,7 @@ Worker 必须持有效 lease_epoch 才应用：先处理已接受决策，再判
 
 **契约**：`GET /api/v1/executions/{execution_id}/artifacts/{artifact_id}/download`
 
-**认证/授权**：Builder + Admin；当前租户执行的只读权限，artifact 必须由 execution.artifact_ids/Step.artifact_ids 关联且与该执行同 root/actor
+**认证/授权**：Builder + Admin（Builder 仍受 ADR-052 可见范围限制）；artifact 必须存在 `artifact` 表中 `execution_id` 指向该执行（或同 root_execution_id/actor 的复制来源），数组不作为唯一凭据
 
 固定返回 `200` 字节流（Content-Type、Content-Disposition、Content-Length）；受权后由模块 05 调 ObjectStore.get，不返回 ObjectStore URL，也不声明一次性阅读。错误 ARTIFACT_NOT_FOUND（404）/ARTIFACT_ACCESS_DENIED（403）。
 
@@ -1658,21 +1734,64 @@ END_USER 通过 `/result <execution_id> [artifact_id]` → CH-INT-02 RESULT → 
 
 V1 不支持原生文件的 Adapter 返回 CHANNEL_FILE_UNSUPPORTED，不静默改成公开链接。平台保证跨用户取流请求被拒绝；已送达渠道附件的后续转发由渠道权限管理，不声称平台能禁止转发。
 
+#### EXE-API-07: 重新投递结果
+
+**契约**：`POST /api/v1/executions/{execution_id}/redeliver`
+
+**认证/授权**：仅 Admin（ADR-054）；END_USER 不走本接口，用 IM `/result` 主动取件。
+
+**请求体**：`{idempotency_key: string, artifact_id?: uuid, channel_override?: "SEND_TO_ACTOR"}`；`additionalProperties=false`。
+
+**语义**：为**已终态或投递失败**的执行**新建一次投递尝试**，不重跑任何业务步骤（与 EXE-API-04 的「重新执行」严格区分）。
+
+**处理逻辑**
+
+```text
+锁 execution → 幂等查询（同 idempotency_key 返回原结果）→
+校验 delivery_status ∈ {FAILED, UNKNOWN}（其余状态 EXECUTION_DELIVERY_NOT_RETRYABLE 409）→
+取该执行最近一条 channel_delivery 的 route/内容（或按 artifact_id 指定产物）→
+经 CH-LIB-02 在同一事务预建新的 channel_delivery 行（event_type 不变、event_id 追加 :redeliver:<n>）→
+提交后由 WORK-LIB-06 调度发送。
+```
+
+**响应**：`{delivery_id, status: PENDING, attempt: n+1}`。
+
+**错误码**
+
+| 错误码 | 场景 | HTTP 状态 |
+|---|---|---|
+| EXECUTION_NOT_FOUND | 执行不存在或不在可见范围 | 404 |
+| EXECUTION_DELIVERY_NOT_RETRYABLE | 当前 `delivery_status` 不属于 {FAILED, UNKNOWN} | 409 |
+| ARTIFACT_NOT_FOUND | 指定的产物不属于该执行 | 404 |
+| DELIVERY_ROUTE_INVALID | 该执行无有效投递路由（从未建立路由） | 409 |
+
+**与重试的边界（ADR-054）**：`UNKNOWN` 表示"远端可能已收到"，重新投递因此**可能造成重复通知**——这是产品已接受的语义（不宣称端到端 exactly-once），前端必须在按钮上给出二次确认与说明；`FAILED` 是已证明未送达，重新投递无此风险。
+
 #### EXE-LIB-01: 从已确认 Proposal 创建执行（事务内）
 
 **签名**：`async def create_from_proposal(ctx: TrustedExecutionContext, proposal_id: UUID) -> ServiceExecution`
 
 仅 EXE-LIB-03 可调用：锁住持久 proposal，检查同租户/本人/会话、已验证 USER 确认事件、digest/截止时间与 current release 未变；动态验证 user/Agent/grant/Skill/Model/Capability enabled；加载已有 snapshot，不重新解析 current 业务逻辑。以 `proposal:{proposal_id}` 为执行幂等键，事务创建 root+steps（每步 operation_id）、记录 confirmed_message_id/confirmed_at/execution_id 并将提案置 CONFIRMED；提交后 wake Worker。已 CONFIRMED 返回原执行。错误：PROPOSAL_EXPIRED/PROPOSAL_STALE/PROPOSAL_DIGEST_MISMATCH（409）、PROPOSAL_ACCESS_DENIED（403）。
 
+**创建时补充（服务端、事务内）**：① `delivery_route_id` 取本会话（`conversation_id`）当前持久 DeliveryRoute，无则留空并在结果生成时回退本会话路由，此后不随用户切换会话漂移（ADR-045）；② `execution_mode` 按 ServiceDraft 编译结果推导（存在 ASYNC 步骤即 ASYNC）；③ `execution_source=FORMAL` 且 `service_release_id` = 提案冻结的 release。三者均不接受调用方传入。
+
 #### EXE-LIB-02: 签发待确认提案
 
 **签名**：`async def issue_proposal(ctx: TrustedExecutionContext, candidate: ExecutionProposalCandidate) -> ExecutionProposalView`
 
-Runtime 在展示确认前调用。校验 candidate 不含身份字段，从 ctx 注入 tenant/actor/conversation；要求 Service 已发布且 enabled，校验 input/resource_scope 与引用；冻结 CORE-LIB-05 投影，生成可读摘要和 digest。单事务写 snapshot、将同会话旧 PENDING 标 SUPERSEDED、插入 execution_proposal；签名使用服务端 SecretProvider key。返回 View 给渠道展示，并以 ASSISTANT message.type=PROPOSAL 记录 proposal_id。PG 是跨 Pod 取回入口，签名和模型“同意”均不是用户确认事实。
+Runtime 在展示确认前调用。校验 candidate 不含身份字段，从 ctx 注入 tenant/actor/conversation；要求 Service 已发布且 enabled，校验 input/resource_scope 与引用；冻结 CORE-LIB-05 投影。
+
+**摘要渲染（ADR-043）**：用 `confirmation.summary_template` 经确定性渲染器（`contract:confirmation-template-syntax`）渲染出 `rendered_summary` 与 `confirmed_facts`（客户/范围/时间等已补全事实），**禁止 LLM 参与渲染**；模板变量无法解析时 `SERVICE_DRAFT_INVALID` 在发布校验阶段即已拦截。
+
+**签发内容**：`confirmation_ref` = 服务端 SecretProvider key 对 `{proposal_id, tenant, actor, service_release, input_hash, refs_hash, template_hash, expires_at}` 的签名（HMAC），随 View 返回给渠道；`confirmation_digest` 只覆盖结构化事实（见模板契约第 4 条），**不含 `rendered_summary`**；`expires_at` = 当前时间 + `ttl_seconds`（默认 300，创建时冻结）。
+
+单事务写 snapshot、将同会话旧 PENDING 同事务置 `superseded_at=now`、插入 execution_proposal，并以 `CONV-LIB-03` 落一条 ASSISTANT `message_type=PROPOSAL`（`content` 存 proposal_id 与 `rendered_summary`）。返回 View 给渠道展示。PG 是跨 Pod 取回入口（按 `tenant+actor+conversation` 查 PENDING）；签名有效或模型“同意”均**不构成**用户确认事实。
 
 #### EXE-LIB-03: 消费真实用户确认
 
-**签名**：`async def confirm_proposal(ctx: TrustedExecutionContext, proposal_id: UUID, user_message_id: UUID, confirmation_ref: str) -> ServiceExecution`
+**签名**：`async def confirm_proposal(ctx: TrustedExecutionContext, proposal_id: UUID, user_message_id: UUID, confirmation_ref: str | None = None) -> ServiceExecution`
+
+**confirmation_ref 的两种合法输入路径**：① 交互卡片回调携带 `confirmation_ref`（由 EXE-LIB-02 签发给渠道），必须与持久 proposal 逐字段匹配（tenant/actor/service_release/input_hash/refs_hash/template_hash/expires_at），不匹配 `PROPOSAL_DIGEST_MISMATCH`；② 纯文本“确认”经 CH-INT-02 CONFIRM 只带 `verified_message_id`，此时 `confirmation_ref=None`，由本函数按 `tenant+actor+conversation` 取当前唯一 PENDING 提案，且必须满足“该会话仅一个 PENDING + 消息为已验证 USER 事件”。两条路径的消费结果一致，均不接受 LLM 生成的确认标记。
 
 仅可信 Runtime 内部调用。读取 message，要求 role=USER、conversation/actor/tenant 匹配、来源 verified channel event；明确的确认按钮或当前会话唯一 PENDING 的“确认”映射到 proposal_id，不接受 LLM 生成的 confirmation flag。锁 proposal 后先处理已成功消费重放，再验证签名/digest/到期及 release 未变；同一事务调用 EXE-LIB-01。跨会话、不同 actor、替换 input/scope/ref 均拒绝；message 不可用于消费第二个提案。操作审计同事务。
 
@@ -1731,24 +1850,30 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-SVC-01 | SVC-API-01, SVC-API-02 | S-SVC-01 | E2E/integration | 待实现/评审 |
-| FEAT-SVC-02 | SVC-API-02, SVC-API-03 | 见 §2.5 | E2E/integration | 待实现/评审 |
-| FEAT-SVC-03 | SVC-API-03, SVC-API-04 | S-SVC-02, E-SVC-01 | E2E/integration | 待实现/评审 |
-| FEAT-SVC-04 | SVC-API-04, SVC-API-05 | S-SVC-03, E-SVC-02 | E2E/integration | 待实现/评审 |
-| FEAT-SVC-05 | SVC-API-05, SVC-API-06 | S-SVC-04, E-SVC-03 | E2E/integration | 待实现/评审 |
-| FEAT-SVC-06 | SVC-API-06, SVC-API-07 | S-SVC-05 | E2E/integration | 待实现/评审 |
-| FEAT-SVC-07 | SVC-API-07, SVC-API-08 | 见 §2.5 | E2E/integration | 待实现/评审 |
+| FEAT-SVC-01 | SVC-API-01, SVC-API-02, SVC-API-03, SVC-API-04, CORE-LIB-03 | S-SVC-01, B-SVC-04 | E2E/integration | 待实现/评审 |
+| FEAT-SVC-02 | SVC-API-05, SVC-API-06, EXE-LIB-01 | S-SVC-08, E-SVC-01 | E2E/integration | 待实现/评审 |
+| FEAT-SVC-03 | SVC-API-07, SVC-API-08, SVC-API-09 | S-SVC-02, E-SVC-01 | E2E/integration | 待实现/评审 |
+| FEAT-SVC-04 | EXE-LIB-01, EXE-LIB-02, EXE-LIB-03, EXE-API-01, EXE-API-02 | S-SVC-03, S-SVC-07, S-SVC-10, E-SVC-02, E-SVC-04 | E2E/integration | 待实现/评审 |
+| FEAT-SVC-05 | EXE-API-02, CAP-LIB-03/04（模块 07）, WORK-LIB-03/05（模块 06） | S-SVC-04, S-SVC-06, E-SVC-03, B-SVC-03 | E2E/integration | 待实现/评审 |
+| FEAT-SVC-06 | EXE-API-01, EXE-API-03, EXE-API-04, SVC-API-10 | S-SVC-05, B-SVC-02 | E2E/integration | 待实现/评审 |
+| FEAT-SVC-07 | EXE-API-02, EXE-API-06, EXE-API-07 | S-SVC-11, S-SVC-12 | E2E/integration | 待实现/评审 |
+| FEAT-SVC-08 | EXE-API-05, WORK-LIB-01（模块 06）, CH-INT-01（模块 10） | S-SVC-09, E-SVC-05 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/SVC#RULE-SVC-01 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SVC#RULE-SVC-02 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SVC#RULE-SVC-03 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SVC#RULE-SVC-04 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SVC#RULE-SVC-05 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-05 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/SVC#RULE-SVC-06 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-06 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SVC#RULE-SVC-01 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-01 / §3 | S-SVC-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SVC#RULE-SVC-02 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-02 / §3 | S-SVC-02, E-SVC-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SVC#RULE-SVC-03 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-03 / §3 | S-SVC-03, S-SVC-07, B-SVC-03 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SVC#RULE-SVC-04 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-04 / §3 | E-SVC-02, E-SVC-04 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SVC#RULE-SVC-05 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-05 / §3 | S-SVC-04, E-SVC-03 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SVC#RULE-SVC-06 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-06 / §3 | S-SVC-06, B-SVC-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SVC#RULE-SVC-07 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-07 / §3.4 EXE-LIB-02 | S-SVC-07, B-SVC-04 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SVC#RULE-SVC-08 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-08 / §3.4 EXE-API-05 | S-SVC-09, E-SVC-05 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SVC#RULE-SVC-09 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-09 / §3.4 EXE-API-01 | B-SVC-05 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SVC#RULE-SVC-10 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-10 / §3.3 artifact | S-SVC-11 | applied；仓库 spec-context 待绑定 |
+| DESIGN/SVC#RULE-SVC-11 | design-baseline | 约束实现与验收 | §2.5 RULE-SVC-11 / §3.4 EXE-API-07 | S-SVC-12 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

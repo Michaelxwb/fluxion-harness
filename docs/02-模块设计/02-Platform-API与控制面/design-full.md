@@ -6,8 +6,8 @@
 
 # Platform API 与控制面 模块需求与设计一体化文档
 
-> **文档编号**: MOD-API-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-API-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,7 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | S-API-05 场景行移回 §2.5.2 并补 S-API-06；WEB-LIB-03 引用模块 09 AUTH-LIB-02 的 service token 契约并登记 auth/login 依赖；补 Library 认证/授权行与 Envelope 例外；修正 §2.5.1 RULE→场景指向并重写 §6 追溯矩阵、合规矩阵填真实 verifier |
 
 ## 2. 需求分析
 
@@ -83,7 +84,7 @@
 | 类别 | 内容 |
 |---|---|
 | 范围（In Scope） | FastAPI app、router 装配、auth middleware、request/trace context、error handler、pagination DTO、CORS/CSRF 等控制面 Web 公共能力。 |
-| 非范围（Out of Scope） | Agent/Service/Capability 领域逻辑、Runtime Chat reasoning、Worker 调度。 |
+| 非范围（Out of Scope） | Agent/Service/Capability 领域逻辑、Runtime Chat reasoning、Worker 调度；`POST /api/v1/auth/login` 与 `/api/v1/auth/logout`（由已实现代码/外部 SSO 提供，本设计只登记其契约语义，见 §3.4.1 WEB-LIB-03 补充约束）。 |
 | 前置假设 | 上游总设、公共 DB/API 规范、外部基础设施可用 |
 | 有意妥协 / 技术债 | 无；未来扩展必须有真实旅程驱动 |
 
@@ -95,9 +96,8 @@
 |---|---|---|---|
 | RULE-API-01 | 边界 | Platform API 是 Control Plane；不得成为已发布 Execution 的同步运行依赖。 | S-API-05 |
 | RULE-API-02 | 身份 | tenant/actor 从认证中间件解析，Body/Query 同名字段不能覆盖。 | S-API-02 |
-| RULE-API-03 | 接口 | 业务 Endpoint 由领域模块 Application Service 提供，API 层只协议适配。 | S-API-03 |
+| RULE-API-03 | 接口 | 业务 Endpoint 由领域模块 Application Service 提供，API 层只协议适配。 | S-API-01 |
 | RULE-API-04 | 部署 | Console 静态资源并入 platform-api；无独立 console-web 镜像。 | S-API-04 |
-| S-API-05 | FEAT-API-02 | P1 | integration | Control Plane Down 不影响运行 | 本模块+03 | 已发布 Service 正在执行 | 停止 platform-api 进程 | 在途 Execution 不受影响；Runtime 读取已缓存/共享注册事实 |
 
 #### 2.5.2 功能验收场景
 
@@ -105,7 +105,9 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
-| S-API-04 | FEAT-API-01 | P1 | integration | Console 随 platform-api 交付 | 本模块 | platform-api 启动 | 请求静态资源根路径 | 返回 Console SPA，无独立 console-web 镜像 |
+| S-API-05 | FEAT-API-02 | P1 | integration | Control Plane Down 不影响运行 | 本模块+03 | 已发布 Service 正在执行 | 停止 platform-api 进程 | 在途 Execution 不受影响；Runtime 读取已缓存/共享注册事实 |
+| S-API-06 | FEAT-API-04 | P1 | integration | 列表接口分页契约 | 本模块 | 存在多页数据 | 以 page/page_size 调用任一领域列表接口 | 返回 items/total；page_size 受上限约束；越界 page 返回空 items 而非报错 |
+| S-API-04 | FEAT-API-05 | P1 | integration | Console 随 platform-api 交付 | 本模块 | platform-api 启动 | 请求静态资源根路径 | 返回 Console SPA，无独立 console-web 镜像 |
 | S-API-01 | FEAT-API-01 | P0 | integration | FastAPI Router→Domain Service | 本模块 | 应用启动 | 枚举路由 | 每个业务路由映射唯一领域 owner |
 | S-API-02 | FEAT-API-02 | P0 | E2E | Auth middleware→Handler | 本模块 | 登录 Admin | 请求 Body 伪造其他 tenant_id | 服务端忽略/拒绝伪造字段 |
 | S-API-03 | FEAT-API-03 | P0 | integration | DomainError→HTTP | 本模块 | Service 抛稳定 DomainError | 调用接口 | 收到稳定 code/status/request_id，不泄露堆栈 |
@@ -195,6 +197,8 @@ Platform API 不建立业务 shadow table。Audit 由可观测模块拥有；业
 
 **入口类型**：Library
 
+**认证/授权**：Library；不承担鉴权，必须只在已解析出 CORE-LIB-06 `ctx` 的 Handler 内调用；不得把 `ctx` 之外的字段放进 data。
+
 **函数签名**
 
 ```python
@@ -217,12 +221,15 @@ def ok(data: T, *, request_id: str) -> ApiEnvelope[T]
 **处理逻辑**
 
 ```text
-统一 JSON 响应；SSE/WebSocket/File 不套 JSON Envelope，但错误 taxonomy 一致。
+统一 JSON 响应；SSE/WebSocket/File/静态 SPA 与非 JSON 抓取端点不套 JSON Envelope，但错误 taxonomy 一致。
+显式例外：GET /metrics 返回 text/plain; version=0.0.4（Prometheus/OpenMetrics exposition），已在 01-架构与规范/06-接口设计基线.md 登记。
 ```
 
 #### WEB-LIB-02: 错误映射
 
 **入口类型**：Library
+
+**认证/授权**：Library；只能处理服务端构造的 `DomainError`（CORE-LIB-07）；不得把下游原始响应体、堆栈或 Secret 放入 message。
 
 **函数签名**
 
@@ -252,6 +259,8 @@ def map_domain_error(exc: DomainError, request_id: str) -> HTTPException | Respo
 
 **入口类型**：Library
 
+**认证/授权**：Library；本函数是 Console 会话与 `/internal/*` service identity 的唯一解析入口，也是 CORE-LIB-06 的唯一 HTTP 构造前置。Console 会话 token 与内部 service token 使用不同 audience/scope；`/internal/*` 的签发与校验契约由模块 09 的 AUTH-LIB-02 定义（本模块只引用，不重定义）。
+
 **函数签名**
 
 ```python
@@ -280,7 +289,13 @@ async def resolve_request_identity(request: Request) -> RuntimeIdentity
 
 ```text
 Console 用户 session/token 或 internal service identity → 解析租户/角色；Body/Query 中 tenant_id/user_id 不覆盖 identity。
+/internal/* 走模块 09 AUTH-LIB-02 的 service token 校验（audience 必须匹配被调服务、scope 必须覆盖被调操作，token 中的 tenant 不能覆盖调用方声明之外的值）。
 ```
+
+**补充约束**
+
+- `POST /api/v1/auth/login|logout` 不在本设计范围（由已实现代码/外部 SSO 提供），但契约语义在此登记，供各接口“认证/授权”列引用：登录成功签发 Console 会话 token（audience=console），失败返回 401；`logout` 使当前 token 失效。登录身份与 `platform_user` 一一映射，Admin-only/Builder+Admin 判定以 `platform_user.role`（END_USER/BUILDER/ADMIN）为准；审计 actor 取该映射得到的 `platform_user.id`。token 过期或无效统一返回 401，与 E-API-01 一致。
+- 本函数只返回 `RuntimeIdentity`；可信上下文（tenant/projection/test_mode）必须经 CORE-LIB-06 构造，不得由 Handler 手工拼装。
 
 ### 3.5 质量实现方案
 
@@ -328,26 +343,26 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 风险ID | 描述 | 影响 | 应对措施 | 验证场景 |
 |---|---|---|---|---|
-| RISK-API-01 | 跨模块边界在实现中被绕过 | 形成双事实源/不可测试 | Architecture Gate + code review | E2E/静态检查 |
+| RISK-API-01 | 跨模块边界在实现中被绕过 | 形成双事实源/不可测试 | Architecture Gate + code review | S-API-01 |
 
 ## 6. 需求追溯矩阵
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-API-01 | WEB-LIB-01, WEB-LIB-02 | S-API-01 | E2E/integration | 待实现/评审 |
-| FEAT-API-02 | WEB-LIB-02, WEB-LIB-03 | S-API-02, E-API-01 | E2E/integration | 待实现/评审 |
-| FEAT-API-03 | WEB-LIB-03 | S-API-03, E-API-02 | E2E/integration | 待实现/评审 |
-| FEAT-API-04 |  | 见 §2.5 | E2E/integration | 待实现/评审 |
-| FEAT-API-05 |  | 见 §2.5 | E2E/integration | 待实现/评审 |
+| FEAT-API-01 | WEB-LIB-01 | S-API-01 | E2E/integration | 待实现/评审 |
+| FEAT-API-02 | WEB-LIB-03 | S-API-02, S-API-05, E-API-01 | E2E/integration | 待实现/评审 |
+| FEAT-API-03 | WEB-LIB-01, WEB-LIB-02 | S-API-03, E-API-02 | E2E/integration | 待实现/评审 |
+| FEAT-API-04 | WEB-LIB-01 | S-API-06 | E2E/integration | 待实现/评审 |
+| FEAT-API-05 | WEB-LIB-01 | S-API-04 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/API#RULE-API-01 | design-baseline | 约束实现与验收 | §2.5 RULE-API-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/API#RULE-API-02 | design-baseline | 约束实现与验收 | §2.5 RULE-API-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/API#RULE-API-03 | design-baseline | 约束实现与验收 | §2.5 RULE-API-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/API#RULE-API-04 | design-baseline | 约束实现与验收 | §2.5 RULE-API-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/API#RULE-API-01 | design-baseline | 约束实现与验收 | §2.5 RULE-API-01 / §3 | S-API-05 | applied；仓库 spec-context 待绑定 |
+| DESIGN/API#RULE-API-02 | design-baseline | 约束实现与验收 | §2.5 RULE-API-02 / §3.4.1 WEB-LIB-03 | S-API-02, E-API-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/API#RULE-API-03 | design-baseline | 约束实现与验收 | §2.5 RULE-API-03 / §3 | S-API-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/API#RULE-API-04 | design-baseline | 约束实现与验收 | §2.5 RULE-API-04 / §3 | S-API-04 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

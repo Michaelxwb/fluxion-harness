@@ -6,8 +6,8 @@
 
 # Worker Engine 模块需求与设计一体化文档
 
-> **文档编号**: MOD-WORK-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-WORK-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | B4：`browser`/`external-scan`/`large-report` 槽位改为集群级 PG 信号量（新增协调表 `worker_slot_lease` + S-WORK-13），其余 class 保持进程内计数；Q-02：租约默认值自洽（TTL=900000/心跳 300000）+ 启动自检拒绝启动 + RULE-WORK-08 失联语义改为可验收三行为；Y-02：RULE-WORK-04 增副作用合取条件与 `CREDENTIAL_INVALID` 处置、SYNC 分支补 `effect:{operation_id}`；B1：claim/renew/fencing 改为基于 `CORE-LIB-08 LeaseQueue`；B3：保留与清理按《11-数据保留与清理策略》 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 补齐 ASYNC 首次提交分支（SUBMITTING→submit→WAITING，幂等键 `effect:{operation_id}`）；WAITING_HUMAN 唤醒条件改为 pending-command/deadline（修复会被反复领取与决策 409 的缺陷）；新增 RULE-WORK-08 租约参数与心跳调用时机、RULE-WORK-09 投递触发；RULE-WORK-04 补错误分类与三层计数口径；WORK-LIB-06 补 human_wait/progress_stage 调度；新增 S-WORK-07..12 与 E-WORK-03；矩阵与 verifier 修正 |
 
 ## 2. 需求分析
 
@@ -70,6 +72,7 @@
 | FEAT-WORK-03 | Wait/Retry | next_run_at + bounded backoff。 | P0 | 长任务 |
 | FEAT-WORK-04 | Recovery | lease 过期恢复与 SIGKILL Gate。 | P0 | 可靠性 |
 | FEAT-WORK-05 | Cancel/Command | 应用 ExecutionCommand/外部任务 cancel。 | P0 | /stop |
+| FEAT-WORK-06 | 投递调度 | 结果/失败/人工等待/阶段进度的持久投递与有限重试（outbox）。 | P0 | Playbook U04 / ADR-040 |
 
 ### 2.4 范围与边界
 
@@ -88,11 +91,13 @@
 |---|---|---|---|
 | RULE-WORK-01 | 角色 | 只有 worker 运行角色消费后台 Execution；API/Runtime 不得 recovery claim。 | S-WORK-01 |
 | RULE-WORK-02 | SoT | PostgreSQL 是执行状态/调度 SoT；Redis 只 wake-up/cache/cancel hint。 | S-WORK-02 |
-| RULE-WORK-03 | 租约 | 失去 lease 的 Worker 必须停止本地推进。 | S-WORK-03 |
-| RULE-WORK-04 | 重试 | 所有 retry 有界且考虑幂等/副作用。 | S-WORK-04 |
+| RULE-WORK-03 | 租约 | 失去 lease 的 Worker 必须停止本地推进。 | S-WORK-03, E-WORK-01 |
+| RULE-WORK-04 | 重试 | 所有 retry 有界且考虑幂等/副作用。**错误分类**（取值空间 = 《10-错误码与错误分类基线》§1 的 7 类）是重试判定的唯一依据：`RETRYABLE_TECHNICAL`（可重试，指数退避）、`AUTH_EXPIRED`（刷新后重试一次，仍失败按 FATAL）、`CREDENTIAL_INVALID`（**不可重试**：拒绝并通知用户重新配置，不自动恢复；按 `failure_policy` 终止或转人工）、`BUSINESS_REJECTED` / `SEMANTIC_INVALID`（不可重试，按 `failure_policy` 终止或转人工）、`USER_ACTION_REQUIRED`（直接进入人工检查点）、`FATAL`（终止）。**副作用合取条件**：自动重试还必须满足 `idempotency_semantics=NATURAL`，或 `KEYED` 且重试沿用同一 `effect:{operation_id}`；`idempotency_semantics=NONE` 且 `side_effect ∈ {write,destructive}` 时**禁止自动重试**，直接按 `failure_policy` 收敛或转人工。计数口径：`step.attempt` 管本步骤重试、`execution.attempt` 管 claim/恢复、`async_task_run.poll_attempts` 管轮询；任一达上限只影响其自身层级并给出稳定 error_code。 | S-WORK-04, E-WORK-02 |
 | RULE-WORK-05 | 恢复 | SIGKILL Worker 后，其他 Worker 在 lease 过期后恢复同一 Execution。 | S-WORK-05 |
-| RULE-WORK-06 | 资源治理 | Worker 必须实施 Resource Governance：global 并发上限与 step_timeout_ms（总设 §5.2 P0 部分）；per-capability 并发为**单 Worker 进程内计数**（集群级配额为后续演进）；Resource Class 槽位准入与 priority 排序属总设 P1 部分、提前纳入本模块实现并标注排期口径；claim 顺序按 priority DESC, next_run_at ASC。 | S-WORK-01 |
-| RULE-WORK-07 | 人工等待 | WAITING_HUMAN 依赖现有 timer 轮询扫描 human_deadline（复用 claim 轮询，不引入独立 Scheduler）；超时置 FAILED(error_code=HUMAN_TIMEOUT/USER_INACTION)，HUMAN_TIMEOUT 在失败原因统计中单列；EXE-API-05 的 RESUME/CANCEL 释放等待后回到调度队列。 | S-WORK-06 |
+| RULE-WORK-06 | 资源治理 | Worker 必须实施 Resource Governance：global 并发上限与 step_timeout_ms（总设 §5.2 P0 部分）；**per-capability 并发默认单 Worker 进程内计数**，但 `Resource Class ∈ {browser, external-scan, large-report}` 的槽位必须用 **PG 信号量**（集群级，见下）——这类能力是对下游有真实压力/外部副作用的一类，进程内计数会让实际并发 = 上限 × Worker 数；Resource Class 槽位准入与 priority 排序属总设 P1 部分、提前纳入本模块实现并标注排期口径；claim 顺序按 priority DESC, next_run_at ASC。 | S-WORK-01, S-WORK-09, S-WORK-13 |
+| RULE-WORK-07 | 人工等待 | WAITING_HUMAN 依赖现有 timer 轮询扫描 human_deadline（复用 claim 轮询，不引入独立 Scheduler）；超时置 FAILED(error_code=HUMAN_TIMEOUT/USER_INACTION)，HUMAN_TIMEOUT 在失败原因统计中单列；EXE-API-05 的 RESUME/CANCEL 释放等待后回到调度队列。唤醒条件只认“有待处理决策”或“deadline 已到”，不读 `requested_action`。 | S-WORK-06, S-WORK-10 |
+| RULE-WORK-08 | 租约参数 | 启动自检 `WORKER_LEASE_TTL_MS >= max(WORKER_STEP_TIMEOUT_MS)`，不满足**拒绝启动**；长步骤按 `WORKER_HEARTBEAT_INTERVAL_MS` 续租。**失联后的可验收行为**：① 本实例后续一切状态写入在提交边界被 fencing 拒绝（`LEASE_LOST`），不得落任何状态；② 对支持取消的步骤发起 **best-effort** cancel；③ 不可取消的外部任务以 `operation_id` 幂等兜底，由新 owner 对账。**不承诺**"立即中断进行中的同步外部调用"（同步 await 无法被同进程安全打断）。 | S-WORK-11, E-WORK-01 |
+| RULE-WORK-09 | 投递触发 | 只有 `visibility=USER` 且 `event_type IN (STAGE,WAIT,ERROR,COMPLETE)` 的进度事件、以及 `completed`/`failed`/`human_wait` 终态与等待事件产生投递；投递行由 Worker 与业务状态**同事务预建**，幂等键为 `event_id`。 | S-WORK-12 |
 
 **资源治理配置（环境变量，启动加载）**：
 
@@ -100,8 +105,14 @@
 |---|---|---|
 | WORKER_GLOBAL_CONCURRENCY | 8 | 单 Worker 进程并发 Execution 上限 |
 | WORKER_PER_CAPABILITY_CONCURRENCY | 4 | 同一 capability_definition 并发调用上限 |
-| WORKER_RESOURCE_CLASS_SLOTS | default-io=8,llm-heavy=4,browser=2 | 按 Resource Class 槽位准入 |
+| WORKER_RESOURCE_CLASS_SLOTS | default-io=8,llm-heavy=4,browser=2,external-scan=2,large-report=1 | 按 Resource Class 槽位准入；`browser`/`external-scan`/`large-report` 为**集群级 PG 信号量**，其余为进程内计数 |
 | WORKER_STEP_TIMEOUT_MS | default-io=300000,llm-heavy=600000,browser=900000 | Step 级超时；超时按 RULE-WORK-04 有界重试 |
+| WORKER_LEASE_TTL_MS | 900000 | **租约有效期**。启动自检必须满足 `TTL >= max(WORKER_STEP_TIMEOUT_MS)`，不满足则**拒绝启动**（fail-closed）并把两个值写入启动日志；不允许"仅告警继续"。默认值即按 browser 的 900000ms 取值，与默认 step timeout 自洽 |
+| WORKER_HEARTBEAT_INTERVAL_MS | 300000（= TTL/3） | 长步骤心跳间隔；超过一个心跳周期未成功续租即视为失联，本实例立即停止推进（但见 RULE-WORK-08 对"停止副作用"的可实现边界） |
+| WORKER_CLAIM_BATCH | 8 | 单轮 claim 批量 |
+| WORKER_POLL_INTERVAL_MS | 1000 | PG polling 兜底周期（Redis 仅唤醒，不影响正确性） |
+
+**集群级槽位（PG 信号量，ADR-056）**：`browser` / `external-scan` / `large-report` 三类槽位以 **PG 行级计数**实现——`worker_slot_lease(resource_class, slot_no, tenant_id, execution_id, worker_id, lease_expires_at)` 表（+ 公共字段），claim 前 `INSERT ... ON CONFLICT DO NOTHING` 抢占空闲 `slot_no`，释放时删除行或让 lease 过期；**lease 过期即视为释放**，避免 Worker 崩溃后槽位永久占用（与执行租约同源）。其余 Resource Class 保持进程内计数。指标：`worker_slot_in_use{resource_class}`、`worker_slot_wait_ms`。
 
 #### 2.5.2 功能验收场景
 
@@ -115,6 +126,12 @@
 | S-WORK-02 | FEAT-WORK-04 | P0 | E2E | K8S kill→PG→Worker2 | 本模块 | Execution RUNNING | SIGKILL owner | lease 过期后 Worker2 恢复且不重复完成步骤 |
 | S-WORK-03 | FEAT-WORK-03 | P0 | E2E | PG next_run_at | 本模块 | 异步 task WAITING | 等待到 next_poll_at | Worker 之后再次 claim，不 busy loop |
 | S-WORK-04 | FEAT-WORK-05 | P0 | E2E | command→worker→provider | 本模块 | CANCEL command PENDING | Worker claim | 应用取消并终止后续步骤 |
+| S-WORK-07 | FEAT-WORK-01 | P0 | E2E | Redis 停机→PG polling | 本模块 | 存在 due 的 WAITING/RETRY_WAIT 执行 | 停止 Redis 后等待一个 poll 周期 | 执行仍被领取并推进（正确性不丢，仅延迟变大）；取消命令仍生效（Gate F） |
+| S-WORK-08 | FEAT-WORK-03 | P0 | E2E | 外部超时 + 重复 wakeup | 本模块 | 外部提交超时/结果未知 | 并发触发多次 wakeup 与轮询 | 只产生一次外部副作用；未知结果只对账不重发；最终收敛为确定状态 |
+| S-WORK-09 | FEAT-WORK-01 | P1 | integration | 并发上限与 step timeout | 本模块 | 提交超过 global/per-capability 上限的批次 | 并发投放 | 不超上限执行；单步超过 `WORKER_STEP_TIMEOUT_MS` 被中止并按错误分类处理 |
+| S-WORK-10 | FEAT-WORK-02 | P1 | integration | WAITING_HUMAN 不 busy loop | 本模块 | 执行处于 WAITING_HUMAN、无决策且未到期 | 连续多轮轮询 | 领取数为 0（不反复领取）；接受 RESUME 后**恰好领取一次**并收敛（不出现 409） |
+| S-WORK-11 | FEAT-WORK-01 | P1 | E2E | 长步骤跨 TTL | 本模块 | 单步耗时 > `WORKER_LEASE_TTL_MS` | 该步骤执行期间另一 Worker 尝试 claim；随后杀掉心跳 | 执行期间第二个 Worker 不领取；失联后恰好一个 TTL 周期内由其他 Worker 恢复，且不重复副作用 |
+| S-WORK-12 | FEAT-WORK-06 | P1 | integration | 进度投递幂等 | 本模块 + 10 | 一个执行产生 2 条 `visibility=USER` 的 STAGE 事件与若干 PROGRESS 事件 | 用户离开后观察投递 | 恰好 2 条 `progress_stage` 投递（PROGRESS 级不投递）；重放同一 progress event 不新增投递行 |
 
 **异常场景**
 
@@ -122,6 +139,8 @@
 |---|---|---|---|---|---|---|---|
 | E-WORK-01 | FEAT-WORK-01 | integration | Lease conditional update | 本模块 | Worker lease 已被抢走 | renew/advance 返回 LEASE_LOST | 停止执行 |
 | E-WORK-02 | FEAT-WORK-03 | integration | Retry policy | 本模块 | 非可重试/超上限错误 | 直接按 failure policy 终止/人工 | 不无限 retry |
+| S-WORK-13 | FEAT-WORK-01 | P1 | integration | 集群级槽位 | 本模块 | `external-scan` 槽位=2，两个 Worker 共提交 5 个该 class 的 Step | 并发执行 | 任一时刻最多 2 个在跑；槽位 owner 被 SIGKILL 后其 lease 到期即释放，不出现永久占用 |
+| E-WORK-03 | FEAT-WORK-03 | integration | 错误分类 | 本模块 | 分别抛出 `AUTH_EXPIRED`、`BUSINESS_REJECTED`、`RETRYABLE_TECHNICAL` | Worker 按 RULE-WORK-04 分类判定 | 三类的重试次数与最终状态唯一确定：AUTH_EXPIRED 刷新后重试一次、BUSINESS_REJECTED 不重试且按 failure_policy 收敛、RETRYABLE_TECHNICAL 有界退避后收敛；无 `while True` |
 
 #### 2.5.3 非功能指标
 
@@ -188,8 +207,28 @@ flowchart LR
 
 本模块**不拥有独立业务表**。这是刻意设计：权威状态由其领域所有者持久化，本模块只读取/调用 Port。禁止为了实现方便新增 shadow truth、本地 SQLite 或进程内业务事实。
 
-
 Worker 不新建独立 queue 表；直接操作 Service/Execution 模块拥有的 `service_execution/execution_step/async_task_run/execution_command`。任何新调度状态必须先评审是否应回归这些 owner 表。
+
+**唯一的例外（协调表，非业务事实）**：集群级 Resource Class 槽位需要跨 Worker 计数，因此本模块拥有 `worker_slot_lease`（ADR-056）——它是**协调/租约表**，不承载任何业务事实，也不与领域 Owner 的表产生第二事实源；lease 过期即视为释放，可随时清空重建。
+
+#### 表 `worker_slot_lease`
+
+**职责**：集群级 Resource Class 槽位租约（协调表，非业务事实）。
+
+| 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
+|---|---|---|---|---|---|
+| tenant_id | UUID | N |  | IDX | 租户 |
+| resource_class | VARCHAR(32) | N |  | UK | browser/external-scan/large-report |
+| slot_no | INTEGER | N |  | UK | 槽位序号（1..配置上限） |
+| execution_id | UUID | Y |  | IDX | 占用者执行 |
+| execution_step_id | UUID | Y |  |  | 占用者步骤 |
+| worker_id | VARCHAR(256) | N |  | IDX | 占用者实例 |
+| lease_expires_at | TIMESTAMPTZ | N |  | IDX | 到期即视为释放 |
+| id / is_deleted / create_time / update_time | — | — | — | — | 公共字段 |
+
+- UNIQUE (tenant_id, resource_class, slot_no)。
+- 抢占：`INSERT ... ON CONFLICT DO NOTHING`（同事务内先尝试清理已过期行）。
+- 释放：删除本 owner 的行；**不依赖**显式释放（过期即释放），以覆盖 Worker 崩溃。
 
 ### 3.4 接口设计
 
@@ -197,13 +236,12 @@ Worker 不新建独立 queue 表；直接操作 Service/Execution 模块拥有�
 
 | 接口ID | 名称 | 形态 | 方法/签名 | 路径/用途 |
 |---|---|---|---|---|
-| WORK-LIB-06 | 投递 outbox 调度 | Library | advance_delivery(delivery_id, worker_id) | 跨 Execution 终态独立推进 |
-
 | WORK-LIB-01 | Claim 可运行 Execution | Library | async def claim_due_executions(worker_id: str, limit: int, now: datetime) -> list[ClaimedExecution] |  |
 | WORK-LIB-02 | 续租 Execution | Library | async def renew_lease(execution_id: UUID, worker_id: str, expected_lease_until: datetime) -> bool |  |
 | WORK-LIB-03 | 推进一个步骤 | Library | async def advance_execution(claim: ClaimedExecution) -> AdvanceResult |  |
 | WORK-LIB-04 | 应用 ExecutionCommand | Library | async def apply_pending_commands(execution_id: UUID, worker_id: str) -> list[AppliedCommand] |  |
 | WORK-LIB-05 | 异步任务轮询/取消 | Library | async def progress_async_task(step: ExecutionStep, run: AsyncTaskRun, now: datetime) -> AsyncProgressResult |  |
+| WORK-LIB-06 | 投递 outbox 调度 | Library | async def advance_delivery(delivery_id: UUID, worker_id: str) -> DeliveryOutcome | 跨 Execution 终态独立推进 |
 
 #### WORK-LIB-01: Claim 可运行 Execution
 
@@ -229,7 +267,7 @@ async def claim_due_executions(worker_id: str, limit: int, now: datetime) -> lis
 |---|---|---|
 | items | array<ClaimedExecution> | 已获得 lease 的 Execution |
 
-**领取合同**：所有分支先排除其他 Worker 的有效租约；下面谓词是条件事实源。SQL 测试以 0/1 表示 boolean，生产 PG 映射到 FALSE/TRUE；has_pending_command 是同 tenant/execution 的 PENDING CANCEL/RESUME 的 EXISTS 投影，不是持久第二事实。
+**领取合同**：本模块的 claim/renew/fencing **基于 `CORE-LIB-08 LeaseQueue` 实现**（唯一租约原语，见模块 01），不自行实现第二套 epoch/续租语义；下表谓词是本模块传给该原语的过滤条件。所有分支先排除其他 Worker 的有效租约；下面谓词是条件事实源。SQL 测试以 0/1 表示 boolean，生产 PG 映射到 FALSE/TRUE；`has_pending_command` 是同 tenant/execution 的 PENDING `CANCEL`/`RESUME` 的 EXISTS 投影（覆盖 WAITING/RETRY_WAIT 与 **WAITING_HUMAN** 三种状态），不是持久第二事实。`WAITING_HUMAN` 的唤醒**只认“有待处理决策”或“deadline 已到”**，不读 `requested_action`（该列仅在决策被接受后写入，见模块 05），因此未决策未到期的等待行不会被反复领取。
 
 <!-- contract:worker-eligibility -->
 ```sql
@@ -238,8 +276,8 @@ AND (lease_expires_at IS NULL OR lease_expires_at <= :now)
 AND (
   status IN ('PENDING', 'RUNNING', 'CANCELLING')
   OR (status IN ('WAITING', 'RETRY_WAIT') AND next_run_at IS NOT NULL AND next_run_at <= :now)
-  OR (status = 'WAITING_HUMAN' AND (requested_action IS NOT NULL OR human_deadline <= :now))
-  OR (has_pending_command = 1 AND status IN ('WAITING', 'RETRY_WAIT'))
+  OR (status IN ('WAITING', 'RETRY_WAIT') AND has_pending_command = 1)
+  OR (status = 'WAITING_HUMAN' AND (has_pending_command = 1 OR human_deadline <= :now))
 )
 ```
 <!-- /contract:worker-eligibility -->
@@ -285,6 +323,15 @@ async def renew_lease(execution_id: UUID, worker_id: str, expected_lease_until: 
 条件 UPDATE WHERE id=:id AND lease_owner=:owner AND lease_epoch=:epoch AND lease_expires_at=:expected AND lease_expires_at>:now；失败 LEASE_LOST，停止推进。状态/进度写入也校验同一 epoch。
 ```
 
+**调用时机（ADR-042，本轮补齐）**：
+
+| 时机 | 说明 |
+|---|---|
+| 长步骤执行期间 | 每 `WORKER_HEARTBEAT_INTERVAL_MS`（默认 TTL/3）续租一次；**当一个步骤的预期耗时可能超过 TTL 时必须开启心跳**，否则该步骤不得在无续租的情况下执行 |
+| Step 边界 | 完成一个 Step、释放/重新获取租约前，校验并（必要时）续租，保证跨步骤推进期间不丢租约 |
+| 配置约束 | `WORKER_LEASE_TTL_MS >= max(WORKER_STEP_TIMEOUT_MS)`；若部署把 TTL 配小，则心跳是**强制**的（不依赖配置自证） |
+| 失联判定 | 超过一个心跳周期未成功续租即视为失联：本实例立即停止副作用并放弃推进；其他 Worker 在 `lease_expires_at` 到期后可 reclaim |
+
 #### WORK-LIB-03: 推进一个步骤
 
 **入口类型**：Library
@@ -312,9 +359,26 @@ async def advance_execution(claim: ClaimedExecution) -> AdvanceResult
 ```text
 读取并校验 CORE-LIB-05 projection → 当前安全校验 → 持租约优先应用命令 → dispatch CAPABILITY/AGENT/WAIT/HUMAN/DELIVERY → fencing transaction 写 Step/root/progress → 释放/续租。
 WAIT：首次进入以数据库时间+snapshot.wait_seconds 写 step.wait_until、root.next_run_at，均在释放 lease 的事务中；恢复只比较已存截止时间，禁止重新起算。未到期 WAITING，到期 Step SUCCEEDED 后前进。
-HUMAN：固化 context_summary/deadline，进入 WAITING_HUMAN 后释放 lease；处理顺序和决策竞争按 EXE-API-05。
+HUMAN：固化 context_summary（六要素）/human_deadline/next_run_at，**并在同一事务预建 `channel_delivery(event_type='human_wait', event_id=execution:human_wait:<step_key>:<entered_at>)`**（ADR-040），进入 WAITING_HUMAN 后释放 lease；处理顺序和决策竞争按 EXE-API-05。
 DELIVERY：同业务事务写持久 channel_delivery（payload/dedupe），Step SUCCEEDED 表示已排队而非已送达；业务根可 SUCCEEDED，delivery_status 独立投影。投递失败不重跑已完成业务步骤，WORK-LIB-06 持续调度 outbox，即使根已终态。
-CAPABILITY/AGENT：注入 projection/source/test_mode，后者按 operation_id/step_key 恢复 checkpoint；DRY_RUN 不允许真实外部调用。
+CAPABILITY（SYNC，`execution_mode=SYNC`）：注入 projection/source/test_mode → 调 `CAP-LIB-01 invoke_capability`，并传入与 ASYNC 同源的副作用幂等键 **`effect:{operation_id}`**（Provider 支持幂等头时透传）；DRY_RUN 不允许真实外部调用。
+CAPABILITY（ASYNC，`execution_mode=ASYNC`）——**首次提交分支（本轮补齐）**：
+```text
+1) 以 operation_id 查 async_task_run：
+   - 不存在 → 在同一事务插入 SUBMITTING 行（operation_id / capability_key / provider_locator /
+     idempotency_key = effect:{operation_id} / input_hash / **reconcile_deadline = now + 步骤策略
+     reconcile_timeout_seconds（默认 86400）** / max_poll_attempts），把 step 置 RUNNING 后提交，再发起外部提交
+   - 已存在且非终态 → 不重复提交，直接转第 2 步
+2) 调 CAP-LIB-03 submit_async(ctx, capability_key, input, idempotency_key=effect:{operation_id})
+3) 成功：同事务回写 external_task_id/status=SUBMITTED|RUNNING/next_poll_at → root 置 WAITING（next_run_at=next_poll_at）并释放 lease
+4) 结果未知（超时/连接断开，无法证明是否受理）：status=SUBMITTED_UNKNOWN，next_poll_at=now+backoff，
+   **不重发**；由 WORK-LIB-05 走 CAP-LIB-03 reconcile 对账
+5) 明确失败且未受理：按 RULE-WORK-04 的错误分类决定 RETRY_WAIT / FAILED / 转人工
+例外：Skill 直调路径不得提交 ASYNC（ADR-034），本分支只接受 Service Step 中声明为 ASYNC 的步骤；
+     违反返回 CAPABILITY_ASYNC_NOT_ALLOWED(422)，不得静默降级为 SYNC 调用。
+```
+AGENT：注入 projection/source/test_mode，按 operation_id/step_key 恢复 checkpoint；Chat 路径不经过本模块。
+
 ```
 
 #### WORK-LIB-04: 应用 ExecutionCommand
@@ -379,6 +443,8 @@ async def progress_async_task(step: ExecutionStep, run: AsyncTaskRun, now: datet
 
 独立扫描模块 10 channel_delivery 的 PENDING、到期 RETRY_WAIT 和过期 SENDING（用于未知结果对账），不要求 execution 仍非终态。claim/attempt/fencing/outcome 的唯一规则为 CH-INT-01/CH-DATA-03；执行前校验路由/租户/文件归属和安全开关。单次发送由 Gateway 完成，有限重试仅由本循环调度；UNKNOWN 不盲目重发。
 
+**调度的事件类型（ADR-040 / D13）**：`completed`（执行成功）、`failed`（终态失败，含 `HUMAN_TIMEOUT`）、`human_wait`（进入人工等待）、`progress_stage`（用户可见的阶段推进）。`progress_stage` **只由 `task_progress_event` 中 `event_type IN ('STAGE','WAIT','ERROR','COMPLETE')` 且 `visibility='USER'` 的行产生**，`event_id = task_progress_event.id`（幂等：重放不新增投递行）；`PROGRESS` 级与 `ADMIN/INTERNAL` 可见性只进 Timeline，不产生投递。本循环是投递重试的**唯一 owner**，Gateway 单次 best-effort。
+
 ### 3.5 质量实现方案
 
 #### 3.5.1 性能与容量
@@ -433,21 +499,26 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-WORK-01 | WORK-LIB-01, WORK-LIB-02 | S-WORK-01, E-WORK-01 | E2E/integration | 待实现/评审 |
-| FEAT-WORK-02 | WORK-LIB-02, WORK-LIB-03 | 见 §2.5 | E2E/integration | 待实现/评审 |
-| FEAT-WORK-03 | WORK-LIB-03, WORK-LIB-04 | S-WORK-03, E-WORK-02 | E2E/integration | 待实现/评审 |
-| FEAT-WORK-04 | WORK-LIB-04, WORK-LIB-05 | S-WORK-02 | E2E/integration | 待实现/评审 |
-| FEAT-WORK-05 | WORK-LIB-05 | S-WORK-04 | E2E/integration | 待实现/评审 |
+| FEAT-WORK-01 | WORK-LIB-01, WORK-LIB-02 | S-WORK-01, S-WORK-07, S-WORK-09, S-WORK-11, E-WORK-01 | E2E/integration | 待实现/评审 |
+| FEAT-WORK-02 | WORK-LIB-03, CH-INT-02（模块 10） | S-WORK-05, S-WORK-10, B-SVC-03 | E2E/integration | 待实现/评审 |
+| FEAT-WORK-03 | WORK-LIB-03, WORK-LIB-05 | S-WORK-03, S-WORK-08, E-WORK-02, E-WORK-03 | E2E/integration | 待实现/评审 |
+| FEAT-WORK-04 | WORK-LIB-01, WORK-LIB-02 | S-WORK-02, S-WORK-05 | E2E/integration | 待实现/评审 |
+| FEAT-WORK-05 | WORK-LIB-04, WORK-LIB-05 | S-WORK-04, S-WORK-06 | E2E/integration | 待实现/评审 |
+| FEAT-WORK-06 | WORK-LIB-06, CH-INT-01（模块 10）, CH-DATA-03（模块 10） | S-WORK-12 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/WORK#RULE-WORK-01 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/WORK#RULE-WORK-02 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/WORK#RULE-WORK-03 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/WORK#RULE-WORK-04 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/WORK#RULE-WORK-05 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-05 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WORK#RULE-WORK-01 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-01 / §3 | S-WORK-01, S-WORK-07 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WORK#RULE-WORK-02 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-02 / §3 | S-WORK-02, S-WORK-07 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WORK#RULE-WORK-03 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-03 / §3 | E-WORK-01, S-WORK-11 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WORK#RULE-WORK-04 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-04 / §3 | E-WORK-02, E-WORK-03 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WORK#RULE-WORK-05 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-05 / §3 | S-WORK-02, S-WORK-05 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WORK#RULE-WORK-06 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-06 / §3.1 配置表 | S-WORK-01, S-WORK-09 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WORK#RULE-WORK-07 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-07 / §3.4 WORK-LIB-01 | S-WORK-06, S-WORK-10 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WORK#RULE-WORK-08 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-08 / §3.4 WORK-LIB-02 | S-WORK-11, E-WORK-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WORK#RULE-WORK-09 | design-baseline | 约束实现与验收 | §2.5 RULE-WORK-09 / §3.4 WORK-LIB-06 | S-WORK-12 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

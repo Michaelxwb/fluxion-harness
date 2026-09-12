@@ -6,8 +6,8 @@
 
 # Workspace 与 Sandbox 模块需求与设计一体化文档
 
-> **文档编号**: MOD-WS-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-WS-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | WS-LIB-03 补隔离参数（isolation/network_policy/readonly_mounts）与 SANDBOX_ISOLATION_UNAVAILABLE/NETWORK_DENIED 错误码；补 S-WS-06/07（跨 workspace 与宿主隔离的 OS 级强制拒绝）；补生产 executor fail-closed 指标；补 Library 认证/授权行；修正 §2.5.1 RULE→场景指向并重写 §6 追溯矩阵与合规矩阵 verifier |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | workspace 的 `expires_at`/`quota_bytes`/清理触发者补与 `01-架构与规范/11-数据保留与清理策略` 的口径交叉引用与责任声明（保留期不由本模块自定） |
 
 ## 2. 需求分析
 
@@ -87,10 +89,10 @@
 | ID | 类型 | 描述 | 验证场景 |
 |---|---|---|---|
 | RULE-WS-01 | 所有权 | Workspace 属于 Conversation 或 Execution，不属于 Runtime Pod。 | S-WS-01 |
-| RULE-WS-02 | Opaque | 上层只持 workspace_ref/handle，不持 Host path。 | S-WS-02 |
-| RULE-WS-03 | 路径 | 拒绝 absolute/../symlink escape。 | S-WS-03 |
+| RULE-WS-02 | Opaque | 上层只持 workspace_ref/handle，不持 Host path。 | S-WS-01 |
+| RULE-WS-03 | 路径 | 拒绝 absolute/../symlink escape。 | E-WS-01, S-WS-07 |
 | RULE-WS-04 | Shell | Agent Runtime 不直接 host exec；只能 SandboxExecutor。 | S-WS-04 |
-| RULE-WS-05 | 生产 | Local executor 只开发使用；生产必须隔离实现（ADR-035：V1 = LinuxNamespaceExecutor）。 | S-WS-05 |
+| RULE-WS-05 | 生产 | Local executor 只开发使用；生产必须隔离实现（ADR-035：V1 = LinuxNamespaceExecutor）。 | S-WS-05, S-WS-06, S-WS-07 |
 
 **生产隔离执行器合同（ADR-035；V1=LinuxNamespaceExecutor）**
 
@@ -119,6 +121,8 @@ SDK 公共 API 同步；子进程在 request/response 上等待，宿主异步�
 | S-WS-01 | FEAT-WS-01 | P0 | integration | Manager→PG→Sandbox | 本模块 | Execution 无 workspace | get_or_create | 创建 opaque workspace，Pod 重启后可重新解析 |
 | S-WS-02 | FEAT-WS-03 | P0 | integration | SafeExtractor | 本模块 | 合法 Skill zip | extract | 只写 workspace 内文件 |
 | S-WS-03 | FEAT-WS-02 | P0 | E2E | Skill→Sandbox | 本模块 | 允许命令/网络策略 | 运行脚本 | 按 quota/deadline 输出 stdout/stderr ref |
+| S-WS-06 | FEAT-WS-02 | P0 | E2E | 跨 workspace 可见性（OS 级） | 本模块 | workspace A 的沙箱进程已启动 | 尝试读取 workspace B 的 root（绝对路径/通过 symlink） | 被拒绝：跨 workspace 不可见，不返回任何 B 的文件内容或存在性信息 |
+| S-WS-07 | FEAT-WS-05 | P0 | E2E | 宿主路径与网络出站（OS 级强制） | 本模块 | 隔离 executor 已启用 | 子进程读取 /etc/passwd、宿主 home，并访问非 allowlist 网络地址 | 被 OS 级强制拒绝（namespace/seccomp/无路由），不是仅靠代码约定；失败不 fallback 到 Local |
 
 **异常场景**
 
@@ -134,6 +138,7 @@ SDK 公共 API 同步；子进程在 request/response 上等待，宿主异步�
 | NFR-REL-01 | 可靠执行 | 不得因单 Runtime/Worker 进程退出丢失权威状态 | SIGKILL/E2E |
 | NFR-SEC-01 | 可信身份 | LLM/客户端不得覆盖 tenant/actor/secret | 安全测试 |
 | NFR-OBS-01 | 可追踪 | 关键路径可按 request_id/trace_id/execution_id 定位 | 集成/E2E |
+| NFR-SEC-02 | 生产沙箱 fail-closed | 生产 executor 由部署配置选择（`SANDBOX_EXECUTOR=subprocess-isolated`）；未配置隔离后端或隔离初始化失败时**启动即失败**，禁止 fallback 到 Local | 启动配置检查 + 隔离缺失注入测试 |
 
 ## 3. 技术设计
 
@@ -215,6 +220,7 @@ flowchart LR
 
 - UNIQUE (tenant_id,owner_type,owner_id) WHERE is_deleted=false
 - Runtime 不直接拼 host path
+- 保留与清理按 `01-架构与规范/11-数据保留与清理策略` 执行：`expires_at` 标注临时工作区到期、`quota_bytes` 为可选容量上限，二者口径与该策略一致；清理的期限与触发者由该策略指定，本模块只提供 metadata 与 `idx_workspace_expiry` 索引，不在 WorkspaceManager/Runtime 内自行触发删除。
 
 **索引设计**
 
@@ -248,6 +254,8 @@ flowchart LR
 #### WS-LIB-01: 获取/创建 Workspace
 
 **入口类型**：Library
+
+**认证/授权**：Library；调用方必须持有 CORE-LIB-06 的可信上下文，owner 归属（conversation/execution）必须与 `ctx` 中的 tenant/conversation_id/execution_id 一致；不接受调用方自报 owner。
 
 **函数签名**
 
@@ -283,6 +291,8 @@ DB resolve workspace → SandboxExecutor.allocate if missing → INSERT metadata
 #### WS-LIB-02: 安全解压 Artifact
 
 **入口类型**：Library
+
+**认证/授权**：Library；调用方必须持有 CORE-LIB-06 的可信上下文，且目标 `WorkspaceHandle` 属于该 `ctx`；归档来源必须是已校验的 Skill/Artifact，不接受任意上传流直达宿主路径。
 
 **函数签名**
 
@@ -321,6 +331,8 @@ def safe_extract(archive_path: Path, target: WorkspaceHandle, limits: Extraction
 
 **入口类型**：Library
 
+**认证/授权**：Library；调用方必须持有 CORE-LIB-06 的可信上下文（Execution/Skill 路径取宿主 invocation registry 的身份，不相信子进程传入的 ctx/user/Secret）；`WorkspaceHandle` 必须属于该 `ctx`，跨 workspace 一律拒绝。隔离级别不允许由调用方降级。
+
 **函数签名**
 
 ```python
@@ -333,6 +345,9 @@ async def execute_sandbox(handle: WorkspaceHandle, command: SandboxCommand, poli
 |---|---|---|---|
 | command | SandboxCommand | Y | 受控 argv/env/timeout |
 | policy | SandboxPolicy | Y | 网络/文件/资源权限 |
+| isolation | string | Y | `SUBPROCESS_ISOLATED`（生产默认，LinuxNamespaceExecutor）/ `LOCAL_DEV`（仅开发 Mock）；生产配置出现 `LOCAL_DEV` 即拒绝 |
+| network_policy | string | Y | `DENY_ALL`（默认）/ `ALLOWLIST`；allowlist 为空即等价 DENY_ALL，且必须经受限代理而非宿主网络 |
+| readonly_mounts | array<MountSpec> | N | 只读挂载的 Artifact/已校验依赖（路径 + digest）；未列出的路径一律不可见 |
 
 **返回**
 
@@ -347,13 +362,18 @@ async def execute_sandbox(handle: WorkspaceHandle, command: SandboxCommand, poli
 | 错误码 | 场景 | HTTP 状态 |
 |---|---|---|
 | SANDBOX_TIMEOUT | 超时 | 504 |
-| SANDBOX_POLICY_DENIED | 命令/路径/网络被拒绝 | 403 |
+| SANDBOX_POLICY_DENIED | 命令/路径/挂载被拒绝 | 403 |
+| SANDBOX_NETWORK_DENIED | 出站目标不在 allowlist 或无路由 | 403 |
+| SANDBOX_ISOLATION_UNAVAILABLE | 隔离后端不可用或强制隔离设置失败 | 503 |
 
 **处理逻辑**
 
 ```text
-验证 workspace ownership → policy check → executor run → 截断/外置大输出 → telemetry；Agent Runtime 不调用 host shell。
+验证 workspace ownership → 校验 isolation 与部署配置一致 → policy check（路径/挂载/网络）→ executor run
+→ 截断/外置大输出 → telemetry；Agent Runtime 不调用 host shell。
 ```
+
+**补充约束**：`SANDBOX_ISOLATION_UNAVAILABLE` 是终态错误，**禁止 fallback 到 Local executor**（ADR-035）；生产环境未配置 `SANDBOX_EXECUTOR=subprocess-isolated` 时进程启动即失败（fail-closed，见 NFR-SEC-02）。
 
 ### 3.5 质量实现方案
 
@@ -370,7 +390,7 @@ async def execute_sandbox(handle: WorkspaceHandle, command: SandboxCommand, poli
 
 #### 3.5.3 安全性
 
-默认无 host mount/privileged；network deny-by-default 或 capability policy；资源 CPU/memory/process/file count 限制；文件名和 MIME 不可信。
+默认无 host mount/privileged；network deny-by-default 或 capability policy；资源 CPU/memory/process/file count 限制；文件名和 MIME 不可信。生产隔离为 fail-closed：executor 由部署配置选择（`SANDBOX_EXECUTOR=subprocess-isolated`），未配置隔离后端或强制隔离设置失败时启动即失败，不进入 Local 降级路径。
 
 #### 3.5.4 可观测性
 
@@ -402,27 +422,27 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 风险ID | 描述 | 影响 | 应对措施 | 验证场景 |
 |---|---|---|---|---|
-| RISK-WS-01 | 跨模块边界在实现中被绕过 | 形成双事实源/不可测试 | Architecture Gate + code review | E2E/静态检查 |
+| RISK-WS-01 | 跨模块边界在实现中被绕过 | 形成双事实源/不可测试 | Architecture Gate + code review | S-WS-04 |
 
 ## 6. 需求追溯矩阵
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-WS-01 | WS-LIB-01, WS-LIB-02 | S-WS-01 | E2E/integration | 待实现/评审 |
-| FEAT-WS-02 | WS-LIB-02, WS-LIB-03 | S-WS-03, E-WS-02 | E2E/integration | 待实现/评审 |
-| FEAT-WS-03 | WS-LIB-03 | S-WS-02, E-WS-01 | E2E/integration | 待实现/评审 |
-| FEAT-WS-04 |  | 见 §2.5 | E2E/integration | 待实现/评审 |
-| FEAT-WS-05 |  | 见 §2.5 | E2E/integration | 待实现/评审 |
+| FEAT-WS-01 | WS-LIB-01 | S-WS-01 | E2E/integration | 待实现/评审 |
+| FEAT-WS-02 | WS-LIB-03 | S-WS-03, S-WS-04, S-WS-05, E-WS-02 | E2E/integration | 待实现/评审 |
+| FEAT-WS-03 | WS-LIB-02 | S-WS-02, E-WS-01 | E2E/integration | 待实现/评审 |
+| FEAT-WS-04 | WS-LIB-01 | S-WS-01 | E2E/integration | 待实现/评审 |
+| FEAT-WS-05 | WS-LIB-02, WS-LIB-03 | S-WS-06, S-WS-07 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/WS#RULE-WS-01 | design-baseline | 约束实现与验收 | §2.5 RULE-WS-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/WS#RULE-WS-02 | design-baseline | 约束实现与验收 | §2.5 RULE-WS-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/WS#RULE-WS-03 | design-baseline | 约束实现与验收 | §2.5 RULE-WS-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/WS#RULE-WS-04 | design-baseline | 约束实现与验收 | §2.5 RULE-WS-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/WS#RULE-WS-05 | design-baseline | 约束实现与验收 | §2.5 RULE-WS-05 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WS#RULE-WS-01 | design-baseline | 约束实现与验收 | §2.5 RULE-WS-01 / §3 | S-WS-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WS#RULE-WS-02 | design-baseline | 约束实现与验收 | §2.5 RULE-WS-02 / §3.4.1 WS-LIB-01 | S-WS-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WS#RULE-WS-03 | design-baseline | 约束实现与验收 | §2.5 RULE-WS-03 / §3.4.1 WS-LIB-02/03 | E-WS-01, S-WS-07 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WS#RULE-WS-04 | design-baseline | 约束实现与验收 | §2.5 RULE-WS-04 / §3.4.1 WS-LIB-03 | S-WS-04 | applied；仓库 spec-context 待绑定 |
+| DESIGN/WS#RULE-WS-05 | design-baseline | 约束实现与验收 | §2.5 RULE-WS-05 / §2.5.3 NFR-SEC-02 | S-WS-05, S-WS-06, S-WS-07 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

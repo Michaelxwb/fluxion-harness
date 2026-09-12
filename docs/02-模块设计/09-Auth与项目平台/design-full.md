@@ -6,8 +6,8 @@
 
 # Auth 与项目平台 模块需求与设计一体化文档
 
-> **文档编号**: MOD-AUTH-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-AUTH-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 新增 AUTH-LIB-02/03（内部服务 token、Developer token）；Console 身份映射与 configured/session 字段补齐；Builder 安全只读 DTO 字段级冻结；auth_type↔ProviderKey 冻结；用户授权 revision_token 移除；Skill 入口校验与审核后置声明 |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D2 字段级授权：PLAT-API-02/04 由「仅 Admin」改为「Builder + Admin（敏感字段仅 Admin）」，`auth_type`/`auth_schema` 仅 Admin 可写、非 Admin 携带即 403 `FIELD_ADMIN_ONLY` 并原子拒绝；明确认证模板由 Admin 维护、Builder 只读 `auth_type`/`configured`（同步 §3.2.3 与 PLAT-API-01/03 投影）；PLAT-API-05 维持仅 Admin 并写明理由 |
 
 ## 2. 需求分析
 
@@ -70,13 +72,16 @@
 | FEAT-AUTH-03 | Secret Storage | 敏感值外部 Secret Provider。 | P0 | 安全 |
 | FEAT-AUTH-04 | Credential Verify | AuthProvider 真实验证。 | P0 | 可用性 |
 | FEAT-AUTH-05 | Runtime Resolve | Platform Service request-scoped AuthContext。 | P0 | Capability |
+| FEAT-AUTH-06 | Internal Service Token | `/internal/*` 服务间身份令牌签发与校验（audience + scope 绑定）。 | P0 | 第三轮 Review T-12 |
+| FEAT-AUTH-07 | Developer Token | 开发/测试环境 Developer token 与测试用户白名单（不进生产）。 | P1 | 第三轮 Review T-37 |
 
 ### 2.4 范围与边界
 
 | 类别 | 内容 |
 |---|---|
 | 范围（In Scope） | ProjectPlatform、UserProjectCredential、auth_schema、Secret ref、AuthProvider resolve/verify。 |
-| 非范围（Out of Scope） | ProjectIntegration manifest、Channel identity、AgentAccessGrant、HTTP/MCP 共享认证（归 Capability Implementation）。 |
+| 非范围（Out of Scope） | ProjectIntegration manifest、Channel identity、AgentAccessGrant、HTTP/MCP 共享认证（归 Capability Implementation）。Console 登录（`POST /api/v1/auth/login`、`POST /api/v1/auth/logout`）不属于本设计范围，V1 依赖既有实现，只冻结契约语义与角色映射（见 §3.2.3）。 |
+| 显式边界（凭据治理 V1） | 用户平台凭据只有「删除（CRED-API-04）+ 只读状态展示（CRED-API-01）」；**没有“停用”**：`status` 是系统维护的验证状态（UNVERIFIED/VALID/INVALID/EXPIRED），不是可写开关。 |
 | 前置假设 | 上游总设、公共 DB/API 规范、外部基础设施可用 |
 | 有意妥协 / 技术债 | 无；未来扩展必须有真实旅程驱动 |
 
@@ -103,6 +108,7 @@
 | S-AUTH-02 | FEAT-AUTH-02 | P0 | E2E | User tab→SecretProvider→PG | 本模块 | 用户/平台存在 | 保存账号 | DB 只有 credential_ref，Secret Provider 有值 |
 | S-AUTH-03 | FEAT-AUTH-04 | P0 | E2E | Credential→AuthProvider→external | 本模块 | 已保存 credential | Verify | status VALID/INVALID 可追踪 |
 | S-AUTH-04 | FEAT-AUTH-05 | P0 | E2E | Capability→AuthResolver | 后置 → 模块 07 | Platform Service 调用 | invoke | 当前用户 AuthContext 注入下游 |
+| S-AUTH-06 | FEAT-AUTH-06 | P1 | integration | Gateway→Agent Runtime 内部调用 | 后置 → 模块 10/03 | CHANNEL_GATEWAY 已签发 audience=agent-runtime 的 token | 经 CH-DATA-02 注入真实 tenant/actor | 只接受 token 内的 tenant/channel_account_id/account_key；请求体 tenant/user 不能覆盖 |
 
 **异常场景**
 
@@ -110,6 +116,9 @@
 |---|---|---|---|---|---|---|---|
 | E-AUTH-01 | FEAT-AUTH-02 | integration | Unique constraint | 本模块 | 重复 user×platform 保存 | 更新同一记录/revision | 不创建第二套账号 |
 | E-AUTH-02 | FEAT-AUTH-05 | E2E | Auth resolve | 本模块 | Credential 删除/过期 | fail closed | 不降级共享账号 |
+| E-AUTH-03 | FEAT-AUTH-06 | integration | 服务间 token 校验 | 本模块 | 伪造/过期/audience 不符/超 scope 的 token 调 CH-DATA-02 或 CH-INT-02 | 401 INTERNAL_TOKEN_MISSING/INVALID/EXPIRED，或 403 INTERNAL_AUDIENCE_MISMATCH/INTERNAL_SCOPE_DENIED | 不注入任何身份，不执行 |
+| E-AUTH-04 | FEAT-AUTH-07 | integration | Developer token Provider | 本模块 | 生产部署携带 Developer token，或模拟用户不在 allowlist | 生产未注册 Provider → DEV_TOKEN_INVALID(401)；白名单外 → TEST_USER_NOT_ALLOWED(403) | 联调入口不可用，不产生测试身份 |
+| E-AUTH-05 | FEAT-AUTH-02 | E2E | Console 登录角色 | 本模块 | Builder 登录 Console 调 CRED-API-01 | 403；写 audit_log | 凭据只读状态不可见，操作者被审计归因 |
 
 #### 2.5.3 非功能指标
 
@@ -170,6 +179,15 @@ flowchart LR
 | Secret Provider | Secret SoT | Port | 强安全边界 | 不可用 fail closed |
 | AuthProvider | 认证适配 | SPI | deadline | 验证/解析失败 |
 | External business platform | 最终认证/权限 | 项目协议 | 外部 | 由其最终判定业务权限 |
+| Console 登录（既有实现） | 身份信任根 | `POST /api/v1/auth/login` 与 `POST /api/v1/auth/logout`（`apps/platform_api/routes/auth.py`），Bearer 12h + bootstrap CLI | 不可用则 Console 全站不可登录 | 本设计不实现，只冻结契约语义与角色映射（§3.2.3） |
+
+#### 3.2.3 Console 身份与 PlatformUser 的关系
+
+Console 登录入口 `POST /api/v1/auth/login`（及 `POST /api/v1/auth/logout`）**不属于本设计范围**：V1 依赖既有实现（`apps/platform_api/routes/auth.py` 的 login/logout + Bearer 12h + bootstrap CLI）。本设计只冻结以下三点契约，其余细节以既有实现为准：
+
+1. **登录契约**：登录成功返回 `{token, username, role}`，`role ∈ {ADMIN, BUILDER}`；`END_USER` 不可登录 Console（只经 IM 使用）。token 过期返回 401，与 `WEB-LIB-03` 一致。
+2. **角色映射**：`role` 与 `platform_user.role` 一一对应——`ADMIN` ↔ `role=ADMIN`、`BUILDER` ↔ `role=BUILDER`。本模块所有接口「认证/授权」列中的 Admin/Builder 即指该登录角色。写权限按**字段级授权**（D2，ADR-021 修正）：`PLAT-API-02/04` 为 **Builder + Admin**——项目平台的认证模板字段列表（`auth_type`/`auth_schema`）由 **Admin 维护**，**Builder 只能读取 `auth_type` 与 `configured`**（供能力定义选择平台），非 Admin 请求中出现 `auth_type`/`auth_schema` 一律 403 `FIELD_ADMIN_ONLY`；`PLAT-API-05` 与 `CRED-API-01..04` 仍为**整接口仅 Admin**（凭据写与认证验证属敏感面），与模块 10 的 IM Bot 密钥写接口仅 Admin 一致。
+3. **操作者归属**：所有需要操作者身份的事实（`agent_access_grant.granted_by`、`audit_log.actor_user_id`）取该登录用户对应的唯一 `platform_user.id`；登录用户必须能在本租户定位到唯一 `platform_user` 行（同一 `user_key`），否则拒绝写操作并记录告警。
 
 ### 3.3 数据设计
 
@@ -190,7 +208,7 @@ flowchart LR
 | name | VARCHAR(256) | N |  | IDX | 平台名称 |
 | key | VARCHAR(128) | N |  | UK | 稳定标识 |
 | description | TEXT | Y |  |  | 说明 |
-| auth_type | VARCHAR(64) | N | UNCONFIGURED |  | UNCONFIGURED 或已注册 AuthProvider 类型 |
+| auth_type | VARCHAR(64) | N | UNCONFIGURED |  | UNCONFIGURED（唯一保留值）或模块 12 `ProviderKind=AUTH` 已注册 Provider 的 `key`（大小写敏感稳定 key，租户无关） |
 | auth_schema | JSONB | N | {} |  | 用户需填写字段的 JSON Schema；不含 Secret 值 |
 | enabled | BOOLEAN | N | TRUE | IDX | 新解析是否允许 |
 | revision | BIGINT | N | 1 |  | direct-effect revision |
@@ -203,6 +221,8 @@ flowchart LR
 
 - UNIQUE (tenant_id,key) WHERE is_deleted=false
 - auth_type=UNCONFIGURED 当且仅当 configured=false（派生 DTO）；此时 auth_schema={}，不能保存/验证凭据或运行 PLATFORM_SERVICE。其他类型必须已注册且模板校验通过。
+- `auth_type` 的取值空间就是模块 12 Registry 中 `ProviderKind=AUTH` 已注册 Provider 的 `key`（大小写敏感的稳定 key，租户无关）；`UNCONFIGURED` 是唯一保留值。选择未注册的 `auth_type` 一律拒绝保存 `AUTH_PROVIDER_NOT_REGISTERED`(422)，不做隐式映射或大小写归一。
+- `auth_type`/`auth_schema` 是 **Admin 维护的认证模板字段**（D2 字段级授权）：非 Admin 请求中出现其中任一字段（即使值为 `null` 或 `{}`）一律 403 `FIELD_ADMIN_ONLY` 且不修改任何字段（原子拒绝）。Builder 只读 `auth_type` 与 `configured`（见 §3.2.3）。
 
 **索引设计**
 
@@ -294,6 +314,8 @@ erDiagram
 | CRED-API-03 | 验证用户平台认证 | HTTP | POST | /api/v1/users/{user_id}/platform-credentials/{platform_id}/verify |
 | CRED-API-04 | 删除用户平台认证 | HTTP | DELETE | /api/v1/users/{user_id}/platform-credentials/{platform_id} |
 | AUTH-LIB-01 | 运行时用户认证解析 | Library | async def resolve_user_platform_auth(ctx: TrustedExecutionContext, project_platform_id: UUID) -> AuthContext |  |
+| AUTH-LIB-02 | InternalServiceToken 签发与校验 | Library | def issue_internal_service_token(service_role, *, audience, tenant_id, scope, ttl_seconds=300) -> str；async def verify_internal_service_token(token, *, expected_audience) -> InternalServiceIdentity | 服务间身份（模块 10/03 的 `/internal/*` 统一引用） |
+| AUTH-LIB-03 | Developer Token 与测试用户白名单 | Library | async def verify_developer_token(token: str, *, expected_tenant: UUID) -> DeveloperIdentity | 仅 dev/test 环境（模块 17 Dev Gateway 联调） |
 
 #### PLAT-API-01: 项目平台列表
 
@@ -314,14 +336,31 @@ erDiagram
 
 **请求体**：无。
 
-**安全投影**：Builder 可读 id/key/name/enabled/revision；模型还可读 model_name/protocol，平台还可读 auth_type/configured。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；敏感写/测试接口仅 Admin。
+**安全投影**：Builder 使用安全只读 DTO，字段级清单见下表；**不含 `auth_schema`**（平台认证模板与凭据表单字段仅 Admin 可见），但**保留 `auth_type`**（Builder 定义 PLATFORM_SERVICE 能力时必须知道目标平台用哪种认证方式，且它是模块 12 已注册 Provider 的机器 key，本身不含任何凭据）。description 在 Builder 视图保留。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见。**认证模板字段列表由 Admin 维护**，Builder 侧只读 `auth_type` 与 `configured`（`PLAT-API-01/03` 一致）；写入为字段级授权（`PLAT-API-02/04`：Builder + Admin，`auth_type`/`auth_schema` 仅 Admin），验证接口 `PLAT-API-05` 仍仅 Admin。
 
 **响应 data**
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| items | array<ProjectPlatformSummary> | 含 capability_count |
+| items | array<ProjectPlatformSummary> | 字段：id/key/name/enabled/revision/configured/capability_count（平台服务能力数）；按调用者角色投影，见下表 |
 | total | integer | 总数 |
+
+**响应字段角色投影（`ProjectPlatformSummary`）**
+
+| 字段 | 类型 | Admin | Builder（安全只读 DTO） |
+|---|---|---|---|
+| id | uuid | ✓ | ✓ |
+| key | string | ✓ | ✓ |
+| name | string | ✓ | ✓ |
+| description | string | ✓ | ✗ |
+| auth_type | string | ✓ | ✓（`UNCONFIGURED` 或已注册 Provider key；不含凭据、不含模板） |
+| auth_schema | object | ✓ | ✗ |
+| enabled | boolean | ✓ | ✓ |
+| revision | integer | ✓ | ✓ |
+| configured | boolean | ✓ | ✓ |
+| capability_count | integer | ✓ | ✓ |
+
+`configured` 是派生字段（`auth_type != UNCONFIGURED`），Builder 侧以此判断平台是否已配置认证（前端 FE-08 依赖）。
 
 **响应示例**
 
@@ -353,7 +392,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 
 **契约**：`POST /api/v1/project-platforms`
 
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；**Builder + Admin（敏感字段仅 Admin）**——其中 `auth_type`/`auth_schema`（认证模板）仅 Admin 可写（ADR-021 字段级授权）
 
 **请求体**
 
@@ -362,8 +401,8 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 | name | string | Y | 名称 |
 | key | string | Y | 稳定 Key |
 | description | string | N | 说明 |
-| auth_type | string/null | N | 缺省或 null 均规范化为 UNCONFIGURED；后续 Admin 配置认证模板 |
-| auth_schema | object | N | UNCONFIGURED 只允许 {}；已配置时必须符合注册 Provider 模板 |
+| auth_type | string/null | N | **仅 Admin 可写**；非 Admin 请求中出现（含 `null`）一律 403 `FIELD_ADMIN_ONLY` 且不修改任何字段。Admin 侧：缺省或 null 均规范化为 UNCONFIGURED；非 UNCONFIGURED 时必须是模块 12 `ProviderKind=AUTH` 已注册 Provider 的 `key` |
+| auth_schema | object | N | **仅 Admin 可写**；非 Admin 请求中出现（含 `{}`）一律 403 `FIELD_ADMIN_ONLY` 且不修改任何字段。Admin 侧：UNCONFIGURED 只允许 {}；已配置时必须符合注册 Provider 模板 |
 | enabled | boolean | N | 默认 true |
 
 **请求示例**
@@ -408,11 +447,16 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 |---|---|---|
 | PROJECT_PLATFORM_KEY_EXISTS | key 重复 | 409 |
 | AUTH_SCHEMA_INVALID | Schema 非法或包含不允许的 secret 默认值 | 400 |
+| AUTH_PROVIDER_NOT_REGISTERED | auth_type 不是已注册 Provider 的 key 且非 UNCONFIGURED | 422 |
+| FIELD_ADMIN_ONLY | 非 Admin 请求中出现 `auth_type` 或 `auth_schema`（含 `null`/`{}`） | 403 |
 
 **处理逻辑**
 
 ```text
-将缺省/null auth_type 规范化为 UNCONFIGURED；此时 auth_schema 必须 {}。其他类型校验已注册 Provider 的模板并保存；返回 id/key/revision/configured=(auth_type!=UNCONFIGURED)。enabled 是资产开关，不代表已配置认证。UNCONFIGURED 时保存 Credential、认证验证、PLATFORM_SERVICE 测试/运行均 AUTH_PLATFORM_UNCONFIGURED（409），不能隐式调用 USERNAME_PASSWORD。
+字段级授权：非 Admin 请求中出现 auth_type 或 auth_schema（含 null/{}）→ 立即 403 FIELD_ADMIN_ONLY（原子拒绝：不得写入任何字段，也不得部分成功）。
+Admin：将缺省/null auth_type 规范化为 UNCONFIGURED；此时 auth_schema 必须 {}。其他类型必须是模块 12 ProviderKind=AUTH 已注册 Provider 的 key（大小写敏感稳定 key，租户无关），否则拒绝保存 AUTH_PROVIDER_NOT_REGISTERED（422）；通过后校验该 Provider 模板并保存。
+Builder（未携带敏感字段）：以 auth_type=UNCONFIGURED、auth_schema={}、configured=false 创建平台资产，认证模板由 Admin 后续补齐。
+返回 id/key/revision/configured=(auth_type!=UNCONFIGURED)。enabled 是资产开关，不代表已配置认证。UNCONFIGURED 时保存 Credential、认证验证、PLATFORM_SERVICE 测试/运行均 AUTH_PLATFORM_UNCONFIGURED（409），不能隐式调用 USERNAME_PASSWORD。
 ```
 
 #### PLAT-API-03: 项目平台详情
@@ -425,20 +469,22 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 
 **请求体**：无。
 
-**安全投影**：Builder 可读 id/key/name/enabled/revision；模型还可读 model_name/protocol，平台还可读 auth_type/configured。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；敏感写/测试接口仅 Admin。
+**安全投影**：Builder 仅安全只读 DTO（ADR-021），字段级清单见响应字段表的「角色投影」列；不含 description/auth_schema——**认证模板字段列表（`auth_schema`）与 description 仅 Admin 可见**；Builder 保留 `auth_type`（模块 12 已注册 Provider 的机器 key，不含凭据与模板），与 PLAT-API-01 的安全投影一致，供 Builder 定义 PLATFORM_SERVICE 能力时选择平台。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；认证模板写入与验证仍仅 Admin（`PLAT-API-02/04` 的 `auth_type`/`auth_schema` 字段级、`PLAT-API-05` 整接口）。
 
 **响应 data**
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| id | uuid | ID |
-| name | string | 名称 |
-| key | string | Key |
-| auth_type | string | 类型 |
-| auth_schema | object | 认证字段定义 |
-| enabled | boolean | 状态 |
-| revision | integer | revision |
-| capability_count | integer | Platform Service 数 |
+| 字段 | 类型 | 说明 | 角色投影 |
+|---|---|---|---|
+| id | uuid | ID | Admin + Builder |
+| name | string | 名称 | Admin + Builder |
+| key | string | Key | Admin + Builder |
+| description | string | 说明 | Admin |
+| auth_type | string | 类型（UNCONFIGURED 或模块 12 已注册 AUTH Provider key；不含凭据、不含模板） | Admin + Builder |
+| auth_schema | object | 认证字段定义（凭据表单模板） | Admin |
+| enabled | boolean | 状态 | Admin + Builder |
+| revision | integer | revision | Admin + Builder |
+| configured | boolean | 派生：auth_type != UNCONFIGURED | Admin + Builder |
+| capability_count | integer | Platform Service 数 | Admin + Builder |
 
 **响应示例**
 
@@ -454,6 +500,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
     "auth_schema": {},
     "enabled": true,
     "revision": 1,
+    "configured": true,
     "capability_count": 1
   },
   "request_id": "req_xxx"
@@ -478,7 +525,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 
 **契约**：`PUT /api/v1/project-platforms/{platform_id}`
 
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；**Builder + Admin（敏感字段仅 Admin）**——其中 `auth_type`/`auth_schema`（认证模板）仅 Admin 可写（ADR-021 字段级授权）
 
 **请求体**
 
@@ -486,8 +533,8 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 |---|---|---|---|
 | name | string | Y | 名称 |
 | description | string | N | 说明 |
-| auth_type | string | Y | 认证类型 |
-| auth_schema | object | Y | 认证字段定义 |
+| auth_type | string/null | **仅 Admin：Y；非 Admin：必须缺省** | **仅 Admin 可写**；非 Admin 请求中出现（含 `null`）一律 403 `FIELD_ADMIN_ONLY` 且不改任何字段。Admin 侧：必须为 UNCONFIGURED 或模块 12 已注册 AUTH Provider 的 key；显式 null 等价于 UNCONFIGURED（清空认证配置） |
+| auth_schema | object | **仅 Admin：Y；非 Admin：必须缺省** | **仅 Admin 可写**；非 Admin 请求中出现（含 `{}`）一律 403 `FIELD_ADMIN_ONLY` 且不改任何字段。Admin 侧：认证字段定义；清空认证配置时必须 {} |
 | enabled | boolean | Y | 状态 |
 | revision | integer | Y | 乐观锁 |
 
@@ -532,11 +579,17 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 | PROJECT_PLATFORM_NOT_FOUND | 不存在 | 404 |
 | REVISION_CONFLICT | 冲突 | 409 |
 | AUTH_SCHEMA_INCOMPATIBLE | 认证 schema 变更与现有 credential 不兼容；需要迁移策略 | 409 |
+| AUTH_PROVIDER_NOT_REGISTERED | auth_type 不是已注册 Provider 的 key 且非 UNCONFIGURED/null | 422 |
+| FIELD_ADMIN_ONLY | 非 Admin 请求中出现 `auth_type` 或 `auth_schema`（含 `null`/`{}`） | 403 |
 
 **处理逻辑**
 
 ```text
-读取 current → 校验 revision/schema → 若 schema 字段破坏性变更，要求显式 force/migration（V1 默认拒绝）→ UPDATE → audit。
+字段级授权：非 Admin 请求中出现 auth_type 或 auth_schema（含 null/{}）→ 立即 403 FIELD_ADMIN_ONLY（原子拒绝：整次请求不修改任何字段，同请求内的 name/description/enabled 变更也不生效）。
+Builder（未携带敏感字段）：只能修改 name/description/enabled（+revision），认证模板保持 current 不变。
+Admin：读取 current → 校验 revision/schema → 若 schema 字段破坏性变更，要求显式 force/migration（V1 默认拒绝）→ UPDATE → audit（details.changed_fields 记字段级 before/after）。
+auth_type 取值空间 = 模块 12 ProviderKind=AUTH 已注册 Provider 的 key（大小写敏感稳定 key，租户无关）；非注册 key → AUTH_PROVIDER_NOT_REGISTERED（422）。
+显式 auth_type: null 或 UNCONFIGURED 表示清空认证配置：规范化写入 auth_type=UNCONFIGURED + auth_schema={} + configured=false（不删除平台对象与用户凭据记录）；清空后保存凭据、验证、PLATFORM_SERVICE 运行一律 AUTH_PLATFORM_UNCONFIGURED（409）。
 ```
 
 #### PLAT-API-05: 验证认证 Schema
@@ -545,7 +598,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 
 **契约**：`POST /api/v1/project-platforms/{platform_id}/validate-auth-schema`
 
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；**仅 Admin（ADR-021）**——D2 二选一结论：本接口虽为纯校验（不落库），但校验对象是 Admin 维护的认证模板（`auth_schema` 即凭据表单字段列表），属敏感面，与 `PLAT-API-02/04` 的 `auth_schema` 字段级 Admin-only 保持一致；不放给 Builder。
 
 **请求体**
 
@@ -608,7 +661,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| items | array<UserPlatformCredentialView> | platform/status/credential_expires_at/verified_at/configured_fields_masked |
+| items | array<UserPlatformCredentialView> | platform/status/credential_expires_at/session_expires_at/verified_at/configured_fields_masked |
 
 **响应示例**
 
@@ -632,7 +685,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 **处理逻辑**
 
 ```text
-Admin/本人受控访问 → JOIN platform + credential；Secret 只返回字段是否已配置，绝不返回明文。
+仅 Admin（Console 无 END_USER，不存在“本人受控访问”分支）→ tenant scoped 校验 user 存在 → JOIN project_platform + user_project_credential → 只返回只读状态（status/credential_expires_at/session_expires_at/verified_at，两者分开展示）与字段是否已配置；不提供“停用”控件，Secret 绝不返回明文。
 ```
 
 #### CRED-API-02: 保存用户平台认证
@@ -641,7 +694,7 @@ Admin/本人受控访问 → JOIN platform + credential；Secret 只返回字段
 
 **契约**：`PUT /api/v1/users/{user_id}/platform-credentials/{platform_id}`
 
-**认证/授权**：Admin；或未来本人自助端点需独立授权，Console V1 Admin 管理
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021；Console 无 END_USER，未来本人自助端点需独立授权）
 
 **请求体**
 
@@ -687,6 +740,7 @@ Admin/本人受控访问 → JOIN platform + credential；Secret 只返回字段
 | 错误码 | 场景 | HTTP 状态 |
 |---|---|---|
 | PROJECT_PLATFORM_NOT_FOUND | 平台不存在/禁用 | 404 |
+| AUTH_PLATFORM_UNCONFIGURED | 平台 auth_type=UNCONFIGURED，不得保存凭据 | 409 |
 | CREDENTIAL_SCHEMA_INVALID | 字段不满足 auth_schema | 400 |
 | REVISION_CONFLICT | 并发冲突 | 409 |
 | SECRET_WRITE_FAILED | Secret 写入失败 | 502 |
@@ -737,6 +791,7 @@ Admin/本人受控访问 → JOIN platform + credential；Secret 只返回字段
 | 错误码 | 场景 | HTTP 状态 |
 |---|---|---|
 | CREDENTIAL_NOT_CONFIGURED | 未配置 | 404 |
+| AUTH_PLATFORM_UNCONFIGURED | 平台 auth_type=UNCONFIGURED，不得验证 | 409 |
 | AUTH_PROVIDER_FAILED | 认证 Provider/外部系统不可用 | 502 |
 
 **处理逻辑**
@@ -804,6 +859,104 @@ resolve Secret → AuthProvider.verify → 更新 status/verified_at/expiry → 
 
 **验证**：credential 有效而 session 到期实际刷新；两个 Worker 同时恢复只接受一个 generation；刷新期间 Credential 撤销/轮换，旧结果无法写回。
 
+#### AUTH-LIB-02: InternalServiceToken 签发与校验
+
+**入口类型**：Library
+
+**函数签名**
+
+```python
+def issue_internal_service_token(service_role: ServiceRole, *, audience: str, tenant_id: UUID | None, scope: dict, ttl_seconds: int = 300) -> str
+async def verify_internal_service_token(token: str, *, expected_audience: str) -> InternalServiceIdentity
+```
+
+**入参**
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| service_role | ServiceRole | Y | 签发方运行角色：CHANNEL_GATEWAY/AGENT_RUNTIME/WORKER/PLATFORM_API |
+| audience | string | Y | 被调方角色名，取值表：agent-runtime/channel-gateway/worker/platform-api |
+| tenant_id | UUID/null | N | 绑定租户；无租户上下文的部署期调用为 null |
+| scope | dict | Y | 资源范围：tenant_id、channel_account_id（Gateway 场景）、account_key |
+| ttl_seconds | integer | N | 默认 300 |
+| token | string | Y | 校验入参：待校验 token |
+| expected_audience | string | Y | 校验入参：本次调用的被调方角色名 |
+
+**返回**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| token | string | 签发返回：JWT 字符串 |
+| service_role | ServiceRole | 校验返回 InternalServiceIdentity.service_role |
+| tenant_id | UUID/null | 校验返回：来自 token |
+| scope | dict | 校验返回：来自 token |
+
+**异常/错误**
+
+| 错误码 | 场景 | HTTP 状态 |
+|---|---|---|
+| INTERNAL_TOKEN_MISSING | 未携带 token | 401 |
+| INTERNAL_TOKEN_INVALID | 验签/格式/kid 未知 | 401 |
+| INTERNAL_TOKEN_EXPIRED | exp/nbf 越界 | 401 |
+| INTERNAL_AUDIENCE_MISMATCH | audience != expected_audience | 403 |
+| INTERNAL_SCOPE_DENIED | token scope 与请求目标资源不一致 | 403 |
+
+**处理逻辑**
+
+```text
+签发：调用方以自己的运行角色用 SecretProvider（secret_ref = internal/service-token/<env>）的当前 kid 私钥签发 JWT；payload 含 iss(service_role)/aud/tenant_id/scope/exp/nbf/kid，TTL 默认 300s。
+校验：kid 定位密钥 → 验签 → 校验 exp/nbf → 校验 audience == expected_audience → 校验 scope 与请求目标一致 → 返回 InternalServiceIdentity{service_role, tenant_id, scope}。
+身份字段一律来自 token，禁止请求体覆盖 tenant/actor/channel_account_id/account_key。校验方必须按 scope 限制可访问资源（如 CH-DATA-02 只能解析本 account 的信封）。
+密钥支持轮换（kid）；运行角色被撤销时移除其密钥，其已签发 token 立即失效（不引入独立吊销黑名单）。
+```
+
+**认证/授权**：仅服务间调用；不暴露为 `/api/v1` 路径。
+
+**统一引用**：模块 10 的 `CH-DATA-01..04` / `CH-INT-01/02` 与模块 03 的 `RT-INT-01..03` 一律使用本接口校验（本模块为唯一 Owner），这些接口不得各自重定义 token 合同。
+
+#### AUTH-LIB-03: Developer Token 与测试用户白名单
+
+**入口类型**：Library
+
+**函数签名**
+
+```python
+async def verify_developer_token(token: str, *, expected_tenant: UUID) -> DeveloperIdentity
+```
+
+**Token 生命周期（与 AUTH-LIB-02 同型）**：签发由部署期配置完成（dev 环境 Secret + 白名单配置，**不建表**，白名单为 09 的受控配置项，Owner=本模块）；`ttl_seconds` 默认 86400（开发会话），支持 `kid` 轮换（密钥轮换后旧 token 立即失效）；生产环境该 Provider 不注册 → 任何 token 一律 401 `DEV_TOKEN_INVALID`。
+
+**入参**
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| token | string | Y | 开发/测试环境 Developer token |
+| expected_tenant | UUID | Y | 期望租户，必须与 token 内 tenant 一致 |
+
+**返回**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| developer_id | string | Developer 标识 |
+| tenant_id | UUID | 绑定租户 |
+| allowed_test_user_ids | array<uuid> | 允许模拟的测试用户白名单 |
+
+**异常/错误**
+
+| 错误码 | 场景 | HTTP 状态 |
+|---|---|---|
+| DEV_TOKEN_INVALID | token 缺失/无效/跨租户，或生产未注册该 Provider | 401 |
+| TEST_USER_NOT_ALLOWED | 目标测试用户不在 allowlist | 403 |
+
+**处理逻辑**
+
+```text
+签发由部署期配置完成（dev 环境 Secret + 白名单表/配置），不进生产环境部署。
+校验：Provider 注册性 → 验签 → tenant 与 expected_tenant 一致 → 返回 DeveloperIdentity；调用方必须以 allowed_test_user_ids 限制可模拟的 platform_user。
+```
+
+**认证/授权**：仅开发/测试环境启用；生产部署该 Provider 不注册，生产请求一律 `DEV_TOKEN_INVALID`(401)。
+
 ### 3.5 质量实现方案
 
 #### 3.5.1 性能与容量
@@ -858,21 +1011,23 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-AUTH-01 | PLAT-API-01, PLAT-API-02 | S-AUTH-01 | E2E/integration | 待实现/评审 |
-| FEAT-AUTH-02 | PLAT-API-02, PLAT-API-03 | S-AUTH-02, E-AUTH-01 | E2E/integration | 待实现/评审 |
-| FEAT-AUTH-03 | PLAT-API-03, PLAT-API-04 | 见 §2.5 | E2E/integration | 待实现/评审 |
-| FEAT-AUTH-04 | PLAT-API-04, PLAT-API-05 | S-AUTH-03 | E2E/integration | 待实现/评审 |
-| FEAT-AUTH-05 | PLAT-API-05, CRED-API-01 | S-AUTH-04, E-AUTH-02 | E2E/integration | 待实现/评审 |
+| FEAT-AUTH-01 | PLAT-API-01, PLAT-API-02, PLAT-API-03, PLAT-API-04 | S-AUTH-01 | E2E/integration | 待实现/评审 |
+| FEAT-AUTH-02 | CRED-API-01, CRED-API-02, CRED-API-04 | S-AUTH-02, E-AUTH-01, E-AUTH-05 | E2E/integration | 待实现/评审 |
+| FEAT-AUTH-03 | CRED-API-02, CRED-API-04 | S-AUTH-02 | E2E/integration | 待实现/评审 |
+| FEAT-AUTH-04 | CRED-API-03, PLAT-API-05 | S-AUTH-03 | E2E/integration | 待实现/评审 |
+| FEAT-AUTH-05 | AUTH-LIB-01 | S-AUTH-04, S-AUTH-05, E-AUTH-02 | E2E/integration | 待实现/评审 |
+| FEAT-AUTH-06 | AUTH-LIB-02 | S-AUTH-06, E-AUTH-03 | integration | 待实现/评审 |
+| FEAT-AUTH-07 | AUTH-LIB-03 | E-AUTH-04 | integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/AUTH#RULE-AUTH-01 | design-baseline | 约束实现与验收 | §2.5 RULE-AUTH-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/AUTH#RULE-AUTH-02 | design-baseline | 约束实现与验收 | §2.5 RULE-AUTH-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/AUTH#RULE-AUTH-03 | design-baseline | 约束实现与验收 | §2.5 RULE-AUTH-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/AUTH#RULE-AUTH-04 | design-baseline | 约束实现与验收 | §2.5 RULE-AUTH-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/AUTH#RULE-AUTH-05 | design-baseline | 约束实现与验收 | §2.5 RULE-AUTH-05 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/AUTH#RULE-AUTH-01 | design-baseline | 约束实现与验收 | §2.5 RULE-AUTH-01 / §3 | S-AUTH-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/AUTH#RULE-AUTH-02 | design-baseline | 约束实现与验收 | §2.5 RULE-AUTH-02 / §3 | S-AUTH-02, E-AUTH-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/AUTH#RULE-AUTH-03 | design-baseline | 约束实现与验收 | §2.5 RULE-AUTH-03 / §3 | S-AUTH-02 | applied；仓库 spec-context 待绑定 |
+| DESIGN/AUTH#RULE-AUTH-04 | design-baseline | 约束实现与验收 | §2.5 RULE-AUTH-04 / §3 | S-AUTH-04 | applied；仓库 spec-context 待绑定 |
+| DESIGN/AUTH#RULE-AUTH-05 | design-baseline | 约束实现与验收 | §2.5 RULE-AUTH-05 / §3 | S-AUTH-05 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

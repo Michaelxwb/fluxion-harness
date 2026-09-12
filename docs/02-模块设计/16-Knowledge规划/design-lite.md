@@ -6,8 +6,8 @@
 
 # Knowledge 规划 模块需求与设计简报
 
-> **文档编号**: MOD-KNOW-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-KNOW-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 规划中 / 未冻结 DB 与 API
 > **模板**: `design-lite.md`
@@ -28,6 +28,7 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待确认 | 按 design-lite 重生成；保持 Knowledge 后置决策 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 补 E-KNOW-02（Provider Port 依赖边界）使 RISK-KNOW-02 指向真实场景 ID；保持规划态，未新增任何 DB/API（ADR-022） |
 
 ## 2. 需求分析
 
@@ -61,9 +62,10 @@
 |---|---|---|---|---|---|---|---|
 | S-KNOW-01 | FEAT-KNOW-02 | P2 | E2E | Console Router/UI | 本模块 | 进入知识库菜单 | 显示规划说明且无新增/编辑/删除操作 |
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 |
+| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | 系统行为 | 预期结果 |
 |---|---|---|---|---|---|
 | E-KNOW-01 | FEAT-KNOW-01 | manual | 设计评审 | 开发提出新增 knowledge_* 表/API | 要求先补真实用户旅程并升级 design-full | 阻止空转实现 |
+| E-KNOW-02 | FEAT-KNOW-01 | manual | 依赖边界 | Agent Runtime 直接 import 具体向量库/RAG SDK | 被架构依赖扫描拒绝，只允许经 KnowledgeProvider Port 访问 | 阻止 Provider 泄漏进 Runtime |
 
 ## 3. 技术设计
 
@@ -95,7 +97,7 @@ flowchart LR
 | 风险ID | 描述 | 影响 | 应对措施 | 验证场景 |
 |---|---|---|---|---|
 | RISK-KNOW-01 | 为了“页面完整”提前实现知识库 CRUD/RAG schema | 中 | 保持规划态；真实旅程前不冻结 DB/API | E-KNOW-01 |
-| RISK-KNOW-02 | Agent Runtime 直接依赖具体向量库 | 中 | 未来强制 KnowledgeProvider Port | 设计评审 |
+| RISK-KNOW-02 | Agent Runtime 直接依赖具体向量库 | 中 | 未来强制 KnowledgeProvider Port | E-KNOW-02 |
 
 ## Spec Compliance Matrix
 

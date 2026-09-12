@@ -22,6 +22,8 @@
 | 版本 | 日期 | 变更描述 |
 |---|---|---|
 | V1.11 | 2026-09-11 | 从大一统 Console 文档拆成独立产品模块设计 |
+| V1.13 | 2026-09-12 | 第三轮 Review 修复：新增表单与 `CAP-API-02` 对齐（去 `enabled` 必填、幂等性三值、`output_schema` 必填、补 `side_effect`/`execution_characteristic`/`authorization_requirement`/`error_semantics`）；四类实现配置改引用模块 07 `capability-implementation-schema` 字段名并声明 timeout/retry 属 `execution_policy`、分页属 `data_retrieval_policy`；补 `FEAT-04-06` 与场景 `S-04-04`、修正两处 FEAT 错配；场景 ID 前缀拆分（integration → `I-04-01`） |
+| V1.13.1 | 2026-09-12 | 第四轮 Review 修复：§3.4 补「能力测试（`CAP-API-05`，Z-04）」块（入口在详情页顶部、Builder+Admin 不隐藏、`input_schema` JSON 编辑器就地报错、`test_user_id` 仅 `USER_PLATFORM`/平台 `auth_mode=当前用户` 时显示、耗时取 `stats.latency` 渲染 `N ms`、`artifact_id` 走 `EXE-API-06` 不下发直链、`stats` 缺字段不补 0、`execution_source=TEST` 不计运营统计）；补场景 `S-04-05`；**D1（ADR-057）：判定元数据收敛**——删除 `execution_characteristic`/`authorization_requirement`/`error_semantics`（DTO/DB/校验全删），新增 `invocation_policy`（`DIRECT` 默认 / `EXECUTION_ONLY`），保留 `side_effect`/`risk_level` 作安全审计维度，凭据来源改由实现层 `auth_mode` 表达；§3.4 公共字段表与 §3.5 测试弹窗同步，`S-04-04`/`E-04-01` 断言同步（含 `side_effect=write`/`destructive` 或 `risk_level=HIGH` → 强制 `EXECUTION_ONLY`，非法组合 400 `CAPABILITY_CONTRACT_INVALID`） |
 
 ## 2. 需求分析
 
@@ -45,6 +47,7 @@
 | FEAT-04-03 | 四类实现 | Platform Service/HTTP/MCP/Sandbox typed form | P0 | V0.8 / Playbook / 总设 |
 | FEAT-04-04 | 自动分页 | Page/Offset/Cursor | P0 | V0.8 / Playbook / 总设 |
 | FEAT-04-05 | 测试 | 执行测试并显示结果 | P0 | V0.8 / Playbook / 总设 |
+| FEAT-04-06 | 新增字段校验 | Create DTO 字段级必填/枚举校验与错误定位（含 `side_effect`/`invocation_policy` 等字段，及 `invocation_policy` 与 `side_effect`/`risk_level` 的强制组合） | P0 | V0.8 / Playbook / 总设 |
 
 ### 2.3 范围与边界
 
@@ -69,9 +72,11 @@
 |---|---|---|---|---|---|
 | S-04-01 | FEAT-04-01 | E2E | 四类实现动态表单 | Builder 分别创建 HTTP/MCP/PLATFORM_SERVICE/SANDBOX 能力 | 类型切换渲染对应字段；PLATFORM_SERVICE 必选平台（安全选项） |
 | S-04-02 | FEAT-04-02 | E2E | 分页策略表单 | Builder 配置 Page 分页+短页终止 | short_page_terminates 默认开启；可显式关闭并提示适用前提（R19 语义） |
-| S-04-03 | FEAT-04-04 | E2E | 能力测试 | Admin 测试能力 | 测试结果展示 inline/summary；失败显示脱敏错误 |
-| E-04-01 | FEAT-04-03 | E2E | 副作用字段必填 | 创建能力不选"是否有副作用" | 校验失败；选 true 时风险等级建议提升提示 |
-| E-04-01 | FEAT-04-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
+| S-04-03 | FEAT-04-05 | E2E | 能力测试 | Admin 测试能力 | 测试结果展示 inline/summary；失败显示脱敏错误 |
+| S-04-04 | FEAT-04-03 | E2E | 四类实现配置字段名与判定元数据 | 四类实现各保存一条（PLATFORM_SERVICE / HTTP / MCP / SANDBOX）；另一条把 `invocation_policy` 选为 `EXECUTION_ONLY` 后保存 | 请求体字段名与模块 07 `capability-implementation-schema` **逐字一致**；PLATFORM_SERVICE 缺 `project_platform_id` 时返回 422 且错误定位到该字段；`deadline_ms`/`max_retries` 出现在 `execution_policy` 而非 `config`；分页键出现在 `data_retrieval_policy`；`invocation_policy`/`side_effect`/`risk_level` 是公共字段，**不出现** 在实现 `config` 内，且请求体**不含** `execution_characteristic`/`authorization_requirement`/`error_semantics` |
+| E-04-01 | FEAT-04-06 | E2E | 副作用字段必填与直调策略约束 | 创建能力不选"是否有副作用"；另选 `side_effect=write`（或 `risk_level=HIGH`）后再把 `invocation_policy` 选成 `DIRECT` 并提交 | 校验失败并定位到 `side_effect` 控件，不发起 `CAP-API-02`；选 `write`/`destructive` 时显示风险等级建议提升提示；`side_effect=write`/`destructive` 或 `risk_level=HIGH` 时 `invocation_policy` 只能为 `EXECUTION_ONLY`——前端就地提示并禁用非法项，强行提交由后端 400 `CAPABILITY_CONTRACT_INVALID` 拒绝 |
+| S-04-05 | FEAT-04-05 | E2E | 能力测试弹窗 | Admin 在能力详情点「测试」，填入合法 JSON 提交；再次填入非法 JSON 提交 | 弹窗显示 `ok=true`；耗时以 `N ms` 呈现且取自 `stats.latency`（非客户端计时）；`trace_id` 可复制；`artifact_id` 非空时出现「下载产物」入口；填入非法 JSON 时**就地报错**，且 Network 面板**无 `CAP-API-05` 请求** |
+| I-04-01 | FEAT-04-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
 
@@ -102,18 +107,54 @@
 
 ### 3.4 组件接口契约与字段
 
-**公共字段**：名称、标识、说明、Input Schema、Output Schema、风险等级、副作用、幂等性、实现类型（创建后不可改）、状态。
+**公共字段（与 `CAP-API-02` Create DTO 逐字对齐）**
 
-**Platform Service**：项目平台、服务名、操作/接口、认证模式、timeout/retry、自动分页。
-**HTTP**：Method、Base URL/URL、Path、Request Mapping、非 Secret Headers、共享认证、timeout/retry、自动分页；不显示 ProjectPlatform。
-**MCP**：Server/Config、Tool name、共享认证、timeout、参数映射；不显示 ProjectPlatform。
-**Sandbox**：受控 entrypoint、参数模板、workspace policy、CPU/内存/输出/network/env 限制；禁止自由 shell textarea。
+| 控件 | DTO 字段 | 类型 | 必填 | 默认 |
+|---|---|---|---|---|
+| 能力名称 | `name` | input | 是 | — |
+| 能力标识 | `key` | input | 是 | 创建后不可改 |
+| 说明 | `description` | textarea | 是 | — |
+| 输入参数定义 | `input_schema` | JSON Schema | 是 | — |
+| 输出结果定义 | `output_schema` | JSON Schema | **是** | — |
+| 风险等级 | `risk_level` | select | 是 | — |
+| 是否有副作用 | `side_effect` | select | 是 | `none`；四值 `none`/`read`/`write`/`destructive` |
+| 幂等性 | `idempotency_semantics` | select | 是 | 三值 `NONE`/`KEYED`/`NATURAL` |
+| 直调策略 | `invocation_policy` | select | 是 | `DIRECT`（默认，可被 Agent/Skill 短时直调）；另一值 `EXECUTION_ONLY`（必须经 Execution/Worker 可靠执行）。help：“只读但长跑、需人工检查点、有外部副作用 → 选 `EXECUTION_ONLY`”；`side_effect=write`/`destructive` 或 `risk_level=HIGH` 时服务端强制 `EXECUTION_ONLY`（非法组合 400 `CAPABILITY_CONTRACT_INVALID`，前端在提交前就地提示并禁用非法项） |
+| 实现类型 | `implementation_type` | select | 是 | 创建后不可改 |
+| 启用状态 | `enabled` | 只读 | — | 新增**不提交**；创建后默认启用，仅编辑页可改 |
+
+**四类实现配置：字段名逐字取自模块 07 `capability-implementation-schema`**
+
+| 类型 | `config` 字段 |
+|---|---|
+| PLATFORM_SERVICE | `project_platform_id`（必填）/ `service_key` / `auth_mode` / `request_mapping` / `response_mapping` |
+| HTTP | `method` / `base_url` / `path` / `query_mapping` / `body_mapping` / `header_keys`（仅非 Secret key，值走 ref）/ `response_mapping` |
+| MCP | `server_key` / `tool_name` / `input_mapping` / `response_mapping` |
+| SANDBOX | `capability_key` / `entrypoint` / `argv` / `env_allowlist` / `network_policy` / `max_output_bytes` |
+
+HTTP/MCP/SANDBOX **不显示** `project_platform_id`；SANDBOX 禁止自由 shell textarea。
+
+**归属边界（V1.13 冻结）**：超时与重试**不属于 `config`**，属 `execution_policy`（`deadline_ms` / `max_retries` / `backoff_ms`），表单上独立成组；分页配置**不属于 `config`**，属 `data_retrieval_policy`。
 
 **Pagination**：Page/Offset/Cursor 各自字段 + items_path + total/has_more/next_cursor + max_pages/max_items/max_duration + duplicate-page detection；Page/Offset `items==[]` 固定兜底；`short_page_terminates` 默认开启（true），下游可能产生中间短页时必须允许显式关闭；保证“非最后页必满”才可安全依赖短页终止（V1.12 裁决）。
 
 
 
-**平台选择与安全**：PLATFORM_SERVICE 的项目平台下拉使用 PLAT-API-01 的安全只读 DTO，显示 name/key/configured/enabled；UNCONFIGURED 不能用于测试/启用运行并显示“待配置认证模板”。Builder 可选择已配置平台，但不能打开认证管理写操作。
+**平台选择与安全**：PLATFORM_SERVICE 的项目平台下拉使用 **`PLAT-API-01` 响应**中的 `name`/`key`/`configured`/`enabled`（`configured` 与 `enabled` 均为后端返回字段，前端不自行推导）；UNCONFIGURED 不能用于测试/启用运行并显示“待配置认证模板”。Builder 可选择已配置平台，但不能打开认证管理写操作。
+
+**能力自身 `enabled` 的状态来源**：列表筛选、详情与编辑页展示的 `enabled` 取自 **`CAP-API-01` / `CAP-API-03` 响应**；Create（`CAP-API-02`）不接受 `enabled`，只有 Update（`CAP-API-04`）可改。
+
+**能力测试（`CAP-API-05`，Z-04）**：契约与文案见 `../90-Console交互规格.md` §4.7（`FEAT-04-05`），组件为 `CMP-04-05 CapabilityTestPanel`。
+
+| 项 | 前端规范 |
+|---|---|
+| 入口 | 能力**详情页顶部**「测试」按钮（与「编辑」并列）；列表行内**不放**测试（测试需要 JSON 输入，行内无法承载） |
+| 权限 | **Builder + Admin**（与模块 07 `CAP-API-05` 授权列一致）；对 Builder **不隐藏**按钮 |
+| 输入 | ① 测试输入：按该能力 `input_schema` 渲染的 JSON 编辑器，Schema 非法的 JSON **就地报错、不发请求**；② 测试用户 `test_user_id`：**仅当**该能力的 `auth_mode=USER_PLATFORM`（平台用户认证；凭据来源唯一由实现层 `auth_mode` 表达，能力本身不再声明）时显示，默认当前登录用户；③ 结果模式 `result_mode`：`INLINE` / `SUMMARY`，默认跟随后端实现策略 |
+| 输出 | `ok` + 归一化输出：inline 直接展开；外置时显示 summary + `artifact_id` 与「下载产物」入口（走 `EXE-API-06` 受权字节流，**不下发对象存储直链**）；**耗时**取自 `stats.latency`（渲染为 `N ms`，**不使用客户端计时**）；显示响应 `trace_id`（可复制） |
+| 统计行 | 显示 `stats` 的 `downstream_calls` / `pages` / `items` / `retries`：后端返回才渲染，**缺字段不渲染该项、前端不补 0** |
+| 错误呈现 | 弹窗内错误条显示脱敏错误码/消息（如 `DRY_RUN_UNSUPPORTED`），**不清空已填输入**；不提供“自动改配置”快捷操作 |
+| 副作用 | 测试结果**不产生运营统计口径的执行**（`execution_source=TEST`）：不写入执行记录、不影响运营统计，仅落审计 |
 
 ### 3.5 状态与数据流
 

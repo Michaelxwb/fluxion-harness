@@ -6,8 +6,8 @@
 
 # 可观测性与 Web 公共基础 模块需求与设计一体化文档
 
-> **文档编号**: MOD-OBS-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-OBS-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | OPS-API-03 改为 Prometheus/OpenMetrics 裸文本契约（text/plain; version=0.0.4，显式 Envelope 例外）；补 FEAT-OBS-06（Console 概览聚合）与 S-OBS-05；修正 S-OBS-04 功能归属与 §2.5.1 RULE→场景指向；重写 §6 追溯矩阵与合规矩阵 verifier |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | B7：`audit_log.details` 定死字段级 diff 结构（`changed_fields` + `digest`，Secret 只写 `"***"`）并补写入规则；AUDIT-API-01 行展开投影同步为 `details.changed_fields`；补 S-OBS-06（字段级 diff 且敏感字段不出现在 details）；Z-10：OPS-API-04 `today_human_timeout` 明确「用于概览独立卡片、不并入 `today_execution_failed`」及跳转条件 |
 
 ## 2. 需求分析
 
@@ -70,6 +72,7 @@
 | FEAT-OBS-03 | Metrics | 低基数 RED/USE/Execution 指标。 | P0 | DFX |
 | FEAT-OBS-04 | Audit Log | 配置/授权/发布/Secret refs 操作审计。 | P0 | 治理 |
 | FEAT-OBS-05 | Health | live/ready/metrics。 | P0 | K8S |
+| FEAT-OBS-06 | Console 概览聚合 | 为 Console 概览页提供跨领域只读统计（服务/Agent/Skill/能力计数、今日执行、待发布 Draft、最近执行）。 | P1 | Console 概览页 |
 
 ### 2.4 范围与边界
 
@@ -87,9 +90,9 @@
 | ID | 类型 | 描述 | 验证场景 |
 |---|---|---|---|
 | RULE-OBS-01 | 关联 | 请求至少 request_id/trace_id；Execution 路径还含 execution_id/step_id。 | S-OBS-01 |
-| RULE-OBS-02 | 脱敏 | 日志/trace/audit 禁止 Secret/password/token/完整 credential。 | S-OBS-02 |
-| RULE-OBS-03 | 指标 | Prometheus labels 禁止 user_id/execution_id 等无界高基数字段。 | S-OBS-03 |
-| RULE-OBS-04 | 审计 | 关键配置写/授权/发布/Skill 导入/绑定码/Credential 操作写 audit。 | S-OBS-04 |
+| RULE-OBS-02 | 脱敏 | 日志/trace/audit 禁止 Secret/password/token/完整 credential。 | E-OBS-02 |
+| RULE-OBS-03 | 指标 | Prometheus labels 禁止 user_id/execution_id 等无界高基数字段。 | E-OBS-01 |
+| RULE-OBS-04 | 审计 | 关键配置写/授权/发布/Skill 导入/绑定码/Credential 操作写 audit；写审计时填充字段级 `details.changed_fields`（无字段级变更可只写 `digest`）。 | S-OBS-04, S-OBS-06 |
 
 #### 2.5.2 功能验收场景
 
@@ -97,8 +100,10 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
-| S-OBS-04 | FEAT-OBS-03 | P1 | integration | 关键写操作落审计 | 本模块 | 执行发布/授权/导入/绑定码/凭据操作 | 查询 audit-logs | 每类操作均产生 audit 记录且不含 Secret |
+| S-OBS-04 | FEAT-OBS-04 | P1 | integration | 关键写操作落审计 | 本模块 | 执行发布/授权/导入/绑定码/凭据操作 | 查询 audit-logs | 每类操作均产生 audit 记录且不含 Secret |
+| S-OBS-05 | FEAT-OBS-06 | P1 | integration | Console→聚合统计 | 本模块 | 存在 FORMAL 执行与 Draft | 请求 GET /api/v1/console/overview/stats | 返回各领域计数（过滤 is_deleted、执行仅 FORMAL）；短 TTL 缓存且跨租户隔离 |
 | S-OBS-01 | FEAT-OBS-02 | P0 | E2E | Gateway→Runtime→Worker→Provider→OTel | 本模块 | 一次异步服务 | 执行完成 | 可按 trace/execution 关联所有 span |
+| S-OBS-06 | FEAT-OBS-04 | P1 | integration | 字段级审计 diff | 本模块 | 存在可编辑 Agent 且审计可用 | 编辑该 Agent 的 `instructions` 并保存，随后查询 audit-logs | 审计行 `details.changed_fields` 含 `{field:"instructions", before, after}`；该 Agent 的敏感字段不出现在 `details` 中（Secret 类只写 `"***"`） |
 | S-OBS-02 | FEAT-OBS-04 | P0 | E2E | Admin API→audit_log | 本模块 | 修改 Agent grant | 提交 | 记录 actor/action/resource/before-after digest |
 | S-OBS-03 | FEAT-OBS-05 | P0 | integration | K8S probe→role | 本模块 | 各角色启动 | 调用 live/ready | 依赖状态正确反映 readiness |
 
@@ -189,9 +194,9 @@ flowchart LR
 | resource_id | VARCHAR(256) | Y |  | IDX | 资源 ID |
 | request_id | VARCHAR(128) | Y |  | IDX | 请求关联 |
 | trace_id | VARCHAR(128) | Y |  | IDX | Trace |
-| before_digest | JSONB | N | {} |  | 脱敏前值摘要 |
-| after_digest | JSONB | N | {} |  | 脱敏后值摘要 |
-| details | JSONB | N | {} |  | 事件明细（脱敏后）；AUDIT-API-01 行展开即投影本字段 |
+| before_digest | JSONB | N | {} |  | 变更前值的**整体摘要**（脱敏后，保留）；字段级差异见 `details.changed_fields` |
+| after_digest | JSONB | N | {} |  | 变更后值的**整体摘要**（脱敏后，保留）；字段级差异见 `details.changed_fields` |
+| details | JSONB | N | {} |  | 事件明细（脱敏后）；**结构定死（B7）**：`{"changed_fields":[{"field":"<字段名>","before":"<脱敏值或掩码>","after":"<脱敏值或掩码>"}],"digest":{"before":"...","after":"..."}}`；Secret 类字段的 before/after 只写 `"***"`；AUDIT-API-01 行展开即投影本字段的 `changed_fields` |
 | execution_id | UUID | Y |  | IDX | 关联 Execution（可空：发布/授权/凭据类审计不关联执行；前端无此值时不显示跳转） |
 | result | VARCHAR(32) | N | SUCCESS | IDX | SUCCESS/DENIED/FAILED |
 | occurred_at | TIMESTAMPTZ | N | CURRENT_TIMESTAMP | IDX | 发生时间 |
@@ -203,6 +208,8 @@ flowchart LR
 **约束**
 
 - 禁止记录明文 Secret/password/token
+- **写审计时必须填充 `details.changed_fields`**：按实际变更字段逐项写入 `{field, before, after}`（Secret 类字段只写 `"***"`，不写脱敏前的原值）；无字段级变更的动作（发布、绑定、导入、启停等）可只写 `details.digest`，此时 `changed_fields` 为空数组 `[]`
+- `before_digest`/`after_digest` 保留为整体摘要（变更前后值的摘要），**不替代** `details.changed_fields`
 - append-only
 
 **索引设计**
@@ -329,33 +336,29 @@ flowchart LR
 
 **请求体**：无。
 
-**响应 data**
+**响应 Content-Type**：`text/plain; version=0.0.4`（OpenMetrics/Prometheus exposition）
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| prometheus_text | string | Prometheus exposition |
+**响应 data**：不适用。本端点是统一 JSON Envelope 规则的**显式例外**（Prometheus 抓取契约），已在 `01-架构与规范/06-接口设计基线.md` 登记；响应体为裸文本，不返回 `code/message/data/request_id`，也不包 `prometheus_text` 字段。
 
-**响应示例**
+**响应示例**（裸文本）
 
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "prometheus_text": "<prometheus_text>"
-  },
-  "request_id": "req_xxx"
-}
+```text
+# HELP fluxion_http_requests_total Total HTTP requests.
+# TYPE fluxion_http_requests_total counter
+fluxion_http_requests_total{role="platform-api",method="GET",status="200"} 42
+# HELP fluxion_execution_backlog Current due executions.
+# TYPE fluxion_execution_backlog gauge
+fluxion_execution_backlog{tier="default"} 3
 ```
 
 **错误码**
 
-仅使用公共错误码。
+仅使用公共错误码；错误响应沿用统一错误 taxonomy（HTTP status + 稳定 code），但仍不使用 JSON Envelope。
 
 **处理逻辑**
 
 ```text
-暴露低基数指标；禁止 user_id/execution_id 作为无限基数 label。
+暴露低基数指标；禁止 user_id/execution_id 作为无限基数 label。响应直接输出 exposition 文本，由 Prometheus 抓取；不得包装 JSON Envelope。
 ```
 
 #### OPS-API-04: Console 概览聚合统计
@@ -374,14 +377,14 @@ flowchart LR
 |---|---|---|
 | service_count / agent_count / skill_count / capability_count | int | 各领域对象数量 |
 | today_execution_total / today_execution_failed / running_execution_count | int | 今日执行总数/失败数/当前运行中 |
-| today_human_timeout | int | 今日人工超时失败数，独立列示 |
+| today_human_timeout | int | 今日人工超时失败数（`error_code=HUMAN_TIMEOUT`）；**独立列示**，用于 Console 概览的独立卡片，**不并入** `today_execution_failed`；卡片跳转条件：仅当 EXE-API-01 支持按 `error_code` 过滤时按该参数跳转执行列表，是否支持由模块 05 决定，**本文件不假设**（不支持则卡片只展示、不跳转） |
 | pending_publish_draft_count | int | 待发布 Draft 数 |
 | recent_executions | list | 最近执行引用（id/service/状态/时间，复用 EXE-API-01 摘要结构） |
 
 **处理逻辑**
 
 ```text
-对各领域表做 COUNT（过滤 is_deleted）；执行聚合仅 execution_source=FORMAL。今日按 tenant 配置时区的 [日初,次日初) 转 UTC 过滤；running 包含 RUNNING/WAITING/WAITING_HUMAN/RETRY_WAIT/CANCELLING，失败分类 HUMAN_TIMEOUT 单列 today_human_timeout。recent_executions 复用完整 ExecutionSummary；pending_publish_draft_count 以 draft hash 与 current release source hash 不同或未发布计数。短 TTL 缓存且跨租户隔离。
+对各领域表做 COUNT（过滤 is_deleted）；执行聚合仅 execution_source=FORMAL。今日按 tenant 配置时区的 [日初,次日初) 转 UTC 过滤；running 包含 RUNNING/WAITING/WAITING_HUMAN/RETRY_WAIT/CANCELLING，失败分类 HUMAN_TIMEOUT 单列 today_human_timeout（error_code=HUMAN_TIMEOUT；该值不并入 today_execution_failed，二者互斥计数，用于概览的独立卡片）。recent_executions 复用完整 ExecutionSummary；pending_publish_draft_count 以 draft hash 与 current release source hash 不同或未发布计数。短 TTL 缓存且跨租户隔离。
 ```
 
 #### AUDIT-API-01: 审计日志查询
@@ -414,7 +417,7 @@ flowchart LR
 | items | array<AuditLogView> | 脱敏审计 |
 | total | integer | 总数 |
 
-**AuditLogView**：time、actor（用户名/标识）、action、resource_type、resource_id、result、trace_id、execution_id（可空，空则前端不显示跳转）、details（行展开投影 audit_log.details，已脱敏）。
+**AuditLogView**：time、actor（用户名/标识）、action、resource_type、resource_id、result、trace_id、execution_id（可空，空则前端不显示跳转）、details（**行展开投影 `audit_log.details.changed_fields`（`{field, before, after}` 数组），Secret 掩码为 `"***"`**；无字段级变更时为空数组，可回退展示 `details.digest`）。
 
 **响应示例**
 
@@ -437,7 +440,8 @@ flowchart LR
 **处理逻辑**
 
 ```text
-时间窗口必须有限；走 tenant/resource/actor/time 索引分页；不返回 Secret。
+时间窗口必须有限；走 tenant/resource/actor/time 索引分页；
+details 只输出 changed_fields 与 digest（均为脱敏后的值；Secret 类字段为 "***"），永不返回 Secret/password/token 原值。
 ```
 
 ### 3.5 质量实现方案
@@ -487,26 +491,27 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 风险ID | 描述 | 影响 | 应对措施 | 验证场景 |
 |---|---|---|---|---|
-| RISK-OBS-01 | 跨模块边界在实现中被绕过 | 形成双事实源/不可测试 | Architecture Gate + code review | E2E/静态检查 |
+| RISK-OBS-01 | 跨模块边界在实现中被绕过 | 形成双事实源/不可测试 | Architecture Gate + code review | S-OBS-01 |
 
 ## 6. 需求追溯矩阵
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-OBS-01 | OPS-API-01, OPS-API-02 | E-OBS-02 | E2E/integration | 待实现/评审 |
-| FEAT-OBS-02 | OPS-API-02, OPS-API-03 | S-OBS-01 | E2E/integration | 待实现/评审 |
-| FEAT-OBS-03 | OPS-API-03, AUDIT-API-01 | E-OBS-01 | E2E/integration | 待实现/评审 |
-| FEAT-OBS-04 | AUDIT-API-01 | S-OBS-02 | E2E/integration | 待实现/评审 |
-| FEAT-OBS-05 |  | S-OBS-03 | E2E/integration | 待实现/评审 |
+| FEAT-OBS-01 | （跨切面 SDK 装配，无独立接口） | E-OBS-02 | E2E/integration | 待实现/评审 |
+| FEAT-OBS-02 | （跨切面 SDK 装配，无独立接口） | S-OBS-01 | E2E/integration | 待实现/评审 |
+| FEAT-OBS-03 | OPS-API-03 | E-OBS-01 | E2E/integration | 待实现/评审 |
+| FEAT-OBS-04 | AUDIT-API-01 | S-OBS-02, S-OBS-04, S-OBS-06 | E2E/integration | 待实现/评审 |
+| FEAT-OBS-05 | OPS-API-01, OPS-API-02 | S-OBS-03 | E2E/integration | 待实现/评审 |
+| FEAT-OBS-06 | OPS-API-04 | S-OBS-05 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/OBS#RULE-OBS-01 | design-baseline | 约束实现与验收 | §2.5 RULE-OBS-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/OBS#RULE-OBS-02 | design-baseline | 约束实现与验收 | §2.5 RULE-OBS-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/OBS#RULE-OBS-03 | design-baseline | 约束实现与验收 | §2.5 RULE-OBS-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/OBS#RULE-OBS-04 | design-baseline | 约束实现与验收 | §2.5 RULE-OBS-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/OBS#RULE-OBS-01 | design-baseline | 约束实现与验收 | §2.5 RULE-OBS-01 / §3 | S-OBS-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/OBS#RULE-OBS-02 | design-baseline | 约束实现与验收 | §2.5 RULE-OBS-02 / §3.3 audit_log 约束 | E-OBS-02 | applied；仓库 spec-context 待绑定 |
+| DESIGN/OBS#RULE-OBS-03 | design-baseline | 约束实现与验收 | §2.5 RULE-OBS-03 / §3.4.1 OPS-API-03 | E-OBS-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/OBS#RULE-OBS-04 | design-baseline | 约束实现与验收 | §2.5 RULE-OBS-04 / §3.3 audit_log 写入规则 / §3.4.1 AUDIT-API-01 | S-OBS-02, S-OBS-04, S-OBS-06 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 

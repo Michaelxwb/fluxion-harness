@@ -6,8 +6,8 @@
 
 # Project Integration 与 Registry 模块需求与设计一体化文档
 
-> **文档编号**: MOD-INT-V1.11 模块分档拆分版
-> **文档版本**: V1.11 模块分档拆分版
+> **文档编号**: MOD-INT-V1.13
+> **文档版本**: V1.13
 > **创建日期**: 2026-09-11
 > **文档状态**: 设计基线草案（待仓库 Spec Context 绑定后进入正式评审）
 > **模板**: `design-full.md`；生成流程按 `cf-task:align` 的复杂后端/架构模块路径执行。
@@ -36,6 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 展开 ProviderKind 11 值枚举并冻结 key 作用域与 auth_type 映射；补 S-INT-05（Provider 切换/Gate M）与场景重排；补 Library 认证/授权行；同步 Browser 后置声明；修正 §2.5.1 RULE→场景指向并重写 §6 追溯矩阵与合规矩阵 verifier |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | Y-08：`INT-LIB-02 register_provider` 签名补 `display_name`（人类可读认证方式名，供 Console「用户认证方式」列渲染），并声明其仅展示用、不参与路由与认证判定 |
 
 ## 2. 需求分析
 
@@ -86,11 +88,11 @@
 
 | ID | 类型 | 描述 | 验证场景 |
 |---|---|---|---|
-| RULE-INT-01 | 非持久化 | IntegrationRegistration 是运行时投影，权威来源是部署 Manifest，不落业务 DB。 | S-INT-01 |
-| RULE-INT-02 | 分层 | ProjectIntegration 与 ProjectPlatform 分离。 | S-INT-02 |
-| RULE-INT-03 | 冲突 | Provider key 冲突启动 fail-fast，不允许静默覆盖。 | S-INT-03 |
+| RULE-INT-01 | 非持久化 | IntegrationRegistration 是运行时投影，权威来源是部署 Manifest，不落业务 DB。 | S-INT-02 |
+| RULE-INT-02 | 分层 | ProjectIntegration 与 ProjectPlatform 分离。 | S-INT-03 |
+| RULE-INT-03 | 冲突 | Provider key 冲突启动 fail-fast，不允许静默覆盖。 | E-INT-01 |
 | RULE-INT-04 | Core 纯净 | Core 不 import integrations/mss；Integration 依赖 Core SPI 单向。 | S-INT-04 |
-| RULE-INT-05 | Seed | Seed 只能经领域 Application Service，禁止直接写表。 | S-INT-05 |
+| RULE-INT-05 | Seed | Seed 只能经领域 Application Service，禁止直接写表。 | S-INT-03 |
 
 #### 2.5.2 功能验收场景
 
@@ -98,11 +100,11 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
-| S-INT-05 | FEAT-INT-02 | P1 | integration | Seed 走 Application Service | 本模块 | 初始化集成数据 | 执行 Seed | 经领域服务写入；直接 SQL 写表被架构测试禁止 |
 | S-INT-01 | FEAT-INT-01 | P0 | integration | Manifest→Pydantic→hash | 本模块 | 合法 manifest | 加载 | hash 稳定且内容注册 |
-| S-INT-02 | FEAT-INT-02 | P0 | E2E | Process startup→Registry | 本模块 | MSS integration 安装 | 启动 Runtime/Worker | provider 可解析，Control Plane 离线不影响已装配 |
-| S-INT-03 | FEAT-INT-04 | P0 | integration | Seed→Domain services→PG | 本模块 | 首次启动 | apply seed | stable key 创建对象；二次运行幂等 skipped/updated |
+| S-INT-02 | FEAT-INT-02 | P0 | E2E | Process startup→Registry | 本模块 | MSS integration 安装 | 启动 Runtime/Worker | provider 可解析，Control Plane 离线不影响已装配；不存在 integration_registration 表/行，重启后由部署制品重新装配 |
+| S-INT-03 | FEAT-INT-04 | P0 | integration | Seed→Domain services→PG | 本模块 | 首次启动 | apply seed | 经领域 Application Service 写入，直接 SQL 写表被架构测试禁止；stable key 创建对象，二次运行幂等 skipped/updated |
 | S-INT-04 | FEAT-INT-05 | P0 | E2E | Architecture Gate | 本模块 | MSS+Demo Integration | 运行 Core tests | Core 无 MSS import/identifier 污染 |
+| S-INT-05 | FEAT-INT-02 | P1 | E2E | Provider 切换（Gate M） | 本模块+09 | 同时注册 NoAuth/api-key 测试 Provider 与 MSS Session AuthProvider | 切换 ProjectPlatform 的 auth_type 后调用 Platform Service 与 Capability | Platform Service 调用成功；Capability Runtime 代码无项目认证分支；旧 refresh 结果不能覆盖新 generation |
 
 **异常场景**
 
@@ -184,12 +186,14 @@ flowchart LR
 | 接口ID | 名称 | 形态 | 方法/签名 | 路径/用途 |
 |---|---|---|---|---|
 | INT-LIB-01 | Integration Loader | Library | def load_integrations(manifest_paths: list[Path]) -> LoadedIntegrationSet |  |
-| INT-LIB-02 | Provider Registry 注册 | Library | def register_provider(kind: ProviderKind, key: str, provider: Provider, source: IntegrationInfo) -> None |  |
+| INT-LIB-02 | Provider Registry 注册 | Library | def register_provider(kind: ProviderKind, key: str, display_name: str, provider: Provider, source: IntegrationInfo) -> None |  |
 | INT-LIB-03 | Seed Applier | Library | async def apply_seed(seed: IntegrationSeed, services: ControlPlaneServices) -> SeedApplyReport |  |
 
 #### INT-LIB-01: Integration Loader
 
 **入口类型**：Library
+
+**认证/授权**：Library；仅由进程启动装配路径（Runtime/Worker/platform-api 启动钩子）在部署制品上下文中调用；不接受租户请求驱动加载，也不允许运行期在线加载。
 
 **函数签名**
 
@@ -228,19 +232,23 @@ YAML parse → Pydantic validate → canonical JSON → SHA-256 manifest_hash �
 
 **入口类型**：Library
 
+**认证/授权**：Library；仅由 INT-LIB-01 的装配路径调用；不接受请求驱动注册。Provider 实例本身不携带租户身份，租户可见性由上层配置决定。
+
 **函数签名**
 
 ```python
-def register_provider(kind: ProviderKind, key: str, provider: Provider, source: IntegrationInfo) -> None
+def register_provider(kind: ProviderKind, key: str, display_name: str, provider: Provider, source: IntegrationInfo) -> None
 ```
 
 **入参**
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| kind | ProviderKind | Y | CAPABILITY/AUTH/KNOWLEDGE/CHANNEL/... |
-| key | string | Y | 全局/租户范围按规范 |
+| kind | ProviderKind | Y | 完整枚举：MODEL / CAPABILITY / AUTH / KNOWLEDGE / CHANNEL / ARTIFACT_STORE / SECRET / WORKSPACE / SANDBOX / AGENT_EXECUTOR / STEP_EXECUTOR（对应总设 §5.4 的 11 个扩展点；其中 CAPABILITY 对应 CapabilityProvider/Adapter） |
+| key | string | Y | 租户无关的全局稳定 key，`[a-z0-9_.-]{1,64}`；重复注册 fail-fast |
+| display_name | string | Y | 人类可读的认证/机制名称（如「MSS 会话认证」「API Key」），用于 Console「用户认证方式」列与 Console 列表渲染；**仅展示用，不参与路由与认证判定**，不要求唯一 |
 | provider | Provider | Y | 实现 |
+| source | IntegrationInfo | Y | 声明来源（integration 名/version/manifest_hash） |
 
 **异常/错误**
 
@@ -248,15 +256,35 @@ def register_provider(kind: ProviderKind, key: str, provider: Provider, source: 
 |---|---|---|
 | PROVIDER_KEY_CONFLICT | 重复 key | 500 |
 
+**异常/错误**
+
+| 错误码 | 场景 | HTTP 状态 |
+|---|---|---|
+| PROVIDER_KEY_CONFLICT | 重复 key | 500 |
+| PROVIDER_KIND_NOT_ENABLED | 注册 V1 未启用的 kind | 500 |
+
 **处理逻辑**
 
 ```text
-启动期单线程/锁保护注册；同 key 不允许 silently override。
+启动期单线程/锁保护注册；同 key 不允许 silently override；kind 不在 V1 白名单内直接 fail-fast。
 ```
+
+**V1 可注册 kind 白名单**：`AUTH`、`CAPABILITY`。其余 kind（`MODEL`/`SECRET`/`ARTIFACT_STORE`/`WORKSPACE`/`SANDBOX`/`AGENT_EXECUTOR`/`STEP_EXECUTOR`/`CHANNEL`/`KNOWLEDGE`）在 V1 是**核心 Port 或后置扩展**，注册即 `PROVIDER_KIND_NOT_ENABLED` fail-fast。
+
+> **理由**：`SECRET`/`ARTIFACT_STORE`/`WORKSPACE`/`MODEL` 在 V1 同时以"模块 14 的核心 Port"身份存在；若允许 Integration 再注册同名 kind，会出现"两套 Secret 解析来源"，而部署者无法从 manifest 判断哪个生效。把白名单写死可消除该歧义；等真实场景需要替换某个 Port 时，再显式放开并同步 Port 装配规则。
+
+**补充约束**
+
+- **key 作用域**：`key` 是**租户无关的全局稳定 key**，取值 `[a-z0-9_.-]{1,64}`；重复注册一律 `PROVIDER_KEY_CONFLICT` fail-fast。Provider 的**租户可见性由上层（Capability/Platform 配置）决定，不在 Registry 表达**——Registry 不保存 tenant 字段，也不做按租户的注册隔离。
+- **auth_type 映射**：`kind=AUTH` 的 provider key 即 ProjectPlatform 的 `auth_type` 取值空间（与模块 09 冻结的 `auth_type` 枚举一致）；新增 AuthProvider 必须同时更新两者的取值集合，不得只改一侧。
+- **display_name（Y-08）**：`register_provider` 的 `display_name` 是**人类可读**的认证方式名，`kind=AUTH` 时即 Console「用户认证方式」列表与列渲染的文案；它只做展示，**不参与路由、不参与认证判定、不参与 key 唯一性**（唯一性只由 `key` 决定）。`display_name` 不落业务表，随运行时投影与 Console 读接口输出。
+- **Browser Adapter 属 V2**：总设 §5.4 的 Browser 扩展点在本 Registry 不注册；Capability 四类实现中亦无 Browser Adapter（模块 07 §2.4 已声明后置）。
 
 #### INT-LIB-03: Seed Applier
 
 **入口类型**：Library
+
+**认证/授权**：Library；仅由部署/启动路径以 system actor 调用；必须携带可信上下文（显式 tenant 范围来自 seed 声明，不由请求驱动），且只能调用各领域 Application Service 的 create/update 入口。
 
 **函数签名**
 
@@ -335,21 +363,21 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-INT-01 | INT-LIB-01, INT-LIB-02 | S-INT-01, E-INT-02 | E2E/integration | 待实现/评审 |
-| FEAT-INT-02 | INT-LIB-02, INT-LIB-03 | S-INT-02 | E2E/integration | 待实现/评审 |
-| FEAT-INT-03 | INT-LIB-03 | E-INT-01 | E2E/integration | 待实现/评审 |
-| FEAT-INT-04 |  | S-INT-03 | E2E/integration | 待实现/评审 |
-| FEAT-INT-05 |  | S-INT-04 | E2E/integration | 待实现/评审 |
+| FEAT-INT-01 | INT-LIB-01 | S-INT-01, E-INT-02 | E2E/integration | 待实现/评审 |
+| FEAT-INT-02 | INT-LIB-01, INT-LIB-02 | S-INT-02, S-INT-05 | E2E/integration | 待实现/评审 |
+| FEAT-INT-03 | INT-LIB-02 | E-INT-01 | E2E/integration | 待实现/评审 |
+| FEAT-INT-04 | INT-LIB-03 | S-INT-03 | E2E/integration | 待实现/评审 |
+| FEAT-INT-05 | INT-LIB-01, INT-LIB-02 | S-INT-04 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| DESIGN/INT#RULE-INT-01 | design-baseline | 约束实现与验收 | §2.5 RULE-INT-01 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/INT#RULE-INT-02 | design-baseline | 约束实现与验收 | §2.5 RULE-INT-02 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/INT#RULE-INT-03 | design-baseline | 约束实现与验收 | §2.5 RULE-INT-03 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/INT#RULE-INT-04 | design-baseline | 约束实现与验收 | §2.5 RULE-INT-04 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
-| DESIGN/INT#RULE-INT-05 | design-baseline | 约束实现与验收 | §2.5 RULE-INT-05 / §3 | S/E/B 场景 | applied；仓库 spec-context 待绑定 |
+| DESIGN/INT#RULE-INT-01 | design-baseline | 约束实现与验收 | §2.5 RULE-INT-01 / §3.3 | S-INT-02 | applied；仓库 spec-context 待绑定 |
+| DESIGN/INT#RULE-INT-02 | design-baseline | 约束实现与验收 | §2.5 RULE-INT-02 / §3 | S-INT-03 | applied；仓库 spec-context 待绑定 |
+| DESIGN/INT#RULE-INT-03 | design-baseline | 约束实现与验收 | §2.5 RULE-INT-03 / §3.4.1 INT-LIB-02 | E-INT-01 | applied；仓库 spec-context 待绑定 |
+| DESIGN/INT#RULE-INT-04 | design-baseline | 约束实现与验收 | §2.5 RULE-INT-04 / §3 | S-INT-04 | applied；仓库 spec-context 待绑定 |
+| DESIGN/INT#RULE-INT-05 | design-baseline | 约束实现与验收 | §2.5 RULE-INT-05 / §3.4.1 INT-LIB-03 | S-INT-03 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单
 
