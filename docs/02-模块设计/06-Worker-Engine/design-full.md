@@ -91,6 +91,17 @@
 | RULE-WORK-03 | 租约 | 失去 lease 的 Worker 必须停止本地推进。 | S-WORK-03 |
 | RULE-WORK-04 | 重试 | 所有 retry 有界且考虑幂等/副作用。 | S-WORK-04 |
 | RULE-WORK-05 | 恢复 | SIGKILL Worker 后，其他 Worker 在 lease 过期后恢复同一 Execution。 | S-WORK-05 |
+| RULE-WORK-06 | 资源治理 | Worker 必须实施 Resource Governance：global 并发上限与 step_timeout_ms（总设 §5.2 P0 部分）；per-capability 并发为**单 Worker 进程内计数**（集群级配额为后续演进）；Resource Class 槽位准入与 priority 排序属总设 P1 部分、提前纳入本模块实现并标注排期口径；claim 顺序按 priority DESC, next_run_at ASC。 | S-WORK-01 |
+| RULE-WORK-07 | 人工等待 | WAITING_HUMAN 依赖现有 timer 轮询扫描 human_deadline（复用 claim 轮询，不引入独立 Scheduler）；超时置 FAILED(error_code=HUMAN_TIMEOUT/USER_INACTION)，HUMAN_TIMEOUT 在失败原因统计中单列；EXE-API-05 的 RESUME/CANCEL 释放等待后回到调度队列。 | S-WORK-06 |
+
+**资源治理配置（环境变量，启动加载）**：
+
+| 配置 | 默认 | 说明 |
+|---|---|---|
+| WORKER_GLOBAL_CONCURRENCY | 8 | 单 Worker 进程并发 Execution 上限 |
+| WORKER_PER_CAPABILITY_CONCURRENCY | 4 | 同一 capability_definition 并发调用上限 |
+| WORKER_RESOURCE_CLASS_SLOTS | default-io=8,llm-heavy=4,browser=2 | 按 Resource Class 槽位准入 |
+| WORKER_STEP_TIMEOUT_MS | default-io=300000,llm-heavy=600000,browser=900000 | Step 级超时；超时按 RULE-WORK-04 有界重试 |
 
 #### 2.5.2 功能验收场景
 
@@ -98,6 +109,8 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-WORK-05 | FEAT-WORK-03 | P1 | integration | SIGKILL 后恢复 | 本模块 | Worker A 持有 lease | kill -9 A，等待 lease 过期 | Worker B claim 同一 Execution 并继续推进 |
+| S-WORK-06 | FEAT-WORK-02 | P1 | integration | 人工超时扫描 | 本模块 | Execution 处于 WAITING_HUMAN 且 deadline 已过 | 轮询扫描到达 | 置 FAILED(HUMAN_TIMEOUT)；此后 RESUME/CANCEL 幂等拒绝 |
 | S-WORK-01 | FEAT-WORK-01 | P0 | integration | Worker×2→PostgreSQL | 本模块 | 同一批 due tasks | 两个 Worker 并发 claim | 同一 Execution 同时仅一个 owner |
 | S-WORK-02 | FEAT-WORK-04 | P0 | E2E | K8S kill→PG→Worker2 | 本模块 | Execution RUNNING | SIGKILL owner | lease 过期后 Worker2 恢复且不重复完成步骤 |
 | S-WORK-03 | FEAT-WORK-03 | P0 | E2E | PG next_run_at | 本模块 | 异步 task WAITING | 等待到 next_poll_at | Worker 之后再次 claim，不 busy loop |
@@ -184,6 +197,8 @@ Worker 不新建独立 queue 表；直接操作 Service/Execution 模块拥有�
 
 | 接口ID | 名称 | 形态 | 方法/签名 | 路径/用途 |
 |---|---|---|---|---|
+| WORK-LIB-06 | 投递 outbox 调度 | Library | advance_delivery(delivery_id, worker_id) | 跨 Execution 终态独立推进 |
+
 | WORK-LIB-01 | Claim 可运行 Execution | Library | async def claim_due_executions(worker_id: str, limit: int, now: datetime) -> list[ClaimedExecution] |  |
 | WORK-LIB-02 | 续租 Execution | Library | async def renew_lease(execution_id: UUID, worker_id: str, expected_lease_until: datetime) -> bool |  |
 | WORK-LIB-03 | 推进一个步骤 | Library | async def advance_execution(claim: ClaimedExecution) -> AdvanceResult |  |
@@ -214,13 +229,26 @@ async def claim_due_executions(worker_id: str, limit: int, now: datetime) -> lis
 |---|---|---|
 | items | array<ClaimedExecution> | 已获得 lease 的 Execution |
 
-**处理逻辑**
+**领取合同**：所有分支先排除其他 Worker 的有效租约；下面谓词是条件事实源。SQL 测试以 0/1 表示 boolean，生产 PG 映射到 FALSE/TRUE；has_pending_command 是同 tenant/execution 的 PENDING CANCEL/RESUME 的 EXISTS 投影，不是持久第二事实。
 
-```text
-PostgreSQL transaction + SELECT ... FOR UPDATE SKIP LOCKED，筛 status in PENDING/RUNNING/WAITING 且 next_run_at<=now 且 lease expired → 设置 lease_owner/expires_at → commit。
+<!-- contract:worker-eligibility -->
+```sql
+is_deleted = 0
+AND (lease_expires_at IS NULL OR lease_expires_at <= :now)
+AND (
+  status IN ('PENDING', 'RUNNING', 'CANCELLING')
+  OR (status IN ('WAITING', 'RETRY_WAIT') AND next_run_at IS NOT NULL AND next_run_at <= :now)
+  OR (status = 'WAITING_HUMAN' AND (requested_action IS NOT NULL OR human_deadline <= :now))
+  OR (has_pending_command = 1 AND status IN ('WAITING', 'RETRY_WAIT'))
+)
 ```
+<!-- /contract:worker-eligibility -->
 
-**补充约束**：Redis 仅 wake-up；即使 Redis 丢失，PG polling 仍能 claim。
+事务：SELECT ... FOR UPDATE SKIP LOCKED，按 priority DESC,next_run_at ASC NULLS FIRST,create_time ASC；领取后 lease_epoch +1、lease_owner=本实例、lease_expires_at=now+lease_seconds。PENDING/RUNNING/WAITING/RETRY_WAIT 变 RUNNING；CANCELLING/WAITING_HUMAN 保留状态。提交后其他实例仍必须经过统一 lease 条件，不能仅依靠行锁。
+
+命令优先表示持租约后的 apply_pending_commands 优先于业务 dispatch，不能在领取之前越过租约应用命令。已有有效 owner 在安全边界读命令；新 Worker 等其释放/过期。所有 Step/root/事件/命令写入比较 owner+lease_epoch 且未到期，失败 LEASE_LOST 并停止副作用。renew 不改变 epoch；失联 owner 不得提交旧结果。
+
+NULL：无 lease 可领取，RUNNING 且 lease=NULL 视为恢复；WAITING/RETRY_WAIT 的 next_run_at 必须非空，违规行报警而非 busy-loop。Redis 仅唤醒；完全停止 Redis 仍按 PG polling 推进。
 
 #### WORK-LIB-02: 续租 Execution
 
@@ -254,7 +282,7 @@ async def renew_lease(execution_id: UUID, worker_id: str, expected_lease_until: 
 **处理逻辑**
 
 ```text
-条件 UPDATE WHERE id=? AND lease_owner=? AND lease_expires_at=expected；失败立即停止本地继续执行，避免 split brain。
+条件 UPDATE WHERE id=:id AND lease_owner=:owner AND lease_epoch=:epoch AND lease_expires_at=:expected AND lease_expires_at>:now；失败 LEASE_LOST，停止推进。状态/进度写入也校验同一 epoch。
 ```
 
 #### WORK-LIB-03: 推进一个步骤
@@ -282,7 +310,11 @@ async def advance_execution(claim: ClaimedExecution) -> AdvanceResult
 **处理逻辑**
 
 ```text
-读取 immutable snapshot + current dynamic safety state → cancel check → load step → step executor(Capability/Agent/Human/Delivery) → transaction persist step/root/progress → release/renew lease。
+读取并校验 CORE-LIB-05 projection → 当前安全校验 → 持租约优先应用命令 → dispatch CAPABILITY/AGENT/WAIT/HUMAN/DELIVERY → fencing transaction 写 Step/root/progress → 释放/续租。
+WAIT：首次进入以数据库时间+snapshot.wait_seconds 写 step.wait_until、root.next_run_at，均在释放 lease 的事务中；恢复只比较已存截止时间，禁止重新起算。未到期 WAITING，到期 Step SUCCEEDED 后前进。
+HUMAN：固化 context_summary/deadline，进入 WAITING_HUMAN 后释放 lease；处理顺序和决策竞争按 EXE-API-05。
+DELIVERY：同业务事务写持久 channel_delivery（payload/dedupe），Step SUCCEEDED 表示已排队而非已送达；业务根可 SUCCEEDED，delivery_status 独立投影。投递失败不重跑已完成业务步骤，WORK-LIB-06 持续调度 outbox，即使根已终态。
+CAPABILITY/AGENT：注入 projection/source/test_mode，后者按 operation_id/step_key 恢复 checkpoint；DRY_RUN 不允许真实外部调用。
 ```
 
 #### WORK-LIB-04: 应用 ExecutionCommand
@@ -310,7 +342,7 @@ async def apply_pending_commands(execution_id: UUID, worker_id: str) -> list[App
 **处理逻辑**
 
 ```text
-读取 PENDING commands → 验证状态机 → CANCEL/RETRY/RESUME → 更新 command.status=APPLIED 或 REJECTED；相同 idempotency_key 不重复副作用。
+验证当前 owner+lease_epoch → 读取 PENDING CANCEL/RESUME → 按 EXE-API-03/05 应用，持久 APPLIED/REJECTED 与 root/step 变化在同一事务；RETRY 由 EXE-API-04 同事务完成，不进入本循环。先执行在 deadline 前已接受的人工决策，再检查超时。
 ```
 
 #### WORK-LIB-05: 异步任务轮询/取消
@@ -338,8 +370,14 @@ async def progress_async_task(step: ExecutionStep, run: AsyncTaskRun, now: datet
 **处理逻辑**
 
 ```text
-若 cancel requested 且 cancel_supported → provider.cancel；否则 provider.status → backoff 设置 next_poll_at；成功保存 result_ref；不得 busy loop。
+以 operation_id 读取唯一 async_task_run，构造可信 ctx + 持久 handle；SUBMITTING/SUBMITTED_UNKNOWN 只走 CAP-LIB-03 reconcile，不再次 submit。其他状态按 cancel_requested 调 cancel(ctx,handle) 或 status(ctx,handle)/result(ctx,handle)，回写时校验 lease_epoch；按 max_poll_attempts/reconcile_deadline 有界退避，不 busy-loop。
 ```
+
+#### WORK-LIB-06: 持久投递调度
+
+**签名**：`async def advance_delivery(delivery_id: UUID, worker_id: str) -> DeliveryOutcome`
+
+独立扫描模块 10 channel_delivery 的 PENDING、到期 RETRY_WAIT 和过期 SENDING（用于未知结果对账），不要求 execution 仍非终态。claim/attempt/fencing/outcome 的唯一规则为 CH-INT-01/CH-DATA-03；执行前校验路由/租户/文件归属和安全开关。单次发送由 Gateway 完成，有限重试仅由本循环调度；UNKNOWN 不盲目重发。
 
 ### 3.5 质量实现方案
 

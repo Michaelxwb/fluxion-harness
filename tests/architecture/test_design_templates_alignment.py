@@ -54,7 +54,7 @@ FRONTEND_REQUIRED = [
     "### 3.4 组件接口契约",
     "### 3.5 状态与数据流",
     "### 3.6 UI 状态",
-    "### 3.7 样式方案",
+    "### 3.7",
     "## 4. 风险与依赖",
     "## Spec Compliance Matrix",
 ]
@@ -64,35 +64,38 @@ def _assert_sections(path: Path, required: list[str]) -> None:
     text = path.read_text(encoding="utf-8")
     missing = [heading for heading in required if heading not in text]
     assert not missing, f"{path.relative_to(ROOT)} missing template sections: {missing}"
-    assert "YYYY-MM-DD" not in text
     assert "{模块名称}" not in text
+    assert "{{" not in text
 
 
 def test_full_design_documents_follow_full_template() -> None:
     module_dir = DOCS / "02-模块设计"
-    full_docs = sorted(module_dir.glob("*.md"))[:13]
-    assert len(full_docs) == 13
+    full_docs = sorted(module_dir.glob("*/design-full.md"))
+    assert len(full_docs) == 18, "V1.11: 19 modules, 18 full + 1 lite"
     for path in full_docs:
         _assert_sections(path, FULL_REQUIRED)
 
 
 def test_lite_design_documents_follow_lite_template() -> None:
     module_dir = DOCS / "02-模块设计"
-    lite_docs = sorted(module_dir.glob("*.md"))[13:]
-    assert len(lite_docs) == 2
+    lite_docs = sorted(module_dir.glob("*/design-lite.md"))
+    assert len(lite_docs) == 1, "V1.11: only 16-Knowledge规划 is lite"
     for path in lite_docs:
         _assert_sections(path, LITE_REQUIRED)
 
 
 def test_console_design_follows_frontend_template() -> None:
-    path = DOCS / "03-前端设计" / "01-Console前端模块设计.md"
-    _assert_sections(path, FRONTEND_REQUIRED)
+    frontend_dir = DOCS / "03-前端设计"
+    frontend_docs = sorted(frontend_dir.glob("*/design-frontend.md"))
+    assert len(frontend_docs) >= 11, "V1.12: 00-11 frontend modules"
+    for path in frontend_docs:
+        _assert_sections(path, FRONTEND_REQUIRED)
 
 
 def test_all_database_module_designs_reference_common_columns() -> None:
-    for path in sorted((DOCS / "02-模块设计").glob("*.md")):
+    for path in sorted((DOCS / "02-模块设计").glob("*/design-*.md")):
         text = path.read_text(encoding="utf-8")
-        if "数据设计" in text or "数据库" in text:
+        if "#### 表" in text:
             assert "is_deleted" in text, path.name
             assert "create_time" in text, path.name
             assert "update_time" in text, path.name

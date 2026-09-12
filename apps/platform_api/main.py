@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from fastapi.staticfiles import StaticFiles
 
 from apps.platform_api.routes.agents import router as agents_router
+from apps.platform_api.routes.auth import router as auth_router
 from framework.web.app import create_app
 from framework.web.response import ApiResponse, ok
 
@@ -17,6 +18,7 @@ async def health() -> ApiResponse[dict[str, str]]:
 
 
 router.include_router(agents_router)
+router.include_router(auth_router)
 app.include_router(router)
 
 console_dist = Path(__file__).resolve().parents[2] / "frontend" / "console" / "dist"

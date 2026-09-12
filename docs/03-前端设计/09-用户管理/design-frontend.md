@@ -44,12 +44,13 @@
 | FEAT-09-02 | 项目平台认证 | 每用户×平台最多一条 | P0 | V0.8 / Playbook / 总设 |
 | FEAT-09-03 | Agent 授权 | AgentAccessGrant | P0 | V0.8 / Playbook / 总设 |
 | FEAT-09-04 | IM 身份 | ChannelIdentity + BindCode | P0 | V0.8 / Playbook / 总设 |
+| FEAT-09-05 | 用户记忆（Memory） | 只读查看 + 单条删除/清理（Playbook U06） | P1 | Playbook U06 / 总设 §5.5 |
 
 ### 2.3 范围与边界
 
 | 类别 | 内容 |
 |---|---|
-| 范围（In Scope） | 管理用户基本信息、项目平台认证、Agent 授权、IM 身份与 BindCode，保持三类关系互不混淆。 |
+| 范围（In Scope） | 管理用户基本信息、项目平台认证、Agent 授权、IM 身份与 BindCode、用户 Memory 查看/清理，保持各关系互不混淆。 |
 | 非范围（Out of Scope） | 不提供用户来源字段，不把 ChannelIdentity、AgentAccessGrant、ProjectCredential 合并成一张“绑定”表。 |
 | 有意妥协 / 技术债 | 仓库技术栈、组件 API 细节待真实 repo scan 后锁定；产品字段和交互语义已冻结。 |
 
@@ -66,7 +67,11 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|
-| S-09-01 | FEAT-09-01 | E2E | Browser → Router → services → API → UI | 打开页面并完成主操作 | 页面字段、按钮、状态与 API Contract 一致 |
+| S-09-01 | FEAT-09-01 | E2E | 标识自动生成 | Admin 新增用户（仅名称/角色） | user_key 服务端生成并展示一次；无需手工输入 |
+| S-09-02 | FEAT-09-02 | E2E | 认证配置动态表单 | 按平台 auth_schema 渲染表单并保存凭据 | 保存成功 Secret 不回显；verify 返回状态 |
+| S-09-03 | FEAT-09-05 | E2E | Memory 治理 | Admin 查看用户记忆并删除单条 | 列表只读+单条删除确认；删除后列表刷新 |
+| S-09-04 | FEAT-09-04 | E2E | 绑定码生命周期 | 生成绑定码→/bind 使用→作废 | 明文仅创建时显示一次；同一 user+渠道同时仅一个 PENDING |
+| E-09-01 | FEAT-09-03 | E2E | 授权与 IM 身份不混淆 | 查看三类 Tab | 平台认证/Agent 授权/IM 身份分列展示，操作互不影响 |
 | E-09-01 | FEAT-09-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
@@ -107,7 +112,11 @@
 
 **IM 身份**：渠道、外部用户标识、绑定时间、状态、解除绑定。BindCode 创建响应一次展示明文和 `/bind CODE`，后续只显示存在/有效期/重新生成/作废。
 
+**用户记忆（Memory Tab，Admin-only）**：只读列表——memory_key、值摘要、来源（source_type/source_ref）、置信度、更新时间；操作=单条删除（确认弹窗，MEM-API-03；按 memory_key 删除）。批量清理为逐条删除，不提供整表一键清空。删除 Memory 不影响业务审计记录（数据生命周期分离，总设 §5.5）。
 
+
+
+**新增/编辑 DTO**：新增提交 display_name/role/status/description，不提交 user_key，成功显示服务器生成值；编辑先读取详情 revision 并原样回传，冲突保留表单并提示重新加载，不覆盖他人更新。平台认证区 credential_expires_at 与 session_expires_at 分开展示，前者失效提示重新配置，后者由系统刷新；Memory 使用 EXPLICIT/DERIVED/ADMIN 来源，仅 Admin 治理。
 
 ### 3.5 状态与数据流
 
@@ -137,6 +146,8 @@
 | 删除用户平台认证 | `CRED-API-04` | `DELETE /api/v1/users/{user_id}/platform-credentials/{platform_id}` | Auth 与项目平台 |
 | 用户 IM 身份列表 | `CH-API-03` | `GET /api/v1/users/{user_id}/channel-identities` | Channel Gateway |
 | 解除 IM 身份 | `CH-API-04` | `DELETE /api/v1/users/{user_id}/channel-identities/{identity_id}` | Channel Gateway |
+| 用户记忆列表 | `MEM-API-01` | `GET /api/v1/users/{user_id}/memory` | Conversation 与 User Memory |
+| 删除单条记忆 | `MEM-API-03` | `DELETE /api/v1/users/{user_id}/memory/{memory_key}` | Conversation 与 User Memory |
 | 生成绑定码 | `CH-API-05` | `POST /api/v1/users/{user_id}/bind-codes` | Channel Gateway |
 | 读取当前绑定码状态 | `CH-API-06` | `GET /api/v1/users/{user_id}/bind-codes/current` | Channel Gateway |
 | 作废绑定码 | `CH-API-07` | `POST /api/v1/users/{user_id}/bind-codes/{bind_code_id}/revoke` | Channel Gateway |

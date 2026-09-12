@@ -33,7 +33,7 @@ def test_no_user_agent_binding_references_in_code() -> None:
     assert _hits("user_agent_binding") == []
 
 
-def test_migration_0002_is_head_and_follows_0001() -> None:
+def test_migration_chain_has_single_head() -> None:
     versions = ROOT / "migrations" / "versions"
     revs: dict[str, str | None] = {}
     for path in versions.glob("*.py"):
@@ -43,7 +43,8 @@ def test_migration_0002_is_head_and_follows_0001() -> None:
         down_revision = ns.get("down_revision")
         revs[str(revision)] = str(down_revision) if down_revision is not None else None
     assert revs.get("0002") == "0001"
-    assert "0002" not in revs.values(), "0002 must be the migration head"
+    assert revs.get("0003") == "0002"
+    assert "0003" not in revs.values(), "0003 must be the migration head"
 
 
 def test_routing_goes_through_default_agent() -> None:

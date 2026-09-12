@@ -2708,14 +2708,14 @@ Channel Gateway/WeCom WebSocket 断开不能导致后台 Execution 丢失。
 Execution 一旦创建，至少固定：
 
 ```text
-Service Version
-Agent/Instructions Version
-Skill/Knowledge Version
-Capability Version
-关键策略/配置
+Service Version（service_release）
+Agent/Instructions Version（agent release/revision）
+Skill Version（artifact checksum）
+关键策略/配置（ExecutionSnapshot）
 ```
 
-运行过程中后台发布 V2，不能使 V1 Execution 漂移。
+Capability Implementation 默认不 pin：执行时解析当前有效 Implementation；授权、Credential、紧急禁用等实时生效（与总设 §4.2 一致）。
+运行过程中后台发布 V2，不能使 V1 Execution 的上述已固定内容漂移。
 
 ---
 

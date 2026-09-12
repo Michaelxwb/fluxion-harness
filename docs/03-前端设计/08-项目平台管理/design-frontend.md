@@ -65,7 +65,9 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|
-| S-08-01 | FEAT-08-01 | E2E | Browser → Router → services → API → UI | 打开页面并完成主操作 | 页面字段、按钮、状态与 API Contract 一致 |
+| S-08-01 | FEAT-08-01 | E2E | 创建即未配置态 | Admin 仅填名称/标识创建平台 | 创建成功；认证模板显示"未配置"（UNCONFIGURED），不隐式生成用户名密码 |
+| S-08-02 | FEAT-08-02 | E2E | 认证模板配置 | 在详情中添加字段定义并保存 | auth_schema 更新；已配置后修改有破坏性提示 |
+| E-08-01 | FEAT-08-01 | E2E | Builder 依赖选择 | Builder 创建 PLATFORM_SERVICE 能力选平台 | 下拉来自 PLAT-API-01 安全选项；平台管理页写操作不可见 |
 | E-08-01 | FEAT-08-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
@@ -102,6 +104,10 @@
 **认证模板字段**：field key、中文标签、input type、required、secret、校验规则/提示。V1 每个平台一个模板。
 
 
+
+**角色合同**：Builder 仅看安全列表/摘要（id/name/key/enabled/revision；模型可见 protocol/model_name，平台可见 auth_type/configured），不渲染未授权的地址/认证头/模板/Secret 字段。新增、编辑、测试/验证按钮仅 Admin；Builder 仍可从 Agent/Capability 表单选择这些安全依赖。API 双重执行同一权限。
+
+**未配置态**：新增只提交 name/key/description/enabled；auth_type 缺省或 null 统一存 UNCONFIGURED，auth_schema={}，列表 configured=false 显示“待配置”。Admin 保存模板后变 configured=true；未配置平台的凭据编辑/验证入口禁用并说明原因；不将空模板当可用用户名密码认证。
 
 ### 3.5 状态与数据流
 

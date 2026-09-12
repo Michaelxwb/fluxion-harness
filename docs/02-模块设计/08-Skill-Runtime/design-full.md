@@ -100,6 +100,8 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-SKILL-05 | FEAT-SKILL-04 | P1 | integration | Skill 经 ctx.capability.call | 本模块 | 已导入 Skill 调外部能力 | 运行 Skill | 调用走 Capability Runtime；无直连外部平台代码路径 |
+| S-SKILL-06 | FEAT-SKILL-04 | P1 | integration | platform_label 仅文本 | 本模块 | 导入含 platform_label 的 Skill | 查询 /skills 分组 | 按 label 文本分组展示；DB 无 ProjectPlatform FK |
 | S-SKILL-01 | FEAT-SKILL-01 | P0 | E2E | Upload→SafeExtract→ObjectStore→PG | 本模块 | 合法包 | 导入 | 生成 Definition/Artifact/依赖快照，详情可读 |
 | S-SKILL-02 | FEAT-SKILL-03 | P0 | integration | manifest→cap registry | 本模块 | skill.yaml 列 3 capabilities | 导入 | 3 条 artifact dependency，只读 |
 | S-SKILL-03 | FEAT-SKILL-06 | P0 | E2E | Import v2→current pointer | 本模块 | 已有 v1 | 导入合法 v2 | current=v2，v1 checksum 仍可查询 |
@@ -180,9 +182,42 @@ flowchart LR
 
 | 表名 | 职责 | 所有权 |
 |---|---|---|
+| skill_import_preview | 上传暂存/确认消费 | Skill Runtime |
+
 | skill_definition | Skill 逻辑身份；代码在线下 IDE 开发，Console 只导入不可变 Artifact。 | Skill Runtime |
 | skill_artifact | 每次导入产生不可变 Skill 包制品及校验结果。 | Skill Runtime |
 | skill_artifact_capability | 由 skill.yaml capabilities[] 自动解析出的 Artifact→Capability 依赖快照；Console 不可人工编辑。 | Skill Runtime |
+
+#### 表 `skill_import_preview`
+
+**职责**：暂存预览与确认提交的单一事实，非正式 Skill/Artifact。
+
+| 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
+|---|---|---|---|---|---|
+| tenant_id | UUID | N |  | IDX | 租户 |
+| actor_user_id | UUID | N |  | FK | 上传者，commit 必须匹配 |
+| skill_id | UUID | Y |  | FK | 新版本目标；首次为空 |
+| expected_revision | BIGINT | Y |  |  | 目标 Skill 的预览版本 |
+| expected_key | VARCHAR(160) | N |  |  | manifest key |
+| token_hash | VARCHAR(64) | N |  | UK | 不落原始 token |
+| staging_ref | VARCHAR(1024) | N |  |  | 暂存区，不是 SkillArtifact |
+| checksum | VARCHAR(64) | N |  |  | 包完整校验值 |
+| manifest_json | JSONB | N |  |  | 解析结果 |
+| validation_report | JSONB | N |  |  | 已脱敏完整报告 |
+| expires_at | TIMESTAMPTZ | N |  | IDX | 创建后 30 分钟 |
+| status | VARCHAR(16) | N | PENDING |  | PENDING/COMMITTED/EXPIRED |
+| committed_skill_id | UUID | Y |  | FK | 首次导入结果 |
+| committed_artifact_id | UUID | Y |  | FK | 提交幂等结果 |
+| id | UUID | N | gen_random_uuid() | PK | 主键 |
+| is_deleted | BOOLEAN | N | FALSE |  | 默认过滤 FALSE |
+| create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
+
+**约束与索引**
+
+- UNIQUE (tenant_id,token_hash)；后台 TTL 清理未提交暂存包，保留必要脱敏审计。
+- COMMITTED 必须有结果两个 ID；重复 commit 返回相同 ID；已过期未提交返回 SKILL_PREVIEW_EXPIRED。
+- commit 锁 preview 和目标 Skill，expected_revision CAS 防并发切换；暂存包 digest 不可改。
 
 #### 表 `skill_definition`
 
@@ -201,7 +236,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -234,17 +269,18 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
-- UNIQUE (tenant_id,checksum)
+- UNIQUE (tenant_id,skill_id,checksum)（同一 Skill 内去重；同内容可重新导入为新版本记录或回滚指向旧 Artifact）
 - 禁止 UPDATE artifact 内容；validation_report 若需复核可追加 validation event 或仅更新状态（实现需选择并保持审计）
 
 **索引设计**
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
-| uk_skill_artifact_checksum | UNIQUE | tenant_id,checksum | 去重与发布冻结 |
+| uk_skill_artifact_checksum | UNIQUE | tenant_id,skill_id,checksum | 去重与发布冻结 |
 | idx_skill_artifact_skill | BTREE | tenant_id,skill_id,create_time DESC | 版本列表 |
 
 **不可变约束**：创建后禁止业务 UPDATE/DELETE；如需演进创建新记录并更新上层 current 指针。
@@ -262,6 +298,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -327,7 +364,7 @@ erDiagram
 | SKILL-API-06 | Skill 能力依赖 | HTTP | GET | /api/v1/skills/{skill_id}/capabilities |
 | SKILL-API-07 | Skill 使用 Agent | HTTP | GET | /api/v1/skills/{skill_id}/agents |
 | SKILL-API-08 | Skill 校验结果 | HTTP | GET | /api/v1/skills/{skill_id}/validation |
-| SKILL-LIB-01 | 生产 Skill 执行 | Library | async def run_skill(ctx: SkillContext, skill_id: UUID, input: dict) -> SkillResult |  |
+| SKILL-LIB-01 | 生产 Skill 执行 | Library | async def run_skill(ctx: SkillInvocationContext, skill_id: UUID, input: JsonObject) -> SkillResult |  |
 
 #### SKILL-API-01: Skill 列表
 
@@ -335,7 +372,7 @@ erDiagram
 
 **契约**：`GET /api/v1/skills`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **Query 参数**
 
@@ -383,73 +420,67 @@ skill_definition JOIN current artifact；聚合 dependency/agent count；Console
 
 #### SKILL-API-02: 首次导入 Skill
 
-**入口类型**：HTTP
-
 **契约**：`POST /api/v1/skills/import`
 
-**认证/授权**：None
+**认证/授权**：Builder + Admin；预览/提交同 tenant/actor
 
-**请求体**
+**请求体**：preview 使用 multipart（mode=preview、artifact 文件、可选 expected_key）；commit 使用 application/json（mode=commit、preview_token），禁止提交 artifact/任意替换包。两模式 Schema 如下，artifact 的字符串是测试中的文件逻辑标识，真实传输为 binary multipart。
 
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| artifact | binary multipart | Y | .zip/.tar.gz，本地文件 |
-| expected_key | string | N | 可选用于防错 |
-
-**请求示例**
-
+<!-- contract:skill-import-schema -->
 ```json
 {
-  "artifact": "<artifact>",
-  "expected_key": "<expected_key>"
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "artifact"
+      ],
+      "properties": {
+        "mode": {
+          "const": "preview"
+        },
+        "artifact": {
+          "type": "string",
+          "minLength": 1,
+          "description": "multipart binary 文件的逻辑字段"
+        },
+        "expected_key": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "preview_token"
+      ],
+      "properties": {
+        "mode": {
+          "const": "commit"
+        },
+        "preview_token": {
+          "type": "string",
+          "minLength": 32
+        }
+      }
+    }
+  ]
 }
 ```
+<!-- /contract:skill-import-schema -->
 
-**响应 data**
+**处理**：preview SafeExtractor→Manifest/SDK/entrypoint/依赖存在及 enabled/Secret/供应链校验→写 skill_import_preview 和 staging 对象，生成高熵 token（仅 hash 落库），不写正式 SkillDefinition/SkillArtifact，不切 current。invalid 也返回脱敏报告但无可 commit token。取消只丢弃 token，30 分钟后暂存清理；不存在立即物理“零文件”的承诺。
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| skill_id | uuid | SkillDefinition |
-| artifact_id | uuid | 新 Artifact |
-| checksum | string | SHA-256 |
-| validation_status | string | VALID/INVALID |
-| validation_report | object | 校验报告 |
+commit：验证 tenant/actor、token 与 TTL，锁预览和目标，复查暂存 checksum、当前依赖/权限/SDK兼容、expected_revision；首次导入要求 key 尚不存在，新版本要求 manifest key 与目标 skill 匹配。先把同 checksum 内容放不可变 ObjectStore（失败无正式记录；未引用对象后续 GC），再单 PG 事务写 Definition/Artifact/dependencies/current 指针并置 COMMITTED/结果 ID，审计同事务。同 token 已提交先返回原结果，不因后来 TTL 过期再报错；同 checksum 已存在合法 Artifact 时复用它而不写重复制品。
 
-**响应示例**
+**响应判别**：preview=`{mode:"preview",valid,manifest,validation_report,preview_token:string|null,expires_at,checksum}`；无正式 IDs。commit=`{mode:"commit",skill_id,artifact_id,checksum,revision,current:true}`。错误 SKILL_PREVIEW_EXPIRED（410）、SKILL_PREVIEW_ACCESS_DENIED（403）、SKILL_PREVIEW_CHANGED/SKILL_REVISION_CONFLICT/SKILL_KEY_EXISTS/SKILL_DEPENDENCY_CHANGED（409）、SKILL_ARCHIVE_INVALID（400）。
 
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "skill_id": "<skill_id>",
-    "artifact_id": "<artifact_id>",
-    "checksum": "<checksum>",
-    "validation_status": "<validation_status>",
-    "validation_report": {}
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| SKILL_ARCHIVE_INVALID | 压缩包非法/路径穿越 | 400 |
-| SKILL_MANIFEST_MISSING | 缺 skill.yaml | 400 |
-| SKILL_MANIFEST_INVALID | Schema 失败 | 400 |
-| SKILL_SDK_INCOMPATIBLE | SDK 不兼容 | 409 |
-| SKILL_CAPABILITY_MISSING | 依赖 Capability 不存在/禁用 | 409 |
-| SKILL_CHECKSUM_EXISTS | 同 checksum 已导入 | 409 |
-
-**处理逻辑**
-
-```text
-SafeExtractor 临时解压 → 解析 skill.yaml/SKILL.md → SDK/entrypoint/依赖/供应链校验 → ObjectStore.put → transaction upsert SkillDefinition + INSERT immutable SkillArtifact + dependency snapshot → current_artifact_id 指向 VALID artifact → audit；失败清理临时文件。
-```
-
-**一致性/幂等**：Artifact append-only；同一 key 导入新内容视为新版本，不覆盖旧 Artifact。
+**示例**：preview 逻辑请求 `{"mode":"preview","artifact":"report.zip"}`；commit `{"mode":"commit","preview_token":"0123456789abcdef0123456789abcdef"}`。前端拿 preview_token 后确认才调用 commit，取消不发 commit。
 
 #### SKILL-API-03: Skill 详情
 
@@ -457,7 +488,7 @@ SafeExtractor 临时解压 → 解析 skill.yaml/SKILL.md → SDK/entrypoint/依
 
 **契约**：`GET /api/v1/skills/{skill_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 
@@ -502,64 +533,11 @@ SafeExtractor 临时解压 → 解析 skill.yaml/SKILL.md → SDK/entrypoint/依
 
 #### SKILL-API-04: 导入 Skill 新版本
 
-**入口类型**：HTTP
-
 **契约**：`POST /api/v1/skills/{skill_id}/artifacts`
 
-**认证/授权**：None
+**认证/授权**：Builder + Admin；目标 Skill 当前租户且有编辑权限
 
-**请求体**
-
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| artifact | binary multipart | Y | 新 zip/tar.gz |
-
-**请求示例**
-
-```json
-{
-  "artifact": "<artifact>"
-}
-```
-
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| artifact_id | uuid | 新 Artifact |
-| checksum | string | hash |
-| validation_status | string | VALID/INVALID |
-| current | boolean | 是否切成 current |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "artifact_id": "<artifact_id>",
-    "checksum": "<checksum>",
-    "validation_status": "<validation_status>",
-    "current": true
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| SKILL_KEY_MISMATCH | manifest key 与 Skill 不一致 | 409 |
-| SKILL_CHECKSUM_EXISTS | 重复 artifact | 409 |
-| SKILL_VALIDATION_FAILED | 校验失败，保留报告但不切 current | 409 |
-
-**处理逻辑**
-
-```text
-与首次导入共用 validator；必须 manifest.key 匹配；VALID 才原子更新 current_artifact_id；旧 artifact 保持。
-```
+请求、分阶段响应、错误与 SKILL-API-02 的 skill-import-schema 完全一致：preview multipart 必填 mode/artifact，commit JSON 必填 mode/preview_token 且禁止 artifact。预览时记录 skill_id/current revision，提交校验 target 与 expected_revision，manifest key 不符 SKILL_KEY_MISMATCH（409）。两阶段都调用 SKILL-API-02 的共用 Application，禁止另写直切 current 流程；preview 响应不包含正式 artifact_id/current=true。
 
 #### SKILL-API-05: Artifact 历史
 
@@ -567,7 +545,7 @@ SafeExtractor 临时解压 → 解析 skill.yaml/SKILL.md → SDK/entrypoint/依
 
 **契约**：`GET /api/v1/skills/{skill_id}/artifacts`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **Query 参数**
 
@@ -617,7 +595,7 @@ SafeExtractor 临时解压 → 解析 skill.yaml/SKILL.md → SDK/entrypoint/依
 
 **契约**：`GET /api/v1/skills/{skill_id}/capabilities`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 
@@ -658,7 +636,7 @@ current_artifact_id → skill_artifact_capability JOIN definition/implementation
 
 **契约**：`GET /api/v1/skills/{skill_id}/agents`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **Query 参数**
 
@@ -706,7 +684,7 @@ current_artifact_id → skill_artifact_capability JOIN definition/implementation
 
 **契约**：`GET /api/v1/skills/{skill_id}/validation`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 
@@ -752,14 +730,14 @@ current_artifact_id → skill_artifact_capability JOIN definition/implementation
 **函数签名**
 
 ```python
-async def run_skill(ctx: SkillContext, skill_id: UUID, input: dict) -> SkillResult
+async def run_skill(ctx: SkillInvocationContext, skill_id: UUID, input: JsonObject) -> SkillResult
 ```
 
 **入参**
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| ctx | SkillContext | Y | 由 Runtime 注入 |
+| ctx | SkillInvocationContext | Y | 宿主内部可信 identity/projection/workspace/operation/test_mode；不把 Secret 暴露 SDK |
 | skill_id | uuid | Y | SkillDefinition |
 | input | object | Y | Skill 输入 |
 
@@ -780,7 +758,7 @@ async def run_skill(ctx: SkillContext, skill_id: UUID, input: dict) -> SkillResu
 **处理逻辑**
 
 ```text
-resolve current immutable artifact → 校验 SDK/runtime compatibility → 构造受控 SkillContext → 在 Sandbox/受控 runner 中 import entrypoint → 执行 → telemetry；Capability 只能经 ctx.capability.call。
+ctx.execution_id 非空时严格使用 ctx.projection.skills[skill_id] 的 artifact/checksum/entrypoint；缺失 EXECUTION_PROJECTION_REQUIRED，禁止 current fallback。Chat 用 current。校验 SDK/runtime/依赖和当前 enabled → Workspace → LinuxNamespaceExecutor 启动隔离子进程 import entrypoint，宿主绝不 import 业务 Skill → 经私有 IPC 服务同步 SDK 请求 → 校验结果/提交 Artifact/telemetry。SkillInvocationContext 留在宿主，子进程只收到安全 SDK Context。
 ```
 
 **补充约束**：Console 不提供执行编排器；Python if/for/数据转换属于 Skill 自身。

@@ -1,16 +1,20 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from adapters.postgres.agent_repository import AgentRepository
 from adapters.postgres.models import AgentDefinitionModel
-from apps.platform_api.dependencies import get_session_factory
+from apps.platform_api.dependencies import get_session_factory, require_builder
 from framework.observability.context import request_id_ctx
 from framework.web.pagination import PageData
 from framework.web.response import ApiResponse, ok
 
-router = APIRouter(prefix="/agents", tags=["agents"])
+router = APIRouter(
+    prefix="/agents",
+    tags=["agents"],
+    dependencies=[Depends(require_builder())],
+)
 
 
 class AgentUpsert(BaseModel):

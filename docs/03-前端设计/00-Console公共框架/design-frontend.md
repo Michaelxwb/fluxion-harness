@@ -66,7 +66,9 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|
-| S-00-01 | FEAT-00-01 | E2E | Browser → Router → services → API → UI | 打开页面并完成主操作 | 页面字段、按钮、状态与 API Contract 一致 |
+| S-00-01 | FEAT-00-01 | E2E | 登录与角色上下文 | 以 Builder 登录后进入 /console | 菜单不含用户/审计；角色上下文= BUILDER |
+| S-00-02 | FEAT-00-01 | E2E | 401 统一处理 | token 过期后任意操作 | 跳转 /login；重新登录回原页面 |
+| E-00-01 | FEAT-00-01 | E2E | Admin-only 接口 403 | Builder 直接调用 SVC-API-07 发布 | 错误映射为无权限提示，不白屏 |
 | E-00-01 | FEAT-00-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
@@ -94,6 +96,14 @@
 | CMP-00-02 | StandardListPage | 容器 | 列表查询、筛选、分页、主操作 |
 | CMP-00-03 | ReadOnlyDetail | 展示 | 只读详情壳 |
 | CMP-00-04 | EntityFormModal | 容器 | 新增/编辑表单壳 |
+
+### 3.3.1 登录与身份合同（V1.12 已冻结，代码已实现）
+
+- 登录：`POST /api/v1/auth/login`（username/password）→ `{token, username, role}`；Bearer Token 有效期 12 小时，仅存 SHA-256 摘要；
+- 注销：`POST /api/v1/auth/logout`（吊销当前 token）；
+- 初始账号：`python -m apps.platform_api.bootstrap_admin <user> <pass>` 一次性创建 ADMIN，已存在则拒绝；
+- 守卫：除 `POST /api/v1/auth/login` 外，所有 `/api/v1/*` 需 Bearer 会话（RULE-API-02）；Admin-only 接口 Builder 调用返回 403；失效/过期 token 返回 401，前端统一跳登录页；
+- 角色来源：登录响应的 `role`（ADMIN/BUILDER）即 ConsoleLayout 角色上下文，无需额外接口。
 
 ### 3.4 组件接口契约与字段
 

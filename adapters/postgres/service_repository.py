@@ -96,7 +96,7 @@ class ServiceRepository:
                     )
                 row = ServiceReleaseModel(
                     service_id=service_id,
-                    release_id=release.release_id,
+                    release_no=release.release_no,
                     content_hash=release.content_hash,
                     published_payload=release.frozen_payload,
                     published_by=published_by,
@@ -263,13 +263,13 @@ class ServiceRepository:
             AuditLogModel(
                 actor_user_id=published_by,
                 action="service.published",
-                entity_type="service_release",
-                entity_id=str(release_row_id),
+                resource_type="service_release",
+                resource_id=str(release_row_id),
                 request_id=request_id,
-                after_ref=release.release_id,
+                after_ref=release.release_no,
                 details={
                     "service_key": service.service_key,
-                    "release_id": release.release_id,
+                    "release_no": release.release_no,
                     "content_hash": release.content_hash,
                 },
             )

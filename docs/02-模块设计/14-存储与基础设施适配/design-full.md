@@ -255,8 +255,10 @@ async def get_object(ref: ObjectRef, *, byte_range: Range | None = None) -> Asyn
 **处理逻辑**
 
 ```text
-tenant/scope validate → stream；必要时签名 URL 也只能短时且经权限。
+tenant/scope validate → stream；模块 05 校验 Artifact/Workspace owner 后读取，模块 10 经 CH-DATA-04 调用同一 Application，禁止直接用外部提供的 object_ref。
 ```
+
+**签名 URL 范围**：`sign_read(object_ref, ttl=600)` 若由 ObjectStore Adapter 内部使用，仅服务到服务取流，不进入 Console/IM/SDK 响应；它是有时效的 bearer 访问，不声明一次性或用户绑定。公开下载固定经 EXE-API-06 授权字节流；IM 用原生文件和 `/result` 重新取件。签发仅限 Artifact Application 的受信调用上下文。
 
 #### INFRA-LIB-03: Secret 写入
 

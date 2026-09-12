@@ -37,7 +37,7 @@ def test_build_service_release_freezes_agent_and_scope() -> None:
         resource_scope_schema_hash="h" * 64,
     )
     assert first.content_hash == second.content_hash
-    assert first.release_id == second.release_id
+    assert first.release_no == second.release_no
     assert first.frozen_payload["agent_snapshot"] == {"revision": 3}
     # FEAT-04: the declared scope type travels in the payload, the hash is derived
     assert first.frozen_payload["resource_scope_type"] == "demo.scope"

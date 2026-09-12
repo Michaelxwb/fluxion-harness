@@ -67,7 +67,10 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|
-| S-03-01 | FEAT-03-01 | E2E | Browser → Router → services → API → UI | 打开页面并完成主操作 | 页面字段、按钮、状态与 API Contract 一致 |
+| S-03-01 | FEAT-03-01 | E2E | 必选模型选项 | Builder 新增智能体选择模型 | 模型下拉来自 MODEL-API-01 安全选项（无 Secret）；保存成功 |
+| S-03-02 | FEAT-03-03 | E2E | 绑定选择弹窗 | Builder 在能力/Skill Tab 点绑定 | 选择弹窗展示可绑定对象；保存后 Tab 列表即时刷新 |
+| S-03-03 | FEAT-03-05 | E2E | IM 接入配置 | Admin 配置企微 Bot 密钥 | 保存后仅显示 secret_configured=true；连接状态只读展示 |
+| E-03-01 | FEAT-03-06 | E2E | 用户授权 Tab 角色 | Builder 查看智能体详情 | 用户授权 Tab 隐藏或只读（Admin 可管理） |
 | E-03-01 | FEAT-03-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
@@ -112,6 +115,8 @@
 **用户授权 Tab**：Admin 添加/撤销用户；Builder 只读或隐藏。
 
 
+
+**依赖选择**：模型下拉经 MODEL-API-01 的 Builder 安全 DTO（id/name/model_name/enabled）查询，保存 model_config_id；无可用模型明确空态，不要求 Builder 手填 UUID 或获取 Secret。MemoryPolicy 表单字段 allowed_keys/max_value_bytes/max_items，分别映射 Agent.memory_policy；敏感授权/IM Bot 写操作仅 Admin。
 
 ### 3.5 状态与数据流
 

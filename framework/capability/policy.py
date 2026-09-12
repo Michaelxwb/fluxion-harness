@@ -1,6 +1,5 @@
 from framework.contracts.capability import CapabilityContract
 
-
 _DURABLE_CHARACTERISTICS = {"worker_only", "worker_preferred", "async"}
 
 

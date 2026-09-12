@@ -58,25 +58,27 @@
 
 每个 HTTP/Internal/Library/CLI Contract 只在一个模块详细定义；跨模块调用通过 Contract 引用。
 
+**全局鉴权 RULE（ADR-021 / RULE-API-02 承接）**：所有 `/api/v1/*` 接口必须登录会话（中间件解析身份），唯一豁免为 `POST /api/v1/auth/login`（登录入口本身）；写操作按 ADR-021 页面级权限授予——用户/授权/绑定码/凭据/模型/项目平台/发布/执行控制类接口仅 Admin，配置开发类接口 Builder+Admin；`/internal/*` 仅限 service-to-service token。各模块接口表的"认证/授权"列为权威，且不得为空。
+
 | 模块 | Owner 接口/函数 |
 |---|---|
 | 18-用户与Agent授权 | `USR-API-01`, `USR-API-02`, `USR-API-03`, `USR-API-04`, `USR-API-05`, `USR-API-06`, `USR-API-07`, `USR-API-08`, `USR-LIB-01` |
-| 05-Service与Execution | `SVC-API-01`, `SVC-API-02`, `SVC-API-03`, `SVC-API-04`, `SVC-API-05`, `SVC-API-06`, `SVC-API-07`, `SVC-API-08`, `SVC-API-09`, `EXE-API-01`, `EXE-API-02`, `EXE-API-03`, `EXE-API-04`, `EXE-LIB-01` |
+| 05-Service与Execution | `SVC-API-01`, `SVC-API-02`, `SVC-API-03`, `SVC-API-04`, `SVC-API-05`, `SVC-API-06`, `SVC-API-07`, `SVC-API-08`, `SVC-API-09`, `SVC-API-10`, `EXE-API-01`, `EXE-API-02`, `EXE-API-03`, `EXE-API-04`, `EXE-API-05`, `EXE-API-06`, `EXE-LIB-01` |
 | 11-Conversation与User-Memory | `CONV-API-01`, `CONV-API-02`, `CONV-API-03`, `CONV-API-04`, `MEM-API-01`, `MEM-API-02`, `MEM-API-03`, `CONV-LIB-01`, `MEM-LIB-01` |
 | 13-Workspace与Sandbox | `WS-LIB-01`, `WS-LIB-02`, `WS-LIB-03` |
-| 01-核心领域与发布模型 | `CORE-LIB-01`, `CORE-LIB-02`, `CORE-LIB-03` |
+| 01-核心领域与发布模型 | `CORE-LIB-01`, `CORE-LIB-02`, `CORE-LIB-03`, `CORE-LIB-04` |
 | 14-存储与基础设施适配 | `INFRA-LIB-01`, `INFRA-LIB-02`, `INFRA-LIB-03`, `INFRA-LIB-04`, `INFRA-LIB-05` |
 | 04-Agent-Core与Agent-Executor | `AGENT-API-01`, `AGENT-API-02`, `AGENT-API-03`, `AGENT-API-04`, `AGENT-API-05`, `AGENT-API-06`, `AGENT-API-07`, `AGENT-API-08`, `AGENT-LIB-01`, `AGCORE-LIB-01`, `AGCORE-LIB-02`, `AGCORE-LIB-03`, `AGCORE-LIB-04` |
 | 02-Platform-API与控制面 | `WEB-LIB-01`, `WEB-LIB-02`, `WEB-LIB-03` |
 | 08-Skill-Runtime | `SKILL-API-01`, `SKILL-API-02`, `SKILL-API-03`, `SKILL-API-04`, `SKILL-API-05`, `SKILL-API-06`, `SKILL-API-07`, `SKILL-API-08`, `SKILL-LIB-01` |
 | 03-Agent-Runtime | `RT-INT-01`, `RT-LIB-01`, `RT-LIB-02` |
 | 17-Skill-SDK与离线开发 | `SDK-API-01`, `SDK-API-02`, `SDK-API-03`, `SDK-CLI-01`, `SDK-CLI-02`, `SDK-CLI-03`, `SDK-LIB-01`, `SDK-LIB-02` |
-| 10-Channel-Gateway | `CH-API-01`, `CH-API-02`, `CH-API-03`, `CH-API-04`, `CH-API-05`, `CH-API-06`, `CH-API-07`, `CH-INT-01`, `CH-LIB-01` |
+| 10-Channel-Gateway | `CH-API-01`, `CH-API-02`, `CH-API-03`, `CH-API-04`, `CH-API-05`, `CH-API-06`, `CH-API-07`, `CH-INT-01`, `CH-INT-02`, `CH-LIB-01` |
 | 06-Worker-Engine | `WORK-LIB-01`, `WORK-LIB-02`, `WORK-LIB-03`, `WORK-LIB-04`, `WORK-LIB-05` |
 | 19-模型配置与调用 | `MODEL-API-01`, `MODEL-API-02`, `MODEL-API-03`, `MODEL-API-04`, `MODEL-API-05`, `MODEL-LIB-01` |
-| 07-Capability-Runtime | `CAP-API-01`, `CAP-API-02`, `CAP-API-03`, `CAP-API-04`, `CAP-API-05`, `CAP-API-06`, `CAP-LIB-01`, `CAP-LIB-02` |
+| 07-Capability-Runtime | `CAP-API-01`, `CAP-API-02`, `CAP-API-03`, `CAP-API-04`, `CAP-API-05`, `CAP-API-06`, `CAP-LIB-01`, `CAP-LIB-02`, `CAP-LIB-03`, `CAP-LIB-04`, `CAP-LIB-05` |
 | 16-Knowledge规划 | 无冻结接口 |
-| 15-可观测性与Web公共基础 | `OPS-API-01`, `OPS-API-02`, `OPS-API-03`, `AUDIT-API-01` |
+| 15-可观测性与Web公共基础 | `OPS-API-01`, `OPS-API-02`, `OPS-API-03`, `OPS-API-04`, `AUDIT-API-01` |
 | 09-Auth与项目平台 | `PLAT-API-01`, `PLAT-API-02`, `PLAT-API-03`, `PLAT-API-04`, `PLAT-API-05`, `CRED-API-01`, `CRED-API-02`, `CRED-API-03`, `CRED-API-04`, `AUTH-LIB-01` |
 | 12-Project-Integration与Registry | `INT-LIB-01`, `INT-LIB-02`, `INT-LIB-03` |
 

@@ -99,6 +99,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-SDK-05 | FEAT-SDK-03 | P1 | integration | pack 前 validate + 确定性 checksum | 本模块 | 合法 Skill 工程 | 两次 pack 相同内容 | 两次均先 validate；checksum 一致 |
 | S-SDK-01 | FEAT-SDK-02 | P0 | unit | PyCharm→MockSkillContext | 本模块 | Capability mock 已配置 | 运行 Skill pytest | 断点/结果可验证，无平台依赖 |
 | S-SDK-02 | FEAT-SDK-03 | P0 | E2E | PyCharm→HTTP Dev Gateway→Capability Runtime | 本模块 | Dev token/test user | ctx.capability.call | 真实认证/分页/服务发现语义与生产一致 |
 | S-SDK-03 | FEAT-SDK-05 | P0 | integration | CLI→filesystem | 本模块 | 合法 Skill 目录 | validate/test/pack | 得到可导入 zip+checksum |
@@ -465,62 +466,41 @@ fluxion-skill pack <skill-dir> --output <file.zip>
 先 validate → deterministic archive（稳定排序/mtime 策略）→ checksum → 输出 zip；不上传 Console。
 ```
 
-#### SDK-LIB-01: Skill Capability Client
+#### SDK-LIB-01: 同步 Capability Client
 
-**入口类型**：Library
-
-**函数签名**
+**函数签名**：
 
 ```python
 class CapabilityClient:
-    async def call(self, key: str, input: dict, *, result_mode: str | None = None) -> dict: ...
+    def call(self, key: str, input: JsonObject, *, result_mode: str | None = None) -> JsonObject: ...
 ```
 
-**入参**
+Public API 同步，Playbook def run 直接得到数据。Mock 本地执行，Dev 通过 HTTP client，Production 在 LinuxNamespaceExecutor 子进程通过 FD3/4 的 request/response 代理到异步宿主；业务代码不变。宿主只处理 RPC，绝不在工作线程 import/执行 Skill。超时/取消由模块 13 的 cgroup/进程清理处理。
 
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| key | string | Y | Capability key |
-| input | object | Y | 输入 |
+入参 key 必须在 manifest 依赖中，input 过 Schema/风险校验；返回 CapabilityResult 对应的结构化数据，完整产物用 ArtifactRef。认证/分页/路由均由宿主模块 07 处理，客户端错误与生产 taxonomy 一致；输入中的 tenant/user/projection/test_mode 覆盖字段拒绝。
 
-**返回**
+#### SDK-LIB-02: SkillContext 与 ArtifactClient
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| result | object | 与生产 CapabilityResult 语义一致 |
-
-**处理逻辑**
-
-```text
-Local Mock/HTTP Dev/Production Runtime 使用不同 adapter，但 Public API 保持一致。
-```
-
-#### SDK-LIB-02: SkillContext
-
-**入口类型**：Library
-
-**函数签名**
+**Public API**：
 
 ```python
+class ArtifactClient:
+    def write(self, name: str, data: bytes, *, content_type: str) -> ArtifactRef: ...
+    def read(self, artifact_id: str) -> bytes: ...
+
 class SkillContext:
     capability: CapabilityClient
     artifact: ArtifactClient
     logger: SkillLogger
-    user: UserContext
-    session: SessionContext
+    user: PublicUserContext
+    session: PublicSessionContext
 ```
 
-**返回**
+宿主 SkillInvocationContext 包含 trusted identity、projection、operation_id、Workspace 和 test_mode；Public Context 不包含这些对象的可修改引用，也不包含认证材料。user/session 是安全只读标识。
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| context | SkillContext | Runtime 注入；开发测试构造 |
+Artifact write：校验 name 为无路径片段的文件名、大小/Workspace quota；SDK 通过 IPC 分块（每帧上限 1 MiB）传输，宿主计算 checksum，ObjectStore.put 完成后模块 05 事务写 artifact 元数据；返回 `{artifact_id,name,checksum,content_type,size_bytes}`。同 invocation request_id 幂等，失败不得返回可读的 finalized ref。Conversation Skill 输出使用 owner_type=CONVERSATION、owner_id=conversation_id 的产物归属（模块 05）；Execution 使用 owner_type=EXECUTION，子进程不能更改归属。
 
-**处理逻辑**
-
-```text
-仅暴露稳定 Public API；禁止 Skill import Runtime/Repository/Infrastructure 内部模块。
-```
+read：宿主根据 id 查元数据，验证属于当前 Workspace 的执行/会话，流式读取并按配额返回 bytes；不返回 ObjectStore 签名 URL，不允许指定任意 object_ref/host path。用户最终下载/取件单独走 EXE-API-06/CH-INT-02 RESULT，不由 SDK 签发外链。错误 ARTIFACT_SCOPE_DENIED（403）、ARTIFACT_TOO_LARGE（413）、ARTIFACT_NOT_FOUND（404）。
 
 ### 3.5 质量实现方案
 

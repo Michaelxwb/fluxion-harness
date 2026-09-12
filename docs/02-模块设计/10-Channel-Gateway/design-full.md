@@ -92,6 +92,8 @@
 | RULE-CHAN-03 | 绑定 | /bind 只做 ChannelIdentity→PlatformUser，不含 Agent/Bot/Service。 | S-CHAN-03 |
 | RULE-CHAN-04 | 授权 | 消息入站必须在 identity resolve 后检查 current AgentAccessGrant。 | S-CHAN-04 |
 | RULE-CHAN-05 | 路由 | ChannelDeliveryRoute 是业务持久事实；connection ownership 可本地/Redis 协调。 | S-CHAN-05 |
+| RULE-CHAN-06 | IM 命令 | Gateway 统一解析 IM 命令并转发，不含业务语义：/bind（本模块处理）；/skills → 转发 Skill 列表查询（按 platform_label 分组，ADR-026）；/new → 转发模块 11 会话创建（RULE-MEM-03）；/stop → CH-INT-02 按显式目标或当前 Chat Run/Execution 解析；全部命令由 agent-runtime 的领域 Application 处理，禁止调用 Console 端点。 | S-CHAN-03 |
+| RULE-CHAN-08 | 扩容 | V1 单副本部署（多副本前的 Gate：Redis 协调 Bot 连接归属、错实例投递经内部转发、Redis 不可用时退化为单接管）；单进程多 Bot 连接已支持。 | — |
 
 #### 2.5.2 功能验收场景
 
@@ -144,10 +146,12 @@
 
 | 类别 | 选型 | 版本 | 选型理由 |
 |---|---|---|---|
-| 语言 | Python | 3.12+（仓库实际版本落码前确认） | 与 Agent/LLM 生态一致 |
-| Web/API | FastAPI + Pydantic | 仓库实际版本确认 | 类型契约与异步 IO |
-| ORM | SQLAlchemy 2 Async | 仓库实际版本确认 | 异步 PostgreSQL |
+| 语言 | TypeScript（Node.js） | Node 20+ / TS 5.7 | 总设部署基线：channel-gateway 是四个生产镜像中唯一 Node 角色，需接入企微官方 IM SDK（@wecom/aibot-node-sdk） |
+| Web/API | Fastify | 仓库实际版本确认 | 轻量异步 HTTP，承接企微回调验签 |
+| 数据库访问 | 无直连业务库 | — | Gateway（Node）不直连 PostgreSQL：运行数据经 agent-runtime 的 CH-DATA-01..04/CH-INT-02 受信内部 REST 获取；agent-runtime 装配 Python Channel/Conversation/Execution Application 与 PG Repository，不经过 platform-api。Console 管理 CRUD 仍由 platform-api 装配同一 Owner。DB migration 唯一 Owner=Python Alembic，不新增生产角色 |
 | 数据库 | PostgreSQL | 外部部署 | 业务 SoT |
+
+> 示例代码为伪代码，实现语言为 TypeScript。
 
 ### 3.2 架构设计
 
@@ -177,10 +181,10 @@ flowchart LR
 
 | 外部系统/模块 | 依赖类型 | 协议/接口 | 超时/一致性 | 降级策略 |
 |---|---|---|---|---|
-| AgentAccessGrant | 消息授权 | DB/Library | current | 无权不进 Runtime |
+| AgentAccessGrant | 消息授权 | CH-DATA-02 → agent-runtime/PG | current | 无权不进 Runtime |
 | Agent Runtime | 实时对话 | internal SSE/stream | deadline/断连 | 返回渠道错误/重试 |
 | Secret Provider | Bot Secret | Port | 安全 | 不可用无法建连 |
-| PostgreSQL | 身份/Route SoT | SQL | 强一致 | 不可本地替代 |
+| PostgreSQL | 身份/Route SoT | agent-runtime 的 Channel Repository；Worker 复用 Python Port | 强一致 | 不以 Gateway 内存替代 |
 
 ### 3.3 数据设计
 
@@ -193,6 +197,45 @@ flowchart LR
 | channel_binding | ChannelIdentity 与 PlatformUser 的显式绑定关系；可撤销；绑定码只创建此关系。 | Channel Gateway |
 | bind_code | 一次性身份绑定码；只建立 ChannelIdentity→PlatformUser，不含 Agent/Bot/Service。 | Channel Gateway |
 | channel_delivery_route | 后台任务/结果应该投递到哪里；与 ProgressEvent 分离。 | Channel Gateway |
+| channel_delivery | 投递状态事实：每次对外投递的 attempt/结果/错误，供重试与排障。 | Channel Gateway |
+
+#### 表 `channel_delivery`
+
+**职责**：Worker 唯一持久投递队列；Gateway 单次 Adapter.send，不自行循环重试。
+
+| 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
+|---|---|---|---|---|---|
+| tenant_id | UUID | N |  | IDX | 租户 |
+| execution_id | UUID | N |  | FK | 来源执行 |
+| step_id | UUID | Y |  | FK | 非步骤通知为空 |
+| delivery_route_id | UUID | N |  | FK | 持久路由 |
+| event_id | UUID | N |  |  | 事件/用户取件命令唯一身份 |
+| channel | VARCHAR(32) | N |  |  | 渠道类型 |
+| payload_json | JSONB | N |  |  | 不可变 DeliveryMessage，TEXT 或 FILE artifact_id；不保存短期 URL |
+| status | VARCHAR(16) | N | PENDING | IDX | PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN |
+| attempt | INTEGER | N | 0 |  | 实际进入 SENDING 次数；包括未知结果 |
+| max_attempts | INTEGER | N | 5 |  | 发送次数上限 |
+| next_attempt_at | TIMESTAMPTZ | Y |  | IDX | 已确认未发送的失败退避 |
+| lease_owner | VARCHAR(256) | Y |  |  | 发送 attempt 的 Worker |
+| lease_expires_at | TIMESTAMPTZ | Y |  |  | 发送租约 |
+| lease_epoch | BIGINT | N | 0 |  | attempt fencing token |
+| dispatch_started_epoch | BIGINT | Y |  |  | 已交给 Gateway 的 attempt；重放不二次发送 |
+| remote_idempotency | BOOLEAN | N | FALSE |  | Adapter 经验证支持远端同键去重时才为 true |
+| dedupe_key | VARCHAR(128) | N |  | UK | dlv: + canonical(tenant,execution,step_id,route_id,event_id) SHA-256 十六进制，共 68 字符 |
+| provider_message_id | VARCHAR(512) | Y |  |  | 渠道已确认的发送 ID |
+| last_error | TEXT | Y |  |  | 脱敏错误 |
+| delivered_at | TIMESTAMPTZ | Y |  |  | 收到成功 ACK 后时间 |
+| id | UUID | N | gen_random_uuid() | PK | 主键 |
+| is_deleted | BOOLEAN | N | FALSE |  | 默认过滤 FALSE |
+| create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
+
+**约束与索引**
+
+- UNIQUE (tenant_id,dedupe_key)；(tenant_id,status,next_attempt_at,lease_expires_at) 调度索引。
+- 同 key 的 payload/route 不可改，重复入队返回同一行，换参 DELIVERY_IDEMPOTENCY_CONFLICT。
+- 对同一行只允许一个有效 attempt lease；owner/epoch 校验全部结果写入；状态路径详见 CH-INT-01。
+- 业务 Execution 终态不删除待投递行，重试不得重跑业务步骤。
 
 #### 表 `channel_account`
 
@@ -212,7 +255,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -223,7 +266,7 @@ flowchart LR
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
-| uk_channel_account_key | UNIQUE | tenant_id,channel_type,account_key,is_deleted | bot 路由 |
+| uk_channel_account_key | UNIQUE(partial) | tenant_id,channel_type,account_key | WHERE is_deleted=false |
 | idx_channel_account_agent | BTREE | tenant_id,agent_id,channel_type,enabled,is_deleted | Agent IM 配置 |
 
 #### 表 `channel_identity`
@@ -241,7 +284,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -251,7 +294,7 @@ flowchart LR
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
-| uk_channel_identity_external | UNIQUE | tenant_id,channel_type,identity_scope_key,external_user_id,is_deleted | 解析身份 |
+| uk_channel_identity_external | UNIQUE(partial) | tenant_id,channel_type,identity_scope_key,external_user_id | WHERE is_deleted=false |
 
 #### 表 `channel_binding`
 
@@ -269,7 +312,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -280,7 +323,7 @@ flowchart LR
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
-| uk_channel_binding_identity | UNIQUE | tenant_id,channel_identity_id,is_deleted | 外部身份唯一归属 |
+| uk_channel_binding_identity | UNIQUE(partial) | tenant_id,channel_identity_id | WHERE is_deleted=false AND status=ACTIVE（同一身份同时最多一个 ACTIVE 绑定；历史绑定不占唯一位） |
 | idx_channel_binding_user | BTREE | tenant_id,platform_user_id,status,is_deleted | 用户详情 IM 身份 |
 
 #### 表 `bind_code`
@@ -301,7 +344,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -334,7 +377,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -414,7 +457,16 @@ erDiagram
 | CH-API-05 | 生成绑定码 | HTTP | POST | /api/v1/users/{user_id}/bind-codes |
 | CH-API-06 | 读取当前绑定码状态 | HTTP | GET | /api/v1/users/{user_id}/bind-codes/current |
 | CH-API-07 | 作废绑定码 | HTTP | POST | /api/v1/users/{user_id}/bind-codes/{bind_code_id}/revoke |
+| CH-DATA-01 | Gateway 配置读取 | HTTP | GET | /internal/v1/channel-accounts |
+
+| CH-DATA-02 | 可信入站解析 | HTTP | POST | /internal/v1/channels/resolve-envelope |
+
+| CH-DATA-03 | 发送许可登记 | HTTP | POST | /internal/v1/channel-deliveries/{delivery_id}/dispatch |
+
+| CH-DATA-04 | 附件内部取流 | HTTP | GET | /internal/v1/channel-deliveries/{delivery_id}/artifact |
+
 | CH-INT-01 | 后台主动投递 | HTTP | POST | /internal/v1/channels/deliver |
+| CH-INT-02 | IM 用户命令内部转发 | HTTP | POST | /internal/v1/commands |
 | CH-LIB-01 | 统一入站 Envelope 处理 | Library | async def handle_channel_envelope(envelope: ChannelEnvelope) -> None |  |
 
 #### CH-API-01: 读取 Agent WeCom 接入
@@ -423,7 +475,7 @@ erDiagram
 
 **契约**：`GET /api/v1/agents/{agent_id}/channel/wecom`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 
@@ -777,66 +829,76 @@ transaction：撤销同 user+channel 未使用 PENDING → 生成高熵随机 co
 校验 user ownership → PENDING→REVOKED → audit。
 ```
 
-#### CH-INT-01: 后台主动投递
+#### CH-INT-02: IM 用户命令
 
-**入口类型**：HTTP
+**契约**：`POST /internal/v1/commands`
+
+**认证/授权**：Gateway service token（aud=agent-runtime）；真实 tenant/actor 由 CH-DATA-02 VerifiedEnvelope 注入
+
+**部署**：agent-runtime HTTP router；各动作调用相同 Python 领域 Application，不依赖 platform-api。
+
+**请求体**：`{request_id, verified_message_id, command, agent_id, conversation_id, target?, payload?}`；command 为 SKILLS/NEW/STOP/RESUME/CANCEL/MEMORY_LIST/MEMORY_CLEAR/RESULT/CONFIRM。target 明确 run_id、execution_id、proposal_id 或 artifact_id，不能含任意 user_id。VerifiedEnvelope 通过 PG message 查回 tenant/actor/account/peer；正文提供的身份字段拒绝。
+
+**幂等**：写命令的 key=SHA256(tenant_id,channel_account_id,external_message_id)，digest=SHA256(command,actor,agent,conversation,target,payload)。该请求身份包含持久 message 对应的 verified transport ID；唯一约束及结果在模块 11 channel_command_receipt。重放同请求同摘要返回原结果，换参 IDEMPOTENCY_CONFLICT（409）；不同渠道消息 ID 是新的操作，因此连续 /new、clear 不同 key 各生效。只读 SKILLS/MEMORY_LIST 返回新鲜数据，不使用旧结果缓存。RESULT 每个新请求可产生新的用户取件 delivery，重放不重复创建。
+
+**路由与结果**：
+- SKILLS：按当前 Agent 的有效 Skill 绑定查询 `{groups:[{platform_label,skills:[id,key,name]}]}`。
+- NEW：CONV-LIB-02 同事务切换当前会话，返回 `{conversation_id, previous_conversation_id}`。
+- STOP：显式 target 优先；无 target 时先停止本会话非终态 Chat Run（RT-INT-02），否则取消本会话唯一非终态 Execution；多个候选 COMMAND_TARGET_AMBIGUOUS（409）并返回本人候选摘要，禁止猜测。无目标 COMMAND_TARGET_NOT_FOUND（404）。
+- RESUME/CANCEL：同 EXE-API-05 Application，校验本人执行和等待状态，不接受改参。
+- MEMORY_LIST/MEMORY_CLEAR：MEM-LIB-02，key 可选，省略 clear 表示全部本人记忆；不改变授权。
+- RESULT：EXE-API-06 的 Artifact Application，必须本人且 artifact 属于 execution，返回 `{delivery_id,status}`；投递原生 FILE，无公开签名链接。
+- CONFIRM：EXE-LIB-03，verified_message_id 必须是实际 USER 确认事件；只在当前会话取回匹配提案。
+
+所有动作按 verified tenant/actor/agent/conversation 校验，跨用户 COMMAND_ACCESS_DENIED（403）。返回统一 Envelope，`data={command,request_id,result}`；result 为上述按 command 判别的 DTO。
+
+#### CH-INT-01: 后台单次投递
 
 **契约**：`POST /internal/v1/channels/deliver`
 
-**认证/授权**：Internal service identity
+**认证/授权**：Worker service token（aud=channel-gateway）；Gateway 服务独占该端点
 
-**请求体**
+**请求体**：`{delivery_id, attempt_token}`；不可由请求临时指定 route/message/user。attempt_token 绑定 tenant/delivery_id/lease_epoch/过期时间，由 Python Channel Application 签发。
 
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| delivery_route_id | uuid | Y | 持久化路由 |
-| message | object | Y | 统一 DeliveryMessage |
-| idempotency_key | string | Y | 投递幂等 |
+**处理**：Gateway 调 CH-DATA-03 验证 token 并取已冻结 payload/路由/epoch；只接受 SENDING 的当前有效 token。TEXT 调 Adapter.send；FILE 经 CH-DATA-04 受权取流并调用 Adapter.send_file。一个请求只发一次，SDK 自动发送重试关闭（重连可恢复连接，但不自动重放业务消息）。结果返回 Worker，由 Worker 按相同 epoch 写 PG；过期 token/epoch 返回 DELIVERY_LEASE_LOST（409）。
 
-**请求示例**
+**响应**：`{delivery_id,lease_epoch,outcome,provider_message_id?,error_code?}`；outcome=DELIVERED（远端 ACK）/NOT_SENT（可证明没发送）/UNKNOWN（写出后 ACK 丢失/超时）。重复相同 attempt_token 的调用先查发送账本；已记录 outcome 返回原值，发送中或 Gateway 重启后无法证明是否已发则 UNKNOWN，不再执行 send。
 
-```json
-{
-  "delivery_route_id": "<delivery_route_id>",
-  "message": {},
-  "idempotency_key": "<idempotency_key>"
-}
-```
+**状态迁移表（由 Worker Channel Application 执行）**：
 
-**响应 data**
-
-| 字段 | 类型 | 说明 |
+| 原状态/事件 | 新状态 | 行为 |
 |---|---|---|
-| accepted | boolean | 是否接受 |
-| delivery_id | string | Gateway 投递 ID |
+| PENDING 或到期 RETRY_WAIT + 无有效 lease | SENDING | attempt+1、lease_epoch+1、设置 owner/expiry；超上限转 FAILED |
+| SENDING + DELIVERED | DELIVERED | 写 provider_message_id/delivered_at，释放 lease |
+| SENDING + NOT_SENT + attempt<max_attempts | RETRY_WAIT | 退避写 next_attempt_at，释放 lease |
+| SENDING + NOT_SENT + 次数耗尽 | FAILED | 明确失败，保留 result，释放 lease |
+| SENDING + UNKNOWN 或发送 lease 到期 | UNKNOWN | 结果未知，禁止自动盲目重发 |
+| UNKNOWN + 支持远端幂等/对账且证明已送达 | DELIVERED | 保存 ACK |
+| UNKNOWN + 支持远端幂等且允许同键重发 | RETRY_WAIT | 仍用同 dedupe_key；次数有界 |
 
-**响应示例**
+V1 默认 remote_idempotency=false：UNKNOWN 保留诊断并停止自动重发，用户可 /result 主动取件；不能宣称仅靠本地唯一键保证端到端 exactly-once。连接建立前已证明未发的失败可自动重试。Gateway 重启后不把 UNKNOWN 改回 PENDING。DELIVERED/FAILED/UNKNOWN 都不是业务执行失败，UI 单独显示。
 
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "accepted": true,
-    "delivery_id": "<delivery_id>"
-  },
-  "request_id": "req_xxx"
-}
-```
+发送账本与 delivery 同行：CH-DATA-03 首次验证 token 时原子写 `dispatch_started_epoch`；若相同 epoch 再请求且 outcome 未写，返回 UNKNOWN。该列初始空，每次新 epoch 首次设置，防重放调用再次 send；结果回写失联按 UNKNOWN 处理。Gateway 无需保存权威内存表。
 
-**错误码**
+#### CH-DATA-01: Gateway 配置读取
 
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| DELIVERY_ROUTE_NOT_FOUND | 路由不存在 | 404 |
-| CHANNEL_ACCOUNT_DISABLED | Bot 禁用/不可用 | 409 |
-| CHANNEL_DELIVERY_FAILED | 渠道发送失败 | 502 |
+**契约**：`GET /internal/v1/channel-accounts`；agent-runtime 承载，Gateway service identity + tenant/account scope。返回 `{items:[id,agent_id,channel_type,account_key,secret_ref,enabled,revision]}`；不返回其他领域 Secret。按 revision/分页增量读取，Gateway 只缓存可丢配置，重新启动可从 PG 读回。管理写入 platform-api 停机不影响本端点。
 
-**处理逻辑**
+#### CH-DATA-02: 验证入站并持久化身份/会话/USER 消息
 
-```text
-仅内部 mTLS/service auth → 加载 delivery route + channel account → Adapter.send → 渠道 ack/重试 → 记录 telemetry；业务事实不存 Gateway 内存。
-```
+**契约**：`POST /internal/v1/channels/resolve-envelope`；agent-runtime 承载，Gateway 传经过 Adapter 验签的 account/peer/external_message_id/content/received_at，service identity 限定 account。
+
+按 Bot 路由 → identity/binding（未绑定只允许 /bind）→ 当前 user/grant → CONV-LIB-01；在会话映射锁内生成 message.id、conversation 内递增 sequence_no，保存 verified account/peer/message 来源，重复 external_message_id 返回同消息。响应 VerifiedEnvelope `{tenant_id,platform_user_id,agent_id,conversation_id,verified_message_id,request_id}`；Runtime 不再次创建相同 USER 消息。未授权返回 403，未绑定返回 409 指引；/bind 事务由 Python Channel Application 完成，不经 Console。
+
+#### CH-DATA-03: 领取投递许可和登记发送
+
+**契约**：`POST /internal/v1/channel-deliveries/{delivery_id}/dispatch`；agent-runtime 承载，仅 Gateway service token + attempt_token。Python Channel Application 原子校验 SENDING/current epoch/租约、ChannelAccount enabled、路由归属与 payload；首次登记 dispatch_started_epoch 后返回 `{delivery_id,lease_epoch,route,remote_idempotency,payload}`。同 epoch 已登记时返回持久 outcome 或 UNKNOWN，不再次许可。Worker 的 outbox claim/result 使用同模块 Python Port 直接 PG，不依赖此 HTTP，也不调用管理面。
+
+#### CH-DATA-04: 渠道内部 Artifact 字节流
+
+**契约**：`GET /internal/v1/channel-deliveries/{delivery_id}/artifact`；agent-runtime 承载，仅 Gateway service token + 有效 attempt_token。
+
+从 delivery payload 解析 artifact_id，验证 artifact.execution 与 delivery.execution、route.user 与 execution.actor 同租户匹配，再经模块 05 Artifact Application 读取 ObjectStore；返回文件字节流和安全文件名，不向渠道提供对象 URL。只允许本次发送使用；用户再次 RESULT 新建独立许可。归属错误 403，不存在/已清理 404/410。
 
 #### CH-LIB-01: 统一入站 Envelope 处理
 
@@ -865,7 +927,7 @@ async def handle_channel_envelope(envelope: ChannelEnvelope) -> None
 **处理逻辑**
 
 ```text
-message dedupe → bot/account resolve Agent → ChannelIdentity resolve/bind → PlatformUser → AgentAccessGrant → Conversation resolve → Agent Runtime chat → Adapter stream reply。
+Adapter 验签/协议解析 → CH-DATA-02（agent-runtime/PG 持久身份/会话/消息）→ 命令走 CH-INT-02，普通消息走 RT-INT-01（verified_message_id）→ Adapter stream reply；全链不经过 platform-api。
 ```
 
 **补充约束**：顺序必须是身份、路由、授权三分离；不得让 LLM 选择目标 Agent。
@@ -876,7 +938,7 @@ message dedupe → bot/account resolve Agent → ChannelIdentity resolve/bind �
 
 | 热点路径 | 负载量级 | 潜在瓶颈 | 实现方案 | 目标值 |
 |---|---|---|---|---|
-| WebSocket connections | 多 Bot 长连接 | FD/heartbeat/reconnect | 单进程可维护多连接，按连接数水平扩 Gateway | 实测容量 |
+| WebSocket connections | 多 Bot 长连接 | FD/heartbeat/reconnect | 单进程可维护多连接，V1 单副本；完成 RULE-CHAN-08 多副本 Gate 后才按连接数扩容 | 实测容量 |
 | Message dedupe | 高消息量 | 重复事件 | external_message_id + short cache/DB 约束策略 | 渠道特性实测 |
 
 #### 3.5.2 可靠性

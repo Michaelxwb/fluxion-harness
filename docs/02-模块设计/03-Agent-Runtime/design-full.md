@@ -97,6 +97,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-RT-04 | FEAT-RT-02 | P1 | integration | SSE 真流式 | 本模块 | 模型持续输出 | 订阅 /internal/v1/chat 流 | 首 token 即下发；总时长 ≈ 生成时长，无整段缓冲后置 |
 | S-RT-01 | FEAT-RT-05 | P0 | E2E | LB→Runtime×2→PG | 本模块 | 用户同一会话 | 连续两次请求落不同 Pod | 行为一致，会话连续 |
 | S-RT-02 | FEAT-RT-02 | P0 | E2E | Runtime→Grant/Agent/Model | 后置 → 模块 04/18/19 | 用户有授权 | 发消息 | 解析 current Agent 并回复 |
 | S-RT-03 | FEAT-RT-04 | P0 | E2E | Runtime→Model SSE | 本模块 | 模型流式可用 | 发长回复请求 | 客户端逐 delta 收到，不等待最终完成 |
@@ -136,6 +137,8 @@
 | Web/API | FastAPI + Pydantic | 仓库实际版本确认 | 类型契约与异步 IO |
 | ORM | SQLAlchemy 2 Async | 仓库实际版本确认 | 异步 PostgreSQL |
 | 数据库 | PostgreSQL | 外部部署 | 业务 SoT |
+
+**运行面内部路由装配**：本进程除 Chat 外装配 CH-DATA-01..04、CH-INT-02（模块 10）、CONV/MEM Application（模块 11）、Proposal/Artifact Application（模块 05）。共用 Python PG Port，不代理到 platform-api。Console CRUD 仅在 platform-api 装配；四生产角色和 migration Owner 不变。
 
 ### 3.2 架构设计
 
@@ -183,6 +186,10 @@ Runtime 不拥有本地/专属业务表；读取 `agent_definition`、`agent_acc
 
 | 接口ID | 名称 | 形态 | 方法/签名 | 路径/用途 |
 |---|---|---|---|---|
+| RT-INT-03 | Chat 产物内部取流 | HTTP | GET | /internal/v1/runs/{run_id}/artifacts/{artifact_id}/content |
+
+| RT-INT-02 | 停止 Chat Run | HTTP | POST | /internal/v1/runs/{run_id}/cancel |
+
 | RT-INT-01 | 实时 Chat SSE | HTTP | POST | /internal/v1/chat |
 | RT-LIB-01 | 构建可信执行上下文 | Library | async def build_trusted_context(identity: RuntimeIdentity, request_meta: RequestMeta) -> TrustedExecutionContext |  |
 | RT-LIB-02 | 加载 Runtime Agent 投影 | Library | async def load_runtime_agent(ctx: TrustedExecutionContext, agent_id: UUID) -> RuntimeAgentView |  |
@@ -205,6 +212,7 @@ Runtime 不拥有本地/专属业务表；读取 `agent_definition`、`agent_acc
 | message | object | Y | 文本/附件引用 |
 | channel_context | object | N | channel/delivery 元信息；不含授权事实 |
 | request_id | string | Y | 请求关联 |
+| verified_message_id | uuid | Y | CH-DATA-02 已持久化的 USER 消息；服务端查回身份 |
 
 **请求示例**
 
@@ -250,8 +258,24 @@ Runtime 不拥有本地/专属业务表；读取 `agent_definition`、`agent_acc
 **处理逻辑**
 
 ```text
-Internal auth → TrustedExecutionContext → require_agent_access → resolve/create conversation → resolve AgentDefinition current revision → load Memory → AgentExecutor stream → append messages → SSE backpressure/cancel。
+Internal auth → PG verified_message_id 校验/查回身份 → require_agent_access → CONV-LIB-01 → conversation_run 按消息序列/有效租约领取 → 解析 current Agent 和 Memory → AgentExecutor（Chat projection=null）→ checkpoint/响应消息 fencing 提交 → 结束 Run；不重复创建 USER 消息。排队请求返回 run.queued/run_id，恢复用同一 run_id；Graph 状态不放 Gateway 或 Runtime 内存作为事实源。
 ```
+
+#### RT-INT-02: 停止 Chat Run
+
+**契约**：`POST /internal/v1/runs/{run_id}/cancel`
+
+**认证/授权**：Gateway/受信 Runtime service identity；当前本人 user/tenant/conversation
+
+请求 `{verified_message_id, reason?}`；查回来源身份并校验 run 归属，事务置 CANCEL_REQUESTED/cancel_requested_at，终态幂等返回当前结果。返回 `{run_id,status}` 表示请求已接受。Runtime owner 在节点边界、每次外部调用前和流式等待期间（最长 1 秒 PG 检查间隔；Redis 只是 hint）检查取消，取消模型流/沙箱并提交 CANCELLED；租约过期由其他 Runtime 只做恢复/取消清理，不能继续被取消的业务。未知/越权 404/403；不取消其他 Conversation 或后台 Execution。
+
+#### RT-INT-03: Chat 产物内部取流
+
+**契约**：`GET /internal/v1/runs/{run_id}/artifacts/{artifact_id}/content`
+
+**认证/授权**：Gateway service identity；account/peer 必须匹配源 Run 的 verified message
+
+Runtime 发送 file event={run_id,artifact_id,name,content_type,size_bytes}，Gateway 调此端点取流并发原生文件。模块 05 Artifact Application 校验 owner_type=CONVERSATION、owner_id=run.conversation_id、workspace/tenant/actor 匹配；不接受任意对象引用。返回 200 字节流，越权 403/已清理 410。实时对话断线只终止即时传输，产物仍按 Workspace 保留策略存在，可由本人同会话后续消息再次请求；不宣称具备后台 Execution 的 outbox 保证。
 
 #### RT-LIB-01: 构建可信执行上下文
 

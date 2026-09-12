@@ -15,6 +15,7 @@
 | 08 | 项目平台管理 | `/console/project-platforms` | Frontend | `08-项目平台管理/design-frontend.md` |
 | 09 | 用户管理 | `/console/users, /console/users/:id` | Frontend | `09-用户管理/design-frontend.md` |
 | 10 | 执行记录 | `/console/executions, /console/executions/:id` | Frontend | `10-执行记录/design-frontend.md` |
+| 11 | 审计查询 | `/console/audit-logs` | Frontend | `11-审计查询/design-frontend.md` |
 
 ## 事实源优先级
 

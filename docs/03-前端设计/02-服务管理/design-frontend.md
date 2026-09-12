@@ -50,7 +50,7 @@
 | 类别 | 内容 |
 |---|---|
 | 范围（In Scope） | 完成服务列表、新增、Draft 编辑、步骤编排、业务范围、测试与发布，以及只读详情。 |
-| 非范围（Out of Scope） | 详情模式不允许新增/编辑/删除步骤；发布动作仅 Admin。 |
+| 非范围（Out of Scope） | 详情模式不允许新增/编辑/删除步骤；发布动作仅 Admin（按钮对 Builder 不渲染）。已发布 Service 的管理员手工发起执行（后端支持，Console 后置）；Release 回滚/切回历史版本（后端支持，Console 后置）。 |
 | 有意妥协 / 技术债 | 仓库技术栈、组件 API 细节待真实 repo scan 后锁定；产品字段和交互语义已冻结。 |
 
 ### 2.4 验收条件
@@ -66,7 +66,11 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|
-| S-02-01 | FEAT-02-01 | E2E | Browser → Router → services → API → UI | 打开页面并完成主操作 | 页面字段、按钮、状态与 API Contract 一致 |
+| S-02-01 | FEAT-02-01 | E2E | 主智能体必选 | 新增服务不选主智能体提交 | 表单校验失败并定位字段；选后创建成功 |
+| S-02-02 | FEAT-02-03 | E2E | Draft 保存乐观锁 | 两个 Builder 同时编辑同一 Draft | 后保存者 409，提示刷新重试 |
+| S-02-03 | FEAT-02-05 | E2E | 测试-发布两阶段 | Builder 运行 Draft 测试（DRY_RUN）→ Admin 发布 | 测试结果绑定 draft_revision；发布仅 Admin 可见且成功后 Release 列表 +1 |
+| S-02-04 | FEAT-02-06 | E2E | 紧急停用 | Admin 列表行紧急停用已发布服务 | 二次确认后 enabled=false 即时生效；Builder 不可见该操作 |
+| E-02-01 | FEAT-02-05 | E2E | 发布按钮角色 | Builder 打开 Tab D | 无发布按钮（不渲染）；Admin 有发布+Release 预览 |
 | E-02-01 | FEAT-02-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
@@ -104,7 +108,7 @@
 |---|---|
 | 服务名称/标识 | 可搜索 |
 | 主智能体 | 创建必选 |
-| 执行方式 | 筛选 |
+| 执行方式 | 筛选；AGENTIC（智能体自主）/DETERMINISTIC（固定流程）/HYBRID（混合），枚举已冻结 |
 | 已发布版本 | 无则 `—` |
 | 草稿状态/启用状态 | 筛选 |
 | 更新时间 | 完整时间 |
@@ -119,11 +123,19 @@
 | 服务说明 | 否 | 是 |
 | 主智能体 | 是 | Draft 可改 |
 | 执行方式 | 是 | 是 |
-| 启用状态 | 是 | 是 |
+| 启用状态 | 是 | 创建后仅 Admin 即时启停，Draft 只读 |
 
 **执行步骤字段**：步骤名称、Step 类型、执行对象、输入映射、输出变量、超时、失败策略、最大重试、人工说明、步骤说明。
 
 
+
+**保存合同**：前端直接构造模块 05 service-draft-schema：主 Agent→primary_agent_id；步骤名称→name、说明→description、稳定键→step_key、类型→type；执行对象→agent_id/capability_key；范围→resource_scope.scope_type/input_schema。输入映射控件输出 `{source:INPUT,path:JSON Pointer}`、`{source:STEP,step_key,path}` 或 `{literal:value}`，不使用字符串插值。output_var 仅显示别名。
+
+失败策略四项：终止 FAIL_FAST / 有界重试 RETRY / 等待人工 MANUAL / 显式跳过 SKIP_ON_ERROR。WAIT 必填 wait_seconds，HUMAN 必填 human_prompt，人工默认 24h；同一表单提交的 schema 与后端共用文档中的 JSON Schema 样例测试。非法引用定位到具体 Step/字段。
+
+**测试面板**：传当前 draft_revision/test_user_id/input/mode/idempotency_key；默认 DRY_RUN，无 mock 返回明确错误。结果显示 TEST、修订、test_mode、expired；草稿修改后旧测试显示“草稿已变更，请重测”。测试列表传 execution_source=TEST，不能混入运营统计。
+
+**即时启停**：Admin 在列表行/详情独立“紧急停用/恢复”，调用 SVC-API-10，停用二次确认并刷新 enabled。Draft 编辑只读展示即时 enabled，不将其放进 draft_payload；保存/发布不能覆盖该开关，Builder 不显示操作。
 
 ### 3.5 状态与数据流
 
@@ -148,6 +160,8 @@
 | 校验 Service Draft | `SVC-API-05` | `POST /api/v1/services/{service_id}/validate` | Service 与 Execution |
 | 测试 Service Draft | `SVC-API-06` | `POST /api/v1/services/{service_id}/test` | Service 与 Execution |
 | 发布 Service | `SVC-API-07` | `POST /api/v1/services/{service_id}/publish` | Service 与 Execution |
+| 紧急停用/恢复 | `SVC-API-10` | `PATCH /api/v1/services/{service_id}/enabled` | Service 与 Execution |
+
 | Release 列表 | `SVC-API-08` | `GET /api/v1/services/{service_id}/releases` | Service 与 Execution |
 | Release 详情 | `SVC-API-09` | `GET /api/v1/services/{service_id}/releases/{release_id}` | Service 与 Execution |
 

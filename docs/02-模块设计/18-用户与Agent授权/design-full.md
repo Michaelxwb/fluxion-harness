@@ -98,6 +98,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-USER-05 | FEAT-USER-02 | P1 | integration | grant 不替代业务权限 | 本模块 | 用户有 Agent grant 但无业务数据权限 | 经 Agent 访问业务数据 | 外部平台按自身 RBAC 拒绝；grant 仅是入口授权 |
 | S-USER-01 | FEAT-USER-01 | P0 | E2E | Console→API→PG | 本模块 | Admin | 创建用户 | 用户列表/详情可见 |
 | S-USER-02 | FEAT-USER-02 | P0 | E2E | User grant API→PG | 本模块 | 用户/Agent 存在 | 授权 Agent01/02 | 用户详情和 Agent 反查一致 |
 | S-USER-03 | FEAT-USER-04 | P0 | E2E | Gateway/Runtime→Grant | 后置 → 模块 10/03 | 用户有 grant | 跨两个 Channel 发消息 | 均能使用同一 Agent |
@@ -189,11 +190,12 @@ flowchart LR
 | display_name | VARCHAR(256) | N |  | IDX | 展示名 |
 | role | VARCHAR(32) | N | END_USER |  | END_USER/BUILDER/ADMIN |
 | status | VARCHAR(32) | N | ACTIVE | IDX | ACTIVE/DISABLED |
+| revision | BIGINT | N | 1 |  | 乐观锁版本（R17：编辑必填回传；每次更新 +1） |
 | description | TEXT | Y |  |  | 备注 |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -223,18 +225,18 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
-- 同一 tenant + user + agent 只允许一条未删除记录；重复授权更新 enabled/revision 或幂等返回
+- 同一 tenant + user + agent 只允许一条未删除记录；重复授权仅切换 enabled（grant 无独立 revision） 或幂等返回
 - 授权校验发生在身份解析之后、Runtime 执行之前
 
 **索引设计**
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
-| uk_agent_access_grant_pair | UNIQUE | tenant_id,platform_user_id,agent_definition_id,is_deleted | 防重复授权 |
+| uk_agent_access_grant_pair | UNIQUE(partial) | tenant_id,platform_user_id,agent_definition_id | WHERE is_deleted=false；防重复授权 |
 | idx_agent_access_grant_agent | BTREE | tenant_id,agent_definition_id,enabled,is_deleted | Agent 反查授权用户 |
 | idx_agent_access_grant_user | BTREE | tenant_id,platform_user_id,enabled,is_deleted | 用户可用 Agent |
 
@@ -349,7 +351,7 @@ erDiagram
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| user_key | string | Y | 租户内稳定唯一 Key |
+| user_key | string | N | 租户内稳定唯一 Key；缺省由服务端自动生成（交互稿 V0.8：系统自动生成，管理员不输入） |
 | display_name | string | Y | 展示名 |
 | role | string | Y | END_USER/BUILDER/ADMIN |
 | status | string | N | 默认 ACTIVE |
@@ -429,6 +431,7 @@ Admin 鉴权 → DTO/枚举校验 → 唯一性检查 → INSERT platform_user �
 | project_credential_count | integer | 项目平台认证数 |
 | create_time | datetime | 创建时间 |
 | update_time | datetime | 更新时间 |
+| revision | integer | 乐观锁版本（编辑时必填回传） |
 
 **响应示例**
 

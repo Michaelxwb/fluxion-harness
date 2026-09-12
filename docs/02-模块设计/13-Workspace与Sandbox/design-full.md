@@ -90,7 +90,23 @@
 | RULE-WS-02 | Opaque | 上层只持 workspace_ref/handle，不持 Host path。 | S-WS-02 |
 | RULE-WS-03 | 路径 | 拒绝 absolute/../symlink escape。 | S-WS-03 |
 | RULE-WS-04 | Shell | Agent Runtime 不直接 host exec；只能 SandboxExecutor。 | S-WS-04 |
-| RULE-WS-05 | 生产 | Local executor 只开发使用；生产必须隔离实现。 | S-WS-05 |
+| RULE-WS-05 | 生产 | Local executor 只开发使用；生产必须隔离实现（ADR-035：V1 = LinuxNamespaceExecutor）。 | S-WS-05 |
+
+**生产隔离执行器合同（ADR-035；V1=LinuxNamespaceExecutor）**
+
+本合同是 V1 的必备隔离，不把“独立进程”当成安全边界。仅支持满足以下条件的 Linux 生产节点；任何强制隔离设置失败返回 SANDBOX_ISOLATION_UNAVAILABLE 并拒绝执行，不能 fallback Local。开发 Mock 可显式 Local，生产配置禁止。
+
+- 为每 invocation 创建独立 user/mount/PID/IPC/network namespace；子进程 non-root UID、无宿主 capabilities、no_new_privs，seccomp 拒绝 mount/ptrace/namespace 逃逸等调用。子进程只能看到预构建最小只读 Python rootfs，不挂宿主根目录、容器 socket、宿主 /proc、home 或 Secret volume；/proc 仅本 PID namespace 的最小只读视图。
+- Artifact 和已校验依赖只读挂载，当前 Workspace 可写，临时目录独立；所有其他路径不可见。路径解析拒绝绝对/../symlink escape，挂载和 OS 权限同时强制，不依赖 Python SDK 自律。
+- network namespace 默认无外部网络接口/路由，Skill 的业务网络只能经宿主 Capability RPC；依赖由 CI/受控离线 wheelhouse 预构建并按 digest 挂载，运行时不执行联网 pip。Sandbox Capability 若确需网络必须由其策略显式配置受限代理与目的 allowlist，不能共享宿主网络。
+- 每 invocation 独立 cgroup v2，memory.max/pids.max/CPU 配额；rlimit 辅助限制文件/CPU，stdout/stderr 由宿主有界读取，超过输出限额主动终止。超时/取消先标取消事实，再 cgroup.kill（含后代）及进程组清理，回收临时挂载/Workspace lease。
+- 启动设置 parent-death 终止并复查父 PID；宿主为 invocation 注册持久过期 lease，重启扫描过期 cgroup/挂载清理。子进程失联不能继续发外部请求，已执行副作用按 operation_id 恢复，不用进程存活作执行事实。
+
+**SDK IPC**：私有 FD3（子→宿主）/FD4（宿主→子），普通 stdout/stderr 仅 FD1/2，禁止复用业务输出作协议。帧=4 字节长度前缀+UTF-8 JSON（上限 1 MiB），字段 version=1/request_id/sequence/op/arguments；op 为 CAPABILITY_CALL/ARTIFACT_WRITE/ARTIFACT_READ，响应 request_id/result 或受控 error。同 invocation 序列严格递增，重放返回已记录结果或拒绝；帧过大/非法类型/未知 op 终止调用。
+
+调用身份取宿主 invocation registry 的 tenant/actor/Agent/Skill/checksum/workspace/projection/test_mode，不相信子进程传 ctx/user/Secret。Capability 请求验证 manifest dependency_keys、当前 enabled/grant/风险、DRY_RUN，再交模块 07；Artifact 请求走模块 05/14，只允许当前 Workspace/Execution。子进程持有 IPC FD 不等于可以调用任意 Capability。HMAC 不用于替代这些授权检查。
+
+SDK 公共 API 同步；子进程在 request/response 上等待，宿主异步泵处理 IO。宿主不在线程中 import entrypoint，不让 Skill 获得运行进程的内存/凭据。runtime rootfs 是同一发布的受控制品，不增加第五个常驻生产角色。
 
 #### 2.5.2 功能验收场景
 
@@ -98,6 +114,8 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-WS-04 | FEAT-WS-02 | P1 | integration | Shell 仅经 SandboxExecutor | 本模块 | Agent 请求 shell 工具 | 执行 shell.execute | 由 SandboxExecutor 受控执行；Runtime 进程无直接 exec 路径 |
+| S-WS-05 | FEAT-WS-02 | P1 | integration | 生产用隔离 Executor | 本模块 | 生产环境运行 Skill | 选择 executor | 仅隔离实现可用；Local executor 被配置拒绝 |
 | S-WS-01 | FEAT-WS-01 | P0 | integration | Manager→PG→Sandbox | 本模块 | Execution 无 workspace | get_or_create | 创建 opaque workspace，Pod 重启后可重新解析 |
 | S-WS-02 | FEAT-WS-03 | P0 | integration | SafeExtractor | 本模块 | 合法 Skill zip | extract | 只写 workspace 内文件 |
 | S-WS-03 | FEAT-WS-02 | P0 | E2E | Skill→Sandbox | 本模块 | 允许命令/网络策略 | 运行脚本 | 按 quota/deadline 输出 stdout/stderr ref |
@@ -191,7 +209,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -202,7 +220,7 @@ flowchart LR
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
-| uk_workspace_owner | UNIQUE | tenant_id,owner_type,owner_id,is_deleted | owner→workspace |
+| uk_workspace_owner | UNIQUE(partial) | tenant_id,owner_type,owner_id | WHERE is_deleted=false；owner→workspace |
 | idx_workspace_expiry | BTREE | tenant_id,status,expires_at,is_deleted | 清理 |
 
 #### 3.3.2 ER 图

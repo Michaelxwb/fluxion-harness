@@ -149,7 +149,7 @@ class AgentRepository:
         session: AsyncSession,
         *,
         action: str,
-        entity_id: UUID,
+        resource_id: UUID,
         revision: int,
         actor_user_id: UUID | None,
         request_id: str | None,
@@ -163,8 +163,8 @@ class AgentRepository:
             AuditLogModel(
                 actor_user_id=actor_user_id,
                 action=action,
-                entity_type="agent_definition",
-                entity_id=str(entity_id),
+                resource_type="agent_definition",
+                resource_id=str(resource_id),
                 request_id=request_id,
                 after_ref=f"r{revision}",
                 details={"revision": revision},
@@ -196,6 +196,7 @@ class AgentRepository:
                     )
                 row = AgentDefinitionModel(
                     name=name,
+                    agent_key=name,
                     description=description,
                     instructions=instructions,
                     model_config_id=model_config_id,
@@ -207,7 +208,7 @@ class AgentRepository:
                 self._record_audit(
                     session,
                     action="agent.created",
-                    entity_id=row.id,
+                    resource_id=row.id,
                     revision=row.revision,
                     actor_user_id=actor_user_id,
                     request_id=request_id,
@@ -262,7 +263,7 @@ class AgentRepository:
                 self._record_audit(
                     session,
                     action="agent.saved",
-                    entity_id=row.id,
+                    resource_id=row.id,
                     revision=row.revision,
                     actor_user_id=actor_user_id,
                     request_id=request_id,
@@ -295,7 +296,7 @@ class AgentRepository:
                 self._record_audit(
                     session,
                     action="agent.enabled" if enabled else "agent.disabled",
-                    entity_id=row.id,
+                    resource_id=row.id,
                     revision=row.revision,
                     actor_user_id=actor_user_id,
                     request_id=request_id,
@@ -323,7 +324,7 @@ class AgentRepository:
                 self._record_audit(
                     session,
                     action="agent.deleted",
-                    entity_id=row.id,
+                    resource_id=row.id,
                     revision=row.revision,
                     actor_user_id=actor_user_id,
                     request_id=request_id,

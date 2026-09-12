@@ -67,8 +67,45 @@ def test_initial_migration_create_tables_include_mandatory_columns() -> None:
     create_statements = [
         statement for statement in module.UPGRADE_STATEMENTS if statement.startswith("CREATE TABLE ")
     ]
-    assert len(create_statements) == len(Base.metadata.tables)
+    # 0003 drops retired tables and creates the V1.12 foundation tables; the
+    # live table set is the net of all migrations, not 0001 alone.
+    retired = {"external_auth_profile", "user_service_auth", "integration_registration"}
+    created_0001 = {statement.split()[2] for statement in create_statements} - retired
+    assert created_0001.issubset(set(Base.metadata.tables)), (
+        f"0001 tables missing from live metadata: {created_0001 - set(Base.metadata.tables)}"
+    )
     for statement in create_statements:
         assert "\tis_deleted BOOLEAN DEFAULT false NOT NULL" in statement
         assert "\tcreate_time TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL" in statement
         assert "\tupdate_time TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL" in statement
+
+
+def test_every_framework_owned_table_is_tenant_scoped() -> None:
+    missing = [
+        name for name, table in Base.metadata.tables.items() if "tenant_id" not in table.c
+    ]
+    assert not missing, f"tables missing tenant_id (08-表所有权 V1.12): {missing}"
+
+
+def test_retired_tables_are_absent_from_live_metadata() -> None:
+    retired = {"external_auth_profile", "user_service_auth", "integration_registration"}
+    assert retired.isdisjoint(set(Base.metadata.tables)), (
+        f"retired tables must not be modeled: {retired & set(Base.metadata.tables)}"
+    )
+
+
+def test_foundation_tables_exist() -> None:
+    required = {
+        "auth_account",
+        "auth_session",
+        "project_platform",
+        "user_project_credential",
+        "agent_access_grant",
+        "bind_code",
+        "skill_definition",
+        "async_task_run",
+        "channel_delivery",
+    }
+    assert required.issubset(set(Base.metadata.tables)), (
+        f"missing foundation tables: {required - set(Base.metadata.tables)}"
+    )

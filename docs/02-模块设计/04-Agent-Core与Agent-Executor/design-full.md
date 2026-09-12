@@ -98,6 +98,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-AGENT-05 | FEAT-AGENT-03 | P1 | integration | 高风险动作产出 Proposal | 本模块 | Agent 请求有副作用能力 | Agent loop 执行高风险意图 | 返回 ExecutionProposal，不直接执行；Proposal 含 evidence/risk |
 | S-AGENT-01 | FEAT-AGENT-01 | P0 | E2E | Console API→DB→Runtime | 本模块 | Model enabled | 创建 Agent | 列表/详情可见，Runtime 可解析 |
 | S-AGENT-02 | FEAT-AGENT-02 | P0 | E2E | Binding API→Resolver | 本模块 | Agent 已存在 | 绑定 direct capability + Skill | effective view 标记不同 origin |
 | S-AGENT-03 | FEAT-AGENT-04 | P0 | E2E | AgentExecutor→Model→Capability | 后置 → 模块 03/07/19 | 用户有授权 | 请求只读 direct tool | 仅允许已绑定能力 |
@@ -203,7 +204,7 @@ flowchart TB
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -230,7 +231,7 @@ flowchart TB
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -240,7 +241,7 @@ flowchart TB
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
-| uk_agent_capability_binding | UNIQUE | tenant_id,agent_definition_id,capability_id,is_deleted | 防重复 |
+| uk_agent_capability_binding | UNIQUE(partial) | tenant_id,agent_definition_id,capability_id | WHERE is_deleted=false；防重复 |
 
 #### 表 `agent_skill_binding`
 
@@ -255,7 +256,7 @@ flowchart TB
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -265,7 +266,7 @@ flowchart TB
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
-| uk_agent_skill_binding | UNIQUE | tenant_id,agent_definition_id,skill_id,is_deleted | 防重复 |
+| uk_agent_skill_binding | UNIQUE(partial) | tenant_id,agent_definition_id,skill_id | WHERE is_deleted=false；防重复 |
 
 #### 表 `agent_service_binding`
 
@@ -280,7 +281,7 @@ flowchart TB
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -290,7 +291,7 @@ flowchart TB
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
-| uk_agent_service_binding | UNIQUE | tenant_id,agent_definition_id,service_definition_id,is_deleted | 防重复 |
+| uk_agent_service_binding | UNIQUE(partial) | tenant_id,agent_definition_id,service_definition_id | WHERE is_deleted=false；防重复 |
 
 #### 3.3.2 ER 图
 
@@ -346,11 +347,13 @@ erDiagram
 | AGENT-API-06 | 覆盖 Agent Skill | HTTP | PUT | /api/v1/agents/{agent_id}/skills |
 | AGENT-API-07 | 覆盖可调用子服务 | HTTP | PUT | /api/v1/agents/{agent_id}/services |
 | AGENT-API-08 | 有效能力分析 | HTTP | GET | /api/v1/agents/{agent_id}/effective-capabilities |
-| AGENT-LIB-01 | AgentDefinition 解析 | Library | async def resolve_agent_definition(tenant_id: UUID, agent_id: UUID) -> ResolvedAgentDefinition |  |
+| AGENT-LIB-01 | AgentDefinition 解析 | Library | async def resolve_agent_definition(ctx: TrustedExecutionContext, agent_id: UUID) -> ResolvedAgentDefinition |  |
 | AGCORE-LIB-01 | Agent Executor | Library | async def execute_agent(ctx: AgentExecutionContext, request: AgentRequest) -> AsyncIterator[AgentEvent] |  |
 | AGCORE-LIB-02 | Agent Tool Dispatcher | Library | async def call_tool(ctx: AgentExecutionContext, capability_key: str, input: dict) -> CapabilityResult |  |
 | AGCORE-LIB-03 | Agent Skill Dispatcher | Library | async def run_skill_from_agent(ctx: AgentExecutionContext, skill_key: str, input: dict) -> SkillResult |  |
-| AGCORE-LIB-04 | Execution Proposal Builder | Library | def build_execution_proposal(ctx: AgentExecutionContext, service_id: UUID, input: dict, resource_scope: dict, evidence: ProposalEvidence) -> ExecutionProposal |  |
+| AGCORE-LIB-05 | Memory 工具分派 | Library | remember_from_agent(ctx, request) | MEM-LIB-02 |
+
+| AGCORE-LIB-04 | Execution Proposal Builder | Library | def build_execution_proposal(ctx: AgentExecutionContext, service_id: UUID, input: dict, resource_scope: dict, evidence: ProposalEvidence) -> ExecutionProposalCandidate |  |
 
 #### AGENT-API-01: Agent 列表
 
@@ -358,7 +361,7 @@ erDiagram
 
 **契约**：`GET /api/v1/agents`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **Query 参数**
 
@@ -409,7 +412,7 @@ erDiagram
 
 **契约**：`POST /api/v1/agents`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**
 
@@ -479,7 +482,7 @@ Builder 鉴权 → 校验模型同租户 → INSERT agent_definition → audit�
 
 **契约**：`GET /api/v1/agents/{agent_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 
@@ -528,7 +531,7 @@ tenant scoped agent read → 批量加载 bindings/model/channel account 摘要 
 
 **契约**：`PUT /api/v1/agents/{agent_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**
 
@@ -599,7 +602,7 @@ tenant scoped agent read → 批量加载 bindings/model/channel account 摘要 
 
 **契约**：`PUT /api/v1/agents/{agent_id}/capabilities`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**
 
@@ -652,7 +655,7 @@ tenant scoped agent read → 批量加载 bindings/model/channel account 摘要 
 
 **契约**：`PUT /api/v1/agents/{agent_id}/skills`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**
 
@@ -705,7 +708,7 @@ tenant scoped agent read → 批量加载 bindings/model/channel account 摘要 
 
 **契约**：`PUT /api/v1/agents/{agent_id}/services`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**
 
@@ -759,7 +762,7 @@ tenant scoped agent read → 批量加载 bindings/model/channel account 摘要 
 
 **契约**：`GET /api/v1/agents/{agent_id}/effective-capabilities`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 
@@ -801,7 +804,7 @@ direct binding ∪ current SkillArtifact capability snapshots → 按 key 去重
 **函数签名**
 
 ```python
-async def resolve_agent_definition(tenant_id: UUID, agent_id: UUID) -> ResolvedAgentDefinition
+async def resolve_agent_definition(ctx: TrustedExecutionContext, agent_id: UUID) -> ResolvedAgentDefinition
 ```
 
 **入参**
@@ -815,7 +818,7 @@ async def resolve_agent_definition(tenant_id: UUID, agent_id: UUID) -> ResolvedA
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| definition | ResolvedAgentDefinition | 模型/Prompt/绑定/current revisions |
+| definition | ResolvedAgentDefinition | Chat=current；Execution=CORE-LIB-05 冻结模型/Prompt/绑定 |
 
 **异常/错误**
 
@@ -827,7 +830,7 @@ async def resolve_agent_definition(tenant_id: UUID, agent_id: UUID) -> ResolvedA
 **处理逻辑**
 
 ```text
-DB scoped read → 批量加载 model/direct capability/skills/services → 校验 current references → 生成不可修改 request-scoped 投影。
+ctx.execution_id 非空时要求 ctx.projection 完整且 snapshot hash 匹配，返回 projection.agents[agent_id] 的 instructions/model/bindings/MemoryPolicy；不查询 current 业务字段。Chat 才按 DB current references 解析。两条路径均检查当前 tenant/user/Agent/grant/依赖 enabled；缺冻结 Agent 报 EXECUTION_PROJECTION_REQUIRED。
 ```
 
 #### AGCORE-LIB-01: Agent Executor
@@ -863,7 +866,7 @@ async def execute_agent(ctx: AgentExecutionContext, request: AgentRequest) -> As
 **处理逻辑**
 
 ```text
-构建 LangGraph state → model loop → Tool/Skill dispatcher → 若形成可靠 Service 意图则产 ExecutionProposal，不直接执行有副作用 Worker step → structured/final response。
+验证 ctx.projection（Worker 必填，Chat=null）→ 按模块 11 CheckpointIdentity 装载图 → model loop → Tool/Skill/Memory dispatcher → 可靠服务意图产 ExecutionProposalCandidate 后由 Runtime 调 EXE-LIB-02 签发/展示 → final；图状态持久点先于 Step 终态，副作用统一 operation_id。
 ```
 
 #### AGCORE-LIB-02: Agent Tool Dispatcher
@@ -935,7 +938,7 @@ async def run_skill_from_agent(ctx: AgentExecutionContext, skill_key: str, input
 **处理逻辑**
 
 ```text
-检查 agent_skill_binding → resolve Skill current artifact → SkillRunner.run；Skill 内部 capability 依赖不会自动变成 LLM tool。
+Execution 检查 projection.agents 的 skill_ids 并取 projection.skills 指定 artifact/checksum；Chat 检查 current binding/current artifact。两者动态检查 Skill enabled。构造宿主 SkillInvocationContext（trusted ctx/projection/workspace/manifest dependencies/operation_id/test_mode）→ SkillRunner；Execution 缺投影不 fallback current，Skill 的 Capability 依赖不自动暴露为 LLM tools。
 ```
 
 #### AGCORE-LIB-04: Execution Proposal Builder
@@ -945,7 +948,7 @@ async def run_skill_from_agent(ctx: AgentExecutionContext, skill_key: str, input
 **函数签名**
 
 ```python
-def build_execution_proposal(ctx: AgentExecutionContext, service_id: UUID, input: dict, resource_scope: dict, evidence: ProposalEvidence) -> ExecutionProposal
+def build_execution_proposal(ctx: AgentExecutionContext, service_id: UUID, input: dict, resource_scope: dict, evidence: ProposalEvidence) -> ExecutionProposalCandidate
 ```
 
 **入参**
@@ -960,13 +963,19 @@ def build_execution_proposal(ctx: AgentExecutionContext, service_id: UUID, input
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| proposal | ExecutionProposal | 不可信候选，必须经 ExecutionService 再校验 |
+| proposal | ExecutionProposalCandidate | 不可信候选，必须经 EXE-LIB-02 签发 |
 
 **处理逻辑**
 
 ```text
 只构造候选意图和 evidence；不得自行写 service_execution/调用 Worker。
 ```
+
+#### AGCORE-LIB-05: Memory 工具分派
+
+**签名**：`async def remember_from_agent(ctx: AgentExecutionContext, request: MemoryWriteRequest) -> MemoryResult`
+
+仅当当前真实 USER 消息有明确“记住/请记住”或 `/memory remember` 意图时装配 memory.remember；source_message_id 由 Runtime 注入，模型只建议 key/value，不得自行指定来源/用户。向 MEM-LIB-02 传入 ctx、key/value/expected_revision，按 Agent MemoryPolicy 过滤；成功结果说明具体保存的 key/value，拒绝 MEMORY_POLICY_DENIED/MEMORY_SOURCE_INVALID 不降级成普通任意写 Capability。
 
 ### 3.5 质量实现方案
 

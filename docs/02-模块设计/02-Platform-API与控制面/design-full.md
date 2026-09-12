@@ -93,10 +93,11 @@
 
 | ID | 类型 | 描述 | 验证场景 |
 |---|---|---|---|
-| RULE-API-01 | 边界 | Platform API 是 Control Plane；不得成为已发布 Execution 的同步运行依赖。 | S-API-01 |
+| RULE-API-01 | 边界 | Platform API 是 Control Plane；不得成为已发布 Execution 的同步运行依赖。 | S-API-05 |
 | RULE-API-02 | 身份 | tenant/actor 从认证中间件解析，Body/Query 同名字段不能覆盖。 | S-API-02 |
 | RULE-API-03 | 接口 | 业务 Endpoint 由领域模块 Application Service 提供，API 层只协议适配。 | S-API-03 |
 | RULE-API-04 | 部署 | Console 静态资源并入 platform-api；无独立 console-web 镜像。 | S-API-04 |
+| S-API-05 | FEAT-API-02 | P1 | integration | Control Plane Down 不影响运行 | 本模块+03 | 已发布 Service 正在执行 | 停止 platform-api 进程 | 在途 Execution 不受影响；Runtime 读取已缓存/共享注册事实 |
 
 #### 2.5.2 功能验收场景
 
@@ -104,6 +105,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-API-04 | FEAT-API-01 | P1 | integration | Console 随 platform-api 交付 | 本模块 | platform-api 启动 | 请求静态资源根路径 | 返回 Console SPA，无独立 console-web 镜像 |
 | S-API-01 | FEAT-API-01 | P0 | integration | FastAPI Router→Domain Service | 本模块 | 应用启动 | 枚举路由 | 每个业务路由映射唯一领域 owner |
 | S-API-02 | FEAT-API-02 | P0 | E2E | Auth middleware→Handler | 本模块 | 登录 Admin | 请求 Body 伪造其他 tenant_id | 服务端忽略/拒绝伪造字段 |
 | S-API-03 | FEAT-API-03 | P0 | integration | DomainError→HTTP | 本模块 | Service 抛稳定 DomainError | 调用接口 | 收到稳定 code/status/request_id，不泄露堆栈 |

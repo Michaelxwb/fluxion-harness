@@ -98,6 +98,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-AUTH-05 | FEAT-AUTH-04 | P1 | integration | 恢复使用当前凭据 | 本模块 | Execution 等待期间凭据被更换 | Worker 恢复执行 | 使用 current Credential，不使用冻结旧认证 |
 | S-AUTH-01 | FEAT-AUTH-01 | P0 | E2E | Console→API→PG | 本模块 | Admin | 创建 MSS 平台/auth schema | 项目平台列表可见 |
 | S-AUTH-02 | FEAT-AUTH-02 | P0 | E2E | User tab→SecretProvider→PG | 本模块 | 用户/平台存在 | 保存账号 | DB 只有 credential_ref，Secret Provider 有值 |
 | S-AUTH-03 | FEAT-AUTH-04 | P0 | E2E | Credential→AuthProvider→external | 本模块 | 已保存 credential | Verify | status VALID/INVALID 可追踪 |
@@ -189,19 +190,19 @@ flowchart LR
 | name | VARCHAR(256) | N |  | IDX | 平台名称 |
 | key | VARCHAR(128) | N |  | UK | 稳定标识 |
 | description | TEXT | Y |  |  | 说明 |
-| auth_type | VARCHAR(64) | N | USERNAME_PASSWORD |  | V1 认证类型标识 |
+| auth_type | VARCHAR(64) | N | UNCONFIGURED |  | UNCONFIGURED 或已注册 AuthProvider 类型 |
 | auth_schema | JSONB | N | {} |  | 用户需填写字段的 JSON Schema；不含 Secret 值 |
 | enabled | BOOLEAN | N | TRUE | IDX | 新解析是否允许 |
 | revision | BIGINT | N | 1 |  | direct-effect revision |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
 - UNIQUE (tenant_id,key) WHERE is_deleted=false
-- auth_schema 必须通过 JSON Schema/Pydantic 校验
+- auth_type=UNCONFIGURED 当且仅当 configured=false（派生 DTO）；此时 auth_schema={}，不能保存/验证凭据或运行 PLATFORM_SERVICE。其他类型必须已注册且模板校验通过。
 
 **索引设计**
 
@@ -221,15 +222,19 @@ flowchart LR
 | project_platform_id | UUID | N |  | FK,IDX | 项目平台 |
 | credential_ref | VARCHAR(512) | N |  |  | Secret Provider 引用 |
 | external_session_ref | VARCHAR(512) | Y |  |  | 可选外部 Session 引用 |
-| expires_at | TIMESTAMPTZ | Y |  | IDX | Credential/Session 过期时间 |
-| status | VARCHAR(32) | N | UNVERIFIED | IDX | UNVERIFIED/VALID/INVALID/EXPIRED |
+| credential_expires_at | TIMESTAMPTZ | Y |  | IDX | 长期凭据有效期；空表示由 Provider 验证 |
+| session_expires_at | TIMESTAMPTZ | Y |  | IDX | 短期 Session 有效期，过期触发刷新 |
+| session_generation | BIGINT | N | 0 |  | 刷新/撤销的 CAS 代次 |
+| refresh_owner | UUID | Y |  |  | 同凭据刷新租约 |
+| refresh_lease_expires_at | TIMESTAMPTZ | Y |  |  | 刷新到期；其他请求有限退避等待 |
+| status | VARCHAR(32) | N | UNVERIFIED | IDX | 长期凭据 UNVERIFIED/VALID/INVALID/EXPIRED；Session 过期不改本状态 |
 | verified_at | TIMESTAMPTZ | Y |  |  | 最近验证时间 |
 | metadata | JSONB | N | {} |  | 非敏感元信息 |
 | revision | BIGINT | N | 1 |  | 乐观并发 |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -240,8 +245,8 @@ flowchart LR
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
-| uk_user_project_credential | UNIQUE | tenant_id,platform_user_id,project_platform_id,is_deleted | User×Platform 唯一 |
-| idx_user_project_credential_expiry | BTREE | tenant_id,status,expires_at,is_deleted | 过期扫描/验证 |
+| uk_user_project_credential | UNIQUE(partial) | tenant_id,platform_user_id,project_platform_id | WHERE is_deleted=false |
+| idx_user_project_credential_expiry | BTREE | tenant_id,status,credential_expires_at,is_deleted | 过期扫描/验证 |
 
 #### 3.3.2 ER 图
 
@@ -261,7 +266,7 @@ erDiagram
       UUID project_platform_id FK
       VARCHAR_512_ credential_ref
       VARCHAR_512_ external_session_ref
-      TIMESTAMPTZ expires_at
+      TIMESTAMPTZ credential_expires_at
     }
 ```
 
@@ -296,7 +301,7 @@ erDiagram
 
 **契约**：`GET /api/v1/project-platforms`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin；Builder 仅安全只读 DTO（ADR-021）
 
 **Query 参数**
 
@@ -308,6 +313,8 @@ erDiagram
 | enabled | boolean | N | 状态 |
 
 **请求体**：无。
+
+**安全投影**：Builder 可读 id/key/name/enabled/revision；模型还可读 model_name/protocol，平台还可读 auth_type/configured。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；敏感写/测试接口仅 Admin。
 
 **响应 data**
 
@@ -346,7 +353,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 
 **契约**：`POST /api/v1/project-platforms`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**
 
@@ -355,8 +362,8 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 | name | string | Y | 名称 |
 | key | string | Y | 稳定 Key |
 | description | string | N | 说明 |
-| auth_type | string | Y | 认证类型标识 |
-| auth_schema | object | Y | 用户认证字段 JSON Schema |
+| auth_type | string/null | N | 缺省或 null 均规范化为 UNCONFIGURED；后续 Admin 配置认证模板 |
+| auth_schema | object | N | UNCONFIGURED 只允许 {}；已配置时必须符合注册 Provider 模板 |
 | enabled | boolean | N | 默认 true |
 
 **请求示例**
@@ -366,7 +373,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
   "name": "<name>",
   "key": "<key>",
   "description": "<description>",
-  "auth_type": "<auth_type>",
+  "auth_type": null,
   "auth_schema": {},
   "enabled": true
 }
@@ -405,7 +412,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 **处理逻辑**
 
 ```text
-校验 schema → INSERT project_platform → audit。
+将缺省/null auth_type 规范化为 UNCONFIGURED；此时 auth_schema 必须 {}。其他类型校验已注册 Provider 的模板并保存；返回 id/key/revision/configured=(auth_type!=UNCONFIGURED)。enabled 是资产开关，不代表已配置认证。UNCONFIGURED 时保存 Credential、认证验证、PLATFORM_SERVICE 测试/运行均 AUTH_PLATFORM_UNCONFIGURED（409），不能隐式调用 USERNAME_PASSWORD。
 ```
 
 #### PLAT-API-03: 项目平台详情
@@ -414,9 +421,11 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 
 **契约**：`GET /api/v1/project-platforms/{platform_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin；Builder 仅安全只读 DTO（ADR-021）
 
 **请求体**：无。
+
+**安全投影**：Builder 可读 id/key/name/enabled/revision；模型还可读 model_name/protocol，平台还可读 auth_type/configured。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；敏感写/测试接口仅 Admin。
 
 **响应 data**
 
@@ -469,7 +478,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 
 **契约**：`PUT /api/v1/project-platforms/{platform_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**
 
@@ -488,7 +497,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 {
   "name": "<name>",
   "description": "<description>",
-  "auth_type": "<auth_type>",
+  "auth_type": null,
   "auth_schema": {},
   "enabled": true,
   "revision": 1
@@ -536,7 +545,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 
 **契约**：`POST /api/v1/project-platforms/{platform_id}/validate-auth-schema`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**
 
@@ -591,7 +600,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 
 **契约**：`GET /api/v1/users/{user_id}/platform-credentials`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**：无。
 
@@ -599,7 +608,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| items | array<UserPlatformCredentialView> | platform/status/expires_at/verified_at/configured_fields_masked |
+| items | array<UserPlatformCredentialView> | platform/status/credential_expires_at/verified_at/configured_fields_masked |
 
 **响应示例**
 
@@ -694,7 +703,7 @@ Admin/本人受控访问 → JOIN platform + credential；Secret 只返回字段
 
 **契约**：`POST /api/v1/users/{user_id}/platform-credentials/{platform_id}/verify`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**：无。
 
@@ -742,7 +751,7 @@ resolve Secret → AuthProvider.verify → 更新 status/verified_at/expiry → 
 
 **契约**：`DELETE /api/v1/users/{user_id}/platform-credentials/{platform_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**：无。
 
@@ -779,39 +788,21 @@ resolve Secret → AuthProvider.verify → 更新 status/verified_at/expiry → 
 
 #### AUTH-LIB-01: 运行时用户认证解析
 
-**入口类型**：Library
+**契约**：`Library resolve_user_platform_auth(ctx, project_platform_id)`
 
-**函数签名**
+**认证/授权**：可信 actor/tenant；当前 user/platform/Credential 有效
 
-```python
-async def resolve_user_platform_auth(ctx: TrustedExecutionContext, project_platform_id: UUID) -> AuthContext
-```
+返回 request-scoped AuthContext，不含可泄露到日志/LLM 的值。
 
-**入参**
+1. 检查 platform 已配置且 enabled；读取 current Credential。INVALID/EXPIRED 或 credential_expires_at<=now 拒绝 USER_PLATFORM_CREDENTIAL_INVALID；UNVERIFIED 先调用 Provider.verify，失败拒绝。仅 session_expires_at 到期不能使长期 Credential 失效。
+2. Session 可用则 AuthProvider.materialize(ctx, credential_material, session)；SESSION_EXPIRED 转步骤 3，CREDENTIAL_INVALID 标记长期无效并拒绝。
+3. 对该 tenant+credential 用 PG CAS 获取短刷新租约，不持数据库事务做网络调用。Provider.refresh_or_login(ctx, credential_material, previous_session) 支持 refresh 或重新登录，返回 SessionRef/session_expires_at；没有永久 refresh endpoint 的 Provider 走 login，不要求用户重填有效凭据。
+4. 回写时比较 credential.revision/session_generation/refresh_owner 且当前未撤销，session_generation+1，释放刷新租约；轮换/撤销使 generation 增长，旧刷新结果不得覆盖。其他实例在调用 deadline 内有界退避等待，超时 AUTH_REFRESH_BUSY（503）；刷新进程崩溃后租约到期可恢复。
+5. materialize 新 Session 后调用外部系统，仍失败按 AUTH_SESSION_UNAVAILABLE（502）分类，不无限刷新。Secret 只在宿主请求内存；grant 和安全状态仍动态。
 
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| ctx | TrustedExecutionContext | Y | 可信用户 |
-| project_platform_id | uuid | Y | 项目平台 |
+**Provider SPI**：`verify(ctx, credential)->CredentialValidity`；`materialize(ctx, credential, session)->AuthContext`；`refresh_or_login(ctx, credential, previous_session)->SessionMaterial`；`invalidate(ctx, session)->None`。外部撤销返回 CREDENTIAL_INVALID；临时失败返回 RETRYABLE/AUTH_SESSION_UNAVAILABLE。每个方法有 deadline；invalidate 失败仅记录待清理，不能撤销本地已撤销事实。
 
-**返回**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| auth_context | AuthContext | 仅在内存短生命周期持有必要认证内容 |
-
-**异常/错误**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| USER_PLATFORM_CREDENTIAL_MISSING | 未配置 | 409 |
-| USER_PLATFORM_CREDENTIAL_INVALID | 无效/过期 | 403 |
-
-**处理逻辑**
-
-```text
-读取 current credential → 校验 status/expiry → SecretProvider.resolve → AuthProvider.materialize → 返回 request-scoped AuthContext；不得写日志。
-```
+**验证**：credential 有效而 session 到期实际刷新；两个 Worker 同时恢复只接受一个 generation；刷新期间 Credential 撤销/轮换，旧结果无法写回。
 
 ### 3.5 质量实现方案
 

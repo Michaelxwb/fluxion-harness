@@ -67,7 +67,10 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|
-| S-04-01 | FEAT-04-01 | E2E | Browser → Router → services → API → UI | 打开页面并完成主操作 | 页面字段、按钮、状态与 API Contract 一致 |
+| S-04-01 | FEAT-04-01 | E2E | 四类实现动态表单 | Builder 分别创建 HTTP/MCP/PLATFORM_SERVICE/SANDBOX 能力 | 类型切换渲染对应字段；PLATFORM_SERVICE 必选平台（安全选项） |
+| S-04-02 | FEAT-04-02 | E2E | 分页策略表单 | Builder 配置 Page 分页+短页终止 | short_page_terminates 默认开启；可显式关闭并提示适用前提（R19 语义） |
+| S-04-03 | FEAT-04-04 | E2E | 能力测试 | Admin 测试能力 | 测试结果展示 inline/summary；失败显示脱敏错误 |
+| E-04-01 | FEAT-04-03 | E2E | 副作用字段必填 | 创建能力不选"是否有副作用" | 校验失败；选 true 时风险等级建议提升提示 |
 | E-04-01 | FEAT-04-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
@@ -106,9 +109,11 @@
 **MCP**：Server/Config、Tool name、共享认证、timeout、参数映射；不显示 ProjectPlatform。
 **Sandbox**：受控 entrypoint、参数模板、workspace policy、CPU/内存/输出/network/env 限制；禁止自由 shell textarea。
 
-**Pagination**：Page/Offset/Cursor 各自字段 + items_path + total/has_more/next_cursor + max_pages/max_items/max_duration + duplicate-page detection；Page/Offset `items==[]` 固定兜底，short-page 仅显式开启。
+**Pagination**：Page/Offset/Cursor 各自字段 + items_path + total/has_more/next_cursor + max_pages/max_items/max_duration + duplicate-page detection；Page/Offset `items==[]` 固定兜底；`short_page_terminates` 默认开启（true），下游可能产生中间短页时必须允许显式关闭；保证“非最后页必满”才可安全依赖短页终止（V1.12 裁决）。
 
 
+
+**平台选择与安全**：PLATFORM_SERVICE 的项目平台下拉使用 PLAT-API-01 的安全只读 DTO，显示 name/key/configured/enabled；UNCONFIGURED 不能用于测试/启用运行并显示“待配置认证模板”。Builder 可选择已配置平台，但不能打开认证管理写操作。
 
 ### 3.5 状态与数据流
 

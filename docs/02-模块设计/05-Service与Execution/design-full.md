@@ -101,6 +101,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-SVC-06 | FEAT-SVC-05 | P1 | integration | 副作用 Step 幂等键 | 本模块 | 含写操作 Step 的 Execution | Step 重试 | 同 idempotency_key 不重复产生外部副作用 |
 | S-SVC-01 | FEAT-SVC-01 | P0 | E2E | Console→API→PG | 本模块 | Agent 存在 | 创建 Service | primary_agent_id 保存且不可为空 |
 | S-SVC-02 | FEAT-SVC-03 | P0 | E2E | Publish→Release→PG | 本模块 | Draft validate 通过 | 发布两次不同 Draft | 生成两个 immutable release，current 指向最新 |
 | S-SVC-03 | FEAT-SVC-04 | P0 | E2E | Agent Proposal→ExecutionService→PG | 本模块 | 用户有授权/Service 已发布 | 确认创建任务 | 生成 snapshot/execution/steps 且幂等 |
@@ -192,6 +193,8 @@ flowchart LR
 
 | 表名 | 职责 | 所有权 |
 |---|---|---|
+| execution_proposal | 待确认提案、可信确认消费与执行关联 | Service 与 Execution |
+
 | service_definition | 面向最终用户的业务服务定义；唯一拥有 Draft/Validate/Test/Publish 产品生命周期。 | Service 与 Execution |
 | service_release | 发布后的 immutable Service Version；新 Execution 固定引用。 | Service 与 Execution |
 | execution_snapshot | Execution 创建时冻结的轻量运行投影；只冻结一致性所需业务逻辑，不冻结实时授权/Credential/紧急禁用。 | Service 与 Execution |
@@ -201,6 +204,41 @@ flowchart LR
 | execution_command | 用户/Admin 对 Execution 发出的 stop/retry/resume 等命令事实，供 Worker 幂等应用。 | Service 与 Execution |
 | task_progress_event | Execution 发生了什么的进度事件；与 ChannelDeliveryRoute 分离。 | Service 与 Execution |
 | artifact | Execution/Step 产生的可交付或大结果元数据，内容在 Object Store。 | Service 与 Execution |
+
+#### 表 `execution_proposal`
+
+**职责**：不可变确认内容与一次性消费；仅 EXE-LIB-02/03 写入。
+
+| 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
+|---|---|---|---|---|---|
+| tenant_id | UUID | N |  | IDX | 租户 |
+| actor_user_id | UUID | N |  | FK | 确认人 |
+| conversation_id | UUID | N |  | FK | 来源会话 |
+| service_id | UUID | N |  | FK | 服务 |
+| agent_id | UUID | N |  | FK | 入口 Agent |
+| service_release_id | UUID | N |  | FK | 签发时已发布版本 |
+| snapshot_id | UUID | N |  | FK | 冻结业务投影 |
+| input_json | JSONB | N | {} |  | 校验后的输入 |
+| resource_scope_json | JSONB | N | {} |  | 确认范围 |
+| rendered_summary | TEXT | N |  |  | 实际展示内容 |
+| confirmation_digest | VARCHAR(64) | N |  |  | 绑定身份/版本/输入/范围/截止时间 |
+| expires_at | TIMESTAMPTZ | N |  | IDX | 创建后 300 秒 |
+| status | VARCHAR(16) | N | PENDING |  | PENDING/CONFIRMED/EXPIRED/SUPERSEDED |
+| confirmed_message_id | UUID | Y |  | FK message | 真实 USER 确认事件 |
+| confirmed_at | TIMESTAMPTZ | Y |  |  | 确认事务数据库时间 |
+| execution_id | UUID | Y |  | FK service_execution | 成功消费结果 |
+| id | UUID | N | gen_random_uuid() | PK | 主键 |
+| is_deleted | BOOLEAN | N | FALSE |  | 默认过滤 FALSE |
+| create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
+
+**约束与索引**
+
+- UNIQUE (tenant_id,conversation_id) WHERE status='PENDING' AND is_deleted=false；签发新提案时旧 PENDING 同事务置 SUPERSEDED。
+- 签发后禁止修改身份/输入/范围/snapshot/digest/expires_at，只允许状态及消费关联更新。
+- CHECK: status=CONFIRMED 当且仅当 execution_id、confirmed_message_id、confirmed_at 全部非空；其他状态均为空。
+- confirmed_message_id 对同 tenant 唯一（非空时）；消费与创建执行在同一事务。
+- (tenant_id,actor_user_id,conversation_id,create_time) 支持跨 Pod 取回。
 
 #### 表 `service_definition`
 
@@ -221,7 +259,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -253,11 +291,12 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
 - UNIQUE (tenant_id,service_id,release_no)
-- UNIQUE (tenant_id,content_hash)
+- UNIQUE (tenant_id,service_id,content_hash)（同一 Service 内 payload 去重；不同 Service 允许相同 payload）
 - 发布后禁止 UPDATE published_payload
 
 **索引设计**
@@ -271,31 +310,35 @@ flowchart LR
 
 #### 表 `execution_snapshot`
 
-**职责**：Execution 创建时冻结的轻量运行投影；只冻结一致性所需业务逻辑，不冻结实时授权/Credential/紧急禁用。
+**职责**：签发提案/测试时冻结业务投影；无授权和 Secret。
 
 | 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
 |---|---|---|---|---|---|
 | tenant_id | UUID | N |  | IDX | 租户 |
-| service_release_id | UUID | N |  | FK,IDX | 服务发布版本 |
-| content_hash | VARCHAR(128) | N |  | UK | 快照 hash |
-| snapshot_json | JSONB | N | {} |  | 冻结的步骤/合同引用/提示词等 |
-| snapshot_ref | VARCHAR(1024) | Y |  |  | 超大快照可外置 Object Store |
+| service_id | UUID | N |  | FK | ServiceDefinition |
+| source | VARCHAR(16) | N |  |  | FORMAL/TEST |
+| service_release_id | UUID | Y |  | FK,IDX | FORMAL 必填，TEST 必须为空 |
+| draft_revision | BIGINT | Y |  |  | TEST 必填，FORMAL 为空 |
+| test_mode | VARCHAR(16) | Y |  |  | TEST=DRY_RUN/REAL_TEST；FORMAL 为空 |
+| content_hash | VARCHAR(64) | N |  | UK | 完整投影 hash |
+| snapshot_json | JSONB | N |  |  | CORE-LIB-05 ExecutionProjection，完整持久化 |
+| snapshot_ref | VARCHAR(1024) | Y |  |  | 超大制品引用；identity/source/hash 仍持久化 |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
-| is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
+| is_deleted | BOOLEAN | N | FALSE |  | 默认过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
-**约束**
+**约束与索引**
 
-- 禁止包含明文 Secret/Credential
-- UNIQUE (tenant_id,content_hash)
+- UNIQUE (tenant_id,service_id,source,content_hash)；hash 覆盖 revision/test_mode/步骤及全部业务投影，不用 nullable release 作去重身份。
+- source 与 release/draft/test_mode 按下方 executable predicate 校验；根对象必须匹配同一个 snapshot 的 source/service/version/mode。
+- 禁止业务 UPDATE/DELETE。
 
-**索引设计**
-
-| 索引名 | 类型 | 字段 | 使用场景 |
-|---|---|---|---|
-| uk_execution_snapshot_hash | UNIQUE | tenant_id,content_hash | 去重/一致性 |
-
-**不可变约束**：创建后禁止业务 UPDATE/DELETE；如需演进创建新记录并更新上层 current 指针。
+<!-- contract:execution-source-check -->
+```sql
+(source = 'FORMAL' AND service_release_id IS NOT NULL AND draft_revision IS NULL AND test_mode IS NULL) OR (source = 'TEST' AND service_release_id IS NULL AND draft_revision IS NOT NULL AND test_mode IN ('DRY_RUN', 'REAL_TEST'))
+```
+<!-- /contract:execution-source-check -->
 
 #### 表 `service_execution`
 
@@ -305,7 +348,7 @@ flowchart LR
 |---|---|---|---|---|---|
 | tenant_id | UUID | N |  | IDX | 租户 |
 | service_id | UUID | N |  | FK,IDX | ServiceDefinition |
-| service_release_id | UUID | N |  | FK,IDX | 固定 Release |
+| service_release_id | UUID | Y |  | FK,IDX | FORMAL 必填；TEST 必须为空 |
 | actor_user_id | UUID | N |  | FK,IDX | 发起 PlatformUser |
 | primary_agent_id | UUID | N |  | FK | 启动时主 Agent 引用 |
 | conversation_id | UUID | Y |  | FK,IDX | 来源 Conversation |
@@ -315,8 +358,23 @@ flowchart LR
 | resource_scope_json | JSONB | N | {} |  | 业务资源范围 |
 | input_json | JSONB | N | {} |  | 经 Schema 校验的输入 |
 | execution_mode | VARCHAR(16) | N | ASYNC |  | SYNC/ASYNC |
-| status | VARCHAR(32) | N | PENDING | IDX | PENDING/RUNNING/WAITING/CANCELLING/SUCCEEDED/FAILED/CANCELLED |
-| current_step | INTEGER | N | 0 |  | 当前步骤序号 |
+| status | VARCHAR(32) | N | PENDING | IDX | PENDING/RUNNING/WAITING/WAITING_HUMAN/RETRY_WAIT/CANCELLING/SUCCEEDED/FAILED/CANCELLED（终态统一 SUCCEEDED） |
+| waiting_reason | VARCHAR(256) | Y |  |  | 进入 WAITING_HUMAN/RETRY_WAIT 的原因（人工等待为审批说明） |
+| human_deadline | TIMESTAMPTZ | Y |  | IDX | 进入 WAITING_HUMAN 的截止时间，默认 +24h；超时置 FAILED(error_code=HUMAN_TIMEOUT) |
+| requested_action | VARCHAR(16) | Y |  |  | WAITING_HUMAN 期间请求的动作：RESUME/CANCEL |
+| channel_source | VARCHAR(32) | Y |  |  | 接入渠道（V1=wechat_wecom；API 发起为空） |
+| retry_count | INTEGER | N | 0 |  | 业务重试次数（EXE-API-04 触发） |
+| parent_execution_id | UUID | Y |  | FK,UK | 重试的直接父执行；每个父执行最多派生一个子执行 |
+| execution_source | VARCHAR(16) | N | FORMAL | IDX | FORMAL/TEST；TEST 不入正式统计 |
+| draft_revision | BIGINT | Y |  |  | TEST 必填，FORMAL 为空 |
+| test_mode | VARCHAR(16) | Y |  |  | TEST 必填 DRY_RUN/REAL_TEST；FORMAL 为空 |
+| root_execution_id | UUID | N |  | FK | 初次执行指向自身；重试沿用 |
+| max_retries | INTEGER | N | 3 |  | 管理重试上限，与 claim 的 max_attempts 分离 |
+| context_summary | JSONB | Y |  |  | 人工等待摘要：step_key/prompt/input_digest/evidence_refs；脱敏 |
+| human_decision_at | TIMESTAMPTZ | Y |  |  | 接受决策的数据库时间 |
+| lease_epoch | BIGINT | N | 0 |  | 每次 claim +1；所有状态写入校验 fencing token |
+| priority | INTEGER | N | 0 |  | Worker claim 排序权重（总设 §5.2 治理 P1） |
+| current_step | VARCHAR(256) | Y |  | 当前阶段（当前步骤 key；初始为空） |
 | next_run_at | TIMESTAMPTZ | Y |  | IDX | 可再次 claim 时间 |
 | lease_owner | VARCHAR(256) | Y |  | IDX | Worker owner |
 | lease_expires_at | TIMESTAMPTZ | Y |  | IDX | lease 到期 |
@@ -325,7 +383,8 @@ flowchart LR
 | idempotency_key | VARCHAR(256) | N |  | UK | 提交幂等键 |
 | trace_id | VARCHAR(128) | N |  | IDX | 全链路 Trace |
 | cancel_requested_at | TIMESTAMPTZ | Y |  |  | 取消请求时间 |
-| result_ref | VARCHAR(1024) | Y |  |  | 最终结果/Artifact ref |
+| result_ref | VARCHAR(1024) | Y |  |  | 最终结果引用 |
+| artifact_ids | UUID[] | N | {} |  | 根结果产物；重试复制，访问时校验同 root/actor |
 | error_code | VARCHAR(128) | Y |  | IDX | 终态错误码 |
 | error_message | TEXT | Y |  |  | 脱敏错误摘要 |
 | started_at | TIMESTAMPTZ | Y |  |  | 开始时间 |
@@ -333,12 +392,15 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
 - UNIQUE (tenant_id,idempotency_key)
 - 终态不可回到非终态
+- source/version/test_mode 按 execution-source-check（source 映射 execution_source）校验，且与 snapshot 一致。
+- UNIQUE (tenant_id,parent_execution_id) WHERE parent_execution_id IS NOT NULL；每个失败节点只有一个重试子执行。
+- WAITING_HUMAN：deadline 非空；在 deadline 前已被事务接受的 requested_action 优先应用，即使 Worker 稍后才运行。到期且没有有效已接受决策才 FAILED(HUMAN_TIMEOUT)；截止后新决策拒绝，已接受请求重放返回原结果。
 - lease_owner/lease_expires_at 仅 Worker 管理
 - 创建/恢复时动态重校验 AgentAccessGrant/Credential/Capability enabled
 
@@ -361,14 +423,18 @@ flowchart LR
 | execution_id | UUID | N |  | FK,IDX | Execution |
 | step_key | VARCHAR(160) | N |  |  | 步骤稳定 key |
 | sequence_no | INTEGER | N |  | IDX | 顺序 |
-| step_type | VARCHAR(32) | N |  | IDX | CAPABILITY/AGENT/HUMAN/DELIVERY |
+| step_type | VARCHAR(32) | N |  | IDX | CAPABILITY/AGENT/WAIT/HUMAN/DELIVERY |
+| operation_id | UUID | N |  | IDX | 首次创建生成；重试同一逻辑步骤沿用；绑定 input hash |
+| source_step_id | UUID | Y |  | FK execution_step | 重试复制的来源步骤 |
+| checkpoint_ref | VARCHAR(512) | Y |  |  | 最近已提交的图恢复点 |
 | execution_mode | VARCHAR(16) | N | SYNC |  | SYNC/ASYNC |
 | status | VARCHAR(32) | N | PENDING | IDX | PENDING/RUNNING/WAITING/SUCCEEDED/FAILED/CANCELLED/SKIPPED |
 | attempt | INTEGER | N | 0 |  | 步骤重试计数 |
-| idempotency_key | VARCHAR(256) | Y |  | UK | 有副作用步骤幂等键 |
+| idempotency_key | VARCHAR(256) | Y |  | IDX | effect:{operation_id}；跨重试沿用，因此不做全局唯一 |
 | input_json | JSONB | N | {} |  | 步骤输入快照 |
 | output_json | JSONB | N | {} |  | 小结果；大结果用 result_ref |
 | result_ref | VARCHAR(1024) | Y |  |  | Artifact/Object ref |
+| artifact_ids | UUID[] | N | {} |  | 本步骤产物关联；复制结果同时复制 ID |
 | wait_until | TIMESTAMPTZ | Y |  | IDX | 等待截止/轮询时间 |
 | error_code | VARCHAR(128) | Y |  | IDX | 错误码 |
 | error_detail_ref | VARCHAR(1024) | Y |  |  | 大错误详情/外部响应脱敏引用 |
@@ -377,7 +443,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -395,38 +461,44 @@ flowchart LR
 
 #### 表 `async_task_run`
 
-**职责**：异步 Capability 的外部任务状态投影；不是 Capability Implementation 类型，也不是一级产品对象。
+**职责**：每个逻辑异步副作用的一条提交/对账/轮询事实，重试执行按 operation_id 复用。
 
 | 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
 |---|---|---|---|---|---|
 | tenant_id | UUID | N |  | IDX | 租户 |
-| execution_step_id | UUID | N |  | FK,UK | 所属 Step |
-| provider_type | VARCHAR(64) | N |  |  | 外部任务提供者 |
-| external_task_id | VARCHAR(256) | N |  | IDX | 外部 task ID |
-| status | VARCHAR(32) | N | SUBMITTED | IDX | SUBMITTED/RUNNING/SUCCEEDED/FAILED/CANCELLED |
-| next_poll_at | TIMESTAMPTZ | Y |  | IDX | 下一次轮询 |
-| poll_attempts | INTEGER | N | 0 |  | 轮询次数 |
-| cancel_supported | BOOLEAN | N | FALSE |  | 是否支持取消 |
-| result_ref | VARCHAR(1024) | Y |  |  | 最终结果引用 |
-| error_code | VARCHAR(128) | Y |  |  | 错误码 |
-| submitted_at | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 提交时间 |
-| completed_at | TIMESTAMPTZ | Y |  |  | 完成时间 |
+| execution_step_id | UUID | N |  | FK | 首次提交步骤 |
+| operation_id | UUID | N |  | UK | 逻辑调用身份，跨重试共享 |
+| actor_user_id | UUID | N |  | FK | 可信调用人 |
+| capability_key | VARCHAR(160) | N |  |  | 契约定位 |
+| provider_key | VARCHAR(256) | N |  |  | Registry 稳定 key |
+| provider_type | VARCHAR(64) | N |  |  | 提供者类型 |
+| provider_locator | JSONB | N |  |  | 提交时的非敏感平台/endpoint/region/operation 路由，不随 current implementation 改写 |
+| project_platform_id | UUID | Y |  | FK | 动态 Credential 解析定位 |
+| idempotency_key | VARCHAR(256) | N |  | UK | 调用级提交键 |
+| input_hash | VARCHAR(64) | N |  |  | 防同键换参 |
+| external_task_id | VARCHAR(256) | Y |  | IDX | 已确认受理后必填；提交中/未知允许空 |
+| status | VARCHAR(32) | N | SUBMITTING | IDX | SUBMITTING/SUBMITTED_UNKNOWN/SUBMITTED/RUNNING/SUCCEEDED/FAILED/CANCELLED |
+| last_polled_at | TIMESTAMPTZ | Y |  |  | 最近实际轮询时间 |
+| next_poll_at | TIMESTAMPTZ | Y |  | IDX | 轮询或对账到期 |
+| poll_attempts | INTEGER | N | 0 |  | 有界计数 |
+| max_poll_attempts | INTEGER | N | 100 |  | 执行策略冻结上限 |
+| reconcile_deadline | TIMESTAMPTZ | N |  |  | 未知结果对账截止时间 |
+| cancel_supported | BOOLEAN | N | FALSE |  | Provider 能力 |
+| result_ref | VARCHAR(1024) | Y |  |  | 结果 |
+| error_code | VARCHAR(128) | Y |  |  | 错误分类 |
+| submitted_at | TIMESTAMPTZ | Y |  |  | 确认受理时间 |
+| completed_at | TIMESTAMPTZ | Y |  |  | 终态时间 |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
-| is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
+| is_deleted | BOOLEAN | N | FALSE |  | 默认过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
-**约束**
+**约束与索引**
 
-- UNIQUE (tenant_id,execution_step_id)
-- 外部 task ID 不由 LLM 直接提供；必须来自 Provider 返回
-
-**索引设计**
-
-| 索引名 | 类型 | 字段 | 使用场景 |
-|---|---|---|---|
-| uk_async_task_step | UNIQUE | tenant_id,execution_step_id | 1 Step 0/1 async run |
-| idx_async_task_poll | BTREE | tenant_id,status,next_poll_at,is_deleted | Worker polling |
+- UNIQUE (tenant_id,operation_id)；UNIQUE (tenant_id,idempotency_key)。
+- SUBMITTED/RUNNING/SUCCEEDED/CANCELLED 必須 external_task_id 非空；SUBMITTING/SUBMITTED_UNKNOWN/FAILED 可空；不得伪造外部 ID。
+- 外部调用前提交 SUBMITTING 行；崩溃后视为 SUBMITTED_UNKNOWN 对账，不盲目重发。
+- input_hash、actor、provider_locator 签发后不可改，Secret 不持久化；Provider 路由不可恢复时明确 PROVIDER_ROUTE_UNAVAILABLE，不改用当前新路由。
 
 #### 表 `execution_command`
 
@@ -437,15 +509,18 @@ flowchart LR
 | tenant_id | UUID | N |  | IDX | 租户 |
 | execution_id | UUID | N |  | FK,IDX | Execution |
 | actor_user_id | UUID | N |  | FK | 命令发起者 |
-| command_type | VARCHAR(32) | N |  | IDX | CANCEL/RETRY/RESUME |
-| payload_json | JSONB | N | {} |  | 命令参数 |
+| command_type | VARCHAR(32) | N |  | IDX | CANCEL/RESUME 由 Worker 应用；RETRY 由 API 创建新执行的事务直接标 APPLIED |
+| payload_json | JSONB | N | {} |  | reason/decision/target；禁止审批改参 |
+| request_digest | VARCHAR(64) | N |  |  | 幂等键绑定 actor/target/参数 |
+| accepted_at | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 接受时间 |
+| result_execution_id | UUID | Y |  | FK | RETRY 同事务创建的新执行 |
 | status | VARCHAR(32) | N | PENDING | IDX | PENDING/APPLIED/REJECTED |
 | idempotency_key | VARCHAR(256) | N |  | UK | 命令幂等 |
 | applied_at | TIMESTAMPTZ | Y |  |  | Worker 应用时间 |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -475,6 +550,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **索引设计**
 
@@ -491,6 +567,9 @@ flowchart LR
 | 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
 |---|---|---|---|---|---|
 | tenant_id | UUID | N |  | IDX | 租户 |
+| owner_type | VARCHAR(16) | N |  |  | EXECUTION/CONVERSATION |
+| owner_id | UUID | N |  | IDX | 所属执行或会话，与 workspace 归属一致 |
+| workspace_id | UUID | N |  | FK | 受控文件空间 |
 | execution_id | UUID | Y |  | FK,IDX | Execution |
 | execution_step_id | UUID | Y |  | FK | Step |
 | artifact_type | VARCHAR(64) | N |  | IDX | REPORT/DATASET/JSON/FILE/... |
@@ -503,6 +582,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **索引设计**
 
@@ -511,6 +591,9 @@ flowchart LR
 | idx_artifact_execution | BTREE | tenant_id,execution_id,create_time | 结果列表 |
 
 **不可变约束**：创建后禁止业务 UPDATE/DELETE；如需演进创建新记录并更新上层 current 指针。
+
+
+**归属约束**：owner_type=EXECUTION 时 execution_id=owner_id 且非空；CONVERSATION 时 execution_id/execution_step_id 为空，owner_id 引用同租户 Conversation。读写者必须是对应 actor 或有管理读权限。Chat 产物随对话回复经内部受权流发送，不能冒充后台执行；RESULT 的 execution_id 入口只取 EXECUTION 产物。
 
 #### 3.3.2 ER 图
 
@@ -612,11 +695,17 @@ erDiagram
 | SVC-API-07 | 发布 Service | HTTP | POST | /api/v1/services/{service_id}/publish |
 | SVC-API-08 | Release 列表 | HTTP | GET | /api/v1/services/{service_id}/releases |
 | SVC-API-09 | Release 详情 | HTTP | GET | /api/v1/services/{service_id}/releases/{release_id} |
+| SVC-API-10 | 紧急启停 | HTTP | PATCH | /api/v1/services/{service_id}/enabled |
 | EXE-API-01 | Execution 列表 | HTTP | GET | /api/v1/executions |
 | EXE-API-02 | Execution 详情/Timeline | HTTP | GET | /api/v1/executions/{execution_id} |
 | EXE-API-03 | 取消 Execution | HTTP | POST | /api/v1/executions/{execution_id}/cancel |
 | EXE-API-04 | 重试失败 Execution | HTTP | POST | /api/v1/executions/{execution_id}/retry |
-| EXE-LIB-01 | 从 Proposal 创建可信执行 | Library | async def create_from_proposal(ctx: TrustedExecutionContext, proposal: ExecutionProposal, *, idempotency_key: str) -> ServiceExecution |  |
+| EXE-API-05 | 人工审批决策（继续/终止） | HTTP | POST | /api/v1/executions/{execution_id}/resume |
+| EXE-API-06 | Artifact 授权下载 | HTTP | GET | /api/v1/executions/{execution_id}/artifacts/{artifact_id}/download |
+| EXE-LIB-02 | 签发待确认提案 | Library | issue_proposal(ctx, candidate) | PG 提案/快照 |
+| EXE-LIB-03 | 消费用户确认 | Library | confirm_proposal(ctx, proposal_id, user_message_id, confirmation_ref) | 原子确认并创建 |
+
+| EXE-LIB-01 | 从 Proposal 创建可信执行 | Library | async def create_from_proposal(ctx: TrustedExecutionContext, proposal_id: UUID) -> ServiceExecution |  |
 
 #### SVC-API-01: Service 列表
 
@@ -624,7 +713,7 @@ erDiagram
 
 **契约**：`GET /api/v1/services`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **Query 参数**
 
@@ -676,7 +765,7 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
 
 **契约**：`POST /api/v1/services`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**
 
@@ -743,7 +832,7 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
 
 **契约**：`GET /api/v1/services/{service_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 
@@ -786,62 +875,415 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
 
 #### SVC-API-04: 保存 Service Draft
 
-**入口类型**：HTTP
-
 **契约**：`PUT /api/v1/services/{service_id}/draft`
 
-**认证/授权**：None
+**认证/授权**：Builder + Admin；当前租户
 
-**请求体**
+**请求体**：`{draft_payload: ServiceDraft, draft_revision: integer}`；revision 必填，服务端 CAS +1。
 
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| draft_payload | object | Y | 完整草稿：steps/scope/input/deliverable/confirmation 等 |
-| draft_revision | integer | Y | 乐观锁 |
+**ServiceDraft JSON Schema（Owner 合同）**：
 
-**请求示例**
-
+<!-- contract:service-draft-schema -->
 ```json
 {
-  "draft_payload": {},
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "primary_agent_id",
+    "execution_type",
+    "input_schema",
+    "output_schema",
+    "resource_scope",
+    "confirmation",
+    "steps"
+  ],
+  "properties": {
+    "primary_agent_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "execution_type": {
+      "enum": [
+        "AGENTIC",
+        "DETERMINISTIC",
+        "HYBRID"
+      ]
+    },
+    "input_schema": {
+      "type": "object"
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "resource_scope": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "scope_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_schema": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "scope_type",
+        "input_schema"
+      ],
+      "additionalProperties": false
+    },
+    "confirmation": {
+      "type": "object",
+      "required": [
+        "required",
+        "summary_template"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "summary_template": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step_key",
+          "name",
+          "type",
+          "failure_policy"
+        ],
+        "properties": {
+          "step_key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "type": {
+            "enum": [
+              "CAPABILITY",
+              "AGENT",
+              "WAIT",
+              "HUMAN",
+              "DELIVERY"
+            ]
+          },
+          "capability_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "input_mapping": {
+            "type": "object",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "source",
+                    "path"
+                  ],
+                  "properties": {
+                    "source": {
+                      "const": "INPUT"
+                    },
+                    "path": {
+                      "type": "string",
+                      "pattern": "^/"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "source",
+                    "step_key",
+                    "path"
+                  ],
+                  "properties": {
+                    "source": {
+                      "const": "STEP"
+                    },
+                    "step_key": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string",
+                      "pattern": "^/"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "literal"
+                  ],
+                  "properties": {
+                    "literal": {}
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "output_var": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "failure_policy": {
+            "enum": [
+              "FAIL_FAST",
+              "RETRY",
+              "MANUAL",
+              "SKIP_ON_ERROR"
+            ]
+          },
+          "max_retries": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10,
+            "default": 2
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 86400
+          },
+          "wait_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 604800
+          },
+          "human_prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "human_deadline_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 86400,
+            "default": 86400
+          },
+          "deliverable_template": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "CAPABILITY"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "capability_key"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "AGENT"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "agent_id"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "WAIT"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "wait_seconds"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "HUMAN"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "human_prompt"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "DELIVERY"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "deliverable_template"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "WAIT"
+                }
+              }
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "input_mapping"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "deliverable": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "SUMMARY",
+            "ARTIFACT",
+            "BOTH"
+          ]
+        },
+        "template": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "template"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "execution_type": {
+            "enum": [
+              "DETERMINISTIC",
+              "HYBRID"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "steps": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}
+```
+<!-- /contract:service-draft-schema -->
+
+**语义校验**：step_key/output_var 各自唯一；STEP 引用只允许已出现的 step_key，path 是 JSON Pointer；没有隐式字符串插值。前端把“前一步输出/Service 输入/字面量”控件序列化为三种 input_mapping。output_var 是可选显示别名，解析时归一到 step_key，不能创建第二套输出事实。Schema 校验先于依赖/Scope/风险检查。
+
+resource_scope 是业务输入范围的 Schema，Scope Registry 校验 scope_type 与允许字段，schema_hash 由服务器在发布/快照时计算，不接受客户端 hash。primary_agent_id 的修改进入 Draft，发布时冻结；service_definition.primary_agent_id/execution_type 是当前 Draft 的检索投影，运行使用 Release/快照。AGENTIC 无显式步骤时编译为主 Agent 的一个逻辑步骤；HYBRID/DETERMINISTIC 按给定顺序执行。
+
+失败策略：FAIL_FAST 终止；RETRY 按同 operation_id 有界重试；MANUAL 进入 WAITING_HUMAN，RESUME 从相同失败点继续且沿用副作用身份；SKIP_ON_ERROR 显式标 SKIPPED 并继续，依赖缺失输出时必须提供 literal 默认，否则保存时拒绝。WAIT 不占用长睡眠线程，详情见 WORK-LIB-03。
+
+**请求示例**：
+
+<!-- contract:service-draft-example -->
+```json
+{
+  "draft_payload": {
+    "primary_agent_id": "00000000-0000-4000-8000-000000000001",
+    "execution_type": "HYBRID",
+    "input_schema": {
+      "type": "object"
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "resource_scope": null,
+    "confirmation": {
+      "required": true,
+      "summary_template": "生成客户报告"
+    },
+    "steps": [
+      {
+        "step_key": "fetch",
+        "name": "读取客户",
+        "type": "CAPABILITY",
+        "capability_key": "crm.list",
+        "failure_policy": "RETRY",
+        "max_retries": 2
+      },
+      {
+        "step_key": "pause",
+        "name": "等待下次窗口",
+        "type": "WAIT",
+        "wait_seconds": 60,
+        "failure_policy": "FAIL_FAST"
+      },
+      {
+        "step_key": "review",
+        "name": "审批报告",
+        "type": "HUMAN",
+        "human_prompt": "请确认报告范围与收件人",
+        "failure_policy": "FAIL_FAST"
+      }
+    ]
+  },
   "draft_revision": 1
 }
 ```
+<!-- /contract:service-draft-example -->
 
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| draft_revision | integer | 新 revision |
-| draft_hash | string | 规范化 hash |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "draft_revision": 1,
-    "draft_hash": "<draft_hash>"
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| SERVICE_NOT_FOUND | 不存在 | 404 |
-| DRAFT_REVISION_CONFLICT | 并发冲突 | 409 |
-| DRAFT_SCHEMA_INVALID | 草稿结构非法 | 400 |
-
-**处理逻辑**
-
-```text
-校验 payload 内 primary_agent/steps/resource scope schema 结构 → UPDATE draft_payload/revision → audit；不改变 current_release。
-```
+**响应**：`{draft_revision: 2, draft_hash: "sha256"}`。非法结构/引用/缺条件字段统一 SERVICE_DRAFT_INVALID（422，field_errors）；并发 DRAFT_REVISION_CONFLICT（409）；不存在 SERVICE_NOT_FOUND（404）。保存只更新 Draft 及其检索字段，不能改变 current_release、enabled；禁用走 SVC-API-10。
 
 #### SVC-API-05: 校验 Service Draft
 
@@ -849,7 +1291,7 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
 
 **契约**：`POST /api/v1/services/{service_id}/validate`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 
@@ -892,67 +1334,17 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
 
 #### SVC-API-06: 测试 Service Draft
 
-**入口类型**：HTTP
-
 **契约**：`POST /api/v1/services/{service_id}/test`
 
-**认证/授权**：None
+**认证/授权**：Builder + Admin；测试操作者和 test_user 分别审计
 
-**请求体**
+**请求体**：test_user_id、input、draft_revision、idempotency_key 必填；resource_scope 可选；mode=DRY_RUN（默认）/REAL_TEST。客户端不能传 execution_source、snapshot_id 或 service_release_id。
 
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| test_user_id | uuid | Y | 测试用户 |
-| input | object | Y | 测试输入 |
-| resource_scope | object | N | 测试范围 |
-| mode | string | N | DRY_RUN/REAL_TEST；默认 DRY_RUN |
+**处理逻辑**：锁 Service，检查 draft_revision 精确相等并校验草稿；生成 source=TEST 的 ExecutionProjection（完整 Draft + 当前依赖投影 + test_mode），transaction 写 snapshot/root/steps。两张表 release_id 都为 null，draft_revision/test_mode 非空。正式创建 EXE-LIB-01 不处理 TEST；此入口不走正式 Proposal/发布条件。
 
-**请求示例**
+DRY_RUN：可信 ctx.projection.test_mode 注入 Worker→Agent→Skill 宿主→CapabilityCallContext，Capability 只能选已注册的 mock/dry Provider，缺失报 DRY_RUN_UNSUPPORTED，不 fallback 真实 Provider。REAL_TEST：仅允许部署 allow_real_test=true 且处于开发/测试环境，当前 test_user grant 与 resource_scope 校验通过；生产部署拒绝 REAL_TEST。所有派生工具调用继承 mode，不接受 Skill/LLM 覆盖。
 
-```json
-{
-  "test_user_id": "<test_user_id>",
-  "input": {},
-  "resource_scope": {},
-  "mode": "<mode>"
-}
-```
-
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| test_execution_id | uuid | 测试执行 ID |
-| status | string | 状态 |
-| trace_id | string | Trace |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "test_execution_id": "<test_execution_id>",
-    "status": "<status>",
-    "trace_id": "<trace_id>"
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| SERVICE_VALIDATION_FAILED | Draft 未通过验证 | 409 |
-| TEST_USER_ACCESS_INVALID | 测试用户/范围无效 | 403 |
-
-**处理逻辑**
-
-```text
-构造 test-only Execution Proposal → 复用 ExecutionService/Worker 模型；REAL_TEST 必须限制测试环境和范围；不发布给正式用户。
-```
+**响应**：`{test_execution_id, execution_source: TEST, test_mode, draft_revision, snapshot_hash, status, expired: false, trace_id}`。再次读取时 expired = TEST 且执行 draft_revision != 当前 draft_revision。列表和概览默认仅 FORMAL，测试面板按 execution_source=TEST + service_id 查询。输入修订冲突 DRAFT_REVISION_CONFLICT（409），测试身份不合法 TEST_USER_ACCESS_INVALID（403），REAL_TEST_NOT_ALLOWED（403）。同 idempotency_key+请求 digest 返回同执行，换参 IDEMPOTENCY_CONFLICT（409）。
 
 #### SVC-API-07: 发布 Service
 
@@ -960,7 +1352,7 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
 
 **契约**：`POST /api/v1/services/{service_id}/publish`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**
 
@@ -1025,7 +1417,7 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
 
 **契约**：`GET /api/v1/services/{service_id}/releases`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **Query 参数**
 
@@ -1073,7 +1465,7 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
 
 **契约**：`GET /api/v1/services/{service_id}/releases/{release_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 
@@ -1112,108 +1504,47 @@ service_definition JOIN agent/current_release；draft_state 由 draft payload ha
 
 #### EXE-API-01: Execution 列表
 
-**入口类型**：HTTP
-
 **契约**：`GET /api/v1/executions`
 
-**认证/授权**：None
+**认证/授权**：Builder + Admin；仅当前 tenant 的管理可见范围
 
-**Query 参数**
+**Query**：page=1/page_size=20（max100）；service_id/user_id/agent_id 可选；status 为九态；execution_mode=SYNC/ASYNC；execution_source=FORMAL（默认）/TEST；delivery_status=NONE/PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN；channel_source/trace_id/from/to 可选。测试面板显式传 TEST 和 service_id，常规执行列表保持 FORMAL。
 
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| page | integer | N | 页码，从 1 开始；默认 1 |
-| page_size | integer | N | 每页条数；默认 20，最大 100 |
-| service_id | uuid | N | 服务 |
-| user_id | uuid | N | 发起用户 |
-| status | string | N | 状态 |
-| execution_mode | string | N | SYNC/ASYNC |
-| from | datetime | N | 开始时间 |
-| to | datetime | N | 结束时间 |
+**响应**：`{items: ExecutionSummary[], total: integer}`；Summary 的所有字段见 EXE-API-02 的根 View（列表可不返回 input/context_summary）。delivery_status 以持久队列关联查询，先筛选再分页；所有 SQL 有 tenant 条件，批量关联名称，禁止 N+1。未知枚举/非法时间范围 REQUEST_SCHEMA_INVALID（422）。
 
-**请求体**：无。
-
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| items | array<ExecutionSummary> | id/service/release/user/channel/mode/stage/status/times |
-| total | integer | 总数 |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "items": [],
-    "total": 1
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-仅使用公共错误码。
-
-**处理逻辑**
-
-```text
-Admin/Builder 权限范围 → 命中 service_execution 组合索引/时间窗口 → 批量关联摘要。
-```
-
-#### EXE-API-02: Execution 详情/Timeline
-
-**入口类型**：HTTP
+#### EXE-API-02: Execution 详情与 Timeline
 
 **契约**：`GET /api/v1/executions/{execution_id}`
 
-**认证/授权**：None
+**认证/授权**：Builder + Admin；当前租户的管理只读范围
 
-**请求体**：无。
+**响应**：`{execution: ExecutionView,steps: ExecutionStepView[],async_tasks: AsyncTaskView[],progress_events: ProgressEvent[],artifacts: ArtifactSummary[],deliveries: DeliveryView[],commands: CommandSummary[]}`。
 
-**响应 data**
-
-| 字段 | 类型 | 说明 |
+| ExecutionView 字段 | 类型 | 来源/派生 |
 |---|---|---|
-| execution | object | 根状态 |
-| steps | array<ExecutionStepView> | 步骤 |
-| async_tasks | array<AsyncTaskView> | 步骤异步任务 |
-| progress_events | array<ProgressEvent> | 时间线 |
-| artifacts | array<ArtifactSummary> | 结果 |
-| commands | array<CommandSummary> | stop/retry |
+| id / service_id / agent_id / user_id | UUID | root.id/service_id/primary_agent_id/actor_user_id |
+| service_name / agent_name / user_name | string | 关联摘要；对象已删除仍保留 id 与快照名 |
+| service_release_id / release_no | UUID/null、integer/null | FORMAL 固定版本；TEST=null |
+| conversation_id / parent_execution_id | UUID/null | 根对象关联 |
+| execution_source / test_mode / draft_revision / expired | enum、enum/null、integer/null、boolean | TEST 修订与当前 Draft 比较；FORMAL expired=false |
+| status / execution_mode / execution_type | enum | 九态、SYNC/ASYNC、snapshot 执行方式 |
+| trace_id / channel_source / retry_count | string、string/null、integer | root 字段 |
+| current_step | string/null | 当前 step_key；统一此名，取消 current_step_key 别名 |
+| started_at / finished_at | datetime/null | root 字段 |
+| result_ref / error_code / error_message | string/null | 根结果/脱敏错误 |
+| waiting_reason / context_summary / human_deadline / requested_action | string/null、object/null、datetime/null、enum/null | 等待进入时固化；禁止 current 重渲染 |
+| delivery_status | enum | 无队列 NONE；否则优先 UNKNOWN > FAILED > SENDING > RETRY_WAIT > PENDING；全成功 DELIVERED |
+| available_actions | string[] | 当前状态和角色计算：Builder=[]；Admin 按 CANCEL/RETRY/RESUME 条件提供 |
 
-**响应示例**
+ExecutionSummary 除 input/context_summary 外包含上述字段，等待字段可空，后端不省略不支持字段以免 UI 猜测。
 
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "execution": {},
-    "steps": [],
-    "async_tasks": [],
-    "progress_events": [],
-    "artifacts": [],
-    "commands": []
-  },
-  "request_id": "req_xxx"
-}
-```
+ExecutionStepView={id,operation_id,step_key,name,type,status,attempt,started_at,finished_at,duration_ms,summary,wait_until,result_ref,error_code}，name/type 取 snapshot，duration=结束或当前时间减开始，summary 取脱敏最新进度。AsyncTaskView={operation_id,step_key,external_task_id?,status,submitted_at?,last_polled_at?,completed_at?,poll_attempts,cancel_supported,result_ref?,error_code?}，以 operation_id 关联当前重试 Step，未知外部 ID 显示“待确认”。ProgressEvent={id,time,step_key?,stage,progress?,message,visibility}。
 
-**错误码**
+ArtifactSummary={id,name,content_type,size_bytes,checksum,download_path}；download_path 指向当前可访问 execution 的 EXE-API-06。DeliveryView={id,channel,status,attempt,max_attempts,last_error?,delivered_at?,next_attempt_at?}。CommandSummary={id,type,status,accepted_at,applied_at?,result_execution_id?}。
 
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| EXECUTION_NOT_FOUND | 不存在/无权限 | 404 |
+**响应示例（节选字段，完整字段由上表确定）**：`{"execution":{"id":"…","status":"SUCCEEDED","current_step":"deliver","delivery_status":"UNKNOWN","available_actions":[]},"steps":[],"async_tasks":[],"progress_events":[],"artifacts":[],"deliveries":[{"id":"…","channel":"wechat_wecom","status":"UNKNOWN","attempt":1,"max_attempts":5,"last_error":"ACK_TIMEOUT","delivered_at":null,"next_attempt_at":null}],"commands":[]}`。
 
-**处理逻辑**
-
-```text
-tenant scoped execution → 一次批量加载 steps/tasks/events/artifacts/commands → 按 timeline 排序。
-```
+**处理**：tenant scoped 读取根 + 批量 steps/op tasks/events/artifact associations/deliveries/commands；按发生时间排 Timeline。artifact 仅通过本执行 artifact_ids 或其 Step 的复制结果关联，且同 root_execution_id/actor，不能凭任意 ID 跨用户查文件。不存在/无读取权限 EXECUTION_NOT_FOUND（404）。
 
 #### EXE-API-03: 取消 Execution
 
@@ -1221,7 +1552,7 @@ tenant scoped execution → 一次批量加载 steps/tasks/events/artifacts/comm
 
 **契约**：`POST /api/v1/executions/{execution_id}/cancel`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**
 
@@ -1275,104 +1606,75 @@ tenant scoped execution → 一次批量加载 steps/tasks/events/artifacts/comm
 
 **一致性/幂等**：相同 idempotency_key 返回同 command。
 
-#### EXE-API-04: 重试失败 Execution
-
-**入口类型**：HTTP
+#### EXE-API-04: 重试失败执行
 
 **契约**：`POST /api/v1/executions/{execution_id}/retry`
 
-**认证/授权**：None
+**认证/授权**：仅 Admin
 
-**请求体**
+**请求体**：idempotency_key 必填；from_step 可选，只允许首个失败/未完成步骤，已成功/已跳过步骤不得选取，其他值 EXECUTION_RETRY_BOUNDARY_INVALID（409）。
 
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| from_step | string | N | 默认从可安全重试点 |
-| idempotency_key | string | Y | 幂等键 |
+**事务**：锁原 FAILED 执行；先查请求幂等及已有 parent_execution_id 子执行（同请求换参 409；已有子执行返回它）。检查 retry_count < max_retries 和当前授权/安全状态。新执行复制 actor、service/version、snapshot、input/scope、source/test_mode、route，root_execution_id 沿用，parent 指向原执行，retry_count +1，claim attempt 从 0 开始。原执行保持 FAILED。RETRY execution_command 在同事务写 APPLIED/result_execution_id，Worker 不再次应用 RETRY。
 
-**请求示例**
+每个新 Step source_step_id 指向来源、operation_id 与 effect:{operation_id} 键沿用，input hash 必须相同。成功/SKIPPED 步骤复制结果不执行；失败/未知步骤按 operation_id 查询原 async_task_run，存在 handle 则恢复 status/result，SUBMITTING/UNKNOWN 则对账。禁止以新 execution_id 生成新的外部提交键；输入变化必须创建全新提案并重新确认，不属于 retry。Agent 图恢复点使用 operation_id，沿用原 checkpoint_ref。两个不同请求也不得从同一父执行创建两个孩子；要重试已失败子执行需调用子执行端点。
 
-```json
-{
-  "from_step": "<from_step>",
-  "idempotency_key": "<idempotency_key>"
-}
-```
+**响应**：`{command_id, new_execution_id, parent_execution_id, retry_count, status}`；新执行初始 PENDING，幂等返回时 status 为该执行当前状态。错误 EXECUTION_NOT_RETRYABLE/EXECUTION_RETRY_LIMIT（409）、EXECUTION_ACCESS_DENIED（403）。前端打开 new_execution_id，并展示重试来源链。
 
-**响应 data**
+#### EXE-API-05: 人工审批决策
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| command_id | uuid | 命令 |
-| status | string | PENDING |
+**契约**：`POST /api/v1/executions/{execution_id}/resume`
 
-**响应示例**
+**认证/授权**：仅 Admin；END_USER 调同一 Application 经 CH-INT-02 校验本人
 
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "command_id": "<command_id>",
-    "status": "<status>"
-  },
-  "request_id": "req_xxx"
-}
-```
+**请求体**：`{decision: RESUME|CANCEL, idempotency_key: string, comment?: string}`；additionalProperties=false，禁止 input/改参。仅表达继续原执行或终止。
 
-**错误码**
+**请求示例**：`{"decision":"RESUME","idempotency_key":"human-decision-01","comment":"已核对范围"}`。
 
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| EXECUTION_NOT_RETRYABLE | 状态/步骤不可重试 | 409 |
-| EXECUTION_ACCESS_DENIED | 无权限 | 403 |
+**事务顺序**：锁 execution；先按 tenant+idempotency_key 查询 command，actor/target/decision/comment 摘要一致返回原结果（包括后来已超时/终态），不一致 IDEMPOTENCY_CONFLICT。首次请求要求 WAITING_HUMAN 且 requested_action 为空，锁内数据库时间必须严格小于 human_deadline。写 PENDING RESUME/CANCEL command、accepted_at、requested_action、human_decision_at、审计；不修改已持有租约，不在 API 直接推进 Step。相反决策已接受返回 HUMAN_DECISION_CONFLICT。
 
-**处理逻辑**
+Worker 必须持有效 lease_epoch 才应用：先处理已接受决策，再判 timeout。RESUME：HUMAN Step SUCCEEDED；若由 failure_policy=MANUAL 进入则原失败步骤恢复重试（operation_id 不变）。清理等待标记，推进下一步骤。CANCEL：CANCELLING→按取消边界清理→CANCELLED。无已接受决策且 now>=deadline：FAILED/HUMAN_TIMEOUT。所有更新和 command APPLIED 在同一事务且校验 fencing，恰好一条终态事件。
 
-```text
-仅 Admin/Builder 或策略允许用户 → 校验失败终态/重试边界 → INSERT RETRY command → Worker 应用时重新检查动态授权/Credential/Capability enabled。
-```
+**上下文**：进入等待时将 snapshot 中 human_prompt、step_key、input_digest、脱敏 evidence_refs 固化到 context_summary；human_deadline=进入等待时间+human_deadline_seconds，next_run_at 同值。不能后续从 current 配置重新渲染审批内容。
 
-#### EXE-LIB-01: 从 Proposal 创建可信执行
+**响应**：`{command_id, decision, accepted_at, execution_status: WAITING_HUMAN}`；这是已接受，不假称已完成。UI 刷新到真正终态/下一步。错误 EXECUTION_NOT_WAITING_HUMAN/HUMAN_DECISION_CONFLICT/EXECUTION_HUMAN_TIMEOUT（409）、EXECUTION_ACCESS_DENIED（403）、REQUEST_SCHEMA_INVALID（422）。
 
-**入口类型**：Library
+#### SVC-API-10: 紧急启停
 
-**函数签名**
+**契约**：`PATCH /api/v1/services/{service_id}/enabled`
 
-```python
-async def create_from_proposal(ctx: TrustedExecutionContext, proposal: ExecutionProposal, *, idempotency_key: str) -> ServiceExecution
-```
+**认证/授权**：仅 Admin
 
-**入参**
+请求 `{enabled: boolean}`，响应 `{id, enabled, update_time}`。直接更新定义的即时安全开关并审计；与 Draft revision/current Release 无关，发布和保存 Draft 不得覆盖 enabled。禁用后新提案、确认创建和新测试返回 EXECUTION_SERVICE_DISABLED（409），已有 Execution 继续受其他动态安全状态控制，不因此自动取消。Console 服务列表/详情提供 Admin“紧急停用/恢复”独立动作，停用二次确认。
 
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| ctx | TrustedExecutionContext | Y | 可信身份 |
-| proposal | ExecutionProposal | Y | Agent/入口提出的执行意图 |
-| idempotency_key | string | Y | 提交幂等 |
+#### EXE-API-06: Artifact 授权下载
 
-**返回**
+**契约**：`GET /api/v1/executions/{execution_id}/artifacts/{artifact_id}/download`
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| execution | ServiceExecution | 持久化执行根 |
+**认证/授权**：Builder + Admin；当前租户执行的只读权限，artifact 必须由 execution.artifact_ids/Step.artifact_ids 关联且与该执行同 root/actor
 
-**异常/错误**
+固定返回 `200` 字节流（Content-Type、Content-Disposition、Content-Length）；受权后由模块 05 调 ObjectStore.get，不返回 ObjectStore URL，也不声明一次性阅读。错误 ARTIFACT_NOT_FOUND（404）/ARTIFACT_ACCESS_DENIED（403）。
 
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| AGENT_ACCESS_DENIED | 无 Agent 授权 | 403 |
-| SERVICE_RELEASE_REQUIRED | 无发布版本 | 409 |
-| RESOURCE_SCOPE_INVALID | 范围无效 | 400 |
-| CONFIRMATION_REQUIRED | 需用户确认 | 409 |
+END_USER 通过 `/result <execution_id> [artifact_id]` → CH-INT-02 RESULT → 同一 Artifact Application 检查 tenant/actor 归属，创建新用户请求的 FILE DeliveryMessage，Gateway 经 CH-DATA-04 内部授权流取文件后发渠道原生附件；后台 DELIVERY 也采用该路径。过期的内部取流许可可重签，不向用户暴露 10 分钟 bearer URL。用户离线后任意时刻再次 /result 可重新取得仍保留的文件；已清理则明确 ARTIFACT_EXPIRED（410）。
 
-**处理逻辑**
+V1 不支持原生文件的 Adapter 返回 CHANNEL_FILE_UNSUPPORTED，不静默改成公开链接。平台保证跨用户取流请求被拒绝；已送达渠道附件的后续转发由渠道权限管理，不声称平台能禁止转发。
 
-```text
-重新解析 user/agent grant → service current release → input/scope schema → confirmation/risk → 创建 execution_snapshot → transaction INSERT execution/root+steps → wake worker。
-```
+#### EXE-LIB-01: 从已确认 Proposal 创建执行（事务内）
 
-**补充约束**：LLM proposal 不是可信执行指令；本函数是确定性可信边界。
+**签名**：`async def create_from_proposal(ctx: TrustedExecutionContext, proposal_id: UUID) -> ServiceExecution`
+
+仅 EXE-LIB-03 可调用：锁住持久 proposal，检查同租户/本人/会话、已验证 USER 确认事件、digest/截止时间与 current release 未变；动态验证 user/Agent/grant/Skill/Model/Capability enabled；加载已有 snapshot，不重新解析 current 业务逻辑。以 `proposal:{proposal_id}` 为执行幂等键，事务创建 root+steps（每步 operation_id）、记录 confirmed_message_id/confirmed_at/execution_id 并将提案置 CONFIRMED；提交后 wake Worker。已 CONFIRMED 返回原执行。错误：PROPOSAL_EXPIRED/PROPOSAL_STALE/PROPOSAL_DIGEST_MISMATCH（409）、PROPOSAL_ACCESS_DENIED（403）。
+
+#### EXE-LIB-02: 签发待确认提案
+
+**签名**：`async def issue_proposal(ctx: TrustedExecutionContext, candidate: ExecutionProposalCandidate) -> ExecutionProposalView`
+
+Runtime 在展示确认前调用。校验 candidate 不含身份字段，从 ctx 注入 tenant/actor/conversation；要求 Service 已发布且 enabled，校验 input/resource_scope 与引用；冻结 CORE-LIB-05 投影，生成可读摘要和 digest。单事务写 snapshot、将同会话旧 PENDING 标 SUPERSEDED、插入 execution_proposal；签名使用服务端 SecretProvider key。返回 View 给渠道展示，并以 ASSISTANT message.type=PROPOSAL 记录 proposal_id。PG 是跨 Pod 取回入口，签名和模型“同意”均不是用户确认事实。
+
+#### EXE-LIB-03: 消费真实用户确认
+
+**签名**：`async def confirm_proposal(ctx: TrustedExecutionContext, proposal_id: UUID, user_message_id: UUID, confirmation_ref: str) -> ServiceExecution`
+
+仅可信 Runtime 内部调用。读取 message，要求 role=USER、conversation/actor/tenant 匹配、来源 verified channel event；明确的确认按钮或当前会话唯一 PENDING 的“确认”映射到 proposal_id，不接受 LLM 生成的 confirmation flag。锁 proposal 后先处理已成功消费重放，再验证签名/digest/到期及 release 未变；同一事务调用 EXE-LIB-01。跨会话、不同 actor、替换 input/scope/ref 均拒绝；message 不可用于消费第二个提案。操作审计同事务。
 
 ### 3.5 质量实现方案
 

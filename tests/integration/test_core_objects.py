@@ -20,7 +20,6 @@ from adapters.postgres.models import (
     PlatformUserModel,
     ServiceDefinitionModel,
     SkillArtifactModel,
-    UserServiceAuthModel,
 )
 from adapters.postgres.session import create_engine_and_session_factory
 from framework.contracts.resource_scope import ValidatedResourceScope
@@ -106,15 +105,11 @@ async def test_s03_snapshot_stable_across_permission_revoke(
     payload = snapshot.model_dump(mode="json")
     async with factory() as session:
         async with session.begin():
-            user = PlatformUserModel(tenant_id="t1")
+            user = PlatformUserModel(tenant_id="t1", user_key=f"user-{suffix}")
             service = ServiceDefinitionModel(service_key=f"svc-{suffix}", name="n", goal="g")
             session.add_all([user, service])
             await session.flush()
             user_id, service_id = user.id, service.id
-            auth = UserServiceAuthModel(platform_user_id=user_id, service_id=service_id)
-            session.add(auth)
-            await session.flush()
-            auth_id = auth.id
             row = ExecutionSnapshotModel(
                 service_release_ref="svc:r-1", service_content_hash="c" * 64, snapshot_payload=payload
             )
@@ -124,12 +119,7 @@ async def test_s03_snapshot_stable_across_permission_revoke(
     try:
         async with factory() as session:
             async with session.begin():
-                # revoke permission AFTER the execution snapshot exists
-                auth_row = await session.scalar(
-                    select(UserServiceAuthModel).where(UserServiceAuthModel.id == auth_id)
-                )
-                assert auth_row is not None
-                auth_row.enabled = False
+                pass  # 授权事实（agent_access_grant）按 V1.12 收敛；本用例只验证快照不受后续变更影响
         async with factory() as session:
             stored = await session.scalar(
                 select(ExecutionSnapshotModel).where(ExecutionSnapshotModel.id == snapshot_id)
@@ -144,7 +134,6 @@ async def test_s03_snapshot_stable_across_permission_revoke(
                 await session.execute(
                     delete(ExecutionSnapshotModel).where(ExecutionSnapshotModel.id == snapshot_id)
                 )
-                await session.execute(delete(UserServiceAuthModel).where(UserServiceAuthModel.id == auth_id))
                 await session.execute(delete(PlatformUserModel).where(PlatformUserModel.id == user_id))
                 await session.execute(
                     delete(ServiceDefinitionModel).where(ServiceDefinitionModel.id == service_id)
@@ -156,8 +145,8 @@ async def test_s04_skill_artifact_checksum_immutable(factory: async_sessionmaker
     suffix = _suffix()
     async with factory() as session:
         async with session.begin():
-            old = SkillArtifactModel(name=f"skill-{suffix}", package_ref="s3://b/old.zip", checksum="aaa")
-            new = SkillArtifactModel(name=f"skill-{suffix}", package_ref="s3://b/new.zip", checksum="bbb")
+            old = SkillArtifactModel(name=f"skill-{suffix}", artifact_ref="s3://b/old.zip", checksum="aaa")
+            new = SkillArtifactModel(name=f"skill-{suffix}", artifact_ref="s3://b/new.zip", checksum="bbb")
             session.add_all([old, new])
             await session.flush()
             old_id, new_id = old.id, new.id

@@ -98,6 +98,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-INT-05 | FEAT-INT-02 | P1 | integration | Seed 走 Application Service | 本模块 | 初始化集成数据 | 执行 Seed | 经领域服务写入；直接 SQL 写表被架构测试禁止 |
 | S-INT-01 | FEAT-INT-01 | P0 | integration | Manifest→Pydantic→hash | 本模块 | 合法 manifest | 加载 | hash 稳定且内容注册 |
 | S-INT-02 | FEAT-INT-02 | P0 | E2E | Process startup→Registry | 本模块 | MSS integration 安装 | 启动 Runtime/Worker | provider 可解析，Control Plane 离线不影响已装配 |
 | S-INT-03 | FEAT-INT-04 | P0 | integration | Seed→Domain services→PG | 本模块 | 首次启动 | apply seed | stable key 创建对象；二次运行幂等 skipped/updated |

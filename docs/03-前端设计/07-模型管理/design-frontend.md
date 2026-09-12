@@ -64,7 +64,10 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|
-| S-07-01 | FEAT-07-01 | E2E | Browser → Router → services → API → UI | 打开页面并完成主操作 | 页面字段、按钮、状态与 API Contract 一致 |
+| S-07-01 | FEAT-07-01 | E2E | 标识不可改 | 编辑已建模型 | 标识字段只读；名称/参数可改即生效 |
+| S-07-02 | FEAT-07-02 | E2E | 密钥不回显 | Admin 配置 API Key | 保存后仅 secret_configured；编辑留空=不修改 |
+| S-07-03 | FEAT-07-03 | E2E | 连通性测试 | Admin 点击测试 | 显示成功/失败与延迟；超时显示明确错误 |
+| E-07-01 | FEAT-07-01 | E2E | Builder 视图 | Builder 打开模型页 | 仅安全选项视图（无 Secret 字段），管理操作不可见 |
 | E-07-01 | FEAT-07-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
@@ -105,6 +108,8 @@
 | 状态 | 保存直接影响新请求 |
 
 
+
+**角色合同**：Builder 仅看安全列表/摘要（id/name/key/enabled/revision；模型可见 protocol/model_name，平台可见 auth_type/configured），不渲染未授权的地址/认证头/模板/Secret 字段。新增、编辑、测试/验证按钮仅 Admin；Builder 仍可从 Agent/Capability 表单选择这些安全依赖。API 双重执行同一权限。
 
 ### 3.5 状态与数据流
 

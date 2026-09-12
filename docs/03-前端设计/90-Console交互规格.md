@@ -23,7 +23,16 @@
 - 详情默认只读；
 - 危险操作必须确认；
 - 创建后不可改字段在编辑中只读；
-- Secret 不回显。
+- Secret 不回显；
+- Admin-only 操作（如发布）对 Builder 不渲染按钮，而非点击后拒绝。
+
+### 1.3 Console 菜单（信息架构）
+
+概览、服务、智能体、能力、Skill、知识库（规划，置灰）、模型、项目平台、用户（Admin）、执行记录、审计查询（Admin）。不单设 Channel/认证配置/系统设置/异步任务一级菜单。
+
+### 1.4 登录与会话
+
+登录页 `/login`（用户名/密码 → `POST /api/v1/auth/login`）；Bearer Token 12 小时；401 统一回登录页；角色（ADMIN/BUILDER）来自登录响应。详见 FE-00 §3.3.1。
 
 ---
 
@@ -36,7 +45,7 @@
 | 服务名称 | `name` | 搜索 | 展示名 |
 | 服务标识 | `key` | 搜索 | 稳定唯一 |
 | 主智能体 | `primary_agent` | 可筛 | 创建必选 |
-| 执行方式 | `execution_type` | 筛选 | Agent/固定/混合等 |
+| 执行方式 | `execution_type` | 筛选 | AGENTIC（智能体自主）/DETERMINISTIC（固定流程）/HYBRID（混合），枚举已冻结 |
 | 已发布版本 | `current_release` | | 未发布显示 `—` |
 | 草稿状态 | draft dirty state | 筛选 | 有未发布修改 |
 | 启用状态 | `enabled` | 筛选 | |
@@ -56,11 +65,15 @@
 
 创建后进入 `/services/:id/edit`。
 
+**即时启停**：创建时 enabled 是初始状态；创建后仅 Admin 的独立“紧急停用/恢复”动作调用 SVC-API-10，Draft 编辑只读展示开关。发布不覆盖 enabled。详见 FE-02。
+
 ## 2.3 服务编辑
 
 ### Tab A 基本信息
 
 同上；展示 Draft revision 与 current release。
+
+基本字段与步骤持久化以模块 05 ServiceDraft JSON Schema 为准，主 Agent 修改写 draft_payload.primary_agent_id；所有字段均在 FE-02 列出映射。测试请求必须带 draft_revision，默认 DRY_RUN，TEST 结果显示修订/expired 且不入运营统计。
 
 ### Tab B 执行编排
 
@@ -79,10 +92,10 @@ Step Form：
 | 步骤名称 | 是 | 业务可读 |
 | Step 类型 | 是 | Agent / Capability / Wait / Human / Delivery |
 | 执行对象 | 条件必填 | Agent/Capability 等 |
-| 输入来源/映射 | 按类型 | Service input 或前一步输出 |
+| 输入来源/映射 | 按类型 | JSON Pointer 映射 INPUT/STEP 或 literal；见 SVC-API-04 schema |
 | 输出变量 | 否 | 给后续步骤引用 |
 | 超时时间 | 否/默认 | |
-| 失败策略 | 是 | fail / retry / wait/manual 等 |
+| 失败策略 | 是 | FAIL_FAST / RETRY / MANUAL（等待人工）/ SKIP_ON_ERROR |
 | 最大重试 | 条件 | |
 | 人工说明 | Human 时 | |
 | 步骤说明 | 否 | |
@@ -304,7 +317,7 @@ Builder 可隐藏该 Tab 或只读，按最终角色实现选择；DB 事实源�
 
 固定说明：
 
-> `items == []` 是 Page/Offset 无更多数据的兜底；短页结束只有在下游契约保证“非最后页必满”时才开启。
+> `items == []` 是 Page/Offset 无更多数据的兜底；`short_page_terminates` 表单默认开启（true，V1.12 裁决），下游可能产生中间短页时必须允许显式关闭；仅当保证“非最后页必满”时才可安全依赖短页终止。
 
 ### Offset/Limit
 
@@ -565,6 +578,8 @@ password  密码    password  required secret
 
 ---
 
+**跨页面合同同步（V1.13）**：Skill 首导/新版本均先 mode=preview 返回 preview_token，确认才 mode=commit；取消不落正式记录。Model/ProjectPlatform 写操作仅 Admin，Builder 通过安全只读 DTO 选择依赖。平台创建缺省 auth_type=UNCONFIGURED，配置模板前不可认证运行。用户编辑回传 revision，凭据与 Session 有效期分开。Artifact 通过受权字节流/渠道原生文件交付；不向用户暴露短时 ObjectStore URL。
+
 ## 9. 执行记录
 
 ## 9.1 列表
@@ -575,11 +590,16 @@ password  密码    password  required secret
 | 服务/智能体 | 触发对象 |
 | 触发用户 | |
 | 执行模式 | 同步/异步/混合展示语义 |
-| 执行状态 | |
+| 执行状态 | 含 WAITING_HUMAN（等待人工）、RETRY_WAIT（等待重试）；人工超时按失败呈现「人工超时（HUMAN_TIMEOUT）」 |
 | 投递状态 | 独立 |
+| 接入渠道 | channel_source（V1=企业微信；API 发起显示 `—`） |
+| 当前阶段 | current_step（步骤 key） |
+| 追踪标识 | trace_id |
 | 开始时间 | |
 | 结束时间 | 未结束显示 `—` |
 | 操作 | 只有“详情” |
+
+列表投递筛选 Query=delivery_status；业务状态与投递状态独立。投递枚举 NONE/PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN；UNKNOWN 明确送达未确认，不触发业务重试。Builder 只读，取消/重试/审批仅 Admin；重试返回 new_execution_id 后打开新执行。
 
 ## 9.2 详情
 
@@ -592,7 +612,18 @@ password  密码    password  required secret
 - mode；
 - start/end；
 - result/artifact；
-- error。
+- error；
+- trace_id（追踪标识）；
+- retry_count（重试次数）；
+- channel_source（接入渠道）；
+- current_step（当前阶段）。
+
+人工审批区块（status=WAITING_HUMAN 时显示）：
+
+- waiting_reason（等待原因）；
+- context 摘要（审批上下文）；
+- deadline 倒计时；超时后区块切换为「人工超时（HUMAN_TIMEOUT）」失败呈现，不再显示操作按钮；
+- 操作：「继续」（EXE-API-05, decision=RESUME）、「终止」（EXE-API-05, decision=CANCEL）。
 
 Timeline：
 

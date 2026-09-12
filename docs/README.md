@@ -5,12 +5,12 @@
 ## 目录
 
 - `00-总体设计/`：完整总体设计与 Playbook，保持上游设计事实；
-- `01-架构与规范/`：工程、DB、API、Workspace/Sandbox 规范和 Owner 索引；
+- `01-架构与规范/`：工程、DB、API、Workspace/Sandbox 规范和 Owner 索引（其中 `05-数据库公共字段与表清单.md` 为历史参考，已被 08+模块设计取代）；
 - `02-模块设计/`：后端按一级模块目录拆分，每个模块明确 Full/Lite 分档；
 - `03-前端设计/`：按 Console 产品模块拆分，每个模块独立 Frontend Design；
 - `04-追溯与验收/`：总体设计→模块→页面→API→DB 追溯与 Gate；
 - `05-变更记录/`：设计演进；
-- `99-cf-task-align模板基线/`：本轮使用的 align/full/lite/frontend 模板。
+- `99-cf-task-align模板基线/`：未随 docs 归档；align/full/lite/frontend 模板见 `.code-flow/specs/shared/`。
 
 ## 关键规则
 

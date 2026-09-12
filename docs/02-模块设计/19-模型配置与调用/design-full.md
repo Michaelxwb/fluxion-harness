@@ -98,6 +98,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-MODEL-05 | FEAT-MODEL-02 | P1 | integration | 模型调用有 deadline | 本模块 | 模型端点挂起 | 发起调用 | 到达 request deadline 后超时失败，无无限 retry |
 | S-MODEL-01 | FEAT-MODEL-01 | P0 | E2E | Console→API→Secret+PG | 本模块 | Builder | 新增模型 | 列表可见且 Secret 仅 configured |
 | S-MODEL-02 | FEAT-MODEL-03 | P0 | E2E | API→OpenAI-compatible endpoint | 本模块 | 配置有效 | Test | 返回 ok/latency/provider request id |
 | S-MODEL-03 | FEAT-MODEL-04 | P0 | E2E | AgentExecutor→ModelClient SSE | 后置 → 模块 04 | Agent 引用模型 | 对话 | 逐 delta/tool events |
@@ -199,7 +200,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -245,7 +246,7 @@ flowchart LR
 
 **契约**：`GET /api/v1/models`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin；Builder 仅安全只读 DTO（ADR-021）
 
 **Query 参数**
 
@@ -257,6 +258,8 @@ flowchart LR
 | enabled | boolean | N | 状态 |
 
 **请求体**：无。
+
+**安全投影**：Builder 可读 id/key/name/enabled/revision；模型还可读 model_name/protocol，平台还可读 auth_type/configured。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；敏感写/测试接口仅 Admin。
 
 **响应 data**
 
@@ -295,7 +298,7 @@ Builder/Admin 鉴权 → tenant scoped 查询 → Secret 字段只返回 configu
 
 **契约**：`POST /api/v1/models`
 
-**认证/授权**：Builder/Admin
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**
 
@@ -368,9 +371,11 @@ Builder/Admin 鉴权 → tenant scoped 查询 → Secret 字段只返回 configu
 
 **契约**：`GET /api/v1/models/{model_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin；Builder 仅安全只读 DTO（ADR-021）
 
 **请求体**：无。
+
+**安全投影**：Builder 可读 id/key/name/enabled/revision；模型还可读 model_name/protocol，平台还可读 auth_type/configured。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；敏感写/测试接口仅 Admin。
 
 **响应 data**
 
@@ -429,7 +434,7 @@ tenant scoped 查询；永不返回 Secret。
 
 **契约**：`PUT /api/v1/models/{model_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**
 
@@ -499,7 +504,7 @@ tenant scoped 查询；永不返回 Secret。
 
 **契约**：`POST /api/v1/models/{model_id}/test`
 
-**认证/授权**：Builder/Admin
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**
 
@@ -592,7 +597,7 @@ async def stream_model(ctx: TrustedExecutionContext, model_id: UUID, messages: l
 **处理逻辑**
 
 ```text
-resolve ModelConfig → resolve Secret → 合并允许覆盖的 options → 流式请求 → 统一 event/error/usage telemetry。
+ctx.execution_id 非空：要求 ctx.projection.models[model_id]，只取冻结 protocol/base_url/model_name/default_parameters/timeouts；禁止缺失时回退 current。Chat 取 current。实时检查 Model enabled，以当前 model_id 定位 SecretProvider，不冻结 Secret。options 只能覆盖快照策略允许项，不得换 endpoint/model；统一 event/error/usage。
 ```
 
 ### 3.5 质量实现方案

@@ -43,6 +43,7 @@
 | FEAT-10-01 | 执行列表 | 状态/投递/时间筛选和详情 | P0 | V0.8 / Playbook / 总设 |
 | FEAT-10-02 | 执行详情 | Timeline + AsyncTask + Artifact | P0 | V0.8 / Playbook / 总设 |
 | FEAT-10-03 | 取消/重试 | 按后端能力受控暴露 | P1 | V0.8 / Playbook / 总设 |
+| FEAT-10-04 | 人工审批 | WAITING_HUMAN 状态展示等待原因/上下文/倒计时，支持继续/终止 | P1 | V0.8 / Playbook / 总设 |
 
 ### 2.3 范围与边界
 
@@ -65,7 +66,10 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|
-| S-10-01 | FEAT-10-01 | E2E | Browser → Router → services → API → UI | 打开页面并完成主操作 | 页面字段、按钮、状态与 API Contract 一致 |
+| S-10-01 | FEAT-10-01 | E2E | 多维筛选 | 按状态=WAITING_HUMAN、投递状态=FAILED、trace_id 筛选 | 仅返回匹配执行；字段与 EXE-API-01 DTO 一致 |
+| S-10-02 | FEAT-10-04 | E2E | 人工审批闭环 | 对 WAITING_HUMAN 执行点"继续" | 展示 waiting_reason/上下文/倒计时；RESUME 后状态流转；超时后按 HUMAN_TIMEOUT 失败呈现且无操作按钮 |
+| S-10-03 | FEAT-10-02 | E2E | Timeline 与 AsyncTask | 展开失败步骤的异步任务 | external task id/轮询状态/结果或错误完整展示 |
+| E-10-01 | FEAT-10-03 | E2E | 重试打开新执行 | 点重试后打开响应返回的 new_execution_id | 新详情 parent 指向原执行；原执行仍为 FAILED |
 | E-10-01 | FEAT-10-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
@@ -93,16 +97,21 @@
 | CMP-10-02 | ExecutionDetailPage | 容器 | 摘要+Timeline |
 | CMP-10-03 | ExecutionTimeline | 展示 | Step/AsyncTask/Progress |
 | CMP-10-04 | ArtifactLinks | 展示 | 结果制品 |
+| CMP-10-05 | HumanApprovalPanel | 容器 | WAITING_HUMAN 人工审批区块（waiting_reason/context 摘要/deadline 倒计时 + 继续/终止） |
 
 ### 3.4 组件接口契约与字段
 
-**列表**：执行编号、服务/智能体、触发用户、执行模式、执行状态、投递状态、开始时间、结束时间、操作=详情。
+**执行九态**：PENDING/RUNNING/WAITING/WAITING_HUMAN/RETRY_WAIT/CANCELLING/SUCCEEDED/FAILED/CANCELLED。Human 超时是 FAILED/error_code=HUMAN_TIMEOUT，原因单列，不另造执行状态。
 
-**详情摘要**：execution id、service/release、agent/user/conversation、status/mode/start/end/result/artifact/error。
+**列表 DTO**：完全采用 EXE-API-01 ExecutionSummary：service_name/agent_name/user_name、execution_mode/type、status、delivery_status、trace_id、retry_count、channel_source、current_step、started_at/finished_at。统一 current_step，空值显示“—”。筛选与 Query 同名（含 delivery_status、execution_source）；默认 FORMAL，测试面板另查 TEST。
 
-**Timeline**：time/step/type/status/duration/summary。Async Task 展开 external task id/status/submitted/polled/completed/result artifact/cancel supported/error。
+**详情**：EXE-API-02 ExecutionView + steps/async_tasks/progress_events/artifacts/deliveries/commands。Timeline 采用后端 time/type/status/duration_ms/summary，AsyncTask external_task_id=null 显示“提交结果待确认”，不得伪造 ID。产物按钮经 EXE-API-06 下载字节流，不缓存 302 或对象链接。
 
+**投递状态**：NONE/PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN；业务成功且 UNKNOWN 显示“执行完成，通知送达待确认”，不显示业务重试按钮冒充投递恢复。未知投递停止自动重发，用户可在 IM 用 /result 主动取件。
 
+**人工面板**：WAITING_HUMAN 时展示 waiting_reason/context_summary/human_deadline 倒计时，Admin 且 available_actions 包含相应动作才显示“继续/终止”。只提交 decision/idempotency_key/comment，禁止 input；接受响应后显示“决策已提交”并刷新状态，不假定已经执行。deadline 409 与版本/决策冲突可定位，保留原上下文。Builder 只读。
+
+**取消/重试**：Admin 根据 available_actions 操作；重试成功打开 new_execution_id 并显示 parent_execution_id，重复请求复用幂等键；按执行终态禁止不合法操作。Actor/权限最终以后端为准。
 
 ### 3.5 状态与数据流
 
@@ -124,6 +133,9 @@
 | Execution 详情/Timeline | `EXE-API-02` | `GET /api/v1/executions/{execution_id}` | Service 与 Execution |
 | 取消 Execution | `EXE-API-03` | `POST /api/v1/executions/{execution_id}/cancel` | Service 与 Execution |
 | 重试失败 Execution | `EXE-API-04` | `POST /api/v1/executions/{execution_id}/retry` | Service 与 Execution |
+| 下载产物 | `EXE-API-06` | `GET /api/v1/executions/{execution_id}/artifacts/{artifact_id}/download` | Service 与 Execution |
+
+| 人工审批决策 | `EXE-API-05` | `POST /api/v1/executions/{execution_id}/resume`（body: `decision=RESUME / CANCEL`） | Service 与 Execution |
 
 ### 3.6 UI 状态
 

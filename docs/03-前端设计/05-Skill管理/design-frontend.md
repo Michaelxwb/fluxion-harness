@@ -65,7 +65,10 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|
-| S-05-01 | FEAT-05-01 | E2E | Browser → Router → services → API → UI | 打开页面并完成主操作 | 页面字段、按钮、状态与 API Contract 一致 |
+| S-05-01 | FEAT-05-01 | E2E | 两阶段导入-预览 | Builder 上传 Skill 包（preview） | 展示 Manifest+校验报告；不产生正式记录、不切 current |
+| S-05-02 | FEAT-05-01 | E2E | 两阶段导入-确认与取消 | 预览后点确认 / 直接关闭 | 确认后 artifact 落库且 current 切换；取消后无残留（暂存过期） |
+| S-05-03 | FEAT-05-03 | E2E | 只读详情 | 查看 Skill 详情与制品版本 | 全只读；仅"导入新版本"入口；校验结果 Tab 展示 validation_report |
+| E-05-01 | FEAT-05-01 | E2E | 过期 token 确认 | 预览后等待超时再确认 | 返回 SKILL_PREVIEW_EXPIRED(410) 并引导重新预览 |
 | E-05-01 | FEAT-05-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
@@ -104,6 +107,8 @@
 **详情 Tabs 全只读**：基本信息、能力依赖（来源 Manifest）、使用智能体（反向查询）、制品版本、校验结果。顶层唯一写操作：`导入新版本`。
 
 
+
+**两阶段状态与 DTO**：idle→previewing（multipart mode=preview/artifact）→preview（valid/manifest/validation_report/preview_token/expires_at/checksum）→committing（JSON mode=commit/preview_token）→done（skill_id/artifact_id/revision）。首导和新版本分别调用 SKILL-API-02/04，同一 mode 判别合同。invalid 无 commit token 且确认禁用；取消不调用 commit；过期显示“请重新预览”，依赖/版本变化 409 保留报告并允许重新预览。重复确认禁用按钮且复用 token，成功后只刷新一次详情/current。
 
 ### 3.5 状态与数据流
 

@@ -64,7 +64,9 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|
-| S-01-01 | FEAT-01-01 | E2E | Browser → Router → services → API → UI | 打开页面并完成主操作 | 页面字段、按钮、状态与 API Contract 一致 |
+| S-01-01 | FEAT-01-01 | E2E | OPS-API-04 聚合 | Admin 打开概览 | 四类对象数量、今日执行/失败/运行中、待发布 Draft 数与 DB 一致 |
+| S-01-02 | FEAT-01-01 | E2E | 最近执行跳转 | 点击最近执行条目 | 跳转 EXE 详情且 ID 正确 |
+| E-01-01 | FEAT-01-01 | E2E | 聚合接口失败 | mock OPS-API-04 500 | 显示错误占位，其余卡片不受影响 |
 | E-01-01 | FEAT-01-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
 ## 3. 前端技术设计
@@ -120,6 +122,7 @@
 
 | Service 方法/动作 | API ID | 方法/路径或契约 | 后端 Owner |
 |---|---|---|---|
+| 概览聚合统计 | `OPS-API-04` | `GET /api/v1/console/overview/stats` | 可观测性与Web公共基础 |
 | Execution 列表 | `EXE-API-01` | `GET /api/v1/executions` | Service 与 Execution |
 
 ### 3.6 UI 状态
@@ -145,7 +148,7 @@
 
 | 风险ID | 描述 | 影响 | 应对 | 验证场景 |
 |---|---|---|---|---|
-| RISK-01-01 | 为了概览新增重型聚合 API | 中 | 优先复用现有分页/统计能力，必要时后续单独设计聚合 Contract | E2E/Integration |
+| RISK-01-01 | 聚合接口性能 | 低 | 已由 OPS-API-04 承接（短 TTL 缓存、COUNT 聚合，见模块 15） | E2E/Integration |
 
 ## Spec Compliance Matrix
 

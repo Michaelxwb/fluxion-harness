@@ -27,7 +27,7 @@ class PublishedService(BaseModel):
     """Result of LIB-01 publish_service (01 FEAT-02)."""
 
     service_id: UUID
-    release_id: str
+    release_no: str
     content_hash: str
     frozen_payload: dict[str, object] = Field(default_factory=dict)
 
@@ -75,7 +75,7 @@ def build_service_release(
     content_hash = hashlib.sha256(_canonical(frozen).encode("utf-8")).hexdigest()
     return PublishedService(
         service_id=service_id,
-        release_id=f"r-{content_hash[:12]}",
+        release_no=f"r-{content_hash[:12]}",
         content_hash=content_hash,
         frozen_payload=frozen,
     )

@@ -114,6 +114,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-CORE-05 | FEAT-CORE-01 | P1 | integration | 软删除后同 key 可重建 | 本模块 | 存在已软删对象 | 软删后以相同 key 新建 | 新建成功；旧记录保留且默认查询不可见 |
 | S-CORE-01 | FEAT-CORE-01 | P0 | integration | module import/DB schema scan | 本模块 | 加载 Core | 检查领域/表/接口目录 | 无 MSS 专属核心对象 |
 | S-CORE-02 | FEAT-CORE-02 | P0 | E2E | Service publish→Execution | 后置 → 模块 05 | Service 有 Draft | 发布 v1 后再修改 Draft | 旧 Execution 仍引用 v1，新请求可用新发布 |
 | S-CORE-03 | FEAT-CORE-03 | P0 | E2E | Agent config→Runtime | 后置 → 模块 03/04 | Agent r1 | 保存 r2 | 新请求解析 r2，无 Agent publish |
@@ -204,9 +205,47 @@ flowchart TB
 
 | 接口ID | 名称 | 形态 | 方法/签名 | 路径/用途 |
 |---|---|---|---|---|
+| CORE-LIB-05 | 执行冻结投影 | Library | ExecutionProjection | 数据类；本节 CORE-LIB-05 定义 |
+
 | CORE-LIB-01 | 公共软删除过滤 | Library | def active_scope(stmt, model, tenant_id: UUID): ... |  |
 | CORE-LIB-02 | revision 乐观锁 | Library | async def update_with_revision(repo, id: UUID, expected_revision: int, patch: dict) -> object |  |
 | CORE-LIB-03 | Canonical JSON Hash | Library | def canonical_json_sha256(value: object) -> str |  |
+| CORE-LIB-04 | ExecutionProposal 数据类 | Library | @dataclass class ExecutionProposal |  |
+
+**CORE-LIB-04: ExecutionProposal（模块 01 定义类型；模块 05 签发和消费）**
+
+候选 `ExecutionProposalCandidate` 仅含 agent_id/service_id/intent/input/resource_scope/evidence/risk_level，由 AGCORE-LIB-04 构造，不携带授权。
+可信提案 `ExecutionProposalView` 由 EXE-LIB-02 返回，持久化事实在模块 05 execution_proposal：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| proposal_id / conversation_id / service_id / agent_id | UUID | 持久定位及归属 |
+| input / resource_scope | object | 经 Schema 校验的确认内容 |
+| snapshot_id / service_release_id | UUID | 本次展示对应的不可变逻辑 |
+| confirmation_digest | string | tenant/actor/conversation/agent/service/release content_hash/snapshot hash/input/scope/rendered_summary/expires_at 的 canonical SHA-256 |
+| confirmation_ref | string | 服务端签名(proposal_id, confirmation_digest, expires_at)，不代表用户已经批准 |
+| rendered_summary | string | 确认页面/消息实际展示内容 |
+| created_at / expires_at | datetime | 服务端时间；默认有效 300 秒 |
+| status | string | PENDING/CONFIRMED/EXPIRED/SUPERSEDED |
+
+确认必须通过 EXE-LIB-03：可信入站 USER 消息关联 proposal_id，服务端从 PG 取回提案、检查本人/租户/会话及签名；不能由 LLM 回填“已确认”。同会话下一轮“确认”解析唯一 PENDING 提案，跨 Pod 不依赖内存；跨会话须重新签发提案，不能隐式搬用确认。重复已成功消费返回同一 Execution。字段变更或发布版本变更需重新展示/确认。
+
+**CORE-LIB-05: ExecutionProjection（不可变业务投影）**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| schema_version | integer | 固定 1；未知版本拒绝 |
+| source | FORMAL/TEST | 来源；仅可信 Application 可赋值 |
+| service | ServiceProjection | service_id、release_id 或 draft_revision、content_hash、primary_agent_id、完整 ServiceDraft |
+| agents | map[UUID, AgentProjection] | id/revision/instructions/model_id/memory_policy/direct_capability_keys/skill_ids/service_ids |
+| skills | map[UUID, SkillProjection] | skill_id/artifact_id/checksum/entrypoint/sdk_version/dependency_keys |
+| models | map[UUID, ModelProjection] | model_id/revision/protocol/base_url/model_name/default_parameters/request_timeout_ms；不含 Secret 值/认证头 |
+| test_mode | DRY_RUN/REAL_TEST/null | TEST 必填，FORMAL 必须 null |
+| content_hash | string | 除本字段外的 canonical hash |
+
+Owner：EXE-LIB-02/测试入口在一致读取事务中构建，execution_snapshot.snapshot_json 持久化。Worker 从 snapshot_id 加载并校验 hash 后注入 `TrustedExecutionContext.projection`；AgentExecutionContext/宿主 SkillInvocationContext 引用同一只读对象。Execution 路径 projection 必填且 source 与根对象一致，缺失报 EXECUTION_PROJECTION_REQUIRED，禁止 fallback current。Chat 的 projection=null，使用 current。
+
+AGENT-LIB-01 显式接收 projection；Agent instructions、绑定、MemoryPolicy、Skill checksum、Model 参数均来自它。当前 Agent/Skill/Model/Capability enabled、tenant/user 状态、AgentAccessGrant、Credential、Secret 始终实时校验；绑定配置变更只影响新请求，紧急禁止使用 enabled/撤销授权完成。Secret 按当前 model_id 或 Credential 解析，不从快照获取。实际 input 经快照内 Schema 校验。
 
 #### CORE-LIB-01: 公共软删除过滤
 

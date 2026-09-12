@@ -55,8 +55,8 @@ async def test_publish_emits_audit_event_without_sensitive_payload(
             events = (
                 await session.scalars(
                     select(AuditLogModel).where(
-                        AuditLogModel.entity_type == "service_release",
-                        AuditLogModel.entity_id == str(release.id),
+                        AuditLogModel.resource_type == "service_release",
+                        AuditLogModel.resource_id == str(release.id),
                     )
                 )
             ).all()
@@ -64,9 +64,9 @@ async def test_publish_emits_audit_event_without_sensitive_payload(
             event = events[0]
             assert event.action == "service.published"
             assert event.request_id == "req-audit-1"
-            assert event.after_ref == release.release_id
+            assert event.after_ref == release.release_no
             assert event.details["content_hash"] == release.content_hash
-            assert event.details["release_id"] == release.release_id
+            assert event.details["release_no"] == release.release_no
             assert "draft" not in event.details
             assert "published_payload" not in event.details
             # idempotent republish emits no duplicate audit event
@@ -75,8 +75,8 @@ async def test_publish_emits_audit_event_without_sensitive_payload(
                 (
                     await session.scalars(
                         select(AuditLogModel).where(
-                            AuditLogModel.entity_type == "service_release",
-                            AuditLogModel.entity_id == str(release.id),
+                            AuditLogModel.resource_type == "service_release",
+                            AuditLogModel.resource_id == str(release.id),
                         )
                     )
                 ).all()
@@ -87,8 +87,8 @@ async def test_publish_emits_audit_event_without_sensitive_payload(
             async with session.begin():
                 await session.execute(
                     delete(AuditLogModel).where(
-                        AuditLogModel.entity_type == "service_release",
-                        AuditLogModel.entity_id == str(release.id),
+                        AuditLogModel.resource_type == "service_release",
+                        AuditLogModel.resource_id == str(release.id),
                     )
                 )
                 svc = await session.scalar(

@@ -101,6 +101,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-CAP-06 | FEAT-CAP-05 | P1 | integration | 大结果不进 LLM | 本模块 | 能力返回 10000+ 行 | Agent 调用该能力 | LLM 仅收 summary/artifact_ref，原始行外置 |
 | S-CAP-01 | FEAT-CAP-02 | P0 | E2E | API→PG→Provider | 本模块 | 创建四类能力 | 测试 invoke | 按 typed config 调用且 Contract 一致 |
 | S-CAP-02 | FEAT-CAP-03 | P0 | E2E | UserCredential→Registry→Service | 后置 → 模块 09 | Platform Service + 测试用户 | invoke | 按 User×ProjectPlatform 认证 |
 | S-CAP-03 | FEAT-CAP-05 | P0 | E2E | Executor→100+ downstream calls | 本模块 | 10000 rows/100 page | Skill 一次 call | Executor 自动取完/按 policy artifact |
@@ -205,7 +206,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -239,7 +240,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -297,7 +298,29 @@ erDiagram
 | CAP-API-05 | 测试 Capability | HTTP | POST | /api/v1/capabilities/{capability_id}/test |
 | CAP-API-06 | 读取 Capability Contract | HTTP | GET | /api/v1/capabilities/{capability_id}/contract |
 | CAP-LIB-01 | 统一 Capability 调用 | Library | async def invoke_capability(ctx: TrustedExecutionContext, capability_key: str, input: dict, *, call_policy: CapabilityCallPolicy \| None = None) -> CapabilityResult |  |
-| CAP-LIB-02 | 自动分页执行 | Library | async def retrieve_all(ctx: CapabilityCallContext, provider: Provider, policy: DataRetrievalPolicy, first_request: dict) -> RetrievalResult |  |
+| CAP-LIB-03 | 异步任务提交 | Library | async def submit_async(ctx: CapabilityCallContext, capability_key: str, input: JsonObject, *, idempotency_key: str) -> AsyncTaskHandle |  |
+| CAP-LIB-04 | 异步任务状态/结果/取消 | Library | async def status_async(ctx, handle) / result_async(ctx, handle) / cancel_async(ctx, handle) |  |
+| CAP-LIB-05 | 内置 Sandbox 工具注册 | Library | def register_builtin_sandbox_tools() -> None |  |
+
+**异步 Provider 类型（CORE-LIB-05 上下文与模块 05 持久行共同承接）**
+
+CapabilityCallContext={trusted tenant_id/actor_user_id/execution_id/operation_id/projection/test_mode/deadline}；AsyncTaskHandle={operation_id,capability_key,provider_key,provider_type,provider_locator,project_platform_id,external_task_id?,idempotency_key,input_hash}。Worker 从 async_task_run 行和 execution 的可信关联重建，验证 tenant/actor 一致，Secret 通过当前 Credential 每次解析；handle 不允许携带身份覆盖字段。provider_locator 固定本任务提交路由，不冻结全局 Implementation；后来新任务可用 current implementation，旧任务使用原路由。
+
+#### CAP-LIB-03: 异步提交与未知结果对账
+
+**签名**：`async def submit_async(ctx: CapabilityCallContext, capability_key: str, input: JsonObject, *, idempotency_key: str) -> AsyncTaskHandle`
+
+外部提交前事务插入 SUBMITTING（operation_id/input_hash/provider_locator/actor/key 全部持久，external_task_id=null）。同 operation_id 已有行则恢复，不创建新任务。提交确认后写 external_task_id/status=SUBMITTED；明确未受理可按策略有界重试同 key，响应丢失/进程崩溃置 SUBMITTED_UNKNOWN。
+
+`async def reconcile_async(ctx: CapabilityCallContext, handle: AsyncTaskHandle) -> ReconcileResult`：用 Provider.query_by_idempotency_key(ctx, locator, key) 对账，返回 FOUND(handle)/NOT_ACCEPTED/UNKNOWN。只有可证明未受理，或 Provider 明确保证同 key 提交去重时才能重试 submit；无此能力按 next_poll_at 等待有限对账，到 reconcile_deadline/max_poll_attempts 后 FAILED(SUBMISSION_UNCONFIRMED)，上下文/用户提示外部状态仍未知。无需伪造外部 task ID。
+
+#### CAP-LIB-04: 异步状态/结果/取消
+
+**签名**：`status_async(ctx: CapabilityCallContext, handle: AsyncTaskHandle) -> AsyncStatus`、`result_async(ctx, handle) -> CapabilityResult`、`cancel_async(ctx, handle) -> CancelOutcome`（均 async）。必须 external_task_id 非空；状态是 SUBMITTED/RUNNING/SUCCEEDED/FAILED/CANCELLED/UNKNOWN，取消返回 CONFIRMED/UNSUPPORTED/UNKNOWN，不能用 bool 假称已取消。当前用户/grant/平台/Capability enabled 验证后取当前认证，定位保持 provider_locator；被停用时仍允许受限清理 cancel，不能继续新副作用。无路由明确 PROVIDER_ROUTE_UNAVAILABLE，禁止替换新 provider 猜测任务。
+
+**测试模式**：ctx.test_mode=DRY_RUN 强制已注册 dry/mock Provider，子 Skill/Agent 调用继承；未注册报 DRY_RUN_UNSUPPORTED。result/submit/status 不允许真实调用降级。
+
+**Built-in Sandbox Capability（总设 §2.4/P14 承接）**：进程启动时向 Registry 注册 6 个内置工具，复用 Capability 授权/风险/审计/Worker 路径，不新增 Tool 平台：`filesystem.read`、`filesystem.write`、`filesystem.edit`、`filesystem.glob`、`filesystem.grep`、`shell.execute`。默认 enabled=false，由管理员在 Console 启用并配置风险等级/超时/Sandbox policy。
 
 #### CAP-API-01: Capability 列表
 
@@ -305,7 +328,7 @@ erDiagram
 
 **契约**：`GET /api/v1/capabilities`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **Query 参数**
 
@@ -357,7 +380,7 @@ erDiagram
 
 **契约**：`POST /api/v1/capabilities`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**
 
@@ -432,7 +455,7 @@ erDiagram
 
 **契约**：`GET /api/v1/capabilities/{capability_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 
@@ -483,7 +506,7 @@ tenant scoped definition → active implementation → 聚合反向依赖；shar
 
 **契约**：`PUT /api/v1/capabilities/{capability_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**
 
@@ -558,7 +581,7 @@ tenant scoped definition → active implementation → 聚合反向依赖；shar
 
 **契约**：`POST /api/v1/capabilities/{capability_id}/test`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**
 
@@ -627,7 +650,7 @@ tenant scoped definition → active implementation → 聚合反向依赖；shar
 
 **契约**：`GET /api/v1/capabilities/{capability_id}/contract`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 

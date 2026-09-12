@@ -97,6 +97,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-OBS-04 | FEAT-OBS-03 | P1 | integration | 关键写操作落审计 | 本模块 | 执行发布/授权/导入/绑定码/凭据操作 | 查询 audit-logs | 每类操作均产生 audit 记录且不含 Secret |
 | S-OBS-01 | FEAT-OBS-02 | P0 | E2E | Gateway→Runtime→Worker→Provider→OTel | 本模块 | 一次异步服务 | 执行完成 | 可按 trace/execution 关联所有 span |
 | S-OBS-02 | FEAT-OBS-04 | P0 | E2E | Admin API→audit_log | 本模块 | 修改 Agent grant | 提交 | 记录 actor/action/resource/before-after digest |
 | S-OBS-03 | FEAT-OBS-05 | P0 | integration | K8S probe→role | 本模块 | 各角色启动 | 调用 live/ready | 依赖状态正确反映 readiness |
@@ -190,11 +191,14 @@ flowchart LR
 | trace_id | VARCHAR(128) | Y |  | IDX | Trace |
 | before_digest | JSONB | N | {} |  | 脱敏前值摘要 |
 | after_digest | JSONB | N | {} |  | 脱敏后值摘要 |
+| details | JSONB | N | {} |  | 事件明细（脱敏后）；AUDIT-API-01 行展开即投影本字段 |
+| execution_id | UUID | Y |  | IDX | 关联 Execution（可空：发布/授权/凭据类审计不关联执行；前端无此值时不显示跳转） |
 | result | VARCHAR(32) | N | SUCCESS | IDX | SUCCESS/DENIED/FAILED |
 | occurred_at | TIMESTAMPTZ | N | CURRENT_TIMESTAMP | IDX | 发生时间 |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -232,6 +236,7 @@ flowchart LR
 | OPS-API-01 | Liveness | HTTP | GET | /health/live |
 | OPS-API-02 | Readiness | HTTP | GET | /health/ready |
 | OPS-API-03 | Metrics | HTTP | GET | /metrics |
+| OPS-API-04 | Console 概览聚合统计 | HTTP | GET | /api/v1/console/overview/stats |
 | AUDIT-API-01 | 审计日志查询 | HTTP | GET | /api/v1/audit-logs |
 
 #### OPS-API-01: Liveness
@@ -353,6 +358,32 @@ flowchart LR
 暴露低基数指标；禁止 user_id/execution_id 作为无限基数 label。
 ```
 
+#### OPS-API-04: Console 概览聚合统计
+
+**入口类型**：HTTP
+
+**契约**：`GET /api/v1/console/overview/stats`
+
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
+
+**请求体**：无。
+
+**响应 data**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| service_count / agent_count / skill_count / capability_count | int | 各领域对象数量 |
+| today_execution_total / today_execution_failed / running_execution_count | int | 今日执行总数/失败数/当前运行中 |
+| today_human_timeout | int | 今日人工超时失败数，独立列示 |
+| pending_publish_draft_count | int | 待发布 Draft 数 |
+| recent_executions | list | 最近执行引用（id/service/状态/时间，复用 EXE-API-01 摘要结构） |
+
+**处理逻辑**
+
+```text
+对各领域表做 COUNT（过滤 is_deleted）；执行聚合仅 execution_source=FORMAL。今日按 tenant 配置时区的 [日初,次日初) 转 UTC 过滤；running 包含 RUNNING/WAITING/WAITING_HUMAN/RETRY_WAIT/CANCELLING，失败分类 HUMAN_TIMEOUT 单列 today_human_timeout。recent_executions 复用完整 ExecutionSummary；pending_publish_draft_count 以 draft hash 与 current release source hash 不同或未发布计数。短 TTL 缓存且跨租户隔离。
+```
+
 #### AUDIT-API-01: 审计日志查询
 
 **入口类型**：HTTP
@@ -382,6 +413,8 @@ flowchart LR
 |---|---|---|
 | items | array<AuditLogView> | 脱敏审计 |
 | total | integer | 总数 |
+
+**AuditLogView**：time、actor（用户名/标识）、action、resource_type、resource_id、result、trace_id、execution_id（可空，空则前端不显示跳转）、details（行展开投影 audit_log.details，已脱敏）。
 
 **响应示例**
 

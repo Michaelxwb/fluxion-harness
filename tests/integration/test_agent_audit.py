@@ -45,8 +45,8 @@ async def _teardown(factory: async_sessionmaker[AsyncSession], agent_id: uuid.UU
         async with session.begin():
             await session.execute(
                 delete(AuditLogModel).where(
-                    AuditLogModel.entity_type == "agent_definition",
-                    AuditLogModel.entity_id == str(agent_id),
+                    AuditLogModel.resource_type == "agent_definition",
+                    AuditLogModel.resource_id == str(agent_id),
                 )
             )
             await session.execute(delete(AgentDefinitionModel).where(AgentDefinitionModel.id == agent_id))
@@ -57,8 +57,8 @@ async def _actions(factory: async_sessionmaker[AsyncSession], agent_id: uuid.UUI
         rows = await session.scalars(
             select(AuditLogModel.action)
             .where(
-                AuditLogModel.entity_type == "agent_definition",
-                AuditLogModel.entity_id == str(agent_id),
+                AuditLogModel.resource_type == "agent_definition",
+                AuditLogModel.resource_id == str(agent_id),
             )
             .order_by(AuditLogModel.create_time, AuditLogModel.action)
         )
@@ -104,7 +104,7 @@ async def test_every_management_action_writes_audit(
         async with factory() as session:
             event = await session.scalar(
                 select(AuditLogModel).where(
-                    AuditLogModel.entity_id == str(created.id),
+                    AuditLogModel.resource_id == str(created.id),
                     AuditLogModel.action == "agent.saved",
                 )
             )

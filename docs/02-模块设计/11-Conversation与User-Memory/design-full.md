@@ -91,6 +91,7 @@
 | RULE-MEM-03 | 新会话 | /new 只创建新 Conversation，不清理 UserMemory/Grant。 | S-MEM-03 |
 | RULE-MEM-04 | 权威数据 | Memory 不存当前设备、实时权限、任务状态等业务权威事实。 | S-MEM-04 |
 | RULE-MEM-05 | 隔离 | 所有 Memory 按 tenant+user 隔离并带来源。 | S-MEM-05 |
+| S-MEM-06 | FEAT-MEM-02 | P1 | E2E | Memory 写入/清理全链 | 本模块 | 用户在会话中 | "记住偏好 X" → /new → 读取 → /memory clear → 再读取 | 写入经 MemoryPolicy；新会话注入；清理后不再注入 |
 
 #### 2.5.2 功能验收场景
 
@@ -98,6 +99,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
+| S-MEM-05 | FEAT-MEM-01 | P1 | integration | Memory 租户用户隔离 | 本模块 | 两用户各写 Memory | 按用户读取 | 仅见本人 Memory；记录含来源 source_type/source_ref |
 | S-MEM-01 | FEAT-MEM-03 | P0 | E2E | Runtime→PG | 本模块 | 用户偏好已写 | 新会话请求 | Runtime 注入同一偏好 |
 | S-MEM-02 | FEAT-MEM-03 | P0 | E2E | WeCom/WebChat→same user→PG | 后置 → 模块 10 | 两渠道映射同一用户 | 分别发消息 | 读取一致 UserMemory |
 | S-MEM-03 | FEAT-MEM-04 | P0 | E2E | /new→Conversation | 本模块 | 已有会话+Memory | 执行 /new | 新 conversation_id，Memory 保留 |
@@ -177,6 +179,9 @@ flowchart LR
 
 | 表名 | 职责 | 所有权 |
 |---|---|---|
+| conversation_run | Chat turn 调度/取消/恢复事实 | Conversation 与 User Memory |
+| channel_command_receipt | 真实入站命令的幂等结果 | Conversation 与 User Memory |
+
 | conversation | 当前会话事实；/new 创建新会话但不清空 User Memory/授权。 | Conversation 与 User Memory |
 | message | Conversation 内消息记录，用于上下文/审计；不等于长期 Memory。 | Conversation 与 User Memory |
 | user_memory | 跨 Conversation/Channel 的受控长期用户上下文；不得保存业务平台实时权威数据。 | Conversation 与 User Memory |
@@ -191,18 +196,21 @@ flowchart LR
 | platform_user_id | UUID | N |  | FK,IDX | 用户 |
 | agent_id | UUID | N |  | FK,IDX | Agent |
 | status | VARCHAR(32) | N | ACTIVE | IDX | ACTIVE/CLOSED |
-| channel_type | VARCHAR(32) | Y |  | IDX | 最近入口渠道 |
+| channel_type | VARCHAR(32) | N |  | IDX | 入口渠道 |
+| origin_scope_key | VARCHAR(64) | N |  | UK | hash(channel_type,account_id,peer_type,peer_id)；不把同用户不同群会话合并 |
+| next_message_sequence | BIGINT | N | 1 |  | 在映射锁内分配顺序 |
 | title | VARCHAR(512) | Y |  |  | 可选标题 |
 | last_message_at | TIMESTAMPTZ | Y |  | IDX | 最后消息 |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **索引设计**
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
+| uk_conversation_active | UNIQUE(partial) | tenant_id,platform_user_id,agent_id,origin_scope_key | WHERE status='ACTIVE' AND is_deleted=false |
 | idx_conversation_user_agent | BTREE | tenant_id,platform_user_id,agent_id,last_message_at DESC | 会话历史 |
 
 #### 表 `message`
@@ -217,16 +225,21 @@ flowchart LR
 | content | TEXT | Y |  |  | 小文本内容 |
 | content_ref | VARCHAR(1024) | Y |  |  | 大内容/附件引用 |
 | message_type | VARCHAR(32) | N | TEXT |  | TEXT/TOOL/FILE/EVENT |
-| external_message_id | VARCHAR(512) | Y |  | IDX | 渠道消息去重 |
+| external_message_id | VARCHAR(512) | Y |  | IDX | 渠道 transport ID |
+| verified_channel_account_id | UUID | Y |  | FK | USER 入站身份来源；系统生成消息为空 |
+| actor_user_id | UUID | Y |  | FK | 受信解析的 USER 作者 |
+| sequence_no | BIGINT | N |  | UK | conversation 内顺序 |
+| processing_status | VARCHAR(16) | N | QUEUED |  | QUEUED/PROCESSING/PROCESSED；仅调度元数据可更新 |
 | trace_id | VARCHAR(128) | Y |  | IDX | 关联 Trace |
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
 - content/content_ref 至少一个有效
-- 渠道 external_message_id 可按 adapter scope 唯一
+- UNIQUE (tenant_id,verified_channel_account_id,external_message_id) WHERE external_message_id IS NOT NULL；UNIQUE (tenant_id,conversation_id,sequence_no)。消息正文/来源不可变，processing_status 是唯一允许更新的调度元数据。
 
 **索引设计**
 
@@ -235,7 +248,57 @@ flowchart LR
 | idx_message_conversation | BTREE | tenant_id,conversation_id,create_time | 按序加载 |
 | idx_message_external | BTREE | tenant_id,external_message_id | 去重/追踪 |
 
-**不可变约束**：创建后禁止业务 UPDATE/DELETE；如需演进创建新记录并更新上层 current 指针。
+**不可变约束**：消息正文和身份/来源不可变；只允许受信处理器更新 processing_status，不得改写历史 USER 内容。
+
+#### 表 `conversation_run`
+
+**职责**：持久 Chat turn 取消/排队/跨实例恢复；不替代 ServiceExecution。
+
+| 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
+|---|---|---|---|---|---|
+| tenant_id | UUID | N |  | IDX | 租户 |
+| conversation_id | UUID | N |  | FK | 会话 |
+| actor_user_id | UUID | N |  | FK | 运行用户 |
+| source_message_id | UUID | N |  | UK | 入站消息 |
+| status | VARCHAR(24) | N | QUEUED |  | QUEUED/RUNNING/CANCEL_REQUESTED/SUCCEEDED/FAILED/CANCELLED |
+| lease_owner | VARCHAR(256) | Y |  |  | Runtime 实例 |
+| lease_expires_at | TIMESTAMPTZ | Y |  |  | 恢复到期 |
+| lease_epoch | BIGINT | N | 0 |  | 所有图推进/结果写入 fencing |
+| cancel_requested_at | TIMESTAMPTZ | Y |  |  | 取消事实 |
+| checkpoint_ref | VARCHAR(512) | Y |  |  | 已提交图状态 |
+| id | UUID | N | gen_random_uuid() | PK | 主键 |
+| is_deleted | BOOLEAN | N | FALSE |  | 默认过滤 FALSE |
+| create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
+
+**约束与索引**
+
+- UNIQUE (tenant_id,source_message_id)；UNIQUE (tenant_id,conversation_id) WHERE status IN ('RUNNING','CANCEL_REQUESTED') AND is_deleted=false。
+- 领取前无有效 lease；Run graph 状态写入比较 lease_epoch；失租立即停止。
+- QUEUED 按 message.sequence_no 领取，恢复到期 RUNNING 优先于新 turn。
+
+#### 表 `channel_command_receipt`
+
+**职责**：入站写命令的事务幂等结果；由 Python 领域 Application 共用 PG 事务写。
+
+| 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
+|---|---|---|---|---|---|
+| tenant_id | UUID | N |  | IDX | 租户 |
+| message_id | UUID | N |  | FK,UK | verified transport 消息 |
+| actor_user_id | UUID | N |  | FK | 操作用户 |
+| command | VARCHAR(32) | N |  |  | CH-INT-02 判别 |
+| idempotency_key | VARCHAR(64) | N |  | UK | 渠道消息身份 hash |
+| request_digest | VARCHAR(64) | N |  |  | 绑定目标和参数 |
+| result_json | JSONB | N |  |  | 已提交的结果 DTO |
+| id | UUID | N | gen_random_uuid() | PK | 主键 |
+| is_deleted | BOOLEAN | N | FALSE |  | 默认过滤 FALSE |
+| create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
+
+**约束与索引**
+
+- UNIQUE (tenant_id,idempotency_key)；UNIQUE (tenant_id,message_id)。
+- 请求结果与 NEW/MEMORY_CLEAR/RESULT/CONFIRM/STOP 的持久操作在同一事务，失败事务不留成功 receipt；同键不同 digest 拒绝。
 
 #### 表 `user_memory`
 
@@ -255,7 +318,7 @@ flowchart LR
 | id | UUID | N | gen_random_uuid() | PK | 主键 |
 | is_deleted | BOOLEAN | N | FALSE | IDX | 软删除标记；默认查询必须过滤 FALSE |
 | create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间；不可变表除外 |
+| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
 
 **约束**
 
@@ -266,7 +329,7 @@ flowchart LR
 
 | 索引名 | 类型 | 字段 | 使用场景 |
 |---|---|---|---|
-| uk_user_memory_key | UNIQUE | tenant_id,platform_user_id,memory_key,is_deleted | 读取/更新 |
+| uk_user_memory_key | UNIQUE(partial) | tenant_id,platform_user_id,memory_key | WHERE is_deleted=false（软删历史不占唯一位） |
 | idx_user_memory_status | BTREE | tenant_id,platform_user_id,status,is_deleted | Context 加载 |
 
 #### 3.3.2 ER 图
@@ -321,7 +384,25 @@ erDiagram
 | MEM-API-02 | 写入/更新受控 Memory | HTTP | PUT | /api/v1/users/{user_id}/memory/{memory_key} |
 | MEM-API-03 | 撤销 Memory | HTTP | DELETE | /api/v1/users/{user_id}/memory/{memory_key} |
 | CONV-LIB-01 | 解析或创建 Conversation | Library | async def resolve_conversation(ctx: TrustedExecutionContext, agent_id: UUID, conversation_id: UUID \| None, channel_meta: ChannelMeta \| None) -> Conversation |  |
+| MEM-INT-01 | IM 自助记忆命令（list/clear，ADR-033/037） | HTTP | POST | /internal/v1/commands（command=MEMORY_LIST/MEMORY_CLEAR，经 CH-INT-02） |
+| CONV-LIB-02 | 原子切换会话 | Library | start_new_conversation(ctx, scope, message_id) | NEW |
+| MEM-LIB-02 | 本人 Memory 操作 | Library | manage_memory(ctx, request) | LIST/CLEAR/REMEMBER |
+
 | MEM-LIB-01 | 加载长期 Memory | Library | async def load_user_memory(tenant_id: UUID, user_id: UUID, policy: MemoryPolicy) -> list[MemoryItem] |  |
+
+**当前会话与 Checkpoint 合同**
+
+CONV-LIB-01 以 (tenant,user,agent,origin_scope_key) 的 PG transaction advisory lock 串行解析当前 ACTIVE；无行时在同一锁内创建，并用 partial unique 防重复。此锁保护首次创建与 /new，不只锁可能不存在的 conversation 行。入站消息在该事务内绑定确定 conversation_id/sequence_no；提交即释放锁，不持锁执行 LLM/网络。
+
+同会话 Chat turn 按 sequence_no 排队；conversation_run 同时最多一个非终态 run，运行 owner 用 lease_epoch fencing。后续消息只排队，不能并发推进同一图。/new 与入站解析用同一映射锁：旧 conversation=CLOSED，旧 Chat Run 标 CANCEL_REQUESTED，新建 ACTIVE；关闭前已绑定的消息仍归旧会话，未开始的旧消息标 PROCESSED 并告知会话已关闭，不挪到新会话。已创建 Execution 和投递路由保持，关闭不取消它们。
+
+CheckpointIdentity：Chat thread_id=`chat:{conversation_id}`，namespace=`agent:{agent_id}:graph:1`；Worker thread_id=`execution:{root_execution_id}:operation:{operation_id}`，namespace=`agent:{agent_id}:step:{step_key}:graph:1`。operation_id 首次生成且相同逻辑步骤 retry 沿用；同 Agent 在两个步骤有不同 operation_id。checkpoint_ref 存 execution_step/conversation_run，checkpoint metadata 必须匹配 snapshot hash、operation、step、agent，错配 CHECKPOINT_MISMATCH 拒绝。图节点完成持久 checkpoint；Worker Step 终态只在最终 checkpoint 已确认持久后提交（可恢复重放必须复用副作用 key）；checkpoint 不能覆盖 Execution 调度真相。
+
+**Runtime 受控 Memory 写入**
+
+AGCORE-LIB-05 调 MEM-LIB-02；`memory.remember` 不是任意业务 Capability。需要本人的 verified USER source_message_id 和显式“记住/请记住”或 `/memory remember` 意图，Runtime 决定可用工具，LLM 不能把其他消息标为授权。memory_key 必须在 Agent MemoryPolicy.allowed_keys 中；max_value_bytes 默认 4096、max_items 默认 100，超限 MEMORY_POLICY_DENIED。拒绝业务权限/实时客户设备状态等权威事实。MemoryPolicy 字段随 Agent 投影，普通 Chat 用 current。
+
+来源落 `source_type=EXPLICIT`、source_ref=message.id；agent_tool 是触发方式，不是新枚举值。upsert 采用 expected_revision：已有键版本冲突 409，初次 expected_revision=null；相同 source_message_id+memory_key 防重，来源与写入结果写审计。END_USER `/memory list|clear` 由 CH-INT-02 调同一服务只处理本人；清理设置 REVOKED 后新 turn 不注入，Runtime 不缓存跨 turn 的旧 Memory。
 
 #### CONV-API-01: 会话列表
 
@@ -379,7 +460,7 @@ erDiagram
 
 **契约**：`GET /api/v1/conversations/{conversation_id}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 
@@ -422,7 +503,7 @@ ownership/role check → 加载会话 → 最近消息窗口。
 
 **契约**：`POST /api/v1/conversations`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**
 
@@ -479,7 +560,7 @@ require_agent_access → INSERT conversation；不清空 User Memory。
 
 **契约**：`POST /api/v1/conversations/{conversation_id}/close`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
 **请求体**：无。
 
@@ -569,7 +650,7 @@ tenant/user scoped query；敏感推断按 policy 过滤。
 
 **契约**：`PUT /api/v1/users/{user_id}/memory/{memory_key}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021；Runtime 受控写入走内部 Contract，非本端点）
 
 **请求体**
 
@@ -631,7 +712,7 @@ policy validator → upsert user_memory → audit；Derived 写入需满足 Memo
 
 **契约**：`DELETE /api/v1/users/{user_id}/memory/{memory_key}`
 
-**认证/授权**：None
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；仅 Admin（ADR-021）
 
 **请求体**：无。
 
@@ -697,8 +778,20 @@ async def resolve_conversation(ctx: TrustedExecutionContext, agent_id: UUID, con
 **处理逻辑**
 
 ```text
-require_agent_access → 若 id 有值校验 user+agent ownership；否则创建新会话。
+require_agent_access → 明确 id 时校验 tenant/user/agent/origin_scope 且 ACTIVE；无 id 时取映射 advisory lock → 查唯一 ACTIVE → 不存在才创建 → 分配消息顺序。CLOSED 会话不接受新 turn（CONVERSATION_CLOSED 409）。
 ```
+
+#### CONV-LIB-02: 原子新会话
+
+**签名**：`async def start_new_conversation(ctx: TrustedExecutionContext, scope: ChannelScope, message_id: UUID) -> ConversationSwitchResult`
+
+按当前会话合同取得映射 advisory lock；幂等 receipt 已存在则返回原 result。事务关闭旧会话/标旧 Run 取消/新建 ACTIVE/写 receipt，返回新旧 ID。不得清除长期 Memory、授权或取消后台 Execution。
+
+#### MEM-LIB-02: 本人记忆操作
+
+**签名**：`async def manage_memory(ctx: TrustedExecutionContext, request: MemoryRequest) -> MemoryResult`
+
+MemoryRequest 判别：LIST（可选 key）返回 `{items:[key,value,source_type,revision]}`；CLEAR（可选 key）返回 `{revoked_count}`；REMEMBER（key/value/source_message_id/expected_revision）返回 `{key,revision,status:ACTIVE}`。ctx 决定 tenant/user，拒绝 payload.user_id。REMEMBER 校验真实来源、Agent MemoryPolicy、来源枚举及并发版本；CLEAR 采用入站消息幂等事务，Admin 管理接口另用 Admin actor 审计。错误 MEMORY_POLICY_DENIED（403）、MEMORY_REVISION_CONFLICT（409）、MEMORY_SOURCE_INVALID（403）。
 
 #### MEM-LIB-01: 加载长期 Memory
 
