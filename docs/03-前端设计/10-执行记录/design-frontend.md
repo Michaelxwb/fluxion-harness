@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
+> **交互事实源**: `../90-Console交互规格.md` + `../00-Console公共框架/design-frontend.md`（跨页范式）；字段/API/错误码以本页 §3.4/§3.5 与后端 Owner 模块 §3.4 为准
 
 ## 1. 文档控制
 
@@ -25,6 +25,7 @@
 | V1.13 | 2026-09-12 | 第三轮 Review 修复：补 `resource_scope` 脱敏摘要展示与按范围引用筛选（D15）及场景 `S-10-04`；声明进度事件仅 STAGE 级与完成/失败（D13）、进入人工等待由平台自动推送通知（D1）、Console 不含会话管理（D9）；场景 ID 前缀拆分（integration → `I-10-01`） |
 | V1.13.1 | 2026-09-12 | 第四轮 Review 修复：D5=A 业务范围按最小 typed scope 口径改为直接展示 `resource_scope.refs[]`（`{type, refs[], attributes?}`；V1 无 Scope Schema 与 `Schema Hash`，不再按类型元数据做投影脱敏），同步 `FEAT-10-01`、`S-10-04` 与 §3.4 字段契约；B2 列表/详情改渲染 `current_step_name`（业务可读），`current_step` 仅作技术标识；D4=A 详情动作拆为「继续/终止/重新执行/重新投递」（`EXE-API-07`）并补 API 映射；D6=A Builder 执行可见范围（只看自己创建的 Service 与被授权 Agent 相关执行，无权限不返回）；Z-14 搜索范围补 `trace_id`；Z-11 动作禁用态原因 tooltip 与 `available_actions` 门控写死；D7 两项显式后置写入 Out of Scope；补场景 `S-10-05`/`S-10-06`/`S-10-07`/`E-10-02` 与 `RISK-10-03/04` |
 | V1.14.1 第五轮契约同步 | 2026-09-13 | 第五轮 D8~D15 契约同步：执行源三态 `{FORMAL, TEST, CAPABILITY_TEST}`（默认仍只查 `FORMAL`，测试面板查 `TEST`，能力测试面板查 `CAPABILITY_TEST`）；Builder 可见范围以 ADR-052/`RULE-SVC-09`/`EXE-API-01` 为准的**并集**（删除交集表述，`S-10-06` 补一致性声明）；普通取消与人工决策分开映射（ADR-065：运行态走 `EXE-API-03`，`WAITING_HUMAN` 才走 `EXE-API-05`）；投递状态按逻辑消息取有效尝试（ADR-066：重投成功后收敛 `DELIVERED`，补 `DELIVERY_IN_FLIGHT`(409)） |
+| V1.14.2 第六轮 Review 收敛 | 2026-09-13 | 设计修复 | 投递侧 `RETRY_WAIT` 前端呈现名改为 **`RETRY_PENDING`**（消除与执行状态 `RETRY_WAIT` 的同名不同义，判别依据是执行态/投递态）；补本页 `StandardListQuery` 声明（14 个领域筛选，无 `enabled` 维度）；S-10-07 同步标注 |
 
 ## 2. 需求分析
 
@@ -73,9 +74,9 @@
 | S-10-02 | FEAT-10-04 | E2E | 人工审批闭环 | 对 WAITING_HUMAN 执行点"继续" | 展示 waiting_reason/上下文/倒计时；RESUME 后状态流转；超时后按 HUMAN_TIMEOUT 失败呈现且无操作按钮 |
 | S-10-03 | FEAT-10-02 | E2E | Timeline 与 AsyncTask | 展开失败步骤的异步任务 | external task id/轮询状态/结果或错误完整展示 |
 | S-10-04 | FEAT-10-01 | E2E | 业务范围筛选与引用展示 | 按「投递状态=FAILED」+ 业务范围引用筛选列表 | 仅返回同时匹配两项条件的执行；列表「业务范围」列显示 `resource_scope.refs[]`（范围引用；不展示 `attributes`、不出现原始 `resource_scope_json`、不出现跨租户标识）；详情与列表一致 |
-| S-10-05 | FEAT-10-02 | E2E | 当前阶段业务可读 | 打开一个 `current_step=deliver`（snapshot 中该步骤 `name` = 「交付结果」）的执行详情 | 列表与详情的「当前阶段」列/字段渲染 **「交付结果」**（`current_step_name`），**不出现** `deliver` 作为主文案；hover 该单元格显示步骤 key `deliver`；`current_step_name` 为空时显示 `—` |
+| S-10-05 | FEAT-10-02 | E2E | 当前阶段业务可读 | 打开一个 `current_step=deliver`（snapshot 中该步骤 `name` = 「交付结果」）的执行详情 | 列表与详情的「当前阶段」列/字段渲染 **「交付结果」**（`current_step_name`），**不出现** `deliver` 作为主文案；hover 该单元格显示步骤 key `deliver`；`current_step_name` 为空时显示 `—` ；`current_step_name` 由后端**读取期派生**（快照 step name / 终态 STAGE stage；不落列），前端仍按字段渲染、不做二次映射 |
 | S-10-06 | FEAT-10-01 | E2E | Builder 执行可见范围 | Builder 打开执行列表；并用 URL 直接访问一个由他人创建、且未授权 Agent 相关的 execution id | 列表**只包含**自己创建的 Service 的执行与被授权 Agent 相关的执行（并集：两侧各自单独成立即可见；无权限执行不返回，非前端隐藏）；直接访问越权 ID 显示「执行不存在」（`EXECUTION_NOT_FOUND` 404 映射），**不显示** 403 无权限页；详情页四个动作按钮均不渲染。口径与 ADR-052、`RULE-SVC-09`、`EXE-API-01` 完全一致，不得写成交集 |
-| S-10-07 | FEAT-10-03 | E2E | 动作门控与禁用原因 | Admin 依次打开 ①`SUCCEEDED` 且 `delivery_status=DELIVERED` 的执行 ②`status=RETRY_WAIT` 的执行 | ①「终止」「重新执行」「重新投递」均为**禁用态**（不是消失），hover 原因分别为「执行已结束（SUCCEEDED/FAILED/CANCELLED）」与「投递尚未失败（当前 DELIVERED）」；②「终止」禁用并显示「等待自动重试，第 N 次」（N 取 `retry_count`+1，后端返回上限时才显示 `/M`）；`available_actions` 含 CANCEL 的执行「终止」可点击 |
+| S-10-07 | FEAT-10-03 | E2E | 动作门控与禁用原因 | Admin 依次打开 ①`SUCCEEDED` 且 `delivery_status=DELIVERED` 的执行 ②`status=RETRY_WAIT`（执行态，UI 呈现「等待重试」）的执行 | ①「终止」「重新执行」「重新投递」均为**禁用态**（不是消失），hover 原因分别为「执行已结束（SUCCEEDED/FAILED/CANCELLED）」与「投递尚未失败（当前 DELIVERED）」；②「终止」禁用并显示「等待自动重试，第 N 次」（N 取 `retry_count`+1，后端返回上限时才显示 `/M`）；`available_actions` 含 CANCEL 的执行「终止」可点击 |
 | E-10-01 | FEAT-10-03 | E2E | 重新执行打开新执行 | 对 `FAILED` 执行点「重新执行」后打开响应返回的 `new_execution_id` | 新详情显示 `parent_execution_id` 指向原执行；原执行仍为 FAILED；重复提交复用同一幂等键不产生第二个执行 |
 | E-10-02 | FEAT-10-03 | E2E | 重新投递不新建执行 | 对 `delivery_status=UNKNOWN` 的执行点「重新投递」并在二次确认中取消，再确认一次 | 取消后无请求发出、`delivery_status` 保持 UNKNOWN；确认后发出 `POST /api/v1/executions/{id}/redeliver`，**不跳转新执行**，`deliveries[]` 新增一次 attempt 且**保留历史失败行**；**刷新后 `delivery_status` 收敛为 `DELIVERED`（新尝试成功时）**，不再是“回到 PENDING”；同一逻辑消息已有非终态尝试时后端返回 409 `DELIVERY_IN_FLIGHT` 并就地提示；`DELIVERED` 的执行该按钮为禁用态并提示「投递尚未失败（当前 DELIVERED）」 |
 | I-10-01 | FEAT-10-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
@@ -112,7 +113,9 @@
 
 **执行九态**：PENDING/RUNNING/WAITING/WAITING_HUMAN/RETRY_WAIT/CANCELLING/SUCCEEDED/FAILED/CANCELLED。Human 超时是 FAILED/error_code=HUMAN_TIMEOUT，原因单列，不另造执行状态。
 
-**列表 DTO**：完全采用 EXE-API-01 ExecutionSummary：service_name/agent_name/user_name、execution_mode/type、status、delivery_status、trace_id、retry_count、channel_source、**current_step_name（业务可读步骤名，列表展示）**、current_step（step_key，仅技术标识，hover/次级位置）、**resource_scope.refs（范围引用）**、started_at/finished_at。统一 current_step_name，空值显示“—”。筛选与 Query 同名（含 delivery_status、execution_source、**业务范围引用**）；`execution_source` 取值为 `{FORMAL, TEST, CAPABILITY_TEST}`，**默认仍只查 `FORMAL`**，服务测试面板查 `TEST`，能力测试面板查 `CAPABILITY_TEST`（能力测试执行不进默认执行列表）。
+**列表查询**：通用契约见 FE-00 §3.4 `StandardListQuery`（`page`/`page_size`/`keyword`）；本页领域筛选：`service_id`、`user_id`、`agent_id`、`capability_id`、`status`、`execution_mode`、`execution_source`、`delivery_status`、`channel_source`、`trace_id`、`scope_ref`、`error_code`、`from`、`to`（与 `EXE-API-01` 的 Query 同名；本页无 `enabled` 维度）。服务端筛选（先筛选再分页）、改筛选重置 `page=1`、筛选进 URL。
+
+**列表 DTO**：完全采用 EXE-API-01 ExecutionSummary：service_name/agent_name/user_name、execution_mode/type、status、delivery_status、trace_id、retry_count、channel_source、**current_step_name（业务可读步骤名，列表展示）**、current_step（step_key，仅技术标识，hover/次级位置）、**resource_scope.refs（范围引用）**、started_at/finished_at。统一 current_step_name（后端**读取期派生**、不落列），空值显示“—”。筛选与 Query 同名（含 delivery_status、execution_source、**业务范围引用**）；`execution_source` 取值为 `{FORMAL, TEST, CAPABILITY_TEST}`，**默认仍只查 `FORMAL`**，服务测试面板查 `TEST`，能力测试面板查 `CAPABILITY_TEST`（能力测试执行不进默认执行列表）。
 
 **搜索范围包含「追踪标识」（Z-14）**：列表搜索框覆盖「执行编号 / 服务 / 智能体 / 触发用户 / **`trace_id`**」；`trace_id` 另提供独立筛选输入（`EXE-API-01` Query 已有 `trace_id`）。两者都走**服务端**筛选，前端不做客户端过滤。
 
@@ -126,7 +129,7 @@
 
 **人工等待通知（D1）**：执行进入 `WAITING_HUMAN` 时由**平台自动**向触发用户渠道推送通知，不依赖 Console 操作或服务作者额外编排；Console 只读展示该通知状态，不提供「手动补发」按钮。
 
-**投递状态**：NONE/PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN；**按逻辑消息取有效尝试聚合**（ADR-066）——同一逻辑消息多次投递时 `delivery_status` 取该消息**有效尝试**（最新一次）的状态，`deliveries[]` 仍展示全部历史尝试（含历史失败行），因此重新投递成功后整体状态收敛为 `DELIVERED` 而不是长期停在 `FAILED`。业务成功且 UNKNOWN 显示“执行完成，通知送达待确认”，不显示业务重试按钮冒充投递恢复。未知投递停止自动重发，用户可在 IM 用 /result 主动取件。
+**投递状态**：NONE/PENDING/SENDING/**RETRY_PENDING**/DELIVERED/FAILED/UNKNOWN（**前端呈现名**；`RETRY_PENDING` 即后端投递侧的 `RETRY_WAIT`，改名只为消除与执行状态 `RETRY_WAIT` 的同名不同义——`type`（执行态/投递态）才是判别依据，UI 文案分别为「等待重试」与「等待重新投递」）。**按逻辑消息取有效尝试聚合**（ADR-066）——同一逻辑消息多次投递时 `delivery_status` 取该消息**有效尝试**（最新一次）的状态，`deliveries[]` 仍展示全部历史尝试（含历史失败行），因此重新投递成功后整体状态收敛为 `DELIVERED` 而不是长期停在 `FAILED`。业务成功且 UNKNOWN 显示“执行完成，通知送达待确认”，不显示业务重试按钮冒充投递恢复。未知投递停止自动重发，用户可在 IM 用 /result 主动取件。
 
 **人工面板**：WAITING_HUMAN 时展示 waiting_reason/context_summary/human_deadline 倒计时，Admin 且 available_actions 包含相应动作才显示“继续/终止”。此处的「终止」走 `EXE-API-05`（`decision=CANCEL`），**只提交 decision/idempotency_key/comment，禁止 input**；接受响应后显示“决策已提交”并刷新状态，不假定已经执行。deadline 409 与版本/决策冲突可定位，保留原上下文。Builder 只读。**普通取消不再走 `EXE-API-05`**；对 RUNNING 等非等待状态调 `EXE-API-05` 返回 409 `EXECUTION_NOT_WAITING_HUMAN`。
 
@@ -184,7 +187,7 @@
 |---|---|---|---|---|
 | RISK-10-01 | 单独建立 Async Task 菜单导致状态割裂 | 高 | AsyncTask 只在 Execution Detail 展开 | E2E/Integration |
 | RISK-10-02 | 取消按钮假成功 | 高 | 展示 CANCELLING 和 remote cancel capability | E2E/Integration |
-| RISK-10-03 | 本页三处契约依赖后端同轮同步（D6=A 可见范围、B2 `current_step_name`、D4=A `EXE-API-07`） | 高 | `EXE-API-01/02` 需补 `current_step_name` 并把授权从「本租户全量」改为 Builder 范围；`EXE-API-07` 已在模块 05 登记（L731） | E2E/Integration |
+| RISK-10-03 | 本页契约依赖后端同轮同步（D6=A 可见范围、`current_step_name` 读取期派生、D4=A `EXE-API-07`） | 高 | `EXE-API-01/02` 必须返回 `current_step_name`（由 `current_step` + 快照/进度事件派生）并把可见范围改为并集；字段缺失即契约违约 | 设计同步 + 门禁 |
 | RISK-10-04 | 两个「重试」语义被实现者合并回一个按钮 | 中 | 文案与门控写死为两个动作（`EXE-API-04` / `EXE-API-07`），并断言 `EXE-API-07` 不新建执行 | S-10-07, E-10-02 |
 
 ## Spec Compliance Matrix

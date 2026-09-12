@@ -288,7 +288,7 @@ direct_invocation = ALLOWED
 | idx_capability_impl_active | BTREE | tenant_id,capability_id,enabled,is_deleted | Runtime resolve |
 | idx_capability_impl_platform | BTREE | tenant_id,project_platform_id,is_deleted | 项目平台反查能力 |
 
-**三列归属（T-21 裁决）**：`config` 只承载下表中「实现身份/映射」字段；**超时与重试不放 config**，一律进 implementation 的 `execution_policy`（`deadline_ms` 必填、`max_retries` 默认 0、`backoff_ms`）；`data_retrieval_policy` 沿用既有 Data Retrieval Policy 字段，仅列表类 Capability 需要。三列的字段名即 CAP-API-02/04 的 `implementation.*` 字段名与前端控件名（D14），前端控件集合以本 contract 块为唯一事实源。
+**三列归属（T-21 裁决）**：`config` 只承载下表中「实现身份/映射」字段；**超时与重试不放 config**，一律进 implementation 的 `execution_policy`（`deadline_seconds` 必填、`max_retries` 默认 0、`backoff_seconds`）；`data_retrieval_policy` 沿用既有 Data Retrieval Policy 字段，仅列表类 Capability 需要。三列的字段名即 CAP-API-02/04 的 `implementation.*` 字段名与前端控件名（D14），前端控件集合以本 contract 块为唯一事实源。
 
 **凭据来源单点声明（D1 收敛，D3 修复落点）**：`auth_mode` **只以 `capability_implementation.auth_mode` 列为事实源**，不得在 `config` 内重复声明同名键；definition 侧不再声明授权/凭据要求。CAP-API-02/04 的 `implementation.auth_mode` 是**顶层必填字段**（判别式 Schema 四个分支均已声明并列入 `required`），必须与列取值一致；`config.auth_mode` 一律拒绝（`CAPABILITY_IMPLEMENTATION_INVALID`）。原缺陷：正文要求 `implementation.auth_mode`，但四个 Schema 分支都未声明该键且 `additionalProperties=false`，前端又把它放在 `config` 内，导致两种提交方式都被拒——现统一为“顶层字段 + Schema 声明 + 列落库”三处一致。
 
@@ -412,12 +412,12 @@ direct_invocation = ALLOWED
     "execution_policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["deadline_ms"],
+      "required": ["deadline_seconds"],
       "description": "**implementation 层**的超时/重试策略（与 capability_definition.invocation_policy 的直调结论枚举无关，两层字段名不同）；只在 implementation.* 之下出现",
       "properties": {
-        "deadline_ms": { "type": "integer", "minimum": 1, "description": "必填；本实现的硬截止" },
+        "deadline_seconds": { "type": "integer", "minimum": 1, "description": "必填；本实现的硬截止（**秒**，ADR-044：对外一律秒，毫秒只在实现内部换算一次）" },
         "max_retries": { "type": "integer", "minimum": 0, "default": 0, "description": "Provider 层重试上限：同一次 invoke 内部的立即重试；与 Worker 层的步骤重试（模块 06 RULE-WORK-04 按错误分类判定）互不替代" },
-        "backoff_ms": { "type": "integer", "minimum": 0, "description": "Provider 层立即重试的退避基数；仅在该次调用被判定为可重试（错误分类 + 幂等合取条件）时生效" }
+        "backoff_seconds": { "type": "integer", "minimum": 0, "description": "Provider 层立即重试的退避基数；仅在该次调用被判定为可重试（错误分类 + 幂等合取条件）时生效" }
       }
     },
     "data_retrieval_policy": {
@@ -426,11 +426,11 @@ direct_invocation = ALLOWED
       "description": "沿用既有 Data Retrieval Policy 字段；仅列表类 Capability 需要",
       "required": ["pagination_type"],
       "properties": {
-        "pagination_type": { "enum": ["PAGE", "OFFSET", "CURSOR"] },
+        "pagination_type": { "enum": ["PAGE", "OFFSET", "CURSOR"], "default": "CURSOR", "description": "缺省 CURSOR（V1.14 裁决）：调用方不传时按游标推进；PAGE/OFFSET 必须显式声明" },
         "request_mapping": { "type": "object", "description": "page_param/page_size_param/start_page/page_size/cursor_param" },
         "response_mapping": { "type": "object", "description": "items_path/total_path/has_more_path/next_cursor_path" },
-        "termination": { "type": "object", "description": "empty_items/short_page/use_total；short_page 默认 true，可显式关闭" },
-        "limits": { "type": "object", "description": "max_pages/max_items/max_duration_ms/duplicate_page_detection" }
+        "termination": { "type": "object", "description": "empty_items/short_page_terminates/use_total；empty_items 为 PAGE/OFFSET 固定兜底；short_page_terminates 默认 true、可显式关闭、仅在保证「非最后页必满」时可依赖；use_total 不参与结束判定" },
+        "limits": { "type": "object", "description": "max_pages/max_items/max_duration_seconds/duplicate_page_detection" }
       }
     }
   }
@@ -660,7 +660,7 @@ Sandbox 隔离不可用等失败码由模块 13 承接；失败分类不在此�
 **处理逻辑**
 
 ```text
-校验 Contract（side_effect 四值 + risk_level + invocation_policy 枚举 + 「write/destructive 或 HIGH 不得 DIRECT」安全兜底，与 DB CHECK 同源）→ 按 capability-implementation-schema 判别式校验 implementation（**顶层 auth_mode 必填**；deadline_ms 必须在 implementation.execution_policy，不得混入 config；PLATFORM_SERVICE 必须含 service_key/path/method 寻址字段；config 不得含 auth_mode）→ 校验 PLATFORM_SERVICE↔ProjectPlatform → transaction INSERT definition+implementation → audit。
+校验 Contract（side_effect 四值 + risk_level + invocation_policy 枚举 + 「write/destructive 或 HIGH 不得 DIRECT」安全兜底，与 DB CHECK 同源）→ 按 capability-implementation-schema 判别式校验 implementation（**顶层 auth_mode 必填**；deadline_seconds 必须在 implementation.execution_policy，不得混入 config；PLATFORM_SERVICE 必须含 service_key/path/method 寻址字段；config 不得含 auth_mode）→ 校验 PLATFORM_SERVICE↔ProjectPlatform → transaction INSERT definition+implementation → audit。
 ```
 
 #### CAP-API-03: Capability 详情

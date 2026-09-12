@@ -26,6 +26,9 @@ class PlatformUserModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
 
     user_key: Mapped[str] = mapped_column(String(160), nullable=False)
     display_name: Mapped[str] = mapped_column(String(256), nullable=False, default="")
+    # Console 登录凭据（P0-8 收敛）：唯一身份表自带口令哈希，不再有第二个账号表。
+    # END_USER 行保持为空；口令永不回显、永不入日志。
+    password_hash: Mapped[str | None] = mapped_column(String(512))
     role: Mapped[str] = mapped_column(String(32), nullable=False, default="END_USER")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -42,42 +45,26 @@ class PlatformUserModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
     )
 
 
-class AuthAccountModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
-    """Console login account (ADR-021). Passwords are PBKDF2 hashes only."""
+class SessionTokenModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
+    """Console bearer session; only the SHA-256 hash of the token persists.
 
-    __tablename__ = "auth_account"
+    Bound to `platform_user` — the authoritative identity (ADR-069/P0-8). There is
+    no separate credential table: a second table storing a second `role` made the
+    role a two-source fact, and the session must never decide authorization.
+    """
 
-    username: Mapped[str] = mapped_column(String(128), nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
-    role: Mapped[str] = mapped_column(String(32), nullable=False, default="BUILDER")
-    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    __tablename__ = "session_token"
 
-    __table_args__ = (
-        Index(
-            "uq_auth_account_active_username",
-            "tenant_id",
-            "username",
-            unique=True,
-            postgresql_where=text("is_deleted = false"),
-        ),
-    )
-
-
-class AuthSessionModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
-    """Bearer session token store; only the SHA-256 hash of the token persists."""
-
-    __tablename__ = "auth_session"
-
-    account_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("auth_account.id"), nullable=False
+    platform_user_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("platform_user.id"), nullable=False
     )
     token_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
-        Index("uq_auth_session_token", "token_hash", unique=True),
-        Index("ix_auth_session_account", "account_id", "expires_at"),
+        Index("uq_session_token_hash", "token_hash", unique=True),
+        Index("ix_session_token_user", "platform_user_id", "expires_at"),
     )
 
 
@@ -308,12 +295,12 @@ class ModelConfigModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
 
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     key: Mapped[str] = mapped_column(String(128), nullable=False)
-    protocol: Mapped[str] = mapped_column(String(32), nullable=False, default="OPENAI_COMPATIBLE")
+    # Protocol is fixed to OpenAI-compatible in code (P1-23): V1 has exactly one
+    # protocol, and a column would make a constant look configurable.
     base_url: Mapped[str] = mapped_column(String(1024), nullable=False, default="")
     model_name: Mapped[str] = mapped_column(String(256), nullable=False)
     api_key_secret_ref: Mapped[str | None] = mapped_column(String(512))
     default_parameters: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
-    extra_headers: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     request_timeout_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
     revision: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -834,7 +821,6 @@ class ChannelDeliveryModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin)
     lease_owner: Mapped[str | None] = mapped_column(String(256))
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     lease_epoch: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
-    dispatch_started_epoch: Mapped[int | None] = mapped_column(BigInteger)
     remote_idempotency: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     dedupe_key: Mapped[str] = mapped_column(String(128), nullable=False)
     provider_message_id: Mapped[str | None] = mapped_column(String(512))
@@ -874,7 +860,9 @@ class ExecutionProposalModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixi
     template_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     confirmation_digest: Mapped[str] = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default="PENDING")
+    # P1-16: no status column — "current" is `superseded_at IS NULL AND NOT expired`
+    # and "confirmed" is `confirmed_at IS NOT NULL`. Storing a third, derived copy
+    # only creates a value that can disagree with those two facts.
     superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     confirmed_message_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("message.id")
@@ -891,14 +879,14 @@ class ExecutionProposalModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixi
             "conversation_id",
             unique=True,
             postgresql_where=text(
-                "is_deleted = false AND status = 'PENDING' AND superseded_at IS NULL"
+                "is_deleted = false AND superseded_at IS NULL AND confirmed_at IS NULL"
             ),
         ),
         CheckConstraint(
-            "(status = 'CONFIRMED' AND confirmed_message_id IS NOT NULL "
-            "AND confirmed_at IS NOT NULL AND execution_id IS NOT NULL) OR "
-            "(status != 'CONFIRMED' AND confirmed_message_id IS NULL "
-            "AND confirmed_at IS NULL AND execution_id IS NULL)",
+            "(confirmed_at IS NOT NULL AND confirmed_message_id IS NOT NULL "
+            "AND execution_id IS NOT NULL) OR "
+            "(confirmed_at IS NULL AND confirmed_message_id IS NULL "
+            "AND execution_id IS NULL)",
             name="ck_execution_proposal_confirmed_fields",
         ),
     )
@@ -991,7 +979,6 @@ class ServiceExecutionModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin
     execution_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="SYNC")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
     current_step: Mapped[str | None] = mapped_column(String(256))
-    current_step_name: Mapped[str | None] = mapped_column(String(128))
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     lease_owner: Mapped[str | None] = mapped_column(String(256))
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -1017,9 +1004,6 @@ class ServiceExecutionModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin
                                          name="fk_service_execution_parent_execution_id")
     )
     result_ref: Mapped[str | None] = mapped_column(String(1024))
-    artifact_ids: Mapped[list[UUID]] = mapped_column(
-        ARRAY(PGUUID(as_uuid=True)), nullable=False, default=list, server_default=text("'{}'")
-    )
     error_code: Mapped[str | None] = mapped_column(String(128))
     error_message: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -1104,9 +1088,6 @@ class ExecutionStepModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
     input_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     output_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     result_ref: Mapped[str | None] = mapped_column(String(1024))
-    artifact_ids: Mapped[list[UUID]] = mapped_column(
-        ARRAY(PGUUID(as_uuid=True)), nullable=False, default=list, server_default=text("'{}'")
-    )
     wait_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_code: Mapped[str | None] = mapped_column(String(128))
     error_detail_ref: Mapped[str | None] = mapped_column(String(1024))
@@ -1302,44 +1283,6 @@ class AuditLogModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
     __table_args__ = (
         Index("ix_audit_log_entity_time", "resource_type", "resource_id", "create_time"),
         Index("ix_audit_log_actor_time", "actor_user_id", "create_time"),
-    )
-
-
-class ConversationRunModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin):
-    __tablename__ = "conversation_run"
-
-    conversation_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("conversation.id"), nullable=False
-    )
-    actor_user_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("platform_user.id"), nullable=False
-    )
-    source_message_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
-    status: Mapped[str] = mapped_column(String(24), nullable=False, default="QUEUED")
-    lease_owner: Mapped[str | None] = mapped_column(String(256))
-    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    lease_epoch: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
-    cancel_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    checkpoint_ref: Mapped[str | None] = mapped_column(String(512))
-
-    __table_args__ = (
-        Index("ix_conversation_run_conversation", "tenant_id", "conversation_id"),
-        Index(
-            "uq_conversation_run_message",
-            "tenant_id",
-            "source_message_id",
-            unique=True,
-            postgresql_where=text("is_deleted = false"),
-        ),
-        Index(
-            "uq_conversation_run_active",
-            "tenant_id",
-            "conversation_id",
-            unique=True,
-            postgresql_where=text(
-                "is_deleted = false AND status IN ('RUNNING','CANCEL_REQUESTED')"
-            ),
-        ),
     )
 
 

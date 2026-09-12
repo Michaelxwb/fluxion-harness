@@ -101,7 +101,7 @@
 | RULE-SVC-06 | 幂等 | 有副作用 Step 与命令必须有稳定 idempotency_key。 | S-SVC-06, B-SVC-01 |
 | RULE-SVC-07 | 摘要冻结 | 确认摘要/交付内容由受控模板确定性渲染，结果随快照冻结且进入 confirmation_digest；禁止 LLM 渲染、禁止用 current 重渲染。 | S-SVC-07, B-SVC-04 |
 | RULE-SVC-09 | 可见范围 | Execution 可见范围：Admin=租户全部；Builder=自己创建的 Service ∪ 被授权 Agent 相关；越界视为不存在（ADR-052）。 | B-SVC-05 |
-| RULE-SVC-10 | 产物访问 | 产物访问判定以 `artifact` 表 FK 为准，`artifact_ids` 仅记录复制来源；已清理一律 410（ADR-053）。 | S-SVC-11 |
+| RULE-SVC-10 | 产物访问 | 产物访问判定以 `artifact` 表 `execution_id`/`execution_step_id` FK 为准；已清理一律 410（ADR-053）。不保留冗余 ID 数组。 | S-SVC-11 |
 | RULE-SVC-11 | 重新投递 | 重新投递只新建投递尝试，绝不重跑业务步骤；与重新执行是两个动作（ADR-054）。 | S-SVC-12 |
 | RULE-SVC-08 | 人工检查点 | 进入 WAITING_HUMAN 必须固化六要素 context_summary 并预建 human_wait 投递；决策被接受才写 requested_action；deadline 竞争唯一收敛。 | S-SVC-09, E-SVC-05 |
 
@@ -251,7 +251,6 @@ flowchart LR
 | template_hash | VARCHAR(64) | N |  |  | 确认模板版本 hash（Q-04；`confirmation_digest` 输入之一，不含 `rendered_summary`） |
 | confirmation_digest | VARCHAR(64) | N |  |  | 绑定身份/版本/输入/范围/模板/截止时间（`tenant|actor|service_release|input|resource_scope|template_hash|expires_at`，不含 `rendered_summary`） |
 | expires_at | TIMESTAMPTZ | N |  | IDX | 创建后 300 秒 |
-| status | VARCHAR(16) | N | PENDING |  | **PENDING/CONFIRMED 两态**（ADR-049）；"过期"与"被取代"是派生事实——分别按 `expires_at <= now` 与 `superseded_at IS NOT NULL` 判定，不进状态迁移 |
 | superseded_at | TIMESTAMPTZ | Y |  | IDX | 被取代时间；非空即被取代（派生判定），与 `confirmed_at` 互斥 |
 | confirmed_message_id | UUID | Y |  | FK message | 真实 USER 确认事件 |
 | confirmed_at | TIMESTAMPTZ | Y |  |  | 确认事务数据库时间 |
@@ -263,9 +262,9 @@ flowchart LR
 
 **约束与索引**
 
-- UNIQUE (tenant_id,conversation_id) WHERE status='PENDING' AND superseded_at IS NULL AND is_deleted=false；签发新提案时旧 PENDING 同事务置 `superseded_at=now`（不引入 SUPERSEDED 状态）。**该谓词即“当前提案”的唯一判定**：被取代的行即使 `status` 仍为 PENDING 也不再占用唯一槽位，因此同一会话可连续签发、替换待确认提案（D8 修复：原谓词只查 `status='PENDING'`，旧提案置 `superseded_at` 后仍满足条件，新提案必然唯一冲突）。
+- UNIQUE (tenant_id,conversation_id) WHERE superseded_at IS NULL AND confirmed_at IS NULL AND is_deleted=false；签发新提案时旧提案同事务置 `superseded_at=now`。**该谓词即「当前提案」的唯一判定**（`superseded_at IS NULL AND confirmed_at IS NULL AND expires_at > now`），同一会话可连续签发替换（P1-16/D8：不设 `status` 列——初始/已确认/已过期/已取代四个事实由 `confirmed_at`/`superseded_at`/`expires_at` 直接判定，多存一个派生状态只会多一处可能不一致）。
 - 签发后禁止修改身份/输入/范围/snapshot/digest/expires_at，只允许状态及消费关联更新。
-- CHECK: status=CONFIRMED 当且仅当 execution_id、confirmed_message_id、confirmed_at 全部非空；其他状态均为空。
+- CHECK: `confirmed_at`/`confirmed_message_id`/`execution_id` **三者同生同灭**（全非空=已确认；全空=未确认），不存在"已确认但缺 execution"的中间态。
 - confirmed_message_id 对同 tenant 唯一（非空时）；消费与创建执行在同一事务。
 - (tenant_id,actor_user_id,conversation_id,create_time) 支持跨 Pod 取回。
 
@@ -420,8 +419,7 @@ OR (source = 'CAPABILITY_TEST' AND service_id IS NULL AND capability_id IS NOT N
 | human_decision_at | TIMESTAMPTZ | Y |  |  | 接受决策的数据库时间 |
 | lease_epoch | BIGINT | N | 0 |  | 每次 claim +1；所有状态写入校验 fencing token |
 | priority | INTEGER | N | 0 |  | Worker claim 排序权重（总设 §5.2 治理 P1） |
-| current_step | VARCHAR(256) | Y |  | 当前阶段（当前步骤 key；初始为空） |
-| current_step_name | VARCHAR(128) | Y |  | **当前阶段的业务可读名**（ADR-051）：取 snapshot 中该 step 的 `name`（终态取最后一条 STAGE 事件的 `stage`）；列表/详情的「当前阶段」渲染本列，`current_step` 仅作技术标识 |
+| current_step | VARCHAR(256) | Y |  | 当前阶段（当前步骤 key；初始为空）。**这是唯一的阶段事实**：业务可读名由读取期从 snapshot/进度事件派生（ADR-051），不落列——否则同一阶段会有两处可能不一致的存储 |
 | next_run_at | TIMESTAMPTZ | Y |  | IDX | 可再次 claim 时间 |
 | lease_owner | VARCHAR(256) | Y |  | IDX | Worker owner |
 | lease_expires_at | TIMESTAMPTZ | Y |  | IDX | lease 到期 |
@@ -431,7 +429,6 @@ OR (source = 'CAPABILITY_TEST' AND service_id IS NULL AND capability_id IS NOT N
 | trace_id | VARCHAR(128) | N |  | IDX | 全链路 Trace |
 | cancel_requested_at | TIMESTAMPTZ | Y |  |  | 取消请求时间 |
 | result_ref | VARCHAR(1024) | Y |  |  | 最终结果引用 |
-| artifact_ids | UUID[] | N | {} |  | 根结果产物**复制来源记录**（重试用）；**访问判定以 `artifact` 表 FK 为准**，本数组不作为唯一凭据（ADR-053） |
 | error_code | VARCHAR(128) | Y |  | IDX | 终态错误码 |
 | error_message | TEXT | Y |  |  | 脱敏错误摘要 |
 | started_at | TIMESTAMPTZ | Y |  |  | 开始时间 |
@@ -486,7 +483,6 @@ OR (source = 'CAPABILITY_TEST' AND service_id IS NULL AND capability_id IS NOT N
 | input_json | JSONB | N | {} |  | 步骤输入快照 |
 | output_json | JSONB | N | {} |  | 小结果；大结果用 result_ref |
 | result_ref | VARCHAR(1024) | Y |  |  | Artifact/Object ref |
-| artifact_ids | UUID[] | N | {} |  | 本步骤产物**复制来源记录**；访问判定同样以 `artifact` 表 FK 为准 |
 | wait_until | TIMESTAMPTZ | Y |  | IDX | 等待截止/轮询时间 |
 | error_code | VARCHAR(128) | Y |  | IDX | 错误码 |
 | error_detail_ref | VARCHAR(1024) | Y |  |  | 大错误详情/外部响应脱敏引用 |
@@ -1696,7 +1692,7 @@ DRY_RUN：可信 ctx.projection.test_mode 注入 Worker→Agent→Skill 宿主�
 - 并集的两侧**各自单独成立即可见**，必须分别验收：① 自建 Service 的执行（`created_by` 命中）可见；② 被授权 Agent 的执行（grant 命中，即使 Service 由他人创建）可见；③ 两侧都不命中 → 404（不是 403）。
 - `CAPABILITY_TEST` 执行归其发起人（`actor_user_id`）与能力的管理可见范围；Builder 只能看自己发起的测试执行。
 
-**Query**：page=1/page_size=20（max100）；service_id/user_id/agent_id/capability_id 可选；status 为九态；execution_mode=SYNC/ASYNC；execution_source=FORMAL（默认）/TEST/CAPABILITY_TEST；delivery_status=NONE/PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN；channel_source/trace_id/scope_ref/error_code/from/to 可选（`scope_ref` 按范围引用筛选，用于 A04 定位“哪个客户/范围”的执行；`error_code` 用于概览「今日人工超时」卡跳转 `status=FAILED&error_code=HUMAN_TIMEOUT`）。测试面板显式传 TEST + service_id，能力测试面板显式传 CAPABILITY_TEST + capability_id，常规执行列表保持 FORMAL。
+**Query**：page=1/page_size=20（max100）；service_id/user_id/agent_id/capability_id 可选；status 为九态；execution_mode=SYNC/ASYNC；execution_source=FORMAL（默认）/TEST/CAPABILITY_TEST；delivery_status=NONE/PENDING/SENDING/RETRY_PENDING/DELIVERED/FAILED/UNKNOWN；channel_source/trace_id/scope_ref/error_code/from/to 可选（`scope_ref` 按范围引用筛选，用于 A04 定位“哪个客户/范围”的执行；`error_code` 用于概览「今日人工超时」卡跳转 `status=FAILED&error_code=HUMAN_TIMEOUT`）。测试面板显式传 TEST + service_id，能力测试面板显式传 CAPABILITY_TEST + capability_id，常规执行列表保持 FORMAL。
 
 **响应**：`{items: ExecutionSummary[], total: integer}`；Summary 的所有字段见 EXE-API-02 的根 View（列表可不返回 input/context_summary）。delivery_status 以持久队列关联查询，先筛选再分页；所有 SQL 有 tenant 条件，批量关联名称，禁止 N+1。未知枚举/非法时间范围 REQUEST_SCHEMA_INVALID（422）。
 
@@ -1718,13 +1714,13 @@ DRY_RUN：可信 ctx.projection.test_mode 注入 Worker→Agent→Skill 宿主�
 | status / execution_mode / execution_type | enum | 九态、SYNC/ASYNC、snapshot 执行方式 |
 | trace_id / channel_source / retry_count | string、string/null、integer | root 字段 |
 | current_step | string/null | 当前 step_key（技术标识，用于筛选与跳转）；统一此名，取消 current_step_key 别名 |
-| current_step_name | string/null | **当前阶段的业务可读名**（ADR-051）：取 snapshot 中该 step 的 `name`；终态取最后一条 STAGE 事件的 `stage`。列表与详情的「当前阶段」列渲染本字段，`current_step` 仅作 hover/复制用 |
+| current_step_name | string/null | **当前阶段的业务可读名**（ADR-051，**查询期派生、不落列**）：由 `current_step` 在读取时映射——非终态取 `snapshot_json` 中该 step 的 `name`，终态取最后一条 STAGE 事件的 `stage`。列表与详情的「当前阶段」渲染本字段，`current_step` 仅作 hover/复制用 |
 | started_at / finished_at | datetime/null | root 字段 |
 | result_ref / error_code / error_message | string/null | 根结果/脱敏错误 |
 | waiting_reason / context_summary / human_deadline / requested_action | string/null、object/null、datetime/null、enum/null | 等待进入时固化；禁止 current 重渲染。`context_summary` 覆盖 U03 六要素（含 `completed_steps[]` 与 `options[{action,label,meaning}]`） |
 | resource_scope_summary | object/null | **脱敏**范围摘要（ADR-048/050）：`{type, refs[], labels?}` —— `type` 与其展示名、`refs` 原样（引用本身是可展示标识），供 A04 排障回答"哪个客户/哪个范围"；`attributes` 不进摘要；仅 Builder/Admin 可见 |
 | scope_refs | string[] | `resource_scope.refs` 的直接投影（供筛选与跳转）；空表示无范围 |
-| delivery_status | enum | **按逻辑消息取有效尝试**（D11 修复）：无队列 NONE；否则按逻辑消息键（`channel_delivery.event_id` 去掉 `:redeliver:<n>` 后缀）聚合，取该消息**有效尝试**（`attempt` 最大、同 attempt 取最新）的状态：有效尝试 DELIVERED 且该消息无更晚的非终态尝试 → DELIVERED；否则按 UNKNOWN > FAILED > SENDING > RETRY_WAIT > PENDING 取最严重态。**历史失败尝试不永久污染汇总**——重新投递成功后必须收敛为 DELIVERED |
+| delivery_status | enum | **按逻辑消息取有效尝试**（D11 修复）：无队列 NONE；否则按逻辑消息键（`channel_delivery.event_id` 去掉 `:redeliver:<n>` 后缀）聚合，取该消息**有效尝试**（`attempt` 最大、同 attempt 取最新）的状态：有效尝试 DELIVERED 且该消息无更晚的非终态尝试 → DELIVERED；否则按 UNKNOWN > FAILED > SENDING > RETRY_PENDING > PENDING 取最严重态。**历史失败尝试不永久污染汇总**——重新投递成功后必须收敛为 DELIVERED |
 | available_actions | string[] | 当前状态和角色计算：Builder=[]；Admin 按 CANCEL/RETRY/RESUME 条件提供（取消的可执行状态见 EXE-API-03，决策见 EXE-API-05） |
 
 ExecutionSummary 除 input/context_summary 外包含上述字段，等待字段可空，后端不省略不支持字段以免 UI 猜测。
@@ -1735,7 +1731,7 @@ ArtifactSummary={artifact_id,name,content_type,size_bytes,checksum,download_path
 
 **响应示例（节选字段，完整字段由上表确定）**：`{"execution":{"id":"…","status":"SUCCEEDED","current_step":"deliver","delivery_status":"UNKNOWN","available_actions":[]},"steps":[],"async_tasks":[],"progress_events":[],"artifacts":[],"deliveries":[{"id":"…","channel":"wechat_wecom","status":"UNKNOWN","attempt":1,"max_attempts":5,"last_error":"ACK_TIMEOUT","delivered_at":null,"next_attempt_at":null}],"commands":[]}`。
 
-**处理**：tenant scoped 读取根 + 批量 steps/op tasks/events/artifact associations/deliveries/commands；按发生时间排 Timeline。artifact 的访问判定**以 `artifact` 表的 `execution_id`/`execution_step_id` FK 为准**（并与执行同 root_execution_id/actor）；`artifact_ids` 数组只记录重试复制来源，不能凭任意 ID 跨用户查文件，也不因数组残留而放行已清理的产物（已清理仍返回 410）。不存在/无读取权限 EXECUTION_NOT_FOUND（404）。
+**处理**：tenant scoped 读取根 + 批量 steps/op tasks/events/artifact associations/deliveries/commands；按发生时间排 Timeline。artifact 的访问判定**以 `artifact` 表的 `execution_id`/`execution_step_id` FK 为准**（并与执行同 root_execution_id/actor）；产物访问一律以 `artifact` 表 FK 判定，不依赖任何 ID 数组，已清理的产物仍返回 410。不存在/无读取权限 EXECUTION_NOT_FOUND（404）。
 
 #### EXE-API-03: 取消 Execution
 
@@ -1954,7 +1950,7 @@ Runtime 在展示确认前调用。校验 candidate 不含身份字段，从 ctx
 
 **认证/授权**：仅可信 Runtime 内部调用；`ctx` 的 tenant/actor 为唯一身份来源，跨租户/跨 actor 拒绝。
 
-**confirmation_ref 的两种合法输入路径**：① 交互卡片回调携带 `confirmation_ref`（由 EXE-LIB-02 签发给渠道），必须与持久 proposal 逐字段匹配（tenant/actor/service_release/input_hash/refs_hash/template_hash/expires_at），不匹配 `PROPOSAL_DIGEST_MISMATCH`；② 纯文本“确认”经 CH-INT-02 CONFIRM 只带 `verified_message_id`，此时 `confirmation_ref=None`，由本函数按 `tenant+actor+conversation` 取当前唯一 PENDING 提案，且必须满足“该会话仅一个 PENDING + 消息为已验证 USER 事件”。两条路径的消费结果一致，均不接受 LLM 生成的确认标记。
+**confirmation_ref 的两种合法输入路径**：① 交互卡片回调携带 `confirmation_ref`（由 EXE-LIB-02 签发给渠道），必须与持久 proposal 逐字段匹配（tenant/actor/service_release/input_hash/refs_hash/template_hash/expires_at），不匹配 `PROPOSAL_DIGEST_MISMATCH`；② 纯文本“确认”经 CH-INT-02 CONFIRM 只带 `verified_message_id`，此时 `confirmation_ref=None`，由本函数按 `tenant+actor+conversation` 取当前唯一未确认且未过期的提案，且必须满足“该会话仅一个 PENDING + 消息为已验证 USER 事件”。两条路径的消费结果一致，均不接受 LLM 生成的确认标记。
 
 仅可信 Runtime 内部调用。读取 message，要求 role=USER、conversation/actor/tenant 匹配、来源 verified channel event；明确的确认按钮或当前会话唯一 PENDING 的“确认”映射到 proposal_id，不接受 LLM 生成的 confirmation flag。锁 proposal 后先处理已成功消费重放，再验证签名/digest/到期及 release 未变；同一事务调用 EXE-LIB-01。跨会话、不同 actor、替换 input/scope/ref 均拒绝；message 不可用于消费第二个提案。操作审计同事务。
 

@@ -500,7 +500,7 @@ Public API 同步，Playbook `def run` 直接得到数据。Mock 本地执行，
 
 **返回形态（冻结）**：`call` 返回 **Capability 归一化输出本身**——列表能力的输出即数组（`list`），映射即对象（`dict`），标量即标量；业务代码可直接迭代/下标/过滤，与 Playbook D05 示例一致。不返回包装对象，不返回 coroutine，不返回摘要替代数据。已去掉 `result_mode` 参数：调用方不能自选结果形态——**Skill 调用路径的结果模式固定为 `INLINE`**（B15a，ADR-034 禁用大结果外置）；Provider 级默认 `SUMMARY` 只对非 Skill 调用（Agent Tool / Worker Step）生效；若宿主收到 Skill 路径的非 `INLINE` 请求，返回 `CAPABILITY_RESULT_MODE_NOT_ALLOWED`(422)。
 
-**Skill 调用路径禁用大结果外置**：上游 Capability 输出超过 inline 阈值时，宿主按该 Capability 的 `data_retrieval_policy.limits`（`max_items`/`max_pages`/`max_duration_ms`）**截断**并在 `ctx.logger` 记录截断警告，返回归一化数据；**不允许**返回 `artifact_id` 摘要替代数据（避免 Skill 代码静默拿到摘要）。需要完整大结果的场景必须由 Service Step 声明 `execution_mode=ASYNC` 并使用 Artifact 能力，不走 Skill 直调。
+**Skill 调用路径禁用大结果外置**：上游 Capability 输出超过 inline 阈值时，宿主按该 Capability 的 `data_retrieval_policy.limits`（`max_items`/`max_pages`/`max_duration_seconds`）**截断**并在 `ctx.logger` 记录截断警告，返回归一化数据；**不允许**返回 `artifact_id` 摘要替代数据（避免 Skill 代码静默拿到摘要）。需要完整大结果的场景必须由 Service Step 声明 `execution_mode=ASYNC` 并使用 Artifact 能力，不走 Skill 直调。
 
 **错误语义**：Capability 失败按统一错误分类抛 `CapabilityError`（含 `code`/`retryable`，分类由运行时 Provider 错误按《01-架构与规范/10-错误码与错误分类基线》归类；Contract 不再声明失败分类），**不返回 `None` 静默吞错**。Skill 路径**禁止提交 Async Capability**：命中 async 执行语义时抛确定错误 `CAPABILITY_ASYNC_NOT_INVOKABLE`，不得断言"已提交"或自行轮询；异步只能由 Service Step 声明 `execution_mode=ASYNC`（Worker 负责提交，见模块 06）。
 

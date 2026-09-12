@@ -106,7 +106,7 @@
 | S-AGENT-03 | FEAT-AGENT-04 | P0 | E2E | AgentExecutor→Model→Capability | 后置 → 模块 03/07/19 | 用户有授权 | 请求只读 direct tool | 仅允许已绑定能力 |
 | S-AGENT-04 | FEAT-AGENT-05 | P0 | E2E | Agent→ExecutionService | 后置 → 模块 05 | 请求长任务 | 模型形成服务意图 | 得到 Proposal，由 ExecutionService 再校验 |
 | S-AGENT-06 | FEAT-AGENT-01 | P1 | integration | Console API→DB→Runtime revision | 本模块 | Agent 已存在，current revision=N | 编辑 instructions 保存后由 Runtime 发一条新消息 | Runtime 使用 revision N+1；不存在 Draft/Publish 状态，无需发布 |
-| S-AGENT-07 | FEAT-AGENT-02 | P1 | integration | Service.primary_agent ↔ Agent.callable_service | 本模块 | Service S 的 primary_agent=A；Agent B 已存在 | 经 AGENT-API-07 覆盖 B 的可调用子服务为 S，再查 AGENT-API-03 与 S 详情 | 两条关系独立：B 的 callable_service 变化不改 S.primary_agent；S.primary_agent 变化不改 B 的绑定 |
+| S-AGENT-07 | FEAT-AGENT-02 | P1 | integration | Service.primary_agent ↔ Agent.callable_service | 本模块 | Service S 的 primary_agent=A；Agent B 已存在 | 经 AGENT-API-05 覆盖 B 的可调用子服务为 S，再查 AGENT-API-03 与 S 详情 | 两条关系独立：B 的 callable_service 变化不改 S.primary_agent；S.primary_agent 变化不改 B 的绑定 |
 | S-AGENT-08 | FEAT-AGENT-04 | P1 | integration | MemoryPolicy fail-closed（contract:memory-policy-schema） | 本模块 | Agent 的 `memory_policy.allowed_keys=[]` | 用户消息"请记住 X"触发 memory.remember（AGCORE-LIB-05 → MEM-LIB-02） | 返回 `MEMORY_POLICY_DENIED`，不写入任何 Memory 行；Agent 不因拒绝而降级为普通任意写 Capability |
 
 **异常场景**
@@ -232,10 +232,8 @@ flowchart TB
   "additionalProperties": false,
   "properties": {
     "enabled": {"type": "boolean", "default": true},
-    "allowed_keys": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.]{0,63}$"}, "maxItems": 50, "default": []},
-    "max_value_bytes": {"type": "integer", "minimum": 64, "maximum": 65536, "default": 4096},
-    "max_items": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100},
-    "write_mode": {"enum": ["EXPLICIT_ONLY", "EXPLICIT_AND_DERIVED"], "default": "EXPLICIT_ONLY"}
+    "allowed_keys": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.]{0,63}$"}, "maxItems": 50, "default": [], "description": "允许的 memory_key 白名单；空数组=禁止写入（fail-closed）"},
+    "write_mode": {"enum": ["EXPLICIT_ONLY", "EXPLICIT_AND_DERIVED"], "default": "EXPLICIT_ONLY", "description": "派生写入是否允许；EXPLICIT_ONLY=只有 verified USER 显式意图可写"}
   }
 }
 ```
@@ -373,14 +371,11 @@ erDiagram
 | AGENT-API-02 | 创建 Agent | HTTP | POST | /api/v1/agents |
 | AGENT-API-03 | Agent 详情 | HTTP | GET | /api/v1/agents/{agent_id} |
 | AGENT-API-04 | 编辑 Agent 基本配置 | HTTP | PUT | /api/v1/agents/{agent_id} |
-| AGENT-API-05 | 覆盖 Agent 直接能力 | HTTP | PUT | /api/v1/agents/{agent_id}/capabilities |
-| AGENT-API-06 | 覆盖 Agent Skill | HTTP | PUT | /api/v1/agents/{agent_id}/skills |
-| AGENT-API-07 | 覆盖可调用子服务 | HTTP | PUT | /api/v1/agents/{agent_id}/services |
-| AGENT-API-08 | 有效能力分析 | HTTP | GET | /api/v1/agents/{agent_id}/effective-capabilities |
+| AGENT-API-05 | 覆盖 Agent 绑定（能力/Skill/可调用子服务 三合一） | HTTP | PATCH | /api/v1/agents/{agent_id}/bindings |
 | AGENT-LIB-01 | AgentDefinition 解析 | Library | async def resolve_agent_definition(ctx: TrustedExecutionContext, agent_id: UUID) -> ResolvedAgentDefinition |  |
 | AGCORE-LIB-01 | Agent Executor | Library | async def execute_agent(ctx: AgentExecutionContext, request: AgentRequest) -> AsyncIterator[AgentEvent] |  |
-| AGCORE-LIB-02 | Agent Tool Dispatcher | Library | async def call_tool(ctx: AgentExecutionContext, capability_key: str, input: dict) -> CapabilityResult |  |
-| AGCORE-LIB-03 | Agent Skill Dispatcher | Library | async def run_skill_from_agent(ctx: AgentExecutionContext, skill_key: str, input: dict) -> SkillResult |  |
+| AGCORE-LIB-02 | Capability 直调薄适配 | Library | async def call_tool(ctx, capability_key, input) -> CapabilityResult（**只校验 effective-access 后直调 `CAP-LIB-01`；不复制分流谓词**） |  |
+| AGCORE-LIB-03 | Skill 直调薄适配 | Library | async def run_skill_from_agent(ctx, skill_key, input) -> SkillResult（**只校验绑定后直调 `SKILL-LIB-01`**） |  |
 | AGCORE-LIB-04 | Execution Proposal Builder | Library | def build_execution_proposal(ctx: AgentExecutionContext, service_id: UUID, input: dict, resource_scope: dict, evidence: ProposalEvidence) -> ExecutionProposalCandidate |  |
 | AGCORE-LIB-05 | Memory 工具分派 | Library | remember_from_agent(ctx, request) | MEM-LIB-02 |
 
@@ -625,207 +620,6 @@ tenant scoped agent read → 批量加载 bindings/model/channel account 摘要 
 
 **一致性/幂等**：不提供 Agent Draft/Publish；新请求读取新 revision。
 
-#### AGENT-API-05: 覆盖 Agent 直接能力
-
-**入口类型**：HTTP
-
-**契约**：`PUT /api/v1/agents/{agent_id}/capabilities`
-
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
-
-**请求体**
-
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| capability_ids | array<uuid> | Y | 直接暴露给 Agent 的能力集合 |
-
-**请求示例**
-
-```json
-{
-  "capability_ids": []
-}
-```
-
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| items | array<CapabilityBindingView> | 最终集合 |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "items": []
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| CAPABILITY_NOT_FOUND | 包含不存在/禁用能力 | 400 |
-
-**处理逻辑**
-
-```text
-单事务差集更新 agent_capability_binding；Skill 内部依赖不写此表。
-```
-
-#### AGENT-API-06: 覆盖 Agent Skill
-
-**入口类型**：HTTP
-
-**契约**：`PUT /api/v1/agents/{agent_id}/skills`
-
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
-
-**请求体**
-
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| skill_ids | array<uuid> | Y | 目标 Skill 集合 |
-
-**请求示例**
-
-```json
-{
-  "skill_ids": []
-}
-```
-
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| items | array<SkillBindingView> | 最终集合 |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "items": []
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| SKILL_NOT_FOUND | Skill 不存在/无 VALID current artifact | 400 |
-
-**处理逻辑**
-
-```text
-校验 Skill current artifact VALID + enabled → 单事务更新 agent_skill_binding。
-```
-
-#### AGENT-API-07: 覆盖可调用子服务
-
-**入口类型**：HTTP
-
-**契约**：`PUT /api/v1/agents/{agent_id}/services`
-
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
-
-**请求体**
-
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| service_ids | array<uuid> | Y | Agent 可调用子服务集合 |
-
-**请求示例**
-
-```json
-{
-  "service_ids": []
-}
-```
-
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| items | array<ServiceBindingView> | 最终集合 |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "items": []
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| SERVICE_NOT_FOUND | Service 不存在 | 400 |
-| SERVICE_CYCLE_INVALID | 静态可检测的直接自调用/禁用关系 | 400 |
-
-**处理逻辑**
-
-```text
-校验 service 同租户 → 更新 agent_service_binding；与 Service.primary_agent_id 不互相替代。
-```
-
-#### AGENT-API-08: 有效能力分析
-
-**入口类型**：HTTP
-
-**契约**：`GET /api/v1/agents/{agent_id}/effective-capabilities`
-
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
-
-**请求体**：无。
-
-**响应 data**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| items | array<EffectiveCapability> | key/origin=DIRECT\|SKILL/skill_id/risk/status |
-| conflicts | array<object> | 缺失/禁用依赖 |
-
-**响应示例**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "items": [],
-    "conflicts": []
-  },
-  "request_id": "req_xxx"
-}
-```
-
-**错误码**
-
-仅使用公共错误码。
-
-**处理逻辑**
-
-```text
-direct binding ∪ current SkillArtifact capability snapshots → 按 key 去重并保留 origin；只读计算，不写派生表。
-```
-
 #### AGENT-LIB-01: AgentDefinition 解析
 
 **入口类型**：Library
@@ -894,7 +688,7 @@ async def execute_agent(ctx: AgentExecutionContext, request: AgentRequest) -> As
 | AGENT_MAX_ROUNDS | 超过 max_rounds | 409 |
 | MODEL_ERROR | 模型错误 | 502 |
 
-**认证/授权**：仅 Agent Runtime/Worker 运行时角色可调用；`ctx` 由运行时中间件构造（tenant/actor/执行身份不接受 LLM 或请求体覆盖），Worker 路径要求 `ctx.projection` 完整，Chat 路径由模块 03 经 RT-LIB-03 领取的 Run 驱动。
+**认证/授权**：仅 Agent Runtime/Worker 运行时角色可调用；`ctx` 由 CORE-LIB-06（模块 01，唯一构造入口）在运行时中间件内构造（tenant/actor/执行身份不接受 LLM 或请求体覆盖），Worker 路径要求 `ctx.projection` 完整，Chat 路径由模块 03 的实时请求驱动（`projection=null`，无 run 概念，P0-4）。
 
 **处理逻辑**
 
@@ -902,81 +696,45 @@ async def execute_agent(ctx: AgentExecutionContext, request: AgentRequest) -> As
 验证 ctx.projection（Worker 必填，Chat=null）→ 按模块 11 CheckpointIdentity 装载图 → model loop → Tool/Skill/Memory dispatcher → 可靠服务意图产 ExecutionProposalCandidate 后由 Runtime 调 EXE-LIB-02 签发/展示 → final；图状态持久点先于 Step 终态，副作用统一 operation_id。候选不得直接下发，必须经 EXE-LIB-02 签发后才产生 proposal 事件。
 ```
 
-#### AGCORE-LIB-02: Agent Tool Dispatcher
+#### AGENT-API-05: 覆盖 Agent 绑定（能力 / Skill / 可调用子服务）
 
-**入口类型**：Library
+**入口类型**：HTTP
 
-**函数签名**
+**契约**：`PATCH /api/v1/agents/{agent_id}/bindings`
 
-```python
-async def call_tool(ctx: AgentExecutionContext, capability_key: str, input: dict) -> CapabilityResult
-```
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；Builder + Admin（ADR-021）
 
-**入参**
+**请求体**（三个集合可选，传哪个改哪个；`additionalProperties=false`）
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| capability_key | string | Y | LLM 选择的 direct capability key |
-| input | object | Y | 模型生成参数 |
+| capability_ids | array<uuid> | N | 直接暴露给 Agent 的能力集合（整体替换该维度） |
+| skill_ids | array<uuid> | N | 绑定的 Skill 集合 |
+| service_ids | array<uuid> | N | 可调用子服务集合 |
+| revision | integer | Y | `agent_definition.revision` 乐观锁；不匹配 409 |
 
-**返回**
+**为什么三合一**（P1-22 裁决）：三个维度写的是同一张 `agent_definition` 上的绑定集合，共享同一个 `revision` 与同一套差异确认交互。拆成三个 PUT 会让"保存一次编辑"变成三次请求、三个并发窗口、三条审计记录，前端也只能长出三个各自独立的保存按钮。
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| result | CapabilityResult | 统一能力结果 |
+**响应 data**：`{revision, capabilities: array<CapabilityBindingView>, skills: array<SkillBindingView>, services: array<ServiceBindingView>}`
 
-**异常/错误**
+**错误码**
 
 | 错误码 | 场景 | HTTP 状态 |
 |---|---|---|
-| CAPABILITY_NOT_EFFECTIVE | 不在 Agent 直接有效能力集 | 403 |
-| CAPABILITY_CONFIRMATION_REQUIRED | 命中需转 Execution 的判定（`direct_invocation=REQUIRES_EXECUTION`：write/destructive、HIGH、EXECUTION_ONLY） | 409 |
+| AGENT_NOT_FOUND | Agent 不存在 | 404 |
+| AGENT_REVISION_CONFLICT | `revision` 不匹配 | 409 |
+| CAPABILITY_NOT_FOUND / SKILL_NOT_FOUND / SERVICE_NOT_FOUND | 集合内含不存在或跨租户对象 | 400 |
 
 **处理逻辑**
 
 ```text
-检查 effective direct capability set → **按 `CAP-API-06` 返回的派生结论 `direct_invocation` 判定**（谓词唯一事实源在模块 07 的 `contract:direct-invocation-predicate`，本模块不复刻）：`ALLOWED` → 直接 CapabilityExecutor；`REQUIRES_EXECUTION` → 返回 `CAPABILITY_CONFIRMATION_REQUIRED(409)` 并转 ExecutionProposal。input schema/semantic validate 先行；destructive 或 HIGH 的 Capability 在 Execution 内仍受 Service confirmation_rules 与人工检查点约束；Contract 字段由能力 Owner 声明，LLM 不得改写。
+Admin/Builder 鉴权 → 校验集合内对象同租户且可用 → 单事务：按传入维度整体替换绑定集合
+（差集 upsert / 撤销）→ revision +1 → audit（三维度一条记录）→ 返回新集合。
 ```
 
-**认证/授权**：仅 Agent Executor 运行时角色可调用；`ctx` 为可信执行上下文，`capability_key` 必须命中该 Agent 的 effective direct capability set（否则 CAPABILITY_NOT_EFFECTIVE），且不得由 LLM 传入绕过分流的元数据。
+**一致性/幂等**：整体替换单事务 + `revision` 乐观锁；重复提交同一集合幂等（revision 不变，返回当前集合）。
 
-#### AGCORE-LIB-03: Agent Skill Dispatcher
-
-**入口类型**：Library
-
-**函数签名**
-
-```python
-async def run_skill_from_agent(ctx: AgentExecutionContext, skill_key: str, input: dict) -> SkillResult
-```
-
-**入参**
-
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| skill_key | string | Y | Agent 已绑定 Skill |
-| input | object | Y | Skill 输入 |
-
-**返回**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| result | SkillResult | Skill 输出 |
-
-**异常/错误**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| SKILL_NOT_BOUND | Skill 未绑定 | 403 |
-| SKILL_INVALID | 当前 Artifact 不可用 | 409 |
-
-**处理逻辑**
-
-```text
-Execution 检查 projection.agents 的 skill_ids 并取 projection.skills 指定 artifact/checksum；Chat 检查 current binding/current artifact。两者动态检查 Skill enabled。构造宿主 SkillInvocationContext（trusted ctx/projection/workspace/manifest dependencies/operation_id/test_mode）→ SkillRunner；Execution 缺投影不 fallback current，Skill 的 Capability 依赖不自动暴露为 LLM tools。
-```
-
-**认证/授权**：仅 Agent Executor 运行时角色可调用；`ctx` 为可信执行上下文，`skill_key` 必须命中该 Agent 的绑定 Skill（否则 SKILL_NOT_BOUND），Skill 内部再按自身 manifest 依赖受限。
+**有效能力不再单独出接口**（原 `AGENT-API-08` 已删除）：`AGENT-API-03` 详情的 `bindings[]` 直接带 `origin`（`DIRECT_BINDING` / `SERVICE_DERIVED` / `SKILL_DECLARED`）与 `direct_invocation` 标记——"为什么这个能力可用"由详情回答，不需要第二个分析端点。
 
 #### AGCORE-LIB-04: Execution Proposal Builder
 
@@ -1073,8 +831,8 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
 | FEAT-AGENT-01 | AGENT-API-01, AGENT-API-02, AGENT-API-03, AGENT-API-04, AGENT-LIB-01 | S-AGENT-01, S-AGENT-06, E-AGENT-02 | E2E/integration | 待实现/评审 |
-| FEAT-AGENT-02 | AGENT-API-05, AGENT-API-06, AGENT-API-07 | S-AGENT-02, S-AGENT-07 | E2E/integration | 待实现/评审 |
-| FEAT-AGENT-03 | AGENT-API-08, AGCORE-LIB-02 | S-AGENT-02, E-AGENT-01 | E2E/integration | 待实现/评审 |
+| FEAT-AGENT-02 | AGENT-API-05（三合一） | S-AGENT-02, S-AGENT-07 | E2E/integration | 待实现/评审 |
+| FEAT-AGENT-03 | AGENT-API-03（详情含 bindings+origin）, AGCORE-LIB-02 | S-AGENT-02, E-AGENT-01 | E2E/integration | 待实现/评审 |
 | FEAT-AGENT-04 | AGCORE-LIB-01, AGCORE-LIB-02, AGCORE-LIB-03, AGCORE-LIB-05 | S-AGENT-03, S-AGENT-05, S-AGENT-08 | E2E/integration | 待实现/评审 |
 | FEAT-AGENT-05 | AGCORE-LIB-04 | S-AGENT-04, S-AGENT-05 | E2E/integration | 待实现/评审 |
 

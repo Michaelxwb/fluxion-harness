@@ -216,7 +216,7 @@ def test_drift_entries_carry_a_reason() -> None:
 # exist physically with the documented name in every subsequent change; the rest
 # of each table's historical column set is now fully aligned (P3 closed), so the
 REVIEW_ROUND_COLUMNS: dict[str, set[str]] = {
-    "execution_proposal": {"superseded_at", "status", "confirmation_digest", "template_hash"},
+    "execution_proposal": {"superseded_at", "confirmation_digest", "template_hash", "confirmed_at"},
     "capability_implementation": {
         "auth_mode",
         "async_submittable",

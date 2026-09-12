@@ -7,7 +7,7 @@
 | 模块 | 审计查询（Console 前端模块 11） |
 | 角色 | Admin（Builder 不可见菜单） |
 | 文档状态 | 交互基线已冻结，待仓库 Spec Context 绑定 |
-| 修订历史 | V1.11（2026-09-11）模块分档拆分版；V1.13（2026-09-12）第三轮 Review 修复：场景 ID 前缀与本目录统一（E2E=`E-11-xx`，integration=`I-11-xx`），本文件无同号 integration 场景；复核确认全部场景「预期结果」为可断言界面输出（菜单/403/空态/跳转）；V1.13.1（2026-09-12，Claude Code）第四轮 Review 修复：行展开改为 `details.changed_fields` 字段级 diff（Secret 类字段原值/新值一律 `***`，前端不推断原值）；列表明确无主操作、`execution_id` 为空不构造死链、时间范围必填；补 `S-11-03` |
+| 修订历史 | V1.14.2（2026-09-13）第六轮 Review 收敛：补本页 `StandardListQuery` 声明（`action`/`resource_type`/`resource_id`/`actor_user_id`/`result`/`from`/`to`，无 `enabled` 维度）；筛选白名单见 `../00-Console公共框架/design-frontend.md` §3.4；V1.11（2026-09-11）模块分档拆分版；V1.13（2026-09-12）第三轮 Review 修复：场景 ID 前缀与本目录统一（E2E=`E-11-xx`，integration=`I-11-xx`），本文件无同号 integration 场景；复核确认全部场景「预期结果」为可断言界面输出（菜单/403/空态/跳转）；V1.13.1（2026-09-12，Claude Code）第四轮 Review 修复：行展开改为 `details.changed_fields` 字段级 diff（Secret 类字段原值/新值一律 `***`，前端不推断原值）；列表明确无主操作、`execution_id` 为空不构造死链、时间范围必填；补 `S-11-03` |
 
 ## 2. 需求分析
 
@@ -53,6 +53,8 @@
 
 | 页面/组件 | 路由/说明 |
 |---|---|
+**列表查询**：通用契约见 FE-00 §3.4 `StandardListQuery`（`page`/`page_size`/`keyword`）；本页领域筛选：`action`、`resource_type`、`resource_id`、`actor_user_id`、`result`、`from`、`to`（本页无 `enabled` 维度）。只读、服务端筛选、改筛选重置 `page=1`、筛选进 URL。
+
 | AuditLogListPage | `/console/audit-logs`，Semi Table：只读列表，左上无主操作，右上筛选，右下分页 |
 
 ### 3.3 组件设计

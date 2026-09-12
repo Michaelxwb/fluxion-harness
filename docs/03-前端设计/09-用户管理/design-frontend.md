@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
+> **交互事实源**: `../90-Console交互规格.md` + `../00-Console公共框架/design-frontend.md`（跨页范式）；字段/API/错误码以本页 §3.4/§3.5 与后端 Owner 模块 §3.4 为准
 
 ## 1. 文档控制
 
@@ -62,7 +62,7 @@
 
 - Console 仅面向 Builder/Admin，End User 不进入 Console。
 - Semi Design 标准列表：左上一个主动作，右上筛选/搜索，中间 Table，右下 PageSize + Pagination。
-- 详情默认只读；新增/编辑使用独立 Modal 或独立编辑页，不在详情 Drawer 内直接编辑。
+- **详情即只读态**：详情页承载当前值，写操作走独立 Modal 或独立编辑页（不在详情 Drawer 内直接编辑）；不另开「第二个只读页」，避免详情与编辑的字段集各自漂移。
 - Secret 不回显；创建后不可变 key 在编辑态只读。
 - 所有时间显示 `YYYY-MM-DD HH:mm:ss`。
 - 页面组件不得直接裸调用 fetch/axios，统一经 `services/` 或等价数据访问层。

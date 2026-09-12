@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
+> **交互事实源**: `../90-Console交互规格.md` + `../00-Console公共框架/design-frontend.md`（跨页范式）；字段/API/错误码以本页 §3.4/§3.5 与后端 Owner 模块 §3.4 为准
 
 ## 1. 文档控制
 
@@ -25,6 +25,7 @@
 | V1.13 | 2026-09-12 | 第三轮 Review 修复：场景 ID 前缀拆分（E2E 保留 `E-00-01`，integration 改名 `I-00-01`） |
 | V1.13.1 | 2026-09-12 | Claude Code：第四轮 Review 修复——§3.4 新增 `StandardListQuery` 统一列表查询契约（Z-08：`page`/`page_size`/`keyword`/`sort`，服务端筛选、筛选变更重置 `page=1`、URL 为唯一事实源），并补场景 `S-00-03` |
 | V1.14.1 第五轮契约同步 | 2026-09-13 | 第五轮 D8~D15 契约同步（ADR-067/D14）：§3.3.1 登录与身份合同补身份再查询入口 `GET /api/v1/auth/me`（`AUTH-API-01`，Owner=模块 09，返回 `{user_id, username, role, tenant_id}`），说明需要 `user_id` 或以当前身份渲染角色 UI 时读该接口、不以登录会话快照为准；登录响应契约 `{token, username, role}` 不变 |
+| V1.14.2 第六轮 Review 收敛 | 2026-09-13 | 设计修复 | `StandardListQuery` 由「万能筛选 + `sort`」收敛为 **`page`/`page_size`/`keyword`/`enabled`** + 各页**显式声明**的领域筛选白名单（新增白名单表，8 个页面逐页列出）；删除任意 `sort` 与「非法 sort → 422」语义（排序由后端固定） |
 
 ## 2. 需求分析
 
@@ -121,23 +122,36 @@
 | 行末 | 详情/编辑/少量领域动作 |
 | 右下 | PageSize + Pagination |
 
-**`StandardListQuery`（统一列表查询契约，Z-08）**
+**`StandardListQuery`（统一列表查询契约，Z-08；V1.14.2 收敛）**
 
-所有 Console 列表页共用同一个查询模型，**序列化方式与分页语义全局一致**：
+所有 Console 列表页共用**同一组 4 个参数**。不再接受任意 `sort`：排序由后端为每个列表固定（稳定排序），前端不传排序键，因此也**不存在"非法 sort → 422"这类校验分支**。
 
 | 参数 | 类型/默认 | 说明 |
 |---|---|---|
 | `page` | int，默认 `1` | 页码 |
 | `page_size` | int，默认 `20`，最大 `100` | 每页条数；page size 属于当前列表，不设全局值 |
-| `keyword` | string | 关键词搜索 |
-| `sort` | string，形如 `update_time_desc` | 排序；**未知取值由后端返回 422** |
+| `keyword` | string，可选 | 关键词搜索（匹配字段由各页声明） |
+| `enabled` | bool，可选 | 启用状态；不适用于无启用态的列表时该页不声明此参数 |
 
-页面可在该模型上追加**领域筛选参数**（如服务列表 `draft_state` / `enabled` / `execution_type`，见 `90` §2.1），但序列化方式与分页语义必须完全一致。
+**领域筛选白名单（各页显式声明，不在白名单内的一律不实现）**：
+
+| 页面 | 领域筛选参数（在 4 个通用参数之外） |
+|---|---|
+| 服务管理（FE-02） | `draft_state`、`execution_type` |
+| 智能体管理（FE-03） | `model_id` |
+| 能力管理（FE-04） | `implementation_type`、`risk_level`、`invocation_policy` |
+| Skill 管理（FE-05） | `platform_label`、`validation_status` |
+| 项目平台（FE-08） | 无 |
+| 用户管理（FE-09） | `role`、`status` |
+| 执行记录（FE-10） | `service_id`、`user_id`、`agent_id`、`capability_id`、`status`、`execution_mode`、`execution_source`、`delivery_status`、`channel_source`、`trace_id`、`scope_ref`、`error_code`、`from`、`to` |
+| 审计查询（FE-11） | `action`、`resource_type`、`resource_id`、`actor_user_id`、`result`、`from`、`to` |
+
+白名单的意义：筛选是**契约**而不是"后端支持什么就摆什么控件"。新增领域筛选必须先在本表登记并在该页 §3.4 声明字段与语义——避免出现"万能筛选面板"（十几个下拉框堆在列表右上，没有一个有验收场景）。
 
 行为规则（三条）：
 
 1. 筛选**一律服务端执行**：不得预载全量列表再在前端过滤（Network 面板中不出现无筛选的全量列表请求）；
-2. 修改任一筛选/搜索/排序**重置 `page=1`**；
+2. 修改任一筛选/搜索**重置 `page=1`**；
 3. 筛选状态写入 **URL 查询串**：链接可分享、刷新后保留、后退可恢复。
 
 URL 是列表筛选状态的**唯一事实源**——列表查询状态不得放进全局 store，只来自路由查询串 + 页面 local state。
@@ -192,7 +206,7 @@ URL 是列表筛选状态的**唯一事实源**——列表查询状态不得放
 |---|---|---|---|---|---|
 | Console-V0.8#READONLY-DETAIL | required | 详情不得变成编辑入口 | §3.3/§3.7 | S-00-01 | applied |
 | Console-V0.8#SERVICE-LAYER | required | API 统一从 services 层发起 | §3.5 | S-00-01 | applied |
-| Console-V0.8#STANDARD-LIST-QUERY-Z08 | required | 列表查询统一 `StandardListQuery`（服务端筛选、改筛选重置 `page=1`、URL 唯一事实源） | §3.4 | S-00-03 | applied |
+| Console-V0.8#STANDARD-LIST-QUERY-Z08 | required | 列表查询统一 `StandardListQuery`（4 个通用参数 + 各页领域筛选白名单；服务端筛选、改筛选重置 `page=1`、URL 唯一事实源，不接受任意 `sort`） | §3.4 | S-00-03 | applied |
 
 ## 附录：后端追溯
 

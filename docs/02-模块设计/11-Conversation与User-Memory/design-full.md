@@ -182,7 +182,6 @@ flowchart LR
 
 | 表名 | 职责 | 所有权 |
 |---|---|---|
-| conversation_run | Chat turn 调度/取消/恢复事实 | Conversation 与 User Memory |
 | channel_command_receipt | 真实入站命令的幂等结果 | Conversation 与 User Memory |
 | conversation | 当前会话事实；/new 创建新会话但不清空 User Memory/授权。 | Conversation 与 User Memory |
 | message | Conversation 内消息记录，用于上下文/审计；不等于长期 Memory。 | Conversation 与 User Memory |
@@ -252,35 +251,6 @@ flowchart LR
 | idx_message_external | BTREE | tenant_id,external_message_id | 去重/追踪 |
 
 **不可变约束**：消息正文和身份/来源不可变；只允许受信处理器更新 processing_status，不得改写历史 USER 内容。
-
-#### 表 `conversation_run`
-
-**职责**：持久 Chat turn 取消/排队/跨实例恢复；不替代 ServiceExecution。
-
-| 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
-|---|---|---|---|---|---|
-| tenant_id | UUID | N |  | IDX | 租户 |
-| conversation_id | UUID | N |  | FK | 会话 |
-| actor_user_id | UUID | N |  | FK | 运行用户 |
-| source_message_id | UUID | N |  | UK | 入站消息 |
-| status | VARCHAR(24) | N | QUEUED |  | QUEUED/RUNNING/CANCEL_REQUESTED/SUCCEEDED/FAILED/CANCELLED |
-| lease_owner | VARCHAR(256) | Y |  |  | Runtime 实例 |
-| lease_expires_at | TIMESTAMPTZ | Y |  |  | 恢复到期 |
-| lease_epoch | BIGINT | N | 0 |  | 所有图推进/结果写入 fencing |
-| cancel_requested_at | TIMESTAMPTZ | Y |  |  | 取消事实 |
-| checkpoint_ref | VARCHAR(512) | Y |  |  | 已提交图状态 |
-| id | UUID | N | gen_random_uuid() | PK | 主键 |
-| is_deleted | BOOLEAN | N | FALSE |  | 默认过滤 FALSE |
-| create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
-
-**约束与索引**
-
-- UNIQUE (tenant_id,source_message_id)；UNIQUE (tenant_id,conversation_id) WHERE status IN ('RUNNING','CANCEL_REQUESTED') AND is_deleted=false。
-- 续租/释放与 owner+lease_epoch fencing 一律引用 **CORE-LIB-08**（模块 01）共享实现与统一 epoch 语义；claim 的选择 SQL 在模块 03 RT-LIB-03 内（领取时 `lease_epoch + 1` 语义一致）。本表只提供列映射（`lease_owner/lease_expires_at/lease_epoch`）、领取排序键（source message 的 `sequence_no`）与“已到期 RUNNING 优先于新 turn”的谓词。`conversation_run` **不再维护第二套续租/fencing 语义**。
-- 领取前无有效 lease；Run graph 状态、结果与 checkpoint 写入前必须先经 CORE-LIB-08.assert_owner 校验 owner+lease_epoch，失配 LEASE_LOST 并立即停止推进。
-- QUEUED 按 message.sequence_no 领取，恢复到期 RUNNING 优先于新 turn。
-- 保留与清理按 `01-架构与规范/11-数据保留与清理策略` 执行；本模块不自行决定 conversation_run 的保留期限与清理触发者。
 
 #### 表 `channel_command_receipt`
 
@@ -395,9 +365,24 @@ erDiagram
 
 CONV-LIB-01 以 (tenant,user,agent,origin_scope_key) 的 PG transaction advisory lock 串行解析当前 ACTIVE；无行时在同一锁内创建，并用 partial unique 防重复。此锁保护首次创建与 /new，不只锁可能不存在的 conversation 行。入站消息在该事务内绑定确定 conversation_id/sequence_no；提交即释放锁，不持锁执行 LLM/网络。
 
-同会话 Chat turn 按 sequence_no 排队；conversation_run 同时最多一个非终态 run，运行 owner 的续租/释放与 lease_epoch fencing 统一经 CORE-LIB-08（模块 01）实现，领取 SQL 在模块 03 RT-LIB-03 内，本模块不另写一套。后续消息只排队，不能并发推进同一图。/new 与入站解析用同一映射锁：旧 conversation=CLOSED，旧 Chat Run 标 CANCEL_REQUESTED，新建 ACTIVE；关闭前已绑定的消息仍归旧会话，未开始的旧消息标 PROCESSED 并告知会话已关闭，不挪到新会话。已创建 Execution 和投递路由保持，关闭不取消它们。
+同会话 Chat turn 按 sequence_no 排队；**Chat turn 不是 durable 执行**（P0-4 裁决）：不建 run 表、不持有租约，唯一调度态是 `message.processing_status`（QUEUED/PROCESSING/PROCESSED）。排队语义由该列表达——同一会话同时最多一条 `PROCESSING`；`PROCESSING` 超时（进程崩溃/请求中断）由本模块回收为 `QUEUED` 供重试，**不承诺续跑**，也不需要跨实例接管或 fencing。/new 与入站解析用同一映射锁：旧 conversation=CLOSED，新建 ACTIVE；关闭前已绑定的消息仍归旧会话，未开始的旧消息标 `PROCESSED` 并告知会话已关闭，不挪到新会话。已创建 Execution 和投递路由保持，关闭不取消它们。
 
-CheckpointIdentity：Chat thread_id=`chat:{conversation_id}`，namespace=`agent:{agent_id}:graph:1`；Worker thread_id=`execution:{root_execution_id}:operation:{operation_id}`，namespace=`agent:{agent_id}:step:{step_key}:graph:1`。operation_id 首次生成且相同逻辑步骤 retry 沿用；同 Agent 在两个步骤有不同 operation_id。checkpoint_ref 存 execution_step/conversation_run，checkpoint metadata 必须匹配 snapshot hash、operation、step、agent，错配 CHECKPOINT_MISMATCH 拒绝。图节点完成持久 checkpoint；Worker Step 终态只在最终 checkpoint 已确认持久后提交（可恢复重放必须复用副作用 key）；checkpoint 不能覆盖 Execution 调度真相。
+CheckpointIdentity（P0-4 后唯一 durable 侧才有落点）：
+
+```text
+Chat（非 durable，仅用于对话上下文连续性）
+  thread_id = chat:{conversation_id}:{source_message_id}
+  namespace = agent:{agent_id}:graph:1
+  说明：thread 按「会话 + 该轮用户消息」标识；Chat 不持久 checkpoint 引用，
+        崩溃后该轮由 processing_status 回收为 QUEUED，不续跑
+
+Worker（durable）
+  thread_id = execution:{root_execution_id}:operation:{operation_id}
+  namespace = agent:{agent_id}:step:{step_key}:graph:1
+  checkpoint_ref 落 execution_step（conversation_run 已删除）
+```
+
+`operation_id` 首次生成且相同逻辑步骤 retry 沿用；同 Agent 在不同步骤有不同 operation_id。checkpoint metadata 必须匹配 snapshot hash、operation、step、agent，错配 `CHECKPOINT_MISMATCH` 拒绝。图节点完成持久 checkpoint；Worker Step 终态只在最终 checkpoint 已确认持久后提交（可恢复重放必须复用副作用 key）；checkpoint 不能覆盖 Execution 调度真相。图节点完成持久 checkpoint；Worker Step 终态只在最终 checkpoint 已确认持久后提交（可恢复重放必须复用副作用 key）；checkpoint 不能覆盖 Execution 调度真相。
 
 **Runtime 受控 Memory 写入**
 

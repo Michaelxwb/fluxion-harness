@@ -246,7 +246,7 @@ def register_provider(kind: ProviderKind, key: str, display_name: str, provider:
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| kind | ProviderKind | Y | 完整枚举：MODEL / CAPABILITY / AUTH / KNOWLEDGE / CHANNEL / ARTIFACT_STORE / SECRET / WORKSPACE / SANDBOX / AGENT_EXECUTOR / STEP_EXECUTOR（对应总设 §5.4 的 11 个扩展点；其中 CAPABILITY 对应 CapabilityProvider/Adapter） |
+| kind | ProviderKind | Y | **V1 白名单 4 值：MODEL / CAPABILITY / AUTH / CHANNEL**（P2-7 收敛；CAPABILITY 对应 CapabilityProvider/Adapter）。其余（KNOWLEDGE / ARTIFACT_STORE / SECRET / WORKSPACE / SANDBOX / AGENT_EXECUTOR / STEP_EXECUTOR）**是基础设施 Port，由平台自身实现，不经 Integration 注册**——允许它们注册会出现"两套 Secret/Workspace 解析来源"，而部署者无法从 manifest 判断哪个生效。放开需显式评审并同步 Port 装配规则 |
 | key | string | Y | 租户无关的全局稳定 key，`[a-z0-9_.-]{1,64}`；重复注册 fail-fast |
 | display_name | string | Y | 人类可读的认证/机制名称（如「MSS 会话认证」「API Key」），用于 Console「用户认证方式」列与 Console 列表渲染；**仅展示用，不参与路由与认证判定**，不要求唯一 |
 | provider | Provider | Y | 实现 |

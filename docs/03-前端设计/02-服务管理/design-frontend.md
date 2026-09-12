@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
+> **交互事实源**: `../90-Console交互规格.md` + `../00-Console公共框架/design-frontend.md`（跨页范式）；字段/API/错误码以本页 §3.4/§3.5 与后端 Owner 模块 §3.4 为准
 
 ## 1. 文档控制
 
@@ -26,6 +26,7 @@
 | V1.13.1 | 2026-09-12 | 第四轮 Review 裁决修复（Claude Code）：列表筛选拆为「草稿状态/启用状态/执行方式」三个正交控件（Z-07）；步骤表单新增 `human_policy`（B11）；测试弹窗补「测试用户」控件（B13）；补场景 `S-02-07`/`S-02-08`/`S-02-09` |
 | V1.13.1 | 2026-09-12 | 第四轮 Review 修复（D5=A）：Tab C 业务范围按 `resource_scope` 最小 typed 形态 `{type, refs[], attributes?}` 收敛——删除 Service 级 Scope Schema 与 `Schema Hash`，改为类型白名单（`resource_scope_types`）下拉 + `refs[]` + `attributes` 动态渲染；补 Tab C 字段映射、空白名单空态与场景 `S-02-06`；`SVC-API-04` 保存合同映射同步 |
 | V1.14.1 第五轮契约同步 | 2026-09-13 | 第五轮 D8~D15 契约同步：步骤表单新增**执行模式**（`execution_mode`，`SYNC` 默认 / `ASYNC`，仅 Capability 可选）及 ASYNC 步骤专属的「对账时限（`reconcile_timeout_seconds`，默认 86400）/ 轮询上限（`max_poll_attempts`，默认 100）」（ADR-062）；范围类型候选来源改为 `GET /api/v1/meta/resource-scope-types`（`INT-API-01`，Owner=模块 12，空集合返回 `items: []`）（ADR-067/D2）；测试用户链路改为「`GET /api/v1/auth/me` 取默认 `user_id` + `GET /api/v1/services/{service_id}/test-user-candidates` 取候选」（`AUTH-API-01`/`SVC-API-11`）（ADR-067/D14）；API 映射表补上述三个接口 |
+| V1.14.2 第六轮 Review 收敛 | 2026-09-13 | 设计修复 | 删 `/console/services/:id` 只读详情路由：**详情即编辑页只读态**（同路由/同字段集，只读态仅隐藏写控件、不隐藏字段），路由为 `/console/services` + `/console/services/new` + `/console/services/:id/edit`；补本页 `StandardListQuery` 声明（`draft_state`/`execution_type` 领域筛选，与 `enabled` 三者正交）；同步需求/路由表/通用规则/合规矩阵 |
 
 ## 2. 需求分析
 
@@ -36,8 +37,8 @@
 | 模块名称 | 服务管理 |
 | 需求类型 | 页面/交互模块 |
 | 业务背景 | Service 是唯一正式发布业务对象，需要 Draft→Validate/Test→Publish 的明确旅程。 |
-| 核心目标 | 完成服务列表、新增、Draft 编辑、步骤编排、业务范围、测试与发布，以及只读详情。 |
-| 路由 | `/console/services`、`/console/services/new`、`/console/services/:id`、`/console/services/:id/edit` |
+| 核心目标 | 完成服务列表、新增、Draft 编辑（**详情即编辑页的只读态**）、步骤编排、业务范围、测试与发布。 |
+| 路由 | `/console/services`、`/console/services/new`、`/console/services/:id/edit`（**无独立只读详情路由**） |
 | 角色 | Builder / Admin（正式发布 Admin） |
 
 ### 2.2 功能方案
@@ -54,8 +55,8 @@
 
 | 类别 | 内容 |
 |---|---|
-| 范围（In Scope） | 完成服务列表、新增、Draft 编辑、步骤编排、业务范围、测试与发布，以及只读详情。 |
-| 非范围（Out of Scope） | 详情模式不允许新增/编辑/删除步骤；发布动作仅 Admin（按钮对 Builder 不渲染）。已发布 Service 的管理员手工发起执行（后端支持，Console 后置）；Release 回滚/切回历史版本（后端支持，Console 后置）。 |
+| 范围（In Scope） | 完成服务列表、新增、Draft 编辑（只读态复用同一页面）、步骤编排、业务范围、测试与发布。 |
+| 非范围（Out of Scope） | 只读态不允许新增/编辑/删除步骤；发布动作仅 Admin（按钮对 Builder 不渲染）。已发布 Service 的管理员手工发起执行（后端支持，Console 后置）；Release 回滚/切回历史版本（后端支持，Console 后置）。 |
 | 有意妥协 / 技术债 | 仓库技术栈、组件 API 细节待真实 repo scan 后锁定；产品字段和交互语义已冻结。 |
 
 ### 2.4 验收条件
@@ -64,7 +65,7 @@
 
 - Console 仅面向 Builder/Admin，End User 不进入 Console。
 - Semi Design 标准列表：左上一个主动作，右上筛选/搜索，中间 Table，右下 PageSize + Pagination。
-- 详情默认只读；新增/编辑使用独立 Modal 或独立编辑页，不在详情 Drawer 内直接编辑。
+- **每个实体只有一个页面路由**：`/console/services` + `/console/services/:id/edit`。详情 = 编辑页的只读态（无 Draft 编辑权时字段只读、隐藏保存与发布按钮），不另开 `/console/services/:id` 只读页——两个路由会让字段集与权限差异各自漂移。
 - Secret 不回显；创建后不可变 key 在编辑态只读。
 - 所有时间显示 `YYYY-MM-DD HH:mm:ss`。
 - 页面组件不得直接裸调用 fetch/axios，统一经 `services/` 或等价数据访问层。
@@ -100,8 +101,7 @@
 |---|---|---|---|
 | 服务列表 | `/console/services` | ConsoleLayout | 标准列表；左上「+ 新增服务」 |
 | 新增服务 | `/console/services/new` | ConsoleLayout | 独立创建页/Modal，字段见 §3.4「新增字段」 |
-| 服务详情 | `/console/services/:id` | ConsoleLayout | 只读；无新增/编辑/删除控件 |
-| 服务 Draft 编辑 | `/console/services/:id/edit` | ConsoleLayout | 四 Tab 编辑，Tab 子路由 `?tab=basic`（A 基本信息）/ `?tab=steps`（B 执行编排）/ `?tab=scope`（C 业务范围）/ `?tab=release`（D 测试与发布），默认 `basic`，非法值回落 `basic` |
+| 服务（详情 / Draft 编辑） | `/console/services/:id/edit` | ConsoleLayout | **一个路由承担详情与编辑**：有 Draft 编辑权时为编辑态（四 Tab 子路由 `?tab=basic`/`?tab=steps`/`?tab=scope`/`?tab=release`，默认 `basic`，非法值回落 `basic`）；**否则为只读态**（字段只读、无保存/发布/删除控件，仍可看 Release 与测试结果）。|
 
 创建成功后跳转 `/console/services/:id/edit`（与 `90-Console交互规格.md` §2.2 一致）。
 
@@ -194,6 +194,8 @@
 
 **测试用户控件（B13，`test_user_id` 的落点；ADR-067/D14）**：测试弹窗内「测试输入」上方，**仅当**服务引用的能力实现中存在 `auth_mode=USER_PLATFORM`（用户平台认证）时显示；默认值为**当前登录用户**，取自 `GET /api/v1/auth/me` 的 `user_id`（`AUTH-API-01`，Owner=模块 09；不使用登录响应的快照字段）；候选取自 `GET /api/v1/services/{service_id}/test-user-candidates`（`SVC-API-11`，Builder+Admin，响应 `{items:[{user_id,user_key,display_name}],page,page_size,total,default_user_id}`，**空候选合法**，此时仅保留默认当前用户）；控件隐藏时仍提交默认的当前登录用户；后端 `TEST_USER_ACCESS_INVALID`(403) 仍是**最终判定**，错误定位到该控件并在弹窗内保留输入——**前端不得用候选列表事先过滤来掩盖**（候选为空/不含目标用户不等于无权，`USR-API-01` 用户列表仅 Admin，不得用它做测试候选取代）。
 
+**列表查询**：通用契约见 FE-00 §3.4 `StandardListQuery`（`page`/`page_size`/`keyword`/`enabled`）；本页领域筛选：`draft_state`、`execution_type`（与 `enabled` 三者正交，AND 生效；见 Z-07 与场景 S-02-07）；服务端筛选、改筛选重置 `page=1`、筛选进 URL。
+
 **即时启停**：Admin 在列表行/详情独立“紧急停用/恢复”，调用 SVC-API-10，停用二次确认并刷新 enabled。Draft 编辑只读展示即时 enabled，不将其放进 draft_payload；保存/发布不能覆盖该开关，Builder 不显示操作。
 
 ### 3.5 状态与数据流
@@ -239,7 +241,7 @@
 - 不重复大页面标题/说明，左侧菜单 + breadcrumb 已表达当前位置。
 - 列表页 page size 属于当前列表，不设置全局 page size。
 - 行操作固定在最右侧；危险操作二次确认。
-- 详情只读，编辑与详情分离。
+- **详情 = 编辑页只读态**（同路由、同字段集、同权限判定入口）：只读态只隐藏写控件，不隐藏字段——避免出现『详情页少几个字段』的实现漂移。
 
 ### 3.8 可访问性与兼容性
 
@@ -258,7 +260,7 @@
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| Console-V0.8#READONLY-DETAIL | required | 详情不得变成编辑入口 | §3.3/§3.7 | S-02-01 | applied |
+| Console-V0.8#READONLY-DETAIL | required | 只读态不得出现写控件（同路由只读态，而非独立只读页） | §3.2/§3.7 | S-02-01 | applied |
 | Console-V0.8#SERVICE-LAYER | required | API 统一从 services 层发起 | §3.5 | S-02-01 | applied |
 | BACKEND-05#HUMAN-POLICY-B11 | required | 步骤 `human_policy` 三值与 `failure_policy=MANUAL` 正交约束（默认 `never`，后端 05 schema） | §3.4 | S-02-08 | applied |
 

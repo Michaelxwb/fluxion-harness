@@ -245,8 +245,10 @@ async def test_s01_domain_object_round_trips_through_repository(
     async with factory() as session:
         async with session.begin():
             model_config = ModelConfigModel(
-                name=f"model-{suffix}", key=f"model-{suffix}", protocol="OPENAI_COMPATIBLE",
-                base_url="https://example.invalid", model_name="demo-1"
+                name=f"model-{suffix}",
+                key=f"model-{suffix}",
+                base_url="https://example.invalid",
+                model_name="demo-1",
             )
             session.add(model_config)
             await session.flush()

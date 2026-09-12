@@ -187,7 +187,7 @@ flowchart LR
 Console 登录入口 `POST /api/v1/auth/login`（及 `POST /api/v1/auth/logout`）**不属于本设计范围**：V1 依赖既有实现（`apps/platform_api/routes/auth.py` 的 login/logout + Bearer 12h + bootstrap CLI）。本设计只冻结以下三点契约，其余细节以既有实现为准：
 
 1. **登录契约**：登录成功返回 `{token, username, role}`，`role ∈ {ADMIN, BUILDER}`；`END_USER` 不可登录 Console（只经 IM 使用）。token 过期返回 401，与 `WEB-LIB-03` 一致。
-2. **角色映射**：`role` 与 `platform_user.role` 一一对应——`ADMIN` ↔ `role=ADMIN`、`BUILDER` ↔ `role=BUILDER`。本模块所有接口「认证/授权」列中的 Admin/Builder 即指该登录角色。写权限按**字段级授权**（D2，ADR-021 修正）：`PLAT-API-02/04` 为 **Builder + Admin**——项目平台的认证模板字段列表（`auth_type`/`auth_schema`）由 **Admin 维护**，**Builder 只能读取 `auth_type` 与 `configured`**（供能力定义选择平台），非 Admin 请求中出现 `auth_type`/`auth_schema` 一律 403 `FIELD_ADMIN_ONLY`；`PLAT-API-05` 与 `CRED-API-01..04` 仍为**整接口仅 Admin**（凭据写与认证验证属敏感面），与模块 10 的 IM Bot 密钥写接口仅 Admin 一致。
+2. **凭据归属（P0-8 收敛）**：登录名 = `platform_user.user_key`，口令哈希 = `platform_user.password_hash`（END_USER 行为空），角色 = `platform_user.role`。**不存在第二个账号表**——`auth_account`/`auth_session` 已删除（前者把 `role` 变成双源，后者与身份分离）。原「角色映射」结论保留如下：`role` 与 `platform_user.role` 一一对应——`ADMIN` ↔ `role=ADMIN`、`BUILDER` ↔ `role=BUILDER`。本模块所有接口「认证/授权」列中的 Admin/Builder 即指该登录角色。写权限（P1-19 裁决）：**`PLAT-API-02/04/05` 整接口仅 Admin**——项目平台是认证模板的载体，字段级放行只能制造"看起来能写、其实写不了"的伪装；Builder 只读 `PLAT-API-01/03`（含 `auth_type` 与 `configured`，供能力定义选择平台）。`CRED-API-01..04` 同样整接口仅 Admin。
 3. **操作者归属**：所有需要操作者身份的事实（`agent_access_grant.granted_by`、`audit_log.actor_user_id`）取该登录用户对应的唯一 `platform_user.id`；登录用户必须能在本租户定位到唯一 `platform_user` 行（同一 `user_key`），否则拒绝写操作并记录告警。
 
 ### 3.3 数据设计
@@ -197,8 +197,7 @@ Console 登录入口 `POST /api/v1/auth/login`（及 `POST /api/v1/auth/logout`�
 | 表名 | 职责 | 所有权 |
 |---|---|---|
 | project_platform | MSS/CRM/ERP 等业务平台产品对象；承载用户认证模板并被 PLATFORM_SERVICE Capability 引用。与 ProjectIntegration 分离。 | Auth 与项目平台 |
-| auth_account | Console 登录账号（口令哈希）；ADR-021 的管理面身份入口。 | Auth 与项目平台 |
-| auth_session | Bearer 会话令牌（只存哈希，12h 有效）。 | Auth 与项目平台 |
+| session_token | Bearer 会话令牌（只存哈希，12h 有效）；绑定 `platform_user`。 | Auth 与项目平台 |
 | user_project_credential | 同一 PlatformUser × ProjectPlatform 的唯一用户认证投影；敏感值在 Secret Provider。 | Auth 与项目平台 |
 
 #### 表 `project_platform`
@@ -234,35 +233,14 @@ Console 登录入口 `POST /api/v1/auth/login`（及 `POST /api/v1/auth/logout`�
 | uk_project_platform_key | UNIQUE | tenant_id,key | 按 key 引用 |
 | idx_project_platform_status | BTREE | tenant_id,enabled,is_deleted | 控制面列表 |
 
-#### 表 `auth_account`
+#### 表 `session_token`
 
-**职责**：Console 登录账号（ADR-021）；只存口令哈希，不存明文。
-
-| 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
-|---|---|---|---|---|---|
-| tenant_id | UUID | N |  | IDX | 租户 |
-| username | VARCHAR(128) | N |  | IDX | 登录名（同租户内唯一，软删不占位） |
-| password_hash | VARCHAR(512) | N |  |  | 口令哈希（PBKDF2），**永不返回、永不记录** |
-| role | VARCHAR(32) | N | BUILDER |  | ADMIN/BUILDER（`platform_user.role` 的登录侧投影，见 §3.2.3） |
-| enabled | BOOLEAN | N | TRUE | IDX | 是否允许登录 |
-| id | UUID | N | gen_random_uuid() | PK | 主键 |
-| is_deleted | BOOLEAN | N | FALSE |  | 默认过滤 FALSE |
-| create_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 创建时间 |
-| update_time | TIMESTAMPTZ | N | CURRENT_TIMESTAMP |  | 更新时间 |
-
-**约束与索引**
-
-- UNIQUE (tenant_id,username) WHERE is_deleted=false；停用用 `enabled`，不复用软删。
-- `role` 与 `platform_user.role` 一一对应；登录响应只返回 `{token, username, role}`，身份与角色的权威读取入口是 `AUTH-API-01`（ADR-067/D14）。
-
-#### 表 `auth_session`
-
-**职责**：Bearer 会话令牌存储；只持久化 token 哈希。
+**职责**：Console Bearer 会话；只持久化 token 哈希，绑定**唯一身份表** `platform_user`。
 
 | 字段名 | 类型 | 可空 | 默认值 | 索引 | 说明 |
 |---|---|---|---|---|---|
 | tenant_id | UUID | N |  | IDX | 租户 |
-| account_id | UUID | N |  | FK,IDX | `auth_account.id` |
+| platform_user_id | UUID | N |  | FK,IDX | `platform_user.id`（身份与角色的唯一来源） |
 | token_hash | VARCHAR(128) | N |  | UK | SHA-256 哈希；明文只在登录响应出现一次 |
 | expires_at | TIMESTAMPTZ | N |  | IDX | 过期时间（默认 12h） |
 | revoked_at | TIMESTAMPTZ | Y |  |  | 登出/撤销时间 |
@@ -273,8 +251,9 @@ Console 登录入口 `POST /api/v1/auth/login`（及 `POST /api/v1/auth/logout`�
 
 **约束与索引**
 
-- UNIQUE (token_hash)；(account_id,expires_at) 支持按账号批量失效。
-- 过期或 `revoked_at` 非空的会话一律 401 `SESSION_INVALID`，不做滑动续期。
+- UNIQUE (token_hash)；(platform_user_id, expires_at) 支持按用户批量失效。
+- 过期、`revoked_at` 非空或用户 `status != ACTIVE` 一律 401 `SESSION_INVALID`，不做滑动续期。
+- **每次解析都重读 `platform_user`**（角色/状态变更立即生效）；客户端不得缓存角色快照（ADR-067/D14）。
 
 #### 表 `user_project_credential`
 
@@ -922,7 +901,7 @@ resolve Secret → AuthProvider.verify → 更新 status/verified_at/expiry → 
 **处理逻辑**
 
 ```text
-先在 DB 标记软删除/失效 → 经 INFRA-LIB-07 `delete_secret` 清理 Secret 引用（幂等；`SECRET_NOT_FOUND` 视为成功）；Secret 删除失败记录告警并重试清理，不恢复已撤销业务授权；同事务写 `audit_log`（`details.changed_fields` + 脱敏，见模块 15）。`attempt_token` 不在本模块定义，复用 AUTH-LIB-02 scope（见模块 10 CH-DATA-03）。
+先在 DB 标记软删除/失效 → 经 INFRA-LIB-07 `delete_secret` 清理 Secret 引用（幂等；`SECRET_NOT_FOUND` 视为成功）；Secret 删除失败记录告警并重试清理，不恢复已撤销业务授权；同事务写 `audit_log`（`details.changed_fields` + 脱敏，见模块 15）。`attempt_token` 不在本模块定义，复用 AUTH-LIB-02 scope（见模块 10 CH-INT-01）。
 ```
 
 #### AUTH-LIB-01: 运行时用户认证解析

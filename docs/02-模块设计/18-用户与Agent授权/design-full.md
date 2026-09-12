@@ -195,6 +195,7 @@ flowchart LR
 | tenant_id | UUID | N |  | IDX | 租户 |
 | user_key | VARCHAR(128) | N |  | UK | 租户内稳定用户标识 |
 | display_name | VARCHAR(256) | N |  | IDX | 展示名 |
+| password_hash | VARCHAR(512) | Y |  |  | **Console 登录口令哈希**（PBKDF2）；END_USER 行为空；永不回显、永不入日志。身份/角色唯一来源即本表（P0-8：`auth_account`/`auth_session` 已删除，登录直读本表） |
 | role | VARCHAR(32) | N | END_USER |  | END_USER/BUILDER/ADMIN；`ADMIN`/`BUILDER` 同时是 Console 登录角色（见模块 09 §3.2.3）；`END_USER` 仅经 IM 使用，不登录 Console |
 | status | VARCHAR(32) | N | ACTIVE | IDX | ACTIVE/DISABLED |
 | revision | BIGINT | N | 1 |  | 乐观锁版本（R17：编辑必填回传；每次更新 +1） |
@@ -290,9 +291,7 @@ erDiagram
 | USR-API-05 | 获取用户 Agent 授权 | HTTP | GET | /api/v1/users/{user_id}/agent-grants |
 | USR-API-06 | 新增用户 Agent 授权 | HTTP | POST | /api/v1/users/{user_id}/agent-grants |
 | USR-API-06R | 撤销用户 Agent 授权 | HTTP | POST | /api/v1/users/{user_id}/agent-grants/{grant_id}/revoke |
-| USR-API-07 | Agent 反向授权用户 | HTTP | GET | /api/v1/agents/{agent_id}/users |
-| USR-API-08 | 新增 Agent 授权用户 | HTTP | POST | /api/v1/agents/{agent_id}/grants |
-| USR-API-08R | 撤销 Agent 授权用户 | HTTP | POST | /api/v1/agents/{agent_id}/grants/{grant_id}/revoke |
+| USR-API-07 | Agent 反向授权用户（唯一反向只读视图） | HTTP | GET | /api/v1/agents/{agent_id}/users |
 | USR-LIB-01 | 运行时 Agent 授权校验 | Library | def require_agent_access(ctx: TrustedExecutionContext, agent_id: UUID) -> AgentAccessDecision |  |
 
 #### USR-API-01: 用户列表
@@ -594,6 +593,9 @@ tenant scoped 用户存在性检查 → JOIN agent_access_grant + agent_definiti
 
 #### USR-API-06: 新增用户 Agent 授权
 
+> **唯一写入口**（P1-12 裁决）：授权写入只保留 user 侧 `USR-API-06`/`USR-API-06R`；原 Agent 侧 `USR-API-08`/`USR-API-08R` 已删除——同一 `agent_access_grant` 事实源有两个写入口会让并发语义、审计主语与幂等键各写一套。Agent 侧只保留只读反查 `USR-API-07`（Agent 详情页用它渲染授权用户列表，写入跳转到用户侧或复用同一 Application 的 user 侧端点）。
+
+
 **入口类型**：HTTP
 
 **契约**：`POST /api/v1/users/{user_id}/agent-grants`
@@ -706,63 +708,6 @@ Admin 鉴权 → 按 tenant + user_id + grant_id 定位未删除行（不存在 
 JOIN grant/user 分页；只读反向视图。
 ```
 
-#### USR-API-08: 新增 Agent 授权用户
-
-**入口类型**：HTTP
-
-**契约**：`POST /api/v1/agents/{agent_id}/grants`
-
-**认证/授权**：Admin
-
-**请求体**：`{user_id: uuid, idempotency_key: string}`；additionalProperties=false。
-
-**响应 data**：`{grant_id, agent_id, user_id, enabled: true, granted_at, granted_by}`
-
-**处理逻辑**
-
-```text
-与 USR-API-06 操作同一 agent_access_grant 事实源（禁止建立第二张 AgentUserBinding 表）；
-单事务：pair 不存在则 INSERT，已存在且 enabled=false 则重新启用并保留 grant_id → 幂等返回 → audit。
-```
-
-**一致性/幂等**：单条操作、单事务、`idempotency_key` 幂等；并发安全由“逐条可寻址操作 + pair 唯一约束”保证，不存在集合覆盖写的丢失更新路径。
-
-**错误码**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| AGENT_NOT_FOUND | Agent 不存在 | 404 |
-| USER_NOT_FOUND | 用户不存在或跨租户 | 400 |
-| IDEMPOTENCY_CONFLICT | 同 idempotency_key 换参 | 409 |
-
-#### USR-API-08R: 撤销 Agent 授权用户
-
-**入口类型**：HTTP
-
-**契约**：`POST /api/v1/agents/{agent_id}/grants/{grant_id}/revoke`
-
-**认证/授权**：Admin
-
-**请求体**：`{idempotency_key: string}`；additionalProperties=false。
-
-**响应 data**：`{grant_id, agent_id, user_id, enabled: false, revoked_at}`
-
-**处理逻辑**
-
-```text
-Admin 鉴权 → 按 tenant + agent_id + grant_id 定位未删除行（不存在 404 GRANT_NOT_FOUND）→ 单事务置
-enabled=false/revoked_at=now/granted_by=操作者 → audit。
-```
-
-**一致性/幂等**：重复撤销幂等返回原 `revoked_at`；只影响该 grant_id。
-
-**错误码**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| AGENT_NOT_FOUND | Agent 不存在 | 404 |
-| GRANT_NOT_FOUND | 授权不存在/已删除/不属于该 Agent | 404 |
-
 #### USR-LIB-01: 运行时 Agent 授权校验
 
 **入口类型**：Library
@@ -857,10 +802,10 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
 | FEAT-USER-01 | USR-API-01, USR-API-02, USR-API-03, USR-API-04 | S-USER-01, E-USER-03, E-USER-04, E-USER-05 | E2E/integration | 待实现/评审 |
-| FEAT-USER-02 | USR-API-05, USR-API-06/R, USR-API-08/R | S-USER-02, E-USER-01, E-USER-04 | E2E/integration | 待实现/评审 |
+| FEAT-USER-02 | USR-API-05, USR-API-06/R, USR-API-07 | S-USER-02, E-USER-01, E-USER-04 | E2E/integration | 待实现/评审 |
 | FEAT-USER-03 | USR-API-07 | S-USER-02 | E2E/integration | 待实现/评审 |
 | FEAT-USER-04 | USR-LIB-01 | S-USER-03, S-USER-04, E-USER-02 | E2E/integration | 待实现/评审 |
-| FEAT-USER-05 | USR-API-06/R, USR-API-08/R | E-USER-03, E-USER-04 | E2E/integration | 待实现/评审 |
+| FEAT-USER-05 | USR-API-06/R | E-USER-03, E-USER-04 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 

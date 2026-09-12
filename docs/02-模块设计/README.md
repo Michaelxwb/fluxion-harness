@@ -36,7 +36,7 @@
 |---|---|
 | 18-用户与Agent授权 | `platform_user`, `agent_access_grant` |
 | 05-Service与Execution | `service_definition`, `service_release`, `execution_snapshot`, `execution_proposal`, `service_execution`, `execution_step`, `async_task_run`, `execution_command`, `task_progress_event`, `artifact` |
-| 11-Conversation与User-Memory | `conversation`, `conversation_run`, `message`, `channel_command_receipt`, `user_memory` |
+| 11-Conversation与User-Memory | `conversation`, `message`, `channel_command_receipt`, `user_memory`（`conversation_run` 已删除，P0-4） |
 | 13-Workspace与Sandbox | `workspace` |
 | 01-核心领域与发布模型 | 无独立表 |
 | 14-存储与基础设施适配 | 无独立表 |
@@ -80,7 +80,7 @@
 | 04-Agent-Core与Agent-Executor | `AGENT-API-01`, `AGENT-API-02`, `AGENT-API-03`, `AGENT-API-04`, `AGENT-API-05`, `AGENT-API-06`, `AGENT-API-07`, `AGENT-API-08`, `AGENT-LIB-01`, `AGCORE-LIB-01`, `AGCORE-LIB-02`, `AGCORE-LIB-03`, `AGCORE-LIB-04`, `AGCORE-LIB-05` |
 | 02-Platform-API与控制面 | `WEB-LIB-01`, `WEB-LIB-02`, `WEB-LIB-03` |
 | 08-Skill-Runtime | `SKILL-API-01`, `SKILL-API-02`, `SKILL-API-03`, `SKILL-API-04`, `SKILL-API-05`, `SKILL-API-06`, `SKILL-API-07`, `SKILL-API-08`, `SKILL-LIB-01` |
-| 03-Agent-Runtime | `RT-INT-01`, `RT-INT-02`, `RT-INT-03`, `RT-LIB-01`, `RT-LIB-02`, `RT-LIB-03` |
+| 03-Agent-Runtime | `RT-INT-01`, `RT-INT-03`, `RT-LIB-02`（`RT-INT-02`/`RT-LIB-03` 已删除 P0-4；`RT-LIB-01` 已删除 P0-8——可信上下文唯一构造入口是 `CORE-LIB-06`） |
 | 17-Skill-SDK与离线开发 | `SDK-API-01`, `SDK-API-02`, `SDK-API-03`, `SDK-CLI-01`, `SDK-CLI-02`, `SDK-CLI-03`, `SDK-LIB-01`, `SDK-LIB-02` |
 | 10-Channel-Gateway | `CH-API-01`, `CH-API-02`, `CH-API-03`, `CH-API-04`, `CH-API-05`, `CH-API-06`, `CH-API-07`, `CH-INT-01`, `CH-INT-02`, `CH-DATA-01`, `CH-DATA-02`, `CH-DATA-03`, `CH-DATA-04`, `CH-LIB-01`, `CH-LIB-02` |
 | 06-Worker-Engine | `WORK-LIB-01`, `WORK-LIB-02`, `WORK-LIB-03`, `WORK-LIB-04`, `WORK-LIB-05`, `WORK-LIB-06` |

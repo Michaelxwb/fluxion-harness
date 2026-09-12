@@ -73,7 +73,6 @@
 | FEAT-RT-03 | Conversation/Memory | 加载外置会话和长期 Memory。 | P0 | Playbook U06 |
 | FEAT-RT-04 | SSE Streaming | 真实流式输出与取消/背压。 | P0 | 用户旅程 |
 | FEAT-RT-05 | Stateless Gate | 禁止本地业务权威状态。 | P0 | 架构 Gate |
-| FEAT-RT-06 | Chat Run 领取与恢复 | 领取/恢复 conversation_run（lease_epoch fencing、CheckpointIdentity 续跑）。 | P0 | 架构 Gate B |
 
 ### 2.4 范围与边界
 
@@ -105,8 +104,7 @@
 | S-RT-01 | FEAT-RT-05 | P0 | E2E | LB→Runtime×2→PG | 本模块 | 用户同一会话 | 连续两次请求落不同 Pod | 行为一致，会话连续 |
 | S-RT-02 | FEAT-RT-02 | P0 | E2E | Runtime→Grant/Agent/Model | 后置 → 模块 04/18/19 | 用户有授权 | 发消息 | 解析 current Agent 并回复 |
 | S-RT-03 | FEAT-RT-04 | P0 | E2E | Runtime→Model SSE | 本模块 | 模型流式可用 | 发长回复请求 | 客户端逐 delta 收到，不等待最终完成 |
-| S-RT-05 | FEAT-RT-06 | P0 | E2E | Runtime×2→PG conversation_run lease（经 CORE-LIB-08） | 本模块 | Turn 已由 Runtime A 领取且处于 RUNNING | kill -9 owner Runtime A | Runtime B 在一个 lease 周期内领取同一 run，按 CheckpointIdentity 续跑；不重复写 USER/ASSISTANT 消息；被接管者的后续写入被 assert_owner 以 LEASE_LOST 拒绝 |
-| S-RT-06 | FEAT-RT-06 | P0 | E2E | LB→Runtime×2→PG | 本模块 | Turn 1 已由 Runtime A 完成 | 杀掉 Runtime A 后发起 Turn 2 | 由 Runtime B 处理；User/Conversation/Memory/Skill/Capability 视图一致 |
+| S-RT-06 | FEAT-RT-05 | P0 | E2E | LB→Runtime×2→PG（无状态水平扩展） | 本模块 | Turn 1 已由 Runtime A 完成 | 杀掉 Runtime A 后发起 Turn 2 | 由 Runtime B 处理；User/Conversation/Memory/Skill/Capability 视图一致。**Runtime 不持有 turn 级 durable 状态**：被杀的只是那一轮在途请求（`processing_status=PROCESSING` 超时回收为 QUEUED），没有 run 行需要接管（P0-4） |
 | S-RT-07 | FEAT-RT-04 | P1 | E2E | Runtime→渠道 proposal 事件 | 后置 → 模块 10 | Agent 识别出需可靠执行的 Service 意图 | 发送需要执行的请求 | 收到含 rendered_summary/confirmed_facts/expires_at 的 proposal 事件；未签发前不产生 Execution |
 | S-RT-08 | FEAT-RT-03 | P1 | integration | Runtime→Conversation/User Memory | 本模块 | 用户已有长期 Memory 条目 | /new 开新会话后发一条依赖长期记忆的消息 | 新会话仍加载同一长期 Memory；/new 只切换 Conversation，不清空 Memory |
 
@@ -203,11 +201,8 @@ Runtime 不拥有本地/专属业务表；读取 `agent_definition`、`agent_acc
 | 接口ID | 名称 | 形态 | 方法/签名 | 路径/用途 |
 |---|---|---|---|---|
 | RT-INT-01 | 实时 Chat SSE | HTTP | POST | /internal/v1/chat |
-| RT-INT-02 | 停止 Chat Run | HTTP | POST | /internal/v1/runs/{run_id}/cancel |
-| RT-INT-03 | Chat 产物内部取流 | HTTP | GET | /internal/v1/runs/{run_id}/artifacts/{artifact_id}/content |
-| RT-LIB-01 | 构建可信执行上下文 | Library | async def build_trusted_context(identity: RuntimeIdentity, request_meta: RequestMeta) -> TrustedExecutionContext |  |
+| RT-INT-03 | Chat 产物内部取流 | HTTP | GET | /internal/v1/conversations/{conversation_id}/artifacts/{artifact_id}/content |
 | RT-LIB-02 | 加载 Runtime Agent 投影 | Library | async def load_runtime_agent(ctx: TrustedExecutionContext, agent_id: UUID) -> RuntimeAgentView |  |
-| RT-LIB-03 | Chat Run 领取与恢复 | Library | async def claim_conversation_run(ctx: TrustedExecutionContext, *, run_id: UUID \| None = None) -> ClaimedRun \| None |  |
 
 #### RT-INT-01: 实时 Chat SSE
 
@@ -303,55 +298,19 @@ Runtime 不拥有本地/专属业务表；读取 `agent_definition`、`agent_acc
 **处理逻辑**
 
 ```text
-Internal auth → PG verified_message_id 校验/查回身份 → require_agent_access → CONV-LIB-01 → RT-LIB-03 经 CORE-LIB-08（模块 01）领取/恢复 conversation_run（排序键 message.sequence_no；到期 RUNNING 优先于新 turn；assert_owner fencing；无可领取返回 None，不 busy-loop）→ 解析 current Agent 和 Memory → AgentExecutor（Chat projection=null）→ AgentExecutor 产出 ExecutionProposalCandidate → Runtime 调 EXE-LIB-02 签发快照与提案 → 以 proposal 事件下发（与 final 同轮）→ 该事件同时以 ASSISTANT message_type=PROPOSAL 落库（CONV-LIB-03）→ checkpoint/响应消息经 CORE-LIB-08.assert_owner fencing 提交 → 结束 Run；不重复创建 USER 消息。排队请求返回 run.queued/run_id，恢复用同一 run_id；Graph 状态不放 Gateway 或 Runtime 内存作为事实源。
+Internal auth → PG verified_message_id 校验/查回身份 → require_agent_access → CONV-LIB-01 绑定 conversation/sequence_no → 以 `message.processing_status` 置 PROCESSING（QUEUED → PROCESSING → PROCESSED，**这是 Chat turn 唯一的调度态**）→ 解析 current Agent 和 Memory → AgentExecutor（Chat projection=null）→ 产出 ExecutionProposalCandidate → Runtime 调 EXE-LIB-02 签发快照与提案 → 以 proposal 事件下发（与 final 同轮）→ 该事件同时以 ASSISTANT message_type=PROPOSAL 落库（CONV-LIB-03）→ 响应消息落库后置 PROCESSED。
+
+**Chat turn 不 durable**（P0-4 裁决）：没有 run 行、没有租约、没有跨实例接管。进程崩溃时该轮按 `processing_status=PROCESSING` 超时回收为可重试的 QUEUED（用户重发或运维重试），**不承诺续跑**；需要可靠副作用的场景一律走 `service_execution`（唯一 durable 引擎 = Worker）。Graph 状态不放 Gateway 或 Runtime 内存作为事实源。
 ```
 
-#### RT-INT-02: 停止 Chat Run
-
-**契约**：`POST /internal/v1/runs/{run_id}/cancel`
-
-**认证/授权**：Gateway/受信 Runtime service identity；当前本人 user/tenant/conversation
-
-请求 `{verified_message_id, reason?}`；查回来源身份并校验 run 归属，事务置 CANCEL_REQUESTED/cancel_requested_at，终态幂等返回当前结果。返回 `{run_id,status}` 表示请求已接受。Runtime owner 在节点边界、每次外部调用前和流式等待期间（最长 1 秒 PG 检查间隔；Redis 只是 hint）检查取消，取消模型流/沙箱并提交 CANCELLED；租约过期由其他 Runtime 经 RT-LIB-03 接管后只做恢复/取消清理（与 RT-LIB-03 共用同一取消检查），不能继续被取消的业务。未知/越权 404/403；不取消其他 Conversation 或后台 Execution。
 
 #### RT-INT-03: Chat 产物内部取流
 
-**契约**：`GET /internal/v1/runs/{run_id}/artifacts/{artifact_id}/content`
+**契约**：`GET /internal/v1/conversations/{conversation_id}/artifacts/{artifact_id}/content`
 
-**认证/授权**：Gateway service identity；account/peer 必须匹配源 Run 的 verified message
+**认证/授权**：Gateway service identity；account/peer 必须匹配该会话最近的 verified message
 
-Runtime 发送 file event={run_id,artifact_id,name,content_type,size_bytes}，Gateway 调此端点取流并发原生文件。模块 05 Artifact Application 校验 owner_type=CONVERSATION、owner_id=run.conversation_id、workspace/tenant/actor 匹配；**产物归属一律 join `artifact` 表以 FK 为准**（`service_execution.artifact_ids`/`execution_step.artifact_ids` 数组只作重试复制来源记录，不作为访问判定依据，B6），不接受任意对象引用。返回 200 字节流，越权 403/已清理 410。实时对话断线只终止即时传输，产物仍按 Workspace 保留策略存在（保留与清理按 `01-架构与规范/11-数据保留与清理策略`），可由本人同会话后续消息再次请求；不宣称具备后台 Execution 的 outbox 保证。
-
-#### RT-LIB-01: 构建可信执行上下文
-
-**入口类型**：Library
-
-**函数签名**
-
-```python
-async def build_trusted_context(identity: RuntimeIdentity, request_meta: RequestMeta) -> TrustedExecutionContext
-```
-
-**入参**
-
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| identity | RuntimeIdentity | Y | 已认证 platform user/tenant/service identity |
-| request_meta | RequestMeta | Y | request/channel/trace |
-
-**返回**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| ctx | TrustedExecutionContext | 服务端只读上下文 |
-
-**处理逻辑**
-
-```text
-从认证中间件/Channel resolution 解析 tenant/user → 注入 request/trace → 不接受 LLM payload 覆盖。
-```
-
-**认证/授权**：仅 Agent Runtime 运行时角色可调用；可信 ctx 由中间件解析的 `RuntimeIdentity`（service identity + platform user/tenant）构造，调用方不得传入或覆盖 tenant/actor。
+Runtime 发送 file event={conversation_id,artifact_id,name,content_type,size_bytes}，Gateway 调此端点取流并发原生文件。模块 05 Artifact Application 校验 `owner_type=CONVERSATION`、`owner_id=conversation_id`、workspace/tenant/actor 匹配；**产物归属一律 join `artifact` 表以 FK 为准**，不接受任意对象引用。返回 200 字节流，越权 403/已清理 410。实时对话断线只终止即时传输，产物仍按 Workspace 保留策略存在（保留与清理按 `01-架构与规范/11-数据保留与清理策略`），可由本人同会话后续消息再次请求；不宣称具备后台 Execution 的 outbox 保证。
 
 #### RT-LIB-02: 加载 Runtime Agent 投影
 
@@ -388,59 +347,8 @@ async def load_runtime_agent(ctx: TrustedExecutionContext, agent_id: UUID) -> Ru
 require_agent_access → resolve AgentDefinition → resolve effective capabilities/skills/services → 构造 request-scoped immutable view；可使用短 TTL revision cache，但 DB 为 SoT。
 ```
 
-**认证/授权**：仅 Agent Runtime 运行时角色可调用；`ctx` 必须为 RT-LIB-01 产出的可信上下文，`agent_id` 仅在该 ctx 的 tenant/actor 可见范围内解析，越权按 AGENT_ACCESS_DENIED 拒绝。
+**认证/授权**：仅 Agent Runtime 运行时角色可调用；`ctx` 必须为 CORE-LIB-06（模块 01）产出的可信上下文——**唯一构造入口**（P0-8），`agent_id` 仅在该 ctx 的 tenant/actor 可见范围内解析，越权按 AGENT_ACCESS_DENIED 拒绝。
 
-#### RT-LIB-03: Chat Run 领取与恢复
-
-**入口类型**：Library
-
-**函数签名**
-
-```python
-async def claim_conversation_run(ctx: TrustedExecutionContext, *, run_id: UUID | None = None) -> ClaimedRun | None
-```
-
-**入参**
-
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| ctx | TrustedExecutionContext | Y | 可信 tenant/actor/agent 上下文；不接受请求体覆盖 |
-| run_id | uuid | N | 显式恢复目标；为空则按领取规则挑选 |
-
-**返回**
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| run_id | uuid | conversation_run |
-| conversation_id | uuid | 会话 |
-| lease_epoch | bigint | 领取后的 fencing epoch |
-| queued_message_id | uuid | 本次领取的 QUEUED 消息；恢复接管时为空 |
-| resumed | boolean | true=恢复到期 RUNNING；false=新 turn |
-
-无可领取时返回 `None`（调用方不得 busy-loop 轮询）。
-
-**异常/错误**
-
-| 错误码 | 场景 | HTTP 状态 |
-|---|---|---|
-| CONVERSATION_RUN_NOT_FOUND | run_id 不存在或不属于本 tenant/actor | 404 |
-| LEASE_LOST | CORE-LIB-08.renew/release/assert_owner（领取 SQL 见本模块 RT-LIB-03）检测到 owner 或 lease_epoch 不匹配、租约已过期（已被他人接管） | 409 |
-| AGENT_ACCESS_REVOKED | 领取时 current AgentAccessGrant 已撤销 | 403 |
-
-**处理逻辑**
-
-```text
-领取 SQL 在本模块内（table=conversation_run、owner=本 Runtime 实例标识、ttl_ms=本角色租约周期固定给出，不接受外部透传；排序键 = source message 的 sequence_no；状态/到期谓词按“已到期 RUNNING 优先于新 turn”），领取时 `lease_epoch + 1`（与 CORE-LIB-08 epoch 语义一致）；续租/释放/fencing 一律走模块 01 的 CORE-LIB-08，本模块不实现第二套续租语义。
-同一 conversation_run 同时最多一个 owner；无可领取返回 None，调用方不得 busy-loop。
-领取成功后由本模块负责：构造 ctx、解析 current Agent/Memory、按 CheckpointIdentity（模块 11 §3.4）加载 checkpoint 续跑、不重复写 USER 消息、与 RT-INT-02 共用取消检查；恢复接管时 queued_message_id 为空。
-持有期内所有写入（图节点状态、响应消息、checkpoint 提交）必须先经 CORE-LIB-08.assert_owner 校验 owner+lease_epoch，或先 renew 失败即视为 LEASE_LOST；LEASE_LOST 后立即停止推进，且不得以同一 epoch 重试。
-```
-
-**补充约束**：模块 03 不持有任何 conversation_run 的续租/fencing 实现；`lease_epoch` 的递增只发生在领取事务（claim 时 +1），续租不改 epoch（与模块 06 的 service_execution 共用同一 epoch 语义与同一并发测试）。
-
-**触发方式**：入站消息处理过程中调用；Runtime 启动及周期性恢复扫描（到期 RUNNING）时调用。
-
-**认证/授权**：仅 Agent Runtime 运行时角色可调用；可信 ctx 由中间件解析，tenant/actor/agent 不接受请求体覆盖；Gateway/Console 不得直接调用。
 
 ### 3.5 质量实现方案
 
@@ -495,12 +403,11 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-RT-01 | RT-INT-01, RT-LIB-01 | S-RT-02, E-RT-01 | E2E/integration | 待实现/评审 |
-| FEAT-RT-02 | RT-LIB-01, RT-LIB-02 | S-RT-02, E-RT-01 | E2E/integration | 待实现/评审 |
-| FEAT-RT-03 | RT-LIB-02, RT-LIB-03 | S-RT-08 | E2E/integration | 待实现/评审 |
-| FEAT-RT-04 | RT-INT-01, RT-INT-02, RT-INT-03 | S-RT-03, S-RT-04, S-RT-07, E-RT-02 | E2E/integration | 待实现/评审 |
-| FEAT-RT-05 | RT-LIB-03 | S-RT-01, S-RT-06 | E2E/integration | 待实现/评审 |
-| FEAT-RT-06 | RT-LIB-03（基于 CORE-LIB-08） | S-RT-05, S-RT-06 | E2E/integration | 待实现/评审 |
+| FEAT-RT-01 | RT-INT-01, CORE-LIB-06 | S-RT-02, E-RT-01 | E2E/integration | 待实现/评审 |
+| FEAT-RT-02 | CORE-LIB-06, RT-LIB-02 | S-RT-02, E-RT-01 | E2E/integration | 待实现/评审 |
+| FEAT-RT-03 | RT-LIB-02 | S-RT-08 | E2E/integration | 待实现/评审 |
+| FEAT-RT-04 | RT-INT-01, RT-INT-03 | S-RT-03, S-RT-04, S-RT-07, E-RT-02 | E2E/integration | 待实现/评审 |
+| FEAT-RT-05 | CORE-LIB-06, RT-LIB-02 | S-RT-06 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 

@@ -1996,7 +1996,7 @@ Agent Runtime / Worker
 `ExecutionService` 是共享 Python Application Service：
 
 ```text
-packages/execution/execution_service.py
+framework/execution/service.py
 ```
 
 用户确认时：

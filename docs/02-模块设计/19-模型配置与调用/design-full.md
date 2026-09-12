@@ -36,8 +36,8 @@
 | 版本 | 日期 | 作者 | 变更描述 |
 |---|---|---|---|
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
-| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | `request_timeout_ms` → `request_timeout_seconds`（秒，默认 60，1..600）；MODEL-API-02/04 补 `extra_headers` 并同步详情响应与 DDL；MODEL-API-01/03 补 Admin/Builder 角色投影与 ModelSummary 字段清单；统一 `api_key_configured`；修正 §2.5.1 RULE→场景指向并重写 §6 追溯矩阵与合规矩阵 verifier |
-| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D2 字段级授权：MODEL-API-02/04 由「仅 Admin」改为「Builder + Admin（敏感字段仅 Admin）」，`api_key` 仅 Admin 可写、非 Admin 携带即 403 `FIELD_ADMIN_ONLY` 并原子拒绝；B9：`extra_headers` 改 Header 名 allowlist（拒绝凭据类 Header + 值 ≤ 1024）；`api_key_secret_ref` 允许为空（`api_key_configured=false`）并明确 fail closed；MODEL-API-05 二选一结论为**维持仅 Admin**并写明理由 |
+| V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | `request_timeout_ms` → `request_timeout_seconds`（秒，默认 60，1..600）；MODEL-API-02/04 补 `已删除字段` 并同步详情响应与 DDL；MODEL-API-01/03 补 Admin/Builder 角色投影与 ModelSummary 字段清单；统一 `api_key_configured`；修正 §2.5.1 RULE→场景指向并重写 §6 追溯矩阵与合规矩阵 verifier |
+| V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D2 字段级授权：MODEL-API-02/04 由「仅 Admin」改为「Builder + Admin（敏感字段仅 Admin）」，`api_key` 仅 Admin 可写、非 Admin 携带即 403 `FIELD_ADMIN_ONLY` 并原子拒绝；B9：`已删除字段` 改 Header 名 allowlist（拒绝凭据类 Header + 值 ≤ 1024）；`api_key_secret_ref` 允许为空（`api_key_configured=false`）并明确 fail closed；MODEL-API-05 二选一结论为**维持仅 Admin**并写明理由 |
 
 ## 2. 需求分析
 
@@ -88,7 +88,7 @@
 
 | ID | 类型 | 描述 | 验证场景 |
 |---|---|---|---|
-| RULE-MODEL-01 | 协议 | V1 protocol 固定 OPENAI_COMPATIBLE。 | S-MODEL-01 |
+| RULE-MODEL-01 | 协议 | V1 协议在代码中固定为 OpenAI 兼容（`OPENAI_COMPATIBLE`），**不落列、不可配置**（P1-23）。 | S-MODEL-01 |
 | RULE-MODEL-02 | Agent | 一个 Agent V1 只引用一个 ModelConfig。 | S-MODEL-03 |
 | RULE-MODEL-03 | Secret | API key 不落 DB/响应/日志明文。 | S-MODEL-01, E-MODEL-01 |
 | RULE-MODEL-04 | 生效 | 编辑 direct-effect + revision，新请求使用 current。 | S-MODEL-04, E-MODEL-02 |
@@ -190,12 +190,10 @@ flowchart LR
 | tenant_id | UUID | N |  | IDX | 租户 |
 | name | VARCHAR(256) | N |  | IDX | 配置名称 |
 | key | VARCHAR(128) | N |  | UK | 稳定标识 |
-| protocol | VARCHAR(32) | N | OPENAI_COMPATIBLE |  | V1 固定协议 |
 | base_url | VARCHAR(1024) | N |  |  | OpenAI-compatible API Base URL |
 | model_name | VARCHAR(256) | N |  | IDX | 实际模型名 |
 | api_key_secret_ref | VARCHAR(512) | Y |  |  | Secret Provider 引用；为空 = 尚未配置密钥（`api_key_configured=false`，仅 Admin 可写入） |
-| default_parameters | JSONB | N | {} |  | temperature/max_tokens 等受控参数 |
-| extra_headers | JSONB | N | {} |  | 附加请求 Header；键值均为字符串，须通过 Header 名 allowlist（见下方 B9 约束），禁止承载凭据 |
+| default_parameters | JSONB | N | {} |  | **强类型受控参数**：只允许 `{temperature?: number(0..2), max_tokens?: integer(1..1000000)}`，`additionalProperties=false`（P1-23 收敛；不再接受任意键值对） |
 | request_timeout_seconds | INTEGER | N | 60 |  | 请求 deadline（**单位：秒**），允许 1..600 |
 | enabled | BOOLEAN | N | TRUE | IDX | 是否可用于新请求 |
 | revision | BIGINT | N | 1 |  | 乐观并发/审计版本 |
@@ -207,10 +205,10 @@ flowchart LR
 **约束**
 
 - UNIQUE (tenant_id,key) WHERE is_deleted=false
-- protocol=OPENAI_COMPATIBLE
+- 协议在代码中固定为 OpenAI 兼容（`OPENAI_COMPATIBLE`），**不落列**：V1 只有一种协议，落列会让"恒定值"看起来可配置（P1-23）
 - api_key_secret_ref 不得保存明文 Key
 - api_key_secret_ref 可空：为空表示该模型尚未配置密钥（`api_key_configured=false`）；此时 fail closed——MODEL-API-05 与 MODEL-LIB-01 一律不得以无凭据方式发起调用（`MODEL_AUTH_FAILED` 502）
-- **`extra_headers` Header 名 allowlist 校验（B9）**：以下 Header 名一律拒绝——精确名（大小写不敏感）`Authorization`/`Cookie`/`Set-Cookie`/`Proxy-Authorization`，以及名字中（大小写不敏感）包含 `token`/`key`/`secret`/`auth`/`credential` 的任意 Header；值必须为字符串且长度 ≤ 1024；非法时 `MODEL_EXTRA_HEADERS_INVALID`(400) 并通过 `field_errors` 定位到 `extra_headers`（可精确到具体 Header 名）。需要凭据的 Header 必须走 SecretProvider 引用（`api_key_secret_ref`）而非明文
+
 - request_timeout_seconds INTEGER NOT NULL DEFAULT 60，CHECK 1..600
 
 **索引设计**
@@ -268,21 +266,20 @@ flowchart LR
 
 | 字段 | Admin | Builder（ModelSummary 安全只读 DTO） |
 |---|---|---|
-| id / key / name / protocol / model_name / enabled / revision | ✓ | ✓ |
+| id / key / name / model_name / enabled / revision | ✓ | ✓ |
 | api_key_configured（布尔，派生 `api_key_secret_ref IS NOT NULL`） | ✓ | ✓ |
 | base_url（非凭据；写入受 SSRF allowlist 约束） | ✓ | ✓ |
 | default_parameters（temperature/max_tokens 等，非凭据） | ✓ | ✓ |
 | request_timeout_seconds（非凭据） | ✓ | ✓ |
-| extra_headers（**可能承载网关凭据，仅 Admin**） | ✓ | ✗ |
 | api_key_secret_ref | 仅内部使用，任何响应都不返回 | ✗ |
 
-**ModelSummary**：`id`、`key`、`name`、`protocol`、`model_name`、`enabled`、`revision`、`api_key_configured`。**列表对 Builder 与 Admin 返回同一组字段，不含 `base_url`/`default_parameters`/`extra_headers`**（与 `90-Console交互规格.md` §6.1「列表不渲染接口地址、对 Admin 也只在详情展示」一致）。**列表不因角色产生字段差异**（两角色同一组摘要字段）；角色差异只在**详情/表单**按字段级敏感度体现（见下）。写操作是**字段级授权**（ADR-058）：敏感字段只有 `api_key`（Secret 引用）与 `extra_headers`（可能承载网关凭据），其余字段 Builder 与 Admin 均可写。**详情与表单的 Builder 可见字段（V1.13.1 统一口径，见 ADR-046 澄清与追加裁决#4）**：`id/key/name/protocol/model_name/base_url/default_parameters/request_timeout_seconds/enabled/revision/api_key_configured` —— 即「Builder 能写的字段就能看见」，避免出现「表单可填但详情不可见」的自相矛盾；**仅 Admin** 的是 `api_key` 与 `extra_headers`（`90-Console交互规格.md` §6.2 不渲染这两个控件，提交体不含；`extra_headers` 按 B9 Header 名 allowlist 校验，拒 `Authorization`/`Cookie`/`*Token*`/`*Key*`/`*Secret*`/`*Auth*`/`*Credential*`且值≤1024）。冻结交互稿的模型表单还包含「温度/最大输出令牌数」（= `default_parameters`）与「额外请求头」，前者按本口径对 Builder 开放（非凭据），后者因可能承载网关凭据保持仅 Admin（已在 `03-前端设计/README.md` 取代声明中登记）。连通性测试 MODEL-API-05 仍仅 Admin（理由见该接口段）。列表投影对两角色一致（不含 Secret/`base_url`/`default_parameters`/`extra_headers`/`request_timeout_seconds`）。
+**ModelSummary**：`id`、`key`、`name`、`model_name`、`enabled`、`revision`、`api_key_configured`。**列表对 Builder 与 Admin 返回同一组字段，不含 `base_url`/`default_parameters`**（与 `90-Console交互规格.md` §6.1「列表不渲染接口地址、对 Admin 也只在详情展示」一致）。**列表不因角色产生字段差异**（两角色同一组摘要字段）；角色差异只在**详情/表单**按字段级敏感度体现（见下）。写操作是**字段级授权**（ADR-058 修订）：敏感字段只有 `api_key`（Secret 引用）；其余字段 Builder 与 Admin 均可写。**详情与表单的 Builder 可见字段（V1.13.1 统一口径，见 ADR-046 澄清与追加裁决#4）**：`id/key/name/model_name/base_url/default_parameters/request_timeout_seconds/enabled/revision/api_key_configured` —— 即「Builder 能写的字段就能看见」，避免出现「表单可填但详情不可见」的自相矛盾；**仅 Admin** 的是 `api_key`（`90-Console交互规格.md` §6.2 不渲染该控件，提交体不含）。冻结交互稿的模型表单包含「温度/最大输出令牌数」（= `default_parameters` 强类型两字段），对 Builder 开放（非凭据）；**「额外请求头」控件已删除**（P1-23：网关 Header 属部署事项，不得由 Console 写进业务表）。连通性测试 MODEL-API-05 仍仅 Admin（理由见该接口段）。列表投影对两角色一致（不含 Secret/`base_url`/`default_parameters`/`request_timeout_seconds`）。
 
 **响应 data**
 
 | 字段 | 类型 | 角色投影 | 说明 |
 |---|---|---|---|
-| items | array<ModelSummary> | Builder + Admin | 仅上述 8 个字段；不返回 base_url/default_parameters/extra_headers/api_key_secret_ref |
+| items | array<ModelSummary> | Builder + Admin | 仅上述 7 个字段；不返回 base_url/default_parameters/api_key_secret_ref |
 | total | integer | Builder + Admin | 总数 |
 
 **响应示例**
@@ -327,7 +324,6 @@ Builder/Admin 鉴权 → tenant scoped 查询 → 按角色投影（Builder 只�
 | model_name | string | Y | 模型名 |
 | api_key | string | **仅 Admin：Y；非 Admin：必须缺省** | **仅 Admin 可写**；仅请求中出现，写 Secret Provider。非 Admin 请求中出现本字段（含 `null`/空串）一律 403 `FIELD_ADMIN_ONLY` 且不修改任何字段。缺省时 `api_key_secret_ref` 为空（`api_key_configured=false`），由 Admin 后续补齐 |
 | default_parameters | object | N | 受控默认参数 |
-| extra_headers | object | N（**仅 Admin 可写；非 Admin 必须缺省**） | 附加请求 Header；**仅 Admin 可写**，非 Admin 出现（含 `{}`）一律 403 `FIELD_ADMIN_ONLY` 且原子拒绝。键值均为字符串，须通过 **Header 名 allowlist（B9，见 §3.3 约束）**；命中拒绝名单即 `MODEL_EXTRA_HEADERS_INVALID`(400)，需要凭据的 Header 必须走 SecretProvider 的 `api_key_secret_ref` |
 | request_timeout_seconds | integer | N | 默认 60；允许 1..600，单位为秒 |
 | enabled | boolean | N | 默认 true |
 
@@ -341,7 +337,6 @@ Builder/Admin 鉴权 → tenant scoped 查询 → 按角色投影（Builder 只�
   "model_name": "<model_name>",
   "api_key": "<api_key>",
   "default_parameters": {},
-  "extra_headers": {},
   "request_timeout_seconds": 60,
   "enabled": true
 }
@@ -377,15 +372,14 @@ Builder/Admin 鉴权 → tenant scoped 查询 → 按角色投影（Builder 只�
 | MODEL_KEY_EXISTS | key 重复 | 409 |
 | MODEL_PROTOCOL_UNSUPPORTED | V1 仅 OpenAI-Compatible | 400 |
 | MODEL_TIMEOUT_INVALID | request_timeout_seconds 不在 1..600 | 400 |
-| MODEL_EXTRA_HEADERS_INVALID | extra_headers 值非字符串/长度 > 1024，或 Header 名命中 B9 allowlist（疑似凭据 Header） | 400 |
 | FIELD_ADMIN_ONLY | 非 Admin 请求中出现 `api_key`（含 `null`/空串） | 403 |
 | SECRET_WRITE_FAILED | Secret Provider 写入失败 | 502 |
 
 **处理逻辑**
 
 ```text
-字段级授权：非 Admin 请求中出现 api_key/extra_headers（含 null/空串/{}）→ 立即 403 FIELD_ADMIN_ONLY（原子拒绝：不得写入任何字段，也不得部分成功）。
-校验 URL/参数（含 request_timeout_seconds 范围、base_url 的 SSRF allowlist、extra_headers 的 B9 Header 名 allowlist 与值长度）
+字段级授权：非 Admin 请求中出现 `api_key`（含 null/空串）→ 立即 403 `FIELD_ADMIN_ONLY`（原子拒绝：不得写入任何字段，也不得部分成功）。
+校验 URL/参数（含 request_timeout_seconds 范围、base_url 的 SSRF allowlist、default_parameters 的强类型两字段）
 → 若请求含 api_key（仅 Admin 可能）：SecretProvider.put(api_key) → INSERT model_config(secret_ref) → audit；
    若缺省：INSERT model_config(api_key_secret_ref=NULL, api_key_configured=false)，不得发起无凭据调用。
 若 DB 失败补偿删除刚写 Secret。
@@ -408,14 +402,12 @@ Builder/Admin 鉴权 → tenant scoped 查询 → 按角色投影（Builder 只�
 | id | uuid | Builder + Admin | ID |
 | name | string | Builder + Admin | 名称 |
 | key | string | Builder + Admin | Key |
-| protocol | string | Builder + Admin | OPENAI_COMPATIBLE |
 | model_name | string | Builder + Admin | 模型 |
 | enabled | boolean | Builder + Admin | 状态 |
 | revision | integer | Builder + Admin | revision |
 | api_key_configured | boolean | Builder + Admin | 派生 `api_key_secret_ref IS NOT NULL`；不返回 ref 本体 |
 | base_url | string | Builder + Admin | Base URL；非凭据，Builder 可见可写（写入受 SSRF allowlist 约束） |
 | default_parameters | object | Builder + Admin | 默认参数；非凭据，Builder 可见可写 |
-| extra_headers | object | 仅 Admin | 附加 Header；可能承载网关凭据，仅 Admin 可见可写 |
 | request_timeout_seconds | integer | Builder + Admin | 超时（秒）；非凭据，Builder 可见可写 |
 
 **响应示例**（Admin）
@@ -428,15 +420,13 @@ Builder/Admin 鉴权 → tenant scoped 查询 → 按角色投影（Builder 只�
     "id": "<id>",
     "name": "<name>",
     "key": "<key>",
-    "protocol": "<protocol>",
     "model_name": "<model_name>",
     "enabled": true,
     "revision": 1,
     "api_key_configured": true,
     "base_url": "<base_url>",
     "default_parameters": {},
-    "extra_headers": {},
-    "request_timeout_seconds": 60
+      "request_timeout_seconds": 60
   },
   "request_id": "req_xxx"
 }
@@ -451,7 +441,7 @@ Builder/Admin 鉴权 → tenant scoped 查询 → 按角色投影（Builder 只�
 **处理逻辑**
 
 ```text
-tenant scoped 查询 → 按调用者角色投影：Builder 返回 id/name/key/protocol/model_name/base_url/default_parameters/request_timeout_seconds/enabled/revision/api_key_configured；Admin 追加 extra_headers。永不返回 api_key_secret_ref 本体或 Secret 值。
+tenant scoped 查询 → 按调用者角色投影：Builder 返回 id/name/key/model_name/base_url/default_parameters/request_timeout_seconds/enabled/revision/api_key_configured；Admin 追加 已删除字段。永不返回 api_key_secret_ref 本体或 Secret 值。
 ```
 
 #### MODEL-API-04: 编辑模型
@@ -471,7 +461,6 @@ tenant scoped 查询 → 按调用者角色投影：Builder 返回 id/name/key/p
 | model_name | string | Y | 模型名 |
 | api_key | string | N | **仅 Admin 可写**；非空才替换 Secret。非 Admin 请求中出现本字段（含 `null`/空串）一律 403 `FIELD_ADMIN_ONLY` 且不修改任何字段 |
 | default_parameters | object | N | 参数 |
-| extra_headers | object | N（**仅 Admin 可写；非 Admin 必须缺省**） | 附加请求 Header；**仅 Admin 可写**，非 Admin 出现（含 `{}`）一律 403 `FIELD_ADMIN_ONLY` 且原子拒绝。键值均为字符串，须通过 **Header 名 allowlist（B9，见 §3.3 约束）**；命中拒绝名单即 `MODEL_EXTRA_HEADERS_INVALID`(400)；传空对象即清空 |
 | request_timeout_seconds | integer | Y | 允许 1..600，单位为秒 |
 | enabled | boolean | Y | 状态 |
 | revision | integer | Y | 乐观锁 |
@@ -485,7 +474,6 @@ tenant scoped 查询 → 按调用者角色投影：Builder 返回 id/name/key/p
   "model_name": "<model_name>",
   "api_key": "<api_key>",
   "default_parameters": {},
-  "extra_headers": {},
   "request_timeout_seconds": 60,
   "enabled": true,
   "revision": 1
@@ -520,14 +508,13 @@ tenant scoped 查询 → 按调用者角色投影：Builder 返回 id/name/key/p
 | MODEL_NOT_FOUND | 不存在 | 404 |
 | REVISION_CONFLICT | 并发冲突 | 409 |
 | MODEL_TIMEOUT_INVALID | request_timeout_seconds 不在 1..600 | 400 |
-| MODEL_EXTRA_HEADERS_INVALID | extra_headers 值非字符串/长度 > 1024，或 Header 名命中 B9 allowlist（疑似凭据 Header） | 400 |
-| FIELD_ADMIN_ONLY | 非 Admin 请求中出现 `api_key`/`extra_headers`（含 `null`/空串/`{}`） | 403 |
+| FIELD_ADMIN_ONLY | 非 Admin 请求中出现 `api_key`（含 `null`/空串） | 403 |
 
 **处理逻辑**
 
 ```text
-字段级授权：非 Admin 请求中出现 api_key/extra_headers（含 null/空串/{}）→ 立即 403 FIELD_ADMIN_ONLY（原子拒绝：整次请求不修改任何字段；同一请求里的非敏感字段变更也不生效）。
-校验 revision → 校验 request_timeout_seconds 范围、base_url 的 SSRF allowlist、extra_headers 的 B9 Header 名 allowlist 与值长度
+字段级授权：非 Admin 请求中出现 `api_key`（含 null/空串）→ 立即 403 `FIELD_ADMIN_ONLY`（原子拒绝：整次请求不修改任何字段；同一请求里的非敏感字段变更也不生效）。
+校验 revision → 校验 request_timeout_seconds 范围、base_url 的 SSRF allowlist、default_parameters 的强类型两字段
 → 仅 Admin 且 api_key 非空时才 rotate Secret → UPDATE config/revision → audit（details.changed_fields 记字段级 before/after，api_key 类只记 "***"）；
 新请求使用新 revision，运行中调用按其开始时 resolve 语义。
 Admin 之外的角色编辑其他字段不受影响（同一次请求不含敏感字段时正常成功）。
@@ -637,7 +624,7 @@ async def stream_model(ctx: TrustedExecutionContext, model_id: UUID, messages: l
 **处理逻辑**
 
 ```text
-ctx.execution_id 非空：要求 ctx.projection.models[model_id]，只取冻结 protocol/base_url/model_name/default_parameters/extra_headers/request_timeout_seconds；禁止缺失时回退 current。Chat 取 current。实时检查 Model enabled 与 api_key_secret_ref 非空（为空即 fail closed 返回 MODEL_AUTH_FAILED 502，禁止无凭据调用），以当前 model_id 定位 SecretProvider，不冻结 Secret。options 只能覆盖快照策略允许项，不得换 endpoint/model；统一 event/error/usage。
+ctx.execution_id 非空：要求 ctx.projection.models[model_id]，只取冻结的 base_url/model_name/default_parameters/request_timeout_seconds；禁止缺失时回退 current。Chat 取 current。实时检查 Model enabled 与 api_key_secret_ref 非空（为空即 fail closed 返回 MODEL_AUTH_FAILED 502，禁止无凭据调用），以当前 model_id 定位 SecretProvider，不冻结 Secret。options 只能覆盖快照策略允许项，不得换 endpoint/model；统一 event/error/usage。
 ```
 
 ### 3.5 质量实现方案
@@ -655,7 +642,7 @@ ctx.execution_id 非空：要求 ctx.projection.models[model_id]，只取冻结 
 
 #### 3.5.3 安全性
 
-Base URL 需要 SSRF allowlist/部署策略——因 `base_url` 是非敏感字段（Builder 可写，见 §3.4 MODEL-API-02/04），该 allowlist 是**强制**控制而非可选项；`extra_headers` 按 Header 名 allowlist（B9）强制校验，禁止承载凭据/密钥类 Header（敏感值必须走 SecretProvider 的 api_key_secret_ref）；`api_key` 为字段级 Admin-only，非 Admin 出现即 403 `FIELD_ADMIN_ONLY` 且原子拒绝；Prompt/response 日志按隐私策略采样/脱敏。
+Base URL 需要 SSRF allowlist/部署策略——因 `base_url` 是非敏感字段（Builder 可写，见 §3.4 MODEL-API-02/04），该 allowlist 是**强制**控制而非可选项；`已删除字段` 按 Header 名 allowlist（B9）强制校验，禁止承载凭据/密钥类 Header（敏感值必须走 SecretProvider 的 api_key_secret_ref）；`api_key` 为字段级 Admin-only，非 Admin 出现即 403 `FIELD_ADMIN_ONLY` 且原子拒绝；Prompt/response 日志按隐私策略采样/脱敏。
 
 #### 3.5.4 可观测性
 

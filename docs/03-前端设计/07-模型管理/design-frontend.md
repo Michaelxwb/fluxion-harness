@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
+> **交互事实源**: `../90-Console交互规格.md` + `../00-Console公共框架/design-frontend.md`（跨页范式）；字段/API/错误码以本页 §3.4/§3.5 与后端 Owner 模块 §3.4 为准
 
 ## 1. 文档控制
 
@@ -24,6 +24,7 @@
 | V1.11 | 2026-09-11 | 从大一统 Console 文档拆成独立产品模块设计 |
 | V1.13 | 2026-09-12 | 第三轮 Review 修复：超时字段改为 `request_timeout_seconds`（秒，默认 60，范围 1..600）；补 `extra_headers`（仅 Admin 展示、仅非敏感 Header）与 `api_key_configured` 统一命名；§3.4 加角色可见性列（Builder 不可见 `base_url`/`default_parameters`/`extra_headers`）；补场景 `S-07-04`；悬空 FEAT 引用（连通性测试场景）改挂 `FEAT-07-02`；场景 ID 前缀拆分（integration → `I-07-01`） |
 | V1.13.1 | 2026-09-12 | 第四轮 Review 修复（D2=A 字段级授权，与 `90` §6 一致）：`MODEL-API-02/04` 由「仅 Admin」改为 **Builder + Admin（敏感字段仅 Admin）**——新增/编辑按钮对 Builder 渲染，`api_key`/`default_parameters`/`extra_headers` 控件 Builder 不渲染且提交体不含；非 Admin 携带 `api_key` → 403 `FIELD_ADMIN_ONLY`且原子拒绝；`MODEL-API-05` 维持仅 Admin（已确认）；重写 §3.4 角色可见性/角色合同，改 `E-07-01` 断言并新增 `S-07-05`；新增 `### 3.4.1 连通性测试（Z-04，`MODEL-API-05`）` 块（两入口共用 `ModelTestDialog`、仅 Admin、只做 ping 不回输出、`latency_ms` 渲染 `N ms`、`timeout_seconds` 不得超 hard limit、不落执行/不产运营统计）；新增场景 `E-07-02`；§4 补 `RISK-07-03`（模块 19 需同步 Builder 投影，否则 Builder 编辑拿不到 `base_url`） |
+| V1.14.2 第六轮 Review 收敛 | 2026-09-13 | 设计修复 | 配置态字段统一为 `api_key_configured`（删除裸 `configured` 双名与混用，并与项目平台侧 `configured` 显式区分）；`protocol` 标注 **V1 恒定 `OPENAI_COMPATIBLE` 只读**；`extra_headers` 标注 Header 名 allowlist + 值 ≤1024 且不得承载凭据（P1-23 前端侧） |
 
 ## 2. 需求分析
 
@@ -106,23 +107,23 @@
 |---|---|---:|---:|---:|---|
 | 名称 | `name` | 是 | 是 | 是 | |
 | 标识 | `key` | 是 | 是 | 是 | 创建后不可改 |
-| 协议 | `protocol` | 是 | 是 | 是 | V1 固定 OpenAI 兼容 |
+| 协议 | `protocol` | 是 | 是 | 是 | **V1 恒定 `OPENAI_COMPATIBLE`，只读展示**（不可选、不可改；需要新协议时先在模块 19 放开枚举与路由，再改本表）|
 | 接口地址 | `base_url` | 是 | 是（仅编辑/详情） | 是 | 列表对两角色都不渲染；非敏感字段，Builder 可见可写（受 SSRF allowlist 约束） |
 | Model Name | `model_name` | 是 | 是 | 是 | |
 | API Key | `api_key` | 新增必填 / 更新留空 | 仅输入框（**仅 Admin 渲染**） | **否** | 永不回显；状态字段名统一为 `api_key_configured`；Builder 提交体不含该字段，非 Admin 携带（含 `null`/空串）→ 403 `FIELD_ADMIN_ONLY`且**原子拒绝** |
 | 请求超时时间（秒） | `request_timeout_seconds` | 是 | 是 | 是 | 单位**秒**，默认 `60`，范围 1..600；Builder 可见可填（`90` §6.2，非凭据） |
 | 默认参数 | `default_parameters` | 否 | 是（仅编辑/详情） | **是**（Builder 与 Admin 均可渲染，非凭据） | 温度/最大输出令牌数等；列表不渲染 |
-| 额外请求头 | `extra_headers` | 否 | 是（仅编辑/详情） | **否**（**仅 Admin 渲染**） | JSON 文本域，示例 `{"X-Tenant":"prod"}`；**仅非敏感 Header，不得放凭据**；列表不展示；模块 19 Builder 投影隐藏集 |
+| 额外请求头 | `extra_headers` | 否 | 是（仅编辑/详情） | **否**（**仅 Admin 渲染**） | JSON 文本域，示例 `{"X-Tenant":"prod"}`；**Header 名 allowlist + 值 ≤1024：仅非敏感 Header，值不得承载凭据**（凭据一律走 Secret）；列表不展示；模块 19 Builder 投影隐藏该字段 |
 | 启用状态 | `enabled` | 是 | 是 | 是 | 保存直接影响新请求 |
 | 版本 | `revision` | — | 是 | 是 | 编辑乐观锁 |
-| 配置态 | `configured` / `api_key_configured` | — | 是 | 是 | 后端返回，前端不推导 |
+| 配置态 | `api_key_configured` | — | 是 | 是 | **模型侧唯一命名**（后端模块 19 的字段名）；后端返回，前端不推导。注意与项目平台侧的 `configured` 区分：两者是不同资源的字段，不得互相套用 |
 | 更新时间 | `update_time` | — | 是 | 是 | `YYYY-MM-DD HH:mm:ss` |
 
 **角色可见性（V1.13.1 按 D2=A 更新，与 `90` §6 一致）**：**列表**对两角色返回同一组字段（`key`/`name`/`protocol`/`model_name`/`enabled`/`revision`/`api_key_configured`，不含 `base_url`/`default_parameters`/`extra_headers`，模块 19 已冻结）。**新增/编辑表单**：Builder 可填 `name`/`key`/`base_url`/`model_name`/`protocol`/`default_parameters`/`request_timeout_seconds`/`enabled`；**`api_key`/`extra_headers` 仅 Admin 渲染**，Builder 表单不渲染这两个控件且提交体不含它们。**详情**：Builder 可见其可写字段（`base_url`/`default_parameters`/`request_timeout_seconds`）——即「能写的就能看见」，避免打开编辑表单拿不到当前值；`api_key`/`extra_headers` 两角色详情均不回显。**新增/编辑按钮对 Builder 渲染**；**连通性测试按钮仅 Admin 渲染**。
 
 
 
-**角色合同（D2=A 字段级授权）**：Builder 可见模型安全列表/摘要（`id`/`name`/`key`/`protocol`/`model_name`/`enabled`/`revision`/`configured`/`api_key_configured`），**可新增/编辑非敏感字段**（`MODEL-API-02/04` 对 Builder 开放），表单不渲染 `api_key`/`extra_headers` 控件（`default_parameters` 可渲染，非凭据）；**连通性测试仍仅 Admin**（`MODEL-API-05`：测试会用已存 Secret 向 `base_url` 发出站请求，属凭据使用 + 出站探测，Builder 不渲染按钮、直调得 403）。非 Admin 请求体出现 `api_key`（含 `null`/空串）→ **403 `FIELD_ADMIN_ONLY`且原子拒绝**（不是接口级“无权限访问”，同请求的非敏感字段变更也不生效）；前端按字段级错误定位到表单并保留输入，不由前端“先过滤”掩盖。Builder 仍可从 Agent/Capability 表单选择这些安全依赖（`MODEL-API-01` 安全只读 DTO）。API 双重执行同一权限。
+**角色合同（D2=A 字段级授权）**：Builder 可见模型安全列表/摘要（`id`/`name`/`key`/`protocol`/`model_name`/`enabled`/`revision`/`api_key_configured`——本页**不出现**裸 `configured`），**可新增/编辑非敏感字段**（`MODEL-API-02/04` 对 Builder 开放），表单不渲染 `api_key`/`extra_headers` 控件（`default_parameters` 可渲染，非凭据）；**连通性测试仍仅 Admin**（`MODEL-API-05`：测试会用已存 Secret 向 `base_url` 发出站请求，属凭据使用 + 出站探测，Builder 不渲染按钮、直调得 403）。非 Admin 请求体出现 `api_key`（含 `null`/空串）→ **403 `FIELD_ADMIN_ONLY`且原子拒绝**（不是接口级“无权限访问”，同请求的非敏感字段变更也不生效）；前端按字段级错误定位到表单并保留输入，不由前端“先过滤”掩盖。Builder 仍可从 Agent/Capability 表单选择这些安全依赖（`MODEL-API-01` 安全只读 DTO）。API 双重执行同一权限。
 
 **列表查询**：通用契约见 FE-00 §3.4 `StandardListQuery`，本页领域筛选：`enabled`（另加 `keyword` 按名称/标识/模型名搜索），服务端筛选、改筛选重置 `page=1`、状态进 URL。
 
@@ -186,7 +187,7 @@
 
 | 风险ID | 描述 | 影响 | 应对 | 验证场景 |
 |---|---|---|---|---|
-| RISK-07-01 | API Key 明文回显 | 高 | 后端只返回 configured，前端永不渲染 secret | E2E/Integration |
+| RISK-07-01 | API Key 明文回显 | 高 | 后端只返回 `api_key_configured`（布尔），前端永不渲染 secret | E2E/Integration |
 | RISK-07-02 | 引入模型发布版本增加复杂度 | 中 | V1 direct-effect + audit | E2E/Integration |
 | RISK-07-03 | D2=A 字段级授权依赖后端模块 `19` 同步 Builder 投影 | 中 | **V1.13.1 已闭合**：模块 `19` 的 Builder 投影已改为「能写的就能看见」——`MODEL-API-03` 对 Builder 返回 `base_url`/`default_parameters`/`request_timeout_seconds`，仅 `api_key`/`extra_headers` 不回显；`MODEL-API-05` 维持仅 Admin | E2E/Integration |
 

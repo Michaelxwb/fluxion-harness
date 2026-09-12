@@ -8,7 +8,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from adapters.postgres.base import DEFAULT_TENANT_ID
-from adapters.postgres.models import AuthAccountModel, AuthSessionModel
+from adapters.postgres.models import PlatformUserModel, SessionTokenModel
 from framework.web.errors import AppError
 from framework.web.security import (
     ROLE_ADMIN,
@@ -29,40 +29,49 @@ class AuthRepository:
         self._session_factory = session_factory
 
     async def bootstrap_admin(self, username: str, password: str) -> UUID | None:
-        """Create the initial ADMIN account if no enabled account exists yet."""
+        """Create the initial ADMIN platform_user if none exists yet (fail-closed)."""
         async with self._session_factory() as session:
             async with session.begin():
                 existing = await session.scalar(
-                    select(AuthAccountModel)
-                    .where(AuthAccountModel.role == ROLE_ADMIN, AuthAccountModel.enabled.is_(True))
+                    select(PlatformUserModel)
+                    .where(
+                        PlatformUserModel.role == ROLE_ADMIN,
+                        PlatformUserModel.status == "ACTIVE",
+                        PlatformUserModel.password_hash.is_not(None),
+                    )
                     .limit(1)
                 )
                 if existing is not None:
                     return None
-                account = AuthAccountModel(
+                user = PlatformUserModel(
                     tenant_id=DEFAULT_TENANT_ID,
-                    username=username,
+                    user_key=username,
+                    display_name=username,
                     password_hash=hash_password(password),
                     role=ROLE_ADMIN,
-                    enabled=True,
+                    status="ACTIVE",
                 )
-                session.add(account)
+                session.add(user)
                 await session.flush()
-                return account.id
+                return user.id
 
     async def login(self, username: str, password: str) -> tuple[str, SessionPrincipal]:
         """Verify credentials and mint a bearer token; returns (token, principal)."""
         async with self._session_factory() as session:
             async with session.begin():
-                account = await session.scalar(
-                    select(AuthAccountModel).where(
-                        AuthAccountModel.username == username,
-                        AuthAccountModel.tenant_id == DEFAULT_TENANT_ID,
-                        AuthAccountModel.enabled.is_(True),
-                        AuthAccountModel.is_deleted.is_(False),
+                user = await session.scalar(
+                    select(PlatformUserModel).where(
+                        PlatformUserModel.user_key == username,
+                        PlatformUserModel.tenant_id == DEFAULT_TENANT_ID,
+                        PlatformUserModel.status == "ACTIVE",
+                        PlatformUserModel.is_deleted.is_(False),
                     )
                 )
-                if account is None or not verify_password(password, account.password_hash):
+                if (
+                    user is None
+                    or user.password_hash is None
+                    or not verify_password(password, user.password_hash)
+                ):
                     raise AppError(
                         code="AUTH_INVALID_CREDENTIALS",
                         message="invalid username or password",
@@ -70,25 +79,25 @@ class AuthRepository:
                     )
                 token = generate_session_token()
                 session.add(
-                    AuthSessionModel(
+                    SessionTokenModel(
                         tenant_id=DEFAULT_TENANT_ID,
-                        account_id=account.id,
+                        platform_user_id=user.id,
                         token_hash=hash_token(token),
                         expires_at=datetime.now(UTC) + SESSION_TTL,
                     )
                 )
                 return token, SessionPrincipal(
-                    account_id=str(account.id),
-                    tenant_id=account.tenant_id,
-                    username=account.username,
-                    role=account.role,
+                    account_id=str(user.id),
+                    tenant_id=user.tenant_id,
+                    username=user.user_key,
+                    role=user.role,
                 )
 
     async def resolve(self, token: str) -> SessionPrincipal:
         """Resolve a bearer token to its principal; expired/revoked sessions fail."""
         async with self._session_factory() as session:
             row = await session.scalar(
-                select(AuthSessionModel).where(AuthSessionModel.token_hash == hash_token(token))
+                select(SessionTokenModel).where(SessionTokenModel.token_hash == hash_token(token))
             )
             now = datetime.now(UTC)
             if (
@@ -102,29 +111,31 @@ class AuthRepository:
                     message="session invalid or expired",
                     status_code=401,
                 )
-            account = await session.scalar(
-                select(AuthAccountModel).where(
-                    AuthAccountModel.id == row.account_id,
-                    AuthAccountModel.enabled.is_(True),
-                    AuthAccountModel.is_deleted.is_(False),
+            # 每次解析都读当前 platform_user：角色/状态变更立即生效，
+            # 客户端不得缓存角色快照（ADR-067/D14 + P0-8）。
+            user = await session.scalar(
+                select(PlatformUserModel).where(
+                    PlatformUserModel.id == row.platform_user_id,
+                    PlatformUserModel.status == "ACTIVE",
+                    PlatformUserModel.is_deleted.is_(False),
                 )
             )
-            if account is None:
+            if user is None:
                 raise AppError(code="AUTH_SESSION_INVALID", message="account disabled", status_code=401)
-            if not hmac.compare_digest(account.tenant_id, row.tenant_id):
+            if not hmac.compare_digest(user.tenant_id, row.tenant_id):
                 raise AppError(code="AUTH_SESSION_INVALID", message="tenant mismatch", status_code=401)
             return SessionPrincipal(
-                account_id=str(account.id),
-                tenant_id=account.tenant_id,
-                username=account.username,
-                role=account.role,
+                account_id=str(user.id),
+                tenant_id=user.tenant_id,
+                username=user.user_key,
+                role=user.role,
             )
 
     async def logout(self, token: str) -> None:
         async with self._session_factory() as session:
             async with session.begin():
                 await session.execute(
-                    update(AuthSessionModel)
-                    .where(AuthSessionModel.token_hash == hash_token(token))
+                    update(SessionTokenModel)
+                    .where(SessionTokenModel.token_hash == hash_token(token))
                     .values(revoked_at=datetime.now(UTC))
                 )

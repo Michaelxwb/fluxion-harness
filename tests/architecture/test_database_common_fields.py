@@ -111,8 +111,7 @@ def test_retired_tables_are_absent_from_live_metadata() -> None:
 
 def test_foundation_tables_exist() -> None:
     required = {
-        "auth_account",
-        "auth_session",
+        "session_token",
         "project_platform",
         "user_project_credential",
         "agent_access_grant",

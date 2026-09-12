@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
+> **交互事实源**: `../90-Console交互规格.md` + `../00-Console公共框架/design-frontend.md`（跨页范式）；字段/API/错误码以本页 §3.4/§3.5 与后端 Owner 模块 §3.4 为准
 
 ## 1. 文档控制
 
@@ -74,7 +74,7 @@
 | S-04-01 | FEAT-04-01 | E2E | 四类实现动态表单 | Builder 分别创建 HTTP/MCP/PLATFORM_SERVICE/SANDBOX 能力 | 类型切换渲染对应字段；PLATFORM_SERVICE 必选平台（安全选项） |
 | S-04-02 | FEAT-04-02 | E2E | 分页策略表单 | Builder 配置 Page 分页+短页终止 | short_page_terminates 默认开启；可显式关闭并提示适用前提（R19 语义） |
 | S-04-03 | FEAT-04-05 | E2E | 能力测试 | Admin 测试能力 | 测试结果展示 inline/summary；失败显示脱敏错误 |
-| S-04-04 | FEAT-04-03 | E2E | 四类实现配置字段名与判定元数据 | 四类实现各保存一条（PLATFORM_SERVICE / HTTP / MCP / SANDBOX）；另一条把 `invocation_policy` 选为 `EXECUTION_ONLY` 后保存 | 请求体字段名与模块 07 `capability-implementation-schema` **逐字一致**；PLATFORM_SERVICE 缺 `project_platform_id` 时返回 422 且错误定位到该字段；`deadline_ms`/`max_retries` 出现在 `execution_policy` 而非 `config`；分页键出现在 `data_retrieval_policy`；`invocation_policy`/`side_effect`/`risk_level` 是公共字段，**不出现** 在实现 `config` 内，且请求体**不含** `execution_characteristic`/`authorization_requirement`/`error_semantics` |
+| S-04-04 | FEAT-04-03 | E2E | 四类实现配置字段名与判定元数据 | 四类实现各保存一条（PLATFORM_SERVICE / HTTP / MCP / SANDBOX）；另一条把 `invocation_policy` 选为 `EXECUTION_ONLY` 后保存 | 请求体字段名与模块 07 `capability-implementation-schema` **逐字一致**；PLATFORM_SERVICE 缺 `project_platform_id` 时返回 422 且错误定位到该字段；`deadline_seconds`/`max_retries` 出现在 `execution_policy` 而非 `config`；分页键出现在 `data_retrieval_policy`；`invocation_policy`/`side_effect`/`risk_level` 是公共字段，**不出现** 在实现 `config` 内，且请求体**不含** `execution_characteristic`/`authorization_requirement`/`error_semantics` |
 | E-04-01 | FEAT-04-06 | E2E | 副作用字段必填与直调策略约束 | 创建能力不选"是否有副作用"；另选 `side_effect=write`（或 `risk_level=HIGH`）后再把 `invocation_policy` 选成 `DIRECT` 并提交 | 校验失败并定位到 `side_effect` 控件，不发起 `CAP-API-02`；选 `write`/`destructive` 时显示风险等级建议提升提示；`side_effect=write`/`destructive` 或 `risk_level=HIGH` 时 `invocation_policy` 只能为 `EXECUTION_ONLY`——前端就地提示并禁用非法项，强行提交由后端 400 `CAPABILITY_CONTRACT_INVALID` 拒绝 |
 | S-04-05 | FEAT-04-05 | E2E | 能力测试弹窗 | Admin 与 Builder 分别在能力详情点「测试」，填入合法 JSON 提交；再次填入非法 JSON 提交 | 两角色详情顶部均渲染「测试」按钮（`90` §4.7：Builder + Admin，不隐藏）；弹窗显示 `ok=true`；耗时以 `N ms` 呈现且取自 `stats.latency`（非客户端计时）；`trace_id` 可复制；`artifact_id` 非空时同时展示响应返回的 `execution_id`，并出现「下载产物」入口（`GET /api/v1/executions/{execution_id}/artifacts/{artifact_id}/download`）；填入非法 JSON 时**就地报错**，且 Network 面板**无 `CAP-API-05` 请求** |
 | I-04-01 | FEAT-04-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
@@ -137,7 +137,7 @@
 
 HTTP/MCP/SANDBOX **不显示** `project_platform_id`；SANDBOX 禁止自由 shell textarea。
 
-**归属边界（V1.13 冻结）**：超时与重试**不属于 `config`**，属 `execution_policy`（`deadline_ms` / `max_retries` / `backoff_ms`），表单上独立成组；分页配置**不属于 `config`**，属 `data_retrieval_policy`。
+**归属边界（V1.13 冻结）**：超时与重试**不属于 `config`**，属 `execution_policy`（`deadline_seconds` / `max_retries` / `backoff_seconds`），表单上独立成组；分页配置**不属于 `config`**，属 `data_retrieval_policy`。
 
 **Pagination**：Page/Offset/Cursor 各自字段 + items_path + total/has_more/next_cursor + max_pages/max_items/max_duration + duplicate-page detection；Page/Offset `items==[]` 固定兜底；`short_page_terminates` 默认开启（true），下游可能产生中间短页时必须允许显式关闭；保证“非最后页必满”才可安全依赖短页终止（V1.12 裁决）。
 

@@ -5,7 +5,7 @@
 > **创建日期**: 2026-09-11  
 > **文档状态**: 交互基线已冻结，待仓库 Spec Context 绑定  
 > **模板**: `design-frontend.md`  
-> **交互事实源**: `../90-Console交互规格.md` + `../archive/fluxion-console-interaction-prototype-v0.8-final.html`（已归档：仅作交互形态参考，冲突以 90-规格 + 后端授权列为准）
+> **交互事实源**: `../90-Console交互规格.md` + `../00-Console公共框架/design-frontend.md`（跨页范式）；字段/API/错误码以本页 §3.4/§3.5 与后端 Owner 模块 §3.4 为准
 
 ## 1. 文档控制
 
@@ -23,7 +23,7 @@
 |---|---|---|
 | V1.11 | 2026-09-11 | 从大一统 Console 文档拆成独立产品模块设计 |
 | V1.13 | 2026-09-12 | 第三轮 Review 修复：场景 ID 前缀拆分（E2E 保留 `E-01-01`，integration 改名 `I-01-01`） |
-| V1.13.1 | 2026-09-12 | Claude Code：第四轮 Review 修复——§2.1/§3.2 补「项目平台数」「今日人工超时」两张卡；§3.4 补两卡字段契约、`project_platform_count` 缺失时不渲染、`today_human_timeout` 不跳转，并把「待发布 Draft」跳转固定为 `/console/services?draft_state=dirty`；补场景 `S-01-03` |
+| V1.13.1 | 2026-09-12 | Claude Code：第四轮 Review 修复——§2.1/§3.2 补「能力数」「今日人工超时」两张卡；§3.4 补两卡字段契约、`today_human_timeout` 不跳转，并把「待发布 Draft」跳转固定为 `/console/services?draft_state=dirty`；补场景 `S-01-03` |
 
 ## 2. 需求分析
 
@@ -34,7 +34,7 @@
 | 模块名称 | 概览 |
 | 需求类型 | 页面/交互模块 |
 | 业务背景 | 管理员和 Builder 需要快速看到业务运行摘要，但基础设施健康由运维系统负责。 |
-| 核心目标 | 展示 Service/Agent/Skill/Capability 数量、项目平台数（`project_platform_count`）、今日 Execution、失败/运行中、今日人工超时（`today_human_timeout`）、待发布 Draft、最近执行。 |
+| 核心目标 | 展示 Service/Agent/Skill/Capability 数量（`OPS-API-04` 的 `*_count`）、今日 Execution、失败/运行中、今日人工超时（`today_human_timeout`）、待发布 Draft、最近执行。 |
 | 路由 | `/console/overview` |
 | 角色 | Builder / Admin |
 
@@ -68,7 +68,7 @@
 |---|---|---|---|---|---|
 | S-01-01 | FEAT-01-01 | E2E | OPS-API-04 聚合 | Admin 打开概览 | 四类对象数量、今日执行/失败/运行中、待发布 Draft 数与 DB 一致 |
 | S-01-02 | FEAT-01-01 | E2E | 最近执行跳转 | 点击最近执行条目 | 跳转 EXE 详情且 ID 正确 |
-| S-01-03 | FEAT-01-01 | E2E | 概览卡与跳转 | Admin 打开概览，点击「待发布 Draft」卡与「今日人工超时」卡 | 「项目平台数」「今日人工超时」两张卡渲染且数值与 `OPS-API-04` 响应一致；「今日人工超时」卡点击跳转 `/console/executions?status=FAILED&error_code=HUMAN_TIMEOUT`；「待发布 Draft」卡地址变为 `/console/services?draft_state=dirty`，服务列表「草稿状态」筛选项显示为「有未发布修改」，列表请求携带 `draft_state=dirty&page=1`；`OPS-API-04` 未返回 `project_platform_count` 时该卡**不渲染**（而不是显示 0） |
+| S-01-03 | FEAT-01-01 | E2E | 概览卡与跳转 | Admin 打开概览，点击「待发布 Draft」卡与「今日人工超时」卡 | 「能力数」「今日人工超时」两张卡渲染且数值与 `OPS-API-04` 响应一致；「今日人工超时」卡点击跳转 `/console/executions?status=FAILED&error_code=HUMAN_TIMEOUT`；「待发布 Draft」卡地址变为 `/console/services?draft_state=dirty`，服务列表「草稿状态」筛选项显示为「有未发布修改」，列表请求携带 `draft_state=dirty&page=1`；`OPS-API-04` 必须返回 `capability_count`（字段必返，不接受“缺失时不渲染”的兜底） |
 | E-01-01 | FEAT-01-01 | E2E | 聚合接口失败 | mock OPS-API-04 500 | 显示错误占位，其余卡片不受影响 |
 | I-01-01 | FEAT-01-01 | integration | services → API → UI | 后端返回字段校验/权限/冲突错误 | 保留当前上下文并显示可定位错误，不出现假成功 |
 
@@ -102,7 +102,7 @@
 | 展示字段 | 说明 |
 |---|---|
 | Service/Agent/Skill/Capability 数量 | 业务资产摘要 |
-| 项目平台数 | `project_platform_count`；后端 `OPS-API-04` **待补**该字段——字段缺失时该卡**不渲染**，不显示 0 冒充真实计数 |
+| 能力数 | `capability_count`（`OPS-API-04` 实际字段，后端已定义） |
 | 今日 Execution | 当日执行数 |
 | 失败/运行中 | 运营关注 |
 | 今日人工超时 | `today_human_timeout`；点击跳转 `/console/executions?status=FAILED&error_code=HUMAN_TIMEOUT`（`EXE-API-01` 已支持按 `error_code` 过滤，后端 05） |

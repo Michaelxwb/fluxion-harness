@@ -3,6 +3,7 @@
 > **用途**：本文是交互稿 HTML 的文字合同，用于反推 API DTO 与 DB。  
 > **事实优先级**：已评审交互结论 > 旧前端文档；字段变更必须同步本文、API 基线和 DB 追溯矩阵。  
 > **展示约束**：所有业务字段中文；技术 key/schema/path 可英文；所有时间展示 `YYYY-MM-DD HH:mm:ss`。
+> **V1.14.2 同步（第六轮 Review 收敛）**：Knowledge 规划页删除（ADR-022：V1 无菜单/路由/页面）；服务只读详情路由 `/console/services/:id` 删除（**详情即编辑页只读态**）；Agent 绑定接口合并为 `PATCH /api/v1/agents/{agent_id}/bindings`；项目平台 `PLAT-API-02/04` 收紧为**整接口仅 Admin**；投递侧状态改名 `RETRY_PENDING`；`StandardListQuery` 收敛为 `keyword+enabled+page+page_size`。
 > **本轮同步（2026-09-13，第五轮 D8~D15 / ADR-062..067）**：`resource_scope_types` 读取改为 `INT-API-01`；测试用户链路改为 `AUTH-API-01` + `SVC-API-11`；`implementation.auth_mode` 定为顶层字段；能力测试产物走 `EXE-API-06`（带 `execution_id`）；授权编辑合同改为单条操作（ADR-064）；Step Form 补执行模式/对账时限/轮询上限；执行列表 `execution_source` 三态；Builder 可见范围并集；终止按钮按 `EXE-API-03`/`EXE-API-05` 分流；重新投递后汇总收敛 `DELIVERED`。
 
 ## 1. 全局页面规范
@@ -33,7 +34,7 @@
 
 | 操作 | 确认方式 | 影响面正文（确认 Modal 正文，不省略） |
 |---|---|---|
-| **项目平台停用** | Modal 二次确认 + 影响面正文 | “停用后，该平台的 **N 个平台服务能力**将不可运行，**M 名已配置该平台认证的用户**的认证将失效。” N 取 `PLAT-API-01`/`PLAT-API-03` 的 `capability_count`；M 取平台详情的凭据引用计数（`credential_user_count`，后端待补）；M 未返回时正文只显示 N，并追加“用户认证影响待后端确认”，**不显示 0** |
+| **项目平台停用** | Modal 二次确认 + 影响面正文 | “停用后，该平台的 **N 个平台服务能力**将不可运行。” N 取 `PLAT-API-01`/`PLAT-API-03` 的 `capability_count`（后端已定义）。**不展示“已配置该平台认证的用户数”**：后端没有该字段（`credential_user_count` 从未定义），文案不得引用不存在的指标或写“待补/只显示 N”的兜底 |
 | **用户停用** | Modal 二次确认 + 影响面正文 | “停用后将**立即中断该用户全部 IM 调用**”（进行中的会话不再响应）；正文列出受影响计数：IM 身份数 `im_identity_count`、Agent 授权数 `agent_grant_count`、项目平台认证数 `project_credential_count`（均取自 `USR-API-01`/`USR-API-03` 响应） |
 | **服务紧急停用/恢复** | Modal 二次确认（保持既有，SVC-API-10） | 已发布服务不再接收新执行请求；**进行中的执行不中断**；Draft 编辑只读展示该开关 |
 | **删除用户平台凭据** | Modal 二次确认（保持既有，CRED-API-04） | 删除后该平台回到「未配置」，需重新配置才能调用；不影响该用户其他平台凭据 |
@@ -44,7 +45,7 @@
 
 ### 1.3 Console 菜单（信息架构）
 
-概览、服务、智能体、能力、Skill、知识库（规划中，**可点击进入规划说明页，不置灰**）、模型、项目平台、用户（Admin）、执行记录、审计查询（Admin）。不单设 Channel/认证配置/系统设置/异步任务一级菜单。
+概览、服务、智能体、能力、Skill、模型、项目平台、用户（Admin）、执行记录、审计查询（Admin）。**无知识库菜单**（Knowledge 是规划项，ADR-022：V1 无菜单/路由/页面）。不单设 Channel/认证配置/系统设置/异步任务一级菜单。
 
 **Console 不提供会话管理**（D9）：会话（Conversation Run）与 Checkpoint 属后端内部能力，Console 无对应页面或入口，前端不引用 `CONV-API-01..04`。
 
@@ -99,10 +100,9 @@
 |---|---|---|
 | `/console/services` | 列表 | 左上「+ 新增服务」 |
 | `/console/services/new` | 新增 | 独立创建页/Modal，字段见 §2.2 |
-| `/console/services/:id` | 只读详情 | 无新增/编辑/删除控件 |
 | `/console/services/:id/edit` | Draft 编辑 | Tab 子路由：`?tab=basic`（Tab A 基本信息）/ `?tab=steps`（Tab B 执行编排）/ `?tab=scope`（Tab C 业务范围）/ `?tab=release`（Tab D 测试与发布），默认 `?tab=basic`；非法 tab 回落 `basic` |
 
-`/console/services/:id/edit` 为唯一 Draft 编辑入口；编辑态顶部提供「返回详情」。
+`/console/services/:id/edit` 是**唯一**服务页面路由：**详情即编辑页的只读态**（Admin 或非创建者进入时字段只读、无保存按钮），不再单独存在 `/console/services/:id` 只读页——两个路由会让"详情"与"编辑"的字段集各自漂移，也让权限差异无处表达。
 
 **即时启停**：创建时 enabled 是初始状态；创建后仅 Admin 的独立“紧急停用/恢复”动作调用 SVC-API-10，Draft 编辑只读展示开关。发布不覆盖 enabled。详见 FE-02。
 
@@ -214,7 +214,6 @@ Admin 增加：
 | 模型配置 | V1 单模型 |
 | 直接能力数 | 仅 AgentCapabilityBinding |
 | Skill 数 | |
-| 知识库数 | 当前规划 |
 | 已授权用户数 | AgentAccessGrant |
 | IM 接入 | 已配置/未配置 |
 | 状态 | |
@@ -296,18 +295,18 @@ Admin 可：
 - 添加用户；
 - 撤销授权。
 
-**Builder 定死为只读**（T-23，V1.13 冻结）：Builder **可见**该 Tab 与授权列表，但**不渲染**任何写按钮（无「添加用户」「撤销授权」；无「保存」）；不是「隐藏或只读二选一」。Builder 直接调用 `USR-API-08` 得 403。DB 事实源仍 `AgentAccessGrant`。
+**Builder 定死为只读**（T-23，V1.13 冻结）：Builder **可见**该 Tab 与授权列表，但**不渲染**任何写按钮（无「添加用户」「撤销授权」；无「保存」）；不是「隐藏或只读二选一」。Builder 直接调用授权写接口得 403。DB 事实源仍 `AgentAccessGrant`，**写入口唯一在 User 侧**（`USR-API-06`/`06R`）。
 
-**授权/绑定编辑合同（Z-06，ADR-064：单条授权操作）**
+**授权/绑定编辑合同（Z-06，ADR-064 + V1.14.2 收敛）**
 
-`USR-API-08`（Agent 授权用户）、`USR-API-06`（用户 Agent 授权）改为**单条授权操作**；`AGENT-API-05/06/07`（直接能力/Skill/可调用服务）保持各自的 `agent_definition.revision` 乐观锁语义不变。三者**交互一致（全量加载 + 差异确认），提交语义按各自 Owner 模块定义**：
+两类编辑**交互一致（全量加载 + 差异确认），提交语义不同**：
 
-1. **已授权预勾选**：打开编辑弹窗时，候选列表**全量加载**并**预勾选当前已授权对象**（不是“只列未授权对象再逐行增删”）；
-2. **保存前差异确认**：提交前展示差异摘要——“**新增 N 个 / 移除 M 个**”，并列出被移除对象的名称；N=M=0 时保存按钮禁用并提示“无变更”；
-3. **逐条显式操作提交**：增授权 `POST /api/v1/agents/{agent_id}/grants`（body `{user_id, idempotency_key}`）、撤授权 `POST /api/v1/agents/{agent_id}/grants/{grant_id}/revoke`（body `{idempotency_key}`）；用户侧对应 `POST /api/v1/users/{user_id}/agent-grants` 与 `POST /api/v1/users/{user_id}/agent-grants/{grant_id}/revoke`。并发安全由**单条操作的结构**保证：两个 Admin 分别操作不同用户互不覆盖；同一 (user, agent) 重复操作按 `idempotency_key` **幂等返回**。不再使用集合覆盖写，因此不出现「授权已被他人修改，请重新加载」的乐观锁冲突提示。
-4. **授权读侧**：返回**每条授权的有效状态**（含 `grant_id`/`enabled`/`granted_by`/`granted_at`/`revoked_at`），弹窗按该集合预勾选。
-
-差异摘要中的移除项必须逐条列出对象名与标识，不得只显示计数。
+1. **用户授权 —— 单条操作，唯一写入口在 User 侧**：增授权 `POST /api/v1/users/{user_id}/agent-grants`（body `{agent_id, idempotency_key}`）、撤授权 `POST /api/v1/users/{user_id}/agent-grants/{grant_id}/revoke`（body `{idempotency_key}`）。Agent 侧 `USR-API-08/08R` **已删除**；`USR-API-07` 保留为**唯一反向只读视图**（Agent 详情页的授权列表与预勾选由它 + `USR-API-05` 提供，`grant_id` 取自读侧）。并发安全由单条操作的结构保证：两个 Admin 分别操作不同用户互不覆盖；同一 (user, agent) 重复操作按 `idempotency_key` 幂等返回——因此不出现「授权已被他人修改，请重新加载」的乐观锁提示。
+2. **Agent 绑定 —— 一次 `PATCH`，带 `revision`**：直接能力 / Skill / 可调用服务三类绑定合并为一个 `PATCH /api/v1/agents/{agent_id}/bindings`（body 含三类集合 + `revision`）。`AGENT-API-05/06/07` 三个 PUT 与 `AGENT-API-08`（有效能力分析）**已删除**：有效能力由详情 bindings 带 `origin`（`DIRECT`/`VIA_SKILL`/`VIA_SERVICE`）就地展示；`revision` 不匹配返回 409，保留弹窗内容并提示重新加载。
+3. **已授权预勾选**：打开编辑弹窗时，候选列表**全量加载**并**预勾选当前已授权/已绑定对象**（不是“只列未授权对象再逐行增删”）；
+4. **保存前差异确认**：提交前展示差异摘要——“**新增 N 个 / 移除 M 个**”，并列出被移除对象的名称；N=M=0 时保存按钮禁用并提示“无变更”。差异摘要中的移除项必须逐条列出对象名与标识，不得只显示计数。
+5. **两个组件、两种提交语义**：**逐条即时列表**（每行开关/解绑，改动立即生效，无保存按钮、无覆盖语义）用于日常单条操作；**批量差异确认弹窗**仅用于一次性增删多个对象（绑定=一次 `PATCH` 含完整三类集合；授权=**逐条** `POST`，不合并为集合写）。同一个 UI 不得同时承担两种提交语义。
+6. **授权读侧**：返回**每条授权的有效状态**（含 `grant_id`/`enabled`/`granted_by`/`granted_at`/`revoked_at`），弹窗按该集合预勾选。
 
 ---
 
@@ -334,7 +333,7 @@ Admin 可：
 **归属边界（V1.13 冻结，适用 §4.2–§4.5 全部实现类型）**
 
 - 四类实现配置的字段名**逐字**取自模块 07 的 `capability-implementation-schema`（判别式 `implementation_type`），前端只做控件渲染与必填校验，不另立字段名。
-- **超时与重试不属于 `config`**，属于 `execution_policy`：`deadline_ms` / `max_retries` / `backoff_ms`；表单上独立成组，不放进实现配置区块。
+- **超时与重试不属于 `config`**，属于 `execution_policy`：`deadline_seconds` / `max_retries` / `backoff_seconds`；表单上独立成组，不放进实现配置区块。
 - **分页配置不属于 `config`**，属于 `data_retrieval_policy`（见 §4.6）。
 
 ## 4.2 Platform Service 专属
@@ -599,31 +598,29 @@ Artifact ID / 当前标记 / 文件 / SDK / Checksum / 校验 / 导入时间
 平台名称 / 平台标识 / 用户认证方式 / 平台服务能力数 / 状态 / 更新时间 / 操作
 ```
 
-左上 `+ 新增项目平台`。**字段级写权限（D2=A，V1.13.1 取代“写操作仅 Admin”）**：新增/编辑**对 Builder 开放**（按钮对 Builder 渲染），Builder 可填 `name`/`key`/`description`/`enabled`；**`auth_type` 与 `auth_schema` 仅 Admin 可写**——Builder 表单中这两个控件**不渲染**，提交体**不含**它们。**验证认证模板（`PLAT-API-05`）仅 Admin**（模板本身属 Admin 管理面），Builder 不渲染该按钮。
+左上 `+ 新增项目平台`（**仅 Admin 渲染**）。**整接口仅 Admin（V1.14.2 收敛，取代 D2=A 字段级授权）**：`PLAT-API-02`（新增）/ `PLAT-API-04`（编辑）/ `PLAT-API-05`（验证模板）对 **Builder 一律不渲染**，直调得 403 `ADMIN_REQUIRED`；Builder 只读（`PLAT-API-01`/`03`）。平台承载用户认证模板，模板即凭据契约——字段级拆分会让同一次提交出现“部分生效”，并要求前端复刻后端的字段级判定，等于把授权规则复制到前端。
 
 **配置态**：列表与详情的「用户认证方式」列依赖 `configured`（后端派生：`auth_type != UNCONFIGURED`）。`configured=false` 时该列显示「待配置」，并以该平台的凭据编辑/验证入口禁用（Hover 说明“需先配置认证模板”）。`configured` 与 `enabled` **来自 `PLAT-API-01` 响应**，前端不自行推导。
 
 **「用户认证方式」列的渲染（Y-08）**：不是裸 key，渲染 `auth_type` 对应 Provider 注册项的 **`display_name`**（模块 12 的 Provider 注册项**新增**该字段，当前注册签名 `register_provider(kind, key, provider, source)` 需带上展示名）。前端**不写本地 key→中文映射表**：响应提供该展示名则渲染，未提供时**回退显示 `auth_type` 原值**（不显示空白、不猜中文）。`auth_type=UNCONFIGURED` 仍按上一条显示「待配置」。
 
-**停用二次确认与影响面（Z-02）**：停用平台是**跨对象**危险操作（见 §1.2.1），必须 Modal 二次确认并显示影响面正文——“停用后，该平台的 N 个平台服务能力将不可运行，M 名已配置该平台认证的用户的认证将失效”（计数来源与缺失处理见 §1.2.1）。**不得**用无影响面提示的普通开关停用平台。
+**停用二次确认与影响面（Z-02）**：停用平台是**跨对象**危险操作（见 §1.2.1），必须 Modal 二次确认并显示影响面正文——“停用后，该平台的 N 个平台服务能力将不可运行，M 名已配置该平台认证的用户的认证将失效”（计数来源见 §1.2.1：只取 `capability_count`，不引用后端未定义的用户计数）。**不得**用无影响面提示的普通开关停用平台。
 
-**角色可见性**：Builder 可见 `key`/`name`/`auth_type`/`configured`/`enabled`/`revision`；**不可见** `auth_schema`、任何认证头与 Secret 字段。
+**角色可见性**：Builder 只读，可见 `key`/`name`/`auth_type`/`configured`/`enabled`/`revision`；**不可见** `auth_schema`、任何认证头与 Secret 字段，且页面**不出现**新增/编辑/验证入口。
 
 ## 7.2 新增
 
-Builder 与 Admin 共用同一个新增表单，差异只体现在认证字段：
+**仅 Admin 可达**（页面级，不再是“共用表单 + 字段差异”）：
 
 | 字段 | 类型 | 必填 | 创建后可编辑 | 可见/可写角色 |
 |---|---|---:|---:|---|
-| 项目平台名称 | input | 是 | 是 | Builder + Admin |
-| 标识 | input | 是 | 否 | Builder + Admin（创建后只读） |
-| 说明 | textarea | 否 | 是 | Builder + Admin |
-| 状态 | switch | 是 | 是 | Builder + Admin |
-| 用户认证方式（`auth_type`） | select | 否 | 是 | **仅 Admin 渲染**（Builder 表单不出现该控件，创建时由后端置 `UNCONFIGURED`） |
+| 项目平台名称 | input | 是 | 是 | 仅 Admin |
+| 标识 | input | 是 | 否 | 仅 Admin（创建后只读） |
+| 说明 | textarea | 否 | 是 | 仅 Admin |
+| 状态 | switch | 是 | 是 | 仅 Admin |
+| 用户认证方式（`auth_type`） | select | 否 | 是 | 仅 Admin（缺省由后端置 `UNCONFIGURED`） |
 
-创建后认证模板（`auth_schema`）可在详情/编辑中由 **Admin** 管理；Builder 打开详情/编辑时该区块**只读或隐藏**，仅显示「待配置 / 已配置」状态。
-
-新增请求体：Builder 提交 `name`/`key`/`description`/`enabled`；Admin 可另提交 `auth_type`（非 UNCONFIGURED 时必须为模块 12 已注册 AUTH Provider 的 key，否则 `AUTH_PROVIDER_NOT_REGISTERED`(422)）。**Builder 的请求体携带 `auth_type`/`auth_schema`（含 `null`/`{}`）时后端返回 403 `FIELD_ADMIN_ONLY` 并原子拒绝**（同请求的 `name`/`description` 变更也不生效，模块 09），不由前端“先过滤”掩盖。
+创建后认证模板（`auth_schema`）在本页由 **Admin** 管理。新增请求体：Admin 提交 `name`/`key`/`description`/`enabled`，可另提交 `auth_type`（非 UNCONFIGURED 时必须为模块 12 已注册 AUTH Provider 的 key，否则 `AUTH_PROVIDER_NOT_REGISTERED`(422)）。**Builder 调用本接口（无论提交什么字段）一律 403 `ADMIN_REQUIRED`**——不存在字段级部分生效，也不存在 `FIELD_ADMIN_ONLY` 分支。
 
 ## 7.3 用户认证模板
 
@@ -714,7 +711,7 @@ password  密码    password  required secret
 智能体 / 标识 / 授权时间 / 状态 / 操作=撤销
 ```
 
-`+ 授权智能体`。编辑交互按 §3.7 的统一规则：**已授权预勾选 + 保存前差异确认（新增 N / 移除 M）+ `PUT` 全量覆盖**（`USR-API-06`）。
+`+ 授权智能体`。编辑交互按 §3.7 的统一规则：**已授权预勾选 + 保存前差异确认（新增 N / 移除 M）+ 逐条 `POST`**（User 侧 `USR-API-06` / `USR-API-06R`，这是唯一写入口；不存在全量 `PUT` 覆盖）。
 
 ## 8.5 IM 身份 Tab
 
@@ -777,7 +774,7 @@ password  密码    password  required secret
 | 结束时间 | 未结束显示 `—` |
 | 操作 | 只有“详情” |
 
-列表投递筛选 Query=delivery_status；业务状态与投递状态独立。投递枚举 NONE/PENDING/SENDING/RETRY_WAIT/DELIVERED/FAILED/UNKNOWN；UNKNOWN 明确送达未确认，不触发业务重试。Builder 只读，取消/重试/审批仅 Admin；重试返回 new_execution_id 后打开新执行。
+列表投递筛选 Query=delivery_status；业务状态与投递状态独立。投递枚举 NONE/PENDING/SENDING/**RETRY_PENDING**/DELIVERED/FAILED/UNKNOWN（前端呈现名；后端投递侧字段值为 `RETRY_WAIT`，与执行状态 `RETRY_WAIT` 同名不同义，UI 文案为「等待重新投递」）；UNKNOWN 明确送达未确认，不触发业务重试。Builder 只读，取消/重试/审批仅 Admin；重试返回 new_execution_id 后打开新执行。
 
 **执行源 `execution_source`（V1.14.1）**：取值为 `{FORMAL, TEST, CAPABILITY_TEST}`。常规执行列表**默认只查 `FORMAL`**；服务测试面板查 `TEST`；能力测试面板查 `CAPABILITY_TEST`（能力测试执行不进默认执行列表）。
 
@@ -863,7 +860,7 @@ Async Task 展开：
 | 智能体数 | `agent_count` | 跳 `/console/agents` |
 | Skill 数 | `skill_count` | 跳 `/console/skills` |
 | 能力数 | `capability_count` | 跳 `/console/capabilities` |
-| **项目平台数**（B14） | **`project_platform_count`** | 跳 `/console/project-platforms`（无附加筛选）。**后端 `OPS-API-04` 待补该字段**；字段缺失时该卡不渲染（不显示 0 冒充真实计数） |
+| **能力数**（B14） | **`capability_count`** | 取 `OPS-API-04` 的 `capability_count`（后端已定义，字段必返）。**不接受“待补/缺失时不渲染”的兜底**：字段缺失即契约违约，按错误态呈现 |
 | 今日执行 | `today_execution_total`（失败 `today_execution_failed`、运行中 `running_execution_count` 作副指标） | 跳 `/console/executions` |
 | **今日人工超时**（Z-10） | **`today_human_timeout`** | 跳 `/console/executions?status=FAILED&error_code=HUMAN_TIMEOUT`（`EXE-API-01` 已支持按 `error_code` 过滤，后端 05） |
 | 待发布 Draft | `pending_publish_draft_count` | 跳 `/console/services?draft_state=dirty`（Z-07；筛选值即 `draft_state=dirty`，与 §2.1 的三个独立筛选一致） |
@@ -873,14 +870,11 @@ Async Task 展开：
 
 ---
 
-## 11. Knowledge
+## 11. Knowledge（规划项，V1 无页面）
 
-规划页：
+Knowledge 是规划项（ADR-022）：**V1 不提供菜单、路由、页面**，`06-Knowledge规划/` 占位页已于 V1.14.2 删除（占位页与"缺失时不渲染"是同一类兜底：既不可用，也无法验收）。
 
-- 状态“规划中”；
-- 说明“外部知识库接入字段/API/DB 尚未冻结”；
-- 无新增按钮；
-- 无假列表。
+需要建设时**整章新增**：菜单 + 路由 + 页面 + API/DB 契约一次落地，不使用占位页过渡。
 
 ---
 
@@ -901,24 +895,14 @@ Async Task 展开：
 
 ## 13. 页面 → API 关键映射
 
-| 页面动作 | API |
-|---|---|
-| 新增 Agent | `POST /agents` |
-| Agent 绑定直接能力 | `PUT /agents/{id}/capabilities` |
-| Agent 绑定 Skill | `PUT /agents/{id}/skills` |
-| Agent WeCom | `PUT /agents/{id}/channel/wecom` |
-| 导入 Skill | `POST /skills/import` |
-| Skill 新版本 | `POST /skills/{id}/artifacts` |
-| 新增 Service | `POST /services` |
-| 保存 Draft | `PUT /services/{id}/draft` |
-| Service Publish | `POST /services/{id}/publish` |
-| 用户 Agent Grant | `PUT /users/{id}/agent-grants` |
-| 用户平台认证 | `PUT /users/{id}/platform-credentials/{platform}` |
-| 生成 BindCode | `POST /users/{id}/bind-codes` |
-| Execution 详情 | `GET /executions/{id}` |
-| 重新执行 Execution | `POST /executions/{id}/retry`（`EXE-API-04`） |
-| 重新投递 | `POST /executions/{id}/redeliver`（`EXE-API-07`，已登记，后端 05 L731） |
-| 审计日志查询 | `GET /audit-logs`（`AUDIT-API-01`） |
+**本节的映射表已删除**（V1.14.1）：它曾以裸路径（缺 `/api/v1` 前缀）重复维护一份映射，并保留了已被 ADR-064 否决的集合覆盖写语义（`PUT /users/{id}/agent-grants`），与 §3.7 的单条操作冲突——实现者按本节调用必然打到错误路由或复活丢失更新缺陷。
+
+唯一事实源固定为两处，冲突时必须回写而不是"以本节为准"：
+
+```text
+跨页范式与交互规则：本文件（90）+ FE-00
+每页字段 / API / 错误码：各页 design-frontend.md 的 §3.4/§3.5「API 映射」表 + 后端 Owner 模块 §3.4
+```
 
 ---
 
@@ -940,7 +924,6 @@ Async Task 展开：
 12. Execution 只有详情一个入口；
 13. User IM Tab 同时含 identity 和 bind code；
 14. Capability 分页字段按类型动态完整；
-15. Knowledge 不伪实现。
 
 ---
 

@@ -80,7 +80,7 @@
 | FEAT-CORE-03 | Execution Snapshot | 冻结一致性所需业务逻辑，不冻结实时授权/Credential。 | P0 | 总体设计 P6/P8 |
 | FEAT-CORE-04 | 公共持久化规则 | tenant/软删除/revision/immutable/hash。 | P0 | 数据库基线 |
 | FEAT-CORE-05 | 错误与可信上下文 | 统一 DomainError/TrustedExecutionContext。 | P0 | 总体设计 P8 |
-| FEAT-CORE-06 | 共享租约原语 | renew/release/fencing 的唯一实现，Execution 与 Chat Run 共用同一 epoch 语义；claim 领取 SQL 各域独立实现（谓词与排序键见各模块）。 | P0 | 第四轮 Review B1（V1.14 最简重设拆分 claim） |
+| FEAT-CORE-06 | 共享租约原语 | renew/release/fencing 的唯一实现（V1 只服务 `service_execution`）；claim 领取 SQL 归 Worker（06 WORK-LIB-01）。 | P0 | 第四轮 Review B1（V1.14 最简重设拆分 claim） |
 
 #### 2.3.2 字段约束
 
@@ -112,7 +112,7 @@
 | RULE-CORE-04 | 快照 | Snapshot 不冻结 AgentAccessGrant/Credential/Capability emergency enabled。 | S-CORE-04 |
 | RULE-CORE-05 | 数据 | Framework 可变表默认软删除并 tenant scoped。 | S-CORE-05 |
 | RULE-CORE-06 | 可信身份 | tenant/actor/projection/test_mode 只能由 CORE-LIB-06 构造入口赋值，不得来自 LLM、请求体或 Skill 入参。 | S-CORE-06 |
-| RULE-CORE-07 | 并发 | 租约续租/释放/fencing 只能由 CORE-LIB-08 实现；claim 领取 SQL 各域独立（06 WORK-LIB-01、03 RT-LIB-03），但 epoch 递增（领取时 +1）/续租不改 epoch/失配语义必须与本原语一致，不得自创第二套。 | S-CORE-07 |
+| RULE-CORE-07 | 并发 | 租约续租/释放/fencing 只能由 CORE-LIB-08 实现；claim 领取 SQL 归 Worker（06 WORK-LIB-01），但 epoch 递增（领取时 +1）/续租不改 epoch/失配语义必须与本原语一致，不得自创第二套。 | S-CORE-07 |
 
 #### 2.5.2 功能验收场景
 
@@ -207,7 +207,7 @@ flowchart TB
 
 公共表字段是规范，不建立 `core_resource` 万能表。各表由对应领域模块拥有。
 
-`service_execution`（模块 06）与 `conversation_run`（模块 11）各自保留自己的租约字段（`lease_owner/lease_expires_at/lease_epoch`），因为两者的领域语义不同（执行调度事实 vs Chat turn 事实）；但**续租/释放/fencing 只有一处实现**：字段语义、续租不改 epoch、以及所有状态写入前的 owner+epoch 校验统一由 CORE-LIB-08 提供；claim 的选择 SQL 各域独立（领取时 `lease_epoch + 1` 的递增语义必须一致），两张表不得各自定义第三套续租/fencing 语义。
+`service_execution`（模块 06）拥有租约字段（`lease_owner/lease_expires_at/lease_epoch`）；**`conversation_run` 已删除**（P0-4：Chat turn 不 durable，没有租约）；但**续租/释放/fencing 只有一处实现**：字段语义、续租不改 epoch、以及所有状态写入前的 owner+epoch 校验统一由 CORE-LIB-08 提供；claim 的选择 SQL 各域独立（领取时 `lease_epoch + 1` 的递增语义必须一致），两张表不得各自定义第三套续租/fencing 语义。
 
 ### 3.4 接口设计
 
@@ -221,7 +221,7 @@ flowchart TB
 | CORE-LIB-04 | ExecutionProposal 数据类 | Library | @dataclass class ExecutionProposal | 提案类型定义；模块 05 签发与消费 |
 | CORE-LIB-05 | 执行冻结投影 | Library | ExecutionProjection | 数据类；本节 CORE-LIB-05 定义 |
 | CORE-LIB-06 | TrustedExecutionContext 定义与构造 | Library | def build_trusted_context(identity: RuntimeIdentity, *, agent_id=None, conversation_id=None, execution_id=None, projection=None, test_mode=None, deadline=None) -> TrustedExecutionContext | 可信上下文唯一构造入口 |
-| CORE-LIB-07 | DomainError 与公共错误码引用 | Library | class DomainError；def to_envelope(request_id) -> ApiEnvelope | 统一错误结构与公共错误码注册表引用 |
+| CORE-LIB-07 | DomainError 与公共错误码引用 | Library | class DomainError（**不含 Envelope 构造**——Envelope 只由 WEB-LIB-01 构造）nvelope(request_id) -> ApiEnvelope | 统一错误结构与公共错误码注册表引用 |
 | CORE-LIB-08 | LeaseQueue 共享租约原语 | Library | async def renew(tx, *, table, target_id, owner, expected_epoch, ttl_ms) -> bool；async def release(tx, *, table, target_id, owner, expected_epoch, next_run_at) -> None；def assert_owner(row_owner, row_epoch, owner, epoch, now, lease_expires_at) -> None | service_execution（模块 06）与 conversation_run（模块 11）的续租/释放/fencing 唯一实现（claim 领取 SQL 分置各域） |
 
 **CORE-LIB-04: ExecutionProposal（模块 01 定义类型；模块 05 签发和消费）**
@@ -351,8 +351,6 @@ class DomainError(Exception):
     message: str
     field_errors: dict[str, str] | None = None
     retryable: bool = False
-
-    def to_envelope(self, request_id: str) -> ApiEnvelope: ...
 ```
 
 **字段**
@@ -369,12 +367,16 @@ class DomainError(Exception):
 
 公共错误码清单的唯一权威位于 `01-架构与规范/10-错误码与错误分类基线.md`（本模块只引用，不在此重复定义）。各模块错误码必须登记到该清单后才可对外返回；未登记的错误码禁止出现在响应中。
 
-**`to_envelope` 约定**
+**Envelope 唯一构造点（P1-24 收敛）**
 
 ```text
-{code, message, data: null, request_id, field_errors?}；HTTP status 取 DomainError.http_status；
-Web 层统一经 WEB-LIB-02 映射（模块 02），SSE/WebSocket/文件/Prometheus 端点沿用同一错误 taxonomy 但不套 JSON Envelope。
+DomainError 只携带 code/http_status/message/field_errors/retryable（领域层事实）；
+Envelope {code, message, data, request_id, field_errors?} 只由 WEB-LIB-01（模块 02）构造，
+HTTP status 取 DomainError.http_status，映射经 WEB-LIB-02。
+SSE/WebSocket/文件/Prometheus 端点沿用同一错误 taxonomy 但不套 JSON Envelope。
 ```
+
+**为什么领域层不构造 Envelope**：一旦 `DomainError.to_envelope()` 与 `WEB-LIB-01` 都能产出 Envelope，就有两处实现决定"字段名/是否带 data/request_id 从哪来"，两处会在 SSE、批处理、内部调用等路径上分叉；领域层只描述错误事实，形状由唯一的 Web 边界决定。
 
 **补充约束**：`retryable` 只描述“是否可安全重试”，不代表已重试；重试次数与退避由调用方按模块 06 的失败策略决定。
 
@@ -484,7 +486,7 @@ def canonical_json_sha256(value: object) -> str
 **函数签名**
 
 ```python
-LeaseTarget = Literal["service_execution", "conversation_run"]
+LeaseTarget = Literal["service_execution"]  # V1 只有 Worker 的执行根需要租约（P0-4：Chat turn 已去租约化）
 
 async def renew(
     tx: AsyncSession, *, table: LeaseTarget, target_id: UUID, owner: str,
@@ -507,7 +509,7 @@ def assert_owner(
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | tx | AsyncSession | Y | 调用方事务；续租/释放的条件写入必须在调用方事务内完成 |
-| table | LeaseTarget | Y | service_execution / conversation_run；决定列映射（两表列名相同，见 §3.3） |
+| table | LeaseTarget | Y | `service_execution`（V1 唯一取值）；决定列映射（列名相同，见 §3.3） |
 | owner | string | Y | 本实例标识（Worker ID / Runtime 实例 ID） |
 | ttl_ms | integer | Y | 租约时长；renew 的到期时间均为 `now + ttl_ms`（`now` 取服务端时间） |
 | target_id | uuid | Y | renew/release 的目标行 |
@@ -530,7 +532,7 @@ def assert_owner(
 **处理逻辑**
 
 ```text
-claim 各域独立实现（领取 SQL 见 06 WORK-LIB-01、03 RT-LIB-03）：SELECT ... WHERE 可领取状态 AND (lease_expires_at IS NULL OR 已过期) ... FOR UPDATE SKIP LOCKED → 同一事务写 lease_owner=owner、lease_expires_at=now+ttl_ms、lease_epoch = lease_epoch + 1 → 在新 epoch 下返回。领取时 +1 的递增语义两域必须一致。
+claim 归 Worker 实现（领取 SQL 见 06 WORK-LIB-01）：SELECT ... WHERE 可领取状态 AND (lease_expires_at IS NULL OR 已过期) ... FOR UPDATE SKIP LOCKED → 同一事务写 lease_owner=owner、lease_expires_at=now+ttl_ms、lease_epoch = lease_epoch + 1 → 在新 epoch 下返回。领取时 +1 的递增语义两域必须一致。
 renew：条件 UPDATE ... WHERE table=:table AND id=:id AND lease_owner=:owner AND lease_epoch=:expected AND lease_expires_at > :now
        SET lease_expires_at = now+ttl_ms；**不修改 lease_epoch**；rowcount=0 → 返回 false。
 release：同一 owner+epoch 校验下清空 lease_owner/lease_expires_at，并按 next_run_at 决定是否立即重新排队；失配抛 LEASE_LOST。
@@ -544,11 +546,11 @@ assert_owner：owner 字段、lease_epoch、lease_expires_at 三者任一失配�
 | 使用方 | table | 排序键 / 状态与到期谓词 |
 |---|---|---|
 | 模块 06 Worker | service_execution | `priority DESC, next_run_at ASC NULLS FIRST, create_time ASC`；状态 ∈ 可运行集合且 `next_run_at <= now` |
-| 模块 03/11 Chat Run | conversation_run | source message 的 `sequence_no`；`QUEUED` 与**已到期 `RUNNING` 优先于新 turn** 的谓词 |
+| （已删除）模块 03/11 Chat Run | ~~conversation_run~~ | V1.14.2 删除：Chat turn 不再 durable（P0-4），无领取/无租约；本行仅记录历史 | 旧值: source message 的 `sequence_no`；`QUEUED` 与**已到期 `RUNNING` 优先于新 turn** 的谓词 |
 
 **补充约束**
 
-- 本原语是 Framework 内**续租/释放/fencing 的唯一实现**：`service_execution` 与 `conversation_run` 共用本实现与同一 epoch 语义；模块 06 与模块 11 不得各自实现第二套续租/fencing（RULE-CORE-07）；claim 的领取 SQL 分置各域（06 WORK-LIB-01、03 RT-LIB-03），但 epoch 递增与失配语义必须与本节一致。
+- 本原语是 Framework 内**续租/释放/fencing 的唯一实现**：V1 只服务 `service_execution`；模块 06 不得另实现第二套续租/fencing（RULE-CORE-07）；claim 的领取 SQL 归 06 WORK-LIB-01，但 epoch 递增与失配语义必须与本节一致。
 - claim 的状态谓词与排序键各域独立（见上表）；共享的只有 `renew`/`release`/`assert_owner` 与 epoch 语义——调度语义不硬塞进一个 `ClaimFilter` 抽象。
 - 两张表仍各自保留（领域语义不同），差异只允许体现在表的列映射、`filter` 与排序键；**租约规则本身不再各写一套**。
 - claim 提交后其他实例仍必须经过同一租约条件，不能仅依靠行锁；`ttl_ms` 由调用方按角色给出（Worker 心跳周期 / Runtime 租约周期），原语不内置默认值。

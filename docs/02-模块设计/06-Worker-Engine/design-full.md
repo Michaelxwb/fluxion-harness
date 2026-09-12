@@ -471,7 +471,7 @@ async def progress_async_task(step: ExecutionStep, run: AsyncTaskRun, now: datet
 
 **签名**：`async def advance_delivery(delivery_id: UUID, worker_id: str) -> DeliveryOutcome`
 
-独立扫描模块 10 channel_delivery 的 PENDING、到期 RETRY_WAIT 和过期 SENDING（用于未知结果对账），不要求 execution 仍非终态。claim/attempt/fencing/outcome 的唯一规则为 CH-INT-01/CH-DATA-03；执行前校验路由/租户/文件归属和安全开关。单次发送由 Gateway 完成，有限重试仅由本循环调度；UNKNOWN 不盲目重发。
+独立扫描模块 10 channel_delivery 的 PENDING、到期 RETRY_PENDING 和过期 SENDING（用于未知结果对账），不要求 execution 仍非终态。claim/attempt/fencing/outcome 的唯一规则为 CH-INT-01/CH-DATA-03；执行前校验路由/租户/文件归属和安全开关。单次发送由 Gateway 完成，有限重试仅由本循环调度；UNKNOWN 不盲目重发。
 
 **调度的事件类型（ADR-040 / D13）**：`completed`（执行成功）、`failed`（终态失败，含 `HUMAN_TIMEOUT`）、`human_wait`（进入人工等待）、`progress_stage`（用户可见的阶段推进）。`progress_stage` **只由 `task_progress_event` 中 `event_type IN ('STAGE','WAIT','ERROR','COMPLETE')` 且 `visibility='USER'` 的行产生**，`event_id = task_progress_event.id`（幂等：重放不新增投递行）；`PROGRESS` 级与 `ADMIN/INTERNAL` 可见性只进 Timeline，不产生投递。本循环是投递重试的**唯一 owner**，Gateway 单次 best-effort。
 
@@ -534,7 +534,7 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 | FEAT-WORK-03 | WORK-LIB-03, WORK-LIB-05 | S-WORK-03, S-WORK-08, E-WORK-02, E-WORK-03 | E2E/integration | 待实现/评审 |
 | FEAT-WORK-04 | WORK-LIB-01, WORK-LIB-02 | S-WORK-02, S-WORK-05 | E2E/integration | 待实现/评审 |
 | FEAT-WORK-05 | WORK-LIB-04, WORK-LIB-05 | S-WORK-04, S-WORK-06 | E2E/integration | 待实现/评审 |
-| FEAT-WORK-06 | WORK-LIB-06, CH-INT-01（模块 10）, CH-DATA-03（模块 10） | S-WORK-12 | E2E/integration | 待实现/评审 |
+| FEAT-WORK-06 | WORK-LIB-06, CH-INT-01（模块 10，含许可校验） | S-WORK-12 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 
