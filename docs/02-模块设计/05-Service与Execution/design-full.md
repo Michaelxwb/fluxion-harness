@@ -39,6 +39,7 @@
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 新增受控变量模板契约与 RULE-SVC-07/08；`requested_action` 语义定死为“决策接受后写入”；`context_summary` 补 U03 六要素；ExecutionView 补脱敏 `resource_scope_summary`/`scope_refs` 与 `scope_ref` 筛选；EXE-LIB-02 补确定性渲染/confirmation_ref 签发；EXE-LIB-03 明确 confirmation_ref 双路径；EXE-LIB-01 补 `delivery_route_id`/`execution_mode` 写入规则；进度事件投递触发与幂等键定义；ArtifactSummary 统一 `artifact_id`；矩阵与 verifier 修正 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D5：`resource_scope` 收敛为 `{type, refs[], attributes?}`（删除 Service 级 scope JSON Schema、`schema_hash`、Scope Registry 推导），`resource_scope_summary`/`scope_refs` 改为直接投影；Q-10：`execution_proposal` 状态收敛为 PENDING/CONFIRMED + `superseded_at`（过期/被取代改为派生判定）；Q-04：`confirmation_digest` 去掉 `rendered_summary`、改用 `template_hash`；B2：新增 `current_step_name` 与 EXE-API-01 的 `error_code` 筛选；D6：新增 Builder 执行可见范围（依赖 `service_definition.created_by`，ADR-052）；B6：产物访问判定以 `artifact` 表 FK 为准、`artifact_ids` 仅作复制来源记录；D4：新增 EXE-API-07「重新投递」并定义与重试的边界（ADR-054）；B11：步骤 schema 新增 `human_policy`（ADR-055）；B3：保留与清理按《11-数据保留与清理策略》；D7：自助重试与来源会话查看显式后置 |
 | V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
+| V1.14.3 契约闭环修复 | 2026-09-14 | Codex | 统一模式成员校验、受控测试身份、ExecutionView 字段/动作及消息聚合；新增黄金旅程 S-SVC-18。 |
 
 ## 2. 需求分析
 
@@ -127,6 +128,7 @@
 | S-SVC-14 | FEAT-SVC-05 | P0 | integration | ASYNC 步骤配置链路 | 本模块 + 06/07 | Service 引用支持异步提交的能力 | Builder 声明 `execution_mode=ASYNC` 并保存/发布/测试 | Draft 校验通过；`execution_step.execution_mode=ASYNC`、`service_execution.execution_mode=ASYNC`；Worker 走 ASYNC 提交分支（D9 修复） |
 | S-SVC-15 | FEAT-SVC-01 | P0 | E2E | 能力测试产物归属与下载 | 本模块 + 07 | 能力返回大结果（外置） | Builder 在能力测试面板执行并点「下载产物」 | 产生 `execution_source=CAPABILITY_TEST` 执行；`artifact.execution_id` 指向它；`EXE-API-06` 返回字节流；该执行不出现在默认执行列表（D10 修复） |
 | S-SVC-16 | FEAT-SVC-04 | P1 | E2E | Builder 可见范围并集 | 本模块 + 18 | 存在两个执行：A 由 Builder 自建 Service、B 属于 Builder 被授权 Agent（Service 由他人创建） | Builder 打开执行列表并直连两个 id | A、B **都可见**（并集两侧各自成立）；两者都不满足的执行 404（D13 修复） |
+| S-SVC-18 | FEAT-SVC-05 | P0 | E2E | MSS/WeCom 黄金旅程 | 本模块+03/06/07/08/10/17/18 | 两用户凭据隔离，Skill 已本地验证，Bot/Agent 授权就绪 | 配置能力→导入 Skill→绑定 Agent→草稿测试→发布→IM 提案确认→异步执行→人工介入→文件交付 | 各阶段复用同一身份/快照/模式；Worker 崩溃恢复不重复提交；许可重放不重复发送；用户收到文件，跨用户重取拒绝。必须由真实集成环境验证，静态文档测试不代表本场景通过 |
 | S-SVC-17 | FEAT-SVC-07 | P1 | integration | 重投后汇总收敛 | 本模块 + 10 | 执行 `delivery_status=FAILED`（某逻辑消息有效尝试失败） | Admin 重新投递且新尝试送达成功 | `deliveries[]` 新增 attempt 行且保留历史失败行；`delivery_status` 收敛为 `DELIVERED`；再次重投返回 409（D11 修复） |
 
 **异常场景**
@@ -1390,7 +1392,7 @@ Draft.steps[].execution_mode
   → Worker WORK-LIB-03 按 execution_step.execution_mode 分流 SYNC/ASYNC 分支
 ```
 
-- 能力侧只声明**是否支持异步提交**（`capability_implementation` 的异步支持标记，见模块 07），步骤声明**是否要走异步**；`SVC-API-05` 校验阶段必须**合取两者**：能力不支持异步而步骤声明 ASYNC → `CAPABILITY_ASYNC_NOT_INVOKABLE`(422)；能力仅支持异步而步骤声明 SYNC → 同样 `CAPABILITY_ASYNC_NOT_INVOKABLE`(422)。**禁止拖到 Worker 运行期才发现**。
+- 能力侧声明 `supported_execution_modes` 非空去重集合（缺省 `["SYNC"]`）。`SVC-API-05` 只做成员校验：步骤 `execution_mode` 不在集合内即 `CAPABILITY_ASYNC_NOT_INVOKABLE`(422)，定位到步骤；`["ASYNC"]` 拒绝 SYNC，`["SYNC","ASYNC"]` 两者均允许。保存/发布/测试读取同一投影并冻结该集合，Worker 复用校验，禁止运行期隐式切换模式。
 - `execution_mode=ASYNC` 仅允许 `type=CAPABILITY`；`reconcile_timeout_seconds`/`max_poll_attempts` 仅 ASYNC 步骤可提交（SYNC 步骤携带即 Schema 拒绝）。
 - 原实现路径的缺口（D9 修复记录）：Draft Schema 未声明 `execution_mode` 且 `additionalProperties=false`，而 Worker 却按 `execution_step.execution_mode=ASYNC` 分流，导致“有执行设计、无合法配置入口”。现补齐 Draft→快照→Worker 的完整传递与表单控件（前端见《03-前端设计/02-服务管理》）。
 
@@ -1516,7 +1518,7 @@ Draft.steps[].execution_mode
 
 **契约**：`POST /api/v1/services/{service_id}/test`
 
-**认证/授权**：Builder + Admin；测试操作者和 test_user 分别审计
+**认证/授权**：Builder + Admin；先按 SVC-API-11 校验 Service 可测试范围，再调用 `USR-LIB-02.require_user` 校验测试身份。Builder 仅本人，Admin 可选择同租户 ACTIVE 用户（含 END_USER）；测试操作者和 test_user 分别审计。越界返回 TEST_USER_ACCESS_INVALID(403)，不得创建执行或调用 Provider。
 
 **请求体**：test_user_id、input、draft_revision、idempotency_key 必填；resource_scope 可选；mode=DRY_RUN（默认）/REAL_TEST。客户端不能传 execution_source、snapshot_id 或 service_release_id。
 
@@ -1720,8 +1722,8 @@ DRY_RUN：可信 ctx.projection.test_mode 注入 Worker→Agent→Skill 宿主�
 | waiting_reason / context_summary / human_deadline / requested_action | string/null、object/null、datetime/null、enum/null | 等待进入时固化；禁止 current 重渲染。`context_summary` 覆盖 U03 六要素（含 `completed_steps[]` 与 `options[{action,label,meaning}]`） |
 | resource_scope_summary | object/null | **脱敏**范围摘要（ADR-048/050）：`{type, refs[], labels?}` —— `type` 与其展示名、`refs` 原样（引用本身是可展示标识），供 A04 排障回答"哪个客户/哪个范围"；`attributes` 不进摘要；仅 Builder/Admin 可见 |
 | scope_refs | string[] | `resource_scope.refs` 的直接投影（供筛选与跳转）；空表示无范围 |
-| delivery_status | enum | **按逻辑消息取有效尝试**（D11 修复）：无队列 NONE；否则按逻辑消息键（`channel_delivery.event_id` 去掉 `:redeliver:<n>` 后缀）聚合，取该消息**有效尝试**（`attempt` 最大、同 attempt 取最新）的状态：有效尝试 DELIVERED 且该消息无更晚的非终态尝试 → DELIVERED；否则按 UNKNOWN > FAILED > SENDING > RETRY_PENDING > PENDING 取最严重态。**历史失败尝试不永久污染汇总**——重新投递成功后必须收敛为 DELIVERED |
-| available_actions | string[] | 当前状态和角色计算：Builder=[]；Admin 按 CANCEL/RETRY/RESUME 条件提供（取消的可执行状态见 EXE-API-03，决策见 EXE-API-05） |
+| delivery_status | enum | **按逻辑消息取有效尝试**（D11 修复）：无队列 NONE；否则按持久逻辑消息键 `channel_delivery.message_key` 聚合，取该消息**有效尝试**（`attempt` 最大、同 attempt 取最新）的状态：有效尝试 DELIVERED 且该消息无更晚的非终态尝试 → DELIVERED；否则按 UNKNOWN > FAILED > SENDING > RETRY_PENDING > PENDING 取最严重态。**历史失败尝试不永久污染汇总**——重新投递成功后必须收敛为 DELIVERED |
+| available_actions | string[] | 当前状态和角色计算：Builder=[]；Admin 按 CANCEL/RETRY/RESUME/REDELIVER 条件提供（取消的可执行状态见 EXE-API-03，决策见 EXE-API-05） |
 
 ExecutionSummary 除 input/context_summary 外包含上述字段，等待字段可空，后端不省略不支持字段以免 UI 猜测。
 
@@ -1852,16 +1854,11 @@ Worker 必须持有效 lease_epoch 才应用：先处理已接受决策，再判
 
 **契约**：`GET /api/v1/services/{service_id}/test-user-candidates`
 
-**认证/授权**：Builder + Admin。Builder 只能取**自己有权选择**的候选（服务 `created_by` 命中，或自己对服务主 Agent / 其引用能力的平台有授权）；越权服务返回 404 `SERVICE_NOT_FOUND`。
+**认证/授权**：Builder + Admin，先按 Service 可测试范围检查对象（自建 Service 或已有主 Agent 授权），越权/跨租户服务 404 SERVICE_NOT_FOUND；随后调用模块 18 `USR-LIB-02`。Builder 候选只含当前用户，Admin 可选择同租户 ACTIVE 用户（包含 END_USER）。不引入“平台授权”关系。
 
-**Query**：`page=1/page_size=50（max100）`；`keyword` 可选（display_name/user_key 模糊）。
+**Query**：page=1/page_size=50（max100）、keyword 可选。
 
-**响应 data**：`{items: [{user_id, user_key, display_name}], page, page_size, total, default_user_id}`。
-
-- `default_user_id` = 当前登录用户的 `platform_user.id`（取自会话身份端点 `AUTH-API-01`，**不从请求体接受**）；用于测试弹窗“默认当前登录用户”。
-- `items` 为**受控候选**，不是用户目录：Builder 只看到自己权限范围内的用户，Admin 看到租户内 ACTIVE 用户；`END_USER` 不进候选。
-- 该接口只服务 Builder 的测试选择，**不得**替代或放宽 `USR-API-01`（用户列表仅 Admin）。
-- 候选为空返回 `items: []`（合法空态：控件仍显示并提示“无可选测试用户”，默认仍是当前登录用户）。
+**响应 data**：`{items:[{user_id,user_key,display_name}],page,page_size,total,default_user_id}`，字段与 USR-LIB-02 一致。候选为空合法；测试提交 `SVC-API-06` 复用 `require_user` 实时判定，错误 TEST_USER_ACCESS_INVALID(403)。候选读取不替代最终认证/Agent grant/业务数据权限检查，不放宽 USR-API-01。
 
 **错误码**
 
@@ -2013,7 +2010,7 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 | FEAT-SVC-02 | SVC-API-05, SVC-API-06, EXE-LIB-01 | S-SVC-08, E-SVC-01 | E2E/integration | 待实现/评审 |
 | FEAT-SVC-03 | SVC-API-07, SVC-API-08, SVC-API-09 | S-SVC-02, E-SVC-01 | E2E/integration | 待实现/评审 |
 | FEAT-SVC-04 | EXE-LIB-01, EXE-LIB-02, EXE-LIB-03, EXE-API-01, EXE-API-02 | S-SVC-03, S-SVC-07, S-SVC-10, E-SVC-02, E-SVC-04 | E2E/integration | 待实现/评审 |
-| FEAT-SVC-05 | EXE-API-02, CAP-LIB-03/04（模块 07）, WORK-LIB-03/05（模块 06） | S-SVC-04, S-SVC-06, E-SVC-03, B-SVC-03 | E2E/integration | 待实现/评审 |
+| FEAT-SVC-05 | EXE-API-02, CAP-LIB-03/04（模块 07）, WORK-LIB-03/05（模块 06） | S-SVC-04, S-SVC-06, S-SVC-18, E-SVC-03, B-SVC-03 | E2E/integration | 待实现/评审 |
 | FEAT-SVC-06 | EXE-API-01, EXE-API-03, EXE-API-04, SVC-API-10 | S-SVC-05, B-SVC-02 | E2E/integration | 待实现/评审 |
 | FEAT-SVC-07 | EXE-API-02, EXE-API-06, EXE-API-07 | S-SVC-11, S-SVC-12 | E2E/integration | 待实现/评审 |
 | FEAT-SVC-08 | EXE-API-05, WORK-LIB-01（模块 06）, CH-INT-01（模块 10） | S-SVC-09, E-SVC-05 | E2E/integration | 待实现/评审 |

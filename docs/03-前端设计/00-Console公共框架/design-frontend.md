@@ -26,6 +26,7 @@
 | V1.13.1 | 2026-09-12 | Claude Code：第四轮 Review 修复——§3.4 新增 `StandardListQuery` 统一列表查询契约（Z-08：`page`/`page_size`/`keyword`/`sort`，服务端筛选、筛选变更重置 `page=1`、URL 为唯一事实源），并补场景 `S-00-03` |
 | V1.14.1 第五轮契约同步 | 2026-09-13 | 第五轮 D8~D15 契约同步（ADR-067/D14）：§3.3.1 登录与身份合同补身份再查询入口 `GET /api/v1/auth/me`（`AUTH-API-01`，Owner=模块 09，返回 `{user_id, username, role, tenant_id}`），说明需要 `user_id` 或以当前身份渲染角色 UI 时读该接口、不以登录会话快照为准；登录响应契约 `{token, username, role}` 不变 |
 | V1.14.2 第六轮 Review 收敛 | 2026-09-13 | 设计修复 | `StandardListQuery` 由「万能筛选 + `sort`」收敛为 **`page`/`page_size`/`keyword`/`enabled`** + 各页**显式声明**的领域筛选白名单（新增白名单表，8 个页面逐页列出）；删除任意 `sort` 与「非法 sort → 422」语义（排序由后端固定） |
+| V1.14.3 | 2026-09-14 | 契约修复：字段、提交语义与验收场景同步后端 Owner，详见变更记录 13。 |
 
 ## 2. 需求分析
 
@@ -70,6 +71,7 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|
+| S-00-04 | FEAT-00-01 | E2E | 菜单与运行对象边界 | Builder/Admin 遍历 Console 菜单与路由 | 无系统设置、Channel、Async Task、Conversation、Knowledge 一级菜单或路由；Async 仅在执行详情，Channel 配置归 Agent，会话由 IM /new 管理 |
 | S-00-01 | FEAT-00-01 | E2E | 登录与角色上下文 | 以 Builder 登录后进入 /console | 菜单不含用户/审计；角色上下文= BUILDER |
 | S-00-02 | FEAT-00-01 | E2E | 401 统一处理 | token 过期后任意操作 | 跳转 /login；重新登录回原页面 |
 | S-00-03 | FEAT-00-02 | E2E | 统一列表查询契约 | 在服务列表输入 keyword 并切换「启用状态」筛选，然后刷新页面 | 列表请求查询串为 `keyword=<输入值>&enabled=false&page=1&page_size=20`（服务端筛选；Network 面板中**无**无筛选的全量列表请求）；地址栏查询串与请求一致；刷新后 keyword、启用状态与页码均保留；在 `page=2` 时改动任一筛选后，下一次请求的 `page` 重置为 `1` |

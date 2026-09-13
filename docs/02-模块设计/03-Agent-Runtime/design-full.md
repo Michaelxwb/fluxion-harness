@@ -39,6 +39,7 @@
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | RT-INT-01 补 proposal/file 事件与签发步骤；新增 RT-LIB-03 Chat Run 领取/恢复；AGCORE-LIB-02 按 Contract 元数据分流（模块 04）；矩阵与 verifier 修正 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | RT-LIB-03 改为基于模块 01 的 CORE-LIB-08 LeaseQueue（claim/renew/assert_owner）实现，本模块只保留租约参数与领取排序键；新增 §3.2.3「运行面 vs 管理面」可用性合同与降级说明（D3=B+）；RT-INT-03 产物访问判定改为以 `artifact` 表 FK 为准（B6） |
 | V1.14 最简重设 | 2026-09-12 | Claude Code | N-4：RT-LIB-03 领取 SQL 收归本模块（固定 table/filter 参数），续租/释放/fencing 仍走 CORE-LIB-08 |
+| V1.14.3 契约闭环修复 | 2026-09-14 | Codex | 明确 CH-DATA-03 单次消费不可透明重试；保持现有运行面部署。 |
 
 ## 2. 需求分析
 
@@ -181,7 +182,7 @@ flowchart LR
 
 #### 3.2.3 运行面 vs 管理面（可用性合同）
 
-本进程承载的 `CH-DATA-01..04` 与 `CH-INT-02`（模块 10）属于**运行面**：与 platform-api（**管理面**，Console CRUD 等）在进程与依赖上分离，不共享进程、不互相代理。`CH-DATA-*` 端点只读、幂等、无副作用，可安全重试；**platform-api 停机不影响这些端点**（Gate H）。
+本进程承载的 `CH-DATA-01..04` 与 `CH-INT-02`（模块 10）属于**运行面**：与 platform-api（**管理面**，Console CRUD 等）在进程与依赖上分离，不共享进程、不互相代理。CH-DATA-01/04 为只读，CH-DATA-02 按外部消息身份幂等，CH-DATA-03 为发送许可的单次消费且不可透明重试；**platform-api 停机不影响这些端点**（Gate H）。
 
 **降级说明**：agent-runtime 故障时，IM 入站与投递许可不可用（Gateway 无法读取 Bot 配置/许可/取流）；**已创建的 Execution 不受影响**，仍由 Worker 按自身租约继续推进；投递行由 Worker 保留，并在 agent-runtime 恢复后由 `WORK-LIB-06` 继续调度——`channel_delivery` 的 `RETRY_WAIT`/`UNKNOWN` 语义已覆盖该场景。
 

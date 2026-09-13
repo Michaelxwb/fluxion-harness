@@ -302,10 +302,10 @@ Admin 可：
 两类编辑**交互一致（全量加载 + 差异确认），提交语义不同**：
 
 1. **用户授权 —— 单条操作，唯一写入口在 User 侧**：增授权 `POST /api/v1/users/{user_id}/agent-grants`（body `{agent_id, idempotency_key}`）、撤授权 `POST /api/v1/users/{user_id}/agent-grants/{grant_id}/revoke`（body `{idempotency_key}`）。Agent 侧 `USR-API-08/08R` **已删除**；`USR-API-07` 保留为**唯一反向只读视图**（Agent 详情页的授权列表与预勾选由它 + `USR-API-05` 提供，`grant_id` 取自读侧）。并发安全由单条操作的结构保证：两个 Admin 分别操作不同用户互不覆盖；同一 (user, agent) 重复操作按 `idempotency_key` 幂等返回——因此不出现「授权已被他人修改，请重新加载」的乐观锁提示。
-2. **Agent 绑定 —— 一次 `PATCH`，带 `revision`**：直接能力 / Skill / 可调用服务三类绑定合并为一个 `PATCH /api/v1/agents/{agent_id}/bindings`（body 含三类集合 + `revision`）。`AGENT-API-05/06/07` 三个 PUT 与 `AGENT-API-08`（有效能力分析）**已删除**：有效能力由详情 bindings 带 `origin`（`DIRECT`/`VIA_SKILL`/`VIA_SERVICE`）就地展示；`revision` 不匹配返回 409，保留弹窗内容并提示重新加载。
+2. **Agent 绑定 —— 一次 `PATCH`，带 `revision`**：直接能力 / Skill / 可调用服务三类绑定合并为一个 `PATCH /api/v1/agents/{agent_id}/bindings`（body 含本次修改的维度完整集合 + `revision`，未修改维度省略）。`AGENT-API-05/06/07` 三个 PUT 与 `AGENT-API-08`（有效能力分析）**已删除**：有效能力由详情 bindings 带 `origin`（`DIRECT_BINDING`/`SKILL_DECLARED`/`SERVICE_DERIVED`）就地展示；`revision` 不匹配返回 409，保留弹窗内容并提示重新加载。
 3. **已授权预勾选**：打开编辑弹窗时，候选列表**全量加载**并**预勾选当前已授权/已绑定对象**（不是“只列未授权对象再逐行增删”）；
 4. **保存前差异确认**：提交前展示差异摘要——“**新增 N 个 / 移除 M 个**”，并列出被移除对象的名称；N=M=0 时保存按钮禁用并提示“无变更”。差异摘要中的移除项必须逐条列出对象名与标识，不得只显示计数。
-5. **两个组件、两种提交语义**：**逐条即时列表**（每行开关/解绑，改动立即生效，无保存按钮、无覆盖语义）用于日常单条操作；**批量差异确认弹窗**仅用于一次性增删多个对象（绑定=一次 `PATCH` 含完整三类集合；授权=**逐条** `POST`，不合并为集合写）。同一个 UI 不得同时承担两种提交语义。
+5. **两个组件、两种提交语义**：**逐条即时列表**用于日常单条操作：授权按单条 POST；Agent 绑定先读取当前维度完整集合，再提交该维度完整 ID 集合与 revision，未修改维度省略。**批量差异确认弹窗**用于一次性增删多个对象：绑定仍按维度集合替换（一次 PATCH）；授权仍逐条 POST。两种 UI 复用同一领域写入语义；409 时刷新并重新确认，不盲目覆盖。
 6. **授权读侧**：返回**每条授权的有效状态**（含 `grant_id`/`enabled`/`granted_by`/`granted_at`/`revoked_at`），弹窗按该集合预勾选。
 
 ---
@@ -336,15 +336,19 @@ Admin 可：
 - **超时与重试不属于 `config`**，属于 `execution_policy`：`deadline_seconds` / `max_retries` / `backoff_seconds`；表单上独立成组，不放进实现配置区块。
 - **分页配置不属于 `config`**，属于 `data_retrieval_policy`（见 §4.6）。
 
+**实现顶层公共控件**：`auth_mode` 所有类型都显示；USER_PLATFORM 仅 PLATFORM_SERVICE 可选，其他类型只允许 NONE/SHARED_SECRET。SHARED_SECRET 必填 `implementation.shared_secret_ref`（只写引用，详情只展示 shared_secret_configured；编辑时重新填引用）；其他认证不提交该键。`implementation.supported_execution_modes` 为 SYNC/ASYNC 多选，默认 [SYNC]，至少一项且去重；CAP-API-06 返回同一集合。能力测试只接受集合含 SYNC 的实现，仅异步能力通过 Service ASYNC 步骤测试。
+
 ## 4.2 Platform Service 专属
 
 | 字段 | 必填 | 说明 |
 |---|---:|---|
 | `project_platform_id` | **是** | 只有本类型出现；下拉来自 `PLAT-API-01` 安全选项（`name`/`key`/`configured`/`enabled`） |
 | `service_key` | 是 | 注册发现 service name |
+| `path` | 是 | 平台接口路径 |
+| `method` | 是 | GET/POST/PUT/PATCH/DELETE |
 | `auth_mode` | 是 | **`implementation` 顶层字段（与 `implementation_type`/`config`/`execution_policy` 并列，不写进 `config`；`config` 内出现一律 400 `CAPABILITY_IMPLEMENTATION_INVALID`）**：`USER_PLATFORM`（当前用户项目平台认证，必填平台选择）/ `SHARED_SECRET`（必填共享 Secret 引用）/ `NONE`，默认 `NONE` |
-| `request_mapping` | 是 | 入参映射 |
-| `response_mapping` | 是 | 出参映射 |
+| `request_mapping` | 否 | 入参映射 |
+| `response_mapping` | 否 | 出参映射 |
 
 ## 4.3 HTTP 专属
 
@@ -352,11 +356,11 @@ Admin 可：
 |---|---:|---|
 | `method` | 是 | |
 | `base_url` | 是 | |
-| `path` | 否 | |
+| `path` | 是 | |
 | `query_mapping` | 否 | |
 | `body_mapping` | 否 | |
 | `header_keys` | 否 | 仅非 Secret Header 的 **key 列表**；值走 Secret ref |
-| `response_mapping` | 是 | |
+| `response_mapping` | 否 | |
 
 **不显示项目平台字段**。
 
@@ -367,7 +371,7 @@ Admin 可：
 | `server_key` | 是 | MCP server 注册键 |
 | `tool_name` | 是 | |
 | `input_mapping` | 否 | 参数映射 |
-| `response_mapping` | 是 | |
+| `response_mapping` | 否 | |
 
 不显示项目平台。
 
@@ -442,7 +446,7 @@ Admin 可：
 |---|---|
 | 控件位置 | 能力**详情页顶部**「测试」按钮（与「编辑」并列）；列表行内**不**放测试（测试需要 JSON 输入，行内无法承载） |
 | 权限 | **Builder + Admin**（与模块 07 `CAP-API-05` 授权列一致）；对 Builder 不隐藏按钮 |
-| 弹窗输入 | ① 测试输入：按该能力 `input_schema` 渲染的 JSON 编辑器（Schema 不合法的 JSON 就地报错，不发请求）；② **测试用户**（`test_user_id`）：**仅当**该能力的 `auth_mode=USER_PLATFORM`（平台用户认证；凭据来源唯一由实现层 `auth_mode` 表达，不再由能力声明）时显示，默认当前登录用户（取 `GET /api/v1/auth/me` 的 `user_id`，`AUTH-API-01`；候选经 `GET /api/v1/services/{service_id}/test-user-candidates`，`SVC-API-11`）；③ 结果模式（`result_mode`）：`INLINE` / `SUMMARY`，默认跟随后端实现策略 |
+| 弹窗输入 | ① 测试输入：按该能力 `input_schema` 渲染的 JSON 编辑器（Schema 不合法的 JSON 就地报错，不发请求）；② **测试用户**（`test_user_id`）：**仅当**该能力的 `auth_mode=USER_PLATFORM`（平台用户认证；凭据来源唯一由实现层 `auth_mode` 表达，不再由能力声明）时显示，默认当前登录用户（取 `GET /api/v1/auth/me` 的 `user_id`，`AUTH-API-01`；候选经 `GET /api/v1/capabilities/{capability_id}/test-user-candidates`，`CAP-API-07`）；③ 结果模式（`result_mode`）：`INLINE` / `SUMMARY`，默认跟随后端实现策略 |
 | 输出 | 成功：`ok=true` + 归一化输出（inline 直接展开；外置时显示 summary + `artifact_id` + `execution_id` 与「下载产物」入口，`GET /api/v1/executions/{execution_id}/artifacts/{artifact_id}/download` 受权字节流，不下发对象存储直链）；**耗时**取自 `stats.latency`（毫秒，前端渲染为 `N ms`，不使用客户端计时）；失败：`ok=false` + 脱敏错误码/消息，错误定位到输入控件 |
 | 统计行 | 显示 `stats` 的 `downstream_calls` / `pages` / `items` / `retries`（后端返回才显示，缺字段不渲染该项，前端不补 0） |
 | 追踪 | 显示响应 `trace_id`（可复制），便于与执行记录/审计对齐 |
@@ -768,13 +772,13 @@ password  密码    password  required secret
 | 投递状态 | 独立 |
 | 接入渠道 | channel_source（V1=企业微信；API 发起显示 `—`） |
 | 当前阶段 | `current_step_name`（业务可读步骤名）；`current_step`（step_key）只作技术标识，在 hover/次级位置展示（B2） |
-| 业务范围 | `resource_scope.refs[]`（范围引用；Builder / Admin 均可见） |
+| 业务范围 | `scope_refs`（范围引用；Builder / Admin 均可见） |
 | 追踪标识 | trace_id |
 | 开始时间 | |
 | 结束时间 | 未结束显示 `—` |
 | 操作 | 只有“详情” |
 
-列表投递筛选 Query=delivery_status；业务状态与投递状态独立。投递枚举 NONE/PENDING/SENDING/**RETRY_PENDING**/DELIVERED/FAILED/UNKNOWN（前端呈现名；后端投递侧字段值为 `RETRY_WAIT`，与执行状态 `RETRY_WAIT` 同名不同义，UI 文案为「等待重新投递」）；UNKNOWN 明确送达未确认，不触发业务重试。Builder 只读，取消/重试/审批仅 Admin；重试返回 new_execution_id 后打开新执行。
+列表投递筛选 Query=delivery_status；业务状态与投递状态独立。投递枚举 NONE/PENDING/SENDING/**RETRY_PENDING**/DELIVERED/FAILED/UNKNOWN（前后端枚举相同；执行 RETRY_WAIT 文案为「等待重试」，投递 RETRY_PENDING 为「等待重新投递」，不转换字段值）；UNKNOWN 明确送达未确认，不触发业务重试。Builder 只读，取消/重试/审批仅 Admin；重试返回 new_execution_id 后打开新执行。
 
 **执行源 `execution_source`（V1.14.1）**：取值为 `{FORMAL, TEST, CAPABILITY_TEST}`。常规执行列表**默认只查 `FORMAL`**；服务测试面板查 `TEST`；能力测试面板查 `CAPABILITY_TEST`（能力测试执行不进默认执行列表）。
 
@@ -784,7 +788,7 @@ password  密码    password  required secret
 
 **「重新执行」与「重新投递」是两个动作（D4=A）**：列表行操作仍只有「详情」，四个动作都在详情（见 §9.2）；列表与详情**不再出现**含义模糊的单一「重试」按钮。
 
-**业务范围展示与筛选（D15；按 D5=A 的最小 typed scope 口径）**：`resource_scope` 为 `{type, refs[], attributes?}`，执行列表与详情只展示**范围引用 `refs[]`**；不展示 `attributes`、不展示原始 `resource_scope_json`、不展示跨租户标识。列表支持按范围引用筛选（后端 `scope_refs` 直接投影 `refs`，Query 与执行范围的引用键同名），筛选值来源于后端返回的可选范围引用集合，前端不硬编码范围枚举。V1 无 Service 级 scope schema 与 `Schema Hash`，不再按类型元数据做投影脱敏。
+**业务范围展示与筛选**：列表/详情读取 `scope_refs` 与 `resource_scope_summary`（type/refs/labels），不读取原始 resource_scope/attributes。筛选使用文本输入和 Query `scope_ref`，不依赖未定义的候选接口、不硬编码范围枚举。
 
 ## 9.2 详情
 
@@ -802,7 +806,7 @@ password  密码    password  required secret
 - retry_count（重试次数）；
 - channel_source（接入渠道）；
 - `current_step_name`（当前阶段，业务可读；hover 显示 `current_step` 步骤 key）；
-- resource_scope.refs（业务范围引用，Builder/Admin 可见）。
+- scope_refs（业务范围引用，Builder/Admin 可见）。
 
 人工审批区块（status=WAITING_HUMAN 时显示）：
 

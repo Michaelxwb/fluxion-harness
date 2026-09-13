@@ -39,6 +39,7 @@
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | 新增 `CH-LIB-02 enqueue_delivery(tx, …)`（显式接收调用方事务）；支持 `EXE-API-07` 重新投递的 `event_id` 规则（`:redeliver:<n>`）与场景 `S-CHAN-10`；新增 `S-WORK-13` 对应的槽位协调表登记 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 场景行归位与表格修复；新增 human_wait/progress_stage 投递与 RULE-CHAN-09；命令集对齐与 MEM-INT-01 去重；Bot Secret lease 与连接状态数据源；删除 Console 会话接口；message_type 补 PROPOSAL 与 CONV-LIB-03 |
 | V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
+| V1.14.3 契约闭环修复 | 2026-09-14 | Codex | 恢复 CH-DATA-03 原子消费边界与 permit_consumed_at；明确重放、丢响应、UNKNOWN 及提交后发送。 |
 
 ## 2. 需求分析
 
@@ -112,6 +113,7 @@
 | S-CHAN-04 | FEAT-CHAN-04 | P0 | E2E | Gateway→Grant→Runtime | 后置 → 模块 18/03 | 身份已绑定且有 grant | 发普通消息 | 路由 Agent 并流式回复 |
 | S-CHAN-05 | FEAT-CHAN-05 | P0 | E2E | Worker→delivery API→WebSocket | 本模块 | 用户离开后任务完成 | 主动投递 | 按持久 Route 发送到正确 peer |
 | S-CHAN-08 | FEAT-CHAN-05 | P1 | E2E | /stop 目标解析与多候选 | 本模块 | 用户存在多个非终态 Chat Run/Execution | 发送 /stop（无显式 target）| 返回 COMMAND_TARGET_AMBIGUOUS(409) 不猜测；带显式 target 时停止对应目标 |
+| S-CHAN-11 | FEAT-CHAN-05 | P0 | integration | 两个 Gateway 请求→PG CAS→单次发送 | 本模块 | 同一 SENDING epoch 与未消费许可 | 并发调用 CH-DATA-03，再重放/换旧 epoch/模拟消费响应丢失 | 仅一个许可消费成功；重复、过期、旧 epoch、跨 tenant 均拒绝；响应丢失不重发，UNKNOWN；发送不在 PG 事务内 |
 | S-CHAN-10 | FEAT-CHAN-05 | P1 | integration | 管理员重新投递 | 本模块 + 05 | 执行 SUCCEEDED 且最近一次投递为 FAILED | Admin 调 `EXE-API-07` → 平台预建 `event_id=<原>:redeliver:1` 的 PENDING 行 → WORK-LIB-06 调度发送 | 新建一条投递尝试（不覆盖原行、不改 `dedupe_key` 语义）；同 `idempotency_key` 重复请求返回原 `delivery_id`、不新增行；`delivery_status` 由 FAILED 变为 DELIVERED 或新的 FAILED |
 | S-CHAN-09 | FEAT-CHAN-05 | P0 | E2E | Worker→delivery(DELIVERY)→WebSocket | 本模块 | END_USER 发起服务执行并进入 WAITING_HUMAN | 等待平台 human_wait 推送（该 Service 未编排承载提示的 DELIVERY 步骤）→ 本人在 IM 回复决策 | 本人在 deadline 内收到含六要素的 human_wait 文本消息（TEXT、已冻结文案、event_id=execution_id:human_wait:<step_key>:<entered_at_epoch>），投递给该 Execution actor_user_id 的 DeliveryRoute；决策后经 CH-INT-02 RESUME/CANCEL 流转状态且不被静默超时 |
 
@@ -229,6 +231,7 @@ flowchart LR
 | lease_owner | VARCHAR(256) | Y |  |  | 发送 attempt 的 Worker |
 | lease_expires_at | TIMESTAMPTZ | Y |  |  | 发送租约 |
 | lease_epoch | BIGINT | N | 0 |  | attempt fencing token |
+| permit_consumed_at | TIMESTAMPTZ | Y | NULL |  | 当前 epoch 的发送许可消费时间；领取新 epoch 时清空，仅 CH-DATA-03 原子置值 |
 | remote_idempotency | BOOLEAN | N | FALSE |  | Adapter 经验证支持远端同键去重时才为 true |
 | dedupe_key | VARCHAR(128) | N |  | UK | dlv: + canonical(tenant,execution,step_id,route_id,event_id) SHA-256 十六进制，共 68 字符 |
 | provider_message_id | VARCHAR(512) | Y |  |  | 渠道已确认的发送 ID |
@@ -474,6 +477,7 @@ erDiagram
 | CH-API-07 | 作废绑定码 | HTTP | POST | /api/v1/users/{user_id}/bind-codes/{bind_code_id}/revoke |
 | CH-DATA-01 | Gateway 配置读取（含短时 SecretLease） | HTTP | GET | /internal/v1/channel-accounts |
 | CH-DATA-02 | 可信入站解析 | HTTP | POST | /internal/v1/channels/resolve-envelope |
+| CH-DATA-03 | 原子消费发送许可并读取冻结负载 | HTTP | POST | /internal/v1/channel-deliveries/{delivery_id}/consume-permit |
 | CH-DATA-04 | 附件内部取流 | HTTP | GET | /internal/v1/channel-deliveries/{delivery_id}/artifact |
 | CH-INT-01 | 后台单次投递（含许可校验） | HTTP | POST | /internal/v1/channel-deliveries/{delivery_id}/deliver |
 | CH-INT-02 | IM 用户命令内部转发 | HTTP | POST | /internal/v1/commands |
@@ -869,33 +873,39 @@ transaction：撤销同 user+channel 未使用 PENDING → 生成高熵随机 co
 
 #### CH-INT-01: 后台单次投递（`deliver`）
 
-**契约**：`POST /internal/v1/channel-deliveries/{delivery_id}/deliver`
+**契约**：`POST /internal/v1/channel-deliveries/{delivery_id}/deliver`，由 TypeScript Gateway 承载。
 
-**认证/授权**：service identity（AUTH-LIB-02 JWT，aud=channel-gateway）+ 有效 `attempt_token`；token 的签发/校验/audience/scope 由模块 09 AUTH-LIB-02 提供，本模块不重定义。Gateway 服务独占该端点。**一次调用同时完成"领取发送许可"与"单次发送"**（P0-5 收敛）：原先把这两步拆成两个内部端点（先验 token 取 payload、再发送），Gateway 必须为同一次投递做两次内部调用，中间还要再传一次 epoch；现在校验与发送在同一 Application 方法内完成，少一跳、少一个可被跳过的一致性窗口。`human_wait` 的投递对象固定为该 Execution 的 `actor_user_id` 对应 DeliveryRoute（即 EXE-LIB-01/02 创建时从可信 ctx 固定写入的 `delivery_route_id`），**不得改投**；attempt_token 绑定 tenant/delivery_id/lease_epoch/过期时间，由 Python Channel Application 签发，不能由请求临时指定 route/message/user。
+**认证/授权**：仅 Worker service identity（AUTH-LIB-02 JWT，aud=channel-gateway）与有效 attempt_token；tenant、delivery_id、lease_epoch 和过期时间按可信 token 校验，不接受请求覆盖。
 
-**请求体**：`{delivery_id, attempt_token}`。
+**请求体**：`{delivery_id, attempt_token}`。token 由 Python Channel Application 签发，绑定 tenant/delivery_id/lease_epoch/expiry；请求不得指定 route/user/payload。
 
-**处理**：Application 原子校验「`attempt_token` 有效 + `status=SENDING` + 当前 `lease_epoch` + 租约未过期 + ChannelAccount enabled + 路由归属」并取已冻结 payload/路由；TEXT 调 Adapter.send；FILE 经 CH-DATA-04 受权取流并调用 Adapter.send_file。一个请求只发一次，SDK 自动发送重试关闭（重连可恢复连接，但不自动重放业务消息）。结果返回 Worker，由 Worker 按相同 epoch 写 PG；过期 token/epoch 返回 DELIVERY_LEASE_LOST（409）。
+**进程边界与顺序**：
 
-`human_wait` 与 `progress_stage` 均由 **Worker 在写状态的事务内预建 `channel_delivery` 行**（模块 06 负责调度与事件生成；`human_wait` 随 WAITING_HUMAN 的状态写入、`progress_stage` 随 STAGE 级进度写入），与业务状态同事务提交，因此不会出现“状态已变但没人通知”的窗口。Gateway 只按 `attempt_token` 单次发送，不自行决定是否通知、不补发。两类事件均按 **TEXT** 发送（V1 不做交互卡片；决策由用户回复命令经 CH-INT-02 回传），且内容为**已冻结文本**——payload 在预建时定稿，Gateway 不做模板渲染、不做 LLM 生成。V1 只推 STAGE 级进度与完成/失败，不推 PROGRESS 级。
+```text
+Worker：PG claim → SENDING，attempt/lease_epoch +1，permit_consumed_at=NULL → 提交
+Worker → Gateway CH-INT-01（delivery_id, attempt_token）
+Gateway → agent-runtime CH-DATA-03（以自身 service identity 原子消费许可）
+agent-runtime：校验身份/token/租约/路由/安全状态 → 单事务消费 → 提交 → 返回冻结 payload/route
+Gateway：只在本次 CH-DATA-03 返回成功后调用一次 Adapter.send/send_file
+Gateway → Worker：outcome；Worker 按相同 epoch 写回 PG
+```
 
-**响应**：`{delivery_id,lease_epoch,outcome,provider_message_id?,error_code?}`；outcome=DELIVERED（远端 ACK）/NOT_SENT（可证明没发送）/UNKNOWN（写出后 ACK 丢失/超时）。重复相同 attempt_token 的调用先查发送账本；已记录 outcome 返回原值，发送中或 Gateway 重启后无法证明是否已发则 UNKNOWN，不再执行 send。
+Gateway 不直连 PG，也不执行 Python Application。发送许可与外部发送不能放在同一数据库事务；`SENDING` 只表示 Worker 已领取，不能证明 Gateway 已消费许可。V1 不新增部署角色。
 
-**状态迁移表（由 Worker Channel Application 执行）**：
+**重复与失败**：CH-DATA-03 不做透明网络重试；同 token 的后续请求返回 `DELIVERY_LEASE_LOST`(409)，不得再次 send。Gateway 重启、许可响应丢失、许可消费后发送结果未知时返回 UNKNOWN；不能把“无法确认是否发送”降为 NOT_SENT。只有能证明没有写出渠道请求时才返回 NOT_SENT。Adapter 自动业务重发关闭。已确定 DELIVERED 的结果不得被后来的重复请求/超时覆盖；结果写入要求当前状态仍为 SENDING、epoch 匹配（同结果重放幂等）。
+
+**响应**：`{delivery_id, lease_epoch, outcome, provider_message_id?, error_code?}`；outcome=DELIVERED（远端 ACK）/NOT_SENT（可证明未发）/UNKNOWN（无法证明）。HTTP 409 的重复派发不会产生发送；Worker 不因此开启新的 attempt。
 
 | 原状态/事件 | 新状态 | 行为 |
 |---|---|---|
-| PENDING 或到期 RETRY_PENDING + 无有效 lease | SENDING | attempt+1、lease_epoch+1、设置 owner/expiry；超上限转 FAILED |
-| SENDING + DELIVERED | DELIVERED | 写 provider_message_id/delivered_at，释放 lease |
-| SENDING + NOT_SENT + attempt<max_attempts | RETRY_PENDING | 退避写 next_attempt_at，释放 lease |
-| SENDING + NOT_SENT + 次数耗尽 | FAILED | 明确失败，保留 result，释放 lease |
-| SENDING + UNKNOWN 或发送 lease 到期 | UNKNOWN | 结果未知，禁止自动盲目重发 |
-| UNKNOWN + 支持远端幂等/对账且证明已送达 | DELIVERED | 保存 ACK |
-| UNKNOWN + 支持远端幂等且允许同键重发 | RETRY_PENDING | 仍用同 dedupe_key；次数有界 |
+| PENDING 或到期 RETRY_PENDING + 无有效 lease | SENDING | attempt+1、lease_epoch+1、设置 owner/expiry、permit_consumed_at=NULL；次数有界 |
+| SENDING + DELIVERED | DELIVERED | 写 ACK/时间，释放 lease；终态结果不被重复响应覆盖 |
+| SENDING + NOT_SENT + attempt<max_attempts | RETRY_PENDING | 退避后才能领取新 epoch；当前消费时间保留到下次领取 |
+| SENDING + NOT_SENT + 次数耗尽 | FAILED | 明确失败，释放 lease |
+| SENDING + UNKNOWN 或发送 lease 到期 | UNKNOWN | 禁止自动盲目重发，保留消费事实供排障 |
+| UNKNOWN + 远端查询证明已送达 | DELIVERED | 保存 ACK |
 
-V1 默认 remote_idempotency=false：UNKNOWN 保留诊断并停止自动重发，用户可 /result 主动取件；不能宣称仅靠本地唯一键保证端到端 exactly-once。连接建立前已证明未发的失败可自动重试。Gateway 重启后不把 UNKNOWN 改回 PENDING。DELIVERED/FAILED/UNKNOWN 都不是业务执行失败，UI 单独显示。
-
-防重放**只用 `attempt_token` 与 `lease_epoch`，不额外落列**（P0-5 收敛）：token 单次有效、绑定 `tenant/delivery_id/lease_epoch/过期时间`，由 Channel Application 原子校验「SENDING + 当前 epoch + 租约有效」；同 token 再请求或旧 epoch 请求一律 `DELIVERY_LEASE_LOST`(409)，不再次 send。发送结果由 Worker 按同一 epoch 写回 `channel_delivery.status`（PENDING/SENDING/RETRY_PENDING/DELIVERED/FAILED/UNKNOWN），因此"是否已交给 Gateway"可从 `status=SENDING` 直接读出——再存一个 epoch 副本只多一处可能与 `lease_epoch` 不一致的状态。Gateway 无需保存权威内存表。
+V1 remote_idempotency=false 时 UNKNOWN 不重置许可，用户可 `/result` 主动取件、Admin 可显式重新投递新行；两者是新的用户意图。不能宣称端到端 exactly-once。`human_wait`/`progress_stage` 仍由 Worker 与状态同事务预建冻结 TEXT，不依赖 Gateway 渲染或补发。
 
 #### CH-DATA-01: Gateway 配置读取（含短时 SecretLease）
 
@@ -927,6 +937,37 @@ V1 默认 remote_idempotency=false：UNKNOWN 保留诊断并停止自动重发�
 **认证/授权**：service identity（AUTH-LIB-02 JWT，aud=agent-runtime）；签发/校验由模块 09 AUTH-LIB-02 提供，本模块不重定义。service identity 的 scope 限定 account：正文提供的 tenant/user 等身份字段一律拒绝，不参与解析。
 
 按 Bot 路由 → identity/binding（未绑定只允许 /bind）→ 当前 user/grant → CONV-LIB-01；在会话映射锁内生成 message.id、conversation 内递增 sequence_no，保存 verified account/peer/message 来源，重复 external_message_id 返回同消息。响应 VerifiedEnvelope `{tenant_id,platform_user_id,agent_id,conversation_id,verified_message_id,request_id}`；Runtime 不再次创建相同 USER 消息。未授权返回 403，未绑定返回 409 指引；/bind 事务由 Python Channel Application 完成，不经 Console。
+
+#### CH-DATA-03: 原子消费发送许可并读取冻结负载
+
+**契约**：`POST /internal/v1/channel-deliveries/{delivery_id}/consume-permit`；agent-runtime 承载，Owner=模块 10。
+
+**认证/授权**：Gateway service identity（AUTH-LIB-02，aud=agent-runtime，account scope）+ attempt_token。tenant/epoch 从校验后的 token 获取，不接受正文覆盖。body=`{attempt_token}`；路径 delivery_id 必须匹配 token。
+
+**处理**：同一短事务内锁定 delivery、route、account，按固定顺序检查当前账户 enabled、token account scope、同租户、execution.actor 与 route.user、FILE 的 artifact/workspace 归属。随后执行下列参数化 CAS；安全检查失败不消费。参数来自已验证身份；生产数据库时间作为租约截止的依据。
+
+<!-- contract:delivery-permit-consume-sql -->
+```sql
+UPDATE channel_delivery
+SET permit_consumed_at = CURRENT_TIMESTAMP,
+    update_time = CURRENT_TIMESTAMP
+WHERE id = :delivery_id
+  AND tenant_id = :tenant_id
+  AND is_deleted = false
+  AND status = 'SENDING'
+  AND lease_epoch = :lease_epoch
+  AND lease_expires_at > CURRENT_TIMESTAMP
+  AND permit_consumed_at IS NULL
+RETURNING id, lease_epoch, delivery_route_id, payload_json;
+```
+<!-- /contract:delivery-permit-consume-sql -->
+
+**响应**：统一 Envelope，data=`{delivery_id, lease_epoch, route:{channel_account_id,peer_type,peer_id}, payload, send_before}`。`send_before` 为 token expiry 与 lease expiry 的较早者，Gateway 过期不发送。必须提交消费事务后才能返回 payload；返回不含 Secret（连接凭据经 CH-DATA-01）或对象 URL。CAS 零行统一 `DELIVERY_LEASE_LOST`(409)，不回传旧 payload；跨 scope `CHANNEL_ACCOUNT_SCOPE_DENIED`(403)，路由/产物归属不符 403。并发相同许可至多一个请求成功。
+
+**FILE 取流**：CH-DATA-04 仍验证 token/account/epoch/expiry，并要求 permit_consumed_at 非空；它仅提供字节，不签发新的发送权。Gateway 仅凭本次成功的消费响应进入一次发送分支，不能用取流成功替代许可消费。
+
+✅ 两次并发消费同一 epoch：一条 CAS 返回行，另一条 409；成功方提交后发送一次。
+❌ 只校验 SENDING + epoch 然后发送：相同 token 可同时通过两次，不能称为单次许可。
 
 #### CH-DATA-04: 渠道内部 Artifact 字节流
 
@@ -1060,7 +1101,7 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 | FEAT-CHAN-02 | CH-DATA-01 | S-CHAN-02, E-CHAN-03 | E2E/integration | 待实现/评审 |
 | FEAT-CHAN-03 | CH-API-03, CH-API-04, CH-API-05, CH-API-06, CH-API-07 | S-CHAN-03, E-CHAN-01 | E2E/integration | 待实现/评审 |
 | FEAT-CHAN-04 | CH-DATA-02 | S-CHAN-04, E-CHAN-02 | E2E/integration | 待实现/评审 |
-| FEAT-CHAN-05 | CH-INT-01, CH-DATA-04, CH-LIB-02 | S-CHAN-05, S-CHAN-08, S-CHAN-09 | E2E/integration | 待实现/评审 |
+| FEAT-CHAN-05 | CH-INT-01, CH-DATA-03, CH-DATA-04, CH-LIB-02 | S-CHAN-05, S-CHAN-08, S-CHAN-09, S-CHAN-11 | E2E/integration | 待实现/评审 |
 | FEAT-CHAN-06 | CH-LIB-01 | B-CHAN-02, E-CHAN-03 | integration | 待实现/评审 |
 | FEAT-CHAN-07 | CH-INT-02 | S-CHAN-03, S-CHAN-08 | E2E/integration | 待实现/评审 |
 

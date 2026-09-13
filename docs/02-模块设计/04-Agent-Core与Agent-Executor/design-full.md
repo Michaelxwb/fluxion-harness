@@ -38,6 +38,7 @@
 | V1.11 模块分档拆分版 | 2026-09-11 | ChatGPT / 待项目负责人确认 | 按 cf-task:align + design-full 从最新完整总设/Playbook/交互稿重新生成；细化 DB 与全部接口 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | RT-INT-01 补 proposal/file 事件与签发步骤；新增 RT-LIB-03 Chat Run 领取/恢复；AGCORE-LIB-02 按 Contract 元数据分流；矩阵与 verifier 修正 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D1 消费侧同步：AGCORE-LIB-02 分流只比较 `direct_invocation` 并按新字段 `invocation_policy=EXECUTION_ONLY` 表述（清空旧字段名残留）；B8：`agent_definition.memory_policy` 由裸 JSONB 改为受 `contract:memory-policy-schema` 约束（含默认值与 fail-closed 语义），AGENT-API-02/04 DTO 说明同步；新增场景 S-AGENT-08（`allowed_keys=[]` → `MEMORY_POLICY_DENIED`） |
+| V1.14.3 契约闭环修复 | 2026-09-14 | Codex | 绑定按出现维度整体替换，新增可执行 Schema 与 S-AGENT-09；保留原 Memory 场景 S-AGENT-08。 |
 
 ## 2. 需求分析
 
@@ -106,6 +107,7 @@
 | S-AGENT-03 | FEAT-AGENT-04 | P0 | E2E | AgentExecutor→Model→Capability | 后置 → 模块 03/07/19 | 用户有授权 | 请求只读 direct tool | 仅允许已绑定能力 |
 | S-AGENT-04 | FEAT-AGENT-05 | P0 | E2E | Agent→ExecutionService | 后置 → 模块 05 | 请求长任务 | 模型形成服务意图 | 得到 Proposal，由 ExecutionService 再校验 |
 | S-AGENT-06 | FEAT-AGENT-01 | P1 | integration | Console API→DB→Runtime revision | 本模块 | Agent 已存在，current revision=N | 编辑 instructions 保存后由 Runtime 发一条新消息 | Runtime 使用 revision N+1；不存在 Draft/Publish 状态，无需发布 |
+| S-AGENT-09 | FEAT-AGENT-02 | P0 | integration | 单行绑定→维度集合替换 | 本模块+FE-03 | 已绑定 A/B，Skill 集合已有 X | 行内新增 C，再移除 A | 请求依次为 [A,B,C]、[B,C]；省略 skill_ids 则 X 不变；旧 revision 返回 409；delta 字段 422 |
 | S-AGENT-07 | FEAT-AGENT-02 | P1 | integration | Service.primary_agent ↔ Agent.callable_service | 本模块 | Service S 的 primary_agent=A；Agent B 已存在 | 经 AGENT-API-05 覆盖 B 的可调用子服务为 S，再查 AGENT-API-03 与 S 详情 | 两条关系独立：B 的 callable_service 变化不改 S.primary_agent；S.primary_agent 变化不改 B 的绑定 |
 | S-AGENT-08 | FEAT-AGENT-04 | P1 | integration | MemoryPolicy fail-closed（contract:memory-policy-schema） | 本模块 | Agent 的 `memory_policy.allowed_keys=[]` | 用户消息"请记住 X"触发 memory.remember（AGCORE-LIB-05 → MEM-LIB-02） | 返回 `MEMORY_POLICY_DENIED`，不写入任何 Memory 行；Agent 不因拒绝而降级为普通任意写 Capability |
 
@@ -713,6 +715,69 @@ async def execute_agent(ctx: AgentExecutionContext, request: AgentRequest) -> As
 | service_ids | array<uuid> | N | 可调用子服务集合 |
 | revision | integer | Y | `agent_definition.revision` 乐观锁；不匹配 409 |
 
+<!-- contract:agent-bindings-schema -->
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision"
+  ],
+  "properties": {
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "capability_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "skill_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "service_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    }
+  },
+  "anyOf": [
+    {
+      "required": [
+        "capability_ids"
+      ]
+    },
+    {
+      "required": [
+        "skill_ids"
+      ]
+    },
+    {
+      "required": [
+        "service_ids"
+      ]
+    }
+  ]
+}
+```
+<!-- /contract:agent-bindings-schema -->
+
+✅ 已绑定 A、B，新增 C：发送 `capability_ids=[A,B,C]`；移除 A：发送 `[B,C]`。未改维度省略。
+❌ 只发送 `[C]` 表达追加：该请求实际会把绑定替换为 C；`add/remove` 等未声明 delta 字段直接 422。
+
 **为什么三合一**（P1-22 裁决）：三个维度写的是同一张 `agent_definition` 上的绑定集合，共享同一个 `revision` 与同一套差异确认交互。拆成三个 PUT 会让"保存一次编辑"变成三次请求、三个并发窗口、三条审计记录，前端也只能长出三个各自独立的保存按钮。
 
 **响应 data**：`{revision, capabilities: array<CapabilityBindingView>, skills: array<SkillBindingView>, services: array<ServiceBindingView>}`
@@ -732,7 +797,7 @@ Admin/Builder 鉴权 → 校验集合内对象同租户且可用 → 单事务�
 （差集 upsert / 撤销）→ revision +1 → audit（三维度一条记录）→ 返回新集合。
 ```
 
-**一致性/幂等**：整体替换单事务 + `revision` 乐观锁；重复提交同一集合幂等（revision 不变，返回当前集合）。
+**一致性/幂等**：按维度整体替换单事务 + `revision` 乐观锁。先校验 revision；过期一律 409（即使集合内容相同）。版本匹配且内容未变则返回当前 revision，不递增、不重复审计；实际变更 revision+1。不把幂等解释为绕过并发校验。
 
 **有效能力不再单独出接口**（原 `AGENT-API-08` 已删除）：`AGENT-API-03` 详情的 `bindings[]` 直接带 `origin`（`DIRECT_BINDING` / `SERVICE_DERIVED` / `SKILL_DECLARED`）与 `direct_invocation` 标记——"为什么这个能力可用"由详情回答，不需要第二个分析端点。
 
@@ -831,7 +896,7 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
 | FEAT-AGENT-01 | AGENT-API-01, AGENT-API-02, AGENT-API-03, AGENT-API-04, AGENT-LIB-01 | S-AGENT-01, S-AGENT-06, E-AGENT-02 | E2E/integration | 待实现/评审 |
-| FEAT-AGENT-02 | AGENT-API-05（三合一） | S-AGENT-02, S-AGENT-07 | E2E/integration | 待实现/评审 |
+| FEAT-AGENT-02 | AGENT-API-05（三合一） | S-AGENT-02, S-AGENT-07, S-AGENT-09 | E2E/integration | 待实现/评审 |
 | FEAT-AGENT-03 | AGENT-API-03（详情含 bindings+origin）, AGCORE-LIB-02 | S-AGENT-02, E-AGENT-01 | E2E/integration | 待实现/评审 |
 | FEAT-AGENT-04 | AGCORE-LIB-01, AGCORE-LIB-02, AGCORE-LIB-03, AGCORE-LIB-05 | S-AGENT-03, S-AGENT-05, S-AGENT-08 | E2E/integration | 待实现/评审 |
 | FEAT-AGENT-05 | AGCORE-LIB-04 | S-AGENT-04, S-AGENT-05 | E2E/integration | 待实现/评审 |

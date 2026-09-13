@@ -39,6 +39,7 @@
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | Capability Contract 补 execution_characteristic/authorization_requirement/error_semantics 与 side_effect 四值枚举；新增 implementation 判别式 Schema；artifact_id 收敛；内置工具注册幂等；Skill 入口契约与 call 返回形态冻结 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D1：判定元数据收敛为 `invocation_policy(DIRECT/EXECUTION_ONLY)`，删除 `execution_characteristic`/`authorization_requirement`/`error_semantics` 三列与全部 DTO/示例/索引引用，凭据来源唯一由 `implementation.auth_mode` 表达（config 内 `auth_mode` 键删除）；重写 `contract:direct-invocation-predicate` 为唯一事实源并加「write/destructive 或 HIGH 不得 DIRECT」兜底 CHECK；B10：PLATFORM_SERVICE config 必填寻址字段 `service_key`+`path`+`method`；B15(a)：CAP-API-05 `result_mode` 默认值分路径冻结（Skill 直调固定 `INLINE`，新增 `CAPABILITY_RESULT_MODE_NOT_ALLOWED`）；内置 6 工具默认元数据与 S-CAP-07 同步新字段 |
 | V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
+| V1.14.3 契约闭环修复 | 2026-09-14 | Codex | 补齐表单 Schema、Secret 引用和三种模式集合；仅异步能力不得直调；新增 CAP-API-07 与跨层契约用例。 |
 
 ## 2. 需求分析
 
@@ -113,6 +114,8 @@
 | S-CAP-04 | FEAT-CAP-05 | P0 | integration | 无 total page API | 本模块 | 最后满页后一页[] | 分页 | empty-list 终止，记录 termination_reason |
 | S-CAP-05 | FEAT-CAP-06 | P0 | E2E | Capability→ObjectStore | 后置 → 模块 14 | 结果超过 inline threshold | invoke | 返回 summary + artifact_id (+stats)，不返回 object_ref |
 | S-CAP-07 | FEAT-CAP-01 | P0 | integration | Contract 元数据→Agent 直调分流 | 本模块 | 一个 `read` + `invocation_policy=EXECUTION_ONLY`（只读但长跑）的 Capability；`shell.execute` 默认 `destructive`/HIGH/`EXECUTION_ONLY` | Agent 意图命中后尝试直调 | 不直调：只读但 `EXECUTION_ONLY` 仍产出 ExecutionProposal 而非直接执行；Agent 直调路径返回 CAPABILITY_CONFIRMATION_REQUIRED(409)；CAP-API-06 返回 `invocation_policy`/`risk_level`/`side_effect` 且 `direct_invocation=REQUIRES_EXECUTION` |
+| S-CAP-09 | FEAT-CAP-02 | P0 | integration | 前端表单→判别式 Schema | 本模块 | 四类合法负载及错误配置 | 校验路径、共享 Secret、认证类型、三种支持模式集合 | 四类样例通过；缺 path/method/Secret、跨类型 USER_PLATFORM、空/重复模式拒绝；SYNC/ASYNC/BOTH 成员校验一致 |
+| S-CAP-10 | FEAT-CAP-07 | P0 | integration | 能力测试用户候选→提交鉴权 | 本模块+18 | 能力存在且没有 Service | Builder 查本人，Admin 查 END_USER，伪造跨租户 test_user_id | 候选无需 service_id；提交复用 USR-LIB-02，越界 403 且 Provider 未调用 |
 | S-CAP-08 | FEAT-CAP-04 | P1 | integration | async 执行语义 vs 实现类型 | 本模块 | 实现声明 async 执行语义，Skill 也尝试直调同一 Capability | Service Step 以 execution_mode=ASYNC 提交；Skill 路径调同一 Capability | 仅 Step 路径提交成功（CAP-LIB-03，同 operation_id 幂等）；Skill 直调得确定错误；async 不出现在 implementation_type 枚举 |
 
 **异常场景**
@@ -235,9 +238,10 @@ direct_invocation = ALLOWED
   当且仅当 side_effect IN ('none','read')
        AND risk_level IN ('LOW','MEDIUM')
        AND invocation_policy = 'DIRECT'
+       AND 'SYNC' IN supported_execution_modes
 
 否则 direct_invocation = REQUIRES_EXECUTION
-  —— 命中 write/destructive、HIGH、EXECUTION_ONLY
+  —— 命中 write/destructive、HIGH、EXECUTION_ONLY，或实现仅支持 ASYNC
   —— 该谓词是 Contract 元数据的纯函数，与调用方身份/凭据无关（凭据缺失是调用期错误，
      不是分流结论）；凭据来源由 capability_implementation.auth_mode 单独声明。
   —— Agent 直调路径返回 CAPABILITY_CONFIRMATION_REQUIRED(409)，并转 ExecutionProposal；
@@ -263,7 +267,7 @@ direct_invocation = ALLOWED
 | implementation_type | VARCHAR(32) | N |  | IDX | PLATFORM_SERVICE/HTTP/MCP/SANDBOX |
 | project_platform_id | UUID | Y |  | FK,IDX | 仅 PLATFORM_SERVICE 必填 |
 | auth_mode | VARCHAR(64) | N | NONE | IDX | **凭据来源的唯一事实源**：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。definition 侧不再重复声明授权/凭据要求 |
-| async_submittable | BOOLEAN | N | FALSE |  | 本实现是否支持异步提交（`CAP-LIB-03 submit_async`）；与 Step `execution_mode` 合取校验（ADR-062），Worker 的 ASYNC 分支只对 true 的实现提交 |
+| supported_execution_modes | JSONB | N | ["SYNC"] | CHECK | 支持模式集合：`["SYNC"]` / `["ASYNC"]` / `["SYNC","ASYNC"]`；请求顺序不影响语义，落库规范化为 SYNC 在前。步骤模式必须属于本集合。 |
 | config | JSONB | N | {} |  | 按 type 的 discriminated config；只放「实现身份/映射」字段，见 contract:capability-implementation-schema；**不得包含 `auth_mode` 键** |
 | shared_secret_ref | VARCHAR(512) | Y |  |  | HTTP/MCP 等共享 Secret 引用 |
 | execution_policy | JSONB | N | {} |  | deadline/retry/backoff；超时与重试唯一归属，不进 config |
@@ -278,7 +282,9 @@ direct_invocation = ALLOWED
 **约束**
 
 - CHECK: implementation_type=PLATFORM_SERVICE <=> project_platform_id IS NOT NULL
-- PLATFORM_SERVICE 必须 auth_mode=USER_PLATFORM 或明确的项目 Provider 策略
+- `USER_PLATFORM` 仅允许 PLATFORM_SERVICE；其他实现只允许 NONE/SHARED_SECRET。
+- `auth_mode=SHARED_SECRET` 当且仅当 `shared_secret_ref` 为非空引用；NONE/USER_PLATFORM 不携带该字段。
+- `supported_execution_modes` 只允许上述三个规范化集合；省略按 `["SYNC"]` 物化，不保留旧布尔字段。
 - 同一 Capability V1 只允许一个 active implementation；未来多实现路由再扩展
 
 **索引设计**
@@ -304,139 +310,686 @@ direct_invocation = ALLOWED
       "title": "PLATFORM_SERVICE",
       "type": "object",
       "additionalProperties": false,
-      "required": ["implementation_type", "auth_mode", "config", "execution_policy"],
+      "required": [
+        "implementation_type",
+        "auth_mode",
+        "config",
+        "execution_policy"
+      ],
       "properties": {
-        "implementation_type": { "const": "PLATFORM_SERVICE" },
-        "auth_mode": { "enum": ["USER_PLATFORM", "SHARED_SECRET", "NONE"], "default": "NONE", "description": "凭据来源唯一事实源（D1）：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。与 capability_implementation.auth_mode 列一一对应；**不得**在 config 内重复声明" },
-        "async_submittable": { "type": "boolean", "default": false, "description": "本实现是否支持异步提交（CAP-LIB-03 submit_async）。与 Step 的 execution_mode 合取校验（ADR-062）：能力不支持异步而步骤声明 ASYNC、或能力仅支持异步而步骤声明 SYNC，均在 SVC-API-05 阶段拒绝" },
+        "implementation_type": {
+          "const": "PLATFORM_SERVICE"
+        },
+        "auth_mode": {
+          "enum": [
+            "USER_PLATFORM",
+            "SHARED_SECRET",
+            "NONE"
+          ],
+          "default": "NONE",
+          "description": "凭据来源唯一事实源（D1）：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。与 capability_implementation.auth_mode 列一一对应；**不得**在 config 内重复声明"
+        },
+        "supported_execution_modes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "SYNC",
+              "ASYNC"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "default": [
+            "SYNC"
+          ],
+          "description": "实现支持的调用模式。省略按 [SYNC] 物化；包含两者时保存为 [SYNC,ASYNC]。步骤 execution_mode 必须属于本集合。"
+        },
         "config": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["project_platform_id", "service_key", "path", "method"],
+          "required": [
+            "project_platform_id",
+            "service_key",
+            "path",
+            "method"
+          ],
           "properties": {
-            "project_platform_id": { "type": "string", "format": "uuid", "description": "必填；实现身份" },
-            "service_key": { "type": "string", "minLength": 1, "description": "必填；平台服务名（注册发现寻址键，对齐交互稿「平台服务名」控件）" },
-            "path": { "type": "string", "minLength": 1, "description": "必填；接口路径（对齐交互稿「接口路径」控件）" },
-            "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"], "description": "必填；请求方法（对齐交互稿「请求方法」控件）" },
-            "request_mapping": { "type": "object", "description": "Contract input → 平台请求字段映射" },
-            "response_mapping": { "type": "object", "description": "平台响应 → Contract output 字段映射" }
+            "project_platform_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "必填；实现身份"
+            },
+            "service_key": {
+              "type": "string",
+              "minLength": 1,
+              "description": "必填；平台服务名（注册发现寻址键，对齐交互稿「平台服务名」控件）"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "description": "必填；接口路径（对齐交互稿「接口路径」控件）"
+            },
+            "method": {
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE"
+              ],
+              "description": "必填；请求方法（对齐交互稿「请求方法」控件）"
+            },
+            "request_mapping": {
+              "type": "object",
+              "description": "Contract input → 平台请求字段映射"
+            },
+            "response_mapping": {
+              "type": "object",
+              "description": "平台响应 → Contract output 字段映射"
+            }
           }
         },
-        "execution_policy": { "$ref": "#/$defs/execution_policy" },
-        "data_retrieval_policy": { "$ref": "#/$defs/data_retrieval_policy" }
-      }
+        "execution_policy": {
+          "$ref": "#/$defs/execution_policy"
+        },
+        "data_retrieval_policy": {
+          "$ref": "#/$defs/data_retrieval_policy"
+        },
+        "shared_secret_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "\\S",
+          "description": "仅 SHARED_SECRET 必填；Secret Provider 引用，不是凭据明文；只写不回显。"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "auth_mode": {
+                "const": "SHARED_SECRET"
+              }
+            },
+            "required": [
+              "auth_mode"
+            ]
+          },
+          "then": {
+            "required": [
+              "shared_secret_ref"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "shared_secret_ref"
+              ]
+            }
+          }
+        }
+      ]
     },
     {
       "title": "HTTP",
       "type": "object",
       "additionalProperties": false,
-      "required": ["implementation_type", "auth_mode", "config", "execution_policy"],
+      "required": [
+        "implementation_type",
+        "auth_mode",
+        "config",
+        "execution_policy"
+      ],
       "properties": {
-        "implementation_type": { "const": "HTTP" },
-        "auth_mode": { "enum": ["USER_PLATFORM", "SHARED_SECRET", "NONE"], "default": "NONE", "description": "凭据来源唯一事实源（D1）：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。与 capability_implementation.auth_mode 列一一对应；**不得**在 config 内重复声明" },
-        "async_submittable": { "type": "boolean", "default": false, "description": "本实现是否支持异步提交（CAP-LIB-03 submit_async）。与 Step 的 execution_mode 合取校验（ADR-062）：能力不支持异步而步骤声明 ASYNC、或能力仅支持异步而步骤声明 SYNC，均在 SVC-API-05 阶段拒绝" },
+        "implementation_type": {
+          "const": "HTTP"
+        },
+        "auth_mode": {
+          "enum": [
+            "SHARED_SECRET",
+            "NONE"
+          ],
+          "default": "NONE",
+          "description": "凭据来源唯一事实源（D1）：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。与 capability_implementation.auth_mode 列一一对应；**不得**在 config 内重复声明"
+        },
+        "supported_execution_modes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "SYNC",
+              "ASYNC"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "default": [
+            "SYNC"
+          ],
+          "description": "实现支持的调用模式。省略按 [SYNC] 物化；包含两者时保存为 [SYNC,ASYNC]。步骤 execution_mode 必须属于本集合。"
+        },
         "config": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["method", "base_url", "path"],
+          "required": [
+            "method",
+            "base_url",
+            "path"
+          ],
           "properties": {
-            "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
-            "base_url": { "type": "string", "format": "uri" },
-            "path": { "type": "string" },
-            "query_mapping": { "type": "object", "description": "input → query 字段映射" },
-            "body_mapping": { "type": "object", "description": "input → body 字段映射" },
+            "method": {
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE"
+              ]
+            },
+            "base_url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "path": {
+              "type": "string"
+            },
+            "query_mapping": {
+              "type": "object",
+              "description": "input → query 字段映射"
+            },
+            "body_mapping": {
+              "type": "object",
+              "description": "input → body 字段映射"
+            },
             "header_keys": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "description": "引用 Secret 的 header 键名；值在调用时经 Secret Provider 解析，配置中不放明文"
             },
-            "response_mapping": { "type": "object", "description": "响应 → Contract output 字段映射" }
+            "response_mapping": {
+              "type": "object",
+              "description": "响应 → Contract output 字段映射"
+            }
           }
         },
-        "execution_policy": { "$ref": "#/$defs/execution_policy" },
-        "data_retrieval_policy": { "$ref": "#/$defs/data_retrieval_policy" }
-      }
+        "execution_policy": {
+          "$ref": "#/$defs/execution_policy"
+        },
+        "data_retrieval_policy": {
+          "$ref": "#/$defs/data_retrieval_policy"
+        },
+        "shared_secret_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "\\S",
+          "description": "仅 SHARED_SECRET 必填；Secret Provider 引用，不是凭据明文；只写不回显。"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "auth_mode": {
+                "const": "SHARED_SECRET"
+              }
+            },
+            "required": [
+              "auth_mode"
+            ]
+          },
+          "then": {
+            "required": [
+              "shared_secret_ref"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "shared_secret_ref"
+              ]
+            }
+          }
+        }
+      ]
     },
     {
       "title": "MCP",
       "type": "object",
       "additionalProperties": false,
-      "required": ["implementation_type", "auth_mode", "config", "execution_policy"],
+      "required": [
+        "implementation_type",
+        "auth_mode",
+        "config",
+        "execution_policy"
+      ],
       "properties": {
-        "implementation_type": { "const": "MCP" },
-        "auth_mode": { "enum": ["USER_PLATFORM", "SHARED_SECRET", "NONE"], "default": "NONE", "description": "凭据来源唯一事实源（D1）：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。与 capability_implementation.auth_mode 列一一对应；**不得**在 config 内重复声明" },
-        "async_submittable": { "type": "boolean", "default": false, "description": "本实现是否支持异步提交（CAP-LIB-03 submit_async）。与 Step 的 execution_mode 合取校验（ADR-062）：能力不支持异步而步骤声明 ASYNC、或能力仅支持异步而步骤声明 SYNC，均在 SVC-API-05 阶段拒绝" },
+        "implementation_type": {
+          "const": "MCP"
+        },
+        "auth_mode": {
+          "enum": [
+            "SHARED_SECRET",
+            "NONE"
+          ],
+          "default": "NONE",
+          "description": "凭据来源唯一事实源（D1）：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。与 capability_implementation.auth_mode 列一一对应；**不得**在 config 内重复声明"
+        },
+        "supported_execution_modes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "SYNC",
+              "ASYNC"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "default": [
+            "SYNC"
+          ],
+          "description": "实现支持的调用模式。省略按 [SYNC] 物化；包含两者时保存为 [SYNC,ASYNC]。步骤 execution_mode 必须属于本集合。"
+        },
         "config": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["server_key", "tool_name"],
+          "required": [
+            "server_key",
+            "tool_name"
+          ],
           "properties": {
-            "server_key": { "type": "string", "minLength": 1, "description": "MCP server 注册键" },
-            "tool_name": { "type": "string", "minLength": 1 },
-            "input_mapping": { "type": "object" },
-            "response_mapping": { "type": "object" }
+            "server_key": {
+              "type": "string",
+              "minLength": 1,
+              "description": "MCP server 注册键"
+            },
+            "tool_name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "input_mapping": {
+              "type": "object"
+            },
+            "response_mapping": {
+              "type": "object"
+            }
           }
         },
-        "execution_policy": { "$ref": "#/$defs/execution_policy" },
-        "data_retrieval_policy": { "$ref": "#/$defs/data_retrieval_policy" }
-      }
+        "execution_policy": {
+          "$ref": "#/$defs/execution_policy"
+        },
+        "data_retrieval_policy": {
+          "$ref": "#/$defs/data_retrieval_policy"
+        },
+        "shared_secret_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "\\S",
+          "description": "仅 SHARED_SECRET 必填；Secret Provider 引用，不是凭据明文；只写不回显。"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "auth_mode": {
+                "const": "SHARED_SECRET"
+              }
+            },
+            "required": [
+              "auth_mode"
+            ]
+          },
+          "then": {
+            "required": [
+              "shared_secret_ref"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "shared_secret_ref"
+              ]
+            }
+          }
+        }
+      ]
     },
     {
       "title": "SANDBOX",
       "type": "object",
       "additionalProperties": false,
-      "required": ["implementation_type", "auth_mode", "config", "execution_policy"],
+      "required": [
+        "implementation_type",
+        "auth_mode",
+        "config",
+        "execution_policy"
+      ],
       "properties": {
-        "implementation_type": { "const": "SANDBOX" },
-        "auth_mode": { "enum": ["USER_PLATFORM", "SHARED_SECRET", "NONE"], "default": "NONE", "description": "凭据来源唯一事实源（D1）：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。与 capability_implementation.auth_mode 列一一对应；**不得**在 config 内重复声明" },
-        "async_submittable": { "type": "boolean", "default": false, "description": "本实现是否支持异步提交（CAP-LIB-03 submit_async）。与 Step 的 execution_mode 合取校验（ADR-062）：能力不支持异步而步骤声明 ASYNC、或能力仅支持异步而步骤声明 SYNC，均在 SVC-API-05 阶段拒绝" },
+        "implementation_type": {
+          "const": "SANDBOX"
+        },
+        "auth_mode": {
+          "enum": [
+            "SHARED_SECRET",
+            "NONE"
+          ],
+          "default": "NONE",
+          "description": "凭据来源唯一事实源（D1）：USER_PLATFORM=需 User×ProjectPlatform 凭据；SHARED_SECRET=需共享 Secret；NONE=登录用户即可。与 capability_implementation.auth_mode 列一一对应；**不得**在 config 内重复声明"
+        },
+        "supported_execution_modes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "SYNC",
+              "ASYNC"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "default": [
+            "SYNC"
+          ],
+          "description": "实现支持的调用模式。省略按 [SYNC] 物化；包含两者时保存为 [SYNC,ASYNC]。步骤 execution_mode 必须属于本集合。"
+        },
         "config": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["capability_key", "entrypoint"],
+          "required": [
+            "capability_key",
+            "entrypoint"
+          ],
           "properties": {
-            "capability_key": { "type": "string", "minLength": 1, "description": "Sandbox 能力键；内置工具为 filesystem.read/write/edit/glob/grep 与 shell.execute" },
-            "entrypoint": { "type": "string", "minLength": 1 },
-            "argv": { "type": "array", "items": { "type": "string" } },
-            "env_allowlist": { "type": "array", "items": { "type": "string" }, "description": "允许透传的环境变量名白名单；不含 Secret" },
-            "network_policy": { "enum": ["DENY", "ALLOWLIST"], "default": "DENY" },
-            "max_output_bytes": { "type": "integer", "minimum": 1 }
+            "capability_key": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Sandbox 能力键；内置工具为 filesystem.read/write/edit/glob/grep 与 shell.execute"
+            },
+            "entrypoint": {
+              "type": "string",
+              "minLength": 1
+            },
+            "argv": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "env_allowlist": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "允许透传的环境变量名白名单；不含 Secret"
+            },
+            "network_policy": {
+              "enum": [
+                "DENY",
+                "ALLOWLIST"
+              ],
+              "default": "DENY"
+            },
+            "max_output_bytes": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         },
-        "execution_policy": { "$ref": "#/$defs/execution_policy" },
-        "data_retrieval_policy": { "$ref": "#/$defs/data_retrieval_policy" }
-      }
+        "execution_policy": {
+          "$ref": "#/$defs/execution_policy"
+        },
+        "data_retrieval_policy": {
+          "$ref": "#/$defs/data_retrieval_policy"
+        },
+        "shared_secret_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "\\S",
+          "description": "仅 SHARED_SECRET 必填；Secret Provider 引用，不是凭据明文；只写不回显。"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "auth_mode": {
+                "const": "SHARED_SECRET"
+              }
+            },
+            "required": [
+              "auth_mode"
+            ]
+          },
+          "then": {
+            "required": [
+              "shared_secret_ref"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "shared_secret_ref"
+              ]
+            }
+          }
+        }
+      ]
     }
   ],
   "$defs": {
     "execution_policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["deadline_seconds"],
+      "required": [
+        "deadline_seconds"
+      ],
       "description": "**implementation 层**的超时/重试策略（与 capability_definition.invocation_policy 的直调结论枚举无关，两层字段名不同）；只在 implementation.* 之下出现",
       "properties": {
-        "deadline_seconds": { "type": "integer", "minimum": 1, "description": "必填；本实现的硬截止（**秒**，ADR-044：对外一律秒，毫秒只在实现内部换算一次）" },
-        "max_retries": { "type": "integer", "minimum": 0, "default": 0, "description": "Provider 层重试上限：同一次 invoke 内部的立即重试；与 Worker 层的步骤重试（模块 06 RULE-WORK-04 按错误分类判定）互不替代" },
-        "backoff_seconds": { "type": "integer", "minimum": 0, "description": "Provider 层立即重试的退避基数；仅在该次调用被判定为可重试（错误分类 + 幂等合取条件）时生效" }
+        "deadline_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "必填；本实现的硬截止（**秒**，ADR-044：对外一律秒，毫秒只在实现内部换算一次）"
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Provider 层重试上限：同一次 invoke 内部的立即重试；与 Worker 层的步骤重试（模块 06 RULE-WORK-04 按错误分类判定）互不替代"
+        },
+        "backoff_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Provider 层立即重试的退避基数；仅在该次调用被判定为可重试（错误分类 + 幂等合取条件）时生效"
+        }
       }
     },
     "data_retrieval_policy": {
       "type": "object",
       "additionalProperties": false,
       "description": "沿用既有 Data Retrieval Policy 字段；仅列表类 Capability 需要",
-      "required": ["pagination_type"],
+      "required": [
+        "pagination_type"
+      ],
       "properties": {
-        "pagination_type": { "enum": ["PAGE", "OFFSET", "CURSOR"], "default": "CURSOR", "description": "缺省 CURSOR（V1.14 裁决）：调用方不传时按游标推进；PAGE/OFFSET 必须显式声明" },
-        "request_mapping": { "type": "object", "description": "page_param/page_size_param/start_page/page_size/cursor_param" },
-        "response_mapping": { "type": "object", "description": "items_path/total_path/has_more_path/next_cursor_path" },
-        "termination": { "type": "object", "description": "empty_items/short_page_terminates/use_total；empty_items 为 PAGE/OFFSET 固定兜底；short_page_terminates 默认 true、可显式关闭、仅在保证「非最后页必满」时可依赖；use_total 不参与结束判定" },
-        "limits": { "type": "object", "description": "max_pages/max_items/max_duration_seconds/duplicate_page_detection" }
+        "pagination_type": {
+          "enum": [
+            "PAGE",
+            "OFFSET",
+            "CURSOR"
+          ],
+          "default": "CURSOR",
+          "description": "缺省 CURSOR（V1.14 裁决）：调用方不传时按游标推进；PAGE/OFFSET 必须显式声明"
+        },
+        "request_mapping": {
+          "type": "object",
+          "description": "page_param/page_size_param/start_page/page_size/cursor_param"
+        },
+        "response_mapping": {
+          "type": "object",
+          "description": "items_path/total_path/has_more_path/next_cursor_path"
+        },
+        "termination": {
+          "type": "object",
+          "description": "empty_items/short_page_terminates/use_total；empty_items 为 PAGE/OFFSET 固定兜底；short_page_terminates 默认 true、可显式关闭、仅在保证「非最后页必满」时可依赖；use_total 不参与结束判定"
+        },
+        "limits": {
+          "type": "object",
+          "description": "max_pages/max_items/max_duration_seconds/duplicate_page_detection"
+        }
       }
+    },
+    "step_mode_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supported_execution_modes",
+        "execution_mode"
+      ],
+      "properties": {
+        "supported_execution_modes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "SYNC",
+              "ASYNC"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "default": [
+            "SYNC"
+          ],
+          "description": "实现支持的调用模式。省略按 [SYNC] 物化；包含两者时保存为 [SYNC,ASYNC]。步骤 execution_mode 必须属于本集合。"
+        },
+        "execution_mode": {
+          "enum": [
+            "SYNC",
+            "ASYNC"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "execution_mode": {
+                "const": "SYNC"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "supported_execution_modes": {
+                "contains": {
+                  "const": "SYNC"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "execution_mode": {
+                "const": "ASYNC"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "supported_execution_modes": {
+                "contains": {
+                  "const": "ASYNC"
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
 ```
 <!-- /contract:capability-implementation-schema -->
+
+**契约样例**：以下四类写入负载同时用于后端 Schema 和前端表单验证；引用是虚构示例。`$defs.step_mode_selection` 供 Service 校验步骤模式成员关系，不是新增写入字段。
+
+<!-- contract:capability-implementation-examples -->
+```json
+[
+  {
+    "implementation_type": "PLATFORM_SERVICE",
+    "auth_mode": "USER_PLATFORM",
+    "config": {
+      "project_platform_id": "00000000-0000-0000-0000-000000000001",
+      "service_key": "mss",
+      "path": "/resources",
+      "method": "GET"
+    },
+    "execution_policy": {
+      "deadline_seconds": 30
+    },
+    "supported_execution_modes": [
+      "SYNC"
+    ]
+  },
+  {
+    "implementation_type": "HTTP",
+    "auth_mode": "SHARED_SECRET",
+    "config": {
+      "base_url": "https://example.invalid",
+      "method": "GET",
+      "path": "/resources"
+    },
+    "execution_policy": {
+      "deadline_seconds": 30
+    },
+    "supported_execution_modes": [
+      "SYNC"
+    ],
+    "shared_secret_ref": "secret://example/test-only"
+  },
+  {
+    "implementation_type": "MCP",
+    "auth_mode": "SHARED_SECRET",
+    "config": {
+      "server_key": "demo",
+      "tool_name": "lookup"
+    },
+    "execution_policy": {
+      "deadline_seconds": 30
+    },
+    "supported_execution_modes": [
+      "SYNC"
+    ],
+    "shared_secret_ref": "secret://example/test-only"
+  },
+  {
+    "implementation_type": "SANDBOX",
+    "auth_mode": "NONE",
+    "config": {
+      "capability_key": "filesystem.read",
+      "entrypoint": "read"
+    },
+    "execution_policy": {
+      "deadline_seconds": 30
+    },
+    "supported_execution_modes": [
+      "SYNC"
+    ]
+  }
+]
+```
+<!-- /contract:capability-implementation-examples -->
+
 
 #### 3.3.2 ER 图
 
@@ -479,6 +1032,7 @@ erDiagram
 | CAP-API-03 | Capability 详情 | HTTP | GET | /api/v1/capabilities/{capability_id} |
 | CAP-API-04 | 编辑 Capability | HTTP | PUT | /api/v1/capabilities/{capability_id} |
 | CAP-API-05 | 测试 Capability | HTTP | POST | /api/v1/capabilities/{capability_id}/test |
+| CAP-API-07 | 能力测试用户候选 | HTTP | GET | /api/v1/capabilities/{capability_id}/test-user-candidates |
 | CAP-API-06 | 读取 Capability Contract | HTTP | GET | /api/v1/capabilities/{capability_id}/contract |
 | CAP-LIB-01 | 统一 Capability 调用 | Library | async def invoke_capability(ctx: TrustedExecutionContext, capability_key: str, input: dict, *, call_policy: CapabilityCallPolicy \| None = None) -> CapabilityResult |  |
 | CAP-LIB-02 | 自动分页执行 | Library | async def retrieve_all(ctx: CapabilityCallContext, provider: Provider, policy: DataRetrievalPolicy, first_request: dict) -> RetrievalResult | 分页聚合；仅由 CAP-LIB-01 内部调用，Skill/Agent 不直接使用 |
@@ -492,7 +1046,7 @@ CapabilityCallContext={trusted tenant_id/actor_user_id/execution_id/operation_id
 
 #### CAP-LIB-03: 异步提交与未知结果对账
 
-**认证/授权**：`ctx` 必须是宿主从 `async_task_run` 行与 Execution 可信关联重建的 CapabilityCallContext；tenant/actor 一致性校验通过才可提交，Secret 每次按当前 Credential 解析；handle 不得携带身份覆盖字段。调用方仅为 Worker（Service Step 声明 `execution_mode=ASYNC`），Skill 路径不得调用。**能力合取校验**：解析到的 implementation 必须 `async_submittable=true`，否则拒绝并返回 `CAPABILITY_ASYNC_NOT_INVOKABLE`(422)（不静默降级为同步调用，见模块 06 ASYNC 分支与 ADR-062）。
+**认证/授权**：`ctx` 必须是宿主从 `async_task_run` 行与 Execution 可信关联重建的 CapabilityCallContext；tenant/actor 一致性校验通过才可提交，Secret 每次按当前 Credential 解析；handle 不得携带身份覆盖字段。调用方仅为 Worker（Service Step 声明 `execution_mode=ASYNC`），Skill 路径不得调用。**能力合取校验**：解析到的 implementation 的 `supported_execution_modes` 必须包含 `ASYNC`，否则拒绝并返回 `CAPABILITY_ASYNC_NOT_INVOKABLE`(422)（不静默降级为同步调用，见模块 06 ASYNC 分支与 ADR-062）。
 
 **签名**：`async def submit_async(ctx: CapabilityCallContext, capability_key: str, input: JsonObject, *, idempotency_key: str) -> AsyncTaskHandle`
 
@@ -606,7 +1160,7 @@ Sandbox 隔离不可用等失败码由模块 13 承接；失败分类不在此�
 | side_effect | string | Y | none/read/write/destructive（四值枚举，总设 §5.1） |
 | invocation_policy | string | N | DIRECT/EXECUTION_ONLY；默认 DIRECT。write/destructive 或 HIGH 时服务端强制 EXECUTION_ONLY（非法组合 400） |
 | idempotency_semantics | string | Y | NONE/KEYED/NATURAL |
-| implementation | object | Y | 判别式 typed implementation，Schema 见 §3.3 的 contract:capability-implementation-schema（**implementation_type + auth_mode + config + execution_policy** + 可选 data_retrieval_policy）；凭据来源只由**顶层** `implementation.auth_mode` 声明（必填，默认 NONE）；`implementation.async_submittable` 声明是否支持异步提交 |
+| implementation | object | Y | 判别式 typed implementation，Schema 见 §3.3 的 contract:capability-implementation-schema（**implementation_type + auth_mode + config + execution_policy** + 可选 data_retrieval_policy）；凭据来源只由**顶层** `implementation.auth_mode` 声明（必填，默认 NONE）；`implementation.supported_execution_modes` 声明完整支持模式集合；`implementation.shared_secret_ref` 仅 SHARED_SECRET 必填 |
 
 **请求示例**
 
@@ -678,7 +1232,7 @@ Sandbox 隔离不可用等失败码由模块 13 承接；失败分类不在此�
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | definition | object | Contract；字段同 CAP-API-06 响应（含 risk_level、side_effect 四值枚举、invocation_policy），无授权/凭据与错误语义字段 |
-| implementation | object | 脱敏实现配置；结构按 §3.3 的 contract:capability-implementation-schema（implementation_type/**auth_mode**/async_submittable/config/execution_policy/data_retrieval_policy），含凭据来源 `auth_mode`（唯一声明处、顶层字段） |
+| implementation | object | 读取投影：implementation_type/auth_mode/supported_execution_modes/config/execution_policy/data_retrieval_policy；用 shared_secret_configured 布尔值替代 shared_secret_ref，Secret 引用与值均不回显 |
 | project_platform | object | 仅 Platform Service |
 | used_by_agents | integer | 直接绑定数 |
 | used_by_skills | integer | Artifact 依赖数 |
@@ -711,7 +1265,7 @@ Sandbox 隔离不可用等失败码由模块 13 承接；失败分类不在此�
 **处理逻辑**
 
 ```text
-tenant scoped definition → active implementation → 聚合反向依赖；shared_secret_ref 仅返回 configured 标记。
+tenant scoped definition → active implementation → 聚合反向依赖；shared_secret_ref 不返回，仅投影 `shared_secret_configured` 布尔值；此只读字段不属于写入 Schema。编辑 SHARED_SECRET 时必须重新提交有效 shared_secret_ref。
 ```
 
 #### CAP-API-04: 编辑 Capability
@@ -805,7 +1359,7 @@ tenant scoped definition → active implementation → 聚合反向依赖；shar
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | input | object | Y | 按 input_schema |
-| test_user_id | uuid | N | Platform Service 需要测试用户，Builder 只能选择有权限范围内测试用户 |
+| test_user_id | uuid | N | 缺省登录用户；所有实现提交均经 USR-LIB-02.require_user：Builder 仅本人，Admin 可选同租户 ACTIVE 用户（含 END_USER）；USER_PLATFORM 凭据按该用户解析 |
 | result_mode | string | N | INLINE/SUMMARY/ARTIFACT；**默认值分路径冻结（B15a）**：Skill 直调路径（SDK/宿主）固定 `INLINE`（ADR-034 禁用大结果外置）；Provider 级默认 `SUMMARY` 只对非 Skill 调用（Agent Tool / Worker Step）生效；调用方显式传入时以传入值为准，但 Skill 路径传非 `INLINE` 一律 `CAPABILITY_RESULT_MODE_NOT_ALLOWED`(422) |
 
 **请求示例**
@@ -851,6 +1405,8 @@ tenant scoped definition → active implementation → 聚合反向依赖；shar
 
 | 错误码 | 场景 | HTTP 状态 |
 |---|---|---|
+| TEST_USER_ACCESS_INVALID | 代测用户越界或停用 | 403 |
+| CAPABILITY_ASYNC_NOT_INVOKABLE | 能力仅支持 ASYNC，不能运行同步能力测试 | 422 |
 | CAPABILITY_INPUT_INVALID | 输入 schema 失败 | 400 |
 | USER_PLATFORM_CREDENTIAL_MISSING | 测试用户平台认证缺失 | 409 |
 | CAPABILITY_TIMEOUT | 超时 | 504 |
@@ -861,7 +1417,7 @@ tenant scoped definition → active implementation → 聚合反向依赖；shar
 **处理逻辑**
 
 ```text
-构造受控 TestExecutionContext → 调统一 CapabilityExecutor.invoke → 不绕过认证/分页/timeout → 返回脱敏 stats。result_mode 解析：Skill 直调路径强制 INLINE（非 INLINE 直接 422），非 Skill 路径缺省 SUMMARY。
+先校验对象权限与 USR-LIB-02.require_user → 要求支持模式集合包含 SYNC（否则 CAPABILITY_ASYNC_NOT_INVOKABLE，建议 Service ASYNC 测试）→ 构造受控 TestExecutionContext → 调统一 CapabilityExecutor.invoke → 不绕过认证/分页/timeout → 返回脱敏 stats。result_mode 解析：Skill 直调路径强制 INLINE（非 INLINE 直接 422），非 Skill 路径缺省 SUMMARY。
 ```
 
 **测试执行身份（ADR-063，D10 修复）**：每次 `CAP-API-05` 调用在**同一事务**内创建一条最小执行身份：
@@ -876,6 +1432,14 @@ service_execution(execution_source='CAPABILITY_TEST', capability_id=<被测能�
 - 外置产物一律以 `artifact.execution_id = 该 execution_id` 落库，因此**下载必须且只能走 `EXE-API-06`**（`GET /api/v1/executions/{execution_id}/artifacts/{artifact_id}/download`），不新增能力侧下载端点、不扩展 `artifact.owner_type`——产物授权必须单点（`RULE-SVC-10`/ADR-053）。
 - 产物归属与保留/清理随该执行（TEST 类数据 30 天，见《11-数据保留与清理策略》）；被测能力后来被停用/软删不级联删除该执行与其产物。
 - 写入失败与测试调用同一事务：不得出现“有 artifact 无执行”或“有执行无 artifact”的半态。
+
+#### CAP-API-07: 能力测试用户候选
+
+**契约**：`GET /api/v1/capabilities/{capability_id}/test-user-candidates`，platform-api 承载，Owner=模块 07。
+
+**认证/授权**：Builder + Admin；先校验 capability 同租户且非软删，不存在/越权返回 CAPABILITY_NOT_FOUND(404)，随后调用模块 18 USR-LIB-02。Builder 只选自己；Admin 可选本租户 ACTIVE 用户（含 END_USER），不要求创建 Service。
+
+**Query**：page=1/page_size=50（max100）、keyword 可选。**响应 data**：`{items:[{user_id,user_key,display_name}],page,page_size,total,default_user_id}`。候选读取和 CAP-API-05 提交复用 require_user；越界 TEST_USER_ACCESS_INVALID(403)，不执行 Provider。登录操作者是测试执行 actor_user_id，验证后的 test_user_id 只决定代测的外部凭据身份。
 
 #### CAP-API-06: 读取 Capability Contract
 
@@ -898,6 +1462,7 @@ service_execution(execution_source='CAPABILITY_TEST', capability_id=<被测能�
 | risk_level | string | LOW/MEDIUM/HIGH |
 | side_effect | string | none/read/write/destructive |
 | invocation_policy | string | DIRECT/EXECUTION_ONLY（直调结论的声明值） |
+| supported_execution_modes | array<SYNC/ASYNC> | 实现的规范化支持模式集合；与 CAP-API-03 的 implementation 同源，用于 Service 步骤及测试入口校验 |
 | direct_invocation | string | **派生结论（唯一判定入口）**：`ALLOWED` / `REQUIRES_EXECUTION`，按 `contract:direct-invocation-predicate` 计算。调用方（Agent Tool、Skill 宿主、Worker、Dev Gateway）**只比较本字段**，不自行复刻谓词 |
 | idempotency_semantics | string | 幂等语义 |
 
@@ -1075,12 +1640,12 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
 | FEAT-CAP-01 | CAP-API-01, CAP-API-02, CAP-API-03, CAP-API-04, CAP-API-06 | S-CAP-01, S-CAP-07 | E2E/integration | 待实现/评审 |
-| FEAT-CAP-02 | CAP-API-02, CAP-API-04, CAP-LIB-01, CAP-LIB-05 | S-CAP-01 | E2E/integration | 待实现/评审 |
+| FEAT-CAP-02 | CAP-API-02, CAP-API-04, CAP-LIB-01, CAP-LIB-05 | S-CAP-01, S-CAP-09 | E2E/integration | 待实现/评审 |
 | FEAT-CAP-03 | CAP-API-01, CAP-API-02, CAP-API-03, CAP-API-04, CAP-LIB-01 | S-CAP-02 | E2E/integration | 待实现/评审 |
 | FEAT-CAP-04 | CAP-LIB-01, CAP-LIB-03, CAP-LIB-04 | S-CAP-08, E-CAP-03 | E2E/integration | 待实现/评审 |
 | FEAT-CAP-05 | CAP-LIB-02 | S-CAP-03, S-CAP-04, E-CAP-01, E-CAP-02 | E2E/integration | 待实现/评审 |
 | FEAT-CAP-06 | CAP-API-05, CAP-LIB-01 | S-CAP-05, S-CAP-06 | E2E/integration | 待实现/评审 |
-| FEAT-CAP-07 | CAP-API-05 | S-CAP-05 | E2E/integration | 待实现/评审 |
+| FEAT-CAP-07 | CAP-API-05, CAP-API-07 | S-CAP-05, S-CAP-10 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 

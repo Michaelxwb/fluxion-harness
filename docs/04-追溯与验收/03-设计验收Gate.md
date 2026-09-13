@@ -43,10 +43,10 @@
 
 **前端**
 
-- 页面模块 **12** 个：11 个产品页面 + `00-Console公共框架`，每个模块独立 `design-frontend.md`；
+- 页面模块 **11** 个：10 个产品页面 + `00-Console公共框架`，每个模块独立 `design-frontend.md`；
 - 每个模块必须写路由、角色、组件、字段、UI 四态、API 映射、风险；
 - 公共 Shell / 列表三件套只在 `00-Console公共框架` 实现一次，不在各页面复制；
-- 交互事实由 `90-Console交互规格.md` 控制；**V0.8 冻结原型已被部分取代**，凡冲突以 `90-规格` + 后端模块授权列为准，取代范围见 `03-前端设计/README.md` 的「原型被取代范围声明」。
+- 交互事实由 `90-Console交互规格.md` 控制；V0.8 原型已删除；字段/API 由本页与后端 Owner 同步维护，冲突必须回写。
 
 **结构回退判定**（出现即判 Gate 失败）
 
@@ -59,7 +59,7 @@
 
 ## Gate 1：交互闭环
 
-- 所有菜单来自用户旅程（总设 §6.6 IA 的 11 个菜单一一对应）；
+- 所有菜单来自用户旅程（总设 §6.6 IA 的当前菜单一一对应，Knowledge 显式后置）；
 - 新增按钮存在且表单完整；
 - 编辑字段明确；
 - 详情字段明确；
@@ -144,7 +144,7 @@
 9. `/bind` identity + no-grant deny；
 10. `/new`；
 11. `/stop` async；
-12. Multi-Pod conversation（`RT-LIB-03` 领取/恢复）；
+12. Multi-Pod conversation（S-RT-01/06；Chat 不承诺崩溃续跑）；
 13. Worker kill recovery（长步骤跨 TTL）；
 14. large result artifact（`artifact_id` 交付与重取）；
 15. Secret no readback；
@@ -154,7 +154,7 @@
 19. **投递重试与 UNKNOWN 对账**（S-WORK-08 / S-WORK-12）与**重新投递不重跑步骤**（S-SVC-12，`EXE-API-07`）；
 20. **Redis 停机降级**（S-WORK-07）；
 21. **Sandbox 强制隔离（跨 workspace、宿主路径、网络出站）**（S-WS-06 / S-WS-07）。
-22. **第四轮策略与资源门禁**：步骤 `human_policy` 与 `failure_policy` 正交（B11，S-02-08）、字段级 `FIELD_ADMIN_ONLY` 原子拒绝（D2，E-07-01 / E-08-01）、`browser`/`external-scan`/`large-report` 走 PG 信号量（B4，S-WORK-13）、保留与清理按《11-数据保留与清理策略》（B3）。
+22. **第四轮策略与资源门禁**：步骤 `human_policy` 与 `failure_policy` 正交（B11，S-02-08）、模型 api_key 字段级 FIELD_ADMIN_ONLY 与项目平台整接口 Admin 权限、`browser`/`external-scan`/`large-report` 走 PG 信号量（B4，S-WORK-13）、保留与清理按《11-数据保留与清理策略》（B3）。
 
 ## Gate 7：编码开工条件
 
@@ -198,12 +198,12 @@ code workaround
 | 框架 Gate | 要求 | 负责模块 | 设计落点 | 验证场景 | 状态 |
 |---|---|---|---|---|---|
 | Gate A Identity / AuthProvider | Channel userid→Binding→PlatformUser→AuthProvider→外部 RBAC；假 user_id 无效；Session 过期可 refresh；Secret 不入 trace/log | 10 / 18 / 09 / 07 | `18` USR-LIB-01、`09` AUTH-LIB-01/02、`10` CH-DATA-02、`07` CAP-LIB-01 | S-AUTH-01/02/06、E-USER-02、E-AUTH-03 | 已承接 |
-| Gate B Stateless Runtime | 两个 Runtime，kill A 后 B 续跑，User/Memory/Conversation/版本/能力一致 | 03 / 11 | `03` RT-LIB-03、`11` conversation_run + CheckpointIdentity | S-RT-01、S-RT-05、S-RT-06 | 已承接 |
+| Gate B Stateless Runtime | 两个 Runtime，kill A 后新一轮由 B 处理，User/Memory/Conversation/版本/能力一致 | 03 / 11 | `03` RT-INT-01、`11` message.processing_status + Conversation/Memory | S-RT-01、S-RT-06 | 已承接 |
 | Gate C Execution Snapshot | 发布 v2 后 Execution-1 仍用 v1 | 01 / 05 / 08 / 19 | `01` CORE-LIB-05 ExecutionProjection、`05` snapshot、`08`/`19` 冻结优先 | S-SVC-03、S-SVC-07 | 已承接 |
 | Gate D Worker Crash Recovery | external submit 后 SIGKILL，另一 Worker 不重复 create | 06 / 07 / 05 | `06` WORK-LIB-01/03/05、`05` async_task_run（`operation_id` 幂等） | S-WORK-02、S-WORK-08、S-WORK-11 | 已承接 |
 | Gate E Long Wait | 10/30 分钟等待不占请求/协程/粘性 Worker | 06 / 05 | `06` WAIT 分支、`05` `next_run_at`/`wait_until` | S-WORK-03、B-SVC-03 | 已承接 |
 | Gate F Redis Down | 停 Redis 后正确性不丢，退化为 PG polling | 06 / 14 | `06` claim 轮询 + WORK-LIB-06、`14` INFRA-LIB-05 best-effort | S-WORK-07、S-INFRA-02 | 已承接 |
-| Gate G Channel Delivery | Worker 完成后按 DeliveryRoute 主动推送；重连后重试只由 Worker 触发 | 10 / 06 | `10` CH-INT-01 + channel_delivery、`06` WORK-LIB-06 | S-CHAN-05、S-WORK-12 | 已承接 |
+| Gate G Channel Delivery | Worker 完成后按 DeliveryRoute 主动推送；重连后重试只由 Worker 触发 | 10 / 06 | `10` CH-INT-01 + CH-DATA-03 + channel_delivery.permit_consumed_at、`06` WORK-LIB-06 | S-CHAN-05、S-CHAN-11、S-WORK-12 | 设计已承接；真实投递验收待执行 |
 | Gate H Control Plane Down | 停管理面后在途执行继续 | 02 / 03 / 10 / 09 | `10` CH-DATA-01..04（不经过 platform-api）、`03` 装配、`02` RULE-API-01 | S-API-05、S-CHAN-09 | 已承接 |
 | Gate I Memory 与 Channel 解耦 | 跨会话/跨渠道读同一 UserMemory；key 无渠道语义 | 11 | `11` user_memory（仅 tenant+user）、MEM-LIB-01、`03` 注入 | S-MEM-02、S-MEM-03、S-MEM-06 | 已承接 |
 | Gate J Capability Contract / Project Adapter | 同一 Contract 同时被 Agent 直查与 Worker Step 复用，同一 Auth/Risk 语义 | 07 / 04 / 06 | `07` CAP-LIB-01/02、`04` AGCORE-LIB-02、`01` CORE-LIB-05 | S-CAP-01/02/07、S-SVC-06 | 已承接 |
@@ -220,7 +220,7 @@ code workaround
 
 | 架构 Gate | 落地方式 | 当前状态 |
 |---|---|---|
-| G1 Stateless Runtime | `03` 无状态约束 + S-RT-01/05/06；集成测试双 Runtime | 设计已承接；测试待实现 |
+| G1 Stateless Runtime | `03` 无状态约束 + S-RT-01/06；集成测试双 Runtime | 设计已承接；测试待实现 |
 | G2 Execution Snapshot | `01` CORE-LIB-05 + `05` snapshot 条件约束 | 设计已承接 |
 | G3 Worker Crash Recovery | `06` WORK-LIB-01/02 + S-WORK-02/05/11；SIGKILL 故障注入 | 设计已承接；注入待实现 |
 | G4 Idempotent Side Effect | `05` `effect:{operation_id}`、`07` CAP-LIB-03、`06` 幂等重放 | 设计已承接 |
@@ -246,3 +246,13 @@ code workaround
 5. 每条 RULE 的 verifier（场景 ID）必须存在且语义匹配。
 
 > 第三轮 Review 的 T-55/T-13/T-15/T-16/T-17 正是这些比对失败的结果；把它们变成 CI Gate 才能防止再次漂移。
+
+## 本轮七项契约修复门禁
+
+- 四类能力表单样例通过 Owner JSON Schema；反例必须拒绝（缺地址、Secret、非法认证、空/重复/不支持的模式）。
+- 行内绑定提交完整维度集合并保留其他维度；旧 revision 不得覆盖。
+- CH-DATA-03 原子消费许可：重复/并发/过期/跨租户均不能取得第二次发送权；提交后才发网络。
+- CAP-API-07 不依赖 service_id；候选和提交复用 USR-LIB-02。
+- 前端范围字段、投递枚举与取消/重投动作直接匹配 Owner DTO。
+- 追溯校验除 ID 存在外，必须复核关联场景的断言内容；不得以任意存在的场景替代验证。
+- S-SVC-18 定义黄金旅程完整边界；本轮静态/Schema/数据库合同测试不代替真实 MSS/WeCom 联调。

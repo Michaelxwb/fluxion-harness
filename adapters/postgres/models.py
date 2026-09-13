@@ -14,7 +14,7 @@ from sqlalchemy import (
     Text,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -559,10 +559,11 @@ class CapabilityImplementationModel(Base, IdMixin, SoftDeleteTimestampMixin, Ten
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     # ADR-057/D1: credential source lives in exactly one place (this column).
-    # ADR-062: async submission support is an implementation capability marker that
-    # the ServiceDraft step execution_mode is conjoined with at validation time.
+    # ADR-062: a step's requested mode must belong to this normalized set.
     auth_mode: Mapped[str] = mapped_column(String(64), nullable=False, default="NONE")
-    async_submittable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    supported_execution_modes: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=lambda: ["SYNC"], server_default=text("'[\"SYNC\"]'::jsonb")
+    )
     project_platform_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("project_platform.id")
     )
@@ -578,6 +579,21 @@ class CapabilityImplementationModel(Base, IdMixin, SoftDeleteTimestampMixin, Ten
         CheckConstraint(
             "implementation_type <> 'PLATFORM_SERVICE' OR project_platform_id IS NOT NULL",
             name="ck_capability_implementation_platform_service",
+        ),
+        CheckConstraint(
+            "supported_execution_modes IN "
+            "('[\"SYNC\"]'::jsonb, '[\"ASYNC\"]'::jsonb, '[\"SYNC\",\"ASYNC\"]'::jsonb)",
+            name="ck_capability_implementation_modes",
+        ),
+        CheckConstraint(
+            "auth_mode <> 'USER_PLATFORM' OR implementation_type = 'PLATFORM_SERVICE'",
+            name="ck_capability_implementation_user_auth",
+        ),
+        CheckConstraint(
+            "(auth_mode = 'SHARED_SECRET' AND shared_secret_ref IS NOT NULL "
+            "AND length(btrim(shared_secret_ref)) > 0) OR "
+            "(auth_mode <> 'SHARED_SECRET' AND shared_secret_ref IS NULL)",
+            name="ck_capability_implementation_shared_secret",
         ),
     )
 
@@ -821,6 +837,8 @@ class ChannelDeliveryModel(Base, IdMixin, SoftDeleteTimestampMixin, TenantMixin)
     lease_owner: Mapped[str | None] = mapped_column(String(256))
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     lease_epoch: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    # Independent of SENDING: consumed only once after Worker has claimed an epoch.
+    permit_consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     remote_idempotency: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     dedupe_key: Mapped[str] = mapped_column(String(128), nullable=False)
     provider_message_id: Mapped[str | None] = mapped_column(String(512))

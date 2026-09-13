@@ -39,6 +39,7 @@
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 新增 AUTH-LIB-02/03（内部服务 token、Developer token）；Console 身份映射与 configured/session 字段补齐；Builder 安全只读 DTO 字段级冻结；auth_type↔ProviderKey 冻结；用户授权 revision_token 移除；Skill 入口校验与审核后置声明 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | Z-12 角色守卫：USR-API-04 补三条服务端校验（不得改当前登录用户自己的 `role` → 403 `SELF_ROLE_CHANGE_DENIED`；提升为 ADMIN 需前端二次确认且服务端接受；禁止降级/停用最后一名 Admin → 409 `LAST_ADMIN_PROTECTED`）；明确「最后一名 Admin」判定口径；补场景 E-USER-04/E-USER-05 并同步 §6 与合规矩阵 verifier |
 | V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
+| V1.14.3 契约闭环修复 | 2026-09-14 | Codex | 新增 USR-LIB-02 受控测试用户策略；修正重复 E-USER-04，自改角色场景改为 E-USER-06。 |
 
 ## 2. 需求分析
 
@@ -92,7 +93,7 @@
 | RULE-USER-01 | 授权事实 | 唯一产品授权事实是 AgentAccessGrant；不得新建 UserAgentBinding 路由表。 | S-USER-01 |
 | RULE-USER-02 | 跨渠道 | 同一 PlatformUser 的 Agent grant 在所有已绑定身份复用。 | S-USER-02 |
 | RULE-USER-03 | 实时撤销 | 撤销 grant 后新消息/Execution 恢复立即拒绝。 | S-USER-03 |
-| RULE-USER-04 | Admin | V1 Console 用户/授权管理仅 Admin 可写；Admin 角色本身受自改/最后一名 Admin 守卫（USR-API-04）。 | S-USER-04, E-USER-04, E-USER-05 |
+| RULE-USER-04 | Admin | V1 Console 用户/授权管理仅 Admin 可写；Admin 角色本身受自改/最后一名 Admin 守卫（USR-API-04）。 | S-USER-04, E-USER-06, E-USER-05 |
 | RULE-USER-05 | 外部权限 | Agent grant 不替代 MSS/CRM 等业务数据权限。 | S-USER-05 |
 
 #### 2.5.2 功能验收场景
@@ -115,7 +116,7 @@
 | E-USER-02 | FEAT-USER-04 | E2E | Runtime grant check | 本模块 | 用户无 grant 请求 Agent | AGENT_ACCESS_DENIED | 不调用模型/Skill/Capability |
 | E-USER-03 | FEAT-USER-01 | E2E | Console 写权限与审计 | 本模块 | Builder 登录 Console 调 USR-API-02 或 USR-API-06 | 403 ADMIN_REQUIRED；写 audit_log（actor_user_id=该登录用户唯一 platform_user.id，含 action 与目标） | 写操作被拒绝，授权变更与操作者可追踪 |
 | E-USER-04 | FEAT-USER-01 | integration | 授权并发不丢失 | 本模块 + 03 | 两个 Admin 基于同一份授权快照并发操作（A 新增 user-1，B 新增 user-2） | 各自提交单条 grant 操作 | 两条授权**都生效**（不存在后写者覆盖先写者）；同一 pair 并发重复操作由唯一约束收敛为一行并幂等返回（ADR-064） |
-| E-USER-04 | FEAT-USER-01 | E2E | Admin 自改角色守卫 | 本模块 | 当前登录 Admin 编辑自己并提交 `role` 变更 | 403 SELF_ROLE_CHANGE_DENIED；整次请求原子拒绝，该用户 role 仍为 ADMIN、其他字段未被修改 | 角色未变；不会被自己降权锁死，其余字段修改需分次提交 |
+| E-USER-06 | FEAT-USER-01 | E2E | Admin 自改角色守卫 | 本模块 | 当前登录 Admin 编辑自己并提交 `role` 变更 | 403 SELF_ROLE_CHANGE_DENIED；整次请求原子拒绝，该用户 role 仍为 ADMIN、其他字段未被修改 | 角色未变；不会被自己降权锁死，其余字段修改需分次提交 |
 | E-USER-05 | FEAT-USER-01 | E2E | 最后一名 Admin 保护 | 本模块 | 租户内仅剩一名 `role=ADMIN AND status=ACTIVE AND is_deleted=false` 用户时，降级（ADMIN→非 ADMIN）或停用（ACTIVE→DISABLED）该 Admin | 409 LAST_ADMIN_PROTECTED；不落库（原角色/状态不变） | 平台仍有至少一名可用 Admin，管理面不会自我锁死 |
 
 #### 2.5.3 非功能指标
@@ -293,6 +294,7 @@ erDiagram
 | USR-API-06R | 撤销用户 Agent 授权 | HTTP | POST | /api/v1/users/{user_id}/agent-grants/{grant_id}/revoke |
 | USR-API-07 | Agent 反向授权用户（唯一反向只读视图） | HTTP | GET | /api/v1/agents/{agent_id}/users |
 | USR-LIB-01 | 运行时 Agent 授权校验 | Library | def require_agent_access(ctx: TrustedExecutionContext, agent_id: UUID) -> AgentAccessDecision |  |
+| USR-LIB-02 | 受控测试用户策略 | Library | TestUserPolicy.list_candidates / require_user | Service 与 Capability 测试共享，不对外开放用户目录 |
 
 #### USR-API-01: 用户列表
 
@@ -748,6 +750,19 @@ def require_agent_access(ctx: TrustedExecutionContext, agent_id: UUID) -> AgentA
 
 **补充约束**：不接受 LLM 传入 user_id 覆盖 ctx.actor_user_id。
 
+#### USR-LIB-02: 受控测试用户策略
+
+**入口类型**：Library，调用方为 SVC-API-11/CAP-API-07 及对应测试 Application；不新增公共用户列表接口。
+
+**签名**：`list_candidates(ctx, page, page_size, keyword) -> TestUserPage`；`require_user(ctx, test_user_id) -> PlatformUser`。
+
+**身份与权限**：ctx 为 CORE-LIB-06 的 Console 身份。Builder 只允许自己；Admin 可选择同租户 ACTIVE、非软删用户（包含 END_USER，真实业务凭据通常属于 END_USER）。END_USER 不可调用 Console。先由对象 Owner 检查 Service/Capability 可读可测试，再调用本策略；候选及测试提交复用同一谓词，不能依据客户端候选缓存放行。跨 tenant、停用用户、Builder 指定他人均 `TEST_USER_ACCESS_INVALID`(403)。缺省 test_user_id=当前登录用户。
+
+**响应**：`{items:[{user_id,user_key,display_name}],page,page_size,total,default_user_id}`；page>=1、page_size=50/max100，keyword 仅筛选授权范围内结果，空 items 合法。default_user_id 固定为登录用户；不返回角色、凭据状态、Secret 或平台账号。审计记录登录操作者；Capability 凭据按验证后的 test_user_id 解析，两种身份不可由请求任意混用。
+
+✅ Builder 测试本人、Admin 选择租户内 END_USER：通过；候选读取与提交谓词相同。
+❌ Builder 手工传他人 ID，或 Admin 传跨租户 ID：403，不调用 Provider，不产生测试产物。
+
 ### 3.5 质量实现方案
 
 #### 3.5.1 性能与容量
@@ -801,10 +816,10 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 
 | 功能ID | 接口ID | 验证场景 | 测试层级 | 状态 |
 |---|---|---|---|---|
-| FEAT-USER-01 | USR-API-01, USR-API-02, USR-API-03, USR-API-04 | S-USER-01, E-USER-03, E-USER-04, E-USER-05 | E2E/integration | 待实现/评审 |
+| FEAT-USER-01 | USR-API-01, USR-API-02, USR-API-03, USR-API-04 | S-USER-01, E-USER-03, E-USER-06, E-USER-05 | E2E/integration | 待实现/评审 |
 | FEAT-USER-02 | USR-API-05, USR-API-06/R, USR-API-07 | S-USER-02, E-USER-01, E-USER-04 | E2E/integration | 待实现/评审 |
 | FEAT-USER-03 | USR-API-07 | S-USER-02 | E2E/integration | 待实现/评审 |
-| FEAT-USER-04 | USR-LIB-01 | S-USER-03, S-USER-04, E-USER-02 | E2E/integration | 待实现/评审 |
+| FEAT-USER-04 | USR-LIB-01, USR-LIB-02 | S-USER-03, S-USER-04, S-CAP-10, E-USER-02 | E2E/integration | 待实现/评审 |
 | FEAT-USER-05 | USR-API-06/R | E-USER-03, E-USER-04 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
@@ -814,7 +829,7 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 | DESIGN/USER#RULE-USER-01 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-01 / §3 | S-USER-02, E-USER-01 | applied；仓库 spec-context 待绑定 |
 | DESIGN/USER#RULE-USER-02 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-02 / §3 | S-USER-03 | applied；仓库 spec-context 待绑定 |
 | DESIGN/USER#RULE-USER-03 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-03 / §3 | S-USER-04, E-USER-02 | applied；仓库 spec-context 待绑定 |
-| DESIGN/USER#RULE-USER-04 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-04 / §3.4.1 USR-API-04 | E-USER-03, E-USER-04, E-USER-05 | applied；仓库 spec-context 待绑定 |
+| DESIGN/USER#RULE-USER-04 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-04 / §3.4.1 USR-API-04 | E-USER-03, E-USER-06, E-USER-05 | applied；仓库 spec-context 待绑定 |
 | DESIGN/USER#RULE-USER-05 | design-baseline | 约束实现与验收 | §2.5 RULE-USER-05 / §3 | S-USER-05 | applied；仓库 spec-context 待绑定 |
 
 ## 附录 A：接口与 DB 落码检查清单

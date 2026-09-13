@@ -39,6 +39,7 @@
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 新增 AUTH-LIB-02/03（内部服务 token、Developer token）；Console 身份映射与 configured/session 字段补齐；Builder 安全只读 DTO 字段级冻结；auth_type↔ProviderKey 冻结；用户授权 revision_token 移除；Skill 入口校验与审核后置声明 |
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | D2 字段级授权：PLAT-API-02/04 由「仅 Admin」改为「Builder + Admin（敏感字段仅 Admin）」，`auth_type`/`auth_schema` 仅 Admin 可写、非 Admin 携带即 403 `FIELD_ADMIN_ONLY` 并原子拒绝；明确认证模板由 Admin 维护、Builder 只读 `auth_type`/`configured`（同步 §3.2.3 与 PLAT-API-01/03 投影）；PLAT-API-05 维持仅 Admin 并写明理由 |
 | V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
+| V1.14.3 契约闭环修复 | 2026-09-14 | Codex | 将 PLAT-API-02/04 详细契约同步到既定整接口 Admin 权限，移除旧字段级写授权残留。 |
 
 ## 2. 需求分析
 
@@ -224,7 +225,7 @@ Console 登录入口 `POST /api/v1/auth/login`（及 `POST /api/v1/auth/logout`�
 - UNIQUE (tenant_id,key) WHERE is_deleted=false
 - auth_type=UNCONFIGURED 当且仅当 configured=false（派生 DTO）；此时 auth_schema={}，不能保存/验证凭据或运行 PLATFORM_SERVICE。其他类型必须已注册且模板校验通过。
 - `auth_type` 的取值空间就是模块 12 Registry 中 `ProviderKind=AUTH` 已注册 Provider 的 `key`（大小写敏感的稳定 key，租户无关）；`UNCONFIGURED` 是唯一保留值。选择未注册的 `auth_type` 一律拒绝保存 `AUTH_PROVIDER_NOT_REGISTERED`(422)，不做隐式映射或大小写归一。
-- `auth_type`/`auth_schema` 是 **Admin 维护的认证模板字段**（D2 字段级授权）：非 Admin 请求中出现其中任一字段（即使值为 `null` 或 `{}`）一律 403 `FIELD_ADMIN_ONLY` 且不修改任何字段（原子拒绝）。Builder 只读 `auth_type` 与 `configured`（见 §3.2.3）。
+- `PLAT-API-02/04/05` 整接口仅 Admin，非 Admin 一律 403 `ADMIN_REQUIRED`；Builder 仅通过 `PLAT-API-01/03` 读取安全投影（见 §3.2.3）。
 
 **索引设计**
 
@@ -399,7 +400,7 @@ erDiagram
 
 **请求体**：无。
 
-**安全投影**：Builder 使用安全只读 DTO，字段级清单见下表；**不含 `auth_schema`**（平台认证模板与凭据表单字段仅 Admin 可见），但**保留 `auth_type`**（Builder 定义 PLATFORM_SERVICE 能力时必须知道目标平台用哪种认证方式，且它是模块 12 已注册 Provider 的机器 key，本身不含任何凭据）。description 在 Builder 视图保留。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见。**认证模板字段列表由 Admin 维护**，Builder 侧只读 `auth_type` 与 `configured`（`PLAT-API-01/03` 一致）；写入为字段级授权（`PLAT-API-02/04`：Builder + Admin，`auth_type`/`auth_schema` 仅 Admin），验证接口 `PLAT-API-05` 仍仅 Admin。
+**安全投影**：Builder 使用安全只读 DTO，字段级清单见下表；**不含 `auth_schema`**（平台认证模板与凭据表单字段仅 Admin 可见），但**保留 `auth_type`**（Builder 定义 PLATFORM_SERVICE 能力时必须知道目标平台用哪种认证方式，且它是模块 12 已注册 Provider 的机器 key，本身不含任何凭据）。description 在 Builder 视图保留。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见。**认证模板字段列表由 Admin 维护**，Builder 侧只读 `auth_type` 与 `configured`（`PLAT-API-01/03` 一致）；`PLAT-API-02/04/05` 整接口仅 Admin。
 
 **响应 data**
 
@@ -455,7 +456,7 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 
 **契约**：`POST /api/v1/project-platforms`
 
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；**Builder + Admin（敏感字段仅 Admin）**——其中 `auth_type`/`auth_schema`（认证模板）仅 Admin 可写（ADR-021 字段级授权）
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；**仅 Admin**。Builder 无论提交何种字段均返回 403 `ADMIN_REQUIRED`（§3.2.3 / 前端模块 08）。
 
 **请求体**
 
@@ -464,8 +465,8 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 | name | string | Y | 名称 |
 | key | string | Y | 稳定 Key |
 | description | string | N | 说明 |
-| auth_type | string/null | N | **仅 Admin 可写**；非 Admin 请求中出现（含 `null`）一律 403 `FIELD_ADMIN_ONLY` 且不修改任何字段。Admin 侧：缺省或 null 均规范化为 UNCONFIGURED；非 UNCONFIGURED 时必须是模块 12 `ProviderKind=AUTH` 已注册 Provider 的 `key` |
-| auth_schema | object | N | **仅 Admin 可写**；非 Admin 请求中出现（含 `{}`）一律 403 `FIELD_ADMIN_ONLY` 且不修改任何字段。Admin 侧：UNCONFIGURED 只允许 {}；已配置时必须符合注册 Provider 模板 |
+| auth_type | string/null | N | 缺省或 null 均规范化为 UNCONFIGURED；非 UNCONFIGURED 时必须是模块 12 `ProviderKind=AUTH` 已注册 Provider 的 `key` |
+| auth_schema | object | N | UNCONFIGURED 只允许 {}；已配置时必须符合注册 Provider 模板 |
 | enabled | boolean | N | 默认 true |
 
 **请求示例**
@@ -511,14 +512,13 @@ Builder/Admin tenant scoped 查询 + capability implementation 聚合。
 | PROJECT_PLATFORM_KEY_EXISTS | key 重复 | 409 |
 | AUTH_SCHEMA_INVALID | Schema 非法或包含不允许的 secret 默认值 | 400 |
 | AUTH_PROVIDER_NOT_REGISTERED | auth_type 不是已注册 Provider 的 key 且非 UNCONFIGURED | 422 |
-| FIELD_ADMIN_ONLY | 非 Admin 请求中出现 `auth_type` 或 `auth_schema`（含 `null`/`{}`） | 403 |
+| ADMIN_REQUIRED | 非 Admin 调用写入接口，与请求字段无关 | 403 |
 
 **处理逻辑**
 
 ```text
-字段级授权：非 Admin 请求中出现 auth_type 或 auth_schema（含 null/{}）→ 立即 403 FIELD_ADMIN_ONLY（原子拒绝：不得写入任何字段，也不得部分成功）。
+接口级授权：先确认登录角色为 Admin；非 Admin 一律 403 ADMIN_REQUIRED，整次请求不写入任何字段。
 Admin：将缺省/null auth_type 规范化为 UNCONFIGURED；此时 auth_schema 必须 {}。其他类型必须是模块 12 ProviderKind=AUTH 已注册 Provider 的 key（大小写敏感稳定 key，租户无关），否则拒绝保存 AUTH_PROVIDER_NOT_REGISTERED（422）；通过后校验该 Provider 模板并保存。
-Builder（未携带敏感字段）：以 auth_type=UNCONFIGURED、auth_schema={}、configured=false 创建平台资产，认证模板由 Admin 后续补齐。
 返回 id/key/revision/configured=(auth_type!=UNCONFIGURED)。enabled 是资产开关，不代表已配置认证。UNCONFIGURED 时保存 Credential、认证验证、PLATFORM_SERVICE 测试/运行均 AUTH_PLATFORM_UNCONFIGURED（409），不能隐式调用 USERNAME_PASSWORD。
 ```
 
@@ -532,7 +532,7 @@ Builder（未携带敏感字段）：以 auth_type=UNCONFIGURED、auth_schema={}
 
 **请求体**：无。
 
-**安全投影**：Builder 仅安全只读 DTO（ADR-021），字段级清单见响应字段表的「角色投影」列；不含 auth_schema——**认证模板字段列表（`auth_schema`）仅 Admin 可见**，`description` 保留 Builder 可见；Builder 保留 `auth_type`（模块 12 已注册 Provider 的机器 key，不含凭据与模板），与 PLAT-API-01 的安全投影一致，供 Builder 定义 PLATFORM_SERVICE 能力时选择平台。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；认证模板写入与验证仍仅 Admin（`PLAT-API-02/04` 的 `auth_type`/`auth_schema` 字段级、`PLAT-API-05` 整接口）。
+**安全投影**：Builder 仅安全只读 DTO（ADR-021），字段级清单见响应字段表的「角色投影」列；不含 auth_schema——**认证模板字段列表（`auth_schema`）仅 Admin 可见**，`description` 保留 Builder 可见；Builder 保留 `auth_type`（模块 12 已注册 Provider 的机器 key，不含凭据与模板），与 PLAT-API-01 的安全投影一致，供 Builder 定义 PLATFORM_SERVICE 能力时选择平台。内部地址、额外认证头、Secret ref/值、用户凭据仅 Admin 管理 DTO 可见；认证模板写入与验证仍仅 Admin（`PLAT-API-02/04/05` 整接口）。
 
 **响应 data**
 
@@ -588,7 +588,7 @@ Builder（未携带敏感字段）：以 auth_type=UNCONFIGURED、auth_schema={}
 
 **契约**：`PUT /api/v1/project-platforms/{platform_id}`
 
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；**Builder + Admin（敏感字段仅 Admin）**——其中 `auth_type`/`auth_schema`（认证模板）仅 Admin 可写（ADR-021 字段级授权）
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；**仅 Admin**。Builder 无论提交何种字段均返回 403 `ADMIN_REQUIRED`（§3.2.3 / 前端模块 08）。
 
 **请求体**
 
@@ -596,8 +596,8 @@ Builder（未携带敏感字段）：以 auth_type=UNCONFIGURED、auth_schema={}
 |---|---|---|---|
 | name | string | Y | 名称 |
 | description | string | N | 说明 |
-| auth_type | string/null | **仅 Admin：Y；非 Admin：必须缺省** | **仅 Admin 可写**；非 Admin 请求中出现（含 `null`）一律 403 `FIELD_ADMIN_ONLY` 且不改任何字段。Admin 侧：必须为 UNCONFIGURED 或模块 12 已注册 AUTH Provider 的 key；显式 null 等价于 UNCONFIGURED（清空认证配置） |
-| auth_schema | object | **仅 Admin：Y；非 Admin：必须缺省** | **仅 Admin 可写**；非 Admin 请求中出现（含 `{}`）一律 403 `FIELD_ADMIN_ONLY` 且不改任何字段。Admin 侧：认证字段定义；清空认证配置时必须 {} |
+| auth_type | string/null | Y | 必须为 UNCONFIGURED 或模块 12 已注册 AUTH Provider 的 key；显式 null 等价于 UNCONFIGURED（清空认证配置） |
+| auth_schema | object | Y | 认证字段定义；清空认证配置时必须 {} |
 | enabled | boolean | Y | 状态 |
 | revision | integer | Y | 乐观锁 |
 
@@ -643,13 +643,12 @@ Builder（未携带敏感字段）：以 auth_type=UNCONFIGURED、auth_schema={}
 | REVISION_CONFLICT | 冲突 | 409 |
 | AUTH_SCHEMA_INCOMPATIBLE | 认证 schema 变更与现有 credential 不兼容；需要迁移策略 | 409 |
 | AUTH_PROVIDER_NOT_REGISTERED | auth_type 不是已注册 Provider 的 key 且非 UNCONFIGURED/null | 422 |
-| FIELD_ADMIN_ONLY | 非 Admin 请求中出现 `auth_type` 或 `auth_schema`（含 `null`/`{}`） | 403 |
+| ADMIN_REQUIRED | 非 Admin 调用写入接口，与请求字段无关 | 403 |
 
 **处理逻辑**
 
 ```text
-字段级授权：非 Admin 请求中出现 auth_type 或 auth_schema（含 null/{}）→ 立即 403 FIELD_ADMIN_ONLY（原子拒绝：整次请求不修改任何字段，同请求内的 name/description/enabled 变更也不生效）。
-Builder（未携带敏感字段）：只能修改 name/description/enabled（+revision），认证模板保持 current 不变。
+接口级授权：先确认登录角色为 Admin；非 Admin 一律 403 ADMIN_REQUIRED，整次请求不写入任何字段。
 Admin：读取 current → 校验 revision/schema → 若 schema 字段破坏性变更，要求显式 force/migration（V1 默认拒绝）→ UPDATE → audit（details.changed_fields 记字段级 before/after）。
 auth_type 取值空间 = 模块 12 ProviderKind=AUTH 已注册 Provider 的 key（大小写敏感稳定 key，租户无关）；非注册 key → AUTH_PROVIDER_NOT_REGISTERED（422）。
 显式 auth_type: null 或 UNCONFIGURED 表示清空认证配置：规范化写入 auth_type=UNCONFIGURED + auth_schema={} + configured=false（不删除平台对象与用户凭据记录）；清空后保存凭据、验证、PLATFORM_SERVICE 运行一律 AUTH_PLATFORM_UNCONFIGURED（409）。
@@ -661,7 +660,7 @@ auth_type 取值空间 = 模块 12 ProviderKind=AUTH 已注册 Provider 的 key�
 
 **契约**：`POST /api/v1/project-platforms/{platform_id}/validate-auth-schema`
 
-**认证/授权**：登录会话（中间件解析，RULE-API-02）；**仅 Admin（ADR-021）**——D2 二选一结论：本接口虽为纯校验（不落库），但校验对象是 Admin 维护的认证模板（`auth_schema` 即凭据表单字段列表），属敏感面，与 `PLAT-API-02/04` 的 `auth_schema` 字段级 Admin-only 保持一致；不放给 Builder。
+**认证/授权**：登录会话（中间件解析，RULE-API-02）；**仅 Admin（ADR-021）**——D2 二选一结论：本接口虽为纯校验（不落库），但校验对象是 Admin 维护的认证模板（`auth_schema` 即凭据表单字段列表），属敏感面，与 `PLAT-API-02/04` 的接口级授权保持一致；不放给 Builder。
 
 **请求体**
 

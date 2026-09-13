@@ -40,6 +40,7 @@
 | V1.13.1 第四轮合理性修复 | 2026-09-12 | Claude Code | B4：`browser`/`external-scan`/`large-report` 槽位改为集群级 PG 信号量（新增协调表 `worker_slot_lease` + S-WORK-13），其余 class 保持进程内计数；Q-02：租约默认值自洽（TTL=900000/心跳 300000）+ 启动自检拒绝启动 + RULE-WORK-08 失联语义改为可验收三行为；Y-02：RULE-WORK-04 增副作用合取条件与 `CREDENTIAL_INVALID` 处置、SYNC 分支补 `effect:{operation_id}`；B1：claim/renew/fencing 改为基于 `CORE-LIB-08 LeaseQueue`；B3：保留与清理按《11-数据保留与清理策略》 |
 | V1.13 第三轮 Review 修复 | 2026-09-12 | Claude Code | 补齐 ASYNC 首次提交分支（SUBMITTING→submit→WAITING，幂等键 `effect:{operation_id}`）；WAITING_HUMAN 唤醒条件改为 pending-command/deadline（修复会被反复领取与决策 409 的缺陷）；新增 RULE-WORK-08 租约参数与心跳调用时机、RULE-WORK-09 投递触发；RULE-WORK-04 补错误分类与三层计数口径；WORK-LIB-06 补 human_wait/progress_stage 调度；新增 S-WORK-07..12 与 E-WORK-03；矩阵与 verifier 修正 |
 | V1.14.1 第五轮 Review 裁决修复 | 2026-09-13 | Claude Code | D8：提案唯一谓词补 `superseded_at IS NULL`；D9：Step 显式 `execution_mode`/`reconcile_timeout_seconds`/`max_poll_attempts` 与能力 `async_submittable` 合取校验（ADR-062）；D10：`execution_source` 三态与 `CAPABILITY_TEST` 执行身份、产物统一走 `EXE-API-06`（ADR-063）；D11：投递按 `message_key` 取有效尝试聚合（ADR-066）；D12：`EXE-API-03` 承载全部运行态取消、`EXE-API-05` 收窄为 WAITING_HUMAN（ADR-065）；D13：Builder 可见范围统一为并集；D14：新增 `AUTH-API-01`/`SVC-API-11`；D16：集群槽位按持久占用对账（ADR-068、`slot_resource_class`）；新增场景 S-SVC-13..17、E-SVC-06..08 |
+| V1.14.3 契约闭环修复 | 2026-09-14 | Codex | 能力异步支持改为 supported_execution_modes 成员校验。 |
 
 ## 2. 需求分析
 
@@ -391,7 +392,7 @@ CAPABILITY（ASYNC，`execution_mode=ASYNC`）——**首次提交分支（本�
      reconcile_timeout_seconds（默认 86400）** / max_poll_attempts），把 step 置 RUNNING 后提交，再发起外部提交
    - 已存在且非终态 → 不重复提交，直接转第 2 步
 2) 调 CAP-LIB-03 submit_async(ctx, capability_key, input, idempotency_key=effect:{operation_id})
-   该调用内部先校验解析到的 implementation `async_submittable=true`（ADR-062）；为 false 时返回
+   该调用内部先校验解析到的 implementation `supported_execution_modes` 包含 `ASYNC`（ADR-062）；为 false 时返回
    CAPABILITY_ASYNC_NOT_INVOKABLE(422)，**不静默降级为同步调用**（Draft 阶段已由 SVC-API-05 拦截，
    此处是运行期兜底：能力被改配或实现被替换后仍必须确定失败）
 3) 成功：同事务回写 external_task_id/status=SUBMITTED|RUNNING/next_poll_at → root 置 WAITING（next_run_at=next_poll_at）并释放 lease
@@ -471,7 +472,7 @@ async def progress_async_task(step: ExecutionStep, run: AsyncTaskRun, now: datet
 
 **签名**：`async def advance_delivery(delivery_id: UUID, worker_id: str) -> DeliveryOutcome`
 
-独立扫描模块 10 channel_delivery 的 PENDING、到期 RETRY_PENDING 和过期 SENDING（用于未知结果对账），不要求 execution 仍非终态。claim/attempt/fencing/outcome 的唯一规则为 CH-INT-01/CH-DATA-03；执行前校验路由/租户/文件归属和安全开关。单次发送由 Gateway 完成，有限重试仅由本循环调度；UNKNOWN 不盲目重发。
+独立扫描模块 10 channel_delivery 的 PENDING、到期 RETRY_PENDING 和过期 SENDING（用于未知结果对账），不要求 execution 仍非终态。claim/attempt/fencing/outcome 的唯一规则为 CH-INT-01（Gateway 单次发送）/CH-DATA-03（agent-runtime 原子消费许可）；执行前校验路由/租户/文件归属和安全开关。单次发送由 Gateway 完成，有限重试仅由本循环调度；UNKNOWN 不盲目重发。
 
 **调度的事件类型（ADR-040 / D13）**：`completed`（执行成功）、`failed`（终态失败，含 `HUMAN_TIMEOUT`）、`human_wait`（进入人工等待）、`progress_stage`（用户可见的阶段推进）。`progress_stage` **只由 `task_progress_event` 中 `event_type IN ('STAGE','WAIT','ERROR','COMPLETE')` 且 `visibility='USER'` 的行产生**，`event_id = task_progress_event.id`（幂等：重放不新增投递行）；`PROGRESS` 级与 `ADMIN/INTERNAL` 可见性只进 Timeline，不产生投递。本循环是投递重试的**唯一 owner**，Gateway 单次 best-effort。
 
@@ -534,7 +535,7 @@ DB 变更使用向前兼容迁移；应用支持滚动回滚；若涉及不可�
 | FEAT-WORK-03 | WORK-LIB-03, WORK-LIB-05 | S-WORK-03, S-WORK-08, E-WORK-02, E-WORK-03 | E2E/integration | 待实现/评审 |
 | FEAT-WORK-04 | WORK-LIB-01, WORK-LIB-02 | S-WORK-02, S-WORK-05 | E2E/integration | 待实现/评审 |
 | FEAT-WORK-05 | WORK-LIB-04, WORK-LIB-05 | S-WORK-04, S-WORK-06 | E2E/integration | 待实现/评审 |
-| FEAT-WORK-06 | WORK-LIB-06, CH-INT-01（模块 10，含许可校验） | S-WORK-12 | E2E/integration | 待实现/评审 |
+| FEAT-WORK-06 | WORK-LIB-06, CH-INT-01 / CH-DATA-03（模块 10，单次发送 / 许可消费） | S-WORK-12 | E2E/integration | 待实现/评审 |
 
 ## Spec Compliance Matrix
 

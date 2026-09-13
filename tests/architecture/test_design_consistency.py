@@ -151,7 +151,7 @@ MASTER_DESIGN_REQUIRED = (
     "execution_source",
     "CAPABILITY_TEST",
     "message_key",
-    "async_submittable",
+    "supported_execution_modes",
     "execution_mode",
     "slot_resource_class",
     "worker_slot_counter",
@@ -366,8 +366,9 @@ def test_delivery_status_enum_does_not_collide_with_execution_status() -> None:
     assert "PENDING/SENDING/RETRY_PENDING/DELIVERED/FAILED/UNKNOWN" in channel, (
         "channel_delivery.status 枚举必须使用 RETRY_PENDING"
     )
-    assert "投递态用 RETRY_PENDING，与执行态 RETRY_WAIT 区分" in index, (
-        "字段索引里的投递状态枚举必须同步为 RETRY_PENDING 并说明与执行态的区分"
+    delivery_row = next(line for line in index.splitlines() if line.startswith("| channel_delivery |"))
+    assert "10-Channel-Gateway/design-full.md" in delivery_row, (
+        "索引必须指向拥有投递状态枚举的模块，不维护第二份枚举"
     )
     execution_doc = DOCS / "02-模块设计" / "05-Service与Execution" / "design-full.md"
     execution = execution_doc.read_text()
@@ -421,8 +422,9 @@ def test_identity_has_a_single_authoritative_table() -> None:
     to. Login is now a read of `platform_user`; sessions point at it.
     """
     import adapters.postgres.models as models
+    from adapters.postgres.base import Base
 
-    tables = set(models.Base.metadata.tables)
+    tables = set(Base.metadata.tables)
     assert "auth_account" not in tables, "auth_account 必须删除（role 双源）"
     assert "auth_session" not in tables, "auth_session 必须删除（会话与身份分离）"
     assert "session_token" in tables, "会话表为 session_token，绑定 platform_user"
@@ -444,23 +446,18 @@ def test_trusted_context_has_exactly_one_builder() -> None:
     )
 
 
-def test_delivery_has_a_single_internal_dispatch_endpoint() -> None:
-    """P0-5: permission check + send are one call, and no epoch bookkeeping column.
-
-    Splitting them (CH-DATA-03 then CH-INT-01) forced Gateway to make two internal
-    calls for one delivery and to pass `lease_epoch` twice; `dispatch_started_epoch`
-    then stored a second copy of a fact the delivery status already carries.
-    """
+def test_delivery_permission_crosses_the_documented_process_boundary() -> None:
+    """Gateway consumes a durable permit through agent-runtime before sending."""
     import adapters.postgres.models as models
 
     channel = (DOCS / "02-模块设计" / "10-Channel-Gateway" / "design-full.md").read_text()
-    assert "CH-DATA-03" not in channel.replace("已与 CH-DATA-03 合并", ""), (
-        "CH-DATA-03 必须合并进 CH-INT-01（单次调用完成许可校验与发送）"
-    )
-    columns = set(models.ChannelDeliveryModel.__table__.c.keys())
-    assert "dispatch_started_epoch" not in columns, (
-        "channel_delivery 不得保留 dispatch_started_epoch（SENDING + lease_epoch 已表达同一事实）"
-    )
+    assert "#### CH-DATA-03:" in channel
+    assert "/consume-permit" in channel
+    assert "Gateway 不直连 PG" in channel
+    columns = models.ChannelDeliveryModel.__table__.c
+    assert "permit_consumed_at" in columns
+    assert columns.permit_consumed_at.nullable
+    assert "dispatch_started_epoch" not in columns
 
 
 def test_derived_stage_name_is_not_a_stored_column() -> None:
@@ -568,7 +565,9 @@ def test_traceability_matrix_uses_real_scenario_ids() -> None:
     checked and therefore cannot fail — a matrix that cannot fail is decoration.
     The P→scenario assignment is editorial, but existence is mechanical.
     """
-    known = set().union(*_module_scenarios().values())
+    from tests.design_contracts import scenario_rows
+
+    known = set(scenario_rows())
     offenders: list[str] = []
     for line in MATRIX.read_text().splitlines():
         if not line.startswith("| P") or line.count("|") < 4:

@@ -219,11 +219,11 @@ REVIEW_ROUND_COLUMNS: dict[str, set[str]] = {
     "execution_proposal": {"superseded_at", "confirmation_digest", "template_hash", "confirmed_at"},
     "capability_implementation": {
         "auth_mode",
-        "async_submittable",
+        "supported_execution_modes",
         "project_platform_id",
         "shared_secret_ref",
     },
-    "channel_delivery": {"message_key", "event_id", "dedupe_key", "attempt", "status"},
+    "channel_delivery": {"message_key", "event_id", "dedupe_key", "attempt", "status", "permit_consumed_at"},
     "execution_step": {"execution_mode", "slot_resource_class", "step_key", "status"},
     "service_execution": {
         "capability_id",
