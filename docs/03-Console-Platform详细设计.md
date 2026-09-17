@@ -27,7 +27,7 @@ flowchart TD
     APP --> DOM[Domain]
     APP --> PORT[Ports]
     PORT --> REPO[Repositories]
-    PORT --> OBJ[ObjectStore Adapter]
+    PORT --> OBJ[Artifact Store Adapter]
     PORT --> SECRET[SecretProvider Adapter]
     PORT --> RUNTIME[Agent Runtime Admin Client]
     PORT --> ADAPTER[PlatformAdapter Metadata]
@@ -45,6 +45,9 @@ backend/
 │   ├── models.py
 │   ├── users.py
 │   ├── platforms.py
+│   ├── tasks.py
+│   ├── schedules.py
+│   ├── audits.py
 │   ├── runtime_internal.py
 │   └── channel_internal.py
 ├── application/
@@ -66,7 +69,7 @@ backend/
 ## 3. Console 页面结构
 
 ```text
-首页/概览
+概览
 Agent
 Skill
 MCP
@@ -104,34 +107,14 @@ MCP
 
 ### 3.2 Console 字段词典
 
-同一个领域字段进入 Console 后必须全局使用同一中文名称：
+字段命名与展示口径统一见 `15-Console字段词典与一致性规范.md`，本节不再复制。
 
-| 领域字段/语义 | Console 统一名称 | 说明 |
-|---|---|---|
-| `name` | 名称 | 主展示字段，可点击进入详情 |
-| `key` | 标识 | 平台内部稳定 key |
-| `enabled` | 启用状态 | 只表示管理侧启停 |
-| MCP `connection_status` | 连接状态 | 不与启用状态混用 |
-| Model `last_test_status` | 测试状态 | 批量测试结果 |
-| Task `status` | 任务状态 | QUEUED/RUNNING/... |
-| Schedule `status` | 调度状态 | ACTIVE/PAUSED |
-| `delivery_status` | 投递状态 | PENDING/SENT/... |
-| `instructions` | 系统 Prompt | Agent 顶层系统指令 |
-| Skill current artifact | 当前版本 | 不使用“当前制品版本” |
-| Skill/MCP `user_scope` | 用户范围 | ALL=全部授权用户；SELECTED=指定用户 |
-| Model `base_url` | Base URL | OpenAI-compatible 根地址 |
-| Model `model_id` | 模型 ID | OpenAI 请求 `model` 字段 |
-| ProjectPlatform `resolver_type` | 接入方式 | Base URL / 服务发现 |
-| `resolver_config` | 访问配置 | Base URL 或服务名 |
-| `external_user_id` | 外部用户 ID | IM 外部用户标识 |
-| `bot_id` | bot_id | 不改写为“来源 bot_id” |
-| MCP Tool `effect` | 操作类型 | READ/WRITE/EXTERNAL |
-| `last_discovered_at` | 最近工具发现时间 | MCP tools/list 成功时间 |
-| `started_at` / `finished_at` | 开始时间 / 完成时间 | 不合并为“开始 / 完成” |
+### 3.3 Console 访问控制
 
-数量字段统一使用“xx 数量/xx 数”，例如：`IM 通道数`、`授权用户数`、`使用 Agent 数`、`指定用户数`、`已配置用户凭据数`。
+Console 无自助注册，仅内网访问，只有两类角色（与 `07-跨模块接口与协议详细设计.md` Admin/Builder 表述一致）：
 
-“状态”不得作为跨模块通用裸字段；必须通过列名明确是启用、连接、测试、任务、调度还是投递状态。
+- **Admin**：全部权限，含用户/授权/凭据/平台配置；
+- **Builder**：Agent/Skill/MCP/Model/ProjectPlatform 配置与发布，审计只读；用户授权与凭据管理仅 Admin。
 
 ---
 
@@ -184,12 +167,18 @@ Agent 详情的“IM 接入”允许维护 0..N 条 ChannelAccount：
 
 ### 4.3 更新规则
 
-Agent 保存成功：
+所有带 `revision` 列的配置表（`agent_definition` / `model_definition` / `mcp_server`）更新必须携带 `expected_revision`：
 
 ```text
-revision = revision + 1
-config_audit_log append
+expected_revision 匹配:
+  revision = revision + 1
+  config_audit_log append
+
+expected_revision 不匹配:
+  409 REVISION_CONFLICT
 ```
+
+`skill` / `project_platform` 表没有 `revision` 列，其配置更新不携带 `expected_revision`，只在同一事务内追加 `config_audit_log`。
 
 已运行 Run 不更新 Snapshot；下一次 Run 使用新 revision。
 
@@ -201,7 +190,7 @@ config_audit_log append
 
 ```mermaid
 flowchart TD
-    A[上传 zip] --> B[限制大小 / 类型]
+    A[上传 zip] --> B[限制大小 / 类型 / 文件数 / 路径]
     B --> C[解包到临时目录]
     C --> D[读取 SKILL.md frontmatter]
     D --> E[name / description 最小校验]
@@ -217,6 +206,18 @@ flowchart TD
 ### 5.1.1 Skill 元数据原则
 
 Console 不要求维护另一份复杂 `skill.yaml`。导入时从 `SKILL.md` frontmatter 提取 `name`、`description` 和可选 `execution`；脚本、参考资料和资源按目录扫描。Artifact 的版本、checksum 属于制品元数据；Skill 的 `user_scope` 和指定用户授权属于平台控制面元数据。
+
+### 5.1.2 导入限制与校验
+
+| 限制项 | 数值/规则 |
+|---|---|
+| zip 大小 | ≤ 50 MiB |
+| 解压后总大小 | ≤ 200 MiB |
+| 文件数 | ≤ 2000 |
+| 扩展名白名单 | `.md` / `.py` / `.json` / `.yaml` / `.yml` / `.txt` / `.csv` / `.html` / `.css` / `.js` / `.png` / `.jpg` / `.svg` |
+| 路径 | 拒绝绝对路径与 `..` |
+| 符号链接 | 拒绝 |
+| Secret 扫描 | 导入时执行，与 `06-Skill-SDK与Egress-Boundary详细设计.md` §8 一致 |
 
 ### 5.2 Artifact 不可变
 
@@ -243,7 +244,7 @@ Tabs：
 - “版本记录”展示不可变 Artifact、校验和与校验结果；
 - “使用 Agent”展示 AgentSkillBinding；
 - “指定用户”只管理 `user_scope=SELECTED` 时的 SkillUserGrant；
-- `user_scope=ALL` 时，“指定用户”页只提示“当前对所有拥有对应 Agent 使用权的用户开放”，不要求白名单。
+- `user_scope=ALL` 时，“指定用户”页只提示“当前对所有拥有对应 Agent 使用权的用户开放”，不要求维护指定用户列表。
 
 Artifact 内容只读，不在 Console 编辑 Python。
 
@@ -280,28 +281,34 @@ User -> MCP
 ### 6.2 Skill
 
 ```text
-AgentAccessGrant(user, agent)
-AND AgentSkillBinding(agent, skill)
-AND Agent enabled
-AND Skill enabled
+EffectiveSkill(user, agent, skill) =
+    AgentAccessGrant(user, agent).is_deleted = false
+AND Agent.enabled = true
+AND AgentSkillBinding(agent, skill).is_deleted = false
+AND Skill.enabled = true
+AND Skill.is_deleted = false
 AND (
     Skill.user_scope = ALL
-    OR SkillUserGrant(skill, user) exists
+    OR SkillUserGrant(skill, user).is_deleted = false
 )
 ```
 
 ### 6.3 MCP
 
 ```text
-AgentAccessGrant(user, agent)
-AND AgentMcpBinding(agent, mcp)
-AND Agent enabled
-AND MCP enabled
+EffectiveMcp(user, agent, mcp) =
+    AgentAccessGrant(user, agent).is_deleted = false
+AND Agent.enabled = true
+AND AgentMcpBinding(agent, mcp).is_deleted = false
+AND Mcp.enabled = true
+AND Mcp.is_deleted = false
 AND (
-    MCP.user_scope = ALL
-    OR McpUserGrant(mcp, user) exists
+    Mcp.user_scope = ALL
+    OR McpUserGrant(mcp, user).is_deleted = false
 )
 ```
+
+绑定不做 enabled 开关；用户授权不做到期时间，撤销 = 软删除。
 
 ### 6.4 关键语义
 
@@ -309,7 +316,7 @@ AND (
 - `ALL` 不会绕过 AgentSkillBinding/AgentMcpBinding；
 - `SELECTED` 不会自动授予 AgentAccessGrant；
 - Skill/MCP 用户授权是**资源级**，不是 `(user, agent, resource)` 三元授权；
-- V1.3 不做 MCP Tool 级用户白名单；
+- V1.4 不做 MCP Tool 级用户授权；
 - 未授权资源在 Runtime Definition 中完全不返回，因此：
   - `/skills` 不显示；
   - Skill Catalog 不出现；
@@ -360,9 +367,9 @@ MCP 列表/详情必须区分：
 
 MCP Tool Catalog 说明：
 
-- Console 工具数/工具明细读取 `mcp_server.tool_catalog_json`；
-- “刷新工具目录”调用显式 `discover-tools` 接口；
-- V1 不提供 Tool 级用户白名单；
+- Console 工具数/工具明细读取 `mcp_server.tool_catalog_json`（含 `revision`/`hash`）；
+- “刷新工具目录”调用显式 `discover-tools` 接口，是 MCP tool catalog 的唯一维护入口；
+- V1 不提供 Tool 级用户授权；
 - Tool 的 READ/WRITE/EXTERNAL 只用于审计/策略。
 
 ### 6.7 Model 字段语义
@@ -372,12 +379,12 @@ MCP Tool Catalog 说明：
 ```text
 名称       = 人类可读名称
 标识       = model_definition.key，平台内部稳定 key
-协议       = OpenAI（当前只读）
+协议       = OPENAI，创建时固定，不可修改
 Base URL   = model_definition.base_url
 模型 ID    = model_definition.model_id，即 OpenAI 请求 model 字段
 ```
 
-“标识”和“模型 ID”不得合并。新增/编辑模型支持修改全部字段；保存后 revision+1、测试状态重置为未测试；模型测试只提供列表批量测试入口。
+“标识”和“模型 ID”不得合并。新增模型时固定 `protocol=OPENAI`；编辑只修改模型/凭据/参数等其余字段；保存后 revision+1、测试状态重置为未测试；模型测试只提供列表批量测试入口。
 
 当前不设计“平台默认模型”。Agent 创建/编辑必须显式选择 `model_definition.id`，不存在自动回退。
 
@@ -409,7 +416,7 @@ flowchart TD
     F --> G[Return SecretRef only]
 ```
 
-输出中不包含 Secret Value。仅返回当前 `actor_user_id + agent_id` 的 Effective Skill/MCP；未授权资源的名称、描述、Tool Schema 不返回。Skill Artifact 同时返回解析后的 `execution_mode`，供 Runtime `ExecutionRouter` 使用。
+输出中不包含 Secret Value。仅返回当前 `actor_user_id + agent_id` 的 Effective Skill/MCP；未授权资源的名称、描述、Tool Schema 不返回。Skill Artifact 同时返回解析后的 `execution_mode`，供 Runtime `ExecutionRouter` 使用。MCP 结果返回 Console 维护的 tool catalog `revision + hash + definitions`；Run 内不执行 `tools/list`。
 
 ---
 
@@ -419,10 +426,10 @@ flowchart TD
 
 ```text
 基本信息
-智能体授权
+Agent 授权
 项目平台凭据
 IM 身份
-User Memory（通过 Runtime Admin API）
+用户记忆
 ```
 
 ### 8.2 AgentAccessGrant 与资源级用户范围
@@ -643,7 +650,7 @@ UserCredentialRef(user_id, platform_id, secret_ref)
 共享级：
 
 ```text
-SharedCredentialRef(platform_id, secret_ref, priority)
+SharedCredentialRef(platform_id, secret_ref)
 ```
 
 `credential_mode` 决定 Resolver 选择策略：
@@ -697,8 +704,10 @@ flowchart LR
 列表字段建议：
 
 ```text
-任务 ID / 业务意图 / Agent / 执行用户 / Skill / 触发方式 / 任务状态 / 子任务进度 / 开始时间 / 完成时间 / 投递状态 / 操作
+任务 ID / 业务意图 / Agent / 执行用户 / Skill / 触发方式 / 任务状态 / 子任务进度 / 开始时间 / 完成时间 / 任务截止时间 / 投递状态 / 操作
 ```
+
+任务截止时间来自 `task_execution.deadline_at`（默认创建时间 + 24h）；详情页同时展示 `error_code` 等失败原因。
 
 支持：
 
@@ -720,6 +729,8 @@ flowchart LR
 名称 / Agent / 执行用户 / 业务意图 / Skill / 调度规则 / 时区 / 下次触发时间 / 最近触发时间 / 调度状态 / 操作
 ```
 
+调度状态取 `ACTIVE / PAUSED / COMPLETED`（ONCE 触发完成后进入 `COMPLETED`）。
+
 允许：
 
 - PAUSE / RESUME；
@@ -731,6 +742,27 @@ flowchart LR
 定时任务变更只影响未来触发；已经创建的 TaskExecution 不漂移。
 
 历史触发必须按 `task_execution.schedule_id = 当前 schedule.id` 查询并按 `create_time DESC` 展示，禁止在不同 Schedule 详情复用同一组硬编码历史记录。
+
+### 11.5 运行审计页面
+
+只读页面，无编辑/删除操作。
+
+列表字段：
+
+```text
+审计类型 / 操作目标 / 操作用户 / 操作 / trace_id / 开始时间 / 完成时间
+```
+
+对应：
+
+```text
+resource_type   = 审计类型
+resource_id     = 操作目标
+actor_user_id   = 操作用户
+action          = 操作
+```
+
+筛选与 `07-跨模块接口与协议详细设计.md` §10.11 一致：`resource_type/resource_id/actor_user_id/action/trace_id/start_time/end_time`。
 
 ---
 
@@ -751,15 +783,22 @@ flowchart LR
 
 | 错误码 | HTTP | 说明 |
 |---|---:|---|
+| `UNAUTHORIZED` | 401 | 未登录或会话已失效 |
+| `FORBIDDEN` | 403 | 已登录但无权执行该操作 |
+| `INVALID_CREDENTIALS` | 401 | 用户名或密码错误（含未知用户/禁用账号） |
+| `ACCOUNT_LOCKED` | 423 | 连续失败导致账号临时锁定 |
 | `AGENT_NOT_FOUND` | 404 | Agent 不存在 |
 | `AGENT_DISABLED` | 409 | Agent 已禁用 |
 | `AGENT_ACCESS_DENIED` | 403 | 无 AgentAccessGrant |
-| `SKILL_PACKAGE_INVALID` | 400 | 包结构/manifest 不合法 |
+| `REVISION_CONFLICT` | 409 | 配置版本已变化，请刷新后重试 |
+| `SKILL_PACKAGE_INVALID` | 400 | 包结构/文件类型不合法 |
 | `SKILL_VERSION_EXISTS` | 409 | 版本已存在 |
 | `MCP_CONFIG_INVALID` | 400 | MCP 配置错误 |
 | `BIND_CODE_INVALID` | 400 | 绑定码无效 |
 | `BIND_CODE_EXPIRED` | 410 | 已过期 |
+| `BOT_NOT_FOUND` | 404 | Bot 账号不存在或已禁用 |
 | `CREDENTIAL_MISSING` | 409 | 平台认证未配置 |
+| `MODEL_UNAVAILABLE` | 503 | 模型服务暂时不可用（Run 失败原因，用户可见） |
 
 ---
 

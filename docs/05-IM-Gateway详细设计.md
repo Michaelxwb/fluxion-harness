@@ -57,11 +57,12 @@ im-gateway/
 class ChannelAdapter(Protocol):
     async def start(self) -> None: ...
     async def stop(self) -> None: ...
+    async def iter_events(self) -> AsyncIterator["ChannelEnvelope"]: ...
     async def send(self, route: "ChannelRoute", message: "OutboundMessage") -> None: ...
     async def stream(self, route: "ChannelRoute", events: AsyncIterator["StreamEvent"]) -> None: ...
 ```
 
-Gateway 业务层不依赖 WeCom 原始 SDK 类型。
+`start()` 之后由 `iter_events()` 产出规范化后的 `ChannelEnvelope`；Gateway 业务层不依赖 WeCom 原始 SDK 类型。
 
 ---
 
@@ -72,7 +73,7 @@ Gateway 业务层不依赖 WeCom 原始 SDK 类型。
   "channel": "WECOM",
   "bot_id": "bot_xxx",
   "external_user_id": "wotv...",
-  "conversation_external_id": "...",
+  "external_conversation_id": "...",
   "message_id": "msg_xxx",
   "message_type": "text",
   "text": "帮 A 客户做一次策略检查",
@@ -108,21 +109,17 @@ Gateway 启动/配置刷新时按 ChannelAccount 建立连接；收到消息后�
 flowchart TD
     A[Gateway start] --> B[GET /internal/channel/bots]
     B --> C[For each enabled bot]
-    C --> D[Resolve bot secret via SecretProvider/Console contract]
+    C --> D[Read bot secret via secret_ref from Secret Provider]
     D --> E[Create WeCom SDK client]
     E --> F[Connect WebSocket]
     F --> G[heartbeat/reconnect by SDK]
 ```
 
+Bot secret 由 Gateway 通过 `secret_ref` 直接从 Secret Provider 读取；Console Internal API 只返回引用，不传明文。
+
 ### 5.2 动态刷新
 
-Phase 1 支持：
-
-```text
-POST /internal/channels/reload
-```
-
-或定时低频拉取 revision。变更 Bot 配置后，不要求重启整个 Gateway。
+Gateway 启动时全量拉取 `GET /internal/channel/bots`，之后每 30s 轮询该接口；`revision` 变化即热更新连接。变更 Bot 配置后，不要求重启整个 Gateway。
 
 ---
 
@@ -149,11 +146,17 @@ POST /internal/channel/resolve
 
 ```json
 {
-  "platform_user_id": "...",
-  "agent_id": "...",
-  "authorized": true,
-  "conversation_hint": null
+  "bound": true,
+  "platform_user_id": "uuid",
+  "agent_id": "uuid",
+  "authorized": true
 }
+```
+
+未绑定：
+
+```json
+{"bound": false, "agent_id": "uuid", "authorized": false}
 ```
 
 ---
@@ -201,11 +204,18 @@ POST /v1/conversations
 
 ### 7.4 `/stop`
 
-查找当前渠道会话的 active run，调用：
+Gateway 不查询、不缓存 active run，仅在 `/stop` 时发起一次调用：
 
 ```text
-POST /v1/runs/{run_id}/cancel
+POST /v1/runs/cancel-active
+{
+  "agent_id": "uuid",
+  "platform_user_id": "uuid"
+}
 ```
+
+- 无活跃 Run：返回 `404 NO_ACTIVE_RUN`，回复“当前没有执行中的任务”；
+- 有活跃 Run：`WAITING_INPUT` 直接 CAS 置 `CANCELLED`；`CREATED/RUNNING` 写 `cancel_requested` + Redis hint 并返回 `status="CANCELLING"`，回复受理文案“正在停止当前任务…”。
 
 ---
 
@@ -248,22 +258,35 @@ SET im:dedupe:WECOM:{message_id} 1 NX EX 600
 
 ## 10. SSE -> WeCom Streaming
 
-Runtime SSE：
+Runtime SSE 事件全集（与 07 §3 一致）：
 
 ```text
+run.created
 message.delta
+skill.loaded
+tool.started
+tool.completed
+task.accepted
+artifact.created
 interrupt.required
 run.completed
 run.failed
 ```
 
-Gateway 聚合策略：
+`heartbeat` 是 SSE 注释帧（`:` 开头），直接忽略，不作为事件处理。
 
+Gateway 处理策略：
+
+- 所有事件按 `seq` 保证顺序；
+- `run.created`：捕获 `run_id`；`resumed:true` 表示 Runtime 已将本次消息自动作为 `WAITING_INPUT` Run 的 resume 输入；
 - `message.delta` 按 SDK 最小发送间隔节流；
-- `tool.started` 默认不直接展示，除非 Agent 配置开启 progress；
+- `tool.started` 展示策略由 Gateway 统一控制，默认不展示；
+- `task.accepted`：finalize 当前流并展示受理文案；
+- `artifact.created`：不面向 IM 用户提供 Artifact 下载，大结果消息只给摘要（完整结果可在 Console 运行审计查看）；
 - `interrupt.required` 立即 flush；
 - `run.completed` finalize stream；
-- `run.failed` 输出可理解错误。
+- `run.failed` 输出可理解错误；
+- SSE 流未收到终态而断开：向用户提示“服务暂时中断，请重发消息”，该 Run 由 Runtime lease 回收为 `FAILED(RUN_ABANDONED)`。
 
 ---
 
@@ -276,7 +299,13 @@ Gateway 聚合策略：
 POST /internal/deliveries
 ```
 
-IM Gateway 根据 `bot_id + external_user_id/external_conversation_id` 使用官方 WeCom SDK 主动推送。
+请求必须携带 `delivery_key`（格式 `task:{task_id}:final`）。IM Gateway 根据 `bot_id + external_user_id/external_conversation_id` 使用官方 WeCom SDK 主动推送，并用 Redis 去重：
+
+```text
+SET delivery:dedupe:{delivery_key} 1 NX EX 604800
+```
+
+重复请求直接返回 200；Redis 不可用时按 at-least-once 继续发送。
 
 ```mermaid
 sequenceDiagram
@@ -306,11 +335,11 @@ sequenceDiagram
 | `IDENTITY_NOT_BOUND` | 请先使用 `/bind <绑定码>` 完成身份绑定 |
 | `AGENT_ACCESS_DENIED` | 当前账号未获得该智能体使用权限 |
 | `AGENT_DISABLED` | 当前智能体暂不可用 |
-| `RUN_BUSY` | 当前会话已有任务执行中，可使用 `/stop` |
-| `MODEL_UNAVAILABLE` | 服务暂时繁忙，请稍后重试 |
+| `RUN_BUSY` | 当前会话已有任务执行中，可发送 /stop 停止 |
+| `NO_ACTIVE_RUN` | 当前没有执行中的任务 |
+| `CANCEL_REQUESTED` | 正在停止当前任务… |
 | `RUN_CANCELLED` | 当前任务已停止 |
-| `TASK_ACCEPTED` | 任务已受理，完成后会通知你 |
-| `SCHEDULE_CREATED` | 定时任务已创建 |
+| `MODEL_UNAVAILABLE` | 服务暂时繁忙，请稍后重试 |
 
 不向用户暴露内部堆栈、URL、SecretRef。
 
@@ -323,6 +352,7 @@ sequenceDiagram
 `/readyz` 至少检查：
 
 - Console Internal API 可达或已有可用 bot snapshot；
+- Secret Provider 可达或已有缓存 bot secret；
 - 必要 Bot connection manager 已初始化；
 - Event loop 正常。
 
@@ -350,5 +380,7 @@ OutboundMessage/StreamEvent -> channel protocol
 external identity extraction
 connection lifecycle
 ```
+
+入站事件规范化由 Adapter 的 `iter_events()` 负责：原始帧转换为 `ChannelEnvelope`（含 `message_id`、`external_user_id`、`external_conversation_id` 等），Gateway 核心只消费规范化事件，不感知通道原始协议。
 
 不复制 Identity、AgentAccessGrant、Conversation、Memory、Runtime 逻辑。

@@ -66,10 +66,9 @@ flowchart TB
     CLAIM --> WL[WorkerLoop]
     WL --> EXEC[TaskExecutor]
 
-    EXEC --> SK[SkillTaskExecutor]
+    EXEC --> SK[SkillExecutor]
     EXEC --> EX[ExternalTaskExecutor]
     EXEC --> BA[BatchTaskExecutor]
-    EXEC --> AG[AgentStepExecutor]
 
     BA --> CHILD[Child Task Factory]
     CHILD --> DB
@@ -89,10 +88,9 @@ flowchart TB
 | SchedulerLoop | claim 到期 Schedule，创建 TaskExecution，计算 next_fire_at |
 | TaskClaimer | `FOR UPDATE SKIP LOCKED` claim 可执行 Task |
 | WorkerLoop | heartbeat、deadline、cancel、执行调度 |
-| SkillTaskExecutor | 使用共享 SkillExecutor 执行 Skill |
-| ExternalTaskExecutor | create/poll 外部异步任务 |
+| SkillExecutor | 执行 SKILL 类型 Task，复用 Runtime/Worker 共享执行链路 |
+| ExternalTaskExecutor | create/poll 外部异步任务，任务自身以 WAITING 表达等待 |
 | BatchTaskExecutor | Parent/Child fan-out/fan-in |
-| AgentStepExecutor | 必要时复用 Agent Core 做认知步骤；当前不等价于 Multi-Agent |
 | FinalDeliveryExecutor | 最终结果推送到 IM Gateway |
 
 ---
@@ -131,7 +129,7 @@ Parent(policy_check)
   -> Child(D)
 ```
 
-所有 Child 的 `intent_key` 与 Parent 相同。
+所有 Child 的 `intent_key` 与 Parent 相同。Child 幂等键为 `parent:{parent_id}:{item_key}`，由唯一约束 `(parent_id, item_key)` 保证同一 Child 只创建一次。
 
 ### 4.2 TaskPlan
 
@@ -153,6 +151,8 @@ TaskPlan 来源：
 
 LLM 不直接生成任意 DAG。
 
+Task `task_type` 仅 `SKILL / BATCH`；外部等待用 `WAITING` 表达，不存在 AGENT_STEP Task 类型。
+
 ---
 
 ## 5. Claim / Lease / Heartbeat
@@ -164,8 +164,9 @@ PostgreSQL 为权威任务队列：
 ```sql
 SELECT id
 FROM task.task_execution
-WHERE status = 'QUEUED'
+WHERE status IN ('QUEUED', 'WAITING')
   AND not_before <= now()
+  AND cancel_requested = false
 ORDER BY priority ASC, create_time ASC
 FOR UPDATE SKIP LOCKED
 LIMIT :n;
@@ -198,17 +199,20 @@ heartbeat_interval = 20s
 当：
 
 ```text
-status IN (RUNNING, WAITING)
+status = 'RUNNING'
 AND lease_until < now()
+AND cancel_requested = false
 ```
 
-可由其他 Worker reclaim。
+可由其他 Worker reclaim：CAS 置回 `QUEUED`（保留 `attempts`），由后续 claim 重新领取。
+
+进入 `WAITING` 时释放 lease（`lease_owner/lease_until` 置空），因此 `WAITING` 不参与 reclaim。
+
+claim 与 reclaim 始终排除 `cancel_requested=true`。
 
 不得因为 Pod 名称变化而判定 Task 所属。
 
----
-
-## 5.1 Worker Skill Artifact 准备
+### 5.4 Worker Skill Artifact 准备
 
 Worker 与 Runtime 使用同一个 `SkillArtifactCache`：
 
@@ -221,6 +225,7 @@ NFS RWX PVC
 
 Task Snapshot 必须包含 `schema_version/skill_id/skill_artifact_id/checksum/storage_key`。Worker 被其他 Pod reclaim 后可以重新从共享 PVC 准备同一不可变 Artifact。
 
+---
 
 ## 6. 外部异步任务
 
@@ -241,7 +246,7 @@ create scan
 3. 进入 `WAITING`，使用 `not_before` 表达下次轮询；
 4. reclaim 后如已有 `external_task_id`，继续 poll，不再次 create。
 
-V1.2 不要求通用 Compensation。
+当前不要求通用 Compensation。
 
 ---
 
@@ -263,7 +268,7 @@ V1.2 不要求通用 Compensation。
 - 业务明确拒绝；
 - 外部平台明确认证/授权拒绝且不可恢复。
 
-**注意**：已经成功创建并冻结 RuntimeSnapshot 的 Task，不因为之后撤销 AgentAccessGrant、SkillUserGrant/McpUserGrant 或 Agent Binding 而中途改变能力集合；撤销影响后续新 Run/Task。外部业务平台凭据/权限仍按真实调用时的当前状态校验。
+**注意**：已冻结 execution snapshot 的 Task，不因为之后撤销 AgentAccessGrant、SkillUserGrant/McpUserGrant 或 Agent Binding 而中途改变能力集合；撤销影响后续新 Run/Task。外部业务平台凭据/权限仍按真实调用时的当前状态校验。
 
 Backoff 默认采用指数退避 + jitter，并受 `max_attempts` 和 Task deadline 约束。
 
@@ -277,14 +282,19 @@ Backoff 默认采用指数退避 + jitter，并受 `max_attempts` 和 Task deadl
 
 Agent 使用 `cancel_task` Tool。
 
-取消流程：
+取消流程按状态区分：
 
 ```text
-task.cancel_requested = true
-Redis cancel hint
-Worker cooperative cancel
-status -> CANCELLED
+QUEUED / WAITING（无执行者）
+  -> CAS status = CANCELLED
+RUNNING（协作取消）
+  -> task.cancel_requested = true
+  -> Redis cancel hint run:cancel:{run_id}=1
+  -> Worker 在模型调用前/工具调用前/心跳处检查
+  -> 协作停止后 CAS status = CANCELLED
 ```
+
+claim 与 reclaim 始终排除 `cancel_requested=true`。
 
 已经在外部系统创建且不可撤销的任务，不伪造“已回滚”。
 
@@ -354,6 +364,27 @@ Scheduler 可以随 Worker 横向扩展，通过数据库 claim 保证同一 `sc
 schedule:{schedule_id}:{scheduled_fire_time}
 ```
 
+### 8.4 Task Deadline
+
+`task_execution.deadline_at` 为 NOT NULL，默认 `create_time + 24h`，可由 TaskPlan 覆盖。
+
+Scheduler 每 30s sweep 一次：
+
+```text
+status NOT IN terminal
+AND deadline_at < now()
+  -> CAS status = FAILED, error_code = TASK_DEADLINE_EXCEEDED
+```
+
+deadline 命中的终态仍按 `delivery_mode` 投递。
+
+### 8.5 Misfire（错过触发）
+
+V1 唯一策略为 `SKIP`：错过的触发不补发，不存在补偿策略配置字段/API/metric label。
+
+- 每次跳过记录审计事件，并累加 `scheduled_misfire_total`；
+- `ONCE` 触发完成后 `status=COMPLETED`、`completed_at=now()`，`next_fire_at` 不适用。
+
 ---
 
 ## 9. Fan-out / Fan-in
@@ -365,7 +396,10 @@ Parent 在事务内创建 Child Task：
 ```text
 root_id = parent.id
 parent_id = parent.id
+idempotency_key = parent:{parent_id}:{item_key}
 ```
+
+唯一约束 `(parent_id, item_key)` 保证同一 Child 只创建一次；Parent reclaim 后如已有 Child，继续等待/聚合，不重复创建。
 
 并发上限优先使用：
 
@@ -377,12 +411,13 @@ min(TaskPlan.max_concurrency, system_max, platform_limit)
 
 Parent 不占用一个 Worker 线程等待所有 Child。
 
-Parent 可转为 `WAITING`。Child 状态变化后通过 DB 查询或 Redis wake-up hint 触发重新聚合。
+Parent 可转为 `WAITING`。Child 进入终态时原子检查兄弟终态计数，满足 `aggregate_mode` 后通过 CAS 完成/唤醒 Parent，不依赖 Redis wake-up 时序。
 
 聚合条件：
 
 ```text
-all children terminal
+aggregate_mode = ALL         -> 所有 Child 成功
+aggregate_mode = BEST_EFFORT -> 所有 Child 终态，允许部分失败
 ```
 
 `BEST_EFFORT` 允许部分 Child 失败，最终 Parent 仍 `COMPLETED`，结果中明确成功/失败数量。
@@ -397,20 +432,36 @@ all children terminal
 delivery_mode = FINAL_ONLY
 ```
 
+`task_execution` 投递字段：
+
+```text
+delivery_key      NOT NULL，task:{task_id}:final
+delivery_status   PENDING | SENT | FAILED
+delivery_attempts
+delivered_at
+```
+
 执行期间：
 
 - Task 状态持续落库；
 - 用户可通过 Agent 查询进度；
 - 不主动推送每个步骤/Child 完成消息。
 
-最终：
+最终（包括 `FAILED` 与 `BEST_EFFORT` 部分成功）：
 
 ```text
 persist result
  -> task status terminal
- -> call IM Gateway
+ -> POST /internal/deliveries（带 delivery_key）
  -> update delivery_status
 ```
+
+投递语义：
+
+- 终态按 `delivery_mode` 投递：`BEST_EFFORT` 聚合已成功 Child 的部分结果并投递，`FINAL_ONLY` 投递最终（含失败）结论；
+- Gateway Redis `delivery:dedupe:{delivery_key}` SET NX EX 7d 去重，重复请求直接返回 200；
+- Worker 失败按指数退避重试，最多 5 次，超过置 `delivery_status=FAILED` 并写审计；
+- Redis 不可用时按 at-least-once 处理，由 `delivery_key` 去重兜底。
 
 重要顺序：
 
@@ -462,7 +513,7 @@ Worker Pod 不得作为权威源保存：
 
 ---
 
-## 13. V1.2 不做
+## 13. 当前不做
 
 - BPMN；
 - 通用 Workflow Designer；

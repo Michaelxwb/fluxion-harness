@@ -40,8 +40,7 @@ V1 **不要求 `skill.yaml`**。
 name: policy-check
 description: 为指定客户执行设备策略检查；当用户要求策略检查、基线检查或检查异常策略时使用。
 execution: async
-metadata:
-  platform-label: MSS
+platform_label: MSS
 ---
 
 # 设备策略检查
@@ -59,7 +58,7 @@ metadata:
 - 底层权限不足时返回真实授权失败。
 ```
 
-`name + description` 用于 Skill Catalog；`execution` 是可选的最小 Runtime 元数据，取值 `sync|async|auto`，缺省为 `sync`；正文只在 `load_skill` 后进入上下文。版本、checksum 属于平台 Artifact 元数据；`user_scope` 和指定用户授权属于控制面元数据，不在 SKILL.md 重复维护。
+导入时 Console 从 SKILL.md frontmatter 提取 `name/description/execution/platform_label`：`name + description` 用于 Skill Catalog；`execution` 是可选的最小 Runtime 元数据，取值 `sync|async|auto`，缺省为 `sync`；`platform_label` 为可选人类标签，允许缺失。正文只在 `load_skill` 后进入上下文。版本、checksum 属于平台 Artifact 元数据；`user_scope` 和指定用户授权属于控制面元数据，不在 SKILL.md 重复维护。
 
 ### 2.3 为什么不再使用复杂 skill.yaml
 
@@ -168,24 +167,25 @@ flowchart LR
 **图说明**：`execute_skill` 是同步/异步切换点；`run_skill_script` 只是 SkillExecutionSession 内部的脚本原语，不能取代 ExecutionRouter。
 
 
-## 4. SkillExecutor / Script Runner
+## 4. SkillExecutor
 
 ```mermaid
 flowchart TD
-    A[ToolRegistry receives run_skill_script] --> B[Locate Skill Artifact in Snapshot]
-    B --> C[Fetch or reuse local cache]
-    C --> D[Verify checksum]
-    D --> E[Validate script path inside package]
-    E --> F[Create controlled SkillContext]
-    F --> G[Execute Python script]
-    G --> H{Result is large}
-    H -->|Yes| I[Persist Artifact and create preview]
-    H -->|No| J[Create ToolResult]
-    I --> J
-    J --> K[Write Tool Audit]
+    A[load_skill（Catalog 命中）/ execute_skill] --> B[SkillArtifactCache.ensure]
+    B --> C[Locate Skill Artifact in Snapshot]
+    C --> D[Fetch or reuse local cache]
+    D --> E[Verify checksum]
+    E --> F[Validate script path inside package]
+    F --> G[Create controlled SkillContext]
+    G --> H[SkillExecutor executes Python script]
+    H --> I{Result is large}
+    I -->|Yes| J[Persist Artifact and create preview]
+    I -->|No| K[Create ToolResult]
+    J --> K
+    K --> L[Write Tool Audit]
 ```
 
-**图说明**：此处不再把 Skill 包装成 `skill::<key>` 固定 Tool。ToolRegistry 常驻的是框架工具 `load_skill/read_skill_resource/execute_skill/run_skill_script`；具体业务流程由已加载的 SKILL.md 指导，脚本只是其中可按需执行的一部分。
+**图说明**：此处不再把 Skill 包装成 `skill::<key>` 固定 Tool。ToolRegistry 常驻的是框架工具 `load_skill/read_skill_resource/execute_skill/run_skill_script`；`load_skill`（Catalog 命中）与 `execute_skill` 都先经 `SkillArtifactCache.ensure`，再由 `SkillExecutor` 执行脚本。具体业务流程由已加载的 SKILL.md 指导，脚本只是其中可按需执行的一部分。
 
 ### 4.1 本地 cache
 
@@ -204,7 +204,7 @@ emptyDir
 ```
 
 ```text
-execute_skill
+load_skill（Catalog 命中）/ execute_skill
  -> SkillArtifactCache.ensure(artifact_id, storage_key, checksum)
  -> memory/local READY hit? 直接执行
  -> miss 才读取 NFS
@@ -238,9 +238,12 @@ class SkillContext(Protocol):
     logger: SkillLogger
     artifact: ArtifactClient
     platform: PlatformClient
+    http: HttpClient
     mcp: McpClient
     task: TaskContext
 ```
+
+`ctx.http` 提供 `get/post/request`，一律经 Egress Boundary，规则见 §6.8。
 
 ### 5.1 PlatformClient
 
@@ -294,6 +297,19 @@ children = await ctx.task.map(
 
 对于简单 Skill，可以完全不使用 `ctx.task`。
 
+### 5.4 HttpClient
+
+当 Skill 必须直连受控 HTTP 服务（例如已进入部署 allowlist 的内部 API）时：
+
+```python
+resp = await ctx.http.get(
+    "https://mss-internal.example/api/devices",
+    timeout=10,
+)
+```
+
+`ctx.http` 不绕过 Egress Boundary，完整规则见 §6.8。
+
 
 ## 6. Egress Boundary
 
@@ -340,10 +356,15 @@ flowchart LR
 
 ### 6.2 PlatformAdapter 接口
 
+权威定义见 12 §3.1：
+
 ```python
 class PlatformAdapter(Protocol):
     key: str
+    name: str
     version: str
+    session_mode: Literal["NONE", "SESSION", "REQUEST_SIGNING"]
+
     platform_config_schema: dict
     credential_schema: dict
 
@@ -371,7 +392,7 @@ class PlatformAdapter(Protocol):
         ...
 ```
 
-对于“每请求签名”的平台，`authenticate()` 可以不生成长期 Session，由 `prepare_request()` 每次计算签名。
+`refresh` 不是独立方法，刷新逻辑属于 `authenticate` 内部实现。对于“每请求签名”的平台，`authenticate()` 可以不生成长期 Session，由 `prepare_request()` 每次计算签名。
 
 ### 6.3 Adapter Registry
 
@@ -428,6 +449,14 @@ NONE
 
 随后通过 Secret Provider 获取 Adapter `credential_schema` 所定义的真实凭据。
 
+`credential` / `session` 是否可选由 `session_mode` 决定：
+
+```text
+NONE            -> credential = None，session = None
+REQUEST_SIGNING -> credential 可选，authenticate 可选
+SESSION         -> credential + PlatformSession
+```
+
 Secret Value 禁止写入：
 
 ```text
@@ -479,7 +508,8 @@ flowchart TD
 - Runtime/Worker Pod 本地 Session 不是权威源；
 - 凭据更新通过 `credential_version/fingerprint` 让旧 Session 自动失效；
 - 同一 Session Key 需要短锁/SingleFlight，避免多个 Pod 同时重复登录；
-- 认证失败最多执行受控的一次 refresh/re-auth，避免无限登录循环。
+- 认证失败最多执行受控的一次 refresh/re-auth，避免无限登录循环；
+- `session_mode=NONE` 时 `credential/session` 均为 `None`，跳过 authenticate 与 Session Cache；`REQUEST_SIGNING` 的 `credential` 与 `authenticate` 可选。
 
 ### 6.7 V1.3 必要检查
 
@@ -500,9 +530,21 @@ flowchart TD
 - 对内部 Skill 的恶意代码强沙箱。
 
 
----
+### 6.8 `ctx.http` 出口规则
 
-## 7.---
+`ctx.http.get/post/request` 与 PlatformClient 一样必须经过 Egress Boundary：
+
+- host 必须命中租户/部署级 allowlist，allowlist 来源为平台配置，不写入 SKILL.md；
+- `timeout` 必填；
+- 禁止重定向到未授权 host；
+- 响应体上限 5 MiB，超限按错误返回；
+- 审计 `target_type=HTTP`，记录 host/method/status/耗时/大小；
+- Skill 禁止直接 `import httpx/requests/aiohttp`，由入口静态检查拦截。
+
+Egress `target_type` 统一为 `PLATFORM_SERVICE/HTTP/MCP`。
+
+
+---
 
 ## 7. 本地开发与联调
 
@@ -550,5 +592,5 @@ PyCharm / pytest
 
 - 第三方不可信 Skill：独立 Sandbox + Physical Egress Proxy；
 - 大量 Skill 需要静态依赖审批：增加可选 manifest；
-- 长任务/跨进程恢复：V1.2 Agent Worker；
+- 长任务/跨进程恢复：已由 Agent Worker 落地；
 - 复杂可视化编排：有明确业务需求后再评估 Workflow。

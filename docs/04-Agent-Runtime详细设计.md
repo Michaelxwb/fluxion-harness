@@ -33,7 +33,7 @@ Agent Runtime 是实时交互执行服务，必须同时满足：
 5. 大结果转 Artifact，避免重复塞入上下文；
 6. Model Recovery 尊重 deadline/cancel/retry budget；
 7. MCP Tool 适配后进入同一 ToolRegistry；
-8. Background/Cron 已被真实旅程证明需要，纳入 V1.2；Multi-Agent/Worktree 仍不引入。
+8. Background/Cron 已被真实旅程证明需要，作为 V1 正式能力交付；Multi-Agent/Worktree 仍不引入。
 
 ---
 
@@ -129,27 +129,50 @@ packages/agent-core/
 flowchart TD
     A[Receive RunRequest] --> B[Validate request]
     B --> C[Resolve RuntimeDefinitionBundle]
-    C --> D[Create RuntimeSnapshot]
-    D --> E[Create/Load Conversation]
-    E --> F[Append USER_MESSAGE CanonicalEvent]
-    F --> G[Load UserMemory]
-    G --> H[Build initial ToolRegistry]
-    H --> I[Build Context]
-    I --> J[LangGraph understand intent and select skill]
-    J --> K{Need clarification}
-    K -->|yes| L[Persist RunInterrupt and WAITING_INPUT]
-    K -->|no| M[Resolve Skill RuntimeProfile]
-    M --> N[ExecutionRouter]
-    N -->|SYNC| O[Inline Skill Tool execution]
-    N -->|ASYNC| P[Submit Background Task]
-    N -->|AUTO| Q[Deterministic ExecutionPlanner]
-    Q --> O
-    Q --> P
-    O --> R[Continue LangGraph and final answer]
-    P --> S[Return task accepted result]
-    R --> T[Run COMPLETED]
-    S --> T
+    C --> D[Create/Load Conversation]
+    D --> E[Create run_record<br/>CREATED + lease 初始化]
+    E --> F[Create RuntimeSnapshot(run_id)<br/>回写 run_record.snapshot_id]
+    F --> G[Append USER_MESSAGE CanonicalEvent]
+    G --> H[Load UserMemory]
+    H --> I[Build initial ToolRegistry]
+    I --> J[Build Context]
+    J --> K[LangGraph understand intent and select skill]
+    K --> L{Need clarification}
+    L -->|yes| M[Persist RunInterrupt and WAITING_INPUT]
+    L -->|no| N[Resolve Skill RuntimeProfile]
+    N --> O[ExecutionRouter]
+    O -->|SYNC| P[Inline Skill Tool execution]
+    O -->|ASYNC| Q[Submit Background Task]
+    O -->|AUTO| R[Deterministic ExecutionPlanner]
+    R --> P
+    R --> Q
+    P --> S[Continue LangGraph and final answer]
+    Q --> T[Return task accepted result]
+    S --> U[Run COMPLETED]
+    T --> U
 ```
+
+### 4.1 Run 并发与租约
+
+同一 `conversation` 同时最多存在一个非终态 Run，`run_record` 增加 `lease_owner / lease_until / heartbeat_at`：
+
+- 执行期间 Runtime 持续续租（更新 `lease_until` / `heartbeat_at`）；
+- `WAITING_INPUT` 存续时，`POST /v1/runs` 不新建 Run，而自动作为该 Run 的 resume 输入，`run.created` 事件带 `"resumed": true`；
+- `CREATED` / `RUNNING` 存续时，新消息返回 `409 RUN_BUSY`；
+- 终态写入必须 CAS，状态不匹配时以当前终态为准（幂等）；
+- Runtime 后台 Reaper 周期扫描 lease 过期仍为 `RUNNING` 的 Run，CAS 置 `FAILED(RUN_ABANDONED)`。
+
+### 4.2 取消（`/stop`）
+
+`/stop` 映射为：
+
+```text
+POST /v1/runs/cancel-active
+```
+
+- `WAITING_INPUT`：直接 CAS 置 `CANCELLED`；
+- `CREATED` / `RUNNING`：写 `cancel_requested = true` + Redis cancel hint，执行 Pod 协作停止后 CAS 置 `CANCELLED`；
+- 受理语义为“正在停止当前任务…”，即先受理、再协作停止，不等执行 Pod 完成。
 
 ---
 
@@ -208,10 +231,12 @@ Runtime Pod 不预加载“自己的 Agent”，也不维护 `agent_id -> pod` �
 ```text
 Console Internal API resolve
 → 校验 Agent enabled + access grant
-→ 得到 Model/Skill/MCP bundle
+→ Create/Load Conversation
+→ run_record insert（CREATED，含 lease_owner/lease_until/heartbeat_at 初始化）
+→ 得到 Model/Skill/MCP bundle（含 MCP catalog revision/hash/definitions）
 → canonical normalize
 → hash
-→ runtime_snapshot insert
+→ runtime_snapshot insert（run_id 冻结 agent/model/skill/mcp catalog/prompt_template_version）
 → run_record.snapshot_id update
 ```
 
@@ -221,18 +246,30 @@ Console Internal API resolve
 Console Platform 的 `resolve-definition` 不返回“Agent 绑定的全部资源”，而只返回当前用户的 Effective Skill/MCP：
 
 ```text
-Effective Skill
-=
-AgentAccessGrant
-∩ AgentSkillBinding
-∩ Skill user_scope
+EffectiveSkill(user, agent, skill) =
+    AgentAccessGrant(user, agent).is_deleted = false
+AND Agent.enabled = true
+AND AgentSkillBinding(agent, skill).is_deleted = false
+AND Skill.enabled = true
+AND Skill.is_deleted = false
+AND (
+    Skill.user_scope = ALL
+    OR SkillUserGrant(skill, user).is_deleted = false
+)
 
-Effective MCP
-=
-AgentAccessGrant
-∩ AgentMcpBinding
-∩ MCP user_scope
+EffectiveMcp(user, agent, mcp) =
+    AgentAccessGrant(user, agent).is_deleted = false
+AND Agent.enabled = true
+AND AgentMcpBinding(agent, mcp).is_deleted = false
+AND Mcp.enabled = true
+AND Mcp.is_deleted = false
+AND (
+    Mcp.user_scope = ALL
+    OR McpUserGrant(mcp, user).is_deleted = false
+)
 ```
+
+绑定不做 enabled 开关；用户授权不做到期时间，撤销 = 软删除。
 
 因此 Runtime 在进入 PromptBuilder 前得到的已经是**用户有效能力集合**：
 
@@ -242,9 +279,8 @@ resolve-definition
  -> SkillCatalog
 
 resolve-definition
- -> effective_mcp_servers
- -> MCP tools/list
- -> ToolRegistry
+ -> effective_mcp_servers + mcp_catalog_revision/hash/definitions
+ -> ToolRegistry（使用 Snapshot 冻结的 definitions）
 ```
 
 未授权 Skill：
@@ -294,10 +330,13 @@ PromptBuilder
 | Agent instructions/revision | 冻结 |
 | Model/params | 冻结 |
 | Effective Skill artifact/version/checksum | 冻结 |
-| Effective MCP endpoint/tool schema | 冻结 |
+| Prompt template（`prompt_template_version`） | 冻结 |
+| MCP catalog（`mcp_catalog_revision` + `mcp_catalog_hash`） | 冻结；执行用 Snapshot 冻结的 definitions 建 ToolRegistry，Run 内不执行 `tools/list` |
 | Secret value | 不冻结，调用时解析 |
 | Egress emergency deny | 实时 |
 | cancel | 实时 |
+
+发现 MCP catalog 漂移（revision/hash 变化）不中途改变当前 Run，只影响后续新 Run。
 
 ---
 
@@ -368,7 +407,7 @@ flowchart LR
 
 ### 7.1 Skill 不等于一个固定函数 Tool
 
-V1.2 延续将 Skill 定义为 `SKILL.md + 可选 scripts/references/assets`。Runtime 不再要求每个 Skill 必须有 `skill.yaml` 或固定 `entrypoint`。
+Skill 定义为 `SKILL.md + 可选 scripts/references/assets`。Runtime 不再要求每个 Skill 必须有 `skill.yaml` 或固定 `entrypoint`。
 
 Skill 加载分三层：
 
@@ -407,7 +446,7 @@ run_skill_script(skill_key, script_path, args)
 - `load_skill` 加载并注入完整 SKILL.md；
 - `read_skill_resource` 读取 references/assets 中按需资料；
 - `execute_skill` 是业务执行的统一边界：先进入 `ExecutionRouter`，再选择 Inline 或 Background；它不是为每个 Skill 单独生成一个 Tool；
-- `run_skill_script` 是已进入某个 Skill 执行上下文后的脚本原语，执行 Skill 自带 Python 脚本，脚本通过受控 `SkillContext` 调业务平台/MCP。
+- `run_skill_script` 是已进入某个 Skill 执行上下文后的脚本原语，执行 Skill 自带 Python 脚本，脚本通过受控 `SkillContext`（含 `http.get/post/request`）调业务平台/MCP/HTTP，禁止直接 import `httpx/requests/aiohttp`；
 
 ### 7.4 加载流程
 
@@ -487,11 +526,11 @@ class ToolDefinition:
 flowchart LR
     TC[LLM ToolCall] --> V[Schema Validate]
     V --> P[Prepare]
-    P --> PRE[PreToolUse Hook]
+    P --> PRE[pre_tool_use Hook]
     PRE --> POL[PermissionPolicy]
     POL -->|deny| D[Denied Result]
     POL -->|allow| EX[Execute]
-    EX --> POST[PostToolUse Hook]
+    EX --> POST[post_tool_use Hook]
     POST --> AUD[Audit]
     AUD --> RES[ToolResult]
 ```
@@ -514,7 +553,7 @@ Hook/审批/审计看到的和真正执行的必须是同一 PreparedToolCall。
 
 ---
 
-## 8.1 SkillArtifactCache（NFS PVC + local emptyDir）
+## 8.4 SkillArtifactCache（NFS PVC + local emptyDir）
 
 Runtime 不直接从共享 NFS 目录执行 Skill。
 
@@ -554,16 +593,19 @@ cache hit 不访问 NFS；Pod 重建后缓存消失是正常行为。
 
 ## 9. MCP Adapter
 
-### 9.1 发现
+### 9.1 来源
 
-Run 创建后只对 Snapshot 中已经通过用户范围过滤的 Effective MCP Server：
+Run 内不执行 MCP `tools/list`。MCP tool catalog 由 Console `discover-tools` 维护（`tool_catalog_json` / `revision` / `hash`），Runtime 通过：
 
 ```text
-connect/list_tools
+resolve-definition
+→ mcp_catalog_revision + mcp_catalog_hash + definitions
 → namespace
 → MCP ToolDefinition
 → ToolRegistry
 ```
+
+RuntimeSnapshot 冻结 `mcp_catalog_revision + mcp_catalog_hash`；执行时使用 Snapshot 冻结的 definitions 建 ToolRegistry，发现漂移不中途改变当前 Run。
 
 工具命名：
 
@@ -578,7 +620,7 @@ mcp::<server_key>::<tool_name>
 - Secret Value 从 SecretProvider 解析；
 - Tool execute 必须走 ToolRegistry Hook/Policy/Audit；
 - 单个 Server 工具数设置上限；
-- discovery 结果允许 Redis 短期 cache，但 Snapshot 记录本 Run 使用的 schema hash。
+- Run 内不再 discovery；catalog 以 Snapshot 冻结的 revision/hash 为准。
 
 ---
 
@@ -631,10 +673,10 @@ canonical event -> metadata + artifact_id
 Run 开始时按：
 
 ```text
-tenant_id + platform_user_id + enabled=true
+tenant_id + user_id + enabled = true
 ```
 
-加载受控条目。
+加载受控条目（`user_memory.user_id`）。
 
 ### 11.2 Write
 
@@ -656,13 +698,13 @@ V1 仅允许：
 ## 12. Hook 生命周期
 
 ```text
-on_user_message
+user_prompt
 pre_model
 post_model
 pre_tool_use
 post_tool_use
 on_interrupt
-on_stop
+stop
 ```
 
 Phase 1 Hook 只在代码层注册，不做动态 Hook Console。
@@ -675,6 +717,13 @@ Phase 1 Hook 只在代码层注册，不做动态 Hook Console。
 - Tool 参数防护；
 - 结果过滤；
 - 未来安全策略。
+
+### 12.1 不可信内容与 Prompt Injection 防护
+
+- `SKILL.md` 与系统指令视为可信来源；
+- Tool/MCP/Skill 返回内容一律视为不可信数据，注入上下文时用明确边界标注，不得作为指令执行；
+- 不得因工具输出改变权限、绕过 Hook 或跳过用户确认；
+- 高风险写操作仍走 Interrupt/Hook。
 
 ---
 
@@ -728,6 +777,12 @@ flowchart TD
 retry wait <= remaining deadline
 ```
 
+重试预算：
+
+- `max_model_retries = 3`（默认，来源于 `runtime_config_json`，见 `02-核心领域与数据库详细设计.md` §8）；
+- 重试总时长受 Run deadline 限制；
+- 尊重上游 `Retry-After`。
+
 ---
 
 ## 15. Interrupt / Resume
@@ -753,6 +808,8 @@ POST /v1/runs/{run_id}/resume
 → LangGraph resume
 ```
 
+同一 conversation 存在 `WAITING_INPUT` 的 Run 时，`POST /v1/runs` 也会自动作为 resume 输入，不新建 Run（见 §4.1）。
+
 ---
 
 ## 16. Cancellation
@@ -760,14 +817,21 @@ POST /v1/runs/{run_id}/resume
 `/stop`：
 
 ```text
-Gateway -> POST /v1/runs/{id}/cancel
+Gateway -> POST /v1/runs/cancel-active
 Runtime:
-  DB cancel_requested=true
-  Redis run:cancel:{id}=1  # hint
-  CancellationToken set
-  Model/Tool cooperative cancel
-  status=CANCELLED
+  WAITING_INPUT:
+    CAS status=CANCELLED
+  CREATED/RUNNING:
+    DB cancel_requested=true
+    Redis run:cancel:{id}=1  # hint
+    CancellationToken set
+    Model/Tool cooperative cancel
+    CAS status=CANCELLED
 ```
+
+- `WAITING_INPUT` 直接 CAS 置 `CANCELLED`；
+- `CREATED`/`RUNNING` 先受理（返回“正在停止当前任务…”）并写 `cancel_requested` + Redis hint，执行 Pod 协作停止后 CAS 置 `CANCELLED`；
+- 终态写入必须 CAS，已终态返回当前终态（幂等）。
 
 Phase 1 不承诺已经提交到外部系统的不可逆业务动作自动回滚。
 
@@ -775,7 +839,7 @@ Phase 1 不承诺已经提交到外部系统的不可逆业务动作自动回滚
 
 ## 17. Streaming
 
-SSE 事件：
+SSE 事件（与 `07-跨模块接口与协议详细设计.md` §3 一致）：
 
 ```text
 run.created
@@ -783,13 +847,14 @@ message.delta
 skill.loaded
 tool.started
 tool.completed
-artifact.created
 task.accepted
 interrupt.required
+artifact.created
 run.completed
 run.failed
-heartbeat
 ```
+
+心跳使用 SSE 注释帧 `: heartbeat`，不计入 `seq`，Gateway 忽略。
 
 Gateway 只消费面向渠道需要的事件；Audit 事件不要求全部转给最终用户。
 
@@ -802,10 +867,13 @@ Gateway 只消费面向渠道需要的事件；Audit 事件不要求全部转给
 ```text
 POST /v1/runs
 POST /v1/runs/{run_id}/resume
+POST /v1/runs/cancel-active
 POST /v1/runs/{run_id}/cancel
 POST /v1/conversations
 GET  /v1/runs/{run_id}
 ```
+
+`POST /v1/runs`：conversation 存在 `WAITING_INPUT` 的 Run 时不新建 Run，而自动作为 resume 输入（`run.created` 带 `"resumed": true`）；存在 `CREATED`/`RUNNING` 的 Run 时返回 `409 RUN_BUSY`。`POST /v1/runs/cancel-active` 是 `/stop` 的当前会话取消入口；`POST /v1/runs/{run_id}/cancel` 为按 Run 的显式取消，幂等。
 
 对 Console Admin：
 

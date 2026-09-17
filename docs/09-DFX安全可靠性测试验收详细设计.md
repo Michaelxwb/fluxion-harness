@@ -14,7 +14,7 @@
 
 ### 1.1 安全模型
 
-### 1.1 信任边界
+### 1.2 信任边界
 
 ```mermaid
 flowchart LR
@@ -39,7 +39,7 @@ flowchart LR
 
 ---
 
-## 2. V1.2 必要威胁与控制
+## 2. 必要威胁与控制
 
 | 风险 | Phase 1 控制 |
 |---|---|
@@ -47,7 +47,7 @@ flowchart LR
 | 已绑定但无 Agent 权限 | AgentAccessGrant |
 | LLM 误调用未开放 Tool/MCP | RuntimeSnapshot + ToolRegistry 可见集 |
 | Skill 获取用户 Secret | SkillContext 只提供逻辑调用；SecretRef/SecretProvider |
-| Runtime Pod 保存用户专属状态 | PostgreSQL/ObjectStore 外置，禁止 sticky session |
+| Runtime Pod 保存用户专属状态 | PostgreSQL + Artifact Store（NFS-backed RWX PVC）外置，禁止 sticky session |
 | MCP 绕开调用审计 | MCP Adapter 统一进入 ToolRegistry |
 | 大结果拖垮上下文 | Artifact + preview |
 | 模型接口临时错误 | retry budget + deadline + cancel |
@@ -131,8 +131,11 @@ Phase 1 明确承诺：
 | 故障 | 预期行为 | 验收 |
 |---|---|---|
 | Runtime Pod crash | 当前实时 Run 可失败；新请求进其他 Pod；历史不丢 | 删除 Pod 后新会话正常 |
-| Worker Pod crash | lease 到期后其他 Worker reclaim | kill Worker 后 Task 最终进入终态且副作用不重复 |
+| Runtime Run 回收 | Runtime Pod 崩溃后 Run lease 过期，Reaper 将仍为 RUNNING 的 Run CAS 置为 FAILED(RUN_ABANDONED) 并释放会话 | lease 过期后 Run 终态为 FAILED(RUN_ABANDONED)，会话解锁可创建新 Run，SSE 断开有明确提示 |
+| Worker Pod crash | lease 到期后其他 Worker reclaim | kill Worker 后 lease 过期由其他 Worker reclaim，Task 最终进入终态；外部 create 以 idempotency_key/external_task_id 保证不重复；Final Delivery 以 delivery_key 去重不重复投递 |
+| Task 超过 deadline_at | Scheduler 每 30s 将过期非终态 Task CAS 置为 FAILED(TASK_DEADLINE_EXCEEDED) | 超过 deadline_at 后 Task 进入 FAILED(TASK_DEADLINE_EXCEEDED)，并按 delivery_mode 投递 |
 | Scheduler 多副本 | 同一 schedule fire 只创建一次 Task | 并发触发压测无重复 |
+| Schedule 错过触发 | V1 仅 SKIP，不补发 | 错过触发不补发，scheduled_misfire_total 计数增加 |
 | IM Gateway 暂时不可用 | Task 结果已持久化，Delivery 重试 | Gateway 恢复后最终结果可补发 |
 | Console 暂时不可用 | 新 Run resolve 失败；已进入模型/Tool 的当前步骤尽量继续 | 不读取本地旧配置当权威 |
 | Redis down | cache miss / dedupe 降级；业务事实不丢 | PG 数据完整 |
@@ -190,9 +193,10 @@ task_claim_latency_ms
 task_execution_latency_ms{skill,status}
 task_retry_total{reason}
 task_reclaim_total
+run_reclaim_total
 task_lease_expired_total
 scheduled_fire_total{status}
-scheduled_misfire_total{policy}
+scheduled_misfire_total  # V1 仅 SKIP，无 label
 batch_children_active
 delivery_total{status}
 ```
@@ -217,7 +221,7 @@ bind_total{status}
 
 ---
 
-## 7. 性能预算（V1.2 初始目标）
+## 7. 性能预算（初始目标）
 
 以下为设计目标，不等于最终容量承诺，需压测校准：
 
@@ -261,7 +265,7 @@ flowchart TB
 - Task claim/lease；
 - Parent/Child fan-in。
 
-### 8.2 Integration
+### 8.2 授权可见性验收
 
 
 - `ALL` Skill 未绑定 Agent 时不可使用；
@@ -273,6 +277,8 @@ flowchart TB
 - 撤销 Grant 后新 Run 不可见、已有 Snapshot 不变；
 - MCP Tool 名称/Schema 对未授权用户不泄露。
 
+
+### 8.3 Integration
 
 - Console + PG；
 - Runtime + PG Checkpointer；
@@ -287,7 +293,7 @@ flowchart TB
 - Session Cache miss/hit/invalid/re-auth；
 - Worker -> Gateway final delivery。
 
-### 8.3 Contract
+### 8.4 Contract
 
 - `resolve-definition` Pydantic/OpenAPI contract；
 - `resolve-egress-access` contract；
@@ -330,7 +336,7 @@ flowchart TB
 1. 用户发 Turn 1 -> Runtime A
 2. Runtime A Pod 删除
 3. 用户发 Turn 2 -> Runtime B
-4. Runtime B 从 PG/ObjectStore 重建上下文
+4. Runtime B 从 PostgreSQL + Artifact Store 重建上下文
 5. Conversation/UserMemory/Skill Version 正确
 ```
 
@@ -374,6 +380,9 @@ Run R2 start
 - 多 Pod 冷启动 SingleFlight；
 - 401/403；
 - 5xx；
+- ctx.http（http.get/post/request）host 命中租户/部署级 allowlist 放行；
+- ctx.http 未命中 allowlist 拒绝，并按 target_type=HTTP 审计；
+- ctx.http 响应超过 5 MiB 拒绝；
 - 审计无 Secret Value。
 
 ---
@@ -419,12 +428,16 @@ CI/评审必须检查：
 - DB Migration Dry Run；
 - Golden Journey；
 - Egress Deny Test；
+- ctx.http Egress allowlist test；
 - Snapshot Determinism Test；
 - Runtime A/B Stateless Test；
+- Runtime run lease reclaim test；
 - WeCom reconnect test；
 - Model 429 recovery test；
 - Worker lease reclaim test；
+- Task deadline sweep test；
 - Schedule duplicate-fire test；
+- Schedule SKIP test；
 - Background final-delivery retry test；
 - Batch concurrency limit test；
 - Log redaction test。

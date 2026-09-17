@@ -9,7 +9,7 @@ Runtime/Worker Skill Cache: local emptyDir
 DB/API Artifact Locator: storage_key
 MCP Tool Catalog: PostgreSQL 最近成功快照
 Schedule/Task Skill Reference: skill_id
-Shared Credential: 每 ProjectPlatform 0..1
+Shared Credential: 每 ProjectPlatform 0..1；Console 展示为“共享凭据：已配置/未配置”（来源 shared_credential_ref，无 priority）
 TaskType V1: SKILL/BATCH
 ```
 
@@ -19,10 +19,10 @@ TaskType V1: SKILL/BATCH
 上传 skill.zip
  -> 校验
  -> 写 NFS Artifact Store
- -> insert SkillArtifact(storage_key/checksum)
+ -> insert skill_artifact(storage_key/checksum)
  -> current_artifact_id
- -> AgentSkillBinding
- -> AgentAccessGrant + user_scope
+ -> agent_skill_binding
+ -> agent_access_grant + user_scope
  -> resolve-definition
  -> RuntimeSnapshot
  -> SkillArtifactCache.ensure

@@ -91,6 +91,8 @@ class PlatformAdapter(Protocol):
         ...
 ```
 
+`refresh` 不是独立方法，刷新逻辑属于 `authenticate` 内部实现。
+
 ### 3.2 为什么需要 `prepare_request`
 
 不是所有平台都采用“登录一次拿 Cookie”。
@@ -267,9 +269,11 @@ ProjectPlatform 1 -> 0..1 SharedCredentialRef
 ```text
 user_credential_ref -> INVALID
 shared_credential_ref -> INVALID
-delete platform_session:{platform_id}:*
+按索引集合删除该平台全部 Session（见 §7.1）
 credential_reconfigure_required=true
 ```
+
+Session 失效通过 Redis Set 索引 `platform_sessions:{tenant_id}:{platform_id}` 完成：`SMEMBERS` 取出完整 session key 成员后逐个 `DEL`。概念上等价于 `platform_session:{tenant_id}:{platform_id}:*`，但禁止使用 `KEYS/SCAN` 或通配符删除。
 
 
 ## 7. PlatformSessionManager
@@ -294,6 +298,19 @@ shared:{shared_credential_id}
 none
 ```
 
+写入 Session 时同时登记索引集合：
+
+```text
+SADD platform_sessions:{tenant_id}:{platform_id} {session_key}
+```
+
+失效（`adapter_key` 变更/凭据失效）时按索引集合删除，禁止 `KEYS/SCAN`：
+
+```text
+SMEMBERS platform_sessions:{tenant_id}:{platform_id}
+  -> DEL {session_key}
+```
+
 ### 7.2 Session State
 
 允许缓存：
@@ -315,7 +332,7 @@ raw AK/SK
 Secret Provider 原始对象
 ```
 
-Adapter 如确实必须在 refresh 时再次使用长期凭据，SessionManager 再次通过 SecretRef 读取，不把长期 Secret 放进 Session Cache。
+Adapter 如确实必须在 `authenticate`（refresh 属于其内部实现）中再次使用长期凭据，SessionManager 再次通过 SecretRef 读取，不把长期 Secret 放进 Session Cache。
 
 ### 7.3 Credential Version
 
@@ -364,21 +381,27 @@ sequenceDiagram
     R-->>C: Adapter
     C->>CR: resolve(actor, platform)
     CR->>SP: get(secret_ref)
-    SP-->>CR: secret + version
-    C->>SM: acquire session
-    SM->>RD: get(cache key)
-    alt cache miss/invalid
-      SM->>A: authenticate
-      A->>B: platform-specific auth
-      B-->>A: session
-      A-->>SM: PlatformSession
-      SM->>RD: set TTL
+    SP-->>CR: SecretValue + credential_version
+    CR-->>C: credential_ref + SecretValue + credential_version
+    alt session_mode != NONE
+      C->>SM: acquire session(credential_ref, SecretValue, credential_version)
+      SM->>RD: get(cache key)
+      alt cache miss/invalid
+        SM->>A: authenticate(platform, credential)
+        A->>B: platform-specific auth
+        B-->>A: session
+        A-->>SM: PlatformSession
+        SM->>RD: set TTL + SADD index
+      end
+      SM-->>C: PlatformSession
     end
-    C->>A: prepare_request
+    C->>A: prepare_request(platform, session, request, credential)
     A-->>C: PreparedRequest
     C->>B: execute
     B-->>C: response
 ```
+
+**图说明**：`credential_ref + SecretValue + credential_version` 由 CredentialResolver 输出，`PlatformSessionManager` 用其调用 `adapter.authenticate`；`prepare_request` 按 `session_mode` 接收 `session + credential`（`NONE` 时均为 `None`，`REQUEST_SIGNING` 的 `credential` 可选）。SecretValue 不进入 SkillContext、LLM Context、Snapshot 或审计。
 
 ---
 
@@ -397,6 +420,8 @@ PLATFORM_AUTH_EXPIRED
 PLATFORM_REQUEST_FAILED
 ```
 
+> `PLATFORM_ADAPTER_NOT_FOUND`（HTTP 404）与 `CREDENTIAL_MISSING`（HTTP 409）已注册到 `config/api-messages.yaml`（同步 `ErrorCode`）；其余为 platform-sdk 内部错误分类，待有 HTTP 出口时再注册。
+
 规则：
 
 - Session 认证失败不无限重试；
@@ -412,7 +437,7 @@ PLATFORM_REQUEST_FAILED
 
 - Adapter Registry；
 - 平台专属 Adapter；
-- `refresh/authenticate + validate`；
+- `authenticate`（refresh 属于其内部实现）+ `validate`；
 - Session TTL；
 - Credential 变化后 Session 失效；
 - 相同协议的平台复用 Adapter；

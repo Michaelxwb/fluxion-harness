@@ -1,4 +1,4 @@
-> **V1.3 详细设计覆盖说明**：本文件是此前总体/Playbook 基线快照。V1.3 已将项目平台认证修正为 PlatformAdapter + 外置 Session 模型，并允许一个 Agent 配置多个 IM 通道账号；同时删除业务 Console 中的系统/中间件状态监控。若本基线与 V1.3 详细设计冲突，以 V1.3 00~13 为准；后续总设/Playbook 应同步刷新。
+> **V1.4 详细设计覆盖说明**：本文件是此前总体/Playbook 基线快照。V1.3 已将项目平台认证修正为 PlatformAdapter + 外置 Session 模型，并允许一个 Agent 配置多个 IM 通道账号；V1.4 已将 Agent Worker 纳入 Phase 1、简化 Skill 包格式并固定 Console 菜单。若本基线与 V1.4 详细设计冲突，以 V1.4 00~17 为准；后续总设/Playbook 应同步刷新。
 
 > **用户范围补充口径**：Skill/MCP 不再使用 PUBLIC/PRIVATE 作为核心用户可见性语义；统一使用 `user_scope=ALL/SELECTED`。ALL 表示全部 Agent 授权用户，SELECTED 表示指定用户；两者都不能绕过 AgentAccessGrant 与 Agent Binding。
 
@@ -14,19 +14,19 @@
 
 相对 V6，本版做以下结构性调整：
 
-1. **Phase 1 后台部署单元收敛为 3 个 Image**：`console-platform`、`agent-runtime`、`im-gateway`。
+1. **Phase 1 后台部署单元为 4 个 Image**：`console-platform`、`agent-runtime`、`agent-worker`、`im-gateway`。
 2. `console-web + console-api` 合并为 **console-platform**：React/TypeScript/Semi Design 前端静态资源随 Python/FastAPI 后端同镜像交付。
 3. `agent-runtime` 使用 **Python + LangGraph**，作为完全无状态执行面；不按用户创建 Pod，不保留用户本地状态。
 4. `im-gateway` 统一改为 **Python**，企业微信 V1 直接复用企业微信官方 Python AI Bot SDK，不再依赖 OpenClaw Plugin Runtime。
-5. **Phase 1 不建设 Worker Engine**。长任务、跨小时恢复、可靠异步、持久 Human Checkpoint、后台主动完成通知统一进入 Phase 2。
+5. **Phase 1 建设 Agent Worker**：后台任务、定时任务、Parent-Child 并行、lease reclaim 与 Final Delivery 均属 Phase 1 交付范围（见 doc 10），不再是 Phase 2 保留项。
 6. **Skill-first**：业务 SOP、接口组合、数据转换、`if/for/while`、业务算法、结果加工优先写在 Skill Python 中。
 7. **Capability 不再是 Phase 1 主路径和必选产品对象**。未来只有出现高复用、高风险写、统一大结果治理等真实需求时，再把部分接口固化为 Runtime Tool/治理适配层。
-8. 平台统一提供 **Egress Boundary**，但 Phase 1 不独立成 `egress-proxy` Image；它作为 `agent-runtime` 内部清晰的安全边界，统一完成凭据解析、逻辑地址解析、白名单、审计与限流。
+8. 平台统一提供 **Egress Boundary**，但 Phase 1 不独立成 `egress-proxy` Image；它作为 `agent-runtime` 与 `agent-worker` 共享的安全边界，统一完成凭据解析、逻辑地址解析、Egress Allowlist、审计与限流。
 9. Skill 不直接持有真实账号、Token、Cookie、Secret；Skill 通过 `ctx.platform / ctx.http / ctx.mcp` 发起逻辑调用。
 10. Agent Runtime 引入以下 Harness 级能力：**Skill Lazy Load、统一 ToolRegistry、RuntimeSnapshot、Hook 生命周期、Canonical History 与 LLM Context 分离、Artifact 外置、Model Recovery**。
-11. Service 在 Phase 1 不再是 Skill 开发和上线的必经对象。Phase 1 主链路是 `Agent → Skill/MCP → 业务平台`；正式 Service Release、ServiceExecution 与 Worker 进入 Phase 2。
+11. Service 在 Phase 1 不再是 Skill 开发和上线的必经对象。Phase 1 主链路是 `Agent → Skill/MCP → 业务平台`；ServiceExecution 已从设计中删除，正式 Service Release 进入 Phase 2。
 12. 保留 `User → AgentAccessGrant → Agent` 的授权模型；不要求普通用户理解或逐个授权 Skill 内部接口。
-13. 保留 `user_scope=SELECTED/ALL + user grant` 的 Skill/MCP 灰度机制，支持“快改、快传、白名单复测、快速回退”。
+13. 保留 `user_scope=ALL/SELECTED + 指定用户 grant` 的 Skill/MCP 用户范围机制，支持“快改、快传、指定用户复测、快速回退”。
 14. User Memory 仍然是 Phase 1 能力，但仅承载长期用户上下文，不替代实时业务数据。
 
 ---
@@ -95,7 +95,7 @@ Skill 可以写业务逻辑，但不应该每个 Skill 重复处理：
 - Secret 保存；
 - 用户凭据解析；
 - 内部服务真实地址；
-- 出网白名单；
+- 出网 allowlist；
 - 审计；
 - 统一 Trace；
 - Agent Runtime 生命周期。
@@ -123,7 +123,7 @@ Turn 3 → runtime-2
 5. Agent Runtime 无状态，可独立扩缩。
 6. Skill、MCP、Model、Agent、用户与企微入口统一由 Console 管理。
 7. Runtime 具备生产级上下文、Tool、恢复、Trace、安全边界能力。
-8. Phase 1 不提前建设 Worker、Workflow Designer、通用 Approval Center 等未被真实旅程证明必要的系统。
+8. Phase 1 建设 Agent Worker 等真实旅程证明必要的系统；不提前建设 Workflow Designer、通用 Approval Center 等未被真实旅程证明必要的系统。
 
 ## 1.4 总体设计原则
 
@@ -134,15 +134,15 @@ Turn 3 → runtime-2
 5. **内部业务平台优先通过 Platform SDK / HTTP 调用。**
 6. **业务数据处理、条件、循环、聚合允许直接写在 Skill Python。**
 7. **Agent Runtime 无状态，权威状态全部外置。**
-8. **Console 是 Runtime 的控制面，Runtime 是执行面；同仓库但不同 Image。**
+8. **Console 是控制面，Runtime/Worker 是执行面；同仓库但不同 Image。**
 9. **版本以 RuntimeSnapshot 保证一次 Run 内不漂移。**
 10. **Canonical History 不等于发给 LLM 的 Context。**
 11. **所有 Tool/MCP 最终统一进入 ToolRegistry。**
 12. **Skill 默认按需加载正文，Catalog 常驻、正文 Lazy Load。**
 13. **凭据不进入 Skill 代码和 Skill 日志。**
 14. **Egress Boundary 是安全边界，但 V1 不为边界本身强拆微服务。**
-15. **Phase 1 同步优先；只有出现真实 durable 场景才引入 Worker。**
-16. **按用户灰度优先于复杂流量灰度。**
+15. **Phase 1 同步优先，并由 Agent Worker 承载后台任务、定时任务与并行批量任务。**
+16. **按用户范围（ALL/SELECTED）逐步放开优先于复杂流量放量策略。**
 17. **Memory 只保存长期用户上下文，不保存实时业务事实。**
 18. **不为了未来可能需要的通用性牺牲当前 SOP 的开发效率。**
 
@@ -174,7 +174,7 @@ SOP / Agent 开发者
       ├─ Agent 绑定 Skill/MCP
       ├─ 用户授权
       ├─ 配置企业微信 Bot
-      └─ 灰度放开
+      └─ 调整用户范围（ALL/SELECTED）
       │
       ▼
    普通用户
@@ -281,22 +281,14 @@ WeCom 消息
 
 ```text
 创建 external_task_id
+→ 提交后台任务（Agent Worker）
 → 返回“任务已创建，可稍后查询”
-→ 当前 Run 结束
+→ 用户可离开，当前 Run 结束
+→ Worker 继续等待/轮询，有副作用动作按幂等键执行
+→ 完成后经 IM Gateway Final Delivery 主动投递
 ```
 
-Phase 1 不承诺 Runtime 在用户离线后持续轮询数小时。
-
-### Phase 2
-
-以下需求出现后引入 Worker：
-
-- 跨小时/跨天任务；
-- Crash 后恢复；
-- 持久 Timer / Wait；
-- 有副作用动作严格幂等；
-- 后台完成后主动推送；
-- Durable Human Checkpoint。
+跨小时/跨天任务、Crash 后恢复、持久 Timer/Wait、Durable Human Checkpoint 与后台主动完成通知均由 Phase 1 Agent Worker 承载（见 doc 10）。
 
 ## 3.3 U03：只在必要时人工介入
 
@@ -336,17 +328,18 @@ Agent 最终回答可以组合：
 - 不支持项；
 - 专家建议；
 - 后续动作；
-- 可下载 Artifact（当结果较大时）。
+- 大结果摘要与关键结论（完整产物见 Console 运行审计）。
 
 Runtime 对大结果采用：
 
 ```text
 Tool/Skill 大结果
-→ ArtifactManager 写 Object Store
+→ ArtifactManager 写 Artifact Store（NFS-backed RWX PVC）
+→ DB 只存 storage_key
 → Context 只保留 preview + metadata + artifact_ref
 ```
 
-避免把大 JSON 直接长期塞入 LLM Context。
+避免把大 JSON 直接长期塞入 LLM Context；IM 消息侧只交付摘要与关键结论，V1.4 不面向 IM 用户提供 Artifact 下载，完整产物可在 Console 运行审计中查看。
 
 ## 3.5 U05：首次进入即可使用
 
@@ -441,10 +434,16 @@ Agent
 
 ```text
 AgentAccessGrant
-+ 当前 actor 对项目平台的 Credential
++ 按 credential_mode 解析项目平台凭据
+  USER_ONLY：仅使用用户凭据
+  SHARED_ONLY：仅使用平台共享凭据
+  USER_THEN_SHARED：优先用户凭据，缺失时回退共享凭据
+  NONE：无需凭据
 + 外部业务系统自身 RBAC/ACL
 = 最终可执行范围
 ```
+
+共享凭据每个 ProjectPlatform 最多 1 个。
 
 ## 4.3 A03：配置企业微信入口
 
@@ -453,7 +452,7 @@ V1 产品上不建设独立 Channel 管理中心，而是在 Agent 详情配置�
 ```text
 Agent
 └── IM 接入
-    └── WeCom Bot
+    └── IM 通道账号（0..N）
         ├── bot_id
         └── secret_ref
 ```
@@ -461,8 +460,8 @@ Agent
 V1 约束：
 
 ```text
-一个 bot_id → 一个 Agent
-一个 Agent → 最多一个 WeCom Bot
+一个 Agent → 0..N 个 IM 通道账号
+一个 bot_id → 唯一归属一个 Agent
 一个 IM Gateway → 多个 Bot WebSocket
 ```
 
@@ -560,7 +559,7 @@ Phase 1 默认：
 - 专家判断；
 - MCP 调用。
 
-暂不适合单靠 Skill：
+不适合在当前 Run 内同步完成：
 
 - 数小时持续执行；
 - crash 后继续；
@@ -568,7 +567,7 @@ Phase 1 默认：
 - Durable Human Checkpoint；
 - 跨天任务。
 
-这些进入 Phase 2 Worker。
+这些由 `execution: async/auto` 提交 Phase 1 Agent Worker，以 durable 后台任务承载。
 
 ## 5.2 D02：在 IDE 中开发 Skill
 
@@ -577,14 +576,14 @@ Phase 1 默认：
 ```text
 policy-check/
 ├── SKILL.md
-├── skill.yaml
-├── src/
-│   └── main.py
-├── resources/
-└── tests/
+├── scripts/
+│   └── main.py          # 可选
+├── references/          # 可选
+├── assets/              # 可选
+└── tests/               # 可选
 ```
 
-`SKILL.md` 描述：
+`SKILL.md` 正文描述：
 
 - Skill 解决什么问题；
 - 什么时候应该使用；
@@ -593,26 +592,18 @@ policy-check/
 - 调用原则；
 - 必要确认点。
 
-`skill.yaml` 描述机器可读元数据，例如：
+`SKILL.md` frontmatter 描述最小机器可读元数据，例如：
 
-```yaml
-name: 设备策略检查
-key: policy-check
-version: 1.3.0
+```markdown
+---
+name: policy-check
+description: 为指定客户执行设备策略检查；当用户要求策略检查、基线检查或检查异常策略时使用。
+execution: async
 platform_label: MSS
-sdk_version: "1.x"
-entrypoint: src/main.py
-http:
-  - platform: mss
-    paths:
-      - /customer/*
-      - /device/*
-      - /policy/*
-mcp:
-  - server: knowledge
-    tools:
-      - search
+---
 ```
+
+`execution: sync|async|auto` 与 `platform_label` 均为可选；版本、checksum、`user_scope` 与指定用户授权属于平台控制面元数据，不写入 SKILL.md。
 
 ## 5.3 D03：Skill 内直接组织业务逻辑
 
@@ -668,7 +659,6 @@ HTTP/MCP Client
 
 - Skill package；
 - SKILL.md；
-- `skill.yaml`；
 - 日志；
 - LLM Prompt。
 
@@ -709,10 +699,8 @@ skill validate
 
 导入校验：
 
-- manifest schema；
-- SDK 兼容性；
-- entrypoint；
-- 依赖声明；
+- 包结构（必需 `SKILL.md`，路径穿越检查）；
+- frontmatter（`name/description` 有效，`execution/platform_label` 可选）；
 - Secret 基础扫描；
 - checksum；
 - package size。
@@ -890,20 +878,22 @@ on_stop
 
 # 7. Console 产品模型
 
-Phase 1 Console 核心菜单建议：
+Phase 1 Console 菜单固定为：
 
 ```text
+概览
 Agent
 Skill
 MCP
-Model
+模型
 用户
 项目平台
-运行与审计
-系统设置（最小）
+后台任务
+定时任务
+运行审计
 ```
 
-Channel 不单独做顶层菜单，在 Agent 的“IM 接入”中维护。
+不提供“系统设置/中间件状态”菜单；Channel 不单独做顶层菜单，在 Agent 的“IM 接入”中维护。
 
 ### Agent
 
@@ -921,10 +911,10 @@ Channel 不单独做顶层菜单，在 Agent 的“IM 接入”中维护。
 - 导入；
 - 版本；
 - checksum；
-- `scope`；
-- 白名单；
+- 用户范围（ALL/SELECTED）；
+- 指定用户；
 - 使用 Agent；
-- manifest；
+- SKILL.md frontmatter（name/description/execution/platform_label）；
 - 校验结果。
 
 ### MCP
@@ -932,8 +922,8 @@ Channel 不单独做顶层菜单，在 Agent 的“IM 接入”中维护。
 - server endpoint；
 - transport（V1 仅 streamable-http）；
 - auth；
-- scope；
-- user grant；
+- 用户范围（ALL/SELECTED）；
+- 指定用户；
 - Agent binding；
 - tool discovery 状态。
 
@@ -962,6 +952,7 @@ Channel 不单独做顶层菜单，在 Agent 的“IM 接入”中维护。
 
 - `console-platform`；
 - `agent-runtime`；
+- `agent-worker`；
 - `im-gateway`；
 - WeCom Bot WebSocket；
 - Agent/Skill/MCP/Model/User；
@@ -976,23 +967,17 @@ Channel 不单独做顶层菜单，在 Agent 的“IM 接入”中维护。
 - Runtime Checkpoint；
 - Egress Boundary；
 - Streaming；
+- 后台任务 / 定时任务 / Parent-Child 并行 / lease reclaim / Final Delivery；
 - Run/Tool/Egress Audit；
 - OTel；
-- SELECTED/ALL + user grant；
+- ALL/SELECTED + 指定用户 grant；
 - `/bind /skills /new /stop`。
 
 ## 8.2 Phase 2
 
 由真实长任务场景驱动：
 
-- Worker Engine；
-- Durable Task；
 - ServiceDefinition/ServiceRelease；
-- ServiceExecution；
-- Wait/Timer；
-- reliable retry；
-- durable human checkpoint；
-- 后台主动完成通知；
 - 完整 Execution Timeline；
 - 长任务 Artifact Delivery。
 
@@ -1004,7 +989,6 @@ Channel 不单独做顶层菜单，在 Agent 的“IM 接入”中维护。
 - 通用 Approval Center；
 - A2A；
 - Multi-Agent Team；
-- Cron/Scheduler 平台；
 - EventBus；
 - Plugin Marketplace；
 - 全量语义 Memory 平台；
@@ -1021,8 +1005,8 @@ Channel 不单独做顶层菜单，在 Agent 的“IM 接入”中维护。
 改 Skill Python
 → 新 Artifact
 → user_scope=SELECTED
-→ 白名单用户下一次 Run 生效
-→ 非白名单不可见
+→ 指定用户下一次 Run 生效
+→ 未授权用户不可见
 → 出问题收回 grant
 ```
 
@@ -1053,7 +1037,7 @@ Run 开始使用 Skill v1
 ## 9.4 Egress 安全验收
 
 - Skill 无明文 Secret；
-- 非白名单目的地址拒绝；
+- 非 allowlist 目的地址拒绝；
 - Credential 按 actor 解析；
 - 日志不打印 Credential Value；
 - 每次出网可追踪 `run_id / user / skill / target / result / latency`。
@@ -1080,7 +1064,7 @@ Run 开始使用 Skill v1
 → pack
 → Console 导入
 → user_scope=SELECTED
-→ 灰度测试
+→ 指定用户验证
 → 修复重传
 → user_scope=ALL
 ```
@@ -1094,7 +1078,7 @@ Run 开始使用 Skill v1
 → 授权用户
 → 配置 WeCom Bot
 → 观察 Run/Tool/Egress Audit
-→ 灰度放开/快速回退
+→ 放开用户范围/快速回退
 ```
 
 ## 普通用户
@@ -1113,4 +1097,4 @@ WeCom
 
 # 11. 一句话架构原则
 
-> **Console 管定义，Runtime 管执行，Gateway 管渠道；Skill 承载 SOP，Tool/MCP 是 Runtime 执行能力；所有状态外置，所有业务出网经过统一安全边界，Phase 1 只做真实旅程需要的三套服务。**
+> **Console 管定义，Runtime/Worker 管执行，Gateway 管渠道；Skill 承载 SOP，Tool/MCP 是 Runtime 执行能力；所有状态外置，所有业务出网经过统一安全边界，Phase 1 只做真实旅程需要的四套服务。**

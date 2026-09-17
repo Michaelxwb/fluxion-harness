@@ -1,4 +1,4 @@
-> **V1.3 详细设计覆盖说明**：本文件是此前总体/Playbook 基线快照。V1.3 已将项目平台认证修正为 PlatformAdapter + 外置 Session 模型，并允许一个 Agent 配置多个 IM 通道账号；同时删除业务 Console 中的系统/中间件状态监控。若本基线与 V1.3 详细设计冲突，以 V1.3 00~13 为准；后续总设/Playbook 应同步刷新。
+> **V1.4 详细设计覆盖说明**：本文件是此前总体/Playbook 基线快照。V1.4 已将项目平台认证修正为 PlatformAdapter + 外置 Session 模型，将 Agent Worker 纳入交付范围，并允许一个 Agent 配置多个 IM 通道账号；同时删除业务 Console 中的系统/中间件状态监控。若本基线与 V1.4 详细设计冲突，以 V1.4 00~17 为准；后续总设/Playbook 应同步刷新。
 
 > **用户范围补充口径**：Skill/MCP 不再使用 PUBLIC/PRIVATE 作为核心用户可见性语义；统一使用 `user_scope=ALL/SELECTED`。ALL 表示全部 Agent 授权用户，SELECTED 表示指定用户；两者都不能绕过 AgentAccessGrant 与 Agent Binding。
 
@@ -32,6 +32,7 @@
 
 - Console 控制面；
 - Agent Runtime 执行面；
+- Agent Worker 执行面（Background/Cron/Fan-out/Final Delivery）；
 - IM Gateway 接入面；
 - 企业微信 Bot；
 - Agent、Skill、MCP、Model、用户、项目平台、凭据；
@@ -43,7 +44,7 @@
 - OpenTelemetry；
 - PostgreSQL/Redis/Artifact Store（NFS-backed RWX PVC）/Secret Provider 外部依赖。
 
-本设计明确**不在 Phase 1 实现** Worker Engine、完整 ServiceExecution、Workflow Designer、Capability Center、通用 Approval Center。
+本设计明确**不在 Phase 1 实现**完整 ServiceExecution、Workflow Designer、Capability Center、通用 Approval Center；Agent Worker 已纳入 Phase 1 交付（见 `10-Agent-Worker与异步任务详细设计.md`）。
 
 ### 1.2.2 评审要求
 
@@ -56,7 +57,7 @@
 5. Credential 是否不会进入 Skill；
 6. RuntimeSnapshot 是否保证一次 Run 版本确定性；
 7. LangGraph 是否仅作为执行引擎而非平台领域模型；
-8. Future Worker 是否可在不推翻现有 Skill 模型的前提下接入。
+8. Agent Worker 是否可在不推翻现有 Skill 模型的前提下接入。
 
 ## 1.3 定义和缩写
 
@@ -89,13 +90,13 @@
 
 | 目标项 | V2.0 要求 |
 |---|---|
-| 架构 | 三个核心后台 Image；Runtime 无状态；控制面与执行面解耦 |
+| 架构 | 四个核心后台 Image；Runtime 无状态；控制面与执行面解耦 |
 | 性能 | Runtime 可水平扩展；Streaming 首包可观测；不因 Console 单副本限制用户执行 |
 | 可靠性 | PostgreSQL 为权威状态；单 Runtime 崩溃不得导致 Conversation/Memory 丢失 |
 | 安全 | Credential 不进入 Skill；Egress Allowlist；Tool/调用全审计 |
 | 可测试性 | Skill 可本地 Mock；Agent Core 可脱离 HTTP 服务做单元测试 |
 | 可调试性 | Run/Tool/Model/Egress 统一 trace_id/run_id |
-| 可运维性 | 三 Image 独立健康检查、日志、指标与扩缩容 |
+| 可运维性 | 四 Image 独立健康检查、日志、指标与扩缩容 |
 | 可扩展性 | Channel Adapter、Model Provider、Tool、MCP、Skill 均为可扩展端口 |
 | 可复用性 | Agent Core、Contracts、Platform SDK 为共享 package |
 | 迭代效率 | Skill 修改后重新打包上传即可供指定用户下一次 Run 使用 |
@@ -108,7 +109,7 @@
 
 ## 1.7 托管云需求
 
-当前方案以私有化/内网 Kubernetes 部署为基线。若未来进入托管云，三核心服务保持无状态/可扩容设计，权威状态仍外置到托管数据库、缓存、对象存储与 Secret 服务。
+当前方案以私有化/内网 Kubernetes 部署为基线。若未来进入托管云，四核心服务保持无状态/可扩容设计，权威状态仍外置到托管数据库、缓存、Artifact Store 与 Secret 服务。
 
 ---
 
@@ -208,7 +209,7 @@ V2.0 以 Playbook V7 作为用户旅程需求基线，重点覆盖：
 - Linux 容器运行环境；
 - PostgreSQL；
 - Redis；
-- S3-compatible Artifact Store（NFS-backed RWX PVC）；
+- Artifact Store（NFS-backed RWX PVC）；
 - Secret Provider；
 - 网络可达的业务平台与 MCP Server。
 
@@ -281,13 +282,16 @@ External State:
 PostgreSQL / Redis / Artifact Store（NFS-backed RWX PVC） / Secret Provider / OTel Backend
 ```
 
-Phase 1 仅三个自研后台 Image：
+Phase 1 仅四个自研后台 Image：
 
 ```text
 muad-console-platform
 muad-agent-runtime
+muad-agent-worker
 muad-im-gateway
 ```
+
+完整部署拓扑（Service、调度链路与挂载）以 `01-总体架构与部署详细设计.md` 为准；Agent Worker 与 Agent Runtime 共享 `agent-core`/`Egress Boundary`，通过 PostgreSQL durable task queue 协作。
 
 ### 4.2.2 代码视图
 
@@ -302,6 +306,11 @@ muad/
 │   │   ├── api/
 │   │   ├── bootstrap/
 │   │   ├── adapters/
+│   │   └── Dockerfile
+│   ├── agent-worker/
+│   │   ├── api/
+│   │   ├── scheduler/
+│   │   ├── worker/
 │   │   └── Dockerfile
 │   └── im-gateway/
 │       ├── channels/
@@ -325,6 +334,7 @@ muad/
 ```text
 console-platform → contracts/common
 agent-runtime → agent-core/contracts/platform-sdk/common
+agent-worker → agent-core/contracts/platform-sdk/common
 im-gateway → contracts/common
 agent-core → contracts/common
 ```
@@ -342,8 +352,8 @@ Skill → Runtime/Repository/Domain 内部模块
 
 - **逻辑视图**：Control Plane / Execution Plane / Ingress Plane / External State。
 - **开发视图**：Monorepo，多 package，严格依赖方向。
-- **进程视图**：三个独立 Image，Runtime/Gateway 可水平扩容。
-- **物理视图**：Kubernetes Deployment + 外部 PG/Redis/ObjectStore/SecretProvider。
+- **进程视图**：四个独立 Image，Runtime/Worker/Gateway 可水平扩容。
+- **物理视图**：Kubernetes Deployment + 外部 PG/Redis/Artifact Store/SecretProvider。
 - **场景视图**：以 Playbook U01、A03、D10 为黄金链路。
 
 ## 4.3 系统流程
@@ -396,13 +406,13 @@ LLM 判断需要某 Skill
 ### 4.3.3 流程三：Skill 导入与灰度
 
 ```text
-IDE 开发
+IDE 开发（SKILL.md + scripts/references/assets/tests）
 → validate/test/pack
 → Console upload
-→ manifest/secret/checksum validation
+→ 包结构/SKILL.md frontmatter/secret 扫描/checksum 校验
 → Artifact Store（NFS-backed RWX PVC） immutable artifact
 → user_scope=SELECTED
-→ skill_user_grant
+→ SkillUserGrant
 → Runtime Resolver 下一次 Run 可见
 → 验证
 → user_scope=ALL
@@ -425,6 +435,13 @@ IDE 开发
 - 初始化 ToolRegistry 基础工具；
 - 初始化 Checkpointer/Storage Adapter；
 - 不预加载某个用户/Agent 私有状态。
+
+`agent-worker`：
+
+- 启动 Scheduler/Worker loops；
+- 从 PostgreSQL durable task queue claim task，维护 lease/heartbeat/reclaim；
+- 复用 agent-core/SkillExecutor/Egress Boundary；
+- 不绑定固定 Agent/User/bot_id。
 
 `im-gateway`：
 
@@ -451,17 +468,19 @@ IDE 开发
 | AgentSkillBinding | agent_id, skill_id, enabled | Agent 可用 Skill |
 | AgentMcpBinding | agent_id, mcp_server_id, enabled | Agent 可用 MCP |
 | ModelDefinition | key, protocol, model_id, base_url, secret_ref, params, revision, enabled | 模型配置；V1.3 当前仅 OPENAI 协议 |
-| Skill | id, key, name, scope, current_artifact_id | Skill 产品对象 |
-| SkillArtifact | id, skill_id, version, checksum, object_uri, manifest | 不可变制品 |
-| McpServer | id, endpoint, auth_ref, scope, enabled | MCP 服务 |
+| Skill | id, key, name, user_scope, current_artifact_id | Skill 产品对象；user_scope=ALL/SELECTED |
+| SkillArtifact | id, skill_id, version, checksum, storage_key, frontmatter_json | 不可变制品；SKILL.md frontmatter + 包结构校验 |
+| McpServer | id, endpoint, auth_ref, user_scope, enabled | MCP 服务；user_scope=ALL/SELECTED |
 | PlatformUser | id, tenant_id, status | 平台用户 |
 | AgentAccessGrant | user_id, agent_id | 用户 Agent 授权 |
-| SkillUserGrant | user_id, skill_id | SELECTED Skill 灰度 |
-| McpUserGrant | user_id, mcp_server_id | SELECTED MCP 灰度 |
+| SkillUserGrant | user_id, skill_id | SELECTED Skill 指定用户授权 |
+| McpUserGrant | user_id, mcp_server_id | SELECTED MCP 指定用户授权 |
 | BotAccount | id, bot_id, secret_ref, agent_id, enabled | IM 路由 |
 | ChannelIdentity | channel, external_user_id, platform_user_id | 身份映射 |
-| ProjectPlatform | id, key, name, endpoint metadata | 业务项目平台 |
+| ProjectPlatform | id, key, name, resolver_type, resolver_config_json, adapter_key, adapter_config_json, credential_mode, enabled | 业务项目平台接入与 Adapter 配置；credential_mode=USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE |
 | UserCredentialRef | user_id, platform_id, secret_ref | 用户凭据引用 |
+| SharedCredentialRef | platform_id, secret_ref | 平台共享凭据引用；每平台 0..1，无 priority |
+| PlatformSession | platform_id, actor_scope, credential_version, adapter_key, adapter_version | 可重建 Redis 缓存，不建业务表 |
 
 ### 4.4.2 Runtime 实体
 
@@ -472,7 +491,7 @@ IDE 开发
 | RuntimeSnapshot | id, agent_revision, model_revision, skills_json, mcp_json, policy_json | 运行快照 |
 | CanonicalEvent | run_id, seq, type, payload, created_at | 真实事件历史 |
 | UserMemory | tenant_id, user_id, key/content/source, timestamps | 长期上下文 |
-| Artifact | id, run_id, uri, media_type, size, checksum | 大结果/文件 |
+| Artifact | id, run_id, storage_key, media_type, size, checksum | 大结果/文件 |
 | ToolCallAudit | run_id, tool_name, prepared_args_hash, status, latency | Tool 审计 |
 | EgressAudit | run_id, actor, target, operation, result, latency | 出网审计 |
 | ModelInvocationAudit | run_id, provider, model, retry_count, latency | 模型调用审计 |
@@ -516,14 +535,7 @@ update_time
 
 #### 关键内部接口
 
-```text
-GET /internal/runtime/agents/{agent_id}/definition
-GET /internal/runtime/skills/{artifact_id}
-GET /internal/runtime/users/{user_id}/context
-POST /internal/channel/bind
-GET /internal/channel/bots
-GET /internal/auth/users/{user_id}/agents/{agent_id}
-```
+内部接口以 `07-跨模块接口与协议详细设计.md` 为准。
 
 ### 4.5.2 Agent Runtime
 
@@ -591,7 +603,7 @@ LangGraph 仅负责：
 - `/bind /skills /new /stop`；
 - IM 去重/ACK；
 - Runtime SSE → WeCom Streaming；
-- Future DeliveryRoute。
+- DeliveryRoute（Task 完成后的最终投递，见 `10-Agent-Worker与异步任务详细设计.md`）。
 
 #### 边界
 
@@ -711,7 +723,7 @@ Phase 1 可靠性目标：
 - Gateway WebSocket 断开自动重连；
 - Model 暂时性错误按 RecoveryPolicy 自动恢复；
 - 当前 Run 因实例故障可能失败，但必须保留可定位事实；
-- Phase 1 不承诺长任务 crash-resume。
+- 长任务由 Agent Worker 承载，通过 lease/heartbeat/reclaim 提供 crash 恢复（见 `10-Agent-Worker与异步任务详细设计.md`）。
 
 ### 5.2.2 故障场景分析
 
@@ -808,11 +820,12 @@ Console 运行审计页支持按：用户、Agent、Run ID、时间、Skill、�
 
 ### 5.5.1 可运维性目标
 
-三个 Image 独立：
+四个 Image 独立：
 
 ```text
 console-platform
 agent-runtime
+agent-worker
 im-gateway
 ```
 
@@ -827,11 +840,11 @@ im-gateway
 
 ### 5.5.2 部署方案
 
-- PostgreSQL/Redis/ObjectStore 不放入应用 compose；
+- PostgreSQL/Redis/Artifact Store 不放入应用 compose；
 - 生产环境作为外部依赖独立部署；
-- Runtime/Gateway 可独立 HPA；
+- Runtime/Worker/Gateway 可独立 HPA；
 - Console 通常低副本；
-- 同一 commit 构建三个带相同版本标识的 Image。
+- 同一 commit 构建四个带相同版本标识的 Image。
 
 ## 5.6 可扩展性设计
 
@@ -849,7 +862,7 @@ SecretProvider
 EgressResolver
 ```
 
-Future Worker 使用同一 `agent-core`，不得复制一套 Agent/Skill/MCP 实现。
+Agent Worker 使用同一 `agent-core`，不得复制一套 Agent/Skill/MCP 实现。
 
 ## 5.7 可复用性设计
 
@@ -901,7 +914,7 @@ Future Worker 使用同一 `agent-core`，不得复制一套 Agent/Skill/MCP 实
 - architecture dependency test；
 - DB migration gate；
 - Docker image scan；
-- Skill SDK compatibility test；
+- Skill 导入校验测试（包结构/frontmatter/secret 扫描/checksum）；
 - Golden Journey CI。
 
 ---
@@ -943,13 +956,14 @@ Console 对象减少，Skill SDK 与 Egress Boundary 重要性提升。
 - Skill Lazy Load；
 - Canonical History/Context 分离。
 
-### 6.1.3 五/四服务 → 三核心 Image
+### 6.1.3 五/四服务 → 四核心 Image
 
 - console-platform；
 - agent-runtime；
+- agent-worker；
 - im-gateway。
 
-Worker 延后；Egress Boundary 逻辑保留但不独立 Image。
+Agent Worker（durable PostgreSQL task queue + Scheduler/Worker loops）已在 V1.4 交付；Egress Boundary 逻辑保留但不独立 Image。
 
 ### 6.1.4 Node IM Gateway → Python IM Gateway
 
@@ -966,19 +980,20 @@ Worker 延后；Egress Boundary 逻辑保留但不独立 Image。
 | 配置中途变更 | RuntimeSnapshot |
 | MCP 绕过治理 | MCP Tool 统一进 ToolRegistry |
 | Runtime 本地状态 | Architecture Gate 禁止权威状态落本地 |
-| Future Worker 重复建设 Agent | Worker 必须复用 agent-core |
+| Agent Worker 重复建设 Agent | Worker 必须复用 agent-core |
 
 ## 6.3 尚未解决的问题
 
 以下问题不阻塞 Phase 1，但需要后续以真实场景决策：
 
-1. Worker Engine 的具体轻量实现还是引入成熟 durable engine；
-2. 第三方不可信 Skill 是否允许进入平台；
-3. 如果允许不可信 Skill，Egress Boundary 是否必须物理独立并配套 Sandbox；
-4. WebChat 的首个真实接入时间；
-5. User Memory 自动写入策略的产品化程度；
-6. 浏览器自动化是否成为正式 Tool；
-7. Capability/治理 Tool 的真实升级判据是否需要产品面。
+1. 第三方不可信 Skill 是否允许进入平台；
+2. 如果允许不可信 Skill，Egress Boundary 是否必须物理独立并配套 Sandbox；
+3. WebChat 的首个真实接入时间；
+4. User Memory 自动写入策略的产品化程度；
+5. 浏览器自动化是否成为正式 Tool；
+6. Capability/治理 Tool 的真实升级判据是否需要产品面。
+
+已解决：Worker Engine 实现选型——采用 PostgreSQL durable task queue + Scheduler/Worker loops（见 `10-Agent-Worker与异步任务详细设计.md`），不再作为未决风险。
 
 ---
 
@@ -988,44 +1003,13 @@ Worker 延后；Egress Boundary 逻辑保留但不独立 Image。
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
-| V2.0 | 2026-09-17 | 基于最新对齐结论重写：Skill-first、自研 Stateless Runtime、三 Image、Python IM Gateway、Worker 后置、Egress Boundary 内聚 |
+| V2.0 | 2026-09-17 | 基于最新对齐结论重写：Skill-first、自研 Stateless Runtime、四 Image、Python IM Gateway、Agent Worker 交付、Egress Boundary 内聚 |
 
 ---
 
 # 附录 A：Phase 1 核心 API 草案
 
-## Console Internal API
-
-```text
-GET  /internal/runtime/agents/{agent_id}/definition
-GET  /internal/runtime/skills/{artifact_id}
-GET  /internal/runtime/users/{user_id}/memory
-GET  /internal/runtime/users/{user_id}/credentials/{platform_id}
-GET  /internal/channel/bots
-POST /internal/channel/bind
-GET  /internal/auth/users/{user_id}/agents/{agent_id}
-POST /internal/audit/egress
-```
-
-## Agent Runtime API
-
-```text
-POST /v1/runs
-POST /v1/runs/{run_id}/resume
-POST /v1/runs/{run_id}/cancel
-GET  /v1/runs/{run_id}
-GET  /v1/runs/{run_id}/events
-```
-
-`POST /v1/runs` 支持 SSE Streaming。
-
-## IM Gateway Internal API
-
-```text
-POST /internal/messages/send      # 预留主动消息
-GET  /internal/channels/health
-POST /internal/channels/reload
-```
+内部接口以 `07-跨模块接口与协议详细设计.md` 为准，本附录不再维护重复端点清单。
 
 ---
 
@@ -1042,7 +1026,7 @@ POST /internal/channels/reload
 7. RuntimeSnapshot 中 Skill 使用 Artifact checksum；
 8. 同一 Run 不因 Console 修改自动切换 Skill/Model；
 9. Redis 不能成为权威业务状态源；
-10. Phase 1 不新增 Worker/Workflow/Capability Center，除非先补充对应 Playbook 和架构评审。
+10. 不新增 Workflow Designer/Capability Center/通用 Approval Center；Worker 已纳入基线（见 `10-Agent-Worker与异步任务详细设计.md`）。
 
 
 ### V1.3 Artifact Store 落地补充

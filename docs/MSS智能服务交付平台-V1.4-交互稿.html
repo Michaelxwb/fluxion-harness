@@ -1,0 +1,2374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MSS 智能服务交付平台 · V1.4 交互稿</title>
+<style>
+:root{--primary:#5b5bd6;--primary2:#4f46e5;--bg:#f5f6f8;--panel:#fff;--line:#e6e8ef;--text:#1f2329;--muted:#6b7280;--soft:#f7f8fa;--green:#16a34a;--orange:#d97706;--red:#dc2626;--blue:#2563eb;--purple:#7c3aed;--cyan:#0891b2;--shadow:0 8px 24px rgba(31,35,41,.08);}
+*{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",Arial,sans-serif;color:var(--text);background:var(--bg);font-size:14px}
+button,input,select,textarea{font:inherit}.app{display:flex;min-height:100vh}.sidebar{width:224px;background:#fff;border-right:1px solid var(--line);position:fixed;inset:0 auto 0 0;display:flex;flex-direction:column;z-index:20}.brand{height:64px;display:flex;align-items:center;padding:0 18px;border-bottom:1px solid var(--line);gap:10px}.brand-mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#5b5bd6,#7c3aed);color:#fff;display:grid;place-items:center;font-weight:800;box-shadow:0 6px 18px rgba(91,91,214,.25)}.brand-title{font-weight:700;font-size:15px}.brand-sub{font-size:11px;color:var(--muted);margin-top:2px}.nav{padding:10px;overflow:auto}.nav-group{padding:12px 10px 6px;color:#9ca3af;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px}.nav-item{display:flex;align-items:center;gap:10px;height:38px;padding:0 12px;border-radius:8px;color:#4b5563;cursor:pointer;margin:2px 0;user-select:none}.nav-item:hover{background:#f5f5ff;color:var(--primary)}.nav-item.active{background:#eeeeff;color:var(--primary);font-weight:600}.nav-ico{width:18px;text-align:center}.side-bottom{margin-top:auto;padding:12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.main{margin-left:224px;min-width:0;flex:1}.topbar{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:15}.crumb{font-size:13px;color:var(--muted)}.top-actions{display:flex;align-items:center;gap:12px}.env{padding:5px 9px;border-radius:16px;background:#edfdf4;color:#16803c;font-size:12px}.avatar{width:32px;height:32px;border-radius:50%;background:#ede9fe;color:#6d28d9;display:grid;place-items:center;font-weight:700}.content{padding:22px 24px 40px;max-width:1600px;margin:auto}.page-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}.page-title{font-size:22px;font-weight:700;margin:0}.page-desc{color:var(--muted);margin-top:6px;line-height:1.6}.head-note{background:#fff8e8;border:1px solid #fde7b2;color:#8a5b00;padding:8px 12px;border-radius:8px;max-width:540px;font-size:12px;line-height:1.5}
+.grid{display:grid;gap:16px}.grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.02)}.card-pad{padding:18px}.stat{padding:18px}.stat-label{color:var(--muted);font-size:13px}.stat-value{font-size:28px;font-weight:750;margin-top:8px}.stat-foot{font-size:12px;color:var(--muted);margin-top:6px}.section-title{font-size:16px;font-weight:700;margin-bottom:14px}.mini-title{font-size:13px;font-weight:650}.divider{height:1px;background:var(--line);margin:16px 0}.muted{color:var(--muted)}.small{font-size:12px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}.code{background:#101827;color:#dbeafe;border-radius:8px;padding:12px;line-height:1.65;overflow:auto;font-size:12px}.notice{padding:10px 12px;border-radius:8px;background:#f0f5ff;border:1px solid #d8e5ff;color:#2454a6;line-height:1.6}.successbox{background:#effcf3;border-color:#c9f0d4;color:#18733d}.warningbox{background:#fff8e8;border-color:#fde7b2;color:#8a5b00}
+.toolbar{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);gap:10px;flex-wrap:wrap}.toolbar-left,.toolbar-right{display:flex;align-items:center;gap:8px}.btn{border:1px solid #d8dbe4;background:#fff;height:32px;border-radius:7px;padding:0 13px;cursor:pointer;color:#374151}.btn:hover{border-color:#aeb4c2;background:#fafafa}.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}.btn.primary:hover{background:#4e4ec6}.btn.danger{color:#b42318;border-color:#f3c5c1}.btn.ghost{border:none;background:transparent;color:var(--primary);padding:0 6px}.btn.sm{height:28px;padding:0 9px;font-size:12px}.btn:disabled{opacity:.45;cursor:not-allowed}.input,.select{height:32px;border:1px solid #d8dbe4;border-radius:7px;padding:0 10px;background:#fff;color:var(--text);outline:none}.input:focus,.select:focus,textarea:focus{border-color:#8b8be8;box-shadow:0 0 0 2px rgba(91,91,214,.1)}.input.search{width:220px}.filter-pill{height:32px;border:1px solid #d8dbe4;border-radius:7px;padding:0 10px;background:#fff;display:flex;align-items:center;gap:6px}
+table{width:100%;border-collapse:collapse}.table-wrap{overflow:auto}th{height:42px;background:#fafbfc;color:#59606d;font-weight:600;text-align:left;padding:0 12px;border-bottom:1px solid var(--line);white-space:nowrap;font-size:12px}td{padding:12px;border-bottom:1px solid #eef0f4;vertical-align:middle;white-space:nowrap}tr:hover td{background:#fbfbff}.row-link{color:#3f4fc3;font-weight:600;cursor:pointer}.tag{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600;line-height:22px;background:#f1f3f5;color:#4b5563}.tag.green{background:#eaf8ef;color:#15803d}.tag.orange{background:#fff4df;color:#a15c00}.tag.red{background:#feeeee;color:#b42318}.tag.blue{background:#edf4ff;color:#2563eb}.tag.purple{background:#f3edff;color:#6d28d9}.tag.cyan{background:#eafafd;color:#0e7490}.tag.gray{background:#f3f4f6;color:#6b7280}.tag.dot:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:5px}.pagination{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:12px 16px;color:var(--muted);font-size:12px}.pagebox{width:28px;height:28px;border:1px solid var(--line);border-radius:6px;display:grid;place-items:center;cursor:pointer}.pagebox.active{background:#eeeefe;color:var(--primary);border-color:#d7d7fa}.empty{padding:50px;text-align:center;color:var(--muted)}
+.tabs{display:flex;border-bottom:1px solid var(--line);padding:0 18px;background:#fff}.tab{height:44px;display:flex;align-items:center;padding:0 14px;cursor:pointer;color:#5d6470;border-bottom:2px solid transparent}.tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}.detail-pane{padding:18px}.kv{display:grid;grid-template-columns:140px 1fr;row-gap:13px;column-gap:16px}.kv dt{color:var(--muted)}.kv dd{margin:0;min-width:0}.chips{display:flex;gap:6px;flex-wrap:wrap}.listline{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f1f4}.listline:last-child{border-bottom:none}.progress{height:7px;border-radius:99px;background:#eceef2;overflow:hidden}.progress>i{display:block;height:100%;background:var(--primary);border-radius:99px}.timeline{position:relative;margin-left:8px}.timeline:before{content:"";position:absolute;left:4px;top:8px;bottom:8px;width:1px;background:#dfe2e8}.timeline-item{position:relative;padding-left:24px;padding-bottom:17px}.timeline-item:before{content:"";position:absolute;left:0;top:4px;width:9px;height:9px;background:#fff;border:2px solid var(--primary);border-radius:50%}.timeline-time{font-size:11px;color:var(--muted);margin-top:3px}.tree{font-size:13px}.tree-node{padding:7px 8px;border-left:1px solid #dadde5;margin-left:8px}.tree-root{border:none;margin-left:0;padding-left:0}.tree-row{display:flex;align-items:center;gap:8px}
+.arch{padding:18px;overflow:auto}.arch-row{display:flex;align-items:center;justify-content:center;gap:14px;min-width:900px;margin:10px 0}.arch-box{min-width:145px;padding:13px;border:1px solid #dfe2e8;background:#fff;border-radius:9px;text-align:center}.arch-box.strong{border-color:#b9b9f5;background:#f7f7ff}.arch-box.async{border-color:#c9e8d1;background:#f3fff6}.arch-arrow{color:#9aa0aa;font-size:22px}.runtime-pool{display:flex;gap:8px;justify-content:center;margin-top:8px}.pod{padding:5px 8px;border-radius:5px;background:#eef2f7;font-size:11px;color:#53606e}.connection-note{font-size:11px;color:var(--muted);margin-top:6px}
+.modal-mask{position:fixed;inset:0;background:rgba(17,24,39,.38);z-index:100;display:none;align-items:center;justify-content:center;padding:24px}.modal-mask.show{display:flex}.modal{width:min(680px,100%);max-height:90vh;background:#fff;border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.22);overflow:auto}.modal.wide{width:min(920px,100%)}.modal-head{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--line);font-weight:700;font-size:16px;position:sticky;top:0;background:#fff;z-index:2}.close{width:28px;height:28px;display:grid;place-items:center;border-radius:6px;cursor:pointer;color:#77808e}.close:hover{background:#f2f3f5}.modal-body{padding:20px}.modal-foot{height:62px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 20px;position:sticky;bottom:0;background:#fff}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.form-item label{display:block;font-size:12px;font-weight:600;margin-bottom:7px}.req:before{content:"*";color:#dc2626;margin-right:3px}.form-item input,.form-item select,.form-item textarea{width:100%;border:1px solid #d8dbe4;border-radius:7px;padding:8px 10px;outline:none}.form-item textarea{min-height:88px;resize:vertical}.form-item.full{grid-column:1/-1}.help{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5}.drawer-mask{position:fixed;inset:0;background:rgba(17,24,39,.28);z-index:90;display:none}.drawer-mask.show{display:block}.drawer{position:absolute;right:0;top:0;height:100%;width:min(920px,92vw);background:#fff;box-shadow:-18px 0 50px rgba(0,0,0,.15);display:flex;flex-direction:column}.drawer-head{
+  min-height:64px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  padding:10px 22px;
+  border-bottom:1px solid var(--line);
+  background:#fff;
+  flex:0 0 auto;
+}
+.drawer-heading{
+  min-width:0;
+  flex:1;
+}
+.drawer-title{
+  font-size:18px;
+  font-weight:700;
+  line-height:1.35;
+}
+.drawer-head-right{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:14px;
+  flex:0 0 auto;
+}
+.drawer-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.drawer-actions:empty{
+  display:none;
+}
+.drawer-actions .btn{
+  min-height:32px;
+  white-space:nowrap;
+}
+.drawer-head-right .close{
+  flex:0 0 auto;
+  margin-left:2px;
+}
+.drawer-body{
+  overflow:auto;
+  flex:1;
+}.toast{position:fixed;top:78px;left:50%;transform:translateX(-50%) translateY(-10px);z-index:200;background:#1f2937;color:#fff;padding:10px 16px;border-radius:8px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.2s}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.chat{height:450px;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}.chat-title{height:45px;display:flex;align-items:center;padding:0 14px;border-bottom:1px solid var(--line);font-weight:600}.chat-messages{flex:1;padding:16px;background:#f8f9fb;overflow:auto}.bubble{max-width:75%;padding:10px 12px;border-radius:10px;margin-bottom:12px;line-height:1.6}.bubble.user{margin-left:auto;background:#5b5bd6;color:#fff}.bubble.bot{background:#fff;border:1px solid var(--line)}.chat-input{height:58px;display:flex;align-items:center;gap:8px;padding:10px;border-top:1px solid var(--line)}.chat-input input{flex:1;height:36px;border:1px solid #d8dbe4;border-radius:8px;padding:0 10px}.kpi-row{display:flex;gap:16px;flex-wrap:wrap}.kpi-mini{min-width:150px}.kpi-mini b{font-size:20px}.split{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}.right-align{text-align:right}.nowrap{white-space:nowrap}.hidden{display:none!important}
+@media(max-width:1100px){.grid-4{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:1fr 1fr}.split{grid-template-columns:1fr}.sidebar{width:190px}.main{margin-left:190px}}@media(max-width:760px){.sidebar{display:none}.main{margin-left:0}.content{padding:16px}.grid-4,.grid-3,.grid-2,.form-grid{grid-template-columns:1fr}.topbar{padding:0 16px}.head-note{display:none}}
+
+.schedule-info-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  column-gap:44px;
+  row-gap:0;
+  margin-top:8px;
+}
+.schedule-field{
+  display:grid;
+  grid-template-columns:110px minmax(0,1fr);
+  align-items:center;
+  min-height:44px;
+  border-bottom:1px solid #f0f1f3;
+}
+.schedule-label{
+  color:#667085;
+  font-size:13px;
+}
+.schedule-value{
+  color:#1d2939;
+  font-size:13px;
+  min-width:0;
+  word-break:break-word;
+}
+.simple-history-list{
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  margin-top:10px;
+}
+.history-row{
+  display:grid;
+  grid-template-columns:1.45fr 1.05fr 1.05fr 90px;
+  gap:20px;
+  align-items:center;
+  min-height:46px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.history-row:last-child{
+  border-bottom:none;
+}
+.history-head{
+  min-height:40px;
+  background:#fafafa;
+  color:#667085;
+  font-weight:600;
+}
+@media (max-width: 900px){
+  .schedule-info-grid{
+    grid-template-columns:1fr;
+    column-gap:0;
+  }
+  .history-row{
+    grid-template-columns:1.3fr 1fr 90px;
+  }
+  .history-row > span:nth-child(3){
+    display:none;
+  }
+}
+
+
+.agent-info-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  column-gap:44px;
+  margin-top:8px;
+}
+.agent-field{
+  display:grid;
+  grid-template-columns:100px minmax(0,1fr);
+  align-items:center;
+  min-height:44px;
+  border-bottom:1px solid #f0f1f3;
+}
+.agent-label{
+  color:#667085;
+  font-size:13px;
+}
+.agent-value{
+  color:#1d2939;
+  font-size:13px;
+  min-width:0;
+  word-break:break-word;
+}
+.agent-config-grid{
+  display:grid;
+  grid-template-columns:220px minmax(0,1fr);
+  gap:16px;
+  margin-top:10px;
+}
+.agent-model-card,
+.agent-instruction-card{
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:14px;
+  background:#fff;
+}
+.agent-model-name{
+  font-size:16px;
+  font-weight:600;
+  margin-top:10px;
+  color:#1d2939;
+}
+.agent-instruction-text{
+  margin-top:10px;
+  line-height:1.7;
+  color:#344054;
+  white-space:pre-wrap;
+}
+.simple-run-list{
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  margin-top:10px;
+}
+.run-row{
+  display:grid;
+  grid-template-columns:1.3fr .8fr .9fr 1.4fr 80px;
+  gap:16px;
+  align-items:center;
+  min-height:46px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.run-row:last-child{
+  border-bottom:none;
+}
+.run-head{
+  min-height:40px;
+  background:#fafafa;
+  color:#667085;
+  font-weight:600;
+}
+@media (max-width: 900px){
+  .agent-info-grid{
+    grid-template-columns:1fr;
+    column-gap:0;
+  }
+  .agent-config-grid{
+    grid-template-columns:1fr;
+  }
+  .run-row{
+    grid-template-columns:1.2fr .8fr 1fr 80px;
+  }
+  .run-row > span:nth-child(4){
+    display:none;
+  }
+}
+
+
+.skill-info-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  column-gap:44px;
+  margin-top:8px;
+}
+.skill-field{
+  display:grid;
+  grid-template-columns:100px minmax(0,1fr);
+  align-items:center;
+  min-height:44px;
+  border-bottom:1px solid #f0f1f3;
+}
+.skill-label{
+  color:#667085;
+  font-size:13px;
+}
+.skill-value{
+  color:#1d2939;
+  font-size:13px;
+  min-width:0;
+  word-break:break-word;
+}
+.skill-desc-block{
+  display:grid;
+  grid-template-columns:100px minmax(0,1fr);
+  align-items:start;
+  margin-top:14px;
+}
+.skill-description{
+  color:#344054;
+  line-height:1.65;
+  font-size:13px;
+}
+.skill-version-summary{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0 44px;
+  margin-top:8px;
+}
+.skill-summary-item{
+  display:grid;
+  grid-template-columns:100px minmax(0,1fr);
+  align-items:center;
+  min-height:42px;
+  border-bottom:1px solid #f0f1f3;
+  font-size:13px;
+}
+.skill-summary-item span{
+  color:#667085;
+}
+.skill-summary-item b{
+  font-weight:500;
+  color:#1d2939;
+}
+.skill-md-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.skill-md-preview{
+  margin-top:10px;
+  max-height:190px;
+  overflow:hidden;
+  position:relative;
+}
+.skill-md-preview:after{
+  content:'';
+  position:absolute;
+  left:0;right:0;bottom:0;
+  height:42px;
+  background:linear-gradient(to bottom,rgba(15,23,42,0),rgba(15,23,42,.94));
+  pointer-events:none;
+}
+.simple-version-list,
+.simple-agent-list,
+.simple-gray-list{
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  margin-top:10px;
+}
+.version-row{
+  display:grid;
+  grid-template-columns:.65fr .8fr .8fr 1.15fr 1.15fr .65fr .6fr;
+  gap:14px;
+  align-items:center;
+  min-height:46px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.skill-agent-row{
+  display:grid;
+  grid-template-columns:1.2fr 1.2fr .7fr 1.1fr .6fr;
+  gap:14px;
+  align-items:center;
+  min-height:46px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.gray-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1.2fr .6fr;
+  gap:14px;
+  align-items:center;
+  min-height:46px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.version-row:last-child,
+.skill-agent-row:last-child,
+.gray-row:last-child{
+  border-bottom:none;
+}
+.version-head,
+.skill-agent-head,
+.gray-head{
+  min-height:40px;
+  background:#fafafa;
+  color:#667085;
+  font-weight:600;
+}
+@media (max-width: 900px){
+  .skill-info-grid,
+  .skill-version-summary{
+    grid-template-columns:1fr;
+    column-gap:0;
+  }
+  .version-row{
+    grid-template-columns:1fr 1fr 1fr .7fr;
+  }
+  .version-row > span:nth-child(4),
+  .version-row > span:nth-child(5),
+  .version-row > span:nth-child(6){
+    display:none;
+  }
+  .skill-agent-row{
+    grid-template-columns:1.2fr 1fr .7fr;
+  }
+  .skill-agent-row > span:nth-child(4),
+  .skill-agent-row > span:nth-child(5){
+    display:none;
+  }
+}
+
+
+.mcp-info-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  column-gap:44px;
+  margin-top:8px;
+}
+.mcp-field{
+  display:grid;
+  grid-template-columns:100px minmax(0,1fr);
+  align-items:center;
+  min-height:44px;
+  border-bottom:1px solid #f0f1f3;
+}
+.mcp-label{
+  color:#667085;
+  font-size:13px;
+}
+.mcp-value{
+  color:#1d2939;
+  font-size:13px;
+  min-width:0;
+  word-break:break-word;
+}
+.mcp-full-field{
+  display:grid;
+  grid-template-columns:100px minmax(0,1fr);
+  align-items:start;
+  margin-top:14px;
+}
+.mcp-tool-summary{
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  margin-top:10px;
+}
+.mcp-tool-summary-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:20px;
+  align-items:center;
+  padding:12px 14px;
+  border-bottom:1px solid var(--line);
+}
+.mcp-tool-summary-row:last-child{
+  border-bottom:none;
+}
+.mcp-tool-list{
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  margin-top:10px;
+}
+.mcp-tool-row{
+  display:grid;
+  grid-template-columns:1fr 1.8fr 1.5fr .8fr;
+  gap:14px;
+  align-items:center;
+  min-height:52px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.mcp-tool-row:last-child{
+  border-bottom:none;
+}
+.mcp-tool-head{
+  min-height:40px;
+  background:#fafafa;
+  color:#667085;
+  font-weight:600;
+}
+@media (max-width: 900px){
+  .mcp-info-grid{
+    grid-template-columns:1fr;
+    column-gap:0;
+  }
+  .mcp-tool-row{
+    grid-template-columns:1fr 1.5fr .8fr;
+  }
+  .mcp-tool-row > span:nth-child(3){
+    display:none;
+  }
+}
+
+
+.model-test-list{
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  margin-top:14px;
+}
+.model-test-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:18px;
+  align-items:center;
+  padding:12px 14px;
+  border-bottom:1px solid var(--line);
+}
+.model-test-row:last-child{
+  border-bottom:none;
+}
+.btn:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+}
+
+
+.user-info-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  column-gap:44px;
+  margin-top:8px;
+}
+.user-field{
+  display:grid;
+  grid-template-columns:110px minmax(0,1fr);
+  align-items:center;
+  min-height:44px;
+  border-bottom:1px solid #f0f1f3;
+}
+.user-label{
+  color:#667085;
+  font-size:13px;
+}
+.user-value{
+  color:#1d2939;
+  font-size:13px;
+  min-width:0;
+  word-break:break-word;
+}
+.user-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  margin-top:10px;
+}
+.user-summary-card{
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:14px;
+  background:#fff;
+  min-height:92px;
+}
+.summary-number{
+  font-size:22px;
+  font-weight:650;
+  color:#1d2939;
+  margin:8px 0 4px;
+}
+.user-table-list,
+.user-credential-list,
+.user-identity-list,
+.user-memory-list{
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  margin-top:10px;
+}
+.user-list-head{
+  min-height:40px!important;
+  background:#fafafa;
+  color:#667085;
+  font-weight:600;
+}
+.user-agent-row{
+  display:grid;
+  grid-template-columns:1.25fr 1.15fr .7fr 1.1fr .8fr;
+  gap:14px;
+  align-items:center;
+  min-height:46px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.credential-row{
+  display:grid;
+  grid-template-columns:1.25fr 1.45fr 1.25fr .8fr 1.1fr .6fr;
+  gap:14px;
+  align-items:center;
+  min-height:50px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.identity-row{
+  display:grid;
+  grid-template-columns:.75fr 1.15fr 1.15fr 1.05fr 1.05fr .7fr .55fr;
+  gap:12px;
+  align-items:center;
+  min-height:50px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.memory-row{
+  display:grid;
+  grid-template-columns:2fr .9fr 1.15fr .55fr;
+  gap:14px;
+  align-items:center;
+  min-height:48px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.user-agent-row:last-child,
+.credential-row:last-child,
+.identity-row:last-child,
+.memory-row:last-child{
+  border-bottom:none;
+}
+@media (max-width: 1000px){
+  .user-info-grid{grid-template-columns:1fr}
+  .user-summary-grid{grid-template-columns:1fr 1fr}
+  .credential-row{grid-template-columns:1.2fr 1.2fr .9fr .6fr}
+  .credential-row > span:nth-child(3),
+  .credential-row > span:nth-child(5){display:none}
+  .identity-row{grid-template-columns:.8fr 1.2fr 1.1fr .7fr .55fr}
+  .identity-row > span:nth-child(4),
+  .identity-row > span:nth-child(5){display:none}
+}
+
+
+.platform-info-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  column-gap:44px;
+  margin-top:8px;
+}
+.platform-field{
+  display:grid;
+  grid-template-columns:120px minmax(0,1fr);
+  align-items:center;
+  min-height:44px;
+  border-bottom:1px solid #f0f1f3;
+}
+.platform-label{
+  color:#667085;
+  font-size:13px;
+}
+.platform-value{
+  color:#1d2939;
+  font-size:13px;
+  min-width:0;
+  word-break:break-word;
+}
+.platform-full-field{
+  display:grid;
+  grid-template-columns:120px minmax(0,1fr);
+  align-items:start;
+  margin-top:14px;
+}
+.platform-config-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0 44px;
+  margin-top:8px;
+}
+.platform-config-item{
+  display:grid;
+  grid-template-columns:140px minmax(0,1fr);
+  align-items:center;
+  min-height:44px;
+  border-bottom:1px solid #f0f1f3;
+}
+.platform-config-label{
+  color:#667085;
+  font-size:13px;
+}
+.platform-config-value{
+  color:#1d2939;
+  font-size:13px;
+}
+.platform-schema-list,
+.platform-credential-list{
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  margin-top:10px;
+}
+.platform-schema-row{
+  display:grid;
+  grid-template-columns:1fr 1fr .9fr 2fr;
+  gap:14px;
+  align-items:center;
+  min-height:46px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.platform-schema-row:last-child{
+  border-bottom:none;
+}
+.platform-schema-head,
+.platform-list-head{
+  min-height:40px!important;
+  background:#fafafa;
+  color:#667085;
+  font-weight:600;
+}
+.platform-credential-row{
+  display:grid;
+  grid-template-columns:1fr 1fr .9fr 1.15fr .65fr;
+  gap:14px;
+  align-items:center;
+  min-height:48px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.platform-credential-row:last-child{
+  border-bottom:none;
+}
+.platform-shared-credential{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:18px;
+  align-items:center;
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:14px;
+  margin-top:10px;
+}
+.platform-test-chain{
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  margin-top:16px;
+}
+.platform-test-chain>div,
+.platform-test-result-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:18px;
+  align-items:center;
+  min-height:46px;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+}
+.platform-test-chain>div:last-child,
+.platform-test-result-row:last-of-type{
+  border-bottom:none;
+}
+@media (max-width: 900px){
+  .platform-info-grid,
+  .platform-config-grid{
+    grid-template-columns:1fr;
+    column-gap:0;
+  }
+  .platform-schema-row{
+    grid-template-columns:1fr 1fr .8fr;
+  }
+  .platform-schema-row > span:nth-child(4){display:none}
+  .platform-credential-row{
+    grid-template-columns:1fr .8fr 1fr .6fr;
+  }
+  .platform-credential-row > span:nth-child(2){display:none}
+}
+
+
+.model-detail-grid,
+.audit-detail-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0 44px;
+}
+.model-detail-field,
+.audit-detail-grid>div{
+  display:grid;
+  grid-template-columns:110px minmax(0,1fr);
+  align-items:center;
+  min-height:44px;
+  border-bottom:1px solid #f0f1f3;
+  font-size:13px;
+}
+.model-detail-field span,
+.audit-detail-grid>div span,
+.model-detail-full span{
+  color:#667085;
+}
+.model-detail-field b,
+.audit-detail-grid>div b,
+.model-detail-full b{
+  font-weight:500;
+  color:#1d2939;
+}
+.model-detail-full{
+  display:grid;
+  grid-template-columns:110px minmax(0,1fr);
+  align-items:center;
+  min-height:44px;
+  margin-top:4px;
+}
+
+
+.section-head-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:8px;
+}
+
+
+
+
+
+/* 详情抽屉标题栏：操作按钮与关闭按钮同一行，固定靠右 */
+@media(max-width:760px){
+  .drawer-head{
+    align-items:flex-start;
+    gap:12px;
+    padding:10px 16px;
+  }
+  .drawer-head-right{
+    gap:8px;
+  }
+  .drawer-actions{
+    max-width:340px;
+  }
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">M</div><div><div class="brand-title">MSS 智能服务交付平台</div><div class="brand-sub">V1.4 交互原型</div></div></div>
+    <div class="nav" id="nav">
+      <div class="nav-item active" data-page="overview"><span class="nav-ico">◫</span>概览</div>
+      <div class="nav-group">智能体与能力</div>
+      <div class="nav-item" data-page="agents"><span class="nav-ico">◉</span>Agent</div>
+      <div class="nav-item" data-page="skills"><span class="nav-ico">◇</span>Skill</div>
+      <div class="nav-item" data-page="mcp"><span class="nav-ico">⌘</span>MCP</div>
+      <div class="nav-item" data-page="models"><span class="nav-ico">◆</span>模型</div>
+      <div class="nav-group">用户与平台</div>
+      <div class="nav-item" data-page="users"><span class="nav-ico">♙</span>用户</div>
+      <div class="nav-item" data-page="platforms"><span class="nav-ico">▦</span>项目平台</div>
+      <div class="nav-group">执行与运营</div>
+      <div class="nav-item" data-page="tasks"><span class="nav-ico">☷</span>后台任务</div>
+      <div class="nav-item" data-page="schedules"><span class="nav-ico">◷</span>定时任务</div>
+      <div class="nav-item" data-page="audits"><span class="nav-ico">≋</span>运行审计</div>
+    </div>
+    <div class="side-bottom">仅开发者 / 管理员访问 Console<br>普通用户仅通过 IM 通道使用</div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><div class="crumb" id="crumb">首页 / 概览</div><div class="top-actions"><span class="env">内网环境</span><span class="muted small">管理员</span><div class="avatar">A</div></div></header>
+    <section class="content" id="content"></section>
+  </main>
+</div>
+<div class="modal-mask" id="modalMask"><div class="modal" id="modal"><div class="modal-head"><span id="modalTitle"></span><span class="close" onclick="closeModal()">✕</span></div><div class="modal-body" id="modalBody"></div><div class="modal-foot" id="modalFoot"></div></div></div>
+<div class="drawer-mask" id="drawerMask" onclick="drawerMaskClose(event)">
+  <div class="drawer" id="drawer">
+    <div class="drawer-head">
+      <div class="drawer-heading">
+        <div class="drawer-title" id="drawerTitle"></div>
+        <div class="small muted" id="drawerSub"></div>
+      </div>
+      <div class="drawer-head-right">
+        <div class="drawer-actions" id="drawerActions"></div>
+        <span class="close" onclick="closeDrawer()">✕</span>
+      </div>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const S={
+ agents:[
+  {id:'ag-001',name:'MSS 服务助手',key:'mss-assistant',model:'Qwen3-235B',skills:['policy-check','customer-query','monthly-report','alarm-summary'],mcp:['kb-mcp','mss-tools'],
+   channels:[
+    {id:'im-001',type:'WECOM',name:'MSS 服务机器人',botId:'wxbot_mss_01',status:'CONNECTED'},
+    {id:'im-002',type:'WECOM',name:'MSS 交付机器人',botId:'wxbot_mss_delivery',status:'CONNECTED'}
+   ],enabled:true,revision:18,updated:'2026-09-17 15:40:00',instructions:'你是 MSS 服务交付助手，负责理解服务人员的业务目标，按需加载 Skill，并在需要时提交后台任务。'},
+  {id:'ag-002',name:'安全分析助手',key:'security-analyst',model:'DeepSeek-V4',skills:['vuln-analysis'],mcp:['kb-mcp'],
+   channels:[{id:'im-003',type:'WECOM',name:'安全分析机器人',botId:'wxbot_sec_02',status:'CONNECTED'}],
+   enabled:true,revision:7,updated:'2026-09-17 10:18:06',instructions:'聚焦安全分析、漏洞研判与知识检索。'},
+  {id:'ag-003',name:'试验 Agent',key:'agent-lab',model:'Qwen3-32B',skills:['policy-check-next'],mcp:[],channels:[],enabled:false,revision:3,updated:'2026-09-16 18:05:31',instructions:'仅用于指定用户验证。'}
+ ],
+ skills:[
+  {id:'sk-1',name:'设备策略检查',key:'policy-check',desc:'为指定客户执行设备策略检查；支持后台长任务与批量并行。',execution:'ASYNC',userScope:'ALL',selectedUsers:[],artifact:'v1.8.2',checksum:'a87e...91cd',updated:'2026-09-17 09:12:48',status:'ENABLED'},
+  {id:'sk-2',name:'客户查询',key:'customer-query',desc:'查询客户基本信息、服务关系与设备摘要。',execution:'SYNC',userScope:'ALL',selectedUsers:[],artifact:'v2.3.0',checksum:'f410...0b72',updated:'2026-09-16 15:43:21',status:'ENABLED'},
+  {id:'sk-3',name:'月度安全报告',key:'monthly-report',desc:'生成客户月度安全报告，目标较多时自动切换后台任务。',execution:'AUTO',userScope:'SELECTED',selectedUsers:['u-101','u-102'],artifact:'v0.9.4',checksum:'712c...e120',updated:'2026-09-17 11:03:09',status:'ENABLED'},
+  {id:'sk-4',name:'策略检查 Next',key:'policy-check-next',desc:'策略检查新版本试验。',execution:'ASYNC',userScope:'SELECTED',selectedUsers:['u-101'],artifact:'v2.0.0-beta.3',checksum:'28aa...44ef',updated:'2026-09-17 11:33:15',status:'ENABLED'},
+  {id:'sk-5',name:'漏洞分析',key:'vuln-analysis',desc:'分析漏洞结果并输出风险摘要。',execution:'SYNC',userScope:'ALL',selectedUsers:[],artifact:'v1.4.1',checksum:'bbe1...2d40',updated:'2026-09-15 16:12:03',status:'ENABLED'},
+  {id:'sk-6',name:'告警摘要',key:'alarm-summary',desc:'汇总指定时间窗口内的安全告警并生成简要摘要。',execution:'ASYNC',userScope:'ALL',selectedUsers:[],artifact:'v1.1.0',checksum:'2ca8...11f0',updated:'2026-09-16 17:40:00',status:'ENABLED'}
+ ],
+ mcps:[
+  {id:'mcp-001',name:'安全知识 MCP',key:'kb-mcp',endpoint:'http://kb-mcp.internal/mcp',userScope:'ALL',selectedUsers:[],enabled:true,connectionStatus:'AVAILABLE',lastDiscover:'2026-09-17 11:30:12',updated:'2026-09-17 11:30:12',
+   tools:[
+    {name:'kb_search',description:'根据关键词检索安全知识库并返回匹配文档摘要。',effect:'READ',enabled:true,input:'q:string, top_k?:integer'},
+    {name:'get_article',description:'根据文章 ID 获取知识库文章详情。',effect:'READ',enabled:true,input:'article_id:string'},
+    {name:'list_categories',description:'列出知识库当前可用分类。',effect:'READ',enabled:true,input:'parent_id?:string'}
+   ]},
+  {id:'mcp-002',name:'MSS 工具 MCP',key:'mss-tools',endpoint:'http://mss-tools.internal/mcp',userScope:'SELECTED',selectedUsers:['u-101','u-102'],enabled:true,connectionStatus:'AVAILABLE',lastDiscover:'2026-09-17 10:05:36',updated:'2026-09-17 10:05:36',
+   tools:[
+    {name:'query_alarm',description:'查询指定客户和时间范围内的告警。',effect:'READ',enabled:true,input:'customer_id:string, start_time:string, end_time:string'},
+    {name:'query_device',description:'查询客户设备及基础状态。',effect:'READ',enabled:true,input:'customer_id:string, keyword?:string'},
+    {name:'create_scan',description:'创建安全扫描任务。',effect:'WRITE',enabled:true,input:'customer_id:string, scope:string'},
+    {name:'get_scan_status',description:'查询扫描任务执行状态。',effect:'READ',enabled:true,input:'task_id:string'},
+    {name:'get_scan_result',description:'获取扫描任务最终结果。',effect:'READ',enabled:true,input:'task_id:string'}
+   ]}
+ ],
+ models:[
+  {id:'m-1',name:'Qwen3-235B',key:'qwen3-235b',protocol:'OPENAI',baseUrl:'http://model-gateway.internal/v1',modelId:'qwen3-235b-a22b',apiKeySet:true,enabled:true,testStatus:'AVAILABLE',revision:5,updated:'2026-09-17 09:00:00'},
+  {id:'m-2',name:'DeepSeek-V4',key:'deepseek-v4',protocol:'OPENAI',baseUrl:'http://model-gateway.internal/v1',modelId:'deepseek-v4',apiKeySet:true,enabled:true,testStatus:'AVAILABLE',revision:3,updated:'2026-09-16 12:30:44'},
+  {id:'m-3',name:'Qwen3-32B',key:'qwen3-32b',protocol:'OPENAI',baseUrl:'http://model-gateway.internal/v1',modelId:'qwen3-32b',apiKeySet:false,enabled:true,testStatus:'AVAILABLE',revision:2,updated:'2026-09-15 17:28:18'}
+ ],
+ users:[
+  {id:'u-101',name:'张明',account:'zhangming',agents:['MSS 服务助手'],platform:'MSS 已配置',im:'wotvU...4GA',memory:3,status:'ACTIVE',created:'2026-09-01 09:20:10',updated:'2026-09-17 11:10:06',
+   agentGrants:[
+    {agentId:'ag-001',grantedAt:'2026-09-01 10:00:00'}
+   ],
+   credentials:{
+    'p-1':{configured:true,updated:'2026-09-16 16:30:12'},
+    'p-2':{configured:false,updated:'-'}
+   },
+   identities:[
+    {id:'cid-001',channel:'WECOM',externalId:'wotvU...4GA',botId:'wxbot_mss_01',boundAt:'2026-09-01 10:12:20',lastActive:'2026-09-17 11:08:45',status:'ACTIVE'},
+    {id:'cid-002',channel:'WECOM',externalId:'wotvU...9KB',botId:'wxbot_mss_delivery',boundAt:'2026-09-05 09:18:31',lastActive:'2026-09-16 17:20:14',status:'ACTIVE'}
+   ],
+   memories:[
+    {id:'mem-001',content:'偏好中文报告',source:'对话提取',updated:'2026-09-17 10:32:11'},
+    {id:'mem-002',content:'先摘要后明细',source:'用户确认',updated:'2026-09-16 16:08:20'},
+    {id:'mem-003',content:'常用简版交付模板',source:'对话提取',updated:'2026-09-15 11:40:06'}
+   ]},
+  {id:'u-102',name:'李雪',account:'lixue',agents:['MSS 服务助手','安全分析助手'],platform:'MSS 已配置',im:'wotvK...9XQ',memory:2,status:'ACTIVE',created:'2026-09-02 10:10:00',updated:'2026-09-17 10:20:33',
+   agentGrants:[
+    {agentId:'ag-001',grantedAt:'2026-09-02 10:30:00'},
+    {agentId:'ag-002',grantedAt:'2026-09-10 15:21:00'}
+   ],
+   credentials:{
+    'p-1':{configured:true,updated:'2026-09-15 11:22:18'},
+    'p-2':{configured:true,updated:'2026-09-16 09:42:35'}
+   },
+   identities:[
+    {id:'cid-003',channel:'WECOM',externalId:'wotvK...9XQ',botId:'wxbot_mss_01',boundAt:'2026-09-02 10:35:10',lastActive:'2026-09-17 10:18:51',status:'ACTIVE'}
+   ],
+   memories:[
+    {id:'mem-004',content:'报告默认附风险分级',source:'用户确认',updated:'2026-09-16 14:10:30'},
+    {id:'mem-005',content:'关注终端告警趋势',source:'对话提取',updated:'2026-09-15 09:28:15'}
+   ]},
+  {id:'u-103',name:'王涛',account:'wangtao',agents:['MSS 服务助手'],platform:'未配置',im:'未绑定',memory:0,status:'ACTIVE',created:'2026-09-16 14:00:00',updated:'2026-09-16 14:11:52',
+   agentGrants:[
+    {agentId:'ag-001',grantedAt:'2026-09-16 14:05:00'}
+   ],
+   credentials:{
+    'p-1':{configured:false,updated:'-'},
+    'p-2':{configured:false,updated:'-'}
+   },
+   identities:[],
+   memories:[]}
+ ],
+ platformAdapters:[
+  {key:'mssw',name:'MSSW 平台适配器',version:'1',sessionMode:'SESSION',
+   configFields:[
+    {key:'login_endpoint',label:'登录接口',type:'text',placeholder:'/gateway/login_agent'},
+    {key:'health_endpoint',label:'健康检查接口',type:'text',placeholder:'/v1/rtt'},
+    {key:'branch_tag',label:'Branch Tag',type:'text',placeholder:'MSSW-ADAPTER'},
+    {key:'csrf_enabled',label:'启用 CSRF',type:'select',options:['否','是']}
+   ],
+   credentialFields:[{key:'ak',label:'AK',secret:true},{key:'sk',label:'SK',secret:true}]},
+  {key:'mssp',name:'MSSP 平台适配器',version:'1',sessionMode:'SESSION',
+   configFields:[
+    {key:'login_endpoint',label:'登录接口',type:'text',placeholder:'/gateway/login_agent'},
+    {key:'health_endpoint',label:'健康检查接口',type:'text',placeholder:'/v1/rtt'},
+    {key:'branch_tag',label:'Branch Tag',type:'text',placeholder:'MSSP-ADAPTER'}
+   ],
+   credentialFields:[{key:'ak',label:'AK',secret:true},{key:'sk',label:'SK',secret:true}]},
+  {key:'generic-http-session',name:'通用 HTTP Session 适配器',version:'1',sessionMode:'SESSION',
+   configFields:[
+    {key:'login_endpoint',label:'登录接口',type:'text',placeholder:'/api/login'},
+    {key:'health_endpoint',label:'健康检查接口',type:'text',placeholder:'/api/me'},
+    {key:'username_field',label:'用户名字段',type:'text',placeholder:'username'},
+    {key:'password_field',label:'密码字段',type:'text',placeholder:'password'}
+   ],
+   credentialFields:[{key:'username',label:'用户名',secret:false},{key:'password',label:'密码',secret:true}]}
+ ],
+ platforms:[
+  {id:'p-1',name:'MSSW 业务平台',key:'mssw-prod',resolverType:'BASE_URL',resolverConfig:{baseUrl:'https://mssw.internal'},adapterKey:'mssw',credentialMode:'USER_THEN_SHARED',
+   adapterConfig:{login_endpoint:'/gateway/login_agent',health_endpoint:'/v1/rtt',branch_tag:'MSSW-ADAPTER',csrf_enabled:'否'},
+   enabled:true,updated:'2026-09-17 09:16:10'},
+  {id:'p-2',name:'MSSP 业务平台',key:'mssp-prod',resolverType:'SERVICE_DISCOVERY',resolverConfig:{serviceName:'mssp-service-mgr'},adapterKey:'mssp',credentialMode:'USER_ONLY',
+   adapterConfig:{login_endpoint:'/gateway/login_agent',health_endpoint:'/v1/rtt',branch_tag:'MSSP-ADAPTER'},
+   enabled:true,updated:'2026-09-16 09:20:00'}
+ ],
+ tasks:[
+  {id:'task-20260917-001',scheduleId:null,intent:'policy_check',agent:'MSS 服务助手',user:'张明',skill:'设备策略检查',trigger:'IMMEDIATE',status:'RUNNING',progress:'12/20',children:20,completed:12,failed:1,started:'2026-09-17 11:24:08',finished:'-',delivery:'PENDING',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'policy-check:v1.8.2',result:'',route:'WeCom · wxbot_mss_01 · wotvU...4GA'},
+  {id:'task-20260916-001',scheduleId:'sch-002',intent:'alarm_summary',agent:'MSS 服务助手',user:'李雪',skill:'告警摘要',trigger:'SCHEDULED',status:'COMPLETED',progress:'1/1',children:1,completed:1,failed:0,started:'2026-09-16 18:00:01',finished:'2026-09-16 18:03:42',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'alarm-summary:v1.1.0',result:'昨日告警摘要生成完成并已投递。',route:'WeCom · wxbot_mss_01 · wotvK...9XQ'},
+  {id:'task-20260915-001',scheduleId:'sch-002',intent:'alarm_summary',agent:'MSS 服务助手',user:'李雪',skill:'告警摘要',trigger:'SCHEDULED',status:'COMPLETED',progress:'1/1',children:1,completed:1,failed:0,started:'2026-09-15 18:00:02',finished:'2026-09-15 18:04:10',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'alarm-summary:v1.1.0',result:'告警摘要生成完成并已投递。',route:'WeCom · wxbot_mss_01 · wotvK...9XQ'},
+  {id:'task-20260914-001',scheduleId:'sch-001',intent:'policy_check',agent:'MSS 服务助手',user:'张明',skill:'设备策略检查',trigger:'SCHEDULED',status:'COMPLETED',progress:'20/20',children:20,completed:20,failed:0,started:'2026-09-14 09:00:02',finished:'2026-09-14 09:08:31',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'policy-check:v1.8.2',result:'每周策略检查完成。',route:'WeCom · wxbot_mss_01 · wotvU...4GA'},
+  {id:'task-20260907-001',scheduleId:'sch-001',intent:'policy_check',agent:'MSS 服务助手',user:'张明',skill:'设备策略检查',trigger:'SCHEDULED',status:'COMPLETED',progress:'18/18',children:18,completed:18,failed:0,started:'2026-09-07 09:00:01',finished:'2026-09-07 09:07:44',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r17',skillArtifact:'policy-check:v1.8.1',result:'每周策略检查完成。',route:'WeCom · wxbot_mss_01 · wotvU...4GA'},
+  {id:'task-20260917-003',scheduleId:null,intent:'policy_check',agent:'MSS 服务助手',user:'王涛',skill:'设备策略检查',trigger:'IMMEDIATE',status:'FAILED',progress:'0/1',children:1,completed:0,failed:1,started:'2026-09-17 10:31:16',finished:'2026-09-17 10:31:18',delivery:'SENT',root:true,mode:'ASYNC',agentRevision:'r18',skillArtifact:'policy-check:v1.8.2',result:'凭据未配置，任务未执行。',error:'CREDENTIAL_MISSING',route:'WeCom · wxbot_mss_01 · wotv?'}
+ ],
+ schedules:[
+  {id:'sch-001',name:'每周策略检查',agent:'MSS 服务助手',user:'张明',intent:'policy_check',skill:'设备策略检查',expr:'每周一 09:00',tz:'Asia/Shanghai',next:'2026-09-21 09:00:00',last:'2026-09-14 09:00:02',status:'ACTIVE',route:'WeCom · 张明'},
+  {id:'sch-002',name:'每日告警摘要',agent:'MSS 服务助手',user:'李雪',intent:'alarm_summary',skill:'告警摘要',expr:'每天 18:00',tz:'Asia/Shanghai',next:'2026-09-17 18:00:00',last:'2026-09-16 18:00:01',status:'ACTIVE',route:'WeCom · 李雪'},
+  {id:'sch-003',name:'季度报告试验',agent:'试验 Agent',user:'张明',intent:'quarter_report',skill:'策略检查 Next',expr:'每季度首日 08:30',tz:'Asia/Shanghai',next:'2026-10-01 08:30:00',last:'-',status:'PAUSED',route:'WeCom · 张明'}
+ ],
+ audits:[
+  {time:'2026-09-17 11:34:12',type:'TASK',actor:'张明',agent:'MSS 服务助手',target:'task-20260917-001',action:'child.completed',result:'SUCCESS',trace:'tr-8a129d'},
+  {time:'2026-09-17 11:33:58',type:'EGRESS',actor:'张明',agent:'MSS 服务助手',target:'customer-service-mgr',action:'GET device/list',result:'SUCCESS',trace:'tr-8a129d'},
+  {time:'2026-09-17 11:03:09',type:'CONFIG',actor:'Admin',agent:'-',target:'monthly-report v0.9.4',action:'skill.import',result:'SUCCESS',trace:'cfg-0127'},
+  {time:'2026-09-17 10:31:18',type:'TASK',actor:'王涛',agent:'MSS 服务助手',target:'task-20260917-003',action:'task.failed',result:'CREDENTIAL_MISSING',trace:'tr-77ce12'}
+ ]
+};
+let current='overview'; let agentPage=1; let skillPage=1; const F={agentSearch:'',skillSearch:'',skillExec:'ALL',skillScope:'ANY',taskSearch:'',taskStatus:'ALL',taskTrigger:'ALL',scheduleSearch:'',scheduleStatus:'ALL'};
+const modelSelected=new Set();
+const $=q=>document.querySelector(q); const $$=q=>[...document.querySelectorAll(q)];
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800)}
+function tag(text,c='gray'){return `<span class="tag ${c}">${text}</span>`}
+function statusTag(s){
+ const colors={ENABLED:'green',DISABLED:'gray',ACTIVE:'green',AVAILABLE:'green',CONNECTED:'green',COMPLETED:'green',SENT:'green',ALL:'blue',SELECTED:'purple',SYSTEM:'cyan',RUNNING:'blue',QUEUED:'orange',WAITING:'orange',PENDING:'orange',PAUSED:'gray',FAILED:'red',CANCELLED:'gray',SYNC:'cyan',ASYNC:'purple',AUTO:'orange',IMMEDIATE:'cyan',SCHEDULED:'purple',NONE:'gray'};
+ const labels={ENABLED:'启用',DISABLED:'禁用',ACTIVE:'启用',AVAILABLE:'可用',CONNECTED:'已连接',COMPLETED:'已完成',SENT:'已投递',ALL:'全部授权用户',SELECTED:'指定用户',SYSTEM:'系统',RUNNING:'执行中',QUEUED:'排队中',WAITING:'等待中',PENDING:'待处理',PAUSED:'已暂停',FAILED:'失败',CANCELLED:'已取消',SYNC:'同步',ASYNC:'异步',AUTO:'自动',IMMEDIATE:'立即',SCHEDULED:'定时',NONE:'无'};
+ return tag(labels[s]||s,colors[s]||'gray')
+}
+function setFilter(k,v){F[k]=v;render()} function applySearch(id,k){F[k]=document.getElementById(id)?.value||'';render()}
+function navigate(p){current=p; $$('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.page===p)); const names={overview:'概览',agents:'Agent',skills:'Skill',mcp:'MCP',models:'模型',users:'用户',platforms:'项目平台',tasks:'后台任务',schedules:'定时任务',audits:'运行审计'}; $('#crumb').textContent='首页 / '+names[p]; render()}
+$('#nav').addEventListener('click',e=>{const n=e.target.closest('.nav-item');if(n)navigate(n.dataset.page)});
+function pageHead(title,desc,note=''){return `<div class="page-head"><div><h1 class="page-title">${title}</h1><div class="page-desc">${desc}</div></div>${note?`<div class="head-note">${note}</div>`:''}</div>`}
+function pagination(total,page,size,on){const pages=Math.max(1,Math.ceil(total/size));return `<div class="pagination"><span>共 ${total} 条</span><select class="select" onchange="toast('原型固定为 10 条/页')"><option>10条/页</option></select><div class="pagebox" onclick="${on}(${Math.max(1,page-1)})">‹</div>${[...Array(pages)].map((_,i)=>`<div class="pagebox ${page===i+1?'active':''}" onclick="${on}(${i+1})">${i+1}</div>`).join('')}<div class="pagebox" onclick="${on}(${Math.min(pages,page+1)})">›</div></div>`}
+function tableToolbar(addText,addFn,searchId,filters=''){return `<div class="toolbar"><div class="toolbar-left">${addText?`<button class="btn primary" onclick="${addFn}()">＋ ${addText}</button>`:''}</div><div class="toolbar-right"><input id="${searchId}" class="input search" placeholder="搜索" oninput="render()"/>${filters}<button class="btn" onclick="toast('已刷新')">↻ 刷新</button></div></div>`}
+
+function agentGrantCount(agentId){return S.users.filter(u=>(u.agentGrants||[]).some(g=>g.agentId===agentId)).length}
+function skillAgentCount(skillKey){return S.agents.filter(a=>(a.skills||[]).includes(skillKey)).length}
+function mcpAgentCount(mcpKey){return S.agents.filter(a=>(a.mcp||[]).includes(mcpKey)).length}
+function platformCredentialCount(platformId){return S.users.filter(u=>u.credentials?.[platformId]?.configured).length}
+function enabledSkillCount(){return S.skills.filter(s=>s.status==='ENABLED').length}
+function userScopeCount(scope){return S.skills.filter(s=>s.status==='ENABLED'&&s.userScope===scope).length}
+function resolverTypeName(type){return type==='SERVICE_DISCOVERY'?'服务发现':'Base URL'}
+function resolverDisplay(p){return p.resolverType==='SERVICE_DISCOVERY'?(p.resolverConfig?.serviceName||'-'):(p.resolverConfig?.baseUrl||'-')}
+function modelByName(name){return S.models.find(m=>m.name===name)}
+
+
+function overview(){
+ const activeAgents=S.agents.filter(a=>a.enabled).length;
+ const activeTasks=S.tasks.filter(t=>['QUEUED','RUNNING','WAITING'].includes(t.status)).length;
+ const activeSchedules=S.schedules.filter(s=>s.status==='ACTIVE');
+ return `${pageHead('概览','围绕 Agent、Skill、实时运行与后台任务的统一控制面。','架构基线：多个 IM 通道账号可绑定同一个逻辑 Agent；每个 bot_id 只指向一个 Agent；Runtime / Worker 均为无状态通用计算池。')}
+<div class="grid grid-4">
+ <div class="card stat"><div class="stat-label">启用 Agent</div><div class="stat-value">${activeAgents}</div><div class="stat-foot">逻辑 Agent Definition</div></div>
+ <div class="card stat"><div class="stat-label">启用 Skill</div><div class="stat-value">${enabledSkillCount()}</div><div class="stat-foot">全部授权用户 ${userScopeCount('ALL')} · 指定用户 ${userScopeCount('SELECTED')}</div></div>
+ <div class="card stat"><div class="stat-label">后台执行中</div><div class="stat-value">${activeTasks}</div><div class="stat-foot">任务状态来自 TaskExecution</div></div>
+ <div class="card stat"><div class="stat-label">启用定时任务</div><div class="stat-value">${activeSchedules.length}</div><div class="stat-foot">${activeSchedules.length?`下次触发：${activeSchedules.map(s=>s.next).sort()[0]}`:'暂无待触发任务'}</div></div>
+</div>
+<div class="card" style="margin-top:16px"><div class="card-pad"><div class="section-title">V1.4 运行关系</div><div class="arch"><div class="arch-row"><div class="arch-box"><b>多个 IM 通道</b><div class="connection-note">bot_id / channel account</div></div><div class="arch-arrow">→</div><div class="arch-box strong"><b>逻辑 Agent</b><div class="connection-note">配置 / Skill / 模型</div></div><div class="arch-arrow">→</div><div class="arch-box strong"><b>agent-runtime Service</b><div class="runtime-pool"><span class="pod">Pod A</span><span class="pod">Pod B</span><span class="pod">Pod N</span></div><div class="connection-note">随机路由，不做固定绑定</div></div><div class="arch-arrow">→</div><div class="arch-box async"><b>执行路由</b><div class="connection-note">同步 / 异步 / 自动</div></div></div><div class="arch-row"><div class="arch-box async"><b>agent-worker Service</b><div class="runtime-pool"><span class="pod">W1</span><span class="pod">W2</span><span class="pod">WN</span></div><div class="connection-note">后台任务 / 定时 / 并行拆分</div></div><div class="arch-arrow">→</div><div class="arch-box"><b>PostgreSQL</b><div class="connection-note">权威任务 / 调度 / 租约</div></div><div class="arch-arrow">→</div><div class="arch-box"><b>IM Gateway</b><div class="connection-note">仅最终结果主动投递</div></div></div></div><div class="notice">Agent Runtime 负责理解“做什么”，执行路由决定“怎么执行”，Agent Worker 负责把后台任务可靠执行完，调度器决定“什么时候执行”。项目平台调用统一经过 PlatformAdapter，登录、签名和 Session 不进入 Skill。</div></div></div>
+<div class="grid grid-2" style="margin-top:16px"><div class="card card-pad"><div class="section-title">最近后台任务</div>${S.tasks.slice().sort((a,b)=>b.started.localeCompare(a.started)).slice(0,3).map(t=>`<div class="listline"><div><span class="row-link" onclick="openTask('${t.id}')">${t.id}</span><div class="small muted">${t.intent} · ${t.user}</div></div><div>${statusTag(t.status)}</div></div>`).join('')}<div style="margin-top:10px"><button class="btn ghost" onclick="navigate('tasks')">查看全部 →</button></div></div><div class="card card-pad"><div class="section-title">下一批定时触发</div>${activeSchedules.map(s=>`<div class="listline"><div><span class="row-link" onclick="openSchedule('${s.id}')">${s.name}</span><div class="small muted">${s.expr} · ${s.user}</div></div><div class="right-align"><div>${s.next}</div><div class="small muted">${s.skill}</div></div></div>`).join('')}<div style="margin-top:10px"><button class="btn ghost" onclick="navigate('schedules')">查看全部 →</button></div></div></div>`
+}
+
+
+function agents(){
+ const q=F.agentSearch.toLowerCase();
+ const rows=S.agents.filter(a=>{const im=(a.channels||[]).map(c=>c.name+c.botId).join(' ');return (a.name+a.key+a.model+im).toLowerCase().includes(q)});
+ return `<div class="card"><div class="toolbar"><div class="toolbar-left"><button class="btn primary" onclick="openAgentCreate()">＋ 新增 Agent</button></div><div class="toolbar-right"><input id="agentSearch" class="input search" value="${F.agentSearch}" placeholder="名称 / 标识 / 模型 / bot_id" onkeydown="if(event.key==='Enter')applySearch('agentSearch','agentSearch')"><button class="btn" onclick="applySearch('agentSearch','agentSearch')">搜索</button><button class="btn" onclick="F.agentSearch='';render()">重置</button><button class="btn" onclick="toast('已刷新')">↻ 刷新</button></div></div>
+ <div class="table-wrap"><table><thead><tr><th>名称</th><th>标识</th><th>模型</th><th>Skill 数量</th><th>MCP 数量</th><th>IM 通道数</th><th>授权用户数</th><th>启用状态</th><th>修订版本</th><th>更新时间</th><th>操作</th></tr></thead>
+ <tbody>${rows.map(a=>`<tr><td><span class="row-link" onclick="openAgent('${a.id}')">${a.name}</span></td><td class="mono">${a.key}</td><td>${a.model}</td><td>${a.skills.length}</td><td>${a.mcp.length}</td><td>${(a.channels||[]).length}</td><td>${agentGrantCount(a.id)}</td><td>${a.enabled?statusTag('ENABLED'):statusTag('DISABLED')}</td><td>r${a.revision}</td><td>${a.updated}</td><td><button class="btn ghost" onclick="toast('已复制 Agent ID')">复制 ID</button></td></tr>`).join('')}</tbody></table></div>${pagination(rows.length,1,10,'setAgentPage')}</div>`
+}
+
+function setAgentPage(p){agentPage=p;render()}
+
+
+function openAgentCreate(){
+ openModal('新增 Agent',`<div class="form-grid">
+   <div class="form-item"><label class="req">名称</label><input id="newAgentName" placeholder="例如：客户服务助手"></div>
+   <div class="form-item"><label class="req">标识</label><input id="newAgentKey" placeholder="customer-assistant"></div>
+   <div class="form-item"><label class="req">模型</label><select id="newAgentModel">${S.models.filter(m=>m.enabled).map(m=>`<option>${m.name}</option>`).join('')}</select></div>
+   <div class="form-item"><label>启用状态</label><select id="newAgentEnabled"><option value="true">启用</option><option value="false">禁用</option></select></div>
+   <div class="form-item full"><label class="req">系统 Prompt</label><textarea id="newAgentPrompt" placeholder="描述 Agent 的角色、边界与行为规则"></textarea><div class="help">系统 Prompt 与模型属于 Agent Definition；保存后进入详情页绑定 Skill、MCP、用户和多个 IM 通道。</div></div>
+ </div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveAgent()">保存</button>`)
+}
+
+
+function saveAgent(){
+ const name=$('#newAgentName').value.trim(),key=$('#newAgentKey').value.trim(),prompt=$('#newAgentPrompt').value.trim();
+ if(!name||!key||!prompt)return toast('请填写名称、标识和系统 Prompt');
+ if(S.agents.some(a=>a.key===key))return toast('Agent 标识已存在');
+ S.agents.unshift({
+   id:'ag-'+Date.now(),name,key,model:$('#newAgentModel').value,skills:[],mcp:[],channels:[],
+   enabled:$('#newAgentEnabled').value==='true',revision:1,updated:'2026-09-17 16:01:00',instructions:prompt
+ });
+ closeModal();render();toast('Agent 已创建')
+}
+
+function openAgent(id,tab='basic'){
+ const a=S.agents.find(x=>x.id===id);
+ const tabs=[['basic','基本信息'],['skills','Skill'],['mcp','MCP'],['users','用户授权'],['im','IM 接入']];
+ let body='';
+
+ if(tab==='basic'){
+   const recentRuns=S.audits.filter(x=>x.agent===a.name).slice(0,6);
+
+   body=`<div class="detail-pane">
+     <div class="section-head-row">
+       <div class="section-title" style="margin-bottom:0">基本信息</div>
+       <button class="btn" onclick="openAgentBasicEdit('${a.id}')">编辑基本信息</button>
+     </div>
+
+     <div class="agent-info-grid">
+       <div class="agent-field"><span class="agent-label">名称</span><span class="agent-value">${a.name}</span></div>
+       <div class="agent-field"><span class="agent-label">标识</span><span class="agent-value mono">${a.key}</span></div>
+
+       <div class="agent-field"><span class="agent-label">模型</span><span class="agent-value">${a.model}</span></div>
+       <div class="agent-field"><span class="agent-label">启用状态</span><span class="agent-value">${a.enabled?statusTag('ENABLED'):statusTag('DISABLED')}</span></div>
+
+       <div class="agent-field"><span class="agent-label">Skill 数量</span><span class="agent-value">${a.skills.length}</span></div>
+       <div class="agent-field"><span class="agent-label">MCP 数量</span><span class="agent-value">${a.mcp.length}</span></div>
+
+       <div class="agent-field"><span class="agent-label">IM 通道数</span><span class="agent-value">${(a.channels||[]).length}</span></div>
+       <div class="agent-field"><span class="agent-label">授权用户数</span><span class="agent-value">${agentGrantCount(a.id)}</span></div>
+
+       <div class="agent-field"><span class="agent-label">修订版本</span><span class="agent-value">r${a.revision}</span></div>
+       <div class="agent-field"><span class="agent-label">更新时间</span><span class="agent-value">${a.updated}</span></div>
+     </div>
+
+     <div class="divider"></div>
+
+     <div class="section-title">系统 Prompt 与模型</div>
+     <div class="agent-config-grid">
+       <div class="agent-model-card">
+         <div class="mini-title">模型</div>
+         <div class="agent-model-name">${a.model}</div>
+         <div class="small muted" style="margin-top:6px">模型属于 Agent Definition。修改后生成新修订版本，新请求立即使用新模型。</div>
+       </div>
+       <div class="agent-instruction-card">
+         <div class="mini-title">系统 Prompt</div>
+         <div class="agent-instruction-text">${a.instructions||'暂无系统 Prompt'}</div>
+       </div>
+     </div>
+
+     <div class="notice" style="margin-top:14px">
+       <b>生效规则：</b>编辑并保存后生成新的 Agent 修订版本，并立即对后续新 Run / Task 生效；
+       已经开始的实时 Run 或后台 Task 继续使用启动时冻结的 RuntimeSnapshot，不会被中途修改。
+     </div>
+
+     <div class="divider"></div>
+
+     <div class="section-title">最近运行</div>
+     ${recentRuns.length?`
+     <div class="simple-run-list">
+       <div class="run-row run-head">
+         <span>时间</span>
+         <span>用户</span>
+         <span>类型</span>
+         <span>目标</span>
+         <span>结果</span>
+       </div>
+       ${recentRuns.map(x=>`<div class="run-row">
+         <span>${x.time}</span>
+         <span>${x.actor}</span>
+         <span>${({TASK:'任务',EGRESS:'出网调用',MODEL:'模型调用',CONFIG:'配置变更'})[x.type]||x.type}</span>
+         <span class="mono">${x.target||'-'}</span>
+         <span>${x.result==='SUCCESS'?tag('成功','green'):tag(x.result,'red')}</span>
+       </div>`).join('')}
+     </div>`:'<div class="empty">暂无运行记录</div>'}
+
+     <div class="notice" style="margin-top:16px">
+       <b>运行关系：</b>该 Agent 是逻辑配置对象，不是运行时实例。一个 Agent 可以绑定多个 IM 通道；
+       请求进入统一 agent-runtime Service 后随机路由到任意 Runtime Pod。
+     </div>
+   </div>`;
+ }
+
+ if(tab==='skills')body=`<div class="detail-pane">
+   <div class="toolbar" style="padding-left:0;padding-right:0">
+     <div><button class="btn primary" onclick="toast('打开 Skill 选择器')">＋ 绑定 Skill</button></div>
+   </div>
+   ${a.skills.map(k=>{const s=S.skills.find(x=>x.key===k);return s?`<div class="listline"><div><b>${s.name}</b><div class="small muted">${s.key} · ${s.artifact}</div></div><div>${statusTag(s.execution)} ${statusTag(s.userScope)} <button class="btn ghost" onclick="toast('Skill 已解除并立即生效')">解除</button></div></div>`:''}).join('')||'<div class="empty">暂未绑定 Skill</div>'}
+   <div class="notice" style="margin-top:14px">Skill 绑定/解除只决定 Agent 是否拥有该能力，提交后立即影响后续新请求；用户能否实际使用还要结合 AgentAccessGrant 与 Skill 用户范围。</div>
+ </div>`;
+
+ if(tab==='mcp')body=`<div class="detail-pane">
+   <button class="btn primary" onclick="toast('打开 MCP 选择器')">＋ 绑定 MCP</button>
+   <div style="margin-top:12px">${a.mcp.map(k=>{const m=S.mcps.find(x=>x.key===k);return `<div class="listline"><div><b>${m.name}</b><div class="small muted">${m.key} · ${m.tools.length} 个工具</div></div><div>${statusTag(m.userScope)} <button class="btn ghost" onclick="toast('MCP 已解除并立即生效')">解除</button></div></div>`}).join('')||'<div class="empty">暂未绑定 MCP</div>'}</div>
+   <div class="notice" style="margin-top:14px">MCP 绑定/解除只决定 Agent 是否拥有该 MCP；用户实际可用 Tool 还要结合 AgentAccessGrant 与 MCP 用户范围。已经运行中的 Run / Task 继续使用自己的执行快照。</div>
+ </div>`;
+
+ if(tab==='users')body=`<div class="detail-pane">
+   <button class="btn primary" onclick="toast('打开用户授权选择器')">＋ 授权用户</button>
+   <div style="margin-top:12px">${S.users.filter(u=>u.agents.includes(a.name)).map(u=>`<div class="listline"><div><b>${u.name}</b><div class="small muted">${u.account}</div></div><button class="btn ghost" onclick="toast('授权已取消并立即生效')">取消授权</button></div>`).join('')||'<div class="empty">暂无授权用户</div>'}</div>
+   <div class="notice" style="margin-top:14px">授权/取消授权是独立事务，完成后立即生效，不需要再保存 Agent。</div>
+ </div>`;
+
+ if(tab==='im')body=`<div class="detail-pane">
+   <div class="toolbar" style="padding-left:0;padding-right:0">
+     <div><button class="btn primary" onclick="openImChannelConfig('${a.id}')">＋ 新增 IM 通道</button></div>
+   </div>
+   ${(a.channels||[]).map(c=>`<div class="listline"><div><b>${c.name}</b><div class="small muted">企业微信 · bot_id：<span class="mono">${c.botId}</span></div></div><div>${statusTag(c.status)} <button class="btn ghost" onclick="openImChannelConfig('${a.id}','${c.id}')">编辑</button><button class="btn ghost" style="color:#b42318" onclick="removeImChannel('${a.id}','${c.id}')">移除</button></div></div>`).join('')||'<div class="empty">尚未配置 IM 通道</div>'}
+   <div class="divider"></div>
+   <div class="notice"><b>绑定语义：</b>多个 bot_id / IM 通道账号可以绑定同一个逻辑 Agent；单个 bot_id 只指向一个 Agent。IM Gateway 根据通道账号解析 agent_id，随后请求随机进入任意 agent-runtime Pod。</div>
+   <div class="notice" style="margin-top:10px">新增、编辑、移除 IM 通道都是独立操作，保存该操作后立即生效，不需要额外保存整个 Agent。</div>
+ </div>`;
+
+ const tabsHtml=`<div class="tabs">${tabs.map(t=>`<div class="tab ${tab===t[0]?'active':''}" onclick="openAgent('${a.id}','${t[0]}')">${t[1]}</div>`).join('')}</div>`;
+
+ // No global drawer footer save button.
+ openDrawer(a.name,`${a.key} · 修订版本 r${a.revision}`,tabsHtml+body,'')
+}
+
+function openImChannelConfig(agentId,channelId=''){
+ const a=S.agents.find(x=>x.id===agentId);
+ const c=(a.channels||[]).find(x=>x.id===channelId);
+ openModal(c?'编辑 IM 通道':'新增 IM 通道',`<div class="form-grid"><div class="form-item"><label class="req">通道类型</label><select id="imType"><option value="WECOM">企业微信</option></select></div><div class="form-item"><label class="req">通道名称</label><input id="imName" value="${c?.name||''}" placeholder="例如：MSS 服务机器人"></div><div class="form-item full"><label class="req">bot_id</label><input id="botId" value="${c?.botId||''}" placeholder="wxbot_xxx"></div><div class="form-item full"><label class="req">密钥</label><input type="password" value="${c?'********':''}" placeholder="输入 Secret"><div class="help">保存后仅保留 密钥引用，不回显明文。每个 bot_id 只能绑定一个逻辑 Agent，但一个 Agent 可以配置多个 IM 通道。</div></div></div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveImChannel('${agentId}','${channelId}')">保存</button>`)
+}
+function saveImChannel(agentId,channelId=''){
+ const botId=$('#botId').value.trim(),name=$('#imName').value.trim();
+ if(!botId||!name)return toast('请填写通道名称和 bot_id');
+ const a=S.agents.find(x=>x.id===agentId); a.channels=a.channels||[];
+ if(channelId){const c=a.channels.find(x=>x.id===channelId);c.name=name;c.botId=botId;c.status='CONNECTED'}
+ else a.channels.push({id:'im-'+Date.now(),type:$('#imType').value,name,botId,status:'CONNECTED'});
+ closeModal();openAgent(agentId,'im');toast('IM 通道已保存')
+}
+function removeImChannel(agentId,channelId){
+ const a=S.agents.find(x=>x.id===agentId);a.channels=(a.channels||[]).filter(x=>x.id!==channelId);openAgent(agentId,'im');toast('IM 通道已移除')
+}
+
+
+
+
+
+function skills(){
+ const q=F.skillSearch.toLowerCase(),exec=F.skillExec,scope=F.skillScope;
+ const rows=S.skills.filter(s=>(s.name+s.key+s.desc).toLowerCase().includes(q)&&(exec==='ALL'||s.execution===exec)&&(scope==='ANY'||s.userScope===scope));
+ return `<div class="card"><div class="toolbar"><div class="toolbar-left"><button class="btn primary" onclick="openSkillImport()">＋ 导入 Skill</button></div><div class="toolbar-right"><input id="skillSearch" class="input search" value="${F.skillSearch}" placeholder="名称 / 标识 / 描述" onkeydown="if(event.key==='Enter')applySearch('skillSearch','skillSearch')"><button class="btn" onclick="applySearch('skillSearch','skillSearch')">搜索</button><select id="skillExec" class="select" onchange="setFilter('skillExec',this.value)"><option value="ALL" ${F.skillExec==='ALL'?'selected':''}>全部执行模式</option><option value="SYNC" ${F.skillExec==='SYNC'?'selected':''}>同步</option><option value="ASYNC" ${F.skillExec==='ASYNC'?'selected':''}>异步</option><option value="AUTO" ${F.skillExec==='AUTO'?'selected':''}>自动</option></select><select id="skillScope" class="select" onchange="setFilter('skillScope',this.value)"><option value="ANY" ${F.skillScope==='ANY'?'selected':''}>全部用户范围</option><option value="ALL" ${F.skillScope==='ALL'?'selected':''}>全部授权用户</option><option value="SELECTED" ${F.skillScope==='SELECTED'?'selected':''}>指定用户</option></select><button class="btn" onclick="toast('已刷新')">↻ 刷新</button></div></div>
+ <div class="table-wrap"><table><thead><tr><th>名称</th><th>标识</th><th>执行模式</th><th>用户范围</th><th>当前版本</th><th>使用 Agent 数</th><th>指定用户数</th><th>启用状态</th><th>更新时间</th><th>操作</th></tr></thead><tbody>${rows.map(s=>`<tr><td><span class="row-link" onclick="openSkill('${s.id}')">${s.name}</span><div class="small muted">${s.desc}</div></td><td class="mono">${s.key}</td><td>${statusTag(s.execution)}</td><td>${statusTag(s.userScope)}</td><td>${s.artifact}<div class="small mono muted">${s.checksum}</div></td><td>${skillAgentCount(s.key)}</td><td>${s.userScope==='SELECTED'?(s.selectedUsers||[]).length:'-'}</td><td>${statusTag(s.status)}</td><td>${s.updated}</td><td><button class="btn ghost" onclick="toast('已复制 Skill 标识')">复制标识</button></td></tr>`).join('')}</tbody></table></div>${pagination(rows.length,1,10,'setSkillPage')}</div>`
+}
+
+function setSkillPage(p){skillPage=p;render()}
+
+function openSkillImport(){
+ openModal('导入 Skill',`
+   <div class="notice">上传 ZIP 后读取 SKILL.md frontmatter，仅校验 name / description / execution（可选）；用户范围不写入 SKILL.md，由平台控制面单独管理。</div>
+   <div class="form-grid" style="margin-top:16px">
+     <div class="form-item full">
+       <label class="req">Skill 压缩包</label>
+       <div style="border:1px dashed #b9bec8;border-radius:8px;padding:28px;text-align:center;background:#fafbfc">
+         <b>点击选择或拖入 ZIP</b>
+         <div class="small muted" style="margin-top:7px">原型使用模拟文件：policy-check-v1.9.0.zip</div>
+         <button class="btn" style="margin-top:12px" onclick="toast('已选择 policy-check-v1.9.0.zip')">选择文件</button>
+       </div>
+     </div>
+     <div class="form-item full">
+       <label>用户范围</label>
+       <select id="importUserScope">
+         <option value="SELECTED">指定用户</option>
+         <option value="ALL">全部授权用户</option>
+       </select>
+       <div class="help">“全部授权用户”仍要求用户拥有 Agent 权限且 Agent 已绑定该 Skill；“指定用户”还需要在 Skill 详情中添加用户。</div>
+     </div>
+   </div>`,
+   `<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="simulateImport()">校验并导入</button>`
+ )
+}
+
+
+function simulateImport(){
+ const userScope=$('#importUserScope')?.value||'SELECTED';
+ closeModal();
+ setTimeout(()=>{
+   S.skills[0].artifact='v1.9.0';
+   S.skills[0].userScope=userScope;
+   if(userScope==='SELECTED')S.skills[0].selectedUsers=[];
+   S.skills[0].updated='2026-09-17 12:40:00';
+   render();
+   toast(userScope==='SELECTED'
+     ? '导入成功：已设为“指定用户”，请在 Skill 详情添加用户后验证'
+     : '导入成功：后续拥有对应 Agent 权限的用户均可使用')
+ },250)
+}
+
+
+function openSkill(id,tab='basic'){
+ const s=S.skills.find(x=>x.id===id);
+ const tabs=[['basic','基本信息'],['art','版本记录'],['agents','使用 Agent'],['users','指定用户']];
+ let body='';
+
+ if(tab==='basic'){
+   body=`<div class="detail-pane">
+     <div class="section-title">基本信息</div>
+     <div class="skill-info-grid">
+       <div class="skill-field"><span class="skill-label">名称</span><span class="skill-value">${s.name}</span></div>
+       <div class="skill-field"><span class="skill-label">标识</span><span class="skill-value mono">${s.key}</span></div>
+
+       <div class="skill-field"><span class="skill-label">执行模式</span><span class="skill-value">${statusTag(s.execution)}</span></div>
+       <div class="skill-field"><span class="skill-label">用户范围</span><span class="skill-value">${statusTag(s.userScope)}</span></div>
+
+       <div class="skill-field"><span class="skill-label">当前版本</span><span class="skill-value">${s.artifact}</span></div>
+       <div class="skill-field"><span class="skill-label">使用 Agent 数</span><span class="skill-value">${skillAgentCount(s.key)}</span></div>
+
+       <div class="skill-field"><span class="skill-label">指定用户数</span><span class="skill-value">${s.userScope==='SELECTED'?(s.selectedUsers||[]).length:'不适用'}</span></div>
+       <div class="skill-field"><span class="skill-label">更新时间</span><span class="skill-value">${s.updated}</span></div>
+     </div>
+
+     <div class="skill-desc-block">
+       <div class="skill-label">描述</div>
+       <div class="skill-description">${s.desc}</div>
+     </div>
+
+     <div class="notice" style="margin-top:14px">
+       <b>权限关系：</b>用户必须先拥有目标 Agent 的使用权，且该 Agent 已绑定当前 Skill。
+       ${s.userScope==='ALL'
+         ? '当前为“全部授权用户”，满足上述两个条件即可使用。'
+         : '当前为“指定用户”，还必须在“指定用户”名单中。'}
+     </div>
+
+     <div class="divider"></div>
+
+     <div class="section-title">当前版本</div>
+     <div class="skill-version-summary">
+       <div class="skill-summary-item"><span>版本</span><b>${s.artifact}</b></div>
+       <div class="skill-summary-item"><span>校验结果</span><b>${tag('通过','green')}</b></div>
+       <div class="skill-summary-item"><span>校验和</span><b class="mono">${s.checksum}</b></div>
+       <div class="skill-summary-item"><span>导入时间</span><b>${s.updated}</b></div>
+     </div>
+
+     <div class="divider"></div>
+
+     <div class="section-title skill-md-title">
+       <span>SKILL.md</span>
+       <button class="btn ghost" onclick="openSkillMd('${s.id}')">查看完整内容</button>
+     </div>
+     <div class="skill-md-preview">
+       <div class="code">---<br>
+name: ${s.key}<br>
+description: ${s.desc}<br>
+execution: ${s.execution.toLowerCase()}<br>
+---<br><br>
+# 指令<br>
+帮助 Agent 完成 ${s.name} 相关任务……</div>
+     </div>
+   </div>`;
+ }
+
+ if(tab==='art'){
+   body=`<div class="detail-pane">
+     <div class="section-title">版本记录</div>
+     <div class="simple-version-list">
+       <div class="version-row version-head">
+         <span>版本</span><span>执行模式</span><span>校验结果</span><span>校验和</span><span>导入时间</span><span>版本状态</span><span>操作</span>
+       </div>
+       <div class="version-row">
+         <span class="row-link" onclick="openSkillVersion('${s.id}','${s.artifact}')">${s.artifact}</span>
+         <span>${statusTag(s.execution)}</span><span>${tag('通过','green')}</span><span class="mono">${s.checksum}</span><span>${s.updated}</span><span>${tag('当前','green')}</span><span>-</span>
+       </div>
+       <div class="version-row">
+         <span class="row-link" onclick="openSkillVersion('${s.id}','v1.8.1')">v1.8.1</span>
+         <span>${statusTag(s.execution)}</span><span>${tag('通过','green')}</span><span class="mono">9d1a...8a10</span><span>2026-09-15 15:11:30</span><span>${tag('历史','gray')}</span><span>-</span>
+       </div>
+     </div>
+   </div>`;
+ }
+
+ if(tab==='agents'){
+   const used=S.agents.filter(a=>a.skills.includes(s.key));
+   body=`<div class="detail-pane">
+     <div class="section-title">使用 Agent</div>
+     ${used.length?`
+     <div class="simple-agent-list">
+       <div class="skill-agent-row skill-agent-head"><span>Agent 名称</span><span>标识</span><span>启用状态</span><span>绑定时间</span><span>操作</span></div>
+       ${used.map((a,i)=>`<div class="skill-agent-row">
+         <span class="row-link" onclick="openAgent('${a.id}')">${a.name}</span>
+         <span class="mono">${a.key}</span>
+         <span>${a.enabled?statusTag('ENABLED'):statusTag('DISABLED')}</span>
+         <span>${i===0?'2026-09-01 10:00:00':'2026-09-10 15:21:00'}</span>
+         <span>-</span>
+       </div>`).join('')}
+     </div>`:'<div class="empty">没有 Agent 使用当前 Skill</div>'}
+     <div class="notice" style="margin-top:14px">这里决定“哪些 Agent 拥有当前 Skill”。用户是否能实际使用，还要与 AgentAccessGrant 和当前 Skill 的用户范围取交集。</div>
+   </div>`;
+ }
+
+ if(tab==='users'){
+   const selected=(s.selectedUsers||[]).map(uid=>S.users.find(u=>u.id===uid)).filter(Boolean);
+   body=`<div class="detail-pane">
+     <div class="section-title">指定用户</div>
+     ${s.userScope==='ALL'
+       ? `<div class="notice">当前用户范围为 <b>全部授权用户</b>。这里保存的指定用户名单不参与权限判定；所有同时满足“拥有 Agent 权限 + Agent 已绑定当前 Skill”的用户都可使用。</div>`
+       : `<div class="toolbar" style="padding-left:0;padding-right:0"><div><button class="btn primary" onclick="openSkillUserPicker('${s.id}')">＋ 添加用户</button></div></div>
+          ${selected.length?`<div class="simple-gray-list">
+            <div class="gray-row gray-head"><span>姓名</span><span>账号</span><span>授权时间</span><span>操作</span></div>
+            ${selected.map((u,i)=>`<div class="gray-row">
+              <span>${u.name}</span><span>${u.account}</span><span>${i===0?'2026-09-17 10:20:10':'2026-09-17 10:23:11'}</span>
+              <span><button class="btn ghost" style="color:#b42318" onclick="removeSkillUser('${s.id}','${u.id}')">移除</button></span>
+            </div>`).join('')}
+          </div>`:'<div class="empty">暂无指定用户；当前 Skill 对任何用户都不可用，直到添加用户。</div>'}`
+     }
+     <div class="notice" style="margin-top:14px"><b>注意：</b>加入指定用户不会自动授予 Agent 权限，也不会把 Skill 自动绑定到 Agent。</div>
+   </div>`;
+ }
+
+ const tabsHtml=`<div class="tabs">${tabs.map(t=>`<div class="tab ${tab===t[0]?'active':''}" onclick="openSkill('${s.id}','${t[0]}')">${t[1]}</div>`).join('')}</div>`;
+ openDrawer(
+   s.name,
+   `${s.key} · 当前版本 ${s.artifact}`,
+   tabsHtml+body,
+   `<button class="btn" onclick="openSkillUserScope('${s.id}')">变更用户范围</button>
+    <button class="btn primary" onclick="openSkillImportVersion('${s.id}')">导入新版本</button>`
+ )
+}
+
+function genericList(title,desc,add,headers,rows){return `${pageHead(title,desc)}<div class="card">${tableToolbar(add,()=>{},'none')}<div class="table-wrap"><table><thead><tr>${headers.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>${pagination(3,1,10,'void')}</div>`}
+
+
+
+
+
+function mcp(){
+ return `<div class="card">${tableToolbar('注册 MCP','openMcpCreate','mcpSearch')}<div class="table-wrap"><table><thead><tr><th>名称</th><th>标识</th><th>服务地址</th><th>用户范围</th><th>指定用户数</th><th>工具数</th><th>使用 Agent 数</th><th>启用状态</th><th>连接状态</th><th>最近工具发现时间</th><th>操作</th></tr></thead><tbody>${S.mcps.map(m=>`<tr><td><span class="row-link" onclick="openMcp('${m.id}')">${m.name}</span></td><td class="mono">${m.key}</td><td class="mono">${m.endpoint}</td><td>${statusTag(m.userScope)}</td><td>${m.userScope==='SELECTED'?(m.selectedUsers||[]).length:'-'}</td><td><span class="row-link" onclick="openMcp('${m.id}','tools')">${m.tools.length}</span></td><td>${mcpAgentCount(m.key)}</td><td>${m.enabled?statusTag('ENABLED'):statusTag('DISABLED')}</td><td>${statusTag(m.connectionStatus)}</td><td>${m.lastDiscover}</td><td><button class="btn ghost" onclick="refreshMcpTools('${m.id}')">刷新工具</button></td></tr>`).join('')}</tbody></table></div>${pagination(S.mcps.length,1,10,'void')}</div>`
+}
+
+
+function openMcpCreate(){
+ openModal('注册 MCP',`<div class="form-grid">
+   <div class="form-item"><label class="req">名称</label><input placeholder="例如：MSS 知识检索"></div>
+   <div class="form-item"><label class="req">标识</label><input placeholder="mss-kb"></div>
+   <div class="form-item full"><label class="req">服务地址</label><input placeholder="http://mcp.internal/mcp"><div class="help">V1.4 仅支持 Streamable HTTP。</div></div>
+   <div class="form-item"><label>用户范围</label><select><option value="SELECTED">指定用户</option><option value="ALL">全部授权用户</option></select></div>
+   <div class="form-item"><label>启用状态</label><select><option value="true">启用</option><option value="false">禁用</option></select></div>
+   <div class="form-item full"><div class="notice">保存后平台连接 MCP Server，执行 initialize + tools/list。工具目录继承 MCP Server 的用户范围；V1.4 不做单 Tool 用户授权。</div></div>
+ </div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="closeModal();toast('MCP 已注册并完成工具发现')">保存并发现工具</button>`)
+}
+
+
+function models(){
+ const selectedCount=modelSelected.size;const allChecked=S.models.length>0&&S.models.every(m=>modelSelected.has(m.id));
+ return `<div class="card"><div class="toolbar"><div class="toolbar-left"><button class="btn primary" onclick="openModelCreate()">＋ 新增模型</button><button class="btn" onclick="batchTestModels()" ${selectedCount?'':'disabled'}>批量测试${selectedCount?`（${selectedCount}）`:''}</button></div><div class="toolbar-right"><input id="modelSearch" class="input search" placeholder="名称 / 标识 / Base URL / 模型 ID"><button class="btn" onclick="toast('已刷新')">↻ 刷新</button></div></div><div class="table-wrap"><table><thead><tr><th style="width:42px"><input type="checkbox" ${allChecked?'checked':''} onchange="toggleAllModels(this.checked)"></th><th>名称</th><th>标识</th><th>协议</th><th>Base URL</th><th>模型 ID</th><th>启用状态</th><th>测试状态</th><th>修订版本</th><th>更新时间</th><th>操作</th></tr></thead><tbody>${S.models.map(m=>`<tr><td><input type="checkbox" ${modelSelected.has(m.id)?'checked':''} onchange="toggleModelSelected('${m.id}',this.checked)"></td><td><span class="row-link" onclick="openModelDetail('${m.id}')">${m.name}</span></td><td class="mono">${m.key}</td><td>${tag('OpenAI','blue')}</td><td class="mono">${m.baseUrl}</td><td class="mono">${m.modelId}</td><td>${m.enabled?statusTag('ENABLED'):statusTag('DISABLED')}</td><td>${modelTestTag(m.testStatus)}</td><td>r${m.revision}</td><td>${m.updated}</td><td><button class="btn ghost" onclick="openModelEdit('${m.id}')">编辑</button></td></tr>`).join('')}</tbody></table></div>${pagination(S.models.length,1,10,'void')}</div>`
+}
+
+function openModelCreate(){
+ openModelForm()
+}
+
+function modelTestTag(s){
+ if(s==='AVAILABLE')return tag('通过','green');
+ if(s==='FAILED')return tag('失败','red');
+ if(s==='TESTING')return tag('测试中','orange');
+ return tag('未测试','gray')
+}
+
+
+function openModelForm(id=''){
+ const editing=!!id;const m=editing?S.models.find(x=>x.id===id):{name:'',key:'',protocol:'OPENAI',baseUrl:'',modelId:'',apiKeySet:false,enabled:true,revision:1};
+ openModal(editing?'编辑模型':'新增模型',`<div class="form-grid">
+   <div class="form-item"><label class="req">名称</label><input id="modelName" value="${m.name||''}" placeholder="例如：Qwen3-235B"></div>
+   <div class="form-item"><label class="req">标识</label><input id="modelKey" value="${m.key||''}" placeholder="例如：qwen3-235b"></div>
+   <div class="form-item"><label class="req">协议</label><input value="OpenAI" readonly><div class="help">当前版本仅支持 OpenAI 兼容协议。</div></div>
+   <div class="form-item"><label class="req">模型 ID</label><input id="modelId" value="${m.modelId||''}" placeholder="例如：qwen3-235b-a22b"></div>
+   <div class="form-item full"><label class="req">Base URL</label><input id="modelBaseUrl" value="${m.baseUrl||''}" placeholder="例如：http://model-gateway.internal/v1"><div class="help">填写 OpenAI 兼容接口 Base URL，不填写 /chat/completions。</div></div>
+   <div class="form-item full"><label>API Key</label><input id="modelApiKey" type="password" placeholder="${editing&&m.apiKeySet?'已配置；留空表示保持不变':'可选；如网关要求认证则填写'}"><div class="help">API Key 不在列表或详情中回显。</div></div>
+   <div class="form-item"><label>启用状态</label><select id="modelEnabled"><option value="true" ${m.enabled?'selected':''}>启用</option><option value="false" ${!m.enabled?'selected':''}>禁用</option></select></div>
+ </div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveModel('${id}')">保存</button>`)
+}
+
+function openModelEdit(id){
+ openModelForm(id)
+}
+
+
+function saveModel(id=''){
+ const name=$('#modelName').value.trim(),key=$('#modelKey').value.trim(),baseUrl=$('#modelBaseUrl').value.trim(),modelId=$('#modelId').value.trim(),apiKey=$('#modelApiKey').value,enabled=$('#modelEnabled').value==='true';
+ if(!name||!key||!baseUrl||!modelId)return toast('请填写名称、标识、Base URL 和模型 ID');
+ if(!/^https?:\/\//i.test(baseUrl))return toast('Base URL 必须以 http:// 或 https:// 开头');
+ if(S.models.some(x=>x.id!==id&&x.key===key))return toast('标识已存在');
+ if(id){const m=S.models.find(x=>x.id===id);m.name=name;m.key=key;m.protocol='OPENAI';m.baseUrl=baseUrl.replace(/\/+$/,'');m.modelId=modelId;if(apiKey.trim())m.apiKeySet=true;m.enabled=enabled;m.testStatus='UNTESTED';m.revision=(m.revision||0)+1;m.updated='2026-09-17 16:01:00';closeModal();render();toast('模型已更新，建议重新批量测试')}
+ else{S.models.unshift({id:'m-'+Date.now(),name,key,protocol:'OPENAI',baseUrl:baseUrl.replace(/\/+$/,''),modelId,apiKeySet:!!apiKey.trim(),enabled,testStatus:'UNTESTED',revision:1,updated:'2026-09-17 16:01:00'});closeModal();render();toast('模型已创建，请选择后执行批量测试')}
+}
+
+function toggleModelSelected(id,checked){
+ if(checked)modelSelected.add(id); else modelSelected.delete(id);
+ render()
+}
+
+function toggleAllModels(checked){
+ if(checked)S.models.forEach(m=>modelSelected.add(m.id));
+ else modelSelected.clear();
+ render()
+}
+
+
+function batchTestModels(){
+ const selected=S.models.filter(m=>modelSelected.has(m.id));if(!selected.length)return toast('请先选择需要测试的模型');selected.forEach(m=>m.testStatus='TESTING');render();selected.forEach(m=>{m.testStatus=m.enabled?'AVAILABLE':'FAILED';m.updated='2026-09-17 16:01:00'});
+ const rows=selected.map(m=>`<div class="model-test-row"><div><b>${m.name}</b><div class="small mono muted">${m.baseUrl} · ${m.modelId}</div></div><div>${m.enabled?tag('测试通过','green'):tag('模型已禁用','red')}</div></div>`).join('');
+ openModal(`批量测试结果（${selected.length}）`,`<div class="notice">按照 OpenAI 兼容协议对所选模型执行连通性与模型调用测试。</div><div class="model-test-list">${rows}</div>`,`<button class="btn primary" onclick="closeModal();modelSelected.clear();render()">关闭</button>`)
+}
+
+
+function users(){
+ return `<div class="card">${tableToolbar('新增用户','openUserCreate','userSearch')}<div class="table-wrap"><table><thead><tr><th>姓名</th><th>账号</th><th>Agent 授权数</th><th>已配置用户凭据数</th><th>IM 身份数</th><th>用户记忆数</th><th>启用状态</th><th>更新时间</th></tr></thead><tbody>${S.users.map(u=>{const grants=u.agentGrants||[],credCount=Object.values(u.credentials||{}).filter(x=>x.configured).length,identityCount=(u.identities||[]).length,memoryCount=(u.memories||[]).length;return `<tr><td><span class="row-link" onclick="openUser('${u.id}')">${u.name}</span></td><td>${u.account}</td><td>${grants.length}</td><td>${credCount}</td><td>${identityCount}</td><td>${memoryCount}</td><td>${statusTag(u.status)}</td><td>${u.updated}</td></tr>`}).join('')}</tbody></table></div>${pagination(S.users.length,1,10,'void')}</div>`
+}
+
+function openUserCreate(){
+ openModal('新增用户',`<div class="form-grid">
+   <div class="form-item"><label class="req">姓名</label><input id="newUserName" placeholder="例如：张明"></div>
+   <div class="form-item"><label class="req">账号</label><input id="newUserAccount" placeholder="例如：zhangming"></div>
+   <div class="form-item"><label>状态</label><select id="newUserStatus"><option value="ACTIVE">启用</option><option value="DISABLED">禁用</option></select></div>
+   <div class="form-item"><label>初始 Agent 授权</label><select id="newUserAgent"><option value="">暂不授权</option>${S.agents.map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}</select></div>
+ </div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveNewUser()">保存</button>`)
+}
+
+function saveNewUser(){
+ const name=$('#newUserName').value.trim(),account=$('#newUserAccount').value.trim(),status=$('#newUserStatus').value,agentId=$('#newUserAgent').value;
+ if(!name||!account)return toast('请填写姓名和账号');
+ if(S.users.some(u=>u.account===account))return toast('账号已存在');
+ const now='2026-09-17 14:20:00';
+ const grants=agentId?[{agentId,grantedAt:now}]:[];
+ const agents=grants.map(g=>S.agents.find(a=>a.id===g.agentId)?.name).filter(Boolean);
+ S.users.unshift({
+   id:'u-'+Date.now(),name,account,agents,platform:'未配置',im:'未绑定',memory:0,status,
+   created:now,updated:now,agentGrants:grants,credentials:{},identities:[],memories:[]
+ });
+ closeModal();render();toast('用户已创建')
+}
+
+function openUserEdit(id){
+ const u=S.users.find(x=>x.id===id);
+ openModal('编辑用户',`<div class="form-grid">
+   <div class="form-item"><label class="req">姓名</label><input id="editUserName" value="${u.name}"></div>
+   <div class="form-item"><label class="req">账号</label><input id="editUserAccount" value="${u.account}"></div>
+   <div class="form-item"><label>状态</label><select id="editUserStatus"><option value="ACTIVE" ${u.status==='ACTIVE'?'selected':''}>启用</option><option value="DISABLED" ${u.status==='DISABLED'?'selected':''}>禁用</option></select></div>
+ </div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveUserEdit('${id}')">保存</button>`)
+}
+
+function saveUserEdit(id){
+ const u=S.users.find(x=>x.id===id);
+ const name=$('#editUserName').value.trim(),account=$('#editUserAccount').value.trim();
+ if(!name||!account)return toast('请填写姓名和账号');
+ if(S.users.some(x=>x.id!==id&&x.account===account))return toast('账号已存在');
+ u.name=name;u.account=account;u.status=$('#editUserStatus').value;u.updated='2026-09-17 14:20:00';
+ closeModal();render();openUser(id,'basic');toast('用户信息已更新')
+}
+
+function openUserGrantAgent(userId){
+ const u=S.users.find(x=>x.id===userId);
+ const granted=new Set((u.agentGrants||[]).map(g=>g.agentId));
+ const options=S.agents.filter(a=>!granted.has(a.id));
+ openModal('授权 Agent', options.length?`<div class="form-item"><label class="req">选择 Agent</label><select id="grantAgentId">${options.map(a=>`<option value="${a.id}">${a.name} · ${a.key}</option>`).join('')}</select></div><div class="notice" style="margin-top:14px">授权后用户可以通过已绑定 IM 身份使用该 Agent；该操作不会自动配置项目平台凭据。</div>`:`<div class="empty">当前所有 Agent 均已授权</div>`, options.length?`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveUserAgentGrant('${userId}')">授权</button>`:`<button class="btn primary" onclick="closeModal()">关闭</button>`)
+}
+
+function saveUserAgentGrant(userId){
+ const u=S.users.find(x=>x.id===userId),agentId=$('#grantAgentId').value,a=S.agents.find(x=>x.id===agentId);
+ u.agentGrants=u.agentGrants||[];
+ u.agentGrants.push({agentId,grantedAt:'2026-09-17 14:20:00'});
+ u.agents=u.agentGrants.map(g=>S.agents.find(x=>x.id===g.agentId)?.name).filter(Boolean);
+ u.updated='2026-09-17 14:20:00';
+ closeModal();openUser(userId,'agents');toast(`已授权 ${a.name}`)
+}
+
+function revokeUserAgent(userId,agentId){
+ const u=S.users.find(x=>x.id===userId);
+ u.agentGrants=(u.agentGrants||[]).filter(g=>g.agentId!==agentId);
+ u.agents=u.agentGrants.map(g=>S.agents.find(x=>x.id===g.agentId)?.name).filter(Boolean);
+ u.updated='2026-09-17 14:20:00';
+ openUser(userId,'agents');toast('Agent 授权已取消')
+}
+
+function openUserCredential(userId,platformId){
+ const u=S.users.find(x=>x.id===userId),p=S.platforms.find(x=>x.id===platformId),a=adapterByKey(p.adapterKey);
+ const current=(u.credentials||{})[platformId]||{configured:false};
+ const fields=(a?.credentialFields||[]).map(f=>`<div class="form-item"><label class="req">${f.label}</label><input ${f.secret?'type="password"':''} id="usercred_${f.key}" placeholder="${current.configured&&f.secret?'已配置；留空表示保持不变':f.secret?'输入后不会回显':''}"></div>`).join('');
+ openModal('配置项目平台凭据',`<div class="notice"><b>${u.name}</b> · ${p.name}<br>${a?.name||p.adapterKey} · ${credentialModeName(p.credentialMode)}</div><div class="form-grid" style="margin-top:14px">${fields||'<div class="empty">该平台无需用户凭据</div>'}</div><div class="help">保存时写入 Secret Provider，Console 只保存密钥引用。</div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveUserCredential('${userId}','${platformId}')">保存</button>`)
+}
+
+function saveUserCredential(userId,platformId){
+ const u=S.users.find(x=>x.id===userId);
+ u.credentials=u.credentials||{};
+ u.credentials[platformId]={configured:true,updated:'2026-09-17 14:20:00'};
+ u.platform='项目平台凭据已配置';
+ u.updated='2026-09-17 14:20:00';
+ closeModal();openUser(userId,'cred');toast('项目平台凭据已保存')
+}
+
+function openUser(id,tab='basic'){
+ const u=S.users.find(x=>x.id===id);
+ const tabs=[['basic','基本信息'],['agents','Agent 授权'],['cred','项目平台凭据'],['im','IM 身份'],['memory','用户记忆']];
+ let body='';
+
+ if(tab==='basic'){
+   const grantCount=(u.agentGrants||[]).length;
+   const credCount=Object.values(u.credentials||{}).filter(x=>x.configured).length;
+   const identityCount=(u.identities||[]).length;
+   const memoryCount=(u.memories||[]).length;
+
+   body=`<div class="detail-pane">
+     <div class="section-title">基本信息</div>
+     <div class="user-info-grid">
+       <div class="user-field"><span class="user-label">姓名</span><span class="user-value">${u.name}</span></div>
+       <div class="user-field"><span class="user-label">账号</span><span class="user-value mono">${u.account}</span></div>
+
+       <div class="user-field"><span class="user-label">启用状态</span><span class="user-value">${statusTag(u.status)}</span></div>
+       <div class="user-field"><span class="user-label">创建时间</span><span class="user-value">${u.created||'-'}</span></div>
+
+       <div class="user-field"><span class="user-label">Agent 授权数</span><span class="user-value">${grantCount} 个</span></div>
+       <div class="user-field"><span class="user-label">已配置用户凭据数</span><span class="user-value">${credCount} 个已配置</span></div>
+
+       <div class="user-field"><span class="user-label">IM 身份数</span><span class="user-value">${identityCount} 个</span></div>
+       <div class="user-field"><span class="user-label">用户记忆数</span><span class="user-value">${memoryCount} 条</span></div>
+
+       <div class="user-field"><span class="user-label">更新时间</span><span class="user-value">${u.updated}</span></div>
+       <div class="user-field"><span class="user-label">用户ID</span><span class="user-value mono">${u.id}</span></div>
+     </div>
+
+     <div class="divider"></div>
+
+     <div class="section-title">当前授权概览</div>
+     <div class="user-summary-grid">
+       <div class="user-summary-card">
+         <div class="small muted">Agent</div>
+         <div class="summary-number">${grantCount}</div>
+         <div class="small">${grantCount?u.agentGrants.map(g=>S.agents.find(a=>a.id===g.agentId)?.name||'-').join('、'):'暂无授权'}</div>
+       </div>
+       <div class="user-summary-card">
+         <div class="small muted">项目平台凭据</div>
+         <div class="summary-number">${credCount}</div>
+         <div class="small">${credCount?'已配置可用凭据':'暂无凭据'}</div>
+       </div>
+       <div class="user-summary-card">
+         <div class="small muted">IM 身份</div>
+         <div class="summary-number">${identityCount}</div>
+         <div class="small">${identityCount?'已建立身份映射':'尚未绑定'}</div>
+       </div>
+       <div class="user-summary-card">
+         <div class="small muted">用户记忆</div>
+         <div class="summary-number">${memoryCount}</div>
+         <div class="small">${memoryCount?'可跨会话读取':'暂无记忆'}</div>
+       </div>
+     </div>
+   </div>`;
+ }
+
+ if(tab==='agents'){
+   const grants=(u.agentGrants||[]).map(g=>({grant:g,agent:S.agents.find(a=>a.id===g.agentId)})).filter(x=>x.agent);
+   body=`<div class="detail-pane">
+     <div class="toolbar" style="padding-left:0;padding-right:0">
+       <div><button class="btn primary" onclick="openUserGrantAgent('${u.id}')">＋ 授权 Agent</button></div>
+     </div>
+     <div class="section-title">Agent 授权</div>
+     ${grants.length?`<div class="user-table-list">
+       <div class="user-agent-row user-list-head">
+         <span>Agent 名称</span><span>标识</span><span>启用状态</span><span>授权时间</span><span>操作</span>
+       </div>
+       ${grants.map(({grant,agent})=>`<div class="user-agent-row">
+         <span class="row-link" onclick="openAgent('${agent.id}')">${agent.name}</span>
+         <span class="mono">${agent.key}</span>
+         <span>${agent.enabled?statusTag('ENABLED'):statusTag('DISABLED')}</span>
+         <span>${grant.grantedAt}</span>
+         <span><button class="btn ghost" style="color:#b42318" onclick="revokeUserAgent('${u.id}','${agent.id}')">取消授权</button></span>
+       </div>`).join('')}
+     </div>`:'<div class="empty">暂无 Agent 授权</div>'}
+     <div class="notice" style="margin-top:14px">Agent 授权只决定“用户是否可以使用该 Agent”，不会修改 IM 身份绑定，也不会自动创建项目平台凭据。</div>
+   </div>`;
+ }
+
+ if(tab==='cred'){
+   body=`<div class="detail-pane">
+     <div class="section-title">项目平台凭据</div>
+     <div class="user-credential-list">
+       <div class="credential-row user-list-head">
+         <span>项目平台</span><span>平台适配器</span><span>凭据策略</span><span>配置状态</span><span>更新时间</span><span>操作</span>
+       </div>
+       ${S.platforms.map(p=>{
+         const a=adapterByKey(p.adapterKey);
+         const c=(u.credentials||{})[p.id]||{configured:false,updated:'-'};
+         return `<div class="credential-row">
+           <span class="row-link" onclick="openPlatform('${p.id}')">${p.name}</span>
+           <span>${a?.name||p.adapterKey}</span>
+           <span>${credentialModeName(p.credentialMode)}</span>
+           <span>${c.configured?tag('已配置','green'):tag('未配置','orange')}</span>
+           <span>${c.updated}</span>
+           <span><button class="btn ghost" onclick="openUserCredential('${u.id}','${p.id}')">${c.configured?'更新':'配置'}</button></span>
+         </div>`
+       }).join('')}
+     </div>
+     <div class="notice warningbox" style="margin-top:14px">凭据字段由对应 PlatformAdapter 的凭据 Schema 动态生成；真实密钥写入 Secret Provider，Console 仅保存密钥引用，不回显明文。</div>
+   </div>`;
+ }
+
+ if(tab==='im'){
+   const identities=u.identities||[];
+   body=`<div class="detail-pane">
+     <div class="toolbar" style="padding-left:0;padding-right:0">
+       <div><button class="btn primary" onclick="generateBind('${u.id}')">＋ 生成绑定码</button></div>
+     </div>
+     <div class="section-title">IM 身份</div>
+     ${identities.length?`<div class="user-identity-list">
+       <div class="identity-row user-list-head">
+         <span>通道</span><span>外部用户 ID</span><span>bot_id</span><span>绑定时间</span><span>最近活动时间</span><span>启用状态</span><span>操作</span>
+       </div>
+       ${identities.map(i=>`<div class="identity-row">
+         <span>${i.channel==='WECOM'?'企业微信':i.channel}</span>
+         <span class="mono">${i.externalId}</span>
+         <span class="mono">${i.botId}</span>
+         <span>${i.boundAt}</span>
+         <span>${i.lastActive}</span>
+         <span>${statusTag(i.status)}</span>
+         <span><button class="btn ghost" style="color:#b42318" onclick="unbindIdentity('${u.id}','${i.id}')">解绑</button></span>
+       </div>`).join('')}
+     </div>`:'<div class="empty">尚未绑定任何 IM 身份</div>'}
+     <div class="notice" style="margin-top:14px"><b>绑定语义：</b>/bind 只建立“外部身份 → PlatformUser”的映射；不绑定 Agent、不授予 Agent 权限。若同一用户在不同 Bot 下产生不同 external_user_id，可保留多条 IM 身份。</div>
+   </div>`;
+ }
+
+ if(tab==='memory'){
+   const memories=u.memories||[];
+   body=`<div class="detail-pane">
+     <div class="toolbar" style="padding-left:0;padding-right:0">
+       <div></div>
+       <div>${memories.length?`<button class="btn" style="color:#b42318" onclick="clearUserMemory('${u.id}')">清理全部</button>`:''}</div>
+     </div>
+     <div class="section-title">用户记忆</div>
+     ${memories.length?`<div class="user-memory-list">
+       <div class="memory-row user-list-head"><span>内容</span><span>来源</span><span>更新时间</span><span>操作</span></div>
+       ${memories.map(mem=>`<div class="memory-row">
+         <span>${mem.content}</span>
+         <span>${mem.source}</span>
+         <span>${mem.updated}</span>
+         <span><button class="btn ghost" style="color:#b42318" onclick="deleteUserMemory('${u.id}','${mem.id}')">清理</button></span>
+       </div>`).join('')}
+     </div>`:'<div class="empty">暂无用户记忆</div>'}
+     <div class="notice" style="margin-top:14px">用户记忆以 PlatformUser 为作用域，不绑定某个 Agent Runtime Pod，也不绑定单一 IM 通道；这里只提供查看与清理，不在 Console 手工新增记忆。</div>
+   </div>`;
+ }
+
+ const tabsHtml=`<div class="tabs">${tabs.map(t=>`<div class="tab ${tab===t[0]?'active':''}" onclick="openUser('${u.id}','${t[0]}')">${t[1]}</div>`).join('')}</div>`;
+ openDrawer(
+   u.name,
+   u.account,
+   tabsHtml+body,
+   tab==='basic'?`<button class="btn primary" onclick="openUserEdit('${u.id}')">编辑基本信息</button>`:''
+ )
+}
+
+
+function generateBind(id){
+ const u=S.users.find(x=>x.id===id);
+ openModal('生成 IM 绑定码',`<div style="text-align:center;padding:22px">
+   <div class="small muted">${u.name}（${u.account}）</div>
+   <div style="margin-top:8px">请用户在任意可访问的企业微信 Bot 输入</div>
+   <div class="code" style="font-size:22px;margin:16px auto;display:inline-block">/bind 8K3M-7Q2P</div>
+   <div class="small muted">10 分钟内有效 · 单次使用</div>
+ </div>
+ <div class="notice">绑定码只建立 IM 外部身份与当前 PlatformUser 的映射，不绑定 Agent，也不会修改 AgentAccessGrant。</div>`,
+ `<button class="btn" onclick="closeModal()">关闭</button><button class="btn primary" onclick="toast('已复制绑定命令')">复制命令</button>`)
+}
+
+function unbindIdentity(userId,identityId){
+ const u=S.users.find(x=>x.id===userId);
+ u.identities=(u.identities||[]).filter(x=>x.id!==identityId);
+ u.im=u.identities.length?(u.identities[0].externalId):'未绑定';
+ u.updated='2026-09-17 14:20:00';
+ openUser(userId,'im');toast('IM 身份已解绑')
+}
+
+function deleteUserMemory(userId,memoryId){
+ const u=S.users.find(x=>x.id===userId);
+ u.memories=(u.memories||[]).filter(x=>x.id!==memoryId);
+ u.memory=u.memories.length;
+ u.updated='2026-09-17 14:20:00';
+ openUser(userId,'memory');toast('用户记忆已清理')
+}
+
+function clearUserMemory(userId){
+ const u=S.users.find(x=>x.id===userId);
+ u.memories=[];u.memory=0;u.updated='2026-09-17 14:20:00';
+ openUser(userId,'memory');toast('用户记忆已全部清理')
+}
+
+
+
+function platforms(){
+ const adapterName=k=>S.platformAdapters.find(a=>a.key===k)?.name||k;
+ return `<div class="card">${tableToolbar('新增项目平台','openPlatformCreate','platformSearch')}<div class="table-wrap"><table><thead><tr><th>名称</th><th>标识</th><th>平台适配器</th><th>接入方式</th><th>访问配置</th><th>凭据策略</th><th>已配置用户凭据数</th><th>启用状态</th><th>更新时间</th><th>操作</th></tr></thead><tbody>${S.platforms.map(p=>`<tr><td><span class="row-link" onclick="openPlatform('${p.id}')">${p.name}</span></td><td class="mono">${p.key}</td><td>${adapterName(p.adapterKey)}</td><td>${resolverTypeName(p.resolverType)}</td><td class="mono">${resolverDisplay(p)}</td><td>${credentialModeName(p.credentialMode)}</td><td>${platformCredentialCount(p.id)}</td><td>${p.enabled?statusTag('ENABLED'):statusTag('DISABLED')}</td><td>${p.updated}</td><td><button class="btn ghost" onclick="openPlatformTest('${p.id}')">调用测试</button></td></tr>`).join('')}</tbody></table></div>${pagination(S.platforms.length,1,10,'void')}</div>`
+}
+
+
+function openPlatformCreate(){
+ const adapterOpts=S.platformAdapters.map(a=>`<option value="${a.key}">${a.name}</option>`).join('');
+ openModal('新增项目平台',`<div class="notice">项目平台保存平台实例、寻址方式和 PlatformAdapter 配置。认证、签名和 Session 逻辑由 PlatformAdapter 负责。</div><div class="form-grid" style="margin-top:16px"><div class="form-item"><label class="req">名称</label><input id="platformName" placeholder="例如：MSSW 生产平台"></div><div class="form-item"><label class="req">标识</label><input id="platformKey" placeholder="mssw-prod"></div><div class="form-item"><label class="req">接入方式</label><select id="platformResolverType" onchange="renderPlatformResolverFields()"><option value="BASE_URL">Base URL</option><option value="SERVICE_DISCOVERY">服务发现</option></select></div><div class="form-item"><label class="req">平台适配器</label><select id="platformAdapter" onchange="renderPlatformAdapterFields()">${adapterOpts}</select></div><div id="platformResolverFields" class="form-item full"></div><div class="form-item"><label class="req">凭据策略</label><select id="credentialMode"><option value="USER_ONLY">仅用户凭据</option><option value="SHARED_ONLY">仅共享凭据</option><option value="USER_THEN_SHARED">用户优先 / 共享回退</option><option value="NONE">无凭据</option></select></div><div class="form-item"><label>启用状态</label><select id="platformEnabled"><option value="true">启用</option><option value="false">禁用</option></select></div><div id="adapterFields" class="form-item full"></div></div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveProjectPlatform()">保存</button>`);
+ setTimeout(()=>{renderPlatformResolverFields();renderPlatformAdapterFields()},0)
+}
+
+function adapterByKey(key){return S.platformAdapters.find(a=>a.key===key)}
+
+function renderPlatformResolverFields(){
+ const type=$('#platformResolverType')?.value||'BASE_URL',host=$('#platformResolverFields');if(!host)return;
+ host.innerHTML=type==='SERVICE_DISCOVERY'
+   ? `<label class="req">服务名</label><input id="platformServiceName" placeholder="例如：customer-service-mgr"><div class="help">由内部服务发现解析真实地址。</div>`
+   : `<label class="req">Base URL</label><input id="platformBaseUrl" placeholder="例如：https://mssw.internal"><div class="help">填写业务平台根地址。</div>`
+}
+
+function renderPlatformAdapterFields(values={}){
+ const key=$('#platformAdapter')?.value||S.platformAdapters[0].key;
+ const a=adapterByKey(key);
+ const host=$('#adapterFields'); if(!host||!a)return;
+ const fields=a.configFields.map(f=>{
+   const v=values[f.key]??'';
+   const ctrl=f.type==='select'?`<select id="adapter_${f.key}">${f.options.map(o=>`<option ${String(v)===String(o)?'selected':''}>${o}</option>`).join('')}</select>`:`<input id="adapter_${f.key}" value="${v}" placeholder="${f.placeholder||''}">`;
+   return `<div class="form-item"><label>${f.label}</label>${ctrl}</div>`
+ }).join('');
+ host.innerHTML=`<div class="notice" style="margin-bottom:12px"><b>${a.name}</b> · 会话模式：${a.sessionMode} · 适配器版本：${a.version}<br><span class="small">以下字段由 PlatformAdapter 的 平台配置 Schema 动态生成。</span></div><div class="form-grid">${fields||'<div class="empty">该 PlatformAdapter 无额外平台配置</div>'}</div>`
+}
+
+function saveProjectPlatform(){
+ const name=$('#platformName').value.trim(),key=$('#platformKey').value.trim(),resolverType=$('#platformResolverType').value,adapterKey=$('#platformAdapter').value,credentialMode=$('#credentialMode').value,enabled=$('#platformEnabled').value==='true';
+ const resolverConfig=resolverType==='SERVICE_DISCOVERY'?{serviceName:$('#platformServiceName').value.trim()}:{baseUrl:$('#platformBaseUrl').value.trim()};
+ if(!name||!key||!Object.values(resolverConfig)[0])return toast('请填写名称、标识和访问配置');
+ if(S.platforms.some(p=>p.key===key))return toast('平台标识已存在');
+ const a=adapterByKey(adapterKey),cfg={};a.configFields.forEach(f=>cfg[f.key]=$(`#adapter_${f.key}`)?.value||'');
+ S.platforms.unshift({id:'p-'+Date.now(),name,key,resolverType,resolverConfig,adapterKey,credentialMode,adapterConfig:cfg,enabled,updated:'2026-09-17 16:01:00'});closeModal();render();toast('项目平台已创建')
+}
+
+function credentialModeName(m){return ({USER_ONLY:'仅用户凭据',SHARED_ONLY:'仅共享凭据',USER_THEN_SHARED:'用户优先 / 共享回退',NONE:'无凭据'})[m]||m}
+
+
+function openPlatform(id,tab='basic'){
+ const p=S.platforms.find(x=>x.id===id),a=adapterByKey(p.adapterKey);const tabs=[['basic','基本信息'],['credentials','凭据管理']];let body='';
+ if(tab==='basic')body=`<div class="detail-pane"><div class="section-title">基本信息</div><div class="platform-info-grid"><div class="platform-field"><span class="platform-label">名称</span><span class="platform-value">${p.name}</span></div><div class="platform-field"><span class="platform-label">标识</span><span class="platform-value mono">${p.key}</span></div><div class="platform-field"><span class="platform-label">平台适配器</span><span class="platform-value">${a?.name||p.adapterKey}</span></div><div class="platform-field"><span class="platform-label">适配器版本</span><span class="platform-value">${a?.version||'-'}</span></div><div class="platform-field"><span class="platform-label">接入方式</span><span class="platform-value">${resolverTypeName(p.resolverType)}</span></div><div class="platform-field"><span class="platform-label">凭据策略</span><span class="platform-value">${credentialModeName(p.credentialMode)}</span></div><div class="platform-field"><span class="platform-label">已配置用户凭据数</span><span class="platform-value">${platformCredentialCount(p.id)}</span></div><div class="platform-field"><span class="platform-label">启用状态</span><span class="platform-value">${p.enabled?statusTag('ENABLED'):statusTag('DISABLED')}</span></div><div class="platform-field"><span class="platform-label">更新时间</span><span class="platform-value">${p.updated}</span></div></div><div class="platform-full-field"><span class="platform-label">访问配置</span><span class="platform-value mono">${resolverDisplay(p)}</span></div><div class="divider"></div><div class="section-title">平台配置</div><div class="platform-config-grid">${(a?.configFields||[]).map(f=>`<div class="platform-config-item"><span class="platform-config-label">${f.label}</span><span class="platform-config-value mono">${p.adapterConfig?.[f.key]??'-'}</span></div>`).join('')||'<div class="empty">当前平台适配器无额外配置</div>'}</div><div class="small muted" style="margin-top:10px">配置项由 PlatformAdapter 的平台配置 Schema 定义。</div><div class="divider"></div><div class="section-title">凭据定义</div><div class="platform-schema-list"><div class="platform-schema-row platform-schema-head"><span>字段</span><span>标识</span><span>敏感性</span><span>说明</span></div>${(a?.credentialFields||[]).map(f=>`<div class="platform-schema-row"><span>${f.label}</span><span class="mono">${f.key}</span><span>${f.secret?tag('敏感字段','orange'):tag('普通字段','gray')}</span><span>${f.secret?'保存到 Secret Provider，不回显明文':'按平台适配器定义使用'}</span></div>`).join('')||'<div class="empty">当前平台无需凭据</div>'}</div><div class="notice" style="margin-top:16px"><b>接入边界：</b>项目平台只保存实例配置；登录、签名、Cookie、CSRF、Session 刷新/校验等协议细节由 PlatformAdapter 负责。</div></div>`;
+ if(tab==='credentials')body=`<div class="detail-pane"><div class="toolbar" style="padding-left:0;padding-right:0"><div><button class="btn primary" onclick="openPlatformUserCredentialPicker('${p.id}')">＋ 配置用户凭据</button></div></div><div class="section-title">用户凭据</div><div class="platform-credential-list"><div class="platform-credential-row platform-list-head"><span>用户</span><span>账号</span><span>配置状态</span><span>更新时间</span><span>操作</span></div>${S.users.map(u=>{const c=u.credentials?.[p.id]||{configured:false,updated:'-'};return `<div class="platform-credential-row"><span class="row-link" onclick="openUser('${u.id}','cred')">${u.name}</span><span class="mono">${u.account}</span><span>${c.configured?tag('已配置','green'):tag('未配置','orange')}</span><span>${c.updated}</span><span><button class="btn ghost" onclick="openUserCredential('${u.id}','${p.id}')">${c.configured?'更新':'配置'}</button></span></div>`}).join('')}</div>${p.credentialMode==='USER_THEN_SHARED'||p.credentialMode==='SHARED_ONLY'?`<div class="divider"></div><div class="section-title">共享凭据</div><div class="platform-shared-credential"><div><b>默认共享凭据</b><div class="small muted">仅在当前凭据策略允许时回退使用。</div></div><div>${tag('已配置','green')} <button class="btn ghost" onclick="openSharedCredential('${p.id}')">更新</button></div></div>`:''}<div class="notice warningbox" style="margin-top:16px">凭据真实值写入 Secret Provider；Console 只保存密钥引用和 Schema 版本。</div></div>`;
+ const tabsHtml=`<div class="tabs">${tabs.map(t=>`<div class="tab ${tab===t[0]?'active':''}" onclick="openPlatform('${p.id}','${t[0]}')">${t[1]}</div>`).join('')}</div>`;
+ openDrawer(p.name,p.key,tabsHtml+body,`<button class="btn" onclick="openPlatformTest('${p.id}')">调用测试</button><button class="btn primary" onclick="openPlatformEdit('${p.id}')">编辑平台</button>`)
+}
+
+function openPlatformCredential(platformId){
+ const p=S.platforms.find(x=>x.id===platformId),a=adapterByKey(p.adapterKey);
+ const fields=a.credentialFields.map(f=>`<div class="form-item"><label class="req">${f.label}</label><input ${f.secret?'type="password"':''} id="cred_${f.key}" placeholder="${f.secret?'输入后不会回显':''}"></div>`).join('');
+ openModal('配置用户凭据',`<div class="notice">${p.name} 使用 <b>${a.name}</b>；下面字段由 凭据 Schema 动态生成。</div><div class="form-grid" style="margin-top:14px"><div class="form-item full"><label>用户</label><select><option>王博 / wangbo</option><option>李明 / liming</option></select></div>${fields}</div><div class="help">保存时写入 Secret Provider，数据库仅保存 密钥引用 和 Schema 版本。</div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="closeModal();toast('用户凭据已保存到 Secret Provider')">保存</button>`)
+}
+
+
+
+function tasks(){
+ const q=F.taskSearch.toLowerCase(),st=F.taskStatus,tr=F.taskTrigger;const rows=S.tasks.filter(t=>(t.id+t.intent+t.user+t.agent+t.skill).toLowerCase().includes(q)&&(st==='ALL'||t.status===st)&&(tr==='ALL'||t.trigger===tr));const statusOpts=[['QUEUED','排队中'],['RUNNING','执行中'],['WAITING','等待中'],['COMPLETED','已完成'],['FAILED','失败'],['CANCELLED','已取消']];
+ return `<div class="card"><div class="toolbar"><div class="toolbar-left"><button class="btn" onclick="openTaskHelp()">查看任务创建方式</button></div><div class="toolbar-right"><input id="taskSearch" class="input search" value="${F.taskSearch}" placeholder="任务 ID / 意图 / 用户" onkeydown="if(event.key==='Enter')applySearch('taskSearch','taskSearch')"><button class="btn" onclick="applySearch('taskSearch','taskSearch')">搜索</button><select id="taskStatus" class="select" onchange="setFilter('taskStatus',this.value)"><option value="ALL" ${F.taskStatus==='ALL'?'selected':''}>全部任务状态</option>${statusOpts.map(x=>`<option value="${x[0]}" ${F.taskStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select><select id="taskTrigger" class="select" onchange="setFilter('taskTrigger',this.value)"><option value="ALL" ${F.taskTrigger==='ALL'?'selected':''}>全部触发方式</option><option value="IMMEDIATE" ${F.taskTrigger==='IMMEDIATE'?'selected':''}>立即</option><option value="SCHEDULED" ${F.taskTrigger==='SCHEDULED'?'selected':''}>定时</option></select><button class="btn" onclick="toast('已刷新')">↻ 刷新</button></div></div><div class="table-wrap"><table><thead><tr><th>任务 ID</th><th>业务意图</th><th>Agent</th><th>执行用户</th><th>Skill</th><th>触发方式</th><th>任务状态</th><th>子任务进度</th><th>开始时间</th><th>完成时间</th><th>任务截止时间</th><th>投递状态</th><th>操作</th></tr></thead><tbody>${rows.map(t=>`<tr><td><span class="row-link mono" onclick="openTask('${t.id}')">${t.id}</span></td><td class="mono">${t.intent}</td><td>${t.agent}</td><td>${t.user}</td><td>${t.skill}</td><td>${statusTag(t.trigger)}</td><td>${statusTag(t.status)}</td><td style="min-width:130px"><div>${t.progress}</div><div class="progress" style="margin-top:5px"><i style="width:${Math.max(4,(t.completed+t.failed)/Math.max(1,t.children)*100)}%"></i></div></td><td>${t.started}</td><td>${t.finished}</td><td>${taskDeadline(t)}</td><td>${statusTag(t.delivery)}</td><td>${['RUNNING','QUEUED','WAITING'].includes(t.status)?`<button class="btn ghost" style="color:#b42318" onclick="cancelTask('${t.id}')">取消</button>`:'-'}</td></tr>`).join('')}</tbody></table></div>${pagination(rows.length,1,10,'void')}</div>`
+}
+
+function openTaskHelp(){openModal('后台任务如何产生',`<div class="notice">Console 不手工编辑任务输入。用户在 IM 中表达业务目标，由 Agent 理解一个 业务意图，选择 Skill，再由 执行路由 根据 执行模式 决定是否提交 后台任务。</div><div class="code" style="margin-top:14px">用户输入<br>→ 意图理解<br>→ Skill 解析<br>→ execute_skill<br>→ 执行路由<br>→ 异步 / 定时<br>→ agent-worker</div>`,`<button class="btn primary" onclick="closeModal()">知道了</button>`)}
+
+function taskDeadline(t){const d=new Date(String(t.started).replace(' ','T')+'+08:00');if(isNaN(d))return '-';d.setHours(d.getHours()+24);const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`}
+
+function openTask(id,tab='overview'){
+ const t=S.tasks.find(x=>x.id===id);if(!t)return toast('任务不存在');const tabs=[['overview','任务概览'],['children','子任务'],['timeline','时间线'],['snapshot','执行快照'],['result','结果与产物']];let body='';
+ if(tab==='overview')body=`<div class="detail-pane"><div class="grid grid-3"><div class="card-pad" style="border:1px solid var(--line);border-radius:8px"><div class="small muted">任务状态</div><div style="margin-top:8px">${statusTag(t.status)}</div></div><div class="card-pad" style="border:1px solid var(--line);border-radius:8px"><div class="small muted">子任务进度</div><div style="font-size:22px;font-weight:700;margin-top:5px">${t.completed+t.failed}/${t.children}</div></div><div class="card-pad" style="border:1px solid var(--line);border-radius:8px"><div class="small muted">投递状态</div><div style="margin-top:8px">${statusTag(t.delivery)}</div></div></div><div class="divider"></div><dl class="kv"><dt>业务意图</dt><dd class="mono">${t.intent}</dd><dt>Agent</dt><dd>${t.agent}</dd><dt>执行用户</dt><dd>${t.user}</dd><dt>Skill</dt><dd>${t.skill}</dd><dt>触发方式</dt><dd>${statusTag(t.trigger)}</dd><dt>执行模式</dt><dd>${statusTag(t.mode)}</dd><dt>投递路由</dt><dd>${t.route}</dd><dt>开始时间</dt><dd>${t.started}</dd><dt>完成时间</dt><dd>${t.finished}</dd><dt>任务截止时间</dt><dd>${taskDeadline(t)}</dd>${t.error?`<dt>失败原因</dt><dd class="mono">${t.error}</dd>`:''}${t.scheduleId?`<dt>定时任务 ID</dt><dd class="mono"><span class="row-link" onclick="openSchedule('${t.scheduleId}')">${t.scheduleId}</span></dd>`:''}</dl><div class="divider"></div><div class="notice">该任务不绑定固定 Worker Pod；lease_owner 只表示当前租约持有者，Pod 崩溃后租约到期可由其他 Worker 重新领取。</div></div>`;
+ if(tab==='children')body=`<div class="detail-pane"><div class="tree"><div class="tree-node tree-root"><div class="tree-row"><b>▾ ${t.id}</b> ${statusTag(t.status)} <span class="muted">${t.intent}</span></div>${[...Array(Math.min(t.children,20))].map((_,i)=>{let s=i<t.completed?'COMPLETED':i<t.completed+t.failed?'FAILED':'RUNNING';return `<div class="tree-node"><div class="tree-row"><span>└</span><span class="mono">child-${String(i+1).padStart(2,'0')}</span>${statusTag(s)}<span class="muted">customer-${String.fromCharCode(65+i)}</span></div></div>`}).join('')}</div></div></div>`;
+ if(tab==='timeline')body=`<div class="detail-pane"><div class="timeline"><div class="timeline-item"><b>任务已创建</b><div class="muted">Agent Runtime 提交后台任务</div><div class="timeline-time">${t.started}</div></div><div class="timeline-item"><b>任务已领取</b><div class="muted">worker-b · 租约 60 秒</div><div class="timeline-time">${t.started}</div></div><div class="timeline-item"><b>并行拆分</b><div class="muted">创建 ${t.children} 个子任务 · 最大并发数=10</div><div class="timeline-time">${t.started}</div></div><div class="timeline-item"><b>${t.status==='COMPLETED'?'聚合完成':'子任务执行中'}</b><div class="muted">成功 ${t.completed} · 失败 ${t.failed}</div><div class="timeline-time">${t.finished==='-'?'进行中':t.finished}</div></div></div></div>`;
+ if(tab==='snapshot')body=`<div class="detail-pane"><div class="code">{<br>&nbsp;&nbsp;"agent_revision": "${t.agentRevision}",<br>&nbsp;&nbsp;"skill_artifact": "${t.skillArtifact}",<br>&nbsp;&nbsp;"intent_key": "${t.intent}",<br>&nbsp;&nbsp;"delivery_mode": "FINAL_ONLY",<br>&nbsp;&nbsp;"mcp_catalog_revision": 7,<br>&nbsp;&nbsp;"mcp_catalog_hash": "sha256:3f9c...",<br>&nbsp;&nbsp;"prompt_template_version": "1",<br>&nbsp;&nbsp;"contains_secret": false<br>}</div><div class="notice" style="margin-top:12px">单次 Task 开始后 execution snapshot 不漂移；定时任务每次触发重新解析当前定义并生成新的执行快照。</div></div>`;
+ if(tab==='result')body=`<div class="detail-pane">${t.status==='RUNNING'?'<div class="empty">任务尚未完成，最终结果将在结果聚合后生成。</div>':`<div class="notice ${t.status==='COMPLETED'?'successbox':'warningbox'}">${t.result||'无结果'}</div><div class="listline"><div><b>结果文件</b><div class="small muted">Artifact Store 制品</div></div><button class="btn">查看</button></div>`}</div>`;
+ const actions=['RUNNING','QUEUED','WAITING'].includes(t.status)?`<button class="btn danger" onclick="cancelTask('${t.id}')">取消任务</button>`:'';openDrawer(t.id,`${t.intent} · ${t.user}`,`<div class="tabs">${tabs.map(x=>`<div class="tab ${tab===x[0]?'active':''}" onclick="openTask('${t.id}','${x[0]}')">${x[1]}</div>`).join('')}</div>${body}`,actions)
+}
+
+function cancelTask(id){const t=S.tasks.find(x=>x.id===id);if(t){t.status='CANCELLED';t.finished='2026-09-17 12:40:00';t.delivery='NONE'}closeDrawer();render();toast('已提交取消请求')}
+
+
+
+function schedules(){
+ const q=F.scheduleSearch.toLowerCase(),st=F.scheduleStatus;const rows=S.schedules.filter(s=>(s.name+s.user+s.intent+s.skill).toLowerCase().includes(q)&&(st==='ALL'||s.status===st));
+ return `<div class="card"><div class="toolbar"><div class="toolbar-left"><button class="btn" onclick="openScheduleHelp()">如何通过 Agent 创建</button></div><div class="toolbar-right"><input id="scheduleSearch" class="input search" value="${F.scheduleSearch}" placeholder="名称 / 用户 / 业务意图" onkeydown="if(event.key==='Enter')applySearch('scheduleSearch','scheduleSearch')"><button class="btn" onclick="applySearch('scheduleSearch','scheduleSearch')">搜索</button><select id="scheduleStatus" class="select" onchange="setFilter('scheduleStatus',this.value)"><option value="ALL" ${F.scheduleStatus==='ALL'?'selected':''}>全部调度状态</option><option value="ACTIVE" ${F.scheduleStatus==='ACTIVE'?'selected':''}>启用</option><option value="PAUSED" ${F.scheduleStatus==='PAUSED'?'selected':''}>已暂停</option><option value="COMPLETED" ${F.scheduleStatus==='COMPLETED'?'selected':''}>已完成</option></select><button class="btn" onclick="toast('已刷新')">↻ 刷新</button></div></div><div class="table-wrap"><table><thead><tr><th>名称</th><th>Agent</th><th>执行用户</th><th>业务意图</th><th>Skill</th><th>调度规则</th><th>时区</th><th>下次触发时间</th><th>最近触发时间</th><th>调度状态</th><th>操作</th></tr></thead><tbody>${rows.map(s=>`<tr><td><span class="row-link" onclick="openSchedule('${s.id}')">${s.name}</span></td><td>${s.agent}</td><td>${s.user}</td><td class="mono">${s.intent}</td><td>${s.skill}</td><td>${s.expr}</td><td>${s.tz}</td><td>${s.next}</td><td>${s.last}</td><td>${statusTag(s.status)}</td><td>${s.status==='ACTIVE'?`<button class="btn ghost" onclick="toggleSchedule('${s.id}')">暂停</button>`:(s.status==='PAUSED'?`<button class="btn ghost" onclick="toggleSchedule('${s.id}')">恢复</button>`:'-')}</td></tr>`).join('')}</tbody></table></div>${pagination(rows.length,1,10,'void')}</div>`
+}
+
+function openScheduleHelp(){openModal('通过 Agent 创建定时任务',`<div class="chat"><div class="chat-title">企业微信 · MSS 服务助手</div><div class="chat-messages"><div class="bubble user">每周一上午 9 点帮 A 客户做一次策略检查，完成后告诉我</div><div class="bubble bot">已理解：每周一 09:00 为 A 客户执行“设备策略检查”。任务将在后台执行，完成后只推送最终结果。确认创建吗？</div><div class="bubble user">确认</div><div class="bubble bot">已创建定时任务“每周策略检查”，下次触发：2026-09-21 09:00。</div></div><div class="chat-input"><input placeholder="这里只是交互演示" disabled><button class="btn primary" disabled>发送</button></div></div>`,`<button class="btn primary" onclick="closeModal()">关闭</button>`,'wide')}
+
+
+
+function openSchedule(id){
+ const s=S.schedules.find(x=>x.id===id);const history=S.tasks.filter(t=>t.scheduleId===s.id).sort((a,b)=>b.started.localeCompare(a.started));
+ const baseInfo=`<div class="detail-pane"><div class="section-title">基本信息</div><div class="schedule-info-grid"><div class="schedule-field"><span class="schedule-label">名称</span><span class="schedule-value">${s.name}</span></div><div class="schedule-field"><span class="schedule-label">Agent</span><span class="schedule-value">${s.agent}</span></div><div class="schedule-field"><span class="schedule-label">执行用户</span><span class="schedule-value">${s.user}</span></div><div class="schedule-field"><span class="schedule-label">业务意图</span><span class="schedule-value mono">${s.intent}</span></div><div class="schedule-field"><span class="schedule-label">Skill</span><span class="schedule-value">${s.skill}</span></div><div class="schedule-field"><span class="schedule-label">调度规则</span><span class="schedule-value">${s.expr}</span></div><div class="schedule-field"><span class="schedule-label">时区</span><span class="schedule-value">${s.tz}</span></div><div class="schedule-field"><span class="schedule-label">投递路由</span><span class="schedule-value">${s.route}</span></div><div class="schedule-field"><span class="schedule-label">下次触发时间</span><span class="schedule-value">${s.next}</span></div><div class="schedule-field"><span class="schedule-label">最近触发时间</span><span class="schedule-value">${s.last}</span></div><div class="schedule-field"><span class="schedule-label">调度状态</span><span class="schedule-value">${statusTag(s.status)}</span></div><div class="schedule-field"><span class="schedule-label">定时任务 ID</span><span class="schedule-value mono">${s.id}</span></div></div><div class="divider"></div><div class="section-title">历史触发</div>${history.length?`<div class="simple-history-list"><div class="history-row history-head"><span>任务 ID</span><span>触发时间</span><span>完成时间</span><span>任务状态</span></div>${history.map(t=>`<div class="history-row"><span class="row-link mono" onclick="openTask('${t.id}')">${t.id}</span><span>${t.started}</span><span>${t.finished}</span><span>${statusTag(t.status)}</span></div>`).join('')}</div>`:'<div class="empty">暂无历史触发任务</div>'}</div>`;
+ openDrawer(s.name,`${s.id} · ${s.status==='ACTIVE'?'启用':'已暂停'}`,baseInfo,`${s.status==='ACTIVE'?`<button class="btn" onclick="toggleSchedule('${s.id}')">暂停</button>`:`<button class="btn" onclick="toggleSchedule('${s.id}')">恢复</button>`}<button class="btn danger" onclick="deleteSchedule('${s.id}')">删除</button>`)
+}
+
+function toggleSchedule(id){const s=S.schedules.find(x=>x.id===id);s.status=s.status==='ACTIVE'?'PAUSED':'ACTIVE';closeDrawer();render();toast(s.status==='ACTIVE'?'定时任务已恢复':'定时任务已暂停')}
+function deleteSchedule(id){const i=S.schedules.findIndex(x=>x.id===id);if(i>=0)S.schedules.splice(i,1);closeDrawer();render();toast('定时任务已删除，仅影响未来触发')}
+
+
+
+function audits(){
+ return `<div class="card"><div class="toolbar"><div class="toolbar-left"></div><div class="toolbar-right"><input class="input search" placeholder="Trace ID / 操作用户 / 操作目标"><select class="select"><option>全部审计类型</option><option>任务</option><option>出网调用</option><option>模型调用</option><option>配置变更</option></select><button class="btn" onclick="toast('已刷新')">↻ 刷新</button></div></div><div class="table-wrap"><table><thead><tr><th>时间</th><th>审计类型</th><th>操作用户</th><th>Agent</th><th>操作目标</th><th>动作</th><th>执行结果</th><th>Trace ID</th></tr></thead><tbody>${S.audits.map((a,i)=>`<tr><td>${a.time}</td><td>${tag(({TASK:'任务',EGRESS:'出网调用',MODEL:'模型调用',CONFIG:'配置变更'})[a.type]||a.type,a.type==='TASK'?'purple':a.type==='EGRESS'?'cyan':'gray')}</td><td>${a.actor}</td><td>${a.agent}</td><td class="mono">${a.target}</td><td class="mono">${a.action}</td><td>${a.result==='SUCCESS'?tag('成功','green'):tag(a.result,'red')}</td><td><span class="row-link mono" onclick="openAudit(${i})">${a.trace}</span></td></tr>`).join('')}</tbody></table></div>${pagination(S.audits.length,1,20,'void')}</div>`
+}
+
+function openSkillMd(id){
+ const s=S.skills.find(x=>x.id===id);
+ openModal('SKILL.md',`<div class="code" style="max-height:520px;overflow:auto">---<br>
+name: ${s.key}<br>
+description: ${s.desc}<br>
+execution: ${s.execution.toLowerCase()}<br>
+---<br><br>
+# 指令<br><br>
+你负责完成 ${s.name} 相关任务。<br>
+根据用户输入识别必要参数，并按需调用 scripts/ 下的脚本和平台接口。<br><br>
+## 执行要求<br>
+- 保持业务意图单一；<br>
+- 必要时澄清缺失参数；<br>
+- 后台任务由框架切换到 Worker；<br>
+- 不在 Skill 中保存用户 Secret；<br>
+- 平台访问统一通过 ctx.platform。<br><br>
+## 资源<br>
+- scripts/check.py<br>
+- references/policy.md<br>
+</div>`,`<button class="btn primary" onclick="closeModal()">关闭</button>`)
+}
+
+function openSkillVersion(id,version){
+ const s=S.skills.find(x=>x.id===id);
+ openDrawer(
+   `${s.name} · ${version}`,
+   `Skill 制品版本详情`,
+   `<div class="detail-pane">
+      <div class="skill-info-grid">
+        <div class="skill-field"><span class="skill-label">版本</span><span class="skill-value">${version}</span></div>
+        <div class="skill-field"><span class="skill-label">执行模式</span><span class="skill-value">${version==='v1.7.0'?statusTag('SYNC'):statusTag(s.execution)}</span></div>
+        <div class="skill-field"><span class="skill-label">校验结果</span><span class="skill-value">${tag('通过','green')}</span></div>
+        <div class="skill-field"><span class="skill-label">版本状态</span><span class="skill-value">${version===s.artifact?tag('当前','green'):tag('历史','gray')}</span></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-title">文件清单</div>
+      <div class="listline"><span class="mono">SKILL.md</span><span>主说明文件</span></div>
+      <div class="listline"><span class="mono">scripts/check.py</span><span>业务脚本</span></div>
+      <div class="listline"><span class="mono">references/policy.md</span><span>参考资料</span></div>
+      <div class="divider"></div>
+      <div class="section-title">校验结果</div>
+      <div class="notice successbox">✓ SKILL.md 基本信息校验通过<br>✓ Python scripts 目录扫描通过<br>✓ 基础 Secret 扫描通过<br>✓ 校验和已生成</div>
+   </div>`,
+   ''
+ )
+}
+
+
+function openSkillImportVersion(id){
+ const s=S.skills.find(x=>x.id===id);
+ openModal('导入新版本',`
+ <div class="notice">
+   为 <b>${s.name}</b> 导入新的不可变 Skill 制品。Skill 的用户范围是资源级配置，不随 Artifact 版本改变。
+   新 Run 使用新版本，已经开始的 Run/Task 继续使用原执行快照。
+ </div>
+ <div class="form-grid" style="margin-top:16px">
+   <div class="form-item full"><label class="req">Skill 压缩包</label><input type="file"></div>
+   <div class="form-item"><label>当前用户范围</label><input value="${s.userScope==='ALL'?'全部授权用户':'指定用户'}" readonly></div>
+   <div class="form-item"><label>当前版本</label><input value="${s.artifact}" readonly></div>
+ </div>`,
+ `<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="closeModal();toast('新版本已导入并生成不可变制品')">导入</button>`)
+}
+
+function mcpEffectTag(effect){
+ return effect==='WRITE'?tag('写操作','orange'):effect==='EXTERNAL'?tag('外部调用','purple'):tag('只读','cyan')
+}
+
+
+function openMcp(id,tab='basic'){
+ const m=S.mcps.find(x=>x.id===id);
+ const tabs=[['basic','基本信息'],['tools','工具明细'],['agents','使用 Agent'],['users','指定用户']];
+ let body='';
+
+ if(tab==='basic'){
+   body=`<div class="detail-pane">
+     <div class="section-title">基本信息</div>
+     <div class="mcp-info-grid">
+       <div class="mcp-field"><span class="mcp-label">名称</span><span class="mcp-value">${m.name}</span></div>
+       <div class="mcp-field"><span class="mcp-label">标识</span><span class="mcp-value mono">${m.key}</span></div>
+       <div class="mcp-field"><span class="mcp-label">传输方式</span><span class="mcp-value">Streamable HTTP</span></div>
+       <div class="mcp-field"><span class="mcp-label">启用状态</span><span class="mcp-value">${m.enabled?statusTag('ENABLED'):statusTag('DISABLED')}</span></div>
+       <div class="mcp-field"><span class="mcp-label">用户范围</span><span class="mcp-value">${statusTag(m.userScope)}</span></div>
+       <div class="mcp-field"><span class="mcp-label">指定用户数</span><span class="mcp-value">${m.userScope==='SELECTED'?(m.selectedUsers||[]).length:'不适用'}</span></div>
+       <div class="mcp-field"><span class="mcp-label">工具数</span><span class="mcp-value">${m.tools.length}</span></div>
+       <div class="mcp-field"><span class="mcp-label">使用 Agent 数</span><span class="mcp-value">${mcpAgentCount(m.key)}</span></div>
+       <div class="mcp-field"><span class="mcp-label">连接状态</span><span class="mcp-value">${statusTag(m.connectionStatus)}</span></div>
+       <div class="mcp-field"><span class="mcp-label">最近工具发现时间</span><span class="mcp-value">${m.lastDiscover}</span></div>
+     </div>
+
+     <div class="mcp-full-field"><span class="mcp-label">服务地址</span><span class="mcp-value mono">${m.endpoint}</span></div>
+
+     <div class="notice" style="margin-top:14px">
+       <b>权限关系：</b>用户必须拥有目标 Agent 的使用权，且 Agent 已绑定当前 MCP。
+       ${m.userScope==='ALL'?'当前对全部 Agent 授权用户开放。':'当前还要求用户位于“指定用户”名单中。'}
+     </div>
+
+     <div class="divider"></div>
+     <div class="section-title">工具目录摘要</div>
+     <div class="mcp-tool-summary">
+       ${m.tools.slice(0,4).map(t=>`<div class="mcp-tool-summary-row">
+         <div><b class="mono">${t.name}</b><div class="small muted">${t.description}</div></div>
+         <div>${mcpEffectTag(t.effect)} ${t.enabled?tag('启用','green'):tag('禁用','gray')}</div>
+       </div>`).join('')}
+     </div>
+     <div class="notice" style="margin-top:16px"><b>工具数说明：</b>表示最近一次 MCP 工具发现成功后的 Tool 数量；V1.4 不做单 Tool 启停，用户范围按 MCP Server 级继承，也不对单个 Tool 再做用户授权。</div>
+   </div>`;
+ }
+
+ if(tab==='tools'){
+   body=`<div class="detail-pane">
+     <div class="toolbar" style="padding-left:0;padding-right:0">
+       <div><button class="btn" onclick="refreshMcpTools('${m.id}')">↻ 刷新工具目录</button></div>
+       <div class="small muted">最近工具发现时间：${m.lastDiscover}</div>
+     </div>
+     <div class="section-title">工具明细</div>
+     <div class="mcp-tool-list">
+       <div class="mcp-tool-row mcp-tool-head"><span>工具名称</span><span>描述</span><span>输入参数</span><span>操作类型</span></div>
+       ${m.tools.map(t=>`<div class="mcp-tool-row">
+         <span class="row-link mono" onclick="openMcpTool('${m.id}','${t.name}')">${t.name}</span>
+         <span>${t.description}</span><span class="mono small">${t.input}</span><span>${mcpEffectTag(t.effect)}</span>
+       </div>`).join('')}
+     </div>
+     <div class="notice" style="margin-top:14px">这些 Tool 全部继承 MCP Server 的用户范围。Tool 的 READ/WRITE 类型用于运行时 Policy/Hook/Audit，不作为用户授权。</div>
+   </div>`;
+ }
+
+ if(tab==='agents'){
+   const used=S.agents.filter(a=>a.mcp.includes(m.key));
+   body=`<div class="detail-pane">
+     <div class="section-title">使用 Agent</div>
+     ${used.length?`<div class="simple-agent-list">
+       <div class="skill-agent-row skill-agent-head"><span>Agent 名称</span><span>标识</span><span>启用状态</span><span>绑定时间</span><span>操作</span></div>
+       ${used.map((a,i)=>`<div class="skill-agent-row">
+         <span class="row-link" onclick="openAgent('${a.id}')">${a.name}</span><span class="mono">${a.key}</span><span>${a.enabled?statusTag('ENABLED'):statusTag('DISABLED')}</span><span>${i===0?'2026-09-01 10:00:00':'2026-09-10 15:21:00'}</span><span>-</span>
+       </div>`).join('')}
+     </div>`:'<div class="empty">没有 Agent 使用当前 MCP</div>'}
+     <div class="notice" style="margin-top:14px">这里决定“哪些 Agent 拥有当前 MCP”。用户是否能实际获得这些 Tool，还要与 AgentAccessGrant 和 MCP 用户范围取交集。</div>
+   </div>`;
+ }
+
+ if(tab==='users'){
+   const selected=(m.selectedUsers||[]).map(uid=>S.users.find(u=>u.id===uid)).filter(Boolean);
+   body=`<div class="detail-pane">
+     <div class="section-title">指定用户</div>
+     ${m.userScope==='ALL'
+       ? `<div class="notice">当前用户范围为 <b>全部授权用户</b>。所有同时满足“拥有 Agent 权限 + Agent 已绑定当前 MCP”的用户均可使用其工具。</div>`
+       : `<div class="toolbar" style="padding-left:0;padding-right:0"><div><button class="btn primary" onclick="openMcpUserPicker('${m.id}')">＋ 添加用户</button></div></div>
+          ${selected.length?`<div class="simple-gray-list">
+            <div class="gray-row gray-head"><span>姓名</span><span>账号</span><span>授权时间</span><span>操作</span></div>
+            ${selected.map((u,i)=>`<div class="gray-row"><span>${u.name}</span><span>${u.account}</span><span>${i===0?'2026-09-17 10:20:10':'2026-09-17 10:23:11'}</span><span><button class="btn ghost" style="color:#b42318" onclick="removeMcpUser('${m.id}','${u.id}')">移除</button></span></div>`).join('')}
+          </div>`:'<div class="empty">暂无指定用户；当前 MCP 对任何用户都不可用，直到添加用户。</div>'}`
+     }
+     <div class="notice" style="margin-top:14px">指定用户授权不会自动授予 AgentAccessGrant，也不会把 MCP 自动绑定到 Agent。</div>
+   </div>`;
+ }
+
+ const tabsHtml=`<div class="tabs">${tabs.map(t=>`<div class="tab ${tab===t[0]?'active':''}" onclick="openMcp('${m.id}','${t[0]}')">${t[1]}</div>`).join('')}</div>`;
+ openDrawer(
+   m.name,
+   `${m.key} · ${m.tools.length} 个工具`,
+   tabsHtml+body,
+   `<button class="btn" onclick="testMcp('${m.id}')">连接测试</button>
+    <button class="btn" onclick="openMcpUserScope('${m.id}')">变更用户范围</button>
+    <button class="btn primary" onclick="refreshMcpTools('${m.id}')">刷新工具目录</button>`
+ )
+}
+
+function openMcpTool(mcpId,toolName){
+ const m=S.mcps.find(x=>x.id===mcpId),t=m.tools.find(x=>x.name===toolName);
+ openDrawer(
+   toolName,
+   `${m.name} · MCP Tool`,
+   `<div class="detail-pane">
+      <div class="mcp-info-grid">
+        <div class="mcp-field"><span class="mcp-label">工具名称</span><span class="mcp-value mono">${t.name}</span></div>
+        <div class="mcp-field"><span class="mcp-label">操作类型</span><span class="mcp-value">${mcpEffectTag(t.effect)}</span></div>
+        <div class="mcp-field"><span class="mcp-label">启用状态</span><span class="mcp-value">${t.enabled?statusTag('ENABLED'):statusTag('DISABLED')}</span></div>
+        <div class="mcp-field"><span class="mcp-label">所属 MCP</span><span class="mcp-value">${m.name}</span></div>
+      </div>
+      <div class="mcp-full-field"><span class="mcp-label">描述</span><span class="mcp-value">${t.description}</span></div>
+      <div class="divider"></div>
+      <div class="section-title">输入参数</div>
+      <div class="code">${t.input}</div>
+      <div class="divider"></div>
+      <div class="section-title">运行边界</div>
+      <div class="notice">${t.effect==='WRITE'
+        ? '该工具属于写操作。进入 ToolRegistry 后仍经过统一 Schema 校验、Hook、Policy、Trace 与审计。'
+        : '该工具属于只读操作。进入 ToolRegistry 后与内置 Tool 使用相同的 Schema 校验、Hook、Trace 与错误处理。'}
+      </div>
+   </div>`,
+   ''
+ )
+}
+
+
+function refreshMcpTools(id){
+ const m=S.mcps.find(x=>x.id===id);
+ m.connectionStatus='AVAILABLE';m.lastDiscover='2026-09-17 16:01:00';m.updated=m.lastDiscover;
+ toast(`已刷新 ${m.tools.length} 个 MCP 工具`);
+ if($('#drawer').classList.contains('show'))openMcp(id,'tools')
+}
+
+function testMcp(id){
+ const m=S.mcps.find(x=>x.id===id);
+ openModal('MCP 连接测试',`<div class="listline"><span>1. Streamable HTTP 连接</span>${tag('通过','green')}</div>
+ <div class="listline"><span>2. initialize</span>${tag('通过','green')}</div>
+ <div class="listline"><span>3. tools/list</span>${tag(`${m.tools.length} 个工具`,'green')}</div>
+ <div class="notice successbox" style="margin-top:14px">MCP 服务可用，工具目录发现正常。</div>`,
+ `<button class="btn primary" onclick="closeModal()">关闭</button>`)
+}
+
+
+
+function openPlatformEdit(id){
+ const p=S.platforms.find(x=>x.id===id);const adapterOpts=S.platformAdapters.map(x=>`<option value="${x.key}" ${x.key===p.adapterKey?'selected':''}>${x.name}</option>`).join('');
+ openModal('编辑项目平台',`<div class="form-grid"><div class="form-item"><label class="req">名称</label><input id="editPlatformName" value="${p.name}"></div><div class="form-item"><label class="req">标识</label><input id="editPlatformKey" value="${p.key}"></div><div class="form-item"><label class="req">接入方式</label><select id="editPlatformResolverType" onchange="renderEditPlatformResolverFields('${p.id}')"><option value="BASE_URL" ${p.resolverType==='BASE_URL'?'selected':''}>Base URL</option><option value="SERVICE_DISCOVERY" ${p.resolverType==='SERVICE_DISCOVERY'?'selected':''}>服务发现</option></select></div><div class="form-item"><label class="req">平台适配器</label><select id="editPlatformAdapter" onchange="renderEditPlatformAdapterFields('${p.id}')">${adapterOpts}</select></div><div id="editPlatformResolverFields" class="form-item full"></div><div class="form-item"><label class="req">凭据策略</label><select id="editCredentialMode"><option value="USER_ONLY" ${p.credentialMode==='USER_ONLY'?'selected':''}>仅用户凭据</option><option value="SHARED_ONLY" ${p.credentialMode==='SHARED_ONLY'?'selected':''}>仅共享凭据</option><option value="USER_THEN_SHARED" ${p.credentialMode==='USER_THEN_SHARED'?'selected':''}>用户优先 / 共享回退</option><option value="NONE" ${p.credentialMode==='NONE'?'selected':''}>无凭据</option></select></div><div class="form-item"><label>启用状态</label><select id="editPlatformEnabled"><option value="true" ${p.enabled?'selected':''}>启用</option><option value="false" ${!p.enabled?'selected':''}>禁用</option></select></div><div id="editAdapterFields" class="form-item full"></div></div>`,`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="savePlatformEdit('${id}')">保存</button>`);setTimeout(()=>{renderEditPlatformResolverFields(id);renderEditPlatformAdapterFields(id)},0)
+}
+
+
+function renderEditPlatformResolverFields(platformId){
+ const p=S.platforms.find(x=>x.id===platformId),type=$('#editPlatformResolverType')?.value||p.resolverType,host=$('#editPlatformResolverFields');if(!host)return;
+ host.innerHTML=type==='SERVICE_DISCOVERY'?`<label class="req">服务名</label><input id="editPlatformServiceName" value="${p.resolverType==='SERVICE_DISCOVERY'?(p.resolverConfig?.serviceName||''):''}" placeholder="例如：customer-service-mgr">`:`<label class="req">Base URL</label><input id="editPlatformBaseUrl" value="${p.resolverType==='BASE_URL'?(p.resolverConfig?.baseUrl||''):''}" placeholder="例如：https://mssw.internal">`
+}
+
+function renderEditPlatformAdapterFields(platformId){
+ const p=S.platforms.find(x=>x.id===platformId);
+ const adapterKey=$('#editPlatformAdapter')?.value||p.adapterKey;
+ const a=adapterByKey(adapterKey);
+ const host=$('#editAdapterFields'); if(!host||!a)return;
+
+ host.innerHTML=`${adapterKey!==p.adapterKey?'<div class="notice warningbox" style="margin-bottom:12px">更换平台适配器会使该平台已配置的用户/共享凭据失效（INVALID）并清理 PlatformSession；保存后需重新配置凭据。</div>':''}<div class="section-title" style="margin-bottom:8px">平台配置</div>
+   <div class="form-grid">
+     ${a.configFields.map(f=>{
+       const v=(adapterKey===p.adapterKey?p.adapterConfig?.[f.key]:'')??'';
+       if(f.type==='select'){
+         return `<div class="form-item"><label>${f.label}</label><select id="edit_adapter_${f.key}">${f.options.map(o=>`<option ${String(v)===String(o)?'selected':''}>${o}</option>`).join('')}</select></div>`
+       }
+       return `<div class="form-item"><label>${f.label}</label><input id="edit_adapter_${f.key}" value="${v}" placeholder="${f.placeholder||''}"></div>`
+     }).join('')||'<div class="empty">该适配器无额外配置</div>'}
+   </div>
+   <div class="help">字段由所选 PlatformAdapter 的平台配置 Schema 动态生成。</div>`
+}
+
+
+function savePlatformEdit(id){
+ const p=S.platforms.find(x=>x.id===id),name=$('#editPlatformName').value.trim(),key=$('#editPlatformKey').value.trim(),resolverType=$('#editPlatformResolverType').value,adapterKey=$('#editPlatformAdapter').value,credentialMode=$('#editCredentialMode').value,enabled=$('#editPlatformEnabled').value==='true';
+ const resolverConfig=resolverType==='SERVICE_DISCOVERY'?{serviceName:$('#editPlatformServiceName').value.trim()}:{baseUrl:$('#editPlatformBaseUrl').value.trim()};
+ if(!name||!key||!Object.values(resolverConfig)[0])return toast('请填写名称、标识和访问配置');if(S.platforms.some(x=>x.id!==id&&x.key===key))return toast('平台标识已存在');
+ const a=adapterByKey(adapterKey),cfg={};a.configFields.forEach(f=>cfg[f.key]=$(`#edit_adapter_${f.key}`)?.value||'');
+ p.name=name;p.key=key;p.resolverType=resolverType;p.resolverConfig=resolverConfig;p.adapterKey=adapterKey;p.credentialMode=credentialMode;p.enabled=enabled;p.adapterConfig=cfg;p.updated='2026-09-17 16:01:00';closeModal();render();openPlatform(id,'basic');toast('项目平台已更新')
+}
+
+function openPlatformUserCredentialPicker(platformId){
+ const p=S.platforms.find(x=>x.id===platformId);
+ openModal('配置用户凭据',`
+   <div class="form-item">
+     <label class="req">用户</label>
+     <select id="platformCredentialUser">${S.users.map(u=>`<option value="${u.id}">${u.name} / ${u.account}</option>`).join('')}</select>
+   </div>
+   <div class="notice" style="margin-top:14px">选择用户后，将根据 ${adapterByKey(p.adapterKey)?.name||p.adapterKey} 的凭据 Schema 生成对应字段。</div>`,
+   `<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="goPlatformCredential('${platformId}')">下一步</button>`
+ )
+}
+
+function goPlatformCredential(platformId){
+ const userId=$('#platformCredentialUser').value;
+ closeModal();
+ setTimeout(()=>openUserCredential(userId,platformId),0)
+}
+
+function openSharedCredential(platformId){
+ const p=S.platforms.find(x=>x.id===platformId),a=adapterByKey(p.adapterKey);
+ const fields=(a?.credentialFields||[]).map(f=>`<div class="form-item"><label class="req">${f.label}</label><input ${f.secret?'type="password"':''} placeholder="${f.secret?'已配置；留空表示保持不变':''}"></div>`).join('');
+ openModal('共享凭据',`
+   <div class="notice">${p.name} · ${a?.name||p.adapterKey}<br>共享凭据只在凭据策略允许时使用。</div>
+   <div class="form-grid" style="margin-top:14px">${fields||'<div class="empty">该平台无需凭据</div>'}</div>`,
+   `<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="closeModal();toast('共享凭据已更新')">保存</button>`
+ )
+}
+
+function openPlatformTest(platformId){
+ const p=S.platforms.find(x=>x.id===platformId),a=adapterByKey(p.adapterKey);
+ openModal('调用测试',`
+   <div class="notice">测试会按当前项目平台配置执行完整调用链，不回显 Secret、Cookie、Token 或签名原文。</div>
+   <div class="form-grid" style="margin-top:14px">
+     <div class="form-item full">
+       <label class="req">测试用户</label>
+       <select id="platformTestUser">${S.users.map(u=>`<option value="${u.id}">${u.name} / ${u.account}</option>`).join('')}</select>
+     </div>
+   </div>
+   <div class="platform-test-chain">
+     <div><span>1. ProjectPlatform 解析</span>${tag('待执行','gray')}</div>
+     <div><span>2. ${a?.name||p.adapterKey}</span>${tag('待执行','gray')}</div>
+     <div><span>3. CredentialRef 解析</span>${tag('待执行','gray')}</div>
+     <div><span>4. Session 获取 / 刷新</span>${tag('待执行','gray')}</div>
+     <div><span>5. 请求准备</span>${tag('待执行','gray')}</div>
+     <div><span>6. 业务接口调用</span>${tag('待执行','gray')}</div>
+   </div>`,
+   `<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="runPlatformTest('${platformId}')">执行测试</button>`
+ )
+}
+
+function runPlatformTest(platformId){
+ const p=S.platforms.find(x=>x.id===platformId),a=adapterByKey(p.adapterKey),user=S.users.find(x=>x.id===$('#platformTestUser').value);
+ const c=user?.credentials?.[platformId];
+ const credentialOk=p.credentialMode==='NONE'||!!c?.configured||p.credentialMode==='USER_THEN_SHARED'||p.credentialMode==='SHARED_ONLY';
+
+ openModal('调用测试结果',`
+   <div class="platform-test-result-row"><span>ProjectPlatform 解析</span>${tag('通过','green')}</div>
+   <div class="platform-test-result-row"><span>PlatformAdapter：${a?.name||p.adapterKey}</span>${tag('通过','green')}</div>
+   <div class="platform-test-result-row"><span>CredentialRef：${user?.name||'-'}</span>${credentialOk?tag('通过','green'):tag('缺少凭据','red')}</div>
+   <div class="platform-test-result-row"><span>Session 获取 / 刷新</span>${credentialOk?tag('通过','green'):tag('未执行','gray')}</div>
+   <div class="platform-test-result-row"><span>请求准备</span>${credentialOk?tag('通过','green'):tag('未执行','gray')}</div>
+   <div class="platform-test-result-row"><span>业务接口调用</span>${credentialOk?tag('200 成功','green'):tag('未执行','gray')}</div>
+   <div class="notice ${credentialOk?'successbox':'warningbox'}" style="margin-top:14px">${credentialOk?'调用链路正常；测试过程中未展示任何 Secret 或 Session 明文。':'当前测试用户没有可用凭据，请先配置用户凭据或共享凭据。'}</div>`,
+   `<button class="btn primary" onclick="closeModal()">关闭</button>`
+ )
+}
+
+
+
+function openModelDetail(id){
+ const m=S.models.find(x=>x.id===id);
+ openDrawer(m.name,`${m.key} · r${m.revision}`,`<div class="detail-pane"><div class="section-title">基本信息</div><div class="model-detail-grid"><div class="model-detail-field"><span>名称</span><b>${m.name}</b></div><div class="model-detail-field"><span>标识</span><b class="mono">${m.key}</b></div><div class="model-detail-field"><span>协议</span><b>OpenAI</b></div><div class="model-detail-field"><span>模型 ID</span><b class="mono">${m.modelId}</b></div><div class="model-detail-field"><span>启用状态</span><b>${m.enabled?statusTag('ENABLED'):statusTag('DISABLED')}</b></div><div class="model-detail-field"><span>测试状态</span><b>${modelTestTag(m.testStatus)}</b></div><div class="model-detail-field"><span>修订版本</span><b>r${m.revision}</b></div><div class="model-detail-field"><span>API Key</span><b>${m.apiKeySet?'已配置':'未配置'}</b></div><div class="model-detail-field"><span>更新时间</span><b>${m.updated}</b></div></div><div class="model-detail-full"><span>Base URL</span><b class="mono">${m.baseUrl}</b></div><div class="notice" style="margin-top:16px">“标识”是平台内部稳定 key；“模型 ID”是 OpenAI 请求中的 model 字段。API Key 不回显。每个 Agent 都必须显式选择一个已启用模型。</div></div>`,`<button class="btn primary" onclick="openModelEdit('${m.id}')">编辑</button>`)
+}
+
+function openAudit(index){
+ const a=S.audits[index];
+ openDrawer(
+   '运行审计',
+   a.trace,
+   `<div class="detail-pane">
+      <div class="section-title">基本信息</div>
+      <div class="audit-detail-grid">
+        <div><span>时间</span><b>${a.time}</b></div>
+        <div><span>审计类型</span><b>${({TASK:'任务',EGRESS:'出网调用',MODEL:'模型调用',CONFIG:'配置变更'})[a.type]||a.type}</b></div>
+        <div><span>操作用户</span><b>${a.actor}</b></div>
+        <div><span>Agent</span><b>${a.agent}</b></div>
+        <div><span>操作目标</span><b class="mono">${a.target}</b></div>
+        <div><span>动作</span><b class="mono">${a.action}</b></div>
+        <div><span>执行结果</span><b>${a.result==='SUCCESS'?tag('成功','green'):tag(a.result,'red')}</b></div>
+        <div><span>Trace ID</span><b class="mono">${a.trace}</b></div>
+      </div>
+   </div>`,
+   ''
+ )
+}
+
+
+function openAgentBasicEdit(id){
+ const a=S.agents.find(x=>x.id===id);
+ openModal(
+   '编辑 Agent 基本信息',
+   `<div class="form-grid">
+      <div class="form-item">
+        <label class="req">名称</label>
+        <input id="editAgentName" value="${a.name}">
+      </div>
+      <div class="form-item">
+        <label class="req">标识</label>
+        <input id="editAgentKey" value="${a.key}">
+      </div>
+
+      <div class="form-item">
+        <label class="req">模型</label>
+        <select id="editAgentModel">
+          ${S.models.filter(m=>m.enabled).map(m=>`<option value="${m.name}" ${m.name===a.model?'selected':''}>${m.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-item">
+        <label>状态</label>
+        <select id="editAgentEnabled">
+          <option value="true" ${a.enabled?'selected':''}>启用</option>
+          <option value="false" ${!a.enabled?'selected':''}>禁用</option>
+        </select>
+      </div>
+
+      <div class="form-item full">
+        <label>系统 Prompt</label>
+        <textarea id="editAgentPrompt" style="min-height:180px">${a.instructions||''}</textarea>
+        <div class="help">系统 Prompt 会作为 Agent 的顶层系统指令参与每次新 Run 的 Prompt 构建。</div>
+      </div>
+
+      <div class="form-item full">
+        <div class="notice">
+          保存后会生成新的 Agent 修订版本。新请求立即使用新配置；
+          已经开始的 Run 继续使用原 RuntimeSnapshot；后台 Task 继续使用其冻结的 execution snapshot。
+        </div>
+      </div>
+    </div>`,
+   `<button class="btn" onclick="closeModal()">取消</button>
+    <button class="btn primary" onclick="saveAgentBasicEdit('${id}')">保存</button>`
+ )
+}
+
+function saveAgentBasicEdit(id){
+ const a=S.agents.find(x=>x.id===id);
+ const name=$('#editAgentName').value.trim();
+ const key=$('#editAgentKey').value.trim();
+ const model=$('#editAgentModel').value;
+ const enabled=$('#editAgentEnabled').value==='true';
+ const prompt=$('#editAgentPrompt').value.trim();
+
+ if(!name||!key)return toast('请填写名称和标识');
+ if(S.agents.some(x=>x.id!==id&&x.key===key))return toast('Agent 标识已存在');
+
+ a.name=name;
+ a.key=key;
+ a.model=model;
+ a.enabled=enabled;
+ a.instructions=prompt;
+ a.revision=(a.revision||0)+1;
+ a.updated='2026-09-17 15:18:00';
+
+ // Keep user display cache in sync for this prototype.
+ S.users.forEach(u=>{
+   if((u.agentGrants||[]).some(g=>g.agentId===id)){
+     u.agents=(u.agentGrants||[]).map(g=>S.agents.find(x=>x.id===g.agentId)?.name).filter(Boolean)
+   }
+ });
+
+ closeModal();
+ render();
+ openAgent(id,'basic');
+ toast(`Agent 已保存并发布为修订版本 r${a.revision}，新请求立即生效`)
+}
+
+
+function openSkillUserScope(skillId){
+ const s=S.skills.find(x=>x.id===skillId);
+ openModal('变更 Skill 用户范围',`
+   <div class="form-item">
+     <label>用户范围</label>
+     <select id="skillUserScopeValue">
+       <option value="ALL" ${s.userScope==='ALL'?'selected':''}>全部授权用户</option>
+       <option value="SELECTED" ${s.userScope==='SELECTED'?'selected':''}>指定用户</option>
+     </select>
+   </div>
+   <div class="notice" style="margin-top:14px">
+     全部授权用户 = 用户有 AgentAccessGrant 且 Agent 已绑定该 Skill。<br>
+     指定用户 = 在上述条件基础上，还必须存在 SkillUserGrant。<br>
+     切换为 ALL 不删除现有指定用户名单，便于后续快速切回 SELECTED。
+   </div>`,
+   `<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveSkillUserScope('${skillId}')">保存</button>`
+ )
+}
+function saveSkillUserScope(skillId){
+ const s=S.skills.find(x=>x.id===skillId);
+ s.userScope=$('#skillUserScopeValue').value;
+ s.updated='2026-09-17 15:40:00';
+ closeModal();openSkill(skillId,'basic');toast('Skill 用户范围已更新，新 Run/Task 立即生效')
+}
+function openSkillUserPicker(skillId){
+ const s=S.skills.find(x=>x.id===skillId),selected=new Set(s.selectedUsers||[]);
+ const users=S.users.filter(u=>!selected.has(u.id));
+ openModal('添加 Skill 指定用户',
+   users.length?`<div class="form-item"><label>用户</label><select id="skillGrantUser">${users.map(u=>`<option value="${u.id}">${u.name} / ${u.account}</option>`).join('')}</select></div>
+   <div class="notice" style="margin-top:14px">此操作只创建 SkillUserGrant，不会授予 Agent 使用权。</div>`:`<div class="empty">没有可添加用户</div>`,
+   users.length?`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveSkillUserGrant('${skillId}')">添加</button>`:`<button class="btn primary" onclick="closeModal()">关闭</button>`
+ )
+}
+function saveSkillUserGrant(skillId){
+ const s=S.skills.find(x=>x.id===skillId),uid=$('#skillGrantUser').value;
+ s.selectedUsers=s.selectedUsers||[];
+ if(!s.selectedUsers.includes(uid))s.selectedUsers.push(uid);
+ closeModal();openSkill(skillId,'users');toast('指定用户已添加，新 Run/Task 立即生效')
+}
+function removeSkillUser(skillId,userId){
+ const s=S.skills.find(x=>x.id===skillId);
+ s.selectedUsers=(s.selectedUsers||[]).filter(id=>id!==userId);
+ openSkill(skillId,'users');toast('指定用户已移除，新 Run/Task 不再获得该 Skill')
+}
+
+function openMcpUserScope(mcpId){
+ const m=S.mcps.find(x=>x.id===mcpId);
+ openModal('变更 MCP 用户范围',`
+   <div class="form-item"><label>用户范围</label><select id="mcpUserScopeValue">
+     <option value="ALL" ${m.userScope==='ALL'?'selected':''}>全部授权用户</option>
+     <option value="SELECTED" ${m.userScope==='SELECTED'?'selected':''}>指定用户</option>
+   </select></div>
+   <div class="notice" style="margin-top:14px">用户范围按 MCP Server 级生效，其下所有 Tool 继承该范围；不做 Tool 级用户授权。</div>`,
+   `<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveMcpUserScope('${mcpId}')">保存</button>`
+ )
+}
+function saveMcpUserScope(mcpId){
+ const m=S.mcps.find(x=>x.id===mcpId);
+ m.userScope=$('#mcpUserScopeValue').value;
+ m.updated='2026-09-17 15:40:00';
+ closeModal();openMcp(mcpId,'basic');toast('MCP 用户范围已更新，新 Run/Task 立即生效')
+}
+function openMcpUserPicker(mcpId){
+ const m=S.mcps.find(x=>x.id===mcpId),selected=new Set(m.selectedUsers||[]);
+ const users=S.users.filter(u=>!selected.has(u.id));
+ openModal('添加 MCP 指定用户',
+   users.length?`<div class="form-item"><label>用户</label><select id="mcpGrantUser">${users.map(u=>`<option value="${u.id}">${u.name} / ${u.account}</option>`).join('')}</select></div>
+   <div class="notice" style="margin-top:14px">此操作只创建 McpUserGrant，不会授予 Agent 使用权，也不会修改 AgentMcpBinding。</div>`:`<div class="empty">没有可添加用户</div>`,
+   users.length?`<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveMcpUserGrant('${mcpId}')">添加</button>`:`<button class="btn primary" onclick="closeModal()">关闭</button>`
+ )
+}
+function saveMcpUserGrant(mcpId){
+ const m=S.mcps.find(x=>x.id===mcpId),uid=$('#mcpGrantUser').value;
+ m.selectedUsers=m.selectedUsers||[];
+ if(!m.selectedUsers.includes(uid))m.selectedUsers.push(uid);
+ closeModal();openMcp(mcpId,'users');toast('指定用户已添加，新 Run/Task 立即生效')
+}
+function removeMcpUser(mcpId,userId){
+ const m=S.mcps.find(x=>x.id===mcpId);
+ m.selectedUsers=(m.selectedUsers||[]).filter(id=>id!==userId);
+ openMcp(mcpId,'users');toast('指定用户已移除，新 Run/Task 不再获得该 MCP')
+}
+
+function render(){const f={overview,agents,skills,mcp,models,users,platforms,tasks,schedules,audits}[current];$('#content').innerHTML=f();}
+function openModal(title,body,foot,wide=''){ $('#modalTitle').textContent=title;$('#modalBody').innerHTML=body;$('#modalFoot').innerHTML=foot||'';$('#modal').classList.toggle('wide',wide==='wide');$('#modalMask').classList.add('show')}
+function closeModal(){$('#modalMask').classList.remove('show')}
+$('#modalMask').addEventListener('click',e=>{if(e.target.id==='modalMask')closeModal()});
+function openDrawer(title,sub,body,actions=''){
+  $('#drawerTitle').textContent=title;
+  $('#drawerSub').textContent=sub||'';
+  $('#drawerBody').innerHTML=body;
+  $('#drawerActions').innerHTML=actions||'';
+  $('#drawerMask').classList.add('show')
+}
+function closeDrawer(){$('#drawerMask').classList.remove('show')}
+function drawerMaskClose(e){if(e.target.id==='drawerMask')closeDrawer()}
+render();
+</script>
+</body>
+</html>
