@@ -1,0 +1,47 @@
+version: 1
+module: Skill 管理与 Artifact
+source_mode: new-with-context
+source_artifacts:
+- MSS智能服务交付平台-详细设计-V1.3
+- MSS智能服务交付平台-V1.3-交互稿.html
+- MSS智能服务交付平台-新版项目骨架
+bindings:
+- spec: mss-platform
+  rule: RULE-API-001
+  enforcement: required
+  reason: JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status
+    配置映射。
+- spec: mss-platform
+  rule: RULE-DATA-001
+  enforcement: required
+  reason: 产品表统一 is_deleted/create_time/update_time；同 Owner Schema 物理 FK，跨 Owner Schema
+    逻辑 UUID。
+- spec: mss-platform
+  rule: RULE-SECRET-001
+  enforcement: required
+  reason: Secret Value 不进 DB/Snapshot/日志/LLM，只保存 SecretRef。
+- spec: mss-platform
+  rule: RULE-AUTH-001
+  enforcement: required
+  reason: User→Agent；Agent→Skill/MCP；SELECTED 再叠加资源用户 Grant；不建三元授权。
+- spec: mss-platform
+  rule: RULE-SKILL-001
+  enforcement: required
+  reason: NFS-backed RWX PVC 为 Artifact 权威源；Runtime/Worker emptyDir 本地 cache；禁止直接从
+    NFS 执行 Python。
+- spec: mss-platform
+  rule: RULE-SNAPSHOT-001
+  enforcement: required
+  reason: 新 Run/Task 冻结 Snapshot；配置/授权变更只影响后续新 Run/Task。
+- spec: mss-platform
+  rule: RULE-REL-001
+  enforcement: required
+  reason: 关系修改使用单关系 POST/DELETE 独立事务，不用全量 PUT。
+- spec: mss-platform
+  rule: RULE-TEST-001
+  enforcement: required
+  reason: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。
+gate:
+  stage: design
+  status: structurally_ready
+  note: 当前骨架未包含 cf_spec_context.py/cf_spec_gate.py；合入真实仓库后必须 refresh/bind/gate。

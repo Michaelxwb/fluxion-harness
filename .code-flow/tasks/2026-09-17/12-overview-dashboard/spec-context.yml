@@ -1,0 +1,33 @@
+version: 1
+module: 概览与运营入口
+source_mode: new-with-context
+source_artifacts:
+- MSS智能服务交付平台-详细设计-V1.3
+- MSS智能服务交付平台-V1.3-交互稿.html
+- MSS智能服务交付平台-新版项目骨架
+bindings:
+- spec: mss-platform
+  rule: RULE-API-001
+  enforcement: required
+  reason: JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status
+    配置映射。
+- spec: mss-platform
+  rule: RULE-UI-001
+  enforcement: required
+  reason: Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。
+- spec: mss-platform
+  rule: RULE-TIME-001
+  enforcement: required
+  reason: Console 时间统一 YYYY-MM-DD HH:mm:ss。
+- spec: mss-platform
+  rule: RULE-FRONT-001
+  enforcement: required
+  reason: 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。
+- spec: mss-platform
+  rule: RULE-TEST-001
+  enforcement: required
+  reason: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。
+gate:
+  stage: design
+  status: structurally_ready
+  note: 当前骨架未包含 cf_spec_context.py/cf_spec_gate.py；合入真实仓库后必须 refresh/bind/gate。

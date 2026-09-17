@@ -1,0 +1,59 @@
+version: 1
+module: 平台底座与公共框架
+source_mode: new-with-context
+source_artifacts:
+- MSS智能服务交付平台-详细设计-V1.3
+- MSS智能服务交付平台-V1.3-交互稿.html
+- MSS智能服务交付平台-新版项目骨架
+bindings:
+- spec: mss-platform
+  rule: RULE-ARCH-001
+  enforcement: required
+  reason: 固定 4 个部署单元；Runtime/Worker 无状态横向扩展。
+- spec: mss-platform
+  rule: RULE-LOG-001
+  enforcement: required
+  reason: 统一 logging-kit；仅配置 LOG_DIR；日志按 service/YYYY-MM-DD.log 保存并带 trace_id/request_id。
+- spec: mss-platform
+  rule: RULE-API-001
+  enforcement: required
+  reason: JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status
+    配置映射。
+- spec: mss-platform
+  rule: RULE-I18N-001
+  enforcement: required
+  reason: 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。
+- spec: mss-platform
+  rule: RULE-UI-001
+  enforcement: required
+  reason: Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。
+- spec: mss-platform
+  rule: RULE-UI-DETAIL-001
+  enforcement: required
+  reason: 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。
+- spec: mss-platform
+  rule: RULE-DATA-001
+  enforcement: required
+  reason: 产品表统一 is_deleted/create_time/update_time；同 Owner Schema 物理 FK，跨 Owner Schema
+    逻辑 UUID。
+- spec: mss-platform
+  rule: RULE-SECRET-001
+  enforcement: required
+  reason: Secret Value 不进 DB/Snapshot/日志/LLM，只保存 SecretRef。
+- spec: mss-platform
+  rule: RULE-SKILL-001
+  enforcement: required
+  reason: NFS-backed RWX PVC 为 Artifact 权威源；Runtime/Worker emptyDir 本地 cache；禁止直接从
+    NFS 执行 Python。
+- spec: mss-platform
+  rule: RULE-FRONT-001
+  enforcement: required
+  reason: 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。
+- spec: mss-platform
+  rule: RULE-TEST-001
+  enforcement: required
+  reason: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。
+gate:
+  stage: design
+  status: structurally_ready
+  note: 当前骨架未包含 cf_spec_context.py/cf_spec_gate.py；合入真实仓库后必须 refresh/bind/gate。
