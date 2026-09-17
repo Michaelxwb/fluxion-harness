@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: muad-agent-worker
+  namespace: muad
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: muad-agent-worker
+  template:
+    metadata:
+      labels:
+        app: muad-agent-worker
+    spec:
+      containers:
+        - name: app
+          image: muad-agent-worker:latest
+          ports:
+            - containerPort: 8002
+          envFrom:
+            - configMapRef:
+                name: muad-common
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: muad-external
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: muad-external
+                  key: REDIS_URL
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8002
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8002
+          volumeMounts:
+            - name: artifacts
+              mountPath: /mnt/muad-artifacts
+            - name: skill-cache
+              mountPath: /var/cache/muad/skills
+      volumes:
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: muad-artifacts-rwx
+        - name: skill-cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: muad-agent-worker
+  namespace: muad
+spec:
+  selector:
+    app: muad-agent-worker
+  ports:
+    - port: 8002
+      targetPort: 8002

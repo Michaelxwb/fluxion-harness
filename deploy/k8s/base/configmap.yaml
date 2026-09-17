@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: muad-common
+  namespace: muad
+data:
+  DEFAULT_LOCALE: zh-CN
+  LOG_DIR: /var/log/muad
+  ARTIFACT_ROOT: /mnt/muad-artifacts
+  SKILL_CACHE_ROOT: /var/cache/muad/skills
+  API_MESSAGES_FILE: /app/config/api-messages.yaml

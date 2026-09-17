@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: muad-console-platform
+  namespace: muad
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: muad-console-platform
+  template:
+    metadata:
+      labels:
+        app: muad-console-platform
+    spec:
+      containers:
+        - name: app
+          image: muad-console-platform:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: muad-common
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: muad-external
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: muad-external
+                  key: REDIS_URL
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+          volumeMounts:
+            - name: artifacts
+              mountPath: /mnt/muad-artifacts
+      volumes:
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: muad-artifacts-rwx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: muad-console-platform
+  namespace: muad
+spec:
+  selector:
+    app: muad-console-platform
+  ports:
+    - port: 8000
+      targetPort: 8000

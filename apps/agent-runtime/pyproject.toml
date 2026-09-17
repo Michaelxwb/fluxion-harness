@@ -1,0 +1,31 @@
+[project]
+name = "muad-agent-runtime"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "muad-api",
+  "muad-common",
+  "muad-contracts",
+  "muad-artifact-store",
+  "muad-agent-core",
+  "muad-platform-sdk",
+  "muad-logging",
+]
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.uv.sources]
+muad-api = { workspace = true }
+muad-common = { workspace = true }
+muad-contracts = { workspace = true }
+muad-artifact-store = { workspace = true }
+muad-agent-core = { workspace = true }
+muad-platform-sdk = { workspace = true }
+muad-logging = { workspace = true }

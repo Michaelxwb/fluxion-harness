@@ -1,25 +1,15 @@
-.PHONY: api agent worker test lint architecture console gateway
+.PHONY: check compile test i18n-check error-message-check
 
-api:
-	uv run uvicorn apps.platform_api.main:app --reload --port 8000
-
-agent:
-	uv run uvicorn apps.agent_runtime.main:app --reload --port 8001
-
-worker:
-	uv run python -m apps.worker.main
+compile:
+	python -m compileall -q apps packages migrations
 
 test:
-	uv run pytest -q
+	python -m pytest -q
 
-lint:
-	uv run ruff check .
+i18n-check:
+	python scripts/check_frontend_i18n.py
 
-architecture:
-	uv run pytest -q tests/architecture
+error-message-check:
+	python scripts/check_error_message_hardcode.py
 
-console:
-	cd frontend/console && pnpm dev
-
-gateway:
-	cd apps/channel_gateway && pnpm dev
+check: compile test i18n-check error-message-check

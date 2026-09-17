@@ -1,0 +1,21 @@
+[project]
+name = "muad-agent-core"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "muad-contracts",
+  "muad-artifact-store",
+  "muad-logging",
+]
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.uv.sources]
+muad-contracts = { workspace = true }
+muad-artifact-store = { workspace = true }
+muad-logging = { workspace = true }

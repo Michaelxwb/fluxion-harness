@@ -1,252 +1,286 @@
-# 通用智能服务执行框架
+# MSS 智能服务交付平台 - 新版项目骨架
 
-当前版本：**v0.3.0**
-
-这是一个面向开源复用的 Agent + ServiceExecution 框架骨架。框架核心与具体业务项目解耦，业务通过 `Integration + Provider/Adapter` 接入。
-
-## 当前架构
+该骨架按 V1.3 最新设计基线初始化，核心后台服务固定为：
 
 ```text
-Channel
-  ↓
-channel-gateway
-  ↓
-agent-runtime
-  ├── 普通问答 / 短时只读 Capability
-  └── ExecutionService
-          ↓
-      PostgreSQL
-          ↓
-        worker
-          ├── Agent Step
-          ├── Capability Step
-          └── System Step
+muad-console-platform
+muad-agent-runtime
+muad-agent-worker
+muad-im-gateway
 ```
 
-控制面：
+外部依赖：
 
 ```text
-Console
-→ platform-api
-→ Agent / Service / Capability / Knowledge / User / Execution 管理
+PostgreSQL
+Redis
+NFS / 企业共享文件存储（Kubernetes RWX PVC）
+Secret Provider
+OpenTelemetry Backend
 ```
 
-生产常驻应用镜像保持四个：
+## 一、框架层固定能力
+
+### 1. 日志模块
+
+所有服务统一依赖：
 
 ```text
-platform-api
-agent-runtime
-worker
-channel-gateway
+packages/logging-kit
 ```
 
-PostgreSQL、Redis、Object Store、Secret Provider、OTel 为外部基础设施。
+业务服务只需要：
 
-## v0.3.0 关键基线
+```python
+configure_logging('muad-agent-runtime')
+```
 
-### 数据库统一字段
+部署侧只配置根目录：
 
-所有 Framework 自建表统一继承：
+```bash
+LOG_DIR=/var/log/muad
+```
+
+落盘结构：
 
 ```text
-is_deleted  BOOLEAN NOT NULL DEFAULT FALSE
-create_time TIMESTAMPTZ NOT NULL DEFAULT now()
-update_time TIMESTAMPTZ NOT NULL DEFAULT now()
+${LOG_DIR}/
+├── muad-console-platform/
+│   └── 2026-09-17.log
+├── muad-agent-runtime/
+│   └── 2026-09-17.log
+├── muad-agent-worker/
+│   └── 2026-09-17.log
+└── muad-im-gateway/
+    └── 2026-09-17.log
 ```
 
-代码通过 `SoftDeleteTimestampMixin` 强制落实，并有 Architecture Test 检查全部 ORM Table。
+日志统一 JSON，自动注入：
 
-普通 Repository 查询默认过滤 `is_deleted=false`；删除默认逻辑删除。
+```text
+timestamp
+service
+level
+logger
+trace_id
+request_id
+message
+```
 
-LangGraph Checkpointer 等第三方库自管理表不改 Schema，避免破坏第三方升级兼容。
+业务模块禁止自行创建 FileHandler/RotatingFileHandler。
 
-### 后端统一封装
+### 2. 统一 API 响应
 
-普通 JSON API 统一：
+JSON REST API 统一返回：
 
 ```json
 {
-  "code": "OK",
-  "message": "success",
+  "code": "0",
+  "msg": "成功",
   "data": {},
-  "request_id": "req-id",
-  "timestamp": "ISO-8601"
+  "trace_id": "...",
+  "request_id": "...",
+  "timestamp": "..."
 }
 ```
 
-同时统一：
+业务错误只写 code：
+
+```python
+raise AppError(ErrorCode.AGENT_NOT_FOUND)
+```
+
+禁止在业务代码中直接写用户可见错误信息：
+
+```python
+# 禁止
+raise HTTPException(404, 'Agent 不存在')
+raise AppError('AGENT_NOT_FOUND', 'Agent 不存在')
+```
+
+HTTP status + 中英文 msg 统一由：
 
 ```text
-AppError
-RequestValidationError
-HTTPException
-Unknown Exception
-request_id
-JSON stdout logging
-sensitive-field redaction
+config/api-messages.yaml
 ```
 
-### 前端
+映射。
 
-Console 唯一通用 UI 组件库：
+SSE、文件下载等非 JSON 协议按各自 Contract 返回，不强套 JSON Envelope。
+
+### 3. 后端中英文
+
+优先读取：
 
 ```text
-@douyinfe/semi-ui
+X-Locale: zh-CN
+X-Locale: en-US
 ```
 
-标准列表布局：
+没有 `X-Locale` 时读取 `Accept-Language`。
+
+新增业务错误只增加配置：
+
+```yaml
+ORDER_NOT_FOUND:
+  http_status: 404
+  messages:
+    zh-CN: 订单不存在
+    en-US: Order not found
+```
+
+代码仍然只写：
+
+```python
+raise AppError('ORDER_NOT_FOUND')
+```
+
+### 4. 前端中英文
+
+Console 使用 `react-i18next`，统一 locale 文件：
 
 ```text
-左上：新增/主要操作
-右上：过滤/筛选/搜索/刷新
-中间：Semi Table
-右下：统一 Pagination
-最后一列：行操作
+apps/console-platform/frontend/src/locales/
+├── zh-CN.json
+└── en-US.json
 ```
 
-所有普通资源列表复用 `StandardListPage`。
+页面使用：
 
-### Tool / Workspace / Sandbox
+```tsx
+t('agent.fields.name')
+```
+
+切换语言后框架自动：
+
+1. 切换页面文案；
+2. 保存 localStorage；
+3. API Client 自动发送 `X-Locale`；
+4. 后端错误 `msg` 使用相同语言。
+
+新增业务只补 locale key，不重新实现语言切换逻辑。
+
+### 5. Skill Artifact
+
+V1 不额外部署 MinIO/S3：
 
 ```text
-filesystem.read
-filesystem.write
-filesystem.edit
-filesystem.glob
-filesystem.grep
-shell.execute
+NFS / 企业文件存储
+ -> RWX PVC
+ -> /mnt/muad-artifacts
 ```
 
-统一作为 Sandbox-backed Capability，不新增 Tool Runtime。
-
-LocalSandbox 仅用于开发/受信环境；生产启用 shell/不可信代码前必须实现真正隔离的 SandboxExecutor。
-
-## 目录
+Runtime / Worker：
 
 ```text
-apps/
-  platform_api/
-  agent_runtime/
-  worker/
-  channel_gateway/
-
-framework/
-  domain/
-  contracts/
-  agent_core/
-  execution/
-  capability/
-  knowledge/
-  auth/
-  channel/
-  memory/
-  workspace/
-  observability/
-  web/
-
-adapters/
-  postgres/
-  sandbox/
-
-integrations/
-  demo/
-  mss/
-
-frontend/
-  console/
-
-migrations/
-tests/
-docs/
-.code-flow/
+/mnt/muad-artifacts        # 权威 Artifact 源
+/var/cache/muad/skills     # emptyDir，本地执行缓存
 ```
 
-## 设计文档
-
-`docs/` 已全部中文化，并按照：
-
-- `design-full.md`
-- `design-lite.md`
-- `design-frontend.md`
-
-重新完成模块详细设计。
-
-cf-task:align 的本轮产物位于：
+每次执行都经过：
 
 ```text
-.code-flow/tasks/2026-09-10/framework-v0.3.0/
+SkillArtifactCache.ensure
+ -> memory/local READY hit
+ -> hit: 直接执行，不访问 NFS
+ -> miss: 从 NFS PVC 复制
+ -> checksum
+ -> 临时目录解压
+ -> atomic rename
+ -> READY
+ -> SkillExecutor
 ```
 
-## 本地开发
+Skill 不直接从 NFS 目录执行。
 
-安装 Python：
+## 二、目录结构
 
-```bash
-python -m pip install -e '.[dev,agent,redis]'
+```text
+MSS智能服务交付平台-新版项目骨架/
+├── apps/
+│   ├── console-platform/
+│   │   ├── backend/
+│   │   └── frontend/
+│   ├── agent-runtime/
+│   ├── agent-worker/
+│   └── im-gateway/
+├── packages/
+│   ├── logging-kit/
+│   ├── api-kit/
+│   ├── contracts/
+│   ├── common/
+│   ├── artifact-store/
+│   ├── agent-core/
+│   ├── skill-sdk/
+│   └── platform-sdk/
+├── config/
+├── migrations/
+├── deploy/k8s/base/
+├── docs/
+├── scripts/
+└── tests/
 ```
 
-执行测试：
+## 三、本地运行
+
+推荐 Python 3.12+、Node 20+、uv。
 
 ```bash
-pytest -q
+cp .env.example .env
+uv sync --all-packages
 ```
 
-数据库迁移：
+Console Platform：
 
 ```bash
-alembic upgrade head
+uv run uvicorn muad_console_platform.main:app \
+  --app-dir apps/console-platform/backend/src \
+  --reload --port 8000
 ```
 
-启动 Platform API：
+Runtime：
 
 ```bash
-uvicorn apps.platform_api.main:app --reload --port 8000
+uv run uvicorn muad_agent_runtime.main:app \
+  --app-dir apps/agent-runtime/src \
+  --reload --port 8001
 ```
 
-Agent Runtime：
+Worker Admin API：
 
 ```bash
-uvicorn apps.agent_runtime.main:app --reload --port 8001
+uv run uvicorn muad_agent_worker.main:app \
+  --app-dir apps/agent-worker/src \
+  --reload --port 8002
 ```
 
-Worker：
+Gateway：
 
 ```bash
-python -m apps.worker.main
+uv run uvicorn muad_im_gateway.main:app \
+  --app-dir apps/im-gateway/src \
+  --reload --port 8003
 ```
 
-Channel Gateway：
+前端：
 
 ```bash
-cd apps/channel_gateway
+cd apps/console-platform/frontend
 npm install
 npm run dev
 ```
 
-Console：
+## 四、检查
 
 ```bash
-cd frontend/console
-npm install
-npm run dev
+make check
 ```
 
-## 当前实现边界
+包括：
 
-该版本是**架构对齐后的 Framework 基线代码**，不是对任意生产场景作“全部业务功能已经实现”的承诺。
-
-当前重点已经落地：
-
-```text
-领域/Contract 边界
-统一数据库 ORM Schema
-Alembic 初始 Schema
-Soft Delete/Timestamp Gate
-Capability/Sandbox SPI
-统一 Response/Logging
-Semi Design / StandardListPage
-Platform API Agent CRUD 基线
-Architecture Tests
-```
-
-Worker 的真实生产级 Step State Machine、完整 LangGraph AgentExecutor、具体 Project Integration、生产 Sandbox、WeCom Adapter 等仍应按 `docs/02-模块设计` 中的验收场景继续实现和验证。
+- Python compile；
+- 日志按服务/日期落盘；
+- API code -> 中英文 msg；
+- locale key 中英文一致；
+- Skill Artifact local cache；
+- 错误信息硬编码静态扫描。

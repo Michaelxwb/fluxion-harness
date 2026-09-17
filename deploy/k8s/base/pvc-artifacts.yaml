@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: muad-artifacts-rwx
+  namespace: muad
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  # 按实际环境填写现有 NFS/RWX StorageClass。
+  # storageClassName: nfs-rwx

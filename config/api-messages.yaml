@@ -1,0 +1,84 @@
+codes:
+  "0":
+    http_status: 200
+    messages:
+      zh-CN: 成功
+      en-US: Success
+
+  COMMON_BAD_REQUEST:
+    http_status: 400
+    messages:
+      zh-CN: 请求参数错误
+      en-US: Bad request
+
+  COMMON_VALIDATION_ERROR:
+    http_status: 422
+    messages:
+      zh-CN: 请求参数校验失败
+      en-US: Request validation failed
+
+  COMMON_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: 请求的资源不存在
+      en-US: Resource not found
+
+  COMMON_CONFLICT:
+    http_status: 409
+    messages:
+      zh-CN: 数据已发生变化，请刷新后重试
+      en-US: The resource has changed. Refresh and try again.
+
+  COMMON_INTERNAL_ERROR:
+    http_status: 500
+    messages:
+      zh-CN: 系统内部错误
+      en-US: Internal server error
+
+  AGENT_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: Agent 不存在
+      en-US: Agent not found
+
+  AGENT_DISABLED:
+    http_status: 409
+    messages:
+      zh-CN: Agent 已禁用
+      en-US: Agent is disabled
+
+  AGENT_ACCESS_DENIED:
+    http_status: 403
+    messages:
+      zh-CN: 无权使用该 Agent
+      en-US: Access to this Agent is denied
+
+  REVISION_CONFLICT:
+    http_status: 409
+    messages:
+      zh-CN: 配置版本已变化，请刷新后重试
+      en-US: The configuration revision has changed. Refresh and try again.
+
+  MODEL_DISABLED:
+    http_status: 409
+    messages:
+      zh-CN: 模型已禁用
+      en-US: Model is disabled
+
+  SKILL_ARTIFACT_UNAVAILABLE:
+    http_status: 503
+    messages:
+      zh-CN: Skill 制品暂时不可用
+      en-US: Skill artifact is temporarily unavailable
+
+  SKILL_ARTIFACT_CHECKSUM_MISMATCH:
+    http_status: 500
+    messages:
+      zh-CN: Skill 制品校验失败
+      en-US: Skill artifact checksum verification failed
+
+  MCP_DISCOVERY_FAILED:
+    http_status: 502
+    messages:
+      zh-CN: MCP 工具发现失败
+      en-US: MCP tool discovery failed
