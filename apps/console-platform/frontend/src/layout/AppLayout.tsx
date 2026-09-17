@@ -1,7 +1,8 @@
-import { Layout, Nav, Select, Typography } from '@douyinfe/semi-ui';
+import { Button, Dropdown, Layout, Nav, Select, Typography } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
+import { useAuth } from '../auth/AuthContext';
 import { menuItems } from '../config/menu';
 import { changeLocale, currentLocale, type SupportedLocale } from '../i18n';
 
@@ -11,6 +12,8 @@ export function AppLayout() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
+  const { account, logout } = useAuth();
+  const visibleItems = menuItems.filter((item) => !item.adminOnly || account?.role === 'ADMIN');
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -20,7 +23,7 @@ export function AppLayout() {
         </div>
         <Nav
           selectedKeys={[location.pathname]}
-          items={menuItems.map((item) => ({ itemKey: item.path, text: t(item.key) }))}
+          items={visibleItems.map((item) => ({ itemKey: item.path, text: t(item.key) }))}
           onSelect={({ itemKey }) => navigate(String(itemKey))}
           style={{ maxWidth: 220 }}
         />
@@ -32,6 +35,7 @@ export function AppLayout() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
+            gap: 16,
             padding: '0 24px',
             background: 'var(--semi-color-bg-1)'
           }}
@@ -45,6 +49,26 @@ export function AppLayout() {
               { value: 'en-US', label: t('common.language.en') }
             ]}
           />
+          <Dropdown
+            trigger="click"
+            render={
+              <Dropdown.Menu>
+                <Dropdown.Item
+                  onClick={() => {
+                    void logout();
+                  }}
+                >
+                  {t('auth.logout')}
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            }
+          >
+            <Button theme="borderless">
+              {account
+                ? `${account.display_name} · ${t(`auth.role.${account.role.toLowerCase()}`)}`
+                : t('common.loading')}
+            </Button>
+          </Dropdown>
         </Header>
         <Content style={{ padding: 24 }}>
           <Outlet />

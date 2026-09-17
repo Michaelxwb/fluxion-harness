@@ -1,15 +1,21 @@
-.PHONY: check compile test i18n-check error-message-check
+.PHONY: check compile test i18n-check error-message-check lint typecheck
 
 compile:
-	python -m compileall -q apps packages migrations
+	uv run python -m compileall -q apps packages migrations
 
 test:
-	python -m pytest -q
+	uv run python -m pytest -q
 
 i18n-check:
-	python scripts/check_frontend_i18n.py
+	uv run python scripts/check_frontend_i18n.py
 
 error-message-check:
-	python scripts/check_error_message_hardcode.py
+	uv run python scripts/check_error_message_hardcode.py
 
-check: compile test i18n-check error-message-check
+lint:
+	uv run ruff check .
+
+typecheck:
+	uv run mypy apps packages
+
+check: compile test i18n-check error-message-check lint typecheck

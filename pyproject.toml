@@ -27,20 +27,65 @@ dev = [
   "ruff>=0.9,<1",
   "mypy>=1.14,<2",
   "types-jsonschema>=4.23,<5",
+  "types-PyYAML>=6.0,<7",
+  "muad-agent-core",
+  "muad-api",
+  "muad-artifact-store",
+  "muad-common",
+  "muad-contracts",
+  "muad-logging",
+  "muad-platform-sdk",
+  "muad-skill-sdk",
+  "muad-agent-runtime",
+  "muad-agent-worker",
+  "muad-console-platform",
+  "muad-im-gateway",
 ]
+
+[tool.uv.sources]
+muad-agent-core = { workspace = true }
+muad-api = { workspace = true }
+muad-artifact-store = { workspace = true }
+muad-common = { workspace = true }
+muad-contracts = { workspace = true }
+muad-logging = { workspace = true }
+muad-platform-sdk = { workspace = true }
+muad-skill-sdk = { workspace = true }
+muad-agent-runtime = { workspace = true }
+muad-agent-worker = { workspace = true }
+muad-console-platform = { workspace = true }
+muad-im-gateway = { workspace = true }
 
 [tool.uv]
 default-groups = []
+
+[tool.uv.workspace]
+members = [
+  "packages/agent-core",
+  "packages/api-kit",
+  "packages/artifact-store",
+  "packages/common",
+  "packages/contracts",
+  "packages/logging-kit",
+  "packages/platform-sdk",
+  "packages/skill-sdk",
+  "apps/agent-runtime",
+  "apps/agent-worker",
+  "apps/im-gateway",
+  "apps/console-platform/backend",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 
 [tool.ruff]
 target-version = "py312"
 line-length = 110
-extend-exclude = ["migrations/versions"]
+extend-exclude = ["migrations/versions", ".code-flow"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
@@ -48,4 +93,4 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-exclude = ["frontend", "apps/channel_gateway"]
+exclude = ["frontend", "apps/console-platform/frontend"]

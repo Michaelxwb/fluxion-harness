@@ -6,6 +6,9 @@ dependencies = [
   "muad-contracts",
   "muad-artifact-store",
   "muad-logging",
+  "muad-skill-sdk",
+  "httpx>=0.28,<1",
+  "langgraph>=1,<2",
 ]
 
 [build-system]
@@ -15,7 +18,11 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
 [tool.uv.sources]
 muad-contracts = { workspace = true }
 muad-artifact-store = { workspace = true }
 muad-logging = { workspace = true }
+muad-skill-sdk = { workspace = true }

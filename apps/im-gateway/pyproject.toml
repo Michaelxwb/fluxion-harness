@@ -5,10 +5,14 @@ requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115",
   "uvicorn[standard]>=0.30",
+  "httpx>=0.28,<1",
+  "redis>=5,<7",
   "muad-api",
   "muad-common",
   "muad-contracts",
   "muad-logging",
+  "muad-platform-sdk",
+  "wecom-aibot-python-sdk>=1,<2",
 ]
 
 [build-system]
@@ -23,3 +27,4 @@ muad-api = { workspace = true }
 muad-common = { workspace = true }
 muad-contracts = { workspace = true }
 muad-logging = { workspace = true }
+muad-platform-sdk = { workspace = true }

@@ -8,19 +8,12 @@ validators:
       timeout: 30000
       on_fail: "检查语法错误"
 
-    # tsconfig.json 分处两个工程：frontend/console 与 apps/channel_gateway。
-    # 在项目根执行 npx tsc 会去下载 TypeScript 并报 "you are looking for ..."；
-    # 只跑 console 又会让 gateway 的 .ts 得到假 PASS。故按工程分别检查。
-    # 依赖未安装时显式跳过——与 pytest 连不上 PG 时 skip 同口径。
-    - name: "TypeScript 类型检查 (frontend/console)"
-      trigger: "frontend/console/**/*.{ts,tsx}"
-      command: "cd frontend/console && if [ ! -d node_modules ]; then echo 'SKIP: frontend/console/node_modules 未安装，类型检查未执行'; else npx tsc --noEmit; fi"
-      timeout: 30000
-      on_fail: "检查类型定义，参见 specs/frontend/quality-standards.md"
-
-    - name: "TypeScript 类型检查 (apps/channel_gateway)"
-      trigger: "apps/channel_gateway/**/*.{ts,tsx}"
-      command: "cd apps/channel_gateway && if [ ! -d node_modules ]; then echo 'SKIP: apps/channel_gateway/node_modules 未安装，类型检查未执行（先 npm install）'; else npx tsc --noEmit; fi"
+    # 真实前端工程只有 apps/console-platform/frontend 一处（含 tsconfig.json）。
+    # 在项目根执行 npx tsc 会去下载 TypeScript 并报 "you are looking for ..."，
+    # 故进入工程目录执行。依赖未安装时显式跳过——与 pytest 连不上 PG 时 skip 同口径。
+    - name: "TypeScript 类型检查 (apps/console-platform/frontend)"
+      trigger: "apps/console-platform/frontend/**/*.{ts,tsx}"
+      command: "cd apps/console-platform/frontend && if [ ! -d node_modules ]; then echo 'SKIP: apps/console-platform/frontend/node_modules 未安装，类型检查未执行（先 npm install）'; else npx tsc --noEmit; fi"
       timeout: 30000
       on_fail: "检查类型定义，参见 specs/frontend/quality-standards.md"
 

@@ -2,16 +2,41 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from ..types import (
+    PlatformConfig,
+    PlatformRequest,
+    PlatformSession,
+    PreparedRequest,
+    SecretValue,
+    SessionMode,
+)
+
 
 class PlatformAdapter(Protocol):
     key: str
+    name: str
     version: str
+    session_mode: SessionMode
 
-    async def authenticate(self, credential: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]: ...
-    async def validate(self, session: dict[str, Any], config: dict[str, Any]) -> bool: ...
+    platform_config_schema: dict[str, Any]
+    credential_schema: dict[str, Any]
+
+    async def authenticate(
+        self,
+        platform: PlatformConfig,
+        credential: SecretValue,
+    ) -> PlatformSession | None: ...
+
+    async def validate(
+        self,
+        platform: PlatformConfig,
+        session: PlatformSession,
+    ) -> bool: ...
+
     async def prepare_request(
         self,
-        session: dict[str, Any],
-        target: dict[str, Any],
-        payload: dict[str, Any],
-    ) -> dict[str, Any]: ...
+        platform: PlatformConfig,
+        session: PlatformSession | None,
+        request: PlatformRequest,
+        credential: SecretValue | None,
+    ) -> PreparedRequest: ...

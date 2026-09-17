@@ -2,7 +2,12 @@
 name = "muad-skill-sdk"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2.9"]
+dependencies = [
+  "pydantic>=2.9",
+  "muad-platform-sdk",
+  "muad-contracts",
+  "pyyaml>=6,<7",
+]
 
 [build-system]
 requires = ["setuptools>=70"]
@@ -10,3 +15,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+[tool.uv.sources]
+muad-platform-sdk = { workspace = true }
+muad-contracts = { workspace = true }

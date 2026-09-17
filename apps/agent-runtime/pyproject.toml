@@ -10,8 +10,10 @@ dependencies = [
   "muad-contracts",
   "muad-artifact-store",
   "muad-agent-core",
+  "muad-skill-sdk",
   "muad-platform-sdk",
   "muad-logging",
+  "redis>=5,<7",
 ]
 
 [build-system]
@@ -27,5 +29,6 @@ muad-common = { workspace = true }
 muad-contracts = { workspace = true }
 muad-artifact-store = { workspace = true }
 muad-agent-core = { workspace = true }
+muad-skill-sdk = { workspace = true }
 muad-platform-sdk = { workspace = true }
 muad-logging = { workspace = true }

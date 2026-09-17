@@ -1,7 +1,8 @@
 import uuid
 
-from conftest import TenantContext
 from httpx import AsyncClient
+
+from console_platform.conftest import TenantContext
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:

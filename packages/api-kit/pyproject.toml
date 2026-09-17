@@ -6,6 +6,7 @@ dependencies = [
   "fastapi>=0.115",
   "pydantic>=2.9",
   "PyYAML>=6.0",
+  "muad-common",
   "muad-logging",
 ]
 
@@ -16,5 +17,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
 [tool.uv.sources]
+muad-common = { workspace = true }
 muad-logging = { workspace = true }

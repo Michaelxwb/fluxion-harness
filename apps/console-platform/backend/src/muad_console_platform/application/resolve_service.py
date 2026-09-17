@@ -3,21 +3,25 @@ from typing import Literal, cast
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
+    ResolvedAgent,
     ResolveDefinitionRequest,
     ResolveDefinitionResponse,
-    ResolvedAgent,
     ResolvedModel,
+    ResolvedSkill,
+    SkillExecutionMode,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.repositories.agent_access_grant_repository import AgentAccessGrantRepository
 from ..infrastructure.repositories.agent_repository import AgentRepository
+from ..infrastructure.repositories.skill_repository import SkillRepository
 
 
 class ResolveService:
     def __init__(self, session: AsyncSession) -> None:
         self._agents = AgentRepository(session)
         self._grants = AgentAccessGrantRepository(session)
+        self._skills = SkillRepository(session)
 
     async def resolve_definition(
         self,
@@ -58,4 +62,31 @@ class ResolveService:
                 secret_ref=model.secret_ref,
                 params=model.params_json,
             ),
+            skills=await self._resolved_skills(tenant_id, payload),
         )
+
+    async def _resolved_skills(
+        self,
+        tenant_id: str,
+        payload: ResolveDefinitionRequest,
+    ) -> list[ResolvedSkill]:
+        rows = await self._skills.list_effective_for_agent(
+            tenant_id,
+            payload.agent_id,
+            payload.actor_user_id,
+        )
+        return [
+            ResolvedSkill(
+                skill_id=skill.id,
+                artifact_id=artifact.id,
+                key=skill.key,
+                name=skill.name,
+                description=skill.description,
+                version=artifact.version,
+                checksum=artifact.checksum,
+                storage_key=artifact.storage_key,
+                execution_mode=cast(SkillExecutionMode, artifact.execution_mode),
+                frontmatter=artifact.frontmatter_json,
+            )
+            for skill, artifact in rows
+        ]

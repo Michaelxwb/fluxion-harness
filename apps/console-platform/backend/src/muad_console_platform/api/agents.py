@@ -1,29 +1,151 @@
-from fastapi import APIRouter, Request
+import uuid
+from typing import Annotated, Any
 
-from muad_api import AppError, ok
-from muad_api.error_codes import ErrorCode
+from fastapi import APIRouter, Depends, Query, Request
+from muad_api import ApiResponse, ok, paginate
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..application.agent_service import AgentService
+from ..application.audit_service import AuditActor
+from ..application.dto import AgentCreateRequest, AgentDetail, AgentListItem, AgentUpdateRequest
+from ..application.skill_service import SkillService
+from ..infrastructure.db import get_session
+from ..infrastructure.models.control import AgentDefinition
+from .deps import CurrentAccount, get_source_ip, get_tenant_id
+
+TenantId = Annotated[str, Depends(get_tenant_id)]
+Session = Annotated[AsyncSession, Depends(get_session)]
 
 router = APIRouter(prefix="/api/v1/agents", tags=["agents"])
 
-_demo = {
-    "id": "00000000-0000-0000-0000-000000000001",
-    "name": "MSS 服务助手",
-    "key": "mss-assistant",
-    "revision": 1,
-    "enabled": True,
-}
+
+def _detail(agent: AgentDefinition) -> dict[str, Any]:
+    return AgentDetail.model_validate(agent).model_dump(mode="json")
+
+
+def _item(agent: AgentDefinition) -> dict[str, Any]:
+    return AgentListItem.model_validate(agent).model_dump(mode="json")
+
+
+def _actor(account: CurrentAccount, request: Request) -> AuditActor:
+    return AuditActor(account_id=account.id, source_ip=get_source_ip(request))
 
 
 @router.get("")
-async def list_agents(request: Request):
+async def list_agents(
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> ApiResponse[Any]:
+    agents, total = await AgentService(session).list_agents(tenant_id, page, page_size)
     return ok(
-        request.app.state.catalog,
-        {"items": [_demo], "page": 1, "page_size": 20, "total": 1},
+        request.app.state.message_catalog,
+        paginate(
+            items=[_item(agent) for agent in agents],
+            page=page,
+            page_size=page_size,
+            total=total,
+        ),
     )
 
 
+@router.post("")
+async def create_agent(
+    payload: AgentCreateRequest,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    agent = await AgentService(session).create_agent(tenant_id, payload, _actor(account, request))
+    return ok(request.app.state.message_catalog, _detail(agent))
+
+
 @router.get("/{agent_id}")
-async def get_agent(agent_id: str, request: Request):
-    if agent_id != _demo["id"]:
-        raise AppError(ErrorCode.AGENT_NOT_FOUND)
-    return ok(request.app.state.catalog, _demo)
+async def get_agent(
+    agent_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    agent = await AgentService(session).get_agent(tenant_id, agent_id)
+    return ok(request.app.state.message_catalog, _detail(agent))
+
+
+@router.put("/{agent_id}")
+async def update_agent(
+    agent_id: uuid.UUID,
+    payload: AgentUpdateRequest,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    agent = await AgentService(session).update_agent(
+        tenant_id,
+        agent_id,
+        payload,
+        _actor(account, request),
+    )
+    return ok(request.app.state.message_catalog, _detail(agent))
+
+
+@router.delete("/{agent_id}")
+async def delete_agent(
+    agent_id: uuid.UUID,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    await AgentService(session).delete_agent(tenant_id, agent_id, _actor(account, request))
+    return ok(request.app.state.message_catalog, {"deleted": True})
+
+
+@router.get("/{agent_id}/skills")
+async def list_agent_skills(
+    agent_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    items = await SkillService(session).list_agent_skills(tenant_id, agent_id)
+    return ok(request.app.state.message_catalog, [item.model_dump(mode="json") for item in items])
+
+
+@router.post("/{agent_id}/skills/{skill_id}")
+async def bind_agent_skill(
+    agent_id: uuid.UUID,
+    skill_id: uuid.UUID,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    item = await SkillService(session).bind_skill(
+        tenant_id,
+        agent_id,
+        skill_id,
+        _actor(account, request),
+    )
+    return ok(request.app.state.message_catalog, item.model_dump(mode="json"))
+
+
+@router.delete("/{agent_id}/skills/{skill_id}")
+async def unbind_agent_skill(
+    agent_id: uuid.UUID,
+    skill_id: uuid.UUID,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    await SkillService(session).unbind_skill(
+        tenant_id,
+        agent_id,
+        skill_id,
+        _actor(account, request),
+    )
+    return ok(request.app.state.message_catalog, {"deleted": True})

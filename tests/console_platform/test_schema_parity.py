@@ -2,6 +2,7 @@ from typing import Any
 
 import sqlalchemy as sa
 from muad_console_platform.infrastructure.db import get_session_factory
+from muad_console_platform.infrastructure.models.auth import ConsoleAccount, ConsoleSession
 from muad_console_platform.infrastructure.models.control import AgentDefinition, ModelDefinition
 from sqlalchemy import inspect
 
@@ -13,6 +14,11 @@ EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
         "ix_agent_definition_model_enabled",
     ),
     "model_definition": ("uq_model_definition_tenant_key",),
+    "console_account": ("uq_console_account_tenant_username",),
+    "console_session": (
+        "uq_console_session_token_hash",
+        "ix_console_session_account_expires",
+    ),
 }
 
 
@@ -116,3 +122,13 @@ async def test_agent_definition_schema_parity(database_guard: None) -> None:
 async def test_model_definition_schema_parity(database_guard: None) -> None:
     diffs = _compare(ModelDefinition.__table__, await _reflect("model_definition"))
     assert not diffs, "model_definition schema mismatch:\n" + "\n".join(diffs)
+
+
+async def test_console_account_schema_parity(database_guard: None) -> None:
+    diffs = _compare(ConsoleAccount.__table__, await _reflect("console_account"))
+    assert not diffs, "console_account schema mismatch:\n" + "\n".join(diffs)
+
+
+async def test_console_session_schema_parity(database_guard: None) -> None:
+    diffs = _compare(ConsoleSession.__table__, await _reflect("console_session"))
+    assert not diffs, "console_session schema mismatch:\n" + "\n".join(diffs)

@@ -35,6 +35,30 @@ codes:
       zh-CN: 系统内部错误
       en-US: Internal server error
 
+  UNAUTHORIZED:
+    http_status: 401
+    messages:
+      zh-CN: 未登录或会话已失效
+      en-US: Authentication is required
+
+  FORBIDDEN:
+    http_status: 403
+    messages:
+      zh-CN: 无权执行该操作
+      en-US: You do not have permission to perform this action
+
+  INVALID_CREDENTIALS:
+    http_status: 401
+    messages:
+      zh-CN: 用户名或密码错误
+      en-US: Invalid username or password
+
+  ACCOUNT_LOCKED:
+    http_status: 423
+    messages:
+      zh-CN: 账号已锁定，请稍后重试
+      en-US: The account is locked. Try again later.
+
   AGENT_NOT_FOUND:
     http_status: 404
     messages:
@@ -59,11 +83,65 @@ codes:
       zh-CN: 配置版本已变化，请刷新后重试
       en-US: The configuration revision has changed. Refresh and try again.
 
+  SKILL_PACKAGE_INVALID:
+    http_status: 400
+    messages:
+      zh-CN: Skill 包结构或文件类型不合法
+      en-US: The Skill package structure or file types are invalid
+
+  SKILL_VERSION_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: 该 Skill 版本已存在
+      en-US: This Skill version already exists
+
+  MCP_CONFIG_INVALID:
+    http_status: 400
+    messages:
+      zh-CN: MCP 配置错误
+      en-US: The MCP configuration is invalid
+
+  BIND_CODE_INVALID:
+    http_status: 400
+    messages:
+      zh-CN: 绑定码无效
+      en-US: The bind code is invalid
+
+  BIND_CODE_EXPIRED:
+    http_status: 410
+    messages:
+      zh-CN: 绑定码已过期
+      en-US: The bind code has expired
+
+  BOT_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: Bot 账号不存在或已禁用
+      en-US: The bot account does not exist or is disabled
+
+  CREDENTIAL_MISSING:
+    http_status: 409
+    messages:
+      zh-CN: 平台认证尚未配置
+      en-US: Platform credentials are not configured
+
+  PLATFORM_ADAPTER_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: 平台适配器不存在
+      en-US: Platform adapter not found
+
   MODEL_DISABLED:
     http_status: 409
     messages:
       zh-CN: 模型已禁用
       en-US: Model is disabled
+
+  MODEL_UNAVAILABLE:
+    http_status: 503
+    messages:
+      zh-CN: 模型服务暂时不可用，请稍后重试
+      en-US: The model service is temporarily unavailable
 
   SKILL_ARTIFACT_UNAVAILABLE:
     http_status: 503
@@ -82,3 +160,15 @@ codes:
     messages:
       zh-CN: MCP 工具发现失败
       en-US: MCP tool discovery failed
+
+  RUN_BUSY:
+    http_status: 409
+    messages:
+      zh-CN: 当前会话已有任务执行中，可发送 /stop 停止
+      en-US: This conversation already has a running task. Send /stop to cancel.
+
+  NO_ACTIVE_RUN:
+    http_status: 404
+    messages:
+      zh-CN: 当前没有执行中的任务
+      en-US: There is no active task to cancel

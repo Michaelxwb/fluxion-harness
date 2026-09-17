@@ -10,7 +10,11 @@ def upgrade() -> None:
     op.execute("CREATE SCHEMA IF NOT EXISTS control")
     op.execute("CREATE SCHEMA IF NOT EXISTS runtime")
     op.execute("CREATE SCHEMA IF NOT EXISTS task")
+    op.execute("CREATE SCHEMA IF NOT EXISTS langgraph")
 
 
 def downgrade() -> None:
-    pass
+    op.execute("DROP SCHEMA IF EXISTS langgraph")
+    op.execute("DROP SCHEMA IF EXISTS task")
+    op.execute("DROP SCHEMA IF EXISTS runtime")
+    op.execute("DROP SCHEMA IF EXISTS control")
