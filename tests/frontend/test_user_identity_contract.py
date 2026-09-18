@@ -40,4 +40,4 @@ def test_user_form_uses_shared_form_modal_with_hints() -> None:
     assert "user.form.userCodeImmutable" in source
     assert "extraText" in source
     order = source.index('field="display_name"') < source.index('field="user_code"')
-    assert order, "字段顺序必须为 显示名 → 用户编码 → 启用状态"
+    assert order, "字段顺序必须为 姓名 → 账号 → 启用状态"

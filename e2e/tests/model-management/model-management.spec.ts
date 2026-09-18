@@ -49,7 +49,7 @@ async function createModelViaUi(page: Page, key: string): Promise<void> {
   await page.getByTestId('create-model').click();
   const modal = page.locator('.semi-modal');
   await modal.getByRole('textbox', { name: /名称/ }).fill('E2E UI Model');
-  await modal.getByRole('textbox', { name: /内部标识/ }).fill(key);
+  await modal.getByRole('textbox', { name: /标识/ }).fill(key);
   await modal.getByRole('textbox', { name: /模型 ID/ }).fill('gpt-4o-mini');
   await modal.getByRole('textbox', { name: /Base URL/ }).fill(PROBE_BASE);
   await modal.getByRole('textbox', { name: /API Key/ }).fill('e2e-ui-key');
@@ -147,7 +147,7 @@ test('E-06 Base URL 非 http(s) 阻止提交', async ({ page }) => {
   await page.getByTestId('create-model').click();
   const modal = page.locator('.semi-modal');
   await modal.getByRole('textbox', { name: /名称/ }).fill('Bad Url Model');
-  await modal.getByRole('textbox', { name: /内部标识/ }).fill(uniqueKey('e2e-e06'));
+  await modal.getByRole('textbox', { name: /标识/ }).fill(uniqueKey('e2e-e06'));
   await modal.getByRole('textbox', { name: /Base URL/ }).fill('ftp://example.com');
   await modal.getByRole('textbox', { name: /模型 ID/ }).fill('gpt-4o-mini');
   await modal.locator('.semi-modal-footer .semi-button-primary').click();

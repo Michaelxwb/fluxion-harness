@@ -25,8 +25,8 @@ async function createUser(page: Page, userCode: string, displayName: string): Pr
   await page.goto('/users');
   await page.getByTestId('create-user').click();
   const modal = page.locator('.semi-modal');
-  await modal.getByRole('textbox', { name: /显示名/ }).fill(displayName);
-  await modal.getByRole('textbox', { name: /用户编码/ }).fill(userCode);
+  await modal.getByRole('textbox', { name: /姓名/ }).fill(displayName);
+  await modal.getByRole('textbox', { name: /账号/ }).fill(userCode);
   await modal.locator('.semi-modal-footer .semi-button-primary').click();
   await expect(page.getByTestId(`user-link-${userCode}`)).toBeVisible();
 }
@@ -96,8 +96,8 @@ test('E-08 重复用户编码时 Form 定位字段并提示本地化冲突', asy
   await createUser(page, userCode, 'Conflict User');
   await page.getByTestId('create-user').click();
   const modal = page.locator('.semi-modal');
-  await modal.getByRole('textbox', { name: /显示名/ }).fill('Conflict Again');
-  await modal.getByRole('textbox', { name: /用户编码/ }).fill(userCode);
+  await modal.getByRole('textbox', { name: /姓名/ }).fill('Conflict Again');
+  await modal.getByRole('textbox', { name: /账号/ }).fill(userCode);
   await modal.locator('.semi-modal-footer .semi-button-primary').click();
   await expect(modal.locator('.semi-form-field-error-message')).toContainText('数据已发生变化');
   await expect(modal).toBeVisible();
