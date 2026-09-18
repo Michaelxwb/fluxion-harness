@@ -103,56 +103,303 @@ path_mapping:
             - path: "shared/design/design-frontend.md"
               tags: []          # 永不自动注入，仅 cf-task:align 命令显式 Read（前端设计模板）
               tier: 1
-    frontend:
+    arch:
         patterns:
-            - "frontend/console/src/**"
-            - "src/components/**"
-            - "src/pages/**"
-            - "src/hooks/**"
-            - "src/composables/**"
-            - "src/services/**"
-            - "src/styles/**"
+            - "deploy/**"
+        specs:
+            - path: "arch/harness-arch.md"
+              tags:
+              - "arch"
+              - "deploy"
+              - "stateless"
+              - "runtime-pool"
+              tier: 1
+    secret:
+        patterns:
+            - "packages/api-kit/**"
+            - "packages/platform-sdk/**"
+            - "packages/logging-kit/**"
+            - "**/security*.py"
+            - "**/credential*/**"
+            - "**/*redact*"
+        specs:
+            - path: "secret/harness-secret.md"
+              tags:
+              - "secret"
+              - "credential"
+              - "redaction"
+              - "secret-ref"
+              tier: 1
+    time:
+        patterns:
+            - "**/models/**"
+            - "**/*scheduler*"
+            - "**/*schedule*"
+            - "**/DateTimeText*"
+        specs:
+            - path: "time/harness-time.md"
+              tags:
+              - "time"
+              - "timezone"
+              - "timestamptz"
+              - "cron"
+              tier: 1
+    logging:
+        patterns:
+            - "packages/logging-kit/**"
+        specs:
+            - path: "logging/harness-log.md"
+              tags:
+              - "log"
+              - "logging"
+              - "trace"
+              - "redaction"
+              tier: 1
+    artifact:
+        patterns:
+            - "packages/artifact-store/**"
+            - "packages/skill-sdk/**"
+        specs:
+            - path: "artifact/harness-skill.md"
+              tags:
+              - "artifact"
+              - "skill"
+              - "cache"
+              - "checksum"
+              - "nfs"
+              tier: 1
+    persistence:
+        patterns:
+            - "migrations/**"
+            - "**/models/**"
+            - "**/repositories/**"
+        specs:
+            - path: "persistence/harness-data.md"
+              tags:
+              - "database"
+              - "schema"
+              - "migration"
+              - "orm"
+              - "index"
+              tier: 1
+    api:
+        patterns:
+            - "packages/api-kit/**"
+            - "apps/**/api/**"
+            - "config/api-messages.yaml"
+        specs:
+            - path: "api/harness-api.md"
+              tags:
+              - "api"
+              - "envelope"
+              - "error-code"
+              tier: 1
+    test:
+        patterns:
+            - "tests/**"
+            - ".github/**"
+            - "Makefile"
+            - "scripts/**"
+        specs:
+            - path: "test/harness-test.md"
+              tags:
+              - "test"
+              - "e2e"
+              - "contract"
+              - "parity"
+              tier: 1
+    i18n:
+        patterns:
+            - "apps/**/frontend/src/locales/**"
+            - "apps/**/frontend/src/i18n/**"
+            - "scripts/check_frontend_i18n.py"
+        specs:
+            - path: "i18n/harness-i18n.md"
+              tags:
+              - "i18n"
+              - "locale"
+              - "message"
+              tier: 1
+    ui:
+        patterns:
+            - "apps/**/frontend/**"
             - "**/*.tsx"
             - "**/*.jsx"
             - "**/*.css"
             - "**/*.scss"
         specs:
-            - path: "frontend/_map.md"
-              tags: ["*"]
-              tier: 0
-            - path: "frontend/directory-structure.md"
-              tags: ["directory", "structure", "folder", "route", "page", "layout"]
+            - path: "ui/harness-ui.md"
+              tags:
+              - "ui"
+              - "semi"
+              - "menu"
+              - "layout"
               tier: 1
-            - path: "frontend/quality-standards.md"
-              tags: ["quality", "type", "lint", "error", "test", "state", "strict"]
-              tier: 1
-            - path: "frontend/component-specs.md"
-              tags: ["component", "prop", "hook", "render", "ui", "style"]
-              tier: 1
-    backend:
+    frontend:
         patterns:
-            - "services/**"
-            - "api/**"
-            - "models/**"
-            - "*.py"
-            - "**/*.py"
-            - "**/*.go"
+            - "apps/**/frontend/**"
+            - "scripts/check_frontend_api_usage.py"
         specs:
-            - path: "backend/_map.md"
-              tags: ["*"]
+            - path: "frontend/harness-frontend.md"
+              tags:
+              - "frontend"
+              - "api-client"
+              - "axios"
+              tier: 1
+            - path: "frontend/harness-ui-detail.md"
+              tags:
+              - "ui"
+              - "sidesheet"
+              - "detail"
+              - "tabs"
+              tier: 1
+    auth:
+        patterns:
+            - "**/models/auth.py"
+            - "**/auth/**"
+            - "**/*grant*"
+        specs:
+            - path: "auth/harness-auth.md"
+              tags:
+              - "auth"
+              - "grant"
+              - "scope"
+              - "rbac"
+              tier: 1
+    model:
+        patterns:
+            - "packages/agent-core/**/model/**"
+            - "**/models/model*"
+        specs:
+            - path: "model/harness-model.md"
+              tags:
+              - "model"
+              - "provider"
+              - "llm"
+              tier: 1
+    rel:
+        patterns:
+            - "**/*binding*"
+            - "**/*relation*"
+        specs:
+            - path: "rel/harness-rel.md"
+              tags:
+              - "relation"
+              - "binding"
+              - "grant"
+              - "transaction"
+              tier: 1
+    platform:
+        patterns:
+            - "packages/platform-sdk/**"
+        specs:
+            - path: "platform/harness-project-platform.md"
+              tags:
+              - "platform"
+              - "adapter"
+              - "session"
+              - "credential"
+              tier: 1
+    im:
+        patterns:
+            - "apps/im-gateway/**"
+            - "packages/contracts/channel.py"
+            - "packages/contracts/delivery.py"
+        specs:
+            - path: "im/harness-im.md"
+              tags:
+              - "im"
+              - "gateway"
+              - "bot"
+              - "routing"
+              tier: 1
+    mcp:
+        patterns:
+            - "**/mcp/**"
+            - "**/tools/**"
+        specs:
+            - path: "mcp/harness-mcp.md"
+              tags:
+              - "mcp"
+              - "tool"
+              - "catalog"
+              - "discovery"
+              tier: 1
+    snapshot:
+        patterns:
+            - "apps/agent-runtime/**"
+            - "packages/contracts/runtime.py"
+        specs:
+            - path: "snapshot/harness-snapshot.md"
+              tags:
+              - "snapshot"
+              - "freeze"
+              - "version"
+              - "budget"
+              tier: 1
+    worker:
+        patterns:
+            - "apps/agent-worker/**"
+            - "packages/contracts/tasks.py"
+            - "**/scheduler/**"
+        specs:
+            - path: "worker/harness-worker.md"
+              tags:
+              - "worker"
+              - "task"
+              - "schedule"
+              - "lease"
+              - "claim"
+              tier: 1
+    legacy:
+        patterns:
+            - "legacy/**"
+        specs:
+            - path: "legacy/backend/_map.md"
+              tags:
+              - "*"
               tier: 0
-            - path: "backend/directory-structure.md"
-              tags: ["directory", "structure", "folder", "module", "layout"]
+            - path: "legacy/frontend/_map.md"
+              tags:
+              - "*"
+              tier: 0
+            - path: "legacy/backend/directory-structure.md"
+              tags:
+              - "legacy"
+              - "directory"
               tier: 1
-            - path: "backend/logging.md"
-              tags: ["log", "logging", "debug", "trace", "monitor", "observe"]
+            - path: "legacy/backend/logging.md"
+              tags:
+              - "legacy"
+              - "logging"
               tier: 1
-            - path: "backend/database.md"
-              tags: ["database", "db", "sql", "orm", "model", "migration", "query", "table", "schema"]
+            - path: "legacy/backend/database.md"
+              tags:
+              - "legacy"
+              - "database"
               tier: 1
-            - path: "backend/platform-rules.md"
-              tags: ["api", "deploy", "config", "version", "compatibility", "release", "flag"]
+            - path: "legacy/backend/platform-rules.md"
+              tags:
+              - "legacy"
+              - "platform"
               tier: 1
-            - path: "backend/code-quality-performance.md"
-              tags: ["quality", "performance", "error", "exception", "test", "timeout", "retry", "cache"]
+            - path: "legacy/backend/code-quality-performance.md"
+              tags:
+              - "legacy"
+              - "quality"
+              tier: 1
+            - path: "legacy/frontend/directory-structure.md"
+              tags:
+              - "legacy"
+              - "directory"
+              tier: 1
+            - path: "legacy/frontend/quality-standards.md"
+              tags:
+              - "legacy"
+              - "quality"
+              tier: 1
+            - path: "legacy/frontend/component-specs.md"
+              tags:
+              - "legacy"
+              - "component"
               tier: 1

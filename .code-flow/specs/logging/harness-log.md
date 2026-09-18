@@ -9,10 +9,18 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-log-001
-  type: manual
+  type: command
   config:
-    checklist: 确认统一 logging-kit、LOG_DIR、按 service/日期落盘、trace_id/request_id 与脱敏。
-    owner: project-owner
+    argv:
+    - uv
+    - run
+    - pytest
+    - -q
+    - tests/test_logging.py
+    - tests/test_logging_redaction.py
+    - tests/acceptance/test_foundation_logging.py
+    cwd: .
+    timeout: 300
 ---
 
 # harness-log

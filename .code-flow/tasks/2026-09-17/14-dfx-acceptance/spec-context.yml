@@ -1,7 +1,7 @@
 version: 1
 task: DFX、测试与验收（跨模块）
 enforcement: required
-updated_at: '2026-09-18T00:29:29.463310+00:00'
+updated_at: '2026-09-18T03:22:53.603897+00:00'
 sources:
 - type: docs
   ref: docs/09-DFX安全可靠性测试验收详细设计.md
@@ -16,15 +16,15 @@ sources:
 - type: interaction
   ref: docs/智能服务交付平台-V1.4-交互稿.html
 bindings:
-- spec_id: harness-api-test
-  path: shared/harness-api-test.md
+- spec_id: harness-api
+  path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: 4f5787001eb4e82bb88aca34f95c44245a576902c640da9eda83ee9039098574
-    metadata_sha256: 89ef336d77e0cdba60d5df9c5e51edbb471220249004ebdda29cb21b5dab5e43
-    rules_sha256: 6b3e0e6fe1029d493303322cb83d4ce23972555d4aa40601ab539e0b5a6b15a7
+    file_sha256: 0b208f729a97adae0d7011791e278d965a31e5916e8c044b80d0550143183ccc
+    metadata_sha256: e9f9b2714c5043dc7d9363ec9a950471b4cdea6d932bd8e86ac2dd0a754c9359
+    rules_sha256: 76ffb366c7643e6faa32a65c751aea08de24bc2c1b6f37db46e6df1a7665e728
   selected_by: agent
-  reason: Agent Harness 通用平台规则：harness-api-test
+  reason: Agent Harness 通用平台规则：api
   enforcement: required
   stages:
   - design
@@ -38,7 +38,7 @@ bindings:
       只来自 `config/api-messages.yaml`。
     text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
     enforcement: required
-    verifier_ref: harness-api-test#RULE-api-001
+    verifier_ref: harness-api#RULE-api-001
     stage_status:
       design:
         status: applied
@@ -64,12 +64,28 @@ bindings:
         refs: []
         decision: null
         evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 0e202f6c12e5461baa1ebf688889fccc6c5a4f01e27916c7841fe7dfdca1cc2e
+    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：test
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
   - ref: RULE-test-001
     summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
       Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
     text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
     enforcement: required
-    verifier_ref: harness-api-test#RULE-test-001
+    verifier_ref: harness-test#RULE-test-001
     stage_status:
       design:
         status: applied
@@ -96,11 +112,11 @@ bindings:
         decision: null
         evidence: []
 - spec_id: harness-arch
-  path: shared/harness-arch.md
+  path: arch/harness-arch.md
   status: active
   hashes:
-    file_sha256: df57a08661c80a00dbed9c8a55d207c013d472d4cf7cf38abdd52519bb523558
-    metadata_sha256: 10b0afc2dd0f4230c5499607eda7cd0a20e8aa01c7046216e5209bc3879ec0df
+    file_sha256: c1636612b11d561f288f9eae6c0679a003aa9a67f6aef408c4bd46b3702d24d1
+    metadata_sha256: 39a976af1534eeebee31887b5b054dd8406536a86fd2e9dc8d6f27e6e0e1bda7
     rules_sha256: 11ae8f2db7be71dfeebbf0d395ea7f65402138090add6e7aa91602ff60c6b12b
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-arch
@@ -143,7 +159,7 @@ bindings:
         decision: null
         evidence: []
 - spec_id: harness-auth
-  path: shared/harness-auth.md
+  path: auth/harness-auth.md
   status: active
   hashes:
     file_sha256: 6ad16806986aaaf3298a6ec346ea13eaf0e4c1ff34a4ac0f44b6d1aa6031bdda
@@ -192,11 +208,11 @@ bindings:
         decision: null
         evidence: []
 - spec_id: harness-log
-  path: shared/harness-log.md
+  path: logging/harness-log.md
   status: active
   hashes:
-    file_sha256: 0c08b3754e27722b56deafb326f038d0cfc527a1f6e20b778426a48f21a027d7
-    metadata_sha256: 3e48d5840e9ddb14274bb4bcf26e5840933da122aac7febe8a1cc9664661e116
+    file_sha256: e7b54c62cb6c2d5db58bbd7baa5f78563f990ebc475040d52464eba0ef5bf7fa
+    metadata_sha256: 8bb67ae0c5cf82baee539013ff9840ed3004f3747460534ec4a8784e4b9640a1
     rules_sha256: 0c3e600fc9f79d41f34519374ae44ff47098361f3cdca41519881ffcfd4d6e4a
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-log
@@ -240,7 +256,7 @@ bindings:
         decision: null
         evidence: []
 - spec_id: harness-rel
-  path: shared/harness-rel.md
+  path: rel/harness-rel.md
   status: active
   hashes:
     file_sha256: 46f939d65a4fa1f58194395fab0d8e24d57edb40532b997c2e4432cb2ab0b89e
@@ -286,11 +302,11 @@ bindings:
         decision: null
         evidence: []
 - spec_id: harness-secret
-  path: shared/harness-secret.md
+  path: secret/harness-secret.md
   status: active
   hashes:
-    file_sha256: 6526a38c5083caa5814eeb3584bb1a45f6ae1bc4249680bb0fff470eff9ca9e3
-    metadata_sha256: b767e8b176bb0ae4b9cc9b95bb138657556342d538792555961a3125eeaf2064
+    file_sha256: 07c0c7aee2c9da778999c97e854df5f22257bac4c40dbe9d283550e451efb814
+    metadata_sha256: 6eb93990def2057725626f290065551208a4bd3aee9121a753b5a49b32d05d09
     rules_sha256: d1e2ab0670a79777c457f83ef88a00ca0695b854b9a344a16256262d40f484a4
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-secret
@@ -333,7 +349,7 @@ bindings:
         decision: null
         evidence: []
 - spec_id: harness-snapshot
-  path: shared/harness-snapshot.md
+  path: snapshot/harness-snapshot.md
   status: active
   hashes:
     file_sha256: 75a69be7df68ecc19cf74329766e85289a0a909946eff595df64f1fb4d5773fd
@@ -380,7 +396,7 @@ bindings:
         decision: null
         evidence: []
 - spec_id: harness-worker
-  path: shared/harness-worker.md
+  path: worker/harness-worker.md
   status: active
   hashes:
     file_sha256: 5a19eb49d8ab28fc0a88a956e8ff5f083a2f80dcde12649eb32b880018ce300b

@@ -9,10 +9,16 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-arch-001
-  type: manual
+  type: command
   config:
-    checklist: 确认部署单元为四个、Runtime/Worker 无状态且不绑定 Pod/bot。
-    owner: project-owner
+    argv:
+    - uv
+    - run
+    - pytest
+    - -q
+    - tests/architecture
+    cwd: .
+    timeout: 300
 ---
 
 # harness-arch

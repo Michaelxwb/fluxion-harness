@@ -9,11 +9,18 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-data-001
-  type: manual
+  type: command
   config:
-    checklist: 确认标准列、软删除 partial unique、timestamptz、同 Owner Schema 物理 FK/跨 Schema
-      逻辑 UUID。
-    owner: project-owner
+    argv:
+    - uv
+    - run
+    - pytest
+    - -q
+    - tests
+    - -k
+    - schema_parity
+    cwd: .
+    timeout: 600
 ---
 
 # harness-data

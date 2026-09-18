@@ -53,7 +53,8 @@ api.interceptors.response.use(
   },
   (error: AxiosError<ApiResponse<unknown>>) => {
     if (error.response?.status === UNAUTHORIZED_STATUS && window.location.pathname !== '/login') {
-      window.location.assign('/login');
+      const returnUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+      window.location.assign(`/login?returnUrl=${returnUrl}`);
       return Promise.reject(error);
     }
     const body = error.response?.data;

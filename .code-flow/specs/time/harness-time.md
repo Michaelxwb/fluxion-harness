@@ -9,10 +9,15 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-time-001
-  type: manual
+  type: command
   config:
-    checklist: 确认 Console 时间展示统一 YYYY-MM-DD HH:mm:ss、存储 timestamptz。
-    owner: project-owner
+    argv:
+    - bash
+    - -lc
+    - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q
+      tests -k schema_parity
+    cwd: .
+    timeout: 300
 ---
 
 # harness-time

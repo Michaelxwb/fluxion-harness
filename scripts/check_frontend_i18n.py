@@ -17,23 +17,32 @@ def flatten(data, prefix=''):
     return flat
 
 
-zh = flatten(json.loads((locale_dir / 'zh-CN.json').read_text(encoding='utf-8')))
-en = flatten(json.loads((locale_dir / 'en-US.json').read_text(encoding='utf-8')))
+def compare_locale_files(zh_path, en_path):
+    zh = flatten(json.loads(Path(zh_path).read_text(encoding='utf-8')))
+    en = flatten(json.loads(Path(en_path).read_text(encoding='utf-8')))
 
-problems = []
-missing_en = sorted(set(zh) - set(en))
-missing_zh = sorted(set(en) - set(zh))
-if missing_en:
-    problems.append(f'Missing in en-US: {missing_en}')
-if missing_zh:
-    problems.append(f'Missing in zh-CN: {missing_zh}')
-for locale, flat in (('zh-CN', zh), ('en-US', en)):
-    empty = sorted(key for key, value in flat.items() if isinstance(value, str) and not value.strip())
-    if empty:
-        problems.append(f'Empty in {locale}: {empty}')
+    problems = []
+    missing_en = sorted(set(zh) - set(en))
+    missing_zh = sorted(set(en) - set(zh))
+    if missing_en:
+        problems.append(f'Missing in en-US: {missing_en}')
+    if missing_zh:
+        problems.append(f'Missing in zh-CN: {missing_zh}')
+    for locale, flat in (('zh-CN', zh), ('en-US', en)):
+        empty = sorted(key for key, value in flat.items() if isinstance(value, str) and not value.strip())
+        if empty:
+            problems.append(f'Empty in {locale}: {empty}')
+    return problems, len(zh)
 
-if problems:
-    print('\n'.join(problems))
-    raise SystemExit(1)
 
-print(f'i18n keys OK: {len(zh)}')
+def main():
+    problems, key_count = compare_locale_files(locale_dir / 'zh-CN.json', locale_dir / 'en-US.json')
+    if problems:
+        print('\n'.join(problems))
+        raise SystemExit(1)
+
+    print(f'i18n keys OK: {key_count}')
+
+
+if __name__ == '__main__':
+    main()

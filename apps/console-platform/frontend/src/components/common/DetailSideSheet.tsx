@@ -1,0 +1,31 @@
+import { SideSheet, Tabs } from '@douyinfe/semi-ui';
+import type { ReactNode } from 'react';
+
+export interface DetailSideSheetProps {
+  visible: boolean;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+  activeTab?: string;
+  onCancel(): void;
+  children?: ReactNode;
+}
+
+export function DetailSideSheet(props: DetailSideSheetProps) {
+  const header = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%' }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 600 }}>{props.title}</div>
+        {props.subtitle ? <div style={{ fontSize: 12, color: 'var(--semi-color-text-2)' }}>{props.subtitle}</div> : null}
+      </div>
+      <div style={{ marginLeft: 'auto' }}>{props.actions ? props.actions : null}</div>
+    </div>
+  );
+  return (
+    <SideSheet visible={props.visible} title={header} onCancel={props.onCancel} footer={null} width={720}>
+      <Tabs type="line" activeKey={props.activeTab}>
+        {props.children}
+      </Tabs>
+    </SideSheet>
+  );
+}

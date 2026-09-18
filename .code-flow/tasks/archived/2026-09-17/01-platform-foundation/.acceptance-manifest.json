@@ -1,0 +1,1047 @@
+{
+  "schema": 2,
+  "task_file": "01-platform-foundation.md",
+  "task_sha256": "3751b9c9602a802fa7c9feae0e926ccf2324b6ee8f76083dce1e918700e20df7",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Service→FileSystem",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_foundation_logging.py",
+        "-k",
+        "s01"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-02",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "FastAPI→api-kit→YAML",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_foundation_api_envelope.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-03",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→X-Locale→API→UI",
+      "owner": "TASK-007",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --grep \"S-03\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "75dac3ed3d554746af333e0015b6fa46",
+        "executed_at": "2026-09-18T03:15:34.444808+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
+          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "75dac3ed3d554746af333e0015b6fa46",
+          "executed_at": "2026-09-18T03:15:34.444808+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-04",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "emptyDir→NFS",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_foundation_artifact.py",
+        "-k",
+        "s04"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-05",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "并发 ensure→NFS",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_foundation_artifact.py",
+        "-k",
+        "s05"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-06",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "import graph（CI）",
+      "owner": "TASK-006",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/architecture"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-07",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Service→/healthz /readyz",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_foundation_ops_probes.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-08",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "CI→ruff/mypy/pytest/parity",
+      "owner": "TASK-006",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run make check"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-09",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "ConsoleShell 菜单",
+      "owner": "TASK-007",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_console_shell_contract.py",
+        "-k",
+        "fixed_ten_items or no_system_settings"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-09",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
+          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+        },
+        {
+          "id": "S-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-10",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "api-kit→RBAC 依赖",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_foundation_ops_security.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-10",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-11",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Service→业务表+audit 同库事务",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_foundation_ops_audit.py",
+        "-k",
+        "s11"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-11",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-01",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Cache→NFS",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_foundation_artifact.py",
+        "-k",
+        "e01"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-02",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "locale-key checker",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_foundation_i18n.py",
+        "-k",
+        "e02"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-03",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "import graph（CI）",
+      "owner": "TASK-006",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/architecture",
+        "-k",
+        "violation"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-04",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "bootstrap→配置/迁移/存储/Secret",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_foundation_ops_startup.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-05",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "CI→migration parity",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_foundation_schema_parity.py",
+        "-k",
+        "e05"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-06",
+      "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "业务事务→audit",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_foundation_ops_audit.py",
+        "-k",
+        "e06"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-12",
+      "source": "01-platform-foundation.frontend.design.md#2.4 验收条件（原 S-FE-01）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser Router→ConsoleShell",
+      "owner": "TASK-007",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --grep \"S-12\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "S-12",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "75dac3ed3d554746af333e0015b6fa46",
+        "executed_at": "2026-09-18T03:15:34.444808+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-12",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
+          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+        },
+        {
+          "id": "S-12",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        },
+        {
+          "id": "S-12",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "75dac3ed3d554746af333e0015b6fa46",
+          "executed_at": "2026-09-18T03:15:34.444808+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-13",
+      "source": "01-platform-foundation.frontend.design.md#2.4 验收条件（原 S-FE-02）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→LocalStorage→API",
+      "owner": "TASK-007",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --grep \"S-13\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "S-13",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "75dac3ed3d554746af333e0015b6fa46",
+        "executed_at": "2026-09-18T03:15:34.444808+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-13",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
+          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+        },
+        {
+          "id": "S-13",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        },
+        {
+          "id": "S-13",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "75dac3ed3d554746af333e0015b6fa46",
+          "executed_at": "2026-09-18T03:15:34.444808+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-14",
+      "source": "01-platform-foundation.frontend.design.md#2.4 验收条件（原 S-FE-03）",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "ConsoleShell 菜单",
+      "owner": "TASK-007",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_console_shell_contract.py",
+        "-k",
+        "fixed_ten_items"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-14",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
+          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+        },
+        {
+          "id": "S-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-07",
+      "source": "01-platform-foundation.frontend.design.md#2.4 验收条件（原 E-FE-01）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Axios interceptor→Toast",
+      "owner": "TASK-007",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_api_client_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
+          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-08",
+      "source": "01-platform-foundation.frontend.design.md#2.4 验收条件（原 E-FE-02）",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "DetailSideSheet",
+      "owner": "TASK-007",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_detail_sidesheet_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "e26848ecccb74cf681764788303cc274",
+        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
+          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-09",
+      "source": "01-platform-foundation.frontend.design.md#2.4 验收条件（原 E-FE-03）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "ApiClient→401→Router",
+      "owner": "TASK-007",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --grep \"E-09\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-09",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "75dac3ed3d554746af333e0015b6fa46",
+        "executed_at": "2026-09-18T03:15:34.444808+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-09",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
+          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+        },
+        {
+          "id": "E-09",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "e26848ecccb74cf681764788303cc274",
+          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        },
+        {
+          "id": "E-09",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "75dac3ed3d554746af333e0015b6fa46",
+          "executed_at": "2026-09-18T03:15:34.444808+00:00"
+        }
+      ]
+    }
+  ]
+}

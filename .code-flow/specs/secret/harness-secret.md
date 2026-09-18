@@ -9,10 +9,17 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-secret-001
-  type: manual
+  type: command
   config:
-    checklist: 确认 Secret Value 不进 DB/Snapshot/日志/LLM/审计，仅保存 SecretRef。
-    owner: project-owner
+    argv:
+    - uv
+    - run
+    - pytest
+    - -q
+    - tests/test_logging_redaction.py
+    - tests/acceptance/test_foundation_ops_audit.py
+    cwd: .
+    timeout: 300
 ---
 
 # harness-secret

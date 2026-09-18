@@ -21,4 +21,7 @@ dist/
 .code-flow/.artifact-hash-cache.json
 .code-flow/.check-state.json
 .code-flow/.active-task.json
+.code-flow/.task-projection-state.json
 .code-flow/.active-task.lock
+e2e/test-results/
+e2e/playwright-report/

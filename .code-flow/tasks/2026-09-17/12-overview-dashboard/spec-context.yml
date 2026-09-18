@@ -1,7 +1,7 @@
 version: 1
 task: 概览与运营入口
 enforcement: required
-updated_at: '2026-09-18T00:29:29.423459+00:00'
+updated_at: '2026-09-18T03:22:53.569854+00:00'
 sources:
 - type: docs
   ref: docs/03-Console-Platform详细设计.md
@@ -20,15 +20,15 @@ sources:
 - type: interaction
   ref: docs/智能服务交付平台-V1.4-交互稿.html
 bindings:
-- spec_id: harness-api-test
-  path: shared/harness-api-test.md
+- spec_id: harness-api
+  path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: 4f5787001eb4e82bb88aca34f95c44245a576902c640da9eda83ee9039098574
-    metadata_sha256: 89ef336d77e0cdba60d5df9c5e51edbb471220249004ebdda29cb21b5dab5e43
-    rules_sha256: 6b3e0e6fe1029d493303322cb83d4ce23972555d4aa40601ab539e0b5a6b15a7
+    file_sha256: 0b208f729a97adae0d7011791e278d965a31e5916e8c044b80d0550143183ccc
+    metadata_sha256: e9f9b2714c5043dc7d9363ec9a950471b4cdea6d932bd8e86ac2dd0a754c9359
+    rules_sha256: 76ffb366c7643e6faa32a65c751aea08de24bc2c1b6f37db46e6df1a7665e728
   selected_by: agent
-  reason: Agent Harness 通用平台规则：harness-api-test
+  reason: Agent Harness 通用平台规则：api
   enforcement: required
   stages:
   - design
@@ -42,7 +42,7 @@ bindings:
       只来自 `config/api-messages.yaml`。
     text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
     enforcement: required
-    verifier_ref: harness-api-test#RULE-api-001
+    verifier_ref: harness-api#RULE-api-001
     stage_status:
       design:
         status: applied
@@ -68,12 +68,28 @@ bindings:
         refs: []
         decision: null
         evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 0e202f6c12e5461baa1ebf688889fccc6c5a4f01e27916c7841fe7dfdca1cc2e
+    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：test
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
   - ref: RULE-test-001
     summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
       Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
     text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
     enforcement: required
-    verifier_ref: harness-api-test#RULE-test-001
+    verifier_ref: harness-test#RULE-test-001
     stage_status:
       design:
         status: applied
@@ -99,15 +115,62 @@ bindings:
         refs: []
         decision: null
         evidence: []
-- spec_id: harness-frontend
-  path: shared/harness-frontend.md
+- spec_id: harness-ui
+  path: ui/harness-ui.md
   status: active
   hashes:
-    file_sha256: 5be313a290545a2e5aeab1b835e2192bc4168368fa1d56aa9c51a9b4da1ffb85
-    metadata_sha256: ff3696a4065aff909ad11b3795233038416f6b6f3e334643d9c00b13d0b1f3f0
-    rules_sha256: 979725db60f43575fc6834c8feac8dc0622a362111f72b0aa41e7de89c26c808
+    file_sha256: fefc7cc448edea27c43cbc6f24126263cc8944279bfc905655c7b0591412b743
+    metadata_sha256: 1b910e49924f2e860bdfcda0b07df5092aa444254a4cf8dca2f053d681ed1752
+    rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
   selected_by: agent
-  reason: Agent Harness 通用平台规则：harness-frontend
+  reason: Agent Harness 通用平台规则：ui
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-001
+    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
+      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计。
+    text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+    enforcement: required
+    verifier_ref: harness-ui#RULE-ui-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 12-overview-dashboard.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-ui-001
+          artifact_sha256: 56118a0f914995be935564b74eae6c78a0f9f5c379b58a2cca2a3405d8af8897
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-frontend
+  path: frontend/harness-frontend.md
+  status: active
+  hashes:
+    file_sha256: 095d3ec2a3bfe5c77f2884c061bbadc2c2b11ccd28621c8c78d0cc96182262f6
+    metadata_sha256: 1f21efbe8b18a0dfec23126451e4674a64f60cf0f8e7bed81f2f404abd552f98
+    rules_sha256: 0154193b28c857724614f543e1c78a3c01120fcfa8d07d39303b4168cef8156f
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：front
   enforcement: required
   stages:
   - design
@@ -146,12 +209,28 @@ bindings:
         refs: []
         decision: null
         evidence: []
+- spec_id: harness-i18n
+  path: i18n/harness-i18n.md
+  status: active
+  hashes:
+    file_sha256: c9488871a20af236a39ad4c8c6e1d59ba3662c9a60e05f7f98eceb24ea85dc8c
+    metadata_sha256: b60d271a6656981b54ee716fcd5dece1c41d2402b50ed56d5197effcf17a7959
+    rules_sha256: 2f76d4b7d9b26cf3be95f2d812aaca26dd9e576c7e57bf665b65b986a7a1829f
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：i18n
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
   - ref: RULE-i18n-001
     summary: 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language`
       协商。
     text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
     enforcement: required
-    verifier_ref: harness-frontend#RULE-i18n-001
+    verifier_ref: harness-i18n#RULE-i18n-001
     stage_status:
       design:
         status: applied
@@ -177,43 +256,12 @@ bindings:
         refs: []
         decision: null
         evidence: []
-  - ref: RULE-ui-001
-    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
-      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计。
-    text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
-    enforcement: required
-    verifier_ref: harness-frontend#RULE-ui-001
-    stage_status:
-      design:
-        status: applied
-        refs:
-        - artifact: 12-overview-dashboard.backend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-ui-001
-          artifact_sha256: 56118a0f914995be935564b74eae6c78a0f9f5c379b58a2cca2a3405d8af8897
-        decision: null
-        evidence: []
-      plan:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      code:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      review:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
 - spec_id: harness-time
-  path: shared/harness-time.md
+  path: time/harness-time.md
   status: active
   hashes:
-    file_sha256: e7eb9e78ffee82b8ff09ef14d8b003d46104d40ac81c96d9c573e823e047a43f
-    metadata_sha256: 532facc8c3c8e46627a40301c876a75c4a3033f7d0714a4156f6a0938757f322
+    file_sha256: 6956d9f0cde1a0fa23d1fb5cafcff54b91f82bb5623b560d3a3aaf56a391e19f
+    metadata_sha256: b520353c89741d56ccc5210a46c2666921ad8a3bac8b93c2c7fcdc75187788fd
     rules_sha256: 6d0ba1245ffb637c5b161372f63c6c0d1108ac0f2b8240449b1954dba3192202
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-time

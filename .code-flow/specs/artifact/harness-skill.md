@@ -9,11 +9,16 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-skill-001
-  type: manual
+  type: command
   config:
-    checklist: 确认 Artifact Store 为 NFS-backed RWX PVC、DB 仅 storage_key、Runtime/Worker
-      emptyDir 缓存、禁止从 NFS 直接执行。
-    owner: project-owner
+    argv:
+    - uv
+    - run
+    - pytest
+    - -q
+    - tests/test_skill_artifact_cache.py
+    cwd: .
+    timeout: 300
 ---
 
 # harness-skill

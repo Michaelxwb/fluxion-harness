@@ -6,6 +6,7 @@ dependencies = [
   "fastapi>=0.115",
   "pydantic>=2.9",
   "PyYAML>=6.0",
+  "SQLAlchemy>=2.0",
   "muad-common",
   "muad-logging",
 ]

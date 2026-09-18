@@ -9,10 +9,15 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-ui-detail-001
-  type: manual
+  type: command
   config:
-    checklist: 确认详情 SideSheet 标题/副标题左侧，操作与关闭 X 同行靠右，Tabs 在其下。
-    owner: project-owner
+    argv:
+    - bash
+    - -lc
+    - uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix
+      apps/console-platform/frontend run typecheck
+    cwd: .
+    timeout: 600
 ---
 
 # harness-ui-detail
