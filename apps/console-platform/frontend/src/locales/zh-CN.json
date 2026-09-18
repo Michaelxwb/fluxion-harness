@@ -81,5 +81,12 @@
   "user.common.confirmClear": "确认清空该用户全部记忆？",
   "user.common.confirmUnbind": "确认解绑该身份？",
   "user.common.confirmRevoke": "确认取消该授权？",
-  "user.subtitle": "平台用户、IM 身份与绑定关系"
+  "user.subtitle": "平台用户、IM 身份与绑定关系",
+  "common.theme.dark": "切换暗色",
+  "common.theme.light": "切换亮色",
+  "common.pageRange": "显示第 {{from}}-{{to}} 条，共 {{total}} 条",
+  "common.perPage": "每页",
+  "common.items": "条",
+  "app.brand": "fluxion",
+  "app.brandSuffix": "控制台"
 }

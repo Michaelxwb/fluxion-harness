@@ -34,7 +34,7 @@ export function LoginPage() {
     <div className="login-shell">
       <Card className="login-card" bordered={false}>
         <div className="login-brand">
-          <span className="app-brand-mark" />
+          <span className="login-brand-mark">{t('app.brand')}</span>
           <span className="login-brand-name">{t('app.title')}</span>
           <span className="login-subtitle">{t('login.title')}</span>
         </div>

@@ -3,8 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../components/common/DateTimeText';
+import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
-import { PageCard } from '../../components/common/PageCard';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { UserDetailTabs } from './UserDetailTabs';
 import { UserFormModal } from './UserFormModal';
@@ -56,7 +56,9 @@ export function UserPage() {
   };
 
   return (
-    <PageCard title={t('user.title')} subtitle={t('user.subtitle')}>
+    <>
+      <PageHeader title={t('user.title')} description={t('user.subtitle')} />
+      <PageSection>
       <ModuleToolbar
         actions={
           <Button
@@ -151,6 +153,7 @@ export function UserPage() {
         pageSize={params.page_size}
         total={total}
         onPageChange={(page) => setParams((prev) => ({ ...prev, page }))}
+        onPageSizeChange={(page_size) => setParams((prev) => ({ ...prev, page: 1, page_size }))}
       />
       <UserFormModal
         visible={formVisible}
@@ -172,6 +175,7 @@ export function UserPage() {
           }}
         />
       ) : null}
-    </PageCard>
+      </PageSection>
+    </>
   );
 }

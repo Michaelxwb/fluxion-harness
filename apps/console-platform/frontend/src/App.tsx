@@ -1,5 +1,8 @@
 import { Route, Routes } from 'react-router-dom';
 
+import { ThemeButton } from './components/common/ThemeButton';
+import { useThemeMode } from './theme';
+
 import { RequireAuth, RequireRole } from './auth/AuthContext';
 import { AppLayout } from './layout/AppLayout';
 import { UserPage } from './modules/user-identity/UserPage';
@@ -8,9 +11,20 @@ import { LoginPage } from './pages/LoginPage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 
 export default function App() {
+  const theme = useThemeMode();
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/login"
+        element={
+          <>
+            <LoginPage />
+            <div className="app-login-theme">
+              <ThemeButton mode={theme.mode} onToggle={theme.toggle} />
+            </div>
+          </>
+        }
+      />
       <Route
         element={
           <RequireAuth>

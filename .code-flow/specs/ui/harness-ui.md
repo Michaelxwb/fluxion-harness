@@ -28,31 +28,35 @@ verifiers:
 
 ## Conventions
 
-统一视觉基调（后续模块直接复用，不得各自二次优化）：
+统一视觉基调（对齐参考工程 muad-openclaw console 的暗色 Shell，后续模块直接复用，不得各自二次优化）：
 
-- 主题：`main.tsx` 用 `ConfigProvider(locale=zh_CN)`；颜色/圆角/阴影只允许在 `src/styles/app.css` 覆盖 `--semi-color-*` 与 `--app-*` token。
-- 页面骨架：`PageCard`（容器）→ `ModuleToolbar`（左上操作/右上筛选）→ `RemoteTable`（受控分页）；详情用 `DetailSideSheet`，表单用 `FormModal`，时间用 `DateTimeText`。
-- 品牌：标题走 i18n `app.title`，禁止出现旧品牌字样。
+- 主题：默认暗色（`index.html` 的 `body[theme-mode="dark"]` + `theme.ts` 持久化切换）；`ConfigProvider(locale=zh_CN)`；颜色/圆角仅在 `src/styles/app.css` 覆盖 `--semi-color-*` 与 `--app-*` token。
+- 图标：统一 `@douyinfe/semi-icons`；Shell/分页等通用图标不得内联 SVG。
+- 页面骨架：`PageHeader`（标题+说明）→ `PageSection`（面板）→ `ModuleToolbar`（左上操作/右上筛选）→ `RemoteTable`（含 `PaginationFooter`：显示区间/每页/翻页）；详情用 `DetailSideSheet`，表单用 `FormModal`，时间用 `DateTimeText`。
+- Shell：侧栏品牌区 + 图标菜单 + 底部用户区（头像/退出）；顶栏放主题切换与语言切换。
 
 ✅ 正确：
 
 ```tsx
-<PageCard>
-  <ModuleToolbar actions={<Button theme="solid">{t('user.add')}</Button>} search={<Input />} />
-  <RemoteTable ... />
-</PageCard>
+<>
+  <PageHeader title={t('user.title')} description={t('user.subtitle')} />
+  <PageSection>
+    <ModuleToolbar actions={<Button theme="solid">{t('user.add')}</Button>} search={<Input />} />
+    <RemoteTable ... onPageSizeChange={...} />
+  </PageSection>
+</>
 ```
 
 ```css
 /* styles/app.css —— 唯一允许写死颜色的位置 */
-:root { --semi-color-primary: #2563eb; --app-radius: 10px; }
+body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
 ```
 
 ❌ 错误：
 
 ```tsx
-<Card style={{ background: '#fff', borderColor: '#e5e7eb' }}>  {/* 页面内写死颜色 */}
-  <div style={{ display: 'flex', justifyContent: 'space-between' }}>  {/* 自建工具栏 */}
+<Card style={{ background: '#fff' }}>                  {/* 页面内写死颜色 */}
+  <div style={{ display: 'flex', justifyContent: 'space-between' }}>  {/* 自建工具栏/面板 */}
 ```
 
 ## Avoid

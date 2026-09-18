@@ -1,8 +1,8 @@
 import { Button, Table, Tag } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
+import { PageHeader, PageSection } from '../components/common/ConsolePage';
 import { ModuleToolbar } from '../components/common/ModuleToolbar';
-import { PageCard } from '../components/common/PageCard';
 
 export function AgentsPage() {
   const { t } = useTranslation();
@@ -22,7 +22,9 @@ export function AgentsPage() {
   ];
 
   return (
-    <PageCard title={t('nav.agent')} subtitle={t('model.note')}>
+    <>
+      <PageHeader title={t('nav.agent')} description={t('model.note')} />
+      <PageSection>
       <ModuleToolbar
         actions={<Button theme="solid">{t('common.add')}</Button>}
         search={<Button>{t('common.refresh')}</Button>}
@@ -35,6 +37,7 @@ export function AgentsPage() {
         rowKey="id"
         pagination={{ pageSize: 20 }}
       />
-    </PageCard>
+      </PageSection>
+    </>
   );
 }

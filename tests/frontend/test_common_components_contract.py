@@ -26,9 +26,10 @@ def test_remote_table_is_controlled_by_page_props() -> None:
     source = _source("RemoteTable.tsx")
     for prop in ("page: number", "pageSize: number", "total: number", "onPageChange(page: number): void"):
         assert prop in source, f"RemoteTable missing {prop}"
-    assert "currentPage: props.page" in source
-    assert "pageSize: props.pageSize" in source
-    assert "onPageChange: props.onPageChange" in source
+    assert "PaginationFooter" in source
+    assert "page={props.page}" in source
+    assert "pageSize={props.pageSize}" in source
+    assert "onPageChange={props.onPageChange}" in source
 
 
 def test_form_modal_wraps_semi_modal_and_form_with_submit_state() -> None:

@@ -1,12 +1,16 @@
+import { Typography } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
-import { PageCard } from '../components/common/PageCard';
+import { PageHeader, PageSection } from '../components/common/ConsolePage';
 
 export function PlaceholderPage({ titleKey }: { titleKey: string }) {
   const { t } = useTranslation();
   return (
-    <PageCard title={t(titleKey)} subtitle={t('page.placeholder')}>
-      <div />
-    </PageCard>
+    <>
+      <PageHeader title={t(titleKey)} description={t('page.placeholder')} />
+      <PageSection>
+        <Typography.Text type="tertiary">{t('page.placeholder')}</Typography.Text>
+      </PageSection>
+    </>
   );
 }
