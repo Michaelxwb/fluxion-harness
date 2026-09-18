@@ -10,8 +10,7 @@ async function login(page: Page): Promise<void> {
 }
 
 async function switchToEnglish(page: Page): Promise<void> {
-  await page.locator('.semi-select').first().click();
-  await page.locator('.semi-select-option', { hasText: 'English' }).first().click();
+  await page.getByTestId('locale-switch').click();
   await expect(page.locator('.semi-navigation-item', { hasText: 'Overview' })).toBeVisible();
 }
 

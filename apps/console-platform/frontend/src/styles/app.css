@@ -44,12 +44,16 @@ body {
 }
 
 .app-sider {
-  display: flex;
-  flex-direction: column;
   width: var(--app-sider-width, 208px);
   height: 100vh;
   background: var(--semi-color-bg-1);
   border-right: 1px solid var(--semi-color-border);
+}
+
+.app-sider .semi-sider-children {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .app-brand {

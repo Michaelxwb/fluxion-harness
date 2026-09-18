@@ -11,7 +11,7 @@ import { UserDetailTabs } from './UserDetailTabs';
 import { UserFormModal } from './UserFormModal';
 import { getUser, listUsers, type UserDetail, type UserListItem } from './services/users';
 
-const DEFAULT_PARAMS = { page: 1, page_size: 20, keyword: '', status: '' };
+const DEFAULT_PARAMS = { page: 1, page_size: 10, keyword: '', status: '' };
 
 export function UserPage() {
   const { t } = useTranslation();

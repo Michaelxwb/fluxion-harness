@@ -10,14 +10,14 @@ import {
   IconServer,
   IconUserGroup
 } from '@douyinfe/semi-icons';
-import { Button, Dropdown, Layout, Nav, Select } from '@douyinfe/semi-ui';
+import { Button, Dropdown, Layout, Nav } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
 import { ThemeButton } from '../components/common/ThemeButton';
 import { menuItems } from '../config/menu';
-import { changeLocale, currentLocale, type SupportedLocale } from '../i18n';
 import { useThemeMode } from '../theme';
 
 const { Sider, Header, Content } = Layout;
@@ -94,16 +94,7 @@ export function AppLayout() {
       <Layout>
         <Header className="app-topbar">
           <ThemeButton mode={theme.mode} onToggle={theme.toggle} />
-          <Select
-            size="small"
-            value={currentLocale()}
-            style={{ width: 118 }}
-            onChange={(value) => changeLocale(value as SupportedLocale)}
-            optionList={[
-              { value: 'zh-CN', label: t('common.language.zh') },
-              { value: 'en-US', label: t('common.language.en') }
-            ]}
-          />
+          <LanguageSwitcher />
         </Header>
         <Content className="app-content">
           <Outlet />
