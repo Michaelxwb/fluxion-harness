@@ -54,11 +54,11 @@ body {
 
 .app-brand {
   display: flex;
-  flex: 0 0 64px;
+  flex: 0 0 72px;
   align-items: baseline;
   gap: 8px;
   min-width: 0;
-  padding: 0 16px;
+  padding: 12px 16px 0;
   overflow: hidden;
 }
 
@@ -81,7 +81,7 @@ body {
 .app-nav {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 8px 12px;
+  padding: 20px 12px 12px;
   overflow: auto;
 }
 
@@ -173,7 +173,7 @@ body {
 
 .app-content {
   height: calc(100vh - 52px);
-  padding: 4px 24px 24px;
+  padding: 10px 24px 24px;
   overflow: auto;
 }
 
