@@ -1,0 +1,322 @@
+{
+  "schema": 2,
+  "task_file": "04-project-platform.md",
+  "task_sha256": "a7c33faf1828215604e1ed82a92d5897e6672b71215129a35b7964e4410f8661",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "04-project-platform.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→API→DB",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-01\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-02",
+      "source": "04-project-platform.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→API→DB（凭据明文落库、不回显）",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-02\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-03",
+      "source": "04-project-platform.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→API→网络探测→UI",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-03\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-04",
+      "source": "04-project-platform.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Service→DB→Redis",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_platform_session_invalidation.py",
+        "-k",
+        "s04"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-05",
+      "source": "04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-01）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→adapter metadata→Form",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-05\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-06",
+      "source": "04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-02）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→Secret API",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-06\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-07",
+      "source": "04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-03）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→API→网络探测→UI",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-07\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-08",
+      "source": "04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-04）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→API→DB（用户详情凭据 Tab）",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-08\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-09",
+      "source": "04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-05）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→API→DB",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-09\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "04-project-platform.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→Registry",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_platform_adapters_api.py",
+        "-k",
+        "e01"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "04-project-platform.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→CredentialResolver",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_platform_test_api.py",
+        "-k",
+        "e02"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "04-project-platform.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→DB",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_platform_repository.py",
+        "-k",
+        "e03"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "a7d12493930e4780b04c77d4c002e423",
+        "executed_at": "2026-09-18T12:52:14.275054+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "a7d12493930e4780b04c77d4c002e423",
+          "executed_at": "2026-09-18T12:52:14.275054+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-04",
+      "source": "04-project-platform.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→Schema",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_credentials_api.py",
+        "-k",
+        "e04"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-01）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "PUT API→UI",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"E-05\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-02）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "API→网络探测→UI",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"E-06\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-07",
+      "source": "04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-03）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Schema 校验 API→Form",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_platform_credential_form_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    }
+  ]
+}

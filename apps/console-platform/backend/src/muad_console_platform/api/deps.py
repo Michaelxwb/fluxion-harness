@@ -5,9 +5,11 @@ from muad_api import AppError
 from muad_api.context import current_tenant_id
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
+from muad_platform_sdk import PlatformAdapterRegistry
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.auth_service import AuthService
+from ..application.platform_adapter_service import build_default_registry
 from ..infrastructure.db import get_session
 from ..infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
 from .security import SESSION_COOKIE
@@ -43,3 +45,11 @@ async def require_admin(account: CurrentAccount) -> ConsoleAccount:
 
 
 AdminAccount = Annotated[ConsoleAccount, Depends(require_admin)]
+
+
+def get_adapter_registry(request: Request) -> "PlatformAdapterRegistry":
+    registry = getattr(request.app.state, "platform_adapters", None)
+    if registry is None:
+        registry = build_default_registry()
+        request.app.state.platform_adapters = registry
+    return registry

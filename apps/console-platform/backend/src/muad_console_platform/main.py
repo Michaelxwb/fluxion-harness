@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .api.router import router
 from .application.auth_service import AuthService
+from .application.platform_adapter_service import build_default_registry
 from .infrastructure.db import dispose_engine, get_session_factory
 
 SERVICE_NAME = "muad-console-platform"
@@ -44,5 +45,6 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="MUAD Console Platform", version="0.1.0", lifespan=lifespan)
+app.state.platform_adapters = build_default_registry()
 install_api_foundation(app)
 app.include_router(router)

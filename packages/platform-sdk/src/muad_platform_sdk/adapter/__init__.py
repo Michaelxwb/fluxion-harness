@@ -1,4 +1,5 @@
 from .base import PlatformAdapter
+from .generic_http import CREDENTIAL_SCHEMA, PLATFORM_CONFIG_SCHEMA, GenericHttpAdapter
 from .registry import (
     PlatformAdapterAlreadyRegistered,
     PlatformAdapterNotFound,
@@ -6,6 +7,9 @@ from .registry import (
 )
 
 __all__ = [
+    "CREDENTIAL_SCHEMA",
+    "PLATFORM_CONFIG_SCHEMA",
+    "GenericHttpAdapter",
     "PlatformAdapter",
     "PlatformAdapterAlreadyRegistered",
     "PlatformAdapterNotFound",

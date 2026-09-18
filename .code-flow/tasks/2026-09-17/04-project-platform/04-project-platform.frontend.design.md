@@ -45,7 +45,7 @@
 |---|---|---|---|---|
 | FEAT-FE-01 | 平台列表/详情 | 平台适配器/接入方式/访问配置/凭据策略/已配置用户凭据数/共享凭据（已配置/未配置）/启用状态。 | P0 | 需求描述 |
 | FEAT-FE-02 | 动态平台表单 | Base URL/服务发现字段 + adapter schema。 | P0 | 需求描述 |
-| FEAT-FE-03 | 凭据管理 | 用户凭据 + 单套共享凭据；敏感字段不回显。 | P0 | 需求描述 |
+| FEAT-FE-03 | 凭据管理 | 用户凭据 + 单套共享凭据；敏感字段不回显；用户详情「项目平台凭据」Tab 复用平台列表（按用户返回配置状态）与凭据表单。 | P0 | 需求描述 |
 | FEAT-FE-04 | 配置校验与连通性探测 | 展示 Schema 校验、连通性与凭据引用状态；不在 Console 触发平台登录或业务调用。 | P0 | 需求描述 |
 
 ### 2.3 范围与边界
@@ -65,6 +65,7 @@
 | S-FE-01 | FEAT-FE-02 | E2E | Browser→adapter metadata→Form | 选择服务发现 + Adapter | 仅渲染对应 resolver/adapter 字段 |
 | S-FE-02 | FEAT-FE-03 | E2E | Browser→Secret API | 更新用户凭据 | 保存后只显示已配置，不回显明文 |
 | S-FE-03 | FEAT-FE-04 | E2E | Browser→API→网络探测→UI | 对平台执行配置校验与连通性探测 | 展示 config_valid/connectivity/credential_ref_status，不出现平台登录或业务调用 |
+| S-FE-04 | FEAT-FE-03 | E2E | Browser→API→DB | 打开用户详情「项目平台凭据」Tab | 列出各平台与 `user_credential_status`（含未配置），不回显明文 |
 
 异常：
 

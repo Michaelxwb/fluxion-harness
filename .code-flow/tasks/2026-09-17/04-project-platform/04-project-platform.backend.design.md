@@ -192,6 +192,7 @@ sequenceDiagram
 | `adapter_schema_version` | varchar(32) | NOT NULL DEFAULT '1' | 保存时采用的配置 Schema 版本 |
 | `credential_mode` | varchar(32) | NOT NULL | USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE |
 | `enabled` | boolean | NOT NULL DEFAULT true | 是否启用 |
+| `auth_secret` | text |  | 平台级认证密钥（明文，可选；不回显、不进入日志/审计/Snapshot，由迁移 0004 落地） |
 
 **索引/约束**：
 
@@ -333,12 +334,13 @@ GET /api/v1/project-platforms
 | `keyword` | string | 否 | name/key 模糊搜索 |
 | `adapter_key` | string | 否 | 平台适配器筛选 |
 | `enabled` | boolean | 否 | 启用状态筛选 |
+| `user_id` | uuid | 否 | 传入时返回该用户的 `user_credential_status`（用户详情凭据 Tab 使用，避免前端 N+1） |
 | `page` | int | 否 | 页码，默认 1，最小 1 |
 | `page_size` | int | 否 | 每页条数，默认 20，最大 100 |
 
-- `data`：`{items:[{platform_id,key,name,resolver_type,resolver_config,adapter_key,adapter_config,adapter_schema_version,credential_mode,enabled,configured_user_credential_count,has_shared_credential,update_time}],page,page_size,total}`。
+- `data`：`{items:[{platform_id,key,name,resolver_type,resolver_config,adapter_key,adapter_config,adapter_schema_version,credential_mode,enabled,configured_user_credential_count,has_shared_credential,update_time,user_credential_status?}],page,page_size,total}`；`user_credential_status` 仅当传入 `user_id` 时返回，取值 `ACTIVE/INVALID/NONE`（无记录为 `NONE`），不回显凭据内容。
 - 错误码：`COMMON_VALIDATION_ERROR / COMMON_INTERNAL_ERROR`
-- 处理：软删过滤；数量字段用聚合 COUNT 得出，禁止 N+1；枚举原样返回，中文映射留给 UI/i18n。
+- 处理：软删过滤；数量字段用聚合 COUNT 得出，禁止 N+1；传入 `user_id` 时用一次 LEFT JOIN 聚合得出 `user_credential_status`，同样禁止 N+1；枚举原样返回，中文映射留给 UI/i18n。
 - 对应 docs/07：§10.7；字段中文名 docs/15 §6/§7。
 
 #### API-03 新增平台

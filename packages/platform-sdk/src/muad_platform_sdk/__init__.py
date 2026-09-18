@@ -1,4 +1,7 @@
 from .adapter import (
+    CREDENTIAL_SCHEMA,
+    PLATFORM_CONFIG_SCHEMA,
+    GenericHttpAdapter,
     PlatformAdapter,
     PlatformAdapterAlreadyRegistered,
     PlatformAdapterNotFound,
@@ -27,7 +30,10 @@ from .types import (
 )
 
 __all__ = [
+    "CREDENTIAL_SCHEMA",
     "NONE_ACTOR_SCOPE",
+    "PLATFORM_CONFIG_SCHEMA",
+    "GenericHttpAdapter",
     "SESSION_INDEX_PREFIX",
     "SESSION_KEY_PREFIX",
     "PlatformAdapter",

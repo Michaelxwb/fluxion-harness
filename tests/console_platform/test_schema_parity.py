@@ -3,7 +3,13 @@ from typing import Any
 import sqlalchemy as sa
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.auth import ConsoleAccount, ConsoleSession
-from muad_console_platform.infrastructure.models.control import AgentDefinition, ModelDefinition
+from muad_console_platform.infrastructure.models.control import (
+    AgentDefinition,
+    ModelDefinition,
+    ProjectPlatform,
+    SharedCredentialRef,
+    UserCredentialRef,
+)
 from sqlalchemy import inspect
 
 SCHEMA = "control"
@@ -14,6 +20,15 @@ EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
         "ix_agent_definition_model_enabled",
     ),
     "model_definition": ("uq_model_definition_tenant_key",),
+    "project_platform": (
+        "uq_project_platform_tenant_key",
+        "ix_project_platform_adapter_key_enabled",
+    ),
+    "user_credential_ref": ("uq_user_credential_ref_user_platform",),
+    "shared_credential_ref": (
+        "uq_shared_credential_ref_platform_id",
+        "ix_shared_credential_ref_platform_status",
+    ),
     "console_account": ("uq_console_account_tenant_username",),
     "console_session": (
         "uq_console_session_token_hash",
@@ -132,3 +147,18 @@ async def test_console_account_schema_parity(database_guard: None) -> None:
 async def test_console_session_schema_parity(database_guard: None) -> None:
     diffs = _compare(ConsoleSession.__table__, await _reflect("console_session"))
     assert not diffs, "console_session schema mismatch:\n" + "\n".join(diffs)
+
+
+async def test_project_platform_schema_parity(database_guard: None) -> None:
+    diffs = _compare(ProjectPlatform.__table__, await _reflect("project_platform"))
+    assert not diffs, "project_platform schema mismatch:\n" + "\n".join(diffs)
+
+
+async def test_user_credential_ref_schema_parity(database_guard: None) -> None:
+    diffs = _compare(UserCredentialRef.__table__, await _reflect("user_credential_ref"))
+    assert not diffs, "user_credential_ref schema mismatch:\n" + "\n".join(diffs)
+
+
+async def test_shared_credential_ref_schema_parity(database_guard: None) -> None:
+    diffs = _compare(SharedCredentialRef.__table__, await _reflect("shared_credential_ref"))
+    assert not diffs, "shared_credential_ref schema mismatch:\n" + "\n".join(diffs)
