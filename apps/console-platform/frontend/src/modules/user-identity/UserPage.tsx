@@ -56,7 +56,7 @@ export function UserPage() {
   };
 
   return (
-    <PageCard>
+    <PageCard title={t('user.title')} subtitle={t('user.subtitle')}>
       <ModuleToolbar
         actions={
           <Button
@@ -79,17 +79,16 @@ export function UserPage() {
               onChange={(value) => setParams((prev) => ({ ...prev, keyword: value, page: 1 }))}
             />
             <Select
-              value={params.status}
-              style={{ width: 140 }}
+              value={params.status || undefined}
+              style={{ width: 150 }}
               placeholder={t('user.columns.status')}
+              showClear
               optionList={[
-                { value: '', label: t('user.reset') },
                 { value: 'ACTIVE', label: t('common.status.enabled') },
                 { value: 'DISABLED', label: t('common.status.disabled') }
               ]}
-              onChange={(value) => setParams((prev) => ({ ...prev, status: String(value), page: 1 }))}
+              onChange={(value) => setParams((prev) => ({ ...prev, status: value ? String(value) : '', page: 1 }))}
             />
-            <Button onClick={() => setParams(DEFAULT_PARAMS)}>{t('user.reset')}</Button>
             <Button onClick={() => void reload()}>{t('common.refresh')}</Button>
           </>
         }
@@ -112,10 +111,26 @@ export function UserPage() {
             )
           },
           { title: t('user.columns.userCode'), dataIndex: 'user_code' },
-          { title: t('user.columns.agentCount'), dataIndex: 'agent_grant_count' },
-          { title: t('user.columns.credentialCount'), dataIndex: 'credential_count' },
-          { title: t('user.columns.identityCount'), dataIndex: 'identity_count' },
-          { title: t('user.columns.memoryCount'), dataIndex: 'memory_count' },
+          {
+            title: t('user.columns.agentCount'),
+            dataIndex: 'agent_grant_count',
+            render: (value: number) => <span className="count-cell">{value}</span>
+          },
+          {
+            title: t('user.columns.credentialCount'),
+            dataIndex: 'credential_count',
+            render: (value: number) => <span className="count-cell">{value}</span>
+          },
+          {
+            title: t('user.columns.identityCount'),
+            dataIndex: 'identity_count',
+            render: (value: number) => <span className="count-cell">{value}</span>
+          },
+          {
+            title: t('user.columns.memoryCount'),
+            dataIndex: 'memory_count',
+            render: (value: number) => <span className="count-cell">{value}</span>
+          },
           {
             title: t('user.columns.status'),
             dataIndex: 'status',

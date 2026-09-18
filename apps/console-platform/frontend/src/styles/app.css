@@ -1,13 +1,18 @@
 :root {
-  --semi-color-primary: #2563eb;
-  --semi-color-primary-hover: #3b82f6;
-  --semi-color-primary-active: #1d4ed8;
-  --semi-color-primary-light-default: rgba(37, 99, 235, 0.08);
-  --semi-color-primary-light-hover: rgba(37, 99, 235, 0.14);
-  --semi-color-primary-light-active: rgba(37, 99, 235, 0.2);
-  --app-radius: 10px;
-  --app-shell-max: 1280px;
-  --app-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px -12px rgba(15, 23, 42, 0.12);
+  --semi-color-primary: #2f6bff;
+  --semi-color-primary-hover: #4d82ff;
+  --semi-color-primary-active: #1f55e0;
+  --semi-color-primary-light-default: rgba(47, 107, 255, 0.09);
+  --semi-color-primary-light-hover: rgba(47, 107, 255, 0.16);
+  --semi-color-primary-light-active: rgba(47, 107, 255, 0.22);
+  --app-radius: 12px;
+  --app-radius-sm: 8px;
+  --app-shell-max: 1320px;
+  --app-bg: #f4f6fb;
+  --app-border: rgba(15, 23, 42, 0.08);
+  --app-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px -20px rgba(15, 23, 42, 0.18);
+  --app-shadow-pop: 0 16px 40px -16px rgba(15, 23, 42, 0.24);
+  --app-font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Segoe UI', 'Microsoft YaHei', sans-serif;
 }
 
 html,
@@ -18,8 +23,72 @@ body,
 
 body {
   margin: 0;
-  background: var(--semi-color-fill-0);
+  background: var(--app-bg);
+  font-family: var(--app-font);
+  -webkit-font-smoothing: antialiased;
 }
+
+/* ---------- 侧边栏与顶部 ---------- */
+
+.app-sider {
+  background: var(--semi-color-bg-0);
+  border-right: 1px solid var(--app-border);
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 20px 14px;
+}
+
+.app-brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #2f6bff 0%, #7aa2ff 100%);
+  box-shadow: 0 6px 16px -6px rgba(47, 107, 255, 0.65);
+}
+
+.app-brand-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--semi-color-text-0);
+  letter-spacing: 0.2px;
+}
+
+.app-nav {
+  padding: 4px 8px 16px;
+}
+
+.app-nav .semi-navigation-item {
+  border-radius: var(--app-radius-sm);
+  margin: 2px 0;
+  height: 38px;
+  color: var(--semi-color-text-1);
+}
+
+.app-nav .semi-navigation-item-selected {
+  font-weight: 600;
+}
+
+.app-header {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 0 24px;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.app-content {
+  padding: 24px;
+}
+
+/* ---------- 页面骨架 ---------- */
 
 .page-shell {
   max-width: var(--app-shell-max);
@@ -28,55 +97,161 @@ body {
 
 .page-card {
   border-radius: var(--app-radius);
+  border: 1px solid var(--app-border);
   box-shadow: var(--app-shadow-card);
 }
 
 .page-card .semi-card-body {
-  padding: 20px 24px;
+  padding: 22px 24px 20px;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.page-header-title {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--semi-color-text-0);
+  margin: 0;
+}
+
+.page-header-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--semi-color-text-2);
+}
+
+.app-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.app-toolbar .semi-button {
+  border-radius: var(--app-radius-sm);
+}
+
+/* ---------- 表格 ---------- */
+
+.semi-table {
+  border-radius: var(--app-radius-sm);
 }
 
 .semi-table-thead > .semi-table-row > .semi-table-row-head {
   background: var(--semi-color-fill-0);
+  font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--semi-color-text-2);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--app-border);
 }
 
-.semi-table {
+.semi-table-tbody > .semi-table-row > .semi-table-row-cell {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.semi-table-tbody > .semi-table-row:hover > .semi-table-row-cell {
+  background: rgba(47, 107, 255, 0.04);
+}
+
+.semi-table-tbody > .semi-table-row:last-child > .semi-table-row-cell {
+  border-bottom: none;
+}
+
+.count-cell {
+  font-variant-numeric: tabular-nums;
+  color: var(--semi-color-text-1);
+}
+
+.semi-table-pagination-outer {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---------- 弹层 ---------- */
+
+.semi-modal-content,
+.semi-sidesheet-inner {
   border-radius: var(--app-radius);
-  overflow: hidden;
 }
 
-.semi-navigation-item {
-  border-radius: 8px;
-  margin: 2px 8px;
+.semi-sidesheet-header {
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid var(--app-border);
 }
 
-.semi-navigation-item-selected {
-  font-weight: 600;
+.semi-modal-footer .semi-button {
+  border-radius: var(--app-radius-sm);
 }
 
-.app-header {
-  border-bottom: 1px solid var(--semi-color-border);
-}
+/* ---------- 登录页 ---------- */
 
 .login-shell {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 45%, #eef2ff 100%);
+  padding: 24px;
+  background:
+    radial-gradient(1100px 520px at 12% -10%, rgba(47, 107, 255, 0.18) 0%, rgba(47, 107, 255, 0) 60%),
+    radial-gradient(900px 460px at 92% 8%, rgba(122, 162, 255, 0.22) 0%, rgba(122, 162, 255, 0) 55%),
+    linear-gradient(180deg, #f7f9ff 0%, #eef2fb 100%);
 }
 
 .login-card {
-  width: 380px;
-  border-radius: 14px;
-  box-shadow: 0 12px 40px -16px rgba(15, 23, 42, 0.25);
+  width: 400px;
+  border-radius: 16px;
+  border: 1px solid var(--app-border);
+  box-shadow: 0 24px 64px -28px rgba(15, 23, 42, 0.35);
 }
 
 .login-card .semi-card-body {
-  padding: 32px 28px;
+  padding: 36px 32px 30px;
 }
 
-.login-title {
-  text-align: center;
-  margin-bottom: 24px;
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 26px;
+}
+
+.login-brand .app-brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+}
+
+.login-brand-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--semi-color-text-0);
+}
+
+.login-subtitle {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
+.login-card .semi-form-field {
+  margin-bottom: 18px;
+}
+
+.login-card .semi-button {
+  height: 40px;
+  border-radius: var(--app-radius-sm);
+  font-weight: 600;
 }

@@ -33,9 +33,11 @@ export function LoginPage() {
   return (
     <div className="login-shell">
       <Card className="login-card" bordered={false}>
-        <Typography.Title heading={4} className="login-title">
-          {t('login.title')}
-        </Typography.Title>
+        <div className="login-brand">
+          <span className="app-brand-mark" />
+          <span className="login-brand-name">{t('app.title')}</span>
+          <span className="login-subtitle">{t('login.title')}</span>
+        </div>
         <Form<LoginFormValues>
           onSubmit={(values) => {
             void handleSubmit(values);

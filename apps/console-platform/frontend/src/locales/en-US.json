@@ -80,5 +80,6 @@
   "user.common.empty": "No data",
   "user.common.confirmClear": "Clear all memories for this user?",
   "user.common.confirmUnbind": "Unbind this identity?",
-  "user.common.confirmRevoke": "Revoke this grant?"
+  "user.common.confirmRevoke": "Revoke this grant?",
+  "user.subtitle": "Platform users, IM identities and bindings"
 }

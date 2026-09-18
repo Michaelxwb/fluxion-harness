@@ -58,7 +58,8 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     const body = error.response?.data;
-    if (body?.msg) {
+    const isSessionProbe = error.config?.url?.includes('/auth/me') ?? false;
+    if (body?.msg && !isSessionProbe) {
       Toast.error({ content: body.msg });
     }
     return Promise.reject(error);

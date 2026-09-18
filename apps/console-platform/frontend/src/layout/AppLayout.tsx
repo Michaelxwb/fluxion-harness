@@ -1,4 +1,4 @@
-import { Button, Dropdown, Layout, Nav, Select, Typography } from '@douyinfe/semi-ui';
+import { Button, Dropdown, Layout, Nav, Select } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
@@ -17,30 +17,21 @@ export function AppLayout() {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider style={{ width: 220, background: 'var(--semi-color-bg-1)', borderRight: '1px solid var(--semi-color-border)' }}>
-        <div style={{ padding: 20 }}>
-          <Typography.Title heading={6}>{t('app.title')}</Typography.Title>
+      <Sider className="app-sider" style={{ width: 220 }}>
+        <div className="app-brand">
+          <span className="app-brand-mark" />
+          <span className="app-brand-title">{t('app.title')}</span>
         </div>
         <Nav
+          className="app-nav"
           selectedKeys={[location.pathname]}
           items={visibleItems.map((item) => ({ itemKey: item.path, text: t(item.key) }))}
           onSelect={({ itemKey }) => navigate(String(itemKey))}
-          style={{ maxWidth: 220 }}
+          style={{ maxWidth: '100%' }}
         />
       </Sider>
       <Layout>
-        <Header
-          className="app-header"
-          style={{
-            height: 64,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: 16,
-            padding: '0 24px',
-            background: 'var(--semi-color-bg-1)'
-          }}
-        >
+        <Header className="app-header">
           <Select
             value={currentLocale()}
             style={{ width: 130 }}
@@ -71,7 +62,7 @@ export function AppLayout() {
             </Button>
           </Dropdown>
         </Header>
-        <Content style={{ padding: 24 }}>
+        <Content className="app-content">
           <Outlet />
         </Content>
       </Layout>

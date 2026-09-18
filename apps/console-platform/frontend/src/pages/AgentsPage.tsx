@@ -22,7 +22,7 @@ export function AgentsPage() {
   ];
 
   return (
-    <PageCard>
+    <PageCard title={t('nav.agent')} subtitle={t('model.note')}>
       <ModuleToolbar
         actions={<Button theme="solid">{t('common.add')}</Button>}
         search={<Button>{t('common.refresh')}</Button>}
