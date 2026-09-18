@@ -29,7 +29,7 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 |
 |--------|---------|---------|-------------|---------|------|------|
-| S-01 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB | TASK-003 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-01\""] |
+| S-01 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB | TASK-003 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-01\""] |
 | S-02 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB（凭据明文落库、不回显） | TASK-004 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-02\""] |
 | S-03 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→网络探测→UI | TASK-005 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-03\""] |
 | S-04 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | Service→DB→Redis | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_session_invalidation.py", "-k", "s04"] |
@@ -145,7 +145,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - [2026-09-18] completed (done)
 ## TASK-003: 平台 CRUD 与失效 API
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 04-project-platform.backend.design.md#3.4 接口设计(API-02/03/04/05/13), #2.5.1 业务规则与约束(RULE-01/02/03/05/06)
@@ -173,19 +173,21 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | Browser、API、DB | 平台按 Schema 保存/展示；重复 key 拒绝 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-01"` | planned |
+| S-01 | E2E | Browser、API、DB | 平台按 Schema 保存/展示；重复 key 拒绝 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-01"` | e2e_deferred |
 | E-01 | integration | API、Registry、DB | `PLATFORM_ADAPTER_NOT_FOUND`；事务未落库 | tests/console_platform/test_platforms_api.py（planned） | `uv run pytest -q tests/console_platform/test_platforms_api.py -k e01` | planned |
 | E-03 | integration | API、DB | `COMMON_CONFLICT` + `message_args.key`；列表不变 | tests/console_platform/test_platforms_api.py（planned） | `uv run pytest -q tests/console_platform/test_platforms_api.py -k e03` | planned |
 
 ### Acceptance Evidence
 
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=446457ae75f541bf932c688432a29343 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
 
 ---
-
+- [2026-09-18] started
+- [2026-09-18] completed (done)
 ## TASK-004: 用户/共享凭据 API
 
 - **Status**: draft
