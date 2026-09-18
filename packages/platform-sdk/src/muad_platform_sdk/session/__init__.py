@@ -1,3 +1,4 @@
+from .invalidator import RedisPlatformSessionInvalidator
 from .key import (
     NONE_ACTOR_SCOPE,
     SESSION_INDEX_PREFIX,
@@ -14,6 +15,7 @@ __all__ = [
     "SESSION_INDEX_PREFIX",
     "SESSION_KEY_PREFIX",
     "PlatformSessionManager",
+    "RedisPlatformSessionInvalidator",
     "SessionRequest",
     "platform_session_key",
     "platform_sessions_index_key",

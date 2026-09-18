@@ -44,8 +44,8 @@ class RecordingSessions:
     def __init__(self) -> None:
         self.calls: list[str] = []
 
-    async def clear_platform(self, platform: PlatformConfig) -> int:
-        self.calls.append(platform.key)
+    async def clear_platform(self, *, tenant_id: str, platform_id: uuid.UUID) -> int:
+        self.calls.append(str(platform_id))
         return 1
 
 

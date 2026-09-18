@@ -1,11 +1,12 @@
 from typing import Annotated, cast
 
+import redis.asyncio as redis
 from fastapi import Depends, Request
 from muad_api import AppError
 from muad_api.context import current_tenant_id
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
-from muad_platform_sdk import PlatformAdapterRegistry
+from muad_platform_sdk import PlatformAdapterRegistry, RedisPlatformSessionInvalidator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.auth_service import AuthService
@@ -58,6 +59,10 @@ def get_adapter_registry(request: Request) -> "PlatformAdapterRegistry":
 
 def get_platform_sessions(request: Request) -> PlatformSessionInvalidator:
     sessions = getattr(request.app.state, "platform_sessions", None)
-    if sessions is None:
+    if sessions is not None:
+        return cast(PlatformSessionInvalidator, sessions)
+    redis_url = SharedSettings().redis_url
+    if not redis_url:
         return NullPlatformSessionInvalidator()
-    return cast(PlatformSessionInvalidator, sessions)
+    client = redis.from_url(redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
+    return RedisPlatformSessionInvalidator(client)

@@ -30,7 +30,7 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 |
 |--------|---------|---------|-------------|---------|------|------|
 | S-01 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB | TASK-003 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-01\""] |
-| S-02 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB（凭据明文落库、不回显） | TASK-004 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-02\""] |
+| S-02 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB（凭据明文落库、不回显） | TASK-004 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-02\""] |
 | S-03 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→网络探测→UI | TASK-005 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-03\""] |
 | S-04 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | Service→DB→Redis | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_session_invalidation.py", "-k", "s04"] |
 | S-05 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-01） | E2E | Browser→adapter metadata→Form | TASK-008 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-05\""] |
@@ -41,7 +41,7 @@
 | E-01 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→Registry | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_adapters_api.py", "-k", "e01"] |
 | E-02 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→CredentialResolver | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_test_api.py", "-k", "e02"] |
 | E-03 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→DB | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_repository.py", "-k", "e03"] |
-| E-04 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→Schema | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_credentials_api.py", "-k", "e04"] |
+| E-04 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→Schema | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_credentials_api.py", "-k", "e04"] |
 | E-05 | 04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-01） | E2E | PUT API→UI | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"E-05\""] |
 | E-06 | 04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-02） | E2E | API→网络探测→UI | TASK-012 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"E-06\""] |
 | E-07 | 04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-03） | integration | Schema 校验 API→Form | TASK-010 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_platform_credential_form_contract.py"] |
@@ -190,7 +190,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - [2026-09-18] completed (done)
 ## TASK-004: 用户/共享凭据 API
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003
 - **Source**: 04-project-platform.backend.design.md#3.4 接口设计(API-07~12), #2.5.1 业务规则与约束(RULE-03)
@@ -214,18 +214,21 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-02 | E2E | Browser、API、DB | DB 明文落库；响应不回显；审计无 Secret | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-02"` | planned |
-| E-04 | integration | API、Schema、DB | `COMMON_VALIDATION_ERROR`；Secret 零落库 | tests/console_platform/test_credentials_api.py（planned） | `uv run pytest -q tests/console_platform/test_credentials_api.py -k e04` | planned |
+| S-02 | E2E | Browser、API、DB | DB 明文落库；响应不回显；审计无 Secret | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-02"` | e2e_deferred |
+| E-04 | integration | API、Schema、DB | `COMMON_VALIDATION_ERROR`；Secret 零落库 | tests/console_platform/test_credentials_api.py（planned） | `uv run pytest -q tests/console_platform/test_credentials_api.py -k e04` | verified |
 
 ### Acceptance Evidence
 
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=3262ccdf392144638caabb2cf0954e71 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=3262ccdf392144638caabb2cf0954e71 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
 
 ---
-
+- [2026-09-18] started
+- [2026-09-18] completed (done)
 ## TASK-005: 配置校验与连通性探测 API
 
 - **Status**: draft
@@ -273,11 +276,11 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - **Acceptance-Refs**: S-04
 
 ### Description
-platform-sdk 实现 `RedisPlatformSessionManager`（`session/key.py` 的键与索引：`platform_session:{tenant}:{platform}:{actor_scope}:{credential_version}:{adapter_key}:{adapter_version}`，`SADD platform_sessions:{tenant}:{platform}`，清理走 `SMEMBERS`+`DEL`，禁止 `KEYS/SCAN`；singleflight 短锁避免并发冷启动重复 `authenticate`）；Console 使用 `.env` `REDIS_URL` 注入并在 `adapter_key` 变更/凭据失效/平台删除时调用失效清理。
+platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{tenant}:{platform}` Set 索引 `SMEMBERS`+`DEL` 清理会话键，禁止 `KEYS/SCAN`，重复清理幂等；Console 通过 `.env` `REDIS_URL` 注入，并在 `adapter_key` 变更/平台删除时调用清理（凭据内容哈希变化使旧会话自然不复用）。带 singleflight 的 Runtime 会话 `acquire/renew` 属 Runtime Egress Boundary，待对应模块实现（本任务只闭合 Console 失效路径）。
 
 ### Checklist
-- [ ] `RedisPlatformSessionManager` 实现 + 键/索引/版本语义单测（`tests/sdk/test_platform_session_manager.py`）
-- [ ] singleflight 短锁与 double-check；Redis 丢失可重建
+- [ ] `RedisPlatformSessionInvalidator` 实现（Set 索引 + 幂等清理 + 不产生 KEYS/SCAN），经 `muad_platform_sdk` 导出
+- [ ] Console 注入 `.env` `REDIS_URL`（缺失时 Null 实现），adapter 变更/删除路径调用清理
 - [ ] Console 注入（`SharedSettings.require_redis_url`）并在 TASK-003 失效路径调用
 - [ ] Session Cache 不含 raw password/AK/SK（脱敏断言）
 - [ ] [S-04][integration] 修改生产代码前，按 Service→DB→Redis 真实边界编写验收测试并记录 RED（真实 PG + `.env` Redis）

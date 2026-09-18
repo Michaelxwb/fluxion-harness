@@ -1562,12 +1562,14 @@ source = { editable = "packages/platform-sdk" }
 dependencies = [
     { name = "muad-contracts" },
     { name = "pydantic" },
+    { name = "redis" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "muad-contracts", editable = "packages/contracts" },
     { name = "pydantic", specifier = ">=2.9" },
+    { name = "redis", specifier = ">=6.4.0" },
 ]
 
 [[package]]

@@ -19,7 +19,6 @@ from .platform_adapter_service import adapter_metadata
 from .platform_ports import (
     NullPlatformSessionInvalidator,
     PlatformSessionInvalidator,
-    platform_config_from,
     platform_snapshot,
 )
 
@@ -213,7 +212,7 @@ class PlatformService:
             after=self._snapshot(platform),
         )
         if adapter_changed:
-            await self._sessions.clear_platform(platform_config_from(platform))
+            await self._sessions.clear_platform(tenant_id=tenant_id, platform_id=platform.id)
         return platform, adapter_changed
 
     async def delete(self, tenant_id: str, platform_id: uuid.UUID, actor: AuditActor) -> None:
@@ -232,7 +231,7 @@ class PlatformService:
             before=before,
             after=None,
         )
-        await self._sessions.clear_platform(platform_config_from(platform))
+        await self._sessions.clear_platform(tenant_id=tenant_id, platform_id=platform.id)
 
     def _summary(self, row: PlatformListRow, with_status: bool) -> dict[str, Any]:
         platform = row.platform

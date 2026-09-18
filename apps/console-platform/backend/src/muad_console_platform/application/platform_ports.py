@@ -3,16 +3,14 @@ from __future__ import annotations
 import uuid
 from typing import Any, Protocol
 
-from muad_platform_sdk import PlatformConfig
-
 
 class PlatformSessionInvalidator(Protocol):
-    async def clear_platform(self, platform: PlatformConfig) -> int: ...
+    async def clear_platform(self, *, tenant_id: str, platform_id: uuid.UUID) -> int: ...
 
 
 class NullPlatformSessionInvalidator:
-    async def clear_platform(self, platform: PlatformConfig) -> int:
-        del platform
+    async def clear_platform(self, *, tenant_id: str, platform_id: uuid.UUID) -> int:
+        del tenant_id, platform_id
         return 0
 
 
@@ -54,17 +52,3 @@ def platform_snapshot(
     if user_credential_status is not None:
         data["user_credential_status"] = user_credential_status
     return data
-
-
-def platform_config_from(platform: Any) -> PlatformConfig:
-    return PlatformConfig(
-        key=platform.key,
-        name=platform.name,
-        resolver_type=platform.resolver_type,
-        resolver_config=platform.resolver_config_json,
-        adapter_key=platform.adapter_key,
-        adapter_config=platform.adapter_config_json,
-        adapter_schema_version=platform.adapter_schema_version,
-        credential_mode=platform.credential_mode,
-        enabled=platform.enabled,
-    )

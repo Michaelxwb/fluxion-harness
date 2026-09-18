@@ -18,26 +18,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-01",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "446457ae75f541bf932c688432a29343",
-        "executed_at": "2026-09-18T13:02:41.823414+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-01",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "446457ae75f541bf932c688432a29343",
-          "executed_at": "2026-09-18T13:02:41.823414+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-02",
@@ -46,7 +27,7 @@
       "kind": "e2e",
       "boundary": "Browser→API→DB（凭据明文落库、不回显）",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -198,28 +179,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-01",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "343d6faf5f124438915c21fd6d55cb20",
-        "executed_at": "2026-09-18T12:53:53.878565+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "343d6faf5f124438915c21fd6d55cb20",
-          "executed_at": "2026-09-18T12:53:53.878565+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-02",
@@ -261,28 +221,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "a7d12493930e4780b04c77d4c002e423",
-        "executed_at": "2026-09-18T12:52:14.275054+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "a7d12493930e4780b04c77d4c002e423",
-          "executed_at": "2026-09-18T12:52:14.275054+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-04",
@@ -291,7 +230,7 @@
       "kind": "functional",
       "boundary": "API→Schema",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
