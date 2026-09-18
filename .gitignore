@@ -13,3 +13,12 @@ dist/
 .idea/
 .vscode/
 .DS_Store
+
+# code-flow runtime state (local only)
+.code-flow/.session-log.jsonl
+.code-flow/.session-state.json
+.code-flow/.catalog-state.json
+.code-flow/.artifact-hash-cache.json
+.code-flow/.check-state.json
+.code-flow/.active-task.json
+.code-flow/.active-task.lock
