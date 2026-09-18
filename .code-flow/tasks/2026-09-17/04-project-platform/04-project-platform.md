@@ -29,21 +29,21 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 |
 |--------|---------|---------|-------------|---------|------|------|
-| S-01 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB | TASK-003 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-01\""] |
-| S-02 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB（凭据明文落库、不回显） | TASK-004 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-02\""] |
-| S-03 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→网络探测→UI | TASK-005 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-03\""] |
+| S-01 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB | TASK-003 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-01\""] |
+| S-02 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB（凭据明文落库、不回显） | TASK-004 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-02\""] |
+| S-03 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→网络探测→UI | TASK-005 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-03\""] |
 | S-04 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | Service→DB→Redis | TASK-006 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_session_invalidation.py", "-k", "s04"] |
-| S-05 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-01） | E2E | Browser→adapter metadata→Form | TASK-008 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-05\""] |
-| S-06 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-02） | E2E | Browser→Secret API | TASK-010 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-06\""] |
-| S-07 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-03） | E2E | Browser→API→网络探测→UI | TASK-010 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-07\""] |
-| S-08 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-04） | E2E | Browser→API→DB（用户详情凭据 Tab） | TASK-011 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-08\""] |
-| S-09 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-05） | E2E | Browser→API→DB | TASK-007 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-09\""] |
+| S-05 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-01） | E2E | Browser→adapter metadata→Form | TASK-008 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-05\""] |
+| S-06 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-02） | E2E | Browser→Secret API | TASK-010 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-06\""] |
+| S-07 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-03） | E2E | Browser→API→网络探测→UI | TASK-010 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-07\""] |
+| S-08 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-04） | E2E | Browser→API→DB（用户详情凭据 Tab） | TASK-011 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-08\""] |
+| S-09 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-05） | E2E | Browser→API→DB | TASK-007 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-09\""] |
 | E-01 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→Registry | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_adapters_api.py", "-k", "e01"] |
 | E-02 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→CredentialResolver | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_test_api.py", "-k", "e02"] |
 | E-03 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→DB | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_repository.py", "-k", "e03"] |
 | E-04 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→Schema | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_credentials_api.py", "-k", "e04"] |
-| E-05 | 04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-01） | E2E | PUT API→UI | TASK-009 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"E-05\""] |
-| E-06 | 04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-02） | E2E | API→网络探测→UI | TASK-012 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"E-06\""] |
+| E-05 | 04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-01） | E2E | PUT API→UI | TASK-009 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"E-05\""] |
+| E-06 | 04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-02） | E2E | API→网络探测→UI | TASK-012 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"E-06\""] |
 | E-07 | 04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-03） | integration | Schema 校验 API→Form | TASK-010 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_platform_credential_form_contract.py"] |
 
 > 本表覆盖 design 全部 P0 场景（FEAT-01~04、FEAT-FE-01~05）与 9 条 required RULE 映射场景；不存在缺口。
@@ -52,7 +52,7 @@
 
 ## TASK-001: 平台/凭据模型与仓储
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 04-project-platform.backend.design.md#3.3 数据设计, #2.5.1 业务规则与约束(RULE-02)
@@ -89,6 +89,7 @@
 - GREEN：`uv run pytest -q tests/console_platform/test_platform_repository.py -k e03`（真实 PG partial unique 触发 IntegrityError，回滚后单条）；`uv run pytest -q tests -k schema_parity` 覆盖三表列/索引/FK。
 - RED 未留存：仓库层实现与测试同批完成，以真实 DB 约束断言为主证据。
 - E-03: verified — automated command passed; run_id=a7d12493930e4780b04c77d4c002e423 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -99,7 +100,7 @@
 - [2026-09-18] completed (done)
 ## TASK-002: Adapter Registry 装配、参考适配器与 Metadata API
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 04-project-platform.backend.design.md#3.4 接口设计(API-01/API-14), #3.1 技术选型与关键决策, docs/12-项目平台适配与Session详细设计.md#3.1 PlatformAdapter, #5 prepare_request
@@ -136,6 +137,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - GREEN：`uv run pytest -q tests/console_platform/test_platform_adapters_api.py -k e01`；`tests/sdk/test_platform_generic_http.py` 覆盖 bearer/basic/none 头注入与真实本地 HTTP 链路。
 - RED 未留存：实现与测试同批完成。
 - E-01: verified — automated command passed; run_id=343d6faf5f124438915c21fd6d55cb20 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -145,7 +147,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - [2026-09-18] completed (done)
 ## TASK-003: 平台 CRUD 与失效 API
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 04-project-platform.backend.design.md#3.4 接口设计(API-02/03/04/05/13), #2.5.1 业务规则与约束(RULE-01/02/03/05/06)
@@ -173,7 +175,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | Browser、API、DB | 平台按 Schema 保存/展示；重复 key 拒绝 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-01"` | e2e_deferred |
+| S-01 | E2E | Browser、API、DB | 平台按 Schema 保存/展示；重复 key 拒绝 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-01"` | verified |
 | E-01 | integration | API、Registry、DB | `PLATFORM_ADAPTER_NOT_FOUND`；事务未落库 | tests/console_platform/test_platforms_api.py（planned） | `uv run pytest -q tests/console_platform/test_platforms_api.py -k e01` | planned |
 | E-03 | integration | API、DB | `COMMON_CONFLICT` + `message_args.key`；列表不变 | tests/console_platform/test_platforms_api.py（planned） | `uv run pytest -q tests/console_platform/test_platforms_api.py -k e03` | planned |
 
@@ -181,6 +183,8 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=446457ae75f541bf932c688432a29343 (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -190,7 +194,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - [2026-09-18] completed (done)
 ## TASK-004: 用户/共享凭据 API
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003
 - **Source**: 04-project-platform.backend.design.md#3.4 接口设计(API-07~12), #2.5.1 业务规则与约束(RULE-03)
@@ -214,7 +218,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-02 | E2E | Browser、API、DB | DB 明文落库；响应不回显；审计无 Secret | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-02"` | e2e_deferred |
+| S-02 | E2E | Browser、API、DB | DB 明文落库；响应不回显；审计无 Secret | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-02"` | verified |
 | E-04 | integration | API、Schema、DB | `COMMON_VALIDATION_ERROR`；Secret 零落库 | tests/console_platform/test_credentials_api.py（planned） | `uv run pytest -q tests/console_platform/test_credentials_api.py -k e04` | verified |
 
 ### Acceptance Evidence
@@ -222,6 +226,9 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 - S-02: e2e_deferred — automated command e2e_deferred; run_id=3262ccdf392144638caabb2cf0954e71 (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=3262ccdf392144638caabb2cf0954e71 (confirmed_by: runner)
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -231,7 +238,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - [2026-09-18] completed (done)
 ## TASK-005: 配置校验与连通性探测 API
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-004
 - **Source**: 04-project-platform.backend.design.md#3.4 接口设计(API-06), #2.5.1 业务规则与约束(RULE-08)
@@ -254,7 +261,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-03 | E2E | Browser、API、网络探测、UI | 三项结果正确；无登录/Session/业务调用痕迹 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-03"` | e2e_deferred |
+| S-03 | E2E | Browser、API、网络探测、UI | 三项结果正确；无登录/Session/业务调用痕迹 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-03"` | verified |
 | E-02 | integration | API、CredentialResolver、DB | `CREDENTIAL_MISSING`；不读取 Secret Value | tests/console_platform/test_platform_test_api.py（planned） | `uv run pytest -q tests/console_platform/test_platform_test_api.py -k e02` | verified |
 
 ### Acceptance Evidence
@@ -262,6 +269,9 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 - S-03: e2e_deferred — automated command e2e_deferred; run_id=7c888edd578b43e5901e01181becb092 (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=7c888edd578b43e5901e01181becb092 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -271,7 +281,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - [2026-09-18] completed (done)
 ## TASK-006: Session 失效契约（Redis Set 索引）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003
 - **Source**: 04-project-platform.backend.design.md#3.5 Session 与凭据解析, #2.5.1 业务规则与约束(RULE-04/05), docs/12-项目平台适配与Session详细设计.md#7
@@ -300,6 +310,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 - S-04: verified — automated command passed; run_id=a67c8f5933a04a5b9195f69cbf1c6250 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -309,7 +320,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - [2026-09-18] completed (done)
 ## TASK-007: 前端 services 与平台列表页
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003
 - **Source**: 04-project-platform.frontend.design.md#3.2 页面与路由结构, #3.5 状态与数据流, #3.6 UI 状态, #3.7 样式方案
@@ -337,12 +348,14 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 | S-06 | E2E | Browser、Secret API | 凭据流程入口可达（E2E 断言于 TASK-012） | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-06"` | planned |
 | S-07 | E2E | Browser、API、网络探测、UI | 校验入口可达（E2E 断言于 TASK-012） | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-07"` | planned |
 | S-08 | E2E | Browser、API、DB | 用户详情凭据 Tab 数据依赖本页服务（E2E 断言于 TASK-012） | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-08"` | planned |
-| S-09 | E2E | Browser、API、DB | 筛选与分页结果与条件一致 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-09"` | e2e_deferred |
+| S-09 | E2E | Browser、API、DB | 筛选与分页结果与条件一致 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-09"` | verified |
 
 ### Acceptance Evidence
 
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 - S-09: e2e_deferred — automated command e2e_deferred; run_id=6acefce54dbf4d988ef2dc3ad7f990e9 (confirmed_by: runner)
+- S-09: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -352,7 +365,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - [2026-09-18] completed (done)
 ## TASK-008: 动态平台表单（resolver/adapter）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-007
 - **Source**: 04-project-platform.frontend.design.md#2.4 验收条件(S-FE-01), #3.3 组件设计(CMP-02), #3.3.1 每个按钮/操作的设计
@@ -375,12 +388,14 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-05 | E2E | Browser、adapter metadata、Form、API、DB | 仅渲染对应字段；保存后列表/详情字段一致 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-05"` | e2e_deferred |
+| S-05 | E2E | Browser、adapter metadata、Form、API、DB | 仅渲染对应字段；保存后列表/详情字段一致 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-05"` | verified |
 
 ### Acceptance Evidence
 
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=bd8d1b86f2e4493c802925312c084885 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -390,7 +405,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - [2026-09-18] completed (done)
 ## TASK-009: 平台详情 SideSheet 与失效引导
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-007
 - **Source**: 04-project-platform.frontend.design.md#3.3 组件设计(CMP-01), #3.3.1 每个按钮/操作的设计, #2.4 验收条件(E-FE-01)
@@ -413,12 +428,14 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-05 | E2E | PUT API、UI | `credential_reconfigure_required=true` → 提示 + 自动切凭据 Tab | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "E-05"` | e2e_deferred |
+| E-05 | E2E | PUT API、UI | `credential_reconfigure_required=true` → 提示 + 自动切凭据 Tab | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "E-05"` | verified |
 
 ### Acceptance Evidence
 
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 - E-05: e2e_deferred — automated command e2e_deferred; run_id=df371830352b4471b3aeb93903bb964b (confirmed_by: runner)
+- E-05: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -428,7 +445,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - [2026-09-18] completed (done)
 ## TASK-010: 凭据 Tab 与配置校验 Modal
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-009
 - **Source**: 04-project-platform.frontend.design.md#3.3 组件设计(CMP-03/04), #3.3.1 每个按钮/操作的设计, #2.4 验收条件(S-FE-02/03, E-FE-02/03)
@@ -454,8 +471,8 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-06 | E2E | Browser、Secret API、DB | 保存后仅「已配置」；DB 明文；响应无明文 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-06"` | e2e_deferred |
-| S-07 | E2E | Browser、API、网络探测、UI | 三项结果展示；无平台登录/Session/业务调用 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-07"` | e2e_deferred |
+| S-06 | E2E | Browser、Secret API、DB | 保存后仅「已配置」；DB 明文；响应无明文 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-06"` | verified |
+| S-07 | E2E | Browser、API、网络探测、UI | 三项结果展示；无平台登录/Session/业务调用 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-07"` | verified |
 | E-06 | E2E | API、网络探测、UI | `UNREACHABLE` 与失败原因；无 Secret/Session | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "E-06"` | planned |
 | E-07 | integration | Schema 校验 API、Form | 字段级错误 + 本地化提示；请求未提交 | tests/frontend/test_platform_credential_form_contract.py（planned） | `uv run pytest -q tests/frontend/test_platform_credential_form_contract.py` | verified |
 
@@ -465,6 +482,11 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - S-06: e2e_deferred — automated command e2e_deferred; run_id=48050bd45f37433a8cfe251ce79b748f (confirmed_by: runner)
 - S-07: e2e_deferred — automated command e2e_deferred; run_id=48050bd45f37433a8cfe251ce79b748f (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=48050bd45f37433a8cfe251ce79b748f (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -474,7 +496,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - [2026-09-18] completed (done)
 ## TASK-011: 用户详情凭据 Tab 接通 04
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-007, TASK-010
 - **Source**: 04-project-platform.frontend.design.md#2.4 验收条件(S-FE-04), 04-project-platform.backend.design.md#3.4 接口设计(API-02 user_id 扩展)
@@ -497,12 +519,14 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-08 | E2E | Browser、API、DB | 各平台与配置状态与 DB 一致；无明文 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-08"` | e2e_deferred |
+| S-08 | E2E | Browser、API、DB | 各平台与配置状态与 DB 一致；无明文 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-08"` | verified |
 
 ### Acceptance Evidence
 
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 - S-08: e2e_deferred — automated command e2e_deferred; run_id=00fd773808f04209aea57ddcb9118d8a (confirmed_by: runner)
+- S-08: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -512,7 +536,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - [2026-09-18] completed (done)
 ## TASK-012: E2E 基础设施与全场景验收
 
-- **Status**: draft
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004, TASK-005, TASK-006, TASK-008, TASK-009, TASK-010, TASK-011
 - **Source**: 04-project-platform.backend.design.md#2.5.1 业务规则与约束(RULE-07), 04-project-platform.frontend.design.md#2.4 验收条件
@@ -541,7 +565,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 | S-07 | E2E | Browser、API、网络探测、UI | 见 TASK-010 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-07"` | planned |
 | S-08 | E2E | Browser、API、DB | 见 TASK-011 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-08"` | planned |
 | E-05 | E2E | PUT API、UI | 见 TASK-009 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "E-05"` | planned |
-| E-06 | E2E | API、网络探测、UI | 见 TASK-010 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "E-06"` | planned |
+| E-06 | E2E | API、网络探测、UI | 见 TASK-010 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "E-06"` | verified |
 
 ### Acceptance Evidence
 
@@ -549,6 +573,11 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 
 - GREEN：`npm --prefix e2e test -- --config playwright.platform.config.ts` 6/6 通过（覆盖 S-01/S-02/S-03/S-05/S-06/S-07/S-08/S-09、E-05、E-06）；真实边界：浏览器 + 真实 Console/PostgreSQL + 本地探测端点 4190 + 真实 Vite，无 mock。
 - 基础设施：`playwright.platform.config.ts`（`MUAD_EXTRA_PLATFORM_ADAPTERS=alt-http`）、`seed_project_platform.py`、`platform.spec.ts`；`harness-test` verifier（acceptance + build + foundation E2E）全绿。
+- E-06: e2e_deferred — automated command e2e_deferred; run_id=556285da3f98479d8652529f33f36c4f (confirmed_by: runner)
+- E-06: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
+- [2026-09-18] started
+- [2026-09-18] completed (done)
