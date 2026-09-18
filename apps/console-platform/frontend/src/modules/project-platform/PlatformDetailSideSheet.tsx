@@ -85,19 +85,17 @@ export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
         ) : null
       }
       onCancel={props.onClose}
+      notice={
+        props.reconfigureRequired ? (
+          <Banner type="warning" description={t('platform.detail.reconfigureRequired')} />
+        ) : null
+      }
     >
       <Tabs.TabPane itemKey="basic" tab={t('platform.detail.basic')}>
         {platform === null ? (
           <Spin style={{ display: 'block', margin: '16px auto' }} />
         ) : (
           <>
-            {props.reconfigureRequired ? (
-              <Banner
-                type="warning"
-                description={t('platform.detail.reconfigureRequired')}
-                style={{ marginBottom: 12 }}
-              />
-            ) : null}
             <div className="detail-section-title">{t('platform.detail.basic')}</div>
             <DetailGrid
               items={[

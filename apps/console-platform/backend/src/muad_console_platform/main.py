@@ -1,4 +1,5 @@
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -45,6 +46,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="MUAD Console Platform", version="0.1.0", lifespan=lifespan)
-app.state.platform_adapters = build_default_registry()
+app.state.platform_adapters = build_default_registry(
+    tuple(
+        key.strip()
+        for key in os.getenv("MUAD_EXTRA_PLATFORM_ADAPTERS", "").split(",")
+        if key.strip()
+    )
+)
 install_api_foundation(app)
 app.include_router(router)

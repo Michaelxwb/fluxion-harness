@@ -89,16 +89,16 @@ export async function listPlatforms(params: {
   enabled?: boolean;
   user_id?: string;
 }): Promise<Page<PlatformItem>> {
-  return unwrap(await api.get<ApiResponse<Page<PlatformItem>>>('/api/v1/project-platforms', { params }));
+  return unwrap(await api.get<ApiResponse<Page<PlatformItem>>>('/project-platforms', { params }));
 }
 
 export async function getPlatform(platformId: string): Promise<PlatformItem> {
-  return unwrap(await api.get<ApiResponse<PlatformItem>>(`/api/v1/project-platforms/${platformId}`));
+  return unwrap(await api.get<ApiResponse<PlatformItem>>(`/project-platforms/${platformId}`));
 }
 
 export async function getAdapters(): Promise<Page<AdapterMetadata>> {
   return unwrap(
-    await api.get<ApiResponse<Page<AdapterMetadata>>>('/api/v1/platform-adapters', {
+    await api.get<ApiResponse<Page<AdapterMetadata>>>('/platform-adapters', {
       params: { page_size: 100 }
     })
   );
@@ -106,13 +106,13 @@ export async function getAdapters(): Promise<Page<AdapterMetadata>> {
 
 export async function getAdapter(adapterKey: string): Promise<AdapterMetadata> {
   return unwrap(
-    await api.get<ApiResponse<AdapterMetadata>>(`/api/v1/platform-adapters/${adapterKey}`)
+    await api.get<ApiResponse<AdapterMetadata>>(`/platform-adapters/${adapterKey}`)
   );
 }
 
 export async function createPlatform(input: PlatformSaveInput): Promise<{ platform_id: string }> {
   return unwrap(
-    await api.post<ApiResponse<{ platform_id: string }>>('/api/v1/project-platforms', input)
+    await api.post<ApiResponse<{ platform_id: string }>>('/project-platforms', input)
   );
 }
 
@@ -122,14 +122,14 @@ export async function updatePlatform(
 ): Promise<{ platform_id: string; credential_reconfigure_required: boolean }> {
   return unwrap(
     await api.put<ApiResponse<{ platform_id: string; credential_reconfigure_required: boolean }>>(
-      `/api/v1/project-platforms/${platformId}`,
+      `/project-platforms/${platformId}`,
       input
     )
   );
 }
 
 export async function deletePlatform(platformId: string): Promise<void> {
-  await api.delete(`/api/v1/project-platforms/${platformId}`);
+  await api.delete(`/project-platforms/${platformId}`);
 }
 
 export async function testPlatform(
@@ -138,7 +138,7 @@ export async function testPlatform(
 ): Promise<PlatformTestResult> {
   return unwrap(
     await api.post<ApiResponse<PlatformTestResult>>(
-      `/api/v1/project-platforms/${platformId}/test`,
+      `/project-platforms/${platformId}/test`,
       input
     )
   );
@@ -150,7 +150,7 @@ export async function getUserCredential(
 ): Promise<CredentialState> {
   return unwrap(
     await api.get<ApiResponse<CredentialState>>(
-      `/api/v1/project-platforms/${platformId}/users/${userId}/credential`
+      `/project-platforms/${platformId}/users/${userId}/credential`
     )
   );
 }
@@ -162,7 +162,7 @@ export async function saveUserCredential(
 ): Promise<{ status: string; credential_schema_version: string }> {
   return unwrap(
     await api.put<ApiResponse<{ status: string; credential_schema_version: string }>>(
-      `/api/v1/project-platforms/${platformId}/users/${userId}/credential`,
+      `/project-platforms/${platformId}/users/${userId}/credential`,
       input
     )
   );
@@ -171,7 +171,7 @@ export async function saveUserCredential(
 export async function getSharedCredential(platformId: string): Promise<CredentialState> {
   return unwrap(
     await api.get<ApiResponse<CredentialState>>(
-      `/api/v1/project-platforms/${platformId}/shared-credential`
+      `/project-platforms/${platformId}/shared-credential`
     )
   );
 }
@@ -182,14 +182,14 @@ export async function saveSharedCredential(
 ): Promise<{ status: string; credential_schema_version: string }> {
   return unwrap(
     await api.put<ApiResponse<{ status: string; credential_schema_version: string }>>(
-      `/api/v1/project-platforms/${platformId}/shared-credential`,
+      `/project-platforms/${platformId}/shared-credential`,
       input
     )
   );
 }
 
 export async function deleteSharedCredential(platformId: string): Promise<void> {
-  await api.delete(`/api/v1/project-platforms/${platformId}/shared-credential`);
+  await api.delete(`/project-platforms/${platformId}/shared-credential`);
 }
 
 export async function listUsers(params: {
@@ -197,5 +197,5 @@ export async function listUsers(params: {
   page_size?: number;
   keyword?: string;
 }): Promise<Page<UserSummary>> {
-  return unwrap(await api.get<ApiResponse<Page<UserSummary>>>('/api/v1/users', { params }));
+  return unwrap(await api.get<ApiResponse<Page<UserSummary>>>('/users', { params }));
 }

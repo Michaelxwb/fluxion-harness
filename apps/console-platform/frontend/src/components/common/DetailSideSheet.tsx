@@ -9,6 +9,7 @@ export interface DetailSideSheetProps {
   activeTab?: string;
   onTabChange?(key: string): void;
   onCancel(): void;
+  notice?: ReactNode;
   children?: ReactNode;
 }
 
@@ -24,6 +25,7 @@ export function DetailSideSheet(props: DetailSideSheetProps) {
   );
   return (
     <SideSheet visible={props.visible} title={header} onCancel={props.onCancel} footer={null} width={920}>
+      {props.notice ? <div style={{ marginBottom: 12 }}>{props.notice}</div> : null}
       <Tabs type="line" activeKey={props.activeTab} onChange={(key) => props.onTabChange?.(String(key))}>
         {props.children}
       </Tabs>

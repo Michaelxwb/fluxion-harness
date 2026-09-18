@@ -40,13 +40,14 @@ CREDENTIAL_SCHEMA: dict[str, Any] = {
 class GenericHttpAdapter:
     """无状态 HTTP 参考适配器：Bearer/Basic/无鉴权 + BASE_URL 寻址。"""
 
-    key = "generic-http"
-    name = "通用 HTTP"
-    version = "1"
     session_mode = SessionMode.NONE
-
     platform_config_schema = PLATFORM_CONFIG_SCHEMA
     credential_schema = CREDENTIAL_SCHEMA
+
+    def __init__(self, *, key: str = "generic-http", name: str = "通用 HTTP", version: str = "1") -> None:
+        self.key = key
+        self.name = name
+        self.version = version
 
     async def authenticate(
         self,
