@@ -1,7 +1,7 @@
 # 平台底座与公共框架 前端模块需求与设计简报
 
-> **文档编号**: FE-FOUNDATION-V1.0  
-> **文档版本**: v1.0  
+> **文档编号**: FE-FOUNDATION-V1.1  
+> **文档版本**: v1.1  
 > **创建日期**: 2026-09-17  
 > **文档状态**: 设计评审中  
 > **模板**: design-frontend.md
@@ -13,7 +13,22 @@
 | 模块 | 平台底座与公共框架 |
 | 前端目录 | `apps/console-platform/frontend/src/modules/platform-foundation/` |
 | 公共组件 | `src/components/common/`，由 01-platform-foundation 提供 |
-| 交互基线 | 最新 `MSS智能服务交付平台-V1.3-交互稿.html` |
+| 交互基线 | 最新 `智能服务交付平台-V1.4-交互稿.html` |
+
+### 1.1 责任人
+
+| 角色 | 姓名 | 职责范围 |
+|------|------|---------|
+| 开发负责人 | 待定 | 技术方案、代码实现 |
+| 设计/交互 | 待定 | 视觉与交互稿 |
+| 测试负责人 | 待定 | 测试策略、质量保证 |
+
+### 1.2 修订历史
+
+| 版本 | 日期 | 作者 | 变更描述 |
+|------|------|------|---------|
+| v1.0 | 2026-09-17 | fluxion-harness | 初始设计 |
+| v1.1 | 2026-09-18 | fluxion-harness | 对齐 V1.4 决策（docs/17）：交互基线升级 V1.4、ConsoleShell 固定 10 项菜单并声明无系统设置/中间件状态、401 跳转登录归属 13-console-auth、补场景与 Spec Matrix 落点 |
 
 ## 2. 需求分析
 
@@ -29,17 +44,17 @@
 
 | 功能ID | 功能名称 | 功能描述 | 优先级 | 来源 |
 |---|---|---|---|---|
-| FEAT-FE-01 | ConsoleShell | Layout/Nav/Header/Outlet/语言切换。 | P0 | 需求描述 |
+| FEAT-FE-01 | ConsoleShell | Layout/Nav/Header/Outlet/语言切换；固定 10 项菜单。 | P0 | 需求描述 |
 | FEAT-FE-02 | 公共列表组件 | Toolbar/Table/Pagination/EntityLink。 | P0 | 需求描述 |
 | FEAT-FE-03 | 公共详情/表单 | SideSheet/Tabs/Modal/Form/Confirm/Toast。 | P0 | 需求描述 |
-| FEAT-FE-04 | 前端 i18n/ApiClient | locale persistence + X-Locale + Envelope 错误处理。 | P0 | 需求描述 |
+| FEAT-FE-04 | 前端 i18n/ApiClient | locale persistence + X-Locale + Envelope 错误处理 + 401 跳转登录。 | P0 | 需求描述 |
 
 ### 2.3 范围与边界
 
 | 类别 | 内容 |
 |---|---|
-| In Scope | ConsoleShell、ModuleToolbar、RemoteTable、DetailSideSheet、FormModal、状态/空态/错误态、LocaleSwitch、ApiClient。 |
-| Out of Scope | 不改领域语义；组件不裸用 axios/fetch；不增加交互稿未确认的重型能力 |
+| In Scope | ConsoleShell（固定 10 项菜单：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计）、ModuleToolbar、RemoteTable、DetailSideSheet、FormModal、状态/空态/错误态、LocaleSwitch、ApiClient。 |
+| Out of Scope | 不改领域语义；组件不裸用 axios/fetch；不增加交互稿未确认的重型能力；不做登录页、账号管理与 RBAC 业务（归属 13-console-auth，本模块只提供 401 跳转与角色菜单过滤原语）；无系统设置/中间件状态菜单。 |
 | 技术债 | 无 |
 
 ### 2.4 验收条件
@@ -48,6 +63,7 @@
 |---|---|---|---|---|---|
 | S-FE-01 | FEAT-FE-01 | E2E | Browser Router→ConsoleShell | 切换任意模块路由 | Layout 不重建且菜单选中正确 |
 | S-FE-02 | FEAT-FE-04 | E2E | Browser→LocalStorage→API | 切换 English 后刷新 | 语言保持且请求带 X-Locale=en-US |
+| S-FE-03 | FEAT-FE-01 | unit | ConsoleShell 菜单 | 渲染 ConsoleShell | 菜单恰为固定 10 项，无系统设置/中间件状态 |
 
 异常：
 
@@ -55,6 +71,7 @@
 |---|---|---|---|---|---|
 | E-FE-01 | FEAT-FE-04 | integration | Axios interceptor→Toast | 后端 code!=0 | 统一展示本地化 msg |
 | E-FE-02 | FEAT-FE-03 | unit | DetailSideSheet | actions 为空 | 不出现空操作区，X 仍在右上 |
+| E-FE-03 | FEAT-FE-04 | E2E | ApiClient→401→Router | 会话失效访问业务页 | 跳转 13-console-auth 登录页并保留 returnUrl，不渲染业务数据 |
 
 ## 3. 前端技术设计
 
@@ -77,12 +94,20 @@
 |---|---|---|---|
 | 应用壳 | `/*` | ConsoleShell | 所有 Console 页面共用 |
 
+ConsoleShell 菜单固定 10 项且顺序固定：
+
+```text
+概览 / Agent / Skill / MCP / 模型 / 用户 / 项目平台 / 后台任务 / 定时任务 / 运行审计
+```
+
+无“系统设置/中间件状态”菜单，不展示 PostgreSQL、Redis、NFS/PVC、Runtime Pod、Worker Pod 健康状态（由部署平台/OTel/监控系统负责，docs/00 §0.7）。
+
 ### 3.3 组件设计
 
 ```text
 <App>
 └─ <ConsoleShell>
-   ├─ <Navigation/>
+   ├─ <Navigation/>          # 固定 10 项菜单，按 13-console-auth 角色上下文过滤
    ├─ <Header><LocaleSwitch/></Header>
    └─ <Outlet>
       └─ <ModulePage>
@@ -95,7 +120,7 @@
 
 | 组件ID | 组件名 | 类型 | 复用来源/去向 | 职责 |
 |---|---|---|---|---|
-| CMP-01 | `ConsoleShell` | 容器 | 模块内 | Semi Layout/Nav/Header + Outlet |
+| CMP-01 | `ConsoleShell` | 容器 | 模块内 | Semi Layout/Nav/Header + Outlet；固定 10 项菜单，无系统设置/中间件状态 |
 | CMP-02 | `ModuleToolbar` | 展示 | 全模块 | 左操作、右搜索筛选 |
 | CMP-03 | `RemoteTable` | 展示 | 全模块 | Semi Table 受控分页 |
 | CMP-04 | `DetailSideSheet` | 展示 | 全模块 | 标题/副标题/操作/X 同行 + Tabs |
@@ -142,9 +167,14 @@ User Action
  -> Semi Components
 ```
 
+- 401：ApiClient 统一跳转 13-console-auth 登录页并携带 returnUrl，不渲染业务数据；
+- 403：统一 Toast `FORBIDDEN` 本地化文案；
+- 角色菜单过滤：菜单可见性由 13-console-auth 提供的角色上下文驱动，01 只提供过滤原语。
+
 | Service 方法 | 对应后端接口 | 调用方 |
 |---|---|---|
-| - | - | - |
+| `apiClient.request()` | 统一 Envelope 处理（无独立后端接口） | 全模块 services |
+| `authContext.getRole()` | 13-console-auth 提供 | Navigation 菜单过滤 |
 
 ### 3.6 UI 状态
 
@@ -171,17 +201,17 @@ Semi Form required/rules；Modal/SideSheet 焦点管理；图标按钮 aria-labe
 
 ## 4. 风险与依赖
 
-- 前置：01-platform-foundation；
-- 风险：硬编码中文、重复造公共 SideSheet/Toolbar、前端 N+1；
-- 应对：i18n key 检查、公共组件依赖、列表 API 聚合字段。
+- 前置：无（登录/RBAC 业务依赖 13-console-auth 提供角色上下文）；
+- 风险：硬编码中文、重复造公共 SideSheet/Toolbar、前端 N+1、菜单随页面实现漂移；
+- 应对：i18n key 检查、公共组件依赖、列表 API 聚合字段、菜单固定 10 项由 S-FE-03 守护。
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `mss-platform#RULE-I18N-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-UI-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-UI-DETAIL-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-TIME-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-FRONT-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-TEST-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
+| `harness-platform#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.1 / §3.5 | S-FE-02, E-FE-01（verifier: project-owner） | applied |
+| `harness-platform#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情；菜单固定十项。 | §3.2 / §3.3 CMP-01/CMP-02 | S-FE-01, S-FE-03（verifier: project-owner 确认 10 项菜单与无系统设置） | applied |
+| `harness-platform#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3 CMP-04 / §3.4 | S-FE-01, E-FE-02（verifier: project-owner） | applied |
+| `harness-platform#RULE-time-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | §3.7 / DateTimeText | S-FE-01（verifier: project-owner） | applied |
+| `harness-platform#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.5 / §3.6 | S-FE-02, E-FE-01, E-FE-03（verifier: project-owner） | applied |
+| `harness-platform#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4 / §3.5 | S-FE-01~S-FE-03, E-FE-01~E-FE-03（verifier: project-owner） | applied |

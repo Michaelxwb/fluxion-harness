@@ -1,38 +1,448 @@
 version: 1
-module: 运行审计与可观测
-source_mode: new-with-context
-source_artifacts:
-- MSS智能服务交付平台-详细设计-V1.3
-- MSS智能服务交付平台-V1.3-交互稿.html
-- MSS智能服务交付平台-新版项目骨架
+task: 运行审计与可观测
+enforcement: required
+updated_at: '2026-09-18T00:29:29.406658+00:00'
+sources:
+- type: docs
+  ref: docs/02-核心领域与数据库详细设计.md
+- type: docs
+  ref: docs/07-跨模块接口与协议详细设计.md
+- type: docs
+  ref: docs/09-DFX安全可靠性测试验收详细设计.md
+- type: docs
+  ref: docs/15-Console字段词典与一致性规范.md
+- type: docs
+  ref: docs/00-详细设计索引与设计基线.md
+- type: docs
+  ref: docs/17-V1.4评审修订说明.md
+- type: baseline
+  ref: docs/基线-智能服务交付平台-V2.0-总体设计说明书.md
+- type: baseline
+  ref: docs/基线-智能服务交付平台-用户场景与Playbook旅程设计-V7.md
+- type: interaction
+  ref: docs/智能服务交付平台-V1.4-交互稿.html
 bindings:
-- spec: mss-platform
-  rule: RULE-LOG-001
+- spec_id: harness-api-test
+  path: shared/harness-api-test.md
+  status: active
+  hashes:
+    file_sha256: 4f5787001eb4e82bb88aca34f95c44245a576902c640da9eda83ee9039098574
+    metadata_sha256: 89ef336d77e0cdba60d5df9c5e51edbb471220249004ebdda29cb21b5dab5e43
+    rules_sha256: 6b3e0e6fe1029d493303322cb83d4ce23972555d4aa40601ab539e0b5a6b15a7
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-api-test
   enforcement: required
-  reason: 统一 logging-kit；仅配置 LOG_DIR；日志按 service/YYYY-MM-DD.log 保存并带 trace_id/request_id。
-- spec: mss-platform
-  rule: RULE-API-001
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-api-001
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
+    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+    enforcement: required
+    verifier_ref: harness-api-test#RULE-api-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 11-audit-observability.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-api-001
+          artifact_sha256: 9cb0c020f7238cd0aaf6f0e4c4a86b2075136ac661fe64215ae7189684142a98
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-api-test#RULE-test-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 11-audit-observability.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: 9cb0c020f7238cd0aaf6f0e4c4a86b2075136ac661fe64215ae7189684142a98
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-data
+  path: shared/harness-data.md
+  status: active
+  hashes:
+    file_sha256: 71e0fb1438a35e2314572e83ef9e69cdc78932b0aa839a797b8ba572c0043687
+    metadata_sha256: 5cbac88ffb2ecaa1aefb5749be5cbecf95916894b1cb6f54cfb4a570c0324483
+    rules_sha256: fb8cfcb8f9e5ecb2fbc7cd763598d18b42d10f7146361ef776bdf7a20279a8d7
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-data
   enforcement: required
-  reason: JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status
-    配置映射。
-- spec: mss-platform
-  rule: RULE-DATA-001
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-data-001
+    summary: 产品表统一 `id/is_deleted/create_time/update_time`；软删除唯一约束用 partial unique
+      `WHERE is_deleted=false`；时间统一 `timestamptz`；同 Owner Schema 用物理 FK，跨 Owner Schema
+      仅逻辑 UUID；JSON 配置用 `jsonb` 且关键查询字段不得只藏在 JSON。
+    text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+    enforcement: required
+    verifier_ref: harness-data#RULE-data-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 11-audit-observability.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-data-001
+          artifact_sha256: 9cb0c020f7238cd0aaf6f0e4c4a86b2075136ac661fe64215ae7189684142a98
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-frontend
+  path: shared/harness-frontend.md
+  status: active
+  hashes:
+    file_sha256: 5be313a290545a2e5aeab1b835e2192bc4168368fa1d56aa9c51a9b4da1ffb85
+    metadata_sha256: ff3696a4065aff909ad11b3795233038416f6b6f3e334643d9c00b13d0b1f3f0
+    rules_sha256: 979725db60f43575fc6834c8feac8dc0622a362111f72b0aa41e7de89c26c808
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-frontend
   enforcement: required
-  reason: 产品表统一 is_deleted/create_time/update_time；同 Owner Schema 物理 FK，跨 Owner Schema
-    逻辑 UUID。
-- spec: mss-platform
-  rule: RULE-SECRET-001
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-front-001
+    summary: 前端 API 调用只经 `src/api/`（services）层，组件禁止裸用 axios/fetch；所有文案只使用 i18n key（zh-CN/en-US）；列表/详情遵循
+      RULE-ui-001 与 RULE-ui-detail-001。
+    text_sha256: 440c5905981dfbff9549ae224b77391ff6213fea051e1a0b5914099cb0db15fc
+    enforcement: required
+    verifier_ref: harness-frontend#RULE-front-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 11-audit-observability.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-front-001
+          artifact_sha256: 8c1b479d1ad78af1801bb5afb056f69fbcc3bb23935e1b59648cb9c66759d2d9
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-i18n-001
+    summary: 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language`
+      协商。
+    text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+    enforcement: required
+    verifier_ref: harness-frontend#RULE-i18n-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 11-audit-observability.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-i18n-001
+          artifact_sha256: 8c1b479d1ad78af1801bb5afb056f69fbcc3bb23935e1b59648cb9c66759d2d9
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-ui-001
+    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
+      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计。
+    text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+    enforcement: required
+    verifier_ref: harness-frontend#RULE-ui-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 11-audit-observability.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-ui-001
+          artifact_sha256: 8c1b479d1ad78af1801bb5afb056f69fbcc3bb23935e1b59648cb9c66759d2d9
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-log
+  path: shared/harness-log.md
+  status: active
+  hashes:
+    file_sha256: 0c08b3754e27722b56deafb326f038d0cfc527a1f6e20b778426a48f21a027d7
+    metadata_sha256: 3e48d5840e9ddb14274bb4bcf26e5840933da122aac7febe8a1cc9664661e116
+    rules_sha256: 0c3e600fc9f79d41f34519374ae44ff47098361f3cdca41519881ffcfd4d6e4a
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-log
   enforcement: required
-  reason: Secret Value 不进 DB/Snapshot/日志/LLM，只保存 SecretRef。
-- spec: mss-platform
-  rule: RULE-TIME-001
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-log-001
+    summary: 所有服务统一使用 logging-kit，仅配置 `LOG_DIR`；日志按 `service/YYYY-MM-DD.log` 输出 JSON，自动携带
+      `trace_id/request_id/tenant_id`，并对 Authorization/Cookie/api_key/access_token/refresh_token/secret/password
+      等敏感字段脱敏。
+    text_sha256: 9ac55dd93d515e82fce2d53d526262f448e5502388f32bde445241111950f285
+    enforcement: required
+    verifier_ref: harness-log#RULE-log-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 11-audit-observability.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-log-001
+          artifact_sha256: 9cb0c020f7238cd0aaf6f0e4c4a86b2075136ac661fe64215ae7189684142a98
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-secret
+  path: shared/harness-secret.md
+  status: active
+  hashes:
+    file_sha256: 6526a38c5083caa5814eeb3584bb1a45f6ae1bc4249680bb0fff470eff9ca9e3
+    metadata_sha256: b767e8b176bb0ae4b9cc9b95bb138657556342d538792555961a3125eeaf2064
+    rules_sha256: d1e2ab0670a79777c457f83ef88a00ca0695b854b9a344a16256262d40f484a4
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-secret
   enforcement: required
-  reason: Console 时间统一 YYYY-MM-DD HH:mm:ss。
-- spec: mss-platform
-  rule: RULE-TEST-001
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-secret-001
+    summary: Secret Value 不进入 DB、Snapshot、Prompt、日志、Audit 或 IM 消息；业务表只保存 `secret_ref`，运行时经
+      Secret Provider 解析。
+    text_sha256: c87d7941b43f56d7c1d950889dc27ddba13804f0a6e5ec33853310766ac9bfd8
+    enforcement: required
+    verifier_ref: harness-secret#RULE-secret-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 11-audit-observability.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-secret-001
+          artifact_sha256: 9cb0c020f7238cd0aaf6f0e4c4a86b2075136ac661fe64215ae7189684142a98
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-time
+  path: shared/harness-time.md
+  status: active
+  hashes:
+    file_sha256: e7eb9e78ffee82b8ff09ef14d8b003d46104d40ac81c96d9c573e823e047a43f
+    metadata_sha256: 532facc8c3c8e46627a40301c876a75c4a3033f7d0714a4156f6a0938757f322
+    rules_sha256: 6d0ba1245ffb637c5b161372f63c6c0d1108ac0f2b8240449b1954dba3192202
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-time
   enforcement: required
-  reason: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。
-gate:
-  stage: design
-  status: structurally_ready
-  note: 当前骨架未包含 cf_spec_context.py/cf_spec_gate.py；合入真实仓库后必须 refresh/bind/gate。
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-time-001
+    summary: 数据库统一 `timestamptz` 存储；Console 展示统一 `YYYY-MM-DD HH:mm:ss`；调度时区使用 IANA
+      时区（如 `Asia/Shanghai`）。
+    text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+    enforcement: required
+    verifier_ref: harness-time#RULE-time-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 11-audit-observability.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-time-001
+          artifact_sha256: 9cb0c020f7238cd0aaf6f0e4c4a86b2075136ac661fe64215ae7189684142a98
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui-detail
+  path: shared/harness-ui-detail.md
+  status: active
+  hashes:
+    file_sha256: b88eac7cab2f343b47f7335222a09375056c650a4e8241dfb06812a15e459b72
+    metadata_sha256: 1f882430212e7d8ed0f9275a1f42b19e3b74a6c47314ab4e4b10e60bf3ae67af
+    rules_sha256: 30c0d3e3999233939329105a6b996ccfe793157a6010a8575a77552bf38add9c
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-ui-detail
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-detail-001
+    summary: 详情使用 SideSheet：标题与副标题居左，对象级操作与关闭 X 同一行靠右，Tabs 位于其下；关系操作保存后立即影响后续新 Run/Task。
+    text_sha256: 8dcac2de2d48280e57007cf8a1fb4eb70be2741a2d4e2295bbe4252fdc6f60b1
+    enforcement: required
+    verifier_ref: harness-ui-detail#RULE-ui-detail-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 11-audit-observability.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-ui-detail-001
+          artifact_sha256: 8c1b479d1ad78af1801bb5afb056f69fbcc3bb23935e1b59648cb9c66759d2d9
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []

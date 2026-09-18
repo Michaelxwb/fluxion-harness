@@ -1,41 +1,340 @@
 version: 1
-module: IM Gateway 与主动投递
-source_mode: new-with-context
-source_artifacts:
-- MSS智能服务交付平台-详细设计-V1.3
-- MSS智能服务交付平台-V1.3-交互稿.html
-- MSS智能服务交付平台-新版项目骨架
+task: IM Gateway 与主动投递
+enforcement: required
+updated_at: '2026-09-18T00:29:29.389159+00:00'
+sources:
+- type: docs
+  ref: docs/02-核心领域与数据库详细设计.md
+- type: docs
+  ref: docs/05-IM-Gateway详细设计.md
+- type: docs
+  ref: docs/07-跨模块接口与协议详细设计.md
+- type: docs
+  ref: docs/15-Console字段词典与一致性规范.md
+- type: docs
+  ref: docs/00-详细设计索引与设计基线.md
+- type: docs
+  ref: docs/17-V1.4评审修订说明.md
+- type: baseline
+  ref: docs/基线-智能服务交付平台-V2.0-总体设计说明书.md
+- type: baseline
+  ref: docs/基线-智能服务交付平台-用户场景与Playbook旅程设计-V7.md
+- type: interaction
+  ref: docs/智能服务交付平台-V1.4-交互稿.html
 bindings:
-- spec: mss-platform
-  rule: RULE-ARCH-001
+- spec_id: harness-api-test
+  path: shared/harness-api-test.md
+  status: active
+  hashes:
+    file_sha256: 4f5787001eb4e82bb88aca34f95c44245a576902c640da9eda83ee9039098574
+    metadata_sha256: 89ef336d77e0cdba60d5df9c5e51edbb471220249004ebdda29cb21b5dab5e43
+    rules_sha256: 6b3e0e6fe1029d493303322cb83d4ce23972555d4aa40601ab539e0b5a6b15a7
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-api-test
   enforcement: required
-  reason: 固定 4 个部署单元；Runtime/Worker 无状态横向扩展。
-- spec: mss-platform
-  rule: RULE-API-001
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-api-001
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
+    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+    enforcement: required
+    verifier_ref: harness-api-test#RULE-api-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-api-001
+          artifact_sha256: 5bbc49a40a159e30c706b36697988023a3c65008ee3c59b207c796aba60ef6c1
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-api-test#RULE-test-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: 5bbc49a40a159e30c706b36697988023a3c65008ee3c59b207c796aba60ef6c1
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-arch
+  path: shared/harness-arch.md
+  status: active
+  hashes:
+    file_sha256: df57a08661c80a00dbed9c8a55d207c013d472d4cf7cf38abdd52519bb523558
+    metadata_sha256: 10b0afc2dd0f4230c5499607eda7cd0a20e8aa01c7046216e5209bc3879ec0df
+    rules_sha256: 11ae8f2db7be71dfeebbf0d395ea7f65402138090add6e7aa91602ff60c6b12b
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-arch
   enforcement: required
-  reason: JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status
-    配置映射。
-- spec: mss-platform
-  rule: RULE-SECRET-001
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-arch-001
+    summary: 固定四个部署单元（console-platform / agent-runtime / agent-worker / im-gateway）；Runtime
+      与 Worker 无状态、可横向扩展，不绑定 Pod、bot_id 或用户；同一会话可被任意 Pod 执行。
+    text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+    enforcement: required
+    verifier_ref: harness-arch#RULE-arch-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-arch-001
+          artifact_sha256: 5bbc49a40a159e30c706b36697988023a3c65008ee3c59b207c796aba60ef6c1
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-auth
+  path: shared/harness-auth.md
+  status: active
+  hashes:
+    file_sha256: 6ad16806986aaaf3298a6ec346ea13eaf0e4c1ff34a4ac0f44b6d1aa6031bdda
+    metadata_sha256: f2a6aed1f4b3168f16105b50d62c995708edd8a39e5113ea97b4f4e54ea34965
+    rules_sha256: 2c0d8492b6adb9167c4309b44a5b1be42b1920f5e241f629d2f2bf9825cdc570
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-auth
   enforcement: required
-  reason: Secret Value 不进 DB/Snapshot/日志/LLM，只保存 SecretRef。
-- spec: mss-platform
-  rule: RULE-IM-001
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-auth-001
+    summary: 授权为三层关系：User→Agent（AgentAccessGrant）、Agent→Skill/MCP（Binding）、SELECTED
+      资源再叠加 SkillUserGrant/McpUserGrant；Effective Capability 公式必须含 `is_deleted=false`
+      与资源/Agent `enabled`；绑定无启停开关、授权无到期时间；不建三元授权、不做 MCP Tool 级授权；未授权资源不得进入 Prompt/ToolRegistry/Skill
+      Catalog。
+    text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+    enforcement: required
+    verifier_ref: harness-auth#RULE-auth-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-auth-001
+          artifact_sha256: 5bbc49a40a159e30c706b36697988023a3c65008ee3c59b207c796aba60ef6c1
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-im
+  path: shared/harness-im.md
+  status: active
+  hashes:
+    file_sha256: 4a788d8fc285ee2a5213e01a705f7a4856b3c3a0fa6692e01b3615b48b98ac27
+    metadata_sha256: 1423fe25598bd21fbc3bdfa1561d473591919383e44dbd5fefa070fcf2217259
+    rules_sha256: a964650e2bc23a209f45791f148dd6d19722e523b36292b14b4e8a5a5a70e4f6
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-im
   enforcement: required
-  reason: Agent 0..N bot_id；bot_id 只指向一个 Agent；不绑定 Runtime Pod。
-- spec: mss-platform
-  rule: RULE-AUTH-001
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-im-001
+    summary: 一个逻辑 Agent 可绑定 0..N 个 IM 通道账号；每个 `bot_id` 只路由到一个 Agent；Bot 与 Runtime/Worker
+      Pod 无任何绑定；Gateway 不保存 `agent_id→Pod` 映射。
+    text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+    enforcement: required
+    verifier_ref: harness-im#RULE-im-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-im-001
+          artifact_sha256: 5bbc49a40a159e30c706b36697988023a3c65008ee3c59b207c796aba60ef6c1
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-secret
+  path: shared/harness-secret.md
+  status: active
+  hashes:
+    file_sha256: 6526a38c5083caa5814eeb3584bb1a45f6ae1bc4249680bb0fff470eff9ca9e3
+    metadata_sha256: b767e8b176bb0ae4b9cc9b95bb138657556342d538792555961a3125eeaf2064
+    rules_sha256: d1e2ab0670a79777c457f83ef88a00ca0695b854b9a344a16256262d40f484a4
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-secret
   enforcement: required
-  reason: User→Agent；Agent→Skill/MCP；SELECTED 再叠加资源用户 Grant；不建三元授权。
-- spec: mss-platform
-  rule: RULE-SNAPSHOT-001
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-secret-001
+    summary: Secret Value 不进入 DB、Snapshot、Prompt、日志、Audit 或 IM 消息；业务表只保存 `secret_ref`，运行时经
+      Secret Provider 解析。
+    text_sha256: c87d7941b43f56d7c1d950889dc27ddba13804f0a6e5ec33853310766ac9bfd8
+    enforcement: required
+    verifier_ref: harness-secret#RULE-secret-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-secret-001
+          artifact_sha256: 5bbc49a40a159e30c706b36697988023a3c65008ee3c59b207c796aba60ef6c1
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-snapshot
+  path: shared/harness-snapshot.md
+  status: active
+  hashes:
+    file_sha256: 75a69be7df68ecc19cf74329766e85289a0a909946eff595df64f1fb4d5773fd
+    metadata_sha256: 77adc5744ee0cddcc7bd8210334f40e58903c0c1c375659d3edff3989445b7bb
+    rules_sha256: df961c1136b27f8a85895902b348d792abc9f5973d530aa7876c9e8b718e7571
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：harness-snapshot
   enforcement: required
-  reason: 新 Run/Task 冻结 Snapshot；配置/授权变更只影响后续新 Run/Task。
-- spec: mss-platform
-  rule: RULE-TEST-001
-  enforcement: required
-  reason: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。
-gate:
-  stage: design
-  status: structurally_ready
-  note: 当前骨架未包含 cf_spec_context.py/cf_spec_gate.py；合入真实仓库后必须 refresh/bind/gate。
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-snapshot-001
+    summary: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP
+      版本、Prompt 模板版本、catalog revision/hash、预算）；配置或授权变更只影响后续新 Run/Task；终态写入必须 CAS。
+    text_sha256: bed55091b1673e3c29c216171a74d6564324334a61fd657fe075516056e3f271
+    enforcement: required
+    verifier_ref: harness-snapshot#RULE-snapshot-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-snapshot-001
+          artifact_sha256: 5bbc49a40a159e30c706b36697988023a3c65008ee3c59b207c796aba60ef6c1
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []

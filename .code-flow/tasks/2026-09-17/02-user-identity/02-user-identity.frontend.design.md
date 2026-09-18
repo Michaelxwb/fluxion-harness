@@ -1,7 +1,7 @@
 # 用户、身份与绑定 前端模块需求与设计简报
 
-> **文档编号**: FE-USER-V1.0  
-> **文档版本**: v1.0  
+> **文档编号**: FE-USER-V1.1  
+> **文档版本**: v1.1  
 > **创建日期**: 2026-09-17  
 > **文档状态**: 设计评审中  
 > **模板**: design-frontend.md
@@ -13,7 +13,22 @@
 | 模块 | 用户、身份与绑定 |
 | 前端目录 | `apps/console-platform/frontend/src/modules/user-identity/` |
 | 公共组件 | `src/components/common/`，由 01-platform-foundation 提供 |
-| 交互基线 | 最新 `MSS智能服务交付平台-V1.3-交互稿.html` |
+| 交互基线 | 最新 `智能服务交付平台-V1.4-交互稿.html` |
+
+### 1.1 责任人
+
+| 角色 | 姓名 | 职责范围 |
+|------|------|---------|
+| 开发负责人 | 待定 | 技术方案、代码实现 |
+| 设计/交互 | 待定 | 视觉与交互稿 |
+| 测试负责人 | 待定 | 测试策略、质量保证 |
+
+### 1.2 修订历史
+
+| 版本 | 日期 | 作者 | 变更描述 |
+|------|------|------|---------|
+| v1.0 | 2026-09-17 | fluxion-harness | 初始设计 |
+| v1.1 | 2026-09-18 | fluxion-harness | 对齐 V1.4 决策（docs/17）：交互基线升级 V1.4、字段名对齐 docs/15（显示名/用户编码/启用状态）、IM 身份状态改派生展示、补用户侧授权/Memory 端点与单条删除、补聚合详情场景与 Spec Matrix 落点 |
 
 ## 2. 需求分析
 
@@ -29,7 +44,7 @@
 
 | 功能ID | 功能名称 | 功能描述 | 优先级 | 来源 |
 |---|---|---|---|---|
-| FEAT-FE-01 | 用户列表 | 姓名/账号/授权数/凭据数/身份数/Memory数/状态/更新时间。 | P0 | 需求描述 |
+| FEAT-FE-01 | 用户列表 | 显示名/用户编码/授权数/凭据数/身份数/记忆数/启用状态/更新时间。 | P0 | 需求描述 |
 | FEAT-FE-02 | 用户详情 | 基本信息/Agent授权/项目平台凭据/IM身份/用户记忆 Tabs。 | P0 | 需求描述 |
 | FEAT-FE-03 | 绑定码与身份 | 生成绑定码、查看/解绑身份。 | P0 | 需求描述 |
 
@@ -37,16 +52,17 @@
 
 | 类别 | 内容 |
 |---|---|
-| In Scope | 用户列表、新增/编辑、详情 SideSheet、IM 身份；Agent授权/凭据/Memory Tab 由对应模块接口闭合。 |
-| Out of Scope | 不改领域语义；组件不裸用 axios/fetch；不增加交互稿未确认的重型能力 |
+| In Scope | 用户列表、新增/编辑、详情 SideSheet、IM 身份；Agent 授权写入走用户侧端点（复用 07 服务）、Memory 删除走用户侧端点（复用 08 服务）；凭据 Tab 由 04 接口闭合。 |
+| Out of Scope | 不改领域语义；组件不裸用 axios/fetch；不增加交互稿未确认的重型能力；不在前端实现授权/记忆领域逻辑。 |
 | 技术债 | 无 |
 
 ### 2.4 验收条件
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|
-| S-FE-01 | FEAT-FE-01 | E2E | Browser→users API→DB→Table | 新增用户后返回列表 | 新用户出现且字段格式统一 |
-| S-FE-02 | FEAT-FE-03 | E2E | Browser→bind-code API | 点击生成绑定码 | Modal 展示 code/过期时间 |
+| S-FE-01 | FEAT-FE-01 | E2E | Browser→users API→DB→Table | 新增用户后返回列表 | 新用户出现且显示名/用户编码/启用状态格式统一 |
+| S-FE-02 | FEAT-FE-03 | E2E | Browser→bind-code API | 点击生成绑定码 | Modal 展示 code/过期时间（TTL 10 分钟） |
+| S-FE-03 | FEAT-FE-02 | E2E | Browser→02 聚合详情→04/07/08 | 打开用户详情 | 四个计数与各来源一致，Tab 各自加载 |
 
 异常：
 
@@ -54,6 +70,8 @@
 |---|---|---|---|---|---|
 | E-FE-01 | FEAT-FE-03 | integration | API→Toast | 生成绑定码失败 | SideSheet 保留且显示本地化 msg |
 | E-FE-02 | FEAT-FE-02 | E2E | Browser→后置模块 API | Memory/Agent API 暂不可用 | 对应 Tab 独立 ErrorState，不影响其他 Tab |
+| E-FE-03 | FEAT-FE-03 | integration | API→bind 消费 | 绑定码过期 | Toast `BIND_CODE_EXPIRED`，引导重新生成 |
+| E-FE-04 | FEAT-FE-02 | integration | API→COMMON_CONFLICT | 新增用户 user_code 重复 | Form 定位 user_code 字段并提示本地化冲突 |
 
 ## 3. 前端技术设计
 
@@ -78,13 +96,20 @@
 
 ### 3.3 组件设计
 
-```text\n<Page>\n├─ <ModuleToolbar/>\n├─ <RemoteTable/>\n└─ <DetailSideSheet/>\n```
+```text
+<Page>
+├─ <ModuleToolbar/>
+├─ <RemoteTable/>
+└─ <DetailSideSheet/>
+```
 
 | 组件ID | 组件名 | 类型 | 复用来源/去向 | 职责 |
 |---|---|---|---|---|
 | CMP-01 | `UserPage` | 容器 | 模块内 | 列表/详情/表单状态 |
-| CMP-02 | `UserDetailTabs` | 展示 | 模块内 | 5 个详情 Tab |
-| CMP-03 | `IdentityTable` | 展示 | 模块内 | 通道/外部用户ID/bot_id/绑定/活动/状态 |
+| CMP-02 | `UserDetailTabs` | 展示 | 模块内 | 5 个详情 Tab（基本信息/Agent授权/项目平台凭据/IM身份/用户记忆） |
+| CMP-03 | `IdentityTable` | 展示 | 模块内 | 通道/外部用户ID/bot_id/绑定时间/最近活动/派生状态 |
+
+CMP-03 的“状态”列是派生展示：身份记录存在且未解绑 = 已绑定；启用状态取 `platform_user.status`（ACTIVE/DISABLED）。`channel_identity` 没有 `status` 字段，禁止按字段直读。
 
 **必须复用公共组件**：`ConsoleShell / ModuleToolbar / RemoteTable / EntityLink / DetailSideSheet / DetailTabs / FormModal / StatusTag / DateTimeText / ConfirmAction / EmptyState / ErrorState / PaginationFooter / LocaleSwitch`。
 
@@ -93,14 +118,15 @@
 | 位置 | 按钮/链接 | Semi 组件 | 层级 | 行为 | Service/API | 二次确认 |
 |---|---|---|---|---|---|---|
 | 列表左上 | 新增用户 | `Button` | primary | 打开新增 Modal | `POST /api/v1/users` | 否 |
-| 列表右上 | 搜索 | `Button` | secondary | 姓名/账号查询并回第1页 | `GET /api/v1/users` | 否 |
+| 列表右上 | 搜索 | `Button` | secondary | 显示名/用户编码查询并回第1页 | `GET /api/v1/users` | 否 |
 | 列表右上 | 重置 | `Button` | secondary | 清筛选刷新 | `GET /api/v1/users` | 否 |
 | 列表右上 | 刷新 | `Button` | secondary | 刷新当前页 | `GET /api/v1/users` | 否 |
-| 基本信息 | 编辑基本信息 | `Button` | secondary | 打开编辑 Modal | `PUT /api/v1/users/{id}` | 否 |
-| Agent 授权 Tab | 授权 Agent | `Button` | primary | 选择 Agent 创建 Grant | `POST /api/v1/users/{id}/agents/{agent_id}` | 否 |
+| 基本信息 | 编辑基本信息 | `Button` | secondary | 打开编辑 Modal（用户编码只读） | `PUT /api/v1/users/{id}` | 否 |
+| Agent 授权 Tab | 授权 Agent | `Button` | primary | 选择 Agent 创建 Grant（用户侧端点，复用 07 服务） | `POST /api/v1/users/{id}/agents/{agent_id}` | 否 |
 | Agent 授权行 | 取消授权 | `Popconfirm + Button` | secondary | 删除 Grant | `DELETE /api/v1/users/{id}/agents/{agent_id}` | 是 |
-| IM 身份 Tab | 生成绑定码 | `Button` | primary | 生成一次性绑定码 | `POST /api/v1/users/{id}/bind-codes` | 否 |
+| IM 身份 Tab | 生成绑定码 | `Button` | primary | 生成一次性绑定码（TTL 10 分钟） | `POST /api/v1/users/{id}/bind-codes` | 否 |
 | IM 身份行 | 解绑 | `Popconfirm + Button` | secondary | 解绑身份 | `DELETE /api/v1/users/{id}/identities/{identity_id}` | 是 |
+| 用户记忆行 | 删除 | `Popconfirm + Button` | danger | 删除单条 Memory | `DELETE /api/v1/users/{id}/memory/{memory_id}` | 是 |
 | 用户记忆 Tab | 清理全部 | `Popconfirm + Button` | danger | 清理 Memory | `DELETE /api/v1/users/{id}/memory` | 是 |
 
 统一规则：主创建/保存使用 `Button theme="solid" type="primary"`；危险操作 `Popconfirm`；详情全局操作与关闭 X 同一 Header 行靠右；Tab 内关系操作完成即生效，不需要“保存整个对象”。
@@ -118,7 +144,7 @@ export interface DetailSideSheetProps {
 }
 ```
 
-展示组件 props-in/events-out；API、路由、提交状态由 Page/Hook 管理。
+展示组件 props-in/events-out；API、路由、提交状态由 Page/Hook 管理。CMP-03 只接收已由 hook 组装好的派生状态字段，不在展示组件内做领域推导。
 
 ### 3.5 状态与数据流
 
@@ -135,10 +161,20 @@ User Action
 | Service 方法 | 对应后端接口 | 调用方 |
 |---|---|---|
 | `listUsers(params)` | `GET /api/v1/users` | useUserList |
-| `getUser(id)` | `GET /api/v1/users/{id}` | useUserDetail |
+| `createUser(input)` | `POST /api/v1/users` | UserFormModal |
+| `getUser(id)` | `GET /api/v1/users/{id}`（聚合计数字段） | useUserDetail |
+| `updateUser(id, input)` | `PUT /api/v1/users/{id}` | UserFormModal |
+| `listAgentGrants(id)` | `GET /api/v1/users/{id}/agents` | AgentGrantTab（后端复用 07 service） |
+| `grantAgent(id, agentId)` | `POST /api/v1/users/{id}/agents/{agent_id}` | AgentGrantTab（后端复用 07 service） |
+| `revokeAgent(id, agentId)` | `DELETE /api/v1/users/{id}/agents/{agent_id}` | AgentGrantTab（后端复用 07 service） |
+| `listIdentities(id)` | `GET /api/v1/users/{id}/identities` | IdentityTab |
 | `createBindCode(id)` | `POST /api/v1/users/{id}/bind-codes` | IdentityTab |
-| `listAgentGrants(id)` | `GET /api/v1/users/{id}/agents` | AgentGrantTab（模块07） |
-| `listMemory(id)` | `GET /api/v1/users/{id}/memory` | MemoryTab（模块08） |
+| `unbindIdentity(id, identityId)` | `DELETE /api/v1/users/{id}/identities/{identity_id}` | IdentityTab |
+| `listMemory(id)` | `GET /api/v1/users/{id}/memory` | MemoryTab（后端复用 08 service） |
+| `deleteMemory(id, memoryId)` | `DELETE /api/v1/users/{id}/memory/{memory_id}` | MemoryTab（后端复用 08 service） |
+| `clearMemory(id)` | `DELETE /api/v1/users/{id}/memory` | MemoryTab（后端复用 08 service） |
+
+凭据 Tab 的读写走 04-project-platform 的凭据接口，不在本模块新增 Service。
 
 ### 3.6 UI 状态
 
@@ -165,18 +201,18 @@ Semi Form required/rules；Modal/SideSheet 焦点管理；图标按钮 aria-labe
 
 ## 4. 风险与依赖
 
-- 前置：01-platform-foundation；
-- 风险：硬编码中文、重复造公共 SideSheet/Toolbar、前端 N+1；
-- 应对：i18n key 检查、公共组件依赖、列表 API 聚合字段。
+- 前置：01-platform-foundation；04-project-platform（凭据 Tab）、07-agent-management（授权服务）、08-runtime-execution（Memory 服务）。
+- 风险：硬编码中文、重复造公共 SideSheet/Toolbar、前端 N+1、用户侧与 Agent 侧展示口径不一致；
+- 应对：i18n key 检查、公共组件依赖、列表 API 聚合字段、写操作复用同一后端 service。
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `mss-platform#RULE-I18N-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-UI-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-UI-DETAIL-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-TIME-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-FRONT-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-IM-001` | required | Agent 0..N bot_id；bot_id 只指向一个 Agent；不绑定 Runtime Pod。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-TEST-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
+| `harness-platform#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.5 / §3.6 | S-FE-01, E-FE-04（verifier: project-owner） | applied |
+| `harness-platform#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.2 / §3.3 CMP-01/CMP-02 | S-FE-01, S-FE-03（verifier: project-owner） | applied |
+| `harness-platform#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3 CMP-02 / §3.4 | S-FE-03, E-FE-02（verifier: project-owner） | applied |
+| `harness-platform#RULE-time-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | §3.7 / DateTimeText | S-FE-01, S-FE-02（verifier: project-owner） | applied |
+| `harness-platform#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.5 / §3.6 | S-FE-01~S-FE-03, E-FE-01~E-FE-04（verifier: project-owner） | applied |
+| `harness-platform#RULE-im-001` | required | Agent 0..N bot_id；bot_id 只指向一个 Agent；不绑定 Runtime Pod。 | §3.3 CMP-03 / §3.5 IdentityTab | S-FE-02, E-FE-03（verifier: project-owner） | applied |
+| `harness-platform#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4 / §3.5 | S-FE-01~S-FE-03, E-FE-02（verifier: project-owner 确认真实浏览器+PG） | applied |

@@ -1,19 +1,35 @@
 # 运行审计与可观测 前端模块需求与设计简报
 
-> **文档编号**: FE-AUDIT-V1.0  
-> **文档版本**: v1.0  
+> **文档编号**: FE-AUDIT-V1.1  
+> **文档版本**: v1.1  
 > **创建日期**: 2026-09-17  
 > **文档状态**: 设计评审中  
 > **模板**: design-frontend.md
 
 ## 1. 文档控制
 
+### 1.1 责任人
+
+| 角色 | 姓名 | 职责范围 |
+|---|---|---|
+| 开发负责人 | 待定 | 技术方案、代码实现 |
+| 设计/交互 | 待定 | 视觉与交互稿 |
+
+### 1.2 修订历史
+
+| 版本 | 日期 | 作者 | 变更描述 |
+|---|---|---|---|
+| v1.0 | 2026-09-17 | — | 前端需求与设计初稿 |
+| v1.1 | 2026-09-18 | — | 对齐 V1.4 决策（docs/17）：字段名对齐 docs/15、补执行结果筛选、组件契约与状态分区、交互基线更新为 V1.4 |
+
+**模块信息**
+
 | 项目 | 内容 |
 |---|---|
 | 模块 | 运行审计与可观测 |
 | 前端目录 | `apps/console-platform/frontend/src/modules/audit-observability/` |
 | 公共组件 | `src/components/common/`，由 01-platform-foundation 提供 |
-| 交互基线 | 最新 `MSS智能服务交付平台-V1.3-交互稿.html` |
+| 交互基线 | 最新 `智能服务交付平台-V1.4-交互稿.html` |
 
 ## 2. 需求分析
 
@@ -23,35 +39,39 @@
 |---|---|
 | 模块名称 | 运行审计与可观测 |
 | 需求类型 | 页面/组件/交互实现 |
+| 业务背景 | 运行审计需要跨 config/tool/egress/model 统一检索，且字段口径必须与 docs/15 一致。 |
 | 核心目标 | 提供轻量可检索运行审计，不把运维监控大盘搬进业务 Console。 |
 
 ### 2.2 功能方案
 
 | 功能ID | 功能名称 | 功能描述 | 优先级 | 来源 |
 |---|---|---|---|---|
-| FEAT-FE-01 | 审计列表 | 时间/类型/用户/Agent/目标/动作/结果/Trace ID。 | P0 | 需求描述 |
-| FEAT-FE-02 | 审计详情 | 只读 SideSheet + 关联链接。 | P0 | 需求描述 |
+| FEAT-FE-01 | 审计列表 | 时间/审计类型（`resource_type`）/操作用户（`actor_user_id`）/Agent/操作目标（`resource_id`）/动作（`action`）/执行结果（`result_status`）/Trace ID（`trace_id`）。 | P0 | 需求描述 |
+| FEAT-FE-02 | 审计详情 | 只读 SideSheet + 关联链接（Run/Task/Trace）。 | P0 | 需求描述 |
 
 ### 2.3 范围与边界
 
 | 类别 | 内容 |
 |---|---|
-| In Scope | 审计列表、筛选、详情，只读。 |
-| Out of Scope | 不改领域语义；组件不裸用 axios/fetch；不增加交互稿未确认的重型能力 |
+| In Scope | 审计列表、筛选（含执行结果）、详情，只读。 |
+| Out of Scope | 不改领域语义；组件不裸用 axios/fetch；不展示中间件/Pod 健康；不增加交互稿未确认的重型能力。 |
 | 技术债 | 无 |
 
 ### 2.4 验收条件
 
-| 场景ID | 功能ID | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
-|---|---|---|---|---|---|
-| S-FE-01 | FEAT-FE-01 | E2E | Browser→audits aggregate API | Trace ID 搜索 | 仅显示相关记录且字段统一 |
-| S-FE-02 | FEAT-FE-02 | E2E | Browser→detail API | 点击 Trace ID | 只读详情，无操作按钮 |
+**正常场景**
 
-异常：
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
+|---|---|---|---|---|---|---|
+| S-FE-01 | FEAT-FE-01 | P0 | E2E | Browser→audits aggregate API | Trace ID 搜索 | 仅显示相关记录且字段与 docs/15 口径一致 |
+| S-FE-02 | FEAT-FE-02 | P0 | E2E | Browser→detail API | 点击 Trace ID/主展示字段 | 只读详情，无操作按钮 |
+
+**异常场景**
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | UI 表现 |
 |---|---|---|---|---|---|
 | E-FE-01 | FEAT-FE-01 | integration | API→ErrorState | 查询失败 | 保留筛选并可重试 |
+| E-FE-02 | FEAT-FE-02 | integration | API→SideSheet | 审计已归档/不可读 | SideSheet 内 ErrorState，不伪造关联数据 |
 
 ## 3. 前端技术设计
 
@@ -76,14 +96,22 @@
 
 ### 3.3 组件设计
 
-```text\n<Page>\n├─ <ModuleToolbar/>\n├─ <RemoteTable/>\n└─ <DetailSideSheet/>\n```
+```text
+<AuditPage>                         # 容器：筛选/分页/详情状态
+├─ <ModuleToolbar>                  # 公共组件：搜索/筛选/重置/刷新
+├─ <AuditTable>                     # 展示：字段列 + 主展示字段入口
+└─ <AuditDetailSideSheet>           # 容器：按 audit_type + audit_id 拉详情
+   └─ <DetailTabs>                  # 公共组件：基础信息/关联
+```
 
 | 组件ID | 组件名 | 类型 | 复用来源/去向 | 职责 |
 |---|---|---|---|---|
-| CMP-01 | `AuditPage` | 容器 | 模块内 | 筛选/分页/详情 |
-| CMP-02 | `AuditDetail` | 展示 | 模块内 | 标准字段+trace links |
+| CMP-01 | `AuditPage` | 容器 | 模块内 | 筛选/分页/详情状态 |
+| CMP-02 | `AuditTable` | 展示 | 模块内 | 标准字段列，主展示字段打开详情 |
+| CMP-03 | `AuditDetailSideSheet` | 容器 | 模块内 | 按 `audit_type` 取详情，展示 trace/run/task 关联 |
+| CMP-04 | `AuditFilterBar` | 展示 | 模块内 | 时间/类型/用户/Agent/目标/动作/结果/Trace 筛选 |
 
-**必须复用公共组件**：`ConsoleShell / ModuleToolbar / RemoteTable / EntityLink / DetailSideSheet / DetailTabs / FormModal / StatusTag / DateTimeText / ConfirmAction / EmptyState / ErrorState / PaginationFooter / LocaleSwitch`。
+**必须复用公共组件**：`ConsoleShell / ModuleToolbar / EntityLink / DetailSideSheet / DetailTabs / StatusTag / DateTimeText / EmptyState / ErrorState / PaginationFooter / LocaleSwitch`。
 
 #### 3.3.1 每个按钮/操作的设计
 
@@ -92,26 +120,80 @@
 | 列表右上 | 搜索/筛选 | `Input + Select + DatePicker` | secondary | 按 trace/type/result/time 查询 | `GET /api/v1/audits` | 否 |
 | 列表右上 | 重置 | `Button` | secondary | 清空筛选 | `GET /api/v1/audits` | 否 |
 | 列表右上 | 刷新 | `Button` | secondary | 刷新当前页 | `GET /api/v1/audits` | 否 |
-| Trace ID/主展示字段 | 打开详情 | `Typography.Text link` | secondary | 打开只读 SideSheet | `GET /api/v1/audits/{id}` | 否 |
+| Trace ID/主展示字段 | 打开详情 | `Typography.Text link` | secondary | 打开只读 SideSheet | `GET /api/v1/audits/{id}?audit_type=` | 否 |
 
 统一规则：主创建/保存使用 `Button theme="solid" type="primary"`；危险操作 `Popconfirm`；详情全局操作与关闭 X 同一 Header 行靠右；Tab 内关系操作完成即生效，不需要“保存整个对象”。
 
 ### 3.4 组件接口契约
 
 ```ts
-export interface DetailSideSheetProps {
+export interface AuditListQuery {
+  auditType?: 'CONFIG' | 'TOOL' | 'EGRESS' | 'MODEL';
+  resourceType?: string;
+  resourceId?: string;
+  actorUserId?: string;
+  action?: string;
+  resultStatus?: string;
+  traceId?: string;
+  startTime?: string;
+  endTime?: string;
+  page: number;      // >=1
+  pageSize: number;  // <=100，默认 20
+}
+
+export interface AuditListItem {
+  auditId: string;
+  auditType: 'CONFIG' | 'TOOL' | 'EGRESS' | 'MODEL';
+  resourceType: string;
+  resourceId: string;
+  actorUserId: string;
+  actorName?: string;
+  agentId?: string;
+  agentName?: string;
+  action: string;
+  resultStatus: string;   // SUCCESS | FAILED | <领域错误码>
+  traceId: string;
+  target: string;
+  occurredAt: string;     // YYYY-MM-DD HH:mm:ss
+  latencyMs?: number;
+}
+
+export interface AuditTableProps {
+  items: AuditListItem[];
+  loading: boolean;
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange(page: number, pageSize: number): void;
+  onOpenDetail(item: AuditListItem): void;
+}
+
+export interface AuditDetailSideSheetProps {
   visible: boolean;
-  title: React.ReactNode;
-  subtitle?: React.ReactNode;
-  actions?: React.ReactNode;
-  activeTab?: string;
-  onCancel(): void;
+  auditType: AuditListItem['auditType'];
+  auditId: string | null;
+  onClose(): void;
+}
+
+export interface AuditFilterBarProps {
+  value: AuditListQuery;
+  onChange(patch: Partial<AuditListQuery>): void;
+  onSearch(): void;
+  onReset(): void;
 }
 ```
 
-展示组件 props-in/events-out；API、路由、提交状态由 Page/Hook 管理。
+展示组件 props-in/events-out；API、路由、提交状态由 Page/Hook 管理。详情必须同时传 `audit_type`，因为 4 张来源表的 UUID 不互通。
 
 ### 3.5 状态与数据流
+
+**状态划分**
+
+| 状态 | 作用域（local / shared store） | 形状（shape） | 读写方 |
+|---|---|---|---|
+| 筛选条件 | local（page） | `AuditListQuery` | `AuditFilterBar` 上抛 / `AuditPage` 持有 |
+| 列表数据 | hook local | `{items,page,pageSize,total,loading,error}` | `useAuditList` → `AuditTable` |
+| 详情选择 | local（page） | `{auditType, auditId（可空）}` | `AuditPage` ↔ `AuditDetailSideSheet` |
 
 ```text
 User Action
@@ -126,16 +208,17 @@ User Action
 | Service 方法 | 对应后端接口 | 调用方 |
 |---|---|---|
 | `listAudits(params)` | `GET /api/v1/audits` | useAuditList |
-| `getAudit(id)` | `GET /api/v1/audits/{id}` | useAuditDetail |
+| `getAudit(auditType, id)` | `GET /api/v1/audits/{id}?audit_type=` | useAuditDetail |
+
+Service 层负责后端 snake_case → 前端 camelCase 的字段映射（如 `actor_user_id`→`actorUserId`、`result_status`→`resultStatus`），组件不直接消费原始 Envelope。
 
 ### 3.6 UI 状态
 
 | 视图 | loading | empty | error | success |
 |---|---|---|---|---|
-| 列表 | Table loading/Skeleton | Empty + 创建/清筛选 | ErrorState + 重试 | Table + 右下 Pagination |
-| 详情 | SideSheet Spin | Tab Empty | Banner/ErrorState | Descriptions/List/Table |
-| 表单 | 保存按钮 loading | - | Form 字段错误 + Toast | 关闭 Modal + 局部刷新 |
-| 关系操作 | 当前按钮 loading | - | Toast，保持当前 Tab | 局部刷新 |
+| 审计列表 | Table loading/Skeleton | Empty + 清筛选 | ErrorState + 重试（保留筛选） | Table + 右下 Pagination |
+| 审计详情 | SideSheet Spin | Tab Empty | SideSheet 内 ErrorState | Descriptions/List/Table（只读） |
+| 关联缺失 | - | “关联 Run/Task 不可读”提示 | - | 详情其他字段仍展示 |
 
 ### 3.7 样式方案
 
@@ -161,10 +244,10 @@ Semi Form required/rules；Modal/SideSheet 焦点管理；图标按钮 aria-labe
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `mss-platform#RULE-I18N-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-UI-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-UI-DETAIL-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-TIME-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-SECRET-001` | required | Secret Value 不进 DB/Snapshot/日志/LLM，只保存 SecretRef。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-FRONT-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `mss-platform#RULE-TEST-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
+| `harness-platform#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
+| `harness-platform#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.3/§3.6 | S-FE-01 + verifier | applied |
+| `harness-platform#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3/§3.4 | S-FE-02 + verifier | applied |
+| `harness-platform#RULE-time-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | §3.4/§3.6 | S-FE-01 + verifier | applied |
+| `harness-platform#RULE-secret-001` | required | Secret Value 不进 DB/Snapshot/日志/LLM，只保存 SecretRef。 | §3.4/§3.6 | E-FE-02 + verifier | applied |
+| `harness-platform#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.5 | S-FE-01 + verifier | applied |
+| `harness-platform#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4/§3.5 | S-FE-01, S-FE-02 + verifier | applied |
