@@ -65,7 +65,7 @@
   "user.identities.unbind": "解绑",
   "user.identities.empty": "尚未绑定任何 IM 身份",
   "user.identities.boundAt": "绑定时间",
-  "user.identities.lastActive": "最近活动",
+  "user.identities.lastActive": "最近活动时间",
   "user.identities.externalUserId": "外部用户 ID",
   "user.bindCode.title": "绑定码",
   "user.bindCode.hint": "10 分钟内有效，仅展示一次",
@@ -157,5 +157,9 @@
   "user.memory.updated": "更新时间",
   "user.memory.hint": "用户记忆以 PlatformUser 为作用域，不绑定某个 Agent Runtime Pod，也不绑定单一 IM 通道；这里只提供查看与清理，不在 Console 手工新增记忆。",
   "user.agents.grantHint": "授权后用户可以通过已绑定 IM 身份使用该 Agent；该操作不会自动配置项目平台凭据。",
-  "user.agents.allGranted": "当前所有 Agent 均已授权"
+  "user.agents.allGranted": "当前所有 Agent 均已授权",
+  "user.columns.action": "操作",
+  "user.agents.nameLabel": "Agent 名称",
+  "user.agents.keyLabel": "标识",
+  "user.identities.channel": "通道"
 }

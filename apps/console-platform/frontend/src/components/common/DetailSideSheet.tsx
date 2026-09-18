@@ -23,7 +23,7 @@ export function DetailSideSheet(props: DetailSideSheetProps) {
     </div>
   );
   return (
-    <SideSheet visible={props.visible} title={header} onCancel={props.onCancel} footer={null} width={720}>
+    <SideSheet visible={props.visible} title={header} onCancel={props.onCancel} footer={null} width={920}>
       <Tabs type="line" activeKey={props.activeTab} onChange={(key) => props.onTabChange?.(String(key))}>
         {props.children}
       </Tabs>

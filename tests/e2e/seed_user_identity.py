@@ -23,6 +23,8 @@ async def _cleanup(connection, tenant_id: str, user_id: uuid.UUID) -> None:
     for statement in (
         "DELETE FROM runtime.user_memory WHERE tenant_id = :tenant_id AND user_id = :user_id",
         "DELETE FROM control.channel_identity WHERE tenant_id = :tenant_id AND platform_user_id = :user_id",
+        "DELETE FROM control.channel_identity WHERE tenant_id = :tenant_id AND bot_account_id IN "
+        "(SELECT id FROM control.bot_account WHERE tenant_id = :tenant_id AND name = 'E2E Bot')",
         "DELETE FROM control.bot_account WHERE tenant_id = :tenant_id AND name = 'E2E Bot'",
         "DELETE FROM control.user_credential_ref WHERE tenant_id = :tenant_id AND user_id = :user_id",
         "DELETE FROM control.project_platform WHERE tenant_id = :tenant_id AND key = 'e2e-platform'",

@@ -319,6 +319,19 @@ body {
   border-bottom: none;
 }
 
+.semi-sidesheet .semi-table-thead > .semi-table-row > .semi-table-row-head {
+  background: var(--semi-color-fill-0);
+}
+
+.semi-sidesheet .semi-table-tbody > .semi-table-row > .semi-table-row-cell {
+  background: transparent;
+}
+
+.semi-sidesheet .semi-table-th,
+.semi-sidesheet .semi-table-row-cell {
+  white-space: nowrap;
+}
+
 .count-cell {
   font-variant-numeric: tabular-nums;
   color: var(--semi-color-text-1);

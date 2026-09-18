@@ -71,6 +71,14 @@ function useAsyncList<T>(loader: () => Promise<T[]>, deps: unknown[]) {
   return { items, loading, failed, reload };
 }
 
+function formatMemoryContent(value: Record<string, unknown>): string {
+  const entries = Object.values(value);
+  if (entries.length > 0 && entries.every((entry) => typeof entry === 'string' || typeof entry === 'number')) {
+    return entries.join('；');
+  }
+  return JSON.stringify(value);
+}
+
 function TabState(props: { loading: boolean; failed: boolean; empty: string; children: ReactNode }) {
   const { t } = useTranslation();
   if (props.loading) {
@@ -163,8 +171,8 @@ function AgentGrantTab(props: { userId: string }) {
             rowKey="agent_id"
             pagination={false}
             columns={[
-              { title: t('user.columns.displayName'), dataIndex: 'agent_name' },
-              { title: 'Key', dataIndex: 'agent_key' },
+              { title: t('user.agents.nameLabel'), dataIndex: 'agent_name' },
+              { title: t('user.agents.keyLabel'), dataIndex: 'agent_key' },
               {
                 title: t('user.columns.status'),
                 dataIndex: 'enabled',
@@ -180,7 +188,7 @@ function AgentGrantTab(props: { userId: string }) {
                 render: (value: string) => <DateTimeText value={value} />
               },
               {
-                title: '',
+                title: t('user.columns.action'),
                 render: (_: unknown, entry: AgentGrant) => (
                   <Popconfirm title={t('user.common.confirmRevoke')} onConfirm={() => void revoke(entry.agent_id)}>
                     <Button theme="borderless" type="danger">
@@ -265,7 +273,7 @@ function IdentityTab(props: { userId: string }) {
             rowKey="id"
             pagination={false}
             columns={[
-              { title: 'Channel', dataIndex: 'channel' },
+              { title: t('user.identities.channel'), dataIndex: 'channel' },
               { title: t('user.identities.externalUserId'), dataIndex: 'external_user_id' },
               { title: 'bot_id', dataIndex: 'bot_id' },
               {
@@ -288,7 +296,7 @@ function IdentityTab(props: { userId: string }) {
                 )
               },
               {
-                title: '',
+                title: t('user.columns.action'),
                 render: (_: unknown, entry: Identity) => (
                   <Popconfirm title={t('user.common.confirmUnbind')} onConfirm={() => void unbind(entry.id)}>
                     <Button theme="borderless" type="danger">
@@ -341,7 +349,7 @@ function MemoryTab(props: { userId: string }) {
               {
                 title: t('user.memory.content'),
                 dataIndex: 'content',
-                render: (value: Record<string, unknown>) => JSON.stringify(value)
+                render: (value: Record<string, unknown>) => formatMemoryContent(value)
               },
               { title: t('user.memory.source'), dataIndex: 'source_type' },
               {
@@ -350,7 +358,7 @@ function MemoryTab(props: { userId: string }) {
                 render: (value: string) => <DateTimeText value={value} />
               },
               {
-                title: '',
+                title: t('user.columns.action'),
                 render: (_: unknown, entry: Memory) => (
                   <Popconfirm title={t('user.common.confirmClear')} onConfirm={() => void remove(entry.id)}>
                     <Button theme="borderless" type="danger">

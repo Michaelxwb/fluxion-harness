@@ -65,7 +65,7 @@
   "user.identities.unbind": "Unbind",
   "user.identities.empty": "No IM identity bound yet",
   "user.identities.boundAt": "Bound at",
-  "user.identities.lastActive": "Last active",
+  "user.identities.lastActive": "Last active at",
   "user.identities.externalUserId": "External user id",
   "user.bindCode.title": "Bind code",
   "user.bindCode.hint": "Valid for 10 minutes, shown once",
@@ -157,5 +157,9 @@
   "user.memory.updated": "Updated at",
   "user.memory.hint": "Memories are scoped to the PlatformUser, not to an Agent Runtime Pod or a single IM channel. This tab only reviews and clears memories; Console never creates them manually.",
   "user.agents.grantHint": "After granting, the user can use this Agent through any bound IM identity; this does not configure platform credentials automatically.",
-  "user.agents.allGranted": "All Agents are already granted"
+  "user.agents.allGranted": "All Agents are already granted",
+  "user.columns.action": "Actions",
+  "user.agents.nameLabel": "Agent name",
+  "user.agents.keyLabel": "Key",
+  "user.identities.channel": "Channel"
 }

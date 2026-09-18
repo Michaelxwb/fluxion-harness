@@ -75,3 +75,20 @@ def test_agent_grant_uses_form_modal_with_hint() -> None:
     assert "user.agents.allGranted" in user
     assert "availableAgents" in user, "弹窗只允许选择未授权的 Agent"
     assert "okButtonProps" in modal, "FormModal 必须支持禁用确认按钮"
+
+
+def test_sidesheet_table_style_scoped() -> None:
+    css = (ROOT / "apps/console-platform/frontend/src/styles/app.css").read_text(encoding="utf-8")
+    assert ".semi-sidesheet .semi-table-thead" in css, "详情表格表头需要浅底"
+    assert ".semi-sidesheet .semi-table-tbody" in css, "详情表格数据行需要透明底"
+    assert "white-space: nowrap" in css, "详情表格单元格不得折行"
+    sheet = COMPONENT.read_text(encoding="utf-8")
+    assert "width={920}" in sheet
+
+
+def test_user_detail_tables_match_interaction_columns() -> None:
+    source = USER_DETAIL.read_text(encoding="utf-8")
+    assert source.count("user.columns.action") >= 3, "三个关系表都必须有操作列表头"
+    for key in ("user.agents.nameLabel", "user.agents.keyLabel", "user.identities.channel"):
+        assert key in source, f"列名未对齐交互稿: {key}"
+    assert "formatMemoryContent" in source, "记忆内容需要可读化渲染"
