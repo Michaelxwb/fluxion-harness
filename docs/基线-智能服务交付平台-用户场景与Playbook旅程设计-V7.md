@@ -2,7 +2,7 @@
 
 > **用户范围补充口径**：Skill/MCP 不再使用 PUBLIC/PRIVATE 作为核心用户可见性语义；统一使用 `user_scope=ALL/SELECTED`。ALL 表示全部 Agent 授权用户，SELECTED 表示指定用户；两者都不能绕过 AgentAccessGrant 与 Agent Binding。
 
-# MSS 智能服务交付平台——用户场景与 Playbook 旅程设计 V7
+# 智能服务交付平台——用户场景与 Playbook 旅程设计 V7
 
 > **版本定位**：Skill-first + 自研 Stateless Agent Runtime
 >

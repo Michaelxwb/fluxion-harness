@@ -167,7 +167,7 @@ Agent 详情的“IM 接入”允许维护 0..N 条 ChannelAccount：
 
 ### 4.3 更新规则
 
-所有带 `revision` 列的配置表（`agent_definition` / `model_definition` / `mcp_server`）更新必须携带 `expected_revision`：
+所有带 `revision` 列的配置表（`agent_definition` / `model_definition`）更新必须携带 `expected_revision`：
 
 ```text
 expected_revision 匹配:
@@ -178,7 +178,7 @@ expected_revision 不匹配:
   409 REVISION_CONFLICT
 ```
 
-`skill` / `project_platform` 表没有 `revision` 列，其配置更新不携带 `expected_revision`，只在同一事务内追加 `config_audit_log`。
+`skill` / `mcp_server` / `project_platform` 表没有 `revision` 列，其配置更新不携带 `expected_revision`，只在同一事务内追加 `config_audit_log`。
 
 已运行 Run 不更新 Snapshot；下一次 Run 使用新 revision。
 

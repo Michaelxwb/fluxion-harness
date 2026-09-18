@@ -21,7 +21,7 @@
 | `trigger_type` | 触发方式 | 后台任务 |
 | `execution_mode` | 执行模式 | 后台任务 / Skill Artifact |
 | `intent_key` | 业务意图 | 后台任务 / 定时任务 |
-| `revision` | 修订版本 | Agent/MCP/Model |
+| `revision` | 修订版本 | Agent/Model |
 | `platform_label` | 平台标签 | Skill |
 | Agent `instructions` | 系统 Prompt | Agent |
 | Skill current artifact version | 当前版本 | Skill |
