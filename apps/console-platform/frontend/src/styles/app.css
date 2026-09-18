@@ -50,6 +50,7 @@ body {
   border-right: 1px solid var(--semi-color-border);
 }
 
+.app-sider .semi-layout-sider-children,
 .app-sider .semi-sider-children {
   display: flex;
   flex-direction: column;
