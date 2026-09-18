@@ -1,7 +1,7 @@
 version: 1
 task: Console 账号与访问控制
 enforcement: required
-updated_at: '2026-09-18T04:58:35.195692+00:00'
+updated_at: '2026-09-18T06:13:54.797014+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -218,7 +218,7 @@ bindings:
   path: ui/harness-ui.md
   status: active
   hashes:
-    file_sha256: 8f3997b97f349802471e9ffe459505f361941adf22cc926da1bfc01efe7a31e9
+    file_sha256: d6b780c1f48e6cd7c6bbba09ad2139eade4fddd5c5c6217e45ff62e72299156e
     metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
     rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
   selected_by: agent

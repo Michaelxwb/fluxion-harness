@@ -77,3 +77,14 @@ def test_semi_components_are_the_only_ui_library() -> None:
     assert "@douyinfe/semi-ui" in dependencies
     banned = ("antd", "@mui/material", "element-plus", "@chakra-ui/react")
     assert not [name for name in banned if name in dependencies]
+
+
+def test_module_list_pages_use_remote_table() -> None:
+    list_pages = sorted((SRC / "modules").rglob("*Page.tsx"))
+    assert list_pages, "至少应存在一个模块列表页"
+    offenders = [
+        str(path.relative_to(ROOT))
+        for path in list_pages
+        if "RemoteTable" not in _read(path)
+    ]
+    assert offenders == [], "模块列表页必须使用 RemoteTable（内建 PaginationFooter）: " + ", ".join(offenders)
