@@ -88,7 +88,7 @@
 | 持久化 | 不新增表、不建快照/物化视图 | dashboard snapshot | 数据量当前无需派生事实表 |
 | 查询 | 少量聚合 SQL + LIMIT | 逐实体查询 | 控制延迟并保持只读 |
 
-基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS/Secret Provider；统一 `muad-api` 与 `muad-logging`。
+基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS；统一 `muad-api` 与 `muad-logging`。
 
 ### 3.2 架构设计
 

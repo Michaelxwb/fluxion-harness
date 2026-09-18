@@ -1,7 +1,7 @@
 version: 1
 task: 概览与运营入口
 enforcement: required
-updated_at: '2026-09-18T06:13:54.779400+00:00'
+updated_at: '2026-09-18T09:24:15.882031+00:00'
 sources:
 - type: docs
   ref: docs/03-Console-Platform详细设计.md
@@ -24,7 +24,7 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: 0b208f729a97adae0d7011791e278d965a31e5916e8c044b80d0550143183ccc
+    file_sha256: ed3d32d8d5085e6d250ef7a24f1988759d414113d2726d0a92052880bf2a66b0
     metadata_sha256: e9f9b2714c5043dc7d9363ec9a950471b4cdea6d932bd8e86ac2dd0a754c9359
     rules_sha256: 76ffb366c7643e6faa32a65c751aea08de24bc2c1b6f37db46e6df1a7665e728
   selected_by: agent
@@ -50,7 +50,7 @@ bindings:
         - artifact: 12-overview-dashboard.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-api-001
-          artifact_sha256: 56118a0f914995be935564b74eae6c78a0f9f5c379b58a2cca2a3405d8af8897
+          artifact_sha256: be5f0dc84873e9977dda78e7db7a1253da88c2bd3e84612a34808992c7671644
         decision: null
         evidence: []
       plan:
@@ -72,7 +72,7 @@ bindings:
   path: test/harness-test.md
   status: active
   hashes:
-    file_sha256: 0e202f6c12e5461baa1ebf688889fccc6c5a4f01e27916c7841fe7dfdca1cc2e
+    file_sha256: 66b05f4ed49156830ac7d388c9487264b4a85f50d32dacb364e126c83498a3ff
     metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
     rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
   selected_by: agent
@@ -97,7 +97,7 @@ bindings:
         - artifact: 12-overview-dashboard.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-test-001
-          artifact_sha256: 56118a0f914995be935564b74eae6c78a0f9f5c379b58a2cca2a3405d8af8897
+          artifact_sha256: be5f0dc84873e9977dda78e7db7a1253da88c2bd3e84612a34808992c7671644
         decision: null
         evidence: []
       plan:
@@ -144,7 +144,7 @@ bindings:
         - artifact: 12-overview-dashboard.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-ui-001
-          artifact_sha256: 56118a0f914995be935564b74eae6c78a0f9f5c379b58a2cca2a3405d8af8897
+          artifact_sha256: be5f0dc84873e9977dda78e7db7a1253da88c2bd3e84612a34808992c7671644
         decision: null
         evidence: []
       plan:
@@ -191,7 +191,7 @@ bindings:
         - artifact: 12-overview-dashboard.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-front-001
-          artifact_sha256: 56118a0f914995be935564b74eae6c78a0f9f5c379b58a2cca2a3405d8af8897
+          artifact_sha256: be5f0dc84873e9977dda78e7db7a1253da88c2bd3e84612a34808992c7671644
         decision: null
         evidence: []
       plan:
@@ -285,7 +285,7 @@ bindings:
         - artifact: 12-overview-dashboard.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-time-001
-          artifact_sha256: 56118a0f914995be935564b74eae6c78a0f9f5c379b58a2cca2a3405d8af8897
+          artifact_sha256: be5f0dc84873e9977dda78e7db7a1253da88c2bd3e84612a34808992c7671644
         decision: null
         evidence: []
       plan:

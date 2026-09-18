@@ -45,7 +45,7 @@ class ChannelBindResponse(ContractModel):
 class BotSnapshotItem(ContractModel):
     bot_account_id: UUID
     bot_id: str
-    secret_ref: str
+    secret: str | None = None
     agent_id: UUID
     enabled: bool = True
 

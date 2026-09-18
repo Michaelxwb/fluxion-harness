@@ -38,8 +38,8 @@ async def _seed_identity(client: AsyncClient, tenant: TenantContext, user_id: st
         await session.execute(
             text(
                 "INSERT INTO control.bot_account "
-                "(id, tenant_id, channel, name, bot_id, secret_ref, agent_id) "
-                "VALUES (:id, :tenant_id, 'WECOM', 'Identity Bot', :bot_id, 'secret://wecom/bot', :agent_id)"
+                "(id, tenant_id, channel, name, bot_id, secret, agent_id) "
+                "VALUES (:id, :tenant_id, 'WECOM', 'Identity Bot', :bot_id, 'wecom-secret-bot', :agent_id)"
             ),
             {"id": bot_account_id, "tenant_id": tenant.tenant_id, "bot_id": bot_id, "agent_id": agent_id},
         )

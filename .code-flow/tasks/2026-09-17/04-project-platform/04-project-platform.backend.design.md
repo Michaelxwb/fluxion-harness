@@ -72,7 +72,7 @@
 | ID | 业务实体统一 UUID；跨 Owner Schema 仅逻辑引用 UUID |
 | 时间 | PostgreSQL 使用 `timestamptz`；Console 展示 `YYYY-MM-DD HH:mm:ss` |
 | 删除 | 产品表统一 `is_deleted` 软删除；状态枚举不重复表达 DELETED |
-| Secret | 只保存 SecretRef；Secret Value 不进入 DB / Snapshot / 日志 / LLM |
+| Secret | 凭据明文存于凭据表（credential_json）并以主键引用；不得进入 Snapshot / 日志 / LLM / API 响应 |
 | 枚举 | API 与 DB 统一使用稳定英文枚举值，中文/英文只在 UI/i18n 层映射 |
 | 错误 | 业务代码只抛稳定 `code`；`msg/http_status` 由公共配置映射 |
 | 命名 | DB 列保留 `_json` 后缀；API/UI 使用无后缀名（`resolver_config`/`adapter_config`，docs/15 §6） |
@@ -93,7 +93,7 @@
 |---|---|---|---|
 | RULE-01 | 系统约束 | JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status 配置映射。 | S-01 / E-01 |
 | RULE-02 | 系统约束 | 产品表统一 is_deleted/create_time/update_time；同 Owner Schema 物理 FK，跨 Owner Schema 逻辑 UUID。 | S-01 / S-04 |
-| RULE-03 | 系统约束 | Secret Value 不进 DB/Snapshot/日志/LLM，只保存 SecretRef。 | S-02 / E-02 |
+| RULE-03 | 系统约束 | 凭据明文存于凭据表（credential_json）并以主键引用；不得进入 Snapshot/日志/LLM/API 响应。 | S-02 / E-02 |
 | RULE-04 | 系统约束 | PlatformAdapter SPI 唯一版本为 `key/name/version/session_mode/platform_config_schema/credential_schema` + `authenticate/validate/prepare_request`；无独立 `refresh`；Session 为 Redis 可重建缓存，键含 credential_version，并用 Set 索引清理（禁止 KEYS/SCAN）。 | S-04 / E-01 |
 | RULE-05 | 系统约束 | `adapter_key` 变更时 user/shared 凭据 INVALID、清理该平台全部 Session、返回 `credential_reconfigure_required=true`；`project_platform` 无 revision 列，更新不携带 `expected_revision`，同一事务追加 `config_audit_log`。 | S-04 / E-01 |
 | RULE-06 | 系统约束 | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | S-01 |
@@ -107,7 +107,7 @@
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 操作/前置 | 预期结果 |
 |---|---|---|---|---|---|---|
 | S-01 | FEAT-01 | E2E | Browser→API→DB | 本模块 | 创建 Base URL 平台并选择 Adapter | 按 Adapter schema 保存/展示配置；唯一 key 冲突拒绝 |
-| S-02 | FEAT-02 | E2E | Browser→Secret Provider→DB | 本模块 | 配置用户敏感凭据 | DB 仅 SecretRef 且不回显 |
+| S-02 | FEAT-02 | E2E | Browser→API→DB | 本模块 | 配置用户敏感凭据 | DB 存明文且不回显 |
 | S-03 | FEAT-03 | E2E | Browser→API→网络探测→UI | 本模块 | 对已启用平台执行配置校验与连通性探测 | 返回 config_valid/connectivity/credential_ref_status；不出现平台登录、Session 或业务调用记录 |
 | S-04 | FEAT-04 | integration | Service→DB→Redis | 本模块 | 修改 adapter_key | 旧凭据 INVALID、Session 按 Set 索引删除、credential_reconfigure_required=true、config_audit_log 落库 |
 
@@ -134,7 +134,7 @@
 | 调用测试 | Console 配置/Schema 校验 + 非鉴权连通性探测 | Console 执行平台登录/业务调用 | Console 不持有 Session/Secret，真实鉴权调用归 Runtime/Worker Egress Boundary（docs/01 §3.1） |
 | 并发登录保护 | session key 短锁 + singleflight | 无锁重复 authenticate | 避免多 Pod 冷启动并发登录打爆业务平台 |
 
-基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS/Secret Provider；统一 `muad-api` 与 `muad-logging`。
+基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS；统一 `muad-api` 与 `muad-logging`。
 
 ### 3.2 架构与流程
 
@@ -206,10 +206,10 @@ sequenceDiagram
 
 **表说明**
 
-- **用途**：用户 × ProjectPlatform 的唯一凭据引用，只存 SecretRef。
+- **用途**：用户 × ProjectPlatform 的唯一凭据记录，存 credential_json 明文。
 - **主要写入方**：Console/认证配置。
 - **主要读取方**：Runtime Egress。
-- **生命周期/边界**：Secret 真值由 Secret Provider 管理；`adapter_key` 变更时 `status=INVALID`。
+- **生命周期/边界**：凭据明文存于本表；`adapter_key` 变更时 `status=INVALID`。
 
 | 字段 | 类型 | 约束 | 说明 |
 |---|---|---|---|
@@ -220,7 +220,7 @@ sequenceDiagram
 | `tenant_id` | varchar(64) | NOT NULL | 隔离键 |
 | `user_id` | uuid | NOT NULL FK -> platform_user.id | 用户 |
 | `platform_id` | uuid | NOT NULL FK -> project_platform.id | 项目平台 |
-| `secret_ref` | varchar(256) | NOT NULL | Secret Provider 引用 |
+| `credential_json` | jsonb | NOT NULL DEFAULT '{}' | 凭据内容（明文） |
 | `credential_schema_version` | varchar(32) | NOT NULL DEFAULT '1' | 创建凭据时的 Adapter Credential Schema 版本 |
 | `status` | varchar(16) | NOT NULL DEFAULT 'ACTIVE' | ACTIVE/INVALID |
 | `last_verified_at` | timestamptz |  | 最近验证 |
@@ -246,7 +246,7 @@ sequenceDiagram
 | `update_time` | timestamptz | NOT NULL DEFAULT now() | 更新时间 |
 | `tenant_id` | varchar(64) | NOT NULL | 隔离键 |
 | `platform_id` | uuid | NOT NULL FK -> project_platform.id | 项目平台 |
-| `secret_ref` | varchar(256) | NOT NULL | 共享 Secret 引用 |
+| `credential_json` | jsonb | NOT NULL DEFAULT '{}' | 共享凭据内容（明文） |
 | `credential_schema_version` | varchar(32) | NOT NULL DEFAULT '1' | Adapter Credential Schema 版本 |
 | `status` | varchar(16) | NOT NULL DEFAULT 'ACTIVE' | 状态 |
 
@@ -436,7 +436,7 @@ GET /api/v1/project-platforms/{platform_id}/users/{user_id}/credential
 
 - 调用方：Console Web。
 - 请求：path `platform_id`、`user_id`。
-- `data`：`{user_id,platform_id,secret_ref,credential_schema_version,status,last_verified_at,configured:true}`（`secret_ref` 仅为引用，不含 Secret Value）。
+- `data`：`{user_id,platform_id,credential_json,credential_schema_version,status,last_verified_at,configured:true}`（仅返回是否已配置，不含明文）。
 - 错误码：`COMMON_NOT_FOUND / COMMON_INTERNAL_ERROR`
 - 处理：按 `(user_id, platform_id)` 且 `is_deleted=false` 查询；不存在返回 `COMMON_NOT_FOUND`；不回显 Secret Value。
 - 对应 docs/07：§10.8。
@@ -457,7 +457,7 @@ PUT /api/v1/project-platforms/{platform_id}/users/{user_id}/credential
   字段以当前 Adapter 的 `credential_schema` 为准，后端使用同一 Schema 再校验。
 - `data`：`{user_id,platform_id,credential_schema_version,status:"ACTIVE"}`。
 - 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND / PLATFORM_ADAPTER_NOT_FOUND / COMMON_INTERNAL_ERROR`
-- 处理：后端使用同一 JSON Schema 再校验 → 写入 Secret Provider → 保存/更新 `user_credential_ref`（只存 secret_ref）；`credential_schema_version` 取当前 Adapter Schema 版本；Secret Provider 返回的 version/fingerprint 变化使旧 Session 自然不复用（session key 含 `credential_version`）；同事务追加 `config_audit_log`。
+- 处理：后端使用同一 JSON Schema 再校验 → 明文写入 `user_credential_ref.credential_json`；`credential_schema_version` 取当前 Adapter Schema 版本；credential_json 内容哈希变化使旧 Session 自然不复用（session key 含 `credential_version`）；同事务追加 `config_audit_log`。
 - 对应 docs/07：§10.8。
 
 #### API-09 用户凭据删
@@ -470,7 +470,7 @@ DELETE /api/v1/project-platforms/{platform_id}/users/{user_id}/credential
 - 请求：path `platform_id`、`user_id`。
 - `data`：`{}`（软删除结果）。
 - 错误码：`COMMON_NOT_FOUND / COMMON_INTERNAL_ERROR`
-- 处理：`user_credential_ref.is_deleted=true`（撤销=软删除，无到期时间字段）；同事务追加 `config_audit_log`；实际 Secret 条目可按 Secret Provider 策略清理，旧 Session 因 credential_version 变化自然失效。
+- 处理：`user_credential_ref.is_deleted=true`（撤销=软删除，无到期时间字段）；同事务追加 `config_audit_log`；旧 Session 因 credential_version（内容哈希）变化自然失效。
 - 对应 docs/07：§10.8。
 
 #### API-10 共享凭据读
@@ -481,7 +481,7 @@ GET /api/v1/project-platforms/{platform_id}/shared-credential
 
 - 调用方：Console Web。
 - 请求：path `platform_id`。
-- `data`：`{platform_id,configured:true|false,secret_ref?,credential_schema_version?,status?}`。
+- `data`：`{platform_id,configured:true|false,credential_schema_version?,status?}`。
 - 错误码：`COMMON_NOT_FOUND / COMMON_INTERNAL_ERROR`
 - 处理：每平台 0..1；未配置返回 `configured=false`，不是错误；不回显 Secret Value。
 - 对应 docs/07：§10.8。
@@ -502,7 +502,7 @@ PUT /api/v1/project-platforms/{platform_id}/shared-credential
   每平台最多一套共享凭据；不存在则创建，存在则更新。
 - `data`：`{platform_id,configured:true,credential_schema_version,status:"ACTIVE"}`。
 - 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND / PLATFORM_ADAPTER_NOT_FOUND / COMMON_INTERNAL_ERROR`
-- 处理：每平台最多一套，存在则更新、不存在则创建；不做 priority/池化；Secret 只写 Secret Provider，DB 只存 `secret_ref`；同事务 `config_audit_log`。
+- 处理：每平台最多一套，存在则更新、不存在则创建；不做 priority/池化；明文写入 `shared_credential_ref.credential_json`；同事务 `config_audit_log`。
 - 对应 docs/07：§10.8。
 
 #### API-12 共享凭据删
@@ -555,7 +555,7 @@ platform_session:{tenant_id}:{platform_id}:{actor_scope}:{credential_version}:{a
 ```
 
 - `actor_scope`：`user:{user_id}` / `shared:{shared_credential_id}` / `none`；
-- `credential_version` 来自 Secret Provider 返回的版本/指纹，凭据变更后自然不复用旧 Session。
+- `credential_version` 来自 credential_json 内容哈希，凭据变更后自然不复用旧 Session。
 
 **Redis Set 索引与失效清理**
 
@@ -581,10 +581,10 @@ platform_session:{tenant_id}:{platform_id}:{actor_scope}:{credential_version}:{a
 | `USER_ONLY` | UserCredentialRef(user, platform) | `CREDENTIAL_MISSING` |
 | `SHARED_ONLY` | SharedCredentialRef(platform) | `CREDENTIAL_MISSING` |
 | `USER_THEN_SHARED` | 先 UserCredentialRef；缺失或 `INVALID` 时回退 SharedCredentialRef | 两者都缺失 → `CREDENTIAL_MISSING` |
-| `NONE` | credential = None，不解析 SecretRef | 无 |
+| `NONE` | credential = None，不读取凭据表 | 无 |
 
 - 共享凭据每平台 0..1，无 priority/池化；
-- 凭据只保存 SecretRef；Secret Value 不进入 DB/Snapshot/日志/LLM/Session Cache；
+- 凭据明文存于凭据表；不得进入 Snapshot/日志/LLM/API 响应/Session Cache；
 - `session_mode`（`NONE`/`SESSION`/`REQUEST_SIGNING`）决定 `credential/session` 是否可选，与 `credential_mode` 正交。
 
 ### 3.6 质量实现方案
@@ -596,7 +596,7 @@ platform_session:{tenant_id}:{platform_id}:{actor_scope}:{credential_version}:{a
 
 ## 4. 部署与运维
 
-本模块随 `muad-console-platform + platform-sdk` 对应镜像/共享 package 发布；PostgreSQL、Redis、NFS、Secret Provider 外置。监控阈值待真实基线确定。
+本模块随 `muad-console-platform + platform-sdk` 对应镜像/共享 package 发布；PostgreSQL、Redis、NFS 外置。监控阈值待真实基线确定。
 
 ## 5. 风险与依赖
 
@@ -619,7 +619,7 @@ platform_session:{tenant_id}:{platform_id}:{actor_scope}:{credential_version}:{a
 |---|---|---|---|---|---|
 | `harness-platform#RULE-api-001` | required | JSON REST 统一封套与分页；业务只抛 code，msg/http_status 走配置映射。 | §2.5.1 RULE-01、§3.4 全部 API | S-01、S-03 | applied |
 | `harness-platform#RULE-data-001` | required | 统一标准列、软删除 partial unique、timestamptz、同 Schema 物理 FK。 | §3.3 三张表定义 | S-01、S-04 | applied |
-| `harness-platform#RULE-secret-001` | required | Secret 只存 SecretRef，不进 DB/日志/Snapshot；Session Cache 不含 raw credential。 | §3.3 user/shared_credential_ref、§3.5 | S-02、E-02 | applied |
+| `harness-secret#RULE-secret-001` | required | 凭据明文存于凭据表（主键引用）；不进日志/审计/Snapshot/API 响应；Session Cache 不含 raw credential。 | §3.3 user/shared_credential_ref、§3.5 | S-02、E-02 | applied |
 | `harness-platform#RULE-platform-001` | required | Adapter SPI 无 refresh；credential_mode 仅选择策略；Session key 含版本且用 Set 索引清理。 | §3.1、§3.2、§3.5 | S-04、E-01、E-02 | applied |
 | `harness-platform#RULE-i18n-001` | required | 错误码只使用已登记 code，msg 由 config/api-messages.yaml 双语映射。 | §3.4 错误码列 | S-01、E-01 | applied |
 | `harness-platform#RULE-test-001` | required | 关键流程 E2E 且列出不得 mock 的真实边界（DB/Redis/网络探测）。 | §2.5.2 S-01~S-04 | S-01、S-03 | applied |

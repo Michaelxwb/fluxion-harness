@@ -72,7 +72,7 @@
 | ID | 业务实体统一 UUID；跨 Owner Schema 仅逻辑引用 UUID |
 | 时间 | PostgreSQL 使用 `timestamptz`；Console 展示 `YYYY-MM-DD HH:mm:ss` |
 | 删除 | 产品表统一 `is_deleted` 软删除；状态枚举不重复表达 DELETED；授权撤销=软删除，无到期时间 |
-| Secret | 只保存 SecretRef；Secret Value 不进入 DB / Snapshot / 日志 / LLM |
+| Secret | 连接凭据明文存于 `auth_secret`（主键引用）；不得进入 Snapshot / 日志 / LLM / API 响应 |
 | 枚举 | API 与 DB 统一使用稳定英文枚举值，中文/英文只在 UI/i18n 层映射 |
 | 错误 | 业务代码只抛稳定 `code`；`msg/http_status` 由公共配置映射 |
 
@@ -106,7 +106,7 @@
 |---|---|---|---|
 | RULE-01 | 系统约束 | JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status 配置映射。 | S-01 / E-02 |
 | RULE-02 | 系统约束 | 产品表统一 is_deleted/create_time/update_time；同 Owner Schema 物理 FK，跨 Owner Schema 逻辑 UUID。 | S-01 / S-02 |
-| RULE-03 | 系统约束 | Secret Value 不进 DB/Snapshot/日志/LLM，只保存 SecretRef；`auth_secret_ref` 运行时经 Secret Provider 解析。 | S-01 / E-02 |
+| RULE-03 | 系统约束 | 凭据明文存于 `auth_secret`（主键引用）；不得进入 Snapshot/日志/LLM/API 响应。 | S-01 / E-02 |
 | RULE-04 | 系统约束 | User→Agent；Agent→Skill/MCP；SELECTED 再叠加资源用户 Grant；不建三元授权；McpUserGrant 无 `expires_at`，撤销=软删除。 | S-02 / E-03 |
 | RULE-05 | 系统约束 | V1 仅 Streamable HTTP；Tool Catalog 持久化 PostgreSQL；Server 级用户范围，无 Tool 级授权/启停。 | S-01 / E-02 |
 | RULE-06 | 系统约束 | 关系修改使用单关系 POST/DELETE 独立事务，不用全量 PUT。 | S-02 / E-03 |
@@ -150,9 +150,9 @@
 | Tool 控制 | Server 级 | Tool 级 enabled/grant | V1 不需要第二套权限模型 |
 | Runtime 边界 | 本模块只定义 catalog 契约（resolve 返回 `revision/hash/definitions`） | 在 06/08 重复承载 Runtime MCP Adapter | Tool 命名 `mcp::<server_key>::<tool_name>` 与 ToolRegistry/Hook/Policy/Audit 归模块 08 |
 | 更新并发 | 同事务 `config_audit_log`（无 `revision`） | `expected_revision` + `REVISION_CONFLICT` | `mcp_server` 无 revision 列，与 docs/02 及迁移一致 |
-| 连接凭据 | `auth_secret_ref` 只存引用，运行时经 Secret Provider 解析 | DB/日志存明文 | 与 RULE-secret-001 一致 |
+| 连接凭据 | `auth_secret` 明文存 DB，运行时直接读取 | 日志/审计/响应出现明文 | 与 RULE-secret-001 一致 |
 
-基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS/Secret Provider；统一 `muad-api` 与 `muad-logging`。
+基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS；统一 `muad-api` 与 `muad-logging`。
 
 ### 3.2 架构与流程
 
@@ -179,7 +179,7 @@ Runtime 侧消费路径（归模块 08）：`resolve-definition → mcp_catalog_
 - **主要写入方**：Console。
 - **主要读取方**：Runtime MCP Registry。
 - **生命周期/边界**：启停实时影响新 Run；当前 Run 按 Snapshot 处理；配置更新在同一事务内追加 `config_audit_log`（`mcp_server` 无 revision 列）。
-- **认证**：`auth_secret_ref` 只保存 Secret Provider 引用，Runtime/Worker 调用时解析，Console 不回显明文。
+- **认证**：`auth_secret` 明文存于本表，Runtime/Worker 直接读取，任何接口不回显明文。
 
 | 字段 | 类型 | 约束 | 说明 |
 |---|---|---|---|
@@ -192,7 +192,7 @@ Runtime 侧消费路径（归模块 08）：`resolve-definition → mcp_catalog_
 | `name` | varchar(128) | NOT NULL | 名称 |
 | `transport` | varchar(32) | NOT NULL DEFAULT 'streamable-http' | V1 仅 streamable-http |
 | `endpoint` | text | NOT NULL | MCP endpoint |
-| `auth_secret_ref` | varchar(256) |  | 认证引用（仅 SecretRef，运行时经 Secret Provider 解析） |
+| `auth_secret` | text |  | 认证密钥（明文） |
 | `auth_config_json` | jsonb | NOT NULL DEFAULT '{}' | 非 secret 认证配置 |
 | `user_scope` | varchar(16) | NOT NULL DEFAULT 'SELECTED' | ALL/SELECTED；默认指定用户 |
 | `enabled` | boolean | NOT NULL DEFAULT true | 管理侧启用状态 |
@@ -326,14 +326,14 @@ POST /api/v1/mcp-servers
 | `endpoint` | string | 是 | MCP endpoint |
 | `user_scope` | string | 否 | 默认 `SELECTED` |
 | `enabled` | boolean | 否 | 默认 true |
-| `auth_secret_ref` | string | 否 | 只存 Secret Provider 引用 |
+| `auth_secret` | string | 否 | 认证密钥（明文，不参与响应） |
 | `auth_config` | object | 否 | 非 secret 认证配置，默认 `{}` |
 | `connect_timeout_ms` | int | 否 | 默认 5000 |
 | `tool_cache_ttl_sec` | int | 否 | 默认 300 |
 
 - `data`：`{mcp_id}`。
 - 错误码：`COMMON_VALIDATION_ERROR / MCP_CONFIG_INVALID / COMMON_CONFLICT / COMMON_INTERNAL_ERROR`
-- 处理：`transport` 固定 `streamable-http`，其他值返回 `MCP_CONFIG_INVALID`；`(tenant_id,key)` 冲突 `COMMON_CONFLICT`；注册不自动执行 discovery（目录由 `discover-tools` 维护）；`auth_secret_ref` 只存引用；同事务 `config_audit_log`。
+- 处理：`transport` 固定 `streamable-http`，其他值返回 `MCP_CONFIG_INVALID`；`(tenant_id,key)` 冲突 `COMMON_CONFLICT`；注册不自动执行 discovery（目录由 `discover-tools` 维护）；`auth_secret` 明文写入；同事务 `config_audit_log`。
 - 对应 docs/07：§10.3。
 
 #### API-03 MCP 详情
@@ -344,7 +344,7 @@ GET /api/v1/mcp-servers/{mcp_id}
 
 - 调用方：Console Web。
 - 请求：path `mcp_id`。
-- `data`：`{mcp_id,key,name,transport,endpoint,user_scope,enabled,connection_status,tool_catalog_revision,tool_catalog_hash,tool_count,last_discovered_at,last_discovery_error,connect_timeout_ms,tool_cache_ttl_sec,using_agent_count,selected_user_count,auth_config}`（不含 Secret Value，`auth_secret_ref` 只回引用）。
+- `data`：`{mcp_id,key,name,transport,endpoint,user_scope,enabled,connection_status,tool_catalog_revision,tool_catalog_hash,tool_count,last_discovered_at,last_discovery_error,connect_timeout_ms,tool_cache_ttl_sec,using_agent_count,selected_user_count,auth_config}`（不含明文，仅 `auth_secret_configured`）。
 - 错误码：`COMMON_NOT_FOUND / COMMON_INTERNAL_ERROR`
 - 处理：软删过滤；不存在返回 `COMMON_NOT_FOUND`；不回显 Secret。
 - 对应 docs/07：§10.3。
@@ -364,7 +364,7 @@ PUT /api/v1/mcp-servers/{mcp_id}
 | `endpoint` | string | 否 | MCP endpoint |
 | `user_scope` | string | 否 | `ALL` / `SELECTED` |
 | `enabled` | boolean | 否 | 启用状态 |
-| `auth_secret_ref` | string | 否 | Secret Provider 引用 |
+| `auth_secret` | string | 否 | 认证密钥（明文） |
 | `auth_config` | object | 否 | 非 secret 认证配置 |
 | `connect_timeout_ms` | int | 否 | 连接超时 |
 | `tool_cache_ttl_sec` | int | 否 | Redis 缓存 TTL |
@@ -404,7 +404,7 @@ POST /api/v1/mcp-servers/{mcp_id}/test
 
 - `data`：`{connection_status:"AVAILABLE|UNAVAILABLE",latency_ms,server_info,error_code?,tested_at}`；`error_code` 仅记录发现/连接失败摘要，不作为 HTTP 错误抛出。
 - 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND / MCP_CONFIG_INVALID / COMMON_INTERNAL_ERROR`
-- 处理：只执行 connect + initialize，不执行 `tools/list`、不修改 `tool_catalog_json`；结果写 `connection_status`；`auth_secret_ref` 经 Secret Provider 解析后使用，不落日志。
+- 处理：只执行 connect + initialize，不执行 `tools/list`、不修改 `tool_catalog_json`；结果写 `connection_status`；`auth_secret` 直接使用，不落日志。
 - 对应 docs/07：§10.3。
 
 #### API-07 刷新工具目录
@@ -526,12 +526,12 @@ DELETE /api/v1/mcp-servers/{mcp_id}/users/{user_id}
 
 - 性能：批量/聚合优先，列表禁止 N+1，真实目标待基线压测后确定。
 - 可靠性：事务只覆盖原子 DB 操作；外部 IO 不包长事务；高影响错误必须有 E-/B- 验收。
-- 安全：Secret/Token/Cookie 不进业务 DB、日志、Snapshot、LLM；`auth_secret_ref` 经 Secret Provider 解析。
+- 安全：Secret/Token/Cookie 不进业务 DB、日志、Snapshot、LLM；`auth_secret` 明文存储，仅运行时读取。
 - 可观测：统一 JSON 日志，自动带 service/trace_id/request_id；状态变化可关联 trace_id。
 
 ## 4. 部署与运维
 
-本模块（Server 注册/发现/范围与 catalog 契约）随 `muad-console-platform` 发布；Runtime 侧 catalog 消费实现归模块 08。PostgreSQL、Redis、NFS、Secret Provider 外置。监控阈值待真实基线确定。
+本模块（Server 注册/发现/范围与 catalog 契约）随 `muad-console-platform` 发布；Runtime 侧 catalog 消费实现归模块 08。PostgreSQL、Redis、NFS 外置。监控阈值待真实基线确定。
 
 ## 5. 风险与依赖
 
@@ -554,7 +554,7 @@ DELETE /api/v1/mcp-servers/{mcp_id}/users/{user_id}
 |---|---|---|---|---|---|
 | `harness-platform#RULE-api-001` | required | JSON REST 统一封套与分页；业务只抛 code，msg/http_status 走配置映射。 | §3.4 全部 API | S-01、S-02 | applied |
 | `harness-platform#RULE-data-001` | required | 统一标准列、软删除 partial unique、timestamptz、同 Schema 物理 FK。 | §3.3 两张表定义 | S-01、S-02 | applied |
-| `harness-platform#RULE-secret-001` | required | `auth_secret_ref` 只存引用，经 Secret Provider 解析，不进日志/DB 明文。 | §3.3 mcp_server、§3.4 API-06 | S-03、E-02 | applied |
+| `harness-secret#RULE-secret-001` | required | `auth_secret` 明文存 DB；不进日志/审计/响应。 | §3.3 mcp_server、§3.4 API-06 | S-03、E-02 | applied |
 | `harness-platform#RULE-auth-001` | required | SELECTED 叠加 McpUserGrant；无到期时间、绑定无开关、不做 Tool 级授权。 | §2.5.1 RULE-04、§3.3 mcp_user_grant | S-02、E-03 | applied |
 | `harness-platform#RULE-mcp-001` | required | V1 仅 Streamable HTTP；discover-tools 唯一目录入口；Server 级范围；catalog 持久化。 | §2.4、§3.2、§3.3、§3.4 API-07 | S-01、S-03、E-01 | applied |
 | `harness-platform#RULE-rel-001` | required | 指定用户关系用单关系 POST/DELETE，独立事务。 | §3.4 API-12/API-13 | S-02 | applied |

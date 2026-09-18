@@ -3,14 +3,10 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
-
-
-class SecretProviderProbe(Protocol):
-    async def get(self, secret_ref: str) -> Any: ...
 
 
 class StartupValidationError(RuntimeError):
@@ -43,10 +39,8 @@ async def validate_startup(
     settings: Any,
     engine: AsyncEngine,
     artifact_store: Any,
-    secret_provider: SecretProviderProbe,
     *,
     migrations_dir: str | Path | None = None,
-    secret_probe_ref: str = "secret://bootstrap/probe",
 ) -> None:
     failures: list[str] = []
     if not getattr(settings, "database_url", None):
@@ -68,13 +62,6 @@ async def validate_startup(
             else:
                 if current != expected:
                     failures.append(f"database schema revision {current!r} is not at head {expected!r}")
-
-    try:
-        await secret_provider.get(secret_probe_ref)
-    except LookupError:
-        pass
-    except Exception as exc:
-        failures.append(f"secret provider is unreachable: {exc}")
 
     if failures:
         raise StartupValidationError(failures)

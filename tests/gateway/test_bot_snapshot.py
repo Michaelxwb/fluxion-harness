@@ -66,11 +66,11 @@ async def test_run_forever_polls_until_cancelled() -> None:
     assert cache.revision == "rev-1"
 
 
-def make_item(secret_ref: str = "secret://wecom/bot-1") -> BotSnapshotItem:
+def make_item(secret: str = "wecom-bot-1") -> BotSnapshotItem:
     return BotSnapshotItem(
         bot_account_id=uuid4(),
         bot_id="bot-1",
-        secret_ref=secret_ref,
+        secret=secret,
         agent_id=uuid4(),
     )
 

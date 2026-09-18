@@ -81,15 +81,15 @@ async def _seed(connection, tenant_id: str, user_id: uuid.UUID) -> None:
     )
     await connection.execute(
         text(
-            "INSERT INTO control.user_credential_ref (id, tenant_id, user_id, platform_id, secret_ref) "
-            "VALUES (:id, :tenant_id, :user_id, :platform_id, 'secret://e2e/token')"
+            "INSERT INTO control.user_credential_ref (id, tenant_id, user_id, platform_id, credential_json) "
+            "VALUES (:id, :tenant_id, :user_id, :platform_id, '{\"token\": \"e2e\"}'::jsonb)"
         ),
         {"id": uuid.uuid4(), "tenant_id": tenant_id, "user_id": user_id, "platform_id": platform_id},
     )
     await connection.execute(
         text(
-            "INSERT INTO control.bot_account (id, tenant_id, channel, name, bot_id, secret_ref, agent_id) "
-            "VALUES (:id, :tenant_id, 'WECOM', 'E2E Bot', :bot_id, 'secret://e2e/bot', :agent_id)"
+            "INSERT INTO control.bot_account (id, tenant_id, channel, name, bot_id, secret, agent_id) "
+            "VALUES (:id, :tenant_id, 'WECOM', 'E2E Bot', :bot_id, 'e2e-bot-secret', :agent_id)"
         ),
         {"id": bot_id, "tenant_id": tenant_id, "bot_id": f"e2e-{uuid.uuid4().hex[:8]}", "agent_id": agent_id},
     )

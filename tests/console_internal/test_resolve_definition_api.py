@@ -53,13 +53,13 @@ async def test_resolve_returns_agent_and_model(
         "protocol": "OPENAI",
         "model_id": tenant.model_model_id,
         "base_url": tenant.model_base_url,
-        "secret_ref": tenant.model_secret_ref,
+        "api_key": tenant.model_api_key,
         "params": tenant.model_params,
     }
     assert data["skills"] == []
     assert data["mcp_servers"] == []
-    secret_fields = [key for key in data["model"] if "secret" in key]
-    assert secret_fields == ["secret_ref"]
+    secret_fields = [key for key in data["model"] if "secret" in key or "api_key" in key]
+    assert secret_fields == ["api_key"]
 
 
 async def test_unknown_agent_returns_not_found(

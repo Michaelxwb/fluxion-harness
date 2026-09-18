@@ -28,7 +28,7 @@ def _resolve_data() -> dict[str, object]:
             "protocol": "OPENAI",
             "model_id": "gpt-4o-mini",
             "base_url": "https://api.example.com/v1",
-            "secret_ref": None,
+            "api_key": None,
             "params": {},
         },
         "skills": [],

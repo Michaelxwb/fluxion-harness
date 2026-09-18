@@ -1,7 +1,7 @@
 version: 1
 task: Agent 定义、授权与通道配置
 enforcement: required
-updated_at: '2026-09-18T06:13:54.692215+00:00'
+updated_at: '2026-09-18T09:24:15.795903+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -28,7 +28,7 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: 0b208f729a97adae0d7011791e278d965a31e5916e8c044b80d0550143183ccc
+    file_sha256: ed3d32d8d5085e6d250ef7a24f1988759d414113d2726d0a92052880bf2a66b0
     metadata_sha256: e9f9b2714c5043dc7d9363ec9a950471b4cdea6d932bd8e86ac2dd0a754c9359
     rules_sha256: 76ffb366c7643e6faa32a65c751aea08de24bc2c1b6f37db46e6df1a7665e728
   selected_by: agent
@@ -54,7 +54,7 @@ bindings:
         - artifact: 07-agent-management.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-api-001
-          artifact_sha256: 7a305391963b1998843c2cf0923f6a095bbeda73cfdf0825b7dc7edbb778dfc5
+          artifact_sha256: bc8f2ead826203b469931f7336430b9d6b9cf955dc38180e7e2e735c8a13a13f
         decision: null
         evidence: []
       plan:
@@ -76,7 +76,7 @@ bindings:
   path: test/harness-test.md
   status: active
   hashes:
-    file_sha256: 0e202f6c12e5461baa1ebf688889fccc6c5a4f01e27916c7841fe7dfdca1cc2e
+    file_sha256: 66b05f4ed49156830ac7d388c9487264b4a85f50d32dacb364e126c83498a3ff
     metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
     rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
   selected_by: agent
@@ -101,7 +101,7 @@ bindings:
         - artifact: 07-agent-management.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-test-001
-          artifact_sha256: 7a305391963b1998843c2cf0923f6a095bbeda73cfdf0825b7dc7edbb778dfc5
+          artifact_sha256: bc8f2ead826203b469931f7336430b9d6b9cf955dc38180e7e2e735c8a13a13f
         decision: null
         evidence: []
       plan:
@@ -150,7 +150,7 @@ bindings:
         - artifact: 07-agent-management.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-auth-001
-          artifact_sha256: 7a305391963b1998843c2cf0923f6a095bbeda73cfdf0825b7dc7edbb778dfc5
+          artifact_sha256: bc8f2ead826203b469931f7336430b9d6b9cf955dc38180e7e2e735c8a13a13f
         decision: null
         evidence: []
       plan:
@@ -198,7 +198,7 @@ bindings:
         - artifact: 07-agent-management.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-data-001
-          artifact_sha256: 7a305391963b1998843c2cf0923f6a095bbeda73cfdf0825b7dc7edbb778dfc5
+          artifact_sha256: bc8f2ead826203b469931f7336430b9d6b9cf955dc38180e7e2e735c8a13a13f
         decision: null
         evidence: []
       plan:
@@ -386,7 +386,7 @@ bindings:
         - artifact: 07-agent-management.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-im-001
-          artifact_sha256: 7a305391963b1998843c2cf0923f6a095bbeda73cfdf0825b7dc7edbb778dfc5
+          artifact_sha256: bc8f2ead826203b469931f7336430b9d6b9cf955dc38180e7e2e735c8a13a13f
         decision: null
         evidence: []
       plan:
@@ -408,8 +408,8 @@ bindings:
   path: model/harness-model.md
   status: active
   hashes:
-    file_sha256: fee26bd024a0f110ff5878426edfbdda4424f65f77116f2f64aaf9cf64bacdf4
-    metadata_sha256: fd982d80200b347c8c0b00651231d95685060f49109ecf630961986533e5d14b
+    file_sha256: 471b21b9435f0e7c4d0a1335c4a9fd283374bd3d3608d1cfa3442b38904ff369
+    metadata_sha256: 6a2d580437c8b00f81ed56195982db49f26ff42ac0109e44bd28281b5d49f9cd
     rules_sha256: ca794c666a9657f8e324ca978ce2aeade30bb0b4f48ddb36f7a204ac87fa77c6
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-model
@@ -433,7 +433,7 @@ bindings:
         - artifact: 07-agent-management.backend.design.md
           section_id: API-02 新增 Agent
           item_id: RULE-model-001
-          artifact_sha256: 7a305391963b1998843c2cf0923f6a095bbeda73cfdf0825b7dc7edbb778dfc5
+          artifact_sha256: bc8f2ead826203b469931f7336430b9d6b9cf955dc38180e7e2e735c8a13a13f
         decision: null
         evidence: []
       plan:
@@ -479,7 +479,7 @@ bindings:
         - artifact: 07-agent-management.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-rel-001
-          artifact_sha256: 7a305391963b1998843c2cf0923f6a095bbeda73cfdf0825b7dc7edbb778dfc5
+          artifact_sha256: bc8f2ead826203b469931f7336430b9d6b9cf955dc38180e7e2e735c8a13a13f
         decision: null
         evidence: []
       plan:
@@ -501,9 +501,9 @@ bindings:
   path: secret/harness-secret.md
   status: active
   hashes:
-    file_sha256: 07c0c7aee2c9da778999c97e854df5f22257bac4c40dbe9d283550e451efb814
+    file_sha256: 02042d172b287f41143df169d1c8309ff571425f05541d577b5463c74596c1aa
     metadata_sha256: 6eb93990def2057725626f290065551208a4bd3aee9121a753b5a49b32d05d09
-    rules_sha256: d1e2ab0670a79777c457f83ef88a00ca0695b854b9a344a16256262d40f484a4
+    rules_sha256: bfad8617c95199b82ae1cebdbe3aaf0a1fdc0ee8fd0f39205f1d93a9a30201d3
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-secret
   enforcement: required
@@ -514,9 +514,10 @@ bindings:
   - review
   rules:
   - ref: RULE-secret-001
-    summary: Secret Value 不进入 DB、Snapshot、Prompt、日志、Audit 或 IM 消息；业务表只保存 `secret_ref`，运行时经
-      Secret Provider 解析。
-    text_sha256: c87d7941b43f56d7c1d950889dc27ddba13804f0a6e5ec33853310766ac9bfd8
+    summary: 密钥明文存于各 Owner 表（模型 `api_key`、Bot `secret`、MCP/平台 `auth_secret`、用户/共享
+      `credential_json`），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM
+      Prompt 或 API 响应（对外以 `*_configured` 表达）。
+    text_sha256: eb4cdd0b7fa4d7e182cb84beca0488da13386632d61841b12d39045cda60015b
     enforcement: required
     verifier_ref: harness-secret#RULE-secret-001
     stage_status:
@@ -524,23 +525,27 @@ bindings:
         status: applied
         refs:
         - artifact: 07-agent-management.backend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-secret-001
-          artifact_sha256: 7a305391963b1998843c2cf0923f6a095bbeda73cfdf0825b7dc7edbb778dfc5
+          section_id: design
+          item_id: design
+          artifact_sha256: bc8f2ead826203b469931f7336430b9d6b9cf955dc38180e7e2e735c8a13a13f
+        - artifact: 07-agent-management.frontend.design.md
+          section_id: design
+          item_id: design
+          artifact_sha256: f68377c0b365bf0dc803083df7406a7ceaf28fa9706c7f158ef7d442bb4015bc
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
@@ -548,8 +553,8 @@ bindings:
   path: snapshot/harness-snapshot.md
   status: active
   hashes:
-    file_sha256: 75a69be7df68ecc19cf74329766e85289a0a909946eff595df64f1fb4d5773fd
-    metadata_sha256: 77adc5744ee0cddcc7bd8210334f40e58903c0c1c375659d3edff3989445b7bb
+    file_sha256: acf3dc7358eef3cf752290ef10bec331ac5367b99a72f317107fbc6e1678054b
+    metadata_sha256: a78fc8f61e08679d4e713fd38cd539e6c205441ce9a6e8c8a4d37acc627453d1
     rules_sha256: df961c1136b27f8a85895902b348d792abc9f5973d530aa7876c9e8b718e7571
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-snapshot
@@ -573,7 +578,7 @@ bindings:
         - artifact: 07-agent-management.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: 7a305391963b1998843c2cf0923f6a095bbeda73cfdf0825b7dc7edbb778dfc5
+          artifact_sha256: bc8f2ead826203b469931f7336430b9d6b9cf955dc38180e7e2e735c8a13a13f
         decision: null
         evidence: []
       plan:

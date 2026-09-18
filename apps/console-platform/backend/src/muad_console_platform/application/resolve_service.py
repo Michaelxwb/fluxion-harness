@@ -59,7 +59,7 @@ class ResolveService:
                 protocol=cast(Literal["OPENAI"], model.protocol),
                 model_id=model.model_id,
                 base_url=model.base_url,
-                secret_ref=model.secret_ref,
+                api_key=model.api_key,
                 params=model.params_json,
             ),
             skills=await self._resolved_skills(tenant_id, payload),

@@ -1,10 +1,6 @@
 import inspect
 
-import pytest
-from muad_contracts import CredentialMode
 from muad_platform_sdk import (
-    CredentialActor,
-    CredentialResolver,
     PlatformAdapter,
     PlatformClient,
     PlatformConfig,
@@ -13,14 +9,11 @@ from muad_platform_sdk import (
     PlatformSessionManager,
     PlatformTarget,
     PreparedRequest,
-    ResolvedCredential,
-    SecretProvider,
     SecretValue,
     SessionMode,
     SessionRequest,
 )
 
-ACTOR = CredentialActor(tenant_id="tenant-1", user_id="user-1")
 CREDENTIAL = SecretValue(value="ak-value", version="v1")
 
 
@@ -60,31 +53,6 @@ async def test_dummy_platform_client_satisfies_protocol(platform_client: Platfor
     assert result == {"platform_key": "mss", "payload": {"k": "v"}}
 
 
-async def test_dummy_secret_provider_satisfies_protocol(secret_provider: SecretProvider) -> None:
-    assert await secret_provider.get("secret-ref-1") == CREDENTIAL
-
-    with pytest.raises(KeyError):
-        await secret_provider.get("missing-ref")
-
-
-async def test_dummy_credential_resolver_satisfies_protocol(
-    credential_resolver: CredentialResolver,
-    platform_config: PlatformConfig,
-) -> None:
-    resolved = await credential_resolver.resolve(ACTOR, platform_config)
-
-    assert isinstance(resolved, ResolvedCredential)
-    assert resolved.credential_ref == "secret-ref-1"
-    assert resolved.version == "v1"
-
-
-async def test_credential_resolver_can_return_none_for_none_mode(
-    none_credential_resolver: CredentialResolver,
-    platform_config: PlatformConfig,
-) -> None:
-    none_platform = platform_config.model_copy(update={"credential_mode": CredentialMode.NONE})
-
-    assert await none_credential_resolver.resolve(ACTOR, none_platform) is None
 
 
 async def test_dummy_session_manager_satisfies_protocol(

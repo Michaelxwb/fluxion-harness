@@ -35,7 +35,7 @@ class BotAccount(StandardColumnsMixin, Base):
     )
     name: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     bot_id: Mapped[str] = mapped_column(sa.String(256), nullable=False)
-    secret_ref: Mapped[str] = mapped_column(sa.String(256), nullable=False)
+    secret: Mapped[str | None] = mapped_column(sa.Text())
     agent_id: Mapped[uuid.UUID] = mapped_column(
         sa.Uuid(),
         sa.ForeignKey("control.agent_definition.id"),

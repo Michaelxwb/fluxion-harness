@@ -5,8 +5,6 @@ from typing import Any
 import pytest
 from muad_contracts import CredentialMode
 from muad_platform_sdk import (
-    CredentialActor,
-    CredentialResolver,
     PlatformAdapter,
     PlatformClient,
     PlatformConfig,
@@ -14,8 +12,6 @@ from muad_platform_sdk import (
     PlatformSession,
     PlatformSessionManager,
     PreparedRequest,
-    ResolvedCredential,
-    SecretProvider,
     SecretValue,
     SessionMode,
     SessionRequest,
@@ -81,26 +77,6 @@ class DummyPlatformClient:
             "operation": operation,
             "payload": dict(payload),
         }
-
-
-class DummySecretProvider:
-    def __init__(self, values: Mapping[str, SecretValue]) -> None:
-        self._values = dict(values)
-
-    async def get(self, secret_ref: str) -> SecretValue:
-        return self._values[secret_ref]
-
-
-class DummyCredentialResolver:
-    def __init__(self, credential: ResolvedCredential | None) -> None:
-        self._credential = credential
-
-    async def resolve(
-        self,
-        actor: CredentialActor,
-        platform: PlatformConfig,
-    ) -> ResolvedCredential | None:
-        return self._credential
 
 
 class DummySessionManager:
@@ -212,26 +188,6 @@ def adapter() -> PlatformAdapter:
 @pytest.fixture
 def platform_client() -> PlatformClient:
     return DummyPlatformClient()
-
-
-@pytest.fixture
-def secret_provider() -> SecretProvider:
-    return DummySecretProvider({"secret-ref-1": SecretValue(value="ak-value", version="v1")})
-
-
-@pytest.fixture
-def credential_resolver() -> CredentialResolver:
-    return DummyCredentialResolver(
-        ResolvedCredential(
-            credential_ref="secret-ref-1",
-            secret=SecretValue(value="ak-value", version="v1"),
-        )
-    )
-
-
-@pytest.fixture
-def none_credential_resolver() -> CredentialResolver:
-    return DummyCredentialResolver(None)
 
 
 @pytest.fixture

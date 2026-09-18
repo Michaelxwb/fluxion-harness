@@ -28,7 +28,7 @@ flowchart TD
     APP --> PORT[Ports]
     PORT --> REPO[Repositories]
     PORT --> OBJ[Artifact Store Adapter]
-    PORT --> SECRET[SecretProvider Adapter]
+    PORT --> SECRET[(密钥明文列)]
     PORT --> RUNTIME[Agent Runtime Admin Client]
     PORT --> ADAPTER[PlatformAdapter Metadata]
     REPO --> DB[(control schema)]
@@ -613,8 +613,8 @@ Console 不持有真实 Secret Value。
 PlatformUser
  -> ProjectPlatform
  -> 根据 credential_schema 填写凭据
- -> Secret Provider
- -> UserCredentialRef.secret_ref
+ -> credential_json 明文写入
+ -> UserCredentialRef
 ```
 
 共享凭据同理，只是主体为平台级。
@@ -644,13 +644,13 @@ Adapter 是 Python 代码注册项，不是数据库脚本。Console 只消费 M
 用户级：
 
 ```text
-UserCredentialRef(user_id, platform_id, secret_ref)
+UserCredentialRef(user_id, platform_id, credential_json)
 ```
 
 共享级：
 
 ```text
-SharedCredentialRef(platform_id, secret_ref)
+SharedCredentialRef(platform_id, credential_json)
 ```
 
 `credential_mode` 决定 Resolver 选择策略：

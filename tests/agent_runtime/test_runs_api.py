@@ -339,7 +339,7 @@ async def test_get_run_returns_status_and_snapshot_summary(
     assert data["snapshot"]["content_hash"].startswith("sha256:")
     assert data["snapshot"]["prompt_template_version"] == "1"
     serialized = json.dumps(data)
-    assert "secret_ref" not in serialized
+    assert "api_key" not in serialized
     assert "model_json" not in serialized
 
     missing = await client.get(f"/v1/runs/{uuid.uuid4()}", headers=_headers(tenant))

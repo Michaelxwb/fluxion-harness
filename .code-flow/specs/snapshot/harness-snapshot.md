@@ -9,10 +9,14 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-snapshot-001
-  type: manual
+  type: command
   config:
-    checklist: 确认新 Run/Task 冻结 Snapshot，配置/授权变更只影响后续，终态 CAS 不漂移。
-    owner: project-owner
+    argv:
+    - bash
+    - -lc
+    - uv run pytest -q tests/agent_runtime -k "executor or resolve"
+    cwd: .
+    timeout: 600
 ---
 
 # harness-snapshot

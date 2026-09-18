@@ -61,7 +61,7 @@ class ModelDefinition(StandardColumnsMixin, Base):
     )
     model_id: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     base_url: Mapped[str] = mapped_column(sa.Text(), nullable=False)
-    secret_ref: Mapped[str | None] = mapped_column(sa.String(256))
+    api_key: Mapped[str | None] = mapped_column(sa.Text())
     params_json: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,

@@ -1,0 +1,662 @@
+{
+  "schema": 2,
+  "task_file": "03-model-management.md",
+  "task_sha256": "7ec8c6bad9307ed27afdce76bc4e042a54aa6077e605e59ce335eebd63829b07",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "03-model-management.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→API→DB",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-01\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+        "executed_at": "2026-09-18T09:19:25.018015+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+          "executed_at": "2026-09-18T09:19:25.018015+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-02",
+      "source": "03-model-management.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→batch-test→model endpoint→DB",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-02\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-02",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+        "executed_at": "2026-09-18T09:19:25.018015+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+          "executed_at": "2026-09-18T09:19:25.018015+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-03",
+      "source": "03-model-management.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→API→DB",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-03\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+        "executed_at": "2026-09-18T09:19:25.018015+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+          "executed_at": "2026-09-18T09:19:25.018015+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-04",
+      "source": "03-model-management.frontend.design.md#2.4 验收条件（原 S-FE-01）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→models API",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-04\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-04",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+        "executed_at": "2026-09-18T09:19:25.018015+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+          "executed_at": "2026-09-18T09:19:25.018015+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-05",
+      "source": "03-model-management.frontend.design.md#2.4 验收条件（原 S-FE-02）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→detail API",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-05\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-05",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+        "executed_at": "2026-09-18T09:19:25.018015+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+          "executed_at": "2026-09-18T09:19:25.018015+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-06",
+      "source": "03-model-management.frontend.design.md#2.4 验收条件（原 S-FE-03）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→update/delete API",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-06\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-06",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+        "executed_at": "2026-09-18T09:19:25.018015+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+          "executed_at": "2026-09-18T09:19:25.018015+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-01",
+      "source": "03-model-management.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "DB revision CAS",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_models_api.py",
+        "-k",
+        "e01"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+        "executed_at": "2026-09-18T09:18:53.886464+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-02",
+      "source": "03-model-management.backend.design.md#2.5.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "request schema",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_models_api.py",
+        "-k",
+        "e02"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+        "executed_at": "2026-09-18T09:18:53.886464+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-03",
+      "source": "03-model-management.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→agent_definition 引用",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_models_api.py",
+        "-k",
+        "e03"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+        "executed_at": "2026-09-18T09:18:53.886464+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-04",
+      "source": "03-model-management.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Probe→model endpoint",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_models_batch_test.py",
+        "-k",
+        "e04"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+        "executed_at": "2026-09-18T09:18:53.886464+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-05",
+      "source": "03-model-management.backend.design.md#2.5.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "request schema",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_models_api.py",
+        "-k",
+        "e05"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+        "executed_at": "2026-09-18T09:18:53.886464+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-06",
+      "source": "03-model-management.frontend.design.md#2.4 验收条件（原 E-FE-01）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Semi Form",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-06\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+        "executed_at": "2026-09-18T09:18:53.886464+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-07",
+      "source": "03-model-management.frontend.design.md#2.4 验收条件（原 E-FE-02）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "API→Modal",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-07\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-07",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+        "executed_at": "2026-09-18T09:19:25.018015+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "4daaa203a33240aa93a6b43a4ec40394",
+          "executed_at": "2026-09-18T09:19:25.018015+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-08",
+      "source": "03-model-management.frontend.design.md#2.4 验收条件（原 E-FE-03）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→COMMON_CONFLICT",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-08\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+        "executed_at": "2026-09-18T09:18:53.886464+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-09",
+      "source": "03-model-management.frontend.design.md#2.4 验收条件（原 E-FE-04）",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "ModelFormModal",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_model_form_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-09",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+        "executed_at": "2026-09-18T09:18:53.886464+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5ddeb9cfd6d9407481d0c8eb1e428949",
+          "executed_at": "2026-09-18T09:18:53.886464+00:00"
+        }
+      ]
+    }
+  ]
+}

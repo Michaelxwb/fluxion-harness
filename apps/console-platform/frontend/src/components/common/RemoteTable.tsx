@@ -16,6 +16,7 @@ export interface RemoteTableProps<T extends object> {
   onPageChange(page: number): void;
   onPageSizeChange?(pageSize: number): void;
   empty?: ReactNode;
+  rowSelection?: SemiTableProps['rowSelection'];
 }
 
 export function RemoteTable<T extends object>(props: RemoteTableProps<T>) {
@@ -28,6 +29,7 @@ export function RemoteTable<T extends object>(props: RemoteTableProps<T>) {
         loading={props.loading}
         pagination={false}
         empty={props.empty}
+        rowSelection={props.rowSelection}
       />
       <PaginationFooter
         page={props.page}

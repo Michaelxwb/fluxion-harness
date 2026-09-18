@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class LoginRequest(BaseModel):
@@ -251,3 +251,67 @@ class IdentityItem(BaseModel):
     bound_at: datetime
     last_active_at: datetime | None
     user_status: str
+
+
+class ModelCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(min_length=1, max_length=128)
+    name: str = Field(min_length=1, max_length=128)
+    protocol: Literal["OPENAI"] = "OPENAI"
+    base_url: str = Field(min_length=1)
+    model_id: str = Field(min_length=1, max_length=128)
+    api_key: str | None = Field(default=None, max_length=512)
+    params: dict[str, Any] = Field(default_factory=dict)
+    enabled: bool = True
+
+    @field_validator("base_url")
+    @classmethod
+    def _require_http_url(cls, value: str) -> str:
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("base_url must start with http:// or https://")
+        return value
+
+
+class ModelUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = Field(ge=1)
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    model_id: str | None = Field(default=None, min_length=1, max_length=128)
+    base_url: str | None = Field(default=None, min_length=1)
+    api_key: str | None = Field(default=None, max_length=512)
+    params: dict[str, Any] | None = None
+    enabled: bool | None = None
+
+    @field_validator("base_url")
+    @classmethod
+    def _require_http_url(cls, value: str | None) -> str | None:
+        if value is not None and not value.startswith(("http://", "https://")):
+            raise ValueError("base_url must start with http:// or https://")
+        return value
+
+
+class ModelListItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    key: str
+    name: str
+    protocol: str
+    model_id: str
+    base_url: str
+    api_key_configured: bool
+    params: dict[str, Any]
+    revision: int
+    enabled: bool
+    last_test_status: str
+    last_test_at: datetime | None
+    create_time: datetime
+    update_time: datetime
+
+
+class ModelBatchTestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)

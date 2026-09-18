@@ -51,7 +51,7 @@ class TenantContext:
     model_revision: int
     model_model_id: str
     model_base_url: str
-    model_secret_ref: str
+    model_api_key: str
     model_params: dict[str, Any]
     disabled_model_id: uuid.UUID
     deleted_model_id: uuid.UUID
@@ -126,7 +126,7 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
             protocol="OPENAI",
             model_id="gpt-4o-mini",
             base_url="https://api.example.com/v1",
-            secret_ref="secret-ref-happy",
+            api_key="sk-happy",
             params_json={"temperature": 0.3},
             revision=5,
             enabled=True,
@@ -254,7 +254,7 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
             model_revision=enabled_model.revision,
             model_model_id=enabled_model.model_id,
             model_base_url=enabled_model.base_url,
-            model_secret_ref=enabled_model.secret_ref or "",
+            model_api_key=enabled_model.api_key or "",
             model_params=enabled_model.params_json,
             disabled_model_id=disabled_model.id,
             deleted_model_id=deleted_model.id,

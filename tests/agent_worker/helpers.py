@@ -104,7 +104,7 @@ def build_resolve_response(
             revision=1,
             model_id="gpt-4o-mini",
             base_url="http://model-gateway.internal/v1",
-            secret_ref=None,
+            api_key=None,
             params={},
         ),
         skills=[

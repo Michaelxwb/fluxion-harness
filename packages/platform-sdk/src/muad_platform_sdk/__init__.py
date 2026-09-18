@@ -5,14 +5,6 @@ from .adapter import (
     PlatformAdapterRegistry,
 )
 from .client import PlatformClient
-from .credential import (
-    CredentialActor,
-    CredentialResolver,
-    EnvSecretProvider,
-    ResolvedCredential,
-    SecretNotFoundError,
-    SecretProvider,
-)
 from .session import (
     NONE_ACTOR_SCOPE,
     SESSION_INDEX_PREFIX,
@@ -38,9 +30,6 @@ __all__ = [
     "NONE_ACTOR_SCOPE",
     "SESSION_INDEX_PREFIX",
     "SESSION_KEY_PREFIX",
-    "CredentialActor",
-    "CredentialResolver",
-    "EnvSecretProvider",
     "PlatformAdapter",
     "PlatformAdapterAlreadyRegistered",
     "PlatformAdapterNotFound",
@@ -52,9 +41,6 @@ __all__ = [
     "PlatformSessionManager",
     "PlatformTarget",
     "PreparedRequest",
-    "ResolvedCredential",
-    "SecretNotFoundError",
-    "SecretProvider",
     "SecretValue",
     "SessionMode",
     "SessionRequest",

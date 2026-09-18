@@ -56,8 +56,8 @@ async def _seed_related_rows(client: AsyncClient, tenant: TenantContext, user_id
         await session.execute(
             text(
                 "INSERT INTO control.user_credential_ref "
-                "(id, tenant_id, user_id, platform_id, secret_ref) "
-                "SELECT :id, :tenant_id, :user_id, id, 'secret://platform/token' "
+                "(id, tenant_id, user_id, platform_id, credential_json) "
+                "SELECT :id, :tenant_id, :user_id, id, '{\"token\": \"t\"}'::jsonb "
                 "FROM control.project_platform WHERE tenant_id = :platform_tenant_id "
                 "ORDER BY create_time DESC LIMIT 1"
             ),
@@ -85,8 +85,8 @@ async def _seed_related_rows(client: AsyncClient, tenant: TenantContext, user_id
         await session.execute(
             text(
                 "INSERT INTO control.bot_account "
-                "(id, tenant_id, channel, name, bot_id, secret_ref, agent_id) "
-                "VALUES (:id, :tenant_id, 'WECOM', 'Count Bot', :bot_id, 'secret://wecom/bot', :agent_id)"
+                "(id, tenant_id, channel, name, bot_id, secret, agent_id) "
+                "VALUES (:id, :tenant_id, 'WECOM', 'Count Bot', :bot_id, 'wecom-secret-bot', :agent_id)"
             ),
             {
                 "id": bot_account_id,

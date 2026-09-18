@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import importlib
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
 from muad_agent_core.agent import (
     AgentPolicy,
@@ -20,7 +19,6 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import SkillArtifactCache
 from muad_contracts import ResolvedAgent, ResolvedModel, ResolvedSkill
-from muad_platform_sdk.credential import SecretProvider
 from muad_platform_sdk.types import SecretValue
 
 from .skill_tools import build_default_skill_cache, build_skill_registry
@@ -129,30 +127,13 @@ async def default_executor_factory(
     return AgentRunnerExecutor(runner=runner, request=request, close=provider.aclose)
 
 
-async def resolve_model_api_key(model: ResolvedModel) -> SecretValue | str | None:
-    if model.secret_ref:
-        provider = _load_secret_provider()
-        if provider is None:
-            raise AppError(ErrorCode.CREDENTIAL_MISSING)
-        try:
-            secret = await provider.get(model.secret_ref)
-        except LookupError as exc:
-            raise AppError(ErrorCode.CREDENTIAL_MISSING) from exc
-        if isinstance(secret, SecretValue):
-            return secret
-        raise AppError(ErrorCode.CREDENTIAL_MISSING)
+async def resolve_model_api_key(model: ResolvedModel) -> SecretValue:
+    if model.api_key:
+        return SecretValue(value=model.api_key, version="db")
     value = os.environ.get(MODEL_API_KEY_ENV)
     if value:
         return SecretValue(value=value, version="env")
-    return None
-
-
-def _load_secret_provider() -> SecretProvider | None:
-    module = importlib.import_module("muad_platform_sdk.credential")
-    factory = getattr(module, "EnvSecretProvider", None)
-    if factory is None:
-        return None
-    return cast(SecretProvider, factory())
+    raise AppError(ErrorCode.CREDENTIAL_MISSING)
 
 
 def _chunks(text: str) -> Iterator[str]:

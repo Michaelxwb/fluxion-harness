@@ -1,0 +1,384 @@
+{
+  "schema": 2,
+  "task_file": "15-secret-plaintext-migration.md",
+  "task_sha256": "c36e2cecb3ddcb81f0e0c9d5feb9f3e3f486eb3d971cf92ed6f1b8122beb2869",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "15-secret-plaintext-migration.backend.design.md#2.3.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→API→DB（模型）",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-01\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "4a625fcd5a07471ba74c5b1d1e943609",
+        "executed_at": "2026-09-18T09:19:55.937068+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+          "executed_at": "2026-09-18T09:19:51.476426+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "4a625fcd5a07471ba74c5b1d1e943609",
+          "executed_at": "2026-09-18T09:19:55.937068+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-02",
+      "source": "15-secret-plaintext-migration.backend.design.md#2.3.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Runtime→DB→模型端点",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_secret_consumers.py",
+        "-k",
+        "s02"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+        "executed_at": "2026-09-18T09:19:51.476426+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+          "executed_at": "2026-09-18T09:19:51.476426+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-03",
+      "source": "15-secret-plaintext-migration.backend.design.md#2.3.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Gateway→DB→企业微信 SDK Port",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_secret_consumers.py",
+        "-k",
+        "s03"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+        "executed_at": "2026-09-18T09:19:51.476426+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+          "executed_at": "2026-09-18T09:19:51.476426+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-04",
+      "source": "15-secret-plaintext-migration.backend.design.md#2.3.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Alembic expand→backfill→contract",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_secret_migration.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+        "executed_at": "2026-09-18T09:19:51.476426+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+          "executed_at": "2026-09-18T09:19:51.476426+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-01",
+      "source": "15-secret-plaintext-migration.backend.design.md#2.3.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "代码库静态检查",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/test_secret_ref_residue.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+        "executed_at": "2026-09-18T09:19:51.476426+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+          "executed_at": "2026-09-18T09:19:51.476426+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-05",
+      "source": "15-secret-plaintext-migration.backend.design.md#2.3.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "文档/规范静态一致性",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/test_secret_policy_docs.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+        "executed_at": "2026-09-18T09:19:51.476426+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+          "executed_at": "2026-09-18T09:19:51.476426+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-02",
+      "source": "15-secret-plaintext-migration.backend.design.md#2.3.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "日志/审计捕获",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_secret_consumers.py",
+        "-k",
+        "e02"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+        "executed_at": "2026-09-18T09:19:51.476426+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+          "executed_at": "2026-09-18T09:19:51.476426+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-03",
+      "source": "15-secret-plaintext-migration.backend.design.md#2.3.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "backfill CLI",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_secret_migration.py",
+        "-k",
+        "e03"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+        "executed_at": "2026-09-18T09:19:51.476426+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+          "executed_at": "2026-09-18T09:19:51.476426+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-04",
+      "source": "15-secret-plaintext-migration.backend.design.md#2.3.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Runtime/Gateway",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_secret_consumers.py",
+        "-k",
+        "e04"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+        "executed_at": "2026-09-18T09:19:51.476426+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "6bd7773d4df146e4b2c0a0dacd113869",
+          "executed_at": "2026-09-18T09:19:51.476426+00:00"
+        }
+      ]
+    }
+  ]
+}

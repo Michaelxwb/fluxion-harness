@@ -15,7 +15,6 @@ from muad_contracts import (
     DeliveryMessage,
     DeliveryRouteInput,
 )
-from muad_platform_sdk import SecretNotFoundError, SecretProvider
 
 from ..base import ChannelAdapterUnavailable
 from .sdk_port import (
@@ -73,14 +72,12 @@ class _BotConnection:
         self,
         bot: BotSnapshotItem,
         *,
-        secret_provider: SecretProvider,
         sdk_factory: WeComSdkFactory,
         emit: Callable[[WeComInboundMessage], None],
         backoff_base_sec: float,
         backoff_max_sec: float,
     ) -> None:
         self.bot = bot
-        self._secret_provider = secret_provider
         self._sdk_factory = sdk_factory
         self._emit = emit
         self._backoff_base_sec = backoff_base_sec
@@ -135,7 +132,7 @@ class _BotConnection:
             self._state = ConnectionState.CONNECTING
             try:
                 await self._connect_once()
-            except SecretNotFoundError as exc:
+            except ChannelAdapterUnavailable as exc:
                 self._record_failure("wecom_bot_secret_missing", exc)
                 self._state = ConnectionState.BACKOFF
                 self._signal_first_attempt()
@@ -158,12 +155,17 @@ class _BotConnection:
             await asyncio.sleep(delay)
 
     async def _connect_once(self) -> None:
-        secret = await self._secret_provider.get(self.bot.secret_ref)
-        client = self._sdk_factory(self.bot.bot_id, secret.value)
+        secret = await self._resolve_bot_secret()
+        client = self._sdk_factory(self.bot.bot_id, secret)
         self._client = client
         self._wire(client)
         self._disconnected.clear()
         await client.connect()
+
+    async def _resolve_bot_secret(self) -> str:
+        if self.bot.secret:
+            return self.bot.secret
+        raise ChannelAdapterUnavailable("bot secret is not configured")
 
     def _wire(self, client: WeComSdkPort) -> None:
         client.on_message(self._handle_message)
@@ -349,14 +351,12 @@ class WeComAdapter:
     def __init__(
         self,
         *,
-        secret_provider: SecretProvider,
         sdk_factory: WeComSdkFactory = build_wecom_sdk_client,
         bots: Sequence[BotSnapshotItem] = (),
         backoff_base_sec: float = DEFAULT_BACKOFF_BASE_SEC,
         backoff_max_sec: float = DEFAULT_BACKOFF_MAX_SEC,
         stream_flush_interval_sec: float = DEFAULT_STREAM_FLUSH_INTERVAL_SEC,
     ) -> None:
-        self._secret_provider = secret_provider
         self._sdk_factory = sdk_factory
         self._bots: tuple[BotSnapshotItem, ...] = tuple(bots)
         self._backoff_base_sec = backoff_base_sec
@@ -412,7 +412,7 @@ class WeComAdapter:
             (
                 connection
                 for connection in self._connections.values()
-                if isinstance(connection.last_error, SecretNotFoundError)
+                if isinstance(connection.last_error, ChannelAdapterUnavailable)
             ),
             None,
         )
@@ -438,7 +438,7 @@ class WeComAdapter:
         for bot_id in tuple(self._connections):
             connection = self._connections[bot_id]
             target = desired.get(bot_id)
-            if target is None or target.secret_ref != connection.bot.secret_ref:
+            if target is None or target.secret != connection.bot.secret:
                 await connection.stop()
                 del self._connections[bot_id]
                 self._drop_routes(bot_id)
@@ -486,7 +486,6 @@ class WeComAdapter:
     async def _start_bot(self, bot: BotSnapshotItem) -> None:
         connection = _BotConnection(
             bot,
-            secret_provider=self._secret_provider,
             sdk_factory=self._sdk_factory,
             emit=self._handle_inbound,
             backoff_base_sec=self._backoff_base_sec,

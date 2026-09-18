@@ -7,7 +7,7 @@
 - 整个平台部署在内网；
 - 普通用户只通过企业微信 IM 与平台交互；
 - Console 仅 Builder/Admin 在内网访问；
-- Agent Runtime、Agent Worker、PostgreSQL、Redis、NFS/PVC、Secret Provider 不直接暴露给普通用户；
+- Agent Runtime、Agent Worker、PostgreSQL、Redis、NFS/PVC 不直接暴露给普通用户；
 - Skill 为内部开发、审核、导入的受控代码。
 
 因此 Phase 1 安全设计以“身份、授权、Secret、审计、隔离”五个必要边界为主，不把公网攻击面、恶意第三方插件和复杂零信任网络作为首期建设重点。
@@ -46,7 +46,7 @@ flowchart LR
 | 未绑定企业微信身份访问 | `/bind` + ChannelIdentity |
 | 已绑定但无 Agent 权限 | AgentAccessGrant |
 | LLM 误调用未开放 Tool/MCP | RuntimeSnapshot + ToolRegistry 可见集 |
-| Skill 获取用户 Secret | SkillContext 只提供逻辑调用；SecretRef/SecretProvider |
+| Skill 获取用户 Secret | SkillContext 只提供逻辑调用；凭据明文存 DB，不进日志/Context |
 | Runtime Pod 保存用户专属状态 | PostgreSQL + Artifact Store（NFS-backed RWX PVC）外置，禁止 sticky session |
 | MCP 绕开调用审计 | MCP Adapter 统一进入 ToolRegistry |
 | 大结果拖垮上下文 | Artifact + preview |
@@ -67,7 +67,7 @@ flowchart LR
 Secret Value 只能存在于：
 
 ```text
-Secret Provider
+各 Owner 表明文列
 Runtime/Egress 临时内存
 外部请求认证 Header/Cookie/签名材料
 ```
@@ -371,7 +371,7 @@ Run R2 start
 - service/path 无法解析；
 - user credential 缺失；
 - shared fallback；
-- SecretProvider 错误；
+- 凭据缺失/读取错误；
 - timeout；
 - Adapter 未注册/配置 Schema 非法；
 - Session Cache miss；

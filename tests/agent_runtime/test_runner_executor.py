@@ -160,50 +160,39 @@ async def test_executor_factory_failure_yields_run_failed_with_mapped_code(
         assert run.error_code == "CREDENTIAL_MISSING"
 
 
-def _model(secret_ref: str | None) -> ResolvedModel:
+def _model(api_key: str | None) -> ResolvedModel:
     return ResolvedModel(
         id=uuid.uuid4(),
         revision=1,
         model_id="gpt-4o-mini",
         base_url="https://llm.test/v1",
-        secret_ref=secret_ref,
+        api_key=api_key,
     )
 
 
-async def test_model_secret_resolves_through_env_secret_provider(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("MUAD_SECRET__MODEL__DEMO", "sk-from-env")
-
-    secret = await resolve_model_api_key(_model("secret://model/demo"))
+async def test_model_api_key_reads_from_db_field() -> None:
+    secret = await resolve_model_api_key(_model("sk-from-db"))
 
     assert isinstance(secret, SecretValue)
-    assert secret.value == "sk-from-env"
+    assert secret.value == "sk-from-db"
+    assert secret.version == "db"
 
 
-async def test_missing_model_secret_maps_to_credential_missing(
+async def test_missing_model_api_key_maps_to_credential_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("MUAD_SECRET__MODEL__DEMO", raising=False)
+    monkeypatch.delenv("MODEL_API_KEY", raising=False)
 
     with pytest.raises(AppError) as error:
-        await resolve_model_api_key(_model("secret://model/demo"))
+        await resolve_model_api_key(_model(None))
 
     assert error.value.code == "CREDENTIAL_MISSING"
 
 
-async def test_dev_fallback_uses_model_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_dev_fallback_uses_model_api_key_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MODEL_API_KEY", "sk-dev")
 
     secret = await resolve_model_api_key(_model(None))
 
     assert isinstance(secret, SecretValue)
     assert secret.value == "sk-dev"
-
-
-async def test_missing_secret_and_no_fallback_runs_unauthenticated(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("MODEL_API_KEY", raising=False)
-
-    assert await resolve_model_api_key(_model(None)) is None

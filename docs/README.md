@@ -17,7 +17,7 @@ V1.3 在 V1.2 基础上进一步吸收旧项目 `muad-openclaw/tools/session-man
    - Adapter 声明 `platform_config_schema` 与 `credential_schema`，Console 动态生成表单；
    - 新增平台如果可复用已有 Adapter，不写新代码；
    - 只有出现新的登录/签名/Session 协议时才开发新的 Adapter。
-3. Session 权威凭据仍在 Secret Provider；Session 是可重建缓存，外置到 Redis，Runtime/Worker Pod 不保存权威 Session。
+3. Session 权威凭据为各 Owner 表的明文列；Session 是可重建缓存，外置到 Redis，Runtime/Worker Pod 不保存权威 Session。
 4. `credential_mode` 只表达“用户凭据/共享凭据如何选择”，不再与认证协议混在一个字段中。
 5. 一个逻辑 Agent 支持配置 **0..N 个 IM 通道账号**；每个 `bot_id` 仍只路由到一个 Agent；`bot_id` 与 Runtime/Worker Pod 永远无绑定。
 6. `control.bot_account` 移除 `(agent_id, channel)` 唯一约束，允许一个 Agent 配置多个同类 IM Bot。
@@ -42,7 +42,6 @@ muad-im-gateway
 PostgreSQL
 Redis
 Artifact Store（NFS-backed RWX PVC）
-Secret Provider
 OpenTelemetry Backend
 ```
 

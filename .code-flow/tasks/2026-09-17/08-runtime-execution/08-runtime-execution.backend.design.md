@@ -86,7 +86,7 @@
 |---|---|
 | In Scope | Conversation/Run/Snapshot/Event/Interrupt/Memory/Artifact；SkillArtifactCache/Executor；PromptBuilder/ToolRegistry/MCP Adapter/ModelGateway；Hook 生命周期（`user_prompt/pre_model/post_model/pre_tool_use/post_tool_use/on_interrupt/stop`）；Model Recovery（429/5xx/Retry-After/backoff/deadline/cancel，`max_model_retries=3`）；Tool/Egress/Model 三类审计写入（表定义与查询面见模块 11）。 |
 | Out of Scope | 不做 Multi-Agent/Worktree；LangGraph checkpoint 不作为业务事实源；Pod 本地不保存权威会话/Memory；不做用户侧 Artifact 下载；不做 Console Prompt 模板管理（模板代码内置，Snapshot 记录 `prompt_template_version`）；Schedule misfire 补发由模块 09 承载。 |
-| 前置假设 | Console `resolve-definition`/`resolve-egress-access` 可用；PostgreSQL/Redis/NFS-backed RWX PVC/Secret Provider 就绪；`runtime.tool_call_audit/egress_audit/model_invocation_audit` 由模块 11 提供。 |
+| 前置假设 | Console `resolve-definition`/`resolve-egress-access` 可用；PostgreSQL/Redis/NFS-backed RWX PVC 就绪；`runtime.tool_call_audit/egress_audit/model_invocation_audit` 由模块 11 提供。 |
 | 技术债 | 无；不为未确认的未来能力增加兼容层 |
 
 ### 2.5 验收条件
@@ -153,7 +153,7 @@
 | 取消 | 协作取消（DB `cancel_requested` 权威 + Redis hint） | 直接杀执行进程 | 外部副作用不可回滚，先受理再协作停止 |
 | 模型恢复 | 有界重试（`max_model_retries=3`）+ Retry-After/deadline | 无限重试 | 防止挂死并尊重上游限流 |
 
-基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS/Secret Provider；统一 `muad-api` 与 `muad-logging`。
+基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS；统一 `muad-api` 与 `muad-logging`。
 
 ### 3.2 架构与流程
 
@@ -761,7 +761,7 @@ POST /internal/runtime/resolve-definition
 ```json
 {
   "agent": {"id":"uuid","key":"example-agent","revision":12,"instructions":"...","runtime_config":{}},
-  "model": {"id":"uuid","revision":4,"protocol":"OPENAI","model_id":"qwen3-235b-a22b","base_url":"http://model-gateway.internal/v1","secret_ref":"secret://model/xxx","params":{}},
+  "model": {"id":"uuid","revision":4,"protocol":"OPENAI","model_id":"qwen3-235b-a22b","base_url":"http://model-gateway.internal/v1","api_key":"sk-…","params":{}},
   "skills": [
     {"skill_id":"uuid","artifact_id":"uuid","key":"policy-check","name":"设备策略检查","description":"...","version":"1.3.0","checksum":"sha256:...","storage_key":"skills/{skill_id}/{artifact_id}/skill.zip","frontmatter":{},"execution_mode":"ASYNC"}
   ],
@@ -772,7 +772,7 @@ POST /internal/runtime/resolve-definition
 ```
 
 - `skills/mcp_servers` 已是 Effective Capability（RULE-05 公式），不是 Agent 的全量绑定；未授权资源不返回。
-- `model.secret_ref` 仅为 SecretRef，不返回 Secret Value。
+- `model.api_key` 为明文，仅 Runtime 内存使用，不回显/不落日志。
 - MCP `definitions` 来自最近一次成功 `tools/list` 的 `tool_catalog_json`（`revision/hash` 同源）；Run 内不再 `tools/list`。
 - 字段与 docs/07 §4.1 对齐；MCP 条目与 Snapshot `mcp_catalog_json` 同构。
 
@@ -833,7 +833,7 @@ POST /internal/runtime/resolve-egress-access
     "adapter_schema_version":"1","credential_mode":"USER_THEN_SHARED"
   },
   "credential": {
-    "ref_id":"uuid","secret_ref":"secret://user/u1/mssw","credential_schema_version":"1"
+    "ref_id":"uuid","credential_json":{"username":"…","password":"…"},"credential_schema_version":"1"
   }
 }
 ```
@@ -855,7 +855,7 @@ POST /internal/runtime/resolve-egress-access
 1. 校验 execution_ref.type ∈ {RUN,TASK}；target.type ∈ {PLATFORM_SERVICE,HTTP,MCP}
 2. 解析 ProjectPlatform + adapter_key/adapter_config + schema version
 3. 按 credential_mode（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）选择 CredentialRef
-4. 返回 ALLOW + platform + credential(ref_id/secret_ref)；Secret 仅由 Runtime 经 Secret Provider 解析
+4. 返回 ALLOW + platform + credential(ref_id/credential_json)；Runtime 直接读取明文凭据
 5. ctx.http 与平台调用共用本边界：allowlist、5 MiB、禁止未授权跳转、超时必填
 ```
 
@@ -921,7 +921,7 @@ POST /internal/runtime/resolve-egress-access
 
 ## 4. 部署与运维
 
-本模块随 `muad-agent-runtime` 对应镜像/共享 package 发布；PostgreSQL、Redis、NFS-backed RWX PVC、Secret Provider 外置。Runtime 内运行 RunReaper 周期任务（scan `lease_until < now()` 的 RUNNING Run）；提供 `/healthz` 与 `/readyz`（启动校验配置/迁移/存储）。监控阈值待真实基线确定。
+本模块随 `muad-agent-runtime` 对应镜像/共享 package 发布；PostgreSQL、Redis、NFS-backed RWX PVC 外置。Runtime 内运行 RunReaper 周期任务（scan `lease_until < now()` 的 RUNNING Run）；提供 `/healthz` 与 `/readyz`（启动校验配置/迁移/存储）。监控阈值待真实基线确定。
 
 ## 5. 风险与依赖
 

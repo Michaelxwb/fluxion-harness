@@ -109,13 +109,13 @@ Gateway 启动/配置刷新时按 ChannelAccount 建立连接；收到消息后�
 flowchart TD
     A[Gateway start] --> B[GET /internal/channel/bots]
     B --> C[For each enabled bot]
-    C --> D[Read bot secret via secret_ref from Secret Provider]
+    C --> D[Read bot secret from DB column]
     D --> E[Create WeCom SDK client]
     E --> F[Connect WebSocket]
     F --> G[heartbeat/reconnect by SDK]
 ```
 
-Bot secret 由 Gateway 通过 `secret_ref` 直接从 Secret Provider 读取；Console Internal API 只返回引用，不传明文。
+Bot secret 由 Gateway 从 Bot 快照的明文字段读取（DB 存储）；Console Internal API 返回该字段。
 
 ### 5.2 动态刷新
 
@@ -352,7 +352,7 @@ sequenceDiagram
 `/readyz` 至少检查：
 
 - Console Internal API 可达或已有可用 bot snapshot；
-- Secret Provider 可达或已有缓存 bot secret；
+- Bot secret 字段存在或已有缓存 bot secret；
 - 必要 Bot connection manager 已初始化；
 - Event loop 正常。
 

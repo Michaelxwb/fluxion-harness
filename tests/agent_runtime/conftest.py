@@ -127,7 +127,7 @@ def resolved(tenant: TenantContext) -> ResolveDefinitionResponse:
             revision=2,
             model_id="gpt-4o-mini",
             base_url="https://api.example.com/v1",
-            secret_ref="secret://model/demo",
+            api_key="sk-demo",
             params={"temperature": 0.0},
         ),
         skills=[

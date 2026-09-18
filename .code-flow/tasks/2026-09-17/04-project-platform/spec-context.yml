@@ -1,7 +1,7 @@
 version: 1
 task: 项目平台与凭据
 enforcement: required
-updated_at: '2026-09-18T06:13:54.630442+00:00'
+updated_at: '2026-09-18T09:24:15.733272+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -26,7 +26,7 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: 0b208f729a97adae0d7011791e278d965a31e5916e8c044b80d0550143183ccc
+    file_sha256: ed3d32d8d5085e6d250ef7a24f1988759d414113d2726d0a92052880bf2a66b0
     metadata_sha256: e9f9b2714c5043dc7d9363ec9a950471b4cdea6d932bd8e86ac2dd0a754c9359
     rules_sha256: 76ffb366c7643e6faa32a65c751aea08de24bc2c1b6f37db46e6df1a7665e728
   selected_by: agent
@@ -52,7 +52,7 @@ bindings:
         - artifact: 04-project-platform.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-api-001
-          artifact_sha256: b21925d86cf4cccadb86314f37eb13b74b34ef56df227745770e61fd02f355f7
+          artifact_sha256: 9cfcbc086b68316e6681ce10ac40801c9729fdd850617a3cde02ad4bc802cf5e
         decision: null
         evidence: []
       plan:
@@ -74,7 +74,7 @@ bindings:
   path: test/harness-test.md
   status: active
   hashes:
-    file_sha256: 0e202f6c12e5461baa1ebf688889fccc6c5a4f01e27916c7841fe7dfdca1cc2e
+    file_sha256: 66b05f4ed49156830ac7d388c9487264b4a85f50d32dacb364e126c83498a3ff
     metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
     rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
   selected_by: agent
@@ -99,7 +99,7 @@ bindings:
         - artifact: 04-project-platform.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-test-001
-          artifact_sha256: b21925d86cf4cccadb86314f37eb13b74b34ef56df227745770e61fd02f355f7
+          artifact_sha256: 9cfcbc086b68316e6681ce10ac40801c9729fdd850617a3cde02ad4bc802cf5e
         decision: null
         evidence: []
       plan:
@@ -147,7 +147,7 @@ bindings:
         - artifact: 04-project-platform.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-data-001
-          artifact_sha256: b21925d86cf4cccadb86314f37eb13b74b34ef56df227745770e61fd02f355f7
+          artifact_sha256: 9cfcbc086b68316e6681ce10ac40801c9729fdd850617a3cde02ad4bc802cf5e
         decision: null
         evidence: []
       plan:
@@ -288,7 +288,7 @@ bindings:
         - artifact: 04-project-platform.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-i18n-001
-          artifact_sha256: b21925d86cf4cccadb86314f37eb13b74b34ef56df227745770e61fd02f355f7
+          artifact_sha256: 9cfcbc086b68316e6681ce10ac40801c9729fdd850617a3cde02ad4bc802cf5e
         decision: null
         evidence: []
       plan:
@@ -310,9 +310,9 @@ bindings:
   path: platform/harness-project-platform.md
   status: active
   hashes:
-    file_sha256: edd39f3bdafc0320c5c00b6115ee564c65c0257c81a3476b1ca42d98c5c404cf
-    metadata_sha256: 2c25bee785e7f6b9a9533c8dff032821d9b91649d145f2a3d509c0ec3a0421f8
-    rules_sha256: e6d6be67840502b7a12d9fb15e198387453fc2c475171f4943d8cffdb447a792
+    file_sha256: 5e268843b0d146536dd91f2817a1868e3fcd9ce636bfbdc21a3d6d27ef6bd89a
+    metadata_sha256: 28a4d92c0ce7539c6b65112f7eb365fac6afde41be59646e75fe6cbd8ca8c1a0
+    rules_sha256: b552927e5b65dbeaeec21ef2081bad646283e0f4862ab9c263bb5062b422426e
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-project-platform
   enforcement: required
@@ -324,10 +324,10 @@ bindings:
   rules:
   - ref: RULE-platform-001
     summary: ProjectPlatform 只保存实例与寻址配置，认证/Session 由 PlatformAdapter 承担（SPI 无独立 `refresh`，刷新属于
-      `authenticate` 内部）；凭据只存 SecretRef，`credential_mode` 仅表达选择策略（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）；PlatformSession
+      `authenticate` 内部）；凭据明文存于凭据表并由主键引用，`credential_mode` 仅表达选择策略（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）；PlatformSession
       为可重建 Redis 缓存，键为 `platform_session:{tenant_id}:{platform_id}:{actor_scope}:{credential_version}:{adapter_key}:{adapter_version}`
       并以 Set 索引清理；更换 adapter_key 必须使旧凭据与会话失效。
-    text_sha256: 65b1d12576ae173d8cc03caaf57935466a3df39e25efad55cda53072acc7d6d1
+    text_sha256: 9bfa326bb7da3ce17fab7298a71fd493548b90109dc9850a2645170ba1ce61c1
     enforcement: required
     verifier_ref: harness-project-platform#RULE-platform-001
     stage_status:
@@ -335,23 +335,27 @@ bindings:
         status: applied
         refs:
         - artifact: 04-project-platform.backend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-platform-001
-          artifact_sha256: b21925d86cf4cccadb86314f37eb13b74b34ef56df227745770e61fd02f355f7
+          section_id: design
+          item_id: design
+          artifact_sha256: 9cfcbc086b68316e6681ce10ac40801c9729fdd850617a3cde02ad4bc802cf5e
+        - artifact: 04-project-platform.frontend.design.md
+          section_id: design
+          item_id: design
+          artifact_sha256: e50c27b14d69fbb06f36bc3e03cbd9c20acb68631bfbe2fd9ce6ee6bc315480b
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
@@ -359,9 +363,9 @@ bindings:
   path: secret/harness-secret.md
   status: active
   hashes:
-    file_sha256: 07c0c7aee2c9da778999c97e854df5f22257bac4c40dbe9d283550e451efb814
+    file_sha256: 02042d172b287f41143df169d1c8309ff571425f05541d577b5463c74596c1aa
     metadata_sha256: 6eb93990def2057725626f290065551208a4bd3aee9121a753b5a49b32d05d09
-    rules_sha256: d1e2ab0670a79777c457f83ef88a00ca0695b854b9a344a16256262d40f484a4
+    rules_sha256: bfad8617c95199b82ae1cebdbe3aaf0a1fdc0ee8fd0f39205f1d93a9a30201d3
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-secret
   enforcement: required
@@ -372,9 +376,10 @@ bindings:
   - review
   rules:
   - ref: RULE-secret-001
-    summary: Secret Value 不进入 DB、Snapshot、Prompt、日志、Audit 或 IM 消息；业务表只保存 `secret_ref`，运行时经
-      Secret Provider 解析。
-    text_sha256: c87d7941b43f56d7c1d950889dc27ddba13804f0a6e5ec33853310766ac9bfd8
+    summary: 密钥明文存于各 Owner 表（模型 `api_key`、Bot `secret`、MCP/平台 `auth_secret`、用户/共享
+      `credential_json`），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM
+      Prompt 或 API 响应（对外以 `*_configured` 表达）。
+    text_sha256: eb4cdd0b7fa4d7e182cb84beca0488da13386632d61841b12d39045cda60015b
     enforcement: required
     verifier_ref: harness-secret#RULE-secret-001
     stage_status:
@@ -382,23 +387,27 @@ bindings:
         status: applied
         refs:
         - artifact: 04-project-platform.backend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-secret-001
-          artifact_sha256: b21925d86cf4cccadb86314f37eb13b74b34ef56df227745770e61fd02f355f7
+          section_id: design
+          item_id: design
+          artifact_sha256: 9cfcbc086b68316e6681ce10ac40801c9729fdd850617a3cde02ad4bc802cf5e
+        - artifact: 04-project-platform.frontend.design.md
+          section_id: design
+          item_id: design
+          artifact_sha256: e50c27b14d69fbb06f36bc3e03cbd9c20acb68631bfbe2fd9ce6ee6bc315480b
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []

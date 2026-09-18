@@ -18,31 +18,19 @@ from muad_im_gateway.application.bot_snapshot import BotSnapshotCache
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable
 from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.channels.wecom.sdk_port import WeComInboundEvent, WeComInboundMessage
-from muad_platform_sdk import EnvSecretProvider, SecretNotFoundError
 
 BOT_ID = "bot-1"
-SECRET_REF_V1 = "secret://wecom/bot-1"
-SECRET_REF_V2 = "secret://wecom/bot-1-v2"
 SECRET_VALUE = "super-secret-token-9f"
 SECRET_VALUE_V2 = "rotated-secret-token-4c"
 
 
-def make_bot(*, secret_ref: str = SECRET_REF_V1, enabled: bool = True) -> BotSnapshotItem:
+def make_bot(*, secret: str | None = SECRET_VALUE, enabled: bool = True) -> BotSnapshotItem:
     return BotSnapshotItem(
         bot_account_id=uuid4(),
         bot_id=BOT_ID,
-        secret_ref=secret_ref,
+        secret=secret,
         agent_id=uuid4(),
         enabled=enabled,
-    )
-
-
-def provider() -> EnvSecretProvider:
-    return EnvSecretProvider(
-        {
-            "MUAD_SECRET__WECOM__BOT_1": SECRET_VALUE,
-            "MUAD_SECRET__WECOM__BOT_1_V2": SECRET_VALUE_V2,
-        }
     )
 
 
@@ -95,11 +83,9 @@ def build_adapter(
     factory: FakeWeComSdkFactory,
     *,
     bots: list[BotSnapshotItem] | None = None,
-    secret_provider: EnvSecretProvider | None = None,
     stream_flush_interval_sec: float = 1000.0,
 ) -> WeComAdapter:
     return WeComAdapter(
-        secret_provider=secret_provider or provider(),
         sdk_factory=factory,
         bots=bots if bots is not None else [make_bot()],
         backoff_base_sec=0.01,
@@ -125,17 +111,11 @@ async def test_start_missing_secret_raises_typed_error_without_leaking(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     factory = FakeWeComSdkFactory()
-    adapter = build_adapter(
-        factory,
-        bots=[make_bot(secret_ref="secret://wecom/missing")],
-        secret_provider=EnvSecretProvider({}),
-    )
+    adapter = build_adapter(factory, bots=[make_bot(secret=None)])
     with caplog.at_level(logging.WARNING):
         with pytest.raises(ChannelAdapterUnavailable) as excinfo:
             await adapter.start()
 
-    assert isinstance(excinfo.value.__cause__, SecretNotFoundError)
-    assert excinfo.value.__cause__.secret_ref == "secret://wecom/missing"
     assert "bot-1" in str(excinfo.value)
     assert factory.clients == []
     assert adapter.healthy() is False
@@ -338,7 +318,7 @@ async def test_apply_snapshot_restarts_connection_on_secret_change() -> None:
     try:
         first = factory.latest()
         await adapter.apply_snapshot(
-            [bot.model_copy(update={"secret_ref": SECRET_REF_V2})]
+            [bot.model_copy(update={"secret": SECRET_VALUE_V2})]
         )
 
         assert factory.secrets == [(BOT_ID, SECRET_VALUE), (BOT_ID, SECRET_VALUE_V2)]
@@ -349,7 +329,7 @@ async def test_apply_snapshot_restarts_connection_on_secret_change() -> None:
         await adapter.stop()
 
 
-async def test_apply_snapshot_keeps_connection_when_secret_ref_unchanged() -> None:
+async def test_apply_snapshot_keeps_connection_when_secret_unchanged() -> None:
     factory = FakeWeComSdkFactory()
     bot = make_bot()
     adapter = build_adapter(factory, bots=[bot])
@@ -395,7 +375,7 @@ async def test_snapshot_revision_change_refreshes_adapter() -> None:
 
         console.bot_snapshot = BotSnapshotResponse(
             revision="r2",
-            items=[bot.model_copy(update={"secret_ref": SECRET_REF_V2})],
+            items=[bot.model_copy(update={"secret": SECRET_VALUE_V2})],
         )
         await cache.refresh()
 

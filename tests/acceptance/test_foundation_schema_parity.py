@@ -59,13 +59,13 @@ async def _execute(statement: str) -> None:
 async def test_e05_migration_chain_has_single_head() -> None:
     graph = _migration_graph()
     heads = sorted(set(graph) - {down for down in graph.values() if down})
-    assert heads == ["0003"], f"unexpected migration heads: {heads}"
+    assert heads == ["0005"], f"unexpected migration heads: {heads}"
     chain: list[str] = []
-    current: str | None = "0003"
+    current: str | None = "0005"
     while current:
         chain.append(current)
         current = graph[current]
-    assert chain == ["0003", "0002", "0001"]
+    assert chain[-1] == "0001" and len(chain) == len(graph), f"unexpected migration chain: {chain}"
 
 
 async def test_e05_every_orm_suite_has_parity_tests() -> None:

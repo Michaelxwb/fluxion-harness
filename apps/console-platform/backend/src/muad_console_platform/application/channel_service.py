@@ -230,7 +230,7 @@ class ChannelService:
             BotSnapshotItem(
                 bot_account_id=account.id,
                 bot_id=account.bot_id,
-                secret_ref=account.secret_ref,
+                secret=account.secret,
                 agent_id=account.agent_id,
                 enabled=account.enabled,
             )

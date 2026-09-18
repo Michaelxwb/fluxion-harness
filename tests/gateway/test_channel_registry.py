@@ -15,7 +15,6 @@ from muad_im_gateway.channels.base import (
 )
 from muad_im_gateway.channels.fake import FakeChannelAdapter
 from muad_im_gateway.channels.wecom.adapter import WeComAdapter
-from muad_platform_sdk import EnvSecretProvider
 
 
 def _route() -> DeliveryRouteInput:
@@ -27,11 +26,11 @@ def _route() -> DeliveryRouteInput:
     )
 
 
-def _bot(secret_ref: str = "secret://wecom/bot-1") -> BotSnapshotItem:
+def _bot(secret: str = "wecom-bot-1") -> BotSnapshotItem:
     return BotSnapshotItem(
         bot_account_id=uuid4(),
         bot_id="bot-1",
-        secret_ref=secret_ref,
+        secret=secret,
         agent_id=uuid4(),
     )
 
@@ -64,9 +63,7 @@ def test_registry_reports_unknown_channel() -> None:
 
 async def test_registry_start_skips_unavailable_adapters() -> None:
     registry = ChannelRegistry()
-    registry.register(
-        WeComAdapter(secret_provider=EnvSecretProvider({}), bots=[_bot()])
-    )
+    registry.register(WeComAdapter(bots=[_bot(secret=None)]))
     await registry.start_all()
     assert registry.adapter_states == {"WECOM": False}
     assert registry.started_adapters == ()
@@ -85,7 +82,7 @@ async def test_registry_start_and_stop_track_state() -> None:
 
 
 async def test_wecom_adapter_requires_started_connection() -> None:
-    adapter = WeComAdapter(secret_provider=EnvSecretProvider({}))
+    adapter = WeComAdapter()
     with pytest.raises(ChannelAdapterUnavailable):
         await adapter.send(_route(), DeliveryMessage(text="hi"))
     with pytest.raises(ChannelAdapterUnavailable):

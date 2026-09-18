@@ -10,7 +10,7 @@ from console_channel.conftest import ChannelContext
 
 BOTS_URL = "/internal/channel/bots"
 REVISION_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
-ITEM_KEYS = {"bot_account_id", "bot_id", "secret_ref", "agent_id", "enabled"}
+ITEM_KEYS = {"bot_account_id", "bot_id", "secret", "agent_id", "enabled"}
 
 
 def _headers(channel: ChannelContext, tenant_id: str | None = None) -> dict[str, str]:
@@ -45,7 +45,7 @@ async def test_lists_only_enabled_bots(client: AsyncClient, channel: ChannelCont
     assert account is not None
     assert item["bot_account_id"] == str(account.id)
     assert item["bot_id"] == channel.bot_id
-    assert item["secret_ref"] == channel.secret_ref
+    assert item["secret"] == channel.secret
     assert item["agent_id"] == str(channel.agent_id)
     assert item["enabled"] is True
     returned_bot_ids = {entry["bot_id"] for entry in items}
@@ -64,12 +64,12 @@ async def test_revision_changes_when_data_changes(
                 BotAccount.tenant_id == channel.tenant_id,
                 BotAccount.bot_id == channel.bot_id,
             )
-            .values(secret_ref="secret://wecom/rotated")
+            .values(secret="wecom-secret-rotated")
         )
         await session.commit()
     second = await _bots(client, channel)
     assert second["revision"] != first["revision"]
-    assert second["items"][0]["secret_ref"] == "secret://wecom/rotated"
+    assert second["items"][0]["secret"] == "wecom-secret-rotated"
 
 
 async def test_tenant_isolation_excludes_other_tenant_bots(

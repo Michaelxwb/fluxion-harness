@@ -107,7 +107,7 @@
 |---|---|---|---|---|---|---|
 | S-01 | FEAT-01 | E2E | Browser→Agent API→DB→Runtime resolve | 本模块 | 修改模型/系统 Prompt 并保存 | revision+1；新 Run 新配置，旧 Run 不漂移 |
 | S-02 | FEAT-02 | E2E | Browser→binding API→DB | 本模块 | 绑定 Skill | Binding 立即写入，后续新 Run 可见，无全局保存 |
-| S-03 | FEAT-04 | E2E | Browser→Secret Provider→bot_account | 本模块 | 同 Agent 新增第二个 WeCom bot | 两个 bot 都指向同一 agent_id；Secret Value 不落 DB |
+| S-03 | FEAT-04 | E2E | Browser→API→bot_account | 本模块 | 同 Agent 新增第二个 WeCom bot | 两个 bot 都指向同一 agent_id；secret 明文落 DB 且不回显 |
 | S-04 | FEAT-03 | E2E | Browser→grant API→DB→Runtime resolve | 本模块 | 给用户授权 Agent 后再撤销 | 授权后后续新 Run 可用；撤销=软删除，后续新 Run 拒绝，历史 Snapshot 不漂移 |
 | S-05 | FEAT-01 | E2E | Browser→DELETE Agent API→DB→Runtime resolve | 本模块 | 软删除 Agent | 列表/详情不可见；后续 resolve 返回 AGENT_NOT_FOUND；历史运行记录保留 |
 | S-06 | FEAT-02 | E2E | Browser→unbind API→DB→Runtime resolve | 本模块 | 解除 MCP 绑定后再次绑定 | 解除=软删除，后续新 Run 立即不可见；再次绑定恢复同一逻辑关系 |
@@ -136,7 +136,7 @@
 | 关系启停 | 绑定即生效，解除=软删除 | 绑定级 `enabled` 开关 | 与 V1.4 授权公式一致，取消中间态 |
 | 运行映射 | 逻辑 Agent | Agent→Pod | 支持无状态横向扩容 |
 
-基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS/Secret Provider；统一 `muad-api` 与 `muad-logging`。
+基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS；统一 `muad-api` 与 `muad-logging`。
 
 ### 3.2 架构与流程
 
@@ -308,7 +308,7 @@ AND (
 | `channel` | varchar(32) | NOT NULL DEFAULT 'WECOM' | 渠道类型 |
 | `name` | varchar(128) | NOT NULL | 通道账号显示名称 |
 | `bot_id` | varchar(256) | NOT NULL | 企业微信 bot_id |
-| `secret_ref` | varchar(256) | NOT NULL | bot secret 引用 |
+| `secret` | text |  | Bot secret（明文，不回显） |
 | `agent_id` | uuid | NOT NULL FK -> agent_definition.id | 绑定的逻辑 IM Agent；禁止存 Runtime Pod/实例 ID |
 | `enabled` | boolean | NOT NULL DEFAULT true | 是否启用 |
 | `config_json` | jsonb | NOT NULL DEFAULT '{}' | SDK 扩展配置 |
@@ -605,9 +605,9 @@ GET /api/v1/agents/{agent_id}/channels
 
 - 调用方：Console 浏览器（详情 IM 接入 Tab）。
 - 请求（Path + Query）：`agent_id`（必填）、`page`（默认 1）、`page_size`（默认 20，最大 100）。
-- `data`：分页对象 `{items,page,page_size,total}`；`items[]`：`channel_account_id/channel/name/bot_id/secret_ref/enabled/config/last_connected_at/create_time`。
+- `data`：分页对象 `{items,page,page_size,total}`；`items[]`：`channel_account_id/channel/name/bot_id/secret_configured/enabled/config/last_connected_at/create_time`。
 - 错误码：`AGENT_NOT_FOUND / COMMON_VALIDATION_ERROR`。
-- 处理：只查 `bot_account.is_deleted=false` 且 `agent_id` 命中；只回 `secret_ref`，绝不回 Secret Value；按 `create_time ASC`。
+- 处理：只查 `bot_account.is_deleted=false` 且 `agent_id` 命中；只回 `secret_configured`，绝不回明文；按 `create_time ASC`。
 - 对应：docs/07 §10.1；docs/03 §4.2.1。
 
 #### API-16 新增通道
@@ -625,13 +625,13 @@ POST /api/v1/agents/{agent_id}/channels
 | `channel` | string | 是 | V1 仅 `WECOM` |
 | `name` | string | 是 | 通道账号显示名称，<=128 |
 | `bot_id` | string | 是 | 企业微信 bot_id，<=256，全局唯一（仅有效行） |
-| `secret` | string | 是 | Secret Value 明文，仅写入 Secret Provider；DB 只存 `secret_ref`，不落日志/审计 |
+| `secret` | string | 是 | Bot secret 明文，直接写 `bot_account.secret`；不落日志/审计/响应 |
 | `enabled` | boolean | 否 | 默认 true |
 | `config` | object | 否 | SDK 扩展配置，默认 `{}` |
 
 - `data`：`{channel_account_id,bot_id,agent_id,enabled,last_connected_at}`。
-- 错误码：`AGENT_NOT_FOUND / COMMON_VALIDATION_ERROR / COMMON_CONFLICT`（bot_id 已被占用，`message_args` 带字段与值）/ `COMMON_INTERNAL_ERROR`（Secret Provider 写入失败）。
-- 处理：顺序为“先写 Secret Provider（外部 IO，不进 DB 事务）→ 得到 `secret_ref` → 单事务插入 `bot_account` + `config_audit_log(action=CREATE)`”；`UNIQUE (bot_id) WHERE is_deleted=false` 冲突映射 `COMMON_CONFLICT` 且不重绑；Secret Value 不进入 DB/审计/日志/LLM。
+- 错误码：`AGENT_NOT_FOUND / COMMON_VALIDATION_ERROR / COMMON_CONFLICT`（bot_id 已被占用，`message_args` 带字段与值）/ `COMMON_INTERNAL_ERROR`（secret 缺失或写入失败）。
+- 处理：单事务插入 `bot_account.secret`（明文）+ `config_audit_log(action=CREATE)`（审计不含明文）；`UNIQUE (bot_id) WHERE is_deleted=false` 冲突映射 `COMMON_CONFLICT` 且不重绑；明文不得进入审计/日志/LLM/响应。
 - 对应：docs/07 §10.1；docs/03 §4.2.1；S-03。
 
 #### API-17 编辑通道
@@ -649,13 +649,13 @@ PUT /api/v1/agents/{agent_id}/channels/{channel_account_id}
 | `channel_account_id` | uuid | 是 | 路径参数 |
 | `name` | string | 否 | 显示名称 |
 | `bot_id` | string | 否 | 修改后仍需全局唯一 |
-| `secret` | string | 否 | 传入即轮换：先写 Secret Provider 得到新 `secret_ref` |
+| `secret` | string | 否 | 传入即轮换：直接覆盖 `bot_account.secret`（明文） |
 | `enabled` | boolean | 否 | 通道对象自身的启用状态（不是绑定开关） |
 | `config` | object | 否 | SDK 扩展配置 |
 
 - `data`：`{channel_account_id,bot_id,enabled,last_connected_at,update_time}`。
-- 错误码：`AGENT_NOT_FOUND / BOT_NOT_FOUND / COMMON_VALIDATION_ERROR / COMMON_CONFLICT`（bot_id 占用）/ `COMMON_INTERNAL_ERROR`（Secret Provider 失败）。
-- 处理：`bot_account` 不存在或已软删除 → `BOT_NOT_FOUND`；传 `secret` 时先写 Secret Provider 再进事务；单事务更新字段 + `config_audit_log(action=UPDATE)`；编辑通道不影响同 Agent 其他通道，不需要保存整个 Agent。
+- 错误码：`AGENT_NOT_FOUND / BOT_NOT_FOUND / COMMON_VALIDATION_ERROR / COMMON_CONFLICT`（bot_id 占用）/ `COMMON_INTERNAL_ERROR`（secret 缺失或写入失败）。
+- 处理：`bot_account` 不存在或已软删除 → `BOT_NOT_FOUND`；传 `secret` 时直接覆盖明文列；单事务更新字段 + `config_audit_log(action=UPDATE)`（审计不含明文）；编辑通道不影响同 Agent 其他通道，不需要保存整个 Agent。
 - 对应：docs/07 §10.1；docs/03 §4.2.1。
 
 #### API-18 移除通道
@@ -674,13 +674,13 @@ DELETE /api/v1/agents/{agent_id}/channels/{channel_account_id}
 ### 3.5 质量实现方案
 
 - 性能：批量/聚合优先，列表禁止 N+1，真实目标待基线压测后确定。
-- 可靠性：事务只覆盖原子 DB 操作；Secret Provider 等外部 IO 不包长事务；高影响错误必须有 E-/B- 验收。
+- 可靠性：事务只覆盖原子 DB 操作；外部 IO 不包长事务；高影响错误必须有 E-/B- 验收。
 - 安全：Secret/Token/Cookie 不进业务 DB、日志、Snapshot、LLM；错误码只使用 `config/api-messages.yaml` 已登记代码。
 - 可观测：统一 JSON 日志，自动带 service/trace_id/request_id；状态变化可关联 trace_id；配置变更写 `config_audit_log`。
 
 ## 4. 部署与运维
 
-本模块随 `muad-console-platform` 对应镜像/共享 package 发布；PostgreSQL、Redis、NFS、Secret Provider 外置。监控阈值待真实基线确定。
+本模块随 `muad-console-platform` 对应镜像/共享 package 发布；PostgreSQL、Redis、NFS 外置。监控阈值待真实基线确定。
 
 ## 5. 风险与依赖
 

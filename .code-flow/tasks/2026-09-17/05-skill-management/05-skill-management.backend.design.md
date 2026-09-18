@@ -146,7 +146,7 @@
 | 导入限制 | zip ≤50MiB、解压 ≤200MiB、≤2000 文件、扩展名白名单、拒绝穿越/链接/嵌套包、Secret 扫描 | 只做 checksum | docs/03 §5.1.2 统一入口防护 |
 | 导入幂等 | `Idempotency-Key` + checksum 去重；重复返回 `SKILL_VERSION_EXISTS` | 重复上传覆盖 | Artifact append-only，需可安全重试 |
 
-基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS/Secret Provider；统一 `muad-api` 与 `muad-logging`。
+基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS；统一 `muad-api` 与 `muad-logging`。
 
 ### 3.2 架构与流程
 
@@ -530,7 +530,7 @@ DELETE /api/v1/skills/{skill_id}/users/{user_id}
 
 ## 4. 部署与运维
 
-本模块随 `muad-console-platform + skill-sdk/artifact-store` 对应镜像/共享 package 发布；PostgreSQL、Redis、NFS、Secret Provider 外置。监控阈值待真实基线确定。
+本模块随 `muad-console-platform + skill-sdk/artifact-store` 对应镜像/共享 package 发布；PostgreSQL、Redis、NFS 外置。监控阈值待真实基线确定。
 
 ## 5. 风险与依赖
 

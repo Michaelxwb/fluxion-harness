@@ -138,7 +138,7 @@
 | trace 关联 | run_id/task_id join 解析 | 审计表冗余 trace_id | 与 docs/02 表定义一致，避免双份事实 |
 | OTel | 只作运维导出 | 业务 Console 展示中间件健康 | 业务/运维分离（docs/00 §0.7） |
 
-基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS/Secret Provider；统一 `muad-api` 与 `muad-logging`。
+基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS；统一 `muad-api` 与 `muad-logging`。
 
 ### 3.2 架构与流程
 
@@ -506,7 +506,7 @@ GET /internal/admin/runs/{run_id}
 
 ## 4. 部署与运维
 
-本模块随 `muad-console-platform 查询面 + Runtime/Worker 写入` 对应镜像/共享 package 发布；PostgreSQL、Redis、NFS、Secret Provider 外置。监控阈值待真实基线确定。
+本模块随 `muad-console-platform 查询面 + Runtime/Worker 写入` 对应镜像/共享 package 发布；PostgreSQL、Redis、NFS 外置。监控阈值待真实基线确定。
 
 - 每服务提供 `/healthz`（进程存活）与 `/readyz`（依赖就绪，如 PG/存储/内部 API；Redis 丢失不阻塞就绪，见 docs/09 §4）；
 - 启动执行配置/迁移/存储初始化校验，失败 fail fast；

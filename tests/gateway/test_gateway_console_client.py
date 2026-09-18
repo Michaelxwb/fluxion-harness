@@ -100,7 +100,7 @@ async def test_bots_parses_snapshot() -> None:
                 {
                     "bot_account_id": str(uuid4()),
                     "bot_id": "bot-1",
-                    "secret_ref": "secret://wecom/bot-1",
+                    "secret": "wecom-bot-1",
                     "agent_id": str(uuid4()),
                     "enabled": True,
                 }

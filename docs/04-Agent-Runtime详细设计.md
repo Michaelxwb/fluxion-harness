@@ -617,7 +617,7 @@ mcp::<server_key>::<tool_name>
 
 - V1 仅 `streamable-http`；
 - endpoint 来自 Snapshot；
-- Secret Value 从 SecretProvider 解析；
+- 密钥从 DB 明文列读取（Runtime 不再解析 SecretRef）；
 - Tool execute 必须走 ToolRegistry Hook/Policy/Audit；
 - 单个 Server 工具数设置上限；
 - Run 内不再 discovery；catalog 以 Snapshot 冻结的 revision/hash 为准。

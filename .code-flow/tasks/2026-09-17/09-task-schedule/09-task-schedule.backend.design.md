@@ -143,7 +143,7 @@
 | Final Delivery | `delivery_key` + Gateway Redis SET NX EX 7d | 终态直接发送无幂等 | 至少一次投递 + 去重 |
 | Schedule 触发 | DB claim + `schedule:{schedule_id}:{scheduled_fire_time}` 幂等 | 依赖 Scheduler 单副本 | Scheduler 可随 Worker 横向扩展 |
 
-基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS/Secret Provider；统一 `muad-api` 与 `muad-logging`。
+基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS；统一 `muad-api` 与 `muad-logging`。
 
 ### 3.2 架构与流程
 
@@ -871,7 +871,7 @@ PUT  /internal/admin/schedules/{schedule_id}/resume
 
 ## 4. 部署与运维
 
-本模块随 `muad-agent-worker` 对应镜像/共享 package 发布；Scheduler 与 Worker 同进程部署并可随副本数横向扩展；PostgreSQL、Redis、NFS、Secret Provider 外置。监控阈值待真实基线确定。
+本模块随 `muad-agent-worker` 对应镜像/共享 package 发布；Scheduler 与 Worker 同进程部署并可随副本数横向扩展；PostgreSQL、Redis、NFS 外置。监控阈值待真实基线确定。
 
 数据迁移遵循 `docs/02 §11` 的 expand → deploy → contract 原则；`task` schema 表由 `migrations/versions/0002_initial_schema.py` 统一建立，模块代码不得自行建表或执行 destructive migration。
 

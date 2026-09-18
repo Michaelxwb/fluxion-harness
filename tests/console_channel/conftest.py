@@ -63,7 +63,7 @@ class ChannelContext:
     disabled_bot_id: str
     deleted_bot_id: str
     other_bot_id: str
-    secret_ref: str
+    secret: str
     actor_user_id: uuid.UUID
     ungranted_user_id: uuid.UUID
     disabled_user_id: uuid.UUID
@@ -115,7 +115,7 @@ async def channel(database_guard: None) -> AsyncIterator[ChannelContext]:
     disabled_bot_id = _unique_key("bot")
     deleted_bot_id = _unique_key("bot")
     other_bot_id = _unique_key("bot")
-    secret_ref = f"secret://wecom/{bot_id}"
+    secret = f"wecom-secret-{bot_id}"
     bound_external_user_id = _unique_key("ext")
     ungranted_external_user_id = _unique_key("ext")
     disabled_external_user_id = _unique_key("ext")
@@ -198,7 +198,7 @@ async def channel(database_guard: None) -> AsyncIterator[ChannelContext]:
             channel=CHANNEL,
             name="Enabled Bot",
             bot_id=bot_id,
-            secret_ref=secret_ref,
+            secret=secret,
             agent_id=agent.id,
         )
         disabled_bot = BotAccount(
@@ -206,7 +206,7 @@ async def channel(database_guard: None) -> AsyncIterator[ChannelContext]:
             channel=CHANNEL,
             name="Disabled Bot",
             bot_id=disabled_bot_id,
-            secret_ref=f"secret://wecom/{disabled_bot_id}",
+            secret=f"wecom-secret-{disabled_bot_id}",
             agent_id=agent.id,
             enabled=False,
         )
@@ -215,7 +215,7 @@ async def channel(database_guard: None) -> AsyncIterator[ChannelContext]:
             channel=CHANNEL,
             name="Deleted Bot",
             bot_id=deleted_bot_id,
-            secret_ref=f"secret://wecom/{deleted_bot_id}",
+            secret=f"wecom-secret-{deleted_bot_id}",
             agent_id=agent.id,
             is_deleted=True,
         )
@@ -224,7 +224,7 @@ async def channel(database_guard: None) -> AsyncIterator[ChannelContext]:
             channel=CHANNEL,
             name="Other Tenant Bot",
             bot_id=other_bot_id,
-            secret_ref=f"secret://wecom/{other_bot_id}",
+            secret=f"wecom-secret-{other_bot_id}",
             agent_id=other_agent.id,
         )
         session.add_all([enabled_bot, disabled_bot, deleted_bot, other_bot])
@@ -305,7 +305,7 @@ async def channel(database_guard: None) -> AsyncIterator[ChannelContext]:
             disabled_bot_id=disabled_bot_id,
             deleted_bot_id=deleted_bot_id,
             other_bot_id=other_bot_id,
-            secret_ref=secret_ref,
+            secret=secret,
             actor_user_id=actor_user_id,
             ungranted_user_id=ungranted_user_id,
             disabled_user_id=disabled_user_id,

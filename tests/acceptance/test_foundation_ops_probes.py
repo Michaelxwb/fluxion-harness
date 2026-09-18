@@ -17,16 +17,11 @@ from types import SimpleNamespace
 from muad_api import StartupValidationError, validate_startup
 
 
-class UnusedProvider:
-    async def get(self, secret_ref):
-        raise LookupError(secret_ref)
-
-
 async def main():
     settings = SimpleNamespace(database_url="postgresql+asyncpg://probe", artifact_root="/missing-mount")
     store = SimpleNamespace(root="/missing-mount")
     try:
-        await validate_startup(settings, None, store, UnusedProvider(), migrations_dir=None)
+        await validate_startup(settings, None, store, migrations_dir=None)
     except StartupValidationError as exc:
         print(f"STARTUP_ABORTED: {exc}")
         raise SystemExit(3)

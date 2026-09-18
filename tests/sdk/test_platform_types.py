@@ -9,7 +9,6 @@ from muad_platform_sdk import (
     PlatformSession,
     PlatformTarget,
     PreparedRequest,
-    ResolvedCredential,
     SecretValue,
     SessionMode,
 )
@@ -135,11 +134,3 @@ def test_prepared_request_hides_auth_headers_in_repr() -> None:
     assert prepared.headers["Authorization"] == "Bearer top-secret"
 
 
-def test_resolved_credential_version_comes_from_secret() -> None:
-    credential = ResolvedCredential(
-        credential_ref="secret-ref-1",
-        secret=SecretValue(value="ak-value", version="v7"),
-    )
-
-    assert credential.version == "v7"
-    assert credential.credential_ref == "secret-ref-1"

@@ -35,7 +35,7 @@ flowchart LR
     EB --> PP[ProjectPlatform]
     PP --> REG[PlatformAdapterRegistry]
     EB --> CR[CredentialResolver]
-    CR --> SP[Secret Provider]
+    CR --> SP[(DB 密钥列)]
     REG --> SM[PlatformSessionManager]
     SM --> RD[(Redis)]
     SM --> AD[PlatformAdapter]
@@ -47,7 +47,7 @@ flowchart LR
 
 - `ProjectPlatform` 是数据；
 - `PlatformAdapter` 是受控代码；
-- `CredentialRef` 只指向 Secret Provider；
+- `CredentialRef` 以主键指向凭据表（credential_json 明文）；
 - `PlatformSessionManager` 让任意 Runtime/Worker Pod 都能共享 Session；
 - Redis 中的 Session 可失效重建，不是业务权威状态。
 
@@ -198,12 +198,12 @@ Console 根据 Schema 动态生成“平台配置”表单。
 }
 ```
 
-Console 根据 Schema 生成用户/共享凭据表单；提交后直接进入 Secret Provider。
+Console 根据 Schema 生成用户/共享凭据表单；提交后明文写入对应凭据表。
 
 数据库只保存：
 
 ```text
-secret_ref
+credential_json
 credential_schema_version
 ```
 
@@ -218,7 +218,7 @@ credential_schema_version
 后端：
 
 - 使用同一 JSON Schema 再校验；
-- 写 Secret Provider；
+- 写凭据表（credential_json）；
 - 保存 SecretRef；
 - 记录配置审计。
 
@@ -329,14 +329,14 @@ expires_at
 ```text
 raw password
 raw AK/SK
-Secret Provider 原始对象
+凭据表原始对象
 ```
 
 Adapter 如确实必须在 `authenticate`（refresh 属于其内部实现）中再次使用长期凭据，SessionManager 再次通过 SecretRef 读取，不把长期 Secret 放进 Session Cache。
 
 ### 7.3 Credential Version
 
-Secret Provider Adapter 应返回：
+凭据解析应返回：
 
 ```text
 SecretValue
@@ -369,7 +369,7 @@ sequenceDiagram
     participant P as ProjectPlatformResolver
     participant R as AdapterRegistry
     participant CR as CredentialResolver
-    participant SP as SecretProvider
+    participant SP as DB凭据列
     participant SM as SessionManager
     participant RD as Redis
     participant A as PlatformAdapter
@@ -380,7 +380,7 @@ sequenceDiagram
     C->>R: get(adapter_key)
     R-->>C: Adapter
     C->>CR: resolve(actor, platform)
-    CR->>SP: get(secret_ref)
+    CR->>SP: get(credential_json)
     SP-->>CR: SecretValue + credential_version
     CR-->>C: credential_ref + SecretValue + credential_version
     alt session_mode != NONE

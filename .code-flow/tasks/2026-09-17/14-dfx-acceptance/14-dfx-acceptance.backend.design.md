@@ -278,12 +278,12 @@ flowchart LR
 |---|---|---|---|
 | Egress 拒绝 | 未命中租户/部署 allowlist 的 `ctx.http` 不发出调用，按 `target_type=HTTP` 写 DENY 审计 | docs/09 §12 L366-386 | E-07 |
 | 响应大小上限 | `ctx.http` 响应 > 5 MiB 拒绝并审计 | docs/09 §12 L385 | E-07 |
-| Secret 全链路不外泄 | Secret Value 不出现在 DB、RuntimeSnapshot、日志、Audit、Prompt、IM 消息；只保存 `secret_ref` | docs/09 §3 L65-99；RULE-secret-001 | E-07 |
+| Secret 全链路不外泄 | 密钥明文只存于各 Owner 表；不出现在 RuntimeSnapshot、日志、Audit、Prompt、IM 消息与 API 响应 | docs/09 §3；RULE-secret-001 | E-07 |
 | 日志脱敏 | Authorization/Cookie/Set-Cookie/api_key/access_token/secret/password 脱敏输出 | docs/09 §3 L89-99 | E-07 |
 | CSRF / RBAC | 非安全方法缺 CSRF → 403；Builder 越权管理端点 → 403；用户/凭据仅 ADMIN | 模块 13 E-04/E-05；RULE-auth-001 | E-08 |
 | 租户隔离 | 所有查询/写入带 tenant 谓词；跨租户不可见/不可写 | `tests/agent_worker/test_tenant_guard.py` | E-08 |
 | 授权可见性 | `ALL/SELECTED` 判定带 `is_deleted=false` 与 `enabled`；未授权资源不进入 Prompt/ToolRegistry/Catalog；撤销仅影响后续 Run | docs/09 §8.2 L268-279；RULE-auth-001 | S-10 |
-| 凭据与会话 | 平台 Session 可重建；Secret 只经 Secret Provider 解析；Console 不回显凭据明文 | docs/09 §12；模块 04/12 | E-07 |
+| 凭据与会话 | 平台 Session 可重建；凭据明文存 `credential_json` 由 Runtime 直接读取；Console 不回显明文 | docs/09 §12；模块 04/12 | E-07 |
 
 #### 3.4.6 模型恢复矩阵
 

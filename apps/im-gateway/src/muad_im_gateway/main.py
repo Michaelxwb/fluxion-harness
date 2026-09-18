@@ -8,7 +8,6 @@ from fastapi import FastAPI
 from muad_api import install_api_foundation
 from muad_common import SharedSettings
 from muad_logging import configure_logging
-from muad_platform_sdk import EnvSecretProvider
 
 from .api.delivery import router as delivery_router
 from .api.health import router as health_router
@@ -29,7 +28,7 @@ configure_logging(SERVICE_NAME)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = SharedSettings()
     registry = ChannelRegistry()
-    wecom = WeComAdapter(secret_provider=EnvSecretProvider())
+    wecom = WeComAdapter()
     registry.register(wecom)
     dedupe = await build_dedupe_store(settings.redis_url)
     console = ConsoleClient(settings.console_platform_url)

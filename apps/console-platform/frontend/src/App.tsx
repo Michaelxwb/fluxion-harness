@@ -5,6 +5,7 @@ import { useThemeMode } from './theme';
 
 import { RequireAuth, RequireRole } from './auth/AuthContext';
 import { AppLayout } from './layout/AppLayout';
+import { ModelPage } from './modules/model-management/ModelPage';
 import { UserPage } from './modules/user-identity/UserPage';
 import { AgentsPage } from './pages/AgentsPage';
 import { LoginPage } from './pages/LoginPage';
@@ -36,7 +37,7 @@ export default function App() {
         <Route path="agents" element={<AgentsPage />} />
         <Route path="skills" element={<PlaceholderPage titleKey="nav.skill" />} />
         <Route path="mcp" element={<PlaceholderPage titleKey="nav.mcp" />} />
-        <Route path="models" element={<PlaceholderPage titleKey="nav.model" />} />
+        <Route path="models" element={<ModelPage />} />
         <Route
           path="users"
           element={

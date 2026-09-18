@@ -32,7 +32,8 @@ verifiers:
 
 - 浏览器用例放 `e2e/tests/*.spec.ts`（Playwright + 系统 Chrome channel），前端先 `npm --prefix apps/console-platform/frontend run build` 产出真实构建物。
 - 后端用 `tests/e2e/app.py`：真实 uvicorn + api-kit 封套/会话原语 + 真实静态产物；E2E 中不得 mock 业务 API。
-- 场景命令统一为 `npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --grep "<场景ID>"`。
+- 场景命令统一为 `npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --grep "<场景ID>"`；按域配置时用 `npm --prefix e2e test -- --config playwright.<domain>.config.ts --grep "<场景ID>"`。
+- 外部依赖（模型/LLM 端点、第三方 API）用真实本地探针服务承载：`tests/e2e/openai_probe_app.py`（真实 HTTP 健康响应）与 Console/Vite 并列写入 `webServer` 数组；禁止在 E2E 中伪造外部响应。
 
 ✅ 真实边界（浏览器链路端到端）：
 

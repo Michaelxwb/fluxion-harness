@@ -1,3 +1,6 @@
+
+> **V1.5 政策变更（2026-09-18）**：SecretRef/SecretProvider 机制已移除，密钥明文存于各 Owner 表并以主键引用（模型 `api_key`、Bot `secret`、MCP/平台 `auth_secret`、用户/共享 `credential_json`）；本文其余 SecretRef 描述为历史基线。
+
 > **V1.4 详细设计覆盖说明**：本文件是此前总体/Playbook 基线快照。V1.3 已将项目平台认证修正为 PlatformAdapter + 外置 Session 模型，并允许一个 Agent 配置多个 IM 通道账号；V1.4 已将 Agent Worker 纳入 Phase 1、简化 Skill 包格式并固定 Console 菜单。若本基线与 V1.4 详细设计冲突，以 V1.4 00~17 为准；后续总设/Playbook 应同步刷新。
 
 > **用户范围补充口径**：Skill/MCP 不再使用 PUBLIC/PRIVATE 作为核心用户可见性语义；统一使用 `user_scope=ALL/SELECTED`。ALL 表示全部 Agent 授权用户，SELECTED 表示指定用户；两者都不能绕过 AgentAccessGrant 与 Agent Binding。
@@ -454,7 +457,7 @@ Agent
 └── IM 接入
     └── IM 通道账号（0..N）
         ├── bot_id
-        └── secret_ref
+        └── credential_json
 ```
 
 V1 约束：
@@ -465,7 +468,7 @@ V1 约束：
 一个 IM Gateway → 多个 Bot WebSocket
 ```
 
-`secret` 存 Secret Provider/安全存储，页面仅展示掩码。
+`secret` 明文存 DB 对应表，页面仅展示掩码。
 
 ## 4.4 A04：身份、路由、授权三分离
 
@@ -531,7 +534,7 @@ Console 支持：
 - Provider；
 - Model；
 - base_url；
-- secret_ref；
+- credential_json；
 - 默认参数；
 - enable/disable；
 - Agent 绑定。
@@ -932,7 +935,7 @@ MCP
 - Provider；
 - Model；
 - base URL；
-- secret_ref；
+- credential_json；
 - 参数；
 - enable/disable。
 

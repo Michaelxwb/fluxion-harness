@@ -29,7 +29,7 @@ class ResolvedModel(ContractModel):
     protocol: Literal["OPENAI"] = "OPENAI"
     model_id: str
     base_url: str
-    secret_ref: str | None = None
+    api_key: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
 
 

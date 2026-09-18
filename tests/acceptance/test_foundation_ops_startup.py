@@ -7,12 +7,12 @@ from types import SimpleNamespace
 import pytest
 from muad_api import StartupValidationError, validate_startup
 from muad_common import SharedSettings
-from muad_platform_sdk import EnvSecretProvider
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = ROOT / "migrations/versions"
+HEAD_REVISION = "0005"
 
 
 @pytest.fixture()
@@ -41,7 +41,6 @@ async def test_e04_happy_path_passes(engine: AsyncEngine, tmp_path: Path) -> Non
         settings,
         engine,
         SimpleNamespace(root=tmp_path),
-        EnvSecretProvider({}),
         migrations_dir=MIGRATIONS_DIR,
     )
 
@@ -53,7 +52,6 @@ async def test_e04_missing_config_or_storage_aborts(engine: AsyncEngine, tmp_pat
             settings,
             engine,
             SimpleNamespace(root=tmp_path),
-            EnvSecretProvider({}),
             migrations_dir=MIGRATIONS_DIR,
         )
 
@@ -62,7 +60,6 @@ async def test_e04_missing_config_or_storage_aborts(engine: AsyncEngine, tmp_pat
             SharedSettings(),
             engine,
             SimpleNamespace(root=tmp_path / "missing"),
-            EnvSecretProvider({}),
             migrations_dir=MIGRATIONS_DIR,
         )
 
@@ -76,23 +73,8 @@ async def test_e04_schema_not_at_head_aborts(engine: AsyncEngine, tmp_path: Path
                 SharedSettings(),
                 engine,
                 SimpleNamespace(root=tmp_path),
-                EnvSecretProvider({}),
                 migrations_dir=MIGRATIONS_DIR,
             )
     finally:
-        await _set_revision(engine, "0003")
+        await _set_revision(engine, HEAD_REVISION)
 
-
-async def test_e04_unreachable_secret_provider_aborts(engine: AsyncEngine, tmp_path: Path) -> None:
-    class BrokenProvider:
-        async def get(self, secret_ref: str) -> None:
-            raise ConnectionError("vault unreachable")
-
-    with pytest.raises(StartupValidationError, match="secret provider is unreachable"):
-        await validate_startup(
-            SharedSettings(),
-            engine,
-            SimpleNamespace(root=tmp_path),
-            BrokenProvider(),
-            migrations_dir=MIGRATIONS_DIR,
-        )

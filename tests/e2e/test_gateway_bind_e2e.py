@@ -123,8 +123,8 @@ async def test_s02_gateway_bind_creates_identity_without_grant(
         await connection.execute(
             text(
                 "INSERT INTO control.bot_account "
-                "(id, tenant_id, channel, name, bot_id, secret_ref, agent_id) "
-                "VALUES (:id, :tenant_id, 'WECOM', 'Bind E2E Bot', :bot_id, 'secret://e2e/bot', :agent_id)"
+                "(id, tenant_id, channel, name, bot_id, secret, agent_id) "
+                "VALUES (:id, :tenant_id, 'WECOM', 'Bind E2E Bot', :bot_id, 'e2e-bot-secret', :agent_id)"
             ),
             {
                 "id": bot_account_id,

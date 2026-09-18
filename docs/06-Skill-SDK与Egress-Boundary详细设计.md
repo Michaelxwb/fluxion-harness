@@ -337,7 +337,7 @@ flowchart LR
     EB --> PR[ProjectPlatform Resolver]
     PR --> AR[PlatformAdapterRegistry]
     EB --> CR[CredentialResolver]
-    CR --> SP[Secret Provider]
+    CR --> SP[(DB 凭据列)]
     AR --> SM[PlatformSessionManager]
     SM --> RS[(Redis Session Cache)]
     SM --> AD[PlatformAdapter]
@@ -447,7 +447,7 @@ NONE
   -> credential = None
 ```
 
-随后通过 Secret Provider 获取 Adapter `credential_schema` 所定义的真实凭据。
+随后从凭据表读取 `credential_json`（`credential_schema` 定义的明文凭据）。
 
 `credential` / `session` 是否可选由 `session_mode` 决定：
 

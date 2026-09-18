@@ -77,7 +77,7 @@
 | ID | 业务实体统一 UUID；跨 Owner Schema 仅逻辑引用 UUID |
 | 时间 | PostgreSQL 使用 `timestamptz`；Console 展示 `YYYY-MM-DD HH:mm:ss` |
 | 删除 | 产品表统一 `is_deleted` 软删除；状态枚举不重复表达 DELETED |
-| Secret | 只保存 SecretRef；Secret Value 不进入 DB / Snapshot / 日志 / LLM；bot secret 由 Gateway 经 Secret Provider 解析 |
+| Secret | bot secret 明文存于 `bot_account.secret`（主键引用）；不得进入 Snapshot / 日志 / LLM / API 响应 |
 | 枚举 | API 与 DB 统一使用稳定英文枚举值，中文/英文只在 UI/i18n 层映射 |
 | 错误 | 业务代码只抛稳定 `code`；`msg/http_status` 由公共配置映射；只使用 `config/api-messages.yaml` 已登记错误码 |
 | 去重键 | `im:dedupe:{channel}:{message_id}` TTL 600；`delivery:dedupe:{delivery_key}` TTL 7d |
@@ -98,7 +98,7 @@
 |---|---|---|---|
 | RULE-01 | 系统约束 | 固定 4 个部署单元；Runtime/Worker 无状态横向扩展。 | S-01 + verifier |
 | RULE-02 | 系统约束 | JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status 配置映射。 | S-02 / E-02 |
-| RULE-03 | 系统约束 | Secret Value 不进 DB/Snapshot/日志/LLM，只保存 SecretRef；bot secret 由 Secret Provider 解析，Console 只回 `secret_ref`。 | S-01 / E-07 |
+| RULE-03 | 系统约束 | bot secret 明文存于 `bot_account.secret`；Console 快照返回该字段；不得进入 Snapshot/日志/LLM/API 响应。 | S-01 / E-07 |
 | RULE-04 | 系统约束 | Agent 0..N bot_id；bot_id 只指向一个 Agent；不绑定 Runtime Pod。 | S-01 / E-01 |
 | RULE-05 | 系统约束 | 授权为三层关系（User→Agent、Agent→Skill/MCP、SELECTED 资源再叠加用户 Grant）；Effective Capability 公式含 `is_deleted=false` 与 enabled 谓词，绑定无启停开关、授权无到期时间（见 docs/02 §5.10）。 | S-03 / E-04 |
 | RULE-06 | 系统约束 | 新 Run/Task 冻结 Snapshot；配置/授权变更只影响后续新 Run/Task；Run 终态必须 CAS。 | S-03 / E-03 |
@@ -130,7 +130,7 @@
 | E-04 | FEAT-03 | integration | Runtime→Gateway | 本模块 | 会话已有 `CREATED/RUNNING` Run（`RUN_BUSY`） | 不创建新 Run，回复“当前会话已有任务执行中，可发送 /stop 停止” |
 | E-05 | FEAT-02 | integration | Runtime→Gateway | 本模块 | `/stop` 时无活跃 Run（`NO_ACTIVE_RUN`） | 回复“当前没有执行中的任务” |
 | E-06 | FEAT-01/04 | integration | Gateway→Redis | 本模块 | Redis 不可用 | 去重降级：入站/投递按 at-least-once 继续处理，业务事实不丢 |
-| E-07 | FEAT-01 | integration | Secret Provider | 本模块 | bot secret 解析失败 | 该 bot 标记为不可用并退避重试，不影响其他 bot；`/readyz` 降级 |
+| E-07 | FEAT-01 | integration | DB bot secret | 本模块 | bot secret 缺失或不可用 | 该 bot 标记为不可用并退避重试，不影响其他 bot；`/readyz` 降级 |
 
 无可靠实测数据的性能阈值统一标记“待定”，不复制模板示例值。
 
@@ -146,9 +146,9 @@
 | 入站去重 | Redis SET NX TTL 600 | 本地内存去重 | 多副本一致；Redis 不可用可降级 at-least-once |
 | 主动投递 | `delivery_key` 幂等去重 | 依赖推送次数 | 重复投递返回 200，at-least-once 下语义安全 |
 | 未绑定 | `bound=false` 正常分支 | 把未绑定当错误码 | 未绑定是可恢复状态而非错误 |
-| Secret | Gateway 经 Secret Provider 解析 `secret_ref` | Console 下发明文 | Secret Value 不穿越控制面/日志 |
+| Secret | Gateway 从 Bot 快照读取明文 Secret（DB 存储） | 明文进入日志/审计/响应 | 仅内存驻留与日志脱敏 |
 
-基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS/Secret Provider；统一 `muad-api` 与 `muad-logging`。
+基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS；统一 `muad-api` 与 `muad-logging`。
 
 ### 3.2 架构与流程
 
@@ -196,7 +196,7 @@ stateDiagram-v2
 #### 3.2.2 Bot 快照轮询与 Secret 解析
 
 - 启动时全量拉取 `GET /internal/channel/bots`，之后每 30s 轮询；`revision` 变化才热更新连接（新增/停用/切换 Agent）。
-- Console 响应只包含 `secret_ref`；Gateway 通过 Secret Provider 解析后仅保留在内存，不写日志/Snapshot/DB；解析失败按 bot 维度退避重试并标记不可用（E-07）。
+- Console 快照包含 Bot `secret`（明文）；Gateway 仅保留在内存，不写日志/Snapshot；字段缺失按 bot 维度退避重试并标记不可用（E-07）。
 - 已有可用 bot snapshot 时，短暂 Console 不可达不影响已连接 bot（见 `/readyz` 判定）。
 
 #### 3.2.3 入站去重
@@ -212,7 +212,7 @@ SET im:dedupe:{channel}:{message_id} 1 NX EX 600
 ### 3.3 数据设计
 
 本模块不新增 Owner 表。读取/调用：
-- `control.bot_account`：bot_id → agent_id 与 `secret_ref`（secret_ref 经 Secret Provider 解析）；
+- `control.bot_account`：bot_id → agent_id 与 `secret`（明文，主键引用）；
 - `control.channel_identity` / `control.bind_code`：外部身份和绑定；
 - `task.delivery_route`：后台任务主动投递目标（`route_hash` 唯一，`WHERE is_deleted=false`）；
 - `task.task_execution.delivery_key`：投递幂等键来源（`task:{task_id}:final`）。
@@ -271,7 +271,7 @@ GET /internal/channel/bots
 
 - 调用方：IM Gateway（启动全量 + 每 30s 轮询）。对应 docs/07 §8.1。
 - 请求：无 body；透传 `X-Tenant-Id` / `X-Trace-Id` / `X-Request-Id`。
-- `data`：`{revision, items:[{bot_account_id, bot_id, secret_ref, agent_id, enabled}]}`；只返回 `secret_ref`，不返回 Secret Value。
+- `data`：`{revision, items:[{bot_account_id, bot_id, secret, agent_id, enabled}]}`；网关仅内存使用，不回显。
 - 分页说明：该接口是内部启用 bot 快照（非用户列表），契约按 docs/07 §8.1 不分页；Gateway 以 `revision` 判断是否热更新。
 - 错误码：`COMMON_INTERNAL_ERROR`
 - 处理：Console 读启用 bot 快照；Gateway 缓存并在 `revision` 变化时热更新连接；不写任何表；轮询失败保留上次快照。
@@ -432,23 +432,23 @@ SSE 封套 `{run_id, seq, timestamp, type, data}`，按 `seq` 单调有序；`: 
 | Runtime SSE | `run.failed(RUN_ABANDONED)` | 服务暂时中断，请重发消息 |
 | 其他 | `COMMON_INTERNAL_ERROR` | 服务暂时不可用，请稍后重试 |
 
-全表只使用 `config/api-messages.yaml` 已登记错误码；`RUN_ABANDONED`/`TASK_DEADLINE_EXCEEDED` 仅作为 Run/Task 终态 `error_code` 记录，不作为 HTTP 错误码（docs/17 §5）。不向用户暴露内部堆栈、URL、SecretRef。
+全表只使用 `config/api-messages.yaml` 已登记错误码；`RUN_ABANDONED`/`TASK_DEADLINE_EXCEEDED` 仅作为 Run/Task 终态 `error_code` 记录，不作为 HTTP 错误码（docs/17 §5）。不向用户暴露内部堆栈、URL、Secret。
 
 ### 3.5 质量实现方案
 
 - 性能：`message.delta` 按 SDK 最小发送间隔节流合并；bot 快照 30s 轮询；列表/详情禁止 N+1；初始目标参考 docs/09 §7（Gateway→Runtime 连接建立 < 500ms），最终阈值待压测校准。
 - 可靠性：WS 状态机 + 指数退避重连（§3.2.1）；Redis 不可用时入站去重与投递去重降级 at-least-once（§3.2.3/API-05）；Run 断开由 Runtime lease/Reaper 回收（E-03）；单 bot 故障隔离。
-- 安全：bot secret 仅经 Secret Provider 解析并驻留内存（§3.2.2）；Secret/Token/Cookie 不进业务 DB、日志、Snapshot、LLM；日志脱敏规则见 docs/09 §3；IM 文案不回显内部信息。
+- 安全：bot secret 从 DB 读取后仅驻留内存（§3.2.2）；不得进入日志、审计、Snapshot、LLM 与 API 响应；日志脱敏规则见 docs/09 §3；IM 文案不回显内部信息。
 - 可观测：统一 JSON 日志，自动带 service/trace_id/request_id/tenant_id；状态迁移与投递可关联 trace_id；指标与健康检查见 §4。
 
 ## 4. 部署与运维
 
-本模块随 `muad-im-gateway` 对应镜像/共享 package 发布；PostgreSQL、Redis、NFS、Secret Provider 外置。监控阈值待真实基线确定。
+本模块随 `muad-im-gateway` 对应镜像/共享 package 发布；PostgreSQL、Redis、NFS 外置。监控阈值待真实基线确定。
 
 ### 4.1 健康检查与启动校验
 
 - `/healthz`：进程存活（不检查外部依赖）。
-- `/readyz`：Console Internal API 可达或已有可用 bot snapshot；Secret Provider 可达或已有缓存 bot secret；必要 Bot connection manager 已初始化；事件循环正常（docs/05 §12）。
+- `/readyz`：Console Internal API 可达或已有可用 bot snapshot；bot secret 已随快照加载或已有缓存；必要 Bot connection manager 已初始化；事件循环正常（docs/05 §12）。
 - 启动初始化校验：配置加载、迁移版本、存储可用性；任一项失败 fail fast，不进入 ready 状态（docs/17 §3.5）。
 
 ### 4.2 指标目录
@@ -490,7 +490,7 @@ SSE 封套 `{run_id, seq, timestamp, type, data}`，按 `seq` 单调有序；`: 
 |---|---|---|---|---|---|
 | `harness-platform#RULE-arch-001` | required | 固定 4 个部署单元；Runtime/Worker 无状态横向扩展。 | §3.2/§3.3/§4.1 | S-01 + verifier | applied |
 | `harness-platform#RULE-api-001` | required | JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status 配置映射。 | §3.4（API-01~API-06）/§3.4.2 | S-02, E-02 + verifier | applied |
-| `harness-platform#RULE-secret-001` | required | Secret Value 不进 DB/Snapshot/日志/LLM，只保存 SecretRef；bot secret 经 Secret Provider 解析。 | §3.2.2/§3.5/§4.2 | S-04, E-07 + verifier | applied |
+| `harness-secret#RULE-secret-001` | required | bot secret 明文存于 `bot_account`（主键引用）；不进日志/审计/响应。 | §3.2.2/§3.5/§4.2 | S-04, E-07 + verifier | applied |
 | `harness-platform#RULE-im-001` | required | Agent 0..N bot_id；bot_id 只指向一个 Agent；不绑定 Runtime Pod。 | §2.5.1（RULE-04）/§3.2/§3.3 | S-01 + verifier | applied |
 | `harness-platform#RULE-auth-001` | required | 三层授权 + Effective Capability（含 is_deleted/enabled），无绑定开关/授权到期。 | §3.4 API-02/API-04 | S-03, E-04 + verifier | applied |
 | `harness-platform#RULE-snapshot-001` | required | 新 Run/Task 冻结 Snapshot；Run 并发/取消语义与终态 CAS。 | §3.4 API-06/§3.4.1 | S-03, E-03 + verifier | applied |
