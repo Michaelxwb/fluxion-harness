@@ -81,25 +81,39 @@ body {
 .app-nav {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 4px 10px;
+  padding: 8px 12px;
   overflow: auto;
 }
 
 .app-nav .semi-navigation-item {
   height: 40px;
-  margin: 0 0 4px;
+  margin: 0 0 6px;
+  padding: 0 12px;
   border-radius: var(--app-radius-sm);
   color: var(--semi-color-text-1);
   font-size: 14px;
-  font-weight: 500;
-}
-
-.app-nav .semi-navigation-item-selected {
   font-weight: 600;
 }
 
+.app-nav .semi-navigation-item:last-child {
+  margin-bottom: 0;
+}
+
+.app-nav .semi-navigation-item:hover {
+  background: var(--semi-color-fill-0);
+}
+
+.app-nav .semi-navigation-item-selected,
+.app-nav .semi-navigation-item-selected:hover {
+  color: var(--semi-color-primary);
+  background: var(--semi-color-primary-light-default);
+}
+
 .app-nav .semi-navigation-item-icon {
-  margin-right: 10px;
+  display: inline-flex;
+  justify-content: center;
+  width: 20px;
+  margin-right: 12px;
 }
 
 .app-user {

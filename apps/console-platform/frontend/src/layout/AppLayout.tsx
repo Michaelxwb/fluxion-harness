@@ -23,16 +23,16 @@ import { useThemeMode } from '../theme';
 const { Sider, Header, Content } = Layout;
 
 const MENU_ICONS: Record<string, JSX.Element> = {
-  '/': <IconHistogram />,
-  '/agents': <IconBriefcase />,
-  '/skills': <IconPuzzle />,
-  '/mcp': <IconServer />,
-  '/models': <IconLayers />,
-  '/users': <IconUserGroup />,
-  '/platforms': <IconBranch />,
-  '/tasks': <IconClock />,
-  '/schedules': <IconCalendar />,
-  '/audits': <IconSearch />
+  '/': <IconHistogram size="large" />,
+  '/agents': <IconBriefcase size="large" />,
+  '/skills': <IconPuzzle size="large" />,
+  '/mcp': <IconServer size="large" />,
+  '/models': <IconLayers size="large" />,
+  '/users': <IconUserGroup size="large" />,
+  '/platforms': <IconBranch size="large" />,
+  '/tasks': <IconClock size="large" />,
+  '/schedules': <IconCalendar size="large" />,
+  '/audits': <IconSearch size="large" />
 };
 
 export function AppLayout() {
