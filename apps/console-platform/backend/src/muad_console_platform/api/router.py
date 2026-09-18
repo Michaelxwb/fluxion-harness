@@ -10,6 +10,7 @@ from .internal_channel import router as internal_channel_router
 from .internal_runtime import router as internal_runtime_router
 from .security import require_csrf
 from .skills import router as skills_router
+from .users import router as users_router
 
 router = APIRouter()
 router.include_router(health_router)
@@ -23,6 +24,7 @@ router.include_router(authenticated)
 
 admin = APIRouter(dependencies=[Depends(require_admin), Depends(require_csrf)])
 admin.include_router(accounts_router)
+admin.include_router(users_router)
 router.include_router(admin)
 
 router.include_router(internal_runtime_router)

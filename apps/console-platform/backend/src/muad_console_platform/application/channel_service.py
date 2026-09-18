@@ -1,7 +1,10 @@
 import hashlib
 import json
+import secrets
+import string
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
@@ -20,6 +23,7 @@ from ..infrastructure.models.channel import (
     BIND_CODE_STATUS_EXPIRED,
     BIND_CODE_STATUS_REVOKED,
     BIND_CODE_STATUS_USED,
+    BindCode,
     ChannelIdentity,
 )
 from ..infrastructure.repositories.agent_access_grant_repository import AgentAccessGrantRepository
@@ -27,9 +31,19 @@ from ..infrastructure.repositories.bind_code_repository import BindCodeRepositor
 from ..infrastructure.repositories.bot_account_repository import BotAccountRepository
 from ..infrastructure.repositories.channel_identity_repository import ChannelIdentityRepository
 from ..infrastructure.repositories.platform_user_repository import PlatformUserRepository
+from .audit_service import AuditActor, AuditService
 
 HASH_PREFIX = "sha256:"
 PLATFORM_USER_STATUS_ACTIVE = "ACTIVE"
+BIND_CODE_TTL = timedelta(minutes=10)
+BIND_CODE_ALPHABET = string.ascii_uppercase + string.digits
+BIND_CODE_LENGTH = 12
+AUDIT_RESOURCE_TYPE_BIND_CODE = "BIND_CODE"
+AUDIT_RESOURCE_TYPE_IDENTITY = "CHANNEL_IDENTITY"
+
+
+def generate_bind_code() -> str:
+    return "".join(secrets.choice(BIND_CODE_ALPHABET) for _ in range(BIND_CODE_LENGTH))
 
 
 def hash_bind_code(code: str) -> str:
@@ -48,6 +62,7 @@ class ChannelService:
         self._bind_codes = BindCodeRepository(session)
         self._users = PlatformUserRepository(session)
         self._grants = AgentAccessGrantRepository(session)
+        self._audit = AuditService(session)
 
     async def resolve(
         self,
@@ -136,6 +151,78 @@ class ChannelService:
             consumed_at=now,
         )
         return ChannelBindResponse(platform_user_id=identity.platform_user_id, bound=True)
+
+    async def create_bind_code(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        actor: AuditActor,
+    ) -> tuple[str, datetime]:
+        user = await self._users.get(tenant_id, user_id)
+        if user is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        now = datetime.now(UTC)
+        await self._bind_codes.revoke_active(tenant_id, user_id, now)
+        code = generate_bind_code()
+        bind_code = await self._bind_codes.add(
+            BindCode(
+                tenant_id=tenant_id,
+                platform_user_id=user_id,
+                code_hash=hash_bind_code(code),
+                status=BIND_CODE_STATUS_ACTIVE,
+                expires_at=now + BIND_CODE_TTL,
+                created_by=actor.account_id,
+            )
+        )
+        await self._audit.record_config_change(
+            tenant_id=tenant_id,
+            actor=actor,
+            resource_type=AUDIT_RESOURCE_TYPE_BIND_CODE,
+            resource_id=bind_code.id,
+            action="CREATE",
+            before=None,
+            after={"user_id": str(user_id), "expires_at": bind_code.expires_at.isoformat()},
+        )
+        return code, bind_code.expires_at
+
+    async def list_identities(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        page: int,
+        page_size: int,
+        channel: str | None,
+    ) -> tuple[list[dict[str, Any]], int]:
+        await self._require_user(tenant_id, user_id)
+        return await self._identities.list_for_user(tenant_id, user_id, page, page_size, channel)
+
+    async def unbind_identity(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        identity_id: uuid.UUID,
+        actor: AuditActor,
+    ) -> datetime:
+        await self._require_user(tenant_id, user_id)
+        identity = await self._identities.get_for_user(tenant_id, user_id, identity_id)
+        if identity is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        before = {"channel": identity.channel, "external_user_id": identity.external_user_id}
+        await self._identities.soft_delete(identity)
+        await self._audit.record_config_change(
+            tenant_id=tenant_id,
+            actor=actor,
+            resource_type=AUDIT_RESOURCE_TYPE_IDENTITY,
+            resource_id=identity.id,
+            action="DELETE",
+            before=before,
+            after=None,
+        )
+        return identity.update_time
+
+    async def _require_user(self, tenant_id: str, user_id: uuid.UUID) -> None:
+        if await self._users.get(tenant_id, user_id) is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
 
     async def bots(self, tenant_id: str) -> BotSnapshotResponse:
         accounts = await self._bots.list_enabled(tenant_id)

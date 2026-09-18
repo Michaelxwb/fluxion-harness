@@ -1,0 +1,649 @@
+{
+  "schema": 2,
+  "task_file": "02-user-identity.md",
+  "task_sha256": "d36f1c022de4ffc0bdccf4be3f5531345ec89e0894935ad075f182a79303c737",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "02-user-identity.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→users API→DB→Table",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"S-01\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-02",
+      "source": "02-user-identity.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Gateway→bind API→DB",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/e2e/test_gateway_bind_e2e.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-03",
+      "source": "02-user-identity.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→02/04/07/08 数据源",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"S-03\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-04",
+      "source": "02-user-identity.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "用户侧授权→07 同一 service",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_user_side_relations.py",
+        "-k",
+        "s04"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-05",
+      "source": "02-user-identity.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "用户侧 Memory→08 同一 service",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_user_side_relations.py",
+        "-k",
+        "s05"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-06",
+      "source": "02-user-identity.frontend.design.md#2.4 验收条件（原 S-FE-01）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→users API→DB→Table",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"S-06\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-07",
+      "source": "02-user-identity.frontend.design.md#2.4 验收条件（原 S-FE-02）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→bind-code API",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"S-07\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-07",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-08",
+      "source": "02-user-identity.frontend.design.md#2.4 验收条件（原 S-FE-03）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→02 聚合详情→04/07/08",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"S-08\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-08",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-01",
+      "source": "02-user-identity.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "bind service→DB transaction",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_channel/test_channel_bind_api.py",
+        "-k",
+        "invalid"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-02",
+      "source": "02-user-identity.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "bind service→DB transaction",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_channel/test_channel_bind_api.py",
+        "-k",
+        "expired"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-03",
+      "source": "02-user-identity.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→partial unique",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_users_api.py",
+        "-k",
+        "e03"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-04",
+      "source": "02-user-identity.backend.design.md#2.5.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "request schema",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_users_api.py",
+        "-k",
+        "e04"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-05",
+      "source": "02-user-identity.frontend.design.md#2.4 验收条件（原 E-FE-01）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→Toast",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_user_identity_contract.py",
+        "-k",
+        "e05"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-06",
+      "source": "02-user-identity.frontend.design.md#2.4 验收条件（原 E-FE-02）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→后置模块 API",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"E-06\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-06",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-07",
+      "source": "02-user-identity.frontend.design.md#2.4 验收条件（原 E-FE-03）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→bind 消费",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_user_identity_contract.py",
+        "-k",
+        "e07"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-08",
+      "source": "02-user-identity.frontend.design.md#2.4 验收条件（原 E-FE-04）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→COMMON_CONFLICT",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"E-08\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
+          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        }
+      ]
+    }
+  ]
+}

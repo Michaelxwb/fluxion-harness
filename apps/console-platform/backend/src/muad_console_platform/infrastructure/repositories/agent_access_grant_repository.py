@@ -1,6 +1,7 @@
 import uuid
+from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.control import AgentAccessGrant, AgentDefinition
@@ -29,3 +30,69 @@ class AgentAccessGrantRepository:
             .limit(1)
         )
         return grant_id is not None
+
+    async def find_active(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+    ) -> AgentAccessGrant | None:
+        grant: AgentAccessGrant | None = await self._session.scalar(
+            select(AgentAccessGrant).where(
+                AgentAccessGrant.user_id == user_id,
+                AgentAccessGrant.agent_id == agent_id,
+                AgentAccessGrant.is_deleted.is_(False),
+            )
+        )
+        return grant
+
+    async def find_any(
+        self,
+        user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+    ) -> AgentAccessGrant | None:
+        grant: AgentAccessGrant | None = await self._session.scalar(
+            select(AgentAccessGrant).where(
+                AgentAccessGrant.user_id == user_id,
+                AgentAccessGrant.agent_id == agent_id,
+            )
+        )
+        return grant
+
+    async def list_by_user(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[dict[str, Any]], int]:
+        conditions = (
+            AgentAccessGrant.user_id == user_id,
+            AgentAccessGrant.is_deleted.is_(False),
+            AgentDefinition.is_deleted.is_(False),
+            AgentDefinition.tenant_id == tenant_id,
+        )
+        total = await self._session.scalar(
+            select(func.count())
+            .select_from(AgentAccessGrant)
+            .join(AgentDefinition, AgentDefinition.id == AgentAccessGrant.agent_id)
+            .where(*conditions)
+        )
+        rows = (
+            await self._session.execute(
+                select(
+                    AgentAccessGrant.agent_id,
+                    AgentDefinition.key.label("agent_key"),
+                    AgentDefinition.name.label("agent_name"),
+                    AgentDefinition.enabled,
+                    AgentAccessGrant.granted_at,
+                    AgentAccessGrant.granted_by,
+                )
+                .join(AgentDefinition, AgentDefinition.id == AgentAccessGrant.agent_id)
+                .where(*conditions)
+                .order_by(AgentAccessGrant.granted_at.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        ).mappings()
+        return [dict(row) for row in rows], int(total or 0)

@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react';
 
 type SemiTableProps = ComponentProps<typeof Table>;
 
-export interface RemoteTableProps<T extends Record<string, unknown>> {
+export interface RemoteTableProps<T extends object> {
   columns: SemiTableProps['columns'];
   dataSource: T[];
   rowKey: string;
@@ -14,7 +14,7 @@ export interface RemoteTableProps<T extends Record<string, unknown>> {
   onPageChange(page: number): void;
 }
 
-export function RemoteTable<T extends Record<string, unknown>>(props: RemoteTableProps<T>) {
+export function RemoteTable<T extends object>(props: RemoteTableProps<T>) {
   return (
     <Table
       columns={props.columns}

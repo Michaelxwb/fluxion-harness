@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom';
 
 import { RequireAuth, RequireRole } from './auth/AuthContext';
 import { AppLayout } from './layout/AppLayout';
+import { UserPage } from './modules/user-identity/UserPage';
 import { AgentsPage } from './pages/AgentsPage';
 import { LoginPage } from './pages/LoginPage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
@@ -26,7 +27,7 @@ export default function App() {
           path="users"
           element={
             <RequireRole role="ADMIN">
-              <PlaceholderPage titleKey="nav.user" />
+              <UserPage />
             </RequireRole>
           }
         />

@@ -9,10 +9,17 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-im-001
-  type: manual
+  type: command
   config:
-    checklist: 确认 Agent 0..N bot、bot_id 唯一归属、不绑定 Runtime Pod。
-    owner: project-owner
+    argv:
+    - uv
+    - run
+    - pytest
+    - -q
+    - tests/console_channel
+    - tests/gateway
+    cwd: .
+    timeout: 600
 ---
 
 # harness-im

@@ -9,10 +9,16 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-rel-001
-  type: manual
+  type: command
   config:
-    checklist: 确认关系修改用单关系 POST/DELETE 独立事务，禁止全量 PUT 覆盖。
-    owner: project-owner
+    argv:
+    - uv
+    - run
+    - pytest
+    - -q
+    - tests/console_platform/test_user_side_relations.py
+    cwd: .
+    timeout: 300
 ---
 
 # harness-rel

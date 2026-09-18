@@ -166,3 +166,88 @@ class AgentSkillBindingItem(BaseModel):
     execution_mode: str | None
     sort_order: int
     bound_at: datetime
+
+
+class UserCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_code: str = Field(min_length=1, max_length=128)
+    display_name: str = Field(min_length=1, max_length=128)
+    status: str = Field(default="ACTIVE", pattern="^(ACTIVE|DISABLED)$")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class UserUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str | None = Field(default=None, min_length=1, max_length=128)
+    status: str | None = Field(default=None, pattern="^(ACTIVE|DISABLED)$")
+    metadata: dict[str, Any] | None = None
+
+
+class UserListItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    user_code: str
+    display_name: str
+    status: str
+    agent_grant_count: int
+    credential_count: int
+    identity_count: int
+    memory_count: int
+    create_time: datetime
+    update_time: datetime
+
+
+class UserDetail(UserListItem):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: str
+    metadata: dict[str, Any]
+
+
+class AgentGrantItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    agent_id: uuid.UUID
+    agent_key: str
+    agent_name: str
+    enabled: bool
+    granted_at: datetime
+    granted_by: uuid.UUID
+
+
+class MemoryItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    memory_key: str
+    category: str
+    content: dict[str, Any]
+    source_type: str
+    source_ref: str | None
+    version: int
+    enabled: bool
+    create_time: datetime
+    update_time: datetime
+
+
+class BindCodeCreateResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    bind_code: str
+    expires_at: datetime
+    status: str
+
+
+class IdentityItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    channel: str
+    external_user_id: str
+    bot_id: str
+    bound_at: datetime
+    last_active_at: datetime | None
+    user_status: str

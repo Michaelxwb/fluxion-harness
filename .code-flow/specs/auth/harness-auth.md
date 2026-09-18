@@ -9,10 +9,15 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-auth-001
-  type: manual
+  type: command
   config:
-    checklist: 确认三层授权与 Effective Capability 公式（含 is_deleted/enabled 谓词），无三元授权与绑定开关。
-    owner: project-owner
+    argv:
+    - bash
+    - -lc
+    - uv run pytest -q tests/console_platform/test_user_side_relations.py
+      -k s04 && uv run pytest -q tests -k schema_parity
+    cwd: .
+    timeout: 600
 ---
 
 # harness-auth

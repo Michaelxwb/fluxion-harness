@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  testMatch: ['foundation.spec.ts'],
   timeout: 60_000,
   retries: 0,
   reporter: [['list']],
