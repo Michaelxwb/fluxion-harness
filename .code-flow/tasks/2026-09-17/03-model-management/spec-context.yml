@@ -1,7 +1,7 @@
 version: 1
 task: 模型管理
 enforcement: required
-updated_at: '2026-09-18T03:22:53.409413+00:00'
+updated_at: '2026-09-18T04:42:58.647203+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -167,8 +167,8 @@ bindings:
   path: ui/harness-ui.md
   status: active
   hashes:
-    file_sha256: fefc7cc448edea27c43cbc6f24126263cc8944279bfc905655c7b0591412b743
-    metadata_sha256: 1b910e49924f2e860bdfcda0b07df5092aa444254a4cf8dca2f053d681ed1752
+    file_sha256: ef4ef7fd1b30a8ebf6c52e64e4df178982641c2e4c2ad0c992d65539bd1be8e7
+    metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
     rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
   selected_by: agent
   reason: Agent Harness 通用平台规则：ui

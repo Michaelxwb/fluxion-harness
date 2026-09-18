@@ -31,16 +31,11 @@ export function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh'
-      }}
-    >
-      <Card style={{ width: 360 }}>
-        <Typography.Title heading={4}>{t('login.title')}</Typography.Title>
+    <div className="login-shell">
+      <Card className="login-card" bordered={false}>
+        <Typography.Title heading={4} className="login-title">
+          {t('login.title')}
+        </Typography.Title>
         <Form<LoginFormValues>
           onSubmit={(values) => {
             void handleSubmit(values);

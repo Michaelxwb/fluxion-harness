@@ -1,9 +1,10 @@
-import { Button, Card, Input, Select, Tag } from '@douyinfe/semi-ui';
+import { Button, Input, Select, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
+import { PageCard } from '../../components/common/PageCard';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { UserDetailTabs } from './UserDetailTabs';
 import { UserFormModal } from './UserFormModal';
@@ -55,7 +56,7 @@ export function UserPage() {
   };
 
   return (
-    <Card>
+    <PageCard>
       <ModuleToolbar
         actions={
           <Button
@@ -156,6 +157,6 @@ export function UserPage() {
           }}
         />
       ) : null}
-    </Card>
+    </PageCard>
   );
 }

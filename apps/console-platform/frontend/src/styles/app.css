@@ -1,0 +1,82 @@
+:root {
+  --semi-color-primary: #2563eb;
+  --semi-color-primary-hover: #3b82f6;
+  --semi-color-primary-active: #1d4ed8;
+  --semi-color-primary-light-default: rgba(37, 99, 235, 0.08);
+  --semi-color-primary-light-hover: rgba(37, 99, 235, 0.14);
+  --semi-color-primary-light-active: rgba(37, 99, 235, 0.2);
+  --app-radius: 10px;
+  --app-shell-max: 1280px;
+  --app-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px -12px rgba(15, 23, 42, 0.12);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--semi-color-fill-0);
+}
+
+.page-shell {
+  max-width: var(--app-shell-max);
+  margin: 0 auto;
+}
+
+.page-card {
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow-card);
+}
+
+.page-card .semi-card-body {
+  padding: 20px 24px;
+}
+
+.semi-table-thead > .semi-table-row > .semi-table-row-head {
+  background: var(--semi-color-fill-0);
+  font-weight: 600;
+}
+
+.semi-table {
+  border-radius: var(--app-radius);
+  overflow: hidden;
+}
+
+.semi-navigation-item {
+  border-radius: 8px;
+  margin: 2px 8px;
+}
+
+.semi-navigation-item-selected {
+  font-weight: 600;
+}
+
+.app-header {
+  border-bottom: 1px solid var(--semi-color-border);
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 45%, #eef2ff 100%);
+}
+
+.login-card {
+  width: 380px;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px -16px rgba(15, 23, 42, 0.25);
+}
+
+.login-card .semi-card-body {
+  padding: 32px 28px;
+}
+
+.login-title {
+  text-align: center;
+  margin-bottom: 24px;
+}

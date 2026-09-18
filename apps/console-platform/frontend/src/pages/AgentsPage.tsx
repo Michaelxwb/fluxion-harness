@@ -1,5 +1,8 @@
-import { Button, Card, Table, Tag, Typography } from '@douyinfe/semi-ui';
+import { Button, Table, Tag } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
+
+import { ModuleToolbar } from '../components/common/ModuleToolbar';
+import { PageCard } from '../components/common/PageCard';
 
 export function AgentsPage() {
   const { t } = useTranslation();
@@ -19,11 +22,11 @@ export function AgentsPage() {
   ];
 
   return (
-    <Card>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <Button theme="solid">{t('common.add')}</Button>
-        <Button>{t('common.refresh')}</Button>
-      </div>
+    <PageCard>
+      <ModuleToolbar
+        actions={<Button theme="solid">{t('common.add')}</Button>}
+        search={<Button>{t('common.refresh')}</Button>}
+      />
       <Table
         columns={columns}
         dataSource={[
@@ -32,9 +35,6 @@ export function AgentsPage() {
         rowKey="id"
         pagination={{ pageSize: 20 }}
       />
-      <Typography.Paragraph type="tertiary" style={{ marginTop: 16 }}>
-        {t('model.note')}
-      </Typography.Paragraph>
-    </Card>
+    </PageCard>
   );
 }

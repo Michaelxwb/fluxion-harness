@@ -17,7 +17,7 @@ export function AppLayout() {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider style={{ width: 220, background: 'var(--semi-color-bg-1)' }}>
+      <Sider style={{ width: 220, background: 'var(--semi-color-bg-1)', borderRight: '1px solid var(--semi-color-border)' }}>
         <div style={{ padding: 20 }}>
           <Typography.Title heading={6}>{t('app.title')}</Typography.Title>
         </div>
@@ -30,6 +30,7 @@ export function AppLayout() {
       </Sider>
       <Layout>
         <Header
+          className="app-header"
           style={{
             height: 64,
             display: 'flex',

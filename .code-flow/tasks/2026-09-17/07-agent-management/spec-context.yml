@@ -1,7 +1,7 @@
 version: 1
 task: Agent 定义、授权与通道配置
 enforcement: required
-updated_at: '2026-09-18T03:22:53.485471+00:00'
+updated_at: '2026-09-18T04:42:58.727728+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -123,8 +123,8 @@ bindings:
   path: auth/harness-auth.md
   status: active
   hashes:
-    file_sha256: 6ad16806986aaaf3298a6ec346ea13eaf0e4c1ff34a4ac0f44b6d1aa6031bdda
-    metadata_sha256: f2a6aed1f4b3168f16105b50d62c995708edd8a39e5113ea97b4f4e54ea34965
+    file_sha256: 914db4dfad7531c2fe2987c7bbfefd012f253adc9d93bbfee634149b8cd5a650
+    metadata_sha256: 282fc035519e5c5b8561dea4584ebcd8df997e78dc811a803b0dec769bd31e77
     rules_sha256: 2c0d8492b6adb9167c4309b44a5b1be42b1920f5e241f629d2f2bf9825cdc570
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-auth
@@ -220,8 +220,8 @@ bindings:
   path: ui/harness-ui.md
   status: active
   hashes:
-    file_sha256: fefc7cc448edea27c43cbc6f24126263cc8944279bfc905655c7b0591412b743
-    metadata_sha256: 1b910e49924f2e860bdfcda0b07df5092aa444254a4cf8dca2f053d681ed1752
+    file_sha256: ef4ef7fd1b30a8ebf6c52e64e4df178982641c2e4c2ad0c992d65539bd1be8e7
+    metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
     rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
   selected_by: agent
   reason: Agent Harness 通用平台规则：ui
@@ -361,8 +361,8 @@ bindings:
   path: im/harness-im.md
   status: active
   hashes:
-    file_sha256: 4a788d8fc285ee2a5213e01a705f7a4856b3c3a0fa6692e01b3615b48b98ac27
-    metadata_sha256: 1423fe25598bd21fbc3bdfa1561d473591919383e44dbd5fefa070fcf2217259
+    file_sha256: 98fabedbe52821789c10a7c45c5b71863ff2cad89e68c526c778e0bdcc736447
+    metadata_sha256: 95b5b23aa457cc8f6a3ce4eddb66e8887c7a131243d95cd6cbb1352551c140db
     rules_sha256: a964650e2bc23a209f45791f148dd6d19722e523b36292b14b4e8a5a5a70e4f6
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-im
@@ -455,8 +455,8 @@ bindings:
   path: rel/harness-rel.md
   status: active
   hashes:
-    file_sha256: 46f939d65a4fa1f58194395fab0d8e24d57edb40532b997c2e4432cb2ab0b89e
-    metadata_sha256: 9c785b21c6883ad704a6e09d77b2c3827de4d2a9a5dd941ef015ad8d7600f8db
+    file_sha256: 357dacd568feb65401d86756d9eaaf85cd8c743acd8f4089132866fa9d4145a5
+    metadata_sha256: 30f77141e0115f249c3aac13a4b61a7b4d53604ba5903fac8c1f3f9e07aafa42
     rules_sha256: 7be20b1f02503c2865570605bc0dc751cff99da8487a1cec7be80bf7633416a5
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-rel
