@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import Depends, Request
 from muad_api import AppError
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.auth_service import AuthService
 from ..application.platform_adapter_service import build_default_registry
+from ..application.platform_ports import NullPlatformSessionInvalidator, PlatformSessionInvalidator
 from ..infrastructure.db import get_session
 from ..infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
 from .security import SESSION_COOKIE
@@ -53,3 +54,10 @@ def get_adapter_registry(request: Request) -> "PlatformAdapterRegistry":
         registry = build_default_registry()
         request.app.state.platform_adapters = registry
     return registry
+
+
+def get_platform_sessions(request: Request) -> PlatformSessionInvalidator:
+    sessions = getattr(request.app.state, "platform_sessions", None)
+    if sessions is None:
+        return NullPlatformSessionInvalidator()
+    return cast(PlatformSessionInvalidator, sessions)

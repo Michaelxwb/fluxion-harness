@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
+from muad_contracts import CredentialMode
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -315,3 +316,28 @@ class ModelBatchTestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     model_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+
+
+class PlatformCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(min_length=1, max_length=128)
+    name: str = Field(min_length=1, max_length=128)
+    resolver_type: Literal["BASE_URL", "SERVICE_DISCOVERY"]
+    resolver_config: dict[str, Any]
+    adapter_key: str = Field(min_length=1, max_length=128)
+    adapter_config: dict[str, Any] = Field(default_factory=dict)
+    credential_mode: CredentialMode
+    enabled: bool = True
+
+
+class PlatformUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    resolver_type: Literal["BASE_URL", "SERVICE_DISCOVERY"] | None = None
+    resolver_config: dict[str, Any] | None = None
+    adapter_key: str | None = Field(default=None, min_length=1, max_length=128)
+    adapter_config: dict[str, Any] | None = None
+    credential_mode: CredentialMode | None = None
+    enabled: bool | None = None

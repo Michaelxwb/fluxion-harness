@@ -15,6 +15,7 @@ dependencies = [
   "muad-artifact-store",
   "muad-logging",
   "muad-skill-sdk",
+  "jsonschema>=4.26.0",
 ]
 
 [build-system]

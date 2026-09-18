@@ -38,7 +38,7 @@
 | S-07 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-03） | E2E | Browser→API→网络探测→UI | TASK-010 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-07\""] |
 | S-08 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-04） | E2E | Browser→API→DB（用户详情凭据 Tab） | TASK-011 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-08\""] |
 | S-09 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-05） | E2E | Browser→API→DB | TASK-007 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-09\""] |
-| E-01 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→Registry | TASK-002 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_adapters_api.py", "-k", "e01"] |
+| E-01 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→Registry | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_adapters_api.py", "-k", "e01"] |
 | E-02 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→CredentialResolver | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_test_api.py", "-k", "e02"] |
 | E-03 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→DB | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_repository.py", "-k", "e03"] |
 | E-04 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→Schema | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_credentials_api.py", "-k", "e04"] |
@@ -99,7 +99,7 @@
 - [2026-09-18] completed (done)
 ## TASK-002: Adapter Registry 装配、参考适配器与 Metadata API
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 04-project-platform.backend.design.md#3.4 接口设计(API-01/API-14), #3.1 技术选型与关键决策, docs/12-项目平台适配与Session详细设计.md#3.1 PlatformAdapter, #5 prepare_request
@@ -127,7 +127,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-01 | integration | API、Registry | 未注册 adapter_key → `PLATFORM_ADAPTER_NOT_FOUND` | tests/console_platform/test_platform_adapters_api.py::test_e01_unknown_adapter_key_returns_platform_adapter_not_found（已实现） | `uv run pytest -q tests/console_platform/test_platform_adapters_api.py -k e01` | green |
+| E-01 | integration | API、Registry | 未注册 adapter_key → `PLATFORM_ADAPTER_NOT_FOUND` | tests/console_platform/test_platform_adapters_api.py::test_e01_unknown_adapter_key_returns_platform_adapter_not_found（已实现） | `uv run pytest -q tests/console_platform/test_platform_adapters_api.py -k e01` | green | verified |
 
 ### Acceptance Evidence
 
@@ -135,12 +135,14 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 
 - GREEN：`uv run pytest -q tests/console_platform/test_platform_adapters_api.py -k e01`；`tests/sdk/test_platform_generic_http.py` 覆盖 bearer/basic/none 头注入与真实本地 HTTP 链路。
 - RED 未留存：实现与测试同批完成。
+- E-01: verified — automated command passed; run_id=343d6faf5f124438915c21fd6d55cb20 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
 
 ---
-
+- [2026-09-18] started
+- [2026-09-18] completed (done)
 ## TASK-003: 平台 CRUD 与失效 API
 
 - **Status**: draft

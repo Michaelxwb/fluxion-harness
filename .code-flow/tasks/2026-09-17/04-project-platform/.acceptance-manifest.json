@@ -167,7 +167,7 @@
       "kind": "functional",
       "boundary": "API→Registry",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -179,7 +179,28 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "343d6faf5f124438915c21fd6d55cb20",
+        "executed_at": "2026-09-18T12:53:53.878565+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "343d6faf5f124438915c21fd6d55cb20",
+          "executed_at": "2026-09-18T12:53:53.878565+00:00"
+        }
+      ]
     },
     {
       "id": "E-02",
