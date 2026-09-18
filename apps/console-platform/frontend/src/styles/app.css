@@ -87,7 +87,7 @@ body {
 
 .app-nav .semi-navigation-item {
   height: 40px;
-  margin: 2px 0;
+  margin: 0 0 4px;
   border-radius: var(--app-radius-sm);
   color: var(--semi-color-text-1);
   font-size: 14px;
@@ -180,25 +180,84 @@ body {
   margin: 4px 0 16px;
 }
 
-.page-header-title {
+.page-header-heading {
+  min-width: 0;
+}
+
+.page-header-heading .semi-typography {
   margin: 0;
-  font-size: 20px;
+}
+
+.page-header-heading .page-header-description {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.page-section {
+  margin-bottom: 16px;
+  background: var(--semi-color-bg-1);
+}
+
+.page-section.semi-card {
+  border-radius: var(--app-radius);
+  border: 1px solid var(--semi-color-border);
+}
+
+.page-section .semi-card-body {
+  padding: 16px;
+}
+
+.page-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.page-section-title {
+  font-size: 15px;
   font-weight: 600;
-  line-height: 1.3;
   color: var(--semi-color-text-0);
 }
 
-.page-header-description {
-  margin: 4px 0 0;
+/* ---------- Empty ---------- */
+
+.app-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 320px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.app-empty-icon {
+  color: var(--semi-color-text-3);
+  margin-bottom: 6px;
+}
+
+.app-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--semi-color-text-1);
+}
+
+.app-empty-description {
   font-size: 13px;
   color: var(--semi-color-text-2);
 }
 
-.page-section {
-  padding: 16px 16px 10px;
-  background: var(--semi-color-bg-1);
-  border: 1px solid var(--semi-color-border);
-  border-radius: var(--app-radius);
+.app-empty-action {
+  margin-top: 10px;
+}
+
+.semi-table-placeholder {
+  padding: 0;
+  background: transparent;
 }
 
 .app-toolbar {
@@ -344,4 +403,20 @@ body {
   height: 40px;
   border-radius: var(--app-radius-sm);
   font-weight: 600;
+}
+
+/* ---------- Scrollbar ---------- */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--semi-color-fill-2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }

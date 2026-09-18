@@ -18,7 +18,7 @@
   "nav.task": "Background Tasks",
   "nav.schedule": "Schedules",
   "nav.audit": "Runtime Audit",
-  "page.placeholder": "The module skeleton is initialized and ready for business implementation.",
+  "page.placeholder": "Under construction",
   "login.title": "Console Sign In",
   "login.username": "Username",
   "login.password": "Password",
@@ -88,5 +88,9 @@
   "common.perPage": "Per page",
   "common.items": "items",
   "app.brand": "fluxion",
-  "app.brandSuffix": "Console"
+  "app.brandSuffix": "Console",
+  "page.planned": "Planned for a later milestone",
+  "page.plannedHint": "The requirement is planned and will be implemented here once designed.",
+  "common.empty": "No data",
+  "common.emptyHint": "Adjust the filters or try again later."
 }

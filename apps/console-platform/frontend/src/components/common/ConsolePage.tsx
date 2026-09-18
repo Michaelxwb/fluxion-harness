@@ -1,4 +1,7 @@
+import { Card, Typography } from '@douyinfe/semi-ui';
 import type { ReactNode } from 'react';
+
+const { Title, Text } = Typography;
 
 export interface PageHeaderProps {
   title: ReactNode;
@@ -8,20 +11,38 @@ export interface PageHeaderProps {
 
 export function PageHeader({ title, description, extra }: PageHeaderProps) {
   return (
-    <div className="page-header">
-      <div>
-        <h1 className="page-header-title">{title}</h1>
-        {description ? <p className="page-header-description">{description}</p> : null}
+    <header className="page-header">
+      <div className="page-header-heading">
+        <Title heading={4} className="page-header-title">
+          {title}
+        </Title>
+        {description ? (
+          <Text type="tertiary" className="page-header-description">
+            {description}
+          </Text>
+        ) : null}
       </div>
-      {extra ? <div>{extra}</div> : null}
-    </div>
+      {extra ? <div className="page-header-extra">{extra}</div> : null}
+    </header>
   );
 }
 
 export interface PageSectionProps {
+  title?: ReactNode;
+  extra?: ReactNode;
   children: ReactNode;
 }
 
-export function PageSection({ children }: PageSectionProps) {
-  return <section className="page-section">{children}</section>;
+export function PageSection({ title, extra, children }: PageSectionProps) {
+  return (
+    <Card className="page-section" bordered shadows="hover">
+      {title || extra ? (
+        <div className="page-section-header">
+          {title ? <span className="page-section-title">{title}</span> : null}
+          {extra ? <div>{extra}</div> : null}
+        </div>
+      ) : null}
+      {children}
+    </Card>
+  );
 }

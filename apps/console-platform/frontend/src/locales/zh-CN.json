@@ -18,7 +18,7 @@
   "nav.task": "后台任务",
   "nav.schedule": "定时任务",
   "nav.audit": "运行审计",
-  "page.placeholder": "模块骨架已初始化，等待业务实现。",
+  "page.placeholder": "功能建设中",
   "login.title": "登录 Console",
   "login.username": "用户名",
   "login.password": "密码",
@@ -88,5 +88,9 @@
   "common.perPage": "每页",
   "common.items": "条",
   "app.brand": "fluxion",
-  "app.brandSuffix": "控制台"
+  "app.brandSuffix": "控制台",
+  "page.planned": "该模块属于后续迭代范围",
+  "page.plannedHint": "需求已纳入规划，完成设计拆解后在此实现。",
+  "common.empty": "暂无数据",
+  "common.emptyHint": "调整筛选条件或稍后重试。"
 }

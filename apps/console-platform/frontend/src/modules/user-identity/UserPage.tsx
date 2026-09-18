@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
+import { EmptyState } from '../../components/common/EmptyState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { UserDetailTabs } from './UserDetailTabs';
@@ -154,6 +155,7 @@ export function UserPage() {
         total={total}
         onPageChange={(page) => setParams((prev) => ({ ...prev, page }))}
         onPageSizeChange={(page_size) => setParams((prev) => ({ ...prev, page: 1, page_size }))}
+        empty={<EmptyState title={t('common.empty')} description={t('common.emptyHint')} />}
       />
       <UserFormModal
         visible={formVisible}

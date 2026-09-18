@@ -1,5 +1,5 @@
 import { Table } from '@douyinfe/semi-ui';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { PaginationFooter } from './PaginationFooter';
 
@@ -15,6 +15,7 @@ export interface RemoteTableProps<T extends object> {
   total: number;
   onPageChange(page: number): void;
   onPageSizeChange?(pageSize: number): void;
+  empty?: ReactNode;
 }
 
 export function RemoteTable<T extends object>(props: RemoteTableProps<T>) {
@@ -26,6 +27,7 @@ export function RemoteTable<T extends object>(props: RemoteTableProps<T>) {
         rowKey={props.rowKey}
         loading={props.loading}
         pagination={false}
+        empty={props.empty}
       />
       <PaginationFooter
         page={props.page}
