@@ -149,5 +149,11 @@
   "model.test.status.untested": "未测试",
   "user.detail.countValue": "{{count}} 个",
   "user.detail.memoryCountValue": "{{count}} 条",
-  "user.detail.credentialCountValue": "{{count}} 个已配置"
+  "user.detail.credentialCountValue": "{{count}} 个已配置",
+  "user.agents.grantedAt": "授权时间",
+  "user.agents.hint": "Agent 授权只决定“用户是否可以使用该 Agent”，不会修改 IM 身份绑定，也不会自动创建项目平台凭据。",
+  "user.identities.hint": "/bind 只建立“外部身份 → PlatformUser”的映射；不绑定 Agent、不授予 Agent 权限。同一用户在不同 Bot 下可保留多条 IM 身份。",
+  "user.memory.source": "来源",
+  "user.memory.updated": "更新时间",
+  "user.memory.hint": "用户记忆以 PlatformUser 为作用域，不绑定某个 Agent Runtime Pod，也不绑定单一 IM 通道；这里只提供查看与清理，不在 Console 手工新增记忆。"
 }

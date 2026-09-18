@@ -149,5 +149,11 @@
   "model.test.status.untested": "Untested",
   "user.detail.countValue": "{{count}}",
   "user.detail.memoryCountValue": "{{count}}",
-  "user.detail.credentialCountValue": "{{count}} configured"
+  "user.detail.credentialCountValue": "{{count}} configured",
+  "user.agents.grantedAt": "Granted at",
+  "user.agents.hint": "Agent grants only decide whether the user can use the Agent; they never change IM identity bindings or create platform credentials automatically.",
+  "user.identities.hint": "/bind only maps an external identity to a PlatformUser; it does not bind Agents or grant permissions. One user may keep multiple IM identities across bots.",
+  "user.memory.source": "Source",
+  "user.memory.updated": "Updated at",
+  "user.memory.hint": "Memories are scoped to the PlatformUser, not to an Agent Runtime Pod or a single IM channel. This tab only reviews and clears memories; Console never creates them manually."
 }

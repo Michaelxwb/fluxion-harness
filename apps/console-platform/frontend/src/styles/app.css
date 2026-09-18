@@ -478,6 +478,13 @@ body {
   word-break: break-all;
 }
 
+.detail-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--semi-color-text-2);
+}
+
 .metric-cards {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

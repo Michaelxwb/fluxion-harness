@@ -22,6 +22,15 @@ def test_detail_layout_components_exist_and_are_shared() -> None:
     assert "MetricCards" in user, "用户详情必须渲染当前授权概览卡片"
 
 
+def test_user_detail_tabs_share_sectioned_layout() -> None:
+    source = USER_DETAIL.read_text(encoding="utf-8")
+    assert source.count("detail-section-title") >= 5, "每个 Tab 都必须有分区标题"
+    for key in ("user.agents.hint", "user.identities.hint", "user.memory.hint"):
+        assert key in source, f"Tab 说明文案缺失: {key}"
+    for column in ("granted_at", "source_type", "update_time", "user_status"):
+        assert column in source, f"与交互稿不一致的列缺失: {column}"
+
+
 def test_model_detail_has_hint_banner_and_status_tags() -> None:
     source = MODEL_DETAIL.read_text(encoding="utf-8")
     assert "model.detail.hint" in source

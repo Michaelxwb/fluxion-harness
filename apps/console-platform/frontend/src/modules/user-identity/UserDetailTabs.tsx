@@ -126,6 +126,7 @@ function AgentGrantTab(props: { userId: string }) {
           {t('user.agents.grant')}
         </Button>
       </div>
+      <div className="detail-section-title">{t('user.tabs.agents')}</div>
       <TabState loading={loading} failed={failed} empty={t('user.agents.empty')}>
         {items.length > 0 ? (
           <Table
@@ -145,6 +146,11 @@ function AgentGrantTab(props: { userId: string }) {
                 )
               },
               {
+                title: t('user.agents.grantedAt'),
+                dataIndex: 'granted_at',
+                render: (value: string) => <DateTimeText value={value} />
+              },
+              {
                 title: '',
                 render: (_: unknown, entry: AgentGrant) => (
                   <Popconfirm title={t('user.common.confirmRevoke')} onConfirm={() => void revoke(entry.agent_id)}>
@@ -158,13 +164,19 @@ function AgentGrantTab(props: { userId: string }) {
           />
         ) : null}
       </TabState>
+      <div className="detail-hint">{t('user.agents.hint')}</div>
     </div>
   );
 }
 
 function CredentialsTab() {
   const { t } = useTranslation();
-  return <Banner type="danger" description={t('user.common.loadFailed')} />;
+  return (
+    <>
+      <div className="detail-section-title">{t('user.tabs.credentials')}</div>
+      <Banner type="danger" description={t('user.common.loadFailed')} />
+    </>
+  );
 }
 
 function IdentityTab(props: { userId: string }) {
@@ -216,6 +228,7 @@ function IdentityTab(props: { userId: string }) {
           </>
         ) : null}
       </Modal>
+      <div className="detail-section-title">{t('user.tabs.identities')}</div>
       <TabState loading={loading} failed={failed} empty={t('user.identities.empty')}>
         {items.length > 0 ? (
           <Table
@@ -237,6 +250,15 @@ function IdentityTab(props: { userId: string }) {
                 render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
               },
               {
+                title: t('user.columns.status'),
+                dataIndex: 'user_status',
+                render: (value: string) => (
+                  <Tag color={value === 'ACTIVE' ? 'green' : 'grey'}>
+                    {t(value === 'ACTIVE' ? 'common.status.enabled' : 'common.status.disabled')}
+                  </Tag>
+                )
+              },
+              {
                 title: '',
                 render: (_: unknown, entry: Identity) => (
                   <Popconfirm title={t('user.common.confirmUnbind')} onConfirm={() => void unbind(entry.id)}>
@@ -250,6 +272,7 @@ function IdentityTab(props: { userId: string }) {
           />
         ) : null}
       </TabState>
+      <div className="detail-hint">{t('user.identities.hint')}</div>
     </div>
   );
 }
@@ -278,6 +301,7 @@ function MemoryTab(props: { userId: string }) {
           {t('user.memory.clear')}
         </Button>
       </Popconfirm>
+      <div className="detail-section-title">{t('user.tabs.memory')}</div>
       <TabState loading={loading} failed={failed} empty={t('user.memory.empty')}>
         {items.length > 0 ? (
           <Table
@@ -285,11 +309,16 @@ function MemoryTab(props: { userId: string }) {
             rowKey="id"
             pagination={false}
             columns={[
-              { title: t('user.memory.category'), dataIndex: 'category' },
               {
                 title: t('user.memory.content'),
                 dataIndex: 'content',
                 render: (value: Record<string, unknown>) => JSON.stringify(value)
+              },
+              { title: t('user.memory.source'), dataIndex: 'source_type' },
+              {
+                title: t('user.memory.updated'),
+                dataIndex: 'update_time',
+                render: (value: string) => <DateTimeText value={value} />
               },
               {
                 title: '',
@@ -305,6 +334,7 @@ function MemoryTab(props: { userId: string }) {
           />
         ) : null}
       </TabState>
+      <div className="detail-hint">{t('user.memory.hint')}</div>
     </div>
   );
 }
