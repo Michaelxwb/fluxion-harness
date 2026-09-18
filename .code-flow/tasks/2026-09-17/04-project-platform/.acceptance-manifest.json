@@ -61,7 +61,7 @@
       "kind": "functional",
       "boundary": "Service→DB→Redis",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -73,7 +73,28 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "a67c8f5933a04a5b9195f69cbf1c6250",
+        "executed_at": "2026-09-18T13:07:18.532458+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "a67c8f5933a04a5b9195f69cbf1c6250",
+          "executed_at": "2026-09-18T13:07:18.532458+00:00"
+        }
+      ]
     },
     {
       "id": "S-05",

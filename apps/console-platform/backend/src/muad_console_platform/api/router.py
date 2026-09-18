@@ -11,6 +11,7 @@ from .internal_channel import router as internal_channel_router
 from .internal_runtime import router as internal_runtime_router
 from .models import router as models_router
 from .platform_adapters import router as platform_adapters_router
+from .platform_test import router as platform_test_router
 from .platforms import router as platforms_router
 from .security import require_csrf
 from .skills import router as skills_router
@@ -27,6 +28,7 @@ authenticated.include_router(models_router)
 authenticated.include_router(platform_adapters_router)
 authenticated.include_router(platforms_router)
 authenticated.include_router(credentials_router)
+authenticated.include_router(platform_test_router)
 authenticated.include_router(skills_router)
 router.include_router(authenticated)
 

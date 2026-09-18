@@ -32,7 +32,7 @@
 | S-01 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB | TASK-003 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-01\""] |
 | S-02 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB（凭据明文落库、不回显） | TASK-004 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-02\""] |
 | S-03 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→网络探测→UI | TASK-005 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-03\""] |
-| S-04 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | Service→DB→Redis | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_session_invalidation.py", "-k", "s04"] |
+| S-04 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | Service→DB→Redis | TASK-006 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_session_invalidation.py", "-k", "s04"] |
 | S-05 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-01） | E2E | Browser→adapter metadata→Form | TASK-008 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-05\""] |
 | S-06 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-02） | E2E | Browser→Secret API | TASK-010 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-06\""] |
 | S-07 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-03） | E2E | Browser→API→网络探测→UI | TASK-010 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-07\""] |
@@ -268,7 +268,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 
 ## TASK-006: Session 失效契约（Redis Set 索引）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003
 - **Source**: 04-project-platform.backend.design.md#3.5 Session 与凭据解析, #2.5.1 业务规则与约束(RULE-04/05), docs/12-项目平台适配与Session详细设计.md#7
@@ -291,17 +291,19 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-04 | integration | Service、DB、Redis | 凭据 `INVALID`；Set 索引键被 `DEL`；响应 `credential_reconfigure_required=true`；审计落库 | tests/console_platform/test_platform_session_invalidation.py（planned） | `uv run pytest -q tests/console_platform/test_platform_session_invalidation.py -k s04` | planned |
+| S-04 | integration | Service、DB、Redis | 凭据 `INVALID`；Set 索引键被 `DEL`；响应 `credential_reconfigure_required=true`；审计落库 | tests/console_platform/test_platform_session_invalidation.py（planned） | `uv run pytest -q tests/console_platform/test_platform_session_invalidation.py -k s04` | verified |
 
 ### Acceptance Evidence
 
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+- S-04: verified — automated command passed; run_id=a67c8f5933a04a5b9195f69cbf1c6250 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
 
 ---
-
+- [2026-09-18] started
+- [2026-09-18] completed (done)
 ## TASK-007: 前端 services 与平台列表页
 
 - **Status**: draft
