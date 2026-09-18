@@ -13,11 +13,9 @@ export function LanguageSwitcher() {
         type="tertiary"
         icon={<IconGlobe />}
         data-testid="locale-switch"
-        aria-label="language-switch"
+        aria-label={next === 'en-US' ? 'English' : '中文'}
         onClick={() => changeLocale(next)}
-      >
-        {locale === 'zh-CN' ? '中文' : 'EN'}
-      </Button>
+      />
     </Tooltip>
   );
 }
