@@ -60,10 +60,10 @@
   "user.tabs.memory": "用户记忆",
   "user.agents.grant": "授权 Agent",
   "user.agents.revoke": "取消授权",
-  "user.agents.empty": "暂无授权",
+  "user.agents.empty": "暂无 Agent 授权",
   "user.identities.generate": "生成绑定码",
   "user.identities.unbind": "解绑",
-  "user.identities.empty": "暂无 IM 身份",
+  "user.identities.empty": "尚未绑定任何 IM 身份",
   "user.identities.boundAt": "绑定时间",
   "user.identities.lastActive": "最近活动",
   "user.identities.externalUserId": "外部用户 ID",
@@ -72,7 +72,7 @@
   "user.bindCode.expiresAt": "过期时间",
   "user.memory.delete": "删除",
   "user.memory.clear": "清理全部",
-  "user.memory.empty": "暂无记忆",
+  "user.memory.empty": "暂无用户记忆",
   "user.memory.content": "内容",
   "user.memory.category": "类别",
   "user.common.loadFailed": "加载失败",
@@ -155,5 +155,7 @@
   "user.identities.hint": "/bind 只建立“外部身份 → PlatformUser”的映射；不绑定 Agent、不授予 Agent 权限。同一用户在不同 Bot 下可保留多条 IM 身份。",
   "user.memory.source": "来源",
   "user.memory.updated": "更新时间",
-  "user.memory.hint": "用户记忆以 PlatformUser 为作用域，不绑定某个 Agent Runtime Pod，也不绑定单一 IM 通道；这里只提供查看与清理，不在 Console 手工新增记忆。"
+  "user.memory.hint": "用户记忆以 PlatformUser 为作用域，不绑定某个 Agent Runtime Pod，也不绑定单一 IM 通道；这里只提供查看与清理，不在 Console 手工新增记忆。",
+  "user.agents.grantHint": "授权后用户可以通过已绑定 IM 身份使用该 Agent；该操作不会自动配置项目平台凭据。",
+  "user.agents.allGranted": "当前所有 Agent 均已授权"
 }

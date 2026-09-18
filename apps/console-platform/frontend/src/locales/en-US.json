@@ -60,10 +60,10 @@
   "user.tabs.memory": "Memories",
   "user.agents.grant": "Grant agent",
   "user.agents.revoke": "Revoke",
-  "user.agents.empty": "No grants",
+  "user.agents.empty": "No Agent grants",
   "user.identities.generate": "Generate bind code",
   "user.identities.unbind": "Unbind",
-  "user.identities.empty": "No identities",
+  "user.identities.empty": "No IM identity bound yet",
   "user.identities.boundAt": "Bound at",
   "user.identities.lastActive": "Last active",
   "user.identities.externalUserId": "External user id",
@@ -155,5 +155,7 @@
   "user.identities.hint": "/bind only maps an external identity to a PlatformUser; it does not bind Agents or grant permissions. One user may keep multiple IM identities across bots.",
   "user.memory.source": "Source",
   "user.memory.updated": "Updated at",
-  "user.memory.hint": "Memories are scoped to the PlatformUser, not to an Agent Runtime Pod or a single IM channel. This tab only reviews and clears memories; Console never creates them manually."
+  "user.memory.hint": "Memories are scoped to the PlatformUser, not to an Agent Runtime Pod or a single IM channel. This tab only reviews and clears memories; Console never creates them manually.",
+  "user.agents.grantHint": "After granting, the user can use this Agent through any bound IM identity; this does not configure platform credentials automatically.",
+  "user.agents.allGranted": "All Agents are already granted"
 }

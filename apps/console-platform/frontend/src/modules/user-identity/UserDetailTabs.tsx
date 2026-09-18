@@ -11,12 +11,14 @@ import {
   Tag,
   Typography
 } from '@douyinfe/semi-ui';
+import { IconPlus } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
+import { FormModal } from '../../components/common/FormModal';
 import { MetricCards } from '../../components/common/MetricCards';
 import {
   clearMemory,
@@ -91,6 +93,7 @@ function AgentGrantTab(props: { userId: string }) {
   );
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [selected, setSelected] = useState<string>('');
+  const [grantVisible, setGrantVisible] = useState(false);
 
   useEffect(() => {
     listAgents()
@@ -98,12 +101,19 @@ function AgentGrantTab(props: { userId: string }) {
       .catch(() => setAgents([]));
   }, []);
 
+  const availableAgents = agents.filter((agent) => !items.some((entry) => entry.agent_id === agent.id));
+
+  const closeGrant = (): void => {
+    setGrantVisible(false);
+    setSelected('');
+  };
+
   const grant = async (): Promise<void> => {
     if (!selected) {
       return;
     }
     await grantAgent(props.userId, selected);
-    setSelected('');
+    closeGrant();
     await reload();
   };
 
@@ -114,18 +124,37 @@ function AgentGrantTab(props: { userId: string }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <Select
-          value={selected}
-          onChange={(value) => setSelected(String(value))}
-          placeholder={t('user.agents.grant')}
-          style={{ width: 260 }}
-          optionList={agents.map((agent) => ({ value: agent.id, label: agent.name }))}
-        />
-        <Button theme="solid" disabled={!selected} onClick={() => void grant()}>
-          {t('user.agents.grant')}
-        </Button>
-      </div>
+      <Button
+        theme="solid"
+        icon={<IconPlus />}
+        style={{ marginBottom: 12 }}
+        onClick={() => setGrantVisible(true)}
+      >
+        {t('user.agents.grant')}
+      </Button>
+      <FormModal
+        visible={grantVisible}
+        title={t('user.agents.grant')}
+        okText={t('user.agents.grant')}
+        okButtonProps={{ disabled: !selected }}
+        onOk={() => void grant()}
+        onCancel={closeGrant}
+      >
+        {availableAgents.length > 0 ? (
+          <>
+            <Select
+              value={selected}
+              onChange={(value) => setSelected(String(value))}
+              placeholder={t('user.agents.grant')}
+              style={{ width: '100%' }}
+              optionList={availableAgents.map((agent) => ({ value: agent.id, label: agent.name }))}
+            />
+            <div className="detail-hint">{t('user.agents.grantHint')}</div>
+          </>
+        ) : (
+          <Typography.Paragraph type="tertiary">{t('user.agents.allGranted')}</Typography.Paragraph>
+        )}
+      </FormModal>
       <div className="detail-section-title">{t('user.tabs.agents')}</div>
       <TabState loading={loading} failed={failed} empty={t('user.agents.empty')}>
         {items.length > 0 ? (

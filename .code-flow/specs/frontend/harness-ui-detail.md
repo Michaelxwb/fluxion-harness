@@ -29,7 +29,7 @@ verifiers:
 ## Conventions
 
 详情基本信息统一「分区标题 + `DetailGrid` 双列标签栅格 + 状态 `Tag`」，需要说明时附 `Banner`；统计概览用 `MetricCards`（用户详情：授权/凭据/身份/记忆）。
-关系型 Tab 统一「工具行（主操作）→ 分区标题 → 表格 → 底部说明文案」：主操作按钮置顶左对齐（`Button theme="solid"`，危险操作 `type="danger"` + `Popconfirm`），分区标题复用 Tab 名，表格列与交互稿一致（授权 Tab 含授权时间；IM Tab 含派生启用状态；记忆 Tab 含来源与更新时间），说明文案用 `.detail-hint`。
+关系型 Tab 统一「工具行（主操作）→ 分区标题 → 表格 → 底部说明文案」：主操作按钮置顶左对齐（`Button theme="solid"`，危险操作 `type="danger"` + `Popconfirm`），分区标题复用 Tab 名，表格列与交互稿一致（授权 Tab 含授权时间；IM Tab 含派生启用状态；记忆 Tab 含来源与更新时间），说明文案用 `.detail-hint`。需要选择对象的主操作（如授权 Agent）以 `FormModal` 承载：弹窗内给出可选对象与操作语义说明，无可选项时展示 `当前所有 Agent 均已授权` 且确认按钮禁用。
 
 ✅ 正确：
 

@@ -73,6 +73,9 @@ test('S-03/S-08/E-06 详情四计数与来源一致，Tab 独立加载与错误�
 
     await page.getByRole('tab', { name: 'Agent 授权 (1)' }).click();
     await expect(page.locator('.semi-sidesheet')).toContainText('E2E Agent');
+    await page.getByRole('button', { name: '授权 Agent' }).click();
+    await expect(page.locator('.semi-modal')).toContainText('授权 Agent');
+    await page.locator('.semi-modal .semi-modal-close').click();
     await page.getByRole('tab', { name: 'IM 身份 (1)' }).click();
     await expect(page.locator('.semi-sidesheet')).toContainText('WECOM');
     await page.getByRole('tab', { name: '用户记忆 (1)' }).click();
