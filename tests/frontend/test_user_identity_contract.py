@@ -30,3 +30,14 @@ def test_e07_expired_bind_code_message_is_localized() -> None:
     assert payload["codes"]["BIND_CODE_EXPIRED"]["http_status"] == 410
     inbound = GATEWAY_INBOUND.read_text(encoding="utf-8")
     assert "bind" in inbound.lower()
+
+
+def test_user_form_uses_shared_form_modal_with_hints() -> None:
+    source = _source("UserFormModal.tsx")
+    assert "components/common/FormModal" in source
+    assert "width={520}" in source
+    assert "common.save" in source
+    assert "user.form.userCodeImmutable" in source
+    assert "extraText" in source
+    order = source.index('field="display_name"') < source.index('field="user_code"')
+    assert order, "字段顺序必须为 显示名 → 用户编码 → 启用状态"

@@ -1,8 +1,9 @@
-import { Form, Modal } from '@douyinfe/semi-ui';
+import { Form } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { FormModal } from '../../components/common/FormModal';
 import { createUser, updateUser, type UserDetail } from './services/users';
 
 export interface UserFormModalProps {
@@ -28,6 +29,7 @@ export function UserFormModal(props: UserFormModalProps) {
       return;
     }
     formApi.current?.reset();
+    formApi.current?.setValues({ status: 'ACTIVE' });
     if (props.user) {
       formApi.current?.setValues({
         user_code: props.user.user_code,
@@ -57,42 +59,42 @@ export function UserFormModal(props: UserFormModalProps) {
   };
 
   return (
-    <Modal
+    <FormModal
       visible={props.visible}
+      width={520}
       title={props.user ? t('user.form.editTitle') : t('user.form.createTitle')}
+      okText={t('common.save')}
       confirmLoading={saving}
       onOk={() => formApi.current?.submitForm()}
       onCancel={props.onCancel}
+      getFormApi={(api) => {
+        formApi.current = api;
+      }}
+      onSubmit={(values) => {
+        void submit(values as unknown as FormValues);
+      }}
     >
-      <Form<FormValues>
-        getFormApi={(api) => {
-          formApi.current = api;
-        }}
-        onSubmit={(values) => {
-          void submit(values);
-        }}
-      >
-        <Form.Input
-          field="user_code"
-          label={t('user.form.userCode')}
-          disabled={props.user !== null}
-          rules={props.user ? [] : [{ required: true, message: t('user.form.userCode') }]}
-        />
-        <Form.Input
-          field="display_name"
-          label={t('user.form.displayName')}
-          rules={[{ required: true, message: t('user.form.displayName') }]}
-        />
-        <Form.Select
-          field="status"
-          label={t('user.form.status')}
-          initValue="ACTIVE"
-          optionList={[
-            { value: 'ACTIVE', label: t('common.status.enabled') },
-            { value: 'DISABLED', label: t('common.status.disabled') }
-          ]}
-        />
-      </Form>
-    </Modal>
+      <Form.Input
+        field="display_name"
+        label={t('user.form.displayName')}
+        rules={[{ required: true, message: t('user.form.displayName') }]}
+      />
+      <Form.Input
+        field="user_code"
+        label={t('user.form.userCode')}
+        disabled={props.user !== null}
+        extraText={props.user ? t('user.form.userCodeImmutable') : undefined}
+        rules={props.user ? [] : [{ required: true, message: t('user.form.userCode') }]}
+      />
+      <Form.Select
+        field="status"
+        label={t('user.form.status')}
+        initValue="ACTIVE"
+        optionList={[
+          { value: 'ACTIVE', label: t('common.status.enabled') },
+          { value: 'DISABLED', label: t('common.status.disabled') }
+        ]}
+      />
+    </FormModal>
   );
 }

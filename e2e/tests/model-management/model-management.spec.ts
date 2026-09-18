@@ -48,12 +48,11 @@ async function createModelViaUi(page: Page, key: string): Promise<void> {
   await page.goto('/models');
   await page.getByTestId('create-model').click();
   const modal = page.locator('.semi-modal');
-  await modal.locator('input').nth(0).fill(key);
-  await modal.locator('input').nth(1).fill('E2E UI Model');
-  const inputs = modal.locator('input');
-  await inputs.nth(2).fill(PROBE_BASE);
-  await inputs.nth(3).fill('gpt-4o-mini');
-  await inputs.nth(4).fill('e2e-ui-key');
+  await modal.getByRole('textbox', { name: /名称/ }).fill('E2E UI Model');
+  await modal.getByRole('textbox', { name: /内部标识/ }).fill(key);
+  await modal.getByRole('textbox', { name: /模型 ID/ }).fill('gpt-4o-mini');
+  await modal.getByRole('textbox', { name: /Base URL/ }).fill(PROBE_BASE);
+  await modal.getByRole('textbox', { name: /API Key/ }).fill('e2e-ui-key');
   await modal.locator('.semi-modal-footer .semi-button-primary').click();
   await expect(page.getByTestId(`model-link-${key}`)).toBeVisible();
 }
@@ -147,10 +146,10 @@ test('E-06 Base URL 非 http(s) 阻止提交', async ({ page }) => {
   await page.goto('/models');
   await page.getByTestId('create-model').click();
   const modal = page.locator('.semi-modal');
-  await modal.locator('input').nth(0).fill(uniqueKey('e2e-e06'));
-  await modal.locator('input').nth(1).fill('Bad Url Model');
-  await modal.locator('input').nth(2).fill('ftp://example.com');
-  await modal.locator('input').nth(3).fill('gpt-4o-mini');
+  await modal.getByRole('textbox', { name: /名称/ }).fill('Bad Url Model');
+  await modal.getByRole('textbox', { name: /内部标识/ }).fill(uniqueKey('e2e-e06'));
+  await modal.getByRole('textbox', { name: /Base URL/ }).fill('ftp://example.com');
+  await modal.getByRole('textbox', { name: /模型 ID/ }).fill('gpt-4o-mini');
   await modal.locator('.semi-modal-footer .semi-button-primary').click();
   await expect(modal.locator('.semi-form-field-error-message')).toContainText('必须为 http(s)');
   await expect(modal).toBeVisible();
@@ -175,7 +174,7 @@ test('E-07 revision 冲突保留表单并提示本地化冲突', async ({ page }
       }
     });
 
-    await modal.locator('input').nth(1).fill('Stale Name');
+    await modal.getByRole('textbox', { name: /名称/ }).fill('Stale Name');
     await modal.locator('.semi-modal-footer .semi-button-primary').click();
     await expect(
       page.locator('.semi-toast-content', { hasText: '配置版本已变化' })

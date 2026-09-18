@@ -161,5 +161,9 @@
   "user.columns.action": "Actions",
   "user.agents.nameLabel": "Agent name",
   "user.agents.keyLabel": "Key",
-  "user.identities.channel": "Channel"
+  "user.identities.channel": "Channel",
+  "common.save": "Save",
+  "model.form.protocolHint": "Only the OpenAI-compatible protocol is supported in this version.",
+  "model.form.baseUrlHint": "Enter the OpenAI-compatible Base URL without /chat/completions.",
+  "model.form.apiKeyNotice": "The API Key is never echoed in the list or detail view."
 }

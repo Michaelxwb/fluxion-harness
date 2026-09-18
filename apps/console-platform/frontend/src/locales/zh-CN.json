@@ -161,5 +161,9 @@
   "user.columns.action": "操作",
   "user.agents.nameLabel": "Agent 名称",
   "user.agents.keyLabel": "标识",
-  "user.identities.channel": "通道"
+  "user.identities.channel": "通道",
+  "common.save": "保存",
+  "model.form.protocolHint": "当前版本仅支持 OpenAI 兼容协议。",
+  "model.form.baseUrlHint": "填写 OpenAI 兼容接口 Base URL，不填写 /chat/completions。",
+  "model.form.apiKeyNotice": "API Key 不在列表或详情中回显。"
 }
