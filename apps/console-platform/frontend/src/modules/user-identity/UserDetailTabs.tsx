@@ -1,7 +1,6 @@
 import {
   Banner,
   Button,
-  Descriptions,
   Empty,
   Modal,
   Popconfirm,
@@ -16,7 +15,9 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../components/common/DateTimeText';
+import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
+import { MetricCards } from '../../components/common/MetricCards';
 import {
   clearMemory,
   createBindCode,
@@ -328,17 +329,66 @@ export function UserDetailTabs(props: UserDetailTabsProps) {
       onCancel={props.onCancel}
     >
       <Tabs.TabPane itemKey="basic" tab={t('user.tabs.basic')}>
-        <Descriptions
-          row
-          data={[
-            { key: t('user.form.userCode'), value: user.user_code },
-            { key: t('user.form.displayName'), value: user.display_name },
-            { key: t('user.form.status'), value: t(user.status === 'ACTIVE' ? 'common.status.enabled' : 'common.status.disabled') },
-            { key: t('user.columns.agentCount'), value: user.agent_grant_count },
-            { key: t('user.columns.credentialCount'), value: user.credential_count },
-            { key: t('user.columns.identityCount'), value: user.identity_count },
-            { key: t('user.columns.memoryCount'), value: user.memory_count },
-            { key: t('user.columns.updateTime'), value: <DateTimeText value={user.update_time} /> }
+        <div className="detail-section-title">{t('user.detail.basicTitle')}</div>
+        <DetailGrid
+          items={[
+            { label: t('user.detail.name'), value: user.display_name },
+            { label: t('user.detail.account'), value: user.user_code },
+            {
+              label: t('user.form.status'),
+              value: (
+                <Tag color={user.status === 'ACTIVE' ? 'green' : 'grey'}>
+                  {t(user.status === 'ACTIVE' ? 'common.status.enabled' : 'common.status.disabled')}
+                </Tag>
+              )
+            },
+            { label: t('user.detail.createdAt'), value: <DateTimeText value={user.create_time} /> },
+            {
+              label: t('user.detail.agentCountLabel'),
+              value: t('user.detail.countValue', { count: user.agent_grant_count })
+            },
+            {
+              label: t('user.detail.credentialCountLabel'),
+              value:
+                user.credential_count > 0
+                  ? t('user.detail.credentialCountValue', { count: user.credential_count })
+                  : t('user.detail.countValue', { count: user.credential_count })
+            },
+            {
+              label: t('user.detail.identityCountLabel'),
+              value: t('user.detail.countValue', { count: user.identity_count })
+            },
+            {
+              label: t('user.detail.memoryCountLabel'),
+              value: t('user.detail.memoryCountValue', { count: user.memory_count })
+            },
+            { label: t('user.detail.updatedAt'), value: <DateTimeText value={user.update_time} /> },
+            { label: t('user.detail.userId'), value: user.id }
+          ]}
+        />
+        <div className="detail-section-title">{t('user.detail.overview')}</div>
+        <MetricCards
+          items={[
+            {
+              label: t('user.metric.agent'),
+              value: user.agent_grant_count,
+              hint: t('user.metric.agentHint')
+            },
+            {
+              label: t('user.metric.credential'),
+              value: user.credential_count,
+              hint: t('user.metric.credentialHint')
+            },
+            {
+              label: t('user.metric.identity'),
+              value: user.identity_count,
+              hint: t('user.metric.identityHint')
+            },
+            {
+              label: t('user.metric.memory'),
+              value: user.memory_count,
+              hint: t('user.metric.memoryHint')
+            }
           ]}
         />
       </Tabs.TabPane>

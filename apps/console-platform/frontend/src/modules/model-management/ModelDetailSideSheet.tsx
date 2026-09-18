@@ -1,7 +1,8 @@
-import { Button, Descriptions, Modal, Popconfirm, Table, Tabs, Tag } from '@douyinfe/semi-ui';
+import { Banner, Button, Modal, Popconfirm, Table, Tabs, Tag } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../components/common/DateTimeText';
+import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import type { ModelItem, ModelTestResult } from './services/models';
 
@@ -20,6 +21,16 @@ function testStatusColor(status: ModelItem['last_test_status']): 'grey' | 'green
     return 'red';
   }
   return 'grey';
+}
+
+function testStatusKey(status: ModelItem['last_test_status']): string {
+  if (status === 'AVAILABLE') {
+    return 'model.test.status.available';
+  }
+  if (status === 'FAILED') {
+    return 'model.test.status.failed';
+  }
+  return 'model.test.status.untested';
 }
 
 export function ModelDetailSideSheet(props: ModelDetailSideSheetProps) {
@@ -49,29 +60,39 @@ export function ModelDetailSideSheet(props: ModelDetailSideSheetProps) {
       onCancel={props.onCancel}
     >
       <Tabs.TabPane itemKey="basic" tab={t('model.detail.basic')}>
-        <Descriptions
-          row
-          data={[
-            { key: t('model.form.key'), value: model.key },
-            { key: t('model.form.modelId'), value: model.model_id },
-            { key: t('model.form.protocol'), value: model.protocol },
-            { key: t('model.form.baseUrl'), value: model.base_url },
+        <div className="detail-section-title">{t('model.detail.basic')}</div>
+        <DetailGrid
+          items={[
+            { label: t('model.form.name'), value: model.name },
+            { label: t('model.form.key'), value: model.key },
+            { label: t('model.form.protocol'), value: model.protocol },
+            { label: t('model.form.modelId'), value: model.model_id },
             {
-              key: t('model.form.apiKey'),
+              label: t('model.form.enabled'),
+              value: (
+                <Tag color={model.enabled ? 'green' : 'grey'}>
+                  {t(model.enabled ? 'common.status.enabled' : 'common.status.disabled')}
+                </Tag>
+              )
+            },
+            {
+              label: t('model.columns.lastTestStatus'),
+              value: (
+                <Tag color={testStatusColor(model.last_test_status)}>
+                  {t(testStatusKey(model.last_test_status))}
+                </Tag>
+              )
+            },
+            { label: t('model.detail.revision'), value: `r${model.revision}` },
+            {
+              label: t('model.form.apiKey'),
               value: model.api_key_configured ? t('model.apiKeyConfigured') : t('model.apiKeyMissing')
             },
-            {
-              key: t('model.form.enabled'),
-              value: t(model.enabled ? 'common.status.enabled' : 'common.status.disabled')
-            },
-            {
-              key: t('model.columns.lastTestStatus'),
-              value: <Tag color={testStatusColor(model.last_test_status)}>{model.last_test_status}</Tag>
-            },
-            { key: 'revision', value: model.revision },
-            { key: t('model.columns.updateTime'), value: <DateTimeText value={model.update_time} /> }
+            { label: t('model.columns.updateTime'), value: <DateTimeText value={model.update_time} /> },
+            { label: t('model.form.baseUrl'), value: model.base_url }
           ]}
         />
+        <Banner type="info" description={t('model.detail.hint')} />
       </Tabs.TabPane>
     </DetailSideSheet>
   );
