@@ -2,6 +2,7 @@ import {
   Banner,
   Button,
   Empty,
+  Form,
   Modal,
   Popconfirm,
   Select,
@@ -19,6 +20,13 @@ import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { FormModal } from '../../components/common/FormModal';
+import {
+  getAdapter,
+  listPlatforms,
+  saveUserCredential,
+  type AdapterMetadata,
+  type PlatformItem
+} from '../project-platform/services/platforms';
 import { MetricCards } from '../../components/common/MetricCards';
 import {
   clearMemory,
@@ -206,13 +214,115 @@ function AgentGrantTab(props: { userId: string }) {
   );
 }
 
-function CredentialsTab() {
+function credentialTagKey(status?: string): { color: 'green' | 'red' | 'grey'; key: string } {
+  if (status === 'ACTIVE') {
+    return { color: 'green', key: 'user.credentials.configured' };
+  }
+  if (status === 'INVALID') {
+    return { color: 'red', key: 'user.credentials.invalid' };
+  }
+  return { color: 'grey', key: 'user.credentials.notConfigured' };
+}
+
+function CredentialsTab(props: { userId: string }) {
   const { t } = useTranslation();
+  const { items, loading, failed, reload } = useAsyncList<PlatformItem>(
+    async () => (await listPlatforms({ page: 1, page_size: 100, user_id: props.userId })).items,
+    [props.userId]
+  );
+  const [target, setTarget] = useState<PlatformItem | null>(null);
+  const [adapter, setAdapter] = useState<AdapterMetadata | null>(null);
+  const [values, setValues] = useState<Record<string, string>>({});
+
+  const openForm = async (platform: PlatformItem): Promise<void> => {
+    setTarget(platform);
+    setValues({});
+    try {
+      setAdapter(await getAdapter(platform.adapter_key));
+    } catch {
+      setAdapter(null);
+    }
+  };
+
+  const save = async (): Promise<void> => {
+    if (!target) {
+      return;
+    }
+    await saveUserCredential(target.platform_id, props.userId, values);
+    setTarget(null);
+    await reload();
+  };
+
+  const fields = Object.entries(
+    (adapter?.credential_schema as { properties?: Record<string, { title?: string; 'x-secret'?: boolean }> })
+      ?.properties ?? {}
+  );
+
   return (
-    <>
+    <div>
       <div className="detail-section-title">{t('user.tabs.credentials')}</div>
-      <Banner type="danger" description={t('user.common.loadFailed')} />
-    </>
+      <TabState loading={loading} failed={failed} empty={t('user.credentials.empty')}>
+        {items.length > 0 ? (
+          <Table
+            dataSource={items}
+            rowKey="platform_id"
+            pagination={false}
+            columns={[
+              { title: t('user.credentials.platform'), dataIndex: 'name' },
+              { title: t('user.credentials.adapter'), dataIndex: 'adapter_key' },
+              {
+                title: t('user.credentials.mode'),
+                dataIndex: 'credential_mode',
+                render: (value: string) => t(`platform.credentialMode.${value}`)
+              },
+              {
+                title: t('user.credentials.status'),
+                dataIndex: 'user_credential_status',
+                render: (value: string | undefined) => {
+                  const tag = credentialTagKey(value);
+                  return <Tag color={tag.color}>{t(tag.key)}</Tag>;
+                }
+              },
+              {
+                title: t('user.credentials.updatedAt'),
+                dataIndex: 'update_time',
+                render: (value: string) => <DateTimeText value={value} />
+              },
+              {
+                title: t('user.columns.action'),
+                render: (_: unknown, entry: PlatformItem) => (
+                  <Button theme="borderless" onClick={() => void openForm(entry)}>
+                    {entry.user_credential_status === 'ACTIVE'
+                      ? t('user.credentials.update')
+                      : t('user.credentials.configure')}
+                  </Button>
+                )
+              }
+            ]}
+          />
+        ) : null}
+      </TabState>
+      <div className="detail-hint">{t('user.credentials.hint')}</div>
+      <FormModal
+        visible={target !== null}
+        width={520}
+        title={t('user.credentials.formTitle')}
+        okText={t('common.save')}
+        onOk={() => void save()}
+        onCancel={() => setTarget(null)}
+      >
+        {fields.map(([name, definition]) => (
+          <Form.Input
+            key={name}
+            field={name}
+            label={definition.title ?? name}
+            mode={definition['x-secret'] === true ? 'password' : undefined}
+            onChange={(value: string) => setValues((prev) => ({ ...prev, [name]: value }))}
+          />
+        ))}
+        <div className="detail-hint">{t('user.credentials.notEchoed')}</div>
+      </FormModal>
+    </div>
   );
 }
 
@@ -463,7 +573,7 @@ export function UserDetailTabs(props: UserDetailTabsProps) {
         <AgentGrantTab userId={user.id} />
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="credentials" tab={`${t('user.tabs.credentials')} (${user.credential_count})`}>
-        <CredentialsTab />
+        <CredentialsTab userId={user.id} />
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="identities" tab={`${t('user.tabs.identities')} (${user.identity_count})`}>
         <IdentityTab userId={user.id} />

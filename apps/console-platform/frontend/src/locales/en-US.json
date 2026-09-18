@@ -233,5 +233,19 @@
   "platform.test.failed": "Failed",
   "platform.test.connectivityValue.REACHABLE": "Reachable",
   "platform.test.connectivityValue.UNREACHABLE": "Unreachable",
-  "platform.test.hint": "Schema validation and non-auth probes only; no Secret read and no Session created."
+  "platform.test.hint": "Schema validation and non-auth probes only; no Secret read and no Session created.",
+  "user.credentials.platform": "Project platform",
+  "user.credentials.adapter": "Adapter",
+  "user.credentials.mode": "Credential policy",
+  "user.credentials.status": "Status",
+  "user.credentials.updatedAt": "Updated at",
+  "user.credentials.configured": "Configured",
+  "user.credentials.invalid": "Invalid",
+  "user.credentials.notConfigured": "Not configured",
+  "user.credentials.configure": "Configure",
+  "user.credentials.update": "Update",
+  "user.credentials.empty": "No project platforms",
+  "user.credentials.formTitle": "Configure platform credential",
+  "user.credentials.hint": "Credentials are configured per platform; only the status is shown, plaintext is never echoed.",
+  "user.credentials.notEchoed": "After saving only \"configured\" is shown; plaintext is never echoed."
 }

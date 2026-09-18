@@ -82,7 +82,8 @@ test('S-03/S-08/E-06 详情四计数与来源一致，Tab 独立加载与错误�
     await expect(page.locator('.semi-sidesheet')).toContainText('e2e');
 
     await page.getByRole('tab', { name: '项目平台凭据 (1)' }).click();
-    await expect(page.locator('.semi-banner-danger')).toContainText('加载失败');
+    await expect(page.locator('.semi-sidesheet')).toContainText('E2E Platform');
+    await expect(page.locator('.semi-sidesheet')).toContainText('已配置');
     await page.getByRole('tab', { name: '基本信息' }).click();
     await expect(page.locator('.semi-sidesheet')).toContainText('Detail Counts User');
   } finally {

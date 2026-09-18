@@ -233,5 +233,19 @@
   "platform.test.failed": "失败",
   "platform.test.connectivityValue.REACHABLE": "可达",
   "platform.test.connectivityValue.UNREACHABLE": "不可达",
-  "platform.test.hint": "仅做 Schema 校验与非鉴权探测，不读取 Secret、不建立 Session。"
+  "platform.test.hint": "仅做 Schema 校验与非鉴权探测，不读取 Secret、不建立 Session。",
+  "user.credentials.platform": "项目平台",
+  "user.credentials.adapter": "平台适配器",
+  "user.credentials.mode": "凭据策略",
+  "user.credentials.status": "配置状态",
+  "user.credentials.updatedAt": "更新时间",
+  "user.credentials.configured": "已配置",
+  "user.credentials.invalid": "已失效",
+  "user.credentials.notConfigured": "未配置",
+  "user.credentials.configure": "配置",
+  "user.credentials.update": "更新",
+  "user.credentials.empty": "暂无项目平台",
+  "user.credentials.formTitle": "配置项目平台凭据",
+  "user.credentials.hint": "凭据按平台配置，保存后仅显示配置状态，不回显明文。",
+  "user.credentials.notEchoed": "保存后仅显示“已配置”，不回显明文。"
 }
