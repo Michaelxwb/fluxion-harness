@@ -10,6 +10,7 @@ import { UserPage } from './modules/user-identity/UserPage';
 import { AgentsPage } from './pages/AgentsPage';
 import { LoginPage } from './pages/LoginPage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
+import { PlatformPage } from './modules/project-platform/PlatformPage';
 
 export default function App() {
   const theme = useThemeMode();
@@ -46,7 +47,7 @@ export default function App() {
             </RequireRole>
           }
         />
-        <Route path="platforms" element={<PlaceholderPage titleKey="nav.platform" />} />
+        <Route path="platforms" element={<PlatformPage />} />
         <Route path="tasks" element={<PlaceholderPage titleKey="nav.task" />} />
         <Route path="schedules" element={<PlaceholderPage titleKey="nav.schedule" />} />
         <Route path="audits" element={<PlaceholderPage titleKey="nav.audit" />} />

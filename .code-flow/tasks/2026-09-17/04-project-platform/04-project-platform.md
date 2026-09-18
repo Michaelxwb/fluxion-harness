@@ -31,7 +31,7 @@
 |--------|---------|---------|-------------|---------|------|------|
 | S-01 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB | TASK-003 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-01\""] |
 | S-02 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB（凭据明文落库、不回显） | TASK-004 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-02\""] |
-| S-03 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→网络探测→UI | TASK-005 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-03\""] |
+| S-03 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→网络探测→UI | TASK-005 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-03\""] |
 | S-04 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | Service→DB→Redis | TASK-006 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_session_invalidation.py", "-k", "s04"] |
 | S-05 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-01） | E2E | Browser→adapter metadata→Form | TASK-008 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-05\""] |
 | S-06 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-02） | E2E | Browser→Secret API | TASK-010 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-06\""] |
@@ -39,7 +39,7 @@
 | S-08 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-04） | E2E | Browser→API→DB（用户详情凭据 Tab） | TASK-011 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-08\""] |
 | S-09 | 04-project-platform.frontend.design.md#2.4 验收条件（原 S-FE-05） | E2E | Browser→API→DB | TASK-007 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"S-09\""] |
 | E-01 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→Registry | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_adapters_api.py", "-k", "e01"] |
-| E-02 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→CredentialResolver | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_test_api.py", "-k", "e02"] |
+| E-02 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→CredentialResolver | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_test_api.py", "-k", "e02"] |
 | E-03 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→DB | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_platform_repository.py", "-k", "e03"] |
 | E-04 | 04-project-platform.backend.design.md#2.5.2 功能验收场景 | integration | API→Schema | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_credentials_api.py", "-k", "e04"] |
 | E-05 | 04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-01） | E2E | PUT API→UI | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"E-05\""] |
@@ -231,7 +231,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - [2026-09-18] completed (done)
 ## TASK-005: 配置校验与连通性探测 API
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-004
 - **Source**: 04-project-platform.backend.design.md#3.4 接口设计(API-06), #2.5.1 业务规则与约束(RULE-08)
@@ -254,18 +254,21 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-03 | E2E | Browser、API、网络探测、UI | 三项结果正确；无登录/Session/业务调用痕迹 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-03"` | planned |
-| E-02 | integration | API、CredentialResolver、DB | `CREDENTIAL_MISSING`；不读取 Secret Value | tests/console_platform/test_platform_test_api.py（planned） | `uv run pytest -q tests/console_platform/test_platform_test_api.py -k e02` | planned |
+| S-03 | E2E | Browser、API、网络探测、UI | 三项结果正确；无登录/Session/业务调用痕迹 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-03"` | e2e_deferred |
+| E-02 | integration | API、CredentialResolver、DB | `CREDENTIAL_MISSING`；不读取 Secret Value | tests/console_platform/test_platform_test_api.py（planned） | `uv run pytest -q tests/console_platform/test_platform_test_api.py -k e02` | verified |
 
 ### Acceptance Evidence
 
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=7c888edd578b43e5901e01181becb092 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=7c888edd578b43e5901e01181becb092 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
 
 ---
-
+- [2026-09-18] started
+- [2026-09-18] completed (done)
 ## TASK-006: Session 失效契约（Redis Set 索引）
 
 - **Status**: done

@@ -44,7 +44,7 @@
       "kind": "e2e",
       "boundary": "Browser→API→网络探测→UI",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -52,7 +52,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "7c888edd578b43e5901e01181becb092",
+        "executed_at": "2026-09-18T13:09:06.773861+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7c888edd578b43e5901e01181becb092",
+          "executed_at": "2026-09-18T13:09:06.773861+00:00"
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -209,7 +228,7 @@
       "kind": "functional",
       "boundary": "API→CredentialResolver",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -221,7 +240,28 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "7c888edd578b43e5901e01181becb092",
+        "executed_at": "2026-09-18T13:09:06.773861+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7c888edd578b43e5901e01181becb092",
+          "executed_at": "2026-09-18T13:09:06.773861+00:00"
+        }
+      ]
     },
     {
       "id": "E-03",
