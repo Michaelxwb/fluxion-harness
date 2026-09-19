@@ -1,7 +1,7 @@
 version: 1
 task: 项目平台与凭据
 enforcement: required
-updated_at: '2026-09-18T13:42:36.942051+00:00'
+updated_at: '2026-09-19T01:54:13.801665+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -52,7 +52,7 @@ bindings:
         - artifact: 04-project-platform.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-api-001
-          artifact_sha256: d46c272dd604a16cfb46946ae6dda0149fb8418d4102037a2155c3ae66c26567
+          artifact_sha256: 58809425ee3af5d54d901c582bd4384942c07494186a953fefbec4ab7e1a7839
         decision: null
         evidence: []
       plan:
@@ -61,7 +61,7 @@ bindings:
         - artifact: 04-project-platform.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: b4d02cfbe8bd5181aee0389f31e6cfaccb3bc530b725c072c72fb7e87d3c7803
+          artifact_sha256: 7f7f5b2d033a76ba1ba3f2529a38bda96e03f502c85e6cae3383d1c3babe7df4
         decision: null
         evidence: []
       code:
@@ -307,7 +307,7 @@ bindings:
         - artifact: 04-project-platform.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-data-001
-          artifact_sha256: d46c272dd604a16cfb46946ae6dda0149fb8418d4102037a2155c3ae66c26567
+          artifact_sha256: 58809425ee3af5d54d901c582bd4384942c07494186a953fefbec4ab7e1a7839
         decision: null
         evidence: []
       plan:
@@ -316,7 +316,7 @@ bindings:
         - artifact: 04-project-platform.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: b4d02cfbe8bd5181aee0389f31e6cfaccb3bc530b725c072c72fb7e87d3c7803
+          artifact_sha256: 7f7f5b2d033a76ba1ba3f2529a38bda96e03f502c85e6cae3383d1c3babe7df4
         decision: null
         evidence: []
       code:
@@ -677,7 +677,7 @@ bindings:
         - artifact: 04-project-platform.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-front-001
-          artifact_sha256: 83ac6e8429dc2da1e98f4fb2df41d52127c10a6276ca2bf5774cbd301e94ec53
+          artifact_sha256: bc5ed7d1984b5fe21e11eda7e60709a026c44b4f9f1d8edba92202e065c859d0
         decision: null
         evidence: []
       plan:
@@ -686,7 +686,7 @@ bindings:
         - artifact: 04-project-platform.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: b4d02cfbe8bd5181aee0389f31e6cfaccb3bc530b725c072c72fb7e87d3c7803
+          artifact_sha256: 7f7f5b2d033a76ba1ba3f2529a38bda96e03f502c85e6cae3383d1c3babe7df4
         decision: null
         evidence: []
       code:
@@ -840,7 +840,7 @@ bindings:
         - artifact: 04-project-platform.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-i18n-001
-          artifact_sha256: d46c272dd604a16cfb46946ae6dda0149fb8418d4102037a2155c3ae66c26567
+          artifact_sha256: 58809425ee3af5d54d901c582bd4384942c07494186a953fefbec4ab7e1a7839
         decision: null
         evidence: []
       plan:
@@ -849,7 +849,7 @@ bindings:
         - artifact: 04-project-platform.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: b4d02cfbe8bd5181aee0389f31e6cfaccb3bc530b725c072c72fb7e87d3c7803
+          artifact_sha256: 7f7f5b2d033a76ba1ba3f2529a38bda96e03f502c85e6cae3383d1c3babe7df4
         decision: null
         evidence: []
       code:
@@ -989,7 +989,7 @@ bindings:
         - artifact: 04-project-platform.backend.design.md
           section_id: design
           item_id: design
-          artifact_sha256: d46c272dd604a16cfb46946ae6dda0149fb8418d4102037a2155c3ae66c26567
+          artifact_sha256: 58809425ee3af5d54d901c582bd4384942c07494186a953fefbec4ab7e1a7839
         - artifact: 04-project-platform.frontend.design.md
           section_id: design
           item_id: design
@@ -1002,7 +1002,7 @@ bindings:
         - artifact: 04-project-platform.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: b4d02cfbe8bd5181aee0389f31e6cfaccb3bc530b725c072c72fb7e87d3c7803
+          artifact_sha256: 7f7f5b2d033a76ba1ba3f2529a38bda96e03f502c85e6cae3383d1c3babe7df4
         decision: null
         evidence: []
       code:
@@ -1345,7 +1345,7 @@ bindings:
         - artifact: 04-project-platform.backend.design.md
           section_id: design
           item_id: design
-          artifact_sha256: d46c272dd604a16cfb46946ae6dda0149fb8418d4102037a2155c3ae66c26567
+          artifact_sha256: 58809425ee3af5d54d901c582bd4384942c07494186a953fefbec4ab7e1a7839
         - artifact: 04-project-platform.frontend.design.md
           section_id: design
           item_id: design
@@ -1358,7 +1358,7 @@ bindings:
         - artifact: 04-project-platform.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: b4d02cfbe8bd5181aee0389f31e6cfaccb3bc530b725c072c72fb7e87d3c7803
+          artifact_sha256: 7f7f5b2d033a76ba1ba3f2529a38bda96e03f502c85e6cae3383d1c3babe7df4
         decision: null
         evidence: []
       code:
@@ -1544,7 +1544,7 @@ bindings:
         - artifact: 04-project-platform.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-test-001
-          artifact_sha256: d46c272dd604a16cfb46946ae6dda0149fb8418d4102037a2155c3ae66c26567
+          artifact_sha256: 58809425ee3af5d54d901c582bd4384942c07494186a953fefbec4ab7e1a7839
         decision: null
         evidence: []
       plan:
@@ -1553,7 +1553,7 @@ bindings:
         - artifact: 04-project-platform.md
           section_id: TASK-012
           item_id: TASK-012
-          artifact_sha256: b4d02cfbe8bd5181aee0389f31e6cfaccb3bc530b725c072c72fb7e87d3c7803
+          artifact_sha256: 7f7f5b2d033a76ba1ba3f2529a38bda96e03f502c85e6cae3383d1c3babe7df4
         decision: null
         evidence: []
       code:
@@ -2152,7 +2152,7 @@ bindings:
         - artifact: 04-project-platform.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: b4d02cfbe8bd5181aee0389f31e6cfaccb3bc530b725c072c72fb7e87d3c7803
+          artifact_sha256: 7f7f5b2d033a76ba1ba3f2529a38bda96e03f502c85e6cae3383d1c3babe7df4
         decision: null
         evidence: []
       code:
@@ -2491,7 +2491,7 @@ bindings:
         - artifact: 04-project-platform.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-ui-001
-          artifact_sha256: 83ac6e8429dc2da1e98f4fb2df41d52127c10a6276ca2bf5774cbd301e94ec53
+          artifact_sha256: bc5ed7d1984b5fe21e11eda7e60709a026c44b4f9f1d8edba92202e065c859d0
         decision: null
         evidence: []
       plan:
@@ -2500,7 +2500,7 @@ bindings:
         - artifact: 04-project-platform.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: b4d02cfbe8bd5181aee0389f31e6cfaccb3bc530b725c072c72fb7e87d3c7803
+          artifact_sha256: 7f7f5b2d033a76ba1ba3f2529a38bda96e03f502c85e6cae3383d1c3babe7df4
         decision: null
         evidence: []
       code:
@@ -3273,7 +3273,7 @@ bindings:
         - artifact: 04-project-platform.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-ui-detail-001
-          artifact_sha256: 83ac6e8429dc2da1e98f4fb2df41d52127c10a6276ca2bf5774cbd301e94ec53
+          artifact_sha256: bc5ed7d1984b5fe21e11eda7e60709a026c44b4f9f1d8edba92202e065c859d0
         decision: null
         evidence: []
       plan:
@@ -3282,7 +3282,7 @@ bindings:
         - artifact: 04-project-platform.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: b4d02cfbe8bd5181aee0389f31e6cfaccb3bc530b725c072c72fb7e87d3c7803
+          artifact_sha256: 7f7f5b2d033a76ba1ba3f2529a38bda96e03f502c85e6cae3383d1c3babe7df4
         decision: null
         evidence: []
       code:

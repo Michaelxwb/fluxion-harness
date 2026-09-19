@@ -103,10 +103,13 @@ test('S-02/S-06 用户凭据保存后仅显示已配置且不回显明文', asyn
   try {
     await openPlatformDetail(page, key);
     await page.locator('.semi-sidesheet').getByRole('tab', { name: /凭据/ }).click();
-    await page.locator('.semi-sidesheet .semi-select').first().click();
-    await page.getByRole('option', { name: new RegExp(userCode) }).click();
-    await expect(page.locator('.semi-sidesheet')).toContainText('已配置');
-    await page.getByRole('button', { name: /更新|配置凭据/ }).first().click();
+    await expect(page.locator('.semi-sidesheet')).toContainText('配置用户凭据');
+    await expect(page.locator('.semi-sidesheet')).toContainText(userCode);
+    await page
+      .locator('.semi-sidesheet .semi-table-tbody')
+      .getByRole('button', { name: '更新' })
+      .first()
+      .click();
     const modal = page.locator('.semi-modal');
     await modal.getByRole('textbox', { name: /token/i }).fill('secret-plaintext-token');
     await modal.locator('.semi-modal-footer .semi-button-primary').click();

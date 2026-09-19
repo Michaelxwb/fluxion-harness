@@ -155,3 +155,70 @@ async def test_shared_credential_lifecycle(
     after = await client.get(url, headers=_headers(tenant))
     assert after.json()["data"]["configured"] is False
     assert (await client.delete(url, headers=_headers(tenant))).status_code == 404
+
+
+async def test_e08_list_user_credentials_reports_status_and_updated_time(
+    client: AsyncClient, tenant: TenantContext, platform_bundle: dict[str, Any]
+) -> None:
+    platform_id = platform_bundle["platform_id"]
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        active = PlatformUser(
+            tenant_id=tenant.tenant_id, user_code=f"code-{uuid.uuid4()}", display_name="Active User"
+        )
+        invalid = PlatformUser(
+            tenant_id=tenant.tenant_id, user_code=f"code-{uuid.uuid4()}", display_name="Invalid User"
+        )
+        missing = PlatformUser(
+            tenant_id=tenant.tenant_id, user_code=f"code-{uuid.uuid4()}", display_name="Missing User"
+        )
+        session.add_all([active, invalid, missing])
+        await session.commit()
+        active_id, invalid_id, missing_id = str(active.id), str(invalid.id), str(missing.id)
+
+    repo_url = f"/api/v1/project-platforms/{platform_id}/users"
+    assert (
+        await client.put(f"{repo_url}/{active_id}/credential", json={"token": "t"}, headers=_headers(tenant))
+    ).status_code == 200
+    assert (
+        await client.put(f"{repo_url}/{invalid_id}/credential", json={"token": "t"}, headers=_headers(tenant))
+    ).status_code == 200
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        await session.execute(
+            text(
+                "UPDATE control.user_credential_ref SET status = 'INVALID' "
+                "WHERE tenant_id = :tenant_id AND user_id = :user_id"
+            ),
+            {"tenant_id": tenant.tenant_id, "user_id": invalid_id},
+        )
+        await session.commit()
+
+    listing = await client.get(
+        f"/api/v1/project-platforms/{platform_id}/user-credentials",
+        headers=_headers(tenant),
+        params={"page_size": 100},
+    )
+    assert listing.status_code == 200
+    data = listing.json()["data"]
+    assert data["total"] >= 3
+    statuses = {item["user_id"]: item for item in data["items"]}
+    assert statuses[active_id]["credential_status"] == "ACTIVE"
+    assert statuses[active_id]["updated_time"]
+    assert statuses[invalid_id]["credential_status"] == "INVALID"
+    assert statuses[missing_id]["credential_status"] == "NONE"
+    assert statuses[missing_id]["updated_time"] is None
+    assert "credential_json" not in listing.text
+    assert "plain" not in listing.text
+
+    filtered = await client.get(
+        f"/api/v1/project-platforms/{platform_id}/user-credentials",
+        headers=_headers(tenant),
+        params={"keyword": "Missing User"},
+    )
+    assert filtered.json()["data"]["total"] == 1
+
+    unknown = await client.get(
+        f"/api/v1/project-platforms/{uuid.uuid4()}/user-credentials", headers=_headers(tenant)
+    )
+    assert unknown.status_code == 404

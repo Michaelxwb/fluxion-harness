@@ -300,6 +300,7 @@ erDiagram
 | API-12 | 共享凭据删 | DELETE | `/api/v1/project-platforms/{platform_id}/shared-credential` | FEAT-02 |
 | API-13 | 删除平台 | DELETE | `/api/v1/project-platforms/{platform_id}` | FEAT-01 |
 | API-14 | Adapter 详情 | GET | `/api/v1/platform-adapters/{adapter_key}` | FEAT-01 |
+| API-15 | 用户凭据列表 | GET | `/api/v1/project-platforms/{platform_id}/user-credentials` | FEAT-02 |
 
 #### API-01 Adapter 元数据列表
 
@@ -545,6 +546,19 @@ GET /api/v1/platform-adapters/{adapter_key}
 - 错误码：`PLATFORM_ADAPTER_NOT_FOUND / COMMON_INTERNAL_ERROR`
 - 处理：从 platform-sdk Registry 读取；未注册返回 `PLATFORM_ADAPTER_NOT_FOUND`；不回显 Secret。
 - 对应 docs/07：§10.6。
+
+#### API-15 用户凭据列表
+
+```text
+GET /api/v1/project-platforms/{platform_id}/user-credentials
+```
+
+- 调用方：Console Web（平台详情「凭据管理」Tab、用户详情凭据 Tab 复用）。
+- 请求（Query）：`page`（默认 1）、`page_size`（默认 10，最大 100）、`keyword`（姓名/账号模糊搜索）。
+- `data`：`{items:[{user_id,display_name,user_code,credential_status:ACTIVE|INVALID|NONE,updated_time}],page,page_size,total}`。
+- 错误码：`COMMON_NOT_FOUND / COMMON_INTERNAL_ERROR`
+- 处理：以平台用户为主表 LEFT JOIN 该平台的 `user_credential_ref`，一次查询返回每个用户的配置状态与更新时间（无记录为 `NONE`、`updated_time=null`），不回显凭据内容；平台不存在返回 `COMMON_NOT_FOUND`。
+- 对应 docs/07：§10.8。
 
 ### 3.5 Session 与凭据解析
 

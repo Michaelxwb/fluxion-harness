@@ -2,7 +2,7 @@
 
 - **Source**: `.code-flow/tasks/2026-09-17/04-project-platform/`（04-project-platform.backend.design.md、04-project-platform.frontend.design.md）
 - **Created**: 2026-09-18
-- **Updated**: 2026-09-18
+- **Updated**: 2026-09-19
 
 ## Proposal
 
@@ -19,6 +19,7 @@
   - Session 失效使用 `.env` 中的真实 Redis（`REDIS_URL`）与真实 PG；platform-sdk 实现 `RedisPlatformSessionManager`（Set 索引，禁 `KEYS/SCAN`，singleflight 短锁）。
   - 新增依赖：Console 后端 `jsonschema`（平台/凭据 Schema 校验），platform-sdk `redis` 客户端。
   - 归档 02 的 E2E「E-06 凭据 Tab 加载失败」在 TASK-011 更新为真实数据断言（占位行为退役）。
+  - 对齐交互稿（2026-09-19 复核）：新增 API-15 用户凭据列表（用户/账号/配置状态/更新时间）与「凭据管理」Tab 布局（配置用户凭据 Modal、默认共享凭据卡片）；「配置校验」结果本地化（未检查/缺失/失败原因），不展示原始 JSON。
   - 责任调整（执行可行性）：E-01 归 TASK-002（Registry 查找）、E-03 归 TASK-001（真实 PG partial unique）、E-06 归 TASK-012（E2E 执行）；新增 S-FE-05（平台列表筛选/分页）归 TASK-007，保证每个 TASK 都有可验收场景。
 - **Non-goals**: Console 不执行平台登录/业务调用、不建立/缓存 Session；不做共享凭据池化/priority；不改本模块之外的领域语义；Secret 明文不得进入日志/审计响应/Snapshot/API 响应。
 - **Acceptance**: design 全部 P0/P1 场景 15 个（S-01~S-08、E-01~E-07）全部锁定责任任务与真实边界；RULE 9 条各唯一 owner。
@@ -45,6 +46,7 @@
 | E-05 | 04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-01） | E2E | PUT API→UI | TASK-009 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"E-05\""] |
 | E-06 | 04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-02） | E2E | API→网络探测→UI | TASK-012 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.platform.config.ts --grep \"E-06\""] |
 | E-07 | 04-project-platform.frontend.design.md#2.4 验收条件（原 E-FE-03） | integration | Schema 校验 API→Form | TASK-010 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_platform_credential_form_contract.py"] |
+| E-08 | 04-project-platform.backend.design.md#3.4 接口设计(API-15) | integration | API→DB（用户×平台凭据状态） | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_credentials_api.py", "-k", "e08"] |
 
 > 本表覆盖 design 全部 P0 场景（FEAT-01~04、FEAT-FE-01~05）与 9 条 required RULE 映射场景；不存在缺口。
 
@@ -90,6 +92,8 @@
 - RED 未留存：仓库层实现与测试同批完成，以真实 DB 约束断言为主证据。
 - E-03: verified — automated command passed; run_id=a7d12493930e4780b04c77d4c002e423 (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -138,6 +142,8 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - RED 未留存：实现与测试同批完成。
 - E-01: verified — automated command passed; run_id=343d6faf5f124438915c21fd6d55cb20 (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -185,6 +191,9 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=446457ae75f541bf932c688432a29343 (confirmed_by: runner)
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -197,21 +206,23 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003
-- **Source**: 04-project-platform.backend.design.md#3.4 接口设计(API-07~12), #2.5.1 业务规则与约束(RULE-03)
+- **Source**: 04-project-platform.backend.design.md#3.4 接口设计(API-07~12、API-15), #2.5.1 业务规则与约束(RULE-03)
 - **Spec-Refs**: harness-secret#RULE-secret-001
-- **Acceptance-Refs**: S-02, E-04
+- **Acceptance-Refs**: S-02, E-04, E-08
 
 ### Description
 实现用户凭据读/写/删与共享凭据读/写/删：写入前用 Adapter `credential_schema` 校验（`jsonschema`，不通过返回 `COMMON_VALIDATION_ERROR` 且 Secret 不落库）；明文写入 `credential_json`（共享凭据每平台 0..1，存在即更新）；读接口只返回 `configured/status/credential_schema_version/last_verified_at`，任何响应、日志、审计不出现 Secret；同事务追加 `config_audit_log`；删除为软删。
 
 ### Checklist
 - [ ] 用户凭据 GET/PUT/DELETE（`(user_id, platform_id)` partial unique upsert，软删）
+- [ ] API-15 用户凭据列表：按用户 LEFT JOIN 状态与更新时间、分页/搜索、平台不存在 404、不回显凭据
 - [ ] 共享凭据 GET/PUT/DELETE（每平台 0..1）
 - [ ] Schema 校验失败 → `COMMON_VALIDATION_ERROR`，DB 无写入
 - [ ] 读接口不回显明文（仅 `configured/status`）；审计/日志脱敏断言
 - [ ] [S-02][E2E] 修改生产代码前，按 Browser→API→DB 真实边界编写验收测试并记录 RED（浏览器层由 TASK-012 执行）
 - [ ] [S-02] 断言 DB `credential_json` 与输入一致、API 响应/列表只显示已配置
 - [ ] [E-04][integration] 断言 Schema 不满足时错误码、字段级信息与零落库
+- [ ] [E-08][integration] 断言 三个用户分别返回 ACTIVE/INVALID/NONE 与 updated_time，且响应不含凭据内容
 - [ ] 运行 harness-secret#RULE-secret-001 verifier 并填写 Acceptance Evidence：`uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py`
 
 ### Acceptance Contract
@@ -220,6 +231,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 |--------|---------|--------------------|---------|----------------|---------|------|
 | S-02 | E2E | Browser、API、DB | DB 明文落库；响应不回显；审计无 Secret | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-02"` | verified |
 | E-04 | integration | API、Schema、DB | `COMMON_VALIDATION_ERROR`；Secret 零落库 | tests/console_platform/test_credentials_api.py（planned） | `uv run pytest -q tests/console_platform/test_credentials_api.py -k e04` | verified |
+| E-08 | integration | API、DB（真实 PG JOIN） | ACTIVE/INVALID/NONE 与 updated_time 正确；无明文 | tests/console_platform/test_credentials_api.py::test_e08_list_user_credentials_reports_status_and_updated_time（已实现） | `uv run pytest -q tests/console_platform/test_credentials_api.py -k e08` | green | verified |
 
 ### Acceptance Evidence
 
@@ -229,6 +241,12 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - S-02: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -272,6 +290,11 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - S-03: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 - S-03: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -311,6 +334,8 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 > `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 - S-04: verified — automated command passed; run_id=a67c8f5933a04a5b9195f69cbf1c6250 (confirmed_by: runner)
 - S-04: verified — automated command passed; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -356,6 +381,9 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - S-09: e2e_deferred — automated command e2e_deferred; run_id=6acefce54dbf4d988ef2dc3ad7f990e9 (confirmed_by: runner)
 - S-09: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 - S-09: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
+- S-09: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- S-09: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -396,6 +424,9 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=bd8d1b86f2e4493c802925312c084885 (confirmed_by: runner)
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 - S-05: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -436,6 +467,9 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - E-05: e2e_deferred — automated command e2e_deferred; run_id=df371830352b4471b3aeb93903bb964b (confirmed_by: runner)
 - E-05: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
+- E-05: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- E-05: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -456,6 +490,9 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 `CredentialTab`：用户凭据（选择用户 + 按 `credential_schema` 动态表单，Secret 字段不回显；保存后只显示「已配置」）与单套共享凭据（更新/删除）；`PlatformTestModal` 展示 `config_valid/connectivity/credential_ref_status/checked_at/details`，失败时标记 `UNREACHABLE` 与原因，不显示 Secret/Session。
 
 ### Checklist
+- [ ] 凭据管理 Tab 对齐交互稿：用户凭据列表（用户/账号/配置状态/更新时间/操作）+「配置用户凭据」Modal（远端搜索用户 + Schema 字段）
+- [ ] 共享凭据卡片（默认共享凭据 + 回退说明 + 已配置/更新）
+- [ ] 配置校验 Modal 本地化（未检查/缺失/失败原因），禁止展示原始 JSON
 - [ ] 用户凭据选择与动态字段（Schema 驱动），保存后刷新为「已配置」，无明文回显
 - [ ] 共享凭据更新/删除；每平台 0..1
 - [ ] `PlatformTestModal` 结果分区展示；失败原因本地化
@@ -465,6 +502,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - [ ] [S-07] 断言 三项结果展示且无登录/Session 痕迹
 - [ ] [E-06][E2E] 连通性失败显示 `UNREACHABLE` 与原因，不显示 Secret/Session
 - [ ] [E-07][integration] Schema 字段错误字段级提示且不提交：`tests/frontend/test_platform_credential_form_contract.py`
+- [ ] [E-07] 契约覆盖新布局与本地化展示（`CredentialTab` 列表/共享卡片、`PlatformTestModal` 文案键）
 - [ ] 运行 harness-frontend / harness-ui verifier 并填写 Acceptance Evidence
 
 ### Acceptance Contract
@@ -487,6 +525,14 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - E-07: verified — automated command passed; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
 - S-07: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -527,6 +573,9 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - S-08: e2e_deferred — automated command e2e_deferred; run_id=00fd773808f04209aea57ddcb9118d8a (confirmed_by: runner)
 - S-08: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 - S-08: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
+- S-08: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- S-08: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -576,6 +625,9 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - E-06: e2e_deferred — automated command e2e_deferred; run_id=556285da3f98479d8652529f33f36c4f (confirmed_by: runner)
 - E-06: e2e_deferred — automated command e2e_deferred; run_id=88854ee85deb4d1797f8689bbaff13ef (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=954a993a0d9a44c1a8eb213f79169b6d (confirmed_by: runner)
+- E-06: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
+- E-06: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)

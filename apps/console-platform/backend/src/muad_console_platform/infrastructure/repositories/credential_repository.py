@@ -3,10 +3,10 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.control import SharedCredentialRef, UserCredentialRef
+from ..models.control import PlatformUser, SharedCredentialRef, UserCredentialRef
 
 
 class CredentialRepository:
@@ -113,3 +113,57 @@ class CredentialRepository:
             changed += 1
         await self._session.flush()
         return changed
+
+    async def list_users_with_status(
+        self,
+        tenant_id: str,
+        platform_id: uuid.UUID,
+        page: int,
+        page_size: int,
+        keyword: str | None,
+    ) -> tuple[list[tuple[PlatformUser, str | None, Any]], int]:
+        conditions = [
+            PlatformUser.tenant_id == tenant_id,
+            PlatformUser.is_deleted.is_(False),
+        ]
+        if keyword:
+            pattern = f"%{keyword}%"
+            conditions.append(
+                or_(
+                    PlatformUser.user_code.ilike(pattern),
+                    PlatformUser.display_name.ilike(pattern),
+                )
+            )
+        total = await self._session.scalar(
+            select(func.count()).select_from(PlatformUser).where(*conditions)
+        )
+        status_expr = (
+            select(UserCredentialRef.status)
+            .where(
+                UserCredentialRef.user_id == PlatformUser.id,
+                UserCredentialRef.platform_id == platform_id,
+                UserCredentialRef.is_deleted.is_(False),
+            )
+            .limit(1)
+            .scalar_subquery()
+        )
+        updated_expr = (
+            select(UserCredentialRef.update_time)
+            .where(
+                UserCredentialRef.user_id == PlatformUser.id,
+                UserCredentialRef.platform_id == platform_id,
+                UserCredentialRef.is_deleted.is_(False),
+            )
+            .limit(1)
+            .scalar_subquery()
+        )
+        rows = (
+            await self._session.execute(
+                select(PlatformUser, status_expr, updated_expr)
+                .where(*conditions)
+                .order_by(PlatformUser.create_time.desc(), PlatformUser.id)
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        ).all()
+        return [(row[0], row[1], row[2]) for row in rows], int(total or 0)

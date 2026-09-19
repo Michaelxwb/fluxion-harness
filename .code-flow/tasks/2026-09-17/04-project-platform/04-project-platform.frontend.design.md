@@ -109,7 +109,7 @@
 |---|---|---|---|---|
 | CMP-01 | `PlatformPage` | 容器 | 模块内 | 列表/详情 |
 | CMP-02 | `ProjectPlatformForm` | 容器 | 模块内 | resolver/adapter 动态字段 |
-| CMP-03 | `CredentialTab` | 容器 | 模块内 | 用户/共享凭据 |
+| CMP-03 | `CredentialTab` | 容器 | 模块内 | 用户凭据列表（用户/账号/配置状态/更新时间）+ 共享凭据卡片 + 配置用户凭据 Modal |
 | CMP-04 | `PlatformTestModal` | 容器 | 模块内 | 配置校验/连通性结果 |
 
 **必须复用公共组件**：`ConsoleShell / ModuleToolbar / RemoteTable / EntityLink / DetailSideSheet / DetailTabs / FormModal / StatusTag / DateTimeText / ConfirmAction / EmptyState / ErrorState / PaginationFooter / LocaleSwitch`。
@@ -165,6 +165,7 @@ User Action
 | `savePlatform(input)` | `POST/PUT /api/v1/project-platforms` | ProjectPlatformForm |
 | `deletePlatform(id)` | `DELETE /api/v1/project-platforms/{id}` | PlatformPage |
 | `testPlatform(id,input)` | `POST /api/v1/project-platforms/{id}/test` | PlatformTestModal |
+| `listPlatformCredentials(id,params)` | `GET /api/v1/project-platforms/{id}/user-credentials` | CredentialTab |
 | `getUserCredential(id,userId)` | `GET /api/v1/project-platforms/{id}/users/{user_id}/credential` | CredentialTab |
 | `saveUserCredential(id,userId,input)` | `PUT /api/v1/project-platforms/{id}/users/{user_id}/credential` | CredentialTab |
 | `saveSharedCredential(id,input)` | `PUT /api/v1/project-platforms/{id}/shared-credential` | CredentialTab |

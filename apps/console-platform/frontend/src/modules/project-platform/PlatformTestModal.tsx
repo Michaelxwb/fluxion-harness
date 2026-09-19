@@ -11,6 +11,13 @@ export interface PlatformTestModalProps {
   onCancel(): void;
 }
 
+const CREDENTIAL_STATUS_KEYS: Record<string, string> = {
+  ACTIVE: 'platform.test.credentialStatus.ACTIVE',
+  INVALID: 'platform.test.credentialStatus.INVALID',
+  MISSING: 'platform.test.credentialStatus.MISSING',
+  NOT_CHECKED: 'platform.test.credentialStatus.NOT_CHECKED'
+};
+
 export function PlatformTestModal(props: PlatformTestModalProps) {
   const { t } = useTranslation();
   const [result, setResult] = useState<PlatformTestResult | null>(null);
@@ -27,6 +34,15 @@ export function PlatformTestModal(props: PlatformTestModalProps) {
       .catch(() => setError(true));
   }, [props.visible, props.platformId]);
 
+  const target =
+    typeof result?.details.host === 'string'
+      ? `${result.details.host}${result.details.port ? `:${result.details.port}` : ''}`
+      : typeof result?.details.service_name === 'string'
+        ? result.details.service_name
+        : '-';
+  const failureReason =
+    result && typeof result.details.error === 'string' ? result.details.error : null;
+
   return (
     <Modal
       visible={props.visible}
@@ -36,7 +52,7 @@ export function PlatformTestModal(props: PlatformTestModalProps) {
       onCancel={props.onCancel}
     >
       {error ? (
-        <Tag color="red">{t('platform.test.failed')}</Tag>
+        <Tag color="red">{t('platform.test.requestFailed')}</Tag>
       ) : result === null ? (
         <Spin style={{ display: 'block', margin: '16px auto' }} />
       ) : (
@@ -61,17 +77,28 @@ export function PlatformTestModal(props: PlatformTestModalProps) {
             },
             {
               key: t('platform.test.credentialRefStatus'),
-              value: result.credential_ref_status
+              value: t(
+                CREDENTIAL_STATUS_KEYS[result.credential_ref_status] ??
+                  'platform.test.credentialStatus.NOT_CHECKED'
+              )
             },
-            { key: t('platform.form.adapter'), value: `${result.adapter_key} · ${result.adapter_version}` },
+            {
+              key: t('platform.form.adapter'),
+              value: `${result.adapter_key} · ${result.adapter_version}`
+            },
+            { key: t('platform.test.target'), value: target },
             {
               key: t('platform.test.checkedAt'),
               value: <DateTimeText value={result.checked_at} />
             },
-            {
-              key: t('platform.test.details'),
-              value: Object.keys(result.details).length > 0 ? JSON.stringify(result.details) : '-'
-            }
+            ...(failureReason
+              ? [
+                  {
+                    key: t('platform.test.failureReason'),
+                    value: t(`platform.test.error.${failureReason}`, { defaultValue: failureReason })
+                  }
+                ]
+              : [])
           ]}
         />
       )}

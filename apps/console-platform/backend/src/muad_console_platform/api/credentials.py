@@ -1,8 +1,8 @@
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
-from muad_api import ApiResponse, ok
+from fastapi import APIRouter, Depends, Query, Request
+from muad_api import ApiResponse, ok, paginate
 from muad_platform_sdk import PlatformAdapterRegistry
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +24,26 @@ def _service(session: Session, registry: Registry) -> CredentialService:
 
 def _actor(account: CurrentAccount, request: Request) -> AuditActor:
     return AuditActor(account_id=account.id, source_ip=get_source_ip(request))
+
+
+@router.get("/{platform_id}/user-credentials")
+async def list_user_credentials(
+    platform_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    registry: Registry,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    keyword: str | None = Query(default=None, max_length=128),
+) -> ApiResponse[Any]:
+    items, total = await _service(session, registry).list_user_credentials(
+        tenant_id, platform_id, page, page_size, keyword
+    )
+    return ok(
+        request.app.state.message_catalog,
+        paginate(items=items, page=page, page_size=page_size, total=total),
+    )
 
 
 @router.get("/{platform_id}/users/{user_id}/credential")

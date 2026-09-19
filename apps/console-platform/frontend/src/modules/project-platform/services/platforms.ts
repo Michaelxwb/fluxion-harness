@@ -67,6 +67,14 @@ export interface UserSummary {
   user_code: string;
 }
 
+export interface PlatformCredentialRow {
+  user_id: string;
+  display_name: string;
+  user_code: string;
+  credential_status: 'ACTIVE' | 'INVALID' | 'NONE';
+  updated_time: string | null;
+}
+
 export interface CredentialState {
   configured: boolean;
   status?: string;
@@ -140,6 +148,18 @@ export async function testPlatform(
     await api.post<ApiResponse<PlatformTestResult>>(
       `/project-platforms/${platformId}/test`,
       input
+    )
+  );
+}
+
+export async function listPlatformCredentials(
+  platformId: string,
+  params: { page?: number; page_size?: number; keyword?: string } = {}
+): Promise<Page<PlatformCredentialRow>> {
+  return unwrap(
+    await api.get<ApiResponse<Page<PlatformCredentialRow>>>(
+      `/project-platforms/${platformId}/user-credentials`,
+      { params }
     )
   );
 }

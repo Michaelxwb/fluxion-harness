@@ -491,6 +491,28 @@ body {
   word-break: break-all;
 }
 
+.credential-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--semi-color-fill-0);
+  border: 1px solid var(--semi-color-border);
+  border-radius: var(--app-radius-sm);
+}
+
+.credential-card-title {
+  font-size: 14px;
+  color: var(--semi-color-text-0);
+}
+
+.credential-card-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
 .detail-hint {
   margin-top: 12px;
   font-size: 12px;

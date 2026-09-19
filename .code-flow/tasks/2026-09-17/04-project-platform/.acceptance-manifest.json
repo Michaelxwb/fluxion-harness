@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "04-project-platform.md",
-  "task_sha256": "a7c33faf1828215604e1ed82a92d5897e6672b71215129a35b7964e4410f8661",
+  "task_sha256": "382ad57d46b7374785b085a11a552f1e0f3e1862217968f350fa50877e4c539b",
   "scenarios": [
     {
       "id": "S-01",
@@ -26,8 +26,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 2,
-        "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-        "executed_at": "2026-09-18T13:44:48.804027+00:00"
+        "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+        "executed_at": "2026-09-19T01:56:32.228055+00:00"
       },
       "runs": [
         {
@@ -35,8 +35,8 @@
           "kind": "e2e",
           "status": "e2e_deferred",
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         },
         {
           "id": "S-01",
@@ -44,8 +44,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-          "executed_at": "2026-09-18T13:44:48.804027+00:00"
+          "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+          "executed_at": "2026-09-19T01:56:32.228055+00:00"
         }
       ]
     },
@@ -72,8 +72,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 2,
-        "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-        "executed_at": "2026-09-18T13:44:48.804027+00:00"
+        "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+        "executed_at": "2026-09-19T01:56:32.228055+00:00"
       },
       "runs": [
         {
@@ -81,8 +81,8 @@
           "kind": "e2e",
           "status": "e2e_deferred",
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         },
         {
           "id": "S-02",
@@ -90,8 +90,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-          "executed_at": "2026-09-18T13:44:48.804027+00:00"
+          "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+          "executed_at": "2026-09-19T01:56:32.228055+00:00"
         }
       ]
     },
@@ -118,8 +118,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 2,
-        "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-        "executed_at": "2026-09-18T13:44:48.804027+00:00"
+        "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+        "executed_at": "2026-09-19T01:56:32.228055+00:00"
       },
       "runs": [
         {
@@ -127,8 +127,8 @@
           "kind": "e2e",
           "status": "e2e_deferred",
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         },
         {
           "id": "S-03",
@@ -136,8 +136,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-          "executed_at": "2026-09-18T13:44:48.804027+00:00"
+          "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+          "executed_at": "2026-09-19T01:56:32.228055+00:00"
         }
       ]
     },
@@ -168,8 +168,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 1,
-        "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-        "executed_at": "2026-09-18T13:43:41.180083+00:00"
+        "run_id": "ffdd374a747941ff885589d3039efde0",
+        "executed_at": "2026-09-19T01:55:26.994583+00:00"
       },
       "runs": [
         {
@@ -178,8 +178,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         }
       ]
     },
@@ -206,8 +206,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 2,
-        "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-        "executed_at": "2026-09-18T13:44:48.804027+00:00"
+        "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+        "executed_at": "2026-09-19T01:56:32.228055+00:00"
       },
       "runs": [
         {
@@ -215,8 +215,8 @@
           "kind": "e2e",
           "status": "e2e_deferred",
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         },
         {
           "id": "S-05",
@@ -224,8 +224,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-          "executed_at": "2026-09-18T13:44:48.804027+00:00"
+          "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+          "executed_at": "2026-09-19T01:56:32.228055+00:00"
         }
       ]
     },
@@ -252,8 +252,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 2,
-        "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-        "executed_at": "2026-09-18T13:44:48.804027+00:00"
+        "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+        "executed_at": "2026-09-19T01:56:32.228055+00:00"
       },
       "runs": [
         {
@@ -261,8 +261,8 @@
           "kind": "e2e",
           "status": "e2e_deferred",
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         },
         {
           "id": "S-06",
@@ -270,8 +270,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-          "executed_at": "2026-09-18T13:44:48.804027+00:00"
+          "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+          "executed_at": "2026-09-19T01:56:32.228055+00:00"
         }
       ]
     },
@@ -298,8 +298,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 2,
-        "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-        "executed_at": "2026-09-18T13:44:48.804027+00:00"
+        "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+        "executed_at": "2026-09-19T01:56:32.228055+00:00"
       },
       "runs": [
         {
@@ -307,8 +307,8 @@
           "kind": "e2e",
           "status": "e2e_deferred",
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         },
         {
           "id": "S-07",
@@ -316,8 +316,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-          "executed_at": "2026-09-18T13:44:48.804027+00:00"
+          "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+          "executed_at": "2026-09-19T01:56:32.228055+00:00"
         }
       ]
     },
@@ -344,8 +344,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 2,
-        "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-        "executed_at": "2026-09-18T13:44:48.804027+00:00"
+        "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+        "executed_at": "2026-09-19T01:56:32.228055+00:00"
       },
       "runs": [
         {
@@ -353,8 +353,8 @@
           "kind": "e2e",
           "status": "e2e_deferred",
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         },
         {
           "id": "S-08",
@@ -362,8 +362,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-          "executed_at": "2026-09-18T13:44:48.804027+00:00"
+          "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+          "executed_at": "2026-09-19T01:56:32.228055+00:00"
         }
       ]
     },
@@ -390,8 +390,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 2,
-        "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-        "executed_at": "2026-09-18T13:44:48.804027+00:00"
+        "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+        "executed_at": "2026-09-19T01:56:32.228055+00:00"
       },
       "runs": [
         {
@@ -399,8 +399,8 @@
           "kind": "e2e",
           "status": "e2e_deferred",
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         },
         {
           "id": "S-09",
@@ -408,8 +408,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-          "executed_at": "2026-09-18T13:44:48.804027+00:00"
+          "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+          "executed_at": "2026-09-19T01:56:32.228055+00:00"
         }
       ]
     },
@@ -440,8 +440,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 1,
-        "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-        "executed_at": "2026-09-18T13:43:41.180083+00:00"
+        "run_id": "ffdd374a747941ff885589d3039efde0",
+        "executed_at": "2026-09-19T01:55:26.994583+00:00"
       },
       "runs": [
         {
@@ -450,8 +450,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         }
       ]
     },
@@ -482,8 +482,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 1,
-        "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-        "executed_at": "2026-09-18T13:43:41.180083+00:00"
+        "run_id": "ffdd374a747941ff885589d3039efde0",
+        "executed_at": "2026-09-19T01:55:26.994583+00:00"
       },
       "runs": [
         {
@@ -492,8 +492,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         }
       ]
     },
@@ -524,8 +524,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 1,
-        "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-        "executed_at": "2026-09-18T13:43:41.180083+00:00"
+        "run_id": "ffdd374a747941ff885589d3039efde0",
+        "executed_at": "2026-09-19T01:55:26.994583+00:00"
       },
       "runs": [
         {
@@ -534,8 +534,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         }
       ]
     },
@@ -566,8 +566,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 1,
-        "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-        "executed_at": "2026-09-18T13:43:41.180083+00:00"
+        "run_id": "ffdd374a747941ff885589d3039efde0",
+        "executed_at": "2026-09-19T01:55:26.994583+00:00"
       },
       "runs": [
         {
@@ -576,8 +576,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         }
       ]
     },
@@ -604,8 +604,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 2,
-        "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-        "executed_at": "2026-09-18T13:44:48.804027+00:00"
+        "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+        "executed_at": "2026-09-19T01:56:32.228055+00:00"
       },
       "runs": [
         {
@@ -613,8 +613,8 @@
           "kind": "e2e",
           "status": "e2e_deferred",
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         },
         {
           "id": "E-05",
@@ -622,8 +622,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-          "executed_at": "2026-09-18T13:44:48.804027+00:00"
+          "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+          "executed_at": "2026-09-19T01:56:32.228055+00:00"
         }
       ]
     },
@@ -643,15 +643,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 3,
+      "revision": 2,
       "evidence": {
         "id": "E-06",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 3,
-        "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-        "executed_at": "2026-09-18T13:44:48.804027+00:00"
+        "revision": 2,
+        "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+        "executed_at": "2026-09-19T01:56:32.228055+00:00"
       },
       "runs": [
         {
@@ -659,25 +659,17 @@
           "kind": "e2e",
           "status": "e2e_deferred",
           "revision": 1,
-          "run_id": "556285da3f98479d8652529f33f36c4f",
-          "executed_at": "2026-09-18T13:42:37.270380+00:00"
-        },
-        {
-          "id": "E-06",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         },
         {
           "id": "E-06",
           "kind": "e2e",
           "status": "passed",
           "exit_code": 0,
-          "revision": 3,
-          "run_id": "954a993a0d9a44c1a8eb213f79169b6d",
-          "executed_at": "2026-09-18T13:44:48.804027+00:00"
+          "revision": 2,
+          "run_id": "ebde4e1f059d4f84a1153dff049a3d88",
+          "executed_at": "2026-09-19T01:56:32.228055+00:00"
         }
       ]
     },
@@ -706,8 +698,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 1,
-        "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-        "executed_at": "2026-09-18T13:43:41.180083+00:00"
+        "run_id": "ffdd374a747941ff885589d3039efde0",
+        "executed_at": "2026-09-19T01:55:26.994583+00:00"
       },
       "runs": [
         {
@@ -716,8 +708,50 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "88854ee85deb4d1797f8689bbaff13ef",
-          "executed_at": "2026-09-18T13:43:41.180083+00:00"
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-08",
+      "source": "04-project-platform.backend.design.md#3.4 接口设计(API-15)",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→DB（用户×平台凭据状态）",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_credentials_api.py",
+        "-k",
+        "e08"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ffdd374a747941ff885589d3039efde0",
+        "executed_at": "2026-09-19T01:55:26.994583+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ffdd374a747941ff885589d3039efde0",
+          "executed_at": "2026-09-19T01:55:26.994583+00:00"
         }
       ]
     }

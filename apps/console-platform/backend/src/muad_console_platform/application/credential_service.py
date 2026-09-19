@@ -42,6 +42,30 @@ class CredentialService:
         if await self._users.get(tenant_id, user_id) is None:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
 
+    async def list_user_credentials(
+        self,
+        tenant_id: str,
+        platform_id: uuid.UUID,
+        page: int,
+        page_size: int,
+        keyword: str | None,
+    ) -> tuple[list[dict[str, Any]], int]:
+        await self._require_platform(tenant_id, platform_id)
+        rows, total = await self._credentials.list_users_with_status(
+            tenant_id, platform_id, page, page_size, keyword
+        )
+        items = [
+            {
+                "user_id": str(user.id),
+                "display_name": user.display_name,
+                "user_code": user.user_code,
+                "credential_status": status or "NONE",
+                "updated_time": updated.isoformat() if updated is not None else None,
+            }
+            for user, status, updated in rows
+        ]
+        return items, total
+
     async def get_user_credential(
         self, tenant_id: str, platform_id: uuid.UUID, user_id: uuid.UUID
     ) -> dict[str, Any]:
