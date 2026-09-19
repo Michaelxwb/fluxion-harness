@@ -14,6 +14,7 @@ from ..infrastructure.models.control import (
     PlatformUser,
     Skill,
     SkillArtifact,
+    SkillImportIdempotency,
     SkillUserGrant,
 )
 from ..infrastructure.repositories.agent_repository import AgentRepository
@@ -237,6 +238,42 @@ class SkillService:
         await self._record_audit(tenant_id, actor, AUDIT_SKILL, skill.id, "UPDATE", before, skill)
         return await self.get_skill_detail(tenant_id, skill_id)
 
+    def _fingerprint(self, *parts: str | None) -> str:
+        return checksum_of("|".join(str(part) for part in parts).encode())
+
+    async def _idempotency_replay(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        endpoint: str,
+        fingerprint: str,
+    ) -> dict[str, Any] | None:
+        record = await self._skills.find_idempotency(tenant_id, idempotency_key, endpoint)
+        if record is None:
+            return None
+        if record.request_fingerprint != fingerprint:
+            raise AppError(ErrorCode.COMMON_CONFLICT)
+        return dict(record.response_json)
+
+    async def _record_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        endpoint: str,
+        fingerprint: str,
+        response: dict[str, Any],
+    ) -> None:
+        self._session.add(
+            SkillImportIdempotency(
+                tenant_id=tenant_id,
+                idempotency_key=idempotency_key,
+                endpoint=endpoint,
+                request_fingerprint=fingerprint,
+                response_json=response,
+            )
+        )
+        await self._session.flush()
+
     async def import_skill(
         self,
         tenant_id: str,
@@ -246,7 +283,15 @@ class SkillService:
         default_script: str | None,
         data: bytes,
         actor: AuditActor,
+        idempotency_key: str | None = None,
     ) -> SkillDetail:
+        fingerprint = self._fingerprint("import", version, key, default_script, checksum_of(data))
+        if idempotency_key:
+            replayed = await self._idempotency_replay(
+                tenant_id, idempotency_key, "import", fingerprint
+            )
+            if replayed is not None:
+                return SkillDetail(**replayed)
         with validated_package(data) as package:
             skill, _ = await self._persist_imported_skill(
                 tenant_id,
@@ -257,7 +302,12 @@ class SkillService:
                 package=package,
                 actor=actor,
             )
-        return await self.get_skill_detail(tenant_id, skill.id)
+        detail = await self.get_skill_detail(tenant_id, skill.id)
+        if idempotency_key:
+            await self._record_idempotency(
+                tenant_id, idempotency_key, "import", fingerprint, detail.model_dump(mode="json")
+            )
+        return detail
 
     async def _persist_imported_skill(
         self,
@@ -327,7 +377,15 @@ class SkillService:
         default_script: str | None,
         data: bytes,
         actor: AuditActor,
+        idempotency_key: str | None = None,
     ) -> SkillArtifactDetail:
+        fingerprint = self._fingerprint("artifact", str(skill_id), version, default_script, checksum_of(data))
+        if idempotency_key:
+            replayed = await self._idempotency_replay(
+                tenant_id, idempotency_key, "artifact", fingerprint
+            )
+            if replayed is not None:
+                return SkillArtifactDetail(**replayed)
         skill = await self.get_skill(tenant_id, skill_id)
         with validated_package(data) as package:
             checksum = checksum_of(data)
@@ -361,7 +419,12 @@ class SkillService:
             except BaseException:
                 remove_artifact(storage_key)
                 raise
-        return artifact_detail(artifact)
+        detail = artifact_detail(artifact)
+        if idempotency_key:
+            await self._record_idempotency(
+                tenant_id, idempotency_key, "artifact", fingerprint, detail.model_dump(mode="json")
+            )
+        return detail
 
     async def cleanup_orphan_artifacts(
         self,

@@ -43,6 +43,7 @@ GUARD_TABLES = (
     "skill_artifact",
     "agent_skill_binding",
     "skill_user_grant",
+    "skill_import_idempotency",
 )
 
 ADMIN_PASSWORD = "console-admin-password"

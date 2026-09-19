@@ -68,10 +68,10 @@ def _migration_graph() -> dict[str, str | None]:
     return graph
 
 
-def test_s04_migration_chain_has_single_head_0005() -> None:
+def test_s04_migration_chain_has_single_head() -> None:
     graph = _migration_graph()
     heads = sorted(set(graph) - {down for down in graph.values() if down})
-    assert heads == ["0005"], f"unexpected migration heads: {heads}"
+    assert heads == ["0006"], f"unexpected migration heads: {heads}"
 
 
 async def test_s04_contract_state_has_plaintext_columns_only() -> None:
@@ -89,7 +89,7 @@ async def test_s04_contract_state_has_plaintext_columns_only() -> None:
     finally:
         await engine.dispose()
 
-    assert revision == "0005"
+    assert revision == "0006"
     assert all(NEW_COLUMNS[table] in tables[table] for table in NEW_COLUMNS)
     leftovers = [f"{table}.{column}" for table, column in OLD_COLUMNS.items() if column in tables[table]]
     assert leftovers == [], f"contract 后旧列残留: {leftovers}"

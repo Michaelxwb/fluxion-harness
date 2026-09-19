@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = ROOT / "migrations/versions"
-HEAD_REVISION = "0005"
+HEAD_REVISION = "0006"
 
 
 @pytest.fixture()

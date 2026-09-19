@@ -253,6 +253,29 @@ class SkillUserGrant(StandardColumnsMixin, Base):
     granted_by: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
 
 
+class SkillImportIdempotency(StandardColumnsMixin, Base):
+    """按 (tenant, Idempotency-Key, endpoint) 记录导入首次结果，供重放返回。"""
+
+    __tablename__ = "skill_import_idempotency"
+    __table_args__ = (
+        sa.Index(
+            "uq_skill_import_idempotency_tenant_key_endpoint",
+            "tenant_id",
+            "idempotency_key",
+            "endpoint",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    endpoint: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    response_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+
 class ConfigAuditLog(StandardColumnsMixin, Base):
     __tablename__ = "config_audit_log"
     __table_args__ = (

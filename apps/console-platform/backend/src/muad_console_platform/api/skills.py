@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, Query, Request, UploadFile
 from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -67,6 +67,7 @@ async def import_skill(
     version: Annotated[str, Form(min_length=1, max_length=64)],
     key: Annotated[str | None, Form(min_length=1, max_length=128)] = None,
     default_script: Annotated[str | None, Form(max_length=256)] = None,
+    idempotency_key: Annotated[str | None, Header(max_length=128)] = None,
 ) -> ApiResponse[Any]:
     detail = await SkillService(session).import_skill(
         tenant_id,
@@ -75,6 +76,7 @@ async def import_skill(
         default_script=default_script,
         data=await _upload_bytes(file),
         actor=_actor(account, request),
+        idempotency_key=idempotency_key,
     )
     return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
 
@@ -139,6 +141,7 @@ async def add_artifact(
     file: Annotated[UploadFile, File()],
     version: Annotated[str, Form(min_length=1, max_length=64)],
     default_script: Annotated[str | None, Form(max_length=256)] = None,
+    idempotency_key: Annotated[str | None, Header(max_length=128)] = None,
 ) -> ApiResponse[Any]:
     detail = await SkillService(session).add_artifact(
         tenant_id,
@@ -147,6 +150,7 @@ async def add_artifact(
         default_script=default_script,
         data=await _upload_bytes(file),
         actor=_actor(account, request),
+        idempotency_key=idempotency_key,
     )
     return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
 

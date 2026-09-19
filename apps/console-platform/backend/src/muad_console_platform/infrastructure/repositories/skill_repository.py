@@ -4,6 +4,7 @@ from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.control import (
+    SkillImportIdempotency,
     AgentSkillBinding,
     Skill,
     SkillArtifact,
@@ -88,6 +89,22 @@ class SkillRepository:
         self._session.add(skill)
         await self._session.flush()
         return skill
+
+    async def find_idempotency(
+        self, tenant_id: str, idempotency_key: str, endpoint: str
+    ) -> SkillImportIdempotency | None:
+        rows = await self._session.execute(
+            select(SkillImportIdempotency).where(
+                SkillImportIdempotency.tenant_id == tenant_id,
+                SkillImportIdempotency.idempotency_key == idempotency_key,
+                SkillImportIdempotency.endpoint == endpoint,
+                SkillImportIdempotency.is_deleted.is_(False),
+            )
+        )
+        return rows.scalar_one_or_none()
+
+    async def add_idempotency(self, record: SkillImportIdempotency) -> None:
+        self._session.add(record)
 
     async def list_storage_keys(self) -> set[str]:
         rows = await self._session.execute(select(SkillArtifact.storage_key))
