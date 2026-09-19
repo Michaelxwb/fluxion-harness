@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.agent_mcp_service import AgentMcpService
 from ..application.agent_service import AgentService
 from ..application.dto import AgentBindSkillRequest as BindSkillRequest
 from ..application.audit_service import AuditActor
@@ -167,5 +168,53 @@ async def unbind_agent_skill(
         agent_id,
         skill_id,
         _actor(account, request),
+    )
+    return ok(request.app.state.message_catalog, data)
+
+
+@router.get("/{agent_id}/mcp-servers")
+async def list_agent_mcp_servers(
+    agent_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> ApiResponse[Any]:
+    items, total = await AgentMcpService(session).list_bindings(
+        tenant_id, agent_id, page, page_size
+    )
+    return ok(
+        request.app.state.message_catalog,
+        paginate(items=items, page=page, page_size=page_size, total=total),
+    )
+
+
+@router.post("/{agent_id}/mcp-servers/{mcp_id}")
+async def bind_agent_mcp(
+    agent_id: uuid.UUID,
+    mcp_id: uuid.UUID,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    data = await AgentMcpService(session).bind(
+        tenant_id, agent_id, mcp_id, _actor(account, request)
+    )
+    return ok(request.app.state.message_catalog, data)
+
+
+@router.delete("/{agent_id}/mcp-servers/{mcp_id}")
+async def unbind_agent_mcp(
+    agent_id: uuid.UUID,
+    mcp_id: uuid.UUID,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    data = await AgentMcpService(session).unbind(
+        tenant_id, agent_id, mcp_id, _actor(account, request)
     )
     return ok(request.app.state.message_catalog, data)

@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.repositories.agent_access_grant_repository import AgentAccessGrantRepository
 from ..infrastructure.repositories.agent_repository import AgentRepository
 from ..infrastructure.repositories.skill_repository import SkillRepository
+from .agent_mcp_service import AgentMcpService
 
 
 class ResolveService:
@@ -22,6 +23,7 @@ class ResolveService:
         self._agents = AgentRepository(session)
         self._grants = AgentAccessGrantRepository(session)
         self._skills = SkillRepository(session)
+        self._mcp = AgentMcpService(session)
 
     async def resolve_definition(
         self,
@@ -63,6 +65,9 @@ class ResolveService:
                 params=model.params_json,
             ),
             skills=await self._resolved_skills(tenant_id, payload),
+            mcp_servers=await self._mcp.effective_mcp_servers(
+                tenant_id, payload.agent_id, payload.actor_user_id
+            ),
         )
 
     async def _resolved_skills(
