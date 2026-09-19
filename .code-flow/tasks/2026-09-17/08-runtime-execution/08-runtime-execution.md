@@ -111,7 +111,7 @@
 | RULE-secret-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-secret） | E2E | S-02 的真实边界＋原 verifier | TASK-024 | planned | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | . | 1200 | |
 | RULE-skill-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-skill） | integration | S-03, E-01 的真实边界＋原 verifier | TASK-012 | planned | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"] | . | 1200 | |
 | RULE-snapshot-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-snapshot） | E2E | S-02, E-04 的真实边界＋原 verifier | TASK-024 | planned | ["bash","-lc","uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 | |
-| B-128 | 08-runtime-execution.backend.design.md#API-09 Resolve Runtime Credentials | integration | Console credentials service→真实 PostgreSQL Owner 表 | TASK-028 | planned | ["uv","run","pytest","-q","tests/console_internal/test_runtime_credentials.py"] | . | 600 | |
+| B-128 | 08-runtime-execution.backend.design.md#API-09 Resolve Runtime Credentials | integration | Console credentials service→真实 PostgreSQL Owner 表 | TASK-028 | verified | ["uv","run","pytest","-q","tests/console_internal/test_runtime_credentials.py"] | . | 600 | |
 | B-129 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | Console resolve-egress service→真实 PostgreSQL 平台/凭据表 | TASK-029 | planned | ["uv","run","pytest","-q","tests/console_internal/test_resolve_egress_api.py"] | . | 600 | |
 
 ## Rule / Risk Traceability
@@ -203,7 +203,7 @@
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-102
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/run_events.py`, `apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`, `tests/agent_runtime/test_run_events.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -240,7 +240,7 @@
 - **Priority**: P0
 - **Depends**: TASK-028
 - **Source**: 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#API-07 Resolve Definition, 08-runtime-execution.backend.design.md#API-08 Resolve Egress
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-103
 - **Files**: `packages/contracts/src/muad_contracts/resolve.py`, `apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py`, `tests/agent_runtime/test_console_client.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -277,7 +277,7 @@
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#API-06 查询 Run
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-104
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/snapshots.py`, `apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`, `tests/agent_runtime/test_snapshot_freeze.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -314,7 +314,7 @@
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-004
 - **Source**: 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#API-05 创建 Conversation
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-105
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/run_creation.py`, `apps/agent-runtime/src/muad_agent_runtime/api/runs.py`, `tests/agent_runtime/test_run_idempotency.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -351,7 +351,7 @@
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-106
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/run_lease.py`, `apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`, `tests/agent_runtime/test_run_leases.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -388,7 +388,7 @@
 - **Priority**: P0
 - **Depends**: TASK-006
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案, 08-runtime-execution.backend.design.md#4. 部署与运维
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: E-04
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/run_reaper.py`, `apps/agent-runtime/src/muad_agent_runtime/main.py`, `tests/agent_runtime/test_run_reaper.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -425,7 +425,7 @@
 - **Priority**: P1
 - **Depends**: 
 - **Source**: 08-runtime-execution.backend.design.md#2.3 功能方案, 08-runtime-execution.backend.design.md#3.4 接口设计
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: S-05
 - **Files**: `packages/agent-core/src/muad_agent_core/hooks/pipeline.py`, `packages/agent-core/src/muad_agent_core/agent/runner.py`, `tests/agent_core/test_hook_lifecycle.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -462,7 +462,7 @@
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-010, TASK-011
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: S-08
 - **Files**: `packages/agent-core/src/muad_agent_core/context/builder.py`, `apps/agent-runtime/src/muad_agent_runtime/application/executor.py`, `tests/agent_runtime/test_context_memory.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -499,7 +499,7 @@
 - **Priority**: P1
 - **Depends**: TASK-001
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-110
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/memory_service.py`, `apps/agent-runtime/src/muad_agent_runtime/application/memory_policy.py`, `tests/agent_runtime/test_memory_service.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -536,7 +536,7 @@
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-111
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/artifacts.py`, `apps/agent-runtime/src/muad_agent_runtime/bootstrap/artifacts.py`, `tests/agent_runtime/test_artifact_results.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -614,7 +614,7 @@
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-011
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-113
 - **Files**: `packages/agent-core/src/muad_agent_core/tools/registry.py`, `packages/agent-core/src/muad_agent_core/agent/runner.py`, `tests/agent_core/test_tool_execution_pipeline.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -651,7 +651,7 @@
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-029
 - **Source**: 08-runtime-execution.backend.design.md#API-08 Resolve Egress
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-114
 - **Files**: `packages/platform-sdk/src/muad_platform_sdk/egress_client.py`, `packages/platform-sdk/src/muad_platform_sdk/session/runtime_manager.py`, `tests/sdk/test_runtime_platform_session.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -727,7 +727,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-013, TASK-015
 - **Source**: 08-runtime-execution.backend.design.md#API-07 Resolve Definition, 08-runtime-execution.backend.design.md#3.4 接口设计
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-116
 - **Files**: `packages/agent-core/src/muad_agent_core/tools/mcp_adapter.py`, `apps/agent-runtime/src/muad_agent_runtime/application/mcp_tools.py`, `tests/agent_runtime/test_mcp_execution.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -764,7 +764,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - **Priority**: P1
 - **Depends**: TASK-006, TASK-008, TASK-015
 - **Source**: 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: S-06, E-06
 - **Files**: `packages/agent-core/src/muad_agent_core/model/gateway.py`, `packages/agent-core/src/muad_agent_core/agent/runner.py`, `tests/agent_runtime/test_model_recovery.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -803,7 +803,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-006, TASK-008
 - **Source**: 08-runtime-execution.backend.design.md#3.1 技术选型与关键决策, 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#API-02 Resume Run
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-118
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/infrastructure/checkpoint.py`, `packages/agent-core/src/muad_agent_core/agent/runner.py`, `tests/agent_runtime/test_interrupt_checkpoint.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -840,7 +840,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-005, TASK-018
 - **Source**: 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#API-02 Resume Run
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-119
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`, `apps/agent-runtime/src/muad_agent_runtime/api/runs.py`, `tests/agent_runtime/test_resume_transactions.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -877,7 +877,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-006, TASK-018
 - **Source**: 08-runtime-execution.backend.design.md#API-03 取消当前活跃 Run, 08-runtime-execution.backend.design.md#API-04 显式取消 Run（诊断）
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-120
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`, `apps/agent-runtime/src/muad_agent_runtime/api/runs.py`, `tests/agent_runtime/test_cancellation.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -914,7 +914,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-019, TASK-020
 - **Source**: 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-121
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/sse.py`, `apps/agent-runtime/src/muad_agent_runtime/application/executor.py`, `tests/agent_runtime/test_sse.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -951,7 +951,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-012, TASK-013, TASK-015, TASK-016, TASK-017, TASK-018, TASK-019, TASK-020, TASK-021
 - **Source**: 08-runtime-execution.backend.design.md#3.2 架构与流程, 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#4. 部署与运维
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-122
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/application/executor.py`, `apps/agent-runtime/src/muad_agent_runtime/api/deps.py`, `tests/agent_runtime/test_runtime_composition.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -988,7 +988,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - **Priority**: P0
 - **Depends**: 
 - **Source**: 08-runtime-execution.backend.design.md#2.5 验收条件, 08-runtime-execution.backend.design.md#3.5 质量实现方案, 08-runtime-execution.backend.design.md#4. 部署与运维
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-123
 - **Files**: `tests/e2e/runtime_probes.py`, `tests/acceptance/runtime/conftest.py`, `tests/acceptance/runtime/test_environment.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -1216,11 +1216,11 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ## TASK-028: Console 内部运行凭据读取接口
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**:
 - **Source**: 08-runtime-execution.backend.design.md#API-09 Resolve Runtime Credentials
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-128
 - **Files**: `apps/console-platform/backend/src/muad_console_platform/api/internal_runtime.py`, `apps/console-platform/backend/src/muad_console_platform/application/runtime_credentials.py`, `tests/console_internal/test_runtime_credentials.py`
 - **Estimate**: 15–60 分钟（超出先拆分）
@@ -1231,34 +1231,36 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ### Checklist
 
-- [ ] [B-128][integration] 先沿 Console credentials service→真实 PostgreSQL Owner 表 写失败断言并记录 RED：服务身份、可信 tenant/actor 与资源归属校验；旧 Grant 撤销不替换冻结能力；密钥轮换读取新值，缺密钥 CREDENTIAL_MISSING；日志/公开返回不泄漏；不返回新模型参数/catalog。
-- [ ] 按 API-09 增加仅受信 Runtime 可调用的凭据读取；复用 Owner 表，不重新计算当前 Agent/Grant/Binding；按冻结资源主键读取当前认证值。服务侧类型可局部定义，共享消费契约由 TASK-003 承接。
-- [ ] 服务身份、可信 tenant/actor 与资源归属校验；旧 Grant 撤销不替换冻结能力；密钥轮换读取新值，缺密钥 CREDENTIAL_MISSING；日志/公开返回不泄漏；不返回新模型参数/catalog。
-- [ ] 运行 ["uv","run","pytest","-q","tests/console_internal/test_runtime_credentials.py"]，记录 GREEN、断言位置与真实 DB/HTTP 边界；最终 S-02/E-05 由 Coverage 指定 owner 收口。
+- [x] [B-128][integration] RED：5 failed（端点不存在 404/无服务身份校验）：服务身份、可信 tenant/actor 与资源归属校验；旧 Grant 撤销不替换冻结能力；密钥轮换读取新值，缺密钥 CREDENTIAL_MISSING；日志/公开返回不泄漏；不返回新模型参数/catalog。
+- [x] 按 API-09 实现 POST /internal/runtime/resolve-credentials（X-Internal-Service 身份校验 + Owner 表只读）；复用 Owner 表，不重新计算当前 Agent/Grant/Binding；按冻结资源主键读取当前认证值。服务侧类型可局部定义，共享消费契约由 TASK-003 承接。
+- [x] 服务身份（INTERNAL_SERVICE_TOKEN 配置）、租户归属（跨租户 404）、密钥轮换读新值、缺密钥 CREDENTIAL_MISSING、MCP 仅返回认证字段；旧 Grant 撤销不替换冻结能力；密钥轮换读取新值，缺密钥 CREDENTIAL_MISSING；日志/公开返回不泄漏；不返回新模型参数/catalog。
+- [x] 运行 6 passed；回归 console_internal+console_platform 全量通过，记录 GREEN、断言位置与真实 DB/HTTP 边界；最终 S-02/E-05 由 Coverage 指定 owner 收口。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-128 | integration | Console credentials service→真实 PostgreSQL Owner 表 | 服务身份、可信 tenant/actor 与资源归属校验；旧 Grant 撤销不替换冻结能力；密钥轮换读取新值，缺密钥 CREDENTIAL_MISSING；日志/公开返回不泄漏；不返回新模型参数/catalog | tests/console_internal/test_runtime_credentials.py（planned） | ["uv","run","pytest","-q","tests/console_internal/test_runtime_credentials.py"] | planned |
+| B-128 | integration | Console credentials service→真实 PostgreSQL Owner 表 | 服务身份/租户归属/轮换/CREDENTIAL_MISSING/不重算授权/仅认证字段 | tests/console_internal/test_runtime_credentials.py::test_b128_*（6 用例） | uv run pytest -q tests/console_internal/test_runtime_credentials.py | verified |
 
 ### Acceptance Evidence
 
-待 cf-task-start 记录真实 RED/GREEN 和组件证据；当前未执行。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-128 | FAIL: 5 failed（端点 404/身份缺失 403） | 6 passed | test_b128_requires_service_identity/_returns_model_key_and_rotation/_cross_tenant_model_rejected/_missing_secret_returns_credential_missing/_mcp_secret_and_grant_independence/_invalid_execution_ref_type | ASGI 真实 HTTP + 真实 PostgreSQL（model_definition/mcp_server Owner 表） | verified |
 
 ### Log
 
 - [2026-09-20] created (draft；把已确认实时凭据/出网设计落实为独立服务端任务)
 
 ---
-
+- [2026-09-20] started
 ## TASK-029: Console Resolve Egress 授权与凭据选择
 
 - **Status**: draft
 - **Priority**: P0
 - **Depends**:
 - **Source**: 08-runtime-execution.backend.design.md#API-08 Resolve Egress
-- **Spec-Refs**: 无独立 Rule 验收责任；继承本 Context 的实现约束，Rule owner 见 Coverage
+- **Spec-Refs**:
 - **Acceptance-Refs**: B-129
 - **Files**: `apps/console-platform/backend/src/muad_console_platform/api/internal_runtime.py`, `apps/console-platform/backend/src/muad_console_platform/application/resolve_egress_service.py`, `tests/console_internal/test_resolve_egress_api.py`
 - **Estimate**: 15–60 分钟（超出先拆分）

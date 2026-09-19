@@ -14,6 +14,7 @@ class SharedSettings(BaseSettings):
     database_url: str | None = None
     redis_url: str | None = None
     secret_provider: str = "env"
+    internal_service_token: str | None = None
 
     artifact_root: str = "./.data/artifacts"
     mcp_max_tools_per_server: int = 200
