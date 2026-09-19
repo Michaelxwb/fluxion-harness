@@ -118,7 +118,7 @@ async def test_s04_unknown_agent_or_user_returns_not_found(
         f"/api/v1/users/{user_id}/agents/{uuid.uuid4()}", headers=_headers(tenant)
     )
     assert unknown_agent.status_code == 404
-    assert unknown_agent.json()["code"] == "COMMON_NOT_FOUND"
+    assert unknown_agent.json()["code"] == "AGENT_NOT_FOUND"  # v1.1 契约
 
     unknown_user = await client.post(
         f"/api/v1/users/{uuid.uuid4()}/agents/{uuid.uuid4()}", headers=_headers(tenant)

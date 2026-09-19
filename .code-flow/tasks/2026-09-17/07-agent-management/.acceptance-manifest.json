@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "07-agent-management.md",
-  "task_sha256": "e2ac01835566ce008a03bd26876bdd083a0664cf7db7d33d06bd51b7de9e7256",
+  "task_sha256": "c7129cb0b0641f302302668d7ff3bce091d48315bcd7b2282151929ccefb4f45",
   "scenarios": [
     {
       "id": "S-01",
@@ -35,26 +35,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-02",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "a800ffa39d7d441392c5bc220ca09ecb",
-        "executed_at": "2026-09-19T12:29:44.894363+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-02",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "a800ffa39d7d441392c5bc220ca09ecb",
-          "executed_at": "2026-09-19T12:29:44.894363+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-03",
@@ -114,7 +95,7 @@
       "kind": "e2e",
       "boundary": "Browser→unbind API→DB→Runtime resolve（解除后立即不可见，再绑恢复）",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -122,7 +103,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "c58084e14f73481e833b7b9991d2e1e5",
+        "executed_at": "2026-09-19T12:35:03.383471+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "c58084e14f73481e833b7b9991d2e1e5",
+          "executed_at": "2026-09-19T12:35:03.383471+00:00"
+        }
+      ]
     },
     {
       "id": "S-07",
@@ -287,28 +287,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "a800ffa39d7d441392c5bc220ca09ecb",
-        "executed_at": "2026-09-19T12:29:44.894363+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "a800ffa39d7d441392c5bc220ca09ecb",
-          "executed_at": "2026-09-19T12:29:44.894363+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-04",
@@ -471,19 +450,36 @@
       "kind": "functional",
       "boundary": "resolve 真实链路：EffectiveSkill+EffectiveMcp 全公式（Agent/Skill/MCP enabled、grant、scope）",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
-        "uv",
-        "run",
-        "pytest",
-        "-q",
-        "tests/console_internal/test_resolve_definition_api.py",
-        "-k",
-        "mcp"
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_platform/test_agent_mcp_bindings.py -k effective_mcp_formula"
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "c58084e14f73481e833b7b9991d2e1e5",
+        "executed_at": "2026-09-19T12:35:03.383471+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "c58084e14f73481e833b7b9991d2e1e5",
+          "executed_at": "2026-09-19T12:35:03.383471+00:00"
+        }
+      ]
     },
     {
       "id": "B-03",

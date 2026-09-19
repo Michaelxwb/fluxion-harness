@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.agent_mcp_service import AgentMcpService
 from ..application.agent_service import AgentService
+from ..application.grant_service import GrantService
 from ..application.dto import AgentBindSkillRequest as BindSkillRequest
 from ..application.audit_service import AuditActor
 from ..application.dto import AgentCreateRequest, AgentDetail, AgentListItem, AgentUpdateRequest
@@ -218,3 +219,85 @@ async def unbind_agent_mcp(
         tenant_id, agent_id, mcp_id, _actor(account, request)
     )
     return ok(request.app.state.message_catalog, data)
+
+
+@router.get("/{agent_id}/users")
+async def list_agent_users(
+    agent_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    keyword: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> ApiResponse[Any]:
+    items, total = await GrantService(session).list_by_agent(
+        tenant_id, agent_id, keyword, page, page_size
+    )
+    return ok(
+        request.app.state.message_catalog,
+        paginate(
+            items=[
+                {
+                    **item,
+                    "user_id": str(item["user_id"]),
+                    "granted_by": str(item["granted_by"]),
+                    "granted_at": item["granted_at"].isoformat(),
+                    "create_time": item["create_time"].isoformat(),
+                }
+                for item in items
+            ],
+            page=page,
+            page_size=page_size,
+            total=total,
+        ),
+    )
+
+
+@router.post("/{agent_id}/users/{user_id}")
+async def grant_agent_user(
+    agent_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    service = GrantService(session)
+    grant = await service.grant(
+        tenant_id,
+        user_id,
+        agent_id,
+        account.id,
+        _actor(account, request),
+    )
+    return ok(
+        request.app.state.message_catalog,
+        {
+            "agent_id": str(agent_id),
+            "user_id": str(user_id),
+            "granted_by": str(grant.granted_by),
+            "granted_at": grant.granted_at.isoformat(),
+        },
+    )
+
+
+@router.delete("/{agent_id}/users/{user_id}")
+async def revoke_agent_user(
+    agent_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    await GrantService(session).revoke(
+        tenant_id,
+        user_id,
+        agent_id,
+        _actor(account, request),
+    )
+    return ok(
+        request.app.state.message_catalog,
+        {"agent_id": str(agent_id), "user_id": str(user_id), "is_deleted": True},
+    )

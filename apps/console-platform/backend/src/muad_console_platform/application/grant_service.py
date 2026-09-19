@@ -33,10 +33,10 @@ class GrantService:
         granted_by: uuid.UUID,
         actor: AuditActor,
     ) -> AgentAccessGrant:
-        await self._require_user(tenant_id, user_id)
         agent = await self._agents.get(tenant_id, agent_id)
         if agent is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+            raise AppError(ErrorCode.AGENT_NOT_FOUND)
+        await self._require_user(tenant_id, user_id)
         active = await self._grants.find_active(tenant_id, user_id, agent_id)
         if active is not None:
             return active
@@ -68,10 +68,12 @@ class GrantService:
         agent_id: uuid.UUID,
         actor: AuditActor,
     ) -> None:
+        if await self._agents.get(tenant_id, agent_id) is None:
+            raise AppError(ErrorCode.AGENT_NOT_FOUND)
         await self._require_user(tenant_id, user_id)
         grant = await self._grants.find_active(tenant_id, user_id, agent_id)
         if grant is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+            return  # 幂等：不存在或已撤销仍返回成功
         grant.is_deleted = True
         grant.update_time = datetime.now(UTC)
         await self._session.flush()
@@ -86,6 +88,18 @@ class GrantService:
     ) -> tuple[list[dict[str, Any]], int]:
         await self._require_user(tenant_id, user_id)
         return await self._grants.list_by_user(tenant_id, user_id, page, page_size)
+
+    async def list_by_agent(
+        self,
+        tenant_id: str,
+        agent_id: uuid.UUID,
+        keyword: str | None,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[dict[str, Any]], int]:
+        if await self._agents.get(tenant_id, agent_id) is None:
+            raise AppError(ErrorCode.AGENT_NOT_FOUND)
+        return await self._grants.list_by_agent(tenant_id, agent_id, keyword, page, page_size)
 
     async def _require_user(self, tenant_id: str, user_id: uuid.UUID) -> None:
         if await self._users.get(tenant_id, user_id) is None:

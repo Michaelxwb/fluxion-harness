@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.control import AgentAccessGrant, AgentDefinition
+from ..models.control import AgentAccessGrant, AgentDefinition, PlatformUser
 
 
 class AgentAccessGrantRepository:
@@ -96,3 +96,49 @@ class AgentAccessGrantRepository:
             )
         ).mappings()
         return [dict(row) for row in rows], int(total or 0)
+
+    async def list_by_agent(
+        self,
+        tenant_id: str,
+        agent_id: uuid.UUID,
+        keyword: str | None,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[dict[str, Any]], int]:
+        conditions = [
+            AgentAccessGrant.agent_id == agent_id,
+            AgentAccessGrant.is_deleted.is_(False),
+            PlatformUser.is_deleted.is_(False),
+        ]
+        if keyword:
+            like = f"%{keyword}%"
+            conditions.append(
+                PlatformUser.user_code.ilike(like) | PlatformUser.display_name.ilike(like)
+            )
+        total = await self._session.scalar(
+            select(func.count())
+            .select_from(AgentAccessGrant)
+            .join(PlatformUser, PlatformUser.id == AgentAccessGrant.user_id)
+            .where(*conditions)
+        )
+        rows = await self._session.execute(
+            select(AgentAccessGrant, PlatformUser)
+            .join(PlatformUser, PlatformUser.id == AgentAccessGrant.user_id)
+            .where(*conditions)
+            .order_by(AgentAccessGrant.create_time.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        items = [
+            {
+                "user_id": user.id,
+                "user_code": user.user_code,
+                "display_name": user.display_name,
+                "status": user.status,
+                "granted_by": grant.granted_by,
+                "granted_at": grant.granted_at,
+                "create_time": grant.create_time,
+            }
+            for grant, user in rows.all()
+        ]
+        return items, int(total or 0)
