@@ -7,9 +7,9 @@ import { RequireAuth, RequireRole } from './auth/AuthContext';
 import { AppLayout } from './layout/AppLayout';
 import { ModelPage } from './modules/model-management/ModelPage';
 import { UserPage } from './modules/user-identity/UserPage';
-import { AgentsPage } from './pages/AgentsPage';
 import { LoginPage } from './pages/LoginPage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
+import { AgentPage } from './modules/agent-management/AgentPage';
 import { McpPage } from './modules/mcp-management/McpPage';
 import { SkillPage } from './modules/skill-management/SkillPage';
 import { PlatformPage } from './modules/project-platform/PlatformPage';
@@ -37,7 +37,7 @@ export default function App() {
         }
       >
         <Route index element={<PlaceholderPage titleKey="nav.overview" />} />
-        <Route path="agents" element={<AgentsPage />} />
+        <Route path="agents" element={<AgentPage />} />
         <Route path="skills" element={<SkillPage />} />
         <Route path="mcp" element={<McpPage />} />
         <Route path="models" element={<ModelPage />} />

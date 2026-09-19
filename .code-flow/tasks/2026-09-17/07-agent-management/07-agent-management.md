@@ -33,7 +33,7 @@
 | S-07 | frontend#2.4 验收条件（原 S-FE-01） | E2E | Browser→update API→Runtime resolve（详情 revision+1） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-07\""] |
 | S-08 | frontend#2.4 验收条件（原 S-FE-02） | E2E | Browser→binding API→UI（Tab 局部刷新无保存按钮） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-08\""] |
 | S-09 | frontend#2.4 验收条件（原 S-FE-03） | E2E | Browser→审计 API→UI（最近运行只读/空态） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-09\""] |
-| S-10 | frontend#2.4 验收条件（原 S-FE-04） | E2E | Browser→DELETE Agent→列表（Popconfirm 软删除） | TASK-008 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-10\""] |
+| S-10 | frontend#2.4 验收条件（原 S-FE-04） | E2E | Browser→DELETE Agent→列表（Popconfirm 软删除） | TASK-008 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-10\""] |
 | S-11 | frontend#2.4 验收条件（原 S-FE-05） | E2E | Browser→unbind API→UI（MCP 解除/再绑定无启停开关） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-11\" 2>/dev/null; npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-11\""] |
 | S-12 | frontend#2.4 验收条件（原 S-FE-06） | E2E | Browser→channel API→IM Tab（双 bot 同 Agent 无 Pod 信息） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-12\""] |
 | E-01 | backend#2.5.2 异常场景 | integration | DB revision（stale revision → REVISION_CONFLICT） | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_agent_lifecycle_api.py", "-k", "stale_revision"] |
@@ -44,7 +44,7 @@
 | E-06 | backend#2.5.2 异常场景 | integration | bot_account 查询（不存在 → BOT_NOT_FOUND） | TASK-006 | verified | ["bash", "-lc", "uv run pytest -q tests/console_platform/test_agent_channels_api.py -k missing_channel"] |
 | E-07 | frontend#2.4 验收条件（原 E-FE-01） | E2E | revision conflict→Modal（保留并提示刷新重试） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"E-07\""] |
 | E-08 | frontend#2.4 验收条件（原 E-FE-02） | E2E | bot conflict→UI（表单保留 + 本地化提示） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"E-08\""] |
-| E-09 | frontend#2.4 验收条件（原 E-FE-03） | integration | key conflict→Modal（本地化提示） | TASK-008 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_agent_form_contract.py", "-k", "key_conflict"] |
+| E-09 | frontend#2.4 验收条件（原 E-FE-03） | integration | key conflict→Modal（本地化提示） | TASK-008 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/frontend/test_agent_form_contract.py", "-k", "key_conflict"] |
 | E-10 | frontend#2.4 验收条件（原 E-FE-04） | E2E | 目标资源不存在→Toast（Tab 状态不变） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"E-10\""] |
 | B-01 | backend#Spec Compliance Matrix RULE-data-001 | integration | 真实 PostgreSQL 五表 partial unique/timestamptz/无绑定级 enabled 列 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/test_agent_schema_constraints.py"] |
 | B-02 | backend#3.3.1 Effective Capability 判定 | integration | resolve 真实链路：EffectiveSkill+EffectiveMcp 全公式（Agent/Skill/MCP enabled、grant、scope） | TASK-004 | verified | ["bash", "-lc", "uv run pytest -q tests/console_platform/test_agent_mcp_bindings.py -k effective_mcp_formula"] |
@@ -389,7 +389,7 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - [2026-09-19] completed (done)
 ## TASK-007: 审计查询 API（GET /api/v1/audits，最近运行支撑）
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-001
 - **Source**: 07-agent-management.frontend.design.md#3.3 基本信息 - 最近运行, 07-agent-management.backend.design.md#3.4 接口设计（封套约束）
@@ -418,15 +418,17 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | B-04 | RED：端点 404 | 1 passed + 回归全量 | test_b04（封套字段/page_size=6/total=2/时间倒序/422 边界/无 secret 字段） | ASGI 真实 HTTP + 真实 config_audit_log | verified |
+- B-04: verified — automated command passed; run_id=ab68c31f788c421585e2b7e64bd2f682 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：audits 查询落地，B-04 verified
 
 ---
 - [2026-09-19] started
+- [2026-09-19] completed (done)
 ## TASK-008: 前端 Agent 列表/新增/编辑/删除
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: 07-agent-management.frontend.design.md#2.2 功能方案 FEAT-FE-01, 07-agent-management.frontend.design.md#3.3 组件设计 CMP-01/CMP-03
@@ -438,32 +440,42 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 替换占位 AgentsPage：`modules/agent-management/`（AgentPage + AgentFormModal + services）。列表列：名称/标识/模型/资源数/通道数/授权数/启用状态/revision/更新时间；Toolbar 左上新增、右上搜索/刷新；操作列复制 ID + Popconfirm 删除。表单：双列栅格（名称|标识、模型选择|启用状态、系统 Prompt 整行、描述整行），编辑携带 expected_revision，key 冲突/校验错误 Modal 保留。
 
 ### Checklist
-- [ ] 先写测试并记录 RED：/agents 为占位页（contract 先行）
-- [ ] [S-10][E2E] 操作列 Popconfirm 删除 → 列表移除行、详情关闭（真实浏览器+后端）
-- [ ] [E-09][integration] key 冲突：Modal 保留 + 本地化提示
-- [ ] 运行 harness-ui#RULE-ui-001 verifier：左上操作/右上搜索筛选/右下分页；主展示字段开详情
-- [ ] 运行 harness-frontend#RULE-front-001 verifier：services 唯一入口、无裸 axios/fetch
-- [ ] 运行 harness-i18n#RULE-i18n-001 verifier：agents.* 双语词条齐备
-- [ ] 编辑表单携带 expected_revision（RULE-snapshot 前置）；无全局保存按钮
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 先写测试并记录 RED：/agents 占位页无 services/详情（contract 先行 RED）
+- [x] [S-10][E2E] 操作列 Popconfirm 删除 → 列表移除行、详情关闭（真实浏览器+后端）
+- [x] [E-09][integration] key 冲突：Modal 保留 + 本地化提示（contract catch 断言 + E2E 409 断言）
+- [x] 运行 harness-ui#RULE-ui-001 verifier：左上操作/右上搜索筛选/右下分页；主展示字段开详情
+- [x] 运行 harness-frontend#RULE-front-001 verifier：services 唯一入口、无裸 axios/fetch
+- [x] 运行 harness-i18n#RULE-i18n-001 verifier：agents.* 双语词条齐备
+- [x] 编辑表单携带 expected_revision（RULE-snapshot 前置）；无全局保存按钮
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-10 | E2E | 真实浏览器 + 后端 + DB | Popconfirm 删除后行移除、详情关闭 | e2e/tests/agent-management/agent-management.spec.ts | npm --prefix e2e test -- --config playwright.agent.config.ts --grep "S-10" | planned |
-| E-09 | integration | 组件源码契约 | key 冲突 Modal 保留 + i18n 提示 | tests/frontend/test_agent_form_contract.py -k key_conflict | uv run pytest -q tests/frontend/test_agent_form_contract.py -k key_conflict | planned |
-| RULE-ui-001 | E2E | 真实浏览器渲染 | 布局结构/词典字段 | e2e spec + contract | uv run pytest -q tests/frontend/test_agent_module_contract.py | planned |
-| RULE-front-001 | integration | services 层 | 无裸 axios/fetch | 同上 + check 脚本 | uv run pytest -q tests/frontend/test_agent_module_contract.py && uv run python scripts/check_frontend_api_usage.py | planned |
-| RULE-i18n-001 | integration | locale 资源 | 双语词条 | 同上 + check 脚本 | uv run pytest -q tests/frontend/test_agent_module_contract.py && uv run python scripts/check_frontend_i18n.py | planned |
+| S-10 | E2E | 真实浏览器 + 后端 + DB | Popconfirm 删除后行移除、详情关闭 | e2e/tests/agent-management/agent-management.spec.ts | npm --prefix e2e test -- --config playwright.agent.config.ts --grep "S-10" | e2e_deferred |
+| E-09 | integration | 组件源码契约 | key 冲突 Modal 保留 + i18n 提示 | tests/frontend/test_agent_form_contract.py -k key_conflict | uv run pytest -q tests/frontend/test_agent_form_contract.py -k key_conflict | e2e_deferred |
+| RULE-ui-001 | E2E | 真实浏览器渲染 | 布局结构/词典字段 | e2e spec + contract | uv run pytest -q tests/frontend/test_agent_module_contract.py | e2e_deferred |
+| RULE-front-001 | integration | services 层 | 无裸 axios/fetch | 同上 + check 脚本 | uv run pytest -q tests/frontend/test_agent_module_contract.py && uv run python scripts/check_frontend_api_usage.py | e2e_deferred |
+| RULE-i18n-001 | integration | locale 资源 | 双语词条 | 同上 + check 脚本 | uv run pytest -q tests/frontend/test_agent_module_contract.py && uv run python scripts/check_frontend_i18n.py | e2e_deferred |
 
 ### Acceptance Evidence
 
+新建 `modules/agent-management/`（AgentPage/AgentFormModal/AgentDetailSideSheet 骨架/services 全量 18 API），替换占位页。实现中发现并修复真实缺陷：模型下拉异步列表点击选择后 Form 值丢失（改为加载后 setValue 默认选中第一个启用模型）。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-10 | RED：占位页 | E2E 3/3 passed（S-10/E-09/S-07）；终验留 verify-e2e | e2e spec S-10 | 真实 Chrome + 后端 + PG | e2e_deferred |
+| E-09 | contract 先行 RED | 88 passed（frontend 全量） | test_agent_form_key_conflict_keeps_modal + E2E 409 | 同上 | e2e_deferred |
+| RULE-ui-001 | 同上 | 同上 | test_agent_page_layout + 聚合列断言 | 源码契约 + 构建 | verified |
+| RULE-front-001 | 同上 | check_frontend_api_usage OK | services 唯一入口 + Idempotency-Key | 同上 | verified |
+| RULE-i18n-001 | 同上 | check_frontend_i18n OK（438 keys） | agents.* 双语词条 | 同上 | verified |
+
 ### Log
-- [2026-09-19] created (draft)
+- [2026-09-19] started/finished：列表/表单/删除落地，E2E 3/3，S-10/E-09 待终验
 
 ---
-
+- [2026-09-19] started
 ## TASK-009: 前端详情 5 Tabs、最近运行与关系操作
 
 - **Status**: draft

@@ -46,7 +46,7 @@ def test_pages_use_console_page_shell_and_no_raw_colors() -> None:
 
     for name in (
         "pages/PlaceholderPage.tsx",
-        "pages/AgentsPage.tsx",
+        "modules/agent-management/AgentPage.tsx",
         "modules/user-identity/UserPage.tsx",
     ):
         source = _read(SRC / name)
