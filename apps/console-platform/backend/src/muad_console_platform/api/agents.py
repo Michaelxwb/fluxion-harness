@@ -38,16 +38,15 @@ async def list_agents(
     session: Session,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    keyword: str | None = Query(default=None),
+    enabled: bool | None = Query(default=None),
 ) -> ApiResponse[Any]:
-    agents, total = await AgentService(session).list_agents(tenant_id, page, page_size)
+    items, total = await AgentService(session).list_agents(
+        tenant_id, page, page_size, keyword=keyword, enabled=enabled
+    )
     return ok(
         request.app.state.message_catalog,
-        paginate(
-            items=[_item(agent) for agent in agents],
-            page=page,
-            page_size=page_size,
-            total=total,
-        ),
+        paginate(items=items, page=page, page_size=page_size, total=total),
     )
 
 
@@ -70,8 +69,11 @@ async def get_agent(
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
-    agent = await AgentService(session).get_agent(tenant_id, agent_id)
-    return ok(request.app.state.message_catalog, _detail(agent))
+    service = AgentService(session)
+    agent = await service.get_agent(tenant_id, agent_id)
+    detail = _detail(agent)
+    detail.update(await service.agent_counts(tenant_id, agent.id))
+    return ok(request.app.state.message_catalog, detail)
 
 
 @router.put("/{agent_id}")

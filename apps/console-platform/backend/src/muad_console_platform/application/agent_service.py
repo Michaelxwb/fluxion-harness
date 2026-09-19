@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.models.control import AgentDefinition
 from ..infrastructure.repositories.agent_repository import AgentRepository
 from .audit_service import AuditActor, AuditService, sanitize_payload
-from .dto import AgentCreateRequest, AgentUpdateRequest
+from .dto import AgentCreateRequest, AgentListItem, AgentUpdateRequest
 
 AUDIT_RESOURCE_TYPE = "AGENT"
 
@@ -39,8 +39,50 @@ class AgentService:
         tenant_id: str,
         page: int,
         page_size: int,
-    ) -> tuple[list[AgentDefinition], int]:
-        return await self._agents.list(tenant_id, page, page_size)
+        keyword: str | None = None,
+        enabled: bool | None = None,
+    ) -> tuple[list[dict[str, Any]], int]:
+        agents, total = await self._agents.list(
+            tenant_id, page, page_size, keyword=keyword, enabled=enabled
+        )
+        skill_counts, mcp_counts, channel_counts, user_counts = (
+            await self._agents.aggregate_counts(tenant_id)
+        )
+        model_names = await self._model_names(tenant_id)
+        items = []
+        for agent in agents:
+            item = AgentListItem.model_validate(agent).model_dump(mode="json")
+            item["model_name"] = model_names.get(agent.model_id, "")
+            item["skill_count"] = skill_counts.get(agent.id, 0)
+            item["mcp_count"] = mcp_counts.get(agent.id, 0)
+            item["channel_count"] = channel_counts.get(agent.id, 0)
+            item["user_count"] = user_counts.get(agent.id, 0)
+            items.append(item)
+        return items, total
+
+    async def _model_names(self, tenant_id: str) -> dict[uuid.UUID, str]:
+        from sqlalchemy import select
+
+        from ..infrastructure.models.control import ModelDefinition
+
+        rows = await self._session.execute(
+            select(ModelDefinition.id, ModelDefinition.name).where(
+                ModelDefinition.tenant_id == tenant_id,
+                ModelDefinition.is_deleted.is_(False),
+            )
+        )
+        return {row[0]: row[1] for row in rows.all()}
+
+    async def agent_counts(self, tenant_id: str, agent_id: uuid.UUID) -> dict[str, int]:
+        skill_counts, mcp_counts, channel_counts, user_counts = (
+            await self._agents.aggregate_counts(tenant_id)
+        )
+        return {
+            "skill_count": skill_counts.get(agent_id, 0),
+            "mcp_count": mcp_counts.get(agent_id, 0),
+            "channel_count": channel_counts.get(agent_id, 0),
+            "user_count": user_counts.get(agent_id, 0),
+        }
 
     async def get_agent(self, tenant_id: str, agent_id: uuid.UUID) -> AgentDefinition:
         agent = await self._agents.get(tenant_id, agent_id)

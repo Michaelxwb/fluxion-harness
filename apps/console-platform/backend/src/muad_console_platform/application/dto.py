@@ -71,8 +71,13 @@ class AgentListItem(BaseModel):
     name: str
     description: str | None
     model_id: uuid.UUID
+    model_name: str = ""
     enabled: bool
     revision: int
+    skill_count: int = 0
+    mcp_count: int = 0
+    channel_count: int = 0
+    user_count: int = 0
     update_time: datetime
 
 

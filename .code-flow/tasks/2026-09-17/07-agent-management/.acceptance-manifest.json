@@ -1,0 +1,489 @@
+{
+  "schema": 2,
+  "task_file": "07-agent-management.md",
+  "task_sha256": "08f1f3f0d2999f2948eb389fe2dbec00afc1a31a94c56cdad641be8bb2238f36",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "backend#2.5.2 正常场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→Agent API→DB→Runtime resolve（revision+1 旧 Run 不漂移）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_platform/test_agents_api.py -k revision"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-02",
+      "source": "backend#2.5.2 正常场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→binding API→DB（绑定立即写入无全局保存）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_platform/test_agent_skill_bindings.py -k s02"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-03",
+      "source": "backend#2.5.2 正常场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→API→bot_account（双 bot 同 agent，secret 明文落库不回显）",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_platform/test_agent_channels_api.py -k s03"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-04",
+      "source": "backend#2.5.2 正常场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→grant API→DB→Runtime resolve（授权后可用、撤销=软删除）",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_platform/test_agent_user_grants_api.py -k s04"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-05",
+      "source": "backend#2.5.2 正常场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→DELETE Agent→DB→Runtime resolve（AGENT_NOT_FOUND，历史保留）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_platform/test_agents_api.py -k soft_delete"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-06",
+      "source": "backend#2.5.2 正常场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→unbind API→DB→Runtime resolve（解除后立即不可见，再绑恢复）",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_platform/test_agent_mcp_bindings.py -k s06"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-07",
+      "source": "frontend#2.4 验收条件（原 S-FE-01）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→update API→Runtime resolve（详情 revision+1）",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-07\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-08",
+      "source": "frontend#2.4 验收条件（原 S-FE-02）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→binding API→UI（Tab 局部刷新无保存按钮）",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-08\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-09",
+      "source": "frontend#2.4 验收条件（原 S-FE-03）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→审计 API→UI（最近运行只读/空态）",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-09\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-10",
+      "source": "frontend#2.4 验收条件（原 S-FE-04）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→DELETE Agent→列表（Popconfirm 软删除）",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-10\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-11",
+      "source": "frontend#2.4 验收条件（原 S-FE-05）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→unbind API→UI（MCP 解除/再绑定无启停开关）",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-11\" 2>/dev/null; npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-11\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-12",
+      "source": "frontend#2.4 验收条件（原 S-FE-06）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→channel API→IM Tab（双 bot 同 Agent 无 Pod 信息）",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-12\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "backend#2.5.2 异常场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "DB revision（stale revision → REVISION_CONFLICT）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_agents_api.py",
+        "-k",
+        "revision_conflict"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "backend#2.5.2 异常场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "bot_account unique（占用 → COMMON_CONFLICT 带 bot_id）",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_agent_channels_api.py",
+        "-k",
+        "bot_conflict"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "backend#2.5.2 异常场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Skill 状态与软删除（不存在 404；禁用可绑定但运行时过滤）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_agent_skill_bindings.py",
+        "-k",
+        "disabled"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-04",
+      "source": "backend#2.5.2 异常场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "grant partial unique + 软删除（幂等恢复不产生重复行）",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_agent_user_grants_api.py",
+        "-k",
+        "idempotent"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "backend#2.5.2 异常场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Agent.enabled（禁用 → resolve AGENT_DISABLED）",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_internal/test_resolve_definition_api.py",
+        "-k",
+        "disabled"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "backend#2.5.2 异常场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "bot_account 查询（不存在 → BOT_NOT_FOUND）",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_agent_channels_api.py",
+        "-k",
+        "bot_not_found"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-07",
+      "source": "frontend#2.4 验收条件（原 E-FE-01）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "revision conflict→Modal（保留并提示刷新重试）",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"E-07\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-08",
+      "source": "frontend#2.4 验收条件（原 E-FE-02）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "bot conflict→UI（表单保留 + 本地化提示）",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"E-08\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-09",
+      "source": "frontend#2.4 验收条件（原 E-FE-03）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "key conflict→Modal（本地化提示）",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_agent_form_contract.py",
+        "-k",
+        "key_conflict"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-10",
+      "source": "frontend#2.4 验收条件（原 E-FE-04）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "目标资源不存在→Toast（Tab 状态不变）",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"E-10\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-01",
+      "source": "backend#Spec Compliance Matrix RULE-data-001",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PostgreSQL 五表 partial unique/timestamptz/无绑定级 enabled 列",
+      "owner": "TASK-001",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_agent_schema_constraints.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-02",
+      "source": "backend#3.3.1 Effective Capability 判定",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "resolve 真实链路：EffectiveSkill+EffectiveMcp 全公式（Agent/Skill/MCP enabled、grant、scope）",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_internal/test_resolve_definition_api.py",
+        "-k",
+        "mcp"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-03",
+      "source": "backend#Spec Compliance Matrix RULE-secret-001",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "bot secret 明文入 Owner 表；审计/响应/列表不回显",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_agent_channels_api.py",
+        "-k",
+        "secret"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-04",
+      "source": "backend#Spec Compliance Matrix RULE-api-001",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "封套/分页边界/错误码映射（agents + audits 真实 HTTP）",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_audits_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    }
+  ]
+}

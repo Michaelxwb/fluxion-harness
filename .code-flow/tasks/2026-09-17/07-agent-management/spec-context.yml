@@ -1,7 +1,7 @@
 version: 1
 task: Agent 定义、授权与通道配置
 enforcement: required
-updated_at: '2026-09-19T02:47:12.923619+00:00'
+updated_at: '2026-09-19T11:58:25.362124+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -28,9 +28,9 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: ed3d32d8d5085e6d250ef7a24f1988759d414113d2726d0a92052880bf2a66b0
-    metadata_sha256: e9f9b2714c5043dc7d9363ec9a950471b4cdea6d932bd8e86ac2dd0a754c9359
-    rules_sha256: 76ffb366c7643e6faa32a65c751aea08de24bc2c1b6f37db46e6df1a7665e728
+    file_sha256: 6eac5fc972b31d0f88a0eb97d37fb6f2edb610dec90bb7dad9f102e7a96b03fb
+    metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
+    rules_sha256: b2e38d504c280a9734a6c6fefeb2b5f86a4379aa8dbf3c868edd8b544fbe60f9
   selected_by: agent
   reason: Agent Harness 通用平台规则：api
   enforcement: required
@@ -40,6 +40,38 @@ bindings:
   - code
   - review
   rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次响应；请求指纹 = endpoint|关键参数|内容 checksum；同
+      key 同指纹重放返回首次结果（200 原响应），同 key 不同指纹返回 `COMMON_CONFLICT`。
+    text_sha256: aa78d9fb6c38b64c15bb312974e019de2044461d3fc2c9ae84969d84022b445a
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-002
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
   - ref: RULE-api-001
     summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
       `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
@@ -58,55 +90,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      code:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      review:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-- spec_id: harness-test
-  path: test/harness-test.md
-  status: active
-  hashes:
-    file_sha256: 66b05f4ed49156830ac7d388c9487264b4a85f50d32dacb364e126c83498a3ff
-    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
-    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
-  selected_by: agent
-  reason: Agent Harness 通用平台规则：test
-  enforcement: required
-  stages:
-  - design
-  - plan
-  - code
-  - review
-  rules:
-  - ref: RULE-test-001
-    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
-      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
-    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
-    enforcement: required
-    verifier_ref: harness-test#RULE-test-001
-    stage_status:
-      design:
         status: applied
         refs:
-        - artifact: 07-agent-management.backend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-test-001
-          artifact_sha256: bc8f2ead826203b469931f7336430b9d6b9cf955dc38180e7e2e735c8a13a13f
-        decision: null
-        evidence: []
-      plan:
-        status: pending
-        refs: []
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-007
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
         decision: null
         evidence: []
       code:
@@ -154,8 +143,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-004
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
         decision: null
         evidence: []
       code:
@@ -202,55 +195,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      code:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      review:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-- spec_id: harness-ui
-  path: ui/harness-ui.md
-  status: active
-  hashes:
-    file_sha256: 8b8d81d38f91d8b53a9bd297d918c0d30081307e9b83369d5a015911bbfbb406
-    metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
-    rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
-  selected_by: agent
-  reason: Agent Harness 通用平台规则：ui
-  enforcement: required
-  stages:
-  - design
-  - plan
-  - code
-  - review
-  rules:
-  - ref: RULE-ui-001
-    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
-      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计。
-    text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
-    enforcement: required
-    verifier_ref: harness-ui#RULE-ui-001
-    stage_status:
-      design:
         status: applied
         refs:
-        - artifact: 07-agent-management.frontend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-ui-001
-          artifact_sha256: 796bdc4bbb3b980cecdf5a5ed2e78e614f1f2f0b014d74e430fc2b0644368cf2
-        decision: null
-        evidence: []
-      plan:
-        status: pending
-        refs: []
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-001
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
         decision: null
         evidence: []
       code:
@@ -267,7 +217,7 @@ bindings:
   path: frontend/harness-frontend.md
   status: active
   hashes:
-    file_sha256: 095d3ec2a3bfe5c77f2884c061bbadc2c2b11ccd28621c8c78d0cc96182262f6
+    file_sha256: f99c04e50568324ce85f5cdcbb9f01ed33ca3e1eb522bf6bbb81ad8ca2926161
     metadata_sha256: 1f21efbe8b18a0dfec23126451e4674a64f60cf0f8e7bed81f2f404abd552f98
     rules_sha256: 0154193b28c857724614f543e1c78a3c01120fcfa8d07d39303b4168cef8156f
   selected_by: agent
@@ -296,8 +246,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-008
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
         decision: null
         evidence: []
       code:
@@ -343,8 +297,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-008
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
         decision: null
         evidence: []
       code:
@@ -390,8 +348,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-006
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
         decision: null
         evidence: []
       code:
@@ -437,8 +399,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-002
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
         decision: null
         evidence: []
       code:
@@ -483,8 +449,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-003
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
         decision: null
         evidence: []
       code:
@@ -535,8 +505,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: stale
-        refs: []
+        status: applied
+        refs:
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-006
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
         decision: null
         evidence: []
       code:
@@ -582,8 +556,114 @@ bindings:
         decision: null
         evidence: []
       plan:
+        status: applied
+        refs:
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-002
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
+        decision: null
+        evidence: []
+      code:
         status: pending
         refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 75cc9f6cb1970020eb5f82637aac0ff541161ab06470c86104014b4b43b5a9ba
+    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：test
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 07-agent-management.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: bc8f2ead826203b469931f7336430b9d6b9cf955dc38180e7e2e735c8a13a13f
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-009
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui
+  path: ui/harness-ui.md
+  status: active
+  hashes:
+    file_sha256: c762895c4a5679287b2c4790178b5dcda135a7a03802c9e4baddac0adda3f713
+    metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
+    rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：ui
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-001
+    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
+      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计。
+    text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+    enforcement: required
+    verifier_ref: harness-ui#RULE-ui-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 07-agent-management.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-ui-001
+          artifact_sha256: 796bdc4bbb3b980cecdf5a5ed2e78e614f1f2f0b014d74e430fc2b0644368cf2
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-008
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
         decision: null
         evidence: []
       code:
@@ -600,7 +680,7 @@ bindings:
   path: frontend/harness-ui-detail.md
   status: active
   hashes:
-    file_sha256: 9a7107b2f9a819a8f55f8fe047e9527803425d0825bd85f77593fcb89c5f93cc
+    file_sha256: 97df161668a12c248bded504300b16a95401e269f3b900ee58f3be39f234734d
     metadata_sha256: 5b27580a7db12994afb7cb6535630699efaa34ccb6085a28e228127b03ff2b89
     rules_sha256: 30c0d3e3999233939329105a6b996ccfe793157a6010a8575a77552bf38add9c
   selected_by: agent
@@ -628,8 +708,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 07-agent-management.md
+          section_id: Spec-Refs
+          item_id: TASK-009
+          artifact_sha256: e530894a0f0db9e8946c452a9f4f425aeabe6fab89d0319b42323ff157cf423a
         decision: null
         evidence: []
       code:

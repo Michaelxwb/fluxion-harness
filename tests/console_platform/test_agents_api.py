@@ -176,3 +176,61 @@ async def test_invalid_payloads_return_validation_envelope(
     for response in (extra_field, big_page, zero_page):
         assert response.status_code == 422
         assert response.json()["code"] == "COMMON_VALIDATION_ERROR"
+
+
+async def test_b01_list_aggregates_and_filters(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[B-01 延伸] 列表聚合计数与 keyword/enabled 筛选（真实 HTTP + 真实 PostgreSQL）。"""
+    from sqlalchemy import select
+
+    from muad_console_platform.infrastructure.db import get_session_factory
+    from muad_console_platform.infrastructure.models.control import (
+        AgentDefinition,
+        AgentSkillBinding,
+        Skill,
+    )
+    key = f"agent-agg-{uuid.uuid4().hex[:8]}"
+    created = await client.post(
+        "/api/v1/agents", json=_payload(tenant, key), headers=_headers(tenant)
+    )
+    assert created.status_code == 200
+    agent_id = created.json()["data"]["id"]
+
+    async with get_session_factory()() as session:
+        row = await session.scalar(
+            select(AgentDefinition.id).where(AgentDefinition.key == key)
+        )
+        skill_id = await session.scalar(select(Skill.id).limit(1))
+        assert row is not None
+        if skill_id is None:
+            tenant_skill = Skill(
+                tenant_id=tenant.tenant_id,
+                key=f"skill-{uuid.uuid4()}",
+                name="agg skill",
+                description="d",
+            )
+            session.add(tenant_skill)
+            await session.flush()
+            skill_id = tenant_skill.id
+        session.add(AgentSkillBinding(agent_id=row, skill_id=skill_id))
+        await session.commit()
+
+    listing = await client.get(
+        "/api/v1/agents",
+        params={"keyword": key},
+        headers=_headers(tenant),
+    )
+    assert listing.status_code == 200
+    item = listing.json()["data"]["items"][0]
+    assert item["key"] == key
+    for field in ("model_name", "skill_count", "mcp_count", "channel_count", "user_count"):
+        assert field in item
+
+    enabled_filtered = await client.get(
+        "/api/v1/agents",
+        params={"enabled": "false"},
+        headers=_headers(tenant),
+    )
+    assert enabled_filtered.status_code == 200
+    assert all(item["enabled"] is False for item in enabled_filtered.json()["data"]["items"])

@@ -81,14 +81,15 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
         yield context
     finally:
         async with session_factory() as session:
-            await session.execute(
-                text("DELETE FROM control.agent_definition WHERE tenant_id = :tenant_id"),
-                {"tenant_id": tenant_id},
-            )
-            await session.execute(
-                text("DELETE FROM control.model_definition WHERE tenant_id = :tenant_id"),
-                {"tenant_id": tenant_id},
-            )
+            for statement in (
+                "DELETE FROM control.agent_skill_binding WHERE agent_id IN (SELECT id FROM control.agent_definition WHERE tenant_id = :tenant_id)",
+                "DELETE FROM control.agent_mcp_binding WHERE agent_id IN (SELECT id FROM control.agent_definition WHERE tenant_id = :tenant_id)",
+                "DELETE FROM control.agent_access_grant WHERE agent_id IN (SELECT id FROM control.agent_definition WHERE tenant_id = :tenant_id)",
+                "DELETE FROM control.bot_account WHERE agent_id IN (SELECT id FROM control.agent_definition WHERE tenant_id = :tenant_id)",
+                "DELETE FROM control.agent_definition WHERE tenant_id = :tenant_id",
+                "DELETE FROM control.model_definition WHERE tenant_id = :tenant_id",
+            ):
+                await session.execute(text(statement), {"tenant_id": tenant_id})
             await session.commit()
 
 

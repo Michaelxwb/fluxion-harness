@@ -3,7 +3,10 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.control import AgentDefinition, ModelDefinition
+from ..models.channel import BotAccount
+from ..models.control import AgentAccessGrant, AgentDefinition, ModelDefinition
+from ..models.mcp import AgentMcpBinding
+from ..models.control import AgentSkillBinding
 
 
 class AgentRepository:
@@ -15,11 +18,21 @@ class AgentRepository:
         tenant_id: str,
         page: int,
         page_size: int,
+        keyword: str | None = None,
+        enabled: bool | None = None,
     ) -> tuple[list[AgentDefinition], int]:
-        conditions = (
+        conditions = [
             AgentDefinition.tenant_id == tenant_id,
             AgentDefinition.is_deleted.is_(False),
-        )
+        ]
+        if keyword:
+            like = f"%{keyword}%"
+            conditions.append(
+                AgentDefinition.name.ilike(like)
+                | AgentDefinition.key.ilike(like)
+            )
+        if enabled is not None:
+            conditions.append(AgentDefinition.enabled.is_(enabled))
         total = await self._session.scalar(
             select(func.count()).select_from(AgentDefinition).where(*conditions)
         )
@@ -31,6 +44,58 @@ class AgentRepository:
             .limit(page_size)
         )
         return list(result.all()), int(total or 0)
+
+    async def aggregate_counts(self, tenant_id: str) -> tuple[dict[uuid.UUID, int], dict[uuid.UUID, int], dict[uuid.UUID, int], dict[uuid.UUID, int]]:
+        """批量聚合 skill/mcp/channel/user 有效关系计数（无 N+1）。"""
+        from .agent_skill_binding_repository import AgentSkillBindingRepository  # 局部导入避免环
+
+        skill_rows = await self._session.execute(
+            select(AgentSkillBinding.agent_id, func.count())
+            .join(AgentDefinition, AgentDefinition.id == AgentSkillBinding.agent_id)
+            .where(
+                AgentDefinition.tenant_id == tenant_id,
+                AgentDefinition.is_deleted.is_(False),
+                AgentSkillBinding.is_deleted.is_(False),
+            )
+            .group_by(AgentSkillBinding.agent_id)
+        )
+        mcp_rows = await self._session.execute(
+            select(AgentMcpBinding.agent_id, func.count())
+            .join(AgentDefinition, AgentDefinition.id == AgentMcpBinding.agent_id)
+            .where(
+                AgentDefinition.tenant_id == tenant_id,
+                AgentDefinition.is_deleted.is_(False),
+                AgentMcpBinding.is_deleted.is_(False),
+            )
+            .group_by(AgentMcpBinding.agent_id)
+        )
+        channel_rows = await self._session.execute(
+            select(BotAccount.agent_id, func.count())
+            .where(
+                BotAccount.tenant_id == tenant_id,
+                BotAccount.is_deleted.is_(False),
+            )
+            .group_by(BotAccount.agent_id)
+        )
+        grant_rows = await self._session.execute(
+            select(AgentAccessGrant.agent_id, func.count())
+            .where(
+                AgentAccessGrant.is_deleted.is_(False),
+                AgentAccessGrant.agent_id.in_(
+                    select(AgentDefinition.id).where(
+                        AgentDefinition.tenant_id == tenant_id,
+                        AgentDefinition.is_deleted.is_(False),
+                    )
+                ),
+            )
+            .group_by(AgentAccessGrant.agent_id)
+        )
+        return (
+            {row[0]: int(row[1]) for row in skill_rows.all()},
+            {row[0]: int(row[1]) for row in mcp_rows.all()},
+            {row[0]: int(row[1]) for row in channel_rows.all()},
+            {row[0]: int(row[1]) for row in grant_rows.all()},
+        )
 
     async def get(self, tenant_id: str, agent_id: uuid.UUID) -> AgentDefinition | None:
         agent: AgentDefinition | None = await self._session.scalar(
