@@ -1,5 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
+// 注意：8000 端口若已有旧 Console 进程会被复用；E-05 依赖 MUAD_EXTRA_PLATFORM_ADAPTERS=alt-http，
+// 跑前请先 `lsof -ti:8000 | xargs kill -9` 以确保按本配置启动。
+
 export default defineConfig({
   testDir: './tests/project-platform',
   timeout: 90_000,

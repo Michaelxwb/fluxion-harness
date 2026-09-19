@@ -501,6 +501,12 @@ body {
   margin-bottom: 12px;
 }
 
+.platform-form-grid .semi-select,
+.platform-form-grid .semi-input-number,
+.platform-form-grid .semi-input-wrapper {
+  width: 100%;
+}
+
 .form-section-title {
   grid-column: 1 / -1;
   margin: 4px 0 2px;
