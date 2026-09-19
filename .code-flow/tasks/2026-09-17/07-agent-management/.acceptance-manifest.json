@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "07-agent-management.md",
-  "task_sha256": "08f1f3f0d2999f2948eb389fe2dbec00afc1a31a94c56cdad641be8bb2238f36",
+  "task_sha256": "e2ac01835566ce008a03bd26876bdd083a0664cf7db7d33d06bd51b7de9e7256",
   "scenarios": [
     {
       "id": "S-01",
@@ -10,7 +10,7 @@
       "kind": "e2e",
       "boundary": "Browser→Agent API→DB→Runtime resolve（revision+1 旧 Run 不漂移）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -18,7 +18,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "8b730301e8b14852ab4e51811266c757",
+        "executed_at": "2026-09-19T12:21:36.397659+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8b730301e8b14852ab4e51811266c757",
+          "executed_at": "2026-09-19T12:21:36.397659+00:00"
+        }
+      ]
     },
     {
       "id": "S-02",
@@ -78,7 +97,7 @@
       "kind": "e2e",
       "boundary": "Browser→DELETE Agent→DB→Runtime resolve（AGENT_NOT_FOUND，历史保留）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -86,7 +105,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-05",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "8b730301e8b14852ab4e51811266c757",
+        "executed_at": "2026-09-19T12:21:36.397659+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8b730301e8b14852ab4e51811266c757",
+          "executed_at": "2026-09-19T12:21:36.397659+00:00"
+        }
+      ]
     },
     {
       "id": "S-06",
@@ -214,19 +252,40 @@
       "kind": "functional",
       "boundary": "DB revision（stale revision → REVISION_CONFLICT）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
         "pytest",
         "-q",
-        "tests/console_platform/test_agents_api.py",
+        "tests/console_platform/test_agent_lifecycle_api.py",
         "-k",
-        "revision_conflict"
+        "stale_revision"
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "8b730301e8b14852ab4e51811266c757",
+        "executed_at": "2026-09-19T12:21:36.397659+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "8b730301e8b14852ab4e51811266c757",
+          "executed_at": "2026-09-19T12:21:36.397659+00:00"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -298,7 +357,7 @@
       "kind": "functional",
       "boundary": "Agent.enabled（禁用 → resolve AGENT_DISABLED）",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -310,7 +369,28 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "8b730301e8b14852ab4e51811266c757",
+        "executed_at": "2026-09-19T12:21:36.397659+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "8b730301e8b14852ab4e51811266c757",
+          "executed_at": "2026-09-19T12:21:36.397659+00:00"
+        }
+      ]
     },
     {
       "id": "E-06",
@@ -422,37 +502,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 2,
-      "evidence": {
-        "id": "B-01",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 2,
-        "run_id": "7f164fadab0143c197227841333f6509",
-        "executed_at": "2026-09-19T12:12:14.304277+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "c9c6d43ff6c443619dc968fff8821537",
-          "executed_at": "2026-09-19T12:05:04.851162+00:00"
-        },
-        {
-          "id": "B-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 2,
-          "run_id": "7f164fadab0143c197227841333f6509",
-          "executed_at": "2026-09-19T12:12:14.304277+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-02",

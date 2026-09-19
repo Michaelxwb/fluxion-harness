@@ -169,10 +169,10 @@ class AgentSkillBindingItem(BaseModel):
     platform_label: str | None
     user_scope: str
     enabled: bool
-    current_version: str | None
+    current_artifact_version: str | None
     execution_mode: str | None
     sort_order: int
-    bound_at: datetime
+    create_time: datetime
 
 
 class UserCreateRequest(BaseModel):
@@ -422,3 +422,9 @@ class McpUserScopeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     user_scope: Literal["ALL", "SELECTED"]
+
+
+class AgentBindSkillRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sort_order: int = Field(default=0, ge=0, le=9999)

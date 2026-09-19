@@ -153,10 +153,10 @@ def binding_item(
         platform_label=skill.platform_label,
         user_scope=skill.user_scope,
         enabled=skill.enabled,
-        current_version=artifact.version if artifact else None,
+        current_artifact_version=artifact.version if artifact else None,
         execution_mode=artifact.execution_mode if artifact else None,
         sort_order=binding.sort_order,
-        bound_at=binding.create_time,
+        create_time=binding.create_time,
     )
 
 
@@ -533,10 +533,14 @@ class SkillService:
         self,
         tenant_id: str,
         agent_id: uuid.UUID,
-    ) -> list[AgentSkillBindingItem]:
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[AgentSkillBindingItem], int]:
         await self._require_agent(tenant_id, agent_id)
         rows = await self._bindings.list_for_agent(tenant_id, agent_id)
-        return [binding_item(binding, skill, artifact) for binding, skill, artifact in rows]
+        items = [binding_item(binding, skill, artifact) for binding, skill, artifact in rows]
+        start = (page - 1) * page_size
+        return items[start : start + page_size], len(items)
 
     async def bind_skill(
         self,
@@ -544,6 +548,7 @@ class SkillService:
         agent_id: uuid.UUID,
         skill_id: uuid.UUID,
         actor: AuditActor,
+        sort_order: int = 0,
     ) -> AgentSkillBindingItem:
         agent = await self._require_agent(tenant_id, agent_id)
         skill = await self.get_skill(tenant_id, skill_id)
@@ -553,10 +558,13 @@ class SkillService:
             return binding_item(binding, skill, artifact)
         before = binding_snapshot(binding) if binding is not None else None
         if binding is None:
-            binding = AgentSkillBinding(agent_id=agent.id, skill_id=skill.id)
+            binding = AgentSkillBinding(
+                agent_id=agent.id, skill_id=skill.id, sort_order=sort_order
+            )
             await self._bindings.add(binding)
         else:
             binding.is_deleted = False
+            binding.sort_order = sort_order  # 恢复历史行时应用新排序
             binding.update_time = datetime.now(UTC)
             await self._session.flush()
         await self._record_binding_audit(tenant_id, actor, binding, before)
@@ -568,16 +576,18 @@ class SkillService:
         agent_id: uuid.UUID,
         skill_id: uuid.UUID,
         actor: AuditActor,
-    ) -> None:
+    ) -> dict[str, Any]:
         agent = await self._require_agent(tenant_id, agent_id)
         binding = await self._bindings.find(agent.id, skill_id)
         if binding is None or binding.is_deleted:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "AgentSkillBinding"})
+            # 幂等：关系不存在或已解除仍返回成功
+            return {"agent_id": str(agent.id), "skill_id": str(skill_id), "is_deleted": True}
         before = binding_snapshot(binding)
         binding.is_deleted = True
         binding.update_time = datetime.now(UTC)
         await self._session.flush()
         await self._record_binding_audit(tenant_id, actor, binding, before)
+        return {"agent_id": str(agent.id), "skill_id": str(skill_id), "is_deleted": True}
 
     def _build_artifact(
         self,

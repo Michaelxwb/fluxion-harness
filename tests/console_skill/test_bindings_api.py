@@ -11,7 +11,7 @@ async def test_agent_skill_binding_flow(client: AsyncClient, skill_env: SkillCon
         headers=tenant_headers(skill_env),
     )
     assert listed.status_code == 200
-    keys = {item["key"] for item in listed.json()["data"]}
+    keys = {item["key"] for item in listed.json()["data"]["items"]}
     assert keys == {"skill-all", "skill-granted", "skill-ungranted", "skill-disabled"}
 
     bound = await client.post(
@@ -22,7 +22,7 @@ async def test_agent_skill_binding_flow(client: AsyncClient, skill_env: SkillCon
     binding = bound.json()["data"]
     assert binding["skill_id"] == str(skill_env.skill_unbound_id)
     assert binding["key"] == "skill-unbound"
-    assert binding["current_version"] == "1.0.0"
+    assert binding["current_artifact_version"] == "1.0.0"
     assert binding["sort_order"] == 0
 
     repeated = await client.post(
@@ -36,7 +36,7 @@ async def test_agent_skill_binding_flow(client: AsyncClient, skill_env: SkillCon
             f"/api/v1/agents/{skill_env.agent_id}/skills",
             headers=tenant_headers(skill_env),
         )
-    ).json()["data"]
+    ).json()["data"]["items"]
     assert len(after_bind) == 5
 
     unbound = await client.delete(
@@ -44,22 +44,23 @@ async def test_agent_skill_binding_flow(client: AsyncClient, skill_env: SkillCon
         headers=tenant_headers(skill_env),
     )
     assert unbound.status_code == 200
-    assert unbound.json()["data"] == {"deleted": True}
+    assert unbound.json()["data"]["is_deleted"] is True
 
     after_unbind = (
         await client.get(
             f"/api/v1/agents/{skill_env.agent_id}/skills",
             headers=tenant_headers(skill_env),
         )
-    ).json()["data"]
+    ).json()["data"]["items"]
     assert len(after_unbind) == 4
 
+    # v1.1 契约：解除幂等，再次解除仍返回成功
     again = await client.delete(
         f"/api/v1/agents/{skill_env.agent_id}/skills/{skill_env.skill_unbound_id}",
         headers=tenant_headers(skill_env),
     )
-    assert again.status_code == 404
-    assert again.json()["code"] == "COMMON_NOT_FOUND"
+    assert again.status_code == 200
+    assert again.json()["data"]["is_deleted"] is True
 
 
 async def test_binding_unknown_agent_or_skill_returns_not_found(

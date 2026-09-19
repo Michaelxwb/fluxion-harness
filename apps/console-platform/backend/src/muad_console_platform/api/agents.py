@@ -6,6 +6,7 @@ from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.agent_service import AgentService
+from ..application.dto import AgentBindSkillRequest as BindSkillRequest
 from ..application.audit_service import AuditActor
 from ..application.dto import AgentCreateRequest, AgentDetail, AgentListItem, AgentUpdateRequest
 from ..application.skill_service import SkillService
@@ -115,9 +116,21 @@ async def list_agent_skills(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
 ) -> ApiResponse[Any]:
-    items = await SkillService(session).list_agent_skills(tenant_id, agent_id)
-    return ok(request.app.state.message_catalog, [item.model_dump(mode="json") for item in items])
+    items, total = await SkillService(session).list_agent_skills(
+        tenant_id, agent_id, page, page_size
+    )
+    return ok(
+        request.app.state.message_catalog,
+        paginate(
+            items=[item.model_dump(mode="json") for item in items],
+            page=page,
+            page_size=page_size,
+            total=total,
+        ),
+    )
 
 
 @router.post("/{agent_id}/skills/{skill_id}")
@@ -128,12 +141,14 @@ async def bind_agent_skill(
     account: CurrentAccount,
     tenant_id: TenantId,
     session: Session,
+    payload: BindSkillRequest | None = None,
 ) -> ApiResponse[Any]:
     item = await SkillService(session).bind_skill(
         tenant_id,
         agent_id,
         skill_id,
         _actor(account, request),
+        sort_order=payload.sort_order if payload else 0,
     )
     return ok(request.app.state.message_catalog, item.model_dump(mode="json"))
 
@@ -147,10 +162,10 @@ async def unbind_agent_skill(
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
-    await SkillService(session).unbind_skill(
+    data = await SkillService(session).unbind_skill(
         tenant_id,
         agent_id,
         skill_id,
         _actor(account, request),
     )
-    return ok(request.app.state.message_catalog, {"deleted": True})
+    return ok(request.app.state.message_catalog, data)
