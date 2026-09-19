@@ -130,7 +130,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
         void submit(values as unknown as FormValues);
       }}
     >
-      <div className="platform-form-grid">
+      <div className="form-grid">
       <Form.Input
         field="name"
         label={t('platform.form.name')}

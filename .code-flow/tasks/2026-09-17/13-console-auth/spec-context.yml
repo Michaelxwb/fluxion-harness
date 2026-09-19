@@ -1,7 +1,7 @@
 version: 1
 task: Console 账号与访问控制
 enforcement: required
-updated_at: '2026-09-18T09:24:15.900562+00:00'
+updated_at: '2026-09-19T02:48:16.871664+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -218,7 +218,7 @@ bindings:
   path: ui/harness-ui.md
   status: active
   hashes:
-    file_sha256: d6b780c1f48e6cd7c6bbba09ad2139eade4fddd5c5c6217e45ff62e72299156e
+    file_sha256: c762895c4a5679287b2c4790178b5dcda135a7a03802c9e4baddac0adda3f713
     metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
     rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
   selected_by: agent
@@ -243,7 +243,7 @@ bindings:
         - artifact: 13-console-auth.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-ui-001
-          artifact_sha256: 2ed2fc898745d3790e46a773bf8ebeb46ea36ef46f7c693e6be3e189fa95a7e7
+          artifact_sha256: d86e96001f7467ea4725454f18117ac3bc1da8b829d9d558c558762e598509ec
         decision: null
         evidence: []
       plan:
@@ -290,7 +290,7 @@ bindings:
         - artifact: 13-console-auth.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-front-001
-          artifact_sha256: 2ed2fc898745d3790e46a773bf8ebeb46ea36ef46f7c693e6be3e189fa95a7e7
+          artifact_sha256: d86e96001f7467ea4725454f18117ac3bc1da8b829d9d558c558762e598509ec
         decision: null
         evidence: []
       plan:
@@ -483,7 +483,7 @@ bindings:
         - artifact: 13-console-auth.frontend.design.md
           section_id: design
           item_id: design
-          artifact_sha256: 2ed2fc898745d3790e46a773bf8ebeb46ea36ef46f7c693e6be3e189fa95a7e7
+          artifact_sha256: d86e96001f7467ea4725454f18117ac3bc1da8b829d9d558c558762e598509ec
         decision: null
         evidence: []
       plan:
@@ -552,7 +552,7 @@ bindings:
   path: frontend/harness-ui-detail.md
   status: active
   hashes:
-    file_sha256: f2634c4739f308cc9ea5fe7f4c9a479a8d9096a40cc7048a4ffb7278521495b7
+    file_sha256: 97df161668a12c248bded504300b16a95401e269f3b900ee58f3be39f234734d
     metadata_sha256: 5b27580a7db12994afb7cb6535630699efaa34ccb6085a28e228127b03ff2b89
     rules_sha256: 30c0d3e3999233939329105a6b996ccfe793157a6010a8575a77552bf38add9c
   selected_by: agent
@@ -576,7 +576,7 @@ bindings:
         - artifact: 13-console-auth.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-ui-detail-001
-          artifact_sha256: 2ed2fc898745d3790e46a773bf8ebeb46ea36ef46f7c693e6be3e189fa95a7e7
+          artifact_sha256: d86e96001f7467ea4725454f18117ac3bc1da8b829d9d558c558762e598509ec
         decision: null
         evidence: []
       plan:

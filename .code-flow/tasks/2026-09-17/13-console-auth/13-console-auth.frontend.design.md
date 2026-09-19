@@ -257,6 +257,7 @@ export function RequireRole(props: { role: ConsoleRole; children: ReactElement }
 | 设计 tokens | 颜色/间距/字号引用 Semi token（如 `--semi-color-bg-1`） |
 | 响应式断点 | 登录 Card 固定 360px 居中；Console 列表/详情沿用 01 断点（<900px 双列降单列） |
 | 列表规范 | 后续账号列表遵循“左上操作 + 右上搜索筛选 + 右下分页”，不重复页签标题 |
+| 字段布局排版 | 以交互稿为准：表单用双列栅格 `.form-grid`（控件 100% 同宽、按稿顺序成对、动态字段配 `.form-section-title`/`.form-section-hint`），详情基本信息用 `DetailGrid`；字段顺序/分组/宽窄不得自创 |
 
 ### 3.8 可访问性与兼容性
 

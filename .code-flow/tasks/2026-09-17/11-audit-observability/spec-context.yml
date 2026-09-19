@@ -1,7 +1,7 @@
 version: 1
 task: 运行审计与可观测
 enforcement: required
-updated_at: '2026-09-18T09:24:15.869193+00:00'
+updated_at: '2026-09-19T02:47:13.191587+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -169,7 +169,7 @@ bindings:
   path: ui/harness-ui.md
   status: active
   hashes:
-    file_sha256: d6b780c1f48e6cd7c6bbba09ad2139eade4fddd5c5c6217e45ff62e72299156e
+    file_sha256: 8b8d81d38f91d8b53a9bd297d918c0d30081307e9b83369d5a015911bbfbb406
     metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
     rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
   selected_by: agent
@@ -194,7 +194,7 @@ bindings:
         - artifact: 11-audit-observability.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-ui-001
-          artifact_sha256: 8c1b479d1ad78af1801bb5afb056f69fbcc3bb23935e1b59648cb9c66759d2d9
+          artifact_sha256: 8b23c92ca693cf4cbc73475f3a5e2be9def105358e1b8171ffa9b258ff6b1f17
         decision: null
         evidence: []
       plan:
@@ -241,7 +241,7 @@ bindings:
         - artifact: 11-audit-observability.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-front-001
-          artifact_sha256: 8c1b479d1ad78af1801bb5afb056f69fbcc3bb23935e1b59648cb9c66759d2d9
+          artifact_sha256: 8b23c92ca693cf4cbc73475f3a5e2be9def105358e1b8171ffa9b258ff6b1f17
         decision: null
         evidence: []
       plan:
@@ -288,7 +288,7 @@ bindings:
         - artifact: 11-audit-observability.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-i18n-001
-          artifact_sha256: 8c1b479d1ad78af1801bb5afb056f69fbcc3bb23935e1b59648cb9c66759d2d9
+          artifact_sha256: 8b23c92ca693cf4cbc73475f3a5e2be9def105358e1b8171ffa9b258ff6b1f17
         decision: null
         evidence: []
       plan:
@@ -388,7 +388,7 @@ bindings:
         - artifact: 11-audit-observability.frontend.design.md
           section_id: design
           item_id: design
-          artifact_sha256: 8c1b479d1ad78af1801bb5afb056f69fbcc3bb23935e1b59648cb9c66759d2d9
+          artifact_sha256: 8b23c92ca693cf4cbc73475f3a5e2be9def105358e1b8171ffa9b258ff6b1f17
         decision: null
         evidence: []
       plan:
@@ -457,7 +457,7 @@ bindings:
   path: frontend/harness-ui-detail.md
   status: active
   hashes:
-    file_sha256: f2634c4739f308cc9ea5fe7f4c9a479a8d9096a40cc7048a4ffb7278521495b7
+    file_sha256: 9a7107b2f9a819a8f55f8fe047e9527803425d0825bd85f77593fcb89c5f93cc
     metadata_sha256: 5b27580a7db12994afb7cb6535630699efaa34ccb6085a28e228127b03ff2b89
     rules_sha256: 30c0d3e3999233939329105a6b996ccfe793157a6010a8575a77552bf38add9c
   selected_by: agent
@@ -481,7 +481,7 @@ bindings:
         - artifact: 11-audit-observability.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-ui-detail-001
-          artifact_sha256: 8c1b479d1ad78af1801bb5afb056f69fbcc3bb23935e1b59648cb9c66759d2d9
+          artifact_sha256: 8b23c92ca693cf4cbc73475f3a5e2be9def105358e1b8171ffa9b258ff6b1f17
         decision: null
         evidence: []
       plan:

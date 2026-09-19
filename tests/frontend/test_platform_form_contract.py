@@ -26,7 +26,7 @@ def test_adapter_config_renders_from_schema() -> None:
 
 def test_form_uses_two_column_grid_and_localized_adapter_fields() -> None:
     source = (MODULE / "ProjectPlatformForm.tsx").read_text(encoding="utf-8")
-    assert "platform-form-grid" in source, "表单必须使用双列栅格"
+    assert "form-grid" in source, "表单必须使用双列栅格"
     assert "platform.form.adapterSection" in source
     assert "platform.adapterField." in source, "Adapter 字段必须走 i18n 而非裸 schema key"
     assert "form-grid-spacer" in source

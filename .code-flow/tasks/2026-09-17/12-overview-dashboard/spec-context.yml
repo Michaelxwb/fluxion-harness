@@ -1,7 +1,7 @@
 version: 1
 task: 概览与运营入口
 enforcement: required
-updated_at: '2026-09-18T09:24:15.882031+00:00'
+updated_at: '2026-09-19T02:47:13.303029+00:00'
 sources:
 - type: docs
   ref: docs/03-Console-Platform详细设计.md
@@ -119,7 +119,7 @@ bindings:
   path: ui/harness-ui.md
   status: active
   hashes:
-    file_sha256: d6b780c1f48e6cd7c6bbba09ad2139eade4fddd5c5c6217e45ff62e72299156e
+    file_sha256: 8b8d81d38f91d8b53a9bd297d918c0d30081307e9b83369d5a015911bbfbb406
     metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
     rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
   selected_by: agent
@@ -238,7 +238,7 @@ bindings:
         - artifact: 12-overview-dashboard.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-i18n-001
-          artifact_sha256: 745691cd4e75902aeda381f258c39dbcb7412ea3516d0bf555b9224f76664850
+          artifact_sha256: bc0657ac9b321565afc8e0155d818fe48ae1466127860ff3d82fc2457a755e94
         decision: null
         evidence: []
       plan:

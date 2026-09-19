@@ -491,16 +491,21 @@ body {
   word-break: break-all;
 }
 
+.form-grid,
 .platform-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 16px;
 }
 
+.form-grid .semi-form-field,
 .platform-form-grid .semi-form-field {
   margin-bottom: 12px;
 }
 
+.form-grid .semi-select,
+.form-grid .semi-input-number,
+.form-grid .semi-input-wrapper,
 .platform-form-grid .semi-select,
 .platform-form-grid .semi-input-number,
 .platform-form-grid .semi-input-wrapper {
