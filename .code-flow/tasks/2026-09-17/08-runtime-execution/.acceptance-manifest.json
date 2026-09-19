@@ -367,7 +367,7 @@
       "kind": "functional",
       "boundary": "PostgreSQL migration→ORM",
       "owner": "TASK-001",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -377,7 +377,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-101",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "fd7b4408a5eb45b2929873f10137230b",
+        "executed_at": "2026-09-19T23:19:15.559943+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-101",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "fd7b4408a5eb45b2929873f10137230b",
+          "executed_at": "2026-09-19T23:19:15.559943+00:00"
+        }
+      ]
     },
     {
       "id": "B-102",

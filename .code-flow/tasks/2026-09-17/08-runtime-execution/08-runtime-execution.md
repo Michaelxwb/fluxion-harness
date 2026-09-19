@@ -152,11 +152,11 @@
 
 ## TASK-001: Runtime 持久化约束与缺失 ORM
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: 
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计
-- **Spec-Refs**: harness-data#RULE-data-001
+- **Spec-Refs**: harness-data#RULE-data-001, harness-time#RULE-time-001
 - **Acceptance-Refs**: B-101, RULE-data-001
 - **Files**: `apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py`, `migrations/versions/<下一修订号>_runtime_execution.py`, `tests/agent_runtime/test_runtime_schema_parity.py`
 - **Estimate**: 15–60 分钟（达到超出条件时先拆分）
@@ -169,7 +169,8 @@
 - [x] [B-101][integration] RED：4 failed（RunSubmission ORM 不存在/canonical_event 缺 submission_id+stream_type 列）：partial unique 阻止双活；同 Owner FK、timestamptz、jsonb 与 ORM 一致；跨 Owner 不建 FK。
 - [x] 核对已有 0002 表（10 张 runtime 表已建），补齐 UserMemory/Artifact/ToolCallAudit/EgressAudit/ModelInvocationAudit ORM + 新迁移 0007 建 run_submission（partial unique tenant,key,endpoint）+ canonical_event 加 submission_id FK/stream_type；仅新增必要迁移，不重复建已有表。
 - [x] 局部验证：schema_parity 9 passed（含 B-101 软删重建/partial unique/列对齐断言）：partial unique 阻止双活；同 Owner FK、timestamptz、jsonb 与 ORM 一致；跨 Owner 不建 FK；如已具备实现，保留并记录回归，不重写已通过行为。
-- [x] [RULE-data-001][integration] verifier 执行：tests -k schema_parity 27 passed（S-02/E-03 映射场景留 owner TASK-024/025 E2E）；执行原命令 `["uv","run","pytest","-q","tests","-k","schema_parity"]`，再执行映射场景命令；核验 S-02, E-03 的真实边界和断言。
+- [x] [RULE-data-001][integration] verifier 执行：tests -k schema_parity 27 passed（S-02/E-03 映射场景留 owner TASK-024/025 E2E）
+- [x] 运行 harness-time#RULE-time-001 verifier：B-101 同步覆盖 runtime 全表 timestamptz（schema parity 的标准列断言）；执行原命令 `["uv","run","pytest","-q","tests","-k","schema_parity"]`，再执行映射场景命令；核验 S-02, E-03 的真实边界和断言。
 - [x] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
@@ -185,6 +186,7 @@
 |--------|-----|-------|---------|-------------|------|
 | B-101 | FAIL: 4 failed（ImportError RunSubmission；submission_id/stream_type 列缺失） | 9 passed（schema_parity 全量） | test_b101_run_submission_orm_registered / _missing_audit_orm_classes_exist / _run_submission_table_partial_unique / _canonical_event_submission_columns | 真实 PostgreSQL（migration 0007 后）+ ORM 元数据 | verified |
 | RULE-data-001 | 同上 | tests -k schema_parity 27 passed | 同上 + 既有 parity 套件 | 真实 PostgreSQL | verified |
+- B-101: verified — automated command passed; run_id=fd7b4408a5eb45b2929873f10137230b (confirmed_by: runner)
 
 ### Log
 
@@ -193,6 +195,8 @@
 
 ---
 - [2026-09-20] started
+- [2026-09-20] resumed (in-progress)
+- [2026-09-20] completed (done)
 ## TASK-002: Canonical Event 持久化与序号分配
 
 - **Status**: draft
