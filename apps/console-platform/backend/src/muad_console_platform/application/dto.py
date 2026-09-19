@@ -131,6 +131,8 @@ class SkillListItem(BaseModel):
     current_artifact_id: uuid.UUID | None
     current_version: str | None
     execution_mode: str | None
+    agent_count: int = 0
+    user_count: int = 0
     update_time: datetime
 
 

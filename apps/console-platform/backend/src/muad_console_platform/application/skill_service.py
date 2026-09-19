@@ -97,7 +97,13 @@ def artifact_detail(artifact: SkillArtifact) -> SkillArtifactDetail:
     )
 
 
-def skill_list_item(skill: Skill, artifact: SkillArtifact | None) -> SkillListItem:
+def skill_list_item(
+    skill: Skill,
+    artifact: SkillArtifact | None,
+    *,
+    agent_count: int = 0,
+    user_count: int = 0,
+) -> SkillListItem:
     return SkillListItem(
         id=skill.id,
         key=skill.key,
@@ -109,6 +115,8 @@ def skill_list_item(skill: Skill, artifact: SkillArtifact | None) -> SkillListIt
         current_artifact_id=skill.current_artifact_id,
         current_version=artifact.version if artifact else None,
         execution_mode=artifact.execution_mode if artifact else None,
+        agent_count=agent_count,
+        user_count=user_count,
         update_time=skill.update_time,
     )
 
@@ -186,7 +194,10 @@ class SkillService:
             user_scope,
             execution_mode,
         )
-        return [skill_list_item(skill, artifact) for skill, artifact in rows], total
+        return [
+            skill_list_item(skill, artifact, agent_count=bound, user_count=granted)
+            for skill, artifact, bound, granted in rows
+        ], total
 
     async def get_skill(self, tenant_id: str, skill_id: uuid.UUID) -> Skill:
         skill = await self._skills.get(tenant_id, skill_id)
@@ -198,11 +209,14 @@ class SkillService:
         skill = await self.get_skill(tenant_id, skill_id)
         artifact = await self._skills.get_current_artifact(skill)
         return SkillDetail(
-            **skill_list_item(skill, artifact).model_dump(),
+            **skill_list_item(
+                skill,
+                artifact,
+                agent_count=await self._skills.count_agent_bindings(skill.id),
+                user_count=await self._grants.count_active(skill.id),
+            ).model_dump(),
             create_time=skill.create_time,
             current_artifact=artifact_detail(artifact) if artifact else None,
-            agent_count=await self._skills.count_agent_bindings(skill.id),
-            user_count=await self._grants.count_active(skill.id),
         )
 
     async def update_skill(

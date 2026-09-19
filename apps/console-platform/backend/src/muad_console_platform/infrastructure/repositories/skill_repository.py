@@ -32,7 +32,7 @@ class SkillRepository:
         page_size: int,
         user_scope: str | None,
         execution_mode: str | None,
-    ) -> tuple[list[tuple[Skill, SkillArtifact | None]], int]:
+    ) -> tuple[list[tuple[Skill, SkillArtifact | None, int, int]], int]:
         conditions = [Skill.tenant_id == tenant_id, Skill.is_deleted.is_(False)]
         if user_scope is not None:
             conditions.append(Skill.user_scope == user_scope)
@@ -44,15 +44,36 @@ class SkillRepository:
             .outerjoin(SkillArtifact, current_artifact_join())
             .where(*conditions)
         )
+        agent_count = (
+            select(func.count())
+            .select_from(AgentSkillBinding)
+            .where(
+                AgentSkillBinding.skill_id == Skill.id,
+                AgentSkillBinding.is_deleted.is_(False),
+            )
+            .correlate(Skill)
+            .scalar_subquery()
+        )
+        user_count = (
+            select(func.count())
+            .select_from(SkillUserGrant)
+            .where(
+                SkillUserGrant.skill_id == Skill.id,
+                SkillUserGrant.is_deleted.is_(False),
+            )
+            .correlate(Skill)
+            .scalar_subquery()
+        )
         result = await self._session.execute(
-            select(Skill, SkillArtifact)
+            select(Skill, SkillArtifact, agent_count, user_count)
             .outerjoin(SkillArtifact, current_artifact_join())
             .where(*conditions)
             .order_by(Skill.update_time.desc())
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
-        return [(skill, artifact) for skill, artifact in result.all()], int(total or 0)
+        rows = result.all()
+        return [(skill, artifact, int(bound or 0), int(granted or 0)) for skill, artifact, bound, granted in rows], int(total or 0)
 
     async def get(self, tenant_id: str, skill_id: uuid.UUID) -> Skill | None:
         skill: Skill | None = await self._session.scalar(
