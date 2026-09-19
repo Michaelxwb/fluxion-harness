@@ -1,7 +1,7 @@
 version: 1
 task: Agent Runtime 执行引擎
 enforcement: required
-updated_at: '2026-09-18T09:24:15.814969+00:00'
+updated_at: '2026-09-19T13:22:48.362020+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -30,9 +30,9 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: ed3d32d8d5085e6d250ef7a24f1988759d414113d2726d0a92052880bf2a66b0
-    metadata_sha256: e9f9b2714c5043dc7d9363ec9a950471b4cdea6d932bd8e86ac2dd0a754c9359
-    rules_sha256: 76ffb366c7643e6faa32a65c751aea08de24bc2c1b6f37db46e6df1a7665e728
+    file_sha256: 6eac5fc972b31d0f88a0eb97d37fb6f2edb610dec90bb7dad9f102e7a96b03fb
+    metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
+    rules_sha256: b2e38d504c280a9734a6c6fefeb2b5f86a4379aa8dbf3c868edd8b544fbe60f9
   selected_by: agent
   reason: Agent Harness 通用平台规则：api
   enforcement: required
@@ -42,6 +42,34 @@ bindings:
   - code
   - review
   rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次响应；请求指纹 = endpoint|关键参数|内容 checksum；同
+      key 同指纹重放返回首次结果（200 原响应），同 key 不同指纹返回 `COMMON_CONFLICT`。
+    text_sha256: aa78d9fb6c38b64c15bb312974e019de2044461d3fc2c9ae84969d84022b445a
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
   - ref: RULE-api-001
     summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
       `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
@@ -78,7 +106,7 @@ bindings:
   path: test/harness-test.md
   status: active
   hashes:
-    file_sha256: 66b05f4ed49156830ac7d388c9487264b4a85f50d32dacb364e126c83498a3ff
+    file_sha256: 75cc9f6cb1970020eb5f82637aac0ff541161ab06470c86104014b4b43b5a9ba
     metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
     rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
   selected_by: agent
@@ -269,8 +297,8 @@ bindings:
   path: mcp/harness-mcp.md
   status: active
   hashes:
-    file_sha256: 4ed9a6a182c509f30eb6c3009d686064b2791a1b995e16957efbb0b8f60dbd70
-    metadata_sha256: bd91ecb77f85114eff54b2e53f22052627f2246053211596ed187d93252f59b2
+    file_sha256: ccf846b61151517058098258d989da50e3b4110b97909fd32bff410f02b3e68d
+    metadata_sha256: 6221253f8a05e631cce34867a90669505900dc04e2b4685eef297ecc72090c6a
     rules_sha256: e17b2c3a76c397162bd3651ce8b9de3d4404d55ae0034cfaa209a2f2b41576c4
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-mcp
@@ -413,9 +441,9 @@ bindings:
   path: artifact/harness-skill.md
   status: active
   hashes:
-    file_sha256: e499bd299da4f7e0ece7355711dac95e5e052822057cc27769f7775f89967a31
+    file_sha256: 7506d2073566dd1380878a25b2040fcd31805f255f524a454d48d61746b351d4
     metadata_sha256: d401c91bc5271f353f28b5a053cae47eacd8e5ea3eb13f27ab8919e8c74d493b
-    rules_sha256: 8c6d4ac0fa57856778da30c5c870c008a521ab49750a7275185ba437d5d9b1aa
+    rules_sha256: 9925f22483619c6edd6cd993b9a15b8771d06d8cd8dc0ec97cf15bef495875e4
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-skill
   enforcement: required
@@ -428,13 +456,15 @@ bindings:
   - ref: RULE-skill-001
     summary: Artifact Store 为 NFS-backed RWX PVC（V1 不建 MinIO/S3）；数据库只保存相对 `storage_key`；Runtime/Worker
       使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从 NFS 目录执行 Python Skill；同一 checksum
-      并发首次加载必须 singleflight。
-    text_sha256: dff685dcacd82c720c50227497489d081b7f1d4eb6ea0ca6a1f590e348841c54
+      并发首次加载必须 singleflight；Artifact 写入不可变（temp+`os.replace` 原子写，同 `storage_key` 二次写入抛
+      `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans` CLI 宽限期扫描清理（默认
+      1h，保护进行中事务）。
+    text_sha256: efdf9e292f2ca509cc2139d1e57978d17ab8fd4467fba7ccd5d72a77db6aaeb2
     enforcement: required
     verifier_ref: harness-skill#RULE-skill-001
     stage_status:
       design:
-        status: applied
+        status: stale
         refs:
         - artifact: 08-runtime-execution.backend.design.md
           section_id: Spec Compliance Matrix
@@ -443,17 +473,17 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []

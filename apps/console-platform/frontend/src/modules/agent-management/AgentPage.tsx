@@ -189,10 +189,6 @@ export function AgentPage() {
             setFormVisible(true);
           }}
           onMutated={() => void reload()}
-          onRefreshDetail={async () => {
-            const { getAgent } = await import('./services/agents');
-            setDetail(await getAgent(detailForSheet.id));
-          }}
         />
       ) : null}
     </>

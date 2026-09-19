@@ -1,20 +1,23 @@
-# TASK-008 Spec Context
+# TASK-009 Spec Context
 
 - Context-SHA256: `65d367d5c7715054c142f7721a339cb94555cee14053e2d8ca26cddc7f4e8743`
 
 ## Required Rules
-- `harness-ui#RULE-ui-001`: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表 + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计。
-  - rule_sha256=6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6 verifier=harness-ui#RULE-ui-001; artifacts=07-agent-management.frontend.design.md,07-agent-management.md
-- `harness-frontend#RULE-front-001`: 前端 API 调用只经 `src/api/`（services）层，组件禁止裸用 axios/fetch；所有文案只使用 i18n key（zh-CN/en-US）；列表/详情遵循 RULE-ui-001 与 RULE-ui-detail-001。
-  - rule_sha256=440c5905981dfbff9549ae224b77391ff6213fea051e1a0b5914099cb0db15fc verifier=harness-frontend#RULE-front-001; artifacts=07-agent-management.frontend.design.md,07-agent-management.md
-- `harness-i18n#RULE-i18n-001`: 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language` 协商。
-  - rule_sha256=9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c verifier=harness-i18n#RULE-i18n-001; artifacts=07-agent-management.frontend.design.md,07-agent-management.md
+- `harness-ui-detail#RULE-ui-detail-001`: 详情使用 SideSheet：标题与副标题居左，对象级操作与关闭 X 同一行靠右，Tabs 位于其下；关系操作保存后立即影响后续新 Run/Task。
+  - rule_sha256=8dcac2de2d48280e57007cf8a1fb4eb70be2741a2d4e2295bbe4252fdc6f60b1 verifier=harness-ui-detail#RULE-ui-detail-001; artifacts=07-agent-management.frontend.design.md,07-agent-management.md
+- `harness-test#RULE-test-001`: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实 Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+  - rule_sha256=bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac verifier=harness-test#RULE-test-001; artifacts=07-agent-management.backend.design.md,07-agent-management.md
 
 ## Acceptance Contract
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-10 | E2E | 真实浏览器 + 后端 + DB | Popconfirm 删除后行移除、详情关闭 | e2e/tests/agent-management/agent-management.spec.ts | npm --prefix e2e test -- --config playwright.agent.config.ts --grep "S-10" | planned |
-| E-09 | integration | 组件源码契约 | key 冲突 Modal 保留 + i18n 提示 | tests/frontend/test_agent_form_contract.py -k key_conflict | uv run pytest -q tests/frontend/test_agent_form_contract.py -k key_conflict | planned |
-| RULE-ui-001 | E2E | 真实浏览器渲染 | 布局结构/词典字段 | e2e spec + contract | uv run pytest -q tests/frontend/test_agent_module_contract.py | planned |
-| RULE-front-001 | integration | services 层 | 无裸 axios/fetch | 同上 + check 脚本 | uv run pytest -q tests/frontend/test_agent_module_contract.py && uv run python scripts/check_frontend_api_usage.py | planned |
-| RULE-i18n-001 | integration | locale 资源 | 双语词条 | 同上 + check 脚本 | uv run pytest -q tests/frontend/test_agent_module_contract.py && uv run python scripts/check_frontend_i18n.py | planned |
+| S-07 | E2E | 真实浏览器 + 后端 + DB | revision+1 展示 | e2e spec -k S-07 | npm --prefix e2e test -- --config playwright.agent.config.ts --grep "S-07" | planned |
+| S-08 | E2E | 同上 | 绑定即出现；无保存/启停 | 同上 | 同上 --grep "S-08" | planned |
+| S-09 | E2E | Browser→audits API | 最近运行列表/空态 | 同上 | 同上 --grep "S-09" | planned |
+| S-11 | E2E | 同上 | 解除/再绑定无启停开关 | 同上 | 同上 --grep "S-11" | planned |
+| S-12 | E2E | 同上 | 双 bot 同 Agent 无 Pod 信息 | 同上 | 同上 --grep "S-12" | planned |
+| E-07 | E2E | revision conflict→UI | Modal 保留提示 | 同上 | 同上 --grep "E-07" | planned |
+| E-08 | E2E | bot conflict→UI | 表单保留提示 | 同上 | 同上 --grep "E-08" | planned |
+| E-10 | E2E | 目标不存在→Toast | Tab 状态不变 | 同上 | 同上 --grep "E-10" | planned |
+| RULE-ui-detail-001 | E2E | 真实浏览器渲染 | SideSheet 布局/5 Tabs | tests/frontend/test_agent_detail_contract.py | uv run pytest -q tests/frontend/test_agent_detail_contract.py | planned |
+| RULE-test-001 | E2E | 全链路无 mock 声明 | 边界清单显式化 | e2e spec 模块头 | npm --prefix e2e test -- --config playwright.agent.config.ts | planned |

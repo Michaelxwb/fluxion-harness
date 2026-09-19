@@ -112,7 +112,7 @@
       "kind": "e2e",
       "boundary": "Browser→update API→Runtime resolve（详情 revision+1）",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -120,7 +120,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-07",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+        "executed_at": "2026-09-19T13:28:53.455117+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+          "executed_at": "2026-09-19T13:28:53.455117+00:00"
+        }
+      ]
     },
     {
       "id": "S-08",
@@ -129,7 +148,7 @@
       "kind": "e2e",
       "boundary": "Browser→binding API→UI（Tab 局部刷新无保存按钮）",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -137,7 +156,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-08",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+        "executed_at": "2026-09-19T13:28:53.455117+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+          "executed_at": "2026-09-19T13:28:53.455117+00:00"
+        }
+      ]
     },
     {
       "id": "S-09",
@@ -146,7 +184,7 @@
       "kind": "e2e",
       "boundary": "Browser→审计 API→UI（最近运行只读/空态）",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -154,7 +192,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-09",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+        "executed_at": "2026-09-19T13:28:53.455117+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-09",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+          "executed_at": "2026-09-19T13:28:53.455117+00:00"
+        }
+      ]
     },
     {
       "id": "S-10",
@@ -163,7 +220,7 @@
       "kind": "e2e",
       "boundary": "Browser→DELETE Agent→列表（Popconfirm 软删除）",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -171,7 +228,34 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-10",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "fb8d441a605043688102cde5ed74f707",
+        "executed_at": "2026-09-19T13:22:21.601704+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-10",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "77d174240fa4402fb894d087bef67d9d",
+          "executed_at": "2026-09-19T13:21:52.818332+00:00"
+        },
+        {
+          "id": "S-10",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "fb8d441a605043688102cde5ed74f707",
+          "executed_at": "2026-09-19T13:22:21.601704+00:00"
+        }
+      ]
     },
     {
       "id": "S-11",
@@ -180,7 +264,7 @@
       "kind": "e2e",
       "boundary": "Browser→unbind API→UI（MCP 解除/再绑定无启停开关）",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -188,7 +272,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-11",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+        "executed_at": "2026-09-19T13:28:53.455117+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-11",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+          "executed_at": "2026-09-19T13:28:53.455117+00:00"
+        }
+      ]
     },
     {
       "id": "S-12",
@@ -197,7 +300,7 @@
       "kind": "e2e",
       "boundary": "Browser→channel API→IM Tab（双 bot 同 Agent 无 Pod 信息）",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -205,7 +308,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-12",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+        "executed_at": "2026-09-19T13:28:53.455117+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-12",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+          "executed_at": "2026-09-19T13:28:53.455117+00:00"
+        }
+      ]
     },
     {
       "id": "E-01",
@@ -332,7 +454,7 @@
       "kind": "e2e",
       "boundary": "revision conflict→Modal（保留并提示刷新重试）",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -340,7 +462,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-07",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+        "executed_at": "2026-09-19T13:28:53.455117+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+          "executed_at": "2026-09-19T13:28:53.455117+00:00"
+        }
+      ]
     },
     {
       "id": "E-08",
@@ -349,7 +490,7 @@
       "kind": "e2e",
       "boundary": "bot conflict→UI（表单保留 + 本地化提示）",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -357,7 +498,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-08",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+        "executed_at": "2026-09-19T13:28:53.455117+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+          "executed_at": "2026-09-19T13:28:53.455117+00:00"
+        }
+      ]
     },
     {
       "id": "E-09",
@@ -366,7 +526,7 @@
       "kind": "functional",
       "boundary": "key conflict→Modal（本地化提示）",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -378,7 +538,38 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-09",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "fb8d441a605043688102cde5ed74f707",
+        "executed_at": "2026-09-19T13:22:21.601704+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 4,
+          "output": "no tests ran in 0.00s\nERROR: file or directory not found: tests/frontend/test_agent_form_contract.py",
+          "revision": 1,
+          "run_id": "77d174240fa4402fb894d087bef67d9d",
+          "executed_at": "2026-09-19T13:21:52.818332+00:00"
+        },
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "fb8d441a605043688102cde5ed74f707",
+          "executed_at": "2026-09-19T13:22:21.601704+00:00"
+        }
+      ]
     },
     {
       "id": "E-10",
@@ -387,7 +578,7 @@
       "kind": "e2e",
       "boundary": "目标资源不存在→Toast（Tab 状态不变）",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -395,7 +586,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-10",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+        "executed_at": "2026-09-19T13:28:53.455117+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-10",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "e0a53820c12b4fbfad31587e1ca1ffdb",
+          "executed_at": "2026-09-19T13:28:53.455117+00:00"
+        }
+      ]
     },
     {
       "id": "B-01",
@@ -467,28 +677,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "ab68c31f788c421585e2b7e64bd2f682",
-        "executed_at": "2026-09-19T12:51:40.529724+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "ab68c31f788c421585e2b7e64bd2f682",
-          "executed_at": "2026-09-19T12:51:40.529724+00:00"
-        }
-      ]
+      "depends_on": []
     }
   ]
 }
