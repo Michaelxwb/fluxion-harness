@@ -412,7 +412,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL 五表 partial unique/timestamptz/无绑定级 enabled 列",
       "owner": "TASK-001",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -422,7 +422,37 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "7f164fadab0143c197227841333f6509",
+        "executed_at": "2026-09-19T12:12:14.304277+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "c9c6d43ff6c443619dc968fff8821537",
+          "executed_at": "2026-09-19T12:05:04.851162+00:00"
+        },
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "7f164fadab0143c197227841333f6509",
+          "executed_at": "2026-09-19T12:12:14.304277+00:00"
+        }
+      ]
     },
     {
       "id": "B-02",

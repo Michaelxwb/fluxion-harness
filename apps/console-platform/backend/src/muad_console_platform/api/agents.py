@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -57,8 +57,11 @@ async def create_agent(
     account: CurrentAccount,
     tenant_id: TenantId,
     session: Session,
+    idempotency_key: Annotated[str | None, Header(max_length=128)] = None,
 ) -> ApiResponse[Any]:
-    agent = await AgentService(session).create_agent(tenant_id, payload, _actor(account, request))
+    agent = await AgentService(session).create_agent(
+        tenant_id, payload, _actor(account, request), idempotency_key=idempotency_key
+    )
     return ok(request.app.state.message_catalog, _detail(agent))
 
 
@@ -85,13 +88,13 @@ async def update_agent(
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
-    agent = await AgentService(session).update_agent(
+    data = await AgentService(session).update_agent(
         tenant_id,
         agent_id,
         payload,
         _actor(account, request),
     )
-    return ok(request.app.state.message_catalog, _detail(agent))
+    return ok(request.app.state.message_catalog, data)
 
 
 @router.delete("/{agent_id}")

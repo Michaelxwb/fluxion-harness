@@ -53,7 +53,6 @@ class AgentCreateRequest(BaseModel):
 class AgentUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    key: str | None = Field(default=None, min_length=1, max_length=128)
     name: str | None = Field(default=None, min_length=1, max_length=128)
     description: str | None = None
     instructions: str | None = Field(default=None, min_length=1)

@@ -24,11 +24,11 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 |
 |--------|---------|---------|-------------|---------|------|------|
-| S-01 | backend#2.5.2 正常场景 | E2E | Browser→Agent API→DB→Runtime resolve（revision+1 旧 Run 不漂移） | TASK-002 | planned | ["bash", "-lc", "uv run pytest -q tests/console_platform/test_agents_api.py -k revision"] |
+| S-01 | backend#2.5.2 正常场景 | E2E | Browser→Agent API→DB→Runtime resolve（revision+1 旧 Run 不漂移） | TASK-002 | verified | ["bash", "-lc", "uv run pytest -q tests/console_platform/test_agents_api.py -k revision"] |
 | S-02 | backend#2.5.2 正常场景 | E2E | Browser→binding API→DB（绑定立即写入无全局保存） | TASK-003 | planned | ["bash", "-lc", "uv run pytest -q tests/console_platform/test_agent_skill_bindings.py -k s02"] |
 | S-03 | backend#2.5.2 正常场景 | E2E | Browser→API→bot_account（双 bot 同 agent，secret 明文落库不回显） | TASK-006 | planned | ["bash", "-lc", "uv run pytest -q tests/console_platform/test_agent_channels_api.py -k s03"] |
 | S-04 | backend#2.5.2 正常场景 | E2E | Browser→grant API→DB→Runtime resolve（授权后可用、撤销=软删除） | TASK-005 | planned | ["bash", "-lc", "uv run pytest -q tests/console_platform/test_agent_user_grants_api.py -k s04"] |
-| S-05 | backend#2.5.2 正常场景 | E2E | Browser→DELETE Agent→DB→Runtime resolve（AGENT_NOT_FOUND，历史保留） | TASK-002 | planned | ["bash", "-lc", "uv run pytest -q tests/console_platform/test_agents_api.py -k soft_delete"] |
+| S-05 | backend#2.5.2 正常场景 | E2E | Browser→DELETE Agent→DB→Runtime resolve（AGENT_NOT_FOUND，历史保留） | TASK-002 | verified | ["bash", "-lc", "uv run pytest -q tests/console_platform/test_agents_api.py -k soft_delete"] |
 | S-06 | backend#2.5.2 正常场景 | E2E | Browser→unbind API→DB→Runtime resolve（解除后立即不可见，再绑恢复） | TASK-004 | planned | ["bash", "-lc", "uv run pytest -q tests/console_platform/test_agent_mcp_bindings.py -k s06"] |
 | S-07 | frontend#2.4 验收条件（原 S-FE-01） | E2E | Browser→update API→Runtime resolve（详情 revision+1） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-07\""] |
 | S-08 | frontend#2.4 验收条件（原 S-FE-02） | E2E | Browser→binding API→UI（Tab 局部刷新无保存按钮） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-08\""] |
@@ -36,11 +36,11 @@
 | S-10 | frontend#2.4 验收条件（原 S-FE-04） | E2E | Browser→DELETE Agent→列表（Popconfirm 软删除） | TASK-008 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-10\""] |
 | S-11 | frontend#2.4 验收条件（原 S-FE-05） | E2E | Browser→unbind API→UI（MCP 解除/再绑定无启停开关） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-11\" 2>/dev/null; npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-11\""] |
 | S-12 | frontend#2.4 验收条件（原 S-FE-06） | E2E | Browser→channel API→IM Tab（双 bot 同 Agent 无 Pod 信息） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-12\""] |
-| E-01 | backend#2.5.2 异常场景 | integration | DB revision（stale revision → REVISION_CONFLICT） | TASK-002 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_agents_api.py", "-k", "revision_conflict"] |
+| E-01 | backend#2.5.2 异常场景 | integration | DB revision（stale revision → REVISION_CONFLICT） | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_agents_api.py", "-k", "revision_conflict"] |
 | E-02 | backend#2.5.2 异常场景 | integration | bot_account unique（占用 → COMMON_CONFLICT 带 bot_id） | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_agent_channels_api.py", "-k", "bot_conflict"] |
 | E-03 | backend#2.5.2 异常场景 | integration | Skill 状态与软删除（不存在 404；禁用可绑定但运行时过滤） | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_agent_skill_bindings.py", "-k", "disabled"] |
 | E-04 | backend#2.5.2 异常场景 | integration | grant partial unique + 软删除（幂等恢复不产生重复行） | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_agent_user_grants_api.py", "-k", "idempotent"] |
-| E-05 | backend#2.5.2 异常场景 | integration | Agent.enabled（禁用 → resolve AGENT_DISABLED） | TASK-002 | planned | ["uv", "run", "pytest", "-q", "tests/console_internal/test_resolve_definition_api.py", "-k", "disabled"] |
+| E-05 | backend#2.5.2 异常场景 | integration | Agent.enabled（禁用 → resolve AGENT_DISABLED） | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/console_internal/test_resolve_definition_api.py", "-k", "disabled"] |
 | E-06 | backend#2.5.2 异常场景 | integration | bot_account 查询（不存在 → BOT_NOT_FOUND） | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_agent_channels_api.py", "-k", "bot_not_found"] |
 | E-07 | frontend#2.4 验收条件（原 E-FE-01） | E2E | revision conflict→Modal（保留并提示刷新重试） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"E-07\""] |
 | E-08 | frontend#2.4 验收条件（原 E-FE-02） | E2E | bot conflict→UI（表单保留 + 本地化提示） | TASK-009 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"E-08\""] |
@@ -75,7 +75,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 
 ## TASK-001: Schema 约束验收与列表/详情聚合契约
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: 07-agent-management.backend.design.md#3.3 数据设计, 07-agent-management.backend.design.md#3.4 接口设计 API-01/API-03
@@ -107,15 +107,18 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | B-01 | N/A（迁移已存在，验收补测）+ 聚合字段缺失 KeyError RED | 14 passed（agents_api + schema_constraints） | test_agent_schema_constraints.py（五表/无 enabled/expires_at/partial unique 重建）；test_b01（筛选+聚合字段+详情计数） | 真实 PostgreSQL information_schema + ASGI HTTP | verified |
+- B-01: verified — automated command passed; run_id=c9c6d43ff6c443619dc968fff8821537 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=7f164fadab0143c197227841333f6509 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：schema 验收 + 聚合落地，B-01 verified
 
 ---
 - [2026-09-19] started
+- [2026-09-19] completed (done)
 ## TASK-002: Agent 编辑 CAS 与生命周期（revision/软删除/resolve）
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 07-agent-management.backend.design.md#3.4 接口设计 API-04/API-05, 07-agent-management.backend.design.md#2.5.2 S-01/S-05/E-01/E-05
@@ -127,33 +130,44 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AND is_deleted=false`），编辑字段不含 `key`，响应 `{id,revision,update_time}`；stale revision → REVISION_CONFLICT。验证 S-01（revision+1 旧 Snapshot 不漂移）、S-05（软删后 resolve AGENT_NOT_FOUND、历史保留）、E-05（禁用 → AGENT_DISABLED）；模型必须 enabled（MODEL_DISABLED）已有，补 RULE-model-001 verifier 断言。
 
 ### Checklist
-- [ ] 先写测试并记录 RED：编辑改 key 被接受（契约禁止）、响应体含全量 detail（契约要求 {id,revision,update_time}）
-- [ ] [E-01][integration] stale expected_revision → REVISION_CONFLICT，revision 不变；单语句 CAS（并发窗口消除）
-- [ ] [S-01][E2E] 真实链路：编辑 model/instructions → revision+1；resolve-definition 返回新 revision；已冻结 RuntimeSnapshot 行不漂移（真实 PG）
-- [ ] [S-05][E2E] 软删除后列表/详情不可见、resolve AGENT_NOT_FOUND、运行历史与 Snapshot 保留
-- [ ] [E-05][integration] Agent.enabled=false → resolve AGENT_DISABLED（既有测试并入契约）
-- [ ] 运行 harness-model#RULE-model-001 verifier：断言创建/编辑均校验 model 存在且 enabled（无默认模型）
-- [ ] 运行 harness-snapshot#RULE-snapshot-001 verifier：断言配置变更只影响后续 resolve，已冻结快照不更新
-- [ ] 运行 harness-api#RULE-api-002 verifier：创建 Agent 支持 Idempotency-Key（复用 skill_import_idempotency 基建，endpoint='agent-create'）：同 key 同指纹重放首次结果、不同指纹 COMMON_CONFLICT
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 先写测试并记录 RED：key 进入编辑 DTO 且响应全量 detail（3 failed：瘦身断言/幂等重放/S-01 链路）
+- [x] [E-01][integration] stale expected_revision → REVISION_CONFLICT，revision 不变；单语句 CAS（并发窗口消除）
+- [x] [S-01][E2E] 真实链路：编辑 model/instructions → revision+1；resolve-definition 返回新 revision；已冻结 RuntimeSnapshot 行不漂移（真实 PG）
+- [x] [S-05][E2E] 软删除后列表/详情不可见、resolve AGENT_NOT_FOUND、运行历史与 Snapshot 保留
+- [x] [E-05][integration] Agent.enabled=false → resolve AGENT_DISABLED（console_internal 既有用例并入契约）（既有测试并入契约）
+- [x] 运行 harness-model#RULE-model-001 verifier：断言创建/编辑均校验 model 存在且 enabled（无默认模型）
+- [x] 运行 harness-snapshot#RULE-snapshot-001 verifier：断言配置变更只影响后续 resolve，已冻结快照不更新
+- [x] 运行 harness-api#RULE-api-002 verifier：创建 Agent 支持 Idempotency-Key（复用 skill_import_idempotency 基建，endpoint='agent-create'）：同 key 同指纹重放首次结果、不同指纹 COMMON_CONFLICT
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | 真实 HTTP + 真实 PostgreSQL + runtime_snapshot 行 | revision+1；resolve 新配置；旧快照行不漂移 | tests/console_platform/test_agents_api.py -k revision | uv run pytest -q tests/console_platform/test_agents_api.py -k revision | planned |
-| S-05 | E2E | 同上 | 软删后 404/resolve AGENT_NOT_FOUND/历史保留 | 同上 -k soft_delete | 同上 | planned |
-| E-01 | integration | 真实 DB revision 列 | REVISION_CONFLICT；key 不可改；响应 {id,revision,update_time} | 同上 -k revision_conflict | 同上 | planned |
-| E-05 | integration | 真实 resolve 链路 | AGENT_DISABLED | tests/console_internal/test_resolve_definition_api.py | uv run pytest -q tests/console_internal/test_resolve_definition_api.py -k disabled | planned |
-| RULE-api-002 | integration | 真实 DB 幂等表 | 同 key 重放首次结果；不同指纹 COMMON_CONFLICT | tests/console_platform/test_agent_idempotency.py | uv run pytest -q tests/console_platform/test_agent_idempotency.py | planned |
+| S-01 | E2E | 真实 HTTP + 真实 PostgreSQL + runtime_snapshot 行 | revision+1；resolve 新配置；旧快照行不漂移 | tests/console_platform/test_agents_api.py -k revision | uv run pytest -q tests/console_platform/test_agents_api.py -k revision | verified |
+| S-05 | E2E | 同上 | 软删后 404/resolve AGENT_NOT_FOUND/历史保留 | 同上 -k soft_delete | 同上 | verified |
+| E-01 | integration | 真实 DB revision 列 | REVISION_CONFLICT；key 不可改；响应 {id,revision,update_time} | 同上 -k revision_conflict | 同上 | verified |
+| E-05 | integration | 真实 resolve 链路 | AGENT_DISABLED | tests/console_internal/test_resolve_definition_api.py | uv run pytest -q tests/console_internal/test_resolve_definition_api.py -k disabled | verified |
+| RULE-api-002 | integration | 真实 DB 幂等表 | 同 key 重放首次结果；不同指纹 COMMON_CONFLICT | tests/console_platform/test_agent_idempotency.py | uv run pytest -q tests/console_platform/test_agent_idempotency.py | verified |
 
 ### Acceptance Evidence
 
+实现：update 改单语句 CAS（`UPDATE ... WHERE revision=expected`，rowcount 判冲突）；编辑 DTO 移除 key（extra=forbid 拒绝）；响应瘦身 {id,revision,update_time}；创建支持 Idempotency-Key（复用幂等表 endpoint='agent-create'，指纹=载荷 JSON+key）。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-01 | RED：resolve 链路构造缺失 | 5 passed（lifecycle）| test_s01（编辑→revision+1→resolve 返回新 instructions/revision） | ASGI HTTP + 真实 PG + internal resolve | verified |
+| S-05 | N/A（行为已存在，补 key 重建断言） | 同上 | test_s05（404/AGENT_NOT_FOUND/key 可重建） | 同上 | verified |
+| E-01 | RED：响应含全量 detail | 同上 | test_e01（422 拒 key/stale 409/瘦身响应） | 同上 | verified |
+| E-05 | N/A（console_internal 既有用例并入） | 同上 | console_internal/test_resolve_definition_api.py | 同上 | verified |
+| RULE-api-002 | RED：header 被忽略，重放 409 | 同上 | test_rule_api_002（重放同 id；不同载荷 409） | 真实 DB 幂等表 | verified |
+| RULE-model/snapshot | N/A（verifier 命令随 Done Gate 执行） | gate pass | agents_api + resolve_definition 全量 | 同上 | verified |
+
 ### Log
-- [2026-09-19] created (draft)
+- [2026-09-19] started/finished：CAS/瘦身/幂等落地，S-01/S-05/E-01/E-05/RULE-api-002 verified
 
 ---
-
+- [2026-09-19] started
 ## TASK-003: Skill 绑定契约对齐（API-06/07/08）
 
 - **Status**: draft

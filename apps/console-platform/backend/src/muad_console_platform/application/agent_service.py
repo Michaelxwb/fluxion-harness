@@ -7,7 +7,7 @@ from muad_api.error_codes import ErrorCode
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.models.control import AgentDefinition
+from ..infrastructure.models.control import AgentDefinition, SkillImportIdempotency
 from ..infrastructure.repositories.agent_repository import AgentRepository
 from .audit_service import AuditActor, AuditService, sanitize_payload
 from .dto import AgentCreateRequest, AgentListItem, AgentUpdateRequest
@@ -95,7 +95,14 @@ class AgentService:
         tenant_id: str,
         payload: AgentCreateRequest,
         actor: AuditActor,
+        idempotency_key: str | None = None,
     ) -> AgentDefinition:
+        if idempotency_key:
+            replayed = await self._idempotency_replay(
+                tenant_id, idempotency_key, payload
+            )
+            if replayed is not None:
+                return await self.get_agent(tenant_id, uuid.UUID(replayed["id"]))
         await self._require_model(tenant_id, payload.model_id)
         existing = await self._agents.find_by_key(tenant_id, payload.key)
         if existing is not None:
@@ -115,7 +122,46 @@ class AgentService:
         except IntegrityError as exc:
             raise AppError(ErrorCode.COMMON_CONFLICT) from exc
         await self._record_audit(tenant_id, actor, "CREATE", created.id, None, created)
+        if idempotency_key:
+            self._session.add(
+                SkillImportIdempotency(
+                    tenant_id=tenant_id,
+                    idempotency_key=idempotency_key,
+                    endpoint="agent-create",
+                    request_fingerprint=self._fingerprint(payload),
+                    response_json={"id": str(created.id)},
+                )
+            )
+            await self._session.flush()
         return created
+
+    def _fingerprint(self, payload: AgentCreateRequest) -> str:
+        import hashlib
+
+        body = payload.model_dump_json(exclude={"key"})
+        return "sha256:" + hashlib.sha256(
+            (body + "|" + payload.key).encode()
+        ).hexdigest()
+
+    async def _idempotency_replay(
+        self, tenant_id: str, key: str, payload: AgentCreateRequest
+    ) -> dict[str, Any] | None:
+        from sqlalchemy import select
+
+        row = await self._session.execute(
+            select(SkillImportIdempotency).where(
+                SkillImportIdempotency.tenant_id == tenant_id,
+                SkillImportIdempotency.idempotency_key == key,
+                SkillImportIdempotency.endpoint == "agent-create",
+                SkillImportIdempotency.is_deleted.is_(False),
+            )
+        )
+        record = row.scalar_one_or_none()
+        if record is None:
+            return None
+        if record.request_fingerprint != self._fingerprint(payload):
+            raise AppError(ErrorCode.COMMON_CONFLICT)
+        return dict(record.response_json)
 
     async def update_agent(
         self,
@@ -123,21 +169,37 @@ class AgentService:
         agent_id: uuid.UUID,
         payload: AgentUpdateRequest,
         actor: AuditActor,
-    ) -> AgentDefinition:
+    ) -> dict[str, Any]:
         agent = await self.get_agent(tenant_id, agent_id)
-        if payload.expected_revision != agent.revision:
-            raise AppError(ErrorCode.REVISION_CONFLICT)
         if payload.model_id is not None and payload.model_id != agent.model_id:
             await self._require_model(tenant_id, payload.model_id)
         before = agent_snapshot(agent)
         updates = payload.model_dump(exclude_unset=True, exclude={"expected_revision"})
-        for field, value in updates.items():
-            setattr(agent, field, value)
-        agent.revision += 1
-        agent.update_time = datetime.now(UTC)
+        updates["revision"] = agent.revision + 1
+        updates["update_time"] = datetime.now(UTC)
+        # 单语句 CAS：并发窗口在数据库行锁内消除
+        from sqlalchemy import update
+
+        result = await self._session.execute(
+            update(AgentDefinition)
+            .where(
+                AgentDefinition.id == agent_id,
+                AgentDefinition.tenant_id == tenant_id,
+                AgentDefinition.is_deleted.is_(False),
+                AgentDefinition.revision == payload.expected_revision,
+            )
+            .values(**updates)
+        )
+        if result.rowcount != 1:
+            raise AppError(ErrorCode.REVISION_CONFLICT)
         await self._session.flush()
-        await self._record_audit(tenant_id, actor, "UPDATE", agent.id, before, agent)
-        return agent
+        updated = await self.get_agent(tenant_id, agent_id)
+        await self._record_audit(tenant_id, actor, "UPDATE", agent_id, before, updated)
+        return {
+            "id": str(agent_id),
+            "revision": updated.revision,
+            "update_time": updated.update_time.isoformat(),
+        }
 
     async def delete_agent(
         self,

@@ -97,10 +97,13 @@ async def test_update_bumps_revision_and_rejects_stale_revision(
     )
     assert updated.status_code == 200
     data = updated.json()["data"]
-    assert data["name"] == "Renamed"
-    assert data["enabled"] is False
+    assert set(data.keys()) == {"id", "revision", "update_time"}  # 契约：编辑响应瘦身
     assert data["revision"] == 2
-    assert data["instructions"] == "You are helpful."
+
+    detail = (await client.get(f"/api/v1/agents/{created['id']}", headers=_headers(tenant))).json()["data"]
+    assert detail["name"] == "Renamed"
+    assert detail["enabled"] is False
+    assert detail["instructions"] == "You are helpful."
 
     stale = await client.put(
         f"/api/v1/agents/{created['id']}",
