@@ -22,6 +22,10 @@ verifiers:
 
 # harness-test
 
+## Conventions
+
+E2E 创建的业务数据（无删除端点的资源尤其如此）必须：用可识别 key 前缀（如 `e2e-`），并在 spec 的清理钩子或独立清理步骤中删除 DB 记录；否则会污染共享开发库，把真实页面变成"假数据看板"（05 遗留 70 条 `e2e-*` Skill 与用户下拉污染）。上传类资源配套用孤儿清理入口回收文件：`PYTHONPATH=apps/console-platform/backend/src uv run python -c "from muad_console_platform.cli import main; main(['cleanup-skill-orphans','--grace-seconds','0'])"`。
+
 ## Rules
 
 - [RULE-test-001] 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实 Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。

@@ -21,13 +21,42 @@ verifiers:
     - tests/acceptance/test_foundation_api_envelope.py
     cwd: .
     timeout: 300
+- rule: RULE-api-002
+  type: command
+  config:
+    argv:
+    - uv
+    - run
+    - pytest
+    - -q
+    - tests/console_skill/test_import_idempotency.py
+    cwd: .
+    timeout: 300
 ---
 
 # harness-api
 
 ## Rules
 
+- [RULE-api-002] 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique `(tenant_id, idempotency_key, endpoint)` 记录首次响应；请求指纹 = endpoint|关键参数|内容 checksum；同 key 同指纹重放返回首次结果（200 原响应），同 key 不同指纹返回 `COMMON_CONFLICT`。
 - [RULE-api-001] Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一 `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status` 只来自 `config/api-messages.yaml`。
+
+## Conventions
+
+列表封套适用于**所有**列表端点，包括子资源列表（`/{parent}/{id}/items`）；返回裸数组会导致前端 Page 解析失败（`page.items` 为 undefined、表格恒空——05 指定用户 Tab 真实事故）。
+
+✅ 子资源列表分页：
+
+```python
+items, total = await service.list_grants(tenant_id, skill_id, page, page_size)
+return ok(catalog, paginate(items=[...], page=page, page_size=page_size, total=total))
+```
+
+❌ 裸数组：
+
+```python
+return ok(catalog, [item.model_dump() for item in items])   # 前端 Page<T> 解析为 undefined
+```
 
 ## Conventions
 

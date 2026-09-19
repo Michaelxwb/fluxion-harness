@@ -25,6 +25,24 @@ verifiers:
 
 - [RULE-front-001] 前端 API 调用只经 `src/api/`（services）层，组件禁止裸用 axios/fetch；所有文案只使用 i18n key（zh-CN/en-US）；列表/详情遵循 RULE-ui-001 与 RULE-ui-detail-001。
 
+## Conventions
+
+Semi `Upload` 选择的文件用**组件 state** 保存，不放入 Semi Form 字段：`onFileChange` 签名是 `(files: Array<File>) => void`（不是 FileItem，无 `fileInstance`）；未注册的 Form 字段用 `formApi.setValue` 不会进入 `onSubmit` values，导致提交时文件恒为空（05 导入 Modal 真实事故）。
+
+✅：
+
+```tsx
+const [file, setFile] = useState<File | null>(null);
+<Upload onFileChange={(files) => setFile(files[0] ?? null)} customRequest={() => undefined} />
+```
+
+❌：
+
+```tsx
+<Upload onFileChange={(files) => formApi.current?.setValue('file', files[0]?.fileInstance)} />
+// files[0] 是 File 而非 FileItem；且 'file' 未注册为 Form 字段，submit values 不含它
+```
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
