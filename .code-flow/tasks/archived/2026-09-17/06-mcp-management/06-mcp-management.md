@@ -110,6 +110,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - B-01: verified — automated command passed; run_id=0db28c43564b4b6a816983e1207c6a39 (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] created (draft)
@@ -155,6 +156,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - B-06: verified — automated command passed; run_id=11147f2cef92416884953d9a364ce2b0 (confirmed_by: runner)
 - B-06: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
 - B-06: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：客户端+探针落地，B-06 verified
@@ -212,6 +214,9 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - E-02: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：API-01~06 + 幂等落地，E-02/B-03/B-04/RULE-api-002 verified
@@ -294,6 +299,12 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - B-02: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=a79b26573c244adab12bab4b1d024b10 (confirmed_by: runner)
 - S-03: verified — automated command passed; run_id=a79b26573c244adab12bab4b1d024b10 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：discover-tools/工具 API 落地，S-01/S-03/E-01/E-04/E-05/B-02 verified
@@ -347,6 +358,9 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - S-02: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
 - B-05: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：API-10~13 落地，S-02/E-03/B-05 verified
@@ -406,6 +420,9 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - E-08: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
 - E-09: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
 - S-07: verified — automated command passed; run_id=a79b26573c244adab12bab4b1d024b10 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：前端列表/表单/详情落地，contract+build 全绿，S-07 待终验
@@ -471,6 +488,10 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - S-05: verified — automated command passed; run_id=a79b26573c244adab12bab4b1d024b10 (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=a79b26573c244adab12bab4b1d024b10 (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=a79b26573c244adab12bab4b1d024b10 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=f0dbc5b9126e491aa86645090ff118e5 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：详情交互/工具明细/用户范围落地，E2E 5/5，E2E 终验留 verify-e2e
