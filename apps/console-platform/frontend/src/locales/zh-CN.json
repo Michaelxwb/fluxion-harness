@@ -303,5 +303,22 @@
   "skill.actions.copyKey": "复制标识",
   "skill.actions.keyCopied": "已复制",
   "skill.detail.tabs.basic": "基本信息",
-  "skill.detail.description": "描述"
+  "skill.detail.description": "描述",
+  "skill.detail.tabs.artifacts": "版本记录",
+  "skill.detail.tabs.agents": "使用 Agent",
+  "skill.detail.tabs.users": "指定用户",
+  "skill.detail.scopeAllNotice": "当前对所有拥有对应 Agent 使用权的用户开放",
+  "skill.detail.scopeSelectedNotice": "当前仅对指定用户开放，需同时拥有对应 Agent 使用权",
+  "skill.artifact.importNew": "导入新版本",
+  "skill.artifact.current": "当前版本",
+  "skill.artifact.title": "版本详情（{{version}}）",
+  "skill.artifact.tabs.manifest": "文件清单",
+  "skill.artifact.storageKey": "存储键",
+  "skill.artifact.validationStatus": "校验状态",
+  "skill.artifact.packageSize": "包大小",
+  "skill.artifact.createdAt": "上传时间",
+  "skill.artifact.fileList": "包内文件（清单快照，非执行入口）",
+  "skill.artifact.emptyHint": "暂无版本，导入新版本后展示",
+  "skill.detail.agentCountNotice": "当前有 {{count}} 个 Agent 绑定该 Skill",
+  "skill.detail.userCountNotice": "当前指定用户 {{count}} 人（在指定用户 Tab 维护）"
 }

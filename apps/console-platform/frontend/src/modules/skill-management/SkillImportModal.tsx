@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FormModal } from '../../components/common/FormModal';
-import { importSkill, type SkillImportResult } from './services/skills';
+import { importArtifact, importSkill, type SkillImportResult } from './services/skills';
 
 export const SKILL_ZIP_LIMIT_BYTES = 50 * 1024 * 1024;
 
 export interface SkillImportModalProps {
   visible: boolean;
+  /** 传入则为已有 Skill 导入新版本（隐藏 key/范围，走 /artifacts） */
+  skillId?: string;
+  currentVersion?: string | null;
   onCancel(): void;
   onSaved(result: SkillImportResult): void;
 }
@@ -32,7 +35,9 @@ export function SkillImportModal(props: SkillImportModalProps) {
       return;
     }
     formApi.current?.reset();
-    formApi.current?.setValues({ user_scope: 'SELECTED' });
+    if (!props.skillId) {
+      formApi.current?.setValues({ user_scope: 'SELECTED' });
+    }
   }, [props.visible]);
 
   const submit = async (values: FormValues): Promise<void> => {
@@ -50,13 +55,15 @@ export function SkillImportModal(props: SkillImportModalProps) {
     }
     setSaving(true);
     try {
-      const saved = await importSkill({
-        file: values.file,
-        version: values.version,
-        key: values.key || undefined,
-        default_script: values.default_script || undefined,
-        user_scope: values.user_scope
-      });
+      const saved = props.skillId
+        ? await importArtifact(props.skillId, values.file, values.version)
+        : await importSkill({
+            file: values.file,
+            version: values.version,
+            key: values.key || undefined,
+            default_script: values.default_script || undefined,
+            user_scope: values.user_scope
+          });
       props.onSaved(saved);
     } catch {
       // 校验/重复版本错误由 ApiClient 展示本地化 Toast，Modal 保留供修正重试
@@ -69,7 +76,7 @@ export function SkillImportModal(props: SkillImportModalProps) {
     <FormModal
       visible={props.visible}
       width={520}
-      title={t('skill.import.title')}
+      title={props.skillId ? t('skill.artifact.importNew') : t('skill.import.title')}
       okText={t('skill.import.submit')}
       confirmLoading={saving}
       onOk={() => formApi.current?.submitForm()}
@@ -99,18 +106,22 @@ export function SkillImportModal(props: SkillImportModalProps) {
         label={t('skill.columns.currentVersion')}
         rules={[{ required: true, message: t('skill.columns.currentVersion') }]}
       />
-      <Form.Input field="key" label={t('skill.form.key')} extraText={t('skill.form.keyHint')} />
-      <Form.Input field="default_script" label={t('skill.form.defaultScript')} placeholder="scripts/main.py" />
-      <Form.Select
-        field="user_scope"
-        label={t('skill.columns.userScope')}
-        initValue="SELECTED"
-        extraText={t('skill.form.scopeHint')}
-        optionList={[
-          { value: 'SELECTED', label: t('skill.scope.selected') },
-          { value: 'ALL', label: t('skill.scope.all') }
-        ]}
-      />
+      {props.skillId ? null : (
+        <>
+          <Form.Input field="key" label={t('skill.form.key')} extraText={t('skill.form.keyHint')} />
+          <Form.Input field="default_script" label={t('skill.form.defaultScript')} placeholder="scripts/main.py" />
+          <Form.Select
+            field="user_scope"
+            label={t('skill.columns.userScope')}
+            initValue="SELECTED"
+            extraText={t('skill.form.scopeHint')}
+            optionList={[
+              { value: 'SELECTED', label: t('skill.scope.selected') },
+              { value: 'ALL', label: t('skill.scope.all') }
+            ]}
+          />
+        </>
+      )}
     </FormModal>
   );
 }

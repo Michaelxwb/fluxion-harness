@@ -130,3 +130,49 @@ test('E-05b 扩展名白名单外被拒绝', async ({ page }) => {
   await expect(modal).toBeVisible();
   await expect(page.locator('.semi-toast-content')).toContainText('包');
 });
+
+test('S-06 详情导入新版本后版本记录新增且 Header 当前版本更新', async ({ page }) => {
+  const key = uniqueKey('e2e-s06');
+  await login(page);
+  await importViaUi(page, key, skillZip({ 'SKILL.md': skillMd('E2E S06 Skill'), 'scripts/run.py': 'print(1)\n' }));
+  await page.getByTestId(`skill-link-${key}`).click();
+  const sheet = page.locator('.semi-sidesheet');
+  await expect(sheet).toContainText('1.0.0');
+
+  await sheet.getByTestId('import-artifact').click();
+  const modal = page.locator('.semi-modal');
+  await modal.getByRole('textbox', { name: /当前版本/ }).fill('2.0.0');
+  const chooser = page.waitForEvent('filechooser');
+  await modal.locator('.semi-upload').click();
+  (await chooser).setFiles({
+    name: 'skill.zip',
+    mimeType: 'application/zip',
+    buffer: skillZip({ 'SKILL.md': skillMd('E2E S06 Skill v2'), 'scripts/run.py': 'print(2)\n' })
+  });
+  await modal.locator('.semi-modal-footer .semi-button-primary').click();
+
+  await expect(page.getByTestId('artifact-list')).toContainText('2.0.0');
+  await expect(sheet.getByTestId('artifact-link-2.0.0')).toBeVisible();
+});
+
+test('E-07 导入重复版本时 Toast 提示且版本列表不新增重复行', async ({ page }) => {
+  const key = uniqueKey('e2e-e07');
+  await login(page);
+  const zip = skillZip({ 'SKILL.md': skillMd('E2E E07 Skill'), 'scripts/run.py': 'print(1)\n' });
+  await importViaUi(page, key, zip);
+  await page.getByTestId(`skill-link-${key}`).click();
+  const sheet = page.locator('.semi-sidesheet');
+  await expect(page.getByTestId('artifact-list')).toContainText('1.0.0');
+
+  await sheet.getByTestId('import-artifact').click();
+  const modal = page.locator('.semi-modal');
+  await modal.getByRole('textbox', { name: /当前版本/ }).fill('1.0.0');
+  const chooser = page.waitForEvent('filechooser');
+  await modal.locator('.semi-upload').click();
+  (await chooser).setFiles({ name: 'skill.zip', mimeType: 'application/zip', buffer: zip });
+  await modal.locator('.semi-modal-footer .semi-button-primary').click();
+
+  await expect(page.locator('.semi-toast-content')).toBeVisible();
+  const rows = sheet.getByTestId('artifact-list').getByRole('button', { name: '1.0.0' });
+  await expect(rows).toHaveCount(1);
+});

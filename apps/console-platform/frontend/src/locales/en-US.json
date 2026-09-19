@@ -303,5 +303,22 @@
   "skill.actions.copyKey": "Copy key",
   "skill.actions.keyCopied": "Copied",
   "skill.detail.tabs.basic": "Basic info",
-  "skill.detail.description": "Description"
+  "skill.detail.description": "Description",
+  "skill.detail.tabs.artifacts": "Versions",
+  "skill.detail.tabs.agents": "Agents",
+  "skill.detail.tabs.users": "Selected users",
+  "skill.detail.scopeAllNotice": "Open to all users with access to bound agents",
+  "skill.detail.scopeSelectedNotice": "Limited to selected users who also have agent access",
+  "skill.artifact.importNew": "Import new version",
+  "skill.artifact.current": "current",
+  "skill.artifact.title": "Artifact ({{version}})",
+  "skill.artifact.tabs.manifest": "Manifest",
+  "skill.artifact.storageKey": "Storage key",
+  "skill.artifact.validationStatus": "Validation",
+  "skill.artifact.packageSize": "Package size",
+  "skill.artifact.createdAt": "Uploaded at",
+  "skill.artifact.fileList": "Files in package (manifest snapshot, not an execution entry)",
+  "skill.artifact.emptyHint": "No versions yet; import one to populate",
+  "skill.detail.agentCountNotice": "{{count}} agent(s) bound to this skill",
+  "skill.detail.userCountNotice": "{{count}} selected user(s) (managed in Selected users tab)"
 }

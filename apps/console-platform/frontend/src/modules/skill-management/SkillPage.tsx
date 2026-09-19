@@ -155,7 +155,7 @@ export function SkillPage() {
           void reload();
         }}
       />
-      <SkillDetailSideSheet skill={detail} onCancel={() => setDetail(null)} />
+      <SkillDetailSideSheet skill={detail} onCancel={() => setDetail(null)} onSkillMutated={() => void reload()} />
     </>
   );
 }
