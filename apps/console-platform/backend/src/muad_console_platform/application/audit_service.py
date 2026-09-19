@@ -45,6 +45,24 @@ class AuditService:
     def __init__(self, session: AsyncSession) -> None:
         self._entries = ConfigAuditLogRepository(session)
 
+    async def list_audits(
+        self,
+        tenant_id: str,
+        *,
+        resource_id: uuid.UUID | None = None,
+        resource_type: str | None = None,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[dict[str, Any]], int]:
+        conditions: list[Any] = [ConfigAuditLog.tenant_id == tenant_id]
+        if resource_id is not None:
+            conditions.append(ConfigAuditLog.resource_id == resource_id)
+        if resource_type is not None:
+            conditions.append(ConfigAuditLog.resource_type == resource_type)
+        total = await self._entries.count(conditions)
+        rows = await self._entries.query(conditions, page, page_size)
+        return rows, total
+
     async def record_config_change(
         self,
         *,

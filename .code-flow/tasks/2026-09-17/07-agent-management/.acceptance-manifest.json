@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "07-agent-management.md",
-  "task_sha256": "c7129cb0b0641f302302668d7ff3bce091d48315bcd7b2282151929ccefb4f45",
+  "task_sha256": "969545a4973f96cf165845ebf47cb66ebabbe1908b2942966aa7648408872166",
   "scenarios": [
     {
       "id": "S-01",
@@ -44,15 +44,34 @@
       "kind": "e2e",
       "boundary": "Browser→API→bot_account（双 bot 同 agent，secret 明文落库不回显）",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
-        "uv run pytest -q tests/console_platform/test_agent_channels_api.py -k s03"
+        "uv run pytest -q tests/console_platform/test_agent_channels_api.py -k two_bots"
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "c6d0ab052a7747699153129364a8bfe6",
+        "executed_at": "2026-09-19T12:48:13.558483+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "c6d0ab052a7747699153129364a8bfe6",
+          "executed_at": "2026-09-19T12:48:13.558483+00:00"
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -69,26 +88,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-04",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "16ecda3ccd914ea8b5104c1f5c252889",
-        "executed_at": "2026-09-19T12:41:31.115028+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-04",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "16ecda3ccd914ea8b5104c1f5c252889",
-          "executed_at": "2026-09-19T12:41:31.115028+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-05",
@@ -254,19 +254,36 @@
       "kind": "functional",
       "boundary": "bot_account unique（占用 → COMMON_CONFLICT 带 bot_id）",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
-        "uv",
-        "run",
-        "pytest",
-        "-q",
-        "tests/console_platform/test_agent_channels_api.py",
-        "-k",
-        "bot_conflict"
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_platform/test_agent_channels_api.py -k duplicate_bot_id"
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "c6d0ab052a7747699153129364a8bfe6",
+        "executed_at": "2026-09-19T12:48:13.558483+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "c6d0ab052a7747699153129364a8bfe6",
+          "executed_at": "2026-09-19T12:48:13.558483+00:00"
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -308,28 +325,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "16ecda3ccd914ea8b5104c1f5c252889",
-        "executed_at": "2026-09-19T12:41:31.115028+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "16ecda3ccd914ea8b5104c1f5c252889",
-          "executed_at": "2026-09-19T12:41:31.115028+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-05",
@@ -359,19 +355,36 @@
       "kind": "functional",
       "boundary": "bot_account 查询（不存在 → BOT_NOT_FOUND）",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
-        "uv",
-        "run",
-        "pytest",
-        "-q",
-        "tests/console_platform/test_agent_channels_api.py",
-        "-k",
-        "bot_not_found"
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_platform/test_agent_channels_api.py -k missing_channel"
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "c6d0ab052a7747699153129364a8bfe6",
+        "executed_at": "2026-09-19T12:48:13.558483+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "c6d0ab052a7747699153129364a8bfe6",
+          "executed_at": "2026-09-19T12:48:13.558483+00:00"
+        }
+      ]
     },
     {
       "id": "E-07",
@@ -488,19 +501,36 @@
       "kind": "functional",
       "boundary": "bot secret 明文入 Owner 表；审计/响应/列表不回显",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
-        "uv",
-        "run",
-        "pytest",
-        "-q",
-        "tests/console_platform/test_agent_channels_api.py",
-        "-k",
-        "secret"
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_platform/test_agent_channels_api.py -k rotates"
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "c6d0ab052a7747699153129364a8bfe6",
+        "executed_at": "2026-09-19T12:48:13.558483+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "c6d0ab052a7747699153129364a8bfe6",
+          "executed_at": "2026-09-19T12:48:13.558483+00:00"
+        }
+      ]
     },
     {
       "id": "B-04",

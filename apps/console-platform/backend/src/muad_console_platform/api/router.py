@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from .accounts import router as accounts_router
 from .agents import router as agents_router
+from .audits import router as audits_router
 from .auth import public_router as auth_public_router
 from .auth import router as auth_router
 from .credentials import router as credentials_router
@@ -31,6 +32,7 @@ authenticated.include_router(platforms_router)
 authenticated.include_router(credentials_router)
 authenticated.include_router(platform_test_router)
 authenticated.include_router(skills_router)
+authenticated.include_router(audits_router)
 authenticated.include_router(mcp_servers_router)
 router.include_router(authenticated)
 
