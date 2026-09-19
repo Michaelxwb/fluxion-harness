@@ -21,6 +21,8 @@ EXCLUDED_FILES = {
     "tests/test_secret_policy_docs.py",
     "tests/acceptance/test_secret_migration.py",
     "tests/acceptance/test_secret_consumers.py",
+    # Schema 验收仅断言旧 MCP 密钥引用列已移除，必须保留原列名。
+    "tests/acceptance/test_mcp_schema_constraints.py",
     "apps/console-platform/backend/src/muad_console_platform/cli.py",
     "migrations/versions/0002_initial_schema.py",
     "migrations/versions/0005_secret_plaintext_contract.py",
