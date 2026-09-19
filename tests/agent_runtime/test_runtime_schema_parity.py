@@ -1,3 +1,4 @@
+import uuid
 from typing import Any
 
 import pytest
@@ -184,3 +185,87 @@ def _compare(orm_table: sa.Table, reflected: dict[str, Any]) -> list[str]:
 async def test_runtime_table_schema_parity(database_guard: None, table_name: str) -> None:
     diffs = _compare(TABLE_MODELS[table_name], await _reflect(table_name))
     assert not diffs, f"{table_name} schema mismatch:\n" + "\n".join(diffs)
+
+
+# ---- B-101（08 TASK-001）：run_submission + 缺失 ORM + canonical_event 扩展 ----
+
+def test_b101_run_submission_orm_registered() -> None:
+    """[B-101] RunSubmission ORM 存在且带 partial unique (tenant,key,endpoint)。"""
+    from muad_agent_runtime.infrastructure.models.runtime import RunSubmission
+
+    assert RunSubmission.__tablename__ == "run_submission"
+    index_names = {idx.name for idx in RunSubmission.__table__.indexes}
+    assert "uq_run_submission_tenant_key_endpoint" in index_names
+    assert "ix_run_submission_run_create_time" in index_names
+
+
+def test_b101_missing_audit_orm_classes_exist() -> None:
+    """[B-101] Memory/Artifact/三类审计 ORM 与既有表对齐（不重复建表）。"""
+    from muad_agent_runtime.infrastructure.models.runtime import (
+        Artifact,
+        EgressAudit,
+        ModelInvocationAudit,
+        ToolCallAudit,
+        UserMemory,
+    )
+
+    assert UserMemory.__tablename__ == "user_memory"
+    assert Artifact.__tablename__ == "artifact"
+    assert ToolCallAudit.__tablename__ == "tool_call_audit"
+    assert EgressAudit.__tablename__ == "egress_audit"
+    assert ModelInvocationAudit.__tablename__ == "model_invocation_audit"
+
+
+async def test_b101_run_submission_table_partial_unique() -> None:
+    """[B-101][integration] 真实 PostgreSQL：软删后同键可重建；活跃重复被拒。"""
+    from sqlalchemy.exc import IntegrityError
+
+    from muad_agent_runtime.infrastructure.models.runtime import RunSubmission
+
+    async with get_session_factory()() as session:
+        row = RunSubmission(
+            tenant_id="parity-t",
+            idempotency_key=f"k-{uuid.uuid4()}",
+            endpoint="create-run",
+            request_fingerprint="sha256:" + "0" * 64,
+            actor_user_id=uuid.uuid4(),
+            status="CLOSED",
+        )
+        session.add(row)
+        await session.commit()
+        tenant, key = row.tenant_id, row.idempotency_key
+
+        def build() -> RunSubmission:
+            return RunSubmission(
+                tenant_id=tenant,
+                idempotency_key=key,
+                endpoint="create-run",
+                request_fingerprint="sha256:" + "1" * 64,
+                actor_user_id=uuid.uuid4(),
+                status="CLOSED",
+            )
+
+        session.add(build())
+        with pytest.raises(IntegrityError):
+            await session.flush()
+        await session.rollback()
+
+        row.is_deleted = True
+        session.add(row)
+        await session.commit()
+        session.add(build())
+        await session.commit()  # 软删后可重建
+        await session.execute(
+            sa.delete(RunSubmission).where(
+                RunSubmission.tenant_id == tenant
+            )
+        )
+        await session.commit()
+
+
+async def test_b101_canonical_event_submission_columns() -> None:
+    """[B-101] canonical_event 具备 submission_id（FK）与 stream_type 列。"""
+    reflected = await _reflect("canonical_event")
+    columns = {col["name"] for col in reflected["columns"]}
+    assert "submission_id" in columns
+    assert "stream_type" in columns

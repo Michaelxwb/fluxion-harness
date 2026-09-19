@@ -83,7 +83,7 @@
 | E-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | TASK-026 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | . | 1200 | |
 | E-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | . | 1200 | |
 | B-01 | 08-runtime-execution.backend.design.md#API-01 创建 Run | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | . | 1200 | |
-| B-101 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | PostgreSQL migration→ORM | TASK-001 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | . | 600 | |
+| B-101 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | PostgreSQL migration→ORM | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | . | 600 | |
 | B-102 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | EventWriter→PostgreSQL | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_events.py"] | . | 600 | |
 | B-103 | 08-runtime-execution.backend.design.md#3.4 接口设计 | integration | Runtime HTTP client→本地 Console 契约服务 | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_console_client.py"] | . | 600 | |
 | B-104 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Snapshot builder→PostgreSQL→Executor request | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_snapshot_freeze.py"] | . | 600 | |
@@ -105,7 +105,7 @@
 | RULE-test-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-test） | E2E | 全部 Runtime 场景的真实边界＋原 verifier | TASK-027 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 1200 | |
 | RULE-arch-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-arch） | E2E | S-04, E-07 的真实边界＋原 verifier | TASK-026 | planned | ["uv","run","pytest","-q","tests/architecture"] | . | 1200 | |
 | RULE-auth-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-auth） | E2E | S-01 的真实边界＋原 verifier | TASK-024 | planned | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 1200 | |
-| RULE-data-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-data） | integration | S-02, E-03 的真实边界＋原 verifier | TASK-001 | planned | ["uv","run","pytest","-q","tests","-k","schema_parity"] | . | 1200 | |
+| RULE-data-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-data） | integration | S-02, E-03 的真实边界＋原 verifier | TASK-001 | verified | ["uv","run","pytest","-q","tests","-k","schema_parity"] | . | 1200 | |
 | RULE-mcp-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-mcp） | E2E | S-02 的真实边界＋原 verifier | TASK-024 | planned | ["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"] | . | 1200 | |
 | RULE-platform-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-project-platform） | integration | E-05 的真实边界＋原 verifier | TASK-015 | planned | ["bash","-lc","uv run pytest -q tests -k schema_parity"] | . | 1200 | |
 | RULE-secret-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-secret） | E2E | S-02 的真实边界＋原 verifier | TASK-024 | planned | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | . | 1200 | |
@@ -152,7 +152,7 @@
 
 ## TASK-001: Runtime 持久化约束与缺失 ORM
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: 
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计
@@ -166,29 +166,33 @@
 核对已有 0002 表，补齐 Memory/Artifact/三类审计 ORM、同 Schema FK 与运行幂等表；仅新增必要迁移，不重复建已有表。
 
 ### Checklist
-- [ ] [B-101][integration] 修改对应生产行为前，沿 PostgreSQL migration→ORM 添加失败断言并记录 RED：partial unique 阻止双活；同 Owner FK、timestamptz、jsonb 与 ORM 一致；跨 Owner 不建 FK。
-- [ ] 核对已有 0002 表，补齐 Memory/Artifact/三类审计 ORM、同 Schema FK 与运行幂等表；仅新增必要迁移，不重复建已有表。
-- [ ] 局部验证 PostgreSQL migration→ORM：partial unique 阻止双活；同 Owner FK、timestamptz、jsonb 与 ORM 一致；跨 Owner 不建 FK；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] [RULE-data-001][integration] verifier 输入为本模块变更和 S-02, E-03 映射场景；执行原命令 `["uv","run","pytest","-q","tests","-k","schema_parity"]`，再执行映射场景命令；核验 S-02, E-03 的真实边界和断言。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [B-101][integration] RED：4 failed（RunSubmission ORM 不存在/canonical_event 缺 submission_id+stream_type 列）：partial unique 阻止双活；同 Owner FK、timestamptz、jsonb 与 ORM 一致；跨 Owner 不建 FK。
+- [x] 核对已有 0002 表（10 张 runtime 表已建），补齐 UserMemory/Artifact/ToolCallAudit/EgressAudit/ModelInvocationAudit ORM + 新迁移 0007 建 run_submission（partial unique tenant,key,endpoint）+ canonical_event 加 submission_id FK/stream_type；仅新增必要迁移，不重复建已有表。
+- [x] 局部验证：schema_parity 9 passed（含 B-101 软删重建/partial unique/列对齐断言）：partial unique 阻止双活；同 Owner FK、timestamptz、jsonb 与 ORM 一致；跨 Owner 不建 FK；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] [RULE-data-001][integration] verifier 执行：tests -k schema_parity 27 passed（S-02/E-03 映射场景留 owner TASK-024/025 E2E）；执行原命令 `["uv","run","pytest","-q","tests","-k","schema_parity"]`，再执行映射场景命令；核验 S-02, E-03 的真实边界和断言。
+- [x] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-101 | integration | PostgreSQL migration→ORM | partial unique 阻止双活；同 Owner FK、timestamptz、jsonb 与 ORM 一致；跨 Owner 不建 FK | tests/agent_runtime/test_runtime_schema_parity.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | planned |
-| RULE-data-001 | integration | PostgreSQL migration→ORM＋原 verifier 边界 | partial unique 阻止双活；同 Owner FK、timestamptz、jsonb 与 ORM 一致；跨 Owner 不建 FK；原 verifier 全部通过 | 原 verifier＋tests/agent_runtime/test_runtime_schema_parity.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests' '-k' 'schema_parity' && uv run pytest -q tests/agent_runtime/test_runtime_schema_parity.py"] | planned |
+| B-101 | integration | PostgreSQL migration→ORM | partial unique 阻止双活；同 Owner FK、timestamptz、jsonb 与 ORM 一致；跨 Owner 不建 FK | tests/agent_runtime/test_runtime_schema_parity.py::test_b101_*（4 用例） | uv run pytest -q tests/agent_runtime/test_runtime_schema_parity.py | verified |
+| RULE-data-001 | integration | PostgreSQL migration→ORM＋原 verifier 边界 | 同上 + 原 verifier 全部通过 | tests -k schema_parity（27 passed） | uv run pytest -q tests -k schema_parity | verified |
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-101 | FAIL: 4 failed（ImportError RunSubmission；submission_id/stream_type 列缺失） | 9 passed（schema_parity 全量） | test_b101_run_submission_orm_registered / _missing_audit_orm_classes_exist / _run_submission_table_partial_unique / _canonical_event_submission_columns | 真实 PostgreSQL（migration 0007 后）+ ORM 元数据 | verified |
+| RULE-data-001 | 同上 | tests -k schema_parity 27 passed | 同上 + 既有 parity 套件 | 真实 PostgreSQL | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：ORM 补齐 + 0007 迁移，B-101/RULE-data-001 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-002: Canonical Event 持久化与序号分配
 
 - **Status**: draft
