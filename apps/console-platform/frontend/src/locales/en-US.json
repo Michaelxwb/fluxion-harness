@@ -269,5 +269,10 @@
   "platform.test.error.TimeoutError": "Connection timed out",
   "platform.test.error.gaierror": "DNS resolution failed",
   "platform.credentials.updatedTime": "Updated at",
-  "platform.columns.action": "Actions"
+  "platform.columns.action": "Actions",
+  "platform.form.adapterSection": "Platform config",
+  "platform.form.adapterSectionHint": "Fields are generated from the selected PlatformAdapter config schema.",
+  "platform.adapterField.auth_scheme": "Auth scheme",
+  "platform.adapterField.auth_header": "Auth header",
+  "platform.adapterField.timeout_ms": "Timeout (ms)"
 }

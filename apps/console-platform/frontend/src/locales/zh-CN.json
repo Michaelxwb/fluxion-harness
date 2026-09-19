@@ -269,5 +269,10 @@
   "platform.test.error.TimeoutError": "连接超时",
   "platform.test.error.gaierror": "域名解析失败",
   "platform.credentials.updatedTime": "更新时间",
-  "platform.columns.action": "操作"
+  "platform.columns.action": "操作",
+  "platform.form.adapterSection": "平台配置",
+  "platform.form.adapterSectionHint": "字段由所选 PlatformAdapter 的平台配置 Schema 动态生成。",
+  "platform.adapterField.auth_scheme": "认证方式",
+  "platform.adapterField.auth_header": "认证头",
+  "platform.adapterField.timeout_ms": "超时（毫秒）"
 }

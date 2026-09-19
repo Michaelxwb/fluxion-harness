@@ -194,6 +194,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=ef2340da928245c884819ffc05c3b63f (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -247,6 +248,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - E-04: verified — automated command passed; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=ef2340da928245c884819ffc05c3b63f (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -295,6 +297,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - S-03: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 - S-03: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=ef2340da928245c884819ffc05c3b63f (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -384,6 +387,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - S-09: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
 - S-09: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 - S-09: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=ef2340da928245c884819ffc05c3b63f (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -427,6 +431,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 - S-05: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=ef2340da928245c884819ffc05c3b63f (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -470,6 +475,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - E-05: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
 - E-05: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=ef2340da928245c884819ffc05c3b63f (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -533,6 +539,8 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - E-07: verified — automated command passed; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
 - S-07: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=ef2340da928245c884819ffc05c3b63f (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=ef2340da928245c884819ffc05c3b63f (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -576,6 +584,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - S-08: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
 - S-08: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 - S-08: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=ef2340da928245c884819ffc05c3b63f (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -628,6 +637,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 - E-06: e2e_deferred — automated command e2e_deferred; run_id=90df247634974cc2ae390750908d5b9b (confirmed_by: runner)
 - E-06: e2e_deferred — automated command e2e_deferred; run_id=ffdd374a747941ff885589d3039efde0 (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=ebde4e1f059d4f84a1153dff049a3d88 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=ef2340da928245c884819ffc05c3b63f (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)

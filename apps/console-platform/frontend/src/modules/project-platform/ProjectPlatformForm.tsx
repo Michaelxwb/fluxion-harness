@@ -28,7 +28,7 @@ interface FormValues {
   service_name?: string;
   adapter_key: string;
   credential_mode: PlatformItem['credential_mode'];
-  enabled?: boolean;
+  enabled?: string;
   adapter_config?: Record<string, unknown>;
 }
 
@@ -66,9 +66,9 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
           service_name: String(platform.resolver_config.service_name ?? ''),
           adapter_key: platform.adapter_key,
           credential_mode: platform.credential_mode,
-          enabled: platform.enabled
+          enabled: platform.enabled ? 'true' : 'false'
         }
-      : { resolver_type: 'BASE_URL', adapter_key: 'generic-http', credential_mode: 'NONE', enabled: true };
+      : { resolver_type: 'BASE_URL', adapter_key: 'generic-http', credential_mode: 'NONE', enabled: 'true' };
     for (const [key, value] of Object.entries(platform?.adapter_config ?? {})) {
       values[`adapter_config.${key}`] = value;
     }
@@ -96,7 +96,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
       adapter_key: values.adapter_key,
       adapter_config: values.adapter_config ?? {},
       credential_mode: values.credential_mode,
-      enabled: values.enabled ?? true
+      enabled: values.enabled === undefined ? true : String(values.enabled) === 'true'
     };
     try {
       if (props.platform) {
@@ -117,7 +117,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
   return (
     <FormModal
       visible={props.visible}
-      width={560}
+      width={800}
       title={props.platform ? t('platform.form.editTitle') : t('platform.form.createTitle')}
       okText={t('common.save')}
       confirmLoading={saving}
@@ -130,6 +130,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
         void submit(values as unknown as FormValues);
       }}
     >
+      <div className="platform-form-grid">
       <Form.Input
         field="name"
         label={t('platform.form.name')}
@@ -139,7 +140,6 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
         field="key"
         label={t('platform.form.key')}
         disabled={props.platform !== null}
-        extraText={props.platform ? t('platform.form.keyImmutable') : undefined}
         rules={props.platform ? [] : [{ required: true, message: t('platform.form.key') }]}
       />
       <Form.Select
@@ -153,11 +153,17 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
         onChange={(value) => setResolverType(String(value) as 'BASE_URL' | 'SERVICE_DISCOVERY')}
         rules={[{ required: true, message: t('platform.form.resolverType') }]}
       />
+      <Form.Select
+        field="adapter_key"
+        label={t('platform.form.adapter')}
+        optionList={adapters.map((adapter) => ({ value: adapter.key, label: `${adapter.name} · ${adapter.version}` }))}
+        onChange={(value) => setAdapterKey(String(value))}
+        rules={[{ required: true, message: t('platform.form.adapter') }]}
+      />
       {resolverType === 'BASE_URL' ? (
         <Form.Input
           field="base_url"
           label={t('platform.form.baseUrl')}
-          extraText={t('platform.form.baseUrlHint')}
           rules={[{ required: true, message: t('platform.form.baseUrl') }]}
         />
       ) : (
@@ -167,16 +173,35 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
           rules={[{ required: true, message: t('platform.form.serviceName') }]}
         />
       )}
+      <div className="form-grid-spacer" />
       <Form.Select
-        field="adapter_key"
-        label={t('platform.form.adapter')}
-        optionList={adapters.map((adapter) => ({ value: adapter.key, label: `${adapter.name} · ${adapter.version}` }))}
-        onChange={(value) => setAdapterKey(String(value))}
-        rules={[{ required: true, message: t('platform.form.adapter') }]}
+        field="credential_mode"
+        label={t('platform.form.credentialMode')}
+        initValue="NONE"
+        optionList={[
+          { value: 'USER_ONLY', label: t('platform.credentialMode.USER_ONLY') },
+          { value: 'SHARED_ONLY', label: t('platform.credentialMode.SHARED_ONLY') },
+          { value: 'USER_THEN_SHARED', label: t('platform.credentialMode.USER_THEN_SHARED') },
+          { value: 'NONE', label: t('platform.credentialMode.NONE') }
+        ]}
+        rules={[{ required: true, message: t('platform.form.credentialMode') }]}
       />
+      <Form.Select
+        field="enabled"
+        label={t('platform.form.enabled')}
+        initValue="true"
+        optionList={[
+          { value: 'true', label: t('common.status.enabled') },
+          { value: 'false', label: t('common.status.disabled') }
+        ]}
+      />
+      <div className="form-section-title">{t('platform.form.adapterSection')}</div>
+      <div className="form-section-hint">{t('platform.form.adapterSectionHint')}</div>
       {Object.entries(adapterProperties).map(([property, definition]) => {
         const field = `adapter_config.${property}`;
-        const label = String(definition.title ?? property);
+        const label = t(`platform.adapterField.${property}`, {
+          defaultValue: String(definition.title ?? property)
+        });
         const enumValues = Array.isArray(definition.enum) ? (definition.enum as string[]) : null;
         if (enumValues) {
           return (
@@ -193,19 +218,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
         }
         return <Form.Input key={field} field={field} label={label} />;
       })}
-      <Form.Select
-        field="credential_mode"
-        label={t('platform.form.credentialMode')}
-        initValue="NONE"
-        optionList={[
-          { value: 'USER_ONLY', label: t('platform.credentialMode.USER_ONLY') },
-          { value: 'SHARED_ONLY', label: t('platform.credentialMode.SHARED_ONLY') },
-          { value: 'USER_THEN_SHARED', label: t('platform.credentialMode.USER_THEN_SHARED') },
-          { value: 'NONE', label: t('platform.credentialMode.NONE') }
-        ]}
-        rules={[{ required: true, message: t('platform.form.credentialMode') }]}
-      />
-      <Form.Switch field="enabled" label={t('platform.form.enabled')} initValue />
+      </div>
     </FormModal>
   );
 }
