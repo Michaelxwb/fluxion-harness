@@ -16,6 +16,7 @@ class SharedSettings(BaseSettings):
     secret_provider: str = "env"
 
     artifact_root: str = "./.data/artifacts"
+    mcp_max_tools_per_server: int = 200
     skill_cache_root: str = "./.data/skill-cache"
 
     console_platform_url: str = "http://127.0.0.1:8000"

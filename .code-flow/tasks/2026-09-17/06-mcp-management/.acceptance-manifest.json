@@ -150,35 +150,25 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 1,
       "evidence": {
         "id": "E-02",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 2,
-        "run_id": "e04ff2bcc72a47d88bac6a4b89fa4667",
-        "executed_at": "2026-09-19T10:15:45.006795+00:00"
+        "revision": 1,
+        "run_id": "d2916e3e9b144f26adc72186d01f7ea5",
+        "executed_at": "2026-09-19T10:23:20.398742+00:00"
       },
       "runs": [
         {
           "id": "E-02",
           "kind": "functional",
-          "status": "failed",
-          "exit_code": 1,
-          "output": "====== ERRORS ====================================\n____________________ ERROR at setup of test_config_invalid _____________________\n\nrequest = <SubRequest 'mcp_env' for <Coroutine test_config_invalid>>\nkwargs = {'database_guard': None}, func = <function mcp_env at 0x1084e84a0>\nevent_loop_fixture_id = '_session_event_loop'\nsetup = <function _wrap_asyncgen_fixture.<locals>._asyncgen_fixture_wrapper.<locals>.setup at 0x10875fec0>\nsetup_task = <Task finished name='Task-4' coro=<_wrap_asyncgen_fixture.<locals>._asyncgen_fixture_wrapper.<locals>.setup() done, de...kages/pytest_asyncio/plugin.py:339> exception=TypeError(\"'prompt' is an invalid keyword argument for AgentDefinition\")>\n\n    @functools.wraps(fixture)\n    def _asyncgen_fixture_wrapper(request: FixtureRequest, **kwargs: Any):\n        func = _perhaps_rebind_fixture_func(fixture, request.instance)\n        event_loop_fixture_id = _get_event_loop_fixture_id_for_async_fixture(\n            request, func\n        )\n        event_loop = request.getfixturevalue(event_loop_fixture_id)\n        kwargs.pop(event_loop_fixture_id, None)\n        gen_obj = func(**_add_kwargs(func, kwargs, event_loop, request))\n    \n        async def setup():\n            res = await gen_obj.__anext__()  # type: ignore[union-attr]\n            return res\n    \n        context = contextvars.copy_context()\n        setup_task = _create_task_in_context(event_loop, setup(), context)\n>       result = event_loop.run_until_complete(setup_task)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:345: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/asyncio/base_events.py:725: in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\n.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:340: in setup\n    res = await gen_obj.__anext__()  # type: ignore[union-attr]\n          ^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/console_mcp/conftest.py:107: in mcp_env\n    agent = AgentDefinition(\n.venv/lib/python3.13/site-packages/sqlalchemy/orm/state.py:596: in _initialize_instance\n    with util.safe_reraise():\n         ^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.13/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__\n    raise exc_value.with_traceback(exc_tb)\n.venv/lib/python3.13/site-packages/sqlalchemy/orm/state.py:594: in _initialize_instance\n    manager.original_init(*mixed[1:], **kwargs)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <muad_console_platform.infrastructure.models.control.AgentDefinition object at 0x1086faa50>\nkwargs = {'key': 'agent-a9299516-afd1-4c7b-9d1c-928d7f7a4e7f', 'model_id': UUID('84cfaf33-faa6-489d-9269-283f98f03b51'), 'name': 'MCP Agent', 'prompt': 'You are a test agent.', ...}\ncls_ = <class 'muad_console_platform.infrastructure.models.control.AgentDefinition'>\nk = 'prompt'\n\n    def _declarative_constructor(self: Any, **kwargs: Any) -> None:\n        \"\"\"A simple constructor that allows initialization from kwargs.\n    \n        Sets attributes on the constructed instance using the names and\n        values in ``kwargs``.\n    \n        Only keys that are present as\n        attributes of the instance's class are allowed. These could be,\n        for example, any mapped columns or relationships.\n        \"\"\"\n        cls_ = type(self)\n        for k in kwargs:\n            if not hasattr(cls_, k):\n>               raise TypeError(\n                    \"%r is an invalid keyword argument for %s\" % (k, cls_.__name__)\n                )\nE               TypeError: 'prompt' is an invalid keyword argument for AgentDefinition\n\n.venv/lib/python3.13/site-packages/sqlalchemy/orm/decl_base.py:2193: TypeError\n=========================== short test summary info ============================\nERROR tests/console_mcp/test_mcp_api.py::test_config_invalid - TypeError: 'pr...\n4 deselected, 1 error in 0.23s",
-          "revision": 1,
-          "run_id": "63be2fdf43144b3ba882bdcca70a132b",
-          "executed_at": "2026-09-19T06:47:11.921257+00:00"
-        },
-        {
-          "id": "E-02",
-          "kind": "functional",
           "status": "passed",
           "exit_code": 0,
-          "revision": 2,
-          "run_id": "e04ff2bcc72a47d88bac6a4b89fa4667",
-          "executed_at": "2026-09-19T10:15:45.006795+00:00"
+          "revision": 1,
+          "run_id": "d2916e3e9b144f26adc72186d01f7ea5",
+          "executed_at": "2026-09-19T10:23:20.398742+00:00"
         }
       ]
     },
@@ -368,7 +358,7 @@
       "kind": "functional",
       "boundary": "API/DB auth_secret 不回显不落日志",
       "owner": "TASK-003",
-      "status": "failed",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -381,37 +371,25 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 1,
       "evidence": {
         "id": "B-03",
         "kind": "functional",
-        "status": "failed",
-        "exit_code": 1,
-        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_________________________________ test_secret __________________________________\n\nclient = <httpx.AsyncClient object at 0x1066b1e80>\nenv = {'actor_user_id': UUID('72ad4357-c8a1-49ee-8ece-8e8d26fb0537'), 'admin_id': UUID('0457a20b-be37-4027-8422-7dce0eb87202...username': 'admin-a2989bd3-0ea9-4cd7-9d3a-3f8165715a9d', 'agent_id': UUID('7d0efcb2-006f-43f7-8188-aa3dfea4cb6a'), ...}\n\n    async def test_secret(client: AsyncClient, env: dict[str, object]) -> None:\n        created = await create_mcp(\n            client, env, endpoint=\"http://127.0.0.1:9/mcp\", extra={\"auth_secret\": \"plain-secret-value\"}\n        )\n        assert created.status_code == 200\n        mcp_id = created.json()[\"data\"][\"mcp_id\"]\n    \n        detail = await client.get(f\"/api/v1/mcp-servers/{mcp_id}\", headers=tenant_headers(env))\n        assert detail.status_code == 200\n        body = detail.json()[\"data\"]\n        assert body[\"auth_secret_configured\"] is True\n        assert \"plain-secret-value\" not in detail.text\n    \n        listing = await client.get(\"/api/v1/mcp-servers\", headers=tenant_headers(env))\n        assert \"plain-secret-value\" not in listing.text\n    \n        stored = await _fetch_secret(str(env[\"tenant_id\"]), mcp_id)\n        assert stored == \"plain-secret-value\"\n    \n        updated = await client.put(\n            f\"/api/v1/mcp-servers/{mcp_id}\",\n            json={\"auth_secret\": \"rotated-secret-value\"},\n            headers=tenant_headers(env),\n        )\n        assert updated.status_code == 200\n        assert await _fetch_secret(str(env[\"tenant_id\"]), mcp_id) == \"rotated-secret-value\"\n        assert \"rotated-secret-value\" not in updated.text\n    \n        session_factory = get_session_factory()\n        async with session_factory() as session:\n            audits = (\n                await session.execute(\n                    text(\n                        \"SELECT before_json, after_json FROM control.config_audit_log \"\n                        \"WHERE resource_type = 'mcp_server' AND tenant_id = :tenant_id\"\n                    ),\n                    {\"tenant_id\": str(env[\"tenant_id\"])},\n                )\n            ).all()\n>       assert audits, \"config_audit_log 必须记录 mcp_server 变更\"\nE       AssertionError: config_audit_log 必须记录 mcp_server 变更\nE       assert []\n\ntests/console_mcp/test_mcp_api.py:101: AssertionError\n=========================== short test summary info ============================\nFAILED tests/console_mcp/test_mcp_api.py::test_secret - AssertionError: confi...\n1 failed, 4 deselected in 0.33s",
-        "revision": 2,
-        "run_id": "e04ff2bcc72a47d88bac6a4b89fa4667",
-        "executed_at": "2026-09-19T10:15:45.006795+00:00"
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "d2916e3e9b144f26adc72186d01f7ea5",
+        "executed_at": "2026-09-19T10:23:20.398742+00:00"
       },
       "runs": [
         {
           "id": "B-03",
           "kind": "functional",
-          "status": "failed",
-          "exit_code": 1,
-          "output": "============== ERRORS ====================================\n________________________ ERROR at setup of test_secret _________________________\n\nrequest = <SubRequest 'mcp_env' for <Coroutine test_secret>>\nkwargs = {'database_guard': None}, func = <function mcp_env at 0x10a05c540>\nevent_loop_fixture_id = '_session_event_loop'\nsetup = <function _wrap_asyncgen_fixture.<locals>._asyncgen_fixture_wrapper.<locals>.setup at 0x10a307ec0>\nsetup_task = <Task finished name='Task-4' coro=<_wrap_asyncgen_fixture.<locals>._asyncgen_fixture_wrapper.<locals>.setup() done, de...kages/pytest_asyncio/plugin.py:339> exception=TypeError(\"'prompt' is an invalid keyword argument for AgentDefinition\")>\n\n    @functools.wraps(fixture)\n    def _asyncgen_fixture_wrapper(request: FixtureRequest, **kwargs: Any):\n        func = _perhaps_rebind_fixture_func(fixture, request.instance)\n        event_loop_fixture_id = _get_event_loop_fixture_id_for_async_fixture(\n            request, func\n        )\n        event_loop = request.getfixturevalue(event_loop_fixture_id)\n        kwargs.pop(event_loop_fixture_id, None)\n        gen_obj = func(**_add_kwargs(func, kwargs, event_loop, request))\n    \n        async def setup():\n            res = await gen_obj.__anext__()  # type: ignore[union-attr]\n            return res\n    \n        context = contextvars.copy_context()\n        setup_task = _create_task_in_context(event_loop, setup(), context)\n>       result = event_loop.run_until_complete(setup_task)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:345: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/asyncio/base_events.py:725: in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\n.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:340: in setup\n    res = await gen_obj.__anext__()  # type: ignore[union-attr]\n          ^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/console_mcp/conftest.py:107: in mcp_env\n    agent = AgentDefinition(\n.venv/lib/python3.13/site-packages/sqlalchemy/orm/state.py:596: in _initialize_instance\n    with util.safe_reraise():\n         ^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.13/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__\n    raise exc_value.with_traceback(exc_tb)\n.venv/lib/python3.13/site-packages/sqlalchemy/orm/state.py:594: in _initialize_instance\n    manager.original_init(*mixed[1:], **kwargs)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <muad_console_platform.infrastructure.models.control.AgentDefinition object at 0x10a30aa50>\nkwargs = {'key': 'agent-20d59dda-8cb9-4d5f-9be1-b3b69c7f7762', 'model_id': UUID('286309b1-be19-47fb-a465-778f23acaa65'), 'name': 'MCP Agent', 'prompt': 'You are a test agent.', ...}\ncls_ = <class 'muad_console_platform.infrastructure.models.control.AgentDefinition'>\nk = 'prompt'\n\n    def _declarative_constructor(self: Any, **kwargs: Any) -> None:\n        \"\"\"A simple constructor that allows initialization from kwargs.\n    \n        Sets attributes on the constructed instance using the names and\n        values in ``kwargs``.\n    \n        Only keys that are present as\n        attributes of the instance's class are allowed. These could be,\n        for example, any mapped columns or relationships.\n        \"\"\"\n        cls_ = type(self)\n        for k in kwargs:\n            if not hasattr(cls_, k):\n>               raise TypeError(\n                    \"%r is an invalid keyword argument for %s\" % (k, cls_.__name__)\n                )\nE               TypeError: 'prompt' is an invalid keyword argument for AgentDefinition\n\n.venv/lib/python3.13/site-packages/sqlalchemy/orm/decl_base.py:2193: TypeError\n=========================== short test summary info ============================\nERROR tests/console_mcp/test_mcp_api.py::test_secret - TypeError: 'prompt' is...\n4 deselected, 1 error in 0.20s",
+          "status": "passed",
+          "exit_code": 0,
           "revision": 1,
-          "run_id": "63be2fdf43144b3ba882bdcca70a132b",
-          "executed_at": "2026-09-19T06:47:11.921257+00:00"
-        },
-        {
-          "id": "B-03",
-          "kind": "functional",
-          "status": "failed",
-          "exit_code": 1,
-          "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_________________________________ test_secret __________________________________\n\nclient = <httpx.AsyncClient object at 0x1066b1e80>\nenv = {'actor_user_id': UUID('72ad4357-c8a1-49ee-8ece-8e8d26fb0537'), 'admin_id': UUID('0457a20b-be37-4027-8422-7dce0eb87202...username': 'admin-a2989bd3-0ea9-4cd7-9d3a-3f8165715a9d', 'agent_id': UUID('7d0efcb2-006f-43f7-8188-aa3dfea4cb6a'), ...}\n\n    async def test_secret(client: AsyncClient, env: dict[str, object]) -> None:\n        created = await create_mcp(\n            client, env, endpoint=\"http://127.0.0.1:9/mcp\", extra={\"auth_secret\": \"plain-secret-value\"}\n        )\n        assert created.status_code == 200\n        mcp_id = created.json()[\"data\"][\"mcp_id\"]\n    \n        detail = await client.get(f\"/api/v1/mcp-servers/{mcp_id}\", headers=tenant_headers(env))\n        assert detail.status_code == 200\n        body = detail.json()[\"data\"]\n        assert body[\"auth_secret_configured\"] is True\n        assert \"plain-secret-value\" not in detail.text\n    \n        listing = await client.get(\"/api/v1/mcp-servers\", headers=tenant_headers(env))\n        assert \"plain-secret-value\" not in listing.text\n    \n        stored = await _fetch_secret(str(env[\"tenant_id\"]), mcp_id)\n        assert stored == \"plain-secret-value\"\n    \n        updated = await client.put(\n            f\"/api/v1/mcp-servers/{mcp_id}\",\n            json={\"auth_secret\": \"rotated-secret-value\"},\n            headers=tenant_headers(env),\n        )\n        assert updated.status_code == 200\n        assert await _fetch_secret(str(env[\"tenant_id\"]), mcp_id) == \"rotated-secret-value\"\n        assert \"rotated-secret-value\" not in updated.text\n    \n        session_factory = get_session_factory()\n        async with session_factory() as session:\n            audits = (\n                await session.execute(\n                    text(\n                        \"SELECT before_json, after_json FROM control.config_audit_log \"\n                        \"WHERE resource_type = 'mcp_server' AND tenant_id = :tenant_id\"\n                    ),\n                    {\"tenant_id\": str(env[\"tenant_id\"])},\n                )\n            ).all()\n>       assert audits, \"config_audit_log 必须记录 mcp_server 变更\"\nE       AssertionError: config_audit_log 必须记录 mcp_server 变更\nE       assert []\n\ntests/console_mcp/test_mcp_api.py:101: AssertionError\n=========================== short test summary info ============================\nFAILED tests/console_mcp/test_mcp_api.py::test_secret - AssertionError: confi...\n1 failed, 4 deselected in 0.33s",
-          "revision": 2,
-          "run_id": "e04ff2bcc72a47d88bac6a4b89fa4667",
-          "executed_at": "2026-09-19T10:15:45.006795+00:00"
+          "run_id": "d2916e3e9b144f26adc72186d01f7ea5",
+          "executed_at": "2026-09-19T10:23:20.398742+00:00"
         }
       ]
     },
@@ -422,7 +400,7 @@
       "kind": "functional",
       "boundary": "真实 HTTP + 真实 PostgreSQL 封套/分页",
       "owner": "TASK-003",
-      "status": "failed",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -433,37 +411,25 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 1,
       "evidence": {
         "id": "B-04",
         "kind": "functional",
-        "status": "failed",
-        "exit_code": 1,
-        "output": "ated.json()[\"data\"][\"mcp_id\"]\n    \n        detail = await client.get(f\"/api/v1/mcp-servers/{mcp_id}\", headers=tenant_headers(env))\n        assert detail.status_code == 200\n        body = detail.json()[\"data\"]\n        assert body[\"auth_secret_configured\"] is True\n        assert \"plain-secret-value\" not in detail.text\n    \n        listing = await client.get(\"/api/v1/mcp-servers\", headers=tenant_headers(env))\n        assert \"plain-secret-value\" not in listing.text\n    \n        stored = await _fetch_secret(str(env[\"tenant_id\"]), mcp_id)\n        assert stored == \"plain-secret-value\"\n    \n        updated = await client.put(\n            f\"/api/v1/mcp-servers/{mcp_id}\",\n            json={\"auth_secret\": \"rotated-secret-value\"},\n            headers=tenant_headers(env),\n        )\n        assert updated.status_code == 200\n        assert await _fetch_secret(str(env[\"tenant_id\"]), mcp_id) == \"rotated-secret-value\"\n        assert \"rotated-secret-value\" not in updated.text\n    \n        session_factory = get_session_factory()\n        async with session_factory() as session:\n            audits = (\n                await session.execute(\n                    text(\n                        \"SELECT before_json, after_json FROM control.config_audit_log \"\n                        \"WHERE resource_type = 'mcp_server' AND tenant_id = :tenant_id\"\n                    ),\n                    {\"tenant_id\": str(env[\"tenant_id\"])},\n                )\n            ).all()\n>       assert audits, \"config_audit_log 必须记录 mcp_server 变更\"\nE       AssertionError: config_audit_log 必须记录 mcp_server 变更\nE       assert []\n\ntests/console_mcp/test_mcp_api.py:101: AssertionError\n___________________ test_b04_envelope_pagination_and_counts ____________________\n\nclient = <httpx.AsyncClient object at 0x1070da210>\nenv = {'actor_user_id': UUID('510e27e8-fc92-427b-810a-fed188c14756'), 'admin_id': UUID('fe093ff6-e767-4531-b3de-025cfce030d0...username': 'admin-f882ca66-d22c-4c98-9fef-0eeca88b683b', 'agent_id': UUID('d3dfba33-a245-4256-b4b6-88bf92f772df'), ...}\n\n    async def test_b04_envelope_pagination_and_counts(\n        client: AsyncClient, env: dict[str, object]\n    ) -> None:\n        first = await create_mcp(client, env, endpoint=\"http://127.0.0.1:9/mcp\")\n        second = await create_mcp(client, env, endpoint=\"http://127.0.0.1:9/mcp\", extra={\"enabled\": False, \"user_scope\": \"ALL\"})\n        assert first.status_code == 200 and second.status_code == 200\n        first_id = first.json()[\"data\"][\"mcp_id\"]\n    \n        session_factory = get_session_factory()\n        async with session_factory() as session:\n            session.add_all(\n                [\n                    McpUserGrant(\n                        mcp_server_id=uuid.UUID(first_id),\n                        user_id=uuid.UUID(str(env[\"actor_user_id\"])),\n                        granted_by=uuid.UUID(str(env[\"admin_id\"])),\n                    ),\n                    AgentMcpBinding(\n                        agent_id=uuid.UUID(str(env[\"agent_id\"])),\n                        mcp_server_id=uuid.UUID(first_id),\n                    ),\n                ]\n            )\n            await session.commit()\n    \n        listing = await client.get(\"/api/v1/mcp-servers\", headers=tenant_headers(env))\n        assert listing.status_code == 200\n        envelope = listing.json()\n        for field in (\"code\", \"msg\", \"data\", \"trace_id\", \"request_id\", \"timestamp\"):\n            assert field in envelope\n        page = envelope[\"data\"]\n        for field in (\"items\", \"page\", \"page_size\", \"total\"):\n            assert field in page\n>       by_id = {item[\"mcp_id\"]: item for item in page[\"items\"]}\n                 ^^^^^^^^^^^^^^\nE       KeyError: 'mcp_id'\n\ntests/console_mcp/test_mcp_api.py:138: KeyError\n=========================== short test summary info ============================\nFAILED tests/console_mcp/test_mcp_api.py::test_secret - AssertionError: confi...\nFAILED tests/console_mcp/test_mcp_api.py::test_b04_envelope_pagination_and_counts\n2 failed, 3 passed in 3.94s",
-        "revision": 2,
-        "run_id": "e04ff2bcc72a47d88bac6a4b89fa4667",
-        "executed_at": "2026-09-19T10:15:45.006795+00:00"
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "d2916e3e9b144f26adc72186d01f7ea5",
+        "executed_at": "2026-09-19T10:23:20.398742+00:00"
       },
       "runs": [
         {
           "id": "B-04",
           "kind": "functional",
-          "status": "failed",
-          "exit_code": 1,
-          "output": "c = <function mcp_env at 0x10838c540>\nevent_loop_fixture_id = '_session_event_loop'\nsetup = <function _wrap_asyncgen_fixture.<locals>._asyncgen_fixture_wrapper.<locals>.setup at 0x108e3d3a0>\nsetup_task = <Task finished name='Task-13' coro=<_wrap_asyncgen_fixture.<locals>._asyncgen_fixture_wrapper.<locals>.setup() done, d...kages/pytest_asyncio/plugin.py:339> exception=TypeError(\"'prompt' is an invalid keyword argument for AgentDefinition\")>\n\n    @functools.wraps(fixture)\n    def _asyncgen_fixture_wrapper(request: FixtureRequest, **kwargs: Any):\n        func = _perhaps_rebind_fixture_func(fixture, request.instance)\n        event_loop_fixture_id = _get_event_loop_fixture_id_for_async_fixture(\n            request, func\n        )\n        event_loop = request.getfixturevalue(event_loop_fixture_id)\n        kwargs.pop(event_loop_fixture_id, None)\n        gen_obj = func(**_add_kwargs(func, kwargs, event_loop, request))\n    \n        async def setup():\n            res = await gen_obj.__anext__()  # type: ignore[union-attr]\n            return res\n    \n        context = contextvars.copy_context()\n        setup_task = _create_task_in_context(event_loop, setup(), context)\n>       result = event_loop.run_until_complete(setup_task)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:345: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/asyncio/base_events.py:725: in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\n.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:340: in setup\n    res = await gen_obj.__anext__()  # type: ignore[union-attr]\n          ^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/console_mcp/conftest.py:107: in mcp_env\n    agent = AgentDefinition(\n.venv/lib/python3.13/site-packages/sqlalchemy/orm/state.py:596: in _initialize_instance\n    with util.safe_reraise():\n         ^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.13/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__\n    raise exc_value.with_traceback(exc_tb)\n.venv/lib/python3.13/site-packages/sqlalchemy/orm/state.py:594: in _initialize_instance\n    manager.original_init(*mixed[1:], **kwargs)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <muad_console_platform.infrastructure.models.control.AgentDefinition object at 0x10861f490>\nkwargs = {'key': 'agent-19de19bc-ffdf-4c54-8329-260bd14bf8e7', 'model_id': UUID('f74aa4fb-71ef-4c57-a659-ef142b73d209'), 'name': 'MCP Agent', 'prompt': 'You are a test agent.', ...}\ncls_ = <class 'muad_console_platform.infrastructure.models.control.AgentDefinition'>\nk = 'prompt'\n\n    def _declarative_constructor(self: Any, **kwargs: Any) -> None:\n        \"\"\"A simple constructor that allows initialization from kwargs.\n    \n        Sets attributes on the constructed instance using the names and\n        values in ``kwargs``.\n    \n        Only keys that are present as\n        attributes of the instance's class are allowed. These could be,\n        for example, any mapped columns or relationships.\n        \"\"\"\n        cls_ = type(self)\n        for k in kwargs:\n            if not hasattr(cls_, k):\n>               raise TypeError(\n                    \"%r is an invalid keyword argument for %s\" % (k, cls_.__name__)\n                )\nE               TypeError: 'prompt' is an invalid keyword argument for AgentDefinition\n\n.venv/lib/python3.13/site-packages/sqlalchemy/orm/decl_base.py:2193: TypeError\n=========================== short test summary info ============================\nERROR tests/console_mcp/test_mcp_api.py::test_config_invalid - TypeError: 'pr...\nERROR tests/console_mcp/test_mcp_api.py::test_secret - TypeError: 'prompt' is...\nERROR tests/console_mcp/test_mcp_api.py::test_b04_envelope_pagination_and_counts\nERROR tests/console_mcp/test_mcp_api.py::test_connection_test_probe - TypeErr...\n1 passed, 4 errors in 0.48s",
+          "status": "passed",
+          "exit_code": 0,
           "revision": 1,
-          "run_id": "63be2fdf43144b3ba882bdcca70a132b",
-          "executed_at": "2026-09-19T06:47:11.921257+00:00"
-        },
-        {
-          "id": "B-04",
-          "kind": "functional",
-          "status": "failed",
-          "exit_code": 1,
-          "output": "ated.json()[\"data\"][\"mcp_id\"]\n    \n        detail = await client.get(f\"/api/v1/mcp-servers/{mcp_id}\", headers=tenant_headers(env))\n        assert detail.status_code == 200\n        body = detail.json()[\"data\"]\n        assert body[\"auth_secret_configured\"] is True\n        assert \"plain-secret-value\" not in detail.text\n    \n        listing = await client.get(\"/api/v1/mcp-servers\", headers=tenant_headers(env))\n        assert \"plain-secret-value\" not in listing.text\n    \n        stored = await _fetch_secret(str(env[\"tenant_id\"]), mcp_id)\n        assert stored == \"plain-secret-value\"\n    \n        updated = await client.put(\n            f\"/api/v1/mcp-servers/{mcp_id}\",\n            json={\"auth_secret\": \"rotated-secret-value\"},\n            headers=tenant_headers(env),\n        )\n        assert updated.status_code == 200\n        assert await _fetch_secret(str(env[\"tenant_id\"]), mcp_id) == \"rotated-secret-value\"\n        assert \"rotated-secret-value\" not in updated.text\n    \n        session_factory = get_session_factory()\n        async with session_factory() as session:\n            audits = (\n                await session.execute(\n                    text(\n                        \"SELECT before_json, after_json FROM control.config_audit_log \"\n                        \"WHERE resource_type = 'mcp_server' AND tenant_id = :tenant_id\"\n                    ),\n                    {\"tenant_id\": str(env[\"tenant_id\"])},\n                )\n            ).all()\n>       assert audits, \"config_audit_log 必须记录 mcp_server 变更\"\nE       AssertionError: config_audit_log 必须记录 mcp_server 变更\nE       assert []\n\ntests/console_mcp/test_mcp_api.py:101: AssertionError\n___________________ test_b04_envelope_pagination_and_counts ____________________\n\nclient = <httpx.AsyncClient object at 0x1070da210>\nenv = {'actor_user_id': UUID('510e27e8-fc92-427b-810a-fed188c14756'), 'admin_id': UUID('fe093ff6-e767-4531-b3de-025cfce030d0...username': 'admin-f882ca66-d22c-4c98-9fef-0eeca88b683b', 'agent_id': UUID('d3dfba33-a245-4256-b4b6-88bf92f772df'), ...}\n\n    async def test_b04_envelope_pagination_and_counts(\n        client: AsyncClient, env: dict[str, object]\n    ) -> None:\n        first = await create_mcp(client, env, endpoint=\"http://127.0.0.1:9/mcp\")\n        second = await create_mcp(client, env, endpoint=\"http://127.0.0.1:9/mcp\", extra={\"enabled\": False, \"user_scope\": \"ALL\"})\n        assert first.status_code == 200 and second.status_code == 200\n        first_id = first.json()[\"data\"][\"mcp_id\"]\n    \n        session_factory = get_session_factory()\n        async with session_factory() as session:\n            session.add_all(\n                [\n                    McpUserGrant(\n                        mcp_server_id=uuid.UUID(first_id),\n                        user_id=uuid.UUID(str(env[\"actor_user_id\"])),\n                        granted_by=uuid.UUID(str(env[\"admin_id\"])),\n                    ),\n                    AgentMcpBinding(\n                        agent_id=uuid.UUID(str(env[\"agent_id\"])),\n                        mcp_server_id=uuid.UUID(first_id),\n                    ),\n                ]\n            )\n            await session.commit()\n    \n        listing = await client.get(\"/api/v1/mcp-servers\", headers=tenant_headers(env))\n        assert listing.status_code == 200\n        envelope = listing.json()\n        for field in (\"code\", \"msg\", \"data\", \"trace_id\", \"request_id\", \"timestamp\"):\n            assert field in envelope\n        page = envelope[\"data\"]\n        for field in (\"items\", \"page\", \"page_size\", \"total\"):\n            assert field in page\n>       by_id = {item[\"mcp_id\"]: item for item in page[\"items\"]}\n                 ^^^^^^^^^^^^^^\nE       KeyError: 'mcp_id'\n\ntests/console_mcp/test_mcp_api.py:138: KeyError\n=========================== short test summary info ============================\nFAILED tests/console_mcp/test_mcp_api.py::test_secret - AssertionError: confi...\nFAILED tests/console_mcp/test_mcp_api.py::test_b04_envelope_pagination_and_counts\n2 failed, 3 passed in 3.94s",
-          "revision": 2,
-          "run_id": "e04ff2bcc72a47d88bac6a4b89fa4667",
-          "executed_at": "2026-09-19T10:15:45.006795+00:00"
+          "run_id": "d2916e3e9b144f26adc72186d01f7ea5",
+          "executed_at": "2026-09-19T10:23:20.398742+00:00"
         }
       ]
     },
@@ -503,28 +469,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-06",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "11147f2cef92416884953d9a364ce2b0",
-        "executed_at": "2026-09-19T06:04:31.009200+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "11147f2cef92416884953d9a364ce2b0",
-          "executed_at": "2026-09-19T06:04:31.009200+00:00"
-        }
-      ]
+      "depends_on": []
     }
   ]
 }

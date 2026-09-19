@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 
 _JSON_RPC_VERSION = "2.0"
+MAX_TOOLS_PER_SERVER = 200
 _PROTOCOL_VERSION = "2025-03-26"
 
 

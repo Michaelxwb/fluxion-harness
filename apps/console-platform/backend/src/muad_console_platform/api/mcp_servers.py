@@ -113,3 +113,42 @@ async def test_connection(
 ) -> ApiResponse[Any]:
     data = await McpService(session).test_connection(tenant_id, mcp_id, timeout_ms)
     return ok(request.app.state.message_catalog, data)
+
+
+@router.post("/{mcp_id}/discover-tools")
+async def discover_tools(
+    mcp_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    data = await McpService(session).discover_tools(tenant_id, mcp_id)
+    return ok(request.app.state.message_catalog, data)
+
+
+@router.get("/{mcp_id}/tools")
+async def list_tools(
+    mcp_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> ApiResponse[Any]:
+    items, total = await McpService(session).list_tools(tenant_id, mcp_id, page, page_size)
+    return ok(
+        request.app.state.message_catalog,
+        paginate(items=items, page=page, page_size=page_size, total=total),
+    )
+
+
+@router.get("/{mcp_id}/tools/{tool_name}")
+async def get_tool(
+    mcp_id: uuid.UUID,
+    tool_name: str,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    data = await McpService(session).get_tool(tenant_id, mcp_id, tool_name)
+    return ok(request.app.state.message_catalog, data)

@@ -13,7 +13,13 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.mcp_client import McpClient, McpClientError
+from ..infrastructure import mcp_client as mcp_client_module
+from ..infrastructure.mcp_client import (
+    McpClient,
+    McpClientError,
+    catalog_hash,
+    normalize_tools,
+)
 from ..infrastructure.models.control import SkillImportIdempotency
 from ..infrastructure.models.mcp import AgentMcpBinding, McpServer, McpUserGrant
 from .audit_service import AuditActor, AuditService
@@ -73,6 +79,21 @@ def mcp_detail(server: McpServer, agent_count: int, user_count: int) -> McpServe
 
 def _invalid_config() -> AppError:
     return AppError(ErrorCode.MCP_CONFIG_INVALID)
+
+
+async def _write_failure_state(server_id: uuid.UUID, at: datetime, summary: str) -> None:
+    """用独立事务持久化 DISCOVERY_FAILED（主事务将被 AppError 回滚）。"""
+    from ..infrastructure.db import get_session_factory
+
+    factory = get_session_factory()
+    async with factory() as failure_session:
+        row = await failure_session.get(McpServer, server_id)
+        if row is None or row.is_deleted:
+            return
+        row.connection_status = "DISCOVERY_FAILED"
+        row.last_discovery_error = summary
+        row.update_time = at
+        await failure_session.commit()
 
 
 def _validate_endpoint(endpoint: str) -> None:
@@ -354,3 +375,74 @@ class McpService:
             "server_info": server_info,
             "tested_at": tested_at.isoformat(),
         }
+
+    async def discover_tools(self, tenant_id: str, mcp_id: uuid.UUID) -> dict[str, Any]:
+        """initialize + tools/list → 快照持久化；失败保留上一成功 Catalog。"""
+        server = await self.get_server(tenant_id, mcp_id)
+        limit = mcp_client_module.MAX_TOOLS_PER_SERVER
+        client = McpClient(
+            server.endpoint, auth_secret=server.auth_secret, timeout_ms=server.connect_timeout_ms
+        )
+        discovered_at = datetime.now(UTC)
+
+        try:
+            client.initialize()
+            tools = client.list_tools()
+        except McpClientError as exc:
+            summary = exc.detail[:500]
+            await _write_failure_state(server.id, discovered_at, summary)
+            server.connection_status = "DISCOVERY_FAILED"
+            server.last_discovery_error = summary
+            server.update_time = discovered_at
+            raise AppError(ErrorCode.MCP_DISCOVERY_FAILED) from exc
+        if len(tools) > limit:
+            summary = f"tool count {len(tools)} exceeds limit {limit}"
+            await _write_failure_state(server.id, discovered_at, summary)
+            server.connection_status = "DISCOVERY_FAILED"
+            server.last_discovery_error = summary
+            server.update_time = discovered_at
+            raise AppError(ErrorCode.MCP_DISCOVERY_FAILED)
+        catalog = normalize_tools(tools)
+        new_hash = catalog_hash(catalog)
+        changed = new_hash != server.tool_catalog_hash
+        if changed:
+            server.tool_catalog_json = catalog
+            server.tool_catalog_hash = new_hash
+            server.tool_catalog_revision += 1
+        server.connection_status = "AVAILABLE"
+        server.last_discovered_at = discovered_at
+        server.last_discovery_error = None
+        server.update_time = discovered_at
+        await self._session.flush()
+        return {
+            "connection_status": server.connection_status,
+            "tool_catalog_revision": server.tool_catalog_revision,
+            "tool_catalog_hash": server.tool_catalog_hash,
+            "tool_count": len(server.tool_catalog_json or []),
+            "last_discovered_at": discovered_at.isoformat(),
+            "changed": changed,
+        }
+
+    async def list_tools(
+        self, tenant_id: str, mcp_id: uuid.UUID, page: int, page_size: int
+    ) -> tuple[list[dict[str, Any]], int]:
+        server = await self.get_server(tenant_id, mcp_id)
+        catalog = list(server.tool_catalog_json or [])
+        start = (page - 1) * page_size
+        return catalog[start : start + page_size], len(catalog)
+
+    async def get_tool(
+        self, tenant_id: str, mcp_id: uuid.UUID, tool_name: str
+    ) -> dict[str, Any]:
+        server = await self.get_server(tenant_id, mcp_id)
+        for entry in server.tool_catalog_json or []:
+            if entry.get("name") == tool_name:
+                return {
+                    "name": entry.get("name"),
+                    "description": entry.get("description"),
+                    "effect": entry.get("effect"),
+                    "input_schema": entry.get("input_schema"),
+                    "catalog_revision": server.tool_catalog_revision,
+                    "catalog_hash": server.tool_catalog_hash,
+                }
+        raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "McpTool"})
