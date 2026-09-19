@@ -6,6 +6,7 @@ from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.agent_mcp_service import AgentMcpService
+from ..application.channel_admin_service import ChannelAdminService
 from ..application.agent_service import AgentService
 from ..application.grant_service import GrantService
 from ..application.dto import AgentBindSkillRequest as BindSkillRequest
@@ -301,3 +302,67 @@ async def revoke_agent_user(
         request.app.state.message_catalog,
         {"agent_id": str(agent_id), "user_id": str(user_id), "is_deleted": True},
     )
+
+
+@router.get("/{agent_id}/channels")
+async def list_agent_channels(
+    agent_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> ApiResponse[Any]:
+    items, total = await ChannelAdminService(session).list_channels(
+        tenant_id, agent_id, page, page_size
+    )
+    return ok(
+        request.app.state.message_catalog,
+        paginate(items=items, page=page, page_size=page_size, total=total),
+    )
+
+
+@router.post("/{agent_id}/channels")
+async def add_agent_channel(
+    agent_id: uuid.UUID,
+    payload: dict[str, Any],
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    data = await ChannelAdminService(session).add_channel(
+        tenant_id, agent_id, payload, _actor(account, request)
+    )
+    return ok(request.app.state.message_catalog, data)
+
+
+@router.put("/{agent_id}/channels/{channel_account_id}")
+async def update_agent_channel(
+    agent_id: uuid.UUID,
+    channel_account_id: uuid.UUID,
+    payload: dict[str, Any],
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    data = await ChannelAdminService(session).update_channel(
+        tenant_id, agent_id, channel_account_id, payload, _actor(account, request)
+    )
+    return ok(request.app.state.message_catalog, data)
+
+
+@router.delete("/{agent_id}/channels/{channel_account_id}")
+async def remove_agent_channel(
+    agent_id: uuid.UUID,
+    channel_account_id: uuid.UUID,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    data = await ChannelAdminService(session).remove_channel(
+        tenant_id, agent_id, channel_account_id, _actor(account, request)
+    )
+    return ok(request.app.state.message_catalog, data)

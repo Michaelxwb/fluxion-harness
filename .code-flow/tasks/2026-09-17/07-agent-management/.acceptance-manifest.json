@@ -61,7 +61,7 @@
       "kind": "e2e",
       "boundary": "Browser→grant API→DB→Runtime resolve（授权后可用、撤销=软删除）",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -69,7 +69,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "16ecda3ccd914ea8b5104c1f5c252889",
+        "executed_at": "2026-09-19T12:41:31.115028+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "16ecda3ccd914ea8b5104c1f5c252889",
+          "executed_at": "2026-09-19T12:41:31.115028+00:00"
+        }
+      ]
     },
     {
       "id": "S-05",
@@ -103,26 +122,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-06",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "c58084e14f73481e833b7b9991d2e1e5",
-        "executed_at": "2026-09-19T12:35:03.383471+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-06",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "c58084e14f73481e833b7b9991d2e1e5",
-          "executed_at": "2026-09-19T12:35:03.383471+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-07",
@@ -296,7 +296,7 @@
       "kind": "functional",
       "boundary": "grant partial unique + 软删除（幂等恢复不产生重复行）",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -308,7 +308,28 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "16ecda3ccd914ea8b5104c1f5c252889",
+        "executed_at": "2026-09-19T12:41:31.115028+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "16ecda3ccd914ea8b5104c1f5c252889",
+          "executed_at": "2026-09-19T12:41:31.115028+00:00"
+        }
+      ]
     },
     {
       "id": "E-05",
@@ -458,28 +479,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "c58084e14f73481e833b7b9991d2e1e5",
-        "executed_at": "2026-09-19T12:35:03.383471+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "c58084e14f73481e833b7b9991d2e1e5",
-          "executed_at": "2026-09-19T12:35:03.383471+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-03",
