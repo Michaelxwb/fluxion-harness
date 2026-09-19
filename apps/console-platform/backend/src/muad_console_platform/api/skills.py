@@ -191,9 +191,19 @@ async def list_grants(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
 ) -> ApiResponse[Any]:
-    items = await SkillService(session).list_grants(tenant_id, skill_id)
-    return ok(request.app.state.message_catalog, [item.model_dump(mode="json") for item in items])
+    items, total = await SkillService(session).list_grants(tenant_id, skill_id, page, page_size)
+    return ok(
+        request.app.state.message_catalog,
+        paginate(
+            items=[item.model_dump(mode="json") for item in items],
+            page=page,
+            page_size=page_size,
+            total=total,
+        ),
+    )
 
 
 @router.post("/{skill_id}/users/{user_id}")

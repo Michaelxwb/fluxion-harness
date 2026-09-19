@@ -473,10 +473,16 @@ class SkillService:
             raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "SkillArtifact"})
         return artifact_detail(artifact)
 
-    async def list_grants(self, tenant_id: str, skill_id: uuid.UUID) -> list[SkillUserGrantItem]:
+    async def list_grants(
+        self,
+        tenant_id: str,
+        skill_id: uuid.UUID,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[SkillUserGrantItem], int]:
         skill = await self.get_skill(tenant_id, skill_id)
-        rows = await self._grants.list_with_users(skill.id)
-        return [grant_item(grant, user) for grant, user in rows]
+        rows, total = await self._grants.list_with_users(skill.id, page, page_size)
+        return [grant_item(grant, user) for grant, user in rows], total
 
     async def add_grant(
         self,

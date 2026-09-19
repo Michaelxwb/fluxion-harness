@@ -160,3 +160,23 @@ test('S-07 ALL 范围的指定用户 Tab 只提示不提供维护操作', async 
   await expect(sheet).toContainText('当前对所有拥有对应 Agent 使用权的用户开放');
   await expect(sheet.getByTestId('add-selected-user')).toHaveCount(0);
 });
+
+test('S-07b SELECTED 范围添加指定用户后表格出现该用户', async ({ page }) => {
+  const key = uniqueKey('e2e-s07b');
+  await login(page);
+  await importViaUi(page, key, skillZip({ 'SKILL.md': skillMd('E2E S07B Skill'), 'scripts/run.py': 'print(1)\n' }));
+  await page.getByTestId(`skill-link-${key}`).click();
+  const sheet = page.locator('.semi-sidesheet');
+  await sheet.getByRole('tab', { name: '指定用户' }).click();
+  await expect(page.getByTestId('grant-user-select')).toBeVisible();
+
+  await page.getByTestId('grant-user-select').click();
+  const optionText = await page.locator('.semi-select-option').first().textContent();
+  await page.locator('.semi-select-option').first().click();
+  // 等待 Semi Select 异步提交选中值
+  await expect(page.getByTestId('grant-user-select')).toContainText(optionText ?? '');
+  await page.getByTestId('add-selected-user').click();
+
+  await expect(sheet.locator('.semi-table')).not.toContainText('暂无数据');
+  await expect(sheet.locator('.semi-table')).toContainText('e2e-user-');
+});

@@ -22,18 +22,29 @@ class SkillUserGrantRepository:
     async def list_with_users(
         self,
         skill_id: uuid.UUID,
-    ) -> list[tuple[SkillUserGrant, PlatformUser]]:
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[tuple[SkillUserGrant, PlatformUser]], int]:
+        conditions = (
+            SkillUserGrant.skill_id == skill_id,
+            SkillUserGrant.is_deleted.is_(False),
+            PlatformUser.is_deleted.is_(False),
+        )
+        total = await self._session.scalar(
+            select(func.count())
+            .select_from(SkillUserGrant)
+            .join(PlatformUser, PlatformUser.id == SkillUserGrant.user_id)
+            .where(*conditions)
+        )
         result = await self._session.execute(
             select(SkillUserGrant, PlatformUser)
             .join(PlatformUser, PlatformUser.id == SkillUserGrant.user_id)
-            .where(
-                SkillUserGrant.skill_id == skill_id,
-                SkillUserGrant.is_deleted.is_(False),
-                PlatformUser.is_deleted.is_(False),
-            )
+            .where(*conditions)
             .order_by(SkillUserGrant.create_time.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
         )
-        return [(grant, user) for grant, user in result.all()]
+        return [(grant, user) for grant, user in result.all()], int(total or 0)
 
     async def count_active(self, skill_id: uuid.UUID) -> int:
         total = await self._session.scalar(

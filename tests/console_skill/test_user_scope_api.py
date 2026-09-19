@@ -27,7 +27,7 @@ async def test_user_scope_and_grants(client: AsyncClient, skill_env: SkillContex
         headers=tenant_headers(skill_env),
     )
     assert empty.status_code == 200
-    assert empty.json()["data"] == []
+    assert empty.json()["data"]["items"] == []
 
     from sqlalchemy import func, select
 
@@ -107,7 +107,8 @@ async def test_user_scope_and_grants(client: AsyncClient, skill_env: SkillContex
             headers=tenant_headers(skill_env),
         )
     ).json()["data"]
-    assert [item["user_id"] for item in listed] == [str(skill_env.actor_user_id)]
+    assert listed["total"] == 1
+    assert [item["user_id"] for item in listed["items"]] == [str(skill_env.actor_user_id)]
 
     removed = await client.delete(
         f"/api/v1/skills/{skill_env.skill_all_id}/users/{skill_env.actor_user_id}",
@@ -122,7 +123,7 @@ async def test_user_scope_and_grants(client: AsyncClient, skill_env: SkillContex
             headers=tenant_headers(skill_env),
         )
     ).json()["data"]
-    assert after_remove == []
+    assert after_remove["items"] == []
 
     again = await client.delete(
         f"/api/v1/skills/{skill_env.skill_all_id}/users/{skill_env.actor_user_id}",
