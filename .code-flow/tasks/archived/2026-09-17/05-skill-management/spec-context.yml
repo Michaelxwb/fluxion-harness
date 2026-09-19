@@ -1,7 +1,7 @@
 version: 1
 task: Skill 管理与 Artifact
 enforcement: required
-updated_at: '2026-09-19T04:18:54.330968+00:00'
+updated_at: '2026-09-19T05:27:58.123785+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -63,7 +63,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-005
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:
@@ -435,7 +435,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-006
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:
@@ -784,7 +784,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-001
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:
@@ -1154,7 +1154,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-009
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:
@@ -1513,7 +1513,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-009
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:
@@ -1827,7 +1827,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-006
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:
@@ -2136,7 +2136,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-002
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:
@@ -2452,7 +2452,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-003
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:
@@ -2756,7 +2756,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-007
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:
@@ -3038,7 +3038,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-004
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:
@@ -3591,7 +3591,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-001
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:
@@ -3858,7 +3858,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-009
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:
@@ -4579,7 +4579,7 @@ bindings:
         - artifact: 05-skill-management.md
           section_id: Spec-Refs
           item_id: TASK-010
-          artifact_sha256: 56fe47dad74e6f271d7715dc5ed0d1c57784876703af6b20aae6de9aae3cbea2
+          artifact_sha256: 1319be8d9c0cc78ebcfd02b62691e943ceb4e80d00f70e8c570d758bcd3c89f8
         decision: null
         evidence: []
       code:

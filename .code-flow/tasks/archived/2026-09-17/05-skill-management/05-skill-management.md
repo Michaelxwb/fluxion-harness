@@ -114,6 +114,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - B-05: verified — automated command passed; run_id=db7e83ac9fd44f919aae03b4469deb54 (confirmed_by: runner)
 - B-05: verified — automated command passed; run_id=1575e5a6a2ad4295b0a8f58df216e497 (confirmed_by: runner)
 - B-05: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] created (draft)
@@ -196,6 +197,12 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - B-02: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] created (draft)
@@ -242,6 +249,7 @@ RED→GREEN：先写 test_orphan_cleanup.py（RED：write_artifact 无不可变�
 - B-06: verified — automated command passed; run_id=db7e83ac9fd44f919aae03b4469deb54 (confirmed_by: runner)
 - B-06: verified — automated command passed; run_id=1575e5a6a2ad4295b0a8f58df216e497 (confirmed_by: runner)
 - B-06: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] created (draft)
@@ -309,6 +317,9 @@ RED→GREEN：先写 test_orphan_cleanup.py（RED：write_artifact 无不可变�
 - S-04: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=3f213f7b14ea4f54ae045e7650b7d2dc (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] created (draft)
@@ -358,6 +369,7 @@ API-01~07 已由先前任务实现（skill_service + api/skills.py），本次�
 - B-07: verified — automated command passed; run_id=db7e83ac9fd44f919aae03b4469deb54 (confirmed_by: runner)
 - B-07: verified — automated command passed; run_id=1575e5a6a2ad4295b0a8f58df216e497 (confirmed_by: runner)
 - B-07: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
+- B-07: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] created (draft)
@@ -411,6 +423,7 @@ API-01~07 已由先前任务实现（skill_service + api/skills.py），本次�
 - S-02: verified — automated command passed; run_id=db7e83ac9fd44f919aae03b4469deb54 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=1575e5a6a2ad4295b0a8f58df216e497 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] created (draft)
@@ -438,7 +451,7 @@ API-01~07 已由先前任务实现（skill_service + api/skills.py），本次�
 - [x] 先写测试并记录 RED：S-03（快照冻结语义已实现，属行为锁定测试；首个失败为 NOT NULL prompt_template_version 构造问题，非功能缺陷）
 - [x] [S-03][E2E] 修改生产代码前，按 Upload→Snapshot semantics 真实边界（真实上传、真实 PostgreSQL、真实 Snapshot 冻结，不得 mock）编写验收测试并记录 RED
 - [x] [S-03] 断言：Run A 快照仍指向旧 artifact_id；Run A 期间导入 v2 后新 Run 快照指向新 artifact_id；旧 Artifact 未被覆盖
-- [x] 运行 harness-snapshot-001 verifier：断言 Snapshot 中冻结的是 artifact_id（非动态解析 current），授权/范围变更只影响后续新 Run/Task
+- [x] 运行 harness-snapshot#RULE-snapshot-001 verifier：断言 Snapshot 中冻结的是 artifact_id（非动态解析 current），授权/范围变更只影响后续新 Run/Task
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
@@ -462,6 +475,7 @@ API-01~07 已由先前任务实现（skill_service + api/skills.py），本次�
 - S-03: verified — automated command passed; run_id=1575e5a6a2ad4295b0a8f58df216e497 (confirmed_by: runner)
 - S-03: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
 - S-03: verified — automated command passed; run_id=3f213f7b14ea4f54ae045e7650b7d2dc (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：S-03 行为锁定测试全绿，E2E 留待 verify-e2e
@@ -505,6 +519,7 @@ SkillContext 先前已实现（七端口，无 Secret 面）。本次新增契�
 - E-02: verified — automated command passed; run_id=db7e83ac9fd44f919aae03b4469deb54 (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=1575e5a6a2ad4295b0a8f58df216e497 (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：E-02 契约锁定测试全绿
@@ -569,6 +584,8 @@ SkillContext 先前已实现（七端口，无 Secret 面）。本次新增契�
 - E-05: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
 - S-05: verified — automated command passed; run_id=3f213f7b14ea4f54ae045e7650b7d2dc (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=3f213f7b14ea4f54ae045e7650b7d2dc (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：模块落地，contract/i18n/api 检查全绿，E2E 待终验
@@ -628,6 +645,8 @@ SkillDetailTabs（基本信息含 SKILL.md 预览/版本记录/使用 Agent/指�
 - E-07: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=3f213f7b14ea4f54ae045e7650b7d2dc (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=3f213f7b14ea4f54ae045e7650b7d2dc (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：详情/版本落地，契约与构建全绿，E2E 待终验
@@ -682,6 +701,8 @@ SelectedUserTable（添加用户选择器 + Popconfirm 移除）；user_scope �
 - S-07: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=99bac8a80d824afeb2c9ebd2d40114b4 (confirmed_by: runner)
 - S-07: verified — automated command passed; run_id=3f213f7b14ea4f54ae045e7650b7d2dc (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=87cde27457c04af9acb40076839c264f (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：用户范围维护落地，契约与构建全绿，E2E 待终验
