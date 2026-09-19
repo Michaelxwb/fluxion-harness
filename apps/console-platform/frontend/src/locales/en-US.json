@@ -320,5 +320,17 @@
   "skill.artifact.fileList": "Files in package (manifest snapshot, not an execution entry)",
   "skill.artifact.emptyHint": "No versions yet; import one to populate",
   "skill.detail.agentCountNotice": "{{count}} agent(s) bound to this skill",
-  "skill.detail.userCountNotice": "{{count}} selected user(s) (managed in Selected users tab)"
+  "skill.detail.userCountNotice": "{{count}} selected user(s) (managed in Selected users tab)",
+  "skill.scope.changeAction": "Change user scope",
+  "skill.scope.changeTitle": "Change user scope",
+  "skill.scope.changeHint": "Switching to selected users keeps existing grants; affects new tasks only",
+  "skill.users.add": "Add selected user",
+  "skill.users.remove": "Remove",
+  "skill.users.confirmRemove": "Remove this user's grant?",
+  "skill.users.pickPlaceholder": "Pick a user",
+  "skill.users.userCode": "User code",
+  "skill.users.displayName": "Display name",
+  "skill.users.grantedAt": "Granted at",
+  "skill.users.emptyHint": "No selected users yet",
+  "skill.users.allScopeHint": "Open to all users with access to bound agents"
 }

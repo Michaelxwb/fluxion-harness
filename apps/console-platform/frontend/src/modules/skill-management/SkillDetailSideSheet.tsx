@@ -7,6 +7,8 @@ import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
 import { getSkill, listArtifacts, type SkillArtifactDetail, type SkillListItem } from './services/skills';
+import { SelectedUserTable } from './SelectedUserTable';
+import { SkillScopeModal } from './SkillScopeModal';
 import { SkillArtifactDetailModal } from './SkillArtifactDetailModal';
 import { SkillImportModal } from './SkillImportModal';
 
@@ -23,6 +25,7 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
   const [artifacts, setArtifacts] = useState<SkillArtifactDetail[]>([]);
   const [artifactDetailId, setArtifactDetailId] = useState<string | null>(null);
   const [importVisible, setImportVisible] = useState(false);
+  const [scopeVisible, setScopeVisible] = useState(false);
 
   const reload = useCallback(async () => {
     if (!props.skill) {
@@ -63,6 +66,12 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
         onCancel={props.onCancel}
         actions={
           <>
+            <Button
+              data-testid="change-user-scope"
+              onClick={() => setScopeVisible(true)}
+            >
+              {t('skill.scope.changeAction')}
+            </Button>
             <Button
               theme="solid"
               data-testid="import-artifact"
@@ -146,11 +155,15 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
           />
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="users" tab={t('skill.detail.tabs.users')}>
-          <Banner
-            type="info"
-            closeIcon={null}
-            description={t('skill.detail.userCountNotice', { count: detail?.user_count ?? 0 })}
-          />
+          {detail === null ? (
+            <Spin />
+          ) : (
+            <SelectedUserTable
+              skillId={props.skill.id}
+              userScope={detail.user_scope}
+              onChanged={() => void reload()}
+            />
+          )}
         </Tabs.TabPane>
       </DetailSideSheet>
       <SkillArtifactDetailModal
@@ -158,6 +171,17 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
         skillId={props.skill.id}
         artifactId={artifactDetailId}
         onCancel={() => setArtifactDetailId(null)}
+      />
+      <SkillScopeModal
+        visible={scopeVisible}
+        skillId={props.skill.id}
+        currentScope={detail?.user_scope ?? 'SELECTED'}
+        onCancel={() => setScopeVisible(false)}
+        onSaved={() => {
+          setScopeVisible(false);
+          void reload();
+          props.onSkillMutated?.();
+        }}
       />
       <SkillImportModal
         visible={importVisible}

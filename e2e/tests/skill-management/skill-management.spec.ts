@@ -176,3 +176,19 @@ test('E-07 导入重复版本时 Toast 提示且版本列表不新增重复行',
   const rows = sheet.getByTestId('artifact-list').getByRole('button', { name: '1.0.0' });
   await expect(rows).toHaveCount(1);
 });
+
+test('S-07 ALL 范围的指定用户 Tab 只提示不提供维护操作', async ({ page }) => {
+  const key = uniqueKey('e2e-s07');
+  await login(page);
+  // 导入后切到 ALL
+  await importViaUi(page, key, skillZip({ 'SKILL.md': skillMd('E2E S07 Skill'), 'scripts/run.py': 'print(1)\n' }));
+  const list = (await page.request.get(`/api/v1/skills?keyword=${key}`)).json();
+  const skillId = ((await list).data.items[0] as { id: string }).id;
+  await page.request.put(`/api/v1/skills/${skillId}/user-scope`, { data: { user_scope: 'ALL' } });
+
+  await page.getByTestId(`skill-link-${key}`).click();
+  const sheet = page.locator('.semi-sidesheet');
+  await sheet.getByText('指定用户').last().click();
+  await expect(sheet).toContainText('当前对所有拥有对应 Agent 使用权的用户开放');
+  await expect(sheet.getByTestId('add-selected-user')).toHaveCount(0);
+});

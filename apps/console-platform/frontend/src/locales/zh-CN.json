@@ -320,5 +320,17 @@
   "skill.artifact.fileList": "包内文件（清单快照，非执行入口）",
   "skill.artifact.emptyHint": "暂无版本，导入新版本后展示",
   "skill.detail.agentCountNotice": "当前有 {{count}} 个 Agent 绑定该 Skill",
-  "skill.detail.userCountNotice": "当前指定用户 {{count}} 人（在指定用户 Tab 维护）"
+  "skill.detail.userCountNotice": "当前指定用户 {{count}} 人（在指定用户 Tab 维护）",
+  "skill.scope.changeAction": "变更用户范围",
+  "skill.scope.changeTitle": "变更用户范围",
+  "skill.scope.changeHint": "切换为指定用户不会清空既有授权；变更只影响后续新任务",
+  "skill.users.add": "添加指定用户",
+  "skill.users.remove": "移除",
+  "skill.users.confirmRemove": "确认移除该用户的授权？",
+  "skill.users.pickPlaceholder": "选择用户",
+  "skill.users.userCode": "用户标识",
+  "skill.users.displayName": "用户名称",
+  "skill.users.grantedAt": "授权时间",
+  "skill.users.emptyHint": "尚未指定用户",
+  "skill.users.allScopeHint": "当前对所有拥有对应 Agent 使用权的用户开放"
 }
