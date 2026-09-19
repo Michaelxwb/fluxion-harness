@@ -9,10 +9,16 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-mcp-001
-  type: manual
+  type: command
   config:
-    checklist: 确认 V1 仅 Streamable HTTP、目录由 discover-tools 维护、Server 级用户范围、无 Tool 级启停/授权。
-    owner: project-owner
+    argv:
+    - uv
+    - run
+    - pytest
+    - -q
+    - tests/console_mcp/test_mcp_rules.py
+    cwd: .
+    timeout: 300
 ---
 
 # harness-mcp
