@@ -26,14 +26,14 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 |
 |--------|---------|---------|-------------|---------|------|------|
 | S-01 | backend#2.5.2 正常场景 | E2E | Browser→MCP Server→PostgreSQL→UI（探针真实 HTTP） | TASK-004 | e2e_deferred | ["bash", "-lc", "uv run pytest -q tests/console_mcp/test_discover_api.py -k refresh_updates_catalog"] |
-| S-02 | backend#2.5.2 正常场景 | integration | Grant API→DB | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_user_scope_api.py", "-k", "user_scope_and_grants"] |
+| S-02 | backend#2.5.2 正常场景 | integration | Grant API→DB | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_user_scope_api.py", "-k", "user_scope_and_grants"] |
 | S-03 | backend#2.5.2 正常场景 | E2E | 注册→连接测试→刷新目录（探针真实 MCP 协议 + 真实 PostgreSQL） | TASK-004 | e2e_deferred | ["bash", "-lc", "uv run pytest -q tests/console_mcp/test_mcp_api.py -k register_test_discover_flow"] |
 | S-05 | frontend#2.4 验收条件（原 S-FE-01） | E2E | Browser→MCP→DB→UI 刷新目录 | TASK-007 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-05\""] |
 | S-06 | frontend#2.4 验收条件（原 S-FE-02） | E2E | Browser→tools API 工具详情 | TASK-007 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-06\""] |
 | S-07 | frontend#2.4 验收条件（原 S-FE-03） | E2E | Browser→MCP Server→DB→UI 注册+连接测试 | TASK-006 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-07\""] |
 | E-01 | backend#2.5.2 异常场景 | integration | MCP Client→DB（探针返回 tools/list 失败） | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_discover_api.py", "-k", "tools_list_failure"] |
 | E-02 | backend#2.5.2 异常场景 | unit | request schema（transport/配置非法） | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_api.py", "-k", "config_invalid"] |
-| E-03 | backend#2.5.2 异常场景 | integration | Grant API→DB 重复添加 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_user_scope_api.py", "-k", "duplicate_grant"] |
+| E-03 | backend#2.5.2 异常场景 | integration | Grant API→DB 重复添加 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_user_scope_api.py", "-k", "duplicate_grant"] |
 | E-04 | backend#2.5.2 异常场景 | integration | MCP Client→DB 连接失败 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_discover_api.py", "-k", "connection_failure"] |
 | E-05 | backend#2.5.2 异常场景 | integration | MCP Client→DB 工具数超限 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_discover_api.py", "-k", "tool_limit"] |
 | E-06 | frontend#2.4 验收条件（原 E-FE-01） | E2E | MCP failure→API→UI 保留上一成功 Catalog | TASK-007 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"E-06\""] |
@@ -44,7 +44,7 @@
 | B-02 | backend#Spec Compliance Matrix RULE-mcp-001 | integration | MCP Client→DB 目录唯一入口/失败保留/无 Tool 级控制 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_discover_api.py"] |
 | B-03 | backend#Spec Compliance Matrix RULE-secret-001 | integration | API/DB auth_secret 不回显不落日志 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_api.py", "-k", "secret"] |
 | B-04 | backend#Spec Compliance Matrix RULE-api-001 | integration | 真实 HTTP + 真实 PostgreSQL 封套/分页 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_api.py"] |
-| B-05 | backend#Spec Compliance Matrix RULE-auth/rel-001 | integration | Grant service→DB 单关系/软删重建 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_user_scope_api.py"] |
+| B-05 | backend#Spec Compliance Matrix RULE-auth/rel-001 | integration | Grant service→DB 单关系/软删重建 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_user_scope_api.py"] |
 | B-06 | backend#3.2 架构与流程（客户端契约） | unit | 真实探针 MCP Server initialize+tools/list | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_client.py"] |
 
 > 本表覆盖两份 design 全部本需求归属的 P0/P1 场景及 RULE 映射场景（RULE-data→B-01、RULE-mcp→B-02、RULE-secret→B-03、RULE-api→B-04、RULE-auth/rel→B-05）；S-04 按 design 归属模块 08，不在本表；FE 场景编号按 `[SEB]-\d+` 规范重命名并保留原名标注。
@@ -291,26 +291,32 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 变更用户范围（切换 SELECTED 不清空 Grant）、指定用户分页列表 `{items,page,page_size,total}`（05 教训：**子资源列表也必须分页封套**）、添加（活跃重复 `COMMON_CONFLICT`，软删可重建，只创建 McpUserGrant）、移除（软删除）。全部同事务 config_audit_log，只影响后续新 Run/Task。
 
 ### Checklist
-- [ ] 先写测试并记录 RED：S-02、E-03
-- [ ] [S-02][integration] SELECTED MCP 添加用户：只创建 McpUserGrant（真实 DB），不产生 AgentMcpBinding/AgentAccessGrant/Tool 级 grant，无到期时间
-- [ ] [E-03][integration] 重复添加同一用户：`COMMON_CONFLICT`；软删后可重新创建
-- [ ] [B-05][integration] 单关系 POST/DELETE 独立事务；分页封套（非裸数组）
-- [ ] 运行 harness-auth#RULE-auth-001 verifier：撤销=软删除、判定 is_deleted=false、无三元/Tool 级授权
-- [ ] 运行 harness-rel#RULE-rel-001 verifier：仅单关系端点，无全量 PUT
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 先写测试并记录 RED：S-02、E-03（端点不存在→404，3 failed）
+- [x] [S-02][integration] SELECTED MCP 添加用户：只创建 McpUserGrant（真实 DB），不产生 AgentMcpBinding/AgentAccessGrant/Tool 级 grant，无到期时间
+- [x] [E-03][integration] 重复添加同一用户：`COMMON_CONFLICT`；软删后可重新创建
+- [x] [B-05][integration] 单关系 POST/DELETE 独立事务；分页封套（非裸数组）
+- [x] 运行 harness-auth#RULE-auth-001 verifier：撤销=软删除、判定 is_deleted=false、无三元/Tool 级授权
+- [x] 运行 harness-rel#RULE-rel-001 verifier：仅单关系端点，无全量 PUT
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-02 | integration | Grant service、真实 PostgreSQL | 只创建 McpUserGrant；无 expires_at | tests/console_mcp/test_user_scope_api.py | uv run pytest -q tests/console_mcp/test_user_scope_api.py -k user_scope_and_grants | planned |
-| E-03 | integration | 真实 HTTP + DB | COMMON_CONFLICT、不重复 | 同上 | uv run pytest -q tests/console_mcp/test_user_scope_api.py -k duplicate_grant | planned |
-| B-05 | integration | 真实 HTTP + DB | 单关系/软删重建/分页封套 | 同上 | uv run pytest -q tests/console_mcp/test_user_scope_api.py | planned |
+| S-02 | integration | Grant service、真实 PostgreSQL | 只创建 McpUserGrant；无 expires_at | tests/console_mcp/test_user_scope_api.py | uv run pytest -q tests/console_mcp/test_user_scope_api.py -k user_scope_and_grants | verified |
+| E-03 | integration | 真实 HTTP + DB | COMMON_CONFLICT、不重复 | 同上 | uv run pytest -q tests/console_mcp/test_user_scope_api.py -k duplicate_grant | verified |
+| B-05 | integration | 真实 HTTP + DB | 单关系/软删重建/分页封套 | 同上 | uv run pytest -q tests/console_mcp/test_user_scope_api.py | verified |
 
 ### Acceptance Evidence
 
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-02 | 404 端点缺失，3 failed | 25 passed（console_mcp 全量） | test_s02（只建 Grant/计数不变/无 expires_at/软删重建） | ASGI 真实 HTTP + 真实 PostgreSQL | verified |
+| E-03 | 同上 | 同上 | test_e03（重复 409 COMMON_CONFLICT） | 同上 | verified |
+| B-05 | 同上 | 同上 | test_b05（分页封套 total=2 page_size=1；切换 ALL 不清空；未知用户 404） | 同上 | verified |
+
 ### Log
-- [2026-09-19] created (draft)
+- [2026-09-19] started/finished：API-10~13 落地，S-02/E-03/B-05 verified
 
 ---
 - [2026-09-19] started
