@@ -36,6 +36,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "backfill-secrets",
         help="migrate legacy secret refs into plaintext columns (expand->contract window)",
     )
+    cleanup_orphans = subparsers.add_parser(
+        "cleanup-skill-orphans",
+        help="remove artifact files without a DB record (crash leftovers)",
+    )
+    cleanup_orphans.add_argument("--grace-seconds", type=float, default=3600.0)
     return parser
 
 
@@ -141,10 +146,25 @@ async def _backfill_secrets() -> int:
     return 0
 
 
+async def _cleanup_skill_orphans(args: argparse.Namespace) -> int:
+    from .application.skill_service import SkillService
+
+    async with get_session_factory()() as session:
+        service = SkillService(session)
+        removed = await service.cleanup_orphan_artifacts(grace_seconds=args.grace_seconds)
+        await session.commit()
+    for storage_key in removed:
+        print(f"removed orphan artifact {storage_key}")
+    print(f"cleanup-skill-orphans: removed {len(removed)} orphan file(s)")
+    return 0
+
+
 async def _run(args: argparse.Namespace) -> int:
     try:
         if args.command == "backfill-secrets":
             return await _backfill_secrets()
+        if args.command == "cleanup-skill-orphans":
+            return await _cleanup_skill_orphans(args)
         return await _create_admin(args)
     finally:
         await dispose_engine()

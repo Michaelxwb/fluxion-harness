@@ -89,6 +89,10 @@ class SkillRepository:
         await self._session.flush()
         return skill
 
+    async def list_storage_keys(self) -> set[str]:
+        rows = await self._session.execute(select(SkillArtifact.storage_key))
+        return {row[0] for row in rows.all()}
+
     async def list_artifacts(
         self,
         skill_id: uuid.UUID,

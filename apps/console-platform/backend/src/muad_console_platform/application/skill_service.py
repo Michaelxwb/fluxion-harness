@@ -23,6 +23,7 @@ from ..infrastructure.repositories.skill_repository import SkillRepository
 from ..infrastructure.repositories.skill_user_grant_repository import SkillUserGrantRepository
 from ..infrastructure.skill_artifact_store import (
     artifact_storage_key,
+    cleanup_orphan_files,
     remove_artifact,
     write_artifact,
 )
@@ -361,6 +362,16 @@ class SkillService:
                 remove_artifact(storage_key)
                 raise
         return artifact_detail(artifact)
+
+    async def cleanup_orphan_artifacts(
+        self,
+        *,
+        grace_seconds: float = 3600.0,
+        root=None,
+    ) -> list[str]:
+        """扫描 Artifact 目录，删除 DB 无记录且早于宽限期的孤儿文件。"""
+        known = await self._skills.list_storage_keys()
+        return cleanup_orphan_files(known, grace_seconds=grace_seconds, root=root)
 
     async def list_artifacts(
         self,
