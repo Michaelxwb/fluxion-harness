@@ -23,7 +23,7 @@ async function registerViaUi(page: Page, key: string, endpoint: string): Promise
   await page.getByTestId('create-mcp').click();
   const modal = page.locator('.semi-modal');
   await modal.getByRole('textbox', { name: /名称/ }).fill('E2E MCP Server');
-  await modal.getByRole('textbox', { name: /Server key/ }).fill(key);
+  await modal.getByRole('textbox', { name: /标识/ }).fill(key);
   await modal.getByRole('textbox', { name: /服务地址/ }).fill(endpoint);
   await modal.locator('.semi-modal-footer .semi-button-primary').click();
 }
@@ -40,6 +40,29 @@ test('S-07 注册 Server 并连接测试后 connection_status 与工具数正确
   const sheet = page.locator('.semi-sidesheet');
   await expect(sheet).toBeVisible();
   await expect(sheet).toContainText('streamable-http');
+});
+
+test('S-07c 注册弹窗按交互稿排版：双列栅格/整行服务地址/说明 Banner/保存并发现工具', async ({ page }) => {
+  const key = uniqueKey('e2e-s07cm');
+  await login(page);
+  await page.goto('/mcp');
+  await page.getByTestId('create-mcp').click();
+  const modal = page.locator('.semi-modal');
+  await expect(modal.locator('.form-grid')).toBeVisible();
+  await expect(modal.getByRole('textbox', { name: /名称/ })).toBeVisible();
+  await expect(modal.getByRole('textbox', { name: /标识/ })).toBeVisible();
+  const endpoint = modal.getByRole('textbox', { name: /服务地址/ });
+  await expect(endpoint).toBeVisible();
+  await expect(modal).toContainText('V1.4 仅支持 Streamable HTTP');
+  await expect(modal).toContainText('保存并发现工具');
+  // 填写并保存：注册后自动发现 → 列表行工具数为 2
+  await modal.getByRole('textbox', { name: /名称/ }).fill('E2E Layout MCP');
+  await modal.getByRole('textbox', { name: /标识/ }).fill(key);
+  await endpoint.fill(PROBE_MCP);
+  await modal.locator('.semi-modal-footer .semi-button-primary').click();
+  const row = page.locator('.semi-table-row', { hasText: key });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText('2');
 });
 
 test('S-05 刷新工具目录后工具数与最近发现时间刷新', async ({ page }) => {

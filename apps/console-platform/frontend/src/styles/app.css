@@ -512,6 +512,15 @@ body {
   width: 100%;
 }
 
+.form-field-full {
+  grid-column: 1 / -1;
+}
+
+.form-field-banner {
+  grid-column: 1 / -1;
+  margin: 4px 0 8px;
+}
+
 .form-section-title {
   grid-column: 1 / -1;
   margin: 4px 0 2px;

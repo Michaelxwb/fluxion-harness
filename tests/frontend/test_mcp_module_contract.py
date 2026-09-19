@@ -33,12 +33,27 @@ def test_mcp_connection_and_enabled_distinct_tags() -> None:
 
 
 def test_mcp_form_local_transport_guard() -> None:
-    """[E-09] endpoint 协议本地拦截，不提交；transport 固定只读。"""
+    """[E-09] endpoint 协议本地拦截，不提交；transport 固定为说明文案（V1 仅 Streamable HTTP）。"""
     source = _source("McpFormModal.tsx")
     assert "VALID_ENDPOINT" in source
     assert "Toast.error(t('mcp.form.endpointInvalid'))" in source
-    assert 'field="transport"' in source
-    assert "disabled" in source
+    assert "mcp.form.transportHint" in source  # 说明文案替代 transport 字段
+    assert 'field="transport"' not in source
+
+
+def test_mcp_form_follows_interaction_layout() -> None:
+    """交互稿排版：双列栅格（名称|标识成对、服务地址整行、范围|启用成对）+ Banner + 分区标题。"""
+    source = _source("McpFormModal.tsx")
+    assert 'className="form-grid"' in source
+    assert 'className="form-field-full"' in source  # 服务地址/认证密钥整行
+    assert 'className="form-field-banner"' in source  # 底部说明 Banner
+    assert "form-section-title" in source and "form-section-hint" in source
+    assert "mcp.form.banner" in source
+    # 启用状态为下拉（启用/停用），非 Switch
+    assert 'field="enabled"' in source
+    assert "Form.Switch" not in source
+    assert "mcp.form.saveAndDiscover" in source  # 主按钮文案
+    assert "discoverTools" in source  # 保存后自动发现
 
 
 def test_mcp_form_failure_keeps_modal_and_values() -> None:

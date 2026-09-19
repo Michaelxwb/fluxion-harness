@@ -24,9 +24,9 @@ def test_config_invalid_keeps_modal_and_form() -> None:
 
 
 def test_transport_invalid_local_guard() -> None:
-    """[E-09] endpoint 协议校验在提交前本地拦截；transport 字段只读。"""
+    """[E-09] endpoint 协议校验在提交前本地拦截；transport 以说明文案固定。"""
     source = _form_source()
     assert "VALID_ENDPOINT" in source
     assert "Toast.error(t('mcp.form.endpointInvalid'))" in source
     assert source.index("VALID_ENDPOINT") < source.index("setSaving(true)")
-    assert 'field="transport"' in source
+    assert "mcp.form.transportHint" in source

@@ -1,4 +1,4 @@
-import { Form, Toast } from '@douyinfe/semi-ui';
+import { Banner, Form, Toast } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { FormModal } from '../../components/common/FormModal';
 import {
   createMcpServer,
+  discoverTools,
   updateMcpServer,
   type McpServerDetail
 } from './services/mcpServers';
@@ -22,7 +23,7 @@ interface FormValues {
   key?: string;
   endpoint: string;
   user_scope: 'ALL' | 'SELECTED';
-  enabled?: boolean;
+  enabled: 'true' | 'false';
   auth_secret?: string;
   connect_timeout_ms?: number;
   tool_cache_ttl_sec?: number;
@@ -40,13 +41,13 @@ export function McpFormModal(props: McpFormModalProps) {
       return;
     }
     formApi.current?.reset();
-    formApi.current?.setValues({ user_scope: 'SELECTED' });
+    formApi.current?.setValues({ user_scope: 'SELECTED', enabled: 'true' });
     if (props.server) {
       formApi.current?.setValues({
         name: props.server.name,
         endpoint: props.server.endpoint,
         user_scope: props.server.user_scope,
-        enabled: props.server.enabled,
+        enabled: props.server.enabled ? 'true' : 'false',
         connect_timeout_ms: props.server.connect_timeout_ms,
         tool_cache_ttl_sec: props.server.tool_cache_ttl_sec
       });
@@ -54,32 +55,35 @@ export function McpFormModal(props: McpFormModalProps) {
   }, [props.visible, props.server]);
 
   const submit = async (values: FormValues): Promise<void> => {
-    // [E-09] transport 固定；endpoint 协议本地拦截，不提交
+    // [E-09] transport 固定为 Streamable HTTP（见服务地址下方说明）；endpoint 协议本地拦截，不提交
     if (!VALID_ENDPOINT.test(values.endpoint)) {
       Toast.error(t('mcp.form.endpointInvalid'));
       return;
     }
     setSaving(true);
-    const payload = {
+    const base = {
       name: values.name,
       endpoint: values.endpoint,
       user_scope: values.user_scope,
-      enabled: values.enabled ?? true,
+      enabled: values.enabled === 'true',
       connect_timeout_ms: values.connect_timeout_ms,
       tool_cache_ttl_sec: values.tool_cache_ttl_sec
     };
     try {
       if (props.server) {
-        const input = { ...payload };
+        const input = { ...base };
         if (values.auth_secret) {
           (input as { auth_secret?: string }).auth_secret = values.auth_secret;
         }
         await updateMcpServer(props.server.mcp_id, input);
       } else {
-        await createMcpServer(
-          { ...payload, key: values.key, auth_secret: values.auth_secret || undefined },
+        const created = await createMcpServer(
+          { ...base, key: values.key, auth_secret: values.auth_secret || undefined },
           crypto.randomUUID()
         );
+        // 交互稿「保存并发现工具」：注册成功后立即执行一次目录发现；
+        // 失败不阻塞（服务已保存，可在详情中重试，Toast 由 ApiClient 展示）
+        await discoverTools(created.mcp_id).catch(() => undefined);
       }
       props.onSaved();
     } catch {
@@ -92,9 +96,9 @@ export function McpFormModal(props: McpFormModalProps) {
   return (
     <FormModal
       visible={props.visible}
-      width={560}
+      width={720}
       title={props.server ? t('mcp.form.editTitle') : t('mcp.form.createTitle')}
-      okText={t('common.save')}
+      okText={props.server ? t('common.save') : t('mcp.form.saveAndDiscover')}
       confirmLoading={saving}
       onOk={() => formApi.current?.submitForm()}
       onCancel={props.onCancel}
@@ -105,48 +109,63 @@ export function McpFormModal(props: McpFormModalProps) {
         void submit(values as unknown as FormValues);
       }}
     >
-      <Form.Input
-        field="name"
-        label={t('mcp.form.name')}
-        rules={[{ required: true, message: t('mcp.form.name') }]}
-      />
-      <Form.Input
-        field="key"
-        label={t('mcp.form.key')}
-        disabled={props.server !== null}
-        rules={props.server ? [] : [{ required: true, message: t('mcp.form.key') }]}
-      />
-      <Form.Select
-        field="transport"
-        label={t('mcp.form.transport')}
-        disabled
-        initValue="streamable-http"
-        extraText={t('mcp.form.transportHint')}
-        optionList={[{ value: 'streamable-http', label: 'Streamable HTTP' }]}
-      />
-      <Form.Input
-        field="endpoint"
-        label={t('mcp.form.endpoint')}
-        placeholder="https://mcp.example.com/mcp"
-        rules={[{ required: true, message: t('mcp.form.endpoint') }]}
-      />
-      <Form.Input
-        field="auth_secret"
-        label={t('mcp.form.authSecret')}
-        mode="password"
-        placeholder={props.server?.auth_secret_configured ? t('mcp.form.authSecretKeep') : t('mcp.form.authSecretHint')}
-      />
-      <Form.Select
-        field="user_scope"
-        label={t('mcp.columns.userScope')}
-        optionList={[
-          { value: 'SELECTED', label: t('mcp.scope.selected') },
-          { value: 'ALL', label: t('mcp.scope.all') }
-        ]}
-      />
-      <Form.Switch field="enabled" label={t('mcp.columns.enabled')} initValue />
-      <Form.InputNumber field="connect_timeout_ms" label={t('mcp.form.connectTimeout')} min={100} max={60000} />
-      <Form.InputNumber field="tool_cache_ttl_sec" label={t('mcp.form.cacheTtl')} min={1} max={86400} />
+      <div className="form-grid">
+        <Form.Input
+          field="name"
+          label={t('mcp.form.name')}
+          placeholder={t('mcp.form.namePlaceholder')}
+          rules={[{ required: true, message: t('mcp.form.name') }]}
+        />
+        <Form.Input
+          field="key"
+          label={t('mcp.form.key')}
+          placeholder="mss-kb"
+          disabled={props.server !== null}
+          rules={props.server ? [] : [{ required: true, message: t('mcp.form.key') }]}
+        />
+        <div className="form-field-full">
+          <Form.Input
+            field="endpoint"
+            label={t('mcp.form.endpoint')}
+            placeholder="http://mcp.internal/mcp"
+            extraText={t('mcp.form.transportHint')}
+            rules={[{ required: true, message: t('mcp.form.endpoint') }]}
+          />
+        </div>
+        <Form.Select
+          field="user_scope"
+          label={t('mcp.columns.userScope')}
+          optionList={[
+            { value: 'SELECTED', label: t('mcp.scope.selected') },
+            { value: 'ALL', label: t('mcp.scope.all') }
+          ]}
+        />
+        <Form.Select
+          field="enabled"
+          label={t('mcp.columns.enabled')}
+          optionList={[
+            { value: 'true', label: t('common.status.enabled') },
+            { value: 'false', label: t('common.status.disabled') }
+          ]}
+        />
+        <div className="form-field-banner">
+          <Banner type="info" closeIcon={null} description={t('mcp.form.banner')} />
+        </div>
+        <div className="form-section-title">{t('mcp.form.advancedSection')}</div>
+        <div className="form-section-hint">{t('mcp.form.advancedSectionHint')}</div>
+        <div className="form-field-full">
+          <Form.Input
+            field="auth_secret"
+            label={t('mcp.form.authSecret')}
+            mode="password"
+            placeholder={
+              props.server?.auth_secret_configured ? t('mcp.form.authSecretKeep') : t('mcp.form.authSecretHint')
+            }
+          />
+        </div>
+        <Form.InputNumber field="connect_timeout_ms" label={t('mcp.form.connectTimeout')} min={100} max={60000} />
+        <Form.InputNumber field="tool_cache_ttl_sec" label={t('mcp.form.cacheTtl')} min={1} max={86400} />
+      </div>
     </FormModal>
   );
 }

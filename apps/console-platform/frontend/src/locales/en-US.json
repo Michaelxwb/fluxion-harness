@@ -400,5 +400,10 @@
   "mcp.users.displayName": "Display name",
   "mcp.users.grantedAt": "Granted at",
   "mcp.users.emptyHint": "No selected users yet",
-  "mcp.users.allScopeHint": "Open to all users with access to bound agents"
+  "mcp.users.allScopeHint": "Open to all users with access to bound agents",
+  "mcp.form.saveAndDiscover": "Save & discover tools",
+  "mcp.form.advancedSection": "Advanced",
+  "mcp.form.advancedSectionHint": "Auth secret and connection parameters; all optional",
+  "mcp.form.banner": "After saving, the platform connects to the MCP Server and runs initialize + tools/list. The tool catalog inherits the server's user scope; V1.4 has no per-tool authorization.",
+  "mcp.form.namePlaceholder": "e.g. MSS Knowledge Retrieval"
 }
