@@ -475,7 +475,7 @@ class SkillService:
         user = await self._require_platform_user(tenant_id, user_id)
         grant = await self._grants.find(skill.id, user_id)
         if grant is not None and not grant.is_deleted:
-            return grant_item(grant, user)
+            raise AppError(ErrorCode.COMMON_CONFLICT)
         before = grant_snapshot(grant) if grant is not None else None
         if grant is None:
             grant = SkillUserGrant(

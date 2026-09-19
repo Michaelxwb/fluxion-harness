@@ -29,6 +29,31 @@ async def test_user_scope_and_grants(client: AsyncClient, skill_env: SkillContex
     assert empty.status_code == 200
     assert empty.json()["data"] == []
 
+    from sqlalchemy import func, select
+
+    from muad_console_platform.infrastructure.db import get_session_factory
+    from muad_console_platform.infrastructure.models.control import (
+        AgentAccessGrant,
+        AgentSkillBinding,
+        SkillUserGrant as SkillUserGrantModel,
+    )
+
+    async with get_session_factory()() as session:
+        access_before = (
+            await session.execute(
+                select(func.count()).select_from(AgentAccessGrant).where(
+                    AgentAccessGrant.user_id == skill_env.actor_user_id
+                )
+            )
+        ).scalar_one()
+        bindings_before = (
+            await session.execute(
+                select(func.count()).select_from(AgentSkillBinding).where(
+                    AgentSkillBinding.skill_id == skill_env.skill_all_id
+                )
+            )
+        ).scalar_one()
+
     granted = await client.post(
         f"/api/v1/skills/{skill_env.skill_all_id}/users/{skill_env.actor_user_id}",
         headers=tenant_headers(skill_env),
@@ -40,12 +65,41 @@ async def test_user_scope_and_grants(client: AsyncClient, skill_env: SkillContex
     assert grant["user_code"]
     assert grant["display_name"] == "Actor"
 
+    # [S-02] 只创建 SkillUserGrant，不产生新的 AgentAccessGrant/AgentSkillBinding
+    async with get_session_factory()() as session:
+        user_grants = (
+            await session.execute(
+                select(SkillUserGrantModel).where(
+                    SkillUserGrantModel.skill_id == skill_env.skill_all_id,
+                    SkillUserGrantModel.user_id == skill_env.actor_user_id,
+                )
+            )
+        ).scalars().all()
+        assert len(user_grants) == 1
+        assert not hasattr(user_grants[0], "expires_at")
+        access_after = (
+            await session.execute(
+                select(func.count()).select_from(AgentAccessGrant).where(
+                    AgentAccessGrant.user_id == skill_env.actor_user_id
+                )
+            )
+        ).scalar_one()
+        bindings_after = (
+            await session.execute(
+                select(func.count()).select_from(AgentSkillBinding).where(
+                    AgentSkillBinding.skill_id == skill_env.skill_all_id
+                )
+            )
+        ).scalar_one()
+    assert access_after == access_before
+    assert bindings_after == bindings_before
+
     repeated = await client.post(
         f"/api/v1/skills/{skill_env.skill_all_id}/users/{skill_env.actor_user_id}",
         headers=tenant_headers(skill_env),
     )
-    assert repeated.status_code == 200
-    assert repeated.json()["data"]["user_id"] == str(skill_env.actor_user_id)
+    assert repeated.status_code == 409
+    assert repeated.json()["code"] == "COMMON_CONFLICT"
 
     listed = (
         await client.get(
