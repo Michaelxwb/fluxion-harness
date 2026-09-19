@@ -39,28 +39,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "bb72d459a630406fa7f2d71d2245154d",
-        "executed_at": "2026-09-19T10:36:53.713469+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "bb72d459a630406fa7f2d71d2245154d",
-          "executed_at": "2026-09-19T10:36:53.713469+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-03",
@@ -120,7 +99,7 @@
       "kind": "e2e",
       "boundary": "Browser→MCP Server→DB→UI 注册+连接测试",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -128,7 +107,34 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-07",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "8a16e4092f0d4973be4fc15c46e11d43",
+        "executed_at": "2026-09-19T10:42:39.341833+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "1505cae880f3402ea777da29bac10c91",
+          "executed_at": "2026-09-19T10:41:30.115184+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "8a16e4092f0d4973be4fc15c46e11d43",
+          "executed_at": "2026-09-19T10:42:39.341833+00:00"
+        }
+      ]
     },
     {
       "id": "E-01",
@@ -191,28 +197,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "bb72d459a630406fa7f2d71d2245154d",
-        "executed_at": "2026-09-19T10:36:53.713469+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "bb72d459a630406fa7f2d71d2245154d",
-          "executed_at": "2026-09-19T10:36:53.713469+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-04",
@@ -299,7 +284,7 @@
       "kind": "functional",
       "boundary": "PUT API→UI MCP_CONFIG_INVALID 不覆盖表单",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -311,7 +296,38 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "8a16e4092f0d4973be4fc15c46e11d43",
+        "executed_at": "2026-09-19T10:42:39.341833+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 4,
+          "output": "no tests ran in 0.00s\nERROR: file or directory not found: tests/frontend/test_mcp_form_contract.py",
+          "revision": 1,
+          "run_id": "1505cae880f3402ea777da29bac10c91",
+          "executed_at": "2026-09-19T10:41:30.115184+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "8a16e4092f0d4973be4fc15c46e11d43",
+          "executed_at": "2026-09-19T10:42:39.341833+00:00"
+        }
+      ]
     },
     {
       "id": "E-09",
@@ -320,7 +336,7 @@
       "kind": "functional",
       "boundary": "API→Form transport 非法本地拦截",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -332,7 +348,38 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-09",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "8a16e4092f0d4973be4fc15c46e11d43",
+        "executed_at": "2026-09-19T10:42:39.341833+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 4,
+          "output": "no tests ran in 0.00s\nERROR: file or directory not found: tests/frontend/test_mcp_form_contract.py",
+          "revision": 1,
+          "run_id": "1505cae880f3402ea777da29bac10c91",
+          "executed_at": "2026-09-19T10:41:30.115184+00:00"
+        },
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "8a16e4092f0d4973be4fc15c46e11d43",
+          "executed_at": "2026-09-19T10:42:39.341833+00:00"
+        }
+      ]
     },
     {
       "id": "B-01",
@@ -429,28 +476,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-05",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "bb72d459a630406fa7f2d71d2245154d",
-        "executed_at": "2026-09-19T10:36:53.713469+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-05",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "bb72d459a630406fa7f2d71d2245154d",
-          "executed_at": "2026-09-19T10:36:53.713469+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-06",
