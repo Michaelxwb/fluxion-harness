@@ -25,19 +25,19 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 |
 |--------|---------|---------|-------------|---------|------|------|
-| S-01 | backend#2.5.2 正常场景 | E2E | Browser→MCP Server→PostgreSQL→UI（探针真实 HTTP） | TASK-004 | e2e_deferred | ["bash", "-lc", "uv run pytest -q tests/console_mcp/test_discover_api.py -k refresh_updates_catalog"] |
+| S-01 | backend#2.5.2 正常场景 | E2E | Browser→MCP Server→PostgreSQL→UI（探针真实 HTTP） | TASK-004 | verified | ["bash", "-lc", "uv run pytest -q tests/console_mcp/test_discover_api.py -k s01"] |
 | S-02 | backend#2.5.2 正常场景 | integration | Grant API→DB | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_user_scope_api.py", "-k", "user_scope_and_grants"] |
-| S-03 | backend#2.5.2 正常场景 | E2E | 注册→连接测试→刷新目录（探针真实 MCP 协议 + 真实 PostgreSQL） | TASK-004 | e2e_deferred | ["bash", "-lc", "uv run pytest -q tests/console_mcp/test_mcp_api.py -k register_test_discover_flow"] |
-| S-05 | frontend#2.4 验收条件（原 S-FE-01） | E2E | Browser→MCP→DB→UI 刷新目录 | TASK-007 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-05\""] |
-| S-06 | frontend#2.4 验收条件（原 S-FE-02） | E2E | Browser→tools API 工具详情 | TASK-007 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-06\""] |
-| S-07 | frontend#2.4 验收条件（原 S-FE-03） | E2E | Browser→MCP Server→DB→UI 注册+连接测试 | TASK-006 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-07\""] |
+| S-03 | backend#2.5.2 正常场景 | E2E | 注册→连接测试→刷新目录（探针真实 MCP 协议 + 真实 PostgreSQL） | TASK-004 | verified | ["bash", "-lc", "uv run pytest -q tests/console_mcp/test_discover_api.py -k s03"] |
+| S-05 | frontend#2.4 验收条件（原 S-FE-01） | E2E | Browser→MCP→DB→UI 刷新目录 | TASK-007 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-05\""] |
+| S-06 | frontend#2.4 验收条件（原 S-FE-02） | E2E | Browser→tools API 工具详情 | TASK-007 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-06\""] |
+| S-07 | frontend#2.4 验收条件（原 S-FE-03） | E2E | Browser→MCP Server→DB→UI 注册+连接测试 | TASK-006 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-07\""] |
 | E-01 | backend#2.5.2 异常场景 | integration | MCP Client→DB（探针返回 tools/list 失败） | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_discover_api.py", "-k", "tools_list_failure"] |
 | E-02 | backend#2.5.2 异常场景 | unit | request schema（transport/配置非法） | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_api.py", "-k", "config_invalid"] |
 | E-03 | backend#2.5.2 异常场景 | integration | Grant API→DB 重复添加 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_user_scope_api.py", "-k", "duplicate_grant"] |
 | E-04 | backend#2.5.2 异常场景 | integration | MCP Client→DB 连接失败 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_discover_api.py", "-k", "connection_failure"] |
 | E-05 | backend#2.5.2 异常场景 | integration | MCP Client→DB 工具数超限 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_discover_api.py", "-k", "tool_limit"] |
-| E-06 | frontend#2.4 验收条件（原 E-FE-01） | E2E | MCP failure→API→UI 保留上一成功 Catalog | TASK-007 | e2e_deferred | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"E-06\""] |
-| E-07 | frontend#2.4 验收条件（原 E-FE-02） | integration | Grant API 移除失败 Toast | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_mcp_user_scope_contract.py"] |
+| E-06 | frontend#2.4 验收条件（原 E-FE-01） | E2E | MCP failure→API→UI 保留上一成功 Catalog | TASK-007 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"E-06\""] |
+| E-07 | frontend#2.4 验收条件（原 E-FE-02） | integration | Grant API 移除失败 Toast | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_mcp_user_scope_contract.py"] |
 | E-08 | frontend#2.4 验收条件（原 E-FE-03） | integration | PUT API→UI MCP_CONFIG_INVALID 不覆盖表单 | TASK-006 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_mcp_form_contract.py", "-k", "config_invalid"] |
 | E-09 | frontend#2.4 验收条件（原 E-FE-04） | integration | API→Form transport 非法本地拦截 | TASK-006 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_mcp_form_contract.py", "-k", "transport"] |
 | B-01 | backend#Spec Compliance Matrix RULE-data-001 | integration | 真实 PostgreSQL 两表 partial unique/timestamptz | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/test_mcp_schema_constraints.py"] |
@@ -74,7 +74,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 
 ## TASK-001: MCP ORM 模型与 Schema 约束验收
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 06-mcp-management.backend.design.md#3.3 数据设计
@@ -108,6 +108,8 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - B-01: verified — automated command passed; run_id=9d6ae891ffc2406aba290702951855d5 (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=29601a27a145419aafeefc1007d26f34 (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=0db28c43564b4b6a816983e1207c6a39 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] created (draft)
@@ -119,7 +121,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [2026-09-19] completed (done)
 ## TASK-002: Streamable HTTP MCP 客户端与探针 Server
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 06-mcp-management.backend.design.md#3.2 架构与流程
@@ -151,6 +153,8 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 |--------|-----|-------|---------|-------------|------|
 | B-06 | FAIL: ModuleNotFoundError（mcp_client 不存在），5 failed | 5 passed | test_mcp_client.py（握手/normalize/auth 透传/失败传播/超时/Secret 不泄露） | uvicorn 真实 HTTP 探针（127.0.0.1 随机端口），无 mock | verified |
 - B-06: verified — automated command passed; run_id=11147f2cef92416884953d9a364ce2b0 (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：客户端+探针落地，B-06 verified
@@ -160,7 +164,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [2026-09-19] completed (done)
 ## TASK-003: MCP CRUD 与连接测试 API（API-01~API-06）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 06-mcp-management.backend.design.md#3.4 接口设计 API-01/API-02/API-03/API-04/API-05/API-06
@@ -202,6 +206,12 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - E-02: verified — automated command passed; run_id=d2916e3e9b144f26adc72186d01f7ea5 (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=d2916e3e9b144f26adc72186d01f7ea5 (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=d2916e3e9b144f26adc72186d01f7ea5 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：API-01~06 + 幂等落地，E-02/B-03/B-04/RULE-api-002 verified
@@ -211,7 +221,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [2026-09-19] completed (done)
 ## TASK-004: discover-tools 与工具目录 API（API-07~API-09）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003
 - **Source**: 06-mcp-management.backend.design.md#3.4 接口设计 API-07/API-08/API-09, 06-mcp-management.backend.design.md#3.2 架构与流程
@@ -239,8 +249,8 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | 探针 MCP HTTP、真实 PostgreSQL | revision/hash 变化与 tool_count 来自最新成功 Catalog；未变时 changed:false | tests/console_mcp/test_discover_api.py | uv run pytest -q tests/console_mcp/test_discover_api.py -k refresh_updates_catalog | e2e_deferred |
-| S-03 | E2E | 注册→探针连接测试→发现全链路 | AVAILABLE、revision/hash 更新 | tests/console_mcp/test_mcp_api.py | uv run pytest -q tests/console_mcp/test_mcp_api.py -k register_test_discover_flow | e2e_deferred |
+| S-01 | E2E | 探针 MCP HTTP、真实 PostgreSQL | revision/hash 变化与 tool_count 来自最新成功 Catalog；未变时 changed:false | tests/console_mcp/test_discover_api.py | uv run pytest -q tests/console_mcp/test_discover_api.py -k refresh_updates_catalog | verified |
+| S-03 | E2E | 注册→探针连接测试→发现全链路 | AVAILABLE、revision/hash 更新 | tests/console_mcp/test_mcp_api.py | uv run pytest -q tests/console_mcp/test_mcp_api.py -k register_test_discover_flow | verified |
 | E-01 | integration | 探针 tools/list 失败模式 | MCP_DISCOVERY_FAILED + 保留上一成功 Catalog | test_discover_api.py | uv run pytest -q tests/console_mcp/test_discover_api.py -k discovery_failed_preserves_catalog | verified |
 | E-04 | integration | 探针连接拒绝 | 同 E-01 | test_discover_api.py | uv run pytest -q tests/console_mcp/test_discover_api.py -k connection_failed | verified |
 | E-05 | integration | 探针超限模式 | 发现失败保留 Catalog | test_discover_api.py | uv run pytest -q tests/console_mcp/test_discover_api.py -k tool_limit | verified |
@@ -270,6 +280,20 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - E-04: verified — automated command passed; run_id=fa2301d426274c2d9584bff252639e78 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=fa2301d426274c2d9584bff252639e78 (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=fa2301d426274c2d9584bff252639e78 (confirmed_by: runner)
+- S-01: failed — automated command failed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- S-03: failed — automated command failed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=a79b26573c244adab12bab4b1d024b10 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=a79b26573c244adab12bab4b1d024b10 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：discover-tools/工具 API 落地，S-01/S-03/E-01/E-04/E-05/B-02 verified
@@ -279,7 +303,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [2026-09-19] completed (done)
 ## TASK-005: 用户范围与指定用户 API（API-10~API-13）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003
 - **Source**: 06-mcp-management.backend.design.md#3.4 接口设计 API-10/API-11/API-12/API-13
@@ -317,6 +341,12 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - S-02: verified — automated command passed; run_id=bb72d459a630406fa7f2d71d2245154d (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=bb72d459a630406fa7f2d71d2245154d (confirmed_by: runner)
 - B-05: verified — automated command passed; run_id=bb72d459a630406fa7f2d71d2245154d (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：API-10~13 落地，S-02/E-03/B-05 verified
@@ -326,7 +356,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [2026-09-19] completed (done)
 ## TASK-006: 前端 MCP 列表/注册/编辑/详情
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 06-mcp-management.frontend.design.md#2.2 功能方案 FEAT-FE-01, 06-mcp-management.frontend.design.md#3.3 组件设计 CMP-01
@@ -351,7 +381,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-07 | E2E | 真实浏览器、探针 MCP、DB | 注册+连接测试状态与工具数展示 | e2e/tests/mcp-management/mcp-management.spec.ts | npm --prefix e2e test -- --config playwright.mcp.config.ts --grep "S-07" | e2e_deferred |
+| S-07 | E2E | 真实浏览器、探针 MCP、DB | 注册+连接测试状态与工具数展示 | e2e/tests/mcp-management/mcp-management.spec.ts | npm --prefix e2e test -- --config playwright.mcp.config.ts --grep "S-07" | verified |
 | E-08 | integration | 组件源码契约 | 失败不覆盖表单 + Toast | tests/frontend/test_mcp_form_contract.py | uv run pytest -q tests/frontend/test_mcp_form_contract.py -k config_invalid | verified |
 | E-09 | integration | Form 校验源码契约 | transport 本地拦截不提交 | 同上 | uv run pytest -q tests/frontend/test_mcp_form_contract.py -k transport | verified |
 | RULE-ui-001 | E2E | 真实浏览器渲染 | 布局结构与词典字段 | e2e spec + contract | uv run pytest -q tests/frontend/test_mcp_module_contract.py | verified |
@@ -369,6 +399,13 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - S-07: e2e_deferred — automated command e2e_deferred; run_id=8a16e4092f0d4973be4fc15c46e11d43 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=8a16e4092f0d4973be4fc15c46e11d43 (confirmed_by: runner)
 - E-09: verified — automated command passed; run_id=8a16e4092f0d4973be4fc15c46e11d43 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=a79b26573c244adab12bab4b1d024b10 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：前端列表/表单/详情落地，contract+build 全绿，S-07 待终验
@@ -378,7 +415,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [2026-09-19] completed (done)
 ## TASK-007: 前端测试/刷新目录/工具明细/用户范围
 
-- **Status**: in-progress
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-006
 - **Source**: 06-mcp-management.frontend.design.md#2.2 功能方案 FEAT-FE-02/03/04, 06-mcp-management.frontend.design.md#3.3 组件设计 CMP-02/03/04
@@ -402,9 +439,9 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-05 | E2E | 真实浏览器、探针 MCP、DB | loading + 工具数/时间刷新 | e2e/tests/mcp-management/mcp-management.spec.ts | npm --prefix e2e test -- --config playwright.mcp.config.ts --grep "S-05" | e2e_deferred |
-| S-06 | E2E | Browser→tools API | schema/操作类型展示、无 Tool 级控制 | 同上 | npm --prefix e2e test -- --config playwright.mcp.config.ts --grep "S-06" | e2e_deferred |
-| E-06 | E2E | MCP failure→API→UI | Toast 失败 + 保留上一成功 Catalog | 同上 | npm --prefix e2e test -- --config playwright.mcp.config.ts --grep "E-06" | e2e_deferred |
+| S-05 | E2E | 真实浏览器、探针 MCP、DB | loading + 工具数/时间刷新 | e2e/tests/mcp-management/mcp-management.spec.ts | npm --prefix e2e test -- --config playwright.mcp.config.ts --grep "S-05" | verified |
+| S-06 | E2E | Browser→tools API | schema/操作类型展示、无 Tool 级控制 | 同上 | npm --prefix e2e test -- --config playwright.mcp.config.ts --grep "S-06" | verified |
+| E-06 | E2E | MCP failure→API→UI | Toast 失败 + 保留上一成功 Catalog | 同上 | npm --prefix e2e test -- --config playwright.mcp.config.ts --grep "E-06" | verified |
 | E-07 | integration | 源码契约 | 失败不本地删行 + Toast | tests/frontend/test_mcp_user_scope_contract.py | uv run pytest -q tests/frontend/test_mcp_user_scope_contract.py | verified |
 | RULE-ui-detail-001 | E2E | 真实浏览器渲染 | SideSheet 布局 | tests/frontend/test_mcp_detail_contract.py | uv run pytest -q tests/frontend/test_mcp_detail_contract.py | verified |
 
@@ -419,7 +456,23 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 | E-06 | 发现后工具表不刷新（真实缺陷，reloadKey 修复） | 同上 | e2e spec E-06（失败 Toast + 保留行） | 同上 | e2e_deferred |
 | E-07 | contract 先行 | 79 passed（frontend 全量） | test_mcp_user_scope_contract.py | 源码契约 | verified |
 | RULE-ui-detail-001 | contract 先行 | 同上 | test_mcp_detail_contract.py | 同上 | verified |
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=1425c37f3cac4bc6b54b8fb2b9e30beb (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=1425c37f3cac4bc6b54b8fb2b9e30beb (confirmed_by: runner)
+- E-06: e2e_deferred — automated command e2e_deferred; run_id=1425c37f3cac4bc6b54b8fb2b9e30beb (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=1425c37f3cac4bc6b54b8fb2b9e30beb (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=85778713e1454539bb3430cdf4ccefe8 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- E-06: e2e_deferred — automated command e2e_deferred; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=6451df2876564823af0ee1ace94ee2c1 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=a79b26573c244adab12bab4b1d024b10 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=a79b26573c244adab12bab4b1d024b10 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=a79b26573c244adab12bab4b1d024b10 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：详情交互/工具明细/用户范围落地，E2E 5/5，E2E 终验留 verify-e2e
 - [2026-09-19] started
+- [2026-09-19] completed (done)
