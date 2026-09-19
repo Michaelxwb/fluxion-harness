@@ -26,6 +26,7 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
   const [artifactDetailId, setArtifactDetailId] = useState<string | null>(null);
   const [importVisible, setImportVisible] = useState(false);
   const [scopeVisible, setScopeVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState('basic');
 
   const reload = useCallback(async () => {
     if (!props.skill) {
@@ -63,6 +64,8 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
         visible
         title={props.skill.name}
         subtitle={props.skill.key}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         onCancel={props.onCancel}
         actions={
           <>
@@ -190,6 +193,7 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
         onCancel={() => setImportVisible(false)}
         onSaved={() => {
           setImportVisible(false);
+          setActiveTab('artifacts');
           void reload();
           props.onSkillMutated?.();
         }}

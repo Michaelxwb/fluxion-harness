@@ -1,0 +1,1371 @@
+{
+  "schema": 2,
+  "task_file": "05-skill-management.md",
+  "task_sha256": "1f3df4fa57ee7e3e67c85075b82792a8a2ca3bc02c89c6e6e4bcbfd2fbf8cae0",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "backend#2.5.2 正常场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Upload API→NFS→PostgreSQL",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_skill/test_import_api.py -k import_creates_skill_and_artifact"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 5,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+        "executed_at": "2026-09-19T04:42:00.824155+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "65228ffbb91d4fca949b0d1f8e5bd2be",
+          "executed_at": "2026-09-19T04:24:02.579340+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+          "executed_at": "2026-09-19T04:42:00.824155+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-02",
+      "source": "backend#2.5.2 正常场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Grant service→DB",
+      "owner": "TASK-006",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_skill/test_user_scope_api.py",
+        "-k",
+        "user_scope_and_grants"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-03",
+      "source": "backend#2.5.2 正常场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Upload→Snapshot semantics",
+      "owner": "TASK-007",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/console_skill/test_snapshot_freeze.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 5,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+        "executed_at": "2026-09-19T04:42:00.824155+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "65228ffbb91d4fca949b0d1f8e5bd2be",
+          "executed_at": "2026-09-19T04:24:02.579340+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+          "executed_at": "2026-09-19T04:42:00.824155+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-04",
+      "source": "backend#2.5.2 正常场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→DB",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_skill/test_import_idempotency.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-05",
+      "source": "frontend#2.4 验收条件（原 S-FE-01）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser Upload→NFS/DB→UI",
+      "owner": "TASK-009",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.skill.config.ts --grep \"S-05\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 5,
+      "evidence": {
+        "id": "S-05",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+        "executed_at": "2026-09-19T04:42:00.824155+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "> fluxion-harness-e2e@0.1.0 test\n> playwright test --config playwright.skill.config.ts --grep S-05\n\n\nRunning 1 test using 1 worker\n\n  ✘  1 tests/skill-management/skill-management.spec.ts:100:1 › S-05 导入合法 Skill 后列表出现新 Skill 且默认 SELECTED (7.0s)\n\n\n  1) tests/skill-management/skill-management.spec.ts:100:1 › S-05 导入合法 Skill 后列表出现新 Skill 且默认 SELECTED \n\n    Error: expect(locator).toBeVisible() failed\n\n    Locator: locator('.semi-table-row').filter({ hasText: 'e2e-s05-1789791709590' })\n    Expected: visible\n    Timeout: 5000ms\n    Error: element(s) not found\n\n    Call log:\n      - Expect \"toBeVisible\" locator('.semi-table-row').filter({ hasText: 'e2e-s05-1789791709590' }) with timeout 5000ms\n      - waiting for locator('.semi-table-row').filter({ hasText: 'e2e-s05-1789791709590' })\n\n\n      104 |\n      105 |   const row = page.locator('.semi-table-row', { hasText: key });\n    > 106 |   await expect(row).toBeVisible();\n          |                     ^\n      107 |   await expect(row).toContainText('指定用户');\n      108 |   await expect(row).toContainText('1.0.0');\n      109 | });\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/skill-management/skill-management.spec.ts:106:21\n\n    Error Context: test-results/skill-management-S-05-导入合法-Skill-后列表出现新-Skill-且默认-SELECTED/error-context.md\n\n    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/skill-management-S-05-导入合法-Skill-后列表出现新-Skill-且默认-SELECTED/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/skill-management-S-05-导入合法-Skill-后列表出现新-Skill-且默认-SELECTED/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/skill-management/skill-management.spec.ts:100:1 › S-05 导入合法 Skill 后列表出现新 Skill 且默认 SELECTED",
+          "revision": 2,
+          "run_id": "65228ffbb91d4fca949b0d1f8e5bd2be",
+          "executed_at": "2026-09-19T04:24:02.579340+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+          "executed_at": "2026-09-19T04:42:00.824155+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-06",
+      "source": "frontend#2.4 验收条件（原 S-FE-02）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→artifact API",
+      "owner": "TASK-010",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.skill.config.ts --grep \"S-06\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 5,
+      "evidence": {
+        "id": "S-06",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+        "executed_at": "2026-09-19T04:42:00.824155+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "failed",
+          "error": "timeout",
+          "output": "\n> fluxion-harness-e2e@0.1.0 test\n> playwright test --config playwright.skill.config.ts --grep S-06\n\n\nRunning 1 test using 1 worker\n\n",
+          "revision": 2,
+          "run_id": "65228ffbb91d4fca949b0d1f8e5bd2be",
+          "executed_at": "2026-09-19T04:24:02.579340+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+          "executed_at": "2026-09-19T04:42:00.824155+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-07",
+      "source": "frontend#2.4 验收条件（原 S-FE-03）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→scope API",
+      "owner": "TASK-011",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.skill.config.ts --grep \"S-07\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 6,
+      "evidence": {
+        "id": "S-07",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 6,
+        "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+        "executed_at": "2026-09-19T04:42:00.824155+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "30b1c541401c4af8b7791bec4f96e00a",
+          "executed_at": "2026-09-19T04:20:05.555412+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "> fluxion-harness-e2e@0.1.0 test\n> playwright test --config playwright.skill.config.ts --grep S-07\n\n\nRunning 1 test using 1 worker\n\n  ✘  1 tests/skill-management/skill-management.spec.ts:180:1 › S-07 ALL 范围的指定用户 Tab 只提示不提供维护操作 (1.4s)\n\n\n  1) tests/skill-management/skill-management.spec.ts:180:1 › S-07 ALL 范围的指定用户 Tab 只提示不提供维护操作 ───────\n\n    TypeError: Cannot read properties of undefined (reading 'id')\n\n      184 |   await importViaUi(page, key, skillZip({ 'SKILL.md': skillMd('E2E S07 Skill'), 'scripts/run.py': 'print(1)\\n' }));\n      185 |   const list = (await page.request.get(`/api/v1/skills?keyword=${key}`)).json();\n    > 186 |   const skillId = ((await list).data.items[0] as { id: string }).id;\n          |                                                                  ^\n      187 |   await page.request.put(`/api/v1/skills/${skillId}/user-scope`, { data: { user_scope: 'ALL' } });\n      188 |\n      189 |   await page.getByTestId(`skill-link-${key}`).click();\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/skill-management/skill-management.spec.ts:186:66\n\n    Error Context: test-results/skill-management-S-07-ALL-范围的指定用户-Tab-只提示不提供维护操作/error-context.md\n\n    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/skill-management-S-07-ALL-范围的指定用户-Tab-只提示不提供维护操作/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/skill-management-S-07-ALL-范围的指定用户-Tab-只提示不提供维护操作/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/skill-management/skill-management.spec.ts:180:1 › S-07 ALL 范围的指定用户 Tab 只提示不提供维护操作 ────────",
+          "revision": 3,
+          "run_id": "65228ffbb91d4fca949b0d1f8e5bd2be",
+          "executed_at": "2026-09-19T04:24:02.579340+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "> fluxion-harness-e2e@0.1.0 test\n> playwright test --config playwright.skill.config.ts --grep S-07\n\n\nRunning 1 test using 1 worker\n\n  ✘  1 tests/skill-management/skill-management.spec.ts:142:1 › S-07 ALL 范围的指定用户 Tab 只提示不提供维护操作 (7.6s)\n\n\n  1) tests/skill-management/skill-management.spec.ts:142:1 › S-07 ALL 范围的指定用户 Tab 只提示不提供维护操作 ───────\n\n    Error: expect(locator).toContainText(expected) failed\n\n    Locator: locator('.semi-sidesheet')\n    Expected substring: \"当前对所有拥有对应 Agent 使用权的用户开放\"\n    Received string:    \"E2E S07 Skille2e-s07-1789792773751变更用户范围导入新版本基本信息版本记录使用 Agent指定用户当前仅对指定用户开放，需同时拥有对应 Agent 使用权Skill keye2e-s07-1789792773751名称E2E S07 Skill描述E2E skill.当前版本1.0.0执行模式SYNC用户范围指定用户启用状态启用skill.detail.agentCount0skill.detail.userCount01.0.0当前版本2026-09-19 12:39:35当前有 0 个 Agent 绑定该 Skill选择用户添加指定用户用户标识用户名称授权时间操作暂无数据尚未指定用户\"\n    Timeout: 5000ms\n\n    Call log:\n      - Expect \"toContainText\" locator('.semi-sidesheet') with timeout 5000ms\n      - waiting for locator('.semi-sidesheet')\n        14 × locator resolved to <div class=\"semi-sidesheet semi-sidesheet-right\">…</div>\n           - unexpected value \"E2E S07 Skille2e-s07-1789792773751变更用户范围导入新版本基本信息版本记录使用 Agent指定用户当前仅对指定用户开放，需同时拥有对应 Agent 使用权Skill keye2e-s07-1789792773751名称E2E S07 Skill描述E2E skill.当前版本1.0.0执行模式SYNC用户范围指定用户启用状态启用skill.detail.agentCount0skill.detail.userCount01.0.0当前版本2026-09-19 12:39:35当前有 0 个 Agent 绑定该 Skill选择用户添加指定用户用户标识用户名称授权时间操作暂无数据尚未指定用户\"\n\n\n      154 |   const sheet = page.locator('.semi-sidesheet');\n      155 |   await sheet.getByText('指定用户').last().click();\n    > 156 |   await expect(sheet).toContainText('当前对所有拥有对应 Agent 使用权的用户开放');\n          |                       ^\n      157 |   await expect(sheet.getByTestId('add-selected-user')).toHaveCount(0);\n      158 | });\n      159 |\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/skill-management/skill-management.spec.ts:156:23\n\n    Error Context: test-results/skill-management-S-07-ALL-范围的指定用户-Tab-只提示不提供维护操作/error-context.md\n\n    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/skill-management-S-07-ALL-范围的指定用户-Tab-只提示不提供维护操作/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/skill-management-S-07-ALL-范围的指定用户-Tab-只提示不提供维护操作/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/skill-management/skill-management.spec.ts:142:1 › S-07 ALL 范围的指定用户 Tab 只提示不提供维护操作 ────────",
+          "revision": 4,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 6,
+          "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+          "executed_at": "2026-09-19T04:42:00.824155+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-01",
+      "source": "backend#2.5.2 异常场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Validator→NFS/DB",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_skill/test_import_api.py",
+        "-k",
+        "invalid_packages"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-02",
+      "source": "backend#2.5.2 异常场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Skill SDK→Egress",
+      "owner": "TASK-008",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/sdk/test_skill_context.py",
+        "-k",
+        "exposes_all_ports"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-03",
+      "source": "backend#2.5.2 异常场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API→DB",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_skill/test_artifacts_api.py",
+        "-k",
+        "rejects_duplicate"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-04",
+      "source": "backend#2.5.2 异常场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Validator→Secret Scan",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_skill/test_import_api.py",
+        "-k",
+        "invalid_packages"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-05",
+      "source": "frontend#2.4 验收条件（原 E-FE-01）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Validation API→Modal",
+      "owner": "TASK-009",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.skill.config.ts --grep \"E-05\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 5,
+      "evidence": {
+        "id": "E-05",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+        "executed_at": "2026-09-19T04:42:00.824155+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "65228ffbb91d4fca949b0d1f8e5bd2be",
+          "executed_at": "2026-09-19T04:24:02.579340+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+          "executed_at": "2026-09-19T04:42:00.824155+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-06",
+      "source": "frontend#2.4 验收条件（原 E-FE-02）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Grant API→UI",
+      "owner": "TASK-011",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_skill_user_scope_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "E-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 4,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "30b1c541401c4af8b7791bec4f96e00a",
+          "executed_at": "2026-09-19T04:20:05.555412+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-07",
+      "source": "frontend#2.4 验收条件（原 E-FE-03）",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Artifact API→UI",
+      "owner": "TASK-010",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix e2e test -- --config playwright.skill.config.ts --grep \"E-07\""
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 5,
+      "evidence": {
+        "id": "E-07",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+        "executed_at": "2026-09-19T04:42:00.824155+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "failed",
+          "error": "timeout",
+          "output": "\n> fluxion-harness-e2e@0.1.0 test\n> playwright test --config playwright.skill.config.ts --grep E-07\n\n\nRunning 1 test using 1 worker\n\n",
+          "revision": 2,
+          "run_id": "65228ffbb91d4fca949b0d1f8e5bd2be",
+          "executed_at": "2026-09-19T04:24:02.579340+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "3f213f7b14ea4f54ae045e7650b7d2dc",
+          "executed_at": "2026-09-19T04:42:00.824155+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-01",
+      "source": "backend#2.5.2 边界场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "导入校验（zip 大小 50MiB/50MiB+1）",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_skill/test_import_api.py",
+        "-k",
+        "zip_over_size"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-02",
+      "source": "backend#2.5.2 边界场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "导入校验（解压后 200MiB/200MiB+1）",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_skill/test_import_api.py",
+        "-k",
+        "unpacked_size"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-03",
+      "source": "backend#2.5.2 边界场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "导入校验（文件数 2000/2001）",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_skill/test_import_api.py",
+        "-k",
+        "too_many_entries"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "B-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-04",
+      "source": "backend#2.5.2 边界场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "扩展名/路径/符号链接/嵌套包",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_skill/test_import_api.py",
+        "-k",
+        "invalid_packages"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "B-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-05",
+      "source": "backend#Spec Compliance Matrix RULE-data-001",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PostgreSQL 三表 partial unique/timestamptz",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/test_skill_schema_constraints.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "B-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "B-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "B-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-06",
+      "source": "backend#Spec Compliance Matrix RULE-skill-001",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实目录 + 真实 PostgreSQL 孤儿清理/不可变",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_skill/test_orphan_cleanup.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "B-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "B-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "B-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-07",
+      "source": "backend#Spec Compliance Matrix RULE-api-001",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 HTTP + 真实 PostgreSQL 封套/分页",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_skill/test_skill_api.py",
+        "tests/acceptance/test_foundation_api_envelope.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "B-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+        "executed_at": "2026-09-19T04:41:33.259775+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "db7e83ac9fd44f919aae03b4469deb54",
+          "executed_at": "2026-09-19T04:21:40.783653+00:00"
+        },
+        {
+          "id": "B-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "1575e5a6a2ad4295b0a8f58df216e497",
+          "executed_at": "2026-09-19T04:40:01.606581+00:00"
+        },
+        {
+          "id": "B-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "99bac8a80d824afeb2c9ebd2d40114b4",
+          "executed_at": "2026-09-19T04:41:33.259775+00:00"
+        }
+      ]
+    }
+  ]
+}

@@ -18,7 +18,6 @@ export interface SkillImportModalProps {
 }
 
 interface FormValues {
-  file?: File;
   version: string;
   key?: string;
   default_script?: string;
@@ -28,12 +27,14 @@ interface FormValues {
 export function SkillImportModal(props: SkillImportModalProps) {
   const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
   const formApi = useRef<FormApi | null>(null);
 
   useEffect(() => {
     if (!props.visible) {
       return;
     }
+    setFile(null);
     formApi.current?.reset();
     if (!props.skillId) {
       formApi.current?.setValues({ user_scope: 'SELECTED' });
@@ -41,24 +42,24 @@ export function SkillImportModal(props: SkillImportModalProps) {
   }, [props.visible]);
 
   const submit = async (values: FormValues): Promise<void> => {
-    if (!values.file) {
+    if (!file) {
       Toast.error(t('skill.import.fileRequired'));
       return;
     }
-    if (!values.file.name.toLowerCase().endsWith('.zip')) {
+    if (!file.name.toLowerCase().endsWith('.zip')) {
       Toast.error(t('skill.import.zipOnly'));
       return;
     }
-    if (values.file.size > SKILL_ZIP_LIMIT_BYTES) {
+    if (file.size > SKILL_ZIP_LIMIT_BYTES) {
       Toast.error(t('skill.import.tooLarge', { limit: '50MiB' }));
       return;
     }
     setSaving(true);
     try {
       const saved = props.skillId
-        ? await importArtifact(props.skillId, values.file, values.version)
+        ? await importArtifact(props.skillId, file, values.version)
         : await importSkill({
-            file: values.file,
+            file,
             version: values.version,
             key: values.key || undefined,
             default_script: values.default_script || undefined,
@@ -95,9 +96,9 @@ export function SkillImportModal(props: SkillImportModalProps) {
         draggable
         dragMainText={t('skill.import.dragMain')}
         dragSubText={t('skill.import.dragSub', { limit: '50MiB' })}
+        onRemove={() => setFile(null)}
         onFileChange={(files) => {
-          const item = (files as Array<{ fileInstance?: File }>)[0];
-          formApi.current?.setValue('file', item?.fileInstance ?? undefined);
+          setFile(files[0] ?? null);
         }}
         customRequest={() => undefined}
       />

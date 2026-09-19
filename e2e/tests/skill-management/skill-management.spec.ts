@@ -1,3 +1,4 @@
+import AdmZip from 'adm-zip';
 import { expect, test, type Page } from '@playwright/test';
 
 const ADMIN_USER = process.env.E2E_ADMIN_USER ?? 'admin';
@@ -24,57 +25,12 @@ function skillZip(files: Record<string, string>): Buffer {
   return buildZip(files);
 }
 
-function crc32(data: Buffer): number {
-  let crc = 0xffffffff;
-  for (const byte of data) {
-    crc ^= byte;
-    for (let bit = 0; bit < 8; bit += 1) {
-      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
-    }
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
 function buildZip(files: Record<string, string>): Buffer {
-  const chunks: Buffer[] = [];
-  const central: Buffer[] = [];
-  let offset = 0;
+  const zip = new AdmZip();
   for (const [name, content] of Object.entries(files)) {
-    const nameBuf = Buffer.from(name, 'utf8');
-    const data = Buffer.from(content, 'utf8');
-    const local = Buffer.alloc(30);
-    local.writeUInt32LE(0x04034b50, 0);
-    local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(0, 6);
-    local.writeUInt16LE(0, 8);
-    local.writeUInt16LE(0, 10);
-    local.writeUInt16LE(0, 12);
-    local.writeUInt32LE(crc32(data), 14);
-    local.writeUInt32LE(data.length, 18);
-    local.writeUInt32LE(data.length, 22);
-    local.writeUInt16LE(nameBuf.length, 26);
-    local.writeUInt16LE(0, 28);
-    chunks.push(local, nameBuf, data);
-    const entry = Buffer.alloc(46);
-    entry.writeUInt32LE(0x02014b50, 0);
-    entry.writeUInt16LE(20, 4);
-    entry.writeUInt16LE(20, 6);
-    entry.writeUInt32LE(crc32(data), 16);
-    entry.writeUInt32LE(data.length, 20);
-    entry.writeUInt32LE(data.length, 24);
-    entry.writeUInt16LE(nameBuf.length, 28);
-    entry.writeUInt32LE(offset, 42);
-    central.push(entry, nameBuf);
-    offset += local.length + nameBuf.length + data.length;
+    zip.addFile(name, Buffer.from(content, 'utf8'));
   }
-  const centralBuf = Buffer.concat(central);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(Object.keys(files).length, 8);
-  end.writeUInt16LE(Object.keys(files).length, 10);
-  end.writeUInt32LE(centralBuf.length, 12);
-  end.writeUInt32LE(offset, 16);
-  return Buffer.concat([...chunks, centralBuf, end]);
+  return zip.toBuffer();
 }
 
 function skillMd(name: string): string {
@@ -94,6 +50,7 @@ async function importViaUi(page: Page, key: string, zip: Buffer): Promise<void> 
     mimeType: 'application/zip',
     buffer: zip
   });
+  await expect(modal.locator('.semi-upload')).toContainText('skill.zip');
   await modal.locator('.semi-modal-footer .semi-button-primary').click();
 }
 
@@ -137,7 +94,8 @@ test('S-06 详情导入新版本后版本记录新增且 Header 当前版本更�
   await importViaUi(page, key, skillZip({ 'SKILL.md': skillMd('E2E S06 Skill'), 'scripts/run.py': 'print(1)\n' }));
   await page.getByTestId(`skill-link-${key}`).click();
   const sheet = page.locator('.semi-sidesheet');
-  await expect(sheet).toContainText('1.0.0');
+  await sheet.getByRole('tab', { name: '版本记录' }).click();
+  await expect(page.getByTestId('artifact-list')).toContainText('1.0.0');
 
   await sheet.getByTestId('import-artifact').click();
   const modal = page.locator('.semi-modal');
@@ -152,7 +110,7 @@ test('S-06 详情导入新版本后版本记录新增且 Header 当前版本更�
   await modal.locator('.semi-modal-footer .semi-button-primary').click();
 
   await expect(page.getByTestId('artifact-list')).toContainText('2.0.0');
-  await expect(sheet.getByTestId('artifact-link-2.0.0')).toBeVisible();
+  await expect(page.getByTestId('artifact-link-2.0.0')).toBeVisible();
 });
 
 test('E-07 导入重复版本时 Toast 提示且版本列表不新增重复行', async ({ page }) => {
@@ -160,6 +118,7 @@ test('E-07 导入重复版本时 Toast 提示且版本列表不新增重复行',
   await login(page);
   const zip = skillZip({ 'SKILL.md': skillMd('E2E E07 Skill'), 'scripts/run.py': 'print(1)\n' });
   await importViaUi(page, key, zip);
+  await expect(page.locator('.semi-table-row', { hasText: key })).toContainText('1.0.0');
   await page.getByTestId(`skill-link-${key}`).click();
   const sheet = page.locator('.semi-sidesheet');
   await expect(page.getByTestId('artifact-list')).toContainText('1.0.0');
@@ -173,7 +132,10 @@ test('E-07 导入重复版本时 Toast 提示且版本列表不新增重复行',
   await modal.locator('.semi-modal-footer .semi-button-primary').click();
 
   await expect(page.locator('.semi-toast-content')).toBeVisible();
-  const rows = sheet.getByTestId('artifact-list').getByRole('button', { name: '1.0.0' });
+  const rows = page
+    .getByTestId('artifact-list')
+    .locator('li')
+    .filter({ hasText: '1.0.0' });
   await expect(rows).toHaveCount(1);
 });
 
@@ -182,9 +144,15 @@ test('S-07 ALL 范围的指定用户 Tab 只提示不提供维护操作', async 
   await login(page);
   // 导入后切到 ALL
   await importViaUi(page, key, skillZip({ 'SKILL.md': skillMd('E2E S07 Skill'), 'scripts/run.py': 'print(1)\n' }));
-  const list = (await page.request.get(`/api/v1/skills?keyword=${key}`)).json();
-  const skillId = ((await list).data.items[0] as { id: string }).id;
-  await page.request.put(`/api/v1/skills/${skillId}/user-scope`, { data: { user_scope: 'ALL' } });
+  const payload = (await (await page.request.get(`/api/v1/skills?keyword=${key}`)).json()) as {
+    data: { items: Array<{ id: string; user_scope: string }> };
+  };
+  const created = payload.data.items[0];
+  expect(created).toBeTruthy();
+  const scopeResponse = await page.request.put(`/api/v1/skills/${created.id}/user-scope`, {
+    data: { user_scope: 'ALL' }
+  });
+  expect(scopeResponse.ok()).toBeTruthy();
 
   await page.getByTestId(`skill-link-${key}`).click();
   const sheet = page.locator('.semi-sidesheet');
