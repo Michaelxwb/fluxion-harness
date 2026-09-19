@@ -25,16 +25,16 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 |
 |--------|---------|---------|-------------|---------|------|------|
-| S-01 | backend#2.5.2 正常场景 | E2E | Browser→MCP Server→PostgreSQL→UI（探针真实 HTTP） | TASK-004 | verified | ["bash", "-lc", "uv run pytest -q tests/console_mcp/test_discover_api.py -k refresh_updates_catalog"] |
+| S-01 | backend#2.5.2 正常场景 | E2E | Browser→MCP Server→PostgreSQL→UI（探针真实 HTTP） | TASK-004 | e2e_deferred | ["bash", "-lc", "uv run pytest -q tests/console_mcp/test_discover_api.py -k refresh_updates_catalog"] |
 | S-02 | backend#2.5.2 正常场景 | integration | Grant API→DB | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_user_scope_api.py", "-k", "user_scope_and_grants"] |
-| S-03 | backend#2.5.2 正常场景 | E2E | 注册→连接测试→刷新目录（探针真实 MCP 协议 + 真实 PostgreSQL） | TASK-004 | verified | ["bash", "-lc", "uv run pytest -q tests/console_mcp/test_mcp_api.py -k register_test_discover_flow"] |
+| S-03 | backend#2.5.2 正常场景 | E2E | 注册→连接测试→刷新目录（探针真实 MCP 协议 + 真实 PostgreSQL） | TASK-004 | e2e_deferred | ["bash", "-lc", "uv run pytest -q tests/console_mcp/test_mcp_api.py -k register_test_discover_flow"] |
 | S-05 | frontend#2.4 验收条件（原 S-FE-01） | E2E | Browser→MCP→DB→UI 刷新目录 | TASK-007 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-05\""] |
 | S-06 | frontend#2.4 验收条件（原 S-FE-02） | E2E | Browser→tools API 工具详情 | TASK-007 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-06\""] |
 | S-07 | frontend#2.4 验收条件（原 S-FE-03） | E2E | Browser→MCP Server→DB→UI 注册+连接测试 | TASK-006 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-07\""] |
-| E-01 | backend#2.5.2 异常场景 | integration | MCP Client→DB（探针返回 tools/list 失败） | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_discover_api.py", "-k", "discovery_failed_preserves_catalog"] |
+| E-01 | backend#2.5.2 异常场景 | integration | MCP Client→DB（探针返回 tools/list 失败） | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_discover_api.py", "-k", "tools_list_failure"] |
 | E-02 | backend#2.5.2 异常场景 | unit | request schema（transport/配置非法） | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_api.py", "-k", "config_invalid"] |
 | E-03 | backend#2.5.2 异常场景 | integration | Grant API→DB 重复添加 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_user_scope_api.py", "-k", "duplicate_grant"] |
-| E-04 | backend#2.5.2 异常场景 | integration | MCP Client→DB 连接失败 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_discover_api.py", "-k", "connection_failed"] |
+| E-04 | backend#2.5.2 异常场景 | integration | MCP Client→DB 连接失败 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_discover_api.py", "-k", "connection_failure"] |
 | E-05 | backend#2.5.2 异常场景 | integration | MCP Client→DB 工具数超限 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_discover_api.py", "-k", "tool_limit"] |
 | E-06 | frontend#2.4 验收条件（原 E-FE-01） | E2E | MCP failure→API→UI 保留上一成功 Catalog | TASK-007 | planned | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"E-06\""] |
 | E-07 | frontend#2.4 验收条件（原 E-FE-02） | integration | Grant API 移除失败 Toast | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_mcp_user_scope_contract.py"] |
@@ -211,7 +211,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [2026-09-19] completed (done)
 ## TASK-004: discover-tools 与工具目录 API（API-07~API-09）
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003
 - **Source**: 06-mcp-management.backend.design.md#3.4 接口设计 API-07/API-08/API-09, 06-mcp-management.backend.design.md#3.2 架构与流程
@@ -239,8 +239,8 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | 探针 MCP HTTP、真实 PostgreSQL | revision/hash 变化与 tool_count 来自最新成功 Catalog；未变时 changed:false | tests/console_mcp/test_discover_api.py | uv run pytest -q tests/console_mcp/test_discover_api.py -k refresh_updates_catalog | verified |
-| S-03 | E2E | 注册→探针连接测试→发现全链路 | AVAILABLE、revision/hash 更新 | tests/console_mcp/test_mcp_api.py | uv run pytest -q tests/console_mcp/test_mcp_api.py -k register_test_discover_flow | verified |
+| S-01 | E2E | 探针 MCP HTTP、真实 PostgreSQL | revision/hash 变化与 tool_count 来自最新成功 Catalog；未变时 changed:false | tests/console_mcp/test_discover_api.py | uv run pytest -q tests/console_mcp/test_discover_api.py -k refresh_updates_catalog | e2e_deferred |
+| S-03 | E2E | 注册→探针连接测试→发现全链路 | AVAILABLE、revision/hash 更新 | tests/console_mcp/test_mcp_api.py | uv run pytest -q tests/console_mcp/test_mcp_api.py -k register_test_discover_flow | e2e_deferred |
 | E-01 | integration | 探针 tools/list 失败模式 | MCP_DISCOVERY_FAILED + 保留上一成功 Catalog | test_discover_api.py | uv run pytest -q tests/console_mcp/test_discover_api.py -k discovery_failed_preserves_catalog | verified |
 | E-04 | integration | 探针连接拒绝 | 同 E-01 | test_discover_api.py | uv run pytest -q tests/console_mcp/test_discover_api.py -k connection_failed | verified |
 | E-05 | integration | 探针超限模式 | 发现失败保留 Catalog | test_discover_api.py | uv run pytest -q tests/console_mcp/test_discover_api.py -k tool_limit | verified |
@@ -258,15 +258,28 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 | E-04 | 同上 | 同上 | test_e04（endpoint 改不可达 → 同语义保留） | 同上 | verified |
 | E-05 | 同上 | 同上 | test_e05（上限=1 → 502 且保留） | 同上 | verified |
 | B-02 | 同上 | 同上 | test_b02（test/edit 不动 revision；仅 discover 写目录） | 同上 | verified |
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=728c036301604347931df20cf4ee73c3 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=728c036301604347931df20cf4ee73c3 (confirmed_by: runner)
+- E-01: failed — automated command failed; run_id=728c036301604347931df20cf4ee73c3 (confirmed_by: runner)
+- E-04: failed — automated command failed; run_id=728c036301604347931df20cf4ee73c3 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=728c036301604347931df20cf4ee73c3 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=728c036301604347931df20cf4ee73c3 (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=fa2301d426274c2d9584bff252639e78 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=fa2301d426274c2d9584bff252639e78 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=fa2301d426274c2d9584bff252639e78 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=fa2301d426274c2d9584bff252639e78 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=fa2301d426274c2d9584bff252639e78 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=fa2301d426274c2d9584bff252639e78 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：discover-tools/工具 API 落地，S-01/S-03/E-01/E-04/E-05/B-02 verified
 
 ---
 - [2026-09-19] started
+- [2026-09-19] completed (done)
 ## TASK-005: 用户范围与指定用户 API（API-10~API-13）
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003
 - **Source**: 06-mcp-management.backend.design.md#3.4 接口设计 API-10/API-11/API-12/API-13
@@ -300,7 +313,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [2026-09-19] created (draft)
 
 ---
-
+- [2026-09-19] started
 ## TASK-006: 前端 MCP 列表/注册/编辑/详情
 
 - **Status**: draft

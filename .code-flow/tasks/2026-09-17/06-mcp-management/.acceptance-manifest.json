@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "06-mcp-management.md",
-  "task_sha256": "2896210d4016e06235c2a0ced0f5b842f6722707b4f1f64e5c0b986bb6e87d83",
+  "task_sha256": "a39117e2e8997e5c08c1102670301be9b5b34ae26f83d6342efaef604d873c02",
   "scenarios": [
     {
       "id": "S-01",
@@ -10,7 +10,7 @@
       "kind": "e2e",
       "boundary": "Browser→MCP Server→PostgreSQL→UI（探针真实 HTTP）",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -18,7 +18,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "fa2301d426274c2d9584bff252639e78",
+        "executed_at": "2026-09-19T10:33:43.189036+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "fa2301d426274c2d9584bff252639e78",
+          "executed_at": "2026-09-19T10:33:43.189036+00:00"
+        }
+      ]
     },
     {
       "id": "S-02",
@@ -48,7 +67,7 @@
       "kind": "e2e",
       "boundary": "注册→连接测试→刷新目录（探针真实 MCP 协议 + 真实 PostgreSQL）",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -56,7 +75,26 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "fa2301d426274c2d9584bff252639e78",
+        "executed_at": "2026-09-19T10:33:43.189036+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "fa2301d426274c2d9584bff252639e78",
+          "executed_at": "2026-09-19T10:33:43.189036+00:00"
+        }
+      ]
     },
     {
       "id": "S-05",
@@ -116,7 +154,7 @@
       "kind": "functional",
       "boundary": "MCP Client→DB（探针返回 tools/list 失败）",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -124,11 +162,32 @@
         "-q",
         "tests/console_mcp/test_discover_api.py",
         "-k",
-        "discovery_failed_preserves_catalog"
+        "tools_list_failure"
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "fa2301d426274c2d9584bff252639e78",
+        "executed_at": "2026-09-19T10:33:43.189036+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "fa2301d426274c2d9584bff252639e78",
+          "executed_at": "2026-09-19T10:33:43.189036+00:00"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -149,28 +208,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "d2916e3e9b144f26adc72186d01f7ea5",
-        "executed_at": "2026-09-19T10:23:20.398742+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "d2916e3e9b144f26adc72186d01f7ea5",
-          "executed_at": "2026-09-19T10:23:20.398742+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-03",
@@ -200,7 +238,7 @@
       "kind": "functional",
       "boundary": "MCP Client→DB 连接失败",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -208,11 +246,32 @@
         "-q",
         "tests/console_mcp/test_discover_api.py",
         "-k",
-        "connection_failed"
+        "connection_failure"
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "fa2301d426274c2d9584bff252639e78",
+        "executed_at": "2026-09-19T10:33:43.189036+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "fa2301d426274c2d9584bff252639e78",
+          "executed_at": "2026-09-19T10:33:43.189036+00:00"
+        }
+      ]
     },
     {
       "id": "E-05",
@@ -221,7 +280,7 @@
       "kind": "functional",
       "boundary": "MCP Client→DB 工具数超限",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -233,7 +292,28 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "fa2301d426274c2d9584bff252639e78",
+        "executed_at": "2026-09-19T10:33:43.189036+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "fa2301d426274c2d9584bff252639e78",
+          "executed_at": "2026-09-19T10:33:43.189036+00:00"
+        }
+      ]
     },
     {
       "id": "E-06",
@@ -339,7 +419,7 @@
       "kind": "functional",
       "boundary": "MCP Client→DB 目录唯一入口/失败保留/无 Tool 级控制",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -349,7 +429,28 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "fa2301d426274c2d9584bff252639e78",
+        "executed_at": "2026-09-19T10:33:43.189036+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "fa2301d426274c2d9584bff252639e78",
+          "executed_at": "2026-09-19T10:33:43.189036+00:00"
+        }
+      ]
     },
     {
       "id": "B-03",
@@ -370,28 +471,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "d2916e3e9b144f26adc72186d01f7ea5",
-        "executed_at": "2026-09-19T10:23:20.398742+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "d2916e3e9b144f26adc72186d01f7ea5",
-          "executed_at": "2026-09-19T10:23:20.398742+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-04",
@@ -410,28 +490,7 @@
       ],
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "d2916e3e9b144f26adc72186d01f7ea5",
-        "executed_at": "2026-09-19T10:23:20.398742+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "d2916e3e9b144f26adc72186d01f7ea5",
-          "executed_at": "2026-09-19T10:23:20.398742+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-05",

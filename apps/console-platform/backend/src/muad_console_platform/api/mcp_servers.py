@@ -8,7 +8,7 @@ from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
-from ..application.dto import McpCreateRequest, McpUpdateRequest
+from ..application.dto import McpCreateRequest, McpUpdateRequest, McpUserScopeRequest
 from ..application.mcp_service import McpService
 from ..infrastructure.db import get_session
 from .deps import AdminAccount, CurrentAccount, get_source_ip, get_tenant_id
@@ -152,3 +152,60 @@ async def get_tool(
 ) -> ApiResponse[Any]:
     data = await McpService(session).get_tool(tenant_id, mcp_id, tool_name)
     return ok(request.app.state.message_catalog, data)
+
+
+@router.put("/{mcp_id}/user-scope")
+async def set_user_scope(
+    mcp_id: uuid.UUID,
+    payload: McpUserScopeRequest,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    detail = await McpService(session).set_user_scope(
+        tenant_id, mcp_id, payload.user_scope, _actor(account, request)
+    )
+    return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
+
+
+@router.get("/{mcp_id}/users")
+async def list_grants(
+    mcp_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> ApiResponse[Any]:
+    items, total = await McpService(session).list_grants(tenant_id, mcp_id, page, page_size)
+    return ok(
+        request.app.state.message_catalog,
+        paginate(items=[item.model_dump(mode="json") for item in items], page=page, page_size=page_size, total=total),
+    )
+
+
+@router.post("/{mcp_id}/users/{user_id}")
+async def add_grant(
+    mcp_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: Request,
+    account: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    item = await McpService(session).add_grant(tenant_id, mcp_id, user_id, _actor(account, request))
+    return ok(request.app.state.message_catalog, item.model_dump(mode="json"))
+
+
+@router.delete("/{mcp_id}/users/{user_id}")
+async def remove_grant(
+    mcp_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: Request,
+    account: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    await McpService(session).remove_grant(tenant_id, mcp_id, user_id, _actor(account, request))
+    return ok(request.app.state.message_catalog, {})

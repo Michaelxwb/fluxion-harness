@@ -402,3 +402,19 @@ class McpUpdateRequest(BaseModel):
     auth_config: dict[str, Any] | None = None
     connect_timeout_ms: int | None = Field(default=None, ge=100, le=60000)
     tool_cache_ttl_sec: int | None = Field(default=None, ge=1, le=86400)
+
+
+class McpUserGrantItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: uuid.UUID
+    user_code: str
+    display_name: str
+    granted_by: uuid.UUID
+    create_time: datetime
+
+
+class McpUserScopeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_scope: Literal["ALL", "SELECTED"]

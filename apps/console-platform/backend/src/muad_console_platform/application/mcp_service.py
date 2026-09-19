@@ -20,10 +20,16 @@ from ..infrastructure.mcp_client import (
     catalog_hash,
     normalize_tools,
 )
-from ..infrastructure.models.control import SkillImportIdempotency
+from ..infrastructure.models.control import PlatformUser, SkillImportIdempotency
 from ..infrastructure.models.mcp import AgentMcpBinding, McpServer, McpUserGrant
 from .audit_service import AuditActor, AuditService
-from .dto import McpCreateRequest, McpServerDetail, McpServerListItem, McpUpdateRequest
+from .dto import (
+    McpCreateRequest,
+    McpServerDetail,
+    McpServerListItem,
+    McpUpdateRequest,
+    McpUserGrantItem,
+)
 
 AUDIT_MCP = "MCP_SERVER"
 USER_SCOPE_SELECTED = "SELECTED"
@@ -446,3 +452,127 @@ class McpService:
                     "catalog_hash": server.tool_catalog_hash,
                 }
         raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "McpTool"})
+
+    async def set_user_scope(
+        self, tenant_id: str, mcp_id: uuid.UUID, user_scope: str, actor: AuditActor
+    ) -> McpServerDetail:
+        server = await self.get_server(tenant_id, mcp_id)
+        if server.user_scope == user_scope:
+            return await self.get_server_detail(tenant_id, mcp_id)
+        before = mcp_snapshot(server)
+        server.user_scope = user_scope
+        server.update_time = datetime.now(UTC)
+        await self._session.flush()
+        await self._audit.record_config_change(
+            tenant_id=tenant_id,
+            actor=actor,
+            resource_type=AUDIT_MCP,
+            resource_id=server.id,
+            action="UPDATE",
+            before=before,
+            after=mcp_snapshot(server),
+        )
+        agent_count, user_count = await self._counts_for(server)
+        return mcp_detail(server, agent_count, user_count)
+
+    async def list_grants(
+        self, tenant_id: str, mcp_id: uuid.UUID, page: int, page_size: int
+    ) -> tuple[list[McpUserGrantItem], int]:
+        server = await self.get_server(tenant_id, mcp_id)
+        conditions = (
+            McpUserGrant.mcp_server_id == server.id,
+            McpUserGrant.is_deleted.is_(False),
+            PlatformUser.is_deleted.is_(False),
+        )
+        total = await self._session.scalar(
+            select(func.count())
+            .select_from(McpUserGrant)
+            .join(PlatformUser, PlatformUser.id == McpUserGrant.user_id)
+            .where(*conditions)
+        )
+        rows = await self._session.execute(
+            select(McpUserGrant, PlatformUser)
+            .join(PlatformUser, PlatformUser.id == McpUserGrant.user_id)
+            .where(*conditions)
+            .order_by(McpUserGrant.create_time.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        return [
+            McpUserGrantItem(
+                user_id=user.id,
+                user_code=user.user_code,
+                display_name=user.display_name,
+                granted_by=grant.granted_by,
+                create_time=grant.create_time,
+            )
+            for grant, user in rows.all()
+        ], int(total or 0)
+
+    async def add_grant(
+        self, tenant_id: str, mcp_id: uuid.UUID, user_id: uuid.UUID, actor: AuditActor
+    ) -> McpUserGrantItem:
+        server = await self.get_server(tenant_id, mcp_id)
+        user = await self._session.get(PlatformUser, user_id)
+        if user is None or user.is_deleted or user.tenant_id != tenant_id:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "PlatformUser"})
+        existing = await self._session.execute(
+            select(McpUserGrant).where(
+                McpUserGrant.mcp_server_id == server.id,
+                McpUserGrant.user_id == user_id,
+            )
+        )
+        grant = existing.scalar_one_or_none()
+        if grant is not None and not grant.is_deleted:
+            raise AppError(ErrorCode.COMMON_CONFLICT)
+        if grant is None:
+            grant = McpUserGrant(mcp_server_id=server.id, user_id=user_id, granted_by=actor.account_id)
+            self._session.add(grant)
+        else:
+            grant.is_deleted = False
+            grant.granted_by = actor.account_id
+            grant.update_time = datetime.now(UTC)
+        await self._session.flush()
+        await self._audit.record_config_change(
+            tenant_id=tenant_id,
+            actor=actor,
+            resource_type=AUDIT_MCP,
+            resource_id=server.id,
+            action="UPDATE",
+            before=None,
+            after={"grant_user_id": str(user_id), "revoked": False},
+        )
+        return McpUserGrantItem(
+            user_id=user.id,
+            user_code=user.user_code,
+            display_name=user.display_name,
+            granted_by=grant.granted_by,
+            create_time=grant.create_time,
+        )
+
+    async def remove_grant(
+        self, tenant_id: str, mcp_id: uuid.UUID, user_id: uuid.UUID, actor: AuditActor
+    ) -> None:
+        server = await self.get_server(tenant_id, mcp_id)
+        row = await self._session.execute(
+            select(McpUserGrant).where(
+                McpUserGrant.mcp_server_id == server.id,
+                McpUserGrant.user_id == user_id,
+                McpUserGrant.is_deleted.is_(False),
+            )
+        )
+        grant = row.scalar_one_or_none()
+        if grant is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "McpUserGrant"})
+        grant.is_deleted = True
+        grant.update_time = datetime.now(UTC)
+        await self._session.flush()
+        await self._audit.record_config_change(
+            tenant_id=tenant_id,
+            actor=actor,
+            resource_type=AUDIT_MCP,
+            resource_id=server.id,
+            action="UPDATE",
+            before=None,
+            after={"grant_user_id": str(user_id), "revoked": True},
+        )
