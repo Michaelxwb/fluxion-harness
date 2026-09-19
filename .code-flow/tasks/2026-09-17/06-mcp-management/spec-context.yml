@@ -1,7 +1,7 @@
 version: 1
 task: MCP Server 与工具目录
 enforcement: required
-updated_at: '2026-09-19T06:01:00.075036+00:00'
+updated_at: '2026-09-19T06:01:43.507977+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -59,7 +59,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-003
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -164,7 +164,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-003
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -333,7 +333,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-005
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -493,7 +493,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-001
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -660,7 +660,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-006
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -795,7 +795,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-006
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -918,7 +918,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-004
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -1013,7 +1013,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-005
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -1161,7 +1161,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-003
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -1308,7 +1308,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-004
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -1422,7 +1422,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-004
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -1653,7 +1653,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-001
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -1812,7 +1812,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-006
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:
@@ -2106,7 +2106,7 @@ bindings:
         - artifact: 06-mcp-management.md
           section_id: Spec-Refs
           item_id: TASK-007
-          artifact_sha256: 95a8a373cdbaa771ede0029f4454e29a06756c98908a0f10ba4276ef7c33af9c
+          artifact_sha256: 9aec2af569227fb41c0b771d8bf1d02013d7fb221724c7d99745cbe9d8634530
         decision: null
         evidence: []
       code:

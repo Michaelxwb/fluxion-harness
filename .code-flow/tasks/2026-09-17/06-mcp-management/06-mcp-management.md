@@ -45,7 +45,7 @@
 | B-03 | backend#Spec Compliance Matrix RULE-secret-001 | integration | API/DB auth_secret 不回显不落日志 | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_api.py", "-k", "secret"] |
 | B-04 | backend#Spec Compliance Matrix RULE-api-001 | integration | 真实 HTTP + 真实 PostgreSQL 封套/分页 | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_api.py"] |
 | B-05 | backend#Spec Compliance Matrix RULE-auth/rel-001 | integration | Grant service→DB 单关系/软删重建 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_user_scope_api.py"] |
-| B-06 | backend#3.2 架构与流程（客户端契约） | unit | 真实探针 MCP Server initialize+tools/list | TASK-002 | planned | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_client.py"] |
+| B-06 | backend#3.2 架构与流程（客户端契约） | unit | 真实探针 MCP Server initialize+tools/list | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_client.py"] |
 
 > 本表覆盖两份 design 全部本需求归属的 P0/P1 场景及 RULE 映射场景（RULE-data→B-01、RULE-mcp→B-02、RULE-secret→B-03、RULE-api→B-04、RULE-auth/rel→B-05）；S-04 按 design 归属模块 08，不在本表；FE 场景编号按 `[SEB]-\d+` 规范重命名并保留原名标注。
 
@@ -119,7 +119,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [2026-09-19] completed (done)
 ## TASK-002: Streamable HTTP MCP 客户端与探针 Server
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**:
 - **Source**: 06-mcp-management.backend.design.md#3.2 架构与流程
@@ -131,25 +131,31 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 实现 MCP 客户端（`infrastructure/mcp_client.py` 或独立包内模块）：Streamable HTTP `initialize` + `tools/list`（JSON-RPC over HTTP POST，connect/read timeout、auth header 注入 auth_secret、不落日志）；工具 normalize（name/description/input_schema/effect）与 catalog hash 计算。同时实现测试探针 `tests/e2e/mcp_probe_app.py`（真实 HTTP MCP Server：initialize/tools/list 可控结果与失败/超限模式，参照 openai_probe_app 先例）。
 
 ### Checklist
-- [ ] 先写测试并记录 RED：B-06（客户端对真实探针的 initialize+tools/list）
-- [ ] [B-06][unit] 真实探针 Server（uvicorn 本地 HTTP）：initialize 握手成功、tools/list 返回 normalize 后的目录、auth header 透传、超时生效
-- [ ] 探针支持失败模式：tools/list 返回协议错误、连接拒绝、工具数超限
-- [ ] 客户端不将 auth_secret 写入任何日志/异常消息（RULE-secret-001 遵守）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 先写测试并记录 RED：B-06（ModuleNotFoundError：mcp_client 不存在）（客户端对真实探针的 initialize+tools/list）
+- [x] [B-06][unit] 真实探针 Server（uvicorn 本地 HTTP）：initialize 握手成功、tools/list 返回 normalize 后的目录、auth header 透传、超时生效
+- [x] 探针支持失败模式（tools/list 协议错误/鉴权拒绝/工具数由环境变量控制）：tools/list 返回协议错误、连接拒绝、工具数超限
+- [x] 客户端不将 auth_secret 写入任何日志/异常消息（RULE-secret-001 遵守）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-06 | unit | 真实本地 HTTP MCP 探针（不 mock HTTP） | initialize+tools/list 成功路径；normalize 结构；超时与失败传播 | tests/console_mcp/test_mcp_client.py | uv run pytest -q tests/console_mcp/test_mcp_client.py | planned |
+| B-06 | unit | 真实本地 HTTP MCP 探针（不 mock HTTP） | initialize+tools/list 成功路径；normalize 结构；超时与失败传播；auth 透传；Secret 不入异常 | tests/console_mcp/test_mcp_client.py | uv run pytest -q tests/console_mcp/test_mcp_client.py | verified |
 
 ### Acceptance Evidence
 
+新增 `infrastructure/mcp_client.py`（JSON-RPC initialize+tools/list、SSE/JSON 双解码、auth Bearer 透传、异常不携带 Secret）与 `tests/e2e/mcp_probe_app.py`（真实 FastAPI MCP 探针，行为环境变量可控）。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-06 | FAIL: ModuleNotFoundError（mcp_client 不存在），5 failed | 5 passed | test_mcp_client.py（握手/normalize/auth 透传/失败传播/超时/Secret 不泄露） | uvicorn 真实 HTTP 探针（127.0.0.1 随机端口），无 mock | verified |
+
 ### Log
-- [2026-09-19] created (draft)
+- [2026-09-19] started/finished：客户端+探针落地，B-06 verified
 
 ---
-
+- [2026-09-19] started
 ## TASK-003: MCP CRUD 与连接测试 API（API-01~API-06）
 
 - **Status**: draft
