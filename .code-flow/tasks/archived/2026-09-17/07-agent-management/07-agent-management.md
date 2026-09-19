@@ -75,7 +75,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 
 ## TASK-001: Schema 约束验收与列表/详情聚合契约
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 07-agent-management.backend.design.md#3.3 数据设计, 07-agent-management.backend.design.md#3.4 接口设计 API-01/API-03
@@ -112,6 +112,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - B-01: verified — automated command passed; run_id=c95b0b1a70354306be41042b132d97dd (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=18b9b1804d7441e3956b37b87a47918b (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：schema 验收 + 聚合落地，B-01 verified
@@ -121,7 +122,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [2026-09-19] completed (done)
 ## TASK-002: Agent 编辑 CAS 与生命周期（revision/软删除/resolve）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 07-agent-management.backend.design.md#3.4 接口设计 API-04/API-05, 07-agent-management.backend.design.md#2.5.2 S-01/S-05/E-01/E-05
@@ -189,6 +190,12 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - S-05: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：CAS/瘦身/幂等落地，S-01/S-05/E-01/E-05/RULE-api-002 verified
@@ -198,7 +205,7 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - [2026-09-19] completed (done)
 ## TASK-003: Skill 绑定契约对齐（API-06/07/08）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 07-agent-management.backend.design.md#3.4 接口设计 API-06/API-07/API-08
@@ -244,6 +251,9 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - E-03: verified — automated command passed; run_id=18b9b1804d7441e3956b37b87a47918b (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：绑定契约对齐落地，S-02/E-03/RULE-rel-001 verified
@@ -253,7 +263,7 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - [2026-09-19] completed (done)
 ## TASK-004: Agent-MCP 绑定与 EffectiveMcp resolve（API-09/10/11）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 07-agent-management.backend.design.md#3.4 接口设计 API-09/API-10/API-11, 07-agent-management.backend.design.md#3.3.1 Effective Capability 判定
@@ -300,6 +310,9 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - B-02: verified — automated command passed; run_id=18b9b1804d7441e3956b37b87a47918b (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：MCP 绑定 + EffectiveMcp 落地，S-06/B-02 verified
@@ -309,7 +322,7 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - [2026-09-19] completed (done)
 ## TASK-005: Agent 视角用户授权（API-12/13/14）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004
 - **Source**: 07-agent-management.backend.design.md#3.4 接口设计 API-12/API-13/API-14
@@ -352,6 +365,9 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - E-04: verified — automated command passed; run_id=18b9b1804d7441e3956b37b87a47918b (confirmed_by: runner)
 - S-04: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：API-12~14 落地，S-04/E-04 verified
@@ -361,7 +377,7 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - [2026-09-19] completed (done)
 ## TASK-006: IM 通道 CRUD（API-15~18）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 07-agent-management.backend.design.md#3.4 接口设计 API-15/API-16/API-17/API-18, 07-agent-management.backend.design.md#3.3 bot_account
@@ -425,6 +441,11 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - E-02: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：通道 CRUD 落地，S-03/E-02/E-06/B-03 verified
@@ -434,7 +455,7 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - [2026-09-19] completed (done)
 ## TASK-007: 审计查询 API（GET /api/v1/audits，最近运行支撑）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-001
 - **Source**: 07-agent-management.frontend.design.md#3.3 基本信息 - 最近运行, 07-agent-management.backend.design.md#3.4 接口设计（封套约束）
@@ -467,6 +488,7 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - B-04: verified — automated command passed; run_id=c95b0b1a70354306be41042b132d97dd (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=18b9b1804d7441e3956b37b87a47918b (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：audits 查询落地，B-04 verified
@@ -476,7 +498,7 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - [2026-09-19] completed (done)
 ## TASK-008: 前端 Agent 列表/新增/编辑/删除
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: 07-agent-management.frontend.design.md#2.2 功能方案 FEAT-FE-01, 07-agent-management.frontend.design.md#3.3 组件设计 CMP-01/CMP-03
@@ -528,6 +550,9 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - E-09: verified — automated command passed; run_id=18b9b1804d7441e3956b37b87a47918b (confirmed_by: runner)
 - S-10: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
 - E-09: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：列表/表单/删除落地，E2E 3/3，S-10/E-09 待终验
@@ -537,7 +562,7 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - [2026-09-19] completed (done)
 ## TASK-009: 前端详情 5 Tabs、最近运行与关系操作
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008
 - **Source**: 07-agent-management.frontend.design.md#2.2 功能方案 FEAT-FE-02/FEAT-FE-03, 07-agent-management.frontend.design.md#3.3 组件设计 CMP-02/CMP-04/CMP-05
@@ -619,6 +644,22 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - E-07: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
 - E-10: verified — automated command passed; run_id=f521456ce0704f1b86b502187180147e (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- S-11: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- S-12: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- E-10: verified — automated command passed; run_id=31c536916b0c46098e11387c13dcf7b4 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- S-11: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- S-12: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
+- E-10: verified — automated command passed; run_id=d7557a26cae34a12b790f514480eb859 (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：详情 5 Tabs/最近运行/关系操作落地，E2E 7/7

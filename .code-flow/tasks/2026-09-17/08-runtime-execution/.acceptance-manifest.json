@@ -1,0 +1,725 @@
+{
+  "schema": 2,
+  "task_file": "08-runtime-execution.md",
+  "task_sha256": "dada08e46a88ac458141c0d1da3472be073a4aba4c63317584b29a7c61603ba1",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Gateway→Runtime→真实 Console resolve→LLM HTTP 探针",
+      "owner": "TASK-024",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_capability_snapshot.py",
+        "-k",
+        "s01"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-02",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP",
+      "owner": "TASK-024",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_capability_snapshot.py",
+        "-k",
+        "s02"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-03",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "emptyDir→真实 NFS 挂载",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/test_skill_artifact_cache.py",
+        "-k",
+        "s03"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-04",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Runtime A→PostgreSQL/Artifact Store→Runtime B",
+      "owner": "TASK-026",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_multipod_recovery.py",
+        "-k",
+        "s04"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-05",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "runner→HookPipeline→真实 Tool handler",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_hook_lifecycle.py",
+        "-k",
+        "s05"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-06",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "ModelGateway→fake provider→真实审计 DB",
+      "owner": "TASK-017",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_model_recovery.py",
+        "-k",
+        "s06"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-07",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Gateway→Runtime SSE→PostgreSQL",
+      "owner": "TASK-025",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_run_lifecycle.py",
+        "-k",
+        "s07"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-08",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_context_memory.py",
+        "-k",
+        "s08"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Runtime cache→真实 NFS 故障边界",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/test_skill_artifact_cache.py",
+        "-k",
+        "e01"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Gateway→cancel-active→PostgreSQL/SSE",
+      "owner": "TASK-025",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_run_lifecycle.py",
+        "-k",
+        "e02"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Gateway→Runtime→PostgreSQL partial unique",
+      "owner": "TASK-025",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_run_lifecycle.py",
+        "-k",
+        "e03"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-04",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Reaper→PostgreSQL lease→CAS",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_run_reaper.py",
+        "-k",
+        "e04"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL",
+      "owner": "TASK-015",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_egress_boundary.py",
+        "-k",
+        "e05"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "ModelGateway→fake provider→PostgreSQL",
+      "owner": "TASK-017",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_model_recovery.py",
+        "-k",
+        "e06"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-07",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run",
+      "owner": "TASK-026",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_multipod_recovery.py",
+        "-k",
+        "e07"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-08",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Gateway→cancel-active→PostgreSQL/Redis→执行者",
+      "owner": "TASK-025",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_run_lifecycle.py",
+        "-k",
+        "e08"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-01",
+      "source": "08-runtime-execution.backend.design.md#API-01 创建 Run",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool",
+      "owner": "TASK-025",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_idempotency.py",
+        "-k",
+        "b01"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-101",
+      "source": "08-runtime-execution.backend.design.md#3.3 数据设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "PostgreSQL migration→ORM",
+      "owner": "TASK-001",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_runtime_schema_parity.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-102",
+      "source": "08-runtime-execution.backend.design.md#3.3 数据设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "EventWriter→PostgreSQL",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_run_events.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-103",
+      "source": "08-runtime-execution.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Runtime HTTP client→本地 Console 契约服务",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_console_client.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-104",
+      "source": "08-runtime-execution.backend.design.md#3.3 数据设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Snapshot builder→PostgreSQL→Executor request",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_snapshot_freeze.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-105",
+      "source": "08-runtime-execution.backend.design.md#API-01 创建 Run",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "HTTP handler→PostgreSQL unique→run creation",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_run_idempotency.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-106",
+      "source": "08-runtime-execution.backend.design.md#3.3 数据设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "两个 Session→PostgreSQL CAS",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_run_leases.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-110",
+      "source": "08-runtime-execution.backend.design.md#3.3 数据设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Memory service→PostgreSQL",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_service.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-111",
+      "source": "08-runtime-execution.backend.design.md#3.3 数据设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Tool result→真实共享文件系统→PostgreSQL Artifact",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_artifact_results.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-113",
+      "source": "08-runtime-execution.backend.design.md#3.3 数据设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "ToolRegistry→真实 handler→审计 port",
+      "owner": "TASK-013",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_tool_execution_pipeline.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-114",
+      "source": "08-runtime-execution.backend.design.md#API-08 Resolve Egress",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "HTTP resolve→PlatformAdapter→真实 Redis",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/sdk/test_runtime_platform_session.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-116",
+      "source": "08-runtime-execution.backend.design.md#API-07 Resolve Definition",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Snapshot→ToolRegistry→真实本地 MCP HTTP 服务",
+      "owner": "TASK-016",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_mcp_execution.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-118",
+      "source": "08-runtime-execution.backend.design.md#3.1 技术选型与关键决策",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "LangGraph→PG checkpoint/run_interrupt",
+      "owner": "TASK-018",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_interrupt_checkpoint.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-119",
+      "source": "08-runtime-execution.backend.design.md#API-01 创建 Run",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Resume API→PostgreSQL→LangGraph",
+      "owner": "TASK-019",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_resume_transactions.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-120",
+      "source": "08-runtime-execution.backend.design.md#API-03 取消当前活跃 Run",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Cancel API→PostgreSQL→真实 Redis→执行检查点",
+      "owner": "TASK-020",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_cancellation.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-121",
+      "source": "08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Executor event stream→SSE→持久化事件",
+      "owner": "TASK-021",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_sse.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-122",
+      "source": "08-runtime-execution.backend.design.md#3.2 架构与流程",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 RunService→Executor→LangGraph/SkillContext→DB",
+      "owner": "TASK-022",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_runtime_composition.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-123",
+      "source": "08-runtime-execution.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 HTTP 进程→PG/Redis/NFS",
+      "owner": "TASK-023",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/runtime/test_environment.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-128",
+      "source": "08-runtime-execution.backend.design.md#API-09 Resolve Runtime Credentials",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console credentials service→真实 PostgreSQL Owner 表",
+      "owner": "TASK-028",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_internal/test_runtime_credentials.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-129",
+      "source": "08-runtime-execution.backend.design.md#API-08 Resolve Egress",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console resolve-egress service→真实 PostgreSQL 平台/凭据表",
+      "owner": "TASK-029",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_internal/test_resolve_egress_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    }
+  ]
+}

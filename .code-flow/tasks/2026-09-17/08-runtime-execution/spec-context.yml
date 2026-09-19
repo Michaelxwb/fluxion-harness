@@ -1,7 +1,7 @@
 version: 1
 task: Agent Runtime 执行引擎
 enforcement: required
-updated_at: '2026-09-19T13:22:48.362020+00:00'
+updated_at: '2026-09-19T22:51:16.641759+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -51,13 +51,21 @@ bindings:
     verifier_ref: harness-api#RULE-api-002
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 08-runtime-execution.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-api-002
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 08-runtime-execution.md
+          section_id: TASK-025
+          item_id: TASK-025
+          artifact_sha256: ebd0356569c7ab1e2429cb1366c502a3a49bbe7f0148735f762c9abf04bd611b
         decision: null
         evidence: []
       code:
@@ -84,59 +92,16 @@ bindings:
         - artifact: 08-runtime-execution.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-api-001
-          artifact_sha256: 298de965e5c6c5535b209c3329cfeabdc4d10340a6f55ef0774efa2fa271f646
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      code:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      review:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-- spec_id: harness-test
-  path: test/harness-test.md
-  status: active
-  hashes:
-    file_sha256: 75cc9f6cb1970020eb5f82637aac0ff541161ab06470c86104014b4b43b5a9ba
-    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
-    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
-  selected_by: agent
-  reason: Agent Harness 通用平台规则：test
-  enforcement: required
-  stages:
-  - design
-  - plan
-  - code
-  - review
-  rules:
-  - ref: RULE-test-001
-    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
-      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
-    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
-    enforcement: required
-    verifier_ref: harness-test#RULE-test-001
-    stage_status:
-      design:
         status: applied
         refs:
-        - artifact: 08-runtime-execution.backend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-test-001
-          artifact_sha256: 298de965e5c6c5535b209c3329cfeabdc4d10340a6f55ef0774efa2fa271f646
-        decision: null
-        evidence: []
-      plan:
-        status: pending
-        refs: []
+        - artifact: 08-runtime-execution.md
+          section_id: TASK-025
+          item_id: TASK-025
+          artifact_sha256: ebd0356569c7ab1e2429cb1366c502a3a49bbe7f0148735f762c9abf04bd611b
         decision: null
         evidence: []
       code:
@@ -178,12 +143,16 @@ bindings:
         - artifact: 08-runtime-execution.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-arch-001
-          artifact_sha256: 298de965e5c6c5535b209c3329cfeabdc4d10340a6f55ef0774efa2fa271f646
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 08-runtime-execution.md
+          section_id: TASK-026
+          item_id: TASK-026
+          artifact_sha256: ebd0356569c7ab1e2429cb1366c502a3a49bbe7f0148735f762c9abf04bd611b
         decision: null
         evidence: []
       code:
@@ -227,12 +196,16 @@ bindings:
         - artifact: 08-runtime-execution.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-auth-001
-          artifact_sha256: 298de965e5c6c5535b209c3329cfeabdc4d10340a6f55ef0774efa2fa271f646
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 08-runtime-execution.md
+          section_id: TASK-024
+          item_id: TASK-024
+          artifact_sha256: ebd0356569c7ab1e2429cb1366c502a3a49bbe7f0148735f762c9abf04bd611b
         decision: null
         evidence: []
       code:
@@ -275,12 +248,16 @@ bindings:
         - artifact: 08-runtime-execution.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-data-001
-          artifact_sha256: 298de965e5c6c5535b209c3329cfeabdc4d10340a6f55ef0774efa2fa271f646
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 08-runtime-execution.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: ebd0356569c7ab1e2429cb1366c502a3a49bbe7f0148735f762c9abf04bd611b
         decision: null
         evidence: []
       code:
@@ -322,12 +299,16 @@ bindings:
         - artifact: 08-runtime-execution.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-mcp-001
-          artifact_sha256: 298de965e5c6c5535b209c3329cfeabdc4d10340a6f55ef0774efa2fa271f646
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 08-runtime-execution.md
+          section_id: TASK-024
+          item_id: TASK-024
+          artifact_sha256: ebd0356569c7ab1e2429cb1366c502a3a49bbe7f0148735f762c9abf04bd611b
         decision: null
         evidence: []
       code:
@@ -371,12 +352,20 @@ bindings:
         - artifact: 08-runtime-execution.backend.design.md
           section_id: design
           item_id: design
-          artifact_sha256: 298de965e5c6c5535b209c3329cfeabdc4d10340a6f55ef0774efa2fa271f646
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
+        - artifact: 08-runtime-execution.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-platform-001
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
         decision: null
         evidence: []
       plan:
-        status: stale
-        refs: []
+        status: applied
+        refs:
+        - artifact: 08-runtime-execution.md
+          section_id: TASK-015
+          item_id: TASK-015
+          artifact_sha256: ebd0356569c7ab1e2429cb1366c502a3a49bbe7f0148735f762c9abf04bd611b
         decision: null
         evidence: []
       code:
@@ -419,12 +408,20 @@ bindings:
         - artifact: 08-runtime-execution.backend.design.md
           section_id: design
           item_id: design
-          artifact_sha256: 298de965e5c6c5535b209c3329cfeabdc4d10340a6f55ef0774efa2fa271f646
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
+        - artifact: 08-runtime-execution.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-secret-001
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
         decision: null
         evidence: []
       plan:
-        status: stale
-        refs: []
+        status: applied
+        refs:
+        - artifact: 08-runtime-execution.md
+          section_id: TASK-024
+          item_id: TASK-024
+          artifact_sha256: ebd0356569c7ab1e2429cb1366c502a3a49bbe7f0148735f762c9abf04bd611b
         decision: null
         evidence: []
       code:
@@ -464,17 +461,21 @@ bindings:
     verifier_ref: harness-skill#RULE-skill-001
     stage_status:
       design:
-        status: stale
+        status: applied
         refs:
         - artifact: 08-runtime-execution.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-skill-001
-          artifact_sha256: 298de965e5c6c5535b209c3329cfeabdc4d10340a6f55ef0774efa2fa271f646
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
         decision: null
         evidence: []
       plan:
-        status: stale
-        refs: []
+        status: applied
+        refs:
+        - artifact: 08-runtime-execution.md
+          section_id: TASK-012
+          item_id: TASK-012
+          artifact_sha256: ebd0356569c7ab1e2429cb1366c502a3a49bbe7f0148735f762c9abf04bd611b
         decision: null
         evidence: []
       code:
@@ -516,12 +517,67 @@ bindings:
         - artifact: 08-runtime-execution.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: 298de965e5c6c5535b209c3329cfeabdc4d10340a6f55ef0774efa2fa271f646
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
         decision: null
         evidence: []
       plan:
+        status: applied
+        refs:
+        - artifact: 08-runtime-execution.md
+          section_id: TASK-024
+          item_id: TASK-024
+          artifact_sha256: ebd0356569c7ab1e2429cb1366c502a3a49bbe7f0148735f762c9abf04bd611b
+        decision: null
+        evidence: []
+      code:
         status: pending
         refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 75cc9f6cb1970020eb5f82637aac0ff541161ab06470c86104014b4b43b5a9ba
+    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：test
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 08-runtime-execution.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: 263e709dfd9cfea027ecc418a70911771206d4a945e6dbeba9349bb871173003
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: 08-runtime-execution.md
+          section_id: TASK-027
+          item_id: TASK-027
+          artifact_sha256: ebd0356569c7ab1e2429cb1366c502a3a49bbe7f0148735f762c9abf04bd611b
         decision: null
         evidence: []
       code:

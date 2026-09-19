@@ -1,9 +1,9 @@
 # Agent Runtime 执行引擎 模块需求与设计一体化文档
 
 > **文档编号**: MOD-RUNTIME-V1.1  
-> **文档版本**: v1.1  
+> **文档版本**: v1.2
 > **创建日期**: 2026-09-17  
-> **文档状态**: 设计评审中  
+> **文档状态**: 已对齐，进入任务规划
 > **模板**: design-full.md
 
 
@@ -33,6 +33,8 @@
 |---|---|---|---|
 | v1.0 | 2026-09-17 | muad-agent-runtime | 初始设计稿 |
 | v1.1 | 2026-09-18 | muad-agent-runtime | 对齐 V1.4 决策（docs/17）：Run 租约字段与并发 partial unique、WAITING_INPUT 自动 resume、cancel-active 协作取消与 Runtime Reaper；Snapshot 补 `prompt_template_version` 并明确 MCP catalog revision/hash/definitions；SSE 全事件契约；resolve-definition/resolve-egress 契约对齐；Hook 生命周期、Model Recovery、ToolRegistry 执行链与 tool/egress/model 审计写入；错误码收敛到已登记清单 |
+
+| v1.2 | 2026-09-20 | fluxion-harness | 按已确认任务方案补 Run/SSE 幂等、冻结定义与实时凭据接口、Skill 不可变写/失败清理；承接现有 Context 的 11 条 required Rule；补 Console 侧缺失接口任务。 |
 
 ## 2. 需求分析
 
@@ -76,7 +78,7 @@
 | ID | 业务实体统一 UUID；跨 Owner Schema 仅逻辑引用 UUID |
 | 时间 | PostgreSQL 使用 `timestamptz`；Console 展示 `YYYY-MM-DD HH:mm:ss` |
 | 删除 | 产品表统一 `is_deleted` 软删除；状态枚举不重复表达 DELETED |
-| Secret | 只保存 SecretRef；Secret Value 不进入 DB / Snapshot / 日志 / LLM / 审计 |
+| Secret | 密钥明文存于对应 Owner 表，跨表仅主键引用；RuntimeSnapshot、事件、日志、审计、LLM Prompt、公开 API 无密钥；内部认证接口返回的密钥仅限执行服务内存 |
 | 枚举 | API 与 DB 统一使用稳定英文枚举值，中文/英文只在 UI/i18n 层映射 |
 | 错误 | 业务代码只抛稳定 `code`；`msg/http_status` 由公共配置映射 |
 
@@ -86,7 +88,7 @@
 |---|---|
 | In Scope | Conversation/Run/Snapshot/Event/Interrupt/Memory/Artifact；SkillArtifactCache/Executor；PromptBuilder/ToolRegistry/MCP Adapter/ModelGateway；Hook 生命周期（`user_prompt/pre_model/post_model/pre_tool_use/post_tool_use/on_interrupt/stop`）；Model Recovery（429/5xx/Retry-After/backoff/deadline/cancel，`max_model_retries=3`）；Tool/Egress/Model 三类审计写入（表定义与查询面见模块 11）。 |
 | Out of Scope | 不做 Multi-Agent/Worktree；LangGraph checkpoint 不作为业务事实源；Pod 本地不保存权威会话/Memory；不做用户侧 Artifact 下载；不做 Console Prompt 模板管理（模板代码内置，Snapshot 记录 `prompt_template_version`）；Schedule misfire 补发由模块 09 承载。 |
-| 前置假设 | Console `resolve-definition`/`resolve-egress-access` 可用；PostgreSQL/Redis/NFS-backed RWX PVC 就绪；`runtime.tool_call_audit/egress_audit/model_invocation_audit` 由模块 11 提供。 |
+| 前置假设 | Console `resolve-definition` 已有实现；`resolve-egress-access` 与仅凭据读取接口由本轮 TASK-029/TASK-028 补齐，不能假设已存在。PostgreSQL/Redis/NFS-backed RWX PVC 就绪；三类审计表已由 0002 建立，本模块补写入，模块 11 负责查询面。 |
 | 技术债 | 无；不为未确认的未来能力增加兼容层 |
 
 ### 2.5 验收条件
@@ -98,9 +100,9 @@
 | RULE-01 | 系统约束 | 固定 4 个部署单元；Runtime/Worker 无状态横向扩展，不绑定 Pod/bot/user。 | S-04 |
 | RULE-02 | 系统约束 | JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status 配置映射；SSE 使用 §3.4.1 封套，不套 JSON Envelope。 | E-03 |
 | RULE-03 | 系统约束 | 产品表统一 is_deleted/create_time/update_time；同 Owner Schema 物理 FK，跨 Owner Schema 逻辑 UUID；时间统一 timestamptz。 | S-02 |
-| RULE-04 | 系统约束 | Secret Value 不进 DB/Snapshot/日志/LLM/审计，只保存 SecretRef。 | S-02 |
+| RULE-04 | 系统约束 | 密钥由 Owner 表明文保存，跨表只引用主键；执行服务内存使用凭据，Snapshot/事件/日志/LLM Prompt/审计/公开 API 不含密钥。 | S-02 |
 | RULE-05 | 系统约束 | 三层授权 + Effective Capability：`AgentAccessGrant(用户,Agent).is_deleted=false AND Agent.enabled AND Binding.is_deleted=false AND 资源.enabled AND 资源.is_deleted=false AND (user_scope=ALL OR 用户 Grant.is_deleted=false)`；绑定无 enabled，Grant 无到期时间（撤销=软删除）。 | S-01 |
-| RULE-06 | 系统约束 | NFS-backed RWX PVC 为 Artifact 权威源；Runtime/Worker emptyDir 本地 cache；checksum 校验后原子切 READY；禁止直接从 NFS 执行 Python。 | S-03 / E-01 |
+| RULE-06 | 系统约束 | NFS 为 Artifact 权威源；emptyDir cache checksum 校验后原子切 READY，同 checksum 首次加载 singleflight；禁止从 NFS 执行 Python。写入不可变（temp+os.replace），重复 storage_key 拒绝；DB 事务失败删除本次文件，进程孤儿由现有 CLI 按宽限期清理。 | S-03 / E-01 |
 | RULE-07 | 系统约束 | V1 仅 Streamable HTTP；Tool Catalog 持久化 PostgreSQL；Server 级用户范围，无 Tool 级授权/启停；Run 内不执行 `tools/list`。 | S-02 |
 | RULE-08 | 系统约束 | 新 Run/Task 冻结 Snapshot；配置/授权变更只影响后续新 Run/Task。 | S-02 |
 | RULE-09 | 系统约束 | 同一 conversation 同时最多一个非终态 Run（partial unique 保底）；Run 持久化 `lease_owner/lease_until/heartbeat_at` 并续租；终态写入必须 CAS；Reaper 将 lease 过期仍 RUNNING 的 Run CAS 为 `FAILED(RUN_ABANDONED)`。 | S-04 / E-03 / E-04 |
@@ -110,6 +112,8 @@
 | RULE-13 | 系统约束 | Egress `target_type` 统一 `PLATFORM_SERVICE/HTTP/MCP`；`ctx.http` host 必须命中 allowlist、响应 ≤5 MiB、禁止未授权跳转、超时必填，与平台调用共用 Egress Boundary 和审计。 | E-05 |
 | RULE-14 | 系统约束 | 业务错误只抛 `config/api-messages.yaml` 已登记 code；`RUN_ABANDONED` 仅作 Run 终态 `error_code` 记录，不作为 HTTP 错误码。 | E-03 / E-04 |
 
+| RULE-15 | 系统约束 | 创建/可重试提交按 Idempotency-Key + 请求指纹落 DB；同键同指纹返回 200 原结果，异指纹 COMMON_CONFLICT；SSE 重放该次提交，不再次执行，resume 消息独立幂等。 | B-01 |
+
 #### 2.5.2 功能验收场景
 
 ##### 正常场景
@@ -117,8 +121,8 @@
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 操作/前置 | 预期结果 |
 |---|---|---|---|---|---|---|---|
 | S-01 | FEAT-02 | P0 | E2E | Gateway→Runtime→resolve API→LLM | 本模块 | 用户仅有部分 SELECTED Skill 权限 | LLM catalog 完全不存在未授权能力 |
-| S-02 | FEAT-03 | P0 | E2E | Runtime→DB Snapshot→LLM/Tool | 本模块 | Run 创建后管理员改 Agent/Grant；上传 Skill v2 | 当前 Run 继续原 Snapshot（agent/model/skill/`prompt_template_version`/MCP catalog revision+hash 均不变），新 Run 才看到变更；Snapshot 无 Secret |
-| S-03 | FEAT-04 | P0 | integration | emptyDir→NFS | 本模块 | 同 Pod 第二次执行同 checksum Skill | 命中 READY，不访问 NFS |
+| S-02 | FEAT-03 | P0 | E2E | Runtime→DB Snapshot→LLM/Tool | 本模块 | Run 创建后管理员改 Agent/Grant；上传 Skill v2 | 当前 Run 继续原 Snapshot（agent/model/skill/`prompt_template_version`/MCP catalog revision+hash 均不变），新 Run 才看到变更；Snapshot 无 Secret；原 Run/resume 仅按冻结主键读取当前凭据，不重新 resolve-definition，不更新旧授权/catalog；换密钥可生效而非密钥投影不变 |
+| S-03 | FEAT-04 | P0 | integration | emptyDir→真实 NFS | 本模块 | 同 Pod 再次执行同 checksum；并发首次加载；重复 storage_key 写入 | 命中 READY 不访问 NFS；singleflight；校验后原子 READY；重复 key 抛 FileExistsError；只执行本地 cache |
 | S-04 | FEAT-01 | P0 | E2E | Runtime A→PostgreSQL→Runtime B | 本模块 | Turn 1 由 Pod A 执行后 Pod A 删除，Turn 2 路由到 Pod B | Pod B 从 PostgreSQL+Artifact Store 重建上下文，无 sticky session，Conversation/Memory 正确 |
 | S-05 | FEAT-06 | P1 | integration | runner→HookManager→tool | 本模块 | 一轮含 Tool 调用的 Run，Hook 已注册 | Hook 按 `user_prompt→pre_model→pre_tool_use→post_tool_use→post_model→stop` 触发，未触发的 Hook 不影响已注册的其他 Hook |
 | S-06 | FEAT-07 | P1 | integration | ModelGateway→fake provider | 本模块 | Provider 先返回 429（`Retry-After: 1`）后成功 | 按 Retry-After+backoff 重试成功，`model_invocation_audit` 记录 attempt/retry_reason，Run 不失败 |
@@ -129,7 +133,7 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 |
 |---|---|---|---|---|---|---|
-| E-01 | FEAT-04 | integration | Runtime cache→NFS | 本模块 | cache miss 且 NFS 不可用 | 产生明确 Skill 失败（`SKILL_ARTIFACT_UNAVAILABLE`），不执行半成品 |
+| E-01 | FEAT-04 | integration | Runtime cache→NFS | 本模块 | cache miss 且 NFS 不可用 | 产生明确 Skill 失败（`SKILL_ARTIFACT_UNAVAILABLE`），不执行半成品；checksum mismatch 使用已登记 code；DB 失败同步删除本次文件，孤儿清理不删除宽限期内文件 |
 | E-02 | FEAT-01 | E2E | Gateway→Runtime cancel-active→DB | 本模块 | 用户 `/stop`，存在 WAITING_INPUT Run | 直接 CAS 置 `CANCELLED`，写 CANCEL CanonicalEvent，发 `run.completed(status=CANCELLED)`，`run_interrupt` 置 CANCELLED |
 | E-03 | FEAT-01 | E2E | Gateway→Runtime→DB partial unique | 本模块 | conversation 存在 CREATED/RUNNING Run 时再次 `POST /v1/runs` | 返回 `409 RUN_BUSY`；Run 状态与 lease 不变 |
 | E-04 | FEAT-01 | integration | Reaper→DB lease→CAS | 本模块 | RUNNING Run 的 `lease_until` 过期且无续租（执行 Pod 崩溃） | Reaper CAS 置 `FAILED(RUN_ABANDONED)`，会话解锁可建新 Run；旧执行者后续写终态被 CAS 拒绝 |
@@ -137,6 +141,12 @@
 | E-06 | FEAT-07 | integration | ModelGateway→fake provider | 本模块 | 连续 429/5xx 直至超过 `max_model_retries` 或剩余 deadline 不足以退避 | 停止重试，Run 终态 `FAILED`，`error_code=MODEL_UNAVAILABLE`，写 `model_invocation_audit` |
 | E-07 | FEAT-01 | E2E | Gateway SSE→Runtime Reaper | 本模块 | SSE 流未收到终态即断开且执行 Pod 随之中断 | Gateway 向用户提示可重发；lease 过期后 Reaper 回收为 `FAILED(RUN_ABANDONED)`，`GET /v1/runs/{run_id}` 可查终态 |
 | E-08 | FEAT-01 | E2E | Gateway→Runtime cancel-active→DB | 本模块 | 用户 `/stop`，存在 CREATED/RUNNING Run | 写 `cancel_requested=true`+Redis hint，响应 `{run_id,status:"CANCELLING"}`；执行 Pod 在模型/工具/心跳检查点协作停止后 CAS `CANCELLED`；无活跃 Run 时返回 `404 NO_ACTIVE_RUN` |
+
+##### 幂等边界场景
+
+| 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 操作/前置 | 预期结果 |
+|---|---|---|---|---|---|---|---|---|
+| B-01 | FEAT-01 | P0 | E2E | Gateway HTTP/SSE→Runtime→PostgreSQL 幂等表/事件→Tool | 本模块 | 同键同指纹并发/重试/重启后重发；同键异指纹；同 Run 多次 resume | 同提交仅执行一次并返回原 run_id/提交事件；同键同指纹 200 SSE 重放，未结束则接续；异指纹 COMMON_CONFLICT；不同 resume 提交各自幂等，终态不二次执行 |
 
 无可靠实测数据的性能阈值统一标记“待定”，不复制模板示例值。
 
@@ -284,6 +294,12 @@ Run 状态机以 docs/02 §6 为准；取消与 Reaper 语义见 §3.4 API-03/AP
 
 冻结项与实时项以 docs/04 §6.3 为准：Agent instructions/revision、Model/params、Effective Skill artifact/version/checksum、Prompt template `prompt_template_version`、MCP catalog revision/hash/definitions 冻结；Secret value、Egress emergency deny、cancel 实时。
 
+#### `runtime.run_submission`
+
+Run 创建和每次 resume 的持久化幂等记录。标准列为 `id/is_deleted/create_time/update_time`；另有 `tenant_id`、`idempotency_key`、`endpoint`、`request_fingerprint`、`actor_user_id`、`run_id`、`conversation_id`、`response_status`、`response_headers_json`、`first_seq`、`last_seq`、`status`（OPEN/CLOSED）、`terminal_result_json`。Run/Conversation 为同 Owner FK，actor 仅逻辑 UUID；seq 可为空直至首事件落库。部分唯一索引为 `(tenant_id,idempotency_key,endpoint) WHERE is_deleted=false`；另建 `(run_id,create_time)` 查询索引。
+
+幂等记录与 Run/Snapshot/首个用户事件在同一事务提交；每个 SSE 业务事件记录所属 submission。首响应状态与安全响应头固定，事件 append-only；同键重试读取已提交事件而非重新分配序号，随后仅订阅该 submission。interrupt.required 结束本次提交流并记录 last_seq，Run 继续 WAITING_INPUT；后续 resume 使用新 submission，不重放前一提交。事务失败不保留可见幂等成功记录。
+
 #### `runtime.canonical_event`
 
 **表说明**
@@ -302,7 +318,9 @@ Run 状态机以 docs/02 §6 为准；取消与 Reaper 语义见 §3.4 API-03/AP
 | `tenant_id` | varchar(64) | NOT NULL | 隔离键 |
 | `conversation_id` | uuid | NOT NULL | 会话 |
 | `run_id` | uuid |  | 所属 Run |
-| `seq` | bigint | NOT NULL | Conversation 单调序号 |
+| `seq` | bigint | NOT NULL | Conversation 单调序号，SSE 输出沿用已持久化序号 |
+| `submission_id` | uuid | FK -> run_submission.id，可空 | 可重放 SSE 事件所属的创建/resume 提交；非提交事件可空 |
+| `stream_type` | varchar(64) | 可空 | 对外 SSE 类型；与业务 event_type 区分，ContextBuilder 只读取业务消息/工具事实 |
 | `event_type` | varchar(64) | NOT NULL | USER_MESSAGE/ASSISTANT_MESSAGE/TOOL_CALL/... |
 | `payload_json` | jsonb | NOT NULL | 事件负载 |
 | `artifact_id` | uuid |  | 大结果引用 |
@@ -456,6 +474,7 @@ erDiagram
 | API-06 | 查询 Run | GET | `/v1/runs/{run_id}` | FEAT-01 |
 | API-07 | Resolve Definition | POST | `/internal/runtime/resolve-definition` | FEAT-02 |
 | API-08 | Resolve Egress | POST | `/internal/runtime/resolve-egress-access` | FEAT-04 |
+| API-09 | Resolve Runtime Credentials | POST | `/internal/runtime/resolve-credentials` | FEAT-03/FEAT-04 |
 
 | 函数ID | 签名 | 用途 | 错误码 | FEAT |
 |---|---|---|---|---|
@@ -475,7 +494,10 @@ POST /v1/runs
 
 - 调用方：IM Gateway（用户消息）；诊断工具。
 - 协议：请求 `application/json`；响应 `text/event-stream`（SSE），不使用 JSON Envelope。
-- 幂等：支持 `Idempotency-Key`（缺省取 `channel.message.id`），重复请求不得创建第二个非终态 Run（docs/07 §12）。
+- 幂等：支持 `Idempotency-Key`，缺省取请求中的 `message.id`。指纹为 endpoint、tenant/actor/agent、请求中的 conversation 选择值（缺省使用稳定空标识）与规范化消息内容的 SHA256；不能先自动取最新 conversation 再生成指纹，否则重试会漂移。
+- 先按 tenant/key/endpoint 检查已提交记录：同指纹返回 200 SSE，重放该 submission 已持久化事件并接续未结束流；不调用 LLM/Tool、不创建新 Run。不同指纹返回 `COMMON_CONFLICT`。必须核验重放请求的 actor/会话归属；缓存不能绕过租户隔离。
+- 新 key 才查询活跃 Run；WAITING_INPUT 走原 Snapshot + API-09 内存凭据，无需重新 resolve-definition；无活跃 Run 才调用 API-07 解析最新授权/定义。并发插入幂等记录时，唯一约束落败者读取首次提交结果。
+- 重放保持初次事件的 seq/timestamp/payload，heartbeat 不持久化。非流式首个错误使用 JSON Envelope；事务未提交的失败允许同 key 重试，不伪造成功响应。
 
 **请求字段**
 
@@ -518,10 +540,11 @@ data: {"run_id":"...","conversation_id":"...","resumed":false,"trace_id":"..."}
 **处理逻辑**
 
 ```text
-1. 校验 agent enabled + AgentAccessGrant（resolve-definition）
-2. 查询 conversation 非终态 Run（DB partial unique 兜底）:
-   WAITING_INPUT -> 不新建 Run，将 message.text 作为 resume 输入
+1. 校验 tenant/actor/会话归属并检查提交幂等；命中则重放原 submission
+2. 新提交查询 conversation 非终态 Run（DB partial unique 兜底）:
+   WAITING_INPUT -> 原 Snapshot + API-09 实时凭据，不新建 Run，将 message.text 作为 resume 输入
    CREATED/RUNNING -> raise RUN_BUSY
+   无活跃 Run -> resolve-definition 校验当前 Agent/Grant 并获取新定义
 3. 新建 Run: run_record insert status=CREATED
    + lease_owner = 本 Pod 实例 ID + lease_until + heartbeat_at
 4. resolve-definition -> RuntimeSnapshot(run_id, prompt_template_version,
@@ -531,7 +554,7 @@ data: {"run_id":"...","conversation_id":"...","resumed":false,"trace_id":"..."}
 7. 终态 CAS 写 run_record（COMPLETED/FAILED/CANCELLED）
 ```
 
-- 事务：步骤 3–5 的 Run/Snapshot/CanonicalEvent 创建在同一 DB 事务；LLM/Tool 外部 IO 不包长事务。
+- 事务：步骤 3–5 的 Run/Snapshot/submission/CanonicalEvent 在同一短 DB 事务；resolve HTTP 请求在事务前完成，LLM/Tool 外部 IO 不包长事务。
 - 并发兜底：两个请求同时通过步骤 2 时，partial unique 使后写者失败，按 `RUN_BUSY` 返回。
 - 对应 docs/07 §2.1；docs/04 §4/§4.1/§6。
 
@@ -543,12 +566,13 @@ POST /v1/runs/{run_id}/resume
 
 - 调用方：IM Gateway（澄清/确认回复的显式入口）；诊断工具。
 - 协议：响应 SSE（与 API-01 同一事件流，首事件 `run.created` 带 `"resumed":true`）。IM 普通回复无需 Gateway 显式调用，Runtime 在 API-01 内自动 resume（docs/07 §2.2）。
-- 幂等：已终态 Run 返回当前终态，不再执行。
+- 幂等：已终态 Run 返回当前终态，不再执行。显式 resume 支持 Idempotency-Key；缺省取新增的可选 input.id，均缺失则 COMMON_VALIDATION_ERROR。每次回复独立 submission；同键指纹与重放规则同 API-01，fingerprint 包含 run_id/input，避免把两次回复合并。
 
 **请求字段**
 
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
+| `input.id` | string | 条件必填 | 不传 Idempotency-Key 时的稳定提交 ID |
 | `input.type` | string | 是 | text/... |
 | `input.text` | string | 是 | 澄清/确认输入 |
 
@@ -569,10 +593,11 @@ POST /v1/runs/{run_id}/resume
 1. 校验 run_id 存在；status 非 WAITING_INPUT:
    已终态 -> 返回当前终态（幂等）
    其余   -> raise COMMON_CONFLICT
-2. run_interrupt -> RESOLVED + resolution_json
-3. append USER_MESSAGE(resume input) CanonicalEvent
-4. CAS run_record WAITING_INPUT -> RUNNING，重新初始化 lease
-5. LangGraph resume -> SSE 输出
+2. 校验幂等提交，加载原 Snapshot；API-09 按冻结主键获取内存凭据
+3. 在同一事务中 run_interrupt -> RESOLVED + resolution_json
+4. 同事务 append USER_MESSAGE(resume input) 与新 submission
+5. 同事务 CAS run_record WAITING_INPUT -> RUNNING，重新初始化 lease；竞争失败整体回滚
+6. 从 PostgreSQL checkpoint 恢复 LangGraph -> SSE 输出；首个 run.created 带 resumed=true，沿用 conversation seq
 ```
 
 - 对应 docs/07 §2.2；docs/04 §15.2；docs/08 §5。
@@ -772,7 +797,7 @@ POST /internal/runtime/resolve-definition
 ```
 
 - `skills/mcp_servers` 已是 Effective Capability（RULE-05 公式），不是 Agent 的全量绑定；未授权资源不返回。
-- `model.api_key` 为明文，仅 Runtime 内存使用，不回显/不落日志。
+- `model.api_key` 为 Owner 密钥列的明文，仅受信执行服务通过内部接口获取并在内存使用，不进入 Snapshot/hash 输入/Prompt/日志/审计或公开响应。API-07 只用于新 Run；恢复或重试不重新解析当前授权，改用 API-09。
 - MCP `definitions` 来自最近一次成功 `tools/list` 的 `tool_catalog_json`（`revision/hash` 同源）；Run 内不再 `tools/list`。
 - 字段与 docs/07 §4.1 对齐；MCP 条目与 Snapshot `mcp_catalog_json` 同构。
 
@@ -805,7 +830,7 @@ POST /internal/runtime/resolve-egress-access
 ```
 
 - 调用方：Runtime/Worker 的 Egress Boundary；实现方：Console Platform。
-- 用途：ProjectPlatform 解析、adapter 返回、凭据选择策略与授权/审计归因；不返回 Secret Value，不在 Console 执行平台登录。
+- 用途：ProjectPlatform 解析、adapter 返回、凭据选择策略与授权/审计归因。向受信执行服务返回当前凭据供内存使用，公开 API 仅回 configured 状态；Console 不执行平台登录。本端点尚未实现，由 TASK-029 补齐，客户端 TASK-014 依赖它。
 
 **请求字段**
 
@@ -854,12 +879,23 @@ POST /internal/runtime/resolve-egress-access
 ```text
 1. 校验 execution_ref.type ∈ {RUN,TASK}；target.type ∈ {PLATFORM_SERVICE,HTTP,MCP}
 2. 解析 ProjectPlatform + adapter_key/adapter_config + schema version
-3. 按 credential_mode（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）选择 CredentialRef
+3. 按 credential_mode（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）选择用户/共享凭据表的主键行
 4. 返回 ALLOW + platform + credential(ref_id/credential_json)；Runtime 直接读取明文凭据
 5. ctx.http 与平台调用共用本边界：allowlist、5 MiB、禁止未授权跳转、超时必填
 ```
 
 - 对应 docs/07 §4.2；docs/00 §0.12（Skill 出网）；docs/04 §13。
+
+#### API-09 Resolve Runtime Credentials
+
+`POST /internal/runtime/resolve-credentials`（本轮新增，由 TASK-028 实现）。Console 只读取凭据，不重新计算 Agent/Grant/Binding，也不返回新的模型参数、Skill 或 MCP catalog。
+
+- 调用方仅受信 Runtime 服务；使用项目内部服务身份校验，tenant 来自可信请求上下文，不接受公开用户直接调用。Runtime 从 DB 的 Snapshot 生成资源 ID，禁止把最终用户输入直接作为凭据查询目标。
+- 请求：`{execution_ref:{type:"RUN",id},actor_user_id,model_id,mcp_server_ids:[]}`。Run resume 根据原 Snapshot 填写，资源 ID 与类型必须校验；租户内资源主键不可越界。服务身份缺失/不允许的类型返回 FORBIDDEN 或 COMMON_VALIDATION_ERROR。
+- 响应统一 Envelope，data 为 `{model:{id,api_key},mcp_servers:[{mcp_server_id,auth_secret}]}`；凭据用于内存认证，禁止序列化到 Snapshot、checkpoint、CanonicalEvent、日志、审计、Prompt、公开 API。已冻结的 endpoint/model_id（上游模型标识）与 params 保持不变。
+- Console 读取 Owner 表当前密钥列；不因为后续 Agent/Grant/资源 enabled 变更重新筛选旧 Snapshot，密钥清空/目标已物理移除则明确 CREDENTIAL_MISSING/COMMON_NOT_FOUND，不能退回环境变量。新 Run 的启用/授权校验仍只由 API-07 完成。
+- 平台凭据和 emergency deny 继续实时走 API-08；平台认证/Session 由 Adapter 负责。API-09 不代替平台出网策略。
+- 验收沿用 S-02（真实 Console HTTP→Owner DB→原 Run resume→LLM/MCP）并补 TASK-028 的服务集成断言：不含当前 Grant 过滤、跨租户拒绝、调用身份校验、密钥轮换只影响认证字段、缺失凭据明确失败。
 
 #### 3.4.1 SSE 事件契约
 
@@ -875,7 +911,7 @@ POST /internal/runtime/resolve-egress-access
 }
 ```
 
-- `seq` 与 conversation 的 canonical seq 对齐，单调递增；重连/诊断以 `GET /v1/runs/{run_id}` 为准。
+- 新事件先 append 到 PostgreSQL，再以同一 seq/timestamp 输出；conversation seq 在新 Run/resume 中继续单调递增。幂等重放保留原序号，consumer 对已见的 seq 去重；不得在重放时生成新的业务事件。普通断流不自动重新执行，状态诊断以 GET Run 为准。
 - 连接空闲发送 SSE 注释帧 `: heartbeat`，不带 event 与 seq、不计入 seq，Consumer 忽略。
 - 未收到终态（`run.completed/run.failed`）断流时，Gateway 向用户提示可重发；Run 由 Reaper 回收（E-07）。
 - Gateway 只消费面向渠道必要的事件；审计类信息不要求全部转给最终用户（docs/04 §17）。
@@ -911,7 +947,7 @@ POST /internal/runtime/resolve-egress-access
 
 **安全**
 
-- Secret/Token/Cookie 不进业务 DB、日志、Snapshot、Prompt、审计；仅保存 SecretRef。
+- Owner 表按模块 15 决策保存密钥明文，其他表仅主键引用；执行服务只在认证内存使用密钥。日志、Snapshot/hash 输入、checkpoint、CanonicalEvent、Prompt、审计与公开 API 不得含密钥。
 - 未授权 Skill/MCP 不进入 Catalog/ToolRegistry/Prompt；Egress Boundary 统一控制 `PLATFORM_SERVICE/HTTP/MCP`，`ctx.http` allowlist + ≤5 MiB + 禁止未授权跳转 + 超时必填（RULE-13）。
 
 **可观测**
@@ -941,9 +977,9 @@ POST /internal/runtime/resolve-egress-access
 
 | 用户故事 | 功能ID | 接口ID | 测试用例ID | 测试层级 | 状态 |
 |---|---|---|---|---|---|
-| 需求描述 | FEAT-01 | API-01, API-02, API-03, API-04, API-05, API-06, LIB-01, LIB-07 | S-04, S-07, E-02, E-03, E-04, E-07, E-08 | E2E | 待实现 |
+| 需求描述 | FEAT-01 | API-01, API-02, API-03, API-04, API-05, API-06, LIB-01, LIB-07 | S-04, S-07, E-02, E-03, E-04, E-07, E-08, B-01 | 依各场景层级（E-04 为 integration，其余 E2E） | 待实现 |
 | 需求描述 | FEAT-02 | API-07 | S-01 | E2E | 待实现 |
-| 需求描述 | FEAT-03 | API-01, API-06, LIB-02 | S-02 | E2E | 待实现 |
+| 需求描述 | FEAT-03 | API-01, API-06, API-09, LIB-02 | S-02 | E2E | 待实现 |
 | 需求描述 | FEAT-04 | API-08, LIB-03, LIB-04 | S-03, E-01, E-05 | integration | 待实现 |
 | 需求描述 | FEAT-05 | LIB-02 | S-08 | integration | 待实现 |
 | 需求描述 | FEAT-06 | LIB-05 | S-05 | integration | 待实现 |
@@ -953,13 +989,16 @@ POST /internal/runtime/resolve-egress-access
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `harness-platform#RULE-arch-001` | required | 固定 4 部署单元；Runtime/Worker 无状态，Run 租约不绑定 Pod，任意 Pod 可接管。 | §2.5.1 RULE-01/RULE-09、§3.3 `runtime.run_record`、§4 | S-04, E-04 + verifier | applied |
-| `harness-platform#RULE-api-001` | required | REST 统一 Envelope；SSE 用 §3.4.1 封套；错误码只来自 `config/api-messages.yaml`。 | §3.4 API-01/API-03/API-06、§3.4.1 | E-03, E-08 + verifier | applied |
-| `harness-platform#RULE-auth-001` | required | Effective Capability 公式前置过滤；未授权资源不进 Catalog/ToolRegistry/Prompt。 | §2.5.1 RULE-05、§3.4 API-07 | S-01 + verifier | applied |
-| `harness-platform#RULE-data-001` | required | 标准列/timestamptz/partial unique/物理 FK 与 docs/02 §4.19–4.21 及迁移一致。 | §3.3 `runtime.run_record`/`runtime.runtime_snapshot` | E-03, S-04 + verifier | applied |
-| `harness-platform#RULE-secret-001` | required | Snapshot/日志/审计/Prompt 不含 Secret，仅 SecretRef。 | §2.4、§3.3 冻结项、§3.4 API-06/API-08 | S-02 + verifier | applied |
-| `harness-platform#RULE-skill-001` | required | NFS 权威 + emptyDir cache + checksum/singleflight；禁止从 NFS 直接执行。 | §3.3 `runtime.artifact`、§3.4 LIB-03 | S-03, E-01 + verifier | applied |
-| `harness-platform#RULE-mcp-001` | required | Run 内不 `tools/list`；Snapshot 冻结 catalog revision/hash/definitions；Server 级范围。 | §2.5.1 RULE-07、§3.3 `runtime_snapshot.mcp_catalog_json` | S-02 + verifier | applied |
-| `harness-platform#RULE-snapshot-001` | required | 冻结 Agent/Model/Skill/MCP/`prompt_template_version`/policy；终态 CAS 不漂移。 | §2.5.1 RULE-11、§3.3 `runtime.runtime_snapshot`、§3.4 API-06 | S-02, E-04 + verifier | applied |
-| `harness-platform#RULE-platform-001` | required | Adapter SPI/credential_mode/Session 由 platform-sdk 承担；egress `target_type` 统一。 | §3.4 API-08、§2.5.1 RULE-13 | E-05 + verifier | applied |
-| `harness-platform#RULE-test-001` | required | 关键流程 E2E 且明确不 mock 的真实边界（PG/Redis/NFS/HTTP/SSE）。 | §2.5.2 场景表、§3.5 | S-01, S-04, E-01 + verifier | applied |
+| `harness-arch#RULE-arch-001` | required | 固定 4 部署单元；Runtime/Worker 无状态，Run 租约不绑定 Pod，任意 Pod 可接管。 | §2.5.1 RULE-01/RULE-09、§3.3 `runtime.run_record`、§4 | S-04, E-04 + verifier | applied |
+| `harness-api#RULE-api-001` | required | REST 统一 Envelope；SSE 用 §3.4.1 封套；错误码只来自 `config/api-messages.yaml`。 | §3.4 API-01/API-03/API-06、§3.4.1 | E-03, E-08 + verifier | applied |
+| `harness-auth#RULE-auth-001` | required | Effective Capability 公式前置过滤；未授权资源不进 Catalog/ToolRegistry/Prompt。 | §2.5.1 RULE-05、§3.4 API-07 | S-01 + verifier | applied |
+| `harness-data#RULE-data-001` | required | 标准列/timestamptz/partial unique/物理 FK 与 docs/02 §4.19–4.21 及迁移一致。 | §3.3 `runtime.run_record`/`runtime.runtime_snapshot` | E-03, S-04 + verifier | applied |
+| `harness-secret#RULE-secret-001` | required | Owner 表存密钥，内部服务仅内存使用；Snapshot/日志/审计/Prompt/公开响应无密钥。 | §2.4、§3.3 冻结项、§3.4 API-06/API-08 | S-02 + verifier | applied |
+| `harness-skill#RULE-skill-001` | required | NFS 权威 + emptyDir cache + checksum/singleflight；不可变写、DB 失败清理、宽限期孤儿回收；禁止从 NFS 直接执行。 | §3.3 `runtime.artifact`、§3.4 LIB-03 | S-03, E-01 + verifier | applied |
+| `harness-mcp#RULE-mcp-001` | required | Run 内不 `tools/list`；Snapshot 冻结 catalog revision/hash/definitions；Server 级范围。 | §2.5.1 RULE-07、§3.3 `runtime_snapshot.mcp_catalog_json` | S-02 + verifier | applied |
+| `harness-snapshot#RULE-snapshot-001` | required | 冻结 Agent/Model/Skill/MCP/`prompt_template_version`/policy；终态 CAS 不漂移。 | §2.5.1 RULE-11、§3.3 `runtime.runtime_snapshot`、§3.4 API-06 | S-02, E-04 + verifier | applied |
+| `harness-project-platform#RULE-platform-001` | required | Adapter SPI/credential_mode/Session 由 platform-sdk 承担；egress `target_type` 统一。 | §3.4 API-08、§2.5.1 RULE-13 | E-05 + verifier | applied |
+| `harness-test#RULE-test-001` | required | 关键流程 E2E 且明确不 mock 的真实边界（PG/Redis/NFS/HTTP/SSE）。 | §2.5.2 场景表、§3.5 | S-01, S-04, E-01 + verifier | applied |
+| `harness-api#RULE-api-002` | required | 提交幂等表 partial unique＋指纹；200 重放原 SSE 提交，异指纹 COMMON_CONFLICT，不重复执行。 | §3.3 run_submission、API-01/API-02 | B-01 + verifier | applied |
+
+> Matrix 的 applied 表示设计已承接，代码验收尚未执行；verifier_ref 与原命令继承 spec-context.yml 绑定，不把旧模块 verifier 通过当作本模块功能通过。

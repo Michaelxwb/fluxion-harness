@@ -1,7 +1,7 @@
 version: 1
 task: Agent 定义、授权与通道配置
 enforcement: required
-updated_at: '2026-09-19T13:23:21.955920+00:00'
+updated_at: '2026-09-19T22:58:47.393405+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -59,7 +59,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-002
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -370,7 +370,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-007
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -742,7 +742,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-004
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -1091,7 +1091,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-001
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -1461,7 +1461,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-008
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -1792,7 +1792,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-008
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -2083,7 +2083,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-006
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -2486,7 +2486,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-002
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -2822,7 +2822,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-003
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -3108,7 +3108,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-006
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -3423,7 +3423,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-002
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -3705,7 +3705,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-009
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -4247,7 +4247,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-008
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
@@ -4886,7 +4886,7 @@ bindings:
         - artifact: 07-agent-management.md
           section_id: Spec-Refs
           item_id: TASK-009
-          artifact_sha256: 1badd86fe2b54b1522a87ad59e8ccb9ddc1fd9fced0efb2dd6abf4f86e10f799
+          artifact_sha256: f0e751b76fd16c3bfadb26ecb4a5b796f1afd0a6015dc083321c63efaa9af53c
         decision: null
         evidence: []
       code:
