@@ -343,3 +343,62 @@ class PlatformUpdateRequest(BaseModel):
     adapter_config: dict[str, Any] | None = None
     credential_mode: CredentialMode | None = None
     enabled: bool | None = None
+
+
+class McpServerListItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mcp_id: uuid.UUID
+    key: str
+    name: str
+    transport: str
+    endpoint: str
+    user_scope: str
+    enabled: bool
+    connection_status: str
+    tool_count: int = 0
+    using_agent_count: int = 0
+    selected_user_count: int = 0
+    last_discovered_at: datetime | None = None
+    update_time: datetime
+
+
+class McpServerDetail(McpServerListItem):
+    model_config = ConfigDict(extra="forbid")
+
+    tool_catalog_revision: int = 0
+    tool_catalog_hash: str | None = None
+    last_discovery_error: str | None = None
+    connect_timeout_ms: int
+    tool_cache_ttl_sec: int
+    auth_config: dict[str, Any]
+    auth_secret_configured: bool = False
+
+
+class McpCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=128)
+    key: str = Field(min_length=1, max_length=128)
+    endpoint: str = Field(min_length=1)
+    transport: str | None = None
+    user_scope: Literal["ALL", "SELECTED"] | None = None
+    enabled: bool | None = None
+    auth_secret: str | None = None
+    auth_config: dict[str, Any] | None = None
+    connect_timeout_ms: int | None = Field(default=None, ge=100, le=60000)
+    tool_cache_ttl_sec: int | None = Field(default=None, ge=1, le=86400)
+
+
+class McpUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    endpoint: str | None = None
+    transport: str | None = None
+    user_scope: Literal["ALL", "SELECTED"] | None = None
+    enabled: bool | None = None
+    auth_secret: str | None = None
+    auth_config: dict[str, Any] | None = None
+    connect_timeout_ms: int | None = Field(default=None, ge=100, le=60000)
+    tool_cache_ttl_sec: int | None = Field(default=None, ge=1, le=86400)

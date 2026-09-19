@@ -9,6 +9,7 @@ from .deps import get_current_account, require_admin
 from .health import router as health_router
 from .internal_channel import router as internal_channel_router
 from .internal_runtime import router as internal_runtime_router
+from .mcp_servers import router as mcp_servers_router
 from .models import router as models_router
 from .platform_adapters import router as platform_adapters_router
 from .platform_test import router as platform_test_router
@@ -30,6 +31,7 @@ authenticated.include_router(platforms_router)
 authenticated.include_router(credentials_router)
 authenticated.include_router(platform_test_router)
 authenticated.include_router(skills_router)
+authenticated.include_router(mcp_servers_router)
 router.include_router(authenticated)
 
 admin = APIRouter(dependencies=[Depends(require_admin), Depends(require_csrf)])
