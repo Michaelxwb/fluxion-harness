@@ -10,6 +10,7 @@ import { UserPage } from './modules/user-identity/UserPage';
 import { AgentsPage } from './pages/AgentsPage';
 import { LoginPage } from './pages/LoginPage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
+import { McpPage } from './modules/mcp-management/McpPage';
 import { SkillPage } from './modules/skill-management/SkillPage';
 import { PlatformPage } from './modules/project-platform/PlatformPage';
 
@@ -38,7 +39,7 @@ export default function App() {
         <Route index element={<PlaceholderPage titleKey="nav.overview" />} />
         <Route path="agents" element={<AgentsPage />} />
         <Route path="skills" element={<SkillPage />} />
-        <Route path="mcp" element={<PlaceholderPage titleKey="nav.mcp" />} />
+        <Route path="mcp" element={<McpPage />} />
         <Route path="models" element={<ModelPage />} />
         <Route
           path="users"

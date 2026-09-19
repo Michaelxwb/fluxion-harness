@@ -279,7 +279,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [2026-09-19] completed (done)
 ## TASK-005: 用户范围与指定用户 API（API-10~API-13）
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003
 - **Source**: 06-mcp-management.backend.design.md#3.4 接口设计 API-10/API-11/API-12/API-13
@@ -314,15 +314,19 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 | S-02 | 404 端点缺失，3 failed | 25 passed（console_mcp 全量） | test_s02（只建 Grant/计数不变/无 expires_at/软删重建） | ASGI 真实 HTTP + 真实 PostgreSQL | verified |
 | E-03 | 同上 | 同上 | test_e03（重复 409 COMMON_CONFLICT） | 同上 | verified |
 | B-05 | 同上 | 同上 | test_b05（分页封套 total=2 page_size=1；切换 ALL 不清空；未知用户 404） | 同上 | verified |
+- S-02: verified — automated command passed; run_id=bb72d459a630406fa7f2d71d2245154d (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=bb72d459a630406fa7f2d71d2245154d (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=bb72d459a630406fa7f2d71d2245154d (confirmed_by: runner)
 
 ### Log
 - [2026-09-19] started/finished：API-10~13 落地，S-02/E-03/B-05 verified
 
 ---
 - [2026-09-19] started
+- [2026-09-19] completed (done)
 ## TASK-006: 前端 MCP 列表/注册/编辑/详情
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 06-mcp-management.frontend.design.md#2.2 功能方案 FEAT-FE-01, 06-mcp-management.frontend.design.md#3.3 组件设计 CMP-01
@@ -360,7 +364,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [2026-09-19] created (draft)
 
 ---
-
+- [2026-09-19] started
 ## TASK-007: 前端测试/刷新目录/工具明细/用户范围
 
 - **Status**: draft
