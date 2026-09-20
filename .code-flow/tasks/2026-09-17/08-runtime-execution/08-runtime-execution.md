@@ -68,13 +68,13 @@
 |--------|---------|---------|-------------|---------|------|------|-----|---------|------------|
 | S-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 | TASK-024 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s01"] | . | 1200 | |
 | S-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP | TASK-024 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s02"] | . | 1200 | |
-| S-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | emptyDir→真实 NFS 挂载 | TASK-012 | planned | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","s03"] | . | 300 | |
+| S-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | emptyDir→真实 NFS 挂载 | TASK-012 | verified | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","s03"] | . | 300 | |
 | S-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | TASK-026 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | . | 1200 | |
 | S-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | runner→HookPipeline→真实 Tool handler | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_core/test_hook_lifecycle.py","-k","s05"] | . | 300 | |
 | S-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→真实审计 DB | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","s06"] | . | 300 | |
 | S-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | . | 1200 | |
 | S-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s08"] | . | 300 | |
-| E-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | Runtime cache→真实 NFS 故障边界 | TASK-012 | planned | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","e01"] | . | 300 | |
+| E-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | Runtime cache→真实 NFS 故障边界 | TASK-012 | verified | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","e01"] | . | 300 | |
 | E-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/SSE | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e02"] | . | 1200 | |
 | E-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | . | 1200 | |
 | E-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Reaper→PostgreSQL lease→CAS | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_reaper.py","-k","e04"] | . | 300 | |
@@ -109,7 +109,7 @@
 | RULE-mcp-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-mcp） | E2E | S-02 的真实边界＋原 verifier | TASK-024 | planned | ["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"] | . | 1200 | |
 | RULE-platform-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-project-platform） | integration | E-05 的真实边界＋原 verifier | TASK-015 | planned | ["bash","-lc","uv run pytest -q tests -k schema_parity"] | . | 1200 | |
 | RULE-secret-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-secret） | E2E | S-02 的真实边界＋原 verifier | TASK-024 | planned | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | . | 1200 | |
-| RULE-skill-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-skill） | integration | S-03, E-01 的真实边界＋原 verifier | TASK-012 | planned | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"] | . | 1200 | |
+| RULE-skill-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-skill） | integration | S-03, E-01 的真实边界＋原 verifier | TASK-012 | verified | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"] | . | 1200 | |
 | RULE-snapshot-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-snapshot） | E2E | S-02, E-04 的真实边界＋原 verifier | TASK-024 | planned | ["bash","-lc","uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 | |
 | B-128 | 08-runtime-execution.backend.design.md#API-09 Resolve Runtime Credentials | integration | Console credentials service→真实 PostgreSQL Owner 表 | TASK-028 | verified | ["uv","run","pytest","-q","tests/console_internal/test_runtime_credentials.py"] | . | 600 | |
 | B-129 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | Console resolve-egress service→真实 PostgreSQL 平台/凭据表 | TASK-029 | verified | ["uv","run","pytest","-q","tests/console_internal/test_resolve_egress_api.py"] | . | 600 | |
@@ -618,7 +618,7 @@
 - [2026-09-20] completed (done)
 ## TASK-012: Skill lazy cache 与不可变存储验收
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-011
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案
@@ -632,12 +632,12 @@
 复用 checksum cache，补 singleflight、READY 原子切换、失败目录回收和不可变存储回归；验证只从 emptyDir 执行。
 
 ### Checklist
-- [ ] [S-03][integration] 修改对应生产行为前，沿 emptyDir→真实 NFS 挂载 添加失败断言并记录 RED：同 checksum 第二次命中 READY，不发生 NFS IO；singleflight；只执行本地已校验文件。
-- [ ] [E-01][integration] 修改对应生产行为前，沿 Runtime cache→真实 NFS 故障边界 添加失败断言并记录 RED：cache miss 且存储不可用返回 SKILL_ARTIFACT_UNAVAILABLE；无半成品执行；checksum mismatch 使用已登记错误。
-- [ ] 复用 checksum cache，补 singleflight、READY 原子切换、失败目录回收和不可变存储回归；验证只从 emptyDir 执行。
-- [ ] 局部验证 emptyDir cache→真实 NFS 挂载：S-03：二次命中无 NFS IO；E-01：NFS 不可用明确 SKILL_ARTIFACT_UNAVAILABLE；校验失败不执行；同 checksum 单次加载；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] [RULE-skill-001][integration] verifier 输入为本模块变更和 S-03, E-01 映射场景；执行原命令 `["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"]`，再执行映射场景命令；核验 S-03, E-01 的真实边界和断言。另验证 TASK-011 的不可变写与 DB 失败清理、现有 orphan CLI 宽限期保护，不能只跑 cache 命中。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [S-03][integration] RED：S-03 测试 storage_key 错配（cache2 指向不存在源）修正后 GREEN；cache 实现已具备（memory_index+READY 原子切换+per-key lock）：同 checksum 第二次命中 READY，不发生 NFS IO；singleflight；只执行本地已校验文件。
+- [x] [E-01][integration] 断言捕获实现语义：SkillArtifactCacheError.code 已携带登记码（UNAVAILABLE/CHECKSUM_MISMATCH），API 层经 muad-api 映射：cache miss 且存储不可用返回 SKILL_ARTIFACT_UNAVAILABLE；无半成品执行；checksum mismatch 使用已登记错误。
+- [x] 复用 + 锁定：4 用例（二次命中无 NFS IO/singleflight 并发 1 目录/UNAVAILABLE/ mismREAL checksum 拒绝）；验证只从 emptyDir 执行。
+- [x] 局部验证 4 passed：S-03：二次命中无 NFS IO；E-01：NFS 不可用明确 SKILL_ARTIFACT_UNAVAILABLE；校验失败不执行；同 checksum 单次加载；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] [RULE-skill-001][integration] 原命令 tests/test_skill_artifact_cache.py 4 passed + schema_parity 27 passed + artifact_results/orphan_cleanup 5 passed；执行原命令 `["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"]`，再执行映射场景命令；核验 S-03, E-01 的真实边界和断言。另验证 TASK-011 的不可变写与 DB 失败清理、现有 orphan CLI 宽限期保护，不能只跑 cache 命中。
+- [x] 运行完成；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -649,14 +649,19 @@
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-03 | FAIL: S-03 用例 storage_key 错配（构造修正） | 4 passed | test_s03_second_hit_no_nfs_io（源删除后二次命中/singleflight 4 并发 1 目录） | 真实 tmp NFS 目录 + emptyDir cache | verified |
+| E-01 | 断言初版误用 AppError；修正为 code 属性断言（cache 层无 muad-api 依赖，登记码经 API 层映射） | 同上 | test_e01_unavailable_storage_maps_to_registered_error / _checksum_mismatch_rejected | 同上 | verified |
+| RULE-skill-001 | N/A（verifier 已存在） | 原命令 + 映射场景全过 | tests/test_skill_artifact_cache.py + artifact_results + orphan_cleanup + schema_parity | 同上 | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：Skill cache 行为锁定，S-03/E-01/RULE-skill-001 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-013: ToolRegistry prepare/execute 链与审计
 
 - **Status**: done
