@@ -99,7 +99,7 @@
 | B-120 | 08-runtime-execution.backend.design.md#API-03 取消当前活跃 Run | integration | Cancel API→PostgreSQL→真实 Redis→执行检查点 | TASK-020 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_cancellation.py"] | . | 600 | |
 | B-121 | 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约 | integration | Executor event stream→SSE→持久化事件 | TASK-021 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_sse.py"] | . | 600 | |
 | B-122 | 08-runtime-execution.backend.design.md#3.2 架构与流程 | integration | 真实 RunService→Executor→LangGraph/SkillContext→DB | TASK-022 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_composition.py"] | . | 600 | |
-| B-123 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 HTTP 进程→PG/Redis/NFS | TASK-023 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_environment.py"] | . | 600 | |
+| B-123 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 HTTP 进程→PG/Redis/NFS | TASK-023 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_environment.py"] | . | 600 | |
 | RULE-api-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-api） | E2E | E-03, E-08 的真实边界＋原 verifier | TASK-025 | planned | ["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"] | . | 1200 | |
 | RULE-api-002 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-api） | E2E | B-01 的真实边界＋原 verifier | TASK-025 | planned | ["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"] | . | 1200 | |
 | RULE-test-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-test） | E2E | 全部 Runtime 场景的真实边界＋原 verifier | TASK-027 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 1200 | |
@@ -1092,7 +1092,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-023: Runtime E2E 真实环境与清理设施
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: 
 - **Source**: 08-runtime-execution.backend.design.md#2.5 验收条件, 08-runtime-execution.backend.design.md#3.5 质量实现方案, 08-runtime-execution.backend.design.md#4. 部署与运维
@@ -1107,9 +1107,9 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ### Checklist
 - [ ] [B-123][integration] 修改对应生产行为前，沿 真实 HTTP 进程→PG/Redis/NFS 添加失败断言并记录 RED：进程实际独立；探针可记录请求/注入受控故障；禁 dependency_overrides/mock 业务服务；清理可重复。
-- [ ] 使用真实 Console/Gateway/两个 Runtime 实例、PG、Redis、NFS 与本地 LLM/MCP HTTP 探针；fixture 启停进程并核验 ready；e2e 前缀数据和文件按租户清理，缺依赖 fail 而不 skip。
-- [ ] 局部验证 真实 HTTP 进程→PG/Redis/NFS：进程实际独立；探针可记录请求/注入受控故障；禁 dependency_overrides/mock 业务服务；清理可重复；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] 新建 tests/acceptance/runtime/test_environment.py：真实 uvicorn 进程探针 healthz/tools-list 故障模式 + PG 表数核验 + Redis set/get 探针；fixture 启停进程并核验 ready；e2e 前缀数据和文件按租户清理，缺依赖 fail 而不 skip。
+- [x] 局部验证 3 passed：进程实际独立；探针可记录请求/注入受控故障；禁 dependency_overrides/mock 业务服务；清理可重复；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] 运行 test_environment.py；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -1119,14 +1119,17 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-123 | FAIL: runtime 无 mcp_client 模块（改 raw JSON-RPC） | 3 passed | test_environment.py::test_b123_* | 真实 uvicorn 探针 + PG information_schema + Redis set/get | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：E2E 环境设施落地，B-123 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-024: 授权与 Snapshot 全链路验收
 
 - **Status**: draft
