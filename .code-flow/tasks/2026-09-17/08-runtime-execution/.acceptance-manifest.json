@@ -157,7 +157,7 @@
       "kind": "functional",
       "boundary": "真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -169,7 +169,28 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "0c6bc39c7bf84e0e8c6729739dcb8d6f",
+        "executed_at": "2026-09-20T09:30:09.030824+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "0c6bc39c7bf84e0e8c6729739dcb8d6f",
+          "executed_at": "2026-09-20T09:30:09.030824+00:00"
+        }
+      ]
     },
     {
       "id": "E-01",
@@ -529,28 +550,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-113",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "4f71a3ca726746d2a93d2a42d1df49f3",
-        "executed_at": "2026-09-20T09:22:36.389405+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-113",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "4f71a3ca726746d2a93d2a42d1df49f3",
-          "executed_at": "2026-09-20T09:22:36.389405+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-114",

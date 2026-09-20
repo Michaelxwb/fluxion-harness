@@ -491,7 +491,7 @@
 - [2026-09-20] completed (done)
 ## TASK-009: 上下文重建与预算裁剪
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-010, TASK-011
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -514,13 +514,14 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-08 | integration | 真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request | 仅裁剪 request；事件 append-only；tenant+user+enabled 过滤；大结果 preview | tests/agent_runtime/test_context_memory.py -k s08（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s08"] | planned |
+| S-08 | integration | 真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request | 仅裁剪 request；事件 append-only；tenant+user+enabled 过滤；大结果 preview | tests/agent_runtime/test_context_memory.py -k s08（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s08"] | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | S-08 | FAIL: 2 failed（模块缺失/stream_type 过滤缺陷） | 2 passed；agent_runtime 89 passed | test_context_memory.py::test_s08_context_from_db_with_isolation_and_preview / _budget_trims_only_request_keeps_tool_pairs | 真实 PostgreSQL canonical_event/user_memory/artifact + ContextInput→ModelRequest | verified |
+- S-08: verified — automated command passed; run_id=0c6bc39c7bf84e0e8c6729739dcb8d6f (confirmed_by: runner)
 
 ### Log
 
@@ -528,7 +529,8 @@
 - [2026-09-20] started/finished：DbBackedContextBuilder 落地，S-08 verified
 
 ---
-
+- [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-010: 受控长期 Memory 读写
 
 - **Status**: done
