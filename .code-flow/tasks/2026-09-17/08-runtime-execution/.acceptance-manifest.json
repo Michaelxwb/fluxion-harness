@@ -700,7 +700,7 @@
       "kind": "functional",
       "boundary": "LangGraph→PG checkpoint/run_interrupt",
       "owner": "TASK-018",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -710,7 +710,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-118",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "1c1fdee829d4477bb5a013f74313998d",
+        "executed_at": "2026-09-20T10:08:30.805563+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-118",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1c1fdee829d4477bb5a013f74313998d",
+          "executed_at": "2026-09-20T10:08:30.805563+00:00"
+        }
+      ]
     },
     {
       "id": "B-119",

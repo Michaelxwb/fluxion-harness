@@ -890,7 +890,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-018: PG Checkpointer 与 Interrupt 持久化
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-006, TASK-008
 - **Source**: 08-runtime-execution.backend.design.md#3.1 技术选型与关键决策, 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#API-02 Resume Run
@@ -913,13 +913,14 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-118 | integration | LangGraph→PG checkpoint/run_interrupt | 进程重建仍可定位等待点；触发 on_interrupt；非授权执行者不能推进；业务事实不依赖进程内存 | tests/agent_runtime/test_interrupt_checkpoint.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_interrupt_checkpoint.py"] | planned |
+| B-118 | integration | LangGraph→PG checkpoint/run_interrupt | 进程重建仍可定位等待点；触发 on_interrupt；非授权执行者不能推进；业务事实不依赖进程内存 | tests/agent_runtime/test_interrupt_checkpoint.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_interrupt_checkpoint.py"] | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | B-118 | FAIL: 4 failed（模块缺失） | 4 passed | test_interrupt_checkpoint.py::test_b118_*（WAITING 持久化/租约释放/进程重建定位/非授权拒绝/resolve 推进） | 真实 PostgreSQL runtime.run_interrupt + run_record | verified |
+- B-118: verified — automated command passed; run_id=1c1fdee829d4477bb5a013f74313998d (confirmed_by: runner)
 
 ### Log
 
@@ -928,6 +929,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-019: 显式与自动 Resume
 
 - **Status**: draft
