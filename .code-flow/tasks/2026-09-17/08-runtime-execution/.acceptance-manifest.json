@@ -820,7 +820,7 @@
       "kind": "functional",
       "boundary": "Executor event stream→SSE→持久化事件",
       "owner": "TASK-021",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -830,7 +830,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-121",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4d78ec0beaf34a19aa48ca07432ca0f1",
+        "executed_at": "2026-09-20T10:26:57.904009+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-121",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4d78ec0beaf34a19aa48ca07432ca0f1",
+          "executed_at": "2026-09-20T10:26:57.904009+00:00"
+        }
+      ]
     },
     {
       "id": "B-122",

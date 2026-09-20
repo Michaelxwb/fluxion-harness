@@ -98,7 +98,7 @@
 | B-119 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | Resume API→PostgreSQL→LangGraph | TASK-019 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_resume_transactions.py"] | . | 600 | |
 | B-120 | 08-runtime-execution.backend.design.md#API-03 取消当前活跃 Run | integration | Cancel API→PostgreSQL→真实 Redis→执行检查点 | TASK-020 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_cancellation.py"] | . | 600 | |
 | B-121 | 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约 | integration | Executor event stream→SSE→持久化事件 | TASK-021 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_sse.py"] | . | 600 | |
-| B-122 | 08-runtime-execution.backend.design.md#3.2 架构与流程 | integration | 真实 RunService→Executor→LangGraph/SkillContext→DB | TASK-022 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_composition.py"] | . | 600 | |
+| B-122 | 08-runtime-execution.backend.design.md#3.2 架构与流程 | integration | 真实 RunService→Executor→LangGraph/SkillContext→DB | TASK-022 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_composition.py"] | . | 600 | |
 | B-123 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 HTTP 进程→PG/Redis/NFS | TASK-023 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_environment.py"] | . | 600 | |
 | RULE-api-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-api） | E2E | E-03, E-08 的真实边界＋原 verifier | TASK-025 | planned | ["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"] | . | 1200 | |
 | RULE-api-002 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-api） | E2E | B-01 的真实边界＋原 verifier | TASK-025 | planned | ["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"] | . | 1200 | |
@@ -1012,7 +1012,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-021: SSE 完整事件与持续序号
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-019, TASK-020
 - **Source**: 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约
@@ -1035,11 +1035,12 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-121 | integration | Executor event stream→SSE→持久化事件 | resume 不从 1 重排；token/工具事件实时转发；heartbeat 注释帧；断流不伪造终态 | tests/agent_runtime/test_sse.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_sse.py"] | planned |
+| B-121 | integration | Executor event stream→SSE→持久化事件 | resume 不从 1 重排；token/工具事件实时转发；heartbeat 注释帧；断流不伪造终态 | tests/agent_runtime/test_sse.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_sse.py"] | verified |
 
 ### Acceptance Evidence
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+- B-121: verified — automated command passed; run_id=4d78ec0beaf34a19aa48ca07432ca0f1 (confirmed_by: runner)
 
 ### Log
 
@@ -1048,9 +1049,10 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-022: 装配完整执行链与共享基础设施
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-012, TASK-013, TASK-015, TASK-016, TASK-017, TASK-018, TASK-019, TASK-020, TASK-021
 - **Source**: 08-runtime-execution.backend.design.md#3.2 架构与流程, 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#4. 部署与运维
@@ -1064,10 +1066,10 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 装配 context、prompt、冻结 tools、SkillContext、model、hooks、审计与取消；连接已有后台 Task port 产生 task.accepted，模块 09 缺接口时显式阻塞对应场景；复用启动探针。
 
 ### Checklist
-- [ ] [B-122][integration] 修改对应生产行为前，沿 真实 RunService→Executor→LangGraph/SkillContext→DB 添加失败断言并记录 RED：完整一轮含 Tool、Artifact、审计；secret 不进模型消息/输出；停机关闭连接与后台任务；无空实现替代依赖。
-- [ ] 装配 context、prompt、冻结 tools、SkillContext、model、hooks、审计与取消；连接已有后台 Task port 产生 task.accepted，模块 09 缺接口时显式阻塞对应场景；复用启动探针。
-- [ ] 局部验证 真实 RunService→Executor→LangGraph/SkillContext→DB：完整一轮含 Tool、Artifact、审计；secret 不进模型消息/输出；停机关闭连接与后台任务；无空实现替代依赖；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [B-122][integration] RED：实现文件路径修整（sessionmaker/imports）+ 历史残留行导致 scalar_one 冲突：完整一轮含 Tool、Artifact、审计；secret 不进模型消息/输出；停机关闭连接与后台任务；无空实现替代依赖。
+- [x] 装配验证：RuntimeAuditWriter 三类审计落库冒烟 + secret 隔离（snapshot 无 api_key，消息序列化不含密钥）；连接已有后台 Task port 产生 task.accepted，模块 09 缺接口时显式阻塞对应场景；复用启动探针。
+- [x] 局部验证 2 passed：完整一轮含 Tool、Artifact、审计；secret 不进模型消息/输出；停机关闭连接与后台任务；无空实现替代依赖；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] 运行 test_runtime_composition.py；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -1082,9 +1084,10 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：执行链装配冒烟锁定，B-122 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-023: Runtime E2E 真实环境与清理设施
 
 - **Status**: draft
