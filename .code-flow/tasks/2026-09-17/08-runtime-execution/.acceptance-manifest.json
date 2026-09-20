@@ -241,7 +241,7 @@
       "kind": "functional",
       "boundary": "真实 Reaper→PostgreSQL lease→CAS",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -253,7 +253,28 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "274ec3bedd6742dd824ae21f0a084583",
+        "executed_at": "2026-09-20T05:11:33.140446+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "274ec3bedd6742dd824ae21f0a084583",
+          "executed_at": "2026-09-20T05:11:33.140446+00:00"
+        }
+      ]
     },
     {
       "id": "E-05",
@@ -453,28 +474,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-105",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "2f92e1fa0a414b0abddcab5352933584",
-        "executed_at": "2026-09-20T05:08:39.483184+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-105",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "2f92e1fa0a414b0abddcab5352933584",
-          "executed_at": "2026-09-20T05:08:39.483184+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-106",
@@ -540,7 +540,7 @@
       "kind": "functional",
       "boundary": "ToolRegistry→真实 handler→审计 port",
       "owner": "TASK-013",
-      "status": "planned",
+      "status": "failed",
       "command": [
         "uv",
         "run",
@@ -550,7 +550,70 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 5,
+      "evidence": {
+        "id": "B-113",
+        "kind": "functional",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "dit()\n        pipeline = ToolExecutionPipeline(registry=registry, audit=audit)\n        prepared = pipeline.prepare(call_id=\"c6\", tool_name=\"bad\", arguments={})\n>       result = await pipeline.execute(prepared)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/agent_core/test_tool_execution_pipeline.py:132: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <muad_agent_core.tools.pipeline.ToolExecutionPipeline object at 0x10465e3f0>\nprepared = PreparedToolCall(call_id='c6', tool_name='bad', arguments={}, args_hash='sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a')\n\n    async def execute(self, prepared: PreparedToolCall) -> ToolExecutionResult:\n        if self._policy is not None:\n            decision = self._policy(prepared)\n            if not decision.allowed:\n                await self._audit_failed(prepared, \"POLICY_DENIED\", decision.reason)\n                return ToolExecutionResult(\n                    call_id=prepared.call_id,\n                    tool_name=prepared.tool_name,\n                    status=\"POLICY_DENIED\",\n                    content=decision.reason,\n                    args_hash=prepared.args_hash,\n                )\n    \n        definition = self._registry.get(prepared.tool_name)\n        error = self._validate_schema(definition.input_schema, prepared.arguments)\n        if error is not None:\n            await self._audit_failed(prepared, \"SCHEMA_INVALID\", error)\n            return ToolExecutionResult(\n                call_id=prepared.call_id,\n                tool_name=prepared.tool_name,\n                status=\"FAILED\",\n                content=f\"invalid arguments: {error}\",\n                args_hash=prepared.args_hash,\n                error_code=\"SCHEMA_INVALID\",\n            )\n    \n        if definition.handler is None:\n            await self._audit_failed(prepared, \"NO_HANDLER\", \"no handler registered\")\n            return ToolExecutionResult(\n                call_id=prepared.call_id,\n                tool_name=prepared.tool_name,\n                status=\"FAILED\",\n                content=\"no handler registered\",\n                args_hash=prepared.args_hash,\n                error_code=\"NO_HANDLER\",\n            )\n    \n        content: str\n        status = \"SUCCEEDED\"\n        error_code: str | None = None\n        try:\n            content = await definition.handler(prepared.arguments)\n        except Exception as exc:  # 失败路径同样落终态，异常不吞\n            status = \"FAILED\"\n            error_code = type(exc).__name__\n            content = f\"{type(exc).__name__}: {exc}\"\n        await self._audit.record(\n            {\n                \"call_id\": prepared.call_id,\n                \"tool_name\": prepared.tool_name,\n                \"prepared_args_hash\": prepared.args_hash,\n                \"status\": status,\n                \"error_code\": error_code,\n            }\n        )\n        result = ToolExecutionResult(\n            call_id=prepared.call_id,\n            tool_name=prepared.tool_name,\n            status=status,\n            content=content,\n            args_hash=prepared.args_hash,\n            error_code=error_code,\n        )\n        if status == \"FAILED\" and error_code and error_code.startswith(\"Runtime\"):\n>           raise RuntimeError(content)\nE           RuntimeError: RuntimeError: boom\n\npackages/agent-core/src/muad_agent_core/tools/pipeline.py:154: RuntimeError\n=========================== short test summary info ============================\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_happy_path_schema_then_handler_then_audit\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_invalid_schema_never_calls_handler\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_policy_deny_never_calls_handler\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_args_hash_stable_and_redacted\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_handler_failure_audits_and_reraises\n5 failed in 0.04s",
+        "revision": 5,
+        "run_id": "9ec7ea6c339b4416a27d22b463935944",
+        "executed_at": "2026-09-20T06:33:34.544023+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-113",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "dit()\n        pipeline = ToolExecutionPipeline(registry=registry, audit=audit)\n        prepared = pipeline.prepare(call_id=\"c6\", tool_name=\"bad\", arguments={})\n>       result = await pipeline.execute(prepared)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/agent_core/test_tool_execution_pipeline.py:132: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <muad_agent_core.tools.pipeline.ToolExecutionPipeline object at 0x10713e3f0>\nprepared = PreparedToolCall(call_id='c6', tool_name='bad', arguments={}, args_hash='sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a')\n\n    async def execute(self, prepared: PreparedToolCall) -> ToolExecutionResult:\n        if self._policy is not None:\n            decision = self._policy(prepared)\n            if not decision.allowed:\n                await self._audit_failed(prepared, \"POLICY_DENIED\", decision.reason)\n                return ToolExecutionResult(\n                    call_id=prepared.call_id,\n                    tool_name=prepared.tool_name,\n                    status=\"POLICY_DENIED\",\n                    content=decision.reason,\n                    args_hash=prepared.args_hash,\n                )\n    \n        definition = self._registry.get(prepared.tool_name)\n        error = self._validate_schema(definition.input_schema, prepared.arguments)\n        if error is not None:\n            await self._audit_failed(prepared, \"SCHEMA_INVALID\", error)\n            return ToolExecutionResult(\n                call_id=prepared.call_id,\n                tool_name=prepared.tool_name,\n                status=\"FAILED\",\n                content=f\"invalid arguments: {error}\",\n                args_hash=prepared.args_hash,\n                error_code=\"SCHEMA_INVALID\",\n            )\n    \n        if definition.handler is None:\n            await self._audit_failed(prepared, \"NO_HANDLER\", \"no handler registered\")\n            return ToolExecutionResult(\n                call_id=prepared.call_id,\n                tool_name=prepared.tool_name,\n                status=\"FAILED\",\n                content=\"no handler registered\",\n                args_hash=prepared.args_hash,\n                error_code=\"NO_HANDLER\",\n            )\n    \n        content: str\n        status = \"SUCCEEDED\"\n        error_code: str | None = None\n        try:\n            content = await definition.handler(prepared.arguments)\n        except Exception as exc:  # 失败路径同样落终态，异常不吞\n            status = \"FAILED\"\n            error_code = type(exc).__name__\n            content = f\"{type(exc).__name__}: {exc}\"\n        await self._audit.record(\n            {\n                \"call_id\": prepared.call_id,\n                \"tool_name\": prepared.tool_name,\n                \"prepared_args_hash\": prepared.args_hash,\n                \"status\": status,\n                \"error_code\": error_code,\n            }\n        )\n        result = ToolExecutionResult(\n            call_id=prepared.call_id,\n            tool_name=prepared.tool_name,\n            status=status,\n            content=content,\n            args_hash=prepared.args_hash,\n            error_code=error_code,\n        )\n        if status == \"FAILED\" and error_code and error_code.startswith(\"Runtime\"):\n>           raise RuntimeError(content)\nE           RuntimeError: RuntimeError: boom\n\npackages/agent-core/src/muad_agent_core/tools/pipeline.py:154: RuntimeError\n=========================== short test summary info ============================\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_happy_path_schema_then_handler_then_audit\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_invalid_schema_never_calls_handler\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_policy_deny_never_calls_handler\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_args_hash_stable_and_redacted\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_handler_failure_audits_and_reraises\n5 failed in 0.08s",
+          "revision": 1,
+          "run_id": "d710bb8e28bc4c6a93eaa433549c4aad",
+          "executed_at": "2026-09-20T06:14:13.472939+00:00"
+        },
+        {
+          "id": "B-113",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "dit()\n        pipeline = ToolExecutionPipeline(registry=registry, audit=audit)\n        prepared = pipeline.prepare(call_id=\"c6\", tool_name=\"bad\", arguments={})\n>       result = await pipeline.execute(prepared)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/agent_core/test_tool_execution_pipeline.py:132: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <muad_agent_core.tools.pipeline.ToolExecutionPipeline object at 0x10496e3f0>\nprepared = PreparedToolCall(call_id='c6', tool_name='bad', arguments={}, args_hash='sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a')\n\n    async def execute(self, prepared: PreparedToolCall) -> ToolExecutionResult:\n        if self._policy is not None:\n            decision = self._policy(prepared)\n            if not decision.allowed:\n                await self._audit_failed(prepared, \"POLICY_DENIED\", decision.reason)\n                return ToolExecutionResult(\n                    call_id=prepared.call_id,\n                    tool_name=prepared.tool_name,\n                    status=\"POLICY_DENIED\",\n                    content=decision.reason,\n                    args_hash=prepared.args_hash,\n                )\n    \n        definition = self._registry.get(prepared.tool_name)\n        error = self._validate_schema(definition.input_schema, prepared.arguments)\n        if error is not None:\n            await self._audit_failed(prepared, \"SCHEMA_INVALID\", error)\n            return ToolExecutionResult(\n                call_id=prepared.call_id,\n                tool_name=prepared.tool_name,\n                status=\"FAILED\",\n                content=f\"invalid arguments: {error}\",\n                args_hash=prepared.args_hash,\n                error_code=\"SCHEMA_INVALID\",\n            )\n    \n        if definition.handler is None:\n            await self._audit_failed(prepared, \"NO_HANDLER\", \"no handler registered\")\n            return ToolExecutionResult(\n                call_id=prepared.call_id,\n                tool_name=prepared.tool_name,\n                status=\"FAILED\",\n                content=\"no handler registered\",\n                args_hash=prepared.args_hash,\n                error_code=\"NO_HANDLER\",\n            )\n    \n        content: str\n        status = \"SUCCEEDED\"\n        error_code: str | None = None\n        try:\n            content = await definition.handler(prepared.arguments)\n        except Exception as exc:  # 失败路径同样落终态，异常不吞\n            status = \"FAILED\"\n            error_code = type(exc).__name__\n            content = f\"{type(exc).__name__}: {exc}\"\n        await self._audit.record(\n            {\n                \"call_id\": prepared.call_id,\n                \"tool_name\": prepared.tool_name,\n                \"prepared_args_hash\": prepared.args_hash,\n                \"status\": status,\n                \"error_code\": error_code,\n            }\n        )\n        result = ToolExecutionResult(\n            call_id=prepared.call_id,\n            tool_name=prepared.tool_name,\n            status=status,\n            content=content,\n            args_hash=prepared.args_hash,\n            error_code=error_code,\n        )\n        if status == \"FAILED\" and error_code and error_code.startswith(\"Runtime\"):\n>           raise RuntimeError(content)\nE           RuntimeError: RuntimeError: boom\n\npackages/agent-core/src/muad_agent_core/tools/pipeline.py:154: RuntimeError\n=========================== short test summary info ============================\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_happy_path_schema_then_handler_then_audit\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_invalid_schema_never_calls_handler\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_policy_deny_never_calls_handler\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_args_hash_stable_and_redacted\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_handler_failure_audits_and_reraises\n5 failed in 0.04s",
+          "revision": 2,
+          "run_id": "a751c4b81d334e8ea4da6ce965f860d8",
+          "executed_at": "2026-09-20T06:14:42.943723+00:00"
+        },
+        {
+          "id": "B-113",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "dit()\n        pipeline = ToolExecutionPipeline(registry=registry, audit=audit)\n        prepared = pipeline.prepare(call_id=\"c6\", tool_name=\"bad\", arguments={})\n>       result = await pipeline.execute(prepared)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/agent_core/test_tool_execution_pipeline.py:132: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <muad_agent_core.tools.pipeline.ToolExecutionPipeline object at 0x1064e23f0>\nprepared = PreparedToolCall(call_id='c6', tool_name='bad', arguments={}, args_hash='sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a')\n\n    async def execute(self, prepared: PreparedToolCall) -> ToolExecutionResult:\n        if self._policy is not None:\n            decision = self._policy(prepared)\n            if not decision.allowed:\n                await self._audit_failed(prepared, \"POLICY_DENIED\", decision.reason)\n                return ToolExecutionResult(\n                    call_id=prepared.call_id,\n                    tool_name=prepared.tool_name,\n                    status=\"POLICY_DENIED\",\n                    content=decision.reason,\n                    args_hash=prepared.args_hash,\n                )\n    \n        definition = self._registry.get(prepared.tool_name)\n        error = self._validate_schema(definition.input_schema, prepared.arguments)\n        if error is not None:\n            await self._audit_failed(prepared, \"SCHEMA_INVALID\", error)\n            return ToolExecutionResult(\n                call_id=prepared.call_id,\n                tool_name=prepared.tool_name,\n                status=\"FAILED\",\n                content=f\"invalid arguments: {error}\",\n                args_hash=prepared.args_hash,\n                error_code=\"SCHEMA_INVALID\",\n            )\n    \n        if definition.handler is None:\n            await self._audit_failed(prepared, \"NO_HANDLER\", \"no handler registered\")\n            return ToolExecutionResult(\n                call_id=prepared.call_id,\n                tool_name=prepared.tool_name,\n                status=\"FAILED\",\n                content=\"no handler registered\",\n                args_hash=prepared.args_hash,\n                error_code=\"NO_HANDLER\",\n            )\n    \n        content: str\n        status = \"SUCCEEDED\"\n        error_code: str | None = None\n        try:\n            content = await definition.handler(prepared.arguments)\n        except Exception as exc:  # 失败路径同样落终态，异常不吞\n            status = \"FAILED\"\n            error_code = type(exc).__name__\n            content = f\"{type(exc).__name__}: {exc}\"\n        await self._audit.record(\n            {\n                \"call_id\": prepared.call_id,\n                \"tool_name\": prepared.tool_name,\n                \"prepared_args_hash\": prepared.args_hash,\n                \"status\": status,\n                \"error_code\": error_code,\n            }\n        )\n        result = ToolExecutionResult(\n            call_id=prepared.call_id,\n            tool_name=prepared.tool_name,\n            status=status,\n            content=content,\n            args_hash=prepared.args_hash,\n            error_code=error_code,\n        )\n        if status == \"FAILED\" and error_code and error_code.startswith(\"Runtime\"):\n>           raise RuntimeError(content)\nE           RuntimeError: RuntimeError: boom\n\npackages/agent-core/src/muad_agent_core/tools/pipeline.py:154: RuntimeError\n=========================== short test summary info ============================\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_happy_path_schema_then_handler_then_audit\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_invalid_schema_never_calls_handler\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_policy_deny_never_calls_handler\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_args_hash_stable_and_redacted\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_handler_failure_audits_and_reraises\n5 failed in 0.05s",
+          "revision": 3,
+          "run_id": "fef8ff55faa742608eddc8e53207063f",
+          "executed_at": "2026-09-20T06:33:09.084370+00:00"
+        },
+        {
+          "id": "B-113",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "dit()\n        pipeline = ToolExecutionPipeline(registry=registry, audit=audit)\n        prepared = pipeline.prepare(call_id=\"c6\", tool_name=\"bad\", arguments={})\n>       result = await pipeline.execute(prepared)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/agent_core/test_tool_execution_pipeline.py:132: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <muad_agent_core.tools.pipeline.ToolExecutionPipeline object at 0x1047d23f0>\nprepared = PreparedToolCall(call_id='c6', tool_name='bad', arguments={}, args_hash='sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a')\n\n    async def execute(self, prepared: PreparedToolCall) -> ToolExecutionResult:\n        if self._policy is not None:\n            decision = self._policy(prepared)\n            if not decision.allowed:\n                await self._audit_failed(prepared, \"POLICY_DENIED\", decision.reason)\n                return ToolExecutionResult(\n                    call_id=prepared.call_id,\n                    tool_name=prepared.tool_name,\n                    status=\"POLICY_DENIED\",\n                    content=decision.reason,\n                    args_hash=prepared.args_hash,\n                )\n    \n        definition = self._registry.get(prepared.tool_name)\n        error = self._validate_schema(definition.input_schema, prepared.arguments)\n        if error is not None:\n            await self._audit_failed(prepared, \"SCHEMA_INVALID\", error)\n            return ToolExecutionResult(\n                call_id=prepared.call_id,\n                tool_name=prepared.tool_name,\n                status=\"FAILED\",\n                content=f\"invalid arguments: {error}\",\n                args_hash=prepared.args_hash,\n                error_code=\"SCHEMA_INVALID\",\n            )\n    \n        if definition.handler is None:\n            await self._audit_failed(prepared, \"NO_HANDLER\", \"no handler registered\")\n            return ToolExecutionResult(\n                call_id=prepared.call_id,\n                tool_name=prepared.tool_name,\n                status=\"FAILED\",\n                content=\"no handler registered\",\n                args_hash=prepared.args_hash,\n                error_code=\"NO_HANDLER\",\n            )\n    \n        content: str\n        status = \"SUCCEEDED\"\n        error_code: str | None = None\n        try:\n            content = await definition.handler(prepared.arguments)\n        except Exception as exc:  # 失败路径同样落终态，异常不吞\n            status = \"FAILED\"\n            error_code = type(exc).__name__\n            content = f\"{type(exc).__name__}: {exc}\"\n        await self._audit.record(\n            {\n                \"call_id\": prepared.call_id,\n                \"tool_name\": prepared.tool_name,\n                \"prepared_args_hash\": prepared.args_hash,\n                \"status\": status,\n                \"error_code\": error_code,\n            }\n        )\n        result = ToolExecutionResult(\n            call_id=prepared.call_id,\n            tool_name=prepared.tool_name,\n            status=status,\n            content=content,\n            args_hash=prepared.args_hash,\n            error_code=error_code,\n        )\n        if status == \"FAILED\" and error_code and error_code.startswith(\"Runtime\"):\n>           raise RuntimeError(content)\nE           RuntimeError: RuntimeError: boom\n\npackages/agent-core/src/muad_agent_core/tools/pipeline.py:154: RuntimeError\n=========================== short test summary info ============================\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_happy_path_schema_then_handler_then_audit\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_invalid_schema_never_calls_handler\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_policy_deny_never_calls_handler\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_args_hash_stable_and_redacted\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_handler_failure_audits_and_reraises\n5 failed in 0.04s",
+          "revision": 4,
+          "run_id": "ca19fadacd214cbcb97fe54c3d854232",
+          "executed_at": "2026-09-20T06:33:29.741820+00:00"
+        },
+        {
+          "id": "B-113",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "dit()\n        pipeline = ToolExecutionPipeline(registry=registry, audit=audit)\n        prepared = pipeline.prepare(call_id=\"c6\", tool_name=\"bad\", arguments={})\n>       result = await pipeline.execute(prepared)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/agent_core/test_tool_execution_pipeline.py:132: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <muad_agent_core.tools.pipeline.ToolExecutionPipeline object at 0x10465e3f0>\nprepared = PreparedToolCall(call_id='c6', tool_name='bad', arguments={}, args_hash='sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a')\n\n    async def execute(self, prepared: PreparedToolCall) -> ToolExecutionResult:\n        if self._policy is not None:\n            decision = self._policy(prepared)\n            if not decision.allowed:\n                await self._audit_failed(prepared, \"POLICY_DENIED\", decision.reason)\n                return ToolExecutionResult(\n                    call_id=prepared.call_id,\n                    tool_name=prepared.tool_name,\n                    status=\"POLICY_DENIED\",\n                    content=decision.reason,\n                    args_hash=prepared.args_hash,\n                )\n    \n        definition = self._registry.get(prepared.tool_name)\n        error = self._validate_schema(definition.input_schema, prepared.arguments)\n        if error is not None:\n            await self._audit_failed(prepared, \"SCHEMA_INVALID\", error)\n            return ToolExecutionResult(\n                call_id=prepared.call_id,\n                tool_name=prepared.tool_name,\n                status=\"FAILED\",\n                content=f\"invalid arguments: {error}\",\n                args_hash=prepared.args_hash,\n                error_code=\"SCHEMA_INVALID\",\n            )\n    \n        if definition.handler is None:\n            await self._audit_failed(prepared, \"NO_HANDLER\", \"no handler registered\")\n            return ToolExecutionResult(\n                call_id=prepared.call_id,\n                tool_name=prepared.tool_name,\n                status=\"FAILED\",\n                content=\"no handler registered\",\n                args_hash=prepared.args_hash,\n                error_code=\"NO_HANDLER\",\n            )\n    \n        content: str\n        status = \"SUCCEEDED\"\n        error_code: str | None = None\n        try:\n            content = await definition.handler(prepared.arguments)\n        except Exception as exc:  # 失败路径同样落终态，异常不吞\n            status = \"FAILED\"\n            error_code = type(exc).__name__\n            content = f\"{type(exc).__name__}: {exc}\"\n        await self._audit.record(\n            {\n                \"call_id\": prepared.call_id,\n                \"tool_name\": prepared.tool_name,\n                \"prepared_args_hash\": prepared.args_hash,\n                \"status\": status,\n                \"error_code\": error_code,\n            }\n        )\n        result = ToolExecutionResult(\n            call_id=prepared.call_id,\n            tool_name=prepared.tool_name,\n            status=status,\n            content=content,\n            args_hash=prepared.args_hash,\n            error_code=error_code,\n        )\n        if status == \"FAILED\" and error_code and error_code.startswith(\"Runtime\"):\n>           raise RuntimeError(content)\nE           RuntimeError: RuntimeError: boom\n\npackages/agent-core/src/muad_agent_core/tools/pipeline.py:154: RuntimeError\n=========================== short test summary info ============================\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_happy_path_schema_then_handler_then_audit\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_invalid_schema_never_calls_handler\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_policy_deny_never_calls_handler\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_args_hash_stable_and_redacted\nFAILED tests/agent_core/test_tool_execution_pipeline.py::test_b113_handler_failure_audits_and_reraises\n5 failed in 0.04s",
+          "revision": 5,
+          "run_id": "9ec7ea6c339b4416a27d22b463935944",
+          "executed_at": "2026-09-20T06:33:34.544023+00:00"
+        }
+      ]
     },
     {
       "id": "B-114",
