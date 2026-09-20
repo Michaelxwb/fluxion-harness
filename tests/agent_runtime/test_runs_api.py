@@ -37,7 +37,8 @@ def _expected_hash(resolved: ResolveDefinitionResponse) -> str:
     canonical = json.dumps(
         {
             "agent": resolved.agent.model_dump(mode="json"),
-            "model": resolved.model.model_dump(mode="json"),
+            # 08 TASK-004：Snapshot hash/model_json 剥离 api_key
+            "model": {k: v for k, v in resolved.model.model_dump(mode="json").items() if k != "api_key"},
             "skills": [skill.model_dump(mode="json") for skill in resolved.skills],
             "mcp_servers": [server.model_dump(mode="json") for server in resolved.mcp_servers],
             "policy": {"max_model_retries": 3},

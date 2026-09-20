@@ -283,7 +283,7 @@
 - [2026-09-20] completed (done)
 ## TASK-004: 冻结 Snapshot 并隔离认证数据
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#API-06 查询 Run
@@ -306,13 +306,14 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-104 | integration | Snapshot builder→PostgreSQL→Executor request | 配置变化不改旧快照；api_key/auth_secret/credential_json 不落 Snapshot/hash 输入；缺认证明确失败 | tests/agent_runtime/test_snapshot_freeze.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_snapshot_freeze.py"] | planned |
+| B-104 | integration | Snapshot builder→PostgreSQL→Executor request | 配置变化不改旧快照；api_key/auth_secret/credential_json 不落 Snapshot/hash 输入；缺认证明确失败 | tests/agent_runtime/test_snapshot_freeze.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_snapshot_freeze.py"] | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | B-104 | FAIL: hash 随 api_key 变化；model_json 含 api_key（真实缺陷） | 2 passed；agent_runtime+console_skill 回归通过 | test_snapshot_freeze.py::test_b104_snapshot_hash_stable_across_key_rotation / _snapshot_model_json_excludes_api_key | 真实 _snapshot_hash/_snapshot_model 函数（run_service.py） | verified |
+- B-104: verified — automated command passed; run_id=3d5943773ec44ef9af2eb95cc7560152 (confirmed_by: runner)
 
 ### Log
 
@@ -321,6 +322,7 @@
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-005: Run/Conversation 创建与幂等提交
 
 - **Status**: draft

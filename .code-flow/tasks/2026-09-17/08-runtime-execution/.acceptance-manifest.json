@@ -415,28 +415,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-103",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "0f125f1f554c494cb6310c2ce655731f",
-        "executed_at": "2026-09-20T04:39:50.715045+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-103",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "0f125f1f554c494cb6310c2ce655731f",
-          "executed_at": "2026-09-20T04:39:50.715045+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-104",
@@ -445,7 +424,7 @@
       "kind": "functional",
       "boundary": "Snapshot builder→PostgreSQL→Executor request",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -455,7 +434,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-104",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3d5943773ec44ef9af2eb95cc7560152",
+        "executed_at": "2026-09-20T04:48:41.679983+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-104",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3d5943773ec44ef9af2eb95cc7560152",
+          "executed_at": "2026-09-20T04:48:41.679983+00:00"
+        }
+      ]
     },
     {
       "id": "B-105",
