@@ -377,28 +377,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-101",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "fd7b4408a5eb45b2929873f10137230b",
-        "executed_at": "2026-09-19T23:19:15.559943+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-101",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "fd7b4408a5eb45b2929873f10137230b",
-          "executed_at": "2026-09-19T23:19:15.559943+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-102",
@@ -711,7 +690,7 @@
       "kind": "functional",
       "boundary": "Console credentials service→真实 PostgreSQL Owner 表",
       "owner": "TASK-028",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -721,7 +700,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-128",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "7d831b514b9d4b928c8ac2b14b80308f",
+        "executed_at": "2026-09-19T23:23:13.487912+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-128",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7d831b514b9d4b928c8ac2b14b80308f",
+          "executed_at": "2026-09-19T23:23:13.487912+00:00"
+        }
+      ]
     },
     {
       "id": "B-129",

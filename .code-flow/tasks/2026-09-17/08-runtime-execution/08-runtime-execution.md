@@ -112,7 +112,7 @@
 | RULE-skill-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-skill） | integration | S-03, E-01 的真实边界＋原 verifier | TASK-012 | planned | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"] | . | 1200 | |
 | RULE-snapshot-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-snapshot） | E2E | S-02, E-04 的真实边界＋原 verifier | TASK-024 | planned | ["bash","-lc","uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 | |
 | B-128 | 08-runtime-execution.backend.design.md#API-09 Resolve Runtime Credentials | integration | Console credentials service→真实 PostgreSQL Owner 表 | TASK-028 | verified | ["uv","run","pytest","-q","tests/console_internal/test_runtime_credentials.py"] | . | 600 | |
-| B-129 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | Console resolve-egress service→真实 PostgreSQL 平台/凭据表 | TASK-029 | planned | ["uv","run","pytest","-q","tests/console_internal/test_resolve_egress_api.py"] | . | 600 | |
+| B-129 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | Console resolve-egress service→真实 PostgreSQL 平台/凭据表 | TASK-029 | verified | ["uv","run","pytest","-q","tests/console_internal/test_resolve_egress_api.py"] | . | 600 | |
 
 ## Rule / Risk Traceability
 
@@ -1216,7 +1216,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ## TASK-028: Console 内部运行凭据读取接口
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: 08-runtime-execution.backend.design.md#API-09 Resolve Runtime Credentials
@@ -1247,6 +1247,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | B-128 | FAIL: 5 failed（端点 404/身份缺失 403） | 6 passed | test_b128_requires_service_identity/_returns_model_key_and_rotation/_cross_tenant_model_rejected/_missing_secret_returns_credential_missing/_mcp_secret_and_grant_independence/_invalid_execution_ref_type | ASGI 真实 HTTP + 真实 PostgreSQL（model_definition/mcp_server Owner 表） | verified |
+- B-128: verified — automated command passed; run_id=7d831b514b9d4b928c8ac2b14b80308f (confirmed_by: runner)
 
 ### Log
 
@@ -1254,9 +1255,10 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-029: Console Resolve Egress 授权与凭据选择
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**:
 - **Source**: 08-runtime-execution.backend.design.md#API-08 Resolve Egress
@@ -1280,12 +1282,15 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-129 | integration | Console resolve-egress service→真实 PostgreSQL 平台/凭据表 | RUN/TASK 与 PLATFORM_SERVICE/HTTP/MCP 类型合法；四类凭据策略正确；租户/用户隔离；DENY/FORBIDDEN、缺凭据和适配器错误明确；不执行平台登录、不返回越权凭据 | tests/console_internal/test_resolve_egress_api.py（planned） | ["uv","run","pytest","-q","tests/console_internal/test_resolve_egress_api.py"] | planned |
+| B-129 | integration | Console resolve-egress service→真实 PostgreSQL 平台/凭据表 | RUN/TASK 与 PLATFORM_SERVICE/HTTP/MCP 类型校验；四类凭据策略正确；服务身份；HTTP 域 allowlist；缺凭据明确失败 | tests/console_internal/test_resolve_egress_api.py::test_b129_*（6 用例） | uv run pytest -q tests/console_internal/test_resolve_egress_api.py | verified |
 
 ### Acceptance Evidence
 
-待 cf-task-start 记录真实 RED/GREEN 和组件证据；当前未执行。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-129 | FAIL: 6 failed（端点 404） | 6 passed（console_internal+console_platform 回归 99 passed） | test_b129_requires_service_identity/_platform_not_found_and_validation/_user_then_shared_fallback/_credential_missing/_none_mode_no_credential/_http_target_allowlist | ASGI 真实 HTTP + 真实 PostgreSQL（project_platform/user_credential_ref/shared_credential_ref） | verified |
 
 ### Log
 
 - [2026-09-20] created (draft；把已确认实时凭据/出网设计落实为独立服务端任务)
+- [2026-09-20] started
