@@ -199,7 +199,7 @@
 - [2026-09-20] completed (done)
 ## TASK-002: Canonical Event 持久化与序号分配
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约
@@ -229,6 +229,7 @@
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | B-102 | FAIL: 3 failed（ImportError EventWriter） | 3 passed；agent_runtime 67 passed | test_b102_concurrent_appends_no_duplicate_seq / _rollback_leaves_no_event / _seq_continues_across_submissions | 真实 PostgreSQL（run_submission FK 行 + UPDATE RETURNING 行锁并发） | verified |
+- B-102: verified — automated command passed; run_id=1a8a309316084036a438b75556723681 (confirmed_by: runner)
 
 ### Log
 
@@ -237,6 +238,7 @@
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-003: 消费 Effective Capability 与 resolve 契约
 
 - **Status**: draft
@@ -498,7 +500,7 @@
 
 ## TASK-010: 受控长期 Memory 读写
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P1
 - **Depends**: TASK-001
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计
@@ -532,7 +534,7 @@
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
 
 ---
-
+- [2026-09-20] started
 ## TASK-011: 大结果 Artifact 落盘与引用
 
 - **Status**: draft

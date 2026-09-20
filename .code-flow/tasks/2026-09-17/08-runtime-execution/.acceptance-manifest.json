@@ -386,7 +386,7 @@
       "kind": "functional",
       "boundary": "EventWriter→PostgreSQL",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -396,7 +396,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-102",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "1a8a309316084036a438b75556723681",
+        "executed_at": "2026-09-20T04:10:46.647729+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-102",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1a8a309316084036a438b75556723681",
+          "executed_at": "2026-09-20T04:10:46.647729+00:00"
+        }
+      ]
     },
     {
       "id": "B-103",
@@ -719,28 +740,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-129",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "90343bd237794e6589d796c13b8fbe2a",
-        "executed_at": "2026-09-20T04:05:22.040114+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-129",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "90343bd237794e6589d796c13b8fbe2a",
-          "executed_at": "2026-09-20T04:05:22.040114+00:00"
-        }
-      ]
+      "depends_on": []
     }
   ]
 }
