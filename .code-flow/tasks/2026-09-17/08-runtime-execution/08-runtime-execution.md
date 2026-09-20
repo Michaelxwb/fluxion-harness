@@ -73,7 +73,7 @@
 | S-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | runner→HookPipeline→真实 Tool handler | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_core/test_hook_lifecycle.py","-k","s05"] | . | 300 | |
 | S-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→真实审计 DB | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","s06"] | . | 300 | |
 | S-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | . | 1200 | |
-| S-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s08"] | . | 300 | |
+| S-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s08"] | . | 300 | |
 | E-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | Runtime cache→真实 NFS 故障边界 | TASK-012 | planned | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","e01"] | . | 300 | |
 | E-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/SSE | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e02"] | . | 1200 | |
 | E-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | . | 1200 | |
@@ -505,10 +505,10 @@
 从 CanonicalEvent、受控 Memory 和 Artifact preview 构造模型请求；仅裁剪派生 request context，保留 Tool 消息配对。
 
 ### Checklist
-- [ ] [S-08][integration] 修改对应生产行为前，沿 真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request 添加失败断言并记录 RED：仅裁剪 request；事件 append-only；tenant+user+enabled 过滤；大结果 preview。
-- [ ] 从 CanonicalEvent、受控 Memory 和 Artifact preview 构造模型请求；仅裁剪派生 request context，保留 Tool 消息配对。
-- [ ] 局部验证 CanonicalEvent→ContextBuilder→LLM request：S-08：原事件 append-only；tenant/user/enabled 隔离；长结果使用 preview；预算裁剪不修改 DB；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [S-08][integration] RED：1 error（context_builder 模块不存在）+ 过程修复（业务过滤误排除 stream_type 标注的工具事实）：仅裁剪 request；事件 append-only；tenant+user+enabled 过滤；大结果 preview。
+- [x] 新建 application/context_builder.py DbBackedContextBuilder：业务 event_type 过滤（tenant 隔离）、memory enabled 过滤、Artifact preview、预算裁剪仅作用派生 request 并保留 Tool 配对。
+- [x] 局部验证 2 passed；agent_runtime 89 passed：S-08：原事件 append-only；tenant/user/enabled 隔离；长结果使用 preview；预算裁剪不修改 DB；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] 运行 test_context_memory.py -k s08；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -518,11 +518,14 @@
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-08 | FAIL: 2 failed（模块缺失/stream_type 过滤缺陷） | 2 passed；agent_runtime 89 passed | test_context_memory.py::test_s08_context_from_db_with_isolation_and_preview / _budget_trims_only_request_keeps_tool_pairs | 真实 PostgreSQL canonical_event/user_memory/artifact + ContextInput→ModelRequest | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：DbBackedContextBuilder 落地，S-08 verified
 
 ---
 
