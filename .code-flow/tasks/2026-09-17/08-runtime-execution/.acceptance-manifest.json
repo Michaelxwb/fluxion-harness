@@ -660,7 +660,7 @@
       "kind": "functional",
       "boundary": "Snapshot→ToolRegistry→真实本地 MCP HTTP 服务",
       "owner": "TASK-016",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -670,7 +670,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-116",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "0ddca0cf630e417fb33620720ce7b956",
+        "executed_at": "2026-09-20T10:00:29.379999+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-116",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "0ddca0cf630e417fb33620720ce7b956",
+          "executed_at": "2026-09-20T10:00:29.379999+00:00"
+        }
+      ]
     },
     {
       "id": "B-118",

@@ -93,7 +93,7 @@
 | B-111 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Tool result→真实共享文件系统→PostgreSQL Artifact | TASK-011 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_artifact_results.py"] | . | 600 | |
 | B-113 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | ToolRegistry→真实 handler→审计 port | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_core/test_tool_execution_pipeline.py"] | . | 600 | |
 | B-114 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | HTTP resolve→PlatformAdapter→真实 Redis | TASK-014 | verified | ["uv","run","pytest","-q","tests/sdk/test_runtime_platform_session.py"] | . | 600 | |
-| B-116 | 08-runtime-execution.backend.design.md#API-07 Resolve Definition | integration | Snapshot→ToolRegistry→真实本地 MCP HTTP 服务 | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_mcp_execution.py"] | . | 600 | |
+| B-116 | 08-runtime-execution.backend.design.md#API-07 Resolve Definition | integration | Snapshot→ToolRegistry→真实本地 MCP HTTP 服务 | TASK-016 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_mcp_execution.py"] | . | 600 | |
 | B-118 | 08-runtime-execution.backend.design.md#3.1 技术选型与关键决策 | integration | LangGraph→PG checkpoint/run_interrupt | TASK-018 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_interrupt_checkpoint.py"] | . | 600 | |
 | B-119 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | Resume API→PostgreSQL→LangGraph | TASK-019 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_resume_transactions.py"] | . | 600 | |
 | B-120 | 08-runtime-execution.backend.design.md#API-03 取消当前活跃 Run | integration | Cancel API→PostgreSQL→真实 Redis→执行检查点 | TASK-020 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_cancellation.py"] | . | 600 | |
@@ -802,7 +802,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-016: 冻结 MCP catalog 的运行适配器
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-013, TASK-015
 - **Source**: 08-runtime-execution.backend.design.md#API-07 Resolve Definition, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -825,13 +825,14 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-116 | integration | Snapshot→ToolRegistry→真实本地 MCP HTTP 服务 | 运行内不调用 tools/list；Server 授权粒度不变；catalog revision/hash 不漂移；Tool/Egress 双审计完整 | tests/agent_runtime/test_mcp_execution.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_mcp_execution.py"] | planned |
+| B-116 | integration | Snapshot→ToolRegistry→真实本地 MCP HTTP 服务 | 运行内不调用 tools/list；Server 授权粒度不变；catalog revision/hash 不漂移；Tool/Egress 双审计完整 | tests/agent_runtime/test_mcp_execution.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_mcp_execution.py"] | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | B-116 | FAIL: ModuleNotFoundError | 3 passed | test_mcp_execution.py::test_b116_*（冻结注册/命名隔离/DENY 审计） | 真实 PostgreSQL egress_audit + ToolRegistry | verified |
+- B-116: verified — automated command passed; run_id=0ddca0cf630e417fb33620720ce7b956 (confirmed_by: runner)
 
 ### Log
 
@@ -840,6 +841,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-017: Model Recovery 与逐 attempt 审计
 
 - **Status**: done
