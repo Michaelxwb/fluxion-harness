@@ -84,7 +84,7 @@
 | E-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | . | 1200 | |
 | B-01 | 08-runtime-execution.backend.design.md#API-01 创建 Run | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | . | 1200 | |
 | B-101 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | PostgreSQL migration→ORM | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | . | 600 | |
-| B-102 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | EventWriter→PostgreSQL | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_events.py"] | . | 600 | |
+| B-102 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | EventWriter→PostgreSQL | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_events.py"] | . | 600 | |
 | B-103 | 08-runtime-execution.backend.design.md#3.4 接口设计 | integration | Runtime HTTP client→本地 Console 契约服务 | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_console_client.py"] | . | 600 | |
 | B-104 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Snapshot builder→PostgreSQL→Executor request | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_snapshot_freeze.py"] | . | 600 | |
 | B-105 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | HTTP handler→PostgreSQL unique→run creation | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | . | 600 | |
@@ -199,7 +199,7 @@
 - [2026-09-20] completed (done)
 ## TASK-002: Canonical Event 持久化与序号分配
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约
@@ -213,27 +213,30 @@
 抽取事件写入，事务内分配 conversation.last_seq；保存用于 SSE 的事件标识与负载，历史不可变。
 
 ### Checklist
-- [ ] [B-102][integration] 修改对应生产行为前，沿 EventWriter→PostgreSQL 添加失败断言并记录 RED：并发 append 不重号；回滚不留下事件；历史查询顺序稳定；序号跨 Run/resume 保持单调。
-- [ ] 抽取事件写入，事务内分配 conversation.last_seq；保存用于 SSE 的事件标识与负载，历史不可变。
-- [ ] 局部验证 EventWriter→PostgreSQL：并发 append 不重号；回滚不留下事件；历史查询顺序稳定；序号跨 Run/resume 保持单调；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [B-102][integration] RED：3 failed（EventWriter 模块不存在）：并发 append 不重号；回滚不留下事件；历史查询顺序稳定；序号跨 Run/resume 保持单调。
+- [x] 新建 application/run_events.py EventWriter（UPDATE last_seq RETURNING 行锁分配 + submission_id/stream_type 归属）；保存用于 SSE 的事件标识与负载，历史不可变。
+- [x] 局部验证：并发 8 路不重号(1..8)、回滚零残留且 last_seq=0、历史 seq 升序、跨 submission 单调 1..3：并发 append 不重号；回滚不留下事件；历史查询顺序稳定；序号跨 Run/resume 保持单调；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] 运行 3 passed；agent_runtime 回归 67 passed；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-102 | integration | EventWriter→PostgreSQL | 并发 append 不重号；回滚不留下事件；历史查询顺序稳定；序号跨 Run/resume 保持单调 | tests/agent_runtime/test_run_events.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_run_events.py"] | planned |
+| B-102 | integration | EventWriter→PostgreSQL | 并发 append 不重号；回滚不留下事件；历史查询顺序稳定；序号跨 Run/resume 保持单调 | tests/agent_runtime/test_run_events.py::test_b102_*（3 用例） | uv run pytest -q tests/agent_runtime/test_run_events.py | verified |
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-102 | FAIL: 3 failed（ImportError EventWriter） | 3 passed；agent_runtime 67 passed | test_b102_concurrent_appends_no_duplicate_seq / _rollback_leaves_no_event / _seq_continues_across_submissions | 真实 PostgreSQL（run_submission FK 行 + UPDATE RETURNING 行锁并发） | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：EventWriter 抽取落地，B-102 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-003: 消费 Effective Capability 与 resolve 契约
 
 - **Status**: draft
@@ -1258,7 +1261,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-029: Console Resolve Egress 授权与凭据选择
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: 08-runtime-execution.backend.design.md#API-08 Resolve Egress
@@ -1289,8 +1292,10 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | B-129 | FAIL: 6 failed（端点 404） | 6 passed（console_internal+console_platform 回归 99 passed） | test_b129_requires_service_identity/_platform_not_found_and_validation/_user_then_shared_fallback/_credential_missing/_none_mode_no_credential/_http_target_allowlist | ASGI 真实 HTTP + 真实 PostgreSQL（project_platform/user_credential_ref/shared_credential_ref） | verified |
+- B-129: verified — automated command passed; run_id=90343bd237794e6589d796c13b8fbe2a (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] created (draft；把已确认实时凭据/出网设计落实为独立服务端任务)
 - [2026-09-20] started
+- [2026-09-20] completed (done)

@@ -700,28 +700,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-128",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "7d831b514b9d4b928c8ac2b14b80308f",
-        "executed_at": "2026-09-19T23:23:13.487912+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-128",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "7d831b514b9d4b928c8ac2b14b80308f",
-          "executed_at": "2026-09-19T23:23:13.487912+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-129",
@@ -730,7 +709,7 @@
       "kind": "functional",
       "boundary": "Console resolve-egress service→真实 PostgreSQL 平台/凭据表",
       "owner": "TASK-029",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -740,7 +719,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-129",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "90343bd237794e6589d796c13b8fbe2a",
+        "executed_at": "2026-09-20T04:05:22.040114+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-129",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "90343bd237794e6589d796c13b8fbe2a",
+          "executed_at": "2026-09-20T04:05:22.040114+00:00"
+        }
+      ]
     }
   ]
 }
