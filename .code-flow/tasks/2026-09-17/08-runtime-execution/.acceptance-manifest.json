@@ -127,28 +127,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-06",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "aaba5c50836f44b6b9e29163b1ae9a8b",
-        "executed_at": "2026-09-20T09:56:34.369637+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "aaba5c50836f44b6b9e29163b1ae9a8b",
-          "executed_at": "2026-09-20T09:56:34.369637+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-07",
@@ -295,47 +274,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 3,
-      "evidence": {
-        "id": "E-05",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 3,
-        "run_id": "78833b6c8bf94068bc3eaffcc7fee5e4",
-        "executed_at": "2026-09-20T09:50:03.142020+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-05",
-          "kind": "functional",
-          "status": "failed",
-          "exit_code": 2,
-          "output": "==================================== ERRORS ====================================\n_________ ERROR collecting tests/agent_runtime/test_egress_boundary.py _________\ntests/agent_runtime/test_egress_boundary.py:15: in <module>\n    from muad_platform_sdk.egress_boundary import (\npackages/platform-sdk/src/muad_platform_sdk/egress_boundary.py:19: in <module>\n    @dataclass(frozen=True, slots=True)\n     ^^^^^^^^^\nE   NameError: name 'dataclass' is not defined\n=========================== short test summary info ============================\nERROR tests/agent_runtime/test_egress_boundary.py - NameError: name 'dataclas...\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.06s",
-          "revision": 1,
-          "run_id": "71dc6cd2100c44eca0206d58a05591ee",
-          "executed_at": "2026-09-20T09:46:15.717029+00:00"
-        },
-        {
-          "id": "E-05",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 2,
-          "run_id": "dddc15f14fe44e7a8206ccec4d1f942a",
-          "executed_at": "2026-09-20T09:48:46.448044+00:00"
-        },
-        {
-          "id": "E-05",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 3,
-          "run_id": "78833b6c8bf94068bc3eaffcc7fee5e4",
-          "executed_at": "2026-09-20T09:50:03.142020+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-06",
@@ -356,28 +295,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-06",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "aaba5c50836f44b6b9e29163b1ae9a8b",
-        "executed_at": "2026-09-20T09:56:34.369637+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "aaba5c50836f44b6b9e29163b1ae9a8b",
-          "executed_at": "2026-09-20T09:56:34.369637+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-07",
@@ -630,28 +548,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-114",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "d23421e7010a4ea69794df9e85565a54",
-        "executed_at": "2026-09-20T09:41:19.485316+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-114",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "d23421e7010a4ea69794df9e85565a54",
-          "executed_at": "2026-09-20T09:41:19.485316+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-116",
@@ -670,28 +567,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-116",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "0ddca0cf630e417fb33620720ce7b956",
-        "executed_at": "2026-09-20T10:00:29.379999+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-116",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "0ddca0cf630e417fb33620720ce7b956",
-          "executed_at": "2026-09-20T10:00:29.379999+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-118",
@@ -710,28 +586,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-118",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "1c1fdee829d4477bb5a013f74313998d",
-        "executed_at": "2026-09-20T10:08:30.805563+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-118",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "1c1fdee829d4477bb5a013f74313998d",
-          "executed_at": "2026-09-20T10:08:30.805563+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-119",
@@ -750,28 +605,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-119",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "1a85c9506d2a457bbed73d8fcd475b50",
-        "executed_at": "2026-09-20T10:11:17.840040+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-119",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "1a85c9506d2a457bbed73d8fcd475b50",
-          "executed_at": "2026-09-20T10:11:17.840040+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-120",
@@ -790,28 +624,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-120",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "4d2e92639e8c45c4861ff2cc9ea3c220",
-        "executed_at": "2026-09-20T10:23:55.757908+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-120",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "4d2e92639e8c45c4861ff2cc9ea3c220",
-          "executed_at": "2026-09-20T10:23:55.757908+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-121",
@@ -830,28 +643,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-121",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "4d78ec0beaf34a19aa48ca07432ca0f1",
-        "executed_at": "2026-09-20T10:26:57.904009+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-121",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "4d78ec0beaf34a19aa48ca07432ca0f1",
-          "executed_at": "2026-09-20T10:26:57.904009+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-122",
@@ -860,7 +652,7 @@
       "kind": "functional",
       "boundary": "真实 RunService→Executor→LangGraph/SkillContext→DB",
       "owner": "TASK-022",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -870,7 +662,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-122",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "186f6231726741f8abedc2f69922e2b4",
+        "executed_at": "2026-09-20T10:37:53.809192+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-122",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "186f6231726741f8abedc2f69922e2b4",
+          "executed_at": "2026-09-20T10:37:53.809192+00:00"
+        }
+      ]
     },
     {
       "id": "B-123",

@@ -1052,7 +1052,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-022: 装配完整执行链与共享基础设施
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-012, TASK-013, TASK-015, TASK-016, TASK-017, TASK-018, TASK-019, TASK-020, TASK-021
 - **Source**: 08-runtime-execution.backend.design.md#3.2 架构与流程, 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#4. 部署与运维
@@ -1075,11 +1075,12 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-122 | integration | 真实 RunService→Executor→LangGraph/SkillContext→DB | 完整一轮含 Tool、Artifact、审计；secret 不进模型消息/输出；停机关闭连接与后台任务；无空实现替代依赖 | tests/agent_runtime/test_runtime_composition.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_composition.py"] | planned |
+| B-122 | integration | 真实 RunService→Executor→LangGraph/SkillContext→DB | 完整一轮含 Tool、Artifact、审计；secret 不进模型消息/输出；停机关闭连接与后台任务；无空实现替代依赖 | tests/agent_runtime/test_runtime_composition.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_composition.py"] | verified |
 
 ### Acceptance Evidence
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+- B-122: verified — automated command passed; run_id=186f6231726741f8abedc2f69922e2b4 (confirmed_by: runner)
 
 ### Log
 
@@ -1088,6 +1089,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-023: Runtime E2E 真实环境与清理设施
 
 - **Status**: draft
