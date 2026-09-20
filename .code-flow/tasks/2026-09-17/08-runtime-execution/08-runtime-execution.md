@@ -802,7 +802,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-016: 冻结 MCP catalog 的运行适配器
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-013, TASK-015
 - **Source**: 08-runtime-execution.backend.design.md#API-07 Resolve Definition, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -816,10 +816,10 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 只按 Snapshot definitions 注册 namespaced Tool，Streamable HTTP 调用走统一 registry/egress；认证数据按 server 主键实时读取。
 
 ### Checklist
-- [ ] [B-116][integration] 修改对应生产行为前，沿 Snapshot→ToolRegistry→真实本地 MCP HTTP 服务 添加失败断言并记录 RED：运行内不调用 tools/list；Server 授权粒度不变；catalog revision/hash 不漂移；Tool/Egress 双审计完整。
+- [x] [B-116][integration] RED：1 error（mcp_runtime_adapter 模块不存在）：运行内不调用 tools/list；Server 授权粒度不变；catalog revision/hash 不漂移；Tool/Egress 双审计完整。
 - [ ] 只按 Snapshot definitions 注册 namespaced Tool，Streamable HTTP 调用走统一 registry/egress；认证数据按 server 主键实时读取。
 - [ ] 局部验证 Snapshot→ToolRegistry→真实本地 MCP HTTP 服务：运行内不调用 tools/list；Server 授权粒度不变；catalog revision/hash 不漂移；Tool/Egress 双审计完整；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] 运行 3 passed；agent_runtime 全量回归通过；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -829,14 +829,17 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-116 | FAIL: ModuleNotFoundError | 3 passed | test_mcp_execution.py::test_b116_*（冻结注册/命名隔离/DENY 审计） | 真实 PostgreSQL egress_audit + ToolRegistry | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：MCP 运行适配器落地，B-116 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-017: Model Recovery 与逐 attempt 审计
 
 - **Status**: done
