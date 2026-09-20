@@ -839,7 +839,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ## TASK-017: Model Recovery 与逐 attempt 审计
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-006, TASK-008, TASK-015
 - **Source**: 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案
@@ -863,8 +863,8 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-06 | integration | ModelGateway→fake provider→真实审计 DB | 429 Retry-After:1 后成功；记录 attempt/retry_reason；Run 不失败 | tests/agent_runtime/test_model_recovery.py -k s06（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","s06"] | planned |
-| E-06 | integration | ModelGateway→fake provider→PostgreSQL | 429/5xx/reset/timeout 超重试或 deadline 后 FAILED/MODEL_UNAVAILABLE；逐 attempt 审计；取消终止退避 | tests/agent_runtime/test_model_recovery.py -k e06（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","e06"] | planned |
+| S-06 | integration | ModelGateway→fake provider→真实审计 DB | 429 Retry-After:1 后成功；记录 attempt/retry_reason；Run 不失败 | tests/agent_runtime/test_model_recovery.py -k s06（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","s06"] | verified |
+| E-06 | integration | ModelGateway→fake provider→PostgreSQL | 429/5xx/reset/timeout 超重试或 deadline 后 FAILED/MODEL_UNAVAILABLE；逐 attempt 审计；取消终止退避 | tests/agent_runtime/test_model_recovery.py -k e06（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","e06"] | verified |
 
 ### Acceptance Evidence
 
@@ -872,6 +872,8 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 |--------|-----|-------|---------|-------------|------|
 | S-06 | FAIL: ModuleNotFoundError | 3 passed；agent_runtime 98 passed | test_s06（429→Retry-After 恢复；attempt/retry_reason 审计；成功不失败） | 真实 PostgreSQL model_invocation_audit | verified |
 | E-06 | 同上 | 同上 | test_e06（重试耗尽→MODEL_UNAVAILABLE；逐 attempt FAILED 审计；取消短路 calls==0） | 同上 | verified |
+- S-06: verified — automated command passed; run_id=aaba5c50836f44b6b9e29163b1ae9a8b (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=aaba5c50836f44b6b9e29163b1ae9a8b (confirmed_by: runner)
 
 ### Log
 
@@ -880,6 +882,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-018: PG Checkpointer 与 Interrupt 持久化
 
 - **Status**: draft
