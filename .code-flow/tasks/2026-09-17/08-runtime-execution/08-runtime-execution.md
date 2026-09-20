@@ -78,7 +78,7 @@
 | E-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/SSE | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e02"] | . | 1200 | |
 | E-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | . | 1200 | |
 | E-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Reaper→PostgreSQL lease→CAS | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_reaper.py","-k","e04"] | . | 300 | |
-| E-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL | TASK-015 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_egress_boundary.py","-k","e05"] | . | 300 | |
+| E-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL | TASK-015 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_egress_boundary.py","-k","e05"] | . | 300 | |
 | E-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→PostgreSQL | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","e06"] | . | 300 | |
 | E-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | TASK-026 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | . | 1200 | |
 | E-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | . | 1200 | |
@@ -107,7 +107,7 @@
 | RULE-auth-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-auth） | E2E | S-01 的真实边界＋原 verifier | TASK-024 | planned | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 1200 | |
 | RULE-data-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-data） | integration | S-02, E-03 的真实边界＋原 verifier | TASK-001 | verified | ["uv","run","pytest","-q","tests","-k","schema_parity"] | . | 1200 | |
 | RULE-mcp-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-mcp） | E2E | S-02 的真实边界＋原 verifier | TASK-024 | planned | ["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"] | . | 1200 | |
-| RULE-platform-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-project-platform） | integration | E-05 的真实边界＋原 verifier | TASK-015 | planned | ["bash","-lc","uv run pytest -q tests -k schema_parity"] | . | 1200 | |
+| RULE-platform-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-project-platform） | integration | E-05 的真实边界＋原 verifier | TASK-015 | verified | ["bash","-lc","uv run pytest -q tests -k schema_parity"] | . | 1200 | |
 | RULE-secret-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-secret） | E2E | S-02 的真实边界＋原 verifier | TASK-024 | planned | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | . | 1200 | |
 | RULE-skill-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-skill） | integration | S-03, E-01 的真实边界＋原 verifier | TASK-012 | verified | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"] | . | 1200 | |
 | RULE-snapshot-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-snapshot） | E2E | S-02, E-04 的真实边界＋原 verifier | TASK-024 | planned | ["bash","-lc","uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 | |
@@ -715,7 +715,7 @@
 - [2026-09-20] completed (done)
 ## TASK-014: 平台 Egress 客户端与 Session 接入
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-029
 - **Source**: 08-runtime-execution.backend.design.md#API-08 Resolve Egress
@@ -738,11 +738,12 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-114 | integration | HTTP resolve→PlatformAdapter→真实 Redis | 四类 credential_mode 正确；tenant/actor/version/adapter 隔离；adapter 变更旧 Session 失效；无独立 refresh SPI | tests/sdk/test_runtime_platform_session.py（planned） | ["uv","run","pytest","-q","tests/sdk/test_runtime_platform_session.py"] | planned |
+| B-114 | integration | HTTP resolve→PlatformAdapter→真实 Redis | 四类 credential_mode 正确；tenant/actor/version/adapter 隔离；adapter 变更旧 Session 失效；无独立 refresh SPI | tests/sdk/test_runtime_platform_session.py（planned） | ["uv","run","pytest","-q","tests/sdk/test_runtime_platform_session.py"] | verified |
 
 ### Acceptance Evidence
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+- B-114: verified — automated command passed; run_id=d23421e7010a4ea69794df9e85565a54 (confirmed_by: runner)
 
 ### Log
 
@@ -751,9 +752,10 @@
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-015: HTTP 出网约束与统一审计落库
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-014
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#API-08 Resolve Egress, 08-runtime-execution.backend.design.md#3.5 质量实现方案
@@ -767,29 +769,35 @@
 ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 timeout、≤5 MiB 与逐跳授权；提供 tool/egress/model 三类审计写入 port 的 DB 实现。
 
 ### Checklist
-- [ ] [E-05][integration] 修改对应生产行为前，沿 真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL 添加失败断言并记录 RED：拒绝 host 不发出请求，FORBIDDEN；DENY/HTTP 审计；timeout/5 MiB/redirect 边界；平台与 MCP 同一策略。
-- [ ] ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 timeout、≤5 MiB 与逐跳授权；提供 tool/egress/model 三类审计写入 port 的 DB 实现。
-- [ ] 局部验证 Skill→Egress Boundary→HTTP 探针/Redis/PostgreSQL：E-05：拒绝 host 零外发且 DENY/HTTP 审计；跨 host 跳转拒绝；超限/超时明确失败；审计无凭据；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] [RULE-platform-001][integration] verifier 输入为本模块变更和 E-05 映射场景；执行原命令 `["bash","-lc","uv run pytest -q tests -k schema_parity"]`，再执行映射场景命令；核验 E-05 的真实边界和断言。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [E-05][integration] RED：1 error（egress_boundary/audit_writer 模块不存在）+ 过程修复（DENY 未审计/dataclass 缺失）：拒绝 host 不发出请求，FORBIDDEN；DENY/HTTP 审计；timeout/5 MiB/redirect 边界；平台与 MCP 同一策略。
+- [x] 新建 platform-sdk egress_boundary.py（ForbiddenEgressError/ResponseTooLargeError/EgressPolicy/EgressBoundary：allowlist 先判后发、必填 timeout、≤max_bytes、跳转逐跳授权）+ infrastructure/audit_writer.py RuntimeAuditWriter（tool/egress/model 三表写入）。
+- [x] 局部验证 6 passed（allowlist 成功/拒绝零外发/DENY 审计无凭据/跳转控制/timeout/max_bytes）：E-05：拒绝 host 零外发且 DENY/HTTP 审计；跨 host 跳转拒绝；超限/超时明确失败；审计无凭据；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] [RULE-platform-001][integration] schema_parity 27 passed + egress_boundary/runtime_platform_session 全过；执行原命令 `["bash","-lc","uv run pytest -q tests -k schema_parity"]`，再执行映射场景命令；核验 E-05 的真实边界和断言。
+- [x] 运行 test_egress_boundary.py -k e05；sdk+agent_core+agent_runtime 回归 241 passed；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-05 | integration | 真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL | 拒绝 host 不发出请求，FORBIDDEN；DENY/HTTP 审计；timeout/5 MiB/redirect 边界；平台与 MCP 同一策略 | tests/agent_runtime/test_egress_boundary.py -k e05（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_egress_boundary.py","-k","e05"] | planned |
+| E-05 | integration | 真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL | 拒绝 host 不发出请求，FORBIDDEN；DENY/HTTP 审计；timeout/5 MiB/redirect 边界；平台与 MCP 同一策略 | tests/agent_runtime/test_egress_boundary.py -k e05（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_egress_boundary.py","-k","e05"] | verified |
 | RULE-platform-001 | integration | 真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL＋原 verifier 边界 | 拒绝 host 不发出请求，FORBIDDEN；DENY/HTTP 审计；timeout/5 MiB/redirect 边界；平台与 MCP 同一策略；原 verifier 全部通过 | 原 verifier＋tests/agent_runtime/test_egress_boundary.py, tests/sdk/test_runtime_platform_session.py（planned） | ["bash","-lc","uv run pytest -q tests -k schema_parity && uv run pytest -q tests/agent_runtime/test_egress_boundary.py tests/sdk/test_runtime_platform_session.py"] | planned |
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-05 | FAIL: ModuleNotFoundError + DENY 未审计缺陷 | 6 passed；全量回归 241 passed | test_egress_boundary.py::test_e05_*（allowlist/零外发/DENY 审计无凭据/跳转/timeout/max_bytes） | 真实 uvicorn HTTP 探针 + 真实 PostgreSQL egress_audit | verified |
+| RULE-platform-001 | N/A（verifier 已存在） | schema_parity 27 passed + egress/runtime_platform_session 全过 | 同上 | 同上 | verified |
+- E-05: failed — automated command failed; run_id=71dc6cd2100c44eca0206d58a05591ee (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=dddc15f14fe44e7a8206ccec4d1f942a (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：Egress Boundary + 三类审计 writer 落地，E-05/RULE-platform-001 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-016: 冻结 MCP catalog 的运行适配器
 
 - **Status**: draft

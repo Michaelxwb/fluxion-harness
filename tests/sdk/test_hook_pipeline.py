@@ -12,10 +12,14 @@ async def _noop(context: HookContext) -> None:
 
 
 def test_hook_event_members_match_design_doc() -> None:
+    # 08 TASK-008：扩展为完整 7 类生命周期
     assert {member.value for member in HookEvent} == {
         "user_prompt",
+        "pre_model",
+        "post_model",
         "pre_tool_use",
         "post_tool_use",
+        "on_interrupt",
         "stop",
     }
 

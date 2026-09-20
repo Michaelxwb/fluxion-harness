@@ -64,28 +64,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "27df0d43183b4c56b77bedcdb20632a4",
-        "executed_at": "2026-09-20T09:35:52.813165+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "27df0d43183b4c56b77bedcdb20632a4",
-          "executed_at": "2026-09-20T09:35:52.813165+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-04",
@@ -211,28 +190,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-01",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "27df0d43183b4c56b77bedcdb20632a4",
-        "executed_at": "2026-09-20T09:35:52.813165+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "27df0d43183b4c56b77bedcdb20632a4",
-          "executed_at": "2026-09-20T09:35:52.813165+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-02",
@@ -304,7 +262,7 @@
       "kind": "functional",
       "boundary": "真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL",
       "owner": "TASK-015",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -316,7 +274,38 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "dddc15f14fe44e7a8206ccec4d1f942a",
+        "executed_at": "2026-09-20T09:48:46.448044+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 2,
+          "output": "==================================== ERRORS ====================================\n_________ ERROR collecting tests/agent_runtime/test_egress_boundary.py _________\ntests/agent_runtime/test_egress_boundary.py:15: in <module>\n    from muad_platform_sdk.egress_boundary import (\npackages/platform-sdk/src/muad_platform_sdk/egress_boundary.py:19: in <module>\n    @dataclass(frozen=True, slots=True)\n     ^^^^^^^^^\nE   NameError: name 'dataclass' is not defined\n=========================== short test summary info ============================\nERROR tests/agent_runtime/test_egress_boundary.py - NameError: name 'dataclas...\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.06s",
+          "revision": 1,
+          "run_id": "71dc6cd2100c44eca0206d58a05591ee",
+          "executed_at": "2026-09-20T09:46:15.717029+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "dddc15f14fe44e7a8206ccec4d1f942a",
+          "executed_at": "2026-09-20T09:48:46.448044+00:00"
+        }
+      ]
     },
     {
       "id": "E-06",
@@ -580,7 +569,7 @@
       "kind": "functional",
       "boundary": "HTTP resolve→PlatformAdapter→真实 Redis",
       "owner": "TASK-014",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -590,7 +579,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-114",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "d23421e7010a4ea69794df9e85565a54",
+        "executed_at": "2026-09-20T09:41:19.485316+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-114",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "d23421e7010a4ea69794df9e85565a54",
+          "executed_at": "2026-09-20T09:41:19.485316+00:00"
+        }
+      ]
     },
     {
       "id": "B-116",
