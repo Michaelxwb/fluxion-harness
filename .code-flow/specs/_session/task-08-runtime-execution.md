@@ -1,10 +1,23 @@
-# TASK-023 Spec Context
+# TASK-024 Spec Context
 
 - Context-SHA256: `c6eaa1c21e755138c44af3fe82485ef7d1f9d22efcc63249ec83665ab47445cb`
 
 ## Required Rules
+- `harness-auth#RULE-auth-001`: 授权为三层关系：User→Agent（AgentAccessGrant）、Agent→Skill/MCP（Binding）、SELECTED 资源再叠加 SkillUserGrant/McpUserGrant；Effective Capability 公式必须含 `is_deleted=false` 与资源/Agent `enabled`；绑定无启停开关、授权无到期时间；不建三元授权、不做 MCP Tool 级授权；未授权资源不得进入 Prompt/ToolRegistry/Skill Catalog。
+  - rule_sha256=f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd verifier=harness-auth#RULE-auth-001; artifacts=08-runtime-execution.backend.design.md,08-runtime-execution.md
+- `harness-mcp#RULE-mcp-001`: V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅 Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。
+  - rule_sha256=ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae verifier=harness-mcp#RULE-mcp-001; artifacts=08-runtime-execution.backend.design.md,08-runtime-execution.md
+- `harness-secret#RULE-secret-001`: 密钥明文存于各 Owner 表（模型 `api_key`、Bot `secret`、MCP/平台 `auth_secret`、用户/共享 `credential_json`），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt 或 API 响应（对外以 `*_configured` 表达）。
+  - rule_sha256=eb4cdd0b7fa4d7e182cb84beca0488da13386632d61841b12d39045cda60015b verifier=harness-secret#RULE-secret-001; artifacts=08-runtime-execution.backend.design.md,08-runtime-execution.md
+- `harness-snapshot#RULE-snapshot-001`: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP 版本、Prompt 模板版本、catalog revision/hash、预算）；配置或授权变更只影响后续新 Run/Task；终态写入必须 CAS。
+  - rule_sha256=bed55091b1673e3c29c216171a74d6564324334a61fd657fe075516056e3f271 verifier=harness-snapshot#RULE-snapshot-001; artifacts=08-runtime-execution.backend.design.md,08-runtime-execution.md
 
 ## Acceptance Contract
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-123 | integration | 真实 HTTP 进程→PG/Redis/NFS | 进程实际独立；探针可记录请求/注入受控故障；禁 dependency_overrides/mock 业务服务；清理可重复 | tests/acceptance/runtime/test_environment.py（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_environment.py"] | planned |
+| S-01 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 | 未授权 SELECTED Skill/MCP 不出现在 Prompt、LLM catalog 或 ToolRegistry | tests/acceptance/runtime/test_capability_snapshot.py -k s01（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s01"] | planned |
+| S-02 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP | 当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应 | tests/acceptance/runtime/test_capability_snapshot.py -k s02（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s02"] | planned |
+| RULE-auth-001 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针＋原 verifier 边界 | 未授权 SELECTED Skill/MCP 不出现在 Prompt、LLM catalog 或 ToolRegistry；原 verifier 全部通过 | 原 verifier＋tests/acceptance/runtime/test_capability_snapshot.py（planned） | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | planned |
+| RULE-mcp-001 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP＋原 verifier 边界 | 当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应；原 verifier 全部通过 | tests/console_mcp/test_mcp_rules.py＋tests/acceptance/runtime/test_capability_snapshot.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/console_mcp/test_mcp_rules.py' && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | planned |
+| RULE-secret-001 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP＋原 verifier 边界 | 当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应；原 verifier 全部通过 | tests/test_logging_redaction.py, tests/acceptance/test_foundation_ops_audit.py＋tests/acceptance/runtime/test_capability_snapshot.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/test_logging_redaction.py' 'tests/acceptance/test_foundation_ops_audit.py' && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | planned |
+| RULE-snapshot-001 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP；真实 Reaper→PostgreSQL lease→CAS＋原 verifier 边界 | 当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应；过期 RUNNING FAILED/RUN_ABANDONED；新 Run 可创建；旧执行者被拒；RUN_ABANDONED 不作 HTTP code；原 verifier 全部通过 | 原 verifier＋tests/acceptance/runtime/test_capability_snapshot.py, tests/agent_runtime/test_run_reaper.py（planned） | ["bash","-lc","uv run pytest -q tests/agent_runtime -k \"executor or resolve\" && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py tests/agent_runtime/test_run_reaper.py"] | planned |

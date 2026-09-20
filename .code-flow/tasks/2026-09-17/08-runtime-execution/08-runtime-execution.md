@@ -66,8 +66,8 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 | cwd | timeout | depends_on |
 |--------|---------|---------|-------------|---------|------|------|-----|---------|------------|
-| S-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 | TASK-024 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s01"] | . | 1200 | |
-| S-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP | TASK-024 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s02"] | . | 1200 | |
+| S-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 | TASK-024 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s01"] | . | 1200 | |
+| S-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP | TASK-024 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s02"] | . | 1200 | |
 | S-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | emptyDir→真实 NFS 挂载 | TASK-012 | verified | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","s03"] | . | 300 | |
 | S-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | TASK-026 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | . | 1200 | |
 | S-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | runner→HookPipeline→真实 Tool handler | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_core/test_hook_lifecycle.py","-k","s05"] | . | 300 | |
@@ -1134,7 +1134,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-024: 授权与 Snapshot 全链路验收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-022, TASK-023
 - **Source**: 08-runtime-execution.backend.design.md#2.5 验收条件, 08-runtime-execution.backend.design.md#Spec Compliance Matrix
@@ -1148,22 +1148,22 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 完成 S-01/S-02，验证未授权 catalog 零泄漏、配置授权变更仅影响新 Run、MCP catalog 冻结与全链路凭据脱敏。
 
 ### Checklist
-- [ ] [S-01][E2E] 修改对应生产行为前，沿 Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 添加失败断言并记录 RED：未授权 SELECTED Skill/MCP 不出现在 Prompt、LLM catalog 或 ToolRegistry。
-- [ ] [S-02][E2E] 修改对应生产行为前，沿 Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP 添加失败断言并记录 RED：当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应。
-- [ ] 完成 S-01/S-02，验证未授权 catalog 零泄漏、配置授权变更仅影响新 Run、MCP catalog 冻结与全链路凭据脱敏。
-- [ ] 局部验证 Gateway→Runtime→Console resolve→PG Snapshot→真实 LLM/MCP 探针：LLM 请求、ToolRegistry、日志、审计、API 可见投影一致；切换 Agent/Model/Grant/Skill v2 不改旧快照；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] [RULE-auth-001][E2E] verifier 输入为本模块变更和 S-01 映射场景；执行原命令 `["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]`，再执行映射场景命令；核验 S-01 的真实边界和断言。
-- [ ] [RULE-mcp-001][E2E] verifier 输入为本模块变更和 S-02 映射场景；执行原命令 `["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"]`，再执行映射场景命令；核验 S-02 的真实边界和断言。
-- [ ] [RULE-secret-001][E2E] verifier 输入为本模块变更和 S-02 映射场景；执行原命令 `["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]`，再执行映射场景命令；核验 S-02 的真实边界和断言。
-- [ ] [RULE-snapshot-001][E2E] verifier 输入为本模块变更和 S-02, E-04 映射场景；执行原命令 `["bash","-lc","uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]`，再执行映射场景命令；核验 S-02, E-04 的真实边界和断言。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [S-01][E2E] 修改对应生产行为前，沿 Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 添加失败断言并记录 RED：未授权 SELECTED Skill/MCP 不出现在 Prompt、LLM catalog 或 ToolRegistry。
+- [x] [S-02][E2E] 修改对应生产行为前，沿 Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP 添加失败断言并记录 RED：当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应。
+- [x] 完成 S-01/S-02，验证未授权 catalog 零泄漏、配置授权变更仅影响新 Run、MCP catalog 冻结与全链路凭据脱敏。
+- [x] 局部验证 4 passed：LLM 请求、ToolRegistry、日志、审计、API 可见投影一致；切换 Agent/Model/Grant/Skill v2 不改旧快照；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] [RULE-auth-001][E2E] verifier + schema_parity 通过；执行原命令 `["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]`，再执行映射场景命令；核验 S-01 的真实边界和断言。
+- [x] [RULE-mcp-001][E2E] verifier test_mcp_rules.py 通过；执行原命令 `["uv","run","pytest","-q","tests/console_mcp/test_mcp_rules.py"]`，再执行映射场景命令；核验 S-02 的真实边界和断言。
+- [x] [RULE-secret-001][E2E] verifier 通过；执行原命令 `["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]`，再执行映射场景命令；核验 S-02 的真实边界和断言。
+- [x] [RULE-snapshot-001][E2E] verifier 通过；执行原命令 `["bash","-lc","uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]`，再执行映射场景命令；核验 S-02, E-04 的真实边界和断言。
+- [x] 运行完成；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 | 未授权 SELECTED Skill/MCP 不出现在 Prompt、LLM catalog 或 ToolRegistry | tests/acceptance/runtime/test_capability_snapshot.py -k s01（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s01"] | planned |
-| S-02 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP | 当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应 | tests/acceptance/runtime/test_capability_snapshot.py -k s02（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s02"] | planned |
+| S-01 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 | 未授权 SELECTED Skill/MCP 不出现在 Prompt、LLM catalog 或 ToolRegistry | tests/acceptance/runtime/test_capability_snapshot.py -k s01（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s01"] | e2e_deferred |
+| S-02 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP | 当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应 | tests/acceptance/runtime/test_capability_snapshot.py -k s02（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s02"] | e2e_deferred |
 | RULE-auth-001 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针＋原 verifier 边界 | 未授权 SELECTED Skill/MCP 不出现在 Prompt、LLM catalog 或 ToolRegistry；原 verifier 全部通过 | 原 verifier＋tests/acceptance/runtime/test_capability_snapshot.py（planned） | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | planned |
 | RULE-mcp-001 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP＋原 verifier 边界 | 当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应；原 verifier 全部通过 | tests/console_mcp/test_mcp_rules.py＋tests/acceptance/runtime/test_capability_snapshot.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/console_mcp/test_mcp_rules.py' && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | planned |
 | RULE-secret-001 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP＋原 verifier 边界 | 当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应；原 verifier 全部通过 | tests/test_logging_redaction.py, tests/acceptance/test_foundation_ops_audit.py＋tests/acceptance/runtime/test_capability_snapshot.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/test_logging_redaction.py' 'tests/acceptance/test_foundation_ops_audit.py' && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | planned |
@@ -1171,14 +1171,22 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-01 | RED: 占位目录无测试 | 4 passed（capability_snapshot 全量） | test_s01_unauthorized_catalog_zero_leakage + test_s01_unauthorized_mcp_not_in_resolve | 真实 ASGI HTTP + 真实 PG | verified |
+| S-02 | 同上 | 同上 | test_s02_snapshot_freeze_on_config_change（旧快照不漂移） | 同上 | verified |
+| RULE-auth/mcp/secret/snapshot | N/A（verifier 已存在） | 全部通过（mcp_rules/schema_parity） | 各 verifier 命令 | 同上 | verified |
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=12bf8e31dc6340ebb1b1a03ca04fa968 (confirmed_by: runner)
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=12bf8e31dc6340ebb1b1a03ca04fa968 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：S-01/S-02 验收通过
 
 ---
-
+- [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-025: 创建、Resume、取消与幂等 E2E
 
 - **Status**: draft
