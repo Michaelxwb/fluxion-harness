@@ -72,3 +72,26 @@ async def test_stream_ends_when_events_are_exhausted() -> None:
     ]
     assert len(frames) == 1
     assert _payload_of(frames[0])["run_id"] == "run-2"
+
+
+def test_b121_sse_envelope_contract_fields_complete() -> None:
+    """[B-121 补充] 封套五字段完整且 seq 跨帧连续；心跳不占 seq。"""
+    emitter = SseEmitter("run-b121")
+    frames = [
+        emitter.frame(ExecutorEvent(type="run.created", data={"resumed": False})),
+        emitter.frame(ExecutorEvent(type="message.delta", data={"delta": "x"})),
+        emitter.frame(ExecutorEvent(type="run.completed", data={"status": "COMPLETED"})),
+    ]
+    parsed = []
+    for frame in frames:
+        assert frame.endswith("\n\n")
+        assert frame.startswith("event: ")
+        data_line = next(line for line in frame.splitlines() if line.startswith("data: "))
+        parsed.append(json.loads(data_line[len("data: "):]))
+    for i, envelope in enumerate(parsed, start=1):
+        for field in ("run_id", "seq", "timestamp", "type", "data"):
+            assert field in envelope
+        assert envelope["seq"] == i
+        assert envelope["run_id"] == "run-b121"
+    # 心跳帧不含 event/seq
+    assert HEARTBEAT_FRAME == ": heartbeat\n\n"
