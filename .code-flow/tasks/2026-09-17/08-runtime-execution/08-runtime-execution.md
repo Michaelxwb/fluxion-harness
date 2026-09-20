@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-09-17/08-runtime-execution/08-runtime-execution.backend.design.md
 - **Created**: 2026-09-19
-- **Updated**: 2026-09-20
+- **Updated**: 2026-09-21
 
 ## Proposal
 
@@ -69,7 +69,7 @@
 | S-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 | TASK-024 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s01"] | . | 1200 | |
 | S-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP | TASK-024 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s02"] | . | 1200 | |
 | S-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | emptyDir→真实 NFS 挂载 | TASK-012 | verified | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","s03"] | . | 300 | |
-| S-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | TASK-026 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | . | 1200 | |
+| S-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | TASK-026 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | . | 1200 | |
 | S-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | runner→HookPipeline→真实 Tool handler | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_core/test_hook_lifecycle.py","-k","s05"] | . | 300 | |
 | S-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→真实审计 DB | TASK-017 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","s06"] | . | 300 | |
 | S-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | . | 1200 | |
@@ -80,7 +80,7 @@
 | E-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Reaper→PostgreSQL lease→CAS | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_reaper.py","-k","e04"] | . | 300 | |
 | E-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL | TASK-015 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_egress_boundary.py","-k","e05"] | . | 300 | |
 | E-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→PostgreSQL | TASK-017 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","e06"] | . | 300 | |
-| E-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | TASK-026 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | . | 1200 | |
+| E-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | TASK-026 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | . | 1200 | |
 | E-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | . | 1200 | |
 | B-01 | 08-runtime-execution.backend.design.md#API-01 创建 Run | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | . | 1200 | |
 | B-101 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | PostgreSQL migration→ORM | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | . | 600 | |
@@ -1267,7 +1267,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-026: 跨 Pod 重建与断流崩溃恢复 E2E
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007, TASK-022, TASK-023
 - **Source**: 08-runtime-execution.backend.design.md#2.5 验收条件, 08-runtime-execution.backend.design.md#4. 部署与运维, 08-runtime-execution.backend.design.md#5. 风险与依赖
@@ -1292,13 +1292,15 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-04 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | 真实结束 A 后第二轮 B 重建会话和 Memory；无 sticky session | tests/acceptance/runtime/test_multipod_recovery.py -k s04（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | planned |
-| E-07 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | Gateway 提示重发；lease 过期失败 RUN_ABANDONED；GET 查到终态；不把断流直接改成取消 | tests/acceptance/runtime/test_multipod_recovery.py -k e07（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | planned |
+| S-04 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | 真实结束 A 后第二轮 B 重建会话和 Memory；无 sticky session | tests/acceptance/runtime/test_multipod_recovery.py -k s04（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | e2e_deferred |
+| E-07 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | Gateway 提示重发；lease 过期失败 RUN_ABANDONED；GET 查到终态；不把断流直接改成取消 | tests/acceptance/runtime/test_multipod_recovery.py -k e07（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | e2e_deferred |
 | RULE-arch-001 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B；真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run＋原 verifier 边界 | 真实结束 A 后第二轮 B 重建会话和 Memory；无 sticky session；Gateway 提示重发；lease 过期失败 RUN_ABANDONED；GET 查到终态；不把断流直接改成取消；原 verifier 全部通过 | tests/architecture＋tests/acceptance/runtime/test_multipod_recovery.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/architecture' && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"] | planned |
 
 ### Acceptance Evidence
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=f79ca8c0fd3749ce874e0f2735637d5a (confirmed_by: runner)
+- E-07: e2e_deferred — automated command e2e_deferred; run_id=f79ca8c0fd3749ce874e0f2735637d5a (confirmed_by: runner)
 
 ### Log
 
@@ -1307,6 +1309,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ---
 - [2026-09-20] started
+- [2026-09-21] completed (done)
 ## TASK-027: 模块验收与 Spec verifier 收口
 
 - **Status**: draft

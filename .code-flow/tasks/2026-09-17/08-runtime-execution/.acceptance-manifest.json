@@ -111,7 +111,7 @@
       "kind": "e2e",
       "boundary": "真实 Runtime A→PostgreSQL/Artifact Store→Runtime B",
       "owner": "TASK-026",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -123,7 +123,26 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "f79ca8c0fd3749ce874e0f2735637d5a",
+        "executed_at": "2026-09-20T15:59:07.289042+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "f79ca8c0fd3749ce874e0f2735637d5a",
+          "executed_at": "2026-09-20T15:59:07.289042+00:00"
+        }
+      ]
     },
     {
       "id": "S-05",
@@ -495,7 +514,7 @@
       "kind": "e2e",
       "boundary": "真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run",
       "owner": "TASK-026",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -507,7 +526,26 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-07",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "f79ca8c0fd3749ce874e0f2735637d5a",
+        "executed_at": "2026-09-20T15:59:07.289042+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "f79ca8c0fd3749ce874e0f2735637d5a",
+          "executed_at": "2026-09-20T15:59:07.289042+00:00"
+        }
+      ]
     },
     {
       "id": "E-08",
