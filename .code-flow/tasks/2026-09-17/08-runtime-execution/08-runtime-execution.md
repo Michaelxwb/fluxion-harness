@@ -89,7 +89,7 @@
 | B-104 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Snapshot builder→PostgreSQL→Executor request | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_snapshot_freeze.py"] | . | 600 | |
 | B-105 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | HTTP handler→PostgreSQL unique→run creation | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | . | 600 | |
 | B-106 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | 两个 Session→PostgreSQL CAS | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_leases.py"] | . | 600 | |
-| B-110 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Memory service→PostgreSQL | TASK-010 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py"] | . | 600 | |
+| B-110 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Memory service→PostgreSQL | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py"] | . | 600 | |
 | B-111 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Tool result→真实共享文件系统→PostgreSQL Artifact | TASK-011 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_artifact_results.py"] | . | 600 | |
 | B-113 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | ToolRegistry→真实 handler→审计 port | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_core/test_tool_execution_pipeline.py"] | . | 600 | |
 | B-114 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | HTTP resolve→PlatformAdapter→真实 Redis | TASK-014 | planned | ["uv","run","pytest","-q","tests/sdk/test_runtime_platform_session.py"] | . | 600 | |
@@ -500,7 +500,7 @@
 
 ## TASK-010: 受控长期 Memory 读写
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-001
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计
@@ -514,27 +514,32 @@
 实现 PREFERENCE/WORK_STYLE/EXPLICIT 的受控写入、版本与 enabled/软删除过滤；不新增 Console 管理页。
 
 ### Checklist
-- [ ] [B-110][integration] 修改对应生产行为前，沿 Memory service→PostgreSQL 添加失败断言并记录 RED：跨 tenant/user 无泄漏；禁用/删除不读；来源与版本可追溯；不把实时业务事实自动写长期 Memory。
-- [ ] 实现 PREFERENCE/WORK_STYLE/EXPLICIT 的受控写入、版本与 enabled/软删除过滤；不新增 Console 管理页。
-- [ ] 局部验证 Memory service→PostgreSQL：跨 tenant/user 无泄漏；禁用/删除不读；来源与版本可追溯；不把实时业务事实自动写长期 Memory；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [B-110][integration] RED：1 error（ModuleNotFoundError memory_service）：跨 tenant/user 无泄漏；禁用/删除不读；来源与版本可追溯；不把实时业务事实自动写长期 Memory。
+- [x] 实现 application/memory_service.py：三 category 白名单、upsert 版本递增、enabled/is_deleted 过滤、disable 软删除；不新增 Console 管理页。
+- [x] 局部验证 4 passed（隔离/版本/过滤/白名单）：跨 tenant/user 无泄漏；禁用/删除不读；来源与版本可追溯；不把实时业务事实自动写长期 Memory；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] agent_runtime 全量回归通过；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-110 | integration | Memory service→PostgreSQL | 跨 tenant/user 无泄漏；禁用/删除不读；来源与版本可追溯；不把实时业务事实自动写长期 Memory | tests/agent_runtime/test_memory_service.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py"] | planned |
+| B-110 | integration | Memory service→PostgreSQL | 跨 tenant/user 无泄漏；禁用/删除不读；来源与版本可追溯；不把实时业务事实自动写长期 Memory | tests/agent_runtime/test_memory_service.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py"] | verified |
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-110 | FAIL: ModuleNotFoundError | 4 passed | test_memory_service.py::test_b110_*（隔离/版本/过滤/白名单） | 真实 PostgreSQL runtime.user_memory | verified |
+- B-110: verified — automated command passed; run_id=596db6358d7448fcbf329a7f84befd09 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：MemoryService 落地，B-110 verified
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-011: 大结果 Artifact 落盘与引用
 
 - **Status**: draft

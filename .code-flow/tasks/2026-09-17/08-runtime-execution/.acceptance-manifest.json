@@ -396,28 +396,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-102",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "1a8a309316084036a438b75556723681",
-        "executed_at": "2026-09-20T04:10:46.647729+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-102",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "1a8a309316084036a438b75556723681",
-          "executed_at": "2026-09-20T04:10:46.647729+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-103",
@@ -502,7 +481,7 @@
       "kind": "functional",
       "boundary": "Memory service→PostgreSQL",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -512,7 +491,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-110",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "596db6358d7448fcbf329a7f84befd09",
+        "executed_at": "2026-09-20T04:26:51.220433+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-110",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "596db6358d7448fcbf329a7f84befd09",
+          "executed_at": "2026-09-20T04:26:51.220433+00:00"
+        }
+      ]
     },
     {
       "id": "B-111",
