@@ -1,7 +1,7 @@
 version: 1
 task: Agent Runtime 执行引擎
 enforcement: required
-updated_at: '2026-09-20T10:09:30.687399+00:00'
+updated_at: '2026-09-20T10:12:18.042073+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -65,7 +65,7 @@ bindings:
         - artifact: 08-runtime-execution.md
           section_id: TASK-025
           item_id: TASK-025
-          artifact_sha256: aaa4e965745033749a4ff6c356e2c9a28b09b673876a56915bc8c4aa461c88ce
+          artifact_sha256: 02f7ad5933e0bacd5088f9c13e061fcd4c4f5b5e6a37406e6ef3cf3573219356
         decision: null
         evidence: []
       code:
@@ -584,7 +584,7 @@ bindings:
         - artifact: 08-runtime-execution.md
           section_id: TASK-025
           item_id: TASK-025
-          artifact_sha256: aaa4e965745033749a4ff6c356e2c9a28b09b673876a56915bc8c4aa461c88ce
+          artifact_sha256: 02f7ad5933e0bacd5088f9c13e061fcd4c4f5b5e6a37406e6ef3cf3573219356
         decision: null
         evidence: []
       code:
@@ -1244,7 +1244,7 @@ bindings:
         - artifact: 08-runtime-execution.md
           section_id: TASK-026
           item_id: TASK-026
-          artifact_sha256: aaa4e965745033749a4ff6c356e2c9a28b09b673876a56915bc8c4aa461c88ce
+          artifact_sha256: 02f7ad5933e0bacd5088f9c13e061fcd4c4f5b5e6a37406e6ef3cf3573219356
         decision: null
         evidence: []
       code:
@@ -1780,7 +1780,7 @@ bindings:
         - artifact: 08-runtime-execution.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: aaa4e965745033749a4ff6c356e2c9a28b09b673876a56915bc8c4aa461c88ce
+          artifact_sha256: 02f7ad5933e0bacd5088f9c13e061fcd4c4f5b5e6a37406e6ef3cf3573219356
         decision: null
         evidence: []
       code:
@@ -2399,7 +2399,7 @@ bindings:
         - artifact: 08-runtime-execution.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: aaa4e965745033749a4ff6c356e2c9a28b09b673876a56915bc8c4aa461c88ce
+          artifact_sha256: 02f7ad5933e0bacd5088f9c13e061fcd4c4f5b5e6a37406e6ef3cf3573219356
         decision: null
         evidence: []
       code:
@@ -3059,7 +3059,7 @@ bindings:
         - artifact: 08-runtime-execution.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: aaa4e965745033749a4ff6c356e2c9a28b09b673876a56915bc8c4aa461c88ce
+          artifact_sha256: 02f7ad5933e0bacd5088f9c13e061fcd4c4f5b5e6a37406e6ef3cf3573219356
         decision: null
         evidence: []
       code:
@@ -3599,7 +3599,7 @@ bindings:
         - artifact: 08-runtime-execution.md
           section_id: TASK-015
           item_id: TASK-015
-          artifact_sha256: aaa4e965745033749a4ff6c356e2c9a28b09b673876a56915bc8c4aa461c88ce
+          artifact_sha256: 02f7ad5933e0bacd5088f9c13e061fcd4c4f5b5e6a37406e6ef3cf3573219356
         decision: null
         evidence: []
       code:
@@ -4180,7 +4180,7 @@ bindings:
         - artifact: 08-runtime-execution.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: aaa4e965745033749a4ff6c356e2c9a28b09b673876a56915bc8c4aa461c88ce
+          artifact_sha256: 02f7ad5933e0bacd5088f9c13e061fcd4c4f5b5e6a37406e6ef3cf3573219356
         decision: null
         evidence: []
       code:
@@ -4738,7 +4738,7 @@ bindings:
         - artifact: 08-runtime-execution.md
           section_id: TASK-012
           item_id: TASK-012
-          artifact_sha256: aaa4e965745033749a4ff6c356e2c9a28b09b673876a56915bc8c4aa461c88ce
+          artifact_sha256: 02f7ad5933e0bacd5088f9c13e061fcd4c4f5b5e6a37406e6ef3cf3573219356
         decision: null
         evidence: []
       code:
@@ -5272,7 +5272,7 @@ bindings:
         - artifact: 08-runtime-execution.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: aaa4e965745033749a4ff6c356e2c9a28b09b673876a56915bc8c4aa461c88ce
+          artifact_sha256: 02f7ad5933e0bacd5088f9c13e061fcd4c4f5b5e6a37406e6ef3cf3573219356
         decision: null
         evidence: []
       code:
@@ -5764,7 +5764,7 @@ bindings:
         - artifact: 08-runtime-execution.md
           section_id: TASK-027
           item_id: TASK-027
-          artifact_sha256: aaa4e965745033749a4ff6c356e2c9a28b09b673876a56915bc8c4aa461c88ce
+          artifact_sha256: 02f7ad5933e0bacd5088f9c13e061fcd4c4f5b5e6a37406e6ef3cf3573219356
         decision: null
         evidence: []
       code:
@@ -6966,7 +6966,7 @@ bindings:
         - artifact: 08-runtime-execution.md
           section_id: Spec-Refs
           item_id: TASK-001
-          artifact_sha256: aaa4e965745033749a4ff6c356e2c9a28b09b673876a56915bc8c4aa461c88ce
+          artifact_sha256: 02f7ad5933e0bacd5088f9c13e061fcd4c4f5b5e6a37406e6ef3cf3573219356
         decision: null
         evidence: []
       code:
