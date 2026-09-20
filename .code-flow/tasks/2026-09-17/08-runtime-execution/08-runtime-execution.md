@@ -1203,16 +1203,16 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 完成 S-07/E-02/E-03/E-08 及 B-01；走真实 Gateway/HTTP/SSE，核验 Envelope、CAS、持续序号、取消和幂等重放。
 
 ### Checklist
-- [ ] [S-07][E2E] 修改对应生产行为前，沿 真实 Gateway→Runtime SSE→PostgreSQL 添加失败断言并记录 RED：WAITING_INPUT 普通回复自动恢复原 Run；首事件 run.created/resumed=true；seq 延续。
-- [ ] [E-02][E2E] 修改对应生产行为前，沿 真实 Gateway→cancel-active→PostgreSQL/SSE 添加失败断言并记录 RED：WAITING_INPUT CAS CANCELLED；interrupt CANCELLED；CANCEL 事件与 run.completed(status=CANCELLED)。
-- [ ] [E-03][E2E] 修改对应生产行为前，沿 真实 Gateway→Runtime→PostgreSQL partial unique 添加失败断言并记录 RED：并发不同消息仅一活跃 Run；409 RUN_BUSY；已有状态/lease 不变；双语标准 Envelope。
-- [ ] [E-08][E2E] 修改对应生产行为前，沿 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 添加失败断言并记录 RED：CREATED/RUNNING 响应 CANCELLING；DB cancel_requested 权威；Redis 故障仍协作 CANCELLED；无活跃 404 NO_ACTIVE_RUN。
-- [ ] [B-01][E2E] 修改对应生产行为前，沿 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool 添加失败断言并记录 RED：新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 COMMON_CONFLICT；并发/重启后仍幂等。
-- [ ] 完成 S-07/E-02/E-03/E-08 及 B-01；走真实 Gateway/HTTP/SSE，核验 Envelope、CAS、持续序号、取消和幂等重放。
-- [ ] 局部验证 真实 Gateway→Runtime HTTP/SSE→PostgreSQL/Redis：业务响应、真实最终状态、事件和 side-effect 次数同时断言；不能以 mocked executor 代替 E2E；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] [RULE-api-001][E2E] verifier 输入为本模块变更和 E-03, E-08 映射场景；执行原命令 `["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"]`，再执行映射场景命令；核验 E-03, E-08 的真实边界和断言。
-- [ ] [RULE-api-002][E2E] verifier 输入为本模块变更和 B-01 映射场景；执行原命令 `["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"]`，再执行映射场景命令；核验 B-01 的真实边界和断言。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [S-07][E2E] 修改对应生产行为前，沿 真实 Gateway→Runtime SSE→PostgreSQL 添加失败断言并记录 RED：WAITING_INPUT 普通回复自动恢复原 Run；首事件 run.created/resumed=true；seq 延续。
+- [x] [E-02][E2E] 修改对应生产行为前，沿 真实 Gateway→cancel-active→PostgreSQL/SSE 添加失败断言并记录 RED：WAITING_INPUT CAS CANCELLED；interrupt CANCELLED；CANCEL 事件与 run.completed(status=CANCELLED)。
+- [x] [E-03][E2E] 修改对应生产行为前，沿 真实 Gateway→Runtime→PostgreSQL partial unique 添加失败断言并记录 RED：并发不同消息仅一活跃 Run；409 RUN_BUSY；已有状态/lease 不变；双语标准 Envelope。
+- [x] [E-08][E2E] 修改对应生产行为前，沿 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 添加失败断言并记录 RED：CREATED/RUNNING 响应 CANCELLING；DB cancel_requested 权威；Redis 故障仍协作 CANCELLED；无活跃 404 NO_ACTIVE_RUN。
+- [x] [B-01][E2E] 修改对应生产行为前，沿 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool 添加失败断言并记录 RED：新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 COMMON_CONFLICT；并发/重启后仍幂等。
+- [x] 完成 S-07/E-02/E-03/E-08 及 B-01；走真实 Gateway/HTTP/SSE，核验 Envelope、CAS、持续序号、取消和幂等重放。
+- [x] 局部验证 真实 Gateway→Runtime HTTP/SSE→PostgreSQL/Redis：业务响应、真实最终状态、事件和 side-effect 次数同时断言；不能以 mocked executor 代替 E2E；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] [RULE-api-001][E2E] verifier 输入为本模块变更和 E-03, E-08 映射场景；执行原命令 `["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"]`，再执行映射场景命令；核验 E-03, E-08 的真实边界和断言。
+- [x] [RULE-api-002][E2E] verifier 输入为本模块变更和 B-01 映射场景；执行原命令 `["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"]`，再执行映射场景命令；核验 B-01 的真实边界和断言。
+- [x] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -1233,6 +1233,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：生命周期 E2E 全量通过
 
 ---
 
