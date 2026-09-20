@@ -94,7 +94,7 @@
 | B-113 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | ToolRegistry→真实 handler→审计 port | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_core/test_tool_execution_pipeline.py"] | . | 600 | |
 | B-114 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | HTTP resolve→PlatformAdapter→真实 Redis | TASK-014 | verified | ["uv","run","pytest","-q","tests/sdk/test_runtime_platform_session.py"] | . | 600 | |
 | B-116 | 08-runtime-execution.backend.design.md#API-07 Resolve Definition | integration | Snapshot→ToolRegistry→真实本地 MCP HTTP 服务 | TASK-016 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_mcp_execution.py"] | . | 600 | |
-| B-118 | 08-runtime-execution.backend.design.md#3.1 技术选型与关键决策 | integration | LangGraph→PG checkpoint/run_interrupt | TASK-018 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_interrupt_checkpoint.py"] | . | 600 | |
+| B-118 | 08-runtime-execution.backend.design.md#3.1 技术选型与关键决策 | integration | LangGraph→PG checkpoint/run_interrupt | TASK-018 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_interrupt_checkpoint.py"] | . | 600 | |
 | B-119 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | Resume API→PostgreSQL→LangGraph | TASK-019 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_resume_transactions.py"] | . | 600 | |
 | B-120 | 08-runtime-execution.backend.design.md#API-03 取消当前活跃 Run | integration | Cancel API→PostgreSQL→真实 Redis→执行检查点 | TASK-020 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_cancellation.py"] | . | 600 | |
 | B-121 | 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约 | integration | Executor event stream→SSE→持久化事件 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_sse.py"] | . | 600 | |
@@ -890,7 +890,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-018: PG Checkpointer 与 Interrupt 持久化
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-006, TASK-008
 - **Source**: 08-runtime-execution.backend.design.md#3.1 技术选型与关键决策, 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#API-02 Resume Run
@@ -904,10 +904,10 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 接 PostgreSQL Checkpointer 与 LangGraph interrupt，保存 run_interrupt/WAITING_INPUT，释放执行租约；checkpoint 只保存执行状态，业务事实仍由 Runtime 表管理。
 
 ### Checklist
-- [ ] [B-118][integration] 修改对应生产行为前，沿 LangGraph→PG checkpoint/run_interrupt 添加失败断言并记录 RED：进程重建仍可定位等待点；触发 on_interrupt；非授权执行者不能推进；业务事实不依赖进程内存。
-- [ ] 接 PostgreSQL Checkpointer 与 LangGraph interrupt，保存 run_interrupt/WAITING_INPUT，释放执行租约；checkpoint 只保存执行状态，业务事实仍由 Runtime 表管理。
-- [ ] 局部验证 LangGraph→PG checkpoint/run_interrupt：进程重建仍可定位等待点；触发 on_interrupt；非授权执行者不能推进；业务事实不依赖进程内存；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [B-118][integration] RED：4 failed（checkpoint 模块不存在）+ 过程修复（lease_owner 保留为最后执行者记录而非清除，供 resolve 校验）：进程重建仍可定位等待点；触发 on_interrupt；非授权执行者不能推进；业务事实不依赖进程内存。
+- [x] 新建 application/checkpoint.py：checkpoint_interrupt（run_interrupt WAITING + WAITING_INPUT + lease_until 释放）/load_waiting_interrupt/InterruptCheckpoint.locate_waiting/resolve（owner 校验 + RESOLVED + Run RUNNING）；checkpoint 只保存执行状态，业务事实仍由 Runtime 表管理。
+- [x] 局部验证 4 passed：进程重建仍可定位等待点；触发 on_interrupt；非授权执行者不能推进；业务事实不依赖进程内存；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] 运行 test_interrupt_checkpoint.py；agent_runtime 105 passed；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -917,14 +917,17 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-118 | FAIL: 4 failed（模块缺失） | 4 passed | test_interrupt_checkpoint.py::test_b118_*（WAITING 持久化/租约释放/进程重建定位/非授权拒绝/resolve 推进） | 真实 PostgreSQL runtime.run_interrupt + run_record | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：Interrupt Checkpoint 落地，B-118 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-019: 显式与自动 Resume
 
 - **Status**: draft
