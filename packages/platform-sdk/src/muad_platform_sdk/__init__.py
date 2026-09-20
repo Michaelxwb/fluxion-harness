@@ -7,6 +7,7 @@ from .adapter import (
     PlatformAdapterNotFound,
     PlatformAdapterRegistry,
 )
+from .egress_client import EgressAccess, RuntimeEgressClient
 from .client import PlatformClient
 from .session import (
     NONE_ACTOR_SCOPE,
@@ -44,6 +45,8 @@ __all__ = [
     "PlatformClient",
     "PlatformConfig",
     "PlatformRequest",
+    "EgressAccess",
+    "RuntimeEgressClient",
     "PlatformSession",
     "PlatformSessionManager",
     "RedisPlatformSessionInvalidator",

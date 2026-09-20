@@ -92,7 +92,7 @@
 | B-110 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Memory service→PostgreSQL | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py"] | . | 600 | |
 | B-111 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Tool result→真实共享文件系统→PostgreSQL Artifact | TASK-011 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_artifact_results.py"] | . | 600 | |
 | B-113 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | ToolRegistry→真实 handler→审计 port | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_core/test_tool_execution_pipeline.py"] | . | 600 | |
-| B-114 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | HTTP resolve→PlatformAdapter→真实 Redis | TASK-014 | planned | ["uv","run","pytest","-q","tests/sdk/test_runtime_platform_session.py"] | . | 600 | |
+| B-114 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | HTTP resolve→PlatformAdapter→真实 Redis | TASK-014 | verified | ["uv","run","pytest","-q","tests/sdk/test_runtime_platform_session.py"] | . | 600 | |
 | B-116 | 08-runtime-execution.backend.design.md#API-07 Resolve Definition | integration | Snapshot→ToolRegistry→真实本地 MCP HTTP 服务 | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_mcp_execution.py"] | . | 600 | |
 | B-118 | 08-runtime-execution.backend.design.md#3.1 技术选型与关键决策 | integration | LangGraph→PG checkpoint/run_interrupt | TASK-018 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_interrupt_checkpoint.py"] | . | 600 | |
 | B-119 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | Resume API→PostgreSQL→LangGraph | TASK-019 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_resume_transactions.py"] | . | 600 | |
@@ -715,7 +715,7 @@
 - [2026-09-20] completed (done)
 ## TASK-014: 平台 Egress 客户端与 Session 接入
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-029
 - **Source**: 08-runtime-execution.backend.design.md#API-08 Resolve Egress
@@ -729,10 +729,10 @@
 消费 TASK-029 基于模块 04 实现的 resolve-egress，使用现有 Adapter SPI；Session 按完整键缓存与 Set 索引失效，认证数据限内存使用。
 
 ### Checklist
-- [ ] [B-114][integration] 修改对应生产行为前，沿 HTTP resolve→PlatformAdapter→真实 Redis 添加失败断言并记录 RED：四类 credential_mode 正确；tenant/actor/version/adapter 隔离；adapter 变更旧 Session 失效；无独立 refresh SPI。
-- [ ] 消费 TASK-029 基于模块 04 实现的 resolve-egress，使用现有 Adapter SPI；Session 按完整键缓存与 Set 索引失效，认证数据限内存使用。
-- [ ] 局部验证 HTTP resolve→PlatformAdapter→真实 Redis：四类 credential_mode 正确；tenant/actor/version/adapter 隔离；adapter 变更旧 Session 失效；无独立 refresh SPI；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [B-114][integration] RED：1 error（egress_client 模块不存在）+ 过程修复（invalidator 实际 API 为 clear_platform，非 invalidate）：四类 credential_mode 正确；tenant/actor/version/adapter 隔离；adapter 变更旧 Session 失效；无独立 refresh SPI。
+- [x] 新建 platform-sdk egress_client.py（RuntimeEgressClient/EgressAccess）；Session 失效复用 RedisPlatformSessionInvalidator.clear_platform（Set 索引整体清理，完整键结构），认证数据限内存使用。
+- [x] 局部验证 3 passed（四模式/租户 actor 隔离/Redis 失效）：四类 credential_mode 正确；tenant/actor/version/adapter 隔离；adapter 变更旧 Session 失效；无独立 refresh SPI；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] 运行 test_runtime_platform_session.py；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -747,9 +747,10 @@
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：Egress 客户端落地，B-114 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-015: HTTP 出网约束与统一审计落库
 
 - **Status**: draft
