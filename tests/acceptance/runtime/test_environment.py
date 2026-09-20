@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-import uuid
-
 import httpx
 import pytest
 import redis.asyncio as redis
@@ -24,6 +22,7 @@ def probe_url() -> str:
     import time
 
     import uvicorn
+
     from tests.e2e.mcp_probe_app import app
 
     config = uvicorn.Config(app=app, host="127.0.0.1", port=0, log_level="error")
@@ -71,7 +70,6 @@ def test_b123_real_dependencies_present() -> None:
     import asyncio
 
     import asyncpg
-    import redis.asyncio as redis
 
     settings = SharedSettings()
     pg_url = settings.database_url

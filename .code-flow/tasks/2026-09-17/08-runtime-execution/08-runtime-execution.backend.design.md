@@ -112,7 +112,7 @@
 | RULE-13 | 系统约束 | Egress `target_type` 统一 `PLATFORM_SERVICE/HTTP/MCP`；`ctx.http` host 必须命中 allowlist、响应 ≤5 MiB、禁止未授权跳转、超时必填，与平台调用共用 Egress Boundary 和审计。 | E-05 |
 | RULE-14 | 系统约束 | 业务错误只抛 `config/api-messages.yaml` 已登记 code；`RUN_ABANDONED` 仅作 Run 终态 `error_code` 记录，不作为 HTTP 错误码。 | E-03 / E-04 |
 
-| RULE-15 | 系统约束 | 创建/可重试提交按 Idempotency-Key + 请求指纹落 DB；同键同指纹返回 200 原结果，异指纹 COMMON_CONFLICT；SSE 重放该次提交，不再次执行，resume 消息独立幂等。 | B-01 |
+| RULE-15 | 系统约束 | 创建/可重试提交按 Idempotency-Key + 请求指纹落 DB；同键同指纹返回 200 原结果，异指纹 IDEMPOTENCY_MISMATCH；SSE 重放该次提交，不再次执行，resume 消息独立幂等。 | B-01 |
 
 #### 2.5.2 功能验收场景
 
@@ -146,7 +146,7 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 归属 | 操作/前置 | 预期结果 |
 |---|---|---|---|---|---|---|---|---|
-| B-01 | FEAT-01 | P0 | E2E | Gateway HTTP/SSE→Runtime→PostgreSQL 幂等表/事件→Tool | 本模块 | 同键同指纹并发/重试/重启后重发；同键异指纹；同 Run 多次 resume | 同提交仅执行一次并返回原 run_id/提交事件；同键同指纹 200 SSE 重放，未结束则接续；异指纹 COMMON_CONFLICT；不同 resume 提交各自幂等，终态不二次执行 |
+| B-01 | FEAT-01 | P0 | E2E | Gateway HTTP/SSE→Runtime→PostgreSQL 幂等表/事件→Tool | 本模块 | 同键同指纹并发/重试/重启后重发；同键异指纹；同 Run 多次 resume | 同提交仅执行一次并返回原 run_id/提交事件；同键同指纹 200 SSE 重放，未结束则接续；异指纹 IDEMPOTENCY_MISMATCH；不同 resume 提交各自幂等，终态不二次执行 |
 
 无可靠实测数据的性能阈值统一标记“待定”，不复制模板示例值。
 
@@ -495,7 +495,7 @@ POST /v1/runs
 - 调用方：IM Gateway（用户消息）；诊断工具。
 - 协议：请求 `application/json`；响应 `text/event-stream`（SSE），不使用 JSON Envelope。
 - 幂等：支持 `Idempotency-Key`，缺省取请求中的 `message.id`。指纹为 endpoint、tenant/actor/agent、请求中的 conversation 选择值（缺省使用稳定空标识）与规范化消息内容的 SHA256；不能先自动取最新 conversation 再生成指纹，否则重试会漂移。
-- 先按 tenant/key/endpoint 检查已提交记录：同指纹返回 200 SSE，重放该 submission 已持久化事件并接续未结束流；不调用 LLM/Tool、不创建新 Run。不同指纹返回 `COMMON_CONFLICT`。必须核验重放请求的 actor/会话归属；缓存不能绕过租户隔离。
+- 先按 tenant/key/endpoint 检查已提交记录：同指纹返回 200 SSE，重放该 submission 已持久化事件并接续未结束流；不调用 LLM/Tool、不创建新 Run。不同指纹返回 `IDEMPOTENCY_MISMATCH`。必须核验重放请求的 actor/会话归属；缓存不能绕过租户隔离。
 - 新 key 才查询活跃 Run；WAITING_INPUT 走原 Snapshot + API-09 内存凭据，无需重新 resolve-definition；无活跃 Run 才调用 API-07 解析最新授权/定义。并发插入幂等记录时，唯一约束落败者读取首次提交结果。
 - 重放保持初次事件的 seq/timestamp/payload，heartbeat 不持久化。非流式首个错误使用 JSON Envelope；事务未提交的失败允许同 key 重试，不伪造成功响应。
 
@@ -584,7 +584,7 @@ POST /v1/runs/{run_id}/resume
 |---|---|---|
 | `COMMON_VALIDATION_ERROR` | 输入字段缺失/类型错误 | 422 |
 | `COMMON_NOT_FOUND` | Run 不存在 | 404 |
-| `COMMON_CONFLICT` | Run 非 WAITING_INPUT 且未终态 | 409 |
+| `REVISION_CONFLICT` | Run 非 WAITING_INPUT 且未终态 | 409 |
 | `COMMON_INTERNAL_ERROR` | 其他内部错误 | 500 |
 
 **处理逻辑**
@@ -592,7 +592,7 @@ POST /v1/runs/{run_id}/resume
 ```text
 1. 校验 run_id 存在；status 非 WAITING_INPUT:
    已终态 -> 返回当前终态（幂等）
-   其余   -> raise COMMON_CONFLICT
+   其余   -> raise REVISION_CONFLICT
 2. 校验幂等提交，加载原 Snapshot；API-09 按冻结主键获取内存凭据
 3. 在同一事务中 run_interrupt -> RESOLVED + resolution_json
 4. 同事务 append USER_MESSAGE(resume input) 与新 submission
@@ -999,6 +999,6 @@ POST /internal/runtime/resolve-egress-access
 | `harness-snapshot#RULE-snapshot-001` | required | 冻结 Agent/Model/Skill/MCP/`prompt_template_version`/policy；终态 CAS 不漂移。 | §2.5.1 RULE-11、§3.3 `runtime.runtime_snapshot`、§3.4 API-06 | S-02, E-04 + verifier | applied |
 | `harness-project-platform#RULE-platform-001` | required | Adapter SPI/credential_mode/Session 由 platform-sdk 承担；egress `target_type` 统一。 | §3.4 API-08、§2.5.1 RULE-13 | E-05 + verifier | applied |
 | `harness-test#RULE-test-001` | required | 关键流程 E2E 且明确不 mock 的真实边界（PG/Redis/NFS/HTTP/SSE）。 | §2.5.2 场景表、§3.5 | S-01, S-04, E-01 + verifier | applied |
-| `harness-api#RULE-api-002` | required | 提交幂等表 partial unique＋指纹；200 重放原 SSE 提交，异指纹 COMMON_CONFLICT，不重复执行。 | §3.3 run_submission、API-01/API-02 | B-01 + verifier | applied |
+| `harness-api#RULE-api-002` | required | 提交幂等表 partial unique＋指纹；200 重放原 SSE 提交，异指纹 IDEMPOTENCY_MISMATCH，不重复执行。 | §3.3 run_submission、API-01/API-02 | B-01 + verifier | applied |
 
 > Matrix 的 applied 表示设计已承接，代码验收尚未执行；verifier_ref 与原命令继承 spec-context.yml 绑定，不把旧模块 verifier 通过当作本模块功能通过。

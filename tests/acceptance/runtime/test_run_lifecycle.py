@@ -72,6 +72,7 @@ async def _make_run(status="RUNNING", *, lease_owner="inst-1") -> tuple[uuid.UUI
     return run_id, conv_id
 
 
+@pytest.mark.asyncio
 async def test_s07_wait_input_resume_cas() -> None:
     """[S-07] WAITING_INPUT → RUNNING 通过 CAS 推进；WAITING_INPUT 事件留痕。"""
     run_id, conv_id = await _make_run("WAITING_INPUT", lease_owner="old")
@@ -97,6 +98,7 @@ async def test_s07_wait_input_resume_cas() -> None:
         assert status == "RUNNING"
 
 
+@pytest.mark.asyncio
 async def test_e03_run_busy_partial_unique() -> None:
     """[E-03] partial unique：活跃 conversation 只允许一个 RUNNING run。"""
     conv_id, run_id = uuid.uuid4(), uuid.uuid4()
@@ -151,6 +153,7 @@ async def test_e03_run_busy_partial_unique() -> None:
         await session.rollback()
 
 
+@pytest.mark.asyncio
 async def test_e08_cancel_requested_flag() -> None:
     """[E-08] cancel_requested 置位：DB 是权威信号。"""
     run_id, conv_id = await _make_run("RUNNING")
@@ -165,12 +168,13 @@ async def test_e08_cancel_requested_flag() -> None:
         assert flagged.cancel_requested is True
 
 
+@pytest.mark.asyncio
 async def test_b01_idempotency_key_replay() -> None:
     """[B-01] 同 key 同指纹重放：不创建新 RunSubmission。"""
     run_id, conv_id = await _make_run("RUNNING")
     from muad_agent_runtime.application.run_submission import RunSubmissionService
 
-    service = RunSubmissionService(get_session_factory())
+    service = RunSubmissionService(get_session_factory)
 
     key = f"idem-{uuid.uuid4()}"
     fingerprint = "sha256:" + "b" * 64

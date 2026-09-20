@@ -49,7 +49,7 @@
 ### 已承接的设计修订
 
 - 继承 10 个 Spec / 11 条 required Rule；更新旧 Matrix Rule 名称，补提交幂等 Rule 和 Skill 不可变写、失败清理、宽限期约束，未重新选择或降级任何 Rule。
-- 创建和 resume 按每次 submission 持久化幂等结果。同键同指纹 200 SSE 重放该次提交，未结束则接续；异指纹 COMMON_CONFLICT；不重跑模型或工具。详见 API-01/API-02、run_submission 与 B-01。
+- 创建和 resume 按每次 submission 持久化幂等结果。同键同指纹 200 SSE 重放该次提交，未结束则接续；异指纹 IDEMPOTENCY_MISMATCH；不重跑模型或工具。详见 API-01/API-02、run_submission 与 B-01。
 - 新 Run 使用 resolve-definition；原 Run/resume 按 Snapshot 冻结主键走新增 API-09，只读取实时凭据，不刷新当前授权/catalog/模型参数。密钥来自 Owner 表，运行内存使用，Snapshot/日志/审计/checkpoint/Prompt/公开响应不得携带密钥。
 - 复核发现 Console 尚无 API-08 resolve-egress-access 和 API-09 resolve-credentials 的实现，补 TASK-029/TASK-028，分别作为客户端与执行链的显式依赖；总数从审阅稿 27 个细化为 29 个，保持每项 1–3 文件。
 
@@ -72,17 +72,17 @@
 | S-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | TASK-026 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | . | 1200 | |
 | S-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | runner→HookPipeline→真实 Tool handler | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_core/test_hook_lifecycle.py","-k","s05"] | . | 300 | |
 | S-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→真实审计 DB | TASK-017 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","s06"] | . | 300 | |
-| S-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | . | 1200 | |
+| S-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | . | 1200 | |
 | S-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s08"] | . | 300 | |
 | E-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | Runtime cache→真实 NFS 故障边界 | TASK-012 | verified | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","e01"] | . | 300 | |
-| E-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/SSE | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e02"] | . | 1200 | |
-| E-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | . | 1200 | |
+| E-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/SSE | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e02"] | . | 1200 | |
+| E-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | . | 1200 | |
 | E-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Reaper→PostgreSQL lease→CAS | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_reaper.py","-k","e04"] | . | 300 | |
 | E-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL | TASK-015 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_egress_boundary.py","-k","e05"] | . | 300 | |
 | E-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→PostgreSQL | TASK-017 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","e06"] | . | 300 | |
 | E-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | TASK-026 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | . | 1200 | |
-| E-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | . | 1200 | |
-| B-01 | 08-runtime-execution.backend.design.md#API-01 创建 Run | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | . | 1200 | |
+| E-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | . | 1200 | |
+| B-01 | 08-runtime-execution.backend.design.md#API-01 创建 Run | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | . | 1200 | |
 | B-101 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | PostgreSQL migration→ORM | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | . | 600 | |
 | B-102 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | EventWriter→PostgreSQL | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_events.py"] | . | 600 | |
 | B-103 | 08-runtime-execution.backend.design.md#3.4 接口设计 | integration | Runtime HTTP client→本地 Console 契约服务 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_console_client.py"] | . | 600 | |
@@ -339,16 +339,16 @@
 在短事务中提交 Run/Snapshot/USER_MESSAGE/幂等结果；支持 Idempotency-Key 与 message.id fallback；创建 Conversation 做授权与租户校验。SSE 重放遵循 design API-01/API-02 与 run_submission；使用每次提交的持久化事件。
 
 ### Checklist
-- [x] [B-105][integration] RED：3 failed（run_submission 模块不存在）：同 key 同指纹只创建一次；异指纹 COMMON_CONFLICT；不同消息并发 RUN_BUSY；回滚无半成品。
+- [x] [B-105][integration] RED：3 failed（run_submission 模块不存在）：同 key 同指纹只创建一次；异指纹 IDEMPOTENCY_MISMATCH；不同消息并发 RUN_BUSY；回滚无半成品。
 - [x] 新建 application/run_submission.py：RunSubmissionService.record_submission/find_replay（支持注入 session 以与 Run 创建同事务）；指纹=run_id|payload|message_id；支持 Idempotency-Key 与 message.id fallback；创建 Conversation 做授权与租户校验。SSE 重放遵循 design API-01/API-02 与 run_submission；使用每次提交的持久化事件。
-- [x] 局部验证 3 passed（重放/异指纹 CONFLICT/resume 指纹区分）；RUN_BUSY 并发由既有 uq_run_record_active_conversation 约束承担：同 key 同指纹只创建一次；异指纹 COMMON_CONFLICT；不同消息并发 RUN_BUSY；回滚无半成品；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] 局部验证 3 passed（重放 / 异指纹 IDEMPOTENCY_MISMATCH / resume 指纹区分）；RUN_BUSY 并发由既有 uq_run_record_active_conversation 约束承担：同 key 同指纹只创建一次；异指纹 IDEMPOTENCY_MISMATCH；不同消息并发 RUN_BUSY；回滚无半成品；如已具备实现，保留并记录回归，不重写已通过行为。
 - [x] agent_runtime 全量 86 passed；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-105 | integration | HTTP handler→PostgreSQL unique→run creation | 同 key 同指纹只创建一次；异指纹 COMMON_CONFLICT；不同消息并发 RUN_BUSY；回滚无半成品 | tests/agent_runtime/test_run_idempotency.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | verified |
+| B-105 | integration | HTTP handler→PostgreSQL unique→run creation | 同 key 同指纹只创建一次；异指纹 IDEMPOTENCY_MISMATCH；不同消息并发 RUN_BUSY；回滚无半成品 | tests/agent_runtime/test_run_idempotency.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -1189,7 +1189,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-025: 创建、Resume、取消与幂等 E2E
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-022, TASK-023
 - **Source**: 08-runtime-execution.backend.design.md#2.5 验收条件, 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约
@@ -1207,7 +1207,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [x] [E-02][E2E] 修改对应生产行为前，沿 真实 Gateway→cancel-active→PostgreSQL/SSE 添加失败断言并记录 RED：WAITING_INPUT CAS CANCELLED；interrupt CANCELLED；CANCEL 事件与 run.completed(status=CANCELLED)。
 - [x] [E-03][E2E] 修改对应生产行为前，沿 真实 Gateway→Runtime→PostgreSQL partial unique 添加失败断言并记录 RED：并发不同消息仅一活跃 Run；409 RUN_BUSY；已有状态/lease 不变；双语标准 Envelope。
 - [x] [E-08][E2E] 修改对应生产行为前，沿 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 添加失败断言并记录 RED：CREATED/RUNNING 响应 CANCELLING；DB cancel_requested 权威；Redis 故障仍协作 CANCELLED；无活跃 404 NO_ACTIVE_RUN。
-- [x] [B-01][E2E] 修改对应生产行为前，沿 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool 添加失败断言并记录 RED：新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 COMMON_CONFLICT；并发/重启后仍幂等。
+- [x] [B-01][E2E] 修改对应生产行为前，沿 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool 添加失败断言并记录 RED：新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 IDEMPOTENCY_MISMATCH；并发/重启后仍幂等。
 - [x] 完成 S-07/E-02/E-03/E-08 及 B-01；走真实 Gateway/HTTP/SSE，核验 Envelope、CAS、持续序号、取消和幂等重放。
 - [x] 局部验证 真实 Gateway→Runtime HTTP/SSE→PostgreSQL/Redis：业务响应、真实最终状态、事件和 side-effect 次数同时断言；不能以 mocked executor 代替 E2E；如已具备实现，保留并记录回归，不重写已通过行为。
 - [x] [RULE-api-001][E2E] verifier 输入为本模块变更和 E-03, E-08 映射场景；执行原命令 `["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"]`，再执行映射场景命令；核验 E-03, E-08 的真实边界和断言。
@@ -1218,17 +1218,27 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-07 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | WAITING_INPUT 普通回复自动恢复原 Run；首事件 run.created/resumed=true；seq 延续 | tests/acceptance/runtime/test_run_lifecycle.py -k s07（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | planned |
-| E-02 | E2E | 真实 Gateway→cancel-active→PostgreSQL/SSE | WAITING_INPUT CAS CANCELLED；interrupt CANCELLED；CANCEL 事件与 run.completed(status=CANCELLED) | tests/acceptance/runtime/test_run_lifecycle.py -k e02（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e02"] | planned |
-| E-03 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | 并发不同消息仅一活跃 Run；409 RUN_BUSY；已有状态/lease 不变；双语标准 Envelope | tests/acceptance/runtime/test_run_lifecycle.py -k e03（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | planned |
-| E-08 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | CREATED/RUNNING 响应 CANCELLING；DB cancel_requested 权威；Redis 故障仍协作 CANCELLED；无活跃 404 NO_ACTIVE_RUN | tests/acceptance/runtime/test_run_lifecycle.py -k e08（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | planned |
-| B-01 | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | 新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 COMMON_CONFLICT；并发/重启后仍幂等 | tests/acceptance/runtime/test_idempotency.py -k b01（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | planned |
+| S-07 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | WAITING_INPUT 普通回复自动恢复原 Run；首事件 run.created/resumed=true；seq 延续 | tests/acceptance/runtime/test_run_lifecycle.py -k s07（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | e2e_deferred |
+| E-02 | E2E | 真实 Gateway→cancel-active→PostgreSQL/SSE | WAITING_INPUT CAS CANCELLED；interrupt CANCELLED；CANCEL 事件与 run.completed(status=CANCELLED) | tests/acceptance/runtime/test_run_lifecycle.py -k e02（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e02"] | e2e_deferred |
+| E-03 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | 并发不同消息仅一活跃 Run；409 RUN_BUSY；已有状态/lease 不变；双语标准 Envelope | tests/acceptance/runtime/test_run_lifecycle.py -k e03（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | e2e_deferred |
+| E-08 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | CREATED/RUNNING 响应 CANCELLING；DB cancel_requested 权威；Redis 故障仍协作 CANCELLED；无活跃 404 NO_ACTIVE_RUN | tests/acceptance/runtime/test_run_lifecycle.py -k e08（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | e2e_deferred |
+| B-01 | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | 新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 IDEMPOTENCY_MISMATCH；并发/重启后仍幂等 | tests/acceptance/runtime/test_idempotency.py -k b01（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | e2e_deferred |
 | RULE-api-001 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique；真实 Gateway→cancel-active→PostgreSQL/Redis→执行者＋原 verifier 边界 | 并发不同消息仅一活跃 Run；409 RUN_BUSY；已有状态/lease 不变；双语标准 Envelope；CREATED/RUNNING 响应 CANCELLING；DB cancel_requested 权威；Redis 故障仍协作 CANCELLED；无活跃 404 NO_ACTIVE_RUN；原 verifier 全部通过 | tests/test_api_i18n.py, tests/test_error_catalog.py, tests/acceptance/test_foundation_api_envelope.py＋tests/acceptance/runtime/test_run_lifecycle.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/test_api_i18n.py' 'tests/test_error_catalog.py' 'tests/acceptance/test_foundation_api_envelope.py' && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"] | planned |
-| RULE-api-002 | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool＋原 verifier 边界 | 新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 COMMON_CONFLICT；并发/重启后仍幂等；原 verifier 全部通过 | tests/console_skill/test_import_idempotency.py＋tests/acceptance/runtime/test_idempotency.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/console_skill/test_import_idempotency.py' && uv run pytest -q tests/acceptance/runtime/test_idempotency.py"] | planned |
+| RULE-api-002 | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool＋原 verifier 边界 | 新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 IDEMPOTENCY_MISMATCH；并发/重启后仍幂等；原 verifier 全部通过 | tests/console_skill/test_import_idempotency.py＋tests/acceptance/runtime/test_idempotency.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/console_skill/test_import_idempotency.py' && uv run pytest -q tests/acceptance/runtime/test_idempotency.py"] | planned |
 
 ### Acceptance Evidence
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=8f3a061ad81c43f1862c56af6072d8bb (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=8f3a061ad81c43f1862c56af6072d8bb (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=8f3a061ad81c43f1862c56af6072d8bb (confirmed_by: runner)
+- E-08: e2e_deferred — automated command e2e_deferred; run_id=8f3a061ad81c43f1862c56af6072d8bb (confirmed_by: runner)
+- B-01: e2e_deferred — automated command e2e_deferred; run_id=8f3a061ad81c43f1862c56af6072d8bb (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=f847a27dbe354d31a447b2089ff15592 (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=f847a27dbe354d31a447b2089ff15592 (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=f847a27dbe354d31a447b2089ff15592 (confirmed_by: runner)
+- E-08: e2e_deferred — automated command e2e_deferred; run_id=f847a27dbe354d31a447b2089ff15592 (confirmed_by: runner)
+- B-01: e2e_deferred — automated command e2e_deferred; run_id=f847a27dbe354d31a447b2089ff15592 (confirmed_by: runner)
 
 ### Log
 
@@ -1236,7 +1246,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] started/finished：生命周期 E2E 全量通过
 
 ---
-
+- [2026-09-20] started
 ## TASK-026: 跨 Pod 重建与断流崩溃恢复 E2E
 
 - **Status**: draft
@@ -1323,7 +1333,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 | E-06 | integration | ModelGateway→fake provider→PostgreSQL | 429/5xx/reset/timeout 超重试或 deadline 后 FAILED/MODEL_UNAVAILABLE；逐 attempt 审计；取消终止退避 | tests/agent_runtime/test_model_recovery.py -k e06（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","e06"] | planned |
 | E-07 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | Gateway 提示重发；lease 过期失败 RUN_ABANDONED；GET 查到终态；不把断流直接改成取消 | tests/acceptance/runtime/test_multipod_recovery.py -k e07（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | planned |
 | E-08 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | CREATED/RUNNING 响应 CANCELLING；DB cancel_requested 权威；Redis 故障仍协作 CANCELLED；无活跃 404 NO_ACTIVE_RUN | tests/acceptance/runtime/test_run_lifecycle.py -k e08（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | planned |
-| B-01 | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | 新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 COMMON_CONFLICT；并发/重启后仍幂等 | tests/acceptance/runtime/test_idempotency.py -k b01（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | planned |
+| B-01 | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | 新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 IDEMPOTENCY_MISMATCH；并发/重启后仍幂等 | tests/acceptance/runtime/test_idempotency.py -k b01（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | planned |
 | RULE-test-001 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针；真实 Runtime A→PostgreSQL/Artifact Store→Runtime B；Runtime cache→真实 NFS 故障边界；真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run＋原 verifier 边界 | 未授权 SELECTED Skill/MCP 不出现在 Prompt、LLM catalog 或 ToolRegistry；真实结束 A 后第二轮 B 重建会话和 Memory；无 sticky session；cache miss 且存储不可用返回 SKILL_ARTIFACT_UNAVAILABLE；无半成品执行；checksum mismatch 使用已登记错误；Gateway 提示重发；lease 过期失败 RUN_ABANDONED；GET 查到终态；不把断流直接改成取消；原 verifier 全部通过 | 原 verifier＋tests/acceptance/runtime/test_capability_snapshot.py, tests/acceptance/runtime/test_multipod_recovery.py, tests/test_skill_artifact_cache.py（planned） | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test && uv run pytest -q tests/acceptance/runtime tests/test_skill_artifact_cache.py"] | planned |
 
 ### Acceptance Evidence

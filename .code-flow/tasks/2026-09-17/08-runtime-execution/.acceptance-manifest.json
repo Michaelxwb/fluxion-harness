@@ -174,7 +174,7 @@
       "kind": "e2e",
       "boundary": "真实 Gateway→Runtime SSE→PostgreSQL",
       "owner": "TASK-025",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -186,7 +186,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-07",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "f847a27dbe354d31a447b2089ff15592",
+        "executed_at": "2026-09-20T11:07:05.838761+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8f3a061ad81c43f1862c56af6072d8bb",
+          "executed_at": "2026-09-20T11:04:57.893582+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "f847a27dbe354d31a447b2089ff15592",
+          "executed_at": "2026-09-20T11:07:05.838761+00:00"
+        }
+      ]
     },
     {
       "id": "S-08",
@@ -237,7 +264,7 @@
       "kind": "e2e",
       "boundary": "真实 Gateway→cancel-active→PostgreSQL/SSE",
       "owner": "TASK-025",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -249,7 +276,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-02",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "f847a27dbe354d31a447b2089ff15592",
+        "executed_at": "2026-09-20T11:07:05.838761+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8f3a061ad81c43f1862c56af6072d8bb",
+          "executed_at": "2026-09-20T11:04:57.893582+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "f847a27dbe354d31a447b2089ff15592",
+          "executed_at": "2026-09-20T11:07:05.838761+00:00"
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -258,7 +312,7 @@
       "kind": "e2e",
       "boundary": "真实 Gateway→Runtime→PostgreSQL partial unique",
       "owner": "TASK-025",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -270,7 +324,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "f847a27dbe354d31a447b2089ff15592",
+        "executed_at": "2026-09-20T11:07:05.838761+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8f3a061ad81c43f1862c56af6072d8bb",
+          "executed_at": "2026-09-20T11:04:57.893582+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "f847a27dbe354d31a447b2089ff15592",
+          "executed_at": "2026-09-20T11:07:05.838761+00:00"
+        }
+      ]
     },
     {
       "id": "E-04",
@@ -363,7 +444,7 @@
       "kind": "e2e",
       "boundary": "真实 Gateway→cancel-active→PostgreSQL/Redis→执行者",
       "owner": "TASK-025",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -375,7 +456,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-08",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "f847a27dbe354d31a447b2089ff15592",
+        "executed_at": "2026-09-20T11:07:05.838761+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8f3a061ad81c43f1862c56af6072d8bb",
+          "executed_at": "2026-09-20T11:04:57.893582+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "f847a27dbe354d31a447b2089ff15592",
+          "executed_at": "2026-09-20T11:07:05.838761+00:00"
+        }
+      ]
     },
     {
       "id": "B-01",
@@ -384,7 +492,7 @@
       "kind": "e2e",
       "boundary": "真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool",
       "owner": "TASK-025",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -396,7 +504,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "f847a27dbe354d31a447b2089ff15592",
+        "executed_at": "2026-09-20T11:07:05.838761+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8f3a061ad81c43f1862c56af6072d8bb",
+          "executed_at": "2026-09-20T11:04:57.893582+00:00"
+        },
+        {
+          "id": "B-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "f847a27dbe354d31a447b2089ff15592",
+          "executed_at": "2026-09-20T11:07:05.838761+00:00"
+        }
+      ]
     },
     {
       "id": "B-101",
