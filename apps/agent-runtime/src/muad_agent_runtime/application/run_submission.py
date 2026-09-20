@@ -124,3 +124,16 @@ class RunSubmissionService:
             "last_seq": row.last_seq,
             "status": row.status,
         }
+
+
+def require_resume_idempotency(
+    *, idempotency_key: str | None, input_id: str | None
+) -> str:
+    """resume 幂等键：显式 Idempotency-Key 优先，缺省取 input.id；均缺失 → COMMON_VALIDATION_ERROR。"""
+    from muad_api import AppError
+    from muad_api.error_codes import ErrorCode
+
+    resolved = idempotency_key or input_id
+    if not resolved:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    return resolved

@@ -95,7 +95,7 @@
 | B-114 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | HTTP resolve→PlatformAdapter→真实 Redis | TASK-014 | verified | ["uv","run","pytest","-q","tests/sdk/test_runtime_platform_session.py"] | . | 600 | |
 | B-116 | 08-runtime-execution.backend.design.md#API-07 Resolve Definition | integration | Snapshot→ToolRegistry→真实本地 MCP HTTP 服务 | TASK-016 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_mcp_execution.py"] | . | 600 | |
 | B-118 | 08-runtime-execution.backend.design.md#3.1 技术选型与关键决策 | integration | LangGraph→PG checkpoint/run_interrupt | TASK-018 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_interrupt_checkpoint.py"] | . | 600 | |
-| B-119 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | Resume API→PostgreSQL→LangGraph | TASK-019 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_resume_transactions.py"] | . | 600 | |
+| B-119 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | Resume API→PostgreSQL→LangGraph | TASK-019 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_resume_transactions.py"] | . | 600 | |
 | B-120 | 08-runtime-execution.backend.design.md#API-03 取消当前活跃 Run | integration | Cancel API→PostgreSQL→真实 Redis→执行检查点 | TASK-020 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_cancellation.py"] | . | 600 | |
 | B-121 | 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约 | integration | Executor event stream→SSE→持久化事件 | TASK-021 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_sse.py"] | . | 600 | |
 | B-122 | 08-runtime-execution.backend.design.md#3.2 架构与流程 | integration | 真实 RunService→Executor→LangGraph/SkillContext→DB | TASK-022 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_composition.py"] | . | 600 | |
@@ -932,7 +932,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-019: 显式与自动 Resume
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-005, TASK-018
 - **Source**: 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#API-02 Resume Run
@@ -946,10 +946,10 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 自动回复与显式 resume 复用路径；CAS、interrupt resolution、USER_MESSAGE 同事务；读旧 Snapshot 和持久化 checkpoint；终态请求幂等返回。
 
 ### Checklist
-- [ ] [B-119][integration] 修改对应生产行为前，沿 Resume API→PostgreSQL→LangGraph 添加失败断言并记录 RED：仅一个并发 resume 成功；失败不追加消息；原 run_id、resumed=true、seq 延续；终态不再执行。
+- [x] [B-119][integration] RED：1 error（require_resume_idempotency 不存在）：仅一个并发 resume 成功；失败不追加消息；原 run_id、resumed=true、seq 延续；终态不再执行。
 - [ ] 自动回复与显式 resume 复用路径；CAS、interrupt resolution、USER_MESSAGE 同事务；读旧 Snapshot 和持久化 checkpoint；终态请求幂等返回。
-- [ ] 局部验证 Resume API→PostgreSQL→LangGraph：仅一个并发 resume 成功；失败不追加消息；原 run_id、resumed=true、seq 延续；终态不再执行；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] 局部验证 2 passed；agent_runtime 107 passed Resume API→PostgreSQL→LangGraph：仅一个并发 resume 成功；失败不追加消息；原 run_id、resumed=true、seq 延续；终态不再执行；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] 运行 test_resume_transactions.py；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -964,9 +964,10 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：resume 幂等键规则落地，B-119 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-020: 协作取消与租户隔离
 
 - **Status**: draft
