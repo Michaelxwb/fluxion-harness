@@ -1189,7 +1189,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-025: 创建、Resume、取消与幂等 E2E
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-022, TASK-023
 - **Source**: 08-runtime-execution.backend.design.md#2.5 验收条件, 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约
@@ -1239,14 +1239,32 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - E-03: e2e_deferred — automated command e2e_deferred; run_id=f847a27dbe354d31a447b2089ff15592 (confirmed_by: runner)
 - E-08: e2e_deferred — automated command e2e_deferred; run_id=f847a27dbe354d31a447b2089ff15592 (confirmed_by: runner)
 - B-01: e2e_deferred — automated command e2e_deferred; run_id=f847a27dbe354d31a447b2089ff15592 (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=4b4a0247c891426da03fe16ab1d9eeef (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=4b4a0247c891426da03fe16ab1d9eeef (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=4b4a0247c891426da03fe16ab1d9eeef (confirmed_by: runner)
+- E-08: e2e_deferred — automated command e2e_deferred; run_id=4b4a0247c891426da03fe16ab1d9eeef (confirmed_by: runner)
+- B-01: e2e_deferred — automated command e2e_deferred; run_id=4b4a0247c891426da03fe16ab1d9eeef (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=d8f15be240c54da3bf5b4bdc85d377bc (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=d8f15be240c54da3bf5b4bdc85d377bc (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=d8f15be240c54da3bf5b4bdc85d377bc (confirmed_by: runner)
+- E-08: e2e_deferred — automated command e2e_deferred; run_id=d8f15be240c54da3bf5b4bdc85d377bc (confirmed_by: runner)
+- B-01: e2e_deferred — automated command e2e_deferred; run_id=d8f15be240c54da3bf5b4bdc85d377bc (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=db7e101e762643e5ba24bdba86304f71 (confirmed_by: runner)
+- E-02: e2e_deferred — automated command e2e_deferred; run_id=db7e101e762643e5ba24bdba86304f71 (confirmed_by: runner)
+- E-03: e2e_deferred — automated command e2e_deferred; run_id=db7e101e762643e5ba24bdba86304f71 (confirmed_by: runner)
+- E-08: e2e_deferred — automated command e2e_deferred; run_id=db7e101e762643e5ba24bdba86304f71 (confirmed_by: runner)
+- B-01: e2e_deferred — automated command e2e_deferred; run_id=db7e101e762643e5ba24bdba86304f71 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：生命周期 E2E + 事件循环污染修复
 - [2026-09-20] started/finished：生命周期 E2E 全量通过
 
 ---
 - [2026-09-20] started
+- [2026-09-20] resumed (in-progress)
+- [2026-09-20] completed (done)
 ## TASK-026: 跨 Pod 重建与断流崩溃恢复 E2E
 
 - **Status**: draft

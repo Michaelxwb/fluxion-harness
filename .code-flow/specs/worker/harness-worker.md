@@ -9,10 +9,17 @@ stages:
 enforcement: required
 verifiers:
 - rule: RULE-worker-001
-  type: manual
+  type: command
   config:
-    checklist: 确认 PG 为 Task/Schedule/lease 权威源、Redis 仅 hint、TaskType 仅 SKILL/BATCH。
-    owner: project-owner
+    argv:
+    - uv
+    - run
+    - pytest
+    - -q
+    - tests/agent_runtime
+    - --ignore=tests/agent_runtime/test_runner_executor.py
+    cwd: .
+    timeout: 300
 ---
 
 # harness-worker

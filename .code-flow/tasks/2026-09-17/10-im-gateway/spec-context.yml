@@ -1,7 +1,7 @@
 version: 1
 task: IM Gateway 与主动投递
 enforcement: required
-updated_at: '2026-09-18T09:24:15.853076+00:00'
+updated_at: '2026-09-20T15:41:12.776831+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -26,9 +26,9 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: ed3d32d8d5085e6d250ef7a24f1988759d414113d2726d0a92052880bf2a66b0
-    metadata_sha256: e9f9b2714c5043dc7d9363ec9a950471b4cdea6d932bd8e86ac2dd0a754c9359
-    rules_sha256: 76ffb366c7643e6faa32a65c751aea08de24bc2c1b6f37db46e6df1a7665e728
+    file_sha256: 6eac5fc972b31d0f88a0eb97d37fb6f2edb610dec90bb7dad9f102e7a96b03fb
+    metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
+    rules_sha256: b2e38d504c280a9734a6c6fefeb2b5f86a4379aa8dbf3c868edd8b544fbe60f9
   selected_by: agent
   reason: Agent Harness 通用平台规则：api
   enforcement: required
@@ -38,6 +38,34 @@ bindings:
   - code
   - review
   rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次响应；请求指纹 = endpoint|关键参数|内容 checksum；同
+      key 同指纹重放返回首次结果（200 原响应），同 key 不同指纹返回 `COMMON_CONFLICT`。
+    text_sha256: aa78d9fb6c38b64c15bb312974e019de2044461d3fc2c9ae84969d84022b445a
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
   - ref: RULE-api-001
     summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
       `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
@@ -74,7 +102,7 @@ bindings:
   path: test/harness-test.md
   status: active
   hashes:
-    file_sha256: 66b05f4ed49156830ac7d388c9487264b4a85f50d32dacb364e126c83498a3ff
+    file_sha256: 75cc9f6cb1970020eb5f82637aac0ff541161ab06470c86104014b4b43b5a9ba
     metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
     rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
   selected_by: agent
