@@ -472,28 +472,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-106",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "ab207b6f64014069b7f3289203a5fb07",
-        "executed_at": "2026-09-20T04:54:21.332887+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-106",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "ab207b6f64014069b7f3289203a5fb07",
-          "executed_at": "2026-09-20T04:54:21.332887+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-110",
@@ -521,7 +500,7 @@
       "kind": "functional",
       "boundary": "Tool result→真实共享文件系统→PostgreSQL Artifact",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -531,7 +510,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-111",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "64f87a0142ce484096cad523ae16a3db",
+        "executed_at": "2026-09-20T05:00:13.062525+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-111",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "64f87a0142ce484096cad523ae16a3db",
+          "executed_at": "2026-09-20T05:00:13.062525+00:00"
+        }
+      ]
     },
     {
       "id": "B-113",

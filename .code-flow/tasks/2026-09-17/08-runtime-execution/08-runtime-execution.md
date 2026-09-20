@@ -560,7 +560,7 @@
 - [2026-09-20] completed (done)
 ## TASK-011: 大结果 Artifact 落盘与引用
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -590,6 +590,7 @@
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | B-111 | FAIL: ModuleNotFoundError + row None（id 缺陷） | 3 passed；agent_runtime 全量通过 | test_artifact_results.py::test_b111_*（落盘/XOR/清理） | 真实 tmp 共享目录 + 真实 PostgreSQL runtime.artifact | verified |
+- B-111: verified — automated command passed; run_id=64f87a0142ce484096cad523ae16a3db (confirmed_by: runner)
 
 ### Log
 
@@ -599,6 +600,7 @@
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-012: Skill lazy cache 与不可变存储验收
 
 - **Status**: draft
