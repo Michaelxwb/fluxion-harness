@@ -1092,7 +1092,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-023: Runtime E2E 真实环境与清理设施
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: 
 - **Source**: 08-runtime-execution.backend.design.md#2.5 验收条件, 08-runtime-execution.backend.design.md#3.5 质量实现方案, 08-runtime-execution.backend.design.md#4. 部署与运维
@@ -1115,13 +1115,14 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-123 | integration | 真实 HTTP 进程→PG/Redis/NFS | 进程实际独立；探针可记录请求/注入受控故障；禁 dependency_overrides/mock 业务服务；清理可重复 | tests/acceptance/runtime/test_environment.py（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_environment.py"] | planned |
+| B-123 | integration | 真实 HTTP 进程→PG/Redis/NFS | 进程实际独立；探针可记录请求/注入受控故障；禁 dependency_overrides/mock 业务服务；清理可重复 | tests/acceptance/runtime/test_environment.py（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_environment.py"] | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | B-123 | FAIL: runtime 无 mcp_client 模块（改 raw JSON-RPC） | 3 passed | test_environment.py::test_b123_* | 真实 uvicorn 探针 + PG information_schema + Redis set/get | verified |
+- B-123: verified — automated command passed; run_id=af5e795aaf5f4964ab16d396973ef229 (confirmed_by: runner)
 
 ### Log
 
@@ -1130,6 +1131,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-024: 授权与 Snapshot 全链路验收
 
 - **Status**: draft
