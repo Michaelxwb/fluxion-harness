@@ -175,7 +175,15 @@ class AgentRunner:
             started_at=time.monotonic(),
             is_cancelled=is_cancelled,
         )
-        final = cast(AgentGraphState, await self._graph.ainvoke(initial))
+        try:
+            final = cast(AgentGraphState, await self._graph.ainvoke(initial))
+        except Exception:
+            # 错误/取消收尾可观测：异常继续向调用方传播
+            await self._hooks.run(
+                HookEvent.STOP,
+                {"final_text": "", "turns": 0, "error": True},
+            )
+            raise
         return AgentRunResult(
             final_text=final["final_text"],
             status=AgentRunStatus(final["status"]),
@@ -209,6 +217,10 @@ class AgentRunner:
         builder.add_edge(NODE_FINALIZE, END)
         return builder.compile()
 
+    async def notify_interrupt(self, payload: dict[str, Any]) -> None:
+        """澄清/确认暂停等 interrupt 事件：触发 on_interrupt Hook（可观测）。"""
+        await self._hooks.run(HookEvent.ON_INTERRUPT, dict(payload))
+
     async def _prepare_context(self, state: AgentGraphState) -> AgentGraphState:
         self._ensure_runnable(state)
         context = await self._hooks.run(
@@ -222,6 +234,10 @@ class AgentRunner:
 
     async def _call_model(self, state: AgentGraphState) -> AgentGraphState:
         self._ensure_runnable(state)
+        await self._hooks.run(
+            HookEvent.PRE_MODEL,
+            {"model_id": state["model_id"], "messages": state["messages"], "turns": state["turns"]},
+        )
         response = await self._complete_with_recovery(
             state,
             ModelRequest(
@@ -232,6 +248,15 @@ class AgentRunner:
                 max_tokens=state["max_tokens"],
                 params=state["params"],
             ),
+        )
+        await self._hooks.run(
+            HookEvent.POST_MODEL,
+            {
+                "model_id": state["model_id"],
+                "content": response.content,
+                "tool_calls": list(response.tool_calls),
+                "turns": state["turns"],
+            },
         )
         assistant = ModelMessage(
             role=ModelRole.ASSISTANT,

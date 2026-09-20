@@ -70,7 +70,7 @@
 | S-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP | TASK-024 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s02"] | . | 1200 | |
 | S-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | emptyDir→真实 NFS 挂载 | TASK-012 | planned | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","s03"] | . | 300 | |
 | S-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | TASK-026 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | . | 1200 | |
-| S-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | runner→HookPipeline→真实 Tool handler | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_core/test_hook_lifecycle.py","-k","s05"] | . | 300 | |
+| S-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | runner→HookPipeline→真实 Tool handler | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_core/test_hook_lifecycle.py","-k","s05"] | . | 300 | |
 | S-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→真实审计 DB | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","s06"] | . | 300 | |
 | S-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | . | 1200 | |
 | S-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s08"] | . | 300 | |
@@ -426,7 +426,7 @@
 
 ## TASK-008: 完整 Hook 生命周期
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P1
 - **Depends**: 
 - **Source**: 08-runtime-execution.backend.design.md#2.3 功能方案, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -440,10 +440,10 @@
 补 pre_model/post_model/on_interrupt，保留其余四类 Hook；按 S-05 的完整一轮语义明确触发次数、异常传播与取消时 stop。
 
 ### Checklist
-- [ ] [S-05][integration] 修改对应生产行为前，沿 runner→HookPipeline→真实 Tool handler 添加失败断言并记录 RED：完整一轮顺序匹配 S-05；补足 on_interrupt；未注册 Hook 不干扰；错误/取消的收尾可观测。
-- [ ] 补 pre_model/post_model/on_interrupt，保留其余四类 Hook；按 S-05 的完整一轮语义明确触发次数、异常传播与取消时 stop。
-- [ ] 局部验证 runner→HookPipeline→真实 Tool handler：S-05：user_prompt→pre_model→pre_tool_use→post_tool_use→post_model→stop；空注册不干扰其他 Hook；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [S-05][integration] RED：3 failed（PRE_MODEL/POST_MODEL/ON_INTERRUPT 不存在）：完整一轮顺序匹配 S-05；补足 on_interrupt；未注册 Hook 不干扰；错误/取消的收尾可观测。
+- [x] 补 pre_model/post_model/on_interrupt 事件 + runner 触发点（_call_model 前后、notify_interrupt 入口、run() 异常路径补 STOP）；按 S-05 的完整一轮语义明确触发次数、异常传播与取消时 stop。
+- [x] 局部验证 4 passed；agent_core 60 passed；既有 runner 顺序断言同步扩展：S-05：user_prompt→pre_model→pre_tool_use→post_tool_use→post_model→stop；空注册不干扰其他 Hook；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] 运行 S-05 命令（test_hook_lifecycle.py -k s05）；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -453,14 +453,17 @@
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-05 | FAIL: 3 failed（HookEvent 无 pre_model/post_model/on_interrupt） | 4 passed；agent_core 60 passed | test_hook_lifecycle.py（完整顺序含触发次数/pre_model 异常传播+STOP 收尾/空注册/on_interrupt） | 真实 runner 图 + 真实 echo Tool handler | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：7 类 Hook 生命周期落地，S-05 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-009: 上下文重建与预算裁剪
 
 - **Status**: draft

@@ -118,7 +118,11 @@ async def test_tool_call_then_final_answer_and_hook_order() -> None:
     assert result.turns == 2
     assert result.tool_calls == 1
     assert calls == [{"text": "ping"}]
-    assert events == [
+    # 07/08：Hook 事件扩展后，注册哪些就观测哪些；pre/post_model 仅在注册时出现
+    assert [e for e in events if e in {
+        HookEvent.USER_PROMPT.value, HookEvent.PRE_TOOL_USE.value,
+        HookEvent.POST_TOOL_USE.value, HookEvent.STOP.value,
+    }] == [
         HookEvent.USER_PROMPT.value,
         HookEvent.PRE_TOOL_USE.value,
         HookEvent.POST_TOOL_USE.value,

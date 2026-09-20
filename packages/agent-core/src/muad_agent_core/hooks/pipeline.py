@@ -8,8 +8,11 @@ from typing import Any, Protocol
 
 class HookEvent(StrEnum):
     USER_PROMPT = "user_prompt"
+    PRE_MODEL = "pre_model"
+    POST_MODEL = "post_model"
     PRE_TOOL_USE = "pre_tool_use"
     POST_TOOL_USE = "post_tool_use"
+    ON_INTERRUPT = "on_interrupt"
     STOP = "stop"
 
 
