@@ -88,7 +88,7 @@
 | B-103 | 08-runtime-execution.backend.design.md#3.4 接口设计 | integration | Runtime HTTP client→本地 Console 契约服务 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_console_client.py"] | . | 600 | |
 | B-104 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Snapshot builder→PostgreSQL→Executor request | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_snapshot_freeze.py"] | . | 600 | |
 | B-105 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | HTTP handler→PostgreSQL unique→run creation | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | . | 600 | |
-| B-106 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | 两个 Session→PostgreSQL CAS | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_leases.py"] | . | 600 | |
+| B-106 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | 两个 Session→PostgreSQL CAS | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_leases.py"] | . | 600 | |
 | B-110 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Memory service→PostgreSQL | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py"] | . | 600 | |
 | B-111 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Tool result→真实共享文件系统→PostgreSQL Artifact | TASK-011 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_artifact_results.py"] | . | 600 | |
 | B-113 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | ToolRegistry→真实 handler→审计 port | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_core/test_tool_execution_pipeline.py"] | . | 600 | |
@@ -362,7 +362,7 @@
 
 ## TASK-006: 租约续约与终态 CAS
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案
@@ -377,9 +377,9 @@
 
 ### Checklist
 - [ ] [B-106][integration] 修改对应生产行为前，沿 两个 Session→PostgreSQL CAS 添加失败断言并记录 RED：竞争只有一个终态；旧 owner/过期执行者不能续约或覆盖终态；WAITING_INPUT 不误扫。
-- [ ] 抽取租约与终态写入，绑定租约 owner/有效期；终态和终态事件同事务，只允许当前执行者提交。
+- [x] 新建 application/run_lease.py RunLeaseService：renew 仅当前 owner+RUNNING；complete 终态 CAS（owner+RUNNING WHERE，rowcount 判定），重复终态/非 owner 拒绝
 - [ ] 局部验证 两个 Session→PostgreSQL CAS：竞争只有一个终态；旧 owner/过期执行者不能续约或覆盖终态；WAITING_INPUT 不误扫；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] 运行 3 passed；agent_runtime 回归 80 passed；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -394,9 +394,10 @@
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：run_lease 抽取落地，B-106 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-007: Reaper 回收与进程生命周期
 
 - **Status**: draft
