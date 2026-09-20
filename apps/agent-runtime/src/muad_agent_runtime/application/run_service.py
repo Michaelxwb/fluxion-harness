@@ -86,11 +86,18 @@ def _canonical_json(payload: Any) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
+def _snapshot_model(model: Any) -> dict[str, Any]:
+    """Snapshot/hash 中的模型信息剥离认证字段（api_key 只走 API-09 实时读取）。"""
+    data = model.model_dump(mode="json")
+    data.pop("api_key", None)
+    return data
+
+
 def _snapshot_hash(resolved: ResolveDefinitionResponse, policy: dict[str, Any]) -> str:
     canonical = _canonical_json(
         {
             "agent": resolved.agent.model_dump(mode="json"),
-            "model": resolved.model.model_dump(mode="json"),
+            "model": _snapshot_model(resolved.model),
             "skills": [skill.model_dump(mode="json") for skill in resolved.skills],
             "mcp_servers": [server.model_dump(mode="json") for server in resolved.mcp_servers],
             "policy": policy,
@@ -486,7 +493,7 @@ class RunService:
             agent_revision=resolved.agent.revision,
             model_revision=resolved.model.revision,
             agent_json=resolved.agent.model_dump(mode="json"),
-            model_json=resolved.model.model_dump(mode="json"),
+            model_json=_snapshot_model(resolved.model),
             skill_catalog_json=[skill.model_dump(mode="json") for skill in resolved.skills],
             mcp_catalog_json=[server.model_dump(mode="json") for server in resolved.mcp_servers],
             policy_json=dict(DEFAULT_POLICY),

@@ -86,7 +86,7 @@
 | B-101 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | PostgreSQL migration→ORM | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | . | 600 | |
 | B-102 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | EventWriter→PostgreSQL | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_events.py"] | . | 600 | |
 | B-103 | 08-runtime-execution.backend.design.md#3.4 接口设计 | integration | Runtime HTTP client→本地 Console 契约服务 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_console_client.py"] | . | 600 | |
-| B-104 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Snapshot builder→PostgreSQL→Executor request | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_snapshot_freeze.py"] | . | 600 | |
+| B-104 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Snapshot builder→PostgreSQL→Executor request | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_snapshot_freeze.py"] | . | 600 | |
 | B-105 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | HTTP handler→PostgreSQL unique→run creation | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | . | 600 | |
 | B-106 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | 两个 Session→PostgreSQL CAS | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_leases.py"] | . | 600 | |
 | B-110 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Memory service→PostgreSQL | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py"] | . | 600 | |
@@ -241,7 +241,7 @@
 - [2026-09-20] completed (done)
 ## TASK-003: 消费 Effective Capability 与 resolve 契约
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-028
 - **Source**: 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#API-07 Resolve Definition, 08-runtime-execution.backend.design.md#API-08 Resolve Egress
@@ -271,6 +271,7 @@
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | B-103 | FAIL: ConsoleCredentialsClient 缺失（2 errors + 2 failed） | 9 passed | test_b103_resolve_credentials_posts_and_returns_in_memory_only / _credentials_error_keeps_registered_code / _resolve_response_validates_mcp_catalog_fields | httpx.MockTransport 真实 HTTP 语义（header/body 透传断言）+ muad_contracts 校验 | verified |
+- B-103: verified — automated command passed; run_id=0f125f1f554c494cb6310c2ce655731f (confirmed_by: runner)
 
 ### Log
 
@@ -279,9 +280,10 @@
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-004: 冻结 Snapshot 并隔离认证数据
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#API-06 查询 Run
@@ -295,10 +297,10 @@
 构造非密钥 Snapshot 与稳定 content_hash，冻结模板、版本、catalog 与预算；resume 读取原快照，认证数据按冻结的资源主键实时读取，不重新授权或替换 catalog。
 
 ### Checklist
-- [ ] [B-104][integration] 修改对应生产行为前，沿 Snapshot builder→PostgreSQL→Executor request 添加失败断言并记录 RED：配置变化不改旧快照；api_key/auth_secret/credential_json 不落 Snapshot/hash 输入；缺认证明确失败。
-- [ ] 构造非密钥 Snapshot 与稳定 content_hash，冻结模板、版本、catalog 与预算；resume 读取原快照，认证数据按冻结的资源主键实时读取，不重新授权或替换 catalog。
-- [ ] 局部验证 Snapshot builder→PostgreSQL→Executor request：配置变化不改旧快照；api_key/auth_secret/credential_json 不落 Snapshot/hash 输入；缺认证明确失败；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [B-104][integration] RED：hash 随 api_key 变化 + model_json 含 api_key（真实缺陷）：配置变化不改旧快照；api_key/auth_secret/credential_json 不落 Snapshot/hash 输入；缺认证明确失败。
+- [x] 实现 _snapshot_model()：model_json 剥离 api_key；_snapshot_hash 改用剥离后模型（模板/版本/catalog/预算照旧冻结）；resume 读取原快照，认证数据按冻结的资源主键实时读取，不重新授权或替换 catalog。
+- [x] 局部验证 2 passed（hash 轮换稳定/model_json 无 api_key 且保留冻结 model_id）；真实快照行不漂移由 05 的 S-03 E2E 持续覆盖：配置变化不改旧快照；api_key/auth_secret/credential_json 不落 Snapshot/hash 输入；缺认证明确失败；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] 运行 test_snapshot_freeze.py 全量通过；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -308,14 +310,17 @@
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-104 | FAIL: hash 随 api_key 变化；model_json 含 api_key（真实缺陷） | 2 passed；agent_runtime+console_skill 回归通过 | test_snapshot_freeze.py::test_b104_snapshot_hash_stable_across_key_rotation / _snapshot_model_json_excludes_api_key | 真实 _snapshot_hash/_snapshot_model 函数（run_service.py） | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：Snapshot 认证隔离落地，B-104 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-005: Run/Conversation 创建与幂等提交
 
 - **Status**: draft

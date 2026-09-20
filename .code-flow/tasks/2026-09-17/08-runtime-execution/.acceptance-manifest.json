@@ -106,28 +106,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-05",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "d0c5ca10bfae49d3bf7bc2138a7654e7",
-        "executed_at": "2026-09-20T04:34:30.665777+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-05",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "d0c5ca10bfae49d3bf7bc2138a7654e7",
-          "executed_at": "2026-09-20T04:34:30.665777+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-06",
@@ -426,7 +405,7 @@
       "kind": "functional",
       "boundary": "Runtime HTTP client→本地 Console 契约服务",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -436,7 +415,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-103",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "0f125f1f554c494cb6310c2ce655731f",
+        "executed_at": "2026-09-20T04:39:50.715045+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-103",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "0f125f1f554c494cb6310c2ce655731f",
+          "executed_at": "2026-09-20T04:39:50.715045+00:00"
+        }
+      ]
     },
     {
       "id": "B-104",
