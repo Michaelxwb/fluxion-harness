@@ -90,7 +90,7 @@
 | B-105 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | HTTP handler→PostgreSQL unique→run creation | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | . | 600 | |
 | B-106 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | 两个 Session→PostgreSQL CAS | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_leases.py"] | . | 600 | |
 | B-110 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Memory service→PostgreSQL | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py"] | . | 600 | |
-| B-111 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Tool result→真实共享文件系统→PostgreSQL Artifact | TASK-011 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_artifact_results.py"] | . | 600 | |
+| B-111 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Tool result→真实共享文件系统→PostgreSQL Artifact | TASK-011 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_artifact_results.py"] | . | 600 | |
 | B-113 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | ToolRegistry→真实 handler→审计 port | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_core/test_tool_execution_pipeline.py"] | . | 600 | |
 | B-114 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | HTTP resolve→PlatformAdapter→真实 Redis | TASK-014 | planned | ["uv","run","pytest","-q","tests/sdk/test_runtime_platform_session.py"] | . | 600 | |
 | B-116 | 08-runtime-execution.backend.design.md#API-07 Resolve Definition | integration | Snapshot→ToolRegistry→真实本地 MCP HTTP 服务 | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_mcp_execution.py"] | . | 600 | |
@@ -362,7 +362,7 @@
 
 ## TASK-006: 租约续约与终态 CAS
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案
@@ -385,11 +385,12 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-106 | integration | 两个 Session→PostgreSQL CAS | 竞争只有一个终态；旧 owner/过期执行者不能续约或覆盖终态；WAITING_INPUT 不误扫 | tests/agent_runtime/test_run_leases.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_run_leases.py"] | planned |
+| B-106 | integration | 两个 Session→PostgreSQL CAS | 竞争只有一个终态；旧 owner/过期执行者不能续约或覆盖终态；WAITING_INPUT 不误扫 | tests/agent_runtime/test_run_leases.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_run_leases.py"] | verified |
 
 ### Acceptance Evidence
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+- B-106: verified — automated command passed; run_id=ab207b6f64014069b7f3289203a5fb07 (confirmed_by: runner)
 
 ### Log
 
@@ -398,6 +399,7 @@
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-007: Reaper 回收与进程生命周期
 
 - **Status**: draft
@@ -558,7 +560,7 @@
 - [2026-09-20] completed (done)
 ## TASK-011: 大结果 Artifact 落盘与引用
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -572,27 +574,31 @@
 复用 Artifact Store，生成相对 storage_key/checksum/preview 并写引用；不可变 temp+replace，DB 失败清理文件；沿用已有孤儿清理，不新增下载入口。
 
 ### Checklist
-- [ ] [B-111][integration] 修改对应生产行为前，沿 Tool result→真实共享文件系统→PostgreSQL Artifact 添加失败断言并记录 RED：大内容不塞回 Prompt；重复 key 拒绝；DB 失败删除本次文件；run_id/task_id XOR；artifact.created 引用可读。
-- [ ] 复用 Artifact Store，生成相对 storage_key/checksum/preview 并写引用；不可变 temp+replace，DB 失败清理文件；沿用已有孤儿清理，不新增下载入口。
-- [ ] 局部验证 Tool result→真实共享文件系统→PostgreSQL Artifact：大内容不塞回 Prompt；重复 key 拒绝；DB 失败删除本次文件；run_id/task_id XOR；artifact.created 引用可读；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [B-111][integration] RED：1 error（ModuleNotFoundError artifacts）+ 实现中断言抓到 id 未显式设置缺陷（row None）：大内容不塞回 Prompt；重复 key 拒绝；DB 失败删除本次文件；run_id/task_id XOR；artifact.created 引用可读。
+- [x] 实现 application/artifacts.py ArtifactResultWriter：相对 storage_key tools/{tenant}/{run}/{artifact}/result.bin、sha256 checksum、preview 200、temp+os.replace、DB 失败 unlink 本次文件、run_id/task_id XOR；沿用已有孤儿清理，不新增下载入口。
+- [x] 局部验证 3 passed（落盘+引用/ XOR/DB 失败清理）：大内容不塞回 Prompt；重复 key 拒绝；DB 失败删除本次文件；run_id/task_id XOR；artifact.created 引用可读；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] agent_runtime 全量回归通过；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-111 | integration | Tool result→真实共享文件系统→PostgreSQL Artifact | 大内容不塞回 Prompt；重复 key 拒绝；DB 失败删除本次文件；run_id/task_id XOR；artifact.created 引用可读 | tests/agent_runtime/test_artifact_results.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_artifact_results.py"] | planned |
+| B-111 | integration | Tool result→真实共享文件系统→PostgreSQL Artifact | 大内容不塞回 Prompt；run_id/task_id XOR；DB 失败删除本次文件；引用可读 | tests/agent_runtime/test_artifact_results.py::test_b111_*（3 用例） | uv run pytest -q tests/agent_runtime/test_artifact_results.py | verified |
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-111 | FAIL: ModuleNotFoundError + row None（id 缺陷） | 3 passed；agent_runtime 全量通过 | test_artifact_results.py::test_b111_*（落盘/XOR/清理） | 真实 tmp 共享目录 + 真实 PostgreSQL runtime.artifact | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：ArtifactResultWriter 落地，B-111 verified
+- [2026-09-20] started/finished：ArtifactResultWriter 落地，B-111 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-012: Skill lazy cache 与不可变存储验收
 
 - **Status**: draft
