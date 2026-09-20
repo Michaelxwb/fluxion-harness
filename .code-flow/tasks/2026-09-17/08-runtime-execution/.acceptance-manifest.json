@@ -740,7 +740,7 @@
       "kind": "functional",
       "boundary": "Resume API→PostgreSQL→LangGraph",
       "owner": "TASK-019",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -750,7 +750,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-119",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "1a85c9506d2a457bbed73d8fcd475b50",
+        "executed_at": "2026-09-20T10:11:17.840040+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-119",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1a85c9506d2a457bbed73d8fcd475b50",
+          "executed_at": "2026-09-20T10:11:17.840040+00:00"
+        }
+      ]
     },
     {
       "id": "B-120",

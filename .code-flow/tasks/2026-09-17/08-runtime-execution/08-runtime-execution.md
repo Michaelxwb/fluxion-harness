@@ -932,7 +932,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-019: 显式与自动 Resume
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-005, TASK-018
 - **Source**: 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#API-02 Resume Run
@@ -955,11 +955,12 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-119 | integration | Resume API→PostgreSQL→LangGraph | 仅一个并发 resume 成功；失败不追加消息；原 run_id、resumed=true、seq 延续；终态不再执行 | tests/agent_runtime/test_resume_transactions.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_resume_transactions.py"] | planned |
+| B-119 | integration | Resume API→PostgreSQL→LangGraph | 仅一个并发 resume 成功；失败不追加消息；原 run_id、resumed=true、seq 延续；终态不再执行 | tests/agent_runtime/test_resume_transactions.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_resume_transactions.py"] | verified |
 
 ### Acceptance Evidence
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+- B-119: verified — automated command passed; run_id=1a85c9506d2a457bbed73d8fcd475b50 (confirmed_by: runner)
 
 ### Log
 
@@ -968,6 +969,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-020: 协作取消与租户隔离
 
 - **Status**: draft
