@@ -91,7 +91,7 @@
 | B-106 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | 两个 Session→PostgreSQL CAS | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_leases.py"] | . | 600 | |
 | B-110 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Memory service→PostgreSQL | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py"] | . | 600 | |
 | B-111 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Tool result→真实共享文件系统→PostgreSQL Artifact | TASK-011 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_artifact_results.py"] | . | 600 | |
-| B-113 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | ToolRegistry→真实 handler→审计 port | TASK-013 | failed | ["uv","run","pytest","-q","tests/agent_core/test_tool_execution_pipeline.py"] | . | 600 | |
+| B-113 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | ToolRegistry→真实 handler→审计 port | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_core/test_tool_execution_pipeline.py"] | . | 600 | |
 | B-114 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | HTTP resolve→PlatformAdapter→真实 Redis | TASK-014 | planned | ["uv","run","pytest","-q","tests/sdk/test_runtime_platform_session.py"] | . | 600 | |
 | B-116 | 08-runtime-execution.backend.design.md#API-07 Resolve Definition | integration | Snapshot→ToolRegistry→真实本地 MCP HTTP 服务 | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_mcp_execution.py"] | . | 600 | |
 | B-118 | 08-runtime-execution.backend.design.md#3.1 技术选型与关键决策 | integration | LangGraph→PG checkpoint/run_interrupt | TASK-018 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_interrupt_checkpoint.py"] | . | 600 | |
@@ -654,7 +654,7 @@
 
 ## TASK-013: ToolRegistry prepare/execute 链与审计
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-011
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -677,7 +677,7 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-113 | integration | ToolRegistry→真实 handler→审计 port | 错误 schema/拒绝策略不调用 handler；prepared_args_hash 稳定且脱敏；成功/失败各一次终态；不吞异常 | tests/agent_core/test_tool_execution_pipeline.py（planned） | ["uv","run","pytest","-q","tests/agent_core/test_tool_execution_pipeline.py"] | failed |
+| B-113 | integration | ToolRegistry→真实 handler→审计 port | 错误 schema/拒绝策略不调用 handler；prepared_args_hash 稳定且脱敏；成功/失败各一次终态；不吞异常 | tests/agent_core/test_tool_execution_pipeline.py（planned） | ["uv","run","pytest","-q","tests/agent_core/test_tool_execution_pipeline.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -690,6 +690,7 @@
 - B-113: failed — automated command failed; run_id=fef8ff55faa742608eddc8e53207063f (confirmed_by: runner)
 - B-113: failed — automated command failed; run_id=ca19fadacd214cbcb97fe54c3d854232 (confirmed_by: runner)
 - B-113: failed — automated command failed; run_id=9ec7ea6c339b4416a27d22b463935944 (confirmed_by: runner)
+- B-113: verified — automated command passed; run_id=4f71a3ca726746d2a93d2a42d1df49f3 (confirmed_by: runner)
 
 ### Log
 
@@ -698,6 +699,7 @@
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-014: 平台 Egress 客户端与 Session 接入
 
 - **Status**: draft
