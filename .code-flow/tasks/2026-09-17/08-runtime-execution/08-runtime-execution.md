@@ -77,7 +77,7 @@
 | E-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | Runtime cache→真实 NFS 故障边界 | TASK-012 | planned | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","e01"] | . | 300 | |
 | E-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/SSE | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e02"] | . | 1200 | |
 | E-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | . | 1200 | |
-| E-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Reaper→PostgreSQL lease→CAS | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_reaper.py","-k","e04"] | . | 300 | |
+| E-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Reaper→PostgreSQL lease→CAS | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_reaper.py","-k","e04"] | . | 300 | |
 | E-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL | TASK-015 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_egress_boundary.py","-k","e05"] | . | 300 | |
 | E-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→PostgreSQL | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","e06"] | . | 300 | |
 | E-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | TASK-026 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | . | 1200 | |
@@ -325,7 +325,7 @@
 - [2026-09-20] completed (done)
 ## TASK-005: Run/Conversation 创建与幂等提交
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-004
 - **Source**: 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#API-05 创建 Conversation
@@ -348,13 +348,14 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-105 | integration | HTTP handler→PostgreSQL unique→run creation | 同 key 同指纹只创建一次；异指纹 COMMON_CONFLICT；不同消息并发 RUN_BUSY；回滚无半成品 | tests/agent_runtime/test_run_idempotency.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | planned |
+| B-105 | integration | HTTP handler→PostgreSQL unique→run creation | 同 key 同指纹只创建一次；异指纹 COMMON_CONFLICT；不同消息并发 RUN_BUSY；回滚无半成品 | tests/agent_runtime/test_run_idempotency.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | B-105 | FAIL: 3 failed（ModuleNotFoundError run_submission） | 3 passed；agent_runtime 86 passed | test_run_idempotency.py（重放单条/异指纹 CONFLICT/resume 指纹区分） | 真实 PostgreSQL run_submission partial unique | verified |
+- B-105: verified — automated command passed; run_id=2f92e1fa0a414b0abddcab5352933584 (confirmed_by: runner)
 
 ### Log
 
@@ -363,6 +364,7 @@
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-006: 租约续约与终态 CAS
 
 - **Status**: done
@@ -405,7 +407,7 @@
 - [2026-09-20] completed (done)
 ## TASK-007: Reaper 回收与进程生命周期
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-006
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案, 08-runtime-execution.backend.design.md#4. 部署与运维
@@ -421,8 +423,8 @@
 ### Checklist
 - [ ] [E-04][integration] 修改对应生产行为前，沿 真实 Reaper→PostgreSQL lease→CAS 添加失败断言并记录 RED：过期 RUNNING FAILED/RUN_ABANDONED；新 Run 可创建；旧执行者被拒；RUN_ABANDONED 不作 HTTP code。
 - [ ] 接入周期 Reaper、启动/退出管理与公共探针，回收过期 RUNNING；异常显式记录。
-- [ ] 局部验证 Reaper→PostgreSQL lease→CAS：E-04：仅过期 RUNNING 变 FAILED/RUN_ABANDONED；会话解锁；旧执行者写终态失败；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] 局部验证：过期 RUNNING→FAILED/RUN_ABANDONED；未过期保留；终态不动；conversation 释放 Reaper→PostgreSQL lease→CAS：E-04：仅过期 RUNNING 变 FAILED/RUN_ABANDONED；会话解锁；旧执行者写终态失败；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] 1 passed；agent_runtime 81 passed；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -432,14 +434,17 @@
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-04 | N/A（reaper 已存在，行为锁定补测；测试构造 TextClause 绑定问题修正后 GREEN） | 1 passed；agent_runtime 81 passed | test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only | 真实 PostgreSQL run_record.lease_until 过期 CAS | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：Reaper 行为锁定，E-04 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-008: 完整 Hook 生命周期
 
 - **Status**: done

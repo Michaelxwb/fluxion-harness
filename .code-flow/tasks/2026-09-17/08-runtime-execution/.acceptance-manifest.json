@@ -443,7 +443,7 @@
       "kind": "functional",
       "boundary": "HTTP handler→PostgreSQL unique→run creation",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -453,7 +453,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-105",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "2f92e1fa0a414b0abddcab5352933584",
+        "executed_at": "2026-09-20T05:08:39.483184+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-105",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "2f92e1fa0a414b0abddcab5352933584",
+          "executed_at": "2026-09-20T05:08:39.483184+00:00"
+        }
+      ]
     },
     {
       "id": "B-106",
@@ -510,28 +531,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-111",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "64f87a0142ce484096cad523ae16a3db",
-        "executed_at": "2026-09-20T05:00:13.062525+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-111",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "64f87a0142ce484096cad523ae16a3db",
-          "executed_at": "2026-09-20T05:00:13.062525+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-113",
