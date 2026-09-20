@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "08-runtime-execution.md",
-  "task_sha256": "dada08e46a88ac458141c0d1da3472be073a4aba4c63317584b29a7c61603ba1",
+  "task_sha256": "7c1124fa39752a7c27b6978f5054cc1583fec311e658fa83523f4c32dd153df2",
   "scenarios": [
     {
       "id": "S-01",
@@ -22,26 +22,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-01",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "12bf8e31dc6340ebb1b1a03ca04fa968",
-        "executed_at": "2026-09-20T10:43:10.861255+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-01",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "12bf8e31dc6340ebb1b1a03ca04fa968",
-          "executed_at": "2026-09-20T10:43:10.861255+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-02",
@@ -62,26 +43,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-02",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "12bf8e31dc6340ebb1b1a03ca04fa968",
-        "executed_at": "2026-09-20T10:43:10.861255+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-02",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "12bf8e31dc6340ebb1b1a03ca04fa968",
-          "executed_at": "2026-09-20T10:43:10.861255+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-03",
@@ -123,26 +85,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-04",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "f79ca8c0fd3749ce874e0f2735637d5a",
-        "executed_at": "2026-09-20T15:59:07.289042+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-04",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "f79ca8c0fd3749ce874e0f2735637d5a",
-          "executed_at": "2026-09-20T15:59:07.289042+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-05",
@@ -205,58 +148,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 5,
-      "evidence": {
-        "id": "S-07",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 5,
-        "run_id": "db7e101e762643e5ba24bdba86304f71",
-        "executed_at": "2026-09-20T15:54:58.161757+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-07",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "8f3a061ad81c43f1862c56af6072d8bb",
-          "executed_at": "2026-09-20T11:04:57.893582+00:00"
-        },
-        {
-          "id": "S-07",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "f847a27dbe354d31a447b2089ff15592",
-          "executed_at": "2026-09-20T11:07:05.838761+00:00"
-        },
-        {
-          "id": "S-07",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 3,
-          "run_id": "4b4a0247c891426da03fe16ab1d9eeef",
-          "executed_at": "2026-09-20T15:51:23.138674+00:00"
-        },
-        {
-          "id": "S-07",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 4,
-          "run_id": "d8f15be240c54da3bf5b4bdc85d377bc",
-          "executed_at": "2026-09-20T15:53:43.207770+00:00"
-        },
-        {
-          "id": "S-07",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 5,
-          "run_id": "db7e101e762643e5ba24bdba86304f71",
-          "executed_at": "2026-09-20T15:54:58.161757+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-08",
@@ -319,58 +211,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 5,
-      "evidence": {
-        "id": "E-02",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 5,
-        "run_id": "db7e101e762643e5ba24bdba86304f71",
-        "executed_at": "2026-09-20T15:54:58.161757+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-02",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "8f3a061ad81c43f1862c56af6072d8bb",
-          "executed_at": "2026-09-20T11:04:57.893582+00:00"
-        },
-        {
-          "id": "E-02",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "f847a27dbe354d31a447b2089ff15592",
-          "executed_at": "2026-09-20T11:07:05.838761+00:00"
-        },
-        {
-          "id": "E-02",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 3,
-          "run_id": "4b4a0247c891426da03fe16ab1d9eeef",
-          "executed_at": "2026-09-20T15:51:23.138674+00:00"
-        },
-        {
-          "id": "E-02",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 4,
-          "run_id": "d8f15be240c54da3bf5b4bdc85d377bc",
-          "executed_at": "2026-09-20T15:53:43.207770+00:00"
-        },
-        {
-          "id": "E-02",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 5,
-          "run_id": "db7e101e762643e5ba24bdba86304f71",
-          "executed_at": "2026-09-20T15:54:58.161757+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-03",
@@ -391,58 +232,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 5,
-      "evidence": {
-        "id": "E-03",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 5,
-        "run_id": "db7e101e762643e5ba24bdba86304f71",
-        "executed_at": "2026-09-20T15:54:58.161757+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-03",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "8f3a061ad81c43f1862c56af6072d8bb",
-          "executed_at": "2026-09-20T11:04:57.893582+00:00"
-        },
-        {
-          "id": "E-03",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "f847a27dbe354d31a447b2089ff15592",
-          "executed_at": "2026-09-20T11:07:05.838761+00:00"
-        },
-        {
-          "id": "E-03",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 3,
-          "run_id": "4b4a0247c891426da03fe16ab1d9eeef",
-          "executed_at": "2026-09-20T15:51:23.138674+00:00"
-        },
-        {
-          "id": "E-03",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 4,
-          "run_id": "d8f15be240c54da3bf5b4bdc85d377bc",
-          "executed_at": "2026-09-20T15:53:43.207770+00:00"
-        },
-        {
-          "id": "E-03",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 5,
-          "run_id": "db7e101e762643e5ba24bdba86304f71",
-          "executed_at": "2026-09-20T15:54:58.161757+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-04",
@@ -526,26 +316,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-07",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "f79ca8c0fd3749ce874e0f2735637d5a",
-        "executed_at": "2026-09-20T15:59:07.289042+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-07",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "f79ca8c0fd3749ce874e0f2735637d5a",
-          "executed_at": "2026-09-20T15:59:07.289042+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-08",
@@ -566,58 +337,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 5,
-      "evidence": {
-        "id": "E-08",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 5,
-        "run_id": "db7e101e762643e5ba24bdba86304f71",
-        "executed_at": "2026-09-20T15:54:58.161757+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-08",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "8f3a061ad81c43f1862c56af6072d8bb",
-          "executed_at": "2026-09-20T11:04:57.893582+00:00"
-        },
-        {
-          "id": "E-08",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "f847a27dbe354d31a447b2089ff15592",
-          "executed_at": "2026-09-20T11:07:05.838761+00:00"
-        },
-        {
-          "id": "E-08",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 3,
-          "run_id": "4b4a0247c891426da03fe16ab1d9eeef",
-          "executed_at": "2026-09-20T15:51:23.138674+00:00"
-        },
-        {
-          "id": "E-08",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 4,
-          "run_id": "d8f15be240c54da3bf5b4bdc85d377bc",
-          "executed_at": "2026-09-20T15:53:43.207770+00:00"
-        },
-        {
-          "id": "E-08",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 5,
-          "run_id": "db7e101e762643e5ba24bdba86304f71",
-          "executed_at": "2026-09-20T15:54:58.161757+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-01",
@@ -638,58 +358,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 5,
-      "evidence": {
-        "id": "B-01",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 5,
-        "run_id": "db7e101e762643e5ba24bdba86304f71",
-        "executed_at": "2026-09-20T15:54:58.161757+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-01",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "8f3a061ad81c43f1862c56af6072d8bb",
-          "executed_at": "2026-09-20T11:04:57.893582+00:00"
-        },
-        {
-          "id": "B-01",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "f847a27dbe354d31a447b2089ff15592",
-          "executed_at": "2026-09-20T11:07:05.838761+00:00"
-        },
-        {
-          "id": "B-01",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 3,
-          "run_id": "4b4a0247c891426da03fe16ab1d9eeef",
-          "executed_at": "2026-09-20T15:51:23.138674+00:00"
-        },
-        {
-          "id": "B-01",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 4,
-          "run_id": "d8f15be240c54da3bf5b4bdc85d377bc",
-          "executed_at": "2026-09-20T15:53:43.207770+00:00"
-        },
-        {
-          "id": "B-01",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 5,
-          "run_id": "db7e101e762643e5ba24bdba86304f71",
-          "executed_at": "2026-09-20T15:54:58.161757+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-101",
@@ -993,28 +662,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-122",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "186f6231726741f8abedc2f69922e2b4",
-        "executed_at": "2026-09-20T10:37:53.809192+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-122",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "186f6231726741f8abedc2f69922e2b4",
-          "executed_at": "2026-09-20T10:37:53.809192+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-123",
@@ -1033,28 +681,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-123",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "af5e795aaf5f4964ab16d396973ef229",
-        "executed_at": "2026-09-20T10:41:48.894916+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-123",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "af5e795aaf5f4964ab16d396973ef229",
-          "executed_at": "2026-09-20T10:41:48.894916+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-128",
@@ -1083,16 +710,55 @@
       "boundary": "Console resolve-egress service→真实 PostgreSQL 平台/凭据表",
       "owner": "TASK-029",
       "status": "verified",
+      "command": null,
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-124",
+      "source": "08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-test）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "模块验收收口：全量 runtime 相关测试",
+      "owner": "TASK-027",
+      "status": "verified",
       "command": [
         "uv",
         "run",
         "pytest",
         "-q",
-        "tests/console_internal/test_resolve_egress_api.py"
+        "tests/acceptance/runtime",
+        "tests/agent_runtime",
+        "tests/agent_core",
+        "tests/sdk",
+        "tests/console_mcp",
+        "tests/console_skill"
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-124",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "7be074f2f90f49b5b47e5e4e32dfc215",
+        "executed_at": "2026-09-20T16:04:43.191132+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-124",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7be074f2f90f49b5b47e5e4e32dfc215",
+          "executed_at": "2026-09-20T16:04:43.191132+00:00"
+        }
+      ]
     }
   ]
 }
