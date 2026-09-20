@@ -153,7 +153,7 @@
 
 ## TASK-001: Runtime 持久化约束与缺失 ORM
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: 
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计
@@ -203,7 +203,7 @@
 - [2026-09-20] completed (done)
 ## TASK-002: Canonical Event 持久化与序号分配
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约
@@ -248,7 +248,7 @@
 - [2026-09-20] completed (done)
 ## TASK-003: 消费 Effective Capability 与 resolve 契约
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-028
 - **Source**: 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#API-07 Resolve Definition, 08-runtime-execution.backend.design.md#API-08 Resolve Egress
@@ -293,7 +293,7 @@
 - [2026-09-20] completed (done)
 ## TASK-004: 冻结 Snapshot 并隔离认证数据
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#API-06 查询 Run
@@ -338,7 +338,7 @@
 - [2026-09-20] completed (done)
 ## TASK-005: Run/Conversation 创建与幂等提交
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-004
 - **Source**: 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#API-05 创建 Conversation
@@ -383,7 +383,7 @@
 - [2026-09-20] completed (done)
 ## TASK-006: 租约续约与终态 CAS
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案
@@ -426,7 +426,7 @@
 - [2026-09-20] completed (done)
 ## TASK-007: Reaper 回收与进程生命周期
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-006
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案, 08-runtime-execution.backend.design.md#4. 部署与运维
@@ -471,7 +471,7 @@
 - [2026-09-20] completed (done)
 ## TASK-008: 完整 Hook 生命周期
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: 
 - **Source**: 08-runtime-execution.backend.design.md#2.3 功能方案, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -516,7 +516,7 @@
 - [2026-09-20] completed (done)
 ## TASK-009: 上下文重建与预算裁剪
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-010, TASK-011
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -561,7 +561,7 @@
 - [2026-09-20] completed (done)
 ## TASK-010: 受控长期 Memory 读写
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-001
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计
@@ -606,7 +606,7 @@
 - [2026-09-20] completed (done)
 ## TASK-011: 大结果 Artifact 落盘与引用
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -652,7 +652,7 @@
 - [2026-09-20] completed (done)
 ## TASK-012: Skill lazy cache 与不可变存储验收
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-011
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案
@@ -707,7 +707,7 @@
 - [2026-09-20] completed (done)
 ## TASK-013: ToolRegistry prepare/execute 链与审计
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-011
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -758,7 +758,7 @@
 - [2026-09-20] completed (done)
 ## TASK-014: 平台 Egress 客户端与 Session 接入
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-029
 - **Source**: 08-runtime-execution.backend.design.md#API-08 Resolve Egress
@@ -801,7 +801,7 @@
 - [2026-09-20] completed (done)
 ## TASK-015: HTTP 出网约束与统一审计落库
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-014
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#API-08 Resolve Egress, 08-runtime-execution.backend.design.md#3.5 质量实现方案
@@ -851,7 +851,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-016: 冻结 MCP catalog 的运行适配器
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-013, TASK-015
 - **Source**: 08-runtime-execution.backend.design.md#API-07 Resolve Definition, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -896,7 +896,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-017: Model Recovery 与逐 attempt 审计
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-006, TASK-008, TASK-015
 - **Source**: 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案
@@ -948,7 +948,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-018: PG Checkpointer 与 Interrupt 持久化
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-006, TASK-008
 - **Source**: 08-runtime-execution.backend.design.md#3.1 技术选型与关键决策, 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#API-02 Resume Run
@@ -993,7 +993,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-019: 显式与自动 Resume
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-005, TASK-018
 - **Source**: 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#API-02 Resume Run
@@ -1036,7 +1036,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-020: 协作取消与租户隔离
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-006, TASK-018
 - **Source**: 08-runtime-execution.backend.design.md#API-03 取消当前活跃 Run, 08-runtime-execution.backend.design.md#API-04 显式取消 Run（诊断）
@@ -1079,7 +1079,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-021: SSE 完整事件与持续序号
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-019, TASK-020
 - **Source**: 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约
@@ -1122,7 +1122,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-022: 装配完整执行链与共享基础设施
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-012, TASK-013, TASK-015, TASK-016, TASK-017, TASK-018, TASK-019, TASK-020, TASK-021
 - **Source**: 08-runtime-execution.backend.design.md#3.2 架构与流程, 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#4. 部署与运维
@@ -1165,7 +1165,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-023: Runtime E2E 真实环境与清理设施
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: 
 - **Source**: 08-runtime-execution.backend.design.md#2.5 验收条件, 08-runtime-execution.backend.design.md#3.5 质量实现方案, 08-runtime-execution.backend.design.md#4. 部署与运维
@@ -1210,7 +1210,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-024: 授权与 Snapshot 全链路验收
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-022, TASK-023
 - **Source**: 08-runtime-execution.backend.design.md#2.5 验收条件, 08-runtime-execution.backend.design.md#Spec Compliance Matrix
@@ -1260,6 +1260,8 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - S-02: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=3f7ae011dd6f473697b15f4267cd901a (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=3f7ae011dd6f473697b15f4267cd901a (confirmed_by: runner)
 
 ### Log
 
@@ -1271,7 +1273,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-025: 创建、Resume、取消与幂等 E2E
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-022, TASK-023
 - **Source**: 08-runtime-execution.backend.design.md#2.5 验收条件, 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#3.4.1 SSE 事件契约
@@ -1351,6 +1353,11 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - E-03: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=3f7ae011dd6f473697b15f4267cd901a (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=3f7ae011dd6f473697b15f4267cd901a (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=3f7ae011dd6f473697b15f4267cd901a (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=3f7ae011dd6f473697b15f4267cd901a (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=3f7ae011dd6f473697b15f4267cd901a (confirmed_by: runner)
 
 ### Log
 
@@ -1364,7 +1371,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-026: 跨 Pod 重建与断流崩溃恢复 E2E
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-007, TASK-022, TASK-023
 - **Source**: 08-runtime-execution.backend.design.md#2.5 验收条件, 08-runtime-execution.backend.design.md#4. 部署与运维, 08-runtime-execution.backend.design.md#5. 风险与依赖
@@ -1404,6 +1411,8 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - E-07: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
 - S-04: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=3f7ae011dd6f473697b15f4267cd901a (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=3f7ae011dd6f473697b15f4267cd901a (confirmed_by: runner)
 
 ### Log
 
@@ -1415,7 +1424,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-21] completed (done)
 ## TASK-027: 模块验收与 Spec verifier 收口
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-024, TASK-025, TASK-026, TASK-007, TASK-008, TASK-009, TASK-012, TASK-015, TASK-017
 - **Source**: 08-runtime-execution.backend.design.md#2.5 验收条件, 08-runtime-execution.backend.design.md#3.5 质量实现方案, 08-runtime-execution.backend.design.md#Spec Compliance Matrix
@@ -1479,7 +1488,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-21] completed (done)
 ## TASK-028: Console 内部运行凭据读取接口
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 08-runtime-execution.backend.design.md#API-09 Resolve Runtime Credentials
@@ -1524,7 +1533,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - [2026-09-20] completed (done)
 ## TASK-029: Console Resolve Egress 授权与凭据选择
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 08-runtime-execution.backend.design.md#API-08 Resolve Egress
