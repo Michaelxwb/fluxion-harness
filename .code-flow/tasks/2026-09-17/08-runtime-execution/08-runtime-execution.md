@@ -426,7 +426,7 @@
 
 ## TASK-008: 完整 Hook 生命周期
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P1
 - **Depends**: 
 - **Source**: 08-runtime-execution.backend.design.md#2.3 功能方案, 08-runtime-execution.backend.design.md#3.4 接口设计
@@ -449,13 +449,14 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-05 | integration | runner→HookPipeline→真实 Tool handler | 完整一轮顺序匹配 S-05；补足 on_interrupt；未注册 Hook 不干扰；错误/取消的收尾可观测 | tests/agent_core/test_hook_lifecycle.py -k s05（planned） | ["uv","run","pytest","-q","tests/agent_core/test_hook_lifecycle.py","-k","s05"] | planned |
+| S-05 | integration | runner→HookPipeline→真实 Tool handler | 完整一轮顺序匹配 S-05；补足 on_interrupt；未注册 Hook 不干扰；错误/取消的收尾可观测 | tests/agent_core/test_hook_lifecycle.py -k s05（planned） | ["uv","run","pytest","-q","tests/agent_core/test_hook_lifecycle.py","-k","s05"] | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | S-05 | FAIL: 3 failed（HookEvent 无 pre_model/post_model/on_interrupt） | 4 passed；agent_core 60 passed | test_hook_lifecycle.py（完整顺序含触发次数/pre_model 异常传播+STOP 收尾/空注册/on_interrupt） | 真实 runner 图 + 真实 echo Tool handler | verified |
+- S-05: verified — automated command passed; run_id=d0c5ca10bfae49d3bf7bc2138a7654e7 (confirmed_by: runner)
 
 ### Log
 
@@ -464,6 +465,7 @@
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-009: 上下文重建与预算裁剪
 
 - **Status**: draft
