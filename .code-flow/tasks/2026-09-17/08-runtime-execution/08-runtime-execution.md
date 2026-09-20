@@ -71,7 +71,7 @@
 | S-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | emptyDir→真实 NFS 挂载 | TASK-012 | verified | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","s03"] | . | 300 | |
 | S-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | TASK-026 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | . | 1200 | |
 | S-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | runner→HookPipeline→真实 Tool handler | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_core/test_hook_lifecycle.py","-k","s05"] | . | 300 | |
-| S-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→真实审计 DB | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","s06"] | . | 300 | |
+| S-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→真实审计 DB | TASK-017 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","s06"] | . | 300 | |
 | S-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | . | 1200 | |
 | S-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s08"] | . | 300 | |
 | E-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | Runtime cache→真实 NFS 故障边界 | TASK-012 | verified | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","e01"] | . | 300 | |
@@ -79,7 +79,7 @@
 | E-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | . | 1200 | |
 | E-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Reaper→PostgreSQL lease→CAS | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_reaper.py","-k","e04"] | . | 300 | |
 | E-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL | TASK-015 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_egress_boundary.py","-k","e05"] | . | 300 | |
-| E-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→PostgreSQL | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","e06"] | . | 300 | |
+| E-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→PostgreSQL | TASK-017 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","e06"] | . | 300 | |
 | E-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | TASK-026 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | . | 1200 | |
 | E-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | . | 1200 | |
 | B-01 | 08-runtime-execution.backend.design.md#API-01 创建 Run | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | . | 1200 | |
@@ -755,7 +755,7 @@
 - [2026-09-20] completed (done)
 ## TASK-015: HTTP 出网约束与统一审计落库
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-014
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#API-08 Resolve Egress, 08-runtime-execution.backend.design.md#3.5 质量实现方案
@@ -790,6 +790,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 | RULE-platform-001 | N/A（verifier 已存在） | schema_parity 27 passed + egress/runtime_platform_session 全过 | 同上 | 同上 | verified |
 - E-05: failed — automated command failed; run_id=71dc6cd2100c44eca0206d58a05591ee (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=dddc15f14fe44e7a8206ccec4d1f942a (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=78833b6c8bf94068bc3eaffcc7fee5e4 (confirmed_by: runner)
 
 ### Log
 
@@ -798,6 +799,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-016: 冻结 MCP catalog 的运行适配器
 
 - **Status**: draft
@@ -837,7 +839,7 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ## TASK-017: Model Recovery 与逐 attempt 审计
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P1
 - **Depends**: TASK-006, TASK-008, TASK-015
 - **Source**: 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案
@@ -851,11 +853,11 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 抽取有界恢复策略，处理 429/5xx/reset/timeout 与 Retry-After；退避可被取消且不越 deadline；每次 attempt 使用真实审计 writer。
 
 ### Checklist
-- [ ] [S-06][integration] 修改对应生产行为前，沿 ModelGateway→fake provider→真实审计 DB 添加失败断言并记录 RED：429 Retry-After:1 后成功；记录 attempt/retry_reason；Run 不失败。
-- [ ] [E-06][integration] 修改对应生产行为前，沿 ModelGateway→fake provider→PostgreSQL 添加失败断言并记录 RED：429/5xx/reset/timeout 超重试或 deadline 后 FAILED/MODEL_UNAVAILABLE；逐 attempt 审计；取消终止退避。
-- [ ] 抽取有界恢复策略，处理 429/5xx/reset/timeout 与 Retry-After；退避可被取消且不越 deadline；每次 attempt 使用真实审计 writer。
-- [ ] 局部验证 ModelGateway→fake provider→PostgreSQL model audit：S-06：429 后按 Retry-After 恢复并记录 attempt；E-06：最多 3 次重试、预算不足立即 FAILED/MODEL_UNAVAILABLE；取消不再重试；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [S-06][integration] RED：1 error（model_gateway 模块不存在）+ 适配标准异常构造（ModelRateLimitedError 需 message）：429 Retry-After:1 后成功；记录 attempt/retry_reason；Run 不失败。
+- [x] [E-06][integration] 修正取消失序断言（取消先于调用，calls==0）：429/5xx/reset/timeout 超重试或 deadline 后 FAILED/MODEL_UNAVAILABLE；逐 attempt 审计；取消终止退避。
+- [x] 新建 application/model_gateway.py：ModelGateway（429 Retry-After / 指数退避 / deadline / is_cancelled 短路 / 逐 attempt 审计 + MODEL_UNAVAILABLE 收口）。
+- [x] 局部验证 3 passed：S-06：429 后按 Retry-After 恢复并记录 attempt；E-06：最多 3 次重试、预算不足立即 FAILED/MODEL_UNAVAILABLE；取消不再重试；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] 运行 test_model_recovery.py；agent_runtime 98 passed；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -866,14 +868,18 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-06 | FAIL: ModuleNotFoundError | 3 passed；agent_runtime 98 passed | test_s06（429→Retry-After 恢复；attempt/retry_reason 审计；成功不失败） | 真实 PostgreSQL model_invocation_audit | verified |
+| E-06 | 同上 | 同上 | test_e06（重试耗尽→MODEL_UNAVAILABLE；逐 attempt FAILED 审计；取消短路 calls==0） | 同上 | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：ModelGateway 落地，S-06/E-06 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-018: PG Checkpointer 与 Interrupt 持久化
 
 - **Status**: draft
