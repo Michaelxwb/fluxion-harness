@@ -10,7 +10,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.db import get_session_factory
+from ..infrastructure.db import SessionFactoryProvider, get_session_factory
 from ..infrastructure.models.runtime import Artifact
 
 PREVIEW_DEFAULT_LIMIT = 200
@@ -21,7 +21,9 @@ def _storage_key(tenant_id: str, run_id: uuid.UUID, artifact_id: uuid.UUID) -> s
 
 
 class ArtifactResultWriter:
-    def __init__(self, artifact_root: Path | str, session_factory=None) -> None:
+    def __init__(
+        self, artifact_root: Path | str, session_factory: SessionFactoryProvider | None = None
+    ) -> None:
         self._artifact_root = Path(artifact_root)
         self._session_factory = session_factory or get_session_factory
 
@@ -44,14 +46,10 @@ class ArtifactResultWriter:
         user_id: uuid.UUID,
         preview_limit: int = PREVIEW_DEFAULT_LIMIT,
     ) -> dict[str, Any]:
-        session_factory = self._session_factory
-        if callable(session_factory) and not hasattr(session_factory, "__enter__"):
-            factory = session_factory
-        else:
-            factory = session_factory  # type: ignore[assignment]
+        factory: SessionFactoryProvider = self._session_factory
 
         async def run() -> dict[str, Any]:
-            async with factory()() as session:  # type: ignore[operator]
+            async with factory()() as session:
                 return await self.persist_tool_result_with_session(
                     session,
                     tenant_id=tenant_id,

@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "02-user-identity.md",
-  "task_sha256": "d36f1c022de4ffc0bdccf4be3f5531345ec89e0894935ad075f182a79303c737",
+  "task_sha256": "4cdcccacf0a5826aa2e50a9f26c51c22bbb53e3f9552948441313b6b1b94c884",
   "scenarios": [
     {
       "id": "S-01",
@@ -17,17 +17,17 @@
         "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"S-01\""
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 600.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "S-01",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -36,8 +36,45 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "──────────────────────────\n    test-results/user-identity-S-06-S-01-新增用户后列表显示且字段来自后端/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/user-identity-S-06-S-01-新增用户后列表显示且字段来自后端/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/user-identity/user-identity.spec.ts:47:1 › S-06/S-01 新增用户后列表显示且字段来自后端 ────────────────────\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/services/agents.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [57841]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8026 (Press CTRL+C to quit)",
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
@@ -57,17 +94,17 @@
         "tests/e2e/test_gateway_bind_e2e.py"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 600.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "S-02",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -76,8 +113,44 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
@@ -95,27 +168,66 @@
         "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"S-03\""
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 600.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "S-03",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
           "id": "S-03",
           "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "k && vite build\n\n\n> muad-console-web@0.1.0 typecheck\n> tsc --noEmit\n\nvite v5.4.21 building for production...\ntransforming...\n✓ 3405 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                     0.44 kB │ gzip:   0.30 kB\ndist/assets/index-BSekqaKR.css    708.82 kB │ gzip:  82.22 kB\ndist/assets/index-BhLR5KiG.js   1,589.78 kB │ gzip: 452.97 kB\n✓ built in 2.41s\n\n> fluxion-harness-e2e@0.1.0 test\n> playwright test --config playwright.user-identity.config.ts --grep S-03\n\nError: http://127.0.0.1:8001/healthz is already used, make sure that nothing is running on the port/url or set reuseExistingServer:true in config.webServer.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/services/agents.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.",
+          "revision": 1,
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
           "status": "passed",
           "exit_code": 0,
-          "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "────────────────────\n    test-results/user-identity-S-03-S-08-详情四计数与来源一致，Tab-各自加载/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/user-identity-S-03-S-08-详情四计数与来源一致，Tab-各自加载/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/user-identity/user-identity.spec.ts:78:1 › S-03/S-08 详情四计数与来源一致，Tab 各自加载 ─────────────────\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/services/agents.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [57970]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8017 (Press CTRL+C to quit)",
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "gzip:  82.22 kB\ndist/assets/index-BhLR5KiG.js   1,589.78 kB │ gzip: 452.97 kB\n✓ built in 2.40s\n\n> fluxion-harness-e2e@0.1.0 test\n> playwright test --config playwright.user-identity.config.ts --grep S-03\n\nError: Process from config.webServer was not able to start. Exit code: 3\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/services/agents.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [60327]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] ERROR:    [Errno 48] error while attempting to bind on address ('127.0.0.1', 8021): address already in use\n[WebServer] INFO:     Waiting for application shutdown.\n[WebServer] INFO:     Application shutdown complete.",
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
@@ -137,17 +249,17 @@
         "s04"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "S-04",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -156,8 +268,44 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
@@ -166,7 +314,7 @@
       "source": "02-user-identity.backend.design.md#2.5.2 功能验收场景",
       "level": "integration",
       "kind": "functional",
-      "boundary": "用户侧 Memory→08 同一 service",
+      "boundary": "用户侧 Memory→runtime.user_memory",
       "owner": "TASK-004",
       "status": "verified",
       "command": [
@@ -179,17 +327,17 @@
         "s05"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "S-05",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -198,8 +346,44 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
@@ -217,17 +401,17 @@
         "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"S-06\""
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 600.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "S-06",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -236,8 +420,45 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "──────────────────────────\n    test-results/user-identity-S-06-S-01-新增用户后列表显示且字段来自后端/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/user-identity-S-06-S-01-新增用户后列表显示且字段来自后端/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/user-identity/user-identity.spec.ts:47:1 › S-06/S-01 新增用户后列表显示且字段来自后端 ────────────────────\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/services/agents.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [58072]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8025 (Press CTRL+C to quit)",
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
@@ -255,17 +476,17 @@
         "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"S-07\""
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 600.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "S-07",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -274,8 +495,45 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "──────────────────\n    test-results/user-identity-S-07-生成绑定码-Modal-展示-code-与过期时间/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/user-identity-S-07-生成绑定码-Modal-展示-code-与过期时间/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/user-identity/user-identity.spec.ts:60:1 › S-07 生成绑定码 Modal 展示 code 与过期时间 ────────────────\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/services/agents.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [58192]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8005 (Press CTRL+C to quit)",
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
@@ -293,17 +551,17 @@
         "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"S-08\""
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 600.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "S-08",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -312,8 +570,45 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "────────────────────\n    test-results/user-identity-S-03-S-08-详情四计数与来源一致，Tab-各自加载/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/user-identity-S-03-S-08-详情四计数与来源一致，Tab-各自加载/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/user-identity/user-identity.spec.ts:78:1 › S-03/S-08 详情四计数与来源一致，Tab 各自加载 ─────────────────\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/services/agents.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [58317]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8032 (Press CTRL+C to quit)",
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
@@ -335,17 +630,17 @@
         "invalid"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "E-01",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -354,8 +649,44 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
@@ -377,17 +708,17 @@
         "expired"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "E-02",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -396,8 +727,44 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
@@ -419,17 +786,17 @@
         "e03"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "E-03",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -438,8 +805,44 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
@@ -461,17 +864,17 @@
         "e04"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "E-04",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -480,50 +883,119 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
     {
       "id": "E-05",
       "source": "02-user-identity.frontend.design.md#2.4 验收条件（原 E-FE-01）",
-      "level": "integration",
-      "kind": "functional",
-      "boundary": "API→Toast",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→bind-code API（真实 404）",
       "owner": "TASK-005",
       "status": "verified",
       "command": [
-        "uv",
-        "run",
-        "pytest",
-        "-q",
-        "tests/frontend/test_user_identity_contract.py",
-        "-k",
-        "e05"
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"E-05\""
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 600.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "E-05",
-        "kind": "functional",
+        "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
           "id": "E-05",
-          "kind": "functional",
+          "kind": "e2e",
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "──────\n    test-results/user-identity-E-05-生成绑定码失败时-SideSheet-保留并显示本地化-msg/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/user-identity-E-05-生成绑定码失败时-SideSheet-保留并显示本地化-msg/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/user-identity/user-identity.spec.ts:135:1 › E-05 生成绑定码失败时 SideSheet 保留并显示本地化 msg ─────────\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/services/agents.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [58429]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8005 (Press CTRL+C to quit)",
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
@@ -532,7 +1004,7 @@
       "source": "02-user-identity.frontend.design.md#2.4 验收条件（原 E-FE-02）",
       "level": "E2E",
       "kind": "e2e",
-      "boundary": "Browser→后置模块 API",
+      "boundary": "Browser→Memory API（真实 500）",
       "owner": "TASK-005",
       "status": "verified",
       "command": [
@@ -541,17 +1013,17 @@
         "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"E-06\""
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 600.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "E-06",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -560,17 +1032,54 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "results/user-identity-E-06-记忆-Tab-真实-500-时独立-ErrorState-且不影响其他-Tab/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/user-identity-E-06-记忆-Tab-真实-500-时独立-ErrorState-且不影响其他-Tab/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/user-identity/user-identity.spec.ts:110:1 › E-06 记忆 Tab 真实 500 时独立 ErrorState 且不影响其他 Tab ─\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/services/agents.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [58541]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8011 (Press CTRL+C to quit)",
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
     {
       "id": "E-07",
       "source": "02-user-identity.frontend.design.md#2.4 验收条件（原 E-FE-03）",
-      "level": "integration",
+      "level": "contract",
       "kind": "functional",
-      "boundary": "API→bind 消费",
+      "boundary": "错误码目录 / Gateway 消费",
       "owner": "TASK-005",
       "status": "verified",
       "command": [
@@ -583,17 +1092,17 @@
         "e07"
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 300.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "E-07",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
@@ -602,17 +1111,53 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     },
     {
       "id": "E-08",
       "source": "02-user-identity.frontend.design.md#2.4 验收条件（原 E-FE-04）",
-      "level": "integration",
-      "kind": "functional",
-      "boundary": "API→COMMON_CONFLICT",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→USER_CODE_EXISTS",
       "owner": "TASK-005",
       "status": "verified",
       "command": [
@@ -621,27 +1166,64 @@
         "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.user-identity.config.ts --grep \"E-08\""
       ],
       "cwd": ".",
-      "timeout": 60.0,
+      "timeout": 600.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 5,
       "evidence": {
         "id": "E-08",
-        "kind": "functional",
+        "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-        "executed_at": "2026-09-18T04:36:35.123219+00:00"
+        "revision": 5,
+        "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+        "executed_at": "2026-09-20T15:20:02.649140+00:00"
       },
       "runs": [
         {
           "id": "E-08",
-          "kind": "functional",
+          "kind": "e2e",
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "06ebdf8d5faf431f93dbad5d4694410b",
-          "executed_at": "2026-09-18T04:36:35.123219+00:00"
+          "run_id": "a6fb67fc1340419e9527cedd86211ab3",
+          "executed_at": "2026-09-20T14:59:32.340569+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "6d1bb3ab155846eeb550a54b628c9c39",
+          "executed_at": "2026-09-20T15:02:30.680339+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "e2e",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "──────────────────\n    test-results/user-identity-E-08-重复用户编码时-Form-定位字段并提示本地化冲突/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/user-identity-E-08-重复用户编码时-Form-定位字段并提示本地化冲突/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/user-identity/user-identity.spec.ts:157:1 › E-08 重复用户编码时 Form 定位字段并提示本地化冲突 ───────────────\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/services/agents.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx, dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx, /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n[WebServer] INFO:     Started server process [58642]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8030 (Press CTRL+C to quit)",
+          "revision": 3,
+          "run_id": "2399cd377b7647d2bae9b0bb0e8b61f6",
+          "executed_at": "2026-09-20T15:08:25.977886+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "c9dc68dcd9564057864d2de625f96880",
+          "executed_at": "2026-09-20T15:14:29.940215+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "aad42eb9f55d4ae88f410bbfd3ebe31b",
+          "executed_at": "2026-09-20T15:20:02.649140+00:00"
         }
       ]
     }

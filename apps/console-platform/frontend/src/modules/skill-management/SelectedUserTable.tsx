@@ -1,7 +1,8 @@
-import { Banner, Button, Popconfirm, Select, Table, Toast } from '@douyinfe/semi-ui';
+import { Banner, Button, Select, Table, Toast } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
 import { listUsers, type Page, type UserListItem } from '../user-identity/services/users';
@@ -119,11 +120,9 @@ export function SelectedUserTable(props: SelectedUserTableProps) {
           {
             title: t('skill.columns.actions'),
             render: (_: unknown, record: SkillGrantItem) => (
-              <Popconfirm title={t('skill.users.confirmRemove')} onConfirm={() => void remove(record.user_id)}>
-                <Button theme="borderless" type="danger">
-                  {t('skill.users.remove')}
-                </Button>
-              </Popconfirm>
+              <ConfirmAction danger title={t('skill.users.confirmRemove')} onConfirm={() => void remove(record.user_id)}>
+                {t('skill.users.remove')}
+              </ConfirmAction>
             )
           }
         ]}

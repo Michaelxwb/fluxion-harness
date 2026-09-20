@@ -26,7 +26,7 @@ def test_selected_scope_single_relation_ops() -> None:
     source = _source("SelectedUserTable.tsx")
     assert "addSelectedUser" in source
     assert "removeSelectedUser" in source
-    assert "Popconfirm" in source
+    assert "ConfirmAction" in source
     assert "props.onChanged?.()" in source
     service = _source("services/skills.ts")
     assert "api.post<ApiResponse<Record<string, unknown>>>(`/skills/${id}/users/${userId}`)" in service

@@ -1,7 +1,8 @@
-import { Button, Input, Popconfirm, Select, Tag, Toast } from '@douyinfe/semi-ui';
+import { Button, Input, Select, Tag, Toast } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -145,11 +146,9 @@ export function AgentPage() {
                   <Button theme="borderless" onClick={() => void copyId(record)}>
                     {t('agent.actions.copyId')}
                   </Button>
-                  <Popconfirm title={t('agent.confirmDelete')} onConfirm={() => void remove(record)}>
-                    <Button theme="borderless" type="danger">
-                      {t('agent.actions.delete')}
-                    </Button>
-                  </Popconfirm>
+                  <ConfirmAction danger title={t('agent.confirmDelete')} onConfirm={() => void remove(record)}>
+                    {t('agent.actions.delete')}
+                  </ConfirmAction>
                 </>
               )
             }

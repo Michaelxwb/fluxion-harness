@@ -145,6 +145,9 @@ class ChannelService:
                     bound_at=now,
                 )
             )
+        elif identity.platform_user_id != bind_code.platform_user_id:
+            # 身份已属于其他平台用户：拒绝且不消费码（保持 ACTIVE，解绑后可复用）
+            raise AppError(ErrorCode.IDENTITY_ALREADY_BOUND)
         await self._bind_codes.consume(
             bind_code,
             channel_identity_id=identity.id,

@@ -1,14 +1,18 @@
+"""IM Gateway 的就绪诊断：注册到 api-kit 的 `/healthz` + `/readyz` 之上。
+
+原语（路由注册与就绪判定）由 `muad_api.install_health_probes` 提供，本模块只描述
+Gateway 自己的依赖（通道适配器、Console Bot 快照、去重存储）。
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import Any
 
-from fastapi import APIRouter, Request, Response
-from muad_api import ApiResponse, ok
+from fastapi import FastAPI
+from muad_api.probes import ReadinessCheck
 
-from ..application.bot_snapshot import BotSnapshotCache
-from ..channels.base import ChannelRegistry
 from ..infrastructure.dedupe import DedupeStore, InMemoryDedupeStore, RedisDedupeStore
-from .deps import BotSnapshotDep, DedupeStoreDep, RegistryDep
-
-router = APIRouter()
 
 DEDUPE_MODE_REDIS = "redis"
 DEDUPE_MODE_MEMORY = "memory"
@@ -23,32 +27,26 @@ def dedupe_mode(store: DedupeStore) -> str:
     return DEDUPE_MODE_DISABLED
 
 
-def _is_ready(registry: ChannelRegistry, snapshot: BotSnapshotCache) -> bool:
-    if not registry.healthy_adapters:
-        return False
-    return snapshot.console_reachable or snapshot.is_ready()
+def readiness_checks(app: FastAPI) -> Mapping[str, ReadinessCheck]:
+    def adapters_ready() -> bool:
+        registry = getattr(app.state, "registry", None)
+        return bool(registry is not None and registry.healthy_adapters)
+
+    def console_ready() -> bool:
+        snapshot = getattr(app.state, "bot_snapshot", None)
+        if snapshot is None:
+            return False
+        return bool(snapshot.console_reachable or snapshot.is_ready())
+
+    return {"adapters": adapters_ready, "console": console_ready}
 
 
-@router.get("/healthz")
-async def health(request: Request) -> ApiResponse[Any]:
-    return ok(request.app.state.message_catalog, {"status": "ok"})
-
-
-@router.get("/readyz")
-async def ready(
-    request: Request,
-    response: Response,
-    registry: RegistryDep,
-    dedupe: DedupeStoreDep,
-    snapshot: BotSnapshotDep,
-) -> ApiResponse[Any]:
-    if not _is_ready(registry, snapshot):
-        response.status_code = 503
-    return ok(
-        request.app.state.message_catalog,
-        {
-            "adapters": registry.adapter_states,
-            "dedupe": dedupe_mode(dedupe),
-            "bots_revision": snapshot.revision,
-        },
-    )
+def readiness_detail(app: FastAPI) -> Mapping[str, Any]:
+    registry = getattr(app.state, "registry", None)
+    dedupe = getattr(app.state, "dedupe_store", None)
+    snapshot = getattr(app.state, "bot_snapshot", None)
+    return {
+        "adapters": registry.adapter_states if registry is not None else {},
+        "dedupe": dedupe_mode(dedupe) if dedupe is not None else DEDUPE_MODE_DISABLED,
+        "bots_revision": snapshot.revision if snapshot is not None else None,
+    }

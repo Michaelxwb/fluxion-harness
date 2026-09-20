@@ -202,7 +202,9 @@ class UserMemory(StandardColumnsMixin, Base):
     content_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     source_type: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     source_ref: Mapped[str | None] = mapped_column(sa.String(256))
-    write_policy: Mapped[str] = mapped_column(sa.String(32), nullable=False, server_default=sa.text("'APPEND'"))
+    write_policy: Mapped[str] = mapped_column(
+        sa.String(32), nullable=False, server_default=sa.text("'APPEND'")
+    )
     version: Mapped[int] = mapped_column(sa.Integer(), nullable=False, server_default=sa.text("1"))
     enabled: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, server_default=sa.text("true"))
 
@@ -216,7 +218,9 @@ class Artifact(StandardColumnsMixin, Base):
     )
 
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
-    run_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), sa.ForeignKey("runtime.run_record.id"), nullable=False)
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("runtime.run_record.id"), nullable=False
+    )
     task_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     conversation_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     artifact_type: Mapped[str] = mapped_column(sa.String(32), nullable=False)

@@ -1043,7 +1043,8 @@ QUEUED/WAITING CAS 取消；RUNNING 写取消标记并在心跳及真实工具�
 - **Source**: 09-task-schedule.backend.design.md#3.1 技术选型与关键决策, 09-task-schedule.backend.design.md#4. 部署与运维
 - **Spec-Refs**: 
 - **Acceptance-Refs**: B-122
-- **Files**: `apps/agent-worker/src/muad_agent_worker/main.py`, `apps/agent-worker/src/muad_agent_worker/api/health.py`, `tests/agent_worker/test_worker_lifecycle.py`
+- **Files**: `apps/agent-worker/src/muad_agent_worker/main.py`, `tests/agent_worker/test_worker_lifecycle.py`
+  - 注：原先列出的 `apps/agent-worker/src/muad_agent_worker/api/health.py` 已由 01-platform-foundation 的 review 修复删除（探针统一走 api-kit `install_health_probes`，worker 的 `/healthz`+`/readyz` 在 `main.py` 注册）。若本任务需要新增就绪检查，改在 `main.py` 传 `readiness_checks`。
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description

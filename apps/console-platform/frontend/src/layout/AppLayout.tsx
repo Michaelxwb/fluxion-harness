@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
-import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
+import { LocaleSwitch } from '../components/common/LocaleSwitch';
 import { ThemeButton } from '../components/common/ThemeButton';
 import { menuItems } from '../config/menu';
 import { useThemeMode } from '../theme';
@@ -94,7 +94,7 @@ export function AppLayout() {
       <Layout>
         <Header className="app-topbar">
           <ThemeButton mode={theme.mode} onToggle={theme.toggle} />
-          <LanguageSwitcher />
+          <LocaleSwitch />
         </Header>
         <Content className="app-content">
           <Outlet />

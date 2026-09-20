@@ -218,9 +218,8 @@ def test_b101_missing_audit_orm_classes_exist() -> None:
 
 async def test_b101_run_submission_table_partial_unique() -> None:
     """[B-101][integration] 真实 PostgreSQL：软删后同键可重建；活跃重复被拒。"""
-    from sqlalchemy.exc import IntegrityError
-
     from muad_agent_runtime.infrastructure.models.runtime import RunSubmission
+    from sqlalchemy.exc import IntegrityError
 
     async with get_session_factory()() as session:
         row = RunSubmission(

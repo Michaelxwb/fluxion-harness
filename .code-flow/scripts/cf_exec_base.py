@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import shlex
 import json
+import os
+import signal
 import subprocess
 import time
 from contextlib import contextmanager
@@ -96,17 +98,29 @@ def _execute(argv: Sequence[str], cwd: str, timeout: float, deadline: Optional[f
         return {"status": "deadline_exceeded", "returncode": None, "stdout": "", "stderr": ""}
     effective = min(timeout, remaining) if remaining is not None else timeout
     try:
-        proc = subprocess.run(
-            list(argv), cwd=cwd, capture_output=True, text=True, timeout=max(effective, 0.01)
+        # start_new_session：子进程成为独立进程组组长，超时时可整组回收。
+        # 否则只杀直接子进程，其派生的 node/uvicorn/vite 会成为孤儿并继续占用端口。
+        proc = subprocess.Popen(
+            list(argv),
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
         )
-    except subprocess.TimeoutExpired as exc:
-        out = exc.stdout
-        return {
-            "status": "timeout",
-            "returncode": None,
-            "stdout": (out.decode() if isinstance(out, bytes) else (out or ""))[-4000:],
-            "stderr": "",
-        }
     except OSError as exc:
         return {"status": "spawn_error", "returncode": None, "stdout": "", "stderr": str(exc)}
-    return {"status": "ok", "returncode": proc.returncode, "stdout": proc.stdout or "", "stderr": proc.stderr or ""}
+    try:
+        stdout, stderr = proc.communicate(timeout=max(effective, 0.01))
+    except subprocess.TimeoutExpired:
+        _kill_process_group(proc)
+        stdout, stderr = proc.communicate()
+        return {"status": "timeout", "returncode": None, "stdout": (stdout or "")[-4000:], "stderr": ""}
+    return {"status": "ok", "returncode": proc.returncode, "stdout": stdout or "", "stderr": stderr or ""}
+
+
+def _kill_process_group(proc: "subprocess.Popen[str]") -> None:
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        proc.kill()

@@ -1,7 +1,8 @@
-import { Banner, Button, Popconfirm, Spin, Tabs } from '@douyinfe/semi-ui';
+import { Banner, Button, Spin, Tabs } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
@@ -73,14 +74,9 @@ export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
             <Button theme="solid" onClick={() => props.onEdit(platform)}>
               {t('platform.actions.edit')}
             </Button>
-            <Popconfirm
-              title={t('platform.confirmDelete')}
-              onConfirm={() => props.onDelete(platform)}
-            >
-              <Button theme="borderless" type="danger">
-                {t('platform.actions.delete')}
-              </Button>
-            </Popconfirm>
+            <ConfirmAction danger title={t('platform.confirmDelete')} onConfirm={() => props.onDelete(platform)}>
+              {t('platform.actions.delete')}
+            </ConfirmAction>
           </>
         ) : null
       }

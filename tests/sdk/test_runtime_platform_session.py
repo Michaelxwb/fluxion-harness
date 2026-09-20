@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 
 import pytest
@@ -14,7 +13,6 @@ from muad_platform_sdk.egress_client import (
     RuntimeEgressClient,
 )
 from muad_platform_sdk.session import RedisPlatformSessionInvalidator
-from muad_platform_sdk.types import PlatformConfig, PlatformSession, SecretValue
 
 
 class _FakeResponse:
@@ -75,7 +73,11 @@ def _egress_response(mode: str, credential_json: dict | None) -> dict:
         None
         if credential_json is None and mode == "NONE"
         else (
-            {"ref_id": str(uuid.uuid4()), "credential_json": credential_json, "credential_schema_version": "1"}
+            {
+                "ref_id": str(uuid.uuid4()),
+                "credential_json": credential_json,
+                "credential_schema_version": "1",
+            }
             if credential_json is not None
             else None
         )

@@ -1,20 +1,44 @@
-from typing import Annotated, cast
+from typing import Annotated, Any, cast
 
 import redis.asyncio as redis
 from fastapi import Depends, Request
-from muad_api import AppError
+from muad_api import AppError, require_roles, require_session
 from muad_api.context import current_tenant_id
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
 from muad_platform_sdk import PlatformAdapterRegistry, RedisPlatformSessionInvalidator
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.auth_service import AuthService
 from ..application.platform_adapter_service import build_default_registry
 from ..application.platform_ports import NullPlatformSessionInvalidator, PlatformSessionInvalidator
-from ..infrastructure.db import get_session
+from ..infrastructure.db import get_session_factory
 from ..infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
-from .security import SESSION_COOKIE
+
+
+class ConsoleSessionVerifier:
+    """把 api-kit 的 `SessionVerifier` 协议适配到 Console 的账号/会话业务。
+
+    会话校验原语（取 token、UNAUTHORIZED/FORBIDDEN 语义）由 api-kit 提供；
+    本类只负责"token → ConsoleAccount"这一段业务，并持有自己的短事务提交滑动续期。
+    """
+
+    async def verify(self, session_token: str) -> ConsoleAccount | None:
+        tenant_id = current_tenant_id() or SharedSettings().default_tenant_id
+        try:
+            async with get_session_factory()() as session:
+                account = await AuthService(session, tenant_id=tenant_id).resolve_session(session_token)
+                await session.commit()
+        except AppError:
+            return None
+        return account
+
+
+class ConsoleRoleResolver:
+    """把 Console 的单一 `role` 字段适配成 api-kit 需要的角色集合。"""
+
+    async def roles_for(self, principal: Any) -> tuple[str, ...]:
+        role = getattr(principal, "role", None)
+        return (role,) if isinstance(role, str) else ()
 
 
 def get_tenant_id() -> str:
@@ -26,24 +50,21 @@ def get_source_ip(request: Request) -> str | None:
     return client.host if client is not None else None
 
 
-async def get_current_account(
-    request: Request,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    tenant_id: Annotated[str, Depends(get_tenant_id)],
-) -> ConsoleAccount:
-    token = request.cookies.get(SESSION_COOKIE)
-    if not token:
-        raise AppError(ErrorCode.UNAUTHORIZED)
-    return await AuthService(session, tenant_id=tenant_id).resolve_session(token)
+async def get_current_account(principal: Annotated[Any, Depends(require_session)]) -> ConsoleAccount:
+    if not isinstance(principal, ConsoleAccount):
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+    return principal
 
 
 CurrentAccount = Annotated[ConsoleAccount, Depends(get_current_account)]
 
 
-async def require_admin(account: CurrentAccount) -> ConsoleAccount:
-    if account.role != ROLE_ADMIN:
-        raise AppError(ErrorCode.FORBIDDEN)
-    return account
+async def require_admin(
+    principal: Annotated[Any, Depends(require_roles(ROLE_ADMIN))],
+) -> ConsoleAccount:
+    if not isinstance(principal, ConsoleAccount):
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+    return principal
 
 
 AdminAccount = Annotated[ConsoleAccount, Depends(require_admin)]

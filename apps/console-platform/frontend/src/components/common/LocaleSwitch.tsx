@@ -1,19 +1,22 @@
 import { IconGlobe } from '@douyinfe/semi-icons';
 import { Button, Tooltip } from '@douyinfe/semi-ui';
+import { useTranslation } from 'react-i18next';
 
 import { changeLocale, currentLocale, type SupportedLocale } from '../../i18n';
 
-export function LanguageSwitcher() {
+export function LocaleSwitch() {
+  const { t } = useTranslation();
   const locale = currentLocale();
   const next: SupportedLocale = locale === 'zh-CN' ? 'en-US' : 'zh-CN';
+  const nextLabel = t(next === 'en-US' ? 'common.language.en' : 'common.language.zh');
   return (
-    <Tooltip content={next === 'en-US' ? 'English' : '中文'}>
+    <Tooltip content={nextLabel}>
       <Button
         theme="borderless"
         type="tertiary"
         icon={<IconGlobe />}
         data-testid="locale-switch"
-        aria-label={next === 'en-US' ? 'English' : '中文'}
+        aria-label={nextLabel}
         onClick={() => changeLocale(next)}
       />
     </Tooltip>

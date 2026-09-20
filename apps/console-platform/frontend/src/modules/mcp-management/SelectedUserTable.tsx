@@ -1,7 +1,8 @@
-import { Banner, Button, Popconfirm, Select, Table } from '@douyinfe/semi-ui';
+import { Banner, Button, Select, Table } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
 import { listUsers, type Page, type UserListItem } from '../user-identity/services/users';
@@ -117,11 +118,9 @@ export function McpSelectedUserTable(props: McpSelectedUserTableProps) {
           {
             title: t('mcp.columns.actions'),
             render: (_: unknown, record: McpGrantItem) => (
-              <Popconfirm title={t('mcp.users.confirmRemove')} onConfirm={() => void remove(record.user_id)}>
-                <Button theme="borderless" type="danger">
-                  {t('mcp.users.remove')}
-                </Button>
-              </Popconfirm>
+              <ConfirmAction danger title={t('mcp.users.confirmRemove')} onConfirm={() => void remove(record.user_id)}>
+                {t('mcp.users.remove')}
+              </ConfirmAction>
             )
           }
         ]}

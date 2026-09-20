@@ -6,10 +6,9 @@ import uuid
 
 import pytest
 import sqlalchemy as sa
+from muad_agent_runtime.application.memory_service import MemoryService
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import UserMemory
-
-from muad_agent_runtime.application.memory_service import MemoryService
 
 USER_ONE = uuid.uuid4()
 USER_TWO = uuid.uuid4()

@@ -3,7 +3,7 @@
 import uuid
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, File, Form, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -46,7 +46,12 @@ async def list_servers(
     )
     return ok(
         request.app.state.message_catalog,
-        paginate(items=[item.model_dump(mode="json") for item in items], page=page, page_size=page_size, total=total),
+        paginate(
+            items=[item.model_dump(mode="json") for item in items],
+            page=page,
+            page_size=page_size,
+            total=total,
+        ),
     )
 
 
@@ -181,7 +186,12 @@ async def list_grants(
     items, total = await McpService(session).list_grants(tenant_id, mcp_id, page, page_size)
     return ok(
         request.app.state.message_catalog,
-        paginate(items=[item.model_dump(mode="json") for item in items], page=page, page_size=page_size, total=total),
+        paginate(
+            items=[item.model_dump(mode="json") for item in items],
+            page=page,
+            page_size=page_size,
+            total=total,
+        ),
     )
 
 

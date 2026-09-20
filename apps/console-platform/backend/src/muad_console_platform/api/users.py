@@ -12,6 +12,7 @@ from ..application.dto import (
     BindCodeCreateResponse,
     IdentityItem,
     MemoryItem,
+    UserBasic,
     UserCreateRequest,
     UserDetail,
     UserListItem,
@@ -29,7 +30,17 @@ Session = Annotated[AsyncSession, Depends(get_session)]
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
-_ZERO_COUNTS = {"agent_grant_count": 0, "credential_count": 0, "identity_count": 0, "memory_count": 0}
+
+def _basic(user: PlatformUser) -> dict[str, Any]:
+    return UserBasic(
+        id=user.id,
+        user_code=user.user_code,
+        display_name=user.display_name,
+        status=user.status,
+        metadata=user.metadata_json,
+        create_time=user.create_time,
+        update_time=user.update_time,
+    ).model_dump(mode="json")
 
 
 def _item(user: PlatformUser, counts: dict[str, int]) -> dict[str, Any]:
@@ -93,7 +104,7 @@ async def create_user(
     session: Session,
 ) -> ApiResponse[Any]:
     user = await UserService(session).create_user(tenant_id, payload, _actor(account, request))
-    return ok(request.app.state.message_catalog, _detail(user, _ZERO_COUNTS))
+    return ok(request.app.state.message_catalog, _basic(user))
 
 
 @router.get("/{user_id}")
@@ -281,5 +292,4 @@ async def update_user(
     session: Session,
 ) -> ApiResponse[Any]:
     user = await UserService(session).update_user(tenant_id, user_id, payload, _actor(account, request))
-    _, counts = await UserService(session).get_user(tenant_id, user.id)
-    return ok(request.app.state.message_catalog, _detail(user, counts))
+    return ok(request.app.state.message_catalog, _basic(user))

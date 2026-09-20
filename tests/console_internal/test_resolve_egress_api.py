@@ -10,14 +10,13 @@ import uuid
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
-
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.control import (
     ProjectPlatform,
     SharedCredentialRef,
     UserCredentialRef,
 )
+from sqlalchemy import select
 
 from console_internal.conftest import TenantContext
 
@@ -36,7 +35,11 @@ def _payload(platform_key: str = "mssw-prod", **overrides: object) -> dict[str, 
         "actor_user_id": str(uuid.uuid4()),
         "execution_ref": {"type": "RUN", "id": str(uuid.uuid4())},
         "platform_key": platform_key,
-        "target": {"type": "PLATFORM_SERVICE", "service": "customer-service-mgr", "operation": "get_customer"},
+        "target": {
+            "type": "PLATFORM_SERVICE",
+            "service": "customer-service-mgr",
+            "operation": "get_customer",
+        },
     }
     payload.update(overrides)
     return payload

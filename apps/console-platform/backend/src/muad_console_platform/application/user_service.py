@@ -89,7 +89,7 @@ class UserService:
             created = await self._users.add(user)
         except IntegrityError as exc:
             raise self._conflict(payload.user_code) from exc
-        await self._record_audit(tenant_id, actor, "CREATE", created, None, created)
+        await self._record_audit(tenant_id, actor, "CREATE", None, created)
         return created
 
     async def update_user(
@@ -99,7 +99,9 @@ class UserService:
         payload: UserUpdateRequest,
         actor: AuditActor,
     ) -> PlatformUser:
-        user = await self._require_user(tenant_id, user_id)
+        user = await self._users.get_for_update(tenant_id, user_id)
+        if user is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         before = user_snapshot(user)
         if payload.display_name is not None:
             user.display_name = payload.display_name
@@ -109,7 +111,7 @@ class UserService:
             user.metadata_json = payload.metadata
         user.update_time = datetime.now(UTC)
         await self._session.flush()
-        await self._record_audit(tenant_id, actor, "UPDATE", user, before, user)
+        await self._record_audit(tenant_id, actor, "UPDATE", before, user)
         return user
 
     async def _require_user(self, tenant_id: str, user_id: uuid.UUID) -> PlatformUser:
@@ -119,23 +121,22 @@ class UserService:
         return user
 
     def _conflict(self, user_code: str) -> AppError:
-        return AppError(ErrorCode.COMMON_CONFLICT, message_args={"user_code": user_code})
+        return AppError(ErrorCode.USER_CODE_EXISTS, message_args={"user_code": user_code})
 
     async def _record_audit(
         self,
         tenant_id: str,
         actor: AuditActor,
         action: str,
-        user: PlatformUser,
         before: dict[str, Any] | None,
-        after: PlatformUser | None,
+        after: PlatformUser,
     ) -> None:
         await self._audit.record_config_change(
             tenant_id=tenant_id,
             actor=actor,
             resource_type=AUDIT_RESOURCE_TYPE,
-            resource_id=user.id,
+            resource_id=after.id,
             action=action,
             before=before,
-            after=user_snapshot(after) if after is not None else None,
+            after=user_snapshot(after),
         )

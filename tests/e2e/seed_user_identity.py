@@ -15,13 +15,25 @@ from sqlalchemy.ext.asyncio import create_async_engine
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="seed_user_identity")
     parser.add_argument("--user-code", required=True)
-    parser.add_argument("--cleanup", action="store_true")
+    parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="删除该 user_code 的 E2E 数据（含 platform_user 本身）；不存在时视为已清理",
+    )
+    parser.add_argument(
+        "--corrupt-memory",
+        action="store_true",
+        help="额外写入一条 content_json 非对象的记忆，用于制造真实 500（E-06 故障隔离）",
+    )
     return parser
 
 
 async def _cleanup(connection, tenant_id: str, user_id: uuid.UUID) -> None:
+    # 顺序按外键依赖：引用方先删。
+    # 注意：不删 platform_user —— 非清理模式下紧接着还要播种，播种依赖该行存在。
     for statement in (
         "DELETE FROM runtime.user_memory WHERE tenant_id = :tenant_id AND user_id = :user_id",
+        "DELETE FROM control.bind_code WHERE tenant_id = :tenant_id AND platform_user_id = :user_id",
         "DELETE FROM control.channel_identity WHERE tenant_id = :tenant_id AND platform_user_id = :user_id",
         "DELETE FROM control.channel_identity WHERE tenant_id = :tenant_id AND bot_account_id IN "
         "(SELECT id FROM control.bot_account WHERE tenant_id = :tenant_id AND name = 'E2E Bot')",
@@ -35,7 +47,14 @@ async def _cleanup(connection, tenant_id: str, user_id: uuid.UUID) -> None:
         await connection.execute(text(statement), {"tenant_id": tenant_id, "user_id": user_id})
 
 
-async def _seed(connection, tenant_id: str, user_id: uuid.UUID) -> None:
+async def _delete_user(connection, tenant_id: str, user_id: uuid.UUID) -> None:
+    await connection.execute(
+        text("DELETE FROM control.platform_user WHERE tenant_id = :tenant_id AND id = :user_id"),
+        {"tenant_id": tenant_id, "user_id": user_id},
+    )
+
+
+async def _seed(connection, tenant_id: str, user_id: uuid.UUID, *, corrupt_memory: bool) -> None:
     model_id, agent_id, bot_id, platform_id, identity_id = (
         uuid.uuid4(),
         uuid.uuid4(),
@@ -124,6 +143,21 @@ async def _seed(connection, tenant_id: str, user_id: uuid.UUID) -> None:
             "memory_key": f"e2e-{uuid.uuid4().hex[:8]}",
         },
     )
+    if corrupt_memory:
+        # content_json 是 JSON 数组而非对象：真实触发 MemoryItem 校验失败 → 真实 500
+        await connection.execute(
+            text(
+                "INSERT INTO runtime.user_memory "
+                "(id, tenant_id, user_id, memory_key, category, content_json, source_type) "
+                "VALUES (:id, :tenant_id, :user_id, :memory_key, 'PREFERENCE', '[]'::jsonb, 'USER')"
+            ),
+            {
+                "id": uuid.uuid4(),
+                "tenant_id": tenant_id,
+                "user_id": user_id,
+                "memory_key": f"e2e-corrupt-{uuid.uuid4().hex[:8]}",
+            },
+        )
 
 
 async def main() -> int:
@@ -132,6 +166,7 @@ async def main() -> int:
     database_url = settings.database_url
     if not database_url:
         raise SystemExit("DATABASE_URL not configured")
+    tenant_id = settings.default_tenant_id
     engine = create_async_engine(database_url)
     try:
         async with engine.begin() as connection:
@@ -140,13 +175,17 @@ async def main() -> int:
                     "SELECT id FROM control.platform_user WHERE tenant_id = :tenant_id "
                     "AND user_code = :user_code AND is_deleted = false"
                 ),
-                {"tenant_id": settings.default_tenant_id, "user_code": args.user_code},
+                {"tenant_id": tenant_id, "user_code": args.user_code},
             )
             if user_id is None:
+                if args.cleanup:
+                    return 0
                 raise SystemExit(f"platform_user not found: {args.user_code}")
-            await _cleanup(connection, settings.default_tenant_id, user_id)
-            if not args.cleanup:
-                await _seed(connection, settings.default_tenant_id, user_id)
+            await _cleanup(connection, tenant_id, user_id)
+            if args.cleanup:
+                await _delete_user(connection, tenant_id, user_id)
+            else:
+                await _seed(connection, tenant_id, user_id, corrupt_memory=args.corrupt_memory)
     finally:
         await engine.dispose()
     return 0

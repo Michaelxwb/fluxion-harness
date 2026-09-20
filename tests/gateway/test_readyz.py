@@ -9,7 +9,6 @@ from httpx import ASGITransport, AsyncClient
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import BotSnapshotResponse
-from muad_im_gateway.api.deps import get_bot_snapshot, get_dedupe_store, get_registry
 from muad_im_gateway.api.health import dedupe_mode
 from muad_im_gateway.application.bot_snapshot import BotSnapshotCache
 from muad_im_gateway.channels.base import ChannelRegistry
@@ -41,15 +40,17 @@ async def api_client(
     dedupe: Any,
     snapshot: BotSnapshotCache,
 ) -> AsyncIterator[AsyncClient]:
-    app.dependency_overrides[get_registry] = lambda: registry
-    app.dependency_overrides[get_dedupe_store] = lambda: dedupe
-    app.dependency_overrides[get_bot_snapshot] = lambda: snapshot
+    # 探针由 api-kit 原语注册（无 DI），依赖来自 app.state —— 与真实 lifespan 的装配方式一致
+    app.state.registry = registry
+    app.state.dedupe_store = dedupe
+    app.state.bot_snapshot = snapshot
     transport = ASGITransport(app=app)
     try:
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             yield client
     finally:
-        app.dependency_overrides.clear()
+        for name in ("registry", "dedupe_store", "bot_snapshot"):
+            setattr(app.state, name, None)
 
 
 async def _registry(*, started: bool) -> ChannelRegistry:
@@ -78,7 +79,12 @@ async def test_readyz_ready_with_started_adapter_and_console() -> None:
 
     assert response.status_code == 200
     data = response.json()["data"]
-    assert data == {"adapters": {"WECOM": True}, "dedupe": "memory", "bots_revision": "rev-1"}
+    assert data == {
+        "status": "ready",
+        "adapters": {"WECOM": True},
+        "dedupe": "memory",
+        "bots_revision": "rev-1",
+    }
 
 
 async def test_readyz_503_without_started_adapter() -> None:

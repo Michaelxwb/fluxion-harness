@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import uuid
 
-from httpx import AsyncClient
-
 # ---- B-104（08 TASK-004）：Snapshot 非密钥 + 稳定 hash + 认证隔离 ----
 
 def test_b104_snapshot_hash_stable_across_key_rotation() -> None:
@@ -13,8 +11,8 @@ def test_b104_snapshot_hash_stable_across_key_rotation() -> None:
     from muad_agent_runtime.application.run_service import _snapshot_hash
     from muad_contracts import (
         ResolvedAgent,
-        ResolvedModel,
         ResolveDefinitionResponse,
+        ResolvedModel,
     )
 
     agent_id, model_id = uuid.uuid4(), uuid.uuid4()

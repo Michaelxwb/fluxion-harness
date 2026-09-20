@@ -41,8 +41,8 @@ def test_relation_tabs_single_relation_and_no_switch() -> None:
     for action in ("bindSkill", "unbindSkill", "bindMcp", "unbindMcp", "grantAgentUser", "revokeAgentUser"):
         assert action in source
     assert "Switch" not in source  # 无绑定级启停
-    # 解除/取消均为 Popconfirm 软删除
-    assert source.count("Popconfirm") >= 3
+    # 解除/取消均为二次确认软删除，统一走公共 ConfirmAction
+    assert source.count("ConfirmAction") >= 3
 
 
 def test_e10_binding_failure_keeps_tab() -> None:

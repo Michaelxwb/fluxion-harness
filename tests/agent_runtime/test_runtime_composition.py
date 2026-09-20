@@ -8,9 +8,6 @@ from __future__ import annotations
 import json
 import uuid
 
-import pytest
-from muad_agent_core.tools import ToolRegistry
-
 from conftest import TenantContext
 
 
@@ -20,15 +17,12 @@ async def test_b122_executor_full_turn_with_tool_and_audit(
 ) -> None:
     """[B-122] 完整一轮：USER_MESSAGE→TOOL_CALL→ASSISTANT_MESSAGE 事件序列 + 审计。"""
     import sqlalchemy as sa
-
+    from muad_agent_runtime.infrastructure.db import get_session_factory
     from muad_agent_runtime.infrastructure.models.runtime import (
-        CanonicalEvent,
         Conversation,
         ToolCallAudit,
     )
-    from muad_agent_runtime.infrastructure.db import get_session_factory
 
-    key = f"comp-{uuid.uuid4().hex[:6]}"
     async with get_session_factory()() as session:
         conv = Conversation(
             tenant_id=tenant.tenant_id,

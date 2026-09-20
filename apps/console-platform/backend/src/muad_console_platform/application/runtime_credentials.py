@@ -37,7 +37,7 @@ async def resolve_runtime_credentials(
     model_id = uuid.UUID(str(payload["model_id"]))
     model = await session.get(ModelDefinition, model_id)
     if model is None or model.is_deleted or model.tenant_id != tenant_id:
-        raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "Model"})
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
     if not model.api_key:
         # 密钥缺失明确失败，不退回环境变量
         raise AppError(ErrorCode.CREDENTIAL_MISSING)
@@ -53,7 +53,7 @@ async def resolve_runtime_credentials(
         for server_id in ids:
             server = by_id.get(server_id)
             if server is None or server.is_deleted:
-                raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "McpServer"})
+                raise AppError(ErrorCode.COMMON_NOT_FOUND)
             if not server.auth_secret:
                 raise AppError(ErrorCode.CREDENTIAL_MISSING)
             # 仅认证字段；enabled/catalog 变更不重新筛选

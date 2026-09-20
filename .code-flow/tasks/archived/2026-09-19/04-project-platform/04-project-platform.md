@@ -161,11 +161,11 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - **Acceptance-Refs**: S-01, E-01, E-03
 
 ### Description
-实现平台列表/新增/详情/编辑/删除：`resolver_type` 与 `resolver_config` 结构校验、`adapter_key` 已注册且 `adapter_config` 满足 `platform_config_schema`（`jsonschema`）、租户内 key 唯一冲突返回 `COMMON_CONFLICT`（`message_args` 带 key）；`project_platform` 无 revision，不接受 `expected_revision`；写操作同事务追加 `config_audit_log`（不含 Secret）；`adapter_key` 变更时同事务将 user/shared 凭据置 `INVALID`，并按 Session 失效契约清理该平台 Session，响应 `credential_reconfigure_required=true`；删除平台软删并触发凭据/Session 失效。
+实现平台列表/新增/详情/编辑/删除：`resolver_type` 与 `resolver_config` 结构校验、`adapter_key` 已注册且 `adapter_config` 满足 `platform_config_schema`（`jsonschema`）、租户内 key 唯一冲突返回 `PLATFORM_KEY_EXISTS`（`message_args` 带 key）；`project_platform` 无 revision，不接受 `expected_revision`；写操作同事务追加 `config_audit_log`（不含 Secret）；`adapter_key` 变更时同事务将 user/shared 凭据置 `INVALID`，并按 Session 失效契约清理该平台 Session，响应 `credential_reconfigure_required=true`；删除平台软删并触发凭据/Session 失效。
 
 ### Checklist
 - [ ] 列表：keyword/adapter_key/enabled/user_id 筛选 + 聚合字段 + 分页，统一封套，禁止 N+1
-- [ ] 新增/编辑：Schema 校验、唯一冲突 `COMMON_CONFLICT{key}`、审计同事务、无 `expected_revision`
+- [ ] 新增/编辑：Schema 校验、唯一冲突 `PLATFORM_KEY_EXISTS{key}`、审计同事务、无 `expected_revision`
 - [ ] 详情：完整字段 + `adapter_metadata`（不含 Secret）+ 聚合计数
 - [ ] 删除：软删 + 审计 + 凭据/Session 失效；不存在返回 `COMMON_NOT_FOUND`
 - [ ] `adapter_key` 变更：凭据 `INVALID`、Session 清理、`credential_reconfigure_required=true`
@@ -173,7 +173,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 - [ ] [S-01][E2E] 修改生产代码前，按 Browser→API→DB 真实边界编写验收测试并记录 RED（浏览器层由 TASK-012 执行）
 - [ ] [S-01] 断言 创建后按 adapter schema 保存/展示、重复 key 被拒绝且列表不变
 - [ ] [E-01][integration] 未注册 adapter_key → `PLATFORM_ADAPTER_NOT_FOUND`，不落库
-- [ ] [E-03][integration] 重复 key → `COMMON_CONFLICT` 且 `message_args` 含 key
+- [ ] [E-03][integration] 重复 key → `PLATFORM_KEY_EXISTS` 且 `message_args` 含 key
 - [ ] 运行 harness-api#RULE-api-001 verifier 并填写 Acceptance Evidence：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`
 - [ ] 运行 harness-i18n#RULE-i18n-001 verifier 并填写 Acceptance Evidence：`uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py`
 
@@ -183,7 +183,7 @@ Console 应用启动时注册内置适配器；实现 `GET /api/v1/platform-adap
 |--------|---------|--------------------|---------|----------------|---------|------|
 | S-01 | E2E | Browser、API、DB | 平台按 Schema 保存/展示；重复 key 拒绝 | e2e/tests/project-platform/platform.spec.ts（planned） | `npm --prefix e2e test -- --config playwright.platform.config.ts --grep "S-01"` | verified |
 | E-01 | integration | API、Registry、DB | `PLATFORM_ADAPTER_NOT_FOUND`；事务未落库 | tests/console_platform/test_platforms_api.py（planned） | `uv run pytest -q tests/console_platform/test_platforms_api.py -k e01` | planned |
-| E-03 | integration | API、DB | `COMMON_CONFLICT` + `message_args.key`；列表不变 | tests/console_platform/test_platforms_api.py（planned） | `uv run pytest -q tests/console_platform/test_platforms_api.py -k e03` | planned |
+| E-03 | integration | API、DB | `PLATFORM_KEY_EXISTS` + `message_args.key`；列表不变 | tests/console_platform/test_platforms_api.py（planned） | `uv run pytest -q tests/console_platform/test_platforms_api.py -k e03` | planned |
 
 ### Acceptance Evidence
 
@@ -418,7 +418,7 @@ platform-sdk 提供 `RedisPlatformSessionInvalidator`：按 `platform_sessions:{
 ### Checklist
 - [ ] 动态 resolver 字段随接入方式切换，互斥且必填
 - [ ] Adapter 下拉来自 `getAdapters()`；adapter_config 按 schema 动态渲染
-- [ ] 表单校验与后端错误（`COMMON_VALIDATION_ERROR`/`COMMON_CONFLICT`）字段级映射
+- [ ] 表单校验与后端错误（`COMMON_VALIDATION_ERROR`/`PLATFORM_KEY_EXISTS`）字段级映射
 - [ ] 契约测试 `tests/frontend/test_platform_form_contract.py`
 - [ ] [S-05][E2E] 修改生产代码前，按 Browser→adapter metadata→Form 真实边界编写验收测试并记录 RED（浏览器层由 TASK-012 执行）
 - [ ] [S-05] 断言 仅渲染所选 resolver/adapter 对应字段且创建成功

@@ -165,7 +165,8 @@ async def test_create_conflicts_and_validation_do_not_persist(
         "/api/v1/project-platforms", json=_payload(key), headers=_headers(tenant)
     )
     assert conflict.status_code == 409
-    assert conflict.json()["code"] == "COMMON_CONFLICT"
+    assert conflict.json()["code"] == "PLATFORM_KEY_EXISTS"
+    assert key in conflict.json()["msg"], "专用码必须带出冲突的 key"
 
     unknown_adapter = await client.post(
         "/api/v1/project-platforms",

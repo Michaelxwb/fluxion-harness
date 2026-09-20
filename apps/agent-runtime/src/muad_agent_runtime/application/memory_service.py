@@ -6,7 +6,6 @@ import uuid
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import get_session_factory
 from ..infrastructure.models.runtime import UserMemory

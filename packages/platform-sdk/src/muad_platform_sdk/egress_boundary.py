@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-import httpx
 from dataclasses import dataclass
+from typing import Any
+
+import httpx
 
 MAX_BYTES_DEFAULT = 5 * 1024 * 1024
 PROTOCOLS = frozenset({"http", "https"})
@@ -54,7 +56,6 @@ class EgressBoundary:
             raise ForbiddenEgressError(f"host not in egress allowlist: {host}")
 
     async def _check_audited(self, url: str) -> None:
-        import asyncio
 
         try:
             self._check(url)
@@ -65,7 +66,6 @@ class EgressBoundary:
     async def _audit(self, *, target: str, decision: str, status_code: int | None) -> None:
         if self._audit_writer is None:
             return
-        import asyncio
 
         outcome = self._audit_writer.record_egress(
             target_type="HTTP", target=target, policy_decision=decision, status_code=status_code
@@ -91,7 +91,9 @@ class EgressBoundary:
         )
         return response
 
-    async def http_post(self, url: str, *, json_body: dict | None = None) -> httpx.Response:
+    async def http_post(
+        self, url: str, *, json_body: dict[str, Any] | None = None
+    ) -> httpx.Response:
         await self._check_audited(url)
         response = await self._client.post(url, json=json_body, follow_redirects=False)
         if len(response.content) > self._policy.max_bytes:

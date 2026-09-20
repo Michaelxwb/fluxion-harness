@@ -107,7 +107,13 @@ async def test_b04_envelope_pagination_and_counts(
 ) -> None:
     b04_key = f"mcp-{uuid.uuid4()}"
     first = await create_mcp(client, env, endpoint="http://127.0.0.1:9/mcp", key=b04_key)
-    second = await create_mcp(client, env, endpoint="http://127.0.0.1:9/mcp", key=f"mcp-{uuid.uuid4()}", extra={"enabled": False, "user_scope": "ALL"})
+    second = await create_mcp(
+        client,
+        env,
+        endpoint="http://127.0.0.1:9/mcp",
+        key=f"mcp-{uuid.uuid4()}",
+        extra={"enabled": False, "user_scope": "ALL"},
+    )
     assert first.status_code == 200 and second.status_code == 200
     first_id = first.json()["data"]["mcp_id"]
 
@@ -168,7 +174,9 @@ async def test_b04_envelope_pagination_and_counts(
         client, env, endpoint="http://127.0.0.1:9/mcp", key=b04_key
     )
     assert duplicate.status_code == 409
-    assert duplicate.json()["code"] == "COMMON_CONFLICT"
+    assert duplicate.json()["code"] == "MCP_KEY_EXISTS"
+    # 专用码必须把冲突的 key 带进 msg（通用 COMMON_CONFLICT 无占位符）
+    assert b04_key in duplicate.json()["msg"]
 
     updated = await client.put(
         f"/api/v1/mcp-servers/{first_id}",

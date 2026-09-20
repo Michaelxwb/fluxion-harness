@@ -117,7 +117,7 @@
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 |
 |---|---|---|---|---|---|---|
 | E-01 | FEAT-01 | integration | DB revision | 本模块 | 两个管理员并发编辑 | 旧 revision 返回 REVISION_CONFLICT |
-| E-02 | FEAT-04 | integration | bot_account unique constraint | 本模块 | 新增/编辑的 bot_id 已被其他 Agent 占用 | COMMON_CONFLICT（message_args 带 bot_id），不重绑 |
+| E-02 | FEAT-04 | integration | bot_account unique constraint | 本模块 | 新增/编辑的 bot_id 已被其他 Agent 占用 | BOT_ID_EXISTS（message_args 带 bot_id），不重绑 |
 | E-03 | FEAT-02 | integration | Skill 状态与软删除 | 本模块 | 绑定不存在/已软删除的 Skill；绑定已禁用 Skill | 不存在 → COMMON_NOT_FOUND；禁用 → 绑定行可写入但 Effective Capability 过滤，不进入新 Run 的 Prompt/Catalog |
 | E-04 | FEAT-03 | integration | grant partial unique + 软删除 | 本模块 | 重复授权已存在关系的用户 | 幂等返回既有 Grant；历史软删除行恢复，不产生重复有效行 |
 | E-05 | FEAT-01 | integration | Agent.enabled | 本模块 | Agent 禁用后新消息/Run | Runtime resolve 返回 AGENT_DISABLED；绑定与授权不生效 |
@@ -412,8 +412,8 @@ POST /api/v1/agents
 | `enabled` | boolean | 否 | 启用状态，默认 true |
 
 - `data`：`{id,key,name,model_id,revision,enabled,create_time}`。
-- 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND`（模型不存在）/ `MODEL_DISABLED`（模型已禁用）/ `COMMON_CONFLICT`（key 已存在）。
-- 处理：单事务插入 `agent_definition`（`revision=1`）+ `config_audit_log(action=CREATE, resource_type=AGENT, resource_id=新 id)`；`UNIQUE (tenant_id,key) WHERE is_deleted=false` 冲突映射 `COMMON_CONFLICT`；不引入平台默认模型。
+- 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND`（模型不存在）/ `MODEL_DISABLED`（模型已禁用）/ `AGENT_KEY_EXISTS`（key 已存在）。
+- 处理：单事务插入 `agent_definition`（`revision=1`）+ `config_audit_log(action=CREATE, resource_type=AGENT, resource_id=新 id)`；`UNIQUE (tenant_id,key) WHERE is_deleted=false` 冲突映射 `AGENT_KEY_EXISTS`；不引入平台默认模型。
 - 对应：docs/07 §10.1；docs/03 §4.3、§11.1；RULE-model-001。
 
 #### API-03 Agent 详情
@@ -630,8 +630,8 @@ POST /api/v1/agents/{agent_id}/channels
 | `config` | object | 否 | SDK 扩展配置，默认 `{}` |
 
 - `data`：`{channel_account_id,bot_id,agent_id,enabled,last_connected_at}`。
-- 错误码：`AGENT_NOT_FOUND / COMMON_VALIDATION_ERROR / COMMON_CONFLICT`（bot_id 已被占用，`message_args` 带字段与值）/ `COMMON_INTERNAL_ERROR`（secret 缺失或写入失败）。
-- 处理：单事务插入 `bot_account.secret`（明文）+ `config_audit_log(action=CREATE)`（审计不含明文）；`UNIQUE (bot_id) WHERE is_deleted=false` 冲突映射 `COMMON_CONFLICT` 且不重绑；明文不得进入审计/日志/LLM/响应。
+- 错误码：`AGENT_NOT_FOUND / COMMON_VALIDATION_ERROR / BOT_ID_EXISTS`（bot_id 已被占用，`message_args` 带字段与值）/ `COMMON_INTERNAL_ERROR`（secret 缺失或写入失败）。
+- 处理：单事务插入 `bot_account.secret`（明文）+ `config_audit_log(action=CREATE)`（审计不含明文）；`UNIQUE (bot_id) WHERE is_deleted=false` 冲突映射 `BOT_ID_EXISTS` 且不重绑；明文不得进入审计/日志/LLM/响应。
 - 对应：docs/07 §10.1；docs/03 §4.2.1；S-03。
 
 #### API-17 编辑通道
@@ -654,7 +654,7 @@ PUT /api/v1/agents/{agent_id}/channels/{channel_account_id}
 | `config` | object | 否 | SDK 扩展配置 |
 
 - `data`：`{channel_account_id,bot_id,enabled,last_connected_at,update_time}`。
-- 错误码：`AGENT_NOT_FOUND / BOT_NOT_FOUND / COMMON_VALIDATION_ERROR / COMMON_CONFLICT`（bot_id 占用）/ `COMMON_INTERNAL_ERROR`（secret 缺失或写入失败）。
+- 错误码：`AGENT_NOT_FOUND / BOT_NOT_FOUND / COMMON_VALIDATION_ERROR / BOT_ID_EXISTS`（bot_id 占用）/ `COMMON_INTERNAL_ERROR`（secret 缺失或写入失败）。
 - 处理：`bot_account` 不存在或已软删除 → `BOT_NOT_FOUND`；传 `secret` 时直接覆盖明文列；单事务更新字段 + `config_audit_log(action=UPDATE)`（审计不含明文）；编辑通道不影响同 Agent 其他通道，不需要保存整个 Agent。
 - 对应：docs/07 §10.1；docs/03 §4.2.1。
 

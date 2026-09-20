@@ -174,6 +174,33 @@ async def test_existing_identity_returns_existing_user(
     assert bind_code.status == "USED"
 
 
+async def test_identity_bound_to_another_user_is_rejected(
+    client: AsyncClient, channel: ChannelContext
+) -> None:
+    # ungranted_external_user_id 已绑定 ungranted_user_id，而 valid_bind_code 的目标是 actor_user_id
+    response = await client.post(
+        BIND_URL,
+        json=_payload(
+            channel.bot_id,
+            channel.ungranted_external_user_id,
+            channel.valid_bind_code,
+        ),
+        headers=_headers(channel),
+    )
+    _assert_error(response, 409, "IDENTITY_ALREADY_BOUND")
+
+    identity = await _fetch_identity(channel, channel.ungranted_external_user_id)
+    assert identity is not None
+    assert identity.platform_user_id == channel.ungranted_user_id
+
+    # 码不被消费：解绑后可复用
+    bind_code = await _fetch_code(channel, channel.valid_bind_code)
+    assert bind_code is not None
+    assert bind_code.status == "ACTIVE"
+    assert bind_code.used_at is None
+    assert bind_code.used_channel_identity_id is None
+
+
 async def test_other_tenant_code_is_invalid(client: AsyncClient, channel: ChannelContext) -> None:
     response = await client.post(
         BIND_URL,

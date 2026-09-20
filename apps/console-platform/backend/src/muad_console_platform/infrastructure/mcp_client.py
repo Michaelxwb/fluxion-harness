@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -98,9 +98,9 @@ class McpClient:
         if "text/event-stream" in content_type:
             for line in response.text.splitlines():
                 if line.startswith("data:"):
-                    return json.loads(line[len("data:") :].strip())
+                    return cast(dict[str, Any], json.loads(line[len("data:") :].strip()))
             raise McpClientError("protocol", "empty sse payload")
-        return response.json()
+        return cast(dict[str, Any], response.json())
 
     def initialize(self) -> dict[str, Any]:
         body = self._post(

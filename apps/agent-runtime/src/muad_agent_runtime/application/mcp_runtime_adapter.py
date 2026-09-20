@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolHandler, ToolRegistry
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
 
@@ -66,13 +67,19 @@ class McpRuntimeAdapter:
                     )
                 )
 
-    def _make_handler(self, tenant_id: str, run_id: uuid.UUID, server: McpServerDefinition, tool: McpToolDefinition):
-        async def handler(arguments: dict[str, Any]) -> str:
+    def _make_handler(
+        self,
+        tenant_id: str,
+        run_id: uuid.UUID,
+        server: McpServerDefinition,
+        tool: McpToolDefinition,
+    ) -> ToolHandler:
+        async def handler(arguments: Mapping[str, Any]) -> str:
             return await self.execute_tool(
                 tenant_id=tenant_id,
                 server=server,
                 tool=tool,
-                arguments=arguments,
+                arguments=dict(arguments),
                 policy_decision="ALLOW",
             )
 

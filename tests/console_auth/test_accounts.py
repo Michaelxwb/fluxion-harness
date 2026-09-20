@@ -57,7 +57,9 @@ async def test_admin_cannot_create_duplicate_username(
         headers={**tenant_headers(auth), **csrf_headers(client)},
     )
     assert duplicate.status_code == 409
-    assert duplicate.json()["code"] == "COMMON_CONFLICT"
+    assert duplicate.json()["code"] == "ACCOUNT_USERNAME_EXISTS"
+    # 专用码必须把冲突的账号名带进 msg（通用 COMMON_CONFLICT 无占位符，做不到）
+    assert auth.builder_username in duplicate.json()["msg"]
 
 
 async def test_create_account_rejects_short_password(client: AsyncClient, auth: AuthContext) -> None:

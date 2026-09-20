@@ -110,7 +110,7 @@ class TaskService:
             )
         ).scalar_one_or_none()
         if task is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "Task"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return task
 
     async def list(

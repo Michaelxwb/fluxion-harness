@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from argon2 import PasswordHasher
@@ -138,11 +139,11 @@ class AuthService:
         role: str = ROLE_BUILDER,
     ) -> ConsoleAccount:
         if role not in ROLES:
-            raise AppError(ErrorCode.COMMON_BAD_REQUEST, message_args={"field": "role"})
+            raise AppError(ErrorCode.COMMON_BAD_REQUEST)
         if len(password) < MIN_PASSWORD_LENGTH:
-            raise AppError(ErrorCode.COMMON_BAD_REQUEST, message_args={"field": "password"})
+            raise AppError(ErrorCode.COMMON_BAD_REQUEST)
         if await self._accounts.find_by_username(self._require_tenant(), username) is not None:
-            raise AppError(ErrorCode.COMMON_CONFLICT)
+            raise AppError(ErrorCode.ACCOUNT_USERNAME_EXISTS, message_args={"username": username})
         account = ConsoleAccount(
             tenant_id=self._tenant_id,
             username=username,
@@ -153,18 +154,22 @@ class AuthService:
         try:
             return await self._accounts.add(account)
         except IntegrityError as exc:
-            raise AppError(ErrorCode.COMMON_CONFLICT) from exc
+            raise AppError(ErrorCode.ACCOUNT_USERNAME_EXISTS, message_args={"username": username}) from exc
 
     async def change_password(
         self,
-        account: ConsoleAccount,
+        account_id: uuid.UUID,
         current_password: str,
         new_password: str,
     ) -> None:
+        # 按 id 在本 session 内重新加载：调用方持有的可能是会话校验器（另一个 session）返回的对象
+        account = await self._accounts.get(account_id)
+        if account is None or not account.enabled:
+            raise AppError(ErrorCode.UNAUTHORIZED)
         if not verify_password(account.password_hash, current_password):
             raise AppError(ErrorCode.INVALID_CREDENTIALS)
         if len(new_password) < MIN_PASSWORD_LENGTH:
-            raise AppError(ErrorCode.COMMON_BAD_REQUEST, message_args={"field": "new_password"})
+            raise AppError(ErrorCode.COMMON_BAD_REQUEST)
         account.password_hash = hash_password(new_password)
         account.failed_attempts = 0
         account.locked_until = None

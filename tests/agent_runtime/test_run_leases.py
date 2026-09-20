@@ -7,13 +7,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 import sqlalchemy as sa
-from muad_agent_runtime.infrastructure.db import get_session_factory
-from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRecord
-
 from muad_agent_runtime.application.run_lease import (
     RunLeaseService,
-    current_owner_rejected,
 )
+from muad_agent_runtime.infrastructure.db import get_session_factory
+from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRecord
 
 
 @pytest.fixture()

@@ -78,3 +78,4 @@ async def test_e04_schema_not_at_head_aborts(engine: AsyncEngine, tmp_path: Path
     finally:
         await _set_revision(engine, HEAD_REVISION)
 
+

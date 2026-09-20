@@ -5,11 +5,9 @@ from __future__ import annotations
 import uuid
 
 import pytest
-import sqlalchemy as sa
+from muad_agent_runtime.application.artifacts import ArtifactResultWriter
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, Conversation
-
-from muad_agent_runtime.application.artifacts import ArtifactResultWriter
 
 TENANT = f"art-{uuid.uuid4()}"
 CONV_ID = uuid.uuid4()
@@ -107,7 +105,7 @@ async def test_b111_db_failure_cleans_file(writer, tmp_path, _conversation) -> N
             raise sqlalchemy.exc.OperationalError("stmt", {}, Exception("db down"))
 
     broken_writer = ArtifactResultWriter(artifact_root=tmp_path, session_factory=lambda: None)
-    with pytest.raises(Exception):
+    with pytest.raises(sqlalchemy.exc.OperationalError):
         await broken_writer.persist_tool_result_with_session(
             BrokenSession(),
             tenant_id=TENANT,

@@ -13,11 +13,14 @@ def test_datetime_text_uses_the_console_format() -> None:
     assert "export function DateTimeText" in source
 
 
-def test_datetime_text_is_not_hardcoded_in_pages() -> None:
-    pages = ROOT / "apps/console-platform/frontend/src/pages"
+def test_datetime_text_is_not_hardcoded_in_pages_or_modules() -> None:
+    # 覆盖 pages/ 与 modules/：业务模块的表格时间列才是主要使用面，只扫 pages/ 会漏掉绝大部分
+    src = ROOT / "apps/console-platform/frontend/src"
+    targets = sorted((src / "pages").glob("*.tsx")) + sorted((src / "modules").rglob("*.tsx"))
+    assert targets
     offenders = [
-        path.name
-        for path in sorted(pages.glob("*.tsx"))
+        str(path.relative_to(ROOT))
+        for path in targets
         if "toLocaleString(" in path.read_text(encoding="utf-8")
     ]
-    assert offenders == []
+    assert offenders == [], "时间渲染必须走 DateTimeText: " + ", ".join(offenders)

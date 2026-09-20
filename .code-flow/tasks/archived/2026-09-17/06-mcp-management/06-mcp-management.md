@@ -175,7 +175,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 
 ### Description
 
-实现 `api/mcp_servers.py` + `application/mcp_service.py`：列表（聚合 tool_count/using_agent_count/selected_user_count，无 N+1）、注册（transport 固定 streamable-http，非法 `MCP_CONFIG_INVALID`；key 冲突 `COMMON_CONFLICT`；不自动 discovery）、详情（`auth_secret_configured` 不回显明文）、编辑（无 expected_revision，同事务 config_audit_log）、软删除、连接测试（只 connect+initialize，不执行 tools/list、不改 catalog）。
+实现 `api/mcp_servers.py` + `application/mcp_service.py`：列表（聚合 tool_count/using_agent_count/selected_user_count，无 N+1）、注册（transport 固定 streamable-http，非法 `MCP_CONFIG_INVALID`；key 冲突 `MCP_KEY_EXISTS`；不自动 discovery）、详情（`auth_secret_configured` 不回显明文）、编辑（无 expected_revision，同事务 config_audit_log）、软删除、连接测试（只 connect+initialize，不执行 tools/list、不改 catalog）。
 
 ### Checklist
 - [x] 先写测试并记录 RED：E-02、B-03、B-04（API 不存在→404/端点缺失，7 failed+errors）
@@ -185,7 +185,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 - [x] [S-03 前置] 连接测试对真实探针：AVAILABLE + latency_ms，不修改 tool_catalog_json
 - [x] 运行 harness-secret#RULE-secret-001 verifier：断言 API 响应/日志/审计均无明文
 - [x] 运行 harness-api#RULE-api-001 verifier：封套字段、分页约束、msg 来自 api-messages.yaml
-- [x] 运行 harness-api#RULE-api-002 verifier：注册 POST 支持 Idempotency-Key（复用 skill_import_idempotency 基建，endpoint='mcp-register'）：同 key 同指纹重放首次结果、不同指纹 COMMON_CONFLICT
+- [x] 运行 harness-api#RULE-api-002 verifier：注册 POST 支持 Idempotency-Key（复用 skill_import_idempotency 基建，endpoint='mcp-register'）：同 key 同指纹重放首次结果、不同指纹 `IDEMPOTENCY_MISMATCH`
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
@@ -195,7 +195,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 | E-02 | unit | request schema 校验 | MCP_CONFIG_INVALID、拒绝写入 | tests/console_mcp/test_mcp_api.py::config_invalid | uv run pytest -q tests/console_mcp/test_mcp_api.py -k config_invalid | verified |
 | B-03 | integration | 真实 HTTP + 真实 PostgreSQL | 不回显明文；审计/日志无明文 | test_mcp_api.py::secret | uv run pytest -q tests/console_mcp/test_mcp_api.py -k secret | verified |
 | B-04 | integration | ASGITransport + 真实 PostgreSQL | 封套/分页/聚合计数/软删过滤 | tests/console_mcp/test_mcp_api.py | uv run pytest -q tests/console_mcp/test_mcp_api.py | verified |
-| RULE-api-002 | integration | 真实 DB 幂等表 | 同 key 重放首次结果；不同指纹 COMMON_CONFLICT | tests/console_mcp/test_mcp_idempotency.py | uv run pytest -q tests/console_mcp/test_mcp_idempotency.py | verified |
+| RULE-api-002 | integration | 真实 DB 幂等表 | 同 key 重放首次结果；不同指纹 `IDEMPOTENCY_MISMATCH` | tests/console_mcp/test_mcp_idempotency.py | uv run pytest -q tests/console_mcp/test_mcp_idempotency.py | verified |
 
 ### Acceptance Evidence
 
@@ -323,12 +323,12 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 
 ### Description
 
-变更用户范围（切换 SELECTED 不清空 Grant）、指定用户分页列表 `{items,page,page_size,total}`（05 教训：**子资源列表也必须分页封套**）、添加（活跃重复 `COMMON_CONFLICT`，软删可重建，只创建 McpUserGrant）、移除（软删除）。全部同事务 config_audit_log，只影响后续新 Run/Task。
+变更用户范围（切换 SELECTED 不清空 Grant）、指定用户分页列表 `{items,page,page_size,total}`（05 教训：**子资源列表也必须分页封套**）、添加（活跃重复幂等返回既有 Grant，软删可重建，只创建 McpUserGrant）、移除（软删除）。全部同事务 config_audit_log，只影响后续新 Run/Task。
 
 ### Checklist
 - [x] 先写测试并记录 RED：S-02、E-03（端点不存在→404，3 failed）
 - [x] [S-02][integration] SELECTED MCP 添加用户：只创建 McpUserGrant（真实 DB），不产生 AgentMcpBinding/AgentAccessGrant/Tool 级 grant，无到期时间
-- [x] [E-03][integration] 重复添加同一用户：`COMMON_CONFLICT`；软删后可重新创建
+- [x] [E-03][integration] 重复添加同一用户：幂等返回既有 Grant（200）；软删后可重新创建
 - [x] [B-05][integration] 单关系 POST/DELETE 独立事务；分页封套（非裸数组）
 - [x] 运行 harness-auth#RULE-auth-001 verifier：撤销=软删除、判定 is_deleted=false、无三元/Tool 级授权
 - [x] 运行 harness-rel#RULE-rel-001 verifier：仅单关系端点，无全量 PUT
@@ -339,7 +339,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
 | S-02 | integration | Grant service、真实 PostgreSQL | 只创建 McpUserGrant；无 expires_at | tests/console_mcp/test_user_scope_api.py | uv run pytest -q tests/console_mcp/test_user_scope_api.py -k user_scope_and_grants | verified |
-| E-03 | integration | 真实 HTTP + DB | COMMON_CONFLICT、不重复 | 同上 | uv run pytest -q tests/console_mcp/test_user_scope_api.py -k duplicate_grant | verified |
+| E-03 | integration | 真实 HTTP + DB | 幂等 200 + 既有记录、不重复 | 同上 | uv run pytest -q tests/console_mcp/test_user_scope_api.py -k duplicate_grant | verified |
 | B-05 | integration | 真实 HTTP + DB | 单关系/软删重建/分页封套 | 同上 | uv run pytest -q tests/console_mcp/test_user_scope_api.py | verified |
 
 ### Acceptance Evidence
@@ -347,7 +347,7 @@ RULE 映射（每条 required Rule 唯一责任任务）：
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | S-02 | 404 端点缺失，3 failed | 25 passed（console_mcp 全量） | test_s02（只建 Grant/计数不变/无 expires_at/软删重建） | ASGI 真实 HTTP + 真实 PostgreSQL | verified |
-| E-03 | 同上 | 同上 | test_e03（重复 409 COMMON_CONFLICT） | 同上 | verified |
+| E-03 | 同上 | 同上 | test_e03（重复 200 幂等） | 同上 | verified |
 | B-05 | 同上 | 同上 | test_b05（分页封套 total=2 page_size=1；切换 ALL 不清空；未知用户 404） | 同上 | verified |
 - S-02: verified — automated command passed; run_id=bb72d459a630406fa7f2d71d2245154d (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=bb72d459a630406fa7f2d71d2245154d (confirmed_by: runner)

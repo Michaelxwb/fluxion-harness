@@ -1,6 +1,6 @@
 import uuid
 from datetime import UTC, datetime
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from muad_api import AppError
@@ -202,7 +202,7 @@ class SkillService:
     async def get_skill(self, tenant_id: str, skill_id: uuid.UUID) -> Skill:
         skill = await self._skills.get(tenant_id, skill_id)
         if skill is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "Skill"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return skill
 
     async def get_skill_detail(self, tenant_id: str, skill_id: uuid.UUID) -> SkillDetail:
@@ -266,7 +266,7 @@ class SkillService:
         if record is None:
             return None
         if record.request_fingerprint != fingerprint:
-            raise AppError(ErrorCode.COMMON_CONFLICT)
+            raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
         return dict(record.response_json)
 
     async def _record_idempotency(
@@ -341,7 +341,7 @@ class SkillService:
         existing = await self._skills.find_by_key(tenant_id, chosen_key)
         if existing is not None:
             await self._require_absent_version(existing.id, version, checksum)
-            raise AppError(ErrorCode.COMMON_CONFLICT)
+            raise AppError(ErrorCode.SKILL_KEY_EXISTS, message_args={"key": chosen_key})
         skill_id = uuid.uuid4()
         artifact_id = uuid.uuid4()
         storage_key = artifact_storage_key(skill_id, artifact_id)
@@ -376,7 +376,7 @@ class SkillService:
             await self._record_artifact_audit(tenant_id, actor, "CREATE", artifact, None)
         except IntegrityError as exc:
             remove_artifact(storage_key)
-            raise AppError(ErrorCode.COMMON_CONFLICT) from exc
+            raise AppError(ErrorCode.SKILL_KEY_EXISTS, message_args={"key": chosen_key}) from exc
         except BaseException:
             remove_artifact(storage_key)
             raise
@@ -444,7 +444,7 @@ class SkillService:
         self,
         *,
         grace_seconds: float = 3600.0,
-        root=None,
+        root: str | Path | None = None,
     ) -> list[str]:
         """扫描 Artifact 目录，删除 DB 无记录且早于宽限期的孤儿文件。"""
         known = await self._skills.list_storage_keys()
@@ -470,7 +470,7 @@ class SkillService:
         skill = await self.get_skill(tenant_id, skill_id)
         artifact = await self._skills.get_artifact(skill.id, artifact_id)
         if artifact is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "SkillArtifact"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return artifact_detail(artifact)
 
     async def list_grants(
@@ -494,22 +494,22 @@ class SkillService:
         skill = await self.get_skill(tenant_id, skill_id)
         user = await self._require_platform_user(tenant_id, user_id)
         grant = await self._grants.find(skill.id, user_id)
-        if grant is not None and not grant.is_deleted:
-            raise AppError(ErrorCode.COMMON_CONFLICT)
-        before = grant_snapshot(grant) if grant is not None else None
-        if grant is None:
-            grant = SkillUserGrant(
-                skill_id=skill.id,
-                user_id=user_id,
-                granted_by=actor.account_id,
-            )
-            await self._grants.add(grant)
-        else:
-            grant.is_deleted = False
-            grant.granted_by = actor.account_id
-            grant.update_time = datetime.now(UTC)
-            await self._session.flush()
-        await self._record_grant_audit(tenant_id, actor, grant, before)
+        if grant is None or grant.is_deleted:
+            before = grant_snapshot(grant) if grant is not None else None
+            if grant is None:
+                grant = SkillUserGrant(
+                    skill_id=skill.id,
+                    user_id=user_id,
+                    granted_by=actor.account_id,
+                )
+                await self._grants.add(grant)
+            else:
+                grant.is_deleted = False
+                grant.granted_by = actor.account_id
+                grant.update_time = datetime.now(UTC)
+                await self._session.flush()
+            await self._record_grant_audit(tenant_id, actor, grant, before)
+        # 幂等：已授权时直接返回既有记录，不重复写审计（与用户↔Agent 授权口径一致）
         return grant_item(grant, user)
 
     async def remove_grant(
@@ -522,7 +522,7 @@ class SkillService:
         skill = await self.get_skill(tenant_id, skill_id)
         grant = await self._grants.find(skill.id, user_id)
         if grant is None or grant.is_deleted:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "SkillUserGrant"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         before = grant_snapshot(grant)
         grant.is_deleted = True
         grant.update_time = datetime.now(UTC)
@@ -652,7 +652,7 @@ class SkillService:
     async def _require_platform_user(self, tenant_id: str, user_id: uuid.UUID) -> PlatformUser:
         user = await self._platform_users.get(tenant_id, user_id)
         if user is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "User"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return user
 
     async def _require_agent(self, tenant_id: str, agent_id: uuid.UUID) -> AgentDefinition:

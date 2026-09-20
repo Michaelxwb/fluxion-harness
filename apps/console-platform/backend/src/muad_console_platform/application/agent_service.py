@@ -1,9 +1,10 @@
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -106,7 +107,7 @@ class AgentService:
         await self._require_model(tenant_id, payload.model_id)
         existing = await self._agents.find_by_key(tenant_id, payload.key)
         if existing is not None:
-            raise AppError(ErrorCode.COMMON_CONFLICT)
+            raise AppError(ErrorCode.AGENT_KEY_EXISTS, message_args={"key": payload.key})
         agent = AgentDefinition(
             tenant_id=tenant_id,
             key=payload.key,
@@ -120,7 +121,7 @@ class AgentService:
         try:
             created = await self._agents.add(agent)
         except IntegrityError as exc:
-            raise AppError(ErrorCode.COMMON_CONFLICT) from exc
+            raise AppError(ErrorCode.AGENT_KEY_EXISTS, message_args={"key": payload.key}) from exc
         await self._record_audit(tenant_id, actor, "CREATE", created.id, None, created)
         if idempotency_key:
             self._session.add(
@@ -160,7 +161,7 @@ class AgentService:
         if record is None:
             return None
         if record.request_fingerprint != self._fingerprint(payload):
-            raise AppError(ErrorCode.COMMON_CONFLICT)
+            raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
         return dict(record.response_json)
 
     async def update_agent(
@@ -190,7 +191,7 @@ class AgentService:
             )
             .values(**updates)
         )
-        if result.rowcount != 1:
+        if cast(CursorResult[Any], result).rowcount != 1:
             raise AppError(ErrorCode.REVISION_CONFLICT)
         await self._session.flush()
         updated = await self.get_agent(tenant_id, agent_id)
@@ -236,6 +237,6 @@ class AgentService:
     async def _require_model(self, tenant_id: str, model_id: uuid.UUID) -> None:
         model = await self._agents.get_model(tenant_id, model_id)
         if model is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "Model"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         if not model.enabled:
             raise AppError(ErrorCode.MODEL_DISABLED)

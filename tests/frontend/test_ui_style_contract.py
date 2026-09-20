@@ -17,10 +17,20 @@ def _read(path: Path) -> str:
 
 def test_theme_entrypoint_and_tokens() -> None:
     main = _read(SRC / "main.tsx")
-    assert "ConfigProvider" in main
-    assert "locale/source/zh_CN" in main
+    assert "AppProviders" in main
     assert "'./styles/app.css'" in main
     assert "'@douyinfe/semi-ui/dist/css/semi.min.css'" in main
+
+    providers = _read(SRC / "components/common/AppProviders.tsx")
+    assert "ConfigProvider" in providers
+    assert "locale/source/zh_CN" in providers
+    assert "locale/source/en_US" in providers
+    assert "useTranslation()" in providers, "Semi locale 必须随界面语言变化重新渲染"
+    assert "semiLocaleFor(" in providers, "缺少按语言选择 Semi locale 的映射"
+    assert re.search(r"startsWith\('en'\)", providers), "必须按 en* 语言选择英文 locale"
+    assert "SEMI_LOCALES['en-US']" in providers and "SEMI_LOCALES['zh-CN']" in providers
+    assert re.search(r"locale=\{(semiLocale|semiLocaleFor\()", providers), "Semi locale 必须按语言动态选择"
+    assert not re.search(r"locale=\{(zhCN|zh_CN)\}", providers), "Semi locale 不能写死单一语言"
 
     index = _read(FRONTEND / "index.html")
     assert 'theme-mode="dark"' in index, "默认暗色主题"

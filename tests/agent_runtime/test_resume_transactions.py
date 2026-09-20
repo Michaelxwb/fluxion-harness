@@ -6,16 +6,15 @@ import uuid
 
 import pytest
 import sqlalchemy as sa
+from muad_agent_runtime.application.run_submission import (
+    RunSubmissionService,
+    submission_fingerprint,
+)
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
     Conversation,
     RunRecord,
     RunSubmission,
-)
-
-from muad_agent_runtime.application.run_submission import (
-    RunSubmissionService,
-    submission_fingerprint,
 )
 
 TENANT = f"resume-{uuid.uuid4()}"
@@ -77,7 +76,7 @@ async def _seed_waiting_run() -> tuple[uuid.UUID, uuid.UUID]:
 async def test_b119_resume_idempotency_key_scopes_by_run_and_input() -> None:
     """[B-119] resume 指纹包含 run_id+input：同键同输入重放；不同输入 CONFLICT。"""
     run_id, conv_id = await _seed_waiting_run()
-    service = RunSubmissionService(get_session_factory())
+    service = RunSubmissionService(get_session_factory)
 
     key = f"resume-{uuid.uuid4()}"
     fp = submission_fingerprint(run_id=run_id, key_payload={"text": "answer"})
@@ -109,17 +108,17 @@ async def test_b119_resume_idempotency_key_scopes_by_run_and_input() -> None:
             endpoint="resume-run",
             fingerprint=submission_fingerprint(run_id=run_id, key_payload={"text": "other"}),
         )
-    assert exc.value.code == ErrorCode.COMMON_CONFLICT
+    # 同幂等键、不同请求指纹 → 幂等语义冲突（非「刷新重试可解」那类）
+    assert exc.value.code == ErrorCode.IDEMPOTENCY_MISMATCH
 
 
 async def test_b119_missing_idempotency_key_and_input_id_is_validation_error() -> None:
     """[B-119] 显式 Idempotency-Key 与 input.id 均缺失 → COMMON_VALIDATION_ERROR。"""
-    from muad_api import AppError
-    from muad_api.error_codes import ErrorCode
-
     from muad_agent_runtime.application.run_submission import (
         require_resume_idempotency,
     )
+    from muad_api import AppError
+    from muad_api.error_codes import ErrorCode
 
     with pytest.raises(AppError) as exc:
         require_resume_idempotency(idempotency_key=None, input_id=None)

@@ -88,7 +88,7 @@ def _canonical_json(payload: Any) -> str:
 
 def _snapshot_model(model: Any) -> dict[str, Any]:
     """Snapshot/hash 中的模型信息剥离认证字段（api_key 只走 API-09 实时读取）。"""
-    data = model.model_dump(mode="json")
+    data: dict[str, Any] = model.model_dump(mode="json")
     data.pop("api_key", None)
     return data
 
@@ -166,7 +166,7 @@ class RunService:
     async def resume(self, run_id: uuid.UUID, input_text: str, tenant_id: str) -> RunStart:
         run = await self._load_run(run_id, tenant_id)
         if run.status != RunStatus.WAITING_INPUT:
-            raise AppError(ErrorCode.COMMON_CONFLICT)
+            raise AppError(ErrorCode.REVISION_CONFLICT)
         return await self._resume_run(run, input_text)
 
     async def cancel_run(self, run_id: uuid.UUID) -> RunRecord:
@@ -174,7 +174,7 @@ class RunService:
             sa.select(RunRecord).where(RunRecord.id == run_id, RunRecord.is_deleted.is_(False))
         )
         if run is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "Run"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return await self._cancel(run)
 
     async def cancel_active(
@@ -259,7 +259,7 @@ class RunService:
             )
         )
         if run is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "Run"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return run
 
     async def _load_snapshot(self, run: RunRecord) -> RuntimeSnapshot:
@@ -518,7 +518,7 @@ class RunService:
             .returning(Conversation.last_seq)
         )
         if seq is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "Conversation"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         session.add(
             CanonicalEvent(
                 tenant_id=tenant_id,
@@ -633,7 +633,7 @@ class RunService:
         async with get_session_factory()() as session:
             run = await session.scalar(sa.select(RunRecord).where(RunRecord.id == run_id))
             if run is None:
-                raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "Run"})
+                raise AppError(ErrorCode.COMMON_NOT_FOUND)
             if run.status in TERMINAL_RUN_STATUSES:
                 return FinalState(status=run.status, error_code=run.error_code)
             cancelled = run.cancel_requested
@@ -683,5 +683,5 @@ class RunService:
         async with get_session_factory()() as session:
             run = await session.scalar(sa.select(RunRecord).where(RunRecord.id == run_id))
         if run is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "Run"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return FinalState(status=run.status, error_code=run.error_code)

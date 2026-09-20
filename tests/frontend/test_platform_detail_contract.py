@@ -13,7 +13,7 @@ def test_detail_sidesheet_actions_and_tabs() -> None:
     assert "platform.actions.edit" in source
     assert "platform.actions.delete" in source
     assert "platform.actions.test" in source
-    assert "Popconfirm" in source
+    assert "ConfirmAction" in source
     assert "Tabs.TabPane" in source
 
 

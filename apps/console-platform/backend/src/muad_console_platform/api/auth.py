@@ -67,7 +67,7 @@ async def change_password(
     session: Session,
 ) -> ApiResponse[Any]:
     await AuthService(session, tenant_id=tenant_id).change_password(
-        account,
+        account.id,
         payload.current_password,
         payload.new_password,
     )

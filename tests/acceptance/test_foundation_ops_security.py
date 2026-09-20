@@ -76,3 +76,32 @@ def test_s10_valid_session_passes_cookie_and_bearer() -> None:
 
     client.cookies.set("muad_session", "expired-token")
     assert client.get("/session").status_code == 401
+
+
+def test_s10_real_console_app_uses_api_kit_security_primitive() -> None:
+    """RULE-14：真实 console app 必须装配 api-kit 的会话/RBAC 原语（而不是自建依赖层）。"""
+    import importlib
+
+    from muad_console_platform.infrastructure.db import get_engine, get_session_factory
+
+    app: FastAPI = importlib.import_module("muad_console_platform.main").app
+    assert app.state.session_verifier is not None, "未安装 install_console_security（缺少 session_verifier）"
+    assert app.state.role_resolver is not None, "未安装 install_console_security（缺少 role_resolver）"
+
+    client = TestClient(app)
+    try:
+        anonymous = client.get("/api/v1/users")
+        assert anonymous.status_code == 401
+        assert anonymous.json()["code"] == "UNAUTHORIZED"
+
+        # 未知 token 走真实 ConsoleSessionVerifier（真实 console_session 查询）
+        client.cookies.set("muad_session", "unknown-token")
+        unknown = client.get("/api/v1/users")
+        assert unknown.status_code == 401
+        assert unknown.json()["code"] == "UNAUTHORIZED"
+    finally:
+        client.close()
+        # 上面的请求在 TestClient 的 portal 线程循环里建了 console 的 engine（lru_cache），
+        # 不清理会让后续用例复用到绑定在已关闭循环上的 engine
+        get_engine.cache_clear()
+        get_session_factory.cache_clear()

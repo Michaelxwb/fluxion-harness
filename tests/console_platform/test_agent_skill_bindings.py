@@ -75,7 +75,16 @@ async def test_s02_bind_skill_immediate_and_paginated_envelope(
         assert field in page
     assert page["total"] == 1
     item = page["items"][0]
-    for field in ("skill_id", "key", "name", "user_scope", "enabled", "current_artifact_version", "sort_order", "create_time"):
+    for field in (
+        "skill_id",
+        "key",
+        "name",
+        "user_scope",
+        "enabled",
+        "current_artifact_version",
+        "sort_order",
+        "create_time",
+    ):
         assert field in item, f"缺字段 {field}"
     assert item["current_artifact_version"] == "1.0.0"
 
@@ -85,7 +94,6 @@ async def test_s02_resolve_reflects_binding_immediately(
 ) -> None:
     """[S-02 延伸] 绑定后 resolve-definition 立即可见（ALL scope Skill）。"""
     from muad_console_platform.infrastructure.db import get_session_factory
-
     from muad_console_platform.infrastructure.models.control import PlatformUser
 
     agent_id = await _make_agent(client, tenant)
@@ -147,7 +155,6 @@ async def test_e03_bind_disabled_skill_allowed_but_filtered(
     skill_id = await _make_skill(client, tenant)
 
     from muad_console_platform.infrastructure.db import get_session_factory
-
     from muad_console_platform.infrastructure.models.control import Skill
     from sqlalchemy import update
 
@@ -178,7 +185,8 @@ async def test_e03_bind_disabled_skill_allowed_but_filtered(
 async def test_rel_001_unbind_idempotent_and_restore_updates_sort_order(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
-    """[RULE-rel-001] 解除幂等返回 {agent_id,skill_id,is_deleted:true}；再绑定恢复同一逻辑关系并更新 sort_order。"""
+    """[RULE-rel-001] 解除幂等返回 {agent_id,skill_id,is_deleted:true}；
+    再绑定恢复同一逻辑关系并更新 sort_order。"""
     agent_id = await _make_agent(client, tenant)
     skill_id = await _make_skill(client, tenant)
 

@@ -11,7 +11,7 @@
 | 项目 | 内容 |
 |---|---|
 | 模块 | 平台底座与公共框架 |
-| 前端目录 | `apps/console-platform/frontend/src/modules/platform-foundation/` |
+| 前端目录 | 本模块不建独立业务模块目录（`src/modules/platform-foundation/` 不存在），交付面为：`src/components/common/`（公共组件）、`src/layout/AppLayout.tsx`（应用壳）、`src/api/`（ApiClient）、`src/i18n/`、`src/config/menu.ts`（菜单定义）、`src/styles/app.css`、`src/theme.ts`；业务模块目录自 02 起各自建立 |
 | 公共组件 | `src/components/common/`，由 01-platform-foundation 提供 |
 | 交互基线 | 最新 `智能服务交付平台-V1.4-交互稿.html` |
 
@@ -44,7 +44,7 @@
 
 | 功能ID | 功能名称 | 功能描述 | 优先级 | 来源 |
 |---|---|---|---|---|
-| FEAT-FE-01 | ConsoleShell | Layout/Nav/Header/Outlet/语言切换；固定 10 项菜单。 | P0 | 需求描述 |
+| FEAT-FE-01 | ConsoleShell（实现为 `layout/AppLayout.tsx`） | Layout/Nav/Header/Outlet/语言切换；固定 10 项菜单（ADMIN 视角）。 | P0 | 需求描述 |
 | FEAT-FE-02 | 公共列表组件 | Toolbar/Table/Pagination/EntityLink。 | P0 | 需求描述 |
 | FEAT-FE-03 | 公共详情/表单 | SideSheet/Tabs/Modal/Form/Confirm/Toast。 | P0 | 需求描述 |
 | FEAT-FE-04 | 前端 i18n/ApiClient | locale persistence + X-Locale + Envelope 错误处理 + 401 跳转登录。 | P0 | 需求描述 |
@@ -53,7 +53,7 @@
 
 | 类别 | 内容 |
 |---|---|
-| In Scope | ConsoleShell（固定 10 项菜单：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计）、ModuleToolbar、RemoteTable、DetailSideSheet、FormModal、状态/空态/错误态、LocaleSwitch、ApiClient。 |
+| In Scope | ConsoleShell（实现为 `layout/AppLayout.tsx`；固定 10 项菜单：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计）、ModuleToolbar、RemoteTable、DetailSideSheet、FormModal、状态/空态/错误态、LocaleSwitch、ApiClient。 |
 | Out of Scope | 不改领域语义；组件不裸用 axios/fetch；不增加交互稿未确认的重型能力；不做登录页、账号管理与 RBAC 业务（归属 13-console-auth，本模块只提供 401 跳转与角色菜单过滤原语）；无系统设置/中间件状态菜单。 |
 | 技术债 | 无 |
 
@@ -63,14 +63,14 @@
 |---|---|---|---|---|---|
 | S-FE-01 | FEAT-FE-01 | E2E | Browser Router→ConsoleShell | 切换任意模块路由 | Layout 不重建且菜单选中正确 |
 | S-FE-02 | FEAT-FE-04 | E2E | Browser→LocalStorage→API | 切换 English 后刷新 | 语言保持且请求带 X-Locale=en-US |
-| S-FE-03 | FEAT-FE-01 | unit | ConsoleShell 菜单 | 渲染 ConsoleShell | 菜单恰为固定 10 项，无系统设置/中间件状态 |
+| S-FE-03 | FEAT-FE-01 | unit | ConsoleShell 菜单清单（源码级契约）；`/users` 为 adminOnly，非 ADMIN 可见 9 项 | 渲染 ConsoleShell | 菜单恰为固定 10 项（ADMIN 视角；`/users` 为 adminOnly，非 ADMIN 可见 9 项），无系统设置/中间件状态 |
 
 异常：
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | UI 表现 |
 |---|---|---|---|---|---|
-| E-FE-01 | FEAT-FE-04 | integration | Axios interceptor→Toast | 后端 code!=0 | 统一展示本地化 msg |
-| E-FE-02 | FEAT-FE-03 | unit | DetailSideSheet | actions 为空 | 不出现空操作区，X 仍在右上 |
+| E-FE-01 | FEAT-FE-04 | contract | 源码契约（不执行拦截器） | 后端 code!=0 | 统一展示本地化 msg |
+| E-FE-02 | FEAT-FE-03 | unit | DetailSideSheet 契约（源码级，不渲染组件） | actions 为空 | 不出现空操作区，X 仍在右上 |
 | E-FE-03 | FEAT-FE-04 | E2E | ApiClient→401→Router | 会话失效访问业务页 | 跳转 13-console-auth 登录页并保留 returnUrl，不渲染业务数据 |
 
 ## 3. 前端技术设计
@@ -92,13 +92,15 @@
 
 | 页面 | 路由 | 布局 | 说明 |
 |---|---|---|---|
-| 应用壳 | `/*` | ConsoleShell | 所有 Console 页面共用 |
+| 应用壳 | `/*` | ConsoleShell（`layout/AppLayout.tsx`） | 所有 Console 页面共用 |
 
-ConsoleShell 菜单固定 10 项且顺序固定：
+ConsoleShell（`AppLayout`）菜单固定 10 项且顺序固定：
 
 ```text
 概览 / Agent / Skill / MCP / 模型 / 用户 / 项目平台 / 后台任务 / 定时任务 / 运行审计
 ```
+
+菜单项定义在 `src/config/menu.ts`；`/users` 标记 `adminOnly: true`，由 `AppLayout` 按角色过滤，因此**固定 10 项为 ADMIN 视角，非 ADMIN 可见 9 项**。
 
 无“系统设置/中间件状态”菜单，不展示 PostgreSQL、Redis、NFS/PVC、Runtime Pod、Worker Pod 健康状态（由部署平台/OTel/监控系统负责，docs/00 §0.7）。
 
@@ -106,33 +108,36 @@ ConsoleShell 菜单固定 10 项且顺序固定：
 
 ```text
 <App>
-└─ <ConsoleShell>
-   ├─ <Navigation/>          # 固定 10 项菜单，按 13-console-auth 角色上下文过滤
+└─ <AppLayout>                  # 应用壳（原文档称 ConsoleShell）
+   ├─ <Navigation/>             # 固定 10 项菜单，按 13-console-auth 角色上下文过滤
    ├─ <Header><LocaleSwitch/></Header>
    └─ <Outlet>
       └─ <ModulePage>
          ├─ <ModuleToolbar/>
          ├─ <RemoteTable/>
          ├─ <PaginationFooter/>
-         ├─ <DetailSideSheet><DetailTabs/></DetailSideSheet>
+         ├─ <DetailSideSheet/>  # Tabs 由 DetailSideSheet 内部渲染 Semi Tabs（无独立 DetailTabs 组件）
          └─ <FormModal/>
 ```
 
 | 组件ID | 组件名 | 类型 | 复用来源/去向 | 职责 |
 |---|---|---|---|---|
-| CMP-01 | `ConsoleShell` | 容器 | 模块内 | Semi Layout/Nav/Header + Outlet；固定 10 项菜单，无系统设置/中间件状态 |
+| CMP-01 | `AppLayout`（原文档称 `ConsoleShell`） | 容器 | 模块内 | Semi Layout/Nav/Header + Outlet；固定 10 项菜单（ADMIN 视角），无系统设置/中间件状态 |
 | CMP-02 | `ModuleToolbar` | 展示 | 全模块 | 左操作、右搜索筛选 |
 | CMP-03 | `RemoteTable` | 展示 | 全模块 | Semi Table 受控分页 |
-| CMP-04 | `DetailSideSheet` | 展示 | 全模块 | 标题/副标题/操作/X 同行 + Tabs |
+| CMP-04 | `DetailSideSheet` | 展示 | 全模块 | 标题/副标题/操作/X 同行 + Tabs（内部渲染 Semi `Tabs`） |
 | CMP-05 | `FormModal` | 展示 | 全模块 | Semi Modal + Form + submit state |
 
-**必须复用公共组件**：`ConsoleShell / ModuleToolbar / RemoteTable / EntityLink / DetailSideSheet / DetailTabs / FormModal / StatusTag / DateTimeText / ConfirmAction / EmptyState / ErrorState / PaginationFooter / LocaleSwitch`。
+**必须复用公共组件**（`src/components/common/`，实际文件名已逐个核对）：`AppLayout`（`src/layout/`）、`ModuleToolbar`、`RemoteTable`、`EntityLink`、`DetailSideSheet`、`FormModal`、`StatusTag`、`DateTimeText`、`ConfirmAction`、`EmptyState`、`ErrorState`、`PaginationFooter`、`LocaleSwitch`。
+
+> 说明 1：`DetailTabs` 不是独立组件 —— 详情 Tabs 由 `DetailSideSheet` 内部渲染 Semi `Tabs`；`ConsoleShell` 的实际组件名是 `layout/AppLayout.tsx`。
+> 说明 2：其中 `ErrorState` / `StatusTag` / `ConfirmAction` / `EntityLink` / `LocaleSwitch` 在 01 归档时**未交付**，由 02-user-identity 的 review 修复补齐（2026-09-20；`LocaleSwitch` 由 `LanguageSwitcher` 更名确立）。保留在清单中，因为 02/03/05/06/07 的 design 均把"01 交付公共组件"当作硬依赖。
 
 #### 3.3.1 每个按钮/操作的设计
 
 | 位置 | 按钮/链接 | Semi 组件 | 层级 | 行为 | Service/API | 二次确认 |
 |---|---|---|---|---|---|---|
-| Header | 中文 / English | `Select` | locale | 切换 locale 并持久化 | `-` | 否 |
+| Header | 中文 / English | `LocaleSwitch`（Button + Tooltip，图标按钮） | locale | 切换 locale 并持久化（`localStorage['muad.locale']`），并同步 Semi 组件内置文案 | `-` | 否 |
 | ModuleToolbar | 刷新 | `Button` | secondary | 保留筛选刷新当前页 | `模块列表 API` | 否 |
 | DetailSideSheet | 关闭 X | `SideSheet.onCancel` | close | 关闭并恢复焦点 | `-` | 否 |
 | FormModal | 取消 | `Button` | secondary | 关闭且不提交 | `-` | 否 |
@@ -160,8 +165,8 @@ export interface DetailSideSheetProps {
 ```text
 User Action
  -> Page/Hook
- -> modules/platform-foundation/services/*.ts
- -> shared apiClient(X-Locale/X-Request-Id)
+ -> 模块 services/*.ts
+ -> shared apiClient (src/api/client.ts, X-Locale/X-Request-Id)
  -> Backend Envelope
  -> Hook State
  -> Semi Components
@@ -204,14 +209,17 @@ Semi Form required/rules；Modal/SideSheet 焦点管理；图标按钮 aria-labe
 - 前置：无（登录/RBAC 业务依赖 13-console-auth 提供角色上下文）；
 - 风险：硬编码中文、重复造公共 SideSheet/Toolbar、前端 N+1、菜单随页面实现漂移；
 - 应对：i18n key 检查、公共组件依赖、列表 API 聚合字段、菜单固定 10 项由 S-FE-03 守护。
+- **守护强度说明**：S-FE-03（`tests/frontend/test_console_shell_contract.py`）是**源码级契约测试**（解析 `src/config/menu.ts` 的 key 序列 + 断言 `AppLayout` 的导航项只来自 `menuItems`），不渲染组件。它能拦住"`menu.ts` 被改动"和"`AppLayout` 另加硬编码菜单项"，但**不能**证明真实渲染结果 —— 渲染正确性由 E2E S-FE-01 覆盖。
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `harness-platform#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.1 / §3.5 | S-FE-02, E-FE-01（verifier: project-owner） | applied |
-| `harness-platform#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情；菜单固定十项。 | §3.2 / §3.3 CMP-01/CMP-02 | S-FE-01, S-FE-03（verifier: project-owner 确认 10 项菜单与无系统设置） | applied |
-| `harness-platform#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3 CMP-04 / §3.4 | S-FE-01, E-FE-02（verifier: project-owner） | applied |
-| `harness-platform#RULE-time-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | §3.7 / DateTimeText | S-FE-01（verifier: project-owner） | applied |
-| `harness-platform#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.5 / §3.6 | S-FE-02, E-FE-01, E-FE-03（verifier: project-owner） | applied |
-| `harness-platform#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4 / §3.5 | S-FE-01~S-FE-03, E-FE-01~E-FE-03（verifier: project-owner） | applied |
+| `harness-i18n#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.1 / §3.5 | S-FE-02, E-FE-01（verifier: project-owner） | applied |
+| `harness-ui#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情；菜单固定十项（ADMIN 视角）。 | §3.2 / §3.3 CMP-01/CMP-02 | S-FE-01, S-FE-03（verifier: project-owner 确认 10 项菜单与无系统设置） | applied |
+| `harness-ui-detail#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3 CMP-04 / §3.4 | S-FE-01, E-FE-02（verifier: project-owner） | applied |
+| `harness-time#RULE-time-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | §3.7 / DateTimeText | S-FE-01（verifier: project-owner） | applied |
+| `harness-frontend#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.5 / §3.6 | S-FE-02, E-FE-01, E-FE-03（verifier: project-owner） | applied |
+| `harness-test#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4 / §3.5 | S-FE-01~S-FE-03, E-FE-01~E-FE-03（verifier: project-owner） | applied |
+
+> 说明：本矩阵原先的 owner 写成 `harness-platform`，该 spec id 在 `.code-flow/specs/` 中不存在；已按实际生效的 spec id 更正（真实 id 为 `harness-i18n` / `harness-ui` / `harness-ui-detail` / `harness-time` / `harness-frontend` / `harness-test`）。

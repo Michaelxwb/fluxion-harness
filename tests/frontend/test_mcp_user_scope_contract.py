@@ -18,7 +18,7 @@ def test_remove_failure_does_not_mutate_local_rows() -> None:
     remove_block = source.split("const remove = async")[1].split("};")[0]
     assert "catch {" in remove_block
     assert "setItems" not in remove_block  # 失败路径不直接改本地列表
-    assert "Popconfirm" in source
+    assert "ConfirmAction" in source
 
 
 def test_grants_single_relation_ops() -> None:

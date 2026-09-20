@@ -128,8 +128,15 @@ export function ModelFormModal(props: ModelFormModalProps) {
       <Form.Input
         field="api_key"
         label={t('model.form.apiKey')}
-        extraText={t('model.form.apiKeyNotice')}
-        placeholder={props.model ? t('model.form.apiKeyKeep') : t('model.form.apiKeyHint')}
+        extraText={
+          <>
+            {props.model
+              ? `${t('model.form.apiKeyHint')} ${t('model.form.apiKeyKeep')}`
+              : t('model.form.apiKeyHint')}
+            <br />
+            {t('model.form.apiKeyNotice')}
+          </>
+        }
       />
       <Form.Switch field="enabled" label={t('model.form.enabled')} initValue />
     </FormModal>

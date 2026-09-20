@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "07-agent-management.md",
-  "task_sha256": "1b0f7ce3354b69bdfe292e94b89dd4027fe02b823200667335aad258cd64ce2c",
+  "task_sha256": "2e7591e8e86e73eea5fa963bb472aaa2c2a7f70fef66a426ab51c069378e49ff",
   "scenarios": [
     {
       "id": "S-01",
@@ -731,7 +731,7 @@
       "source": "backend#2.5.2 异常场景",
       "level": "integration",
       "kind": "functional",
-      "boundary": "bot_account unique（占用 → COMMON_CONFLICT 带 bot_id）",
+      "boundary": "bot_account unique（占用 → BOT_ID_EXISTS 带 bot_id）",
       "owner": "TASK-006",
       "status": "verified",
       "command": [

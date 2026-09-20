@@ -18,6 +18,9 @@
 | 数据 Owner | `control` schema |
 | 前置模块 | 01-platform-foundation |
 | 建议代码位置 | 后端：`apps/console-platform/backend/src/muad_console_platform/api/`（auth.py / accounts.py / security.py / deps.py）、`application/`（auth_service.py / dto.py）、`infrastructure/`（models/auth.py、repositories/console_account_repository.py、console_session_repository.py）、`cli.py`、`main.py`；前端：`apps/console-platform/frontend/src/auth/`、`src/pages/LoginPage.tsx`（详见前端设计） |
+
+> **与 01 的接线交集（2026-09-20）**：01-platform-foundation 的 review 把 api-kit 安全原语接进了 console，因此本设计「建议代码位置」里的 `api/deps.py`、`api/auth.py`、`application/auth_service.py` 已被改动：`api/deps.py` 的会话/RBAC 依赖改为 api-kit `require_session`/`require_roles` 的薄适配（`ConsoleSessionVerifier`/`ConsoleRoleResolver` 在 `main.py` 经 `install_console_security` 装配）；`AuthService.change_password` 签名由 `(account, current, new)` 改为 `(account_id, current, new)`（会话校验原语持有自己的 session，处理器拿到的是 detached 对象，故由服务按 id 在请求 session 内重新加载）。本任务后续实现请基于该现状，不要回退这两处。
+
 | 迁移 | `0003_console_auth.py`（revision `0003`，down_revision `0002`） |
 | 对外入口 | Console Browser `/api/v1/auth/*`、`/api/v1/accounts`；CLI `create-admin` |
 | 非职责 | 不管理 PlatformUser 身份、不管理 ProjectPlatform 凭据、不承载三层授权公式（见 02/04/07/14） |
@@ -364,7 +367,7 @@ erDiagram
 }
 ```
 
-业务异常只允许 `raise AppError("CODE")`；`msg` 与 HTTP Status 统一由 `config/api-messages.yaml` 映射；本模块只用以下已登记代码：`COMMON_BAD_REQUEST / COMMON_VALIDATION_ERROR / COMMON_CONFLICT / COMMON_INTERNAL_ERROR / UNAUTHORIZED / FORBIDDEN / INVALID_CREDENTIALS / ACCOUNT_LOCKED`。
+业务异常只允许 `raise AppError("CODE")`；`msg` 与 HTTP Status 统一由 `config/api-messages.yaml` 映射；本模块只用以下已登记代码：`COMMON_BAD_REQUEST / COMMON_VALIDATION_ERROR / ACCOUNT_USERNAME_EXISTS / COMMON_INTERNAL_ERROR / UNAUTHORIZED / FORBIDDEN / INVALID_CREDENTIALS / ACCOUNT_LOCKED`。
 
 #### 接口清单
 
@@ -568,13 +571,13 @@ X-CSRF-Token: <muad_csrf>
 
 | 错误码 | 信息 | 场景 | HTTP状态码 |
 |---|---|---|---|
-| `COMMON_CONFLICT` | 数据已发生变化，请刷新后重试 | 同租户用户名已存在（含并发唯一约束冲突） | 409 |
+| `ACCOUNT_USERNAME_EXISTS` | 账号 {username} 已存在 | 同租户用户名已存在（含并发唯一约束冲突） | 409 |
 | `COMMON_BAD_REQUEST` | 请求参数错误 | role 非法或密码过短（服务层） | 400 |
 | `COMMON_VALIDATION_ERROR` | 请求参数校验失败 | 字段缺失/越界（API 层） | 422 |
 | `FORBIDDEN` / `UNAUTHORIZED` | 越权 / 未登录 | 非 ADMIN 或无会话 | 403 / 401 |
 | `COMMON_INTERNAL_ERROR` | 系统内部错误 | 未预期异常 | 500 |
 
-**处理逻辑**：RBAC（ADMIN）→ CSRF → 参数校验 → 租户内重名预查（冲突 `COMMON_CONFLICT`）→ argon2id 哈希 → 插入账号（`IntegrityError` 兜底 `COMMON_CONFLICT`）→ 同一事务写审计（`CONSOLE_ACCOUNT/CREATE`，基线待补齐）→ 返回账号信息。
+**处理逻辑**：RBAC（ADMIN）→ CSRF → 参数校验 → 租户内重名预查（冲突 `ACCOUNT_USERNAME_EXISTS`）→ argon2id 哈希 → 插入账号（`IntegrityError` 兜底 `ACCOUNT_USERNAME_EXISTS`）→ 同一事务写审计（`CONSOLE_ACCOUNT/CREATE`，基线待补齐）→ 返回账号信息。
 
 #### 形态 B：CLI 命令
 
@@ -592,7 +595,7 @@ X-CSRF-Token: <muad_csrf>
 
 | 风险ID | 失效模式 | 影响 | 应对措施 | 验证场景 |
 |---|---|---|---|---|
-| RISK-01 | 并发创建同名账号 | 出现重复账号 | partial unique + `IntegrityError` → `COMMON_CONFLICT` | E-02 邻接 / API-06 并发用例 |
+| RISK-01 | 并发创建同名账号 | 出现重复账号 | partial unique + `IntegrityError` → `ACCOUNT_USERNAME_EXISTS` | E-02 邻接 / API-06 并发用例 |
 | RISK-02 | 登录暴力破解 | 账号被撞库 | 5 次失败锁定 15 分钟 + 未知用户假哈希等化时序 | E-01/E-02 |
 | RISK-03 | 会话令牌泄漏 | 会话被冒用 | 库内只存 sha256；HttpOnly + SameSite=Strict；可撤销 | S-01/S-03 |
 | RISK-04 | 跨站请求伪造 | 未授权变更 | 非安全方法强制 CSRF 双提交 | E-04 |

@@ -16,7 +16,6 @@ from ..infrastructure.models.control import (
     SharedCredentialRef,
     UserCredentialRef,
 )
-from .runtime_credentials import require_service_identity
 
 VALID_EXECUTION_TYPES = frozenset({"RUN", "TASK"})
 VALID_TARGET_TYPES = frozenset({"PLATFORM_SERVICE", "HTTP", "MCP"})
@@ -86,10 +85,12 @@ async def _resolve_credential(
             raise AppError(ErrorCode.CREDENTIAL_MISSING)
         return _credential_payload(row.id, row.credential_json, row.credential_schema_version)
     if mode == "SHARED_ONLY":
-        row = await shared_row()
-        if row is None:
+        shared_only = await shared_row()
+        if shared_only is None:
             raise AppError(ErrorCode.CREDENTIAL_MISSING)
-        return _credential_payload(row.id, row.credential_json, row.credential_schema_version)
+        return _credential_payload(
+            shared_only.id, shared_only.credential_json, shared_only.credential_schema_version
+        )
     # USER_THEN_SHARED
     user = await user_row()
     if user is not None:
@@ -145,7 +146,7 @@ async def resolve_egress_access(
         )
     ).scalar_one_or_none()
     if platform is None:
-        raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "ProjectPlatform"})
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
     if not platform.enabled:
         raise AppError(ErrorCode.FORBIDDEN)
 

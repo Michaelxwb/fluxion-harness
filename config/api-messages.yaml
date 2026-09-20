@@ -113,6 +113,12 @@ codes:
       zh-CN: 绑定码已过期
       en-US: The bind code has expired
 
+  IDENTITY_ALREADY_BOUND:
+    http_status: 409
+    messages:
+      zh-CN: 该 IM 身份已绑定到其他用户，请先解绑后再使用绑定码
+      en-US: This IM identity is already bound to another user. Unbind it before using the code.
+
   BOT_NOT_FOUND:
     http_status: 404
     messages:
@@ -130,6 +136,66 @@ codes:
     messages:
       zh-CN: 平台适配器不存在
       en-US: Platform adapter not found
+
+  MODEL_KEY_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: 模型标识 {key} 已存在
+      en-US: Model key {key} already exists
+
+  ACCOUNT_USERNAME_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: 账号 {username} 已存在
+      en-US: Account {username} already exists
+
+  AGENT_KEY_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: Agent 标识 {key} 已存在
+      en-US: Agent key {key} already exists
+
+  BOT_ID_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: Bot ID {bot_id} 已被占用
+      en-US: Bot ID {bot_id} is already taken
+
+  SKILL_KEY_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: Skill 标识 {key} 已存在
+      en-US: Skill key {key} already exists
+
+  MCP_KEY_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: MCP Server 标识 {key} 已存在
+      en-US: MCP server key {key} already exists
+
+  PLATFORM_KEY_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: 项目平台标识 {key} 已存在
+      en-US: Project platform key {key} already exists
+
+  USER_CODE_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: 用户编码 {user_code} 已存在
+      en-US: User code {user_code} already exists
+
+  IDEMPOTENCY_MISMATCH:
+    http_status: 409
+    messages:
+      zh-CN: 相同幂等键被用于不同的请求内容，请更换幂等键后重试
+      en-US: The same idempotency key was used with different request content. Use a new key and retry.
+
+  MODEL_IN_USE:
+    http_status: 409
+    messages:
+      zh-CN: 模型 {model_key} 已被 {agent_count} 个 Agent 引用，无法删除
+      en-US: Model {model_key} is referenced by {agent_count} agent(s) and cannot be deleted
 
   MODEL_DISABLED:
     http_status: 409

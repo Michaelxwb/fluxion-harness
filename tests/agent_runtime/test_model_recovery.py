@@ -6,21 +6,19 @@ import uuid
 
 import pytest
 import sqlalchemy as sa
-from muad_api import AppError
 from muad_agent_core.model import (
     ModelRateLimitedError,
     ModelRequest,
     ModelResponse,
-    ModelUnavailableError,
 )
+from muad_agent_runtime.application.model_gateway import ModelGateway
 from muad_agent_runtime.infrastructure.audit_writer import RuntimeAuditWriter
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
     Conversation,
     ModelInvocationAudit,
 )
-
-from muad_agent_runtime.application.model_gateway import ModelGateway
+from muad_api import AppError
 
 TENANT = f"rec-{uuid.uuid4()}"
 RUN_ID = uuid.uuid4()
@@ -142,7 +140,6 @@ async def test_e06_cancel_stops_backoff() -> None:
     provider = RetryThenSuccessProvider(failures=10)
     gateway = _gateway(policy_retries=5, deadline_ms=60_000)
     from muad_api import AppError
-    from muad_api.error_codes import ErrorCode
 
     with pytest.raises(AppError):
         await gateway.complete(

@@ -4,36 +4,41 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from sqlalchemy.engine import CursorResult
 
-from ..infrastructure.models.runtime import Conversation, RunRecord
+from ..infrastructure.db import SessionFactoryProvider
+from ..infrastructure.models.runtime import RunRecord
 
 
-def current_owner_rejected(result) -> bool:
+def current_owner_rejected(result: CursorResult[Any]) -> bool:
     """CAS rowcount==0 时判定为当前执行者/状态不匹配。"""
     return result.rowcount == 0
 
 
 class RunLeaseService:
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: SessionFactoryProvider) -> None:
         self._session_factory = session_factory
 
     async def renew(self, run_id: uuid.UUID, owner: str, *, lease_sec: int = 60) -> bool:
         """当前 owner 续约 RUNNING 租约；其他实例/非 RUNNING 返回 False。"""
         async with self._session_factory()() as session:
-            result = await session.execute(
-                sa.update(RunRecord)
-                .where(
-                    RunRecord.id == run_id,
-                    RunRecord.status == "RUNNING",
-                    RunRecord.lease_owner == owner,
-                )
-                .values(
-                    lease_until=datetime.now(UTC) + timedelta(seconds=lease_sec),
-                    heartbeat_at=datetime.now(UTC),
-                )
+            result = cast(
+                CursorResult[Any],
+                await session.execute(
+                    sa.update(RunRecord)
+                    .where(
+                        RunRecord.id == run_id,
+                        RunRecord.status == "RUNNING",
+                        RunRecord.lease_owner == owner,
+                    )
+                    .values(
+                        lease_until=datetime.now(UTC) + timedelta(seconds=lease_sec),
+                        heartbeat_at=datetime.now(UTC),
+                    )
+                ),
             )
             await session.commit()
             return result.rowcount == 1
@@ -49,19 +54,22 @@ class RunLeaseService:
     ) -> bool:
         """终态 CAS：仅当前 owner 且 RUNNING 时可写一次终态。"""
         async with self._session_factory()() as session:
-            result = await session.execute(
-                sa.update(RunRecord)
-                .where(
-                    RunRecord.id == run_id,
-                    RunRecord.status == "RUNNING",
-                    RunRecord.lease_owner == owner,
-                )
-                .values(
-                    status=status,
-                    error_code=error_code,
-                    error_message=error_message,
-                    end_time=datetime.now(UTC),
-                )
+            result = cast(
+                CursorResult[Any],
+                await session.execute(
+                    sa.update(RunRecord)
+                    .where(
+                        RunRecord.id == run_id,
+                        RunRecord.status == "RUNNING",
+                        RunRecord.lease_owner == owner,
+                    )
+                    .values(
+                        status=status,
+                        error_code=error_code,
+                        error_message=error_message,
+                        end_time=datetime.now(UTC),
+                    )
+                ),
             )
             await session.commit()
             return result.rowcount == 1

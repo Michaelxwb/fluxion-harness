@@ -4,10 +4,10 @@ from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.control import (
-    SkillImportIdempotency,
     AgentSkillBinding,
     Skill,
     SkillArtifact,
+    SkillImportIdempotency,
     SkillUserGrant,
 )
 
@@ -73,7 +73,11 @@ class SkillRepository:
             .limit(page_size)
         )
         rows = result.all()
-        return [(skill, artifact, int(bound or 0), int(granted or 0)) for skill, artifact, bound, granted in rows], int(total or 0)
+        items = [
+            (skill, artifact, int(bound or 0), int(granted or 0))
+            for skill, artifact, bound, granted in rows
+        ]
+        return items, int(total or 0)
 
     async def get(self, tenant_id: str, skill_id: uuid.UUID) -> Skill | None:
         skill: Skill | None = await self._session.scalar(

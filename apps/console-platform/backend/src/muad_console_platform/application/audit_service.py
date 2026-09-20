@@ -1,15 +1,15 @@
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime
 from typing import Any
 
-from muad_api.context import current_trace_id
+from muad_api import sanitize_audit_payload, write_config_audit
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import ConfigAuditLog
 from ..infrastructure.repositories.config_audit_log_repository import ConfigAuditLogRepository
 
-SENSITIVE_KEY_MARKERS = ("password", "secret", "token", "api_key", "credential")
+# 敏感键剔除与 JSON 序列化统一由 api-kit 提供（RULE-15 / LIB-09），此处不再保留第二套实现
+sanitize_payload = sanitize_audit_payload
 
 
 @dataclass(frozen=True)
@@ -18,31 +18,15 @@ class AuditActor:
     source_ip: str | None = None
 
 
-def _is_sensitive_key(key: str) -> bool:
-    lowered = key.lower()
-    return any(marker in lowered for marker in SENSITIVE_KEY_MARKERS)
-
-
-def sanitize_payload(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {
-            str(key): sanitize_payload(item)
-            for key, item in value.items()
-            if not _is_sensitive_key(str(key))
-        }
-    if isinstance(value, (list, tuple)):
-        return [sanitize_payload(item) for item in value]
-    if isinstance(value, uuid.UUID):
-        return str(value)
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, date):
-        return value.isoformat()
-    return value
-
-
 class AuditService:
+    """Console 的审计读写入口。
+
+    写入复用 api-kit 的 `write_config_audit` 原语（与业务共用同一 session 从而同事务）；
+    读取（`config_audit_log` 列表）仍然在本模块实现。
+    """
+
     def __init__(self, session: AsyncSession) -> None:
+        self._session = session
         self._entries = ConfigAuditLogRepository(session)
 
     async def list_audits(
@@ -74,15 +58,14 @@ class AuditService:
         before: dict[str, Any] | None,
         after: dict[str, Any] | None,
     ) -> None:
-        entry = ConfigAuditLog(
-            tenant_id=tenant_id,
+        await write_config_audit(
+            self._session,
             actor_user_id=actor.account_id,
             resource_type=resource_type,
             resource_id=resource_id,
             action=action,
-            before_json=sanitize_payload(before),
-            after_json=sanitize_payload(after),
-            trace_id=current_trace_id() or None,
+            before=before,
+            after=after,
+            tenant_id=tenant_id,
             source_ip=actor.source_ip,
         )
-        await self._entries.add(entry)

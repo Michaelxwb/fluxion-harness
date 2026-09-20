@@ -8,10 +8,9 @@ from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts import ResolvedMcpServer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from muad_contracts import ResolvedMcpServer
 
 from ..infrastructure.models.control import AgentDefinition
 from ..infrastructure.models.mcp import AgentMcpBinding, McpServer, McpUserGrant
@@ -58,7 +57,7 @@ class AgentMcpService:
     async def _require_server(self, tenant_id: str, mcp_id: uuid.UUID) -> McpServer:
         server = await self._session.get(McpServer, mcp_id)
         if server is None or server.is_deleted or server.tenant_id != tenant_id:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "McpServer"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return server
 
     async def list_bindings(
@@ -126,7 +125,11 @@ class AgentMcpService:
         rows = await self._session.execute(
             select(AgentMcpBinding, McpServer)
             .join(McpServer, McpServer.id == AgentMcpBinding.mcp_server_id)
-            .outerjoin(McpUserGrant, (McpUserGrant.mcp_server_id == McpServer.id) & (McpUserGrant.user_id == actor_user_id))
+            .outerjoin(
+                McpUserGrant,
+                (McpUserGrant.mcp_server_id == McpServer.id)
+                & (McpUserGrant.user_id == actor_user_id),
+            )
             .where(
                 AgentMcpBinding.agent_id == agent_id,
                 AgentMcpBinding.is_deleted.is_(False),

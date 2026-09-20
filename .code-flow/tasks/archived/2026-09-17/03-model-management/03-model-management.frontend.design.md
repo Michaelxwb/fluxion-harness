@@ -29,6 +29,7 @@
 |------|------|------|---------|
 | v1.0 | 2026-09-17 | fluxion-harness | 初始设计 |
 | v1.1 | 2026-09-18 | fluxion-harness | 对齐 V1.4 决策（docs/17）：交互基线升级 V1.4、补启用/停用与删除操作、`protocol=OPENAI` 创建固定编辑只读、列表分页与筛选、删除冲突 `COMMON_CONFLICT`（message_args）、补场景与 Spec Matrix 落点 |
+| v1.2 | 2026-09-20 | fluxion-harness | review 修正：删除冲突改用专用错误码 `MODEL_IN_USE`（`COMMON_CONFLICT` 无占位符，引用数无法渲染）；E-FE-01/E-FE-03 的测试层级由 `integration` 更正为 `E2E`（实际命令是 Playwright 浏览器用例）；Spec Matrix owner 由不存在的 `harness-platform` 更正为真实 spec id；公共组件清单按实际文件名对齐 |
 
 ## 2. 需求分析
 
@@ -68,9 +69,9 @@
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | UI 表现 |
 |---|---|---|---|---|---|
-| E-FE-01 | FEAT-FE-02 | integration | Semi Form | Base URL 非 http/https | 字段校验阻止提交 |
+| E-FE-01 | FEAT-FE-02 | E2E | Semi Form（浏览器内校验） | Base URL 非 http/https | 字段校验阻止提交 |
 | E-FE-02 | FEAT-FE-02 | E2E | API→Modal | revision 冲突 | 保留表单并显示本地化冲突 |
-| E-FE-03 | FEAT-FE-03 | integration | API→COMMON_CONFLICT | 删除被 Agent 引用的模型 | Popconfirm 后 Toast 本地化 msg（含 agent_count），列表不变 |
+| E-FE-03 | FEAT-FE-03 | E2E | API→MODEL_IN_USE | 删除被 Agent 引用的模型 | Popconfirm 后 Toast 本地化 msg（含模型 key 与 agent_count），列表不变 |
 | E-FE-04 | FEAT-FE-02 | unit | ModelFormModal | 编辑态查看协议字段 | 协议只读，无法修改 |
 
 ## 3. 前端技术设计
@@ -109,7 +110,11 @@
 | CMP-02 | `ModelFormModal` | 容器 | 模块内 | 新增/编辑 Form；协议只读 |
 | CMP-03 | `ModelTestResultModal` | 展示 | 模块内 | 逐模型测试结果 |
 
-**必须复用公共组件**：`ConsoleShell / ModuleToolbar / RemoteTable / EntityLink / DetailSideSheet / DetailTabs / FormModal / StatusTag / DateTimeText / ConfirmAction / EmptyState / ErrorState / PaginationFooter / LocaleSwitch`。
+**必须复用公共组件**（`src/components/common/`，均已交付）：`ModuleToolbar / RemoteTable / EntityLink / DetailSideSheet / FormModal / StatusTag / DateTimeText / ConfirmAction / EmptyState / ErrorState / PaginationFooter / LocaleSwitch`。
+
+- Console Shell 由 `src/layout/AppLayout.tsx` 提供（不存在名为 `ConsoleShell` 的组件）。
+- 详情 Tabs 由 `DetailSideSheet` 内部渲染 Semi `Tabs`（不存在独立的 `DetailTabs` 组件）。
+- 详情可另用 `DetailGrid`（分区标题 + 双列标签栅格）。
 
 #### 3.3.1 每个按钮/操作的设计
 
@@ -126,7 +131,7 @@
 | 详情 Header | 删除 | `Popconfirm + Button` | danger | 删除无引用模型 | `DELETE /api/v1/models/{id}` | 是 |
 | 表单 | 保存 | `Button` | primary | 校验并创建/更新 | `POST/PUT /api/v1/models` | 否 |
 
-统一规则：主创建/保存使用 `Button theme="solid" type="primary"`；危险操作 `Popconfirm`；详情全局操作与关闭 X 同一 Header 行靠右；Tab 内关系操作完成即生效，不需要“保存整个对象”。删除冲突（`COMMON_CONFLICT`）时展示 message_args 中的 `agent_count`。
+统一规则：主创建/保存使用 `Button theme="solid" type="primary"`；危险操作 `Popconfirm`；详情全局操作与关闭 X 同一 Header 行靠右；Tab 内关系操作完成即生效，不需要“保存整个对象”。删除冲突（**`MODEL_IN_USE`**）时展示 message_args 中的 `model_key` 与 `agent_count`（专用的带占位符错误码；通用 `COMMON_CONFLICT` 文案不含占位符，无法承载引用数）。
 
 ### 3.4 组件接口契约
 
@@ -196,9 +201,11 @@ Semi Form required/rules；Modal/SideSheet 焦点管理；图标按钮 aria-labe
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `harness-platform#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.5 / §3.6 | S-FE-01, E-FE-03（verifier: project-owner） | applied |
-| `harness-platform#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.2 / §3.3 CMP-01 | S-FE-01, S-FE-02（verifier: project-owner） | applied |
-| `harness-platform#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3 CMP-01 / §3.4 | S-FE-02（verifier: project-owner） | applied |
-| `harness-platform#RULE-model-001` | required | ModelDefinition 无 is_default；Agent 显式选择 enabled model_id。 | §2.2 / §2.3 / §3.3 CMP-02 | S-FE-02, E-FE-04（verifier: project-owner 确认无默认模型字段） | applied |
-| `harness-platform#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.5 / §3.6 | S-FE-01~S-FE-03, E-FE-01~E-FE-04（verifier: project-owner） | applied |
-| `harness-platform#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4 / §3.5 | S-FE-01~S-FE-03, E-FE-02（verifier: project-owner 确认真实浏览器+API） | applied |
+| `harness-i18n#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.5 / §3.6 | S-FE-01, E-FE-03（verifier: project-owner） | applied |
+| `harness-ui#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.2 / §3.3 CMP-01 | S-FE-01, S-FE-02（verifier: project-owner） | applied |
+| `harness-ui-detail#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3 CMP-01 / §3.4 | S-FE-02（verifier: project-owner） | applied |
+| `harness-model#RULE-model-001` | required | ModelDefinition 无 is_default；Agent 显式选择 enabled model_id。 | §2.2 / §2.3 / §3.3 CMP-02 | S-FE-02, E-FE-04（verifier: project-owner 确认无默认模型字段） | applied |
+| `harness-frontend#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.5 / §3.6 | S-FE-01~S-FE-03, E-FE-01~E-FE-04（verifier: project-owner） | applied |
+| `harness-test#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4 / §3.5 | S-FE-01~S-FE-03, E-FE-02（verifier: project-owner 确认真实浏览器+API） | applied |
+
+> 说明：本矩阵原先把 owner 写成 `harness-platform`，该 spec id 在 `.code-flow/specs/` 中**不存在**；已按实际生效的 spec id 更正。

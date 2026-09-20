@@ -10,6 +10,7 @@ from muad_agent_runtime.infrastructure.console_client import (
 from muad_api import AppError
 from muad_contracts import ResolveDefinitionRequest, ResolveDefinitionResponse
 
+
 def http_transport_factory(handler):
     return httpx.MockTransport(handler)
 
@@ -123,6 +124,7 @@ async def test_resolve_rejects_missing_envelope_data() -> None:
 async def test_b103_resolve_credentials_posts_and_returns_in_memory_only() -> None:
     """[B-103] 凭据端点返回的认证数据只进入内存对象；请求透传 tenant/actor。"""
     import json as json_module
+
     from muad_agent_runtime.infrastructure.console_client import (
         RESOLVE_CREDENTIALS_PATH,
         ConsoleCredentialsClient,
@@ -186,8 +188,8 @@ async def test_b103_credentials_error_keeps_registered_code() -> None:
 
 def test_b103_resolve_response_validates_mcp_catalog_fields() -> None:
     """[B-103] 缺失 MCP catalog（revision/hash）不能静默放行：契约校验拒绝。"""
-    from pydantic import ValidationError
     from muad_contracts import ResolvedMcpServer
+    from pydantic import ValidationError
 
     with pytest.raises(ValidationError):
         ResolvedMcpServer.model_validate({"mcp_server_id": str(uuid.uuid4()), "key": "k", "endpoint": "http://x"})

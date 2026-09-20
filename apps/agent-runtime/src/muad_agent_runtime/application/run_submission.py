@@ -1,6 +1,6 @@
 """Run 创建/resume 提交幂等：run_submission 表的记录与重放查询。
 
-同键同指纹返回已提交记录（200 SSE 重放）；同键异指纹 COMMON_CONFLICT；
+同键同指纹返回已提交记录（200 SSE 重放）；同键异指纹 IDEMPOTENCY_MISMATCH；
 指纹包含 run_id（resume 语义）/message 文本/message.id。
 """
 
@@ -15,6 +15,7 @@ from muad_api.error_codes import ErrorCode
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import RunSubmission
 
 
@@ -30,8 +31,9 @@ def submission_fingerprint(
 
 
 class RunSubmissionService:
-    def __init__(self, session_factory) -> None:
-        self._session_factory = session_factory
+    def __init__(self, session_factory_provider: SessionFactoryProvider) -> None:
+        # 与其余服务一致：传「返回 sessionmaker 的工厂」（如 get_session_factory），而非 sessionmaker 实例
+        self._session_factory_provider: SessionFactoryProvider = session_factory_provider
 
     async def record_submission(
         self,
@@ -49,8 +51,7 @@ class RunSubmissionService:
     ) -> dict[str, Any]:
         """与 Run/Snapshot/首事件同事务提交；无 session 时用独立短事务。"""
         owns = session is None
-        if owns:
-            session = self._session_factory()
+        active: AsyncSession = self._session_factory_provider()() if session is None else session
         try:
             row = RunSubmission(
                 tenant_id=tenant_id,
@@ -64,13 +65,13 @@ class RunSubmissionService:
                 last_seq=last_seq,
                 status="CLOSED",
             )
-            session.add(row)
-            await session.commit()
+            active.add(row)
+            await active.commit()
             snap = self._snapshot(row)
             return snap
         finally:
             if owns:
-                await session.close()
+                await active.close()
 
     async def find_replay(
         self,
@@ -82,13 +83,12 @@ class RunSubmissionService:
         session: AsyncSession | None = None,
     ) -> dict[str, Any] | None:
         owns = session is None
-        if owns:
-            session = self._session_factory()
+        active: AsyncSession = self._session_factory_provider()() if session is None else session
         try:
-            return await self._find_replay(session, tenant_id, idempotency_key, endpoint, fingerprint)
+            return await self._find_replay(active, tenant_id, idempotency_key, endpoint, fingerprint)
         finally:
             if owns:
-                await session.close()
+                await active.close()
 
     async def _find_replay(
         self,
@@ -111,7 +111,7 @@ class RunSubmissionService:
             if row is None:
                 return None
             if row.request_fingerprint != fingerprint:
-                raise AppError(ErrorCode.COMMON_CONFLICT)
+                raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
             return self._snapshot(row)
         # unreachable helper body marker
 

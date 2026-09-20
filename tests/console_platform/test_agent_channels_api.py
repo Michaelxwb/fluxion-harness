@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import uuid
 
+import httpx
 from httpx import AsyncClient
-from sqlalchemy import text
-
 from muad_console_platform.infrastructure.db import get_session_factory
+from sqlalchemy import text
 
 from console_platform.conftest import TenantContext
 
@@ -81,7 +81,15 @@ async def test_s03_two_bots_same_agent_secret_persisted_not_echoed(
     ).json()["data"]
     assert listed["total"] == 2
     for item in listed["items"]:
-        for field in ("channel_account_id", "channel", "name", "bot_id", "secret_configured", "enabled", "create_time"):
+        for field in (
+            "channel_account_id",
+            "channel",
+            "name",
+            "bot_id",
+            "secret_configured",
+            "enabled",
+            "create_time",
+        ):
             assert field in item, f"缺字段 {field}"
         assert item["secret_configured"] is True
         assert "secret-alpha-value" not in str(item)
@@ -108,7 +116,7 @@ async def test_s03_two_bots_same_agent_secret_persisted_not_echoed(
 async def test_e02_duplicate_bot_id_conflicts_with_message_args(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
-    """[E-02] bot_id 已被其他 Agent 占用 → COMMON_CONFLICT（message_args 带 bot_id），不重绑。"""
+    """[E-02] bot_id 已被其他 Agent 占用 → BOT_ID_EXISTS（msg 带 bot_id），不重绑。"""
     agent_one = await _make_agent(client, tenant)
     agent_two = await _make_agent(client, tenant)
     bot_id = f"shared-{uuid.uuid4().hex[:8]}"
@@ -119,7 +127,7 @@ async def test_e02_duplicate_bot_id_conflicts_with_message_args(
     conflict = await _add_channel(client, tenant, agent_two, bot_id)
     assert conflict.status_code == 409
     body = conflict.json()
-    assert body["code"] == "COMMON_CONFLICT"
+    assert body["code"] == "BOT_ID_EXISTS"
     assert bot_id in str(body.get("data") or "") + str(body.get("msg") or "")
 
     # 占用关系不变：agent_one 仍持有该 bot

@@ -14,7 +14,7 @@
 | Owner | muad-console-platform |
 | 数据 Owner | control |
 | 前置模块 | 01-platform-foundation |
-| 建议代码位置 | apps/console-platform/backend/src/muad_console_platform/modules/models/ |
+| 建议代码位置 | apps/console-platform/backend/src/muad_console_platform/api/models.py、application/model_service.py、application/model_test_service.py、infrastructure/repositories/model_repository.py |
 
 ### 1.1 责任人
 
@@ -30,6 +30,7 @@
 |------|------|------|---------|
 | v1.0 | 2026-09-17 | fluxion-harness | 初始设计 |
 | v1.1 | 2026-09-18 | fluxion-harness | 对齐 V1.4 决策（docs/17）：批量测试改为 Console 侧 OpenAI 兼容探测（不依赖 Runtime ModelGateway）、`protocol=OPENAI` 创建固定/编辑不可改、列表分页与筛选、删除冲突改 `COMMON_CONFLICT`（message_args）、补全 API 契约与场景矩阵 |
+| v1.2 | 2026-09-20 | fluxion-harness | review 修正：§3.1 决策表的 Secret 行与全模块实际决策相反（改为如实描述明文 `api_key`）；删除冲突改用专用错误码 `MODEL_IN_USE`（`COMMON_CONFLICT` 无占位符，无法承载引用数）；Spec Matrix owner 由不存在的 `harness-platform` 更正为真实 spec id；§1 建议代码位置改正 |
 
 ## 2. 需求分析
 
@@ -41,7 +42,7 @@
 | 模块 ID | MOD-MODEL |
 | 需求类型 | 中大型功能开发 |
 | 业务背景 | 需要区分内部 key 与 OpenAI model_id，并彻底移除没有业务意义的默认模型概念。 |
-| 核心目标 | 提供 OpenAI-compatible ModelDefinition CRUD、SecretRef、revision 和批量模型测试（连通/鉴权探测）。 |
+| 核心目标 | 提供 OpenAI-compatible ModelDefinition CRUD（含 `api_key` 明文落库）、revision 和批量模型测试（连通/鉴权探测）。 |
 
 ### 2.2 痛点与价值
 
@@ -50,7 +51,7 @@
 | 目标用户/调用方 | Builder / Admin / End User / 内部服务（按模块实际入口） |
 | 当前问题 | 需要区分内部 key 与 OpenAI model_id，并彻底移除没有业务意义的默认模型概念。 |
 | 业务影响 | 模块边界或契约不固定会导致上层重复设计、接口漂移和跨模块返工。 |
-| 预期价值 | 提供 OpenAI-compatible ModelDefinition CRUD、SecretRef、revision 和批量模型测试。 |
+| 预期价值 | 提供 OpenAI-compatible ModelDefinition CRUD（含 `api_key` 明文落库）、revision 和批量模型测试。 |
 
 ### 2.3 功能方案
 
@@ -93,7 +94,7 @@
 | RULE-05 | 系统约束 | 新 Run/Task 冻结 Snapshot；配置/授权变更只影响后续新 Run/Task；批量测试只更新 `last_test_status/last_test_at`，不递增 revision。 | S-02 / S-03 |
 | RULE-06 | 系统约束 | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | S-02 |
 | RULE-07 | 业务规则 | `protocol=OPENAI` 创建时固定，编辑不可修改；请求携带非 OPENAI 或编辑携带 protocol 均返回 `COMMON_VALIDATION_ERROR`。 | S-01 / E-05 |
-| RULE-08 | 业务规则 | 删除仅允许无 Agent 引用时执行；被引用时返回 `COMMON_CONFLICT`（message_args: `{model_key, agent_count}`）；启用/停用通过编辑 `enabled` 完成。 | S-03 / E-03 |
+| RULE-08 | 业务规则 | 删除仅允许无 Agent 引用时执行；被引用时返回 **`MODEL_IN_USE`**（HTTP 409，message_args: `{model_key, agent_count}`）—— 通用 `COMMON_CONFLICT` 的文案不含占位符、无法承载引用数，故本模块用专用码（`key` 重复等带参数的冲突同样不能走 `COMMON_CONFLICT`，见 API-02 用 `MODEL_KEY_EXISTS`）；启用/停用通过编辑 `enabled` 完成。 | S-03 / E-03 |
 | RULE-09 | 业务规则 | 批量测试为 Console 侧 OpenAI 兼容探测（`GET {base_url}/models`，必要时回退最小 chat 请求），不进入 Runtime ModelGateway、不产生计费/上下文语义。 | S-02 / E-04 |
 
 #### 2.5.2 功能验收场景
@@ -112,7 +113,7 @@
 |---|---|---|---|---|---|---|
 | E-01 | FEAT-01 | integration | DB revision CAS | 本模块 | 旧 revision 保存 | `REVISION_CONFLICT`，不覆盖新值 |
 | E-02 | FEAT-01 | unit | request schema | 本模块 | 请求携带 is_default | Schema 不接受该领域字段 |
-| E-03 | FEAT-01 | integration | API→agent_definition 引用 | 本模块 | 删除被 Agent 引用的模型 | `COMMON_CONFLICT`（message_args: `{model_key, agent_count}`），不删除 |
+| E-03 | FEAT-01 | integration | API→agent_definition 引用 | 本模块 | 删除被 Agent 引用的模型 | `MODEL_IN_USE`（message_args: `{model_key, agent_count}`，文案含引用数），不删除 |
 | E-04 | FEAT-02 | integration | Probe→model endpoint | 本模块 | API Key 错误/缺失导致 401/403 | 该项 `FAILED` + `CREDENTIAL_MISSING`，不影响其它项，不递增 revision |
 | E-05 | FEAT-01 | unit | request schema | 本模块 | 创建传非 OPENAI 或编辑携带 protocol | `COMMON_VALIDATION_ERROR` |
 
@@ -125,7 +126,7 @@
 | 决策 | 选择 | 放弃项 | 理由 |
 |---|---|---|---|
 | 模型选择 | Agent 显式 model_id | 平台默认模型 | 避免隐式行为 |
-| Secret | SecretRef | DB 明文 API Key | 安全边界 |
+| 模型 Secret | `api_key` 明文存 `model_definition`（产品决策） | 通用 SecretRef / 外部 Secret Provider | 模型凭据只在平台内使用，V1 不引入外部密钥管理；仍禁止进入日志/审计/Snapshot/API 响应 |
 | 批量测试 | Console 侧 OpenAI 兼容探测 | Runtime ModelGateway | 禁止越层，不引入 LLM 计费/上下文语义 |
 | 协议 | 创建固定 OPENAI | 多协议 enum | V1 范围 |
 
@@ -248,7 +249,7 @@ POST /api/v1/models
   - `params`：object，可选，默认 `{}`。
   - `enabled`：boolean，可选，默认 `true`。
 - `data`：创建后的模型对象（同 API-01 item 结构；`api_key_configured=true`）。
-- 错误码：`COMMON_VALIDATION_ERROR`、`COMMON_CONFLICT`（`key` 已存在，message_args: `{key}`）、`COMMON_INTERNAL_ERROR`。
+- 错误码：`COMMON_VALIDATION_ERROR`、**`MODEL_KEY_EXISTS`**（HTTP 409，message_args: `{key}`）、`COMMON_INTERNAL_ERROR`。
 - 处理：校验 → INSERT `model_definition(api_key=…, revision=1, last_test_status='UNTESTED')` + `config_audit_log` 同事务（审计不含 `api_key`）。
 - 对应：docs/07 §10.4；docs/03 §6.7。
 
@@ -296,8 +297,8 @@ DELETE /api/v1/models/{model_id}
 - 调用方：Console 列表/详情删除操作（Popconfirm）。
 - 请求：路径参数 `model_id`；无 body。
 - `data`：`{id, deleted: true}`。
-- 错误码：`COMMON_NOT_FOUND`、`COMMON_CONFLICT`（被 `agent_definition.model_id` 引用，message_args: `{model_key, agent_count}`）、`COMMON_INTERNAL_ERROR`。
-- 处理：校验存在 → `COUNT(agent_definition WHERE model_id=? AND is_deleted=false)`；`>0` 返回 `COMMON_CONFLICT` 不删除；否则软删除 + `config_audit_log` 同事务；历史 Run Snapshot 不漂移。
+- 错误码：`COMMON_NOT_FOUND`、**`MODEL_IN_USE`**（被 `agent_definition.model_id` 引用，message_args: `{model_key, agent_count}`）、`COMMON_INTERNAL_ERROR`。
+- 处理：校验存在 → `COUNT(agent_definition WHERE tenant_id=? AND model_id=? AND is_deleted=false)`；`>0` 返回 `MODEL_IN_USE` 不删除；否则软删除 + `config_audit_log` 同事务；历史 Run Snapshot 不漂移。
 - 对应：docs/07 §10.4；docs/15 §8（操作列保留真实动作）。
 
 #### API-06 批量测试
@@ -347,9 +348,11 @@ POST /api/v1/models/batch-test
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `harness-platform#RULE-api-001` | required | JSON REST 统一封套；列表 `{items,page,page_size,total}` 且 `page_size<=100`；业务只抛已登记 code。 | §3.4 API-01~API-06 | S-01, S-02, E-03（verifier: project-owner 确认分页/错误码） | applied |
-| `harness-platform#RULE-data-001` | required | 产品表统一 is_deleted/create_time/update_time；同 Owner Schema 物理 FK，跨 Owner Schema 逻辑 UUID。 | §3.3 model_definition | S-01, E-01（verifier: project-owner 确认迁移一致） | applied |
+| `harness-api#RULE-api-001` | required | JSON REST 统一封套；列表 `{items,page,page_size,total}` 且 `page_size<=100`；业务只抛已登记 code。 | §3.4 API-01~API-06 | S-01, S-02, E-03（verifier: project-owner 确认分页/错误码） | applied |
+| `harness-data#RULE-data-001` | required | 产品表统一 is_deleted/create_time/update_time；同 Owner Schema 物理 FK，跨 Owner Schema 逻辑 UUID。 | §3.3 model_definition | S-01, E-01（verifier: project-owner 确认迁移一致） | applied |
 | `harness-secret#RULE-secret-001` | required | 模型 `api_key` 明文存 `model_definition`（产品决策例外）；其他 Secret 只存 SecretRef；Key 不进日志/审计/Snapshot/API 响应。 | §3.3 / §3.4 API-02/API-04 / §3.5 | S-01, E-04（verifier: 命令测试） | applied |
-| `harness-platform#RULE-model-001` | required | ModelDefinition 无 is_default；Agent 显式选择 enabled model_id。 | §2.4 / §3.3 / §3.4 API-02 | S-01, E-02（verifier: project-owner） | applied |
-| `harness-platform#RULE-snapshot-001` | required | 新 Run/Task 冻结 Snapshot；配置变更只影响后续；批量测试不改 revision。 | §3.3 生命周期 / §3.4 API-06 | S-02, S-03（verifier: project-owner） | applied |
-| `harness-platform#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.5.2 / §3.5 | S-01~S-03, E-01~E-05（verifier: project-owner 确认真实 PG/HTTP） | applied |
+| `harness-model#RULE-model-001` | required | ModelDefinition 无 is_default；Agent 显式选择 enabled model_id。 | §2.4 / §3.3 / §3.4 API-02 | S-01, E-02（verifier: project-owner） | applied |
+| `harness-snapshot#RULE-snapshot-001` | required | 新 Run/Task 冻结 Snapshot；配置变更只影响后续；批量测试不改 revision。 | §3.3 生命周期 / §3.4 API-06 | S-02, S-03（verifier: project-owner） | applied |
+| `harness-test#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.5.2 / §3.5 | S-01~S-03, E-01~E-05（verifier: project-owner 确认真实 PG/HTTP） | applied |
+
+> 说明：本矩阵原先把 owner 写成 `harness-platform`，该 spec id 在 `.code-flow/specs/` 中**不存在**；已按实际生效的 spec id 更正（同表内 `harness-secret#RULE-secret-001` 原本就是真实 owner）。

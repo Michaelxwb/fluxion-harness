@@ -200,7 +200,8 @@ async def test_import_duplicate_key_returns_conflict(
         key="dup-key",
     )
     assert new_version.status_code == 409
-    assert new_version.json()["code"] == "COMMON_CONFLICT"
+    assert new_version.json()["code"] == "SKILL_KEY_EXISTS"
+    assert "dup-key" in new_version.json()["msg"], "专用码必须带出冲突的 key"
 
 
 async def test_import_duplicate_checksum_returns_conflict(

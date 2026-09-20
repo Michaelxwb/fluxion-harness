@@ -141,7 +141,7 @@ class McpService:
     async def get_server(self, tenant_id: str, mcp_id: uuid.UUID) -> McpServer:
         server = await self._session.get(McpServer, mcp_id)
         if server is None or server.is_deleted or server.tenant_id != tenant_id:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "McpServer"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return server
 
     async def _counts_for(self, server: McpServer) -> tuple[int, int]:
@@ -220,7 +220,7 @@ class McpService:
         if record_row is None:
             return None
         if record_row.request_fingerprint != fingerprint:
-            raise AppError(ErrorCode.COMMON_CONFLICT)
+            raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
         return dict(record_row.response_json)
 
     def _fingerprint(self, *parts: Any) -> str:
@@ -265,7 +265,7 @@ class McpService:
         try:
             await self._session.flush()
         except IntegrityError as exc:
-            raise AppError(ErrorCode.COMMON_CONFLICT) from exc
+            raise AppError(ErrorCode.MCP_KEY_EXISTS, message_args={"key": payload.key}) from exc
         await self._audit.record_config_change(
             tenant_id=tenant_id,
             actor=actor,
@@ -451,7 +451,7 @@ class McpService:
                     "catalog_revision": server.tool_catalog_revision,
                     "catalog_hash": server.tool_catalog_hash,
                 }
-        raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "McpTool"})
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
 
     async def set_user_scope(
         self, tenant_id: str, mcp_id: uuid.UUID, user_scope: str, actor: AuditActor
@@ -515,7 +515,7 @@ class McpService:
         server = await self.get_server(tenant_id, mcp_id)
         user = await self._session.get(PlatformUser, user_id)
         if user is None or user.is_deleted or user.tenant_id != tenant_id:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "PlatformUser"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         existing = await self._session.execute(
             select(McpUserGrant).where(
                 McpUserGrant.mcp_server_id == server.id,
@@ -523,25 +523,25 @@ class McpService:
             )
         )
         grant = existing.scalar_one_or_none()
-        if grant is not None and not grant.is_deleted:
-            raise AppError(ErrorCode.COMMON_CONFLICT)
-        if grant is None:
-            grant = McpUserGrant(mcp_server_id=server.id, user_id=user_id, granted_by=actor.account_id)
-            self._session.add(grant)
-        else:
-            grant.is_deleted = False
-            grant.granted_by = actor.account_id
-            grant.update_time = datetime.now(UTC)
-        await self._session.flush()
-        await self._audit.record_config_change(
-            tenant_id=tenant_id,
-            actor=actor,
-            resource_type=AUDIT_MCP,
-            resource_id=server.id,
-            action="UPDATE",
-            before=None,
-            after={"grant_user_id": str(user_id), "revoked": False},
-        )
+        if grant is None or grant.is_deleted:
+            if grant is None:
+                grant = McpUserGrant(mcp_server_id=server.id, user_id=user_id, granted_by=actor.account_id)
+                self._session.add(grant)
+            else:
+                grant.is_deleted = False
+                grant.granted_by = actor.account_id
+                grant.update_time = datetime.now(UTC)
+            await self._session.flush()
+            await self._audit.record_config_change(
+                tenant_id=tenant_id,
+                actor=actor,
+                resource_type=AUDIT_MCP,
+                resource_id=server.id,
+                action="UPDATE",
+                before=None,
+                after={"grant_user_id": str(user_id), "revoked": False},
+            )
+        # 幂等：已授权时直接返回既有记录，不重复写审计（与用户↔Agent 授权口径一致）
         return McpUserGrantItem(
             user_id=user.id,
             user_code=user.user_code,
@@ -563,7 +563,7 @@ class McpService:
         )
         grant = row.scalar_one_or_none()
         if grant is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "McpUserGrant"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         grant.is_deleted = True
         grant.update_time = datetime.now(UTC)
         await self._session.flush()

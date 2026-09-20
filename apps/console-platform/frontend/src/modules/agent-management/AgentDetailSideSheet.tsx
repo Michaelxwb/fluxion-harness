@@ -1,7 +1,8 @@
-import { Button, Popconfirm, Select, Spin, Table, Tabs, Tag } from '@douyinfe/semi-ui';
+import { Button, Select, Spin, Table, Tabs, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
@@ -177,9 +178,9 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
           <Button data-testid="edit-agent" theme="solid" onClick={() => props.onEdit()}>
             {t('agent.actions.edit')}
           </Button>
-          <Popconfirm title={t('agent.confirmDelete')} onConfirm={props.onClose}>
-            <Button type="danger">{t('agent.actions.delete')}</Button>
-          </Popconfirm>
+          <ConfirmAction theme="light" danger title={t('agent.confirmDelete')} onConfirm={props.onClose}>
+            {t('agent.actions.delete')}
+          </ConfirmAction>
         </>
       }
     >
@@ -246,7 +247,8 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
               {
                 title: t('agent.columns.actions'),
                 render: (_: unknown, record: AgentSkillItem) => (
-                  <Popconfirm
+                  <ConfirmAction
+                    danger
                     title={t('agent.relation.confirmUnbind')}
                     onConfirm={async () => {
                       await unbindSkill(props.agentId, record.skill_id);
@@ -254,10 +256,8 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                       props.onMutated?.();
                     }}
                   >
-                    <Button theme="borderless" type="danger">
-                      {t('agent.relation.unbind')}
-                    </Button>
-                  </Popconfirm>
+                    {t('agent.relation.unbind')}
+                  </ConfirmAction>
                 )
               }
             ]}
@@ -300,7 +300,8 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
               {
                 title: t('agent.columns.actions'),
                 render: (_: unknown, record: AgentMcpItem) => (
-                  <Popconfirm
+                  <ConfirmAction
+                    danger
                     title={t('agent.relation.confirmUnbind')}
                     onConfirm={async () => {
                       await unbindMcp(props.agentId, record.mcp_server_id);
@@ -308,10 +309,8 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                       props.onMutated?.();
                     }}
                   >
-                    <Button theme="borderless" type="danger">
-                      {t('agent.relation.unbind')}
-                    </Button>
-                  </Popconfirm>
+                    {t('agent.relation.unbind')}
+                  </ConfirmAction>
                 )
               }
             ]}
@@ -357,7 +356,8 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
               {
                 title: t('agent.columns.actions'),
                 render: (_: unknown, record: AgentGrantItem) => (
-                  <Popconfirm
+                  <ConfirmAction
+                    danger
                     title={t('agent.relation.confirmRevoke')}
                     onConfirm={async () => {
                       await revokeAgentUser(props.agentId, record.user_id);
@@ -365,10 +365,8 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                       props.onMutated?.();
                     }}
                   >
-                    <Button theme="borderless" type="danger">
-                      {t('agent.relation.revoke')}
-                    </Button>
-                  </Popconfirm>
+                    {t('agent.relation.revoke')}
+                  </ConfirmAction>
                 )
               }
             ]}
@@ -398,7 +396,8 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
               {
                 title: t('agent.columns.actions'),
                 render: (_: unknown, record: AgentChannelItem) => (
-                  <Popconfirm
+                  <ConfirmAction
+                    danger
                     title={t('agent.relation.confirmRemoveChannel')}
                     onConfirm={async () => {
                       await removeAgentChannel(props.agentId, record.channel_account_id);
@@ -406,10 +405,8 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                       props.onMutated?.();
                     }}
                   >
-                    <Button theme="borderless" type="danger">
-                      {t('agent.relation.remove')}
-                    </Button>
-                  </Popconfirm>
+                    {t('agent.relation.remove')}
+                  </ConfirmAction>
                 )
               }
             ]}

@@ -5,12 +5,13 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
-from typing import Any, Callable, Protocol
+from collections.abc import Callable
+from typing import Any, Protocol
 
 from muad_agent_core.model import (
     ModelRateLimitedError,
-    ModelUnavailableError,
     ModelRequestError,
+    ModelUnavailableError,
 )
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
@@ -75,10 +76,9 @@ class ModelGateway:
         attempt = 0
         while True:
             if is_cancelled and is_cancelled():
-                raise AppError(ErrorCode.COMMON_VALIDATION_ERROR, message_args={"reason": "cancelled"})
+                raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
             attempt += 1
             retry_reason: str | None = None
-            status = "SUCCEEDED"
             start = time.monotonic()
             try:
                 response = await provider.complete(request)

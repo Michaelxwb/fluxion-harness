@@ -1,16 +1,16 @@
-import { Form } from '@douyinfe/semi-ui';
+import { Form, Toast } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FormModal } from '../../components/common/FormModal';
-import { createUser, updateUser, type UserDetail } from './services/users';
+import { createUser, updateUser, type UserBasic } from './services/users';
 
 export interface UserFormModalProps {
   visible: boolean;
-  user: UserDetail | null;
+  user: UserBasic | null;
   onCancel(): void;
-  onSaved(user: UserDetail): void;
+  onSaved(user: UserBasic): void;
 }
 
 interface FormValues {
@@ -50,8 +50,11 @@ export function UserFormModal(props: UserFormModalProps) {
       const envelope =
         (error as { response?: { data?: { code?: string; msg?: string } } }).response?.data ??
         (error as { code?: string; msg?: string });
-      if (envelope.code === 'COMMON_CONFLICT') {
+      // user_code 冲突走专用码（通用 COMMON_CONFLICT 无法带出冲突对象，故不再用于此路径）
+      if (envelope.code === 'USER_CODE_EXISTS') {
         formApi.current?.setError('user_code', envelope.msg ?? t('user.form.userCode'));
+      } else {
+        Toast.error(envelope.msg ?? t('common.saveFailed'));
       }
     } finally {
       setSaving(false);

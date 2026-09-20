@@ -117,7 +117,7 @@
 |---|---|---|---|---|---|---|
 | E-01 | FEAT-01 | integration | API→Registry | 本模块 | 新增/编辑使用未注册 adapter_key | 返回 `PLATFORM_ADAPTER_NOT_FOUND`，不落库 |
 | E-02 | FEAT-03 | integration | API→CredentialResolver | 本模块 | credential_mode 需要凭据但引用缺失 | 返回 `CREDENTIAL_MISSING`，不读取 Secret Value |
-| E-03 | FEAT-01 | integration | API→DB | 本模块 | 新增平台 key 重复 | 返回 `COMMON_CONFLICT`（`message_args` 带 key） |
+| E-03 | FEAT-01 | integration | API→DB | 本模块 | 新增平台 key 重复 | 返回 `PLATFORM_KEY_EXISTS`（`message_args` 带 key） |
 | E-04 | FEAT-02 | integration | API→Schema | 本模块 | 凭据字段不满足 credential_schema | 返回 `COMMON_VALIDATION_ERROR`，Secret 不落库 |
 
 无可靠实测数据的性能阈值统一标记“待定”，不复制模板示例值。
@@ -365,8 +365,8 @@ POST /api/v1/project-platforms
 | `enabled` | boolean | 否 | 默认 true |
 
 - `data`：`{platform_id}`。
-- 错误码：`COMMON_VALIDATION_ERROR / PLATFORM_ADAPTER_NOT_FOUND / COMMON_CONFLICT / COMMON_INTERNAL_ERROR`
-- 处理：校验 `adapter_key` 已注册且 config 匹配 `platform_config_schema`；`resolver_type` 与 `resolver_config` 结构匹配；`UNIQUE(tenant_id,key)` 冲突返回 `COMMON_CONFLICT`；同一事务写入 `config_audit_log`（`actor_user_id`=当前 `console_account.id`）；不触发任何外部平台调用。
+- 错误码：`COMMON_VALIDATION_ERROR / PLATFORM_ADAPTER_NOT_FOUND / PLATFORM_KEY_EXISTS / COMMON_INTERNAL_ERROR`
+- 处理：校验 `adapter_key` 已注册且 config 匹配 `platform_config_schema`；`resolver_type` 与 `resolver_config` 结构匹配；`UNIQUE(tenant_id,key)` 冲突返回 `PLATFORM_KEY_EXISTS`；同一事务写入 `config_audit_log`（`actor_user_id`=当前 `console_account.id`）；不触发任何外部平台调用。
 - 对应 docs/07：§10.7。
 
 #### API-04 平台详情

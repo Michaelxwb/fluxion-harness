@@ -2,7 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 
 const ADMIN_USER = process.env.E2E_ADMIN_USER ?? 'admin';
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'admin12345678';
-const PROBE_BASE = 'http://127.0.0.1:4190/v1';
+// 探测端点端口须与 playwright.model-management.config.ts 的 PROBE_PORT 一致
+const PROBE_PORT = process.env.E2E_PROBE_PORT ?? '4191';
+const PROBE_BASE = `http://127.0.0.1:${PROBE_PORT}/v1`;
 
 async function login(page: Page): Promise<void> {
   await page.goto('/login');
@@ -94,11 +96,14 @@ test('S-02/S-04 选择两个模型批量测试并刷新列表', async ({ page })
     const modal = page.locator('.semi-modal', { hasText: '批量测试结果' });
     await expect(modal).toBeVisible();
     await expect(modal.locator('.semi-table-tbody .semi-table-row')).toHaveCount(2);
-    await expect(modal).toContainText('AVAILABLE');
+    // 状态列/结果 Modal 走 i18n 词条（zh-CN 界面 → model.test.status.available = 通过）
+    await expect(modal).toContainText('通过');
     await modal.locator('.semi-modal-close').click();
+    await expect(modal).toBeHidden();
 
-    await expect(page.locator('.semi-table-row', { hasText: first.key })).toContainText('AVAILABLE');
-    await expect(page.locator('.semi-table-row', { hasText: second.key })).toContainText('AVAILABLE');
+    // Modal 关闭后 DOM 可能仍保留（Semi 动画），故列表断言限定可见行
+    await expect(page.locator('.semi-table-row:visible', { hasText: first.key })).toContainText('通过');
+    await expect(page.locator('.semi-table-row:visible', { hasText: second.key })).toContainText('通过');
   } finally {
     await cleanupModel(page, first);
     await cleanupModel(page, second);
@@ -185,7 +190,7 @@ test('E-07 revision 冲突保留表单并提示本地化冲突', async ({ page }
   }
 });
 
-test('E-08 删除被引用模型提示本地化冲突且列表不变', async ({ page }) => {
+test('E-08 删除被引用模型返回 MODEL_IN_USE 并展示引用数且列表不变', async ({ page }) => {
   await login(page);
   const model = await createModelViaApi(page, { key: uniqueKey('e2e-e08') });
   const agentResponse = await page.request.post('/api/v1/agents', {
@@ -203,9 +208,11 @@ test('E-08 删除被引用模型提示本地化冲突且列表不变', async ({ 
     const row = page.locator('.semi-table-row', { hasText: model.key });
     await row.getByText('删除').click();
     await page.locator('.semi-popconfirm').getByText('确定').click();
-    await expect(
-      page.locator('.semi-toast-content', { hasText: '数据已发生变化' })
-    ).toBeVisible();
+    // MODEL_IN_USE 专用码必须把 {model_key} 与 {agent_count} 渲染进文案（通用 COMMON_CONFLICT 无占位符，做不到）
+    const toast = page.locator('.semi-toast-content');
+    await expect(toast).toContainText('无法删除');
+    await expect(toast).toContainText(model.key);
+    await expect(toast).toContainText('1 个 Agent');
     await expect(page.locator('.semi-table-row', { hasText: model.key })).toHaveCount(1);
   } finally {
     await cleanupModel(page, model, agentId);

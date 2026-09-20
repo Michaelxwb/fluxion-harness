@@ -70,8 +70,10 @@
 |---|---|---|---|---|---|
 | E-FE-01 | FEAT-FE-03 | integration | API→Toast | 生成绑定码失败 | SideSheet 保留且显示本地化 msg |
 | E-FE-02 | FEAT-FE-02 | E2E | Browser→后置模块 API | Memory/Agent API 暂不可用 | 对应 Tab 独立 ErrorState，不影响其他 Tab |
-| E-FE-03 | FEAT-FE-03 | integration | API→bind 消费 | 绑定码过期 | Toast `BIND_CODE_EXPIRED`，引导重新生成 |
-| E-FE-04 | FEAT-FE-02 | integration | API→COMMON_CONFLICT | 新增用户 user_code 重复 | Form 定位 user_code 字段并提示本地化冲突 |
+| E-FE-03 | FEAT-FE-03 | contract | 错误码目录 / Gateway 消费 | 绑定码过期 | `BIND_CODE_EXPIRED`（HTTP 410）在目录与 zh/en 词条齐备，Gateway 消费路径返回该码 |
+| E-FE-04 | FEAT-FE-02 | integration | API→USER_CODE_EXISTS | 新增用户 user_code 重复 | Form 定位 user_code 字段并提示本地化冲突 |
+
+> E-FE-03 的「Toast」在 Console 侧没有真实触发面：绑定码由 End User 在 IM 内消费，Console 无法感知该次消费。因此本场景降到 contract 层（校验错误码目录 / zh-en 词条 / Gateway 消费路径），若要真正在 Console 展示过期引导，需新增「查询当前 ACTIVE 绑定码状态」端点（当前只有 POST 生成，DB 只存 hash 无法回显明文）——属于后续范围。
 
 ## 3. 前端技术设计
 
@@ -111,16 +113,22 @@
 
 CMP-03 的“状态”列是派生展示：身份记录存在且未解绑 = 已绑定；启用状态取 `platform_user.status`（ACTIVE/DISABLED）。`channel_identity` 没有 `status` 字段，禁止按字段直读。
 
-**必须复用公共组件**：`ConsoleShell / ModuleToolbar / RemoteTable / EntityLink / DetailSideSheet / DetailTabs / FormModal / StatusTag / DateTimeText / ConfirmAction / EmptyState / ErrorState / PaginationFooter / LocaleSwitch`。
+**必须复用公共组件**（`src/components/common/`，均已落地）：`ModuleToolbar / RemoteTable / EntityLink / DetailSideSheet / FormModal / StatusTag / DateTimeText / ConfirmAction / EmptyState / ErrorState / PaginationFooter / LocaleSwitch`。
+
+- Console Shell 由 `src/layout/AppLayout.tsx` 提供（含侧栏/顶栏/主题与语言切换）。
+- 详情 Tabs 由 `DetailSideSheet` 内部渲染 Semi `Tabs`，不存在独立的 `DetailTabs` 组件。
+- 详情可复用 `DetailGrid`（双列标签栅格）与 `MetricCards`（统计概览）。
 
 #### 3.3.1 每个按钮/操作的设计
 
 | 位置 | 按钮/链接 | Semi 组件 | 层级 | 行为 | Service/API | 二次确认 |
 |---|---|---|---|---|---|---|
 | 列表左上 | 新增用户 | `Button` | primary | 打开新增 Modal | `POST /api/v1/users` | 否 |
-| 列表右上 | 搜索 | `Button` | secondary | 显示名/用户编码查询并回第1页 | `GET /api/v1/users` | 否 |
-| 列表右上 | 重置 | `Button` | secondary | 清筛选刷新 | `GET /api/v1/users` | 否 |
-| 列表右上 | 刷新 | `Button` | secondary | 刷新当前页 | `GET /api/v1/users` | 否 |
+| 列表右上 | 搜索 | `Button` | secondary | 提交筛选条件（关键字/状态）并回第 1 页 | `GET /api/v1/users` | 否 |
+| 列表右上 | 重置 | `Button` | secondary | 清空筛选并回第 1 页 | `GET /api/v1/users` | 否 |
+| 列表右上 | 刷新 | `Button` | secondary | 按当前条件重新拉取 | `GET /api/v1/users` | 否 |
+
+> 关键字/状态下拉是**草稿态**，只在点「搜索」（或回车）时生效：避免逐字符发请求，也避免竞态。列表请求带请求序号，过期响应直接丢弃。
 | 基本信息 | 编辑基本信息 | `Button` | secondary | 打开编辑 Modal（用户编码只读） | `PUT /api/v1/users/{id}` | 否 |
 | Agent 授权 Tab | 授权 Agent | `Button` | primary | 选择 Agent 创建 Grant（用户侧端点，复用 07 服务） | `POST /api/v1/users/{id}/agents/{agent_id}` | 否 |
 | Agent 授权行 | 取消授权 | `Popconfirm + Button` | secondary | 删除 Grant | `DELETE /api/v1/users/{id}/agents/{agent_id}` | 是 |
@@ -161,20 +169,21 @@ User Action
 | Service 方法 | 对应后端接口 | 调用方 |
 |---|---|---|
 | `listUsers(params)` | `GET /api/v1/users` | useUserList |
-| `createUser(input)` | `POST /api/v1/users` | UserFormModal |
+| `createUser(input)` | `POST /api/v1/users`（响应为 `UserBasic`，不含计数） | UserFormModal |
 | `getUser(id)` | `GET /api/v1/users/{id}`（聚合计数字段） | useUserDetail |
-| `updateUser(id, input)` | `PUT /api/v1/users/{id}` | UserFormModal |
-| `listAgentGrants(id)` | `GET /api/v1/users/{id}/agents` | AgentGrantTab（后端复用 07 service） |
-| `grantAgent(id, agentId)` | `POST /api/v1/users/{id}/agents/{agent_id}` | AgentGrantTab（后端复用 07 service） |
-| `revokeAgent(id, agentId)` | `DELETE /api/v1/users/{id}/agents/{agent_id}` | AgentGrantTab（后端复用 07 service） |
-| `listIdentities(id)` | `GET /api/v1/users/{id}/identities` | IdentityTab |
+| `updateUser(id, input)` | `PUT /api/v1/users/{id}`（响应为 `UserBasic`） | UserFormModal |
+| `listAgentGrants(id, params)` | `GET /api/v1/users/{id}/agents` | AgentGrantTab（后端复用 07 `GrantService`） |
+| `grantAgent(id, agentId)` | `POST /api/v1/users/{id}/agents/{agent_id}` | AgentGrantTab |
+| `revokeAgent(id, agentId)` | `DELETE /api/v1/users/{id}/agents/{agent_id}` | AgentGrantTab |
+| `listIdentities(id, params)` | `GET /api/v1/users/{id}/identities` | IdentityTab |
 | `createBindCode(id)` | `POST /api/v1/users/{id}/bind-codes` | IdentityTab |
 | `unbindIdentity(id, identityId)` | `DELETE /api/v1/users/{id}/identities/{identity_id}` | IdentityTab |
-| `listMemory(id)` | `GET /api/v1/users/{id}/memory` | MemoryTab（后端复用 08 service） |
-| `deleteMemory(id, memoryId)` | `DELETE /api/v1/users/{id}/memory/{memory_id}` | MemoryTab（后端复用 08 service） |
-| `clearMemory(id)` | `DELETE /api/v1/users/{id}/memory` | MemoryTab（后端复用 08 service） |
+| `listMemory(id, params)` | `GET /api/v1/users/{id}/memory` | MemoryTab |
+| `deleteMemory(id, memoryId)` | `DELETE /api/v1/users/{id}/memory/{memory_id}` | MemoryTab |
+| `clearMemory(id)` | `DELETE /api/v1/users/{id}/memory` | MemoryTab |
 
-凭据 Tab 的读写走 04-project-platform 的凭据接口，不在本模块新增 Service。
+> 四个 Tab 的清单都是**分页消费**：service 必须把 `{page, page_size}` 透传给后端，Tab 底部用 `PaginationFooter` 展示区间/每页/翻页。禁止不传分页（后端默认 `page_size=20`）导致「Tab 标题计数与列表行数不一致」。
+> 凭据 Tab 的读写走 04-project-platform 的凭据接口，不在本模块新增 Service。
 
 ### 3.6 UI 状态
 
@@ -209,10 +218,12 @@ Semi Form required/rules；Modal/SideSheet 焦点管理；图标按钮 aria-labe
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `harness-platform#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.5 / §3.6 | S-FE-01, E-FE-04（verifier: project-owner） | applied |
-| `harness-platform#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.2 / §3.3 CMP-01/CMP-02 | S-FE-01, S-FE-03（verifier: project-owner） | applied |
-| `harness-platform#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3 CMP-02 / §3.4 | S-FE-03, E-FE-02（verifier: project-owner） | applied |
-| `harness-platform#RULE-time-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | §3.7 / DateTimeText | S-FE-01, S-FE-02（verifier: project-owner） | applied |
-| `harness-platform#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.5 / §3.6 | S-FE-01~S-FE-03, E-FE-01~E-FE-04（verifier: project-owner） | applied |
-| `harness-platform#RULE-im-001` | required | Agent 0..N bot_id；bot_id 只指向一个 Agent；不绑定 Runtime Pod。 | §3.3 CMP-03 / §3.5 IdentityTab | S-FE-02, E-FE-03（verifier: project-owner） | applied |
-| `harness-platform#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4 / §3.5 | S-FE-01~S-FE-03, E-FE-02（verifier: project-owner 确认真实浏览器+PG） | applied |
+| `harness-i18n#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.5 / §3.6 | S-FE-01, E-FE-04（verifier: `scripts/check_frontend_i18n.py`） | applied |
+| `harness-ui#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.2 / §3.3 CMP-01/CMP-02 | S-FE-01, S-FE-03（verifier: `tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm run build`） | applied |
+| `harness-ui-detail#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3 CMP-02 / §3.4 | S-FE-03, E-FE-02（verifier: `tests/frontend/test_detail_sidesheet_contract.py && npm run typecheck`） | applied |
+| `harness-time#RULE-time-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | §3.7 / DateTimeText | S-FE-01, S-FE-02（verifier: `tests/frontend/test_datetime_contract.py && pytest -k schema_parity`） | applied |
+| `harness-frontend#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.5 / §3.6 | S-FE-01~S-FE-03, E-FE-01~E-FE-04（verifier: `scripts/check_frontend_api_usage.py && scripts/check_frontend_i18n.py && npm run typecheck`） | applied |
+| `harness-im#RULE-im-001` | required | Agent 0..N bot_id；bot_id 只指向一个 Agent；不绑定 Runtime Pod。 | §3.3 CMP-03 / §3.5 IdentityTab | S-FE-02, E-FE-03（verifier: `pytest -q tests/console_channel tests/gateway`） | applied |
+| `harness-test#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4 / §3.5 | S-FE-01~S-FE-03, E-FE-02（verifier: `pytest -q tests/acceptance && npm run build && npm --prefix e2e test`） | applied |
+
+> 说明：本矩阵原先把 owner 写成 `harness-platform`，该 spec id 不存在；已按实际生效的 spec id 更正。

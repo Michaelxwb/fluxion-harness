@@ -4,15 +4,23 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from muad_api import install_api_foundation
+from muad_api import (
+    database_readiness,
+    install_api_foundation,
+    install_console_security,
+    install_health_probes,
+    validate_startup,
+)
+from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_logging import configure_logging
 from sqlalchemy.exc import SQLAlchemyError
 
+from .api.deps import ConsoleRoleResolver, ConsoleSessionVerifier
 from .api.router import router
 from .application.auth_service import AuthService
 from .application.platform_adapter_service import build_default_registry
-from .infrastructure.db import dispose_engine, get_session_factory
+from .infrastructure.db import dispose_engine, get_engine, get_session_factory
 
 SERVICE_NAME = "muad-console-platform"
 
@@ -40,6 +48,13 @@ async def _warn_if_no_accounts() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    settings = SharedSettings()
+    await validate_startup(
+        settings,
+        get_engine(),
+        NfsArtifactStore(settings.artifact_root),
+        migrations_dir=settings.migrations_dir,
+    )
     await _warn_if_no_accounts()
     yield
     await dispose_engine()
@@ -54,4 +69,6 @@ app.state.platform_adapters = build_default_registry(
     )
 )
 install_api_foundation(app)
+install_console_security(app, ConsoleSessionVerifier(), ConsoleRoleResolver())
+install_health_probes(app, {"database": database_readiness(get_engine)})
 app.include_router(router)

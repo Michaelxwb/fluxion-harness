@@ -5,12 +5,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
-from muad_api import install_api_foundation
+from muad_api import install_api_foundation, install_health_probes, validate_startup
 from muad_common import SharedSettings
 from muad_logging import configure_logging
 
 from .api.delivery import router as delivery_router
-from .api.health import router as health_router
+from .api.health import readiness_checks, readiness_detail
 from .application.bot_snapshot import BotSnapshotCache
 from .application.console_client import ConsoleClient
 from .application.inbound import InboundPipeline
@@ -27,6 +27,8 @@ configure_logging(SERVICE_NAME)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = SharedSettings()
+    # Gateway 不持有数据库：只校验配置与 Artifact 挂载（迁移到 head 由持库服务校验）
+    await validate_startup(settings, None, None, migrations_dir=None)
     registry = ChannelRegistry()
     wecom = WeComAdapter()
     registry.register(wecom)
@@ -75,5 +77,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="MUAD IM Gateway", version="0.1.0", lifespan=lifespan)
 install_api_foundation(app)
-app.include_router(health_router)
+install_health_probes(
+    app,
+    readiness_checks(app),
+    detail=lambda: readiness_detail(app),
+)
 app.include_router(delivery_router)

@@ -1,25 +1,27 @@
 import {
-  Banner,
   Button,
   Empty,
   Form,
   Modal,
-  Popconfirm,
   Select,
   Spin,
   Table,
   Tabs,
-  Tag,
   Typography
 } from '@douyinfe/semi-ui';
 import { IconPlus } from '@douyinfe/semi-icons';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
+import { ErrorState } from '../../components/common/ErrorState';
 import { FormModal } from '../../components/common/FormModal';
+import { MetricCards } from '../../components/common/MetricCards';
+import { PaginationFooter } from '../../components/common/PaginationFooter';
+import { StatusTag } from '../../components/common/StatusTag';
 import {
   getAdapter,
   listPlatforms,
@@ -27,14 +29,14 @@ import {
   type AdapterMetadata,
   type PlatformItem
 } from '../project-platform/services/platforms';
-import { MetricCards } from '../../components/common/MetricCards';
 import {
+  AGENT_PICKER_PAGE_SIZE,
   clearMemory,
   createBindCode,
   deleteMemory,
   grantAgent,
   listAgentGrants,
-  listAgents,
+  listAgentsForPicker,
   listIdentities,
   listMemory,
   revokeAgent,
@@ -44,6 +46,7 @@ import {
   type BindCode,
   type Identity,
   type Memory,
+  type Page,
   type UserDetail
 } from './services/users';
 
@@ -54,29 +57,73 @@ export interface UserDetailTabsProps {
   onEdit(): void;
 }
 
-function useAsyncList<T>(loader: () => Promise<T[]>, deps: unknown[]) {
+const DEFAULT_TAB_PAGE_SIZE = 10;
+
+interface AsyncList<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  loading: boolean;
+  failed: boolean;
+  reload(): Promise<void>;
+  changePage(page: number): void;
+  changePageSize(pageSize: number): void;
+}
+
+function useAsyncList<T>(
+  loader: (page: number, pageSize: number) => Promise<Page<T>>,
+  deps: unknown[]
+): AsyncList<T> {
   const [items, setItems] = useState<T[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_TAB_PAGE_SIZE);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const loaderRef = useRef(loader);
+  loaderRef.current = loader;
 
   const reload = useCallback(async () => {
     setLoading(true);
     setFailed(false);
     try {
-      setItems(await loader());
+      const result = await loaderRef.current(page, pageSize);
+      setItems(result.items);
+      setTotal(result.total);
     } catch {
       setFailed(true);
+      setItems([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [page, pageSize, ...deps]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  return { items, loading, failed, reload };
+  useEffect(() => {
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+
+  return {
+    items,
+    total,
+    page,
+    pageSize,
+    loading,
+    failed,
+    reload,
+    changePage: setPage,
+    changePageSize: (size: number) => {
+      setPageSize(size);
+      setPage(1);
+    }
+  };
 }
 
 function formatMemoryContent(value: Record<string, unknown>): string {
@@ -87,13 +134,18 @@ function formatMemoryContent(value: Record<string, unknown>): string {
   return JSON.stringify(value);
 }
 
-function TabState(props: { loading: boolean; failed: boolean; empty: string; children: ReactNode }) {
-  const { t } = useTranslation();
+function TabState(props: {
+  loading: boolean;
+  failed: boolean;
+  empty: string;
+  onRetry(): void;
+  children: ReactNode;
+}) {
   if (props.loading) {
     return <Spin style={{ display: 'block', margin: '32px auto' }} />;
   }
   if (props.failed) {
-    return <Banner type="danger" description={t('user.common.loadFailed')} />;
+    return <ErrorState onRetry={props.onRetry} />;
   }
   if (props.children === null || props.children === undefined) {
     return <Empty description={props.empty} />;
@@ -101,23 +153,47 @@ function TabState(props: { loading: boolean; failed: boolean; empty: string; chi
   return <>{props.children}</>;
 }
 
+function TabPagination({ list }: { list: AsyncList<unknown> }) {
+  if (list.failed || list.total === 0) {
+    return null;
+  }
+  return (
+    <PaginationFooter
+      page={list.page}
+      pageSize={list.pageSize}
+      total={list.total}
+      onPageChange={list.changePage}
+      onPageSizeChange={list.changePageSize}
+    />
+  );
+}
+
 function AgentGrantTab(props: { userId: string }) {
   const { t } = useTranslation();
-  const { items, loading, failed, reload } = useAsyncList<AgentGrant>(
-    async () => (await listAgentGrants(props.userId)).items,
+  const list = useAsyncList<AgentGrant>(
+    (page, pageSize) => listAgentGrants(props.userId, { page, page_size: pageSize }),
     [props.userId]
   );
+  const { items, loading, failed, reload } = list;
   const [agents, setAgents] = useState<AgentSummary[]>([]);
+  const [agentsTotal, setAgentsTotal] = useState(0);
   const [selected, setSelected] = useState<string>('');
   const [grantVisible, setGrantVisible] = useState(false);
 
   useEffect(() => {
-    listAgents()
-      .then((page) => setAgents(page.items))
-      .catch(() => setAgents([]));
+    listAgentsForPicker()
+      .then((page) => {
+        setAgents(page.items);
+        setAgentsTotal(page.total);
+      })
+      .catch(() => {
+        setAgents([]);
+        setAgentsTotal(0);
+      });
   }, []);
 
   const availableAgents = agents.filter((agent) => !items.some((entry) => entry.agent_id === agent.id));
+  const grantableTotal = Math.max(0, agentsTotal - list.total);
 
   const closeGrant = (): void => {
     setGrantVisible(false);
@@ -166,13 +242,26 @@ function AgentGrantTab(props: { userId: string }) {
               optionList={availableAgents.map((agent) => ({ value: agent.id, label: agent.name }))}
             />
             <div className="detail-hint">{t('user.agents.grantHint')}</div>
+            {grantableTotal > availableAgents.length ? (
+              <div className="detail-hint" data-testid="agent-picker-truncated">
+                {t('user.agents.pickerTruncated', {
+                  shown: availableAgents.length,
+                  total: grantableTotal
+                })}
+              </div>
+            ) : null}
           </>
         ) : (
           <Typography.Paragraph type="tertiary">{t('user.agents.allGranted')}</Typography.Paragraph>
         )}
       </FormModal>
       <div className="detail-section-title">{t('user.tabs.agents')}</div>
-      <TabState loading={loading} failed={failed} empty={t('user.agents.empty')}>
+      <TabState
+        loading={loading}
+        failed={failed}
+        empty={t('user.agents.empty')}
+        onRetry={() => void reload()}
+      >
         {items.length > 0 ? (
           <Table
             dataSource={items}
@@ -185,9 +274,13 @@ function AgentGrantTab(props: { userId: string }) {
                 title: t('user.columns.status'),
                 dataIndex: 'enabled',
                 render: (value: boolean) => (
-                  <Tag color={value ? 'green' : 'grey'}>
-                    {t(value ? 'common.status.enabled' : 'common.status.disabled')}
-                  </Tag>
+                  <StatusTag
+                    status={value}
+                    options={{
+                      true: { color: 'green', label: t('common.status.enabled') },
+                      false: { color: 'grey', label: t('common.status.disabled') }
+                    }}
+                  />
                 )
               },
               {
@@ -198,17 +291,20 @@ function AgentGrantTab(props: { userId: string }) {
               {
                 title: t('user.columns.action'),
                 render: (_: unknown, entry: AgentGrant) => (
-                  <Popconfirm title={t('user.common.confirmRevoke')} onConfirm={() => void revoke(entry.agent_id)}>
-                    <Button theme="borderless" type="danger">
-                      {t('user.agents.revoke')}
-                    </Button>
-                  </Popconfirm>
+                  <ConfirmAction
+                    danger
+                    title={t('user.common.confirmRevoke')}
+                    onConfirm={() => void revoke(entry.agent_id)}
+                  >
+                    {t('user.agents.revoke')}
+                  </ConfirmAction>
                 )
               }
             ]}
           />
         ) : null}
       </TabState>
+      <TabPagination list={list} />
       <div className="detail-hint">{t('user.agents.hint')}</div>
     </div>
   );
@@ -226,10 +322,11 @@ function credentialTagKey(status?: string): { color: 'green' | 'red' | 'grey'; k
 
 function CredentialsTab(props: { userId: string }) {
   const { t } = useTranslation();
-  const { items, loading, failed, reload } = useAsyncList<PlatformItem>(
-    async () => (await listPlatforms({ page: 1, page_size: 100, user_id: props.userId })).items,
+  const list = useAsyncList<PlatformItem>(
+    (page, pageSize) => listPlatforms({ page, page_size: pageSize, user_id: props.userId }),
     [props.userId]
   );
+  const { items, loading, failed, reload } = list;
   const [target, setTarget] = useState<PlatformItem | null>(null);
   const [adapter, setAdapter] = useState<AdapterMetadata | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -261,7 +358,12 @@ function CredentialsTab(props: { userId: string }) {
   return (
     <div>
       <div className="detail-section-title">{t('user.tabs.credentials')}</div>
-      <TabState loading={loading} failed={failed} empty={t('user.credentials.empty')}>
+      <TabState
+        loading={loading}
+        failed={failed}
+        empty={t('user.credentials.empty')}
+        onRetry={() => void reload()}
+      >
         {items.length > 0 ? (
           <Table
             dataSource={items}
@@ -279,8 +381,14 @@ function CredentialsTab(props: { userId: string }) {
                 title: t('user.credentials.status'),
                 dataIndex: 'user_credential_status',
                 render: (value: string | undefined) => {
+                  const status = value ?? 'NONE';
                   const tag = credentialTagKey(value);
-                  return <Tag color={tag.color}>{t(tag.key)}</Tag>;
+                  return (
+                    <StatusTag
+                      status={status}
+                      options={{ [status]: { color: tag.color, label: t(tag.key) } }}
+                    />
+                  );
                 }
               },
               {
@@ -302,6 +410,7 @@ function CredentialsTab(props: { userId: string }) {
           />
         ) : null}
       </TabState>
+      <TabPagination list={list} />
       <div className="detail-hint">{t('user.credentials.hint')}</div>
       <FormModal
         visible={target !== null}
@@ -328,10 +437,11 @@ function CredentialsTab(props: { userId: string }) {
 
 function IdentityTab(props: { userId: string }) {
   const { t } = useTranslation();
-  const { items, loading, failed, reload } = useAsyncList<Identity>(
-    async () => (await listIdentities(props.userId)).items,
+  const list = useAsyncList<Identity>(
+    (page, pageSize) => listIdentities(props.userId, { page, page_size: pageSize }),
     [props.userId]
   );
+  const { items, loading, failed, reload } = list;
   const [bindCode, setBindCode] = useState<BindCode | null>(null);
 
   const generate = async (): Promise<void> => {
@@ -376,7 +486,12 @@ function IdentityTab(props: { userId: string }) {
         ) : null}
       </Modal>
       <div className="detail-section-title">{t('user.tabs.identities')}</div>
-      <TabState loading={loading} failed={failed} empty={t('user.identities.empty')}>
+      <TabState
+        loading={loading}
+        failed={failed}
+        empty={t('user.identities.empty')}
+        onRetry={() => void reload()}
+      >
         {items.length > 0 ? (
           <Table
             dataSource={items}
@@ -400,25 +515,32 @@ function IdentityTab(props: { userId: string }) {
                 title: t('user.columns.status'),
                 dataIndex: 'user_status',
                 render: (value: string) => (
-                  <Tag color={value === 'ACTIVE' ? 'green' : 'grey'}>
-                    {t(value === 'ACTIVE' ? 'common.status.enabled' : 'common.status.disabled')}
-                  </Tag>
+                  <StatusTag
+                    status={value}
+                    options={{
+                      ACTIVE: { color: 'green', label: t('common.status.enabled') },
+                      DISABLED: { color: 'grey', label: t('common.status.disabled') }
+                    }}
+                  />
                 )
               },
               {
                 title: t('user.columns.action'),
                 render: (_: unknown, entry: Identity) => (
-                  <Popconfirm title={t('user.common.confirmUnbind')} onConfirm={() => void unbind(entry.id)}>
-                    <Button theme="borderless" type="danger">
-                      {t('user.identities.unbind')}
-                    </Button>
-                  </Popconfirm>
+                  <ConfirmAction
+                    danger
+                    title={t('user.common.confirmUnbind')}
+                    onConfirm={() => void unbind(entry.id)}
+                  >
+                    {t('user.identities.unbind')}
+                  </ConfirmAction>
                 )
               }
             ]}
           />
         ) : null}
       </TabState>
+      <TabPagination list={list} />
       <div className="detail-hint">{t('user.identities.hint')}</div>
     </div>
   );
@@ -426,10 +548,11 @@ function IdentityTab(props: { userId: string }) {
 
 function MemoryTab(props: { userId: string }) {
   const { t } = useTranslation();
-  const { items, loading, failed, reload } = useAsyncList<Memory>(
-    async () => (await listMemory(props.userId)).items,
+  const list = useAsyncList<Memory>(
+    (page, pageSize) => listMemory(props.userId, { page, page_size: pageSize }),
     [props.userId]
   );
+  const { items, loading, failed, reload } = list;
 
   const remove = async (memoryId: string): Promise<void> => {
     await deleteMemory(props.userId, memoryId);
@@ -443,13 +566,21 @@ function MemoryTab(props: { userId: string }) {
 
   return (
     <div>
-      <Popconfirm title={t('user.common.confirmClear')} onConfirm={() => void clearAll()}>
-        <Button type="danger" style={{ marginBottom: 12 }}>
-          {t('user.memory.clear')}
-        </Button>
-      </Popconfirm>
+      <ConfirmAction
+        danger
+        style={{ marginBottom: 12 }}
+        title={t('user.common.confirmClear')}
+        onConfirm={() => void clearAll()}
+      >
+        {t('user.memory.clear')}
+      </ConfirmAction>
       <div className="detail-section-title">{t('user.tabs.memory')}</div>
-      <TabState loading={loading} failed={failed} empty={t('user.memory.empty')}>
+      <TabState
+        loading={loading}
+        failed={failed}
+        empty={t('user.memory.empty')}
+        onRetry={() => void reload()}
+      >
         {items.length > 0 ? (
           <Table
             dataSource={items}
@@ -470,17 +601,20 @@ function MemoryTab(props: { userId: string }) {
               {
                 title: t('user.columns.action'),
                 render: (_: unknown, entry: Memory) => (
-                  <Popconfirm title={t('user.common.confirmClear')} onConfirm={() => void remove(entry.id)}>
-                    <Button theme="borderless" type="danger">
-                      {t('user.memory.delete')}
-                    </Button>
-                  </Popconfirm>
+                  <ConfirmAction
+                    danger
+                    title={t('user.memory.confirmDelete')}
+                    onConfirm={() => void remove(entry.id)}
+                  >
+                    {t('user.memory.delete')}
+                  </ConfirmAction>
                 )
               }
             ]}
           />
         ) : null}
       </TabState>
+      <TabPagination list={list} />
       <div className="detail-hint">{t('user.memory.hint')}</div>
     </div>
   );
@@ -514,9 +648,13 @@ export function UserDetailTabs(props: UserDetailTabsProps) {
             {
               label: t('user.form.status'),
               value: (
-                <Tag color={user.status === 'ACTIVE' ? 'green' : 'grey'}>
-                  {t(user.status === 'ACTIVE' ? 'common.status.enabled' : 'common.status.disabled')}
-                </Tag>
+                <StatusTag
+                  status={user.status}
+                  options={{
+                    ACTIVE: { color: 'green', label: t('common.status.enabled') },
+                    DISABLED: { color: 'grey', label: t('common.status.disabled') }
+                  }}
+                />
               )
             },
             { label: t('user.detail.createdAt'), value: <DateTimeText value={user.create_time} /> },

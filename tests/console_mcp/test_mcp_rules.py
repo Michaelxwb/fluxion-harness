@@ -1,4 +1,5 @@
-"""[RULE-mcp-001] MCP 规则级契约：V1 仅 Streamable HTTP；目录持久化 PG；Server 级范围；无 Tool 级启停/授权。"""
+"""[RULE-mcp-001] MCP 规则级契约：V1 仅 Streamable HTTP；目录持久化 PG；Server 级范围；
+无 Tool 级启停/授权。"""
 
 from __future__ import annotations
 

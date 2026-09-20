@@ -15,7 +15,6 @@ from muad_console_platform.infrastructure.models.control import (
     ModelDefinition,
     PlatformUser,
 )
-from muad_console_platform.infrastructure.models.mcp import AgentMcpBinding, McpServer
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 

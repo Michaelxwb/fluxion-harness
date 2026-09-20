@@ -21,7 +21,10 @@ def error_code_from_payload(payload: Any) -> str:
 
 
 class TransportClient(Protocol):
-    async def post(self, path: str, json: dict, headers: dict) -> Any: ...
+    # 与 httpx.AsyncClient.post 的用法对齐（url + 关键字 json/headers）
+    async def post(
+        self, url: str, *, json: dict[str, Any], headers: dict[str, str]
+    ) -> Any: ...
 
     async def aclose(self) -> None: ...
 

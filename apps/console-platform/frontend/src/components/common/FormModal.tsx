@@ -2,6 +2,7 @@ import { Form, Modal } from '@douyinfe/semi-ui';
 import type { ButtonProps } from '@douyinfe/semi-ui/lib/es/button';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface FormModalProps {
   visible: boolean;
@@ -9,6 +10,7 @@ export interface FormModalProps {
   width?: number;
   confirmLoading?: boolean;
   okText?: string;
+  cancelText?: string;
   okButtonProps?: ButtonProps;
   onOk(): void;
   onCancel(): void;
@@ -18,13 +20,15 @@ export interface FormModalProps {
 }
 
 export function FormModal(props: FormModalProps) {
+  const { t } = useTranslation();
   return (
     <Modal
       visible={props.visible}
       title={props.title}
       width={props.width}
       confirmLoading={props.confirmLoading}
-      okText={props.okText}
+      okText={props.okText ?? t('common.confirm')}
+      cancelText={props.cancelText ?? t('common.cancel')}
       okButtonProps={props.okButtonProps}
       onOk={props.onOk}
       onCancel={props.onCancel}

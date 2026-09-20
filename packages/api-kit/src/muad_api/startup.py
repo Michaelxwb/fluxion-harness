@@ -37,11 +37,16 @@ async def _database_revision(engine: AsyncEngine) -> str | None:
 
 async def validate_startup(
     settings: Any,
-    engine: AsyncEngine,
+    engine: AsyncEngine | None,
     artifact_store: Any,
     *,
     migrations_dir: str | Path | None = None,
 ) -> None:
+    """启动初始化校验：配置、artifact 挂载、迁移到 head。
+
+    不持有数据库的服务（如 im-gateway）传 `engine=None` 且 `migrations_dir=None`；
+    若要校验迁移到 head，必须同时给出 engine 与 migrations_dir。
+    """
     failures: list[str] = []
     if not getattr(settings, "database_url", None):
         failures.append("database_url is not configured")
@@ -51,17 +56,20 @@ async def validate_startup(
         failures.append(f"artifact storage is not mounted: {root}")
 
     if migrations_dir is not None:
-        expected = migration_head(Path(migrations_dir))
-        if expected is None:
-            failures.append(f"cannot determine migration head under {migrations_dir}")
+        if engine is None:
+            failures.append("engine is required to validate the schema revision")
         else:
-            try:
-                current = await _database_revision(engine)
-            except Exception as exc:
-                failures.append(f"cannot read schema revision: {exc}")
+            expected = migration_head(Path(migrations_dir))
+            if expected is None:
+                failures.append(f"cannot determine migration head under {migrations_dir}")
             else:
-                if current != expected:
-                    failures.append(f"database schema revision {current!r} is not at head {expected!r}")
+                try:
+                    current = await _database_revision(engine)
+                except Exception as exc:
+                    failures.append(f"cannot read schema revision: {exc}")
+                else:
+                    if current != expected:
+                        failures.append(f"database schema revision {current!r} is not at head {expected!r}")
 
     if failures:
         raise StartupValidationError(failures)

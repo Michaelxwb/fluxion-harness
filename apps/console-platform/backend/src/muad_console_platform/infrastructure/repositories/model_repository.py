@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from typing import Any, cast
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import CursorResult, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.control import AgentDefinition, ModelDefinition
@@ -73,13 +74,47 @@ class ModelRepository:
         await self._session.flush()
         return model
 
-    async def count_agent_references(self, model_id: uuid.UUID) -> int:
+    async def count_agent_references(self, tenant_id: str, model_id: uuid.UUID) -> int:
         total = await self._session.scalar(
             select(func.count())
             .select_from(AgentDefinition)
-            .where(AgentDefinition.model_id == model_id, AgentDefinition.is_deleted.is_(False))
+            .where(
+                AgentDefinition.tenant_id == tenant_id,
+                AgentDefinition.model_id == model_id,
+                AgentDefinition.is_deleted.is_(False),
+            )
         )
         return int(total or 0)
+
+    async def cas_update(
+        self,
+        tenant_id: str,
+        model_id: uuid.UUID,
+        expected_revision: int,
+        values: dict[str, Any],
+    ) -> bool:
+        """条件更新做 CAS：只有 revision 仍等于 expected_revision 时才写入。
+
+        返回是否命中（False = 期间被他人改过，调用方应抛 REVISION_CONFLICT）。
+        配置变更一律重置测试状态；此处不做 Python 侧比对，避免 read-then-write 丢更新。
+        """
+        result = await self._session.execute(
+            update(ModelDefinition)
+            .where(
+                ModelDefinition.id == model_id,
+                ModelDefinition.tenant_id == tenant_id,
+                ModelDefinition.revision == expected_revision,
+                ModelDefinition.is_deleted.is_(False),
+            )
+            .values(
+                **values,
+                revision=expected_revision + 1,
+                last_test_status="UNTESTED",
+                last_test_at=None,
+                update_time=func.now(),
+            )
+        )
+        return cast(CursorResult[Any], result).rowcount == 1
 
     async def list_by_ids(self, tenant_id: str, model_ids: Sequence[uuid.UUID]) -> Sequence[ModelDefinition]:
         rows = await self._session.scalars(

@@ -6,7 +6,6 @@ import threading
 import time
 from collections.abc import Iterator
 
-import httpx
 import pytest
 import uvicorn
 
@@ -64,7 +63,9 @@ def test_auth_header_passthrough(probe_server: str, monkeypatch: pytest.MonkeyPa
         monkeypatch.delenv("MCP_PROBE_REQUIRE_AUTH")
 
 
-def test_tools_list_failure_raises_discovery_error(probe_server: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_tools_list_failure_raises_discovery_error(
+    probe_server: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """[B-06] tools/list 协议失败 → McpClientError(reason=protocol)。"""
     from muad_console_platform.infrastructure.mcp_client import McpClient, McpClientError
 

@@ -6,11 +6,10 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ..infrastructure.db import get_session_factory
+from ..infrastructure.db import SessionFactoryProvider, get_session_factory
 from ..infrastructure.models.runtime import Conversation, RunInterrupt, RunRecord
 
 STATUS_WAITING_INPUT = "WAITING_INPUT"
@@ -32,7 +31,6 @@ async def checkpoint_interrupt(
     session_factory: async_sessionmaker[AsyncSession] | None = None,
 ) -> dict[str, Any]:
     factory = session_factory or get_session_factory()
-    now = datetime.now(UTC)
     async with factory() as session:
         session.add(
             RunInterrupt(
@@ -91,7 +89,7 @@ async def load_waiting_interrupt(
 class InterruptCheckpoint:
     """进程重建后仍可经 DB 定位等待点（业务事实不依赖进程内存）。"""
 
-    def __init__(self, *, session_factory) -> None:
+    def __init__(self, *, session_factory: SessionFactoryProvider) -> None:
         self._session_factory = session_factory
 
     async def locate_waiting(self, *, run_id: uuid.UUID) -> dict[str, Any] | None:

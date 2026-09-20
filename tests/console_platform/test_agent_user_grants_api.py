@@ -5,13 +5,12 @@ from __future__ import annotations
 import uuid
 
 from httpx import AsyncClient
-from sqlalchemy import select
-
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.control import (
     AgentAccessGrant,
     PlatformUser,
 )
+from sqlalchemy import select
 
 from console_platform.conftest import TenantContext
 

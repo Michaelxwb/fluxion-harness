@@ -133,7 +133,7 @@
 |---|---|---|---|---|---|---|
 | E-01 | FEAT-02 | integration | MCP Client→DB | 本模块 | tools/list 失败 | 返回 `MCP_DISCOVERY_FAILED`；connection_status=DISCOVERY_FAILED 且保留上一成功 Catalog |
 | E-02 | FEAT-01 | unit | request schema | 本模块 | transport 非 Streamable HTTP 或注册/编辑配置非法 | 返回 `MCP_CONFIG_INVALID`，V1 拒绝注册 |
-| E-03 | FEAT-03 | integration | Grant API→DB | 本模块 | 重复添加同一指定用户 | 返回 `COMMON_CONFLICT`，不产生重复 Grant |
+| E-03 | FEAT-03 | integration | Grant API→DB | 本模块 | 重复添加同一指定用户 | 幂等返回既有 Grant（200），不产生重复 Grant |
 | E-04 | FEAT-02 | integration | MCP Client→DB | 本模块 | 刷新工具目录时连接失败 | 返回 `MCP_DISCOVERY_FAILED`；`connection_status=DISCOVERY_FAILED` 且保留上一成功 Catalog |
 | E-05 | FEAT-02 | integration | MCP Client→DB | 本模块 | 单 Server 返回工具数超过上限 | 发现失败（`MCP_DISCOVERY_FAILED`），保留上一成功 Catalog |
 
@@ -332,8 +332,8 @@ POST /api/v1/mcp-servers
 | `tool_cache_ttl_sec` | int | 否 | 默认 300 |
 
 - `data`：`{mcp_id}`。
-- 错误码：`COMMON_VALIDATION_ERROR / MCP_CONFIG_INVALID / COMMON_CONFLICT / COMMON_INTERNAL_ERROR`
-- 处理：`transport` 固定 `streamable-http`，其他值返回 `MCP_CONFIG_INVALID`；`(tenant_id,key)` 冲突 `COMMON_CONFLICT`；注册不自动执行 discovery（目录由 `discover-tools` 维护）；`auth_secret` 明文写入；同事务 `config_audit_log`。
+- 错误码：`COMMON_VALIDATION_ERROR / MCP_CONFIG_INVALID / MCP_KEY_EXISTS / COMMON_INTERNAL_ERROR`
+- 处理：`transport` 固定 `streamable-http`，其他值返回 `MCP_CONFIG_INVALID`；`(tenant_id,key)` 冲突 `MCP_KEY_EXISTS`；注册不自动执行 discovery（目录由 `discover-tools` 维护）；`auth_secret` 明文写入；同事务 `config_audit_log`。
 - 对应 docs/07：§10.3。
 
 #### API-03 MCP 详情
@@ -505,8 +505,8 @@ POST /api/v1/mcp-servers/{mcp_id}/users/{user_id}
 - 调用方：Console Web。
 - 请求：path `mcp_id`、`user_id`；无 body。
 - `data`：`{}`（Grant 创建结果）。
-- 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND / COMMON_CONFLICT / COMMON_INTERNAL_ERROR`
-- 处理：校验 Server 与 PlatformUser 存在；重复 Grant 返回 `COMMON_CONFLICT`；只创建 McpUserGrant（无到期时间），不创建 AgentMcpBinding/AgentAccessGrant，不做 Tool 级 grant；同事务 `config_audit_log`。
+- 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND / COMMON_INTERNAL_ERROR`
+- 处理：校验 Server 与 PlatformUser 存在；重复授权幂等：已存在活跃 Grant 直接返回既有记录（200，不重复写审计，与用户↔Agent 授权口径一致）；只创建 McpUserGrant（无到期时间），不创建 AgentMcpBinding/AgentAccessGrant，不做 Tool 级 grant；同事务 `config_audit_log`。
 - 对应 docs/07：§10.3、§12。
 
 #### API-13 移除指定用户

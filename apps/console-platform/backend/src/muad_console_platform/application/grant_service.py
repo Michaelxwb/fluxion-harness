@@ -73,7 +73,7 @@ class GrantService:
         await self._require_user(tenant_id, user_id)
         grant = await self._grants.find_active(tenant_id, user_id, agent_id)
         if grant is None:
-            return  # 幂等：不存在或已撤销仍返回成功
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         grant.is_deleted = True
         grant.update_time = datetime.now(UTC)
         await self._session.flush()

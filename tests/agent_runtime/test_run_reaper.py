@@ -7,10 +7,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 import sqlalchemy as sa
+from muad_agent_runtime.application.run_service import RUN_ABANDONED, reap_abandoned_runs
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRecord
-
-from muad_agent_runtime.application.run_service import RUN_ABANDONED, reap_abandoned_runs
 
 TENANT = f"reap-{uuid.uuid4()}"
 
@@ -71,7 +70,7 @@ async def test_e04_reaper_cas_on_expired_running_only() -> None:
     fresh = await _seed("RUNNING", expired=False)
     completed = await _seed("COMPLETED", expired=True)
 
-    reaped = await reap_abandoned_runs(get_session_factory())
+    await reap_abandoned_runs(get_session_factory())
     ids = {expired, fresh, completed}
     # 其它测试可能残留过期 run；只断言我们的三个的状态
     async with get_session_factory()() as session:

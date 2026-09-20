@@ -26,6 +26,7 @@ class AgentAccessGrantRepository:
                 AgentAccessGrant.is_deleted.is_(False),
                 AgentDefinition.tenant_id == tenant_id,
                 AgentDefinition.is_deleted.is_(False),
+                AgentDefinition.enabled.is_(True),
             )
             .limit(1)
         )

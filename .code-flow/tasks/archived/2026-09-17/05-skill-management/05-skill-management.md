@@ -269,7 +269,7 @@ RED→GREEN：先写 test_orphan_cleanup.py（RED：write_artifact 无不可变�
 
 ### Description
 
-实现 `POST /api/v1/skills/import` 与 `POST /api/v1/skills/{skill_id}/artifacts`：multipart 接收→校验器→NFS 写入→单事务 insert skill_artifact(READY) + skill/current_artifact_id + config_audit_log。`(tenant_id,key)` 冲突 `COMMON_CONFLICT`；重复 version/checksum `SKILL_VERSION_EXISTS`；`Idempotency-Key` 同 key 重放返回首次结果。
+实现 `POST /api/v1/skills/import` 与 `POST /api/v1/skills/{skill_id}/artifacts`：multipart 接收→校验器→NFS 写入→单事务 insert skill_artifact(READY) + skill/current_artifact_id + config_audit_log。`(tenant_id,key)` 冲突 `SKILL_KEY_EXISTS`；重复 version/checksum `SKILL_VERSION_EXISTS`；`Idempotency-Key` 同 key 重放返回首次结果。
 
 实际落点：`api/skills.py` + `application/skill_service.py`（幂等 header 待新增）。
 
@@ -295,7 +295,7 @@ RED→GREEN：先写 test_orphan_cleanup.py（RED：write_artifact 无不可变�
 
 ### Acceptance Evidence
 
-新增实现：`control.skill_import_idempotency` 表（migration 0006，partial unique (tenant,key,endpoint)）+ SkillService 幂等重放/记录 + API `Idempotency-Key` Header（/import 与 /artifacts）。指纹 = endpoint|version|key|default_script|checksum；同 key 不同载荷返回 COMMON_CONFLICT。
+新增实现：`control.skill_import_idempotency` 表（migration 0006，partial unique (tenant,key,endpoint)）+ SkillService 幂等重放/记录 + API `Idempotency-Key` Header（/import 与 /artifacts）。指纹 = endpoint|version|key|default_script|checksum；同 key 不同载荷返回 `IDEMPOTENCY_MISMATCH`。
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
@@ -389,14 +389,14 @@ API-01~07 已由先前任务实现（skill_service + api/skills.py），本次�
 
 ### Description
 
-变更用户范围（PUT user-scope，切换 SELECTED 不清空 Grant）、指定用户列表（只返回 is_deleted=false）、添加（重复返回 COMMON_CONFLICT，软删记录可重新创建）、移除（软删除）。只操作 SkillUserGrant，不建 AgentAccessGrant/AgentSkillBinding。
+变更用户范围（PUT user-scope，切换 SELECTED 不清空 Grant）、指定用户列表（只返回 is_deleted=false）、添加（重复授权幂等：返回既有 Grant；软删记录可重新创建）、移除（软删除）。只操作 SkillUserGrant，不建 AgentAccessGrant/AgentSkillBinding。
 
 实际落点：`api/skills.py` + `application/skill_service.py`。
 
 ### Checklist
 - [x] 先写测试并记录 RED：S-02（补断言：活跃重复 Grant 应 409——修正实现前测试失败为 RED）
 - [x] [S-02][integration] SELECTED Skill 添加用户：只创建 SkillUserGrant（Grant service→DB 真实边界），断言不产生 AgentAccessGrant/AgentSkillBinding 记录
-- [x] 运行 harness-auth#RULE-auth-001 verifier（integration，真实 PostgreSQL）：断言 Grant 无 expires_at；撤销后 is_deleted=true 且判定只看 is_deleted=false；重复添加返回 COMMON_CONFLICT；软删后可重新创建
+- [x] 运行 harness-auth#RULE-auth-001 verifier（integration，真实 PostgreSQL）：断言 Grant 无 expires_at；撤销后 is_deleted=true 且判定只看 is_deleted=false；重复添加幂等返回既有 Grant（200）；软删后可重新创建
 - [x] 运行 harness-rel#RULE-rel-001 verifier（integration，真实 HTTP + DB）：断言添加/移除均为单关系 POST/DELETE 独立事务，无全量 PUT
 - [x] API-08 变更只影响后续新 Run/Task；切换 SELECTED 不清空既有 Grant
 - [x] 全部接口同事务追加 config_audit_log
@@ -412,12 +412,12 @@ API-01~07 已由先前任务实现（skill_service + api/skills.py），本次�
 
 ### Acceptance Evidence
 
-实现已存在；本任务修正设计偏差（活跃重复 Grant 由 200 改为 COMMON_CONFLICT）并补 S-02 断言。
+实现已存在；本任务修正设计偏差（活跃重复 Grant 由 200 改为 COMMON_CONFLICT）并补 S-02 断言。（2026-09-20 review 再次变更：活跃重复 Grant 回归**幂等**——返回 200 + 既有记录，与用户↔Agent 授权口径一致）
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | S-02 | FAIL: 重复添加期望 409，实际 200（test 断言先改，实现后修） | 54 passed（console_skill 全量） | test_user_scope_api.py：S-02 段（SkillUserGrant 恰 1 条、AgentAccessGrant/AgentSkillBinding 计数不变、无 expires_at 属性） | ASGI 真实 HTTP + 真实 PostgreSQL | verified |
-| RULE-auth-001 | 同上 | 同上 | 409 COMMON_CONFLICT / 移除 404 / 软删后重建 200 | 同上 | verified |
+| RULE-auth-001 | 同上 | 同上 | 重复授权 200 + 既有记录 / 移除 404 / 软删后重建 200 | 同上 | verified |
 | RULE-rel-001 | N/A（行为验证） | 同上 | 仅单关系 POST/DELETE 端点 | 同上 | verified |
 - S-02: verified — automated command passed; run_id=1de7a0d841684e6a8f92ef02cb893da1 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=db7e83ac9fd44f919aae03b4469deb54 (confirmed_by: runner)

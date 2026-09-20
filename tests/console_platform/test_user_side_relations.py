@@ -114,24 +114,41 @@ async def test_s04_unknown_agent_or_user_returns_not_found(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
     user_id = await _create_user(client, tenant)
+    agent = await _create_agent(client, tenant)
     unknown_agent = await client.post(
         f"/api/v1/users/{user_id}/agents/{uuid.uuid4()}", headers=_headers(tenant)
     )
     assert unknown_agent.status_code == 404
-    assert unknown_agent.json()["code"] == "AGENT_NOT_FOUND"  # v1.1 契约
+    assert unknown_agent.json()["code"] == "AGENT_NOT_FOUND"
 
     unknown_user = await client.post(
         f"/api/v1/users/{uuid.uuid4()}/agents/{uuid.uuid4()}", headers=_headers(tenant)
     )
     assert unknown_user.status_code == 404
 
-    revoke_missing = await client.delete(
-        f"/api/v1/users/{user_id}/agents/{uuid.uuid4()}", headers=_headers(tenant)
-    )
-    assert revoke_missing.status_code == 404
-
     try:
-        pass
+        # Agent 存在但无 ACTIVE grant：走 API-07 的 COMMON_NOT_FOUND 分支（非 AGENT_NOT_FOUND）
+        revoke_without_grant = await client.delete(
+            f"/api/v1/users/{user_id}/agents/{agent['id']}", headers=_headers(tenant)
+        )
+        assert revoke_without_grant.status_code == 404
+        assert revoke_without_grant.json()["code"] == "COMMON_NOT_FOUND"
+
+        granted = await client.post(
+            f"/api/v1/users/{user_id}/agents/{agent['id']}", headers=_headers(tenant)
+        )
+        assert granted.status_code == 200
+        assert (
+            await client.delete(
+                f"/api/v1/users/{user_id}/agents/{agent['id']}", headers=_headers(tenant)
+            )
+        ).status_code == 200
+
+        revoked_again = await client.delete(
+            f"/api/v1/users/{user_id}/agents/{agent['id']}", headers=_headers(tenant)
+        )
+        assert revoked_again.status_code == 404
+        assert revoked_again.json()["code"] == "COMMON_NOT_FOUND"
     finally:
         await _cleanup_seeded(tenant.tenant_id)
 

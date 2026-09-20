@@ -10,16 +10,15 @@ import uuid
 
 import pytest
 import sqlalchemy as sa
+from muad_agent_runtime.application.run_submission import (
+    RunSubmissionService,
+    submission_fingerprint,
+)
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
     Conversation,
     RunRecord,
     RunSubmission,
-)
-
-from muad_agent_runtime.application.run_submission import (
-    RunSubmissionService,
-    submission_fingerprint,
 )
 
 TENANT = f"idem-{uuid.uuid4()}"
@@ -83,7 +82,7 @@ async def _seed_run() -> tuple[uuid.UUID, uuid.UUID]:
 async def test_b105_same_key_same_fingerprint_replays_record() -> None:
     """[B-105] 同 key 同指纹：命中已提交记录（不创建新 Run）。"""
     run_id, conv_id = await _seed_run()
-    service = RunSubmissionService(get_session_factory())
+    service = RunSubmissionService(get_session_factory)
     key = f"idem-{uuid.uuid4()}"
     fingerprint = submission_fingerprint(key_payload={"text": "hello"}, message_id=None)
 
@@ -119,12 +118,12 @@ async def test_b105_same_key_same_fingerprint_replays_record() -> None:
 
 
 async def test_b105_same_key_different_fingerprint_conflict() -> None:
-    """[B-105] 同 key 异指纹 → COMMON_CONFLICT。"""
+    """[B-105] 同 key 异指纹 → IDEMPOTENCY_MISMATCH。"""
     from muad_api import AppError
     from muad_api.error_codes import ErrorCode
 
     run_id, conv_id = await _seed_run()
-    service = RunSubmissionService(get_session_factory())
+    service = RunSubmissionService(get_session_factory)
     key = f"idem-{uuid.uuid4()}"
     await service.record_submission(
         tenant_id=TENANT,
@@ -143,13 +142,13 @@ async def test_b105_same_key_different_fingerprint_conflict() -> None:
         await service.find_replay(
             tenant_id=TENANT, idempotency_key=key, endpoint="create-run", fingerprint=different
         )
-    assert exc.value.code == ErrorCode.COMMON_CONFLICT
+    assert exc.value.code == ErrorCode.IDEMPOTENCY_MISMATCH
 
 
 async def test_b105_resume_submission_scoped_by_run() -> None:
     """[B-105] resume 提交指纹包含 run_id/input：两次回复不合并。"""
     run_id, conv_id = await _seed_run()
-    service = RunSubmissionService(get_session_factory())
+    service = RunSubmissionService(get_session_factory)
 
     key = f"resume-{uuid.uuid4()}"
     fp_a = submission_fingerprint(run_id=run_id, key_payload={"text": "answer one"}, message_id=None)

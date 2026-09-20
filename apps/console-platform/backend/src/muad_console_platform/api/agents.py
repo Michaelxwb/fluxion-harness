@@ -6,12 +6,12 @@ from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.agent_mcp_service import AgentMcpService
-from ..application.channel_admin_service import ChannelAdminService
 from ..application.agent_service import AgentService
-from ..application.grant_service import GrantService
-from ..application.dto import AgentBindSkillRequest as BindSkillRequest
 from ..application.audit_service import AuditActor
+from ..application.channel_admin_service import ChannelAdminService
+from ..application.dto import AgentBindSkillRequest as BindSkillRequest
 from ..application.dto import AgentCreateRequest, AgentDetail, AgentListItem, AgentUpdateRequest
+from ..application.grant_service import GrantService
 from ..application.skill_service import SkillService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.control import AgentDefinition

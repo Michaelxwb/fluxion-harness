@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 
 from httpx import AsyncClient
+
 from console_mcp.conftest import create_mcp, tenant_headers
 
 
@@ -38,14 +39,15 @@ async def test_s02_user_scope_and_grants(client: AsyncClient, env: dict[str, obj
     assert empty.json()["data"]["items"] == []
     assert empty.json()["data"]["total"] == 0
 
-    from sqlalchemy import func, select
-
     from muad_console_platform.infrastructure.db import get_session_factory
     from muad_console_platform.infrastructure.models.control import AgentAccessGrant
     from muad_console_platform.infrastructure.models.mcp import (
         AgentMcpBinding,
+    )
+    from muad_console_platform.infrastructure.models.mcp import (
         McpUserGrant as GrantModel,
     )
+    from sqlalchemy import func, select
 
     async with get_session_factory()() as session:
         access_before = (
@@ -130,21 +132,54 @@ async def test_s02_user_scope_and_grants(client: AsyncClient, env: dict[str, obj
     assert regranted.status_code == 200  # 撤销=软删除，可重新创建
 
 
-async def test_e03_duplicate_grant_conflict(client: AsyncClient, env: dict[str, object]) -> None:
-    """[E-03] 活跃重复 Grant：COMMON_CONFLICT，不产生重复行。"""
+async def test_e03_regranting_an_active_grant_is_idempotent(
+    client: AsyncClient, env: dict[str, object]
+) -> None:
+    """[E-03] 重复授权已激活的 Grant → 幂等：返回既有记录，不新增行、不重复写审计。
+
+    与「用户↔Agent 授权」（GrantService.grant）口径一致；此前这里抛 COMMON_CONFLICT。
+    """
+    from muad_console_platform.infrastructure.db import get_session_factory
+    from sqlalchemy import text
+
     mcp_id = await _registered_mcp(client, env)
-    first = await client.post(
-        f"/api/v1/mcp-servers/{mcp_id}/users/{env['actor_user_id']}",
-        headers=tenant_headers(env),
-    )
+    user_id = str(env["actor_user_id"])
+    url = f"/api/v1/mcp-servers/{mcp_id}/users/{user_id}"
+
+    first = await client.post(url, headers=tenant_headers(env))
     assert first.status_code == 200
 
-    duplicate = await client.post(
-        f"/api/v1/mcp-servers/{mcp_id}/users/{env['actor_user_id']}",
-        headers=tenant_headers(env),
-    )
-    assert duplicate.status_code == 409
-    assert duplicate.json()["code"] == "COMMON_CONFLICT"
+    async def _audit_count() -> int:
+        async with get_session_factory()() as session:
+            return int(
+                await session.scalar(
+                    text(
+                        "SELECT count(*) FROM control.config_audit_log "
+                        "WHERE resource_type = 'MCP_SERVER' AND action = 'UPDATE' "
+                        "AND resource_id = CAST(:rid AS uuid)"
+                    ),
+                    {"rid": mcp_id},
+                )
+                or 0
+            )
+
+    audits_after_first = await _audit_count()
+
+    duplicate = await client.post(url, headers=tenant_headers(env))
+    assert duplicate.status_code == 200
+    assert duplicate.json()["data"]["user_id"] == user_id
+
+    async with get_session_factory()() as session:
+        active_rows = await session.scalar(
+            text(
+                "SELECT count(*) FROM control.mcp_user_grant "
+                "WHERE mcp_server_id = CAST(:sid AS uuid) AND user_id = CAST(:uid AS uuid) "
+                "AND is_deleted = false"
+            ),
+            {"sid": mcp_id, "uid": user_id},
+        )
+    assert int(active_rows or 0) == 1, "幂等授权不得新增行"
+    assert await _audit_count() == audits_after_first, "幂等授权不得重复写审计"
 
 
 async def test_b05_paginated_envelope_and_unknown_user(

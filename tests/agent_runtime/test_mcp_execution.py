@@ -7,7 +7,6 @@ import uuid
 import pytest
 import sqlalchemy as sa
 from muad_agent_core.tools import ToolRegistry
-from muad_api import AppError
 from muad_agent_runtime.application.mcp_runtime_adapter import (
     McpRuntimeAdapter,
     McpServerDefinition,
@@ -15,6 +14,7 @@ from muad_agent_runtime.application.mcp_runtime_adapter import (
 )
 from muad_agent_runtime.infrastructure.audit_writer import RuntimeAuditWriter
 from muad_agent_runtime.infrastructure.db import get_session_factory
+from muad_api import AppError
 
 TENANT = f"mcpr-{uuid.uuid4()}"
 RUN_ID = uuid.uuid4()
@@ -55,8 +55,22 @@ async def test_b116_freezes_catalog_into_tool_registry() -> None:
 
 async def test_b116_tool_namespacing_isolation() -> None:
     """[RULE-auth-001 引用] 不同 server 同名工具命名空间隔离。"""
-    server_a = _server("a", tools=[McpToolDefinition(name="t", description="A.t", input_schema={"type": "object"}, effect="READ")])
-    server_b = _server("b", tools=[McpToolDefinition(name="t", description="B.t", input_schema={"type": "object"}, effect="READ")])
+    server_a = _server(
+        "a",
+        tools=[
+            McpToolDefinition(
+                name="t", description="A.t", input_schema={"type": "object"}, effect="READ"
+            )
+        ],
+    )
+    server_b = _server(
+        "b",
+        tools=[
+            McpToolDefinition(
+                name="t", description="B.t", input_schema={"type": "object"}, effect="READ"
+            )
+        ],
+    )
     registry = ToolRegistry()
     adapter = McpRuntimeAdapter(audit_writer=None)
     adapter.register_catalog(registry=registry, tenant_id=TENANT, run_id=RUN_ID, servers=[server_a, server_b])

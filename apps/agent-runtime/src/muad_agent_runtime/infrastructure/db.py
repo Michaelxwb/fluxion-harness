@@ -1,8 +1,12 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from functools import lru_cache
 
 from muad_common import SharedSettings
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+
+SessionFactory = async_sessionmaker[AsyncSession]
+# 部分 application 服务接收的是"工厂函数"而非已构造的 sessionmaker（调用约定为 factory()()）
+SessionFactoryProvider = Callable[[], SessionFactory]
 
 
 @lru_cache(maxsize=1)

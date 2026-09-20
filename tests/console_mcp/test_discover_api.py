@@ -5,10 +5,9 @@
 
 from __future__ import annotations
 
-import uuid
-
 import httpx
 import pytest
+
 from console_mcp.conftest import create_mcp, tenant_headers
 
 
@@ -177,9 +176,12 @@ async def test_b02_discover_is_only_catalog_writer(
 
     tested = await client.post(f"/api/v1/mcp-servers/{mcp_id}/test", headers=tenant_headers(env))
     assert tested.status_code == 200
-    after_test = (await client.get(f"/api/v1/mcp-servers/{mcp_id}", headers=tenant_headers(env))).json()["data"]
+    after_test = (
+        await client.get(f"/api/v1/mcp-servers/{mcp_id}", headers=tenant_headers(env))
+    ).json()["data"]
     assert after_test["tool_catalog_revision"] == 0
-    assert after_test["tool_count" if "tool_count" in after_test else "tool_catalog_revision"] in (0, after_test["tool_catalog_revision"])
+    count_key = "tool_count" if "tool_count" in after_test else "tool_catalog_revision"
+    assert after_test[count_key] in (0, after_test["tool_catalog_revision"])
 
     edited = await client.put(
         f"/api/v1/mcp-servers/{mcp_id}",
@@ -187,7 +189,9 @@ async def test_b02_discover_is_only_catalog_writer(
         headers=tenant_headers(env),
     )
     assert edited.status_code == 200
-    after_edit = (await client.get(f"/api/v1/mcp-servers/{mcp_id}", headers=tenant_headers(env))).json()["data"]
+    after_edit = (
+        await client.get(f"/api/v1/mcp-servers/{mcp_id}", headers=tenant_headers(env))
+    ).json()["data"]
     assert after_edit["tool_catalog_revision"] == 0
 
     tools = (
@@ -199,7 +203,9 @@ async def test_b02_discover_is_only_catalog_writer(
         f"/api/v1/mcp-servers/{mcp_id}/discover-tools", headers=tenant_headers(env)
     )
     assert discovered.status_code == 200
-    after_discover = (await client.get(f"/api/v1/mcp-servers/{mcp_id}", headers=tenant_headers(env))).json()["data"]
+    after_discover = (
+        await client.get(f"/api/v1/mcp-servers/{mcp_id}", headers=tenant_headers(env))
+    ).json()["data"]
     assert after_discover["tool_catalog_revision"] == 1
 
 

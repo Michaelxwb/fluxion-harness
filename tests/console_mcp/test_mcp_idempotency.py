@@ -37,7 +37,7 @@ async def test_register_replays_first_response_for_same_key(
         headers=headers,
     )
     assert conflicting.status_code == 409
-    assert conflicting.json()["code"] == "COMMON_CONFLICT"
+    assert conflicting.json()["code"] == "IDEMPOTENCY_MISMATCH"
 
 
 def test_fixtures_available() -> None:

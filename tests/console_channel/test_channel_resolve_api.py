@@ -2,6 +2,8 @@ import uuid
 from typing import Any
 
 from httpx import AsyncClient
+from muad_console_platform.infrastructure.db import get_session_factory
+from sqlalchemy import text
 
 from console_channel.conftest import CHANNEL, ChannelContext
 
@@ -153,6 +155,49 @@ async def test_disabled_platform_user_is_unauthorized(
         "platform_user_id": str(channel.disabled_user_id),
         "authorized": False,
     }
+
+
+async def test_disabled_agent_is_unauthorized(
+    client: AsyncClient, channel: ChannelContext
+) -> None:
+    before = await _resolve(
+        client,
+        channel,
+        bot_id=channel.bot_id,
+        external_user_id=channel.bound_external_user_id,
+    )
+    assert before["authorized"] is True
+
+    async with get_session_factory()() as session:
+        await session.execute(
+            text("UPDATE control.agent_definition SET enabled = false WHERE id = :agent_id"),
+            {"agent_id": channel.agent_id},
+        )
+        await session.commit()
+
+    data = await _resolve(
+        client,
+        channel,
+        bot_id=channel.bot_id,
+        external_user_id=channel.bound_external_user_id,
+    )
+    assert data == {
+        "bound": True,
+        "agent_id": str(channel.agent_id),
+        "platform_user_id": str(channel.actor_user_id),
+        "authorized": False,
+    }
+
+    # grant 仍然有效，authorized=False 只来自 Agent enabled 判定
+    async with get_session_factory()() as session:
+        active_grants = await session.scalar(
+            text(
+                "SELECT count(*) FROM control.agent_access_grant "
+                "WHERE user_id = :user_id AND agent_id = :agent_id AND is_deleted = false"
+            ),
+            {"user_id": channel.actor_user_id, "agent_id": channel.agent_id},
+        )
+    assert active_grants == 1
 
 
 async def test_tenant_isolation_hides_other_tenant_bot(

@@ -367,8 +367,8 @@ POST /api/v1/skills/import
 | `Idempotency-Key`（Header） | string | 否 | 同 key 重放返回首次导入结果 |
 
 - `data`：`{skill_id,key,user_scope,current_artifact:{artifact_id,version,checksum,validation_status,storage_key}}`。
-- 错误码：`COMMON_VALIDATION_ERROR / SKILL_PACKAGE_INVALID / SKILL_VERSION_EXISTS / COMMON_CONFLICT / COMMON_INTERNAL_ERROR`
-- 处理：先执行 §3.2 导入限制与敏感信息扫描；解压到临时目录解析 SKILL.md frontmatter；写 NFS Artifact Store（事务外，失败清理 orphan）；DB 事务内 insert `skill` + `skill_artifact(validation_status=READY)` + `current_artifact_id` + `config_audit_log`；`(tenant_id,key)` 冲突 `COMMON_CONFLICT`；重复 version/checksum `SKILL_VERSION_EXISTS`；`Idempotency-Key` 命中返回首次结果。
+- 错误码：`COMMON_VALIDATION_ERROR / SKILL_PACKAGE_INVALID / SKILL_VERSION_EXISTS / SKILL_KEY_EXISTS / COMMON_INTERNAL_ERROR`
+- 处理：先执行 §3.2 导入限制与敏感信息扫描；解压到临时目录解析 SKILL.md frontmatter；写 NFS Artifact Store（事务外，失败清理 orphan）；DB 事务内 insert `skill` + `skill_artifact(validation_status=READY)` + `current_artifact_id` + `config_audit_log`；`(tenant_id,key)` 冲突 `SKILL_KEY_EXISTS`；重复 version/checksum `SKILL_VERSION_EXISTS`；`Idempotency-Key` 命中返回首次结果。
 - 对应 docs/07：§10.2、§12。
 
 #### API-03 Skill 详情
@@ -504,8 +504,8 @@ POST /api/v1/skills/{skill_id}/users/{user_id}
 - 调用方：Console Web。
 - 请求：path `skill_id`、`user_id`；无 body。
 - `data`：`{}`（Grant 创建结果）。
-- 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND / COMMON_CONFLICT / COMMON_INTERNAL_ERROR`
-- 处理：校验 Skill 与 PlatformUser 存在；重复 Grant 返回 `COMMON_CONFLICT`；只创建 SkillUserGrant（软删除记录可重新创建），不创建 AgentAccessGrant/AgentSkillBinding，无到期时间；同事务 `config_audit_log`。
+- 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND / COMMON_INTERNAL_ERROR`
+- 处理：校验 Skill 与 PlatformUser 存在；重复授权幂等：已存在活跃 Grant 直接返回既有记录（200，不重复写审计，与用户↔Agent 授权口径一致）；只创建 SkillUserGrant（软删除记录可重新创建），不创建 AgentAccessGrant/AgentSkillBinding，无到期时间；同事务 `config_audit_log`。
 - 对应 docs/07：§10.2、§12。
 
 #### API-11 移除指定用户

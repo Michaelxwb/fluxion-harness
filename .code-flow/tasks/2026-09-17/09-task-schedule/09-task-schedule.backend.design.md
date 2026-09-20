@@ -646,8 +646,9 @@ POST /internal/tasks/{task_id}/cancel
 - 调用方：Agent Runtime `cancel_task` Tool。
 - 请求：路径参数 `task_id`(uuid,必填)。
 - `data`：`{ "task_id": "uuid", "status": "CANCELLED|RUNNING", "cancel_requested": false|true }`。
-- 错误码：`COMMON_NOT_FOUND / COMMON_CONFLICT / COMMON_INTERNAL_ERROR`。
-- 处理：`SELECT ... FOR UPDATE` 加载；`QUEUED/WAITING` → CAS 置 `CANCELLED`、写 `finished_at` 与 `task_event(CANCELLED)`，并按 `delivery_mode` 触发 Final Delivery；`RUNNING` → 写 `cancel_requested=true` + Redis `task:cancel:{task_id}`（TTL 30m），由执行 Worker 在模型/工具调用前与心跳处协作停止后 CAS 置 `CANCELLED`；已 `CANCELLED` 幂等返回当前状态；其它终态返回 `COMMON_CONFLICT`（`message_args` 带当前状态）。
+- 错误码：`COMMON_NOT_FOUND / REVISION_CONFLICT / COMMON_INTERNAL_ERROR`。
+> 注：本模块的 `REVISION_CONFLICT` 指**乐观并发前置不满足**——即 CAS 的目标状态已被他人推进（如 Task 已终态、Schedule 已 `COMPLETED`/已删除），与本表的更新时间戳无关；该码的语义已从「模型 revision CAS」推广为「revision 或状态前置不满足」。
+- 处理：`SELECT ... FOR UPDATE` 加载；`QUEUED/WAITING` → CAS 置 `CANCELLED`、写 `finished_at` 与 `task_event(CANCELLED)`，并按 `delivery_mode` 触发 Final Delivery；`RUNNING` → 写 `cancel_requested=true` + Redis `task:cancel:{task_id}`（TTL 30m），由执行 Worker 在模型/工具调用前与心跳处协作停止后 CAS 置 `CANCELLED`；已 `CANCELLED` 幂等返回当前状态；其它终态返回 `REVISION_CONFLICT`（`message_args` 带当前状态）。
 - 对应章节：`docs/07 §5.3`、`docs/10 §7.2`。
 
 ---
@@ -676,8 +677,8 @@ PUT /internal/schedules/{schedule_id}
 - 调用方：Agent Runtime 更新 Tool、Console Platform 管理更新。
 - 请求：路径参数 `schedule_id`(uuid,必填)；body `name`(string,选)、`input_template`(object,选)、`schedule`(object,选)、`delivery_route`(object,选)，至少一项。
 - `data`：更新后的 Schedule。
-- 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND / COMMON_CONFLICT / FORBIDDEN / COMMON_INTERNAL_ERROR`。
-- 处理：校验 `actor_user_id` 为 Schedule owner（Agent 调用）或 Admin/Builder（Console）；仅影响未来触发，`revision=revision+1` 并重算 `next_fire_at`；`COMPLETED`/已删除不可更新（`COMMON_CONFLICT`）；不修改已创建 Task 的 Snapshot。
+- 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND / REVISION_CONFLICT / FORBIDDEN / COMMON_INTERNAL_ERROR`。
+- 处理：校验 `actor_user_id` 为 Schedule owner（Agent 调用）或 Admin/Builder（Console）；仅影响未来触发，`revision=revision+1` 并重算 `next_fire_at`；`COMPLETED`/已删除不可更新（`REVISION_CONFLICT`）；不修改已创建 Task 的 Snapshot。
 - 对应章节：`docs/07 §5.3`。
 
 ---
@@ -736,8 +737,8 @@ POST /api/v1/tasks/{task_id}/cancel
 - 调用方：Console 前端（仅非终态显示）。
 - 请求：路径参数 `task_id`(uuid,必填)。
 - `data`：`{ "task_id": "uuid", "status": "CANCELLED|RUNNING" }`。
-- 错误码：`COMMON_NOT_FOUND / COMMON_CONFLICT / UNAUTHORIZED / FORBIDDEN / COMMON_INTERNAL_ERROR`。
-- 处理：Console Platform 权限校验后转调 `POST /internal/admin/tasks/{task_id}/cancel`；已终态返回 `COMMON_CONFLICT`，前端不做乐观更新。
+- 错误码：`COMMON_NOT_FOUND / REVISION_CONFLICT / UNAUTHORIZED / FORBIDDEN / COMMON_INTERNAL_ERROR`。
+- 处理：Console Platform 权限校验后转调 `POST /internal/admin/tasks/{task_id}/cancel`；已终态返回 `REVISION_CONFLICT`，前端不做乐观更新。
 - 对应章节：`docs/07 §10.9`。
 
 ---
@@ -781,8 +782,8 @@ PUT /api/v1/schedules/{schedule_id}/pause
 - 调用方：Console 前端。
 - 请求：路径参数 `schedule_id`(uuid,必填)。
 - `data`：`{ "schedule_id": "uuid", "status": "PAUSED" }`。
-- 错误码：`COMMON_NOT_FOUND / COMMON_CONFLICT / UNAUTHORIZED / FORBIDDEN / COMMON_INTERNAL_ERROR`。
-- 处理：仅 `ACTIVE` 可暂停，CAS `status=PAUSED` 并保留 `next_fire_at`；已 `PAUSED` 幂等返回；`COMPLETED`/已删除返回 `COMMON_CONFLICT`；失败不做乐观更新。
+- 错误码：`COMMON_NOT_FOUND / REVISION_CONFLICT / UNAUTHORIZED / FORBIDDEN / COMMON_INTERNAL_ERROR`。
+- 处理：仅 `ACTIVE` 可暂停，CAS `status=PAUSED` 并保留 `next_fire_at`；已 `PAUSED` 幂等返回；`COMPLETED`/已删除返回 `REVISION_CONFLICT`；失败不做乐观更新。
 - 对应章节：`docs/07 §10.10`。
 
 ---
@@ -796,8 +797,8 @@ PUT /api/v1/schedules/{schedule_id}/resume
 - 调用方：Console 前端。
 - 请求：路径参数 `schedule_id`(uuid,必填)。
 - `data`：`{ "schedule_id": "uuid", "status": "ACTIVE", "next_fire_at": "YYYY-MM-DD HH:mm:ss" }`。
-- 错误码：`COMMON_NOT_FOUND / COMMON_CONFLICT / UNAUTHORIZED / FORBIDDEN / COMMON_INTERNAL_ERROR`。
-- 处理：仅 `PAUSED` 可恢复，CAS `status=ACTIVE` 并按当前时间重算 `next_fire_at`（错过的触发按 SKIP 不补发）；`COMPLETED`/已删除返回 `COMMON_CONFLICT`。
+- 错误码：`COMMON_NOT_FOUND / REVISION_CONFLICT / UNAUTHORIZED / FORBIDDEN / COMMON_INTERNAL_ERROR`。
+- 处理：仅 `PAUSED` 可恢复，CAS `status=ACTIVE` 并按当前时间重算 `next_fire_at`（错过的触发按 SKIP 不补发）；`COMPLETED`/已删除返回 `REVISION_CONFLICT`。
 - 对应章节：`docs/07 §10.10`。
 
 ---
@@ -831,7 +832,7 @@ PUT  /internal/admin/schedules/{schedule_id}/resume
 - 调用方：Console Platform（`docs/07 §9.4`）；浏览器不直接访问。
 - 请求：查询参数与对应 Internal API（API-03/04/05/06）一致；暂停/恢复无 body。
 - `data`：与对应 Internal API 一致（Task/Schedule 分页或详情）。
-- 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND / COMMON_CONFLICT / UNAUTHORIZED / FORBIDDEN / COMMON_INTERNAL_ERROR`。
+- 错误码：`COMMON_VALIDATION_ERROR / COMMON_NOT_FOUND / REVISION_CONFLICT / UNAUTHORIZED / FORBIDDEN / COMMON_INTERNAL_ERROR`。
 - 处理：复用 Internal 查询/取消/启停 service，仅增加 Admin 权限域校验；写操作沿用 CAS 与幂等规则，不新增业务逻辑分支。
 - 对应章节：`docs/07 §9.4`。
 

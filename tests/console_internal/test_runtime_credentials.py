@@ -9,11 +9,10 @@ import uuid
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import update
-
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.control import ModelDefinition
 from muad_console_platform.infrastructure.models.mcp import McpServer
+from sqlalchemy import update
 
 from console_internal.conftest import TenantContext
 

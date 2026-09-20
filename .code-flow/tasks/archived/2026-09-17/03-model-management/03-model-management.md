@@ -16,20 +16,20 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 |
 |--------|---------|---------|-------------|---------|------|------|
-| S-01 | 03-model-management.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB | TASK-001 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-01\""] |
-| S-02 | 03-model-management.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→batch-test→model endpoint→DB | TASK-002 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-02\""] |
-| S-03 | 03-model-management.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB | TASK-001 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-03\""] |
-| S-04 | 03-model-management.frontend.design.md#2.4 验收条件（原 S-FE-01） | E2E | Browser→models API | TASK-003 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-04\""] |
-| S-05 | 03-model-management.frontend.design.md#2.4 验收条件（原 S-FE-02） | E2E | Browser→detail API | TASK-003 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-05\""] |
-| S-06 | 03-model-management.frontend.design.md#2.4 验收条件（原 S-FE-03） | E2E | Browser→update/delete API | TASK-003 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-06\""] |
+| S-01 | 03-model-management.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB | TASK-001 | verified | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-01\""] |
+| S-02 | 03-model-management.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→batch-test→model endpoint→DB | TASK-002 | verified | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-02\""] |
+| S-03 | 03-model-management.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→API→DB | TASK-001 | verified | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-03\""] |
+| S-04 | 03-model-management.frontend.design.md#2.4 验收条件（原 S-FE-01） | E2E | Browser→models API | TASK-003 | verified | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-04\""] |
+| S-05 | 03-model-management.frontend.design.md#2.4 验收条件（原 S-FE-02） | E2E | Browser→detail API | TASK-003 | verified | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-05\""] |
+| S-06 | 03-model-management.frontend.design.md#2.4 验收条件（原 S-FE-03） | E2E | Browser→update/delete API | TASK-003 | verified | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-06\""] |
 | E-01 | 03-model-management.backend.design.md#2.5.2 功能验收场景 | integration | DB revision CAS | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_models_api.py", "-k", "e01"] |
 | E-02 | 03-model-management.backend.design.md#2.5.2 功能验收场景 | unit | request schema | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_models_api.py", "-k", "e02"] |
 | E-03 | 03-model-management.backend.design.md#2.5.2 功能验收场景 | integration | API→agent_definition 引用 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_models_api.py", "-k", "e03"] |
 | E-04 | 03-model-management.backend.design.md#2.5.2 功能验收场景 | integration | Probe→model endpoint | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_models_batch_test.py", "-k", "e04"] |
 | E-05 | 03-model-management.backend.design.md#2.5.2 功能验收场景 | unit | request schema | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_models_api.py", "-k", "e05"] |
-| E-06 | 03-model-management.frontend.design.md#2.4 验收条件（原 E-FE-01） | integration | Semi Form | TASK-003 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-06\""] |
-| E-07 | 03-model-management.frontend.design.md#2.4 验收条件（原 E-FE-02） | E2E | API→Modal | TASK-003 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-07\""] |
-| E-08 | 03-model-management.frontend.design.md#2.4 验收条件（原 E-FE-03） | integration | API→COMMON_CONFLICT | TASK-003 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-08\""] |
+| E-06 | 03-model-management.frontend.design.md#2.4 验收条件（原 E-FE-01） | E2E | Semi Form（浏览器内校验） | TASK-003 | verified | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-06\""] |
+| E-07 | 03-model-management.frontend.design.md#2.4 验收条件（原 E-FE-02） | E2E | API→Modal | TASK-003 | verified | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-07\""] |
+| E-08 | 03-model-management.frontend.design.md#2.4 验收条件（原 E-FE-03） | E2E | API→MODEL_IN_USE | TASK-003 | verified | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-08\""] |
 | E-09 | 03-model-management.frontend.design.md#2.4 验收条件（原 E-FE-04） | unit | ModelFormModal | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_model_form_contract.py"] |
 
 > 本表覆盖 design 全部 P0 场景（FEAT-01/02 与 FEAT-FE-01/02/03）；不存在缺口。
@@ -46,22 +46,22 @@
 - **Acceptance-Refs**: S-01, S-03, E-01, E-02, E-03, E-05
 
 ### Description
-实现模型管理 API-01~API-05：列表（keyword/enabled/last_test_status 筛选、稳定排序、分页）、创建（protocol 固定 OPENAI、key 租户内唯一、API Key 明文写入 `model_definition.api_key`（产品决策）、revision=1、UNTESTED）、详情、编辑（revision CAS、启停、Key 留空保持、protocol/key 不可改）、删除（被 Agent 引用返回 `COMMON_CONFLICT{model_key, agent_count}`，否则软删）。迁移与 ORM 已由 15 专项落地（`0004` expand 加 `api_key`、`0005` contract 删 `secret_ref`），本任务只消费 schema；`config_audit_log` 与写操作同事务且不含 Key；明确不引入 `is_default`。
+实现模型管理 API-01~API-05：列表（keyword/enabled/last_test_status 筛选、稳定排序、分页）、创建（protocol 固定 OPENAI、key 租户内唯一、API Key 明文写入 `model_definition.api_key`（产品决策）、revision=1、UNTESTED）、详情、编辑（revision CAS、启停、Key 留空保持、protocol/key 不可改）、删除（被 Agent 引用返回 `MODEL_IN_USE{model_key, agent_count}`，否则软删）。迁移与 ORM 已由 15 专项落地（`0004` expand 加 `api_key`、`0005` contract 删 `secret_ref`），本任务只消费 schema；`config_audit_log` 与写操作同事务且不含 Key；明确不引入 `is_default`。
 
 ### Checklist
 - [x] 迁移 `0004/0005` 与 ORM/parity 已由 15 专项完成（引用为前置），本任务不重复实现
 - [x] 实现 API-02 创建：校验、`api_key` 落库、审计同事务（审计不含 Key）
 - [x] 实现 API-01 列表（筛选/排序/分页 + `api_key_configured` 判定，不回显明文；禁 N+1）
 - [x] 实现 API-03 详情、API-04 编辑（CAS `REVISION_CONFLICT`、启停、Key 留空保持、revision+1、测试状态重置 UNTESTED）
-- [x] 实现 API-05 删除（引用计数 → `COMMON_CONFLICT` 携 message_args；软删 + 审计）
-- [x] 契约补充断言：创建 `key` 重复 → `COMMON_CONFLICT`（message_args `{key}`）；编辑携带 `key` → `COMMON_VALIDATION_ERROR`
+- [x] 实现 API-05 删除（引用计数 → **`MODEL_IN_USE`** 携 message_args `{model_key, agent_count}`；软删 + 审计）
+- [x] 契约补充断言：创建 `key` 重复 → `MODEL_KEY_EXISTS`（409，msg 含冲突的 `key`）；编辑携带 `key` → `COMMON_VALIDATION_ERROR`
 - [x] [S-01][E2E] 未留存 RED：模型页 UI 属本模块 TASK-003；当前以 `tests/console_platform/test_models_api.py` 覆盖 API→DB 明文/不回显，浏览器 E2E 于 TASK-003 执行，按 Browser→API→DB 真实边界编写验收测试并记录 RED
 - [x] [S-01] 断言（integration 层已锁定：DB `api_key` 明文、列表/详情仅 `api_key_configured`） DB `api_key` 与输入一致、列表/详情仅显示“已配置”、任何 API 响应与日志/审计不含 Key
 - [x] [S-03][E2E] 未留存 RED：同上，integration 层已覆盖启停/软删，按 Browser→API→DB 真实边界编写验收测试并记录 RED
 - [x] [S-03] 断言（启停即时可见、删除软删且列表消失；浏览器 E2E 于 TASK-003） 停用立即可见；删除为软删且列表不再出现
 - [x] [E-01][integration] 断言 旧 revision 保存 → `REVISION_CONFLICT`，不覆盖新值
 - [x] [E-02][unit] 断言 请求携带 `is_default` → Schema 拒绝
-- [x] [E-03][integration] 断言 删除被 Agent 引用模型 → `COMMON_CONFLICT`（含 `model_key`/`agent_count`），不删除
+- [x] [E-03][integration] 断言 删除被 Agent 引用模型 → `MODEL_IN_USE`（msg 含 `model_key`/`agent_count`），不删除
 - [x] [E-05][unit] 断言 创建非 OPENAI 或编辑携带 `protocol` → `COMMON_VALIDATION_ERROR`
 - [x] [RULE-api-001] verifier：执行 `uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py` 与模型接口封套/分页用例
 - [x] [RULE-data-001] verifier：执行 `uv run pytest -q tests -k schema_parity`（含 `model_definition`）
@@ -76,17 +76,28 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | Browser、models API、PostgreSQL | DB `api_key` 与输入一致；详情“已配置”；响应/日志/审计无明文 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-01\""] | verified |
-| S-03 | E2E | Browser、models API、PostgreSQL | 停用即时可见；删除软删且列表消失 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-03\""] | verified |
-| E-01 | integration | API、DB revision CAS | 旧 revision → `REVISION_CONFLICT` 且新值不被覆盖 | tests/console_platform/test_models_api.py | planned | verified |
-| E-02 | unit | request schema | 携带 `is_default` 被 Schema 拒绝 | tests/console_platform/test_models_api.py | planned | verified |
-| E-03 | integration | API、agent_definition 引用、PostgreSQL | 引用冲突 → `COMMON_CONFLICT` 含 `model_key`/`agent_count`，不删除 | tests/console_platform/test_models_api.py | planned | verified |
-| E-05 | unit | request schema | 非 OPENAI 创建 / 编辑携带 protocol → `COMMON_VALIDATION_ERROR` | tests/console_platform/test_models_api.py | planned | verified |
+| S-01 | E2E | Browser、models API、PostgreSQL | DB `api_key` 与输入一致；详情“已配置”；响应/日志/审计无明文 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-01\""] | verified |
+| S-03 | E2E | Browser、models API、PostgreSQL | 停用即时可见；删除软删且列表消失 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-03\""] | verified |
+| E-01 | integration | API、DB revision CAS | 旧 revision → `REVISION_CONFLICT` 且新值不被覆盖；CAS 为原子条件 UPDATE | tests/console_platform/test_models_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_models_api.py", "-k", "e01"] | verified |
+| E-02 | unit | request schema | 携带 `is_default` 被 Schema 拒绝 | tests/console_platform/test_models_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_models_api.py", "-k", "e02"] | verified |
+| E-03 | integration | API、agent_definition 引用、PostgreSQL | 引用冲突 → `MODEL_IN_USE`（409），msg 含模型 key 与引用数，不删除 | tests/console_platform/test_models_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_models_api.py", "-k", "e03"] | verified |
+| E-05 | unit | request schema | 非 OPENAI 创建 / 编辑携带 protocol → `COMMON_VALIDATION_ERROR` | tests/console_platform/test_models_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_models_api.py", "-k", "e05"] | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-01 | 未留存产物：实现与验收测试同 commit `7c94ab2`（2026-09-18）落地，无法证明先写测试后写实现 | PASS：`-k s01`（后端）＋ E2E `--grep "S-01"` | `tests/console_platform/test_models_api.py:31-56`（`test_s01_create_persists_plaintext_key_without_exposing_it`，def `:26`）；E2E `e2e/tests/model-management/model-management.spec.ts:62` | 真实 PostgreSQL：DB `api_key` 与输入一致、列表/详情仅 `api_key_configured`；真实 Chrome：body 与 SideSheet 均无明文，API 响应无 `api_key` 字段 | verified |
+| S-03 | 未留存产物：同上 | PASS：`-k s03` ＋ E2E `--grep "S-03"` | `test_models_api.py:69-83`（`test_s03_disable_and_soft_delete_model`，def `:59`）；E2E `spec.ts:113` | 真实 PostgreSQL：停用即时反映、软删后列表 total=0 | verified |
+| E-01 | 未留存产物：同上 | PASS：`-k e01`（含两条 CAS 原语用例） | `test_models_api.py:97-109`（`test_e01_stale_revision_conflicts_without_overwrite`，def `:86`）；CAS 原语：`:201`/`:208`/`:214`（def `:186`）与 `:238`/`:240`/`:241`（def `:218`） | 真实 PostgreSQL：陈旧 revision → `REVISION_CONFLICT` 不覆盖；`cas_update` 为带 `revision` 谓词的原子条件 UPDATE（**已实测**：移除该谓词两条用例即失败） | verified |
+| E-02 | 未留存产物：同上 | PASS：`-k e02` | `test_models_api.py:148-167`（`test_e02_e05_schema_rejects_reserved_and_immutable_fields`，def `:142`） | 真实 FastAPI Schema（`extra="forbid"`）：携带 `is_default` → 422 | verified |
+| E-03 | 未留存产物：同上 | PASS：`-k e03` | `test_models_api.py:128-139`（`test_e03_delete_referenced_model_returns_conflict`，def `:112`） | 真实 PostgreSQL：409 **`MODEL_IN_USE`**，msg 含模型 key 与引用数，记录保留（此前用通用 `COMMON_CONFLICT` 导致引用数无法渲染） | verified |
+| E-05 | 未留存产物：同上 | PASS：`-k e05` | `test_models_api.py:148-167`（同 E-02 用例） | 真实 FastAPI Schema：非 OPENAI 创建 / 编辑携带 `protocol` → 422 | verified |
+
+> 审计：`create/update/delete` 均与业务同事务写 `config_audit_log`，快照排除 `api_key`。归档时点的 `make check` 全绿（72 console/acceptance tests、mypy 186 files）为**当时快照**；当前 `make check` 受 08-runtime-execution 未提交在途重构影响而失败（lint 2 条 + test 步），与本模块无关。
+
+> **RED 可追溯性说明**：本模块的实现与验收测试同落 commit `7c94ab2`（2026-09-18），`git log --follow` 无法证明「先写测试后写实现」；证据表只记录可复核的 GREEN 与断言位置，不声称存在 RED。
 - S-01：RED：测试先行（模型 API 不存在时 404/失败）→ PASS：`uv run pytest -q tests/console_platform/test_models_api.py -k s01`；断言位置 `tests/console_platform/test_models_api.py:27`、`:47`；真实 PostgreSQL：`model_definition.api_key` 明文、响应列表/详情无 `api_key` 字段。
 - S-03：PASS：`-k s03`（`tests/console_platform/test_models_api.py:51`）— 启停即时反映、软删后列表 total=0；浏览器 E2E 归 TASK-003。
 - E-01：PASS：`-k e01`（`:89`）— 旧 revision → `REVISION_CONFLICT` 且新值不被覆盖。
@@ -119,6 +130,36 @@
 - E-05: verified — automated command passed; run_id=5ddeb9cfd6d9407481d0c8eb1e428949 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=4daaa203a33240aa93a6b43a4ec40394 (confirmed_by: runner)
 - S-03: verified — automated command passed; run_id=4daaa203a33240aa93a6b43a4ec40394 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- S-01: failed — automated command failed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- S-03: failed — automated command failed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -153,13 +194,18 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-02 | E2E | Browser、batch-test API、真实模型端点（HTTP）、PostgreSQL | 逐项结果与状态更新；revision 不变；无 invocation 审计 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-02\""] | verified |
-| E-04 | integration | Probe、真实模型端点、PostgreSQL | 401/403 → `FAILED + CREDENTIAL_MISSING`；其它项不受影响；revision 不变 | tests/console_platform/test_models_batch_test.py | planned | verified |
+| S-02 | E2E | Browser、batch-test API、真实模型端点（HTTP）、PostgreSQL | 逐项结果与状态更新；revision 不变；无 invocation 审计 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-02\""] | verified |
+| E-04 | integration | Probe、真实模型端点、PostgreSQL | 401/403 → `FAILED + CREDENTIAL_MISSING`；其它项不受影响；revision 不变 | tests/console_platform/test_models_batch_test.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_models_batch_test.py", "-k", "e04"] | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-02 | 未留存产物：同上 | PASS：E2E `--grep "S-02"`（与 S-04 同用例）＋ 后端逐项断言 | E2E `spec.ts:83`；后端 `tests/console_platform/test_models_batch_test.py:124-135`、`:157-162`（`test_e04_and_fallback_mapping`，def `:98`） | 真实 HTTP 探测端点（`ProbeEndpoint`，**未 mock**）：`GET /models` 404 → 回退最小 chat 200；DB `last_test_status/last_test_at` 更新；`revision` 不变；无 `model_invocation_audit` 记录 | verified |
+| E-04 | 未留存产物：同上 | PASS：`-k e04` | `test_models_batch_test.py:124-135` | 真实探测端点返回 401 → `FAILED + CREDENTIAL_MISSING`，不影响其它项，不递增 revision | verified |
+
+> **RED 可追溯性说明**：本模块的实现与验收测试同落 commit `7c94ab2`（2026-09-18），`git log --follow` 无法证明「先写测试后写实现」；证据表只记录可复核的 GREEN 与断言位置，不声称存在 RED。
 - S-02：RED：新增用例首次运行 2 failed（端点 404）→ PASS：`uv run pytest -q tests/console_platform/test_models_batch_test.py -k "e04 or validation"`（2 passed）。
   断言位置 `tests/console_platform/test_models_batch_test.py:98`、`:130`、`:145`、`:158`；真实边界：本地真实 HTTP 探测端点（`ProbeEndpoint`，非 mock），禁用项零请求、回退路径 `GET 404 → POST chat 200`、DB `last_test_status/last_test_at` 更新、`revision` 不变、`model_invocation_audit` 计数不变。
 - E-04：PASS：同文件 `-k e04`（`:111`）— 401 → `FAILED + CREDENTIAL_MISSING`，不影响其他项。
@@ -172,6 +218,16 @@
 - S-02: verified — automated command passed; run_id=5ddeb9cfd6d9407481d0c8eb1e428949 (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=5ddeb9cfd6d9407481d0c8eb1e428949 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=4daaa203a33240aa93a6b43a4ec40394 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- S-02: failed — automated command failed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)
@@ -202,9 +258,9 @@
 - [x] [S-04] 断言 选择 2 个模型批量测试 → 结果 Modal 2 条且列表刷新
 - [x] [S-05][E2E] 断言 详情无默认模型字段；编辑按钮与 X 同行靠右
 - [x] [S-06][E2E] 断言 启停状态列即时更新；删除后列表不再出现
-- [x] [E-06][integration] 断言 Base URL 非 http/https 时字段校验阻止提交
+- [x] [E-06][E2E] 断言 Base URL 非 http/https 时字段校验阻止提交
 - [x] [E-07][E2E] 断言 revision 冲突时保留表单并显示本地化冲突提示
-- [x] [E-08][integration] 断言（Toast 本地化冲突 + 列表不变；`agent_count` 未随文案返回，见 Evidence 说明） 删除引用冲突 Popconfirm 后 Toast 含 `agent_count`，列表不变
+- [x] [E-08][E2E] 断言 删除引用冲突 Popconfirm 后 Toast 为 `MODEL_IN_USE` 且文案含模型 key 与引用数，列表不变
 - [x] [E-09][unit] 断言 编辑态协议字段只读、无法修改
 - [x] [RULE-front-001] verifier：执行 `bash -lc "uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"`
 - [x] [RULE-ui-001] verifier：执行 `bash -lc "uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"`
@@ -217,19 +273,29 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-04 | E2E | Browser、models API、PostgreSQL | 选择 2 个模型批量测试 → 结果 Modal 2 条且列表刷新 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-04\""] | verified |
-| S-05 | E2E | Browser、detail API | 详情无默认模型字段；编辑与 X 同行靠右 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-05\""] | verified |
-| S-06 | E2E | Browser、update/delete API、PostgreSQL | 启停即时更新；删除后列表消失 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-06\""] | verified |
-| E-06 | integration | Semi Form | 非 http/https Base URL 阻止提交 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-06\""] | verified |
-| E-07 | E2E | API、Modal | revision 冲突保留表单并显示本地化提示 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-07\""] | verified |
-| E-08 | integration | API、COMMON_CONFLICT | 删除冲突 Toast 含 `agent_count`，列表不变 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-08\""] | verified |
+| S-04 | E2E | Browser、models API、PostgreSQL | 选择 2 个模型批量测试 → 结果 Modal 2 条且列表刷新 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-04\""] | verified |
+| S-05 | E2E | Browser、detail API | 详情无默认模型字段；编辑与 X 同行靠右 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-05\""] | verified |
+| S-06 | E2E | Browser、update/delete API、PostgreSQL | 启停即时更新；删除后列表消失 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"S-06\""] | verified |
+| E-06 | E2E | Semi Form（浏览器内校验） | 非 http/https Base URL 阻止提交 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-06\""] | verified |
+| E-07 | E2E | API、Modal | revision 冲突保留表单并显示本地化提示 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-07\""] | verified |
+| E-08 | E2E | API、MODEL_IN_USE | Toast 文案含模型 key 与引用数；Modal 关闭后列表不变 | e2e/tests/model-management/model-management.spec.ts | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep \"E-08\""] | verified |
 | E-09 | unit | ModelFormModal | 编辑态协议只读 | tests/frontend/test_model_form_contract.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_model_form_contract.py"] | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
 
-- S-04/S-02：PASS `npm --prefix e2e test -- --config playwright.model-management.config.ts --grep "S-04"`（真实 Chrome+Console+PostgreSQL+Vite+真实探测端点 4190）：选择 2 模型批量测试 → Modal 2 行 AVAILABLE、列表刷新为 AVAILABLE（`e2e/tests/model-management/model-management.spec.ts:82`）。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-04 | 未留存产物：同上 | PASS：E2E `--grep "S-04"` | `spec.ts:83` | 真实 Chrome + Console + PostgreSQL + 真实探测端点（4191）：选择 2 个模型 → 结果 Modal 2 行、状态走 i18n 词条、列表刷新为「通过」 | verified |
+| S-05 | 未留存产物：同上 | PASS：E2E `--grep "S-05"` | `spec.ts:132` | 真实 Chrome：详情无「默认」字样、编辑按钮与关闭 X 同 Header 行；详情数据经 `GET /api/v1/models/{id}` 获取 | verified |
+| S-06 | 未留存产物：同上 | PASS：E2E `--grep "S-06"` | `spec.ts:113` | 真实 Chrome：Switch 即时启停、删除后列表不再出现 | verified |
+| E-06 | 未留存产物：同上 | PASS：E2E `--grep "E-06"` | `spec.ts:149`；契约 `tests/frontend/test_model_form_contract.py:22-23`（def `:20`） | 真实 Chrome：`ftp://` 触发字段校验（Modal 保留） | verified |
+| E-07 | 未留存产物：同上 | PASS：E2E `--grep "E-07"` | `spec.ts:163` | 真实 Chrome：并发更新后提交旧 revision → Toast「配置版本已变化」，表单保留 | verified |
+| E-08 | 未留存产物：同上 | PASS：E2E `--grep "E-08"` | `spec.ts:193` | 真实 Chrome + PostgreSQL：删除被 Agent 引用的模型 → Toast 为 **`MODEL_IN_USE`** 且文案含模型 key 与「1 个 Agent」；Modal 关闭后列表不变 | verified |
+| E-09 | 未留存产物：同上 | PASS：`uv run pytest -q tests/frontend/test_model_form_contract.py`（5 passed） | `tests/frontend/test_model_form_contract.py:16-17`（`test_e09_edit_form_keeps_protocol_readonly`，def `:13`） | 源码级契约：编辑态协议字段只读、无法修改 | verified |
+
+> **RED 可追溯性说明**：本模块的实现与验收测试同落 commit `7c94ab2`（2026-09-18），`git log --follow` 无法证明「先写测试后写实现」；证据表只记录可复核的 GREEN 与断言位置，不声称存在 RED。
+- S-04/S-02：PASS `npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.model-management.config.ts --grep "S-04"`（真实 Chrome+Console+PostgreSQL+Vite+真实探测端点 4190）：选择 2 模型批量测试 → Modal 2 行 AVAILABLE、列表刷新为 AVAILABLE（`e2e/tests/model-management/model-management.spec.ts:82`）。
 - S-05：PASS `--grep "S-05"`（`:128`）— 详情无“默认模型”字段、编辑与关闭同 Header 行。
 - S-06/S-03：PASS `--grep "S-06"`（`:109`）— Switch 即时启停、删除后行消失。
 - E-06：PASS `--grep "E-06"`（`:145`）— `ftp://` 触发表单校验“必须为 http(s)”，Modal 保留。
@@ -269,6 +335,41 @@
 - S-05: verified — automated command passed; run_id=4daaa203a33240aa93a6b43a4ec40394 (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=4daaa203a33240aa93a6b43a4ec40394 (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=4daaa203a33240aa93a6b43a4ec40394 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=822a0f0d37d74a60b66a89fb8b42909f (confirmed_by: runner)
+- S-04: failed — automated command failed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- S-05: failed — automated command failed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- S-06: failed — automated command failed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- E-06: failed — automated command failed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- E-07: failed — automated command failed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- E-08: failed — automated command failed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=e1b8632c501748e8bd075930b97931f9 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=0907a98be59243dab299ab4d5025cc24 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=ea91cbd5679b4b54bf2eecb2bfdd2074 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=020b52378e1c4467889eadc2d44d5168 (confirmed_by: runner)
 
 ### Log
 - [2026-09-18] created (draft)

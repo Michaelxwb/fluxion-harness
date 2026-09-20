@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
-import uuid
-from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from typing import Any, Protocol, cast
 
 from .registry import ToolRegistry
 
@@ -61,7 +62,8 @@ class ToolPolicy(Protocol):
 
 
 class AuditPort(Protocol):
-    def record(self, event: dict[str, Any]) -> None: ...
+    # 允许同步或异步实现：调用方用 inspect.isawaitable 判定，故返回类型为 Any
+    def record(self, event: dict[str, Any]) -> Any: ...
 
 
 class ToolExecutionPipeline:
@@ -126,14 +128,12 @@ class ToolExecutionPipeline:
             )
 
         content: str
-        status = "SUCCEEDED"
-        error_code: str | None = None
         try:
             outcome = definition.handler(prepared.arguments)
-            if hasattr(outcome, "__await__"):
-                content = await outcome
-            else:
-                content = outcome
+            # ToolHandler 协议声明为 async，但运行时同时容忍同步 handler：
+            # 返回 awaitable 就 await，否则直接取返回值（不做强制转换）
+            resolved: Any = await outcome if inspect.isawaitable(outcome) else outcome
+            content = cast(str, resolved)
         except Exception as exc:
             # 失败路径同样落终态审计，然后异常继续传播（不吞）
             await self._emit(
@@ -178,13 +178,13 @@ class ToolExecutionPipeline:
 
     async def _emit(self, event: dict[str, Any]) -> None:
         outcome = self._audit.record(event)
-        import inspect
-
         if inspect.isawaitable(outcome):
             await outcome
 
     @staticmethod
-    def _validate_schema(schema: dict[str, Any], arguments: dict[str, Any]) -> str | None:
+    def _validate_schema(
+        schema: Mapping[str, Any], arguments: dict[str, Any]
+    ) -> str | None:
         """轻量 JSON-schema 校验：required + 顶层 type/properties 类型。"""
         import jsonschema
 

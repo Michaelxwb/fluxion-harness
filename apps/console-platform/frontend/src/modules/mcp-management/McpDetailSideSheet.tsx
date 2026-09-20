@@ -1,7 +1,8 @@
-import { Banner, Button, Popconfirm, Spin, Tabs } from '@douyinfe/semi-ui';
+import { Banner, Button, Spin, Tabs } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
@@ -98,9 +99,9 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
           >
             {t('mcp.actions.discover')}
           </Button>
-          <Popconfirm title={t('mcp.confirmDelete')} onConfirm={() => props.onDelete(props.server!)}>
-            <Button type="danger">{t('mcp.actions.delete')}</Button>
-          </Popconfirm>
+          <ConfirmAction theme="light" danger title={t('mcp.confirmDelete')} onConfirm={() => props.onDelete(props.server!)}>
+            {t('mcp.actions.delete')}
+          </ConfirmAction>
         </>
       }
     >

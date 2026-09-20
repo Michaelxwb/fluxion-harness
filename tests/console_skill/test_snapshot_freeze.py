@@ -10,7 +10,7 @@ import uuid
 from typing import Any, cast
 
 from httpx import AsyncClient
-from muad_agent_runtime.infrastructure.models.runtime import RunRecord, RuntimeSnapshot
+from muad_agent_runtime.infrastructure.models.runtime import RuntimeSnapshot
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.control import Skill, SkillArtifact
 from sqlalchemy import select
@@ -35,7 +35,9 @@ async def test_s03_run_a_keeps_frozen_artifact_after_v2_import(
 ) -> None:
     """[S-03] Run A 开始后导入 v2：Run A 快照仍指向 v1；新 resolve/Run 使用 v2。"""
     skill_key = f"freeze-{uuid.uuid4()}"
-    created = await import_skill(client, skill_env, demo_package(name="Freeze Skill"), version="1.0.0", key=skill_key)
+    created = await import_skill(
+        client, skill_env, demo_package(name="Freeze Skill"), version="1.0.0", key=skill_key
+    )
     assert created.status_code == 200, created.text
     skill_id = created.json()["data"]["id"]
 
@@ -77,7 +79,13 @@ async def test_s03_run_a_keeps_frozen_artifact_after_v2_import(
     # 导入 v2：current_artifact 切换
     v2 = await client.post(
         f"/api/v1/skills/{skill_id}/artifacts",
-        files={"file": ("skill.zip", demo_package(name="Freeze Skill", description="v2 content"), "application/zip")},
+        files={
+            "file": (
+                "skill.zip",
+                demo_package(name="Freeze Skill", description="v2 content"),
+                "application/zip",
+            )
+        },
         data={"version": "2.0.0"},
         headers=tenant_headers(skill_env),
     )

@@ -78,8 +78,8 @@
 
 | 类别 | 内容 |
 |---|---|
-| In Scope | 用户 CRUD（`user_code/display_name/status/metadata`）、IM 身份、绑定码、last_active_at、用户详情聚合计数；用户侧 Agent 授权端点（`users/{id}/agents`）与用户侧 Memory 端点（`users/{id}/memory`），写操作复用 07/08 的 application service（**服务复用不构成前置依赖**，04/07/08 仅作为数据来源）。 |
-| Out of Scope | /bind 不自动授予 Agent；不把外部 openid 当平台主键；不重复实现 07 的 Agent 侧授权服务与 08 的 Memory 读写服务；不做三元授权（User-Agent-Skill/MCP）。 |
+| In Scope | 用户 CRUD（`user_code/display_name/status/metadata`）、IM 身份、绑定码、last_active_at、用户详情聚合计数；用户侧 Agent 授权端点（`users/{id}/agents`）与用户侧 Memory 端点（`users/{id}/memory`）。授权复用 07 同一 application service（`GrantService`）；Memory 见 §3.1 决策表的职责切分决定（04/07/08 仅作为数据来源，不构成前置依赖）。 |
+| Out of Scope | /bind 不自动授予 Agent；不把外部 openid 当平台主键；不重复实现 07 的 Agent 侧授权服务；不做三元授权（User-Agent-Skill/MCP）。 |
 | 技术债 | 无；不为未确认的未来能力增加兼容层 |
 
 ### 2.5 验收条件
@@ -93,8 +93,8 @@
 | RULE-03 | 系统约束 | 产品表统一 is_deleted/create_time/update_time；同 Owner Schema 物理 FK，跨 Owner Schema 逻辑 UUID。 | S-01 / S-03 |
 | RULE-04 | 系统约束 | Agent 0..N bot_id；bot_id 只指向一个 Agent；不绑定 Runtime Pod。 | S-02 / E-01 |
 | RULE-05 | 系统约束 | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | S-02 |
-| RULE-06 | 业务规则 | 关系类修改（用户↔Agent、Memory 删除）使用单关系 POST/DELETE 独立事务，禁止全量 PUT 覆盖；用户侧端点复用 07/08 同一 application service。 | S-04 / S-05 |
-| RULE-07 | 业务规则 | 绑定码 TTL 默认 10 分钟、一次性消费；过期→`BIND_CODE_EXPIRED`，无效/已用/已撤销→`BIND_CODE_INVALID`；生成新码时同用户旧 ACTIVE 码置 `REVOKED`（管理员撤销语义）。 | S-02 / E-01 / E-02 |
+| RULE-06 | 业务规则 | 关系类修改（用户↔Agent、Memory 删除）使用单关系 POST/DELETE 独立事务，禁止全量 PUT 覆盖；用户侧授权端点复用 07 同一 `GrantService`，02 只做用户存在性校验、Envelope 与审计。 | S-04 / S-05 |
+| RULE-07 | 业务规则 | 绑定码 TTL 默认 10 分钟、一次性消费；过期→`BIND_CODE_EXPIRED`，无效/已用/已撤销→`BIND_CODE_INVALID`；生成新码时同用户旧 ACTIVE 码置 `REVOKED`（管理员撤销语义）。若该外部身份已绑定到**其他** PlatformUser，则拒绝并返回 `IDENTITY_ALREADY_BOUND`，**不消费绑定码**（保持 ACTIVE，管理员解绑后可复用同一码）；若已绑定到**同一**用户则幂等返回既有身份并消费码。 | S-02 / E-01 / E-02 |
 | RULE-08 | 业务规则 | 用户字段固定 `user_code/display_name/status`（ACTIVE/DISABLED）；`user_code` 创建后不可修改。 | S-01 / E-04 |
 
 #### 2.5.2 功能验收场景
@@ -115,7 +115,7 @@
 |---|---|---|---|---|---|---|
 | E-01 | FEAT-02 | integration | bind service→DB transaction | 本模块 | 绑定码无效/已使用/已撤销 | `BIND_CODE_INVALID`，不写身份 |
 | E-02 | FEAT-02 | integration | bind service→DB transaction | 本模块 | 绑定码过期（超过 10 分钟 TTL） | `BIND_CODE_EXPIRED`，不写身份 |
-| E-03 | FEAT-01 | integration | API→partial unique | 本模块 | 新增用户 `user_code` 已存在 | `COMMON_CONFLICT`（message_args: `{user_code}`），不覆盖 |
+| E-03 | FEAT-01 | integration | API→partial unique | 本模块 | 新增用户 `user_code` 已存在 | `USER_CODE_EXISTS`（message_args: `{user_code}`），不覆盖 |
 | E-04 | FEAT-01 | unit | request schema | 本模块 | 编辑请求携带 `user_code` | Schema 拒绝，`COMMON_VALIDATION_ERROR` |
 
 无可靠实测数据的性能阈值统一标记“待定”，不复制模板示例值。
@@ -128,7 +128,8 @@
 |---|---|---|---|
 | 平台主键 | PlatformUser UUID | 直接用 openid | 一个用户可有多个渠道身份 |
 | /bind | 仅身份映射 | 顺便授权 Agent | 授权与身份职责分离 |
-| 用户侧关系/记忆端点 | 复用 07/08 application service | 02 内重复实现 | 避免双实现漂移；07 负责 Agent 侧视图、08 负责 Memory 读写 |
+| 用户侧关系端点 | `GrantService` 落在 console-platform application 层，07 Agent 侧视图复用同一实现 | 02 内重复实现 | 避免双实现漂移；07 负责 Agent 侧视图（`/agents/{id}/users`） |
+| 用户侧记忆端点 | 02 直接读写 `runtime.user_memory`（同库、跨 owner schema） | 调用 08 internal API | **决定（2026-09-20 记录）**：两进程同库不同 owner schema，按职责切分 —— **02 拥有管理面 CRUD**（`/users/{id}/memory` 的 list/delete/clear，覆盖全量含 `enabled=false`）；**08 拥有运行面读写**（`MemoryService.upsert/list_entries/disable`，只读 `enabled=true`）。不引入 internal API：管理面读路径若依赖 runtime 可用性，会把 Console 的可用性耦合到运行服务上，得不偿失。两面的 `enabled` 口径差异是有意为之，已在 API-11 说明。若将来要求进程级隔离（各自独立库或禁止跨 schema 直读），再单独立项。 |
 | 用户标识 | `user_code` 不可变 | 允许改 account | 对外稳定引用 |
 
 基础栈：Python >=3.12、FastAPI >=0.115、SQLAlchemy 2.x、PostgreSQL；按需 Redis/NFS/Secret Provider；统一 `muad-api` 与 `muad-logging`。
@@ -145,13 +146,17 @@ sequenceDiagram
   C->>DB: insert bind_code (TTL 10m, 旧 ACTIVE 码置 REVOKED)
   G->>C: POST /internal/channel/bind
   C->>DB: validate code FOR UPDATE
-  C->>DB: upsert channel_identity
-  C->>DB: mark USED
-  C-->>G: platform_user_id
+  alt 身份已属于其他用户
+    C-->>G: IDENTITY_ALREADY_BOUND（码保持 ACTIVE）
+  else 身份不存在或属于同一用户
+    C->>DB: insert channel_identity（不存在时）
+    C->>DB: mark USED
+    C-->>G: platform_user_id
+  end
   Note over C,G: 不创建 AgentAccessGrant
 ```
 
-用户侧关系/记忆写路径：`users/{id}/agents`、`users/{id}/memory` 由 02 Router 接入，分别调用 07 `GrantService`、08 `MemoryService`（同一 application service），02 只做用户存在性校验、Envelope 与审计，不重复实现领域逻辑。
+用户侧关系写路径：`users/{id}/agents` 由 02 Router 接入，调用 07 `GrantService`（同一 application service）；`users/{id}/memory` 由 02 Router 接入并直接读写 `runtime.user_memory`（见 §3.1 职责切分决定）。02 只做用户存在性校验、Envelope 与审计，不重复实现授权领域逻辑。
 
 ### 3.3 数据设计
 
@@ -311,8 +316,8 @@ POST /api/v1/users
   - `status`：string，可选，默认 `ACTIVE`，`ACTIVE/DISABLED`。
   - `metadata`：object，可选，默认 `{}`。
 - `data`：创建后的用户对象 `{id,user_code,display_name,status,metadata,create_time,update_time}`（不含计数）。
-- 错误码：`COMMON_VALIDATION_ERROR`、`COMMON_CONFLICT`（`user_code` 已存在，message_args: `{user_code}`）、`COMMON_INTERNAL_ERROR`。
-- 处理：校验 → `tenant_id` 取会话租户 → INSERT `platform_user`；partial unique 冲突捕获后返回 `COMMON_CONFLICT`；`config_audit_log`（`actor_user_id`=登录的 `console_account.id`）与业务写入同一事务；单事务。
+- 错误码：`COMMON_VALIDATION_ERROR`、`USER_CODE_EXISTS`（`user_code` 已存在，message_args: `{user_code}`）、`COMMON_INTERNAL_ERROR`。
+- 处理：校验 → `tenant_id` 取会话租户 → INSERT `platform_user`；partial unique 冲突捕获后返回 `USER_CODE_EXISTS`；`config_audit_log`（`actor_user_id`=登录的 `console_account.id`）与业务写入同一事务；单事务。
 - 对应：docs/07 §10.5；docs/02 §4.1。
 
 #### API-03 用户详情聚合
@@ -346,10 +351,12 @@ GET /api/v1/users/{user_id}
 
 | 字段 | 数据来源 | Owner |
 |---|---|---|
-| `agent_grant_count` | `control.agent_access_grant COUNT(is_deleted=false, user_id=?)` | 07-agent-management |
+| `agent_grant_count` | `control.agent_access_grant JOIN control.agent_definition ON id=agent_id WHERE grant.is_deleted=false AND agent.is_deleted=false AND agent.tenant_id=? AND user_id=?` | 07-agent-management |
 | `credential_count` | `control.user_credential_ref COUNT(is_deleted=false, user_id=?)` | 04-project-platform |
 | `identity_count` | `control.channel_identity COUNT(is_deleted=false, platform_user_id=?)` | 本模块 |
 | `memory_count` | `runtime.user_memory COUNT(is_deleted=false, user_id=?)` | 08-runtime-execution |
+
+> `agent_grant_count` 必须与 API-05 的 Tab 列表**同口径**（同样排除已软删 / 跨租户 Agent），否则删除 Agent 后会出现「列表显示 N、Tab 显示 0 行」。四个计数在实现中合并为**一次往返**（UNION ALL）返回，禁止 N+1。
 
 - 错误码：`COMMON_VALIDATION_ERROR`、`COMMON_NOT_FOUND`、`COMMON_INTERNAL_ERROR`。
 - 处理：校验用户存在且 `is_deleted=false`（否则 `COMMON_NOT_FOUND`）→ 4 个 COUNT 并行/合并查询一次返回；读操作不加长事务。
@@ -394,7 +401,7 @@ POST /api/v1/users/{user_id}/agents/{agent_id}
 - 调用方：Console 用户详情「Agent 授权」Tab（Admin）。
 - 请求：路径参数 `user_id`、`agent_id`（uuid，必填）；无 body。
 - `data`：`{user_id,agent_id,granted_at,granted_by}`。
-- 错误码：`COMMON_VALIDATION_ERROR`、`COMMON_NOT_FOUND`（用户或 Agent 不存在/已删）、`FORBIDDEN`（非 Admin）、`COMMON_INTERNAL_ERROR`。
+- 错误码：`COMMON_VALIDATION_ERROR`、`AGENT_NOT_FOUND`（Agent 不存在/已删）、`COMMON_NOT_FOUND`（用户不存在）、`FORBIDDEN`（非 Admin）、`COMMON_INTERNAL_ERROR`。
 - 处理：复用 07 `GrantService.grant(user_id, agent_id, granted_by)`（单关系独立事务 + `config_audit_log` 同事务）；幂等：已存在 ACTIVE grant 直接返回现有记录，软删过的 grant 复活（`is_deleted=false` + 更新 `granted_at/granted_by`），保持 partial unique 成立；影响后续新 Run/Task，既有 Snapshot 不漂移。
 - 对应：docs/07 §10.1、§10.5；docs/14 §9；docs/03 §12。
 
@@ -434,7 +441,7 @@ POST /api/v1/users/{user_id}/bind-codes
 - 请求：路径参数 `user_id`；无 body。
 - `data`：`{bind_code:"ABC123",expires_at:"2026-09-17T17:10:00+08:00",status:"ACTIVE"}`；`bind_code` 明文仅本次返回。
 - 错误码：`COMMON_VALIDATION_ERROR`、`COMMON_NOT_FOUND`、`FORBIDDEN`、`COMMON_INTERNAL_ERROR`。
-- 处理：校验用户存在 → 生成高熵随机码（DB 只存 `code_hash`，`expires_at = now() + 10min`）→ 同事务将该用户既有 ACTIVE 码置 `REVOKED`（撤销语义）→ INSERT 新码；单次使用，消费见 docs/07 §8.3（`SELECT ... FOR UPDATE` → 校验 hash/status/expire → upsert `channel_identity` → 标记 USED）。
+- 处理：校验用户存在 → 生成高熵随机码（DB 只存 `code_hash`，`expires_at = now() + 10min`）→ 同事务将该用户既有 ACTIVE 码置 `REVOKED`（撤销语义）→ INSERT 新码；单次使用，消费见 docs/07 §8.3（`SELECT ... FOR UPDATE` → 校验 hash/status/expire → 建立或复用 `channel_identity` → 标记 USED）。消费时若该外部身份已绑定到其他 PlatformUser，返回 `IDENTITY_ALREADY_BOUND` 且不消费码。
 - 对应：docs/07 §10.5、§8.3；docs/03 §9。
 
 #### API-10 解绑身份
@@ -460,7 +467,8 @@ GET /api/v1/users/{user_id}/memory
 - 请求（Query）：`page`、`page_size`（`page_size<=100`）；`category`：string，可选（PREFERENCE/WORK_STYLE/EXPLICIT）。
 - `data`：`{items:[{id,memory_key,category,content,source_type,source_ref,version,enabled,create_time,update_time}],page,page_size,total}`（`content_json` 在 API 层为 `content`）。
 - 错误码：`COMMON_VALIDATION_ERROR`、`COMMON_NOT_FOUND`、`COMMON_INTERNAL_ERROR`。
-- 处理：校验用户存在 → 调用 08 `MemoryService.list_by_user`（复用 `/internal/admin/users/{user_id}/memory` 同一 service）；只读，不重复实现 Memory 领域逻辑。
+- 处理：校验用户存在 → 分页查询 `runtime.user_memory(is_deleted=false)`，`category` 可选过滤；只读。
+- 口径说明：本列表（与 `memory_count`）**包含 `enabled=false` 的记忆**，而 08 运行时只读取 `enabled=true` 的记录 —— 这是「管理面全量可见 / 运行面只读生效子集」的有意差异，不是不一致。`enabled` 字段随行返回，供 Console 标注。
 - 对应：docs/07 §9.3、§10.5；docs/02 §4.23。
 
 #### API-12 删除单条用户记忆
@@ -518,8 +526,12 @@ DELETE /api/v1/users/{user_id}/memory
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `harness-platform#RULE-api-001` | required | JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；列表 `{items,page,page_size,total}` 且 `page_size<=100`；业务只抛已登记 code。 | §3.4 API-01~API-13 | S-01, S-03, E-03（verifier: project-owner 确认分页与错误码） | applied |
-| `harness-platform#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.4 错误码映射 / FE 文档 §3.5 | S-01, E-03（verifier: project-owner） | applied |
-| `harness-platform#RULE-data-001` | required | 产品表统一 is_deleted/create_time/update_time；同 Owner Schema 物理 FK，跨 Owner Schema 逻辑 UUID。 | §3.3 platform_user / channel_identity / bind_code | S-01, S-02（verifier: project-owner 确认迁移一致） | applied |
-| `harness-platform#RULE-im-001` | required | Agent 0..N bot_id；bot_id 只指向一个 Agent；不绑定 Runtime Pod。 | §3.2 bind 流程 / §3.3 channel_identity | S-02, E-01, E-02（verifier: project-owner） | applied |
-| `harness-platform#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.5.2 / §3.5 | S-01~S-05, E-01~E-04（verifier: project-owner 确认真实 PG/Gateway） | applied |
+| `harness-api#RULE-api-001` | required | JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；列表 `{items,page,page_size,total}` 且 `page_size<=100`；业务只抛已登记 code。 | §3.4 API-01~API-13 | S-01, S-03, E-03（verifier: project-owner 确认分页与错误码） | applied |
+| `harness-i18n#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.4 错误码映射 / FE 文档 §3.5 | S-01, E-03（verifier: project-owner） | applied |
+| `harness-data#RULE-data-001` | required | 产品表统一 is_deleted/create_time/update_time；同 Owner Schema 物理 FK，跨 Owner Schema 逻辑 UUID。 | §3.3 platform_user / channel_identity / bind_code | S-01, S-02（verifier: project-owner 确认迁移一致） | applied |
+| `harness-im#RULE-im-001` | required | Agent 0..N bot_id；bot_id 只指向一个 Agent；不绑定 Runtime Pod。 | §3.2 bind 流程 / §3.3 channel_identity | S-02, E-01, E-02（verifier: project-owner） | applied |
+| `harness-test#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.5.2 / §3.5 | S-01~S-05, E-01~E-04（verifier: project-owner 确认真实 PG/Gateway） | applied |
+| `harness-auth#RULE-auth-001` | required | 授权三层关系；Effective Capability 公式必须含 `is_deleted=false` 与资源/Agent `enabled`。 | §3.4 API-05~API-07 / §3.2 用户侧写路径 | S-04（verifier: `tests/console_platform/test_user_side_relations.py -k s04 && pytest -k schema_parity`） | applied |
+| `harness-rel#RULE-rel-001` | required | 关系类修改使用单关系 POST/DELETE + 独立事务，禁止全量 PUT。 | §3.4 API-06/07、API-12/13 | S-04, S-05（verifier: `tests/console_platform/test_user_side_relations.py`） | applied |
+
+> 说明：本矩阵原先把 owner 写成 `harness-platform`，该 spec id 在 `.code-flow/specs/` 中不存在；已按实际生效的 spec id 更正（task 侧引用的即为下列 id）。

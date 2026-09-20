@@ -61,9 +61,12 @@ def test_model_detail_has_hint_banner_and_status_tags() -> None:
     source = MODEL_DETAIL.read_text(encoding="utf-8")
     assert "model.detail.hint" in source
     assert "Banner" in source
-    for key in ("model.test.status.available", "model.test.status.failed", "model.test.status.untested"):
-        assert key in source
+    assert "StatusTag" in source, "模型详情必须用公共 StatusTag 渲染状态"
     assert "r${model.revision}" in source
+    # 状态枚举 → StatusTag 的映射收敛在模块内的唯一处（列表/筛选/详情/结果 Modal 共用同一份口径）
+    options = (MODEL_DETAIL.parent / "statusOptions.ts").read_text(encoding="utf-8")
+    for key in ("model.test.status.available", "model.test.status.failed", "model.test.status.untested"):
+        assert key in options, f"测试状态枚举缺少本地化词条: {key}"
 
 
 def test_agent_grant_uses_form_modal_with_hint() -> None:

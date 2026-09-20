@@ -192,6 +192,20 @@ class UserUpdateRequest(BaseModel):
     metadata: dict[str, Any] | None = None
 
 
+class UserBasic(BaseModel):
+    """API-02/API-04 响应：用户对象本身，不含聚合计数。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    user_code: str
+    display_name: str
+    status: str
+    metadata: dict[str, Any]
+    create_time: datetime
+    update_time: datetime
+
+
 class UserListItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -207,11 +221,14 @@ class UserListItem(BaseModel):
     update_time: datetime
 
 
-class UserDetail(UserListItem):
+class UserDetail(UserBasic):
     model_config = ConfigDict(extra="forbid")
 
     tenant_id: str
-    metadata: dict[str, Any]
+    agent_grant_count: int
+    credential_count: int
+    identity_count: int
+    memory_count: int
 
 
 class AgentGrantItem(BaseModel):

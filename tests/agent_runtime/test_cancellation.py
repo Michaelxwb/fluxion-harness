@@ -4,18 +4,13 @@ from __future__ import annotations
 
 import uuid
 
-import pytest
 import sqlalchemy as sa
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRecord
 
-from muad_agent_runtime.application.run_service import RUN_ABANDONED
-
 
 async def _seed_run(client, tenant, key: str) -> dict:
     """Run 直接落 DB（runtime.run_record），不依赖 console agent/model FK（仅逻辑 UUID）。"""
-    from muad_agent_runtime.infrastructure.db import get_session_factory
-    from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRecord
 
     session_factory = get_session_factory()
     conv_id, run_id = uuid.uuid4(), uuid.uuid4()
@@ -55,8 +50,6 @@ async def test_b120_cancel_is_scoped_to_tenant(client, tenant) -> None:
     agent_id = created["id"]
     run_id = uuid.UUID(created["run_id"])
 
-    from muad_agent_runtime.infrastructure.db import get_session_factory
-    from muad_agent_runtime.infrastructure.models.runtime import RunRecord
 
     session_factory = get_session_factory()
 
@@ -87,12 +80,9 @@ async def test_b120_cancel_is_scoped_to_tenant(client, tenant) -> None:
 
 async def test_b120_cancel_requested_flag_then_reaper_fallback(client, tenant) -> None:
     """[B-120] cancel_requested 置位后协作终止；Reaper 兜底回收。"""
-    from muad_agent_runtime.infrastructure.db import get_session_factory
-    from muad_agent_runtime.infrastructure.models.runtime import RunRecord
 
     key = f"cancel-{uuid.uuid4().hex[:8]}"
     created = await _seed_run(client, tenant, key)
-    agent_id = created["id"]
     run_id = uuid.UUID(created["run_id"])
 
     session_factory = get_session_factory()

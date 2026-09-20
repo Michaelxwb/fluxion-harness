@@ -7,8 +7,8 @@ from .adapter import (
     PlatformAdapterNotFound,
     PlatformAdapterRegistry,
 )
-from .egress_client import EgressAccess, RuntimeEgressClient
 from .client import PlatformClient
+from .egress_client import EgressAccess, RuntimeEgressClient
 from .session import (
     NONE_ACTOR_SCOPE,
     SESSION_INDEX_PREFIX,

@@ -110,7 +110,7 @@ class ChannelAdminService:
             await self._session.flush()
         except IntegrityError as exc:
             raise AppError(
-                ErrorCode.COMMON_CONFLICT,
+                ErrorCode.BOT_ID_EXISTS,
                 message_args={"bot_id": payload["bot_id"]},
                 data={"field": "bot_id", "bot_id": payload["bot_id"]},
             ) from exc
@@ -157,7 +157,7 @@ class ChannelAdminService:
             await self._session.flush()
         except IntegrityError as exc:
             raise AppError(
-                ErrorCode.COMMON_CONFLICT,
+                ErrorCode.BOT_ID_EXISTS,
                 message_args={"bot_id": channel.bot_id},
                 data={"field": "bot_id", "bot_id": channel.bot_id},
             ) from exc

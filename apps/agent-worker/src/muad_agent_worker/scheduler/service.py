@@ -109,7 +109,7 @@ class ScheduleService:
             )
         ).scalar_one_or_none()
         if schedule is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "Schedule"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return schedule
 
     async def list_schedules(
@@ -168,7 +168,7 @@ class ScheduleService:
     ) -> TaskSchedule:
         schedule = await self.get_schedule(tenant_id, schedule_id)
         if schedule.status != str(expected):
-            raise AppError(ErrorCode.COMMON_CONFLICT)
+            raise AppError(ErrorCode.REVISION_CONFLICT)
         schedule.status = str(target)
         schedule.update_time = datetime.now(UTC)
         await self._session.flush()

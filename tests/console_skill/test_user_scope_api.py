@@ -29,14 +29,15 @@ async def test_user_scope_and_grants(client: AsyncClient, skill_env: SkillContex
     assert empty.status_code == 200
     assert empty.json()["data"]["items"] == []
 
-    from sqlalchemy import func, select
-
     from muad_console_platform.infrastructure.db import get_session_factory
     from muad_console_platform.infrastructure.models.control import (
         AgentAccessGrant,
         AgentSkillBinding,
+    )
+    from muad_console_platform.infrastructure.models.control import (
         SkillUserGrant as SkillUserGrantModel,
     )
+    from sqlalchemy import func, select
 
     async with get_session_factory()() as session:
         access_before = (
@@ -94,12 +95,30 @@ async def test_user_scope_and_grants(client: AsyncClient, skill_env: SkillContex
     assert access_after == access_before
     assert bindings_after == bindings_before
 
+    # 重复授权 → 幂等：返回既有记录、不新增行、不重复写审计（与用户↔Agent 授权口径一致）
+    from sqlalchemy import text
+
+    async def _grant_audits() -> int:
+        async with get_session_factory()() as session:
+            return int(
+                await session.scalar(
+                    text(
+                        "SELECT count(*) FROM control.config_audit_log "
+                        "WHERE resource_type = 'SKILL_USER_GRANT' AND tenant_id = :tid"
+                    ),
+                    {"tid": skill_env.tenant_id},
+                )
+                or 0
+            )
+
+    audits_before = await _grant_audits()
     repeated = await client.post(
         f"/api/v1/skills/{skill_env.skill_all_id}/users/{skill_env.actor_user_id}",
         headers=tenant_headers(skill_env),
     )
-    assert repeated.status_code == 409
-    assert repeated.json()["code"] == "COMMON_CONFLICT"
+    assert repeated.status_code == 200
+    assert str(repeated.json()["data"]["user_id"]) == str(skill_env.actor_user_id)
+    assert await _grant_audits() == audits_before, "幂等授权不得重复写审计"
 
     listed = (
         await client.get(

@@ -4,9 +4,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.channel import BotAccount
-from ..models.control import AgentAccessGrant, AgentDefinition, ModelDefinition
+from ..models.control import AgentAccessGrant, AgentDefinition, AgentSkillBinding, ModelDefinition
 from ..models.mcp import AgentMcpBinding
-from ..models.control import AgentSkillBinding
 
 
 class AgentRepository:
@@ -45,9 +44,15 @@ class AgentRepository:
         )
         return list(result.all()), int(total or 0)
 
-    async def aggregate_counts(self, tenant_id: str) -> tuple[dict[uuid.UUID, int], dict[uuid.UUID, int], dict[uuid.UUID, int], dict[uuid.UUID, int]]:
+    async def aggregate_counts(
+        self, tenant_id: str
+    ) -> tuple[
+        dict[uuid.UUID, int],
+        dict[uuid.UUID, int],
+        dict[uuid.UUID, int],
+        dict[uuid.UUID, int],
+    ]:
         """批量聚合 skill/mcp/channel/user 有效关系计数（无 N+1）。"""
-        from .agent_skill_binding_repository import AgentSkillBindingRepository  # 局部导入避免环
 
         skill_rows = await self._session.execute(
             select(AgentSkillBinding.agent_id, func.count())

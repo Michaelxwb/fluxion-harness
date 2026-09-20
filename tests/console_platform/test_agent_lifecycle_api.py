@@ -101,9 +101,7 @@ async def test_s01_revision_bump_and_resolve_uses_new_config(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
     """[S-01] 编辑后 revision+1；resolve-definition 返回新 instructions；旧 Snapshot 行不漂移。"""
-    import asyncio
 
-    from sqlalchemy import select
 
     from muad_console_platform.infrastructure.db import get_session_factory
     from muad_console_platform.infrastructure.models.control import PlatformUser
@@ -215,7 +213,7 @@ async def test_s05_soft_delete_agent_lifecycle(
 async def test_rule_api_002_create_agent_idempotency_key_replay(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
-    """[RULE-api-002] 同 Idempotency-Key 重放返回首次结果；不同载荷 COMMON_CONFLICT。"""
+    """[RULE-api-002] 同 Idempotency-Key 重放返回首次结果；不同载荷 IDEMPOTENCY_MISMATCH。"""
     key = f"idem-{uuid.uuid4().hex[:8]}"
     payload = _payload(tenant, key)
     headers = {**_headers(tenant), "Idempotency-Key": f"agent-{uuid.uuid4()}"}
@@ -234,4 +232,4 @@ async def test_rule_api_002_create_agent_idempotency_key_replay(
         headers=headers,
     )
     assert conflicting.status_code == 409
-    assert conflicting.json()["code"] == "COMMON_CONFLICT"
+    assert conflicting.json()["code"] == "IDEMPOTENCY_MISMATCH"

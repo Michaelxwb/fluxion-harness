@@ -6,10 +6,9 @@ import uuid
 from typing import Any
 
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.runtime import CanonicalEvent, Conversation
 
@@ -42,7 +41,7 @@ class EventWriter:
             .returning(Conversation.last_seq)
         )
         if seq is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "Conversation"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         self._session.add(
             CanonicalEvent(
                 tenant_id=tenant_id,

@@ -37,7 +37,7 @@
 | S-11 | frontend#2.4 验收条件（原 S-FE-05） | E2E | Browser→unbind API→UI（MCP 解除/再绑定无启停开关） | TASK-009 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.mcp.config.ts --grep \"S-11\" 2>/dev/null; npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-11\""] |
 | S-12 | frontend#2.4 验收条件（原 S-FE-06） | E2E | Browser→channel API→IM Tab（双 bot 同 Agent 无 Pod 信息） | TASK-009 | verified | ["bash", "-lc", "npm --prefix e2e test -- --config playwright.agent.config.ts --grep \"S-12\""] |
 | E-01 | backend#2.5.2 异常场景 | integration | DB revision（stale revision → REVISION_CONFLICT） | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_agent_lifecycle_api.py", "-k", "stale_revision"] |
-| E-02 | backend#2.5.2 异常场景 | integration | bot_account unique（占用 → COMMON_CONFLICT 带 bot_id） | TASK-006 | verified | ["bash", "-lc", "uv run pytest -q tests/console_platform/test_agent_channels_api.py -k duplicate_bot_id"] |
+| E-02 | backend#2.5.2 异常场景 | integration | bot_account unique（占用 → BOT_ID_EXISTS 带 bot_id） | TASK-006 | verified | ["bash", "-lc", "uv run pytest -q tests/console_platform/test_agent_channels_api.py -k duplicate_bot_id"] |
 | E-03 | backend#2.5.2 异常场景 | integration | Skill 状态与软删除（不存在 404；禁用可绑定但运行时过滤） | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_agent_skill_bindings.py", "-k", "disabled"] |
 | E-04 | backend#2.5.2 异常场景 | integration | grant partial unique + 软删除（幂等恢复不产生重复行） | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_agent_user_grants_api.py", "-k", "idempotent"] |
 | E-05 | backend#2.5.2 异常场景 | integration | Agent.enabled（禁用 → resolve AGENT_DISABLED） | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/console_internal/test_resolve_definition_api.py", "-k", "disabled"] |
@@ -141,7 +141,7 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 - [x] [E-05][integration] Agent.enabled=false → resolve AGENT_DISABLED（console_internal 既有用例并入契约）（既有测试并入契约）
 - [x] 运行 harness-model#RULE-model-001 verifier：断言创建/编辑均校验 model 存在且 enabled（无默认模型）
 - [x] 运行 harness-snapshot#RULE-snapshot-001 verifier：断言配置变更只影响后续 resolve，已冻结快照不更新
-- [x] 运行 harness-api#RULE-api-002 verifier：创建 Agent 支持 Idempotency-Key（复用 skill_import_idempotency 基建，endpoint='agent-create'）：同 key 同指纹重放首次结果、不同指纹 COMMON_CONFLICT
+- [x] 运行 harness-api#RULE-api-002 verifier：创建 Agent 支持 Idempotency-Key（复用 skill_import_idempotency 基建，endpoint='agent-create'）：同 key 同指纹重放首次结果、不同指纹 `IDEMPOTENCY_MISMATCH`
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
@@ -152,7 +152,7 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 | S-05 | E2E | 同上 | 软删后 404/resolve AGENT_NOT_FOUND/历史保留 | 同上 -k soft_delete | 同上 | verified |
 | E-01 | integration | 真实 DB revision 列 | REVISION_CONFLICT；key 不可改；响应 {id,revision,update_time} | 同上 -k revision_conflict | 同上 | verified |
 | E-05 | integration | 真实 resolve 链路 | AGENT_DISABLED | tests/console_internal/test_resolve_definition_api.py | uv run pytest -q tests/console_internal/test_resolve_definition_api.py -k disabled | verified |
-| RULE-api-002 | integration | 真实 DB 幂等表 | 同 key 重放首次结果；不同指纹 COMMON_CONFLICT | tests/console_platform/test_agent_idempotency.py | uv run pytest -q tests/console_platform/test_agent_idempotency.py | verified |
+| RULE-api-002 | integration | 真实 DB 幂等表 | 同 key 重放首次结果；不同指纹 `IDEMPOTENCY_MISMATCH` | tests/console_platform/test_agent_idempotency.py | uv run pytest -q tests/console_platform/test_agent_idempotency.py | verified |
 
 ### Acceptance Evidence
 
@@ -386,12 +386,12 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 
 ### Description
 
-通道 console CRUD：列表（secret_configured 不回显）、新增（bot_id 全局唯一 partial unique，冲突 COMMON_CONFLICT + message_args 带 bot_id；secret 明文入 bot_account.secret、审计不含明文）、编辑（BOT_NOT_FOUND；secret 传入即轮换）、移除（BOT_NOT_FOUND，软删除）。同一 Agent 可挂多 bot（S-03）；不绑 Pod。
+通道 console CRUD：列表（secret_configured 不回显）、新增（bot_id 全局唯一 partial unique，冲突 BOT_ID_EXISTS + message_args 带 bot_id；secret 明文入 bot_account.secret、审计不含明文）、编辑（BOT_NOT_FOUND；secret 传入即轮换）、移除（BOT_NOT_FOUND，软删除）。同一 Agent 可挂多 bot（S-03）；不绑 Pod。
 
 ### Checklist
 - [x] 先写测试并记录 RED：端点不存在（4 failed）
 - [x] [S-03][E2E] 同 Agent 新增第二个 WeCom bot：两行同 agent_id；secret 明文落 DB 且接口不回显
-- [x] [E-02][integration] bot_id 已被其他 Agent 占用 → COMMON_CONFLICT（message_args 带 bot_id），不重绑
+- [x] [E-02][integration] bot_id 已被其他 Agent 占用 → BOT_ID_EXISTS（message_args 带 bot_id），不重绑
 - [x] [E-06][integration] 编辑/移除不存在的 channel_account_id → BOT_NOT_FOUND，不修改数据
 - [x] [B-03][integration] secret 明文写 Owner 表；审计 before/after、列表、详情均无明文；编辑传 secret 即轮换
 - [x] 运行 harness-im#RULE-im-001 verifier：bot_id→唯一 Agent；无 Pod/实例字段
@@ -403,7 +403,7 @@ API-04 改造为单语句 CAS（`UPDATE ... WHERE id=? AND revision=:expected AN
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
 | S-03 | E2E | 真实 HTTP + PostgreSQL | 双 bot 同 agent；secret 落库不回显 | tests/console_platform/test_agent_channels_api.py -k s03 | uv run pytest -q tests/console_platform/test_agent_channels_api.py -k s03 | verified |
-| E-02 | integration | 真实 partial unique | COMMON_CONFLICT + message_args；不重绑 | 同上 -k bot_conflict | 同上 | verified |
+| E-02 | integration | 真实 partial unique | BOT_ID_EXISTS + message_args；不重绑 | 同上 -k bot_conflict | 同上 | verified |
 | E-06 | integration | 真实 DB 查询 | BOT_NOT_FOUND；数据不变 | 同上 -k bot_not_found | 同上 | verified |
 | B-03 | integration | 真实 DB 列 + 审计表 | 明文仅在 bot_account.secret | 同上 -k secret | 同上 | verified |
 

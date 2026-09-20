@@ -6,15 +6,12 @@ import uuid
 
 import pytest
 import sqlalchemy as sa
-from muad_agent_runtime.infrastructure.db import get_session_factory
-from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunInterrupt, RunRecord
-
 from muad_agent_runtime.application.checkpoint import (
     InterruptCheckpoint,
     checkpoint_interrupt,
-    load_waiting_interrupt,
-    release_lease_and_wait,
 )
+from muad_agent_runtime.infrastructure.db import get_session_factory
+from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunInterrupt, RunRecord
 
 
 @pytest.fixture()

@@ -81,7 +81,8 @@ async def test_create_duplicate_key_returns_conflict(
     second = await client.post("/api/v1/agents", json=payload, headers=_headers(tenant))
     assert first.status_code == 200
     assert second.status_code == 409
-    assert second.json()["code"] == "COMMON_CONFLICT"
+    assert second.json()["code"] == "AGENT_KEY_EXISTS"
+    assert "agent-duplicate" in second.json()["msg"], "专用码必须带出冲突的 key"
 
 
 async def test_update_bumps_revision_and_rejects_stale_revision(
@@ -185,20 +186,18 @@ async def test_b01_list_aggregates_and_filters(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
     """[B-01 延伸] 列表聚合计数与 keyword/enabled 筛选（真实 HTTP + 真实 PostgreSQL）。"""
-    from sqlalchemy import select
-
     from muad_console_platform.infrastructure.db import get_session_factory
     from muad_console_platform.infrastructure.models.control import (
         AgentDefinition,
         AgentSkillBinding,
         Skill,
     )
+    from sqlalchemy import select
     key = f"agent-agg-{uuid.uuid4().hex[:8]}"
     created = await client.post(
         "/api/v1/agents", json=_payload(tenant, key), headers=_headers(tenant)
     )
     assert created.status_code == 200
-    agent_id = created.json()["data"]["id"]
 
     async with get_session_factory()() as session:
         row = await session.scalar(

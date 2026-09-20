@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from ..infrastructure.db import SessionFactoryProvider, get_session_factory
 from ..infrastructure.models.runtime import (
     EgressAudit,
     ModelInvocationAudit,
     ToolCallAudit,
 )
-from ..infrastructure.db import get_session_factory
 
 
 class RuntimeAuditWriter:
@@ -26,7 +25,7 @@ class RuntimeAuditWriter:
         task_id: uuid.UUID | None,
         conversation_id: uuid.UUID,
         user_id: uuid.UUID,
-        session_factory=None,
+        session_factory: SessionFactoryProvider | None = None,
     ) -> None:
         self._tenant_id = tenant_id
         self._run_id = run_id
@@ -42,10 +41,10 @@ class RuntimeAuditWriter:
         tool_name: str,
         tool_kind: str,
         prepared_args_hash: str,
-        args_preview_json: dict,
+        args_preview_json: dict[str, Any],
         status: str,
-        start_time,
-        end_time=None,
+        start_time: datetime,
+        end_time: datetime | None = None,
         latency_ms: int | None = None,
         error_code: str | None = None,
         artifact_id: uuid.UUID | None = None,

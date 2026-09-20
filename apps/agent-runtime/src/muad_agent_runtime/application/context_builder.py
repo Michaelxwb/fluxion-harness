@@ -6,14 +6,11 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-import sqlalchemy as sa
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from sqlalchemy.ext.asyncio import AsyncSession as Sas
-
 from muad_agent_core.context.builder import ContextInput
 from muad_agent_core.model.provider import ModelMessage, ModelRequest, ModelRole
+from sqlalchemy import select
 
+from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import Artifact, CanonicalEvent, UserMemory
 
 _BUDGET_TOLERANCE = 2
@@ -29,7 +26,7 @@ class DbBackedContextBuilder:
     def __init__(
         self,
         *,
-        session_factory: async_sessionmaker[AsyncSession],
+        session_factory: SessionFactoryProvider,
         budget: BudgetPolicy | None = None,
     ) -> None:
         self._session_factory = session_factory
@@ -66,7 +63,9 @@ class DbBackedContextBuilder:
                 "properties": dict(tool.input_schema.get("properties") or {}),
                 "required": list(tool.input_schema.get("required") or []),
             }
-            messages.append(ModelMessage(role=ModelRole.SYSTEM, content=f"[tool:{tool.name}] {json_compact(schema)}"))
+            messages.append(
+                ModelMessage(role=ModelRole.SYSTEM, content=f"[tool:{tool.name}] {json_compact(schema)}")
+            )
 
         return ModelRequest(
             model_id=context.model_id,
@@ -77,7 +76,7 @@ class DbBackedContextBuilder:
     async def _load_history(
         self,
         *,
-        session_factory: async_sessionmaker[AsyncSession],
+        session_factory: SessionFactoryProvider,
         tenant_id: str,
         conversation_id: uuid.UUID,
         user_id: uuid.UUID | None,
@@ -147,7 +146,7 @@ class DbBackedContextBuilder:
 
     async def _artifact_preview(
         self,
-        session_factory: async_sessionmaker[AsyncSession],
+        session_factory: SessionFactoryProvider,
         tenant_id: str,
         artifact_id: uuid.UUID | None,
     ) -> str | None:
@@ -161,7 +160,7 @@ class DbBackedContextBuilder:
 
     async def _load_memory(
         self,
-        session_factory: async_sessionmaker[AsyncSession],
+        session_factory: SessionFactoryProvider,
         tenant_id: str,
         user_id: uuid.UUID,
     ) -> list[str]:

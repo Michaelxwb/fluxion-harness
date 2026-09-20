@@ -1,9 +1,13 @@
 import uuid
-from typing import Any
+from typing import Any, cast
 
 from httpx import AsyncClient
 from muad_console_platform.infrastructure.db import get_session_factory
+from muad_console_platform.infrastructure.repositories.platform_user_repository import (
+    PlatformUserRepository,
+)
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from console_platform.conftest import TenantContext
 
@@ -208,7 +212,8 @@ async def test_e03_duplicate_user_code_returns_conflict(client: AsyncClient, ten
         "/api/v1/users", json=_payload("user-dup", display_name="Second"), headers=_headers(tenant)
     )
     assert duplicate.status_code == 409
-    assert duplicate.json()["code"] == "COMMON_CONFLICT"
+    assert duplicate.json()["code"] == "USER_CODE_EXISTS"
+    assert "user-dup" in duplicate.json()["msg"], "专用码必须带出冲突的 user_code"
 
     detail = await client.get(f"/api/v1/users/{original_id}", headers=_headers(tenant))
     assert detail.json()["data"]["display_name"] == "First"
@@ -247,3 +252,131 @@ async def test_list_keyword_and_status_filters(client: AsyncClient, tenant: Tena
     )
     items = by_status.json()["data"]["items"]
     assert [item["user_code"] for item in items] == ["filter-beta"]
+
+
+async def _delete_user(user_id: str) -> None:
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        await session.execute(
+            text("DELETE FROM control.agent_access_grant WHERE user_id = :user_id"),
+            {"user_id": user_id},
+        )
+        await session.execute(
+            text("DELETE FROM control.platform_user WHERE id = :user_id"), {"user_id": user_id}
+        )
+        await session.commit()
+
+
+class _CapturingSession:
+    """只捕获 statement 的 AsyncSession 替身，用于断言 SQL 形态。"""
+
+    def __init__(self) -> None:
+        self.statement: Any = None
+
+    async def scalar(self, statement: Any) -> None:
+        self.statement = statement
+        return None
+
+
+async def test_update_user_path_takes_row_lock() -> None:
+    session = _CapturingSession()
+    repository = PlatformUserRepository(cast(AsyncSession, session))
+    await repository.get_for_update("tenant-1", uuid.uuid4())
+    assert session.statement is not None
+    assert "FOR UPDATE" in str(session.statement)
+
+
+async def test_create_and_update_responses_exclude_aggregate_counts(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    created = await client.post("/api/v1/users", json=_payload("user-basic"), headers=_headers(tenant))
+    assert created.status_code == 200
+    payload = created.json()["data"]
+    try:
+        assert set(payload) == {
+            "id",
+            "user_code",
+            "display_name",
+            "status",
+            "metadata",
+            "create_time",
+            "update_time",
+        }
+        updated = await client.put(
+            f"/api/v1/users/{payload['id']}",
+            json={"display_name": "Renamed"},
+            headers=_headers(tenant),
+        )
+        assert updated.status_code == 200
+        assert set(updated.json()["data"]) == set(payload)
+
+        detail = await client.get(f"/api/v1/users/{payload['id']}", headers=_headers(tenant))
+        assert set(detail.json()["data"]) == set(payload) | {
+            "tenant_id",
+            "agent_grant_count",
+            "credential_count",
+            "identity_count",
+            "memory_count",
+        }
+    finally:
+        await _delete_user(payload["id"])
+
+
+async def test_agent_grant_count_stays_consistent_with_agent_tab_when_agent_deleted(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    created = await client.post(
+        "/api/v1/users", json=_payload("user-grant-count"), headers=_headers(tenant)
+    )
+    user_id = created.json()["data"]["id"]
+    agent = await client.post(
+        "/api/v1/agents",
+        json={
+            "key": f"agent-{uuid.uuid4().hex[:8]}",
+            "name": "Gone Agent",
+            "instructions": "You are helpful.",
+            "model_id": str(tenant.model_id),
+            "runtime_config": {},
+        },
+        headers=_headers(tenant),
+    )
+    agent_id = agent.json()["data"]["id"]
+    session_factory = get_session_factory()
+    try:
+        async with session_factory() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO control.agent_access_grant (id, user_id, agent_id, granted_by) "
+                    "VALUES (:id, :user_id, :agent_id, :granted_by)"
+                ),
+                {
+                    "id": uuid.uuid4(),
+                    "user_id": user_id,
+                    "agent_id": agent_id,
+                    "granted_by": uuid.uuid4(),
+                },
+            )
+            await session.commit()
+
+        before = await client.get(f"/api/v1/users/{user_id}", headers=_headers(tenant))
+        assert before.json()["data"]["agent_grant_count"] == 1
+
+        async with session_factory() as session:
+            await session.execute(
+                text("UPDATE control.agent_definition SET is_deleted = true WHERE id = :id"),
+                {"id": agent_id},
+            )
+            await session.commit()
+
+        detail = await client.get(f"/api/v1/users/{user_id}", headers=_headers(tenant))
+        tab = await client.get(f"/api/v1/users/{user_id}/agents", headers=_headers(tenant))
+        assert tab.json()["data"]["total"] == 0
+        assert detail.json()["data"]["agent_grant_count"] == tab.json()["data"]["total"]
+    finally:
+        async with session_factory() as session:
+            await session.execute(
+                text("DELETE FROM control.agent_access_grant WHERE user_id = :user_id"),
+                {"user_id": user_id},
+            )
+            await session.commit()
+        await _delete_user(user_id)

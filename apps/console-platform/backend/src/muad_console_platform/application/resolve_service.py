@@ -44,7 +44,7 @@ class ResolveService:
             raise AppError(ErrorCode.AGENT_ACCESS_DENIED)
         model = await self._agents.get_model(tenant_id, agent.model_id)
         if model is None:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND, message_args={"resource": "Model"})
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         if not model.enabled:
             raise AppError(ErrorCode.MODEL_DISABLED)
         return ResolveDefinitionResponse(

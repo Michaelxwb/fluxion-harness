@@ -116,7 +116,7 @@ class PlatformService:
             resolver_config=payload.resolver_config,
         )
         if await self._platforms.find_by_key(tenant_id, payload.key) is not None:
-            raise AppError(ErrorCode.COMMON_CONFLICT, message_args={"key": payload.key})
+            raise AppError(ErrorCode.PLATFORM_KEY_EXISTS, message_args={"key": payload.key})
         platform = ProjectPlatform(
             tenant_id=tenant_id,
             key=payload.key,
@@ -132,7 +132,7 @@ class PlatformService:
         try:
             await self._platforms.add(platform)
         except IntegrityError as exc:
-            raise AppError(ErrorCode.COMMON_CONFLICT, message_args={"key": payload.key}) from exc
+            raise AppError(ErrorCode.PLATFORM_KEY_EXISTS, message_args={"key": payload.key}) from exc
         await self._audit.record_config_change(
             tenant_id=tenant_id,
             actor=actor,

@@ -5,14 +5,13 @@ from __future__ import annotations
 import uuid
 
 from httpx import AsyncClient
-from sqlalchemy import update
-
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.control import (
     AgentAccessGrant,
     PlatformUser,
 )
 from muad_console_platform.infrastructure.models.mcp import McpServer
+from sqlalchemy import update
 
 from console_platform.conftest import TenantContext
 
@@ -95,7 +94,16 @@ async def test_s06_unbind_then_rebind_updates_resolve(
     ).json()["data"]
     assert listed["total"] == 1
     item = listed["items"][0]
-    for field in ("mcp_server_id", "key", "name", "user_scope", "enabled", "connection_status", "tool_count", "create_time"):
+    for field in (
+        "mcp_server_id",
+        "key",
+        "name",
+        "user_scope",
+        "enabled",
+        "connection_status",
+        "tool_count",
+        "create_time",
+    ):
         assert field in item, f"缺字段 {field}"
 
     resolved = await client.post(
@@ -154,7 +162,8 @@ async def test_s06_unbind_then_rebind_updates_resolve(
 async def test_b02_effective_mcp_formula_matrix(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
-    """[B-02][RULE-auth-001] EffectiveMcp 公式分支：binding 软删 / MCP 禁用 / SELECTED 无 grant / ALL 直通。"""
+    """[B-02][RULE-auth-001] EffectiveMcp 公式分支：binding 软删 / MCP 禁用 / SELECTED 无 grant /
+    ALL 直通。"""
     agent_id = await _make_agent(client, tenant)
     user_id, _ = await _grant_user(tenant)
     async with get_session_factory()() as session:
@@ -182,7 +191,7 @@ async def test_b02_effective_mcp_formula_matrix(
     await client.post(
         f"/api/v1/agents/{agent_id}/mcp-servers/{mcp_all}", headers=_headers(tenant)
     )
-    assert f"mcp-all" in {k for k in await resolve_mcp_keys() if k.startswith("mcp-")} or any(
+    assert "mcp-all" in {k for k in await resolve_mcp_keys() if k.startswith("mcp-")} or any(
         key == "mcp-all" for key in await resolve_mcp_keys()
     ) or True  # key 唯一性由 mcp- 前缀 + uuid 保证，直接断言存在性
     keys_all = await resolve_mcp_keys()

@@ -7,6 +7,21 @@ export interface Page<T> {
   total: number;
 }
 
+export interface PageParams {
+  page: number;
+  page_size: number;
+}
+
+export interface UserBasic {
+  id: string;
+  user_code: string;
+  display_name: string;
+  status: 'ACTIVE' | 'DISABLED';
+  metadata: Record<string, unknown>;
+  create_time: string;
+  update_time: string;
+}
+
 export interface UserListItem {
   id: string;
   user_code: string;
@@ -20,9 +35,12 @@ export interface UserListItem {
   update_time: string;
 }
 
-export interface UserDetail extends UserListItem {
+export interface UserDetail extends UserBasic {
   tenant_id: string;
-  metadata: Record<string, unknown>;
+  agent_grant_count: number;
+  credential_count: number;
+  identity_count: number;
+  memory_count: number;
 }
 
 export interface AgentGrant {
@@ -90,8 +108,8 @@ export async function createUser(input: {
   user_code: string;
   display_name: string;
   status: string;
-}): Promise<UserDetail> {
-  return unwrap(await api.post<ApiResponse<UserDetail>>('/users', input));
+}): Promise<UserBasic> {
+  return unwrap(await api.post<ApiResponse<UserBasic>>('/users', input));
 }
 
 export async function getUser(id: string): Promise<UserDetail> {
@@ -101,12 +119,12 @@ export async function getUser(id: string): Promise<UserDetail> {
 export async function updateUser(
   id: string,
   input: { display_name?: string; status?: string }
-): Promise<UserDetail> {
-  return unwrap(await api.put<ApiResponse<UserDetail>>(`/users/${id}`, input));
+): Promise<UserBasic> {
+  return unwrap(await api.put<ApiResponse<UserBasic>>(`/users/${id}`, input));
 }
 
-export async function listAgentGrants(id: string): Promise<Page<AgentGrant>> {
-  return unwrap(await api.get<ApiResponse<Page<AgentGrant>>>(`/users/${id}/agents`));
+export async function listAgentGrants(id: string, params: PageParams): Promise<Page<AgentGrant>> {
+  return unwrap(await api.get<ApiResponse<Page<AgentGrant>>>(`/users/${id}/agents`, { params }));
 }
 
 export async function grantAgent(id: string, agentId: string): Promise<void> {
@@ -117,8 +135,8 @@ export async function revokeAgent(id: string, agentId: string): Promise<void> {
   await api.delete(`/users/${id}/agents/${agentId}`);
 }
 
-export async function listIdentities(id: string): Promise<Page<Identity>> {
-  return unwrap(await api.get<ApiResponse<Page<Identity>>>(`/users/${id}/identities`));
+export async function listIdentities(id: string, params: PageParams): Promise<Page<Identity>> {
+  return unwrap(await api.get<ApiResponse<Page<Identity>>>(`/users/${id}/identities`, { params }));
 }
 
 export async function createBindCode(id: string): Promise<BindCode> {
@@ -129,8 +147,11 @@ export async function unbindIdentity(id: string, identityId: string): Promise<vo
   await api.delete(`/users/${id}/identities/${identityId}`);
 }
 
-export async function listMemory(id: string): Promise<Page<Memory>> {
-  return unwrap(await api.get<ApiResponse<Page<Memory>>>(`/users/${id}/memory`));
+export async function listMemory(
+  id: string,
+  params: PageParams & { category?: string }
+): Promise<Page<Memory>> {
+  return unwrap(await api.get<ApiResponse<Page<Memory>>>(`/users/${id}/memory`, { params }));
 }
 
 export async function deleteMemory(id: string, memoryId: string): Promise<void> {
@@ -142,6 +163,13 @@ export async function clearMemory(id: string): Promise<number> {
   return body.deleted_count;
 }
 
-export async function listAgents(): Promise<Page<AgentSummary>> {
-  return unwrap(await api.get<ApiResponse<Page<AgentSummary>>>('/agents', { params: { page: 1, page_size: 100 } }));
+// 授权对象下拉的可选项：后端 page_size 上限 100，超出部分无法在此选择。
+export const AGENT_PICKER_PAGE_SIZE = 100;
+
+export async function listAgentsForPicker(): Promise<Page<AgentSummary>> {
+  return unwrap(
+    await api.get<ApiResponse<Page<AgentSummary>>>('/agents', {
+      params: { page: 1, page_size: AGENT_PICKER_PAGE_SIZE }
+    })
+  );
 }

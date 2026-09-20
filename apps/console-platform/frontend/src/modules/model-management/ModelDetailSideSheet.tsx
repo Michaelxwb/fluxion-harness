@@ -1,36 +1,19 @@
-import { Banner, Button, Modal, Popconfirm, Table, Tabs, Tag } from '@douyinfe/semi-ui';
+import { Banner, Button, Modal, Table, Tabs } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
+import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
+import { StatusTag } from '../../components/common/StatusTag';
 import type { ModelItem, ModelTestResult } from './services/models';
+import { apiKeyOptions, enabledOptions, testStatusOptions } from './statusOptions';
 
 export interface ModelDetailSideSheetProps {
   model: ModelItem | null;
   onCancel(): void;
   onEdit(model: ModelItem): void;
   onDelete(model: ModelItem): void;
-}
-
-function testStatusColor(status: ModelItem['last_test_status']): 'grey' | 'green' | 'red' {
-  if (status === 'AVAILABLE') {
-    return 'green';
-  }
-  if (status === 'FAILED') {
-    return 'red';
-  }
-  return 'grey';
-}
-
-function testStatusKey(status: ModelItem['last_test_status']): string {
-  if (status === 'AVAILABLE') {
-    return 'model.test.status.available';
-  }
-  if (status === 'FAILED') {
-    return 'model.test.status.failed';
-  }
-  return 'model.test.status.untested';
 }
 
 export function ModelDetailSideSheet(props: ModelDetailSideSheetProps) {
@@ -50,11 +33,9 @@ export function ModelDetailSideSheet(props: ModelDetailSideSheetProps) {
           <Button theme="borderless" onClick={() => props.onEdit(model)}>
             {t('model.actions.edit')}
           </Button>
-          <Popconfirm title={t('model.confirmDelete')} onConfirm={() => props.onDelete(model)}>
-            <Button theme="borderless" type="danger">
-              {t('model.actions.delete')}
-            </Button>
-          </Popconfirm>
+          <ConfirmAction theme="light" danger title={t('model.confirmDelete')} onConfirm={() => props.onDelete(model)}>
+            {t('model.actions.delete')}
+          </ConfirmAction>
         </>
       }
       onCancel={props.onCancel}
@@ -69,24 +50,16 @@ export function ModelDetailSideSheet(props: ModelDetailSideSheetProps) {
             { label: t('model.form.modelId'), value: model.model_id },
             {
               label: t('model.form.enabled'),
-              value: (
-                <Tag color={model.enabled ? 'green' : 'grey'}>
-                  {t(model.enabled ? 'common.status.enabled' : 'common.status.disabled')}
-                </Tag>
-              )
+              value: <StatusTag status={model.enabled} options={enabledOptions(t)} />
             },
             {
               label: t('model.columns.lastTestStatus'),
-              value: (
-                <Tag color={testStatusColor(model.last_test_status)}>
-                  {t(testStatusKey(model.last_test_status))}
-                </Tag>
-              )
+              value: <StatusTag status={model.last_test_status} options={testStatusOptions(t)} />
             },
             { label: t('model.detail.revision'), value: `r${model.revision}` },
             {
               label: t('model.form.apiKey'),
-              value: model.api_key_configured ? t('model.apiKeyConfigured') : t('model.apiKeyMissing')
+              value: <StatusTag status={model.api_key_configured} options={apiKeyOptions(t)} />
             },
             { label: t('model.columns.updateTime'), value: <DateTimeText value={model.update_time} /> },
             { label: t('model.form.baseUrl'), value: model.base_url }
@@ -101,6 +74,8 @@ export function ModelDetailSideSheet(props: ModelDetailSideSheetProps) {
 export interface ModelTestResultModalProps {
   visible: boolean;
   results: ModelTestResult[];
+  /** model_id → 展示用标签（`key · name`）；缺省时回退展示 model_id。 */
+  labels?: Record<string, string>;
   onCancel(): void;
 }
 
@@ -119,12 +94,16 @@ export function ModelTestResultModal(props: ModelTestResultModalProps) {
         rowKey="model_id"
         pagination={false}
         columns={[
-          { title: t('model.form.modelId'), dataIndex: 'model_id' },
+          {
+            title: t('model.columns.key'),
+            dataIndex: 'model_id',
+            render: (value: string) => props.labels?.[value] ?? value
+          },
           {
             title: t('model.columns.lastTestStatus'),
             dataIndex: 'status',
             render: (value: ModelTestResult['status']) => (
-              <Tag color={value === 'AVAILABLE' ? 'green' : 'red'}>{value}</Tag>
+              <StatusTag status={value} options={testStatusOptions(t)} />
             )
           },
           { title: t('model.test.latency'), dataIndex: 'latency_ms' },

@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "01-platform-foundation.md",
-  "task_sha256": "3751b9c9602a802fa7c9feae0e926ccf2324b6ee8f76083dce1e918700e20df7",
+  "task_sha256": "1f057796970e0817c1976f6d1a711cafbaece77cb62060fb2cca613c8e71f997",
   "scenarios": [
     {
       "id": "S-01",
@@ -23,15 +23,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "S-01",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -40,17 +40,44 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
     {
       "id": "S-02",
       "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
-      "level": "integration",
+      "level": "library",
       "kind": "functional",
-      "boundary": "FastAPI→api-kit→YAML",
+      "boundary": "api-kit、YAML 目录（测试内自建 FastAPI，非真实服务）",
       "owner": "TASK-002",
       "status": "verified",
       "command": [
@@ -63,15 +90,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "S-02",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -80,8 +107,35 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -101,15 +155,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 3,
+      "revision": 4,
       "evidence": {
         "id": "S-03",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 3,
-        "run_id": "75dac3ed3d554746af333e0015b6fa46",
-        "executed_at": "2026-09-18T03:15:34.444808+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -118,8 +172,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
-          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
         },
         {
           "id": "S-03",
@@ -127,8 +181,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
         },
         {
           "id": "S-03",
@@ -136,8 +190,17 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 3,
-          "run_id": "75dac3ed3d554746af333e0015b6fa46",
-          "executed_at": "2026-09-18T03:15:34.444808+00:00"
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -161,15 +224,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "S-04",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -178,8 +241,35 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -203,15 +293,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "S-05",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -220,8 +310,35 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -243,15 +360,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "S-06",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -260,17 +377,44 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
     {
       "id": "S-07",
       "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
-      "level": "integration",
+      "level": "library",
       "kind": "functional",
-      "boundary": "Service→/healthz /readyz",
+      "boundary": "api-kit `install_health_probes` + 测试内 FastAPI；另断言四个真实服务 app 均注册 /healthz、/readyz 且走统一封套",
       "owner": "TASK-003",
       "status": "verified",
       "command": [
@@ -283,15 +427,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "S-07",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -300,8 +444,35 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -312,7 +483,7 @@
       "kind": "functional",
       "boundary": "CI→ruff/mypy/pytest/parity",
       "owner": "TASK-006",
-      "status": "verified",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -321,25 +492,57 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "S-08",
         "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "status": "failed",
+        "exit_code": 2,
+        "output": "t_in_resolve\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_mcp_not_in_resolve\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s02_snapshot_freeze_on_config_change\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s02_snapshot_freeze_on_config_change\n590 failed, 283 passed, 20 warnings, 6 errors in 42.39s\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_post_json_rejects_missing_envelope_data' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_start_missing_secret_raises_typed_error_without_leaking' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_stream_flushes_every_chunk_when_interval_zero' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_apply_snapshot_restarts_connection_on_secret_change' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_sdk_connect_raises_typed_error_when_socket_not_open' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_dummy_skill_executor_satisfies_protocol' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_prepare_request_injects_bearer_header_and_body' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_dummy_platform_client_satisfies_protocol' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_context_platform_call' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_skill_artifact_cache_hit_does_not_require_nfs_source' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_s03_second_hit_no_nfs_io' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_e01_unavailable_storage_maps_to_registered_error' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n<sys>:0: RuntimeWarning: coroutine 'test_e01_checksum_mismatch_rejected' was never awaited\nmake: *** [test] Error 1",
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
           "id": "S-08",
           "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
+          "status": "failed",
+          "exit_code": 2,
+          "output": "/sdk/test_skill_context.py::test_context_mcp_call - RuntimeError:...\nFAILED tests/sdk/test_skill_context.py::test_context_task_map - RuntimeError:...\nFAILED tests/sdk/test_skill_context.py::test_context_http_get_post_request - ...\nFAILED tests/test_skill_artifact_cache.py::test_skill_artifact_cache_hit_does_not_require_nfs_source\nFAILED tests/test_skill_artifact_cache.py::test_s03_second_hit_no_nfs_io - Ru...\nFAILED tests/test_skill_artifact_cache.py::test_e01_unavailable_storage_maps_to_registered_error\nFAILED tests/test_skill_artifact_cache.py::test_e01_checksum_mismatch_rejected\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_catalog_zero_leakage\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_catalog_zero_leakage\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_mcp_not_in_resolve\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_mcp_not_in_resolve\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s02_snapshot_freeze_on_config_change\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s02_snapshot_freeze_on_config_change\n588 failed, 282 passed, 13 warnings, 6 errors in 38.72s\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_parser_ignores_unknown_events_and_invalid_frames' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_send_uses_conversation_then_user_id' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_connect_failure_enters_backoff_and_retries' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_snapshot_revision_change_refreshes_adapter' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_handler_exception_propagates' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_prepare_request_rejects_missing_credential_and_logical_target' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_session_manager_returns_none_without_credential' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_context_artifact_read_write' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_e01_unavailable_storage_maps_to_registered_error' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n<sys>:0: RuntimeWarning: coroutine 'test_e01_checksum_mismatch_rejected' was never awaited\nmake: *** [test] Error 1",
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "S-08",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 2,
+          "output": "m_mismatch_rejected\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_catalog_zero_leakage\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_catalog_zero_leakage\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_mcp_not_in_resolve\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_mcp_not_in_resolve\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s02_snapshot_freeze_on_config_change\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s02_snapshot_freeze_on_config_change\n591 failed, 281 passed, 18 warnings, 6 errors in 39.06s\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_parser_skips_comment_frames_and_flushes_at_eof' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_inbound_message_becomes_envelope' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_stream_without_inbound_falls_back_to_text_send' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_apply_snapshot_keeps_connection_when_secret_unchanged' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_dummy_skill_executor_satisfies_protocol' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_prepare_request_injects_bearer_header_and_body' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_dummy_platform_client_satisfies_protocol' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_context_platform_call' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_skill_artifact_cache_hit_does_not_require_nfs_source' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_s03_second_hit_no_nfs_io' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_e01_unavailable_storage_maps_to_registered_error' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n<sys>:0: RuntimeWarning: coroutine 'test_e01_checksum_mismatch_rejected' was never awaited\nmake: *** [test] Error 1",
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "S-08",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 2,
+          "output": "/sdk/test_skill_context.py::test_context_mcp_call - RuntimeError:...\nFAILED tests/sdk/test_skill_context.py::test_context_task_map - RuntimeError:...\nFAILED tests/sdk/test_skill_context.py::test_context_http_get_post_request - ...\nFAILED tests/test_skill_artifact_cache.py::test_skill_artifact_cache_hit_does_not_require_nfs_source\nFAILED tests/test_skill_artifact_cache.py::test_s03_second_hit_no_nfs_io - Ru...\nFAILED tests/test_skill_artifact_cache.py::test_e01_unavailable_storage_maps_to_registered_error\nFAILED tests/test_skill_artifact_cache.py::test_e01_checksum_mismatch_rejected\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_catalog_zero_leakage\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_catalog_zero_leakage\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_mcp_not_in_resolve\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_mcp_not_in_resolve\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s02_snapshot_freeze_on_config_change\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s02_snapshot_freeze_on_config_change\n588 failed, 282 passed, 13 warnings, 6 errors in 39.61s\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_parser_ignores_unknown_events_and_invalid_frames' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_send_uses_conversation_then_user_id' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_connect_failure_enters_backoff_and_retries' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_snapshot_revision_change_refreshes_adapter' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_handler_exception_propagates' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_prepare_request_rejects_missing_credential_and_logical_target' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_session_manager_returns_none_without_credential' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_context_artifact_read_write' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_e01_unavailable_storage_maps_to_registered_error' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n<sys>:0: RuntimeWarning: coroutine 'test_e01_checksum_mismatch_rejected' was never awaited\nmake: *** [test] Error 1",
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-08",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 2,
+          "output": "t_in_resolve\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s01_unauthorized_mcp_not_in_resolve\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s02_snapshot_freeze_on_config_change\nERROR tests/acceptance/runtime/test_capability_snapshot.py::test_s02_snapshot_freeze_on_config_change\n590 failed, 283 passed, 20 warnings, 6 errors in 42.39s\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_post_json_rejects_missing_envelope_data' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_start_missing_secret_raises_typed_error_without_leaking' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_stream_flushes_every_chunk_when_interval_zero' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_apply_snapshot_restarts_connection_on_secret_change' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_sdk_connect_raises_typed_error_when_socket_not_open' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_dummy_skill_executor_satisfies_protocol' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_prepare_request_injects_bearer_header_and_body' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_dummy_platform_client_satisfies_protocol' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_context_platform_call' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_skill_artifact_cache_hit_does_not_require_nfs_source' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_s03_second_hit_no_nfs_io' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'test_e01_unavailable_storage_maps_to_registered_error' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n<sys>:0: RuntimeWarning: coroutine 'test_e01_checksum_mismatch_rejected' was never awaited\nmake: *** [test] Error 1",
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -348,7 +551,7 @@
       "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
       "level": "unit",
       "kind": "functional",
-      "boundary": "ConsoleShell 菜单",
+      "boundary": "ConsoleShell 菜单清单（源码级契约）；`/users` 为 adminOnly，非 ADMIN 可见 9 项",
       "owner": "TASK-007",
       "status": "verified",
       "command": [
@@ -363,15 +566,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "S-09",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 2,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -380,8 +583,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
-          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
         },
         {
           "id": "S-09",
@@ -389,17 +592,35 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "S-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
     {
       "id": "S-10",
       "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
-      "level": "integration",
+      "level": "library",
       "kind": "functional",
-      "boundary": "api-kit→RBAC 依赖",
+      "boundary": "api-kit、RBAC 依赖；另断言真实 console app 未认证 / 未知 token 均 401",
       "owner": "TASK-003",
       "status": "verified",
       "command": [
@@ -412,15 +633,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "S-10",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -429,17 +650,44 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "S-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "S-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
     {
       "id": "S-11",
       "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
-      "level": "integration",
+      "level": "library",
       "kind": "functional",
-      "boundary": "Service→业务表+audit 同库事务",
+      "boundary": "api-kit `write_config_audit` + 真实 PostgreSQL；另断言 console `AuditService` 确实委托该原语",
       "owner": "TASK-003",
       "status": "verified",
       "command": [
@@ -454,15 +702,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "S-11",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -471,8 +719,35 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -496,15 +771,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "E-01",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -513,8 +788,35 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -538,15 +840,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "E-02",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -555,8 +857,35 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -565,7 +894,7 @@
       "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
       "level": "unit",
       "kind": "functional",
-      "boundary": "import graph（CI）",
+      "boundary": "import graph 检测器（含合成越层用例）；CI 阻断由 `make check` 承担，本用例不驱动 CI",
       "owner": "TASK-006",
       "status": "verified",
       "command": [
@@ -580,15 +909,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "E-03",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -597,17 +926,44 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
     {
       "id": "E-04",
       "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
-      "level": "integration",
+      "level": "library",
       "kind": "functional",
-      "boundary": "bootstrap→配置/迁移/存储/Secret",
+      "boundary": "api-kit `validate_startup` + 测试内 FastAPI；另断言真实 console lifespan 正常可启动、迁移目录异常则 fail fast",
       "owner": "TASK-003",
       "status": "verified",
       "command": [
@@ -620,15 +976,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "E-04",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -637,8 +993,35 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -662,15 +1045,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "E-05",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -679,17 +1062,44 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
     {
       "id": "E-06",
       "source": "01-platform-foundation.backend.design.md#2.5.2 功能验收场景",
-      "level": "integration",
+      "level": "library",
       "kind": "functional",
-      "boundary": "业务事务→audit",
+      "boundary": "api-kit `write_config_audit` + 真实 PostgreSQL；另断言 console `AuditService` 确实委托该原语",
       "owner": "TASK-003",
       "status": "verified",
       "command": [
@@ -704,15 +1114,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "E-06",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -721,8 +1131,35 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -742,15 +1179,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 3,
+      "revision": 4,
       "evidence": {
         "id": "S-12",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 3,
-        "run_id": "75dac3ed3d554746af333e0015b6fa46",
-        "executed_at": "2026-09-18T03:15:34.444808+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -759,8 +1196,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
-          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
         },
         {
           "id": "S-12",
@@ -768,8 +1205,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
         },
         {
           "id": "S-12",
@@ -777,8 +1214,17 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 3,
-          "run_id": "75dac3ed3d554746af333e0015b6fa46",
-          "executed_at": "2026-09-18T03:15:34.444808+00:00"
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-12",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -798,15 +1244,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 3,
+      "revision": 4,
       "evidence": {
         "id": "S-13",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 3,
-        "run_id": "75dac3ed3d554746af333e0015b6fa46",
-        "executed_at": "2026-09-18T03:15:34.444808+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -815,8 +1261,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
-          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
         },
         {
           "id": "S-13",
@@ -824,8 +1270,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
         },
         {
           "id": "S-13",
@@ -833,8 +1279,17 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 3,
-          "run_id": "75dac3ed3d554746af333e0015b6fa46",
-          "executed_at": "2026-09-18T03:15:34.444808+00:00"
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-13",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -843,7 +1298,7 @@
       "source": "01-platform-foundation.frontend.design.md#2.4 验收条件（原 S-FE-03）",
       "level": "unit",
       "kind": "functional",
-      "boundary": "ConsoleShell 菜单",
+      "boundary": "ConsoleShell 菜单清单（源码级契约）；`/users` 为 adminOnly，非 ADMIN 可见 9 项",
       "owner": "TASK-007",
       "status": "verified",
       "command": [
@@ -858,15 +1313,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "S-14",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 2,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -875,8 +1330,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
-          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
         },
         {
           "id": "S-14",
@@ -884,17 +1339,35 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "S-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "S-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
     {
       "id": "E-07",
       "source": "01-platform-foundation.frontend.design.md#2.4 验收条件（原 E-FE-01）",
-      "level": "integration",
+      "level": "contract",
       "kind": "functional",
-      "boundary": "Axios interceptor→Toast",
+      "boundary": "源码契约（不执行拦截器）",
       "owner": "TASK-007",
       "status": "verified",
       "command": [
@@ -907,15 +1380,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "E-07",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 2,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -924,8 +1397,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
-          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
         },
         {
           "id": "E-07",
@@ -933,8 +1406,26 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -943,7 +1434,7 @@
       "source": "01-platform-foundation.frontend.design.md#2.4 验收条件（原 E-FE-02）",
       "level": "unit",
       "kind": "functional",
-      "boundary": "DetailSideSheet",
+      "boundary": "DetailSideSheet 契约（源码级，不渲染组件）",
       "owner": "TASK-007",
       "status": "verified",
       "command": [
@@ -956,15 +1447,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "E-08",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 2,
-        "run_id": "e26848ecccb74cf681764788303cc274",
-        "executed_at": "2026-09-18T03:15:12.942801+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -973,8 +1464,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
-          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
         },
         {
           "id": "E-08",
@@ -982,8 +1473,26 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     },
@@ -1003,15 +1512,15 @@
       "cwd": ".",
       "timeout": 60.0,
       "depends_on": [],
-      "revision": 3,
+      "revision": 4,
       "evidence": {
         "id": "E-09",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "revision": 3,
-        "run_id": "75dac3ed3d554746af333e0015b6fa46",
-        "executed_at": "2026-09-18T03:15:34.444808+00:00"
+        "revision": 4,
+        "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+        "executed_at": "2026-09-20T15:28:36.367143+00:00"
       },
       "runs": [
         {
@@ -1020,8 +1529,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "60c63f13ba9c42178cf43e2af34c562e",
-          "executed_at": "2026-09-18T03:14:00.286684+00:00"
+          "run_id": "e5e4d05659544313bb27279dfc8a361c",
+          "executed_at": "2026-09-20T14:05:10.413219+00:00"
         },
         {
           "id": "E-09",
@@ -1029,8 +1538,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 2,
-          "run_id": "e26848ecccb74cf681764788303cc274",
-          "executed_at": "2026-09-18T03:15:12.942801+00:00"
+          "run_id": "346032b251d84e11808ecb317c71383e",
+          "executed_at": "2026-09-20T14:18:27.775365+00:00"
         },
         {
           "id": "E-09",
@@ -1038,8 +1547,17 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 3,
-          "run_id": "75dac3ed3d554746af333e0015b6fa46",
-          "executed_at": "2026-09-18T03:15:34.444808+00:00"
+          "run_id": "9caa249f2aff43fcb24b5014f2141596",
+          "executed_at": "2026-09-20T14:24:39.279563+00:00"
+        },
+        {
+          "id": "E-09",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "9aff2894729e48a2aadaba38ae45fc30",
+          "executed_at": "2026-09-20T15:28:36.367143+00:00"
         }
       ]
     }

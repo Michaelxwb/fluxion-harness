@@ -106,7 +106,8 @@ async def test_pause_resume_delete_schedule(tenant: TenantContext) -> None:
         assert paused.status == "PAUSED"
         with pytest.raises(AppError) as exc_info:
             await service.pause_schedule(tenant.tenant_id, schedule.id)
-        assert exc_info.value.code == "COMMON_CONFLICT"
+        # 已 PAUSED 再暂停 → 期望状态已不满足
+        assert exc_info.value.code == "REVISION_CONFLICT"
         resumed = await service.resume_schedule(tenant.tenant_id, schedule.id)
         assert resumed.status == "ACTIVE"
         listed = await service.list_schedules(tenant.tenant_id)

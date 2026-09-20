@@ -254,7 +254,8 @@ async def test_resume_endpoint_rejects_non_waiting_input_run(
         headers=_headers(tenant),
     )
     assert response.status_code == 409
-    assert response.json()["code"] == "COMMON_CONFLICT"
+    # 运行状态已被推进（不再是 WAITING_INPUT）→ 陈旧状态前置不满足
+    assert response.json()["code"] == "REVISION_CONFLICT"
 
 
 async def test_resume_endpoint_completes_waiting_input_run(

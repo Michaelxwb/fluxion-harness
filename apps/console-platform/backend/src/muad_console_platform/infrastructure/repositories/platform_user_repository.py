@@ -20,6 +20,18 @@ class PlatformUserRepository:
         )
         return user
 
+    async def get_for_update(self, tenant_id: str, user_id: uuid.UUID) -> PlatformUser | None:
+        user: PlatformUser | None = await self._session.scalar(
+            select(PlatformUser)
+            .where(
+                PlatformUser.id == user_id,
+                PlatformUser.tenant_id == tenant_id,
+                PlatformUser.is_deleted.is_(False),
+            )
+            .with_for_update()
+        )
+        return user
+
     async def get_status(self, tenant_id: str, user_id: uuid.UUID) -> str | None:
         status: str | None = await self._session.scalar(
             select(PlatformUser.status).where(

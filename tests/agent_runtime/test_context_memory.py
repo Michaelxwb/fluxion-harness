@@ -7,18 +7,15 @@ import uuid
 import pytest
 import sqlalchemy as sa
 from muad_agent_core.context.builder import ContextInput
-from muad_agent_core.model.provider import ModelMessage, ModelRole
+from muad_agent_runtime.application.context_builder import (
+    DbBackedContextBuilder,
+)
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
     Artifact,
     CanonicalEvent,
     Conversation,
     UserMemory,
-)
-
-from muad_agent_runtime.application.context_builder import (
-    DbBackedContextBuilder,
-    BudgetPolicy,
 )
 
 TENANT = f"ctx-{uuid.uuid4()}"
@@ -160,7 +157,6 @@ async def test_s08_context_from_db_with_isolation_and_preview(seeded) -> None:
         ),
     )
     assert request.model_id == "gpt-4o-mini"
-    roles = [str(m.role) for m in request.messages]
 
     # 历史：USER/ASSISTANT 消息按 seq 进入；stream_type=tool.started 不进业务上下文
     content = " ".join(str(m.content) for m in request.messages)

@@ -61,7 +61,7 @@ class ModelService:
         actor: AuditActor,
     ) -> ModelDefinition:
         if await self._models.find_by_key(tenant_id, payload.key) is not None:
-            raise AppError(ErrorCode.COMMON_CONFLICT, message_args={"key": payload.key})
+            raise AppError(ErrorCode.MODEL_KEY_EXISTS, message_args={"key": payload.key})
         model = ModelDefinition(
             tenant_id=tenant_id,
             key=payload.key,
@@ -76,7 +76,7 @@ class ModelService:
         try:
             created = await self._models.add(model)
         except IntegrityError as exc:
-            raise AppError(ErrorCode.COMMON_CONFLICT, message_args={"key": payload.key}) from exc
+            raise AppError(ErrorCode.MODEL_KEY_EXISTS, message_args={"key": payload.key}) from exc
         await self._record_audit(tenant_id, actor, "CREATE", created, None, created)
         return created
 
@@ -88,25 +88,28 @@ class ModelService:
         actor: AuditActor,
     ) -> ModelDefinition:
         model = await self.get_model(tenant_id, model_id)
-        if payload.expected_revision != model.revision:
-            raise AppError(ErrorCode.REVISION_CONFLICT)
         before = model_snapshot(model)
+        values: dict[str, Any] = {}
         if payload.name is not None:
-            model.name = payload.name
+            values["name"] = payload.name
         if payload.model_id is not None:
-            model.model_id = payload.model_id
+            values["model_id"] = payload.model_id
         if payload.base_url is not None:
-            model.base_url = payload.base_url
+            values["base_url"] = payload.base_url
         if payload.api_key:
-            model.api_key = payload.api_key
+            # 留空/省略表示保持现有 Key；不提供"清空 Key"语义
+            values["api_key"] = payload.api_key
         if payload.params is not None:
-            model.params_json = payload.params
+            values["params_json"] = payload.params
         if payload.enabled is not None:
-            model.enabled = payload.enabled
-        model.revision += 1
-        model.last_test_status = "UNTESTED"
-        model.last_test_at = None
-        await self._session.flush()
+            values["enabled"] = payload.enabled
+        # 条件更新做 CAS（WHERE revision=expected），避免 read-then-write 丢更新
+        updated = await self._models.cas_update(
+            tenant_id, model_id, payload.expected_revision, values
+        )
+        if not updated:
+            raise AppError(ErrorCode.REVISION_CONFLICT)
+        await self._session.refresh(model)
         await self._record_audit(tenant_id, actor, "UPDATE", model, before, model)
         return model
 
@@ -117,10 +120,10 @@ class ModelService:
         actor: AuditActor,
     ) -> None:
         model = await self.get_model(tenant_id, model_id)
-        references = await self._models.count_agent_references(model.id)
+        references = await self._models.count_agent_references(tenant_id, model.id)
         if references > 0:
             raise AppError(
-                ErrorCode.COMMON_CONFLICT,
+                ErrorCode.MODEL_IN_USE,
                 message_args={"model_key": model.key, "agent_count": references},
             )
         before = model_snapshot(model)

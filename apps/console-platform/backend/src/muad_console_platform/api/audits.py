@@ -22,7 +22,7 @@ async def list_audits(
     request: Request,
     tenant_id: TenantId,
     session: Session,
-    resource_id: uuid.UUID | None = Query(default=None),
+    resource_id: uuid.UUID | None = Query(default=None),  # noqa: B008
     resource_type: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
