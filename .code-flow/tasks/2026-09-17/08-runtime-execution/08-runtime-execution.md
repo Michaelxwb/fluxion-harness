@@ -618,7 +618,7 @@
 - [2026-09-20] completed (done)
 ## TASK-012: Skill lazy cache 与不可变存储验收
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-011
 - **Source**: 08-runtime-execution.backend.design.md#3.3 数据设计, 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#3.5 质量实现方案
@@ -643,8 +643,8 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-03 | integration | emptyDir→真实 NFS 挂载 | 同 checksum 第二次命中 READY，不发生 NFS IO；singleflight；只执行本地已校验文件 | tests/test_skill_artifact_cache.py -k s03（planned） | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","s03"] | planned |
-| E-01 | integration | Runtime cache→真实 NFS 故障边界 | cache miss 且存储不可用返回 SKILL_ARTIFACT_UNAVAILABLE；无半成品执行；checksum mismatch 使用已登记错误 | tests/test_skill_artifact_cache.py -k e01（planned） | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","e01"] | planned |
+| S-03 | integration | emptyDir→真实 NFS 挂载 | 同 checksum 第二次命中 READY，不发生 NFS IO；singleflight；只执行本地已校验文件 | tests/test_skill_artifact_cache.py -k s03（planned） | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","s03"] | verified |
+| E-01 | integration | Runtime cache→真实 NFS 故障边界 | cache miss 且存储不可用返回 SKILL_ARTIFACT_UNAVAILABLE；无半成品执行；checksum mismatch 使用已登记错误 | tests/test_skill_artifact_cache.py -k e01（planned） | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","e01"] | verified |
 | RULE-skill-001 | integration | emptyDir→真实 NFS 挂载；Runtime cache→真实 NFS 故障边界＋原 verifier 边界 | 同 checksum 第二次命中 READY，不发生 NFS IO；singleflight；只执行本地已校验文件；cache miss 且存储不可用返回 SKILL_ARTIFACT_UNAVAILABLE；无半成品执行；checksum mismatch 使用已登记错误；原 verifier 全部通过 | tests/test_skill_artifact_cache.py＋tests/agent_runtime/test_artifact_results.py＋tests/console_skill/test_orphan_cleanup.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/test_skill_artifact_cache.py' && uv run pytest -q tests/test_skill_artifact_cache.py tests/agent_runtime/test_artifact_results.py tests/console_skill/test_orphan_cleanup.py"] | planned |
 
 ### Acceptance Evidence
@@ -654,6 +654,8 @@
 | S-03 | FAIL: S-03 用例 storage_key 错配（构造修正） | 4 passed | test_s03_second_hit_no_nfs_io（源删除后二次命中/singleflight 4 并发 1 目录） | 真实 tmp NFS 目录 + emptyDir cache | verified |
 | E-01 | 断言初版误用 AppError；修正为 code 属性断言（cache 层无 muad-api 依赖，登记码经 API 层映射） | 同上 | test_e01_unavailable_storage_maps_to_registered_error / _checksum_mismatch_rejected | 同上 | verified |
 | RULE-skill-001 | N/A（verifier 已存在） | 原命令 + 映射场景全过 | tests/test_skill_artifact_cache.py + artifact_results + orphan_cleanup + schema_parity | 同上 | verified |
+- S-03: verified — automated command passed; run_id=27df0d43183b4c56b77bedcdb20632a4 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=27df0d43183b4c56b77bedcdb20632a4 (confirmed_by: runner)
 
 ### Log
 
@@ -662,6 +664,7 @@
 
 ---
 - [2026-09-20] started
+- [2026-09-20] completed (done)
 ## TASK-013: ToolRegistry prepare/execute 链与审计
 
 - **Status**: done
