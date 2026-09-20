@@ -85,7 +85,7 @@
 | B-01 | 08-runtime-execution.backend.design.md#API-01 创建 Run | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | . | 1200 | |
 | B-101 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | PostgreSQL migration→ORM | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | . | 600 | |
 | B-102 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | EventWriter→PostgreSQL | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_events.py"] | . | 600 | |
-| B-103 | 08-runtime-execution.backend.design.md#3.4 接口设计 | integration | Runtime HTTP client→本地 Console 契约服务 | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_console_client.py"] | . | 600 | |
+| B-103 | 08-runtime-execution.backend.design.md#3.4 接口设计 | integration | Runtime HTTP client→本地 Console 契约服务 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_console_client.py"] | . | 600 | |
 | B-104 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Snapshot builder→PostgreSQL→Executor request | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_snapshot_freeze.py"] | . | 600 | |
 | B-105 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | HTTP handler→PostgreSQL unique→run creation | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | . | 600 | |
 | B-106 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | 两个 Session→PostgreSQL CAS | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_leases.py"] | . | 600 | |
@@ -241,7 +241,7 @@
 - [2026-09-20] completed (done)
 ## TASK-003: 消费 Effective Capability 与 resolve 契约
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-028
 - **Source**: 08-runtime-execution.backend.design.md#3.4 接口设计, 08-runtime-execution.backend.design.md#API-07 Resolve Definition, 08-runtime-execution.backend.design.md#API-08 Resolve Egress
@@ -255,27 +255,30 @@
 对齐已实现 Console resolve 输出，区分运行定义与瞬时认证数据，校验 MCP catalog revision/hash/definitions；HTTP 透传 tenant/actor/trace。复用模块 07 的 resolve-definition；新增凭据端点由 TASK-028 提供。本任务补共享契约与 Runtime client 的调用/字段隔离。
 
 ### Checklist
-- [ ] [B-103][integration] 修改对应生产行为前，沿 Runtime HTTP client→本地 Console 契约服务 添加失败断言并记录 RED：授权错误保持登记 code；缺失 catalog 不能静默放行；模型认证数据只进入内存对象。
-- [ ] 对齐已实现 Console resolve 输出，区分运行定义与瞬时认证数据，校验 MCP catalog revision/hash/definitions；HTTP 透传 tenant/actor/trace。复用模块 07 的 resolve-definition；新增凭据端点由 TASK-028 提供。本任务补共享契约与 Runtime client 的调用/字段隔离。
-- [ ] 局部验证 Runtime HTTP client→本地 Console 契约服务：授权错误保持登记 code；缺失 catalog 不能静默放行；模型认证数据只进入内存对象；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [B-103][integration] RED：2 errors（ConsoleCredentialsClient 不存在）+ 2 failed：授权错误保持登记 code；缺失 catalog 不能静默放行；模型认证数据只进入内存对象。
+- [x] 新增 ConsoleCredentialsClient（resolve-credentials POST，tenant/trace 透传，错误保持登记 code）；ResolvedMcpServer 契约校验 catalog revision/hash 必填（缺失静默放行被拒），校验 MCP catalog revision/hash/definitions；HTTP 透传 tenant/actor/trace。复用模块 07 的 resolve-definition；新增凭据端点由 TASK-028 提供。本任务补共享契约与 Runtime client 的调用/字段隔离。
+- [x] 局部验证 9 passed（含 3 个新 B-103 用例）：授权错误保持登记 code；缺失 catalog 不能静默放行；模型认证数据只进入内存对象；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] agent_runtime+console_internal 回归 99 passed；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-103 | integration | Runtime HTTP client→本地 Console 契约服务 | 授权错误保持登记 code；缺失 catalog 不能静默放行；模型认证数据只进入内存对象 | tests/agent_runtime/test_console_client.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_console_client.py"] | planned |
+| B-103 | integration | Runtime HTTP client→本地 Console 契约服务 | 授权错误保持登记 code；缺失 catalog 不能静默放行；模型认证数据只进入内存对象 | tests/agent_runtime/test_console_client.py::test_b103_*（3 用例） | uv run pytest -q tests/agent_runtime/test_console_client.py | verified |
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-103 | FAIL: ConsoleCredentialsClient 缺失（2 errors + 2 failed） | 9 passed | test_b103_resolve_credentials_posts_and_returns_in_memory_only / _credentials_error_keeps_registered_code / _resolve_response_validates_mcp_catalog_fields | httpx.MockTransport 真实 HTTP 语义（header/body 透传断言）+ muad_contracts 校验 | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：credentials client + catalog 校验落地，B-103 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-004: 冻结 Snapshot 并隔离认证数据
 
 - **Status**: draft
