@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "08-runtime-execution.md",
-  "task_sha256": "7c1124fa39752a7c27b6978f5054cc1583fec311e658fa83523f4c32dd153df2",
+  "task_sha256": "11c3a9489aa4e3225ad2a9adaab25de0856dacee723fa72632647c30d583cf00",
   "scenarios": [
     {
       "id": "S-01",
@@ -10,7 +10,7 @@
       "kind": "e2e",
       "boundary": "Gateway→Runtime→真实 Console resolve→LLM HTTP 探针",
       "owner": "TASK-024",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -22,7 +22,28 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "S-02",
@@ -31,7 +52,7 @@
       "kind": "e2e",
       "boundary": "Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP",
       "owner": "TASK-024",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -43,7 +64,28 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "S-03",
@@ -64,7 +106,28 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -73,7 +136,7 @@
       "kind": "e2e",
       "boundary": "真实 Runtime A→PostgreSQL/Artifact Store→Runtime B",
       "owner": "TASK-026",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -85,7 +148,28 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "S-05",
@@ -106,7 +190,28 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "S-06",
@@ -127,7 +232,28 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "S-07",
@@ -136,7 +262,7 @@
       "kind": "e2e",
       "boundary": "真实 Gateway→Runtime SSE→PostgreSQL",
       "owner": "TASK-025",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -148,7 +274,28 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-07",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "S-08",
@@ -169,7 +316,28 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "E-01",
@@ -190,7 +358,28 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -199,7 +388,7 @@
       "kind": "e2e",
       "boundary": "真实 Gateway→cancel-active→PostgreSQL/SSE",
       "owner": "TASK-025",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -207,11 +396,32 @@
         "-q",
         "tests/acceptance/runtime/test_run_lifecycle.py",
         "-k",
-        "e02"
+        "cancel_requested"
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -220,7 +430,7 @@
       "kind": "e2e",
       "boundary": "真实 Gateway→Runtime→PostgreSQL partial unique",
       "owner": "TASK-025",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -232,7 +442,28 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "E-04",
@@ -253,7 +484,28 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "E-05",
@@ -274,7 +526,28 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "E-06",
@@ -295,7 +568,28 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "E-07",
@@ -304,7 +598,7 @@
       "kind": "e2e",
       "boundary": "真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run",
       "owner": "TASK-026",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -316,7 +610,28 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-07",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "E-08",
@@ -325,7 +640,7 @@
       "kind": "e2e",
       "boundary": "真实 Gateway→cancel-active→PostgreSQL/Redis→执行者",
       "owner": "TASK-025",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -337,7 +652,28 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-08",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-01",
@@ -346,19 +682,38 @@
       "kind": "e2e",
       "boundary": "真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool",
       "owner": "TASK-025",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
         "pytest",
         "-q",
-        "tests/acceptance/runtime/test_idempotency.py",
-        "-k",
-        "b01"
+        "tests/agent_runtime/test_run_idempotency.py"
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-01",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-101",
@@ -377,7 +732,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-101",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-101",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-102",
@@ -396,7 +772,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-102",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-102",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-103",
@@ -415,7 +812,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-103",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-103",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-104",
@@ -434,7 +852,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-104",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-104",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-105",
@@ -453,7 +892,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-105",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-105",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-106",
@@ -472,7 +932,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-106",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-106",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-110",
@@ -491,7 +972,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-110",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-110",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-111",
@@ -510,7 +1012,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-111",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-111",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-113",
@@ -529,7 +1052,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-113",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-113",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-114",
@@ -548,7 +1092,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-114",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-114",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-116",
@@ -567,7 +1132,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-116",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-116",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-118",
@@ -586,7 +1172,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-118",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-118",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-119",
@@ -605,7 +1212,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-119",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-119",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-120",
@@ -624,7 +1252,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-120",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-120",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-121",
@@ -643,7 +1292,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-121",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-121",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-122",
@@ -662,7 +1332,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-122",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-122",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-123",
@@ -681,7 +1372,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-123",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-123",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-128",
@@ -700,7 +1412,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-128",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-128",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-129",
@@ -710,10 +1443,37 @@
       "boundary": "Console resolve-egress service→真实 PostgreSQL 平台/凭据表",
       "owner": "TASK-029",
       "status": "verified",
-      "command": null,
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_internal/test_resolve_egress_api.py"
+      ],
       "cwd": ".",
-      "timeout": 60.0,
-      "depends_on": []
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-129",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-129",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
+        }
+      ]
     },
     {
       "id": "B-124",
@@ -745,8 +1505,8 @@
         "status": "passed",
         "exit_code": 0,
         "revision": 1,
-        "run_id": "7be074f2f90f49b5b47e5e4e32dfc215",
-        "executed_at": "2026-09-20T16:04:43.191132+00:00"
+        "run_id": "ce16b108d79a4709a92a7f9513114087",
+        "executed_at": "2026-09-20T16:11:45.642462+00:00"
       },
       "runs": [
         {
@@ -755,8 +1515,8 @@
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "7be074f2f90f49b5b47e5e4e32dfc215",
-          "executed_at": "2026-09-20T16:04:43.191132+00:00"
+          "run_id": "ce16b108d79a4709a92a7f9513114087",
+          "executed_at": "2026-09-20T16:11:45.642462+00:00"
         }
       ]
     }

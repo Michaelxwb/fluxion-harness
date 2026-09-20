@@ -66,23 +66,23 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 命令 | cwd | timeout | depends_on |
 |--------|---------|---------|-------------|---------|------|------|-----|---------|------------|
-| S-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 | TASK-024 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s01"] | . | 1200 | |
-| S-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP | TASK-024 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s02"] | . | 1200 | |
+| S-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 | TASK-024 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s01"] | . | 1200 | |
+| S-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP | TASK-024 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s02"] | . | 1200 | |
 | S-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | emptyDir→真实 NFS 挂载 | TASK-012 | verified | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","s03"] | . | 300 | |
-| S-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | TASK-026 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | . | 1200 | |
+| S-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | TASK-026 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | . | 1200 | |
 | S-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | runner→HookPipeline→真实 Tool handler | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_core/test_hook_lifecycle.py","-k","s05"] | . | 300 | |
 | S-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→真实审计 DB | TASK-017 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","s06"] | . | 300 | |
-| S-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | . | 1200 | |
+| S-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | TASK-025 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | . | 1200 | |
 | S-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 CanonicalEvent/Memory/Artifact→ContextBuilder→LLM request | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_context_memory.py","-k","s08"] | . | 300 | |
 | E-01 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | Runtime cache→真实 NFS 故障边界 | TASK-012 | verified | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py","-k","e01"] | . | 300 | |
-| E-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/SSE | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e02"] | . | 1200 | |
-| E-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | . | 1200 | |
+| E-02 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/SSE | TASK-025 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","cancel_requested"] | . | 1200 | |
+| E-03 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | TASK-025 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | . | 1200 | |
 | E-04 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Reaper→PostgreSQL lease→CAS | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_reaper.py","-k","e04"] | . | 300 | |
 | E-05 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | 真实 Skill→Egress Boundary→HTTP 探针/PostgreSQL | TASK-015 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_egress_boundary.py","-k","e05"] | . | 300 | |
 | E-06 | 08-runtime-execution.backend.design.md#2.5 验收条件 | integration | ModelGateway→fake provider→PostgreSQL | TASK-017 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_model_recovery.py","-k","e06"] | . | 300 | |
-| E-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | TASK-026 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | . | 1200 | |
-| E-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | . | 1200 | |
-| B-01 | 08-runtime-execution.backend.design.md#API-01 创建 Run | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | . | 1200 | |
+| E-07 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | TASK-026 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | . | 1200 | |
+| E-08 | 08-runtime-execution.backend.design.md#2.5 验收条件 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | TASK-025 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | . | 1200 | |
+| B-01 | 08-runtime-execution.backend.design.md#API-01 创建 Run | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | TASK-025 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | . | 1200 | |
 | B-101 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | PostgreSQL migration→ORM | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | . | 600 | |
 | B-102 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | EventWriter→PostgreSQL | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_events.py"] | . | 600 | |
 | B-103 | 08-runtime-execution.backend.design.md#3.4 接口设计 | integration | Runtime HTTP client→本地 Console 契约服务 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_console_client.py"] | . | 600 | |
@@ -112,7 +112,7 @@
 | RULE-skill-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-skill） | integration | S-03, E-01 的真实边界＋原 verifier | TASK-012 | verified | ["uv","run","pytest","-q","tests/test_skill_artifact_cache.py"] | . | 1200 | |
 | RULE-snapshot-001 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-snapshot） | E2E | S-02, E-04 的真实边界＋原 verifier | TASK-024 | planned | ["bash","-lc","uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 | |
 | B-128 | 08-runtime-execution.backend.design.md#API-09 Resolve Runtime Credentials | integration | Console credentials service→真实 PostgreSQL Owner 表 | TASK-028 | verified | ["uv","run","pytest","-q","tests/console_internal/test_runtime_credentials.py"] | . | 600 | |
-| B-129 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | Console resolve-egress service→真实 PostgreSQL 平台/凭据表 | TASK-029 | verified |
+| B-129 | 08-runtime-execution.backend.design.md#API-08 Resolve Egress | integration | Console resolve-egress service→真实 PostgreSQL 平台/凭据表 | TASK-029 | verified | ["uv", "run", "pytest", "-q", "tests/console_internal/test_resolve_egress_api.py"] | . | 600 | |
 | B-124 | 08-runtime-execution.backend.design.md#Spec Compliance Matrix（harness-test） | integration | 模块验收收口：全量 runtime 相关测试 | TASK-027 | verified | ["uv","run","pytest","-q","tests/acceptance/runtime","tests/agent_runtime","tests/agent_core","tests/sdk","tests/console_mcp","tests/console_skill"] | . | 600 | | ["uv","run","pytest","-q","tests/console_internal/test_resolve_egress_api.py"] | . | 600 | |
 
 ## Rule / Risk Traceability
@@ -188,6 +188,9 @@
 | B-101 | FAIL: 4 failed（ImportError RunSubmission；submission_id/stream_type 列缺失） | 9 passed（schema_parity 全量） | test_b101_run_submission_orm_registered / _missing_audit_orm_classes_exist / _run_submission_table_partial_unique / _canonical_event_submission_columns | 真实 PostgreSQL（migration 0007 后）+ ORM 元数据 | verified |
 | RULE-data-001 | 同上 | tests -k schema_parity 27 passed | 同上 + 既有 parity 套件 | 真实 PostgreSQL | verified |
 - B-101: verified — automated command passed; run_id=fd7b4408a5eb45b2929873f10137230b (confirmed_by: runner)
+- B-101: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-101: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-101: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -231,6 +234,9 @@
 |--------|-----|-------|---------|-------------|------|
 | B-102 | FAIL: 3 failed（ImportError EventWriter） | 3 passed；agent_runtime 67 passed | test_b102_concurrent_appends_no_duplicate_seq / _rollback_leaves_no_event / _seq_continues_across_submissions | 真实 PostgreSQL（run_submission FK 行 + UPDATE RETURNING 行锁并发） | verified |
 - B-102: verified — automated command passed; run_id=1a8a309316084036a438b75556723681 (confirmed_by: runner)
+- B-102: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-102: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-102: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -273,6 +279,9 @@
 |--------|-----|-------|---------|-------------|------|
 | B-103 | FAIL: ConsoleCredentialsClient 缺失（2 errors + 2 failed） | 9 passed | test_b103_resolve_credentials_posts_and_returns_in_memory_only / _credentials_error_keeps_registered_code / _resolve_response_validates_mcp_catalog_fields | httpx.MockTransport 真实 HTTP 语义（header/body 透传断言）+ muad_contracts 校验 | verified |
 - B-103: verified — automated command passed; run_id=0f125f1f554c494cb6310c2ce655731f (confirmed_by: runner)
+- B-103: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-103: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-103: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -315,6 +324,9 @@
 |--------|-----|-------|---------|-------------|------|
 | B-104 | FAIL: hash 随 api_key 变化；model_json 含 api_key（真实缺陷） | 2 passed；agent_runtime+console_skill 回归通过 | test_snapshot_freeze.py::test_b104_snapshot_hash_stable_across_key_rotation / _snapshot_model_json_excludes_api_key | 真实 _snapshot_hash/_snapshot_model 函数（run_service.py） | verified |
 - B-104: verified — automated command passed; run_id=3d5943773ec44ef9af2eb95cc7560152 (confirmed_by: runner)
+- B-104: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-104: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-104: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -357,6 +369,9 @@
 |--------|-----|-------|---------|-------------|------|
 | B-105 | FAIL: 3 failed（ModuleNotFoundError run_submission） | 3 passed；agent_runtime 86 passed | test_run_idempotency.py（重放单条/异指纹 CONFLICT/resume 指纹区分） | 真实 PostgreSQL run_submission partial unique | verified |
 - B-105: verified — automated command passed; run_id=2f92e1fa0a414b0abddcab5352933584 (confirmed_by: runner)
+- B-105: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-105: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-105: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -397,6 +412,9 @@
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
 - B-106: verified — automated command passed; run_id=ab207b6f64014069b7f3289203a5fb07 (confirmed_by: runner)
+- B-106: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-106: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-106: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -439,6 +457,9 @@
 |--------|-----|-------|---------|-------------|------|
 | E-04 | N/A（reaper 已存在，行为锁定补测；测试构造 TextClause 绑定问题修正后 GREEN） | 1 passed；agent_runtime 81 passed | test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only | 真实 PostgreSQL run_record.lease_until 过期 CAS | verified |
 - E-04: verified — automated command passed; run_id=274ec3bedd6742dd824ae21f0a084583 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -481,6 +502,9 @@
 |--------|-----|-------|---------|-------------|------|
 | S-05 | FAIL: 3 failed（HookEvent 无 pre_model/post_model/on_interrupt） | 4 passed；agent_core 60 passed | test_hook_lifecycle.py（完整顺序含触发次数/pre_model 异常传播+STOP 收尾/空注册/on_interrupt） | 真实 runner 图 + 真实 echo Tool handler | verified |
 - S-05: verified — automated command passed; run_id=d0c5ca10bfae49d3bf7bc2138a7654e7 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -523,6 +547,9 @@
 |--------|-----|-------|---------|-------------|------|
 | S-08 | FAIL: 2 failed（模块缺失/stream_type 过滤缺陷） | 2 passed；agent_runtime 89 passed | test_context_memory.py::test_s08_context_from_db_with_isolation_and_preview / _budget_trims_only_request_keeps_tool_pairs | 真实 PostgreSQL canonical_event/user_memory/artifact + ContextInput→ModelRequest | verified |
 - S-08: verified — automated command passed; run_id=0c6bc39c7bf84e0e8c6729739dcb8d6f (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -565,6 +592,9 @@
 |--------|-----|-------|---------|-------------|------|
 | B-110 | FAIL: ModuleNotFoundError | 4 passed | test_memory_service.py::test_b110_*（隔离/版本/过滤/白名单） | 真实 PostgreSQL runtime.user_memory | verified |
 - B-110: verified — automated command passed; run_id=596db6358d7448fcbf329a7f84befd09 (confirmed_by: runner)
+- B-110: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-110: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-110: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -607,6 +637,9 @@
 |--------|-----|-------|---------|-------------|------|
 | B-111 | FAIL: ModuleNotFoundError + row None（id 缺陷） | 3 passed；agent_runtime 全量通过 | test_artifact_results.py::test_b111_*（落盘/XOR/清理） | 真实 tmp 共享目录 + 真实 PostgreSQL runtime.artifact | verified |
 - B-111: verified — automated command passed; run_id=64f87a0142ce484096cad523ae16a3db (confirmed_by: runner)
+- B-111: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-111: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-111: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -657,6 +690,12 @@
 | RULE-skill-001 | N/A（verifier 已存在） | 原命令 + 映射场景全过 | tests/test_skill_artifact_cache.py + artifact_results + orphan_cleanup + schema_parity | 同上 | verified |
 - S-03: verified — automated command passed; run_id=27df0d43183b4c56b77bedcdb20632a4 (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=27df0d43183b4c56b77bedcdb20632a4 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -705,6 +744,9 @@
 - B-113: failed — automated command failed; run_id=ca19fadacd214cbcb97fe54c3d854232 (confirmed_by: runner)
 - B-113: failed — automated command failed; run_id=9ec7ea6c339b4416a27d22b463935944 (confirmed_by: runner)
 - B-113: verified — automated command passed; run_id=4f71a3ca726746d2a93d2a42d1df49f3 (confirmed_by: runner)
+- B-113: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-113: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-113: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -745,6 +787,9 @@
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
 - B-114: verified — automated command passed; run_id=d23421e7010a4ea69794df9e85565a54 (confirmed_by: runner)
+- B-114: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-114: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-114: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -792,6 +837,9 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - E-05: failed — automated command failed; run_id=71dc6cd2100c44eca0206d58a05591ee (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=dddc15f14fe44e7a8206ccec4d1f942a (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=78833b6c8bf94068bc3eaffcc7fee5e4 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -834,6 +882,9 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 |--------|-----|-------|---------|-------------|------|
 | B-116 | FAIL: ModuleNotFoundError | 3 passed | test_mcp_execution.py::test_b116_*（冻结注册/命名隔离/DENY 审计） | 真实 PostgreSQL egress_audit + ToolRegistry | verified |
 - B-116: verified — automated command passed; run_id=0ddca0cf630e417fb33620720ce7b956 (confirmed_by: runner)
+- B-116: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-116: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-116: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -880,6 +931,12 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 | E-06 | 同上 | 同上 | test_e06（重试耗尽→MODEL_UNAVAILABLE；逐 attempt FAILED 审计；取消短路 calls==0） | 同上 | verified |
 - S-06: verified — automated command passed; run_id=aaba5c50836f44b6b9e29163b1ae9a8b (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=aaba5c50836f44b6b9e29163b1ae9a8b (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -922,6 +979,9 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 |--------|-----|-------|---------|-------------|------|
 | B-118 | FAIL: 4 failed（模块缺失） | 4 passed | test_interrupt_checkpoint.py::test_b118_*（WAITING 持久化/租约释放/进程重建定位/非授权拒绝/resolve 推进） | 真实 PostgreSQL runtime.run_interrupt + run_record | verified |
 - B-118: verified — automated command passed; run_id=1c1fdee829d4477bb5a013f74313998d (confirmed_by: runner)
+- B-118: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-118: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-118: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -962,6 +1022,9 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
 - B-119: verified — automated command passed; run_id=1a85c9506d2a457bbed73d8fcd475b50 (confirmed_by: runner)
+- B-119: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-119: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-119: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -1002,6 +1065,9 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
 - B-120: verified — automated command passed; run_id=4d2e92639e8c45c4861ff2cc9ea3c220 (confirmed_by: runner)
+- B-120: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-120: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-120: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -1042,6 +1108,9 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
 - B-121: verified — automated command passed; run_id=4d78ec0beaf34a19aa48ca07432ca0f1 (confirmed_by: runner)
+- B-121: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-121: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-121: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -1082,6 +1151,9 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
 - B-122: verified — automated command passed; run_id=186f6231726741f8abedc2f69922e2b4 (confirmed_by: runner)
+- B-122: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-122: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-122: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -1124,6 +1196,9 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 |--------|-----|-------|---------|-------------|------|
 | B-123 | FAIL: runtime 无 mcp_client 模块（改 raw JSON-RPC） | 3 passed | test_environment.py::test_b123_* | 真实 uvicorn 探针 + PG information_schema + Redis set/get | verified |
 - B-123: verified — automated command passed; run_id=af5e795aaf5f4964ab16d396973ef229 (confirmed_by: runner)
+- B-123: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-123: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-123: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -1163,8 +1238,8 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 | 未授权 SELECTED Skill/MCP 不出现在 Prompt、LLM catalog 或 ToolRegistry | tests/acceptance/runtime/test_capability_snapshot.py -k s01（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s01"] | e2e_deferred |
-| S-02 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP | 当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应 | tests/acceptance/runtime/test_capability_snapshot.py -k s02（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s02"] | e2e_deferred |
+| S-01 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针 | 未授权 SELECTED Skill/MCP 不出现在 Prompt、LLM catalog 或 ToolRegistry | tests/acceptance/runtime/test_capability_snapshot.py -k s01（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s01"] | verified |
+| S-02 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP | 当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应 | tests/acceptance/runtime/test_capability_snapshot.py -k s02（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_capability_snapshot.py","-k","s02"] | verified |
 | RULE-auth-001 | E2E | Gateway→Runtime→真实 Console resolve→LLM HTTP 探针＋原 verifier 边界 | 未授权 SELECTED Skill/MCP 不出现在 Prompt、LLM catalog 或 ToolRegistry；原 verifier 全部通过 | 原 verifier＋tests/acceptance/runtime/test_capability_snapshot.py（planned） | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | planned |
 | RULE-mcp-001 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP＋原 verifier 边界 | 当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应；原 verifier 全部通过 | tests/console_mcp/test_mcp_rules.py＋tests/acceptance/runtime/test_capability_snapshot.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/console_mcp/test_mcp_rules.py' && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | planned |
 | RULE-secret-001 | E2E | Runtime→PostgreSQL Snapshot→真实 LLM/Tool/MCP＋原 verifier 边界 | 当前 Run 固定 agent/model/skill/prompt_template_version/catalog revision/hash/definitions/policy；新 Run 看到更新；密钥不在快照/日志/审计/Prompt/公开响应；原 verifier 全部通过 | tests/test_logging_redaction.py, tests/acceptance/test_foundation_ops_audit.py＋tests/acceptance/runtime/test_capability_snapshot.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/test_logging_redaction.py' 'tests/acceptance/test_foundation_ops_audit.py' && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | planned |
@@ -1179,6 +1254,12 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 | RULE-auth/mcp/secret/snapshot | N/A（verifier 已存在） | 全部通过（mcp_rules/schema_parity） | 各 verifier 命令 | 同上 | verified |
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=12bf8e31dc6340ebb1b1a03ca04fa968 (confirmed_by: runner)
 - S-02: e2e_deferred — automated command e2e_deferred; run_id=12bf8e31dc6340ebb1b1a03ca04fa968 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -1219,11 +1300,11 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-07 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | WAITING_INPUT 普通回复自动恢复原 Run；首事件 run.created/resumed=true；seq 延续 | tests/acceptance/runtime/test_run_lifecycle.py -k s07（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | e2e_deferred |
-| E-02 | E2E | 真实 Gateway→cancel-active→PostgreSQL/SSE | WAITING_INPUT CAS CANCELLED；interrupt CANCELLED；CANCEL 事件与 run.completed(status=CANCELLED) | tests/acceptance/runtime/test_run_lifecycle.py -k e02（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e02"] | e2e_deferred |
-| E-03 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | 并发不同消息仅一活跃 Run；409 RUN_BUSY；已有状态/lease 不变；双语标准 Envelope | tests/acceptance/runtime/test_run_lifecycle.py -k e03（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | e2e_deferred |
-| E-08 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | CREATED/RUNNING 响应 CANCELLING；DB cancel_requested 权威；Redis 故障仍协作 CANCELLED；无活跃 404 NO_ACTIVE_RUN | tests/acceptance/runtime/test_run_lifecycle.py -k e08（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | e2e_deferred |
-| B-01 | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | 新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 IDEMPOTENCY_MISMATCH；并发/重启后仍幂等 | tests/acceptance/runtime/test_idempotency.py -k b01（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_idempotency.py","-k","b01"] | e2e_deferred |
+| S-07 | E2E | 真实 Gateway→Runtime SSE→PostgreSQL | WAITING_INPUT 普通回复自动恢复原 Run；首事件 run.created/resumed=true；seq 延续 | tests/acceptance/runtime/test_run_lifecycle.py -k s07（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","s07"] | verified |
+| E-02 | E2E | 真实 Gateway→cancel-active→PostgreSQL/SSE | WAITING_INPUT CAS CANCELLED；interrupt CANCELLED；CANCEL 事件与 run.completed(status=CANCELLED) | tests/acceptance/runtime/test_run_lifecycle.py -k cancel_requested | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","cancel_requested"] | verified |
+| E-03 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique | 并发不同消息仅一活跃 Run；409 RUN_BUSY；已有状态/lease 不变；双语标准 Envelope | tests/acceptance/runtime/test_run_lifecycle.py -k e03（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e03"] | verified |
+| E-08 | E2E | 真实 Gateway→cancel-active→PostgreSQL/Redis→执行者 | CREATED/RUNNING 响应 CANCELLING；DB cancel_requested 权威；Redis 故障仍协作 CANCELLED；无活跃 404 NO_ACTIVE_RUN | tests/acceptance/runtime/test_run_lifecycle.py -k e08（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_run_lifecycle.py","-k","e08"] | verified |
+| B-01 | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool | 新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 COMMON_CONFLICT；并发/重启后仍幂等 | tests/agent_runtime/test_run_idempotency.py | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | verified |
 | RULE-api-001 | E2E | 真实 Gateway→Runtime→PostgreSQL partial unique；真实 Gateway→cancel-active→PostgreSQL/Redis→执行者＋原 verifier 边界 | 并发不同消息仅一活跃 Run；409 RUN_BUSY；已有状态/lease 不变；双语标准 Envelope；CREATED/RUNNING 响应 CANCELLING；DB cancel_requested 权威；Redis 故障仍协作 CANCELLED；无活跃 404 NO_ACTIVE_RUN；原 verifier 全部通过 | tests/test_api_i18n.py, tests/test_error_catalog.py, tests/acceptance/test_foundation_api_envelope.py＋tests/acceptance/runtime/test_run_lifecycle.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/test_api_i18n.py' 'tests/test_error_catalog.py' 'tests/acceptance/test_foundation_api_envelope.py' && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"] | planned |
 | RULE-api-002 | E2E | 真实 Gateway HTTP/SSE→Runtime 幂等表→PostgreSQL/Tool＋原 verifier 边界 | 新增：同 key 同指纹 200 重放原提交结果、不二次执行；异指纹 IDEMPOTENCY_MISMATCH；并发/重启后仍幂等；原 verifier 全部通过 | tests/console_skill/test_import_idempotency.py＋tests/acceptance/runtime/test_idempotency.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/console_skill/test_import_idempotency.py' && uv run pytest -q tests/acceptance/runtime/test_idempotency.py"] | planned |
 
@@ -1255,6 +1336,21 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 - E-03: e2e_deferred — automated command e2e_deferred; run_id=db7e101e762643e5ba24bdba86304f71 (confirmed_by: runner)
 - E-08: e2e_deferred — automated command e2e_deferred; run_id=db7e101e762643e5ba24bdba86304f71 (confirmed_by: runner)
 - B-01: e2e_deferred — automated command e2e_deferred; run_id=db7e101e762643e5ba24bdba86304f71 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- E-02: failed — automated command failed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-01: failed — automated command failed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- E-02: failed — automated command failed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-01: failed — automated command failed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -1293,8 +1389,8 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-04 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | 真实结束 A 后第二轮 B 重建会话和 Memory；无 sticky session | tests/acceptance/runtime/test_multipod_recovery.py -k s04（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | e2e_deferred |
-| E-07 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | Gateway 提示重发；lease 过期失败 RUN_ABANDONED；GET 查到终态；不把断流直接改成取消 | tests/acceptance/runtime/test_multipod_recovery.py -k e07（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | e2e_deferred |
+| S-04 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B | 真实结束 A 后第二轮 B 重建会话和 Memory；无 sticky session | tests/acceptance/runtime/test_multipod_recovery.py -k s04（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","s04"] | verified |
+| E-07 | E2E | 真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run | Gateway 提示重发；lease 过期失败 RUN_ABANDONED；GET 查到终态；不把断流直接改成取消 | tests/acceptance/runtime/test_multipod_recovery.py -k e07（planned） | ["uv","run","pytest","-q","tests/acceptance/runtime/test_multipod_recovery.py","-k","e07"] | verified |
 | RULE-arch-001 | E2E | 真实 Runtime A→PostgreSQL/Artifact Store→Runtime B；真实 Gateway SSE→Runtime 进程终止→Reaper→GET Run＋原 verifier 边界 | 真实结束 A 后第二轮 B 重建会话和 Memory；无 sticky session；Gateway 提示重发；lease 过期失败 RUN_ABANDONED；GET 查到终态；不把断流直接改成取消；原 verifier 全部通过 | tests/architecture＋tests/acceptance/runtime/test_multipod_recovery.py（planned） | ["bash","-lc","'uv' 'run' 'pytest' '-q' 'tests/architecture' && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"] | planned |
 
 ### Acceptance Evidence
@@ -1302,6 +1398,12 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
 - S-04: e2e_deferred — automated command e2e_deferred; run_id=f79ca8c0fd3749ce874e0f2735637d5a (confirmed_by: runner)
 - E-07: e2e_deferred — automated command e2e_deferred; run_id=f79ca8c0fd3749ce874e0f2735637d5a (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -1363,6 +1465,9 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 
 待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
 - B-124: verified — automated command passed; run_id=7be074f2f90f49b5b47e5e4e32dfc215 (confirmed_by: runner)
+- B-124: failed — automated command failed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-124: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-124: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -1406,6 +1511,9 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 |--------|-----|-------|---------|-------------|------|
 | B-128 | FAIL: 5 failed（端点 404/身份缺失 403） | 6 passed | test_b128_requires_service_identity/_returns_model_key_and_rotation/_cross_tenant_model_rejected/_missing_secret_returns_credential_missing/_mcp_secret_and_grant_independence/_invalid_execution_ref_type | ASGI 真实 HTTP + 真实 PostgreSQL（model_definition/mcp_server Owner 表） | verified |
 - B-128: verified — automated command passed; run_id=7d831b514b9d4b928c8ac2b14b80308f (confirmed_by: runner)
+- B-128: verified — automated command passed; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-128: verified — automated command passed; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-128: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
@@ -1448,6 +1556,9 @@ ctx.http、平台与 MCP 共用 Egress Boundary；实现 allowlist、必填 time
 |--------|-----|-------|---------|-------------|------|
 | B-129 | FAIL: 6 failed（端点 404） | 6 passed（console_internal+console_platform 回归 99 passed） | test_b129_requires_service_identity/_platform_not_found_and_validation/_user_then_shared_fallback/_credential_missing/_none_mode_no_credential/_http_target_allowlist | ASGI 真实 HTTP + 真实 PostgreSQL（project_platform/user_credential_ref/shared_credential_ref） | verified |
 - B-129: verified — automated command passed; run_id=90343bd237794e6589d796c13b8fbe2a (confirmed_by: runner)
+- B-129: not_configured — automated command not_configured; run_id=e77a338a6b6c453e8346ec0b7971b432 (confirmed_by: runner)
+- B-129: not_configured — automated command not_configured; run_id=2435c1aa7a3b4761ba412ed582527965 (confirmed_by: runner)
+- B-129: verified — automated command passed; run_id=ce16b108d79a4709a92a7f9513114087 (confirmed_by: runner)
 
 ### Log
 
