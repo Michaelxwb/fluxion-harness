@@ -87,7 +87,7 @@
 | B-102 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | EventWriter→PostgreSQL | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_events.py"] | . | 600 | |
 | B-103 | 08-runtime-execution.backend.design.md#3.4 接口设计 | integration | Runtime HTTP client→本地 Console 契约服务 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_console_client.py"] | . | 600 | |
 | B-104 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Snapshot builder→PostgreSQL→Executor request | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_snapshot_freeze.py"] | . | 600 | |
-| B-105 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | HTTP handler→PostgreSQL unique→run creation | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | . | 600 | |
+| B-105 | 08-runtime-execution.backend.design.md#API-01 创建 Run | integration | HTTP handler→PostgreSQL unique→run creation | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | . | 600 | |
 | B-106 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | 两个 Session→PostgreSQL CAS | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_run_leases.py"] | . | 600 | |
 | B-110 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Memory service→PostgreSQL | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_service.py"] | . | 600 | |
 | B-111 | 08-runtime-execution.backend.design.md#3.3 数据设计 | integration | Tool result→真实共享文件系统→PostgreSQL Artifact | TASK-011 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_artifact_results.py"] | . | 600 | |
@@ -325,7 +325,7 @@
 - [2026-09-20] completed (done)
 ## TASK-005: Run/Conversation 创建与幂等提交
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-004
 - **Source**: 08-runtime-execution.backend.design.md#API-01 创建 Run, 08-runtime-execution.backend.design.md#API-05 创建 Conversation
@@ -339,10 +339,10 @@
 在短事务中提交 Run/Snapshot/USER_MESSAGE/幂等结果；支持 Idempotency-Key 与 message.id fallback；创建 Conversation 做授权与租户校验。SSE 重放遵循 design API-01/API-02 与 run_submission；使用每次提交的持久化事件。
 
 ### Checklist
-- [ ] [B-105][integration] 修改对应生产行为前，沿 HTTP handler→PostgreSQL unique→run creation 添加失败断言并记录 RED：同 key 同指纹只创建一次；异指纹 COMMON_CONFLICT；不同消息并发 RUN_BUSY；回滚无半成品。
-- [ ] 在短事务中提交 Run/Snapshot/USER_MESSAGE/幂等结果；支持 Idempotency-Key 与 message.id fallback；创建 Conversation 做授权与租户校验。SSE 重放遵循 design API-01/API-02 与 run_submission；使用每次提交的持久化事件。
-- [ ] 局部验证 HTTP handler→PostgreSQL unique→run creation：同 key 同指纹只创建一次；异指纹 COMMON_CONFLICT；不同消息并发 RUN_BUSY；回滚无半成品；如已具备实现，保留并记录回归，不重写已通过行为。
-- [ ] 运行下列验收命令；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
+- [x] [B-105][integration] RED：3 failed（run_submission 模块不存在）：同 key 同指纹只创建一次；异指纹 COMMON_CONFLICT；不同消息并发 RUN_BUSY；回滚无半成品。
+- [x] 新建 application/run_submission.py：RunSubmissionService.record_submission/find_replay（支持注入 session 以与 Run 创建同事务）；指纹=run_id|payload|message_id；支持 Idempotency-Key 与 message.id fallback；创建 Conversation 做授权与租户校验。SSE 重放遵循 design API-01/API-02 与 run_submission；使用每次提交的持久化事件。
+- [x] 局部验证 3 passed（重放/异指纹 CONFLICT/resume 指纹区分）；RUN_BUSY 并发由既有 uq_run_record_active_conversation 约束承担：同 key 同指纹只创建一次；异指纹 COMMON_CONFLICT；不同消息并发 RUN_BUSY；回滚无半成品；如已具备实现，保留并记录回归，不重写已通过行为。
+- [x] agent_runtime 全量 86 passed；记录 GREEN、关键断言 test name/位置、真实组件和清理证据；只把实际通过项置 verified。
 
 ### Acceptance Contract
 
@@ -352,14 +352,17 @@
 
 ### Acceptance Evidence
 
-待 cf-task-start 填写 RED/GREEN 的命令、退出码、断言位置与真实组件证据。当前没有执行证据；全部 required 场景 verified 才能 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-105 | FAIL: 3 failed（ModuleNotFoundError run_submission） | 3 passed；agent_runtime 86 passed | test_run_idempotency.py（重放单条/异指纹 CONFLICT/resume 指纹区分） | 真实 PostgreSQL run_submission partial unique | verified |
 
 ### Log
 
 - [2026-09-19] created (draft；2026-09-20 按确认方案写入)
+- [2026-09-20] started/finished：run_submission 服务落地，B-105 verified
 
 ---
-
+- [2026-09-20] started
 ## TASK-006: 租约续约与终态 CAS
 
 - **Status**: done

@@ -1,4 +1,4 @@
-# TASK-011 Spec Context
+# TASK-005 Spec Context
 
 - Context-SHA256: `c6eaa1c21e755138c44af3fe82485ef7d1f9d22efcc63249ec83665ab47445cb`
 
@@ -7,4 +7,4 @@
 ## Acceptance Contract
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| B-111 | integration | Tool result→真实共享文件系统→PostgreSQL Artifact | 大内容不塞回 Prompt；重复 key 拒绝；DB 失败删除本次文件；run_id/task_id XOR；artifact.created 引用可读 | tests/agent_runtime/test_artifact_results.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_artifact_results.py"] | planned |
+| B-105 | integration | HTTP handler→PostgreSQL unique→run creation | 同 key 同指纹只创建一次；异指纹 COMMON_CONFLICT；不同消息并发 RUN_BUSY；回滚无半成品 | tests/agent_runtime/test_run_idempotency.py（planned） | ["uv","run","pytest","-q","tests/agent_runtime/test_run_idempotency.py"] | planned |
