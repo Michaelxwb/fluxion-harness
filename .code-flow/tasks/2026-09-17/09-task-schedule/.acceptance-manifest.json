@@ -480,7 +480,7 @@
       "kind": "functional",
       "boundary": "并发 PG Session→Task 行锁→TaskEvent",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -490,7 +490,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-104",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "7d39a4587df940978e1df521adfc3b63",
+        "executed_at": "2026-09-21T15:21:26.106402+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-104",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7d39a4587df940978e1df521adfc3b63",
+          "executed_at": "2026-09-21T15:21:26.106402+00:00"
+        }
+      ]
     },
     {
       "id": "B-105",

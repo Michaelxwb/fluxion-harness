@@ -109,7 +109,7 @@
 | B-101 | 09-task-schedule.backend.design.md#3.3 数据设计 | integration | Alembic→真实 PostgreSQL→SQLAlchemy ORM | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_schema_parity.py"] | . | 600 | |
 | B-102 | 09-task-schedule.backend.design.md#3.3 数据设计 | integration | 迁移→真实 PostgreSQL partial unique | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_submission_schema_parity.py"] | . | 600 | |
 | B-103 | 09-task-schedule.backend.design.md#3.3.5 状态枚举 | unit | Pydantic 公共契约与序列化 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_contracts.py"] | . | 600 | |
-| B-104 | 09-task-schedule.backend.design.md#3.3.4 `task.task_event` | integration | 并发 PG Session→Task 行锁→TaskEvent | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_events.py"] | . | 600 | |
+| B-104 | 09-task-schedule.backend.design.md#3.3.4 `task.task_event` | integration | 并发 PG Session→Task 行锁→TaskEvent | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_events.py"] | . | 600 | |
 | B-105 | 09-task-schedule.backend.design.md#3.3.2 `task.delivery_route` | integration | 真实 PG delivery_route partial unique | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_delivery_routes.py"] | . | 600 | |
 | B-106 | 09-task-schedule.backend.design.md#3.4 接口设计 | integration | 真实 HTTP handler→PG 幂等记录/事务 | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_submission_idempotency.py"] | . | 600 | |
 | B-107 | 09-task-schedule.backend.design.md#API-01 Internal 创建 Task | integration | Worker Task HTTP→PG Task/Submission/Event | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_service.py"] | . | 600 | |
@@ -368,7 +368,7 @@
 - [2026-09-21] completed (done)
 ## TASK-004: 使 TaskEvent 序号分配并发安全
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 09-task-schedule.backend.design.md#3.3.4 `task.task_event`, 09-task-schedule.backend.design.md#3.5 质量实现方案
@@ -383,27 +383,33 @@
 
 ### Checklist
 
-- [ ] [B-104][integration] 修改生产代码前先覆盖 并发 PG Session→Task 行锁→TaskEvent 并记录 RED：并发追加无重号；事务回滚无事件；跨重试 Timeline 单调；payload 已脱敏。
-- [ ] 实现：用同一 Task 的数据库锁/序号分配保证 append-only 单调 seq，事件和状态同事务；补 WAITING/FAN_OUT/FAN_IN 事件与 trace。
-- [ ] [B-104][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_task_events.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-104][integration] 修改生产代码前先覆盖 并发 PG Session→Task 行锁→TaskEvent 并记录 RED：并发追加无重号；事务回滚无事件；跨重试 Timeline 单调；payload 已脱敏。
+- [x] 实现：用同一 Task 的数据库锁/序号分配保证 append-only 单调 seq，事件和状态同事务；补 WAITING/FAN_OUT/FAN_IN 事件与 trace。
+- [x] [B-104][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_task_events.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-104 | integration | 并发 PG Session→Task 行锁→TaskEvent | 并发追加无重号；事务回滚无事件；跨重试 Timeline 单调；payload 已脱敏 | tests/agent_worker/test_task_events.py / B-104（planned） | uv run pytest -q tests/agent_worker/test_task_events.py | planned |
+| B-104 | integration | 并发 PG Session→Task 行锁→TaskEvent | 并发追加无重号；事务回滚无事件；跨重试 Timeline 单调；payload 已脱敏 | tests/agent_worker/test_task_events.py / B-104（verified） | uv run pytest -q tests/agent_worker/test_task_events.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-104 | 5 FAILED / 4 passed：`test_same_task_appends_are_serialized`（后来者未被行锁阻塞）、`test_concurrent_appends_never_duplicate_seq`（seq 重号）、`test_payload_is_redacted`（payload 未脱敏）、`test_waiting_and_fan_events_are_supported`（缺 WAITING/FAN_OUT/FAN_IN）、`test_trace_id_is_persisted`（seed 无 trace_id） | PASS: 9 passed；全量 `uv run pytest -q tests` 985 passed | `tests/agent_worker/test_task_events.py`：`test_same_task_appends_are_serialized`（A 持锁期间 B 必须阻塞，A 提交后 seq=[1,2]）、`test_concurrent_appends_never_duplicate_seq`（5 个独立会话并发 → seq=1..5）、`test_timeline_is_monotonic_across_retries`、`test_rollback_leaves_no_event`、`test_batch_append_assigns_contiguous_seq`、`test_payload_is_redacted`、`test_waiting_and_fan_events_are_supported`、`test_trace_id_is_persisted`、`test_unknown_task_id_is_rejected` | 真实 PostgreSQL：两个及以上独立 `AsyncSession` 真正并发，靠 `SELECT ... FOR UPDATE` 父 Task 行串行化；脱敏复用 `muad_logging.redaction.redact_value`（未自造一套） | verified |
+
+> 根因：原 `_seq_floor` 在无锁情况下读 `max(seq)`，并发事务会取到同一下界并写同一 seq，由 `UNIQUE (task_id, seq)` 在提交时抛出。修复为「先锁父 Task 行、再读下界、同事务写事件」，锁按 task_id 排序避免多 Task 批次死锁。事件与状态同事务的要求由调用方在同一 session 内完成，回滚不留事件已由本用例覆盖。
+- B-104: verified — automated command passed; run_id=7d39a4587df940978e1df521adfc3b63 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-21] started
+- [2026-09-21] completed (done)
 ## TASK-005: 修正投递路由归一化和租户隔离
 
 - **Status**: draft
