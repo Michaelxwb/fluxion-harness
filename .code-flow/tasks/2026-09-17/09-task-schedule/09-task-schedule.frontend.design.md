@@ -1,7 +1,7 @@
 # 后台任务、调度与可靠执行 前端模块需求与设计简报
 
 > **文档编号**: FE-TASK-V1.1  
-> **文档版本**: v1.1  
+> **文档版本**: v1.2  
 > **创建日期**: 2026-09-17  
 > **文档状态**: 设计评审中  
 > **模板**: design-frontend.md
@@ -21,6 +21,7 @@
 |---|---|---|---|
 | v1.0 | 2026-09-17 | muad-agent-worker | 初始设计 |
 | v1.1 | 2026-09-18 | muad-agent-worker | 对齐 V1.4 决策（docs/17）：交互基线升级 V1.4；任务列表/详情补任务截止时间、失败原因；定时任务筛选补「已完成」；补全 Service 方法与场景 |
+| v1.2 | 2026-09-21 | muad-agent-worker | 落实 Design Corrections N-01/N-04/N-05：Matrix spec_id 前缀改为当前 Context 真实 spec_id；调度终态补 `MISSED`（「已错过」文案、纳入筛选、不显示恢复）；任务列表补 `deadline_from/deadline_to` 截止时间筛选 |
 
 ### 1.3 模块信息
 
@@ -47,7 +48,7 @@
 |---|---|---|---|---|
 | FEAT-FE-01 | 后台任务列表/详情 | 任务状态、进度、任务截止时间、投递状态、失败原因、Timeline、子任务。 | P0 | 需求描述 |
 | FEAT-FE-02 | 任务取消 | 仅非终态显示取消操作。 | P0 | 需求描述 |
-| FEAT-FE-03 | 定时任务列表/详情 | 调度规则、下次/最近触发、状态筛选（含「已完成」）、按 schedule_id 查询历史 Task。 | P0 | 需求描述 |
+| FEAT-FE-03 | 定时任务列表/详情 | 调度规则、下次/最近触发、状态筛选（含「已完成」「已错过」）、按 schedule_id 查询历史 Task。 | P0 | 需求描述 |
 | FEAT-FE-04 | Schedule 管理 | 暂停/恢复/删除。 | P0 | 需求描述 |
 
 ### 2.3 范围与边界
@@ -65,7 +66,7 @@
 | S-FE-01 | FEAT-FE-03 | E2E | Browser→schedules API→tasks API | 打开 Schedule 详情 | 历史只显示该 schedule_id 的 Task |
 | S-FE-02 | FEAT-FE-02 | E2E | Browser→cancel API→Worker state | 运行中任务取消并确认 | 最终 CANCELLED，取消按钮消失 |
 | S-FE-03 | FEAT-FE-01 | E2E | Browser→tasks API→Task 详情 | 按任务状态/截止时间筛选，打开失败 Task | 列表展示任务截止时间与失败原因；筛选结果与 API 一致 |
-| S-FE-04 | FEAT-FE-03 | E2E | Browser→schedules API | 定时任务状态筛选「已完成」 | 只显示 COMPLETED 的 Schedule |
+| S-FE-04 | FEAT-FE-03 | E2E | Browser→schedules API | 定时任务状态筛选「已完成」/「已错过」 | 只显示对应状态的 Schedule |
 
 异常：
 
@@ -95,7 +96,7 @@
 | 页面 | 路由 | 布局 | 说明 |
 |---|---|---|---|
 | 后台任务 | `/tasks` | ConsoleShell | TaskExecution 列表 + 详情 SideSheet；筛选任务状态/触发方式/截止时间 |
-| 定时任务 | `/schedules` | ConsoleShell | TaskSchedule 列表 + 详情 SideSheet；筛选调度状态（含「已完成」） |
+| 定时任务 | `/schedules` | ConsoleShell | TaskSchedule 列表 + 详情 SideSheet；筛选调度状态（含「已完成」「已错过」） |
 
 ### 3.3 组件设计
 
@@ -128,6 +129,10 @@
 | Schedule 历史 | 任务 ID 链接 | `Typography.Text link` | secondary | 打开 Task 详情 | `GET /api/v1/tasks/{task_id}` | 否 |
 
 统一规则：主创建/保存使用 `Button theme="solid" type="primary"`；危险操作 `Popconfirm`；详情全局操作与关闭 X 同一 Header 行靠右；Tab 内关系操作完成即生效，不需要“保存整个对象”。
+
+调度状态操作可见性：`ACTIVE` 显示暂停；`PAUSED` 显示恢复；`COMPLETED`/`MISSED` 为终态，不显示暂停/恢复。`MISSED`（错过触发的 ONCE）需重新创建 Schedule，UI 不复用恢复入口。
+
+状态文案：`ScheduleStatus` 含 `MISSED`，zh-CN「已错过」/ en-US「Missed」，经 `StatusTag` 展示并纳入状态筛选。
 
 ### 3.4 组件接口契约
 
@@ -168,7 +173,7 @@ User Action
 | `deleteSchedule(id)` | `DELETE /api/v1/schedules/{id}` | ScheduleDetail |
 | `listScheduleTasks(id)` | `GET /api/v1/tasks?schedule_id={id}` | ScheduleHistoryTable |
 
-所有 Service 经共享 `apiClient`（自动带 `X-Locale/X-Request-Id`）；列表参数含 `status/trigger_type/start_time/end_time/page/page_size`，`page_size<=100`。
+所有 Service 经共享 `apiClient`（自动带 `X-Locale/X-Request-Id`）；列表参数含 `status/trigger_type/start_time/end_time/deadline_from/deadline_to/page/page_size`，`page_size<=100`；`start_time/end_time` 筛创建时间，`deadline_from/deadline_to` 筛任务截止时间（UTC 比较、起止含端点）。
 
 ### 3.6 UI 状态
 
@@ -204,10 +209,10 @@ Semi Form required/rules；Modal/SideSheet 焦点管理；图标按钮 aria-labe
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `harness-platform#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.1 / §3.5 | S-FE-03 + verifier | applied |
-| `harness-platform#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.2 / §3.3 / §3.7 | S-FE-03 + verifier | applied |
-| `harness-platform#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3 / §3.4 | S-FE-01 + verifier | applied |
-| `harness-platform#RULE-time-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss；任务截止时间按此时区展示。 | §3.3 / §3.7 | S-FE-03 + verifier | applied |
-| `harness-platform#RULE-worker-001` | required | PG 是 Task/Schedule/lease 权威源；Redis 仅 hint；TaskType V1=SKILL/BATCH。 | §2.2 / §3.5 | S-FE-02 + verifier | applied |
-| `harness-platform#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.3 / §3.5 | S-FE-03 + verifier | applied |
-| `harness-platform#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4 | S-FE-01, S-FE-03 + verifier | applied |
+| `harness-i18n#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.1 / §3.5 | S-FE-03 + verifier | applied |
+| `harness-ui#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.2 / §3.3 / §3.7 | S-FE-03 + verifier | applied |
+| `harness-ui-detail#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3 / §3.4 | S-FE-01 + verifier | applied |
+| `harness-time#RULE-time-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss；任务截止时间按此时区展示。 | §3.3 / §3.7 | S-FE-03 + verifier | applied |
+| `harness-worker#RULE-worker-001` | required | PG 是 Task/Schedule/lease 权威源；Redis 仅 hint；TaskType V1=SKILL/BATCH。 | §2.2 / §3.5 | S-FE-02 + verifier | applied |
+| `harness-frontend#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.3 / §3.5 | S-FE-03 + verifier | applied |
+| `harness-test#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4 | S-FE-01, S-FE-03 + verifier | applied |

@@ -1,0 +1,1473 @@
+{
+  "schema": 2,
+  "task_file": "09-task-schedule.md",
+  "task_sha256": "e2d63c2b82912d23b5a43933dfccc1a3063a4ecebf79bd8c90977a87d0475f2f",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime→Worker API→PG→Worker",
+      "owner": "TASK-041",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/task_schedule/test_execution.py",
+        "-k",
+        "s01"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-02",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Scheduler→真实 current grants/Binding/artifact→Task DB",
+      "owner": "TASK-042",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/task_schedule/test_schedules.py",
+        "-k",
+        "s02"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-03",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Worker→真实 PG→IM Gateway HTTP/Redis→渠道探针",
+      "owner": "TASK-043",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/task_schedule/test_delivery.py",
+        "-k",
+        "s03"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-04",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Worker→真实 Parent/Child PG→IM Gateway",
+      "owner": "TASK-043",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/task_schedule/test_batch.py",
+        "-k",
+        "s04"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "双 Worker→真实 PG lease/CAS→真实幂等 Skill 副作用",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_worker_leases.py",
+        "-k",
+        "e01"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Scheduler→真实 Console resolve→PG grants/Binding",
+      "owner": "TASK-015",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_schedule_trigger.py",
+        "-k",
+        "e02"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "独立 Scheduler→真实 PG→IM Gateway HTTP/Redis",
+      "owner": "TASK-017",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_task_deadline.py",
+        "-k",
+        "e03"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-04",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Scheduler→真实 PG→审计/指标/终态 MISSED",
+      "owner": "TASK-016",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_scheduler_misfire.py",
+        "-k",
+        "e04"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Worker HTTP→真实 Gateway→Redis→渠道探针",
+      "owner": "TASK-021",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_delivery_api.py",
+        "-k",
+        "e05"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "取消 API→真实 PG CAS→Worker 检查点",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_task_cancel.py",
+        "-k",
+        "e06"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-07",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Worker HTTP→task.task_submission partial unique",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_submission_idempotency.py",
+        "-k",
+        "e07"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-201",
+      "source": "09-task-schedule.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→schedules API→tasks API→真实 PG",
+      "owner": "TASK-037",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-history.spec.ts --grep 'S-FE-01'"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-202",
+      "source": "09-task-schedule.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→Console cancel API→真实 Worker/PG→UI",
+      "owner": "TASK-034",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-cancel.spec.ts --grep 'S-FE-02'"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-203",
+      "source": "09-task-schedule.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→tasks API→真实 PG→Task 列表/详情",
+      "owner": "TASK-032",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-detail.spec.ts --grep 'S-FE-03'"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-204",
+      "source": "09-task-schedule.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→schedules API→真实 PG",
+      "owner": "TASK-035",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-list.spec.ts --grep 'S-FE-04'"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-201",
+      "source": "09-task-schedule.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 pause API 失败→Browser UI",
+      "owner": "TASK-038",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-actions.spec.ts --grep 'E-FE-01'"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-202",
+      "source": "09-task-schedule.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Task detail API→SideSheet",
+      "owner": "TASK-032",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-detail.spec.ts --grep 'E-FE-02'"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-203",
+      "source": "09-task-schedule.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 tasks API→详情 UI",
+      "owner": "TASK-032",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-detail.spec.ts --grep 'E-FE-03'"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-101",
+      "source": "09-task-schedule.backend.design.md#3.3 数据设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Alembic→真实 PostgreSQL→SQLAlchemy ORM",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_task_schema_parity.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-101",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "461fc4025c914b2f8e88e77007e80660",
+        "executed_at": "2026-09-21T12:46:47.959919+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-101",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "461fc4025c914b2f8e88e77007e80660",
+          "executed_at": "2026-09-21T12:46:47.959919+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-102",
+      "source": "09-task-schedule.backend.design.md#3.3 数据设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "迁移→真实 PostgreSQL partial unique",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_submission_schema_parity.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-103",
+      "source": "09-task-schedule.backend.design.md#3.3.5 状态枚举",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "Pydantic 公共契约与序列化",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_task_contracts.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-104",
+      "source": "09-task-schedule.backend.design.md#3.3.4 `task.task_event`",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "并发 PG Session→Task 行锁→TaskEvent",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_task_events.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-105",
+      "source": "09-task-schedule.backend.design.md#3.3.2 `task.delivery_route`",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PG delivery_route partial unique",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_delivery_routes.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-106",
+      "source": "09-task-schedule.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 HTTP handler→PG 幂等记录/事务",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_submission_idempotency.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-107",
+      "source": "09-task-schedule.backend.design.md#API-01 Internal 创建 Task",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Worker Task HTTP→PG Task/Submission/Event",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_task_service.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-108",
+      "source": "09-task-schedule.backend.design.md#API-03 Internal Task 列表",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Worker HTTP→PG Task/Event/children",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_task_queries.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-109",
+      "source": "09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Schedule HTTP→PG→真实时区计算",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_schedule_writes.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-110",
+      "source": "09-task-schedule.backend.design.md#API-06 Internal Schedule 列表",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "HTTP→ScheduleService→PG CAS",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_schedule_queries_actions.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-111",
+      "source": "09-task-schedule.backend.design.md#3.2.1 执行主流程",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "双 Worker→真实 PG 行锁/CAS",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_worker_leases.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-112",
+      "source": "09-task-schedule.backend.design.md#3.3.3 `task.task_execution`",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_task_executor.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-113",
+      "source": "09-task-schedule.backend.design.md#3.2.1 执行主流程",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Skill 执行结果→Worker→PG CAS",
+      "owner": "TASK-013",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_worker_outcomes.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-114",
+      "source": "09-task-schedule.backend.design.md#API-05 Internal 取消 Task",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "取消 HTTP→PG 标记/真实 Redis hint→运行 Worker",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_task_cancel.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-115",
+      "source": "09-task-schedule.backend.design.md#3.2.3 Schedule 触发、多副本与 Misfire",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "双 Scheduler→真实 Console resolve→PG grants/Binding/Task",
+      "owner": "TASK-015",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_schedule_trigger.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-116",
+      "source": "09-task-schedule.backend.design.md#3.2.3 Schedule 触发、多副本与 Misfire",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Scheduler→真实 PG→审计记录/指标采集",
+      "owner": "TASK-016",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_scheduler_misfire.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-117",
+      "source": "09-task-schedule.backend.design.md#3.2.2 Task 状态机",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Scheduler→PG→Gateway HTTP/Redis",
+      "owner": "TASK-017",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_task_deadline.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-118",
+      "source": "09-task-schedule.backend.design.md#3.2.4 Fan-out / Fan-in",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 BATCH executor→PG Parent/Child/unique",
+      "owner": "TASK-018",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_batch_fanout.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-119",
+      "source": "09-task-schedule.backend.design.md#3.2.4 Fan-out / Fan-in",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "并发 Child 终态事务→真实 PG→Parent CAS",
+      "owner": "TASK-019",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_batch_fanin.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-120",
+      "source": "09-task-schedule.backend.design.md#3.2.5 Final Delivery",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "双 DeliveryLoop→真实 PG→Gateway HTTP",
+      "owner": "TASK-020",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_delivery.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-121",
+      "source": "09-task-schedule.backend.design.md#3.2.5 Final Delivery",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Worker HTTP→Gateway→Redis→本地渠道 HTTP 探针",
+      "owner": "TASK-021",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_delivery_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-122",
+      "source": "09-task-schedule.backend.design.md#3.1 技术选型与关键决策",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 FastAPI lifespan→后台循环→PG/Redis/NFS probes",
+      "owner": "TASK-022",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_worker_lifecycle.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-123",
+      "source": "09-task-schedule.backend.design.md#API-01 Internal 创建 Task",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Runtime Tool→Worker HTTP→PG",
+      "owner": "TASK-023",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_task_handoff.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-124",
+      "source": "09-task-schedule.backend.design.md#API-17 Worker Admin API",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实内部 HTTP→Admin guard→TaskService→PG",
+      "owner": "TASK-024",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_admin_tasks.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-125",
+      "source": "09-task-schedule.backend.design.md#API-17 Worker Admin API",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实内部 HTTP→Admin guard→ScheduleService→PG",
+      "owner": "TASK-025",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_worker/test_admin_schedules.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-126",
+      "source": "09-task-schedule.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console HTTP client→真实 Worker HTTP",
+      "owner": "TASK-026",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_tasks/test_worker_client.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-127",
+      "source": "09-task-schedule.backend.design.md#API-09 任务列表（Console）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Console HTTP/session→Worker HTTP→PG",
+      "owner": "TASK-027",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_tasks/test_tasks_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-128",
+      "source": "09-task-schedule.backend.design.md#API-12 Schedule 列表（Console）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Console HTTP→Worker Admin→PG",
+      "owner": "TASK-028",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_tasks/test_schedules_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-129",
+      "source": "09-task-schedule.frontend.design.md#3.5 状态与数据流",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "TypeScript services 编译→真实 Console HTTP 契约",
+      "owner": "TASK-029",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_task_schedule_services.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-130",
+      "source": "09-task-schedule.frontend.design.md#3.1 技术选型",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "两种 locale key 集合与错误目录",
+      "owner": "TASK-030",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_task_schedule_i18n.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-131",
+      "source": "09-task-schedule.frontend.design.md#3.2 页面与路由结构",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Chrome→Console/Worker HTTP→PG→列表渲染",
+      "owner": "TASK-031",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-list.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-132",
+      "source": "09-task-schedule.frontend.design.md#3.3 组件设计",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Browser→Task detail API→PG→SideSheet",
+      "owner": "TASK-032",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-detail.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-133",
+      "source": "09-task-schedule.frontend.design.md#3.3 组件设计",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Worker 事件→PG→HTTP→浏览器 Timeline",
+      "owner": "TASK-033",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-timeline.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-134",
+      "source": "09-task-schedule.frontend.design.md#3.3.1 每个按钮/操作的设计",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Chrome→Console cancel→Worker/PG→详情刷新",
+      "owner": "TASK-034",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-cancel.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-135",
+      "source": "09-task-schedule.frontend.design.md#3.2 页面与路由结构",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Chrome→Console schedules→Worker/PG",
+      "owner": "TASK-035",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-list.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-136",
+      "source": "09-task-schedule.frontend.design.md#3.3 组件设计",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Chrome→Schedule detail HTTP→PG→SideSheet",
+      "owner": "TASK-036",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-detail.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-137",
+      "source": "09-task-schedule.frontend.design.md#3.3 组件设计",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Browser→schedules API→tasks API→PG→详情",
+      "owner": "TASK-037",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-history.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-138",
+      "source": "09-task-schedule.frontend.design.md#3.3.1 每个按钮/操作的设计",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Chrome→管理 API→Worker PG→UI",
+      "owner": "TASK-038",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-actions.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-139",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实服务进程/PG/Redis/NFS 挂载健康探针",
+      "owner": "TASK-039",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/task_schedule/test_environment.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-140",
+      "source": "09-task-schedule.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Chrome→静态 build→生产 Console 路由→Worker/PG",
+      "owner": "TASK-040",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/environment.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-141",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime HTTP→Worker HTTP→真实 PG/Redis/NFS→Skill/渠道探针",
+      "owner": "TASK-041",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/task_schedule/test_execution.py",
+        "tests/acceptance/task_schedule/test_recovery.py",
+        "tests/acceptance/task_schedule/test_idempotency.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-142",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "双 Scheduler→真实 Console resolve/grants/Artifact→PG→Worker",
+      "owner": "TASK-042",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/task_schedule/test_schedules.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-143",
+      "source": "09-task-schedule.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Worker→PG Parent/Child→Gateway HTTP→真实 Redis→渠道 HTTP 探针",
+      "owner": "TASK-043",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/task_schedule/test_batch.py",
+        "tests/acceptance/task_schedule/test_delivery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-144",
+      "source": "09-task-schedule.backend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Chrome/X-Locale→Console/Worker HTTP→PG timestamptz→UI",
+      "owner": "TASK-044",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/locale-time.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-201",
+      "source": "09-task-schedule.backend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime HTTP→Worker HTTP→真实 PG/Redis/NFS→Skill/渠道探针",
+      "owner": "TASK-041",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_recovery.py tests/acceptance/task_schedule/test_idempotency.py && uv run pytest -q tests/console_skill/test_import_idempotency.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-202",
+      "source": "09-task-schedule.backend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime HTTP→Worker HTTP→真实 PG/Redis/NFS→Skill/渠道探针",
+      "owner": "TASK-041",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_recovery.py tests/acceptance/task_schedule/test_idempotency.py && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-203",
+      "source": "09-task-schedule.backend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Chrome/X-Locale→Console/Worker HTTP→PG timestamptz→UI",
+      "owner": "TASK-044",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/locale-time.spec.ts' && bash -lc 'uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test'"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-204",
+      "source": "09-task-schedule.backend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime HTTP→Worker HTTP→真实 PG/Redis/NFS→Skill/渠道探针",
+      "owner": "TASK-041",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_recovery.py tests/acceptance/task_schedule/test_idempotency.py && uv run pytest -q tests/architecture"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-205",
+      "source": "09-task-schedule.backend.design.md#Spec Compliance Matrix",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Alembic→真实 PostgreSQL→SQLAlchemy ORM",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/agent_worker/test_task_schema_parity.py && uv run pytest -q tests -k schema_parity"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-205",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "461fc4025c914b2f8e88e77007e80660",
+        "executed_at": "2026-09-21T12:46:47.959919+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-205",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "461fc4025c914b2f8e88e77007e80660",
+          "executed_at": "2026-09-21T12:46:47.959919+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-206",
+      "source": "09-task-schedule.frontend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Chrome/X-Locale→Console/Worker HTTP→PG timestamptz→UI",
+      "owner": "TASK-044",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/locale-time.spec.ts' && bash -lc 'uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build'"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-207",
+      "source": "09-task-schedule.frontend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Chrome/X-Locale→Console/Worker HTTP→PG timestamptz→UI",
+      "owner": "TASK-044",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/locale-time.spec.ts' && bash -lc 'uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck'"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-208",
+      "source": "09-task-schedule.frontend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Chrome/X-Locale→Console/Worker HTTP→PG timestamptz→UI",
+      "owner": "TASK-044",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/locale-time.spec.ts' && bash -lc 'uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py'"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-209",
+      "source": "09-task-schedule.backend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Worker→PG Parent/Child→Gateway HTTP→真实 Redis→渠道 HTTP 探针",
+      "owner": "TASK-043",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/task_schedule/test_batch.py tests/acceptance/task_schedule/test_delivery.py && uv run pytest -q tests/console_channel tests/gateway"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-210",
+      "source": "09-task-schedule.backend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime HTTP→Worker HTTP→真实 PG/Redis/NFS→Skill/渠道探针",
+      "owner": "TASK-041",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_recovery.py tests/acceptance/task_schedule/test_idempotency.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-211",
+      "source": "09-task-schedule.backend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime HTTP→Worker HTTP→真实 PG/Redis/NFS→Skill/渠道探针",
+      "owner": "TASK-041",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_recovery.py tests/acceptance/task_schedule/test_idempotency.py && uv run pytest -q tests/test_skill_artifact_cache.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-212",
+      "source": "09-task-schedule.backend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "双 Scheduler→真实 Console resolve/grants/Artifact→PG→Worker",
+      "owner": "TASK-042",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/task_schedule/test_schedules.py && bash -lc 'uv run pytest -q tests/agent_runtime -k \"executor or resolve\"'"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-213",
+      "source": "09-task-schedule.frontend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Chrome/X-Locale→Console/Worker HTTP→PG timestamptz→UI",
+      "owner": "TASK-044",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/locale-time.spec.ts' && bash -lc 'uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity'"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-214",
+      "source": "09-task-schedule.frontend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Browser→schedules API→tasks API→PG→详情",
+      "owner": "TASK-037",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-history.spec.ts' && bash -lc 'uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck'"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-215",
+      "source": "09-task-schedule.backend.design.md#Spec Compliance Matrix",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime HTTP→Worker HTTP→真实 PG/Redis/NFS→Skill/渠道探针",
+      "owner": "TASK-041",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_recovery.py tests/acceptance/task_schedule/test_idempotency.py && uv run pytest -q tests/agent_worker tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_recovery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    }
+  ]
+}

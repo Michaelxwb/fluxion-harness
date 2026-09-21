@@ -1,7 +1,7 @@
 version: 1
 task: 后台任务、定时任务与投递
 enforcement: required
-updated_at: '2026-09-20T04:35:38.280602+00:00'
+updated_at: '2026-09-21T14:55:21.619534+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -26,9 +26,9 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: 6eac5fc972b31d0f88a0eb97d37fb6f2edb610dec90bb7dad9f102e7a96b03fb
+    file_sha256: dcd60f67780352116becacd4b2e8e34f3f179509e7e3c8045c1683b7814ddfdc
     metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
-    rules_sha256: b2e38d504c280a9734a6c6fefeb2b5f86a4379aa8dbf3c868edd8b544fbe60f9
+    rules_sha256: 03e8e1e883b8e1bb81f74c27ed22bce9b1cf5512d4775ee5f93af5acd06f42c7
   selected_by: agent
   reason: Agent Harness 通用平台规则：api
   enforcement: required
@@ -40,29 +40,62 @@ bindings:
   rules:
   - ref: RULE-api-002
     summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
-      `(tenant_id, idempotency_key, endpoint)` 记录首次响应；请求指纹 = endpoint|关键参数|内容 checksum；同
-      key 同指纹重放返回首次结果（200 原响应），同 key 不同指纹返回 `COMMON_CONFLICT`。
-    text_sha256: aa78d9fb6c38b64c15bb312974e019de2044461d3fc2c9ae84969d84022b445a
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，含 endpoint、tenant/actor/资源与关键参数（Runtime 另含 run_id/message_id）；同
+      key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key 不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由
+      partial unique 兜底，落败者读取首次提交结果。
+    text_sha256: d39a45cb02db1de6f4d65c5ea3ee821a976855d8f07316e4cfa5798e98fda87e
     enforcement: required
     verifier_ref: harness-api#RULE-api-002
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-api-002
+          artifact_sha256: 5e7e6749e30d9be75b0ef62d269d92599a3ddd21692d56dfe7e0d86d5d34b3e7
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-041: 验收 Runtime→Worker 执行及恢复全链路'
+          item_id: TASK-041
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-09-21T12:46:49.975507+00:00'
+          status: verified
+          rule_text_sha256: d39a45cb02db1de6f4d65c5ea3ee821a976855d8f07316e4cfa5798e98fda87e
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: 00b22925ccf1d353db34e50d741d864dfcab61ce2ef6b75991685d10fa70da40
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 1325a0f72cdd42f97f3c8930fd6c71dffe58bb38021eb829f2a3131a98ef5332
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.04s
+
+              '
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
@@ -80,66 +113,52 @@ bindings:
         - artifact: 09-task-schedule.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-api-001
-          artifact_sha256: d54426b825244152cb102685bc9d421a8ca712d83649b84e2bba4d33dffab633
+          artifact_sha256: 5e7e6749e30d9be75b0ef62d269d92599a3ddd21692d56dfe7e0d86d5d34b3e7
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      code:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      review:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-- spec_id: harness-test
-  path: test/harness-test.md
-  status: active
-  hashes:
-    file_sha256: 75cc9f6cb1970020eb5f82637aac0ff541161ab06470c86104014b4b43b5a9ba
-    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
-    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
-  selected_by: agent
-  reason: Agent Harness 通用平台规则：test
-  enforcement: required
-  stages:
-  - design
-  - plan
-  - code
-  - review
-  rules:
-  - ref: RULE-test-001
-    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
-      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
-    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
-    enforcement: required
-    verifier_ref: harness-test#RULE-test-001
-    stage_status:
-      design:
         status: applied
         refs:
-        - artifact: 09-task-schedule.backend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-test-001
-          artifact_sha256: d54426b825244152cb102685bc9d421a8ca712d83649b84e2bba4d33dffab633
-        decision: null
-        evidence: []
-      plan:
-        status: pending
-        refs: []
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-041: 验收 Runtime→Worker 执行及恢复全链路'
+          item_id: TASK-041
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-09-21T12:46:50.924682+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: 5d4533958bae7fce360497c8b8584718abc0c4045a6ae57cfbc97a8349928b4f
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 2d1dd57b9af59ca5c95b4d92744f762cb41cf24d59dfec423a83ac2a91143bcd
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 0.51s\n"
       review:
         status: pending
         refs: []
@@ -174,19 +193,46 @@ bindings:
         - artifact: 09-task-schedule.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-arch-001
-          artifact_sha256: d54426b825244152cb102685bc9d421a8ca712d83649b84e2bba4d33dffab633
+          artifact_sha256: 5e7e6749e30d9be75b0ef62d269d92599a3ddd21692d56dfe7e0d86d5d34b3e7
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-041: 验收 Runtime→Worker 执行及恢复全链路'
+          item_id: TASK-041
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-09-21T12:46:51.315417+00:00'
+          status: verified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: 4444ddb6a66aba50c787b21f09185cc3ff9105a89ee85438af2e414ad21d9306
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: a120868bd3fc09d509fffc59557d83c4a1b7c4ac7ff8bd6cf4e1a6bd1c89bd3b
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.06s
+
+              '
       review:
         status: pending
         refs: []
@@ -222,66 +268,52 @@ bindings:
         - artifact: 09-task-schedule.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-data-001
-          artifact_sha256: d54426b825244152cb102685bc9d421a8ca712d83649b84e2bba4d33dffab633
+          artifact_sha256: 5e7e6749e30d9be75b0ef62d269d92599a3ddd21692d56dfe7e0d86d5d34b3e7
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      code:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      review:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-- spec_id: harness-ui
-  path: ui/harness-ui.md
-  status: active
-  hashes:
-    file_sha256: c762895c4a5679287b2c4790178b5dcda135a7a03802c9e4baddac0adda3f713
-    metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
-    rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
-  selected_by: agent
-  reason: Agent Harness 通用平台规则：ui
-  enforcement: required
-  stages:
-  - design
-  - plan
-  - code
-  - review
-  rules:
-  - ref: RULE-ui-001
-    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
-      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计。
-    text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
-    enforcement: required
-    verifier_ref: harness-ui#RULE-ui-001
-    stage_status:
-      design:
         status: applied
         refs:
-        - artifact: 09-task-schedule.frontend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-ui-001
-          artifact_sha256: e2b3d7ef360b55ff435d9a0ea1444aacefc03eefbf49cc1437f20955d5eb612a
-        decision: null
-        evidence: []
-      plan:
-        status: pending
-        refs: []
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-001: 补齐 Task Schema 约束与迁移一致性'
+          item_id: TASK-001
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-09-21T12:46:56.463447+00:00'
+          status: verified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: aee0eaf81c182f4582583a6782fb062b35f67051c126cfeb75dec2f256a0d39a
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests
+            - -k
+            - schema_parity
+            exit_code: 0
+            stdout_sha256: 668f58b75624daa6ab5fa47aaab0b3c2162de6dff2d07413fb0f61e9370e6bbf
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: ".............................                               \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              29 passed, 920 deselected, 1 warning in 4.25s\n"
       review:
         status: pending
         refs: []
@@ -316,19 +348,51 @@ bindings:
         - artifact: 09-task-schedule.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-front-001
-          artifact_sha256: e2b3d7ef360b55ff435d9a0ea1444aacefc03eefbf49cc1437f20955d5eb612a
+          artifact_sha256: b3d5e5516f57b2220d9e172cc3ec7ee5f00bafb00519d214128f023dbbe2f260
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-044: 完成跨语言、时间与全部验收收口'
+          item_id: TASK-044
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-09-21T12:46:58.418441+00:00'
+          status: verified
+          rule_text_sha256: 440c5905981dfbff9549ae224b77391ff6213fea051e1a0b5914099cb0db15fc
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: 12d428d729c01ecc4318f4c555681073b2e13e0648aad068cb4b7711d2b40bad
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: a966dbc80bc23b016cd278fad3147f82c20f3354b3afdc64b92607a5ff2c6b98
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: 'frontend api usage check OK
+
+              i18n keys OK: 537
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
       review:
         status: pending
         refs: []
@@ -363,19 +427,47 @@ bindings:
         - artifact: 09-task-schedule.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-i18n-001
-          artifact_sha256: e2b3d7ef360b55ff435d9a0ea1444aacefc03eefbf49cc1437f20955d5eb612a
+          artifact_sha256: b3d5e5516f57b2220d9e172cc3ec7ee5f00bafb00519d214128f023dbbe2f260
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-044: 完成跨语言、时间与全部验收收口'
+          item_id: TASK-044
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-09-21T12:46:58.799301+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: 20f01b4be2861a9a423320e6a39bf30c27cca8ada3b0d96e80bdbc520326621b
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: 630516b1ab385e6eee5b5dfc33dd477785d1c196573b1cf230477091921328b0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 0.01s
+
+              i18n keys OK: 537
+
+              '
       review:
         status: pending
         refs: []
@@ -410,19 +502,55 @@ bindings:
         - artifact: 09-task-schedule.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-im-001
-          artifact_sha256: d54426b825244152cb102685bc9d421a8ca712d83649b84e2bba4d33dffab633
+          artifact_sha256: 5e7e6749e30d9be75b0ef62d269d92599a3ddd21692d56dfe7e0d86d5d34b3e7
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-043: 验收批量聚合和最终投递'
+          item_id: TASK-043
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-09-21T12:47:03.288345+00:00'
+          status: verified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: 4604af8a2acfbb1211347242d829f48a0ac7503ed2db0abb93df800eab8fb7e4
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_channel
+            - tests/gateway
+            exit_code: 0
+            stdout_sha256: 95e04d75dba084f0c9850e7e62dc09ebd5fb20af5b6db6ea7fabef4aaca447df
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "........................................................................\
+              \ [ 48%]\n........................................................................\
+              \ [ 96%]\n......                                                   \
+              \                [100%]\n=============================== warnings summary\
+              \ ===============================\ntests/gateway/test_wecom_sdk_wiring.py::test_build_wecom_sdk_client_constructs_port_without_connecting\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/aibot/ws.py:28:\
+              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
+              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_wecom_sdk_wiring.py::test_build_wecom_sdk_client_constructs_port_without_connecting\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/websockets/legacy/__init__.py:6:\
+              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
+              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
+              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              150 passed, 2 warnings in 3.05s\n"
       review:
         status: pending
         refs: []
@@ -432,8 +560,8 @@ bindings:
   path: secret/harness-secret.md
   status: active
   hashes:
-    file_sha256: 02042d172b287f41143df169d1c8309ff571425f05541d577b5463c74596c1aa
-    metadata_sha256: 6eb93990def2057725626f290065551208a4bd3aee9121a753b5a49b32d05d09
+    file_sha256: 9aae32302b9f6c5bd1170313106bd73a656c6bb3a0cd4206da496405abde1eda
+    metadata_sha256: af4b34f2fb0332b6cfa359e3771ee61db87085d03bf7bef36e0c5628b1150ffb
     rules_sha256: bfad8617c95199b82ae1cebdbe3aaf0a1fdc0ee8fd0f39205f1d93a9a30201d3
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-secret
@@ -458,23 +586,55 @@ bindings:
         - artifact: 09-task-schedule.backend.design.md
           section_id: design
           item_id: design
-          artifact_sha256: d54426b825244152cb102685bc9d421a8ca712d83649b84e2bba4d33dffab633
+          artifact_sha256: 5e7e6749e30d9be75b0ef62d269d92599a3ddd21692d56dfe7e0d86d5d34b3e7
         - artifact: 09-task-schedule.frontend.design.md
           section_id: design
           item_id: design
-          artifact_sha256: e2b3d7ef360b55ff435d9a0ea1444aacefc03eefbf49cc1437f20955d5eb612a
+          artifact_sha256: b3d5e5516f57b2220d9e172cc3ec7ee5f00bafb00519d214128f023dbbe2f260
+        - artifact: 09-task-schedule.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-secret-001
+          artifact_sha256: 5e7e6749e30d9be75b0ef62d269d92599a3ddd21692d56dfe7e0d86d5d34b3e7
         decision: null
         evidence: []
       plan:
-        status: stale
-        refs: []
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-041: 验收 Runtime→Worker 执行及恢复全链路'
+          item_id: TASK-041
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
-        status: stale
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-09-21T12:47:03.974264+00:00'
+          status: verified
+          rule_text_sha256: eb4cdd0b7fa4d7e182cb84beca0488da13386632d61841b12d39045cda60015b
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: 75f435fe57be29844e8464ccc3fd83da0ed8ab4e77dc6d89b2a1a7b8feef1f44
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 2d20cd9d667e24753fb843a626c438bb02e14ce054a1291944fcf0e773228ff3
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............                                                             [100%]
+
+              12 passed in 0.27s
+
+              '
       review:
         status: stale
         refs: []
@@ -507,24 +667,51 @@ bindings:
     verifier_ref: harness-skill#RULE-skill-001
     stage_status:
       design:
-        status: stale
+        status: applied
         refs:
         - artifact: 09-task-schedule.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-skill-001
-          artifact_sha256: d54426b825244152cb102685bc9d421a8ca712d83649b84e2bba4d33dffab633
+          artifact_sha256: 5e7e6749e30d9be75b0ef62d269d92599a3ddd21692d56dfe7e0d86d5d34b3e7
         decision: null
         evidence: []
       plan:
-        status: stale
-        refs: []
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-041: 验收 Runtime→Worker 执行及恢复全链路'
+          item_id: TASK-041
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
-        status: stale
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-09-21T12:47:04.311906+00:00'
+          status: verified
+          rule_text_sha256: efdf9e292f2ca509cc2139d1e57978d17ab8fd4467fba7ccd5d72a77db6aaeb2
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: 2abdec2fae9882af0417f3735d2c6bc36135d9b00ff62182b9485603d8168ac2
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_skill_artifact_cache.py
+            exit_code: 0
+            stdout_sha256: 99cef98de12a8b8a90abbcb2033d076bfc563ea7951d4da90263da27288d16f6
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.02s
+
+              '
       review:
         status: stale
         refs: []
@@ -559,19 +746,157 @@ bindings:
         - artifact: 09-task-schedule.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: d54426b825244152cb102685bc9d421a8ca712d83649b84e2bba4d33dffab633
+          artifact_sha256: 5e7e6749e30d9be75b0ef62d269d92599a3ddd21692d56dfe7e0d86d5d34b3e7
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-042: 验收调度授权、Snapshot 与多副本竞态'
+          item_id: TASK-042
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-09-21T12:47:05.719254+00:00'
+          status: verified
+          rule_text_sha256: bed55091b1673e3c29c216171a74d6564324334a61fd657fe075516056e3f271
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: f4aed1cfb83a927d54925da0e7ea29c8b37e34d1eac7b8fb99bca678d4216289
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 21a359272e22c8563d9cbdaa28c33d0cf9a33238b61a53cb52784454dc1a31b9
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..................                                                       [100%]
+
+              18 passed, 107 deselected in 0.59s
+
+              '
+      review:
         status: pending
         refs: []
         decision: null
         evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 9dc5c763fbeb595d6e43774f55957c30a6c68f7626e6e1bda885e9be96ea7045
+    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：test
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: 5e7e6749e30d9be75b0ef62d269d92599a3ddd21692d56dfe7e0d86d5d34b3e7
+        - artifact: 09-task-schedule.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: b3d5e5516f57b2220d9e172cc3ec7ee5f00bafb00519d214128f023dbbe2f260
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-044: 完成跨语言、时间与全部验收收口'
+          item_id: TASK-044
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-09-21T12:47:38.632568+00:00'
+          status: verified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: a5b5acf423e5fa04313b21e8f7afe72a1a51081ec4ddada758880bd3eef59f26
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend
+              run build && npm --prefix e2e test
+            exit_code: 0
+            stdout_sha256: a30b454e4cc4448c8b23dd883df3b68b9a90543a6d3929cb5e9aab6748f9eb4c
+            stderr_sha256: 87daa49c76902881c100917c0eac0b059807aec4705bd0dc4558be720ac6980c
+            output: "rnings.html\n66 passed, 1 warning in 19.80s\n\n> muad-console-web@0.1.0\
+              \ build\n> npm run typecheck && vite build\n\n\n> muad-console-web@0.1.0\
+              \ typecheck\n> tsc --noEmit\n\nvite v5.4.21 building for production...\n\
+              transforming...\n✓ 3409 modules transformed.\nrendering chunks...\n\
+              computing gzip size...\ndist/index.html                     0.44 kB\
+              \ │ gzip:   0.30 kB\ndist/assets/index-BSekqaKR.css    708.82 kB │ gzip:\
+              \  82.22 kB\ndist/assets/index-DIhOiAN5.js   1,612.16 kB │ gzip: 457.75\
+              \ kB\n✓ built in 2.79s\n\n> fluxion-harness-e2e@0.1.0 test\n> playwright\
+              \ test\n\n\nRunning 4 tests using 1 worker\n\n  ✓  1 tests/foundation.spec.ts:17:1\
+              \ › S-03 切到 English 后触发错误时页面文案与后端 msg 同步为 en-US (967ms)\n  ✓  2 tests/foundation.spec.ts:36:1\
+              \ › S-12 切换模块路由时 Layout 不重建且菜单选中正确 (372ms)\n  ✓  3 tests/foundation.spec.ts:52:1\
+              \ › S-13 切换 English 后刷新语言保持且请求带 X-Locale=en-US (443ms)\n  ✓  4 tests/foundation.spec.ts:64:1\
+              \ › E-09 会话失效访问业务页跳转登录并保留 returnUrl，不渲染业务数据 (274ms)\n\n  4 passed (6.5s)\n\
+              [plugin:vite:reporter] [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter]\
+              \ [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n\n(!) Some\
+              \ chunks are larger than 500 kB after minification. Consider:\n- Using\
+              \ dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n\
+              [WebServer] INFO:     Started server process [43494]\n[WebServer] INFO:\
+              \     Waiting for application startup.\n[WebServer] INFO:     Application\
+              \ startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:4173\
+              \ (Press CTRL+C to quit)\n"
       review:
         status: pending
         refs: []
@@ -606,19 +931,151 @@ bindings:
         - artifact: 09-task-schedule.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-time-001
-          artifact_sha256: e2b3d7ef360b55ff435d9a0ea1444aacefc03eefbf49cc1437f20955d5eb612a
+          artifact_sha256: b3d5e5516f57b2220d9e172cc3ec7ee5f00bafb00519d214128f023dbbe2f260
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-044: 完成跨语言、时间与全部验收收口'
+          item_id: TASK-044
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-09-21T12:47:45.283876+00:00'
+          status: verified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: 78460a1a270d2f0443e785771d82405bb4ad524a844a080f2e3765d748934a83
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run
+              pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 365c341a86c4965a832e30c5e37a8a618d128080d325f3f62225ba0815078594
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed in 0.02s\n.............................\
+              \                                            [100%]\n===============================\
+              \ warnings summary ===============================\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              29 passed, 920 deselected, 1 warning in 5.03s\n"
+      review:
         status: pending
         refs: []
         decision: null
         evidence: []
+- spec_id: harness-ui
+  path: ui/harness-ui.md
+  status: active
+  hashes:
+    file_sha256: c762895c4a5679287b2c4790178b5dcda135a7a03802c9e4baddac0adda3f713
+    metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
+    rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：ui
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-001
+    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
+      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计。
+    text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+    enforcement: required
+    verifier_ref: harness-ui#RULE-ui-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-ui-001
+          artifact_sha256: b3d5e5516f57b2220d9e172cc3ec7ee5f00bafb00519d214128f023dbbe2f260
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-044: 完成跨语言、时间与全部验收收口'
+          item_id: TASK-044
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-09-21T12:47:50.711876+00:00'
+          status: verified
+          rule_text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: 6f104ee281971969353b9e6dee9e397d83fe16cf2f13b00969dc259fb6b914b7
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py
+              && npm --prefix apps/console-platform/frontend run build
+            exit_code: 0
+            stdout_sha256: 665aea1c6e96608081df17ef947affeb16a021df36ee183015d913b83def653c
+            stderr_sha256: c9393495d9a30256fe317635d53e3774b7dce32e68b1c2dff980ef75c9672e65
+            output: ".........                                                   \
+              \             [100%]\n9 passed in 0.02s\n\n> muad-console-web@0.1.0\
+              \ build\n> npm run typecheck && vite build\n\n\n> muad-console-web@0.1.0\
+              \ typecheck\n> tsc --noEmit\n\nvite v5.4.21 building for production...\n\
+              transforming...\n✓ 3409 modules transformed.\nrendering chunks...\n\
+              computing gzip size...\ndist/index.html                     0.44 kB\
+              \ │ gzip:   0.30 kB\ndist/assets/index-BSekqaKR.css    708.82 kB │ gzip:\
+              \  82.22 kB\ndist/assets/index-DIhOiAN5.js   1,612.16 kB │ gzip: 457.75\
+              \ kB\n✓ built in 2.77s\n[plugin:vite:reporter] [plugin vite:reporter]\
+              \ \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n[plugin:vite:reporter]\
+              \ [plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx,\
+              \ dynamic import will not move module into another chunk.\n\n\n(!) Some\
+              \ chunks are larger than 500 kB after minification. Consider:\n- Using\
+              \ dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n"
       review:
         status: pending
         refs: []
@@ -652,19 +1109,51 @@ bindings:
         - artifact: 09-task-schedule.frontend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-ui-detail-001
-          artifact_sha256: e2b3d7ef360b55ff435d9a0ea1444aacefc03eefbf49cc1437f20955d5eb612a
+          artifact_sha256: b3d5e5516f57b2220d9e172cc3ec7ee5f00bafb00519d214128f023dbbe2f260
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-037: 实现 Schedule 历史与 Task 详情跳转'
+          item_id: TASK-037
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-09-21T12:47:52.522290+00:00'
+          status: verified
+          rule_text_sha256: 8dcac2de2d48280e57007cf8a1fb4eb70be2741a2d4e2295bbe4252fdc6f60b1
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: c5d26c4dca6c17f242d58ec5af8e9ed858d1df892fbd9ea33bad057b6d9acb80
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py &&
+              npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: f01d22dc8de68125759a3495b04cba3e5904af25f3dd545bd2e5c286284f528f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.........                                                                [100%]
+
+              9 passed in 0.01s
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
       review:
         status: pending
         refs: []
@@ -674,8 +1163,8 @@ bindings:
   path: worker/harness-worker.md
   status: active
   hashes:
-    file_sha256: 5a19eb49d8ab28fc0a88a956e8ff5f083a2f80dcde12649eb32b880018ce300b
-    metadata_sha256: 8b85ec12953984e8fbe1ea450f78cbb7fef4ac829b7cc7033420e130d72d3416
+    file_sha256: 3fbe476b18f07af4b547a8f72d15eb850b0ed683f7b5074bb5b8046bd038adb8
+    metadata_sha256: 18117fd6ae23ec4d08770492839ca6f317641587aed161bf2b45803906e5bf27
     rules_sha256: d02da9bc0d9b0d42a01d70601d4db156bfc331b9f1641de59c33d2c152e4cc74
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-worker
@@ -700,19 +1189,54 @@ bindings:
         - artifact: 09-task-schedule.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-worker-001
-          artifact_sha256: d54426b825244152cb102685bc9d421a8ca712d83649b84e2bba4d33dffab633
+          artifact_sha256: 5e7e6749e30d9be75b0ef62d269d92599a3ddd21692d56dfe7e0d86d5d34b3e7
+        - artifact: 09-task-schedule.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-worker-001
+          artifact_sha256: b3d5e5516f57b2220d9e172cc3ec7ee5f00bafb00519d214128f023dbbe2f260
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 09-task-schedule.md
+          section_id: 'TASK-041: 验收 Runtime→Worker 执行及恢复全链路'
+          item_id: TASK-041
+          artifact_sha256: 24750bb32312c55bc7a2cbe7bb1fc28906c9f118a8f900e5eeb38fa4fa304eed
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-09-21T12:47:56.982374+00:00'
+          status: verified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: 51133e77fef3bd31cc998021a45aae0abd8e7667fdf349b5df30daffa3e662bc
+          result_sha256: 4c0227ac85c22cb4a1ab0e4e0caeda74b7769275116fb2537f90b13238b2a77b
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime
+            - --ignore=tests/agent_runtime/test_runner_executor.py
+            exit_code: 0
+            stdout_sha256: 950b365e98acddfdf1fc9532959121e77ed20bfc65699dfc4c63aa3154a1f6a0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 61%]
+
+              ..............................................                           [100%]
+
+              118 passed in 3.47s
+
+              '
       review:
         status: pending
         refs: []

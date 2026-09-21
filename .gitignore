@@ -23,5 +23,6 @@ dist/
 .code-flow/.active-task.json
 .code-flow/.task-projection-state.json
 .code-flow/.active-task.lock
+.code-flow/specs/_session/
 e2e/test-results/
 e2e/playwright-report/
