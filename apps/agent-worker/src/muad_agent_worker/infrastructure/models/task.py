@@ -248,7 +248,9 @@ class TaskEvent(StandardColumnsMixin, Base):
     )
 
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
-    task_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("task.task_execution.id"), nullable=False
+    )
     seq: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
     event_type: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     payload_json: Mapped[dict[str, Any]] = mapped_column(

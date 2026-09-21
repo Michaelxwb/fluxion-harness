@@ -2,8 +2,8 @@
 
 - **Source**: .code-flow/tasks/2026-09-17/09-task-schedule/（合并前后端 design）
 - **Created**: 2026-09-20
-- **Updated**: 2026-09-20
-- **Plan-State**: review-draft / SPEC_WORKFLOW_BLOCKED（见 Design Corrections；尚未写入正式任务目录或绑定 Plan）
+- **Updated**: 2026-09-21
+- **Plan-State**: plan-bound（Design Gate pass / Plan Gate pass，2026-09-21；N-01..N-06 已闭合，见 Design Corrections）
 
 ## Proposal
 
@@ -13,16 +13,16 @@
 
 ## Design Corrections
 
-本节是待确认的设计修订建议，不视为已完成的 Design Gate 或用户确认；正式 Plan 写入前须同步两份 design、绑定并重新检查 Gate。
+2026-09-21 已确认并同步两份 design；原 N-01..N-06 全部闭合，Design Gate 可重检。
 
-- **#NOTES N-01 / Spec 漂移**：Context refresh 实测新增 RULE-api-002、RULE-skill-001 变为 stale；Design Gate 当前 block。两份 Matrix 的旧 harness-platform Rule 前缀要改为当前 Context 的真实 spec_id。按既有 Rule 新增创建 POST Header 幂等，保持 body 幂等键兼容且两者同时出现时必须一致；Schedule 新增 Header 重放契约。补 Worker 消费端的不可变 Artifact/cache/清理回归说明。
-- **#NOTES N-02 / 旧密钥设计**：后端 §2.3.2、RULE-04、§3.5、Matrix 的“SecretRef/密钥不进任何 DB”已与当前 required Spec 冲突。应改为“密钥仅在各 Owner 表存储，按主键经既有凭据边界读取；task 表、Snapshot、事件、日志、审计、LLM、IM 和公开 API 均不得携带秘密”。不创建新的 SecretProvider。
-- **#NOTES N-03 / Worker verifier**：harness-worker 的 verifier_ref 存在，但元数据是 manual/project-owner；这些 PG/Redis 行为可自动化，不符合本技能仅允许外部不可自动化条件使用 manual 的约束。建议保留 Rule/ref/enforcement，将 verifier 改为 command：uv run pytest -q tests/agent_worker tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_recovery.py，timeout=1200。未修订前不能把自动测试冒充该 manual 的签字或宣称可 Start。
-- **#NOTES N-04 / ONCE misfire**：设计只规定成功创建 Task 后 COMPLETED，缺失错过触发后的状态。草案建议 PAUSED、completed_at=NULL、next_fire_at=NULL，记录 SKIP 审计与原因；恢复不得重新执行过期 ONCE。等待本轮答复或确认该建议。
-- **#NOTES N-05 / 截止时间过滤**：设计要求截止时间筛选，现有 start_time/end_time 作用于 create_time。草案建议独立 deadline_from/deadline_to，继续保留原创建时间参数；UTC 比较、起止边界包含端点。等待本轮答复或确认该建议。
-- **#NOTES N-06 / 投递故障边界**：SET NX 7d 必须处理发送失败与占位崩溃窗口，不能把仅占位视为已送达。补 E-05 的并发/发送失败/重启/Redis 故障断言；Redis 正常的重放保证去重，Redis 不可用或外部发送结果不确定时仅承诺 at-least-once，可能重复；不宣称外部渠道 exactly-once。
-- **接口完整性**：API-17 清单补 GET/DELETE /internal/admin/schedules/{schedule_id}，以承接既有 API-13/API-16；TaskEvent 同 schema FK 依当前数据 Rule 修正；Header 幂等补独立 submission 表而非改写 0002。
-- **新增验证覆盖**：将本计划 B-101..B-144 中相应边界并入 design 的验证说明；新增 API 幂等 E2E 映射到 B-141，前端硬编码/重复公共组件/N+1 风险映射到 B-130/B-131/S-FE-01/S-FE-03 与相关 Spec Rule。原 17 个 S/E 场景不删除、不降级。
+- **N-01 / Spec 漂移（已闭合）**：两份 Matrix 的 `harness-platform#` 前缀改为当前 Context 真实 spec_id（`harness-arch`/`harness-api`/`harness-data`/`harness-secret`/`harness-snapshot`/`harness-worker`/`harness-skill`/`harness-im`/`harness-test`/`harness-i18n`/`harness-ui`/`harness-ui-detail`/`harness-time`/`harness-frontend`）。新增 `harness-api#RULE-api-002` 覆盖：backend §3.3.8 `task.task_submission` + API-01/API-02 `Idempotency-Key` Header 契约，body `idempotency_key` 保持兼容且两者同时出现必须一致，Schedule 同样支持 Header 重放；指纹与表结构对齐既有 `runtime.run_submission`，独立增量 migration 不改写 0002。Worker 消费端不可变 Artifact/cache/清理回归已补入 backend Matrix `RULE-skill-001` 行。
+- **N-02 / 旧密钥设计（已闭合）**：已改按当前 required `harness-secret#RULE-secret-001`——密钥明文只存各 Owner 表并以主键引用，不再有 SecretRef/SecretProvider；本模块 task schema 各表、Snapshot、事件、日志、审计、LLM、IM 与公开 API 均不携带密钥，对外只回 `*_configured`。落点 backend §2.3.2 / §3.3.1 表说明 / §3.5 安全 / RULE-04 / Matrix。未创建新的 SecretProvider。
+- **N-03 / Worker verifier（已闭合，无需改动）**：实测 `harness-worker` 的 verifier 已是 `type: command`（`uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py`，timeout 300），并非 manual/project-owner，原记录前提已失效。本模块不修改平台共享 Spec 的 verifier。
+- **N-04 / ONCE misfire（已闭合）**：新增 Schedule 终态 `MISSED`——ONCE 错过触发时 `status=MISSED`、`completed_at=NULL`、`next_fire_at=NULL`，记 SKIP 审计与原因，不补发、不可恢复（需重新创建）。未沿用 `PAUSED`：resume 契约定义为「CAS 后按当前时间重算 next_fire_at」，ONCE 无 cron 可重算，会产生恢复语义歧义。落点 backend RULE-11 / §3.2.3 / §3.3.1 / §3.3.5 / API-07 / API-14 / API-15 / E-04，frontend FEAT-FE-03 / §3.2 / §3.3.1 / S-FE-04。
+- **N-05 / 截止时间过滤（已闭合）**：新增独立 `deadline_from`/`deadline_to` 作用于 `deadline_at`，保留 `start_time`/`end_time` 继续作用于 `create_time`；UTC 比较、起止含端点。落点 backend API-03 / API-09，frontend §3.5。
+- **N-06 / 投递故障边界（已闭合）**：明确 `SET NX` 成功仅为「占位」而非「已送达」，发送失败或占位后崩溃必须允许重试且不得置 SENT；Redis 正常时重放保证不重复发送，Redis 不可用或外部发送结果不确定时只承诺 at-least-once（可能重复），不宣称外部渠道 exactly-once。E-05 补并发/发送失败/重启/Redis 故障断言。落点 backend RULE-13 / §3.1 / §3.2.5 / §3.3.6 / RISK-02。
+- **接口完整性（已闭合）**：API-17 清单已补 `GET`/`DELETE /internal/admin/schedules/{schedule_id}`，承接既有 API-13/API-16；`task_event.task_id` 已按当前数据 Rule 声明同 schema 物理 FK；Header 幂等以独立 `task.task_submission` 增量 migration 承载，不改写 0002。
+- **新增验证覆盖（已闭合）**：新增设计场景 E-07（提交幂等，owner TASK-006）；原 17 个 S/E 场景不删除、不降级，现为 18 个。本计划 B-101..B-215 的补充边界并入 design 验证说明；API 幂等 E2E 另映射到 B-141，前端硬编码/重复公共组件/N+1 风险映射到 B-130/B-131/S-FE-01/S-FE-03 与相关 Spec Rule。
 
 ## Baseline and External Dependencies
 
@@ -84,7 +84,7 @@
 
 ## Acceptance Coverage
 
-> 原设计 17/17 场景（9 E2E、8 integration）均有唯一最终负责人；新增 44 个局部/补充边界；15/15 required Rule 均有唯一负责人。表中 planned 是计划状态，不代表 Design/Plan Gate 已通过。B-101..B-144 是计划补充 ID，未冒充原设计已有 ID。
+> 原设计 17/17 场景（9 E2E、8 integration）均有唯一最终负责人；本轮新增设计场景 E-07（提交幂等，integration），合计 18/18；新增 44 个局部/补充边界；15/15 required Rule 均有唯一负责人。表中 planned 是计划状态，不代表 Design/Plan Gate 已通过。B-101..B-215 是计划补充 ID，未冒充原设计已有 ID。
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 argv | cwd | timeout | manual_reason |
 |---|---|---|---|---|---|---|---|---|---|
@@ -95,9 +95,10 @@
 | E-01 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | 双 Worker→真实 PG lease/CAS→真实幂等 Skill 副作用 | TASK-011 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_worker_leases.py","-k","e01"] | . | 600 | |
 | E-02 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Scheduler→真实 Console resolve→PG grants/Binding | TASK-015 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_trigger.py","-k","e02"] | . | 600 | |
 | E-03 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | 独立 Scheduler→真实 PG→IM Gateway HTTP/Redis | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_deadline.py","-k","e03"] | . | 600 | |
-| E-04 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Scheduler→真实 PG→审计与指标采集 | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_scheduler_misfire.py","-k","e04"] | . | 600 | |
+| E-04 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Scheduler→真实 PG→审计/指标/终态 MISSED | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_scheduler_misfire.py","-k","e04"] | . | 600 | |
 | E-05 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Worker HTTP→真实 Gateway→Redis→渠道探针 | TASK-021 | planned | ["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","e05"] | . | 600 | |
 | E-06 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | 取消 API→真实 PG CAS→Worker 检查点 | TASK-014 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_cancel.py","-k","e06"] | . | 600 | |
+| E-07 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Worker HTTP→task.task_submission partial unique | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_submission_idempotency.py","-k","e07"] | . | 600 | |
 | S-201 | 09-task-schedule.frontend.design.md#2.4 验收条件 | E2E | Browser→schedules API→tasks API→真实 PG | TASK-037 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-history.spec.ts --grep 'S-FE-01'"] | . | 1200 | |
 | S-202 | 09-task-schedule.frontend.design.md#2.4 验收条件 | E2E | Browser→Console cancel API→真实 Worker/PG→UI | TASK-034 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-cancel.spec.ts --grep 'S-FE-02'"] | . | 1200 | |
 | S-203 | 09-task-schedule.frontend.design.md#2.4 验收条件 | E2E | Browser→tasks API→真实 PG→Task 列表/详情 | TASK-032 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-detail.spec.ts --grep 'S-FE-03'"] | . | 1200 | |
@@ -105,7 +106,7 @@
 | E-201 | 09-task-schedule.frontend.design.md#2.4 验收条件 | E2E | 真实 pause API 失败→Browser UI | TASK-038 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-actions.spec.ts --grep 'E-FE-01'"] | . | 1200 | |
 | E-202 | 09-task-schedule.frontend.design.md#2.4 验收条件 | integration | 真实 Task detail API→SideSheet | TASK-032 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-detail.spec.ts --grep 'E-FE-02'"] | . | 600 | |
 | E-203 | 09-task-schedule.frontend.design.md#2.4 验收条件 | integration | 真实 tasks API→详情 UI | TASK-032 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-detail.spec.ts --grep 'E-FE-03'"] | . | 600 | |
-| B-101 | 09-task-schedule.backend.design.md#3.3 数据设计 | integration | Alembic→真实 PostgreSQL→SQLAlchemy ORM | TASK-001 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_schema_parity.py"] | . | 600 | |
+| B-101 | 09-task-schedule.backend.design.md#3.3 数据设计 | integration | Alembic→真实 PostgreSQL→SQLAlchemy ORM | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_schema_parity.py"] | . | 600 | |
 | B-102 | 09-task-schedule.backend.design.md#3.3 数据设计 | integration | 迁移→真实 PostgreSQL partial unique | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_submission_schema_parity.py"] | . | 600 | |
 | B-103 | 09-task-schedule.backend.design.md#3.3.5 状态枚举 | unit | Pydantic 公共契约与序列化 | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_contracts.py"] | . | 600 | |
 | B-104 | 09-task-schedule.backend.design.md#3.3.4 `task.task_event` | integration | 并发 PG Session→Task 行锁→TaskEvent | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_events.py"] | . | 600 | |
@@ -153,7 +154,7 @@
 | B-202 | 09-task-schedule.backend.design.md#Spec Compliance Matrix | E2E | Runtime HTTP→Worker HTTP→真实 PG/Redis/NFS→Skill/渠道探针 | TASK-041 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_recovery.py tests/acceptance/task_schedule/test_idempotency.py && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"] | . | 1200 | |
 | B-203 | 09-task-schedule.backend.design.md#Spec Compliance Matrix | E2E | 真实 Chrome/X-Locale→Console/Worker HTTP→PG timestamptz→UI | TASK-044 | planned | ["bash","-lc","bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/locale-time.spec.ts' && bash -lc 'uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test'"] | . | 1200 | |
 | B-204 | 09-task-schedule.backend.design.md#Spec Compliance Matrix | E2E | Runtime HTTP→Worker HTTP→真实 PG/Redis/NFS→Skill/渠道探针 | TASK-041 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_recovery.py tests/acceptance/task_schedule/test_idempotency.py && uv run pytest -q tests/architecture"] | . | 1200 | |
-| B-205 | 09-task-schedule.backend.design.md#Spec Compliance Matrix | integration | Alembic→真实 PostgreSQL→SQLAlchemy ORM | TASK-001 | planned | ["bash","-lc","uv run pytest -q tests/agent_worker/test_task_schema_parity.py && uv run pytest -q tests -k schema_parity"] | . | 600 | |
+| B-205 | 09-task-schedule.backend.design.md#Spec Compliance Matrix | integration | Alembic→真实 PostgreSQL→SQLAlchemy ORM | TASK-001 | verified | ["bash","-lc","uv run pytest -q tests/agent_worker/test_task_schema_parity.py && uv run pytest -q tests -k schema_parity"] | . | 600 | |
 | B-206 | 09-task-schedule.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Chrome/X-Locale→Console/Worker HTTP→PG timestamptz→UI | TASK-044 | planned | ["bash","-lc","bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/locale-time.spec.ts' && bash -lc 'uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build'"] | . | 1200 | |
 | B-207 | 09-task-schedule.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Chrome/X-Locale→Console/Worker HTTP→PG timestamptz→UI | TASK-044 | planned | ["bash","-lc","bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/locale-time.spec.ts' && bash -lc 'uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck'"] | . | 1200 | |
 | B-208 | 09-task-schedule.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Chrome/X-Locale→Console/Worker HTTP→PG timestamptz→UI | TASK-044 | planned | ["bash","-lc","bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/locale-time.spec.ts' && bash -lc 'uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py'"] | . | 1200 | |
@@ -225,13 +226,13 @@
 
 ## TASK-001: 补齐 Task Schema 约束与迁移一致性
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: 
 - **Source**: 09-task-schedule.backend.design.md#3.3 数据设计, 09-task-schedule.backend.design.md#4. 部署与运维
 - **Spec-Refs**: harness-data#RULE-data-001
 - **Acceptance-Refs**: B-101, RULE-data-001, B-205
-- **Files**: `apps/agent-worker/src/muad_agent_worker/infrastructure/models/task.py`, `migrations/versions/<next>_task_schema_constraints.py`, `tests/agent_worker/test_task_schema_parity.py`
+- **Files**: `apps/agent-worker/src/muad_agent_worker/infrastructure/models/task.py`, `migrations/versions/0010_task_event_execution_fk.py`, `tests/agent_worker/test_task_schema_parity.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
@@ -240,35 +241,45 @@
 
 ### Checklist
 
-- [ ] [B-101][integration] 修改生产代码前先覆盖 Alembic→真实 PostgreSQL→SQLAlchemy ORM 并记录 RED：标准列、JSONB、同域 FK/跨域 UUID、两类幂等索引一致；deadline 非空默认 +24h；task_type 仅 SKILL/BATCH。
-- [ ] 实现：复用 0002 已建四表，补 task_event→task_execution 同 schema 物理外键并核对 partial unique、timestamptz、deadline 默认值；通过新 expand migration 修复，不重写已发布迁移。
-- [ ] [B-101][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] [RULE-data-001][integration] verifier_ref=`harness-data#RULE-data-001`；继承原 verifier `uv run pytest -q tests -k schema_parity`；结合本模块 B-101 的真实输入验证：四表及提交表标准列/JSONB/timestamptz/partial unique 一致，同 Owner 物理 FK，跨域只存 UUID。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_task_schema_parity.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-101][integration] 修改生产代码前先覆盖 Alembic→真实 PostgreSQL→SQLAlchemy ORM 并记录 RED：标准列、JSONB、同域 FK/跨域 UUID、两类幂等索引一致；deadline 非空默认 +24h；task_type 仅 SKILL/BATCH。
+- [x] 实现：复用 0002 已建四表，补 task_event→task_execution 同 schema 物理外键并核对 partial unique、timestamptz、deadline 默认值；通过新 expand migration 修复，不重写已发布迁移。
+- [x] [B-101][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] [RULE-data-001][integration] verifier_ref=`harness-data#RULE-data-001`；继承原 verifier `uv run pytest -q tests -k schema_parity`；结合本模块 B-101 的真实输入验证：四表及提交表标准列/JSONB/timestamptz/partial unique 一致，同 Owner 物理 FK，跨域只存 UUID。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_task_schema_parity.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-101 | integration | Alembic→真实 PostgreSQL→SQLAlchemy ORM | 标准列、JSONB、同域 FK/跨域 UUID、两类幂等索引一致；deadline 非空默认 +24h；task_type 仅 SKILL/BATCH | tests/agent_worker/test_task_schema_parity.py / B-101（planned） | uv run pytest -q tests/agent_worker/test_task_schema_parity.py | planned |
-| B-205 | integration | Alembic→真实 PostgreSQL→SQLAlchemy ORM | 四表及提交表标准列/JSONB/timestamptz/partial unique 一致，同 Owner 物理 FK，跨域只存 UUID | tests/agent_worker/test_task_schema_parity.py + 原 Spec verifier / RULE-data-001（planned） | bash -lc 'uv run pytest -q tests/agent_worker/test_task_schema_parity.py && uv run pytest -q tests -k schema_parity' | planned |
+| B-101 | integration | Alembic→真实 PostgreSQL→SQLAlchemy ORM | 标准列、JSONB、同域 FK/跨域 UUID、两类幂等索引一致；deadline 非空默认 +24h；task_type 仅 SKILL/BATCH | tests/agent_worker/test_task_schema_parity.py / B-101（verified） | uv run pytest -q tests/agent_worker/test_task_schema_parity.py | verified |
+| B-205 | integration | Alembic→真实 PostgreSQL→SQLAlchemy ORM | 四表及提交表标准列/JSONB/timestamptz/partial unique 一致，同 Owner 物理 FK，跨域只存 UUID | tests/agent_worker/test_task_schema_parity.py + 原 Spec verifier / RULE-data-001（verified） | bash -lc 'uv run pytest -q tests/agent_worker/test_task_schema_parity.py && uv run pytest -q tests -k schema_parity' | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-101 | FAIL: `task_event ORM foreign keys: set() != {('task_id', 'task.task_execution.id')}`（`test_same_schema_foreign_keys`） | PASS: 6 passed | `tests/agent_worker/test_task_schema_parity.py:246`（ORM/DB 双向 FK 核对）与 `test_task_execution_server_defaults` | 真实 PostgreSQL（`.env` DATABASE_URL）+ `inspect()` 反射 `task` schema；Alembic 0010 已 upgrade head | verified |
+| B-205 | FAIL: 同 B-101（同一用例，实现前） | PASS: `uv run pytest -q tests -k schema_parity` → 29 passed；`tests/agent_worker` 43 passed 无回归 | 同上；另覆盖 `harness-data#RULE-data-001` 原 verifier 命令 | 真实 PG；Alembic head=0010；`pg_constraint` 实测存在 `task_event_task_id_fkey` | verified |
+
+清理证据：迁移前 `task.task_event` 有 3 条 `test-*` 租户的悬空行（父 `task_execution` 已不存在），会让外键建立失败；已按 `tenant_id LIKE 'test-%' AND 父行不存在` 精确定位并删除，未触碰非 test 租户数据。迁移后全库孤儿计数为 0。
+
+> 范围说明：本任务只补 `task_event → task_execution` 同 schema 物理外键（0002 遗漏）。`deadline_at` 的 +24h 非空默认与 `task_type` 默认值经核对本就正确，未改动；`task_submission` 表属 TASK-002，不在本任务范围。
+- B-101: verified — automated command passed; run_id=461fc4025c914b2f8e88e77007e80660 (confirmed_by: runner)
+- B-205: verified — automated command passed; run_id=461fc4025c914b2f8e88e77007e80660 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-21] started
+- [2026-09-21] completed (done)
 ## TASK-002: 新增提交幂等记录的持久化模型
 
 - **Status**: draft
 - **Priority**: P0
 - **Depends**: TASK-001
-- **Source**: 09-task-schedule.backend.design.md#3.3 数据设计, 09-task-schedule.backend.design.md#3.4 接口设计
+- **Source**: 09-task-schedule.backend.design.md#3.3.8 `task.task_submission`, 09-task-schedule.backend.design.md#3.4 接口设计
 - **Spec-Refs**: 
 - **Acceptance-Refs**: B-102
 - **Files**: `apps/agent-worker/src/muad_agent_worker/infrastructure/models/task_submission.py`, `migrations/versions/<next>_task_submission.py`, `tests/agent_worker/test_submission_schema_parity.py`
@@ -314,12 +325,12 @@
 
 ### Description
 
-补查询、详情、更新、分页与取消响应类型；快照用已存在强类型契约或受限 JSON 类型，拒绝 CANCELLING、EXTERNAL、AGENT_STEP 与 misfire_policy。
+补查询、详情、更新、分页与取消响应类型；快照用已存在强类型契约或受限 JSON 类型，拒绝 CANCELLING、EXTERNAL、AGENT_STEP 与 misfire_policy；ScheduleStatus 收紧为 ACTIVE/PAUSED/COMPLETED/MISSED（MISSED 为 ONCE 错过触发的终态）。
 
 ### Checklist
 
-- [ ] [B-103][unit] 修改生产代码前先覆盖 Pydantic 公共契约与序列化 并记录 RED：CRON/ONCE 互斥必填、IANA 校验、分页 1..100、非终态取消响应 RUNNING+cancel_requested；deadline 筛选独立参数。
-- [ ] 实现：补查询、详情、更新、分页与取消响应类型；快照用已存在强类型契约或受限 JSON 类型，拒绝 CANCELLING、EXTERNAL、AGENT_STEP 与 misfire_policy。
+- [ ] [B-103][unit] 修改生产代码前先覆盖 Pydantic 公共契约与序列化 并记录 RED：CRON/ONCE 互斥必填、IANA 校验、分页 1..100、非终态取消响应 RUNNING+cancel_requested；deadline 筛选独立参数；ScheduleStatus 含 MISSED 终态。
+- [ ] 实现：补查询、详情、更新、分页与取消响应类型；快照用已存在强类型契约或受限 JSON 类型，拒绝 CANCELLING、EXTERNAL、AGENT_STEP 与 misfire_policy；ScheduleStatus 收紧为 ACTIVE/PAUSED/COMPLETED/MISSED。
 - [ ] [B-103][unit] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
 - [ ] 执行 `uv run pytest -q tests/agent_worker/test_task_contracts.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
@@ -327,7 +338,7 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-103 | unit | Pydantic 公共契约与序列化 | CRON/ONCE 互斥必填、IANA 校验、分页 1..100、非终态取消响应 RUNNING+cancel_requested；deadline 筛选独立参数 | tests/agent_worker/test_task_contracts.py / B-103（planned） | uv run pytest -q tests/agent_worker/test_task_contracts.py | planned |
+| B-103 | unit | Pydantic 公共契约与序列化 | CRON/ONCE 互斥必填、IANA 校验、分页 1..100、非终态取消响应 RUNNING+cancel_requested；deadline 筛选独立参数；ScheduleStatus 含 MISSED 终态 | tests/agent_worker/test_task_contracts.py / B-103（planned） | uv run pytest -q tests/agent_worker/test_task_contracts.py | planned |
 
 ### Acceptance Evidence
 
@@ -420,28 +431,30 @@
 - **Status**: draft
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003
-- **Source**: 09-task-schedule.backend.design.md#3.4 接口设计, 09-task-schedule.backend.design.md#API-01 Internal 创建 Task, 09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule
+- **Source**: 09-task-schedule.backend.design.md#3.3.8 `task.task_submission`, 09-task-schedule.backend.design.md#3.4 接口设计, 09-task-schedule.backend.design.md#API-01 Internal 创建 Task, 09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule
 - **Spec-Refs**: 
-- **Acceptance-Refs**: B-106
+- **Acceptance-Refs**: E-07, B-106
 - **Files**: `apps/agent-worker/src/muad_agent_worker/application/submissions.py`, `tests/agent_worker/test_submission_idempotency.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
 
-封装两类创建 POST 的 Idempotency-Key 处理；指纹为 endpoint、规范化关键参数及内容哈希，同键同指纹返回首次业务响应，异指纹 COMMON_CONFLICT。
+封装两类创建 POST 的 Idempotency-Key 处理；指纹为 endpoint、规范化关键参数及内容哈希，同键同指纹返回首次业务响应，异指纹返回 IDEMPOTENCY_MISMATCH。
 
 ### Checklist
 
-- [ ] [B-106][integration] 修改生产代码前先覆盖 真实 HTTP handler→PG 幂等记录/事务 并记录 RED：并发同键只执行一次；重放 200 原业务结果；异指纹冲突；失败事务不占成功记录；Task Header 与已有 body key 一致。
-- [ ] 实现：封装两类创建 POST 的 Idempotency-Key 处理；指纹为 endpoint、规范化关键参数及内容哈希，同键同指纹返回首次业务响应，异指纹 COMMON_CONFLICT。
+- [ ] [B-106][integration] 修改生产代码前先覆盖 真实 HTTP handler→PG 幂等记录/事务 并记录 RED：并发同键只执行一次；重放 200 原业务结果；异指纹返回 IDEMPOTENCY_MISMATCH；失败事务不占成功记录；Task Header 与已有 body key 一致。
+- [ ] 实现：封装两类创建 POST 的 Idempotency-Key 处理；指纹为 endpoint、规范化关键参数及内容哈希，同键同指纹返回首次业务响应，异指纹返回 IDEMPOTENCY_MISMATCH。
 - [ ] [B-106][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [ ] [E-07][integration] 先记录 RED，再按 Worker HTTP→task.task_submission partial unique 验证：同 key 同指纹重放首次持久化结果且不重复建资源；同 key 不同指纹返回 IDEMPOTENCY_MISMATCH；并发同 key 只成功一次；命令 `uv run pytest -q tests/agent_worker/test_submission_idempotency.py -k e07`。
 - [ ] 执行 `uv run pytest -q tests/agent_worker/test_submission_idempotency.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-106 | integration | 真实 HTTP handler→PG 幂等记录/事务 | 并发同键只执行一次；重放 200 原业务结果；异指纹冲突；失败事务不占成功记录；Task Header 与已有 body key 一致 | tests/agent_worker/test_submission_idempotency.py / B-106（planned） | uv run pytest -q tests/agent_worker/test_submission_idempotency.py | planned |
+| E-07 | integration | Worker HTTP→task.task_submission partial unique | 同 key 同指纹重放首次持久化结果且不重复建资源；同 key 不同指纹返回 IDEMPOTENCY_MISMATCH；并发同 key 只成功一次 | tests/agent_worker/test_submission_idempotency.py / e07（planned） | uv run pytest -q tests/agent_worker/test_submission_idempotency.py -k e07 | planned |
+| B-106 | integration | 真实 HTTP handler→PG 幂等记录/事务 | 并发同键只执行一次；重放 200 原业务结果；异指纹返回 IDEMPOTENCY_MISMATCH；失败事务不占成功记录；Task Header 与已有 body key 一致 | tests/agent_worker/test_submission_idempotency.py / B-106（planned） | uv run pytest -q tests/agent_worker/test_submission_idempotency.py | planned |
 
 ### Acceptance Evidence
 
@@ -470,7 +483,7 @@
 
 ### Checklist
 
-- [ ] [B-107][integration] 修改生产代码前先覆盖 Worker Task HTTP→PG Task/Submission/Event 并记录 RED：快照必需版本键冻结且不含密钥；payload 冲突不复用已有 Task；NONE 无投递；Redis hint 失败不丢任务。
+- [ ] [B-107][integration] 修改生产代码前先覆盖 Worker Task HTTP→PG Task/Submission/Event 并记录 RED：快照必需版本键冻结且不含密钥；同键异指纹返回 IDEMPOTENCY_MISMATCH 且不复用已有 Task；NONE 无投递；Redis hint 失败不丢任务。
 - [ ] 实现：接入提交幂等服务并校验 Snapshot/hash，原子保存 QUEUED、CREATED、delivery_key 与 +24h deadline；仅在提交后发 hint，失败仍可由 PG 扫描推进。
 - [ ] [B-107][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
 - [ ] 执行 `uv run pytest -q tests/agent_worker/test_task_service.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
@@ -479,7 +492,7 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-107 | integration | Worker Task HTTP→PG Task/Submission/Event | 快照必需版本键冻结且不含密钥；payload 冲突不复用已有 Task；NONE 无投递；Redis hint 失败不丢任务 | tests/agent_worker/test_task_service.py / B-107（planned） | uv run pytest -q tests/agent_worker/test_task_service.py | planned |
+| B-107 | integration | Worker Task HTTP→PG Task/Submission/Event | 快照必需版本键冻结且不含密钥；同键异指纹返回 IDEMPOTENCY_MISMATCH 且不复用已有 Task；NONE 无投递；Redis hint 失败不丢任务 | tests/agent_worker/test_task_service.py / B-107（planned） | uv run pytest -q tests/agent_worker/test_task_service.py | planned |
 
 ### Acceptance Evidence
 
@@ -508,7 +521,7 @@
 
 ### Checklist
 
-- [ ] [B-108][integration] 修改生产代码前先覆盖 真实 Worker HTTP→PG Task/Event/children 并记录 RED：租户隔离且不存在 404；schedule_id 精确过滤；创建时间/截止时间筛选不混用；seq 升序；page_size≤100；响应无秘密。
+- [ ] [B-108][integration] 修改生产代码前先覆盖 真实 Worker HTTP→PG Task/Event/children 并记录 RED：租户隔离且不存在 404；schedule_id 精确过滤；start_time/end_time 作用于 create_time、deadline_from/deadline_to 作用于 deadline_at（UTC、含端点）且不混用；seq 升序；page_size≤100；响应无秘密。
 - [ ] 实现：补截止时间筛选、完整摘要/详情、Timeline、子任务与 Snapshot 摘要；分页和聚合查询使用有界 SQL，避免按行 N+1。
 - [ ] [B-108][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
 - [ ] 执行 `uv run pytest -q tests/agent_worker/test_task_queries.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
@@ -517,7 +530,7 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-108 | integration | 真实 Worker HTTP→PG Task/Event/children | 租户隔离且不存在 404；schedule_id 精确过滤；创建时间/截止时间筛选不混用；seq 升序；page_size≤100；响应无秘密 | tests/agent_worker/test_task_queries.py / B-108（planned） | uv run pytest -q tests/agent_worker/test_task_queries.py | planned |
+| B-108 | integration | 真实 Worker HTTP→PG Task/Event/children | 租户隔离且不存在 404；schedule_id 精确过滤；start_time/end_time 作用于 create_time、deadline_from/deadline_to 作用于 deadline_at（UTC、含端点）且不混用；seq 升序；page_size≤100；响应无秘密 | tests/agent_worker/test_task_queries.py / B-108（planned） | uv run pytest -q tests/agent_worker/test_task_queries.py | planned |
 
 ### Acceptance Evidence
 
@@ -546,7 +559,7 @@
 
 ### Checklist
 
-- [ ] [B-109][integration] 修改生产代码前先覆盖 Schedule HTTP→PG→真实时区计算 并记录 RED：同键创建仅一条；非法时区/规则失败；COMPLETED 不可改；revision 递增且旧 Task Snapshot 不变；DST 边界计算明确。
+- [ ] [B-109][integration] 修改生产代码前先覆盖 Schedule HTTP→PG→真实时区计算 并记录 RED：同键创建仅一条；非法时区/规则失败；COMPLETED/MISSED 不可改；revision 递增且旧 Task Snapshot 不变；DST 边界计算明确。
 - [ ] 实现：接入创建幂等和标准更新请求；校验 owner/管理权限、CRON/ONCE、IANA 时区；更新递增 revision 并只影响将来触发。
 - [ ] [B-109][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
 - [ ] 执行 `uv run pytest -q tests/agent_worker/test_schedule_writes.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
@@ -555,7 +568,7 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-109 | integration | Schedule HTTP→PG→真实时区计算 | 同键创建仅一条；非法时区/规则失败；COMPLETED 不可改；revision 递增且旧 Task Snapshot 不变；DST 边界计算明确 | tests/agent_worker/test_schedule_writes.py / B-109（planned） | uv run pytest -q tests/agent_worker/test_schedule_writes.py | planned |
+| B-109 | integration | Schedule HTTP→PG→真实时区计算 | 同键创建仅一条；非法时区/规则失败；COMPLETED/MISSED 不可改；revision 递增且旧 Task Snapshot 不变；DST 边界计算明确 | tests/agent_worker/test_schedule_writes.py / B-109（planned） | uv run pytest -q tests/agent_worker/test_schedule_writes.py | planned |
 
 ### Acceptance Evidence
 
@@ -580,12 +593,12 @@
 
 ### Description
 
-把裸数组改为分页封套，增加状态/Agent/用户过滤和详情；暂停/恢复 CAS、删除幂等，恢复按当前时间重算且不补发。
+把裸数组改为分页封套，增加状态/Agent/用户过滤和详情；暂停/恢复 CAS、删除幂等，恢复按当前时间重算且不补发；COMPLETED/MISSED 为终态，暂停/恢复返回 REVISION_CONFLICT。
 
 ### Checklist
 
-- [ ] [B-110][integration] 修改生产代码前先覆盖 HTTP→ScheduleService→PG CAS 并记录 RED：含 COMPLETED 筛选；重复暂停/删除行为稳定；删除不影响已创建 Task；权限失败不改状态；无误补发。
-- [ ] 实现：把裸数组改为分页封套，增加状态/Agent/用户过滤和详情；暂停/恢复 CAS、删除幂等，恢复按当前时间重算且不补发。
+- [ ] [B-110][integration] 修改生产代码前先覆盖 HTTP→ScheduleService→PG CAS 并记录 RED：含 COMPLETED/MISSED 筛选；重复暂停/删除行为稳定；删除不影响已创建 Task；权限失败不改状态；COMPLETED/MISSED 终态拒绝暂停与恢复（REVISION_CONFLICT）；无误补发。
+- [ ] 实现：把裸数组改为分页封套，增加状态/Agent/用户过滤和详情；暂停/恢复 CAS、删除幂等，恢复按当前时间重算且不补发；COMPLETED/MISSED 为终态，暂停/恢复返回 REVISION_CONFLICT。
 - [ ] [B-110][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
 - [ ] 执行 `uv run pytest -q tests/agent_worker/test_schedule_queries_actions.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
@@ -593,7 +606,7 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-110 | integration | HTTP→ScheduleService→PG CAS | 含 COMPLETED 筛选；重复暂停/删除行为稳定；删除不影响已创建 Task；权限失败不改状态；无误补发 | tests/agent_worker/test_schedule_queries_actions.py / B-110（planned） | uv run pytest -q tests/agent_worker/test_schedule_queries_actions.py | planned |
+| B-110 | integration | HTTP→ScheduleService→PG CAS | 含 COMPLETED/MISSED 筛选；重复暂停/删除行为稳定；删除不影响已创建 Task；权限失败不改状态；COMPLETED/MISSED 终态拒绝暂停与恢复（REVISION_CONFLICT）；无误补发 | tests/agent_worker/test_schedule_queries_actions.py / B-110（planned） | uv run pytest -q tests/agent_worker/test_schedule_queries_actions.py | planned |
 
 ### Acceptance Evidence
 
@@ -814,22 +827,22 @@ QUEUED/WAITING CAS 取消；RUNNING 写取消标记并在心跳及真实工具�
 
 ### Description
 
-补 SKIP 的持久审计和 scheduled_misfire_total；CRON 推进下一次而不补发；ONCE 仅成功创建 Task 时 COMPLETED；错过 ONCE 按待确认口径 PAUSED。
+补 SKIP 的持久审计和 scheduled_misfire_total；CRON 推进下一次而不补发；ONCE 仅成功创建 Task 时 COMPLETED；错过 ONCE 进入终态 MISSED（completed_at/next_fire_at 为 NULL），不补发亦不可恢复。
 
 ### Checklist
 
-- [ ] [B-116][integration] 修改生产代码前先覆盖 Scheduler→真实 PG→审计记录/指标采集 并记录 RED：每次跳过有 schedule_id/fire_time/skipped_at；无 Task 补发；无 misfire_policy；ONCE 成功恰好一次且 completed_at 非空，跳过不冒充完成。
-- [ ] 实现：补 SKIP 的持久审计和 scheduled_misfire_total；CRON 推进下一次而不补发；ONCE 仅成功创建 Task 时 COMPLETED；错过 ONCE 按待确认口径 PAUSED。
+- [ ] [B-116][integration] 修改生产代码前先覆盖 Scheduler→真实 PG→审计记录/指标采集 并记录 RED：每次跳过有 schedule_id/fire_time/skipped_at；无 Task 补发；无 misfire_policy；ONCE 成功恰好一次且 completed_at 非空；错过 ONCE 置 MISSED 且 completed_at/next_fire_at 为 NULL，跳过不冒充完成。
+- [ ] 实现：补 SKIP 的持久审计和 scheduled_misfire_total；CRON 推进下一次而不补发；ONCE 仅成功创建 Task 时 COMPLETED；错过 ONCE 置终态 MISSED（completed_at=NULL、next_fire_at=NULL），不补发、不提供恢复。
 - [ ] [B-116][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] [E-04][integration] 先记录 RED，再按 Scheduler→真实 PG→审计与指标采集 验证：错过触发不补发；记录 schedule_id/fire_time/skipped_at 并增加 scheduled_misfire_total；命令 `uv run pytest -q tests/agent_worker/test_scheduler_misfire.py -k e04`。
+- [ ] [E-04][integration] 先记录 RED，再按 Scheduler→真实 PG→审计与指标采集 验证：错过触发不补发；记录 schedule_id/fire_time/skipped_at 并增加 scheduled_misfire_total；CRON 保持 ACTIVE 等下次触发，ONCE 置终态 MISSED（completed_at/next_fire_at 为 NULL）；命令 `uv run pytest -q tests/agent_worker/test_scheduler_misfire.py -k e04`。
 - [ ] 执行 `uv run pytest -q tests/agent_worker/test_scheduler_misfire.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-04 | integration | Scheduler→真实 PG→审计与指标采集 | 错过触发不补发；记录 schedule_id/fire_time/skipped_at 并增加 scheduled_misfire_total | tests/agent_worker/test_scheduler_misfire.py / e04（planned） | uv run pytest -q tests/agent_worker/test_scheduler_misfire.py -k e04 | planned |
-| B-116 | integration | Scheduler→真实 PG→审计记录/指标采集 | 每次跳过有 schedule_id/fire_time/skipped_at；无 Task 补发；无 misfire_policy；ONCE 成功恰好一次且 completed_at 非空，跳过不冒充完成 | tests/agent_worker/test_scheduler_misfire.py / B-116（planned） | uv run pytest -q tests/agent_worker/test_scheduler_misfire.py | planned |
+| E-04 | integration | Scheduler→真实 PG→审计/指标/终态 MISSED | 错过触发不补发；记录 schedule_id/fire_time/skipped_at 并增加 scheduled_misfire_total；CRON 保持 ACTIVE，ONCE 置 MISSED（completed_at/next_fire_at 为 NULL） | tests/agent_worker/test_scheduler_misfire.py / e04（planned） | uv run pytest -q tests/agent_worker/test_scheduler_misfire.py -k e04 | planned |
+| B-116 | integration | Scheduler→真实 PG→审计记录/指标采集 | 每次跳过有 schedule_id/fire_time/skipped_at；无 Task 补发；无 misfire_policy；ONCE 成功恰好一次且 completed_at 非空；错过 ONCE 置 MISSED 且 completed_at/next_fire_at 为 NULL，跳过不冒充完成 | tests/agent_worker/test_scheduler_misfire.py / B-116（planned） | uv run pytest -q tests/agent_worker/test_scheduler_misfire.py | planned |
 
 ### Acceptance Evidence
 
@@ -1012,7 +1025,7 @@ QUEUED/WAITING CAS 取消；RUNNING 写取消标记并在心跳及真实工具�
 
 ### Checklist
 
-- [ ] [B-121][integration] 修改生产代码前先覆盖 真实 Worker HTTP→Gateway→Redis→本地渠道 HTTP 探针 并记录 RED：并发同 delivery_key 在 Redis 正常时发送一次、重复 200、TTL 7d；发送失败可恢复；Redis 故障按 at-least-once 明确可能重复；最多 5 次由 Worker 约束。
+- [ ] [B-121][integration] 修改生产代码前先覆盖 真实 Worker HTTP→Gateway→Redis→本地渠道 HTTP 探针 并记录 RED：并发同 delivery_key 在 Redis 正常时发送一次、重复 200、TTL 7d；发送失败与占位后崩溃重启均可恢复重试且不置 SENT；Redis 故障按 at-least-once 明确可能重复、不宣称 exactly-once；最多 5 次由 Worker 约束。
 - [ ] 实现：在已有 Gateway 投递端点采用真实 Redis 原子去重，移除 exists→send→mark 竞态；记录发送失败/崩溃窗口，不能让未发送的占位键永久冒充成功。
 - [ ] [B-121][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
 - [ ] [E-05][integration] 先记录 RED，再按 Worker HTTP→真实 Gateway→Redis→渠道探针 验证：同 key 原子去重，重复返回 200；失败恢复；退避最多 5 次后 FAILED；命令 `uv run pytest -q tests/gateway/test_delivery_api.py -k e05`。
@@ -1023,7 +1036,7 @@ QUEUED/WAITING CAS 取消；RUNNING 写取消标记并在心跳及真实工具�
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | E-05 | integration | Worker HTTP→真实 Gateway→Redis→渠道探针 | 同 key 原子去重，重复返回 200；失败恢复；退避最多 5 次后 FAILED | tests/gateway/test_delivery_api.py / e05（planned） | uv run pytest -q tests/gateway/test_delivery_api.py -k e05 | planned |
-| B-121 | integration | 真实 Worker HTTP→Gateway→Redis→本地渠道 HTTP 探针 | 并发同 delivery_key 在 Redis 正常时发送一次、重复 200、TTL 7d；发送失败可恢复；Redis 故障按 at-least-once 明确可能重复；最多 5 次由 Worker 约束 | tests/gateway/test_delivery_api.py / B-121（planned） | uv run pytest -q tests/gateway/test_delivery_api.py | planned |
+| B-121 | integration | 真实 Worker HTTP→Gateway→Redis→本地渠道 HTTP 探针 | 并发同 delivery_key 在 Redis 正常时发送一次、重复 200、TTL 7d；发送失败与占位后崩溃重启均可恢复重试且不置 SENT；Redis 故障按 at-least-once 明确可能重复、不宣称 exactly-once；最多 5 次由 Worker 约束 | tests/gateway/test_delivery_api.py / B-121（planned） | uv run pytest -q tests/gateway/test_delivery_api.py | planned |
 
 ### Acceptance Evidence
 
@@ -1551,22 +1564,22 @@ QUEUED/WAITING CAS 取消；RUNNING 写取消标记并在心跳及真实工具�
 
 ### Description
 
-替换 /schedules 占位页，RemoteTable 展示规则/时区/最近及下次触发，支持 ACTIVE/PAUSED/COMPLETED 筛选和 Agent 创建示例。
+替换 /schedules 占位页，RemoteTable 展示规则/时区/最近及下次触发，支持 ACTIVE/PAUSED/COMPLETED/MISSED 筛选（「已错过」）和 Agent 创建示例。
 
 ### Checklist
 
-- [ ] [B-135][E2E] 修改生产代码前先覆盖 真实 Chrome→Console schedules→Worker/PG 并记录 RED：COMPLETED 筛选只返回完成调度；时间统一；分页/清筛选/重试与空态完整；不新增创建编排器。
-- [ ] 实现：替换 /schedules 占位页，RemoteTable 展示规则/时区/最近及下次触发，支持 ACTIVE/PAUSED/COMPLETED 筛选和 Agent 创建示例。
+- [ ] [B-135][E2E] 修改生产代码前先覆盖 真实 Chrome→Console schedules→Worker/PG 并记录 RED：COMPLETED 筛选只返回完成调度；MISSED 筛选只返回错过触发的 ONCE；时间统一；分页/清筛选/重试与空态完整；不新增创建编排器。
+- [ ] 实现：替换 /schedules 占位页，RemoteTable 展示规则/时区/最近及下次触发，支持 ACTIVE/PAUSED/COMPLETED/MISSED 筛选（「已错过」）和 Agent 创建示例。
 - [ ] [B-135][E2E] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] [S-FE-04][E2E] 先记录 RED，再按 Browser→schedules API→真实 PG 验证：已完成筛选仅 COMPLETED Schedule；命令 `bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-list.spec.ts --grep '\''S-FE-04'\'''`。
+- [ ] [S-FE-04][E2E] 先记录 RED，再按 Browser→schedules API→真实 PG 验证：已完成筛选仅 COMPLETED Schedule，「已错过」筛选仅 MISSED Schedule；命令 `bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-list.spec.ts --grep '\''S-FE-04'\'''`。
 - [ ] 执行 `bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-list.spec.ts'`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-204 | E2E | Browser→schedules API→真实 PG | 已完成筛选仅 COMPLETED Schedule | e2e/tests/task-schedule/schedule-list.spec.ts / S-FE-04（planned） | bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-list.spec.ts --grep '\''S-FE-04'\''' | planned |
-| B-135 | E2E | 真实 Chrome→Console schedules→Worker/PG | COMPLETED 筛选只返回完成调度；时间统一；分页/清筛选/重试与空态完整；不新增创建编排器 | e2e/tests/task-schedule/schedule-list.spec.ts / B-135（planned） | bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-list.spec.ts' | planned |
+| S-204 | E2E | Browser→schedules API→真实 PG | 已完成筛选仅 COMPLETED Schedule，「已错过」筛选仅 MISSED Schedule | e2e/tests/task-schedule/schedule-list.spec.ts / S-FE-04（planned） | bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-list.spec.ts --grep '\''S-FE-04'\''' | planned |
+| B-135 | E2E | 真实 Chrome→Console schedules→Worker/PG | COMPLETED 筛选只返回完成调度；MISSED 筛选只返回错过触发的 ONCE；时间统一；分页/清筛选/重试与空态完整；不新增创建编排器 | e2e/tests/task-schedule/schedule-list.spec.ts / B-135（planned） | bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-list.spec.ts' | planned |
 
 ### Acceptance Evidence
 
@@ -1671,12 +1684,12 @@ QUEUED/WAITING CAS 取消；RUNNING 写取消标记并在心跳及真实工具�
 
 ### Description
 
-按状态展示动作，删除需二次确认；仅服务成功后刷新，按钮独立 loading，错误保持当前 Tab/数据。
+按状态展示动作，删除需二次确认；仅服务成功后刷新，按钮独立 loading，错误保持当前 Tab/数据；COMPLETED/MISSED 为终态，不显示暂停/恢复（MISSED 需重新创建 Schedule）。
 
 ### Checklist
 
-- [ ] [B-138][E2E] 修改生产代码前先覆盖 真实 Chrome→管理 API→Worker PG→UI 并记录 RED：暂停失败仍 ACTIVE；成功暂停不再触发；恢复不补发；删除不影响历史 Task；COMPLETED 动作受限；失败可重试。
-- [ ] 实现：按状态展示动作，删除需二次确认；仅服务成功后刷新，按钮独立 loading，错误保持当前 Tab/数据。
+- [ ] [B-138][E2E] 修改生产代码前先覆盖 真实 Chrome→管理 API→Worker PG→UI 并记录 RED：暂停失败仍 ACTIVE；成功暂停不再触发；恢复不补发；删除不影响历史 Task；COMPLETED/MISSED 动作受限（无暂停/恢复）；失败可重试。
+- [ ] 实现：按状态展示动作，删除需二次确认；仅服务成功后刷新，按钮独立 loading，错误保持当前 Tab/数据；COMPLETED/MISSED 为终态，不显示暂停/恢复（MISSED 需重新创建 Schedule）。
 - [ ] [B-138][E2E] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
 - [ ] [E-FE-01][E2E] 先记录 RED，再按 真实 pause API 失败→Browser UI 验证：由真实后端状态/不可达故障触发失败，原 ACTIVE 状态保留，无错误乐观更新；命令 `bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-actions.spec.ts --grep '\''E-FE-01'\'''`。
 - [ ] 执行 `bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-actions.spec.ts'`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
@@ -1686,7 +1699,7 @@ QUEUED/WAITING CAS 取消；RUNNING 写取消标记并在心跳及真实工具�
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | E-201 | E2E | 真实 pause API 失败→Browser UI | 由真实后端状态/不可达故障触发失败，原 ACTIVE 状态保留，无错误乐观更新 | e2e/tests/task-schedule/schedule-actions.spec.ts / E-FE-01（planned） | bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-actions.spec.ts --grep '\''E-FE-01'\''' | planned |
-| B-138 | E2E | 真实 Chrome→管理 API→Worker PG→UI | 暂停失败仍 ACTIVE；成功暂停不再触发；恢复不补发；删除不影响历史 Task；COMPLETED 动作受限；失败可重试 | e2e/tests/task-schedule/schedule-actions.spec.ts / B-138（planned） | bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-actions.spec.ts' | planned |
+| B-138 | E2E | 真实 Chrome→管理 API→Worker PG→UI | 暂停失败仍 ACTIVE；成功暂停不再触发；恢复不补发；删除不影响历史 Task；COMPLETED/MISSED 动作受限（无暂停/恢复）；失败可重试 | e2e/tests/task-schedule/schedule-actions.spec.ts / B-138（planned） | bash -lc 'npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-actions.spec.ts' | planned |
 
 ### Acceptance Evidence
 

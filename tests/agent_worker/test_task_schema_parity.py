@@ -44,6 +44,17 @@ EXPECTED_CHECKS: dict[str, tuple[str, ...]] = {
     "task_schedule": ("ck_task_schedule_trigger",),
 }
 
+EXPECTED_FOREIGN_KEYS: dict[str, set[tuple[str, str]]] = {
+    "delivery_route": set(),
+    "task_schedule": {("delivery_route_id", "task.delivery_route.id")},
+    "task_execution": {
+        ("parent_id", "task.task_execution.id"),
+        ("schedule_id", "task.task_schedule.id"),
+        ("delivery_route_id", "task.delivery_route.id"),
+    },
+    "task_event": {("task_id", "task.task_execution.id")},
+}
+
 
 async def _reflect(table_name: str) -> dict[str, Any]:
     async with get_session_factory()() as session:
@@ -209,3 +220,44 @@ async def test_task_execution_schema_parity(database_guard: None) -> None:
 async def test_task_event_schema_parity(database_guard: None) -> None:
     diffs = _compare(TaskEvent.__table__, await _reflect("task_event"))
     assert not diffs, "task_event schema mismatch:\n" + "\n".join(diffs)
+
+
+def _orm_foreign_keys(orm_table: sa.Table) -> set[tuple[str, str]]:
+    return {(fk.parent.name, fk.target_fullname) for fk in orm_table.foreign_keys}
+
+
+def _db_foreign_keys(reflected: dict[str, Any]) -> set[tuple[str, str]]:
+    return {
+        (
+            str(item["constrained_columns"][0]),
+            f"{item['referred_schema']}.{item['referred_table']}.{item['referred_columns'][0]}",
+        )
+        for item in reflected["foreign_keys"]
+    }
+
+
+async def test_same_schema_foreign_keys(database_guard: None) -> None:
+    """同一 Owner Schema 的表必须用物理 FK 关联（RULE-data-001 / B-101）。"""
+    for model in (DeliveryRoute, TaskSchedule, TaskExecution, TaskEvent):
+        table_name = model.__table__.name
+        expected = EXPECTED_FOREIGN_KEYS[table_name]
+        orm_keys = _orm_foreign_keys(model.__table__)
+        db_keys = _db_foreign_keys(await _reflect(table_name))
+        assert orm_keys == expected, f"{table_name} ORM foreign keys: {orm_keys} != {expected}"
+        assert db_keys == expected, f"{table_name} DB foreign keys: {db_keys} != {expected}"
+
+
+async def test_task_execution_server_defaults(database_guard: None) -> None:
+    """deadline_at 非空且默认 +24h；task_type 非空且默认 SKILL（B-101）。"""
+    reflected = await _reflect("task_execution")
+    columns = {str(item["name"]): item for item in reflected["columns"]}
+
+    deadline = columns["deadline_at"]
+    assert deadline["nullable"] is False, "deadline_at must be NOT NULL"
+    default = str(deadline["default"])
+    assert "24:00:00" in default or "24 hours" in default, f"deadline_at default: {default}"
+
+    task_type = columns["task_type"]
+    assert task_type["nullable"] is False, "task_type must be NOT NULL"
+    assert "SKILL" in str(task_type["default"]), f"task_type default: {task_type['default']}"
+
