@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ..application.task_events import TaskEventSeed, TaskEventType, append_events
 from ..infrastructure.models.task import TaskExecution
 from .claimer import TaskClaimer
+from .execution_outcomes import DEFAULT_WAIT_SEC, OutcomeKind, TaskOutcome, interpret_execution
 from .executor import SkillTaskExecutor, TaskExecutionError, TaskExecutorProtocol
 
 logger = logging.getLogger(__name__)
@@ -92,8 +93,84 @@ class WorkerLoop:
             await self._handle_failure(task, exc, now=now)
             return task.id
         await self._stop_heartbeat(heartbeat)
-        await self._handle_success(task, result, now=now)
+        await self._handle_outcome(
+            task, interpret_execution(result, now=now or datetime.now(UTC)), now=now
+        )
         return task.id
+
+    async def _handle_outcome(
+        self,
+        task: TaskExecution,
+        outcome: TaskOutcome,
+        *,
+        now: datetime | None,
+    ) -> None:
+        if outcome.kind is OutcomeKind.COMPLETED:
+            await self._handle_success(
+                task,
+                outcome.result or {},
+                now=now,
+                result_artifact_id=outcome.result_artifact_id,
+            )
+            return
+        if outcome.kind is OutcomeKind.WAITING:
+            await self._wait(task, outcome, now=now)
+            return
+        if outcome.kind is OutcomeKind.CANCELLED:
+            moment = now or datetime.now(UTC)
+            async with self._session_factory() as session:
+                async with session.begin():
+                    await self._mark_cancelled(session, task, moment)
+            return
+        await self._handle_failure(
+            task,
+            TaskExecutionError(outcome.error_code or "SKILL_EXECUTION_FAILED", outcome.error_message),
+            now=now,
+        )
+
+    async def _wait(
+        self,
+        task: TaskExecution,
+        outcome: TaskOutcome,
+        *,
+        now: datetime | None,
+    ) -> None:
+        """外部等待：记录 external_ref/not_before 并释放 lease，由 Scheduler 到期再 claim。"""
+        moment = now or datetime.now(UTC)
+        not_before = outcome.not_before or moment + timedelta(seconds=DEFAULT_WAIT_SEC)
+        async with self._session_factory() as session:
+            async with session.begin():
+                rowcount = await self._cas(
+                    session,
+                    task.id,
+                    {
+                        "status": str(TaskStatus.WAITING),
+                        "external_ref_json": outcome.external_ref or {},
+                        "not_before": not_before,
+                        "lease_owner": None,
+                        "lease_until": None,
+                        "update_time": moment,
+                    },
+                    moment=moment,
+                    require_not_cancelled=True,
+                )
+                if rowcount != 1:
+                    return
+                await append_events(
+                    session,
+                    [
+                        TaskEventSeed(
+                            tenant_id=task.tenant_id,
+                            task_id=task.id,
+                            event_type=TaskEventType.WAITING,
+                            payload={
+                                "external_ref": outcome.external_ref or {},
+                                "not_before": not_before.isoformat(),
+                                "attempt": task.attempt,
+                            },
+                        )
+                    ],
+                )
 
     async def reclaim_expired(self, *, now: datetime | None = None) -> int:
         moment = now or datetime.now(UTC)
@@ -173,6 +250,7 @@ class WorkerLoop:
         result: dict[str, Any],
         *,
         now: datetime | None,
+        result_artifact_id: uuid.UUID | None = None,
     ) -> None:
         moment = now or datetime.now(UTC)
         async with self._session_factory() as session:
@@ -183,6 +261,7 @@ class WorkerLoop:
                     {
                         "status": str(TaskStatus.COMPLETED),
                         "result_json": result,
+                        "result_artifact_id": result_artifact_id,
                         "finished_at": moment,
                         "lease_owner": None,
                         "lease_until": None,

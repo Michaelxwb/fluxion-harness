@@ -118,7 +118,7 @@
 | B-110 | 09-task-schedule.backend.design.md#API-06 Internal Schedule 列表 | integration | HTTP→ScheduleService→PG CAS | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_queries_actions.py"] | . | 600 | |
 | B-111 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 双 Worker→真实 PG 行锁/CAS | TASK-011 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_worker_leases.py"] | . | 600 | |
 | B-112 | 09-task-schedule.backend.design.md#3.3.3 `task.task_execution` | integration | Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler | TASK-012 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_executor.py"] | . | 600 | |
-| B-113 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 真实 Skill 执行结果→Worker→PG CAS | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_worker_outcomes.py"] | . | 600 | |
+| B-113 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 真实 Skill 执行结果→Worker→PG CAS | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_worker_outcomes.py"] | . | 600 | |
 | B-114 | 09-task-schedule.backend.design.md#API-05 Internal 取消 Task | integration | 取消 HTTP→PG 标记/真实 Redis hint→运行 Worker | TASK-014 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_cancel.py"] | . | 600 | |
 | B-115 | 09-task-schedule.backend.design.md#3.2.3 Schedule 触发、多副本与 Misfire | integration | 双 Scheduler→真实 Console resolve→PG grants/Binding/Task | TASK-015 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_trigger.py"] | . | 600 | |
 | B-116 | 09-task-schedule.backend.design.md#3.2.3 Schedule 触发、多副本与 Misfire | integration | Scheduler→真实 PG→审计记录/指标采集 | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_scheduler_misfire.py"] | . | 600 | |
@@ -814,13 +814,13 @@
 - [2026-09-22] completed (done)
 ## TASK-013: 实现 WAITING、重试及受保护的完成状态
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-011, TASK-012
 - **Source**: 09-task-schedule.backend.design.md#3.2.1 执行主流程, 09-task-schedule.backend.design.md#3.2.2 Task 状态机
 - **Spec-Refs**: 
 - **Acceptance-Refs**: B-113
-- **Files**: `apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py`, `apps/agent-worker/src/muad_agent_worker/worker/service.py`, `tests/agent_worker/test_worker_outcomes.py`
+- **Files**: `apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py`, `apps/agent-worker/src/muad_agent_worker/worker/service.py`, `tests/agent_worker/test_worker_outcomes.py`, `tests/agent_worker/helpers.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
@@ -829,27 +829,37 @@
 
 ### Checklist
 
-- [ ] [B-113][integration] 修改生产代码前先覆盖 真实 Skill 执行结果→Worker→PG CAS 并记录 RED：WAITING 不占 lease；到期再 claim；重试上限准确；结果先落库；取消/失约/终态不被成功返回覆盖；大结果沿已有 Artifact 引用契约。
-- [ ] 实现：使用明确的完成/外部等待/可重试失败结果类型；WAITING 持久化 external_ref 和 not_before 后释放 lease；重试退避，预算耗尽 FAILED。
-- [ ] [B-113][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_worker_outcomes.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-113][integration] 修改生产代码前先覆盖 真实 Skill 执行结果→Worker→PG CAS 并记录 RED：WAITING 不占 lease；到期再 claim；重试上限准确；结果先落库；取消/失约/终态不被成功返回覆盖；大结果沿已有 Artifact 引用契约。
+- [x] 实现：使用明确的完成/外部等待/可重试失败结果类型；WAITING 持久化 external_ref 和 not_before 后释放 lease；重试退避，预算耗尽 FAILED。
+- [x] [B-113][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_worker_outcomes.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-113 | integration | 真实 Skill 执行结果→Worker→PG CAS | WAITING 不占 lease；到期再 claim；重试上限准确；结果先落库；取消/失约/终态不被成功返回覆盖；大结果沿已有 Artifact 引用契约 | tests/agent_worker/test_worker_outcomes.py / B-113（planned） | uv run pytest -q tests/agent_worker/test_worker_outcomes.py | planned |
+| B-113 | integration | 真实 Skill 执行结果→Worker→PG CAS | WAITING 不占 lease；到期再 claim；重试上限准确；结果先落库；取消/失约/终态不被成功返回覆盖；大结果沿已有 Artifact 引用契约 | tests/agent_worker/test_worker_outcomes.py / B-113（verified） | uv run pytest -q tests/agent_worker/test_worker_outcomes.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-113 | ERROR: `ModuleNotFoundError: No module named 'muad_agent_worker.worker.execution_outcomes'` —— worker 把任何执行结果一律当成功落库，没有 WAITING，也没有显式结局类型 | PASS: 9 passed；全量 `uv run pytest -q tests` 1057 passed；`ruff check` 全绿 | `tests/agent_worker/test_worker_outcomes.py`：`test_interpret_maps_execution_into_explicit_outcomes`、`test_waiting_releases_lease_and_is_claimable_after_not_before`、`test_waiting_does_not_consume_retry_budget`、`test_retry_budget_is_exhausted_exactly_once`、`test_completed_result_is_persisted_before_terminal`、`test_terminal_task_is_not_overwritten_by_late_success`、`test_large_result_uses_artifact_reference`、`test_cancelled_execution_marks_task_cancelled`、`test_keyboard_interrupt_stops_worker` | 真实 PostgreSQL CAS；WAITING 的 lease 释放与到期再 claim 都走真实行状态 | verified |
+
+> 新增 `worker/execution_outcomes.py`：`OutcomeKind`（COMPLETED / WAITING / RETRYABLE_FAILURE / CANCELLED）与 `TaskOutcome`，并把执行器返回归成显式结局。WAITING 会写入 `external_ref_json` + `not_before`、清空 `lease_owner/lease_until`，因此不占租约；缺省 `not_before` 落在将来，保证「到期再 claim」而不是立刻重占。
+>
+> **大结果一项的实现边界（据实说明）**：本模块落的是「**引用而不内联**」——Skill 在结果里给出 `result_artifact_id` 时，worker 把它写进既有的 `result_artifact_id` 列并把该键从内联 `result_json` 中剔除。worker **不负责写 artifact 字节**：worker 既没有 artifact writer，也没有对 `muad-agent-runtime` 的依赖（`ArtifactResultWriter` 在 runtime 侧，跨 app 依赖不在本 TASK 的改动范围内）。因此「大结果外置」的**产出侧**（谁写 artifact）仍属于未落地的基础设施，本任务只保证**消费侧**遵循引用契约、不把大结果灌进 `result_json`。
+>
+> 连带改动：`helpers.RecordingExecutor` 改为返回带 `status` 的执行信封——执行器契约在本任务发生变化，原先返回裸 dict 的桩不再合法（`test_worker_lifecycle` 因此暴露并已修正）。
+- B-113: verified — automated command passed; run_id=9ec926e6275448f289253dcaad760223 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-22] started
+- [2026-09-22] completed (done)
 ## TASK-014: 补齐协作取消与取消竞态
 
 - **Status**: draft

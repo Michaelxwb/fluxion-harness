@@ -922,7 +922,7 @@
       "kind": "functional",
       "boundary": "真实 Skill 执行结果→Worker→PG CAS",
       "owner": "TASK-013",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -932,7 +932,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-113",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "9ec926e6275448f289253dcaad760223",
+        "executed_at": "2026-09-21T17:25:19.445472+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-113",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "9ec926e6275448f289253dcaad760223",
+          "executed_at": "2026-09-21T17:25:19.445472+00:00"
+        }
+      ]
     },
     {
       "id": "B-114",

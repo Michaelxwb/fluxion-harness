@@ -147,7 +147,8 @@ class RecordingExecutor:
         self.calls.append(task)
         if self._error is not None:
             raise self._error
-        return self._result
+        # 执行器契约：返回带 status 的执行信封，由 worker 归成显式结局。
+        return {"status": "SUCCEEDED", "result": self._result, "stderr": "", "exit_code": 0}
 
 
 class FakeResolver:
