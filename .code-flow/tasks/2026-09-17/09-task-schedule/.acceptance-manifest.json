@@ -400,7 +400,7 @@
       "kind": "functional",
       "boundary": "迁移→真实 PostgreSQL partial unique",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -410,7 +410,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-102",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "07fadb73ad1a4bb28c906201748d119e",
+        "executed_at": "2026-09-21T14:58:42.411314+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-102",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "07fadb73ad1a4bb28c906201748d119e",
+          "executed_at": "2026-09-21T14:58:42.411314+00:00"
+        }
+      ]
     },
     {
       "id": "B-103",

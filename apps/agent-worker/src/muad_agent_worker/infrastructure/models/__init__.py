@@ -1,5 +1,6 @@
 from .base import Base, StandardColumnsMixin
 from .task import DeliveryRoute, TaskEvent, TaskExecution, TaskSchedule
+from .task_submission import TaskSubmission
 
 __all__ = [
     "Base",
@@ -8,4 +9,5 @@ __all__ = [
     "TaskEvent",
     "TaskExecution",
     "TaskSchedule",
+    "TaskSubmission",
 ]

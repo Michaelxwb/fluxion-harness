@@ -107,7 +107,7 @@
 | E-202 | 09-task-schedule.frontend.design.md#2.4 验收条件 | integration | 真实 Task detail API→SideSheet | TASK-032 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-detail.spec.ts --grep 'E-FE-02'"] | . | 600 | |
 | E-203 | 09-task-schedule.frontend.design.md#2.4 验收条件 | integration | 真实 tasks API→详情 UI | TASK-032 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-detail.spec.ts --grep 'E-FE-03'"] | . | 600 | |
 | B-101 | 09-task-schedule.backend.design.md#3.3 数据设计 | integration | Alembic→真实 PostgreSQL→SQLAlchemy ORM | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_schema_parity.py"] | . | 600 | |
-| B-102 | 09-task-schedule.backend.design.md#3.3 数据设计 | integration | 迁移→真实 PostgreSQL partial unique | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_submission_schema_parity.py"] | . | 600 | |
+| B-102 | 09-task-schedule.backend.design.md#3.3 数据设计 | integration | 迁移→真实 PostgreSQL partial unique | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_submission_schema_parity.py"] | . | 600 | |
 | B-103 | 09-task-schedule.backend.design.md#3.3.5 状态枚举 | unit | Pydantic 公共契约与序列化 | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_contracts.py"] | . | 600 | |
 | B-104 | 09-task-schedule.backend.design.md#3.3.4 `task.task_event` | integration | 并发 PG Session→Task 行锁→TaskEvent | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_events.py"] | . | 600 | |
 | B-105 | 09-task-schedule.backend.design.md#3.3.2 `task.delivery_route` | integration | 真实 PG delivery_route partial unique | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_delivery_routes.py"] | . | 600 | |
@@ -276,13 +276,13 @@
 - [2026-09-21] completed (done)
 ## TASK-002: 新增提交幂等记录的持久化模型
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 09-task-schedule.backend.design.md#3.3.8 `task.task_submission`, 09-task-schedule.backend.design.md#3.4 接口设计
 - **Spec-Refs**: 
 - **Acceptance-Refs**: B-102
-- **Files**: `apps/agent-worker/src/muad_agent_worker/infrastructure/models/task_submission.py`, `migrations/versions/<next>_task_submission.py`, `tests/agent_worker/test_submission_schema_parity.py`
+- **Files**: `apps/agent-worker/src/muad_agent_worker/infrastructure/models/task_submission.py`, `apps/agent-worker/src/muad_agent_worker/infrastructure/models/__init__.py`, `migrations/versions/0011_task_submission.py`, `tests/agent_worker/test_submission_schema_parity.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
@@ -291,27 +291,35 @@
 
 ### Checklist
 
-- [ ] [B-102][integration] 修改生产代码前先覆盖 迁移→真实 PostgreSQL partial unique 并记录 RED：同租户/键/端点只保留一条有效记录；不同租户和端点隔离；回滚无首次响应残留。
-- [ ] 实现：承接新增 API 幂等 Rule：在 task schema 保存 tenant/key/endpoint、指纹与首次响应，同业务提交一并提交或回滚；不复用 control 的 Skill 导入专用表。
-- [ ] [B-102][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_submission_schema_parity.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-102][integration] 修改生产代码前先覆盖 迁移→真实 PostgreSQL partial unique 并记录 RED：同租户/键/端点只保留一条有效记录；不同租户和端点隔离；回滚无首次响应残留。
+- [x] 实现：承接新增 API 幂等 Rule：在 task schema 保存 tenant/key/endpoint、指纹与首次响应，同业务提交一并提交或回滚；不复用 control 的 Skill 导入专用表。
+- [x] [B-102][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_submission_schema_parity.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-102 | integration | 迁移→真实 PostgreSQL partial unique | 同租户/键/端点只保留一条有效记录；不同租户和端点隔离；回滚无首次响应残留 | tests/agent_worker/test_submission_schema_parity.py / B-102（planned） | uv run pytest -q tests/agent_worker/test_submission_schema_parity.py | planned |
+| B-102 | integration | 迁移→真实 PostgreSQL partial unique | 同租户/键/端点只保留一条有效记录；不同租户和端点隔离；回滚无首次响应残留 | tests/agent_worker/test_submission_schema_parity.py / B-102（verified） | uv run pytest -q tests/agent_worker/test_submission_schema_parity.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-102 | ERROR: `ModuleNotFoundError: No module named 'muad_agent_worker.infrastructure.models.task_submission'`（收集期失败：模型与表均不存在） | PASS: 6 passed | `tests/agent_worker/test_submission_schema_parity.py`：`test_task_submission_schema_parity`（标准列/JSONB/同 schema FK）、`test_task_submission_partial_unique_index`、`test_duplicate_submission_is_rejected`、`test_tenant_and_endpoint_are_isolated`、`test_soft_deleted_row_frees_the_key`、`test_rollback_leaves_no_submission` | 真实 PostgreSQL（`.env` DATABASE_URL）；Alembic 0011 upgrade head；partial unique 经 `inspect()` 实测 `unique=True` 且带 `postgresql_where` | verified |
+
+回归：`tests/agent_worker` 49 passed（原 43 + 新 6）；`uv run pytest -q tests -k schema_parity` 35 passed。
+
+> 说明：partial unique 行为用真实 PG 触发 `IntegrityError` 验证，未用 SQLite 或 mock 顶替。并发插入由该索引兜底属 TASK-006 提交路径的职责，本任务只落模型与约束。
+- B-102: verified — automated command passed; run_id=07fadb73ad1a4bb28c906201748d119e (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-21] started
+- [2026-09-21] completed (done)
 ## TASK-003: 收紧 Task/Schedule 请求与响应契约
 
 - **Status**: draft
