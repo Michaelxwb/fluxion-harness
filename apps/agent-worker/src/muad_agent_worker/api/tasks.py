@@ -7,8 +7,16 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok, paginate
 from muad_contracts import CreateTaskRequest, TaskStatus, TriggerType
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.submissions import (
+    ENDPOINT_CREATE_TASK,
+    IDEMPOTENCY_HEADER,
+    TaskSubmissionService,
+    resolve_idempotency_key,
+    submission_fingerprint,
+)
 from ..application.task_service import TaskService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.task import TaskExecution
@@ -57,8 +65,47 @@ async def create_task(
     session: Session,
 ) -> ApiResponse[Any]:
     ensure_tenant_consistent(request, body.tenant_id)
-    task = await TaskService(session).create(body)
-    return ok(request.app.state.message_catalog, {"task_id": str(task.id), "status": task.status})
+    submissions = TaskSubmissionService(session)
+    idempotency_key = resolve_idempotency_key(
+        request.headers.get(IDEMPOTENCY_HEADER), body.idempotency_key
+    )
+    fingerprint = submission_fingerprint(ENDPOINT_CREATE_TASK, body)
+
+    async def replay() -> ApiResponse[Any] | None:
+        row = await submissions.find_replay(
+            tenant_id=body.tenant_id,
+            idempotency_key=idempotency_key,
+            endpoint=ENDPOINT_CREATE_TASK,
+            fingerprint=fingerprint,
+        )
+        if row is None:
+            return None
+        return ok(request.app.state.message_catalog, row.response_json)
+
+    already = await replay()
+    if already is not None:
+        return already
+
+    try:
+        async with session.begin_nested():
+            task = await TaskService(session).create(body)
+            response = {"task_id": str(task.id), "status": task.status}
+            await submissions.record_in(
+                tenant_id=body.tenant_id,
+                idempotency_key=idempotency_key,
+                endpoint=ENDPOINT_CREATE_TASK,
+                actor_user_id=body.actor_user_id,
+                request_fingerprint=fingerprint,
+                response=response,
+                task_id=task.id,
+            )
+    except IntegrityError:
+        # 并发落败者：首次提交已由赢家落库，读取其结果重放。
+        already = await replay()
+        if already is None:
+            raise
+        return already
+    return ok(request.app.state.message_catalog, response)
 
 
 @router.get("")

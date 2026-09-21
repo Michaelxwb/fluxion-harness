@@ -98,7 +98,7 @@
 | E-04 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Scheduler→真实 PG→审计/指标/终态 MISSED | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_scheduler_misfire.py","-k","e04"] | . | 600 | |
 | E-05 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Worker HTTP→真实 Gateway→Redis→渠道探针 | TASK-021 | planned | ["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","e05"] | . | 600 | |
 | E-06 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | 取消 API→真实 PG CAS→Worker 检查点 | TASK-014 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_cancel.py","-k","e06"] | . | 600 | |
-| E-07 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Worker HTTP→task.task_submission partial unique | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_submission_idempotency.py","-k","e07"] | . | 600 | |
+| E-07 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Worker HTTP→task.task_submission partial unique | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_submission_idempotency.py","-k","e07"] | . | 600 | |
 | S-201 | 09-task-schedule.frontend.design.md#2.4 验收条件 | E2E | Browser→schedules API→tasks API→真实 PG | TASK-037 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-history.spec.ts --grep 'S-FE-01'"] | . | 1200 | |
 | S-202 | 09-task-schedule.frontend.design.md#2.4 验收条件 | E2E | Browser→Console cancel API→真实 Worker/PG→UI | TASK-034 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-cancel.spec.ts --grep 'S-FE-02'"] | . | 1200 | |
 | S-203 | 09-task-schedule.frontend.design.md#2.4 验收条件 | E2E | Browser→tasks API→真实 PG→Task 列表/详情 | TASK-032 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-detail.spec.ts --grep 'S-FE-03'"] | . | 1200 | |
@@ -111,7 +111,7 @@
 | B-103 | 09-task-schedule.backend.design.md#3.3.5 状态枚举 | unit | Pydantic 公共契约与序列化 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_contracts.py"] | . | 600 | |
 | B-104 | 09-task-schedule.backend.design.md#3.3.4 `task.task_event` | integration | 并发 PG Session→Task 行锁→TaskEvent | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_events.py"] | . | 600 | |
 | B-105 | 09-task-schedule.backend.design.md#3.3.2 `task.delivery_route` | integration | 真实 PG delivery_route partial unique | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_delivery_routes.py"] | . | 600 | |
-| B-106 | 09-task-schedule.backend.design.md#3.4 接口设计 | integration | 真实 HTTP handler→PG 幂等记录/事务 | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_submission_idempotency.py"] | . | 600 | |
+| B-106 | 09-task-schedule.backend.design.md#3.4 接口设计 | integration | 真实 HTTP handler→PG 幂等记录/事务 | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_submission_idempotency.py"] | . | 600 | |
 | B-107 | 09-task-schedule.backend.design.md#API-01 Internal 创建 Task | integration | Worker Task HTTP→PG Task/Submission/Event | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_service.py"] | . | 600 | |
 | B-108 | 09-task-schedule.backend.design.md#API-03 Internal Task 列表 | integration | 真实 Worker HTTP→PG Task/Event/children | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_queries.py"] | . | 600 | |
 | B-109 | 09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule | integration | Schedule HTTP→PG→真实时区计算 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_writes.py"] | . | 600 | |
@@ -460,13 +460,13 @@
 - [2026-09-21] completed (done)
 ## TASK-006: 实现提交指纹校验与首次响应重放
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003
 - **Source**: 09-task-schedule.backend.design.md#3.3.8 `task.task_submission`, 09-task-schedule.backend.design.md#3.4 接口设计, 09-task-schedule.backend.design.md#API-01 Internal 创建 Task, 09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule
 - **Spec-Refs**: 
 - **Acceptance-Refs**: E-07, B-106
-- **Files**: `apps/agent-worker/src/muad_agent_worker/application/submissions.py`, `tests/agent_worker/test_submission_idempotency.py`
+- **Files**: `apps/agent-worker/src/muad_agent_worker/application/submissions.py`, `apps/agent-worker/src/muad_agent_worker/api/tasks.py`, `tests/agent_worker/test_submission_idempotency.py`, `tests/agent_worker/conftest.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
@@ -475,29 +475,41 @@
 
 ### Checklist
 
-- [ ] [B-106][integration] 修改生产代码前先覆盖 真实 HTTP handler→PG 幂等记录/事务 并记录 RED：并发同键只执行一次；重放 200 原业务结果；异指纹返回 IDEMPOTENCY_MISMATCH；失败事务不占成功记录；Task Header 与已有 body key 一致。
-- [ ] 实现：封装两类创建 POST 的 Idempotency-Key 处理；指纹为 endpoint、规范化关键参数及内容哈希，同键同指纹返回首次业务响应，异指纹返回 IDEMPOTENCY_MISMATCH。
-- [ ] [B-106][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] [E-07][integration] 先记录 RED，再按 Worker HTTP→task.task_submission partial unique 验证：同 key 同指纹重放首次持久化结果且不重复建资源；同 key 不同指纹返回 IDEMPOTENCY_MISMATCH；并发同 key 只成功一次；命令 `uv run pytest -q tests/agent_worker/test_submission_idempotency.py -k e07`。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_submission_idempotency.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-106][integration] 修改生产代码前先覆盖 真实 HTTP handler→PG 幂等记录/事务 并记录 RED：并发同键只执行一次；重放 200 原业务结果；异指纹返回 IDEMPOTENCY_MISMATCH；失败事务不占成功记录；Task Header 与已有 body key 一致。
+- [x] 实现：封装两类创建 POST 的 Idempotency-Key 处理；指纹为 endpoint、规范化关键参数及内容哈希，同键同指纹返回首次业务响应，异指纹返回 IDEMPOTENCY_MISMATCH。
+- [x] [B-106][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] [E-07][integration] 先记录 RED，再按 Worker HTTP→task.task_submission partial unique 验证：同 key 同指纹重放首次持久化结果且不重复建资源；同 key 不同指纹返回 IDEMPOTENCY_MISMATCH；并发同 key 只成功一次；命令 `uv run pytest -q tests/agent_worker/test_submission_idempotency.py -k e07`。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_submission_idempotency.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-07 | integration | Worker HTTP→task.task_submission partial unique | 同 key 同指纹重放首次持久化结果且不重复建资源；同 key 不同指纹返回 IDEMPOTENCY_MISMATCH；并发同 key 只成功一次 | tests/agent_worker/test_submission_idempotency.py / e07（planned） | uv run pytest -q tests/agent_worker/test_submission_idempotency.py -k e07 | planned |
-| B-106 | integration | 真实 HTTP handler→PG 幂等记录/事务 | 并发同键只执行一次；重放 200 原业务结果；异指纹返回 IDEMPOTENCY_MISMATCH；失败事务不占成功记录；Task Header 与已有 body key 一致 | tests/agent_worker/test_submission_idempotency.py / B-106（planned） | uv run pytest -q tests/agent_worker/test_submission_idempotency.py | planned |
+| E-07 | integration | Worker HTTP→task.task_submission partial unique | 同 key 同指纹重放首次持久化结果且不重复建资源；同 key 不同指纹返回 IDEMPOTENCY_MISMATCH；并发同 key 只成功一次 | tests/agent_worker/test_submission_idempotency.py / e07（verified） | uv run pytest -q tests/agent_worker/test_submission_idempotency.py -k e07 | verified |
+| B-106 | integration | 真实 HTTP handler→PG 幂等记录/事务 | 并发同键只执行一次；重放 200 原业务结果；异指纹返回 IDEMPOTENCY_MISMATCH；失败事务不占成功记录；Task Header 与已有 body key 一致 | tests/agent_worker/test_submission_idempotency.py / B-106（verified） | uv run pytest -q tests/agent_worker/test_submission_idempotency.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-07 | FAIL: 6 failed / 1 passed —— 同键异 payload 返回 200（静默复用首次 Task）而非 409；无 `task_submission` 记录；Header 未参与 | PASS: 7 passed | `test_e07_replay_and_mismatch_on_real_pg`、`test_same_key_same_payload_replays_first_response`、`test_mismatched_payload_returns_idempotency_mismatch`、`test_concurrent_same_key_creates_one_task`（4 并发只建 1 个 Task） | 真实 ASGI HTTP → 真实 PG `task.task_submission` partial unique；并发为真实并发请求 | verified |
+| B-106 | FAIL: 同上 | PASS: 7 passed；全量 `uv run pytest -q tests` 999 passed | 另含 `test_header_key_must_agree_with_body_key`（Header≠body → 409 且不落库）、`test_matching_header_and_body_key_succeeds`、`test_failed_request_does_not_reserve_the_key` | 同上；校验层 422 不落库、失败不占记录由 `get_session` 成功才 commit 保证 | verified |
+
+> 缺口来源：`TaskService.create` 原有的 body 幂等只按 key 命中、不比对指纹，因此「同键异 payload」会被静默复用首次结果。本次补齐指纹校验与 `task_submission` 记录；并发落败者用 `begin_nested()` savepoint 承接 `IntegrityError` 后回读首次结果重放（落地设计「并发插入由 partial unique 兜底，落败者读取首次提交结果」）。
+>
+> 连带改动：`tests/agent_worker/conftest.py` 必须先清理 `task_submission` 再删 `task_execution`——TASK-002 的同 schema 外键让清理顺序成为硬约束，同时把该表加入探活表清单。
+>
+> 范围：Schedule 侧（`create-schedule`）的 handler 接线属 TASK-009；本模块已提供 `ENDPOINT_CREATE_SCHEDULE` 与通用指纹函数，接线时直接复用。
+- E-07: verified — automated command passed; run_id=bb890bffc4f84752afa67d2e36e6bec5 (confirmed_by: runner)
+- B-106: verified — automated command passed; run_id=bb890bffc4f84752afa67d2e36e6bec5 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-21] started
+- [2026-09-21] completed (done)
 ## TASK-007: 完善 Task 创建、快照校验与原子事件
 
 - **Status**: draft

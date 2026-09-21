@@ -220,7 +220,7 @@
       "kind": "functional",
       "boundary": "Worker HTTP→task.task_submission partial unique",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -232,7 +232,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "bb890bffc4f84752afa67d2e36e6bec5",
+        "executed_at": "2026-09-21T15:35:28.950399+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "bb890bffc4f84752afa67d2e36e6bec5",
+          "executed_at": "2026-09-21T15:35:28.950399+00:00"
+        }
+      ]
     },
     {
       "id": "S-201",
@@ -560,7 +581,7 @@
       "kind": "functional",
       "boundary": "真实 HTTP handler→PG 幂等记录/事务",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -570,7 +591,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-106",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "bb890bffc4f84752afa67d2e36e6bec5",
+        "executed_at": "2026-09-21T15:35:28.950399+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-106",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "bb890bffc4f84752afa67d2e36e6bec5",
+          "executed_at": "2026-09-21T15:35:28.950399+00:00"
+        }
+      ]
     },
     {
       "id": "B-107",

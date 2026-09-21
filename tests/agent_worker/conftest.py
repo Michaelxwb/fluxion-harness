@@ -11,9 +11,10 @@ from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 SCHEMA = "task"
-TABLES = ("delivery_route", "task_schedule", "task_execution", "task_event")
+TABLES = ("delivery_route", "task_schedule", "task_execution", "task_event", "task_submission")
 
 DELETE_EVENTS = text("DELETE FROM task.task_event WHERE tenant_id = :tenant_id")
+DELETE_SUBMISSIONS = text("DELETE FROM task.task_submission WHERE tenant_id = :tenant_id")
 DELETE_TASKS = text("DELETE FROM task.task_execution WHERE tenant_id = :tenant_id")
 DELETE_SCHEDULES = text("DELETE FROM task.task_schedule WHERE tenant_id = :tenant_id")
 DELETE_ROUTES = text("DELETE FROM task.delivery_route WHERE tenant_id = :tenant_id")
@@ -59,7 +60,13 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
         yield context
     finally:
         async with session_factory() as session:
-            for statement in (DELETE_EVENTS, DELETE_TASKS, DELETE_SCHEDULES, DELETE_ROUTES):
+            for statement in (
+                DELETE_EVENTS,
+                DELETE_SUBMISSIONS,
+                DELETE_TASKS,
+                DELETE_SCHEDULES,
+                DELETE_ROUTES,
+            ):
                 await session.execute(statement, {"tenant_id": tenant_id})
             await session.commit()
 
