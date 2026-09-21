@@ -31,6 +31,8 @@ def platform_snapshot(
     has_shared_credential: bool,
     adapter_metadata: dict[str, Any] | None = None,
     user_credential_status: str | None = None,
+    user_credential_updated_time: Any = None,
+    with_user_credential: bool = False,
 ) -> dict[str, Any]:
     data: dict[str, Any] = {
         "platform_id": str(platform_id),
@@ -49,6 +51,11 @@ def platform_snapshot(
     }
     if adapter_metadata is not None:
         data["adapter_metadata"] = adapter_metadata
-    if user_credential_status is not None:
-        data["user_credential_status"] = user_credential_status
+    if with_user_credential:
+        data["user_credential_status"] = user_credential_status or "NONE"
+        data["user_credential_updated_time"] = (
+            user_credential_updated_time.isoformat()
+            if hasattr(user_credential_updated_time, "isoformat")
+            else None
+        )
     return data

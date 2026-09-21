@@ -10,8 +10,8 @@ from typing import Any, cast
 import httpx
 
 _JSON_RPC_VERSION = "2.0"
-MAX_TOOLS_PER_SERVER = 200
 _PROTOCOL_VERSION = "2025-03-26"
+_MAX_PAGES = 50
 
 
 class McpClientError(Exception):
@@ -66,23 +66,42 @@ class McpClient:
         auth_secret: str | None = None,
         timeout_ms: int = 5000,
     ) -> None:
-        headers = {"Accept": "application/json, text/event-stream"}
-        if auth_secret:
-            headers["Authorization"] = f"Bearer {auth_secret}"
         self._endpoint = endpoint
-        self._client = httpx.Client(headers=headers, timeout=httpx.Timeout(timeout_ms / 1000))
+        self._headers = {"Accept": "application/json, text/event-stream"}
+        if auth_secret:
+            self._headers["Authorization"] = f"Bearer {auth_secret}"
+        self._client = httpx.Client(headers=self._headers, timeout=httpx.Timeout(timeout_ms / 1000))
+        self._session_id: str | None = None
+
+    def close(self) -> None:
+        self._client.close()
+
+    def _request_headers(self) -> dict[str, str]:
+        headers = dict(self._headers)
+        if self._session_id:
+            headers["Mcp-Session-Id"] = self._session_id
+        headers["MCP-Protocol-Version"] = _PROTOCOL_VERSION
+        return headers
 
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
+        expects_response = payload.get("id") is not None
         try:
-            response = self._client.post(self._endpoint, json=payload)
+            response = self._client.post(
+                self._endpoint, json=payload, headers=self._request_headers()
+            )
         except httpx.TimeoutException as exc:
             raise McpClientError("timeout", "request timed out") from exc
         except httpx.HTTPError as exc:
             # 不携带请求头（含 auth）内容，避免 Secret 泄漏
             raise McpClientError("connect", type(exc).__name__) from exc
+        session_id = response.headers.get("mcp-session-id")
+        if session_id:
+            self._session_id = session_id
         if response.status_code >= 400:
             raise McpClientError("protocol", f"http {response.status_code}")
         if response.status_code == 202 or not response.content:
+            if expects_response:
+                raise McpClientError("protocol", "missing response payload")
             return {}
         try:
             body = self._decode(response)
@@ -97,8 +116,14 @@ class McpClient:
         content_type = response.headers.get("content-type", "")
         if "text/event-stream" in content_type:
             for line in response.text.splitlines():
-                if line.startswith("data:"):
-                    return cast(dict[str, Any], json.loads(line[len("data:") :].strip()))
+                if not line.startswith("data:"):
+                    continue
+                try:
+                    payload = json.loads(line[len("data:") :].strip())
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(payload, dict) and ("result" in payload or "error" in payload):
+                    return cast(dict[str, Any], payload)
             raise McpClientError("protocol", "empty sse payload")
         return cast(dict[str, Any], response.json())
 
@@ -122,19 +147,41 @@ class McpClient:
         self._post({"jsonrpc": _JSON_RPC_VERSION, "method": "notifications/initialized"})
         return server_info
 
-    def list_tools(self) -> list[McpToolSpec]:
-        body = self._post({"jsonrpc": _JSON_RPC_VERSION, "id": 2, "method": "tools/list"})
-        tools = (body.get("result") or {}).get("tools") or []
+    def list_tools(self, *, max_tools: int | None = None) -> list[McpToolSpec]:
+        """按 cursor 分页拉取全部工具；超过 max_tools 立即失败（避免无界拉取）。"""
         specs: list[McpToolSpec] = []
-        for raw in tools:
-            if not isinstance(raw, dict) or not raw.get("name"):
-                raise McpClientError("protocol", "tool entry missing name")
-            specs.append(
-                McpToolSpec(
-                    name=str(raw["name"]),
-                    description=str(raw.get("description") or ""),
-                    input_schema=raw.get("inputSchema") or {"type": "object", "properties": {}},
-                    effect=normalize_effect(raw),
+        cursor: str | None = None
+        for _ in range(_MAX_PAGES):
+            params: dict[str, Any] = {}
+            if cursor:
+                params["cursor"] = cursor
+            payload: dict[str, Any] = {
+                "jsonrpc": _JSON_RPC_VERSION,
+                "id": 2,
+                "method": "tools/list",
+            }
+            if params:
+                payload["params"] = params
+            body = self._post(payload)
+            result = body.get("result") or {}
+            tools = result.get("tools") or []
+            if not isinstance(tools, list):
+                raise McpClientError("protocol", "tools/list result is not a list")
+            for raw in tools:
+                if not isinstance(raw, dict) or not raw.get("name"):
+                    raise McpClientError("protocol", "tool entry missing name")
+                specs.append(
+                    McpToolSpec(
+                        name=str(raw["name"]),
+                        description=str(raw.get("description") or ""),
+                        input_schema=raw.get("inputSchema") or {"type": "object", "properties": {}},
+                        effect=normalize_effect(raw),
+                    )
                 )
-            )
-        return specs
+                if max_tools is not None and len(specs) > max_tools:
+                    raise McpClientError("protocol", f"tool count exceeds limit {max_tools}")
+            next_cursor = result.get("nextCursor")
+            if not next_cursor:
+                return specs
+            cursor = str(next_cursor)
+        raise McpClientError("protocol", "tools/list pagination did not terminate")

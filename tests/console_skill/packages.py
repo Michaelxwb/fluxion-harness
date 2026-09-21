@@ -1,12 +1,14 @@
 import io
 import zipfile
 
+ZIP_DATE_TIME = (1980, 1, 1, 0, 0, 0)
+
 
 def zip_bytes(files: dict[str, str | bytes]) -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
         for name, content in files.items():
-            archive.writestr(name, content)
+            archive.writestr(zipfile.ZipInfo(name, date_time=ZIP_DATE_TIME), content)
     return buffer.getvalue()
 
 
@@ -47,7 +49,7 @@ def demo_package(
 def symlink_package(target: str = "/etc/passwd") -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
-        info = zipfile.ZipInfo("link.py")
+        info = zipfile.ZipInfo("link.py", date_time=ZIP_DATE_TIME)
         info.external_attr = 0o120777 << 16
         archive.writestr(info, target)
     return buffer.getvalue()

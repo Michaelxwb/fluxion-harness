@@ -106,4 +106,9 @@ async def test_b120_cancel_requested_flag_then_reaper_fallback(client, tenant) -
         )
         await session.commit()
     reaped = await reap_abandoned_runs(session_factory)
-    assert reaped >= 0  # Reaper 可执行（RUNNING 状态含我们的 run）
+    assert reaped >= 1  # 本 run 的租约已过期，必须被回收
+    async with session_factory() as session:
+        run = await session.get(RunRecord, run_id)
+        assert run is not None
+        assert run.status == "FAILED"
+        assert run.error_code == "RUN_ABANDONED"

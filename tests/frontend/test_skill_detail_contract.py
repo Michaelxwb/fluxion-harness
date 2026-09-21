@@ -17,7 +17,8 @@ def test_detail_sidesheet_header_actions_and_tabs() -> None:
     source = _source("SkillDetailSideSheet.tsx")
     assert "DetailSideSheet" in source
     assert 'title={props.skill.name}' in source
-    assert 'subtitle={props.skill.key}' in source
+    assert "subtitle={" in source and "props.skill.key" in source
+    assert "currentVersion" in source
     assert 'actions={' in source
     assert 'data-testid="import-artifact"' in source
     for tab_key in ('"basic"', '"artifacts"', '"agents"', '"users"'):
@@ -25,14 +26,26 @@ def test_detail_sidesheet_header_actions_and_tabs() -> None:
 
 
 def test_artifact_version_link_opens_manifest_modal() -> None:
-    """[S-06] 版本号可点击打开版本详情（manifest 清单快照/SKILL.md）。"""
+    """[S-06] 版本号可点击打开版本详情（manifest 清单快照/SKILL.md 正文）。"""
     sheet = _source("SkillDetailSideSheet.tsx")
     assert 'data-testid={`artifact-link-${artifact.version}`}' in sheet
     assert "SkillArtifactDetailModal" in sheet
     modal = _source("SkillArtifactDetailModal.tsx")
     assert "getArtifact" in modal
     assert "artifact-file-list" in modal
-    assert "SKILL.md" in modal
+    assert "artifact-skill-md" in modal
+    assert "detail?.instructions" in modal
+    assert "ErrorState" in modal
+
+
+def test_detail_guards_scope_change_and_has_error_states() -> None:
+    sheet = _source("SkillDetailSideSheet.tsx")
+    assert "disabled={detail === null}" in sheet
+    assert "ErrorState" in sheet
+    assert "listSkillAgents" in sheet
+    assert "PaginationFooter" in sheet
+    assert "skill-md-preview" in sheet
+    assert "current_artifact?.instructions" in sheet
 
 
 def test_artifact_detail_has_no_execution_entry() -> None:

@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..infrastructure.db import SessionFactoryProvider, get_session_factory
-from ..infrastructure.models.runtime import Conversation, RunInterrupt, RunRecord
+from ..infrastructure.models.runtime import RunInterrupt, RunRecord
 
 STATUS_WAITING_INPUT = "WAITING_INPUT"
 STATUS_RUNNING = "RUNNING"
@@ -32,27 +32,25 @@ async def checkpoint_interrupt(
 ) -> dict[str, Any]:
     factory = session_factory or get_session_factory()
     async with factory() as session:
-        session.add(
-            RunInterrupt(
-                tenant_id=tenant_id,
-                run_id=run_id,
-                conversation_id=conversation_id,
-                interrupt_type=interrupt_type,
-                prompt_text=prompt_text,
-                options_json=options_json,
-                status=INTERRUPT_WAITING,
-            )
+        interrupt = RunInterrupt(
+            tenant_id=tenant_id,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            interrupt_type=interrupt_type,
+            prompt_text=prompt_text,
+            options_json=options_json,
+            status=INTERRUPT_WAITING,
         )
+        session.add(interrupt)
         run = await session.get(RunRecord, run_id)
         if run is not None:
             run.status = STATUS_WAITING_INPUT
             run.lease_until = None  # 释放租约（时间维度）；lease_owner 保留为最后执行者记录
-        conversation = await session.get(Conversation, conversation_id)
-        if conversation is not None:
-            conversation.status = "WAITING_INPUT"
+        # Conversation.status 仅允许 ACTIVE/ARCHIVED，暂停状态在 run/interrupt 上表达
         await session.commit()
+        interrupt_id = interrupt.id
     return {
-        "interrupt_id": str(run_id),
+        "interrupt_id": str(interrupt_id),
         "kind": interrupt_type,
         "prompt": prompt_text,
         "checkpoint_state": checkpoint_state,
@@ -139,7 +137,4 @@ async def release_lease_and_wait(
         run.status = STATUS_WAITING_INPUT
         run.lease_owner = None
         run.lease_until = None
-    conversation = await session.get(Conversation, conversation_id)
-    if conversation is not None:
-        conversation.status = "WAITING_INPUT"
     await session.flush()

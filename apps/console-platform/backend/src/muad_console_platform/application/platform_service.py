@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 import jsonschema
@@ -198,6 +199,7 @@ class PlatformService:
         platform.adapter_config_json = adapter_config
         platform.credential_mode = credential_mode
         platform.enabled = enabled
+        platform.update_time = datetime.now(UTC)
         if adapter_changed:
             platform.adapter_schema_version = str(self._registry.get(adapter_key).version)
             await self._credentials.invalidate_platform(tenant_id, platform.id)
@@ -249,7 +251,9 @@ class PlatformService:
             update_time=platform.update_time,
             configured_user_credential_count=row.configured_user_credential_count,
             has_shared_credential=row.has_shared_credential,
-            user_credential_status=(row.user_credential_status or "NONE") if with_status else None,
+            user_credential_status=row.user_credential_status,
+            user_credential_updated_time=row.user_credential_updated_time,
+            with_user_credential=with_status,
         )
 
     def _snapshot(self, platform: ProjectPlatform) -> dict[str, Any]:

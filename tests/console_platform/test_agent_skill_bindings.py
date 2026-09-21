@@ -181,6 +181,62 @@ async def test_e03_bind_disabled_skill_allowed_but_filtered(
     assert missing.status_code == 404
     assert missing.json()["code"] == "COMMON_NOT_FOUND"
 
+    # 运行时过滤：禁用 Skill 绑定行存在但不进入 resolve；启用后出现
+    from muad_console_platform.infrastructure.db import get_session_factory
+    from muad_console_platform.infrastructure.models.control import (
+        AgentAccessGrant,
+        PlatformUser,
+        Skill,
+    )
+
+    async with get_session_factory()() as session:
+        await session.execute(
+            update(Skill)
+            .where(Skill.id == uuid.UUID(skill_id))
+            .values(user_scope="ALL")
+        )
+        user = PlatformUser(
+            tenant_id=tenant.tenant_id,
+            user_code=f"e03-{uuid.uuid4().hex[:8]}",
+            display_name="E03 resolver",
+        )
+        session.add(user)
+        await session.flush()
+        user_id = user.id
+        session.add(
+            AgentAccessGrant(
+                user_id=user_id, agent_id=uuid.UUID(agent_id), granted_by=user_id
+            )
+        )
+        await session.commit()
+
+    async def _resolved_keys() -> set[str]:
+        response = await client.post(
+            "/internal/runtime/resolve-definition",
+            json={"agent_id": agent_id, "actor_user_id": str(user_id), "channel": "WECOM"},
+            headers=_headers(tenant),
+        )
+        assert response.status_code == 200, response.text
+        return {skill["key"] for skill in response.json()["data"]["skills"]}
+
+    assert not any(key.startswith("bind-") for key in await _resolved_keys())
+
+    async with get_session_factory()() as session:
+        await session.execute(
+            update(Skill).where(Skill.id == uuid.UUID(skill_id)).values(enabled=True)
+        )
+        await session.commit()
+    assert any(key.startswith("bind-") for key in await _resolved_keys())
+
+    async with get_session_factory()() as session:
+        await session.execute(
+            AgentAccessGrant.__table__.delete().where(AgentAccessGrant.user_id == user_id)
+        )
+        await session.execute(
+            PlatformUser.__table__.delete().where(PlatformUser.id == user_id)
+        )
+        await session.commit()
+
 
 async def test_rel_001_unbind_idempotent_and_restore_updates_sort_order(
     client: AsyncClient, tenant: TenantContext

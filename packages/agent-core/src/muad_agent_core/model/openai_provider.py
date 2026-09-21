@@ -8,7 +8,7 @@ from muad_platform_sdk.types import SecretValue
 
 from ..tools.registry import ToolDefinition
 from .errors import ModelRateLimitedError, ModelRequestError, ModelUnavailableError
-from .provider import ModelMessage, ModelRequest, ModelResponse, ModelToolCall
+from .provider import DeltaCallback, ModelMessage, ModelRequest, ModelResponse, ModelToolCall
 
 CHAT_COMPLETIONS_PATH = "/chat/completions"
 RATE_LIMIT_STATUS = 429
@@ -36,6 +36,140 @@ class OpenAICompatibleProvider:
     async def complete(self, request: ModelRequest) -> ModelResponse:
         response = await self._post(request)
         return self._parse(response)
+
+    async def stream(self, request: ModelRequest, on_delta: DeltaCallback) -> ModelResponse:
+        """SSE 流式调用：逐块回调文本增量，最终返回组装后的完整响应。"""
+        payload = self._payload(request)
+        payload["stream"] = True
+        try:
+            async with self._client.stream(
+                "POST",
+                f"{self._base_url}{CHAT_COMPLETIONS_PATH}",
+                json=payload,
+                headers=self._headers(),
+            ) as response:
+                if response.status_code == RATE_LIMIT_STATUS:
+                    await response.aread()
+                    raise ModelRateLimitedError(
+                        "model rate limited", retry_after=self._retry_after(response)
+                    )
+                if response.status_code >= SERVER_ERROR_STATUS:
+                    await response.aread()
+                    raise ModelUnavailableError(f"model server error: {response.status_code}")
+                if response.status_code >= 400:
+                    await response.aread()
+                    raise ModelRequestError(
+                        f"model request rejected: {response.status_code}"
+                    )
+                content_type = response.headers.get("content-type", "")
+                if "text/event-stream" not in content_type:
+                    # 兼容不支持流式的兼容端点：整包 JSON 解析后作为单块内容
+                    body = await response.aread()
+                    parsed = self._parse(
+                        httpx.Response(
+                            response.status_code, content=body, headers=response.headers
+                        )
+                    )
+                    if parsed.content:
+                        await on_delta(parsed.content)
+                    return parsed
+                return await self._parse_stream(response, on_delta)
+        except httpx.TimeoutException as exc:
+            raise ModelUnavailableError("model request timed out") from exc
+        except httpx.TransportError as exc:
+            raise ModelUnavailableError(f"model transport error: {type(exc).__name__}") from exc
+
+    async def _parse_stream(
+        self, response: httpx.Response, on_delta: DeltaCallback
+    ) -> ModelResponse:
+        content_parts: list[str] = []
+        tool_calls: dict[int, dict[str, Any]] = {}
+        finish_reason = "stop"
+        input_tokens: int | None = None
+        output_tokens: int | None = None
+        async for line in response.aiter_lines():
+            if not line.startswith("data:"):
+                continue
+            raw = line[len("data:") :].strip()
+            if not raw or raw == "[DONE]":
+                continue
+            try:
+                chunk = json.loads(raw)
+            except ValueError as exc:
+                raise ModelRequestError("model stream chunk is not valid JSON") from exc
+            if not isinstance(chunk, dict):
+                continue
+            usage = chunk.get("usage")
+            if isinstance(usage, dict):
+                parsed_in, parsed_out = self._usage(usage)
+                input_tokens = parsed_in if parsed_in is not None else input_tokens
+                output_tokens = parsed_out if parsed_out is not None else output_tokens
+            choices = chunk.get("choices")
+            if not isinstance(choices, list) or not choices:
+                continue
+            choice = choices[0]
+            if not isinstance(choice, dict):
+                continue
+            reason = choice.get("finish_reason")
+            if isinstance(reason, str) and reason:
+                finish_reason = reason
+            delta = choice.get("delta")
+            if not isinstance(delta, dict):
+                continue
+            text = delta.get("content")
+            if isinstance(text, str) and text:
+                content_parts.append(text)
+                await on_delta(text)
+            self._accumulate_tool_calls(tool_calls, delta.get("tool_calls"))
+        return ModelResponse(
+            content="".join(content_parts),
+            finish_reason=finish_reason,
+            tool_calls=self._assembled_tool_calls(tool_calls),
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+
+    @staticmethod
+    def _accumulate_tool_calls(
+        accumulator: dict[int, dict[str, Any]], raw: Any
+    ) -> None:
+        if not isinstance(raw, list):
+            return
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            index = item.get("index")
+            if not isinstance(index, int):
+                index = len(accumulator)
+            entry = accumulator.setdefault(index, {"id": "", "name": "", "arguments": ""})
+            call_id = item.get("id")
+            if isinstance(call_id, str) and call_id:
+                entry["id"] = call_id
+            function = item.get("function")
+            if isinstance(function, dict):
+                name = function.get("name")
+                if isinstance(name, str) and name:
+                    entry["name"] = name
+                arguments = function.get("arguments")
+                if isinstance(arguments, str):
+                    entry["arguments"] += arguments
+
+    def _assembled_tool_calls(
+        self, accumulator: dict[int, dict[str, Any]]
+    ) -> tuple[ModelToolCall, ...]:
+        calls: list[ModelToolCall] = []
+        for index in sorted(accumulator):
+            entry = accumulator[index]
+            if not entry["name"]:
+                continue
+            calls.append(
+                ModelToolCall(
+                    id=entry["id"] or f"call-{index}",
+                    name=entry["name"],
+                    arguments=self._arguments(entry["arguments"] or "{}"),
+                )
+            )
+        return tuple(calls)
 
     async def aclose(self) -> None:
         if self._owns_client:

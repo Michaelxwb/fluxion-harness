@@ -67,12 +67,18 @@ class GrantService:
         user_id: uuid.UUID,
         agent_id: uuid.UUID,
         actor: AuditActor,
+        *,
+        idempotent: bool = False,
     ) -> None:
         if await self._agents.get(tenant_id, agent_id) is None:
             raise AppError(ErrorCode.AGENT_NOT_FOUND)
         await self._require_user(tenant_id, user_id)
         grant = await self._grants.find_active(tenant_id, user_id, agent_id)
         if grant is None:
+            if idempotent:
+                # 07 API-14：不存在或已撤销的关系仍返回成功（避免重复提交报错）
+                return
+            # 02 API-07：无 ACTIVE grant → COMMON_NOT_FOUND
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
         grant.is_deleted = True
         grant.update_time = datetime.now(UTC)

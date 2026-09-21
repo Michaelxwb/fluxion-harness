@@ -4,6 +4,7 @@ from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.control import (
+    AgentDefinition,
     AgentSkillBinding,
     Skill,
     SkillArtifact,
@@ -30,12 +31,19 @@ class SkillRepository:
         tenant_id: str,
         page: int,
         page_size: int,
+        keyword: str | None,
         user_scope: str | None,
+        enabled: bool | None,
         execution_mode: str | None,
     ) -> tuple[list[tuple[Skill, SkillArtifact | None, int, int]], int]:
         conditions = [Skill.tenant_id == tenant_id, Skill.is_deleted.is_(False)]
+        if keyword:
+            pattern = f"%{keyword}%"
+            conditions.append(or_(Skill.key.ilike(pattern), Skill.name.ilike(pattern)))
         if user_scope is not None:
             conditions.append(Skill.user_scope == user_scope)
+        if enabled is not None:
+            conditions.append(Skill.enabled.is_(enabled))
         if execution_mode is not None:
             conditions.append(SkillArtifact.execution_mode == execution_mode)
         total = await self._session.scalar(
@@ -211,6 +219,35 @@ class SkillRepository:
             )
         )
         return int(total or 0)
+
+    async def list_agents_for_skill(
+        self,
+        skill_id: uuid.UUID,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[tuple[AgentDefinition, AgentSkillBinding]], int]:
+        conditions = (
+            AgentSkillBinding.skill_id == skill_id,
+            AgentSkillBinding.is_deleted.is_(False),
+            AgentDefinition.is_deleted.is_(False),
+        )
+        total = await self._session.scalar(
+            select(func.count())
+            .select_from(AgentSkillBinding)
+            .join(AgentDefinition, AgentDefinition.id == AgentSkillBinding.agent_id)
+            .where(*conditions)
+        )
+        rows = (
+            await self._session.execute(
+                select(AgentDefinition, AgentSkillBinding)
+                .join(AgentDefinition, AgentDefinition.id == AgentSkillBinding.agent_id)
+                .where(*conditions)
+                .order_by(AgentSkillBinding.sort_order, AgentDefinition.key)
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        ).all()
+        return [(agent, binding) for agent, binding in rows], int(total or 0)
 
     async def list_effective_for_agent(
         self,

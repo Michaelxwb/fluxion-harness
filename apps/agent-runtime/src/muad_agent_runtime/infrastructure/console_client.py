@@ -76,9 +76,11 @@ class ConsoleCredentialsClient:
         self,
         base_url: str,
         *,
+        service_token: str | None = None,
         timeout_sec: float = RESOLVE_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
+        self._service_token = service_token
         self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout_sec, transport=transport)
 
     async def resolve_credentials(
@@ -89,6 +91,8 @@ class ConsoleCredentialsClient:
         trace_id: str = "",
     ) -> dict[str, Any]:
         headers = {"X-Tenant-Id": tenant_id}
+        if self._service_token:
+            headers["X-Internal-Service"] = self._service_token
         if trace_id:
             headers["X-Trace-Id"] = trace_id
         response = await self._client.post(

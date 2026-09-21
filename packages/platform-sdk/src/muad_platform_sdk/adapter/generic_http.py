@@ -15,11 +15,13 @@ from ..types import (
 )
 
 _DEFAULT_TIMEOUT_MS = 3000
+_ALLOWED_AUTH_SCHEMES = ("none", "bearer", "basic")
+_CONFIG_KEYS = frozenset({"auth_scheme", "auth_header", "timeout_ms"})
 
 PLATFORM_CONFIG_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "auth_scheme": {"type": "string", "enum": ["none", "bearer", "basic"], "default": "bearer"},
+        "auth_scheme": {"type": "string", "enum": list(_ALLOWED_AUTH_SCHEMES), "default": "bearer"},
         "auth_header": {"type": "string", "minLength": 1, "default": "Authorization"},
         "timeout_ms": {"type": "integer", "minimum": 100, "maximum": 60000, "default": _DEFAULT_TIMEOUT_MS},
     },
@@ -34,6 +36,10 @@ CREDENTIAL_SCHEMA: dict[str, Any] = {
         "password": {"type": "string", "minLength": 1, "x-secret": True},
     },
     "additionalProperties": False,
+    "anyOf": [
+        {"required": ["token"]},
+        {"required": ["username", "password"]},
+    ],
 }
 
 
@@ -58,8 +64,20 @@ class GenericHttpAdapter:
         return None
 
     async def validate(self, platform: PlatformConfig, session: PlatformSession) -> bool:
-        del platform, session
-        return True
+        del session
+        config = platform.adapter_config
+        if not isinstance(config, dict) or set(config) - _CONFIG_KEYS:
+            return False
+        scheme = config.get("auth_scheme", "bearer")
+        if scheme not in _ALLOWED_AUTH_SCHEMES:
+            return False
+        header = config.get("auth_header", "Authorization")
+        if not isinstance(header, str) or not header.strip():
+            return False
+        timeout = config.get("timeout_ms", _DEFAULT_TIMEOUT_MS)
+        if isinstance(timeout, bool) or not isinstance(timeout, int):
+            return False
+        return bool(100 <= timeout <= 60000)
 
     async def prepare_request(
         self,
@@ -77,6 +95,9 @@ class GenericHttpAdapter:
         target = request.target
         if target.method is None or target.path is None:
             raise ValueError("generic-http supports only HTTP method/path targets")
+        path = target.path
+        if "://" in path or path.startswith("//"):
+            raise ValueError("generic-http requires a relative target path")
         headers = {"Accept": "application/json"}
         if request.payload:
             headers["Content-Type"] = "application/json"
@@ -84,7 +105,7 @@ class GenericHttpAdapter:
         body = json.dumps(request.payload, ensure_ascii=False) if request.payload else None
         return PreparedRequest(
             method=target.method.upper(),
-            url=urljoin(base_url.rstrip("/") + "/", target.path.lstrip("/")),
+            url=urljoin(base_url.rstrip("/") + "/", path.lstrip("/")),
             headers=headers,
             body=body,
         )

@@ -76,6 +76,8 @@ export interface AuditItem {
   resource_id: string;
   action: string;
   actor_user_id: string;
+  actor_display_name: string | null;
+  result_status: string;
   trace_id: string | null;
   create_time: string;
 }
@@ -198,7 +200,7 @@ export interface ChannelSaveInput {
   channel: string;
   name: string;
   bot_id: string;
-  secret: string;
+  secret?: string;
   enabled?: boolean;
   config?: Record<string, unknown>;
 }
@@ -225,7 +227,8 @@ export async function removeAgentChannel(agentId: string, channelAccountId: stri
 }
 
 export async function listAudits(params: {
-  resource_id: string;
+  resource_id?: string;
+  keyword?: string;
   page: number;
   page_size: number;
 }): Promise<Page<AuditItem>> {

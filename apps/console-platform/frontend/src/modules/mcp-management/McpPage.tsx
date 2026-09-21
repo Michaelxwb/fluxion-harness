@@ -1,46 +1,75 @@
-import { Button, Input, Select, Tag } from '@douyinfe/semi-ui';
-import { useCallback, useEffect, useState } from 'react';
+import { Button, Input, Select, Tag, Toast } from '@douyinfe/semi-ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
+import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { McpDetailSideSheet } from './McpDetailSideSheet';
 import { McpFormModal } from './McpFormModal';
 import {
   deleteMcpServer,
+  discoverTools,
   listMcpServers,
   type McpServerDetail,
   type McpServerListItem
 } from './services/mcpServers';
 
-const DEFAULT_PARAMS = { page: 1, page_size: 10, keyword: '', user_scope: '' };
+const DEFAULT_PARAMS = { page: 1, page_size: 10, keyword: '', user_scope: '', connection_status: '' };
+
+const CONNECTION_STATUSES = ['UNKNOWN', 'AVAILABLE', 'UNAVAILABLE', 'DISCOVERY_FAILED'] as const;
 
 export function McpPage() {
   const { t } = useTranslation();
   const [params, setParams] = useState(DEFAULT_PARAMS);
+  const [keywordInput, setKeywordInput] = useState('');
   const [items, setItems] = useState<McpServerListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [detail, setDetail] = useState<McpServerListItem | null>(null);
   const [formVisible, setFormVisible] = useState(false);
   const [formServer, setFormServer] = useState<McpServerDetail | null>(null);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setParams((prev) =>
+        prev.keyword === keywordInput ? prev : { ...prev, keyword: keywordInput, page: 1 }
+      );
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [keywordInput]);
 
   const reload = useCallback(async () => {
+    const current = ++requestSeq.current;
     setLoading(true);
     try {
       const page = await listMcpServers({
         page: params.page,
         page_size: params.page_size,
         keyword: params.keyword || undefined,
-        user_scope: params.user_scope === '' ? undefined : (params.user_scope as 'ALL' | 'SELECTED')
+        user_scope: params.user_scope === '' ? undefined : (params.user_scope as 'ALL' | 'SELECTED'),
+        connection_status: params.connection_status || undefined
       });
+      if (current !== requestSeq.current) {
+        return;
+      }
       setItems(page.items);
       setTotal(page.total);
+      setFailed(false);
+    } catch {
+      if (current === requestSeq.current) {
+        setFailed(true);
+      }
     } finally {
-      setLoading(false);
+      if (current === requestSeq.current) {
+        setLoading(false);
+      }
     }
   }, [params]);
 
@@ -49,9 +78,30 @@ export function McpPage() {
   }, [reload]);
 
   const remove = async (server: McpServerListItem): Promise<void> => {
-    await deleteMcpServer(server.mcp_id);
+    try {
+      await deleteMcpServer(server.mcp_id);
+    } catch {
+      return;
+    }
     setDetail(null);
-    await reload();
+    if (items.length === 1 && params.page > 1) {
+      setParams((prev) => ({ ...prev, page: prev.page - 1 }));
+    } else {
+      await reload();
+    }
+  };
+
+  const refreshTools = async (server: McpServerListItem): Promise<void> => {
+    setRefreshingId(server.mcp_id);
+    try {
+      await discoverTools(server.mcp_id);
+      Toast.success(t('mcp.actions.discoverSuccess'));
+      await reload();
+    } catch {
+      // 失败 Toast 由 ApiClient 展示；保留上一成功 Catalog
+    } finally {
+      setRefreshingId(null);
+    }
   };
 
   return (
@@ -60,20 +110,24 @@ export function McpPage() {
       <PageSection>
         <ModuleToolbar
           actions={
-            <Button theme="solid" data-testid="create-mcp" onClick={() => {
-              setFormServer(null);
-              setFormVisible(true);
-            }}>
+            <Button
+              theme="solid"
+              data-testid="create-mcp"
+              onClick={() => {
+                setFormServer(null);
+                setFormVisible(true);
+              }}
+            >
               {t('mcp.actions.create')}
             </Button>
           }
           search={
             <>
               <Input
-                value={params.keyword}
+                value={keywordInput}
                 placeholder={t('mcp.searchPlaceholder')}
                 style={{ width: 200 }}
-                onChange={(value) => setParams((prev) => ({ ...prev, keyword: value, page: 1 }))}
+                onChange={setKeywordInput}
               />
               <Select
                 value={params.user_scope || undefined}
@@ -88,6 +142,23 @@ export function McpPage() {
                   setParams((prev) => ({ ...prev, user_scope: value ? String(value) : '', page: 1 }))
                 }
               />
+              <Select
+                value={params.connection_status || undefined}
+                style={{ width: 170 }}
+                showClear
+                placeholder={t('mcp.columns.connectionStatus')}
+                optionList={CONNECTION_STATUSES.map((status) => ({
+                  value: status,
+                  label: t(`mcp.connection.${status}`)
+                }))}
+                onChange={(value) =>
+                  setParams((prev) => ({
+                    ...prev,
+                    connection_status: value ? String(value) : '',
+                    page: 1
+                  }))
+                }
+              />
               <Button onClick={() => void reload()}>{t('common.refresh')}</Button>
             </>
           }
@@ -100,7 +171,11 @@ export function McpPage() {
               title: t('mcp.form.name'),
               dataIndex: 'name',
               render: (value: string, record: McpServerListItem) => (
-                <Button theme="borderless" data-testid={`mcp-link-${record.key}`} onClick={() => setDetail(record)}>
+                <Button
+                  theme="borderless"
+                  data-testid={`mcp-link-${record.key}`}
+                  onClick={() => setDetail(record)}
+                >
                   {value}
                 </Button>
               )
@@ -111,7 +186,9 @@ export function McpPage() {
               title: t('mcp.columns.userScope'),
               dataIndex: 'user_scope',
               render: (value: McpServerListItem['user_scope']) => (
-                <Tag color={value === 'ALL' ? 'green' : 'blue'}>{t(`mcp.scope.${value.toLowerCase()}`)}</Tag>
+                <Tag color={value === 'ALL' ? 'green' : 'blue'}>
+                  {t(`mcp.scope.${value.toLowerCase()}`)}
+                </Tag>
               )
             },
             { title: t('mcp.columns.selectedUserCount'), dataIndex: 'selected_user_count' },
@@ -121,7 +198,7 @@ export function McpPage() {
               title: t('mcp.columns.enabled'),
               dataIndex: 'enabled',
               render: (value: boolean) => (
-                <Tag color={value ? 'green' : 'grey'}>
+                <Tag color={value ? 'light-blue' : 'grey'}>
                   {t(`common.status.${value ? 'enabled' : 'disabled'}`)}
                 </Tag>
               )
@@ -146,9 +223,10 @@ export function McpPage() {
                 <Button
                   theme="borderless"
                   data-testid={`refresh-mcp-${record.key}`}
-                  onClick={() => setDetail(record)}
+                  loading={refreshingId === record.mcp_id}
+                  onClick={() => void refreshTools(record)}
                 >
-                  {t('mcp.actions.manage')}
+                  {t('mcp.actions.discover')}
                 </Button>
               )
             }
@@ -159,7 +237,13 @@ export function McpPage() {
           total={total}
           onPageChange={(page) => setParams((prev) => ({ ...prev, page }))}
           onPageSizeChange={(page_size) => setParams((prev) => ({ ...prev, page: 1, page_size }))}
-          empty={<EmptyState title={t('common.empty')} description={t('common.emptyHint')} />}
+          empty={
+            failed ? (
+              <ErrorState onRetry={() => void reload()} />
+            ) : (
+              <EmptyState title={t('common.empty')} description={t('common.emptyHint')} />
+            )
+          }
         />
       </PageSection>
       <McpFormModal
@@ -180,7 +264,7 @@ export function McpPage() {
         server={detail}
         onCancel={() => setDetail(null)}
         onEdit={(server) => {
-          setFormServer(server as McpServerDetail);
+          setFormServer(server);
           setFormVisible(true);
         }}
         onDelete={(server) => void remove(server)}

@@ -110,7 +110,8 @@ async def test_s02_user_credential_plaintext_is_stored_but_never_echoed(
     assert removed.status_code == 200
     assert await _stored_credential(tenant.tenant_id, user_id, platform_id) is None
     missing = await client.get(url, headers=_headers(tenant))
-    assert missing.json()["data"]["configured"] is False
+    assert missing.status_code == 404
+    assert missing.json()["code"] == "COMMON_NOT_FOUND"
 
 
 async def test_e04_invalid_credential_payload_is_rejected_without_persisting(
@@ -121,6 +122,11 @@ async def test_e04_invalid_credential_payload_is_rejected_without_persisting(
     rejected = await client.put(url, json={"token": 123}, headers=_headers(tenant))
     assert rejected.status_code == 422
     assert rejected.json()["code"] == "COMMON_VALIDATION_ERROR"
+    assert await _stored_credential(tenant.tenant_id, user_id, platform_id) is None
+
+    empty = await client.put(url, json={}, headers=_headers(tenant))
+    assert empty.status_code == 422
+    assert empty.json()["code"] == "COMMON_VALIDATION_ERROR"
     assert await _stored_credential(tenant.tenant_id, user_id, platform_id) is None
 
     unknown_platform = await client.put(
@@ -178,10 +184,18 @@ async def test_e08_list_user_credentials_reports_status_and_updated_time(
 
     repo_url = f"/api/v1/project-platforms/{platform_id}/users"
     assert (
-        await client.put(f"{repo_url}/{active_id}/credential", json={"token": "t"}, headers=_headers(tenant))
+        await client.put(
+            f"{repo_url}/{active_id}/credential",
+            json={"token": "plain-active-secret"},
+            headers=_headers(tenant),
+        )
     ).status_code == 200
     assert (
-        await client.put(f"{repo_url}/{invalid_id}/credential", json={"token": "t"}, headers=_headers(tenant))
+        await client.put(
+            f"{repo_url}/{invalid_id}/credential",
+            json={"token": "plain-invalid-secret"},
+            headers=_headers(tenant),
+        )
     ).status_code == 200
     session_factory = get_session_factory()
     async with session_factory() as session:
@@ -209,7 +223,8 @@ async def test_e08_list_user_credentials_reports_status_and_updated_time(
     assert statuses[missing_id]["credential_status"] == "NONE"
     assert statuses[missing_id]["updated_time"] is None
     assert "credential_json" not in listing.text
-    assert "plain" not in listing.text
+    assert "plain-active-secret" not in listing.text
+    assert "plain-invalid-secret" not in listing.text
 
     filtered = await client.get(
         f"/api/v1/project-platforms/{platform_id}/user-credentials",
@@ -222,3 +237,49 @@ async def test_e08_list_user_credentials_reports_status_and_updated_time(
         f"/api/v1/project-platforms/{uuid.uuid4()}/user-credentials", headers=_headers(tenant)
     )
     assert unknown.status_code == 404
+
+
+async def test_e08_credential_updated_time_advances_on_resave(
+    client: AsyncClient, tenant: TenantContext, platform_bundle: dict[str, Any]
+) -> None:
+    platform_id, user_id = platform_bundle["platform_id"], platform_bundle["user_id"]
+    credential_url = f"/api/v1/project-platforms/{platform_id}/users/{user_id}/credential"
+    listing_url = f"/api/v1/project-platforms/{platform_id}/user-credentials"
+
+    async def updated_time() -> str | None:
+        listing = await client.get(listing_url, headers=_headers(tenant), params={"page_size": 100})
+        rows = {item["user_id"]: item for item in listing.json()["data"]["items"]}
+        return rows[user_id]["updated_time"]
+
+    first_save = await client.put(credential_url, json={"token": "v1"}, headers=_headers(tenant))
+    assert first_save.status_code == 200
+    first = await updated_time()
+    assert first is not None
+    second_save = await client.put(credential_url, json={"token": "v2"}, headers=_headers(tenant))
+    assert second_save.status_code == 200
+    second = await updated_time()
+    assert second is not None and second != first
+
+
+async def test_shared_credential_audit_never_contains_plaintext(
+    client: AsyncClient, tenant: TenantContext, platform_bundle: dict[str, Any]
+) -> None:
+    platform_id = platform_bundle["platform_id"]
+    url = f"/api/v1/project-platforms/{platform_id}/shared-credential"
+    assert (
+        await client.put(url, json={"token": "shared-plain-secret"}, headers=_headers(tenant))
+    ).status_code == 200
+    assert (await client.delete(url, headers=_headers(tenant))).status_code == 200
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        entries = (
+            await session.execute(
+                text(
+                    "SELECT before_json, after_json FROM control.config_audit_log "
+                    "WHERE resource_type = 'shared_credential_ref'"
+                )
+            )
+        ).all()
+    assert entries
+    assert all("shared-plain-secret" not in str(entry) for entry in entries)

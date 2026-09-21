@@ -195,3 +195,92 @@ async def test_agent_access_grant_partial_unique_recreate(session: AsyncSession)
     await session.execute(sa.delete(PlatformUser).where(PlatformUser.id == user_id))
     await session.execute(sa.delete(AgentDefinition).where(AgentDefinition.id == agent_id))
     await session.commit()
+
+
+async def test_binding_tables_partial_unique_soft_delete_recreate(
+    session: AsyncSession,
+) -> None:
+    """[B-01/RULE-data-001] agent_skill_binding/agent_mcp_binding partial unique：
+    活跃重复被拒；软删后可重建。"""
+    from muad_console_platform.infrastructure.models.control import AgentSkillBinding, Skill
+    from muad_console_platform.infrastructure.models.mcp import AgentMcpBinding, McpServer
+
+    tenant = f"schema-test-{uuid.uuid4()}"
+    agent = await _make_agent(session, tenant, f"agent-{uuid.uuid4().hex[:8]}")
+    session.add(agent)
+    skill = Skill(
+        tenant_id=tenant,
+        key=f"skill-{uuid.uuid4().hex[:8]}",
+        name="s",
+        description="d",
+    )
+    server = McpServer(
+        tenant_id=tenant,
+        key=f"mcp-{uuid.uuid4().hex[:8]}",
+        name="m",
+        endpoint="http://127.0.0.1:9/mcp",
+    )
+    session.add_all([skill, server])
+    await session.flush()
+    agent_id, skill_id, server_id = agent.id, skill.id, server.id
+
+    skill_binding = AgentSkillBinding(agent_id=agent_id, skill_id=skill_id)
+    mcp_binding = AgentMcpBinding(agent_id=agent_id, mcp_server_id=server_id)
+    session.add_all([skill_binding, mcp_binding])
+    await session.commit()
+    skill_binding_id, mcp_binding_id = skill_binding.id, mcp_binding.id
+
+    session.add(AgentSkillBinding(agent_id=agent_id, skill_id=skill_id))
+    with pytest.raises(IntegrityError):
+        await session.flush()
+    await session.rollback()
+
+    session.add(AgentMcpBinding(agent_id=agent_id, mcp_server_id=server_id))
+    with pytest.raises(IntegrityError):
+        await session.flush()
+    await session.rollback()
+
+    # 软删后重建同一关系
+    skill_row = await session.get(AgentSkillBinding, skill_binding_id)
+    mcp_row = await session.get(AgentMcpBinding, mcp_binding_id)
+    assert skill_row is not None and mcp_row is not None
+    skill_row.is_deleted = True
+    mcp_row.is_deleted = True
+    await session.commit()
+    session.add_all(
+        [
+            AgentSkillBinding(agent_id=agent_id, skill_id=skill_id),
+            AgentMcpBinding(agent_id=agent_id, mcp_server_id=server_id),
+        ]
+    )
+    await session.commit()
+
+    # 清理
+    await session.execute(
+        sa.delete(AgentSkillBinding).where(AgentSkillBinding.agent_id == agent_id)
+    )
+    await session.execute(
+        sa.delete(AgentMcpBinding).where(AgentMcpBinding.agent_id == agent_id)
+    )
+    await session.execute(sa.delete(Skill).where(Skill.id == skill_id))
+    await session.execute(sa.delete(McpServer).where(McpServer.id == server_id))
+    await session.execute(sa.delete(AgentDefinition).where(AgentDefinition.id == agent_id))
+    await session.commit()
+
+
+async def test_no_runtime_pod_columns_on_agent_tables(session: AsyncSession) -> None:
+    """[B-01/RULE-im-001] Agent 相关表不得出现 Pod/实例绑定字段。"""
+    rows = (
+        await session.execute(
+            sa.text(
+                "SELECT table_name, column_name FROM information_schema.columns "
+                "WHERE table_schema = :schema AND table_name = ANY(:tables)"
+            ).bindparams(sa.bindparam("tables", value=list(AGENT_TABLES), type_=sa.ARRAY(sa.Text()))),
+            {"schema": SCHEMA},
+        )
+    ).all()
+    forbidden = {"pod", "pod_id", "pod_name", "replica", "instance_id", "runtime_pod"}
+    offenders = [
+        f"{table}.{column}" for table, column in rows if column in forbidden
+    ]
+    assert offenders == [], f"不得存在 Pod/实例绑定字段: {offenders}"

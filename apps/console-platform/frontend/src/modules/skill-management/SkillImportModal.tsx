@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FormModal } from '../../components/common/FormModal';
-import { importArtifact, importSkill, type SkillImportResult } from './services/skills';
+import {
+  importArtifact,
+  importSkill,
+  type SkillArtifactDetail,
+  type SkillImportResult
+} from './services/skills';
 
 export const SKILL_ZIP_LIMIT_BYTES = 50 * 1024 * 1024;
 
@@ -12,9 +17,8 @@ export interface SkillImportModalProps {
   visible: boolean;
   /** 传入则为已有 Skill 导入新版本（隐藏 key/范围，走 /artifacts） */
   skillId?: string;
-  currentVersion?: string | null;
   onCancel(): void;
-  onSaved(result: SkillImportResult): void;
+  onSaved(result: SkillImportResult | SkillArtifactDetail): void;
 }
 
 interface FormValues {
@@ -39,7 +43,7 @@ export function SkillImportModal(props: SkillImportModalProps) {
     if (!props.skillId) {
       formApi.current?.setValues({ user_scope: 'SELECTED' });
     }
-  }, [props.visible]);
+  }, [props.visible, props.skillId]);
 
   const submit = async (values: FormValues): Promise<void> => {
     if (!file) {

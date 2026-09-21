@@ -18,7 +18,11 @@ export function DetailSideSheet(props: DetailSideSheetProps) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%' }}>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontWeight: 600 }}>{props.title}</div>
-        {props.subtitle ? <div style={{ fontSize: 12, color: 'var(--semi-color-text-2)' }}>{props.subtitle}</div> : null}
+        {props.subtitle ? (
+          <div data-testid="detail-subtitle" style={{ fontSize: 12, color: 'var(--semi-color-text-2)' }}>
+            {props.subtitle}
+          </div>
+        ) : null}
       </div>
       <div style={{ marginLeft: 'auto' }}>{props.actions ? props.actions : null}</div>
     </div>

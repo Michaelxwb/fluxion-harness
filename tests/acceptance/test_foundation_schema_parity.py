@@ -59,9 +59,10 @@ async def _execute(statement: str) -> None:
 async def test_e05_migration_chain_has_single_head() -> None:
     graph = _migration_graph()
     heads = sorted(set(graph) - {down for down in graph.values() if down})
-    assert heads == ["0007"], f"unexpected migration heads: {heads}"
+    assert len(heads) == 1, f"unexpected migration heads: {heads}"
+    assert heads[0] >= "0008"
     chain: list[str] = []
-    current: str | None = "0007"
+    current: str | None = heads[0]
     while current:
         chain.append(current)
         current = graph[current]

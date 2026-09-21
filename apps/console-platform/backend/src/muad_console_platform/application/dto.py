@@ -116,6 +116,8 @@ class SkillArtifactDetail(BaseModel):
     default_script: str | None
     package_size: int
     validation_status: str
+    validation_message: str | None = None
+    instructions: str = ""
     frontmatter: dict[str, Any]
     manifest: dict[str, Any]
     created_by: uuid.UUID
@@ -156,6 +158,17 @@ class SkillUserGrantItem(BaseModel):
     user_code: str
     display_name: str
     granted_by: uuid.UUID
+    create_time: datetime
+
+
+class SkillAgentItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    agent_id: uuid.UUID
+    key: str
+    name: str
+    enabled: bool
+    sort_order: int
     create_time: datetime
 
 
@@ -435,13 +448,50 @@ class McpUserGrantItem(BaseModel):
     create_time: datetime
 
 
+class McpAgentItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    agent_id: uuid.UUID
+    key: str
+    name: str
+    enabled: bool
+    create_time: datetime
+
+
 class McpUserScopeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     user_scope: Literal["ALL", "SELECTED"]
 
 
+class McpTestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    timeout_ms: int | None = Field(default=None, ge=100, le=60000)
+
+
 class AgentBindSkillRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     sort_order: int = Field(default=0, ge=0, le=9999)
+
+
+class ChannelCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    channel: Literal["WECOM"] = "WECOM"
+    name: str = Field(min_length=1, max_length=128)
+    bot_id: str = Field(min_length=1, max_length=256)
+    secret: str = Field(min_length=1)
+    enabled: bool = True
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
+class ChannelUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    bot_id: str | None = Field(default=None, min_length=1, max_length=256)
+    secret: str | None = Field(default=None, min_length=1)
+    enabled: bool | None = None
+    config: dict[str, Any] | None = None

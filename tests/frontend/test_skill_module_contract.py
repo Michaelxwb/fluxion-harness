@@ -34,6 +34,16 @@ def test_skill_page_no_direct_http() -> None:
         assert "from './services/skills'" in source or "from './services/" in source
 
 
+def test_skill_page_error_state_and_race_guards() -> None:
+    source = _source("SkillPage.tsx")
+    assert "ErrorState" in source
+    assert "requestSeq" in source
+    assert "keywordInput" in source and "setTimeout" in source
+    assert "skill.actions.copyFailed" in source
+    assert "newRequestId" in _source("services/skills.ts")
+    assert "crypto.randomUUID" not in _source("services/skills.ts")
+
+
 def test_skill_import_modal_contract() -> None:
     """[S-05][E-05] 导入 Modal：ZIP 预检 + 校验错误保留 Modal。"""
     source = _source("SkillImportModal.tsx")
@@ -76,3 +86,19 @@ def test_skill_i18n_keys_bilingual() -> None:
 def test_skill_route_registered() -> None:
     app = (ROOT / "apps/console-platform/frontend/src/App.tsx").read_text(encoding="utf-8")
     assert '<Route path="skills" element={<SkillPage />} />' in app
+
+
+def test_skill_module_i18n_keys_complete() -> None:
+    """[RULE-i18n-001] 模块内所有静态 t('key') 必须在 zh-CN/en-US 同时存在。"""
+    import json
+    import re
+
+    keys: set[str] = set()
+    for path in MODULE.rglob("*.tsx"):
+        keys |= set(re.findall(r"(?<![A-Za-z_])t\(\s*'([^']+)'", path.read_text(encoding="utf-8")))
+    static_keys = {key for key in keys if "${" not in key}
+    assert static_keys, "未解析到任何 i18n key"
+    for locale in ("zh-CN", "en-US"):
+        data = json.loads((LOCALES / f"{locale}.json").read_text(encoding="utf-8"))
+        missing = sorted(key for key in static_keys if key not in data)
+        assert not missing, f"{locale} 缺少词条: {missing}"

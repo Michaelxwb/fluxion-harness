@@ -91,6 +91,16 @@ def test_b03_entry_count_exact_boundary_pass_and_reject() -> None:
             assert reject.value.code == "SKILL_PACKAGE_INVALID"
 
 
+def test_b04_renamed_nested_archive_is_rejected_by_magic_bytes() -> None:
+    """[B-04] 嵌套压缩包改名 .txt 仍被拒（按文件魔数判定，不只扩展名）。"""
+    inner = demo_package(name="Inner")
+    package = demo_package(extra_files={"assets/payload.txt": inner})
+    with pytest.raises(AppError) as reject:
+        with skill_validator.validated_package(package):
+            pass
+    assert reject.value.code == "SKILL_PACKAGE_INVALID"
+
+
 def test_e04_secret_scan_rejects_and_never_leaks_secret() -> None:
     """[E-04] 命中敏感信息扫描拒绝导入，异常对象不携带 Secret 明文。"""
     secret = "AKIA" + "IOSFODNN7EXAMPLE"[:16]

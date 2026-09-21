@@ -1,5 +1,6 @@
 import uuid
 
+import sqlalchemy as sa
 from httpx import AsyncClient, Response
 
 from console_internal.conftest import TenantContext
@@ -168,3 +169,133 @@ async def test_invalid_channel_returns_validation_envelope(
         headers=_headers(tenant),
     )
     _assert_error(response, 422, "COMMON_VALIDATION_ERROR")
+
+
+async def test_resolve_mcp_servers_effective_formula(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[B-02] EffectiveMcp 全公式（真实 resolve）：ALL/禁用/解绑/软删/SELECTED grant/撤销 分支。"""
+    from muad_console_platform.infrastructure.db import get_session_factory
+    from muad_console_platform.infrastructure.models.mcp import (
+        AgentMcpBinding,
+        McpServer,
+        McpUserGrant,
+    )
+
+    def _server(key: str, *, user_scope: str = "ALL", enabled: bool = True, deleted: bool = False):
+        return McpServer(
+            tenant_id=tenant.tenant_id,
+            key=key,
+            name=f"MCP {key}",
+            endpoint="http://127.0.0.1:9/mcp",
+            user_scope=user_scope,
+            enabled=enabled,
+            is_deleted=deleted,
+        )
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        allowed = _server("mcp-allowed")
+        disabled = _server("mcp-disabled", enabled=False)
+        deleted = _server("mcp-deleted", deleted=True)
+        selected = _server("mcp-selected", user_scope="SELECTED")
+        revoked_grant = _server("mcp-revoked", user_scope="SELECTED")
+        binding_deleted = _server("mcp-binding-deleted")
+        grant_later = _server("mcp-grant-later", user_scope="SELECTED")
+        session.add_all(
+            [allowed, disabled, deleted, selected, revoked_grant, binding_deleted, grant_later]
+        )
+        await session.flush()
+        session.add_all(
+            [
+                AgentMcpBinding(agent_id=tenant.agent_id, mcp_server_id=allowed.id),
+                AgentMcpBinding(agent_id=tenant.agent_id, mcp_server_id=disabled.id),
+                AgentMcpBinding(agent_id=tenant.agent_id, mcp_server_id=deleted.id),
+                AgentMcpBinding(agent_id=tenant.agent_id, mcp_server_id=selected.id),
+                AgentMcpBinding(agent_id=tenant.agent_id, mcp_server_id=revoked_grant.id),
+                AgentMcpBinding(
+                    agent_id=tenant.agent_id, mcp_server_id=binding_deleted.id, is_deleted=True
+                ),
+                AgentMcpBinding(agent_id=tenant.agent_id, mcp_server_id=grant_later.id),
+                McpUserGrant(
+                    mcp_server_id=selected.id,
+                    user_id=tenant.actor_user_id,
+                    granted_by=tenant.actor_user_id,
+                ),
+                McpUserGrant(
+                    mcp_server_id=revoked_grant.id,
+                    user_id=tenant.actor_user_id,
+                    granted_by=tenant.actor_user_id,
+                    is_deleted=True,
+                ),
+            ]
+        )
+        await session.commit()
+        server_ids = [
+            allowed.id,
+            disabled.id,
+            deleted.id,
+            selected.id,
+            revoked_grant.id,
+            binding_deleted.id,
+            grant_later.id,
+        ]
+
+    try:
+        response = await client.post(
+            RESOLVE_URL,
+            json=_payload(tenant.agent_id, tenant.actor_user_id),
+            headers=_headers(tenant),
+        )
+        assert response.status_code == 200, response.text
+        keys = {server["key"] for server in response.json()["data"]["mcp_servers"]}
+        assert keys == {"mcp-allowed", "mcp-selected"}, keys
+
+        # 授予后 SELECTED 立即可见；撤销后立即不可见
+        async with session_factory() as session:
+            session.add(
+                McpUserGrant(
+                    mcp_server_id=grant_later.id,
+                    user_id=tenant.actor_user_id,
+                    granted_by=tenant.actor_user_id,
+                )
+            )
+            await session.commit()
+        granted = await client.post(
+            RESOLVE_URL,
+            json=_payload(tenant.agent_id, tenant.actor_user_id),
+            headers=_headers(tenant),
+        )
+        assert "mcp-grant-later" in {
+            server["key"] for server in granted.json()["data"]["mcp_servers"]
+        }
+
+        async with session_factory() as session:
+            row = (
+                await session.execute(
+                    sa.select(McpUserGrant).where(
+                        McpUserGrant.mcp_server_id == grant_later.id,
+                        McpUserGrant.user_id == tenant.actor_user_id,
+                    )
+                )
+            ).scalar_one()
+            row.is_deleted = True
+            await session.commit()
+        revoked = await client.post(
+            RESOLVE_URL,
+            json=_payload(tenant.agent_id, tenant.actor_user_id),
+            headers=_headers(tenant),
+        )
+        assert "mcp-grant-later" not in {
+            server["key"] for server in revoked.json()["data"]["mcp_servers"]
+        }
+    finally:
+        async with session_factory() as session:
+            await session.execute(
+                sa.delete(McpUserGrant).where(McpUserGrant.mcp_server_id.in_(server_ids))
+            )
+            await session.execute(
+                sa.delete(AgentMcpBinding).where(AgentMcpBinding.mcp_server_id.in_(server_ids))
+            )
+            await session.execute(sa.delete(McpServer).where(McpServer.id.in_(server_ids)))
+            await session.commit()

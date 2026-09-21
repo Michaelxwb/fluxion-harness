@@ -58,6 +58,10 @@ async def test_add_artifact_flips_current_artifact(
     assert data["artifact_id"] == second_artifact["id"]
     assert data["skill_id"] == skill_id
     assert data["validation_status"] == "READY"
+    assert data["validation_message"] is None
+    assert data["instructions"].startswith("# Versioned Skill")
+    assert "Follow the instructions." in data["instructions"]
+    assert data["instructions"] == detail["current_artifact"]["instructions"]
     assert data["manifest"]["file_count"] == 3
 
     old = await client.get(

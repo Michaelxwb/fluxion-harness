@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 
 import httpx
+import pytest
 from httpx import AsyncClient
 from muad_console_platform.infrastructure.db import get_session_factory
 from sqlalchemy import text
@@ -60,17 +61,22 @@ async def _fetch_secret(bot_id: str) -> str | None:
 
 
 async def test_s03_two_bots_same_agent_secret_persisted_not_echoed(
-    client: AsyncClient, tenant: TenantContext
+    client: AsyncClient, tenant: TenantContext, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """[S-03][B-03] 同 Agent 两个 bot；secret 明文落库；接口/审计不回显。"""
+    """[S-03][B-03] 同 Agent 两个 bot；secret 明文落库；接口/审计/日志不回显。"""
     agent_id = await _make_agent(client, tenant)
     bot_a = f"bot-a-{uuid.uuid4().hex[:8]}"
     bot_b = f"bot-b-{uuid.uuid4().hex[:8]}"
 
-    first = await _add_channel(client, tenant, agent_id, bot_a, secret="secret-alpha-value")
+    with caplog.at_level("DEBUG"):
+        first = await _add_channel(client, tenant, agent_id, bot_a, secret="secret-alpha-value")
+        second = await _add_channel(client, tenant, agent_id, bot_b, secret="secret-beta-value")
     assert first.status_code == 200, first.text
-    second = await _add_channel(client, tenant, agent_id, bot_b, secret="secret-beta-value")
     assert second.status_code == 200, second.text
+    assert "secret-alpha-value" not in first.text
+    assert "secret-beta-value" not in second.text
+    assert "secret-alpha-value" not in caplog.text, "Secret 明文不得进入日志"
+    assert "secret-beta-value" not in caplog.text, "Secret 明文不得进入日志"
 
     # 明文落 Owner 表
     assert await _fetch_secret(bot_a) == "secret-alpha-value"
@@ -98,17 +104,18 @@ async def test_s03_two_bots_same_agent_secret_persisted_not_echoed(
         assert "pod" not in str(item).lower()
         assert all(item["agent_id"] == agent_id for _ in [0])
 
-    # 审计不含明文
+    # 审计 before/after 均不含明文
     async with get_session_factory()() as session:
         audits = (
             await session.execute(
                 text(
-                    "SELECT after_json FROM control.config_audit_log "
+                    "SELECT before_json, after_json FROM control.config_audit_log "
                     "WHERE resource_type = 'AGENT' AND resource_id = :rid"
                 ),
                 {"rid": uuid.UUID(agent_id)},
             )
         ).all()
+        assert audits
         assert "secret-alpha-value" not in str(audits)
         assert "secret-beta-value" not in str(audits)
 
@@ -198,3 +205,31 @@ async def test_edit_rotates_secret_and_remove_is_soft_delete(
     ).json()["data"]
     assert listed["total"] == 1  # 其他通道不受影响
     assert listed["items"][0]["bot_id"] == bot_keep
+
+
+async def test_channel_payload_validation_rejects_missing_fields(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[API-16] 缺 name/bot_id/secret 的请求返回 COMMON_VALIDATION_ERROR，不落库。"""
+    agent_id = await _make_agent(client, tenant)
+
+    missing_name = await client.post(
+        f"/api/v1/agents/{agent_id}/channels",
+        json={"bot_id": f"bot-{uuid.uuid4().hex[:8]}", "secret": "s"},
+        headers=_headers(tenant),
+    )
+    assert missing_name.status_code == 422
+    assert missing_name.json()["code"] == "COMMON_VALIDATION_ERROR"
+
+    missing_bot = await client.post(
+        f"/api/v1/agents/{agent_id}/channels",
+        json={"name": "No Bot", "secret": "s"},
+        headers=_headers(tenant),
+    )
+    assert missing_bot.status_code == 422
+    assert missing_bot.json()["code"] == "COMMON_VALIDATION_ERROR"
+
+    listed = (
+        await client.get(f"/api/v1/agents/{agent_id}/channels", headers=_headers(tenant))
+    ).json()["data"]
+    assert listed["total"] == 0

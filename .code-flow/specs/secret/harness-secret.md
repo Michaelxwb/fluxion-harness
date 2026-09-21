@@ -20,6 +20,12 @@ verifiers:
     - tests/acceptance/test_foundation_ops_audit.py
     cwd: .
     timeout: 300
+checks:
+- id: no-env-model-key
+  type: regex
+  pattern: MODEL_API_KEY
+  files: apps/agent-runtime/**
+  message: 运行时禁止用环境变量兜底模型密钥；凭据须经 API-09 从 Owner 表内存读取
 ---
 
 # harness-secret
@@ -50,6 +56,21 @@ bot = BotAccount(tenant_id=..., bot_id=..., secret=payload.secret, agent_id=agen
 logger.info("model created api_key=%s", payload.api_key)               # 进入日志
 await session.execute(audit_insert, {"after": {"api_key": ...}})      # 进入审计
 return {"api_key": model.api_key}                                     # 出现在 API 响应
+```
+
+- 运行时凭据解析走内部 API-09（`POST /internal/runtime/resolve-credentials`）：按冻结主键（`model_id`/`mcp_server_ids`）实时读取 Owner 表当前密钥，仅在执行内存使用；密钥清空或资源移除明确 `CREDENTIAL_MISSING`/`COMMON_NOT_FOUND`，禁止退回环境变量；新 Run 用 resolve-definition 返回值，resume/重试必须重新读取，保证密钥轮换即时生效。
+
+✅ 内存凭据（轮换后 resume 用新值）：
+
+```python
+data = await credentials_client.resolve_credentials(tenant_id=t, payload={"execution_ref": {"type": "RUN", "id": run_id}, "model_id": model_id, "mcp_server_ids": ids})
+api_key = data["model"]["api_key"]           # 只在内存，不落 Snapshot/日志/审计
+```
+
+❌ 环境变量兜底（设计明确禁止）：
+
+```python
+api_key = model.api_key or os.environ.get("MODEL_API_KEY")   # 密钥清空时应 CREDENTIAL_MISSING
 ```
 
 ## Avoid

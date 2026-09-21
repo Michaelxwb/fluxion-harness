@@ -61,15 +61,18 @@ class EventWriter:
         self,
         conversation_id: uuid.UUID,
         *,
+        tenant_id: str | None = None,
         submission_id: uuid.UUID | None = None,
         after_seq: int = 0,
         limit: int = 1000,
     ) -> list[CanonicalEvent]:
-        """历史查询：seq 升序稳定；可按 submission 过滤（重放）。"""
+        """历史查询：seq 升序稳定；可按 submission 过滤（重放）；租户过滤防止跨租户读取。"""
         conditions = [
             CanonicalEvent.conversation_id == conversation_id,
             CanonicalEvent.seq > after_seq,
         ]
+        if tenant_id is not None:
+            conditions.append(CanonicalEvent.tenant_id == tenant_id)
         if submission_id is not None:
             conditions.append(CanonicalEvent.submission_id == submission_id)
         rows = await self._session.execute(

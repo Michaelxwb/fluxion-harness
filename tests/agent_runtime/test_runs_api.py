@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+import sqlalchemy as sa
 from conftest import FakeResolveClient, TenantContext, parse_sse
 from httpx import AsyncClient
 from muad_agent_runtime.infrastructure.db import get_session_factory
@@ -132,14 +133,18 @@ async def test_create_run_streams_events_and_persists_records(
     assert events
     first = events[0]
     assert first["type"] == "run.created"
-    assert first["seq"] == 1
+    # seq 1 是同一事务内落库的 USER_MESSAGE 业务事件；SSE 事件沿用持久化序号
+    assert first["seq"] == 2
     assert first["data"]["resumed"] is False
     assert first["run_id"]
     assert uuid.UUID(first["data"]["conversation_id"])
     assert first["data"]["trace_id"]
     assert first["timestamp"]
 
-    assert [event["seq"] for event in events] == list(range(1, len(events) + 1))
+    seqs = [event["seq"] for event in events]
+    # seq 单调递增且沿用持久化序号（业务事件占号但不出现在 SSE，允许跳号）
+    assert seqs == sorted(seqs)
+    assert len(set(seqs)) == len(seqs)
     types = [event["type"] for event in events]
     assert types.count("message.delta") == 3
     assert types[-1] == "run.completed"
@@ -177,13 +182,23 @@ async def test_create_run_streams_events_and_persists_records(
                 .order_by(CanonicalEvent.seq)
             )
         ).all()
-        assert [row.event_type for row in rows] == ["USER_MESSAGE", "ASSISTANT_MESSAGE"]
-        assert [row.seq for row in rows] == [1, 2]
-        assert rows[0].payload_json["text"] == "hello runtime"
+        business = [row for row in rows if row.stream_type is None]
+        streamed = [row for row in rows if row.stream_type is not None]
+        assert [row.event_type for row in business] == ["USER_MESSAGE", "ASSISTANT_MESSAGE"]
+        assert [row.seq for row in business] == [1, rows[-2].seq]
+        assert business[0].payload_json["text"] == "hello runtime"
+        assert [row.stream_type for row in streamed] == [
+            "run.created",
+            "message.delta",
+            "message.delta",
+            "message.delta",
+            "run.completed",
+        ]
+        assert all(row.submission_id is not None for row in rows)
 
         conversation = await session.get(Conversation, conversation_id)
         assert conversation is not None
-        assert conversation.last_seq == 2
+        assert conversation.last_seq == len(rows)
         assert conversation.last_run_id == run_id
 
 
@@ -238,24 +253,61 @@ async def test_create_run_auto_resumes_waiting_input_run(
         assert interrupt.resolution_json == {"input": "choose device 1"}
         assert interrupt.resolved_at is not None
 
+        rows = (
+            await session.scalars(
+                select(CanonicalEvent)
+                .where(CanonicalEvent.conversation_id == conversation_id)
+                .order_by(CanonicalEvent.seq)
+            )
+        ).all()
         conversation = await session.get(Conversation, conversation_id)
         assert conversation is not None
-        assert conversation.last_seq == 2
+        assert conversation.last_seq == len(rows)
 
 
-async def test_resume_endpoint_rejects_non_waiting_input_run(
+async def test_resume_terminal_run_returns_current_state_idempotently(
     client: AsyncClient,
     tenant: TenantContext,
 ) -> None:
+    """API-02：已终态 Run 返回当前终态（幂等），不再执行。"""
     _, run_id = await _insert_run(tenant, "COMPLETED")
+    response = await client.post(
+        f"/v1/runs/{run_id}/resume",
+        json={"input": {"type": "text", "text": "answer"}},
+        headers={**_headers(tenant), "Idempotency-Key": "resume-terminal-1"},
+    )
+    assert response.status_code == 200
+    events = parse_sse(response.text)
+    assert events[-1]["type"] == "run.completed"
+    assert events[-1]["data"]["status"] == "COMPLETED"
+
+
+async def test_resume_endpoint_rejects_running_run(
+    client: AsyncClient,
+    tenant: TenantContext,
+) -> None:
+    _, run_id = await _insert_run(tenant, "RUNNING")
+    response = await client.post(
+        f"/v1/runs/{run_id}/resume",
+        json={"input": {"type": "text", "text": "answer"}},
+        headers={**_headers(tenant), "Idempotency-Key": "resume-running-1"},
+    )
+    assert response.status_code == 409
+    assert response.json()["code"] == "REVISION_CONFLICT"
+
+
+async def test_resume_without_key_or_input_id_is_validation_error(
+    client: AsyncClient,
+    tenant: TenantContext,
+) -> None:
+    _, run_id = await _insert_run(tenant, "WAITING_INPUT")
     response = await client.post(
         f"/v1/runs/{run_id}/resume",
         json={"input": {"type": "text", "text": "answer"}},
         headers=_headers(tenant),
     )
-    assert response.status_code == 409
-    # 运行状态已被推进（不再是 WAITING_INPUT）→ 陈旧状态前置不满足
-    assert response.json()["code"] == "REVISION_CONFLICT"
+    assert response.status_code == 422
+    assert response.json()["code"] == "COMMON_VALIDATION_ERROR"
 
 
 async def test_resume_endpoint_completes_waiting_input_run(
@@ -266,7 +318,7 @@ async def test_resume_endpoint_completes_waiting_input_run(
     _, run_id = await _insert_run(tenant, "WAITING_INPUT", with_interrupt=True, resolved=resolved)
     response = await client.post(
         f"/v1/runs/{run_id}/resume",
-        json={"input": {"type": "text", "text": "device 1"}},
+        json={"input": {"id": "reply-1", "type": "text", "text": "device 1"}},
         headers=_headers(tenant),
     )
     assert response.status_code == 200
@@ -278,6 +330,54 @@ async def test_resume_endpoint_completes_waiting_input_run(
         interrupt = await session.scalar(select(RunInterrupt).where(RunInterrupt.run_id == run_id))
         assert interrupt is not None
         assert interrupt.status == "RESOLVED"
+
+
+async def test_create_run_idempotency_key_replays_persisted_stream(
+    client: AsyncClient,
+    tenant: TenantContext,
+) -> None:
+    """[B-01] 同 key 同指纹：200 重放已持久化事件，不创建新 Run/不二次执行。"""
+    payload = _payload(tenant)
+    headers = {**_headers(tenant), "Idempotency-Key": "create-idem-1"}
+    first = await client.post("/v1/runs", json=payload, headers=headers)
+    assert first.status_code == 200
+    first_events = parse_sse(first.text)
+
+    second = await client.post("/v1/runs", json=payload, headers=headers)
+    assert second.status_code == 200
+    second_events = parse_sse(second.text)
+    assert [event["seq"] for event in second_events] == [
+        event["seq"] for event in first_events
+    ]
+    assert [event["type"] for event in second_events] == [
+        event["type"] for event in first_events
+    ]
+
+    async with get_session_factory()() as session:
+        run_id = uuid.UUID(first_events[0]["run_id"])
+        count = await session.scalar(
+            select(sa.func.count())
+            .select_from(RunRecord)
+            .where(RunRecord.tenant_id == tenant.tenant_id)
+        )
+        assert count == 1
+        run = await session.get(RunRecord, run_id)
+        assert run is not None
+
+
+async def test_create_run_same_key_different_fingerprint_conflicts(
+    client: AsyncClient,
+    tenant: TenantContext,
+) -> None:
+    payload = _payload(tenant)
+    headers = {**_headers(tenant), "Idempotency-Key": "create-idem-2"}
+    first = await client.post("/v1/runs", json=payload, headers=headers)
+    assert first.status_code == 200
+
+    changed = {**payload, "message": {**payload["message"], "text": "different text"}}
+    second = await client.post("/v1/runs", json=changed, headers=headers)
+    assert second.status_code == 409
+    assert second.json()["code"] == "IDEMPOTENCY_MISMATCH"
 
 
 async def test_cancel_active_without_active_run_returns_not_found(
@@ -329,6 +429,7 @@ async def test_get_run_returns_status_and_snapshot_summary(
     tenant: TenantContext,
 ) -> None:
     started = await client.post("/v1/runs", json=_payload(tenant), headers=_headers(tenant))
+    assert started.status_code == 200, started.text
     run_id = parse_sse(started.text)[0]["run_id"]
 
     response = await client.get(f"/v1/runs/{run_id}", headers=_headers(tenant))

@@ -3,33 +3,37 @@
 from __future__ import annotations
 
 import hashlib
+import time
 import uuid
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlparse
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_common import SharedSettings
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure import mcp_client as mcp_client_module
 from ..infrastructure.mcp_client import (
     McpClient,
     McpClientError,
     catalog_hash,
     normalize_tools,
 )
-from ..infrastructure.models.control import PlatformUser, SkillImportIdempotency
+from ..infrastructure.models.control import AgentDefinition, PlatformUser, SkillImportIdempotency
 from ..infrastructure.models.mcp import AgentMcpBinding, McpServer, McpUserGrant
 from .audit_service import AuditActor, AuditService
 from .dto import (
+    McpAgentItem,
     McpCreateRequest,
     McpServerDetail,
     McpServerListItem,
     McpUpdateRequest,
     McpUserGrantItem,
 )
+from .mcp_ports import McpCatalogCache, NullMcpCatalogCache
 
 AUDIT_MCP = "MCP_SERVER"
 USER_SCOPE_SELECTED = "SELECTED"
@@ -103,14 +107,20 @@ async def _write_failure_state(server_id: uuid.UUID, at: datetime, summary: str)
 
 
 def _validate_endpoint(endpoint: str) -> None:
-    if not endpoint or not endpoint.startswith(("http://", "https://")):
+    parsed = urlparse(endpoint)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise _invalid_config()
 
 
 class McpService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        cache: McpCatalogCache | None = None,
+    ) -> None:
         self._session = session
         self._audit = AuditService(session)
+        self._cache = cache or NullMcpCatalogCache()
 
     async def _aggregate_counts(self, tenant_id: str) -> tuple[dict[uuid.UUID, int], dict[uuid.UUID, int]]:
         agent_rows = await self._session.execute(
@@ -227,6 +237,11 @@ class McpService:
         payload = "|".join(str(part) for part in parts)
         return f"sha256:{hashlib.sha256(payload.encode()).hexdigest()}"
 
+    async def _lock_idempotency(self, tenant_id: str, idempotency_key: str) -> None:
+        digest = hashlib.sha256(f"{tenant_id}|{idempotency_key}|mcp-register".encode()).digest()
+        lock_key = int.from_bytes(digest[:8], "big", signed=True)
+        await self._session.execute(select(func.pg_advisory_xact_lock(lock_key)))
+
     async def create_server(
         self,
         tenant_id: str,
@@ -240,6 +255,7 @@ class McpService:
             hashlib.sha256((payload.auth_secret or "").encode()).hexdigest(),
         )
         if idempotency_key:
+            await self._lock_idempotency(tenant_id, idempotency_key)
             replayed = await self._idempotency_replay(
                 tenant_id, idempotency_key, "mcp-register", fingerprint
             )
@@ -335,6 +351,7 @@ class McpService:
     ) -> None:
         server = await self.get_server(tenant_id, mcp_id)
         before = mcp_snapshot(server)
+        revision = server.tool_catalog_revision
         server.is_deleted = True
         server.update_time = datetime.now(UTC)
         await self._session.flush()
@@ -347,6 +364,15 @@ class McpService:
             before=before,
             after=None,
         )
+        await self._invalidate_cache(server.id, revision)
+
+    async def _invalidate_cache(self, server_id: uuid.UUID, revision: int) -> None:
+        if revision <= 0:
+            return
+        try:
+            await self._cache.invalidate(server_id=server_id, revision=revision)
+        except Exception:  # noqa: BLE001 - 缓存失效失败不得影响目录事实源
+            return
 
     async def test_connection(
         self, tenant_id: str, mcp_id: uuid.UUID, timeout_ms: int | None
@@ -359,25 +385,28 @@ class McpService:
             timeout_ms=effective_timeout,
         )
         tested_at = datetime.now(UTC)
+        started = time.monotonic()
         try:
             server_info = client.initialize()
         except McpClientError as exc:
+            latency_ms = int((time.monotonic() - started) * 1000)
             server.connection_status = "UNAVAILABLE"
             server.update_time = tested_at
             await self._session.flush()
             return {
                 "connection_status": "UNAVAILABLE",
-                "latency_ms": 0,
+                "latency_ms": latency_ms,
                 "server_info": None,
                 "error_code": exc.reason,
                 "tested_at": tested_at.isoformat(),
             }
+        latency_ms = int((time.monotonic() - started) * 1000)
         server.connection_status = "AVAILABLE"
         server.update_time = tested_at
         await self._session.flush()
         return {
             "connection_status": "AVAILABLE",
-            "latency_ms": 0,
+            "latency_ms": latency_ms,
             "server_info": server_info,
             "tested_at": tested_at.isoformat(),
         }
@@ -385,7 +414,7 @@ class McpService:
     async def discover_tools(self, tenant_id: str, mcp_id: uuid.UUID) -> dict[str, Any]:
         """initialize + tools/list → 快照持久化；失败保留上一成功 Catalog。"""
         server = await self.get_server(tenant_id, mcp_id)
-        limit = mcp_client_module.MAX_TOOLS_PER_SERVER
+        limit = SharedSettings().mcp_max_tools_per_server
         client = McpClient(
             server.endpoint, auth_secret=server.auth_secret, timeout_ms=server.connect_timeout_ms
         )
@@ -393,7 +422,7 @@ class McpService:
 
         try:
             client.initialize()
-            tools = client.list_tools()
+            tools = client.list_tools(max_tools=limit)
         except McpClientError as exc:
             summary = exc.detail[:500]
             await _write_failure_state(server.id, discovered_at, summary)
@@ -401,16 +430,10 @@ class McpService:
             server.last_discovery_error = summary
             server.update_time = discovered_at
             raise AppError(ErrorCode.MCP_DISCOVERY_FAILED) from exc
-        if len(tools) > limit:
-            summary = f"tool count {len(tools)} exceeds limit {limit}"
-            await _write_failure_state(server.id, discovered_at, summary)
-            server.connection_status = "DISCOVERY_FAILED"
-            server.last_discovery_error = summary
-            server.update_time = discovered_at
-            raise AppError(ErrorCode.MCP_DISCOVERY_FAILED)
         catalog = normalize_tools(tools)
         new_hash = catalog_hash(catalog)
         changed = new_hash != server.tool_catalog_hash
+        previous_revision = server.tool_catalog_revision
         if changed:
             server.tool_catalog_json = catalog
             server.tool_catalog_hash = new_hash
@@ -420,6 +443,8 @@ class McpService:
         server.last_discovery_error = None
         server.update_time = discovered_at
         await self._session.flush()
+        if changed:
+            await self._invalidate_cache(server.id, previous_revision)
         return {
             "connection_status": server.connection_status,
             "tool_catalog_revision": server.tool_catalog_revision,
@@ -475,6 +500,40 @@ class McpService:
         agent_count, user_count = await self._counts_for(server)
         return mcp_detail(server, agent_count, user_count)
 
+    async def list_agents(
+        self, tenant_id: str, mcp_id: uuid.UUID, page: int, page_size: int
+    ) -> tuple[list[McpAgentItem], int]:
+        server = await self.get_server(tenant_id, mcp_id)
+        conditions = (
+            AgentMcpBinding.mcp_server_id == server.id,
+            AgentMcpBinding.is_deleted.is_(False),
+            AgentDefinition.is_deleted.is_(False),
+        )
+        total = await self._session.scalar(
+            select(func.count())
+            .select_from(AgentMcpBinding)
+            .join(AgentDefinition, AgentDefinition.id == AgentMcpBinding.agent_id)
+            .where(*conditions)
+        )
+        rows = await self._session.execute(
+            select(AgentDefinition, AgentMcpBinding)
+            .join(AgentDefinition, AgentDefinition.id == AgentMcpBinding.agent_id)
+            .where(*conditions)
+            .order_by(AgentMcpBinding.create_time.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        return [
+            McpAgentItem(
+                agent_id=agent.id,
+                key=agent.key,
+                name=agent.name,
+                enabled=agent.enabled,
+                create_time=binding.create_time,
+            )
+            for agent, binding in rows.all()
+        ], int(total or 0)
+
     async def list_grants(
         self, tenant_id: str, mcp_id: uuid.UUID, page: int, page_size: int
     ) -> tuple[list[McpUserGrantItem], int]:
@@ -527,18 +586,22 @@ class McpService:
             if grant is None:
                 grant = McpUserGrant(mcp_server_id=server.id, user_id=user_id, granted_by=actor.account_id)
                 self._session.add(grant)
+                action = "CREATE"
+                before = None
             else:
+                before = {"grant_user_id": str(user_id), "is_deleted": True}
                 grant.is_deleted = False
                 grant.granted_by = actor.account_id
                 grant.update_time = datetime.now(UTC)
+                action = "UPDATE"
             await self._session.flush()
             await self._audit.record_config_change(
                 tenant_id=tenant_id,
                 actor=actor,
                 resource_type=AUDIT_MCP,
                 resource_id=server.id,
-                action="UPDATE",
-                before=None,
+                action=action,
+                before=before,
                 after={"grant_user_id": str(user_id), "revoked": False},
             )
         # 幂等：已授权时直接返回既有记录，不重复写审计（与用户↔Agent 授权口径一致）
@@ -572,7 +635,7 @@ class McpService:
             actor=actor,
             resource_type=AUDIT_MCP,
             resource_id=server.id,
-            action="UPDATE",
-            before=None,
+            action="DELETE",
+            before={"grant_user_id": str(user_id), "is_deleted": False},
             after={"grant_user_id": str(user_id), "revoked": True},
         )

@@ -64,10 +64,8 @@ class AgentMcpService:
         self, tenant_id: str, agent_id: uuid.UUID, page: int, page_size: int
     ) -> tuple[list[dict[str, Any]], int]:
         await self._require_agent(tenant_id, agent_id)
-        rows = await self._bindings.list_for_agent(tenant_id, agent_id)
-        items = [binding_item(binding, server) for binding, server in rows]
-        start = (page - 1) * page_size
-        return items[start : start + page_size], len(items)
+        rows, total = await self._bindings.list_for_agent(tenant_id, agent_id, page, page_size)
+        return [binding_item(binding, server) for binding, server in rows], total
 
     async def bind(
         self, tenant_id: str, agent_id: uuid.UUID, mcp_id: uuid.UUID, actor: AuditActor
@@ -121,43 +119,38 @@ class AgentMcpService:
     async def effective_mcp_servers(
         self, tenant_id: str, agent_id: uuid.UUID, actor_user_id: uuid.UUID
     ) -> list[ResolvedMcpServer]:
-        """EffectiveMcp 公式（design §3.3.1）：在 Prompt/ToolRegistry 前过滤。"""
+        """EffectiveMcp 公式（design §3.3.1）：在 Prompt/ToolRegistry 前过滤（单查询，无 N+1）。"""
+        grant_join = (
+            select(McpUserGrant.id)
+            .where(
+                McpUserGrant.mcp_server_id == McpServer.id,
+                McpUserGrant.user_id == actor_user_id,
+                McpUserGrant.is_deleted.is_(False),
+            )
+            .limit(1)
+            .scalar_subquery()
+        )
         rows = await self._session.execute(
             select(AgentMcpBinding, McpServer)
             .join(McpServer, McpServer.id == AgentMcpBinding.mcp_server_id)
-            .outerjoin(
-                McpUserGrant,
-                (McpUserGrant.mcp_server_id == McpServer.id)
-                & (McpUserGrant.user_id == actor_user_id),
-            )
             .where(
                 AgentMcpBinding.agent_id == agent_id,
                 AgentMcpBinding.is_deleted.is_(False),
                 McpServer.tenant_id == tenant_id,
                 McpServer.is_deleted.is_(False),
                 McpServer.enabled.is_(True),
+                (McpServer.user_scope == "ALL") | grant_join.isnot(None),
             )
+            .order_by(AgentMcpBinding.create_time)
         )
-        servers: list[ResolvedMcpServer] = []
-        for _binding, server in rows.all():
-            if server.user_scope != "ALL":
-                granted = await self._session.scalar(
-                    select(McpUserGrant.id).where(
-                        McpUserGrant.mcp_server_id == server.id,
-                        McpUserGrant.user_id == actor_user_id,
-                        McpUserGrant.is_deleted.is_(False),
-                    )
-                )
-                if granted is None:
-                    continue
-            servers.append(
-                ResolvedMcpServer(
-                    mcp_server_id=server.id,
-                    key=server.key,
-                    endpoint=server.endpoint,
-                    catalog_revision=server.tool_catalog_revision,
-                    catalog_hash=server.tool_catalog_hash,
-                    tools=list(server.tool_catalog_json or []),
-                )
+        return [
+            ResolvedMcpServer(
+                mcp_server_id=server.id,
+                key=server.key,
+                endpoint=server.endpoint,
+                catalog_revision=server.tool_catalog_revision,
+                catalog_hash=server.tool_catalog_hash,
+                definitions=list(server.tool_catalog_json or []),
             )
-        return servers
+            for _binding, server in rows.all()
+        ]

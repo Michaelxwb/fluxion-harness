@@ -30,3 +30,11 @@ def test_form_uses_two_column_grid_and_localized_adapter_fields() -> None:
     assert "platform.form.adapterSection" in source
     assert "platform.adapterField." in source, "Adapter 字段必须走 i18n 而非裸 schema key"
     assert "form-grid-spacer" in source
+
+
+def test_form_maps_backend_errors_to_fields() -> None:
+    source = (MODULE / "ProjectPlatformForm.tsx").read_text(encoding="utf-8")
+    assert "apiErrorBody" in source
+    assert "PLATFORM_KEY_EXISTS" in source
+    assert "setError('key'" in source
+    assert "COMMON_VALIDATION_ERROR" in source

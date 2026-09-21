@@ -10,6 +10,7 @@ from muad_console_platform.infrastructure import skill_validator
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.control import Skill, SkillArtifact
 from muad_console_platform.main import app
+from sqlalchemy import func, select
 
 from console_skill.conftest import SkillContext, import_skill, tenant_headers
 from console_skill.packages import (
@@ -32,6 +33,7 @@ from console_skill.packages import (
         symlink_package(),
         zip_bytes({"SKILL.md": skill_md(), "run.sh": "echo nope\n"}),
         zip_bytes({"SKILL.md": skill_md(), "inner.zip": b"PK\x03\x04"}),
+        zip_bytes({"SKILL.md": skill_md(), "payload.txt": demo_package()}),
         b"this is not a zip archive",
         demo_package(extra_files={"scripts/leak.py": 'AWS_KEY = "AKIAIOSFODNN7EXAMPLE"\n'}),
     ],
@@ -41,9 +43,56 @@ async def test_invalid_packages_return_400(
     skill_env: SkillContext,
     package: bytes,
 ) -> None:
+    artifact_root = Path(SharedSettings().artifact_root)
+    artifacts_before = set(artifact_root.glob("skills/*/*/skill.zip"))
+    async with get_session_factory()() as session:
+        skills_before = await session.scalar(
+            select(func.count()).select_from(Skill).where(Skill.tenant_id == skill_env.tenant_id)
+        )
+        artifacts_before_count = await session.scalar(
+            select(func.count())
+            .select_from(SkillArtifact)
+            .join(Skill, Skill.id == SkillArtifact.skill_id)
+            .where(Skill.tenant_id == skill_env.tenant_id)
+        )
+
     response = await import_skill(client, skill_env, package)
     assert response.status_code == 400
     assert response.json()["code"] == "SKILL_PACKAGE_INVALID"
+
+    async with get_session_factory()() as session:
+        skills_after = await session.scalar(
+            select(func.count()).select_from(Skill).where(Skill.tenant_id == skill_env.tenant_id)
+        )
+        artifacts_after = await session.scalar(
+            select(func.count())
+            .select_from(SkillArtifact)
+            .join(Skill, Skill.id == SkillArtifact.skill_id)
+            .where(Skill.tenant_id == skill_env.tenant_id)
+        )
+    assert skills_after == skills_before, "非法包不得写入 skill 行"
+    assert artifacts_after == artifacts_before_count, "非法包不得写入 artifact 行"
+    assert set(artifact_root.glob("skills/*/*/skill.zip")) == artifacts_before, (
+        "非法包不得写入 NFS Artifact"
+    )
+
+
+async def test_e04_secret_hit_is_rejected_without_log_leak_or_write(
+    client: AsyncClient,
+    skill_env: SkillContext,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    secret = "AKIAIOSFODNN7EXAMPLE"
+    package = demo_package(extra_files={"scripts/leak.py": f'AWS_KEY = "{secret}"\n'})
+    artifact_root = Path(SharedSettings().artifact_root)
+    artifacts_before = set(artifact_root.glob("skills/*/*/skill.zip"))
+    with caplog.at_level("DEBUG"):
+        response = await import_skill(client, skill_env, package)
+    assert response.status_code == 400
+    assert response.json()["code"] == "SKILL_PACKAGE_INVALID"
+    assert secret not in caplog.text, "Secret 明文不得进入日志"
+    assert secret not in response.text
+    assert set(artifact_root.glob("skills/*/*/skill.zip")) == artifacts_before
 
 
 async def test_import_creates_skill_and_artifact(
@@ -132,6 +181,40 @@ async def test_import_uses_form_key_default_script_and_execution(
     assert data["execution_mode"] == "ASYNC"
     assert data["current_artifact"]["default_script"] == "scripts/run.py"
     assert data["current_artifact"]["frontmatter"]["execution"] == "ASYNC"
+
+
+async def test_import_honors_user_scope_form_field(
+    client: AsyncClient,
+    skill_env: SkillContext,
+) -> None:
+    all_scope = await import_skill(
+        client,
+        skill_env,
+        demo_package(name="All Scope Skill"),
+        version="1.0.0",
+        key="all-scope-key",
+        user_scope="ALL",
+    )
+    assert all_scope.status_code == 200, all_scope.text
+    assert all_scope.json()["data"]["user_scope"] == "ALL"
+
+    default_scope = await import_skill(
+        client,
+        skill_env,
+        demo_package(name="Default Scope Skill"),
+        version="1.0.0",
+        key="default-scope-key",
+    )
+    assert default_scope.status_code == 200
+    assert default_scope.json()["data"]["user_scope"] == "SELECTED"
+
+    async with get_session_factory()() as session:
+        skill = await session.scalar(
+            select(Skill).where(
+                Skill.tenant_id == skill_env.tenant_id, Skill.key == "all-scope-key"
+            )
+        )
+    assert skill is not None and skill.user_scope == "ALL"
 
 
 async def test_import_zip_over_size_limit_returns_400(

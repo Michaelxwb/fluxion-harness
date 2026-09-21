@@ -8,15 +8,25 @@ from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
-from ..application.dto import McpCreateRequest, McpUpdateRequest, McpUserScopeRequest
+from ..application.dto import McpCreateRequest, McpTestRequest, McpUpdateRequest, McpUserScopeRequest
+from ..application.mcp_ports import McpCatalogCache
 from ..application.mcp_service import McpService
 from ..infrastructure.db import get_session
-from .deps import AdminAccount, CurrentAccount, get_source_ip, get_tenant_id
+from .deps import (
+    AdminAccount,
+    CurrentAccount,
+    get_mcp_catalog_cache,
+    get_source_ip,
+    get_tenant_id,
+)
 
 TenantId = Annotated[str, Depends(get_tenant_id)]
 Session = Annotated[AsyncSession, Depends(get_session)]
+Cache = Annotated[McpCatalogCache, Depends(get_mcp_catalog_cache)]
 
 router = APIRouter(prefix="/api/v1/mcp-servers", tags=["mcp"])
+
+ConnectionStatus = Literal["UNKNOWN", "AVAILABLE", "UNAVAILABLE", "DISCOVERY_FAILED"]
 
 
 def _actor(account: CurrentAccount, request: Request) -> AuditActor:
@@ -33,7 +43,7 @@ async def list_servers(
     keyword: str | None = Query(default=None),
     user_scope: Literal["ALL", "SELECTED"] | None = Query(default=None),
     enabled: bool | None = Query(default=None),
-    connection_status: str | None = Query(default=None),
+    connection_status: Annotated[ConnectionStatus | None, Query()] = None,
 ) -> ApiResponse[Any]:
     items, total = await McpService(session).list_servers(
         tenant_id,
@@ -103,8 +113,9 @@ async def delete_server(
     account: CurrentAccount,
     tenant_id: TenantId,
     session: Session,
+    cache: Cache,
 ) -> ApiResponse[Any]:
-    await McpService(session).delete_server(tenant_id, mcp_id, _actor(account, request))
+    await McpService(session, cache).delete_server(tenant_id, mcp_id, _actor(account, request))
     return ok(request.app.state.message_catalog, {})
 
 
@@ -114,8 +125,9 @@ async def test_connection(
     request: Request,
     tenant_id: TenantId,
     session: Session,
-    timeout_ms: Annotated[int | None, Query(ge=100, le=60000)] = None,
+    payload: McpTestRequest | None = None,
 ) -> ApiResponse[Any]:
+    timeout_ms = payload.timeout_ms if payload else None
     data = await McpService(session).test_connection(tenant_id, mcp_id, timeout_ms)
     return ok(request.app.state.message_catalog, data)
 
@@ -126,8 +138,9 @@ async def discover_tools(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    cache: Cache,
 ) -> ApiResponse[Any]:
-    data = await McpService(session).discover_tools(tenant_id, mcp_id)
+    data = await McpService(session, cache).discover_tools(tenant_id, mcp_id)
     return ok(request.app.state.message_catalog, data)
 
 
@@ -164,7 +177,7 @@ async def set_user_scope(
     mcp_id: uuid.UUID,
     payload: McpUserScopeRequest,
     request: Request,
-    account: CurrentAccount,
+    account: AdminAccount,
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
@@ -184,6 +197,27 @@ async def list_grants(
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> ApiResponse[Any]:
     items, total = await McpService(session).list_grants(tenant_id, mcp_id, page, page_size)
+    return ok(
+        request.app.state.message_catalog,
+        paginate(
+            items=[item.model_dump(mode="json") for item in items],
+            page=page,
+            page_size=page_size,
+            total=total,
+        ),
+    )
+
+
+@router.get("/{mcp_id}/agents")
+async def list_agents(
+    mcp_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> ApiResponse[Any]:
+    items, total = await McpService(session).list_agents(tenant_id, mcp_id, page, page_size)
     return ok(
         request.app.state.message_catalog,
         paginate(

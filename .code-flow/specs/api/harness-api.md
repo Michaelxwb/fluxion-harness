@@ -38,7 +38,7 @@ verifiers:
 
 ## Rules
 
-- [RULE-api-002] 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique `(tenant_id, idempotency_key, endpoint)` 记录首次响应；请求指纹 = endpoint|关键参数|内容 checksum；同 key 同指纹重放返回首次结果（200 原响应），同 key 不同指纹返回 `COMMON_CONFLICT`。
+- [RULE-api-002] 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符）的 SHA256，含 endpoint、tenant/actor/资源与关键参数（Runtime 另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key 不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。
 - [RULE-api-001] Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一 `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status` 只来自 `config/api-messages.yaml`。
 
 ## Conventions
@@ -105,6 +105,28 @@ MODEL_IN_USE:
 
 ```python
 raise AppError(ErrorCode.COMMON_CONFLICT, message_args={"agent_count": 3})
+```
+
+## Conventions
+
+SSE 流式接口（Runtime `/v1/runs`、`/v1/runs/{id}/resume`）契约：
+
+- 事件先写入 `canonical_event` 再输出，SSE 帧沿用已持久化的 `seq`/`timestamp`（禁止按连接自增）；`run.created` 同样先落库。
+- 按 submission 重放：同 `Idempotency-Key` 命中时按已落库事件重放，不分配新序号、不重新执行；未结束的流可续订，重放结束于持久化终态事件。
+- 心跳注释帧 `: heartbeat` 不带 event/seq、不计入序号；断流不写伪造终态，Run 交由 Reaper 按租约回收。
+
+✅ 先落库再输出（沿用持久 seq）：
+
+```python
+seq = await EventWriter(session).append(..., stream_type="message.delta", payload={"delta": chunk})
+yield ExecutorEvent(type="message.delta", data={"delta": chunk}, seq=seq, timestamp=ts)
+```
+
+❌ 每连接自增序号（resume 会从 1 重排，重放无法对齐）：
+
+```python
+self._seq += 1          # 连接内计数器，不来自 canonical_event
+yield ExecutorEvent(type="message.delta", data={"delta": chunk})
 ```
 
 ## Avoid

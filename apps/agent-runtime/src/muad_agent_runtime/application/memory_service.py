@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
 
 from ..infrastructure.db import get_session_factory
 from ..infrastructure.models.runtime import UserMemory
+
+WRITE_POLICY_CONTROLLED = "CONTROLLED"
 
 ALLOWED_CATEGORIES = frozenset({"PREFERENCE", "WORK_STYLE", "EXPLICIT"})
 
@@ -49,6 +52,7 @@ class MemoryService:
                     content_json=content_json,
                     source_type=source_type,
                     source_ref=source_ref,
+                    write_policy=WRITE_POLICY_CONTROLLED,
                     version=1,
                 )
                 session.add(row)
@@ -59,7 +63,7 @@ class MemoryService:
                 row.source_type = source_type
                 row.source_ref = source_ref
                 row.version += 1
-                row.update_time = row.update_time  # touch
+                row.update_time = datetime.now(UTC)
             await session.commit()
             return self._snapshot(row)
 

@@ -17,7 +17,7 @@ from muad_logging import configure_logging
 from .api.runs import router as runs_router
 from .application.run_service import reap_abandoned_runs
 from .infrastructure.cancel_hint import create_cancel_hint_store
-from .infrastructure.console_client import ConsoleResolveClient
+from .infrastructure.console_client import ConsoleCredentialsClient, ConsoleResolveClient
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
 
 SERVICE_NAME = "muad-agent-runtime"
@@ -47,8 +47,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         migrations_dir=settings.migrations_dir,
     )
     resolve_client = ConsoleResolveClient(settings.console_platform_url)
+    credentials_client = ConsoleCredentialsClient(
+        settings.console_platform_url,
+        service_token=settings.internal_service_token,
+    )
     cancel_hints = await create_cancel_hint_store(settings.redis_url)
     app.state.resolve_client = resolve_client
+    app.state.credentials_client = credentials_client
     app.state.cancel_hint_store = cancel_hints
     app.state.skill_cache = SkillArtifactCache(artifact_store, settings.skill_cache_root)
     reaper = asyncio.create_task(_reaper_loop(settings.run_reaper_interval_sec))
@@ -59,6 +64,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         with suppress(asyncio.CancelledError):
             await reaper
         await cancel_hints.aclose()
+        await credentials_client.aclose()
         await resolve_client.aclose()
         await dispose_engine()
 

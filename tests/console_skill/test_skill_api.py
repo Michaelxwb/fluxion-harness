@@ -78,6 +78,46 @@ async def test_list_skills_filters_and_paginates(
     assert async_only["items"][0]["key"] == "async-filter-skill"
     assert async_only["items"][0]["execution_mode"] == "ASYNC"
 
+    keyword = (
+        await client.get(
+            "/api/v1/skills",
+            params={"keyword": "skill-granted"},
+            headers=tenant_headers(skill_env),
+        )
+    ).json()["data"]
+    assert keyword["total"] == 1
+    assert keyword["items"][0]["key"] == "skill-granted"
+
+    keyword_by_name = (
+        await client.get(
+            "/api/v1/skills",
+            params={"keyword": "Skill skill-ungranted"},
+            headers=tenant_headers(skill_env),
+        )
+    ).json()["data"]
+    assert keyword_by_name["total"] == 1
+    assert keyword_by_name["items"][0]["key"] == "skill-ungranted"
+
+    disabled = (
+        await client.get(
+            "/api/v1/skills",
+            params={"enabled": "false"},
+            headers=tenant_headers(skill_env),
+        )
+    ).json()["data"]
+    assert disabled["total"] == 1
+    assert disabled["items"][0]["key"] == "skill-disabled"
+
+    enabled_only = (
+        await client.get(
+            "/api/v1/skills",
+            params={"enabled": "true", "keyword": "skill-"},
+            headers=tenant_headers(skill_env),
+        )
+    ).json()["data"]
+    assert enabled_only["total"] == 6
+    assert "skill-disabled" not in {item["key"] for item in enabled_only["items"]}
+
 
 async def test_get_skill_detail_includes_artifact_and_counts(
     client: AsyncClient,

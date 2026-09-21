@@ -1,14 +1,16 @@
+import hashlib
 import uuid
 from datetime import UTC, datetime
 from typing import Any, cast
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from sqlalchemy import func, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.models.control import AgentDefinition, SkillImportIdempotency
+from ..infrastructure.models.control import AgentDefinition, ModelDefinition, SkillImportIdempotency
 from ..infrastructure.repositories.agent_repository import AgentRepository
 from .audit_service import AuditActor, AuditService, sanitize_payload
 from .dto import AgentCreateRequest, AgentListItem, AgentUpdateRequest
@@ -62,10 +64,6 @@ class AgentService:
         return items, total
 
     async def _model_names(self, tenant_id: str) -> dict[uuid.UUID, str]:
-        from sqlalchemy import select
-
-        from ..infrastructure.models.control import ModelDefinition
-
         rows = await self._session.execute(
             select(ModelDefinition.id, ModelDefinition.name).where(
                 ModelDefinition.tenant_id == tenant_id,
@@ -73,6 +71,21 @@ class AgentService:
             )
         )
         return {row[0]: row[1] for row in rows.all()}
+
+    async def get_agent_detail(self, tenant_id: str, agent_id: uuid.UUID) -> dict[str, Any]:
+        agent = await self.get_agent(tenant_id, agent_id)
+        detail = AgentListItem.model_validate(agent).model_dump(mode="json")
+        detail["model_name"] = await self._session.scalar(
+            select(ModelDefinition.name).where(
+                ModelDefinition.id == agent.model_id,
+                ModelDefinition.is_deleted.is_(False),
+            )
+        ) or ""
+        detail["instructions"] = agent.instructions
+        detail["runtime_config"] = agent.runtime_config
+        detail["create_time"] = agent.create_time.isoformat()
+        detail.update(await self.agent_counts(tenant_id, agent.id))
+        return detail
 
     async def agent_counts(self, tenant_id: str, agent_id: uuid.UUID) -> dict[str, int]:
         skill_counts, mcp_counts, channel_counts, user_counts = (
@@ -99,6 +112,7 @@ class AgentService:
         idempotency_key: str | None = None,
     ) -> AgentDefinition:
         if idempotency_key:
+            await self._lock_idempotency(tenant_id, idempotency_key)
             replayed = await self._idempotency_replay(
                 tenant_id, idempotency_key, payload
             )
@@ -137,18 +151,19 @@ class AgentService:
         return created
 
     def _fingerprint(self, payload: AgentCreateRequest) -> str:
-        import hashlib
-
         body = payload.model_dump_json(exclude={"key"})
         return "sha256:" + hashlib.sha256(
             (body + "|" + payload.key).encode()
         ).hexdigest()
 
+    async def _lock_idempotency(self, tenant_id: str, idempotency_key: str) -> None:
+        digest = hashlib.sha256(f"{tenant_id}|{idempotency_key}|agent-create".encode()).digest()
+        lock_key = int.from_bytes(digest[:8], "big", signed=True)
+        await self._session.execute(select(func.pg_advisory_xact_lock(lock_key)))
+
     async def _idempotency_replay(
         self, tenant_id: str, key: str, payload: AgentCreateRequest
     ) -> dict[str, Any] | None:
-        from sqlalchemy import select
-
         row = await self._session.execute(
             select(SkillImportIdempotency).where(
                 SkillImportIdempotency.tenant_id == tenant_id,
@@ -179,8 +194,6 @@ class AgentService:
         updates["revision"] = agent.revision + 1
         updates["update_time"] = datetime.now(UTC)
         # 单语句 CAS：并发窗口在数据库行锁内消除
-        from sqlalchemy import update
-
         result = await self._session.execute(
             update(AgentDefinition)
             .where(

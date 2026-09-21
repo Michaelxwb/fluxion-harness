@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,7 +13,22 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = ROOT / "migrations/versions"
-HEAD_REVISION = "0007"
+
+
+def _migration_head() -> str:
+    graph: dict[str, str | None] = {}
+    for path in sorted(MIGRATIONS_DIR.glob("*.py")):
+        source = path.read_text(encoding="utf-8")
+        revision = re.search(r'^revision = "([^"]+)"', source, re.M)
+        down = re.search(r'^down_revision = (?:None|"([^"]+)")', source, re.M)
+        if revision:
+            graph[revision.group(1)] = down.group(1) if down else None
+    heads = sorted(set(graph) - {down for down in graph.values() if down})
+    assert len(heads) == 1, f"unexpected migration heads: {heads}"
+    return heads[0]
+
+
+HEAD_REVISION = _migration_head()
 
 
 @pytest.fixture()

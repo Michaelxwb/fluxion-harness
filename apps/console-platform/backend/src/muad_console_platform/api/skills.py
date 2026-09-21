@@ -36,14 +36,18 @@ async def list_skills(
     session: Session,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    keyword: str | None = Query(default=None, max_length=128),
     user_scope: Literal["ALL", "SELECTED"] | None = Query(default=None),
+    enabled: bool | None = Query(default=None),
     execution_mode: Literal["SYNC", "ASYNC", "AUTO"] | None = Query(default=None),
 ) -> ApiResponse[Any]:
     items, total = await SkillService(session).list_skills(
         tenant_id,
         page,
         page_size,
+        keyword,
         user_scope,
+        enabled,
         execution_mode,
     )
     return ok(
@@ -67,6 +71,7 @@ async def import_skill(
     version: Annotated[str, Form(min_length=1, max_length=64)],
     key: Annotated[str | None, Form(min_length=1, max_length=128)] = None,
     default_script: Annotated[str | None, Form(max_length=256)] = None,
+    user_scope: Annotated[str | None, Form(pattern="^(ALL|SELECTED)$")] = None,
     idempotency_key: Annotated[str | None, Header(max_length=128)] = None,
 ) -> ApiResponse[Any]:
     detail = await SkillService(session).import_skill(
@@ -74,6 +79,7 @@ async def import_skill(
         version=version,
         key=key,
         default_script=default_script,
+        user_scope=user_scope,
         data=await _upload_bytes(file),
         actor=_actor(account, request),
         idempotency_key=idempotency_key,
@@ -195,6 +201,27 @@ async def list_grants(
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> ApiResponse[Any]:
     items, total = await SkillService(session).list_grants(tenant_id, skill_id, page, page_size)
+    return ok(
+        request.app.state.message_catalog,
+        paginate(
+            items=[item.model_dump(mode="json") for item in items],
+            page=page,
+            page_size=page_size,
+            total=total,
+        ),
+    )
+
+
+@router.get("/{skill_id}/agents")
+async def list_agents(
+    skill_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> ApiResponse[Any]:
+    items, total = await SkillService(session).list_agents(tenant_id, skill_id, page, page_size)
     return ok(
         request.app.state.message_catalog,
         paginate(

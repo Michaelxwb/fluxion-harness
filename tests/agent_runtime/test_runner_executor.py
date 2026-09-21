@@ -46,6 +46,19 @@ class StaticProvider:
             output_tokens=5,
         )
 
+    async def stream(self, request: ModelRequest, on_delta: Any) -> ModelResponse:
+        if self._error is not None:
+            raise self._error
+        for chunk in (self._content[: len(self._content) // 2], self._content[len(self._content) // 2 :]):
+            if chunk:
+                await on_delta(chunk)
+        return ModelResponse(
+            content=self._content,
+            finish_reason="stop",
+            input_tokens=3,
+            output_tokens=5,
+        )
+
 
 def _factory(provider: ModelProvider, *, retries: int) -> ExecutorFactory:
     async def factory(request: ExecutorRequest) -> RunExecutor:
@@ -126,14 +139,14 @@ async def test_provider_failure_yields_run_failed_with_mapped_code(
     events = parse_sse(response.text)
     assert events[-1]["type"] == "run.failed"
     assert events[-1]["data"]["status"] == "FAILED"
-    assert events[-1]["data"]["error_code"] == "COMMON_INTERNAL_ERROR"
+    assert events[-1]["data"]["error_code"] == "MODEL_UNAVAILABLE"
 
     run_id = uuid.UUID(events[0]["run_id"])
     async with get_session_factory()() as session:
         run = await session.get(RunRecord, run_id)
         assert run is not None
         assert run.status == "FAILED"
-        assert run.error_code == "COMMON_INTERNAL_ERROR"
+        assert run.error_code == "MODEL_UNAVAILABLE"
         assert run.error_message is not None
         assert "retries exhausted" in run.error_message
 
@@ -189,10 +202,13 @@ async def test_missing_model_api_key_maps_to_credential_missing(
     assert error.value.code == "CREDENTIAL_MISSING"
 
 
-async def test_dev_fallback_uses_model_api_key_env(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_no_env_fallback_for_missing_model_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """API-09 契约：密钥清空必须 CREDENTIAL_MISSING，不得退回环境变量。"""
     monkeypatch.setenv("MODEL_API_KEY", "sk-dev")
 
-    secret = await resolve_model_api_key(_model(None))
+    with pytest.raises(AppError) as error:
+        await resolve_model_api_key(_model(None))
 
-    assert isinstance(secret, SecretValue)
-    assert secret.value == "sk-dev"
+    assert error.value.code == "CREDENTIAL_MISSING"

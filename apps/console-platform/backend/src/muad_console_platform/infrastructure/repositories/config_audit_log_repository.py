@@ -1,8 +1,9 @@
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..models.auth import ConsoleAccount
 from ..models.control import ConfigAuditLog
 
 
@@ -25,7 +26,8 @@ class ConfigAuditLogRepository:
         self, conditions: list[Any], page: int, page_size: int
     ) -> list[dict[str, Any]]:
         rows = await self._session.execute(
-            select(ConfigAuditLog)
+            select(ConfigAuditLog, ConsoleAccount.display_name)
+            .outerjoin(ConsoleAccount, ConsoleAccount.id == ConfigAuditLog.actor_user_id)
             .where(*conditions)
             .order_by(ConfigAuditLog.create_time.desc())
             .offset((page - 1) * page_size)
@@ -38,8 +40,20 @@ class ConfigAuditLogRepository:
                 "resource_id": str(entry.resource_id),
                 "action": entry.action,
                 "actor_user_id": str(entry.actor_user_id),
+                "actor_display_name": display_name,
+                # 配置审计只在变更成功后写入，因此结果恒为 SUCCESS
+                "result_status": "SUCCESS",
                 "trace_id": entry.trace_id,
                 "create_time": entry.create_time.isoformat(),
             }
-            for entry in rows.scalars().all()
+            for entry, display_name in rows.all()
         ]
+
+    @staticmethod
+    def keyword_condition(keyword: str) -> Any:
+        like = f"%{keyword}%"
+        return or_(
+            ConfigAuditLog.action.ilike(like),
+            ConfigAuditLog.resource_type.ilike(like),
+            ConfigAuditLog.trace_id.ilike(like),
+        )

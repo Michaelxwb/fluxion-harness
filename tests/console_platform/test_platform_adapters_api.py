@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import uuid
+
 from httpx import AsyncClient
 from muad_console_platform.main import app
 
@@ -28,6 +32,33 @@ async def test_e01_unknown_adapter_key_returns_platform_adapter_not_found(
     response = await client.get("/api/v1/platform-adapters/not-registered", headers=_headers(tenant))
     assert response.status_code == 404
     assert response.json()["code"] == "PLATFORM_ADAPTER_NOT_FOUND"
+
+
+async def test_e01_create_with_unregistered_adapter_key_does_not_persist(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    key = f"platform-{uuid.uuid4().hex[:8]}"
+    response = await client.post(
+        "/api/v1/project-platforms",
+        json={
+            "key": key,
+            "name": "Unknown Adapter Platform",
+            "resolver_type": "BASE_URL",
+            "resolver_config": {"base_url": "https://api.example.com"},
+            "adapter_key": "not-registered",
+            "adapter_config": {},
+            "credential_mode": "NONE",
+            "enabled": True,
+        },
+        headers=_headers(tenant),
+    )
+    assert response.status_code == 404
+    assert response.json()["code"] == "PLATFORM_ADAPTER_NOT_FOUND"
+
+    listing = await client.get(
+        "/api/v1/project-platforms", params={"keyword": key}, headers=_headers(tenant)
+    )
+    assert listing.json()["data"]["total"] == 0
 
 
 async def test_page_size_out_of_range_is_rejected(client: AsyncClient, tenant: TenantContext) -> None:

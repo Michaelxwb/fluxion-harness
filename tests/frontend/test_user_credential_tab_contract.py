@@ -25,6 +25,14 @@ def test_credentials_tab_consumes_platform_service_with_user_status() -> None:
 def test_credentials_tab_never_renders_plaintext() -> None:
     source = USER_DETAIL.read_text(encoding="utf-8")
     assert "saveUserCredential" in source
-    assert "'x-secret'" in source
+    assert "'x-secret'" in source or "CredentialSchemaFields" in source
     assert "credential_json" not in source
     assert "user.credentials.notEchoed" in source
+
+
+def test_credentials_tab_uses_credential_update_time_and_shared_form() -> None:
+    source = USER_DETAIL.read_text(encoding="utf-8")
+    assert "user_credential_updated_time" in source
+    assert "CredentialSchemaFields" in source
+    assert "validateCredentialValues" in source
+    assert "confirmLoading" in source

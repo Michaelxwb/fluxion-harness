@@ -1,13 +1,15 @@
 import { Button, Input, Select, Tag } from '@douyinfe/semi-ui';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
+import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { PlatformDetailSideSheet } from './PlatformDetailSideSheet';
+import { PlatformTestModal } from './PlatformTestModal';
 import { ProjectPlatformForm } from './ProjectPlatformForm';
 import {
   deletePlatform,
@@ -22,17 +24,29 @@ const DEFAULT_PARAMS = { page: 1, page_size: 10, keyword: '', adapter_key: '', e
 export function PlatformPage() {
   const { t } = useTranslation();
   const [params, setParams] = useState(DEFAULT_PARAMS);
+  const [keywordInput, setKeywordInput] = useState('');
   const [items, setItems] = useState<PlatformItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [adapters, setAdapters] = useState<AdapterMetadata[]>([]);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailVersion, setDetailVersion] = useState(0);
+  const [testTarget, setTestTarget] = useState<string | null>(null);
   const [reconfigureRequired, setReconfigureRequired] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
   const [formPlatform, setFormPlatform] = useState<PlatformItem | null>(null);
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setParams((prev) => (prev.keyword === keywordInput ? prev : { ...prev, keyword: keywordInput, page: 1 }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [keywordInput]);
 
   const reload = useCallback(async () => {
+    const current = ++requestSeq.current;
     setLoading(true);
     try {
       const page = await listPlatforms({
@@ -42,10 +56,20 @@ export function PlatformPage() {
         adapter_key: params.adapter_key || undefined,
         enabled: params.enabled === 'ALL' ? undefined : params.enabled === 'true'
       });
+      if (current !== requestSeq.current) {
+        return;
+      }
       setItems(page.items);
       setTotal(page.total);
+      setFailed(false);
+    } catch {
+      if (current === requestSeq.current) {
+        setFailed(true);
+      }
     } finally {
-      setLoading(false);
+      if (current === requestSeq.current) {
+        setLoading(false);
+      }
     }
   }, [params]);
 
@@ -60,10 +84,18 @@ export function PlatformPage() {
   }, []);
 
   const remove = async (platform: PlatformItem): Promise<void> => {
-    await deletePlatform(platform.platform_id);
+    try {
+      await deletePlatform(platform.platform_id);
+    } catch {
+      return;
+    }
     setDetailId(null);
     setReconfigureRequired(false);
-    await reload();
+    if (items.length === 1 && params.page > 1) {
+      setParams((prev) => ({ ...prev, page: prev.page - 1 }));
+    } else {
+      await reload();
+    }
   };
 
   return (
@@ -86,10 +118,10 @@ export function PlatformPage() {
           search={
             <>
               <Input
-                value={params.keyword}
+                value={keywordInput}
                 placeholder={t('platform.searchPlaceholder')}
                 style={{ width: 200 }}
-                onChange={(value) => setParams((prev) => ({ ...prev, keyword: value, page: 1 }))}
+                onChange={setKeywordInput}
               />
               <Select
                 value={params.adapter_key || undefined}
@@ -124,7 +156,13 @@ export function PlatformPage() {
           total={total}
           onPageChange={(page) => setParams((prev) => ({ ...prev, page }))}
           onPageSizeChange={(pageSize) => setParams((prev) => ({ ...prev, page_size: pageSize, page: 1 }))}
-          empty={<EmptyState title={t('platform.empty')} />}
+          empty={
+            failed ? (
+              <ErrorState onRetry={() => void reload()} />
+            ) : (
+              <EmptyState title={t('platform.empty')} />
+            )
+          }
           columns={[
             {
               title: t('platform.columns.name'),
@@ -179,6 +217,14 @@ export function PlatformPage() {
               title: t('platform.columns.updateTime'),
               dataIndex: 'update_time',
               render: (value: string) => <DateTimeText value={value} />
+            },
+            {
+              title: t('platform.columns.action'),
+              render: (_: unknown, record: PlatformItem) => (
+                <Button theme="borderless" onClick={() => setTestTarget(record.platform_id)}>
+                  {t('platform.actions.test')}
+                </Button>
+              )
             }
           ]}
         />
@@ -209,6 +255,11 @@ export function PlatformPage() {
           setDetailVersion((prev) => prev + 1);
           void reload();
         }}
+      />
+      <PlatformTestModal
+        visible={testTarget !== null}
+        platformId={testTarget}
+        onCancel={() => setTestTarget(null)}
       />
     </>
   );

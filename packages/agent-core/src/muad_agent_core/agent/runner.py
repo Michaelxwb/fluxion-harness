@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, TypedDict, cast
@@ -17,6 +18,7 @@ from ..model.errors import (
     ModelUnavailableError,
 )
 from ..model.provider import (
+    DeltaCallback,
     ModelMessage,
     ModelProvider,
     ModelRequest,
@@ -120,6 +122,11 @@ class AgentGraphState(TypedDict):
     status: str
     started_at: float
     is_cancelled: Callable[[], bool] | None
+    on_delta: DeltaCallback | None
+    on_tool_started: Callable[[str, str], Awaitable[None]] | None
+    on_tool_completed: Callable[[str, str, str, str | None], Awaitable[None]] | None
+    last_response: dict[str, Any] | None
+    post_model_pending: bool
 
 
 def _limit(config: Mapping[str, Any], key: str, default: int) -> int:
@@ -131,6 +138,22 @@ def _limit(config: Mapping[str, Any], key: str, default: int) -> int:
 
 def _tool_message(call_id: str, content: str) -> ModelMessage:
     return ModelMessage(role=ModelRole.TOOL, content=content, tool_call_id=call_id)
+
+
+def _artifact_ref(content: str) -> str | None:
+    """工具结果被外置为 Artifact 时，从引用 JSON 中取 artifact_id（用于 tool.completed 事件）。"""
+    if not content.startswith("{"):
+        return None
+    try:
+        payload = json.loads(content)
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    artifact = payload.get("artifact")
+    if isinstance(artifact, dict) and isinstance(artifact.get("artifact_id"), str):
+        return str(artifact["artifact_id"])
+    return None
 
 
 class AgentRunner:
@@ -146,6 +169,7 @@ class AgentRunner:
         self._registry = registry
         self._hooks = hooks or HookPipeline()
         self._prompt_builder = prompt_builder or DefaultPromptBuilder()
+        self._stop_emitted = False
         self._graph = self._build_graph()
 
     async def run(
@@ -153,6 +177,9 @@ class AgentRunner:
         request: AgentRunRequest,
         *,
         is_cancelled: Callable[[], bool] | None = None,
+        on_delta: DeltaCallback | None = None,
+        on_tool_started: Callable[[str, str], Awaitable[None]] | None = None,
+        on_tool_completed: Callable[[str, str, str, str | None], Awaitable[None]] | None = None,
     ) -> AgentRunResult:
         system = self._prompt_builder.build(instructions=request.instructions, skills=request.skills)
         initial = AgentGraphState(
@@ -174,15 +201,22 @@ class AgentRunner:
             status=str(AgentRunStatus.COMPLETED),
             started_at=time.monotonic(),
             is_cancelled=is_cancelled,
+            on_delta=on_delta,
+            on_tool_started=on_tool_started,
+            on_tool_completed=on_tool_completed,
+            last_response=None,
+            post_model_pending=False,
         )
         try:
             final = cast(AgentGraphState, await self._graph.ainvoke(initial))
         except Exception:
-            # 错误/取消收尾可观测：异常继续向调用方传播
-            await self._hooks.run(
-                HookEvent.STOP,
-                {"final_text": "", "turns": 0, "error": True},
-            )
+            # 错误/取消收尾可观测：异常继续向调用方传播（stop 只观测一次）
+            if not self._stop_emitted:
+                self._stop_emitted = True
+                await self._hooks.run(
+                    HookEvent.STOP,
+                    {"final_text": "", "turns": 0, "error": True},
+                )
             raise
         return AgentRunResult(
             final_text=final["final_text"],
@@ -249,15 +283,6 @@ class AgentRunner:
                 params=state["params"],
             ),
         )
-        await self._hooks.run(
-            HookEvent.POST_MODEL,
-            {
-                "model_id": state["model_id"],
-                "content": response.content,
-                "tool_calls": list(response.tool_calls),
-                "turns": state["turns"],
-            },
-        )
         assistant = ModelMessage(
             role=ModelRole.ASSISTANT,
             content=response.content,
@@ -271,6 +296,13 @@ class AgentRunner:
             "turns": state["turns"] + 1,
             "input_tokens": state["input_tokens"] + (response.input_tokens or 0),
             "output_tokens": state["output_tokens"] + (response.output_tokens or 0),
+            "last_response": {
+                "model_id": state["model_id"],
+                "content": response.content,
+                "tool_calls": list(response.tool_calls),
+                "turns": state["turns"],
+            },
+            "post_model_pending": True,
         }
 
     async def _execute_tools(self, state: AgentGraphState) -> AgentGraphState:
@@ -279,12 +311,14 @@ class AgentRunner:
         used = state["tool_calls_used"]
         exhausted = False
         for call in state["pending_tool_calls"]:
+            self._ensure_runnable(state)
             if used >= state["policy"].max_tool_calls:
                 exhausted = True
                 messages.append(_tool_message(call.id, TOOL_BUDGET_EXHAUSTED))
                 continue
-            messages.append(await self._run_tool_call(call))
+            messages.append(await self._run_tool_call(state, call))
             used += 1
+        await self._emit_post_model(state)
         return {
             **state,
             "messages": messages,
@@ -293,7 +327,15 @@ class AgentRunner:
             "budget_exhausted": state["budget_exhausted"] or exhausted,
         }
 
-    async def _run_tool_call(self, call: ModelToolCall) -> ModelMessage:
+    async def _emit_post_model(self, state: AgentGraphState) -> None:
+        """设计 S-05 顺序：post_model 在 post_tool_use 之后、每次模型响应触发一次。"""
+        if not state["post_model_pending"]:
+            return
+        payload = state["last_response"] or {}
+        await self._hooks.run(HookEvent.POST_MODEL, payload)
+        state["post_model_pending"] = False
+
+    async def _run_tool_call(self, state: AgentGraphState, call: ModelToolCall) -> ModelMessage:
         arguments = dict(call.arguments)
         try:
             context = await self._hooks.run(
@@ -301,22 +343,43 @@ class AgentRunner:
                 {"call_id": call.id, "tool": call.name, "arguments": arguments},
             )
         except Exception as exc:
+            await self._notify_tool_completed(state, call.id, call.name, "BLOCKED", None)
             return _tool_message(call.id, TOOL_BLOCKED_TEMPLATE.format(reason=f"{type(exc).__name__}: {exc}"))
         payload = context.payload.get("arguments", arguments)
         if isinstance(payload, Mapping):
             arguments = dict(payload)
-        return await self._execute_tool(call, arguments)
+        return await self._execute_tool(state, call, arguments)
 
-    async def _execute_tool(self, call: ModelToolCall, arguments: dict[str, Any]) -> ModelMessage:
+    async def _notify_tool_completed(
+        self,
+        state: AgentGraphState,
+        call_id: str,
+        name: str,
+        status: str,
+        artifact_id: str | None,
+    ) -> None:
+        callback = state["on_tool_completed"]
+        if callback is not None:
+            await callback(call_id, name, status, artifact_id)
+
+    async def _execute_tool(
+        self, state: AgentGraphState, call: ModelToolCall, arguments: dict[str, Any]
+    ) -> ModelMessage:
         try:
             definition = self._registry.get(call.name)
         except ToolNotFoundError:
+            await self._notify_tool_completed(state, call.id, call.name, "NOT_FOUND", None)
             return _tool_message(call.id, UNKNOWN_TOOL_TEMPLATE.format(name=call.name))
         if definition.handler is None:
+            await self._notify_tool_completed(state, call.id, call.name, "FAILED", None)
             return _tool_message(call.id, TOOL_FAILED_TEMPLATE.format(reason="no handler registered"))
+        if state["on_tool_started"] is not None:
+            await state["on_tool_started"](call.id, call.name)
+        status = "OK"
         try:
             content = await definition.handler(arguments)
         except Exception as exc:
+            status = "ERROR"
             content = TOOL_FAILED_TEMPLATE.format(reason=f"{type(exc).__name__}: {exc}")
         context = await self._hooks.run(
             HookEvent.POST_TOOL_USE,
@@ -325,9 +388,12 @@ class AgentRunner:
         result = context.payload.get("result", content)
         if isinstance(result, str):
             content = result
+        await self._notify_tool_completed(state, call.id, call.name, status, _artifact_ref(content))
         return _tool_message(call.id, content)
 
     async def _finalize(self, state: AgentGraphState) -> AgentGraphState:
+        await self._emit_post_model(state)
+        self._stop_emitted = True
         context = await self._hooks.run(
             HookEvent.STOP,
             {"final_text": state["final_text"], "turns": state["turns"]},
@@ -374,15 +440,33 @@ class AgentRunner:
         while True:
             self._ensure_runnable(state)
             try:
-                return await self._provider.complete(request)
+                return await self._invoke_model(state, request)
             except ModelRateLimitedError as exc:
-                await asyncio.sleep(self._retry_delay(state, attempts, exc.retry_after))
+                await self._cancel_aware_sleep(state, self._retry_delay(state, attempts, exc.retry_after))
                 attempts += 1
             except ModelUnavailableError:
-                await asyncio.sleep(self._retry_delay(state, attempts, None))
+                await self._cancel_aware_sleep(state, self._retry_delay(state, attempts, None))
                 attempts += 1
             except ModelRequestError as exc:
                 raise RunnerModelError(f"model request rejected: {exc}") from exc
+
+    async def _invoke_model(
+        self, state: AgentGraphState, request: ModelRequest
+    ) -> ModelResponse:
+        streamer = getattr(self._provider, "stream", None)
+        on_delta = state["on_delta"]
+        if on_delta is not None and streamer is not None:
+            return cast(ModelResponse, await streamer(request, on_delta))
+        return await self._provider.complete(request)
+
+    async def _cancel_aware_sleep(self, state: AgentGraphState, delay: float) -> None:
+        """退避期间保持 cancel/deadline 可响应。"""
+        remaining = delay
+        while remaining > 0:
+            self._ensure_runnable(state)
+            step = min(remaining, 0.1)
+            await asyncio.sleep(step)
+            remaining -= step
 
     def _retry_delay(
         self,

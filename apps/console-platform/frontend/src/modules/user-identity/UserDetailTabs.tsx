@@ -23,6 +23,11 @@ import { MetricCards } from '../../components/common/MetricCards';
 import { PaginationFooter } from '../../components/common/PaginationFooter';
 import { StatusTag } from '../../components/common/StatusTag';
 import {
+  CredentialSchemaFields,
+  credentialFields,
+  validateCredentialValues
+} from '../project-platform/CredentialSchemaFields';
+import {
   getAdapter,
   listPlatforms,
   saveUserCredential,
@@ -330,10 +335,13 @@ function CredentialsTab(props: { userId: string }) {
   const [target, setTarget] = useState<PlatformItem | null>(null);
   const [adapter, setAdapter] = useState<AdapterMetadata | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const openForm = async (platform: PlatformItem): Promise<void> => {
     setTarget(platform);
     setValues({});
+    setFormError(null);
     try {
       setAdapter(await getAdapter(platform.adapter_key));
     } catch {
@@ -341,19 +349,33 @@ function CredentialsTab(props: { userId: string }) {
     }
   };
 
+  const closeForm = (): void => {
+    setTarget(null);
+    setValues({});
+    setFormError(null);
+  };
+
   const save = async (): Promise<void> => {
     if (!target) {
       return;
     }
-    await saveUserCredential(target.platform_id, props.userId, values);
-    setTarget(null);
-    await reload();
+    const invalid = validateCredentialValues(credentialFields(adapter), values);
+    if (invalid) {
+      setFormError(t(invalid.key));
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      await saveUserCredential(target.platform_id, props.userId, values);
+      closeForm();
+      await reload();
+    } catch {
+      setFormError(t('common.saveFailed'));
+    } finally {
+      setSaving(false);
+    }
   };
-
-  const fields = Object.entries(
-    (adapter?.credential_schema as { properties?: Record<string, { title?: string; 'x-secret'?: boolean }> })
-      ?.properties ?? {}
-  );
 
   return (
     <div>
@@ -393,8 +415,9 @@ function CredentialsTab(props: { userId: string }) {
               },
               {
                 title: t('user.credentials.updatedAt'),
-                dataIndex: 'update_time',
-                render: (value: string) => <DateTimeText value={value} />
+                dataIndex: 'user_credential_updated_time',
+                render: (value: string | null | undefined) =>
+                  value ? <DateTimeText value={value} /> : '-'
               },
               {
                 title: t('user.columns.action'),
@@ -417,18 +440,20 @@ function CredentialsTab(props: { userId: string }) {
         width={520}
         title={t('user.credentials.formTitle')}
         okText={t('common.save')}
+        confirmLoading={saving}
         onOk={() => void save()}
-        onCancel={() => setTarget(null)}
+        onCancel={closeForm}
       >
-        {fields.map(([name, definition]) => (
-          <Form.Input
-            key={name}
-            field={name}
-            label={definition.title ?? name}
-            mode={definition['x-secret'] === true ? 'password' : undefined}
-            onChange={(value: string) => setValues((prev) => ({ ...prev, [name]: value }))}
-          />
-        ))}
+        {formError ? (
+          <div className="detail-hint" data-testid="credential-form-error">
+            {formError}
+          </div>
+        ) : null}
+        <CredentialSchemaFields
+          adapter={adapter}
+          values={values}
+          onChange={(name, value) => setValues((prev) => ({ ...prev, [name]: value }))}
+        />
         <div className="detail-hint">{t('user.credentials.notEchoed')}</div>
       </FormModal>
     </div>

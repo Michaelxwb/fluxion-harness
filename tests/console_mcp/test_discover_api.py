@@ -19,10 +19,10 @@ async def _register(
     return str(created.json()["data"]["mcp_id"])
 
 
-async def test_s01_discover_updates_catalog_revision_and_hash(
-    client: httpx.AsyncClient, env: dict[str, object], probe_url: str
+async def test_s01_refresh_updates_catalog_revision_and_hash(
+    client: httpx.AsyncClient, env: dict[str, object], probe_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """[S-01] 刷新工具目录：catalog 快照持久化，revision/hash 更新；未变化时 changed:false。"""
+    """[S-01] 刷新工具目录：快照持久化，内容变化时 hash/revision 更新；未变化时 changed:false。"""
     mcp_id = await _register(client, env, probe_url)
     first = await client.post(
         f"/api/v1/mcp-servers/{mcp_id}/discover-tools", headers=tenant_headers(env)
@@ -42,6 +42,26 @@ async def test_s01_discover_updates_catalog_revision_and_hash(
     unchanged_data = unchanged.json()["data"]
     assert unchanged_data["changed"] is False
     assert unchanged_data["tool_catalog_revision"] == 1  # 目录未变 revision 不变
+    assert unchanged_data["tool_catalog_hash"] == data["tool_catalog_hash"]
+
+    # 目录内容变化：工具数 2 → 3，hash 与 revision 必须变化
+    monkeypatch.setenv("MCP_PROBE_TOOLS", "3")
+    grown = await client.post(
+        f"/api/v1/mcp-servers/{mcp_id}/discover-tools", headers=tenant_headers(env)
+    )
+    assert grown.status_code == 200
+    grown_data = grown.json()["data"]
+    assert grown_data["changed"] is True
+    assert grown_data["tool_catalog_revision"] == 2
+    assert grown_data["tool_count"] == 3
+    assert grown_data["tool_catalog_hash"] != data["tool_catalog_hash"]
+
+    # 目录缩回：再次变化
+    monkeypatch.setenv("MCP_PROBE_TOOLS", "2")
+    shrunk = await client.post(
+        f"/api/v1/mcp-servers/{mcp_id}/discover-tools", headers=tenant_headers(env)
+    )
+    assert shrunk.json()["data"]["tool_catalog_revision"] == 3
 
     detail = (await client.get(f"/api/v1/mcp-servers/{mcp_id}", headers=tenant_headers(env))).json()["data"]
     assert detail["last_discovered_at"] is not None
@@ -71,7 +91,7 @@ async def test_s03_register_test_discover_flow(
     assert data["tool_catalog_hash"]
 
 
-async def test_e01_tools_list_failure_preserves_catalog(
+async def test_e01_tools_list_failure_discovery_failed_preserves_catalog(
     client: httpx.AsyncClient,
     env: dict[str, object],
     probe_url: str,
@@ -107,7 +127,7 @@ async def test_e01_tools_list_failure_preserves_catalog(
     assert tools["total"] == 2  # 目录快照仍可读
 
 
-async def test_e04_connection_failure_preserves_catalog(
+async def test_e04_connection_failure_marks_connection_failed_and_preserves_catalog(
     client: httpx.AsyncClient, env: dict[str, object], probe_url: str
 ) -> None:
     """[E-04] 发现时连接失败：MCP_DISCOVERY_FAILED；保留上一成功 Catalog。"""
@@ -116,6 +136,7 @@ async def test_e04_connection_failure_preserves_catalog(
         f"/api/v1/mcp-servers/{mcp_id}/discover-tools", headers=tenant_headers(env)
     )
     assert ok_response.status_code == 200
+    good_hash = ok_response.json()["data"]["tool_catalog_hash"]
 
     # endpoint 改为不可达地址（编辑语义，不触发 discovery）
     edited = await client.put(
@@ -133,6 +154,8 @@ async def test_e04_connection_failure_preserves_catalog(
 
     detail = (await client.get(f"/api/v1/mcp-servers/{mcp_id}", headers=tenant_headers(env))).json()["data"]
     assert detail["connection_status"] == "DISCOVERY_FAILED"
+    assert detail["last_discovery_error"]
+    assert detail["tool_catalog_hash"] == good_hash
     assert detail["tool_catalog_revision"] == 1
     tools = (
         await client.get(f"/api/v1/mcp-servers/{mcp_id}/tools", headers=tenant_headers(env))
@@ -146,17 +169,16 @@ async def test_e05_tool_limit_preserves_catalog(
     probe_url: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """[E-05] 工具数超过上限：发现失败并保留上一成功 Catalog。"""
-    from muad_console_platform.infrastructure import mcp_client as client_module
-
+    """[E-05] 探针真实返回 201 个工具（默认上限 200）：发现失败并保留上一成功 Catalog。"""
     mcp_id = await _register(client, env, probe_url)
     ok_response = await client.post(
         f"/api/v1/mcp-servers/{mcp_id}/discover-tools", headers=tenant_headers(env)
     )
     assert ok_response.status_code == 200
     good_hash = ok_response.json()["data"]["tool_catalog_hash"]
+    assert ok_response.json()["data"]["tool_count"] == 2
 
-    monkeypatch.setattr(client_module, "MAX_TOOLS_PER_SERVER", 1)
+    monkeypatch.setenv("MCP_PROBE_TOOLS", "201")
     over_limit = await client.post(
         f"/api/v1/mcp-servers/{mcp_id}/discover-tools", headers=tenant_headers(env)
     )
@@ -165,7 +187,13 @@ async def test_e05_tool_limit_preserves_catalog(
 
     detail = (await client.get(f"/api/v1/mcp-servers/{mcp_id}", headers=tenant_headers(env))).json()["data"]
     assert detail["tool_catalog_hash"] == good_hash
+    assert detail["tool_catalog_revision"] == 1
     assert detail["connection_status"] == "DISCOVERY_FAILED"
+    assert "limit" in (detail["last_discovery_error"] or "")
+    tools = (
+        await client.get(f"/api/v1/mcp-servers/{mcp_id}/tools", headers=tenant_headers(env))
+    ).json()["data"]
+    assert tools["total"] == 2
 
 
 async def test_b02_discover_is_only_catalog_writer(
@@ -180,8 +208,8 @@ async def test_b02_discover_is_only_catalog_writer(
         await client.get(f"/api/v1/mcp-servers/{mcp_id}", headers=tenant_headers(env))
     ).json()["data"]
     assert after_test["tool_catalog_revision"] == 0
-    count_key = "tool_count" if "tool_count" in after_test else "tool_catalog_revision"
-    assert after_test[count_key] in (0, after_test["tool_catalog_revision"])
+    assert after_test["tool_catalog_hash"] is None
+    assert after_test["tool_count"] == 0
 
     edited = await client.put(
         f"/api/v1/mcp-servers/{mcp_id}",
@@ -232,3 +260,56 @@ async def test_tool_detail_from_catalog_snapshot(
     )
     assert missing.status_code == 404
     assert missing.json()["code"] == "COMMON_NOT_FOUND"
+
+
+class _RecordingCache:
+    def __init__(self) -> None:
+        self.calls: list[tuple[object, int]] = []
+
+    async def invalidate(self, *, server_id: object, revision: int) -> None:
+        self.calls.append((server_id, revision))
+
+
+async def test_discover_invalidates_previous_revision_cache(
+    client: httpx.AsyncClient,
+    env: dict[str, object],
+    probe_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """[RULE-mcp-001] 目录变化时失效旧 revision 的 Runtime 缓存；未变化/首次不失效。"""
+    import uuid as uuid_module
+
+    from muad_console_platform.api.deps import get_mcp_catalog_cache
+    from muad_console_platform.main import app
+
+    recorder = _RecordingCache()
+    app.dependency_overrides[get_mcp_catalog_cache] = lambda: recorder
+    try:
+        mcp_id = await _register(client, env, probe_url)
+        first = await client.post(
+            f"/api/v1/mcp-servers/{mcp_id}/discover-tools", headers=tenant_headers(env)
+        )
+        assert first.status_code == 200
+        assert recorder.calls == []  # 首次发现无旧 revision 可失效
+
+        monkeypatch.setenv("MCP_PROBE_TOOLS", "3")
+        second = await client.post(
+            f"/api/v1/mcp-servers/{mcp_id}/discover-tools", headers=tenant_headers(env)
+        )
+        assert second.json()["data"]["tool_catalog_revision"] == 2
+        assert recorder.calls == [(uuid_module.UUID(mcp_id), 1)]
+
+        unchanged = await client.post(
+            f"/api/v1/mcp-servers/{mcp_id}/discover-tools", headers=tenant_headers(env)
+        )
+        assert unchanged.json()["data"]["changed"] is False
+        assert len(recorder.calls) == 1
+
+        removed = await client.delete(
+            f"/api/v1/mcp-servers/{mcp_id}", headers=tenant_headers(env)
+        )
+        assert removed.status_code == 200
+        assert recorder.calls[-1] == (uuid_module.UUID(mcp_id), 2)
+    finally:
+        app.dependency_overrides.pop(get_mcp_catalog_cache, None)
+        monkeypatch.delenv("MCP_PROBE_TOOLS")

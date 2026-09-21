@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, or_, select
@@ -38,6 +39,29 @@ class CredentialRepository:
         )
         return credential
 
+    async def get_user_status(
+        self, tenant_id: str, user_id: uuid.UUID, platform_id: uuid.UUID
+    ) -> str | None:
+        status: str | None = await self._session.scalar(
+            select(UserCredentialRef.status).where(
+                UserCredentialRef.tenant_id == tenant_id,
+                UserCredentialRef.user_id == user_id,
+                UserCredentialRef.platform_id == platform_id,
+                UserCredentialRef.is_deleted.is_(False),
+            )
+        )
+        return status
+
+    async def get_shared_status(self, tenant_id: str, platform_id: uuid.UUID) -> str | None:
+        status: str | None = await self._session.scalar(
+            select(SharedCredentialRef.status).where(
+                SharedCredentialRef.tenant_id == tenant_id,
+                SharedCredentialRef.platform_id == platform_id,
+                SharedCredentialRef.is_deleted.is_(False),
+            )
+        )
+        return status
+
     async def upsert_user(
         self,
         *,
@@ -58,6 +82,7 @@ class CredentialRepository:
         credential.credential_json = credential_json
         credential.credential_schema_version = schema_version
         credential.status = "ACTIVE"
+        credential.update_time = datetime.now(UTC)
         await self._session.flush()
         return credential
 
@@ -76,15 +101,18 @@ class CredentialRepository:
         shared.credential_json = credential_json
         shared.credential_schema_version = schema_version
         shared.status = "ACTIVE"
+        shared.update_time = datetime.now(UTC)
         await self._session.flush()
         return shared
 
     async def soft_delete_user(self, credential: UserCredentialRef) -> None:
         credential.is_deleted = True
+        credential.update_time = datetime.now(UTC)
         await self._session.flush()
 
     async def soft_delete_shared(self, credential: SharedCredentialRef) -> None:
         credential.is_deleted = True
+        credential.update_time = datetime.now(UTC)
         await self._session.flush()
 
     async def invalidate_platform(self, tenant_id: str, platform_id: uuid.UUID) -> int:
@@ -97,8 +125,10 @@ class CredentialRepository:
                 UserCredentialRef.status != "INVALID",
             )
         )
+        now = datetime.now(UTC)
         for user_row in user_rows:
             user_row.status = "INVALID"
+            user_row.update_time = now
             changed += 1
         shared_rows = await self._session.scalars(
             select(SharedCredentialRef).where(
@@ -110,6 +140,7 @@ class CredentialRepository:
         )
         for shared_row in shared_rows:
             shared_row.status = "INVALID"
+            shared_row.update_time = now
             changed += 1
         await self._session.flush()
         return changed
@@ -140,6 +171,7 @@ class CredentialRepository:
         status_expr = (
             select(UserCredentialRef.status)
             .where(
+                UserCredentialRef.tenant_id == PlatformUser.tenant_id,
                 UserCredentialRef.user_id == PlatformUser.id,
                 UserCredentialRef.platform_id == platform_id,
                 UserCredentialRef.is_deleted.is_(False),
@@ -150,6 +182,7 @@ class CredentialRepository:
         updated_expr = (
             select(UserCredentialRef.update_time)
             .where(
+                UserCredentialRef.tenant_id == PlatformUser.tenant_id,
                 UserCredentialRef.user_id == PlatformUser.id,
                 UserCredentialRef.platform_id == platform_id,
                 UserCredentialRef.is_deleted.is_(False),

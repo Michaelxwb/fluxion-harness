@@ -57,6 +57,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     )
     await _warn_if_no_accounts()
     yield
+    sessions_client = getattr(app.state, "platform_sessions_client", None)
+    if sessions_client is not None:
+        await sessions_client.aclose()
+    catalog_client = getattr(app.state, "mcp_catalog_cache_client", None)
+    if catalog_client is not None:
+        await catalog_client.aclose()
     await dispose_engine()
 
 

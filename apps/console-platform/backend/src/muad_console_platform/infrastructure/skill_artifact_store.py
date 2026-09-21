@@ -62,6 +62,18 @@ def iter_artifact_keys(root: Path | str | None = None) -> Iterator[tuple[str, fl
         yield path.relative_to(base).as_posix(), path.stat().st_mtime
 
 
+def iter_artifact_temp_files(root: Path | str | None = None) -> Iterator[tuple[str, float]]:
+    """遍历崩溃残留的 .tmp-* 写入临时文件，产出 (相对路径, mtime)。"""
+    base = _root(root)
+    skills_root = base / "skills"
+    if not skills_root.is_dir():
+        return
+    for path in sorted(skills_root.glob("*/*/.tmp-*")):
+        if not path.is_file():
+            continue
+        yield path.relative_to(base).as_posix(), path.stat().st_mtime
+
+
 def cleanup_orphan_files(
     known_keys: set[str],
     *,
@@ -79,4 +91,10 @@ def cleanup_orphan_files(
             continue
         remove_artifact(storage_key, root=root)
         removed.append(storage_key)
+    base = _root(root)
+    for relative_key, mtime in iter_artifact_temp_files(root):
+        if current - mtime < grace_seconds:
+            continue
+        (base / relative_key).unlink(missing_ok=True)
+        removed.append(relative_key)
     return removed

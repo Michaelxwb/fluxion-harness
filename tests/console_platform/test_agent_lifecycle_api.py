@@ -100,17 +100,16 @@ async def test_e01_stale_revision_conflict(
 async def test_s01_revision_bump_and_resolve_uses_new_config(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
-    """[S-01] 编辑后 revision+1；resolve-definition 返回新 instructions；旧 Snapshot 行不漂移。"""
+    """[S-01] 编辑后 revision+1；resolve-definition 返回新 instructions。
 
+    真实 runtime_snapshot 冻结断言见 test_agents_api.py 的 S-01 用例。
+    """
 
     from muad_console_platform.infrastructure.db import get_session_factory
     from muad_console_platform.infrastructure.models.control import PlatformUser
 
     key = f"cas-{uuid.uuid4().hex[:8]}"
     agent = await _create(client, tenant, key)
-
-    # 快照冻结前的旧 instructions
-    old_instructions = agent["instructions"]
 
     updated = await client.put(
         f"/api/v1/agents/{agent['id']}",
@@ -158,10 +157,6 @@ async def test_s01_revision_bump_and_resolve_uses_new_config(
     data = resolved.json()["data"]
     assert data["agent"]["instructions"] == "NEW INSTRUCTIONS"
     assert data["agent"]["revision"] == agent["revision"] + 1
-
-    # 模拟已冻结旧快照：写入旧 instructions 的 runtime_snapshot 行，验证不随配置漂移
-    # （此处仅断言 agent_definition 当前值与旧值不同，快照冻结语义由 runtime 模块测试覆盖）
-    assert old_instructions != "NEW INSTRUCTIONS"
 
     async with session_factory() as session:
         from muad_console_platform.infrastructure.models.control import AgentAccessGrant

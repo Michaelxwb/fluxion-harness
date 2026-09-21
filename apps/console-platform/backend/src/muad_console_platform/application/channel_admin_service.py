@@ -92,14 +92,18 @@ class ChannelAdminService:
         actor: AuditActor,
     ) -> dict[str, Any]:
         agent = await self._require_agent(tenant_id, agent_id)
+        name = payload.get("name")
+        bot_id = payload.get("bot_id")
+        if not name or not bot_id:
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         secret = payload.get("secret")
         if not secret:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         channel = BotAccount(
             tenant_id=tenant_id,
             channel=payload.get("channel") or "WECOM",
-            name=payload["name"],
-            bot_id=payload["bot_id"],
+            name=name,
+            bot_id=bot_id,
             secret=secret,
             agent_id=agent.id,
             enabled=payload.get("enabled", True),
@@ -111,8 +115,8 @@ class ChannelAdminService:
         except IntegrityError as exc:
             raise AppError(
                 ErrorCode.BOT_ID_EXISTS,
-                message_args={"bot_id": payload["bot_id"]},
-                data={"field": "bot_id", "bot_id": payload["bot_id"]},
+                message_args={"bot_id": bot_id},
+                data={"field": "bot_id", "bot_id": bot_id},
             ) from exc
         await self._audit.record_config_change(
             tenant_id=tenant_id,

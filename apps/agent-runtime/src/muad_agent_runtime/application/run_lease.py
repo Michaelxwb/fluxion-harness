@@ -24,6 +24,7 @@ class RunLeaseService:
 
     async def renew(self, run_id: uuid.UUID, owner: str, *, lease_sec: int = 60) -> bool:
         """当前 owner 续约 RUNNING 租约；其他实例/非 RUNNING 返回 False。"""
+        now = datetime.now(UTC)
         async with self._session_factory()() as session:
             result = cast(
                 CursorResult[Any],
@@ -35,13 +36,14 @@ class RunLeaseService:
                         RunRecord.lease_owner == owner,
                     )
                     .values(
-                        lease_until=datetime.now(UTC) + timedelta(seconds=lease_sec),
-                        heartbeat_at=datetime.now(UTC),
+                        lease_until=now + timedelta(seconds=lease_sec),
+                        heartbeat_at=now,
+                        update_time=now,
                     )
                 ),
             )
             await session.commit()
-            return result.rowcount == 1
+            return not current_owner_rejected(result)
 
     async def complete(
         self,
@@ -68,8 +70,9 @@ class RunLeaseService:
                         error_code=error_code,
                         error_message=error_message,
                         end_time=datetime.now(UTC),
+                        update_time=datetime.now(UTC),
                     )
                 ),
             )
             await session.commit()
-            return result.rowcount == 1
+            return not current_owner_rejected(result)

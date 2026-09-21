@@ -13,20 +13,30 @@ def _form_source() -> str:
 
 
 def test_config_invalid_keeps_modal_and_form() -> None:
-    """[E-08] 提交失败（如 MCP_CONFIG_INVALID）：catch 不关闭 Modal、不重置本地表单。"""
+    """[E-08] 提交失败（MCP_CONFIG_INVALID）：字段级错误、不关闭 Modal、不重置本地表单。"""
     source = _form_source()
+    assert "apiErrorBody" in source
+    assert "MCP_CONFIG_INVALID" in source
+    assert "setError('endpoint'" in source
     assert "props.onSaved()" in source
-    assert "catch {" in source
-    # catch 在 onSaved 调用之前出现且 finally 中不关闭
-    assert "finally {" in source
-    assert "props.onCancel()" not in source.split("catch {")[1].split("}")[0]
+    assert "catch (error)" in source
+    catch_block = source.split("catch (error)")[1]
+    assert "props.onCancel()" not in catch_block.split("}")[0]
     assert "setSaving(false)" in source
 
 
 def test_transport_invalid_local_guard() -> None:
-    """[E-09] endpoint 协议校验在提交前本地拦截；transport 以说明文案固定。"""
+    """[E-09] endpoint 协议校验在提交前本地拦截；transport 为只读 streamable-http。"""
     source = _form_source()
     assert "VALID_ENDPOINT" in source
     assert "Toast.error(t('mcp.form.endpointInvalid'))" in source
     assert source.index("VALID_ENDPOINT") < source.index("setSaving(true)")
-    assert "mcp.form.transportHint" in source
+    assert 'field="transport"' in source
+    assert 'initValue="streamable-http"' in source
+
+
+def test_auth_config_json_is_validated_locally() -> None:
+    source = _form_source()
+    assert "mcp.form.authConfigInvalid" in source
+    assert "JSON.parse" in source
+    assert "setError('auth_config'" in source

@@ -1,8 +1,10 @@
-import { Button, Modal, Table } from '@douyinfe/semi-ui';
-import { useCallback, useEffect, useState } from 'react';
+import { Button, Modal } from '@douyinfe/semi-ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '../../components/common/EmptyState';
+import { ErrorState } from '../../components/common/ErrorState';
+import { RemoteTable } from '../../components/common/RemoteTable';
 import {
   getTool,
   listTools,
@@ -12,45 +14,77 @@ import {
 
 export interface McpToolTableProps {
   serverId: string;
-  userScope: 'ALL' | 'SELECTED';
   /** 变化时重新拉取快照（discover 成功后由父级递增） */
   reloadKey?: number;
 }
 
+const PAGE_SIZE = 10;
+
 export function McpToolTable(props: McpToolTableProps) {
   const { t } = useTranslation();
   const [items, setItems] = useState<McpToolEntry[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [detail, setDetail] = useState<McpToolDetail | null>(null);
+  const [detailFailed, setDetailFailed] = useState(false);
+  const requestSeq = useRef(0);
 
   const reload = useCallback(async () => {
+    const current = ++requestSeq.current;
     setLoading(true);
     try {
-      const page = await listTools(props.serverId, { page: 1, page_size: 100 });
-      setItems(page.items);
+      const result = await listTools(props.serverId, { page, page_size: PAGE_SIZE });
+      if (current !== requestSeq.current) {
+        return;
+      }
+      setItems(result.items);
+      setTotal(result.total);
+      setFailed(false);
+    } catch {
+      if (current === requestSeq.current) {
+        setFailed(true);
+      }
     } finally {
-      setLoading(false);
+      if (current === requestSeq.current) {
+        setLoading(false);
+      }
     }
-  }, [props.serverId]);
+  }, [page, props.serverId]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [props.reloadKey]);
 
   useEffect(() => {
     void reload();
   }, [reload, props.reloadKey]);
 
   const openDetail = async (tool: McpToolEntry): Promise<void> => {
-    const loaded = await getTool(props.serverId, tool.name).catch(() => null);
-    if (loaded) {
-      setDetail(loaded);
+    setDetailFailed(false);
+    try {
+      setDetail(await getTool(props.serverId, tool.name));
+    } catch {
+      setDetail(null);
+      setDetailFailed(true);
     }
   };
 
+  if (failed) {
+    return <ErrorState onRetry={() => void reload()} />;
+  }
+
   return (
     <>
-      <Table<McpToolEntry>
+      <RemoteTable<McpToolEntry>
         rowKey="name"
         loading={loading}
-        pagination={false}
         dataSource={items}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onPageChange={setPage}
         empty={<EmptyState title={t('common.empty')} description={t('mcp.tools.emptyHint')} />}
         columns={[
           {
@@ -75,13 +109,18 @@ export function McpToolTable(props: McpToolTableProps) {
         ]}
       />
       <Modal
-        visible={detail !== null}
+        visible={detail !== null || detailFailed}
         title={t('mcp.tools.detailTitle', { name: detail?.name ?? '' })}
         footer={null}
         width={560}
-        onCancel={() => setDetail(null)}
+        onCancel={() => {
+          setDetail(null);
+          setDetailFailed(false);
+        }}
       >
-        {detail === null ? null : (
+        {detailFailed ? (
+          <ErrorState />
+        ) : detail === null ? null : (
           <>
             <p>{detail.description}</p>
             <h5>{t('mcp.tools.inputSchema')}</h5>

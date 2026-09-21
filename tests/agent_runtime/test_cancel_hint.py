@@ -42,8 +42,18 @@ class RecordingCancelHintStore:
     async def set(self, run_id: uuid.UUID) -> None:
         self.run_ids.append(run_id)
 
+    async def is_set(self, run_id: uuid.UUID) -> bool:
+        return False
+
     async def aclose(self) -> None:
         self.closed = True
+
+
+class FailingCancelHintStore(RecordingCancelHintStore):
+    """Redis 故障：set 抛错，取消不得因此失败（DB 为权威）。"""
+
+    async def set(self, run_id: uuid.UUID) -> None:
+        raise RedisConnectionError("redis down")
 
 
 async def _insert_run(tenant: TenantContext, status: str) -> uuid.UUID:
@@ -127,7 +137,7 @@ async def test_cancel_running_run_writes_hint(
     hints = RecordingCancelHintStore()
     async with get_session_factory()() as session:
         service = RunService(session, fake_resolve, "instance-a", cancel_hints=hints)
-        await service.cancel_run(run_id)
+        await service.cancel_run(run_id, tenant.tenant_id)
 
     assert hints.run_ids == [run_id]
 
@@ -140,7 +150,7 @@ async def test_cancel_waiting_input_run_skips_hint(
     hints = RecordingCancelHintStore()
     async with get_session_factory()() as session:
         service = RunService(session, fake_resolve, "instance-a", cancel_hints=hints)
-        run = await service.cancel_run(run_id)
+        run = await service.cancel_run(run_id, tenant.tenant_id)
 
     assert run.status == "CANCELLED"
     assert hints.run_ids == []
@@ -154,7 +164,7 @@ async def test_cancel_terminal_run_is_idempotent_without_hint(
     hints = RecordingCancelHintStore()
     async with get_session_factory()() as session:
         service = RunService(session, fake_resolve, "instance-a", cancel_hints=hints)
-        run = await service.cancel_run(run_id)
+        run = await service.cancel_run(run_id, tenant.tenant_id)
 
     assert run.status == "COMPLETED"
     assert hints.run_ids == []
@@ -171,3 +181,22 @@ async def test_cancel_active_writes_hint(
         await service.cancel_active(tenant.agent_id, tenant.platform_user_id, tenant.tenant_id)
 
     assert hints.run_ids == [run_id]
+
+
+async def test_cancel_running_run_survives_hint_failure(
+    tenant: TenantContext,
+    fake_resolve: FakeResolveClient,
+) -> None:
+    """[B-120] Redis hint 写失败不阻塞取消：DB cancel_requested 仍为权威事实。"""
+    run_id = await _insert_run(tenant, "RUNNING")
+    hints = FailingCancelHintStore()
+    async with get_session_factory()() as session:
+        service = RunService(session, fake_resolve, "instance-a", cancel_hints=hints)
+        run = await service.cancel_run(run_id, tenant.tenant_id)
+
+    assert run.status == "RUNNING"
+    assert run.cancel_requested is True
+    async with get_session_factory()() as session:
+        flagged = await session.get(RunRecord, run_id)
+        assert flagged is not None
+        assert flagged.cancel_requested is True

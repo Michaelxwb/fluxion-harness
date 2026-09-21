@@ -25,19 +25,30 @@ class AgentMcpBindingRepository:
         self,
         tenant_id: str,
         agent_id: uuid.UUID,
-    ) -> list[tuple[AgentMcpBinding, McpServer]]:
+        page: int,
+        page_size: int,
+    ) -> tuple[list[tuple[AgentMcpBinding, McpServer]], int]:
+        conditions = (
+            AgentMcpBinding.agent_id == agent_id,
+            AgentMcpBinding.is_deleted.is_(False),
+            McpServer.tenant_id == tenant_id,
+            McpServer.is_deleted.is_(False),
+        )
+        total = await self._session.scalar(
+            select(func.count())
+            .select_from(AgentMcpBinding)
+            .join(McpServer, McpServer.id == AgentMcpBinding.mcp_server_id)
+            .where(*conditions)
+        )
         result = await self._session.execute(
             select(AgentMcpBinding, McpServer)
             .join(McpServer, McpServer.id == AgentMcpBinding.mcp_server_id)
-            .where(
-                AgentMcpBinding.agent_id == agent_id,
-                AgentMcpBinding.is_deleted.is_(False),
-                McpServer.tenant_id == tenant_id,
-                McpServer.is_deleted.is_(False),
-            )
+            .where(*conditions)
             .order_by(AgentMcpBinding.create_time)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
         )
-        return [(binding, server) for binding, server in result.all()]
+        return [(binding, server) for binding, server in result.all()], int(total or 0)
 
     async def count_active(self, tenant_id: str) -> int:
         total = await self._session.scalar(

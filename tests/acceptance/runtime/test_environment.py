@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 import httpx
 import pytest
 import redis.asyncio as redis
@@ -50,7 +52,12 @@ async def test_b123_probe_records_and_fault_injection(probe_url: str) -> None:
     async with httpx.AsyncClient(timeout=5) as client:
         init_response = await client.post(
             f"{probe_url}/mcp",
-            json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-03-26"}},
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"protocolVersion": "2025-03-26"},
+            },
         )
         init = init_response.json()
         assert init["result"]["serverInfo"]["name"]
@@ -64,7 +71,7 @@ async def test_b123_probe_records_and_fault_injection(probe_url: str) -> None:
 
 
 async def test_b123_real_dependencies_present() -> None:
-    """[B-123] PG/Redis/NFS 依赖真实可用（缺失即 fail，不 skip）。"""
+    """[B-123] PG（含本模块迁移）/Redis/Artifact Store 依赖真实可用（缺失即 fail，不 skip）。"""
     import asyncpg
 
     settings = SharedSettings()
@@ -80,7 +87,16 @@ async def test_b123_real_dependencies_present() -> None:
         tables = await conn.fetch(
             "SELECT table_name FROM information_schema.tables WHERE table_schema='runtime'"
         )
-        assert len(tables) >= 5
+        names = {row["table_name"] for row in tables}
+        assert len(names) >= 5
+        # 本模块迁移产物必须存在（不能靠 0002 旧表通过）
+        assert "run_submission" in names
+        columns = await conn.fetch(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema='runtime' AND table_name='canonical_event'"
+        )
+        column_names = {row["column_name"] for row in columns}
+        assert {"submission_id", "stream_type"} <= column_names
     finally:
         await conn.close()
 
@@ -91,3 +107,20 @@ async def test_b123_real_dependencies_present() -> None:
         await client.delete("muad:e2e:probe")
     finally:
         await client.aclose()
+
+
+async def test_b123_artifact_store_round_trip(tmp_path) -> None:
+    """[B-123] 真实 Artifact Store（NFS-backed root）可写、可读、可清理。"""
+    from muad_artifact_store import NfsArtifactStore
+
+    root = tmp_path / "artifacts"
+    root.mkdir()
+    store = NfsArtifactStore(root)
+    key = f"probe/{uuid.uuid4().hex}.txt"
+    path = store.resolve(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"artifact-probe")
+    assert store.exists(key)
+    assert path.read_bytes() == b"artifact-probe"
+    path.unlink()
+    assert not store.exists(key)

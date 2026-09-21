@@ -28,6 +28,10 @@ def test_selected_scope_single_relation_ops() -> None:
     assert "removeSelectedUser" in source
     assert "ConfirmAction" in source
     assert "props.onChanged?.()" in source
+    assert "remote" in source, "用户选择器必须远端搜索"
+    assert "PaginationFooter" in source
+    assert "ErrorState" in source
+    assert "requestSeq" in source
     service = _source("services/skills.ts")
     assert "api.post<ApiResponse<Record<string, unknown>>>(`/skills/${id}/users/${userId}`)" in service
     assert "api.delete<ApiResponse<Record<string, unknown>>>(`/skills/${id}/users/${userId}`)" in service

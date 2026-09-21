@@ -9,7 +9,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 CANCEL_HINT_KEY_PREFIX = "run:cancel:"
-CANCEL_HINT_TTL_SEC = 3600
+CANCEL_HINT_TTL_SEC = 1800
 CANCEL_HINT_VALUE = "1"
 
 logger = logging.getLogger(__name__)
@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 class AsyncRedisLike(Protocol):
     async def setex(self, name: str, time: int, value: str) -> bool: ...
+
+    async def exists(self, name: str) -> int: ...
 
     async def ping(self) -> bool: ...
 
@@ -26,12 +28,17 @@ class AsyncRedisLike(Protocol):
 class CancelHintStore(Protocol):
     async def set(self, run_id: uuid.UUID) -> None: ...
 
+    async def is_set(self, run_id: uuid.UUID) -> bool: ...
+
     async def aclose(self) -> None: ...
 
 
 class NullCancelHintStore:
     async def set(self, run_id: uuid.UUID) -> None:
         return None
+
+    async def is_set(self, run_id: uuid.UUID) -> bool:
+        return False
 
     async def aclose(self) -> None:
         return None
@@ -47,6 +54,13 @@ class RedisCancelHintStore:
             CANCEL_HINT_TTL_SEC,
             CANCEL_HINT_VALUE,
         )
+
+    async def is_set(self, run_id: uuid.UUID) -> bool:
+        try:
+            return bool(await self._client.exists(f"{CANCEL_HINT_KEY_PREFIX}{run_id}"))
+        except RedisError:
+            logger.warning("cancel_hint_read_failed")
+            return False
 
     async def aclose(self) -> None:
         await self._client.aclose()

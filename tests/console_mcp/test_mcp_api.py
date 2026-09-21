@@ -5,9 +5,12 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from httpx import AsyncClient
+import pytest
+from httpx import ASGITransport, AsyncClient
+from muad_console_platform.api.security import CSRF_COOKIE, CSRF_HEADER
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.mcp import AgentMcpBinding, McpUserGrant
+from muad_console_platform.main import app
 from sqlalchemy import text
 
 from console_mcp.conftest import create_mcp, mcp_env, probe_url, tenant_headers
@@ -31,6 +34,18 @@ async def _fetch_secret(tenant_id: str, mcp_id: str) -> str | None:
 
 
 async def test_config_invalid(client: AsyncClient, env: dict[str, object]) -> None:
+    session_factory = get_session_factory()
+
+    async def _server_count() -> int:
+        async with session_factory() as session:
+            return int(
+                await session.scalar(
+                    text("SELECT count(*) FROM control.mcp_server WHERE tenant_id = :tenant_id"),
+                    {"tenant_id": str(env["tenant_id"])},
+                )
+            )
+
+    before = await _server_count()
     invalid_transport = await create_mcp(
         client, env, endpoint="http://127.0.0.1:9/mcp", extra={"transport": "stdio"}
     )
@@ -40,8 +55,9 @@ async def test_config_invalid(client: AsyncClient, env: dict[str, object]) -> No
     invalid_endpoint = await create_mcp(client, env, endpoint="ftp://example.invalid/mcp")
     assert invalid_endpoint.status_code == 400
     assert invalid_endpoint.json()["code"] == "MCP_CONFIG_INVALID"
+    assert await _server_count() == before, "非法配置不得落库"
 
-    created = await create_mcp(client, env, endpoint="http://127.0.0.1:9/mcp")
+    created = await create_mcp(client, env, endpoint="http://127.0.0.1:9/mcp", key="mcp-valid")
     assert created.status_code == 200, created.text
     mcp_id = created.json()["data"]["mcp_id"]
     edit_transport = await client.put(
@@ -56,13 +72,15 @@ async def test_config_invalid(client: AsyncClient, env: dict[str, object]) -> No
         "/api/v1/mcp-servers", params={"keyword": "mcp-"}, headers=tenant_headers(env)
     )
     keys = {item["key"] for item in listing.json()["data"]["items"]}
-    assert all(key.startswith("mcp-") for key in keys)
+    assert keys == {"mcp-valid"}
+    assert await _server_count() == before + 1
 
 
-async def test_secret(client: AsyncClient, env: dict[str, object]) -> None:
-    created = await create_mcp(
-        client, env, endpoint="http://127.0.0.1:9/mcp", extra={"auth_secret": "plain-secret-value"}
-    )
+async def test_secret(client: AsyncClient, env: dict[str, object], caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level("DEBUG"):
+        created = await create_mcp(
+            client, env, endpoint="http://127.0.0.1:9/mcp", extra={"auth_secret": "plain-secret-value"}
+        )
     assert created.status_code == 200
     mcp_id = created.json()["data"]["mcp_id"]
 
@@ -78,14 +96,17 @@ async def test_secret(client: AsyncClient, env: dict[str, object]) -> None:
     stored = await _fetch_secret(str(env["tenant_id"]), mcp_id)
     assert stored == "plain-secret-value"
 
-    updated = await client.put(
-        f"/api/v1/mcp-servers/{mcp_id}",
-        json={"auth_secret": "rotated-secret-value"},
-        headers=tenant_headers(env),
-    )
+    with caplog.at_level("DEBUG"):
+        updated = await client.put(
+            f"/api/v1/mcp-servers/{mcp_id}",
+            json={"auth_secret": "rotated-secret-value"},
+            headers=tenant_headers(env),
+        )
     assert updated.status_code == 200
     assert await _fetch_secret(str(env["tenant_id"]), mcp_id) == "rotated-secret-value"
     assert "rotated-secret-value" not in updated.text
+    assert "plain-secret-value" not in caplog.text, "Secret 明文不得进入日志"
+    assert "rotated-secret-value" not in caplog.text, "Secret 明文不得进入日志"
 
     session_factory = get_session_factory()
     async with session_factory() as session:
@@ -248,3 +269,133 @@ async def test_connection_test_probe(
 
 def test_module_exports_env_fixture_names() -> None:
     assert mcp_env and probe_url and create_mcp and tenant_headers
+
+
+async def test_auth_secret_reaches_probe_end_to_end(
+    client: AsyncClient, env: dict[str, object], probe_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """DB auth_secret → service → Authorization 头端到端：正确密钥可用，错误密钥不可用。"""
+    secret = "probe-auth-secret"
+    created = await create_mcp(
+        client, env, endpoint=probe_url, key="mcp-auth", extra={"auth_secret": secret}
+    )
+    assert created.status_code == 200, created.text
+    mcp_id = created.json()["data"]["mcp_id"]
+
+    monkeypatch.setenv("MCP_PROBE_REQUIRE_AUTH", secret)
+    tested = await client.post(
+        f"/api/v1/mcp-servers/{mcp_id}/test", json={}, headers=tenant_headers(env)
+    )
+    assert tested.status_code == 200
+    assert tested.json()["data"]["connection_status"] == "AVAILABLE"
+    discovered = await client.post(
+        f"/api/v1/mcp-servers/{mcp_id}/discover-tools", headers=tenant_headers(env)
+    )
+    assert discovered.status_code == 200, discovered.text
+    assert discovered.json()["data"]["tool_count"] == 2
+
+    rotated = await client.put(
+        f"/api/v1/mcp-servers/{mcp_id}",
+        json={"auth_secret": "wrong-secret"},
+        headers=tenant_headers(env),
+    )
+    assert rotated.status_code == 200
+    rejected = await client.post(
+        f"/api/v1/mcp-servers/{mcp_id}/test", json={}, headers=tenant_headers(env)
+    )
+    assert rejected.json()["data"]["connection_status"] == "UNAVAILABLE"
+
+
+async def test_agents_endpoint_lists_bound_agents(
+    client: AsyncClient, env: dict[str, object], probe_url: str
+) -> None:
+    created = await create_mcp(client, env, endpoint=probe_url, key="mcp-agents")
+    mcp_id = created.json()["data"]["mcp_id"]
+
+    empty = await client.get(
+        f"/api/v1/mcp-servers/{mcp_id}/agents", headers=tenant_headers(env)
+    )
+    assert empty.status_code == 200
+    assert empty.json()["data"]["total"] == 0
+
+    bound = await client.post(
+        f"/api/v1/agents/{env['agent_id']}/mcp-servers/{mcp_id}", headers=tenant_headers(env)
+    )
+    assert bound.status_code == 200, bound.text
+
+    listed = await client.get(
+        f"/api/v1/mcp-servers/{mcp_id}/agents", headers=tenant_headers(env)
+    )
+    assert listed.status_code == 200
+    data = listed.json()["data"]
+    assert data["total"] == 1
+    assert data["items"][0]["agent_id"] == str(env["agent_id"])
+    assert data["items"][0]["key"]
+    assert data["items"][0]["enabled"] is True
+
+    missing = await client.get(
+        f"/api/v1/mcp-servers/{uuid.uuid4()}/agents", headers=tenant_headers(env)
+    )
+    assert missing.status_code == 404
+
+
+async def test_builder_can_crud_but_not_manage_scope_or_grants(
+    client: AsyncClient, env: dict[str, object]
+) -> None:
+    from muad_console_platform.application.auth_service import hash_password
+    from muad_console_platform.infrastructure.models.auth import ROLE_BUILDER, ConsoleAccount
+
+    username = f"builder-{uuid.uuid4()}"
+    password = "console-builder-password"
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        builder = ConsoleAccount(
+            tenant_id=str(env["tenant_id"]),
+            username=username,
+            display_name="Builder",
+            password_hash=hash_password(password),
+            role=ROLE_BUILDER,
+        )
+        session.add(builder)
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as builder_client:
+        login = await builder_client.post(
+            "/api/v1/auth/login",
+            json={"username": username, "password": password},
+            headers=tenant_headers(env),
+        )
+        assert login.status_code == 200, login.text
+        builder_client.headers[CSRF_HEADER] = login.cookies.get(CSRF_COOKIE) or ""
+
+        created = await create_mcp(
+            builder_client, env, endpoint="http://127.0.0.1:9/mcp", key="mcp-builder"
+        )
+        assert created.status_code == 200
+        mcp_id = created.json()["data"]["mcp_id"]
+
+        forbidden_scope = await builder_client.put(
+            f"/api/v1/mcp-servers/{mcp_id}/user-scope",
+            json={"user_scope": "ALL"},
+            headers=tenant_headers(env),
+        )
+        assert forbidden_scope.status_code == 403
+        assert forbidden_scope.json()["code"] == "FORBIDDEN"
+
+        forbidden_grant = await builder_client.post(
+            f"/api/v1/mcp-servers/{mcp_id}/users/{env['actor_user_id']}",
+            headers=tenant_headers(env),
+        )
+        assert forbidden_grant.status_code == 403
+        assert forbidden_grant.json()["code"] == "FORBIDDEN"
+
+    async with session_factory() as session:
+        await session.execute(
+            text("DELETE FROM control.console_session WHERE account_id = :account_id"),
+            {"account_id": builder.id},
+        )
+        row = await session.get(ConsoleAccount, builder.id)
+        assert row is not None
+        await session.delete(row)
+        await session.commit()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import ScalarSelect, func, or_, select
@@ -16,6 +17,7 @@ class PlatformListRow:
     configured_user_credential_count: int
     has_shared_credential: bool
     user_credential_status: str | None
+    user_credential_updated_time: datetime | None
 
 
 class PlatformRepository:
@@ -46,11 +48,14 @@ class PlatformRepository:
             .scalar_subquery()
         )
 
-    def _user_status_expr(self, user_id: uuid.UUID) -> ScalarSelect[Any]:
+    def _user_credential_expr(
+        self, user_id: uuid.UUID, tenant_id: str, column: Any
+    ) -> ScalarSelect[Any]:
         return (
-            select(UserCredentialRef.status)
+            select(column)
             .where(
                 UserCredentialRef.platform_id == ProjectPlatform.id,
+                UserCredentialRef.tenant_id == tenant_id,
                 UserCredentialRef.user_id == user_id,
                 UserCredentialRef.is_deleted.is_(False),
             )
@@ -86,11 +91,16 @@ class PlatformRepository:
         )
         configured = self._configured_count_expr()
         shared = self._shared_count_expr()
-        statement = (
-            select(ProjectPlatform, configured, shared, self._user_status_expr(user_id))
-            if user_id is not None
-            else select(ProjectPlatform, configured, shared)
-        )
+        if user_id is not None:
+            statement = select(
+                ProjectPlatform,
+                configured,
+                shared,
+                self._user_credential_expr(user_id, tenant_id, UserCredentialRef.status),
+                self._user_credential_expr(user_id, tenant_id, UserCredentialRef.update_time),
+            )
+        else:
+            statement = select(ProjectPlatform, configured, shared)
         rows = (
             await self._session.execute(
                 statement.where(*conditions)
@@ -105,6 +115,7 @@ class PlatformRepository:
                 configured_user_credential_count=int(row[1] or 0),
                 has_shared_credential=int(row[2] or 0) > 0,
                 user_credential_status=(str(row[3]) if len(row) > 3 and row[3] is not None else None),
+                user_credential_updated_time=(row[4] if len(row) > 4 else None),
             )
             for row in rows
         ]
@@ -161,4 +172,5 @@ class PlatformRepository:
 
     async def soft_delete(self, platform: ProjectPlatform) -> None:
         platform.is_deleted = True
+        platform.update_time = datetime.now(UTC)
         await self._session.flush()

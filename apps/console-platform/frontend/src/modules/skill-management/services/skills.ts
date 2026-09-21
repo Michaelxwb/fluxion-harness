@@ -1,4 +1,4 @@
-import { api, type ApiResponse } from '../../../api/client';
+import { api, newRequestId, type ApiResponse } from '../../../api/client';
 import type { Page } from '../../user-identity/services/users';
 
 export interface SkillListItem {
@@ -28,6 +28,8 @@ export interface SkillArtifactDetail {
   default_script: string | null;
   package_size: number;
   validation_status: string;
+  validation_message?: string | null;
+  instructions?: string;
   frontmatter: Record<string, unknown>;
   manifest: { files?: Array<{ path: string; size: number }>; file_count?: number; total_size?: number };
   create_time: string;
@@ -51,6 +53,15 @@ export interface SkillGrantItem {
   user_code: string;
   display_name: string;
   granted_by: string;
+  create_time: string;
+}
+
+export interface SkillAgentItem {
+  agent_id: string;
+  key: string;
+  name: string;
+  enabled: boolean;
+  sort_order: number;
   create_time: string;
 }
 
@@ -101,21 +112,25 @@ export async function importSkill(input: ImportSkillInput): Promise<SkillImportR
     await api.post<ApiResponse<SkillImportResult>>('/skills/import', form, {
       headers: {
         'Content-Type': 'multipart/form-data',
-        'Idempotency-Key': crypto.randomUUID()
+        'Idempotency-Key': newRequestId()
       }
     })
   );
 }
 
-export async function importArtifact(id: string, file: File, version: string): Promise<SkillImportResult> {
+export async function importArtifact(
+  id: string,
+  file: File,
+  version: string
+): Promise<SkillArtifactDetail> {
   const form = new FormData();
   form.append('file', file);
   form.append('version', version);
   return unwrap(
-    await api.post<ApiResponse<SkillImportResult>>(`/skills/${id}/artifacts`, form, {
+    await api.post<ApiResponse<SkillArtifactDetail>>(`/skills/${id}/artifacts`, form, {
       headers: {
         'Content-Type': 'multipart/form-data',
-        'Idempotency-Key': crypto.randomUUID()
+        'Idempotency-Key': newRequestId()
       }
     })
   );
@@ -144,6 +159,13 @@ export async function listSelectedUsers(
   params: { page: number; page_size: number }
 ): Promise<Page<SkillGrantItem>> {
   return unwrap(await api.get<ApiResponse<Page<SkillGrantItem>>>(`/skills/${id}/users`, { params }));
+}
+
+export async function listSkillAgents(
+  id: string,
+  params: { page: number; page_size: number }
+): Promise<Page<SkillAgentItem>> {
+  return unwrap(await api.get<ApiResponse<Page<SkillAgentItem>>>(`/skills/${id}/agents`, { params }));
 }
 
 export async function addSelectedUser(id: string, userId: string): Promise<void> {

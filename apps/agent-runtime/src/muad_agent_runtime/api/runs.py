@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import asyncio
 import uuid
-from collections.abc import AsyncIterator
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Header, Request
 from fastapi.responses import StreamingResponse
 from muad_api import ApiResponse, ok
 from muad_common import SharedSettings
@@ -19,33 +17,18 @@ from ..application.dto import (
     run_cancel_view,
     run_view,
 )
-from ..application.executor import ExecutorEvent
 from ..application.run_service import RunService, RunStart
 from ..application.sse import SSE_HEADERS, SSE_MEDIA_TYPE, iter_sse_frames
 from .deps import RunServiceDep, TenantDep
 
 router = APIRouter(prefix="/v1", tags=["runs"])
 
-
-async def _disconnect_guarded(
-    service: RunService,
-    run: RunStart,
-    request: Request,
-) -> AsyncIterator[ExecutorEvent]:
-    try:
-        async for event in run.events:
-            if await request.is_disconnected():
-                await service.on_client_disconnect(run.run_id)
-                return
-            yield event
-    except asyncio.CancelledError:
-        await asyncio.shield(service.on_client_disconnect(run.run_id))
-        raise
+IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 
 
 def _sse_response(service: RunService, run: RunStart, request: Request) -> StreamingResponse:
     frames = iter_sse_frames(
-        _disconnect_guarded(service, run, request),
+        run.events,
         run_id=run.run_id,
         heartbeat_sec=SharedSettings().run_event_heartbeat_sec,
     )
@@ -58,8 +41,9 @@ async def create_run(
     request: Request,
     tenant_id: TenantDep,
     service: RunServiceDep,
+    idempotency_key: IdempotencyKey = None,
 ) -> StreamingResponse:
-    run = await service.start(payload, tenant_id)
+    run = await service.start(payload, tenant_id, idempotency_key=idempotency_key)
     return _sse_response(service, run, request)
 
 
@@ -70,8 +54,15 @@ async def resume_run(
     request: Request,
     tenant_id: TenantDep,
     service: RunServiceDep,
+    idempotency_key: IdempotencyKey = None,
 ) -> StreamingResponse:
-    run = await service.resume(run_id, payload.input.text, tenant_id)
+    run = await service.resume(
+        run_id,
+        payload.input.text,
+        tenant_id,
+        idempotency_key=idempotency_key,
+        input_id=payload.input.id,
+    )
     return _sse_response(service, run, request)
 
 
@@ -90,10 +81,14 @@ async def cancel_active_run(
 async def cancel_run(
     run_id: uuid.UUID,
     request: Request,
+    tenant_id: TenantDep,
     service: RunServiceDep,
 ) -> ApiResponse[Any]:
-    run = await service.cancel_run(run_id)
-    return ok(request.app.state.message_catalog, run_cancel_view(run))
+    run = await service.cancel_run(run_id, tenant_id)
+    return ok(
+        request.app.state.message_catalog,
+        run_cancel_view(run, include_cancel_requested=True),
+    )
 
 
 @router.get("/runs/{run_id}")

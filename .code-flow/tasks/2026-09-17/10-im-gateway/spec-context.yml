@@ -1,7 +1,7 @@
 version: 1
 task: IM Gateway 与主动投递
 enforcement: required
-updated_at: '2026-09-20T15:41:12.776831+00:00'
+updated_at: '2026-09-20T23:14:41.028198+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -47,13 +47,21 @@ bindings:
     verifier_ref: harness-api#RULE-api-002
     stage_status:
       design:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-api-002
+          artifact_sha256: c15496affb1b4abba35750f546de9b326652988f1bb1aa3df5b7fb3706a0b308
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.md
+          section_id: TASK-026
+          item_id: TASK-026
+          artifact_sha256: e529b572f53cdd0aafc572e59f77c55e6090d5cec6d17938311108e5343c3fe2
         decision: null
         evidence: []
       code:
@@ -80,59 +88,16 @@ bindings:
         - artifact: 10-im-gateway.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-api-001
-          artifact_sha256: 2146cb5fd81a17987a3134f893bb432eae58f2b9573a426a9bd14bd83d403013
+          artifact_sha256: c15496affb1b4abba35750f546de9b326652988f1bb1aa3df5b7fb3706a0b308
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      code:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      review:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-- spec_id: harness-test
-  path: test/harness-test.md
-  status: active
-  hashes:
-    file_sha256: 75cc9f6cb1970020eb5f82637aac0ff541161ab06470c86104014b4b43b5a9ba
-    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
-    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
-  selected_by: agent
-  reason: Agent Harness 通用平台规则：test
-  enforcement: required
-  stages:
-  - design
-  - plan
-  - code
-  - review
-  rules:
-  - ref: RULE-test-001
-    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
-      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
-    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
-    enforcement: required
-    verifier_ref: harness-test#RULE-test-001
-    stage_status:
-      design:
         status: applied
         refs:
-        - artifact: 10-im-gateway.backend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-test-001
-          artifact_sha256: 2146cb5fd81a17987a3134f893bb432eae58f2b9573a426a9bd14bd83d403013
-        decision: null
-        evidence: []
-      plan:
-        status: pending
-        refs: []
+        - artifact: 10-im-gateway.md
+          section_id: TASK-023
+          item_id: TASK-023
+          artifact_sha256: e529b572f53cdd0aafc572e59f77c55e6090d5cec6d17938311108e5343c3fe2
         decision: null
         evidence: []
       code:
@@ -174,12 +139,16 @@ bindings:
         - artifact: 10-im-gateway.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-arch-001
-          artifact_sha256: 2146cb5fd81a17987a3134f893bb432eae58f2b9573a426a9bd14bd83d403013
+          artifact_sha256: c15496affb1b4abba35750f546de9b326652988f1bb1aa3df5b7fb3706a0b308
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.md
+          section_id: TASK-022
+          item_id: TASK-022
+          artifact_sha256: e529b572f53cdd0aafc572e59f77c55e6090d5cec6d17938311108e5343c3fe2
         decision: null
         evidence: []
       code:
@@ -223,12 +192,16 @@ bindings:
         - artifact: 10-im-gateway.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-auth-001
-          artifact_sha256: 2146cb5fd81a17987a3134f893bb432eae58f2b9573a426a9bd14bd83d403013
+          artifact_sha256: c15496affb1b4abba35750f546de9b326652988f1bb1aa3df5b7fb3706a0b308
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.md
+          section_id: TASK-024
+          item_id: TASK-024
+          artifact_sha256: e529b572f53cdd0aafc572e59f77c55e6090d5cec6d17938311108e5343c3fe2
         decision: null
         evidence: []
       code:
@@ -270,12 +243,16 @@ bindings:
         - artifact: 10-im-gateway.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-im-001
-          artifact_sha256: 2146cb5fd81a17987a3134f893bb432eae58f2b9573a426a9bd14bd83d403013
+          artifact_sha256: c15496affb1b4abba35750f546de9b326652988f1bb1aa3df5b7fb3706a0b308
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.md
+          section_id: TASK-022
+          item_id: TASK-022
+          artifact_sha256: e529b572f53cdd0aafc572e59f77c55e6090d5cec6d17938311108e5343c3fe2
         decision: null
         evidence: []
       code:
@@ -318,12 +295,20 @@ bindings:
         - artifact: 10-im-gateway.backend.design.md
           section_id: design
           item_id: design
-          artifact_sha256: 2146cb5fd81a17987a3134f893bb432eae58f2b9573a426a9bd14bd83d403013
+          artifact_sha256: c15496affb1b4abba35750f546de9b326652988f1bb1aa3df5b7fb3706a0b308
+        - artifact: 10-im-gateway.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-secret-001
+          artifact_sha256: c15496affb1b4abba35750f546de9b326652988f1bb1aa3df5b7fb3706a0b308
         decision: null
         evidence: []
       plan:
-        status: stale
-        refs: []
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.md
+          section_id: TASK-028
+          item_id: TASK-028
+          artifact_sha256: e529b572f53cdd0aafc572e59f77c55e6090d5cec6d17938311108e5343c3fe2
         decision: null
         evidence: []
       code:
@@ -365,12 +350,67 @@ bindings:
         - artifact: 10-im-gateway.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: 2146cb5fd81a17987a3134f893bb432eae58f2b9573a426a9bd14bd83d403013
+          artifact_sha256: c15496affb1b4abba35750f546de9b326652988f1bb1aa3df5b7fb3706a0b308
         decision: null
         evidence: []
       plan:
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.md
+          section_id: TASK-025
+          item_id: TASK-025
+          artifact_sha256: e529b572f53cdd0aafc572e59f77c55e6090d5cec6d17938311108e5343c3fe2
+        decision: null
+        evidence: []
+      code:
         status: pending
         refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 75cc9f6cb1970020eb5f82637aac0ff541161ab06470c86104014b4b43b5a9ba
+    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：test
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: c15496affb1b4abba35750f546de9b326652988f1bb1aa3df5b7fb3706a0b308
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: 10-im-gateway.md
+          section_id: TASK-029
+          item_id: TASK-029
+          artifact_sha256: e529b572f53cdd0aafc572e59f77c55e6090d5cec6d17938311108e5343c3fe2
         decision: null
         evidence: []
       code:

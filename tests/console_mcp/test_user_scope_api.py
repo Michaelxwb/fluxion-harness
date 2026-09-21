@@ -132,7 +132,7 @@ async def test_s02_user_scope_and_grants(client: AsyncClient, env: dict[str, obj
     assert regranted.status_code == 200  # 撤销=软删除，可重新创建
 
 
-async def test_e03_regranting_an_active_grant_is_idempotent(
+async def test_e03_duplicate_grant_is_idempotent(
     client: AsyncClient, env: dict[str, object]
 ) -> None:
     """[E-03] 重复授权已激活的 Grant → 幂等：返回既有记录，不新增行、不重复写审计。

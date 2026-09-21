@@ -13,6 +13,7 @@ from ..infrastructure.models.runtime import Conversation, RunRecord, RuntimeSnap
 class ResumeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    id: str | None = None
     type: Literal["text"] = "text"
     text: str = ""
 
@@ -64,6 +65,7 @@ def conversation_view(conversation: Conversation) -> dict[str, Any]:
 def snapshot_summary(snapshot: RuntimeSnapshot | None) -> dict[str, Any] | None:
     if snapshot is None:
         return None
+    catalog_revision, catalog_hash = _mcp_catalog_summary(snapshot.mcp_catalog_json)
     return {
         "snapshot_id": str(snapshot.id),
         "schema_version": snapshot.schema_version,
@@ -71,7 +73,21 @@ def snapshot_summary(snapshot: RuntimeSnapshot | None) -> dict[str, Any] | None:
         "model_revision": snapshot.model_revision,
         "prompt_template_version": snapshot.prompt_template_version,
         "content_hash": snapshot.content_hash,
+        "mcp_catalog_revision": catalog_revision,
+        "mcp_catalog_hash": catalog_hash,
     }
+
+
+def _mcp_catalog_summary(catalog: list[dict[str, Any]] | None) -> tuple[int | None, str | None]:
+    if not catalog:
+        return None, None
+    first = catalog[0]
+    revision = first.get("catalog_revision")
+    catalog_hash = first.get("catalog_hash")
+    return (
+        revision if isinstance(revision, int) else None,
+        catalog_hash if isinstance(catalog_hash, str) else None,
+    )
 
 
 def run_view(run: RunRecord, snapshot: RuntimeSnapshot | None) -> dict[str, Any]:
@@ -84,14 +100,20 @@ def run_view(run: RunRecord, snapshot: RuntimeSnapshot | None) -> dict[str, Any]
         "trace_id": run.trace_id,
         "cancel_requested": run.cancel_requested,
         "error_code": run.error_code,
+        "error_message": run.error_message,
         "start_time": _isoformat(run.start_time),
         "end_time": _isoformat(run.end_time),
         "snapshot": snapshot_summary(snapshot),
     }
 
 
-def run_cancel_view(run: RunRecord) -> dict[str, Any]:
-    return {
+def run_cancel_view(
+    run: RunRecord, *, include_cancel_requested: bool = False
+) -> dict[str, Any]:
+    view: dict[str, Any] = {
         "run_id": str(run.id),
         "status": display_run_status(run.status, run.cancel_requested),
     }
+    if include_cancel_requested:
+        view["cancel_requested"] = run.cancel_requested
+    return view

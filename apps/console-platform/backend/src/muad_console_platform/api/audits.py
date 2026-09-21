@@ -24,6 +24,7 @@ async def list_audits(
     session: Session,
     resource_id: uuid.UUID | None = Query(default=None),  # noqa: B008
     resource_type: str | None = Query(default=None),
+    keyword: str | None = Query(default=None, max_length=128),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> ApiResponse[Any]:
@@ -31,6 +32,7 @@ async def list_audits(
         tenant_id,
         resource_id=resource_id,
         resource_type=resource_type,
+        keyword=keyword,
         page=page,
         page_size=page_size,
     )

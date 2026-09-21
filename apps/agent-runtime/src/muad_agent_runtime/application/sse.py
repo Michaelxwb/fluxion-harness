@@ -29,11 +29,17 @@ class SseEmitter:
         self._seq = 0
 
     def frame(self, event: ExecutorEvent) -> str:
-        self._seq += 1
+        # 持久化事件沿用 canonical_event.seq/timestamp；无 seq 的事件（测试/合成）按连接内递增
+        if event.seq is not None:
+            seq = event.seq
+            self._seq = max(self._seq, seq)
+        else:
+            self._seq += 1
+            seq = self._seq
         envelope: dict[str, Any] = {
             "run_id": self._run_id,
-            "seq": self._seq,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "seq": seq,
+            "timestamp": event.timestamp or datetime.now(UTC).isoformat(),
             "type": event.type,
             "data": event.data,
         }

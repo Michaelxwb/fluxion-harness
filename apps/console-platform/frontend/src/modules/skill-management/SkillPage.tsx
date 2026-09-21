@@ -1,10 +1,11 @@
 import { Button, Input, Select, Switch, Tag, Toast } from '@douyinfe/semi-ui';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
+import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { SkillDetailSideSheet } from './SkillDetailSideSheet';
@@ -16,13 +17,26 @@ const DEFAULT_PARAMS = { page: 1, page_size: 10, keyword: '', user_scope: '' };
 export function SkillPage() {
   const { t } = useTranslation();
   const [params, setParams] = useState(DEFAULT_PARAMS);
+  const [keywordInput, setKeywordInput] = useState('');
   const [items, setItems] = useState<SkillListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [detail, setDetail] = useState<SkillListItem | null>(null);
   const [importVisible, setImportVisible] = useState(false);
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setParams((prev) =>
+        prev.keyword === keywordInput ? prev : { ...prev, keyword: keywordInput, page: 1 }
+      );
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [keywordInput]);
 
   const reload = useCallback(async () => {
+    const current = ++requestSeq.current;
     setLoading(true);
     try {
       const page = await listSkills({
@@ -31,10 +45,20 @@ export function SkillPage() {
         keyword: params.keyword || undefined,
         user_scope: params.user_scope === '' ? undefined : (params.user_scope as 'ALL' | 'SELECTED')
       });
+      if (current !== requestSeq.current) {
+        return;
+      }
       setItems(page.items);
       setTotal(page.total);
+      setFailed(false);
+    } catch {
+      if (current === requestSeq.current) {
+        setFailed(true);
+      }
     } finally {
-      setLoading(false);
+      if (current === requestSeq.current) {
+        setLoading(false);
+      }
     }
   }, [params]);
 
@@ -43,8 +67,15 @@ export function SkillPage() {
   }, [reload]);
 
   const copyKey = async (skill: SkillListItem): Promise<void> => {
-    await navigator.clipboard.writeText(skill.key);
-    Toast.success(t('skill.actions.keyCopied'));
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('clipboard unavailable');
+      }
+      await navigator.clipboard.writeText(skill.key);
+      Toast.success(t('skill.actions.keyCopied'));
+    } catch {
+      Toast.error(t('skill.actions.copyFailed'));
+    }
   };
 
   const toggleEnabled = async (skill: SkillListItem): Promise<void> => {
@@ -69,10 +100,10 @@ export function SkillPage() {
           search={
             <>
               <Input
-                value={params.keyword}
+                value={keywordInput}
                 placeholder={t('skill.searchPlaceholder')}
                 style={{ width: 200 }}
-                onChange={(value) => setParams((prev) => ({ ...prev, keyword: value, page: 1 }))}
+                onChange={setKeywordInput}
               />
               <Select
                 value={params.user_scope || undefined}
@@ -144,7 +175,13 @@ export function SkillPage() {
           total={total}
           onPageChange={(page) => setParams((prev) => ({ ...prev, page }))}
           onPageSizeChange={(page_size) => setParams((prev) => ({ ...prev, page: 1, page_size }))}
-          empty={<EmptyState title={t('common.empty')} description={t('common.emptyHint')} />}
+          empty={
+            failed ? (
+              <ErrorState onRetry={() => void reload()} />
+            ) : (
+              <EmptyState title={t('common.empty')} description={t('common.emptyHint')} />
+            )
+          }
         />
       </PageSection>
       <SkillImportModal

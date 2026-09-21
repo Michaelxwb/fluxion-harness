@@ -6,6 +6,7 @@ from .errors import (
 )
 from .openai_provider import OpenAICompatibleProvider
 from .provider import (
+    DeltaCallback,
     ModelMessage,
     ModelProvider,
     ModelRequest,
@@ -13,9 +14,11 @@ from .provider import (
     ModelRole,
     ModelToolCall,
     ModelUsage,
+    StreamingModelProvider,
 )
 
 __all__ = [
+    "DeltaCallback",
     "ModelMessage",
     "ModelProvider",
     "ModelProviderError",
@@ -28,4 +31,5 @@ __all__ = [
     "ModelUnavailableError",
     "ModelUsage",
     "OpenAICompatibleProvider",
+    "StreamingModelProvider",
 ]

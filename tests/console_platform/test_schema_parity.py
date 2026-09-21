@@ -112,12 +112,21 @@ def _index_diffs(orm_table: sa.Table, reflected: dict[str, Any]) -> list[str]:
         db_columns = [str(column) for column in db_index["column_names"]]
         if orm_columns != db_columns:
             diffs.append(f"index {name} columns differ: orm={orm_columns} db={db_columns}")
-        orm_partial = orm_index.dialect_options["postgresql"].get("where") is not None
+        orm_where = orm_index.dialect_options["postgresql"].get("where")
         db_options = db_index.get("dialect_options") or {}
-        db_partial = db_options.get("postgresql_where") is not None
-        if orm_partial != db_partial:
-            diffs.append(f"index {name} partial predicate differs: orm={orm_partial} db={db_partial}")
+        db_where = db_options.get("postgresql_where")
+        if _normalize_predicate(orm_where) != _normalize_predicate(db_where):
+            diffs.append(
+                f"index {name} partial predicate differs: orm={orm_where!r} db={db_where!r}"
+            )
     return diffs
+
+
+def _normalize_predicate(where: Any) -> str | None:
+    if where is None:
+        return None
+    text = str(where).lower().replace("(", " ").replace(")", " ")
+    return " ".join(text.split())
 
 
 def _compare(orm_table: sa.Table, reflected: dict[str, Any]) -> list[str]:

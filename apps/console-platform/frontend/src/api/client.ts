@@ -12,6 +12,22 @@ export interface ApiResponse<T> {
   timestamp: string;
 }
 
+export interface ApiErrorBody {
+  code: string;
+  msg: string;
+}
+
+export function apiErrorBody(error: unknown): ApiErrorBody | null {
+  const candidate = error as { response?: { data?: ApiErrorBody } } & Partial<ApiErrorBody>;
+  if (candidate?.response?.data?.code) {
+    return candidate.response.data;
+  }
+  if (candidate?.code) {
+    return candidate as ApiErrorBody;
+  }
+  return null;
+}
+
 export const CSRF_COOKIE = 'muad_csrf';
 export const CSRF_HEADER = 'X-CSRF-Token';
 export const UNAUTHORIZED_STATUS = 401;

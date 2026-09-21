@@ -69,9 +69,10 @@ async def test_e04_reaper_cas_on_expired_running_only() -> None:
     expired = await _seed("RUNNING", expired=True)
     fresh = await _seed("RUNNING", expired=False)
     completed = await _seed("COMPLETED", expired=True)
+    waiting = await _seed("WAITING_INPUT", expired=True)
 
     await reap_abandoned_runs(get_session_factory())
-    ids = {expired, fresh, completed}
+    ids = {expired, fresh, completed, waiting}
     # 其它测试可能残留过期 run；只断言我们的三个的状态
     async with get_session_factory()() as session:
         rows = (
@@ -84,6 +85,7 @@ async def test_e04_reaper_cas_on_expired_running_only() -> None:
         assert by_id[expired].error_code == RUN_ABANDONED
         assert by_id[fresh].status == "RUNNING"  # 未过期不回收
         assert by_id[completed].status == "COMPLETED"  # 终态不动
+        assert by_id[waiting].status == "WAITING_INPUT"  # WAITING_INPUT 不误扫
 
         # 旧 conversation 释放：新 Run 可创建（无 active RUNNING）
         conv_active = (

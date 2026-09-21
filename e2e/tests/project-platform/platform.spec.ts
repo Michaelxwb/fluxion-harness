@@ -14,7 +14,13 @@ async function login(page: Page): Promise<void> {
   await expect(page).toHaveURL('/');
 }
 
-function seed(userCode: string, platformKey: string, cleanup = false): void {
+interface SeedOptions {
+  cleanup?: boolean;
+  noCredential?: boolean;
+  platformName?: string;
+}
+
+function seed(userCode: string, platformKey: string, options: SeedOptions = {}): void {
   const args = [
     'run',
     'python',
@@ -26,10 +32,48 @@ function seed(userCode: string, platformKey: string, cleanup = false): void {
     '--base-url',
     PROBE_BASE
   ];
-  if (cleanup) {
+  if (options.platformName) {
+    args.push('--platform-name', options.platformName);
+  }
+  if (options.noCredential) {
+    args.push('--no-credential');
+  }
+  if (options.cleanup) {
     args.push('--cleanup');
   }
   execFileSync('uv', args, { cwd: PROJECT_ROOT, stdio: 'inherit' });
+}
+
+function dumpCredential(platformKey: string): {
+  credential: Record<string, unknown> | null;
+  status: string | null;
+} {
+  const output = execFileSync(
+    'uv',
+    [
+      'run',
+      'python',
+      'tests/e2e/seed_project_platform.py',
+      '--user-code',
+      'dump',
+      '--platform-key',
+      platformKey,
+      '--dump-credential'
+    ],
+    { cwd: PROJECT_ROOT, encoding: 'utf8' }
+  );
+  const lines = output.trim().split('\n');
+  return JSON.parse(lines[lines.length - 1] ?? '{}');
+}
+
+async function fillPlatformForm(
+  page: Page,
+  { key, name, baseUrl }: { key: string; name: string; baseUrl: string }
+): Promise<void> {
+  const modal = page.locator('.semi-modal');
+  await modal.locator('input#name').fill(name);
+  await modal.locator('input#key').fill(key);
+  await modal.locator('input#base_url').fill(baseUrl);
 }
 
 async function createPlatform(
@@ -38,11 +82,9 @@ async function createPlatform(
 ): Promise<void> {
   await page.goto('/platforms');
   await page.getByTestId('create-platform').click();
-  const modal = page.locator('.semi-modal');
-  await modal.getByRole('textbox', { name: /名称/ }).fill(name);
-  await modal.getByRole('textbox', { name: /标识/ }).fill(key);
-  await modal.getByRole('textbox', { name: /Base URL/ }).fill(baseUrl);
-  await modal.locator('.semi-modal-footer .semi-button-primary').click();
+  await fillPlatformForm(page, { key, name, baseUrl });
+  await page.locator('.semi-modal-footer .semi-button-primary').click();
+  await expect(page.getByTestId(`platform-link-${key}`)).toBeVisible();
 }
 
 async function openPlatformDetail(page: Page, key: string): Promise<void> {
@@ -52,89 +94,124 @@ async function openPlatformDetail(page: Page, key: string): Promise<void> {
   await expect(page.locator('.semi-sidesheet')).toBeVisible();
 }
 
-test('S-01/S-09 平台创建、唯一冲突、筛选与分页', async ({ page }) => {
+test('S-01/S-09 平台创建、唯一冲突、软删重建、筛选与分页', async ({ page }) => {
   const key = `e2e-platform-${Date.now()}`;
   await login(page);
   try {
     await createPlatform(page, { key, name: 'E2E UI Platform', baseUrl: PROBE_BASE });
-    await expect(page.getByTestId(`platform-link-${key}`)).toBeVisible();
-    await expect(page.locator('.app-pagination')).toContainText('显示第 1-');
+    await expect(page.locator('.app-pagination').first()).toContainText('显示第 1-');
     await page.locator('.semi-sidesheet-mask').click({ position: { x: 10, y: 10 } });
+    await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
 
     await page.getByTestId('create-platform').click();
+    await fillPlatformForm(page, { key, name: 'Duplicated Platform', baseUrl: PROBE_BASE });
+    await page.locator('.semi-modal-footer .semi-button-primary').click();
     const modal = page.locator('.semi-modal');
-    await modal.getByRole('textbox', { name: /名称/ }).fill('Duplicated Platform');
-    await modal.getByRole('textbox', { name: /标识/ }).fill(key);
-    await modal.getByRole('textbox', { name: /Base URL/ }).fill(PROBE_BASE);
-    await modal.locator('.semi-modal-footer .semi-button-primary').click();
-    await expect(page.locator('.semi-modal')).toBeVisible();
+    await expect(modal).toContainText('已存在');
+    await expect(modal).toContainText(key);
+    await modal.locator('.semi-modal-close').click();
 
-    await page.locator('.semi-modal .semi-modal-close').click();
     await page.getByPlaceholder('名称 / 标识').fill(key);
     await expect(page.getByTestId(`platform-link-${key}`)).toBeVisible();
     await expect(page.locator('.semi-table-tbody .semi-table-row')).toHaveCount(1);
+
+    await page.getByTestId(`platform-link-${key}`).click();
+    const sheet = page.locator('.semi-sidesheet');
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole('button', { name: '删除平台' }).click();
+    await page.getByRole('button', { name: '确定' }).last().click();
+    await expect(page.getByTestId(`platform-link-${key}`)).toHaveCount(0);
+
+    await page.getByTestId('create-platform').click();
+    await fillPlatformForm(page, { key, name: 'E2E Recreated Platform', baseUrl: PROBE_BASE });
+    await page.locator('.semi-modal-footer .semi-button-primary').click();
+    await expect(page.getByTestId(`platform-link-${key}`)).toBeVisible();
   } finally {
-    seed(`platform-user-${key}`, key, true);
+    seed(`platform-user-${key}`, key, { cleanup: true });
   }
 });
 
-test('S-05 表单仅渲染所选 resolver 字段且适配器来自元数据', async ({ page }) => {
+test('S-05 表单仅渲染所选 resolver 字段且保存后详情一致', async ({ page }) => {
+  const key = `e2e-platform-sd-${Date.now()}`;
   await login(page);
-  await page.goto('/platforms');
-  await page.getByTestId('create-platform').click();
-  const modal = page.locator('.semi-modal');
-  await expect(modal.getByRole('textbox', { name: /Base URL/ })).toBeVisible();
-  await expect(modal.getByRole('textbox', { name: /服务名称/ })).toHaveCount(0);
-  await modal.getByRole('combobox', { name: /接入方式/ }).click();
-  await page.getByRole('option', { name: '服务发现' }).click();
-  await expect(modal.getByRole('textbox', { name: /服务名称/ })).toBeVisible();
-  await expect(modal.getByRole('textbox', { name: /Base URL/ })).toHaveCount(0);
-  await modal.getByRole('combobox', { name: /平台适配器/ }).click();
-  await expect(page.getByRole('option', { name: /通用 HTTP · 1/ })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await modal.locator('.semi-modal-close').click();
+  try {
+    await page.goto('/platforms');
+    await page.getByTestId('create-platform').click();
+    const modal = page.locator('.semi-modal');
+    await expect(modal.locator('input#base_url')).toBeVisible();
+    await expect(modal.locator('input#service_name')).toHaveCount(0);
+    await modal.getByRole('combobox', { name: /接入方式/ }).click();
+    await page.getByRole('option', { name: '服务发现' }).click();
+    await expect(modal.locator('input#service_name')).toBeVisible();
+    await expect(modal.locator('input#base_url')).toHaveCount(0);
+    await modal.getByRole('combobox', { name: /平台适配器/ }).click();
+    await expect(page.getByRole('option', { name: /通用 HTTP · 1/ })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await modal.locator('input#name').fill('E2E Service Discovery');
+    await modal.locator('input#key').fill(key);
+    await modal.locator('input#service_name').fill('e2e-service');
+    await modal.locator('.semi-modal-footer .semi-button-primary').click();
+    await expect(page.getByTestId(`platform-link-${key}`)).toBeVisible();
+
+    const sheet = page.locator('.semi-sidesheet');
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText('服务发现');
+    await expect(sheet).toContainText('e2e-service');
+    await expect(sheet).not.toContainText('{');
+  } finally {
+    seed(`unused-${key}`, key, { cleanup: true });
+  }
 });
 
-test('S-02/S-06 用户凭据保存后仅显示已配置且不回显明文', async ({ page }) => {
+test('S-02/S-06 用户凭据未配置→保存→DB 明文且不回显', async ({ page }) => {
   const key = `e2e-platform-cred-${Date.now()}`;
   const userCode = `e2e-user-${Date.now()}`;
+  const token = 'secret-plaintext-token';
   await login(page);
-  seed(userCode, key);
+  seed(userCode, key, { noCredential: true });
   try {
     await openPlatformDetail(page, key);
-    await page.locator('.semi-sidesheet').getByRole('tab', { name: /凭据/ }).click();
-    await expect(page.locator('.semi-sidesheet')).toContainText('配置用户凭据');
-    await expect(page.locator('.semi-sidesheet')).toContainText(userCode);
-    await page
-      .locator('.semi-sidesheet .semi-table-tbody')
-      .getByRole('button', { name: '更新' })
-      .first()
-      .click();
+    const sheet = page.locator('.semi-sidesheet');
+    await sheet.getByRole('tab', { name: /凭据/ }).click();
+    await expect(sheet).toContainText('配置用户凭据');
+    await expect(sheet).toContainText(userCode);
+    await expect(sheet).toContainText('未配置');
+    await sheet.getByRole('button', { name: '配置凭据', exact: true }).first().click();
     const modal = page.locator('.semi-modal');
-    await modal.getByRole('textbox', { name: /token/i }).fill('secret-plaintext-token');
+    await modal.getByRole('textbox', { name: /token/i }).fill(token);
     await modal.locator('.semi-modal-footer .semi-button-primary').click();
-    await expect(page.locator('.semi-sidesheet')).toContainText('已配置');
-    await expect(page.locator('.semi-sidesheet')).not.toContainText('secret-plaintext-token');
+    await expect(sheet).toContainText('已配置');
+
+    const stored = dumpCredential(key);
+    expect(stored.credential).toEqual({ token });
+    expect(stored.status).toBe('ACTIVE');
+    expect(await page.content()).not.toContain(token);
+
+    await sheet.getByRole('button', { name: '更新' }).first().click();
+    await expect(modal.locator('input[type=password]').first()).toHaveValue('');
+    await modal.locator('.semi-modal-close').click();
   } finally {
-    seed(userCode, key, true);
+    seed(userCode, key, { cleanup: true });
   }
 });
 
-test('S-03/S-07/E-06 配置校验可达与不可达且无 Secret', async ({ page }) => {
+test('S-03/S-07/E-06 配置校验可达、不可达与无 Secret', async ({ page }) => {
   const key = `e2e-platform-probe-${Date.now()}`;
   await login(page);
   try {
     await createPlatform(page, { key, name: 'E2E Probe Platform', baseUrl: PROBE_BASE });
-    await openPlatformDetail(page, key);
-    await page.getByRole('button', { name: '配置校验' }).click();
+    await page.locator('.semi-sidesheet-mask').click({ position: { x: 10, y: 10 } });
+    await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
+    await page.locator('.semi-table-tbody').getByRole('button', { name: '配置校验' }).first().click();
     const modal = page.locator('.semi-modal');
-    await expect(modal).toContainText('配置校验');
+    await expect(modal).toContainText('通过');
     await expect(modal).toContainText('可达');
-    await expect(modal).toContainText('凭据引用状态');
+    await expect(modal).toContainText('未检查');
     await expect(modal).not.toContainText('Token');
     await modal.locator('.semi-modal-close').click();
   } finally {
-    seed(`unused-${key}`, key, true);
+    seed(`unused-${key}`, key, { cleanup: true });
   }
 
   const unreachableKey = `e2e-platform-unreachable-${Date.now()}`;
@@ -144,13 +221,16 @@ test('S-03/S-07/E-06 配置校验可达与不可达且无 Secret', async ({ page
       name: 'E2E Unreachable Platform',
       baseUrl: 'http://127.0.0.1:9'
     });
+    await page.locator('.semi-sidesheet-mask').click({ position: { x: 10, y: 10 } });
+    await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
     await openPlatformDetail(page, unreachableKey);
-    await page.getByRole('button', { name: '配置校验' }).click();
+    await page.locator('.semi-sidesheet').getByRole('button', { name: '配置校验' }).click();
     const modal = page.locator('.semi-modal');
     await expect(modal).toContainText('不可达');
+    await expect(modal).toContainText('连接被拒绝');
     await modal.locator('.semi-modal-close').click();
   } finally {
-    seed(`unused-${unreachableKey}`, unreachableKey, true);
+    seed(`unused-${unreachableKey}`, unreachableKey, { cleanup: true });
   }
 });
 
@@ -173,24 +253,29 @@ test('E-05 更换适配器提示凭据失效并引导凭据 Tab', async ({ page 
       'true'
     );
   } finally {
-    seed(userCode, key, true);
+    seed(userCode, key, { cleanup: true });
   }
 });
 
 test('S-08 用户详情凭据 Tab 展示平台与配置状态', async ({ page }) => {
-  const key = `e2e-platform-user-${Date.now()}`;
+  const keyActive = `e2e-platform-user-active-${Date.now()}`;
+  const keyMissing = `e2e-platform-user-none-${Date.now()}`;
   const userCode = `e2e-user-${Date.now()}`;
   await login(page);
-  seed(userCode, key);
+  seed(userCode, keyActive, { platformName: 'E2E Platform Active' });
+  seed(userCode, keyMissing, { platformName: 'E2E Platform Missing', noCredential: true });
   try {
     await page.goto('/users');
     await page.getByPlaceholder('姓名 / 账号').fill(userCode);
     await page.getByTestId(`user-link-${userCode}`).click();
     await expect(page.locator('.semi-sidesheet')).toBeVisible();
     await page.locator('.semi-sidesheet').getByRole('tab', { name: /项目平台凭据/ }).click();
-    await expect(page.locator('.semi-sidesheet')).toContainText('E2E Platform');
-    await expect(page.locator('.semi-sidesheet')).toContainText('已配置');
+    const activeRow = page.locator('.semi-table-row', { hasText: 'E2E Platform Active' });
+    const missingRow = page.locator('.semi-table-row', { hasText: 'E2E Platform Missing' });
+    await expect(activeRow).toContainText('已配置');
+    await expect(missingRow).toContainText('未配置');
   } finally {
-    seed(userCode, key, true);
+    seed(userCode, keyActive, { cleanup: true });
+    seed(userCode, keyMissing, { cleanup: true });
   }
 });

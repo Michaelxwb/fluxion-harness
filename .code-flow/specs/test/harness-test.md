@@ -55,6 +55,39 @@ await page.route('**/api/v1/**', (route) => route.fulfill({ json: { code: '0' } 
 
 - 用 jsdom / 组件单测冒充 E2E，或未渲染真实浏览器即标记 E2E 场景。
 
+## Conventions
+
+Runtime 验收真实环境基建（`tests/acceptance/runtime/`）：
+
+- 用 module-scoped live stack 承载真实边界：Console/Runtime 为真实 uvicorn 服务、LLM/MCP 为本地 HTTP 探针、数据落真实 PostgreSQL/Redis/Artifact Store；禁止 `dependency_overrides`/mock 业务服务。
+- 跨 Pod/崩溃场景用真实子进程（`SIGKILL` 后由另一实例 Reaper 回收、同 conversation 无 sticky session 接管）；进程内服务线程与 pytest-asyncio 并存时，须在套件边界清理 engine `lru_cache`，async 工具走独立线程/事件循环（禁止 `asyncio.run` 污染主循环）。
+- 验收命令由 acceptance manifest runner 统一复验并写证据：相同 argv/cwd/timeout 复用，测试未收集、未执行或失败均视为 FAIL。
+
+✅ 真实进程 + 真实探针：
+
+```python
+with httpx.stream("POST", f"{runtime.url}/v1/runs", json=payload) as stream:
+    for line in stream.iter_lines():          # 真实 SSE
+        ...
+pod_a.kill()                                   # 真实进程终止 → Reaper 回收
+```
+
+❌ 直连 DB 冒充 E2E（声称真实 Gateway/HTTP/SSE，实际只 seed 表）：
+
+```python
+await session.execute(sa.update(RunRecord).where(...).values(status="RUNNING"))  # 无 HTTP/SSE/执行链
+assert (await session.get(RunRecord, run_id)).status == "RUNNING"                # 恒真
+```
+
+## Conventions
+
+验收反模式（Anti-Patterns）：
+
+- ❌ 恒真断言：`assert reaped >= 0`、对可能为空集合 `all(...)`、`exclude={"api_key"}` 后再断言无 `api_key`——断言必须能真实失败。
+- ❌ 命令与场景不符：`-k` 未命中任何测试（退出码 5）却标记 verified；或测试名/文件与 Acceptance Contract 声明的路径不一致。
+- ❌ 验收层级注水：把 service/DB 级测试写成 E2E，或边界文案（真实 Gateway/进程/SSE）与测试实际行为不符。
+- ❌ 空转用例：测试名为"跨 host 跳转拒绝"却请求 `/healthz`、`follow_redirects=False` 从未触发跳转。
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。

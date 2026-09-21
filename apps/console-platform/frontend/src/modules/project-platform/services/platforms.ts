@@ -31,6 +31,7 @@ export interface PlatformItem {
   has_shared_credential: boolean;
   update_time: string;
   user_credential_status?: 'ACTIVE' | 'INVALID' | 'NONE';
+  user_credential_updated_time?: string | null;
   adapter_metadata?: AdapterMetadata;
 }
 

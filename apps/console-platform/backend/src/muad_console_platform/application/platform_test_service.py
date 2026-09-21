@@ -56,7 +56,7 @@ class PlatformTestService:
             test_user_id=test_user_id,
         )
         return {
-            "config_valid": connectivity == "REACHABLE",
+            "config_valid": True,
             "adapter_key": platform.adapter_key,
             "adapter_version": str(adapter.version),
             "resolver_type": platform.resolver_type,
@@ -74,20 +74,25 @@ class PlatformTestService:
         credential_mode: str,
         test_user_id: uuid.UUID | None,
     ) -> str:
-        if credential_mode == "NONE" or test_user_id is None:
+        if credential_mode == "NONE":
+            return "NOT_CHECKED"
+        if credential_mode == "SHARED_ONLY":
+            await self._require_shared_credential(tenant_id, platform_id)
+            return "ACTIVE"
+        if test_user_id is None:
             return "NOT_CHECKED"
         if credential_mode in ("USER_ONLY", "USER_THEN_SHARED"):
-            user_credential = await self._credentials.get_user(tenant_id, test_user_id, platform_id)
-            if user_credential is not None and user_credential.status == "ACTIVE":
+            user_status = await self._credentials.get_user_status(tenant_id, test_user_id, platform_id)
+            if user_status == "ACTIVE":
                 return "ACTIVE"
             if credential_mode == "USER_ONLY":
                 raise AppError(ErrorCode.CREDENTIAL_MISSING)
-        if credential_mode in ("SHARED_ONLY", "USER_THEN_SHARED"):
-            shared = await self._credentials.get_shared(tenant_id, platform_id)
-            if shared is not None and shared.status == "ACTIVE":
-                return "ACTIVE"
+        await self._require_shared_credential(tenant_id, platform_id)
+        return "ACTIVE"
+
+    async def _require_shared_credential(self, tenant_id: str, platform_id: uuid.UUID) -> None:
+        if await self._credentials.get_shared_status(tenant_id, platform_id) != "ACTIVE":
             raise AppError(ErrorCode.CREDENTIAL_MISSING)
-        raise AppError(ErrorCode.CREDENTIAL_MISSING)
 
     async def _probe(
         self,

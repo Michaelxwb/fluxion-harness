@@ -200,7 +200,8 @@ def test_b103_resolve_response_validates_mcp_catalog_fields() -> None:
             "endpoint": "http://x",
             "catalog_revision": 3,
             "catalog_hash": "sha256:" + "a" * 64,
-            "tools": [],
+            "definitions": [],
         }
     )
     assert server.catalog_revision == 3
+    assert server.definitions == []

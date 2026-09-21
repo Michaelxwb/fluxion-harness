@@ -68,6 +68,13 @@ async def test_cleanup_orphan_artifacts_removes_only_stale_orphans(
         # 宽限期内孤儿（可能是事务进行中）：保留
         fresh_key = f"skills/{uuid.uuid4()}/{uuid.uuid4()}/skill.zip"
         fresh_orphan = _touch_orphan(fresh_key, age_seconds=30, root=tmp_path)
+        # 崩溃残留的 .tmp-* 写入文件：过期删除、宽限期内保留
+        stale_tmp = artifact_path(stale_key, root=tmp_path).parent / ".tmp-stale"
+        stale_tmp.write_bytes(b"partial")
+        os.utime(stale_tmp, (time.time() - GRACE_SECONDS * 2, time.time() - GRACE_SECONDS * 2))
+        fresh_tmp = artifact_path(fresh_key, root=tmp_path).parent / ".tmp-fresh"
+        fresh_tmp.write_bytes(b"partial")
+        os.utime(fresh_tmp, (time.time() - 30, time.time() - 30))
 
         service = SkillService(session)
         removed = await service.cleanup_orphan_artifacts(
@@ -80,7 +87,9 @@ async def test_cleanup_orphan_artifacts_removes_only_stale_orphans(
         await session.execute(Skill.__table__.delete().where(Skill.id == skill.id))
         await session.commit()
 
-    assert removed == [stale_key]
+    assert set(removed) == {stale_key, stale_tmp.relative_to(tmp_path).as_posix()}
     assert artifact_path(stale_key, root=tmp_path).exists() is False
+    assert stale_tmp.exists() is False
     assert recorded_file.exists() is True
     assert fresh_orphan.exists() is True
+    assert fresh_tmp.exists() is True

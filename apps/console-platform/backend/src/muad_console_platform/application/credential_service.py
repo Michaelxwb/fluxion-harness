@@ -13,12 +13,19 @@ from ..infrastructure.repositories.credential_repository import CredentialReposi
 from ..infrastructure.repositories.platform_repository import PlatformRepository
 from ..infrastructure.repositories.platform_user_repository import PlatformUserRepository
 from .audit_service import AuditActor, AuditService
+from .platform_ports import NullPlatformSessionInvalidator, PlatformSessionInvalidator
 
 
 class CredentialService:
-    def __init__(self, session: AsyncSession, registry: PlatformAdapterRegistry) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        registry: PlatformAdapterRegistry,
+        sessions: PlatformSessionInvalidator | None = None,
+    ) -> None:
         self._session = session
         self._registry = registry
+        self._sessions = sessions or NullPlatformSessionInvalidator()
         self._platforms = PlatformRepository(session)
         self._users = PlatformUserRepository(session)
         self._credentials = CredentialRepository(session)
@@ -72,11 +79,15 @@ class CredentialService:
         await self._require_platform(tenant_id, platform_id)
         credential = await self._credentials.get_user(tenant_id, user_id, platform_id)
         if credential is None:
-            return {
-                "user_id": str(user_id),
-                "platform_id": str(platform_id),
-                "configured": False,
-            }
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        return self._user_credential_payload(user_id, platform_id, credential)
+
+    def _user_credential_payload(
+        self,
+        user_id: uuid.UUID,
+        platform_id: uuid.UUID,
+        credential: Any,
+    ) -> dict[str, Any]:
         return {
             "user_id": str(user_id),
             "platform_id": str(platform_id),
@@ -98,7 +109,12 @@ class CredentialService:
     ) -> dict[str, Any]:
         schema_version = await self._validate(tenant_id, platform_id, payload)
         await self._require_user(tenant_id, user_id)
-        before = await self.get_user_credential(tenant_id, platform_id, user_id)
+        existing = await self._credentials.get_user(tenant_id, user_id, platform_id)
+        before = (
+            self._user_credential_payload(user_id, platform_id, existing)
+            if existing is not None
+            else None
+        )
         credential = await self._credentials.upsert_user(
             tenant_id=tenant_id,
             user_id=user_id,
@@ -111,8 +127,8 @@ class CredentialService:
             actor=actor,
             resource_type="user_credential_ref",
             resource_id=credential.id,
-            action="UPDATE" if before["configured"] else "CREATE",
-            before=before if before["configured"] else None,
+            action="UPDATE" if existing is not None else "CREATE",
+            before=before,
             after={
                 "user_id": str(user_id),
                 "platform_id": str(platform_id),
@@ -144,6 +160,7 @@ class CredentialService:
             before={"user_id": str(user_id), "platform_id": str(platform_id)},
             after=None,
         )
+        await self._sessions.clear_platform(tenant_id=tenant_id, platform_id=platform_id)
 
     async def get_shared_credential(self, tenant_id: str, platform_id: uuid.UUID) -> dict[str, Any]:
         await self._require_platform(tenant_id, platform_id)
@@ -209,6 +226,7 @@ class CredentialService:
             before={"platform_id": str(platform_id)},
             after=None,
         )
+        await self._sessions.clear_platform(tenant_id=tenant_id, platform_id=platform_id)
 
     async def _require_platform(self, tenant_id: str, platform_id: uuid.UUID) -> None:
         if await self._platforms.get(tenant_id, platform_id) is None:

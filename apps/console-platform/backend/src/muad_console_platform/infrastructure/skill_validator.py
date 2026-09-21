@@ -49,6 +49,16 @@ SECRET_PATTERNS = (
     re.compile(r"(?i)\b(api[_-]?key|secret|token|password)\b\s*[:=]\s*['\"][^'\"]{16,}['\"]"),
 )
 SYMLINK_MODE = 0o120000
+ARCHIVE_MAGICS = (
+    b"PK\x03\x04",
+    b"PK\x05\x06",
+    b"PK\x07\x08",
+    b"\x1f\x8b",
+    b"BZh",
+    b"7z\xbc\xaf\x27\x1c",
+    b"Rar!\x1a\x07",
+    b"\xfd7zXZ\x00",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +108,7 @@ def _validate_package(data: bytes, temp_root: Path) -> ValidatedSkillPackage:
         if total_size > UNPACKED_BYTES_LIMIT:
             raise invalid_package()
         _extract(archive, temp_root)
+    _scan_nested_archives(temp_root)
     package_root, inner_dir = _locate_package_root(temp_root)
     package = _load_package(package_root)
     _scan_secrets(package_root)
@@ -161,6 +172,18 @@ def _scan_secrets(root: Path) -> None:
         if not path.is_file() or path.suffix.lower() not in TEXT_EXTENSIONS:
             continue
         if _contains_secret(path):
+            raise invalid_package()
+
+
+def _scan_nested_archives(root: Path) -> None:
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        with path.open("rb") as stream:
+            header = stream.read(512)
+        if any(header.startswith(magic) for magic in ARCHIVE_MAGICS):
+            raise invalid_package()
+        if len(header) >= 262 and header[257:262] == b"ustar":
             raise invalid_package()
 
 

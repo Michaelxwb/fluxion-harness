@@ -189,6 +189,11 @@ class SkillArtifact(StandardColumnsMixin, Base):
         nullable=False,
         server_default=sa.text("'SYNC'"),
     )
+    instructions: Mapped[str] = mapped_column(
+        sa.Text(),
+        nullable=False,
+        server_default=sa.text("''"),
+    )
     default_script: Mapped[str | None] = mapped_column(sa.String(256))
     package_size: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
     validation_status: Mapped[str] = mapped_column(sa.String(32), nullable=False)

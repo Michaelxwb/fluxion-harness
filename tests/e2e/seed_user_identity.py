@@ -96,7 +96,8 @@ async def _seed(connection, tenant_id: str, user_id: uuid.UUID, *, corrupt_memor
         text(
             "INSERT INTO control.project_platform "
             "(id, tenant_id, key, name, resolver_type, resolver_config_json, adapter_key, credential_mode) "
-            "VALUES (:id, :tenant_id, 'e2e-platform', 'E2E Platform', 'STATIC', '{}'::jsonb, 'e2e', 'NONE')"
+            "VALUES (:id, :tenant_id, 'e2e-platform', 'E2E Platform', 'BASE_URL', "
+            "'{\"base_url\": \"http://127.0.0.1:4190\"}'::jsonb, 'generic-http', 'NONE')"
         ),
         {"id": platform_id, "tenant_id": tenant_id},
     )

@@ -20,6 +20,21 @@ def test_page_follows_console_skeleton_and_filters() -> None:
     assert "onPageSizeChange" in source
 
 
+def test_page_exposes_row_test_action_and_error_state() -> None:
+    source = _source("PlatformPage.tsx")
+    assert "PlatformTestModal" in source
+    assert "platform.actions.test" in source
+    assert "setTestTarget" in source
+    assert "ErrorState" in source
+    assert "requestSeq" in source, "列表请求需要竞态保护"
+
+
+def test_page_debounces_keyword_search() -> None:
+    source = _source("PlatformPage.tsx")
+    assert "keywordInput" in source
+    assert "setTimeout" in source and "clearTimeout" in source
+
+
 def test_platform_route_replaces_placeholder() -> None:
     app = (ROOT / "apps/console-platform/frontend/src/App.tsx").read_text(encoding="utf-8")
     assert '<Route path="platforms" element={<PlatformPage />} />' in app

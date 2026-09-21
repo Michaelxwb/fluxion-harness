@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 from httpx import AsyncClient
+from muad_console_platform.application.platform_adapter_service import build_default_registry
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.control import PlatformUser
 from muad_console_platform.infrastructure.repositories.credential_repository import (
@@ -56,6 +57,7 @@ def alt_adapter_registered() -> AsyncIterator[None]:
     if "alt-http" not in {adapter.key for adapter in registry.list()}:
         registry.register(AltAdapter())
     yield
+    app.state.platform_adapters = build_default_registry()
 
 
 @pytest.fixture
@@ -168,9 +170,10 @@ async def test_create_conflicts_and_validation_do_not_persist(
     assert conflict.json()["code"] == "PLATFORM_KEY_EXISTS"
     assert key in conflict.json()["msg"], "专用码必须带出冲突的 key"
 
+    failed_keys = [f"platform-{uuid.uuid4().hex[:8]}", f"platform-{uuid.uuid4().hex[:8]}"]
     unknown_adapter = await client.post(
         "/api/v1/project-platforms",
-        json=_payload(f"platform-{uuid.uuid4().hex[:8]}", adapter_key="not-registered"),
+        json=_payload(failed_keys[0], adapter_key="not-registered"),
         headers=_headers(tenant),
     )
     assert unknown_adapter.status_code == 404
@@ -178,9 +181,7 @@ async def test_create_conflicts_and_validation_do_not_persist(
 
     invalid_config = await client.post(
         "/api/v1/project-platforms",
-        json=_payload(
-            f"platform-{uuid.uuid4().hex[:8]}", adapter_config={"auth_scheme": "digest"}
-        ),
+        json=_payload(failed_keys[1], adapter_config={"auth_scheme": "digest"}),
         headers=_headers(tenant),
     )
     assert invalid_config.status_code == 422
@@ -191,6 +192,7 @@ async def test_create_conflicts_and_validation_do_not_persist(
     )
     keys = {item["key"] for item in listing.json()["data"]["items"]}
     assert key in keys
+    assert not (set(failed_keys) & keys), "失败的创建不得落库"
 
 
 async def test_adapter_change_invalidates_credentials_and_clears_sessions(
@@ -236,12 +238,33 @@ async def test_adapter_change_invalidates_credentials_and_clears_sessions(
 
 
 async def test_delete_soft_deletes_platform_and_invalidates_credentials(
-    client: AsyncClient, tenant: TenantContext, seeded_platform_user: uuid.UUID
+    client: AsyncClient,
+    tenant: TenantContext,
+    seeded_platform_user: uuid.UUID,
+    recording_sessions: RecordingSessions,
 ) -> None:
     created = await client.post(
         "/api/v1/project-platforms", json=_payload(), headers=_headers(tenant)
     )
     platform_id = uuid.UUID(created.json()["data"]["platform_id"])
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        credentials = CredentialRepository(session)
+        await credentials.upsert_user(
+            tenant_id=tenant.tenant_id,
+            user_id=seeded_platform_user,
+            platform_id=platform_id,
+            credential_json={"token": "plaintext"},
+            schema_version="1",
+        )
+        await credentials.upsert_shared(
+            tenant_id=tenant.tenant_id,
+            platform_id=platform_id,
+            credential_json={"token": "shared-plaintext"},
+            schema_version="1",
+        )
+        await session.commit()
+
     removed = await client.delete(
         f"/api/v1/project-platforms/{platform_id}", headers=_headers(tenant)
     )
@@ -252,6 +275,49 @@ async def test_delete_soft_deletes_platform_and_invalidates_credentials(
     assert missing.status_code == 404
     assert missing.json()["code"] == "COMMON_NOT_FOUND"
 
+    assert await _credential_status(tenant.tenant_id, seeded_platform_user, platform_id) == "INVALID"
+    async with session_factory() as session:
+        shared_status = await session.scalar(
+            text(
+                "SELECT status FROM control.shared_credential_ref "
+                "WHERE tenant_id = :tenant_id AND platform_id = :platform_id"
+            ),
+            {"tenant_id": tenant.tenant_id, "platform_id": platform_id},
+        )
+        audited = await session.scalar(
+            text(
+                "SELECT count(*) FROM control.config_audit_log "
+                "WHERE resource_id = :platform_id AND resource_type = 'project_platform' "
+                "AND action = 'DELETE'"
+            ),
+            {"platform_id": platform_id},
+        )
+    assert shared_status == "INVALID"
+    assert audited == 1
+    assert recording_sessions.calls == [str(platform_id)]
+
+
+async def test_update_advances_platform_update_time(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    created = await client.post(
+        "/api/v1/project-platforms", json=_payload(), headers=_headers(tenant)
+    )
+    platform_id = created.json()["data"]["platform_id"]
+    before = (
+        await client.get(f"/api/v1/project-platforms/{platform_id}", headers=_headers(tenant))
+    ).json()["data"]["update_time"]
+    updated = await client.put(
+        f"/api/v1/project-platforms/{platform_id}",
+        json={"name": "Renamed Platform"},
+        headers=_headers(tenant),
+    )
+    assert updated.status_code == 200
+    after = (
+        await client.get(f"/api/v1/project-platforms/{platform_id}", headers=_headers(tenant))
+    ).json()["data"]["update_time"]
+    assert after != before
+
 
 async def test_list_with_user_id_reports_credential_status(
     client: AsyncClient, tenant: TenantContext, seeded_platform_user: uuid.UUID
@@ -260,6 +326,10 @@ async def test_list_with_user_id_reports_credential_status(
         "/api/v1/project-platforms", json=_payload(), headers=_headers(tenant)
     )
     platform_id = uuid.UUID(created.json()["data"]["platform_id"])
+    other = await client.post(
+        "/api/v1/project-platforms", json=_payload(), headers=_headers(tenant)
+    )
+    other_id = other.json()["data"]["platform_id"]
     session_factory = get_session_factory()
     async with session_factory() as session:
         await CredentialRepository(session).upsert_user(
@@ -279,4 +349,10 @@ async def test_list_with_user_id_reports_credential_status(
     items = listing.json()["data"]["items"]
     configured = [item for item in items if item["platform_id"] == str(platform_id)]
     assert configured and configured[0]["user_credential_status"] == "ACTIVE"
+    assert configured[0]["user_credential_updated_time"]
     assert all("user_credential_status" in item for item in items)
+
+    unconfigured = [item for item in items if item["platform_id"] == other_id]
+    assert unconfigured
+    assert unconfigured[0]["user_credential_status"] == "NONE"
+    assert unconfigured[0]["user_credential_updated_time"] is None

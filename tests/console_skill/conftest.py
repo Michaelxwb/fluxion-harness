@@ -423,12 +423,15 @@ async def import_skill(
     version: str = "1.0.0",
     key: str | None = None,
     default_script: str | None = None,
+    user_scope: str | None = None,
 ) -> Response:
     data: dict[str, str] = {"version": version}
     if key is not None:
         data["key"] = key
     if default_script is not None:
         data["default_script"] = default_script
+    if user_scope is not None:
+        data["user_scope"] = user_scope
     return await client.post(
         "/api/v1/skills/import",
         files={"file": ("skill.zip", package, "application/zip")},

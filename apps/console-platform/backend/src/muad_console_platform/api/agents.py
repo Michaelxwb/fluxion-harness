@@ -10,7 +10,14 @@ from ..application.agent_service import AgentService
 from ..application.audit_service import AuditActor
 from ..application.channel_admin_service import ChannelAdminService
 from ..application.dto import AgentBindSkillRequest as BindSkillRequest
-from ..application.dto import AgentCreateRequest, AgentDetail, AgentListItem, AgentUpdateRequest
+from ..application.dto import (
+    AgentCreateRequest,
+    AgentDetail,
+    AgentListItem,
+    AgentUpdateRequest,
+    ChannelCreateRequest,
+    ChannelUpdateRequest,
+)
 from ..application.grant_service import GrantService
 from ..application.skill_service import SkillService
 from ..infrastructure.db import get_session
@@ -76,10 +83,7 @@ async def get_agent(
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
-    service = AgentService(session)
-    agent = await service.get_agent(tenant_id, agent_id)
-    detail = _detail(agent)
-    detail.update(await service.agent_counts(tenant_id, agent.id))
+    detail = await AgentService(session).get_agent_detail(tenant_id, agent_id)
     return ok(request.app.state.message_catalog, detail)
 
 
@@ -110,7 +114,9 @@ async def delete_agent(
     session: Session,
 ) -> ApiResponse[Any]:
     await AgentService(session).delete_agent(tenant_id, agent_id, _actor(account, request))
-    return ok(request.app.state.message_catalog, {"deleted": True})
+    return ok(
+        request.app.state.message_catalog, {"id": str(agent_id), "is_deleted": True}
+    )
 
 
 @router.get("/{agent_id}/skills")
@@ -297,6 +303,7 @@ async def revoke_agent_user(
         user_id,
         agent_id,
         _actor(account, request),
+        idempotent=True,
     )
     return ok(
         request.app.state.message_catalog,
@@ -325,14 +332,14 @@ async def list_agent_channels(
 @router.post("/{agent_id}/channels")
 async def add_agent_channel(
     agent_id: uuid.UUID,
-    payload: dict[str, Any],
+    payload: ChannelCreateRequest,
     request: Request,
     account: CurrentAccount,
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
     data = await ChannelAdminService(session).add_channel(
-        tenant_id, agent_id, payload, _actor(account, request)
+        tenant_id, agent_id, payload.model_dump(), _actor(account, request)
     )
     return ok(request.app.state.message_catalog, data)
 
@@ -341,14 +348,18 @@ async def add_agent_channel(
 async def update_agent_channel(
     agent_id: uuid.UUID,
     channel_account_id: uuid.UUID,
-    payload: dict[str, Any],
+    payload: ChannelUpdateRequest,
     request: Request,
     account: CurrentAccount,
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
     data = await ChannelAdminService(session).update_channel(
-        tenant_id, agent_id, channel_account_id, payload, _actor(account, request)
+        tenant_id,
+        agent_id,
+        channel_account_id,
+        payload.model_dump(exclude_unset=True),
+        _actor(account, request),
     )
     return ok(request.app.state.message_catalog, data)
 

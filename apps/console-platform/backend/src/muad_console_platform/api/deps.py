@@ -9,9 +9,11 @@ from muad_common import SharedSettings
 from muad_platform_sdk import PlatformAdapterRegistry, RedisPlatformSessionInvalidator
 
 from ..application.auth_service import AuthService
+from ..application.mcp_ports import McpCatalogCache, NullMcpCatalogCache
 from ..application.platform_adapter_service import build_default_registry
 from ..application.platform_ports import NullPlatformSessionInvalidator, PlatformSessionInvalidator
 from ..infrastructure.db import get_session_factory
+from ..infrastructure.mcp_catalog_cache import RedisMcpCatalogCache
 from ..infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
 
 
@@ -84,6 +86,25 @@ def get_platform_sessions(request: Request) -> PlatformSessionInvalidator:
         return cast(PlatformSessionInvalidator, sessions)
     redis_url = SharedSettings().redis_url
     if not redis_url:
-        return NullPlatformSessionInvalidator()
-    client = redis.from_url(redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
-    return RedisPlatformSessionInvalidator(client)
+        invalidator: PlatformSessionInvalidator = NullPlatformSessionInvalidator()
+    else:
+        client = redis.from_url(redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
+        request.app.state.platform_sessions_client = client
+        invalidator = RedisPlatformSessionInvalidator(client)
+    request.app.state.platform_sessions = invalidator
+    return invalidator
+
+
+def get_mcp_catalog_cache(request: Request) -> McpCatalogCache:
+    cache = getattr(request.app.state, "mcp_catalog_cache", None)
+    if cache is not None:
+        return cast(McpCatalogCache, cache)
+    redis_url = SharedSettings().redis_url
+    if not redis_url:
+        resolved: McpCatalogCache = NullMcpCatalogCache()
+    else:
+        client = redis.from_url(redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
+        request.app.state.mcp_catalog_cache_client = client
+        resolved = RedisMcpCatalogCache(client)
+    request.app.state.mcp_catalog_cache = resolved
+    return resolved

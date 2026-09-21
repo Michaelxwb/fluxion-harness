@@ -10,9 +10,11 @@ import uuid
 from typing import Any, cast
 
 from httpx import AsyncClient
+from muad_agent_runtime.application.run_service import build_snapshot
 from muad_agent_runtime.infrastructure.models.runtime import RuntimeSnapshot
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.control import Skill, SkillArtifact
+from muad_contracts import ResolveDefinitionResponse
 from sqlalchemy import select
 
 from console_skill.conftest import SkillContext, import_skill, tenant_headers
@@ -57,20 +59,13 @@ async def test_s03_run_a_keeps_frozen_artifact_after_v2_import(
     entry_v1 = await _frozen_entry(resolved_v1, skill_key)
     v1_artifact_id = entry_v1["artifact_id"]
 
-    # Run A：冻结 v1 到真实 runtime.runtime_snapshot 行
+    # Run A：经生产 build_snapshot 冻结 v1 到真实 runtime.runtime_snapshot 行
+    resolved_response = ResolveDefinitionResponse.model_validate(resolved_v1)
     async with get_session_factory()() as session:
-        snapshot = RuntimeSnapshot(
+        snapshot = build_snapshot(
+            run_id=uuid.uuid4(),
             tenant_id=skill_env.tenant_id,
-            run_id=uuid.uuid4(),  # 场景聚焦 Skill 冻结语义，run 行由 runtime 测试环境覆盖
-            agent_revision=1,
-            model_revision=1,
-            agent_json={"id": str(skill_env.agent_id)},
-            model_json={"id": "model"},
-            skill_catalog_json=[entry_v1],
-            mcp_catalog_json=[],
-            policy_json={},
-            prompt_template_version="1",
-            content_hash="sha256:" + "0" * 64,
+            resolved=resolved_response,
         )
         session.add(snapshot)
         await session.commit()

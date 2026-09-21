@@ -6,7 +6,11 @@ from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from muad_agent_runtime.api.deps import get_executor_factory, get_resolve_client
+from muad_agent_runtime.api.deps import (
+    get_credentials_client,
+    get_executor_factory,
+    get_resolve_client,
+)
 from muad_agent_runtime.application.executor import (
     ExecutorEvent,
     ExecutorFactory,
@@ -30,7 +34,14 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 SCHEMA = "runtime"
 RUNTIME_TABLES = ("conversation", "run_record", "runtime_snapshot", "canonical_event", "run_interrupt")
-CLEANUP_ORDER = ("run_interrupt", "canonical_event", "runtime_snapshot", "run_record", "conversation")
+CLEANUP_ORDER = (
+    "run_interrupt",
+    "canonical_event",
+    "run_submission",
+    "runtime_snapshot",
+    "run_record",
+    "conversation",
+)
 FAKE_DELTAS = ("runtime ", "execution ", "engine")
 
 
@@ -69,6 +80,15 @@ def parse_sse(body: str) -> list[dict[str, Any]]:
         if data_lines:
             events.append(json.loads("\n".join(data_lines)))
     return events
+
+
+@pytest.fixture(scope="session", autouse=True)
+def fresh_engine_caches() -> None:
+    """进程内其它测试（如验收真实服务线程）可能已创建绑定旧 loop 的 engine：本套件统一重建。"""
+    from muad_agent_runtime.infrastructure.db import get_engine, get_session_factory
+
+    get_engine.cache_clear()
+    get_session_factory.cache_clear()
 
 
 @pytest.fixture(scope="session")
@@ -149,7 +169,7 @@ def resolved(tenant: TenantContext) -> ResolveDefinitionResponse:
                 key="inventory",
                 endpoint="https://mcp.example.com/mcp",
                 catalog_revision=1,
-                tools=[{"name": "list_devices"}],
+                definitions=[{"name": "list_devices"}],
             )
         ],
     )
@@ -187,8 +207,10 @@ async def client(
 ) -> AsyncIterator[AsyncClient]:
     app.dependency_overrides[get_resolve_client] = lambda: fake_resolve
     app.dependency_overrides[get_executor_factory] = lambda: executor_factory
+    app.dependency_overrides[get_credentials_client] = lambda: None
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as http_client:
         yield http_client
     app.dependency_overrides.pop(get_resolve_client, None)
     app.dependency_overrides.pop(get_executor_factory, None)
+    app.dependency_overrides.pop(get_credentials_client, None)

@@ -8,18 +8,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
 from ..application.credential_service import CredentialService
+from ..application.platform_ports import PlatformSessionInvalidator
 from ..infrastructure.db import get_session
-from .deps import CurrentAccount, get_adapter_registry, get_source_ip, get_tenant_id
+from .deps import CurrentAccount, get_adapter_registry, get_platform_sessions, get_source_ip, get_tenant_id
 
 TenantId = Annotated[str, Depends(get_tenant_id)]
 Session = Annotated[AsyncSession, Depends(get_session)]
 Registry = Annotated[PlatformAdapterRegistry, Depends(get_adapter_registry)]
+Sessions = Annotated[PlatformSessionInvalidator, Depends(get_platform_sessions)]
 
 router = APIRouter(prefix="/api/v1/project-platforms", tags=["project-platform-credentials"])
 
 
-def _service(session: Session, registry: Registry) -> CredentialService:
-    return CredentialService(session, registry)
+def _service(session: Session, registry: Registry, sessions: Sessions) -> CredentialService:
+    return CredentialService(session, registry, sessions)
 
 
 def _actor(account: CurrentAccount, request: Request) -> AuditActor:
@@ -33,11 +35,12 @@ async def list_user_credentials(
     tenant_id: TenantId,
     session: Session,
     registry: Registry,
+    sessions: Sessions,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     keyword: str | None = Query(default=None, max_length=128),
 ) -> ApiResponse[Any]:
-    items, total = await _service(session, registry).list_user_credentials(
+    items, total = await _service(session, registry, sessions).list_user_credentials(
         tenant_id, platform_id, page, page_size, keyword
     )
     return ok(
@@ -54,10 +57,11 @@ async def get_user_credential(
     tenant_id: TenantId,
     session: Session,
     registry: Registry,
+    sessions: Sessions,
 ) -> ApiResponse[Any]:
     return ok(
         request.app.state.message_catalog,
-        await _service(session, registry).get_user_credential(tenant_id, platform_id, user_id),
+        await _service(session, registry, sessions).get_user_credential(tenant_id, platform_id, user_id),
     )
 
 
@@ -71,10 +75,11 @@ async def save_user_credential(
     tenant_id: TenantId,
     session: Session,
     registry: Registry,
+    sessions: Sessions,
 ) -> ApiResponse[Any]:
     return ok(
         request.app.state.message_catalog,
-        await _service(session, registry).save_user_credential(
+        await _service(session, registry, sessions).save_user_credential(
             tenant_id, platform_id, user_id, payload, _actor(account, request)
         ),
     )
@@ -89,8 +94,9 @@ async def delete_user_credential(
     tenant_id: TenantId,
     session: Session,
     registry: Registry,
+    sessions: Sessions,
 ) -> ApiResponse[Any]:
-    await _service(session, registry).delete_user_credential(
+    await _service(session, registry, sessions).delete_user_credential(
         tenant_id, platform_id, user_id, _actor(account, request)
     )
     return ok(request.app.state.message_catalog, {})
@@ -103,10 +109,11 @@ async def get_shared_credential(
     tenant_id: TenantId,
     session: Session,
     registry: Registry,
+    sessions: Sessions,
 ) -> ApiResponse[Any]:
     return ok(
         request.app.state.message_catalog,
-        await _service(session, registry).get_shared_credential(tenant_id, platform_id),
+        await _service(session, registry, sessions).get_shared_credential(tenant_id, platform_id),
     )
 
 
@@ -119,10 +126,11 @@ async def save_shared_credential(
     tenant_id: TenantId,
     session: Session,
     registry: Registry,
+    sessions: Sessions,
 ) -> ApiResponse[Any]:
     return ok(
         request.app.state.message_catalog,
-        await _service(session, registry).save_shared_credential(
+        await _service(session, registry, sessions).save_shared_credential(
             tenant_id, platform_id, payload, _actor(account, request)
         ),
     )
@@ -136,8 +144,9 @@ async def delete_shared_credential(
     tenant_id: TenantId,
     session: Session,
     registry: Registry,
+    sessions: Sessions,
 ) -> ApiResponse[Any]:
-    await _service(session, registry).delete_shared_credential(
+    await _service(session, registry, sessions).delete_shared_credential(
         tenant_id, platform_id, _actor(account, request)
     )
     return ok(request.app.state.message_catalog, {})

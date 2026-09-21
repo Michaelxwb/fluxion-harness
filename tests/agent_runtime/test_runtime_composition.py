@@ -83,8 +83,11 @@ async def test_b122_secret_isolation_in_executor_messages() -> None:
         base_url="https://api.example.com/v1",
         api_key="super-secret-key",
     )
-    # executor request 消息不含密钥（由 snapshot 隔离保证：model_json 无 api_key）
-    assert "api_key" not in model.model_dump(exclude={"api_key"})
+    # snapshot 剥离：model_json 不含密钥（真实检查剥离函数本身）
+    from muad_agent_runtime.application.run_service import _snapshot_model
+
+    assert "api_key" not in _snapshot_model(model)
+    assert "super-secret-key" not in str(_snapshot_model(model))
     messages = [
         {"role": "system", "content": "be helpful"},
         {"role": "user", "content": "hi"},

@@ -1,8 +1,9 @@
-import { Form } from '@douyinfe/semi-ui';
+import { Banner, Form } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { apiErrorBody } from '../../api/client';
 import { FormModal } from '../../components/common/FormModal';
 import {
   createPlatform,
@@ -43,6 +44,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
   const [adapters, setAdapters] = useState<AdapterMetadata[]>([]);
   const [adapterKey, setAdapterKey] = useState('generic-http');
   const [resolverType, setResolverType] = useState<'BASE_URL' | 'SERVICE_DISCOVERY'>('BASE_URL');
+  const [formError, setFormError] = useState<string | null>(null);
   const formApi = useRef<FormApi | null>(null);
 
   useEffect(() => {
@@ -56,6 +58,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
       return;
     }
     formApi.current?.reset();
+    setFormError(null);
     const platform = props.platform;
     const values: Record<string, unknown> = platform
       ? {
@@ -85,6 +88,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
 
   const submit = async (values: FormValues): Promise<void> => {
     setSaving(true);
+    setFormError(null);
     const resolverConfig =
       values.resolver_type === 'BASE_URL'
         ? { base_url: values.base_url ?? '' }
@@ -107,8 +111,20 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
         const result = await createPlatform(payload);
         props.onSaved(result.platform_id, false);
       }
-    } catch {
-      // ApiClient 展示本地化错误，表单保留供重试
+    } catch (error) {
+      const body = apiErrorBody(error);
+      if (body?.code === 'PLATFORM_KEY_EXISTS') {
+        formApi.current?.setError('key', body.msg);
+      } else if (body?.code === 'COMMON_VALIDATION_ERROR') {
+        const firstAdapterField = Object.keys(adapterProperties)[0];
+        if (firstAdapterField) {
+          formApi.current?.setError(`adapter_config.${firstAdapterField}`, body.msg);
+        } else {
+          setFormError(body.msg);
+        }
+      } else {
+        setFormError(body?.msg ?? t('common.saveFailed'));
+      }
     } finally {
       setSaving(false);
     }
@@ -130,6 +146,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
         void submit(values as unknown as FormValues);
       }}
     >
+      {formError ? <Banner type="danger" closeIcon={null} description={formError} /> : null}
       <div className="form-grid">
       <Form.Input
         field="name"

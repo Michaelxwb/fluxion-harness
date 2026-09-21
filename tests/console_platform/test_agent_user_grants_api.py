@@ -172,3 +172,55 @@ async def test_grant_unknown_agent_or_user(
     )
     assert unknown_user.status_code == 404
     assert unknown_user.json()["code"] == "COMMON_NOT_FOUND"
+
+
+async def test_revoke_missing_grant_is_idempotent(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[E-04/API-14] 撤销不存在或已撤销的关系仍返回成功（幂等），不产生副作用。"""
+    agent_id = await _make_agent(client, tenant)
+    user_ids = await _make_users(client, tenant, 1)
+    user_id = user_ids[0]
+
+    never_granted = await client.delete(
+        f"/api/v1/agents/{agent_id}/users/{user_id}", headers=_headers(tenant)
+    )
+    assert never_granted.status_code == 200
+    assert never_granted.json()["data"]["is_deleted"] is True
+
+    assert (
+        await client.post(
+            f"/api/v1/agents/{agent_id}/users/{user_id}", headers=_headers(tenant)
+        )
+    ).status_code == 200
+    assert (
+        await client.delete(
+            f"/api/v1/agents/{agent_id}/users/{user_id}", headers=_headers(tenant)
+        )
+    ).status_code == 200
+    second = await client.delete(
+        f"/api/v1/agents/{agent_id}/users/{user_id}", headers=_headers(tenant)
+    )
+    assert second.status_code == 200
+
+    async with get_session_factory()() as session:
+        rows = (
+            await session.execute(
+                select(AgentAccessGrant).where(
+                    AgentAccessGrant.agent_id == uuid.UUID(agent_id)
+                )
+            )
+        ).scalars().all()
+        assert len(rows) == 1
+        assert rows[0].is_deleted is True
+
+    async with get_session_factory()() as session:
+        await session.execute(
+            AgentAccessGrant.__table__.delete().where(
+                AgentAccessGrant.agent_id == uuid.UUID(agent_id)
+            )
+        )
+        await session.execute(
+            PlatformUser.__table__.delete().where(PlatformUser.id == uuid.UUID(user_id))
+        )
+        await session.commit()

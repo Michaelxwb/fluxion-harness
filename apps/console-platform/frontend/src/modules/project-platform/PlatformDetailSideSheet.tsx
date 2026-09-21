@@ -1,11 +1,12 @@
-import { Banner, Button, Spin, Tabs } from '@douyinfe/semi-ui';
-import { useEffect, useState } from 'react';
+import { Banner, Button, Spin, Tabs, Tag } from '@douyinfe/semi-ui';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
+import { ErrorState } from '../../components/common/ErrorState';
 import { getPlatform, type PlatformItem } from './services/platforms';
 import { PlatformCredentialTab } from './PlatformCredentialTab';
 import { PlatformTestModal } from './PlatformTestModal';
@@ -22,31 +23,29 @@ export interface PlatformDetailSideSheetProps {
 export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
   const { t } = useTranslation();
   const [platform, setPlatform] = useState<PlatformItem | null>(null);
+  const [failed, setFailed] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
   const [testVisible, setTestVisible] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!props.platformId) {
       setPlatform(null);
-      setActiveTab('basic');
+      setFailed(false);
       return;
     }
-    let cancelled = false;
-    getPlatform(props.platformId)
-      .then((value) => {
-        if (!cancelled) {
-          setPlatform(value);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPlatform(null);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
+    try {
+      setPlatform(await getPlatform(props.platformId));
+      setFailed(false);
+    } catch {
+      setPlatform(null);
+      setFailed(true);
+    }
   }, [props.platformId]);
+
+  useEffect(() => {
+    setActiveTab('basic');
+    void load();
+  }, [load]);
 
   useEffect(() => {
     if (props.reconfigureRequired) {
@@ -57,6 +56,13 @@ export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
   if (!props.platformId) {
     return null;
   }
+
+  const resolverValue =
+    platform === null
+      ? '-'
+      : platform.resolver_type === 'BASE_URL'
+        ? String(platform.resolver_config.base_url ?? '-')
+        : String(platform.resolver_config.service_name ?? '-');
 
   return (
     <DetailSideSheet
@@ -88,7 +94,9 @@ export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
       }
     >
       <Tabs.TabPane itemKey="basic" tab={t('platform.detail.basic')}>
-        {platform === null ? (
+        {failed ? (
+          <ErrorState onRetry={() => void load()} />
+        ) : platform === null ? (
           <Spin style={{ display: 'block', margin: '16px auto' }} />
         ) : (
           <>
@@ -104,7 +112,7 @@ export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
                 },
                 {
                   label: t('platform.form.resolverConfig'),
-                  value: JSON.stringify(platform.resolver_config)
+                  value: resolverValue
                 },
                 {
                   label: t('platform.form.credentialMode'),
@@ -120,7 +128,14 @@ export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
                     ? t('platform.credentials.configured')
                     : t('platform.credentials.notConfigured')
                 },
-                { label: t('platform.form.enabled'), value: String(platform.enabled) },
+                {
+                  label: t('platform.form.enabled'),
+                  value: (
+                    <Tag color={platform.enabled ? 'green' : 'grey'}>
+                      {t(platform.enabled ? 'common.status.enabled' : 'common.status.disabled')}
+                    </Tag>
+                  )
+                },
                 { label: t('platform.columns.updateTime'), value: <DateTimeText value={platform.update_time} /> }
               ]}
             />
@@ -129,7 +144,11 @@ export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
         )}
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="credentials" tab={t('platform.detail.credentials')}>
-        {platform === null ? null : <PlatformCredentialTab platform={platform} />}
+        {failed ? (
+          <ErrorState onRetry={() => void load()} />
+        ) : platform === null ? null : (
+          <PlatformCredentialTab platform={platform} onChanged={props.onChanged} />
+        )}
       </Tabs.TabPane>
       <PlatformTestModal
         visible={testVisible}

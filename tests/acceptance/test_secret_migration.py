@@ -71,7 +71,8 @@ def _migration_graph() -> dict[str, str | None]:
 def test_s04_migration_chain_has_single_head() -> None:
     graph = _migration_graph()
     heads = sorted(set(graph) - {down for down in graph.values() if down})
-    assert heads == ["0007"], f"unexpected migration heads: {heads}"
+    assert len(heads) == 1, f"unexpected migration heads: {heads}"
+    assert heads[0] >= "0008"
 
 
 async def test_s04_contract_state_has_plaintext_columns_only() -> None:
@@ -89,7 +90,8 @@ async def test_s04_contract_state_has_plaintext_columns_only() -> None:
     finally:
         await engine.dispose()
 
-    assert revision == "0007"
+    heads = sorted(set(_migration_graph()) - {down for down in _migration_graph().values() if down})
+    assert revision == heads[0]
     assert all(NEW_COLUMNS[table] in tables[table] for table in NEW_COLUMNS)
     leftovers = [f"{table}.{column}" for table, column in OLD_COLUMNS.items() if column in tables[table]]
     assert leftovers == [], f"contract 后旧列残留: {leftovers}"
@@ -102,6 +104,7 @@ async def test_e03_backfill_reports_unresolved_refs_and_fails_fast() -> None:
     model_id, agent_id, bot_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     engine = create_async_engine(_database_url())
     try:
+        _run_alembic("upgrade", "head")
         _run_alembic("downgrade", "0004")
         async with engine.begin() as connection:
             await connection.execute(
@@ -156,8 +159,15 @@ async def test_e03_backfill_reports_unresolved_refs_and_fails_fast() -> None:
         assert "unresolved secret refs" in cli.stdout
         assert str(bot_id) in cli.stdout
     finally:
-        _run_alembic("upgrade", "head", check=False)
+        _run_alembic("upgrade", "head")
         async with engine.begin() as connection:
+            restored = await connection.scalar(
+                text(
+                    "SELECT count(*) FROM information_schema.tables "
+                    "WHERE table_schema = 'runtime' AND table_name = 'run_submission'"
+                )
+            )
+            assert restored == 1, "迁移链恢复失败：共享库停留在不一致状态"
             await connection.execute(
                 text("DELETE FROM control.bot_account WHERE id = :id"), {"id": bot_id}
             )

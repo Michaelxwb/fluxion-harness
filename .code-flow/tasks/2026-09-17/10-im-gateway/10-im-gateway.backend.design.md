@@ -1,9 +1,11 @@
 # IM Gateway 与主动投递 模块需求与设计一体化文档
 
-> **文档编号**: MOD-IM-V1.1  
-> **文档版本**: v1.1  
+> **文档编号**: MOD-IM-V1.2
+>
+> **文档版本**: v1.2
 > **创建日期**: 2026-09-17  
-> **文档状态**: 设计评审中  
+> **文档状态**: Plan 基线（2026-09-21 按已确认拆解方案修订；实现与验收待完成）
+>
 > **模板**: design-full.md
 
 
@@ -24,6 +26,7 @@
 |---|---|---|---|
 | v1.0 | 2026-09-17 | — | 需求与设计初稿 |
 | v1.1 | 2026-09-18 | — | 对齐 V1.4 决策（docs/17）：resolve 改为 `bound` 正常分支、`/internal/deliveries` 增加 `delivery_key` 去重、`/stop` 改为 `cancel-active`、`iter_events()` 唯一入站路径、入站去重与 WS 状态机、Secret Provider 解析、metrics 与 `/healthz`+`/readyz` 补全 |
+| v1.2 | 2026-09-21 | Codex | 承接新增 API 幂等规则；统一 Bot/Skills 分页；明确投递成功去重与失败恢复、就绪/密钥边界；补计划验收与唯一任务责任映射。 |
 
 **模块信息**
 
@@ -77,7 +80,7 @@
 | ID | 业务实体统一 UUID；跨 Owner Schema 仅逻辑引用 UUID |
 | 时间 | PostgreSQL 使用 `timestamptz`；Console 展示 `YYYY-MM-DD HH:mm:ss` |
 | 删除 | 产品表统一 `is_deleted` 软删除；状态枚举不重复表达 DELETED |
-| Secret | bot secret 明文存于 `bot_account.secret`（主键引用）；不得进入 Snapshot / 日志 / LLM / API 响应 |
+| Secret | bot secret 明文存于 `bot_account.secret`（主键引用）；仅经 Console→Gateway 受保护内部快照传输并驻留内存，不得进入 Snapshot / 日志 / 审计 / LLM / IM / 对外 API 响应 |
 | 枚举 | API 与 DB 统一使用稳定英文枚举值，中文/英文只在 UI/i18n 层映射 |
 | 错误 | 业务代码只抛稳定 `code`；`msg/http_status` 由公共配置映射；只使用 `config/api-messages.yaml` 已登记错误码 |
 | 去重键 | `im:dedupe:{channel}:{message_id}` TTL 600；`delivery:dedupe:{delivery_key}` TTL 7d |
@@ -97,14 +100,14 @@
 | ID | 类型 | 描述 | 验证场景 |
 |---|---|---|---|
 | RULE-01 | 系统约束 | 固定 4 个部署单元；Runtime/Worker 无状态横向扩展。 | S-01 + verifier |
-| RULE-02 | 系统约束 | JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status 配置映射。 | S-02 / E-02 |
-| RULE-03 | 系统约束 | bot secret 明文存于 `bot_account.secret`；Console 快照返回该字段；不得进入 Snapshot/日志/LLM/API 响应。 | S-01 / E-07 |
+| RULE-02 | 系统约束 | JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；所有列表使用 items/page/page_size/total，page>=1、1<=page_size<=100；业务只抛 code，msg/http_status 配置映射。 | S-02 / E-02 / B-123 |
+| RULE-03 | 系统约束 | bot secret 明文存于 `bot_account.secret`；仅 Console→Gateway 内部快照用于 SDK 连接；不得进入 Snapshot/日志/审计/LLM/IM/对外 API 响应。 | S-01 / E-07 / B-128 |
 | RULE-04 | 系统约束 | Agent 0..N bot_id；bot_id 只指向一个 Agent；不绑定 Runtime Pod。 | S-01 / E-01 |
-| RULE-05 | 系统约束 | 授权为三层关系（User→Agent、Agent→Skill/MCP、SELECTED 资源再叠加用户 Grant）；Effective Capability 公式含 `is_deleted=false` 与 enabled 谓词，绑定无启停开关、授权无到期时间（见 docs/02 §5.10）。 | S-03 / E-04 |
-| RULE-06 | 系统约束 | 新 Run/Task 冻结 Snapshot；配置/授权变更只影响后续新 Run/Task；Run 终态必须 CAS。 | S-03 / E-03 |
+| RULE-05 | 系统约束 | 授权为三层关系（User→Agent、Agent→Skill/MCP、SELECTED 资源再叠加用户 Grant）；Effective Capability 公式含 `is_deleted=false` 与 enabled 谓词，绑定无启停开关、授权无到期时间（见 docs/02 §5.10）。 | S-03 / E-04 / B-124 |
+| RULE-06 | 系统约束 | 新 Run/Task 冻结 Snapshot；配置/授权变更只影响后续新 Run/Task；Run 终态必须 CAS。 | S-03 / E-03 / B-125 |
 | RULE-07 | 系统约束 | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | S-01 / S-03 / E-03 |
 | RULE-08 | 系统约束 | 入站去重 `im:dedupe:{channel}:{message_id}` SET NX EX 600；重复消息 ACK/忽略不创建 Run；Redis 不可用降级 at-least-once。 | S-05 / E-06 |
-| RULE-09 | 系统约束 | Final Delivery 必须携带 `delivery_key`（`task:{task_id}:final`）；Redis `delivery:dedupe:{delivery_key}` SET NX EX 604800；重复请求返回 200；Redis 不可用按 at-least-once。 | S-04 / E-06 |
+| RULE-09 | 系统约束 | Final Delivery 必须携带 `delivery_key`（`task:{task_id}:final`）；仅成功发送后写 Redis `delivery:dedupe:{delivery_key}`（TTL 604800）；并发由独立短租约保护，处理中不得冒充已投递；成功重放返回 200；Redis 不可用按 at-least-once。 | S-04 / E-06 / B-127 |
 | RULE-10 | 系统约束 | 未绑定是正常分支（`bound=false`），不是错误码；会话并发与取消只使用 `RUN_BUSY`/`NO_ACTIVE_RUN`，`WAITING_INPUT` 由 Runtime 自动 resume。 | S-06 / E-04 / E-05 |
 
 #### 2.5.2 功能验收场景
@@ -133,6 +136,44 @@
 | E-07 | FEAT-01 | integration | DB bot secret | 本模块 | bot secret 缺失或不可用 | 该 bot 标记为不可用并退避重试，不影响其他 bot；`/readyz` 降级 |
 
 无可靠实测数据的性能阈值统一标记“待定”，不复制模板示例值。
+
+#### 2.5.3 计划补充验收场景
+
+以下边界由 2026-09-21 局部 Plan 承接，补充原 13 个 S/E 场景，不降低原测试层级。最终负责人、测试文件和命令见 `10-im-gateway.md` 的 Acceptance Coverage / Contract。
+
+真实 E2E 使用生产 Gateway/Console/Runtime/Worker 进程、真实 HTTP/SSE、PostgreSQL、Redis、官方 SDK 与 WS socket。外部企业微信端点由本地协议探针承载，不 mock 业务 API/Adapter/SDK，也不声称完成企业微信实网验收。测试资源以 e2e-im-* 标识并自动清理，缺环境、skip 或外部依赖未就绪不算通过。
+
+| 场景ID | 优先级 | 测试层级 | 关键真实边界 | 核心验证 / 责任任务 |
+|---|---|---|---|---|
+| B-101 | P0 | unit | 真实 Pydantic DTO 校验与 JSON 序列化 | 公共契约/分页/枚举；TASK-001 |
+| B-102 | P0 | integration | 生产 ConsoleClient→真实本地 HTTP 服务→Envelope 解码 | Console 封套、链路头与显式失败；TASK-002 |
+| B-103 | P0 | integration | 真实 bind HTTP handler→PostgreSQL 幂等记录、bind_code 行锁、channel_identity | 绑定事务与持久幂等；TASK-003 |
+| B-104 | P0 | integration | 真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant | 授权后分页 Skills；TASK-004 |
+| B-105 | P0 | integration | Console snapshot HTTP→真实 PG bot 配置→BotSnapshotCache | 一致 revision 全量快照；TASK-005 |
+| B-106 | P0 | integration | 生产 WeComAdapter/连接管理器→真实本地 WS 故障探针 | 单 bot 隔离与退避；TASK-006 |
+| B-107 | P0 | integration | 真实 Gateway lifespan/HTTP probes→Console/WS 连接管理器 | 启动/就绪/关闭；TASK-007 |
+| B-108 | P0 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | Redis 入站去重；TASK-008 |
+| B-109 | P0 | integration | Gateway→真实 Console resolve HTTP→PostgreSQL→Runtime 接收观测 | 未绑定与路由授权；TASK-009 |
+| B-110 | P0 | integration | Gateway command→真实 Console bind HTTP→PostgreSQL | 本地 bind 命令；TASK-010 |
+| B-111 | P0 | integration | Gateway commands→真实 Console/Runtime HTTP→PostgreSQL | skills 与 new 会话语义；TASK-011 |
+| B-112 | P0 | integration | Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件 | 已取消/取消中/no-active；TASK-012 |
+| B-113 | P0 | integration | 生产 RuntimeClient→真实本地 HTTP/SSE 接收端 | Runtime 幂等头与上下文；TASK-013 |
+| B-114 | P0 | unit | 真实 SSE parser 与分片字节/行输入 | SSE 封套/seq/heartbeat；TASK-014 |
+| B-115 | P0 | integration | 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 | 流式收尾与中断选项；TASK-015 |
+| B-116 | P0 | integration | 真实 iter_events→Gateway 消费队列→Runtime HTTP/SSE→WS 回复 | 长流期间命令可处理；TASK-016 |
+| B-117 | P0 | integration | 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS | 主动投递响应与错误；TASK-017 |
+| B-118 | P1 | integration | 真实连接迁移→生产日志/metrics exporter | 连接指标/脱敏；TASK-018 |
+| B-119 | P1 | integration | 生产入站/HTTP投递/真实SSE→metrics exporter | 消息/投递指标；TASK-019 |
+| B-120 | P0 | integration | 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter | 真实 WS/官方 SDK 边界；TASK-020 |
+| B-121 | P0 | integration | 生产进程生命周期→真实HTTP/WS/PostgreSQL/Redis | 多服务进程/数据清理；TASK-021 |
+| B-122 | P0 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | 多 bot/任意 Runtime 实例；TASK-022 |
+| B-123 | P0 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | 绑定 E2E 与双语封套；TASK-023 |
+| B-124 | P0 | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry | Effective Capability/不泄露；TASK-024 |
+| B-125 | P0 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | 流式/resume/Snapshot/CAS/回收；TASK-025 |
+| B-126 | P0 | E2E | Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用 | 绑定/Run/new 的并发、重启、异指纹重放验证；TASK-026 |
+| B-127 | P0 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | 投递 E2E/Redis 故障与失败恢复；TASK-027 |
+| B-128 | P0 | integration | 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 | 密钥不泄露与单 bot readiness；TASK-028 |
+| B-129 | P0 | integration | pytest用例收集/运行→验收Contract/Evidence→真实组件记录 | 完整验收映射与真实证据；TASK-029 |
 
 ## 3. 技术设计
 
@@ -167,9 +208,10 @@ sequenceDiagram
  R-->>G: SSE run.created/message.delta/.../run.completed
  G-->>W: stream/final response
  WK->>G: POST /internal/deliveries（携带 delivery_key）
- G->>G: SET delivery:dedupe:{delivery_key} 1 NX EX 604800
- G-->>W: 200 accepted（重复投递同样返回 200）
+ G->>G: 检查成功键，原子获取短投递租约
  G-->>W: proactive final message
+ G->>G: 成功后写 delivery:dedupe:{delivery_key}（TTL 7d）
+ G-->>WK: 200 accepted（成功重放 deduplicated=true）
 ```
 
 #### 3.2.1 WebSocket 连接状态机
@@ -195,7 +237,7 @@ stateDiagram-v2
 
 #### 3.2.2 Bot 快照轮询与 Secret 解析
 
-- 启动时全量拉取 `GET /internal/channel/bots`，之后每 30s 轮询；`revision` 变化才热更新连接（新增/停用/切换 Agent）。
+- 启动时按页拉取 `GET /internal/channel/bots` 的完整快照，之后每 30s 轮询；只有所有页的 `revision/total` 一致才发布快照，版本变化则放弃该轮并在下次节拍重拉，不形成无等待紧循环。`revision` 变化才热更新连接（新增/停用/切换 Agent/轮换 Secret）。
 - Console 快照包含 Bot `secret`（明文）；Gateway 仅保留在内存，不写日志/Snapshot；字段缺失按 bot 维度退避重试并标记不可用（E-07）。
 - 已有可用 bot snapshot 时，短暂 Console 不可达不影响已连接 bot（见 `/readyz` 判定）。
 
@@ -214,6 +256,7 @@ SET im:dedupe:{channel}:{message_id} 1 NX EX 600
 本模块不新增 Owner 表。读取/调用：
 - `control.bot_account`：bot_id → agent_id 与 `secret`（明文，主键引用）；
 - `control.channel_identity` / `control.bind_code`：外部身份和绑定；
+- `control.skill_import_idempotency`：复用 Console 已由 Agent/MCP 等端点使用的幂等存储；`endpoint=/internal/channel/bind`，partial unique `(tenant_id, idempotency_key, endpoint) WHERE is_deleted=false`，记录指纹与首次成功响应，不新增表或存明文绑定码；
 - `task.delivery_route`：后台任务主动投递目标（`route_hash` 唯一，`WHERE is_deleted=false`）；
 - `task.task_execution.delivery_key`：投递幂等键来源（`task:{task_id}:final`）。
 
@@ -270,10 +313,10 @@ GET /internal/channel/bots
 ```
 
 - 调用方：IM Gateway（启动全量 + 每 30s 轮询）。对应 docs/07 §8.1。
-- 请求：无 body；透传 `X-Tenant-Id` / `X-Trace-Id` / `X-Request-Id`。
-- `data`：`{revision, items:[{bot_account_id, bot_id, secret, agent_id, enabled}]}`；网关仅内存使用，不回显。
-- 分页说明：该接口是内部启用 bot 快照（非用户列表），契约按 docs/07 §8.1 不分页；Gateway 以 `revision` 判断是否热更新。
-- 错误码：`COMMON_INTERNAL_ERROR`
+- 请求：无 body；query `page` 默认 1、`page_size` 默认 20，`page>=1`、`1<=page_size<=100`；透传 `X-Tenant-Id` / `X-Trace-Id` / `X-Request-Id`。
+- `data`：`{revision, items:[{bot_account_id, bot_id, secret, agent_id, enabled}], page, page_size, total}`；网关仅内存使用，不回显。
+- 分页说明：依 required API Rule 修订 docs/07 §8.1 的旧未分页形态，Console/Gateway 两端同步实现；按稳定 bot 主键排序，revision 覆盖当前启用 bot 的路由和 Secret 变更且不暴露明文。Gateway 有界收齐同一 revision 的所有页后一次性热更新；跨页 revision/total 改变时保留旧快照，下一轮重拉。
+- 错误码：`COMMON_VALIDATION_ERROR / COMMON_INTERNAL_ERROR`
 - 处理：Console 读启用 bot 快照；Gateway 缓存并在 `revision` 变化时热更新连接；不写任何表；轮询失败保留上次快照。
 
 #### API-02 解析消息路由
@@ -313,8 +356,10 @@ POST /internal/channel/bind
 | bind_code | string | 是 | Console 生成的高熵绑定码（明文仅本次传输） |
 
 - `data`：`{platform_user_id, bound:true}`
-- 错误码：`COMMON_VALIDATION_ERROR / BIND_CODE_INVALID / BIND_CODE_EXPIRED / COMMON_INTERNAL_ERROR`
-- 处理：Console 单事务：`SELECT bind_code FOR UPDATE` → 校验 hash/status/expire → upsert `channel_identity` → 标记 USED；绑定码单次使用，重复消费即 `BIND_CODE_INVALID`；支持 `Idempotency-Key`。
+- 错误码：`COMMON_VALIDATION_ERROR / BIND_CODE_INVALID / BIND_CODE_EXPIRED / COMMON_CONFLICT / COMMON_INTERNAL_ERROR`
+- Header：Gateway 传稳定 `Idempotency-Key=channel message_id`。Console 在同一事务中处理幂等记录、`SELECT bind_code FOR UPDATE`、身份 upsert 与标记 USED；未提交/回滚不留下成功响应。
+- 请求指纹：规范化 endpoint、tenant、channel、bot_id、external_user_id 与 bind_code checksum 后做 SHA256；只保存指纹，不保存绑定码明文。同 key 同指纹 200 返回首次成功响应，同 key 异指纹 409 `COMMON_CONFLICT`；同租户/endpoint/key 的并发请求由现有 partial unique 与事务保证只消费一次，重启后仍可重放。
+- 单次绑定码规则不变：无幂等重放记录或使用不同 key 再消费已用码，返回 `BIND_CODE_INVALID`；无效/过期/已用分支不得新增身份或 AgentAccessGrant。测试见 B-103/B-126。
 
 #### API-04 查询可用 Skills
 
@@ -323,9 +368,9 @@ GET /internal/channel/skills
 ```
 
 - 调用方：IM Gateway（`/skills` 命令）。对应 docs/07 §8.4。
-- 请求：query `agent_id`（必填）、`platform_user_id`（必填）。
-- `data`：`{items:[{skill_id, key, name, platform_label, description}]}`；只返回当前 `platform_user_id + agent_id` 的 Effective Skill Catalog。
-- 分页说明：`/skills` 是 IM 命令的小集合目录，契约按 docs/07 §8.4 不分页；未授权 Skill 不进入结果。
+- 请求：query `agent_id`（必填）、`platform_user_id`（必填）、`page`（默认 1）、`page_size`（默认 20，范围 1..100）；页码必须 >=1。
+- `data`：`{items:[{skill_id, key, name, platform_label, description}], page, page_size, total}`；只返回当前 `platform_user_id + agent_id` 的 Effective Skill Catalog。
+- 分页说明：按 required API Rule 替换 docs/07 §8.4 旧未分页契约，过滤授权后计算 total，再按稳定 key/id 分页；Gateway 按 total 有界读取，页间保留超时与节流，不形成无等待紧循环；不会将 404/坏封套伪装成空目录。
 - 错误码：`COMMON_VALIDATION_ERROR / AGENT_ACCESS_DENIED / COMMON_INTERNAL_ERROR`
 - 处理：Console 按三层授权 + Effective Capability 过滤；未授权 Skill 的名称/描述不返回、不泄露存在性；不返回 SKILL.md 全文。
 
@@ -352,7 +397,10 @@ POST /internal/deliveries
 
 - `data`：`{accepted:true, deduplicated:boolean}`；重复投递返回 200 且 `deduplicated=true`。
 - 错误码：`COMMON_VALIDATION_ERROR / BOT_NOT_FOUND / COMMON_INTERNAL_ERROR`
-- 处理：先 `SET delivery:dedupe:{delivery_key} 1 NX EX 604800`；已存在 → 直接 200 不发送；Redis 不可用 → 跳过去重继续按 at-least-once 发送；发送失败返回错误，由 Worker 指数退避重试（最多 5 次，超过置 `delivery_status=FAILED`）；只做渠道发送，不重新做 Agent reasoning。
+- 处理：首先查成功键 `delivery:dedupe:{delivery_key}`；命中才返回 200 / `deduplicated=true`。未命中用独立 `delivery:lease:{delivery_key}` 的原子 NX 短租约串行化发送，值带随机 owner token，释放/续期/提交必须校验 token。已在处理中时有界等待成功键，超时返回可重试的 `COMMON_INTERNAL_ERROR`，不能将仅占位当作成功。
+- SDK 明确成功后在仍持有租约的原子操作中写成功键（TTL 604800）并释放租约；明确失败释放本次租约并返回错误，崩溃后由短租约到期恢复。租约 TTL/发送超时可配置并一致约束，不能使用 7d 成功键充当处理中租约。
+- Redis 不可用：入站/投递均降级 at-least-once 继续处理；外部发送结果不确定或成功后去重写入失败时可能重复，不声称渠道 exactly-once。Worker 保存业务事实并指数退避重试，最多 5 次，超过置 `delivery_status=FAILED`。
+- 本端点是已有 Task 的渠道发送，不创建新的 Agent 业务任务；仅使用 delivery_key 做渠道重放，不以 Redis 代替 Console/Runtime 的 DB 提交幂等，不提供 Artifact 下载或重新 reasoning。原子去重/失败恢复实现唯一责任在 09-task-schedule TASK-021；本模块 TASK-017 承接响应契约，TASK-027 验收 S-04/E-06。
 
 #### API-06 Runtime Run 桥接
 
@@ -386,8 +434,10 @@ POST /v1/runs        (Runtime Service, text/event-stream 响应)
   - 存在 `WAITING_INPUT` Run → Runtime 自动 resume（首个事件 `run.created` 带 `"resumed": true`），Gateway 无状态；
   - 存在 `CREATED/RUNNING` Run → `409 RUN_BUSY`；
   - 否则创建新 Run；
-  - Gateway 传 `Idempotency-Key`（channel message id），支持 `/v1/runs` 幂等。
-- 错误码：`RUN_BUSY / AGENT_DISABLED / AGENT_ACCESS_DENIED / MODEL_UNAVAILABLE / COMMON_INTERNAL_ERROR`
+  - Gateway 传 `Idempotency-Key`（channel message id），Runtime 在 DB 提交幂等记录；指纹含 endpoint、tenant/actor/agent、原始 conversation 选择值与内容 checksum，不能先解析最新会话再计算指纹。
+  - 同 key 同指纹返回首次提交的 200 SSE 结果（可接续尚未结束流），不得新建 Run 或重复 Tool 副作用；不同 resume 输入各自独立提交。异指纹按 required RULE-api-002 返回 409 `COMMON_CONFLICT`。
+- 错误码：`RUN_BUSY / AGENT_DISABLED / AGENT_ACCESS_DENIED / MODEL_UNAVAILABLE / COMMON_CONFLICT / COMMON_INTERNAL_ERROR`
+- Runtime 兼容依赖：当前 08-runtime-execution 的实现/文档仍使用 `IDEMPOTENCY_MISMATCH`；它是已知 Owner 实现差异，不是本设计可接受的第二种验收结果。TASK-026 在 Runtime Owner 完成 `COMMON_CONFLICT` 契约对齐前保留外部依赖未满足，不能伪造 verifier 通过。
 - 处理：只传 `agent_id`，不得传 pod id；不保存 `agent_id→pod` 映射；SSE 消费按 §3.4.1。
 
 #### 3.4.1 Runtime SSE 事件处理（FEAT-03）
@@ -415,7 +465,7 @@ SSE 封套 `{run_id, seq, timestamp, type, data}`，按 `seq` 单调有序；`: 
 |---|---|---|
 | `/bind <code>` | API-03 | Gateway 本地识别，不发送 LLM |
 | `/skills` | API-04 | 只显示 name/platform_label/description |
-| `/new` | `POST /v1/conversations {agent_id, platform_user_id}` | 新建 Conversation；不改身份/Agent/Memory |
+| `/new` | `POST /v1/conversations {agent_id, platform_user_id}`，透传本命令稳定 Idempotency-Key | 新建 Conversation；不改身份/Agent/Memory；同命令重试由 Runtime Owner 持久重放，不创建第二会话 |
 | `/stop` | `POST /v1/runs/cancel-active {agent_id, platform_user_id}` | 无活跃 → `NO_ACTIVE_RUN`；`WAITING_INPUT` → 直接 CAS `CANCELLED`；`CREATED/RUNNING` → `{run_id,status:"CANCELLING"}` 受理语义 |
 
 | 来源 | code/status | IM 文案 |
@@ -448,8 +498,8 @@ SSE 封套 `{run_id, seq, timestamp, type, data}`，按 `seq` 单调有序；`: 
 ### 4.1 健康检查与启动校验
 
 - `/healthz`：进程存活（不检查外部依赖）。
-- `/readyz`：Console Internal API 可达或已有可用 bot snapshot；bot secret 已随快照加载或已有缓存；必要 Bot connection manager 已初始化；事件循环正常（docs/05 §12）。
-- 启动初始化校验：配置加载、迁移版本、存储可用性；任一项失败 fail fast，不进入 ready 状态（docs/17 §3.5）。
+- `/readyz`：Console Internal API 可达或已有完整可用 bot snapshot；必要 Bot connection manager 已初始化；事件循环正常（docs/05 §12）。单 bot 缺失/失效 Secret 在 detail 标记 degraded 并退避，不停止其他 bot、不要求全部 CONNECTED；整体必需启动条件缺失才返回 503。
+- 启动/探针复用 api-kit `validate_startup` 与 `install_health_probes`。Gateway 不直连 DB，迁移版本由持库 Owner 校验；本进程配置/必要挂载等校验失败则 fail fast 并清理已创建资源，关闭时取消并等待连接、轮询、入站消费任务。
 
 ### 4.2 指标目录
 
@@ -466,6 +516,7 @@ SSE 封套 `{run_id, seq, timestamp, type, data}`，按 `seq` 单调有序；`: 
 ## 5. 风险与依赖
 
 - 前置：02-user-identity, 07-agent-management, 08-runtime-execution, 09-task-schedule。
+- 跨模块依赖按任务文件 External Dependencies 登记：Runtime 幂等错误码/新会话重放由 Runtime Owner 完成；09-task-schedule TASK-020/021/043 的持久投递/去重/验收不得在本模块重复实现。规划门禁通过不代表这些实现或 E2E 已完成。
 
 | 风险ID | 类型 | 描述 | 应对措施 | 验证场景 |
 |---|---|---|---|---|
@@ -486,12 +537,13 @@ SSE 封套 `{run_id, seq, timestamp, type, data}`，按 `seq` 单调有序；`: 
 
 ## Spec Compliance Matrix
 
-| Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
-|---|---|---|---|---|---|
-| `harness-platform#RULE-arch-001` | required | 固定 4 个部署单元；Runtime/Worker 无状态横向扩展。 | §3.2/§3.3/§4.1 | S-01 + verifier | applied |
-| `harness-platform#RULE-api-001` | required | JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status 配置映射。 | §3.4（API-01~API-06）/§3.4.2 | S-02, E-02 + verifier | applied |
-| `harness-secret#RULE-secret-001` | required | bot secret 明文存于 `bot_account`（主键引用）；不进日志/审计/响应。 | §3.2.2/§3.5/§4.2 | S-04, E-07 + verifier | applied |
-| `harness-platform#RULE-im-001` | required | Agent 0..N bot_id；bot_id 只指向一个 Agent；不绑定 Runtime Pod。 | §2.5.1（RULE-04）/§3.2/§3.3 | S-01 + verifier | applied |
-| `harness-platform#RULE-auth-001` | required | 三层授权 + Effective Capability（含 is_deleted/enabled），无绑定开关/授权到期。 | §3.4 API-02/API-04 | S-03, E-04 + verifier | applied |
-| `harness-platform#RULE-snapshot-001` | required | 新 Run/Task 冻结 Snapshot；Run 并发/取消语义与终态 CAS。 | §3.4 API-06/§3.4.1 | S-03, E-03 + verifier | applied |
-| `harness-platform#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.5.2/§6 | S-03, E-03 + verifier | applied |
+| Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | verifier_ref | 状态/N/A 理由 |
+|---|---|---|---|---|---|---|
+| `harness-arch#RULE-arch-001` | required | 固定四部署单元；Runtime/Worker 无状态，无 Agent/Bot→Pod 绑定。 | §3.2/§3.3/§4.1 | S-01 / B-122 + 原 verifier | harness-arch#RULE-arch-001 | applied |
+| `harness-api#RULE-api-001` | required | REST 封套、列表分页、错误 code/msg/http_status 来自 catalog。 | API-01/API-03/API-04/API-05、§3.4.2 | S-02 / E-02 / B-101 / B-105 / B-123 + 原 verifier | harness-api#RULE-api-001 | applied |
+| `harness-api#RULE-api-002` | required | 创建/可重试提交 Header+DB 幂等、partial unique、指纹与首次响应；异指纹 COMMON_CONFLICT。 | §3.3、API-03/API-06、§3.4.2 /new | B-103 / B-111 / B-126 + 原 verifier；Runtime Owner 差异见 §5 | harness-api#RULE-api-002 | applied |
+| `harness-secret#RULE-secret-001` | required | Owner 表存密钥，内部最小凭据传输；禁止日志/审计/Snapshot/Prompt/IM/对外 API 回显。 | §3.2.2/§3.5/§4.2 | S-04 / E-07 / B-128 + 原 verifier | harness-secret#RULE-secret-001 | applied |
+| `harness-im#RULE-im-001` | required | Agent 0..N bot，bot 唯一 Agent，不绑定 Runtime Pod；SDK 不渗透核心域。 | §2.5.1（RULE-04）/§3.2/§3.3 | S-01 / B-122 + 原 verifier | harness-im#RULE-im-001 | applied |
+| `harness-auth#RULE-auth-001` | required | 三层授权及 enabled/is_deleted，未授权资源不进 Catalog/Prompt/ToolRegistry。 | API-02/API-04 | S-03 / E-04 / B-124 + 原 verifier；B-124 明确验证授权而非只验证 RUN_BUSY | harness-auth#RULE-auth-001 | applied |
+| `harness-snapshot#RULE-snapshot-001` | required | 新 Run/Task 冻结 Snapshot，配置/授权变更只影响后续提交，终态 CAS。 | API-06/§3.4.1 | S-03 / E-03 / B-125 + 原 verifier | harness-snapshot#RULE-snapshot-001 | applied |
+| `harness-test#RULE-test-001` | required | 跨服务真实 E2E；按层级记录真实边界、RED/GREEN 与清理证据。 | §2.5.2/§2.5.3/§6 | S-01 / S-03 / E-03 / B-120..B-129 + 原 verifier | harness-test#RULE-test-001 | applied |

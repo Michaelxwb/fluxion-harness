@@ -198,12 +198,12 @@ class UserMemory(StandardColumnsMixin, Base):
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     memory_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
-    category: Mapped[str] = mapped_column(sa.String(64), nullable=False, server_default=sa.text("'general'"))
+    category: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     content_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     source_type: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     source_ref: Mapped[str | None] = mapped_column(sa.String(256))
     write_policy: Mapped[str] = mapped_column(
-        sa.String(32), nullable=False, server_default=sa.text("'APPEND'")
+        sa.String(32), nullable=False, server_default=sa.text("'CONTROLLED'")
     )
     version: Mapped[int] = mapped_column(sa.Integer(), nullable=False, server_default=sa.text("1"))
     enabled: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, server_default=sa.text("true"))
@@ -212,20 +212,24 @@ class UserMemory(StandardColumnsMixin, Base):
 class Artifact(StandardColumnsMixin, Base):
     __tablename__ = "artifact"
     __table_args__ = (
+        sa.CheckConstraint(
+            "(run_id IS NOT NULL) <> (task_id IS NOT NULL)",
+            name="ck_artifact_run_task_xor",
+        ),
         sa.Index("ix_artifact_run", "run_id"),
         sa.Index("ix_artifact_conversation", "conversation_id"),
         {"schema": "runtime"},
     )
 
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
-    run_id: Mapped[uuid.UUID] = mapped_column(
-        sa.Uuid(), sa.ForeignKey("runtime.run_record.id"), nullable=False
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("runtime.run_record.id"), nullable=True
     )
     task_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
-    conversation_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
-    artifact_type: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid(), nullable=True)
+    artifact_type: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     storage_key: Mapped[str] = mapped_column(sa.Text(), nullable=False)
-    media_type: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    media_type: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     size: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
     checksum: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     preview_text: Mapped[str | None] = mapped_column(sa.Text())

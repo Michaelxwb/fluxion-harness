@@ -3,6 +3,7 @@ import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { apiErrorBody, newRequestId } from '../../api/client';
 import { FormModal } from '../../components/common/FormModal';
 import { listModels } from '../model-management/services/models';
 import { createAgent, updateAgent, type AgentDetail } from './services/agents';
@@ -32,6 +33,7 @@ export function AgentFormModal(props: AgentFormModalProps) {
   const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [models, setModels] = useState<ModelOption[]>([]);
+  const [formError, setFormError] = useState<string | null>(null);
   const formApi = useRef<FormApi | null>(null);
 
   useEffect(() => {
@@ -56,10 +58,12 @@ export function AgentFormModal(props: AgentFormModalProps) {
       return;
     }
     formApi.current?.reset();
+    setFormError(null);
     formApi.current?.setValues({ enabled: 'true' });
     if (props.agent) {
       formApi.current?.setValues({
         name: props.agent.name,
+        key: props.agent.key,
         description: props.agent.description ?? '',
         instructions: props.agent.instructions,
         model_id: props.agent.model_id,
@@ -69,15 +73,14 @@ export function AgentFormModal(props: AgentFormModalProps) {
   }, [props.visible, props.agent]);
 
   const submit = async (values: FormValues): Promise<void> => {
-    // eslint-disable-next-line no-console
-    console.log('AGENT SUBMIT', JSON.stringify(values));
     setSaving(true);
+    setFormError(null);
     try {
       if (props.agent) {
         await updateAgent(props.agent.id, {
           expected_revision: props.agent.revision,
           name: values.name,
-          description: values.description || undefined,
+          description: values.description ?? '',
           instructions: values.instructions,
           model_id: values.model_id,
           enabled: values.enabled === 'true'
@@ -87,17 +90,26 @@ export function AgentFormModal(props: AgentFormModalProps) {
           {
             name: values.name,
             key: values.key,
-            description: values.description || undefined,
+            description: values.description ?? '',
             instructions: values.instructions,
             model_id: values.model_id,
             enabled: values.enabled === 'true'
           },
-          crypto.randomUUID()
+          newRequestId()
         );
       }
       props.onSaved();
-    } catch {
-      // [E-09] key 冲突/校验错误由 ApiClient Toast；Modal 保留，本地表单不被覆盖
+    } catch (error) {
+      const body = apiErrorBody(error);
+      if (body?.code === 'AGENT_KEY_EXISTS') {
+        formApi.current?.setError('key', body.msg);
+      } else if (body?.code === 'REVISION_CONFLICT') {
+        setFormError(t('agent.form.revisionConflict'));
+      } else if (body?.msg) {
+        setFormError(body.msg);
+      } else {
+        setFormError(t('common.saveFailed'));
+      }
     } finally {
       setSaving(false);
     }
@@ -110,19 +122,7 @@ export function AgentFormModal(props: AgentFormModalProps) {
       title={props.agent ? t('agent.form.editTitle') : t('agent.form.createTitle')}
       okText={t('common.save')}
       confirmLoading={saving}
-      onOk={() => {
-        formApi.current
-          ?.validate()
-          .then((values) => {
-            // eslint-disable-next-line no-console
-            console.log('VALIDATE OK', JSON.stringify(values).slice(0, 200));
-            formApi.current?.submitForm();
-          })
-          .catch((errors) => {
-            // eslint-disable-next-line no-console
-            console.log('VALIDATE ERR', JSON.stringify(errors).slice(0, 300));
-          });
-      }}
+      onOk={() => formApi.current?.submitForm()}
       onCancel={props.onCancel}
       getFormApi={(api) => {
         formApi.current = api;
@@ -131,6 +131,14 @@ export function AgentFormModal(props: AgentFormModalProps) {
         void submit(values as unknown as FormValues);
       }}
     >
+      {formError ? (
+        <Banner
+          className="form-field-banner"
+          type="danger"
+          closeIcon={null}
+          description={formError}
+        />
+      ) : null}
       <Banner
         className="form-field-banner"
         type="info"

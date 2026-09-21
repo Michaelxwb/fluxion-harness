@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 import pytest
 import sqlalchemy as sa
@@ -166,3 +167,48 @@ async def test_b105_resume_submission_scoped_by_run() -> None:
 
     fp_b = submission_fingerprint(run_id=run_id, key_payload={"text": "answer two"}, message_id=None)
     assert fp_a != fp_b  # 不同输入指纹不同 → 新 submission，不重放
+
+
+async def test_b01_http_create_run_replays_and_rejects_mismatch(
+    client: Any,
+    tenant: Any,
+) -> None:
+    """[B-01] HTTP 层：同 key 同指纹重放原 SSE 事件；异指纹 IDEMPOTENCY_MISMATCH。"""
+    import json as json_module
+    import uuid as uuid_module
+
+    payload = {
+        "agent_id": str(tenant.agent_id),
+        "platform_user_id": str(tenant.platform_user_id),
+        "channel": {"type": "WECOM", "bot_id": "bot-1"},
+        "message": {"id": f"msg-{uuid_module.uuid4()}", "type": "text", "text": "idem"},
+    }
+    headers = {"X-Tenant-Id": tenant.tenant_id, "Idempotency-Key": f"k-{uuid_module.uuid4()}"}
+
+    first = await client.post("/v1/runs", json=payload, headers=headers)
+    assert first.status_code == 200
+
+    def parse(body: str) -> list[dict[str, Any]]:
+        events = []
+        for block in body.split("\n\n"):
+            data_lines = [
+                line[len("data:") :].lstrip()
+                for line in block.splitlines()
+                if line.startswith("data:")
+            ]
+            if data_lines:
+                events.append(json_module.loads("\n".join(data_lines)))
+        return events
+
+    first_events = parse(first.text)
+    replay = await client.post("/v1/runs", json=payload, headers=headers)
+    assert replay.status_code == 200
+    replay_events = parse(replay.text)
+    assert [(e["seq"], e["type"]) for e in replay_events] == [
+        (e["seq"], e["type"]) for e in first_events
+    ]
+
+    changed = {**payload, "message": {**payload["message"], "text": "changed"}}
+    mismatch = await client.post("/v1/runs", json=changed, headers=headers)
+    assert mismatch.status_code == 409
+    assert mismatch.json()["code"] == "IDEMPOTENCY_MISMATCH"

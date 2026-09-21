@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 from httpx import AsyncClient
-from muad_console_platform.infrastructure.db import get_session_factory
+from muad_console_platform.infrastructure.db import get_engine, get_session_factory
 from muad_console_platform.infrastructure.models.control import PlatformUser
-from sqlalchemy import text
+from sqlalchemy import event, text
 
 from console_platform.conftest import TenantContext
 from console_platform.test_users_api import _headers
@@ -134,7 +134,7 @@ async def test_s03_unreachable_host_reports_unreachable_without_session(
     assert probed.status_code == 200
     body = probed.json()["data"]
     assert body["connectivity"] == "UNREACHABLE"
-    assert body["config_valid"] is False
+    assert body["config_valid"] is True
     assert body["details"]["error"]
     assert "session" not in probed.text.lower()
 
@@ -143,10 +143,53 @@ async def test_e02_missing_credential_returns_credential_missing(
     client: AsyncClient, tenant: TenantContext, platform_bundle: dict[str, Any]
 ) -> None:
     platform_id, user_id = platform_bundle["platform_id"], platform_bundle["user_id"]
-    response = await client.post(
-        f"/api/v1/project-platforms/{platform_id}/test",
-        json={"test_user_id": user_id},
-        headers=_headers(tenant),
-    )
+    statements: list[str] = []
+    engine = get_engine()
+
+    def capture(*args: Any) -> None:
+        statements.append(str(args[2]))
+
+    event.listen(engine.sync_engine, "before_cursor_execute", capture)
+    try:
+        response = await client.post(
+            f"/api/v1/project-platforms/{platform_id}/test",
+            json={"test_user_id": user_id},
+            headers=_headers(tenant),
+        )
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", capture)
+
     assert response.status_code == 409
     assert response.json()["code"] == "CREDENTIAL_MISSING"
+    assert statements, "探测请求必须产生真实 SQL"
+    assert not any("credential_json" in statement for statement in statements), (
+        "E-02 不得读取 Secret Value（SQL 不应选择 credential_json）"
+    )
+
+
+async def test_s03_shared_only_credential_status_is_checked_without_test_user(
+    client: AsyncClient, tenant: TenantContext, platform_bundle: dict[str, Any]
+) -> None:
+    platform_id = platform_bundle["platform_id"]
+    url = f"/api/v1/project-platforms/{platform_id}/test"
+    updated = await client.put(
+        f"/api/v1/project-platforms/{platform_id}",
+        json={"credential_mode": "SHARED_ONLY"},
+        headers=_headers(tenant),
+    )
+    assert updated.status_code == 200
+
+    missing = await client.post(url, json={}, headers=_headers(tenant))
+    assert missing.status_code == 409
+    assert missing.json()["code"] == "CREDENTIAL_MISSING"
+
+    saved = await client.put(
+        f"/api/v1/project-platforms/{platform_id}/shared-credential",
+        json={"token": "shared-probe-token"},
+        headers=_headers(tenant),
+    )
+    assert saved.status_code == 200
+    checked = await client.post(url, json={}, headers=_headers(tenant))
+    assert checked.status_code == 200
+    assert checked.json()["data"]["credential_ref_status"] == "ACTIVE"
+    assert "shared-probe-token" not in checked.text

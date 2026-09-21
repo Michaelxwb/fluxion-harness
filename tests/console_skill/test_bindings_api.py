@@ -5,6 +5,40 @@ from httpx import AsyncClient
 from console_skill.conftest import SkillContext, tenant_headers
 
 
+async def test_skill_agents_list_reflects_bindings(
+    client: AsyncClient, skill_env: SkillContext
+) -> None:
+    listed = await client.get(
+        f"/api/v1/skills/{skill_env.skill_all_id}/agents",
+        headers=tenant_headers(skill_env),
+    )
+    assert listed.status_code == 200
+    data = listed.json()["data"]
+    assert data["total"] == 1
+    entry = data["items"][0]
+    assert entry["agent_id"] == str(skill_env.agent_id)
+    assert entry["key"]
+    assert entry["name"]
+    assert entry["enabled"] is True
+
+    unbound = await client.delete(
+        f"/api/v1/agents/{skill_env.agent_id}/skills/{skill_env.skill_all_id}",
+        headers=tenant_headers(skill_env),
+    )
+    assert unbound.status_code == 200
+    after = await client.get(
+        f"/api/v1/skills/{skill_env.skill_all_id}/agents",
+        headers=tenant_headers(skill_env),
+    )
+    assert after.json()["data"]["total"] == 0
+
+    missing = await client.get(
+        f"/api/v1/skills/{uuid.uuid4()}/agents",
+        headers=tenant_headers(skill_env),
+    )
+    assert missing.status_code == 404
+
+
 async def test_agent_skill_binding_flow(client: AsyncClient, skill_env: SkillContext) -> None:
     listed = await client.get(
         f"/api/v1/agents/{skill_env.agent_id}/skills",

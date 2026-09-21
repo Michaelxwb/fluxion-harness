@@ -1,7 +1,8 @@
-import { Descriptions, Modal, Spin, Tag } from '@douyinfe/semi-ui';
+import { Banner, Descriptions, Modal, Spin, Tag } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { apiErrorBody } from '../../api/client';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { testPlatform, type PlatformTestResult } from './services/platforms';
 
@@ -18,21 +19,43 @@ const CREDENTIAL_STATUS_KEYS: Record<string, string> = {
   NOT_CHECKED: 'platform.test.credentialStatus.NOT_CHECKED'
 };
 
+const ERROR_KEYS: Record<string, string> = {
+  CREDENTIAL_MISSING: 'platform.test.credentialMissing',
+  COMMON_VALIDATION_ERROR: 'platform.test.invalidConfig',
+  PLATFORM_ADAPTER_NOT_FOUND: 'platform.test.adapterMissing'
+};
+
 export function PlatformTestModal(props: PlatformTestModalProps) {
   const { t } = useTranslation();
   const [result, setResult] = useState<PlatformTestResult | null>(null);
-  const [error, setError] = useState(false);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!props.visible || !props.platformId) {
       return;
     }
+    let cancelled = false;
     setResult(null);
-    setError(false);
+    setErrorKey(null);
     testPlatform(props.platformId)
-      .then(setResult)
-      .catch(() => setError(true));
-  }, [props.visible, props.platformId]);
+      .then((value) => {
+        if (!cancelled) {
+          setResult(value);
+        }
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        const body = apiErrorBody(error);
+        setErrorKey(
+          (body?.code ? ERROR_KEYS[body.code] : undefined) ?? 'platform.test.requestFailed'
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.visible, props.platformId, t]);
 
   const target =
     typeof result?.details.host === 'string'
@@ -51,8 +74,8 @@ export function PlatformTestModal(props: PlatformTestModalProps) {
       width={620}
       onCancel={props.onCancel}
     >
-      {error ? (
-        <Tag color="red">{t('platform.test.requestFailed')}</Tag>
+      {errorKey ? (
+        <Banner type="danger" closeIcon={null} description={t(errorKey)} />
       ) : result === null ? (
         <Spin style={{ display: 'block', margin: '16px auto' }} />
       ) : (

@@ -50,6 +50,12 @@ async def _make_mcp(client: AsyncClient, tenant: TenantContext, *, enabled: bool
     return response.json()["data"]["mcp_id"]
 
 
+async def _mcp_key(client: AsyncClient, tenant: TenantContext, mcp_id: str) -> str:
+    response = await client.get(f"/api/v1/mcp-servers/{mcp_id}", headers=_headers(tenant))
+    assert response.status_code == 200, response.text
+    return str(response.json()["data"]["key"])
+
+
 async def _grant_user(tenant: TenantContext) -> tuple[uuid.UUID, uuid.UUID]:
     async with get_session_factory()() as session:
         user = PlatformUser(
@@ -183,6 +189,7 @@ async def test_b02_effective_mcp_formula_matrix(
 
     # 1) MCP enabled + 绑定 → 出现在 resolve
     mcp_all = await _make_mcp(client, tenant)
+    key_all = await _mcp_key(client, tenant, mcp_all)
     async with get_session_factory()() as session:
         await session.execute(
             update(McpServer).where(McpServer.id == uuid.UUID(mcp_all)).values(user_scope="ALL")
@@ -191,11 +198,7 @@ async def test_b02_effective_mcp_formula_matrix(
     await client.post(
         f"/api/v1/agents/{agent_id}/mcp-servers/{mcp_all}", headers=_headers(tenant)
     )
-    assert "mcp-all" in {k for k in await resolve_mcp_keys() if k.startswith("mcp-")} or any(
-        key == "mcp-all" for key in await resolve_mcp_keys()
-    ) or True  # key 唯一性由 mcp- 前缀 + uuid 保证，直接断言存在性
-    keys_all = await resolve_mcp_keys()
-    assert len(keys_all) == 1
+    assert await resolve_mcp_keys() == {key_all}
 
     # 2) MCP 禁用 → 过滤
     await client.put(
@@ -203,6 +206,7 @@ async def test_b02_effective_mcp_formula_matrix(
     )
     keys_disabled = await resolve_mcp_keys()
     assert keys_disabled == set()
+    assert key_all not in keys_disabled
 
     await client.put(
         f"/api/v1/mcp-servers/{mcp_all}", json={"enabled": True}, headers=_headers(tenant)
@@ -217,6 +221,7 @@ async def test_b02_effective_mcp_formula_matrix(
 
     # 4) SELECTED scope + 无 McpUserGrant → 过滤
     mcp_selected = await _make_mcp(client, tenant)
+    key_selected = await _mcp_key(client, tenant, mcp_selected)
     await client.post(
         f"/api/v1/agents/{agent_id}/mcp-servers/{mcp_selected}", headers=_headers(tenant)
     )
@@ -236,7 +241,7 @@ async def test_b02_effective_mcp_formula_matrix(
         )
         await session.commit()
     keys_granted = await resolve_mcp_keys()
-    assert len(keys_granted) == 1
+    assert keys_granted == {key_selected}
 
     async with get_session_factory()() as session:
         from muad_console_platform.infrastructure.models.mcp import McpUserGrant

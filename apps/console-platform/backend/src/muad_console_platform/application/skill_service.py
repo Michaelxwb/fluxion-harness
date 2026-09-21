@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -5,6 +6,7 @@ from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +38,7 @@ from ..infrastructure.skill_validator import (
 from .audit_service import AuditActor, AuditService, sanitize_payload
 from .dto import (
     AgentSkillBindingItem,
+    SkillAgentItem,
     SkillArtifactDetail,
     SkillDetail,
     SkillListItem,
@@ -90,6 +93,8 @@ def artifact_detail(artifact: SkillArtifact) -> SkillArtifactDetail:
         default_script=artifact.default_script,
         package_size=artifact.package_size,
         validation_status=artifact.validation_status,
+        validation_message=artifact.validation_message,
+        instructions=artifact.instructions,
         frontmatter=sanitize_payload(artifact.frontmatter_json),
         manifest=sanitize_payload(artifact.manifest_json),
         created_by=artifact.created_by,
@@ -160,6 +165,17 @@ def binding_item(
     )
 
 
+def skill_agent_item(agent: AgentDefinition, binding: AgentSkillBinding) -> SkillAgentItem:
+    return SkillAgentItem(
+        agent_id=agent.id,
+        key=agent.key,
+        name=agent.name,
+        enabled=agent.enabled,
+        sort_order=binding.sort_order,
+        create_time=binding.create_time,
+    )
+
+
 def binding_snapshot(binding: AgentSkillBinding) -> dict[str, Any]:
     return {
         "agent_id": str(binding.agent_id),
@@ -184,14 +200,18 @@ class SkillService:
         tenant_id: str,
         page: int,
         page_size: int,
+        keyword: str | None = None,
         user_scope: str | None = None,
+        enabled: bool | None = None,
         execution_mode: str | None = None,
     ) -> tuple[list[SkillListItem], int]:
         rows, total = await self._skills.list_skills(
             tenant_id,
             page,
             page_size,
+            keyword,
             user_scope,
+            enabled,
             execution_mode,
         )
         return [
@@ -255,6 +275,16 @@ class SkillService:
     def _fingerprint(self, *parts: str | None) -> str:
         return checksum_of("|".join(str(part) for part in parts).encode())
 
+    async def _lock_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        endpoint: str,
+    ) -> None:
+        digest = hashlib.sha256(f"{tenant_id}|{idempotency_key}|{endpoint}".encode()).digest()
+        lock_key = int.from_bytes(digest[:8], "big", signed=True)
+        await self._session.execute(select(func.pg_advisory_xact_lock(lock_key)))
+
     async def _idempotency_replay(
         self,
         tenant_id: str,
@@ -297,10 +327,15 @@ class SkillService:
         default_script: str | None,
         data: bytes,
         actor: AuditActor,
+        user_scope: str | None = None,
         idempotency_key: str | None = None,
     ) -> SkillDetail:
-        fingerprint = self._fingerprint("import", version, key, default_script, checksum_of(data))
+        scope = user_scope or USER_SCOPE_SELECTED
+        fingerprint = self._fingerprint(
+            "import", version, key, default_script, scope, checksum_of(data)
+        )
         if idempotency_key:
+            await self._lock_idempotency(tenant_id, idempotency_key, "import")
             replayed = await self._idempotency_replay(
                 tenant_id, idempotency_key, "import", fingerprint
             )
@@ -315,6 +350,7 @@ class SkillService:
                 data=data,
                 package=package,
                 actor=actor,
+                user_scope=scope,
             )
         detail = await self.get_skill_detail(tenant_id, skill.id)
         if idempotency_key:
@@ -333,6 +369,7 @@ class SkillService:
         data: bytes,
         package: ValidatedSkillPackage,
         actor: AuditActor,
+        user_scope: str,
     ) -> tuple[Skill, SkillArtifact]:
         chosen_key = key or package.default_key
         if not chosen_key:
@@ -352,7 +389,7 @@ class SkillService:
             name=package.manifest.name,
             description=package.manifest.description,
             platform_label=package.manifest.platform_label,
-            user_scope=USER_SCOPE_SELECTED,
+            user_scope=user_scope,
             enabled=True,
         )
         artifact = self._build_artifact(
@@ -395,6 +432,7 @@ class SkillService:
     ) -> SkillArtifactDetail:
         fingerprint = self._fingerprint("artifact", str(skill_id), version, default_script, checksum_of(data))
         if idempotency_key:
+            await self._lock_idempotency(tenant_id, idempotency_key, "artifact")
             replayed = await self._idempotency_replay(
                 tenant_id, idempotency_key, "artifact", fingerprint
             )
@@ -484,6 +522,17 @@ class SkillService:
         rows, total = await self._grants.list_with_users(skill.id, page, page_size)
         return [grant_item(grant, user) for grant, user in rows], total
 
+    async def list_agents(
+        self,
+        tenant_id: str,
+        skill_id: uuid.UUID,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[SkillAgentItem], int]:
+        skill = await self.get_skill(tenant_id, skill_id)
+        rows, total = await self._skills.list_agents_for_skill(skill.id, page, page_size)
+        return [skill_agent_item(agent, binding) for agent, binding in rows], total
+
     async def add_grant(
         self,
         tenant_id: str,
@@ -537,10 +586,9 @@ class SkillService:
         page_size: int = 20,
     ) -> tuple[list[AgentSkillBindingItem], int]:
         await self._require_agent(tenant_id, agent_id)
-        rows = await self._bindings.list_for_agent(tenant_id, agent_id)
+        rows, total = await self._bindings.list_for_agent(tenant_id, agent_id, page, page_size)
         items = [binding_item(binding, skill, artifact) for binding, skill, artifact in rows]
-        start = (page - 1) * page_size
-        return items[start : start + page_size], len(items)
+        return items, total
 
     async def bind_skill(
         self,
@@ -615,6 +663,7 @@ class SkillService:
                 "total_size": package.total_size,
             },
             execution_mode=package.manifest.execution.value,
+            instructions=package.instructions,
             default_script=default_script,
             package_size=len(data),
             validation_status=VALIDATION_READY,

@@ -22,3 +22,11 @@ def test_reconfigure_required_guides_to_credentials_tab() -> None:
     assert "platform.detail.reconfigureRequired" in source
     assert "setActiveTab('credentials')" in source
     assert "Banner" in source
+
+
+def test_detail_has_error_state_and_localized_fields() -> None:
+    source = (MODULE / "PlatformDetailSideSheet.tsx").read_text(encoding="utf-8")
+    assert "ErrorState" in source
+    assert "common.status.enabled" in source and "common.status.disabled" in source
+    assert "JSON.stringify" not in source, "访问配置不得展示原始 JSON"
+    assert "PlatformCredentialTab" in source and "onChanged" in source

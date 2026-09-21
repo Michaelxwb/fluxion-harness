@@ -51,8 +51,25 @@ def test_schemas_mark_secret_fields_and_auth_options() -> None:
     assert properties["token"]["x-secret"] is True
     assert properties["username"]["x-secret"] is True
     assert properties["password"]["x-secret"] is True
+    assert adapter.credential_schema["anyOf"] == [
+        {"required": ["token"]},
+        {"required": ["username", "password"]},
+    ]
     assert adapter.session_mode == "NONE"
     assert not hasattr(adapter, "refresh")
+
+
+def test_credential_schema_rejects_empty_and_unknown_fields() -> None:
+    import jsonschema
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({}, adapter.credential_schema)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({"username": "u"}, adapter.credential_schema)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({"token": "t", "extra": "x"}, adapter.credential_schema)
+    jsonschema.validate({"token": "t"}, adapter.credential_schema)
+    jsonschema.validate({"username": "u", "password": "p"}, adapter.credential_schema)
 
 
 async def test_prepare_request_injects_bearer_header_and_body() -> None:
@@ -99,6 +116,14 @@ async def test_prepare_request_rejects_missing_credential_and_logical_target() -
         )
 
 
+async def test_prepare_request_rejects_absolute_target_path() -> None:
+    for path in ("https://evil.example/x", "//evil.example/x"):
+        with pytest.raises(ValueError, match="relative"):
+            await adapter.prepare_request(
+                _platform(auth_scheme="none"), None, _http_request(path), None
+            )
+
+
 class _EchoHandler(BaseHTTPRequestHandler):
     last_headers: dict[str, str] = {}
 
@@ -142,4 +167,13 @@ async def test_prepared_request_reaches_real_local_http_service() -> None:
 async def test_authenticate_without_session_returns_none() -> None:
     session: PlatformSession | None = await adapter.authenticate(_platform(), _secret(token="t"))
     assert session is None
+
+
+async def test_validate_rejects_invalid_platform_config() -> None:
+    assert await adapter.validate(_platform(auth_scheme="bearer"), PlatformSession()) is True
     assert await adapter.validate(_platform(), PlatformSession()) is True
+    assert await adapter.validate(_platform(auth_scheme="digest"), PlatformSession()) is False
+    assert await adapter.validate(_platform(auth_header="   "), PlatformSession()) is False
+    assert await adapter.validate(_platform(timeout_ms=10), PlatformSession()) is False
+    assert await adapter.validate(_platform(timeout_ms=True), PlatformSession()) is False
+    assert await adapter.validate(_platform(unknown="x"), PlatformSession()) is False

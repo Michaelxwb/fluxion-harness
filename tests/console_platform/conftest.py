@@ -1,6 +1,8 @@
+import shutil
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -81,6 +83,13 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
         yield context
     finally:
         async with session_factory() as session:
+            skill_ids = list(
+                await session.scalars(
+                    text("SELECT id FROM control.skill WHERE tenant_id = :tenant_id").bindparams(
+                        tenant_id=tenant_id
+                    )
+                )
+            )
             for statement in (
                 "DELETE FROM control.agent_skill_binding WHERE agent_id IN "
                 "(SELECT id FROM control.agent_definition WHERE tenant_id = :tenant_id)",
@@ -91,10 +100,28 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
                 "DELETE FROM control.bot_account WHERE agent_id IN "
                 "(SELECT id FROM control.agent_definition WHERE tenant_id = :tenant_id)",
                 "DELETE FROM control.agent_definition WHERE tenant_id = :tenant_id",
+                "DELETE FROM control.skill_user_grant WHERE skill_id IN "
+                "(SELECT id FROM control.skill WHERE tenant_id = :tenant_id)",
+                "DELETE FROM control.skill_artifact WHERE skill_id IN "
+                "(SELECT id FROM control.skill WHERE tenant_id = :tenant_id)",
+                "DELETE FROM control.skill WHERE tenant_id = :tenant_id",
+                "DELETE FROM control.skill_import_idempotency WHERE tenant_id = :tenant_id",
+                "DELETE FROM control.mcp_user_grant WHERE mcp_server_id IN "
+                "(SELECT id FROM control.mcp_server WHERE tenant_id = :tenant_id)",
+                "DELETE FROM control.mcp_server WHERE tenant_id = :tenant_id",
+                "DELETE FROM control.bind_code WHERE platform_user_id IN "
+                "(SELECT id FROM control.platform_user WHERE tenant_id = :tenant_id)",
+                "DELETE FROM control.channel_identity WHERE platform_user_id IN "
+                "(SELECT id FROM control.platform_user WHERE tenant_id = :tenant_id)",
+                "DELETE FROM control.platform_user WHERE tenant_id = :tenant_id",
+                "DELETE FROM control.config_audit_log WHERE tenant_id = :tenant_id",
                 "DELETE FROM control.model_definition WHERE tenant_id = :tenant_id",
             ):
                 await session.execute(text(statement), {"tenant_id": tenant_id})
             await session.commit()
+        artifact_root = Path(SharedSettings().artifact_root)
+        for skill_id in skill_ids:
+            shutil.rmtree(artifact_root / "skills" / str(skill_id), ignore_errors=True)
 
 
 @pytest.fixture

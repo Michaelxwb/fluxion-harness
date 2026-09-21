@@ -35,6 +35,7 @@ class AuditService:
         *,
         resource_id: uuid.UUID | None = None,
         resource_type: str | None = None,
+        keyword: str | None = None,
         page: int,
         page_size: int,
     ) -> tuple[list[dict[str, Any]], int]:
@@ -43,6 +44,8 @@ class AuditService:
             conditions.append(ConfigAuditLog.resource_id == resource_id)
         if resource_type is not None:
             conditions.append(ConfigAuditLog.resource_type == resource_type)
+        if keyword:
+            conditions.append(ConfigAuditLogRepository.keyword_condition(keyword))
         total = await self._entries.count(conditions)
         rows = await self._entries.query(conditions, page, page_size)
         return rows, total

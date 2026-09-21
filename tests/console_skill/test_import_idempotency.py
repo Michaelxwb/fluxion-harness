@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 from httpx import AsyncClient
@@ -98,6 +99,66 @@ async def test_s04_artifact_replay_same_idempotency_key_no_new_artifact(
     )
     items = versions.json()["data"]["items"]
     assert [item["version"] for item in items].count("2.0.0") == 1
+
+
+async def test_s04_same_key_different_payload_returns_mismatch(
+    client: AsyncClient,
+    skill_env: SkillContext,
+) -> None:
+    """[S-04] 同 key 不同载荷：返回 IDEMPOTENCY_MISMATCH，不产生新记录。"""
+    key = f"idem-{uuid.uuid4()}"
+    headers = {**tenant_headers(skill_env), "Idempotency-Key": key}
+    first = await client.post(
+        "/api/v1/skills/import",
+        files={"file": ("skill.zip", demo_package(), "application/zip")},
+        data={"version": "1.0.0"},
+        headers=headers,
+    )
+    assert first.status_code == 200, first.text
+    mismatch = await client.post(
+        "/api/v1/skills/import",
+        files={"file": ("skill.zip", demo_package(name="Other Payload"), "application/zip")},
+        data={"version": "1.0.0"},
+        headers=headers,
+    )
+    assert mismatch.status_code == 409
+    assert mismatch.json()["code"] == "IDEMPOTENCY_MISMATCH"
+
+
+async def test_s04_concurrent_same_key_replays_single_import(
+    client: AsyncClient,
+    skill_env: SkillContext,
+) -> None:
+    """[S-04] 并发同 key：advisory lock 串行化，后到者重放首次结果，只创建一个 Skill。"""
+    key = f"idem-{uuid.uuid4()}"
+    headers = {**tenant_headers(skill_env), "Idempotency-Key": key}
+    package = demo_package(name="Concurrent Skill")
+    payload = {"version": "1.0.0"}
+
+    async def submit() -> tuple[int, dict[str, object]]:
+        response = await client.post(
+            "/api/v1/skills/import",
+            files={"file": ("skill.zip", package, "application/zip")},
+            data=payload,
+            headers=headers,
+        )
+        return response.status_code, response.json()
+
+    results = await asyncio.gather(submit(), submit())
+    assert [status for status, _ in results] == [200, 200]
+    assert results[0][1]["data"] == results[1][1]["data"]
+
+    from muad_console_platform.infrastructure.db import get_session_factory
+    from muad_console_platform.infrastructure.models.control import Skill
+    from sqlalchemy import func, select
+
+    async with get_session_factory()() as session:
+        count = await session.scalar(
+            select(func.count())
+            .select_from(Skill)
+            .where(Skill.tenant_id == skill_env.tenant_id, Skill.key == "concurrent-skill")
+        )
+    assert count == 1
 
 
 async def test_e03_duplicate_version_or_checksum_returns_skill_version_exists(

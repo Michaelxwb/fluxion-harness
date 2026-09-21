@@ -52,7 +52,7 @@ class ResolvedMcpServer(ContractModel):
     endpoint: str
     catalog_revision: int = Field(ge=0)
     catalog_hash: str | None = None
-    tools: list[dict[str, Any]] = Field(default_factory=list)
+    definitions: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ResolveDefinitionResponse(ContractModel):

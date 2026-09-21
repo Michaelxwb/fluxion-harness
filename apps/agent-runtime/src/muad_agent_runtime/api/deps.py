@@ -9,8 +9,9 @@ from muad_artifact_store import SkillArtifactCache
 from muad_common import SharedSettings
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.artifacts import ArtifactResultWriter
 from ..application.executor import ExecutorFactory, default_executor_factory
-from ..application.ports import ResolveClient
+from ..application.ports import CredentialsClient, ResolveClient
 from ..application.run_service import RunService
 from ..application.skill_tools import build_default_skill_cache
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
@@ -42,10 +43,24 @@ def get_skill_cache(request: Request) -> SkillArtifactCache:
     return cache
 
 
+def get_artifact_writer() -> ArtifactResultWriter:
+    return ArtifactResultWriter(SharedSettings().artifact_root)
+
+
 def get_executor_factory(
     skill_cache: Annotated[SkillArtifactCache, Depends(get_skill_cache)],
+    artifact_writer: Annotated[ArtifactResultWriter, Depends(get_artifact_writer)],
 ) -> ExecutorFactory:
-    return partial(default_executor_factory, skill_cache=skill_cache)
+    return partial(
+        default_executor_factory,
+        skill_cache=skill_cache,
+        artifact_writer=artifact_writer,
+    )
+
+
+def get_credentials_client(request: Request) -> CredentialsClient | None:
+    """由 main lifespan 注入；未配置（测试/本地）时使用定义内密钥。"""
+    return getattr(request.app.state, "credentials_client", None)
 
 
 def get_cancel_hint_store(request: Request) -> CancelHintStore:
@@ -62,6 +77,7 @@ ResolveClientDep = Annotated[ResolveClient, Depends(get_resolve_client)]
 SkillCacheDep = Annotated[SkillArtifactCache, Depends(get_skill_cache)]
 ExecutorFactoryDep = Annotated[ExecutorFactory, Depends(get_executor_factory)]
 CancelHintStoreDep = Annotated[CancelHintStore, Depends(get_cancel_hint_store)]
+CredentialsClientDep = Annotated[CredentialsClient | None, Depends(get_credentials_client)]
 
 
 def get_run_service(
@@ -70,6 +86,7 @@ def get_run_service(
     instance_id: InstanceIdDep,
     executor_factory: ExecutorFactoryDep,
     cancel_hints: CancelHintStoreDep,
+    credentials_client: CredentialsClientDep,
 ) -> RunService:
     return RunService(
         session,
@@ -77,6 +94,7 @@ def get_run_service(
         instance_id,
         executor_factory=executor_factory,
         cancel_hints=cancel_hints,
+        credentials_client=credentials_client,
     )
 
 

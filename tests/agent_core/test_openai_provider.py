@@ -291,3 +291,83 @@ async def test_external_client_is_not_closed_by_provider() -> None:
         assert client.is_closed is False
     finally:
         await client.aclose()
+
+
+async def test_stream_emits_text_deltas_and_assembles_tool_calls() -> None:
+    """SSE 流式：文本增量逐块回调；分片 tool_calls 组装为完整调用。"""
+    chunks = [
+        {"choices": [{"delta": {"content": "hel"}}]},
+        {"choices": [{"delta": {"content": "lo"}}]},
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "call-1",
+                                "function": {"name": "echo", "arguments": '{"text"'},
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {"index": 0, "function": {"arguments": ': "hi"}'}}
+                        ]
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+            "usage": {"prompt_tokens": 7, "completion_tokens": 3},
+        },
+    ]
+    body = "".join(f"data: {json.dumps(chunk)}\n\n" for chunk in chunks) + "data: [DONE]\n\n"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        assert payload["stream"] is True
+        return httpx.Response(
+            200, content=body.encode(), headers={"content-type": "text/event-stream"}
+        )
+
+    provider = _provider(handler)
+    deltas: list[str] = []
+
+    async def on_delta(text: str) -> None:
+        deltas.append(text)
+
+    try:
+        response = await provider.stream(_request(), on_delta)
+    finally:
+        await provider.aclose()
+
+    assert deltas == ["hel", "lo"]
+    assert response.content == "hello"
+    assert response.finish_reason == "tool_calls"
+    assert len(response.tool_calls) == 1
+    assert response.tool_calls[0].name == "echo"
+    assert dict(response.tool_calls[0].arguments) == {"text": "hi"}
+    assert (response.input_tokens, response.output_tokens) == (7, 3)
+
+
+async def test_stream_maps_rate_limit_before_body() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, headers={"Retry-After": "2"})
+
+    provider = _provider(handler)
+
+    async def on_delta(text: str) -> None:
+        raise AssertionError("no deltas expected")
+
+    try:
+        with pytest.raises(ModelRateLimitedError) as exc:
+            await provider.stream(_request(), on_delta)
+    finally:
+        await provider.aclose()
+    assert exc.value.retry_after == 2.0

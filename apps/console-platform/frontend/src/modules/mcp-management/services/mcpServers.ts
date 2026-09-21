@@ -47,6 +47,14 @@ export interface McpGrantItem {
   create_time: string;
 }
 
+export interface McpAgentItem {
+  agent_id: string;
+  key: string;
+  name: string;
+  enabled: boolean;
+  create_time: string;
+}
+
 async function unwrap<T>(response: { data: ApiResponse<T> }): Promise<T> {
   if (response.data.data === null) throw response.data;
   return response.data.data;
@@ -110,9 +118,9 @@ export interface McpTestResult {
 
 export async function testMcp(id: string, timeoutMs?: number): Promise<McpTestResult> {
   return unwrap(
-    await api.post<ApiResponse<McpTestResult>>(
-      `/mcp-servers/${id}/test${timeoutMs ? `?timeout_ms=${timeoutMs}` : ''}`
-    )
+    await api.post<ApiResponse<McpTestResult>>(`/mcp-servers/${id}/test`, {
+      timeout_ms: timeoutMs
+    })
   );
 }
 
@@ -137,7 +145,11 @@ export async function listTools(
 }
 
 export async function getTool(id: string, name: string): Promise<McpToolDetail> {
-  return unwrap(await api.get<ApiResponse<McpToolDetail>>(`/mcp-servers/${id}/tools/${name}`));
+  return unwrap(
+    await api.get<ApiResponse<McpToolDetail>>(
+      `/mcp-servers/${id}/tools/${encodeURIComponent(name)}`
+    )
+  );
 }
 
 export async function setUserScope(
@@ -160,4 +172,13 @@ export async function addSelectedUser(id: string, userId: string): Promise<void>
 
 export async function removeSelectedUser(id: string, userId: string): Promise<void> {
   await api.delete(`/mcp-servers/${id}/users/${userId}`);
+}
+
+export async function listMcpAgents(
+  id: string,
+  params: { page: number; page_size: number }
+): Promise<Page<McpAgentItem>> {
+  return unwrap(
+    await api.get<ApiResponse<Page<McpAgentItem>>>(`/mcp-servers/${id}/agents`, { params })
+  );
 }
