@@ -104,14 +104,14 @@ async def test_pause_resume_delete_schedule(tenant: TenantContext) -> None:
         service = ScheduleService(session, tenant.settings)
         paused = await service.pause_schedule(tenant.tenant_id, schedule.id)
         assert paused.status == "PAUSED"
-        with pytest.raises(AppError) as exc_info:
-            await service.pause_schedule(tenant.tenant_id, schedule.id)
-        # 已 PAUSED 再暂停 → 期望状态已不满足
-        assert exc_info.value.code == "REVISION_CONFLICT"
+        # 已 PAUSED 再暂停 → 幂等返回（设计 API-14），不再是 REVISION_CONFLICT
+        again = await service.pause_schedule(tenant.tenant_id, schedule.id)
+        assert again.status == "PAUSED"
         resumed = await service.resume_schedule(tenant.tenant_id, schedule.id)
         assert resumed.status == "ACTIVE"
-        listed = await service.list_schedules(tenant.tenant_id)
+        listed, total = await service.list_schedules(tenant.tenant_id)
         assert [item.id for item in listed] == [schedule.id]
+        assert total == 1
         await service.delete_schedule(tenant.tenant_id, schedule.id)
         await session.commit()
     async with tenant.session_factory() as session, session.begin():
@@ -119,7 +119,9 @@ async def test_pause_resume_delete_schedule(tenant: TenantContext) -> None:
         with pytest.raises(AppError) as exc_info:
             await service.get_schedule(tenant.tenant_id, schedule.id)
         assert exc_info.value.code == "COMMON_NOT_FOUND"
-        assert await service.list_schedules(tenant.tenant_id) == []
+        deleted_items, deleted_total = await service.list_schedules(tenant.tenant_id)
+        assert deleted_items == []
+        assert deleted_total == 0
 
 
 async def test_cron_fire_creates_task_once_with_deterministic_key(tenant: TenantContext) -> None:
@@ -207,7 +209,9 @@ async def test_list_schedules_filters_by_actor(tenant: TenantContext) -> None:
     await _create_schedule(tenant)
     async with tenant.session_factory() as session, session.begin():
         service = ScheduleService(session, tenant.settings)
-        listed = await service.list_schedules(tenant.tenant_id, actor_user_id=actor_id)
+        listed, total_matched = await service.list_schedules(
+            tenant.tenant_id, actor_user_id=actor_id
+        )
         assert len(listed) == 1
         assert listed[0].actor_user_id == actor_id
         total = (

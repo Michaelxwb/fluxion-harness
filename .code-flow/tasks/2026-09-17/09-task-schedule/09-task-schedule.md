@@ -115,7 +115,7 @@
 | B-107 | 09-task-schedule.backend.design.md#API-01 Internal 创建 Task | integration | Worker Task HTTP→PG Task/Submission/Event | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_service.py"] | . | 600 | |
 | B-108 | 09-task-schedule.backend.design.md#API-03 Internal Task 列表 | integration | 真实 Worker HTTP→PG Task/Event/children | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_queries.py"] | . | 600 | |
 | B-109 | 09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule | integration | Schedule HTTP→PG→真实时区计算 | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_writes.py"] | . | 600 | |
-| B-110 | 09-task-schedule.backend.design.md#API-06 Internal Schedule 列表 | integration | HTTP→ScheduleService→PG CAS | TASK-010 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_queries_actions.py"] | . | 600 | |
+| B-110 | 09-task-schedule.backend.design.md#API-06 Internal Schedule 列表 | integration | HTTP→ScheduleService→PG CAS | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_queries_actions.py"] | . | 600 | |
 | B-111 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 双 Worker→真实 PG 行锁/CAS | TASK-011 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_worker_leases.py"] | . | 600 | |
 | B-112 | 09-task-schedule.backend.design.md#3.3.3 `task.task_execution` | integration | Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler | TASK-012 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_executor.py"] | . | 600 | |
 | B-113 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 真实 Skill 执行结果→Worker→PG CAS | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_worker_outcomes.py"] | . | 600 | |
@@ -660,13 +660,13 @@
 - [2026-09-22] completed (done)
 ## TASK-010: 补齐 Schedule 分页、详情与管理状态转换
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-009
 - **Source**: 09-task-schedule.backend.design.md#API-06 Internal Schedule 列表, 09-task-schedule.backend.design.md#API-08 Internal 删除 Schedule, 09-task-schedule.backend.design.md#API-14 暂停 Schedule（Console）, 09-task-schedule.backend.design.md#API-15 恢复 Schedule（Console）
 - **Spec-Refs**: 
 - **Acceptance-Refs**: B-110
-- **Files**: `apps/agent-worker/src/muad_agent_worker/scheduler/service.py`, `apps/agent-worker/src/muad_agent_worker/api/schedules.py`, `tests/agent_worker/test_schedule_queries_actions.py`
+- **Files**: `apps/agent-worker/src/muad_agent_worker/scheduler/service.py`, `apps/agent-worker/src/muad_agent_worker/api/schedules.py`, `tests/agent_worker/test_schedule_queries_actions.py`, `tests/agent_worker/test_scheduler.py`, `tests/agent_worker/test_api.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
@@ -675,27 +675,37 @@
 
 ### Checklist
 
-- [ ] [B-110][integration] 修改生产代码前先覆盖 HTTP→ScheduleService→PG CAS 并记录 RED：含 COMPLETED/MISSED 筛选；重复暂停/删除行为稳定；删除不影响已创建 Task；权限失败不改状态；COMPLETED/MISSED 终态拒绝暂停与恢复（REVISION_CONFLICT）；无误补发。
-- [ ] 实现：把裸数组改为分页封套，增加状态/Agent/用户过滤和详情；暂停/恢复 CAS、删除幂等，恢复按当前时间重算且不补发；COMPLETED/MISSED 为终态，暂停/恢复返回 REVISION_CONFLICT。
-- [ ] [B-110][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_schedule_queries_actions.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-110][integration] 修改生产代码前先覆盖 HTTP→ScheduleService→PG CAS 并记录 RED：含 COMPLETED/MISSED 筛选；重复暂停/删除行为稳定；删除不影响已创建 Task；权限失败不改状态；COMPLETED/MISSED 终态拒绝暂停与恢复（REVISION_CONFLICT）；无误补发。
+- [x] 实现：把裸数组改为分页封套，增加状态/Agent/用户过滤和详情；暂停/恢复 CAS、删除幂等，恢复按当前时间重算且不补发；COMPLETED/MISSED 为终态，暂停/恢复返回 REVISION_CONFLICT。
+- [x] [B-110][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_schedule_queries_actions.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-110 | integration | HTTP→ScheduleService→PG CAS | 含 COMPLETED/MISSED 筛选；重复暂停/删除行为稳定；删除不影响已创建 Task；权限失败不改状态；COMPLETED/MISSED 终态拒绝暂停与恢复（REVISION_CONFLICT）；无误补发 | tests/agent_worker/test_schedule_queries_actions.py / B-110（planned） | uv run pytest -q tests/agent_worker/test_schedule_queries_actions.py | planned |
+| B-110 | integration | HTTP→ScheduleService→PG CAS | 含 COMPLETED/MISSED 筛选；重复暂停/删除行为稳定；删除不影响已创建 Task；权限失败不改状态；COMPLETED/MISSED 终态拒绝暂停与恢复（REVISION_CONFLICT）；无误补发 | tests/agent_worker/test_schedule_queries_actions.py / B-110（verified） | uv run pytest -q tests/agent_worker/test_schedule_queries_actions.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-110 | FAIL: 8 failed / 2 passed —— 列表返回**裸数组**（违反 RULE-api-001，前端 Page 会解析成 undefined）；无 status/agent_id 过滤；无分页；`GET /internal/schedules/{id}` 详情路由不存在（404）；已 PAUSED 再暂停抛 `REVISION_CONFLICT`；恢复不重算 `next_fire_at`；重复删除返回 404 | PASS: 10 passed；全量 `uv run pytest -q tests` 1033 passed；`ruff check` 全绿 | `tests/agent_worker/test_schedule_queries_actions.py`：`test_list_returns_pagination_envelope`、`test_list_filters_by_status_including_terminal`、`test_list_filters_by_agent_id`、`test_list_paginates`（101→422）、`test_detail_returns_schedule_and_is_tenant_isolated`、`test_repeated_pause_is_idempotent`、`test_terminal_schedule_rejects_pause_and_resume`、`test_resume_recomputes_next_fire_at_without_backfill`、`test_repeated_delete_is_idempotent`、`test_delete_does_not_remove_existing_tasks` | 真实 ASGI HTTP → ScheduleService → 真实 PostgreSQL CAS | verified |
+
+> 实测 2/10 断言本就通过（COMPLETED/MISSED 终态拒绝启停由 `_transition` 的期望状态天然满足；删除不影响已创建 Task），未改动。
+>
+> 连带修正 4 处既有用例，它们把**旧行为当成预期**：列表裸数组（`test_api.py` 两处 + 违反 RULE-api-001 的正是它）、已 PAUSED 再暂停抛冲突（设计 API-14 要求幂等）、`list_schedules` 返回 list（现为 `(items, total)`）。
+>
+> 另一处：`delete_schedule` 原先复用 `get_schedule`，导致已软删的记录取不到而抛 404；改为直接按 id+tenant 查（含已删除），未知 id 仍 404，已删除幂等返回。
+- B-110: verified — automated command passed; run_id=44814eab195b4fcebb6397bc4b4b6ed3 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-22] started
+- [2026-09-22] completed (done)
 ## TASK-011: 加固 claim、heartbeat 和 reclaim 租约
 
 - **Status**: draft

@@ -4,8 +4,8 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
-from muad_api import ApiResponse, ok
-from muad_contracts import CreateScheduleRequest, UpdateScheduleRequest
+from muad_api import ApiResponse, ok, paginate
+from muad_contracts import CreateScheduleRequest, ScheduleStatus, UpdateScheduleRequest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -124,12 +124,39 @@ async def list_schedules(
     tenant_id: TenantId,
     session: Session,
     actor_user_id: Annotated[uuid.UUID | None, Query()] = None,
+    agent_id: Annotated[uuid.UUID | None, Query()] = None,
+    status: Annotated[ScheduleStatus | None, Query()] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ApiResponse[Any]:
-    schedules = await ScheduleService(session).list_schedules(
+    items, total = await ScheduleService(session).list_schedules(
         tenant_id,
         actor_user_id=actor_user_id,
+        agent_id=agent_id,
+        status=status,
+        page=page,
+        page_size=page_size,
     )
-    return ok(request.app.state.message_catalog, [_payload(schedule) for schedule in schedules])
+    return ok(
+        request.app.state.message_catalog,
+        paginate(
+            items=[_payload(schedule) for schedule in items],
+            page=page,
+            page_size=page_size,
+            total=total,
+        ),
+    )
+
+
+@router.get("/{schedule_id}")
+async def get_schedule(
+    schedule_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    schedule = await ScheduleService(session).get_schedule(tenant_id, schedule_id)
+    return ok(request.app.state.message_catalog, _payload(schedule))
 
 
 @router.put("/{schedule_id}/pause")

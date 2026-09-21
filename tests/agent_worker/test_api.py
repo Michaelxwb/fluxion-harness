@@ -77,7 +77,7 @@ async def test_schedule_api_lifecycle(client: AsyncClient, tenant: TenantContext
         headers=_headers(tenant),
     )
     assert listing.status_code == 200
-    assert [item["schedule_id"] for item in listing.json()["data"]] == [schedule_id]
+    assert [item["schedule_id"] for item in listing.json()["data"]["items"]] == [schedule_id]
 
     paused = await client.put(
         f"/internal/schedules/{schedule_id}/pause",
@@ -98,4 +98,5 @@ async def test_schedule_api_lifecycle(client: AsyncClient, tenant: TenantContext
     assert deleted.json()["data"] == {"deleted": True}
 
     empty = await client.get("/internal/schedules", headers=_headers(tenant))
-    assert empty.json()["data"] == []
+    assert empty.json()["data"]["items"] == []
+    assert empty.json()["data"]["total"] == 0

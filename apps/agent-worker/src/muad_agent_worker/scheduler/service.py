@@ -23,7 +23,7 @@ from muad_contracts import (
     TriggerType,
     UpdateScheduleRequest,
 )
-from sqlalchemy import false, select, update
+from sqlalchemy import false, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -171,26 +171,46 @@ class ScheduleService:
         tenant_id: str,
         *,
         actor_user_id: uuid.UUID | None = None,
-    ) -> list[TaskSchedule]:
+        agent_id: uuid.UUID | None = None,
+        status: ScheduleStatus | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[TaskSchedule], int]:
         conditions: list[Any] = [
             TaskSchedule.tenant_id == tenant_id,
             TaskSchedule.is_deleted.is_(False),
         ]
         if actor_user_id is not None:
             conditions.append(TaskSchedule.actor_user_id == actor_user_id)
-        return list(
+        if agent_id is not None:
+            conditions.append(TaskSchedule.agent_id == agent_id)
+        if status is not None:
+            conditions.append(TaskSchedule.status == str(status))
+        items = (
             (
                 await self._session.execute(
                     select(TaskSchedule)
                     .where(*conditions)
                     .order_by(TaskSchedule.create_time.desc())
+                    .limit(page_size)
+                    .offset((page - 1) * page_size)
                 )
             )
             .scalars()
             .all()
         )
+        total = (
+            await self._session.execute(
+                select(func.count()).select_from(TaskSchedule).where(*conditions)
+            )
+        ).scalar_one()
+        return list(items), int(total)
 
     async def pause_schedule(self, tenant_id: str, schedule_id: uuid.UUID) -> TaskSchedule:
+        schedule = await self.get_schedule(tenant_id, schedule_id)
+        if schedule.status == str(ScheduleStatus.PAUSED):
+            # 已暂停：幂等返回，不报冲突（终态仍由 _transition 拒绝）。
+            return schedule
         return await self._transition(
             tenant_id,
             schedule_id,
@@ -199,15 +219,41 @@ class ScheduleService:
         )
 
     async def resume_schedule(self, tenant_id: str, schedule_id: uuid.UUID) -> TaskSchedule:
-        return await self._transition(
+        schedule = await self._transition(
             tenant_id,
             schedule_id,
             expected=ScheduleStatus.PAUSED,
             target=ScheduleStatus.ACTIVE,
         )
+        # 按当前时间重算：错过的触发按 SKIP 不补发，next_fire_at 不得落在过去。
+        now = datetime.now(UTC)
+        schedule.next_fire_at = compute_next_fire_at(
+            ScheduleSpec(
+                type=schedule.schedule_type,
+                cron=schedule.cron_expr,
+                run_at=schedule.run_at,
+                timezone=schedule.timezone,
+            ),
+            now,
+        )
+        schedule.update_time = now
+        await self._session.flush()
+        return schedule
 
     async def delete_schedule(self, tenant_id: str, schedule_id: uuid.UUID) -> None:
-        schedule = await self.get_schedule(tenant_id, schedule_id)
+        """软删除；已删除再次调用幂等成功，未知 id 仍为 404。"""
+        schedule = (
+            await self._session.execute(
+                select(TaskSchedule).where(
+                    TaskSchedule.id == schedule_id,
+                    TaskSchedule.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if schedule is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        if schedule.is_deleted:
+            return
         schedule.is_deleted = True
         schedule.update_time = datetime.now(UTC)
         await self._session.flush()

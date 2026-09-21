@@ -741,7 +741,7 @@
       "kind": "functional",
       "boundary": "HTTP→ScheduleService→PG CAS",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -751,7 +751,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-110",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "44814eab195b4fcebb6397bc4b4b6ed3",
+        "executed_at": "2026-09-21T16:48:48.229872+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-110",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "44814eab195b4fcebb6397bc4b4b6ed3",
+          "executed_at": "2026-09-21T16:48:48.229872+00:00"
+        }
+      ]
     },
     {
       "id": "B-111",
