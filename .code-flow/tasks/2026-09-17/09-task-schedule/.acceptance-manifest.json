@@ -661,7 +661,7 @@
       "kind": "functional",
       "boundary": "真实 Worker HTTP→PG Task/Event/children",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -671,7 +671,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-108",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "9f9301147a834c5ab788f96b9d2962f6",
+        "executed_at": "2026-09-21T16:25:41.808856+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-108",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "9f9301147a834c5ab788f96b9d2962f6",
+          "executed_at": "2026-09-21T16:25:41.808856+00:00"
+        }
+      ]
     },
     {
       "id": "B-109",

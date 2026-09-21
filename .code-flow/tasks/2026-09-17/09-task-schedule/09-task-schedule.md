@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-09-17/09-task-schedule/（合并前后端 design）
 - **Created**: 2026-09-20
-- **Updated**: 2026-09-21
+- **Updated**: 2026-09-22
 - **Plan-State**: plan-bound（Design Gate pass / Plan Gate pass，2026-09-21；N-01..N-06 已闭合，见 Design Corrections）
 
 ## Proposal
@@ -113,7 +113,7 @@
 | B-105 | 09-task-schedule.backend.design.md#3.3.2 `task.delivery_route` | integration | 真实 PG delivery_route partial unique | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_delivery_routes.py"] | . | 600 | |
 | B-106 | 09-task-schedule.backend.design.md#3.4 接口设计 | integration | 真实 HTTP handler→PG 幂等记录/事务 | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_submission_idempotency.py"] | . | 600 | |
 | B-107 | 09-task-schedule.backend.design.md#API-01 Internal 创建 Task | integration | Worker Task HTTP→PG Task/Submission/Event | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_service.py"] | . | 600 | |
-| B-108 | 09-task-schedule.backend.design.md#API-03 Internal Task 列表 | integration | 真实 Worker HTTP→PG Task/Event/children | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_queries.py"] | . | 600 | |
+| B-108 | 09-task-schedule.backend.design.md#API-03 Internal Task 列表 | integration | 真实 Worker HTTP→PG Task/Event/children | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_queries.py"] | . | 600 | |
 | B-109 | 09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule | integration | Schedule HTTP→PG→真实时区计算 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_writes.py"] | . | 600 | |
 | B-110 | 09-task-schedule.backend.design.md#API-06 Internal Schedule 列表 | integration | HTTP→ScheduleService→PG CAS | TASK-010 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_queries_actions.py"] | . | 600 | |
 | B-111 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 双 Worker→真实 PG 行锁/CAS | TASK-011 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_worker_leases.py"] | . | 600 | |
@@ -562,7 +562,7 @@
 - [2026-09-21] completed (done)
 ## TASK-008: 补齐任务列表、详情与 Timeline 查询
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004
 - **Source**: 09-task-schedule.backend.design.md#API-03 Internal Task 列表, 09-task-schedule.backend.design.md#API-04 Internal Task 详情
@@ -577,27 +577,37 @@
 
 ### Checklist
 
-- [ ] [B-108][integration] 修改生产代码前先覆盖 真实 Worker HTTP→PG Task/Event/children 并记录 RED：租户隔离且不存在 404；schedule_id 精确过滤；start_time/end_time 作用于 create_time、deadline_from/deadline_to 作用于 deadline_at（UTC、含端点）且不混用；seq 升序；page_size≤100；响应无秘密。
-- [ ] 实现：补截止时间筛选、完整摘要/详情、Timeline、子任务与 Snapshot 摘要；分页和聚合查询使用有界 SQL，避免按行 N+1。
-- [ ] [B-108][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_task_queries.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-108][integration] 修改生产代码前先覆盖 真实 Worker HTTP→PG Task/Event/children 并记录 RED：租户隔离且不存在 404；schedule_id 精确过滤；start_time/end_time 作用于 create_time、deadline_from/deadline_to 作用于 deadline_at（UTC、含端点）且不混用；seq 升序；page_size≤100；响应无秘密。
+- [x] 实现：补截止时间筛选、完整摘要/详情、Timeline、子任务与 Snapshot 摘要；分页和聚合查询使用有界 SQL，避免按行 N+1。
+- [x] [B-108][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_task_queries.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-108 | integration | 真实 Worker HTTP→PG Task/Event/children | 租户隔离且不存在 404；schedule_id 精确过滤；start_time/end_time 作用于 create_time、deadline_from/deadline_to 作用于 deadline_at（UTC、含端点）且不混用；seq 升序；page_size≤100；响应无秘密 | tests/agent_worker/test_task_queries.py / B-108（planned） | uv run pytest -q tests/agent_worker/test_task_queries.py | planned |
+| B-108 | integration | 真实 Worker HTTP→PG Task/Event/children | 租户隔离且不存在 404；schedule_id 精确过滤；start_time/end_time 作用于 create_time、deadline_from/deadline_to 作用于 deadline_at（UTC、含端点）且不混用；seq 升序；page_size≤100；响应无秘密 | tests/agent_worker/test_task_queries.py / B-108（verified） | uv run pytest -q tests/agent_worker/test_task_queries.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-108 | FAIL: 4 failed / 5 passed —— 详情没有 timeline / children / snapshot；`deadline_from`/`deadline_to` 未实现（参数被静默忽略，返回全部任务） | PASS: 9 passed；全量 `uv run pytest -q tests` 1012 passed；`ruff check` 全绿 | `tests/agent_worker/test_task_queries.py`：`test_detail_includes_timeline_in_seq_order`（seq 1..4 升序）、`test_detail_includes_children_and_snapshot`、`test_detail_is_tenant_isolated`、`test_unknown_task_detail_returns_404`、`test_list_filters_by_schedule_id`、`test_deadline_filter_is_independent_from_create_time`、`test_deadline_filter_includes_endpoints`、`test_page_size_above_100_is_rejected`（101→422、100→200）、`test_responses_carry_no_secrets` | 真实 ASGI HTTP → 真实 PostgreSQL；详情用三条有界查询（本体/Timeline/子任务），无按行 N+1 | verified |
+
+> 实测 4/9 断言 RED。租户隔离 404、`schedule_id` 过滤、`page_size` 上限、响应无秘密这 4 项经真实边界验证**本就正确，未改动**；缺口是详情完全没有 Timeline/子任务/快照，以及 deadline 筛选未实现（`deadline_at` 列早已存在，只是没有查询条件）。
+>
+> 自带修正：`test_deadline_filter_includes_endpoints` 初版在「参数被忽略、返回全部任务」时也会通过（库里只有 1 条），属恒真断言；已补一条应被排除的任务，使其成为真断言。
+>
+> 另：`schedule_id` 有真实外键，测试必须创建真实 Schedule 才能挂 Task（初版用随机 UUID 触发 FK 违例，属测试自身缺陷）。
+- B-108: verified — automated command passed; run_id=9f9301147a834c5ab788f96b9d2962f6 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-22] started
+- [2026-09-22] completed (done)
 ## TASK-009: 完善 Schedule 创建、更新与时区计算
 
 - **Status**: draft

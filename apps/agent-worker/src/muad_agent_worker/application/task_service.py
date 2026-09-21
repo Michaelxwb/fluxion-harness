@@ -19,7 +19,7 @@ from sqlalchemy import CursorResult, false, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.models.task import TaskExecution
+from ..infrastructure.models.task import TaskEvent, TaskExecution
 from .delivery_routes import upsert_delivery_route
 from .task_events import TaskEventType, append_event
 
@@ -150,6 +150,42 @@ class TaskService:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return task
 
+    async def detail(
+        self, tenant_id: str, task_id: uuid.UUID
+    ) -> tuple[TaskExecution, list[TaskEvent], list[TaskExecution]]:
+        """任务详情：本体 + Timeline（seq 升序）+ 直接子任务。
+
+        三条有界查询而不是按行展开，避免列表/详情出现 N+1。
+        """
+        task = await self.get(tenant_id, task_id)
+        events = (
+            (
+                await self._session.execute(
+                    select(TaskEvent)
+                    .where(TaskEvent.task_id == task.id, TaskEvent.is_deleted.is_(False))
+                    .order_by(TaskEvent.seq.asc())
+                )
+            )
+            .scalars()
+            .all()
+        )
+        children = (
+            (
+                await self._session.execute(
+                    select(TaskExecution)
+                    .where(
+                        TaskExecution.parent_id == task.id,
+                        TaskExecution.tenant_id == tenant_id,
+                        TaskExecution.is_deleted.is_(False),
+                    )
+                    .order_by(TaskExecution.create_time.asc())
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return task, list(events), list(children)
+
     async def list(
         self,
         tenant_id: str,
@@ -161,6 +197,8 @@ class TaskService:
         schedule_id: uuid.UUID | None = None,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
+        deadline_from: datetime | None = None,
+        deadline_to: datetime | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[TaskExecution], int]:
@@ -182,6 +220,10 @@ class TaskService:
             conditions.append(TaskExecution.create_time >= start_time)
         if end_time is not None:
             conditions.append(TaskExecution.create_time <= end_time)
+        if deadline_from is not None:
+            conditions.append(TaskExecution.deadline_at >= deadline_from)
+        if deadline_to is not None:
+            conditions.append(TaskExecution.deadline_at <= deadline_to)
         items = (
             (
                 await self._session.execute(

@@ -20,7 +20,7 @@ from ..application.submissions import (
 )
 from ..application.task_service import TaskService
 from ..infrastructure.db import get_session
-from ..infrastructure.models.task import TaskExecution
+from ..infrastructure.models.task import TaskEvent, TaskExecution
 from .deps import ensure_tenant_consistent, get_tenant_id
 
 router = APIRouter(prefix="/internal/tasks", tags=["tasks"])
@@ -69,6 +69,25 @@ def _payload(task: TaskExecution) -> dict[str, Any]:
         "update_time": task.update_time.isoformat(),
         "started_at": task.started_at.isoformat() if task.started_at else None,
         "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+    }
+
+
+def _event_payload(event: TaskEvent) -> dict[str, Any]:
+    return {
+        "seq": event.seq,
+        "event_type": event.event_type,
+        "payload": event.payload_json,
+        "trace_id": event.trace_id,
+        "create_time": event.create_time.isoformat(),
+    }
+
+
+def _child_payload(task: TaskExecution) -> dict[str, Any]:
+    return {
+        "task_id": str(task.id),
+        "status": task.status,
+        "item_key": task.item_key,
+        "create_time": task.create_time.isoformat(),
     }
 
 
@@ -136,6 +155,8 @@ async def list_tasks(
     schedule_id: Annotated[uuid.UUID | None, Query()] = None,
     start_time: Annotated[datetime | None, Query()] = None,
     end_time: Annotated[datetime | None, Query()] = None,
+    deadline_from: Annotated[datetime | None, Query()] = None,
+    deadline_to: Annotated[datetime | None, Query()] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ApiResponse[Any]:
@@ -148,6 +169,8 @@ async def list_tasks(
         schedule_id=schedule_id,
         start_time=start_time,
         end_time=end_time,
+        deadline_from=deadline_from,
+        deadline_to=deadline_to,
         page=page,
         page_size=page_size,
     )
@@ -169,8 +192,14 @@ async def get_task(
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
-    task = await TaskService(session).get(tenant_id, task_id)
-    return ok(request.app.state.message_catalog, _payload(task))
+    task, events, children = await TaskService(session).detail(tenant_id, task_id)
+    payload = _payload(task)
+    payload["execution_snapshot"] = task.execution_snapshot_json
+    payload["execution_snapshot_schema_version"] = task.execution_snapshot_schema_version
+    payload["snapshot_hash"] = task.snapshot_hash
+    payload["timeline"] = [_event_payload(event) for event in events]
+    payload["children"] = [_child_payload(child) for child in children]
+    return ok(request.app.state.message_catalog, payload)
 
 
 @router.post("/{task_id}/cancel")
