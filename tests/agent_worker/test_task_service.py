@@ -7,7 +7,7 @@ import pytest
 from conftest import TenantContext
 from helpers import create_task_payload, fetch_events, fetch_task, persist_task, sample_route
 from httpx import AsyncClient
-from muad_agent_worker.application.task_service import CANCEL_PENDING_STATUS, TaskService
+from muad_agent_worker.application.task_service import TaskService
 from muad_agent_worker.infrastructure.models.task import DeliveryRoute, TaskExecution
 from muad_agent_worker.main import app
 from muad_api import AppError
@@ -97,7 +97,7 @@ async def test_cancel_queued_task(tenant: TenantContext) -> None:
     async with tenant.session_factory() as session:
         service = TaskService(session, tenant.settings)
         task = await service.create(payload)
-        status = await service.cancel(tenant.tenant_id, task.id)
+        status, _cancel_requested = await service.cancel(tenant.tenant_id, task.id)
         await session.commit()
     assert status == "CANCELLED"
     refreshed = await fetch_task(tenant, task.id)
@@ -109,7 +109,7 @@ async def test_cancel_queued_task(tenant: TenantContext) -> None:
 
     async with tenant.session_factory() as session:
         service = TaskService(session, tenant.settings)
-        repeated = await service.cancel(tenant.tenant_id, task.id)
+        repeated, _ = await service.cancel(tenant.tenant_id, task.id)
         await session.commit()
     assert repeated == "CANCELLED"
     events = await fetch_events(tenant, task.id)
@@ -126,9 +126,10 @@ async def test_cancel_running_task_is_cooperative(tenant: TenantContext) -> None
     )
     async with tenant.session_factory() as session:
         service = TaskService(session, tenant.settings)
-        status = await service.cancel(tenant.tenant_id, task.id)
+        status, cancel_requested = await service.cancel(tenant.tenant_id, task.id)
         await session.commit()
-    assert status == CANCEL_PENDING_STATUS
+    assert status == "RUNNING"
+    assert cancel_requested is True
     refreshed = await fetch_task(tenant, task.id)
     assert refreshed.status == "RUNNING"
     assert refreshed.cancel_requested is True
@@ -136,13 +137,14 @@ async def test_cancel_running_task_is_cooperative(tenant: TenantContext) -> None
     assert [event.event_type for event in events] == ["CANCEL_REQUESTED"]
 
 
-async def test_cancel_terminal_task_is_noop(tenant: TenantContext) -> None:
+async def test_cancel_terminal_task_conflicts(tenant: TenantContext) -> None:
+    """终态取消返回 REVISION_CONFLICT，不再静默返回当前状态。"""
     task = await persist_task(tenant, status="COMPLETED", finished_at=datetime.now(UTC))
     async with tenant.session_factory() as session:
         service = TaskService(session, tenant.settings)
-        status = await service.cancel(tenant.tenant_id, task.id)
-        await session.commit()
-    assert status == "COMPLETED"
+        with pytest.raises(AppError) as exc_info:
+            await service.cancel(tenant.tenant_id, task.id)
+    assert exc_info.value.code == "REVISION_CONFLICT"
     assert await fetch_events(tenant, task.id) == []
 
 

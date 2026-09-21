@@ -23,7 +23,6 @@ from ..infrastructure.models.task import TaskEvent, TaskExecution
 from .delivery_routes import upsert_delivery_route
 from .task_events import TaskEventType, append_event
 
-CANCEL_PENDING_STATUS = "CANCELLING"
 INITIAL_PRIORITY = 100
 EXECUTION_MODE_ASYNC = "ASYNC"
 TASK_TYPE_SKILL = "SKILL"
@@ -244,10 +243,18 @@ class TaskService:
         ).scalar_one()
         return list(items), int(total)
 
-    async def cancel(self, tenant_id: str, task_id: uuid.UUID) -> str:
+    async def cancel(self, tenant_id: str, task_id: uuid.UUID) -> tuple[str, bool]:
+        """返回 `(status, cancel_requested)`。
+
+        `QUEUED/WAITING` 直接 CAS 置 `CANCELLED`；`RUNNING` 只打取消标记、响应保持
+        `RUNNING` 由 Worker 在检查点协作停止；已 `CANCELLED` 幂等；`COMPLETED/FAILED`
+        等其它终态返回 `REVISION_CONFLICT`。取消状态不含 `CANCELLING`。
+        """
         task = await self.get(tenant_id, task_id)
+        if task.status == str(TaskStatus.CANCELLED):
+            return str(TaskStatus.CANCELLED), bool(task.cancel_requested)
         if task.status in TERMINAL_STATUSES:
-            return task.status
+            raise AppError(ErrorCode.REVISION_CONFLICT)
         now = datetime.now(UTC)
         if task.status in CANCELABLE_STATUSES:
             rowcount = await self._cas_status(
@@ -258,6 +265,8 @@ class TaskService:
                     "status": str(TaskStatus.CANCELLED),
                     "cancel_requested": True,
                     "finished_at": now,
+                    "lease_owner": None,
+                    "lease_until": None,
                     "update_time": now,
                 },
             )
@@ -268,9 +277,9 @@ class TaskService:
                     task_id=task_id,
                     event_type=TaskEventType.CANCELLED,
                 )
-                return str(TaskStatus.CANCELLED)
+                return str(TaskStatus.CANCELLED), True
             refreshed = await self.get(tenant_id, task_id)
-            return refreshed.status
+            return refreshed.status, bool(refreshed.cancel_requested)
         if task.status == str(TaskStatus.RUNNING):
             rowcount = await self._cas_status(
                 tenant_id,
@@ -285,8 +294,8 @@ class TaskService:
                     task_id=task_id,
                     event_type=TaskEventType.CANCEL_REQUESTED,
                 )
-            return CANCEL_PENDING_STATUS
-        return task.status
+            return str(TaskStatus.RUNNING), True
+        return task.status, bool(task.cancel_requested)
 
     async def _cas_status(
         self,

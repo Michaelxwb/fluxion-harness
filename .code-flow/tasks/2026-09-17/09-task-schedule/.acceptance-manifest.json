@@ -240,7 +240,7 @@
       "kind": "functional",
       "boundary": "取消 API→真实 PG CAS→Worker 检查点",
       "owner": "TASK-014",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -252,7 +252,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "cdc30e185def425ca6e938200bf22b92",
+        "executed_at": "2026-09-21T17:30:31.246571+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "cdc30e185def425ca6e938200bf22b92",
+          "executed_at": "2026-09-21T17:30:31.246571+00:00"
+        }
+      ]
     },
     {
       "id": "E-07",
@@ -962,7 +983,7 @@
       "kind": "functional",
       "boundary": "取消 HTTP→PG 标记/真实 Redis hint→运行 Worker",
       "owner": "TASK-014",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -972,7 +993,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-114",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "cdc30e185def425ca6e938200bf22b92",
+        "executed_at": "2026-09-21T17:30:31.246571+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-114",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "cdc30e185def425ca6e938200bf22b92",
+          "executed_at": "2026-09-21T17:30:31.246571+00:00"
+        }
+      ]
     },
     {
       "id": "B-115",

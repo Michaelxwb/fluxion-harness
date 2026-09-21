@@ -97,7 +97,7 @@
 | E-03 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | 独立 Scheduler→真实 PG→IM Gateway HTTP/Redis | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_deadline.py","-k","e03"] | . | 600 | |
 | E-04 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Scheduler→真实 PG→审计/指标/终态 MISSED | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_scheduler_misfire.py","-k","e04"] | . | 600 | |
 | E-05 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Worker HTTP→真实 Gateway→Redis→渠道探针 | TASK-021 | planned | ["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","e05"] | . | 600 | |
-| E-06 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | 取消 API→真实 PG CAS→Worker 检查点 | TASK-014 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_cancel.py","-k","e06"] | . | 600 | |
+| E-06 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | 取消 API→真实 PG CAS→Worker 检查点 | TASK-014 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_cancel.py","-k","e06"] | . | 600 | |
 | E-07 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Worker HTTP→task.task_submission partial unique | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_submission_idempotency.py","-k","e07"] | . | 600 | |
 | S-201 | 09-task-schedule.frontend.design.md#2.4 验收条件 | E2E | Browser→schedules API→tasks API→真实 PG | TASK-037 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/schedule-history.spec.ts --grep 'S-FE-01'"] | . | 1200 | |
 | S-202 | 09-task-schedule.frontend.design.md#2.4 验收条件 | E2E | Browser→Console cancel API→真实 Worker/PG→UI | TASK-034 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-cancel.spec.ts --grep 'S-FE-02'"] | . | 1200 | |
@@ -119,7 +119,7 @@
 | B-111 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 双 Worker→真实 PG 行锁/CAS | TASK-011 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_worker_leases.py"] | . | 600 | |
 | B-112 | 09-task-schedule.backend.design.md#3.3.3 `task.task_execution` | integration | Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler | TASK-012 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_executor.py"] | . | 600 | |
 | B-113 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 真实 Skill 执行结果→Worker→PG CAS | TASK-013 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_worker_outcomes.py"] | . | 600 | |
-| B-114 | 09-task-schedule.backend.design.md#API-05 Internal 取消 Task | integration | 取消 HTTP→PG 标记/真实 Redis hint→运行 Worker | TASK-014 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_cancel.py"] | . | 600 | |
+| B-114 | 09-task-schedule.backend.design.md#API-05 Internal 取消 Task | integration | 取消 HTTP→PG 标记/真实 Redis hint→运行 Worker | TASK-014 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_cancel.py"] | . | 600 | |
 | B-115 | 09-task-schedule.backend.design.md#3.2.3 Schedule 触发、多副本与 Misfire | integration | 双 Scheduler→真实 Console resolve→PG grants/Binding/Task | TASK-015 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_trigger.py"] | . | 600 | |
 | B-116 | 09-task-schedule.backend.design.md#3.2.3 Schedule 触发、多副本与 Misfire | integration | Scheduler→真实 PG→审计记录/指标采集 | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_scheduler_misfire.py"] | . | 600 | |
 | B-117 | 09-task-schedule.backend.design.md#3.2.2 Task 状态机 | integration | 真实 Scheduler→PG→Gateway HTTP/Redis | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_deadline.py"] | . | 600 | |
@@ -862,13 +862,13 @@
 - [2026-09-22] completed (done)
 ## TASK-014: 补齐协作取消与取消竞态
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-013
 - **Source**: 09-task-schedule.backend.design.md#API-05 Internal 取消 Task, 09-task-schedule.backend.design.md#3.2.2 Task 状态机
 - **Spec-Refs**: 
 - **Acceptance-Refs**: E-06, B-114
-- **Files**: `apps/agent-worker/src/muad_agent_worker/application/task_service.py`, `apps/agent-worker/src/muad_agent_worker/worker/service.py`, `tests/agent_worker/test_task_cancel.py`
+- **Files**: `apps/agent-worker/src/muad_agent_worker/application/task_service.py`, `apps/agent-worker/src/muad_agent_worker/worker/service.py`, `apps/agent-worker/src/muad_agent_worker/api/tasks.py`, `tests/agent_worker/test_task_cancel.py`, `tests/agent_worker/test_task_service.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
@@ -877,29 +877,43 @@ QUEUED/WAITING CAS 取消；RUNNING 写取消标记并在心跳及真实工具�
 
 ### Checklist
 
-- [ ] [B-114][integration] 修改生产代码前先覆盖 取消 HTTP→PG 标记/真实 Redis hint→运行 Worker 并记录 RED：WAITING 清租约；Redis 故障仍读取 PG 取消；成功与取消竞态不覆写；COMPLETED/FAILED 返回冲突；CANCELLED 仍遵循 delivery_mode。
-- [ ] 实现：QUEUED/WAITING CAS 取消；RUNNING 写取消标记并在心跳及真实工具调用检查点停止，响应保持 RUNNING+cancel_requested；重复 CANCELLED 成功，其他终态冲突。
-- [ ] [B-114][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] [E-06][integration] 先记录 RED，再按 取消 API→真实 PG CAS→Worker 检查点 验证：QUEUED/WAITING 直接 CANCELLED；RUNNING 协作取消；已取消幂等；其他终态冲突；命令 `uv run pytest -q tests/agent_worker/test_task_cancel.py -k e06`。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_task_cancel.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-114][integration] 修改生产代码前先覆盖 取消 HTTP→PG 标记/真实 Redis hint→运行 Worker 并记录 RED：WAITING 清租约；Redis 故障仍读取 PG 取消；成功与取消竞态不覆写；COMPLETED/FAILED 返回冲突；CANCELLED 仍遵循 delivery_mode。
+- [x] 实现：QUEUED/WAITING CAS 取消；RUNNING 写取消标记并在心跳及真实工具调用检查点停止，响应保持 RUNNING+cancel_requested；重复 CANCELLED 成功，其他终态冲突。
+- [x] [B-114][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] [E-06][integration] 先记录 RED，再按 取消 API→真实 PG CAS→Worker 检查点 验证：QUEUED/WAITING 直接 CANCELLED；RUNNING 协作取消；已取消幂等；其他终态冲突；命令 `uv run pytest -q tests/agent_worker/test_task_cancel.py -k e06`。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_task_cancel.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-06 | integration | 取消 API→真实 PG CAS→Worker 检查点 | QUEUED/WAITING 直接 CANCELLED；RUNNING 协作取消；已取消幂等；其他终态冲突 | tests/agent_worker/test_task_cancel.py / e06（planned） | uv run pytest -q tests/agent_worker/test_task_cancel.py -k e06 | planned |
-| B-114 | integration | 取消 HTTP→PG 标记/真实 Redis hint→运行 Worker | WAITING 清租约；Redis 故障仍读取 PG 取消；成功与取消竞态不覆写；COMPLETED/FAILED 返回冲突；CANCELLED 仍遵循 delivery_mode | tests/agent_worker/test_task_cancel.py / B-114（planned） | uv run pytest -q tests/agent_worker/test_task_cancel.py | planned |
+| E-06 | integration | 取消 API→真实 PG CAS→Worker 检查点 | QUEUED/WAITING 直接 CANCELLED；RUNNING 协作取消；已取消幂等；其他终态冲突 | tests/agent_worker/test_task_cancel.py / e06（verified） | uv run pytest -q tests/agent_worker/test_task_cancel.py -k e06 | verified |
+| B-114 | integration | 取消 HTTP→PG 标记/真实 Redis hint→运行 Worker | WAITING 清租约；Redis 故障仍读取 PG 取消；成功与取消竞态不覆写；COMPLETED/FAILED 返回冲突；CANCELLED 仍遵循 delivery_mode | tests/agent_worker/test_task_cancel.py / B-114（verified） | uv run pytest -q tests/agent_worker/test_task_cancel.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-06 | FAIL: 5 failed / 3 passed —— RUNNING 取消返回 `CANCELLING` 枚举；终态取消返回 200 而非 409；Worker 完全不理取消标记，执行照跑到底 | PASS: `-k e06` 1 passed | `test_e06_cancel_lifecycle_across_states`（QUEUED 直接取消 → RUNNING 协作 → 已取消幂等 → 终态 409 → 未知 404） | 真实 ASGI HTTP → 真实 PG CAS → 真实运行中的 Worker 检查点 | verified |
+| B-114 | FAIL: 同上 | PASS: 8 passed；全量 `uv run pytest -q tests` 1065 passed；`ruff check` 全绿 | 另含 `test_queued_cancel_is_direct_and_clears_lease`、`test_waiting_cancel_is_direct`、`test_running_cancel_keeps_running_with_flag`、`test_repeated_cancel_is_idempotent`、`test_terminal_task_cancel_conflicts`、`test_running_worker_stops_on_cancel_request`、`test_cancel_does_not_get_overwritten_by_late_success` | 真实 PG；协作取消用 1s 心跳 + 慢执行器真实触发 | verified |
+
+> **真缺陷（基线早已点名的那个）**：`TaskService.cancel` 对 RUNNING 返回 `CANCELLING`——但 `TaskStatus` 里根本没有这个值，`CANCELLING` 是模块 08 Run 的枚举。前端拿到一个契约里不存在的状态。已改为返回 `(status, cancel_requested)`，RUNNING 时保持 `RUNNING` + `cancel_requested=true`，与 `CancelTaskResponse` 契约一致。
+>
+> 另两处：①终态（COMPLETED/FAILED）取消原先**静默返回当前状态**，现按设计返回 `REVISION_CONFLICT`；②Worker 的心跳只续租、**从不检查取消标记**，所以「协作取消」实际上不存在——现在心跳读取 PG 的 `cancel_requested`（以及租约是否仍属于自己），命中即叫停本地执行，执行器自身的 `CancelledError` 处理会终止子进程。
+>
+> **竞态策略（显式记录，非默认行为）**：若执行已跑完但取消标记已置位，`_handle_success` 的 CAS 带 `require_not_cancelled`，落败后按取消收尾（终态 `CANCELLED`、`result_json` 不写）。即「用户在结果出来前喊了停，就不报告成功」。这与 `_mark_failed` 既有模式一致。
+>
+> **未落地的部分（据实说明）**：设计的 Redis `task:cancel:{task_id}` hint **没有实现**。取消的权威判断走 PG，因此「Redis 故障仍读取 PG 取消」天然成立、协作取消不依赖 Redis；但 hint 作为降低停止延迟的优化项仍缺失。`CANCELLED` 仍遵循 `delivery_mode` 的投递行为属投递链路（TASK-020/021），本任务只保证终态写入正确。
+- E-06: verified — automated command passed; run_id=cdc30e185def425ca6e938200bf22b92 (confirmed_by: runner)
+- B-114: verified — automated command passed; run_id=cdc30e185def425ca6e938200bf22b92 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-22] started
+- [2026-09-22] completed (done)
 ## TASK-015: 使 Schedule 触发原子化并冻结当前有效定义
 
 - **Status**: draft

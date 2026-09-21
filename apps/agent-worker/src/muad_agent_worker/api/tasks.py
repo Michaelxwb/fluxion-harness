@@ -209,5 +209,8 @@ async def cancel_task(
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
-    status = await TaskService(session).cancel(tenant_id, task_id)
-    return ok(request.app.state.message_catalog, {"task_id": str(task_id), "status": status})
+    status, cancel_requested = await TaskService(session).cancel(tenant_id, task_id)
+    return ok(
+        request.app.state.message_catalog,
+        {"task_id": str(task_id), "status": status, "cancel_requested": cancel_requested},
+    )

@@ -10,7 +10,7 @@ from typing import Any, cast
 
 from muad_common import SharedSettings
 from muad_contracts import TaskStatus
-from sqlalchemy import CursorResult, update
+from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.task_events import TaskEventSeed, TaskEventType, append_events
@@ -82,11 +82,17 @@ class WorkerLoop:
         task = await self._claimer.claim_one(self._instance_id, now=now)
         if task is None:
             return None
-        heartbeat = asyncio.create_task(self._heartbeat(task.id))
+        cancelled = asyncio.Event()
+        execution = asyncio.create_task(self._resolve_executor().execute(task))
+        heartbeat = asyncio.create_task(self._heartbeat(task.id, execution, cancelled))
         try:
-            result = await self._resolve_executor().execute(task)
+            result = await execution
         except asyncio.CancelledError:
             await self._stop_heartbeat(heartbeat)
+            if cancelled.is_set():
+                # 心跳检查点发现取消/失约：executor 已终止子进程，按取消收尾。
+                await self._mark_cancelled_outcome(task, now=now)
+                return task.id
             raise
         except Exception as exc:
             await self._stop_heartbeat(heartbeat)
@@ -268,6 +274,7 @@ class WorkerLoop:
                         "update_time": moment,
                     },
                     moment=moment,
+                    require_not_cancelled=True,
                 )
                 if rowcount == 1:
                     await append_events(
@@ -281,6 +288,9 @@ class WorkerLoop:
                             )
                         ],
                     )
+                    return
+                # 已被请求取消：不覆写取消标记，按取消收尾（用户在结果出来前已经喊停）
+                await self._mark_cancelled(session, task, moment)
 
     async def _handle_failure(
         self,
@@ -438,13 +448,30 @@ class WorkerLoop:
         result = await session.execute(update(TaskExecution).where(*conditions).values(**values))
         return int(cast(CursorResult[Any], result).rowcount)
 
-    async def _heartbeat(self, task_id: uuid.UUID) -> None:
+    async def _mark_cancelled_outcome(self, task: TaskExecution, *, now: datetime | None) -> None:
+        moment = now or datetime.now(UTC)
+        async with self._session_factory() as session:
+            async with session.begin():
+                await self._mark_cancelled(session, task, moment)
+
+    async def _heartbeat(
+        self,
+        task_id: uuid.UUID,
+        execution: asyncio.Task[dict[str, Any]] | None = None,
+        cancelled: asyncio.Event | None = None,
+    ) -> None:
+        """续租并检查取消标记。
+
+        取消标记取自 PG（权威源），因此 Redis hint 不可用时协作取消照常生效。
+        一旦发现用户已请求取消、或租约已不属于本实例（被回收/已终态），
+        立即叫停本地执行——这就是「检查点停止」。
+        """
         while True:
             await asyncio.sleep(self._settings.task_heartbeat_sec)
             moment = datetime.now(UTC)
             async with self._session_factory() as session:
                 async with session.begin():
-                    await session.execute(
+                    rowcount = await session.execute(
                         update(TaskExecution)
                         .where(
                             TaskExecution.id == task_id,
@@ -458,6 +485,17 @@ class WorkerLoop:
                             update_time=moment,
                         )
                     )
+                    rowcount = int(cast(CursorResult[Any], rowcount).rowcount)
+                    requested = await session.scalar(
+                        select(TaskExecution.cancel_requested).where(TaskExecution.id == task_id)
+                    )
+            if execution is None:
+                continue
+            if requested or rowcount != 1:
+                if cancelled is not None:
+                    cancelled.set()
+                execution.cancel()
+                return
 
     async def _stop_heartbeat(self, heartbeat: asyncio.Task[None]) -> None:
         heartbeat.cancel()
