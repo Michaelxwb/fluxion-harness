@@ -15,10 +15,13 @@ from ..infrastructure.models.task import DeliveryRoute
 ROUTE_HASH_PREFIX = "sha256:"
 
 
-def canonical_route_tuple(tenant_id: str, route: DeliveryRouteInput) -> str:
+def canonical_route_tuple(
+    tenant_id: str, platform_user_id: uuid.UUID, route: DeliveryRouteInput
+) -> str:
     return json.dumps(
         {
             "tenant_id": tenant_id,
+            "platform_user_id": str(platform_user_id),
             "channel": route.channel,
             "bot_id": route.bot_id,
             "external_user_id": route.external_user_id,
@@ -30,8 +33,12 @@ def canonical_route_tuple(tenant_id: str, route: DeliveryRouteInput) -> str:
     )
 
 
-def compute_route_hash(tenant_id: str, route: DeliveryRouteInput) -> str:
-    digest = hashlib.sha256(canonical_route_tuple(tenant_id, route).encode("utf-8")).hexdigest()
+def compute_route_hash(
+    tenant_id: str, platform_user_id: uuid.UUID, route: DeliveryRouteInput
+) -> str:
+    digest = hashlib.sha256(
+        canonical_route_tuple(tenant_id, platform_user_id, route).encode("utf-8")
+    ).hexdigest()
     return f"{ROUTE_HASH_PREFIX}{digest}"
 
 
@@ -42,7 +49,7 @@ async def upsert_delivery_route(
     platform_user_id: uuid.UUID,
     route: DeliveryRouteInput,
 ) -> uuid.UUID:
-    digest = compute_route_hash(tenant_id, route)
+    digest = compute_route_hash(tenant_id, platform_user_id, route)
     statement = (
         pg_insert(DeliveryRoute)
         .values(

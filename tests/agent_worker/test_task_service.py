@@ -27,13 +27,18 @@ async def test_create_dedupes_by_idempotency_key(tenant: TenantContext) -> None:
 
 async def test_create_reuses_delivery_route(tenant: TenantContext) -> None:
     route = sample_route()
+    actor = uuid.uuid4()
     async with tenant.session_factory() as session:
         service = TaskService(session, tenant.settings)
         first = await service.create(
-            create_task_payload(tenant, idempotency_key="route-1", delivery_route=route)
+            create_task_payload(
+                tenant, idempotency_key="route-1", delivery_route=route, actor_user_id=actor
+            )
         )
         second = await service.create(
-            create_task_payload(tenant, idempotency_key="route-2", delivery_route=route)
+            create_task_payload(
+                tenant, idempotency_key="route-2", delivery_route=route, actor_user_id=actor
+            )
         )
         await session.commit()
     assert first.delivery_route_id == second.delivery_route_id

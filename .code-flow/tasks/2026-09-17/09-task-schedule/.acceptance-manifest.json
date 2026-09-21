@@ -520,7 +520,7 @@
       "kind": "functional",
       "boundary": "真实 PG delivery_route partial unique",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -530,7 +530,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-105",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "88c0a9fd2cc5482f8a5dd5cb20c196eb",
+        "executed_at": "2026-09-21T15:26:36.804781+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-105",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "88c0a9fd2cc5482f8a5dd5cb20c196eb",
+          "executed_at": "2026-09-21T15:26:36.804781+00:00"
+        }
+      ]
     },
     {
       "id": "B-106",

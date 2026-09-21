@@ -110,7 +110,7 @@
 | B-102 | 09-task-schedule.backend.design.md#3.3 数据设计 | integration | 迁移→真实 PostgreSQL partial unique | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_submission_schema_parity.py"] | . | 600 | |
 | B-103 | 09-task-schedule.backend.design.md#3.3.5 状态枚举 | unit | Pydantic 公共契约与序列化 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_contracts.py"] | . | 600 | |
 | B-104 | 09-task-schedule.backend.design.md#3.3.4 `task.task_event` | integration | 并发 PG Session→Task 行锁→TaskEvent | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_events.py"] | . | 600 | |
-| B-105 | 09-task-schedule.backend.design.md#3.3.2 `task.delivery_route` | integration | 真实 PG delivery_route partial unique | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_delivery_routes.py"] | . | 600 | |
+| B-105 | 09-task-schedule.backend.design.md#3.3.2 `task.delivery_route` | integration | 真实 PG delivery_route partial unique | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_delivery_routes.py"] | . | 600 | |
 | B-106 | 09-task-schedule.backend.design.md#3.4 接口设计 | integration | 真实 HTTP handler→PG 幂等记录/事务 | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_submission_idempotency.py"] | . | 600 | |
 | B-107 | 09-task-schedule.backend.design.md#API-01 Internal 创建 Task | integration | Worker Task HTTP→PG Task/Submission/Event | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_service.py"] | . | 600 | |
 | B-108 | 09-task-schedule.backend.design.md#API-03 Internal Task 列表 | integration | 真实 Worker HTTP→PG Task/Event/children | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_queries.py"] | . | 600 | |
@@ -412,13 +412,13 @@
 - [2026-09-21] completed (done)
 ## TASK-005: 修正投递路由归一化和租户隔离
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003
 - **Source**: 09-task-schedule.backend.design.md#3.3.2 `task.delivery_route`
 - **Spec-Refs**: 
 - **Acceptance-Refs**: B-105
-- **Files**: `apps/agent-worker/src/muad_agent_worker/application/delivery_routes.py`, `tests/agent_worker/test_delivery_routes.py`
+- **Files**: `apps/agent-worker/src/muad_agent_worker/application/delivery_routes.py`, `tests/agent_worker/test_delivery_routes.py`, `tests/agent_worker/test_task_service.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
@@ -427,27 +427,37 @@
 
 ### Checklist
 
-- [ ] [B-105][integration] 修改生产代码前先覆盖 真实 PG delivery_route partial unique 并记录 RED：同租户同路由并发复用；跨租户及接收方不同不复用；软删除后可重建；无密钥字段。
-- [ ] 实现：复用 route_hash upsert，归一化元组包含 tenant/platform_user/channel/bot/接收方身份，防止跨租户复用；路由不得包含 Bot Secret 或 Pod 信息。
-- [ ] [B-105][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_delivery_routes.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-105][integration] 修改生产代码前先覆盖 真实 PG delivery_route partial unique 并记录 RED：同租户同路由并发复用；跨租户及接收方不同不复用；软删除后可重建；无密钥字段。
+- [x] 实现：复用 route_hash upsert，归一化元组包含 tenant/platform_user/channel/bot/接收方身份，防止跨租户复用；路由不得包含 Bot Secret 或 Pod 信息。
+- [x] [B-105][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_delivery_routes.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-105 | integration | 真实 PG delivery_route partial unique | 同租户同路由并发复用；跨租户及接收方不同不复用；软删除后可重建；无密钥字段 | tests/agent_worker/test_delivery_routes.py / B-105（planned） | uv run pytest -q tests/agent_worker/test_delivery_routes.py | planned |
+| B-105 | integration | 真实 PG delivery_route partial unique | 同租户同路由并发复用；跨租户及接收方不同不复用；软删除后可重建；无密钥字段 | tests/agent_worker/test_delivery_routes.py / B-105（verified） | uv run pytest -q tests/agent_worker/test_delivery_routes.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-105 | FAIL: 1 failed / 6 passed —— `test_different_platform_user_does_not_reuse`：两个不同 `platform_user_id` 拿到同一个 route_id | PASS: 7 passed；全量 `uv run pytest -q tests` 992 passed | `tests/agent_worker/test_delivery_routes.py`：`test_same_route_is_reused`、`test_concurrent_same_route_yields_single_row`（4 并发返回同一 id）、`test_different_tenant_does_not_reuse`、`test_different_recipient_does_not_reuse`、`test_different_platform_user_does_not_reuse`、`test_soft_deleted_route_can_be_recreated`、`test_route_row_carries_no_secret_or_pod_fields` | 真实 PostgreSQL：`UNIQUE (route_hash) WHERE is_deleted=false` 的 partial unique；并发用 4 个独立 session 真实并发 | verified |
+
+> 实测只有 1/7 断言是 RED。跨租户隔离、接收方差异、并发复用、软删除重建、无密钥/Pod 字段这 5 项经真实 PG 验证**本就正确，未改动**。真正的缺陷是 `canonical_route_tuple` 漏了 `platform_user_id`，使同一租户下不同平台用户折叠到同一条路由。
+>
+> 连带修复：`tests/agent_worker/test_task_service.py::test_create_reuses_delivery_route` 原本用两个不同 `actor_user_id` 断言路由复用（把缺陷当成预期），已改为同一 actor，保持该用例原有意图。
+>
+> 兼容性：route_hash 口径变化会让既有 `delivery_route` 行不再命中，新提交会新建路由行。本模块尚未上线，无需数据回填。
+- B-105: verified — automated command passed; run_id=88c0a9fd2cc5482f8a5dd5cb20c196eb (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-21] started
+- [2026-09-21] completed (done)
 ## TASK-006: 实现提交指纹校验与首次响应重放
 
 - **Status**: draft
