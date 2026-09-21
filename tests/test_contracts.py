@@ -160,7 +160,7 @@ def test_enum_members_spot_check():
         'CANCELLED',
     }
     assert len(TaskStatus) == 6
-    assert {member.value for member in ScheduleStatus} == {'ACTIVE', 'PAUSED', 'COMPLETED'}
+    assert {member.value for member in ScheduleStatus} == {'ACTIVE', 'PAUSED', 'COMPLETED', 'MISSED'}
     assert {member.value for member in DeliveryStatus} == {'PENDING', 'SENT', 'FAILED', 'NONE'}
     assert {member.value for member in SkillExecutionMode} == {'SYNC', 'ASYNC', 'AUTO'}
     assert {member.value for member in UserScope} == {'ALL', 'SELECTED'}

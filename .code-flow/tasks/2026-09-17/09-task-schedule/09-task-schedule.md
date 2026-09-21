@@ -108,7 +108,7 @@
 | E-203 | 09-task-schedule.frontend.design.md#2.4 验收条件 | integration | 真实 tasks API→详情 UI | TASK-032 | planned | ["bash","-lc","npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.task-schedule.config.ts tests/task-schedule/task-detail.spec.ts --grep 'E-FE-03'"] | . | 600 | |
 | B-101 | 09-task-schedule.backend.design.md#3.3 数据设计 | integration | Alembic→真实 PostgreSQL→SQLAlchemy ORM | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_schema_parity.py"] | . | 600 | |
 | B-102 | 09-task-schedule.backend.design.md#3.3 数据设计 | integration | 迁移→真实 PostgreSQL partial unique | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_submission_schema_parity.py"] | . | 600 | |
-| B-103 | 09-task-schedule.backend.design.md#3.3.5 状态枚举 | unit | Pydantic 公共契约与序列化 | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_contracts.py"] | . | 600 | |
+| B-103 | 09-task-schedule.backend.design.md#3.3.5 状态枚举 | unit | Pydantic 公共契约与序列化 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_contracts.py"] | . | 600 | |
 | B-104 | 09-task-schedule.backend.design.md#3.3.4 `task.task_event` | integration | 并发 PG Session→Task 行锁→TaskEvent | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_events.py"] | . | 600 | |
 | B-105 | 09-task-schedule.backend.design.md#3.3.2 `task.delivery_route` | integration | 真实 PG delivery_route partial unique | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_delivery_routes.py"] | . | 600 | |
 | B-106 | 09-task-schedule.backend.design.md#3.4 接口设计 | integration | 真实 HTTP handler→PG 幂等记录/事务 | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_submission_idempotency.py"] | . | 600 | |
@@ -322,13 +322,13 @@
 - [2026-09-21] completed (done)
 ## TASK-003: 收紧 Task/Schedule 请求与响应契约
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: 
 - **Source**: 09-task-schedule.backend.design.md#3.3.5 状态枚举, 09-task-schedule.backend.design.md#3.4 接口设计
 - **Spec-Refs**: 
 - **Acceptance-Refs**: B-103
-- **Files**: `packages/contracts/src/muad_contracts/tasks.py`, `packages/contracts/src/muad_contracts/__init__.py`, `tests/agent_worker/test_task_contracts.py`
+- **Files**: `packages/contracts/src/muad_contracts/tasks.py`, `packages/contracts/src/muad_contracts/enums.py`, `packages/contracts/src/muad_contracts/__init__.py`, `tests/agent_worker/test_task_contracts.py`, `tests/test_contracts.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
@@ -337,27 +337,35 @@
 
 ### Checklist
 
-- [ ] [B-103][unit] 修改生产代码前先覆盖 Pydantic 公共契约与序列化 并记录 RED：CRON/ONCE 互斥必填、IANA 校验、分页 1..100、非终态取消响应 RUNNING+cancel_requested；deadline 筛选独立参数；ScheduleStatus 含 MISSED 终态。
-- [ ] 实现：补查询、详情、更新、分页与取消响应类型；快照用已存在强类型契约或受限 JSON 类型，拒绝 CANCELLING、EXTERNAL、AGENT_STEP 与 misfire_policy；ScheduleStatus 收紧为 ACTIVE/PAUSED/COMPLETED/MISSED。
-- [ ] [B-103][unit] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_task_contracts.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-103][unit] 修改生产代码前先覆盖 Pydantic 公共契约与序列化 并记录 RED：CRON/ONCE 互斥必填、IANA 校验、分页 1..100、非终态取消响应 RUNNING+cancel_requested；deadline 筛选独立参数；ScheduleStatus 含 MISSED 终态。
+- [x] 实现：补查询、详情、更新、分页与取消响应类型；快照用已存在强类型契约或受限 JSON 类型，拒绝 CANCELLING、EXTERNAL、AGENT_STEP 与 misfire_policy；ScheduleStatus 收紧为 ACTIVE/PAUSED/COMPLETED/MISSED。
+- [x] [B-103][unit] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_task_contracts.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-103 | unit | Pydantic 公共契约与序列化 | CRON/ONCE 互斥必填、IANA 校验、分页 1..100、非终态取消响应 RUNNING+cancel_requested；deadline 筛选独立参数；ScheduleStatus 含 MISSED 终态 | tests/agent_worker/test_task_contracts.py / B-103（planned） | uv run pytest -q tests/agent_worker/test_task_contracts.py | planned |
+| B-103 | unit | Pydantic 公共契约与序列化 | CRON/ONCE 互斥必填、IANA 校验、分页 1..100、非终态取消响应 RUNNING+cancel_requested；deadline 筛选独立参数；ScheduleStatus 含 MISSED 终态 | tests/agent_worker/test_task_contracts.py / B-103（verified） | uv run pytest -q tests/agent_worker/test_task_contracts.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-103 | ERROR: `ImportError: cannot import name 'CancelTaskResponse' from 'muad_contracts'`（收集期失败：新契约模型与 `ScheduleStatus.MISSED` 均不存在） | PASS: 21 passed（本文件）；全量 `uv run pytest -q tests` 976 passed | `tests/agent_worker/test_task_contracts.py`：`TestScheduleSpec`（CRON/ONCE 互斥必填、IANA 拒绝）、`TestStatusEnums`（MISSED 终态、无 CANCELLING、TaskType 仅 SKILL/BATCH）、`TestTaskListQuery`（page_size 1..100、page≥1、deadline 与 start/end 独立）、`TestCancelTaskResponse`（RUNNING+cancel_requested、拒绝 CANCELLING）、`TestCreateScheduleRequest`（拒绝 misfire_policy、extra forbid） | Pydantic 契约层（unit；无需 DB，未用 mock 冒充） | verified |
+
+回归修复：`tests/test_contracts.py::test_enum_members_spot_check` 原本断言 ScheduleStatus 仅 3 值，随 N-04 决议加入 `MISSED` 后同步更新为 4 值。
+
+> 说明：本任务只落契约类型与枚举；API 侧接线（deadline 参数透传、取消响应字段）属 TASK-008 / TASK-014。
+- B-103: verified — automated command passed; run_id=a6d540c8dc7e4309b35d5bdac05b9852 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-21] started
+- [2026-09-21] completed (done)
 ## TASK-004: 使 TaskEvent 序号分配并发安全
 
 - **Status**: draft

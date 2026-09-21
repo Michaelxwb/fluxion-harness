@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .enums import DeliveryMode
+from .enums import DeliveryMode, ScheduleStatus, TaskStatus, TriggerType
 
 
 class ContractModel(BaseModel):
@@ -77,3 +77,45 @@ class CreateScheduleRequest(ContractModel):
     input_template: dict[str, Any] = Field(default_factory=dict)
     schedule: ScheduleSpec
     delivery_route: DeliveryRouteInput
+
+
+class TaskListQuery(ContractModel):
+    """任务列表查询参数（API-03 / API-09）。
+
+    start_time/end_time 作用于 create_time；deadline_from/deadline_to 作用于
+    deadline_at。两组独立，不混用。
+    """
+
+    schedule_id: UUID | None = None
+    agent_id: UUID | None = None
+    actor_user_id: UUID | None = None
+    status: TaskStatus | None = None
+    trigger_type: TriggerType | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    deadline_from: datetime | None = None
+    deadline_to: datetime | None = None
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=20, ge=1, le=100)
+
+
+class ScheduleListQuery(ContractModel):
+    """Schedule 列表查询参数（API-06 / API-12）。"""
+
+    actor_user_id: UUID | None = None
+    agent_id: UUID | None = None
+    status: ScheduleStatus | None = None
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=20, ge=1, le=100)
+
+
+class CancelTaskResponse(ContractModel):
+    """取消 Task 的响应（API-05 / API-11）。
+
+    QUEUED/WAITING 直接 CAS 置 CANCELLED；RUNNING 走协作取消，先置
+    cancel_requested=true 并返回 RUNNING。取消状态不含 CANCELLING。
+    """
+
+    task_id: UUID
+    status: Literal["RUNNING", "CANCELLED"]
+    cancel_requested: bool = False

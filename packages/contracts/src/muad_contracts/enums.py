@@ -33,6 +33,8 @@ class ScheduleStatus(StrEnum):
     ACTIVE = "ACTIVE"
     PAUSED = "PAUSED"
     COMPLETED = "COMPLETED"
+    # ONCE 错过触发时间后的终态：completed_at / next_fire_at 均为 NULL，不可恢复。
+    MISSED = "MISSED"
 
 
 class DeliveryMode(StrEnum):

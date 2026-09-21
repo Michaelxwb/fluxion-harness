@@ -440,7 +440,7 @@
       "kind": "functional",
       "boundary": "Pydantic 公共契约与序列化",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -450,7 +450,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-103",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "a6d540c8dc7e4309b35d5bdac05b9852",
+        "executed_at": "2026-09-21T15:03:53.351405+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-103",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "a6d540c8dc7e4309b35d5bdac05b9852",
+          "executed_at": "2026-09-21T15:03:53.351405+00:00"
+        }
+      ]
     },
     {
       "id": "B-104",

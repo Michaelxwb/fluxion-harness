@@ -33,17 +33,21 @@ from .resolve import (
 )
 from .runtime import ChannelContext, MessageInput, RunRequest
 from .tasks import (
+    CancelTaskResponse,
     ContractModel,
     CreateScheduleRequest,
     CreateTaskRequest,
     DeliveryRouteInput,
+    ScheduleListQuery,
     ScheduleSpec,
+    TaskListQuery,
 )
 
 __all__ = [
     "ArtifactValidationStatus",
     "BotSnapshotItem",
     "BotSnapshotResponse",
+    "CancelTaskResponse",
     "ChannelBindRequest",
     "ChannelBindResponse",
     "ChannelContext",
@@ -70,9 +74,11 @@ __all__ = [
     "ResolvedSkill",
     "RunRequest",
     "RunStatus",
+    "ScheduleListQuery",
     "ScheduleSpec",
     "ScheduleStatus",
     "SkillExecutionMode",
+    "TaskListQuery",
     "TaskStatus",
     "TaskType",
     "TriggerType",
