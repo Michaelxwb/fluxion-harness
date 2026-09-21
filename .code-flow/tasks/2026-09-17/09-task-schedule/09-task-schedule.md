@@ -92,7 +92,7 @@
 | S-02 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | E2E | Scheduler→真实 current grants/Binding/artifact→Task DB | TASK-042 | planned | ["uv","run","pytest","-q","tests/acceptance/task_schedule/test_schedules.py","-k","s02"] | . | 1200 | |
 | S-03 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | E2E | Worker→真实 PG→IM Gateway HTTP/Redis→渠道探针 | TASK-043 | planned | ["uv","run","pytest","-q","tests/acceptance/task_schedule/test_delivery.py","-k","s03"] | . | 1200 | |
 | S-04 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | E2E | Worker→真实 Parent/Child PG→IM Gateway | TASK-043 | planned | ["uv","run","pytest","-q","tests/acceptance/task_schedule/test_batch.py","-k","s04"] | . | 1200 | |
-| E-01 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | 双 Worker→真实 PG lease/CAS→真实幂等 Skill 副作用 | TASK-011 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_worker_leases.py","-k","e01"] | . | 600 | |
+| E-01 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | 双 Worker→真实 PG lease/CAS→真实幂等 Skill 副作用 | TASK-011 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_worker_leases.py","-k","e01"] | . | 600 | |
 | E-02 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Scheduler→真实 Console resolve→PG grants/Binding | TASK-015 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_trigger.py","-k","e02"] | . | 600 | |
 | E-03 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | 独立 Scheduler→真实 PG→IM Gateway HTTP/Redis | TASK-017 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_deadline.py","-k","e03"] | . | 600 | |
 | E-04 | 09-task-schedule.backend.design.md#2.5.2 功能验收场景 | integration | Scheduler→真实 PG→审计/指标/终态 MISSED | TASK-016 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_scheduler_misfire.py","-k","e04"] | . | 600 | |
@@ -116,7 +116,7 @@
 | B-108 | 09-task-schedule.backend.design.md#API-03 Internal Task 列表 | integration | 真实 Worker HTTP→PG Task/Event/children | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_queries.py"] | . | 600 | |
 | B-109 | 09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule | integration | Schedule HTTP→PG→真实时区计算 | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_writes.py"] | . | 600 | |
 | B-110 | 09-task-schedule.backend.design.md#API-06 Internal Schedule 列表 | integration | HTTP→ScheduleService→PG CAS | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_queries_actions.py"] | . | 600 | |
-| B-111 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 双 Worker→真实 PG 行锁/CAS | TASK-011 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_worker_leases.py"] | . | 600 | |
+| B-111 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 双 Worker→真实 PG 行锁/CAS | TASK-011 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_worker_leases.py"] | . | 600 | |
 | B-112 | 09-task-schedule.backend.design.md#3.3.3 `task.task_execution` | integration | Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler | TASK-012 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_executor.py"] | . | 600 | |
 | B-113 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 真实 Skill 执行结果→Worker→PG CAS | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_worker_outcomes.py"] | . | 600 | |
 | B-114 | 09-task-schedule.backend.design.md#API-05 Internal 取消 Task | integration | 取消 HTTP→PG 标记/真实 Redis hint→运行 Worker | TASK-014 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_cancel.py"] | . | 600 | |
@@ -708,13 +708,13 @@
 - [2026-09-22] completed (done)
 ## TASK-011: 加固 claim、heartbeat 和 reclaim 租约
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-007, TASK-012
 - **Source**: 09-task-schedule.backend.design.md#3.2.1 执行主流程, 09-task-schedule.backend.design.md#3.2.2 Task 状态机
 - **Spec-Refs**: 
 - **Acceptance-Refs**: E-01, B-111
-- **Files**: `apps/agent-worker/src/muad_agent_worker/worker/claimer.py`, `apps/agent-worker/src/muad_agent_worker/worker/service.py`, `tests/agent_worker/test_worker_leases.py`
+- **Files**: `apps/agent-worker/src/muad_agent_worker/worker/service.py`, `apps/agent-worker/src/muad_agent_worker/bootstrap/artifacts.py`, `tests/agent_worker/test_worker_leases.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
@@ -723,29 +723,45 @@
 
 ### Checklist
 
-- [ ] [B-111][integration] 修改生产代码前先覆盖 双 Worker→真实 PG 行锁/CAS 并记录 RED：同一时刻单持有者；未到 not_before/已取消不可 claim；crash 后换 Worker；WAITING 不 reclaim；失约旧 Worker 写终态失败。
-- [ ] 实现：保留 SKIP LOCKED，补并发 claim、lease fence 和失约停止；reclaim 只取 RUNNING 且未取消，保留 attempt，旧持有者不能再提交结果。
-- [ ] [B-111][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] [E-01][integration] 先记录 RED，再按 双 Worker→真实 PG lease/CAS→真实幂等 Skill 副作用 验证：crash 失约被其他实例 reclaim，attempt 保留，旧持有者不能覆写，无重复副作用；命令 `uv run pytest -q tests/agent_worker/test_worker_leases.py -k e01`。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_worker_leases.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-111][integration] 修改生产代码前先覆盖 双 Worker→真实 PG 行锁/CAS 并记录 RED：同一时刻单持有者；未到 not_before/已取消不可 claim；crash 后换 Worker；WAITING 不 reclaim；失约旧 Worker 写终态失败。
+- [x] 实现：保留 SKIP LOCKED，补并发 claim、lease fence 和失约停止；reclaim 只取 RUNNING 且未取消，保留 attempt，旧持有者不能再提交结果。
+- [x] [B-111][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] [E-01][integration] 先记录 RED，再按 双 Worker→真实 PG lease/CAS→真实幂等 Skill 副作用 验证：crash 失约被其他实例 reclaim，attempt 保留，旧持有者不能覆写，无重复副作用；命令 `uv run pytest -q tests/agent_worker/test_worker_leases.py -k e01`。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_worker_leases.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-01 | integration | 双 Worker→真实 PG lease/CAS→真实幂等 Skill 副作用 | crash 失约被其他实例 reclaim，attempt 保留，旧持有者不能覆写，无重复副作用 | tests/agent_worker/test_worker_leases.py / e01（planned） | uv run pytest -q tests/agent_worker/test_worker_leases.py -k e01 | planned |
-| B-111 | integration | 双 Worker→真实 PG 行锁/CAS | 同一时刻单持有者；未到 not_before/已取消不可 claim；crash 后换 Worker；WAITING 不 reclaim；失约旧 Worker 写终态失败 | tests/agent_worker/test_worker_leases.py / B-111（planned） | uv run pytest -q tests/agent_worker/test_worker_leases.py | planned |
+| E-01 | integration | 双 Worker→真实 PG lease/CAS→真实幂等 Skill 副作用 | crash 失约被其他实例 reclaim，attempt 保留，旧持有者不能覆写，无重复副作用 | tests/agent_worker/test_worker_leases.py / e01（verified） | uv run pytest -q tests/agent_worker/test_worker_leases.py -k e01 | verified |
+| B-111 | integration | 双 Worker→真实 PG 行锁/CAS | 同一时刻单持有者；未到 not_before/已取消不可 claim；crash 后换 Worker；WAITING 不 reclaim；失约旧 Worker 写终态失败 | tests/agent_worker/test_worker_leases.py / B-111（verified） | uv run pytest -q tests/agent_worker/test_worker_leases.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-01 | FAIL: 1 failed / 5 passed —— 租约已过期但尚未被 reclaim 的 Worker 仍写入了 `COMPLETED` | PASS: `-k e01` 1 passed | `test_e01_crash_recovery_across_instances`（a 失约 → b 回收接管 → attempt 1→2 → a 的过期结果被拒 → b 正常完成） | 真实 PostgreSQL：两实例真实 claim / reclaim / CAS，非 mock | verified |
+| B-111 | FAIL: 同上（`test_expired_lease_owner_cannot_write_terminal_state`） | PASS: 7 passed；全量 `uv run pytest -q tests` 1048 passed；`ruff check` 全绿 | 另含 `test_only_one_worker_holds_the_lease`、`test_not_before_and_cancelled_are_not_claimable`、`test_waiting_tasks_are_not_reclaimed`、`test_reclaim_preserves_attempt_and_clears_lease`、`test_reclaimed_task_rejects_previous_owner` | 真实 PG `FOR UPDATE SKIP LOCKED` + 条件 CAS | verified |
+
+> 实测只有 **1 条**断言 RED。单持有者（`SKIP LOCKED`）、未到 `not_before`/已取消不可 claim、WAITING 不 reclaim、reclaim 保留 attempt 并清 lease、被回收后旧持有者被 `lease_owner` fence 挡住——这 5 项经真实 PG 验证**本就正确，未改动**。
+>
+> 缺口是设计里点名的「失约停止」：`_cas` 原本只校验 `lease_owner == 自己`，**没有校验 `lease_until` 是否仍然有效**。于是「卡住 → 心跳断了 → 租约过期 → 又恢复」的 Worker 会把过期结果写进去，覆盖新持有者的执行。已在 `_cas` 增加 `lease_until > moment` 条件，四条 CAS 路径（完成/重试/失败/取消）统一走该 fence。
+>
+> **顺带修掉一个 TASK-012 引入的回归**（由本任务的 Done Gate 暴露）：`WorkerLoop.__init__` 当时会立即构造 `SkillTaskExecutor`，从而导入 `bootstrap.artifacts` 并在导入期创建缓存目录；而 `bootstrap/artifacts.py` 用的是 `os.getenv("SKILL_CACHE_ROOT", "/var/cache/muad/skills")`，在无该 env 的环境里直接 `PermissionError`，连只为 reclaim 而构造 WorkerLoop 都会炸。改为：`WorkerLoop` 把执行器延迟到 `run_once` 真正要执行时才解析；`bootstrap/artifacts.py` 改用 `SharedSettings.artifact_root` / `skill_cache_root`（已有配置项与 `./.data/...` 默认值），不再硬编码 `/var/cache`。Done Gate 在未注入 shell env 的子进程里跑，正是它抓到了这个问题。
+- E-01: failed — automated command failed; run_id=b7950819b481444fb5dceb1e90317be3 (confirmed_by: runner)
+- B-111: failed — automated command failed; run_id=b7950819b481444fb5dceb1e90317be3 (confirmed_by: runner)
+- E-01: failed — automated command failed; run_id=537d3895080a40d9aefa73e7e97f33fd (confirmed_by: runner)
+- B-111: failed — automated command failed; run_id=537d3895080a40d9aefa73e7e97f33fd (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=c3bf4050e3234594817a9425828179b2 (confirmed_by: runner)
+- B-111: verified — automated command passed; run_id=c3bf4050e3234594817a9425828179b2 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-22] started
+- [2026-09-22] completed (done)
 ## TASK-012: 替换占位执行器并接入冻结 Artifact
 
 - **Status**: done

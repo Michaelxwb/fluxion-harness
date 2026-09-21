@@ -50,15 +50,18 @@ class WorkerLoop:
     ) -> None:
         self._session_factory = session_factory
         self._settings = settings or SharedSettings()
-        if executor is None:
-            # 延迟导入：bootstrap 在导入时按 env 创建 artifact/cache 目录，
-            # 测试导入 worker.service 不应产生文件系统副作用。
-            from ..bootstrap.artifacts import skill_artifact_cache
-
-            executor = SkillTaskExecutor(skill_artifact_cache)
         self._executor = executor
         self._claimer = claimer or TaskClaimer(session_factory, self._settings)
         self._instance_id = instance_id or default_instance_id()
+
+    def _resolve_executor(self) -> TaskExecutorProtocol:
+        if self._executor is None:
+            # 延迟到真正执行时才构造：bootstrap 在导入时创建 artifact/cache 目录，
+            # 只做 claim/reclaim 的 WorkerLoop 不该有文件系统副作用。
+            from ..bootstrap.artifacts import skill_artifact_cache
+
+            self._executor = SkillTaskExecutor(skill_artifact_cache)
+        return self._executor
 
     @property
     def instance_id(self) -> str:
@@ -80,7 +83,7 @@ class WorkerLoop:
             return None
         heartbeat = asyncio.create_task(self._heartbeat(task.id))
         try:
-            result = await self._executor.execute(task)
+            result = await self._resolve_executor().execute(task)
         except asyncio.CancelledError:
             await self._stop_heartbeat(heartbeat)
             raise
@@ -185,6 +188,7 @@ class WorkerLoop:
                         "lease_until": None,
                         "update_time": moment,
                     },
+                    moment=moment,
                 )
                 if rowcount == 1:
                     await append_events(
@@ -238,6 +242,7 @@ class WorkerLoop:
                 "error_message": error_message,
                 "update_time": moment,
             },
+            moment=moment,
             require_not_cancelled=True,
         )
         if rowcount != 1:
@@ -279,6 +284,7 @@ class WorkerLoop:
                 "error_message": error_message,
                 "update_time": moment,
             },
+            moment=moment,
             require_not_cancelled=True,
         )
         if rowcount != 1:
@@ -313,6 +319,7 @@ class WorkerLoop:
                 "finished_at": moment,
                 "update_time": moment,
             },
+            moment=moment,
         )
         if rowcount != 1:
             return False
@@ -335,12 +342,16 @@ class WorkerLoop:
         task_id: uuid.UUID,
         values: dict[str, Any],
         *,
+        moment: datetime,
         require_not_cancelled: bool = False,
     ) -> int:
         conditions: list[Any] = [
             TaskExecution.id == task_id,
             TaskExecution.status == str(TaskStatus.RUNNING),
             TaskExecution.lease_owner == self._instance_id,
+            # 租约失效即失约：即使还没被 reclaim，持有者也不能再写状态，
+            # 否则一个卡住后恢复的 Worker 会用过期结果覆盖别人的执行。
+            TaskExecution.lease_until > moment,
             TaskExecution.is_deleted.is_(False),
         ]
         if require_not_cancelled:

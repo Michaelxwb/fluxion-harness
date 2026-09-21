@@ -94,7 +94,7 @@
       "kind": "functional",
       "boundary": "双 Worker→真实 PG lease/CAS→真实幂等 Skill 副作用",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -106,7 +106,48 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "c3bf4050e3234594817a9425828179b2",
+        "executed_at": "2026-09-21T17:19:11.042824+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_e01_crash_recovery_across_instances ___________________\n\nself = PosixPath('/var/cache/muad/skills'), mode = 511, parents = True\nexist_ok = True\n\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           FileNotFoundError: [Errno 2] No such file or directory: '/var/cache/muad/skills'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: FileNotFoundError\n\nDuring handling of the above exception, another exception occurred:\n\nself = PosixPath('/var/cache/muad'), mode = 511, parents = True, exist_ok = True\n\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           FileNotFoundError: [Errno 2] No such file or directory: '/var/cache/muad'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: FileNotFoundError\n\nDuring handling of the above exception, another exception occurred:\n\ntenant = TenantContext(tenant_id='test-e4d04e67-b784-49f5-8a9f-eb7364e26aad', session_factory=async_sessionmaker(class_='AsyncS...tempts=3, scheduler_poll_interval_sec=10, misfire_grace_sec=60, delivery_poll_interval_sec=5, delivery_max_attempts=5))\n\n    async def test_e01_crash_recovery_across_instances(tenant: TenantContext) -> None:\n        \"\"\"E-01：Worker crash 失约后由另一实例接管，attempt 保留且旧持有者不能覆写。\"\"\"\n        task = await persist_task(tenant)\n>       crashed = WorkerLoop(tenant.session_factory, tenant.settings, instance_id=\"worker-a\")\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/agent_worker/test_worker_leases.py:173: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \napps/agent-worker/src/muad_agent_worker/worker/service.py:56: in __init__\n    from ..bootstrap.artifacts import skill_artifact_cache\napps/agent-worker/src/muad_agent_worker/bootstrap/artifacts.py:6: in <module>\n    skill_artifact_cache = SkillArtifactCache(\npackages/artifact-store/src/muad_artifact_store/skill_cache.py:24: in __init__\n    self.cache_root.mkdir(parents=True, exist_ok=True)\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:726: in mkdir\n    self.parent.mkdir(parents=True, exist_ok=True)\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:726: in mkdir\n    self.parent.mkdir(parents=True, exist_ok=True)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = PosixPath('/var/cache'), mode = 511, parents = True, exist_ok = True\n\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           PermissionError: [Errno 13] Permission denied: '/var/cache'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: PermissionError\n=========================== short test summary info ============================\nFAILED tests/agent_worker/test_worker_leases.py::test_e01_crash_recovery_across_instances\n1 failed, 6 deselected in 0.12s",
+          "revision": 1,
+          "run_id": "b7950819b481444fb5dceb1e90317be3",
+          "executed_at": "2026-09-21T17:16:53.026166+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_e01_crash_recovery_across_instances ___________________\n\nself = PosixPath('/var/cache/muad/skills'), mode = 511, parents = True\nexist_ok = True\n\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           FileNotFoundError: [Errno 2] No such file or directory: '/var/cache/muad/skills'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: FileNotFoundError\n\nDuring handling of the above exception, another exception occurred:\n\nself = PosixPath('/var/cache/muad'), mode = 511, parents = True, exist_ok = True\n\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           FileNotFoundError: [Errno 2] No such file or directory: '/var/cache/muad'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: FileNotFoundError\n\nDuring handling of the above exception, another exception occurred:\n\ntenant = TenantContext(tenant_id='test-0f748e27-dfd7-4676-9802-f55ebc066a0f', session_factory=async_sessionmaker(class_='AsyncS...tempts=3, scheduler_poll_interval_sec=10, misfire_grace_sec=60, delivery_poll_interval_sec=5, delivery_max_attempts=5))\n\n    async def test_e01_crash_recovery_across_instances(tenant: TenantContext) -> None:\n        \"\"\"E-01：Worker crash 失约后由另一实例接管，attempt 保留且旧持有者不能覆写。\"\"\"\n        task = await persist_task(tenant)\n>       crashed = WorkerLoop(tenant.session_factory, tenant.settings, instance_id=\"worker-a\")\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/agent_worker/test_worker_leases.py:173: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \napps/agent-worker/src/muad_agent_worker/worker/service.py:56: in __init__\n    from ..bootstrap.artifacts import skill_artifact_cache\napps/agent-worker/src/muad_agent_worker/bootstrap/artifacts.py:6: in <module>\n    skill_artifact_cache = SkillArtifactCache(\npackages/artifact-store/src/muad_artifact_store/skill_cache.py:24: in __init__\n    self.cache_root.mkdir(parents=True, exist_ok=True)\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:726: in mkdir\n    self.parent.mkdir(parents=True, exist_ok=True)\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:726: in mkdir\n    self.parent.mkdir(parents=True, exist_ok=True)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = PosixPath('/var/cache'), mode = 511, parents = True, exist_ok = True\n\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           PermissionError: [Errno 13] Permission denied: '/var/cache'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: PermissionError\n=========================== short test summary info ============================\nFAILED tests/agent_worker/test_worker_leases.py::test_e01_crash_recovery_across_instances\n1 failed, 6 deselected in 0.12s",
+          "revision": 2,
+          "run_id": "537d3895080a40d9aefa73e7e97f33fd",
+          "executed_at": "2026-09-21T17:16:58.981292+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "c3bf4050e3234594817a9425828179b2",
+          "executed_at": "2026-09-21T17:19:11.042824+00:00"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -781,7 +822,7 @@
       "kind": "functional",
       "boundary": "双 Worker→真实 PG 行锁/CAS",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -791,7 +832,48 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "B-111",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "c3bf4050e3234594817a9425828179b2",
+        "executed_at": "2026-09-21T17:19:11.042824+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-111",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "e, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           PermissionError: [Errno 13] Permission denied: '/var/cache'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: PermissionError\n___________________ test_e01_crash_recovery_across_instances ___________________\n\nself = PosixPath('/var/cache/muad/skills'), mode = 511, parents = True\nexist_ok = True\n\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           FileNotFoundError: [Errno 2] No such file or directory: '/var/cache/muad/skills'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: FileNotFoundError\n\nDuring handling of the above exception, another exception occurred:\n\nself = PosixPath('/var/cache/muad'), mode = 511, parents = True, exist_ok = True\n\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           FileNotFoundError: [Errno 2] No such file or directory: '/var/cache/muad'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: FileNotFoundError\n\nDuring handling of the above exception, another exception occurred:\n\ntenant = TenantContext(tenant_id='test-229c5851-8be0-4b52-bd6c-4af986524102', session_factory=async_sessionmaker(class_='AsyncS...tempts=3, scheduler_poll_interval_sec=10, misfire_grace_sec=60, delivery_poll_interval_sec=5, delivery_max_attempts=5))\n\n    async def test_e01_crash_recovery_across_instances(tenant: TenantContext) -> None:\n        \"\"\"E-01：Worker crash 失约后由另一实例接管，attempt 保留且旧持有者不能覆写。\"\"\"\n        task = await persist_task(tenant)\n>       crashed = WorkerLoop(tenant.session_factory, tenant.settings, instance_id=\"worker-a\")\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/agent_worker/test_worker_leases.py:173: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \napps/agent-worker/src/muad_agent_worker/worker/service.py:56: in __init__\n    from ..bootstrap.artifacts import skill_artifact_cache\napps/agent-worker/src/muad_agent_worker/bootstrap/artifacts.py:6: in <module>\n    skill_artifact_cache = SkillArtifactCache(\npackages/artifact-store/src/muad_artifact_store/skill_cache.py:24: in __init__\n    self.cache_root.mkdir(parents=True, exist_ok=True)\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:726: in mkdir\n    self.parent.mkdir(parents=True, exist_ok=True)\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:726: in mkdir\n    self.parent.mkdir(parents=True, exist_ok=True)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = PosixPath('/var/cache'), mode = 511, parents = True, exist_ok = True\n\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           PermissionError: [Errno 13] Permission denied: '/var/cache'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: PermissionError\n=========================== short test summary info ============================\nFAILED tests/agent_worker/test_worker_leases.py::test_waiting_tasks_are_not_reclaimed\nFAILED tests/agent_worker/test_worker_leases.py::test_reclaim_preserves_attempt_and_clears_lease\nFAILED tests/agent_worker/test_worker_leases.py::test_reclaimed_task_rejects_previous_owner\nFAILED tests/agent_worker/test_worker_leases.py::test_e01_crash_recovery_across_instances\n4 failed, 3 passed in 0.30s",
+          "revision": 1,
+          "run_id": "b7950819b481444fb5dceb1e90317be3",
+          "executed_at": "2026-09-21T17:16:53.026166+00:00"
+        },
+        {
+          "id": "B-111",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "e, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           PermissionError: [Errno 13] Permission denied: '/var/cache'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: PermissionError\n___________________ test_e01_crash_recovery_across_instances ___________________\n\nself = PosixPath('/var/cache/muad/skills'), mode = 511, parents = True\nexist_ok = True\n\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           FileNotFoundError: [Errno 2] No such file or directory: '/var/cache/muad/skills'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: FileNotFoundError\n\nDuring handling of the above exception, another exception occurred:\n\nself = PosixPath('/var/cache/muad'), mode = 511, parents = True, exist_ok = True\n\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           FileNotFoundError: [Errno 2] No such file or directory: '/var/cache/muad'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: FileNotFoundError\n\nDuring handling of the above exception, another exception occurred:\n\ntenant = TenantContext(tenant_id='test-73ece3a2-8d79-435f-936f-760be5231651', session_factory=async_sessionmaker(class_='AsyncS...tempts=3, scheduler_poll_interval_sec=10, misfire_grace_sec=60, delivery_poll_interval_sec=5, delivery_max_attempts=5))\n\n    async def test_e01_crash_recovery_across_instances(tenant: TenantContext) -> None:\n        \"\"\"E-01：Worker crash 失约后由另一实例接管，attempt 保留且旧持有者不能覆写。\"\"\"\n        task = await persist_task(tenant)\n>       crashed = WorkerLoop(tenant.session_factory, tenant.settings, instance_id=\"worker-a\")\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/agent_worker/test_worker_leases.py:173: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \napps/agent-worker/src/muad_agent_worker/worker/service.py:56: in __init__\n    from ..bootstrap.artifacts import skill_artifact_cache\napps/agent-worker/src/muad_agent_worker/bootstrap/artifacts.py:6: in <module>\n    skill_artifact_cache = SkillArtifactCache(\npackages/artifact-store/src/muad_artifact_store/skill_cache.py:24: in __init__\n    self.cache_root.mkdir(parents=True, exist_ok=True)\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:726: in mkdir\n    self.parent.mkdir(parents=True, exist_ok=True)\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:726: in mkdir\n    self.parent.mkdir(parents=True, exist_ok=True)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = PosixPath('/var/cache'), mode = 511, parents = True, exist_ok = True\n\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        \"\"\"\n        Create a new directory at this given path.\n        \"\"\"\n        try:\n>           os.mkdir(self, mode)\nE           PermissionError: [Errno 13] Permission denied: '/var/cache'\n\n../../.local/share/uv/python/cpython-3.13.14-macos-aarch64-none/lib/python3.13/pathlib/_local.py:722: PermissionError\n=========================== short test summary info ============================\nFAILED tests/agent_worker/test_worker_leases.py::test_waiting_tasks_are_not_reclaimed\nFAILED tests/agent_worker/test_worker_leases.py::test_reclaim_preserves_attempt_and_clears_lease\nFAILED tests/agent_worker/test_worker_leases.py::test_reclaimed_task_rejects_previous_owner\nFAILED tests/agent_worker/test_worker_leases.py::test_e01_crash_recovery_across_instances\n4 failed, 3 passed in 0.27s",
+          "revision": 2,
+          "run_id": "537d3895080a40d9aefa73e7e97f33fd",
+          "executed_at": "2026-09-21T17:16:58.981292+00:00"
+        },
+        {
+          "id": "B-111",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "c3bf4050e3234594817a9425828179b2",
+          "executed_at": "2026-09-21T17:19:11.042824+00:00"
+        }
+      ]
     },
     {
       "id": "B-112",

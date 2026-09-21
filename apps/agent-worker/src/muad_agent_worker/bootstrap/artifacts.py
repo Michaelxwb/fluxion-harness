@@ -1,9 +1,7 @@
-import os
-
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
+from muad_common import SharedSettings
 
-artifact_store = NfsArtifactStore(os.getenv("ARTIFACT_ROOT", "/mnt/muad-artifacts"))
-skill_artifact_cache = SkillArtifactCache(
-    artifact_store,
-    os.getenv("SKILL_CACHE_ROOT", "/var/cache/muad/skills"),
-)
+_settings = SharedSettings()
+
+artifact_store = NfsArtifactStore(_settings.artifact_root)
+skill_artifact_cache = SkillArtifactCache(artifact_store, _settings.skill_cache_root)
