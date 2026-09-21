@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from muad_api import AppError
+from muad_api.audit import SENSITIVE_KEY_MARKERS
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
 from muad_contracts import (
@@ -29,6 +30,41 @@ TASK_TYPE_SKILL = "SKILL"
 TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))
 CANCELABLE_STATUSES = (str(TaskStatus.QUEUED), str(TaskStatus.WAITING))
 
+REQUIRED_SNAPSHOT_KEYS = (
+    "schema_version",
+    "agent",
+    "model",
+    "skills",
+    "mcp",
+    "prompt_template_version",
+    "budget",
+)
+
+
+def _has_sensitive_key(value: Any) -> bool:
+    """递归查找密钥类字段名。
+
+    按后缀匹配而不是子串匹配：密钥字段的命名总以 marker 结尾（`api_key`、
+    `bot_secret`、`access_token`），而 `max_tokens`、`prompt_template_version`
+    这类合法字段不应被误判。
+    """
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if str(key).lower().endswith(SENSITIVE_KEY_MARKERS) or _has_sensitive_key(item):
+                return True
+        return False
+    if isinstance(value, (list, tuple)):
+        return any(_has_sensitive_key(item) for item in value)
+    return False
+
+
+def validate_execution_snapshot(snapshot: dict[str, Any]) -> None:
+    """快照必须冻结必需版本键，且不得携带任何密钥（设计 §3.3.3）。"""
+    if any(key not in snapshot for key in REQUIRED_SNAPSHOT_KEYS):
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    if _has_sensitive_key(snapshot):
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+
 
 class TaskService:
     def __init__(self, session: AsyncSession, settings: SharedSettings | None = None) -> None:
@@ -36,6 +72,7 @@ class TaskService:
         self._settings = settings or SharedSettings()
 
     async def create(self, payload: CreateTaskRequest) -> TaskExecution:
+        validate_execution_snapshot(payload.execution_snapshot)
         existing = await self._find_by_idempotency_key(payload.tenant_id, payload.idempotency_key)
         if existing is not None:
             return existing

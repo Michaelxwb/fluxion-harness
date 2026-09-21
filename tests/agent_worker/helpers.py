@@ -52,7 +52,15 @@ def create_task_payload(
         "skill_id": skill_id or uuid.uuid4(),
         "skill_artifact_id": uuid.uuid4(),
         "input": {"customers": ["A"]},
-        "execution_snapshot": {"schema_version": 1, "agent": {"key": "agent"}},
+        "execution_snapshot": {
+            "schema_version": 1,
+            "agent": {"key": "agent"},
+            "model": {"key": "model"},
+            "skills": [{"key": "policy_check"}],
+            "mcp": [],
+            "prompt_template_version": "v1",
+            "budget": {"max_tokens": 1024},
+        },
         "snapshot_hash": SNAPSHOT_HASH,
         "idempotency_key": idempotency_key or f"test-{uuid.uuid4()}",
         "delivery_route": delivery_route if delivery_route is not None else (

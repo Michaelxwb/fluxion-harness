@@ -6,8 +6,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from conftest import TenantContext
 from helpers import create_task_payload, fetch_events, fetch_task, persist_task, sample_route
+from httpx import AsyncClient
 from muad_agent_worker.application.task_service import CANCEL_PENDING_STATUS, TaskService
 from muad_agent_worker.infrastructure.models.task import DeliveryRoute, TaskExecution
+from muad_agent_worker.main import app
 from muad_api import AppError
 from sqlalchemy import func, select
 
@@ -217,6 +219,76 @@ async def test_list_filters_and_pagination(tenant: TenantContext) -> None:
 
         second_page, _ = await service.list(tenant.tenant_id, page=2, page_size=2)
         assert len(second_page) == 1
+
+
+async def test_snapshot_required_keys_are_enforced(tenant: TenantContext) -> None:
+    """快照缺少必需版本键时拒绝创建（设计 §3.3.3）。"""
+    payload = create_task_payload(tenant, idempotency_key="snap-missing")
+    incomplete = payload.model_copy(
+        update={"execution_snapshot": {"schema_version": 1, "agent": {"key": "agent"}}}
+    )
+    async with tenant.session_factory() as session:
+        service = TaskService(session, tenant.settings)
+        with pytest.raises(AppError) as excinfo:
+            await service.create(incomplete)
+    assert excinfo.value.code == "COMMON_VALIDATION_ERROR"
+    assert await _task_count(tenant, tenant.tenant_id) == 0
+
+
+async def test_snapshot_with_secret_is_rejected(tenant: TenantContext) -> None:
+    """快照不得携带密钥。"""
+    payload = create_task_payload(tenant, idempotency_key="snap-secret")
+    tainted = {
+        **payload.execution_snapshot,
+        "model": {"key": "model", "api_key": "sk-live-123"},
+    }
+    leaking = payload.model_copy(update={"execution_snapshot": tainted})
+    async with tenant.session_factory() as session:
+        service = TaskService(session, tenant.settings)
+        with pytest.raises(AppError) as excinfo:
+            await service.create(leaking)
+    assert excinfo.value.code == "COMMON_VALIDATION_ERROR"
+    assert await _task_count(tenant, tenant.tenant_id) == 0
+
+
+async def test_snapshot_is_stored_verbatim(tenant: TenantContext) -> None:
+    """合法快照按原样冻结落库，不被改写。"""
+    payload = create_task_payload(tenant, idempotency_key="snap-frozen")
+    async with tenant.session_factory() as session:
+        service = TaskService(session, tenant.settings)
+        created = await service.create(payload)
+        await session.commit()
+    task = await fetch_task(tenant, created.id)
+    assert task.execution_snapshot_json == payload.execution_snapshot
+    assert task.snapshot_hash == payload.snapshot_hash
+    assert task.execution_snapshot_schema_version == payload.execution_snapshot_schema_version
+
+
+class _FailingNotifier:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def notify(self) -> None:
+        self.calls += 1
+        raise RuntimeError("redis unavailable")
+
+
+async def test_wakeup_hint_failure_does_not_lose_task(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """wakeup hint 失败不影响提交：任务仍然落库，可由 PG 扫描推进。"""
+    notifier = _FailingNotifier()
+    app.state.wakeup_notifier = notifier
+    try:
+        payload = create_task_payload(tenant, idempotency_key="hint-fail").model_dump(mode="json")
+        response = await client.post(
+            "/internal/tasks", json=payload, headers={"X-Tenant-Id": tenant.tenant_id}
+        )
+        assert response.status_code == 200, response.text
+        assert notifier.calls >= 1, "提交后应尝试发布 wakeup hint"
+        assert await _task_count(tenant, tenant.tenant_id) == 1
+    finally:
+        app.state.wakeup_notifier = None
 
 
 async def _task_count(tenant: TenantContext, tenant_id: str) -> int:

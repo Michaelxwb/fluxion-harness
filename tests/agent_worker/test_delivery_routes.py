@@ -9,11 +9,10 @@ import asyncio
 import uuid
 
 import sqlalchemy as sa
-from muad_agent_worker.application.delivery_routes import upsert_delivery_route
-from muad_contracts import DeliveryRouteInput
-
 from conftest import TenantContext
 from helpers import sample_route
+from muad_agent_worker.application.delivery_routes import upsert_delivery_route
+from muad_contracts import DeliveryRouteInput
 
 DELETE_TENANT = sa.text("DELETE FROM task.delivery_route WHERE tenant_id = :tenant_id")
 COUNT_TENANT = sa.text("SELECT count(*) FROM task.delivery_route WHERE tenant_id = :tenant_id")

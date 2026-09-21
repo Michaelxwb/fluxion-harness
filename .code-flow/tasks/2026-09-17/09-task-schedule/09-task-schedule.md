@@ -112,7 +112,7 @@
 | B-104 | 09-task-schedule.backend.design.md#3.3.4 `task.task_event` | integration | 并发 PG Session→Task 行锁→TaskEvent | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_events.py"] | . | 600 | |
 | B-105 | 09-task-schedule.backend.design.md#3.3.2 `task.delivery_route` | integration | 真实 PG delivery_route partial unique | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_delivery_routes.py"] | . | 600 | |
 | B-106 | 09-task-schedule.backend.design.md#3.4 接口设计 | integration | 真实 HTTP handler→PG 幂等记录/事务 | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_submission_idempotency.py"] | . | 600 | |
-| B-107 | 09-task-schedule.backend.design.md#API-01 Internal 创建 Task | integration | Worker Task HTTP→PG Task/Submission/Event | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_service.py"] | . | 600 | |
+| B-107 | 09-task-schedule.backend.design.md#API-01 Internal 创建 Task | integration | Worker Task HTTP→PG Task/Submission/Event | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_service.py"] | . | 600 | |
 | B-108 | 09-task-schedule.backend.design.md#API-03 Internal Task 列表 | integration | 真实 Worker HTTP→PG Task/Event/children | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_queries.py"] | . | 600 | |
 | B-109 | 09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule | integration | Schedule HTTP→PG→真实时区计算 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_writes.py"] | . | 600 | |
 | B-110 | 09-task-schedule.backend.design.md#API-06 Internal Schedule 列表 | integration | HTTP→ScheduleService→PG CAS | TASK-010 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_queries_actions.py"] | . | 600 | |
@@ -512,13 +512,13 @@
 - [2026-09-21] completed (done)
 ## TASK-007: 完善 Task 创建、快照校验与原子事件
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-005, TASK-006
 - **Source**: 09-task-schedule.backend.design.md#API-01 Internal 创建 Task, 09-task-schedule.backend.design.md#3.3.3 `task.task_execution`
 - **Spec-Refs**: 
 - **Acceptance-Refs**: B-107
-- **Files**: `apps/agent-worker/src/muad_agent_worker/application/task_service.py`, `apps/agent-worker/src/muad_agent_worker/api/tasks.py`, `tests/agent_worker/test_task_service.py`
+- **Files**: `apps/agent-worker/src/muad_agent_worker/application/task_service.py`, `apps/agent-worker/src/muad_agent_worker/api/tasks.py`, `apps/agent-worker/src/muad_agent_worker/infrastructure/wakeup_hint.py`, `apps/agent-worker/src/muad_agent_worker/main.py`, `tests/agent_worker/test_task_service.py`, `tests/agent_worker/helpers.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
@@ -527,27 +527,39 @@
 
 ### Checklist
 
-- [ ] [B-107][integration] 修改生产代码前先覆盖 Worker Task HTTP→PG Task/Submission/Event 并记录 RED：快照必需版本键冻结且不含密钥；同键异指纹返回 IDEMPOTENCY_MISMATCH 且不复用已有 Task；NONE 无投递；Redis hint 失败不丢任务。
-- [ ] 实现：接入提交幂等服务并校验 Snapshot/hash，原子保存 QUEUED、CREATED、delivery_key 与 +24h deadline；仅在提交后发 hint，失败仍可由 PG 扫描推进。
-- [ ] [B-107][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_task_service.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-107][integration] 修改生产代码前先覆盖 Worker Task HTTP→PG Task/Submission/Event 并记录 RED：快照必需版本键冻结且不含密钥；同键异指纹返回 IDEMPOTENCY_MISMATCH 且不复用已有 Task；NONE 无投递；Redis hint 失败不丢任务。
+- [x] 实现：接入提交幂等服务并校验 Snapshot/hash，原子保存 QUEUED、CREATED、delivery_key 与 +24h deadline；仅在提交后发 hint，失败仍可由 PG 扫描推进。
+- [x] [B-107][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_task_service.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-107 | integration | Worker Task HTTP→PG Task/Submission/Event | 快照必需版本键冻结且不含密钥；同键异指纹返回 IDEMPOTENCY_MISMATCH 且不复用已有 Task；NONE 无投递；Redis hint 失败不丢任务 | tests/agent_worker/test_task_service.py / B-107（planned） | uv run pytest -q tests/agent_worker/test_task_service.py | planned |
+| B-107 | integration | Worker Task HTTP→PG Task/Submission/Event | 快照必需版本键冻结且不含密钥；同键异指纹返回 IDEMPOTENCY_MISMATCH 且不复用已有 Task；NONE 无投递；Redis hint 失败不丢任务 | tests/agent_worker/test_task_service.py / B-107（verified） | uv run pytest -q tests/agent_worker/test_task_service.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-107 | FAIL: 3 failed / 10 passed —— 快照缺必需版本键未被拒；含 `api_key` 的快照未被拒；提交后未发布 wakeup hint（`notifier.calls == 0`） | PASS: 13 passed；全量 `uv run pytest -q tests` 1003 passed；`ruff check` 全绿 | `tests/agent_worker/test_task_service.py`：`test_snapshot_required_keys_are_enforced`、`test_snapshot_with_secret_is_rejected`、`test_snapshot_is_stored_verbatim`、`test_wakeup_hint_failure_does_not_lose_task`（注入必失败的 notifier 后仍返回 200 且任务落库） | 真实 PostgreSQL + 真实 ASGI HTTP；快照校验落在服务层；hint 通过 `app.state` 注入真实 notifier 的失败路径 | verified |
+
+> 实测 3/4 断言 RED，第 4 项「NONE 无投递」既有用例本就通过，未改动。缺口是：①快照只存不校验（必需版本键、密钥）；②`create` 路径完全没有 wakeup hint，且设计要求在**提交之后**发布。
+>
+> 密钥检测按**后缀**匹配而非子串：`SENSITIVE_KEY_MARKERS` 含 `token`，子串匹配会把合法的 `max_tokens` 误判为密钥。
+>
+> 连带改动：`helpers.create_task_payload` 的快照补齐必需版本键（原本只有 `schema_version` + `agent`），否则所有既有调用方都会被新校验拒绝；新增 `infrastructure/wakeup_hint.py`（对齐模块 08 `cancel_hint` 的 Null/Redis 双实现与 best-effort 语义），`main.py` 在 lifespan 装配并在关闭时回收。
+>
+> 另含 TASK-002 遗留 lint 修正（import 排序 + 超长行）。
+- B-107: verified — automated command passed; run_id=dadd289316e94005a76c33b1be98a0c0 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-21] started
+- [2026-09-21] completed (done)
 ## TASK-008: 补齐任务列表、详情与 Timeline 查询
 
 - **Status**: draft

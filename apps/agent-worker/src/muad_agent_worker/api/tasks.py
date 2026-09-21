@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 from typing import Annotated, Any
@@ -24,8 +25,21 @@ from .deps import ensure_tenant_consistent, get_tenant_id
 
 router = APIRouter(prefix="/internal/tasks", tags=["tasks"])
 
+logger = logging.getLogger(__name__)
+
 TenantId = Annotated[str, Depends(get_tenant_id)]
 Session = Annotated[AsyncSession, Depends(get_session)]
+
+
+async def _publish_wakeup(request: Request) -> None:
+    """提交事务已提交后再发 wakeup hint；失败只告警，不影响任务（PG 扫描仍可推进）。"""
+    notifier = getattr(request.app.state, "wakeup_notifier", None)
+    if notifier is None:
+        return
+    try:
+        await notifier.notify()
+    except Exception:
+        logger.warning("task_wakeup_hint_failed")
 
 
 def _payload(task: TaskExecution) -> dict[str, Any]:
@@ -105,6 +119,8 @@ async def create_task(
         if already is None:
             raise
         return already
+    await session.commit()
+    await _publish_wakeup(request)
     return ok(request.app.state.message_catalog, response)
 
 

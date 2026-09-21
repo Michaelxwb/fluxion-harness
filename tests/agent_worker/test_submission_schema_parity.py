@@ -12,11 +12,10 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
+from conftest import TenantContext
 from muad_agent_worker.infrastructure.models.task_submission import TaskSubmission
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
-
-from conftest import TenantContext
 
 SCHEMA = "task"
 TABLE = "task_submission"
@@ -85,7 +84,9 @@ async def submission_tenant(tenant: TenantContext) -> AsyncIterator[TenantContex
             await session.commit()
 
 
-def _params(tenant: TenantContext, *, key: str, endpoint: str, fingerprint: str = "sha256:x") -> dict[str, Any]:
+def _params(
+    tenant: TenantContext, *, key: str, endpoint: str, fingerprint: str = "sha256:x"
+) -> dict[str, Any]:
     return {
         "tenant_id": tenant.tenant_id,
         "key": key,

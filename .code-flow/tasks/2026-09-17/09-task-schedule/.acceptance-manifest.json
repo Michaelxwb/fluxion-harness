@@ -621,7 +621,7 @@
       "kind": "functional",
       "boundary": "Worker Task HTTP→PG Task/Submission/Event",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -631,7 +631,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-107",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "dadd289316e94005a76c33b1be98a0c0",
+        "executed_at": "2026-09-21T15:58:54.903208+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-107",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "dadd289316e94005a76c33b1be98a0c0",
+          "executed_at": "2026-09-21T15:58:54.903208+00:00"
+        }
+      ]
     },
     {
       "id": "B-108",
