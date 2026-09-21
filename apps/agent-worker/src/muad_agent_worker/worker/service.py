@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ..application.task_events import TaskEventSeed, TaskEventType, append_events
 from ..infrastructure.models.task import TaskExecution
 from .claimer import TaskClaimer
-from .executor import SkeletonTaskExecutor, TaskExecutionError, TaskExecutorProtocol
+from .executor import SkillTaskExecutor, TaskExecutionError, TaskExecutorProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,13 @@ class WorkerLoop:
     ) -> None:
         self._session_factory = session_factory
         self._settings = settings or SharedSettings()
-        self._executor = executor or SkeletonTaskExecutor()
+        if executor is None:
+            # 延迟导入：bootstrap 在导入时按 env 创建 artifact/cache 目录，
+            # 测试导入 worker.service 不应产生文件系统副作用。
+            from ..bootstrap.artifacts import skill_artifact_cache
+
+            executor = SkillTaskExecutor(skill_artifact_cache)
+        self._executor = executor
         self._claimer = claimer or TaskClaimer(session_factory, self._settings)
         self._instance_id = instance_id or default_instance_id()
 

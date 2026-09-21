@@ -800,7 +800,7 @@
       "kind": "functional",
       "boundary": "Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -810,7 +810,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-112",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "1cd11c2e0b43484fa9f5cbbe60cffbe8",
+        "executed_at": "2026-09-21T17:12:59.732715+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-112",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1cd11c2e0b43484fa9f5cbbe60cffbe8",
+          "executed_at": "2026-09-21T17:12:59.732715+00:00"
+        }
+      ]
     },
     {
       "id": "B-113",

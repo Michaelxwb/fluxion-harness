@@ -117,7 +117,7 @@
 | B-109 | 09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule | integration | Schedule HTTP→PG→真实时区计算 | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_writes.py"] | . | 600 | |
 | B-110 | 09-task-schedule.backend.design.md#API-06 Internal Schedule 列表 | integration | HTTP→ScheduleService→PG CAS | TASK-010 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_queries_actions.py"] | . | 600 | |
 | B-111 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 双 Worker→真实 PG 行锁/CAS | TASK-011 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_worker_leases.py"] | . | 600 | |
-| B-112 | 09-task-schedule.backend.design.md#3.3.3 `task.task_execution` | integration | Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler | TASK-012 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_executor.py"] | . | 600 | |
+| B-112 | 09-task-schedule.backend.design.md#3.3.3 `task.task_execution` | integration | Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler | TASK-012 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_executor.py"] | . | 600 | |
 | B-113 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 真实 Skill 执行结果→Worker→PG CAS | TASK-013 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_worker_outcomes.py"] | . | 600 | |
 | B-114 | 09-task-schedule.backend.design.md#API-05 Internal 取消 Task | integration | 取消 HTTP→PG 标记/真实 Redis hint→运行 Worker | TASK-014 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_cancel.py"] | . | 600 | |
 | B-115 | 09-task-schedule.backend.design.md#3.2.3 Schedule 触发、多副本与 Misfire | integration | 双 Scheduler→真实 Console resolve→PG grants/Binding/Task | TASK-015 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_trigger.py"] | . | 600 | |
@@ -748,13 +748,13 @@
 
 ## TASK-012: 替换占位执行器并接入冻结 Artifact
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-007
 - **Source**: 09-task-schedule.backend.design.md#3.3.3 `task.task_execution`, 09-task-schedule.backend.design.md#3.2.6 跨模块引用边界
 - **Spec-Refs**: 
 - **Acceptance-Refs**: B-112
-- **Files**: `apps/agent-worker/src/muad_agent_worker/worker/executor.py`, `apps/agent-worker/src/muad_agent_worker/bootstrap/artifacts.py`, `tests/agent_worker/test_task_executor.py`
+- **Files**: `apps/agent-worker/src/muad_agent_worker/worker/executor.py`, `apps/agent-worker/src/muad_agent_worker/worker/service.py`, `tests/agent_worker/test_task_executor.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
@@ -763,27 +763,39 @@
 
 ### Checklist
 
-- [ ] [B-112][integration] 修改生产代码前先覆盖 Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler 并记录 RED：checksum 失败拒绝；同 checksum singleflight；执行路径为本地 READY；模型/Skill/MCP 版本按快照；密钥仅内存使用。
-- [ ] 实现：复用模块 08 的 Skill 执行链/凭据读取边界，按 Task 冻结的 artifact/checksum 执行；不重新选择 current 定义，不从 NFS 直接执行。
-- [ ] [B-112][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_task_executor.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-112][integration] 修改生产代码前先覆盖 Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler 并记录 RED：checksum 失败拒绝；同 checksum singleflight；执行路径为本地 READY；模型/Skill/MCP 版本按快照；密钥仅内存使用。
+- [x] 实现：复用模块 08 的 Skill 执行链/凭据读取边界，按 Task 冻结的 artifact/checksum 执行；不重新选择 current 定义，不从 NFS 直接执行。
+- [x] [B-112][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_task_executor.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-112 | integration | Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler | checksum 失败拒绝；同 checksum singleflight；执行路径为本地 READY；模型/Skill/MCP 版本按快照；密钥仅内存使用 | tests/agent_worker/test_task_executor.py / B-112（planned） | uv run pytest -q tests/agent_worker/test_task_executor.py | planned |
+| B-112 | integration | Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler | checksum 失败拒绝；同 checksum singleflight；执行路径为本地 READY；模型/Skill/MCP 版本按快照；密钥仅内存使用 | tests/agent_worker/test_task_executor.py / B-112（verified） | uv run pytest -q tests/agent_worker/test_task_executor.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-112 | ERROR: `ImportError: cannot import name 'SkillTaskExecutor'` —— 原 `SkeletonTaskExecutor` 直接返回 `{"skeleton": True}`，完全没有按冻结 artifact 执行 | PASS: 8 passed；全量 `uv run pytest -q tests` 1041 passed；`ruff check` 全绿 | `tests/agent_worker/test_task_executor.py`：`test_executes_frozen_artifact_from_local_ready_cache`、`test_execution_path_is_local_cache_not_nfs`、`test_checksum_mismatch_is_rejected`、`test_same_checksum_concurrent_prepare_is_singleflight`、`test_unknown_artifact_is_rejected`、`test_missing_frozen_skill_in_snapshot_is_rejected`、`test_failing_skill_reports_failure`、`test_child_env_does_not_leak_secrets` | 真实 NFS 目录 + 真实 zip 解包 + 真实子进程（`sys.executable -I scripts/main.py`）；本地 READY 缓存与 NFS 根用两个真实目录区分 | verified |
+
+> 本任务 8 条断言**全部是新增能力**，没有「本就正确」的项——原先的执行器只是返回 `{"skeleton": True}` 的占位。
+>
+> 复用了既有组件而不是新造：`SkillArtifactCache.ensure` 已具备 checksum 校验、per-checksum 锁与 `READY` 原子切换，且其签名天然满足模块 08 的 `SkillArtifactResolver` 协议；实际执行交给模块 08 的 `ScriptSkillExecutor`。worker 只负责「按快照取冻结 artifact → 落到本地 → 执行」。
+>
+> singleflight 用包装的 `NfsArtifactStore` 计数验证：5 个并发执行只读 NFS **1** 次。子进程环境沿用 agent-core 的 allowlist（仅 PATH/HOME/LANG），用例注入 `MODEL_API_KEY` 并断言技能进程看不到它。
+>
+> 连带改动：`WorkerLoop` 默认执行器由 `SkeletonTaskExecutor` 换成 `SkillTaskExecutor`；对 `bootstrap.artifacts` 的引用放在构造函数内的延迟导入，避免导入 `worker.service` 就按 env 建目录的副作用。
+- B-112: verified — automated command passed; run_id=1cd11c2e0b43484fa9f5cbbe60cffbe8 (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-22] started
+- [2026-09-22] completed (done)
 ## TASK-013: 实现 WAITING、重试及受保护的完成状态
 
 - **Status**: draft
