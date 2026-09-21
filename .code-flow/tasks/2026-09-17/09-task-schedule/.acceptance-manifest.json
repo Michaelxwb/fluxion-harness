@@ -701,7 +701,7 @@
       "kind": "functional",
       "boundary": "Schedule HTTP→PG→真实时区计算",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -711,7 +711,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-109",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "7be1a00714624fa7aa01ab10b51291cc",
+        "executed_at": "2026-09-21T16:41:45.956147+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-109",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7be1a00714624fa7aa01ab10b51291cc",
+          "executed_at": "2026-09-21T16:41:45.956147+00:00"
+        }
+      ]
     },
     {
       "id": "B-110",

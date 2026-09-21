@@ -5,9 +5,16 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok
-from muad_contracts import CreateScheduleRequest
+from muad_contracts import CreateScheduleRequest, UpdateScheduleRequest
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.submissions import (
+    ENDPOINT_CREATE_SCHEDULE,
+    IDEMPOTENCY_HEADER,
+    TaskSubmissionService,
+    submission_fingerprint,
+)
 from ..infrastructure.db import get_session
 from ..infrastructure.models.task import TaskSchedule
 from ..scheduler.service import ScheduleService
@@ -51,7 +58,63 @@ async def create_schedule(
     session: Session,
 ) -> ApiResponse[Any]:
     ensure_tenant_consistent(request, tenant_id)
-    schedule = await ScheduleService(session).create_schedule(tenant_id, body)
+    service = ScheduleService(session)
+    idempotency_key = request.headers.get(IDEMPOTENCY_HEADER)
+    if not idempotency_key:
+        schedule = await service.create_schedule(tenant_id, body)
+        return ok(request.app.state.message_catalog, _payload(schedule))
+
+    submissions = TaskSubmissionService(session)
+    fingerprint = submission_fingerprint(ENDPOINT_CREATE_SCHEDULE, body)
+
+    async def replay() -> ApiResponse[Any] | None:
+        row = await submissions.find_replay(
+            tenant_id=tenant_id,
+            idempotency_key=idempotency_key,
+            endpoint=ENDPOINT_CREATE_SCHEDULE,
+            fingerprint=fingerprint,
+        )
+        if row is None:
+            return None
+        return ok(request.app.state.message_catalog, row.response_json)
+
+    already = await replay()
+    if already is not None:
+        return already
+
+    try:
+        async with session.begin_nested():
+            schedule = await service.create_schedule(tenant_id, body)
+            response = _payload(schedule)
+            await submissions.record_in(
+                tenant_id=tenant_id,
+                idempotency_key=idempotency_key,
+                endpoint=ENDPOINT_CREATE_SCHEDULE,
+                actor_user_id=body.actor_user_id,
+                request_fingerprint=fingerprint,
+                response=response,
+                schedule_id=schedule.id,
+            )
+    except IntegrityError:
+        # 并发落败者：读取赢家已提交的首次结果重放。
+        already = await replay()
+        if already is None:
+            raise
+        return already
+    await session.commit()
+    return ok(request.app.state.message_catalog, response)
+
+
+@router.put("/{schedule_id}")
+async def update_schedule(
+    schedule_id: uuid.UUID,
+    body: UpdateScheduleRequest,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    ensure_tenant_consistent(request, tenant_id)
+    schedule = await ScheduleService(session).update_schedule(tenant_id, schedule_id, body)
     return ok(request.app.state.message_catalog, _payload(schedule))
 
 

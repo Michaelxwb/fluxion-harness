@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from croniter import croniter
+from croniter import CroniterBadCronError, croniter
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
@@ -21,6 +21,7 @@ from muad_contracts import (
     ScheduleStatus,
     TaskStatus,
     TriggerType,
+    UpdateScheduleRequest,
 )
 from sqlalchemy import false, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -36,11 +37,27 @@ logger = logging.getLogger(__name__)
 
 CRON_TYPE = "CRON"
 ONCE_TYPE = "ONCE"
+TERMINAL_SCHEDULE_STATUSES = (str(ScheduleStatus.COMPLETED), str(ScheduleStatus.MISSED))
 SNAPSHOT_HASH_PREFIX = "sha256:"
 
 
 class ScheduleResolutionError(Exception):
     pass
+
+
+def _next_cron_fire(cron: str, base: datetime, zone: ZoneInfo) -> datetime:
+    """按目标时区的「墙上时间」计算下一次触发。
+
+    不能把带时区的起点直接交给 croniter：在 DST 切换日它会漂移一小时
+    （美东 2026-03-08 的 `0 9 * * *` 会算成 08:00，2026-11-01 会算成 10:00）。
+    改为先去掉时区、只在本地墙上时间上迭代，再把目标时区贴回去。
+    """
+    naive_base = base.astimezone(zone).replace(tzinfo=None)
+    try:
+        naive_next = croniter(cron, naive_base).get_next(datetime)
+    except (CroniterBadCronError, ValueError) as exc:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR) from exc
+    return naive_next.replace(tzinfo=zone)
 
 
 def compute_next_fire_at(spec: ScheduleSpec, base: datetime) -> datetime:
@@ -50,8 +67,7 @@ def compute_next_fire_at(spec: ScheduleSpec, base: datetime) -> datetime:
         return spec.run_at if spec.run_at.tzinfo else spec.run_at.replace(tzinfo=UTC)
     if not spec.cron:
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
-    zone = ZoneInfo(spec.timezone)
-    return croniter(spec.cron, base.astimezone(zone)).get_next(datetime)
+    return _next_cron_fire(spec.cron, base, ZoneInfo(spec.timezone))
 
 
 def compute_snapshot_hash(snapshot: dict[str, Any]) -> str:
@@ -95,6 +111,44 @@ class ScheduleService:
             revision=1,
         )
         self._session.add(schedule)
+        await self._session.flush()
+        return schedule
+
+    async def update_schedule(
+        self, tenant_id: str, schedule_id: uuid.UUID, payload: UpdateScheduleRequest
+    ) -> TaskSchedule:
+        """API-07：只影响将来触发，revision 递增；COMPLETED/MISSED 为终态不可改。
+
+        已创建 Task 各自持有冻结 Snapshot，本方法不触碰它们。
+        """
+        schedule = await self.get_schedule(tenant_id, schedule_id)
+        if schedule.status in TERMINAL_SCHEDULE_STATUSES:
+            raise AppError(ErrorCode.REVISION_CONFLICT)
+        now = datetime.now(UTC)
+        if payload.name is not None:
+            schedule.name = payload.name
+        if payload.input_template is not None:
+            schedule.input_template_json = payload.input_template
+        if payload.schedule is not None:
+            if payload.schedule.type == CRON_TYPE and not payload.schedule.cron:
+                raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+            if payload.schedule.type == ONCE_TYPE and payload.schedule.run_at is None:
+                raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+            next_fire_at = compute_next_fire_at(payload.schedule, now)
+            schedule.schedule_type = payload.schedule.type
+            schedule.cron_expr = payload.schedule.cron
+            schedule.timezone = payload.schedule.timezone
+            schedule.run_at = payload.schedule.run_at
+            schedule.next_fire_at = next_fire_at
+        if payload.delivery_route is not None:
+            schedule.delivery_route_id = await upsert_delivery_route(
+                self._session,
+                tenant_id=tenant_id,
+                platform_user_id=schedule.actor_user_id,
+                route=payload.delivery_route,
+            )
+        schedule.revision += 1
+        schedule.update_time = now
         await self._session.flush()
         return schedule
 

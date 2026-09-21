@@ -41,6 +41,7 @@ from .tasks import (
     ScheduleListQuery,
     ScheduleSpec,
     TaskListQuery,
+    UpdateScheduleRequest,
 )
 
 __all__ = [
@@ -82,5 +83,6 @@ __all__ = [
     "TaskStatus",
     "TaskType",
     "TriggerType",
+    "UpdateScheduleRequest",
     "UserScope",
 ]

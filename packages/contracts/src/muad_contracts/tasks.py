@@ -79,6 +79,24 @@ class CreateScheduleRequest(ContractModel):
     delivery_route: DeliveryRouteInput
 
 
+class UpdateScheduleRequest(ContractModel):
+    """更新 Schedule（API-07）：字段全部可选，但至少提供一项。"""
+
+    name: str | None = Field(default=None, min_length=1, max_length=256)
+    input_template: dict[str, Any] | None = None
+    schedule: ScheduleSpec | None = None
+    delivery_route: DeliveryRouteInput | None = None
+
+    @model_validator(mode="after")
+    def _require_at_least_one(self) -> Self:
+        if all(
+            value is None
+            for value in (self.name, self.input_template, self.schedule, self.delivery_route)
+        ):
+            raise ValueError("at least one field must be provided")
+        return self
+
+
 class TaskListQuery(ContractModel):
     """任务列表查询参数（API-03 / API-09）。
 

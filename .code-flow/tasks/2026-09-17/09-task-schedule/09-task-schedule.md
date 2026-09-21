@@ -114,7 +114,7 @@
 | B-106 | 09-task-schedule.backend.design.md#3.4 接口设计 | integration | 真实 HTTP handler→PG 幂等记录/事务 | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_submission_idempotency.py"] | . | 600 | |
 | B-107 | 09-task-schedule.backend.design.md#API-01 Internal 创建 Task | integration | Worker Task HTTP→PG Task/Submission/Event | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_service.py"] | . | 600 | |
 | B-108 | 09-task-schedule.backend.design.md#API-03 Internal Task 列表 | integration | 真实 Worker HTTP→PG Task/Event/children | TASK-008 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_task_queries.py"] | . | 600 | |
-| B-109 | 09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule | integration | Schedule HTTP→PG→真实时区计算 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_writes.py"] | . | 600 | |
+| B-109 | 09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule | integration | Schedule HTTP→PG→真实时区计算 | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_writes.py"] | . | 600 | |
 | B-110 | 09-task-schedule.backend.design.md#API-06 Internal Schedule 列表 | integration | HTTP→ScheduleService→PG CAS | TASK-010 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_schedule_queries_actions.py"] | . | 600 | |
 | B-111 | 09-task-schedule.backend.design.md#3.2.1 执行主流程 | integration | 双 Worker→真实 PG 行锁/CAS | TASK-011 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_worker_leases.py"] | . | 600 | |
 | B-112 | 09-task-schedule.backend.design.md#3.3.3 `task.task_execution` | integration | Worker→真实 NFS Artifact→emptyDir cache→真实 Skill handler | TASK-012 | planned | ["uv","run","pytest","-q","tests/agent_worker/test_task_executor.py"] | . | 600 | |
@@ -610,13 +610,13 @@
 - [2026-09-22] completed (done)
 ## TASK-009: 完善 Schedule 创建、更新与时区计算
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-005, TASK-006
 - **Source**: 09-task-schedule.backend.design.md#API-02 Internal 创建 Schedule, 09-task-schedule.backend.design.md#API-07 Internal 更新 Schedule
 - **Spec-Refs**: 
 - **Acceptance-Refs**: B-109
-- **Files**: `apps/agent-worker/src/muad_agent_worker/scheduler/service.py`, `apps/agent-worker/src/muad_agent_worker/api/schedules.py`, `tests/agent_worker/test_schedule_writes.py`
+- **Files**: `apps/agent-worker/src/muad_agent_worker/scheduler/service.py`, `apps/agent-worker/src/muad_agent_worker/api/schedules.py`, `packages/contracts/src/muad_contracts/tasks.py`, `packages/contracts/src/muad_contracts/__init__.py`, `tests/agent_worker/test_schedule_writes.py`
 - **Estimate**: 15–60 分钟；预计超过则先拆分
 
 ### Description
@@ -625,27 +625,39 @@
 
 ### Checklist
 
-- [ ] [B-109][integration] 修改生产代码前先覆盖 Schedule HTTP→PG→真实时区计算 并记录 RED：同键创建仅一条；非法时区/规则失败；COMPLETED/MISSED 不可改；revision 递增且旧 Task Snapshot 不变；DST 边界计算明确。
-- [ ] 实现：接入创建幂等和标准更新请求；校验 owner/管理权限、CRON/ONCE、IANA 时区；更新递增 revision 并只影响将来触发。
-- [ ] [B-109][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
-- [ ] 执行 `uv run pytest -q tests/agent_worker/test_schedule_writes.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
+- [x] [B-109][integration] 修改生产代码前先覆盖 Schedule HTTP→PG→真实时区计算 并记录 RED：同键创建仅一条；非法时区/规则失败；COMPLETED/MISSED 不可改；revision 递增且旧 Task Snapshot 不变；DST 边界计算明确。
+- [x] 实现：接入创建幂等和标准更新请求；校验 owner/管理权限、CRON/ONCE、IANA 时区；更新递增 revision 并只影响将来触发。
+- [x] [B-109][integration] 在上述真实边界复核关键断言；已有正确行为保留，禁止仅为制造 RED 改坏实现。
+- [x] 执行 `uv run pytest -q tests/agent_worker/test_schedule_writes.py`，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件、清理证据与未通过项；全部 verified 后才可 done。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-109 | integration | Schedule HTTP→PG→真实时区计算 | 同键创建仅一条；非法时区/规则失败；COMPLETED/MISSED 不可改；revision 递增且旧 Task Snapshot 不变；DST 边界计算明确 | tests/agent_worker/test_schedule_writes.py / B-109（planned） | uv run pytest -q tests/agent_worker/test_schedule_writes.py | planned |
+| B-109 | integration | Schedule HTTP→PG→真实时区计算 | 同键创建仅一条；非法时区/规则失败；COMPLETED/MISSED 不可改；revision 递增且旧 Task Snapshot 不变；DST 边界计算明确 | tests/agent_worker/test_schedule_writes.py / B-109（verified） | uv run pytest -q tests/agent_worker/test_schedule_writes.py | verified |
 
 ### Acceptance Evidence
 
-> planned。编码时填写 RED/GREEN 执行记录、断言文件/用例/行号、真实组件与测试数据清理证据；不把当前规划结构检查当作功能验收结果。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| B-109 | FAIL: 8 failed / 3 passed —— 同键提交建出 2 条 Schedule（无 Header 幂等）；非法 cron 抛未捕获的 `CroniterBadCronError`（500）；`PUT /internal/schedules/{id}` 路由根本不存在（405）；DST 日 next_fire_at 偏一小时 | PASS: 11 passed；全量 `uv run pytest -q tests` 1023 passed；`ruff check` 全绿 | `tests/agent_worker/test_schedule_writes.py`：`test_same_key_creates_only_one_schedule`、`test_invalid_cron_is_rejected`、`test_update_increments_revision`、`test_update_rejects_terminal_schedule`、`test_update_does_not_touch_existing_task_snapshots`、`test_unknown_schedule_update_returns_404`、`test_next_fire_at_is_recomputed_on_update`、`test_dst_boundary_uses_target_zone_offset`、`test_once_schedule_uses_run_at`、`test_invalid_iana_timezone_is_rejected_by_contract` | 真实 ASGI HTTP → 真实 PostgreSQL；DST 结果额外用分钟级人工扫描交叉验证（09:00 EDT == 13:00 UTC） | verified |
+
+> **真缺陷（DST）**：`croniter` 直接接受带时区的起点时，在 DST 切换日会漂移一小时——美东 2026-03-08 的 `0 9 * * *` 算成 **08:00**，2026-11-01 算成 **10:00**（春季提前、秋季推迟）。已改为先去掉时区、只在本地墙上时间上迭代再贴回目标时区，两个方向都修正且普通日期结果不变。人工分钟扫描独立确认 09:00 EDT 才是正确值。
+>
+> **被拒的边界**：不存在的本地时间（春季跳变日的 02:30）由 `replace(tzinfo=...)` 落到切换前的偏移，即「在该墙钟时间之后最早的可执行瞬间」触发，行为明确且已由用例覆盖。
+>
+> 实测 3/11 断言本就通过（ONCE 用 run_at、非法 IANA 由契约拒绝、以及 `pause/resume` 走 `_transition` 使 COMPLETED/MISSED 天然被拒），未改动。缺口是：创建无幂等、非法 cron 未转成业务错误码、**更新接口完全缺失**（无 service 方法也无路由）。
+>
+> 另新增 `UpdateScheduleRequest` 契约（API-07：字段可选、至少一项）。
+- B-109: verified — automated command passed; run_id=7be1a00714624fa7aa01ab10b51291cc (confirmed_by: runner)
 
 ### Log
 
 - [2026-09-20] prepared (draft，待审阅与设计缺口解决)
 
 ---
-
+- [2026-09-22] started
+- [2026-09-22] completed (done)
 ## TASK-010: 补齐 Schedule 分页、详情与管理状态转换
 
 - **Status**: draft
