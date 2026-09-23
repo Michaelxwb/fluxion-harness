@@ -95,7 +95,7 @@
 | RULE-data-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | integration | 真实 PostgreSQL 表结构与约束（标准列、`is_deleted=false` partial unique、跨 Schema 逻辑 UUID）；原 Spec verifier 真实边界 | TASK-004 | planned | ["bash","-lc","uv run pytest -q tests/console_channel/test_channel_skills_api.py -k b104 && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
 | B-105 | 10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析 | integration | Console snapshot HTTP→真实 PG bot 配置→BotSnapshotCache | TASK-005 | verified | ["uv","run","pytest","-q","tests/gateway/test_bot_snapshot.py","-k","b105"] | . | 600 |  |
 | B-106 | 10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机 | integration | 生产 WeComAdapter/连接管理器→真实本地 WS 故障探针 | TASK-006 | verified | ["uv","run","pytest","-q","tests/gateway/test_wecom_adapter.py","-k","b106"] | . | 600 |  |
-| B-107 | 10-im-gateway.backend.design.md#4.1 健康检查与启动校验 | integration | 真实 Gateway lifespan/HTTP probes→Console/WS 连接管理器 | TASK-007 | planned | ["uv","run","pytest","-q","tests/gateway/test_readyz.py","-k","b107"] | . | 600 |  |
+| B-107 | 10-im-gateway.backend.design.md#4.1 健康检查与启动校验 | integration | 真实 Gateway lifespan/HTTP probes→Console/WS 连接管理器 | TASK-007 | verified | ["uv","run","pytest","-q","tests/gateway/test_readyz.py","-k","b107"] | . | 600 |  |
 | B-108 | 10-im-gateway.backend.design.md#3.2.3 入站去重 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | TASK-008 | verified | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"] | . | 600 |  |
 | S-05 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway入站→真实Redis dedupe→真实下游HTTP观测 | TASK-008 | verified | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","s05"] | . | 600 |  |
 | RULE-08 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | TASK-008 | planned | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"] | . | 600 |  |
@@ -481,7 +481,7 @@
 - [2026-09-24] completed (done)
 ## TASK-007: 对齐启动、就绪与关闭语义
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-006, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#4.1 健康检查与启动校验, 10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机
@@ -496,25 +496,42 @@
 
 ### Checklist
 
-- [ ] [B-107][integration] 修改生产代码前先按 真实 Gateway lifespan/HTTP probes→Console/WS 连接管理器 编写或扩展用例并记录 RED；关键断言：healthz 仅存活；缺启动必需条件 readyz=503；正常 manager 不要求全部 bot CONNECTED；关闭不遗留任务/连接。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_readyz.py","-k","b107"]`。
-- [ ] 实现或补齐：复用 api-kit 探针与启动校验，区分 manager 未初始化与单 bot BACKOFF；有有效快照时 Console 短暂不可达可服务，单 bot 故障记录 degraded 详情。初始化失败清理已创建资源，进程关闭取消并等待消费/轮询任务。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-107][integration] 修改生产代码前先按 真实 Gateway lifespan/HTTP probes→Console/WS 连接管理器 编写或扩展用例并记录 RED；关键断言：healthz 仅存活；缺启动必需条件 readyz=503；正常 manager 不要求全部 bot CONNECTED；关闭不遗留任务/连接。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_readyz.py","-k","b107"]`。
+- [x] 实现或补齐：复用 api-kit 探针与启动校验，区分 manager 未初始化与单 bot BACKOFF；有有效快照时 Console 短暂不可达可服务，单 bot 故障记录 degraded 详情。初始化失败清理已创建资源，进程关闭取消并等待消费/轮询任务。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-107 | integration | 真实 Gateway lifespan/HTTP probes→Console/WS 连接管理器 | healthz 仅存活；缺启动必需条件 readyz=503；正常 manager 不要求全部 bot CONNECTED；关闭不遗留任务/连接 | tests/gateway/test_readyz.py / B-107（planned） | `["uv","run","pytest","-q","tests/gateway/test_readyz.py","-k","b107"]` | planned |
+| B-107 | integration | 真实 Gateway lifespan/HTTP probes→Console/WS 连接管理器 | healthz 仅存活；缺启动必需条件 readyz=503；正常 manager 不要求全部 bot CONNECTED；关闭不遗留任务/连接 | tests/gateway/test_readyz.py / B-107（verified） | `["uv","run","pytest","-q","tests/gateway/test_readyz.py","-k","b107"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-107 | `uv run pytest -q tests/gateway/test_readyz.py -k b107` → `4 failed, 1 passed`（35.06s）。三处行为缺口：① `test_b107_liveness_only_and_missing_console_is_not_ready`：`assert ['adapters', 'console'] == ['console']` —— 连接管理器已初始化（零 bot）仍被算作 `adapters` 失败；② `test_b107_ready_with_degraded_bots_and_stale_snapshot`：`readyz 未收敛到 degraded={bot-b107-rejected, bot-b107-secretless}` —— 单 bot 缺 secret 令整个适配器 `start()` 抛 `ChannelAdapterUnavailable`、好 bot 连接被一并停掉，且响应无 `degraded_bots`；③ `test_b107_failed_initialization_releases_created_resources`：`assert [] == ['console', 'runtime']` —— 初始化中途失败不回收已创建资源。（第 4 个失败用例 `..._startup_validation_failure_creates_no_resources` 是前一用例遗留 `app.state` 造成的测试自身缺陷，改用状态哨兵后即通过，非行为缺口——fail fast 行为改动前已满足。）后续为"关闭不遗留任务/连接"补 `test_b107_reconnect_then_shutdown_leaves_no_tasks_or_connections`，改动前 RED：`assert {'Task-16@ws.py'} == set()`（重连后旧 SDK 客户端未被 disconnect，其 `_heartbeat_loop` 任务残留）。 | 改动后同一命令 → `6 passed`（7.80s）。 | ① `test_b107_liveness_only_and_missing_console_is_not_ready`：`/healthz` 200 且 body 仅 `{"status":"ok"}`；`/readyz` 503 且 `failed == ["console"]`（只列整体必需条件）、`adapters == {"WECOM": True}`、`bots_revision is None`；关闭后无 Gateway/SDK 任务残留。② `test_b107_ready_with_degraded_bots_and_stale_snapshot`：`status == "ready"`、`adapters == {"WECOM": True}`、`bots_revision == "rev-b107"`、`degraded_bots == {rejected, secretless}`（好 bot 不在其中）；probe 回读好 bot 的 `aibot_subscribe` 帧证明其未被连带停掉；停掉 Console 后 `/readyz` 仍 200（§4.1 快照可用即可服务）；退出后 `adapter_states == {"WECOM": False}`、probe 全部连接 `close_code is not None`。③ `test_b107_all_bot_secrets_missing_is_not_ready`：全部 bot 无 secret → 503 且 `failed == ["adapters"]`。④ `test_b107_reconnect_then_shutdown_leaves_no_tasks_or_connections`：`probe.drop_connection` 后重连（`len(connections) > 1`）→ 关闭后无 Gateway/SDK 任务、连接全部关闭。⑤ `test_b107_failed_initialization_releases_created_resources`：注入启动期故障 → 真实 `ConsoleClient`/`RuntimeClient` 的 `aclose` 均被调用、`app.state` 哨兵未被覆盖。⑥ `test_b107_startup_validation_failure_creates_no_resources`：未挂载 Artifact → `StartupValidationError` fail fast、状态未发布。 | 真实 Gateway lifespan（进程内 `uvicorn.Server.serve()` 走真实套接字与真实 lifespan）+ 真实 HTTP 探针（`httpx` → `127.0.0.1:<port>`）+ 真实 Console Internal API（`tests/gateway/fakes.py:StubConsole`，uvicorn 线程 + 真实 socket + 真实 Envelope）+ 真实 WS 连接管理器（生产 `WeComAdapter` → 官方 `wecom-aibot-python-sdk` → `tests/e2e/wecom_probe_app.py` 真实 `wss://` 自签 TLS 探针，含握手拒绝注入）。未使用 ASGITransport 或 SDK/适配器的 mock 走完启动、就绪与关闭链路。 | verified |
+
+补充记录：
+- 生产实现（4 个文件）：
+  - `api/health.py`：`adapters` 就绪判据由 `healthy_adapters`（要求至少一个 bot CONNECTED）改为 `started_adapters`（必要连接管理器已初始化），detail 新增 `degraded_bots`（未 CONNECTED 的 bot → 连接状态）。
+  - `channels/base.py`：`AdapterHealth`/`adapter_healthy`/`healthy_adapters` 被就绪判据弃用后一并移除（避免留下无人使用的间接层），新增 `AdapterDegradation`/`adapter_degraded`/`ChannelRegistry.degraded_bots`。`WeComAdapter.healthy()` 保留（仍被连接层测试断言）。
+  - `channels/wecom/adapter.py`：`start()` 仅在**全部** bot 都无可用凭据时才 `raise ChannelAdapterUnavailable`（整体必需条件缺失），单 bot 缺 secret 只记 degraded 并退避，不再停止其他 bot；新增 `degraded_bots`。
+  - `main.py`：lifespan 改为 `_GatewayResources`（创建/发布/回收一体），`try/finally` 覆盖 `refresh`/`start_all`，初始化失败时回收已创建资源，且运行时状态只在初始化成功后发布。
+- 关闭生命周期修复（同一 B-107 断言范围内发现的真实缺陷）：`_BotConnection` 在断线重连时直接替换 `_client` 而未 `disconnect()`，导致旧 SDK 客户端的心跳/接收任务永远不被取消（既有 `tests/gateway/test_wecom_adapter.py` 的 B-106 重连用例在会话收尾会打印 `Task was destroyed but it is pending! ... aibot/ws.py:299 _heartbeat_loop`）。改为 `_release_client()`（stop 与 `_connect_once` 共用），修复后该 teardown 噪音归零（`grep -c "Task was destroyed"`：1 → 0）。
+- 就绪语义口径：零 bot（快照为空）→ manager 已初始化即 ready；全部 bot 无凭据 → 503；单 bot 退避/握手被拒 → ready + degraded。与 design §4.1「不要求全部 CONNECTED、整体必需启动条件缺失才 503」一致。
+- 回归：`tests/gateway` → `174 passed`；`tests/gateway tests/console_channel` → `210 passed`；`tests/acceptance/im_gateway`（B-120/B-121/B-131 真实进程栈）→ `12 passed`；`uv run mypy apps/im-gateway/src/muad_im_gateway` → `Success: no issues found in 21 source files`；改动文件内无函数 >50 行。
+- 测试基建复用（不重写）：`StubConsole` 由 `tests/gateway/test_gateway_console_client.py`（B-102）上移到 `tests/gateway/fakes.py` 供两处共用，B-102 用例改为导入，行为不变。
+- 清理：进程内 uvicorn `should_exit` + 等待 `serve()` 收尾、`probe.stop()`、`StubConsole.stop()`（thread join）；运行后 `ps aux` 无 uvicorn/`muad_*.main` 残留进程。
+- B-107: verified — automated command passed; run_id=336453ac754e49aab60bf5b6ac1e84b8 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] completed (done)
 ## TASK-008: 对齐入站 Redis 原子去重与降级
 
 - **Status**: done
@@ -1100,7 +1117,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 | B-121 | **首次运行失败链（据实记录）**：`uv run pytest -q tests/acceptance/im_gateway/test_environment.py -k b121` 连续暴露 5 个真实问题并逐个修好：①`ServiceProcess` 自行拼接 `:app`，栈里传 `模块:app` → Console 退出 code=3；②`CHANNEL_PROBE_URL` 会让 Gateway 整体换用 HTTP 探针适配器（`main.py:35`），真实 WS 连接根本不建立；③bot 首次连接退避期间 `/readyz` 返回 503（见"发现"）；④`control.agent_access_grant` 无 `tenant_id` 列（改 join 统计）；⑤purge/count/seed 复用被缓存的 engine 触发 `attached to a different loop` → 全部改为各自独立 engine | 修完后同一命令 → `5 passed`（16s） | `test_b121_all_service_processes_are_reachable`（Console/Runtime/Gateway 进程存活 + `/healthz` 200 + 有界等待 `/readyz` 200）；`test_b121_gateway_authenticates_to_local_ws_probe`（探针回读到 `aibot_subscribe` 且 `body=={bot_id,secret}`、无认证失败、`/readyz` ready）；`test_b121_model_is_called_over_real_http`（模型探针 `/healthz` 200 且库中 `model_definition.base_url` 指向该真实探针）；`test_b121_process_restart_recovers`（停 Console → 进程确已退出、Gateway 仍 ready=200（设计 §4.1 已有完整快照可服务）→ 重启后 Console/Gateway 均健康）；`test_b121_cleanup_leaves_no_tenant_residue`（`purge_tenant()` 后 6 张 control 表 + grant join 计数全为 0，Redis 无本租户 `im:dedupe:*` 键） | 真实 uvicorn 子进程（Console / Runtime / Gateway，真实 socket）+ 真实 PostgreSQL + 真实 Redis + 真实模型 HTTP 探针（`tests.e2e.openai_probe_app`）+ 真实 WS 协议探针（`wss://` 真实 TLS，自签 CA 经 `WECOM_WS_CA_FILE` 注入，未 mock 任何一条边界） | verified |
 
 **发现（不属本任务修复范围，登记归属）**：
-1. `/readyz` 在 bot 首次连接退避期间返回 **503**（`failed:["adapters"]`，"adapters" 由 `adapter.healthy()` 推导），与 design §4.1「必要 Bot connection manager 已初始化；单 bot 故障在 detail 标记 degraded 并退避，不要求全部 CONNECTED」不一致 → 归 **TASK-007 / B-107**（本任务以"有界等待 ready"表达环境就绪，不改就绪语义）。
+1. `/readyz` 在 bot 首次连接退避期间返回 **503**（`failed:["adapters"]`，"adapters" 由 `adapter.healthy()` 推导），与 design §4.1「必要 Bot connection manager 已初始化；单 bot 故障在 detail 标记 degraded 并退避，不要求全部 CONNECTED」不一致 → 归 **TASK-007 / B-107**（本任务以"有界等待 ready"表达环境就绪，不改就绪语义）。**已由 TASK-007 修复**：就绪判据改为"连接管理器已初始化"，单 bot 退避/缺 secret 只进 `degraded_bots` detail，不再 503；上述"有界等待"辅助仍保留（对 200 的等待语义不变）。
 2. `CHANNEL_PROBE_URL` 是**整体替换**渠道适配器（`main.py:35`），因此投递验收（TASK-027）需用自己的栈配置；基础环境不设置该变量（已在 environment.py 注释说明）。
 
 补充记录：
