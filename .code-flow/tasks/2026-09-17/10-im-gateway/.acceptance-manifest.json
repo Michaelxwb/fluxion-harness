@@ -595,7 +595,7 @@
       "kind": "functional",
       "boundary": "真实 SSE parser 与分片字节/行输入",
       "owner": "TASK-014",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -607,7 +607,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-114",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "dc36624a19bf4dc8a904654ede2827e3",
+        "executed_at": "2026-09-23T16:55:09.308301+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-114",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "dc36624a19bf4dc8a904654ede2827e3",
+          "executed_at": "2026-09-23T16:55:09.308301+00:00"
+        }
+      ]
     },
     {
       "id": "B-115",

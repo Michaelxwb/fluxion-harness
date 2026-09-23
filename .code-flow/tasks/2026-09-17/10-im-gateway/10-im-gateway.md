@@ -107,7 +107,7 @@
 | S-06 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Gateway→Runtime cancel-active HTTP→PostgreSQL CAS | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","s06"] | . | 600 |  |
 | E-05 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Runtime cancel-active/PG→Gateway | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","e05"] | . | 600 |  |
 | B-113 | 10-im-gateway.backend.design.md#API-06 Runtime Run 桥接 | integration | 生产 RuntimeClient→真实本地 HTTP/SSE 接收端 | TASK-013 | verified | ["uv","run","pytest","-q","tests/gateway/test_runtime_client.py","-k","b113"] | . | 600 |  |
-| B-114 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | unit | 真实 SSE parser 与分片字节/行输入 | TASK-014 | planned | ["uv","run","pytest","-q","tests/gateway/test_sse_parser.py","-k","b114"] | . | 600 |  |
+| B-114 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | unit | 真实 SSE parser 与分片字节/行输入 | TASK-014 | verified | ["uv","run","pytest","-q","tests/gateway/test_sse_parser.py","-k","b114"] | . | 600 |  |
 | B-115 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | integration | 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 | TASK-015 | planned | ["uv","run","pytest","-q","tests/gateway/test_stream_renderer.py","-k","b115"] | . | 600 |  |
 | B-116 | 10-im-gateway.backend.design.md#3.2 架构与流程 | integration | 真实 iter_events→Gateway 消费队列→Runtime HTTP/SSE→WS 回复 | TASK-016 | planned | ["uv","run","pytest","-q","tests/gateway/test_inbound_concurrency.py","-k","b116"] | . | 600 |  |
 | B-117 | 10-im-gateway.backend.design.md#API-05 主动投递 | integration | 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS | TASK-017 | planned | ["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","b117"] | . | 600 |  |
@@ -818,7 +818,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-014: 使 SSE 解析保留封套与序号
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-013
 - **Source**: 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03）
@@ -833,25 +833,39 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ### Checklist
 
-- [ ] [B-114][unit] 修改生产代码前先按 真实 SSE parser 与分片字节/行输入 编写或扩展用例并记录 RED；关键断言：seq 严格单调；heartbeat 不计 seq；run.created resumed 字段保留；非法 JSON/未知事件不损坏流状态。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_sse_parser.py","-k","b114"]`。
-- [ ] 实现或补齐：抽出强类型 SSE 事件，保留 run_id/seq/timestamp/type/data；处理 CRLF、多行 data、网络分片与注释 heartbeat；错误帧显式记录并安全收尾，重复/乱序帧不重复输出。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-114][unit] 修改生产代码前先按 真实 SSE parser 与分片字节/行输入 编写或扩展用例并记录 RED；关键断言：seq 严格单调；heartbeat 不计 seq；run.created resumed 字段保留；非法 JSON/未知事件不损坏流状态。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_sse_parser.py","-k","b114"]`。
+- [x] 实现或补齐：抽出强类型 SSE 事件，保留 run_id/seq/timestamp/type/data；处理 CRLF、多行 data、网络分片与注释 heartbeat；错误帧显式记录并安全收尾，重复/乱序帧不重复输出。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-114 | unit | 真实 SSE parser 与分片字节/行输入 | seq 严格单调；heartbeat 不计 seq；run.created resumed 字段保留；非法 JSON/未知事件不损坏流状态 | tests/gateway/test_sse_parser.py / B-114（planned） | `["uv","run","pytest","-q","tests/gateway/test_sse_parser.py","-k","b114"]` | planned |
+| B-114 | unit | 真实 SSE parser 与分片字节/行输入 | seq 严格单调；heartbeat 不计 seq；run.created resumed 字段保留；非法 JSON/未知事件不损坏流状态 | tests/gateway/test_sse_parser.py / B-114（verified） | `["uv","run","pytest","-q","tests/gateway/test_sse_parser.py","-k","b114"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-114 | `uv run pytest -q tests/gateway/test_sse_parser.py -k b114` → 收集失败 `ModuleNotFoundError: No module named 'muad_im_gateway.application.sse'`（TASK-014 要求抽出的强类型 SSE 层不存在）。另用探针脚本对现行 `runtime_client.iter_sse_events` 喂同一组真实封套帧，记录四处行为缺口：① `SseEvent` 只有 `type`/`data`，封套 `run_id`/`seq`/`timestamp` 全丢；② `data` 是**整个封套**，消费方 `inbound._apply_run_event` 读 `event.data["delta"]` 得到 `None`（真实 Runtime 流量下流式文本与终态文案静默丢失）；③ 重复 `seq=8` 的帧被再次输出（3 帧 → 3 事件）；④ 按 9 字节切分的分片输入 → **0 个事件**（现实现要求行原子输入）。 | 改动后同一命令 → `5 passed`；同文件全量 → `9 passed`。 | `test_b114_preserves_envelope_fields_and_inner_data`（`run_id=="run-b114"`、`seq==7`、`timestamp==B114_TIMESTAMP`、`type` 取封套；内层 `data` 原样含 `resumed is True`，不再被包一层）；`test_b114_seq_is_strictly_monotonic_and_repeats_are_dropped`（seq 1,2,2,1,3 → `[1,2,3]`，重复与乱序回流均不输出）；`test_b114_heartbeat_does_not_count_as_event_or_advance_seq`（穿插 4 个 `: heartbeat` → 仅 3 个事件且 `seq==[1,2,3]`）；`test_b114_reassembles_fragmented_chunks`（同一流按 7 字节切分 >4 段，含行中/JSON 中切开 → 事件与字段完全一致）；`test_b114_error_frames_do_not_corrupt_stream_state`（非法 JSON、非对象 data、未知事件、坏封套 `seq:"not-a-number"`、空 data 五种错误帧夹在中间 → 事件 seq 仍为 `[1,2,3]`）。 | 真实 parser + 真实分片文本输入：探针帧严格取自 `apps/agent-runtime/src/muad_agent_runtime/application/sse.py` 的真实出站格式（`event: <type>\ndata: {run_id,seq,timestamp,type,data}\n\n` 与 `: heartbeat\n\n`）；生产接线由行原子 `response.aiter_lines()` 改为分片 `response.aiter_text()`（httpx 增量解码），解析器自行切行。 | verified |
+
+补充记录：
+- 新文件 `application/sse.py`（`KNOWN_EVENT_TYPES`/`SseEvent`/`_FrameBuilder`/`_SeqGuard`/`iter_sse_events`）；`runtime_client.py` 删除内联 parser 并以 `from .sse import ... as ...` 显式再导出，既有消费者（`inbound.py`/测试）导入路径不变、行为随解析语义一起对齐（`event.data` 现在是内层载荷）。
+- 封套判据：内层 `data` 为对象且出现 `seq`/`timestamp`/`run_id` 任一键 → 按封套解析；无缝封套的合成帧（既有测试与 B-113 的 stub 帧）仍把整个对象当作内层 data，兼容不变。
+- 错误帧处理：非法 JSON / 非对象 data → `warning`；未知事件类型 → `debug` + 丢弃；坏封套（seq 非整数、data 非对象）→ `warning` + 丢弃，均不破坏流状态与 seq 判定。
+- 既有 4 个 parser 用例的输入改为 chunk 形态（补 `\n`/`\r\n` 行终止符），断言语义不变；`SseEvent` 新增字段均有默认值，直接构造的既有用例（`test_inbound.py` 等）不受影响。
+- 未改动 `application/inbound.py`（不在本任务 Files 内）。
+- 回归：`tests/gateway` → `179 passed`；`tests/gateway tests/console_channel` → `215 passed`；`uv run mypy apps/im-gateway/src/muad_im_gateway` → `Success: no issues found in 22 source files`。
+- 清理：纯内存解析，无进程/端口/数据残留。
+- B-114: verified — automated command passed; run_id=dc36624a19bf4dc8a904654ede2827e3 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] completed (done)
 ## TASK-015: 补齐 SSE 到 IM 的收尾与中断呈现
 
 - **Status**: draft
