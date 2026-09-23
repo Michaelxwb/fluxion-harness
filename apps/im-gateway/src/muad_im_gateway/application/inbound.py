@@ -162,6 +162,7 @@ class InboundPipeline:
             channel=envelope.channel,
             bot_id=envelope.bot_id,
             external_user_id=envelope.external_user_id,
+            external_conversation_id=envelope.external_conversation_id,
         )
         try:
             return await self._console.resolve(request, self._tenant_id)

@@ -99,8 +99,8 @@
 | B-108 | 10-im-gateway.backend.design.md#3.2.3 入站去重 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | TASK-008 | verified | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"] | . | 600 |  |
 | S-05 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway入站→真实Redis dedupe→真实下游HTTP观测 | TASK-008 | verified | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","s05"] | . | 600 |  |
 | RULE-08 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | TASK-008 | planned | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"] | . | 600 |  |
-| B-109 | 10-im-gateway.backend.design.md#API-02 解析消息路由 | integration | Gateway→真实 Console resolve HTTP→PostgreSQL→Runtime 接收观测 | TASK-009 | planned | ["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","b109"] | . | 600 |  |
-| E-01 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway→真实bot resolve HTTP→PostgreSQL | TASK-009 | planned | ["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","e01"] | . | 600 |  |
+| B-109 | 10-im-gateway.backend.design.md#API-02 解析消息路由 | integration | Gateway→真实 Console resolve HTTP→PostgreSQL→Runtime 接收观测 | TASK-009 | verified | ["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","b109"] | . | 600 |  |
+| E-01 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway→真实bot resolve HTTP→PostgreSQL | TASK-009 | verified | ["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","e01"] | . | 600 |  |
 | B-110 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway command→真实 Console bind HTTP→PostgreSQL | TASK-010 | planned | ["uv","run","pytest","-q","tests/gateway/test_bind_command.py","-k","b110"] | . | 600 |  |
 | B-111 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway commands→真实 Console/Runtime HTTP→PostgreSQL | TASK-011 | planned | ["uv","run","pytest","-q","tests/gateway/test_commands_integration.py","-k","b111"] | . | 600 |  |
 | B-112 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件 | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","b112"] | . | 600 |  |
@@ -560,7 +560,7 @@
 - [2026-09-23] completed (done)
 ## TASK-009: 对齐 resolve、未绑定与授权分流
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 10-im-gateway.backend.design.md#API-02 解析消息路由, 10-im-gateway.backend.design.md#API-06 Runtime Run 桥接
@@ -576,27 +576,41 @@
 
 ### Checklist
 
-- [ ] [B-109][integration] 修改生产代码前先按 Gateway→真实 Console resolve HTTP→PostgreSQL→Runtime 接收观测 编写或扩展用例并记录 RED；关键断言：bound=false 为正常分支；未绑定/无授权/禁用 bot 无 Run；同用户跨 bot 的 route 不串线。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","b109"]`。
-- [ ] [E-01][integration] 修改生产代码前先按 Gateway→真实bot resolve HTTP→PostgreSQL 编写或扩展用例并记录 RED；关键断言：bot未知/禁用返回BOT_NOT_FOUND；不创建Run。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","e01"]`。
-- [ ] 实现或补齐：透传 conversation 标识，按 bound/authorized 明确分流；未绑定给绑定提示，禁用/不存在 bot 使用 BOT_NOT_FOUND；只传 logical agent_id，不保存 Agent→Pod 或 active run 映射。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-109][integration] 修改生产代码前先按 Gateway→真实 Console resolve HTTP→PostgreSQL→Runtime 接收观测 编写或扩展用例并记录 RED；关键断言：bound=false 为正常分支；未绑定/无授权/禁用 bot 无 Run；同用户跨 bot 的 route 不串线。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","b109"]`。
+- [x] [E-01][integration] 修改生产代码前先按 Gateway→真实bot resolve HTTP→PostgreSQL 编写或扩展用例并记录 RED；关键断言：bot未知/禁用返回BOT_NOT_FOUND；不创建Run。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","e01"]`。
+- [x] 实现或补齐：透传 conversation 标识，按 bound/authorized 明确分流；未绑定给绑定提示，禁用/不存在 bot 使用 BOT_NOT_FOUND；只传 logical agent_id，不保存 Agent→Pod 或 active run 映射。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-109 | integration | Gateway→真实 Console resolve HTTP→PostgreSQL→Runtime 接收观测 | bound=false 为正常分支；未绑定/无授权/禁用 bot 无 Run；同用户跨 bot 的 route 不串线 | tests/gateway/test_message_routing_integration.py / B-109（planned） | `["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","b109"]` | planned |
-| E-01 | integration | Gateway→真实bot resolve HTTP→PostgreSQL | bot未知/禁用返回BOT_NOT_FOUND；不创建Run | tests/gateway/test_message_routing_integration.py / E-01（planned） | `["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","e01"]` | planned |
+| B-109 | integration | Gateway→真实 Console resolve HTTP→PostgreSQL→Runtime 接收观测 | bound=false 为正常分支；未绑定/无授权/禁用 bot 无 Run；同用户跨 bot 的 route 不串线 | tests/gateway/test_message_routing_integration.py / B-109（verified） | `["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","b109"]` | verified |
+| E-01 | integration | Gateway→真实bot resolve HTTP→PostgreSQL | bot未知/禁用返回BOT_NOT_FOUND；不创建Run | tests/gateway/test_message_routing_integration.py / E-01（verified） | `["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","e01"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| E-01 | `uv run pytest -q tests/gateway/test_message_routing_integration.py` → `1 failed, 2 passed`：`test_e01_unknown_disabled_and_deleted_bot_return_bot_not_found` 失败——禁用/删除/未知 bot 由 Console 返回 **200 `bound:false`**，而设计 E-01/API-02 要求 `BOT_NOT_FOUND`（Gateway 因此无法区分"未绑定用户"与"bot 不可用"） | 同一命令 → `3 passed` | `test_e01_unknown_disabled_and_deleted_bot_return_bot_not_found`（未知/禁用/删除三类 bot 均 `BOT_NOT_FOUND`，状态码 403/404 由 catalog 映射；真实 Console HTTP + 真实 PG 查询 `bot_account` 的 enabled/is_deleted） | 真实 Console 服务**独立进程**（uvicorn + 真实 socket）+ 真实 PostgreSQL 的 bot/identity/grant 数据（复用 console_channel 真实夹具，经 sys.path 显式导入） | verified |
+| B-109 | 同上（`bound=false` 正常分支与 route 不串线在现状即通过，属回归性断言） | `-k b109` → `2 passed` | `test_b109_unbound_and_unauthorized_are_normal_branches_without_run`（未绑定用户 → `bound=false` 正常分支，回绑定提示且 **Runtime 未收到任何 Run**；已绑定但无 `AgentAccessGrant` → 拒绝访问且不创建 Run）；`test_b109_authorized_message_creates_run_with_matching_route`（授权消息 → Runtime 恰好收到 1 次：`message.id` 原样、`channel.bot_id` 与发送 bot 一致（route 不串线）、`channel.external_conversation_id` 透传、`agent_id` 为逻辑 Agent、payload 不含 pod；且 **resolve 出站请求携带同一会话标识**——由 `RecordingConsoleClient` 记录出站 payload，仍走真实 HTTP） | 真实 Console 进程 + 真实 PostgreSQL + 真实 Runtime HTTP 接收端（uvicorn 真实 socket，记录是否创建 Run 与请求体） | verified |
+
+补充记录：
+- 实现范围：①Console `channel_service.resolve`：`find_enabled` 为 None（未知/禁用/已删除）时改为 `raise AppError(ErrorCode.BOT_NOT_FOUND)`，与设计 API-02 处理口径一致；②Gateway `inbound._resolve`：`ChannelResolveRequest` 补 `external_conversation_id=envelope.external_conversation_id`（设计 API-02 请求字段 + TASK-009「透传 conversation 标识」）。
+- 连带（语义变更同步，显式登记）：`tests/console_channel/test_channel_resolve_api.py` 中 3 条既有用例（unknown/disabled/deleted → 原断言 `bound:false`）改为断言 `BOT_NOT_FOUND`；`test_tenant_isolation_hides_other_tenant_bot` 由「其他租户 bot 返回 bound:false」改为 `BOT_NOT_FOUND`（跨租户视角等同未配置，且不泄露存在性——比原断言更强的隔离）。
+- 回归：`tests/console_channel` → `36 passed`；`tests/gateway` → `158 passed`；非验收全量 → `1158 passed`。
+- 外部依赖：无（仅 Console 契约 + Runtime 接收观测）。
+- 清理：Console 子进程 fixture finally terminate/kill；Runtime 接收端线程 `should_exit` + join；真实 PG 数据由 console_channel 夹具自清理。
+- B-109: verified — automated command passed; run_id=b0881999e65645a3b1dc74aefff9610a (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=b0881999e65645a3b1dc74aefff9610a (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-23] started
+- [2026-09-23] completed (done)
 ## TASK-010: 完善 /bind 命令与稳定幂等键
 
 - **Status**: draft

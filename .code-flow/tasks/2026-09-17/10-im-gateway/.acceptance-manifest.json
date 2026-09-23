@@ -292,7 +292,7 @@
       "kind": "functional",
       "boundary": "Gateway→真实 Console resolve HTTP→PostgreSQL→Runtime 接收观测",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -304,7 +304,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-109",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "b0881999e65645a3b1dc74aefff9610a",
+        "executed_at": "2026-09-23T11:15:13.530854+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-109",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "b0881999e65645a3b1dc74aefff9610a",
+          "executed_at": "2026-09-23T11:15:13.530854+00:00"
+        }
+      ]
     },
     {
       "id": "E-01",
@@ -313,7 +334,7 @@
       "kind": "functional",
       "boundary": "Gateway→真实bot resolve HTTP→PostgreSQL",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -325,7 +346,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "b0881999e65645a3b1dc74aefff9610a",
+        "executed_at": "2026-09-23T11:15:13.530854+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "b0881999e65645a3b1dc74aefff9610a",
+          "executed_at": "2026-09-23T11:15:13.530854+00:00"
+        }
+      ]
     },
     {
       "id": "B-110",

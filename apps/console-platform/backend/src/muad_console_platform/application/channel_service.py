@@ -98,12 +98,8 @@ class ChannelService:
     ) -> ChannelResolveResponse:
         bot = await self._bots.find_enabled(tenant_id, payload.bot_id)
         if bot is None:
-            return ChannelResolveResponse(
-                bound=False,
-                agent_id=None,
-                platform_user_id=None,
-                authorized=False,
-            )
+            # 未知/禁用/已删除 bot 不是“未绑定用户”，按设计 E-01 返回 BOT_NOT_FOUND
+            raise AppError(ErrorCode.BOT_NOT_FOUND)
         identity = await self._identities.find(
             tenant_id,
             payload.channel,

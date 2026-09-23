@@ -1,6 +1,7 @@
 import uuid
 from typing import Any
 
+import httpx
 from httpx import AsyncClient
 from muad_console_platform.infrastructure.db import get_session_factory
 from sqlalchemy import text
@@ -42,51 +43,57 @@ async def _resolve(
     return data
 
 
-async def test_unknown_bot_returns_unbound(
+async def _resolve_error(
+    client: AsyncClient,
+    channel: ChannelContext,
+    *,
+    bot_id: str,
+    external_user_id: str,
+) -> httpx.Response:
+    return await client.post(
+        RESOLVE_URL,
+        json=_payload(bot_id, external_user_id),
+        headers=_headers(channel),
+    )
+
+
+async def test_unknown_bot_returns_bot_not_found(
     client: AsyncClient, channel: ChannelContext
 ) -> None:
-    data = await _resolve(
+    response = await _resolve_error(
         client,
         channel,
         bot_id=f"unknown-{uuid.uuid4()}",
         external_user_id=channel.unbound_external_user_id,
     )
-    assert data == {
-        "bound": False,
-        "agent_id": None,
-        "platform_user_id": None,
-        "authorized": False,
-    }
+    assert response.status_code in (403, 404)
+    assert response.json()["code"] == "BOT_NOT_FOUND"
 
 
-async def test_disabled_bot_returns_unbound(client: AsyncClient, channel: ChannelContext) -> None:
-    data = await _resolve(
+async def test_disabled_bot_returns_bot_not_found(
+    client: AsyncClient, channel: ChannelContext
+) -> None:
+    response = await _resolve_error(
         client,
         channel,
         bot_id=channel.disabled_bot_id,
         external_user_id=channel.unbound_external_user_id,
     )
-    assert data == {
-        "bound": False,
-        "agent_id": None,
-        "platform_user_id": None,
-        "authorized": False,
-    }
+    assert response.status_code in (403, 404)
+    assert response.json()["code"] == "BOT_NOT_FOUND"
 
 
-async def test_deleted_bot_returns_unbound(client: AsyncClient, channel: ChannelContext) -> None:
-    data = await _resolve(
+async def test_deleted_bot_returns_bot_not_found(
+    client: AsyncClient, channel: ChannelContext
+) -> None:
+    response = await _resolve_error(
         client,
         channel,
         bot_id=channel.deleted_bot_id,
         external_user_id=channel.unbound_external_user_id,
     )
-    assert data == {
-        "bound": False,
-        "agent_id": None,
-        "platform_user_id": None,
-        "authorized": False,
-    }
+    assert response.status_code in (403, 404)
+    assert response.json()["code"] == "BOT_NOT_FOUND"
 
 
 async def test_known_bot_without_identity_returns_agent(
@@ -203,16 +210,11 @@ async def test_disabled_agent_is_unauthorized(
 async def test_tenant_isolation_hides_other_tenant_bot(
     client: AsyncClient, channel: ChannelContext
 ) -> None:
-    data = await _resolve(
-        client,
-        channel,
-        bot_id=channel.bot_id,
-        external_user_id=channel.bound_external_user_id,
-        tenant_id=channel.other_tenant_id,
+    """跨租户 bot 在本租户视角等同未配置：BOT_NOT_FOUND，不泄露其存在性。"""
+    response = await client.post(
+        RESOLVE_URL,
+        json=_payload(channel.bot_id, channel.bound_external_user_id),
+        headers=_headers(channel, channel.other_tenant_id),
     )
-    assert data == {
-        "bound": False,
-        "agent_id": None,
-        "platform_user_id": None,
-        "authorized": False,
-    }
+    assert response.status_code in (403, 404)
+    assert response.json()["code"] == "BOT_NOT_FOUND"
