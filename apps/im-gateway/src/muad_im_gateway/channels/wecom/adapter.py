@@ -11,6 +11,8 @@ from enum import StrEnum
 from typing import Protocol
 from uuid import uuid4
 
+from muad_api import metrics
+from muad_api.context import current_trace_id
 from muad_common import SharedSettings
 from muad_contracts import (
     BotSnapshotItem,
@@ -40,6 +42,8 @@ DEFAULT_LIVENESS_INTERVAL_SEC = 1.0
 TEXT_MESSAGE_TYPE = "text"
 STREAM_HEADER_KEY = "headers"
 STREAM_REPLY_ID_KEY = "req_id"
+CONNECTED_GAUGE = "wecom_ws_connected"
+CONNECTED_GAUGE_HELP = "WeCom bot WebSocket connection state (1=CONNECTED)"
 
 RouteKey = tuple[str, str, str | None]
 
@@ -90,6 +94,7 @@ class _BotConnection:
         self._backoff_max_sec = backoff_max_sec
         self._liveness_interval_sec = liveness_interval_sec
         self._state = ConnectionState.DISCONNECTED
+        self._attempt = 0
         self._last_error: Exception | None = None
         self._client: WeComSdkPort | None = None
         self._task: asyncio.Task[None] | None = None
@@ -122,31 +127,31 @@ class _BotConnection:
 
     async def stop(self) -> None:
         self._stop_requested.set()
-        self._state = ConnectionState.STOPPING
+        self._set_state(ConnectionState.STOPPING)
         await self._release_client()
         if self._task is not None:
             self._task.cancel()
             with suppress(asyncio.CancelledError):
                 await self._task
             self._task = None
-        self._state = ConnectionState.DISCONNECTED
+        self._set_state(ConnectionState.DISCONNECTED)
 
     async def _run(self) -> None:
         delay = self._backoff_base_sec
         while not self._stop_requested.is_set():
-            self._state = ConnectionState.CONNECTING
+            self._set_state(ConnectionState.CONNECTING)
             try:
                 await self._connect_once()
             except ChannelAdapterUnavailable as exc:
                 self._record_failure("wecom_bot_secret_missing", exc)
-                self._state = ConnectionState.BACKOFF
+                self._set_state(ConnectionState.BACKOFF)
                 self._signal_first_attempt()
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, self._backoff_max_sec)
                 continue
             except Exception as exc:
                 self._record_failure("wecom_bot_connect_failed", exc)
-                self._state = ConnectionState.BACKOFF
+                self._set_state(ConnectionState.BACKOFF)
                 self._signal_first_attempt()
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, self._backoff_max_sec)
@@ -156,7 +161,7 @@ class _BotConnection:
             await self._wait_for_disconnect()
             if self._stop_requested.is_set():
                 return
-            self._state = ConnectionState.BACKOFF
+            self._set_state(ConnectionState.BACKOFF)
             await asyncio.sleep(delay)
 
     async def _wait_for_disconnect(self) -> None:
@@ -177,6 +182,7 @@ class _BotConnection:
     async def _connect_once(self) -> None:
         # 重连前先释放上一轮客户端：SDK 的心跳/接收任务只由 disconnect() 取消
         await self._release_client()
+        self._attempt += 1
         secret = await self._resolve_bot_secret()
         client = self._sdk_factory(self.bot.bot_id, secret)
         self._client = client
@@ -204,6 +210,27 @@ class _BotConnection:
         client.on_disconnected(self._handle_disconnected)
         client.on_error(self._handle_error)
 
+    def _set_state(self, new_state: ConnectionState) -> None:
+        """状态机唯一收口：迁移即更新连接指标并写可关联 trace 的迁移日志（不含 Secret）。"""
+        previous = self._state
+        self._state = new_state
+        metrics.set_gauge(
+            CONNECTED_GAUGE,
+            1.0 if new_state is ConnectionState.CONNECTED else 0.0,
+            {"bot_id": self.bot.bot_id},
+            help=CONNECTED_GAUGE_HELP,
+        )
+        if previous is new_state:
+            return
+        logger.info(
+            "wecom_bot_state_changed bot_id=%s from=%s to=%s attempt=%s trace_id=%s",
+            self.bot.bot_id,
+            previous,
+            new_state,
+            self._attempt,
+            current_trace_id(),
+        )
+
     def _signal_first_attempt(self) -> None:
         if not self._first_attempt.is_set():
             self._first_attempt.set()
@@ -221,13 +248,12 @@ class _BotConnection:
     def _handle_authenticated(self) -> None:
         if self._stop_requested.is_set():
             return
-        self._state = ConnectionState.CONNECTED
-        logger.info("wecom_bot_connected bot_id=%s", self.bot.bot_id)
+        self._set_state(ConnectionState.CONNECTED)
 
     def _handle_disconnected(self, reason: str) -> None:
         if self._stop_requested.is_set():
             return
-        self._state = ConnectionState.BACKOFF
+        self._set_state(ConnectionState.BACKOFF)
         self._disconnected.set()
         logger.warning("wecom_bot_disconnected bot_id=%s reason=%s", self.bot.bot_id, reason)
 
@@ -236,7 +262,7 @@ class _BotConnection:
         logger.warning("wecom_bot_error bot_id=%s error=%s", self.bot.bot_id, type(error).__name__)
         if self._stop_requested.is_set():
             return
-        self._state = ConnectionState.BACKOFF
+        self._set_state(ConnectionState.BACKOFF)
         self._disconnected.set()
         if self._client is not None:
             self._client.disconnect()

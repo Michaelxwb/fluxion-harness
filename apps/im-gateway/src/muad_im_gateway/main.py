@@ -6,7 +6,12 @@ from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 
 from fastapi import FastAPI
-from muad_api import install_api_foundation, install_health_probes, validate_startup
+from muad_api import (
+    install_api_foundation,
+    install_health_probes,
+    install_metrics,
+    validate_startup,
+)
 from muad_api.catalog import MessageCatalog
 from muad_common import SharedSettings
 from muad_logging import configure_logging
@@ -131,3 +136,4 @@ install_health_probes(
     detail=lambda: readiness_detail(app),
 )
 app.include_router(delivery_router)
+install_metrics(app)
