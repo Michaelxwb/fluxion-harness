@@ -763,7 +763,7 @@
       "kind": "functional",
       "boundary": "真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS",
       "owner": "TASK-017",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -775,7 +775,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-117",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "f871c1da4f464375938c1eb55ebce714",
+        "executed_at": "2026-09-23T17:19:12.750783+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-117",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "f871c1da4f464375938c1eb55ebce714",
+          "executed_at": "2026-09-23T17:19:12.750783+00:00"
+        }
+      ]
     },
     {
       "id": "B-118",

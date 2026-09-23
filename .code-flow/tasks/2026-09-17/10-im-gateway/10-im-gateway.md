@@ -110,7 +110,7 @@
 | B-114 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | unit | 真实 SSE parser 与分片字节/行输入 | TASK-014 | verified | ["uv","run","pytest","-q","tests/gateway/test_sse_parser.py","-k","b114"] | . | 600 |  |
 | B-115 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | integration | 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 | TASK-015 | planned | ["uv","run","pytest","-q","tests/gateway/test_stream_renderer.py","-k","b115"] | . | 600 |  |
 | B-116 | 10-im-gateway.backend.design.md#3.2 架构与流程 | integration | 真实 iter_events→Gateway 消费队列→Runtime HTTP/SSE→WS 回复 | TASK-016 | planned | ["uv","run","pytest","-q","tests/gateway/test_inbound_concurrency.py","-k","b116"] | . | 600 |  |
-| B-117 | 10-im-gateway.backend.design.md#API-05 主动投递 | integration | 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS | TASK-017 | planned | ["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","b117"] | . | 600 |  |
+| B-117 | 10-im-gateway.backend.design.md#API-05 主动投递 | integration | 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS | TASK-017 | verified | ["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","b117"] | . | 600 |  |
 | B-118 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-018 | planned | ["uv","run","pytest","-q","tests/gateway/test_connection_observability.py","-k","b118"] | . | 600 |  |
 | B-119 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-019 | planned | ["uv","run","pytest","-q","tests/gateway/test_message_metrics.py","-k","b119"] | . | 600 |  |
 | B-120 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter（探针核心：认证/消息/流式收发） | TASK-020 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_boundary.py","-k","b120"] | . | 600 |  |
@@ -970,7 +970,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ## TASK-017: 对齐主动投递响应与渠道错误
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-006, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#API-05 主动投递
@@ -986,25 +986,38 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ### Checklist
 
-- [ ] [B-117][integration] 修改生产代码前先按 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS 编写或扩展用例并记录 RED；关键断言：重复200且deduplicated=true；失败不是accepted；按route选择bot；无重新Agent reasoning；沿用7d去重。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","b117"]`。
-- [ ] 实现或补齐：在 EXT-09-021 去重实现完成后统一 accepted/deduplicated 响应；未配置/禁用 bot 使用 BOT_NOT_FOUND，非法 route/message 使用 COMMON_VALIDATION_ERROR；artifact_ids 不转换为 IM 下载入口。原子去重、发送失败恢复与 Redis 降级实现由 EXT-09-021 唯一承担。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-117][integration] 修改生产代码前先按 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS 编写或扩展用例并记录 RED；关键断言：重复200且deduplicated=true；失败不是accepted；按route选择bot；无重新Agent reasoning；沿用7d去重。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","b117"]`。
+- [x] 实现或补齐：在 EXT-09-021 去重实现完成后统一 accepted/deduplicated 响应；未配置/禁用 bot 使用 BOT_NOT_FOUND，非法 route/message 使用 COMMON_VALIDATION_ERROR；artifact_ids 不转换为 IM 下载入口。原子去重、发送失败恢复与 Redis 降级实现由 EXT-09-021 唯一承担。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-117 | integration | 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS | 重复200且deduplicated=true；失败不是accepted；按route选择bot；无重新Agent reasoning；沿用7d去重 | tests/gateway/test_delivery_api.py / B-117（planned） | `["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","b117"]` | planned |
+| B-117 | integration | 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS | 重复200且deduplicated=true；失败不是accepted；按route选择bot；无重新Agent reasoning；沿用7d去重 | tests/gateway/test_delivery_api.py / B-117（verified） | `["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","b117"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-117 | `uv run pytest -q tests/gateway/test_delivery_api.py -k b117` → `4 failed, 1 passed`（1.66s）。四处行为缺口：① 首次投递响应缺设计 API-05 契约字段 `deduplicated`（`assert {...} == {...}` 多出 `{'deduplicated': False}`）；② 未配置/已停用 bot 返回 `500 COMMON_INTERNAL_ERROR`（`wecom bot connection not configured bot_id=bot-b117-missing`），应回 `404 BOT_NOT_FOUND`；③ 探针注入发送失败后 SDK 抛 `RuntimeError: Reply ack error: errcode=50001` 未被处理：占位未释放，Worker 同 key 重试命中占位、`delivered` 不为 True；④ in-flight 重复（只有占位、无成功键）直接 200 `{duplicate: true, delivered: false}`（把占位当受理成功），既无有界等待也不回可重试错误。 | 改动后 `-k b117` → `5 passed`（4.05s）；同文件全量 → `19 passed`（含既有 09 场景用例随契约对齐更新，见下）。 | `test_b117_replay_is_deduplicated_with_7d_ttl`（首投 200 且 `{accepted:true, duplicate:false, delivered:true, deduplicated:false}`；探针真实回读到出站文本且**等于 message.text**、`artifact_ids` 不出现在文本中；同 key 重放 200 且 `deduplicated:true`、探针仍只有 1 帧；真实 Redis `TTL ∈ (604740, 604800]`）；`test_b117_delivery_uses_bot_from_route`（两个 bot 各自连接上分别收到自己的文本，按 `route.bot_id` 选连接）；`test_b117_unknown_bot_is_not_found`（404 + `code == BOT_NOT_FOUND`，探针 0 帧）；`test_b117_send_failure_is_not_accepted_and_allows_retry`（注入失败 → ≥400 + `COMMON_INTERNAL_ERROR` 且无 `accepted:true`；清除注入后同 key 重试 → 200 `delivered:true` 且 `deduplicated:false`，证明占位已释放可重试）；`test_b117_in_flight_duplicate_is_not_reported_as_success`（手工占位 → 请求等待 ≥2s 后有界超时 ≥400 + `COMMON_INTERNAL_ERROR`、探针 0 帧；成功键落库后同 key → 200 `deduplicated:true`）。 | 真实 Gateway HTTP（uvicorn + 真实 socket，仅关闭 lifespan 以注入真实依赖）+ 生产 `WeComAdapter` → 官方 `wecom-aibot-python-sdk` → `tests/e2e/wecom_probe_app.py` 真实 `wss://` 自签 TLS 探针（含 `fail_reply_bots` 发送失败注入）+ 真实 Redis（`RedisDedupeStore`，键 TTL 逐值回读）。未 mock 上述任一真实边界；本栈不接 Runtime，投递路径不触发任何 Agent reasoning。 | verified |
+
+补充记录：
+- 生产改动：`api/delivery.py` —— 成功/重放响应统一带设计要求的 `accepted`+`deduplicated`（并保留 Agent Worker 依赖的 `duplicate`/`delivered`，`delivered=false` 语义仍是"仅占位未送达"）；新增 `_replay()`：仅占位时按 `DELIVERY_IN_FLIGHT_WAIT_SEC=2.0` 有界轮询成功键，超时 `COMMON_INTERNAL_ERROR`（可重试），绝不把占位当成功；`_send()` 对未配置/停用 bot 映射 `BOT_NOT_FOUND`、对 SDK 任意发送异常释放占位并映射 `COMMON_INTERNAL_ERROR`。
+- `channels/base.py` 新增 `ChannelBotNotFound(ChannelAdapterUnavailable)`；`channels/wecom/adapter.py` 的 `_require_client()` 在快照无该 bot（未配置/已停用）时抛它，与"连接暂时不可用"区分。
+- 既有 09 场景用例的响应断言随契约对齐更新（`test_first_delivery_*`、`test_b121_duplicate_after_delivery_*`、`test_b121_failed_send_*`、`test_b121_redis_unavailable_*`、`test_e05_*` 补 `deduplicated`；`test_b121_atomic_dedupe_*`、`test_b121_crash_window_*` 的 in-flight 断言由 `200 + delivered=false` 改为 `5xx + COMMON_INTERNAL_ERROR`）——"原子占位只发一次""占位不当成功"的原语义不变。
+- 未重复实现原子去重/失败恢复/Redis 降级（EXT-09-021 已落地），只做响应契约与错误映射对齐。
+- 回归：`tests/gateway tests/console_channel` → `227 passed`；`tests/agent_worker -k deliver` → `27 passed`（Worker 对 5xx 保持 PENDING 并重试，链路未被破坏）；`uv run mypy apps/im-gateway/src/muad_im_gateway` → `Success: no issues found in 22 source files`。
+- 清理：每个用例 finally 删除 `delivery:dedupe:*` 键并 `aclose()`；uvicorn `should_exit` + 等待收尾；WS 探针 `stop()`。
+- B-117: verified — automated command passed; run_id=f871c1da4f464375938c1eb55ebce714 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] completed (done)
 ## TASK-018: 补连接状态指标与脱敏日志
 
 - **Status**: draft
