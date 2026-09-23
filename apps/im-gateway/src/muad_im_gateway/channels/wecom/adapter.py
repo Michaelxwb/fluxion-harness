@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ssl
+
 import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
@@ -9,6 +11,7 @@ from enum import StrEnum
 from typing import Protocol
 from uuid import uuid4
 
+from muad_common import SharedSettings
 from muad_contracts import (
     BotSnapshotItem,
     ChannelEnvelope,
@@ -340,9 +343,28 @@ class _AibotClientPort:
 def build_wecom_sdk_client(bot_id: str, secret: str) -> WeComSdkPort:
     from aibot import WSClient, WSClientOptions  # type: ignore[import-untyped]
 
-    options = WSClientOptions(bot_id=bot_id, secret=secret, max_reconnect_attempts=0)
+    settings = SharedSettings()
+    options = WSClientOptions(
+        bot_id=bot_id,
+        secret=secret,
+        max_reconnect_attempts=0,
+        ws_url=settings.wecom_ws_url or "",
+    )
+    if settings.wecom_ws_ca_file:
+        _trust_local_ws_ca(settings.wecom_ws_ca_file)
     client: _AibotClient = WSClient(options)
     return _AibotClientPort(client, bot_id=bot_id)
+
+
+def _trust_local_ws_ca(ca_file: str) -> None:
+    """把本地真实协议探针的自签 CA 交给官方 SDK。
+
+    SDK 把 SSL context 固定在模块级且写死 certifi，无法按连接注入；仅在显式配置
+    `WECOM_WS_CA_FILE`（本地探针场景）时覆盖，默认生产路径不受影响。
+    """
+    import aibot.ws as sdk_ws  # type: ignore[import-untyped]
+
+    sdk_ws._SSL_CONTEXT = ssl.create_default_context(cafile=ca_file)
 
 
 class WeComAdapter:

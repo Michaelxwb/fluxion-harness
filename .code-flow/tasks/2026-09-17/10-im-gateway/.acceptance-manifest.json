@@ -691,7 +691,7 @@
       "kind": "functional",
       "boundary": "生产进程生命周期→真实HTTP/PostgreSQL/Redis（Console/Gateway/模型探针/种子与清理）",
       "owner": "TASK-021",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -703,7 +703,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-121",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "c4a4a78e73e74a8fa486cd90fd2121de",
+        "executed_at": "2026-09-23T12:03:50.854137+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-121",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "c4a4a78e73e74a8fa486cd90fd2121de",
+          "executed_at": "2026-09-23T12:03:50.854137+00:00"
+        }
+      ]
     },
     {
       "id": "B-122",

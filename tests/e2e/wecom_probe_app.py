@@ -79,11 +79,13 @@ class WeComProbe:
     connections: list[Any] = field(default_factory=list)
     _server: Any = None
     ws_url: str = ""
+    cert_path: Path | None = None
 
     # ---- 服务生命周期 -----------------------------------------------------
     async def start(self, host: str = "127.0.0.1", port: int = 0) -> str:
         cert_root = Path(tempfile.mkdtemp(prefix="wecom-probe-tls-"))
         cert_path, key_path = generate_self_signed_cert(cert_root)
+        self.cert_path = cert_path
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.load_cert_chain(certfile=str(cert_path), keyfile=str(key_path))
         self._server = await websockets.serve(self._handler, host, port, ssl=context)

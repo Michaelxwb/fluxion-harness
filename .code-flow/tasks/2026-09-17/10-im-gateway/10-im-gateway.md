@@ -114,7 +114,7 @@
 | B-118 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-018 | planned | ["uv","run","pytest","-q","tests/gateway/test_connection_observability.py","-k","b118"] | . | 600 |  |
 | B-119 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-019 | planned | ["uv","run","pytest","-q","tests/gateway/test_message_metrics.py","-k","b119"] | . | 600 |  |
 | B-120 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter（探针核心：认证/消息/流式收发） | TASK-020 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_boundary.py","-k","b120"] | . | 600 |  |
-| B-121 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 生产进程生命周期→真实HTTP/PostgreSQL/Redis（Console/Gateway/模型探针/种子与清理） | TASK-021 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_environment.py","-k","b121"] | . | 600 |  |
+| B-121 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 生产进程生命周期→真实HTTP/PostgreSQL/Redis（Console/Gateway/模型探针/种子与清理） | TASK-021 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_environment.py","-k","b121"] | . | 600 |  |
 | B-122 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | TASK-022 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"] | . | 1200 |  |
 | S-01 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 官方SDK/WeComAdapter→Gateway→真实Console/PG与双Runtime | TASK-022 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","s01"] | . | 1200 |  |
 | RULE-01 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | TASK-022 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"] | . | 1200 |  |
@@ -1043,7 +1043,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-23] completed (done)
 ## TASK-021: 建立 Gateway 基础真实验收环境
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-020
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.5 质量实现方案
@@ -1058,25 +1058,41 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ### Checklist
 
-- [ ] [B-121][integration] 修改生产代码前先按 生产进程生命周期→真实HTTP/PostgreSQL/Redis 编写或扩展用例并记录 RED；关键断言：进程健康可探测；模型经真实HTTP；进程级断线/重启可恢复；无残留DB数据、键或后台进程。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_environment.py","-k","b121"]`。
-- [ ] 实现或补齐：复用 Runtime/Console E2E 设施启动真实进程（Console/Gateway/Runtime）、PostgreSQL、Redis 和模型/WS 探针；支持进程级断线与重启；数据用 e2e-im-* 且 fixture finally 清理。缺依赖明确失败/阻塞，不用 skip 充当证据。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-121][integration] 修改生产代码前先按 生产进程生命周期→真实HTTP/PostgreSQL/Redis 编写或扩展用例并记录 RED；关键断言：进程健康可探测；模型经真实HTTP；进程级断线/重启可恢复；无残留DB数据、键或后台进程。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_environment.py","-k","b121"]`。
+- [x] 实现或补齐：复用 Runtime/Console E2E 设施启动真实进程（Console/Gateway/Runtime）、PostgreSQL、Redis 和模型/WS 探针；支持进程级断线与重启；数据用 e2e-im-* 且 fixture finally 清理。缺依赖明确失败/阻塞，不用 skip 充当证据。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-121 | integration | 生产进程生命周期→真实HTTP/PostgreSQL/Redis（Console/Gateway/模型探针/种子与清理） | 进程健康可探测；模型经真实HTTP；进程级断线/重启可恢复；无残留DB数据、键或后台进程 | tests/acceptance/im_gateway/test_environment.py / B-121（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_environment.py","-k","b121"]` | planned |
+| B-121 | integration | 生产进程生命周期→真实HTTP/PostgreSQL/Redis（Console/Gateway/模型探针/种子与清理） | 进程健康可探测；模型经真实HTTP；进程级断线/重启可恢复；无残留DB数据、键或后台进程 | tests/acceptance/im_gateway/test_environment.py / B-121（verified） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_environment.py","-k","b121"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-121 | **首次运行失败链（据实记录）**：`uv run pytest -q tests/acceptance/im_gateway/test_environment.py -k b121` 连续暴露 5 个真实问题并逐个修好：①`ServiceProcess` 自行拼接 `:app`，栈里传 `模块:app` → Console 退出 code=3；②`CHANNEL_PROBE_URL` 会让 Gateway 整体换用 HTTP 探针适配器（`main.py:35`），真实 WS 连接根本不建立；③bot 首次连接退避期间 `/readyz` 返回 503（见"发现"）；④`control.agent_access_grant` 无 `tenant_id` 列（改 join 统计）；⑤purge/count/seed 复用被缓存的 engine 触发 `attached to a different loop` → 全部改为各自独立 engine | 修完后同一命令 → `5 passed`（16s） | `test_b121_all_service_processes_are_reachable`（Console/Runtime/Gateway 进程存活 + `/healthz` 200 + 有界等待 `/readyz` 200）；`test_b121_gateway_authenticates_to_local_ws_probe`（探针回读到 `aibot_subscribe` 且 `body=={bot_id,secret}`、无认证失败、`/readyz` ready）；`test_b121_model_is_called_over_real_http`（模型探针 `/healthz` 200 且库中 `model_definition.base_url` 指向该真实探针）；`test_b121_process_restart_recovers`（停 Console → 进程确已退出、Gateway 仍 ready=200（设计 §4.1 已有完整快照可服务）→ 重启后 Console/Gateway 均健康）；`test_b121_cleanup_leaves_no_tenant_residue`（`purge_tenant()` 后 6 张 control 表 + grant join 计数全为 0，Redis 无本租户 `im:dedupe:*` 键） | 真实 uvicorn 子进程（Console / Runtime / Gateway，真实 socket）+ 真实 PostgreSQL + 真实 Redis + 真实模型 HTTP 探针（`tests.e2e.openai_probe_app`）+ 真实 WS 协议探针（`wss://` 真实 TLS，自签 CA 经 `WECOM_WS_CA_FILE` 注入，未 mock 任何一条边界） | verified |
+
+**发现（不属本任务修复范围，登记归属）**：
+1. `/readyz` 在 bot 首次连接退避期间返回 **503**（`failed:["adapters"]`，"adapters" 由 `adapter.healthy()` 推导），与 design §4.1「必要 Bot connection manager 已初始化；单 bot 故障在 detail 标记 degraded 并退避，不要求全部 CONNECTED」不一致 → 归 **TASK-007 / B-107**（本任务以"有界等待 ready"表达环境就绪，不改就绪语义）。
+2. `CHANNEL_PROBE_URL` 是**整体替换**渠道适配器（`main.py:35`），因此投递验收（TASK-027）需用自己的栈配置；基础环境不设置该变量（已在 environment.py 注释说明）。
+
+补充记录：
+- 生产改动（最小 seam，默认关闭）：`SharedSettings` 增加 `wecom_ws_url` / `wecom_ws_ca_file`；`build_wecom_sdk_client` 传 `ws_url`，并在显式配置 CA 时把本地探针自签 CA 交给官方 SDK（SDK 把 SSL context 固定在模块级且写死 certifi，无法按连接注入）。默认空值 = 官方地址 + certifi 校验，生产路径不变。
+- 复用而非重写：09 验收栈原语（`ServiceProcess` / `free_port` / `require` / `run_db` / `clear_engine_caches` / 三组清理 SQL）+ 既有模型探针与 WS 探针。
+- 文件比计划多一个 `tests/acceptance/im_gateway/environment.py`（把栈实现从 conftest 拆出，供 TASK-030/031/022+ 复用）；计划中的 `conftest.py` / `test_environment.py` / `tests/e2e/seed_im_gateway.py` 均按计划落地。
+- 回归：`tests/gateway + tests/console_channel` → `197 passed`；非验收全量 → `1161 passed`。
+- 数据与清理：租户固定 `e2e-im-gateway`，fixture finally 幂等清理（`purge_tenant` + 进程 stop + 探针 close），并有专门用例断言无残留行/键/进程。
+- B-121: verified — automated command passed; run_id=c4a4a78e73e74a8fa486cd90fd2121de (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-23] started
+- [2026-09-23] completed (done)
 ## TASK-022: 验收多 Bot 路由与任意 Runtime 实例
 
 - **Status**: draft
