@@ -2,7 +2,7 @@
 
 与 09 验收栈同一口径：每个服务是独立 uvicorn 子进程（真实进程、真实 HTTP），
 数据库与 Redis 用真实实例，缺依赖即失败（不 skip）。数据统一使用 `e2e-im-*` 租户，
-fixture finally 清理；两个 Runtime 实例与 Worker 由 TASK-030 扩展。
+fixture finally 清理；两个 Runtime 实例与真实 Worker 进程由 TASK-030 提供。
 """
 
 from __future__ import annotations
@@ -66,6 +66,8 @@ __all__ = [
 class GatewayStack:
     console_url: str
     runtime_url: str
+    runtime2_url: str
+    worker_url: str
     gateway_url: str
     llm_url: str
     wecom_ws_url: str
@@ -112,10 +114,14 @@ def start_gateway_stack(
 
     console_port = free_port()
     runtime_port = free_port()
+    runtime2_port = free_port()
+    worker_port = free_port()
     gateway_port = free_port()
     llm_port = free_port()
     console_url = f"http://127.0.0.1:{console_port}"
     runtime_url = f"http://127.0.0.1:{runtime_port}"
+    runtime2_url = f"http://127.0.0.1:{runtime2_port}"
+    worker_url = f"http://127.0.0.1:{worker_port}"
     gateway_url = f"http://127.0.0.1:{gateway_port}"
     llm_url = f"http://127.0.0.1:{llm_port}"
 
@@ -150,6 +156,22 @@ def start_gateway_stack(
         runtime_port,
         CONSOLE_PLATFORM_URL=console_url,
     )
+    # TASK-030：第二 Runtime 实例（同一逻辑 Agent 可被任意实例承载）+ 真实 Worker 进程
+    runtime2 = spawn(
+        "runtime-2",
+        "muad_agent_runtime.main",
+        runtime2_port,
+        CONSOLE_PLATFORM_URL=console_url,
+    )
+    worker = spawn(
+        "worker",
+        "muad_agent_worker.main",
+        worker_port,
+        CONSOLE_PLATFORM_URL=console_url,
+        AGENT_RUNTIME_URL=runtime_url,
+        IM_GATEWAY_URL=gateway_url,
+        DELIVERY_POLL_INTERVAL_SEC="1",
+    )
     gateway = spawn(
         "gateway",
         "muad_im_gateway.main",
@@ -167,11 +189,15 @@ def start_gateway_stack(
     seeded = seed_control(llm_url)
     console.start()
     runtime.start()
+    runtime2.start()
+    worker.start()
     gateway.start()
 
     stack = GatewayStack(
         console_url=console_url,
         runtime_url=runtime_url,
+        runtime2_url=runtime2_url,
+        worker_url=worker_url,
         gateway_url=gateway_url,
         llm_url=llm_url,
         wecom_ws_url=ws_probe_url,

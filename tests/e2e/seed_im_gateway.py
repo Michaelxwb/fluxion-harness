@@ -138,6 +138,89 @@ def seed_control(llm_url: str) -> dict[str, Any]:
     return _run_in_thread(run)
 
 
+def seed_delivery_task(
+    *,
+    tenant_id: str,
+    agent_id: uuid.UUID,
+    platform_user_id: uuid.UUID,
+    intent_key: str,
+    bot_id: str,
+    external_user_id: str,
+    external_conversation_id: str | None,
+) -> dict[str, Any]:
+    """写入一条"待 Worker 投递"的已完成 Task（`delivery_status=PENDING`）+ 投递路由。
+
+    供 B-130 验证生产 Worker 进程的投递循环：真实 PG 事实 + 真实 Gateway 投递。
+    """
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from muad_common import SharedSettings
+
+    async def run() -> dict[str, Any]:
+        from datetime import UTC, datetime, timedelta
+
+        from muad_agent_worker.application.delivery_routes import upsert_delivery_route
+        from muad_agent_worker.infrastructure.models.task import TaskExecution
+        from muad_contracts import DeliveryRouteInput
+
+        engine = create_async_engine(SharedSettings().require_database_url())
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        task_id = uuid.uuid4()
+        now = datetime.now(UTC)
+        try:
+            async with session_factory() as session:
+                async with session.begin():
+                    route_id = await upsert_delivery_route(
+                        session,
+                        tenant_id=tenant_id,
+                        platform_user_id=platform_user_id,
+                        route=DeliveryRouteInput(
+                            channel="WECOM",
+                            bot_id=bot_id,
+                            external_user_id=external_user_id,
+                            external_conversation_id=external_conversation_id,
+                        ),
+                    )
+                    session.add(
+                        TaskExecution(
+                            id=task_id,
+                            tenant_id=tenant_id,
+                            agent_id=agent_id,
+                            actor_user_id=platform_user_id,
+                            intent_key=intent_key,
+                            skill_id=uuid.uuid4(),
+                            skill_artifact_id=uuid.uuid4(),
+                            trigger_type="IMMEDIATE",
+                            execution_mode="ASYNC",
+                            task_type="SKILL",
+                            status="COMPLETED",
+                            input_json={},
+                            result_json={},
+                            execution_snapshot_schema_version=1,
+                            execution_snapshot_json={"schema_version": 1},
+                            snapshot_hash="sha256:" + "b" * 64,
+                            idempotency_key=f"b130-{task_id}",
+                            priority=100,
+                            attempt=0,
+                            max_attempts=3,
+                            not_before=now,
+                            deadline_at=now + timedelta(hours=1),
+                            delivery_route_id=route_id,
+                            delivery_mode="FINAL_ONLY",
+                            delivery_status="PENDING",
+                            delivery_key=f"task:{task_id}:final",
+                            delivery_attempts=0,
+                            finished_at=now,
+                            result_artifact_id=None,
+                        )
+                    )
+            return {"task_id": task_id, "delivery_key": f"task:{task_id}:final"}
+        finally:
+            await engine.dispose()
+
+    return _run_in_thread(run)
+
+
 def seed_fingerprint() -> str:
     """种子数据指纹（对照清理结果用）。"""
     return hashlib.sha256(f"{TENANT}:{BOT_ID}".encode()).hexdigest()[:12]
@@ -154,6 +237,7 @@ __all__ = [
     "TENANT",
     "UNBOUND_EXTERNAL_USER_ID",
     "seed_control",
+    "seed_delivery_task",
     "seed_fingerprint",
     "uuid",
 ]
