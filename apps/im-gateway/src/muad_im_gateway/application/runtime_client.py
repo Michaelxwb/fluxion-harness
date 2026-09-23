@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -14,6 +12,9 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts import RunRequest
 
 from .envelope import decode_error_payload, decode_json, error_code_from_payload, require_data_dict
+# SSE 类型的规范归属是 `.sse`；此处显式再导出，既有消费者（inbound/测试）导入路径不变
+from .sse import SseEvent as SseEvent
+from .sse import iter_sse_events as iter_sse_events
 
 logger = logging.getLogger(__name__)
 
@@ -23,27 +24,6 @@ CANCEL_ACTIVE_PATH = "/v1/runs/cancel-active"
 REQUEST_TIMEOUT_SEC = 10.0
 STREAM_TIMEOUT_SEC = 300.0
 CALLER_SERVICE = "muad-im-gateway"
-
-KNOWN_EVENT_TYPES = frozenset(
-    {
-        "run.created",
-        "message.delta",
-        "skill.loaded",
-        "tool.started",
-        "tool.completed",
-        "task.accepted",
-        "artifact.created",
-        "interrupt.required",
-        "run.completed",
-        "run.failed",
-    }
-)
-
-
-@dataclass(frozen=True)
-class SseEvent:
-    type: str
-    data: dict[str, Any]
 
 
 class RuntimeClientPort(Protocol):
@@ -95,43 +75,6 @@ def build_headers(
     return headers
 
 
-def _flush_event(event_type: str, data_lines: list[str]) -> SseEvent | None:
-    if event_type not in KNOWN_EVENT_TYPES or not data_lines:
-        return None
-    try:
-        payload = json.loads("\n".join(data_lines))
-    except ValueError:
-        logger.warning("sse_invalid_json event_type=%s", event_type)
-        return None
-    if not isinstance(payload, dict):
-        logger.warning("sse_non_object_data event_type=%s", event_type)
-        return None
-    return SseEvent(type=event_type, data=payload)
-
-
-async def iter_sse_events(lines: AsyncIterator[str]) -> AsyncIterator[SseEvent]:
-    event_type = ""
-    data_lines: list[str] = []
-    async for raw_line in lines:
-        line = raw_line.rstrip("\r")
-        if line.startswith(":"):
-            continue
-        if not line:
-            event = _flush_event(event_type, data_lines)
-            if event is not None:
-                yield event
-            event_type = ""
-            data_lines = []
-            continue
-        field, _, value = line.partition(":")
-        if field == "event":
-            event_type = value.strip()
-        elif field == "data":
-            data_lines.append(value[1:] if value.startswith(" ") else value)
-    event = _flush_event(event_type, data_lines)
-    if event is not None:
-        yield event
-
 
 class RuntimeClient:
     def __init__(
@@ -167,7 +110,8 @@ class RuntimeClient:
                 if response.status_code >= 400:
                     payload = await decode_error_payload(response)
                     raise AppError(error_code_from_payload(payload))
-                async for event in iter_sse_events(response.aiter_lines()):
+                # 分片文本（非行原子）：解析器自行切行，跨 chunk 的帧不丢
+                async for event in iter_sse_events(response.aiter_text()):
                     yield event
         except httpx.HTTPError as exc:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
