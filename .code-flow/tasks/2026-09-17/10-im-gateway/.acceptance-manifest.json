@@ -649,7 +649,7 @@
       "kind": "functional",
       "boundary": "官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter（探针核心：认证/消息/流式收发）",
       "owner": "TASK-020",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -661,7 +661,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-120",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "5385a075a71c42879e920fcb30174bed",
+        "executed_at": "2026-09-23T11:37:50.755550+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-120",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5385a075a71c42879e920fcb30174bed",
+          "executed_at": "2026-09-23T11:37:50.755550+00:00"
+        }
+      ]
     },
     {
       "id": "B-121",

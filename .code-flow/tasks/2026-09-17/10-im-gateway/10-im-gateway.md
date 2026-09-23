@@ -113,7 +113,7 @@
 | B-117 | 10-im-gateway.backend.design.md#API-05 主动投递 | integration | 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS | TASK-017 | planned | ["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","b117"] | . | 600 |  |
 | B-118 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-018 | planned | ["uv","run","pytest","-q","tests/gateway/test_connection_observability.py","-k","b118"] | . | 600 |  |
 | B-119 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-019 | planned | ["uv","run","pytest","-q","tests/gateway/test_message_metrics.py","-k","b119"] | . | 600 |  |
-| B-120 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter（探针核心：认证/消息/流式收发） | TASK-020 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_boundary.py","-k","b120"] | . | 600 |  |
+| B-120 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter（探针核心：认证/消息/流式收发） | TASK-020 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_boundary.py","-k","b120"] | . | 600 |  |
 | B-121 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 生产进程生命周期→真实HTTP/PostgreSQL/Redis（Console/Gateway/模型探针/种子与清理） | TASK-021 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_environment.py","-k","b121"] | . | 600 |  |
 | B-122 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | TASK-022 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"] | . | 1200 |  |
 | S-01 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 官方SDK/WeComAdapter→Gateway→真实Console/PG与双Runtime | TASK-022 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","s01"] | . | 1200 |  |
@@ -995,7 +995,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ## TASK-020: 建立真实 WS 探针核心与官方 SDK 边界
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: 
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.1 技术选型与关键决策
@@ -1010,25 +1010,37 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ### Checklist
 
-- [ ] [B-120][integration] 修改生产代码前先按 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter 编写或扩展用例并记录 RED；关键断言：协议帧可回读；认证握手、消息收发与流式结束均经真实 socket；禁止 FakeChannelAdapter/MockTransport；探针不宣称企业微信实网验收。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_boundary.py","-k","b120"]`。
-- [ ] 实现或补齐：建立本地真实 WebSocket 协议探针，官方 SDK 与生产 Adapter 经真实 socket 收发认证/消息/流式回复；替代外部第三方端点，不替代生产 Adapter/SDK。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-120][integration] 修改生产代码前先按 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter 编写或扩展用例并记录 RED；关键断言：协议帧可回读；认证握手、消息收发与流式结束均经真实 socket；禁止 FakeChannelAdapter/MockTransport；探针不宣称企业微信实网验收。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_boundary.py","-k","b120"]`。
+- [x] 实现或补齐：建立本地真实 WebSocket 协议探针，官方 SDK 与生产 Adapter 经真实 socket 收发认证/消息/流式回复；替代外部第三方端点，不替代生产 Adapter/SDK。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-120 | integration | 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter（探针核心：认证/消息/流式收发） | 协议帧可回读；认证握手、消息收发与流式结束均经真实 socket；禁止 FakeChannelAdapter/MockTransport；探针不宣称企业微信实网验收 | tests/acceptance/im_gateway/test_wecom_boundary.py / B-120（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_boundary.py","-k","b120"]` | planned |
+| B-120 | integration | 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter（探针核心：认证/消息/流式收发） | 协议帧可回读；认证握手、消息收发与流式结束均经真实 socket；禁止 FakeChannelAdapter/MockTransport；探针不宣称企业微信实网验收 | tests/acceptance/im_gateway/test_wecom_boundary.py / B-120（verified） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_boundary.py","-k","b120"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-120 | **首次运行失败链（据实记录，本任务实现物是探针与用例，生产 Adapter/SDK 已存在）**：`uv run pytest -q tests/acceptance/im_gateway/test_wecom_boundary.py -k b120` 依次暴露 4 个真实问题并逐个修好：①`ValueError: ssl argument is incompatible with a ws:// URI`（官方 SDK 硬传 `ssl=`，探针必须 `wss://`）→ 改为真实 TLS + 自签证书；②连接态停留在 `CONNECTING`（认证是异步的，需等待）→ 加 `_wait_connected`；③`AttributeError: 'ServerConnection' object has no attribute 'closed'`（新 websockets API）→ 推送改为按发送结果剔除死连接；④流式无输出（Adapter 缓冲，需 `finish_stream`）→ 用例驱动收尾 flush | 修完后同一命令 → `4 passed` | `test_b120_authenticates_over_real_socket`（`connection_states[bot]==CONNECTED`；探针回读到 `aibot_subscribe` 帧且 `body == {bot_id, secret}`；心跳 `ping` 帧经真实 socket 到达）；`test_b120_receives_inbound_message_frame`（探针推送文本消息 → Adapter `iter_events()` 产出规范化 ChannelEnvelope：bot/message_id/external_user_id/chatid/文本全一致）；`test_b120_streams_reply_frames_back_through_socket`（`stream()` + `finish_stream()` → 探针收到 `aibot_respond_msg` 帧，`headers.req_id` 等于推送回调的 reply_id、`body.msgtype=stream`、末帧 `finish=true` 且 `stream.content == "你好世界"`）；`test_b120_proactive_send_uses_real_socket`（`send()` → 探针收到 `aibot_send_msg` 且正文一致） | 官方 `wecom-aibot-python-sdk`（`aibot.WSClient`，**未替换/未 mock**）→ 本地探针（`websockets.serve` + 真实 TLS/`wss://` + 真实 socket）→ 生产 `WeComAdapter`（经生产 `_AibotClientPort` 端口包装，仅把 `ws_url` 指向探针）；自签证书只放宽客户端校验（`aibot.ws._SSL_CONTEXT` 置 unverified，测试内 monkeypatch 并自动还原），协议与传输未改；不声称企业微信实网验收 | verified |
+
+补充记录：
+- 新增物：`tests/e2e/wecom_probe_app.py`（真实 WS 协议探针：认证/心跳/消息与事件推送/回复与主动发送 ack + 帧回读与等待工具 + 自签证书生成）、`tests/acceptance/im_gateway/test_wecom_boundary.py`（B-120 用例）。**生产代码零改动**（`git status` 仅新增上述两个测试文件）。
+- 探针只承载企业微信端协议，不替代生产 Adapter/SDK；`FakeChannelAdapter`/`MockTransport` 未参与本场景（TASK-031 会在此基础上补握手拒绝/断线/发送失败注入）。
+- 回归：`tests/gateway` → `161 passed`；非验收全量 → `1161 passed`。
+- 外部依赖：无（SDK 已在依赖中：`wecom-aibot-python-sdk>=1,<2`）。
+- 清理：探针 `server.close() + wait_closed()`；Adapter `stop()` 取消连接任务；自签证书写入临时目录，进程退出即弃。
+- B-120: verified — automated command passed; run_id=5385a075a71c42879e920fcb30174bed (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-23] started
+- [2026-09-23] completed (done)
 ## TASK-021: 建立 Gateway 基础真实验收环境
 
 - **Status**: draft
