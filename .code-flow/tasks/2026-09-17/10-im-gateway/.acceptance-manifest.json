@@ -994,7 +994,7 @@
       "kind": "e2e",
       "boundary": "真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复",
       "owner": "TASK-023",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1006,7 +1006,26 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-123",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "2f00b3d04f2e4f63a1d90c4f325838b8",
+        "executed_at": "2026-09-23T17:45:12.101694+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-123",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "2f00b3d04f2e4f63a1d90c4f325838b8",
+          "executed_at": "2026-09-23T17:45:12.101694+00:00"
+        }
+      ]
     },
     {
       "id": "S-02",
@@ -1015,7 +1034,7 @@
       "kind": "e2e",
       "boundary": "Gateway完整/bind命令→真实Console HTTP→PostgreSQL→最终回复",
       "owner": "TASK-023",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1027,7 +1046,26 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "2f00b3d04f2e4f63a1d90c4f325838b8",
+        "executed_at": "2026-09-23T17:45:12.101694+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "2f00b3d04f2e4f63a1d90c4f325838b8",
+          "executed_at": "2026-09-23T17:45:12.101694+00:00"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -1036,7 +1074,7 @@
       "kind": "functional",
       "boundary": "真实Console bind HTTP→PostgreSQL bind_code/identity",
       "owner": "TASK-023",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1048,7 +1086,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "2f00b3d04f2e4f63a1d90c4f325838b8",
+        "executed_at": "2026-09-23T17:45:12.101694+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "2f00b3d04f2e4f63a1d90c4f325838b8",
+          "executed_at": "2026-09-23T17:45:12.101694+00:00"
+        }
+      ]
     },
     {
       "id": "B-124",

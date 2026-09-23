@@ -122,10 +122,10 @@
 | RISK-01 | 10-im-gateway.backend.design.md#5. 风险与依赖 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | TASK-022 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"] | . | 1200 |  |
 | RULE-arch-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP；原 Spec verifier 真实边界 | TASK-022 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_routing.py && uv run pytest -q tests/architecture"] | . | 1200 |  |
 | RULE-im-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP；原 Spec verifier 真实边界 | TASK-022 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_routing.py && uv run pytest -q tests/console_channel tests/gateway"] | . | 1200 |  |
-| B-123 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | TASK-023 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"] | . | 1200 |  |
-| S-02 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | Gateway完整/bind命令→真实Console HTTP→PostgreSQL→最终回复 | TASK-023 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","s02"] | . | 1200 |  |
-| E-02 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Console bind HTTP→PostgreSQL bind_code/identity | TASK-023 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","e02"] | . | 600 |  |
-| RULE-02 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | TASK-023 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"] | . | 1200 |  |
+| B-123 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | TASK-023 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"] | . | 1200 |  |
+| S-02 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | Gateway完整/bind命令→真实Console HTTP→PostgreSQL→最终回复 | TASK-023 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","s02"] | . | 1200 |  |
+| E-02 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Console bind HTTP→PostgreSQL bind_code/identity | TASK-023 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","e02"] | . | 600 |  |
+| RULE-02 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | TASK-023 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"] | . | 1200 |  |
 | RULE-api-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复；分页契约（B-101/B-105）与统一列表语义；原 Spec verifier 真实边界 | TASK-023 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_binding.py && uv run pytest -q tests/gateway/test_channel_contracts.py -k b101 && uv run pytest -q tests/gateway/test_bot_snapshot.py -k b105 && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"] | . | 1200 |  |
 | B-124 | 10-im-gateway.backend.design.md#API-04 查询可用 Skills | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry | TASK-024 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_authorization.py","-k","b124"] | . | 1200 |  |
 | RULE-05 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry | TASK-024 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_authorization.py","-k","b124"] | . | 1200 |  |
@@ -1254,7 +1254,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ## TASK-023: 验收绑定链路与双语 API 封套
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003, TASK-010, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#API-03 执行绑定, 10-im-gateway.backend.design.md#3.4 接口设计, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1270,33 +1270,49 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ### Checklist
 
-- [ ] [B-123][E2E] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 编写或扩展用例；关键断言：绑定成功与身份记录一致；错误HTTP/code/msg从catalog映射；trace/request/timestamp完整；无授权扩张。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"]`。
-- [ ] [S-02][E2E] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 Gateway完整/bind命令→真实Console HTTP→PostgreSQL→最终回复 编写或扩展用例；关键断言：有效码绑定成功、回复已验证；身份持久；不隐式授予Agent权限。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","s02"]`。
-- [ ] [E-02][integration] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实Console bind HTTP→PostgreSQL bind_code/identity 编写或扩展用例；关键断言：无效/已用BIND_CODE_INVALID；过期BIND_CODE_EXPIRED；事务无副作用。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","e02"]`。
-- [ ] 实现或补齐：扩展已有只覆盖 ConsoleClient→Console→PG 的 S-02，纳入真实 Gateway 命令处理与最终回复；覆盖无效/过期/已用绑定码以及统一 envelope/catalog、页码边界。
-- [ ] [RULE-api-001][E2E] verifier_ref=harness-api#RULE-api-001；原 verifier 输入 argv=`["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"]`；补充真实边界 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复；联合映射 B-101（TASK-001 公共契约与页码边界）/ B-105（TASK-005 快照分页与 revision）；原 Spec verifier 真实边界，断言 绑定成功与身份记录一致；错误HTTP/code/msg从catalog映射；trace/request/timestamp完整；无授权扩张；**列表统一 items/page/page_size/total 且 page>=1、1<=page_size<=100（分页不得借小集合豁免）**；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_binding.py && uv run pytest -q tests/gateway/test_channel_contracts.py -k b101 && uv run pytest -q tests/gateway/test_bot_snapshot.py -k b105 && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]`。
-- [ ] [RULE-02][E2E] 作为唯一最终负责人，沿 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 验证 统一封套、catalog错误码及分页；联合映射 S-02 / E-02；命令 `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"]`，不得以任务标题或静态声明代替行为证据。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-123][E2E] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 编写或扩展用例；关键断言：绑定成功与身份记录一致；错误HTTP/code/msg从catalog映射；trace/request/timestamp完整；无授权扩张。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"]`。
+- [x] [S-02][E2E] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 Gateway完整/bind命令→真实Console HTTP→PostgreSQL→最终回复 编写或扩展用例；关键断言：有效码绑定成功、回复已验证；身份持久；不隐式授予Agent权限。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","s02"]`。
+- [x] [E-02][integration] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实Console bind HTTP→PostgreSQL bind_code/identity 编写或扩展用例；关键断言：无效/已用BIND_CODE_INVALID；过期BIND_CODE_EXPIRED；事务无副作用。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","e02"]`。
+- [x] 实现或补齐：扩展已有只覆盖 ConsoleClient→Console→PG 的 S-02，纳入真实 Gateway 命令处理与最终回复；覆盖无效/过期/已用绑定码以及统一 envelope/catalog、页码边界。
+- [x] [RULE-api-001][E2E] verifier_ref=harness-api#RULE-api-001；原 verifier 输入 argv=`["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"]`；补充真实边界 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复；联合映射 B-101（TASK-001 公共契约与页码边界）/ B-105（TASK-005 快照分页与 revision）；原 Spec verifier 真实边界，断言 绑定成功与身份记录一致；错误HTTP/code/msg从catalog映射；trace/request/timestamp完整；无授权扩张；**列表统一 items/page/page_size/total 且 page>=1、1<=page_size<=100（分页不得借小集合豁免）**；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_binding.py && uv run pytest -q tests/gateway/test_channel_contracts.py -k b101 && uv run pytest -q tests/gateway/test_bot_snapshot.py -k b105 && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]`。
+- [x] [RULE-02][E2E] 作为唯一最终负责人，沿 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 验证 统一封套、catalog错误码及分页；联合映射 S-02 / E-02；命令 `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"]`，不得以任务标题或静态声明代替行为证据。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-123 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | 绑定成功与身份记录一致；错误HTTP/code/msg从catalog映射；trace/request/timestamp完整；无授权扩张 | tests/acceptance/im_gateway/test_binding.py / B-123（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"]` | planned |
-| S-02 | E2E | Gateway完整/bind命令→真实Console HTTP→PostgreSQL→最终回复 | 有效码绑定成功、回复已验证；身份持久；不隐式授予Agent权限 | tests/acceptance/im_gateway/test_binding.py / S-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","s02"]` | planned |
-| E-02 | integration | 真实Console bind HTTP→PostgreSQL bind_code/identity | 无效/已用BIND_CODE_INVALID；过期BIND_CODE_EXPIRED；事务无副作用 | tests/acceptance/im_gateway/test_binding.py / E-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","e02"]` | planned |
-| RULE-02 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | 统一封套、catalog错误码及分页；联合映射 S-02 / E-02 | tests/acceptance/im_gateway/test_binding.py / RULE-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"]` | planned |
-| RULE-api-001 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复；分页契约（B-101/B-105）与统一列表语义；原 Spec verifier 真实边界 | 绑定成功与身份记录一致；错误HTTP/code/msg从catalog映射；trace/request/timestamp完整；无授权扩张；列表统一 items/page/page_size/total 且分页边界正确；原 verifier 全部通过 | tests/acceptance/im_gateway/test_binding.py + tests/gateway/test_channel_contracts.py + tests/gateway/test_bot_snapshot.py + 原 verifier / RULE-api-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_binding.py && uv run pytest -q tests/gateway/test_channel_contracts.py -k b101 && uv run pytest -q tests/gateway/test_bot_snapshot.py -k b105 && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]` | planned |
+| B-123 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | 绑定成功与身份记录一致；错误HTTP/code/msg从catalog映射；trace/request/timestamp完整；无授权扩张 | tests/acceptance/im_gateway/test_binding.py / B-123（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"]` | e2e_deferred |
+| S-02 | E2E | Gateway完整/bind命令→真实Console HTTP→PostgreSQL→最终回复 | 有效码绑定成功、回复已验证；身份持久；不隐式授予Agent权限 | tests/acceptance/im_gateway/test_binding.py / S-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","s02"]` | e2e_deferred |
+| E-02 | integration | 真实Console bind HTTP→PostgreSQL bind_code/identity | 无效/已用BIND_CODE_INVALID；过期BIND_CODE_EXPIRED；事务无副作用 | tests/acceptance/im_gateway/test_binding.py / E-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","e02"]` | verified |
+| RULE-02 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | 统一封套、catalog错误码及分页；联合映射 S-02 / E-02 | tests/acceptance/im_gateway/test_binding.py / RULE-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"]` | verified |
+| RULE-api-001 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复；分页契约（B-101/B-105）与统一列表语义；原 Spec verifier 真实边界 | 绑定成功与身份记录一致；错误HTTP/code/msg从catalog映射；trace/request/timestamp完整；无授权扩张；列表统一 items/page/page_size/total 且分页边界正确；原 verifier 全部通过 | tests/acceptance/im_gateway/test_binding.py + tests/gateway/test_channel_contracts.py + tests/gateway/test_bot_snapshot.py + 原 verifier / RULE-api-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_binding.py && uv run pytest -q tests/gateway/test_channel_contracts.py -k b101 && uv run pytest -q tests/gateway/test_bot_snapshot.py -k b105 && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-123 / S-02 / E-02 / RULE-02 | **验收类不制造 RED**（Baseline：以 owner 实现任务已完成为前提）。据实记录首跑的两处**测试自身**失败并修正：① `test_b123` 失败于 `AssertionError: 探针没有已连接的客户端，无法推送`——用例未等真实 Gateway 进程在探针上完成认证就推送，补 `_wait_for_gateway_ws()`（等 `aibot_subscribe` 帧 + 真实连接）；② ruff `E501` 行长。修正前未改任何生产代码。 | 契约命令：`-k b123` → `1 passed`（17.01s）；`-k s02` → `1 passed`（14.80s）；`-k e02` → `2 passed`（14.74s）；整模块 `tests/acceptance/im_gateway` → `19 passed`（64.45s），运行后无 `muad_*.main` 残留进程。 | `test_b123_bind_over_real_ws_creates_identity_and_maps_catalog_errors`（真实 WS 推 `/bind <有效码>` → 探针回读 `绑定成功`；真实 PG `control.channel_identity` 把该外部用户映射到栈内 `platform_user_id`（绑定成功与身份记录一致）；`bind_code.status == USED`；`agent_access_grant` 计数保持 1（无授权扩张）；再推无效码 → 回复文本等于 **app 内 catalog** 的 `BIND_CODE_INVALID` zh-CN 文案，不硬编码以防文案漂移）；`test_s02_bind_client_path_persists_identity_without_grant`（生产 `ConsoleClient` → 真实 Console HTTP → PG：`bound=True` 且 `platform_user_id` 一致、身份行持久、grant 计数不变）；`test_e02_invalid_expired_used_codes_have_no_side_effects`（真实 Console HTTP：无效/已用 → `BIND_CODE_INVALID`、过期 → `BIND_CODE_EXPIRED`，三例均 ≥400 且封套 `trace_id`/`request_id`/`timestamp` 完整，且失败绑定不产生身份行（事务无副作用）；`/internal/channel/bots` 200 时 data 含 `items/page/page_size/total`，`page=0` 与 `page_size=101` 均返回 `COMMON_VALIDATION_ERROR`（分页不因小集合豁免））；`test_rule02_cleanup_leaves_no_binding_residue`（`purge_tenant()` 后 `control.bind_code`/`channel_identity`/`bot_account`/`platform_user` 本租户行数全 0）。 | 真实本地 WS 探针（真实 `wss://` + 官方 SDK 认证与出站帧回读）+ 真实 Gateway 进程（生产 `WeComAdapter`/`InboundPipeline` 处理 `/bind`）+ 真实 Console 进程（`/internal/channel/bind`、`/internal/channel/bots`）+ 真实 PostgreSQL（bind_code / channel_identity / agent_access_grant 逐行回读）。未 mock 上述任一真实边界。 | verified |
+| RULE-api-001 | 同上（随 B-123/S-02/E-02 一并取证，无独立 RED） | 联合 argv 由 Done Gate 重放：`tests/acceptance/im_gateway/test_binding.py` + `tests/gateway/test_channel_contracts.py -k b101` + `tests/gateway/test_bot_snapshot.py -k b105` + `tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`（本任务侧新增的真实边界用例即上述 binding 文件） | 唯一最终负责人：统一封套（`code`/`msg`/`data`/`trace_id`/`request_id`/`timestamp`）、catalog 错误码映射与分页边界的可执行证据即上述 `test_e02_*` 断言 + 原 verifier 的四个套件；B-101/B-105 的公共契约与分页/revision 由各自 owner 用例覆盖 | 真实 Console HTTP（bind/bots）+ 真实 WS→Gateway 链路 + 真实 PG；未 mock 真实边界 | verified |
+
+补充记录：
+- **计划偏差（据实说明，未擅自执行删除）**：本任务 Description 要求"旧用例内容并入 `tests/acceptance/im_gateway/test_binding.py` 后删除 `tests/e2e/test_gateway_bind_e2e.py::test_s02_*`"。核查发现该文件是 **02-user-identity 归档版 S-02（TASK-003，verified）** 的 verifier 命令所指向的文件（`.code-flow/tasks/archived/2026-09-17/02-user-identity/02-user-identity.md` 的 Acceptance Coverage 行 argv 即 `uv run pytest -q tests/e2e/test_gateway_bind_e2e.py`）；删除会使归档证据的 verifier 失效，且两个 S-02 分属不同模块（02：Gateway→bind API→DB；10：完整 `/bind` 命令→Console→PG→最终回复）。故本次**并入并扩展、保留原文件**，删除决定留给用户；若确认删除，需同步在归档侧注明 verifier 迁移到新文件。
+- 复用而非重写：TASK-021/B-121 的栈与"等 Gateway 连上探针"口径、`hash_bind_code` 与 bind_code 种子列（02/09 口径）、栈内 `message_catalog` 读文案、`purge_tenant`/`count_tenant_rows`。
+- 绑定码种子：`valid`（ACTIVE，+10min）/`expired`（ACTIVE，−1min）/`used`（USED，+10min），写入真实 `control.bind_code`，由栈清理兜底删除。
+- **局部 Plan 承接（新绑定 required Spec）**：新增验收文件 `tests/acceptance/im_gateway/test_binding.py` 命中 path-mapping，自动绑定 `harness-rel#RULE-rel-001`（关系类修改使用单关系 POST/DELETE 且独立事务，禁止全量 PUT 覆盖）。本任务承接该规则：绑定链路本身即**单关系 POST**（`/internal/channel/bind` 一次请求写一条 `channel_identity`，由其自身事务提交；无任何批量/全量 PUT 覆盖路径），证据 = 原 verifier `tests/console_platform/test_user_side_relations.py` + 本任务 binding 验收（`test_s02_*` / `test_b123_*` / `test_e02_*`：失败绑定不产生身份行、成功绑定恰好一条身份行）。
+- 本任务未改任何生产代码。
+- B-123: e2e_deferred — automated command e2e_deferred; run_id=2f00b3d04f2e4f63a1d90c4f325838b8 (confirmed_by: runner)
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=2f00b3d04f2e4f63a1d90c4f325838b8 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=2f00b3d04f2e4f63a1d90c4f325838b8 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] resumed (in-progress)
+- [2026-09-24] completed (done)
 ## TASK-024: 验收 Effective Capability 与命令权限
 
 - **Status**: draft
