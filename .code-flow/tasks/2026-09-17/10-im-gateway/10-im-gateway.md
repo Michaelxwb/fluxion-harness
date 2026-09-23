@@ -96,8 +96,8 @@
 | B-105 | 10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析 | integration | Console snapshot HTTP→真实 PG bot 配置→BotSnapshotCache | TASK-005 | verified | ["uv","run","pytest","-q","tests/gateway/test_bot_snapshot.py","-k","b105"] | . | 600 |  |
 | B-106 | 10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机 | integration | 生产 WeComAdapter/连接管理器→真实本地 WS 故障探针 | TASK-006 | planned | ["uv","run","pytest","-q","tests/gateway/test_wecom_adapter.py","-k","b106"] | . | 600 |  |
 | B-107 | 10-im-gateway.backend.design.md#4.1 健康检查与启动校验 | integration | 真实 Gateway lifespan/HTTP probes→Console/WS 连接管理器 | TASK-007 | planned | ["uv","run","pytest","-q","tests/gateway/test_readyz.py","-k","b107"] | . | 600 |  |
-| B-108 | 10-im-gateway.backend.design.md#3.2.3 入站去重 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | TASK-008 | planned | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"] | . | 600 |  |
-| S-05 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway入站→真实Redis dedupe→真实下游HTTP观测 | TASK-008 | planned | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","s05"] | . | 600 |  |
+| B-108 | 10-im-gateway.backend.design.md#3.2.3 入站去重 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | TASK-008 | verified | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"] | . | 600 |  |
+| S-05 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway入站→真实Redis dedupe→真实下游HTTP观测 | TASK-008 | verified | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","s05"] | . | 600 |  |
 | RULE-08 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | TASK-008 | planned | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"] | . | 600 |  |
 | B-109 | 10-im-gateway.backend.design.md#API-02 解析消息路由 | integration | Gateway→真实 Console resolve HTTP→PostgreSQL→Runtime 接收观测 | TASK-009 | planned | ["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","b109"] | . | 600 |  |
 | E-01 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway→真实bot resolve HTTP→PostgreSQL | TASK-009 | planned | ["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","e01"] | . | 600 |  |
@@ -505,7 +505,7 @@
 
 ## TASK-008: 对齐入站 Redis 原子去重与降级
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 10-im-gateway.backend.design.md#3.2.3 入站去重
@@ -520,29 +520,44 @@
 
 ### Checklist
 
-- [ ] [B-108][integration] 修改生产代码前先按 Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 编写或扩展用例并记录 RED；关键断言：相同 channel/message_id 只首次下游调用；重复 ACK/忽略；TTL=600；Redis 故障继续处理；message_id 不变。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"]`。
-- [ ] [S-05][integration] 修改生产代码前先按 Gateway入站→真实Redis dedupe→真实下游HTTP观测 编写或扩展用例并记录 RED；关键断言：SET NX EX600；第二次ACK/忽略且不创建第二Run。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","s05"]`。
-- [ ] 实现或补齐：沿用 SET NX EX 600，在解析、resolve 与创建 Run 前判重；用真实 Redis 覆盖并发、TTL 和恢复，Redis 断线继续 at-least-once，不以进程内 set 冒充跨副本去重。
-- [ ] [RULE-08][integration] 作为唯一最终负责人，沿 Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 验证 入站Redis SET NX EX600、降级at-least-once；联合映射 S-05 / E-06；命令 `["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"]`，不得以任务标题或静态声明代替行为证据。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-108][integration] 修改生产代码前先按 Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 编写或扩展用例并记录 RED；关键断言：相同 channel/message_id 只首次下游调用；重复 ACK/忽略；TTL=600；Redis 故障继续处理；message_id 不变。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"]`。
+- [x] [S-05][integration] 修改生产代码前先按 Gateway入站→真实Redis dedupe→真实下游HTTP观测 编写或扩展用例并记录 RED；关键断言：SET NX EX600；第二次ACK/忽略且不创建第二Run。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","s05"]`。
+- [x] 实现或补齐：沿用 SET NX EX 600，在解析、resolve 与创建 Run 前判重；用真实 Redis 覆盖并发、TTL 和恢复，Redis 断线继续 at-least-once，不以进程内 set 冒充跨副本去重。
+- [x] [RULE-08][integration] 作为唯一最终负责人，沿 Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 验证 入站Redis SET NX EX600、降级at-least-once；联合映射 S-05 / E-06；命令 `["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"]`，不得以任务标题或静态声明代替行为证据。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-108 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | 相同 channel/message_id 只首次下游调用；重复 ACK/忽略；TTL=600；Redis 故障继续处理；message_id 不变 | tests/gateway/test_inbound_dedupe_integration.py / B-108（planned） | `["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"]` | planned |
-| S-05 | integration | Gateway入站→真实Redis dedupe→真实下游HTTP观测 | SET NX EX600；第二次ACK/忽略且不创建第二Run | tests/gateway/test_inbound_dedupe_integration.py / S-05（planned） | `["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","s05"]` | planned |
-| RULE-08 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | 入站Redis SET NX EX600、降级at-least-once；联合映射 S-05 / E-06 | tests/gateway/test_inbound_dedupe_integration.py / RULE-08（planned） | `["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"]` | planned |
+| B-108 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | 相同 channel/message_id 只首次下游调用；重复 ACK/忽略；TTL=600；Redis 故障继续处理；message_id 不变 | tests/gateway/test_inbound_dedupe_integration.py / B-108（verified） | `["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"]` | verified |
+| S-05 | integration | Gateway入站→真实Redis dedupe→真实下游HTTP观测 | SET NX EX600；第二次ACK/忽略且不创建第二Run | tests/gateway/test_inbound_dedupe_integration.py / S-05（verified） | `["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","s05"]` | verified |
+| RULE-08 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | 入站Redis SET NX EX600、降级at-least-once；联合映射 S-05 / E-06 | tests/gateway/test_inbound_dedupe_integration.py / RULE-08（verified） | `["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-108 | **无 RED（据实说明）**：入站去重生产行为已符合设计（`handle()` 先 `_mark_seen()`；key `im:dedupe:{channel}:{message_id}`；`SET NX EX 600`；`DedupeStoreError` 降级继续；重复忽略），按 Baseline「已有正确行为先跑回归，不人为制造失败」不伪造 RED。**用例有效性由反证用例保证**：`test_b108_negative_control_without_store_duplicates_pass_through`（去重关闭时同一 message_id 确实重复下游调用 → 上界断言非空断言） | `uv run pytest -q tests/gateway/test_inbound_dedupe_integration.py -k b108` → `4 passed`（含反证） | `test_b108_duplicate_message_is_ignored_with_single_downstream_call`（首次下游 1 次且 `message.id` 原样透传；重复投递后仍为 1 次；Redis 值 `1`、TTL ≤ 600）；`test_b108_concurrent_same_message_id_calls_downstream_once`（同一 message_id 并发两次 → 下游恰好 1 次）；`test_b108_redis_failure_degrades_to_at_least_once`（不可达 Redis → 仍处理且 id 不变）；`test_b108_negative_control_*`（反证） | 真实 Redis（`build_dedupe_store(REDIS_URL)`；非 Redis 实例直接失败，不 skip）+ 真实 Runtime HTTP 接收端（`uvicorn` 线程真实 socket，观测 `POST /v1/runs` 次数与请求体，返回真实 SSE 流） | verified |
+| S-05 | 同上（回归性验收，无 RED） | `-k s05` → `1 passed` | `test_s05_set_nx_ex600_and_second_delivery_creates_no_second_run`（`set_if_absent` 首次 True/二次 False；真实 TTL 595–600；已存在时命中被忽略，下游 0 次即不创建第二个 Run） | 同上（真实 Redis + 真实 Runtime 接收端） | verified |
+| RULE-08 | 同上（回归性验收，无 RED） | `-k b108` → `4 passed`（与 B-108 共用命令，同一次执行须同时满足两条义务） | 唯一最终负责人：入站 `SET NX EX 600` 与降级 at-least-once 的行为证据即上述 B-108 断言 + `test_b108_redis_failure_degrades_to_at_least_once`；联合映射 S-05 / E-06（E-06 的投递侧在 TASK-027） | 真实 Redis 原子语义 + 真实 Runtime HTTP 接收端 | verified |
+
+补充记录：
+- 实现范围：**本任务未改生产代码** —— 现状已满足 §3.2.3（判重在命令路由/resolve/Run 之前；TTL 常量 `DEDUPE_TTL_SEC = 600`；`is_duplicate` = `SET NX`；`DedupeStoreError` → warn 并继续）。新增验收测试 `tests/gateway/test_inbound_dedupe_integration.py` 锁定该行为。
+- 反证设计：去重关闭（`NullDedupeStore`）时重复投递会重复调用下游，证明上界断言有效；若未来有人把跨副本去重退回进程内实现，b108 用例与其反证会同时暴露。
+- 回归：`tests/gateway` → `155 passed`；非验收全量 → `1155 passed`。
+- 外部依赖：无（设计与 RULE-08 不依赖 Runtime 真实 Run 语义，接收端只需承载 HTTP/SSE 观测）。
+- 清理：用例结束 `DEL im:dedupe:WECOM:<message_id>`（`_cleanup_keys`），uvicorn 线程 fixture finally 退出；无残留键/进程。
+- B-108: verified — automated command passed; run_id=e4104cb8c70a4d7b931dd49f51a95eaa (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=e4104cb8c70a4d7b931dd49f51a95eaa (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-23] started
+- [2026-09-23] completed (done)
 ## TASK-009: 对齐 resolve、未绑定与授权分流
 
 - **Status**: draft

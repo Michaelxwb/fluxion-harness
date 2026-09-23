@@ -208,7 +208,7 @@
       "kind": "functional",
       "boundary": "Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -220,7 +220,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-108",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e4104cb8c70a4d7b931dd49f51a95eaa",
+        "executed_at": "2026-09-23T11:09:06.223521+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-108",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e4104cb8c70a4d7b931dd49f51a95eaa",
+          "executed_at": "2026-09-23T11:09:06.223521+00:00"
+        }
+      ]
     },
     {
       "id": "S-05",
@@ -229,7 +250,7 @@
       "kind": "functional",
       "boundary": "Gateway入站→真实Redis dedupe→真实下游HTTP观测",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -241,7 +262,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e4104cb8c70a4d7b931dd49f51a95eaa",
+        "executed_at": "2026-09-23T11:09:06.223521+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e4104cb8c70a4d7b931dd49f51a95eaa",
+          "executed_at": "2026-09-23T11:09:06.223521+00:00"
+        }
+      ]
     },
     {
       "id": "B-109",
