@@ -77,6 +77,11 @@ class WeComProbe:
     replies: list[dict[str, Any]] = field(default_factory=list)
     auth_failures: list[dict[str, Any]] = field(default_factory=list)
     connections: list[Any] = field(default_factory=list)
+    # 故障注入（TASK-031）：均按 bot 粒度编排，只影响目标 bot
+    reject_bot_ids: set[str] = field(default_factory=set)
+    fail_reply_bots: set[str] = field(default_factory=set)
+    disconnect_bots: set[str] = field(default_factory=set)
+    connection_bots: dict[int, str] = field(default_factory=dict)
     _server: Any = None
     ws_url: str = ""
     cert_path: Path | None = None
@@ -110,18 +115,29 @@ class WeComProbe:
                     raw = raw.decode("utf-8")
                 frame = json.loads(raw)
                 self.received.append(ProbeFrame(index, frame))
-                response = self._respond(frame)
+                if frame.get("cmd") == CMD_SUBSCRIBE:
+                    self.connection_bots[index] = str((frame.get("body") or {}).get("bot_id") or "")
+                response = self._respond(frame, index)
                 if response is not None:
                     await websocket.send(json.dumps(response))
+                if (
+                    frame.get("cmd") == CMD_SUBSCRIBE
+                    and self.connection_bots.get(index) in self.disconnect_bots
+                ):
+                    await websocket.close()  # 故障注入：认证后立即断线
         except websockets.exceptions.ConnectionClosed:
             return
 
-    def _respond(self, frame: dict[str, Any]) -> dict[str, Any] | None:
+    def _respond(self, frame: dict[str, Any], index: int) -> dict[str, Any] | None:
         cmd = frame.get("cmd")
         req_id = (frame.get("headers") or {}).get("req_id", "")
+        bot_id = str((frame.get("body") or {}).get("bot_id") or "") or self.connection_bots.get(index, "")
         if cmd == CMD_SUBSCRIBE:
             body = frame.get("body") or {}
             expected = self.expected_bots.get(str(body.get("bot_id")))
+            if str(body.get("bot_id")) in self.reject_bot_ids:
+                self.auth_failures.append(frame)
+                return {"headers": {"req_id": req_id}, "errcode": 40101, "errmsg": "handshake rejected"}
             if expected is None or expected != body.get("secret"):
                 self.auth_failures.append(frame)
                 return {"headers": {"req_id": req_id}, "errcode": 40101, "errmsg": "invalid bot secret"}
@@ -130,8 +146,25 @@ class WeComProbe:
             return {"headers": {"req_id": req_id}, "errcode": 0}
         if cmd in (CMD_RESPONSE, CMD_SEND_MSG):
             self.replies.append(frame)
+            if bot_id in self.fail_reply_bots:
+                return {"headers": {"req_id": req_id}, "errcode": 50001, "errmsg": "send failed"}
             return {"headers": {"req_id": req_id}, "errcode": 0}
         return None
+
+    async def drop_connection(self, bot_id: str) -> None:
+        """故障注入：主动断开目标 bot 的连接。"""
+        for index, socket in enumerate(self.connections):
+            if self.connection_bots.get(index) != bot_id:
+                continue
+            try:
+                await socket.close()
+            except Exception:  # 已断开则忽略
+                continue
+
+    def clear_injections(self) -> None:
+        self.reject_bot_ids.clear()
+        self.fail_reply_bots.clear()
+        self.disconnect_bots.clear()
 
     # ---- 服务端主动推送（供用例驱动入站路径） --------------------------------
     async def push_message(

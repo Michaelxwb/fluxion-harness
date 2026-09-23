@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-09-17/10-im-gateway/（全部 design：10-im-gateway.backend.design.md）
 - **Created**: 2026-09-20
-- **Updated**: 2026-09-23
+- **Updated**: 2026-09-24
 - **Plan-State**: planned（用户已确认写入；各 TASK 保持 draft，功能与 E2E 验收尚未执行）
 
 ## Proposal
@@ -151,7 +151,7 @@
 | RULE-secret-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 真实Worker投递/PG与Console快照→Gateway→官方SDK/WS；日志/审计/Snapshot/Prompt/对外响应 | TASK-028 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_secrets_and_readiness.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"] | . | 1200 |  |
 | B-129 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | pytest用例收集/运行→验收Contract/Evidence→真实组件记录 | TASK-029 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_acceptance_inventory.py","-k","b129"] | . | 600 |  |
 | B-130 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 生产第二 Runtime 实例与 Worker 进程→真实 PostgreSQL/Redis | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_multi_instance.py","-k","b130"] | . | 600 |  |
-| B-131 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 生产 WeComAdapter→真实本地 WS 服务→故障注入（握手拒绝/断线/发送失败） | TASK-031 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_fault_injection.py","-k","b131"] | . | 600 |  |
+| B-131 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 生产 WeComAdapter→真实本地 WS 服务→故障注入（握手拒绝/断线/发送失败） | TASK-031 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_fault_injection.py","-k","b131"] | . | 600 |  |
 | RULE-07 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 生产HTTP/SSE、PostgreSQL、Redis、官方SDK/WS与原verifier Chrome | TASK-029 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 1200 |  |
 | RULE-test-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 真实生产HTTP/SSE、PostgreSQL、Redis、官方SDK/WS与原verifier Chrome→验收Evidence | TASK-029 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 1200 |  |
 
@@ -1476,7 +1476,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ## TASK-031: 补 WS/SDK 故障注入边界
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-020
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.1 技术选型与关键决策
@@ -1499,16 +1499,18 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-131 | integration | 生产 WeComAdapter→真实本地 WS 服务→故障注入（握手拒绝/断线/发送失败） | 三类注入均可编排并被生产 Adapter 真实观测；注入只影响目标 bot；注入后可恢复正常；探针不宣称企业微信实网验收 | tests/acceptance/im_gateway/test_wecom_fault_injection.py / B-131（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_fault_injection.py","-k","b131"]` | planned |
+| B-131 | integration | 生产 WeComAdapter→真实本地 WS 服务→故障注入（握手拒绝/断线/发送失败） | 三类注入均可编排并被生产 Adapter 真实观测；注入只影响目标 bot；注入后可恢复正常；探针不宣称企业微信实网验收 | tests/acceptance/im_gateway/test_wecom_fault_injection.py / B-131（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_fault_injection.py","-k","b131"]` | verified |
 
 ### Acceptance Evidence
 > planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+- B-131: verified — automated command passed; run_id=e4995aba9e2c4e3f87c5b65f6d174249 (confirmed_by: runner)
 
 ### Log
 - [2026-09-23] prepared (draft)；由 2026-09-23 Plan 复核从 TASK-020 拆出。
 
 ---
-
+- [2026-09-23] started
+- [2026-09-24] completed (done)
 ## TASK-032: 验收断流回收、Snapshot 冻结与终态 CAS
 
 - **Status**: draft

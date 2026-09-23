@@ -1111,7 +1111,7 @@
       "kind": "functional",
       "boundary": "生产 WeComAdapter→真实本地 WS 服务→故障注入（握手拒绝/断线/发送失败）",
       "owner": "TASK-031",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1123,7 +1123,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-131",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "e4995aba9e2c4e3f87c5b65f6d174249",
+        "executed_at": "2026-09-23T15:59:47.273920+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-131",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "e4995aba9e2c4e3f87c5b65f6d174249",
+          "executed_at": "2026-09-23T15:59:47.273920+00:00"
+        }
+      ]
     }
   ]
 }
