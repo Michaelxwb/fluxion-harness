@@ -6,10 +6,14 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+import uvicorn
 from pathlib import Path
 
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, Response
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -334,3 +338,57 @@ class ConsoleProcess:
             except subprocess.TimeoutExpired:
                 self._process.kill()
         self._log.close()
+
+
+class StubConsole:
+    """真实本地 HTTP 服务：uvicorn 线程 + 真实 socket，按用例脚本返回封套。"""
+
+    READY_TIMEOUT_SEC = 10.0
+
+    def __init__(self) -> None:
+        self.handlers: dict[str, Callable[[Request], Awaitable[Response]]] = {}
+        self.captured_headers: dict[str, dict[str, str]] = {}
+        app = FastAPI()
+
+        @app.api_route("/{path:path}", methods=["GET", "POST"])
+        async def _dispatch(request: Request, path: str) -> Response:
+            key = f"/{path}"
+            self.captured_headers[key] = dict(request.headers)
+            handler = self.handlers.get(key)
+            if handler is None:
+                return JSONResponse(
+                    status_code=404, content={"code": "COMMON_NOT_FOUND", "msg": "no stub handler"}
+                )
+            return await handler(request)
+
+        self._app = app
+        self._server: uvicorn.Server | None = None
+        self._thread: threading.Thread | None = None
+        self.url = ""
+
+    def json_response(self, path: str, payload: Any, status_code: int = 200) -> None:
+        async def handler(_: Request) -> Response:
+            return JSONResponse(status_code=status_code, content=payload)
+
+        self.handlers[path] = handler
+
+    def start(self) -> None:
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = int(sock.getsockname()[1])
+        config = uvicorn.Config(self._app, host="127.0.0.1", port=port, log_level="error")
+        self._server = uvicorn.Server(config)
+        self._thread = threading.Thread(target=self._server.run, daemon=True)
+        self._thread.start()
+        deadline = time.monotonic() + self.READY_TIMEOUT_SEC
+        while not self._server.started and time.monotonic() < deadline:
+            time.sleep(0.02)
+        if not self._server.started:
+            raise RuntimeError("stub console did not start")
+        self.url = f"http://127.0.0.1:{port}"
+
+    def stop(self) -> None:
+        if self._server is not None:
+            self._server.should_exit = True
+        if self._thread is not None:
+            self._thread.join(timeout=5)

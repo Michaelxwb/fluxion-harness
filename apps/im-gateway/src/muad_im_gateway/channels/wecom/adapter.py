@@ -123,9 +123,7 @@ class _BotConnection:
     async def stop(self) -> None:
         self._stop_requested.set()
         self._state = ConnectionState.STOPPING
-        if self._client is not None:
-            self._client.disconnect()
-            self._client = None
+        await self._release_client()
         if self._task is not None:
             self._task.cancel()
             with suppress(asyncio.CancelledError):
@@ -177,12 +175,22 @@ class _BotConnection:
             await asyncio.sleep(self._liveness_interval_sec)
 
     async def _connect_once(self) -> None:
+        # 重连前先释放上一轮客户端：SDK 的心跳/接收任务只由 disconnect() 取消
+        await self._release_client()
         secret = await self._resolve_bot_secret()
         client = self._sdk_factory(self.bot.bot_id, secret)
         self._client = client
         self._wire(client)
         self._disconnected.clear()
         await client.connect()
+
+    async def _release_client(self) -> None:
+        """断开并释放当前 SDK 客户端，等待其被取消的内部任务收尾。"""
+        client, self._client = self._client, None
+        if client is None:
+            return
+        client.disconnect()
+        await asyncio.sleep(0)
 
     async def _resolve_bot_secret(self) -> str:
         if self.bot.secret:
@@ -437,6 +445,15 @@ class WeComAdapter:
                 return connection.last_error
         return None
 
+    @property
+    def degraded_bots(self) -> dict[str, str]:
+        """未 CONNECTED 的 bot → 连接状态（design §4.1 的 degraded 详情）。"""
+        return {
+            bot_id: connection.state.value
+            for bot_id, connection in self._connections.items()
+            if connection.state is not ConnectionState.CONNECTED
+        }
+
     def healthy(self) -> bool:
         if not self._started:
             return False
@@ -451,20 +468,19 @@ class WeComAdapter:
         self._started = True
         for bot in self._enabled_bots():
             await self._start_bot(bot)
-        secret_failure = next(
-            (
-                connection
-                for connection in self._connections.values()
-                if isinstance(connection.last_error, ChannelAdapterUnavailable)
-            ),
-            None,
-        )
-        if secret_failure is None:
+        unavailable = [
+            connection
+            for connection in self._connections.values()
+            if isinstance(connection.last_error, ChannelAdapterUnavailable)
+        ]
+        # 设计 §4.1：单 bot 缺失/失效 Secret 只记 degraded 并退避，不停止其他 bot；
+        # 只有全部 bot 都无可用凭据（无任何可服务连接）才算整体必需条件缺失。
+        if not unavailable or len(unavailable) < len(self._connections):
             return
-        failure = secret_failure.last_error
+        failure = unavailable[0].last_error
         await self.stop()
         raise ChannelAdapterUnavailable(
-            f"wecom bot secret unavailable bot_id={secret_failure.bot.bot_id}"
+            f"wecom bot secret unavailable bot_id={unavailable[0].bot.bot_id}"
         ) from failure
 
     async def stop(self) -> None:

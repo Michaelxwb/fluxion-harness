@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from typing import Protocol, runtime_checkable
 
 from muad_contracts import ChannelEnvelope, DeliveryMessage, DeliveryRouteInput
@@ -40,8 +40,11 @@ class ChannelAdapter(Protocol):
 
 
 @runtime_checkable
-class AdapterHealth(Protocol):
-    def healthy(self) -> bool: ...
+class AdapterDegradation(Protocol):
+    """连接管理器可报告未 CONNECTED 的 bot（`/readyz` 的 degraded 详情来源）。"""
+
+    @property
+    def degraded_bots(self) -> Mapping[str, str]: ...
 
 
 @runtime_checkable
@@ -49,10 +52,10 @@ class StreamFinalizer(Protocol):
     async def finish_stream(self, route: DeliveryRouteInput) -> None: ...
 
 
-def adapter_healthy(adapter: ChannelAdapter) -> bool:
-    if isinstance(adapter, AdapterHealth):
-        return adapter.healthy()
-    return True
+def adapter_degraded(adapter: ChannelAdapter) -> Mapping[str, str]:
+    if isinstance(adapter, AdapterDegradation):
+        return adapter.degraded_bots
+    return {}
 
 
 class ChannelRegistry:
@@ -83,8 +86,12 @@ class ChannelRegistry:
         return tuple(self._adapters[name] for name in self._started)
 
     @property
-    def healthy_adapters(self) -> tuple[ChannelAdapter, ...]:
-        return tuple(adapter for adapter in self.started_adapters if adapter_healthy(adapter))
+    def degraded_bots(self) -> dict[str, str]:
+        """未 CONNECTED 的 bot → 状态：只用于 `/readyz` 的 degraded 标记，不影响就绪（设计 §4.1）。"""
+        degraded: dict[str, str] = {}
+        for adapter in self.started_adapters:
+            degraded.update(adapter_degraded(adapter))
+        return degraded
 
     async def start_all(self) -> None:
         for name, adapter in self._adapters.items():

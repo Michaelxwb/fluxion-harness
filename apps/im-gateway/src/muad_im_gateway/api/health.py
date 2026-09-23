@@ -29,8 +29,12 @@ def dedupe_mode(store: DedupeStore) -> str:
 
 def readiness_checks(app: FastAPI) -> Mapping[str, ReadinessCheck]:
     def adapters_ready() -> bool:
+        """必要 Bot connection manager 已初始化即就绪（设计 §4.1）。
+
+        不要求全部 bot CONNECTED：单 bot 故障只体现在 detail 的 `degraded_bots`。
+        """
         registry = getattr(app.state, "registry", None)
-        return bool(registry is not None and registry.healthy_adapters)
+        return bool(registry is not None and registry.started_adapters)
 
     def console_ready() -> bool:
         snapshot = getattr(app.state, "bot_snapshot", None)
@@ -47,6 +51,7 @@ def readiness_detail(app: FastAPI) -> Mapping[str, Any]:
     snapshot = getattr(app.state, "bot_snapshot", None)
     return {
         "adapters": registry.adapter_states if registry is not None else {},
+        "degraded_bots": registry.degraded_bots if registry is not None else {},
         "dedupe": dedupe_mode(dedupe) if dedupe is not None else DEDUPE_MODE_DISABLED,
         "bots_revision": snapshot.revision if snapshot is not None else None,
     }
