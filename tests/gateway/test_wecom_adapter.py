@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import AsyncIterator, Callable
 from uuid import uuid4
 
@@ -383,3 +384,140 @@ async def test_snapshot_revision_change_refreshes_adapter() -> None:
         assert adapter.state is ConnectionState.CONNECTED
     finally:
         await adapter.stop()
+
+
+# ---------------------------------------------------------------------------
+# B-106: 多 Bot 故障隔离与 WS 退避（真实本地 WS 故障探针）
+# ---------------------------------------------------------------------------
+
+
+B106_GOOD_BOT = "bot-b106-good"
+B106_BAD_BOT = "bot-b106-bad"
+B106_SECRET = "b106-secret"
+
+
+def _b106_bot(bot_id: str):
+    return BotSnapshotItem(
+        bot_account_id=uuid4(), bot_id=bot_id, secret=B106_SECRET, agent_id=uuid4()
+    )
+
+
+class _B106ProbeFixture:
+    """探针 + 环境 seam（WECOM_WS_URL / WECOM_WS_CA_FILE）下的生产 Adapter。"""
+
+    def __init__(self, probe, adapter) -> None:  # noqa: ANN001 - 测试内部
+        self.probe = probe
+        self.adapter = adapter
+
+
+async def _b106_stack(monkeypatch, bots: list[str]):  # noqa: ANN001
+    from tests.e2e.wecom_probe_app import WeComProbe
+
+    probe = WeComProbe(expected_bots={bot_id: B106_SECRET for bot_id in bots})
+    await probe.start()
+    monkeypatch.setenv("WECOM_WS_URL", probe.ws_url)
+    monkeypatch.setenv("WECOM_WS_CA_FILE", str(probe.cert_path))
+    adapter = WeComAdapter(
+        bots=[_b106_bot(bot_id) for bot_id in bots],
+        backoff_base_sec=0.2,
+        backoff_max_sec=0.5,
+        liveness_interval_sec=0.2,
+    )
+    await adapter.start()
+    return _B106ProbeFixture(probe, adapter)
+
+
+async def _b106_wait(predicate, timeout: float = 15.0) -> bool:  # noqa: ANN001
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        await asyncio.sleep(0.05)
+    return False
+
+
+async def test_b106_disconnect_is_recovered_by_backoff_reconnect(monkeypatch) -> None:  # noqa: ANN001
+    fixture = await _b106_stack(monkeypatch, [B106_GOOD_BOT])
+    probe, adapter = fixture.probe, fixture.adapter
+    try:
+        assert await _b106_wait(
+            lambda: adapter.connection_states.get(B106_GOOD_BOT) is ConnectionState.CONNECTED
+        )
+        initial = len(probe.connections)
+        await probe.drop_connection(B106_GOOD_BOT)
+        # 服务端断线必须被观测并经真实 socket 重新握手（SDK 不保证回调，Adapter 侧兜底探测）
+        assert await _b106_wait(lambda: len(probe.connections) > initial), "断线后未重连"
+        assert await _b106_wait(
+            lambda: adapter.connection_states.get(B106_GOOD_BOT) is ConnectionState.CONNECTED
+        )
+    finally:
+        await adapter.stop()
+        await probe.stop()
+
+
+async def test_b106_bad_bot_backoff_does_not_block_good_bot(monkeypatch) -> None:  # noqa: ANN001
+    fixture = await _b106_stack(monkeypatch, [B106_GOOD_BOT, B106_BAD_BOT])
+    probe, adapter = fixture.probe, fixture.adapter
+    probe.reject_bot_ids.add(B106_BAD_BOT)
+    try:
+        assert await _b106_wait(
+            lambda: adapter.connection_states.get(B106_GOOD_BOT) is ConnectionState.CONNECTED
+        )
+        await asyncio.sleep(0.5)
+        assert adapter.connection_states.get(B106_BAD_BOT) is not ConnectionState.CONNECTED
+
+        # 好 bot 的入站链路不受坏 bot 影响
+        route = DeliveryRouteInput(
+            channel="WECOM",
+            bot_id=B106_GOOD_BOT,
+            external_user_id="ext-b106",
+            external_conversation_id="chat-b106",
+        )
+        await probe.push_message(
+            bot_id=B106_GOOD_BOT,
+            message_id="msg-b106",
+            external_user_id="ext-b106",
+            text="隔离验证",
+            reply_id="reply-b106",
+            chat_id="chat-b106",
+        )
+        iterator = await adapter.iter_events()
+        envelope = await asyncio.wait_for(anext(iterator), timeout=5.0)
+        assert envelope.bot_id == B106_GOOD_BOT and envelope.text == "隔离验证"
+        assert route.bot_id == envelope.bot_id
+    finally:
+        await adapter.stop()
+        await probe.stop()
+
+
+async def test_b106_disabling_bot_stops_only_that_connection(monkeypatch) -> None:  # noqa: ANN001
+    fixture = await _b106_stack(monkeypatch, [B106_GOOD_BOT, B106_BAD_BOT])
+    probe, adapter = fixture.probe, fixture.adapter
+    try:
+        assert await _b106_wait(
+            lambda: adapter.connection_states.get(B106_BAD_BOT) is ConnectionState.CONNECTED
+        )
+        # 停用坏 bot：只停止目标连接，好 bot 保持
+        await adapter.apply_snapshot(
+            [_b106_bot(B106_GOOD_BOT)]
+        )
+        assert await _b106_wait(lambda: B106_BAD_BOT not in adapter.connection_states)
+        assert adapter.connection_states.get(B106_GOOD_BOT) is ConnectionState.CONNECTED
+    finally:
+        await adapter.stop()
+        await probe.stop()
+
+
+async def test_b106_reconnect_attempts_are_backed_off_not_a_tight_loop(monkeypatch) -> None:  # noqa: ANN001
+    fixture = await _b106_stack(monkeypatch, [B106_BAD_BOT])
+    probe, adapter = fixture.probe, fixture.adapter
+    probe.reject_bot_ids.add(B106_BAD_BOT)
+    try:
+        await asyncio.sleep(3.0)
+        attempts = len(probe.frames_of("aibot_subscribe"))
+        # backoff base=0.2 / max=0.5：3 秒内尝试次数有界（远小于紧循环的量级）
+        assert 1 <= attempts <= 20, f"重连次数异常（疑似紧循环）：{attempts}"
+        assert adapter.connection_states.get(B106_BAD_BOT) is not ConnectionState.CONNECTED
+    finally:
+        await adapter.stop()
+        await probe.stop()

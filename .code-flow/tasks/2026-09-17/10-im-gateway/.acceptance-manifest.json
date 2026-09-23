@@ -166,7 +166,7 @@
       "kind": "functional",
       "boundary": "生产 WeComAdapter/连接管理器→真实本地 WS 故障探针",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -178,7 +178,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-106",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "673f1122cd12422c9df74efd1384f5c2",
+        "executed_at": "2026-09-23T16:07:50.996756+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-106",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "673f1122cd12422c9df74efd1384f5c2",
+          "executed_at": "2026-09-23T16:07:50.996756+00:00"
+        }
+      ]
     },
     {
       "id": "B-107",

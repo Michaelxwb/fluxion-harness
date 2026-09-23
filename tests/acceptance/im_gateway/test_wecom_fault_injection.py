@@ -82,27 +82,19 @@ async def test_b131_handshake_rejection_is_isolated_and_recovers(probe: WeComPro
         assert await _wait_state(adapter, BAD_BOT, ConnectionState.CONNECTED) is ConnectionState.CONNECTED
 
 
-async def test_b131_disconnect_is_injected_over_real_socket(probe: WeComProbe) -> None:
-    """断线注入：经真实 socket 生效（服务端连接关闭）。
-
-    注意（据实记录，见 Acceptance Evidence 的"发现"）：本次实测生产 Adapter 在服务端主动
-    断线后**未被观测**（`on_disconnected` 未触发 → 停在 CONNECTED 且不重连），因此此处只
-    断言本任务负责的部分（注入可编排、经真实 socket 生效），"断线后自动退避重连"归
-    TASK-006 / B-106（其断言含"握手/断线可恢复"）。
-    """
-    import websockets
-
+async def test_b131_disconnect_is_observed_and_recovers(probe: WeComProbe) -> None:
+    """断线注入：生产 Adapter 观测到服务端断线并退避重连（TASK-006 修复后生效）。"""
     async with _adapter([GOOD_BOT]) as adapter:
         assert await _wait_state(adapter, GOOD_BOT, ConnectionState.CONNECTED) is ConnectionState.CONNECTED
-        socket = probe.connections[0]
+        initial_connections = len(probe.connections)
 
         await probe.drop_connection(GOOD_BOT)
-        deadline = time.monotonic() + 10.0
-        while time.monotonic() < deadline:
-            if socket.state is websockets.protocol.State.CLOSED:
-                break
-            await asyncio.sleep(0.05)
-        assert socket.state is websockets.protocol.State.CLOSED, "断线注入未在真实 socket 上生效"
+        # 观测到断线（连接存活探测兜底，间隔有界）→ 退避 → 自行重连经真实 socket 重新握手
+        deadline = time.monotonic() + 15.0
+        while time.monotonic() < deadline and len(probe.connections) <= initial_connections:
+            await asyncio.sleep(0.1)
+        assert len(probe.connections) > initial_connections, "断线后应经真实 socket 重新握手"
+        assert await _wait_state(adapter, GOOD_BOT, ConnectionState.CONNECTED) is ConnectionState.CONNECTED
 
 
 async def test_b131_send_failure_is_observed_and_connection_survives(probe: WeComProbe) -> None:

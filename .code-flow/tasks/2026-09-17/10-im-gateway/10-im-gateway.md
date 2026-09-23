@@ -94,7 +94,7 @@
 | B-104 | 10-im-gateway.backend.design.md#API-04 查询可用 Skills | integration | 真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_channel/test_channel_skills_api.py","-k","b104"] | . | 600 |  |
 | RULE-data-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | integration | 真实 PostgreSQL 表结构与约束（标准列、`is_deleted=false` partial unique、跨 Schema 逻辑 UUID）；原 Spec verifier 真实边界 | TASK-004 | planned | ["bash","-lc","uv run pytest -q tests/console_channel/test_channel_skills_api.py -k b104 && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
 | B-105 | 10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析 | integration | Console snapshot HTTP→真实 PG bot 配置→BotSnapshotCache | TASK-005 | verified | ["uv","run","pytest","-q","tests/gateway/test_bot_snapshot.py","-k","b105"] | . | 600 |  |
-| B-106 | 10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机 | integration | 生产 WeComAdapter/连接管理器→真实本地 WS 故障探针 | TASK-006 | planned | ["uv","run","pytest","-q","tests/gateway/test_wecom_adapter.py","-k","b106"] | . | 600 |  |
+| B-106 | 10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机 | integration | 生产 WeComAdapter/连接管理器→真实本地 WS 故障探针 | TASK-006 | verified | ["uv","run","pytest","-q","tests/gateway/test_wecom_adapter.py","-k","b106"] | . | 600 |  |
 | B-107 | 10-im-gateway.backend.design.md#4.1 健康检查与启动校验 | integration | 真实 Gateway lifespan/HTTP probes→Console/WS 连接管理器 | TASK-007 | planned | ["uv","run","pytest","-q","tests/gateway/test_readyz.py","-k","b107"] | . | 600 |  |
 | B-108 | 10-im-gateway.backend.design.md#3.2.3 入站去重 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | TASK-008 | verified | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"] | . | 600 |  |
 | S-05 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway入站→真实Redis dedupe→真实下游HTTP观测 | TASK-008 | verified | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","s05"] | . | 600 |  |
@@ -433,7 +433,7 @@
 - [2026-09-23] completed (done)
 ## TASK-006: 修复多 Bot 故障隔离与 WS 退避
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-021, TASK-031
 - **Source**: 10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机, 10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析
@@ -448,18 +448,29 @@
 
 ### Checklist
 
-- [ ] [B-106][integration] 修改生产代码前先按 生产 WeComAdapter/连接管理器→真实本地 WS 故障探针 编写或扩展用例并记录 RED；关键断言：坏 bot 重试不影响好 bot；停用只停止目标连接；任务无泄漏；握手/断线可恢复；禁止紧循环。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_wecom_adapter.py","-k","b106"]`。
-- [ ] 实现或补齐：修复任一 bot secret 失败导致 stop 全部 bot 的路径；实现带 jitter 的有界指数退避、单连接 STOPPING 清理、可取消等待；保留 iter_events() 唯一规范化路径。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-106][integration] 修改生产代码前先按 生产 WeComAdapter/连接管理器→真实本地 WS 故障探针 编写或扩展用例并记录 RED；关键断言：坏 bot 重试不影响好 bot；停用只停止目标连接；任务无泄漏；握手/断线可恢复；禁止紧循环。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_wecom_adapter.py","-k","b106"]`。
+- [x] 实现或补齐：修复任一 bot secret 失败导致 stop 全部 bot 的路径；实现带 jitter 的有界指数退避、单连接 STOPPING 清理、可取消等待；保留 iter_events() 唯一规范化路径。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-106 | integration | 生产 WeComAdapter/连接管理器→真实本地 WS 故障探针 | 坏 bot 重试不影响好 bot；停用只停止目标连接；任务无泄漏；握手/断线可恢复；禁止紧循环 | tests/gateway/test_wecom_adapter.py / B-106（planned） | `["uv","run","pytest","-q","tests/gateway/test_wecom_adapter.py","-k","b106"]` | planned |
+| B-106 | integration | 生产 WeComAdapter/连接管理器→真实本地 WS 故障探针 | 坏 bot 重试不影响好 bot；停用只停止目标连接；任务无泄漏；握手/断线可恢复；禁止紧循环 | tests/gateway/test_wecom_adapter.py / B-106（verified） | `["uv","run","pytest","-q","tests/gateway/test_wecom_adapter.py","-k","b106"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-106 | `uv run pytest -q tests/gateway/test_wecom_adapter.py -k b106` 首轮 `3 failed`（先因缺 `time` 导入报 NameError，补齐后）暴露真实缺口：服务端主动断线后连接**永不恢复**——SDK 不保证回调 `on_disconnected`（实测仅 `is_connected` 变 False），而 `_run` 只 `await self._disconnected.wait()`，状态停在 CONNECTED 且不重连（同 TASK-031 的"发现 1"） | 修复后同一命令 → `4 passed` | `test_b106_disconnect_is_recovered_by_backoff_reconnect`（`drop_connection` 后须经真实 socket 重新握手且回到 CONNECTED）；`test_b106_bad_bot_backoff_does_not_block_good_bot`（握手被拒的坏 bot 非 CONNECTED，好 bot 保持 CONNECTED 且其入站链路真实可用：探针推送消息 → `iter_events()` 得到同一 bot 的规范化 envelope）；`test_b106_disabling_bot_stops_only_that_connection`（`apply_snapshot` 去掉坏 bot → 只停它，好 bot 仍 CONNECTED）；`test_b106_reconnect_attempts_are_backed_off_not_a_tight_loop`（3 秒内握手尝试次数有界 `1..20`，非紧循环） | 真实本地 WS 故障探针（真实 `wss://` + TLS）+ 生产 `WeComAdapter`（经 `WECOM_WS_URL`/`WECOM_WS_CA_FILE` 生产 seam 连探针，未替换 Adapter/SDK）；坏 bot 用探针侧握手拒绝注入，断线用探针侧真实关闭 socket | verified |
+
+补充记录：
+- 生产改动（`channels/wecom/adapter.py`）：新增连接存活兜底探测 `_wait_for_disconnect()`（`DEFAULT_LIVENESS_INTERVAL_SEC = 1.0`）替换原先只等 SDK 回调的 `await self._disconnected.wait()`：SDK 未回调时按固定间隔检查 `client.is_connected`，为 False 即走 `_handle_disconnected` → 退避重连。间隔有界（非紧循环），`_BotConnection` 与 `WeComAdapter` 均增加 `liveness_interval_sec` 参数（默认 1.0s，可在用例中缩短）。
+- 兑现 TASK-031 证据里的承诺：把 B-131 的断线用例从"仅断言注入经真实 socket 生效"恢复为 **"断线被观测并自动恢复"**（`tests/acceptance/im_gateway/test_wecom_fault_injection.py` 三条用例全绿），并在其中断言断线后经真实 socket 重新握手。
+- 未改测试层级与真实边界（仍为 integration + 真实 WS 探针）；`FakeChannelAdapter`/`MockTransport` 未参与本场景。
+- 回归：`tests/gateway` → `165 passed`；非验收全量 → `1165 passed`；`tests/acceptance/im_gateway` 全量 → `12 passed`。
+- 清理：用例内 `adapter.stop()`（取消连接任务）+ 探针 `close + wait_closed`，无残留任务/进程；`test_b106_*` 复用 TASK-020 探针，不新增探针进程。
+- B-106: verified — automated command passed; run_id=673f1122cd12422c9df74efd1384f5c2 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -467,6 +478,7 @@
 
 ---
 - [2026-09-24] started
+- [2026-09-24] completed (done)
 ## TASK-007: 对齐启动、就绪与关闭语义
 
 - **Status**: draft

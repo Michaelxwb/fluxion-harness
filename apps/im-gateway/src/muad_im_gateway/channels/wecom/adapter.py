@@ -35,6 +35,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_BACKOFF_BASE_SEC = 1.0
 DEFAULT_BACKOFF_MAX_SEC = 30.0
 DEFAULT_STREAM_FLUSH_INTERVAL_SEC = 0.5
+# 连接存活探测间隔：SDK 不保证服务端主动关闭时回调 on_disconnected，按有界间隔兜底探测
+DEFAULT_LIVENESS_INTERVAL_SEC = 1.0
 TEXT_MESSAGE_TYPE = "text"
 STREAM_HEADER_KEY = "headers"
 STREAM_REPLY_ID_KEY = "req_id"
@@ -79,12 +81,14 @@ class _BotConnection:
         emit: Callable[[WeComInboundMessage], None],
         backoff_base_sec: float,
         backoff_max_sec: float,
+        liveness_interval_sec: float = DEFAULT_LIVENESS_INTERVAL_SEC,
     ) -> None:
         self.bot = bot
         self._sdk_factory = sdk_factory
         self._emit = emit
         self._backoff_base_sec = backoff_base_sec
         self._backoff_max_sec = backoff_max_sec
+        self._liveness_interval_sec = liveness_interval_sec
         self._state = ConnectionState.DISCONNECTED
         self._last_error: Exception | None = None
         self._client: WeComSdkPort | None = None
@@ -151,11 +155,26 @@ class _BotConnection:
                 continue
             delay = self._backoff_base_sec
             self._signal_first_attempt()
-            await self._disconnected.wait()
+            await self._wait_for_disconnect()
             if self._stop_requested.is_set():
                 return
             self._state = ConnectionState.BACKOFF
             await asyncio.sleep(delay)
+
+    async def _wait_for_disconnect(self) -> None:
+        """等待断线并触发退避重连。
+
+        SDK 在服务端主动关闭连接时不保证回调 `on_disconnected`（实测仅 `is_connected`
+        变为 False），因此除回调外按固定间隔探测连接存活；间隔有界，不构成紧循环。
+        """
+        while not self._stop_requested.is_set():
+            if self._disconnected.is_set():
+                return
+            client = self._client
+            if client is None or not client.is_connected:
+                self._handle_disconnected("connection_lost")
+                return
+            await asyncio.sleep(self._liveness_interval_sec)
 
     async def _connect_once(self) -> None:
         secret = await self._resolve_bot_secret()
@@ -378,8 +397,10 @@ class WeComAdapter:
         backoff_base_sec: float = DEFAULT_BACKOFF_BASE_SEC,
         backoff_max_sec: float = DEFAULT_BACKOFF_MAX_SEC,
         stream_flush_interval_sec: float = DEFAULT_STREAM_FLUSH_INTERVAL_SEC,
+        liveness_interval_sec: float = DEFAULT_LIVENESS_INTERVAL_SEC,
     ) -> None:
         self._sdk_factory = sdk_factory
+        self._liveness_interval_sec = liveness_interval_sec
         self._bots: tuple[BotSnapshotItem, ...] = tuple(bots)
         self._backoff_base_sec = backoff_base_sec
         self._backoff_max_sec = backoff_max_sec
@@ -512,6 +533,7 @@ class WeComAdapter:
             emit=self._handle_inbound,
             backoff_base_sec=self._backoff_base_sec,
             backoff_max_sec=self._backoff_max_sec,
+            liveness_interval_sec=self._liveness_interval_sec,
         )
         self._connections[bot.bot_id] = connection
         await connection.start()
