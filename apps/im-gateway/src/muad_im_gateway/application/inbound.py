@@ -22,6 +22,7 @@ from muad_contracts import (
     DeliveryRouteInput,
     MessageInput,
     RunRequest,
+    RunStatus,
 )
 
 from ..channels.base import ChannelAdapter, ChannelAdapterUnavailable, StreamFinalizer
@@ -58,6 +59,7 @@ SKILLS_UNAVAILABLE_TEXT = "技能列表暂不可用"
 NO_SKILLS_TEXT = "暂无可用技能"
 NEW_CONVERSATION_TEXT = "已创建新会话"
 STOP_ACCEPTED_TEXT = "正在停止当前任务…"
+STOP_CANCELLED_TEXT = "当前任务已停止"
 BROKEN_STREAM_TEXT = "服务暂时中断，请重发消息"
 
 
@@ -273,8 +275,11 @@ class InboundPipeline:
         if resolved.platform_user_id is None or resolved.agent_id is None:
             await self._send_text(adapter, route, UNBOUND_TEXT)
             return
+        if not resolved.authorized:
+            await self._send_text(adapter, route, NO_PERMISSION_TEXT)
+            return
         try:
-            await self._runtime.cancel_active(
+            result = await self._runtime.cancel_active(
                 resolved.agent_id,
                 resolved.platform_user_id,
                 tenant_id=self._tenant_id,
@@ -289,7 +294,15 @@ class InboundPipeline:
                 return
             await self._reply_error(adapter, route, exc)
             return
-        await self._send_text(adapter, route, STOP_ACCEPTED_TEXT)
+        # 设计 §3.4.2：WAITING_INPUT 已被 Runtime 直接 CAS 为 CANCELLED（立即"已停止"），
+        # CREATED/RUNNING 只受理；Gateway 不猜测也不缓存活跃 Run
+        await self._send_text(
+            adapter,
+            route,
+            STOP_CANCELLED_TEXT
+            if str(result.get("status") or "") == str(RunStatus.CANCELLED)
+            else STOP_ACCEPTED_TEXT,
+        )
 
     async def _handle_skills(
         self,
