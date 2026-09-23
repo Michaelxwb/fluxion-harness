@@ -9,6 +9,7 @@ from uuid import UUID
 
 import httpx
 from muad_api import AppError
+from muad_api.context import current_request_id
 from muad_api.error_codes import ErrorCode
 from muad_contracts import RunRequest
 
@@ -61,6 +62,7 @@ class RuntimeClientPort(Protocol):
         *,
         tenant_id: str = "",
         trace_id: str = "",
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]: ...
 
     async def cancel_active(
@@ -73,12 +75,23 @@ class RuntimeClientPort(Protocol):
     ) -> dict[str, Any]: ...
 
 
-def build_headers(tenant_id: str, trace_id: str) -> dict[str, str]:
+def build_headers(
+    tenant_id: str,
+    trace_id: str,
+    *,
+    idempotency_key: str | None = None,
+) -> dict[str, str]:
+    """链路头 + 稳定幂等键（设计 API-06：Gateway 传 channel message id）。"""
     headers = {"X-Caller-Service": CALLER_SERVICE}
     if tenant_id:
         headers["X-Tenant-Id"] = tenant_id
     if trace_id:
         headers["X-Trace-Id"] = trace_id
+    request_id = current_request_id()
+    if request_id:
+        headers["X-Request-Id"] = request_id
+    if idempotency_key:
+        headers["Idempotency-Key"] = idempotency_key
     return headers
 
 
@@ -136,8 +149,12 @@ class RuntimeClient:
         *,
         tenant_id: str,
         trace_id: str = "",
+        idempotency_key: str | None = None,
     ) -> AsyncIterator[SseEvent]:
-        headers = build_headers(tenant_id, trace_id)
+        # 稳定幂等键：默认使用原 channel message id（可重试提交不重复建 Run）
+        headers = build_headers(
+            tenant_id, trace_id, idempotency_key=idempotency_key or request.message.id
+        )
         headers["Accept"] = "text/event-stream"
         try:
             async with self._client.stream(
@@ -162,9 +179,12 @@ class RuntimeClient:
         *,
         tenant_id: str = "",
         trace_id: str = "",
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         payload = {"agent_id": str(agent_id), "platform_user_id": str(platform_user_id)}
-        return await self._post_json(CONVERSATIONS_PATH, payload, tenant_id, trace_id)
+        return await self._post_json(
+            CONVERSATIONS_PATH, payload, tenant_id, trace_id, idempotency_key=idempotency_key
+        )
 
     async def cancel_active(
         self,
@@ -183,8 +203,10 @@ class RuntimeClient:
         payload: dict[str, Any],
         tenant_id: str,
         trace_id: str,
+        *,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        headers = build_headers(tenant_id, trace_id)
+        headers = build_headers(tenant_id, trace_id, idempotency_key=idempotency_key)
         try:
             response = await self._client.post(path, json=payload, headers=headers)
         except httpx.HTTPError as exc:

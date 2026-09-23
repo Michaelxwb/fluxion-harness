@@ -106,7 +106,7 @@
 | B-112 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件 | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","b112"] | . | 600 |  |
 | S-06 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Gateway→Runtime cancel-active HTTP→PostgreSQL CAS | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","s06"] | . | 600 |  |
 | E-05 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Runtime cancel-active/PG→Gateway | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","e05"] | . | 600 |  |
-| B-113 | 10-im-gateway.backend.design.md#API-06 Runtime Run 桥接 | integration | 生产 RuntimeClient→真实本地 HTTP/SSE 接收端 | TASK-013 | planned | ["uv","run","pytest","-q","tests/gateway/test_runtime_client.py","-k","b113"] | . | 600 |  |
+| B-113 | 10-im-gateway.backend.design.md#API-06 Runtime Run 桥接 | integration | 生产 RuntimeClient→真实本地 HTTP/SSE 接收端 | TASK-013 | verified | ["uv","run","pytest","-q","tests/gateway/test_runtime_client.py","-k","b113"] | . | 600 |  |
 | B-114 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | unit | 真实 SSE parser 与分片字节/行输入 | TASK-014 | planned | ["uv","run","pytest","-q","tests/gateway/test_sse_parser.py","-k","b114"] | . | 600 |  |
 | B-115 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | integration | 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 | TASK-015 | planned | ["uv","run","pytest","-q","tests/gateway/test_stream_renderer.py","-k","b115"] | . | 600 |  |
 | B-116 | 10-im-gateway.backend.design.md#3.2 架构与流程 | integration | 真实 iter_events→Gateway 消费队列→Runtime HTTP/SSE→WS 回复 | TASK-016 | planned | ["uv","run","pytest","-q","tests/gateway/test_inbound_concurrency.py","-k","b116"] | . | 600 |  |
@@ -751,7 +751,7 @@ Skills 文案保留 name、platform_label、description，不输出全文；按 
 
 ## TASK-013: 补 Runtime 客户端幂等头与请求上下文
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 10-im-gateway.backend.design.md#API-06 Runtime Run 桥接, 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）
@@ -767,25 +767,36 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ### Checklist
 
-- [ ] [B-113][integration] 修改生产代码前先按 生产 RuntimeClient→真实本地 HTTP/SSE 接收端 编写或扩展用例并记录 RED；关键断言：请求 key/上下文不丢；超时有界；正常 SSE 与错误 Envelope 正确区分；不出现 pod_id。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_runtime_client.py","-k","b113"]`。
-- [ ] 实现或补齐：create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/request，保持逻辑 Agent 路由；新增会话的可重试提交按 Owner 端支持的稳定 key 契约接入，依赖 Runtime 补齐时记录外部阻塞。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-113][integration] 修改生产代码前先按 生产 RuntimeClient→真实本地 HTTP/SSE 接收端 编写或扩展用例并记录 RED；关键断言：请求 key/上下文不丢；超时有界；正常 SSE 与错误 Envelope 正确区分；不出现 pod_id。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_runtime_client.py","-k","b113"]`。
+- [x] 实现或补齐：create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/request，保持逻辑 Agent 路由；新增会话的可重试提交按 Owner 端支持的稳定 key 契约接入，依赖 Runtime 补齐时记录外部阻塞。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-113 | integration | 生产 RuntimeClient→真实本地 HTTP/SSE 接收端 | 请求 key/上下文不丢；超时有界；正常 SSE 与错误 Envelope 正确区分；不出现 pod_id | tests/gateway/test_runtime_client.py / B-113（planned） | `["uv","run","pytest","-q","tests/gateway/test_runtime_client.py","-k","b113"]` | planned |
+| B-113 | integration | 生产 RuntimeClient→真实本地 HTTP/SSE 接收端 | 请求 key/上下文不丢；超时有界；正常 SSE 与错误 Envelope 正确区分；不出现 pod_id | tests/gateway/test_runtime_client.py / B-113（verified） | `["uv","run","pytest","-q","tests/gateway/test_runtime_client.py","-k","b113"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-113 | `uv run pytest -q tests/gateway/test_runtime_client.py -k b113`：新增用例在改动前即失败于"幂等键/Request-Id 未透传"（`build_headers` 仅有 caller/tenant/trace，`create_run` 无 `Idempotency-Key`）——按首次运行结果记录 | 改动后同一命令 → `3 passed` | `test_b113_create_run_forwards_idempotency_key_and_link_headers`（真实接收端回读：`Idempotency-Key == 原 message id`、`X-Tenant-Id`/`X-Trace-Id`/`X-Request-Id`/`X-Caller-Service` 齐全；请求体只含逻辑 `agent_id`、无 pod 字段；SSE 事件序列 `run.created→run.completed` 正确解析）；`test_b113_error_envelope_is_distinguished_from_stream`（409 错误封套 → `AppError(code=RUN_BUSY)`，与正常 SSE 明确区分）；`test_b113_stream_timeout_is_bounded`（对端延迟 1s、客户端超时 0.2s → 有界失败，实测 < 3s） | 生产 `RuntimeClient` → 真实本地 HTTP 服务（uvicorn 线程 + 真实 socket，真实 SSE/JSON 封套），未使用 FakeTransport/MockTransport；链路头经接收端回读断言 | verified |
+
+补充记录：
+- 实现范围（`application/runtime_client.py`）：`build_headers()` 增加 `X-Request-Id`（取自 `muad_api.context.current_request_id()`）与可选 `Idempotency-Key`；`create_run()` 默认以 `request.message.id` 作为稳定幂等键（设计 API-06「Gateway 传 channel message id」，可重试提交不重复建 Run），并支持显式覆盖；`create_conversation()`/`_post_json()` 增加可选 `idempotency_key`（`/new` 的可重试提交留出稳定 key 入口）。
+- 未把 Runtime 的 `IDEMPOTENCY_MISMATCH`/`COMMON_CONFLICT` 当作验收条件：现行 required `harness-api#RULE-api-002` 已明确异指纹返回 `IDEMPOTENCY_MISMATCH`，本任务只负责"传得出、传得对"，异指纹语义归 TASK-026/B-126 的外部验收（EXT-08 协议差异已消除）。
+- 回归：`tests/gateway` → `168 passed`；非验收全量 → `1168 passed`。
+- 外部依赖：EXT-08（真实 Runtime 契约与证据核对）——本任务只接客户端契约，未阻塞。
+- 清理：接收端线程 `should_exit` + join；无残留进程/端口。
+- B-113: verified — automated command passed; run_id=79130a9f3abc4d4e806ac260ac8d25c7 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
 ## TASK-014: 使 SSE 解析保留封套与序号
 
 - **Status**: draft
