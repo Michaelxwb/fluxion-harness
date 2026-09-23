@@ -103,9 +103,9 @@
 | E-01 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway→真实bot resolve HTTP→PostgreSQL | TASK-009 | verified | ["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","e01"] | . | 600 |  |
 | B-110 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway command→真实 Console bind HTTP→PostgreSQL | TASK-010 | verified | ["uv","run","pytest","-q","tests/gateway/test_bind_command.py","-k","b110"] | . | 600 |  |
 | B-111 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway commands→真实 Console/Runtime HTTP→PostgreSQL | TASK-011 | verified | ["uv","run","pytest","-q","tests/gateway/test_commands_integration.py","-k","b111"] | . | 600 |  |
-| B-112 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件 | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","b112"] | . | 600 |  |
-| S-06 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Gateway→Runtime cancel-active HTTP→PostgreSQL CAS | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","s06"] | . | 600 |  |
-| E-05 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Runtime cancel-active/PG→Gateway | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","e05"] | . | 600 |  |
+| B-112 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件 | TASK-012 | verified | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","b112"] | . | 600 |  |
+| S-06 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Gateway→Runtime cancel-active HTTP→PostgreSQL CAS | TASK-012 | verified | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","s06"] | . | 600 |  |
+| E-05 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Runtime cancel-active/PG→Gateway | TASK-012 | verified | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","e05"] | . | 600 |  |
 | B-113 | 10-im-gateway.backend.design.md#API-06 Runtime Run 桥接 | integration | 生产 RuntimeClient→真实本地 HTTP/SSE 接收端 | TASK-013 | verified | ["uv","run","pytest","-q","tests/gateway/test_runtime_client.py","-k","b113"] | . | 600 |  |
 | B-114 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | unit | 真实 SSE parser 与分片字节/行输入 | TASK-014 | verified | ["uv","run","pytest","-q","tests/gateway/test_sse_parser.py","-k","b114"] | . | 600 |  |
 | B-115 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | integration | 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 | TASK-015 | planned | ["uv","run","pytest","-q","tests/gateway/test_stream_renderer.py","-k","b115"] | . | 600 |  |
@@ -741,7 +741,7 @@ Skills 文案保留 name、platform_label、description，不输出全文；按 
 - [2026-09-24] completed (done)
 ## TASK-012: 修复 /stop 已取消与取消中文案
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-013, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）
@@ -757,29 +757,43 @@ Skills 文案保留 name、platform_label、description，不输出全文；按 
 
 ### Checklist
 
-- [ ] [B-112][integration] 修改生产代码前先按 Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件 编写或扩展用例并记录 RED；关键断言：WAITING_INPUT 终态及取消事件可回读；RUNNING 受理不冒充已完成；无活跃 404/NO_ACTIVE_RUN；权限拒绝不发送取消成功。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","b112"]`。
-- [ ] [S-06][integration] 修改生产代码前先按 真实Gateway→Runtime cancel-active HTTP→PostgreSQL CAS 编写或扩展用例并记录 RED；关键断言：WAITING_INPUT直接CANCELLED；interrupt取消；回复当前任务已停止。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","s06"]`。
-- [ ] [E-05][integration] 修改生产代码前先按 真实Runtime cancel-active/PG→Gateway 编写或扩展用例并记录 RED；关键断言：无活跃返回NO_ACTIVE_RUN；提示当前没有执行中的任务。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","e05"]`。
-- [ ] 实现或补齐：解析 cancel-active 返回状态：WAITING_INPUT 已 CAS CANCELLED 立即显示已停止，CREATED/RUNNING 的 CANCELLING 显示受理，NO_ACTIVE_RUN 显示无执行中任务；不由 Gateway 猜测或缓存活跃 Run。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-112][integration] 修改生产代码前先按 Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件 编写或扩展用例并记录 RED；关键断言：WAITING_INPUT 终态及取消事件可回读；RUNNING 受理不冒充已完成；无活跃 404/NO_ACTIVE_RUN；权限拒绝不发送取消成功。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","b112"]`。
+- [x] [S-06][integration] 修改生产代码前先按 真实Gateway→Runtime cancel-active HTTP→PostgreSQL CAS 编写或扩展用例并记录 RED；关键断言：WAITING_INPUT直接CANCELLED；interrupt取消；回复当前任务已停止。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","s06"]`。
+- [x] [E-05][integration] 修改生产代码前先按 真实Runtime cancel-active/PG→Gateway 编写或扩展用例并记录 RED；关键断言：无活跃返回NO_ACTIVE_RUN；提示当前没有执行中的任务。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","e05"]`。
+- [x] 实现或补齐：解析 cancel-active 返回状态：WAITING_INPUT 已 CAS CANCELLED 立即显示已停止，CREATED/RUNNING 的 CANCELLING 显示受理，NO_ACTIVE_RUN 显示无执行中任务；不由 Gateway 猜测或缓存活跃 Run。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-112 | integration | Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件 | WAITING_INPUT 终态及取消事件可回读；RUNNING 受理不冒充已完成；无活跃 404/NO_ACTIVE_RUN；权限拒绝不发送取消成功 | tests/gateway/test_stop_integration.py / B-112（planned） | `["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","b112"]` | planned |
-| S-06 | integration | 真实Gateway→Runtime cancel-active HTTP→PostgreSQL CAS | WAITING_INPUT直接CANCELLED；interrupt取消；回复当前任务已停止 | tests/gateway/test_stop_integration.py / S-06（planned） | `["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","s06"]` | planned |
-| E-05 | integration | 真实Runtime cancel-active/PG→Gateway | 无活跃返回NO_ACTIVE_RUN；提示当前没有执行中的任务 | tests/gateway/test_stop_integration.py / E-05（planned） | `["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","e05"]` | planned |
+| B-112 | integration | Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件 | WAITING_INPUT 终态及取消事件可回读；RUNNING 受理不冒充已完成；无活跃 404/NO_ACTIVE_RUN；权限拒绝不发送取消成功 | tests/gateway/test_stop_integration.py / B-112（verified） | `["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","b112"]` | verified |
+| S-06 | integration | 真实Gateway→Runtime cancel-active HTTP→PostgreSQL CAS | WAITING_INPUT直接CANCELLED；interrupt取消；回复当前任务已停止 | tests/gateway/test_stop_integration.py / S-06（verified） | `["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","s06"]` | verified |
+| E-05 | integration | 真实Runtime cancel-active/PG→Gateway | 无活跃返回NO_ACTIVE_RUN；提示当前没有执行中的任务 | tests/gateway/test_stop_integration.py / E-05（verified） | `["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","e05"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-112 / S-06 / E-05 | `uv run pytest -q tests/gateway/test_stop_integration.py` → `2 failed, 2 passed`（8.57s）。两处行为缺口：① **S-06**：WAITING_INPUT 的 Run 已被 Runtime 直接 CAS 为 `CANCELLED`，网关仍回 `正在停止当前任务…`（应回 `当前任务已停止`）——`_handle_stop` 未解析 cancel-active 返回的 `status`；② **B-112 权限断言**：无 Agent 授权的用户发 `/stop` 未被拦截（`_handle_stop` 缺 `authorized` 分支，与其他命令不一致）→ 直接受理并把该用户的活跃 Run 真实取消，回复"正在停止…"而非"当前账号未获得该智能体使用权限"。（E-05 无活跃 Run、RUNNING 受理两条既有行为在改动前已通过。） | 改动后同一命令 → `4 passed`（8.14s）；契约命令 `-k b112` / `-k s06` / `-k e05` 各命中用例并全部通过。 | `test_s06_stop_on_waiting_input_cancels_immediately_with_readable_events`（回复 `当前任务已停止`；`run_record.status == CANCELLED` 且 `cancel_requested=False`；`run_interrupt.status == CANCELLED` 且 `resolution_json == {"reason": "cancelled"}`；`canonical_event` 存在 `stream_type=run.completed` 且 `payload.status == CANCELLED` 的事件 ⇒ 取消事件可回读）；`test_b112_stop_on_running_run_is_accepted_not_reported_completed`（回复 `正在停止当前任务…`；Run 仍 `RUNNING` 且 `cancel_requested=True`；该 Run 无任何 canonical_event ⇒ 受理不冒充已完成）；`test_e05_stop_without_active_run_reports_no_active_task`（真实 Runtime HTTP 直连 `POST /v1/runs/cancel-active` → 404 且 `code == NO_ACTIVE_RUN`；网关回复 `当前没有执行中的任务`）；`test_b112_stop_without_permission_does_not_cancel`（无 grant 用户：回复 `当前账号未获得该智能体使用权限`，属于该用户的 Run 仍 `RUNNING` 且 `cancel_requested=False`）。 | 真实 Runtime 服务进程（uvicorn 子进程 `muad_agent_runtime.main`，真实 socket）+ 真实 PostgreSQL（`runtime.run_record` 行级 CAS、`runtime.run_interrupt`、`runtime.canonical_event` 逐行回读）+ 真实 Console 服务进程（真实 socket，resolve 的 `authorized` 由真实 grant 表判定：无 grant 用户返回 `authorized=False`）。未 mock 上述任一真实边界。 | verified |
+
+补充记录：
+- 生产改动（`application/inbound.py` 的 `_handle_stop`）：补齐 `resolved.authorized` 分支（与 `/bind`、`/skills`、`/new`、普通消息一致）；解析 cancel-active 返回 `status`，`RunStatus.CANCELLED` → `当前任务已停止`（新增 `STOP_CANCELLED_TEXT`），否则 → `正在停止当前任务…`；Gateway 不猜测、不缓存活跃 Run。
+- 测试自身经历三次构造修正并已修正为真实口径：PG 行读取早于断言（清理改夹具 `runtime_rows`）、`httpx.AsyncClient` 的 `base_url` 传参位置、`canonical_event.stream_type` 实际为流名 `run.completed`（非事件名 `RUN_COMPLETED`）。
+- 复用而非重写：`tests/acceptance/task_schedule/environment.py` 的 `ServiceProcess`/`free_port`/`require`/`run_db`/`RUNTIME_CLEANUP`；`fakes.ConsoleProcess`；`console_channel.conftest` 的真实 PG 租户/bot/identity/grant 夹具。
+- 回归：`tests/gateway tests/console_channel` → `222 passed`；`uv run mypy apps/im-gateway/src/muad_im_gateway` → `Success: no issues found in 22 source files`。
+- 清理：runtime 行由 `runtime_rows` 夹具按 `RUNTIME_CLEANUP`（canonical_event → run_interrupt → … → run_record → conversation，FK 顺序）删除；Runtime/Console 子进程 `stop()`，Console 线程 join。
+- B-112: verified — automated command passed; run_id=33bca27e5e004234beea3f8f14398389 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=33bca27e5e004234beea3f8f14398389 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=33bca27e5e004234beea3f8f14398389 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] completed (done)
 ## TASK-013: 补 Runtime 客户端幂等头与请求上下文
 
 - **Status**: done

@@ -502,7 +502,7 @@
       "kind": "functional",
       "boundary": "Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -514,7 +514,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-112",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "33bca27e5e004234beea3f8f14398389",
+        "executed_at": "2026-09-23T17:11:37.773898+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-112",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "33bca27e5e004234beea3f8f14398389",
+          "executed_at": "2026-09-23T17:11:37.773898+00:00"
+        }
+      ]
     },
     {
       "id": "S-06",
@@ -523,7 +544,7 @@
       "kind": "functional",
       "boundary": "真实Gateway→Runtime cancel-active HTTP→PostgreSQL CAS",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -535,7 +556,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "33bca27e5e004234beea3f8f14398389",
+        "executed_at": "2026-09-23T17:11:37.773898+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "33bca27e5e004234beea3f8f14398389",
+          "executed_at": "2026-09-23T17:11:37.773898+00:00"
+        }
+      ]
     },
     {
       "id": "E-05",
@@ -544,7 +586,7 @@
       "kind": "functional",
       "boundary": "真实Runtime cancel-active/PG→Gateway",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -556,7 +598,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "33bca27e5e004234beea3f8f14398389",
+        "executed_at": "2026-09-23T17:11:37.773898+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "33bca27e5e004234beea3f8f14398389",
+          "executed_at": "2026-09-23T17:11:37.773898+00:00"
+        }
+      ]
     },
     {
       "id": "B-113",
