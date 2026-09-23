@@ -89,7 +89,7 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 argv | cwd | timeout | depends_on |
 |---|---|---|---|---|---|---|---|---|---|
 | B-101 | 10-im-gateway.backend.design.md#3.3 数据设计 | unit | 真实 Pydantic DTO 校验与 JSON 序列化 | TASK-001 | verified | ["uv","run","pytest","-q","tests/gateway/test_channel_contracts.py","-k","b101"] | . | 600 |  |
-| B-102 | 10-im-gateway.backend.design.md#3.4 接口设计 | integration | 生产 ConsoleClient→真实本地 HTTP 服务→Envelope 解码 | TASK-002 | planned | ["uv","run","pytest","-q","tests/gateway/test_gateway_console_client.py","-k","b102"] | . | 600 |  |
+| B-102 | 10-im-gateway.backend.design.md#3.4 接口设计 | integration | 生产 ConsoleClient→真实本地 HTTP 服务→Envelope 解码 | TASK-002 | verified | ["uv","run","pytest","-q","tests/gateway/test_gateway_console_client.py","-k","b102"] | . | 600 |  |
 | B-103 | 10-im-gateway.backend.design.md#API-03 执行绑定 | integration | 真实 bind HTTP handler→PostgreSQL 幂等记录、bind_code 行锁、channel_identity | TASK-003 | planned | ["uv","run","pytest","-q","tests/console_channel/test_channel_bind_idempotency.py","-k","b103"] | . | 600 |  |
 | B-104 | 10-im-gateway.backend.design.md#API-04 查询可用 Skills | integration | 真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_channel/test_channel_skills_api.py","-k","b104"] | . | 600 |  |
 | B-105 | 10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析 | integration | Console snapshot HTTP→真实 PG bot 配置→BotSnapshotCache | TASK-005 | planned | ["uv","run","pytest","-q","tests/gateway/test_bot_snapshot.py","-k","b105"] | . | 600 |  |
@@ -231,7 +231,7 @@
 - [2026-09-23] completed (done)
 ## TASK-002: 统一 Console 客户端封套解析与链路头
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 10-im-gateway.backend.design.md#3.4 接口设计, 10-im-gateway.backend.design.md#3.5 质量实现方案
@@ -246,25 +246,37 @@
 
 ### Checklist
 
-- [ ] [B-102][integration] 修改生产代码前先按 生产 ConsoleClient→真实本地 HTTP 服务→Envelope 解码 编写或扩展用例并记录 RED；关键断言：headers 保持；有效空目录区别于 404/坏 JSON/超时；错误 code 保留；内部 URL/响应体不回显。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_gateway_console_client.py","-k","b102"]`。
-- [ ] 实现或补齐：使用强类型 data 解析与 API 契约；透传 tenant/trace/request，依赖失败显式映射，移除 /skills 404 静默返回空目录；不用宽泛 Any 掩盖契约错误。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-102][integration] 修改生产代码前先按 生产 ConsoleClient→真实本地 HTTP 服务→Envelope 解码 编写或扩展用例并记录 RED；关键断言：headers 保持；有效空目录区别于 404/坏 JSON/超时；错误 code 保留；内部 URL/响应体不回显。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_gateway_console_client.py","-k","b102"]`。
+- [x] 实现或补齐：使用强类型 data 解析与 API 契约；透传 tenant/trace/request，依赖失败显式映射，移除 /skills 404 静默返回空目录；不用宽泛 Any 掩盖契约错误。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-102 | integration | 生产 ConsoleClient→真实本地 HTTP 服务→Envelope 解码 | headers 保持；有效空目录区别于 404/坏 JSON/超时；错误 code 保留；内部 URL/响应体不回显 | tests/gateway/test_gateway_console_client.py / B-102（planned） | `["uv","run","pytest","-q","tests/gateway/test_gateway_console_client.py","-k","b102"]` | planned |
+| B-102 | integration | 生产 ConsoleClient→真实本地 HTTP 服务→Envelope 解码 | headers 保持；有效空目录区别于 404/坏 JSON/超时；错误 code 保留；内部 URL/响应体不回显 | tests/gateway/test_gateway_console_client.py / B-102（verified） | `["uv","run","pytest","-q","tests/gateway/test_gateway_console_client.py","-k","b102"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-102 | `uv run pytest -q tests/gateway/test_gateway_console_client.py -k b102` → `4 failed, 3 passed`：trace/request 未透传；404 被当作空目录（DID NOT RAISE）；封套 data 未走强类型（DID NOT RAISE）；空目录未走分页契约 | 同一命令 → `7 passed` | `test_b102_propagates_tenant_trace_and_request_headers`（真实服务端回读 X-Tenant-Id/X-Trace-Id/X-Request-Id/X-Caller-Service，trace/request 取自 `muad_api.context`）；`test_b102_effective_empty_catalog_is_a_valid_response`（空目录 = 合法响应，区别于错误）；`test_b102_not_found_is_an_error_not_an_empty_catalog`（404 → AppError，code=AGENT_ACCESS_DENIED，且不含内部 msg/URL）；`test_b102_bad_envelope_is_an_error_not_an_empty_catalog`（裸数组/缺 data → COMMON_INTERNAL_ERROR）；`test_b102_timeout_is_an_error_not_an_empty_catalog`（httpx 超时 → COMMON_INTERNAL_ERROR）；`test_b102_error_code_is_preserved_and_internal_details_are_not_echoed`（BOT_NOT_FOUND 保留、`data is None`、无 URL/响应体回显）；`test_b102_skills_response_is_typed_for_contract_errors`（缺 skill_id/key 显式失败）；既有 `test_channel_skills_returns_typed_paged_response` / `test_channel_skills_404_is_an_error` / `test_channel_skills_rejects_bare_list_envelope` 同步覆盖 | 真实本地 HTTP 服务：`uvicorn.Server` 线程 + 真实 socket（`127.0.0.1:<随机端口>`），断言基于真实 HTTP 响应解码，**未使用 MockTransport 绕过**（既有 MockTransport 用例保留为纯逻辑回归） | verified |
+
+补充记录：
+- 实现范围：`envelope.py` 新增 `require_data_model`（真实封套 → 强类型 data；坏 JSON/缺 data/字段不符统一显式失败，异常只带稳定 code，不回显内部 URL/响应体），删除因本次改动失效的 `require_data_list`；`console_client.py` 四个端点统一走 `_request_model`（强类型 + 显式依赖失败映射），`channel_skills` 返回 `ChannelSkillsResponse` 并移除 404→空目录回退，`_headers` 补 trace/request 透传。
+- 连带（类型跟随，已在回归中覆盖）：`tests/gateway/fakes.py` 的 `FakeConsoleClient.channel_skills` 改为返回 `ChannelSkillsResponse`；`inbound.py` 的 `format_skills` 改收 `Sequence[ChannelSkillItem]`（属性访问）；`tests/gateway/test_inbound.py` 的 skills 夹具补 `skill_id`/`key`（契约收紧后必须合法）。/skills 命令的最终文案与按 `total` 有界翻页属 TASK-011（B-111），本任务只落单页强类型契约。
+- 回归：`uv run pytest -q tests --ignore=tests/acceptance` → `1138 passed`；`tests/gateway` → `147 passed`。
+- 外部依赖：无（本任务只用 Console 契约，不消费 Runtime/Worker）。
+- 清理：uvicorn 线程在 fixture finally 中 `should_exit` 并 join；无残留进程、DB 数据或 Redis 键。
+- B-102: verified — automated command passed; run_id=1f48312b4d9547309217898537533cf8 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-23] started
+- [2026-09-23] completed (done)
 ## TASK-003: 补 Console bind 持久幂等与事务重放
 
 - **Status**: draft

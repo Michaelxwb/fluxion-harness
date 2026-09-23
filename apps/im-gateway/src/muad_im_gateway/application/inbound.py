@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import Any
 from uuid import UUID
 
@@ -14,6 +14,7 @@ from muad_contracts import (
     ChannelEnvelope,
     ChannelResolveRequest,
     ChannelResolveResponse,
+    ChannelSkillItem,
     DeliveryMessage,
     DeliveryRouteInput,
     MessageInput,
@@ -63,13 +64,13 @@ def route_from_envelope(envelope: ChannelEnvelope) -> DeliveryRouteInput:
     )
 
 
-def format_skills(skills: list[dict[str, Any]]) -> str:
+def format_skills(skills: Sequence[ChannelSkillItem]) -> str:
     if not skills:
         return NO_SKILLS_TEXT
     lines: list[str] = []
     for skill in skills:
-        label = str(skill.get("platform_label") or skill.get("name") or "").strip()
-        description = str(skill.get("description") or "").strip()
+        label = (skill.platform_label or skill.name).strip()
+        description = skill.description.strip()
         lines.append(f"{label}: {description}".strip(": "))
     return "\n".join(lines)
 
@@ -273,7 +274,7 @@ class InboundPipeline:
             logger.warning("channel_skills_failed code=%s", exc.code)
             await self._send_text(adapter, route, SKILLS_UNAVAILABLE_TEXT)
             return
-        await self._send_text(adapter, route, format_skills(skills))
+        await self._send_text(adapter, route, format_skills(skills.items))
 
     async def _handle_message(
         self,

@@ -6,7 +6,10 @@ from uuid import UUID, uuid4
 
 from muad_api import AppError
 from muad_contracts import (
+    DEFAULT_PAGE_SIZE,
     BotSnapshotResponse,
+    ChannelSkillItem,
+    ChannelSkillsResponse,
     ChannelBindRequest,
     ChannelBindResponse,
     ChannelEnvelope,
@@ -24,7 +27,7 @@ class FakeConsoleClient:
         self.resolve_error: AppError | None = None
         self.bind_response = ChannelBindResponse(platform_user_id=uuid4())
         self.bind_error: AppError | None = None
-        self.skills: list[dict[str, Any]] = []
+        self.skills: list[Any] = []
         self.skills_error: AppError | None = None
         self.bot_snapshot = BotSnapshotResponse(revision="rev-1")
         self.bots_error: AppError | None = None
@@ -63,10 +66,14 @@ class FakeConsoleClient:
         agent_id: UUID,
         platform_user_id: UUID,
         tenant_id: str,
-    ) -> list[dict[str, Any]]:
+        *,
+        page: int = 1,
+        page_size: int = DEFAULT_PAGE_SIZE,
+    ) -> ChannelSkillsResponse:
         if self.skills_error is not None:
             raise self.skills_error
-        return self.skills
+        items = [ChannelSkillItem.model_validate(skill) for skill in self.skills]
+        return ChannelSkillsResponse(items=items, page=page, page_size=page_size, total=len(items))
 
 
 class FakeRuntimeClient:

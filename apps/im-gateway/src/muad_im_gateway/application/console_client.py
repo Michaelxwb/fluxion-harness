@@ -1,29 +1,30 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeVar
 from uuid import UUID
 
 import httpx
 from muad_api import AppError
+from muad_api.context import current_request_id, current_trace_id
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
+    DEFAULT_PAGE_SIZE,
     BotSnapshotResponse,
     ChannelBindRequest,
     ChannelBindResponse,
     ChannelResolveRequest,
     ChannelResolveResponse,
+    ChannelSkillsResponse,
 )
+from pydantic import BaseModel
 
-from .envelope import (
-    decode_json,
-    error_code_from_payload,
-    require_data_dict,
-    require_data_list,
-)
+from .envelope import decode_json, error_code_from_payload, require_data_model
 from .runtime_client import CALLER_SERVICE
 
 logger = logging.getLogger(__name__)
+
+ContractT = TypeVar("ContractT", bound=BaseModel)
 
 RESOLVE_PATH = "/internal/channel/resolve"
 BIND_PATH = "/internal/channel/bind"
@@ -52,7 +53,10 @@ class ConsoleClientPort(Protocol):
         agent_id: UUID,
         platform_user_id: UUID,
         tenant_id: str,
-    ) -> list[dict[str, Any]]: ...
+        *,
+        page: int = 1,
+        page_size: int = DEFAULT_PAGE_SIZE,
+    ) -> ChannelSkillsResponse: ...
 
 
 class ConsoleClient:
@@ -70,81 +74,89 @@ class ConsoleClient:
         request: ChannelResolveRequest,
         tenant_id: str,
     ) -> ChannelResolveResponse:
-        payload = await self._post_json(RESOLVE_PATH, request.model_dump(mode="json"), tenant_id)
-        return ChannelResolveResponse.model_validate(payload)
+        return await self._request_model(
+            "POST",
+            RESOLVE_PATH,
+            ChannelResolveResponse,
+            tenant_id,
+            json_body=request.model_dump(mode="json"),
+        )
 
     async def bind(
         self,
         request: ChannelBindRequest,
         tenant_id: str,
     ) -> ChannelBindResponse:
-        payload = await self._post_json(BIND_PATH, request.model_dump(mode="json"), tenant_id)
-        return ChannelBindResponse.model_validate(payload)
+        return await self._request_model(
+            "POST",
+            BIND_PATH,
+            ChannelBindResponse,
+            tenant_id,
+            json_body=request.model_dump(mode="json"),
+        )
 
     async def bots(self, tenant_id: str) -> BotSnapshotResponse:
-        payload = await self._get_json(BOTS_PATH, tenant_id, params=None)
-        return BotSnapshotResponse.model_validate(payload)
+        return await self._request_model("GET", BOTS_PATH, BotSnapshotResponse, tenant_id)
 
     async def channel_skills(
         self,
         agent_id: UUID,
         platform_user_id: UUID,
         tenant_id: str,
-    ) -> list[dict[str, Any]]:
-        params = {"agent_id": str(agent_id), "platform_user_id": str(platform_user_id)}
+        *,
+        page: int = 1,
+        page_size: int = DEFAULT_PAGE_SIZE,
+    ) -> ChannelSkillsResponse:
+        params = {
+            "agent_id": str(agent_id),
+            "platform_user_id": str(platform_user_id),
+            "page": str(page),
+            "page_size": str(page_size),
+        }
+        return await self._request_model(
+            "GET",
+            CHANNEL_SKILLS_PATH,
+            ChannelSkillsResponse,
+            tenant_id,
+            params=params,
+        )
+
+    async def aclose(self) -> None:
+        await self._client.aclose()
+
+    async def _request_model(
+        self,
+        method: str,
+        path: str,
+        model: type[ContractT],
+        tenant_id: str,
+        *,
+        json_body: dict[str, Any] | None = None,
+        params: dict[str, str] | None = None,
+    ) -> ContractT:
         try:
-            response = await self._client.get(
-                CHANNEL_SKILLS_PATH,
+            response = await self._client.request(
+                method,
+                path,
+                json=json_body,
                 params=params,
                 headers=_headers(tenant_id),
             )
         except httpx.HTTPError as exc:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
-        if response.status_code == 404:
-            logger.warning("channel_skills_not_found agent_id=%s", agent_id)
-            return []
-        body = decode_json(response)
         if response.status_code >= 400:
-            raise AppError(error_code_from_payload(body))
-        return [item for item in require_data_list(body) if isinstance(item, dict)]
-
-    async def _post_json(
-        self,
-        path: str,
-        payload: dict[str, Any],
-        tenant_id: str,
-    ) -> dict[str, Any]:
-        try:
-            response = await self._client.post(path, json=payload, headers=_headers(tenant_id))
-        except httpx.HTTPError as exc:
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
-        body = decode_json(response)
-        if response.status_code >= 400:
-            raise AppError(error_code_from_payload(body))
-        return require_data_dict(body)
-
-    async def _get_json(
-        self,
-        path: str,
-        tenant_id: str,
-        *,
-        params: dict[str, str] | None,
-    ) -> dict[str, Any]:
-        try:
-            response = await self._client.get(path, params=params, headers=_headers(tenant_id))
-        except httpx.HTTPError as exc:
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
-        body = decode_json(response)
-        if response.status_code >= 400:
-            raise AppError(error_code_from_payload(body))
-        return require_data_dict(body)
-
-    async def aclose(self) -> None:
-        await self._client.aclose()
+            raise AppError(error_code_from_payload(decode_json(response)))
+        return require_data_model(response, model)
 
 
 def _headers(tenant_id: str) -> dict[str, str]:
     headers = {"X-Caller-Service": CALLER_SERVICE}
     if tenant_id:
         headers["X-Tenant-Id"] = tenant_id
+    trace_id = current_trace_id()
+    if trace_id:
+        headers["X-Trace-Id"] = trace_id
+    request_id = current_request_id()
+    if request_id:
+        headers["X-Request-Id"] = request_id
     return headers

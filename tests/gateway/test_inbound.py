@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import uuid4
+
 import asyncio
 from contextlib import suppress
 from pathlib import Path
@@ -494,6 +496,8 @@ async def test_skills_success_lists_effective_catalog(catalog: MessageCatalog) -
     console.resolve_response = resolved_response()
     console.skills = [
         {
+            "skill_id": str(uuid4()),
+            "key": "policy-check",
             "name": "policy-check",
             "platform_label": "设备策略检查",
             "description": "检查客户设备策略",

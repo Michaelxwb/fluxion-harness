@@ -79,7 +79,7 @@
       "kind": "functional",
       "boundary": "生产 ConsoleClient→真实本地 HTTP 服务→Envelope 解码",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -91,7 +91,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-102",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "1f48312b4d9547309217898537533cf8",
+        "executed_at": "2026-09-23T06:07:09.707097+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-102",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1f48312b4d9547309217898537533cf8",
+          "executed_at": "2026-09-23T06:07:09.707097+00:00"
+        }
+      ]
     },
     {
       "id": "B-103",

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypeVar
 
 import httpx
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from pydantic import BaseModel, ValidationError
+
+ContractT = TypeVar("ContractT", bound=BaseModel)
 
 
 def error_code_from_payload(payload: Any) -> str:
@@ -35,19 +38,25 @@ def decode_json(response: httpx.Response) -> Any:
         return None
 
 
+def require_data_model(response: httpx.Response, model: type[ContractT]) -> ContractT:
+    """真实封套 → 强类型 data。
+
+    坏 JSON、缺 data、字段不符都显式失败为 `COMMON_INTERNAL_ERROR`；
+    异常只携带稳定 code，不回显内部 URL 或响应体。
+    """
+    body = decode_json(response)
+    data = body.get("data") if isinstance(body, dict) else None
+    if not isinstance(data, dict):
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+    try:
+        return model.model_validate(data)
+    except ValidationError as exc:
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+
+
 def require_data_dict(payload: Any) -> dict[str, Any]:
     data = payload.get("data") if isinstance(payload, dict) else None
     if not isinstance(data, dict):
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
     return data
 
-
-def require_data_list(payload: Any) -> list[Any]:
-    data = payload.get("data") if isinstance(payload, dict) else None
-    if isinstance(data, list):
-        return data
-    if isinstance(data, dict):
-        items = data.get("items")
-        if isinstance(items, list):
-            return items
-    raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
