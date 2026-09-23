@@ -107,6 +107,7 @@ class FakeRuntimeClient:
         self.cancel_error: AppError | None = None
         self.run_requests: list[RunRequest] = []
         self.conversations: list[tuple[UUID, UUID]] = []
+        self.conversation_keys: list[str | None] = []
         self.cancel_calls: list[tuple[UUID, UUID]] = []
 
     async def create_run(
@@ -129,10 +130,12 @@ class FakeRuntimeClient:
         *,
         tenant_id: str = "",
         trace_id: str = "",
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         if self.conversation_error is not None:
             raise self.conversation_error
         self.conversations.append((agent_id, platform_user_id))
+        self.conversation_keys.append(idempotency_key)
         return {"conversation_id": str(uuid4())}
 
     async def cancel_active(

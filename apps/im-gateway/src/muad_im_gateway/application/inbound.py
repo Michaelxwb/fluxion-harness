@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Sequence
+from math import ceil
 from typing import Any
 from uuid import UUID
 
@@ -9,6 +11,7 @@ from muad_api import AppError
 from muad_api.catalog import MessageCatalog
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
+    DEFAULT_PAGE_SIZE,
     ChannelBindRequest,
     ChannelContext,
     ChannelEnvelope,
@@ -44,6 +47,9 @@ NEW_COMMAND = "/new"
 STOP_COMMAND = "/stop"
 SKILLS_COMMAND = "/skills"
 
+SKILLS_MAX_PAGES = 20
+SKILLS_PAGE_INTERVAL_SEC = 0.05  # 页间节流：有界读取不形成紧循环
+
 BIND_SUCCESS_TEXT = "绑定成功"
 BIND_USAGE_TEXT = "用法：/bind <绑定码>"
 UNBOUND_TEXT = "请先使用 /bind <绑定码> 完成身份绑定"
@@ -65,14 +71,43 @@ def route_from_envelope(envelope: ChannelEnvelope) -> DeliveryRouteInput:
 
 
 def format_skills(skills: Sequence[ChannelSkillItem]) -> str:
+    """设计 §3.4.2：只展示 name/platform_label/description，不含 SKILL.md 全文。"""
     if not skills:
         return NO_SKILLS_TEXT
     lines: list[str] = []
     for skill in skills:
-        label = (skill.platform_label or skill.name).strip()
+        name = skill.name.strip()
+        label = (skill.platform_label or "").strip()
+        title = f"{label}（{name}）" if label and label != name else name
         description = skill.description.strip()
-        lines.append(f"{label}: {description}".strip(": "))
+        lines.append(f"{title}: {description}".strip(": "))
     return "\n".join(lines)
+
+
+async def fetch_skill_catalog(
+    console: ConsoleClientPort,
+    agent_id: UUID,
+    platform_user_id: UUID,
+    tenant_id: str,
+) -> tuple[ChannelSkillItem, ...]:
+    """API-04 分页契约：按 total 有界读全量 Effective Skill Catalog。
+
+    页间节流且有界（不形成无等待紧循环）；任一页失败（404/坏封套）向上抛出，由调用方
+    转成"暂不可用"，不伪装成空目录。
+    """
+    first = await console.channel_skills(agent_id, platform_user_id, tenant_id)
+    items = list(first.items)
+    page_size = first.page_size or DEFAULT_PAGE_SIZE
+    pages = min(max(ceil(first.total / page_size), 1), SKILLS_MAX_PAGES)
+    if first.total > pages * page_size:
+        logger.warning("channel_skills_truncated total=%s pages=%s", first.total, pages)
+    for page in range(2, pages + 1):
+        await asyncio.sleep(SKILLS_PAGE_INTERVAL_SEC)
+        nxt = await console.channel_skills(
+            agent_id, platform_user_id, tenant_id, page=page, page_size=page_size
+        )
+        items.extend(nxt.items)
+    return tuple(items)
 
 
 class _RunStreamState:
@@ -218,6 +253,8 @@ class InboundPipeline:
                 resolved.agent_id,
                 resolved.platform_user_id,
                 tenant_id=self._tenant_id,
+                # 稳定幂等键：同命令重试由 Runtime Owner 持久重放，不创建第二会话
+                idempotency_key=envelope.message_id,
             )
         except AppError as exc:
             await self._reply_error(adapter, route, exc)
@@ -270,7 +307,8 @@ class InboundPipeline:
             await self._send_text(adapter, route, NO_PERMISSION_TEXT)
             return
         try:
-            skills = await self._console.channel_skills(
+            catalog = await fetch_skill_catalog(
+                self._console,
                 resolved.agent_id,
                 resolved.platform_user_id,
                 self._tenant_id,
@@ -279,7 +317,7 @@ class InboundPipeline:
             logger.warning("channel_skills_failed code=%s", exc.code)
             await self._send_text(adapter, route, SKILLS_UNAVAILABLE_TEXT)
             return
-        await self._send_text(adapter, route, format_skills(skills.items))
+        await self._send_text(adapter, route, format_skills(catalog))
 
     async def _handle_message(
         self,
