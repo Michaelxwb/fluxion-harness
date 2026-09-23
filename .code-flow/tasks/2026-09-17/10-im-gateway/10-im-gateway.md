@@ -751,7 +751,7 @@ Skills 文案保留 name、platform_label、description，不输出全文；按 
 
 ## TASK-013: 补 Runtime 客户端幂等头与请求上下文
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 10-im-gateway.backend.design.md#API-06 Runtime Run 桥接, 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）
@@ -790,6 +790,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 外部依赖：EXT-08（真实 Runtime 契约与证据核对）——本任务只接客户端契约，未阻塞。
 - 清理：接收端线程 `should_exit` + join；无残留进程/端口。
 - B-113: verified — automated command passed; run_id=79130a9f3abc4d4e806ac260ac8d25c7 (confirmed_by: runner)
+- B-113: verified — automated command passed; run_id=7b8aee3ff3d14a7e8c16bdd650478f6e (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -797,6 +798,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ---
 - [2026-09-24] started
+- [2026-09-24] completed (done)
 ## TASK-014: 使 SSE 解析保留封套与序号
 
 - **Status**: draft

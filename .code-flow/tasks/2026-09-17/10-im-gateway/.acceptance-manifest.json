@@ -536,15 +536,15 @@
       "cwd": ".",
       "timeout": 600.0,
       "depends_on": [],
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "B-113",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "revision": 1,
-        "run_id": "79130a9f3abc4d4e806ac260ac8d25c7",
-        "executed_at": "2026-09-23T16:18:21.951749+00:00"
+        "revision": 2,
+        "run_id": "7b8aee3ff3d14a7e8c16bdd650478f6e",
+        "executed_at": "2026-09-23T16:28:16.521110+00:00"
       },
       "runs": [
         {
@@ -555,6 +555,15 @@
           "revision": 1,
           "run_id": "79130a9f3abc4d4e806ac260ac8d25c7",
           "executed_at": "2026-09-23T16:18:21.951749+00:00"
+        },
+        {
+          "id": "B-113",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "7b8aee3ff3d14a7e8c16bdd650478f6e",
+          "executed_at": "2026-09-23T16:28:16.521110+00:00"
         }
       ]
     },
