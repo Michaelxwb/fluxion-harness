@@ -51,11 +51,14 @@ class _FailingDedupeStore:
         return None
 
 
-def delivery_body(delivery_key: str | None = None) -> dict[str, Any]:
-    task_id = uuid.uuid4()
+def delivery_body(
+    delivery_key: str | None = None, task_id: uuid.UUID | None = None
+) -> dict[str, Any]:
+    """构造投递请求体；task_id 与 delivery_key 必须指向同一 Task（契约要求）。"""
+    resolved_task_id = task_id or uuid.uuid4()
     return {
-        "task_id": str(task_id),
-        "delivery_key": delivery_key or f"task:{task_id}:final",
+        "task_id": str(resolved_task_id),
+        "delivery_key": delivery_key or f"task:{resolved_task_id}:final",
         "route": {
             "channel": "WECOM",
             "bot_id": "bot-1",
@@ -451,7 +454,7 @@ async def test_e05_worker_http_to_gateway_redis_probe_end_to_end() -> None:
                         finished_at=now,
                     )
                 )
-        body = delivery_body(f"task:{task_id}:final")
+        body = delivery_body(task_id=task_id)
         async with api_client(_registry_with(adapter), store) as gateway_http:
             worker = DeliveryLoop(
                 session_factory,

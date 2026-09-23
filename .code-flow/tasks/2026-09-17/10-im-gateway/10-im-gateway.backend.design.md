@@ -1,10 +1,10 @@
 # IM Gateway 与主动投递 模块需求与设计一体化文档
 
-> **文档编号**: MOD-IM-V1.2
+> **文档编号**: MOD-IM-V1.3
 >
-> **文档版本**: v1.2
+> **文档版本**: v1.3
 > **创建日期**: 2026-09-17  
-> **文档状态**: Plan 基线（2026-09-21 按已确认拆解方案修订；实现与验收待完成）
+> **文档状态**: Plan 基线（2026-09-23 按 Plan 复核修订；实现与验收待完成）
 >
 > **模板**: design-full.md
 
@@ -27,6 +27,7 @@
 | v1.0 | 2026-09-17 | — | 需求与设计初稿 |
 | v1.1 | 2026-09-18 | — | 对齐 V1.4 决策（docs/17）：resolve 改为 `bound` 正常分支、`/internal/deliveries` 增加 `delivery_key` 去重、`/stop` 改为 `cancel-active`、`iter_events()` 唯一入站路径、入站去重与 WS 状态机、Secret Provider 解析、metrics 与 `/healthz`+`/readyz` 补全 |
 | v1.2 | 2026-09-21 | Codex | 承接新增 API 幂等规则；统一 Bot/Skills 分页；明确投递成功去重与失败恢复、就绪/密钥边界；补计划验收与唯一任务责任映射。 |
+| v1.3 | 2026-09-23 | Codex | Plan 复核修订：①§4.2 明确指标导出机制（仓库无现存指标基建，本模块落地进程内注册表 + 真实 `/metrics` HTTP 端点）；②§2.5.3 补 B-130（多实例/Worker 环境）与 B-131（WS/SDK 故障注入），原 B-120/B-121 收窄为探针核心与基础环境；③外部依赖状态刷新（EXT-09-020/021/043 已 verified，见 §5）；④幂等错误码对齐现行 required `harness-api#RULE-api-002`（异指纹 `IDEMPOTENCY_MISMATCH`，指纹为规范化 JSON SHA256，撤销原 `COMMON_CONFLICT` 要求，见 API-03/API-06 与 Spec Matrix）。 |
 
 **模块信息**
 
@@ -139,7 +140,7 @@
 
 #### 2.5.3 计划补充验收场景
 
-以下边界由 2026-09-21 局部 Plan 承接，补充原 13 个 S/E 场景，不降低原测试层级。最终负责人、测试文件和命令见 `10-im-gateway.md` 的 Acceptance Coverage / Contract。
+以下边界由 2026-09-21 局部 Plan 承接、2026-09-23 复核补充，共 31 个补充场景（B-101..B-131），补充原 13 个 S/E 场景，不降低原测试层级。最终负责人、测试文件和命令见 `10-im-gateway.md` 的 Acceptance Coverage / Contract。
 
 真实 E2E 使用生产 Gateway/Console/Runtime/Worker 进程、真实 HTTP/SSE、PostgreSQL、Redis、官方 SDK 与 WS socket。外部企业微信端点由本地协议探针承载，不 mock 业务 API/Adapter/SDK，也不声称完成企业微信实网验收。测试资源以 e2e-im-* 标识并自动清理，缺环境、skip 或外部依赖未就绪不算通过。
 
@@ -162,10 +163,10 @@
 | B-115 | P0 | integration | 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 | 流式收尾与中断选项；TASK-015 |
 | B-116 | P0 | integration | 真实 iter_events→Gateway 消费队列→Runtime HTTP/SSE→WS 回复 | 长流期间命令可处理；TASK-016 |
 | B-117 | P0 | integration | 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS | 主动投递响应与错误；TASK-017 |
-| B-118 | P1 | integration | 真实连接迁移→生产日志/metrics exporter | 连接指标/脱敏；TASK-018 |
-| B-119 | P1 | integration | 生产入站/HTTP投递/真实SSE→metrics exporter | 消息/投递指标；TASK-019 |
-| B-120 | P0 | integration | 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter | 真实 WS/官方 SDK 边界；TASK-020 |
-| B-121 | P0 | integration | 生产进程生命周期→真实HTTP/WS/PostgreSQL/Redis | 多服务进程/数据清理；TASK-021 |
+| B-118 | P1 | integration | 真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表） | 连接指标/脱敏；TASK-018 |
+| B-119 | P1 | integration | 生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表） | 消息/投递指标；TASK-019 |
+| B-120 | P0 | integration | 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter | WS 探针核心与官方 SDK 边界（认证/消息/流式收发）；TASK-020 |
+| B-121 | P0 | integration | 生产进程生命周期→真实HTTP/PostgreSQL/Redis | 基础多服务环境与数据清理（Console/Gateway/PG/Redis/模型探针）；TASK-021 |
 | B-122 | P0 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | 多 bot/任意 Runtime 实例；TASK-022 |
 | B-123 | P0 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | 绑定 E2E 与双语封套；TASK-023 |
 | B-124 | P0 | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry | Effective Capability/不泄露；TASK-024 |
@@ -174,6 +175,8 @@
 | B-127 | P0 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | 投递 E2E/Redis 故障与失败恢复；TASK-027 |
 | B-128 | P0 | integration | 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 | 密钥不泄露与单 bot readiness；TASK-028 |
 | B-129 | P0 | integration | pytest用例收集/运行→验收Contract/Evidence→真实组件记录 | 完整验收映射与真实证据；TASK-029 |
+| B-130 | P0 | integration | 生产第二 Runtime 实例与 Worker 进程→真实 PG/Redis | 多实例与 Worker 环境扩展；TASK-030 |
+| B-131 | P0 | integration | 生产 WeComAdapter→真实本地 WS 服务→故障注入（握手拒绝/断线/发送失败） | WS/SDK 故障注入边界；TASK-031 |
 
 ## 3. 技术设计
 
@@ -356,9 +359,9 @@ POST /internal/channel/bind
 | bind_code | string | 是 | Console 生成的高熵绑定码（明文仅本次传输） |
 
 - `data`：`{platform_user_id, bound:true}`
-- 错误码：`COMMON_VALIDATION_ERROR / BIND_CODE_INVALID / BIND_CODE_EXPIRED / COMMON_CONFLICT / COMMON_INTERNAL_ERROR`
+- 错误码：`COMMON_VALIDATION_ERROR / BIND_CODE_INVALID / BIND_CODE_EXPIRED / IDEMPOTENCY_MISMATCH / COMMON_INTERNAL_ERROR`
 - Header：Gateway 传稳定 `Idempotency-Key=channel message_id`。Console 在同一事务中处理幂等记录、`SELECT bind_code FOR UPDATE`、身份 upsert 与标记 USED；未提交/回滚不留下成功响应。
-- 请求指纹：规范化 endpoint、tenant、channel、bot_id、external_user_id 与 bind_code checksum 后做 SHA256；只保存指纹，不保存绑定码明文。同 key 同指纹 200 返回首次成功响应，同 key 异指纹 409 `COMMON_CONFLICT`；同租户/endpoint/key 的并发请求由现有 partial unique 与事务保证只消费一次，重启后仍可重放。
+- 请求指纹：规范化 JSON（`sort_keys` + 紧凑分隔符）的 SHA256，含 endpoint、tenant/actor/资源与关键参数（bind 侧为 channel、bot_id、external_user_id 与 bind_code checksum）；只保存指纹，不保存绑定码明文。同 key 同指纹 200 返回首次成功响应，同 key 异指纹 409 `IDEMPOTENCY_MISMATCH`；同租户/endpoint/key 的并发请求由现有 partial unique 与事务保证只消费一次，重启后仍可重放。
 - 单次绑定码规则不变：无幂等重放记录或使用不同 key 再消费已用码，返回 `BIND_CODE_INVALID`；无效/过期/已用分支不得新增身份或 AgentAccessGrant。测试见 B-103/B-126。
 
 #### API-04 查询可用 Skills
@@ -435,9 +438,9 @@ POST /v1/runs        (Runtime Service, text/event-stream 响应)
   - 存在 `CREATED/RUNNING` Run → `409 RUN_BUSY`；
   - 否则创建新 Run；
   - Gateway 传 `Idempotency-Key`（channel message id），Runtime 在 DB 提交幂等记录；指纹含 endpoint、tenant/actor/agent、原始 conversation 选择值与内容 checksum，不能先解析最新会话再计算指纹。
-  - 同 key 同指纹返回首次提交的 200 SSE 结果（可接续尚未结束流），不得新建 Run 或重复 Tool 副作用；不同 resume 输入各自独立提交。异指纹按 required RULE-api-002 返回 409 `COMMON_CONFLICT`。
-- 错误码：`RUN_BUSY / AGENT_DISABLED / AGENT_ACCESS_DENIED / MODEL_UNAVAILABLE / COMMON_CONFLICT / COMMON_INTERNAL_ERROR`
-- Runtime 兼容依赖：当前 08-runtime-execution 的实现/文档仍使用 `IDEMPOTENCY_MISMATCH`；它是已知 Owner 实现差异，不是本设计可接受的第二种验收结果。TASK-026 在 Runtime Owner 完成 `COMMON_CONFLICT` 契约对齐前保留外部依赖未满足，不能伪造 verifier 通过。
+  - 同 key 同指纹返回首次提交的 200 SSE 结果（可接续尚未结束流），不得新建 Run 或重复 Tool 副作用；不同 resume 输入各自独立提交。异指纹按 required RULE-api-002 返回 409 `IDEMPOTENCY_MISMATCH`。
+- 错误码：`RUN_BUSY / AGENT_DISABLED / AGENT_ACCESS_DENIED / MODEL_UNAVAILABLE / IDEMPOTENCY_MISMATCH / COMMON_INTERNAL_ERROR`
+- 幂等错误码基线（2026-09-23 复核）：required `harness-api#RULE-api-002` 已明确同 key 异指纹返回 `IDEMPOTENCY_MISMATCH`，08-runtime-execution（`run_submission.py`）、09-task-schedule（`submissions.py`）与 Console Agent/MCP/Skill 幂等原语现有实现与该规则一致；本设计不再要求 `COMMON_CONFLICT`，也不存在待对齐的错误码差异。
 - 处理：只传 `agent_id`，不得传 pod id；不保存 `agent_id→pod` 映射；SSE 消费按 §3.4.1。
 
 #### 3.4.1 Runtime SSE 事件处理（FEAT-03）
@@ -511,12 +514,17 @@ SSE 封套 `{run_id, seq, timestamp, type, data}`，按 `seq` 单调有序；`: 
 | 投递 | `im_background_delivery_total{status}` | docs/05 §12 |
 | 调用 | `im_runtime_request_latency_ms`、`im_stream_latency_ms`、`im_message_failures_total{reason}` | docs/05 §12 |
 
-指标标签不得包含 Secret/凭据/消息正文；只导出到 OTel/监控系统，不进入业务 Console。
+指标标签不得包含 Secret/凭据/消息正文；不进入业务 Console。
+
+**导出机制（2026-09-23 决策）**：仓库当前不存在指标基础设施（无 `prometheus`/`opentelemetry` 依赖，无 `/metrics` 端点，`packages/api-kit` 仅有探针与启动校验），因此本模块承担最小落地：在 `packages/api-kit` 增加进程内指标注册表，并由各服务进程暴露真实 HTTP `GET /metrics`（Prometheus 文本格式，不引入新依赖）；OTel/监控系统经该端点抓取，本模块不直连 collector，也不新增 exporter 进程。验收边界为「真实进程 + 真实 HTTP `/metrics` + 结构化日志」，不得以未定义的 exporter、进程内私有对象断言或 mock 代替。
+
+标签集合以 docs/09 §6.4 为准（`im_messages_total{type}`）；docs/05 §12 的 `im_messages_total{channel,type}` 为早期形态，本模块不采纳，差异不再展开。
 
 ## 5. 风险与依赖
 
 - 前置：02-user-identity, 07-agent-management, 08-runtime-execution, 09-task-schedule。
 - 跨模块依赖按任务文件 External Dependencies 登记：Runtime 幂等错误码/新会话重放由 Runtime Owner 完成；09-task-schedule TASK-020/021/043 的持久投递/去重/验收不得在本模块重复实现。规划门禁通过不代表这些实现或 E2E 已完成。
+- **依赖状态（2026-09-23 复核）**：09-task-schedule 已归档，其 TASK-020/021（持久 Final Delivery、Gateway 并发投递去重与失败恢复）与 TASK-043（Worker 端最终投递验收）均为 verified，实现已落在 `apps/im-gateway/src/muad_im_gateway/api/delivery.py`、`infrastructure/dedupe.py`；本模块 TASK-017/027 只补跨模块 E2E 与响应契约，不重复实现（EXT-09-020/021/043 视为已满足）。
 
 | 风险ID | 类型 | 描述 | 应对措施 | 验证场景 |
 |---|---|---|---|---|
@@ -541,7 +549,7 @@ SSE 封套 `{run_id, seq, timestamp, type, data}`，按 `seq` 单调有序；`: 
 |---|---|---|---|---|---|---|
 | `harness-arch#RULE-arch-001` | required | 固定四部署单元；Runtime/Worker 无状态，无 Agent/Bot→Pod 绑定。 | §3.2/§3.3/§4.1 | S-01 / B-122 + 原 verifier | harness-arch#RULE-arch-001 | applied |
 | `harness-api#RULE-api-001` | required | REST 封套、列表分页、错误 code/msg/http_status 来自 catalog。 | API-01/API-03/API-04/API-05、§3.4.2 | S-02 / E-02 / B-101 / B-105 / B-123 + 原 verifier | harness-api#RULE-api-001 | applied |
-| `harness-api#RULE-api-002` | required | 创建/可重试提交 Header+DB 幂等、partial unique、指纹与首次响应；异指纹 COMMON_CONFLICT。 | §3.3、API-03/API-06、§3.4.2 /new | B-103 / B-111 / B-126 + 原 verifier；Runtime Owner 差异见 §5 | harness-api#RULE-api-002 | applied |
+| `harness-api#RULE-api-002` | required | 创建/可重试提交 Header+DB 幂等、partial unique、指纹与首次响应；异指纹 `IDEMPOTENCY_MISMATCH`（409，msg/http_status 来自 catalog）。 | §3.3、API-03/API-06、§3.4.2 /new | B-103 / B-111 / B-126 + 原 verifier | harness-api#RULE-api-002 | applied |
 | `harness-secret#RULE-secret-001` | required | Owner 表存密钥，内部最小凭据传输；禁止日志/审计/Snapshot/Prompt/IM/对外 API 回显。 | §3.2.2/§3.5/§4.2 | S-04 / E-07 / B-128 + 原 verifier | harness-secret#RULE-secret-001 | applied |
 | `harness-im#RULE-im-001` | required | Agent 0..N bot，bot 唯一 Agent，不绑定 Runtime Pod；SDK 不渗透核心域。 | §2.5.1（RULE-04）/§3.2/§3.3 | S-01 / B-122 + 原 verifier | harness-im#RULE-im-001 | applied |
 | `harness-auth#RULE-auth-001` | required | 三层授权及 enabled/is_deleted，未授权资源不进 Catalog/Prompt/ToolRegistry。 | API-02/API-04 | S-03 / E-04 / B-124 + 原 verifier；B-124 明确验证授权而非只验证 RUN_BUSY | harness-auth#RULE-auth-001 | applied |

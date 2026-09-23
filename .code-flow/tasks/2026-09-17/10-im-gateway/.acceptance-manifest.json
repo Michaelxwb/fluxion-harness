@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "10-im-gateway.md",
-  "task_sha256": "10affd2183f4fe1d1f8457f2b74d17b04a0f71fff9127edd498a1a737f61d024",
+  "task_sha256": "f49e9e97fc2b2a63378215f76592271f21b945b88126ef04b205a0a55f182980",
   "scenarios": [
     {
       "id": "B-101",
@@ -10,7 +10,7 @@
       "kind": "functional",
       "boundary": "真实 Pydantic DTO 校验与 JSON 序列化",
       "owner": "TASK-001",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -22,7 +22,55 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "B-101",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 4,
+        "run_id": "0596003af84e47daab8f58b11ab6e4b8",
+        "executed_at": "2026-09-23T05:59:57.725212+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-101",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "76e32fdc4c134802bb4d7942c6f73356",
+          "executed_at": "2026-09-23T05:41:44.576837+00:00"
+        },
+        {
+          "id": "B-101",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "ffac033b6d984b9b879077a7ab3175a3",
+          "executed_at": "2026-09-23T05:53:53.933705+00:00"
+        },
+        {
+          "id": "B-101",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "ac0ac10ac1b6436f9fee088d2b0922ce",
+          "executed_at": "2026-09-23T05:57:02.884285+00:00"
+        },
+        {
+          "id": "B-101",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "0596003af84e47daab8f58b11ab6e4b8",
+          "executed_at": "2026-09-23T05:59:57.725212+00:00"
+        }
+      ]
     },
     {
       "id": "B-102",
@@ -449,7 +497,7 @@
       "source": "10-im-gateway.backend.design.md#4.2 指标目录",
       "level": "integration",
       "kind": "functional",
-      "boundary": "真实连接迁移→生产日志/metrics exporter",
+      "boundary": "真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表）",
       "owner": "TASK-018",
       "status": "planned",
       "command": [
@@ -470,7 +518,7 @@
       "source": "10-im-gateway.backend.design.md#4.2 指标目录",
       "level": "integration",
       "kind": "functional",
-      "boundary": "生产入站/HTTP投递/真实SSE→metrics exporter",
+      "boundary": "生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表）",
       "owner": "TASK-019",
       "status": "planned",
       "command": [
@@ -491,7 +539,7 @@
       "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
       "level": "integration",
       "kind": "functional",
-      "boundary": "官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter",
+      "boundary": "官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter（探针核心：认证/消息/流式收发）",
       "owner": "TASK-020",
       "status": "planned",
       "command": [
@@ -512,7 +560,7 @@
       "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
       "level": "integration",
       "kind": "functional",
-      "boundary": "生产进程生命周期→真实HTTP/WS/PostgreSQL/Redis",
+      "boundary": "生产进程生命周期→真实HTTP/PostgreSQL/Redis（Console/Gateway/模型探针/种子与清理）",
       "owner": "TASK-021",
       "status": "planned",
       "command": [
@@ -702,7 +750,7 @@
       "level": "integration",
       "kind": "functional",
       "boundary": "Gateway→真实Runtime SSE断线→Reaper/PostgreSQL",
-      "owner": "TASK-025",
+      "owner": "TASK-032",
       "status": "planned",
       "command": [
         "uv",
@@ -880,6 +928,48 @@
         "tests/acceptance/im_gateway/test_acceptance_inventory.py",
         "-k",
         "b129"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-130",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "生产第二 Runtime 实例与 Worker 进程→真实 PostgreSQL/Redis",
+      "owner": "TASK-030",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_multi_instance.py",
+        "-k",
+        "b130"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-131",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "生产 WeComAdapter→真实本地 WS 服务→故障注入（握手拒绝/断线/发送失败）",
+      "owner": "TASK-031",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_wecom_fault_injection.py",
+        "-k",
+        "b131"
       ],
       "cwd": ".",
       "timeout": 600.0,
