@@ -1,8 +1,8 @@
 # IM Gateway 与主动投递 模块需求与设计一体化文档
 
-> **文档编号**: MOD-IM-V1.3
+> **文档编号**: MOD-IM-V1.4
 >
-> **文档版本**: v1.3
+> **文档版本**: v1.4
 > **创建日期**: 2026-09-17  
 > **文档状态**: Plan 基线（2026-09-23 按 Plan 复核修订；实现与验收待完成）
 >
@@ -27,6 +27,7 @@
 | v1.0 | 2026-09-17 | — | 需求与设计初稿 |
 | v1.1 | 2026-09-18 | — | 对齐 V1.4 决策（docs/17）：resolve 改为 `bound` 正常分支、`/internal/deliveries` 增加 `delivery_key` 去重、`/stop` 改为 `cancel-active`、`iter_events()` 唯一入站路径、入站去重与 WS 状态机、Secret Provider 解析、metrics 与 `/healthz`+`/readyz` 补全 |
 | v1.2 | 2026-09-21 | Codex | 承接新增 API 幂等规则；统一 Bot/Skills 分页；明确投递成功去重与失败恢复、就绪/密钥边界；补计划验收与唯一任务责任映射。 |
+| v1.4 | 2026-09-23 | Codex | 局部 Plan 承接 `harness-data#RULE-data-001`（TASK-004 改动 repository/持久化路径触发路径映射）：本模块不新增表，复用 Owner 表时遵守标准列、`WHERE is_deleted=false` partial unique、`timestamptz` 与跨 Schema 逻辑 UUID；见 Spec Compliance Matrix。 |
 | v1.3 | 2026-09-23 | Codex | Plan 复核修订：①§4.2 明确指标导出机制（仓库无现存指标基建，本模块落地进程内注册表 + 真实 `/metrics` HTTP 端点）；②§2.5.3 补 B-130（多实例/Worker 环境）与 B-131（WS/SDK 故障注入），原 B-120/B-121 收窄为探针核心与基础环境；③外部依赖状态刷新（EXT-09-020/021/043 已 verified，见 §5）；④幂等错误码对齐现行 required `harness-api#RULE-api-002`（异指纹 `IDEMPOTENCY_MISMATCH`，指纹为规范化 JSON SHA256，撤销原 `COMMON_CONFLICT` 要求，见 API-03/API-06 与 Spec Matrix）。 |
 
 **模块信息**
@@ -554,4 +555,5 @@ SSE 封套 `{run_id, seq, timestamp, type, data}`，按 `seq` 单调有序；`: 
 | `harness-im#RULE-im-001` | required | Agent 0..N bot，bot 唯一 Agent，不绑定 Runtime Pod；SDK 不渗透核心域。 | §2.5.1（RULE-04）/§3.2/§3.3 | S-01 / B-122 + 原 verifier | harness-im#RULE-im-001 | applied |
 | `harness-auth#RULE-auth-001` | required | 三层授权及 enabled/is_deleted，未授权资源不进 Catalog/Prompt/ToolRegistry。 | API-02/API-04 | S-03 / E-04 / B-124 + 原 verifier；B-124 明确验证授权而非只验证 RUN_BUSY | harness-auth#RULE-auth-001 | applied |
 | `harness-snapshot#RULE-snapshot-001` | required | 新 Run/Task 冻结 Snapshot，配置/授权变更只影响后续提交，终态 CAS。 | API-06/§3.4.1 | S-03 / E-03 / B-125 + 原 verifier | harness-snapshot#RULE-snapshot-001 | applied |
+| `harness-data#RULE-data-001` | required | 产品表统一 `id/is_deleted/create_time/update_time`；软删唯一约束用 partial unique `WHERE is_deleted=false`；时间 `timestamptz`；同 Owner Schema 物理 FK、跨 Schema 仅逻辑 UUID；JSON 配置用 `jsonb`。 | §3.3（复用 Owner 表，不新增表；`control.skill_import_idempotency` 的 partial unique 与标准列即本规则的落地形态） | B-103 / B-104 + 原 verifier | harness-data#RULE-data-001 | applied |
 | `harness-test#RULE-test-001` | required | 跨服务真实 E2E；按层级记录真实边界、RED/GREEN 与清理证据。 | §2.5.2/§2.5.3/§6 | S-01 / S-03 / E-03 / B-120..B-129 + 原 verifier | harness-test#RULE-test-001 | applied |

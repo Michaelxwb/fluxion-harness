@@ -22,6 +22,27 @@ def current_artifact_join() -> ColumnElement[bool]:
     )
 
 
+def _effective_conditions(
+    tenant_id: str, agent_id: uuid.UUID, user_id: uuid.UUID
+) -> tuple[ColumnElement[bool], ...]:
+    """Effective Skill 公式（单处定义，list/count 共用，避免复制授权逻辑）。"""
+    granted_skill_ids = select(SkillUserGrant.skill_id).where(
+        SkillUserGrant.user_id == user_id,
+        SkillUserGrant.is_deleted.is_(False),
+    )
+    return (
+        AgentSkillBinding.agent_id == agent_id,
+        AgentSkillBinding.is_deleted.is_(False),
+        Skill.tenant_id == tenant_id,
+        Skill.enabled.is_(True),
+        Skill.is_deleted.is_(False),
+        or_(
+            Skill.user_scope == USER_SCOPE_ALL,
+            Skill.id.in_(granted_skill_ids),
+        ),
+    )
+
+
 class SkillRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -254,26 +275,34 @@ class SkillRepository:
         tenant_id: str,
         agent_id: uuid.UUID,
         user_id: uuid.UUID,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
     ) -> list[tuple[Skill, SkillArtifact]]:
-        granted_skill_ids = select(SkillUserGrant.skill_id).where(
-            SkillUserGrant.user_id == user_id,
-            SkillUserGrant.is_deleted.is_(False),
-        )
-        result = await self._session.execute(
+        statement = (
             select(Skill, SkillArtifact)
             .join(AgentSkillBinding, AgentSkillBinding.skill_id == Skill.id)
             .join(SkillArtifact, current_artifact_join())
-            .where(
-                AgentSkillBinding.agent_id == agent_id,
-                AgentSkillBinding.is_deleted.is_(False),
-                Skill.tenant_id == tenant_id,
-                Skill.enabled.is_(True),
-                Skill.is_deleted.is_(False),
-                or_(
-                    Skill.user_scope == USER_SCOPE_ALL,
-                    Skill.id.in_(granted_skill_ids),
-                ),
-            )
+            .where(*_effective_conditions(tenant_id, agent_id, user_id))
             .order_by(AgentSkillBinding.sort_order, Skill.key)
         )
+        if limit is not None:
+            statement = statement.limit(limit).offset(offset)
+        result = await self._session.execute(statement)
         return [(skill, artifact) for skill, artifact in result.all()]
+
+    async def count_effective_for_agent(
+        self,
+        tenant_id: str,
+        agent_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> int:
+        """与 list_effective_for_agent 同一组谓词，用于分页 total（有界，不取回全部行）。"""
+        total = await self._session.scalar(
+            select(func.count())
+            .select_from(Skill)
+            .join(AgentSkillBinding, AgentSkillBinding.skill_id == Skill.id)
+            .join(SkillArtifact, current_artifact_join())
+            .where(*_effective_conditions(tenant_id, agent_id, user_id))
+        )
+        return int(total or 0)

@@ -22,55 +22,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 4,
-      "evidence": {
-        "id": "B-101",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 4,
-        "run_id": "0596003af84e47daab8f58b11ab6e4b8",
-        "executed_at": "2026-09-23T05:59:57.725212+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-101",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "76e32fdc4c134802bb4d7942c6f73356",
-          "executed_at": "2026-09-23T05:41:44.576837+00:00"
-        },
-        {
-          "id": "B-101",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 2,
-          "run_id": "ffac033b6d984b9b879077a7ab3175a3",
-          "executed_at": "2026-09-23T05:53:53.933705+00:00"
-        },
-        {
-          "id": "B-101",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 3,
-          "run_id": "ac0ac10ac1b6436f9fee088d2b0922ce",
-          "executed_at": "2026-09-23T05:57:02.884285+00:00"
-        },
-        {
-          "id": "B-101",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 4,
-          "run_id": "0596003af84e47daab8f58b11ab6e4b8",
-          "executed_at": "2026-09-23T05:59:57.725212+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-102",
@@ -91,28 +43,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-102",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "1f48312b4d9547309217898537533cf8",
-        "executed_at": "2026-09-23T06:07:09.707097+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-102",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "1f48312b4d9547309217898537533cf8",
-          "executed_at": "2026-09-23T06:07:09.707097+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-103",
@@ -133,28 +64,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-103",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "df28682ac59e4e57859ff540e21bc7ae",
-        "executed_at": "2026-09-23T10:47:05.948062+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-103",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "df28682ac59e4e57859ff540e21bc7ae",
-          "executed_at": "2026-09-23T10:47:05.948062+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-104",
@@ -163,7 +73,7 @@
       "kind": "functional",
       "boundary": "真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -175,7 +85,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-104",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "56275c0380914901b215c4cc1d2157e8",
+        "executed_at": "2026-09-23T10:54:16.640935+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-104",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "56275c0380914901b215c4cc1d2157e8",
+          "executed_at": "2026-09-23T10:54:16.640935+00:00"
+        }
+      ]
     },
     {
       "id": "B-105",

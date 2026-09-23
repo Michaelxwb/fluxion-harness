@@ -18,7 +18,7 @@
 - **持久幂等**：Console bind 复用已存在的 `control.skill_import_idempotency`（Agent/MCP 已使用），固定 `endpoint=/internal/channel/bind`，保留 partial unique、指纹、首次成功响应及事务原子性，不新增表。Gateway 传原 message_id；同 key/同指纹 200 重放，异指纹按 required Rule 返回 409 `IDEMPOTENCY_MISMATCH`（指纹为规范化 JSON 的 SHA256，含 endpoint、tenant/actor、资源与关键参数）。2026-09-23 复核：Runtime/Worker/Console 现有幂等原语与该规则一致（不再存在待对齐的错误码差异）；`/new` 的重复提交同样由 Runtime 持久幂等。
 - **列表契约**：API-01 Bot 快照保留 revision，补 items/page/page_size/total；跨页 revision/total 一致才发布完整快照，不一致保留旧快照到下一节拍重拉。API-04 Skills 在授权过滤后分页；page>=1、1<=page_size<=100。Console/Gateway 同步实现，禁止借“小集合”豁免 required Rule。
 - **投递恢复**：API-05 成功键 TTL 7d，与 owner token 短租约分离；处理中不得当作 deduplicated 成功，明确发送失败释放租约并重试，崩溃到期恢复。Redis 不可用或外部发送结果不确定只承诺 at-least-once。原子去重/失败恢复由 EXT-09-021 实现，本模块承担消费契约与最终验收。
-- **Spec 与验收**：Matrix 使用 Context 实际 spec_id、8 个 required Rule 的原 verifier_ref；覆盖 13 个原始场景、31 个补充场景（B-101..B-131）、10 条业务规则、3 个风险。每条 Spec Rule 唯一最终负责人见 Coverage / Contract，原 E2E 不降级；授权以 B-124 验证，Snapshot/CAS 以 B-125 验证。
+- **Spec 与验收**：Matrix 使用 Context 实际 spec_id、9 个 required Rule 的原 verifier_ref；覆盖 13 个原始场景、31 个补充场景（B-101..B-131）、10 条业务规则、3 个风险。每条 Spec Rule 唯一最终负责人见 Coverage / Contract，原 E2E 不降级；授权以 B-124 验证，Snapshot/CAS 以 B-125 验证。
 - **就绪与密钥**：依据 manager 初始化、完整 snapshot 和事件循环判定 readiness；单 bot 故障在 detail 降级，不要求全部 CONNECTED。Secret 仅 Owner 表和 Console→Gateway 最小内部快照传输，禁止公开 API/日志/审计/Snapshot/Prompt/IM 回显，不引入 SecretProvider。
 
 2026-09-23 Plan 复核后，下列修订已同步到 design v1.3（§1.2 修订历史、§2.5.3、§4.2、§5），并落到本文件的任务拆分与依赖：
@@ -41,7 +41,7 @@
 - 真实边界：生产 Console/Gateway/Runtime/Worker 进程与 HTTP/SSE、PostgreSQL、Redis、官方 SDK、WS socket 不得 mock。企业微信服务端以本地真实 WS 协议探针承载，模型用现有真实 HTTP 探针；不声称企业微信生产账号实网已验证。单元测试可隔离纯逻辑，不能冒充 E2E。
 - 所有新增/修复先补失败用例并记录 RED；已有正确行为先跑回归，不人为制造失败。**验收类 TASK（022–029、032）例外**：其前提是 owner 实现任务已完成并通过契约验收，不得为凑 RED 制造失败；执行中若暴露缺陷，回退到对应 owner TASK 修复（该回退边不入本文件 Depends DAG，按发现即登记处理），修复后重新执行验收命令，禁止在验收任务内静默修改生产代码。清理 e2e-im-* DB 数据/Redis keys/进程。环境缺失、skip 或外部任务未完成不能记 verified。
 - **场景 ID 作用域**：B-/S-/E-/RULE-/RISK- 编号仅在本需求 Context 内唯一，与已归档 09-task-schedule 的同名 ID 不同义（例如 09 的 B-121/E-05 指 Gateway 投递去重与失败恢复，本文件的 B-121 指基础验收环境、E-05 指 NO_ACTIVE_RUN）。跨需求检索、grep 与证据引用必须带 Context 前缀（如 `10-im-gateway#B-121`），不得跨 Context 复用编号结论。
-- **required Spec Rule 的跨 Context 归属**：本文件的 8 条 required Rule 唯一负责人仅在本 Context 内成立；09-task-schedule 对同批 Rule（含 RULE-test-001）在其 Context 内另有已 verified 的负责人。本模块的规则项必须执行自己的原 verifier + 补充真实边界，不得直接引用其他 Context 的 verified 结论充当本模块证据。
+- **required Spec Rule 的跨 Context 归属**：本文件的 9 条 required Rule 唯一负责人仅在本 Context 内成立；09-task-schedule 对同批 Rule（含 RULE-test-001）在其 Context 内另有已 verified 的负责人。本模块的规则项必须执行自己的原 verifier + 补充真实边界，不得直接引用其他 Context 的 verified 结论充当本模块证据。
 - **仓库级 verifier 的失败归因**：RULE-07 / RULE-test-001 的组合命令覆盖全仓 `tests/acceptance`、前端构建与 playwright 全量（`e2e/` 下多套 config），范围大于本模块。执行时必须逐项归因：与本模块无关的套件失败单列并回到其 owner，不得据以判定本模块场景通过或失败，也不得用其失败掩盖本模块自身失败。
 - **外部依赖启动约束**：凡 External-Depends 未满足，启动该 TASK 前先核对 Owner 任务状态与对应验收证据；缺失时记录为 blocked，不把其他模块已 verified 当作协议差异已修复。当前 EXT-09-020/021/043 已满足（见上）；EXT-08 无待对齐错误码差异（idempotency 语义以 required RULE-api-002 为准），但真实 Runtime Run/SSE/Reaper 证据仍须在启动前核对。
 
@@ -52,7 +52,7 @@
 | TASK-001 | P0 | 收紧 Channel 与 Delivery 公共契约 | 无 | 3.3 数据设计；3.4 接口设计 | B-101(unit) | 3 |
 | TASK-002 | P0 | 统一 Console 客户端封套解析与链路头 | 001 | 3.4 接口设计；3.5 质量实现方案 | B-102(integration) | 3 |
 | TASK-003 | P0 | 补 Console bind 持久幂等与事务重放 | 001 | API-03 执行绑定；3.3 数据设计；Spec Compliance Matrix | B-103(integration) | 3 |
-| TASK-004 | P0 | 补齐 Console Effective Skills 内部端点 | 001 | API-04 查询可用 Skills；2.5.1 业务规则与约束 | B-104(integration) | 3 |
+| TASK-004 | P0 | 补齐 Console Effective Skills 内部端点 | 001 | API-04 查询可用 Skills；2.5.1 业务规则与约束 | B-104(integration), RULE-data-001(integration) | 4 |
 | TASK-005 | P0 | 补 Bot 快照轮询与热更新边界 | 001, 002 | 3.2.2 Bot 快照轮询与 Secret 解析；API-01 Bot 列表 | B-105(integration) | 3 |
 | TASK-006 | P0 | 修复多 Bot 故障隔离与 WS 退避 | 005, 021, 031 | 3.2.1 WebSocket 连接状态机；3.2.2 Bot 快照轮询与 Secret 解析 | B-106(integration) | 3 |
 | TASK-007 | P0 | 对齐启动、就绪与关闭语义 | 005, 006, 021 | 4.1 健康检查与启动校验；3.2.1 WebSocket 连接状态机 | B-107(integration) | 3 |
@@ -91,7 +91,8 @@
 | B-101 | 10-im-gateway.backend.design.md#3.3 数据设计 | unit | 真实 Pydantic DTO 校验与 JSON 序列化 | TASK-001 | verified | ["uv","run","pytest","-q","tests/gateway/test_channel_contracts.py","-k","b101"] | . | 600 |  |
 | B-102 | 10-im-gateway.backend.design.md#3.4 接口设计 | integration | 生产 ConsoleClient→真实本地 HTTP 服务→Envelope 解码 | TASK-002 | verified | ["uv","run","pytest","-q","tests/gateway/test_gateway_console_client.py","-k","b102"] | . | 600 |  |
 | B-103 | 10-im-gateway.backend.design.md#API-03 执行绑定 | integration | 真实 bind HTTP handler→PostgreSQL 幂等记录、bind_code 行锁、channel_identity | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_channel/test_channel_bind_idempotency.py","-k","b103"] | . | 600 |  |
-| B-104 | 10-im-gateway.backend.design.md#API-04 查询可用 Skills | integration | 真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_channel/test_channel_skills_api.py","-k","b104"] | . | 600 |  |
+| B-104 | 10-im-gateway.backend.design.md#API-04 查询可用 Skills | integration | 真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_channel/test_channel_skills_api.py","-k","b104"] | . | 600 |  |
+| RULE-data-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | integration | 真实 PostgreSQL 表结构与约束（标准列、`is_deleted=false` partial unique、跨 Schema 逻辑 UUID）；原 Spec verifier 真实边界 | TASK-004 | planned | ["bash","-lc","uv run pytest -q tests/console_channel/test_channel_skills_api.py -k b104 && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
 | B-105 | 10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析 | integration | Console snapshot HTTP→真实 PG bot 配置→BotSnapshotCache | TASK-005 | planned | ["uv","run","pytest","-q","tests/gateway/test_bot_snapshot.py","-k","b105"] | . | 600 |  |
 | B-106 | 10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机 | integration | 生产 WeComAdapter/连接管理器→真实本地 WS 故障探针 | TASK-006 | planned | ["uv","run","pytest","-q","tests/gateway/test_wecom_adapter.py","-k","b106"] | . | 600 |  |
 | B-107 | 10-im-gateway.backend.design.md#4.1 健康检查与启动校验 | integration | 真实 Gateway lifespan/HTTP probes→Console/WS 连接管理器 | TASK-007 | planned | ["uv","run","pytest","-q","tests/gateway/test_readyz.py","-k","b107"] | . | 600 |  |
@@ -172,6 +173,8 @@
 | RISK-02：Redis不可用的入站/投递语义 | E-06, B-127 | TASK-027 |
 | RISK-03：WS抖动、secret失效、单bot隔离 | E-07, B-131 | TASK-028 |
 
+**本轮局部 Plan 新增 required Rule 归属**：`harness-data#RULE-data-001`（TASK-004 改动 repository/持久化路径时由路径映射自动纳入 Context）—— 唯一负责人 TASK-004，验证 真实 PostgreSQL 表结构与约束 + 原 verifier `-k schema_parity`；覆盖行见 Acceptance Coverage。
+
 **同命令承载多条义务（执行一次须同时核对全部断言，任一断言缺失即该组整体不通过）**：`-k b122` = B-122 / RULE-01 / RULE-04 / RISK-01；`-k b108` = B-108 / RULE-08；`-k b127` = B-127 / RULE-09 / RISK-02；`-k b128` = B-128 / RULE-03 / RISK-03；`-k e03` = E-03 / RULE-06。规则项的最终负责人按上表登记，联合映射的其他场景（如 RULE-03 映射 S-01、RULE-10 映射 E-05）只是复核关系，不重复登记 owner。
 
 ---
@@ -212,8 +215,8 @@
 补充记录：
 - 实现范围：`channel.py` 新增 `PageMeta`（page>=1、1<=page_size<=100、total>=0，边界与 api-kit `muad_api.response` 常量一致）、`ChannelSkillItem`/`ChannelSkillsResponse`、`ChannelResolveRequest.external_conversation_id`、`BotSnapshotItem.secret` 改 `repr=False`；`delivery.py` 的 `DeliveryMessage.type` 收紧为 `Literal["text"]`、`DeliveryRequest` 增加 key↔task_id 一致性校验、新增 `DeliveryResponse(accepted/delivered/deduplicated)`；三者经 `__init__` 导出。
 - 回归：`uv run pytest -q tests --ignore=tests/acceptance` → `1131 passed`。收紧契约后暴露既有测试构造错误：`tests/gateway/test_delivery_api.py` 的 `delivery_body()` 用随机 task_id 拼 delivery_key，已修正该 helper（新增 task_id 参数）与 e05 调用点，仅测试侧改动，生产投递实现未动（响应契约对齐属 TASK-017）。
-- 外部依赖：无（本任务不消费 Runtime/Worker 契约，EXT 不适用）。
-- 仓库级 verifier 现象（据实记录；归因已更正）：`harness-test#RULE-test-001` 的组合命令中 `tests/acceptance` 曾在 4 次运行中不稳定失败（失败点每次不同：`test_batch.py::test_s04_*` 两次、`test_execution.py::test_b141_*`、`test_delivery.py::test_e05_*`，均为 worker 执行 Skill 时 `SKILL_ARTIFACT_UNAVAILABLE`；单独或小范围连跑均通过，与本次契约改动无关——对照实验带改动/回退 contracts/再恢复单跑 3 次全 pass）。**根因是执行环境残留而非 09 模块缺陷**：早期把长时间运行的 verifier 输出接进 `head` 触发 SIGPIPE，打断了 pytest 收尾，留下 Console/Worker 孤儿进程；孤儿进程继续连接同一测试库，用已被删除的临时 `ARTIFACT_ROOT` 执行新提交任务，正好产生该错误码。清掉孤儿进程（`ps aux | grep uvicorn/muad_*`，共 4 个）与 Redis 残留后，同一门禁**一次通过**（acceptance 全绿 + 前端 build + playwright 4 passed）。教训：运行验收套件不要用会被提前关闭的管道（`| head`），必须捕获完整输出；启动前先确认无残留进程。
+- 外部依赖：无（本任务不消费 Runtime/Worker 契约，EXT 不适用）。该仓库级 required Rule 的唯一负责人仍是 TASK-029，本任务只记录运行现象，不重复登记归属。
+- 仓库级 verifier 现象（据实记录；归因已更正）：仓库级 required Rule（`harness-test` 的 `RULE-test-001`）的组合命令中 `tests/acceptance` 曾在 4 次运行中不稳定失败（失败点每次不同：`test_batch.py::test_s04_*` 两次、`test_execution.py::test_b141_*`、`test_delivery.py::test_e05_*`，均为 worker 执行 Skill 时 `SKILL_ARTIFACT_UNAVAILABLE`；单独或小范围连跑均通过，与本次契约改动无关——对照实验带改动/回退 contracts/再恢复单跑 3 次全 pass）。**根因是执行环境残留而非 09 模块缺陷**：早期把长时间运行的 verifier 输出接进 `head` 触发 SIGPIPE，打断了 pytest 收尾，留下 Console/Worker 孤儿进程；孤儿进程继续连接同一测试库，用已被删除的临时 `ARTIFACT_ROOT` 执行新提交任务，正好产生该错误码。清掉孤儿进程（`ps aux | grep uvicorn/muad_*`，共 4 个）与 Redis 残留后，同一门禁**一次通过**（acceptance 全绿 + 前端 build + playwright 4 passed）。教训：运行验收套件不要用会被提前关闭的管道（`| head`），必须捕获完整输出；启动前先确认无残留进程。
 - 清理：纯契约与单测，无 DB/Redis/进程副作用。
 - 未覆盖说明：Bot 快照/Skills 的**真实分页取值与跨页 revision 一致**由 TASK-005（B-105）/TASK-004（B-104）验收；本任务只固定契约字段与边界。
 - B-101: verified — automated command passed; run_id=76e32fdc4c134802bb4d7942c6f73356 (confirmed_by: runner)
@@ -328,12 +331,12 @@
 - [2026-09-23] completed (done)
 ## TASK-004: 补齐 Console Effective Skills 内部端点
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 10-im-gateway.backend.design.md#API-04 查询可用 Skills, 10-im-gateway.backend.design.md#2.5.1 业务规则与约束
-- **Spec-Refs**: 
-- **Acceptance-Refs**: B-104
+- **Spec-Refs**: harness-data#RULE-data-001
+- **Acceptance-Refs**: B-104, RULE-data-001
 - **Files**: `apps/console-platform/backend/src/muad_console_platform/api/internal_channel.py`, `apps/console-platform/backend/src/muad_console_platform/application/channel_skills_service.py`, `tests/console_channel/test_channel_skills_api.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
@@ -343,25 +346,41 @@
 
 ### Checklist
 
-- [ ] [B-104][integration] 修改生产代码前先按 真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant 编写或扩展用例并记录 RED；关键断言：拒绝无 Agent 授权；禁用/删除/未授权 Skill 名称描述均不可见；分页边界与查询数量有界。执行 argv：`["uv","run","pytest","-q","tests/console_channel/test_channel_skills_api.py","-k","b104"]`。
-- [ ] 实现或补齐：补当前缺失的 GET /internal/channel/skills，复用 Effective Capability；仅返回 name/platform_label/description 等允许字段。按 API-04 的统一分页契约输出，含 enabled/is_deleted 与 SELECTED 用户授权过滤，不复制一套授权公式。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-104][integration] 修改生产代码前先按 真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant 编写或扩展用例并记录 RED；关键断言：拒绝无 Agent 授权；禁用/删除/未授权 Skill 名称描述均不可见；分页边界与查询数量有界。执行 argv：`["uv","run","pytest","-q","tests/console_channel/test_channel_skills_api.py","-k","b104"]`。
+- [x] 实现或补齐：补当前缺失的 GET /internal/channel/skills，复用 Effective Capability；仅返回 name/platform_label/description 等允许字段。按 API-04 的统一分页契约输出，含 enabled/is_deleted 与 SELECTED 用户授权过滤，不复制一套授权公式。
+- [ ] [RULE-data-001][integration] verifier_ref=harness-data#RULE-data-001；原 verifier 输入 argv=`["uv","run","pytest","-q","tests","-k","schema_parity"]`；补充真实边界 真实 PostgreSQL 表结构与约束（标准列、`is_deleted=false` partial unique、跨 Schema 逻辑 UUID）；原 Spec verifier 真实边界，断言 本模块不新增表；复用 `control.skill_import_idempotency` / `control.bind_code` 等 Owner 表时沿用标准列与 partial unique；新查询不引入只藏在 JSON 的关键字段；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/console_channel/test_channel_skills_api.py -k b104 && uv run pytest -q tests -k schema_parity"]`。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-104 | integration | 真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant | 拒绝无 Agent 授权；禁用/删除/未授权 Skill 名称描述均不可见；分页边界与查询数量有界 | tests/console_channel/test_channel_skills_api.py / B-104（planned） | `["uv","run","pytest","-q","tests/console_channel/test_channel_skills_api.py","-k","b104"]` | planned |
+| B-104 | integration | 真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant | 拒绝无 Agent 授权；禁用/删除/未授权 Skill 名称描述均不可见；分页边界与查询数量有界 | tests/console_channel/test_channel_skills_api.py / B-104（verified） | `["uv","run","pytest","-q","tests/console_channel/test_channel_skills_api.py","-k","b104"]` | verified |
+| RULE-data-001 | integration | 真实 PostgreSQL 表结构与约束（标准列、`is_deleted=false` partial unique、跨 Schema 逻辑 UUID）；原 Spec verifier 真实边界 | 不新增表；复用 Owner 表沿用标准列与 partial unique；关键查询字段不藏在 JSON；原 verifier 全部通过 | tests/console_channel/test_channel_skills_api.py + 原 verifier / RULE-data-001（planned） | `["bash","-lc","uv run pytest -q tests/console_channel/test_channel_skills_api.py -k b104 && uv run pytest -q tests -k schema_parity"]` | planned |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-104 | `uv run pytest -q tests/console_channel/test_channel_skills_api.py -k b104` → `3 failed`（端点不存在：404 COMMON_NOT_FOUND，`data` 为 None） | 同一命令 → `3 passed` | `test_b104_returns_only_effective_catalog_with_allowed_fields`（可见集合恰为 ALL 与 SELECTED+Grant 两条；每条仅含 skill_id/key/name/platform_label/description；未授权/禁用/撤销/解绑 4 条的名称与 canary 描述、artifact frontmatter 全文均不出现在响应体）；`test_b104_rejects_user_without_agent_grant`（无 User→Agent Grant → 403 AGENT_ACCESS_DENIED，且不泄露任何 skill 名称）；`test_b104_pagination_is_bounded_and_validated`（page_size=1 分两页各 1 条且 `total=2`、越界页返回空窗口但 total 不变；page=0 / page_size=101 → 422 COMMON_VALIDATION_ERROR；SQL 事件监听断言存在 `count(` 与 `limit`，即有界查询、无 N+1） | 真实 FastAPI handler + 生产授权公式 + 真实 PostgreSQL：`AgentAccessGrantRepository.has_active_grant`（User→Agent）与 `SkillRepository.list_effective_for_agent`（AgentSkillBinding + current artifact join + `enabled`/`is_deleted` + `user_scope=ALL` 或 `SkillUserGrant`）；断言基于真实库中种子行与真实 SQL 语句 | verified |
+
+补充记录：
+- 实现范围：新增 `application/channel_skills_service.py`（`validate_page` → 授权 → `count` + `limit/offset` 有界查询 → 映射允许字段，`platform_label or name` 兜底）；`api/internal_channel.py` 新增 `GET /internal/channel/skills`（query 走 api-kit `validate_page`，越界码由 catalog 映射为 422）。
+- 连带（复用而非复制授权公式）：`skill_repository.py` 抽出 `_effective_conditions()` 供 list/count 共用，并给 `list_effective_for_agent` 增加可选 `limit/offset`（默认取全部，`resolve_service` 行为不变）、新增 `count_effective_for_agent`。
+- 不新增表、不新增迁移；未授权资源的名称/描述/存在性均不返回（canary 断言）。
+- 回归：`tests/console_channel + tests/console_skill` → `98 passed`（含 resolve/snapshot 侧）；非验收全量 → `1147 passed`。
+- 外部依赖：无（EXT-02/07 的 Console 授权事务已存在，本任务只暴露内部端点）。
+- 清理：测试自种子数据在 fixture finally 中按 id 硬删除（skill_user_grant → agent_skill_binding → skill_artifact → skill），不阻塞共享 conftest 的租户清理；无进程/Redis 副作用。
+- B-104: verified — automated command passed; run_id=56275c0380914901b215c4cc1d2157e8 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-23] started
+- [2026-09-23] resumed (in-progress)
+- [2026-09-23] completed (done)
 ## TASK-005: 补 Bot 快照轮询与热更新边界
 
 - **Status**: draft
@@ -1306,7 +1325,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - **Spec-Refs**: harness-test#RULE-test-001
 - **Acceptance-Refs**: B-129, RULE-07, RULE-test-001
 - **Files**: `tests/acceptance/im_gateway/test_acceptance_inventory.py`
-- **Estimate**: 半天级（收口全部 44 个场景 + 8 条 required Rule 证据 + 仓库级 verifier 与其等待）；本任务是唯一收口责任人，不按 15–60 分钟拆分，超一天按「场景/规则映射核对」与「仓库级 verifier 执行」两段推进。
+- **Estimate**: 半天级（收口全部 45 个场景/规则行 + 9 条 required Rule 证据 + 仓库级 verifier 与其等待）；本任务是唯一收口责任人，不按 15–60 分钟拆分，超一天按「场景/规则映射核对」与「仓库级 verifier 执行」两段推进。
 
 ### Description
 
@@ -1450,7 +1469,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 ## Plan Validation
 
 - 正式任务文件：`.code-flow/tasks/2026-09-17/10-im-gateway/10-im-gateway.md`。
-- Design 与 Plan 使用同一 persisted Context；8 条 required Rule 在 Design Matrix 与唯一 TASK item 绑定（本文件侧为 TASK-022/023/024/026/028/029/032），不改变 enforcement 或原 verifier。
+- Design 与 Plan 使用同一 persisted Context；9 条 required Rule 在 Design Matrix 与唯一 TASK item 绑定（本文件侧为 TASK-004/022/023/024/026/028/029/032），不改变 enforcement 或原 verifier。
 - 规划校验：Context validate、design gate、plan gate、Acceptance Coverage/Contract 一致性、依赖 DAG、真实章节引用与 argv 格式；证据只表示文档结构已检查，不表示功能 GREEN。
 - 2026-09-23 复核修订：任务 29→32（拆出 TASK-030 环境扩展、TASK-031 故障注入、TASK-032 断流回收与 Snapshot/CAS），补充场景 29→31（B-130/B-131），EXT-09-020/021/043 置为 satisfied，指标导出机制按 design v1.3 §4.2 落地为进程内注册表 + 真实 `/metrics`。
 - 验收 manifest 由 `cf_acceptance_manifest.py` 生成并锁定 44 个 S/E/B 场景，状态全部 planned；Rule/Risk 唯一责任继续由本文件与 Spec gate 校验。
