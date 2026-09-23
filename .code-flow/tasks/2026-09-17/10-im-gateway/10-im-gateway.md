@@ -111,7 +111,7 @@
 | B-115 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | integration | 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 | TASK-015 | planned | ["uv","run","pytest","-q","tests/gateway/test_stream_renderer.py","-k","b115"] | . | 600 |  |
 | B-116 | 10-im-gateway.backend.design.md#3.2 架构与流程 | integration | 真实 iter_events→Gateway 消费队列→Runtime HTTP/SSE→WS 回复 | TASK-016 | planned | ["uv","run","pytest","-q","tests/gateway/test_inbound_concurrency.py","-k","b116"] | . | 600 |  |
 | B-117 | 10-im-gateway.backend.design.md#API-05 主动投递 | integration | 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS | TASK-017 | verified | ["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","b117"] | . | 600 |  |
-| B-118 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-018 | planned | ["uv","run","pytest","-q","tests/gateway/test_connection_observability.py","-k","b118"] | . | 600 |  |
+| B-118 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-018 | verified | ["uv","run","pytest","-q","tests/gateway/test_connection_observability.py","-k","b118"] | . | 600 |  |
 | B-119 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-019 | planned | ["uv","run","pytest","-q","tests/gateway/test_message_metrics.py","-k","b119"] | . | 600 |  |
 | B-120 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter（探针核心：认证/消息/流式收发） | TASK-020 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_boundary.py","-k","b120"] | . | 600 |  |
 | B-121 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 生产进程生命周期→真实HTTP/PostgreSQL/Redis（Console/Gateway/模型探针/种子与清理） | TASK-021 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_environment.py","-k","b121"] | . | 600 |  |
@@ -1020,7 +1020,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-018: 补连接状态指标与脱敏日志
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-006, TASK-007, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#4.2 指标目录, 10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机, 10-im-gateway.backend.design.md#3.5 质量实现方案
@@ -1035,25 +1035,38 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ### Checklist
 
-- [ ] [B-118][integration] 修改生产代码前先按 真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表） 编写或扩展用例并记录 RED；关键断言：连通/退避/停止指标随状态变化；坏 bot 不影响其他序列；日志字段完整且无 secret canary。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_connection_observability.py","-k","b118"]`。
-- [ ] 实现或补齐：通过现有可观测设施导出 wecom_ws_connected 与状态转换日志，记录 bot_id/from/to/attempt/trace；日志参数不得包含 SDK 原始异常密钥，标签不含消息正文。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-118][integration] 修改生产代码前先按 真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表） 编写或扩展用例并记录 RED；关键断言：连通/退避/停止指标随状态变化；坏 bot 不影响其他序列；日志字段完整且无 secret canary。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_connection_observability.py","-k","b118"]`。
+- [x] 实现或补齐：通过现有可观测设施导出 wecom_ws_connected 与状态转换日志，记录 bot_id/from/to/attempt/trace；日志参数不得包含 SDK 原始异常密钥，标签不含消息正文。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-118 | integration | 真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表） | 连通/退避/停止指标随状态变化；坏 bot 不影响其他序列；日志字段完整且无 secret canary | tests/gateway/test_connection_observability.py / B-118（planned） | `["uv","run","pytest","-q","tests/gateway/test_connection_observability.py","-k","b118"]` | planned |
+| B-118 | integration | 真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表） | 连通/退避/停止指标随状态变化；坏 bot 不影响其他序列；日志字段完整且无 secret canary | tests/gateway/test_connection_observability.py / B-118（verified） | `["uv","run","pytest","-q","tests/gateway/test_connection_observability.py","-k","b118"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-118 | `uv run pytest -q tests/gateway/test_connection_observability.py -k b118` → `2 failed, 1 passed`（0.95s）。两处行为缺口：① 真实 `GET /metrics` 返回 `404 COMMON_NOT_FOUND`——仓库完全没有指标基建（api-kit 无注册表模块、各服务无 `/metrics` 端点），与 design §4.2 决策不符；② 无任何 `wecom_bot_state_changed` 迁移日志（状态机未输出 `from/to/attempt/trace`，指标更无从产生）。（第 3 个用例"SDK 异常文本不入日志"在改动前即通过：`_record_failure` 只记异常类型名 ✓ 既有正确行为，保留为回归保护。） | 改动后同一命令 → `3 passed`（1.27s）。 | `test_b118_metrics_track_connection_transitions_and_isolate_bad_bot`（`/metrics` 200 + `text/plain` + `# TYPE wecom_ws_connected gauge`；好 bot CONNECTED → `1.0`；探针握手拒绝的坏 bot 进入 `BACKOFF` → `0.0` 且好 bot 仍 `CONNECTED`（单 bot 故障不串扰序列）；真实 `drop_connection` → 退避期 `0.0` → 自动重连后回 `1.0`；`stop()` 后归零）；`test_b118_transition_logs_carry_fields_without_secret`（迁移日志含 `bot_id=`/`from=`/`to=`/`attempt=`，且 `trace_id=trace-b118` 可关联（测试注入真实请求上下文）；全部日志记录不含 bot secret 与 canary）；`test_b118_sdk_error_text_with_secret_is_not_logged`（SDK 工厂抛含 canary 的异常文本 → 日志只出现异常类型，canary 不出现）。 | 生产 `WeComAdapter` → 官方 `wecom-aibot-python-sdk` → `tests/e2e/wecom_probe_app.py` 真实 `wss://` 自签 TLS 探针（真实认证、握手拒绝注入、`drop_connection` 断线迁移）+ 真实 HTTP `GET /metrics`（uvicorn 真实 socket，读 api-kit 进程内注册表）。未 mock 上述任一真实边界。 | verified |
+
+补充记录：
+- 新增指标基建：`packages/api-kit/src/muad_api/metrics.py`（线程安全的最小注册表：gauge/counter + Prometheus 文本格式 0.0.4 导出，含 `# HELP`/`# TYPE`、标签排序与转义；`install_metrics(app)` 注册真实 `GET /metrics`，`include_in_schema=False`），并在 `muad_api.__init__` 导出（`install_metrics`/`set_gauge`/`inc_counter`/`render_metrics`/`MetricsRegistry`）；零新依赖。
+- Gateway 接线：`main.py` 增加 `install_metrics(app)`。
+- 连接可观测：`channels/wecom/adapter.py` 的 `_BotConnection._set_state()` 成为状态机唯一收口（9 处状态迁移全部改走它），每次迁移更新 `wecom_ws_connected{bot_id}`（CONNECTED=1，其余=0）并写 `wecom_bot_state_changed bot_id=… from=… to=… attempt=… trace_id=…`；新增 `_attempt` 计数（每次连接尝试 +1）；日志只记异常类型名，不回显 SDK 原始异常文本（可能含凭据）。
+- 本任务只覆盖连接类指标；消息/去重/投递指标归 TASK-019。
+- 回归：非验收全量 → `1194 passed`；`uv run mypy apps/im-gateway/src/muad_im_gateway packages/api-kit/src/muad_api` → `Success: no issues found in 37 source files`；ruff 对改动文件 clean。
+- 清理：纯进程内指标与日志，无外部资源；uvicorn `should_exit` + 等待收尾，WS 探针 `stop()`。
+- B-118: verified — automated command passed; run_id=a2313a071c8a4d8b937086651e7d7c96 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] completed (done)
 ## TASK-019: 补消息、去重与投递指标
 
 - **Status**: draft
