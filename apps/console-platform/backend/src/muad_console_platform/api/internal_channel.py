@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Header, Request
 from muad_api import ApiResponse, ok
 from muad_contracts import ChannelBindRequest, ChannelResolveRequest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,8 +32,9 @@ async def bind(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    idempotency_key: Annotated[str | None, Header(max_length=128)] = None,
 ) -> ApiResponse[Any]:
-    bound = await ChannelService(session).bind(tenant_id, payload)
+    bound = await ChannelService(session).bind(tenant_id, payload, idempotency_key)
     return ok(request.app.state.message_catalog, bound.model_dump(mode="json"))
 
 

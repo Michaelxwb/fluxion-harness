@@ -90,7 +90,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 | B-101 | 10-im-gateway.backend.design.md#3.3 数据设计 | unit | 真实 Pydantic DTO 校验与 JSON 序列化 | TASK-001 | verified | ["uv","run","pytest","-q","tests/gateway/test_channel_contracts.py","-k","b101"] | . | 600 |  |
 | B-102 | 10-im-gateway.backend.design.md#3.4 接口设计 | integration | 生产 ConsoleClient→真实本地 HTTP 服务→Envelope 解码 | TASK-002 | verified | ["uv","run","pytest","-q","tests/gateway/test_gateway_console_client.py","-k","b102"] | . | 600 |  |
-| B-103 | 10-im-gateway.backend.design.md#API-03 执行绑定 | integration | 真实 bind HTTP handler→PostgreSQL 幂等记录、bind_code 行锁、channel_identity | TASK-003 | planned | ["uv","run","pytest","-q","tests/console_channel/test_channel_bind_idempotency.py","-k","b103"] | . | 600 |  |
+| B-103 | 10-im-gateway.backend.design.md#API-03 执行绑定 | integration | 真实 bind HTTP handler→PostgreSQL 幂等记录、bind_code 行锁、channel_identity | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_channel/test_channel_bind_idempotency.py","-k","b103"] | . | 600 |  |
 | B-104 | 10-im-gateway.backend.design.md#API-04 查询可用 Skills | integration | 真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_channel/test_channel_skills_api.py","-k","b104"] | . | 600 |  |
 | B-105 | 10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析 | integration | Console snapshot HTTP→真实 PG bot 配置→BotSnapshotCache | TASK-005 | planned | ["uv","run","pytest","-q","tests/gateway/test_bot_snapshot.py","-k","b105"] | . | 600 |  |
 | B-106 | 10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机 | integration | 生产 WeComAdapter/连接管理器→真实本地 WS 故障探针 | TASK-006 | planned | ["uv","run","pytest","-q","tests/gateway/test_wecom_adapter.py","-k","b106"] | . | 600 |  |
@@ -279,7 +279,7 @@
 - [2026-09-23] completed (done)
 ## TASK-003: 补 Console bind 持久幂等与事务重放
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 10-im-gateway.backend.design.md#API-03 执行绑定, 10-im-gateway.backend.design.md#3.3 数据设计, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -294,25 +294,38 @@
 
 ### Checklist
 
-- [ ] [B-103][integration] 修改生产代码前先按 真实 bind HTTP handler→PostgreSQL 幂等记录、bind_code 行锁、channel_identity 编写或扩展用例并记录 RED；关键断言：并发和重启后一次消费；租户/endpoint 隔离；响应重放；错误事务回滚；数据库保存 checksum 而非明文绑定码。执行 argv：`["uv","run","pytest","-q","tests/console_channel/test_channel_bind_idempotency.py","-k","b103"]`。
-- [ ] 实现或补齐：在 Console Owner 事务内复用现有幂等存储原语：同 key/同指纹重放首次响应，异指纹 `IDEMPOTENCY_MISMATCH`（与既有 skill/agent/mcp 幂等原语一致）；无同 key 重放时已用绑定码仍 BIND_CODE_INVALID；绑定不自动授予 Agent 权限。复用 control.skill_import_idempotency，endpoint 固定 /internal/channel/bind；已核实包含租户/key/endpoint partial unique、request_fingerprint 与 response_json，不新增迁移或 Gateway 业务表。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-103][integration] 修改生产代码前先按 真实 bind HTTP handler→PostgreSQL 幂等记录、bind_code 行锁、channel_identity 编写或扩展用例并记录 RED；关键断言：并发和重启后一次消费；租户/endpoint 隔离；响应重放；错误事务回滚；数据库保存 checksum 而非明文绑定码。执行 argv：`["uv","run","pytest","-q","tests/console_channel/test_channel_bind_idempotency.py","-k","b103"]`。
+- [x] 实现或补齐：在 Console Owner 事务内复用现有幂等存储原语：同 key/同指纹重放首次响应，异指纹 `IDEMPOTENCY_MISMATCH`（与既有 skill/agent/mcp 幂等原语一致）；无同 key 重放时已用绑定码仍 BIND_CODE_INVALID；绑定不自动授予 Agent 权限。复用 control.skill_import_idempotency，endpoint 固定 /internal/channel/bind；已核实包含租户/key/endpoint partial unique、request_fingerprint 与 response_json，不新增迁移或 Gateway 业务表。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-103 | integration | 真实 bind HTTP handler→PostgreSQL 幂等记录、bind_code 行锁、channel_identity | 并发和重启后一次消费；租户/endpoint 隔离；响应重放；错误事务回滚；数据库保存 checksum 而非明文绑定码 | tests/console_channel/test_channel_bind_idempotency.py / B-103（planned） | `["uv","run","pytest","-q","tests/console_channel/test_channel_bind_idempotency.py","-k","b103"]` | planned |
+| B-103 | integration | 真实 bind HTTP handler→PostgreSQL 幂等记录、bind_code 行锁、channel_identity | 并发和重启后一次消费；租户/endpoint 隔离；响应重放；错误事务回滚；数据库保存 checksum 而非明文绑定码 | tests/console_channel/test_channel_bind_idempotency.py / B-103（verified） | `["uv","run","pytest","-q","tests/console_channel/test_channel_bind_idempotency.py","-k","b103"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-103 | `uv run pytest -q tests/console_channel/test_channel_bind_idempotency.py -k b103` → `6 failed`：无幂等记录（`_fetch_idempotency` 返回 None）、异指纹未报 409、并发重复消费、失败事务未回滚语义可辨、租户/endpoint 未隔离 | 同一命令 → `6 passed` | `test_b103_replay_returns_first_response_without_second_consumption`（同 key 同指纹重放首次响应、identity 仍为 1、库里留有 response_json；换 key 复用已用码仍 BIND_CODE_INVALID）；`test_b103_same_key_different_fingerprint_conflicts`（409 IDEMPOTENCY_MISMATCH 且不为新用户建 identity）；`test_b103_concurrent_same_key_consumes_once`（`asyncio.gather` 两个同 key 请求 → 均 200、返回相同 platform_user_id、identity 数 1、绑定码仅 USED 一次）；`test_b103_failed_attempt_rolls_back_and_retry_with_same_key_succeeds`（无效码失败后无幂等记录，同 key 重试成功并落记录）；`test_b103_tenant_and_endpoint_are_isolated`（同 key 挂在其他 endpoint 不被重放；另一租户用同 key 独立处理，本租户重放结果不变）；`test_b103_storage_keeps_checksums_not_plaintext`（bind_code 只存 `sha256:` 哈希，指纹与 response_json 均不含明文绑定码） | 真实 FastAPI bind handler + 真实 PostgreSQL：幂等记录写 `control.skill_import_idempotency`（partial unique `(tenant_id, idempotency_key, endpoint)`）、`SELECT bind_code FOR UPDATE` 行锁、`pg_advisory_xact_lock` 串行化并发；断言直接查库（`SkillImportIdempotency`/`BindCode`/`ChannelIdentity`）与真实 HTTP 响应，无 mock | verified |
+
+补充记录：
+- 实现范围：`internal_channel.py` 的 `/bind` 接受 `Idempotency-Key`（`Annotated[str | None, Header(max_length=128)]`，与 skills/agents/mcp 端点同一 house 约定）；`channel_service.py` 的 `bind()` 增加幂等包装（`_lock_idempotency` / `_idempotency_replay` / `_record_idempotency` / `_find_idempotency`），原绑定逻辑抽为 `_bind_once` 保持行数约束；指纹 `bind_fingerprint()` 按 RULE-api-002 现行文本 = 规范化 JSON（sort_keys + 紧凑分隔符）SHA256，含 endpoint/tenant/channel/bot_id/external_user_id 与**绑定码 checksum**（不存明文）。
+- 事务原子性复用既有 `get_session`（成功 commit / 异常 rollback），因此失败分支不留下成功响应；跨请求重放从 PG 读取（等价重启后重放）。
+- 复用而非新建表：`control.skill_import_idempotency` 与 Console skill/agent/mcp 端点共用。
+- 回归：`tests/console_channel` → `33 passed`；非验收全量 → `1144 passed`。
+- 外部依赖：无（本任务不消费 Runtime/Worker；Gateway 侧传 key 属 TASK-010）。
+- 清理：纯 DB 行 + ASGI 调用，无进程/Redis 副作用；测试租户数据由既有 conftest 守卫清理。
+- B-103: verified — automated command passed; run_id=df28682ac59e4e57859ff540e21bc7ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-23] started
+- [2026-09-23] completed (done)
 ## TASK-004: 补齐 Console Effective Skills 内部端点
 
 - **Status**: draft

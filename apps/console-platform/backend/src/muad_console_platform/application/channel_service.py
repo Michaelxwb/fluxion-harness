@@ -16,6 +16,7 @@ from muad_contracts import (
     ChannelResolveRequest,
     ChannelResolveResponse,
 )
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.channel import (
@@ -26,6 +27,7 @@ from ..infrastructure.models.channel import (
     BindCode,
     ChannelIdentity,
 )
+from ..infrastructure.models.control import SkillImportIdempotency
 from ..infrastructure.repositories.agent_access_grant_repository import AgentAccessGrantRepository
 from ..infrastructure.repositories.bind_code_repository import BindCodeRepository
 from ..infrastructure.repositories.bot_account_repository import BotAccountRepository
@@ -38,6 +40,8 @@ PLATFORM_USER_STATUS_ACTIVE = "ACTIVE"
 BIND_CODE_TTL = timedelta(minutes=10)
 BIND_CODE_ALPHABET = string.ascii_uppercase + string.digits
 BIND_CODE_LENGTH = 12
+IDEMPOTENCY_ENDPOINT = "/internal/channel/bind"
+FINGERPRINT_PREFIX = "sha256:"
 AUDIT_RESOURCE_TYPE_BIND_CODE = "BIND_CODE"
 AUDIT_RESOURCE_TYPE_IDENTITY = "CHANNEL_IDENTITY"
 
@@ -51,12 +55,34 @@ def hash_bind_code(code: str) -> str:
     return f"{HASH_PREFIX}{digest}"
 
 
+def bind_fingerprint(tenant_id: str, payload: ChannelBindRequest) -> str:
+    """规范化 JSON 指纹：同 key 同指纹重放，异指纹 409 IDEMPOTENCY_MISMATCH。
+
+    只把绑定码的 checksum 纳入指纹，不保存明文。
+    """
+    canonical = json.dumps(
+        {
+            "endpoint": IDEMPOTENCY_ENDPOINT,
+            "tenant_id": tenant_id,
+            "channel": payload.channel,
+            "bot_id": payload.bot_id,
+            "external_user_id": payload.external_user_id,
+            "bind_code_checksum": hash_bind_code(payload.bind_code),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return FINGERPRINT_PREFIX + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def build_identity_key(channel: str, bot_id: str, external_user_id: str) -> str:
     return f"{channel}:{bot_id}:{external_user_id}"
 
 
 class ChannelService:
     def __init__(self, session: AsyncSession) -> None:
+        self._session = session
         self._bots = BotAccountRepository(session)
         self._identities = ChannelIdentityRepository(session)
         self._bind_codes = BindCodeRepository(session)
@@ -103,6 +129,84 @@ class ChannelService:
         )
 
     async def bind(
+        self,
+        tenant_id: str,
+        payload: ChannelBindRequest,
+        idempotency_key: str | None = None,
+    ) -> ChannelBindResponse:
+        fingerprint = bind_fingerprint(tenant_id, payload)
+        if idempotency_key:
+            await self._lock_idempotency(tenant_id, idempotency_key)
+            replayed = await self._idempotency_replay(
+                tenant_id, idempotency_key, IDEMPOTENCY_ENDPOINT, fingerprint
+            )
+            if replayed is not None:
+                return ChannelBindResponse.model_validate(replayed)
+        response = await self._bind_once(tenant_id, payload)
+        if idempotency_key:
+            await self._record_idempotency(
+                tenant_id,
+                idempotency_key,
+                IDEMPOTENCY_ENDPOINT,
+                fingerprint,
+                response.model_dump(mode="json"),
+            )
+        return response
+
+    async def _lock_idempotency(self, tenant_id: str, idempotency_key: str) -> None:
+        """同一 (tenant, key, endpoint) 串行化，避免并发重复消费绑定码。"""
+        digest = hashlib.sha256(
+            f"{tenant_id}|{idempotency_key}|{IDEMPOTENCY_ENDPOINT}".encode()
+        ).digest()
+        lock_key = int.from_bytes(digest[:8], "big", signed=True)
+        await self._session.execute(select(func.pg_advisory_xact_lock(lock_key)))
+
+    async def _idempotency_replay(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        endpoint: str,
+        fingerprint: str,
+    ) -> dict[str, Any] | None:
+        record = await self._find_idempotency(tenant_id, idempotency_key, endpoint)
+        if record is None:
+            return None
+        if record.request_fingerprint != fingerprint:
+            raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
+        return dict(record.response_json)
+
+    async def _find_idempotency(
+        self, tenant_id: str, idempotency_key: str, endpoint: str
+    ) -> SkillImportIdempotency | None:
+        return await self._session.scalar(
+            select(SkillImportIdempotency).where(
+                SkillImportIdempotency.tenant_id == tenant_id,
+                SkillImportIdempotency.idempotency_key == idempotency_key,
+                SkillImportIdempotency.endpoint == endpoint,
+                SkillImportIdempotency.is_deleted.is_(False),
+            )
+        )
+
+    async def _record_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        endpoint: str,
+        fingerprint: str,
+        response: dict[str, Any],
+    ) -> None:
+        self._session.add(
+            SkillImportIdempotency(
+                tenant_id=tenant_id,
+                idempotency_key=idempotency_key,
+                endpoint=endpoint,
+                request_fingerprint=fingerprint,
+                response_json=response,
+            )
+        )
+        await self._session.flush()
+
+    async def _bind_once(
         self,
         tenant_id: str,
         payload: ChannelBindRequest,
