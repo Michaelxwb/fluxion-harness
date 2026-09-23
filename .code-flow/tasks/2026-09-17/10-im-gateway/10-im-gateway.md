@@ -102,7 +102,7 @@
 | B-109 | 10-im-gateway.backend.design.md#API-02 解析消息路由 | integration | Gateway→真实 Console resolve HTTP→PostgreSQL→Runtime 接收观测 | TASK-009 | verified | ["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","b109"] | . | 600 |  |
 | E-01 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway→真实bot resolve HTTP→PostgreSQL | TASK-009 | verified | ["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","e01"] | . | 600 |  |
 | B-110 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway command→真实 Console bind HTTP→PostgreSQL | TASK-010 | verified | ["uv","run","pytest","-q","tests/gateway/test_bind_command.py","-k","b110"] | . | 600 |  |
-| B-111 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway commands→真实 Console/Runtime HTTP→PostgreSQL | TASK-011 | planned | ["uv","run","pytest","-q","tests/gateway/test_commands_integration.py","-k","b111"] | . | 600 |  |
+| B-111 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway commands→真实 Console/Runtime HTTP→PostgreSQL | TASK-011 | verified | ["uv","run","pytest","-q","tests/gateway/test_commands_integration.py","-k","b111"] | . | 600 |  |
 | B-112 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件 | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","b112"] | . | 600 |  |
 | S-06 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Gateway→Runtime cancel-active HTTP→PostgreSQL CAS | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","s06"] | . | 600 |  |
 | E-05 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Runtime cancel-active/PG→Gateway | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","e05"] | . | 600 |  |
@@ -690,7 +690,7 @@
 - [2026-09-23] completed (done)
 ## TASK-011: 对齐 /skills 与 /new 命令输出
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-004, TASK-009, TASK-013, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）, 10-im-gateway.backend.design.md#API-04 查询可用 Skills
@@ -706,25 +706,39 @@ Skills 文案保留 name、platform_label、description，不输出全文；按 
 
 ### Checklist
 
-- [ ] [B-111][integration] 修改生产代码前先按 Gateway commands→真实 Console/Runtime HTTP→PostgreSQL 编写或扩展用例并记录 RED；关键断言：空目录与错误有区别；未授权条目不泄露；/new 生成新 Conversation，旧 Memory/绑定不变；命令不进 LLM。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_commands_integration.py","-k","b111"]`。
-- [ ] 实现或补齐：Skills 文案保留 name、platform_label、description，不输出全文；按 API-04 分页契约获取完整有界目录。/new 调用 Runtime conversations，不修改身份、Agent 或 Memory；后续普通消息由 Runtime 找到新会话。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-111][integration] 修改生产代码前先按 Gateway commands→真实 Console/Runtime HTTP→PostgreSQL 编写或扩展用例并记录 RED；关键断言：空目录与错误有区别；未授权条目不泄露；/new 生成新 Conversation，旧 Memory/绑定不变；命令不进 LLM。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_commands_integration.py","-k","b111"]`。
+- [x] 实现或补齐：Skills 文案保留 name、platform_label、description，不输出全文；按 API-04 分页契约获取完整有界目录。/new 调用 Runtime conversations，不修改身份、Agent 或 Memory；后续普通消息由 Runtime 找到新会话。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-111 | integration | Gateway commands→真实 Console/Runtime HTTP→PostgreSQL | 空目录与错误有区别；未授权条目不泄露；/new 生成新 Conversation，旧 Memory/绑定不变；命令不进 LLM | tests/gateway/test_commands_integration.py / B-111（planned） | `["uv","run","pytest","-q","tests/gateway/test_commands_integration.py","-k","b111"]` | planned |
+| B-111 | integration | Gateway commands→真实 Console/Runtime HTTP→PostgreSQL | 空目录与错误有区别；未授权条目不泄露；/new 生成新 Conversation，旧 Memory/绑定不变；命令不进 LLM | tests/gateway/test_commands_integration.py / B-111（verified） | `["uv","run","pytest","-q","tests/gateway/test_commands_integration.py","-k","b111"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-111 | `uv run pytest -q tests/gateway/test_commands_integration.py -k b111` → `2 failed, 1 passed`（4.42s）。两处行为缺口：① `/skills` 回复只列 **20 条**（`channel_skills` 只取第 1 页，21 条可见技能中的第 21 条缺失）且**不含 name**（格式 `平台标签: 描述`）；② `/new` 未透传稳定幂等键（`KeyError: 'idempotency-key'`）。（首个 RED 运行还暴露两处**测试自身构造**缺陷并已修正为真实口径：种子技能缺 current artifact 会被 API-04 有效目录的 INNER JOIN 过滤成空目录；`/new` 重试用例误用 `NullDedupeStore` 导致重试未被挡下。） | 改动后同一命令 → `3 passed`（4.80s）。 | `test_b111_skills_lists_full_catalog_without_leaking_unauthorized`（21 条可见技能的 name/label/description 全部出现在回复中——跨页也要读到；未授权技能的 name 与 `UNAUTHORIZED_CANARY` 描述均不出现；`run_requests == []` 命令不进 LLM）；`test_b111_empty_catalog_differs_from_unavailable`（真实 Console 空目录 → `暂无可用技能`；真实本地 HTTP 服务返回 404 封套 → `技能列表暂不可用`，两者不相等）；`test_b111_new_creates_conversation_with_stable_key_and_keeps_binding`（`/v1/conversations` 恰好 1 次、body 的 agent_id/platform_user_id 等于真实 resolve 结果、`Idempotency-Key == channel message_id`、同 message_id 重试被真实 Redis 去重挡下不产生第二次请求与回复、`run_requests == []`、重试后真实 resolve 仍是同一 platform_user ⇒ 旧绑定不变）。 | 真实 Console 服务进程（`ConsoleProcess`，真实 socket）+ 真实 PostgreSQL（复用 `console_channel.conftest` 的 `channel` 夹具与 B-104 的 `_seed_skill` 有效技能构造）+ 真实 Runtime HTTP 接收端（uvicorn 线程 + 真实 socket，记录 `/v1/conversations`/`/v1/runs`/链路头）+ 真实 Redis 去重存储（`build_dedupe_store`）；404 错误分支复用 B-102 的真实本地 HTTP 服务（`StubConsole`）口径。未 mock 上述任一真实边界。 | verified |
+
+补充记录：
+- 生产改动（`application/inbound.py`）：新增 `fetch_skill_catalog()`（API-04 分页契约有界读取全量 Effective Skill Catalog：`SKILLS_MAX_PAGES=20`、页间 0.05s 节流不紧循环、越界截断记 warning；任一页 404/坏封套向上抛，不伪装空目录）；`format_skills()` 改为展示 name/platform_label/description（label 与 name 不同时输出 `label（name）: description`）；`_handle_new()` 透传 `idempotency_key=envelope.message_id`。
+- 多页读取放在 application 层（与 `BotSnapshotCache._collect_snapshot` 的分页口径一致），`ConsoleClientPort` 保持单页原语不变，测试替身无需扩展。
+- 测试替身随端口对齐：`tests/gateway/fakes.py` 的 `FakeRuntimeClient.create_conversation` 增加 `idempotency_key` 记录（TASK-013 已在生产端口加入该参数）。
+- `tests/gateway/test_inbound.py` 的技能文案断言按设计 §3.4.2 更新为含 name 的新格式。
+- 回归：`tests/gateway tests/console_channel` → `218 passed`；`uv run mypy apps/im-gateway/src/muad_im_gateway` → `Success: no issues found in 22 source files`。
+- 清理：`catalog_env` finally 按 FK 顺序硬删除种子（`agent_skill_binding` → `skill_artifact` → `skill`）；Console 进程与真实 HTTP 接收端 `should_exit` + thread join；Redis 去重键消息 id 带 uuid 且 TTL 600s。
+- 预存问题（非本次引入、未改动）：`application/inbound.py` 的 `from typing import Any` 在 HEAD 即未被使用（ruff F401）。
+- B-111: verified — automated command passed; run_id=22e1aa80325d4d7bb447eaf57ae09e28 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] completed (done)
 ## TASK-012: 修复 /stop 已取消与取消中文案
 
 - **Status**: draft

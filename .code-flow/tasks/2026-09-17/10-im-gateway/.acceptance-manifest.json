@@ -460,7 +460,7 @@
       "kind": "functional",
       "boundary": "Gateway commands→真实 Console/Runtime HTTP→PostgreSQL",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -472,7 +472,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-111",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "22e1aa80325d4d7bb447eaf57ae09e28",
+        "executed_at": "2026-09-23T17:03:01.605624+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-111",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "22e1aa80325d4d7bb447eaf57ae09e28",
+          "executed_at": "2026-09-23T17:03:01.605624+00:00"
+        }
+      ]
     },
     {
       "id": "B-112",
