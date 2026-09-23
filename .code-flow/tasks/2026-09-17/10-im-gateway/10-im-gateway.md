@@ -150,7 +150,7 @@
 | RISK-03 | 10-im-gateway.backend.design.md#5. 风险与依赖 | integration | 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 | TASK-028 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"] | . | 600 |  |
 | RULE-secret-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 真实Worker投递/PG与Console快照→Gateway→官方SDK/WS；日志/审计/Snapshot/Prompt/对外响应 | TASK-028 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_secrets_and_readiness.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"] | . | 1200 |  |
 | B-129 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | pytest用例收集/运行→验收Contract/Evidence→真实组件记录 | TASK-029 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_acceptance_inventory.py","-k","b129"] | . | 600 |  |
-| B-130 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 生产第二 Runtime 实例与 Worker 进程→真实 PostgreSQL/Redis | TASK-030 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_multi_instance.py","-k","b130"] | . | 600 |  |
+| B-130 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 生产第二 Runtime 实例与 Worker 进程→真实 PostgreSQL/Redis | TASK-030 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_multi_instance.py","-k","b130"] | . | 600 |  |
 | B-131 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 生产 WeComAdapter→真实本地 WS 服务→故障注入（握手拒绝/断线/发送失败） | TASK-031 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_fault_injection.py","-k","b131"] | . | 600 |  |
 | RULE-07 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 生产HTTP/SSE、PostgreSQL、Redis、官方SDK/WS与原verifier Chrome | TASK-029 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 1200 |  |
 | RULE-test-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 真实生产HTTP/SSE、PostgreSQL、Redis、官方SDK/WS与原verifier Chrome→验收Evidence | TASK-029 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 1200 |  |
@@ -1551,7 +1551,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ## TASK-030: 补多实例与 Worker 环境扩展
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-021
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.5 质量实现方案
@@ -1566,24 +1566,35 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ### Checklist
 
-- [ ] [B-130][integration] 修改生产代码前先按 生产第二 Runtime 实例与 Worker 进程→真实 PostgreSQL/Redis 编写或扩展用例并记录 RED；关键断言：两个 Runtime 实例均健康且可承载同一逻辑 Agent 的会话；实例替换不改变路由结论；Worker 进程可消费并产生持久投递事实；无残留 DB 数据、Redis 键或后台进程。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_multi_instance.py","-k","b130"]`。
-- [ ] 实现或补齐：复用 TASK-021 设施扩展第二 Runtime 实例与 Worker 进程、种子与清理；环境能力以 fixture 暴露给 TASK-022/027 使用，不复制既有 fixture 逻辑。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-130][integration] 修改生产代码前先按 生产第二 Runtime 实例与 Worker 进程→真实 PostgreSQL/Redis 编写或扩展用例并记录 RED；关键断言：两个 Runtime 实例均健康且可承载同一逻辑 Agent 的会话；实例替换不改变路由结论；Worker 进程可消费并产生持久投递事实；无残留 DB 数据、Redis 键或后台进程。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_multi_instance.py","-k","b130"]`。
+- [x] 实现或补齐：复用 TASK-021 设施扩展第二 Runtime 实例与 Worker 进程、种子与清理；环境能力以 fixture 暴露给 TASK-022/027 使用，不复制既有 fixture 逻辑。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-130 | integration | 生产第二 Runtime 实例与 Worker 进程→真实 PostgreSQL/Redis | 两个 Runtime 实例均健康且可承载同一逻辑 Agent 的会话；实例替换不改变路由结论；Worker 进程可消费并产生持久投递事实；无残留 DB 数据/键/进程 | tests/acceptance/im_gateway/test_multi_instance.py / B-130（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_multi_instance.py","-k","b130"]` | planned |
+| B-130 | integration | 生产第二 Runtime 实例与 Worker 进程→真实 PostgreSQL/Redis | 两个 Runtime 实例均健康且可承载同一逻辑 Agent 的会话；实例替换不改变路由结论；Worker 进程可消费并产生持久投递事实；无残留 DB 数据/键/进程 | tests/acceptance/im_gateway/test_multi_instance.py / B-130（verified） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_multi_instance.py","-k","b130"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-130 | **据实记录**：本任务的交付物就是"环境能力"本身（第二 Runtime 实例与 Worker 进程编排 + 待投递种子），用例与环境同批编写，因此以"暂存环境扩展后再跑"的方式取证：`git stash push tests/acceptance/im_gateway/environment.py` 后 `uv run pytest -q tests/acceptance/im_gateway/test_multi_instance.py -k b130` → `2 failed, 1 passed`（73.99s）：① `KeyError: 'runtime-2'`（栈只启动一个 Runtime，`GatewayStack` 无第二实例与 Worker 进程条目）；② `AssertionError: Worker 未在超时内把投递发到真实 WS 探针`（栈不含 Worker 进程，PENDING 投递永不被消费）。清理类用例在无数据时平凡通过。未伪造失败；实现随即 `git stash pop` 还原。 | 实现后同一命令 → `3 passed`（26.38s）；整模块 `tests/acceptance/im_gateway` → `15 passed`（38.59s），运行后无 uvicorn/`muad_*.main` 残留进程。 | `test_b130_both_runtime_instances_are_healthy_and_share_logical_routing`（`runtime`/`runtime-2`/`worker` 三进程均存活；两 Runtime 的 `/healthz` 与 `/readyz` 均 200；同一 agent/user 的两次完整 Run 分别经两个实例（生产 `RuntimeClient` 解析真实 SSE 封套）都到 `run.completed`，且 `conversation_id` 相同 ⇒ 实例替换不改变路由结论、无 pod 亲和）；`test_b130_worker_process_consumes_and_persists_delivery_fact`（真实 Worker 进程的投递循环把 `delivery_status=PENDING` 的 Task 投到真实 Gateway → 生产 `WeComAdapter` → 真实 WS 探针回读到含 `intent_key` 的 `aibot_send_msg` 文本；随后真实 PG 中该 Task `delivery_status == SENT`）；`test_b130_cleanup_leaves_no_residue`（`purge_tenant()` 后 `task.task_execution`/`task.delivery_route`/`task.task_event`/`runtime.run_record`/`runtime.canonical_event`/`control.bot_account`/`control.channel_identity` 本租户行数全为 0）。 | 生产第二 Runtime 实例与生产 Worker 进程（各自独立 uvicorn 子进程 + 真实 socket）+ 真实 PostgreSQL/Redis + 真实 Gateway 进程（生产 `WeComAdapter` 连真实 `wss://` 探针）+ 真实模型探针（Run 真实执行）。未 mock 上述任一真实边界。 | verified |
+
+补充记录：
+- 环境扩展（`tests/acceptance/im_gateway/environment.py`，复用 TASK-021 的 `spawn`/`ServiceProcess`/清理原语，不复制既有逻辑）：`GatewayStack` 新增 `runtime2_url`/`worker_url`；栈新增 `runtime-2`（同 Console）与 `worker`（`CONSOLE_PLATFORM_URL`、`AGENT_RUNTIME_URL=<runtime>`、`IM_GATEWAY_URL=<栈内 gateway>`、`DELIVERY_POLL_INTERVAL_SEC=1`），随栈启动/停止，能力经既有 `gateway_stack` fixture 暴露给 TASK-022/027。
+- 种子扩展（`tests/e2e/seed_im_gateway.py`）：新增 `seed_delivery_task()`——真实 PG 写入 `task.delivery_route`（复用 09 的 `upsert_delivery_route`）与 `TaskExecution(delivery_status="PENDING", delivery_key="task:{id}:final", delivery_mode="FINAL_ONLY")`，供 B-130 与 TASK-027/S-04 复用。
+- 本任务只做环境与种子扩展，未改任何生产代码（无业务行为新增）。
+- 回归：`tests/acceptance/im_gateway` → `15 passed`；栈清理幂等（fixture finally purge + 进程 stop）。
+- B-130: verified — automated command passed; run_id=59da2e4e28614763bbc81faa87ab2179 (confirmed_by: runner)
 
 ### Log
 - [2026-09-23] prepared (draft)；由 2026-09-23 Plan 复核从 TASK-021 拆出。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] completed (done)
 ## TASK-031: 补 WS/SDK 故障注入边界
 
 - **Status**: done

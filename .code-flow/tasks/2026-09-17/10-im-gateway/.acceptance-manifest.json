@@ -1309,7 +1309,7 @@
       "kind": "functional",
       "boundary": "生产第二 Runtime 实例与 Worker 进程→真实 PostgreSQL/Redis",
       "owner": "TASK-030",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1321,7 +1321,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-130",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "59da2e4e28614763bbc81faa87ab2179",
+        "executed_at": "2026-09-23T17:34:54.648308+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-130",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "59da2e4e28614763bbc81faa87ab2179",
+          "executed_at": "2026-09-23T17:34:54.648308+00:00"
+        }
+      ]
     },
     {
       "id": "B-131",
