@@ -13,6 +13,8 @@ import { AgentPage } from './modules/agent-management/AgentPage';
 import { McpPage } from './modules/mcp-management/McpPage';
 import { SkillPage } from './modules/skill-management/SkillPage';
 import { PlatformPage } from './modules/project-platform/PlatformPage';
+import { SchedulePage } from './modules/task-schedule/SchedulePage';
+import { TaskPage } from './modules/task-schedule/TaskPage';
 
 export default function App() {
   const theme = useThemeMode();
@@ -50,8 +52,8 @@ export default function App() {
           }
         />
         <Route path="platforms" element={<PlatformPage />} />
-        <Route path="tasks" element={<PlaceholderPage titleKey="nav.task" />} />
-        <Route path="schedules" element={<PlaceholderPage titleKey="nav.schedule" />} />
+        <Route path="tasks" element={<TaskPage />} />
+        <Route path="schedules" element={<SchedulePage />} />
         <Route path="audits" element={<PlaceholderPage titleKey="nav.audit" />} />
       </Route>
     </Routes>

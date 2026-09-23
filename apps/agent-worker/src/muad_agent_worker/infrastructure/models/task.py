@@ -94,6 +94,9 @@ class TaskSchedule(StandardColumnsMixin, Base):
         server_default=sa.text("1"),
     )
     completed_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    last_error_code: Mapped[str | None] = mapped_column(sa.String(64))
+    last_error_message: Mapped[str | None] = mapped_column(sa.Text())
+    last_skipped_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 
 
 class TaskExecution(StandardColumnsMixin, Base):

@@ -4,7 +4,8 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
-from muad_api import ApiResponse, ok, paginate
+from muad_api import ApiResponse, AppError, ok, paginate
+from muad_api.error_codes import ErrorCode
 from muad_contracts import CreateScheduleRequest, ScheduleStatus, UpdateScheduleRequest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +19,7 @@ from ..application.submissions import (
 from ..infrastructure.db import get_session
 from ..infrastructure.models.task import TaskSchedule
 from ..scheduler.service import ScheduleService
-from .deps import ensure_tenant_consistent, get_tenant_id
+from .deps import ActorUserId, RequiredActorUserId, ensure_tenant_consistent, get_tenant_id
 
 router = APIRouter(prefix="/internal/schedules", tags=["schedules"])
 
@@ -45,6 +46,11 @@ def _payload(schedule: TaskSchedule) -> dict[str, Any]:
         "last_fire_at": schedule.last_fire_at.isoformat() if schedule.last_fire_at else None,
         "revision": schedule.revision,
         "completed_at": schedule.completed_at.isoformat() if schedule.completed_at else None,
+        "last_error_code": schedule.last_error_code,
+        "last_error_message": schedule.last_error_message,
+        "last_skipped_at": (
+            schedule.last_skipped_at.isoformat() if schedule.last_skipped_at else None
+        ),
         "create_time": schedule.create_time.isoformat(),
         "update_time": schedule.update_time.isoformat(),
     }
@@ -112,9 +118,12 @@ async def update_schedule(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    actor_user_id: RequiredActorUserId,
 ) -> ApiResponse[Any]:
     ensure_tenant_consistent(request, tenant_id)
-    schedule = await ScheduleService(session).update_schedule(tenant_id, schedule_id, body)
+    schedule = await ScheduleService(session).update_schedule(
+        tenant_id, schedule_id, body, actor_user_id=actor_user_id
+    )
     return ok(request.app.state.message_catalog, _payload(schedule))
 
 
@@ -123,6 +132,7 @@ async def list_schedules(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    caller_actor: ActorUserId,
     actor_user_id: Annotated[uuid.UUID | None, Query()] = None,
     agent_id: Annotated[uuid.UUID | None, Query()] = None,
     status: Annotated[ScheduleStatus | None, Query()] = None,
@@ -131,7 +141,8 @@ async def list_schedules(
 ) -> ApiResponse[Any]:
     items, total = await ScheduleService(session).list_schedules(
         tenant_id,
-        actor_user_id=actor_user_id,
+        # Runtime 代表用户查询时只能看到自己的 Schedule，忽略 query 里的 actor。
+        actor_user_id=caller_actor or actor_user_id,
         agent_id=agent_id,
         status=status,
         page=page,
@@ -154,8 +165,11 @@ async def get_schedule(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    caller_actor: ActorUserId,
 ) -> ApiResponse[Any]:
     schedule = await ScheduleService(session).get_schedule(tenant_id, schedule_id)
+    if caller_actor is not None and schedule.actor_user_id != caller_actor:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
     return ok(request.app.state.message_catalog, _payload(schedule))
 
 
@@ -165,9 +179,12 @@ async def pause_schedule(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    actor_user_id: RequiredActorUserId,
 ) -> ApiResponse[Any]:
     ensure_tenant_consistent(request, tenant_id)
-    schedule = await ScheduleService(session).pause_schedule(tenant_id, schedule_id)
+    schedule = await ScheduleService(session).pause_schedule(
+        tenant_id, schedule_id, actor_user_id=actor_user_id
+    )
     return ok(request.app.state.message_catalog, _payload(schedule))
 
 
@@ -177,9 +194,12 @@ async def resume_schedule(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    actor_user_id: RequiredActorUserId,
 ) -> ApiResponse[Any]:
     ensure_tenant_consistent(request, tenant_id)
-    schedule = await ScheduleService(session).resume_schedule(tenant_id, schedule_id)
+    schedule = await ScheduleService(session).resume_schedule(
+        tenant_id, schedule_id, actor_user_id=actor_user_id
+    )
     return ok(request.app.state.message_catalog, _payload(schedule))
 
 
@@ -189,7 +209,12 @@ async def delete_schedule(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    actor_user_id: RequiredActorUserId,
 ) -> ApiResponse[Any]:
     ensure_tenant_consistent(request, tenant_id)
-    await ScheduleService(session).delete_schedule(tenant_id, schedule_id)
-    return ok(request.app.state.message_catalog, {"deleted": True})
+    await ScheduleService(session).delete_schedule(
+        tenant_id, schedule_id, actor_user_id=actor_user_id
+    )
+    return ok(
+        request.app.state.message_catalog, {"schedule_id": str(schedule_id), "deleted": True}
+    )

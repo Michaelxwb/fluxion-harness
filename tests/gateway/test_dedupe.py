@@ -20,6 +20,7 @@ class _StubRedis:
         self.result = result
         self.error = error
         self.calls: list[tuple[str, str, bool, int]] = []
+        self.deleted: list[str] = []
         self.closed = False
         self.ping_error: Exception | None = None
 
@@ -30,6 +31,17 @@ class _StubRedis:
         if self.error is not None:
             raise self.error
         return self.result
+
+    async def get(self, key: str) -> Any:
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+    async def delete(self, key: str) -> Any:
+        self.deleted.append(key)
+        if self.error is not None:
+            raise self.error
+        return 1
 
     async def exists(self, key: str) -> Any:
         if self.error is not None:
@@ -84,27 +96,27 @@ async def test_null_store_is_at_least_once_and_logs_warning(
 
 async def test_redis_store_uses_set_nx_ex() -> None:
     client = _StubRedis(result=True)
-    store = RedisDedupeStore(client)
+    store = RedisDedupeStore(client)  # type: ignore[arg-type]
     assert await store.set_if_absent("im:dedupe:WECOM:m1", 600) is True
     assert client.calls == [("im:dedupe:WECOM:m1", "1", True, 600)]
 
 
 async def test_redis_store_rejects_duplicate() -> None:
     client = _StubRedis(result=None)
-    store = RedisDedupeStore(client)
+    store = RedisDedupeStore(client)  # type: ignore[arg-type]
     assert await store.set_if_absent("k", 1) is False
 
 
 async def test_redis_store_wraps_failures() -> None:
     client = _StubRedis(error=redis.asyncio.RedisError("down"))
-    store = RedisDedupeStore(client)
+    store = RedisDedupeStore(client)  # type: ignore[arg-type]
     with pytest.raises(DedupeStoreError):
         await store.set_if_absent("k", 1)
 
 
 async def test_redis_store_closes_client() -> None:
     client = _StubRedis()
-    store = RedisDedupeStore(client)
+    store = RedisDedupeStore(client)  # type: ignore[arg-type]
     await store.aclose()
     assert client.closed is True
 
@@ -155,15 +167,42 @@ async def test_in_memory_mark_expires() -> None:
 
 async def test_redis_mark_uses_set_with_ttl() -> None:
     client = _StubRedis(result=True)
-    store = RedisDedupeStore(client)
+    store = RedisDedupeStore(client)  # type: ignore[arg-type]
     await store.mark("delivery:dedupe:k", 604800)
-    assert client.calls == [("delivery:dedupe:k", "1", False, 604800)]
+    assert client.calls == [("delivery:dedupe:k", "delivered", False, 604800)]
+
+
+async def test_redis_reserve_get_value_release() -> None:
+    """占位写 in-flight 值、读值区分送达、释放删键。"""
+    client = _StubRedis(result=b"delivered")
+    store = RedisDedupeStore(client)  # type: ignore[arg-type]
+    assert await store.reserve("k", 30) is True
+    assert client.calls == [("k", "in-flight", True, 30)]
+    assert await store.get_value("k") == "delivered"
+    await store.release("k")
+    assert client.deleted == ["k"]
+
+
+async def test_memory_reserve_distinguishes_delivered_from_in_flight() -> None:
+    store = InMemoryDedupeStore()
+    assert await store.reserve("k", 30) is True
+    assert await store.get_value("k") == "in-flight"
+    assert await store.reserve("k", 30) is False
+    await store.mark("k", 60)
+    assert await store.get_value("k") == "delivered"
+
+
+async def test_null_store_reserve_always_proceeds() -> None:
+    store = NullDedupeStore()
+    assert await store.reserve("k", 30) is True
+    assert await store.reserve("k", 30) is True
+    assert await store.get_value("k") is None
 
 
 async def test_redis_exists_and_failure_wrapping() -> None:
-    store = RedisDedupeStore(_StubRedis(result=True))
+    store = RedisDedupeStore(_StubRedis(result=True))  # type: ignore[arg-type]
     assert await store.exists("k") is True
-    failing = RedisDedupeStore(_StubRedis(error=redis.asyncio.RedisError("down")))
+    failing = RedisDedupeStore(_StubRedis(error=redis.asyncio.RedisError("down")))  # type: ignore[arg-type]
     with pytest.raises(DedupeStoreError):
         await failing.exists("k")
 

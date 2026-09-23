@@ -32,6 +32,13 @@ from .resolve import (
     ResolvedSkill,
 )
 from .runtime import ChannelContext, MessageInput, RunRequest
+from .snapshot import (
+    REQUIRED_SNAPSHOT_KEYS,
+    TASK_PROMPT_TEMPLATE_VERSION,
+    TASK_SNAPSHOT_SCHEMA_VERSION,
+    build_task_snapshot,
+    snapshot_hash,
+)
 from .tasks import (
     CancelTaskResponse,
     ContractModel,
@@ -45,6 +52,9 @@ from .tasks import (
 )
 
 __all__ = [
+    "REQUIRED_SNAPSHOT_KEYS",
+    "TASK_PROMPT_TEMPLATE_VERSION",
+    "TASK_SNAPSHOT_SCHEMA_VERSION",
     "ArtifactValidationStatus",
     "BotSnapshotItem",
     "BotSnapshotResponse",
@@ -85,4 +95,6 @@ __all__ = [
     "TriggerType",
     "UpdateScheduleRequest",
     "UserScope",
+    "build_task_snapshot",
+    "snapshot_hash",
 ]

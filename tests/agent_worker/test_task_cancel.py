@@ -234,3 +234,111 @@ async def test_e06_cancel_lifecycle_across_states(
         f"/internal/tasks/{uuid.uuid4()}/cancel", headers=_headers(tenant)
     )
     assert missing.status_code == 404
+
+
+class _MemoryHints:
+    def __init__(self) -> None:
+        self.marked: set[uuid.UUID] = set()
+
+    async def mark(self, task_id: uuid.UUID) -> None:
+        self.marked.add(task_id)
+
+    async def is_marked(self, task_id: uuid.UUID) -> bool:
+        return task_id in self.marked
+
+    async def aclose(self) -> None:
+        return None
+
+
+async def test_cancel_hint_stops_running_worker_before_next_heartbeat(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """取消 API 写 `task:cancel` hint；Worker 在两次心跳之间看到 hint 就立刻读 PG 停止。"""
+    from muad_agent_worker.main import app
+
+    task = await persist_task(tenant)
+    executor = _SlowExecutor()
+    hints = _MemoryHints()
+    settings = tenant.settings.model_copy(
+        update={"task_heartbeat_sec": 60, "task_cancel_check_sec": 1}
+    )
+    worker = WorkerLoop(
+        tenant.session_factory, settings, executor=executor, instance_id="worker-h", cancel_hints=hints
+    )
+    running = asyncio.create_task(worker.run_once())
+    await asyncio.wait_for(executor.started.wait(), timeout=5)
+
+    app.state.cancel_hints = hints
+    try:
+        response = await client.post(f"/internal/tasks/{task.id}/cancel", headers=_headers(tenant))
+    finally:
+        del app.state.cancel_hints
+    assert response.json()["data"]["status"] == "RUNNING"
+    assert task.id in hints.marked
+
+    await asyncio.wait_for(running, timeout=5)
+    assert (await _row(tenant, task.id))["status"] == "CANCELLED"
+    assert executor.finished is False
+
+
+async def test_parent_cancel_cascades_to_children(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """取消 BATCH Parent：QUEUED/WAITING Child 直接 CANCELLED，RUNNING Child 打取消标记。"""
+    parent = await persist_task(tenant, status="WAITING", task_type="BATCH")
+    queued = await persist_task(tenant, parent_id=parent.id, root_id=parent.id, item_key="a")
+    running = await persist_task(
+        tenant,
+        parent_id=parent.id,
+        root_id=parent.id,
+        item_key="b",
+        status="RUNNING",
+        lease_owner="worker-x",
+        lease_until=datetime.now(UTC) + timedelta(minutes=1),
+    )
+    done = await persist_task(
+        tenant, parent_id=parent.id, root_id=parent.id, item_key="c", status="COMPLETED"
+    )
+
+    response = await client.post(f"/internal/tasks/{parent.id}/cancel", headers=_headers(tenant))
+
+    assert response.json()["data"]["status"] == "CANCELLED"
+    assert (await _row(tenant, queued.id))["status"] == "CANCELLED"
+    running_state = await _row(tenant, running.id)
+    assert running_state["status"] == "RUNNING"
+    assert running_state["cancel_requested"] is True
+    assert (await _row(tenant, done.id))["status"] == "COMPLETED", "已终态 Child 不改"
+    assert await _event_types(tenant, queued.id) == ["CANCELLED"]
+
+
+async def test_running_cancel_race_reports_real_status(tenant: TenantContext) -> None:
+    """RUNNING 取消的 CAS 落败（任务同时完成）时回报真实终态冲突，而不是谎报 RUNNING。"""
+    from muad_agent_worker.application.task_service import TaskService
+    from muad_api import AppError
+
+    task = await persist_task(tenant, status="RUNNING", lease_owner="w", lease_until=datetime.now(UTC))
+    async with tenant.session_factory() as session:
+        service = TaskService(session, tenant.settings)
+        loaded = await service.get(tenant.tenant_id, task.id)
+        assert loaded.status == "RUNNING"
+        async with tenant.session_factory() as other:
+            await other.execute(
+                sa.update(TaskExecution).where(TaskExecution.id == task.id).values(status="COMPLETED")
+            )
+            await other.commit()
+        original_get = service.get
+        calls = {"n": 0}
+
+        async def stale_first_get(*args: Any, **kwargs: Any) -> TaskExecution:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return loaded
+            return await original_get(*args, **kwargs)
+
+        service.get = stale_first_get  # type: ignore[method-assign]
+        try:
+            await service.cancel(tenant.tenant_id, task.id)
+        except AppError as exc:
+            assert exc.code == "REVISION_CONFLICT"
+        else:
+            raise AssertionError("CAS 落败后应回读真实终态并冲突")

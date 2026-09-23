@@ -31,6 +31,8 @@
 | v1.0 | 2026-09-17 | muad-agent-worker | 初始设计 |
 | v1.1 | 2026-09-18 | muad-agent-worker | 对齐 V1.4 决策（docs/17）：删除 `misfire_policy`（V1 仅 SKIP）；`deadline_at` NOT NULL 默认 +24h + Scheduler 30s sweep；`task_execution` 增 `item_key/delivery_key/delivery_attempts/delivered_at`；`delivery_route` 增 `route_hash`；claim/reclaim/cancel 与 docs/02 §6.1 对齐；补全内部 API；删除与模块 08 重复的 Run/授权/Conversation/Snapshot 内容 |
 | v1.2 | 2026-09-21 | muad-agent-worker | 落实 Design Corrections N-01..N-06：Matrix spec_id 前缀改为当前 Context 真实 spec_id，并补 `harness-api#RULE-api-002`（新增 §3.3.8 `task.task_submission` 与 API-01/02 Header 幂等契约）；Secret 口径改为「明文存各 Owner 表 + 主键引用，无 SecretRef/SecretProvider」；ONCE 错过触发新增终态 `MISSED`；任务列表新增 `deadline_from/deadline_to`；Final Delivery 明确「占位≠送达」与 Redis 故障降级 at-least-once |
+| v1.3 | 2026-09-22 | muad-agent-worker | 落实 E-02/E-04 的失败/跳过记录落点：`task_schedule` 增 `last_error_code`/`last_error_message`/`last_skipped_at`（只保留最近一次，不建审计表）；§3.2.3 补「有界 resolve 后在事务内复核 status/revision/next_fire_at」的原子触发口径 |
+| v1.4 | 2026-09-23 | muad-agent-worker | 归档后 review 修订（见 §3.6）：快照单 Skill + 按 `skill_artifact_id` 执行；Run 持久化入站渠道并由 Runtime 注册内置任务 Tool；Scheduler 批量触发；WAITING 不耗 attempt 并经环境变量向 Skill 传 Task 上下文；Parent 取消级联与失约取消收尾；Schedule 行锁变更 + owner 校验；`input_template` 受控变量；投递正文带最终结果；Gateway 运行期 Redis 故障降级 |
 
 ## 2. 需求分析
 
@@ -122,9 +124,9 @@
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 归属 | 触发条件 | 系统行为 |
 |---|---|---|---|---|---|---|
 | E-01 | FEAT-02 | integration | PG lease | 本模块 | Worker crash lease 到期 | 其他 Worker reclaim，副作用由 idempotency_key 防重 |
-| E-02 | FEAT-03 | integration | Schedule trigger auth | 本模块 | 触发时用户/Binding 已撤销 | 不创建可执行 Snapshot，记录明确失败/跳过原因 |
+| E-02 | FEAT-03 | integration | Schedule trigger auth | 本模块 | 触发时用户/Binding 已撤销 | 不创建可执行 Snapshot，在 Schedule 上记录明确失败原因（`last_error_code`/`last_error_message`）并推进 `next_fire_at` |
 | E-03 | FEAT-01 | integration | Scheduler→Task DB→IM Gateway | 本模块 | Task 超过 deadline 仍非终态 | Scheduler 每 30s CAS 置 FAILED(TASK_DEADLINE_EXCEEDED)，仍按 delivery_mode 投递 |
-| E-04 | FEAT-03 | integration | Scheduler→PG→审计/metric | 本模块 | Schedule 错过触发时间 | 不补发，记审计事件并累加 scheduled_misfire_total；CRON 保持 ACTIVE 等下次触发，ONCE 进入终态 MISSED（completed_at/next_fire_at 均为 NULL）且不可恢复 |
+| E-04 | FEAT-03 | integration | Scheduler→PG→审计/metric | 本模块 | Schedule 错过触发时间 | 不补发，在 Schedule 上记录最近一次跳过原因（`last_skipped_at`/`last_error_code`）并累加 scheduled_misfire_total；CRON 保持 ACTIVE 等下次触发，ONCE 进入终态 MISSED（completed_at/next_fire_at 均为 NULL）且不可恢复 |
 | E-05 | FEAT-04 | integration | Worker→IM Gateway Redis 去重 | 本模块 | 同一 delivery_key 重复投递 / 发送失败 / 占位后崩溃重启 / Redis 不可用 | 并发重复请求只有一个真实发送，其余返回 200（Redis 正常时）；发送失败或占位后崩溃允许重试，未送达不得置 SENT；Redis 不可用时降级 at-least-once 可能重复；Worker 最多退避重试 5 次，超过置 FAILED |
 | E-06 | FEAT-01 | integration | PG CAS | 本模块 | 取消 QUEUED/WAITING Task | CAS 直接置 CANCELLED；RUNNING 走协作取消 |
 | E-07 | FEAT-01 / FEAT-03 | integration | Worker HTTP→`task.task_submission` partial unique | 本模块 | 创建类 POST 携带 `Idempotency-Key` 重复提交 | 同 key 同指纹重放首次持久化结果且不重复建资源；同 key 不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发同 key 提交由 partial unique 保证只成功一次 |
@@ -222,24 +224,25 @@ FOR UPDATE SKIP LOCKED
 LIMIT :n;
 ```
 
-每次触发：
+每次触发（claim 只用于选行，事务随即结束，不跨网络调用持锁）：
 
 ```text
-claim schedule
- -> revalidate Effective Capability（POST /internal/runtime/resolve-definition）
- -> resolve Agent Binding / Skill user_scope + grant
- -> resolve current Skill artifact
- -> create TaskExecution + execution snapshot
+claim schedule（FOR UPDATE SKIP LOCKED 选行，记录 revision + scheduled_fire_time）
+ -> 有界 resolve Effective Capability（POST /internal/runtime/resolve-definition，不持锁）
+ -> 事务内复核：status=ACTIVE AND is_deleted=false
+                 AND revision=claimed_revision AND next_fire_at=claimed_fire_time
+ -> 复核通过才原子插 TaskExecution + Event 并推进 Schedule
     idempotency_key = schedule:{schedule_id}:{scheduled_fire_time}
  -> ONCE: status=COMPLETED, completed_at=now(), next_fire_at 不适用
     非 ONCE: update next_fire_at
  -> ONCE 错过触发（scheduled_fire_time 已过且未执行）: status=MISSED, completed_at=NULL, next_fire_at=NULL
 ```
 
-- 触发时授权不满足 → 不创建可执行 Task，记审计事件与失败原因（fail closed）；
-- **Misfire**：V1 唯一策略为 `SKIP`，错过的触发不补发；不存在 `misfire_policy` 字段/API/metric label。每次跳过记录审计事件（`schedule_id/scheduled_fire_time/skipped_at`）并累加 `scheduled_misfire_total`；
+- claim 与落库之间释放锁，因此**暂停/删除/修改可以在该窗口内赢得竞态**：复核不通过时一律不创建 Task、不推进 Schedule；
+- 触发时授权不满足 → 不创建可执行 Task，在 Schedule 上记录失败原因（`last_error_code`/`last_error_message`）并照常推进 `next_fire_at`，避免同一 Schedule 每轮被反复 claim 形成热循环（fail closed）；
+- **Misfire**：V1 唯一策略为 `SKIP`，错过的触发不补发；不存在 `misfire_policy` 字段/API/metric label。跳过在 Schedule 上记录**最近一次**跳过时间 `last_skipped_at` 与原因码，并累加 `scheduled_misfire_total`；不保留每次跳过的历史明细（无独立审计表）；
 - `ONCE` 成功创建唯一 TaskExecution 后进入 `COMPLETED`，写 `completed_at`，不再计算 `next_fire_at`；
-- `ONCE` 错过触发时间（`run_at` 已过且未产生 TaskExecution）进入终态 `MISSED`：`completed_at=NULL`、`next_fire_at=NULL`，记 SKIP 审计与原因；`MISSED` 是终态，不提供恢复，重新调度需新建 Schedule。
+- `ONCE` 错过触发时间（`run_at` 已过且未产生 TaskExecution）进入终态 `MISSED`：`completed_at=NULL`、`next_fire_at=NULL`，并记录跳过原因；`MISSED` 是终态，不提供恢复，重新调度需新建 Schedule。
 
 #### 3.2.4 Fan-out / Fan-in
 
@@ -321,6 +324,9 @@ MCP 同构；绑定无 `enabled` 开关，用户授权无 `expires_at`（撤销 
 | `last_fire_at` | timestamptz |  | 最近触发 |
 | `revision` | bigint | NOT NULL DEFAULT 1 | 修改版本 |
 | `completed_at` | timestamptz |  | ONCE 成功创建对应 TaskExecution 进入 COMPLETED 时写入；ONCE 错过触发进入 MISSED 时保持 NULL |
+| `last_error_code` | varchar(64) |  | 最近一次触发失败/跳过的原因码（如 `AGENT_ACCESS_DENIED`、`SKILL_NOT_EFFECTIVE`、`SCHEDULE_MISFIRE_SKIPPED`）；下一次成功触发时清空 |
+| `last_error_message` | text |  | 最近一次失败/跳过原因的可读说明；脱敏，不含密钥（见 RULE-secret-001） |
+| `last_skipped_at` | timestamptz |  | 最近一次跳过触发的时间；只记录最近一次，成功触发不清空 |
 
 **索引/约束**：
 
@@ -328,7 +334,7 @@ MCP 同构；绑定无 `enabled` 开关，用户授权无 `expires_at`（撤销 
 - `INDEX (actor_user_id, status)`
 - `INDEX (agent_id, status)`
 - CRON 必须有 `cron_expr`；ONCE 必须有 `run_at`。
-- 无 `misfire_policy` 字段：V1 仅 SKIP（不补发），记审计事件与 `scheduled_misfire_total` 计数；ONCE 触发成功后 `status=COMPLETED`、写 `completed_at`，不再计算 `next_fire_at`；ONCE 错过触发时间置终态 `status=MISSED`（`completed_at=NULL`、`next_fire_at=NULL`），不可恢复。
+- 无 `misfire_policy` 字段：V1 仅 SKIP（不补发），跳过在 Schedule 上记 `last_skipped_at`/`last_error_code`/`last_error_message` 并累加 `scheduled_misfire_total` 计数；ONCE 触发成功后 `status=COMPLETED`、写 `completed_at`，不再计算 `next_fire_at`；ONCE 错过触发时间置终态 `status=MISSED`（`completed_at=NULL`、`next_fire_at=NULL`），不可恢复。
 
 #### 3.3.2 `task.delivery_route`
 
@@ -911,6 +917,27 @@ DELETE /internal/admin/schedules/{schedule_id}
 - 统一 JSON 日志，自动带 `service/trace_id/request_id/tenant_id`；
 - 指标：`task_claim_total`、`task_reclaim_total`、`task_deadline_exceeded_total`、`scheduled_misfire_total`、`delivery_attempt_total`、`delivery_failed_total`；
 - `task_event` 为状态变化与排障 Timeline 的权威事件流，状态变化可关联 `trace_id`。
+
+### 3.6 Review 修订（v1.4，2026-09-23）
+
+归档后 review 发现下列设计空白/缺陷，按以下口径修订并已实现：
+
+| 编号 | 问题 | 修订口径 | 落点 |
+|---|---|---|---|
+| R-01 | `skills[]` 为数组但每个 Task 只执行一个 Skill，未定义执行哪一个；Schedule 触发把整个 resolve 响应当快照 | 快照由 `muad_contracts.build_task_snapshot` 唯一构建，`skills` 只含目标 Skill；Worker 按 `skill_artifact_id` 精确匹配，匹配不到 `SKILL_SNAPSHOT_MISSING`（不可重试）；Schedule 触发与 Runtime 提交同口径，并经 `validate_execution_snapshot` | §3.3.3 |
+| R-02 | Runtime 无 ChannelEnvelope → delivery_route 通路；缺 `create_schedule` 等内置 Tool | `ChannelContext.external_user_id`（Gateway 填充）；`runtime.run_record.channel_json`（migration 0013）持久化入站渠道，`ExecutorRunContext.delivery_route` 由此构建；Runtime 注册 `create_schedule/list_schedules/update_schedule/delete_schedule/get_task/list_tasks/cancel_task`（docs/04 §7.5） | API-01/02/05~08 |
+| R-03 | API-07/08 owner 校验无落点 | Runtime 调用 Internal API 带 `X-Actor-User-Id`：Schedule 变更（PUT/DELETE/pause/resume）必须声明且须为 owner，否则 `FORBIDDEN`；Task 查询/取消、列表声明 actor 时只见本人（他人 `COMMON_NOT_FOUND`）；Admin API 不做 owner 限定 | API-03~08 |
+| R-04 | Scheduler 每轮只处理 1 条，集中到期时排队超过 `misfire_grace_sec` 被误判错过 | 每轮连续处理到期 Schedule（`scheduler_batch_size`，默认 100），misfire 以本轮起点判定；单条失败不影响同轮；触发时快照/模板等确定性失败同样 fail closed 并推进 | §3.2.3 |
+| R-05 | WAITING 再 claim 消耗 attempt；Skill 拿不到 `external_ref` 与幂等键 | 仅 `QUEUED→RUNNING` 递增 attempt；执行时以环境变量 `MUAD_TASK_ID/MUAD_TASK_IDEMPOTENCY_KEY/MUAD_TASK_ATTEMPT/MUAD_TASK_EXTERNAL_REF` 传给 Skill（不改 stdin 输入契约），E-01 副作用防重由 Skill 以幂等键实现 | §3.2.1 / E-01 |
+| R-06 | 取消 Parent 不级联；RUNNING 已请求取消且持有者崩溃时无路径到 CANCELLED | Parent 取消同事务级联非终态后代（QUEUED/WAITING→CANCELLED，RUNNING→cancel_requested）；reclaim 时对 `RUNNING + cancel_requested + lease 过期` 直接收尾为 CANCELLED；取消 CAS 落败回读真实状态；写 `task:cancel:{id}` hint，Worker 每 `task_cancel_check_sec`（默认 2s）检查 hint 并立即读 PG | API-05 / §3.3.6 |
+| R-07 | Schedule 暂停/恢复/更新为先读后写，可与触发竞态覆写 COMPLETED | 所有变更在 `SELECT … FOR UPDATE` 行锁内判断状态并写入，与触发的 `_lock_claim` 串行 | API-07/14/15/16 |
+| R-08 | `input_template` 动态变量无渲染口径 | 白名单变量 `{{fire_date}}`/`{{previous_day}}`/`{{fire_time}}`，按 Schedule 时区、以 `scheduled_fire_time` 渲染；未知变量在创建/更新时 `COMMON_VALIDATION_ERROR` | §3.3.1 |
+| R-09 | ONCE 触发时鉴权失败的终态未定义 | 维持 `MISSED`（符合「run_at 已过且未产生 TaskExecution」定义），原因看 `last_error_code` | §3.2.3 |
+| R-10 | 投递正文只有「任务已完成」，无最终结果、硬编码中文 | 正文含结果摘要（`summary/text/message/answer` → BATCH 计数 → 截断紧凑 JSON）、失败原因、大结果 Artifact 引用；zh-CN/en-US 模板按 `default_locale` | §3.2.5 |
+| R-11 | Gateway 运行期 Redis 故障直接 500，与 RULE-13 降级口径矛盾 | `reserve` 失败时照常发送（at-least-once，响应 `deduplicated=false`），发送失败仍 500 不宣称送达 | §3.2.5 / RULE-13 |
+| R-12 | fan-in 释放把重试退避中的 Child 当停放，WAITING 不计名额 | 仅 `not_before = 停放哨兵` 算停放；所有已放行未终态 Child 占名额 | §3.2.4 |
+| R-13 | 指标未导出、`task:wakeup` 无订阅方 | 每次累加输出结构化 `metric` 日志；补 `task_claim_total/task_reclaim_total`；Worker 订阅 `task:wakeup` 提前结束空闲等待，有活时不 sleep；DeliveryLoop 每轮最多 `delivery_batch_size` 条 | §3.5 |
+| R-14 | Console Task/Schedule 路由租户取自可改写的请求头 | 以登录账号 `tenant_id` 为准 | API-09~16 |
 
 ## 4. 部署与运维
 

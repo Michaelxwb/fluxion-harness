@@ -77,6 +77,7 @@ class RunRecord(StandardColumnsMixin, Base):
     lease_owner: Mapped[str | None] = mapped_column(sa.String(128))
     lease_until: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     heartbeat_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    channel_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class RuntimeSnapshot(StandardColumnsMixin, Base):

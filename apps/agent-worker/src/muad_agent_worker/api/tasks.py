@@ -21,7 +21,7 @@ from ..application.submissions import (
 from ..application.task_service import TaskService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.task import TaskEvent, TaskExecution
-from .deps import ensure_tenant_consistent, get_tenant_id
+from .deps import ActorUserId, ensure_tenant_consistent, get_tenant_id
 
 router = APIRouter(prefix="/internal/tasks", tags=["tasks"])
 
@@ -42,7 +42,12 @@ async def _publish_wakeup(request: Request) -> None:
         logger.warning("task_wakeup_hint_failed")
 
 
+def _iso(value: datetime | None) -> str | None:
+    return value.isoformat() if value else None
+
+
 def _payload(task: TaskExecution) -> dict[str, Any]:
+    """Task 摘要（设计 §3.4「Task 摘要字段」）。"""
     return {
         "task_id": str(task.id),
         "tenant_id": task.tenant_id,
@@ -51,6 +56,7 @@ def _payload(task: TaskExecution) -> dict[str, Any]:
         "schedule_id": str(task.schedule_id) if task.schedule_id else None,
         "source_run_id": str(task.source_run_id) if task.source_run_id else None,
         "intent_key": task.intent_key,
+        "skill_id": str(task.skill_id),
         "status": task.status,
         "trigger_type": task.trigger_type,
         "task_type": task.task_type,
@@ -61,14 +67,16 @@ def _payload(task: TaskExecution) -> dict[str, Any]:
         "attempt": task.attempt,
         "max_attempts": task.max_attempts,
         "cancel_requested": task.cancel_requested,
+        "delivery_mode": task.delivery_mode,
         "delivery_status": task.delivery_status,
         "delivery_attempts": task.delivery_attempts,
+        "delivered_at": _iso(task.delivered_at),
         "deadline_at": task.deadline_at.isoformat(),
         "not_before": task.not_before.isoformat(),
         "create_time": task.create_time.isoformat(),
         "update_time": task.update_time.isoformat(),
-        "started_at": task.started_at.isoformat() if task.started_at else None,
-        "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+        "started_at": _iso(task.started_at),
+        "finished_at": _iso(task.finished_at),
     }
 
 
@@ -89,6 +97,43 @@ def _child_payload(task: TaskExecution) -> dict[str, Any]:
         "item_key": task.item_key,
         "create_time": task.create_time.isoformat(),
     }
+
+
+def detail_payload(
+    task: TaskExecution, events: list[TaskEvent], children: list[TaskExecution]
+) -> dict[str, Any]:
+    """Task 详情 = 摘要 + 设计 §3.4「Task 详情额外字段」+ Timeline + 子任务。"""
+    payload = _payload(task)
+    payload.update(
+        parent_id=str(task.parent_id) if task.parent_id else None,
+        root_id=str(task.root_id) if task.root_id else None,
+        item_key=task.item_key,
+        result_artifact_id=str(task.result_artifact_id) if task.result_artifact_id else None,
+        execution_snapshot=task.execution_snapshot_json,
+        execution_snapshot_schema_version=task.execution_snapshot_schema_version,
+        snapshot_hash=task.snapshot_hash,
+        lease_owner=task.lease_owner,
+        lease_until=_iso(task.lease_until),
+        heartbeat_at=_iso(task.heartbeat_at),
+        timeline=[_event_payload(event) for event in events],
+        children=[_child_payload(child) for child in children],
+    )
+    return payload
+
+
+async def _publish_cancel_hint(
+    request: Request, task_id: uuid.UUID, status: str, cancel_requested: bool
+) -> None:
+    """RUNNING 协作取消在 PG 提交后写 `task:cancel:{task_id}` hint；失败只告警（PG 仍权威）。"""
+    if status != str(TaskStatus.RUNNING) or not cancel_requested:
+        return
+    hints = getattr(request.app.state, "cancel_hints", None)
+    if hints is None:
+        return
+    try:
+        await hints.mark(task_id)
+    except Exception:
+        logger.warning("task_cancel_hint_failed", extra={"task_id": str(task_id)})
 
 
 @router.post("")
@@ -148,6 +193,7 @@ async def list_tasks(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    caller_actor: ActorUserId,
     status: Annotated[TaskStatus | None, Query()] = None,
     trigger_type: Annotated[TriggerType | None, Query()] = None,
     agent_id: Annotated[uuid.UUID | None, Query()] = None,
@@ -165,7 +211,8 @@ async def list_tasks(
         status=status,
         trigger_type=trigger_type,
         agent_id=agent_id,
-        actor_user_id=actor_user_id,
+        # Runtime 代表用户查询时只能看到自己的 Task，忽略 query 里的 actor。
+        actor_user_id=caller_actor or actor_user_id,
         schedule_id=schedule_id,
         start_time=start_time,
         end_time=end_time,
@@ -191,15 +238,12 @@ async def get_task(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    caller_actor: ActorUserId,
 ) -> ApiResponse[Any]:
-    task, events, children = await TaskService(session).detail(tenant_id, task_id)
-    payload = _payload(task)
-    payload["execution_snapshot"] = task.execution_snapshot_json
-    payload["execution_snapshot_schema_version"] = task.execution_snapshot_schema_version
-    payload["snapshot_hash"] = task.snapshot_hash
-    payload["timeline"] = [_event_payload(event) for event in events]
-    payload["children"] = [_child_payload(child) for child in children]
-    return ok(request.app.state.message_catalog, payload)
+    task, events, children = await TaskService(session).detail(
+        tenant_id, task_id, actor_user_id=caller_actor
+    )
+    return ok(request.app.state.message_catalog, detail_payload(task, events, children))
 
 
 @router.post("/{task_id}/cancel")
@@ -208,8 +252,13 @@ async def cancel_task(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    caller_actor: ActorUserId,
 ) -> ApiResponse[Any]:
-    status, cancel_requested = await TaskService(session).cancel(tenant_id, task_id)
+    status, cancel_requested = await TaskService(session).cancel(
+        tenant_id, task_id, actor_user_id=caller_actor
+    )
+    await session.commit()
+    await _publish_cancel_hint(request, task_id, status, cancel_requested)
     return ok(
         request.app.state.message_catalog,
         {"task_id": str(task_id), "status": status, "cancel_requested": cancel_requested},

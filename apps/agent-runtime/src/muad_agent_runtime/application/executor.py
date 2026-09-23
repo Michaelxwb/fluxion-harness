@@ -32,15 +32,25 @@ from muad_agent_core.model import (
 )
 from muad_agent_core.tools import ToolDefinition, ToolRegistry
 from muad_api import AppError
+from muad_api.context import current_locale, current_trace_id
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import SkillArtifactCache
-from muad_contracts import ResolvedAgent, ResolvedMcpServer, ResolvedModel, ResolvedSkill
+from muad_common import SharedSettings
+from muad_contracts import (
+    DeliveryRouteInput,
+    ResolvedAgent,
+    ResolvedMcpServer,
+    ResolvedModel,
+    ResolvedSkill,
+)
 from muad_platform_sdk.types import SecretValue
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
 from .artifacts import ArtifactResultWriter
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .skill_tools import build_default_skill_cache, build_skill_registry
+from .task_client import TaskSubmissionContext, WorkerTaskClient
+from .task_tools import BackgroundTaskToolSet
 
 CancelCheck = Callable[[], Awaitable[bool]]
 MESSAGE_DELTA_EVENT = "message.delta"
@@ -67,6 +77,7 @@ class ExecutorRunContext:
     run_id: uuid.UUID
     conversation_id: uuid.UUID
     user_id: uuid.UUID
+    delivery_route: DeliveryRouteInput | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -451,6 +462,25 @@ def _mcp_server_definition(
     )
 
 
+def _task_submission_context(request: ExecutorRequest) -> TaskSubmissionContext | None:
+    """从已认证 Run 上下文构造提交上下文；actor 只能来自 Run，不接受工具参数。"""
+    context = request.run_context
+    if context is None:
+        return None
+    return TaskSubmissionContext(
+        tenant_id=context.tenant_id,
+        actor_user_id=context.user_id,
+        agent=request.agent,
+        model=request.model,
+        skills=tuple(request.skills),
+        mcp_servers=tuple(request.mcp_servers),
+        source_run_id=context.run_id,
+        delivery_route=context.delivery_route,
+        trace_id=current_trace_id(),
+        locale=current_locale(),
+    )
+
+
 def build_registry(
     *,
     request: ExecutorRequest,
@@ -458,9 +488,22 @@ def build_registry(
     audit_writer: RuntimeAuditWriter | None,
     mcp_adapter: McpRuntimeAdapter | None,
     artifact_writer: ArtifactResultWriter | None = None,
+    task_client: WorkerTaskClient | None = None,
 ) -> ToolRegistry:
     policy = AgentPolicy.from_runtime_config(request.agent.runtime_config)
-    registry = build_skill_registry(cache=cache, skills=request.skills, policy=policy)
+    task_context = _task_submission_context(request)
+    registry = build_skill_registry(
+        cache=cache,
+        skills=request.skills,
+        policy=policy,
+        task_client=task_client,
+        task_context=task_context,
+    )
+    if task_client is not None and task_context is not None:
+        # docs/04 §7.5 内置任务工具：Schedule 创建/管理与后台 Task 查询/取消。
+        BackgroundTaskToolSet(
+            client=task_client, context=task_context, skills=request.skills
+        ).register(registry)
     if mcp_adapter is not None and request.mcp_servers and request.run_context is not None:
         mcp_adapter.register_catalog(
             registry=registry,
@@ -488,6 +531,7 @@ async def default_executor_factory(
     *,
     skill_cache: SkillArtifactCache | None = None,
     artifact_writer: ArtifactResultWriter | None = None,
+    task_client: WorkerTaskClient | None = None,
 ) -> RunExecutor:
     provider: ModelProvider = OpenAICompatibleProvider(
         base_url=request.model.base_url,
@@ -499,18 +543,28 @@ async def default_executor_factory(
     if audit_writer is not None:
         provider = AuditedModelProvider(provider, audit_writer, model=request.model.model_id)
     mcp_adapter = McpRuntimeAdapter(audit_writer=audit_writer)
+    settings = SharedSettings()
+    owned_task_client: WorkerTaskClient | None = None
+    if task_client is None:
+        owned_task_client = WorkerTaskClient(
+            settings.agent_worker_url, service_token=settings.internal_service_token
+        )
+        task_client = owned_task_client
     registry = build_registry(
         request=request,
         cache=skill_cache or build_default_skill_cache(),
         audit_writer=audit_writer,
         mcp_adapter=mcp_adapter,
         artifact_writer=artifact_writer,
+        task_client=task_client,
     )
     runner = AgentRunner(provider=provider, registry=registry, hooks=HookPipeline())
 
     async def close() -> None:
         await provider.aclose()  # type: ignore[attr-defined]
         await mcp_adapter.aclose()
+        if owned_task_client is not None:
+            await owned_task_client.aclose()
 
     return AgentRunnerExecutor(runner=runner, request=request, close=close)
 

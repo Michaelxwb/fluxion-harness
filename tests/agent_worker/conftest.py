@@ -47,6 +47,45 @@ async def database_guard() -> AsyncIterator[None]:
         await engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+async def sweep_stale_test_rows(database_guard: None) -> None:
+    """claim 是全局的：清掉崩溃测试残留的到期 Schedule 与可 claim Task，避免跨测试串扰。"""
+    stale_tasks = (
+        "tenant_id LIKE 'test-%' AND status IN ('QUEUED','WAITING') AND not_before <= now()"
+    )
+    stale_deliveries = (
+        "tenant_id LIKE 'test-%' AND delivery_mode = 'FINAL_ONLY' "
+        "AND delivery_status IN ('PENDING','FAILED') "
+        "AND status IN ('COMPLETED','FAILED','CANCELLED')"
+    )
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        await session.execute(
+            text(
+                "DELETE FROM task.task_schedule "
+                "WHERE tenant_id LIKE 'test-%' AND next_fire_at <= now()"
+            )
+        )
+        for predicate in (stale_tasks, stale_deliveries):
+            # 先删引用行，避免 task_event/task_submission 的外键阻塞清理。
+            await session.execute(
+                text(
+                    "DELETE FROM task.task_event WHERE task_id IN "
+                    f"(SELECT id FROM task.task_execution WHERE {predicate})"
+                )
+            )
+            await session.execute(
+                text(
+                    "DELETE FROM task.task_submission WHERE task_id IN "
+                    f"(SELECT id FROM task.task_execution WHERE {predicate})"
+                )
+            )
+            await session.execute(
+                text(f"DELETE FROM task.task_execution WHERE {predicate}")
+            )
+        await session.commit()
+
+
 @pytest.fixture
 async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
     tenant_id = f"test-{uuid.uuid4()}"

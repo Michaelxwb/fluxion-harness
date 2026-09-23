@@ -10,6 +10,7 @@ import asyncio
 import hashlib
 import json
 import tempfile
+import uuid
 import zipfile
 from pathlib import Path
 
@@ -26,7 +27,8 @@ SKILL_MAIN = (
 )
 
 STORAGE_KEY = "skills/policy_check.zip"
-ARTIFACT_ID = "artifact-1"
+ARTIFACT_ID = "7f4a3c1e-0000-4000-8000-000000000001"
+ARTIFACT_UUID = uuid.UUID(ARTIFACT_ID)
 
 
 def _build_skill_zip(root: Path, *, body: str = SKILL_MAIN) -> str:
@@ -92,6 +94,7 @@ async def test_executes_frozen_artifact_from_local_ready_cache(
 
         task = await persist_task(
             tenant,
+            skill_artifact_id=ARTIFACT_UUID,
             execution_snapshot_json=_snapshot(checksum),
             input_json={"customers": ["A"]},
         )
@@ -109,7 +112,11 @@ async def test_execution_path_is_local_cache_not_nfs(tenant: TenantContext) -> N
         tmp = Path(tmpdir)
         store, cache = _caches(tmp)
         checksum = _build_skill_zip(store.root)
-        task = await persist_task(tenant, execution_snapshot_json=_snapshot(checksum))
+        task = await persist_task(
+            tenant,
+            skill_artifact_id=ARTIFACT_UUID,
+            execution_snapshot_json=_snapshot(checksum),
+        )
 
         ready_dir = await cache.ensure(
             artifact_id=ARTIFACT_ID, storage_key=STORAGE_KEY, checksum=checksum
@@ -130,7 +137,11 @@ async def test_checksum_mismatch_is_rejected(tenant: TenantContext) -> None:
         store, cache = _caches(tmp)
         _build_skill_zip(store.root)
         wrong = "sha256:" + "0" * 64
-        task = await persist_task(tenant, execution_snapshot_json=_snapshot(wrong))
+        task = await persist_task(
+            tenant,
+            skill_artifact_id=ARTIFACT_UUID,
+            execution_snapshot_json=_snapshot(wrong),
+        )
 
         with pytest.raises(TaskExecutionError) as excinfo:
             await SkillTaskExecutor(cache).execute(task)
@@ -146,7 +157,11 @@ async def test_same_checksum_concurrent_prepare_is_singleflight(
         tmp = Path(tmpdir)
         store, cache = _caches(tmp)
         checksum = _build_skill_zip(store.root)
-        task = await persist_task(tenant, execution_snapshot_json=_snapshot(checksum))
+        task = await persist_task(
+            tenant,
+            skill_artifact_id=ARTIFACT_UUID,
+            execution_snapshot_json=_snapshot(checksum),
+        )
         executor = SkillTaskExecutor(cache)
 
         outcomes = await asyncio.gather(*(executor.execute(task) for _ in range(5)))
@@ -162,6 +177,7 @@ async def test_unknown_artifact_is_rejected(tenant: TenantContext) -> None:
         _store, cache = _caches(tmp)
         task = await persist_task(
             tenant,
+            skill_artifact_id=ARTIFACT_UUID,
             execution_snapshot_json=_snapshot("sha256:" + "a" * 64, storage_key="skills/missing.zip"),
         )
 
@@ -178,7 +194,11 @@ async def test_missing_frozen_skill_in_snapshot_is_rejected(tenant: TenantContex
         _store, cache = _caches(tmp)
         snapshot = _snapshot("sha256:" + "a" * 64)
         snapshot["skills"] = []
-        task = await persist_task(tenant, execution_snapshot_json=snapshot)
+        task = await persist_task(
+            tenant,
+            skill_artifact_id=ARTIFACT_UUID,
+            execution_snapshot_json=snapshot,
+        )
 
         with pytest.raises(TaskExecutionError) as excinfo:
             await SkillTaskExecutor(cache).execute(task)
@@ -192,7 +212,11 @@ async def test_failing_skill_reports_failure(tenant: TenantContext) -> None:
         tmp = Path(tmpdir)
         store, cache = _caches(tmp)
         checksum = _build_skill_zip(store.root, body="import sys\nsys.exit(3)\n")
-        task = await persist_task(tenant, execution_snapshot_json=_snapshot(checksum))
+        task = await persist_task(
+            tenant,
+            skill_artifact_id=ARTIFACT_UUID,
+            execution_snapshot_json=_snapshot(checksum),
+        )
 
         outcome = await SkillTaskExecutor(cache).execute(task)
 
@@ -213,10 +237,89 @@ async def test_child_env_does_not_leak_secrets(
         )
         checksum = _build_skill_zip(store.root, body=body)
         monkeypatch.setenv("MODEL_API_KEY", "sk-secret")
-        task = await persist_task(tenant, execution_snapshot_json=_snapshot(checksum))
+        task = await persist_task(
+            tenant,
+            skill_artifact_id=ARTIFACT_UUID,
+            execution_snapshot_json=_snapshot(checksum),
+        )
 
         outcome = await SkillTaskExecutor(cache).execute(task)
 
     assert outcome["status"] == "SUCCEEDED", outcome
     assert outcome["result"]["has_key"] is False
     assert "sk-secret" not in json.dumps(outcome)
+
+
+async def test_executes_skill_matching_task_artifact_not_first_entry(
+    tenant: TenantContext,
+) -> None:
+    """快照里有多个 Skill 时按 skill_artifact_id 选中目标，不能取第一个。"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        store, cache = _caches(tmp)
+        checksum = _build_skill_zip(store.root)
+        snapshot = _snapshot(checksum)
+        decoy = dict(snapshot["skills"][0])  # type: ignore[index]
+        decoy.update(
+            artifact_id=str(uuid.uuid4()),
+            key="other_skill",
+            storage_key="skills/other.zip",
+            checksum="sha256:" + "b" * 64,
+        )
+        snapshot["skills"] = [decoy, snapshot["skills"][0]]  # type: ignore[index]
+        task = await persist_task(
+            tenant,
+            skill_artifact_id=ARTIFACT_UUID,
+            execution_snapshot_json=snapshot,
+        )
+
+        outcome = await SkillTaskExecutor(cache).execute(task)
+
+    assert outcome["status"] == "SUCCEEDED", outcome
+    assert outcome["result"]["skill"] == "policy_check"
+
+
+async def test_snapshot_without_task_artifact_is_rejected(tenant: TenantContext) -> None:
+    """快照里只有别的 Skill 时拒绝执行，而不是执行错对象。"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        _store, cache = _caches(Path(tmpdir))
+        task = await persist_task(
+            tenant,
+            skill_artifact_id=uuid.uuid4(),
+            execution_snapshot_json=_snapshot("sha256:" + "a" * 64),
+        )
+
+        with pytest.raises(TaskExecutionError) as excinfo:
+            await SkillTaskExecutor(cache).execute(task)
+
+    assert excinfo.value.code == "SKILL_SNAPSHOT_MISSING"
+
+
+async def test_skill_receives_task_context_env(tenant: TenantContext) -> None:
+    """Skill 通过环境变量拿到 task_id/幂等键/attempt/上轮 external_ref，用于副作用防重与轮询续接。"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        store, cache = _caches(tmp)
+        body = (
+            "import json, os, sys\n"
+            "print(json.dumps({key: os.environ.get(key) for key in "
+            "('MUAD_TASK_ID', 'MUAD_TASK_IDEMPOTENCY_KEY', "
+            "'MUAD_TASK_ATTEMPT', 'MUAD_TASK_EXTERNAL_REF')}))\n"
+        )
+        checksum = _build_skill_zip(store.root, body=body)
+        task = await persist_task(
+            tenant,
+            skill_artifact_id=ARTIFACT_UUID,
+            execution_snapshot_json=_snapshot(checksum),
+            idempotency_key="run:r1:skill:policy_check:abc",
+            attempt=2,
+            external_ref_json={"external_task_id": "ext-7"},
+        )
+
+        outcome = await SkillTaskExecutor(cache).execute(task)
+
+    result = outcome["result"]
+    assert result["MUAD_TASK_ID"] == str(task.id)
+    assert result["MUAD_TASK_IDEMPOTENCY_KEY"] == "run:r1:skill:policy_check:abc"
+    assert result["MUAD_TASK_ATTEMPT"] == "2"
+    assert json.loads(result["MUAD_TASK_EXTERNAL_REF"]) == {"external_task_id": "ext-7"}

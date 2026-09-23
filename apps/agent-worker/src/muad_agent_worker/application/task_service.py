@@ -9,6 +9,7 @@ from muad_api.audit import SENSITIVE_KEY_MARKERS
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
 from muad_contracts import (
+    REQUIRED_SNAPSHOT_KEYS,
     CreateTaskRequest,
     DeliveryMode,
     DeliveryStatus,
@@ -28,16 +29,6 @@ EXECUTION_MODE_ASYNC = "ASYNC"
 TASK_TYPE_SKILL = "SKILL"
 TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))
 CANCELABLE_STATUSES = (str(TaskStatus.QUEUED), str(TaskStatus.WAITING))
-
-REQUIRED_SNAPSHOT_KEYS = (
-    "schema_version",
-    "agent",
-    "model",
-    "skills",
-    "mcp",
-    "prompt_template_version",
-    "budget",
-)
 
 
 def _has_sensitive_key(value: Any) -> bool:
@@ -135,28 +126,32 @@ class TaskService:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         return task
 
-    async def get(self, tenant_id: str, task_id: uuid.UUID) -> TaskExecution:
+    async def get(
+        self, tenant_id: str, task_id: uuid.UUID, *, actor_user_id: uuid.UUID | None = None
+    ) -> TaskExecution:
+        """跨租户或（声明 actor 时）非本人的 Task 一律视为不存在，不泄露存在性。"""
+        conditions: list[Any] = [
+            TaskExecution.id == task_id,
+            TaskExecution.tenant_id == tenant_id,
+            TaskExecution.is_deleted.is_(False),
+        ]
+        if actor_user_id is not None:
+            conditions.append(TaskExecution.actor_user_id == actor_user_id)
         task = (
-            await self._session.execute(
-                select(TaskExecution).where(
-                    TaskExecution.id == task_id,
-                    TaskExecution.tenant_id == tenant_id,
-                    TaskExecution.is_deleted.is_(False),
-                )
-            )
+            await self._session.execute(select(TaskExecution).where(*conditions))
         ).scalar_one_or_none()
         if task is None:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return task
 
     async def detail(
-        self, tenant_id: str, task_id: uuid.UUID
+        self, tenant_id: str, task_id: uuid.UUID, *, actor_user_id: uuid.UUID | None = None
     ) -> tuple[TaskExecution, list[TaskEvent], list[TaskExecution]]:
         """任务详情：本体 + Timeline（seq 升序）+ 直接子任务。
 
         三条有界查询而不是按行展开，避免列表/详情出现 N+1。
         """
-        task = await self.get(tenant_id, task_id)
+        task = await self.get(tenant_id, task_id, actor_user_id=actor_user_id)
         events = (
             (
                 await self._session.execute(
@@ -243,59 +238,81 @@ class TaskService:
         ).scalar_one()
         return list(items), int(total)
 
-    async def cancel(self, tenant_id: str, task_id: uuid.UUID) -> tuple[str, bool]:
+    async def cancel(
+        self, tenant_id: str, task_id: uuid.UUID, *, actor_user_id: uuid.UUID | None = None
+    ) -> tuple[str, bool]:
         """返回 `(status, cancel_requested)`。
 
         `QUEUED/WAITING` 直接 CAS 置 `CANCELLED`；`RUNNING` 只打取消标记、响应保持
         `RUNNING` 由 Worker 在检查点协作停止；已 `CANCELLED` 幂等；`COMPLETED/FAILED`
-        等其它终态返回 `REVISION_CONFLICT`。取消状态不含 `CANCELLING`。
+        等其它终态返回 `REVISION_CONFLICT`。CAS 落败（并发推进）时回读真实状态。
+        Parent 的取消同事务级联到所有非终态 Child。
         """
-        task = await self.get(tenant_id, task_id)
+        task = await self.get(tenant_id, task_id, actor_user_id=actor_user_id)
         if task.status == str(TaskStatus.CANCELLED):
             return str(TaskStatus.CANCELLED), bool(task.cancel_requested)
         if task.status in TERMINAL_STATUSES:
             raise AppError(ErrorCode.REVISION_CONFLICT)
         now = datetime.now(UTC)
-        if task.status in CANCELABLE_STATUSES:
-            rowcount = await self._cas_status(
-                tenant_id,
-                task_id,
-                expected=CANCELABLE_STATUSES,
-                values={
-                    "status": str(TaskStatus.CANCELLED),
-                    "cancel_requested": True,
-                    "finished_at": now,
-                    "lease_owner": None,
-                    "lease_until": None,
-                    "update_time": now,
-                },
-            )
-            if rowcount == 1:
-                await append_event(
-                    self._session,
-                    tenant_id=tenant_id,
-                    task_id=task_id,
-                    event_type=TaskEventType.CANCELLED,
-                )
-                return str(TaskStatus.CANCELLED), True
-            refreshed = await self.get(tenant_id, task_id)
-            return refreshed.status, bool(refreshed.cancel_requested)
-        if task.status == str(TaskStatus.RUNNING):
-            rowcount = await self._cas_status(
-                tenant_id,
-                task_id,
-                expected=(str(TaskStatus.RUNNING),),
-                values={"cancel_requested": True, "update_time": now},
-            )
-            if rowcount == 1:
-                await append_event(
-                    self._session,
-                    tenant_id=tenant_id,
-                    task_id=task_id,
-                    event_type=TaskEventType.CANCEL_REQUESTED,
-                )
+        if task.status in CANCELABLE_STATUSES and await self._cancel_idle(task, now):
+            return str(TaskStatus.CANCELLED), True
+        if task.status == str(TaskStatus.RUNNING) and await self._request_cancel(task, now):
             return str(TaskStatus.RUNNING), True
+        # identity map 里的对象是 CAS 前读到的旧值，必须从库里刷新才是真实状态。
+        await self._session.refresh(task)
+        if task.status in TERMINAL_STATUSES and task.status != str(TaskStatus.CANCELLED):
+            raise AppError(ErrorCode.REVISION_CONFLICT)
         return task.status, bool(task.cancel_requested)
+
+    async def _cancel_idle(self, task: TaskExecution, now: datetime) -> bool:
+        # 局部导入：batch_fanout/batch_fanin 依赖本模块的常量，顶层导入会形成环。
+        from .batch_fanin import settle_child
+        from .task_cancel import cancel_children
+
+        rowcount = await self._cas_status(
+            task.tenant_id,
+            task.id,
+            expected=CANCELABLE_STATUSES,
+            values={
+                "status": str(TaskStatus.CANCELLED),
+                "cancel_requested": True,
+                "finished_at": now,
+                "lease_owner": None,
+                "lease_until": None,
+                "update_time": now,
+            },
+        )
+        if rowcount != 1:
+            return False
+        await append_event(
+            self._session,
+            tenant_id=task.tenant_id,
+            task_id=task.id,
+            event_type=TaskEventType.CANCELLED,
+        )
+        await cancel_children(self._session, task, now)
+        await settle_child(self._session, task, now)
+        return True
+
+    async def _request_cancel(self, task: TaskExecution, now: datetime) -> bool:
+        from .task_cancel import cancel_children
+
+        rowcount = await self._cas_status(
+            task.tenant_id,
+            task.id,
+            expected=(str(TaskStatus.RUNNING),),
+            values={"cancel_requested": True, "update_time": now},
+        )
+        if rowcount != 1:
+            return False
+        await append_event(
+            self._session,
+            tenant_id=task.tenant_id,
+            task_id=task.id,
+            event_type=TaskEventType.CANCEL_REQUESTED,
+        )
+        await cancel_children(self._session, task, now)
+        return True
 
     async def _cas_status(
         self,

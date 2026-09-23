@@ -296,6 +296,7 @@ class InboundPipeline:
             channel=ChannelContext(
                 type=envelope.channel,
                 bot_id=envelope.bot_id,
+                external_user_id=envelope.external_user_id,
                 external_conversation_id=envelope.external_conversation_id,
             ),
             message=MessageInput(id=envelope.message_id, text=envelope.text),

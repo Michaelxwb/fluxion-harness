@@ -310,3 +310,40 @@ async def _seed_waiting_run_with_snapshot(
         )
         await session.commit()
     return conv_id, run_id
+
+
+async def test_inbound_channel_reaches_executor_as_delivery_route(
+    tenant: TenantContext,
+    fake_resolve: FakeResolveClient,
+    executor_factory: ExecutorFactory,
+) -> None:
+    """入站渠道持久化到 Run，并作为后台 Task/Schedule 的 delivery_route 传给执行器。"""
+    captured: list[Any] = []
+
+    async def capturing_factory(request: Any) -> Any:
+        captured.append(request)
+        return await executor_factory(request)
+
+    request = RunRequest(
+        agent_id=tenant.agent_id,
+        platform_user_id=tenant.platform_user_id,
+        channel=ChannelContext(
+            type="WECOM", bot_id="bot-1", external_user_id="wotv-9", external_conversation_id="conv-9"
+        ),
+        message=MessageInput(id=f"msg-{uuid.uuid4()}", text="hi"),
+    )
+    async with get_session_factory()() as session:
+        service = RunService(session, fake_resolve, "instance-a", executor_factory=capturing_factory)
+        started = await service.start(request, tenant.tenant_id)
+        _ = [event async for event in started.events]
+
+    route = captured[0].run_context.delivery_route
+    assert route is not None
+    assert (route.bot_id, route.external_user_id, route.external_conversation_id) == (
+        "bot-1",
+        "wotv-9",
+        "conv-9",
+    )
+    async with get_session_factory()() as session:
+        run = await session.get(RunRecord, started.run_id)
+    assert run is not None and run.channel_json["external_user_id"] == "wotv-9"

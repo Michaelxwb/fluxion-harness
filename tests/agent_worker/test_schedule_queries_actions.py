@@ -14,12 +14,16 @@ from helpers import create_schedule_payload, persist_task
 from httpx import AsyncClient
 
 
+# Runtime 代表 Schedule owner 调用：Internal 变更接口必须带 X-Actor-User-Id（API-07/08）。
+OWNER = uuid.UUID("5a1d0c1e-0000-4000-8000-00000000a001")
+
+
 def _headers(tenant: TenantContext, **extra: str) -> dict[str, str]:
-    return {"X-Tenant-Id": tenant.tenant_id, **extra}
+    return {"X-Tenant-Id": tenant.tenant_id, "X-Actor-User-Id": str(OWNER), **extra}
 
 
 def _schedule_body(tenant: TenantContext, **overrides: object) -> dict[str, object]:
-    body = create_schedule_payload(tenant).model_dump(mode="json")
+    body = create_schedule_payload(tenant, actor_user_id=OWNER).model_dump(mode="json")
     body.update(overrides)
     return body
 
@@ -209,7 +213,7 @@ async def test_delete_does_not_remove_existing_tasks(
 ) -> None:
     """删除 Schedule 不影响已创建的 Task。"""
     schedule_id = await _create(client, tenant)
-    task = await persist_task(tenant, schedule_id=uuid.UUID(schedule_id))
+    task = await persist_task(tenant, schedule_id=uuid.UUID(schedule_id), actor_user_id=OWNER)
 
     deleted = await client.delete(f"/internal/schedules/{schedule_id}", headers=_headers(tenant))
     assert deleted.status_code == 200, deleted.text

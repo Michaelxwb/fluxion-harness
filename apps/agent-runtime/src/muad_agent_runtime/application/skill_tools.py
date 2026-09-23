@@ -5,6 +5,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from typing import Protocol
+
 from muad_agent_core.agent import AgentPolicy
 from muad_agent_core.skill import (
     ScriptSkillExecutor,
@@ -13,11 +15,14 @@ from muad_agent_core.skill import (
     SkillExecutionResult,
 )
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache, SkillArtifactCacheError
 from muad_common import SharedSettings
-from muad_contracts import ResolvedSkill
+from muad_contracts import ResolvedSkill, SkillExecutionMode
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError
+
+from .task_client import TaskSubmissionContext
 
 LOAD_SKILL_TOOL = "load_skill"
 READ_SKILL_RESOURCE_TOOL = "read_skill_resource"
@@ -37,6 +42,7 @@ SKILL_NOT_EFFECTIVE = "SKILL_NOT_EFFECTIVE"
 SKILL_RESOURCE_NOT_FOUND = "SKILL_RESOURCE_NOT_FOUND"
 SKILL_SCRIPT_NOT_FOUND = "SKILL_SCRIPT_NOT_FOUND"
 SKILL_EXECUTION_FAILED = "SKILL_EXECUTION_FAILED"
+BACKGROUND_SUBMIT_FAILED = "BACKGROUND_SUBMIT_FAILED"
 _STRING_SCHEMA: Mapping[str, Any] = {"type": "string"}
 _OBJECT_SCHEMA: Mapping[str, Any] = {"type": "object"}
 
@@ -56,16 +62,31 @@ def build_default_skill_cache(settings: SharedSettings | None = None) -> SkillAr
     )
 
 
+class TaskSubmissionProtocol(Protocol):
+    async def submit_task(
+        self,
+        context: TaskSubmissionContext,
+        *,
+        skill: ResolvedSkill,
+        input_data: Mapping[str, Any],
+        intent_key: str | None = None,
+    ) -> dict[str, Any]: ...
+
+
 def build_skill_registry(
     *,
     cache: SkillArtifactCache,
     skills: Sequence[ResolvedSkill],
     policy: AgentPolicy,
+    task_client: TaskSubmissionProtocol | None = None,
+    task_context: TaskSubmissionContext | None = None,
 ) -> ToolRegistry:
     tool_set = SkillToolSet(
         cache=cache,
         skills=skills,
         timeout_sec=policy.deadline_ms / 1000.0,
+        task_client=task_client,
+        task_context=task_context,
     )
     return tool_set.registry()
 
@@ -78,6 +99,8 @@ class SkillToolSet:
         skills: Sequence[ResolvedSkill],
         timeout_sec: float,
         executor: ScriptSkillExecutor | None = None,
+        task_client: TaskSubmissionProtocol | None = None,
+        task_context: TaskSubmissionContext | None = None,
     ) -> None:
         self._cache = cache
         self._skills = {skill.key: skill for skill in skills}
@@ -85,6 +108,8 @@ class SkillToolSet:
         self._executor = executor or ScriptSkillExecutor()
         self._ready_dirs: dict[str, Path] = {}
         self._packages: dict[str, SkillPackage] = {}
+        self._task_client = task_client
+        self._task_context = task_context
 
     def registry(self) -> ToolRegistry:
         registry = ToolRegistry()
@@ -125,6 +150,12 @@ class SkillToolSet:
         try:
             skill = self._require_skill(arguments)
             input_data = _require_input(arguments)
+            if (
+                skill.execution_mode is SkillExecutionMode.ASYNC
+                and self._task_client is not None
+                and self._task_context is not None
+            ):
+                return await self._submit_background(skill, input_data)
             package = await self._package(skill)
             return await self._execute(package.root, input_data, script=None)
         except SkillToolError as exc:
@@ -201,6 +232,26 @@ class SkillToolSet:
                 f"skill is not effective for this run: {normalized}",
             )
         return skill
+
+    async def _submit_background(
+        self, skill: ResolvedSkill, input_data: Mapping[str, Any]
+    ) -> str:
+        """ASYNC Skill 的 ExecutionRouter：只创建 Parent Task，不本地执行。"""
+        assert self._task_client is not None and self._task_context is not None
+        try:
+            submitted = await self._task_client.submit_task(
+                self._task_context, skill=skill, input_data=input_data
+            )
+        except AppError as exc:
+            raise SkillToolError(BACKGROUND_SUBMIT_FAILED, str(exc.code)) from exc
+        return json.dumps(
+            {
+                "status": "SUBMITTED",
+                "task_id": str(submitted.get("task_id", "")),
+                "task_status": str(submitted.get("status", "")),
+            },
+            ensure_ascii=False,
+        )
 
     async def _ready_dir(self, skill: ResolvedSkill) -> Path:
         cached = self._ready_dirs.get(skill.key)

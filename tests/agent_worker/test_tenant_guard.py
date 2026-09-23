@@ -71,7 +71,7 @@ async def test_schedule_writes_reject_tenant_header_mismatch(
     with tenant_override("tenant-a"):
         response = await getattr(client, method)(
             request_path,
-            headers={"X-Tenant-Id": "tenant-b"},
+            headers={"X-Tenant-Id": "tenant-b", "X-Actor-User-Id": str(uuid.uuid4())},
             **({"json": payload} if method == "post" else {}),
         )
 

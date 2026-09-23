@@ -15,6 +15,7 @@ from ..application.platform_ports import NullPlatformSessionInvalidator, Platfor
 from ..infrastructure.db import get_session_factory
 from ..infrastructure.mcp_catalog_cache import RedisMcpCatalogCache
 from ..infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
+from ..infrastructure.worker_client import WorkerAdminClient
 
 
 class ConsoleSessionVerifier:
@@ -47,6 +48,9 @@ def get_tenant_id() -> str:
     return current_tenant_id() or SharedSettings().default_tenant_id
 
 
+TenantId = Annotated[str, Depends(get_tenant_id)]
+
+
 def get_source_ip(request: Request) -> str | None:
     client = request.client
     return client.host if client is not None else None
@@ -61,6 +65,14 @@ async def get_current_account(principal: Annotated[Any, Depends(require_session)
 CurrentAccount = Annotated[ConsoleAccount, Depends(get_current_account)]
 
 
+def get_account_tenant_id(account: CurrentAccount) -> str:
+    """以登录账号所属租户为准，不信任浏览器可改写的 `X-Tenant-Id` 请求头。"""
+    return account.tenant_id
+
+
+AccountTenantId = Annotated[str, Depends(get_account_tenant_id)]
+
+
 async def require_admin(
     principal: Annotated[Any, Depends(require_roles(ROLE_ADMIN))],
 ) -> ConsoleAccount:
@@ -70,6 +82,21 @@ async def require_admin(
 
 
 AdminAccount = Annotated[ConsoleAccount, Depends(require_admin)]
+
+
+def get_worker_client(request: Request) -> WorkerAdminClient:
+    """Console → Worker Admin API 的共享客户端（按进程缓存，测试可覆盖）。"""
+    client = getattr(request.app.state, "worker_client", None)
+    if client is None:
+        settings = SharedSettings()
+        client = WorkerAdminClient(
+            settings.agent_worker_url, service_token=settings.internal_service_token
+        )
+        request.app.state.worker_client = client
+    return client
+
+
+WorkerClient = Annotated[WorkerAdminClient, Depends(get_worker_client)]
 
 
 def get_adapter_registry(request: Request) -> "PlatformAdapterRegistry":

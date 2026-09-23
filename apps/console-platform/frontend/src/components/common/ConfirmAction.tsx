@@ -9,6 +9,7 @@ export interface ConfirmActionProps {
   danger?: boolean;
   testId?: string;
   style?: CSSProperties;
+  onOpenChange?(visible: boolean): void;
   /** Button theme; defaults to borderless for in-detail row actions. Object-level header
    *  delete buttons pass `light` so a destructive action keeps its visual weight. */
   theme?: 'borderless' | 'light' | 'outline' | 'solid';
@@ -21,6 +22,7 @@ export function ConfirmAction({
   danger = false,
   testId,
   style,
+  onOpenChange,
   theme = 'borderless'
 }: ConfirmActionProps) {
   const { t } = useTranslation();
@@ -30,6 +32,7 @@ export function ConfirmAction({
       okText={t('common.confirm')}
       cancelText={t('common.cancel')}
       onConfirm={onConfirm}
+      onVisibleChange={(visible: boolean) => onOpenChange?.(visible)}
     >
       <Button theme={theme} type={danger ? 'danger' : 'tertiary'} data-testid={testId} style={style}>
         {children}

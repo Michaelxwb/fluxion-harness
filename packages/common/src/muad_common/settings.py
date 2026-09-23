@@ -15,6 +15,7 @@ class SharedSettings(BaseSettings):
     redis_url: str | None = None
     secret_provider: str = "env"
     internal_service_token: str | None = None
+    channel_probe_url: str | None = None
 
     artifact_root: str = "./.data/artifacts"
     mcp_max_tools_per_server: int = 200
@@ -33,12 +34,18 @@ class SharedSettings(BaseSettings):
 
     task_lease_sec: int = 60
     task_heartbeat_sec: int = 20
+    task_cancel_check_sec: int = 2
     task_default_deadline_hours: int = 24
     worker_poll_interval_sec: int = 5
     task_max_attempts: int = 3
+    batch_max_concurrency: int = 8
+    batch_platform_limit: int = 16
     scheduler_poll_interval_sec: int = 10
+    scheduler_batch_size: int = 100
+    task_deadline_sweep_interval_sec: int = 30
     misfire_grace_sec: int = 60
     delivery_poll_interval_sec: int = 5
+    delivery_batch_size: int = 20
     delivery_max_attempts: int = 5
 
     def require_database_url(self) -> str:

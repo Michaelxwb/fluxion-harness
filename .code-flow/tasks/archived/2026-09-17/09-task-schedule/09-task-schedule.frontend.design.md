@@ -22,6 +22,7 @@
 | v1.0 | 2026-09-17 | muad-agent-worker | 初始设计 |
 | v1.1 | 2026-09-18 | muad-agent-worker | 对齐 V1.4 决策（docs/17）：交互基线升级 V1.4；任务列表/详情补任务截止时间、失败原因；定时任务筛选补「已完成」；补全 Service 方法与场景 |
 | v1.2 | 2026-09-21 | muad-agent-worker | 落实 Design Corrections N-01/N-04/N-05：Matrix spec_id 前缀改为当前 Context 真实 spec_id；调度终态补 `MISSED`（「已错过」文案、纳入筛选、不显示恢复）；任务列表补 `deadline_from/deadline_to` 截止时间筛选 |
+| v1.3 | 2026-09-23 | muad-agent-worker | 归档后 review 修订：RUNNING 取消后显示「取消中」并隐藏取消按钮，取消成功重开有界刷新预算（30 × 1.5s，覆盖一个 Worker 心跳周期）直到终态；截止时间 dateRange 结束日取当天 23:59:59.999（起止含端点）；Console 租户取自登录账号 |
 
 ### 1.3 模块信息
 

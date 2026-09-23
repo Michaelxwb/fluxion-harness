@@ -19,6 +19,8 @@ from muad_api.context import current_trace_id
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
 from muad_contracts import (
+    ChannelContext,
+    DeliveryRouteInput,
     ResolvedAgent,
     ResolveDefinitionRequest,
     ResolveDefinitionResponse,
@@ -28,6 +30,7 @@ from muad_contracts import (
     RunRequest,
     RunStatus,
 )
+from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -145,6 +148,24 @@ def build_snapshot(
         content_hash=_snapshot_hash(resolved, DEFAULT_POLICY),
     )
 
+
+
+def delivery_route_of(channel_json: dict[str, Any] | None) -> DeliveryRouteInput | None:
+    """从 Run 持久化的入站渠道构建后台任务投递路由；缺接收方时返回 None（不投递）。"""
+    if not channel_json:
+        return None
+    try:
+        channel = ChannelContext.model_validate(channel_json)
+    except ValidationError:
+        return None
+    if not channel.external_user_id:
+        return None
+    return DeliveryRouteInput(
+        channel=channel.type,
+        bot_id=channel.bot_id,
+        external_user_id=channel.external_user_id,
+        external_conversation_id=channel.external_conversation_id,
+    )
 
 def _snapshot_model(model: Any) -> dict[str, Any]:
     """Snapshot/hash 中的模型信息剥离认证字段（api_key 只走 API-09 实时读取）。"""
@@ -486,6 +507,7 @@ class RunService:
             lease_owner=self._instance_id,
             lease_until=_lease_deadline(self._settings.run_lease_sec),
             heartbeat_at=now,
+            channel_json=request.channel.model_dump(mode="json"),
         )
         self._session.add(run)
         try:
@@ -799,6 +821,7 @@ class RunService:
                     run_id=run.id,
                     conversation_id=run.conversation_id,
                     user_id=run.user_id,
+                    delivery_route=delivery_route_of(run.channel_json),
                 ),
             )
         )

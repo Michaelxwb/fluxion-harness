@@ -16,6 +16,7 @@ from .application.console_client import ConsoleClient
 from .application.inbound import InboundPipeline
 from .application.runtime_client import RuntimeClient
 from .channels.base import ChannelRegistry
+from .channels.probe import HttpProbeChannelAdapter
 from .channels.wecom.adapter import WeComAdapter
 from .infrastructure.dedupe import build_dedupe_store
 
@@ -30,7 +31,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Gateway 不持有数据库：只校验配置与 Artifact 挂载（迁移到 head 由持库服务校验）
     await validate_startup(settings, None, None, migrations_dir=None)
     registry = ChannelRegistry()
-    wecom = WeComAdapter()
+    wecom: WeComAdapter | HttpProbeChannelAdapter
+    if settings.channel_probe_url:
+        # 本地真实 HTTP 探针：验收/联调环境替代第三方实网渠道。
+        wecom = HttpProbeChannelAdapter(settings.channel_probe_url)
+    else:
+        wecom = WeComAdapter()
     registry.register(wecom)
     dedupe = await build_dedupe_store(settings.redis_url)
     console = ConsoleClient(settings.console_platform_url)

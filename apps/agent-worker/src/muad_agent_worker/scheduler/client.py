@@ -7,10 +7,27 @@ import httpx
 from muad_contracts import ResolveDefinitionRequest, ResolveDefinitionResponse
 
 RESOLVE_DEFINITION_PATH = "/internal/runtime/resolve-definition"
+RESOLVE_UNAVAILABLE = "RESOLVE_UNAVAILABLE"
 
 
 class ResolveTransportError(Exception):
-    pass
+    """resolve-definition 不可用或被业务拒绝。
+
+    `code` 保留 Console 侧的稳定错误码（如 `AGENT_ACCESS_DENIED`），
+    供 Schedule 记录失败原因；无法解析时为 `RESOLVE_UNAVAILABLE`。
+    """
+
+    def __init__(self, message: str, *, code: str = RESOLVE_UNAVAILABLE) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+def _failure_code(response: httpx.Response) -> str:
+    try:
+        code = response.json().get("code")
+    except ValueError:
+        return RESOLVE_UNAVAILABLE
+    return code if isinstance(code, str) and code else RESOLVE_UNAVAILABLE
 
 
 class ResolveDefinitionProtocol(Protocol):
@@ -41,6 +58,9 @@ class ConsoleResolveClient:
         except httpx.HTTPError as exc:
             raise ResolveTransportError(str(exc)) from exc
         if response.status_code >= 400:
-            raise ResolveTransportError(f"resolve-definition returned status {response.status_code}")
+            raise ResolveTransportError(
+                f"resolve-definition returned status {response.status_code}",
+                code=_failure_code(response),
+            )
         body = response.json()
         return ResolveDefinitionResponse.model_validate(body["data"])

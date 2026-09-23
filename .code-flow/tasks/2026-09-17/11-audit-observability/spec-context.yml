@@ -1,7 +1,7 @@
 version: 1
 task: 运行审计与可观测
 enforcement: required
-updated_at: '2026-09-19T02:47:13.191587+00:00'
+updated_at: '2026-09-21T11:51:18.535106+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -26,9 +26,9 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: ed3d32d8d5085e6d250ef7a24f1988759d414113d2726d0a92052880bf2a66b0
-    metadata_sha256: e9f9b2714c5043dc7d9363ec9a950471b4cdea6d932bd8e86ac2dd0a754c9359
-    rules_sha256: 76ffb366c7643e6faa32a65c751aea08de24bc2c1b6f37db46e6df1a7665e728
+    file_sha256: dcd60f67780352116becacd4b2e8e34f3f179509e7e3c8045c1683b7814ddfdc
+    metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
+    rules_sha256: 03e8e1e883b8e1bb81f74c27ed22bce9b1cf5512d4775ee5f93af5acd06f42c7
   selected_by: agent
   reason: Agent Harness 通用平台规则：api
   enforcement: required
@@ -38,6 +38,36 @@ bindings:
   - code
   - review
   rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，含 endpoint、tenant/actor/资源与关键参数（Runtime 另含 run_id/message_id）；同
+      key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key 不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由
+      partial unique 兜底，落败者读取首次提交结果。
+    text_sha256: d39a45cb02db1de6f4d65c5ea3ee821a976855d8f07316e4cfa5798e98fda87e
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
   - ref: RULE-api-001
     summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
       `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
@@ -74,7 +104,7 @@ bindings:
   path: test/harness-test.md
   status: active
   hashes:
-    file_sha256: 66b05f4ed49156830ac7d388c9487264b4a85f50d32dacb364e126c83498a3ff
+    file_sha256: 9dc5c763fbeb595d6e43774f55957c30a6c68f7626e6e1bda885e9be96ea7045
     metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
     rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
   selected_by: agent
@@ -169,7 +199,7 @@ bindings:
   path: ui/harness-ui.md
   status: active
   hashes:
-    file_sha256: 8b8d81d38f91d8b53a9bd297d918c0d30081307e9b83369d5a015911bbfbb406
+    file_sha256: c762895c4a5679287b2c4790178b5dcda135a7a03802c9e4baddac0adda3f713
     metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
     rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
   selected_by: agent
@@ -216,7 +246,7 @@ bindings:
   path: frontend/harness-frontend.md
   status: active
   hashes:
-    file_sha256: 095d3ec2a3bfe5c77f2884c061bbadc2c2b11ccd28621c8c78d0cc96182262f6
+    file_sha256: f99c04e50568324ce85f5cdcbb9f01ed33ca3e1eb522bf6bbb81ad8ca2926161
     metadata_sha256: 1f21efbe8b18a0dfec23126451e4674a64f60cf0f8e7bed81f2f404abd552f98
     rules_sha256: 0154193b28c857724614f543e1c78a3c01120fcfa8d07d39303b4168cef8156f
   selected_by: agent
@@ -358,8 +388,8 @@ bindings:
   path: secret/harness-secret.md
   status: active
   hashes:
-    file_sha256: 02042d172b287f41143df169d1c8309ff571425f05541d577b5463c74596c1aa
-    metadata_sha256: 6eb93990def2057725626f290065551208a4bd3aee9121a753b5a49b32d05d09
+    file_sha256: 9aae32302b9f6c5bd1170313106bd73a656c6bb3a0cd4206da496405abde1eda
+    metadata_sha256: af4b34f2fb0332b6cfa359e3771ee61db87085d03bf7bef36e0c5628b1150ffb
     rules_sha256: bfad8617c95199b82ae1cebdbe3aaf0a1fdc0ee8fd0f39205f1d93a9a30201d3
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-secret
@@ -457,7 +487,7 @@ bindings:
   path: frontend/harness-ui-detail.md
   status: active
   hashes:
-    file_sha256: 9a7107b2f9a819a8f55f8fe047e9527803425d0825bd85f77593fcb89c5f93cc
+    file_sha256: 97df161668a12c248bded504300b16a95401e269f3b900ee58f3be39f234734d
     metadata_sha256: 5b27580a7db12994afb7cb6535630699efaa34ccb6085a28e228127b03ff2b89
     rules_sha256: 30c0d3e3999233939329105a6b996ccfe793157a6010a8575a77552bf38add9c
   selected_by: agent

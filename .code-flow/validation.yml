@@ -26,6 +26,6 @@ validators:
     - name: "Pytest"
       trigger: "**/*.py"
       command: ".venv/bin/python -m pytest --tb=short -q"
-      # 套件包含真实进程验收（uvicorn/子进程/探针），全量耗时约 75s；60s 会误报超时
-      timeout: 180000
+      # 套件含真实进程验收（uvicorn/子进程/探针/双 Worker），全量实测约 200s；预算取 7 分钟留余量
+      timeout: 420000
       on_fail: "测试失败，检查断言和 mock 是否需要更新"

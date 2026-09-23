@@ -19,6 +19,7 @@ from muad_agent_worker.worker.execution_outcomes import (
     TaskOutcome,
     interpret_execution,
 )
+from muad_agent_worker.worker.executor import TaskExecutionError
 from muad_agent_worker.worker.service import WorkerLoop
 
 
@@ -142,6 +143,60 @@ async def test_waiting_does_not_consume_retry_budget(tenant: TenantContext) -> N
     assert state["status"] == "WAITING"
     assert state["attempt"] == 1
     assert state["not_before"] > _now(), "缺省 not_before 必须落在将来"
+
+
+
+class _WaitThenFailExecutor:
+    """前 N 次返回外部等待，之后抛出可重试失败，模拟轮询多轮后的偶发故障。"""
+
+    def __init__(self, waits: int) -> None:
+        self.waits = waits
+        self.seen_refs: list[dict[str, Any]] = []
+
+    async def execute(self, task: TaskExecution) -> dict[str, Any]:
+        self.seen_refs.append(dict(task.external_ref_json or {}))
+        if len(self.seen_refs) <= self.waits:
+            ref = {"external_task_id": "ext-1", "poll": len(self.seen_refs)}
+            return _success({"wait": {"external_ref": ref, "not_before": None}})
+        raise TaskExecutionError("SKILL_EXECUTION_FAILED", "transient")
+
+
+async def test_repeated_waits_keep_retry_budget_for_real_failures(tenant: TenantContext) -> None:
+    """多轮外部轮询不消耗 attempt：等待 4 轮后的第一次失败仍应重试，而不是直接 FAILED。"""
+    task = await persist_task(tenant, max_attempts=2)
+    executor = _WaitThenFailExecutor(waits=4)
+    worker = WorkerLoop(tenant.session_factory, tenant.settings, executor=executor, instance_id="w1")
+    moment = _now()
+    for _ in range(5):
+        moment += timedelta(minutes=5)
+        assert await worker.run_once(now=moment) == task.id
+
+    state = await _row(tenant, task.id)
+    assert state["status"] == "QUEUED", "等待轮次不能把重试预算耗光"
+    assert state["attempt"] == 1
+    assert executor.seen_refs[1] == {"external_task_id": "ext-1", "poll": 1}, (
+        "再次 claim 的执行必须看到上一轮 WAITING 落库的 external_ref"
+    )
+
+
+async def test_deterministic_failure_is_not_retried(tenant: TenantContext) -> None:
+    task = await persist_task(tenant, max_attempts=3)
+    executor = _RaisingExecutor(TaskExecutionError("SKILL_SNAPSHOT_MISSING", "no frozen skill"))
+    worker = WorkerLoop(tenant.session_factory, tenant.settings, executor=executor, instance_id="w1")
+
+    await worker.run_once()
+
+    state = await _row(tenant, task.id)
+    assert state["status"] == "FAILED"
+    assert state["attempt"] == 1
+
+
+class _RaisingExecutor:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    async def execute(self, task: TaskExecution) -> dict[str, Any]:
+        raise self.error
 
 
 async def test_retry_budget_is_exhausted_exactly_once(tenant: TenantContext) -> None:

@@ -81,21 +81,21 @@ async def test_schedule_api_lifecycle(client: AsyncClient, tenant: TenantContext
 
     paused = await client.put(
         f"/internal/schedules/{schedule_id}/pause",
-        headers=_headers(tenant),
+        headers={**_headers(tenant), "X-Actor-User-Id": str(actor_id)},
     )
     assert paused.json()["data"]["status"] == "PAUSED"
 
     resumed = await client.put(
         f"/internal/schedules/{schedule_id}/resume",
-        headers=_headers(tenant),
+        headers={**_headers(tenant), "X-Actor-User-Id": str(actor_id)},
     )
     assert resumed.json()["data"]["status"] == "ACTIVE"
 
     deleted = await client.delete(
         f"/internal/schedules/{schedule_id}",
-        headers=_headers(tenant),
+        headers={**_headers(tenant), "X-Actor-User-Id": str(actor_id)},
     )
-    assert deleted.json()["data"] == {"deleted": True}
+    assert deleted.json()["data"] == {"schedule_id": schedule_id, "deleted": True}
 
     empty = await client.get("/internal/schedules", headers=_headers(tenant))
     assert empty.json()["data"]["items"] == []

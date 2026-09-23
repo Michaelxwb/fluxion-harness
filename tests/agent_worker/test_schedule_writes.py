@@ -22,8 +22,12 @@ IDEMPOTENCY_HEADER = "Idempotency-Key"
 COUNT_SCHEDULES = sa.text("SELECT count(*) FROM task.task_schedule WHERE tenant_id = :tenant_id")
 
 
+# Runtime 代表 Schedule owner 调用：Internal 变更接口必须带 X-Actor-User-Id（API-07/08）。
+OWNER = uuid.UUID("5a1d0c1e-0000-4000-8000-00000000a002")
+
+
 def _headers(tenant: TenantContext, **extra: str) -> dict[str, str]:
-    return {"X-Tenant-Id": tenant.tenant_id, **extra}
+    return {"X-Tenant-Id": tenant.tenant_id, "X-Actor-User-Id": str(OWNER), **extra}
 
 
 async def _scalar(tenant: TenantContext, statement: sa.TextClause) -> int:
@@ -32,7 +36,7 @@ async def _scalar(tenant: TenantContext, statement: sa.TextClause) -> int:
 
 
 def _schedule_body(tenant: TenantContext) -> dict[str, object]:
-    return create_schedule_payload(tenant).model_dump(mode="json")
+    return create_schedule_payload(tenant, actor_user_id=OWNER).model_dump(mode="json")
 
 
 async def test_same_key_creates_only_one_schedule(

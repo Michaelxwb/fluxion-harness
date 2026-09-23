@@ -11,6 +11,7 @@ from .tasks import ContractModel
 class ChannelContext(ContractModel):
     type: Literal["WECOM"]
     bot_id: str = Field(min_length=1)
+    external_user_id: str | None = None
     external_conversation_id: str | None = None
 
 
