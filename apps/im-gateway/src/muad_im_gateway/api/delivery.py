@@ -1,11 +1,18 @@
 import logging
+import asyncio
+import time
 from typing import Any
 
 from fastapi import APIRouter, Request
 from muad_api import ApiResponse, AppError, ErrorCode, ok
 from muad_contracts import DeliveryRequest
 
-from ..channels.base import ChannelAdapterUnavailable, ChannelRegistry, ChannelRegistryError
+from ..channels.base import (
+    ChannelAdapterUnavailable,
+    ChannelBotNotFound,
+    ChannelRegistry,
+    ChannelRegistryError,
+)
 from ..infrastructure.dedupe import DELIVERED_VALUE, DedupeStore, DedupeStoreError
 from .deps import DedupeStoreDep, RegistryDep
 
@@ -18,6 +25,9 @@ DELIVERY_DEDUPE_TTL_SEC = 604800
 # 占位（in-flight）TTL 远短于送达标记：进程在占位后崩溃时占位会自动过期，
 # 允许 Worker 的重试真正补发，而不是被占位永久挡住。
 DELIVERY_IN_FLIGHT_TTL_SEC = 30
+# 已在处理中（占位存在但尚无成功键）时的有界等待：超时回可重试错误，不把占位当成功。
+DELIVERY_IN_FLIGHT_WAIT_SEC = 2.0
+DELIVERY_IN_FLIGHT_POLL_SEC = 0.1
 
 
 @router.post("")
@@ -41,14 +51,7 @@ async def deliver(
             {"accepted": True, "duplicate": False, "delivered": True, "deduplicated": False},
         )
     if not reserved:
-        return ok(
-            request.app.state.message_catalog,
-            {
-                "accepted": True,
-                "duplicate": True,
-                "delivered": await _is_delivered(dedupe, key),
-            },
-        )
+        return await _replay(request, dedupe, key)
     await _send(registry, body, dedupe=dedupe, key=key)
     try:
         await dedupe.mark(key, DELIVERY_DEDUPE_TTL_SEC)
@@ -57,7 +60,21 @@ async def deliver(
         logger.warning("delivery_dedupe_mark_failed delivery_key=%s error=%s", body.delivery_key, exc)
     return ok(
         request.app.state.message_catalog,
-        {"accepted": True, "duplicate": False, "delivered": True},
+        {"accepted": True, "duplicate": False, "delivered": True, "deduplicated": False},
+    )
+
+
+async def _replay(request: Request, dedupe: DedupeStore, key: str) -> ApiResponse[Any]:
+    """已存在占位/成功键：仅成功键算成功；只有占位时有界等待，超时报可重试错误。"""
+    deadline = time.monotonic() + DELIVERY_IN_FLIGHT_WAIT_SEC
+    while not await _is_delivered(dedupe, key):
+        if time.monotonic() >= deadline:
+            logger.warning("delivery_in_flight_timeout key=%s", key)
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+        await asyncio.sleep(DELIVERY_IN_FLIGHT_POLL_SEC)
+    return ok(
+        request.app.state.message_catalog,
+        {"accepted": True, "duplicate": True, "delivered": True, "deduplicated": True},
     )
 
 
@@ -68,8 +85,21 @@ async def _send(
     try:
         adapter = registry.get(body.route.channel)
         await adapter.send(body.route, body.message)
+    except ChannelBotNotFound as exc:
+        # 未配置/已停用 bot：与"暂时不可用"区分（设计 API-05 错误码）
+        logger.warning("delivery_bot_not_found delivery_key=%s error=%s", body.delivery_key, exc)
+        if dedupe is not None:
+            await _release(dedupe, key, body.delivery_key)
+        raise AppError(ErrorCode.BOT_NOT_FOUND) from exc
     except (ChannelRegistryError, ChannelAdapterUnavailable) as exc:
         logger.warning("delivery_send_failed delivery_key=%s error=%s", body.delivery_key, exc)
+        if dedupe is not None:
+            await _release(dedupe, key, body.delivery_key)
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+    except Exception as exc:
+        # 官方 SDK 以任意异常回传发送失败（实测 RuntimeError: Reply ack error）；占位必须释放
+        # 让 Worker 能重试，且不得宣称 accepted/delivered。
+        logger.warning("delivery_send_error delivery_key=%s error=%s", body.delivery_key, type(exc).__name__)
         if dedupe is not None:
             await _release(dedupe, key, body.delivery_key)
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc

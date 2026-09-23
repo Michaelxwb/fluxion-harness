@@ -13,6 +13,10 @@ class ChannelAdapterUnavailable(Exception):
     pass
 
 
+class ChannelBotNotFound(ChannelAdapterUnavailable):
+    """bot 未配置/已停用（快照里没有该 bot）：与"暂时不可用"区分，投递侧映射 BOT_NOT_FOUND。"""
+
+
 class ChannelRegistryError(Exception):
     pass
 

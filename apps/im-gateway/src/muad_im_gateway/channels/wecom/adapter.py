@@ -19,7 +19,7 @@ from muad_contracts import (
     DeliveryRouteInput,
 )
 
-from ..base import ChannelAdapterUnavailable
+from ..base import ChannelAdapterUnavailable, ChannelBotNotFound
 from .sdk_port import (
     EventCallback,
     MessageCallback,
@@ -616,7 +616,8 @@ class WeComAdapter:
     def _require_client(self, bot_id: str) -> WeComSdkPort:
         connection = self._connections.get(bot_id)
         if connection is None:
-            raise ChannelAdapterUnavailable(f"wecom bot connection not configured bot_id={bot_id}")
+            # 快照中没有该 bot（未配置/已停用）≠ 连接暂时不可用
+            raise ChannelBotNotFound(f"wecom bot connection not configured bot_id={bot_id}")
         return connection.require_client()
 
     def _ensure_started(self) -> None:
