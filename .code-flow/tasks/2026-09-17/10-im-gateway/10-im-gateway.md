@@ -101,7 +101,7 @@
 | RULE-08 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | integration | Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界 | TASK-008 | planned | ["uv","run","pytest","-q","tests/gateway/test_inbound_dedupe_integration.py","-k","b108"] | . | 600 |  |
 | B-109 | 10-im-gateway.backend.design.md#API-02 解析消息路由 | integration | Gateway→真实 Console resolve HTTP→PostgreSQL→Runtime 接收观测 | TASK-009 | verified | ["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","b109"] | . | 600 |  |
 | E-01 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway→真实bot resolve HTTP→PostgreSQL | TASK-009 | verified | ["uv","run","pytest","-q","tests/gateway/test_message_routing_integration.py","-k","e01"] | . | 600 |  |
-| B-110 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway command→真实 Console bind HTTP→PostgreSQL | TASK-010 | planned | ["uv","run","pytest","-q","tests/gateway/test_bind_command.py","-k","b110"] | . | 600 |  |
+| B-110 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway command→真实 Console bind HTTP→PostgreSQL | TASK-010 | verified | ["uv","run","pytest","-q","tests/gateway/test_bind_command.py","-k","b110"] | . | 600 |  |
 | B-111 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway commands→真实 Console/Runtime HTTP→PostgreSQL | TASK-011 | planned | ["uv","run","pytest","-q","tests/gateway/test_commands_integration.py","-k","b111"] | . | 600 |  |
 | B-112 | 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02） | integration | Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件 | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","b112"] | . | 600 |  |
 | S-06 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Gateway→Runtime cancel-active HTTP→PostgreSQL CAS | TASK-012 | planned | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","s06"] | . | 600 |  |
@@ -613,7 +613,7 @@
 - [2026-09-23] completed (done)
 ## TASK-010: 完善 /bind 命令与稳定幂等键
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003
 - **Source**: 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）, 10-im-gateway.backend.design.md#API-03 执行绑定
@@ -628,25 +628,37 @@
 
 ### Checklist
 
-- [ ] [B-110][integration] 修改生产代码前先按 Gateway command→真实 Console bind HTTP→PostgreSQL 编写或扩展用例并记录 RED；关键断言：绑定成功回复且身份可回读；错误码准确；重投消息不重新消费；bind code 不出日志/Runtime 请求。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_bind_command.py","-k","b110"]`。
-- [ ] 实现或补齐：本地识别 /bind 与缺参数提示，不发送 LLM；将原 channel message_id 作为稳定 Idempotency-Key 传 Console；成功、无效、过期与已消费分支使用设计文案和 error catalog。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-110][integration] 修改生产代码前先按 Gateway command→真实 Console bind HTTP→PostgreSQL 编写或扩展用例并记录 RED；关键断言：绑定成功回复且身份可回读；错误码准确；重投消息不重新消费；bind code 不出日志/Runtime 请求。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_bind_command.py","-k","b110"]`。
+- [x] 实现或补齐：本地识别 /bind 与缺参数提示，不发送 LLM；将原 channel message_id 作为稳定 Idempotency-Key 传 Console；成功、无效、过期与已消费分支使用设计文案和 error catalog。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-110 | integration | Gateway command→真实 Console bind HTTP→PostgreSQL | 绑定成功回复且身份可回读；错误码准确；重投消息不重新消费；bind code 不出日志/Runtime 请求 | tests/gateway/test_bind_command.py / B-110（planned） | `["uv","run","pytest","-q","tests/gateway/test_bind_command.py","-k","b110"]` | planned |
+| B-110 | integration | Gateway command→真实 Console bind HTTP→PostgreSQL | 绑定成功回复且身份可回读；错误码准确；重投消息不重新消费；bind code 不出日志/Runtime 请求 | tests/gateway/test_bind_command.py / B-110（verified） | `["uv","run","pytest","-q","tests/gateway/test_bind_command.py","-k","b110"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-110 | `uv run pytest -q tests/gateway/test_bind_command.py -k b110` → `1 failed, 2 passed`：`test_b110_replayed_message_does_not_consume_twice` 失败——Gateway 未传 `Idempotency-Key`，Console 无法重放，同 message_id 重投被按"已用码"拒绝（`BIND_CODE_INVALID`） | 同一命令 → `3 passed` | `test_b110_bind_success_replies_and_persists_identity`（成功回复 `BIND_SUCCESS_TEXT`；真实 PG 中 identity 数=1、bind_code `USED`；`/bind` 不调用 Runtime；caplog 中断言**绑定码不出现在日志**）；`test_b110_replayed_message_does_not_consume_twice`（同 message_id 重投两次均成功回复，identity 仍为 1，`used_at` 与首次一致 = 未二次消费）；`test_b110_error_branches_use_catalog_texts`（缺参数 → 本地 `BIND_USAGE_TEXT` 且不发请求；未知码 → `BIND_CODE_INVALID` 文案；过期码 → `BIND_CODE_EXPIRED` 文案；已用码（不同 message_id）→ `BIND_CODE_INVALID` 文案；全程 Runtime 未被调用） | 真实 Console 服务**独立进程**（uvicorn + 真实 socket）+ 真实 PostgreSQL（bind_code 状态与 channel_identity 直接查库断言）+ 真实 HTTP `Idempotency-Key=原 channel message_id`（Console 侧持久幂等由 TASK-003 落地）；Runtime 侧用 Fake（不在 B-110 声明的边界内）但断言其零调用 | verified |
+
+补充记录：
+- 实现范围：`ConsoleClient.bind(..., idempotency_key=None)` 增加可选 `Idempotency-Key` 出站头（`_idempotency_headers`，空则不带头）；`inbound._handle_bind` 传 `idempotency_key=envelope.message_id`（设计 API-03「Gateway 传稳定 Idempotency-Key=channel message_id」）。
+- 连带（去重与类型跟随，显式登记）：`tests/gateway/fakes.py` 的 `FakeConsoleClient.bind` 接受 `idempotency_key` 并记录 `bind_keys`；把真实 Console 子进程 helper 从 `test_bot_snapshot.py` / `test_message_routing_integration.py` 收敛到 `fakes.ConsoleProcess` 共用（消除三处重复，两套既有用例回归通过）。
+- 回归：`tests/gateway + tests/console_channel` → `197 passed`；非验收全量 → `1161 passed`。
+- 外部依赖：无（Console 幂等端点已由 TASK-003 落地）。
+- 清理：Console 子进程 fixture finally terminate/kill；真实 PG 数据由 console_channel 夹具自清理。
+- B-110: verified — automated command passed; run_id=90af5b6195734dfe99fea5dd76a21abd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-23] started
+- [2026-09-23] completed (done)
 ## TASK-011: 对齐 /skills 与 /new 命令输出
 
 - **Status**: draft

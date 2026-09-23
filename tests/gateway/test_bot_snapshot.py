@@ -4,7 +4,7 @@ import asyncio
 from contextlib import suppress
 from uuid import uuid4
 
-from fakes import FakeConsoleClient
+from fakes import ConsoleProcess, FakeConsoleClient
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import BotSnapshotItem, BotSnapshotResponse
@@ -152,59 +152,6 @@ def _free_port() -> int:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         return int(sock.getsockname()[1])
-
-
-class _ConsoleProcess:
-    """真实 Console 服务进程（独立进程/事件循环），与验收栈同一启动口径。"""
-
-    def __init__(self, env: dict[str, str]) -> None:
-        self._env = env
-        self._process: subprocess.Popen[bytes] | None = None
-        self._log = tempfile.NamedTemporaryFile(prefix="b105-console-", suffix=".log", delete=False)
-        self.url = ""
-
-    def start(self) -> None:
-        port = _free_port()
-        self._process = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "uvicorn",
-                "muad_console_platform.main:app",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                str(port),
-                "--log-level",
-                "error",
-            ],
-            env=self._env,
-            stdout=self._log,
-            stderr=subprocess.STDOUT,
-        )
-        self.url = f"http://127.0.0.1:{port}"
-        deadline = time.monotonic() + READY_TIMEOUT_SEC
-        while time.monotonic() < deadline:
-            if self._process.poll() is not None:
-                raise RuntimeError(
-                    f"console exited early: {Path(self._log.name).read_text(errors='replace')[-1500:]}"
-                )
-            try:
-                with httpx.Client(timeout=1.0) as client:
-                    if client.get(f"{self.url}/healthz").status_code == 200:
-                        return
-            except httpx.HTTPError:
-                time.sleep(0.1)
-        raise RuntimeError("console server did not become ready")
-
-    def stop(self) -> None:
-        if self._process is not None and self._process.poll() is None:
-            self._process.terminate()
-            try:
-                self._process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                self._process.kill()
-        self._log.close()
 
 
 class _UvicornServer:
@@ -386,18 +333,8 @@ async def test_b105_collects_real_console_snapshot_and_reuses_revision(
     tmp_path: Any,
 ) -> None:
     # 真实 Console 启动校验需要挂载根目录（与验收栈同一环境口径）
-    artifact_root = tmp_path / "artifacts"
-    skill_cache_root = tmp_path / "skill-cache"
-    artifact_root.mkdir()
-    skill_cache_root.mkdir()
-    server = _ConsoleProcess(
-        {
-            **os.environ,
-            "ARTIFACT_ROOT": str(artifact_root),
-            "SKILL_CACHE_ROOT": str(skill_cache_root),
-        }
-    )
-    server.start()
+    server = ConsoleProcess()
+    server.start(tmp_path)
     calls: list[tuple[BotSnapshotItem, ...]] = []
 
     async def on_change(items: tuple[BotSnapshotItem, ...]) -> None:

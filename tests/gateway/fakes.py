@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+import httpx
+import os
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 from uuid import UUID, uuid4
@@ -28,6 +37,7 @@ class FakeConsoleClient:
         self.bind_response = ChannelBindResponse(platform_user_id=uuid4())
         self.bind_error: AppError | None = None
         self.skills: list[Any] = []
+        self.bind_keys: list[str | None] = []
         self.skills_error: AppError | None = None
         self.bot_snapshot = BotSnapshotResponse(revision="rev-1")
         self.bots_error: AppError | None = None
@@ -49,8 +59,11 @@ class FakeConsoleClient:
         self,
         request: ChannelBindRequest,
         tenant_id: str,
+        *,
+        idempotency_key: str | None = None,
     ) -> ChannelBindResponse:
         self.bind_calls.append(request)
+        self.bind_keys.append(idempotency_key)
         if self.bind_error is not None:
             raise self.bind_error
         return self.bind_response
@@ -251,3 +264,73 @@ def resolved_response(*, bound: bool = True, authorized: bool = True) -> Channel
         platform_user_id=uuid4() if bound else None,
         authorized=authorized,
     )
+
+
+class ConsoleProcess:
+    """真实 Console 服务进程（真实 socket + 真实 PG），与验收栈同一启动口径。
+
+    供需要"真实 Console HTTP"的用例复用；调用方负责 start/stop。
+    """
+
+    READY_TIMEOUT_SEC = 15.0
+
+    def __init__(self) -> None:
+        self._process: subprocess.Popen[bytes] | None = None
+        self._log = tempfile.NamedTemporaryFile(
+            prefix="console-test-", suffix=".log", delete=False
+        )
+        self.url = ""
+
+    def start(self, tmp_root: Path) -> None:
+        artifacts = tmp_root / "artifacts"
+        cache = tmp_root / "skill-cache"
+        artifacts.mkdir(parents=True, exist_ok=True)
+        cache.mkdir(parents=True, exist_ok=True)
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = int(sock.getsockname()[1])
+        self._process = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "uvicorn",
+                "muad_console_platform.main:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(port),
+                "--log-level",
+                "error",
+            ],
+            env={
+                **os.environ,
+                "ARTIFACT_ROOT": str(artifacts),
+                "SKILL_CACHE_ROOT": str(cache),
+            },
+            stdout=self._log,
+            stderr=subprocess.STDOUT,
+        )
+        self.url = f"http://127.0.0.1:{port}"
+        deadline = time.monotonic() + self.READY_TIMEOUT_SEC
+        while time.monotonic() < deadline:
+            if self._process.poll() is not None:
+                raise RuntimeError(
+                    "console exited early: "
+                    f"{Path(self._log.name).read_text(errors='replace')[-1200:]}"
+                )
+            try:
+                with httpx.Client(timeout=1.0) as client:
+                    if client.get(f"{self.url}/healthz").status_code == 200:
+                        return
+            except httpx.HTTPError:
+                time.sleep(0.1)
+        raise RuntimeError("console did not become ready")
+
+    def stop(self) -> None:
+        if self._process is not None and self._process.poll() is None:
+            self._process.terminate()
+            try:
+                self._process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+        self._log.close()

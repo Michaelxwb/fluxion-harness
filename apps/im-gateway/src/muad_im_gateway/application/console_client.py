@@ -44,6 +44,8 @@ class ConsoleClientPort(Protocol):
         self,
         request: ChannelBindRequest,
         tenant_id: str,
+        *,
+        idempotency_key: str | None = None,
     ) -> ChannelBindResponse: ...
 
     async def bots(
@@ -92,6 +94,8 @@ class ConsoleClient:
         self,
         request: ChannelBindRequest,
         tenant_id: str,
+        *,
+        idempotency_key: str | None = None,
     ) -> ChannelBindResponse:
         return await self._request_model(
             "POST",
@@ -99,6 +103,7 @@ class ConsoleClient:
             ChannelBindResponse,
             tenant_id,
             json_body=request.model_dump(mode="json"),
+            headers=_idempotency_headers(idempotency_key),
         )
 
     async def bots(
@@ -148,14 +153,16 @@ class ConsoleClient:
         *,
         json_body: dict[str, Any] | None = None,
         params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> ContractT:
+        request_headers = {**_headers(tenant_id), **(headers or {})}
         try:
             response = await self._client.request(
                 method,
                 path,
                 json=json_body,
                 params=params,
-                headers=_headers(tenant_id),
+                headers=request_headers,
             )
         except httpx.HTTPError as exc:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
@@ -175,3 +182,8 @@ def _headers(tenant_id: str) -> dict[str, str]:
     if request_id:
         headers["X-Request-Id"] = request_id
     return headers
+
+
+def _idempotency_headers(idempotency_key: str | None) -> dict[str, str]:
+    """稳定幂等键：Gateway 传原 channel message_id（设计 API-03 Header 契约）。"""
+    return {"Idempotency-Key": idempotency_key} if idempotency_key else {}

@@ -188,7 +188,11 @@ class InboundPipeline:
             bind_code=code,
         )
         try:
-            await self._console.bind(request, self._tenant_id)
+            await self._console.bind(
+                request,
+                self._tenant_id,
+                idempotency_key=envelope.message_id,
+            )
         except AppError as exc:
             await self._reply_error(adapter, route, exc)
             return

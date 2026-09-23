@@ -28,7 +28,7 @@ import pytest
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
-from fakes import make_envelope
+from fakes import ConsoleProcess, make_envelope
 from muad_api.catalog import MessageCatalog
 from muad_im_gateway.application.console_client import ConsoleClient
 from muad_im_gateway.application.inbound import InboundPipeline
@@ -46,68 +46,6 @@ RESOLVE_URL = "/internal/channel/resolve"
 RUNS_PATH = "/v1/runs"
 READY_TIMEOUT_SEC = 15.0
 TENANT_ID = "tenant-routing"
-
-
-class ConsoleProcess:
-    """真实 Console 服务进程（真实 socket + 真实 PG），与验收栈同一启动口径。"""
-
-    def __init__(self) -> None:
-        self._process: subprocess.Popen[bytes] | None = None
-        self._log = tempfile.NamedTemporaryFile(prefix="b109-console-", suffix=".log", delete=False)
-        self.url = ""
-
-    def start(self, tmp_root: Path) -> None:
-        artifacts = tmp_root / "artifacts"
-        cache = tmp_root / "skill-cache"
-        artifacts.mkdir(parents=True, exist_ok=True)
-        cache.mkdir(parents=True, exist_ok=True)
-        with socket.socket() as sock:
-            sock.bind(("127.0.0.1", 0))
-            port = int(sock.getsockname()[1])
-        self._process = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "uvicorn",
-                "muad_console_platform.main:app",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                str(port),
-                "--log-level",
-                "error",
-            ],
-            env={
-                **os.environ,
-                "ARTIFACT_ROOT": str(artifacts),
-                "SKILL_CACHE_ROOT": str(cache),
-            },
-            stdout=self._log,
-            stderr=subprocess.STDOUT,
-        )
-        self.url = f"http://127.0.0.1:{port}"
-        deadline = time.monotonic() + READY_TIMEOUT_SEC
-        while time.monotonic() < deadline:
-            if self._process.poll() is not None:
-                raise RuntimeError(
-                    f"console exited early: {Path(self._log.name).read_text(errors='replace')[-1200:]}"
-                )
-            try:
-                with httpx.Client(timeout=1.0) as client:
-                    if client.get(f"{self.url}/healthz").status_code == 200:
-                        return
-            except httpx.HTTPError:
-                time.sleep(0.1)
-        raise RuntimeError("console did not become ready")
-
-    def stop(self) -> None:
-        if self._process is not None and self._process.poll() is None:
-            self._process.terminate()
-            try:
-                self._process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                self._process.kill()
-        self._log.close()
 
 
 class RuntimeReceiver:
