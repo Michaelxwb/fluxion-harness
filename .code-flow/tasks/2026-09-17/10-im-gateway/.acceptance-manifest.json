@@ -115,7 +115,7 @@
       "kind": "functional",
       "boundary": "Console snapshot HTTP→真实 PG bot 配置→BotSnapshotCache",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -127,7 +127,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-105",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "53097ef57a3e4c1fbc9a3c1fde197cbb",
+        "executed_at": "2026-09-23T11:03:27.808160+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-105",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4304fca5b5ae45dc8599ef447bacd08f",
+          "executed_at": "2026-09-23T11:02:30.681128+00:00"
+        },
+        {
+          "id": "B-105",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "53097ef57a3e4c1fbc9a3c1fde197cbb",
+          "executed_at": "2026-09-23T11:03:27.808160+00:00"
+        }
+      ]
     },
     {
       "id": "B-106",

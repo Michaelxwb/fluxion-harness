@@ -45,8 +45,10 @@ async def bots(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    page: Annotated[int, Query()] = 1,
+    page_size: Annotated[int, Query()] = DEFAULT_PAGE_SIZE,
 ) -> ApiResponse[Any]:
-    snapshot = await ChannelService(session).bots(tenant_id)
+    snapshot = await ChannelService(session).bots(tenant_id, page=page, page_size=page_size)
     return ok(request.app.state.message_catalog, snapshot.model_dump(mode="json"))
 
 

@@ -55,7 +55,13 @@ class FakeConsoleClient:
             raise self.bind_error
         return self.bind_response
 
-    async def bots(self, tenant_id: str) -> BotSnapshotResponse:
+    async def bots(
+        self,
+        tenant_id: str,
+        *,
+        page: int = 1,
+        page_size: int = DEFAULT_PAGE_SIZE,
+    ) -> BotSnapshotResponse:
         self.bots_calls += 1
         if self.bots_error is not None:
             raise self.bots_error

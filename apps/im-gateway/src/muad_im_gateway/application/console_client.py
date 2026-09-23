@@ -46,7 +46,13 @@ class ConsoleClientPort(Protocol):
         tenant_id: str,
     ) -> ChannelBindResponse: ...
 
-    async def bots(self, tenant_id: str) -> BotSnapshotResponse: ...
+    async def bots(
+        self,
+        tenant_id: str,
+        *,
+        page: int = 1,
+        page_size: int = DEFAULT_PAGE_SIZE,
+    ) -> BotSnapshotResponse: ...
 
     async def channel_skills(
         self,
@@ -95,8 +101,17 @@ class ConsoleClient:
             json_body=request.model_dump(mode="json"),
         )
 
-    async def bots(self, tenant_id: str) -> BotSnapshotResponse:
-        return await self._request_model("GET", BOTS_PATH, BotSnapshotResponse, tenant_id)
+    async def bots(
+        self,
+        tenant_id: str,
+        *,
+        page: int = 1,
+        page_size: int = DEFAULT_PAGE_SIZE,
+    ) -> BotSnapshotResponse:
+        params = {"page": str(page), "page_size": str(page_size)}
+        return await self._request_model(
+            "GET", BOTS_PATH, BotSnapshotResponse, tenant_id, params=params
+        )
 
     async def channel_skills(
         self,

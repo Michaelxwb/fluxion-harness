@@ -6,9 +6,10 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from muad_api import AppError
+from muad_api import AppError, validate_page
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
+    DEFAULT_PAGE_SIZE,
     BotSnapshotItem,
     BotSnapshotResponse,
     ChannelBindRequest,
@@ -331,8 +332,20 @@ class ChannelService:
         if await self._users.get(tenant_id, user_id) is None:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
 
-    async def bots(self, tenant_id: str) -> BotSnapshotResponse:
-        accounts = await self._bots.list_enabled(tenant_id)
+    async def bots(
+        self,
+        tenant_id: str,
+        *,
+        page: int = 1,
+        page_size: int = DEFAULT_PAGE_SIZE,
+    ) -> BotSnapshotResponse:
+        valid = validate_page(page, page_size)
+        digest, total = await self._bots.enabled_snapshot_digest(tenant_id)
+        accounts = await self._bots.list_enabled_page(
+            tenant_id,
+            limit=valid.page_size,
+            offset=(valid.page - 1) * valid.page_size,
+        )
         items = [
             BotSnapshotItem(
                 bot_account_id=account.id,
@@ -343,14 +356,13 @@ class ChannelService:
             )
             for account in accounts
         ]
-        canonical = json.dumps(
-            [item.model_dump(mode="json") for item in items],
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
+        return BotSnapshotResponse(
+            revision=f"{HASH_PREFIX}{digest}",
+            items=items,
+            page=valid.page,
+            page_size=valid.page_size,
+            total=total,
         )
-        revision = f"{HASH_PREFIX}{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
-        return BotSnapshotResponse(revision=revision, items=items)
 
     async def _is_authorized(
         self,
