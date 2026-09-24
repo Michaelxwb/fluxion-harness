@@ -1774,7 +1774,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-032: 验收断流回收、Snapshot 冻结与终态 CAS
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-015, TASK-016, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03）, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1811,7 +1811,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-23] prepared (draft)；由 2026-09-23 Plan 复核从 TASK-025 拆出。
 
 ---
-
+- [2026-09-24] started
 ## Plan Validation
 
 - 正式任务文件：`.code-flow/tasks/2026-09-17/10-im-gateway/10-im-gateway.md`。

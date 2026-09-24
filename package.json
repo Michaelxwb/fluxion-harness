@@ -1,0 +1,25 @@
+{
+  "name": "fluxion-harness",
+  "version": "1.0.0",
+  "description": "该骨架按 V1.3 最新设计基线初始化，核心后台服务固定为：",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Michaelxwb/fluxion-harness.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Michaelxwb/fluxion-harness/issues"
+  },
+  "homepage": "https://github.com/Michaelxwb/fluxion-harness#readme"
+}
