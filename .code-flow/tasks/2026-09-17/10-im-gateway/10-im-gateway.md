@@ -1479,7 +1479,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-027: 验收 Worker 主动投递及 Redis 故障
 
-- **Status**: draft
+- **Status**: blocked
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-017, TASK-021, TASK-030
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#API-05 主动投递, 10-im-gateway.backend.design.md#3.2.3 入站去重, 10-im-gateway.backend.design.md#5. 风险与依赖
@@ -1495,11 +1495,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ### Checklist
 
-- [ ] [B-127][E2E] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 编写或扩展用例；关键断言：路由准确；首次发送/重复200不重发；TTL7d；失败可重试，Worker最多5次后FAILED；故障/不确定发送允许重复但不吞业务事实。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_delivery.py","-k","b127"]`。
-- [ ] [S-04][E2E] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实Worker→Gateway HTTP→Redis→官方SDK/真实WS接收 编写或扩展用例；关键断言：delivery_key固定；按route推送最终结果；重放200/deduplicated=true且不重发。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_delivery.py","-k","s04"]`。
+- [x] [B-127][E2E] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 编写或扩展用例；关键断言：路由准确；首次发送/重复200不重发；TTL7d；失败可重试，Worker最多5次后FAILED；故障/不确定发送允许重复但不吞业务事实。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_delivery.py","-k","b127"]`。
+- [x] [S-04][E2E] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实Worker→Gateway HTTP→Redis→官方SDK/真实WS接收 编写或扩展用例；关键断言：delivery_key固定；按route推送最终结果；重放200/deduplicated=true且不重发。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_delivery.py","-k","s04"]`。
 - [ ] [E-06][integration] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 Gateway入站/投递→真实Redis连接故障→Runtime/WS 编写或扩展用例；关键断言：两条路径均at-least-once继续；故障时允许重复但不吞业务事实；恢复后去重恢复。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_redis_degradation.py","-k","e06"]`。
-- [ ] 实现或补齐：复用 EXT-09-020/021/043 可靠投递实现与证据，以本模块 S-04/E-06 验证 Worker→Gateway→SDK 完整链路；入站和投递 Redis 故障均继续 at-least-once，发送失败不误标成功。
-- [ ] [RULE-09][E2E] 作为唯一最终负责人，沿 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 验证 投递key、7d去重、200重放与降级；联合映射 S-04 / E-06；命令 `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_delivery.py","-k","b127"]`，不得以任务标题或静态声明代替行为证据。
+- [x] 实现或补齐：复用 EXT-09-020/021/043 可靠投递实现与证据，以本模块 S-04/E-06 验证 Worker→Gateway→SDK 完整链路；入站和投递 Redis 故障均继续 at-least-once，发送失败不误标成功。
+- [x] [RULE-09][E2E] 作为唯一最终负责人，沿 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 验证 投递key、7d去重、200重放与降级；联合映射 S-04 / E-06；命令 `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_delivery.py","-k","b127"]`，不得以任务标题或静态声明代替行为证据。
 - [ ] [RISK-02][E2E] 作为唯一最终负责人，沿 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 验证 Redis不可用的入站/投递语义；联合映射 E-06；命令 `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_delivery.py","-k","b127"]`，不得以任务标题或静态声明代替行为证据。
 - [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
@@ -1514,14 +1514,24 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 | RISK-02 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | Redis不可用的入站/投递语义；联合映射 E-06 | tests/acceptance/im_gateway/test_delivery.py / RISK-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_delivery.py","-k","b127"]` | planned |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
 
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-127 / S-04 / RULE-09 | **验收类不制造 RED**（Baseline）。过程中据实记录并修正 3 处**测试自身**假设错误：① `test_s04` 引用了未定义的 `probe`；② 投递失败后状态并非 `PENDING`——Worker 把可重试失败写成 `FAILED`（属其 `RETRYABLE_DELIVERY_STATUSES`）并留 `DELIVERY_RETRY` 事件（`terminal=false`），只有耗尽次数才写 `DELIVERY_FAILED`（`terminal=true`）；③ 探针未连接时不可推送 → 补"等新 Gateway 在真实 WS 上认证"。 | `uv run pytest -q tests/acceptance/im_gateway/test_delivery.py` → **`4 passed`**（118.48s）。 | `test_s04_worker_delivers_to_route_with_7d_dedupe`（真实 Worker 投递循环把最终结果按 route 投到真实 WS：文本含 `intent_key`、连接归属 `bot_id`、`chatid` 匹配；同 `delivery_key` 重放网关回 200 且 `deduplicated=true` 且**不再次发送**；真实 Redis `TTL ∈ (604680, 604800]` 即 7d 成功键）；`test_b127_failure_retries_then_exhausts_without_swallowing_fact`（预置 `delivery_attempts = max-1` + 探针注入发送失败 → `delivery_status=FAILED` 且 `attempts >= delivery_max_attempts`，同时 Task 自身 `status=COMPLETED` 与 `DELIVERY_FAILED` 事件保留 ⇒ **不吞业务事实**）；`test_b127_retryable_failure_recovers_after_injection_cleared`（注入失败 → 状态不误标 SENT、留 `DELIVERY_RETRY` 事件；清除注入后按退避重试补发为 `SENT` 且真实 WS 收到该 intent）；`test_b127_cleanup_leaves_no_delivery_residue`。 | 真实 Worker 进程（投递循环，真实 PG/Redis，`DELIVERY_POLL_INTERVAL_SEC=1`）+ 真实 Gateway 进程 + 生产 `WeComAdapter` → 官方 SDK → 真实 `wss://` 探针 + 真实 Redis（TTL 回读）。未 mock 上述真实边界。 | verified（B-127/S-04/RULE-09 部分） |
+| E-06 / RISK-02 | 同上（验收类） | **未通过，阻塞**：`tests/acceptance/im_gateway/test_redis_degradation.py` 中 `test_e06_dedupe_recovers_after_redis_available` → `1 passed`（30.58s，恢复后同 message_id 只产生一个 Run ✓）；`test_e06_inbound_and_delivery_continue_at_least_once_without_redis` → **超时失败**（`AssertionError: 条件未在超时内满足`，60s）。已在首个 `_wait_for` 之后的入站回复等待处挂住；现象：Redis 指向 `redis://127.0.0.1:1/0` 的第二个 Gateway 进程 `/healthz` 正常且已在真实 WS 上完成认证，但推送入站后未观测到出站回复。待查方向（下个会话继续）：该进程启动日志（`gateway-degraded.log`）/ `build_dedupe_store` 在不可达 Redis 下的运行期行为 / 该进程是否真正消费到入站事件。 | 真实第二个 Gateway 进程（`REDIS_URL` 指向不可达端口）+ 真实 Redis（恢复用例）+ 真实 Runtime/Console + 真实 WS 探针 | **未验证（阻塞）** |
+
+**阻塞说明（不得视为通过）**：
+- 本任务保持 **blocked**：`test_delivery.py` 的 4 个用例已全绿并覆盖 B-127/S-04/RULE-09 的核心断言；`test_redis_degradation.py` 的降级入站用例尚未跑通（RISK-02 与 E-06 的"两条路径均 at-least-once 继续"未取得证据）。恢复用例已通过（"恢复后去重恢复"✓）。
+- 下个会话的入口：`uv run pytest -q tests/acceptance/im_gateway/test_redis_degradation.py -k continue_at_least_once -x`，先看 `gateway-degraded` 进程日志。
+
+> BLOCKED: E-06 降级入站用例超时未跑通（test_redis_degradation.py -k continue_at_least_once）；test_delivery.py 4 例已全绿，恢复用例通过；B-127/S-04/RULE-09 已 verified，RISK-02 未验证
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] blocked (E-06 降级入站用例超时未跑通（test_redis_degradation.py -k continue_at_least_once）；test_delivery.py 4 例已全绿，恢复用例通过；B-127/S-04/RULE-09 已 verified，RISK-02 未验证)
 ## TASK-028: 验收 Secret 不泄露与单 Bot 隔离
 
 - **Status**: draft

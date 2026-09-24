@@ -1,7 +1,7 @@
 version: 1
 task: IM Gateway 与主动投递
 enforcement: required
-updated_at: '2026-09-24T00:34:37.906466+00:00'
+updated_at: '2026-09-24T00:42:35.060239+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -63,7 +63,7 @@ bindings:
         - artifact: 10-im-gateway.md
           section_id: TASK-026
           item_id: TASK-026
-          artifact_sha256: 7497f3a4136659b1348cde1d6aa0f78bdc14e675d5948a048f363a49b56c83fa
+          artifact_sha256: 9743252807fa4d26d98b6180c8d5baa128a2d0e699b8a73c3020ab41d64adffa
         decision: null
         evidence: []
       code:
@@ -766,7 +766,7 @@ bindings:
         - artifact: 10-im-gateway.md
           section_id: TASK-023
           item_id: TASK-023
-          artifact_sha256: 7497f3a4136659b1348cde1d6aa0f78bdc14e675d5948a048f363a49b56c83fa
+          artifact_sha256: 9743252807fa4d26d98b6180c8d5baa128a2d0e699b8a73c3020ab41d64adffa
         decision: null
         evidence: []
       code:
@@ -1658,7 +1658,7 @@ bindings:
         - artifact: 10-im-gateway.md
           section_id: TASK-022
           item_id: TASK-022
-          artifact_sha256: 7497f3a4136659b1348cde1d6aa0f78bdc14e675d5948a048f363a49b56c83fa
+          artifact_sha256: 9743252807fa4d26d98b6180c8d5baa128a2d0e699b8a73c3020ab41d64adffa
         decision: null
         evidence: []
       code:
@@ -2286,7 +2286,7 @@ bindings:
         - artifact: 10-im-gateway.md
           section_id: TASK-024
           item_id: TASK-024
-          artifact_sha256: 7497f3a4136659b1348cde1d6aa0f78bdc14e675d5948a048f363a49b56c83fa
+          artifact_sha256: 9743252807fa4d26d98b6180c8d5baa128a2d0e699b8a73c3020ab41d64adffa
         decision: null
         evidence: []
       code:
@@ -3121,7 +3121,7 @@ bindings:
         - artifact: 10-im-gateway.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 7497f3a4136659b1348cde1d6aa0f78bdc14e675d5948a048f363a49b56c83fa
+          artifact_sha256: 9743252807fa4d26d98b6180c8d5baa128a2d0e699b8a73c3020ab41d64adffa
         decision: null
         evidence: []
       code:
@@ -3839,7 +3839,7 @@ bindings:
         - artifact: 10-im-gateway.md
           section_id: TASK-022
           item_id: TASK-022
-          artifact_sha256: 7497f3a4136659b1348cde1d6aa0f78bdc14e675d5948a048f363a49b56c83fa
+          artifact_sha256: 9743252807fa4d26d98b6180c8d5baa128a2d0e699b8a73c3020ab41d64adffa
         decision: null
         evidence: []
       code:
@@ -5020,7 +5020,7 @@ bindings:
         - artifact: 10-im-gateway.md
           section_id: TASK-028
           item_id: TASK-028
-          artifact_sha256: 7497f3a4136659b1348cde1d6aa0f78bdc14e675d5948a048f363a49b56c83fa
+          artifact_sha256: 9743252807fa4d26d98b6180c8d5baa128a2d0e699b8a73c3020ab41d64adffa
         decision: null
         evidence: []
       code:
@@ -5695,7 +5695,7 @@ bindings:
         - artifact: 10-im-gateway.md
           section_id: TASK-032
           item_id: TASK-032
-          artifact_sha256: 7497f3a4136659b1348cde1d6aa0f78bdc14e675d5948a048f363a49b56c83fa
+          artifact_sha256: 9743252807fa4d26d98b6180c8d5baa128a2d0e699b8a73c3020ab41d64adffa
         decision: null
         evidence: []
       code:
@@ -6334,7 +6334,7 @@ bindings:
         - artifact: 10-im-gateway.md
           section_id: TASK-029
           item_id: TASK-029
-          artifact_sha256: 7497f3a4136659b1348cde1d6aa0f78bdc14e675d5948a048f363a49b56c83fa
+          artifact_sha256: 9743252807fa4d26d98b6180c8d5baa128a2d0e699b8a73c3020ab41d64adffa
         decision: null
         evidence: []
       code:
