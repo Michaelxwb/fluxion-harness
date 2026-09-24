@@ -1496,7 +1496,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ## TASK-027: 验收 Worker 主动投递及 Redis 故障
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-017, TASK-021, TASK-030
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#API-05 主动投递, 10-im-gateway.backend.design.md#3.2.3 入站去重, 10-im-gateway.backend.design.md#5. 风险与依赖
@@ -1549,6 +1549,9 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - B-127: e2e_deferred — automated command e2e_deferred; run_id=c21f53e2aaee4725a295e0788a9678e5 (confirmed_by: runner)
 - S-04: e2e_deferred — automated command e2e_deferred; run_id=c21f53e2aaee4725a295e0788a9678e5 (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=c21f53e2aaee4725a295e0788a9678e5 (confirmed_by: runner)
+- B-127: e2e_deferred — automated command e2e_deferred; run_id=8fd7b4e5ae9a4083aa321b668d3fa204 (confirmed_by: runner)
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=8fd7b4e5ae9a4083aa321b668d3fa204 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=8fd7b4e5ae9a4083aa321b668d3fa204 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1559,6 +1562,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] blocked (E-06 降级入站用例超时未跑通（test_redis_degradation.py -k continue_at_least_once）；test_delivery.py 4 例已全绿，恢复用例通过；B-127/S-04/RULE-09 已 verified，RISK-02 未验证)
 - **被迫偏离计划的文件命名**：`tests/acceptance/im_gateway/test_delivery.py` 与既有 `tests/acceptance/task_schedule/test_delivery.py`、`tests/agent_worker/test_delivery.py` 同名，`tests/acceptance/im_gateway/test_idempotency.py` 与 `tests/acceptance/task_schedule/test_idempotency.py` 同名；pytest 对无 `__init__.py` 的目录按 basename 导入模块 → 全树收集（仓库级 required Rule 的 verifier，如 `uv run pytest -q tests -k schema_parity`）报 `import file mismatch` 并以 exit 2 判为 unverified，**连带挡住后续所有任务的门禁**。故改名为全局唯一 basename：`test_worker_delivery.py` / `test_gateway_idempotency.py`（`-k` 过滤条件与断言不变），并同步任务文档与全局覆盖表的 argv。改后 `pytest -q tests -k schema_parity` → 35 passed（原 exit 2）。
 - [2026-09-24] resumed (draft)
+- [2026-09-24] completed (done)
 ## TASK-028: 验收 Secret 不泄露与单 Bot 隔离
 
 - **Status**: blocked
