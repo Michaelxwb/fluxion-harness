@@ -721,7 +721,7 @@
       "kind": "functional",
       "boundary": "真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站",
       "owner": "TASK-015",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -733,7 +733,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-115",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "d5ddadf0708c4ef6a5a872a652b9f8a0",
+        "executed_at": "2026-09-24T00:22:43.106098+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-115",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "d5ddadf0708c4ef6a5a872a652b9f8a0",
+          "executed_at": "2026-09-24T00:22:43.106098+00:00"
+        }
+      ]
     },
     {
       "id": "B-116",

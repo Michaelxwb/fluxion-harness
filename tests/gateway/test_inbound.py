@@ -13,8 +13,8 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts import ChannelResolveRequest, ChannelResolveResponse, DeliveryMessage, DeliveryRouteInput
 from muad_im_gateway.application.inbound import (
     BIND_USAGE_TEXT,
+    DELTA_FLUSH_INTERVAL_SEC,
     BROKEN_STREAM_TEXT,
-    DELTA_FLUSH_CHARS,
     NEW_CONVERSATION_TEXT,
     NO_PERMISSION_TEXT,
     NO_SKILLS_TEXT,
@@ -79,6 +79,7 @@ def _pipeline(
     *,
     catalog: MessageCatalog,
     dedupe: DedupeStore | None = None,
+    delta_flush_interval_sec: float = DELTA_FLUSH_INTERVAL_SEC,
 ) -> InboundPipeline:
     return InboundPipeline(
         dedupe=dedupe if dedupe is not None else InMemoryDedupeStore(),
@@ -87,6 +88,7 @@ def _pipeline(
         catalog=catalog,
         tenant_id="tenant-1",
         locale="zh-CN",
+        delta_flush_interval_sec=delta_flush_interval_sec,
     )
 
 
@@ -172,7 +174,7 @@ async def test_run_completed_finalizes_stream(catalog: MessageCatalog) -> None:
     assert adapter.finished[0].bot_id == "bot-1"
 
 
-async def test_delta_throttle_batches_consecutive_deltas(catalog: MessageCatalog) -> None:
+async def test_delta_throttle_coalesces_within_interval(catalog: MessageCatalog) -> None:
     console = FakeConsoleClient()
     console.resolve_response = resolved_response()
     first, second, third = "a" * 30, "b" * 30, "c" * 30
@@ -190,8 +192,30 @@ async def test_delta_throttle_batches_consecutive_deltas(catalog: MessageCatalog
 
     await pipeline.handle(adapter, make_envelope())
 
-    assert sum(len(chunk) for chunk in (first, second, third)) > DELTA_FLUSH_CHARS
-    assert _streamed_chunks(adapter) == [(first + second,), (third,)]
+    # 时间维度节流（design §3.4.1）：间隔内的连续 delta 合并，收尾一次性送出
+    assert _streamed_chunks(adapter) == [(first + second + third,)]
+
+
+async def test_delta_throttle_flushes_each_delta_when_interval_elapsed(
+    catalog: MessageCatalog,
+) -> None:
+    console = FakeConsoleClient()
+    console.resolve_response = resolved_response()
+    runtime = FakeRuntimeClient(
+        [
+            SseEvent(type="run.created", data={"run_id": "run-1"}),
+            SseEvent(type="message.delta", data={"delta": "a"}),
+            SseEvent(type="message.delta", data={"delta": "b"}),
+            SseEvent(type="run.completed", data={"status": "COMPLETED", "final_text": "ab"}),
+        ]
+    )
+    adapter = FakeChannelAdapter()
+    pipeline = _pipeline(console, runtime, catalog=catalog, delta_flush_interval_sec=0.0)
+
+    await pipeline.handle(adapter, make_envelope())
+
+    # 间隔为 0 时每个 delta 各出一片（节流只由间隔决定，不按字符数硬切）
+    assert _streamed_chunks(adapter) == [("a",), ("b",)]
 
 
 async def test_task_accepted_path_sends_message_and_ends(catalog: MessageCatalog) -> None:
@@ -246,7 +270,8 @@ async def test_interrupt_required_flushes_and_sends_prompt(catalog: MessageCatal
     await pipeline.handle(adapter, make_envelope())
 
     assert _streamed_chunks(adapter) == [("分析中",)]
-    assert _sent_texts(adapter) == ["将对 2 台设备执行策略检查，是否继续？"]
+    # design §3.4.1：中断先 flush 已缓冲文本，再把 prompt 与 options 发给用户
+    assert _sent_texts(adapter) == ["将对 2 台设备执行策略检查，是否继续？", "继续\n取消"]
     assert pipeline.pending_run_id(console.resolve_response.platform_user_id) == "run-9"
 
 

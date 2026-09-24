@@ -108,7 +108,7 @@
 | E-05 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Runtime cancel-active/PG→Gateway | TASK-012 | verified | ["uv","run","pytest","-q","tests/gateway/test_stop_integration.py","-k","e05"] | . | 600 |  |
 | B-113 | 10-im-gateway.backend.design.md#API-06 Runtime Run 桥接 | integration | 生产 RuntimeClient→真实本地 HTTP/SSE 接收端 | TASK-013 | verified | ["uv","run","pytest","-q","tests/gateway/test_runtime_client.py","-k","b113"] | . | 600 |  |
 | B-114 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | unit | 真实 SSE parser 与分片字节/行输入 | TASK-014 | verified | ["uv","run","pytest","-q","tests/gateway/test_sse_parser.py","-k","b114"] | . | 600 |  |
-| B-115 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | integration | 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 | TASK-015 | planned | ["uv","run","pytest","-q","tests/gateway/test_stream_renderer.py","-k","b115"] | . | 600 |  |
+| B-115 | 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03） | integration | 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 | TASK-015 | verified | ["uv","run","pytest","-q","tests/gateway/test_stream_renderer.py","-k","b115"] | . | 600 |  |
 | B-116 | 10-im-gateway.backend.design.md#3.2 架构与流程 | integration | 真实 iter_events→Gateway 消费队列→Runtime HTTP/SSE→WS 回复 | TASK-016 | planned | ["uv","run","pytest","-q","tests/gateway/test_inbound_concurrency.py","-k","b116"] | . | 600 |  |
 | B-117 | 10-im-gateway.backend.design.md#API-05 主动投递 | integration | 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS | TASK-017 | verified | ["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","b117"] | . | 600 |  |
 | B-118 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-018 | verified | ["uv","run","pytest","-q","tests/gateway/test_connection_observability.py","-k","b118"] | . | 600 |  |
@@ -896,7 +896,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-015: 补齐 SSE 到 IM 的收尾与中断呈现
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-014, TASK-020
 - **Source**: 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03）, 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）
@@ -912,25 +912,36 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ### Checklist
 
-- [ ] [B-115][integration] 修改生产代码前先按 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 编写或扩展用例并记录 RED；关键断言：无双重 finalize/尾段丢失；CANCELLED/受理/异常文案准确；无 Artifact 下载链接或内部 Tool/secret 信息。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_stream_renderer.py","-k","b115"]`。
-- [ ] 实现或补齐：按 SDK 最小间隔节流，interrupt 先 flush 再输出 prompt/options；task.accepted、completed、failed 只 finalize 一次；CANCELLED 显示已停止，RUN_ABANDONED 按终态文案处理；Artifact 只给摘要。新模块保持单函数≤50行。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-115][integration] 修改生产代码前先按 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 编写或扩展用例并记录 RED；关键断言：无双重 finalize/尾段丢失；CANCELLED/受理/异常文案准确；无 Artifact 下载链接或内部 Tool/secret 信息。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_stream_renderer.py","-k","b115"]`。
+- [x] 实现或补齐：按 SDK 最小间隔节流，interrupt 先 flush 再输出 prompt/options；task.accepted、completed、failed 只 finalize 一次；CANCELLED 显示已停止，RUN_ABANDONED 按终态文案处理；Artifact 只给摘要。新模块保持单函数≤50行。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-115 | integration | 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 | 无双重 finalize/尾段丢失；CANCELLED/受理/异常文案准确；无 Artifact 下载链接或内部 Tool/secret 信息 | tests/gateway/test_stream_renderer.py / B-115（planned） | `["uv","run","pytest","-q","tests/gateway/test_stream_renderer.py","-k","b115"]` | planned |
+| B-115 | integration | 真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站 | 无双重 finalize/尾段丢失；CANCELLED/受理/异常文案准确；无 Artifact 下载链接或内部 Tool/secret 信息 | tests/gateway/test_stream_renderer.py / B-115（planned） | `["uv","run","pytest","-q","tests/gateway/test_stream_renderer.py","-k","b115"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-115 | **据实记录：未制造独立 RED**——`StreamRenderer` 为本任务新建模块（此前不存在），用例与实现同批编写，任何 RED 都只能是"模块不存在"型导入失败，无法给出与缺陷对应的失败原因。过程中出现的真实失败与处置：① 首版渲染器"首个 delta 立即出片"破坏了既有合并语义（`test_authorized_message_dispatches_run`、`test_delta_throttle_batches_consecutive_deltas` 失败）→ 改为"首个 delta 只起算间隔、到点才 flush"，并新增 `delta_flush_interval_sec` 注入以便断言节流边界；② `test_interrupt_required_flushes_and_sends_prompt` 失败于旧期望只发 prompt——design §3.4.1 要求 prompt+options，属设计对齐，用例期望同步更新；③ B-115 用例自身两轮口径修正：WeCom 流式帧每帧携带**累积全文**（非增量）、终态文案走 `aibot_send_msg` 文本帧、等待条件按期望文案收敛。 | `uv run pytest -q tests/gateway/test_stream_renderer.py -k b115` → `3 passed`（0.88s）。 | `test_b115_stream_tail_is_complete_and_finalized_once`（真实 WS 出站帧：流式帧内容为该帧累积全文且均为完整回复的前缀、末帧 `finish=true` 且**唯一** finish 帧 ⇒ 尾段不丢、只 finalize 一次）；`test_b115_cancelled_abandoned_and_interrupt_copy`（`run.completed(status=CANCELLED)` → 出站含 `当前任务已停止`；`run.failed(RUN_ABANDONED)` → `服务暂时中断，请重发消息`；`interrupt.required` → 先 flush 已缓冲文本再输出 prompt 与 options（`是否继续？` 与 `取消` 均到达 IM））；`test_b115_artifact_summary_has_no_links_or_internal_info`（artifact 只给 `preview` 摘要；`artifact_id`、`storage_key`、内部 tool 名、任何 `http` 链接与 bot secret 均不出现在出站帧）。 | 真实 `wss://` 本地 WS 探针（真实入站推送 + 生产 `WeComAdapter`/官方 SDK 真实出站帧回读）+ TASK-014 的真实 SSE 解析器（封套帧按 13 字节分片喂入）+ 生产 `StreamRenderer`/`InboundPipeline`。未 mock 上述真实边界。 | verified |
+
+补充记录：
+- 新增 `application/stream_renderer.py`：`StreamRenderer.apply(event) -> tuple[RenderAction, ...]`（动作类型 `stream`/`text`/`finalize`），持有 delta 缓冲、时间窗节流（`DELTA_FLUSH_INTERVAL_SEC=0.5`，首个 delta 只起算间隔，**不按字符数硬切**）、`finalize()` 幂等（只出一次）、`awaiting_input`；事件覆盖 `message.delta`/`interrupt.required`/`task.accepted`/`artifact.created`/`run.completed`(含 CANCELLED)/`run.failed`(含 RUN_ABANDONED)；错误码经注入的 catalog 查找，未知码回落 `COMMON_INTERNAL_ERROR` 文案。
+- `application/inbound.py`：`_RunStreamState` 只保留 run_id/terminal/awaiting_input，文本缓冲与节流移交渲染器；`_apply_run_event` 改为"run.created 记 run_id + 其余交给 renderer → 执行动作"；`_consume_run` 统一用 `renderer.finalize()` 收尾（异常分支同样只 finalize 一次）；`DELTA_FLUSH_CHARS` 字符阈值随设计对齐移除；`BROKEN_STREAM_TEXT` 常量迁到渲染器并被 inbound 复用；新增构造参数 `delta_flush_interval_sec`（默认 0.5s，测试注入）。
+- 用例更新（设计对齐）：`tests/gateway/test_inbound.py` 的中断期望补 options；节流用例改为"间隔内合并 / 间隔为 0 时逐 delta 出片"两条。
+- 回归：`tests/gateway tests/console_channel` → `234 passed`；`tests/acceptance/im_gateway` → `25 passed`；`uv run mypy apps/im-gateway/src/muad_im_gateway` → `Success: no issues found in 23 source files`。
+- B-115: verified — automated command passed; run_id=d5ddadf0708c4ef6a5a872a652b9f8a0 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] completed (done)
 ## TASK-016: 避免长流阻塞后续消息与 /stop
 
 - **Status**: draft

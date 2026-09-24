@@ -28,13 +28,21 @@ from muad_contracts import (
 from ..channels.base import ChannelAdapter, ChannelAdapterUnavailable, StreamFinalizer
 from ..infrastructure.dedupe import DedupeStore, DedupeStoreError, is_duplicate
 from .console_client import ConsoleClientPort
+from .stream_renderer import (
+    BROKEN_STREAM_TEXT,
+    DELTA_FLUSH_INTERVAL_SEC,
+    FINALIZE_KIND,
+    STREAM_KIND,
+    TEXT_KIND,
+    StreamRenderer,
+    RenderAction,
+)
 from .runtime_client import RuntimeClientPort, SseEvent
 
 logger = logging.getLogger(__name__)
 
 DEDUPE_PREFIX = "im:dedupe"
 DEDUPE_TTL_SEC = 600
-DELTA_FLUSH_CHARS = 40
 
 RUN_CREATED_EVENT = "run.created"
 MESSAGE_DELTA_EVENT = "message.delta"
@@ -60,7 +68,6 @@ NO_SKILLS_TEXT = "暂无可用技能"
 NEW_CONVERSATION_TEXT = "已创建新会话"
 STOP_ACCEPTED_TEXT = "正在停止当前任务…"
 STOP_CANCELLED_TEXT = "当前任务已停止"
-BROKEN_STREAM_TEXT = "服务暂时中断，请重发消息"
 
 
 def route_from_envelope(envelope: ChannelEnvelope) -> DeliveryRouteInput:
@@ -113,16 +120,13 @@ async def fetch_skill_catalog(
 
 
 class _RunStreamState:
-    def __init__(self) -> None:
+    """一次 Run 的流状态：run_id/终态由本类持有，文本缓冲与节流归 StreamRenderer。"""
+
+    def __init__(self, renderer: StreamRenderer) -> None:
+        self.renderer = renderer
         self.run_id: str | None = None
-        self.buffer: list[str] = []
         self.awaiting_input = False
         self.terminal = False
-        self.has_output = False
-
-    @property
-    def buffered_chars(self) -> int:
-        return sum(len(chunk) for chunk in self.buffer)
 
 
 class InboundPipeline:
@@ -135,7 +139,9 @@ class InboundPipeline:
         catalog: MessageCatalog,
         tenant_id: str,
         locale: str = "zh-CN",
+        delta_flush_interval_sec: float = DELTA_FLUSH_INTERVAL_SEC,
     ) -> None:
+        self._delta_flush_interval_sec = delta_flush_interval_sec
         self._dedupe = dedupe
         self._console = console
         self._runtime = runtime
@@ -367,7 +373,7 @@ class InboundPipeline:
         request: RunRequest,
         platform_user_id: UUID,
     ) -> None:
-        state = _RunStreamState()
+        state = _RunStreamState(self._build_renderer())
         try:
             stream = self._runtime.create_run(request, tenant_id=self._tenant_id)
             async for event in stream:
@@ -375,14 +381,18 @@ class InboundPipeline:
                 if state.terminal:
                     break
         except AppError as exc:
-            await self._flush(adapter, route, state)
-            await self._finalize_stream(adapter, route)
+            await self._run_actions(adapter, route, state, state.renderer.finalize())
             await self._reply_error(adapter, route, exc)
             return
-        await self._flush(adapter, route, state)
-        await self._finalize_stream(adapter, route)
+        await self._run_actions(adapter, route, state, state.renderer.finalize())
         if not state.terminal and not state.awaiting_input:
             await self._send_text(adapter, route, BROKEN_STREAM_TEXT)
+
+    def _build_renderer(self) -> StreamRenderer:
+        return StreamRenderer(
+            flush_interval_sec=self._delta_flush_interval_sec,
+            message_for=lambda code: self._catalog.message(code, self._locale),
+        )
 
     async def _apply_run_event(
         self,
@@ -392,42 +402,33 @@ class InboundPipeline:
         state: _RunStreamState,
         event: SseEvent,
     ) -> None:
-        if event.type == MESSAGE_DELTA_EVENT:
-            delta = str(event.data.get("delta") or "")
-            if delta:
-                state.buffer.append(delta)
-                if state.buffered_chars >= DELTA_FLUSH_CHARS:
-                    await self._flush(adapter, route, state)
-            return
         if event.type == RUN_CREATED_EVENT:
-            run_id = event.data.get("run_id")
+            run_id = event.run_id or (event.data or {}).get("run_id")
             if run_id is not None:
                 state.run_id = str(run_id)
             return
-        if event.type == TASK_ACCEPTED_EVENT:
-            await self._flush(adapter, route, state)
-            await self._send_text(adapter, route, str(event.data.get("message") or ""))
-            state.terminal = True
-            return
+        await self._run_actions(adapter, route, state, state.renderer.apply(event))
         if event.type == INTERRUPT_REQUIRED_EVENT:
-            await self._flush(adapter, route, state)
-            await self._send_text(adapter, route, str(event.data.get("prompt") or ""))
             if state.run_id is not None:
                 self._pending_run_ids[str(platform_user_id)] = state.run_id
             state.awaiting_input = True
-            return
-        if event.type == RUN_COMPLETED_EVENT:
-            await self._flush(adapter, route, state)
-            final_text = str(event.data.get("final_text") or "")
-            if final_text and not state.has_output:
-                await self._send_text(adapter, route, final_text)
+        if event.type in (TASK_ACCEPTED_EVENT, RUN_COMPLETED_EVENT, RUN_FAILED_EVENT):
             state.terminal = True
-            return
-        if event.type == RUN_FAILED_EVENT:
-            await self._flush(adapter, route, state)
-            code = str(event.data.get("error_code") or "")
-            await self._send_text(adapter, route, self._catalog.message(code, self._locale))
-            state.terminal = True
+
+    async def _run_actions(
+        self,
+        adapter: ChannelAdapter,
+        route: DeliveryRouteInput,
+        state: _RunStreamState,
+        actions: Sequence[RenderAction],
+    ) -> None:
+        for action in actions:
+            if action.kind == STREAM_KIND:
+                await self._stream_text(adapter, route, action.text)
+            elif action.kind == TEXT_KIND and action.text:
+                await self._send_text(adapter, route, action.text)
+            elif action.kind == FINALIZE_KIND:
+                await self._finalize_stream(adapter, route)
 
     async def _flush(
         self,
@@ -435,12 +436,7 @@ class InboundPipeline:
         route: DeliveryRouteInput,
         state: _RunStreamState,
     ) -> None:
-        if not state.buffer:
-            return
-        text = "".join(state.buffer)
-        state.buffer.clear()
-        state.has_output = True
-        await self._stream_text(adapter, route, text)
+        await self._run_actions(adapter, route, state, state.renderer.flush())
 
     async def _stream_text(
         self,
