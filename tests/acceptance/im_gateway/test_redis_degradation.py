@@ -125,19 +125,19 @@ async def degraded_gateway(
 
 
 def _sent_texts(stack: GatewayStack) -> list[str]:
+    """出站内容：带 reply_id 的回复走流式帧（aibot_respond_msg），直发走 aibot_send_msg。"""
     probe = stack.ws_probe
     assert probe is not None
-    return [
-        str(((item.frame.get("body") or {}).get("text") or {}).get("content") or "")
-        for item in probe.received  # type: ignore[attr-defined]
-        if item.frame.get("cmd") == "aibot_send_msg"
-    ]
+    texts: list[str] = []
+    for item in probe.received:  # type: ignore[attr-defined]
+        body = item.frame.get("body") or {}
+        if item.frame.get("cmd") == "aibot_respond_msg":
+            texts.append(str((body.get("stream") or {}).get("content") or ""))
+        elif item.frame.get("cmd") == "aibot_send_msg":
+            texts.append(str((body.get("text") or {}).get("content") or ""))
+    return texts
 
 
-@pytest.mark.xfail(
-    reason="TASK-027 阻塞：Redis 降级下的入站继续用例尚未跑通（见任务 Evidence 的待查方向）",
-    strict=False,
-)
 async def test_e06_inbound_and_delivery_continue_at_least_once_without_redis(
     gateway_stack: GatewayStack, degraded_gateway: ServiceProcess
 ) -> None:
