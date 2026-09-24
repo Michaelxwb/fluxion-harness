@@ -51,6 +51,8 @@ INTERRUPT_REQUIRED_EVENT = "interrupt.required"
 RUN_COMPLETED_EVENT = "run.completed"
 RUN_FAILED_EVENT = "run.failed"
 
+MAX_CONCURRENT_HANDLERS = 8
+
 BIND_COMMAND = "/bind"
 NEW_COMMAND = "/new"
 STOP_COMMAND = "/stop"
@@ -68,6 +70,16 @@ NO_SKILLS_TEXT = "暂无可用技能"
 NEW_CONVERSATION_TEXT = "已创建新会话"
 STOP_ACCEPTED_TEXT = "正在停止当前任务…"
 STOP_CANCELLED_TEXT = "当前任务已停止"
+
+
+COMMAND_PREFIXES = ("/bind", "/new", "/stop", "/skills")
+
+
+def _is_command(text: str) -> bool:
+    stripped = text.strip()
+    return any(
+        stripped == prefix or stripped.startswith(f"{prefix} ") for prefix in COMMAND_PREFIXES
+    )
 
 
 def route_from_envelope(envelope: ChannelEnvelope) -> DeliveryRouteInput:
@@ -148,22 +160,53 @@ class InboundPipeline:
         self._catalog = catalog
         self._tenant_id = tenant_id
         self._locale = locale
-        self._pending_run_ids: dict[str, str] = {}
-
-    def pending_run_id(self, platform_user_id: UUID | str) -> str | None:
-        return self._pending_run_ids.get(str(platform_user_id))
+        self._route_locks: dict[tuple[str, str, str], asyncio.Lock] = {}
 
     async def consume(self, adapter: ChannelAdapter) -> None:
+        """有界并发消费入站事件：一个 Run 的长流不阻塞同 bot 的后续消息（含 /stop）。
+
+        - 非命令消息按 route 串行（同 route 的流不交叉）；
+        - 命令（/bind /new /stop /skills）不加 route 锁，长流期间仍可即时处理；
+        - Runtime 决定 RUN_BUSY/resume：Gateway 不缓存活跃 Run 事实。
+        """
         events = await adapter.iter_events()
-        async for envelope in events:
-            try:
+        active: set[asyncio.Task[None]] = set()
+        try:
+            async for envelope in events:
+                if len(active) >= MAX_CONCURRENT_HANDLERS:
+                    _done, active = await asyncio.wait(
+                        active, return_when=asyncio.FIRST_COMPLETED
+                    )
+                task = asyncio.create_task(self._consume_one(adapter, envelope))
+                active.add(task)
+                task.add_done_callback(active.discard)
+        finally:
+            for task in tuple(active):
+                task.cancel()
+            if active:
+                await asyncio.gather(*active, return_exceptions=True)
+
+    async def _consume_one(self, adapter: ChannelAdapter, envelope: ChannelEnvelope) -> None:
+        try:
+            if _is_command(envelope.text):
                 await self.handle(adapter, envelope)
-            except Exception:
-                logger.exception(
-                    "inbound_message_failed channel=%s message_id=%s",
-                    envelope.channel,
-                    envelope.message_id,
-                )
+                return
+            async with self._route_lock(envelope):
+                await self.handle(adapter, envelope)
+        except Exception:
+            logger.exception(
+                "inbound_message_failed channel=%s message_id=%s",
+                envelope.channel,
+                envelope.message_id,
+            )
+
+    def _route_lock(self, envelope: ChannelEnvelope) -> asyncio.Lock:
+        key = (envelope.channel, envelope.bot_id, envelope.external_user_id)
+        lock = self._route_locks.get(key)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._route_locks[key] = lock
+        return lock
 
     async def handle(self, adapter: ChannelAdapter, envelope: ChannelEnvelope) -> None:
         if not await self._mark_seen(envelope):
@@ -402,6 +445,7 @@ class InboundPipeline:
         state: _RunStreamState,
         event: SseEvent,
     ) -> None:
+        del platform_user_id  # resume 由 Runtime 决定（Gateway 无状态）
         if event.type == RUN_CREATED_EVENT:
             run_id = event.run_id or (event.data or {}).get("run_id")
             if run_id is not None:
@@ -409,8 +453,6 @@ class InboundPipeline:
             return
         await self._run_actions(adapter, route, state, state.renderer.apply(event))
         if event.type == INTERRUPT_REQUIRED_EVENT:
-            if state.run_id is not None:
-                self._pending_run_ids[str(platform_user_id)] = state.run_id
             state.awaiting_input = True
         if event.type in (TASK_ACCEPTED_EVENT, RUN_COMPLETED_EVENT, RUN_FAILED_EVENT):
             state.terminal = True

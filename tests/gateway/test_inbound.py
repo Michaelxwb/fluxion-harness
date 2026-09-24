@@ -272,7 +272,6 @@ async def test_interrupt_required_flushes_and_sends_prompt(catalog: MessageCatal
     assert _streamed_chunks(adapter) == [("分析中",)]
     # design §3.4.1：中断先 flush 已缓冲文本，再把 prompt 与 options 发给用户
     assert _sent_texts(adapter) == ["将对 2 台设备执行策略检查，是否继续？", "继续\n取消"]
-    assert pipeline.pending_run_id(console.resolve_response.platform_user_id) == "run-9"
 
 
 async def test_stream_ending_without_terminal_event_replies_broken(catalog: MessageCatalog) -> None:
