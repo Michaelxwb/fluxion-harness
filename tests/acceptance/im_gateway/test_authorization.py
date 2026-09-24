@@ -15,26 +15,27 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
-_TESTS_ROOT = Path(__file__).resolve().parents[2]
-if str(_TESTS_ROOT) not in sys.path:  # 复用 console_channel 的"有效技能"真实 PG 种子构造
-    sys.path.insert(0, str(_TESTS_ROOT))
-
 import pytest
 from muad_common import SharedSettings
 from muad_console_platform.infrastructure.db import get_session_factory
-from muad_console_platform.infrastructure.models.channel import BotAccount, ChannelIdentity
+from muad_console_platform.infrastructure.models.channel import ChannelIdentity
 from muad_console_platform.infrastructure.models.control import PlatformUser
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.acceptance.im_gateway.environment import (
     BOT_ID,
-    CHAT_ID,
     BOUND_EXTERNAL_USER_ID,
+    CHAT_ID,
     GatewayStack,
     count_tenant_rows,
     purge_tenant,
 )
+
+_TESTS_ROOT = Path(__file__).resolve().parents[2]
+if str(_TESTS_ROOT) not in sys.path:  # 复用 console_channel 的"有效技能"真实 PG 种子构造
+    sys.path.insert(0, str(_TESTS_ROOT))
+
 from console_channel.test_channel_skills_api import _seed_skill  # noqa: E402  (sys.path 已前置)
 
 UNGANTEED_EXTERNAL_USER = "e2e-im-ext-ungranted"
@@ -230,7 +231,9 @@ async def test_b124_authorized_run_snapshot_contains_only_effective_skills(
     before = len(_replies(gateway_stack))
     await _push(gateway_stack, text="授权用户发起一次运行")
     await _wait_for(
-        lambda: len(_replies(gateway_stack)) > before, what="授权用户的运行未得到回复", timeout=REPLY_TIMEOUT_SEC
+        lambda: len(_replies(gateway_stack)) > before,
+        what="授权用户的运行未得到回复",
+        timeout=REPLY_TIMEOUT_SEC,
     )
     # Runtime 侧 Effective Capability：Snapshot 的 Skill Catalog 只含授权技能
     catalog_rows = await _rows(

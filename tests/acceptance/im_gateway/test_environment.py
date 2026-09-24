@@ -10,7 +10,6 @@ import asyncio
 import time
 
 import httpx
-import pytest
 import redis.asyncio
 from muad_common import SharedSettings
 from sqlalchemy import text

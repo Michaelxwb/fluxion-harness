@@ -33,7 +33,12 @@ def _bot(bot_id: str) -> BotSnapshotItem:
     )
 
 
-async def _wait_state(adapter: WeComAdapter, bot_id: str, state: ConnectionState, timeout: float = CONNECT_TIMEOUT_SEC) -> ConnectionState:
+async def _wait_state(
+    adapter: WeComAdapter,
+    bot_id: str,
+    state: ConnectionState,
+    timeout: float = CONNECT_TIMEOUT_SEC,
+) -> ConnectionState:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         current = adapter.connection_states.get(bot_id)

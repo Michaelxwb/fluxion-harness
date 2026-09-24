@@ -29,7 +29,6 @@ def _probe_sdk_factory(probe: WeComProbe):
 
     def factory(bot_id: str, secret: str):
         from aibot import WSClient, WSClientOptions  # type: ignore[import-untyped]
-
         from muad_im_gateway.channels.wecom.adapter import _AibotClientPort
 
         options = WSClientOptions(

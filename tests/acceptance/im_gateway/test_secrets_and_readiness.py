@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import time
-import uuid
 from pathlib import Path
 from typing import Any
 
@@ -24,8 +23,6 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.acceptance.im_gateway.environment import (
     BOT_ID,
-    CHAT_ID,
-    BOUND_EXTERNAL_USER_ID,
     GatewayStack,
     count_tenant_rows,
     purge_tenant,
