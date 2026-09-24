@@ -130,12 +130,12 @@
 | B-124 | 10-im-gateway.backend.design.md#API-04 查询可用 Skills | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry | TASK-024 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_authorization.py","-k","b124"] | . | 1200 |  |
 | RULE-05 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry | TASK-024 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_authorization.py","-k","b124"] | . | 1200 |  |
 | RULE-auth-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry；原 Spec verifier 真实边界 | TASK-024 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_authorization.py && uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 1200 |  |
-| B-125 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"] | . | 1200 |  |
-| S-03 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站 | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","s03"] | . | 1200 |  |
+| B-125 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | TASK-025 | blocked | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"] | . | 1200 |  |
+| S-03 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站 | TASK-025 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","s03"] | . | 1200 |  |
 | E-03 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway→真实Runtime SSE断线→Reaper/PostgreSQL | TASK-032 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"] | . | 600 |  |
-| E-04 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Runtime/PG→Gateway HTTP错误处理 | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","e04"] | . | 600 |  |
+| E-04 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Runtime/PG→Gateway HTTP错误处理 | TASK-025 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","e04"] | . | 600 |  |
 | RULE-06 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | integration | 真实WS→Gateway→Runtime SSE断流→PostgreSQL Snapshot/Reaper→终态CAS | TASK-032 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"] | . | 600 |  |
-| RULE-10 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | TASK-025 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"] | . | 1200 |  |
+| RULE-10 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | TASK-025 | blocked | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"] | . | 1200 |  |
 | RULE-snapshot-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 真实WS→Gateway→Runtime SSE断流/Recovery→PostgreSQL Snapshot/Reaper→终态CAS；原 Spec verifier 真实边界 | TASK-032 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_recovery.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 |  |
 | B-126 | 10-im-gateway.backend.design.md#API-03 执行绑定 | E2E | Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用 | TASK-026 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_gateway_idempotency.py","-k","b126"] | . | 1200 |  |
 | RULE-api-002 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用（含 B-103 绑定幂等、B-111 /new 幂等）；原 Spec verifier 真实边界 | TASK-026 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_gateway_idempotency.py && uv run pytest -q tests/console_channel/test_channel_bind_idempotency.py -k b103 && uv run pytest -q tests/gateway/test_commands_integration.py -k b111 && uv run pytest -q tests/console_skill/test_import_idempotency.py"] | . | 1200 |  |
@@ -1405,7 +1405,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-025: 验收流式回复、Resume、取消与 Snapshot
 
-- **Status**: draft
+- **Status**: blocked
 - **Priority**: P0
 - **Depends**: TASK-012, TASK-014, TASK-015, TASK-016, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03）, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1422,30 +1422,41 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 ### Checklist
 
 - [ ] [B-125][E2E] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 编写或扩展用例；关键断言：seq单调；resumed=true沿用原Run；RUN_BUSY无新Run；断流文案正确且Reaper FAILED/RUN_ABANDONED；Snapshot冻结与终态CAS。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"]`。
-- [ ] [S-03][E2E] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站 编写或扩展用例；关键断言：授权消息创建Run；seq单调；run.completed正确收尾；无业务API mock。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","s03"]`。
-- [ ] [E-04][integration] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实Runtime/PG→Gateway HTTP错误处理 编写或扩展用例；关键断言：CREATED/RUNNING冲突返回RUN_BUSY；无新Run且原状态不变；提示可/stop。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","e04"]`。
+- [x] [S-03][E2E] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站 编写或扩展用例；关键断言：授权消息创建Run；seq单调；run.completed正确收尾；无业务API mock。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","s03"]`。
+- [x] [E-04][integration] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实Runtime/PG→Gateway HTTP错误处理 编写或扩展用例；关键断言：CREATED/RUNNING冲突返回RUN_BUSY；无新Run且原状态不变；提示可/stop。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","e04"]`。
 - [ ] 实现或补齐：验证真实 Run 流、普通消息自动恢复、忙碌拒绝与取消错误语义；配置变更后当前快照不变、新 Run 使用新配置。断流回收与 Snapshot/CAS 的规则归属见 TASK-032。
 - [ ] [RULE-10][E2E] 作为唯一最终负责人，沿 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 验证 未绑定正常分支、自动resume、并发和取消错误语义；联合映射 S-06 / E-04 / E-05 / B-125；命令 `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"]`，不得以任务标题或静态声明代替行为证据。断言须同时覆盖 B-125 的关键项（seq 单调、resumed=true、RUN_BUSY 无新 Run、取消/终态文案），不得只跑通 b125 用例名称即视为满足。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-125 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | seq单调；resumed=true沿用原Run；RUN_BUSY无新Run；断流文案正确且Reaper FAILED/RUN_ABANDONED；Snapshot冻结与终态CAS | tests/acceptance/im_gateway/test_runtime_stream.py / B-125（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"]` | planned |
-| S-03 | E2E | 真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站 | 授权消息创建Run；seq单调；run.completed正确收尾；无业务API mock | tests/acceptance/im_gateway/test_runtime_stream.py / S-03（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","s03"]` | planned |
-| E-04 | integration | 真实Runtime/PG→Gateway HTTP错误处理 | CREATED/RUNNING冲突返回RUN_BUSY；无新Run且原状态不变；提示可/stop | tests/acceptance/im_gateway/test_runtime_stream.py / E-04（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","e04"]` | planned |
-| RULE-10 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | 未绑定正常分支、自动resume、并发和取消错误语义；联合映射 S-06 / E-04 / E-05 / B-125 | tests/acceptance/im_gateway/test_runtime_stream.py / RULE-10（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"]` | planned |
+| B-125 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | seq单调；resumed=true沿用原Run；RUN_BUSY无新Run；断流文案正确且Reaper FAILED/RUN_ABANDONED；Snapshot冻结与终态CAS | tests/acceptance/im_gateway/test_runtime_stream.py / B-125（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"]` | blocked |
+| S-03 | E2E | 真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站 | 授权消息创建Run；seq单调；run.completed正确收尾；无业务API mock | tests/acceptance/im_gateway/test_runtime_stream.py / S-03（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","s03"]` | verified |
+| E-04 | integration | 真实Runtime/PG→Gateway HTTP错误处理 | CREATED/RUNNING冲突返回RUN_BUSY；无新Run且原状态不变；提示可/stop | tests/acceptance/im_gateway/test_runtime_stream.py / E-04（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","e04"]` | verified |
+| RULE-10 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | 未绑定正常分支、自动resume、并发和取消错误语义；联合映射 S-06 / E-04 / E-05 / B-125 | tests/acceptance/im_gateway/test_runtime_stream.py / RULE-10（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"]` | blocked |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
 
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-03 / E-04 | **验收类不制造 RED**（Baseline）。据实记录 4 处**测试自身**修正：① seq 单调断言初版按 `create_time DESC` 取回再反转（同时间戳下顺序不稳）→ 改为按 `run_id = 最新 Run` 精确取该 Run 的事件并 `ORDER BY seq`；② `_wait_for` 收到协程导致 `'>=' not supported between coroutine and int` → 改为 await 内部再比较的谓词；③ 种子 Run 需要快照 → resume 用例先打一条真实消息并拷贝最近真实 Snapshot；④ `-k` 过滤单跑会跳过为后续用例铺垫的前置用例（快照来源）——**该文件必须整跑**或让用例自足。 | `-k "s03 or e04"` 相关用例通过；整文件 → `3 passed, 2 xfailed`（137.92s）。 | `test_s03_stream_reply_has_monotonic_seq_and_completes`（真实 WS 推送 → 流式出站回复；该 Run 的 `runtime.canonical_event` 序号**严格单调**（按 run_id 精确取，`ORDER BY seq`）；`run.completed` 流类型存在；`run_record.status == COMPLETED`）；`test_e04_busy_run_is_rejected_without_new_run`（种入 RUNNING Run → 普通消息被拒为 **catalog 的 `RUN_BUSY` 文案**且文案含 `/stop`；`run_record` 计数不变 ⇒ **无新 Run**；原 Run 仍为 `RUNNING`）；`test_b125_cleanup_leaves_no_stream_residue`。 | 真实 WeCom 协议 WS（官方 SDK，真实入站推送与出站帧回读）+ 真实 Gateway 进程 + 真实 Runtime HTTP/SSE + 真实 PostgreSQL（canonical_event / run_record / runtime_snapshot 逐行回读）。未 mock 业务 API。 | verified（S-03 / E-04 部分） |
+| B-125 / RULE-10 | 同上（验收类） | **未通过，本任务挂起**：`3 passed, 2 xfailed`。两个未收口用例以显式 `xfail` 登记（不伪造通过）：<br>① `test_b125_waiting_input_run_is_auto_resumed_and_snapshot_frozen` —— 种入 `WAITING_INPUT` Run（含拷贝的真实 Snapshot + 等待中的 RunInterrupt）后推送普通消息，**未在 120s 内被自动 resume 到终态**。待查方向：`_resume_run` 的前置条件（是否还需要 `run_submission` 行 / interrupt 的 `options_json` 形态 / `first_seq`）、种子 conversation 是否确为该 (agent,user) 的 latest、以及该次推送是否真的到达 Runtime（加一句"回复文案"断言即可立刻分辨）。<br>② `test_b125_new_run_uses_new_configuration_snapshot` —— 首个 Run 未在 120s 内到达 `COMPLETED`（同一条推送链路的疑点），revision 变更后"新 Run 用新快照 hash"的比较未跑到。 | 同 S-03：真实 WS/Gateway/Runtime/PG。 | **未验证（挂起）** |
+
+补充记录：
+- 新增 `tests/acceptance/im_gateway/test_runtime_stream.py`；本任务未改任何生产代码。
+- 已取证部分覆盖了 RULE-10 要求的"seq 单调、RUN_BUSY 无新 Run 且原状态不变"与 S-03 的"授权消息创建 Run、run.completed 正确收尾、无业务 API mock"；**未取证**的是 RULE-10 要求的"自动 resume（`resumed=true` 沿用原 Run）"与"取消/终态文案、Snapshot 冻结与终态 CAS 的可观测结果"——这些依赖上述两个未收口用例。
+- 交接入口：`uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py -rX`（整跑，勿用 `-k` 单跑后置用例）。
+
+> BLOCKED: 两个流式用例未收口：种子 WAITING_INPUT Run 未自动 resume、配置变更后新快照用例首 Run 未完成（S-03/E-04 已 verified，B-125/RULE-10 未验证）
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] blocked (两个流式用例未收口：种子 WAITING_INPUT Run 未自动 resume、配置变更后新快照用例首 Run 未完成（S-03/E-04 已 verified，B-125/RULE-10 未验证）)
 ## TASK-026: 验收绑定和 Run 的端到端幂等
 
 - **Status**: done
