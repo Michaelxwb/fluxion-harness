@@ -678,7 +678,7 @@
       "kind": "e2e",
       "boundary": "WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry",
       "owner": "TASK-024",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -690,7 +690,26 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-124",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "8d1013e44bf54f2197d74c45a9694730",
+        "executed_at": "2026-09-24T05:41:47.917411+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-124",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "8d1013e44bf54f2197d74c45a9694730",
+          "executed_at": "2026-09-24T05:41:47.917411+00:00"
+        }
+      ]
     },
     {
       "id": "B-125",
