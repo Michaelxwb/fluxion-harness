@@ -547,26 +547,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-122",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "8d9391634ea443e48041a6b1dd3c0a15",
-        "executed_at": "2026-09-24T05:17:43.371568+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-122",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "8d9391634ea443e48041a6b1dd3c0a15",
-          "executed_at": "2026-09-24T05:17:43.371568+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-01",
@@ -587,26 +568,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-01",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "8d9391634ea443e48041a6b1dd3c0a15",
-        "executed_at": "2026-09-24T05:17:43.371568+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-01",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "8d9391634ea443e48041a6b1dd3c0a15",
-          "executed_at": "2026-09-24T05:17:43.371568+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-123",
@@ -690,26 +652,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-124",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "8d1013e44bf54f2197d74c45a9694730",
-        "executed_at": "2026-09-24T05:41:47.917411+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-124",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "8d1013e44bf54f2197d74c45a9694730",
-          "executed_at": "2026-09-24T05:41:47.917411+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-125",
@@ -718,7 +661,7 @@
       "kind": "e2e",
       "boundary": "真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复",
       "owner": "TASK-025",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -739,7 +682,7 @@
       "kind": "e2e",
       "boundary": "真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站",
       "owner": "TASK-025",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -772,28 +715,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "f6c967e0770d4230b1d2860b26a57139",
-        "executed_at": "2026-09-24T12:59:54.217049+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "f6c967e0770d4230b1d2860b26a57139",
-          "executed_at": "2026-09-24T12:59:54.217049+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-04",
@@ -802,7 +724,7 @@
       "kind": "functional",
       "boundary": "真实Runtime/PG→Gateway HTTP错误处理",
       "owner": "TASK-025",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -856,42 +778,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 3,
-      "evidence": {
-        "id": "B-127",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 3,
-        "run_id": "8fd7b4e5ae9a4083aa321b668d3fa204",
-        "executed_at": "2026-09-24T11:37:06.480924+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-127",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "e729b7658425495fa3b1538d519d5301",
-          "executed_at": "2026-09-24T11:16:38.097783+00:00"
-        },
-        {
-          "id": "B-127",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "c21f53e2aaee4725a295e0788a9678e5",
-          "executed_at": "2026-09-24T11:26:05.556552+00:00"
-        },
-        {
-          "id": "B-127",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 3,
-          "run_id": "8fd7b4e5ae9a4083aa321b668d3fa204",
-          "executed_at": "2026-09-24T11:37:06.480924+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-04",
@@ -912,42 +799,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 3,
-      "evidence": {
-        "id": "S-04",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 3,
-        "run_id": "8fd7b4e5ae9a4083aa321b668d3fa204",
-        "executed_at": "2026-09-24T11:37:06.480924+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-04",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "e729b7658425495fa3b1538d519d5301",
-          "executed_at": "2026-09-24T11:16:38.097783+00:00"
-        },
-        {
-          "id": "S-04",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "c21f53e2aaee4725a295e0788a9678e5",
-          "executed_at": "2026-09-24T11:26:05.556552+00:00"
-        },
-        {
-          "id": "S-04",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 3,
-          "run_id": "8fd7b4e5ae9a4083aa321b668d3fa204",
-          "executed_at": "2026-09-24T11:37:06.480924+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-06",
@@ -968,46 +820,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 3,
-      "evidence": {
-        "id": "E-06",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 3,
-        "run_id": "8fd7b4e5ae9a4083aa321b668d3fa204",
-        "executed_at": "2026-09-24T11:37:06.480924+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "e729b7658425495fa3b1538d519d5301",
-          "executed_at": "2026-09-24T11:16:38.097783+00:00"
-        },
-        {
-          "id": "E-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 2,
-          "run_id": "c21f53e2aaee4725a295e0788a9678e5",
-          "executed_at": "2026-09-24T11:26:05.556552+00:00"
-        },
-        {
-          "id": "E-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 3,
-          "run_id": "8fd7b4e5ae9a4083aa321b668d3fa204",
-          "executed_at": "2026-09-24T11:37:06.480924+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-128",
@@ -1028,28 +841,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-128",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "73d794e77b644fb48cff09e88af8be6c",
-        "executed_at": "2026-09-24T11:47:45.246967+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-128",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "73d794e77b644fb48cff09e88af8be6c",
-          "executed_at": "2026-09-24T11:47:45.246967+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-07",
@@ -1070,28 +862,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-07",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "73d794e77b644fb48cff09e88af8be6c",
-        "executed_at": "2026-09-24T11:47:45.246967+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-07",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "73d794e77b644fb48cff09e88af8be6c",
-          "executed_at": "2026-09-24T11:47:45.246967+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-129",
@@ -1100,7 +871,7 @@
       "kind": "functional",
       "boundary": "pytest用例收集/运行→验收Contract/Evidence→真实组件记录",
       "owner": "TASK-029",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1112,7 +883,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-129",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "70684645b7ac4f47ba9427977ad3c373",
+        "executed_at": "2026-09-24T22:13:49.937260+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-129",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "70684645b7ac4f47ba9427977ad3c373",
+          "executed_at": "2026-09-24T22:13:49.937260+00:00"
+        }
+      ]
     },
     {
       "id": "B-130",
