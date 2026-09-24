@@ -10,8 +10,6 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
-
-import pytest
 from typing import Any
 
 from muad_common import SharedSettings
@@ -23,12 +21,13 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.acceptance.im_gateway.environment import (
     BOT_ID,
-    CHAT_ID,
     BOUND_EXTERNAL_USER_ID,
+    CHAT_ID,
     GatewayStack,
     count_tenant_rows,
     purge_tenant,
 )
+
 
 def _catalog_message(code: str) -> str:
     return str(gateway_app.state.message_catalog.message(code, "zh-CN"))
@@ -271,15 +270,6 @@ async def test_b125_waiting_input_run_is_auto_resumed_and_snapshot_frozen(
     assert str(snapshot_after or "") == snapshot_id, "resume 不得更换快照"
 
 
-async def _scalar_row(statement: str, params: dict[str, object]) -> tuple[Any, ...]:
-    engine = create_async_engine(SharedSettings().require_database_url())
-    try:
-        async with engine.connect() as connection:
-            return tuple((await connection.execute(text(statement), params)).one())
-    finally:
-        await engine.dispose()
-
-
 async def _run_status(run_id: str) -> str | None:
     value = await _scalar(
         "SELECT status FROM runtime.run_record WHERE id = :id", {"id": uuid.UUID(run_id)}
@@ -290,6 +280,59 @@ async def _run_status(run_id: str) -> str | None:
 async def _is_terminal(run_id: str) -> bool:
     status = await _run_status(run_id)
     return status in ("COMPLETED", "FAILED", "CANCELLED")
+
+
+async def _run_ids(stack: GatewayStack) -> set[str]:
+    rows = await _rows(
+        "SELECT id::text FROM runtime.run_record WHERE tenant_id = :t", {"t": stack.tenant_id}
+    )
+    return {str(row[0]) for row in rows}
+
+
+async def _seed_conversation(stack: GatewayStack) -> str:
+    """种入一条全新的 (agent,user) 会话并使其成为最新。
+
+    WS 推送不带 conversation_id，Runtime 按 `update_time` 最新会话解析
+    （agent-runtime `_resolve_conversation`）；模块级共享租户里前序用例种下的会话
+    可能仍挂着活跃 Run，故本用例自备会话以保证推送落在自己的会话内。
+    """
+    conversation_id = uuid.uuid4()
+    await _execute(
+        "INSERT INTO runtime.conversation "
+        "(id, tenant_id, user_id, agent_id, status, last_seq) "
+        "VALUES (:id, :t, :u, :a, 'ACTIVE', 0)",
+        {
+            "id": conversation_id,
+            "t": stack.tenant_id,
+            "u": stack.platform_user_id,
+            "a": stack.agent_id,
+        },
+    )
+    return str(conversation_id)
+
+
+async def _run_conversation_id(run_id: str) -> str:
+    value = await _scalar(
+        "SELECT conversation_id::text FROM runtime.run_record WHERE id = :id",
+        {"id": uuid.UUID(run_id)},
+    )
+    return str(value or "")
+
+
+async def _new_run_id(stack: GatewayStack, before: set[str]) -> str | None:
+    """本次推送新建的唯一 Run（依赖模块级共享租户，故按集合差而非租户聚合判定）。"""
+    fresh = sorted(await _run_ids(stack) - before)
+    if len(fresh) > 1:
+        raise AssertionError(f"本次推送新建了多个 Run：{fresh}")
+    return fresh[0] if fresh else None
+
+
+async def _snapshot_hash_of(run_id: str) -> str | None:
+    value = await _scalar(
+        "SELECT content_hash FROM runtime.runtime_snapshot WHERE run_id = :id",
+        {"id": uuid.UUID(run_id)},
+    )
+    return str(value) if value is not None else None
 
 
 async def test_e04_busy_run_is_rejected_without_new_run(gateway_stack: GatewayStack) -> None:
@@ -315,54 +358,43 @@ async def test_e04_busy_run_is_rejected_without_new_run(gateway_stack: GatewaySt
     assert await _run_status(run_id) == "RUNNING", "原 Run 状态不得被改变"
 
 
-@pytest.mark.xfail(reason="TASK-025 未收口：配置变更后"新 Run 用新快照 hash"用例未通过（待查：第二次推送是否产生新 Run/新快照，或 revision 变更后 resolve 行为的断言差异；先跑该用例 -rX 看具体断言）", strict=False)
 async def test_b125_new_run_uses_new_configuration_snapshot(gateway_stack: GatewayStack) -> None:
     await _wait_gateway_ws(gateway_stack)
+    conversation_id = await _seed_conversation(gateway_stack)
+    before_runs = await _run_ids(gateway_stack)
     await _push(gateway_stack, text="配置变更前的运行")
     await _wait_for(
-        lambda: _runs_with_status_at_least(gateway_stack, "COMPLETED", 1),
-        what="首个 Run 未完成",
+        lambda: _new_run_id(gateway_stack, before_runs),
+        what="配置变更前的推送未创建 Run",
         timeout=REPLY_TIMEOUT_SEC,
     )
-    first_hash = await _scalar(
-        "SELECT content_hash FROM runtime.runtime_snapshot WHERE tenant_id = :t "
-        "ORDER BY create_time DESC LIMIT 1",
-        {"t": gateway_stack.tenant_id},
+    first_run_id = await _new_run_id(gateway_stack, before_runs)
+    assert first_run_id is not None
+    assert await _run_conversation_id(first_run_id) == conversation_id, "推送未落在本用例会话"
+    await _wait_for(
+        lambda: _is_terminal(first_run_id),
+        what="配置变更前的 Run 未到达终态",
+        timeout=REPLY_TIMEOUT_SEC,
     )
+    first_hash = await _snapshot_hash_of(first_run_id)
+    assert first_hash, "配置变更前的 Run 未冻结 Snapshot"
     # 配置变更：Agent revision +1（真实 PG）
     await _execute(
         "UPDATE control.agent_definition SET revision = revision + 1 WHERE id = :id",
         {"id": gateway_stack.agent_id},
     )
+    before_second = await _run_ids(gateway_stack)
     await _push(gateway_stack, text="配置变更后的运行")
-    try:
-        await _wait_for(
-            lambda: _snapshot_count_at_least(gateway_stack, 2),
-            what="配置变更后的新 Run 未产生新快照",
-            timeout=REPLY_TIMEOUT_SEC,
-        )
-    except AssertionError:
-        print("DIAG snapshots:", await _snapshot_count(gateway_stack),
-              "| runs:", await _rows(
-                  "SELECT status, input_text FROM runtime.run_record WHERE tenant_id = :t "
-                  "ORDER BY create_time",
-                  {"t": gateway_stack.tenant_id},
-              ))
-        raise
-    second_hash = await _scalar(
-        "SELECT content_hash FROM runtime.runtime_snapshot WHERE tenant_id = :t "
-        "ORDER BY create_time DESC LIMIT 1",
-        {"t": gateway_stack.tenant_id},
+    await _wait_for(
+        lambda: _new_run_id(gateway_stack, before_second),
+        what="配置变更后的推送未创建新 Run",
+        timeout=REPLY_TIMEOUT_SEC,
     )
-    assert first_hash and second_hash and first_hash != second_hash, (first_hash, second_hash)
-
-
-async def _runs_with_status_at_least(stack: GatewayStack, status: str, expected: int) -> bool:
-    value = await _scalar(
-        "SELECT count(*) FROM runtime.run_record WHERE tenant_id = :t AND status = :status",
-        {"t": stack.tenant_id, "status": status},
-    )
-    return int(value or 0) >= expected
+    second_run_id = await _new_run_id(gateway_stack, before_second)
+    assert second_run_id is not None
+    assert await _run_conversation_id(second_run_id) == conversation_id, "新 Run 未沿用本用例会话"
+    second_hash = await _snapshot_hash_of(second_run_id)
+    assert first_hash != second_hash, (first_hash, second_hash)
 
 
 async def _snapshot_count_at_least(stack: GatewayStack, expected: int) -> bool:
