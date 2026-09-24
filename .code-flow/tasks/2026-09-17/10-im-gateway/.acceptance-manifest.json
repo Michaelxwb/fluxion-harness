@@ -995,7 +995,7 @@
       "kind": "functional",
       "boundary": "真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出",
       "owner": "TASK-028",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1007,7 +1007,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-128",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "73d794e77b644fb48cff09e88af8be6c",
+        "executed_at": "2026-09-24T11:47:45.246967+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-128",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "73d794e77b644fb48cff09e88af8be6c",
+          "executed_at": "2026-09-24T11:47:45.246967+00:00"
+        }
+      ]
     },
     {
       "id": "E-07",
@@ -1016,7 +1037,7 @@
       "kind": "functional",
       "boundary": "真实PG bot secret→Console快照→多bot SDK连接/readyz",
       "owner": "TASK-028",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1028,7 +1049,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "73d794e77b644fb48cff09e88af8be6c",
+        "executed_at": "2026-09-24T11:47:45.246967+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "73d794e77b644fb48cff09e88af8be6c",
+          "executed_at": "2026-09-24T11:47:45.246967+00:00"
+        }
+      ]
     },
     {
       "id": "B-129",

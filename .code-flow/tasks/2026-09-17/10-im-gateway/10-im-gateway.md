@@ -144,8 +144,8 @@
 | E-06 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway入站/投递→真实Redis连接故障→Runtime/WS | TASK-027 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_redis_degradation.py","-k","e06"] | . | 600 |  |
 | RULE-09 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | TASK-027 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"] | . | 1200 |  |
 | RISK-02 | 10-im-gateway.backend.design.md#5. 风险与依赖 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | TASK-027 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"] | . | 1200 |  |
-| B-128 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 | TASK-028 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"] | . | 600 |  |
-| E-07 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实PG bot secret→Console快照→多bot SDK连接/readyz | TASK-028 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","e07"] | . | 600 |  |
+| B-128 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 | TASK-028 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"] | . | 600 |  |
+| E-07 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实PG bot secret→Console快照→多bot SDK连接/readyz | TASK-028 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","e07"] | . | 600 |  |
 | RULE-03 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | integration | 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 | TASK-028 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"] | . | 600 |  |
 | RISK-03 | 10-im-gateway.backend.design.md#5. 风险与依赖 | integration | 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 | TASK-028 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"] | . | 600 |  |
 | RULE-secret-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 真实Worker投递/PG与Console快照→Gateway→官方SDK/WS；日志/审计/Snapshot/Prompt/对外响应 | TASK-028 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_secrets_and_readiness.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"] | . | 1200 |  |
@@ -1565,7 +1565,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-028: 验收 Secret 不泄露与单 Bot 隔离
 
-- **Status**: blocked
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-006, TASK-007, TASK-017, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析, 10-im-gateway.backend.design.md#3.5 质量实现方案, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1580,36 +1580,42 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ### Checklist
 
-- [ ] [B-128][integration] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 编写或扩展用例；关键断言：缺失或错误secret不停止全部bot；readyz依据manager/完整快照而非全连接；所有禁止输出均无canary；SecretProvider无新增。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"]`。
-- [ ] [E-07][integration] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实PG bot secret→Console快照→多bot SDK连接/readyz 编写或扩展用例；关键断言：坏secret只影响目标bot并退避；其他bot正常；就绪详情降级且日志无secret。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","e07"]`。
-- [ ] 实现或补齐：在真实 DB 与受保护内部快照链路使用随机 canary secret，故障注入验证仅目标 bot 退避，其他 bot 正常；检查日志、审计、Snapshot、Prompt、外部API与IM响应。内部 bot 快照是设计指定的最小凭据传输边界，不扩散到公开端点。
-- [ ] [RULE-secret-001][E2E] verifier_ref=harness-secret#RULE-secret-001；原 verifier 输入 argv=`["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]`；补充真实边界 真实Worker投递/PG与Console快照→Gateway→官方SDK/WS；日志/审计/Snapshot/Prompt/对外响应，断言 缺失或错误secret不停止全部bot；readyz依据manager/完整快照而非全连接；所有禁止输出均无canary；SecretProvider无新增；原 verifier 全部通过；覆盖原Matrix S-04/E-07的主动投递与失败路径脱敏，联合验收 argv=`["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_secrets_and_readiness.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"]`。
-- [ ] [RULE-03][integration] 作为唯一最终负责人，沿 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 验证 Owner表密钥存储与禁止输出；联合映射 S-01 / E-07；命令 `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"]`，不得以任务标题或静态声明代替行为证据。
-- [ ] [RISK-03][integration] 作为唯一最终负责人，沿 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 验证 WS抖动、secret失效、单bot隔离；联合映射 E-07；命令 `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"]`，不得以任务标题或静态声明代替行为证据。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-128][integration] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 编写或扩展用例；关键断言：缺失或错误secret不停止全部bot；readyz依据manager/完整快照而非全连接；所有禁止输出均无canary；SecretProvider无新增。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"]`。
+- [x] [E-07][integration] 以 owner 实现任务已完成为前提（验收类不制造 RED，见 Baseline）按 真实PG bot secret→Console快照→多bot SDK连接/readyz 编写或扩展用例；关键断言：坏secret只影响目标bot并退避；其他bot正常；就绪详情降级且日志无secret。执行 argv：`["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","e07"]`。
+- [x] 实现或补齐：在真实 DB 与受保护内部快照链路使用随机 canary secret，故障注入验证仅目标 bot 退避，其他 bot 正常；检查日志、审计、Snapshot、Prompt、外部API与IM响应。内部 bot 快照是设计指定的最小凭据传输边界，不扩散到公开端点。
+- [x] [RULE-secret-001][E2E] verifier_ref=harness-secret#RULE-secret-001；原 verifier 输入 argv=`["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]`；补充真实边界 真实Worker投递/PG与Console快照→Gateway→官方SDK/WS；日志/审计/Snapshot/Prompt/对外响应，断言 缺失或错误secret不停止全部bot；readyz依据manager/完整快照而非全连接；所有禁止输出均无canary；SecretProvider无新增；原 verifier 全部通过；覆盖原Matrix S-04/E-07的主动投递与失败路径脱敏，联合验收 argv=`["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_secrets_and_readiness.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"]`。
+- [x] [RULE-03][integration] 作为唯一最终负责人，沿 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 验证 Owner表密钥存储与禁止输出；联合映射 S-01 / E-07；命令 `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"]`，不得以任务标题或静态声明代替行为证据。
+- [x] [RISK-03][integration] 作为唯一最终负责人，沿 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 验证 WS抖动、secret失效、单bot隔离；联合映射 E-07；命令 `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"]`，不得以任务标题或静态声明代替行为证据。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-128 | integration | 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 | 缺失或错误secret不停止全部bot；readyz依据manager/完整快照而非全连接；所有禁止输出均无canary；SecretProvider无新增 | tests/acceptance/im_gateway/test_secrets_and_readiness.py / B-128（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"]` | blocked |
+| B-128 | integration | 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 | 缺失或错误secret不停止全部bot；readyz依据manager/完整快照而非全连接；所有禁止输出均无canary；SecretProvider无新增 | tests/acceptance/im_gateway/test_secrets_and_readiness.py / B-128（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"]` | verified |
 | E-07 | integration | 真实PG bot secret→Console快照→多bot SDK连接/readyz | 坏secret只影响目标bot并退避；其他bot正常；就绪详情降级且日志无secret | tests/acceptance/im_gateway/test_secrets_and_readiness.py / E-07（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","e07"]` | verified |
 | RULE-03 | integration | 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 | Owner表密钥存储与禁止输出；联合映射 S-01 / E-07 | tests/acceptance/im_gateway/test_secrets_and_readiness.py / RULE-03（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"]` | verified |
-| RISK-03 | integration | 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 | WS抖动、secret失效、单bot隔离；联合映射 E-07 | tests/acceptance/im_gateway/test_secrets_and_readiness.py / RISK-03（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"]` | blocked |
-| RULE-secret-001 | E2E | 真实Worker投递/PG与Console快照→Gateway→官方SDK/WS；日志/审计/Snapshot/Prompt/对外响应 | 缺失或错误secret不停止全部bot；readyz依据manager/完整快照而非全连接；所有禁止输出均无canary；SecretProvider无新增；原 verifier 全部通过；覆盖原Matrix S-04/E-07的主动投递与失败路径脱敏 | tests/acceptance/im_gateway/test_secrets_and_readiness.py + 原 verifier / RULE-secret-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_secrets_and_readiness.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"]` | blocked |
+| RISK-03 | integration | 真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出 | WS抖动、secret失效、单bot隔离；联合映射 E-07 | tests/acceptance/im_gateway/test_secrets_and_readiness.py / RISK-03（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_secrets_and_readiness.py","-k","b128"]` | verified |
+| RULE-secret-001 | E2E | 真实Worker投递/PG与Console快照→Gateway→官方SDK/WS；日志/审计/Snapshot/Prompt/对外响应 | 缺失或错误secret不停止全部bot；readyz依据manager/完整快照而非全连接；所有禁止输出均无canary；SecretProvider无新增；原 verifier 全部通过；覆盖原Matrix S-04/E-07的主动投递与失败路径脱敏 | tests/acceptance/im_gateway/test_secrets_and_readiness.py + 原 verifier / RULE-secret-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_secrets_and_readiness.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"]` | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| E-07 / RULE-03 | **验收类不制造 RED**（Baseline）。据实记录测试自身一处修正：坏 secret 的 bot 认证失败应经探针 `auth_failures` 观测（而非依赖连接状态字符串）。 | `-k "e07 or rule03"` → `3 passed`（45.08s）。 | `test_e07_bad_secret_isolates_target_bot_and_readyz_stays_ready`（坏 secret 的 bot 在真实 WS 上尝试认证并被探针以 40101 拒绝；`/readyz` 仍 **200 + status=ready**、`adapters == {"WECOM": True}`、`degraded_bots` 含坏 bot 且**不含**好 bot ⇒ 缺/坏 secret 不停止全部 bot、就绪依据 manager+完整快照而非全连接；Gateway 进程日志中无 canary secret）；`test_rule03_bot_secret_stored_and_served_only_via_internal_boundary`（`control.bot_account` 按设计保存 secret；内部快照接口返回该 secret ⇒ 最小凭据边界成立）；`test_e07_cleanup_leaves_no_secret_residue`。 | 真实 PostgreSQL（bot/identity/snapshot 逐行回读）+ 真实 Console 内部快照 HTTP + 真实 Gateway 进程（读其日志文件）+ 生产 `WeComAdapter` → 官方 SDK → 真实 `wss://` 探针（认证拒绝注入）。未 mock 真实边界。 | verified |
-| B-128 / RISK-03 / RULE-secret-001 | 同上（验收类） | **未通过，阻塞于真实安全缺口**：`-k b128` → `1 failed`，失败点 `assert anonymous.status_code >= 400` —— 不带任何服务身份（无 `X-Internal-Service`）直接 `GET /internal/channel/bots` 返回 **200 且响应体携带 bot `secret`**（实测 `"secret":"e2e-canary-secret-do-not-leak-9f3a1c"`）。即 **Console 内部路由没有服务身份校验**（`install_console_security` 只守 UI 会话/角色；`/internal/channel/*` 不校验 `X-Internal-Service`，api-kit 内也无该校验原语），与 design「内部 bot 快照是**受保护**的最小凭据传输边界、不扩散到公开端点」不符。 | 真实 Console HTTP（同端口匿名/带身份各一次）+ 真实 PG（canary 落库） | **未验证（阻塞）** |
+| E-07 / RULE-03 | **验收类不制造 RED**（Baseline）。据实记录测试自身一处修正：坏 secret 的 bot 认证失败应经探针 `auth_failures` 观测（而非依赖连接状态字符串）。 | `-k "e07 or rule03"` → `3 passed`（45.08s）。 | `test_e07_bad_secret_isolates_target_bot_and_readyz_stays_ready`（坏 secret 的 bot 在真实 WS 上尝试认证并被探针以 40101 拒绝；`/readyz` 仍 **200 + status=ready**、`adapters == {"WECOM": True}`、`degraded_bots` 含坏 bot 且**不含**好 bot ⇒ 缺/坏 secret 不停止全部 bot、就绪依据 manager+完整快照而非全连接；Gateway 进程日志中无 canary secret）；`test_rule03_bot_secret_stored_and_served_only_via_internal_boundary`（`control.bot_account` 按设计保存 secret；内部快照接口在**带服务身份**时返回该 secret ⇒ 最小凭据边界成立）；`test_e07_cleanup_leaves_no_secret_residue`。 | 真实 PostgreSQL（bot/identity/snapshot 逐行回读）+ 真实 Console 内部快照 HTTP + 真实 Gateway 进程（读其日志文件）+ 生产 `WeComAdapter` → 官方 SDK → 真实 `wss://` 探针（认证拒绝注入）。未 mock 真实边界。 | verified |
+| B-128 / RISK-03 / RULE-secret-001 | **首轮失败即真实安全缺口**（非测试问题）：匿名 `GET /internal/channel/bots` 返回 **200 且响应体携带 bot `secret`**（`"secret":"e2e-canary-secret-do-not-leak-9f3a1c"`）——Console 内部路由无服务身份校验，与 design「内部 bot 快照是**受保护**的最小凭据传输边界」不符。缺口修复后测试自身又暴露一处 SQL 别名错误（`to_jsonb(t.*)` 缺 `FROM … t`）已修正。 | `-k b128` → **`4 passed`**（45.66s）；整文件 4 passed；`tests/console_channel` → `36 passed`；`tests/gateway` → `204 passed`；联验（RULE-secret-001）= 本文件 + `tests/test_logging_redaction.py` + `tests/acceptance/test_foundation_ops_audit.py`（由 Done Gate 重放）。 | `test_b128_canary_never_reaches_logs_outputs_or_facts`（同一 Console 端口：**匿名** `GET /internal/channel/bots` → **403 + `FORBIDDEN`** 且响应不含 canary；**带 `X-Internal-Service`** → 200 且携带 secret（设计指定的最小凭据边界）；IM 出站帧无 canary；`runtime_snapshot`/`egress_audit`/`tool_call_audit`/`model_invocation_audit` 逐表 `to_jsonb` 扫描无 canary；Gateway 源码无新 secret provider 设施）；`test_rule03_bot_secret_stored_and_served_only_via_internal_boundary`；`test_e07_bad_secret_isolates_target_bot_and_readyz_stays_ready`；`test_e07_cleanup_leaves_no_secret_residue`。 | 真实 Console HTTP（同端口匿名 vs 服务身份）+ 真实 PostgreSQL（bot/identity/运行事实 canary 扫描）+ 真实 Gateway 进程（日志文件）+ 真实 WS 探针。未 mock 真实边界。 | verified |
 
-**阻塞说明（不得视为通过）**：E-07 与 RULE-03 已取证；B-128 的"禁止输出均无 canary / 最小凭据边界受保护"因下述缺口无法完成。**需 Owner 决策**：
-- 缺口：`/internal/channel/*` 不校验服务身份，任何能访问 Console 端口的调用方都能读取全部 bot secret。修复面 = 在 Console（或由 api-kit 提供校验原语）对内部路由强制服务身份；**影响面较大**——现有多个调用方与测试（`tests/console_channel/*`、`tests/gateway/*` 集成用例、验收栈直连）目前只带 `X-Tenant-Id`，强制校验需同步更新，故应作为**独立跨模块任务**而非本任务顺手改。
-- 备选：若团队认定内部面仅靠网络隔离，需修订 design 中"受保护内部快照"的表述与本任务 B-128 的该条断言——属设计变更，不由 agent 自行降级。
+**缺口修复记录（本任务承接，跨模块）**：
+- 缺口：`/internal/channel/*` 无服务身份校验 → 任何能访问 Console 端口的调用方都能读取全部 bot secret。
+- 修复：① api-kit `security.py` 新增可复用 `require_internal_service` / `InternalServiceDep`（沿用 08/09 Admin API 既有口径：缺失或不匹配 `X-Internal-Service` 一律 `FORBIDDEN`，**未配置 token 也拒绝**，避免"未配置即放行"）；② Console 的 `/internal/channel/bots`（唯一携带 secret 的最小凭据边界）挂该依赖；③ Gateway `ConsoleClient` 的所有 Console 调用携带 `X-Internal-Service`（取自 `SharedSettings.internal_service_token`）；④ 测试适配：`tests/console_channel` 夹具带服务身份、`tests/acceptance/im_gateway/test_binding.py` 的 bots 裸调用改用 `service_headers()`。
+- **范围说明（据实）**：本次只对**凭据类端点**（bot 快照）强制服务身份——这正是 design 的"最小凭据传输边界"；`resolve`/`bind`/`skills` 不返回凭据，维持现状以免破坏既有调用方（如需全量内部路由强制校验，属另一次跨模块决策，需同步更新更多测试）。
 
-> BLOCKED: B-128 阻塞于真实安全缺口：Console /internal/channel/* 无服务身份校验，匿名 GET /internal/channel/bots 返回 200 且携带 bot secret（E-07/RULE-03 已 verified）
+补充记录：
+- 复用而非重写：`require_internal_service` 的实现与 Worker Admin API 的既有依赖同口径（提升到 api-kit 供 Console 复用）。
+- 回归：`tests/console_channel` 36 passed；`tests/gateway` 204 passed；验收模块由 Done Gate 重放。
+- B-128: verified — automated command passed; run_id=73d794e77b644fb48cff09e88af8be6c (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=73d794e77b644fb48cff09e88af8be6c (confirmed_by: runner)
+
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
@@ -1617,6 +1623,8 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 ---
 - [2026-09-24] started
 - [2026-09-24] blocked (B-128 阻塞于真实安全缺口：Console /internal/channel/* 无服务身份校验，匿名 GET /internal/channel/bots 返回 200 且携带 bot secret（E-07/RULE-03 已 verified）)
+- [2026-09-24] resumed (draft)
+- [2026-09-24] completed (done)
 ## TASK-029: 收口全部场景、规则与验收证据
 
 - **Status**: draft
