@@ -760,7 +760,7 @@
       "kind": "functional",
       "boundary": "Gateway→真实Runtime SSE断线→Reaper/PostgreSQL",
       "owner": "TASK-032",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -772,7 +772,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "f6c967e0770d4230b1d2860b26a57139",
+        "executed_at": "2026-09-24T12:59:54.217049+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "f6c967e0770d4230b1d2860b26a57139",
+          "executed_at": "2026-09-24T12:59:54.217049+00:00"
+        }
+      ]
     },
     {
       "id": "E-04",

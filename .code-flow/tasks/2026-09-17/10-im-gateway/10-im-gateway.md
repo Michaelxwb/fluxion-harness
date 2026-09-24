@@ -132,7 +132,7 @@
 | RULE-auth-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry；原 Spec verifier 真实边界 | TASK-024 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_authorization.py && uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 1200 |  |
 | B-125 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | TASK-025 | blocked | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"] | . | 1200 |  |
 | S-03 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站 | TASK-025 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","s03"] | . | 1200 |  |
-| E-03 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway→真实Runtime SSE断线→Reaper/PostgreSQL | TASK-032 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"] | . | 600 |  |
+| E-03 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway→真实Runtime SSE断线→Reaper/PostgreSQL | TASK-032 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"] | . | 600 |  |
 | E-04 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Runtime/PG→Gateway HTTP错误处理 | TASK-025 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","e04"] | . | 600 |  |
 | RULE-06 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | integration | 真实WS→Gateway→Runtime SSE断流→PostgreSQL Snapshot/Reaper→终态CAS | TASK-032 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"] | . | 600 |  |
 | RULE-10 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | TASK-025 | blocked | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"] | . | 1200 |  |
@@ -1774,7 +1774,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-032: 验收断流回收、Snapshot 冻结与终态 CAS
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-015, TASK-016, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03）, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1800,18 +1800,20 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-03 | integration | Gateway→真实Runtime SSE断线→Reaper/PostgreSQL | 未收终态即断开显示重发提示；Reaper回收FAILED/RUN_ABANDONED；终态CAS | tests/acceptance/im_gateway/test_recovery.py / E-03（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"]` | planned |
+| E-03 | integration | Gateway→真实Runtime SSE断线→Reaper/PostgreSQL | 未收终态即断开显示重发提示；Reaper回收FAILED/RUN_ABANDONED；终态CAS | tests/acceptance/im_gateway/test_recovery.py / E-03（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"]` | verified |
 | RULE-06 | integration | 真实WS→Gateway→Runtime SSE断流→PostgreSQL Snapshot/Reaper→终态CAS | Snapshot冻结与终态CAS；联合映射 S-03 / E-03 | tests/acceptance/im_gateway/test_recovery.py / RULE-06（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"]` | planned |
 | RULE-snapshot-001 | E2E | 真实WS→Gateway→Runtime SSE断流/Recovery→PostgreSQL Snapshot/Reaper→终态CAS；原 Spec verifier 真实边界 | 断流回收 FAILED/RUN_ABANDONED；Snapshot冻结只影响后续新 Run；终态CAS无重复副作用；原 verifier 全部通过 | tests/acceptance/im_gateway/test_recovery.py + 原 verifier / RULE-snapshot-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_recovery.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]` | planned |
 
 ### Acceptance Evidence
 > planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+- E-03: verified — automated command passed; run_id=f6c967e0770d4230b1d2860b26a57139 (confirmed_by: runner)
 
 ### Log
 - [2026-09-23] prepared (draft)；由 2026-09-23 Plan 复核从 TASK-025 拆出。
 
 ---
 - [2026-09-24] started
+- [2026-09-24] completed (done)
 ## Plan Validation
 
 - 正式任务文件：`.code-flow/tasks/2026-09-17/10-im-gateway/10-im-gateway.md`。
