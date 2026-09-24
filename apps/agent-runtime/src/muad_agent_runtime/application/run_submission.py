@@ -24,6 +24,7 @@ SUBMISSION_OPEN = "OPEN"
 SUBMISSION_CLOSED = "CLOSED"
 ENDPOINT_CREATE_RUN = "create-run"
 ENDPOINT_RESUME_RUN = "resume-run"
+ENDPOINT_CREATE_CONVERSATION = "create-conversation"
 
 
 def submission_fingerprint(
@@ -60,7 +61,7 @@ class RunSubmissionService:
         idempotency_key: str,
         endpoint: str,
         actor_user_id: uuid.UUID,
-        run_id: uuid.UUID,
+        run_id: uuid.UUID | None,
         conversation_id: uuid.UUID,
         request_fingerprint: str,
         first_seq: int | None = None,
@@ -98,7 +99,7 @@ class RunSubmissionService:
         idempotency_key: str,
         endpoint: str,
         actor_user_id: uuid.UUID,
-        run_id: uuid.UUID,
+        run_id: uuid.UUID | None,
         conversation_id: uuid.UUID,
         request_fingerprint: str,
         first_seq: int | None = None,

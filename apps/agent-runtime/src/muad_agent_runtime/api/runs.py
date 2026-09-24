@@ -108,10 +108,12 @@ async def create_conversation(
     request: Request,
     tenant_id: TenantDep,
     service: RunServiceDep,
+    idempotency_key: IdempotencyKey = None,
 ) -> ApiResponse[Any]:
     conversation = await service.create_conversation(
         payload.agent_id,
         payload.platform_user_id,
         tenant_id,
+        idempotency_key=idempotency_key,
     )
     return ok(request.app.state.message_catalog, conversation_view(conversation))

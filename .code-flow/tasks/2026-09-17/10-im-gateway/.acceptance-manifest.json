@@ -1221,7 +1221,7 @@
       "kind": "e2e",
       "boundary": "Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用",
       "owner": "TASK-026",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1233,7 +1233,26 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-126",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "7771e571c1104daa908e50bb67027d20",
+        "executed_at": "2026-09-24T00:10:56.430281+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-126",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7771e571c1104daa908e50bb67027d20",
+          "executed_at": "2026-09-24T00:10:56.430281+00:00"
+        }
+      ]
     },
     {
       "id": "B-127",

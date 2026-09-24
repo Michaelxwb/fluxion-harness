@@ -468,6 +468,37 @@ async def test_create_conversation_returns_conversation(
     assert data["last_run_id"] is None
 
 
+async def test_create_conversation_replays_by_idempotency_key(
+    client: AsyncClient,
+    tenant: TenantContext,
+) -> None:
+    """design §3.4.2：同 key 同指纹重放首次会话；异指纹 409；无 key 仍每次新建。"""
+    body = {"agent_id": str(tenant.agent_id), "platform_user_id": str(tenant.platform_user_id)}
+    key = f"conv-{uuid.uuid4().hex[:8]}"
+    keyed = {**_headers(tenant), "Idempotency-Key": key}
+
+    first = await client.post("/v1/conversations", json=body, headers=keyed)
+    replay = await client.post("/v1/conversations", json=body, headers=keyed)
+    assert first.status_code == 200, first.text
+    assert replay.status_code == 200, replay.text
+    assert first.json()["data"]["conversation_id"] == replay.json()["data"]["conversation_id"]
+
+    mismatch = await client.post(
+        "/v1/conversations",
+        json={"agent_id": str(tenant.agent_id), "platform_user_id": str(uuid.uuid4())},
+        headers=keyed,
+    )
+    assert mismatch.status_code == 409, mismatch.text
+    assert mismatch.json()["code"] == "IDEMPOTENCY_MISMATCH"
+
+    without_key = await client.post("/v1/conversations", json=body, headers=_headers(tenant))
+    assert without_key.status_code == 200
+    assert (
+        without_key.json()["data"]["conversation_id"]
+        != first.json()["data"]["conversation_id"]
+    )
+
+
 async def test_resolve_error_propagates_as_envelope(
     client: AsyncClient,
     tenant: TenantContext,

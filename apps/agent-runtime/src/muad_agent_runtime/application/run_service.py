@@ -58,6 +58,7 @@ from .ports import CredentialsClient, ResolveClient
 from .run_events import EventWriter
 from .run_lease import RunLeaseService
 from .run_submission import (
+    ENDPOINT_CREATE_CONVERSATION,
     ENDPOINT_CREATE_RUN,
     ENDPOINT_RESUME_RUN,
     SUBMISSION_CLOSED,
@@ -368,7 +369,23 @@ class RunService:
         agent_id: uuid.UUID,
         platform_user_id: uuid.UUID,
         tenant_id: str,
+        idempotency_key: str | None = None,
     ) -> Conversation:
+        """新建会话；带 Idempotency-Key 时按设计 §3.4.2 持久重放，不创建第二会话。"""
+        fingerprint = submission_fingerprint(
+            endpoint=ENDPOINT_CREATE_CONVERSATION,
+            key_payload={"agent_id": str(agent_id), "platform_user_id": str(platform_user_id)},
+        )
+        if idempotency_key:
+            replay = await self._submissions.find_replay_in(
+                self._session,
+                tenant_id=tenant_id,
+                idempotency_key=idempotency_key,
+                endpoint=ENDPOINT_CREATE_CONVERSATION,
+                fingerprint=fingerprint,
+            )
+            if replay is not None and replay.conversation_id is not None:
+                return await self._load_conversation(replay.conversation_id, tenant_id)
         await self._resolve_client.resolve(
             ResolveDefinitionRequest(
                 agent_id=agent_id,
@@ -386,7 +403,47 @@ class RunService:
             last_seq=0,
         )
         self._session.add(conversation)
-        await self._session.commit()
+        await self._session.flush()
+        if not idempotency_key:
+            await self._session.commit()
+            return conversation
+        await self._submissions.record_in(
+            self._session,
+            tenant_id=tenant_id,
+            idempotency_key=idempotency_key,
+            endpoint=ENDPOINT_CREATE_CONVERSATION,
+            actor_user_id=platform_user_id,
+            run_id=None,
+            conversation_id=conversation.id,
+            request_fingerprint=fingerprint,
+        )
+        try:
+            await self._session.commit()
+        except IntegrityError as exc:
+            # 并发同 key 幂等记录落败：读取首次提交结果（与 create-run 同口径）
+            await self._session.rollback()
+            replay = await self._submissions.find_replay_in(
+                self._session,
+                tenant_id=tenant_id,
+                idempotency_key=idempotency_key,
+                endpoint=ENDPOINT_CREATE_CONVERSATION,
+                fingerprint=fingerprint,
+            )
+            if replay is not None and replay.conversation_id is not None:
+                return await self._load_conversation(replay.conversation_id, tenant_id)
+            raise AppError(ErrorCode.COMMON_CONFLICT) from exc
+        return conversation
+
+    async def _load_conversation(self, conversation_id: uuid.UUID, tenant_id: str) -> Conversation:
+        conversation = await self._session.scalar(
+            sa.select(Conversation).where(
+                Conversation.id == conversation_id,
+                Conversation.tenant_id == tenant_id,
+                Conversation.is_deleted.is_(False),
+            )
+        )
+        if conversation is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
         return conversation
 
     async def reap_abandoned(self) -> int:
