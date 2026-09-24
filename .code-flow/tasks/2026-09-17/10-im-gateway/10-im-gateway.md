@@ -139,8 +139,8 @@
 | RULE-snapshot-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 真实WS→Gateway→Runtime SSE断流/Recovery→PostgreSQL Snapshot/Reaper→终态CAS；原 Spec verifier 真实边界 | TASK-032 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_recovery.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 |  |
 | B-126 | 10-im-gateway.backend.design.md#API-03 执行绑定 | E2E | Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用 | TASK-026 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_gateway_idempotency.py","-k","b126"] | . | 1200 |  |
 | RULE-api-002 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用（含 B-103 绑定幂等、B-111 /new 幂等）；原 Spec verifier 真实边界 | TASK-026 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_gateway_idempotency.py && uv run pytest -q tests/console_channel/test_channel_bind_idempotency.py -k b103 && uv run pytest -q tests/gateway/test_commands_integration.py -k b111 && uv run pytest -q tests/console_skill/test_import_idempotency.py"] | . | 1200 |  |
-| B-127 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | TASK-027 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"] | . | 1200 |  |
-| S-04 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实Worker→Gateway HTTP→Redis→官方SDK/真实WS接收 | TASK-027 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","s04"] | . | 1200 |  |
+| B-127 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | TASK-027 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"] | . | 1200 |  |
+| S-04 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实Worker→Gateway HTTP→Redis→官方SDK/真实WS接收 | TASK-027 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","s04"] | . | 1200 |  |
 | E-06 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway入站/投递→真实Redis连接故障→Runtime/WS | TASK-027 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_redis_degradation.py","-k","e06"] | . | 600 |  |
 | RULE-09 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | TASK-027 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"] | . | 1200 |  |
 | RISK-02 | 10-im-gateway.backend.design.md#5. 风险与依赖 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | TASK-027 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"] | . | 1200 |  |
@@ -1496,7 +1496,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ## TASK-027: 验收 Worker 主动投递及 Redis 故障
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-017, TASK-021, TASK-030
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#API-05 主动投递, 10-im-gateway.backend.design.md#3.2.3 入站去重, 10-im-gateway.backend.design.md#5. 风险与依赖
@@ -1524,9 +1524,9 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-127 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | 路由准确；首次发送/重复200不重发；TTL7d；失败可重试，Worker最多5次后FAILED；故障/不确定发送允许重复但不吞业务事实 | tests/acceptance/im_gateway/test_worker_delivery.py / B-127（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"]` | planned |
-| S-04 | E2E | 真实Worker→Gateway HTTP→Redis→官方SDK/真实WS接收 | delivery_key固定；按route推送最终结果；重放200/deduplicated=true且不重发 | tests/acceptance/im_gateway/test_worker_delivery.py / S-04（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","s04"]` | planned |
-| E-06 | integration | Gateway入站/投递→真实Redis连接故障→Runtime/WS | 两条路径均at-least-once继续；故障时允许重复但不吞业务事实；恢复后去重恢复 | tests/acceptance/im_gateway/test_redis_degradation.py / E-06（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_redis_degradation.py","-k","e06"]` | planned |
+| B-127 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | 路由准确；首次发送/重复200不重发；TTL7d；失败可重试，Worker最多5次后FAILED；故障/不确定发送允许重复但不吞业务事实 | tests/acceptance/im_gateway/test_worker_delivery.py / B-127（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"]` | e2e_deferred |
+| S-04 | E2E | 真实Worker→Gateway HTTP→Redis→官方SDK/真实WS接收 | delivery_key固定；按route推送最终结果；重放200/deduplicated=true且不重发 | tests/acceptance/im_gateway/test_worker_delivery.py / S-04（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","s04"]` | e2e_deferred |
+| E-06 | integration | Gateway入站/投递→真实Redis连接故障→Runtime/WS | 两条路径均at-least-once继续；故障时允许重复但不吞业务事实；恢复后去重恢复 | tests/acceptance/im_gateway/test_redis_degradation.py / E-06（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_redis_degradation.py","-k","e06"]` | verified |
 | RULE-09 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | 投递key、7d去重、200重放与降级；联合映射 S-04 / E-06 | tests/acceptance/im_gateway/test_worker_delivery.py / RULE-09（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"]` | planned |
 | RISK-02 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | Redis不可用的入站/投递语义；联合映射 E-06 | tests/acceptance/im_gateway/test_worker_delivery.py / RISK-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"]` | planned |
 
@@ -1543,6 +1543,12 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 复用 EXT-09-020/021/043 已落地的可靠投递实现与证据，只补本模块的跨模块 E2E 与降级语义，不重复实现投递去重。
 - 测试基建复用：TASK-030 的第二 Runtime + Worker 进程、`seed_delivery_task`、`WeComProbe` 故障注入、`purge_tenant`/`count_tenant_rows`。
 - 本任务未改任何生产代码。
+- B-127: e2e_deferred — automated command e2e_deferred; run_id=e729b7658425495fa3b1538d519d5301 (confirmed_by: runner)
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=e729b7658425495fa3b1538d519d5301 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=e729b7658425495fa3b1538d519d5301 (confirmed_by: runner)
+- B-127: e2e_deferred — automated command e2e_deferred; run_id=c21f53e2aaee4725a295e0788a9678e5 (confirmed_by: runner)
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=c21f53e2aaee4725a295e0788a9678e5 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=c21f53e2aaee4725a295e0788a9678e5 (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)

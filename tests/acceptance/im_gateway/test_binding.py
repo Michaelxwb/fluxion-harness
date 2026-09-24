@@ -254,7 +254,7 @@ async def test_e02_invalid_expired_used_codes_have_no_side_effects(
         ok_response = await client.get(
             BOTS_PATH,
             params={"page": 1, "page_size": 20},
-            headers={"X-Tenant-Id": gateway_stack.tenant_id},
+            headers=gateway_stack.service_headers(),
         )
         assert ok_response.status_code == 200, ok_response.text
         data = ok_response.json()["data"]
@@ -263,7 +263,7 @@ async def test_e02_invalid_expired_used_codes_have_no_side_effects(
 
         for params in ({"page": 0, "page_size": 20}, {"page": 1, "page_size": 101}):
             invalid = await client.get(
-                BOTS_PATH, params=params, headers={"X-Tenant-Id": gateway_stack.tenant_id}
+                BOTS_PATH, params=params, headers=gateway_stack.service_headers()
             )
             assert invalid.status_code >= 400, (params, invalid.text)
             assert invalid.json()["code"] == "COMMON_VALIDATION_ERROR", invalid.text

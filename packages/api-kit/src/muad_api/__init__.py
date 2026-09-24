@@ -11,7 +11,13 @@ from .metrics import (
 )
 from .probes import database_readiness, install_health_probes
 from .response import ApiResponse, Page, ok, paginate, validate_page
-from .security import install_console_security, require_roles, require_session
+from .security import (
+    InternalServiceDep,
+    install_console_security,
+    require_internal_service,
+    require_roles,
+    require_session,
+)
 from .startup import StartupValidationError, validate_startup
 
 __all__ = [
@@ -25,6 +31,8 @@ __all__ = [
     "MetricsRegistry",
     "database_readiness",
     "require_roles",
+    "require_internal_service",
+    "InternalServiceDep",
     "require_session",
     "sanitize_audit_payload",
     "validate_startup",

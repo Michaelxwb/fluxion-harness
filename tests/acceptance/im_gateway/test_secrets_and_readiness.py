@@ -146,10 +146,6 @@ async def test_e07_bad_secret_isolates_target_bot_and_readyz_stays_ready(
     assert CANARY_SECRET not in _gateway_log(gateway_stack), "secret 进入 Gateway 日志"
 
 
-@pytest.mark.xfail(
-    reason="TASK-028 阻塞：/internal/channel/* 无服务身份校验 → 匿名可读 bot secret（见任务 Evidence）",
-    strict=False,
-)
 async def test_b128_canary_never_reaches_logs_outputs_or_facts(
     gateway_stack: GatewayStack, bad_secret_bot: dict[str, str]
 ) -> None:
@@ -163,9 +159,10 @@ async def test_b128_canary_never_reaches_logs_outputs_or_facts(
         assert internal.status_code == 200, internal.text
         assert CANARY_SECRET in internal.text, "内部快照应携带 secret（最小凭据边界）"
 
-        # 公开/无服务身份的访问不得拿到内部快照
+        # 公开/无服务身份的访问不得拿到内部快照（强制服务身份）
         anonymous = await client.get(BOTS_PATH, params={"page": 1, "page_size": 50})
-        assert anonymous.status_code >= 400, anonymous.text
+        assert anonymous.status_code == 403, anonymous.text
+        assert anonymous.json()["code"] == "FORBIDDEN", anonymous.text
         assert CANARY_SECRET not in anonymous.text
 
     # IM 出站不得携带 secret
@@ -180,8 +177,8 @@ async def test_b128_canary_never_reaches_logs_outputs_or_facts(
     )
     for table in tables:
         leaked_rows = await _scalar(
-            f"SELECT count(*) FROM {table} WHERE tenant_id = :t "
-            f"AND to_jsonb(t.*)::text ILIKE :canary",
+            f"SELECT count(*) FROM {table} AS row_source WHERE row_source.tenant_id = :t "
+            f"AND to_jsonb(row_source.*)::text ILIKE :canary",
             {"t": gateway_stack.tenant_id, "canary": f"%{CANARY_SECRET}%"},
         )
         assert int(leaked_rows or 0) == 0, f"{table} 出现 secret canary"

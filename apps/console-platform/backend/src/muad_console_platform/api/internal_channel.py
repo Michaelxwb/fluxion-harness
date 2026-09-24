@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Query, Request
-from muad_api import ApiResponse, ok
+from muad_api import ApiResponse, InternalServiceDep, ok
 from muad_contracts import DEFAULT_PAGE_SIZE, ChannelBindRequest, ChannelResolveRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,6 +45,7 @@ async def bots(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    internal_service: InternalServiceDep,
     page: Annotated[int, Query()] = 1,
     page_size: Annotated[int, Query()] = DEFAULT_PAGE_SIZE,
 ) -> ApiResponse[Any]:

@@ -807,6 +807,52 @@ bindings:
               5 passed in 0.98s
 
               '
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-09-24T11:16:40.226063+00:00'
+          status: verified
+          rule_text_sha256: d39a45cb02db1de6f4d65c5ea3ee821a976855d8f07316e4cfa5798e98fda87e
+          artifact_sha256: null
+          diff_sha256: 490cca0a5016957e59ae3ac50e5c1a3da487e82af8ec2e176a31bafdac7beeb9
+          result_sha256: e926412157bfa756ab93dd40c9835f993941af72dc6d75795aecae0d96d859f9
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 2364162bacf28ecf5c5d745f87df40e14b0158119329e8b02fa8927440c52c0b
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 0.91s
+
+              '
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-09-24T11:26:07.775405+00:00'
+          status: verified
+          rule_text_sha256: d39a45cb02db1de6f4d65c5ea3ee821a976855d8f07316e4cfa5798e98fda87e
+          artifact_sha256: null
+          diff_sha256: 7faa44977e2e4756dfdbbdf20ff7845fe52628ab706a29a5ce7da807e5293133
+          result_sha256: fb6b2d438da84c8b18bf36706cf7ae2e2e37ad16127e9faeaf96f7dfdd1d0498
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 4630317ae9c9c20fcca0bbfcf9bd623c572a322bdb9593b4187b18579a76321f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 0.92s
+
+              '
       review:
         status: pending
         refs: []
@@ -1771,6 +1817,64 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               18 passed, 1 warning in 0.47s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-09-24T11:16:41.104281+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 490cca0a5016957e59ae3ac50e5c1a3da487e82af8ec2e176a31bafdac7beeb9
+          result_sha256: ee306f8dd2539a4970e64a930541c9e8fffc206ed96e31fe092e82eb90b2e468
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 5a6d74a77d990ed4a78449055766bd92752d63aa74c593392f4bcb522fe98be3
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 0.49s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-09-24T11:26:08.600483+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 7faa44977e2e4756dfdbbdf20ff7845fe52628ab706a29a5ce7da807e5293133
+          result_sha256: 4290fd7c6bfdfac131400834fb2c4f6395e640a583e635007bd2d9f0401011e1
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: a2b73c6b5fca87f49e1a2f85d9e0f0c4742e0b12c2d7f8476573a132256eee3e
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 1 warning in 0.47s\n"
       review:
         status: pending
         refs: []
@@ -2464,6 +2568,52 @@ bindings:
             output: '..........                                                               [100%]
 
               10 passed in 0.11s
+
+              '
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-09-24T11:16:41.476786+00:00'
+          status: verified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 490cca0a5016957e59ae3ac50e5c1a3da487e82af8ec2e176a31bafdac7beeb9
+          result_sha256: bd188b7d9a6d496f7dbca21324ca5b60e5894021f70b24743cb3dd026ea12656
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: 40bfd4344a3eb1c606998014b2da30a6e67c7e7643e444298223a1d22650e0c7
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..........                                                               [100%]
+
+              10 passed in 0.09s
+
+              '
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-09-24T11:26:08.975768+00:00'
+          status: verified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 7faa44977e2e4756dfdbbdf20ff7845fe52628ab706a29a5ce7da807e5293133
+          result_sha256: bd188b7d9a6d496f7dbca21324ca5b60e5894021f70b24743cb3dd026ea12656
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: 40bfd4344a3eb1c606998014b2da30a6e67c7e7643e444298223a1d22650e0c7
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..........                                                               [100%]
+
+              10 passed in 0.09s
 
               '
       review:
@@ -3391,6 +3541,60 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               35 passed, 1311 deselected, 1 warning in 3.38s\n"
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-09-24T11:16:46.802586+00:00'
+          status: verified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 490cca0a5016957e59ae3ac50e5c1a3da487e82af8ec2e176a31bafdac7beeb9
+          result_sha256: dd548ca9c3565cb9ae15d8e8e84006ad362a336083d0282277c0fe720e8a75f7
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/console_platform/test_user_side_relations.py
+              -k s04 && uv run pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 6608d83740ad6f68aed5a2ce0417503330b9895f8dbb47ebf879036f7e44bada
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed, 1 deselected in 0.37s\n...................................\
+              \                                      [100%]\n===============================\
+              \ warnings summary ===============================\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              35 passed, 1311 deselected, 1 warning in 3.30s\n"
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-09-24T11:26:14.198783+00:00'
+          status: verified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 7faa44977e2e4756dfdbbdf20ff7845fe52628ab706a29a5ce7da807e5293133
+          result_sha256: b11081ac3b6b2e3e164a27e7ff71f4623c569469575ccb2d964cbe64f6217a1e
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/console_platform/test_user_side_relations.py
+              -k s04 && uv run pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 12c6db358c42b6b5594b9228d85a5175ceafbc9d15fe969f71e986ebfae4f740
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed, 1 deselected in 0.49s\n...................................\
+              \                                      [100%]\n===============================\
+              \ warnings summary ===============================\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              35 passed, 1311 deselected, 1 warning in 3.21s\n"
       review:
         status: pending
         refs: []
@@ -4205,6 +4409,64 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               35 passed, 1311 deselected, 1 warning in 3.18s\n"
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-09-24T11:16:50.741516+00:00'
+          status: verified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: 490cca0a5016957e59ae3ac50e5c1a3da487e82af8ec2e176a31bafdac7beeb9
+          result_sha256: 64622d5be74994b728545785c9bdc2d9f01eebe61111d8d3fe9ea73eb60b989d
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests
+            - -k
+            - schema_parity
+            exit_code: 0
+            stdout_sha256: 91efe802aec31af721f92ba6a37c9479ad54cfc1981d2ab9f002a894fa73bb48
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "...................................                         \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              35 passed, 1311 deselected, 1 warning in 3.28s\n"
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-09-24T11:26:17.994467+00:00'
+          status: verified
+          rule_text_sha256: 8bf3c6b16730dbdbc47a0d80ed5a61efc67da8bb3ae7f67b7c9a79c72224c863
+          artifact_sha256: null
+          diff_sha256: 7faa44977e2e4756dfdbbdf20ff7845fe52628ab706a29a5ce7da807e5293133
+          result_sha256: fd7cc04cc76737837585b81aafa38508e977ad1d5d39f32c11385647e1d19d56
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests
+            - -k
+            - schema_parity
+            exit_code: 0
+            stdout_sha256: 2de72a9f29d6aeb5594a813d7b54eebd7a3fe8b8eca551fa03cbf6cd724394a0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "...................................                         \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              35 passed, 1311 deselected, 1 warning in 3.09s\n"
       review:
         status: pending
         refs: []
@@ -5323,6 +5585,72 @@ bindings:
               \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
               \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               240 passed, 2 warnings in 59.39s\n"
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-09-24T11:17:49.851971+00:00'
+          status: verified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 490cca0a5016957e59ae3ac50e5c1a3da487e82af8ec2e176a31bafdac7beeb9
+          result_sha256: 76ca217f28b3942ebabe793351c024183cafa29ca07bd9ac3d3672aca945c1db
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_channel
+            - tests/gateway
+            exit_code: 0
+            stdout_sha256: e9d8226771f4189d764e683b7447ba30e144d06338224682b782c5e310695ce0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "........................................................................\
+              \ [ 30%]\n........................................................................\
+              \ [ 60%]\n........................................................................\
+              \ [ 90%]\n........................                                 \
+              \                [100%]\n=============================== warnings summary\
+              \ ===============================\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/aibot/ws.py:28:\
+              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
+              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/websockets/legacy/__init__.py:6:\
+              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
+              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
+              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              240 passed, 2 warnings in 58.00s\n"
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-09-24T11:27:18.883925+00:00'
+          status: verified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 7faa44977e2e4756dfdbbdf20ff7845fe52628ab706a29a5ce7da807e5293133
+          result_sha256: 131ad6e7f5e0a0f4d23e39804e774e766b41a4468d4ce93c32c2019279b745c8
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_channel
+            - tests/gateway
+            exit_code: 0
+            stdout_sha256: 78e2bcb0bc620b581cf0330cb1f2d04d77217e2a8174f135c3167ca2e322f008
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "........................................................................\
+              \ [ 30%]\n........................................................................\
+              \ [ 60%]\n........................................................................\
+              \ [ 90%]\n........................                                 \
+              \                [100%]\n=============================== warnings summary\
+              \ ===============================\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/aibot/ws.py:28:\
+              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
+              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/websockets/legacy/__init__.py:6:\
+              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
+              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
+              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              240 passed, 2 warnings in 59.91s\n"
       review:
         status: pending
         refs: []
@@ -5532,6 +5860,52 @@ bindings:
           rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
           artifact_sha256: null
           diff_sha256: 782d68f46dd0e252b986e57d4222c15cfb7a19a9fe4657dce26a52aea5d813e1
+          result_sha256: 0363a71bed8a7f00711a5462fb1805bbe42e2778650aa2a4aced8fa18844cf96
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_platform/test_user_side_relations.py
+            exit_code: 0
+            stdout_sha256: e4dc4cee472aba3bc64915fe7ce65f0b6cf7f3dd87b3fa70f6abb4316c90385f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 0.60s
+
+              '
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-09-24T11:17:51.360331+00:00'
+          status: verified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 490cca0a5016957e59ae3ac50e5c1a3da487e82af8ec2e176a31bafdac7beeb9
+          result_sha256: 545a684eb3e93a6eac6974493df6d12ca7f4e844cc917a1d3d98ce1d6a19ed42
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_platform/test_user_side_relations.py
+            exit_code: 0
+            stdout_sha256: 5b65a1b195f8e7cc458cc0e4d951297b884f04e530598b1915036b8100e5954f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 0.66s
+
+              '
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-09-24T11:27:20.375339+00:00'
+          status: verified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 7faa44977e2e4756dfdbbdf20ff7845fe52628ab706a29a5ce7da807e5293133
           result_sha256: 0363a71bed8a7f00711a5462fb1805bbe42e2778650aa2a4aced8fa18844cf96
           error_code: null
           details:
@@ -6301,6 +6675,54 @@ bindings:
               12 passed in 0.23s
 
               '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-09-24T11:17:52.259607+00:00'
+          status: verified
+          rule_text_sha256: eb4cdd0b7fa4d7e182cb84beca0488da13386632d61841b12d39045cda60015b
+          artifact_sha256: null
+          diff_sha256: 490cca0a5016957e59ae3ac50e5c1a3da487e82af8ec2e176a31bafdac7beeb9
+          result_sha256: f41c44915ce2a8ce5074fb93b320208dd2a0d1e7070b2108f059b4a0031a4095
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 1bfbac567f3425d78f51e3c7be538ff78a2b2d0d8662c6bb11c15e5d520b94d3
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............                                                             [100%]
+
+              12 passed in 0.31s
+
+              '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-09-24T11:27:20.958059+00:00'
+          status: verified
+          rule_text_sha256: eb4cdd0b7fa4d7e182cb84beca0488da13386632d61841b12d39045cda60015b
+          artifact_sha256: null
+          diff_sha256: 7faa44977e2e4756dfdbbdf20ff7845fe52628ab706a29a5ce7da807e5293133
+          result_sha256: 5714894ce7c4356f2c46250914ee34d08749f54600229d1902996c0f8191f41b
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 43e8a207772d15eaf1c6d862548540f0c5c8786cc7be8b5e7667080534034ead
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............                                                             [100%]
+
+              12 passed in 0.24s
+
+              '
       review:
         status: pending
         refs: []
@@ -7003,6 +7425,48 @@ bindings:
               19 passed, 119 deselected in 0.71s
 
               '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-09-24T11:17:54.452190+00:00'
+          status: verified
+          rule_text_sha256: bed55091b1673e3c29c216171a74d6564324334a61fd657fe075516056e3f271
+          artifact_sha256: null
+          diff_sha256: 490cca0a5016957e59ae3ac50e5c1a3da487e82af8ec2e176a31bafdac7beeb9
+          result_sha256: a491c080a2ae518b0bb0a4bda609028e26a291ab840d6173922f19e2d06888a6
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 8325190f277efc078e95a3f7c8d6af95757a44529ddc7046905b660565e2eb28
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...................                                                      [100%]
+
+              19 passed, 119 deselected in 0.86s
+
+              '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-09-24T11:27:22.605913+00:00'
+          status: verified
+          rule_text_sha256: bed55091b1673e3c29c216171a74d6564324334a61fd657fe075516056e3f271
+          artifact_sha256: null
+          diff_sha256: 7faa44977e2e4756dfdbbdf20ff7845fe52628ab706a29a5ce7da807e5293133
+          result_sha256: c9607833ef63c0a3769194a02593a118cbc23a2454e6055a4f6e25f1d4d1a514
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 25e9e58ed5754432e6cc3b2f9230a4c9bf15cad11b8794eb4438a0623a7e5449
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...................                                                      [100%]
+
+              19 passed, 119 deselected in 0.72s
+
+              '
       review:
         status: pending
         refs: []
@@ -7050,7 +7514,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -8903,6 +9367,136 @@ bindings:
               \     Waiting for application startup.\n[WebServer] INFO:     Application\
               \ startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:4173\
               \ (Press CTRL+C to quit)\n"
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-09-24T11:25:08.713775+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 490cca0a5016957e59ae3ac50e5c1a3da487e82af8ec2e176a31bafdac7beeb9
+          result_sha256: 1addf1b42b9c9f9a2437a0394205c7e907680d262ec481aff66ba73e3bb5385f
+          error_code: command_failed
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend
+              run build && npm --prefix e2e test
+            exit_code: 1
+            stdout_sha256: 415e1b6f0d6a88036fa82744b70fbd45a5d7d91ebb420c1aa872e7da0a62ee45
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "gresql/asyncpg.py:513: in _handle_exception\n    self._adapt_connection._handle_exception(error)\n\
+              _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ _ _ _ _ \n\nself = <AdaptedConnection <asyncpg.connection.Connection\
+              \ object at 0x10eb60d70>>\nerror = ForeignKeyViolationError('insert\
+              \ or update on table \"bot_account\" violates foreign key constraint\
+              \ \"bot_account_agent_id_fkey\"')\n\n    def _handle_exception(self,\
+              \ error):\n        if self._connection.is_closed():\n            self._transaction\
+              \ = None\n            self._started = False\n    \n        if not isinstance(error,\
+              \ AsyncAdapt_asyncpg_dbapi.Error):\n            exception_mapping =\
+              \ self.dbapi._asyncpg_error_translate\n    \n            for super_\
+              \ in type(error).__mro__:\n                if super_ in exception_mapping:\n\
+              \                    translated_error = exception_mapping[super_](\n\
+              \                        \"%s: %s\" % (type(error), error)\n       \
+              \             )\n                    translated_error.pgcode = translated_error.sqlstate\
+              \ = (\n                        getattr(error, \"sqlstate\", None)\n\
+              \                    )\n>                   raise translated_error from\
+              \ error\nE                   sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError)\
+              \ <class 'asyncpg.exceptions.ForeignKeyViolationError'>: insert or update\
+              \ on table \"bot_account\" violates foreign key constraint \"bot_account_agent_id_fkey\"\
+              \nE                   DETAIL:  Key (agent_id)=(011afe45-f8bf-4faa-8bb0-349a97465b37)\
+              \ is not present in table \"agent_definition\".\nE                 \
+              \  [SQL: INSERT INTO control.bot_account (tenant_id, channel, name,\
+              \ bot_id, secret, agent_id, enabled, last_connected_at) VALUES ($1::VARCHAR,\
+              \ $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::UUID, $7::BOOLEAN,\
+              \ $8::TIMESTAMP WITH TIME ZONE) RETURNING control.bot_account.config_json,\
+              \ control.bot_account.id, control.bot_account.is_deleted, control.bot_account.create_time,\
+              \ control.bot_account.update_time]\nE                   [parameters:\
+              \ ('e2e-im-gateway', 'WECOM', 'IM E2E Bad Secret Bot', 'e2e-im-bot-badsecret',\
+              \ 'e2e-canary-secret-do-not-leak-9f3a1c', UUID('011afe45-f8bf-4faa-8bb0-349a97465b37'),\
+              \ True, None)]\nE                   (Background on this error at: https://sqlalche.me/e/20/gkpj)\n\
+              \n.venv/lib/python3.13/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:797:\
+              \ IntegrityError\n=============================== warnings summary ===============================\n\
+              .venv/lib/python3.13/site-packages/starlette/testclient.py:53\n  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \ntests/acceptance/im_gateway/test_wecom_boundary.py::test_b120_authenticates_over_real_socket\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/aibot/ws.py:28:\
+              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
+              \    from websockets.client import WebSocketClientProtocol\n\ntests/acceptance/im_gateway/test_wecom_boundary.py::test_b120_authenticates_over_real_socket\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/websockets/legacy/__init__.py:6:\
+              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
+              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
+              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              =========================== short test summary info ============================\n\
+              ERROR tests/acceptance/im_gateway/test_secrets_and_readiness.py::test_e07_bad_secret_isolates_target_bot_and_readyz_stays_ready\n\
+              ERROR tests/acceptance/im_gateway/test_secrets_and_readiness.py::test_rule03_bot_secret_stored_and_served_only_via_internal_boundary\n\
+              132 passed, 1 xfailed, 3 warnings, 2 errors in 433.47s (0:07:13)\n"
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-09-24T11:35:09.063471+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 7faa44977e2e4756dfdbbdf20ff7845fe52628ab706a29a5ce7da807e5293133
+          result_sha256: c07f1a1254e2a583edb5cb3eed6a0f99e25158aaf77b1ca65135fd278c8fd869
+          error_code: command_failed
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend
+              run build && npm --prefix e2e test
+            exit_code: 1
+            stdout_sha256: d7a175d71a848af171e6ef0438920cde9d7b9b774e2af7fd9e61c2ac11ffde75
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "thon3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute\n\
+              \    cursor.execute(statement, parameters)\n.venv/lib/python3.13/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:585:\
+              \ in execute\n    self._adapt_connection.await_(\n.venv/lib/python3.13/site-packages/sqlalchemy/util/_concurrency_py3k.py:132:\
+              \ in await_only\n    return current.parent.switch(awaitable)  # type:\
+              \ ignore[no-any-return,attr-defined] # noqa: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
+              .venv/lib/python3.13/site-packages/sqlalchemy/util/_concurrency_py3k.py:196:\
+              \ in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n\
+              .venv/lib/python3.13/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:563:\
+              \ in _prepare_and_execute\n    self._handle_exception(error)\n.venv/lib/python3.13/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:513:\
+              \ in _handle_exception\n    self._adapt_connection._handle_exception(error)\n\
+              _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ _ _ _ _ \n\nself = <AdaptedConnection <asyncpg.connection.Connection\
+              \ object at 0x110f99a90>>\nerror = UndefinedTableError('missing FROM-clause\
+              \ entry for table \"t\"')\n\n    def _handle_exception(self, error):\n\
+              \        if self._connection.is_closed():\n            self._transaction\
+              \ = None\n            self._started = False\n    \n        if not isinstance(error,\
+              \ AsyncAdapt_asyncpg_dbapi.Error):\n            exception_mapping =\
+              \ self.dbapi._asyncpg_error_translate\n    \n            for super_\
+              \ in type(error).__mro__:\n                if super_ in exception_mapping:\n\
+              \                    translated_error = exception_mapping[super_](\n\
+              \                        \"%s: %s\" % (type(error), error)\n       \
+              \             )\n                    translated_error.pgcode = translated_error.sqlstate\
+              \ = (\n                        getattr(error, \"sqlstate\", None)\n\
+              \                    )\n>                   raise translated_error from\
+              \ error\nE                   sqlalchemy.exc.ProgrammingError: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError)\
+              \ <class 'asyncpg.exceptions.UndefinedTableError'>: missing FROM-clause\
+              \ entry for table \"t\"\nE                   [SQL: SELECT count(*) FROM\
+              \ runtime.runtime_snapshot WHERE tenant_id = $1 AND to_jsonb(t.*)::text\
+              \ ILIKE $2]\nE                   [parameters: ('e2e-im-gateway', '%e2e-canary-secret-do-not-leak-9f3a1c%')]\n\
+              E                   (Background on this error at: https://sqlalche.me/e/20/f405)\n\
+              \n.venv/lib/python3.13/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:797:\
+              \ ProgrammingError\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \ntests/acceptance/im_gateway/test_wecom_boundary.py::test_b120_authenticates_over_real_socket\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/aibot/ws.py:28:\
+              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
+              \    from websockets.client import WebSocketClientProtocol\n\ntests/acceptance/im_gateway/test_wecom_boundary.py::test_b120_authenticates_over_real_socket\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/websockets/legacy/__init__.py:6:\
+              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
+              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
+              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              =========================== short test summary info ============================\n\
+              FAILED tests/acceptance/im_gateway/test_secrets_and_readiness.py::test_b128_canary_never_reaches_logs_outputs_or_facts\n\
+              1 failed, 134 passed, 3 warnings in 465.64s (0:07:45)\n"
       review:
         status: pending
         refs: []

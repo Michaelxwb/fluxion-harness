@@ -8,6 +8,7 @@ import httpx
 from muad_api import AppError
 from muad_api.context import current_request_id, current_trace_id
 from muad_api.error_codes import ErrorCode
+from muad_common import SharedSettings
 from muad_contracts import (
     DEFAULT_PAGE_SIZE,
     BotSnapshotResponse,
@@ -74,8 +75,13 @@ class ConsoleClient:
         *,
         timeout_sec: float = REQUEST_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
+        service_token: str | None = None,
     ) -> None:
         self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout_sec, transport=transport)
+        # 内部服务身份：Console 的凭据类内部端点（bot 快照）要求携带
+        self._service_token = (
+            service_token if service_token is not None else SharedSettings().internal_service_token
+        )
 
     async def resolve(
         self,
@@ -155,7 +161,10 @@ class ConsoleClient:
         params: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
     ) -> ContractT:
-        request_headers = {**_headers(tenant_id), **(headers or {})}
+        request_headers = {
+            **_headers(tenant_id, self._service_token),
+            **(headers or {}),
+        }
         try:
             response = await self._client.request(
                 method,
@@ -171,8 +180,10 @@ class ConsoleClient:
         return require_data_model(response, model)
 
 
-def _headers(tenant_id: str) -> dict[str, str]:
+def _headers(tenant_id: str, service_token: str | None = None) -> dict[str, str]:
     headers = {"X-Caller-Service": CALLER_SERVICE}
+    if service_token:
+        headers["X-Internal-Service"] = service_token
     if tenant_id:
         headers["X-Tenant-Id"] = tenant_id
     trace_id = current_trace_id()

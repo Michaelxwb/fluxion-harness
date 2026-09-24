@@ -375,6 +375,10 @@ async def client(channel: ChannelContext) -> AsyncIterator[AsyncClient]:
         account_id = account.id
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as http_client:
+        # 内部凭据类端点（bot 快照）要求服务身份；其余内部端点不校验
+        service_token = SharedSettings().internal_service_token
+        if service_token:
+            http_client.headers["X-Internal-Service"] = service_token
         login_response = await http_client.post(
             "/api/v1/auth/login",
             json={"username": username, "password": ADMIN_PASSWORD},

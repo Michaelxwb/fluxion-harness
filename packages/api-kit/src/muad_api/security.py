@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Collection
-from typing import Any, Protocol
+from typing import Annotated, Any, Protocol
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Header, Request
+from muad_common import SharedSettings
 
 from .error_codes import ErrorCode
 from .errors import AppError
@@ -11,6 +12,23 @@ from .errors import AppError
 SESSION_COOKIE = "muad_session"
 AUTHORIZATION_HEADER = "Authorization"
 BEARER_PREFIX = "bearer "
+INTERNAL_SERVICE_HEADER = "X-Internal-Service"
+
+
+def require_internal_service(
+    x_internal_service: Annotated[str | None, Header()] = None,
+) -> None:
+    """内部凭据类端点只允许受信服务身份；缺失/错误身份一律 FORBIDDEN。
+
+    与 09/08 的 Admin API 同一口径：`INTERNAL_SERVICE_TOKEN` 未配置时也一律拒绝，
+    避免"未配置即放行"的默认放行面。
+    """
+    expected = SharedSettings().internal_service_token
+    if not expected or x_internal_service != expected:
+        raise AppError(ErrorCode.FORBIDDEN)
+
+
+InternalServiceDep = Annotated[None, Depends(require_internal_service)]
 
 
 class SessionVerifier(Protocol):
