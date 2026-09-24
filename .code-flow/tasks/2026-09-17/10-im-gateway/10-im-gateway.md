@@ -1543,7 +1543,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ## TASK-028: 验收 Secret 不泄露与单 Bot 隔离
 
-- **Status**: draft
+- **Status**: blocked
 - **Priority**: P0
 - **Depends**: TASK-006, TASK-007, TASK-017, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析, 10-im-gateway.backend.design.md#3.5 质量实现方案, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1579,12 +1579,14 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 ### Acceptance Evidence
 > planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
 
+> BLOCKED: B-128 阻塞于真实安全缺口：Console /internal/channel/* 无服务身份校验，匿名 GET /internal/channel/bots 返回 200 且携带 bot secret（E-07/RULE-03 已 verified）
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] blocked (B-128 阻塞于真实安全缺口：Console /internal/channel/* 无服务身份校验，匿名 GET /internal/channel/bots 返回 200 且携带 bot secret（E-07/RULE-03 已 verified）)
 ## TASK-029: 收口全部场景、规则与验收证据
 
 - **Status**: draft
