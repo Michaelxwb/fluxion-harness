@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import AsyncIterator, Sequence
 from math import ceil
 from typing import Any
 from uuid import UUID
 
-from muad_api import AppError
+from muad_api import AppError, metrics
 from muad_api.catalog import MessageCatalog
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
@@ -53,6 +54,16 @@ RUN_FAILED_EVENT = "run.failed"
 
 MAX_CONCURRENT_HANDLERS = 8
 
+# 指标（design §4.2；标签只含类型/错误码/原因，不含 Secret 或消息正文）
+MESSAGES_METRIC = "im_messages_total"
+DEDUPE_HITS_METRIC = "im_dedupe_hits_total"
+RUNTIME_ERRORS_METRIC = "im_runtime_errors_total"
+MESSAGE_FAILURES_METRIC = "im_message_failures_total"
+STREAM_FIRST_CHUNK_METRIC = "im_stream_first_chunk_ms"
+STREAM_LATENCY_METRIC = "im_stream_latency_ms"
+RUNTIME_REQUEST_LATENCY_METRIC = "im_runtime_request_latency_ms"
+METRIC_HELP = "IM gateway runtime metric"
+
 BIND_COMMAND = "/bind"
 NEW_COMMAND = "/new"
 STOP_COMMAND = "/stop"
@@ -80,6 +91,10 @@ def _is_command(text: str) -> bool:
     return any(
         stripped == prefix or stripped.startswith(f"{prefix} ") for prefix in COMMAND_PREFIXES
     )
+
+
+def _elapsed_ms(started_at: float, ended_at: float | None = None) -> float:
+    return round(((ended_at or time.monotonic()) - started_at) * 1000, 3)
 
 
 def route_from_envelope(envelope: ChannelEnvelope) -> DeliveryRouteInput:
@@ -139,6 +154,9 @@ class _RunStreamState:
         self.run_id: str | None = None
         self.awaiting_input = False
         self.terminal = False
+        self.started_at = time.monotonic()
+        self.first_event_at: float | None = None
+        self.first_chunk_at: float | None = None
 
 
 class InboundPipeline:
@@ -194,6 +212,9 @@ class InboundPipeline:
             async with self._route_lock(envelope):
                 await self.handle(adapter, envelope)
         except Exception:
+            metrics.inc_counter(
+                MESSAGE_FAILURES_METRIC, 1, {"reason": "unexpected"}, help="IM message failures"
+            )
             logger.exception(
                 "inbound_message_failed channel=%s message_id=%s",
                 envelope.channel,
@@ -212,6 +233,12 @@ class InboundPipeline:
         if not await self._mark_seen(envelope):
             return
         text = envelope.text.strip()
+        metrics.inc_counter(
+            MESSAGES_METRIC,
+            1,
+            {"type": "command" if _is_command(text) else "text"},
+            help="Inbound IM messages by type",
+        )
         route = route_from_envelope(envelope)
         if text == BIND_COMMAND or text.startswith(f"{BIND_COMMAND} "):
             await self._handle_bind(adapter, route, envelope, text)
@@ -232,9 +259,13 @@ class InboundPipeline:
         try:
             duplicate = await is_duplicate(self._dedupe, key, DEDUPE_TTL_SEC)
         except DedupeStoreError as exc:
+            metrics.inc_counter(
+                MESSAGE_FAILURES_METRIC, 1, {"reason": "dedupe_unavailable"}, help="IM message failures"
+            )
             logger.warning("dedupe_store_failed message_id=%s error=%s", envelope.message_id, exc)
             return True
         if duplicate:
+            metrics.inc_counter(DEDUPE_HITS_METRIC, 1, help="Inbound dedupe hits")
             logger.debug("duplicate_message_ignored message_id=%s", envelope.message_id)
         return not duplicate
 
@@ -428,6 +459,11 @@ class InboundPipeline:
             await self._reply_error(adapter, route, exc)
             return
         await self._run_actions(adapter, route, state, state.renderer.finalize())
+        metrics.set_gauge(
+            STREAM_LATENCY_METRIC,
+            _elapsed_ms(state.started_at),
+            help="Whole-stream latency until finalize (ms)",
+        )
         if not state.terminal and not state.awaiting_input:
             await self._send_text(adapter, route, BROKEN_STREAM_TEXT)
 
@@ -446,6 +482,13 @@ class InboundPipeline:
         event: SseEvent,
     ) -> None:
         del platform_user_id  # resume 由 Runtime 决定（Gateway 无状态）
+        if state.first_event_at is None:
+            state.first_event_at = time.monotonic()
+            metrics.set_gauge(
+                RUNTIME_REQUEST_LATENCY_METRIC,
+                _elapsed_ms(state.started_at, state.first_event_at),
+                help="Runtime run request latency until first SSE event (ms)",
+            )
         if event.type == RUN_CREATED_EVENT:
             run_id = event.run_id or (event.data or {}).get("run_id")
             if run_id is not None:
@@ -466,6 +509,13 @@ class InboundPipeline:
     ) -> None:
         for action in actions:
             if action.kind == STREAM_KIND:
+                if state.first_chunk_at is None:
+                    state.first_chunk_at = time.monotonic()
+                    metrics.set_gauge(
+                        STREAM_FIRST_CHUNK_METRIC,
+                        _elapsed_ms(state.started_at, state.first_chunk_at),
+                        help="Time to first streamed chunk (ms)",
+                    )
                 await self._stream_text(adapter, route, action.text)
             elif action.kind == TEXT_KIND and action.text:
                 await self._send_text(adapter, route, action.text)
@@ -526,5 +576,11 @@ class InboundPipeline:
         route: DeliveryRouteInput,
         exc: AppError,
     ) -> None:
+        metrics.inc_counter(
+            RUNTIME_ERRORS_METRIC, 1, {"code": exc.code}, help="Runtime error codes observed"
+        )
+        metrics.inc_counter(
+            MESSAGE_FAILURES_METRIC, 1, {"reason": exc.code}, help="IM message failures"
+        )
         logger.warning("inbound_dependency_error code=%s", exc.code)
         await self._send_text(adapter, route, self._catalog.message(exc.code, self._locale))

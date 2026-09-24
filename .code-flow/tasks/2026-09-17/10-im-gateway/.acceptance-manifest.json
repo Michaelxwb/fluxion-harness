@@ -889,7 +889,7 @@
       "kind": "functional",
       "boundary": "生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表）",
       "owner": "TASK-019",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -901,7 +901,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-119",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "d280607a5c174fc98891d6f54a6ce05e",
+        "executed_at": "2026-09-24T00:38:06.171832+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-119",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "d280607a5c174fc98891d6f54a6ce05e",
+          "executed_at": "2026-09-24T00:38:06.171832+00:00"
+        }
+      ]
     },
     {
       "id": "B-120",

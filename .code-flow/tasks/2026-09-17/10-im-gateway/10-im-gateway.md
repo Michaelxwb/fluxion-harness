@@ -112,7 +112,7 @@
 | B-116 | 10-im-gateway.backend.design.md#3.2 架构与流程 | integration | 真实 iter_events→Gateway 消费队列→Runtime HTTP/SSE→WS 回复 | TASK-016 | verified | ["uv","run","pytest","-q","tests/gateway/test_inbound_concurrency.py","-k","b116"] | . | 600 |  |
 | B-117 | 10-im-gateway.backend.design.md#API-05 主动投递 | integration | 真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS | TASK-017 | verified | ["uv","run","pytest","-q","tests/gateway/test_delivery_api.py","-k","b117"] | . | 600 |  |
 | B-118 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-018 | verified | ["uv","run","pytest","-q","tests/gateway/test_connection_observability.py","-k","b118"] | . | 600 |  |
-| B-119 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-019 | planned | ["uv","run","pytest","-q","tests/gateway/test_message_metrics.py","-k","b119"] | . | 600 |  |
+| B-119 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-019 | verified | ["uv","run","pytest","-q","tests/gateway/test_message_metrics.py","-k","b119"] | . | 600 |  |
 | B-120 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter（探针核心：认证/消息/流式收发） | TASK-020 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_boundary.py","-k","b120"] | . | 600 |  |
 | B-121 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 生产进程生命周期→真实HTTP/PostgreSQL/Redis（Console/Gateway/模型探针/种子与清理） | TASK-021 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_environment.py","-k","b121"] | . | 600 |  |
 | B-122 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | TASK-022 | planned | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"] | . | 1200 |  |
@@ -1090,7 +1090,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-019: 补消息、去重与投递指标
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-008, TASK-015, TASK-017, TASK-018, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#4.2 指标目录, 10-im-gateway.backend.design.md#3.5 质量实现方案
@@ -1105,25 +1105,38 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ### Checklist
 
-- [ ] [B-119][integration] 修改生产代码前先按 生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表） 编写或扩展用例并记录 RED；关键断言：成功/失败/重复分支计数准确；首块和全流时延分开；无 secret/正文标签；同trace可关联。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_message_metrics.py","-k","b119"]`。
-- [ ] 实现或补齐：装配 im_messages_total、im_runtime_errors_total、im_stream_first_chunk_ms、im_dedupe_hits_total、im_background_delivery_total、im_runtime_request_latency_ms、im_stream_latency_ms、im_message_failures_total；性能阈值保持待实测。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
+- [x] [B-119][integration] 修改生产代码前先按 生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表） 编写或扩展用例并记录 RED；关键断言：成功/失败/重复分支计数准确；首块和全流时延分开；无 secret/正文标签；同trace可关联。执行 argv：`["uv","run","pytest","-q","tests/gateway/test_message_metrics.py","-k","b119"]`。
+- [x] 实现或补齐：装配 im_messages_total、im_runtime_errors_total、im_stream_first_chunk_ms、im_dedupe_hits_total、im_background_delivery_total、im_runtime_request_latency_ms、im_stream_latency_ms、im_message_failures_total；性能阈值保持待实测。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、每个关键断言位置、真实组件与清理记录；失败、skip 或外部阻塞保留未验证。所有代码改动有对应测试，函数≤50行，强类型与显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-119 | integration | 生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表） | 成功/失败/重复分支计数准确；首块和全流时延分开；无 secret/正文标签；同trace可关联 | tests/gateway/test_message_metrics.py / B-119（planned） | `["uv","run","pytest","-q","tests/gateway/test_message_metrics.py","-k","b119"]` | planned |
+| B-119 | integration | 生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表） | 成功/失败/重复分支计数准确；首块和全流时延分开；无 secret/正文标签；同trace可关联 | tests/gateway/test_message_metrics.py / B-119（planned） | `["uv","run","pytest","-q","tests/gateway/test_message_metrics.py","-k","b119"]` | verified |
 
 ### Acceptance Evidence
-> planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-119 | **据实记录**：本任务是在 TASK-018 建好的注册表上"装配指标并接线"，用例与接线同批编写；RED 以暂存实现取证：`git stash push apps/im-gateway/src/muad_im_gateway/application/inbound.py apps/im-gateway/src/muad_im_gateway/api/delivery.py` 后 `-k b119` → 3 失败于 `im_messages_total`/`im_dedupe_hits_total`/`im_runtime_errors_total`/`im_stream_first_chunk_ms`/`im_stream_latency_ms`/`im_runtime_request_latency_ms`/`im_background_delivery_total` 全部缺失（`AssertionError: assert ((None or 0)) >= 1`），即"未装配"型 RED。过程中一处真实失败并修正：`_count_delivery("accepted")` 首版补丁未命中成功路径（模板不匹配静默 no-op）→ 用例如实抓到"投递成功分支无计数"，补到降级与成功两条 return 前。 | 改动后 `uv run pytest -q tests/gateway/test_message_metrics.py -k b119` → `3 passed`（1.64s）；`tests/gateway tests/console_channel` → `240 passed`；`tests/acceptance/im_gateway` → `25 passed`。 | `test_b119_inbound_dedupe_and_stream_latency_metrics`（真实 WS 入站 → 生产 Pipeline → 真实 `/metrics`：`im_messages_total{type="text"}` ≥1、同 message_id 重复推送使 `im_dedupe_hits_total` ≥1、`im_runtime_request_latency_ms`/`im_stream_first_chunk_ms`/`im_stream_latency_ms` 三者均存在且**首块 ≤ 全流**；`/metrics` 全文不含消息正文与 bot secret）；`test_b119_failure_metrics_and_trace_correlation`（Runtime 抛 `MODEL_UNAVAILABLE` → `im_runtime_errors_total{code="MODEL_UNAVAILABLE"}` 与 `im_message_failures_total{reason="MODEL_UNAVAILABLE"}` 各 ≥1，且正文不入指标）；`test_b119_background_delivery_status_metrics`（真实 HTTP 投递：成功 → `{status="accepted"}`；同 key 重放 → `{status="deduplicated"}`；探针注入发送失败 → `{status="failed"}`；`/metrics` 不含投递正文）。 | 真实本地 WS 探针（真实入站推送与出站帧）+ 生产 `WeComAdapter`/`InboundPipeline` + 真实 HTTP `GET /metrics` 与 `POST /internal/deliveries`（uvicorn 真实 socket，读 api-kit 进程内注册表）。未 mock 上述真实边界。 | verified |
+
+补充记录：
+- 指标装配（`application/inbound.py`）：`im_messages_total{type=text|command}`（`handle` 入口按命令/普通消息分类）、`im_dedupe_hits_total`（`_mark_seen` 命中）、`im_message_failures_total{reason=dedupe_unavailable|<错误码>|unexpected}`、`im_runtime_errors_total{code=<错误码>}`（`_reply_error`）、`im_runtime_request_latency_ms`（create_run 到首个 SSE 事件）、`im_stream_first_chunk_ms`（首个 stream 动作）、`im_stream_latency_ms`（收尾 finalize 处）——时延用 `_elapsed_ms()` 四舍五入到 0.001ms。
+- 指标装配（`api/delivery.py`）：`im_background_delivery_total{status=accepted|deduplicated|failed}`，覆盖成功、降级 at-least-once、成功键重放、in-flight 超时与三类发送失败。
+- 标签只含类型/错误码/原因/状态；正文与 Secret 不入标签（用例对 `/metrics` 全文做 canary 断言）。
+- 性能阈值按设计保持待实测（仅记录最近观测值，不做阈值判定）。
+- 回归：`tests/gateway tests/console_channel` → `240 passed`；`tests/acceptance/im_gateway` → `25 passed`；`uv run mypy apps/im-gateway/src/muad_im_gateway` → `Success: no issues found in 23 source files`。
+- 清理：本用例全部为进程内指标 + 真实 HTTP/WS 夹具，各自 finally 关闭（uvicorn `should_exit`、探针 `stop()`、dependency_overrides.clear()）。
+- B-119: verified — automated command passed; run_id=d280607a5c174fc98891d6f54a6ce05e (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
 - [2026-09-21] 用户确认后写入；设计修订已承接，状态保持 draft。
 
 ---
-
+- [2026-09-24] started
+- [2026-09-24] completed (done)
 ## TASK-020: 建立真实 WS 探针核心与官方 SDK 边界
 
 - **Status**: done

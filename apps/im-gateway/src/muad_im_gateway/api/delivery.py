@@ -4,6 +4,7 @@ import time
 from typing import Any
 
 from fastapi import APIRouter, Request
+from muad_api import metrics
 from muad_api import ApiResponse, AppError, ErrorCode, ok
 from muad_contracts import DeliveryRequest
 
@@ -27,6 +28,7 @@ DELIVERY_DEDUPE_TTL_SEC = 604800
 DELIVERY_IN_FLIGHT_TTL_SEC = 30
 # 已在处理中（占位存在但尚无成功键）时的有界等待：超时回可重试错误，不把占位当成功。
 DELIVERY_IN_FLIGHT_WAIT_SEC = 2.0
+BACKGROUND_DELIVERY_METRIC = "im_background_delivery_total"
 DELIVERY_IN_FLIGHT_POLL_SEC = 0.1
 
 
@@ -46,6 +48,7 @@ async def deliver(
             "delivery_dedupe_degraded delivery_key=%s error=%s", body.delivery_key, exc
         )
         await _send(registry, body, dedupe=None, key=key)
+        _count_delivery("accepted")
         return ok(
             request.app.state.message_catalog,
             {"accepted": True, "duplicate": False, "delivered": True, "deduplicated": False},
@@ -58,9 +61,17 @@ async def deliver(
     except DedupeStoreError as exc:
         # 已真实发送：保留短 TTL 占位，最坏情况按 at-least-once 重复投递。
         logger.warning("delivery_dedupe_mark_failed delivery_key=%s error=%s", body.delivery_key, exc)
+    _count_delivery("accepted")
     return ok(
         request.app.state.message_catalog,
         {"accepted": True, "duplicate": False, "delivered": True, "deduplicated": False},
+    )
+
+
+def _count_delivery(status: str) -> None:
+    """投递结果计数（标签只含状态，不含 delivery_key/正文）。"""
+    metrics.inc_counter(
+        BACKGROUND_DELIVERY_METRIC, 1, {"status": status}, help="Background deliveries by status"
     )
 
 
@@ -70,8 +81,10 @@ async def _replay(request: Request, dedupe: DedupeStore, key: str) -> ApiRespons
     while not await _is_delivered(dedupe, key):
         if time.monotonic() >= deadline:
             logger.warning("delivery_in_flight_timeout key=%s", key)
+            _count_delivery("failed")
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         await asyncio.sleep(DELIVERY_IN_FLIGHT_POLL_SEC)
+    _count_delivery("deduplicated")
     return ok(
         request.app.state.message_catalog,
         {"accepted": True, "duplicate": True, "delivered": True, "deduplicated": True},
@@ -90,11 +103,13 @@ async def _send(
         logger.warning("delivery_bot_not_found delivery_key=%s error=%s", body.delivery_key, exc)
         if dedupe is not None:
             await _release(dedupe, key, body.delivery_key)
+        _count_delivery("failed")
         raise AppError(ErrorCode.BOT_NOT_FOUND) from exc
     except (ChannelRegistryError, ChannelAdapterUnavailable) as exc:
         logger.warning("delivery_send_failed delivery_key=%s error=%s", body.delivery_key, exc)
         if dedupe is not None:
             await _release(dedupe, key, body.delivery_key)
+        _count_delivery("failed")
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
     except Exception as exc:
         # 官方 SDK 以任意异常回传发送失败（实测 RuntimeError: Reply ack error）；占位必须释放
@@ -102,6 +117,7 @@ async def _send(
         logger.warning("delivery_send_error delivery_key=%s error=%s", body.delivery_key, type(exc).__name__)
         if dedupe is not None:
             await _release(dedupe, key, body.delivery_key)
+        _count_delivery("failed")
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
 
 
@@ -111,6 +127,7 @@ async def _is_delivered(dedupe: DedupeStore, key: str) -> bool:
         return await dedupe.get_value(key) == DELIVERED_VALUE
     except DedupeStoreError as exc:
         logger.warning("delivery_dedupe_read_failed key=%s error=%s", key, exc)
+        _count_delivery("failed")
         raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
 
 
