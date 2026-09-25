@@ -1,10 +1,10 @@
-"""审计查询 API（Console 聚合审计列表 API-01、审计详情 API-02 与导出创建 API-05）。"""
+"""审计查询 API（API-01 列表、API-02 详情、API-05 导出创建、API-06 导出状态/下载）。"""
 
 import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -79,6 +79,43 @@ async def create_audit_export(
         tenant_id, account.id, payload, idempotency_key
     )
     return ok(catalog, data)
+
+
+@router.get("/exports/{export_id}")
+async def get_audit_export_status(
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    export_id: uuid.UUID,
+) -> ApiResponse[Any]:
+    """API-06：导出状态查询。
+
+    必须声明在 `/{audit_id}` 之前（同上，路由按声明顺序匹配）。
+    顺带在请求内惰性驱动本租户的待处理导出，使创建后的任务可轮询到终态而无需外部改库。
+    """
+    catalog = request.app.state.message_catalog
+    service = AuditExportService(session, catalog.codes())
+    await service.run_pending_exports(tenant_id)
+    return ok(catalog, await service.get_export_status(tenant_id, export_id))
+
+
+@router.get("/exports/{export_id}/download")
+async def download_audit_export(
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    export_id: uuid.UUID,
+) -> Response:
+    """API-06：下载导出产物；未完成 `COMMON_CONFLICT`、不存在/跨租户 `COMMON_NOT_FOUND`。"""
+    catalog = request.app.state.message_catalog
+    artifact = await AuditExportService(session, catalog.codes()).get_export_download(
+        tenant_id, export_id
+    )
+    return Response(
+        content=artifact.content,
+        media_type=artifact.media_type,
+        headers={"Content-Disposition": f'attachment; filename="{artifact.filename}"'},
+    )
 
 
 @router.get("/{audit_id}")

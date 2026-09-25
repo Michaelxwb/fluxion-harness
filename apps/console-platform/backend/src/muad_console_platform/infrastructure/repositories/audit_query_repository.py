@@ -338,6 +338,21 @@ class AuditQueryRepository:
         )
         return [dict(row) for row in rows.mappings()]
 
+    async def all_rows(
+        self, tenant_id: str, filters: AuditQueryFilters
+    ) -> list[dict[str, Any]]:
+        """API-06 导出执行：同一四表 UNION ALL 投影按筛选条件取全量行（行序同列表）。"""
+        where, params = _where(filters)
+        columns = ", ".join(PROJECTED_COLUMNS)
+        rows = await self._session.execute(
+            text(
+                f"SELECT {columns} FROM ({_PROJECTION_SQL}) u{where} "
+                "ORDER BY occurred_at DESC, audit_id DESC"
+            ),
+            {"tenant_id": tenant_id, **params},
+        )
+        return [dict(row) for row in rows.mappings()]
+
     async def detail(
         self, tenant_id: str, audit_id: uuid.UUID, audit_type: str
     ) -> AuditDetailRecord | None:
