@@ -254,6 +254,7 @@ class AuditQueryFilters:
     resource_type: str | None = None
     resource_id: uuid.UUID | None = None
     actor_user_id: uuid.UUID | None = None
+    agent_id: uuid.UUID | None = None
     action: str | None = None
     result_status: str | None = None
     trace_id: str | None = None
@@ -267,7 +268,11 @@ def _text(value: uuid.UUID | None) -> str | None:
 
 
 def _where(filters: AuditQueryFilters) -> tuple[str, dict[str, Any]]:
-    """按投影列拼装 WHERE；列名与操作符全部来自本函数字面量，值一律走绑定参数。"""
+    """按投影列拼装 WHERE；列名与操作符全部来自本函数字面量，值一律走绑定参数。
+
+    `agent_id` 也按投影列过滤：运行类行由 `run_record` / `task_execution` 补齐该列，
+    config 类行投影为 `NULL`，而 `NULL = :agent_id` 不成立 —— 因此该条件只命中运行类行。
+    """
     clauses: list[str] = []
     params: dict[str, Any] = {}
     exact = {
@@ -275,6 +280,7 @@ def _where(filters: AuditQueryFilters) -> tuple[str, dict[str, Any]]:
         "resource_type": filters.resource_type,
         "resource_id": _text(filters.resource_id),
         "actor_user_id": _text(filters.actor_user_id),
+        "agent_id": _text(filters.agent_id),
         "action": filters.action,
         "result_status": filters.result_status,
         "trace_id": filters.trace_id,

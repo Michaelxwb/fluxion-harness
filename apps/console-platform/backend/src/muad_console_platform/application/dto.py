@@ -507,6 +507,7 @@ class AuditExportCreateRequest(BaseModel):
     resource_type: str | None = Field(default=None, max_length=64)
     resource_id: uuid.UUID | None = None
     actor_user_id: uuid.UUID | None = None
+    agent_id: uuid.UUID | None = None
     action: str | None = Field(default=None, max_length=64)
     result_status: str | None = Field(default=None, max_length=64)
     trace_id: str | None = Field(default=None, max_length=64)

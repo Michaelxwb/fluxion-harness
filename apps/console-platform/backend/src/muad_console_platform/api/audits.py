@@ -30,6 +30,7 @@ async def list_audits(
     resource_type: str | None = Query(default=None),
     resource_id: uuid.UUID | None = Query(default=None),  # noqa: B008
     actor_user_id: uuid.UUID | None = Query(default=None),  # noqa: B008
+    agent_id: uuid.UUID | None = Query(default=None),  # noqa: B008
     action: str | None = Query(default=None, max_length=64),
     result_status: str | None = Query(default=None, max_length=64),
     trace_id: str | None = Query(default=None, max_length=64),
@@ -44,6 +45,7 @@ async def list_audits(
         resource_type=resource_type,
         resource_id=resource_id,
         actor_user_id=actor_user_id,
+        agent_id=agent_id,
         action=action,
         result_status=result_status,
         trace_id=trace_id,
