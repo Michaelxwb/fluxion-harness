@@ -32,12 +32,12 @@
 | TASK-007 | P1 | 导出状态/下载 API-06 与执行落地 | 006 | 3.4 API-06；3.5 可靠性 | S-05(E2E), B-202(integration) | 5 |
 | TASK-008 | P0 | 三层脱敏收口（日志/写入/响应） | 001, 002 | 3.5 安全与日志脱敏；2.5.1 RULE-01/RULE-04 | E-02(integration), RULE-01(integration), RULE-04(integration), RULE-log-001(integration), RULE-secret-001(integration) | 6 |
 | TASK-009 | P1 | 可观测性：trace 关联字段与指标目录 | 002 | 3.5 可观测性；4 部署与运维 | B-203(integration) | 5 |
-| TASK-010 | P0 | 前端 service 层与类型契约 | 无 | frontend 3.4 组件接口契约 | RULE-front-001(integration) | 4 |
-| TASK-011 | P0 | 审计列表页容器与筛选栏 | 010 | frontend 3.2/3.3；3.3.1 按钮设计 | E-06(integration), RULE-ui-001(E2E) | 5 |
-| TASK-012 | P0 | 审计表格与字段列 | 011 | frontend 3.3/3.6 | S-06(E2E) | 3 |
-| TASK-013 | P0 | 详情 SideSheet 与关联链接 | 012 | frontend 3.3/3.4 | S-07(E2E), E-07(integration), RULE-ui-detail-001(E2E) | 5 |
-| TASK-014 | P1 | 导出按钮与轮询/下载交互 | 012 | frontend 3.3.1/3.5 | S-08(E2E), E-08(integration), E-09(integration) | 4 |
-| TASK-015 | P1 | i18n 词条与语言切换覆盖 | 012 | frontend 3.3/3.6 | RULE-i18n-001(E2E) | 3 |
+| TASK-010 | P0 | 前端 service 层与类型契约 | 无 | frontend 3.4 组件接口契约 | RULE-front-001(integration), B-204(integration) | 5 |
+| TASK-011 | P0 | 审计列表页容器与筛选栏 | 010 | frontend 3.2/3.3；3.3.1 按钮设计 | E-06(integration), RULE-ui-001(E2E), B-205(integration) | 6 |
+| TASK-012 | P0 | 审计表格与字段列 | 011 | frontend 3.3/3.6 | S-06(E2E), B-206(integration) | 4 |
+| TASK-013 | P0 | 详情 SideSheet 与关联链接 | 012 | frontend 3.3/3.4 | S-07(E2E), E-07(integration), RULE-ui-detail-001(E2E), B-207(integration) | 6 |
+| TASK-014 | P1 | 导出按钮与轮询/下载交互 | 012 | frontend 3.3.1/3.5 | S-08(E2E), E-08(integration), E-09(integration), B-208(integration) | 5 |
+| TASK-015 | P1 | i18n 词条与语言切换覆盖 | 012 | frontend 3.3/3.6 | RULE-i18n-001(E2E), B-209(integration) | 4 |
 | TASK-016 | P0 | 真实审计验收环境与种子清理 | 005, 007 | 3.5 可靠性；4 部署与运维 | — | 5 |
 | TASK-017 | P0 | 后端场景真实验收（S-01/03/05 + 集成场景证据） | 016 | 2.5.2 功能验收场景 | S-01(E2E), S-03(E2E), S-05(E2E) | 6 |
 | TASK-018 | P0 | 前端 E2E 验收（列表/详情/导出） | 016 | frontend 2.4 验收条件 | S-06(E2E), S-07(E2E), S-08(E2E) | 6 |
@@ -53,8 +53,14 @@
 | S-04 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console AppService 事务→control.config_audit_log | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_config_write.py","-k","s04"] | . | 600 |  |
 | S-05 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→Console 导出创建/查询 HTTP→幂等表与导出任务(PostgreSQL) | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s05"] | . | 1200 |  |
 | B-201 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Runtime HTTP /internal/admin/runs 与 /internal/admin/runs/{run_id} → 真实 PostgreSQL | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_admin_run_api.py"] | . | 600 |  |
+| B-204 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-010 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_services_contract.py"] | . | 600 |  |
 | B-202 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Console HTTP 导出状态/下载 → 真实 PostgreSQL + artifact store | TASK-007 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_download.py"] | . | 600 |  |
+| B-205 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-011 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_page_contract.py"] | . | 600 |  |
 | B-203 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 /metrics HTTP 端点 + 真实日志出口 + 运行审计表(PostgreSQL) | TASK-009 | verified | ["uv","run","pytest","-q","tests/test_audit_observability_config.py"] | . | 600 |  |
+| B-206 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-012 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_table_contract.py"] | . | 600 |  |
+| B-207 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-013 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"] | . | 600 |  |
+| B-208 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-014 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_export_contract.py"] | . | 600 |  |
+| B-209 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-015 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_i18n_contract.py"] | . | 600 |  |
 | E-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 详情查询→关联 Run 不可读 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"] | . | 600 |  |
 | E-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应 | TASK-008 | verified | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | E-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 列表查询参数校验 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
@@ -85,7 +91,7 @@
 | RULE-time-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | E2E | Console 时间出参与前端展示一致 + 原 verifier 真实边界 | TASK-003 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_query_api.py && uv run pytest -q tests/frontend/test_datetime_contract.py"] | . | 1200 |  |
 | RULE-ui-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面 + 原 verifier 真实边界 | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_page_contract.py && uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | . | 1200 |  |
 | RULE-ui-detail-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面详情结构 + 原 verifier 真实边界 | TASK-013 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_detail_contract.py && uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"] | . | 1200 |  |
-| RULE-front-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | integration | 前端源码契约（services 收口/无裸 fetch/i18n）+ 原 verifier 真实边界 | TASK-010 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_services_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"] | . | 900 |  |
+| RULE-front-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | integration | 前端源码契约（services 收口/无裸 fetch/i18n）+ 原 verifier 真实边界 | TASK-010 | verified | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_services_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"] | . | 900 |  |
 | RULE-i18n-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面双语 + 原 verifier 真实边界 | TASK-015 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_i18n_contract.py && uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"] | . | 1200 |  |
 | RULE-test-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 仓库级真实 E2E（真实 HTTP/PostgreSQL/Redis/Browser）+ 原 verifier 真实边界 | TASK-019 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 2400 |  |
 
@@ -573,12 +579,12 @@
 - [2026-09-25] completed (done)
 ## TASK-010: 前端 service 层与类型契约
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: 11-audit-observability.frontend.design.md#3.4 组件接口契约
 - **Spec-Refs**: harness-frontend#RULE-front-001
-- **Acceptance-Refs**: RULE-front-001
+- **Acceptance-Refs**: RULE-front-001, B-204
 - **Files**: `apps/console-platform/frontend/src/modules/audit-observability/services/auditService.ts`, `apps/console-platform/frontend/src/modules/audit-observability/types.ts`, `tests/frontend/test_audit_services_contract.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
@@ -588,26 +594,44 @@
 
 ### Checklist
 
-- [ ] [RULE-front-001][integration] verifier_ref=harness-frontend#RULE-front-001；原 verifier 输入 argv=`["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`；补充真实边界 前端源码契约（services 收口/无裸请求/i18n）；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_audit_services_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
-- [ ] 实现或补齐：5 个 service 方法 + 类型定义（`AuditListQuery`/`AuditListItem`/`AuditExportCreateRequest`/`AuditExportJob`）。
-- [ ] 覆盖导出幂等键约定：同一用户提交复用同一 key，显式新导出才换 key（源码契约断言）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence。
+- [x] [RULE-front-001][integration] verifier_ref=harness-frontend#RULE-front-001；原 verifier 输入 argv=`["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`；补充真实边界 前端源码契约（services 收口/无裸请求/i18n）；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_audit_services_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
+- [x] 实现或补齐：5 个 service 方法 + 类型定义（`AuditListQuery`/`AuditListItem`/`AuditExportCreateRequest`/`AuditExportJob`）。
+- [x] 覆盖导出幂等键约定：同一用户提交复用同一 key，显式新导出才换 key（源码契约断言）。
+- [x] [B-204][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：服务只经共享 api client、无裸 axios/fetch；5 个方法签名与 Idempotency-Key 头；类型字段名一致；服务/类型文件无硬编码中文。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_services_contract.py"]`。
+- [x] 执行上述契约命令，填写 Acceptance Evidence。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| RULE-front-001 | integration | 前端源码 + 真实 typecheck/脚本 | 只经 services/；无裸 fetch/axios；文案为 i18n key；原 verifier 全部通过 | tests/frontend/test_audit_services_contract.py + 原 verifier / RULE-front-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_audit_services_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]` | planned |
+| RULE-front-001 | integration | 前端源码 + 真实 typecheck/脚本 | 只经 services/；无裸 fetch/axios；文案为 i18n key；原 verifier 全部通过 | tests/frontend/test_audit_services_contract.py + 原 verifier / RULE-front-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_audit_services_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]` | verified |
+| B-204 | integration | 前端源码契约 + 真实 tsc 类型检查 | 服务只经共享 api client、无裸 axios/fetch；5 个方法签名与 Idempotency-Key 头；类型字段名一致；服务/类型文件无硬编码中文 | tests/frontend/test_audit_services_contract.py / B-204 | `["uv","run","pytest","-q","tests/frontend/test_audit_services_contract.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| RULE-front-001 | **真实 RED**：`uv run pytest -q tests/frontend/test_audit_services_contract.py` → **11 failed**，首条断言即 `缺少前端模块文件：…/modules/audit-observability/types.ts`（模块尚不存在；非伪造失败）。 | 新建前端模块 `audit-observability/types.ts` + `services/auditService.ts`（5 个方法：`listAudits`/`getAudit`/`createExport`/`getExport`/`downloadExport`，全部经共享 `api` client；snake_case→camelCase 映射只在 service 层；`createExport(req, idempotencyKey)` 由**调用方**持有幂等键、不自生成，重试复用同一 key）→ 契约测试 **11 passed**；`tests/frontend/` **143 passed**；`uv run python scripts/check_frontend_api_usage.py` → OK；`check_frontend_i18n.py` → OK（615 keys）；`npm --prefix apps/console-platform/frontend run typecheck` → 无诊断；ruff 干净。 | `tests/frontend/test_audit_services_contract.py` 11 条：服务只经共享 client 且无裸 `axios`/`fetch(`；5 个方法存在且签名符合（含 `Idempotency-Key` 头、幂等键为显式入参且无自生成的 `newRequestId()` 调用）；类型字段名（camelCase）与设计一致；服务/类型文件无硬编码中文（i18n key 约束）。 | 前端源码契约 + 真实 `tsc --noEmit` 类型检查 + 两个仓库检查脚本；另以一次性 esbuild+node 探针（已删除、未入库）驱动真实 service 验证线上形态：`GET /audits`（`page_size` 500→100 夹取、`undefined` 筛选被丢弃）、`GET /audits/{id}?audit_type=TOOL`、`POST /audits/exports` 带 `Idempotency-Key` 且 body 为 snake_case、导出状态映射含 `errorCode`、下载以 `responseType:'blob'` 发起。 | verified |
+
+**实现中的判断点与交接提醒（如实登记）**：
+- **幂等键归属 = 调用方**：设计 §3.5 说"由 service 在一次用户提交内生成并复用"，任务 brief 要求写成显式入参；按 brief 实现（`createExport(req, idempotencyKey)` 只透传为 `Idempotency-Key` 头，绝不自生成），并在函数注释与契约测试中同时钉死"调用方持有 + 重试复用"。**TASK-014 需在每次用户提交时用 `newRequestId()` 生成一次**。
+- **api client 用法**：只用 `api.get`/`api.post` + 兄弟 service 同款 `unwrap`（client 拦截器已负责 locale/request-id/CSRF/401）；测试禁止出现 `axios`/`create(`/`fetch(` 字样（注释也避免，与既有 `*_contract.py` 口径一致）。
+- **映射只在 service 层**：显式 `toListParams`/`toExportBody`/`toAuditItem`/`toAuditDetail`，不用泛型遍历；线上保持 snake_case，DTO 才是 camelCase；`undefined` 筛选不出现在查询串（已运行时验证）。
+- **超出 brief 列举的设计字段**：`AuditListItem` 另带 `target` 与 `latencyMs?`（设计 §3.4 / 后端 `PROJECTED_COLUMNS`），否则会静默丢后端数据；`traceId` 取可选（CONFIG 审计返回 `trace_id: null` → 映射为 `undefined`）。
+- **额外类型**（`AuditDetail`/`AuditRelations`/`AuditPage`）：`getAudit` 需要真实返回类型，含 `related{runId?,taskId?}`、`relatedMissing`（E-01）与 `extras`（未单独映射的投影列 + 各表专有字段），使 TASK-012/013 无需再改 `types.ts`。
+- **pageSize 守卫**：线上以 `Math.min(…, AUDIT_PAGE_SIZE_MAX=100)` 夹取（对齐后端约束），并导出 `AUDIT_PAGE_SIZE_DEFAULT=20` 供 TASK-011 初始化筛选状态。
+- **`createExport` 返回形态**：后端创建仅返回 `{export_id,status,create_time}`，故创建时 `updateTime` 暂等于 `createTime`（已注释），后续真实值由 `getExport` 提供。
+- **无 `index.ts` barrel**（兄弟模块都没有）。
+- **交 TASK-014 的风险提醒**：下载用 `responseType:'blob'` 时失败响应体也是 Blob，`apiErrorBody()` 读不到封套 `code`；因此 `downloadExport` 只返回字节，失败路径应走"轮询 `getExport` → `FAILED.errorCode` → catalog/i18n 文案"（已在函数注释说明）。若 TASK-014 需要在下载时刻拿到错误码，需自行解码 Blob 错误体。
+- **时间筛选格式留给 TASK-011**（`startTime`/`endTime` 原样透传字符串；后端收 `datetime`）。
+- B-204: verified — automated command passed; run_id=d044e7057c964501bcad83c60c36aa92 (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-011: 审计列表页容器与筛选栏
 
 - **Status**: draft
@@ -615,7 +639,7 @@
 - **Depends**: TASK-010
 - **Source**: 11-audit-observability.frontend.design.md#3.2 页面与路由结构, 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.3.1 每个按钮/操作的设计
 - **Spec-Refs**: harness-ui#RULE-ui-001
-- **Acceptance-Refs**: E-06, RULE-ui-001
+- **Acceptance-Refs**: E-06, RULE-ui-001, B-205
 - **Files**: `apps/console-platform/frontend/src/modules/audit-observability/pages/AuditPage.tsx`, `apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx`, `tests/frontend/test_audit_page_contract.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
@@ -629,6 +653,7 @@
 - [ ] [RULE-ui-001][E2E] verifier_ref=harness-ui#RULE-ui-001；原 verifier 输入 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]`；补充真实边界 真实 Console 页面与构建；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_audit_page_contract.py && uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]`。
 - [ ] 实现或补齐：路由注册、菜单项、页面容器与筛选栏（复用 ConsoleShell/ModuleToolbar/EmptyState/ErrorState/PaginationFooter）。
 - [ ] 覆盖筛选条件 → `AuditListQuery` 的映射与重置行为。
+- [ ] [B-205][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：路由与页面容器按 ConsoleShell+ModuleToolbar 组合（左上操作/右上筛选/右下分页）；筛选条件映射为 AuditListQuery；无硬编码中文。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_page_contract.py"]`。
 - [ ] 执行上述契约命令，填写 Acceptance Evidence。
 
 ### Acceptance Contract
@@ -637,6 +662,7 @@
 |---|---|---|---|---|---|---|
 | E-06 | integration | Browser→Console 查询失败路径 | 保留筛选并可重试；ErrorState 呈现 | e2e/tests/audit-observability.spec.ts / E-06（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-06\""]` | planned |
 | RULE-ui-001 | E2E | 真实 Console 页面 + 原 verifier 真实边界 | 左上操作/右上筛选/右下分页；主展示字段开详情；原 verifier 全部通过 | tests/frontend/test_audit_page_contract.py + 原 verifier / RULE-ui-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_audit_page_contract.py && uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]` | planned |
+| B-205 | integration | 前端源码契约 + 真实 tsc 类型检查 | 路由与页面容器按 ConsoleShell+ModuleToolbar 组合（左上操作/右上筛选/右下分页）；筛选条件映射为 AuditListQuery；无硬编码中文 | tests/frontend/test_audit_page_contract.py / B-205 | `["uv","run","pytest","-q","tests/frontend/test_audit_page_contract.py"]` | planned |
 
 ### Acceptance Evidence
 
@@ -654,7 +680,7 @@
 - **Depends**: TASK-011
 - **Source**: 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.6 UI 状态
 - **Spec-Refs**:
-- **Acceptance-Refs**: S-06
+- **Acceptance-Refs**: S-06, B-206
 - **Files**: `apps/console-platform/frontend/src/modules/audit-observability/components/AuditTable.tsx`, `apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditList.ts`, `tests/frontend/test_audit_table_contract.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
@@ -666,6 +692,7 @@
 
 - [ ] [S-06][E2E] 与 TASK-018 协同：按 Trace ID 搜索仅显示相关记录且字段与 docs/15 口径一致（本任务负责实现侧：列定义、`result_status` 标签、时间格式化）。
 - [ ] 覆盖 `useAuditList` 状态机：loading/empty/error 与分页参数变更重取。
+- [ ] [B-206][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：表格列与 docs/15 口径一致；复用 StatusTag/DateTimeText；分页与 total 联动；主展示字段可点开详情。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_table_contract.py"]`。
 - [ ] 执行上述契约命令，填写 Acceptance Evidence。
 
 ### Acceptance Contract
@@ -673,6 +700,7 @@
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | S-06 | E2E | Browser(Chromium)→Console 聚合查询 HTTP | 仅显示相关记录；字段与 docs/15 一致；分页可用 | e2e/tests/audit-observability.spec.ts / S-06（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""]` | planned |
+| B-206 | integration | 前端源码契约 + 真实 tsc 类型检查 | 表格列与 docs/15 口径一致；复用 StatusTag/DateTimeText；分页与 total 联动；主展示字段可点开详情 | tests/frontend/test_audit_table_contract.py / B-206 | `["uv","run","pytest","-q","tests/frontend/test_audit_table_contract.py"]` | planned |
 
 ### Acceptance Evidence
 
@@ -690,7 +718,7 @@
 - **Depends**: TASK-012
 - **Source**: 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.4 组件接口契约
 - **Spec-Refs**: harness-ui-detail#RULE-ui-detail-001
-- **Acceptance-Refs**: S-07, E-07, RULE-ui-detail-001
+- **Acceptance-Refs**: S-07, E-07, RULE-ui-detail-001, B-207
 - **Files**: `apps/console-platform/frontend/src/modules/audit-observability/components/AuditDetailSideSheet.tsx`, `apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditDetail.ts`, `tests/frontend/test_audit_detail_contract.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
@@ -704,6 +732,7 @@
 - [ ] [E-07][integration] 覆盖关联不可读路径：SideSheet 内 ErrorState，不伪造关联数据。
 - [ ] [RULE-ui-detail-001][E2E] verifier_ref=harness-ui-detail#RULE-ui-detail-001；原 verifier 输入 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]`；补充真实边界 真实 Console 页面详情结构；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_audit_detail_contract.py && uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
 - [ ] 实现或补齐：SideSheet/DetailTabs/EntityLink 复用与只读约束（无编辑入口）。
+- [ ] [B-207][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：详情复用 DetailSideSheet/DetailTabs；只读无操作按钮；关联用 EntityLink；不可读时 ErrorState 不伪造关联。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"]`。
 - [ ] 执行上述契约命令，填写 Acceptance Evidence。
 
 ### Acceptance Contract
@@ -713,6 +742,7 @@
 | S-07 | E2E | Browser(Chromium)→Console 详情 HTTP | 只读详情；无操作按钮；关联链接正确 | e2e/tests/audit-observability.spec.ts / S-07（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""]` | planned |
 | E-07 | integration | Browser→详情不可读路径 | SideSheet 内 ErrorState；无伪造关联 | e2e/tests/audit-observability.spec.ts / E-07（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-07\""]` | planned |
 | RULE-ui-detail-001 | E2E | 真实 Console 页面详情结构 + 原 verifier 真实边界 | 标题/副标题左侧、操作与关闭同行靠右、Tabs 在其下；原 verifier 全部通过 | tests/frontend/test_audit_detail_contract.py + 原 verifier / RULE-ui-detail-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_audit_detail_contract.py && uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]` | planned |
+| B-207 | integration | 前端源码契约 + 真实 tsc 类型检查 | 详情复用 DetailSideSheet/DetailTabs；只读无操作按钮；关联用 EntityLink；不可读时 ErrorState 不伪造关联 | tests/frontend/test_audit_detail_contract.py / B-207 | `["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"]` | planned |
 
 ### Acceptance Evidence
 
@@ -730,7 +760,7 @@
 - **Depends**: TASK-012
 - **Source**: 11-audit-observability.frontend.design.md#3.3.1 每个按钮/操作的设计, 11-audit-observability.frontend.design.md#3.5 状态与数据流
 - **Spec-Refs**:
-- **Acceptance-Refs**: S-08, E-08, E-09
+- **Acceptance-Refs**: S-08, E-08, E-09, B-208
 - **Files**: `apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditExport.ts`, `apps/console-platform/frontend/src/modules/audit-observability/components/AuditExportButton.tsx`, `tests/frontend/test_audit_export_contract.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
@@ -743,6 +773,7 @@
 - [ ] [S-08][E2E] 与 TASK-018 协同：同 key 重试返回同一任务、轮询至完成可下载、提交中按钮禁用（本任务负责实现侧交互）。
 - [ ] [E-08][integration] 覆盖异指纹 409：展示 i18n 文案、保留筛选、不重复创建任务。
 - [ ] [E-09][integration] 覆盖 `FAILED` 状态：展示 `error_code` 文案与重试入口（复用新 key），不展示未完成产物。
+- [ ] [B-208][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：导出按钮为左主操作 primary 且提交中禁用；同一用户提交复用同一 Idempotency-Key；失败文案经 catalog→i18n。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_export_contract.py"]`。
 - [ ] 执行上述契约命令，填写 Acceptance Evidence。
 
 ### Acceptance Contract
@@ -752,6 +783,7 @@
 | S-08 | E2E | Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL | 同一任务不重复创建；轮询至完成可下载；提交中禁用 | e2e/tests/audit-observability.spec.ts / S-08（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""]` | planned |
 | E-08 | integration | Browser→导出创建异指纹 409 | 展示 `IDEMPOTENCY_MISMATCH` 文案；保留筛选；不重复创建 | e2e/tests/audit-observability.spec.ts / E-08（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-08\""]` | planned |
 | E-09 | integration | Browser→导出失败状态 | 展示 error_code 文案与重试入口；不展示未完成产物 | e2e/tests/audit-observability.spec.ts / E-09（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-09\""]` | planned |
+| B-208 | integration | 前端源码契约 + 真实 tsc 类型检查 | 导出按钮为左主操作 primary 且提交中禁用；同一用户提交复用同一 Idempotency-Key；失败文案经 catalog→i18n | tests/frontend/test_audit_export_contract.py / B-208 | `["uv","run","pytest","-q","tests/frontend/test_audit_export_contract.py"]` | planned |
 
 ### Acceptance Evidence
 
@@ -769,7 +801,7 @@
 - **Depends**: TASK-012
 - **Source**: 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.6 UI 状态
 - **Spec-Refs**: harness-i18n#RULE-i18n-001
-- **Acceptance-Refs**: RULE-i18n-001
+- **Acceptance-Refs**: RULE-i18n-001, B-209
 - **Files**: `apps/console-platform/frontend/src/locales/zh-CN/audit-observability.ts`, `apps/console-platform/frontend/src/locales/en-US/audit-observability.ts`, `tests/frontend/test_audit_i18n_contract.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
@@ -781,6 +813,7 @@
 
 - [ ] [RULE-i18n-001][E2E] verifier_ref=harness-i18n#RULE-i18n-001；原 verifier 输入 argv=`["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]`；补充真实边界 真实 Console 页面双语切换；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_audit_i18n_contract.py && uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]`。
 - [ ] 覆盖 zh-CN 与 en-US 词条键一致（缺键/多余键断言）与 LocaleSwitch 切换后文案生效。
+- [ ] [B-209][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：zh-CN/en-US 词条键一致（缺键/多余键断言）；错误与状态文案取自 catalog→i18n key。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_i18n_contract.py"]`。
 - [ ] 执行上述契约命令，填写 Acceptance Evidence。
 
 ### Acceptance Contract
@@ -788,6 +821,7 @@
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | RULE-i18n-001 | E2E | 真实 Console 页面双语切换 + 原 verifier 真实边界 | 中英词条键一致；错误/状态文案经 i18n key；原 verifier 全部通过 | tests/frontend/test_audit_i18n_contract.py + 原 verifier / RULE-i18n-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_audit_i18n_contract.py && uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]` | planned |
+| B-209 | integration | 前端源码契约 + 真实 tsc 类型检查 | zh-CN/en-US 词条键一致（缺键/多余键断言）；错误与状态文案取自 catalog→i18n key | tests/frontend/test_audit_i18n_contract.py / B-209 | `["uv","run","pytest","-q","tests/frontend/test_audit_i18n_contract.py"]` | planned |
 
 ### Acceptance Evidence
 

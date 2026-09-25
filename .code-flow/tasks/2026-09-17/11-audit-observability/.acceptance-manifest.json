@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "11-audit-observability.md",
-  "task_sha256": "779a86952d008d69d30cd82b4aeb778e333f6d24343f1d0e2e4777a6dfce472b",
+  "task_sha256": "4c287f440ee8129d1b89972bf3b28437e554a512bc028f5963c293451fc45501",
   "scenarios": [
     {
       "id": "S-01",
@@ -128,6 +128,46 @@
       "depends_on": []
     },
     {
+      "id": "B-204",
+      "source": "11-audit-observability.frontend.design.md#3.4 组件接口契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n)",
+      "owner": "TASK-010",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_audit_services_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-204",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "d044e7057c964501bcad83c60c36aa92",
+        "executed_at": "2026-09-25T05:29:08.118292+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-204",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "d044e7057c964501bcad83c60c36aa92",
+          "executed_at": "2026-09-25T05:29:08.118292+00:00"
+        }
+      ]
+    },
+    {
       "id": "B-202",
       "source": "11-audit-observability.backend.design.md#3.4 接口设计",
       "level": "integration",
@@ -141,6 +181,25 @@
         "pytest",
         "-q",
         "tests/console_platform/test_audit_export_download.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-205",
+      "source": "11-audit-observability.frontend.design.md#3.4 组件接口契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n)",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_audit_page_contract.py"
       ],
       "cwd": ".",
       "timeout": 600.0,
@@ -163,28 +222,83 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-203",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "2966cc0253944ecdaed96579f1d1ac96",
-        "executed_at": "2026-09-25T05:13:50.537731+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-203",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "2966cc0253944ecdaed96579f1d1ac96",
-          "executed_at": "2026-09-25T05:13:50.537731+00:00"
-        }
-      ]
+      "depends_on": []
+    },
+    {
+      "id": "B-206",
+      "source": "11-audit-observability.frontend.design.md#3.4 组件接口契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n)",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_audit_table_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-207",
+      "source": "11-audit-observability.frontend.design.md#3.4 组件接口契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n)",
+      "owner": "TASK-013",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_audit_detail_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-208",
+      "source": "11-audit-observability.frontend.design.md#3.4 组件接口契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n)",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_audit_export_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-209",
+      "source": "11-audit-observability.frontend.design.md#3.4 组件接口契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n)",
+      "owner": "TASK-015",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_audit_i18n_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
     },
     {
       "id": "E-01",
