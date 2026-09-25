@@ -189,7 +189,7 @@ class WeComProbe:
         }
         if chat_id is not None:
             frame["body"]["chatid"] = chat_id
-        await self._broadcast(frame)
+        await self._send_to_bot(frame, bot_id)
 
     async def push_event(
         self,
@@ -207,6 +207,31 @@ class WeComProbe:
         if chat_id is not None:
             frame["body"]["chatid"] = chat_id
         await self._broadcast(frame)
+
+    async def _send_to_bot(self, frame: dict[str, Any], bot_id: str) -> None:
+        """只投递给目标 bot 的连接。
+
+        入站消息去重键是 `im:dedupe:{channel}:{msgid}`（与连接无关）：若把同一个 msgid 广播到
+        多个 bot 的连接，先收到的那条会抢先去重并成 Run，其余 bot 侧被静默去重 —— 表现为
+        "推给 bot2 却在 bot1 侧回复、bot2 收不到回复"的随机失败（10-im-gateway S-01 偶发根因）。
+        """
+        targeted = [
+            socket
+            for index, socket in enumerate(self.connections)
+            if self.connection_bots.get(index) == bot_id
+        ]
+        if not targeted:
+            raise AssertionError(f"探针没有 {bot_id} 的已连接客户端，无法推送")
+        payload = json.dumps(frame)
+        delivered = 0
+        for socket in targeted:
+            try:
+                await socket.send(payload)
+                delivered += 1
+            except Exception:  # 连接已断：忽略该 socket，其余仍推送
+                continue
+        if delivered == 0:
+            raise AssertionError(f"{bot_id} 的连接不可用，无法推送")
 
     async def _broadcast(self, frame: dict[str, Any]) -> None:
         if not self.connections:
