@@ -1,4 +1,4 @@
-"""审计聚合查询服务（API-01）。
+"""审计聚合查询服务（API-01 / API-02）。
 
 四表 UNION ALL 的投影由 `AuditQueryRepository` 在查询时完成（不建宽表）；
 本层只做参数与枚举校验、时间出参格式化，以及把投影行整形为 API 字段。
@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
@@ -15,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.repositories.audit_query_repository import (
     PROJECTED_COLUMNS,
+    AuditDetailRecord,
     AuditQueryFilters,
     AuditQueryRepository,
 )
@@ -41,6 +43,57 @@ def _as_utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
+def _validate_audit_type(audit_type: str) -> None:
+    """来源表枚举是详情与列表共用的校验口径，只认已登记的四类。"""
+    if audit_type not in AUDIT_TYPES:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+
+
+def _optional_id(value: Any) -> str | None:
+    return None if value is None else str(value)
+
+
+def _detail_extras(audit_type: str, extras: dict[str, Any]) -> dict[str, Any]:
+    """该来源表独有字段（config 的 before/after、tool 的 args_preview 等）。
+
+    取值均为写入期已脱敏的值或 hash/preview，本层不再二次加工。
+    """
+    if audit_type == "CONFIG":
+        return {
+            "before": extras.get("before_json"),
+            "after": extras.get("after_json"),
+            "source_ip": extras.get("source_ip"),
+        }
+    if audit_type == "TOOL":
+        return {
+            "args_preview": extras.get("args_preview_json"),
+            "tool_call_id": extras.get("tool_call_id"),
+            "tool_kind": extras.get("tool_kind"),
+            "prepared_args_hash": extras.get("prepared_args_hash"),
+            "error_code": extras.get("error_code"),
+        }
+    if audit_type == "EGRESS":
+        return {
+            "target_type": extras.get("target_type"),
+            "adapter_key": extras.get("adapter_key"),
+            "platform_id": _optional_id(extras.get("platform_id")),
+            "method": extras.get("method"),
+            "policy_decision": extras.get("policy_decision"),
+            "status_code": extras.get("status_code"),
+            "error_code": extras.get("error_code"),
+        }
+    # MODEL：来源表枚举已由 _validate_audit_type 收敛到四类
+    return {
+        "provider": extras.get("provider"),
+        "model": extras.get("model"),
+        "attempt": extras.get("attempt"),
+        "retry_reason": extras.get("retry_reason"),
+        "input_tokens": extras.get("input_tokens"),
+        "output_tokens": extras.get("output_tokens"),
+        "error_code": extras.get("error_code"),
+    }
+
+
 class AuditQueryService:
     def __init__(self, session: AsyncSession, registered_codes: frozenset[str]) -> None:
         self._repository = AuditQueryRepository(session)
@@ -60,8 +113,8 @@ class AuditQueryService:
         return [self._project(row) for row in rows], total
 
     def _validate(self, filters: AuditQueryFilters) -> None:
-        if filters.audit_type is not None and filters.audit_type not in AUDIT_TYPES:
-            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+        if filters.audit_type is not None:
+            _validate_audit_type(filters.audit_type)
         if (
             filters.result_status is not None
             and filters.result_status not in self._allowed_result_statuses
@@ -70,6 +123,23 @@ class AuditQueryService:
         if filters.start_time is not None and filters.end_time is not None:
             if _as_utc(filters.start_time) > _as_utc(filters.end_time):
                 raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+
+    async def get_audit_detail(
+        self, tenant_id: str, audit_id: uuid.UUID, audit_type: str
+    ) -> dict[str, Any]:
+        """API-02：按显式 `audit_type` 定位来源表单表命中；不存在/已归档 → NOT_FOUND。"""
+        _validate_audit_type(audit_type)
+        record = await self._repository.detail(tenant_id, audit_id, audit_type)
+        if record is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        return self._project_detail(record)
+
+    def _project_detail(self, record: AuditDetailRecord) -> dict[str, Any]:
+        item = self._project(record.row)
+        item.update(_detail_extras(record.audit_type, record.extras))
+        item["related"] = dict(record.related)
+        item["related_missing"] = record.related_missing
+        return item
 
     @staticmethod
     def _project(row: dict[str, Any]) -> dict[str, Any]:

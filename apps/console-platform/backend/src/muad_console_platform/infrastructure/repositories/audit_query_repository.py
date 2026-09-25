@@ -179,6 +179,73 @@ SELECT
 """
 
 
+# 详情按 `audit_type` 定位来源表：4 张表的 UUID 不互通，来源表必须显式指定，不猜表。
+# 每类只取该来源表独有字段 + 原始 run_id/task_id（关联可读性判定用，config 无关联）。
+_DETAIL_EXTRAS_SQL = {
+    "CONFIG": """
+        SELECT NULL::uuid AS run_id, NULL::uuid AS task_id,
+               before_json, after_json, source_ip
+          FROM control.config_audit_log
+         WHERE id = :audit_id
+           AND tenant_id = :tenant_id
+           AND is_deleted = false
+    """,
+    "TOOL": """
+        SELECT run_id, task_id, tool_call_id, tool_kind, prepared_args_hash,
+               args_preview_json, error_code
+          FROM runtime.tool_call_audit
+         WHERE id = :audit_id
+           AND tenant_id = :tenant_id
+           AND is_deleted = false
+    """,
+    "EGRESS": """
+        SELECT run_id, task_id, target_type, adapter_key, platform_id, method,
+               policy_decision, status_code, error_code
+          FROM runtime.egress_audit
+         WHERE id = :audit_id
+           AND tenant_id = :tenant_id
+           AND is_deleted = false
+    """,
+    "MODEL": """
+        SELECT run_id, task_id, provider, model, attempt, retry_reason,
+               input_tokens, output_tokens, error_code
+          FROM runtime.model_invocation_audit
+         WHERE id = :audit_id
+           AND tenant_id = :tenant_id
+           AND is_deleted = false
+    """,
+}
+
+# 关联可读性：目标行存在且同租户且未软删。表名取自本字面量，不入参。
+_RELATION_SQL = {
+    "run_id": """
+        SELECT id FROM runtime.run_record
+         WHERE id = :relation_id
+           AND tenant_id = :tenant_id
+           AND is_deleted = false
+    """,
+    "task_id": """
+        SELECT id FROM task.task_execution
+         WHERE id = :relation_id
+           AND tenant_id = :tenant_id
+           AND is_deleted = false
+    """,
+}
+
+RELATION_KEYS = ("run_id", "task_id")
+
+
+@dataclass(frozen=True)
+class AuditDetailRecord:
+    """详情查询结果：统一投影行 + 来源表独有字段 + 可读的关联与 missing 标记。"""
+
+    audit_type: str
+    row: dict[str, Any]
+    extras: dict[str, Any]
+    related: dict[str, str]
+    related_missing: bool
+
+
 @dataclass(frozen=True)
 class AuditQueryFilters:
     """API-01 的筛选条件；未设置即不过滤。`keyword` 为旧版兼容筛选。"""
@@ -270,3 +337,70 @@ class AuditQueryRepository:
             },
         )
         return [dict(row) for row in rows.mappings()]
+
+    async def detail(
+        self, tenant_id: str, audit_id: uuid.UUID, audit_type: str
+    ) -> AuditDetailRecord | None:
+        """按 `(tenant_id, audit_id, audit_type)` 单表命中；不存在/已归档返回 None。"""
+        row = await self._projected_row(tenant_id, audit_id, audit_type)
+        if row is None:
+            return None
+        extras = await self._extras(tenant_id, audit_id, audit_type)
+        related, related_missing = await self._relation_state(tenant_id, extras)
+        return AuditDetailRecord(
+            audit_type=audit_type,
+            row=row,
+            extras=extras,
+            related=related,
+            related_missing=related_missing,
+        )
+
+    async def _projected_row(
+        self, tenant_id: str, audit_id: uuid.UUID, audit_type: str
+    ) -> dict[str, Any] | None:
+        """复用 API-01 的聚合投影取单行，保证详情与列表字段口径一致。"""
+        columns = ", ".join(f"u.{column}" for column in PROJECTED_COLUMNS)
+        rows = await self._session.execute(
+            text(
+                f"SELECT {columns} FROM ({_PROJECTION_SQL}) u "
+                "WHERE u.audit_id = :audit_id AND u.audit_type = :audit_type"
+            ),
+            {"tenant_id": tenant_id, "audit_id": audit_id, "audit_type": audit_type},
+        )
+        row = rows.mappings().first()
+        return None if row is None else dict(row)
+
+    async def _extras(
+        self, tenant_id: str, audit_id: uuid.UUID, audit_type: str
+    ) -> dict[str, Any]:
+        rows = await self._session.execute(
+            text(_DETAIL_EXTRAS_SQL[audit_type]),
+            {"tenant_id": tenant_id, "audit_id": audit_id},
+        )
+        row = rows.mappings().first()
+        return {} if row is None else dict(row)
+
+    async def _relation_state(
+        self, tenant_id: str, extras: dict[str, Any]
+    ) -> tuple[dict[str, str], bool]:
+        """E-01：关联只在真实可读时进入 `related`；不可读即置空并标记 missing。"""
+        related: dict[str, str] = {}
+        related_missing = False
+        for key in RELATION_KEYS:
+            relation_id = extras.get(key)
+            if relation_id is None:
+                continue
+            if await self._relation_readable(tenant_id, key, relation_id):
+                related[key] = str(relation_id)
+            else:
+                related_missing = True
+        return related, related_missing
+
+    async def _relation_readable(
+        self, tenant_id: str, key: str, relation_id: uuid.UUID
+    ) -> bool:
+        found = await self._session.scalar(
+            text(_RELATION_SQL[key]),
+            {"tenant_id": tenant_id, "relation_id": relation_id},
+        )
+        return found is not None

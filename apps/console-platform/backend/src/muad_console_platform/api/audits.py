@@ -1,4 +1,4 @@
-"""审计查询 API（Console 聚合审计列表 API-01）。"""
+"""审计查询 API（Console 聚合审计列表 API-01 与审计详情 API-02）。"""
 
 import uuid
 from datetime import datetime
@@ -57,3 +57,19 @@ async def list_audits(
         catalog,
         paginate(items=items, page=page, page_size=page_size, total=total),
     )
+
+
+@router.get("/{audit_id}")
+async def get_audit_detail(
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    audit_id: uuid.UUID,
+    audit_type: str = Query(description="来源表：CONFIG/TOOL/EGRESS/MODEL"),
+) -> ApiResponse[Any]:
+    """审计详情：UUID 跨 4 张来源表不互通，`audit_type` 必填且不猜表。"""
+    catalog = request.app.state.message_catalog
+    data = await AuditQueryService(session, catalog.codes()).get_audit_detail(
+        tenant_id, audit_id, audit_type
+    )
+    return ok(catalog, data)
