@@ -57,7 +57,7 @@
 | E-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应 | TASK-008 | planned | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | E-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 列表查询参数校验 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
 | E-04 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 业务事务回滚→config_audit_log | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_config_write.py","-k","e04"] | . | 600 |  |
-| E-05 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 导出创建→幂等表 partial unique | TASK-006 | planned | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"] | . | 600 |  |
+| E-05 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 导出创建→幂等表 partial unique | TASK-006 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"] | . | 600 |  |
 | S-06 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 聚合查询 HTTP | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""] | . | 1200 |  |
 | S-07 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 详情 HTTP | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""] | . | 1200 |  |
 | S-08 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""] | . | 1200 |  |
@@ -67,17 +67,17 @@
 | E-09 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→导出失败状态 | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-09\""] | . | 900 |  |
 | RULE-01 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 真实 logging-kit 出口与日志文件 | TASK-008 | planned | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | RULE-02 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | Console 列表/详情 HTTP 封套与分页 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
-| RULE-03 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 新增表标准列/partial unique/timestamptz(PostgreSQL) | TASK-006 | planned | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"] | . | 600 |  |
+| RULE-03 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 新增表标准列/partial unique/timestamptz(PostgreSQL) | TASK-006 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"] | . | 600 |  |
 | RULE-04 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 审计写入前脱敏 + API 响应 | TASK-008 | planned | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | RULE-05 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | Console 时间出参格式 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
 | RULE-06 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 跨 API/DB/Runtime/Browser 的真实 E2E 边界 | TASK-019 | planned | ["bash","-lc","uv run pytest -q tests/audit_observability_inventory.py -k r06"] | . | 600 |  |
 | RULE-07 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | Console 业务事务与审计同库同事务 | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_config_write.py","-k","s04"] | . | 600 |  |
 | RULE-08 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | runtime 三表 status 归一为 result_status | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_audit_write.py","-k","s02"] | . | 600 |  |
 | RULE-snapshot-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | 真实 Runtime 执行链/审计写入(PostgreSQL) + 原 verifier 真实边界 | TASK-002 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_runtime_audit_write.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 |  |
-| RULE-09 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 导出创建幂等表 partial unique(PostgreSQL) | TASK-006 | planned | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"] | . | 600 |  |
+| RULE-09 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 导出创建幂等表 partial unique(PostgreSQL) | TASK-006 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"] | . | 600 |  |
 | RULE-api-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | E2E | 真实 Console HTTP 封套/分页 + 原 verifier 真实边界 | TASK-003 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_query_api.py && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"] | . | 1200 |  |
-| RULE-api-002 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | E2E | 真实 Console 导出创建 HTTP→幂等表(PostgreSQL) + 原 verifier 真实边界 | TASK-006 | planned | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests/console_skill/test_import_idempotency.py"] | . | 1200 |  |
-| RULE-data-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | 真实 PostgreSQL 表结构/约束 + 原 verifier 真实边界 | TASK-006 | planned | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
+| RULE-api-002 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | E2E | 真实 Console 导出创建 HTTP→幂等表(PostgreSQL) + 原 verifier 真实边界 | TASK-006 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests/console_skill/test_import_idempotency.py"] | . | 1200 |  |
+| RULE-data-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | 真实 PostgreSQL 表结构/约束 + 原 verifier 真实边界 | TASK-006 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
 | RULE-secret-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | 审计/日志/响应三层脱敏(PostgreSQL+logging-kit) + 原 verifier 真实边界 | TASK-008 | planned | ["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"] | . | 600 |  |
 | RULE-log-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | logging-kit 出口与按 service/日期落盘 + 原 verifier 真实边界 | TASK-008 | planned | ["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py"] | . | 600 |  |
 | RULE-time-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | E2E | Console 时间出参与前端展示一致 + 原 verifier 真实边界 | TASK-003 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_query_api.py && uv run pytest -q tests/frontend/test_datetime_contract.py"] | . | 1200 |  |
@@ -355,13 +355,13 @@
 - [2026-09-25] completed (done)
 ## TASK-006: 导出任务表与创建 API-05（幂等）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-003
 - **Source**: 11-audit-observability.backend.design.md#3.3 数据设计, 11-audit-observability.backend.design.md#3.4 接口设计, 11-audit-observability.backend.design.md#2.5.1 业务规则与约束
 - **Spec-Refs**: harness-api#RULE-api-002, harness-data#RULE-data-001
 - **Acceptance-Refs**: S-05, E-05, RULE-03, RULE-09, RULE-api-002, RULE-data-001
-- **Files**: `apps/console-platform/backend/src/muad_console_platform/api/audits.py`, `apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py`, `tests/console_platform/test_audit_export_api.py`
+- **Files**: `apps/console-platform/backend/src/muad_console_platform/api/audits.py`, `apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py`, `tests/console_platform/test_audit_export_api.py`、`application/audit_export_service.py`、`infrastructure/repositories/audit_export_repository.py`、`migrations/versions/0014_audit_export_job.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
 ### Description
@@ -370,34 +370,44 @@
 
 ### Checklist
 
-- [ ] [E-05][integration] 以真实 PostgreSQL partial unique 为边界编写/扩展用例：同 key 异指纹 → `IDEMPOTENCY_MISMATCH`（msg/http_status 来自 catalog），且不创建第二个任务。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"]`。
-- [ ] [S-05][E2E] 与 TASK-017 协同覆盖真实 Browser 提交与重试（本任务负责实现侧：同 key 同指纹重放首次结果、返回同一 `export_id`）。
-- [ ] [RULE-03][integration] 验证新表标准列、跨 Owner 逻辑 UUID、`jsonb` 与时间列类型符合 `harness-data` 要求。
-- [ ] [RULE-09][integration] 作为唯一最终负责人，沿 真实 Console HTTP→共享幂等表 验证创建类 POST 幂等全链路（同指纹重放 / 异指纹 409 / 并发 partial unique 兜底）。
-- [ ] [RULE-api-002][E2E] verifier_ref=harness-api#RULE-api-002；原 verifier 输入 argv=`["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"]`；补充真实边界 真实 Console 导出创建 HTTP→幂等表；断言 同 key 同指纹重放首次结果、异指纹 409；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests/console_skill/test_import_idempotency.py"]`。
-- [ ] [RULE-data-001][integration] verifier_ref=harness-data#RULE-data-001；原 verifier 输入 argv=`["uv","run","pytest","-q","tests","-k","schema_parity"]`；联合验收 argv=`["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests -k schema_parity"]`。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
+- [x] [E-05][integration] 以真实 PostgreSQL partial unique 为边界编写/扩展用例：同 key 异指纹 → `IDEMPOTENCY_MISMATCH`（msg/http_status 来自 catalog），且不创建第二个任务。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"]`。
+- [x] [S-05][E2E] 与 TASK-017 协同覆盖真实 Browser 提交与重试（本任务负责实现侧：同 key 同指纹重放首次结果、返回同一 `export_id`）。
+- [x] [RULE-03][integration] 验证新表标准列、跨 Owner 逻辑 UUID、`jsonb` 与时间列类型符合 `harness-data` 要求。
+- [x] [RULE-09][integration] 作为唯一最终负责人，沿 真实 Console HTTP→共享幂等表 验证创建类 POST 幂等全链路（同指纹重放 / 异指纹 409 / 并发 partial unique 兜底）。
+- [x] [RULE-api-002][E2E] verifier_ref=harness-api#RULE-api-002；原 verifier 输入 argv=`["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"]`；补充真实边界 真实 Console 导出创建 HTTP→幂等表；断言 同 key 同指纹重放首次结果、异指纹 409；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests/console_skill/test_import_idempotency.py"]`。
+- [x] [RULE-data-001][integration] verifier_ref=harness-data#RULE-data-001；原 verifier 输入 argv=`["uv","run","pytest","-q","tests","-k","schema_parity"]`；联合验收 argv=`["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests -k schema_parity"]`。
+- [x] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-05 | E2E | Browser→Console 导出创建/查询 HTTP→幂等表与导出任务(PostgreSQL) | 同 key 重试返回同一任务；不重复创建 | tests/acceptance/audit_observability/test_audit_acceptance.py / S-05（owner TASK-017） | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s05"]` | planned |
-| E-05 | integration | Console 导出创建→幂等表 partial unique | 异指纹 → `IDEMPOTENCY_MISMATCH`；不建第二个任务 | tests/console_platform/test_audit_export_api.py / E-05 | `["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"]` | planned |
-| RULE-03 | integration | 新表→真实 PostgreSQL | 标准列 + partial unique + `timestamptz` + 跨 Schema 逻辑 UUID | tests/console_platform/test_audit_export_api.py / RULE-03 | `["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py"]` | planned |
-| RULE-09 | integration | Console HTTP→共享幂等表 | 同指纹重放/异指纹 409/并发兜底 | tests/console_platform/test_audit_export_api.py / RULE-09 | `["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py"]` | planned |
-| RULE-api-002 | E2E | 真实 Console 导出创建 HTTP + 原 verifier 真实边界 | 幂等语义与原 verifier 全部通过 | tests/console_platform/test_audit_export_api.py + 原 verifier / RULE-api-002 | `["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests/console_skill/test_import_idempotency.py"]` | planned |
-| RULE-data-001 | integration | 真实 PostgreSQL 表结构/约束 + 原 verifier 真实边界 | 表结构与 schema parity 一致 | tests/console_platform/test_audit_export_api.py + 原 verifier / RULE-data-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests -k schema_parity"]` | planned |
+| S-05 | E2E | Browser→Console 导出创建/查询 HTTP→幂等表与导出任务(PostgreSQL) | 同 key 重试返回同一任务；不重复创建 | tests/acceptance/audit_observability/test_audit_acceptance.py / S-05（owner TASK-017） | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s05"]` | e2e_deferred |
+| E-05 | integration | Console 导出创建→幂等表 partial unique | 异指纹 → `IDEMPOTENCY_MISMATCH`；不建第二个任务 | tests/console_platform/test_audit_export_api.py / E-05 | `["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"]` | verified |
+| RULE-03 | integration | 新表→真实 PostgreSQL | 标准列 + partial unique + `timestamptz` + 跨 Schema 逻辑 UUID | tests/console_platform/test_audit_export_api.py / RULE-03 | `["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py"]` | verified |
+| RULE-09 | integration | Console HTTP→共享幂等表 | 同指纹重放/异指纹 409/并发兜底 | tests/console_platform/test_audit_export_api.py / RULE-09 | `["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py"]` | verified |
+| RULE-api-002 | E2E | 真实 Console 导出创建 HTTP + 原 verifier 真实边界 | 幂等语义与原 verifier 全部通过 | tests/console_platform/test_audit_export_api.py + 原 verifier / RULE-api-002 | `["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests/console_skill/test_import_idempotency.py"]` | verified |
+| RULE-data-001 | integration | 真实 PostgreSQL 表结构/约束 + 原 verifier 真实边界 | 表结构与 schema parity 一致 | tests/console_platform/test_audit_export_api.py + 原 verifier / RULE-data-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests -k schema_parity"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| E-05 | **真实 RED**：`3 failed, 3 errors` —— 两条创建用例 `assert 405 == 200`（`POST /exports` 被既有的 `GET /{audit_id}` 详情路由吃掉，**正是 TASK-004 预警的路由顺序坑**）；teardown `UndefinedTableError: relation "control.audit_export_job" does not exist`。 | 新建 `control.audit_export_job`（模型 + 迁移 `0014_audit_export_job`，`down_revision="0013"`，已 `upgrade head` 到 0014）+ 复用共享幂等表 `control.skill_import_idempotency`（`endpoint=/api/v1/audits/exports`）+ 指纹=规范化 JSON（`sort_keys`+紧凑分隔符）SHA256（含 endpoint/tenant/created_by/export_format/filters）+ 沿用仓库既有 `pg_advisory_xact_lock` 重放模式 → **3 passed**；console 回归 `tests/console_platform/` **103 passed**；配对原 verifier `tests/console_skill/test_import_idempotency.py` **5 passed**；ruff/mypy 干净；并发自检（两个同 key 并发 POST → 同一 `export_id`、job 行数 1，临时用例用后删除）；测试后残留 `jobs: 0`、该 endpoint 幂等行 `0`。 | `test_e05_same_key_different_filters_is_idempotency_mismatch`（同 key 异筛选 → `IDEMPOTENCY_MISMATCH`（409，catalog 文案）+ 该租户恰 1 个 job 行）；`test_s05_same_key_same_filters_replays_first_result`（同 key 同筛选 → 同一 `export_id`、仍 1 行、该 endpoint 恰 1 条幂等记录）；`test_api05_missing_idempotency_key_and_invalid_format_are_rejected`（缺 `Idempotency-Key` / 非法 `export_format` → `COMMON_VALIDATION_ERROR` 且不产生 job 行）；并断言 job 字段（`status=PENDING`、`created_by`=登录账号、`filters_json` 规范化）与审计列表/详情无路由回归 | 真实 PostgreSQL（新表 + 共享幂等表逐行回读）+ 真实 HTTP（封测封套与 catalog 文案）；未 mock 业务 API | verified |
+| RULE-03 | 无独立 RED（随 E-05 取证）。 | 新表符合标准列/`timestamptz`/`jsonb`/索引约定；`created_by` 为跨 Schema 逻辑 UUID（不加 FK，与 `ConfigAuditLog.actor_user_id` 一致）；`ix_audit_export_job_tenant_status_create_time` 支撑待处理任务轮询。 | 迁移与模型；`tests/console_platform/test_schema_parity.py`（在 console 回归内通过） | 真实 PostgreSQL 反射校验（列/索引） | verified |
+| RULE-09 | 无独立 RED（随 E-05 取证）。 | 创建类 POST 必携 `Idempotency-Key`；共享幂等表 partial unique `(tenant_id, idempotency_key, endpoint)`；同 key 同指纹重放首次结果、异指纹 409；并发由 partial unique + advisory lock 兜底（自检见上）。 | 同 E-05 用例 | 真实 PostgreSQL + 真实 HTTP | verified |
+| RULE-api-002 | 无独立 RED（验收类）。 | 联合验收 argv=`["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests/console_skill/test_import_idempotency.py"]` → **3 passed + 5 passed**（原 verifier 全部通过）。 | tests/console_platform/test_audit_export_api.py + 原 verifier | 真实 Console HTTP + 原 verifier 真实边界 | verified |
+| RULE-data-001 | 无独立 RED（验收类）。 | 联合验收 argv=`["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests -k schema_parity"]` → 本文件 3 passed + 原 verifier 通过（schema_parity 覆盖在 console/仓库回归内）。 | 同上 + `tests -k schema_parity` | 真实 PostgreSQL 表结构 | verified |
+
+**实现中的判断点（如实登记）**：指纹字段集含 `export_format`（设计写"含 endpoint/tenant/actor/filters"，格式不同即请求内容不同）；规范化筛选**不含 legacy `keyword`**（API-05 设计字段表未暴露，body `extra="forbid"` 会拒绝）；复用共享幂等表**不新建**第二张幂等表；重放沿用仓库既有 `pg_advisory_xact_lock` 模式（partial unique 仍作 DB 兜底）；路由顺序采用"把 `POST /exports` 声明在 `/{audit_id}` 之前"而非改用 `{audit_id:uuid}`（后者会把非法 uuid 的详情请求从 422 变 404）；`validate_filters` 抽为模块级供 API-01/05 共用口径；`create_time` 复用 `format_console_time`（RULE-05）。
+- E-05: verified — automated command passed; run_id=c1808094e57242419e22393732f4f09e (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-007: 导出状态/下载 API-06 与执行落地
 
 - **Status**: draft

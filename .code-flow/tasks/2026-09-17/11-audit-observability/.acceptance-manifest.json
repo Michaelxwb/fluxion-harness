@@ -125,28 +125,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-201",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "7b7f870d6eb147e59baf14df0c3b37af",
-        "executed_at": "2026-09-25T03:50:44.167128+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-201",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "7b7f870d6eb147e59baf14df0c3b37af",
-          "executed_at": "2026-09-25T03:50:44.167128+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-01",
@@ -239,7 +218,7 @@
       "kind": "functional",
       "boundary": "Console 导出创建→幂等表 partial unique",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -251,7 +230,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "c1808094e57242419e22393732f4f09e",
+        "executed_at": "2026-09-25T04:07:27.966283+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "c1808094e57242419e22393732f4f09e",
+          "executed_at": "2026-09-25T04:07:27.966283+00:00"
+        }
+      ]
     },
     {
       "id": "S-06",
