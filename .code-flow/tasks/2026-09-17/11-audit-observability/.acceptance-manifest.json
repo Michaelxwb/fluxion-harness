@@ -258,28 +258,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-208",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "8e20391284624aebb64e3c849a82e04a",
-        "executed_at": "2026-09-25T06:43:38.040486+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-208",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "8e20391284624aebb64e3c849a82e04a",
-          "executed_at": "2026-09-25T06:43:38.040486+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-209",
@@ -288,7 +267,7 @@
       "kind": "functional",
       "boundary": "前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n)",
       "owner": "TASK-015",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -298,7 +277,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-209",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "9ceacb39377b4302a3b18a6494ef868d",
+        "executed_at": "2026-09-25T06:58:50.862013+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-209",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "9ceacb39377b4302a3b18a6494ef868d",
+          "executed_at": "2026-09-25T06:58:50.862013+00:00"
+        }
+      ]
     },
     {
       "id": "E-01",
