@@ -55,7 +55,7 @@
 | B-201 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Runtime HTTP /internal/admin/runs 与 /internal/admin/runs/{run_id} → 真实 PostgreSQL | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_admin_run_api.py"] | . | 600 |  |
 | B-204 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-010 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_services_contract.py"] | . | 600 |  |
 | B-202 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Console HTTP 导出状态/下载 → 真实 PostgreSQL + artifact store | TASK-007 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_download.py"] | . | 600 |  |
-| B-205 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-011 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_page_contract.py"] | . | 600 |  |
+| B-205 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-011 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_page_contract.py"] | . | 600 |  |
 | B-203 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 /metrics HTTP 端点 + 真实日志出口 + 运行审计表(PostgreSQL) | TASK-009 | verified | ["uv","run","pytest","-q","tests/test_audit_observability_config.py"] | . | 600 |  |
 | B-206 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-012 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_table_contract.py"] | . | 600 |  |
 | B-207 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-013 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"] | . | 600 |  |
@@ -89,7 +89,7 @@
 | RULE-secret-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | 审计/日志/响应三层脱敏(PostgreSQL+logging-kit) + 原 verifier 真实边界 | TASK-008 | verified | ["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"] | . | 600 |  |
 | RULE-log-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | logging-kit 出口与按 service/日期落盘 + 原 verifier 真实边界 | TASK-008 | verified | ["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py"] | . | 600 |  |
 | RULE-time-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | E2E | Console 时间出参与前端展示一致 + 原 verifier 真实边界 | TASK-003 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_query_api.py && uv run pytest -q tests/frontend/test_datetime_contract.py"] | . | 1200 |  |
-| RULE-ui-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面 + 原 verifier 真实边界 | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_page_contract.py && uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | . | 1200 |  |
+| RULE-ui-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面 + 原 verifier 真实边界 | TASK-011 | verified | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_page_contract.py && uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | . | 1200 |  |
 | RULE-ui-detail-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面详情结构 + 原 verifier 真实边界 | TASK-013 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_detail_contract.py && uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"] | . | 1200 |  |
 | RULE-front-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | integration | 前端源码契约（services 收口/无裸 fetch/i18n）+ 原 verifier 真实边界 | TASK-010 | verified | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_services_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"] | . | 900 |  |
 | RULE-i18n-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面双语 + 原 verifier 真实边界 | TASK-015 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_i18n_contract.py && uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"] | . | 1200 |  |
@@ -634,13 +634,13 @@
 - [2026-09-25] completed (done)
 ## TASK-011: 审计列表页容器与筛选栏
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-010
 - **Source**: 11-audit-observability.frontend.design.md#3.2 页面与路由结构, 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.3.1 每个按钮/操作的设计
 - **Spec-Refs**: harness-ui#RULE-ui-001
 - **Acceptance-Refs**: E-06, RULE-ui-001, B-205
-- **Files**: `apps/console-platform/frontend/src/modules/audit-observability/pages/AuditPage.tsx`, `apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx`, `tests/frontend/test_audit_page_contract.py`
+- **Files**: `apps/console-platform/frontend/src/modules/audit-observability/pages/AuditPage.tsx`, `apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx`, `tests/frontend/test_audit_page_contract.py`、`src/App.tsx`、`src/locales/zh-CN.json`、`src/locales/en-US.json`
 - **Estimate**: 15–60 分钟；超出先拆分
 
 ### Description
@@ -649,30 +649,45 @@
 
 ### Checklist
 
-- [ ] [E-06][integration] 覆盖查询失败路径：ErrorState 呈现且筛选条件保留、可重试（与 TASK-018 的 spec 协同）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-06\""]`。
-- [ ] [RULE-ui-001][E2E] verifier_ref=harness-ui#RULE-ui-001；原 verifier 输入 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]`；补充真实边界 真实 Console 页面与构建；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_audit_page_contract.py && uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]`。
-- [ ] 实现或补齐：路由注册、菜单项、页面容器与筛选栏（复用 ConsoleShell/ModuleToolbar/EmptyState/ErrorState/PaginationFooter）。
-- [ ] 覆盖筛选条件 → `AuditListQuery` 的映射与重置行为。
-- [ ] [B-205][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：路由与页面容器按 ConsoleShell+ModuleToolbar 组合（左上操作/右上筛选/右下分页）；筛选条件映射为 AuditListQuery；无硬编码中文。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_page_contract.py"]`。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence。
+- [x] [E-06][integration] 覆盖查询失败路径：ErrorState 呈现且筛选条件保留、可重试（与 TASK-018 的 spec 协同）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-06\""]`。
+- [x] [RULE-ui-001][E2E] verifier_ref=harness-ui#RULE-ui-001；原 verifier 输入 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]`；补充真实边界 真实 Console 页面与构建；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_audit_page_contract.py && uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]`。
+- [x] 实现或补齐：路由注册、菜单项、页面容器与筛选栏（复用 ConsoleShell/ModuleToolbar/EmptyState/ErrorState/PaginationFooter）。
+- [x] 覆盖筛选条件 → `AuditListQuery` 的映射与重置行为。
+- [x] [B-205][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：路由与页面容器按 ConsoleShell+ModuleToolbar 组合（左上操作/右上筛选/右下分页）；筛选条件映射为 AuditListQuery；无硬编码中文。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_page_contract.py"]`。
+- [x] 执行上述契约命令，填写 Acceptance Evidence。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-06 | integration | Browser→Console 查询失败路径 | 保留筛选并可重试；ErrorState 呈现 | e2e/tests/audit-observability.spec.ts / E-06（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-06\""]` | planned |
-| RULE-ui-001 | E2E | 真实 Console 页面 + 原 verifier 真实边界 | 左上操作/右上筛选/右下分页；主展示字段开详情；原 verifier 全部通过 | tests/frontend/test_audit_page_contract.py + 原 verifier / RULE-ui-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_audit_page_contract.py && uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]` | planned |
-| B-205 | integration | 前端源码契约 + 真实 tsc 类型检查 | 路由与页面容器按 ConsoleShell+ModuleToolbar 组合（左上操作/右上筛选/右下分页）；筛选条件映射为 AuditListQuery；无硬编码中文 | tests/frontend/test_audit_page_contract.py / B-205 | `["uv","run","pytest","-q","tests/frontend/test_audit_page_contract.py"]` | planned |
+| E-06 | integration | Browser→Console 查询失败路径 | 保留筛选并可重试；ErrorState 呈现 | e2e/tests/audit-observability.spec.ts / E-06（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-06\""]` | e2e_deferred |
+| RULE-ui-001 | E2E | 真实 Console 页面 + 原 verifier 真实边界 | 左上操作/右上筛选/右下分页；主展示字段开详情；原 verifier 全部通过 | tests/frontend/test_audit_page_contract.py + 原 verifier / RULE-ui-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_audit_page_contract.py && uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]` | verified |
+| B-205 | integration | 前端源码契约 + 真实 tsc 类型检查 | 路由与页面容器按 ConsoleShell+ModuleToolbar 组合（左上操作/右上筛选/右下分页）；筛选条件映射为 AuditListQuery；无硬编码中文 | tests/frontend/test_audit_page_contract.py / B-205 | `["uv","run","pytest","-q","tests/frontend/test_audit_page_contract.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-205 | **真实 RED**：`11 failed, 1 passed` —— 首条即 `AssertionError: 缺少前端文件：…/modules/audit-observability/pages/AuditPage.tsx`；唯一通过项是"菜单项已注册"（`nav.audit` 由模块 01 提供，**非本任务伪造成立**，已如实登记）。 | 新增 `pages/AuditPage.tsx`（筛选/分页/详情选择状态、`RemoteTable` 渲染、导出 `AuditTableProps`/`AuditDetailSideSheetProps` 供 TASK-012/013）与 `components/AuditFilterBar.tsx`（8 个筛选 + 重置/刷新，改动即重置 `page=1`）；`App.tsx` 注册 `/audits` 路由替换占位页；补 zh-CN/en-US 各 30 条 `audit.*` 词条 → 契约测试 **13 passed**；`tests/frontend/` **156 passed**；RULE-ui-001 原 verifier（`test_console_shell_contract.py` + `test_ui_style_contract.py`）**9 passed**；`check_frontend_api_usage.py` OK；`check_frontend_i18n.py` OK（645 keys）；`npm run typecheck` 干净；`npm run build` 通过（仅既有 chunk 警告）；ruff 干净。 | `tests/frontend/test_audit_page_contract.py` 13 条：`/audits` 路由与菜单项存在；路由层套 `AppLayout`（页面**不重复套壳**，断言 `AppLayout not in page`）；筛选栏 8 字段映射为 `AuditListQuery` 且改筛选重置 `page:1`；E-06 失败路径 only-`failed`（catch 不触碰 `query`/`items`/`total`）；无硬编码中文；页面只经 TASK-010 的 service（无 `createExport`/`audits/exports`，左主操作槽位留 `actions={null}` 并标注 TASK-014）。 | 前端源码契约 + 真实 `tsc --noEmit` + 真实 `vite build` + 两个仓库检查脚本 + RULE-ui-001 原 verifier；未 mock 业务 API | verified |
+| E-06 | 无独立 RED（该场景的终验归 TASK-018 的浏览器验收；本任务以源码契约断言失败路径形态）。 | 查询失败时仅置 `failed`，`catch` 不触碰 `query`/`items`/`total` ⇒ 筛选条件与已加载数据保留、`ErrorState` 就地渲染且可重试、工具栏与筛选栏仍在（非空白页）。 | 同上用例的 E-06 断言 | 前端源码契约（UI 级证据由 TASK-018 的 Playwright spec 承载） | e2e_deferred（终验归 TASK-018） |
+| RULE-ui-001 | 无独立 RED（验收类）。 | 联合验收 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_audit_page_contract.py && uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]` → **13 + 9 passed + build 通过**（原 verifier 全部通过）。 | tests/frontend/test_audit_page_contract.py + 原 verifier | 前端源码契约 + 原 verifier 真实边界（含真实构建） | verified |
+
+**实现中的判断点与跨任务约束（如实登记）**：
+- **`ConsoleShell` 的真实组件名是 `layout/AppLayout.tsx`**（设计里写作 `ConsoleShell`）：设计/实现命名漂移，已按实际组件断言（路由层套 `AppLayout`，页面自身不重复套壳）。
+- **冻结的仓库级 verifier 约束**：`tests/frontend/test_ui_style_contract.py::test_module_list_pages_use_remote_table` 要求每个 `modules/**/*Page.tsx` 使用 `RemoteTable`（内置右下分页）⇒ **TASK-012 的 `AuditTable` 必须为 `RemoteTable` 供给列定义与行为，而不是整表替换**；TASK-011 无法把页面里的表格部分留给 TASK-012，否则该 verifier 会红。
+- **「Agent」筛选项口径冲突（设计/接口不一致）**：后端列表 API 无 `agent_id` 参数、TASK-010 冻结的 `AuditListQuery` 也无 `agentId`，8 个 UI 字段与 9 个查询键的差额恰好一个 ⇒ 本实现把「Agent」映射为 `resourceType`（Select 覆盖 AGENT/SKILL/MCP/MODEL/PROJECT_PLATFORM/USER/GRANT，docs/15 将 `resource_type` 映射为"审计类型"）。若原意是按 agent id 过滤，需新增后端参数（未擅自扩接口，标签/键可一行改回）。
+- **时间筛选格式**（TASK-010 明确留给本任务）：`startTime` = 当日 00:00、`endTime` = 当日 23:59:59.999 的 ISO（对齐既有 `TaskPage.toIsoEndOfDay`；后端收 RFC3339）。
+- **无搜索按钮**（按 §3.3.1 的 `Input+Select+DatePicker`）：筛选改动经单一 `emit` 咽喉点自动生效并重置 `page=1`；四个文本字段回车即查；`requestSeq` 丢弃乱序响应（文本输入逐键查询的取舍已登记，必要时可加防抖）。
+- **按钮落位**：搜索/筛选、重置、刷新都在 `AuditFilterBar` 内、渲染于 `ModuleToolbar` 的右侧 `search` 槽；空态提供"清筛选"（§3.6）。
+- **无 `PageHeader`**（§3.7「列表页不增加重复标题/说明块」）。
+- B-205: verified — automated command passed; run_id=a5d870f0260f4eabbe5a364863e62bad (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-012: 审计表格与字段列
 
 - **Status**: draft
