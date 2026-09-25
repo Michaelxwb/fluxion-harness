@@ -11,7 +11,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .context import current_tenant_id, current_trace_id
 
-SENSITIVE_KEY_MARKERS = ("password", "secret", "token", "api_key", "credential")
+# 设计 §3.5 最低识别字段清单：Authorization / Cookie / Set-Cookie / api_key /
+# access_token / refresh_token / secret / password（与 runtime 写入边界的口径一致）。
+SENSITIVE_KEY_MARKERS = (
+    "password",
+    "secret",
+    "token",
+    "api_key",
+    "credential",
+    "authorization",
+    "cookie",
+)
 
 _AUDIT_INSERT = text(
     """
