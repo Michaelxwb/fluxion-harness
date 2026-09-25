@@ -10,7 +10,7 @@
       "kind": "e2e",
       "boundary": "Browser→Console 聚合查询 HTTP→四张审计表(PostgreSQL)",
       "owner": "TASK-017",
-      "status": "verified",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -22,7 +22,26 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "a1e5d3b6a7aa4747aabc6046f7f442ac",
+        "executed_at": "2026-09-25T07:35:02.978865+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "a1e5d3b6a7aa4747aabc6046f7f442ac",
+          "executed_at": "2026-09-25T07:35:02.978865+00:00"
+        }
+      ]
     },
     {
       "id": "S-02",
@@ -52,7 +71,7 @@
       "kind": "e2e",
       "boundary": "Browser→Console Admin Run 详情 HTTP→Runtime 内部端点→runtime 表",
       "owner": "TASK-017",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -64,7 +83,26 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "a1e5d3b6a7aa4747aabc6046f7f442ac",
+        "executed_at": "2026-09-25T07:35:02.978865+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "a1e5d3b6a7aa4747aabc6046f7f442ac",
+          "executed_at": "2026-09-25T07:35:02.978865+00:00"
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -94,7 +132,7 @@
       "kind": "e2e",
       "boundary": "Browser→Console 导出创建/查询 HTTP→幂等表与导出任务(PostgreSQL)",
       "owner": "TASK-017",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -106,7 +144,26 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-05",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 1,
+        "run_id": "a1e5d3b6a7aa4747aabc6046f7f442ac",
+        "executed_at": "2026-09-25T07:35:02.978865+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "a1e5d3b6a7aa4747aabc6046f7f442ac",
+          "executed_at": "2026-09-25T07:35:02.978865+00:00"
+        }
+      ]
     },
     {
       "id": "B-201",
@@ -296,28 +353,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-210",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "19c66450385a4085b0997fdda8363fbd",
-        "executed_at": "2026-09-25T07:18:35.688838+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-210",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "19c66450385a4085b0997fdda8363fbd",
-          "executed_at": "2026-09-25T07:18:35.688838+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-211",
