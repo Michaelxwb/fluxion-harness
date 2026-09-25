@@ -58,7 +58,7 @@
 | B-205 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-011 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_page_contract.py"] | . | 600 |  |
 | B-203 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 /metrics HTTP 端点 + 真实日志出口 + 运行审计表(PostgreSQL) | TASK-009 | verified | ["uv","run","pytest","-q","tests/test_audit_observability_config.py"] | . | 600 |  |
 | B-206 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-012 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_table_contract.py"] | . | 600 |  |
-| B-207 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-013 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"] | . | 600 |  |
+| B-207 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-013 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"] | . | 600 |  |
 | B-208 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-014 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_export_contract.py"] | . | 600 |  |
 | B-209 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-015 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_i18n_contract.py"] | . | 600 |  |
 | E-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 详情查询→关联 Run 不可读 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"] | . | 600 |  |
@@ -90,7 +90,7 @@
 | RULE-log-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | logging-kit 出口与按 service/日期落盘 + 原 verifier 真实边界 | TASK-008 | verified | ["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py"] | . | 600 |  |
 | RULE-time-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | E2E | Console 时间出参与前端展示一致 + 原 verifier 真实边界 | TASK-003 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_query_api.py && uv run pytest -q tests/frontend/test_datetime_contract.py"] | . | 1200 |  |
 | RULE-ui-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面 + 原 verifier 真实边界 | TASK-011 | verified | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_page_contract.py && uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | . | 1200 |  |
-| RULE-ui-detail-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面详情结构 + 原 verifier 真实边界 | TASK-013 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_detail_contract.py && uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"] | . | 1200 |  |
+| RULE-ui-detail-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面详情结构 + 原 verifier 真实边界 | TASK-013 | verified | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_detail_contract.py && uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"] | . | 1200 |  |
 | RULE-front-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | integration | 前端源码契约（services 收口/无裸 fetch/i18n）+ 原 verifier 真实边界 | TASK-010 | verified | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_services_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"] | . | 900 |  |
 | RULE-i18n-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面双语 + 原 verifier 真实边界 | TASK-015 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_i18n_contract.py && uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"] | . | 1200 |  |
 | RULE-test-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 仓库级真实 E2E（真实 HTTP/PostgreSQL/Redis/Browser）+ 原 verifier 真实边界 | TASK-019 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 2400 |  |
@@ -743,7 +743,7 @@
 - [2026-09-25] completed (done)
 ## TASK-013: 详情 SideSheet 与关联链接
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-012
 - **Source**: 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.4 组件接口契约
@@ -758,31 +758,46 @@
 
 ### Checklist
 
-- [ ] [S-07][E2E] 与 TASK-018 协同：点击 Trace ID/主展示字段打开只读详情，无操作按钮，关联链接可跳转（本任务负责实现侧结构）。
-- [ ] [E-07][integration] 覆盖关联不可读路径：SideSheet 内 ErrorState，不伪造关联数据。
-- [ ] [RULE-ui-detail-001][E2E] verifier_ref=harness-ui-detail#RULE-ui-detail-001；原 verifier 输入 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]`；补充真实边界 真实 Console 页面详情结构；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_audit_detail_contract.py && uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
-- [ ] 实现或补齐：SideSheet/DetailTabs/EntityLink 复用与只读约束（无编辑入口）。
-- [ ] [B-207][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：详情复用 DetailSideSheet/DetailTabs；只读无操作按钮；关联用 EntityLink；不可读时 ErrorState 不伪造关联。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"]`。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence。
+- [x] [S-07][E2E] 与 TASK-018 协同：点击 Trace ID/主展示字段打开只读详情，无操作按钮，关联链接可跳转（本任务负责实现侧结构）。
+- [x] [E-07][integration] 覆盖关联不可读路径：SideSheet 内 ErrorState，不伪造关联数据。
+- [x] [RULE-ui-detail-001][E2E] verifier_ref=harness-ui-detail#RULE-ui-detail-001；原 verifier 输入 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]`；补充真实边界 真实 Console 页面详情结构；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_audit_detail_contract.py && uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
+- [x] 实现或补齐：SideSheet/DetailTabs/EntityLink 复用与只读约束（无编辑入口）。
+- [x] [B-207][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：详情复用 DetailSideSheet/DetailTabs；只读无操作按钮；关联用 EntityLink；不可读时 ErrorState 不伪造关联。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"]`。
+- [x] 执行上述契约命令，填写 Acceptance Evidence。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-07 | E2E | Browser(Chromium)→Console 详情 HTTP | 只读详情；无操作按钮；关联链接正确 | e2e/tests/audit-observability.spec.ts / S-07（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""]` | planned |
-| E-07 | integration | Browser→详情不可读路径 | SideSheet 内 ErrorState；无伪造关联 | e2e/tests/audit-observability.spec.ts / E-07（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-07\""]` | planned |
-| RULE-ui-detail-001 | E2E | 真实 Console 页面详情结构 + 原 verifier 真实边界 | 标题/副标题左侧、操作与关闭同行靠右、Tabs 在其下；原 verifier 全部通过 | tests/frontend/test_audit_detail_contract.py + 原 verifier / RULE-ui-detail-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_audit_detail_contract.py && uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]` | planned |
-| B-207 | integration | 前端源码契约 + 真实 tsc 类型检查 | 详情复用 DetailSideSheet/DetailTabs；只读无操作按钮；关联用 EntityLink；不可读时 ErrorState 不伪造关联 | tests/frontend/test_audit_detail_contract.py / B-207 | `["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"]` | planned |
+| S-07 | E2E | Browser(Chromium)→Console 详情 HTTP | 只读详情；无操作按钮；关联链接正确 | e2e/tests/audit-observability.spec.ts / S-07（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""]` | e2e_deferred |
+| E-07 | integration | Browser→详情不可读路径 | SideSheet 内 ErrorState；无伪造关联 | e2e/tests/audit-observability.spec.ts / E-07（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-07\""]` | e2e_deferred |
+| RULE-ui-detail-001 | E2E | 真实 Console 页面详情结构 + 原 verifier 真实边界 | 标题/副标题左侧、操作与关闭同行靠右、Tabs 在其下；原 verifier 全部通过 | tests/frontend/test_audit_detail_contract.py + 原 verifier / RULE-ui-detail-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_audit_detail_contract.py && uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]` | verified |
+| B-207 | integration | 前端源码契约 + 真实 tsc 类型检查 | 详情复用 DetailSideSheet/DetailTabs；只读无操作按钮；关联用 EntityLink；不可读时 ErrorState 不伪造关联 | tests/frontend/test_audit_detail_contract.py / B-207 | `["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-207 | **真实 RED**：**11 failed**（`缺少前端文件：…/components/AuditDetailSideSheet.tsx` 与 `hooks/useAuditDetail.ts`）。 | 新增 `hooks/useAuditDetail.ts`（详情状态机：`requestSeq` 竞态守卫、关闭使在途响应失效、`failed` + `reload()`）与 `components/AuditDetailSideSheet.tsx`（只读详情：组合共享 `DetailSideSheet` + Semi `Tabs` 层、`DetailGrid`/`StatusTag`/`DateTimeText`/`EntityLink`/`ErrorState`，四类型字段映射自 `detail.extras`，关联取自 `detail.related`）；`AuditPage` 挂载 SideSheet；补 zh-CN/en-US 各 32 条 `audit.detail.*` 词条 → 契约测试 **11 passed**；`tests/frontend/` **178 passed**（含冻结的 `test_detail_sidesheet_contract.py` 9 passed）；`check_frontend_api_usage.py`/`check_frontend_i18n.py` OK（677 keys）；`tsc --noEmit` 与 `vite build` 干净；ruff 干净；**新增函数最长 49 行**。 | `tests/frontend/test_audit_detail_contract.py` 11 条：组合共享 `DetailSideSheet` 且自带头部/关闭（不引 Semi `SideSheet`、不本地实现头/尾、`onCancel={onClose}`）；四类型分节渲染；E-07 分支只读后端 `relatedMissing` 布尔（缺失 → `ErrorState`，无 `??`/`'-'` 伪造）；hook 竞态守卫 + retry 且只经 service；无编辑/操作按钮；无硬编码中文。 | 前端源码契约 + 真实 `tsc --noEmit` + 真实 `vite build` + 两个仓库检查脚本 + 冻结的 `harness-ui-detail#RULE-ui-detail-001` 原 verifier；未 mock 业务 API | verified |
+| S-07 | 无独立 RED（该场景的终验归 TASK-018 的浏览器验收；本任务以源码契约断言详情结构与关联链接形态）。 | 只读详情 SideSheet（标题/副标题左侧、关闭 X 与操作同行靠右、Tabs 在其下）与关联链接（`EntityLink`，testId `audit-related-run`/`audit-related-task`）落地；浏览器级证据由 TASK-018 承载。 | 同上用例的详情结构与关联断言 | 前端源码契约（UI 级证据归 TASK-018） | e2e_deferred（终验归 TASK-018） |
+| E-07 | 无独立 RED（终验归 TASK-018）。 | 关联不可读时**仅**依据后端 `relatedMissing` 布尔判定：缺失 → 该节渲染 `ErrorState`（无 `EntityLink`、无 `??`、无 `'-'` 伪造）；可读 → `EntityLink` 行；本无关联（如 CONFIG）→ `EmptyState`；加载失败另走 `notice` 区的 `ErrorState`（非 E-07 分支）。 | 同上用例的 E-07 分支断言（对提取出的分支源码断言） | 前端源码契约 | e2e_deferred（终验归 TASK-018） |
+| RULE-ui-detail-001 | 无独立 RED（验收类）。 | 联合验收 argv=`["bash","-lc","uv run pytest -q tests/frontend/test_audit_detail_contract.py && uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]` → **11 + 9 passed + tsc 干净**（原 verifier 全部通过）。 | tests/frontend/test_audit_detail_contract.py + 原 verifier | 前端源码契约 + 原 verifier 真实边界（含真实类型检查） | verified |
+
+**实现中的判断点（如实登记）**：
+- **设计里的 `DetailTabs` 在仓库中并不存在**：其职责由共享 `DetailSideSheet` 内建的 Semi `Tabs`（子 `Tabs.TabPane`）承载；**未自行发明共享组件**（设计/实现命名漂移；契约测试文档串里写明与冻结 verifier 是互补而非重复）。
+- **关联导航（本次最大判断）**：仓库无 Run 页面、`TaskPage` 无 id 过滤/深链，且冻结的 §3.4 契约恰好只有 4 个 props ⇒ 保持 4 props **零契约漂移**，由容器导航到所属列表路由并携带 id（`/tasks?taskId=<id>` / `/tasks?runId=<id>`，稳定 testId `audit-related-run`/`audit-related-task`）。已标注给 TASK-018：若 E2E 需要别的落点或页面自持路由，属单函数（`handleOpenRelated`）改动。
+- **页面挂载形态**：仅在存在选择时渲染 `<AuditDetailSideSheet visible … />`（不为隐藏面板伪造 `auditType`）；页面里冻结的 `AuditDetailSideSheetProps` 块未改，组件侧声明结构等价接口以保持 import 单向（同 `AuditTableOptions` 的桥接方式）。
+- **分节落位**：§3.3 草图标两个 Tab（基础信息/关联），故四类型专有字段渲染在「基础信息」Tab 下、标题为「来源字段」，位于交互稿八列之后（复用既有 `audit.columns.*` 键，不重复文案）。
+- **JSON 渲染**：`before`/`after`/`argsPreview` 用 `<pre data-testid="audit-detail-<field>">` + 仓库既有内联 `pre-wrap/maxHeight/overflow` 样式（McpToolTable/SkillDetailSideSheet 先例），未新增 CSS 类。
+- **i18n 动态键**：类型专有字段用 `audit.detail.field.${field}`（先例 `audit.auditType.${value}`）；因动态键会绕过仓库静态扫描，契约测试**枚举四类型全部字段键**并断言 zh-CN/en-US 均存在。
+- B-207: verified — automated command passed; run_id=5bf9cbf35a0241d0a0479567d0376f14 (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-014: 导出按钮与轮询/下载交互
 
 - **Status**: draft
