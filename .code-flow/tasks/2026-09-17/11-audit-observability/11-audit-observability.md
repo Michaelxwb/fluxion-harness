@@ -59,7 +59,7 @@
 | B-203 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 /metrics HTTP 端点 + 真实日志出口 + 运行审计表(PostgreSQL) | TASK-009 | verified | ["uv","run","pytest","-q","tests/test_audit_observability_config.py"] | . | 600 |  |
 | B-206 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-012 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_table_contract.py"] | . | 600 |  |
 | B-207 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-013 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"] | . | 600 |  |
-| B-208 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-014 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_export_contract.py"] | . | 600 |  |
+| B-208 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-014 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_export_contract.py"] | . | 600 |  |
 | B-209 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-015 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_i18n_contract.py"] | . | 600 |  |
 | E-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 详情查询→关联 Run 不可读 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"] | . | 600 |  |
 | E-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应 | TASK-008 | verified | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
@@ -800,7 +800,7 @@
 - [2026-09-25] completed (done)
 ## TASK-014: 导出按钮与轮询/下载交互
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-012
 - **Source**: 11-audit-observability.frontend.design.md#3.3.1 每个按钮/操作的设计, 11-audit-observability.frontend.design.md#3.5 状态与数据流
@@ -815,30 +815,46 @@
 
 ### Checklist
 
-- [ ] [S-08][E2E] 与 TASK-018 协同：同 key 重试返回同一任务、轮询至完成可下载、提交中按钮禁用（本任务负责实现侧交互）。
-- [ ] [E-08][integration] 覆盖异指纹 409：展示 i18n 文案、保留筛选、不重复创建任务。
-- [ ] [E-09][integration] 覆盖 `FAILED` 状态：展示 `error_code` 文案与重试入口（复用新 key），不展示未完成产物。
-- [ ] [B-208][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：导出按钮为左主操作 primary 且提交中禁用；同一用户提交复用同一 Idempotency-Key；失败文案经 catalog→i18n。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_export_contract.py"]`。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence。
+- [x] [S-08][E2E] 与 TASK-018 协同：同 key 重试返回同一任务、轮询至完成可下载、提交中按钮禁用（本任务负责实现侧交互）。
+- [x] [E-08][integration] 覆盖异指纹 409：展示 i18n 文案、保留筛选、不重复创建任务。
+- [x] [E-09][integration] 覆盖 `FAILED` 状态：展示 `error_code` 文案与重试入口（复用新 key），不展示未完成产物。
+- [x] [B-208][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：导出按钮为左主操作 primary 且提交中禁用；同一用户提交复用同一 Idempotency-Key；失败文案经 catalog→i18n。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_export_contract.py"]`。
+- [x] 执行上述契约命令，填写 Acceptance Evidence。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-08 | E2E | Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL | 同一任务不重复创建；轮询至完成可下载；提交中禁用 | e2e/tests/audit-observability.spec.ts / S-08（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""]` | planned |
-| E-08 | integration | Browser→导出创建异指纹 409 | 展示 `IDEMPOTENCY_MISMATCH` 文案；保留筛选；不重复创建 | e2e/tests/audit-observability.spec.ts / E-08（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-08\""]` | planned |
-| E-09 | integration | Browser→导出失败状态 | 展示 error_code 文案与重试入口；不展示未完成产物 | e2e/tests/audit-observability.spec.ts / E-09（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-09\""]` | planned |
-| B-208 | integration | 前端源码契约 + 真实 tsc 类型检查 | 导出按钮为左主操作 primary 且提交中禁用；同一用户提交复用同一 Idempotency-Key；失败文案经 catalog→i18n | tests/frontend/test_audit_export_contract.py / B-208 | `["uv","run","pytest","-q","tests/frontend/test_audit_export_contract.py"]` | planned |
+| S-08 | E2E | Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL | 同一任务不重复创建；轮询至完成可下载；提交中禁用 | e2e/tests/audit-observability.spec.ts / S-08（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""]` | e2e_deferred |
+| E-08 | integration | Browser→导出创建异指纹 409 | 展示 `IDEMPOTENCY_MISMATCH` 文案；保留筛选；不重复创建 | e2e/tests/audit-observability.spec.ts / E-08（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-08\""]` | e2e_deferred |
+| E-09 | integration | Browser→导出失败状态 | 展示 error_code 文案与重试入口；不展示未完成产物 | e2e/tests/audit-observability.spec.ts / E-09（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-09\""]` | e2e_deferred |
+| B-208 | integration | 前端源码契约 + 真实 tsc 类型检查 | 导出按钮为左主操作 primary 且提交中禁用；同一用户提交复用同一 Idempotency-Key；失败文案经 catalog→i18n | tests/frontend/test_audit_export_contract.py / B-208 | `["uv","run","pytest","-q","tests/frontend/test_audit_export_contract.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-208 | **真实 RED**：`uv run pytest -q tests/frontend/test_audit_export_contract.py` → **9 failed**，首条 `缺少前端文件：…/components/AuditExportButton.tsx`。 | 新增 `components/AuditExportButton.tsx`（工具栏**左主操作**、`primary`/solid、提交中禁用、内联 Banner + 重试）与 `hooks/useAuditExport.ts`（导出状态机：每次提交恰好生成一个幂等键、轮询 1s×60 上限、终态停止、乱序丢弃、`SUCCEEDED` → 下载、`FAILED` → 文案 + 重试）；`AuditPage` 把 `actions={null}` 换成 `<AuditExportButton filters=…>`；补 5 条 `audit.export.*` 词条 → 契约测试 **9 passed**；`tests/frontend/` **187 passed**；`check_frontend_api_usage.py`/`check_frontend_i18n.py` OK（682 keys）；`tsc --noEmit` 与 `vite build` 干净；ruff 干净；**未改动任何既有测试**（并保留页面里的 `TASK-014` 标记，使 TASK-011 的断言原样通过）。 | `tests/frontend/test_audit_export_contract.py` 9 条：按钮接入左主操作且 primary/solid + busy 禁用；每次提交恰好生成一个键、且重试路径不调用键生成器；轮询调用 `getExport` 并在终态停止；`SUCCEEDED` 触发下载路径、失败文案取自 `errorCode`（**不解析 blob**，`JSON.parse`/`.text()`/`response.data.code` 均不在源码中）；E-08 保留筛选且全局只有**一个** `createExport(` 调用点（构造不出第二个任务）；无硬编码中文。 | 前端源码契约 + 真实 `tsc --noEmit` + 真实 `vite build` + 两个仓库检查脚本；未 mock 业务 API | verified |
+| S-08 / E-08 / E-09 | 无独立 RED（三者终验归 TASK-018 的浏览器验收；本任务以源码契约断言交互形态）。 | **E-08**：创建失败走通用分支、筛选由页面持有不被触碰、单一 `createExport(` 调用点 ⇒ 不可能建第二个任务，`IDEMPOTENCY_MISMATCH` 由按钮的 catalog→i18n 映射渲染；**E-09**：轮询到 `FAILED` 用 `job.errorCode` 映射文案并提供重试（重试=新提交=新键）；下载传输失败回退 `COMMON_INTERNAL_ERROR`（blob 体不可解析，已在注释登记）。 | 同上用例的 E-08/E-09 断言 | 前端源码契约（UI 级证据归 TASK-018） | e2e_deferred（终验归 TASK-018） |
+
+**实现中的判断点（如实登记）**：
+- **默认格式 `CSV`**：设计 §3.3.1 未指定格式且草图为单个按钮，导出 `EXPORT_FORMAT_DEFAULT`。
+- **轮询参数**：`EXPORT_POLL_INTERVAL_MS=1000`、`EXPORT_POLL_MAX_ATTEMPTS=60`（约 60s）；立即轮询、间隔等待、终态 `['SUCCEEDED','FAILED']` 停止；**上限耗尽 → `status='FAILED'` + 回退码**（绝不展示半成品产物）；乱序用 `submissionSeq` + `isCurrent()` 在每次 `getExport` 前后各校验一次（对齐 `useAuditList`/`useAuditDetail` 的纪律）。
+- **文件保存**：仓库内**不存在**既有 helper（`src` 下无 `createObjectURL`/`saveAs`/anchor 用法），故在 hook 内实现最小 `saveBlob`：Blob URL + `<a download>` + **延迟** `revokeObjectURL`（0 tick 立即 revoke 是跨浏览器不安全形态）；文件名 `audit-export-<exportId>.csv|json`。
+- **幂等键归属（交接点 1）**：`newRequestId()` 在 hook 中**只出现一次**（`start` 内）；在途重入（双击/超时重发）在铸造键之前直接返回 ⇒ 同一次提交始终一个键、不产生第二个作业；**E-09 的重试 = 新提交 → 新键**（同键只会重放同一个 FAILED 作业，无意义）；`retry()` 委托 `start` 并复用**已存**请求（契约签名为 `retry(): void`）——用户若改了筛选应走主导出按钮（已标注给 TASK-018 的 E-09 E2E）。
+- **blob 错误体（交接点 2）**：hook 绝不解析下载体；`FAILED` 文案来自轮询到的 `job.errorCode`；下载本身传输失败回退 catalog `COMMON_INTERNAL_ERROR`（`EXPORT_ERROR_FALLBACK_CODE`，注释中写明该限制）；创建失败仍可读封套（走只读的 `apiErrorBody`，与 `AgentFormModal`/`PlatformTestModal` 同款），所有请求仍只经 `services/auditService`。
+- **错误呈现形态**：工具栏内联 Semi `Banner`(danger) + 重试按钮，**刻意不用公共 `ErrorState`**——其 `.app-error` 是 `padding: 32px 16px` 的居中块，会撑坏工具栏行。
+- **catalog→i18n 映射放在按钮**（`EXPORT_ERROR_KEYS`，对齐 `PlatformTestModal` 先例）；hook 只暴露 `errorCode`、不含文案。
+- **E-08 无独立分支**：通用创建失败路径已满足（筛选由页面持有且不被触碰、不重复提交、单一 `createExport(` 调用点），契约测试直接断言该形态。
+- **设计口径冲突**：设计 §3.5 说幂等键"由 service 生成"，与 brief/交接的"调用方持有"冲突 → 以调用方持有为准（已是 `auditService.ts` 的既定约定，已登记）。
+- B-208: verified — automated command passed; run_id=8e20391284624aebb64e3c849a82e04a (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-015: i18n 词条与语言切换覆盖
 
 - **Status**: draft
