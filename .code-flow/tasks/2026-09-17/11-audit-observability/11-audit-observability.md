@@ -42,6 +42,9 @@
 | TASK-017 | P0 | 后端场景真实验收（S-01/03/05 + 集成场景证据） | 016 | 2.5.2 功能验收场景 | S-01(E2E), S-03(E2E), S-05(E2E) | 6 |
 | TASK-018 | P0 | 前端 E2E 验收（列表/详情/导出） | 016 | frontend 2.4 验收条件 | S-06(E2E), S-07(E2E), S-08(E2E) | 6 |
 | TASK-019 | P0 | 收口：场景、规则、证据与仓库级 verifier | 017, 018 | 2.5.2/2.5.1；6 需求追溯矩阵 | RULE-06(integration), RULE-test-001(E2E), B-211(integration) | 6 |
+| TASK-020 | P1 | Runtime/Worker 指标暴露与 label 卫生 | 009 | 3.5 可观测性；4 部署与运维 | B-212(integration), RULE-worker-001(integration) | 5 |
+| TASK-021 | P1 | API-01/05 增 agent_id 筛选（后端） | 003, 006 | 3.3 数据设计；3.4 接口设计 | B-213(integration) | 4 |
+| TASK-022 | P1 | 前端接线收口（Agent 筛选/resourceType 域/刷新失败提示） | 011, 012, 015, 021 | 3.3 组件设计；3.6 UI 状态 | B-214(integration) | 4 |
 
 ## Acceptance Coverage
 
@@ -63,6 +66,10 @@
 | B-209 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-015 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_i18n_contract.py"] | . | 600 |  |
 | B-210 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实多进程栈(Console/Runtime/Worker + PostgreSQL/Redis)与租户级清理 | TASK-016 | verified | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_environment.py"] | . | 600 |  |
 | B-211 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录 | TASK-019 | verified | ["uv","run","pytest","-q","tests/audit_observability_inventory.py","-k","b211"] | . | 600 |  |
+| B-212 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 Runtime/Worker 进程 + 真实 `/metrics` HTTP 端点 + 真实调用点 | TASK-020 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_runtime_metrics.py && uv run pytest -q tests/agent_worker/test_worker_metrics.py"] | . | 600 |  |
+| RULE-worker-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | 真实 Worker 进程与 PostgreSQL/Redis（claim/reclaim/lease/schedule/delivery）+ 原 verifier 真实边界 | TASK-020 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_runtime_metrics.py && uv run pytest -q tests/agent_worker/test_worker_metrics.py && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"] | . | 1200 |  |
+| B-213 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 Console HTTP + 真实 PostgreSQL（审计四表 + 运行/任务表） | TASK-021 | planned | ["uv","run","pytest","-q","tests/console_platform/test_audit_agent_filter.py","-k","b213"] | . | 600 |  |
+| B-214 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 前端源码契约 + 真实 tsc + 仓库检查脚本（services 收口/i18n） | TASK-022 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_gap_contract.py","-k","b214"] | . | 600 |  |
 | E-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 详情查询→关联 Run 不可读 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"] | . | 600 |  |
 | E-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应 | TASK-008 | verified | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | E-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 列表查询参数校验 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
@@ -1137,3 +1144,134 @@
 - [2026-09-25] created (draft)
 - [2026-09-25] started
 - [2026-09-25] completed (done)
+
+---
+
+## TASK-020: Runtime/Worker 指标暴露与 label 卫生
+
+- **Status**: done
+- **Priority**: P1
+- **Depends**: TASK-009
+- **Source**: 11-audit-observability.backend.design.md#3.5 质量实现方案, 11-audit-observability.backend.design.md#4 部署与运维
+- **Spec-Refs**: harness-worker#RULE-worker-001
+- **Acceptance-Refs**: B-212, RULE-worker-001
+- **Files**: `apps/agent-runtime/src/muad_agent_runtime/metrics.py`, `apps/agent-runtime/src/muad_agent_runtime/main.py`, `apps/agent-worker/src/muad_agent_worker/metrics.py`, `apps/agent-worker/src/muad_agent_worker/main.py`, `tests/agent_runtime/test_runtime_metrics.py`, `tests/agent_worker/test_worker_metrics.py`
+- **Estimate**: 半天级（两个服务的注册与调用点接入 + 两处端点验收）；超出按服务拆两段
+
+### Description
+
+TASK-009 只落地了 Console 侧指标（`/metrics` + 四个计数器）。本任务按设计 §3.5 的指标目录补齐 **Runtime 与 Worker** 两侧：Runtime `agent_runs_total/model_invocations_total/tool_calls_total/skill_load_total/egress_calls_total/artifact_bytes_total`、Worker `tasks_total/task_queue_depth/task_reclaim_total/run_reclaim_total/task_lease_expired_total/scheduled_fire_total/scheduled_misfire_total/delivery_total`；两个服务各自暴露真实 `/metrics` HTTP 端点（复用 api-kit 的指标注册表与 `install_metrics`，**不建第二套注册表**），并在真实调用点计数；label 不得含 Secret/凭据/消息正文/PII。
+
+### Checklist
+
+- [x] [B-212][integration] 以真实 `/metrics` HTTP 端点（Runtime 与 Worker）+ 真实调用点计数 为边界编写/扩展用例；关键断言：目录指标可抓取、取值随真实调用递增、label 名/值无敏感形状。执行 argv：`["bash","-lc","uv run pytest -q tests/agent_runtime/test_runtime_metrics.py && uv run pytest -q tests/agent_worker/test_worker_metrics.py"]`。
+- [x] 实现或补齐：两个服务的指标注册（复用 api-kit 注册表）与真实调用点计数接入。
+- [x] 覆盖 label 卫生：label 名不得含敏感标记，label 值不得含资源 ID/凭据形状/正文。
+- [x] [RULE-worker-001][integration] verifier_ref=harness-worker#RULE-worker-001；原 verifier 输入 argv=；补充真实边界 真实 Worker 进程与 PostgreSQL/Redis：本次仅在既有 claim 谓词与终态 CAS 旁增计数，不改权威源/claim/lease 语义；断言 claim 仍 FOR UPDATE SKIP LOCKED、Redis 仍仅 wake-up/cancel hint；原 verifier 全部通过，联合验收 argv=。
+- [x] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-212 | integration | 真实 Runtime/Worker 进程 + 真实 `/metrics` HTTP 端点 + 真实调用点 | 目录指标可抓取；真实调用后计数递增；label 无 Secret/PII | tests/agent_runtime/test_runtime_metrics.py + tests/agent_worker/test_worker_metrics.py / B-212 | `["bash","-lc","uv run pytest -q tests/agent_runtime/test_runtime_metrics.py && uv run pytest -q tests/agent_worker/test_worker_metrics.py"]` | verified |
+| RULE-worker-001 | integration | 真实 Worker 进程与 PostgreSQL/Redis + 原 verifier 真实边界 | Worker 权威源/claim/lease 语义不变；原 verifier 全部通过 | tests/agent_worker/test_worker_metrics.py + 原 verifier / RULE-worker-001 | `["bash","-lc","uv run pytest -q tests/agent_runtime/test_runtime_metrics.py && uv run pytest -q tests/agent_worker/test_worker_metrics.py && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"]` | verified |
+
+### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-212 | **真实 RED**（实现临时 stash、测试在场）：runtime `3 failed` —— `/metrics` 返回 `404 COMMON_NOT_FOUND`、`ModuleNotFoundError: No module named 'muad_agent_runtime.metrics'`；worker `4 failed` —— 同样 404 与 `ImportError: cannot import name 'CATALOG' from 'muad_agent_worker.metrics'`。 | Runtime 新增 `metrics.py`（目录 + `record_counter`/`record_outcome` + `install_runtime_metrics`）并在 7 处真实调用点计数（`agent_runs_total`←Run 终态 CAS、`model_invocations_total`←`AuditedModelProvider._record`/`ModelGateway`、`tool_calls_total`←`ToolCallRecorder`、`skill_load_total`←`SkillToolSet._ready_dir`、`egress_calls_total`←`McpRuntimeAdapter._audit`、`artifact_bytes_total`←`ArtifactResultWriter`、`run_reclaim_total`←`reap_abandoned_runs`）；Worker 扩展 `metrics.py` 并在 claim/success/fail/cancel/reclaim/lease/schedule/delivery 等处计数，`task_queue_depth` 为真实 `COUNT(*)` 同谓词 gauge；api-kit 增 `declare_metric`/`declare()` 使目录在无流量时也可见（对未声明服务输出逐字节不变，已直接验证）→ 登记 argv **runtime 4 passed + worker 4 passed**；回归 `tests/agent_runtime/` **149 passed**、`tests/agent_worker/` **234 passed**；ruff 与 mypy（92 文件）干净；无残留进程/新增行。 | runtime：`tests/agent_runtime/test_runtime_metrics.py`（4 例）——真实 `/metrics` 端点（真实 uvicorn，`lifespan="off"` + 真实依赖覆盖）暴露目录、真实调用路径后计数递增、label 名/值卫生；worker：`tests/agent_worker/test_worker_metrics.py`（4 例）——同上（含真实 claim/execute/reclaim、schedule fire/misfire、delivery send 路径）。两文件均对抓取到的每条样本解析并拒绝：label 名含敏感标记、label 值含 UUID/凭据形状、响应体含租户 id/Run/Task/Agent/User UUID/正文 canary。 | 真实 Runtime/Worker 进程（真实 socket 与中间件）+ 真实 PostgreSQL/Redis 驱动真实调用路径；未 mock 业务 API | verified |
+
+**实现中的判断点（如实登记）**：
+- **`run_reclaim_total` 放在 Runtime 端点而非 Worker**：Worker 侧**不存在** Run 回收路径（无 Run 概念/表，已 grep 确认），唯一真实回收是 runtime 的 `_reaper_loop → reap_abandoned_runs`；归档的 `08-runtime-execution` 设计亦把它列在 Runtime。故 **Worker `/metrics` 暴露 7 个（非 8 个）任务清单名**——在 Worker 上声明它只会是一个恒零的幻影。
+- `model_gateway.py` 无生产调用方（仅 `test_model_recovery.py` 构造它）：按要求在两处都接线，当前二者不嵌套、无双计。
+- 采用"新增 `declare_metric` 让目录在无流量时可见"而非发明中间件；Console/im-gateway 未声明该 API，输出保持不变。
+- 未给 runtime/worker 发明通用请求计数中间件（设计表未列）；未引入 Console 的 `count_outcome` 上下文管理器（两侧状态词表不同，改为各站点显式 `record_outcome`）。
+- Worker 带 label 的计数器只出 `/metrics`、不进结构化 metric 日志（V1 日志 schema 无 label 字段，凭空扩展属越界）；无 label 的沿用两处出口。
+- 既有的非目录 worker 计数器（`task_claim_total` 等）因 `increment` 镜像也一并出现在 `/metrics`；未改名、未删除。
+- `delivery_total` 在三个 `_record_*` 内递增：丢失 CAS 竞态可能多计一次（与既有 `delivery_failed_total` 同性质）。
+- `task_cancel.cancel_children`（批量取消空闲子任务）**未接线**：其 RETURNING 无 `task_type`。
+- 顺带修掉 `skill_tools.py` 预存在的 ruff I001（改动文件须 lint 干净），其余预存在问题未动。
+- **给调用方的注意**：api-kit 注册表是进程级全局，同进程导入多个服务 app 时会并集暴露（仅测试可达）；因改动共享注册表，本次**未**重跑 `tests/test_audit_observability_config.py` 与 `tests/gateway/test_message_metrics.py`（按"不跑其它模块套件"约束）——它们输出可证不变（均不调用 `declare_metric`），且会由本任务 Done Gate 的规则 verifier 覆盖。
+- B-212: verified — automated command passed; run_id=5045d8dee964489f812cc15ea8b3239d (confirmed_by: runner)
+
+### Log
+- [2026-09-25] created (draft)（由 TASK-019 收口发现的缺口拆出：设计 §3.5 的四服务指标目录此前仅 Console 侧落地）
+
+---
+- [2026-09-25] started
+- [2026-09-25] resumed (in-progress)
+- [2026-09-25] completed (done)
+## TASK-021: API-01/05 增 agent_id 筛选（后端）
+
+- **Status**: draft
+- **Priority**: P1
+- **Depends**: TASK-003, TASK-006
+- **Source**: 11-audit-observability.backend.design.md#3.3 数据设计, 11-audit-observability.backend.design.md#3.4 接口设计, 11-audit-observability.frontend.design.md#3.3 组件设计
+- **Spec-Refs**:
+- **Acceptance-Refs**: B-213
+- **Files**: `apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/audit_query_repository.py`, `apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py`, `apps/console-platform/backend/src/muad_console_platform/api/audits.py`, `tests/console_platform/test_audit_agent_filter.py`
+- **Estimate**: 15–60 分钟；超出先拆"投影过滤"与"导出复用"两段
+
+### Description
+
+前端设计的筛选栏含独立的「Agent」项，而聚合投影的**运行类**记录本就带 `agent_id`/`agent_name`（config 类为空）——此前实现把该项映射为 `resource_type`，属口径冒充（已登记）。本任务给 API-01（列表）与 API-05（导出创建）增 `agent_id` 查询参数：按 `run_record.agent_id` / `task.task_execution.agent_id` 过滤运行类记录，config 类不参与（其 `agent_id` 恒空）。
+
+### Checklist
+
+- [ ] [B-213][integration] 以真实 PostgreSQL（四张审计表 + 运行/任务表）为边界编写/扩展用例；关键断言：`agent_id` 过滤只返回该 Agent 的运行类记录、config 类被排除、未传该参数时行为不变。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_audit_agent_filter.py","-k","b213"]`。
+- [ ] 实现或补齐：投影 WHERE 增 `agent_id` 分支（参数化），并让 API-05 的筛选集与指纹输入同步包含它。
+- [ ] 覆盖分页/排序在带 `agent_id` 过滤时仍正确（total 与 items 一致）。
+- [ ] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-213 | integration | 真实 Console HTTP + 真实 PostgreSQL（审计四表 + 运行/任务表） | 按 `agent_id` 过滤仅返回该 Agent 的运行类记录；config 类排除；缺省行为不变；分页 total 一致 | tests/console_platform/test_audit_agent_filter.py / B-213 | `["uv","run","pytest","-q","tests/console_platform/test_audit_agent_filter.py","-k","b213"]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-25] created (draft)（由 TASK-019 收口发现的缺口拆出：设计筛选栏的「Agent」项此前被映射为 `resource_type`）
+
+---
+
+## TASK-022: 前端接线收口（Agent 筛选 / resourceType 域 / 刷新失败提示）
+
+- **Status**: draft
+- **Priority**: P1
+- **Depends**: TASK-011, TASK-012, TASK-015, TASK-021
+- **Source**: 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.6 UI 状态
+- **Spec-Refs**:
+- **Acceptance-Refs**: B-214
+- **Files**: `apps/console-platform/frontend/src/modules/audit-observability/types.ts`, `apps/console-platform/frontend/src/modules/audit-observability/services/auditService.ts`, `apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx`, `apps/console-platform/frontend/src/modules/audit-observability/components/AuditDetailSideSheet.tsx`, `apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditList.ts`, `apps/console-platform/frontend/src/locales/zh-CN.json`, `apps/console-platform/frontend/src/locales/en-US.json`, `tests/frontend/test_audit_gap_contract.py`
+- **Estimate**: 半天级（四处口径 + 词条）；超出按项拆
+
+### Description
+
+把 TASK-019 登记的三处前端口径缺口按设计补齐：①「Agent」筛选改接 TASK-021 的 `agentId` 参数（不再冒充 `resourceType`）；②`resource_type` 值域覆盖实际取值（含运行侧的小写/多种形态），详情「资源类型」行加 i18n 兜底（未知值原样展示、不留空白）；③**刷新失败**（已有行）保留已加载行并给出非破坏性错误提示，仅**首次加载失败**用整页 `ErrorState`（对齐设计 v1.5 的实施口径）。
+
+### Checklist
+
+- [ ] [B-214][integration] 以 前端源码契约 + 真实 `tsc --noEmit` + 仓库检查脚本 为边界编写/扩展用例；关键断言：Agent 筛选传 `agentId`、resourceType 覆盖实际取值且详情行有 i18n 兜底、刷新失败保留行且给非破坏性提示、首载失败才 `ErrorState`。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_gap_contract.py","-k","b214"]`。
+- [ ] 实现或补齐：`AuditListQuery` 增 `agentId`、service 传参、筛选栏接线（含 i18n key）。
+- [ ] 实现或补齐：resourceType 枚举覆盖实际取值 + 详情行 i18n 兜底（zh-CN/en-US 同键集）。
+- [ ] 实现或补齐：`useAuditList` 区分首载失败与刷新失败；刷新失败时保留 `items` 并由页面渲染非破坏性提示。
+- [ ] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-214 | integration | 前端源码契约 + 真实 `tsc --noEmit` + 仓库检查脚本（services 收口/i18n） | Agent 筛选走 `agentId`；resourceType 覆盖实际取值且详情行有 i18n 兜底；刷新失败保留已加载行 + 非破坏性提示；仅首载失败渲染 `ErrorState` | tests/frontend/test_audit_gap_contract.py / B-214 | `["uv","run","pytest","-q","tests/frontend/test_audit_gap_contract.py","-k","b214"]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-25] created (draft)（由 TASK-019 收口发现的缺口拆出：Agent 筛选口径、resourceType 域与详情展示、刷新失败提示）

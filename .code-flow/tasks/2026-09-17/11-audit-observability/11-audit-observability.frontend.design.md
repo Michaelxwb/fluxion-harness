@@ -1,7 +1,7 @@
 # 运行审计与可观测 前端模块需求与设计简报
 
-> **文档编号**: FE-AUDIT-V1.4  
-> **文档版本**: v1.4  
+> **文档编号**: FE-AUDIT-V1.5  
+> **文档版本**: v1.5  
 > **创建日期**: 2026-09-17  
 > **文档状态**: 设计评审中  
 > **模板**: design-frontend.md
@@ -24,6 +24,7 @@
 | v1.2 | 2026-09-25 | Claude | 对齐现行 required 规则文本：secret 语义由"只存 SecretRef"改为"密钥明文存于各 Owner 表（无 `secret_ref`/SecretProvider），不进审计/日志/Snapshot/LLM Prompt/API 响应（对外以 `*_configured` 表达）"；矩阵 ref 由 legacy `harness-platform#` 校正为 `harness-secret#`。 |
 | v1.3 | 2026-09-25 | Claude | 承接 required `harness-api#RULE-api-002`（后端新增 FEAT-04 审计导出与 API-05/API-06）：新增 FEAT-FE-03 导出按钮、`useAuditExport` 与 service 方法（同一次用户提交复用同一 `Idempotency-Key`，异指纹走 catalog→i18n 文案）、场景 S-08 / E-08 / E-09；矩阵 ref 统一为现行分域 spec id。 |
 | v1.4 | 2026-09-25 | Claude | 场景 ID 归一：前端场景由 `S-FE-01..03` / `E-FE-01..04` 改为同一数字序列 `S-06..S-08` / `E-06..E-09`（验收工具链的场景行匹配为 `[SEB]-\d+`，仅数字序号可进入 Acceptance Coverage 与 manifest；与 09-task-schedule 的 `S-2xx`/`E-2xx` 惯例一致）。场景内容、层级与真实边界不变。 |
+| v1.5 | 2026-09-25 | Claude | 实施口径对齐（不改需求）：布局组件实名（`ConsoleShell` → `layout/AppLayout.tsx`；`DetailTabs` 由共享 `DetailSideSheet` 内建 Tabs 承载）；补「Agent」筛选需后端 `agent_id` 参数、`resource_type` 值域开放须覆盖实际取值 + i18n 兜底、以及刷新失败保持已加载行并给非破坏性提示（首次加载失败才用 `ErrorState`）。 |
 
 **模块信息**
 
@@ -99,7 +100,7 @@
 
 | 页面 | 路由 | 布局 | 说明 |
 |---|---|---|---|
-| 运行审计 | `/audits` | ConsoleShell | 聚合列表 + 只读 SideSheet |
+| 运行审计 | `/audits` | ConsoleShell（实施组件：`layout/AppLayout.tsx`） | 聚合列表 + 只读 SideSheet |
 
 ### 3.3 组件设计
 
@@ -108,7 +109,7 @@
 ├─ <ModuleToolbar>                  # 公共组件：搜索/筛选/重置/刷新
 ├─ <AuditTable>                     # 展示：字段列 + 主展示字段入口
 └─ <AuditDetailSideSheet>           # 容器：按 audit_type + audit_id 拉详情
-   └─ <DetailTabs>                  # 公共组件：基础信息/关联
+   └─ <共享 DetailSideSheet 内建 Tabs>（仓库无独立 DetailTabs 组件）                  # 公共组件：基础信息/关联
 ```
 
 | 组件ID | 组件名 | 类型 | 复用来源/去向 | 职责 |
@@ -119,6 +120,13 @@
 | CMP-04 | `AuditFilterBar` | 展示 | 模块内 | 时间/类型/用户/Agent/目标/动作/结果/Trace 筛选 |
 
 **必须复用公共组件**：`ConsoleShell / ModuleToolbar / EntityLink / DetailSideSheet / DetailTabs / StatusTag / DateTimeText / EmptyState / ErrorState / PaginationFooter / LocaleSwitch`。
+**实施口径对齐（2026-09-25）**：
+
+- **布局组件实名**：`ConsoleShell` 在仓库中的实际组件是 `layout/AppLayout.tsx`（路由层嵌套）；`DetailTabs` 无独立组件，由共享 `DetailSideSheet` 内建的 Semi `Tabs`（子 `Tabs.TabPane`）承载。
+- **「Agent」筛选**：聚合投影的运行类记录带 `agent_id`/`agent_name`（config 类为空），该筛选项需后端提供 `agent_id` 查询参数；未提供前不得用「审计类型（`resource_type`）」冒充。
+- **`resource_type` 取值域是开放的**（config 侧如 `AGENT/SKILL/MCP/MODEL/PROJECT_PLATFORM/USER/GRANT`，运行侧各异且大小写不一）：筛选项须覆盖实际取值，详情「资源类型」行须有 i18n 兜底（未知值原样展示、不得空白）。
+- **查询失败呈现**：首次加载失败 → `ErrorState` + 保留筛选 + 可重试；**刷新失败**（已有行）→ 保留已加载行并给出非破坏性错误提示，不整页替换为 `ErrorState`。
+
 
 #### 3.3.1 每个按钮/操作的设计
 

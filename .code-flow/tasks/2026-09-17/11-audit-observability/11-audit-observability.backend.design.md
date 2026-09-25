@@ -1,7 +1,7 @@
 # 运行审计与可观测 模块需求与设计一体化文档
 
-> **文档编号**: MOD-AUDIT-V1.4  
-> **文档版本**: v1.4  
+> **文档编号**: MOD-AUDIT-V1.6  
+> **文档版本**: v1.6  
 > **创建日期**: 2026-09-17  
 > **文档状态**: 设计评审中  
 > **模板**: design-full.md
@@ -27,6 +27,8 @@
 | v1.2 | 2026-09-25 | Claude | 对齐现行 required 规则文本：secret 语义由"只存 SecretRef"改为"密钥明文存于各 Owner 表、跨表以主键引用（无 `secret_ref`/SecretProvider），且不进审计/日志/Snapshot/LLM Prompt/API 响应（对外以 `*_configured` 表达）"，消除 plan 阶段 `stale`；矩阵 ref 由 legacy `harness-platform#` 校正为 `harness-secret#`。 |
 | v1.3 | 2026-09-25 | Claude | 承接 required `harness-api#RULE-api-002`（此前绑定但设计未承接）：新增 FEAT-04 审计导出、RULE-09（创建类 POST 的 `Idempotency-Key` 幂等）、API-05/API-06（`/api/v1/audits/exports`）、`control.audit_export_job` 表与场景 S-05/E-05；矩阵 ref 统一为现行分域 spec id。 |
 | v1.4 | 2026-09-25 | Claude | 局部 Plan 承接 `harness-snapshot#RULE-snapshot-001`（TASK-002 改动 `apps/agent-runtime/src/muad_agent_runtime/infrastructure/audit_writer.py` 命中路径映射自动绑定）：本模块不改变 Snapshot 冻结/终态 CAS 语义，新增内容仅为审计写入边界的递归脱敏；见 Spec Compliance Matrix。 |
+| v1.5 | 2026-09-25 | Claude | 实施口径对齐（不改需求）：§3.3 的 `task_execution`/`task_event` 限定为真实 Schema `task.*`；§3.3/§3.4 明确 API-04 的审计状态按各表持久化原值返回（示例中的 `SUCCESS` 为归一后表达，统一 `result_status` 仅由聚合列表 API-01 暴露，RULE-08）。 |
+| v1.6 | 2026-09-25 | Claude | 局部 Plan 承接 `harness-worker#RULE-worker-001`（TASK-020 改动 `apps/agent-worker/src/muad_agent_worker/**` 命中路径映射自动绑定）：本模块不改变 Worker 的权威源/claim/lease 语义，仅新增指标计数；见 Spec Compliance Matrix。 |
 
 **模块信息**
 
@@ -160,12 +162,12 @@ flowchart LR
  A3 --> Q
  A4 --> Q
  Q --> UI["Audit Console"]
- Q -.->|run_id/task_id| RT["run_record / task_execution"]
+ Q -.->|run_id/task_id| RT["run_record / task.task_execution"]
  Q -.->|trace_id| OTEL["OTel Backend（仅运维）"]
 ```
 
 - 审计写入方：Config Service（Console 应用服务）、ToolRegistry、Egress Boundary、ModelGateway；均先脱敏再写；
-- 查询面：Console 聚合投影；运行审计按 `run_id → run_record.trace_id`、`task_id → task_event.trace_id` 关联 trace；
+- 查询面：Console 聚合投影；运行审计按 `run_id → run_record.trace_id`、`task_id → task.task_event.trace_id` 关联 trace；
 - OTel/监控后端只作运维排障，不回流为业务审计数据源。
 
 ### 3.3 数据设计
@@ -368,11 +370,11 @@ erDiagram
 | `audit_type`（判别字段，用于详情定位） | CONFIG | TOOL | EGRESS | MODEL |
 | `resource_type` | resource_type | `TOOL` | target_type | `MODEL` |
 | `resource_id` | resource_id | run_id 或 task_id | platform_id（为空取 target） | run_id 或 task_id |
-| `actor_user_id` / `actor_name` | actor_user_id（console_account.id） | join run_record.user_id / task_execution.actor_user_id | user_id | join run_record.user_id / task_execution.actor_user_id |
-| `agent_id` / `agent_name` | 空 | join run_record.agent_id 或 task_execution.agent_id → agent_definition.name | 同左 | 同左 |
+| `actor_user_id` / `actor_name` | actor_user_id（console_account.id） | join run_record.user_id / task.task_execution.actor_user_id | user_id | join run_record.user_id / task.task_execution.actor_user_id |
+| `agent_id` / `agent_name` | 空 | join run_record.agent_id 或 task.task_execution.agent_id → agent_definition.name | 同左 | 同左 |
 | `action` | action | tool_name | operation（为空取 target） | `provider/model` |
 | `result_status` | 固定 `SUCCESS` | status | result_status | status |
-| `trace_id` | trace_id | run_record.trace_id / task_event.trace_id | 同左 | 同左 |
+| `trace_id` | trace_id | run_record.trace_id / task.task_event.trace_id | 同左 | 同左 |
 | `occurred_at` | create_time | create_time | create_time | create_time |
 | `started_at` / `finished_at` | create_time / 空 | start_time / end_time | create_time / 空（按 latency_ms 展示耗时） | create_time / 空（按 latency_ms 展示耗时） |
 | `target` | resource_type + resource_id | tool_name | target | provider/model |
@@ -407,6 +409,8 @@ erDiagram
   "artifacts": [{"artifact_id": "uuid", "artifact_type": "TOOL_RESULT", "media_type": "application/json", "size": 20480, "checksum": "sha256:...", "preview": "…", "create_time": "2026-09-18T10:01:00+08:00"}]
 }
 ```
+
+> **状态取值口径（2026-09-25 实施对齐）**：上文示例中的 `SUCCESS` 为**归一后的表达**。API-04 按各表**持久化原值**返回：`tool_audits[].status`（当前实现为 `OK`/`ERROR`）、`egress_audits[].result_status`、`model_invocations[].status`（`SUCCEEDED`/`FAILED` 等）；统一后的 `result_status` 只在聚合列表（API-01，RULE-08）暴露。
 
 ### 3.4 接口设计
 
@@ -614,3 +618,4 @@ GET /api/v1/audits/exports/{export_id}/download
 | `harness-snapshot#RULE-snapshot-001` | required | 本模块不改 Snapshot 冻结与终态 CAS 语义：仅新增审计写入边界的脱敏（`args_preview_json` 等），不写入/改写 Snapshot 内容与 hash；新 Run/Task 仍在执行前冻结快照，配置或授权变更只影响后续提交。 | §3.5（安全与日志脱敏） | S-02 / RULE-08 + 原 verifier | applied |
 | `harness-time#RULE-time-001` | required | Console 时间统一 `YYYY-MM-DD HH:mm:ss`；存储 timestamptz。 | §3.4/§3.5 | S-01 + verifier | applied |
 | `harness-test#RULE-test-001` | required | 关键流程 E2E，明确不得 mock 的真实边界。 | §2.5.2/§6 | S-01, E-01 + verifier | applied |
+| `harness-worker#RULE-worker-001` | required | 本模块不改 Worker 的权威源与 claim 语义：指标接入只在既有 claim 谓词与终态 CAS 旁增加计数（claim 仍 `FOR UPDATE SKIP LOCKED`、Redis 仍仅作 wake-up/cancel hint、`task_type` 仍仅 `SKILL/BATCH`、WAITING 释放 lease、deadline 由 Scheduler sweep）。 | §3.5（可观测性）/§4 部署与运维 | B-212 + 原 verifier | applied |

@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "11-audit-observability.md",
-  "task_sha256": "9cb6818777b903dd23bf14cf662cd9a147d01ef55ac6d4758ae504bf54c480e2",
+  "task_sha256": "422f8d7b51b2a0949993bba23a1a6619e5bdf4ab9d2e3f3e8e21a418f9bd086c",
   "scenarios": [
     {
       "id": "S-01",
@@ -317,28 +317,87 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-212",
+      "source": "11-audit-observability.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Runtime/Worker 进程 + 真实 `/metrics` HTTP 端点 + 真实调用点",
+      "owner": "TASK-020",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/agent_runtime/test_runtime_metrics.py && uv run pytest -q tests/agent_worker/test_worker_metrics.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
-        "id": "B-211",
+        "id": "B-212",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
         "revision": 1,
-        "run_id": "280b495af1cb41a79134ddd1d68cf9c3",
-        "executed_at": "2026-09-25T08:13:51.743444+00:00"
+        "run_id": "5045d8dee964489f812cc15ea8b3239d",
+        "executed_at": "2026-09-25T10:23:38.140936+00:00"
       },
       "runs": [
         {
-          "id": "B-211",
+          "id": "B-212",
           "kind": "functional",
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "280b495af1cb41a79134ddd1d68cf9c3",
-          "executed_at": "2026-09-25T08:13:51.743444+00:00"
+          "run_id": "5045d8dee964489f812cc15ea8b3239d",
+          "executed_at": "2026-09-25T10:23:38.140936+00:00"
         }
       ]
+    },
+    {
+      "id": "B-213",
+      "source": "11-audit-observability.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Console HTTP + 真实 PostgreSQL（审计四表 + 运行/任务表）",
+      "owner": "TASK-021",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_audit_agent_filter.py",
+        "-k",
+        "b213"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-214",
+      "source": "11-audit-observability.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "前端源码契约 + 真实 tsc + 仓库检查脚本（services 收口/i18n）",
+      "owner": "TASK-022",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_audit_gap_contract.py",
+        "-k",
+        "b214"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
     },
     {
       "id": "E-01",
