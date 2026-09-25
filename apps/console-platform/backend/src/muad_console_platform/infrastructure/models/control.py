@@ -309,6 +309,40 @@ class ConfigAuditLog(StandardColumnsMixin, Base):
     source_ip: Mapped[str | None] = mapped_column(sa.String(64))
 
 
+class AuditExportJob(StandardColumnsMixin, Base):
+    """审计导出任务事实（API-05 创建）。
+
+    `Idempotency-Key` 的唯一性由共享幂等表
+    `control.skill_import_idempotency (tenant_id, idempotency_key, endpoint)`
+    的 partial unique 承载（RULE-09），本表不重复承担该约束。
+    """
+
+    __tablename__ = "audit_export_job"
+    __table_args__ = (
+        sa.Index(
+            "ix_audit_export_job_tenant_status_create_time",
+            "tenant_id",
+            "status",
+            sa.text("create_time"),
+        ),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    created_by: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    export_format: Mapped[str] = mapped_column(sa.String(8), nullable=False)
+    # 与 API-01 一致的筛选条件（规范化后落库，同一份内容参与指纹）
+    filters_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(
+        sa.String(16),
+        nullable=False,
+        server_default=sa.text("'PENDING'"),
+    )
+    row_count: Mapped[int | None] = mapped_column(sa.BigInteger())
+    artifact_ref: Mapped[str | None] = mapped_column(sa.String(256))
+    error_code: Mapped[str | None] = mapped_column(sa.String(64))
+
+
 class AgentDefinition(StandardColumnsMixin, Base):
     __tablename__ = "agent_definition"
     __table_args__ = (

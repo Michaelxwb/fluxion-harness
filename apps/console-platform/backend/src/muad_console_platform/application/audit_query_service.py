@@ -49,6 +49,20 @@ def _validate_audit_type(audit_type: str) -> None:
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
 
 
+def validate_filters(filters: AuditQueryFilters, allowed_result_statuses: frozenset[str]) -> None:
+    """API-01 列表/详情与 API-05 导出创建共用同一筛选校验口径。"""
+    if filters.audit_type is not None:
+        _validate_audit_type(filters.audit_type)
+    if (
+        filters.result_status is not None
+        and filters.result_status not in allowed_result_statuses
+    ):
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    if filters.start_time is not None and filters.end_time is not None:
+        if _as_utc(filters.start_time) > _as_utc(filters.end_time):
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+
+
 def _optional_id(value: Any) -> str | None:
     return None if value is None else str(value)
 
@@ -113,16 +127,7 @@ class AuditQueryService:
         return [self._project(row) for row in rows], total
 
     def _validate(self, filters: AuditQueryFilters) -> None:
-        if filters.audit_type is not None:
-            _validate_audit_type(filters.audit_type)
-        if (
-            filters.result_status is not None
-            and filters.result_status not in self._allowed_result_statuses
-        ):
-            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
-        if filters.start_time is not None and filters.end_time is not None:
-            if _as_utc(filters.start_time) > _as_utc(filters.end_time):
-                raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+        validate_filters(filters, self._allowed_result_statuses)
 
     async def get_audit_detail(
         self, tenant_id: str, audit_id: uuid.UUID, audit_type: str

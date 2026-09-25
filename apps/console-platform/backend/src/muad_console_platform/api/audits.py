@@ -1,17 +1,19 @@
-"""审计查询 API（Console 聚合审计列表 API-01 与审计详情 API-02）。"""
+"""审计查询 API（Console 聚合审计列表 API-01、审计详情 API-02 与导出创建 API-05）。"""
 
 import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.audit_export_service import AuditExportService
 from ..application.audit_query_service import AuditQueryService
+from ..application.dto import AuditExportCreateRequest
 from ..infrastructure.db import get_session
 from ..infrastructure.repositories.audit_query_repository import AuditQueryFilters
-from .deps import get_tenant_id
+from .deps import CurrentAccount, get_tenant_id
 
 TenantId = Annotated[str, Depends(get_tenant_id)]
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -57,6 +59,26 @@ async def list_audits(
         catalog,
         paginate(items=items, page=page, page_size=page_size, total=total),
     )
+
+
+@router.post("/exports")
+async def create_audit_export(
+    request: Request,
+    tenant_id: TenantId,
+    account: CurrentAccount,
+    session: Session,
+    payload: AuditExportCreateRequest,
+    idempotency_key: Annotated[str, Header(min_length=1, max_length=128)],
+) -> ApiResponse[Any]:
+    """API-05：创建导出任务（RULE-09 幂等，重放首次结果）。
+
+    必须声明在 `/{audit_id}` 之前：FastAPI 按声明顺序匹配，`/exports` 否则会被详情路由吞掉。
+    """
+    catalog = request.app.state.message_catalog
+    data = await AuditExportService(session, catalog.codes()).create_export(
+        tenant_id, account.id, payload, idempotency_key
+    )
+    return ok(catalog, data)
 
 
 @router.get("/{audit_id}")

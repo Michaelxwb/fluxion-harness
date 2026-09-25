@@ -495,3 +495,20 @@ class ChannelUpdateRequest(BaseModel):
     secret: str | None = Field(default=None, min_length=1)
     enabled: bool | None = None
     config: dict[str, Any] | None = None
+
+
+class AuditExportCreateRequest(BaseModel):
+    """API-05 请求体：`export_format` 必填 + 与 API-01 一致的筛选条件（均可选）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    export_format: str = Field(max_length=8)
+    audit_type: str | None = Field(default=None, max_length=32)
+    resource_type: str | None = Field(default=None, max_length=64)
+    resource_id: uuid.UUID | None = None
+    actor_user_id: uuid.UUID | None = None
+    action: str | None = Field(default=None, max_length=64)
+    result_status: str | None = Field(default=None, max_length=64)
+    trace_id: str | None = Field(default=None, max_length=64)
+    start_time: datetime | None = None
+    end_time: datetime | None = None
