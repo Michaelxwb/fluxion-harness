@@ -644,6 +644,7 @@
   "audit.resourceType.GRANT": "授权",
   "audit.resultStatus.SUCCESS": "成功",
   "audit.resultStatus.FAILED": "失败",
+  "audit.resultStatus.DENIED": "已拒绝",
   "audit.detail.section.basic": "基本信息",
   "audit.detail.section.source": "来源字段",
   "audit.detail.tab.basic": "基本信息",

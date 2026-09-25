@@ -65,9 +65,11 @@ const TYPE_FIELDS: Record<AuditListItem['auditType'], readonly string[]> = {
   ]
 };
 
+/** 结果标签配色：域同后端 `audit_query_service.RESULT_STATUSES`（SUCCESS/FAILED/DENIED）。 */
 const RESULT_COLORS: Record<string, StatusTagOption['color']> = {
   SUCCESS: 'green',
-  FAILED: 'red'
+  FAILED: 'red',
+  DENIED: 'red'
 };
 
 /** 空值统一显示 `-`：缺字段不编造内容。 */
