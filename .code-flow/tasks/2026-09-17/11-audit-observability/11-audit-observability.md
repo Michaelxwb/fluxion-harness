@@ -68,13 +68,13 @@
 | E-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 列表查询参数校验 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
 | E-04 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 业务事务回滚→config_audit_log | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_config_write.py","-k","e04"] | . | 600 |  |
 | E-05 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 导出创建→幂等表 partial unique | TASK-006 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"] | . | 600 |  |
-| S-06 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 聚合查询 HTTP | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""] | . | 1200 |  |
-| S-07 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 详情 HTTP | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""] | . | 1200 |  |
-| S-08 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""] | . | 1200 |  |
-| E-06 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→Console 查询失败路径 | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-06\""] | . | 900 |  |
-| E-07 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→详情不可读路径 | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-07\""] | . | 900 |  |
-| E-08 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→导出创建异指纹 409 | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-08\""] | . | 900 |  |
-| E-09 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→导出失败状态 | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-09\""] | . | 900 |  |
+| S-06 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 聚合查询 HTTP | TASK-018 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""] | . | 1200 |  |
+| S-07 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 详情 HTTP | TASK-018 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""] | . | 1200 |  |
+| S-08 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL | TASK-018 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""] | . | 1200 |  |
+| E-06 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→Console 查询失败路径 | TASK-018 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-06\""] | . | 900 |  |
+| E-07 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→详情不可读路径 | TASK-018 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-07\""] | . | 900 |  |
+| E-08 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→导出创建异指纹 409 | TASK-018 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-08\""] | . | 900 |  |
+| E-09 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→导出失败状态 | TASK-018 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-09\""] | . | 900 |  |
 | RULE-01 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 真实 logging-kit 出口与日志文件 | TASK-008 | verified | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | RULE-02 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | Console 列表/详情 HTTP 封套与分页 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
 | RULE-03 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 新增表标准列/partial unique/timestamptz(PostgreSQL) | TASK-006 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"] | . | 600 |  |
@@ -1023,13 +1023,13 @@
 - [2026-09-25] completed (done)
 ## TASK-018: 前端 E2E 验收（列表/详情/导出）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-016
 - **Source**: 11-audit-observability.frontend.design.md#2.4 验收条件, 11-audit-observability.frontend.design.md#3.5 状态与数据流
 - **Spec-Refs**:
 - **Acceptance-Refs**: S-06, S-07, S-08, E-06, E-07, E-08, E-09
-- **Files**: `e2e/tests/audit-observability.spec.ts`, `e2e/playwright.audit-observability.config.ts`
+- **Files**: `e2e/tests/audit-observability.spec.ts`, `e2e/playwright.audit-observability.config.ts`、`tests/e2e/seed_audit.py`（增浏览器 E2E 编排与 CLI）
 - **Estimate**: 半天级（7 个场景 + 真实浏览器栈）；超出先拆正常/异常两段
 
 ### Description
@@ -1038,34 +1038,55 @@
 
 ### Checklist
 
-- [ ] [S-06][E2E] 以 Browser(Chromium)→Console 聚合查询 HTTP 为边界编写用例；关键断言：Trace ID 搜索仅显示相关记录、字段与 docs/15 一致、分页可用。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""]`。
-- [ ] [S-07][E2E] 以 Browser→Console 详情 HTTP 为边界编写用例；关键断言：只读详情、无操作按钮、关联链接可跳转。
-- [ ] [S-08][E2E] 以 Browser→导出创建/查询 HTTP→PostgreSQL 为边界编写用例；关键断言：同 key 重试同一任务、提交中禁用、轮询至完成并下载。
-- [ ] [E-06..04][integration] 覆盖查询失败保留筛选、详情不可读 ErrorState、异指纹 409 文案、导出失败重试入口。
-- [ ] 配置 `e2e/playwright.audit-observability.config.ts`（`workers: 1`）并在任务文档登记 argv。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence；测试文件与用例命名须全仓唯一。
+- [x] [S-06][E2E] 以 Browser(Chromium)→Console 聚合查询 HTTP 为边界编写用例；关键断言：Trace ID 搜索仅显示相关记录、字段与 docs/15 一致、分页可用。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""]`。
+- [x] [S-07][E2E] 以 Browser→Console 详情 HTTP 为边界编写用例；关键断言：只读详情、无操作按钮、关联链接可跳转。
+- [x] [S-08][E2E] 以 Browser→导出创建/查询 HTTP→PostgreSQL 为边界编写用例；关键断言：同 key 重试同一任务、提交中禁用、轮询至完成并下载。
+- [x] [E-06..04][integration] 覆盖查询失败保留筛选、详情不可读 ErrorState、异指纹 409 文案、导出失败重试入口。
+- [x] 配置 `e2e/playwright.audit-observability.config.ts`（`workers: 1`）并在任务文档登记 argv。
+- [x] 执行上述契约命令，填写 Acceptance Evidence；测试文件与用例命名须全仓唯一。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-06 | E2E | Browser(Chromium)→Console 聚合查询 HTTP | 仅显示相关记录；字段一致；分页可用 | e2e/tests/audit-observability.spec.ts / S-06 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""]` | planned |
-| S-07 | E2E | Browser(Chromium)→Console 详情 HTTP | 只读详情；无操作按钮；关联链接可跳转 | e2e/tests/audit-observability.spec.ts / S-07 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""]` | planned |
-| S-08 | E2E | Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL | 同 key 重试同一任务；提交中禁用；完成后可下载 | e2e/tests/audit-observability.spec.ts / S-08 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""]` | planned |
-| E-06 | integration | Browser→Console 查询失败路径 | 保留筛选可重试；ErrorState 呈现 | e2e/tests/audit-observability.spec.ts / E-06 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-06\""]` | planned |
-| E-07 | integration | Browser→详情不可读路径 | SideSheet 内 ErrorState；无伪造关联 | e2e/tests/audit-observability.spec.ts / E-07 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-07\""]` | planned |
-| E-08 | integration | Browser→导出创建异指纹 409 | 展示 `IDEMPOTENCY_MISMATCH` 文案；保留筛选 | e2e/tests/audit-observability.spec.ts / E-08 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-08\""]` | planned |
-| E-09 | integration | Browser→导出失败状态 | 展示 error_code 文案与重试入口 | e2e/tests/audit-observability.spec.ts / E-09 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-09\""]` | planned |
+| S-06 | E2E | Browser(Chromium)→Console 聚合查询 HTTP | 仅显示相关记录；字段一致；分页可用 | e2e/tests/audit-observability.spec.ts / S-06 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""]` | e2e_deferred |
+| S-07 | E2E | Browser(Chromium)→Console 详情 HTTP | 只读详情；无操作按钮；关联链接可跳转 | e2e/tests/audit-observability.spec.ts / S-07 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""]` | e2e_deferred |
+| S-08 | E2E | Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL | 同 key 重试同一任务；提交中禁用；完成后可下载 | e2e/tests/audit-observability.spec.ts / S-08 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""]` | e2e_deferred |
+| E-06 | integration | Browser→Console 查询失败路径 | 保留筛选可重试；ErrorState 呈现 | e2e/tests/audit-observability.spec.ts / E-06 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-06\""]` | verified |
+| E-07 | integration | Browser→详情不可读路径 | SideSheet 内 ErrorState；无伪造关联 | e2e/tests/audit-observability.spec.ts / E-07 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-07\""]` | verified |
+| E-08 | integration | Browser→导出创建异指纹 409 | 展示 `IDEMPOTENCY_MISMATCH` 文案；保留筛选 | e2e/tests/audit-observability.spec.ts / E-08 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-08\""]` | verified |
+| E-09 | integration | Browser→导出失败状态 | 展示 error_code 文案与重试入口 | e2e/tests/audit-observability.spec.ts / E-09 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-09\""]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-06 / S-07 / S-08 / E-06 / E-07 / E-08 / E-09 | **真实 RED（两段）**：① 结构性——两个新文件移开时登记 argv 报 `Error: Config not found: …/playwright.audit-observability.config.ts`（exit 1）；② 实现后两处**真实断言失败**证明断言有牙：S-07 断言只读详情内可见操作按钮数为 0 却得到 1；E-08 第二次创建 POST 返回 200（体为 `{"export_format":"CSV"}`）而非 409 —— 根因是 Semi `Select` 的 `onChange` 仅在下拉关闭动画后触发，紧跟选项点击读取到旧筛选。 | 新增 `e2e/playwright.audit-observability.config.ts`（真实 Console + 构建后的前端 `vite preview` + 真实 LLM 探针，`workers: 1`，按 `--grep` 派生端口偏移、租户与产物 root 随之隔离）与 `e2e/tests/audit-observability.spec.ts`（7 场景，标题含场景 ID 以支持 `-g`）；`tests/e2e/seed_audit.py` 增浏览器 E2E 编排（`AUDIT_SEED_TENANT` 可覆盖、`seed_browser`/`purge_browser_tenant`、`seed|cleanup|counts` CLI）→ 整文件 **7 passed (14.1s)**；`-g "S-06"…"E-09"` 各 **1 passed**（5.1s/5.2s/5.7s/4.6s/4.4s/6.3s/4.1s，均退出 0，全部按登记 argv 执行）；前端 `npm run build`（含 typecheck）绿；运行后无 uvicorn/muad/chromium 残留、六张模块表 `audit-browser-%` 租户残留 0、仓库 `.data/artifacts` 未变。 | spec 内 7 个用例：S-06 列表渲染种子行且筛选（Trace ID/审计类型/结果）收窄、重置恢复；S-07 点主展示字段/Trace 链接打开只读详情（含关联链接、**可见操作按钮为 0**）；S-08 左主操作导出按钮创建作业→**提交中禁用**→完成态→真实下载事件与文件名；E-06 列表接口真实失败（catalog 形状 500）→ 保留筛选 + ErrorState + 重试；E-07 关联不可读（真实 TOOL 行 + 真实软删其 `run_record`）→ 该节 ErrorState 且无伪造关联；E-08 同 key 异筛选 → 真实 409、展示 `IDEMPOTENCY_MISMATCH` 文案、**PG 计数证明无第二个作业**；E-09 真实执行器驱动的 FAILED 作业（预置同名产物 → `FileExistsError` → `COMMON_INTERNAL_ERROR`）→ 文案 + 重试（新 key，从捕获的原头断言）+ 下载 GET 返回 409 且浏览器零下载事件。 | 真实 Chromium → 真实 Console（真实登录）+ 真实 PostgreSQL + 真实 LLM 探针 + 真实前端构建产物；失败路径仅在设计允许处用路由拦截（E-06 列表 500、E-08/E-09 改写 `Idempotency-Key` 头），其余一律真实后端与真实执行器 | verified |
+
+**实现中的判断点与值得知道的发现（如实登记）**：
+- **启动/鉴权/种子**：`webServer` 数组（09 机制）但指向**真实 Console**（对齐 user-identity/model-management 的新范式）；09 的合成 `tests.e2e.app` 不适用（那是给 Task/Schedule 用固定租户 + worker 客户端的）。浏览器不发 `X-Tenant-Id` ⇒ 由 Console 的 `DEFAULT_TENANT_ID` 决定，故配置把它设为模块自有租户 `audit-browser-<offset>` 并种入该租户的管理员账号，spec 用**真实凭证登录**（非 dev default）；租户随端口偏移变化，重叠运行互不可见。种子经生产路径写入（`write_config_audit`/`RuntimeAuditWriter`/`AuditExportService` + 产物 store），**绝不裸 INSERT**。
+- **单一套件级种子**（而非每用例重建）：S-08 的 SUCCEEDED 产物不可覆盖，活租户上重建会撞产物；7 个用例只依赖种子 id/trace、不依赖计数，故顺序无关。
+- **E-09 用真实幂等重放**：改写请求头为该 FAILED 作业的 key，UI 提交同样（空）筛选 ⇒ 后端重放其已记录响应，FAILED/`error_code` 来自真实 GET；重试 = UI 新 key（从捕获原头断言）；"无半成品"由真实下载 GET 返回 409 + 浏览器零下载事件共同断言。
+- **"无第二个作业"**以真实 PG 计数（种子 `counts` 动作，作业数仅 +1）断言，非 UI 推断。
+- **S-08 的"提交中禁用"**通过持有真实创建请求（断言后才放行）确定化，避免与毫秒级 busy 窗口竞态。
+- **值得知道的发现（不阻塞）**：(a) **Semi `Select` 的 `onChange` 仅在下拉关闭动画后触发**——选项点击后立即读取到旧筛选（本任务踩到并修）；(b) **Semi `Tabs` 保留非活动面板在 DOM 中**，故"无操作按钮"断言针对**可见**按钮；(c) **`useAuditList` 在刷新失败时保留旧行 → `ErrorState` 只在列表为空时渲染** ⇒ E-06 改为让**首次加载**失败以观察到 ErrorState + 保留筛选 + 重试；**设计写的是"查询失败保留筛选并可重试"（已满足），但"失败刷新"在已有行时不显示 ErrorState——若验收口径期望如此，需另行处置**（已标注）。
+- **产物 root 固定在 `os.tmpdir()/muad-audit-e2e-<offset>/artifacts`**（Console 的 `validate_startup` 要求目录存在）⇒ 仓库 `.data/artifacts` 保持干净；仓库外残留仅该临时目录（含 seed.json 与空的 exports/）。
+- 前端以**构建产物**（`npm run build` 已跑，含 typecheck）经 `vite preview` 提供。
+- `e2e` 无 tsconfig/build 脚本且仓库无 `@types/node` ⇒ 无独立 typecheck；用前端 `tsc --noEmit --strict` 跑两文件仅报 `node:*`/`process` 缺类型（无其它诊断），两文件能被 Playwright 正常解析执行。
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=d9f3803f83a5428c907d7062d3021083 (confirmed_by: runner)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=d9f3803f83a5428c907d7062d3021083 (confirmed_by: runner)
+- S-08: e2e_deferred — automated command e2e_deferred; run_id=d9f3803f83a5428c907d7062d3021083 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=d9f3803f83a5428c907d7062d3021083 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=d9f3803f83a5428c907d7062d3021083 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=d9f3803f83a5428c907d7062d3021083 (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=d9f3803f83a5428c907d7062d3021083 (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-019: 收口：场景、规则、证据与仓库级 verifier
 
 - **Status**: draft
