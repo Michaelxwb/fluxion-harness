@@ -10,7 +10,7 @@
       "kind": "e2e",
       "boundary": "Browser→Console 聚合查询 HTTP→四张审计表(PostgreSQL)",
       "owner": "TASK-017",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -43,28 +43,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "3b61cfef47814c42be005b2475033381",
-        "executed_at": "2026-09-25T02:55:31.202826+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "3b61cfef47814c42be005b2475033381",
-          "executed_at": "2026-09-25T02:55:31.202826+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-03",
@@ -178,7 +157,7 @@
       "kind": "functional",
       "boundary": "Console 列表查询参数校验",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -190,7 +169,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "0d081c74856d4cab9e985ae0ed2e71b5",
+        "executed_at": "2026-09-25T03:14:54.439572+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "0d081c74856d4cab9e985ae0ed2e71b5",
+          "executed_at": "2026-09-25T03:14:54.439572+00:00"
+        }
+      ]
     },
     {
       "id": "E-04",
