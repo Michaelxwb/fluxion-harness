@@ -1,26 +1,22 @@
 /**
  * 运行审计列表页容器（设计 §3.2 `/audits`、§3.3 CMP-01、§3.5 状态划分）。
  *
- * 本页持有筛选/分页/详情选择状态，渲染 `ModuleToolbar`（左上主操作位 + 右上筛选栏）与列表；
- * 取数只经 TASK-010 的 service 层（共享 api client，组件不裸用 HTTP 客户端）。
- * 表格渲染与详情 SideSheet 归 TASK-012/013：本页导出两者需满足的 props 契约（设计 §3.4），
- * 并由 TASK-014 在左上主操作位接入导出按钮。
+ * 本页持有筛选/分页/详情选择状态，渲染 `ModuleToolbar`（左上主操作位 + 右上筛选栏）与列表：
+ * 列表数据状态机归 TASK-012 的 `hooks/useAuditList`，列表体（列/行渲染/空错槽位/分页联动）归
+ * TASK-012 的 `components/AuditTable`，两者都只经 TASK-010 的 service 层取数（不裸用 HTTP 客户端）。
+ * 页面继续渲染公共 `RemoteTable`（内置 `PaginationFooter`，仓库级 verifier 冻结其存在），入参由
+ * `buildAuditTableProps` 原样供给；详情 SideSheet 归 TASK-013、左上主操作位的导出按钮归 TASK-014。
  */
 
-import { Button } from '@douyinfe/semi-ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageSection } from '../../../components/common/ConsolePage';
-import { DateTimeText } from '../../../components/common/DateTimeText';
-import { EmptyState } from '../../../components/common/EmptyState';
-import { EntityLink } from '../../../components/common/EntityLink';
-import { ErrorState } from '../../../components/common/ErrorState';
 import { ModuleToolbar } from '../../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../../components/common/RemoteTable';
-import { StatusTag, type StatusTagOption } from '../../../components/common/StatusTag';
+import { buildAuditTableProps } from '../components/AuditTable';
 import { AuditFilterBar } from '../components/AuditFilterBar';
-import { listAudits } from '../services/auditService';
+import { useAuditList } from '../hooks/useAuditList';
 import { AUDIT_PAGE_SIZE_DEFAULT, type AuditListItem, type AuditListQuery } from '../types';
 
 /** TASK-012 `components/AuditTable.tsx` 的入参（设计 §3.4）。 */
@@ -54,39 +50,8 @@ const DEFAULT_QUERY: AuditListQuery = { page: 1, pageSize: AUDIT_PAGE_SIZE_DEFAU
 export function AuditPage() {
   const { t } = useTranslation();
   const [query, setQuery] = useState<AuditListQuery>(DEFAULT_QUERY);
-  const [items, setItems] = useState<AuditListItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
   const [detail, setDetail] = useState<AuditDetailSelection | null>(null);
-  const requestSeq = useRef(0);
-
-  const reload = useCallback(async () => {
-    const current = ++requestSeq.current;
-    setLoading(true);
-    try {
-      const page = await listAudits(query);
-      if (current !== requestSeq.current) {
-        return;
-      }
-      setItems(page.items);
-      setTotal(page.total);
-      setFailed(false);
-    } catch {
-      // [E-06] 失败不改筛选：条件与已加载数据保留，由 ErrorState 就地重试。
-      if (current === requestSeq.current) {
-        setFailed(true);
-      }
-    } finally {
-      if (current === requestSeq.current) {
-        setLoading(false);
-      }
-    }
-  }, [query]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
+  const { items, loading, page, pageSize, total, failed, reload } = useAuditList(query);
 
   const handleFilterChange = useCallback((patch: Partial<AuditListQuery>) => {
     setQuery((prev) => ({ ...prev, ...patch }));
@@ -96,29 +61,38 @@ export function AuditPage() {
     setQuery(DEFAULT_QUERY);
   }, []);
 
+  /** 刷新与失败重试同一出口（[E-06] 保留筛选条件，按当前页重取）。 */
   const handleRefresh = useCallback(() => {
     void reload();
   }, [reload]);
+
+  const handlePageChange = useCallback((page: number, pageSize: number) => {
+    setQuery((prev) => ({ ...prev, page, pageSize }));
+  }, []);
 
   const handleOpenDetail = useCallback((item: AuditListItem) => {
     setDetail({ auditType: item.auditType, auditId: item.auditId });
   }, []);
 
-  const statusOptions: Record<string, StatusTagOption> = {
-    SUCCESS: { color: 'green', label: t('audit.resultStatus.SUCCESS') },
-    FAILED: { color: 'red', label: t('audit.resultStatus.FAILED') }
-  };
-
   /** 列表渲染入参（设计 §3.4）：TASK-012 的 AuditTable 落地后原样消费。 */
   const tableProps: AuditTableProps = {
     items,
     loading,
-    page: query.page,
-    pageSize: query.pageSize,
+    page,
+    pageSize,
     total,
-    onPageChange: (page, pageSize) => setQuery((prev) => ({ ...prev, page, pageSize })),
+    onPageChange: handlePageChange,
     onOpenDetail: handleOpenDetail
   };
+
+  /** 表格入参（设计 §3.4/§3.6）：列/行渲染/空错槽位/分页全部由 AuditTable 供给。 */
+  const auditTable = buildAuditTableProps({
+    ...tableProps,
+    failed,
+    onRetry: handleRefresh,
+    onReset: handleReset,
+    t
+  });
 
   // 详情选择态（设计 §3.5）由本页持有；TASK-013 落地后在此渲染
   // `<AuditDetailSideSheet {...detail} />`（props 形状见上方 AuditDetailSideSheetProps）。
@@ -138,83 +112,7 @@ export function AuditPage() {
           />
         }
       />
-      <RemoteTable<AuditListItem>
-        rowKey="auditId"
-        loading={tableProps.loading}
-        columns={[
-          {
-            title: t('audit.columns.time'),
-            dataIndex: 'occurredAt',
-            render: (value: string) => <DateTimeText value={value} />
-          },
-          {
-            title: t('audit.columns.auditType'),
-            dataIndex: 'auditType',
-            render: (value: AuditListItem['auditType']) => t(`audit.auditType.${value}`)
-          },
-          {
-            title: t('audit.columns.actor'),
-            dataIndex: 'actorUserId',
-            render: (_: unknown, record: AuditListItem) => record.actorName ?? record.actorUserId
-          },
-          {
-            title: t('audit.columns.agent'),
-            dataIndex: 'agentId',
-            render: (_: unknown, record: AuditListItem) => record.agentName ?? record.agentId ?? '-'
-          },
-          {
-            title: t('audit.columns.target'),
-            dataIndex: 'target',
-            render: (value: string, record: AuditListItem) => (
-              <EntityLink
-                testId={`audit-link-${record.auditId}`}
-                onClick={() => tableProps.onOpenDetail(record)}
-              >
-                {value}
-              </EntityLink>
-            )
-          },
-          { title: t('audit.columns.action'), dataIndex: 'action' },
-          {
-            title: t('audit.columns.result'),
-            dataIndex: 'resultStatus',
-            render: (value: string) => <StatusTag status={value} options={statusOptions} />
-          },
-          {
-            title: t('audit.columns.traceId'),
-            dataIndex: 'traceId',
-            render: (value: string | undefined, record: AuditListItem) =>
-              value ? (
-                <EntityLink
-                  testId={`audit-trace-${record.auditId}`}
-                  onClick={() => tableProps.onOpenDetail(record)}
-                >
-                  {value}
-                </EntityLink>
-              ) : (
-                '-'
-              )
-          }
-        ]}
-        dataSource={tableProps.items}
-        page={tableProps.page}
-        pageSize={tableProps.pageSize}
-        total={tableProps.total}
-        onPageChange={(page) => tableProps.onPageChange(page, tableProps.pageSize)}
-        onPageSizeChange={(pageSize) => tableProps.onPageChange(1, pageSize)}
-        empty={
-          failed ? (
-            <ErrorState onRetry={() => void reload()} />
-          ) : (
-            // 设计 §3.6：空态提供「清筛选」出口。
-            <EmptyState
-              title={t('common.empty')}
-              description={t('common.emptyHint')}
-              action={<Button onClick={handleReset}>{t('common.reset')}</Button>}
-            />
-          )
-        }
-      />
+      <RemoteTable<AuditListItem> {...auditTable} />
     </PageSection>
   );
 }

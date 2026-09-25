@@ -5,6 +5,10 @@
 
 ConsoleShell 在 01-platform-foundation 落地的真实组件名是 `layout/AppLayout.tsx`（设计 §3.2 的
 「ConsoleShell」为文档名），因此壳层断言落在路由层，页面自身不重复套壳。
+
+TASK-012 把列表数据状态机归 `hooks/useAuditList.ts`、列表体（列/行渲染/空错槽位/分页联动）归
+`components/AuditTable.tsx`（以 RemoteTable 入参工厂形态供给，页面保留 `RemoteTable` 渲染）；
+涉及这两处的断言改落在其归属文件，E-06 与「无裸请求」语义不变。
 """
 
 from __future__ import annotations
@@ -18,6 +22,8 @@ SRC = ROOT / "apps/console-platform/frontend/src"
 MODULE = SRC / "modules/audit-observability"
 PAGE = MODULE / "pages/AuditPage.tsx"
 FILTER_BAR = MODULE / "components/AuditFilterBar.tsx"
+TABLE = MODULE / "components/AuditTable.tsx"
+HOOK = MODULE / "hooks/useAuditList.ts"
 APP = SRC / "App.tsx"
 MENU = SRC / "config/menu.ts"
 SHELL = SRC / "layout/AppLayout.tsx"
@@ -135,24 +141,30 @@ def test_menu_entry_registered() -> None:
 
 
 def test_page_composes_shell_toolbar_and_pagination() -> None:
-    """[RULE-ui-001] 页面骨架：ModuleToolbar（左上操作/右上筛选）+ 列表（右下分页由 RemoteTable 内建）。"""
+    """[RULE-ui-001] 页面骨架：ModuleToolbar（左上操作/右上筛选）+ 列表（右下分页由 RemoteTable 内建）。
+
+    列表体的列/行渲染/空错槽位/分页入参由 TASK-012 的 `AuditTable` 供给（页面保留 `RemoteTable`
+    渲染与筛选/分页/详情编排），故这些断言落在供给方文件。
+    """
     page = _read(PAGE)
     for component in (
         "PageSection",
         "ModuleToolbar",
         "AuditFilterBar",
         "RemoteTable",
-        "EmptyState",
-        "ErrorState",
     ):
         assert component in page, f"列表页缺少公共组件 {component}"
     assert "actions={" in page, "缺少工具栏左侧主操作位"
     assert "search={<AuditFilterBar" in _compact(page), "筛选栏必须落在工具栏右侧搜索位"
-    assert "onPageSizeChange" in page
     assert "AUDIT_PAGE_SIZE_DEFAULT" in page, "初始 pageSize 须取 service 层默认值"
     assert "AppLayout" not in page, "壳层由路由承载，页面不得重复套壳"
-    assert "EntityLink" in page and "onOpenDetail" in page, "主展示字段须可点开详情"
+    assert "onOpenDetail" in page, "主展示字段须可点开详情（seam 由页面导出后交给 AuditTable）"
+    assert "buildAuditTableProps" in page, "列表入参须由 AuditTable 供给后原样展开给 RemoteTable"
     assert "PaginationFooter" in _read(REMOTE_TABLE), "右下分页统一由 RemoteTable 内建 PaginationFooter"
+
+    table = _read(TABLE)
+    for piece in ("EmptyState", "ErrorState", "EntityLink", "onPageSizeChange"):
+        assert piece in table, f"AuditTable 须为 RemoteTable 供给 {piece}"
 
 
 def test_page_exports_props_contracts_for_followup_tasks() -> None:
@@ -235,24 +247,40 @@ def test_reset_clears_filters_and_refresh_requeries() -> None:
 
 
 def test_error_path_renders_error_state_and_keeps_filters() -> None:
-    """[E-06] 查询失败：`ErrorState` + 重试，且筛选条件与已加载数据保留（不空白页）。"""
-    page = _read(PAGE)
-    assert "ErrorState" in page and "onRetry={()=>voidreload()}" in _compact(page)
-    assert "failed?" in _compact(page), "错误态须在列表区按 failed 呈现"
-    assert "AuditFilterBar" in page, "错误态下工具栏与筛选栏仍须渲染"
+    """[E-06] 查询失败：`ErrorState` + 重试，且筛选条件与已加载数据保留（不空白页）。
 
-    catch = _catch_block(page)
+    TASK-012 后取数状态机归 `hooks/useAuditList`（失败只置 `failed`），`ErrorState` 槽位由
+    `AuditTable` 供给；页面仍持有筛选栏、清筛选与重试出口。断言语义与原版一致，仅改归属文件。
+    """
+    hook = _read(HOOK)
+    catch = _catch_block(hook)
     assert "setFailed(true)" in catch
     assert "setQuery" not in catch, "查询失败必须保留筛选条件（不得重置 query）"
     assert "setItems" not in catch and "setTotal" not in catch, "查询失败不得清空已加载数据"
+    assert "listAudits(query)" in _compact(hook), "失败分支须来自 service 取数"
+
+    table = _read(TABLE)
+    assert "options.failed?" in _compact(table), "错误态须在列表区按 failed 呈现"
+    assert "ErrorState" in table and "onRetry={options.onRetry}" in table
+    assert "EmptyState" in table and "options.onReset" in _compact(table), "空态须提供「清筛选」出口"
+
+    page = _read(PAGE)
+    assert "AuditFilterBar" in page, "错误态下工具栏与筛选栏仍须渲染"
+    assert "onRetry: handleRefresh" in page and "onReset={handleReset}" in page, (
+        "重试/清筛选出口由页面供给"
+    )
 
 
 def test_page_calls_service_layer_not_api_client() -> None:
-    """[RULE-front-001] 页面经 TASK-010 的 service 取数；组件不裸用 api client/axios/fetch。"""
+    """[RULE-front-001] 列表取数经 TASK-010 的 service（TASK-012 后由 `useAuditList` 收口）；
+    组件不裸用 api client/axios/fetch。"""
+    hook = _read(HOOK)
+    assert "from '../services/auditService'" in hook
+    assert "listAudits(" in hook
+
     page = _read(PAGE)
-    assert "from '../services/auditService'" in page
-    assert "listAudits(" in page
-    for source in (page, _read(FILTER_BAR)):
+    assert "useAuditList" in page, "页面经列表状态机取数，不直接调 service"
+    for source in (page, hook, _read(FILTER_BAR), _read(TABLE)):
         assert "api/client" not in source
         assert "axios" not in source
         assert "fetch(" not in source
@@ -266,8 +294,8 @@ def test_no_hardcoded_chinese_in_module_files() -> None:
 
 
 def test_i18n_keys_translated_in_both_locales() -> None:
-    """[RULE-i18n-001] 页面/筛选栏引用的静态 key 与枚举文案在 zh-CN/en-US 均齐备。"""
-    sources = _read(PAGE) + _read(FILTER_BAR)
+    """[RULE-i18n-001] 页面/筛选栏/表格引用的静态 key 与枚举文案在 zh-CN/en-US 均齐备。"""
+    sources = _read(PAGE) + _read(FILTER_BAR) + _read(TABLE)
     keys = set(re.findall(r"(?<![A-Za-z_])t\(\s*'([^']+)'", sources))
     assert keys, "未解析到任何 i18n key"
     for locale in ("zh-CN", "en-US"):
