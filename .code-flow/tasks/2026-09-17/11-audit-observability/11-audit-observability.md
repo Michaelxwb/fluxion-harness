@@ -52,7 +52,7 @@
 | S-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→Console Admin Run 详情 HTTP→Runtime 内部端点→runtime 表 | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s03"] | . | 1200 |  |
 | S-04 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console AppService 事务→control.config_audit_log | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_config_write.py","-k","s04"] | . | 600 |  |
 | S-05 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→Console 导出创建/查询 HTTP→幂等表与导出任务(PostgreSQL) | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s05"] | . | 1200 |  |
-| E-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 详情查询→关联 Run 不可读 | TASK-004 | planned | ["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"] | . | 600 |  |
+| E-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 详情查询→关联 Run 不可读 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"] | . | 600 |  |
 | E-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应 | TASK-008 | planned | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | E-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 列表查询参数校验 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
 | E-04 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 业务事务回滚→config_audit_log | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_config_write.py","-k","e04"] | . | 600 |  |
@@ -253,13 +253,13 @@
 - [2026-09-25] completed (done)
 ## TASK-004: 审计详情 API-02 与关联降级
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 11-audit-observability.backend.design.md#3.4 接口设计, 11-audit-observability.backend.design.md#3.3 数据设计
 - **Spec-Refs**:
 - **Acceptance-Refs**: E-01
-- **Files**: `apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py`, `apps/console-platform/backend/src/muad_console_platform/api/audits.py`, `tests/console_platform/test_audit_detail_api.py`
+- **Files**: `apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py`, `apps/console-platform/backend/src/muad_console_platform/api/audits.py`, `tests/console_platform/test_audit_detail_api.py`、`infrastructure/repositories/audit_query_repository.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
 ### Description
@@ -268,26 +268,37 @@
 
 ### Checklist
 
-- [ ] [E-01][integration] 以真实 PostgreSQL 为边界编写/扩展用例：关联 Run 已归档/不可读时审计仍可展示，`related` 置空且标记 missing。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"]`。
-- [ ] [E-01][integration] 覆盖详情 404/非法 `audit_type` 分支（`COMMON_NOT_FOUND` / `COMMON_VALIDATION_ERROR`）。
-- [ ] 实现或补齐：详情查询按 `(tenant_id, audit_id, audit_type)` 单表命中，关联解析失败只降级不抛错。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
+- [x] [E-01][integration] 以真实 PostgreSQL 为边界编写/扩展用例：关联 Run 已归档/不可读时审计仍可展示，`related` 置空且标记 missing。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"]`。
+- [x] [E-01][integration] 覆盖详情 404/非法 `audit_type` 分支（`COMMON_NOT_FOUND` / `COMMON_VALIDATION_ERROR`）。
+- [x] 实现或补齐：详情查询按 `(tenant_id, audit_id, audit_type)` 单表命中，关联解析失败只降级不抛错。
+- [x] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-01 | integration | Console 详情 HTTP→真实 PostgreSQL | 关联不可读时审计可展示；`related` 置空并标记 missing；无假关联 | tests/console_platform/test_audit_detail_api.py / E-01 | `["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"]` | planned |
+| E-01 | integration | Console 详情 HTTP→真实 PostgreSQL | 关联不可读时审计可展示；`related` 置空并标记 missing；无假关联 | tests/console_platform/test_audit_detail_api.py / E-01 | `["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| E-01 | **真实 RED**：首跑 3 failed —— `test_e01_unreadable_relation_is_reported_as_missing` 报 `assert 404 == 200`（详情路由尚不存在，api-kit 的 `StarletteHTTPException` 处理器返回 `COMMON_NOT_FOUND`）；`test_api02_unknown_or_mismatched_type_is_not_found_or_invalid` 报 `assert 404 == 422`。 | 新增 `GET /api/v1/audits/{audit_id}?audit_type=`（复用 API-01 的四表投影 + 每类型 extras + `related`/`related_missing`）→ **3 passed**；控制台回归 `tests/console_platform/` **100 passed**；ruff/mypy 干净；函数均 ≤50 行。 | `test_e01_unreadable_relation_is_reported_as_missing`（关联 Run 不可读时：审计自身字段完整可见、`related` 不含伪造值、`related_missing=true`、HTTP 200）；`test_api02_returns_detail_for_each_audit_type`（四类型 payload 形状 + `audit_type` 回显）；`test_api02_unknown_or_mismatched_type_is_not_found_or_invalid`（缺 `audit_type` → 422 校验错误；类型与 id 不匹配 → `COMMON_NOT_FOUND`） | 真实 Console HTTP（ASGI 全栈 + 登录会话/CSRF）→ 真实 PostgreSQL（四张审计表 + 以 soft-delete 注入"关联不可读"的 `runtime.run_record`）；未 mock 业务 API；查询数恒定（1 投影 + 1 extras + ≤2 关联查询，无 N+1） | verified |
+
+**实现中的判断点（如实登记）**：
+- **缺失标记命名**：`related_missing: bool`（与 `related` 同级）。设计只说"标记 missing"，全仓（Python/TS/design/docs）无既有约定；仅当**已声明**的关联（`run_id`/`task_id` 非空）不可读时为 `true`；config 行不声明关联 → `related:{}` + `related_missing:false`（既无缺失也无伪造）。
+- **"不可读"定义**：关联行不存在 / `is_deleted=true` / 租户不符（跨 schema 逻辑 UUID，遵循 RULE-03）。
+- **not-found 与校验的划分**：缺参或非法枚举 → `COMMON_VALIDATION_ERROR`（422，文案/状态来自 catalog）；类型与 id 不匹配（合法类型但该表无此 id）→ `COMMON_NOT_FOUND`。
+- **详情 payload**：API-01 的 16 个统一字段（**复用同一投影 SQL**，避免 list/detail 漂移）+ API-01 既有 legacy 别名 + 每类型 extras（CONFIG `source_ip`；TOOL `tool_call_id/tool_kind/prepared_args_hash/error_code`；EGRESS `target_type/adapter_key/platform_id/method/policy_decision/status_code/error_code`；MODEL `provider/model/attempt/retry_reason/input_tokens/output_tokens/error_code`）；原始列名（`before_json`/`args_preview_json`）不外泄，不含敏感列。
+- **给 TASK-006 的前瞻提醒**：`GET /{audit_id}` 已声明；FastAPI 按声明顺序匹配，故 API-05/06 的 `POST /api/v1/audits/exports` 与 `GET /api/v1/audits/exports/{id}` 必须**声明在 `/{audit_id}` 之前**（或改用 `{audit_id:uuid}` 路径转换器），否则会被详情路由吃掉。
+- E-01: verified — automated command passed; run_id=9d8f2e231dfa482596726ccedf2fce79 (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-005: Admin Run 列表/详情 API-03/04
 
 - **Status**: draft

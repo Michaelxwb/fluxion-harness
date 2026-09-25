@@ -115,7 +115,7 @@
       "kind": "functional",
       "boundary": "Console 详情查询→关联 Run 不可读",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -127,7 +127,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "9d8f2e231dfa482596726ccedf2fce79",
+        "executed_at": "2026-09-25T03:29:54.925374+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "9d8f2e231dfa482596726ccedf2fce79",
+          "executed_at": "2026-09-25T03:29:54.925374+00:00"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -169,28 +190,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "0d081c74856d4cab9e985ae0ed2e71b5",
-        "executed_at": "2026-09-25T03:14:54.439572+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "0d081c74856d4cab9e985ae0ed2e71b5",
-          "executed_at": "2026-09-25T03:14:54.439572+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-04",
