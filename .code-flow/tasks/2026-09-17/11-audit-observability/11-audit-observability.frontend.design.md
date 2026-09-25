@@ -1,7 +1,7 @@
 # 运行审计与可观测 前端模块需求与设计简报
 
-> **文档编号**: FE-AUDIT-V1.1  
-> **文档版本**: v1.1  
+> **文档编号**: FE-AUDIT-V1.4  
+> **文档版本**: v1.4  
 > **创建日期**: 2026-09-17  
 > **文档状态**: 设计评审中  
 > **模板**: design-frontend.md
@@ -21,6 +21,9 @@
 |---|---|---|---|
 | v1.0 | 2026-09-17 | — | 前端需求与设计初稿 |
 | v1.1 | 2026-09-18 | — | 对齐 V1.4 决策（docs/17）：字段名对齐 docs/15、补执行结果筛选、组件契约与状态分区、交互基线更新为 V1.4 |
+| v1.2 | 2026-09-25 | Claude | 对齐现行 required 规则文本：secret 语义由"只存 SecretRef"改为"密钥明文存于各 Owner 表（无 `secret_ref`/SecretProvider），不进审计/日志/Snapshot/LLM Prompt/API 响应（对外以 `*_configured` 表达）"；矩阵 ref 由 legacy `harness-platform#` 校正为 `harness-secret#`。 |
+| v1.3 | 2026-09-25 | Claude | 承接 required `harness-api#RULE-api-002`（后端新增 FEAT-04 审计导出与 API-05/API-06）：新增 FEAT-FE-03 导出按钮、`useAuditExport` 与 service 方法（同一次用户提交复用同一 `Idempotency-Key`，异指纹走 catalog→i18n 文案）、场景 S-08 / E-08 / E-09；矩阵 ref 统一为现行分域 spec id。 |
+| v1.4 | 2026-09-25 | Claude | 场景 ID 归一：前端场景由 `S-FE-01..03` / `E-FE-01..04` 改为同一数字序列 `S-06..S-08` / `E-06..E-09`（验收工具链的场景行匹配为 `[SEB]-\d+`，仅数字序号可进入 Acceptance Coverage 与 manifest；与 09-task-schedule 的 `S-2xx`/`E-2xx` 惯例一致）。场景内容、层级与真实边界不变。 |
 
 **模块信息**
 
@@ -48,6 +51,7 @@
 |---|---|---|---|---|
 | FEAT-FE-01 | 审计列表 | 时间/审计类型（`resource_type`）/操作用户（`actor_user_id`）/Agent/操作目标（`resource_id`）/动作（`action`）/执行结果（`result_status`）/Trace ID（`trace_id`）。 | P0 | 需求描述 |
 | FEAT-FE-02 | 审计详情 | 只读 SideSheet + 关联链接（Run/Task/Trace）。 | P0 | 需求描述 |
+| FEAT-FE-03 | 审计导出 | 工具栏"导出"按当前筛选条件创建导出任务（同一业务提交复用同一 `Idempotency-Key`，重试不重复建任务），轮询状态并在完成后下载。 | P1 | 需求描述 |
 
 ### 2.3 范围与边界
 
@@ -63,15 +67,18 @@
 
 | 场景ID | 功能ID | 优先级 | 测试层级 | 关键真实边界 | 操作步骤 | 预期 UI 结果 |
 |---|---|---|---|---|---|---|
-| S-FE-01 | FEAT-FE-01 | P0 | E2E | Browser→audits aggregate API | Trace ID 搜索 | 仅显示相关记录且字段与 docs/15 口径一致 |
-| S-FE-02 | FEAT-FE-02 | P0 | E2E | Browser→detail API | 点击 Trace ID/主展示字段 | 只读详情，无操作按钮 |
+| S-06 | FEAT-FE-01 | P0 | E2E | Browser→audits aggregate API | Trace ID 搜索 | 仅显示相关记录且字段与 docs/15 口径一致 |
+| S-07 | FEAT-FE-02 | P0 | E2E | Browser→detail API | 点击 Trace ID/主展示字段 | 只读详情，无操作按钮 |
+| S-08 | FEAT-FE-03 | P1 | E2E | Browser→export create API→Console/PostgreSQL（幂等表与导出任务） | 按筛选条件点击"导出"，同一 `Idempotency-Key` 重试 | 两次提交返回同一导出任务（不重复创建），轮询至完成后可下载；按钮在提交中禁用并展示进度 |
 
 **异常场景**
 
 | 场景ID | 功能ID | 测试层级 | 关键真实边界 | 触发条件 | UI 表现 |
 |---|---|---|---|---|---|
-| E-FE-01 | FEAT-FE-01 | integration | API→ErrorState | 查询失败 | 保留筛选并可重试 |
-| E-FE-02 | FEAT-FE-02 | integration | API→SideSheet | 审计已归档/不可读 | SideSheet 内 ErrorState，不伪造关联数据 |
+| E-06 | FEAT-FE-01 | integration | API→ErrorState | 查询失败 | 保留筛选并可重试 |
+| E-07 | FEAT-FE-02 | integration | API→SideSheet | 审计已归档/不可读 | SideSheet 内 ErrorState，不伪造关联数据 |
+| E-08 | FEAT-FE-03 | integration | API→idempotency | 同一 `Idempotency-Key` 但筛选条件不同 | 展示 `IDEMPOTENCY_MISMATCH` 文案（i18n key，来自 catalog 映射），保留筛选且不重复创建任务 |
+| E-09 | FEAT-FE-03 | integration | API→export status | 导出任务 `FAILED` | 展示 `error_code` 对应文案并提供重试入口（复用新 `Idempotency-Key`），不展示未完成产物 |
 
 ## 3. 前端技术设计
 
@@ -121,6 +128,7 @@
 | 列表右上 | 重置 | `Button` | secondary | 清空筛选 | `GET /api/v1/audits` | 否 |
 | 列表右上 | 刷新 | `Button` | secondary | 刷新当前页 | `GET /api/v1/audits` | 否 |
 | Trace ID/主展示字段 | 打开详情 | `Typography.Text link` | secondary | 打开只读 SideSheet | `GET /api/v1/audits/{id}?audit_type=` | 否 |
+| 列表左主操作 | 导出 | `Button theme="solid" type="primary"` | primary | 按当前筛选创建导出任务（同一次业务提交复用同一 `Idempotency-Key`；提交中禁用） | `POST /api/v1/audits/exports`、`GET /api/v1/audits/exports/{id}` | 否 |
 
 统一规则：主创建/保存使用 `Button theme="solid" type="primary"`；危险操作 `Popconfirm`；详情全局操作与关闭 X 同一 Header 行靠右；Tab 内关系操作完成即生效，不需要“保存整个对象”。
 
@@ -209,6 +217,27 @@ User Action
 |---|---|---|
 | `listAudits(params)` | `GET /api/v1/audits` | useAuditList |
 | `getAudit(auditType, id)` | `GET /api/v1/audits/{id}?audit_type=` | useAuditDetail |
+| `createExport(req, idempotencyKey)` | `POST /api/v1/audits/exports`（Header `Idempotency-Key` 必填） | useAuditExport |
+| `getExport(exportId)` | `GET /api/v1/audits/exports/{export_id}` | useAuditExport（轮询） |
+| `downloadExport(exportId)` | `GET /api/v1/audits/exports/{export_id}/download` | useAuditExport |
+
+**导出幂等约定（RULE-api-002）**：`Idempotency-Key` 由 service 层在**一次用户提交**内生成并复用——提交重试（网络超时/双击）必须复用同一 key；用户显式发起新导出时才生成新 key。`IDEMPOTENCY_MISMATCH` 与导出失败码均走 catalog → i18n key 映射，组件不硬编码文案。
+
+```ts
+export interface AuditExportCreateRequest {
+  exportFormat: 'CSV' | 'JSON';
+  filters: Omit<AuditListQuery, 'page' | 'pageSize'>; // 与列表筛选同源
+}
+
+export interface AuditExportJob {
+  exportId: string;
+  status: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+  rowCount?: number;
+  errorCode?: string;
+  createTime: string; // YYYY-MM-DD HH:mm:ss
+  updateTime: string;
+}
+```
 
 Service 层负责后端 snake_case → 前端 camelCase 的字段映射（如 `actor_user_id`→`actorUserId`、`result_status`→`resultStatus`），组件不直接消费原始 Envelope。
 
@@ -245,10 +274,10 @@ Semi Form required/rules；Modal/SideSheet 焦点管理；图标按钮 aria-labe
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `harness-platform#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.3/§3.5 | S-FE-01 + verifier | applied |
-| `harness-platform#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.3/§3.6 | S-FE-01 + verifier | applied |
-| `harness-platform#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3/§3.4 | S-FE-02 + verifier | applied |
-| `harness-platform#RULE-time-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | §3.4/§3.6 | S-FE-01 + verifier | applied |
-| `harness-platform#RULE-secret-001` | required | Secret Value 不进 DB/Snapshot/日志/LLM，只保存 SecretRef。 | §3.4/§3.6 | E-FE-02 + verifier | applied |
-| `harness-platform#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.5 | S-FE-01 + verifier | applied |
-| `harness-platform#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4/§3.5 | S-FE-01, S-FE-02 + verifier | applied |
+| `harness-i18n#RULE-i18n-001` | required | 后端错误和前端页面支持 zh-CN/en-US；新增业务仅增加配置。 | §3.3/§3.5 | S-06 + verifier | applied |
+| `harness-ui#RULE-ui-001` | required | Console 使用 React + Semi；左上操作、右上搜索筛选、右下分页；主展示字段打开详情。 | §3.3/§3.6 | S-06 + verifier | applied |
+| `harness-ui-detail#RULE-ui-detail-001` | required | 详情 SideSheet 标题/副标题左侧，操作按钮与关闭 X 同行靠右，Tabs 在其下。 | §3.3/§3.4 | S-07 + verifier | applied |
+| `harness-time#RULE-time-001` | required | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | §3.4/§3.6 | S-06 + verifier | applied |
+| `harness-secret#RULE-secret-001` | required | 密钥明文存于各 Owner 表（无 secret_ref/SecretProvider）；Secret Value 不进审计/日志/Snapshot/LLM Prompt/API 响应（对外以 `*_configured` 表达）。 | §3.4/§3.6 | E-07 + verifier | applied |
+| `harness-frontend#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | §3.5 | S-06 + verifier | applied |
+| `harness-test#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4/§3.5 | S-06, S-07 + verifier | applied |

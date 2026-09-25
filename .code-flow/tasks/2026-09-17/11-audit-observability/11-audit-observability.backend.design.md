@@ -1,7 +1,7 @@
 # 运行审计与可观测 模块需求与设计一体化文档
 
-> **文档编号**: MOD-AUDIT-V1.1  
-> **文档版本**: v1.1  
+> **文档编号**: MOD-AUDIT-V1.4  
+> **文档版本**: v1.4  
 > **创建日期**: 2026-09-17  
 > **文档状态**: 设计评审中  
 > **模板**: design-full.md
@@ -24,6 +24,9 @@
 |---|---|---|---|
 | v1.0 | 2026-09-17 | — | 需求与设计初稿 |
 | v1.1 | 2026-09-18 | — | 对齐 V1.4 决策（docs/17）：补 `result_status` 映射、`target_type` 统一、config 审计同事务与 actor 语义、日志脱敏、聚合投影与 OTel/metrics 章节、task_type 命名收敛；字段名对齐 docs/15 |
+| v1.2 | 2026-09-25 | Claude | 对齐现行 required 规则文本：secret 语义由"只存 SecretRef"改为"密钥明文存于各 Owner 表、跨表以主键引用（无 `secret_ref`/SecretProvider），且不进审计/日志/Snapshot/LLM Prompt/API 响应（对外以 `*_configured` 表达）"，消除 plan 阶段 `stale`；矩阵 ref 由 legacy `harness-platform#` 校正为 `harness-secret#`。 |
+| v1.3 | 2026-09-25 | Claude | 承接 required `harness-api#RULE-api-002`（此前绑定但设计未承接）：新增 FEAT-04 审计导出、RULE-09（创建类 POST 的 `Idempotency-Key` 幂等）、API-05/API-06（`/api/v1/audits/exports`）、`control.audit_export_job` 表与场景 S-05/E-05；矩阵 ref 统一为现行分域 spec id。 |
+| v1.4 | 2026-09-25 | Claude | 局部 Plan 承接 `harness-snapshot#RULE-snapshot-001`（TASK-002 改动 `apps/agent-runtime/src/muad_agent_runtime/infrastructure/audit_writer.py` 命中路径映射自动绑定）：本模块不改变 Snapshot 冻结/终态 CAS 语义，新增内容仅为审计写入边界的递归脱敏；见 Spec Compliance Matrix。 |
 
 **模块信息**
 
@@ -68,6 +71,7 @@
 | FEAT-01 | 审计写入 | 各执行路径写结构化 Audit 并统一 trace_id；config 审计与业务变更同事务；敏感字段先脱敏再落库。 | P0 | 需求描述 |
 | FEAT-02 | 审计聚合查询 | 统一 audit_type/action/result_status/target/actor/agent/trace_id。 | P0 | 需求描述 |
 | FEAT-03 | 详情关联 | 按 trace_id 关联相关 Run/Task/Tool/Egress/Model，并提供 Admin Run 详情响应契约。 | P0 | 需求描述 |
+| FEAT-04 | 审计导出 | 按筛选条件创建异步导出任务（CSV/JSON），任务状态可查询、完成后可下载；创建为可重试提交，携带 `Idempotency-Key` 保证重试不重复建任务。 | P1 | 需求描述 |
 
 #### 2.3.2 字段约束
 
@@ -76,7 +80,7 @@
 | ID | 业务实体统一 UUID；跨 Owner Schema 仅逻辑引用 UUID |
 | 时间 | PostgreSQL 使用 `timestamptz`；Console 展示 `YYYY-MM-DD HH:mm:ss` |
 | 删除 | 产品表统一 `is_deleted` 软删除；状态枚举不重复表达 DELETED |
-| Secret | 只保存 SecretRef；Secret Value 不进入 DB / Snapshot / 日志 / LLM / Audit |
+| Secret | 密钥明文存于各 Owner 表并以主键跨表引用（不再使用 `secret_ref`/SecretProvider）；Secret Value 不进入 Audit / 日志 / Snapshot / LLM Prompt / API 响应（对外以 `*_configured` 表达） |
 | 脱敏 | logging-kit 至少识别 Authorization/Cookie/Set-Cookie/api_key/access_token/refresh_token/secret/password 并遮蔽（docs/09 §3） |
 | 枚举 | API 与 DB 统一使用稳定英文枚举值，中文/英文只在 UI/i18n 层映射 |
 | 错误 | 业务代码只抛稳定 `code`；`msg/http_status` 由公共配置映射；只使用已登记错误码 |
@@ -98,11 +102,12 @@
 | RULE-01 | 系统约束 | 统一 logging-kit；仅配置 LOG_DIR；日志按 service/YYYY-MM-DD.log 保存并带 trace_id/request_id；Authorization/Cookie/Set-Cookie/api_key/access_token/refresh_token/secret/password 必须遮蔽。 | S-01 / E-02 |
 | RULE-02 | 系统约束 | JSON REST 统一 code/msg/data/trace_id/request_id/timestamp；业务只抛 code，msg/http_status 配置映射；分页 `{items,page,page_size,total}` 且 `page_size<=100`。 | S-01 / E-03 |
 | RULE-03 | 系统约束 | 产品表统一 is_deleted/create_time/update_time；同 Owner Schema 物理 FK，跨 Owner Schema 逻辑 UUID。 | S-02 / E-01 |
-| RULE-04 | 系统约束 | Secret Value 不进 DB/Snapshot/日志/LLM，只保存 SecretRef；审计只存 hash/preview/脱敏值。 | S-02 / E-02 |
+| RULE-04 | 系统约束 | 密钥明文存于各 Owner 表、跨表以主键引用（无 secret_ref/SecretProvider）；Secret Value 不进 Audit/日志/Snapshot/LLM Prompt/API 响应；审计只存 hash/preview/脱敏值。 | S-02 / E-02 |
 | RULE-05 | 系统约束 | Console 时间统一 YYYY-MM-DD HH:mm:ss。 | S-01 / E-01 |
 | RULE-06 | 系统约束 | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | S-01 / E-01 |
 | RULE-07 | 系统约束 | config_audit_log 与业务变更同一事务写入；`actor_user_id` = 登录的 `console_account.id`（账号模型见 13-console-auth 模块）；业务事务回滚则审计不落库。 | S-04 / E-04 |
 | RULE-08 | 系统约束 | 运行审计统一暴露 `result_status`：egress 取 `egress_audit.result_status`、tool 取 `tool_call_audit.status`、model 取 `model_invocation_audit.status`，config 固定 `SUCCESS`（docs/07 §10.11）。 | S-01 / S-03 |
+| RULE-09 | 系统约束 | 审计导出为创建类 POST（可重试提交）：必须携带 `Idempotency-Key`；幂等表 partial unique `(tenant_id, idempotency_key, endpoint)` 记录首次提交，请求指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符）的 SHA256（含 endpoint、tenant/actor 与筛选条件）；同 key 同指纹重放首次持久化结果（不重复建任务），同 key 异指纹返回 `IDEMPOTENCY_MISMATCH`（409，msg/http_status 来自 catalog）；并发插入由 partial unique 兜底，落败者读取首次结果。 | S-05 / E-05 |
 
 #### 2.5.2 功能验收场景
 
@@ -114,6 +119,7 @@
 | S-02 | FEAT-01 | P0 | integration | Tool/Egress/Model→DB | 本模块 | 一次 Skill 调模型和平台 | 各 Audit 同 trace_id 且无 Secret |
 | S-03 | FEAT-03 | P0 | E2E | Browser→Admin Run detail→runtime tables | 本模块 | Admin 打开 Run 详情 | 返回 Run/Snapshot/Timeline/Tool/Egress/Model/Artifact，无 Secret |
 | S-04 | FEAT-01 | P0 | integration | Console AppService→DB | 本模块 | 更新 Agent revision 并写 config_audit_log | 审计与业务变更同一事务，`actor_user_id` 为登录 `console_account.id` |
+| S-05 | FEAT-04 | P1 | E2E | Browser→export create→Console API/PostgreSQL→导出任务与幂等表 | 本模块 | 审计列表按筛选条件点击"导出"，同一 `Idempotency-Key` 重试提交 | 两次提交返回同一导出任务（不重复创建）；任务可轮询至 `SUCCEEDED` 并下载结果 |
 
 ##### 异常场景
 
@@ -123,6 +129,7 @@
 | E-02 | FEAT-01 | integration | Logging→redaction | 本模块 | payload 含 Authorization/api_key/refresh_token 等 | DB/Audit/日志均为遮蔽值，无明文（docs/09 §3） |
 | E-03 | FEAT-02 | integration | Query validation | 本模块 | `result_status` 非法枚举或时间区间非法 | `COMMON_VALIDATION_ERROR`，不返回未过滤全量 |
 | E-04 | FEAT-01 | integration | Config update transaction | 本模块 | 业务变更事务回滚 | config_audit_log 不产生记录（同事务语义） |
+| E-05 | FEAT-04 | integration | Export create→idempotency store | 本模块 | 同一 `Idempotency-Key` 但筛选条件不同后重放 | `IDEMPOTENCY_MISMATCH`（409，msg/http_status 来自 catalog），不创建第二个导出任务 |
 
 无可靠实测数据的性能阈值统一标记“待定”，不复制模板示例值。
 
@@ -193,6 +200,32 @@ flowchart LR
 
 - `INDEX (resource_type, resource_id, create_time DESC)`
 - `INDEX (actor_user_id, create_time DESC)`
+
+#### `control.audit_export_job`
+
+**表说明**
+
+- **用途**：审计导出任务事实（由创建类 POST 产生，可重试提交幂等）。
+- **主要写入方**：Console 审计导出 AppService；创建时与共享幂等表**同一事务**写入。
+- **主要读取方**：创建接口（重放首次结果）、状态查询接口、导出执行方（按 `(tenant_id, status, create_time)` 轮询待处理任务）。
+- **生命周期/边界**：`status` ∈ `PENDING/RUNNING/SUCCEEDED/FAILED`；`filters_json` 以规范化 JSON 存储并参与指纹比对；导出产物落 artifact store，本表只存 `artifact_ref`，不复制审计明细、不含 Secret。
+- **幂等**：`Idempotency-Key` 的唯一性由共享幂等表 `(tenant_id, idempotency_key, endpoint)` partial unique 承载（`endpoint=/api/v1/audits/exports`），本表不重复承担该约束（RULE-09）。
+
+| 字段 | 类型 | 约束 | 说明 |
+|---|---|---|---|
+| `id` | uuid | PK | 导出任务 ID |
+| `is_deleted` | boolean | NOT NULL DEFAULT false | 软删除 |
+| `create_time` | timestamptz | NOT NULL DEFAULT now() | 创建时间 |
+| `update_time` | timestamptz | NOT NULL DEFAULT now() | 更新时间 |
+| `tenant_id` | varchar(64) | NOT NULL | 租户 |
+| `created_by` | uuid | NOT NULL | 创建者（登录 `console_account.id`） |
+| `export_format` | varchar(8) | NOT NULL | `CSV` / `JSON` |
+| `filters_json` | jsonb | NOT NULL | 与 API-01 一致的筛选条件（规范化后参与指纹） |
+| `status` | varchar(16) | NOT NULL DEFAULT 'PENDING' | `PENDING/RUNNING/SUCCEEDED/FAILED` |
+| `row_count` | bigint | NULL | 完成后导出行数 |
+| `artifact_ref` | varchar(256) | NULL | 产物在 artifact store 的引用（完成时写入） |
+| `error_code` | varchar(64) | NULL | 失败时的 catalog 错误码 |
+
 
 #### `runtime.tool_call_audit`
 
@@ -396,6 +429,8 @@ erDiagram
 | API-02 | 审计详情 | GET | `/api/v1/audits/{audit_id}` | Console Browser | FEAT-03 |
 | API-03 | Admin Run 列表 | GET | `/internal/admin/runs`（Runtime，出站调用） | Console 审计查询面 | FEAT-03 |
 | API-04 | Admin Run 详情 | GET | `/internal/admin/runs/{run_id}`（Runtime，出站调用） | Console 审计查询面 | FEAT-03 |
+| API-05 | 创建审计导出 | POST | `/api/v1/audits/exports` | Console Browser | FEAT-04 |
+| API-06 | 审计导出状态与下载 | GET | `/api/v1/audits/exports/{export_id}`、`/api/v1/audits/exports/{export_id}/download` | Console Browser | FEAT-04 |
 
 #### API-01 审计列表
 
@@ -468,6 +503,40 @@ GET /internal/admin/runs/{run_id}
 - 错误码：`COMMON_NOT_FOUND / COMMON_INTERNAL_ERROR`
 - 处理：Run 不存在返回 `COMMON_NOT_FOUND`；Snapshot/Timeline/Audit/Artifact 按 `run_id` 批量查询（IN 查询聚合，避免 N+1）；所有 preview/payload 脱敏；审计自身不可读时该项返回空数组并在响应中标记 missing（E-01）。
 
+#### API-05 创建审计导出
+
+```text
+POST /api/v1/audits/exports
+Idempotency-Key: <uuid>        # 必填；同一业务提交重试时必须复用同一 key
+```
+
+- 请求字段：
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| export_format | string | 是 | `CSV` / `JSON` |
+| audit_type / resource_type / resource_id | string | 否 | 同 API-01 筛选条件 |
+| actor_user_id / action / result_status / trace_id | string | 否 | 同 API-01 筛选条件 |
+| start_time / end_time | string | 否 | RFC3339 时间区间 |
+
+- 请求头：`Idempotency-Key` 必填（缺失 → `COMMON_VALIDATION_ERROR`）。
+- `data`：`{export_id, status, create_time}`（封套同 API-01）。
+- 错误码：`COMMON_VALIDATION_ERROR / IDEMPOTENCY_MISMATCH / COMMON_INTERNAL_ERROR`。
+- 处理（RULE-09）：校验筛选条件与 `export_format` → 以规范化 JSON（`sort_keys` + 紧凑分隔符）计算指纹（含 endpoint、tenant、`created_by` 与筛选条件）的 SHA256 → 在共享幂等表按 `(tenant_id, idempotency_key, endpoint)` partial unique 记录首次提交，并**同一事务**写入 `control.audit_export_job`（`PENDING`）→ 提交成功返回 `export_id`；同 key 同指纹直接重放首次持久化结果（不新建任务）、同 key 异指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。
+
+#### API-06 审计导出状态与下载
+
+```text
+GET /api/v1/audits/exports/{export_id}
+GET /api/v1/audits/exports/{export_id}/download
+```
+
+- `data`（状态）：`{export_id, status, row_count, error_code, create_time, update_time}`；`status=FAILED` 时 `error_code` 为 catalog 错误码。
+- 下载：仅 `SUCCEEDED` 可下载，返回产物流（`text/csv` 或 `application/json`）；未完成返回 `COMMON_CONFLICT`、任务不存在或不属于当前租户返回 `COMMON_NOT_FOUND`。
+- 错误码：`COMMON_NOT_FOUND / COMMON_CONFLICT / COMMON_INTERNAL_ERROR`。
+- 处理：按 `(tenant_id, export_id)` 读取任务事实（`is_deleted=false`）；下载路径在响应头带 `Content-Disposition` 并提供文件名 `audits-{export_id}.{csv|json}`；不返回审计明细之外的内容、不含 Secret。
+
+
 ### 3.5 质量实现方案
 
 #### 性能
@@ -531,14 +600,17 @@ GET /internal/admin/runs/{run_id}
 | 需求描述 | FEAT-01 | - | S-02, S-04, E-02, E-04 | integration | 待实现 |
 | 需求描述 | FEAT-02 | API-01 | S-01, E-03 | E2E | 待实现 |
 | 需求描述 | FEAT-03 | API-02, API-03, API-04 | S-03, E-01 | E2E | 待实现 |
+| 需求描述 | FEAT-04 | API-05, API-06 | S-05, E-05 | E2E | 待实现 |
 
 ## Spec Compliance Matrix
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `harness-platform#RULE-log-001` | required | 统一 logging-kit；仅配置 LOG_DIR；按 service/日期落盘；敏感字段脱敏。 | §3.5（安全与日志脱敏）/§4 | S-02, E-02 + verifier | applied |
-| `harness-platform#RULE-api-001` | required | JSON REST 统一封套；分页 `{items,page,page_size,total}` 且 `page_size<=100`。 | §3.4（API-01~API-04） | S-01, E-03 + verifier | applied |
-| `harness-platform#RULE-data-001` | required | 标准列、partial unique、timestamptz、同 Owner Schema 物理 FK/跨 Schema 逻辑 UUID。 | §3.3 | S-02, E-01 + verifier | applied |
-| `harness-platform#RULE-secret-001` | required | Secret Value 不进 DB/Snapshot/日志/LLM/Audit，只存 SecretRef。 | §3.3/§3.5 | E-02 + verifier | applied |
-| `harness-platform#RULE-time-001` | required | Console 时间统一 `YYYY-MM-DD HH:mm:ss`；存储 timestamptz。 | §3.4/§3.5 | S-01 + verifier | applied |
-| `harness-platform#RULE-test-001` | required | 关键流程 E2E，明确不得 mock 的真实边界。 | §2.5.2/§6 | S-01, E-01 + verifier | applied |
+| `harness-log#RULE-log-001` | required | 统一 logging-kit；仅配置 LOG_DIR；按 service/日期落盘；敏感字段脱敏。 | §3.5（安全与日志脱敏）/§4 | S-02, E-02 + verifier | applied |
+| `harness-api#RULE-api-001` | required | JSON REST 统一封套；分页 `{items,page,page_size,total}` 且 `page_size<=100`。 | §3.4（API-01~API-04） | S-01, E-03 + verifier | applied |
+| `harness-data#RULE-data-001` | required | 标准列、partial unique、timestamptz、同 Owner Schema 物理 FK/跨 Schema 逻辑 UUID。 | §3.3 | S-02, E-01 + verifier | applied |
+| `harness-secret#RULE-secret-001` | required | 密钥明文存于各 Owner 表、跨表以主键引用（无 secret_ref/SecretProvider）；Secret Value 不进审计/日志/Snapshot/LLM Prompt/API 响应（对外以 `*_configured` 表达）。 | §3.3/§3.5 | E-02 + verifier | applied |
+| `harness-api#RULE-api-002` | required | 创建类 POST（审计导出）必须携带 `Idempotency-Key`：共享幂等表 partial unique `(tenant_id, idempotency_key, endpoint)` 记录首次提交；指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符）的 SHA256（含 endpoint、tenant、`created_by` 与筛选条件）；同 key 同指纹重放首次结果，异指纹 `IDEMPOTENCY_MISMATCH`（409，msg/http_status 来自 catalog）；并发由 partial unique 兜底。 | §2.5.1（RULE-09）、§3.3（`control.audit_export_job`）、§3.4（API-05） | S-05 / E-05 + verifier | applied |
+| `harness-snapshot#RULE-snapshot-001` | required | 本模块不改 Snapshot 冻结与终态 CAS 语义：仅新增审计写入边界的脱敏（`args_preview_json` 等），不写入/改写 Snapshot 内容与 hash；新 Run/Task 仍在执行前冻结快照，配置或授权变更只影响后续提交。 | §3.5（安全与日志脱敏） | S-02 / RULE-08 + 原 verifier | applied |
+| `harness-time#RULE-time-001` | required | Console 时间统一 `YYYY-MM-DD HH:mm:ss`；存储 timestamptz。 | §3.4/§3.5 | S-01 + verifier | applied |
+| `harness-test#RULE-test-001` | required | 关键流程 E2E，明确不得 mock 的真实边界。 | §2.5.2/§6 | S-01, E-01 + verifier | applied |

@@ -1,0 +1,357 @@
+{
+  "schema": 2,
+  "task_file": "11-audit-observability.md",
+  "task_sha256": "77468906ba412634bf497f7db947fd364fac5d8c9edd2809be1597f99fa1e0e0",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "11-audit-observability.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→Console 聚合查询 HTTP→四张审计表(PostgreSQL)",
+      "owner": "TASK-017",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/audit_observability/test_audit_acceptance.py",
+        "-k",
+        "s01"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-02",
+      "source": "11-audit-observability.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Tool/Egress/Model 执行路径→runtime 审计表",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_runtime_audit_write.py",
+        "-k",
+        "s02"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3b61cfef47814c42be005b2475033381",
+        "executed_at": "2026-09-25T02:55:31.202826+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3b61cfef47814c42be005b2475033381",
+          "executed_at": "2026-09-25T02:55:31.202826+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-03",
+      "source": "11-audit-observability.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→Console Admin Run 详情 HTTP→Runtime 内部端点→runtime 表",
+      "owner": "TASK-017",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/audit_observability/test_audit_acceptance.py",
+        "-k",
+        "s03"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-04",
+      "source": "11-audit-observability.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console AppService 事务→control.config_audit_log",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_audit_config_write.py",
+        "-k",
+        "s04"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-05",
+      "source": "11-audit-observability.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser→Console 导出创建/查询 HTTP→幂等表与导出任务(PostgreSQL)",
+      "owner": "TASK-017",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/audit_observability/test_audit_acceptance.py",
+        "-k",
+        "s05"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "11-audit-observability.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console 详情查询→关联 Run 不可读",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_audit_detail_api.py",
+        "-k",
+        "e01"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "11-audit-observability.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 logging-kit 出口 + 审计写入 + Console 响应",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/test_audit_redaction.py",
+        "-k",
+        "e02"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "11-audit-observability.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console 列表查询参数校验",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_audit_query_api.py",
+        "-k",
+        "e03"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-04",
+      "source": "11-audit-observability.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console 业务事务回滚→config_audit_log",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_audit_config_write.py",
+        "-k",
+        "e04"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "11-audit-observability.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console 导出创建→幂等表 partial unique",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_audit_export_api.py",
+        "-k",
+        "e05"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-06",
+      "source": "11-audit-observability.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser(Chromium)→Console 聚合查询 HTTP",
+      "owner": "TASK-018",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-07",
+      "source": "11-audit-observability.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser(Chromium)→Console 详情 HTTP",
+      "owner": "TASK-018",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-08",
+      "source": "11-audit-observability.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL",
+      "owner": "TASK-018",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "11-audit-observability.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Browser→Console 查询失败路径",
+      "owner": "TASK-018",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-06\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-07",
+      "source": "11-audit-observability.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Browser→详情不可读路径",
+      "owner": "TASK-018",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-07\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-08",
+      "source": "11-audit-observability.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Browser→导出创建异指纹 409",
+      "owner": "TASK-018",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-08\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-09",
+      "source": "11-audit-observability.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Browser→导出失败状态",
+      "owner": "TASK-018",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-09\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    }
+  ]
+}
