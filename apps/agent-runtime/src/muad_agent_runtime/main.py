@@ -14,6 +14,7 @@ from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_common import SharedSettings
 from muad_logging import configure_logging
 
+from .api.admin_runs import router as admin_runs_router
 from .api.runs import router as runs_router
 from .application.run_service import reap_abandoned_runs
 from .infrastructure.cancel_hint import create_cancel_hint_store
@@ -79,3 +80,4 @@ install_health_probes(
     },
 )
 app.include_router(runs_router)
+app.include_router(admin_runs_router)
