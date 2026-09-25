@@ -1,14 +1,16 @@
-"""审计查询 API（Console 最近运行/配置变更审计）。"""
+"""审计查询 API（Console 聚合审计列表 API-01）。"""
 
 import uuid
+from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..application.audit_service import AuditService
+from ..application.audit_query_service import AuditQueryService
 from ..infrastructure.db import get_session
+from ..infrastructure.repositories.audit_query_repository import AuditQueryFilters
 from .deps import get_tenant_id
 
 TenantId = Annotated[str, Depends(get_tenant_id)]
@@ -22,21 +24,36 @@ async def list_audits(
     request: Request,
     tenant_id: TenantId,
     session: Session,
-    resource_id: uuid.UUID | None = Query(default=None),  # noqa: B008
+    audit_type: str | None = Query(default=None),
     resource_type: str | None = Query(default=None),
+    resource_id: uuid.UUID | None = Query(default=None),  # noqa: B008
+    actor_user_id: uuid.UUID | None = Query(default=None),  # noqa: B008
+    action: str | None = Query(default=None, max_length=64),
+    result_status: str | None = Query(default=None, max_length=64),
+    trace_id: str | None = Query(default=None, max_length=64),
+    start_time: datetime | None = Query(default=None),  # noqa: B008
+    end_time: datetime | None = Query(default=None),  # noqa: B008
     keyword: str | None = Query(default=None, max_length=128),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> ApiResponse[Any]:
-    items, total = await AuditService(session).list_audits(
-        tenant_id,
-        resource_id=resource_id,
+    filters = AuditQueryFilters(
+        audit_type=audit_type,
         resource_type=resource_type,
+        resource_id=resource_id,
+        actor_user_id=actor_user_id,
+        action=action,
+        result_status=result_status,
+        trace_id=trace_id,
+        start_time=start_time,
+        end_time=end_time,
         keyword=keyword,
-        page=page,
-        page_size=page_size,
+    )
+    catalog = request.app.state.message_catalog
+    items, total = await AuditQueryService(session, catalog.codes()).list_audits(
+        tenant_id, filters, page=page, page_size=page_size
     )
     return ok(
-        request.app.state.message_catalog,
+        catalog,
         paginate(items=items, page=page, page_size=page_size, total=total),
     )
