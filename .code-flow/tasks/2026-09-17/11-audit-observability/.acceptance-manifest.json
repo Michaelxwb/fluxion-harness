@@ -305,7 +305,7 @@
       "kind": "functional",
       "boundary": "pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录",
       "owner": "TASK-019",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -317,7 +317,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-211",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "280b495af1cb41a79134ddd1d68cf9c3",
+        "executed_at": "2026-09-25T08:13:51.743444+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-211",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "280b495af1cb41a79134ddd1d68cf9c3",
+          "executed_at": "2026-09-25T08:13:51.743444+00:00"
+        }
+      ]
     },
     {
       "id": "E-01",
@@ -439,26 +460,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-06",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "d9f3803f83a5428c907d7062d3021083",
-        "executed_at": "2026-09-25T08:00:22.084108+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-06",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "d9f3803f83a5428c907d7062d3021083",
-          "executed_at": "2026-09-25T08:00:22.084108+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-07",
@@ -475,26 +477,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-07",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "d9f3803f83a5428c907d7062d3021083",
-        "executed_at": "2026-09-25T08:00:22.084108+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-07",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "d9f3803f83a5428c907d7062d3021083",
-          "executed_at": "2026-09-25T08:00:22.084108+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-08",
@@ -511,26 +494,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-08",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 1,
-        "run_id": "d9f3803f83a5428c907d7062d3021083",
-        "executed_at": "2026-09-25T08:00:22.084108+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-08",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "d9f3803f83a5428c907d7062d3021083",
-          "executed_at": "2026-09-25T08:00:22.084108+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-06",
@@ -547,28 +511,7 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-06",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "d9f3803f83a5428c907d7062d3021083",
-        "executed_at": "2026-09-25T08:00:22.084108+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "d9f3803f83a5428c907d7062d3021083",
-          "executed_at": "2026-09-25T08:00:22.084108+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-07",
@@ -585,28 +528,7 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-07",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "d9f3803f83a5428c907d7062d3021083",
-        "executed_at": "2026-09-25T08:00:22.084108+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-07",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "d9f3803f83a5428c907d7062d3021083",
-          "executed_at": "2026-09-25T08:00:22.084108+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-08",
@@ -623,28 +545,7 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-08",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "d9f3803f83a5428c907d7062d3021083",
-        "executed_at": "2026-09-25T08:00:22.084108+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "d9f3803f83a5428c907d7062d3021083",
-          "executed_at": "2026-09-25T08:00:22.084108+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-09",
@@ -661,28 +562,7 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-09",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "d9f3803f83a5428c907d7062d3021083",
-        "executed_at": "2026-09-25T08:00:22.084108+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-09",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "d9f3803f83a5428c907d7062d3021083",
-          "executed_at": "2026-09-25T08:00:22.084108+00:00"
-        }
-      ]
+      "depends_on": []
     }
   ]
 }
