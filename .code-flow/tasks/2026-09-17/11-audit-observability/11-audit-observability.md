@@ -55,7 +55,7 @@
 | B-201 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Runtime HTTP /internal/admin/runs 与 /internal/admin/runs/{run_id} → 真实 PostgreSQL | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_admin_run_api.py"] | . | 600 |  |
 | B-202 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Console HTTP 导出状态/下载 → 真实 PostgreSQL + artifact store | TASK-007 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_download.py"] | . | 600 |  |
 | E-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 详情查询→关联 Run 不可读 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"] | . | 600 |  |
-| E-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应 | TASK-008 | planned | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
+| E-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应 | TASK-008 | verified | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | E-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 列表查询参数校验 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
 | E-04 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 业务事务回滚→config_audit_log | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_config_write.py","-k","e04"] | . | 600 |  |
 | E-05 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 导出创建→幂等表 partial unique | TASK-006 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"] | . | 600 |  |
@@ -66,10 +66,10 @@
 | E-07 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→详情不可读路径 | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-07\""] | . | 900 |  |
 | E-08 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→导出创建异指纹 409 | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-08\""] | . | 900 |  |
 | E-09 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→导出失败状态 | TASK-018 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-09\""] | . | 900 |  |
-| RULE-01 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 真实 logging-kit 出口与日志文件 | TASK-008 | planned | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
+| RULE-01 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 真实 logging-kit 出口与日志文件 | TASK-008 | verified | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | RULE-02 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | Console 列表/详情 HTTP 封套与分页 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
 | RULE-03 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 新增表标准列/partial unique/timestamptz(PostgreSQL) | TASK-006 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"] | . | 600 |  |
-| RULE-04 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 审计写入前脱敏 + API 响应 | TASK-008 | planned | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
+| RULE-04 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 审计写入前脱敏 + API 响应 | TASK-008 | verified | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | RULE-05 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | Console 时间出参格式 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
 | RULE-06 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | 跨 API/DB/Runtime/Browser 的真实 E2E 边界 | TASK-019 | planned | ["bash","-lc","uv run pytest -q tests/audit_observability_inventory.py -k r06"] | . | 600 |  |
 | RULE-07 | 11-audit-observability.backend.design.md#2.5.1 业务规则与约束 | integration | Console 业务事务与审计同库同事务 | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_config_write.py","-k","s04"] | . | 600 |  |
@@ -79,8 +79,8 @@
 | RULE-api-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | E2E | 真实 Console HTTP 封套/分页 + 原 verifier 真实边界 | TASK-003 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_query_api.py && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"] | . | 1200 |  |
 | RULE-api-002 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | E2E | 真实 Console 导出创建 HTTP→幂等表(PostgreSQL) + 原 verifier 真实边界 | TASK-006 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests/console_skill/test_import_idempotency.py"] | . | 1200 |  |
 | RULE-data-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | 真实 PostgreSQL 表结构/约束 + 原 verifier 真实边界 | TASK-006 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_export_api.py && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
-| RULE-secret-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | 审计/日志/响应三层脱敏(PostgreSQL+logging-kit) + 原 verifier 真实边界 | TASK-008 | planned | ["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"] | . | 600 |  |
-| RULE-log-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | logging-kit 出口与按 service/日期落盘 + 原 verifier 真实边界 | TASK-008 | planned | ["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py"] | . | 600 |  |
+| RULE-secret-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | 审计/日志/响应三层脱敏(PostgreSQL+logging-kit) + 原 verifier 真实边界 | TASK-008 | verified | ["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"] | . | 600 |  |
+| RULE-log-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | logging-kit 出口与按 service/日期落盘 + 原 verifier 真实边界 | TASK-008 | verified | ["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py"] | . | 600 |  |
 | RULE-time-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | E2E | Console 时间出参与前端展示一致 + 原 verifier 真实边界 | TASK-003 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_audit_query_api.py && uv run pytest -q tests/frontend/test_datetime_contract.py"] | . | 1200 |  |
 | RULE-ui-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面 + 原 verifier 真实边界 | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_page_contract.py && uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | . | 1200 |  |
 | RULE-ui-detail-001 | 11-audit-observability.frontend.design.md#Spec Compliance Matrix | E2E | 真实 Console 页面详情结构 + 原 verifier 真实边界 | TASK-013 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_audit_detail_contract.py && uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"] | . | 1200 |  |
@@ -465,13 +465,13 @@
 - [2026-09-25] completed (done)
 ## TASK-008: 三层脱敏收口（日志/写入/响应）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 11-audit-observability.backend.design.md#3.5 质量实现方案, 11-audit-observability.backend.design.md#2.5.1 业务规则与约束
 - **Spec-Refs**: harness-log#RULE-log-001, harness-secret#RULE-secret-001
 - **Acceptance-Refs**: E-02, RULE-01, RULE-04, RULE-log-001, RULE-secret-001
-- **Files**: `apps/console-platform/backend/src/muad_console_platform/application/audit_service.py`, `tests/test_audit_redaction.py`
+- **Files**: `apps/console-platform/backend/src/muad_console_platform/application/audit_service.py`, `tests/test_audit_redaction.py`、`packages/api-kit/src/muad_api/audit.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
 ### Description
@@ -480,32 +480,46 @@
 
 ### Checklist
 
-- [ ] [E-02][integration] 以真实 logging-kit 出口与真实 PostgreSQL 为边界编写/扩展用例：payload 含 Authorization/api_key/refresh_token 时，日志文件、审计行、API 响应三处均为遮蔽值且无明文。执行 argv：`["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"]`。
-- [ ] [RULE-01][integration] 验证 logging-kit 出口按 service/YYYY-MM-DD 落盘且带 `trace_id`/`request_id`，敏感字段遮蔽（联合 E-02）。
-- [ ] [RULE-04][integration] 验证密钥不进入审计/日志/Snapshot/API 响应，对外以 `*_configured` 表达；审计只存 hash/preview。
-- [ ] [RULE-log-001][integration] verifier_ref=harness-log#RULE-log-001；原 verifier 输入 argv=`["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"]`；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py"]`。
-- [ ] [RULE-secret-001][integration] verifier_ref=harness-secret#RULE-secret-001；原 verifier 输入 argv=`["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]`；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"]`。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
+- [x] [E-02][integration] 以真实 logging-kit 出口与真实 PostgreSQL 为边界编写/扩展用例：payload 含 Authorization/api_key/refresh_token 时，日志文件、审计行、API 响应三处均为遮蔽值且无明文。执行 argv：`["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"]`。
+- [x] [RULE-01][integration] 验证 logging-kit 出口按 service/YYYY-MM-DD 落盘且带 `trace_id`/`request_id`，敏感字段遮蔽（联合 E-02）。
+- [x] [RULE-04][integration] 验证密钥不进入审计/日志/Snapshot/API 响应，对外以 `*_configured` 表达；审计只存 hash/preview。
+- [x] [RULE-log-001][integration] verifier_ref=harness-log#RULE-log-001；原 verifier 输入 argv=`["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"]`；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py"]`。
+- [x] [RULE-secret-001][integration] verifier_ref=harness-secret#RULE-secret-001；原 verifier 输入 argv=`["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"]`；原 verifier 全部通过，联合验收 argv=`["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"]`。
+- [x] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-02 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应→PostgreSQL | 三处均遮蔽；无明文 Secret | tests/test_audit_redaction.py / E-02 | `["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"]` | planned |
-| RULE-01 | integration | 真实 logging-kit 出口与日志文件 | 按 service/日期落盘 + trace/request 字段 + 遮蔽 | tests/test_audit_redaction.py / RULE-01 | `["uv","run","pytest","-q","tests/test_audit_redaction.py"]` | planned |
-| RULE-04 | integration | 审计写入前→PostgreSQL | 密钥不进审计/日志/响应；只存 hash/preview | tests/test_audit_redaction.py / RULE-04 | `["uv","run","pytest","-q","tests/test_audit_redaction.py"]` | planned |
-| RULE-log-001 | integration | logging-kit + 原 verifier 真实边界 | 原 verifier 全部通过 | tests/test_audit_redaction.py + 原 verifier / RULE-log-001 | `["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py"]` | planned |
-| RULE-secret-001 | integration | 三层脱敏 + 原 verifier 真实边界 | 原 verifier 全部通过 | tests/test_audit_redaction.py + 原 verifier / RULE-secret-001 | `["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"]` | planned |
+| E-02 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应→PostgreSQL | 三处均遮蔽；无明文 Secret | tests/test_audit_redaction.py / E-02 | `["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"]` | verified |
+| RULE-01 | integration | 真实 logging-kit 出口与日志文件 | 按 service/日期落盘 + trace/request 字段 + 遮蔽 | tests/test_audit_redaction.py / RULE-01 | `["uv","run","pytest","-q","tests/test_audit_redaction.py"]` | verified |
+| RULE-04 | integration | 审计写入前→PostgreSQL | 密钥不进审计/日志/响应；只存 hash/preview | tests/test_audit_redaction.py / RULE-04 | `["uv","run","pytest","-q","tests/test_audit_redaction.py"]` | verified |
+| RULE-log-001 | integration | logging-kit + 原 verifier 真实边界 | 原 verifier 全部通过 | tests/test_audit_redaction.py + 原 verifier / RULE-log-001 | `["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py"]` | verified |
+| RULE-secret-001 | integration | 三层脱敏 + 原 verifier 真实边界 | 原 verifier 全部通过 | tests/test_audit_redaction.py + 原 verifier / RULE-secret-001 | `["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| E-02 | **真实 RED**（2 failed / 2 passed）：`test_e02_console_audit_write_masks_secrets_in_db` 报 `control.config_audit_log 中可查询到 Secret 明文：Bearer e02-authz-…`（`assert 1 == 0`）；`test_e02_console_api_detail_masks_secrets_in_response` 因同一根因失败——响应 `headers` 里 `Authorization`/`Cookie`/`Set-Cookie` 为明文。**根因**：api-kit `sanitize_audit_payload` 的敏感键清单缺 `authorization`/`cookie`（设计 §3.5 明确列举这三者），故审计写入层泄露、API 响应层连带泄露。 | 给 `packages/api-kit/src/muad_api/audit.py` 的 `SENSITIVE_KEY_MARKERS` 补 `authorization` + `cookie`（**单点修复**；API 响应层随之转绿，无需第二处改动）→ `tests/test_audit_redaction.py` **4 passed**；logging 套件（`test_logging.py` + `test_logging_redaction.py`）**10 passed**；console 回归 **108 passed**；ruff/mypy 干净；更广回归（`tests/` 去 acceptance/e2e/frontend）**1105 passed + 1 pre-existing failure**（`tests/test_secret_ref_residue.py`，经 stash 验证为改动前既有失败，指向 10 模块的 `tests/acceptance/im_gateway/test_secrets_and_readiness.py`）。 | 4 个 `e02` 用例：① Console 审计写入后 DB 无明文（`jsonb::text LIKE '%<secret>%'` 为 0）且非敏感字段保留（嵌套 `headers` 中 `X-Trace` 存活 ⇒ 证明递归遮蔽）；② Runtime 审计写入 `args_preview_json["api_key"] == "<redacted>"`（TASK-002 层契约复述）；③ logging 出口产物文件无明文（消息文本 + `record.fields` + 嵌套/URL 内嵌 `key=value` 均遮蔽）；④ API-02 详情响应序列化无明文、遮蔽值存活。 | 真实 api-kit 写入原语 + 真实 PostgreSQL 逐行回读 + 真实 logging-kit 落盘文件读取 + 真实 Console HTTP（复用 `tests/console_platform/conftest.py` 的 `client`/`tenant` fixtures）；未 mock 业务 API；无 DB 残留（`runtime.tool_call_audit` 与 `config_audit_log` 计数为 0）。 | verified |
+| RULE-01 / RULE-04 | 无独立 RED（随 E-02 一并取证，验收类）。 | 三层遮蔽生效：识别键含 `Authorization/Cookie/Set-Cookie/api_key/access_token/refresh_token/secret/password`；审计只存脱敏值/hash，密钥不进审计/日志/API 响应。 | 同 E-02 四个用例 | 同 E-02 | verified |
+| RULE-log-001 | 无独立 RED（验收类）。 | 联合验收 argv=`["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py"]` → **4 passed + 11 passed**（原 verifier 全部通过）。 | tests/test_audit_redaction.py + 原 verifier | 真实 logging-kit 出口 + 原 verifier 真实边界 | verified |
+| RULE-secret-001 | 无独立 RED（验收类）。 | 联合验收 argv=`["bash","-lc","uv run pytest -q tests/test_audit_redaction.py && uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"]` → **4 passed + 12 passed**（原 verifier 全部通过）。 | 同上 + 原 verifier | 同 E-02 + 原 verifier 真实边界 | verified |
+
+**实现中的判断点（如实登记）**：
+- **仅 layer 1（Console 审计写入）有缺口**；runtime 写入层（TASK-002 已含 authorization/cookie）与 logging 出口层**本就满足契约**，仅作断言未改代码。
+- **遮蔽策略各层不同且保持原样**：Console 写入层是**删除**敏感键（由既有验收断言钉死：`test_secret_consumers.py` 断言 `before_json == {}`）；runtime/logging 层是**替换**（`<redacted>`/`***`）。E-02 的判据是"无明文"，故未统一策略；若设计要求 Console 层也落 `<redacted>`，属行为变更（需同步改那条钉死断言），已标注未做。
+- **`error_message`**：设计 §3.5 的递归规则包含它，但当前无任何写入方能填充审计表的 `error_message`（`RuntimeAuditWriter` 无该参数，Console 只读 `error_code`）⇒ 无泄露路径，未添加死代码。
+- **`set_log_context` 上下文字段**：由 `JsonLogFormatter` 原样写出（仅 message + `record.fields` 过 `RedactionFilter`）；仓库内无调用方把密钥放入该上下文（api-kit 中间件只放 trace/request/tenant/caller/locale），属"剩余面"而非已证明泄露——未越界改动 formatter 契约。
+- 测试 payload 经**真实应用服务**注入（而非 HTTP 配置变更）：所有真实快照都刻意不含密钥，走 HTTP 会空过、测不到 E-02。
+- E-02: verified — automated command passed; run_id=a6d40113f0244822afeee659ee08c9c7 (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-009: 可观测性 trace 关联字段与指标目录
 
 - **Status**: draft

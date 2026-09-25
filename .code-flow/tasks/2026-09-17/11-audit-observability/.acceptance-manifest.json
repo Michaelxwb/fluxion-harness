@@ -144,28 +144,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-202",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "7599b9172245445a9e07dbd87467d692",
-        "executed_at": "2026-09-25T04:26:51.953955+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-202",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "7599b9172245445a9e07dbd87467d692",
-          "executed_at": "2026-09-25T04:26:51.953955+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-01",
@@ -195,7 +174,7 @@
       "kind": "functional",
       "boundary": "真实 logging-kit 出口 + 审计写入 + Console 响应",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -207,7 +186,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "a6d40113f0244822afeee659ee08c9c7",
+        "executed_at": "2026-09-25T04:45:32.343797+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "a6d40113f0244822afeee659ee08c9c7",
+          "executed_at": "2026-09-25T04:45:32.343797+00:00"
+        }
+      ]
     },
     {
       "id": "E-03",
