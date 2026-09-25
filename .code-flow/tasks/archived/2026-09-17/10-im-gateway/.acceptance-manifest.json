@@ -1,0 +1,1855 @@
+{
+  "schema": 2,
+  "task_file": "10-im-gateway.md",
+  "task_sha256": "3d5bbba7b663cc07d972d683ce4274e66dda14b57383fc1f6c0f07417f555741",
+  "scenarios": [
+    {
+      "id": "B-101",
+      "source": "10-im-gateway.backend.design.md#3.3 数据设计",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "真实 Pydantic DTO 校验与 JSON 序列化",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_channel_contracts.py",
+        "-k",
+        "b101"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-101",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-101",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-102",
+      "source": "10-im-gateway.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "生产 ConsoleClient→真实本地 HTTP 服务→Envelope 解码",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_gateway_console_client.py",
+        "-k",
+        "b102"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-102",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-102",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-103",
+      "source": "10-im-gateway.backend.design.md#API-03 执行绑定",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 bind HTTP handler→PostgreSQL 幂等记录、bind_code 行锁、channel_identity",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_channel/test_channel_bind_idempotency.py",
+        "-k",
+        "b103"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-103",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-103",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-104",
+      "source": "10-im-gateway.backend.design.md#API-04 查询可用 Skills",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_channel/test_channel_skills_api.py",
+        "-k",
+        "b104"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-104",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-104",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-105",
+      "source": "10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console snapshot HTTP→真实 PG bot 配置→BotSnapshotCache",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_bot_snapshot.py",
+        "-k",
+        "b105"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-105",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-105",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-106",
+      "source": "10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "生产 WeComAdapter/连接管理器→真实本地 WS 故障探针",
+      "owner": "TASK-006",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_wecom_adapter.py",
+        "-k",
+        "b106"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-106",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-106",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-107",
+      "source": "10-im-gateway.backend.design.md#4.1 健康检查与启动校验",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Gateway lifespan/HTTP probes→Console/WS 连接管理器",
+      "owner": "TASK-007",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_readyz.py",
+        "-k",
+        "b107"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-107",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-107",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-108",
+      "source": "10-im-gateway.backend.design.md#3.2.3 入站去重",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Gateway inbound→真实 Redis→真实 Runtime HTTP 接收边界",
+      "owner": "TASK-008",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_inbound_dedupe_integration.py",
+        "-k",
+        "b108"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-108",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-108",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-05",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Gateway入站→真实Redis dedupe→真实下游HTTP观测",
+      "owner": "TASK-008",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_inbound_dedupe_integration.py",
+        "-k",
+        "s05"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-109",
+      "source": "10-im-gateway.backend.design.md#API-02 解析消息路由",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Gateway→真实 Console resolve HTTP→PostgreSQL→Runtime 接收观测",
+      "owner": "TASK-009",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_message_routing_integration.py",
+        "-k",
+        "b109"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-109",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-109",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-01",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Gateway→真实bot resolve HTTP→PostgreSQL",
+      "owner": "TASK-009",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_message_routing_integration.py",
+        "-k",
+        "e01"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-110",
+      "source": "10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Gateway command→真实 Console bind HTTP→PostgreSQL",
+      "owner": "TASK-010",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_bind_command.py",
+        "-k",
+        "b110"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-110",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-110",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-111",
+      "source": "10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Gateway commands→真实 Console/Runtime HTTP→PostgreSQL",
+      "owner": "TASK-011",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_commands_integration.py",
+        "-k",
+        "b111"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-111",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-111",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-112",
+      "source": "10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Gateway→真实 Runtime cancel-active HTTP→PostgreSQL CAS/事件",
+      "owner": "TASK-012",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_stop_integration.py",
+        "-k",
+        "b112"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-112",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-112",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-06",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Gateway→Runtime cancel-active HTTP→PostgreSQL CAS",
+      "owner": "TASK-012",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_stop_integration.py",
+        "-k",
+        "s06"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-05",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime cancel-active/PG→Gateway",
+      "owner": "TASK-012",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_stop_integration.py",
+        "-k",
+        "e05"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-113",
+      "source": "10-im-gateway.backend.design.md#API-06 Runtime Run 桥接",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "生产 RuntimeClient→真实本地 HTTP/SSE 接收端",
+      "owner": "TASK-013",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_runtime_client.py",
+        "-k",
+        "b113"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-113",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-113",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-114",
+      "source": "10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03）",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "真实 SSE parser 与分片字节/行输入",
+      "owner": "TASK-014",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_sse_parser.py",
+        "-k",
+        "b114"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-114",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-114",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-115",
+      "source": "10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03）",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 SSE 解析→生产 renderer→真实本地 WS SDK 出站",
+      "owner": "TASK-015",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_stream_renderer.py",
+        "-k",
+        "b115"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-115",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-115",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-116",
+      "source": "10-im-gateway.backend.design.md#3.2 架构与流程",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 iter_events→Gateway 消费队列→Runtime HTTP/SSE→WS 回复",
+      "owner": "TASK-016",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_inbound_concurrency.py",
+        "-k",
+        "b116"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-116",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-116",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-117",
+      "source": "10-im-gateway.backend.design.md#API-05 主动投递",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Gateway HTTP→生产 Adapter→真实 Redis/本地 WS",
+      "owner": "TASK-017",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_delivery_api.py",
+        "-k",
+        "b117"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-117",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-117",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-118",
+      "source": "10-im-gateway.backend.design.md#4.2 指标目录",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实连接迁移→生产日志 + 真实 `/metrics` HTTP 端点（api-kit 注册表）",
+      "owner": "TASK-018",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_connection_observability.py",
+        "-k",
+        "b118"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-118",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-118",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-119",
+      "source": "10-im-gateway.backend.design.md#4.2 指标目录",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表）",
+      "owner": "TASK-019",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_message_metrics.py",
+        "-k",
+        "b119"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-119",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-119",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-120",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter（探针核心：认证/消息/流式收发）",
+      "owner": "TASK-020",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_wecom_boundary.py",
+        "-k",
+        "b120"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-120",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-120",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-121",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "生产进程生命周期→真实HTTP/PostgreSQL/Redis（Console/Gateway/模型探针/种子与清理）",
+      "owner": "TASK-021",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_environment.py",
+        "-k",
+        "b121"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-121",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-121",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-122",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP",
+      "owner": "TASK-022",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_routing.py",
+        "-k",
+        "b122"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-122",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-122",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-01",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "官方SDK/WeComAdapter→Gateway→真实Console/PG与双Runtime",
+      "owner": "TASK-022",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_routing.py",
+        "-k",
+        "s01"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-123",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复",
+      "owner": "TASK-023",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_binding.py",
+        "-k",
+        "b123"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-123",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-123",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-02",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Gateway完整/bind命令→真实Console HTTP→PostgreSQL→最终回复",
+      "owner": "TASK-023",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_binding.py",
+        "-k",
+        "s02"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-02",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Console bind HTTP→PostgreSQL bind_code/identity",
+      "owner": "TASK-023",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_binding.py",
+        "-k",
+        "e02"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-124",
+      "source": "10-im-gateway.backend.design.md#API-04 查询可用 Skills",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry",
+      "owner": "TASK-024",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_authorization.py",
+        "-k",
+        "b124"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-124",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-124",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-125",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复",
+      "owner": "TASK-025",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_runtime_stream.py",
+        "-k",
+        "b125"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-125",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-125",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-03",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站",
+      "owner": "TASK-025",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_runtime_stream.py",
+        "-k",
+        "s03"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-03",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Gateway→真实Runtime SSE断线→Reaper/PostgreSQL",
+      "owner": "TASK-032",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_recovery.py",
+        "-k",
+        "e03"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-04",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实Runtime/PG→Gateway HTTP错误处理",
+      "owner": "TASK-025",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_runtime_stream.py",
+        "-k",
+        "e04"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-126",
+      "source": "10-im-gateway.backend.design.md#API-03 执行绑定",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用",
+      "owner": "TASK-026",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_gateway_idempotency.py",
+        "-k",
+        "b126"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-126",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-126",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-127",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端",
+      "owner": "TASK-027",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_worker_delivery.py",
+        "-k",
+        "b127"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-127",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-127",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-04",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实Worker→Gateway HTTP→Redis→官方SDK/真实WS接收",
+      "owner": "TASK-027",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_worker_delivery.py",
+        "-k",
+        "s04"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "e2e",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-06",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Gateway入站/投递→真实Redis连接故障→Runtime/WS",
+      "owner": "TASK-027",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_redis_degradation.py",
+        "-k",
+        "e06"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-128",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实PG bot secret→Console内部快照HTTP→Gateway/SDK→日志/审计/快照输出",
+      "owner": "TASK-028",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_secrets_and_readiness.py",
+        "-k",
+        "b128"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-128",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-128",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-07",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实PG bot secret→Console快照→多bot SDK连接/readyz",
+      "owner": "TASK-028",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_secrets_and_readiness.py",
+        "-k",
+        "e07"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-129",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "pytest用例收集/运行→验收Contract/Evidence→真实组件记录",
+      "owner": "TASK-029",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_acceptance_inventory.py",
+        "-k",
+        "b129"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-129",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-129",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-130",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "生产第二 Runtime 实例与 Worker 进程→真实 PostgreSQL/Redis",
+      "owner": "TASK-030",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_multi_instance.py",
+        "-k",
+        "b130"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-130",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-130",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-131",
+      "source": "10-im-gateway.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "生产 WeComAdapter→真实本地 WS 服务→故障注入（握手拒绝/断线/发送失败）",
+      "owner": "TASK-031",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/im_gateway/test_wecom_fault_injection.py",
+        "-k",
+        "b131"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-131",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "4f551df7b4934145adef6f1426f912bd",
+        "executed_at": "2026-09-25T00:01:34.942261+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-131",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4f551df7b4934145adef6f1426f912bd",
+          "executed_at": "2026-09-25T00:01:34.942261+00:00"
+        }
+      ]
+    }
+  ]
+}

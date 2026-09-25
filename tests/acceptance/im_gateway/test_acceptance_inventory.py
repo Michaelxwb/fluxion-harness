@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, cast
 
 ROOT = Path(__file__).resolve().parents[3]
-TASK_DIR = ROOT / ".code-flow/tasks/2026-09-17/10-im-gateway"
+TASK_DIR = ROOT / ".code-flow/tasks/archived/2026-09-17/10-im-gateway"
 TASK_FILE = TASK_DIR / "10-im-gateway.md"
 MANIFEST = TASK_DIR / ".acceptance-manifest.json"
 
@@ -131,6 +131,18 @@ def test_b129_e2e_commands_use_real_boundaries_without_mocks() -> None:
         source = path.read_text(encoding="utf-8")
         for marker in MOCK_MARKERS:
             assert marker not in source, (path.name, marker)
+
+
+def test_b129_task_contract_rows_are_terminal() -> None:
+    """每个负责任务的 Acceptance Contract 行同样必须闭合（全局覆盖表之外的这一层易漏）。"""
+    for match in re.finditer(r"(?ms)^##\s+(TASK-\d+):.*?(?=^##\s+TASK-|\Z)", _text()):
+        for line in match.group(0).splitlines():
+            if not line.startswith("| "):
+                continue
+            cells = [cell.strip() for cell in line.strip("|").split("|")]
+            if len(cells) != 7 or not COVERAGE_ROW.match(cells[0]):
+                continue
+            assert cells[-1] in TERMINAL_STATUSES, (match.group(1), cells[0], cells[-1])
 
 
 def test_b129_done_tasks_have_no_unchecked_items() -> None:

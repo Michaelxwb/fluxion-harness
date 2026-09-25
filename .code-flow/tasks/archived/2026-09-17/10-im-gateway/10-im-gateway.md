@@ -115,33 +115,33 @@
 | B-119 | 10-im-gateway.backend.design.md#4.2 指标目录 | integration | 生产入站/HTTP投递/真实SSE→真实 `/metrics` HTTP 端点（api-kit 注册表） | TASK-019 | verified | ["uv","run","pytest","-q","tests/gateway/test_message_metrics.py","-k","b119"] | . | 600 |  |
 | B-120 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 官方 SDK→真实本地 WebSocket 服务→生产 WeComAdapter（探针核心：认证/消息/流式收发） | TASK-020 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_wecom_boundary.py","-k","b120"] | . | 600 |  |
 | B-121 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 生产进程生命周期→真实HTTP/PostgreSQL/Redis（Console/Gateway/模型探针/种子与清理） | TASK-021 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_environment.py","-k","b121"] | . | 600 |  |
-| B-122 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | TASK-022 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"] | . | 1200 |  |
-| S-01 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 官方SDK/WeComAdapter→Gateway→真实Console/PG与双Runtime | TASK-022 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","s01"] | . | 1200 |  |
+| B-122 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | TASK-022 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"] | . | 1200 |  |
+| S-01 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 官方SDK/WeComAdapter→Gateway→真实Console/PG与双Runtime | TASK-022 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","s01"] | . | 1200 |  |
 | RULE-01 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | TASK-022 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"] | . | 1200 |  |
 | RULE-04 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | TASK-022 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"] | . | 1200 |  |
 | RISK-01 | 10-im-gateway.backend.design.md#5. 风险与依赖 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | TASK-022 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"] | . | 1200 |  |
 | RULE-arch-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP；原 Spec verifier 真实边界 | TASK-022 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_routing.py && uv run pytest -q tests/architecture"] | . | 1200 |  |
 | RULE-im-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP；原 Spec verifier 真实边界 | TASK-022 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_routing.py && uv run pytest -q tests/console_channel tests/gateway"] | . | 1200 |  |
-| B-123 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | TASK-023 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"] | . | 1200 |  |
-| S-02 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | Gateway完整/bind命令→真实Console HTTP→PostgreSQL→最终回复 | TASK-023 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","s02"] | . | 1200 |  |
+| B-123 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | TASK-023 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"] | . | 1200 |  |
+| S-02 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | Gateway完整/bind命令→真实Console HTTP→PostgreSQL→最终回复 | TASK-023 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","s02"] | . | 1200 |  |
 | E-02 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Console bind HTTP→PostgreSQL bind_code/identity | TASK-023 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","e02"] | . | 600 |  |
 | RULE-02 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | TASK-023 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"] | . | 1200 |  |
 | RULE-api-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复；分页契约（B-101/B-105）与统一列表语义；原 Spec verifier 真实边界 | TASK-023 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_binding.py && uv run pytest -q tests/gateway/test_channel_contracts.py -k b101 && uv run pytest -q tests/gateway/test_bot_snapshot.py -k b105 && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"] | . | 1200 |  |
 | RULE-rel-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | integration | 真实 Gateway bind 链路→真实 Console 关系端点（单关系 POST/DELETE 且独立事务）→PostgreSQL；原 Spec verifier 真实边界 | TASK-023 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_binding.py && uv run pytest -q tests/console_platform/test_user_side_relations.py"] | . | 600 |  |
-| B-124 | 10-im-gateway.backend.design.md#API-04 查询可用 Skills | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry | TASK-024 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_authorization.py","-k","b124"] | . | 1200 |  |
+| B-124 | 10-im-gateway.backend.design.md#API-04 查询可用 Skills | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry | TASK-024 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_authorization.py","-k","b124"] | . | 1200 |  |
 | RULE-05 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry | TASK-024 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_authorization.py","-k","b124"] | . | 1200 |  |
 | RULE-auth-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry；原 Spec verifier 真实边界 | TASK-024 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_authorization.py && uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 1200 |  |
-| B-125 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"] | . | 1200 |  |
-| S-03 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站 | TASK-025 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","s03"] | . | 1200 |  |
+| B-125 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | TASK-025 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"] | . | 1200 |  |
+| S-03 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站 | TASK-025 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","s03"] | . | 1200 |  |
 | E-03 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway→真实Runtime SSE断线→Reaper/PostgreSQL | TASK-032 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"] | . | 600 |  |
 | E-04 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | 真实Runtime/PG→Gateway HTTP错误处理 | TASK-025 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","e04"] | . | 600 |  |
 | RULE-06 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | integration | 真实WS→Gateway→Runtime SSE断流→PostgreSQL Snapshot/Reaper→终态CAS | TASK-032 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"] | . | 600 |  |
 | RULE-10 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | TASK-025 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"] | . | 1200 |  |
 | RULE-snapshot-001 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | 真实WS→Gateway→Runtime SSE断流/Recovery→PostgreSQL Snapshot/Reaper→终态CAS；原 Spec verifier 真实边界 | TASK-032 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_recovery.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 1200 |  |
-| B-126 | 10-im-gateway.backend.design.md#API-03 执行绑定 | E2E | Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用 | TASK-026 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_gateway_idempotency.py","-k","b126"] | . | 1200 |  |
+| B-126 | 10-im-gateway.backend.design.md#API-03 执行绑定 | E2E | Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用 | TASK-026 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_gateway_idempotency.py","-k","b126"] | . | 1200 |  |
 | RULE-api-002 | 10-im-gateway.backend.design.md#Spec Compliance Matrix | E2E | Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用（含 B-103 绑定幂等、B-111 /new 幂等）；原 Spec verifier 真实边界 | TASK-026 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_gateway_idempotency.py && uv run pytest -q tests/console_channel/test_channel_bind_idempotency.py -k b103 && uv run pytest -q tests/gateway/test_commands_integration.py -k b111 && uv run pytest -q tests/console_skill/test_import_idempotency.py"] | . | 1200 |  |
-| B-127 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | TASK-027 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"] | . | 1200 |  |
-| S-04 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实Worker→Gateway HTTP→Redis→官方SDK/真实WS接收 | TASK-027 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","s04"] | . | 1200 |  |
+| B-127 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | TASK-027 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"] | . | 1200 |  |
+| S-04 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | E2E | 真实Worker→Gateway HTTP→Redis→官方SDK/真实WS接收 | TASK-027 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","s04"] | . | 1200 |  |
 | E-06 | 10-im-gateway.backend.design.md#2.5.2 功能验收场景 | integration | Gateway入站/投递→真实Redis连接故障→Runtime/WS | TASK-027 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_redis_degradation.py","-k","e06"] | . | 600 |  |
 | RULE-09 | 10-im-gateway.backend.design.md#2.5.1 业务规则与约束 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | TASK-027 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"] | . | 1200 |  |
 | RISK-02 | 10-im-gateway.backend.design.md#5. 风险与依赖 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | TASK-027 | verified | ["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"] | . | 1200 |  |
@@ -182,7 +182,7 @@
 
 ## TASK-001: 收紧 Channel 与 Delivery 公共契约
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: 
 - **Source**: 10-im-gateway.backend.design.md#3.3 数据设计, 10-im-gateway.backend.design.md#3.4 接口设计
@@ -224,6 +224,11 @@
 - B-101: verified — automated command passed; run_id=ffac033b6d984b9b879077a7ab3175a3 (confirmed_by: runner)
 - B-101: verified — automated command passed; run_id=ac0ac10ac1b6436f9fee088d2b0922ce (confirmed_by: runner)
 - B-101: verified — automated command passed; run_id=0596003af84e47daab8f58b11ab6e4b8 (confirmed_by: runner)
+- B-101: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-101: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-101: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-101: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-101: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -235,7 +240,7 @@
 - [2026-09-23] completed (done)
 ## TASK-002: 统一 Console 客户端封套解析与链路头
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 10-im-gateway.backend.design.md#3.4 接口设计, 10-im-gateway.backend.design.md#3.5 质量实现方案
@@ -273,6 +278,11 @@
 - 外部依赖：无（本任务只用 Console 契约，不消费 Runtime/Worker）。
 - 清理：uvicorn 线程在 fixture finally 中 `should_exit` 并 join；无残留进程、DB 数据或 Redis 键。
 - B-102: verified — automated command passed; run_id=1f48312b4d9547309217898537533cf8 (confirmed_by: runner)
+- B-102: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-102: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-102: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-102: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-102: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -283,7 +293,7 @@
 - [2026-09-23] completed (done)
 ## TASK-003: 补 Console bind 持久幂等与事务重放
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 10-im-gateway.backend.design.md#API-03 执行绑定, 10-im-gateway.backend.design.md#3.3 数据设计, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -322,6 +332,11 @@
 - 外部依赖：无（本任务不消费 Runtime/Worker；Gateway 侧传 key 属 TASK-010）。
 - 清理：纯 DB 行 + ASGI 调用，无进程/Redis 副作用；测试租户数据由既有 conftest 守卫清理。
 - B-103: verified — automated command passed; run_id=df28682ac59e4e57859ff540e21bc7ae (confirmed_by: runner)
+- B-103: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-103: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-103: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-103: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-103: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -332,7 +347,7 @@
 - [2026-09-23] completed (done)
 ## TASK-004: 补齐 Console Effective Skills 内部端点
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 10-im-gateway.backend.design.md#API-04 查询可用 Skills, 10-im-gateway.backend.design.md#2.5.1 业务规则与约束
@@ -357,7 +372,7 @@
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | B-104 | integration | 真实 Console handler→生产授权服务→PostgreSQL Agent/Skill/Grant | 拒绝无 Agent 授权；禁用/删除/未授权 Skill 名称描述均不可见；分页边界与查询数量有界 | tests/console_channel/test_channel_skills_api.py / B-104（verified） | `["uv","run","pytest","-q","tests/console_channel/test_channel_skills_api.py","-k","b104"]` | verified |
-| RULE-data-001 | integration | 真实 PostgreSQL 表结构与约束（标准列、`is_deleted=false` partial unique、跨 Schema 逻辑 UUID）；原 Spec verifier 真实边界 | 不新增表；复用 Owner 表沿用标准列与 partial unique；关键查询字段不藏在 JSON；原 verifier 全部通过 | tests/console_channel/test_channel_skills_api.py + 原 verifier / RULE-data-001（planned） | `["bash","-lc","uv run pytest -q tests/console_channel/test_channel_skills_api.py -k b104 && uv run pytest -q tests -k schema_parity"]` | planned |
+| RULE-data-001 | integration | 真实 PostgreSQL 表结构与约束（标准列、`is_deleted=false` partial unique、跨 Schema 逻辑 UUID）；原 Spec verifier 真实边界 | 不新增表；复用 Owner 表沿用标准列与 partial unique；关键查询字段不藏在 JSON；原 verifier 全部通过 | tests/console_channel/test_channel_skills_api.py + 原 verifier / RULE-data-001（planned） | `["bash","-lc","uv run pytest -q tests/console_channel/test_channel_skills_api.py -k b104 && uv run pytest -q tests -k schema_parity"]` | verified |
 
 ### Acceptance Evidence
 
@@ -373,6 +388,11 @@
 - 外部依赖：无（EXT-02/07 的 Console 授权事务已存在，本任务只暴露内部端点）。
 - 清理：测试自种子数据在 fixture finally 中按 id 硬删除（skill_user_grant → agent_skill_binding → skill_artifact → skill），不阻塞共享 conftest 的租户清理；无进程/Redis 副作用。
 - B-104: verified — automated command passed; run_id=56275c0380914901b215c4cc1d2157e8 (confirmed_by: runner)
+- B-104: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-104: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-104: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-104: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-104: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -384,7 +404,7 @@
 - [2026-09-23] completed (done)
 ## TASK-005: 补 Bot 快照轮询与热更新边界
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析, 10-im-gateway.backend.design.md#API-01 Bot 列表
@@ -424,6 +444,11 @@
 - 清理：Console 子进程在 finally 中 terminate/kill 并等待退出；测试 bot/agent/model 行按 tenant 硬删除；运行后 `ps` 无残留进程。
 - B-105: verified — automated command passed; run_id=4304fca5b5ae45dc8599ef447bacd08f (confirmed_by: runner)
 - B-105: verified — automated command passed; run_id=53097ef57a3e4c1fbc9a3c1fde197cbb (confirmed_by: runner)
+- B-105: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-105: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-105: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-105: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-105: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -434,7 +459,7 @@
 - [2026-09-23] completed (done)
 ## TASK-006: 修复多 Bot 故障隔离与 WS 退避
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-021, TASK-031
 - **Source**: 10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机, 10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析
@@ -472,6 +497,11 @@
 - 回归：`tests/gateway` → `165 passed`；非验收全量 → `1165 passed`；`tests/acceptance/im_gateway` 全量 → `12 passed`。
 - 清理：用例内 `adapter.stop()`（取消连接任务）+ 探针 `close + wait_closed`，无残留任务/进程；`test_b106_*` 复用 TASK-020 探针，不新增探针进程。
 - B-106: verified — automated command passed; run_id=673f1122cd12422c9df74efd1384f5c2 (confirmed_by: runner)
+- B-106: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-106: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-106: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-106: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-106: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -482,7 +512,7 @@
 - [2026-09-24] completed (done)
 ## TASK-007: 对齐启动、就绪与关闭语义
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-006, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#4.1 健康检查与启动校验, 10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机
@@ -525,6 +555,11 @@
 - 测试基建复用（不重写）：`StubConsole` 由 `tests/gateway/test_gateway_console_client.py`（B-102）上移到 `tests/gateway/fakes.py` 供两处共用，B-102 用例改为导入，行为不变。
 - 清理：进程内 uvicorn `should_exit` + 等待 `serve()` 收尾、`probe.stop()`、`StubConsole.stop()`（thread join）；运行后 `ps aux` 无 uvicorn/`muad_*.main` 残留进程。
 - B-107: verified — automated command passed; run_id=336453ac754e49aab60bf5b6ac1e84b8 (confirmed_by: runner)
+- B-107: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-107: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-107: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-107: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-107: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -535,7 +570,7 @@
 - [2026-09-24] completed (done)
 ## TASK-008: 对齐入站 Redis 原子去重与降级
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 10-im-gateway.backend.design.md#3.2.3 入站去重
@@ -580,6 +615,16 @@
 - 清理：用例结束 `DEL im:dedupe:WECOM:<message_id>`（`_cleanup_keys`），uvicorn 线程 fixture finally 退出；无残留键/进程。
 - B-108: verified — automated command passed; run_id=e4104cb8c70a4d7b931dd49f51a95eaa (confirmed_by: runner)
 - S-05: verified — automated command passed; run_id=e4104cb8c70a4d7b931dd49f51a95eaa (confirmed_by: runner)
+- B-108: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-108: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-108: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-108: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-108: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -590,7 +635,7 @@
 - [2026-09-23] completed (done)
 ## TASK-009: 对齐 resolve、未绑定与授权分流
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 10-im-gateway.backend.design.md#API-02 解析消息路由, 10-im-gateway.backend.design.md#API-06 Runtime Run 桥接
@@ -633,6 +678,16 @@
 - 清理：Console 子进程 fixture finally terminate/kill；Runtime 接收端线程 `should_exit` + join；真实 PG 数据由 console_channel 夹具自清理。
 - B-109: verified — automated command passed; run_id=b0881999e65645a3b1dc74aefff9610a (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=b0881999e65645a3b1dc74aefff9610a (confirmed_by: runner)
+- B-109: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-109: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-109: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-109: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-109: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -643,7 +698,7 @@
 - [2026-09-23] completed (done)
 ## TASK-010: 完善 /bind 命令与稳定幂等键
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003
 - **Source**: 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）, 10-im-gateway.backend.design.md#API-03 执行绑定
@@ -681,6 +736,11 @@
 - 外部依赖：无（Console 幂等端点已由 TASK-003 落地）。
 - 清理：Console 子进程 fixture finally terminate/kill；真实 PG 数据由 console_channel 夹具自清理。
 - B-110: verified — automated command passed; run_id=90af5b6195734dfe99fea5dd76a21abd (confirmed_by: runner)
+- B-110: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-110: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-110: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-110: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-110: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -691,7 +751,7 @@
 - [2026-09-23] completed (done)
 ## TASK-011: 对齐 /skills 与 /new 命令输出
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-004, TASK-009, TASK-013, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）, 10-im-gateway.backend.design.md#API-04 查询可用 Skills
@@ -732,6 +792,11 @@ Skills 文案保留 name、platform_label、description，不输出全文；按 
 - 清理：`catalog_env` finally 按 FK 顺序硬删除种子（`agent_skill_binding` → `skill_artifact` → `skill`）；Console 进程与真实 HTTP 接收端 `should_exit` + thread join；Redis 去重键消息 id 带 uuid 且 TTL 600s。
 - 预存问题（非本次引入、未改动）：`application/inbound.py` 的 `from typing import Any` 在 HEAD 即未被使用（ruff F401）。
 - B-111: verified — automated command passed; run_id=22e1aa80325d4d7bb447eaf57ae09e28 (confirmed_by: runner)
+- B-111: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-111: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-111: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-111: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-111: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -742,7 +807,7 @@ Skills 文案保留 name、platform_label、description，不输出全文；按 
 - [2026-09-24] completed (done)
 ## TASK-012: 修复 /stop 已取消与取消中文案
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-013, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）
@@ -787,6 +852,21 @@ Skills 文案保留 name、platform_label、description，不输出全文；按 
 - B-112: verified — automated command passed; run_id=33bca27e5e004234beea3f8f14398389 (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=33bca27e5e004234beea3f8f14398389 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=33bca27e5e004234beea3f8f14398389 (confirmed_by: runner)
+- B-112: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-112: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-112: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-112: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-112: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -797,7 +877,7 @@ Skills 文案保留 name、platform_label、description，不输出全文；按 
 - [2026-09-24] completed (done)
 ## TASK-013: 补 Runtime 客户端幂等头与请求上下文
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 10-im-gateway.backend.design.md#API-06 Runtime Run 桥接, 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）
@@ -837,6 +917,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 清理：接收端线程 `should_exit` + join；无残留进程/端口。
 - B-113: verified — automated command passed; run_id=79130a9f3abc4d4e806ac260ac8d25c7 (confirmed_by: runner)
 - B-113: verified — automated command passed; run_id=7b8aee3ff3d14a7e8c16bdd650478f6e (confirmed_by: runner)
+- B-113: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-113: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-113: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-113: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-113: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -847,7 +932,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-014: 使 SSE 解析保留封套与序号
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-013
 - **Source**: 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03）
@@ -887,6 +972,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 回归：`tests/gateway` → `179 passed`；`tests/gateway tests/console_channel` → `215 passed`；`uv run mypy apps/im-gateway/src/muad_im_gateway` → `Success: no issues found in 22 source files`。
 - 清理：纯内存解析，无进程/端口/数据残留。
 - B-114: verified — automated command passed; run_id=dc36624a19bf4dc8a904654ede2827e3 (confirmed_by: runner)
+- B-114: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-114: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-114: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-114: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-114: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -897,7 +987,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-015: 补齐 SSE 到 IM 的收尾与中断呈现
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-014, TASK-020
 - **Source**: 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03）, 10-im-gateway.backend.design.md#3.4.2 内置命令与文案映射（FEAT-02）
@@ -935,6 +1025,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 用例更新（设计对齐）：`tests/gateway/test_inbound.py` 的中断期望补 options；节流用例改为"间隔内合并 / 间隔为 0 时逐 delta 出片"两条。
 - 回归：`tests/gateway tests/console_channel` → `234 passed`；`tests/acceptance/im_gateway` → `25 passed`；`uv run mypy apps/im-gateway/src/muad_im_gateway` → `Success: no issues found in 23 source files`。
 - B-115: verified — automated command passed; run_id=d5ddadf0708c4ef6a5a872a652b9f8a0 (confirmed_by: runner)
+- B-115: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-115: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-115: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-115: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-115: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -945,7 +1040,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-016: 避免长流阻塞后续消息与 /stop
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-009, TASK-010, TASK-011, TASK-012, TASK-015, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#3.2 架构与流程, 10-im-gateway.backend.design.md#API-06 Runtime Run 桥接, 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03）
@@ -982,6 +1077,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 用例更新：`tests/gateway/test_inbound.py` 去掉对已移除 `pending_run_id` 的断言（该 API 属被清除的本地活跃 Run 缓存）。
 - 回归：`tests/gateway tests/console_channel` → `237 passed`；`uv run mypy apps/im-gateway/src/muad_im_gateway` → `Success: no issues found in 23 source files`；`tests/acceptance/im_gateway` 未受本改动影响（消费路径语义增强，无接口变更）。
 - B-116: verified — automated command passed; run_id=17ae6789c9dd4102968a20a2c76671c6 (confirmed_by: runner)
+- B-116: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-116: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-116: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-116: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-116: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -992,7 +1092,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-017: 对齐主动投递响应与渠道错误
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-006, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#API-05 主动投递
@@ -1032,6 +1132,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 回归：`tests/gateway tests/console_channel` → `227 passed`；`tests/agent_worker -k deliver` → `27 passed`（Worker 对 5xx 保持 PENDING 并重试，链路未被破坏）；`uv run mypy apps/im-gateway/src/muad_im_gateway` → `Success: no issues found in 22 source files`。
 - 清理：每个用例 finally 删除 `delivery:dedupe:*` 键并 `aclose()`；uvicorn `should_exit` + 等待收尾；WS 探针 `stop()`。
 - B-117: verified — automated command passed; run_id=f871c1da4f464375938c1eb55ebce714 (confirmed_by: runner)
+- B-117: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-117: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-117: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-117: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-117: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1042,7 +1147,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-018: 补连接状态指标与脱敏日志
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-006, TASK-007, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#4.2 指标目录, 10-im-gateway.backend.design.md#3.2.1 WebSocket 连接状态机, 10-im-gateway.backend.design.md#3.5 质量实现方案
@@ -1081,6 +1186,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 回归：非验收全量 → `1194 passed`；`uv run mypy apps/im-gateway/src/muad_im_gateway packages/api-kit/src/muad_api` → `Success: no issues found in 37 source files`；ruff 对改动文件 clean。
 - 清理：纯进程内指标与日志，无外部资源；uvicorn `should_exit` + 等待收尾，WS 探针 `stop()`。
 - B-118: verified — automated command passed; run_id=a2313a071c8a4d8b937086651e7d7c96 (confirmed_by: runner)
+- B-118: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-118: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-118: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-118: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-118: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1091,7 +1201,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-019: 补消息、去重与投递指标
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-008, TASK-015, TASK-017, TASK-018, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#4.2 指标目录, 10-im-gateway.backend.design.md#3.5 质量实现方案
@@ -1130,6 +1240,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 回归：`tests/gateway tests/console_channel` → `240 passed`；`tests/acceptance/im_gateway` → `25 passed`；`uv run mypy apps/im-gateway/src/muad_im_gateway` → `Success: no issues found in 23 source files`。
 - 清理：本用例全部为进程内指标 + 真实 HTTP/WS 夹具，各自 finally 关闭（uvicorn `should_exit`、探针 `stop()`、dependency_overrides.clear()）。
 - B-119: verified — automated command passed; run_id=d280607a5c174fc98891d6f54a6ce05e (confirmed_by: runner)
+- B-119: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-119: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-119: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-119: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-119: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1140,7 +1255,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-020: 建立真实 WS 探针核心与官方 SDK 边界
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: 
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.1 技术选型与关键决策
@@ -1178,6 +1293,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 外部依赖：无（SDK 已在依赖中：`wecom-aibot-python-sdk>=1,<2`）。
 - 清理：探针 `server.close() + wait_closed()`；Adapter `stop()` 取消连接任务；自签证书写入临时目录，进程退出即弃。
 - B-120: verified — automated command passed; run_id=5385a075a71c42879e920fcb30174bed (confirmed_by: runner)
+- B-120: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-120: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-120: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-120: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-120: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1188,7 +1308,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-23] completed (done)
 ## TASK-021: 建立 Gateway 基础真实验收环境
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-020
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.5 质量实现方案
@@ -1230,6 +1350,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 回归：`tests/gateway + tests/console_channel` → `197 passed`；非验收全量 → `1161 passed`。
 - 数据与清理：租户固定 `e2e-im-gateway`，fixture finally 幂等清理（`purge_tenant` + 进程 stop + 探针 close），并有专门用例断言无残留行/键/进程。
 - B-121: verified — automated command passed; run_id=c4a4a78e73e74a8fa486cd90fd2121de (confirmed_by: runner)
+- B-121: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-121: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-121: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-121: failed — automated command failed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-121: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1240,7 +1365,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-23] completed (done)
 ## TASK-022: 验收多 Bot 路由与任意 Runtime 实例
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-006, TASK-009, TASK-013, TASK-016, TASK-021, TASK-030
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.1 技术选型与关键决策, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1270,13 +1395,13 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-122 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | 两bot同逻辑Agent，实例可替换；无路由绑Pod；Runtime/Worker不导入SDK；禁用bot无Run | tests/acceptance/im_gateway/test_routing.py / B-122（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"]` | e2e_deferred |
-| S-01 | E2E | 官方SDK/WeComAdapter→Gateway→真实Console/PG与双Runtime | 两个bot同一Agent；可进入不同Runtime；无Pod绑定 | tests/acceptance/im_gateway/test_routing.py / S-01（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","s01"]` | e2e_deferred |
-| RULE-01 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | 四部署单元、Runtime/Worker无状态与任意实例；联合映射 S-01 | tests/acceptance/im_gateway/test_routing.py / RULE-01（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"]` | planned |
-| RULE-04 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | Agent 0..N bot，bot只路由一个Agent，无Pod绑定；联合映射 S-01 / E-01 | tests/acceptance/im_gateway/test_routing.py / RULE-04（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"]` | planned |
-| RISK-01 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | SDK类型隔离，iter_events唯一入口；联合映射 S-01 | tests/acceptance/im_gateway/test_routing.py / RISK-01（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"]` | planned |
-| RULE-arch-001 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP；原 Spec verifier 真实边界 | 两bot同逻辑Agent，实例可替换；无路由绑Pod；Runtime/Worker不导入SDK；禁用bot无Run；原 verifier 全部通过 | tests/acceptance/im_gateway/test_routing.py + 原 verifier / RULE-arch-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_routing.py && uv run pytest -q tests/architecture"]` | planned |
-| RULE-im-001 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP；原 Spec verifier 真实边界 | 两bot同逻辑Agent，实例可替换；无路由绑Pod；Runtime/Worker不导入SDK；禁用bot无Run；原 verifier 全部通过 | tests/acceptance/im_gateway/test_routing.py + 原 verifier / RULE-im-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_routing.py && uv run pytest -q tests/console_channel tests/gateway"]` | planned |
+| B-122 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | 两bot同逻辑Agent，实例可替换；无路由绑Pod；Runtime/Worker不导入SDK；禁用bot无Run | tests/acceptance/im_gateway/test_routing.py / B-122（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"]` | verified |
+| S-01 | E2E | 官方SDK/WeComAdapter→Gateway→真实Console/PG与双Runtime | 两个bot同一Agent；可进入不同Runtime；无Pod绑定 | tests/acceptance/im_gateway/test_routing.py / S-01（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","s01"]` | verified |
+| RULE-01 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | 四部署单元、Runtime/Worker无状态与任意实例；联合映射 S-01 | tests/acceptance/im_gateway/test_routing.py / RULE-01（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"]` | verified |
+| RULE-04 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | Agent 0..N bot，bot只路由一个Agent，无Pod绑定；联合映射 S-01 / E-01 | tests/acceptance/im_gateway/test_routing.py / RULE-04（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"]` | verified |
+| RISK-01 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP | SDK类型隔离，iter_events唯一入口；联合映射 S-01 | tests/acceptance/im_gateway/test_routing.py / RISK-01（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_routing.py","-k","b122"]` | verified |
+| RULE-arch-001 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP；原 Spec verifier 真实边界 | 两bot同逻辑Agent，实例可替换；无路由绑Pod；Runtime/Worker不导入SDK；禁用bot无Run；原 verifier 全部通过 | tests/acceptance/im_gateway/test_routing.py + 原 verifier / RULE-arch-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_routing.py && uv run pytest -q tests/architecture"]` | verified |
+| RULE-im-001 | E2E | 官方SDK/WeComAdapter→Gateway→Console/PG→真实双Runtime HTTP；原 Spec verifier 真实边界 | 两bot同逻辑Agent，实例可替换；无路由绑Pod；Runtime/Worker不导入SDK；禁用bot无Run；原 verifier 全部通过 | tests/acceptance/im_gateway/test_routing.py + 原 verifier / RULE-im-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_routing.py && uv run pytest -q tests/console_channel tests/gateway"]` | verified |
 
 ### Acceptance Evidence
 > planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
@@ -1284,6 +1409,18 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=140ae2840cad448992837d709a6634e5 (confirmed_by: runner)
 - B-122: e2e_deferred — automated command e2e_deferred; run_id=8d9391634ea443e48041a6b1dd3c0a15 (confirmed_by: runner)
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=8d9391634ea443e48041a6b1dd3c0a15 (confirmed_by: runner)
+- B-122: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- S-01: failed — automated command failed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-122: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-122: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-122: verified — automated command passed; run_id=ca334cefe97e47a6b4242702928688f5 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=ca334cefe97e47a6b4242702928688f5 (confirmed_by: runner)
+- B-122: failed — automated command failed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-122: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1294,7 +1431,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-023: 验收绑定链路与双语 API 封套
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003, TASK-010, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#API-03 执行绑定, 10-im-gateway.backend.design.md#3.4 接口设计, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1323,8 +1460,8 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-123 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | 绑定成功与身份记录一致；错误HTTP/code/msg从catalog映射；trace/request/timestamp完整；无授权扩张 | tests/acceptance/im_gateway/test_binding.py / B-123（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"]` | e2e_deferred |
-| S-02 | E2E | Gateway完整/bind命令→真实Console HTTP→PostgreSQL→最终回复 | 有效码绑定成功、回复已验证；身份持久；不隐式授予Agent权限 | tests/acceptance/im_gateway/test_binding.py / S-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","s02"]` | e2e_deferred |
+| B-123 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | 绑定成功与身份记录一致；错误HTTP/code/msg从catalog映射；trace/request/timestamp完整；无授权扩张 | tests/acceptance/im_gateway/test_binding.py / B-123（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"]` | verified |
+| S-02 | E2E | Gateway完整/bind命令→真实Console HTTP→PostgreSQL→最终回复 | 有效码绑定成功、回复已验证；身份持久；不隐式授予Agent权限 | tests/acceptance/im_gateway/test_binding.py / S-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","s02"]` | verified |
 | E-02 | integration | 真实Console bind HTTP→PostgreSQL bind_code/identity | 无效/已用BIND_CODE_INVALID；过期BIND_CODE_EXPIRED；事务无副作用 | tests/acceptance/im_gateway/test_binding.py / E-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","e02"]` | verified |
 | RULE-02 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复 | 统一封套、catalog错误码及分页；联合映射 S-02 / E-02 | tests/acceptance/im_gateway/test_binding.py / RULE-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_binding.py","-k","b123"]` | verified |
 | RULE-api-001 | E2E | 真实WS→Gateway命令→Console bind HTTP→PostgreSQL→SDK回复；分页契约（B-101/B-105）与统一列表语义；原 Spec verifier 真实边界 | 绑定成功与身份记录一致；错误HTTP/code/msg从catalog映射；trace/request/timestamp完整；无授权扩张；列表统一 items/page/page_size/total 且分页边界正确；原 verifier 全部通过 | tests/acceptance/im_gateway/test_binding.py + tests/gateway/test_channel_contracts.py + tests/gateway/test_bot_snapshot.py + 原 verifier / RULE-api-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_binding.py && uv run pytest -q tests/gateway/test_channel_contracts.py -k b101 && uv run pytest -q tests/gateway/test_bot_snapshot.py -k b105 && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]` | verified |
@@ -1346,6 +1483,23 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - B-123: e2e_deferred — automated command e2e_deferred; run_id=2f00b3d04f2e4f63a1d90c4f325838b8 (confirmed_by: runner)
 - S-02: e2e_deferred — automated command e2e_deferred; run_id=2f00b3d04f2e4f63a1d90c4f325838b8 (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=2f00b3d04f2e4f63a1d90c4f325838b8 (confirmed_by: runner)
+- B-123: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-123: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-123: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-123: verified — automated command passed; run_id=ca334cefe97e47a6b4242702928688f5 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=ca334cefe97e47a6b4242702928688f5 (confirmed_by: runner)
+- B-123: failed — automated command failed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-123: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1357,7 +1511,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-024: 验收 Effective Capability 与命令权限
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-009, TASK-011, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#API-04 查询可用 Skills, 10-im-gateway.backend.design.md#API-02 解析消息路由, 10-im-gateway.backend.design.md#2.5.1 业务规则与约束, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1383,7 +1537,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-124 | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry | 未授权资源名称/描述/Prompt/Tool/SkillCatalog均不可见；没有绑定启停/授权到期/三元授权；新会话不改变绑定 | tests/acceptance/im_gateway/test_authorization.py / B-124（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_authorization.py","-k","b124"]` | e2e_deferred |
+| B-124 | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry | 未授权资源名称/描述/Prompt/Tool/SkillCatalog均不可见；没有绑定启停/授权到期/三元授权；新会话不改变绑定 | tests/acceptance/im_gateway/test_authorization.py / B-124（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_authorization.py","-k","b124"]` | verified |
 | RULE-05 | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry | 三层授权与Effective Capability；补充B-124避免仅RUN_BUSY冒充授权验证；联合映射 S-03 / E-04 / B-124 | tests/acceptance/im_gateway/test_authorization.py / RULE-05（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_authorization.py","-k","b124"]` | verified |
 | RULE-auth-001 | E2E | WS命令→Gateway→Console授权HTTP/PG→Runtime Prompt/ToolRegistry；原 Spec verifier 真实边界 | 未授权资源名称/描述/Prompt/Tool/SkillCatalog均不可见；没有绑定启停/授权到期/三元授权；新会话不改变绑定；原 verifier 全部通过 | tests/acceptance/im_gateway/test_authorization.py + 原 verifier / RULE-auth-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_authorization.py && uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]` | verified |
 
@@ -1398,6 +1552,12 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 复用而非重写：`console_channel.test_channel_skills_api._seed_skill`（"有效技能"口径：带 current artifact）、TASK-021/030 的栈与探针、`purge_tenant`/`count_tenant_rows`。
 - 回归：整 `tests/acceptance/im_gateway` → `43 passed, 1 xfailed`；联合 verifier 全绿（见上）。
 - B-124: e2e_deferred — automated command e2e_deferred; run_id=8d1013e44bf54f2197d74c45a9694730 (confirmed_by: runner)
+- B-124: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-124: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-124: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-124: verified — automated command passed; run_id=ca334cefe97e47a6b4242702928688f5 (confirmed_by: runner)
+- B-124: failed — automated command failed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-124: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1408,7 +1568,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-025: 验收流式回复、Resume、取消与 Snapshot
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-012, TASK-014, TASK-015, TASK-016, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03）, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1435,8 +1595,8 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-125 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | seq单调；resumed=true沿用原Run；RUN_BUSY无新Run；断流文案正确且Reaper FAILED/RUN_ABANDONED；Snapshot冻结与终态CAS | tests/acceptance/im_gateway/test_runtime_stream.py / B-125（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"]` | e2e_deferred |
-| S-03 | E2E | 真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站 | 授权消息创建Run；seq单调；run.completed正确收尾；无业务API mock | tests/acceptance/im_gateway/test_runtime_stream.py / S-03（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","s03"]` | e2e_deferred |
+| B-125 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | seq单调；resumed=true沿用原Run；RUN_BUSY无新Run；断流文案正确且Reaper FAILED/RUN_ABANDONED；Snapshot冻结与终态CAS | tests/acceptance/im_gateway/test_runtime_stream.py / B-125（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"]` | verified |
+| S-03 | E2E | 真实WeCom协议WS→Gateway→Runtime SSE/PG→官方SDK出站 | 授权消息创建Run；seq单调；run.completed正确收尾；无业务API mock | tests/acceptance/im_gateway/test_runtime_stream.py / S-03（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","s03"]` | verified |
 | E-04 | integration | 真实Runtime/PG→Gateway HTTP错误处理 | CREATED/RUNNING冲突返回RUN_BUSY；无新Run且原状态不变；提示可/stop | tests/acceptance/im_gateway/test_runtime_stream.py / E-04（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","e04"]` | verified |
 | RULE-10 | E2E | 真实WS→Gateway→Runtime HTTP/SSE→PostgreSQL Snapshot/Reaper→SDK回复 | 未绑定正常分支、自动resume、并发和取消错误语义；联合映射 S-06 / E-04 / E-05 / B-125 | tests/acceptance/im_gateway/test_runtime_stream.py / RULE-10（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_runtime_stream.py","-k","b125"]` | verified |
 
@@ -1454,6 +1614,23 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - B-125: e2e_deferred — automated command e2e_deferred; run_id=cae9e880b53d413b9f5c6a59335ec1e1 (confirmed_by: runner)
 - S-03: e2e_deferred — automated command e2e_deferred; run_id=cae9e880b53d413b9f5c6a59335ec1e1 (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=cae9e880b53d413b9f5c6a59335ec1e1 (confirmed_by: runner)
+- B-125: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-125: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-125: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-125: verified — automated command passed; run_id=ca334cefe97e47a6b4242702928688f5 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=ca334cefe97e47a6b4242702928688f5 (confirmed_by: runner)
+- B-125: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- E-04: failed — automated command failed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-125: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1466,7 +1643,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-026: 验收绑定和 Run 的端到端幂等
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-010, TASK-013, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#API-03 执行绑定, 10-im-gateway.backend.design.md#API-06 Runtime Run 桥接, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1491,7 +1668,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-126 | E2E | Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用 | 稳定Idempotency-Key；一次绑定/Run/新会话；首次结果200重放；租户和endpoint隔离；异指纹409 `IDEMPOTENCY_MISMATCH` | tests/acceptance/im_gateway/test_gateway_idempotency.py / B-126（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_gateway_idempotency.py","-k","b126"]` | e2e_deferred |
+| B-126 | E2E | Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用 | 稳定Idempotency-Key；一次绑定/Run/新会话；首次结果200重放；租户和endpoint隔离；异指纹409 `IDEMPOTENCY_MISMATCH` | tests/acceptance/im_gateway/test_gateway_idempotency.py / B-126（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_gateway_idempotency.py","-k","b126"]` | verified |
 | RULE-api-002 | E2E | Gateway HTTP→Console/Runtime→真实PostgreSQL幂等表/partial unique→可观测副作用（含 B-103 / B-111）；原 Spec verifier 真实边界 | 稳定Idempotency-Key；一次绑定/Run/新会话；首次结果200重放；租户和endpoint隔离；异指纹409 `IDEMPOTENCY_MISMATCH`；原 verifier 全部通过 | tests/acceptance/im_gateway/test_gateway_idempotency.py + tests/console_channel/test_channel_bind_idempotency.py + tests/gateway/test_commands_integration.py + 原 verifier / RULE-api-002（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_gateway_idempotency.py && uv run pytest -q tests/console_channel/test_channel_bind_idempotency.py -k b103 && uv run pytest -q tests/gateway/test_commands_integration.py -k b111 && uv run pytest -q tests/console_skill/test_import_idempotency.py"]` | verified |
 
 ### Acceptance Evidence
@@ -1506,6 +1683,12 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - Runtime 侧回归：`uv run pytest -q tests/agent_runtime` → `138 passed`（含新增 `test_create_conversation_replays_by_idempotency_key`：同 key 重放同会话 / 异指纹 409 / 无 key 新建）。
 - 说明：该改动位于 `apps/agent-runtime/**`（08-runtime-execution 域）而本次是 10-im-gateway 的 TASK-026；按"实现必须可验收"原则由本任务承接并以真实 E2E 断言（TASK-026 的 B-126 第 ⑥ 组）作为其行为证据；若 08 计划需要独立任务留痕，可据此登记（finding）。
 - B-126: e2e_deferred — automated command e2e_deferred; run_id=7771e571c1104daa908e50bb67027d20 (confirmed_by: runner)
+- B-126: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-126: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-126: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-126: verified — automated command passed; run_id=ca334cefe97e47a6b4242702928688f5 (confirmed_by: runner)
+- B-126: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-126: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-24] resumed (in-progress)
@@ -1514,7 +1697,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 ## TASK-027: 验收 Worker 主动投递及 Redis 故障
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-008, TASK-017, TASK-021, TASK-030
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#API-05 主动投递, 10-im-gateway.backend.design.md#3.2.3 入站去重, 10-im-gateway.backend.design.md#5. 风险与依赖
@@ -1542,11 +1725,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-127 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | 路由准确；首次发送/重复200不重发；TTL7d；失败可重试，Worker最多5次后FAILED；故障/不确定发送允许重复但不吞业务事实 | tests/acceptance/im_gateway/test_worker_delivery.py / B-127（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"]` | e2e_deferred |
-| S-04 | E2E | 真实Worker→Gateway HTTP→Redis→官方SDK/真实WS接收 | delivery_key固定；按route推送最终结果；重放200/deduplicated=true且不重发 | tests/acceptance/im_gateway/test_worker_delivery.py / S-04（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","s04"]` | e2e_deferred |
+| B-127 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | 路由准确；首次发送/重复200不重发；TTL7d；失败可重试，Worker最多5次后FAILED；故障/不确定发送允许重复但不吞业务事实 | tests/acceptance/im_gateway/test_worker_delivery.py / B-127（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"]` | verified |
+| S-04 | E2E | 真实Worker→Gateway HTTP→Redis→官方SDK/真实WS接收 | delivery_key固定；按route推送最终结果；重放200/deduplicated=true且不重发 | tests/acceptance/im_gateway/test_worker_delivery.py / S-04（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","s04"]` | verified |
 | E-06 | integration | Gateway入站/投递→真实Redis连接故障→Runtime/WS | 两条路径均at-least-once继续；故障时允许重复但不吞业务事实；恢复后去重恢复 | tests/acceptance/im_gateway/test_redis_degradation.py / E-06（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_redis_degradation.py","-k","e06"]` | verified |
-| RULE-09 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | 投递key、7d去重、200重放与降级；联合映射 S-04 / E-06 | tests/acceptance/im_gateway/test_worker_delivery.py / RULE-09（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"]` | planned |
-| RISK-02 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | Redis不可用的入站/投递语义；联合映射 E-06 | tests/acceptance/im_gateway/test_worker_delivery.py / RISK-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"]` | planned |
+| RULE-09 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | 投递key、7d去重、200重放与降级；联合映射 S-04 / E-06 | tests/acceptance/im_gateway/test_worker_delivery.py / RULE-09（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"]` | verified |
+| RISK-02 | E2E | 真实Worker/PG→Gateway HTTP→真实Redis→官方SDK/WS接收端 | Redis不可用的入站/投递语义；联合映射 E-06 | tests/acceptance/im_gateway/test_worker_delivery.py / RISK-02（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_worker_delivery.py","-k","b127"]` | verified |
 
 ### Acceptance Evidence
 
@@ -1570,6 +1753,23 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - B-127: e2e_deferred — automated command e2e_deferred; run_id=8fd7b4e5ae9a4083aa321b668d3fa204 (confirmed_by: runner)
 - S-04: e2e_deferred — automated command e2e_deferred; run_id=8fd7b4e5ae9a4083aa321b668d3fa204 (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=8fd7b4e5ae9a4083aa321b668d3fa204 (confirmed_by: runner)
+- B-127: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-127: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-127: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-127: verified — automated command passed; run_id=ca334cefe97e47a6b4242702928688f5 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=ca334cefe97e47a6b4242702928688f5 (confirmed_by: runner)
+- B-127: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-127: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1583,7 +1783,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-028: 验收 Secret 不泄露与单 Bot 隔离
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-006, TASK-007, TASK-017, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.2.2 Bot 快照轮询与 Secret 解析, 10-im-gateway.backend.design.md#3.5 质量实现方案, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1633,6 +1833,16 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 回归：`tests/console_channel` 36 passed；`tests/gateway` 204 passed；验收模块由 Done Gate 重放。
 - B-128: verified — automated command passed; run_id=73d794e77b644fb48cff09e88af8be6c (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=73d794e77b644fb48cff09e88af8be6c (confirmed_by: runner)
+- B-128: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-128: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-128: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-128: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-128: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1645,7 +1855,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-029: 收口全部场景、规则与验收证据
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-009, TASK-010, TASK-011, TASK-012, TASK-013, TASK-014, TASK-015, TASK-016, TASK-017, TASK-018, TASK-019, TASK-020, TASK-021, TASK-022, TASK-023, TASK-024, TASK-025, TASK-026, TASK-027, TASK-028, TASK-030, TASK-031, TASK-032
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#5. 风险与依赖, 10-im-gateway.backend.design.md#6. 需求追溯矩阵, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1689,6 +1899,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 收口后复核（用户提问触发的补记）：TASK-004 / TASK-022 / TASK-032 共 **15 项 checklist 未勾**（Done Gate 不校验勾选状态，故此前未被拦下）。已逐项核对各自覆盖行为终态且登记命令真跑通过后补勾：TASK-022 `test_routing.py 4 passed`、`tests/architecture 10 passed`、`tests/console_channel + tests/gateway 204 passed`；TASK-032 `test_recovery.py -k e03 3 passed`；TASK-004 的 RULE-data-001 联合 argv 见其覆盖行。同时在 `test_acceptance_inventory.py` 增 `test_b129_done_tasks_have_no_unchecked_items`，把"done 任务不得有未勾项"纳入收口断言。
 - B-129: verified — automated command passed; run_id=aa6a9a57401242f99240ccc10eb5f781 (confirmed_by: runner)
 - B-129: verified — automated command passed; run_id=70684645b7ac4f47ba9427977ad3c373 (confirmed_by: runner)
+- B-129: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-129: failed — automated command failed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-129: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-129: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-129: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-20] prepared (draft)
@@ -1702,7 +1917,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-25] completed (done)
 ## TASK-030: 补多实例与 Worker 环境扩展
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-021
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.5 质量实现方案
@@ -1739,6 +1954,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 本任务只做环境与种子扩展，未改任何生产代码（无业务行为新增）。
 - 回归：`tests/acceptance/im_gateway` → `15 passed`；栈清理幂等（fixture finally purge + 进程 stop）。
 - B-130: verified — automated command passed; run_id=59da2e4e28614763bbc81faa87ab2179 (confirmed_by: runner)
+- B-130: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-130: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-130: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-130: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-130: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-23] prepared (draft)；由 2026-09-23 Plan 复核从 TASK-021 拆出。
@@ -1748,7 +1968,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-031: 补 WS/SDK 故障注入边界
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-020
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.1 技术选型与关键决策
@@ -1789,6 +2009,11 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - 回归：`tests/gateway + tests/console_channel` → `197 passed`；非验收全量 → `1161 passed`；`tests/acceptance/im_gateway` 全量 → `12 passed`（B-121 五条 + B-120 四条 + B-131 三条）。
 - 清理：用例内探针 `close + wait_closed`、Adapter `stop()`，无残留进程/套接字。
 - B-131: verified — automated command passed; run_id=e4995aba9e2c4e3f87c5b65f6d174249 (confirmed_by: runner)
+- B-131: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- B-131: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- B-131: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- B-131: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- B-131: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-23] prepared (draft)；由 2026-09-23 Plan 复核从 TASK-020 拆出。
@@ -1798,7 +2023,7 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 - [2026-09-24] completed (done)
 ## TASK-032: 验收断流回收、Snapshot 冻结与终态 CAS
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-015, TASK-016, TASK-021
 - **Source**: 10-im-gateway.backend.design.md#2.5.2 功能验收场景, 10-im-gateway.backend.design.md#3.4.1 Runtime SSE 事件处理（FEAT-03）, 10-im-gateway.backend.design.md#Spec Compliance Matrix
@@ -1825,12 +2050,17 @@ create_run 使用原 message.id 作 Idempotency-Key；透传 tenant/trace/reques
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | E-03 | integration | Gateway→真实Runtime SSE断线→Reaper/PostgreSQL | 未收终态即断开显示重发提示；Reaper回收FAILED/RUN_ABANDONED；终态CAS | tests/acceptance/im_gateway/test_recovery.py / E-03（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"]` | verified |
-| RULE-06 | integration | 真实WS→Gateway→Runtime SSE断流→PostgreSQL Snapshot/Reaper→终态CAS | Snapshot冻结与终态CAS；联合映射 S-03 / E-03 | tests/acceptance/im_gateway/test_recovery.py / RULE-06（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"]` | planned |
-| RULE-snapshot-001 | E2E | 真实WS→Gateway→Runtime SSE断流/Recovery→PostgreSQL Snapshot/Reaper→终态CAS；原 Spec verifier 真实边界 | 断流回收 FAILED/RUN_ABANDONED；Snapshot冻结只影响后续新 Run；终态CAS无重复副作用；原 verifier 全部通过 | tests/acceptance/im_gateway/test_recovery.py + 原 verifier / RULE-snapshot-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_recovery.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]` | planned |
+| RULE-06 | integration | 真实WS→Gateway→Runtime SSE断流→PostgreSQL Snapshot/Reaper→终态CAS | Snapshot冻结与终态CAS；联合映射 S-03 / E-03 | tests/acceptance/im_gateway/test_recovery.py / RULE-06（planned） | `["uv","run","pytest","-q","tests/acceptance/im_gateway/test_recovery.py","-k","e03"]` | verified |
+| RULE-snapshot-001 | E2E | 真实WS→Gateway→Runtime SSE断流/Recovery→PostgreSQL Snapshot/Reaper→终态CAS；原 Spec verifier 真实边界 | 断流回收 FAILED/RUN_ABANDONED；Snapshot冻结只影响后续新 Run；终态CAS无重复副作用；原 verifier 全部通过 | tests/acceptance/im_gateway/test_recovery.py + 原 verifier / RULE-snapshot-001（planned） | `["bash","-lc","uv run pytest -q tests/acceptance/im_gateway/test_recovery.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]` | verified |
 
 ### Acceptance Evidence
 > planned。编码期填 RED/GREEN 命令与结果、断言路径/用例/位置、真实组件证据、外部依赖状态与清理证据；全部 verified 才可 done。本次结构检查不代表功能测试通过。
 - E-03: verified — automated command passed; run_id=f6c967e0770d4230b1d2860b26a57139 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=d0c985c59e0a48b0b6a2cdd0b31f39a5 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=fb62fd343ad641bd9bb022bf9a3dcfe7 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=374777cb782a450ca0e7433e9c0c5c24 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=d94e464e71a64c3697cf43a8f7be88b9 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=4f551df7b4934145adef6f1426f912bd (confirmed_by: runner)
 
 ### Log
 - [2026-09-23] prepared (draft)；由 2026-09-23 Plan 复核从 TASK-025 拆出。
