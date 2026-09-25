@@ -16,6 +16,8 @@ export interface AuditListQuery {
   resourceType?: string;
   resourceId?: string;
   actorUserId?: string;
+  /** Agent 筛选（API-01/API-05 的 `agent_id`）：只命中运行类记录，config 类投影为空。 */
+  agentId?: string;
   action?: string;
   resultStatus?: string;
   traceId?: string;

@@ -9,9 +9,12 @@
  * TASK-014 的导出按钮（按当前筛选建任务，状态机归 `hooks/useAuditExport`）。
  *
  * 状态划分（自上而下）：`useAuditQueryState`（筛选/分页状态与出口）、`useAuditDetailSelection`（详情
- * 选择态）、`AuditPageToolbar`/`AuditDetailPanel`（两处局部 JSX）→ `AuditPage`（只做装配与取数编排）。
+ * 选择态）、`AuditPageToolbar`/`AuditRefreshNotice`/`AuditDetailPanel`（三处局部 JSX）→ `AuditPage`
+ * （只做装配与取数编排）。失败呈现分流（设计 §3.6）：首载失败（无行）走列表整页 `ErrorState`，刷新失败
+ * （已有行）保留行并在列表上方给非破坏性提示与重试——本页按「是否有行」推导两者，hook 只置 `failed`。
  */
 
+import { Banner, Button } from '@douyinfe/semi-ui';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -142,6 +145,35 @@ function AuditDetailPanel({ detail, handleCloseDetail }: AuditDetailPanelProps) 
   );
 }
 
+/** 刷新失败提示入参：显式重试入口复用页面的刷新出口（[E-06] 就地重试，不自动重提）。 */
+interface AuditRefreshNoticeProps {
+  onRetry(): void;
+}
+
+/**
+ * 刷新失败提示（[E-06] 非破坏性）：已加载行照常展示，只在列表上方就地给文案与重试入口——与
+ * `AuditExportButton` 的失败形态一致，不用整页 `ErrorState` 顶掉已有数据。
+ */
+function AuditRefreshNotice(props: AuditRefreshNoticeProps) {
+  const { t } = useTranslation();
+  return (
+    <div
+      data-testid="audit-refresh-error"
+      style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: 420 }}
+    >
+      <Banner type="danger" closeIcon={null} description={t('audit.list.refreshFailed')} />
+      <Button
+        theme="borderless"
+        type="danger"
+        data-testid="audit-refresh-retry"
+        onClick={props.onRetry}
+      >
+        {t('common.retry')}
+      </Button>
+    </div>
+  );
+}
+
 export function AuditPage() {
   const { t } = useTranslation();
   const { query, handleFilterChange, handleReset, handlePageChange } = useAuditQueryState();
@@ -152,6 +184,11 @@ export function AuditPage() {
   const handleRefresh = useCallback(() => {
     void reload();
   }, [reload]);
+
+  /** 刷新失败：已有行可保留 ⇒ 行照常展示，只在列表上方给非破坏性提示（设计 §3.6）。 */
+  const refreshFailed = failed && items.length > 0;
+  /** 首载失败：无行可保留 ⇒ 由列表整页 `ErrorState` 承载（保留既有行为与筛选条件）。 */
+  const firstLoadFailed = failed && !refreshFailed;
 
   /** 列表渲染入参（设计 §3.4）：TASK-012 的 AuditTable 落地后原样消费。 */
   const tableProps: AuditTableProps = {
@@ -170,7 +207,7 @@ export function AuditPage() {
   /** 表格入参（设计 §3.4/§3.6）：列/行渲染/空错槽位/分页全部由 AuditTable 供给。 */
   const auditTable = buildAuditTableProps({
     ...tableProps,
-    failed,
+    failed: firstLoadFailed,
     onRetry: handleRefresh,
     onReset: handleReset,
     t
@@ -186,6 +223,7 @@ export function AuditPage() {
         onReset={handleReset}
         onRefresh={handleRefresh}
       />
+      {refreshFailed ? <AuditRefreshNotice onRetry={handleRefresh} /> : null}
       <RemoteTable<AuditListItem> {...auditTable} />
       <AuditDetailPanel detail={detail} handleCloseDetail={handleCloseDetail} />
     </PageSection>

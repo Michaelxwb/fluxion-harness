@@ -24,12 +24,35 @@ export interface AuditFilterBarProps {
 
 const AUDIT_TYPES = ['CONFIG', 'TOOL', 'EGRESS', 'MODEL'] as const;
 
-/** 「Agent」列对应审计资源的资源类型（config 审计为配置对象类型）。 */
-const RESOURCE_TYPES = [
+/**
+ * 资源类型取值域：取后端投影列的资源类型**实际取值**，大小写原样保留。
+ *
+ * 配置侧来自 `muad_console_platform` 各 AppService 写入器（`AUDIT_*` 常量与内联字面量，后者含
+ * `project_platform`/`user_credential_ref`/`shared_credential_ref` 三个小写形态）；运行侧为投影 SQL
+ * 的字面量（`TOOL`/`MODEL`）与 egress 落库的目标类型（`MCP`）。
+ *
+ * 末三条是设计文档 v1.5 登记、但后端写入器从未产出的历史写法（实际产出的是
+ * `project_platform`/`PLATFORM_USER`/`AGENT_ACCESS_GRANT`）；它们只作登记域存在，供详情行按词条
+ * 呈现历史数据，不新增后端取值。值域开放，未登记的取值由详情行原样展示。
+ */
+export const RESOURCE_TYPES = [
   'AGENT',
-  'SKILL',
+  'AGENT_ACCESS_GRANT',
+  'AGENT_SKILL_BINDING',
+  'BIND_CODE',
+  'CHANNEL_IDENTITY',
   'MCP',
+  'MCP_SERVER',
   'MODEL',
+  'PLATFORM_USER',
+  'SKILL',
+  'SKILL_ARTIFACT',
+  'SKILL_USER_GRANT',
+  'TOOL',
+  'USER_MEMORY',
+  'project_platform',
+  'shared_credential_ref',
+  'user_credential_ref',
   'PROJECT_PLATFORM',
   'USER',
   'GRANT'
@@ -102,11 +125,20 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
         onChange={(text) => emit({ actorUserId: text || undefined })}
         onEnterPress={() => props.onSearch()}
       />
-      <Select
+      <Input
         data-testid="audit-filter-agent"
-        style={{ width: 150 }}
+        style={{ width: 180 }}
         showClear
         placeholder={t('audit.filter.agent')}
+        value={value.agentId ?? ''}
+        onChange={(text) => emit({ agentId: text || undefined })}
+        onEnterPress={() => props.onSearch()}
+      />
+      <Select
+        data-testid="audit-filter-resourceType"
+        style={{ width: 180 }}
+        showClear
+        placeholder={t('audit.filter.resourceType')}
         value={value.resourceType ?? undefined}
         optionList={RESOURCE_TYPES.map((type) => ({
           value: type,

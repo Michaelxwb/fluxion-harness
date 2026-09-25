@@ -29,6 +29,7 @@ import { ErrorState } from '../../../components/common/ErrorState';
 import { StatusTag, type StatusTagOption } from '../../../components/common/StatusTag';
 import { useAuditDetail } from '../hooks/useAuditDetail';
 import type { AuditDetail, AuditListItem } from '../types';
+import { RESOURCE_TYPES } from './AuditFilterBar';
 
 /** 详情 SideSheet 入参（设计 §3.4）：与页面导出的 `AuditDetailSideSheetProps` 同结构（保持单向 import）。 */
 export interface AuditDetailSideSheetProps {
@@ -72,9 +73,20 @@ const RESULT_COLORS: Record<string, StatusTagOption['color']> = {
   DENIED: 'red'
 };
 
+/** 登记过词条的资源类型取值（与筛选栏同一登记域），用于判定详情行是否取词条。 */
+const RESOURCE_TYPE_VALUES: ReadonlySet<string> = new Set(RESOURCE_TYPES);
+
 /** 空值统一显示 `-`：缺字段不编造内容。 */
 function text(value: unknown): string {
   return value === null || value === undefined || value === '' ? '-' : String(value);
+}
+
+/**
+ * 资源类型标签（设计 §3.3「资源类型」行）：登记过词条的取值走 `audit.resourceType.*`，未登记的取值
+ * 原样展示——资源类型值域开放（配置侧 + 运行侧、大小写不一），未知取值既不留空白、也不编造文案。
+ */
+function resourceTypeLabel(t: TFunction, value: string): string {
+  return RESOURCE_TYPE_VALUES.has(value) ? t(`audit.resourceType.${value}`) : text(value);
 }
 
 /** 对象/数组型来源字段（before/after/argsPreview）按 JSON 渲染，其余走 `text`。 */
@@ -113,7 +125,7 @@ function buildBasicItems(detail: AuditDetail, t: TFunction): DetailGridItem[] {
     },
     { label: t('audit.columns.traceId'), value: text(detail.traceId) },
     { label: t('audit.detail.field.auditId'), value: detail.auditId },
-    { label: t('audit.detail.field.resourceType'), value: text(detail.resourceType) },
+    { label: t('audit.detail.field.resourceType'), value: resourceTypeLabel(t, detail.resourceType) },
     { label: t('audit.detail.field.resourceId'), value: text(detail.resourceId) },
     { label: t('audit.detail.field.latencyMs'), value: text(detail.latencyMs) }
   ];

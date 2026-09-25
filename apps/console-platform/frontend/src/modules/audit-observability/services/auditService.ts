@@ -56,6 +56,7 @@ interface RawListQuery {
   resource_type?: string;
   resource_id?: string;
   actor_user_id?: string;
+  agent_id?: string;
   action?: string;
   result_status?: string;
   trace_id?: string;
@@ -72,6 +73,7 @@ interface RawExportCreateBody {
   resource_type?: string;
   resource_id?: string;
   actor_user_id?: string;
+  agent_id?: string;
   action?: string;
   result_status?: string;
   trace_id?: string;
@@ -174,6 +176,7 @@ function toListParams(query: AuditListQuery): RawListQuery {
     resource_type: query.resourceType,
     resource_id: query.resourceId,
     actor_user_id: query.actorUserId,
+    agent_id: query.agentId,
     action: query.action,
     result_status: query.resultStatus,
     trace_id: query.traceId,
@@ -192,6 +195,7 @@ function toExportBody(req: AuditExportCreateRequest): RawExportCreateBody {
     resource_type: filters.resourceType,
     resource_id: filters.resourceId,
     actor_user_id: filters.actorUserId,
+    agent_id: filters.agentId,
     action: filters.action,
     result_status: filters.resultStatus,
     trace_id: filters.traceId,
