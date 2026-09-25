@@ -57,7 +57,7 @@
 | B-202 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Console HTTP 导出状态/下载 → 真实 PostgreSQL + artifact store | TASK-007 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_download.py"] | . | 600 |  |
 | B-205 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-011 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_page_contract.py"] | . | 600 |  |
 | B-203 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 /metrics HTTP 端点 + 真实日志出口 + 运行审计表(PostgreSQL) | TASK-009 | verified | ["uv","run","pytest","-q","tests/test_audit_observability_config.py"] | . | 600 |  |
-| B-206 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-012 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_table_contract.py"] | . | 600 |  |
+| B-206 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-012 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_table_contract.py"] | . | 600 |  |
 | B-207 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-013 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"] | . | 600 |  |
 | B-208 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-014 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_export_contract.py"] | . | 600 |  |
 | B-209 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-015 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_i18n_contract.py"] | . | 600 |  |
@@ -690,7 +690,7 @@
 - [2026-09-25] completed (done)
 ## TASK-012: 审计表格与字段列
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-011
 - **Source**: 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.6 UI 状态
@@ -705,27 +705,42 @@
 
 ### Checklist
 
-- [ ] [S-06][E2E] 与 TASK-018 协同：按 Trace ID 搜索仅显示相关记录且字段与 docs/15 口径一致（本任务负责实现侧：列定义、`result_status` 标签、时间格式化）。
-- [ ] 覆盖 `useAuditList` 状态机：loading/empty/error 与分页参数变更重取。
-- [ ] [B-206][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：表格列与 docs/15 口径一致；复用 StatusTag/DateTimeText；分页与 total 联动；主展示字段可点开详情。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_table_contract.py"]`。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence。
+- [x] [S-06][E2E] 与 TASK-018 协同：按 Trace ID 搜索仅显示相关记录且字段与 docs/15 口径一致（本任务负责实现侧：列定义、`result_status` 标签、时间格式化）。
+- [x] 覆盖 `useAuditList` 状态机：loading/empty/error 与分页参数变更重取。
+- [x] [B-206][integration] 以前端源码契约 + 真实 tsc 类型检查 为边界编写/扩展用例；关键断言：表格列与 docs/15 口径一致；复用 StatusTag/DateTimeText；分页与 total 联动；主展示字段可点开详情。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_table_contract.py"]`。
+- [x] 执行上述契约命令，填写 Acceptance Evidence。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-06 | E2E | Browser(Chromium)→Console 聚合查询 HTTP | 仅显示相关记录；字段与 docs/15 一致；分页可用 | e2e/tests/audit-observability.spec.ts / S-06（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""]` | planned |
-| B-206 | integration | 前端源码契约 + 真实 tsc 类型检查 | 表格列与 docs/15 口径一致；复用 StatusTag/DateTimeText；分页与 total 联动；主展示字段可点开详情 | tests/frontend/test_audit_table_contract.py / B-206 | `["uv","run","pytest","-q","tests/frontend/test_audit_table_contract.py"]` | planned |
+| S-06 | E2E | Browser(Chromium)→Console 聚合查询 HTTP | 仅显示相关记录；字段与 docs/15 一致；分页可用 | e2e/tests/audit-observability.spec.ts / S-06（owner TASK-018） | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""]` | e2e_deferred |
+| B-206 | integration | 前端源码契约 + 真实 tsc 类型检查 | 表格列与 docs/15 口径一致；复用 StatusTag/DateTimeText；分页与 total 联动；主展示字段可点开详情 | tests/frontend/test_audit_table_contract.py / B-206 | `["uv","run","pytest","-q","tests/frontend/test_audit_table_contract.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-206 | **真实 RED**：`uv run pytest -q tests/frontend/test_audit_table_contract.py` → **11 failed**，首条 `AssertionError: 缺少前端文件：…/components/AuditTable.tsx`；另有一次失败由**我自己的 docstring** 触发 i18n 硬编码检查，已在源码侧改写措辞（**未削弱测试**）。 | 新增 `hooks/useAuditList.ts`（列表数据状态机：`{items,page,pageSize,total,loading,failed,reload}`、`requestSeq` 竞态守卫、失败只置 `failed`）与 `components/AuditTable.tsx`（以 **RemoteTable 入参工厂** 形态供给列定义/行渲染/空错槽位/分页联动）；`AuditPage.tsx` 改为消费二者（页面**保留** `<RemoteTable {...auditTable} />` 与两个 props 契约）→ 契约测试 **11 passed**；`tests/frontend/` **167 passed**（冻结的 `test_ui_style_contract.py` 绿）；`check_frontend_api_usage.py`/`check_frontend_i18n.py` OK（645 keys 不变）；`npm run typecheck` 与 `npm run build` 干净；ruff 干净。 | `tests/frontend/test_audit_table_contract.py` 11 条：列集合与 docs/15 口径一致且含 `StatusTag`/`DateTimeText`；`AuditTable` 以入参工厂供给 `RemoteTable` 且页面仍字面渲染 `RemoteTable`；hook 实现竞态守卫与 retry 且只经 TASK-010 的 service 调用；分页服务端驱动（`total` 来自响应）；无硬编码中文；主展示字段存在显式详情 seam。 | 前端源码契约 + 真实 `tsc --noEmit` + 真实 `vite build` + 两个仓库检查脚本 + 冻结的 ui-style verifier；未 mock 业务 API | verified |
+| S-06 | 无独立 RED（该场景的终验归 TASK-018 的浏览器验收；本任务以源码契约断言列表列/状态/时间的形态）。 | 列定义（审计类型/操作目标/操作用户/Agent/动作/执行结果/Trace ID/时间）、`resultStatus` 走 `StatusTag`、时间走 `DateTimeText`、分页与 `total` 联动落地；浏览器级证据由 TASK-018 承载。 | 同上用例的列/组件/分页断言 | 前端源码契约（UI 级证据归 TASK-018） | e2e_deferred（终验归 TASK-018） |
+
+**实现中的判断点（如实登记，含一项需知悉的改动）**：
+- **改动了 TASK-011（已 done）的契约测试文件 `tests/frontend/test_audit_page_contract.py`**：3 处断言迁到"现在拥有该逻辑的文件"（`EmptyState`/`ErrorState`/`EntityLink`/`onPageSizeChange` → `AuditTable`；E-06 的 catch 断言 → `useAuditList.ts`；service 调用 → hook），并在测试内写明迁移原因；**未删除、未削弱任何断言**。本人复核：TASK-011 的场景命令（同文件）复跑仍 **13 passed**，且 `tests/frontend/` 全量 167 passed ⇒ TASK-011 的 verified 结论不受影响。
+- **RemoteTable 约束的解法**：`AuditTable` 实现为 **props 工厂**（返回 `RemoteTableProps<AuditListItem>`）而非渲染 `RemoteTable` 的组件——冻结 verifier 要求页面里字面出现 `RemoteTable`，故由页面展开其返回值；列/行/空错槽位/分页仍全部由 `AuditTable` 供给。
+- **详情 seam**：用 `EntityLink`（操作目标列 + Trace ID 列，testId 沿用 TASK-011 的 `audit-link-*`/`audit-trace-*`），**未加 `onRowClick`**（`RemoteTableProps` 无该钩子，新增会波及所有模块；设计 §3.3.1 亦指定链接形态）。
+- **字段口径**：操作目标列取 `resourceId`（docs/15 的 `resource_id` ⇄ 操作目标；`target` 保留在类型里供 TASK-013）；审计类型列取 `auditType`（交互稿把 CONFIG/TOOL/EGRESS/MODEL 渲染在"审计类型"列）；列顺序按交互稿（时间列在前）。
+- **`StatusTag` 不设 `fallback`**：未登记的领域错误码原样以灰色显示，不伪造文案。
+- **`AuditTableOptions` 与页面的 `AuditTableProps` 有 7 个字段重复**：为保持 import 单向（避免类型环），结构性类型由展开桥接。
+- **`t: TFunction` 以参数传入工厂**（纯函数、非 hook），保证表格文件无 hook、文案随 locale 反应式。
+- **仓库坑（值得记录）**：在注释里写 `**/`（例如 `modules/` 与 `*Page.tsx` 相邻的 glob 写法）会破坏仓库的注释剥离工具（`**/` 含 `*/`）⇒ 会误报"硬编码中文"；本任务已改写措辞规避。
+- B-206: verified — automated command passed; run_id=d559b9d6046d47a8b74de78f5e0527a2 (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-013: 详情 SideSheet 与关联链接
 
 - **Status**: draft
