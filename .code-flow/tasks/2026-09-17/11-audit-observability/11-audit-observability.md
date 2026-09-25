@@ -69,7 +69,7 @@
 | B-212 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 Runtime/Worker 进程 + 真实 `/metrics` HTTP 端点 + 真实调用点 | TASK-020 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_runtime_metrics.py && uv run pytest -q tests/agent_worker/test_worker_metrics.py"] | . | 600 |  |
 | RULE-worker-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | 真实 Worker 进程与 PostgreSQL/Redis（claim/reclaim/lease/schedule/delivery）+ 原 verifier 真实边界 | TASK-020 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_runtime_metrics.py && uv run pytest -q tests/agent_worker/test_worker_metrics.py && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"] | . | 1200 |  |
 | B-213 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 Console HTTP + 真实 PostgreSQL（审计四表 + 运行/任务表） | TASK-021 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_agent_filter.py","-k","b213"] | . | 600 |  |
-| B-214 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 前端源码契约 + 真实 tsc + 仓库检查脚本（services 收口/i18n） | TASK-022 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_gap_contract.py","-k","b214"] | . | 600 |  |
+| B-214 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 前端源码契约 + 真实 tsc + 仓库检查脚本（services 收口/i18n） | TASK-022 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_gap_contract.py","-k","b214"] | . | 600 |  |
 | E-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 详情查询→关联 Run 不可读 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"] | . | 600 |  |
 | E-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应 | TASK-008 | verified | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | E-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 列表查询参数校验 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
@@ -1253,13 +1253,13 @@ TASK-009 只落地了 Console 侧指标（`/metrics` + 四个计数器）。本�
 - [2026-09-25] completed (done)
 ## TASK-022: 前端接线收口（Agent 筛选 / resourceType 域 / 刷新失败提示）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-011, TASK-012, TASK-015, TASK-021
 - **Source**: 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.6 UI 状态
 - **Spec-Refs**:
 - **Acceptance-Refs**: B-214
-- **Files**: `apps/console-platform/frontend/src/modules/audit-observability/types.ts`, `apps/console-platform/frontend/src/modules/audit-observability/services/auditService.ts`, `apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx`, `apps/console-platform/frontend/src/modules/audit-observability/components/AuditDetailSideSheet.tsx`, `apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditList.ts`, `apps/console-platform/frontend/src/locales/zh-CN.json`, `apps/console-platform/frontend/src/locales/en-US.json`, `tests/frontend/test_audit_gap_contract.py`
+- **Files**: `apps/console-platform/frontend/src/modules/audit-observability/types.ts`, `apps/console-platform/frontend/src/modules/audit-observability/services/auditService.ts`, `apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx`, `apps/console-platform/frontend/src/modules/audit-observability/components/AuditDetailSideSheet.tsx`, `apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditList.ts`, `apps/console-platform/frontend/src/locales/zh-CN.json`, `apps/console-platform/frontend/src/locales/en-US.json`, `tests/frontend/test_audit_gap_contract.py`、`pages/AuditPage.tsx`（失败呈现分流与行内提示）
 - **Estimate**: 半天级（四处口径 + 词条）；超出按项拆
 
 ### Description
@@ -1268,21 +1268,37 @@ TASK-009 只落地了 Console 侧指标（`/metrics` + 四个计数器）。本�
 
 ### Checklist
 
-- [ ] [B-214][integration] 以 前端源码契约 + 真实 `tsc --noEmit` + 仓库检查脚本 为边界编写/扩展用例；关键断言：Agent 筛选传 `agentId`、resourceType 覆盖实际取值且详情行有 i18n 兜底、刷新失败保留行且给非破坏性提示、首载失败才 `ErrorState`。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_gap_contract.py","-k","b214"]`。
-- [ ] 实现或补齐：`AuditListQuery` 增 `agentId`、service 传参、筛选栏接线（含 i18n key）。
-- [ ] 实现或补齐：resourceType 枚举覆盖实际取值 + 详情行 i18n 兜底（zh-CN/en-US 同键集）。
-- [ ] 实现或补齐：`useAuditList` 区分首载失败与刷新失败；刷新失败时保留 `items` 并由页面渲染非破坏性提示。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
+- [x] [B-214][integration] 以 前端源码契约 + 真实 `tsc --noEmit` + 仓库检查脚本 为边界编写/扩展用例；关键断言：Agent 筛选传 `agentId`、resourceType 覆盖实际取值且详情行有 i18n 兜底、刷新失败保留行且给非破坏性提示、首载失败才 `ErrorState`。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_audit_gap_contract.py","-k","b214"]`。
+- [x] 实现或补齐：`AuditListQuery` 增 `agentId`、service 传参、筛选栏接线（含 i18n key）。
+- [x] 实现或补齐：resourceType 枚举覆盖实际取值 + 详情行 i18n 兜底（zh-CN/en-US 同键集）。
+- [x] 实现或补齐：`useAuditList` 区分首载失败与刷新失败；刷新失败时保留 `items` 并由页面渲染非破坏性提示。
+- [x] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-214 | integration | 前端源码契约 + 真实 `tsc --noEmit` + 仓库检查脚本（services 收口/i18n） | Agent 筛选走 `agentId`；resourceType 覆盖实际取值且详情行有 i18n 兜底；刷新失败保留已加载行 + 非破坏性提示；仅首载失败渲染 `ErrorState` | tests/frontend/test_audit_gap_contract.py / B-214 | `["uv","run","pytest","-q","tests/frontend/test_audit_gap_contract.py","-k","b214"]` | planned |
+| B-214 | integration | 前端源码契约 + 真实 `tsc --noEmit` + 仓库检查脚本（services 收口/i18n） | Agent 筛选走 `agentId`；resourceType 覆盖实际取值且详情行有 i18n 兜底；刷新失败保留已加载行 + 非破坏性提示；仅首载失败渲染 `ErrorState` | tests/frontend/test_audit_gap_contract.py / B-214 | `["uv","run","pytest","-q","tests/frontend/test_audit_gap_contract.py","-k","b214"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-214 | **真实 RED**：`-k b214` → **5 failed / 1 passed**，首条 `AssertionError: AuditListQuery 须有 agentId 筛选字段`；另有"须显式区分两种失败""变更面应引用词条 audit.filter.resourceType""筛选项未覆盖后端实际取值""缺 resourceTypeLabel"四条。 | `types.ts` 增 `agentId`；`auditService.ts` 的 `RawListQuery`/`RawExportCreateBody`/`toListParams`/`toExportBody` 全链路透传 `agent_id`；`AuditFilterBar` 的「Agent」改为绑定 `agentId` 的 Input（并新增绑定 `resourceType` 的独立 Select，`RESOURCE_TYPES` 换成真实值域）；`AuditDetailSideSheet` 增 `resourceTypeLabel()`（已知值走 i18n、未知值原样兜底）接入「资源类型」行；`AuditPage` 派生 `refreshFailed`/`firstLoadFailed` 并渲染 `AuditRefreshNotice`（Banner + 重试，镜像 `AuditExportButton` 形态）；locale 各 +15 键 → 登记 argv **6 passed**；`tests/frontend/` **203 passed**；两个检查脚本 OK（698 keys）；`tsc --noEmit` 干净；ruff 干净。 | `tests/frontend/test_audit_gap_contract.py`（6 例）：① Agent 筛选端到端接 `agentId`（types → service 查询参数 → 导出 body）且不再挂在 `resourceType` 上；② 资源类型选项覆盖真实值域且详情行有 i18n 标签 + 原值兜底；③ 两种失败显式区分（首载失败走整页 `ErrorState`；刷新失败保留已加载行 + 行内非破坏性提示 + 重试）；④ 新增键在 zh-CN/en-US 键集一致；⑤ 变更文件无硬编码中文。 | 前端源码契约（测试**程序化派生**后端真实取值域，漂移即失败）+ 真实 `tsc --noEmit` + 真实 `vite build`（由 RULE-ui-001 的 verifier 覆盖）+ 两个仓库检查脚本 | verified |
+
+**实现中的判断点（如实登记）**：
+- **resource_type 值域**：测试**程序化派生**（config 侧从 `application/*.py` 的 `AUDIT_*` 常量与内联字面量取 15 个：`AGENT/AGENT_ACCESS_GRANT/AGENT_SKILL_BINDING/BIND_CODE/CHANNEL_IDENTITY/MCP_SERVER/MODEL/PLATFORM_USER/SKILL/SKILL_ARTIFACT/SKILL_USER_GRANT/USER_MEMORY/project_platform/user_credential_ref/shared_credential_ref`；运行侧 3 个：投影 SQL 的 `'TOOL'`/`'MODEL'` 与 egress 的 `MCP`），17 个真实值全部进选项与词条。
+- **保留 3 个 legacy 取值**（`PROJECT_PLATFORM`/`USER`/`GRANT`）：设计 v1.5 §3.3 提到了它们，但**没有任何写入方产生**（`git log -S` 确认）；无法在不改另外两个任务（TASK-011/TASK-015）契约测试的前提下删除（那两处硬断言这些键存在且无孤儿键）⇒ 保留为**文档化超集（20 项）**，注释标明"仅登记、当前无匹配"。代价：下拉里 3 个当前匹配不到的选项。
+- **两种失败信号在 `AuditPage` 派生而非由 hook 返回**：`test_audit_table_contract.py:244` 把 hook 返回字面量冻结为精确的七字段（TASK-012 所有、不在本任务 Files），故 hook 形状不变（仅补文档说明），页面派生 `refreshFailed = failed && items.length > 0` 与 `firstLoadFailed = failed && !refreshFailed`。
+- **`AuditPage.tsx` 改动超出计划 Files**：交付项 ③ 要求提示位于列表之上（不能塞进只在零行时渲染的表格空槽位），故必须改页面。
+- **testid**：Agent 的 Input 沿用既有 `audit-filter-agent`（有测试断言其存在），新的资源类型 Select 用 `audit-filter-resourceType`；复用既有 `audit.filter.agent` 作占位（避免制造孤儿键）。
+- **注释里禁写 snake_case 字面量**（两条既有契约会扫源码含注释），故新注释写「资源类型/目标类型」而非 `resource_type`/`target_type`（首轮因此吃过一次回归）。
+- `AuditTable.tsx` 未动（改为接收 `failed: firstLoadFailed`，空槽行为不变）；既有标签未顺手改动。
+- `AuditPage` 现 55 物理行 / 42 代码行（上一版 49 物理行），新增逻辑即失败分流 + 一行渲染，提示 JSX 已抽成 19 行局部组件以压小容器；未为了凑行数内联既有 `tableProps` 透传。
+- `useAuditList.ts` 本次仅改文档注释（行为无需改动：刷新保留旧行本就如此，缺的是呈现分流）。
+- B-214: verified — automated command passed; run_id=4e58e535792b457ea54bc394475e2e7e (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)（由 TASK-019 收口发现的缺口拆出：Agent 筛选口径、resourceType 域与详情展示、刷新失败提示）
+- [2026-09-25] started
+- [2026-09-25] completed (done)
