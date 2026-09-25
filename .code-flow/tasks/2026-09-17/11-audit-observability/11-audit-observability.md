@@ -29,7 +29,7 @@
 | TASK-004 | P0 | 审计详情 API-02 与关联降级 | 003 | 3.4 API-02；3.3 投影 | E-01(integration) | 4 |
 | TASK-005 | P0 | Admin Run 列表/详情 API-03/04 | 002 | 3.4 API-03/04；3.3 Admin Run 详情响应 | S-03(E2E), B-201(integration) | 5 |
 | TASK-006 | P1 | 导出任务表与创建 API-05（幂等） | 003 | 3.3 `control.audit_export_job`；3.4 API-05；2.5.1 RULE-09 | S-05(E2E), E-05(integration), RULE-03(integration), RULE-09(integration), RULE-api-002(E2E), RULE-data-001(integration) | 7 |
-| TASK-007 | P1 | 导出状态/下载 API-06 与执行落地 | 006 | 3.4 API-06；3.5 可靠性 | S-05(E2E) | 4 |
+| TASK-007 | P1 | 导出状态/下载 API-06 与执行落地 | 006 | 3.4 API-06；3.5 可靠性 | S-05(E2E), B-202(integration) | 5 |
 | TASK-008 | P0 | 三层脱敏收口（日志/写入/响应） | 001, 002 | 3.5 安全与日志脱敏；2.5.1 RULE-01/RULE-04 | E-02(integration), RULE-01(integration), RULE-04(integration), RULE-log-001(integration), RULE-secret-001(integration) | 6 |
 | TASK-009 | P1 | 可观测性：trace 关联字段与指标目录 | 002 | 3.5 可观测性；4 部署与运维 | — | 4 |
 | TASK-010 | P0 | 前端 service 层与类型契约 | 无 | frontend 3.4 组件接口契约 | RULE-front-001(integration) | 4 |
@@ -53,6 +53,7 @@
 | S-04 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console AppService 事务→control.config_audit_log | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_config_write.py","-k","s04"] | . | 600 |  |
 | S-05 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→Console 导出创建/查询 HTTP→幂等表与导出任务(PostgreSQL) | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s05"] | . | 1200 |  |
 | B-201 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Runtime HTTP /internal/admin/runs 与 /internal/admin/runs/{run_id} → 真实 PostgreSQL | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_admin_run_api.py"] | . | 600 |  |
+| B-202 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Console HTTP 导出状态/下载 → 真实 PostgreSQL + artifact store | TASK-007 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_download.py"] | . | 600 |  |
 | E-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 详情查询→关联 Run 不可读 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"] | . | 600 |  |
 | E-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应 | TASK-008 | planned | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | E-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 列表查询参数校验 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
@@ -410,13 +411,13 @@
 - [2026-09-25] completed (done)
 ## TASK-007: 导出状态/下载 API-06 与执行落地
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-006
 - **Source**: 11-audit-observability.backend.design.md#3.4 接口设计, 11-audit-observability.backend.design.md#3.5 质量实现方案
 - **Spec-Refs**:
-- **Acceptance-Refs**: S-05
-- **Files**: `apps/console-platform/backend/src/muad_console_platform/api/audits.py`, `apps/console-platform/backend/src/muad_console_platform/application/audit_export_service.py`, `tests/console_platform/test_audit_export_download.py`
+- **Acceptance-Refs**: S-05, B-202
+- **Files**: `apps/console-platform/backend/src/muad_console_platform/api/audits.py`, `apps/console-platform/backend/src/muad_console_platform/application/audit_export_service.py`, `tests/console_platform/test_audit_export_download.py`、`infrastructure/repositories/audit_export_repository.py`、`infrastructure/repositories/audit_query_repository.py`
 - **Estimate**: 半天级（含导出执行与产物落地）；超出先拆执行与下载两段
 
 ### Description
@@ -425,26 +426,43 @@
 
 ### Checklist
 
-- [ ] [S-05][E2E] 与 TASK-017 协同覆盖"轮询至 SUCCEEDED 并下载"的真实链路（本任务负责实现侧：状态推进、产物落地与下载响应头）。
-- [ ] [S-05][integration] 覆盖导出执行：按任务筛选条件生成 CSV/JSON，写入 artifact store 并回填 `artifact_ref`/`row_count`/`status`。
-- [ ] 覆盖错误分支：未完成下载 → `COMMON_CONFLICT`；不存在 → `COMMON_NOT_FOUND`；执行失败写 `error_code`。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
+- [x] [S-05][E2E] 与 TASK-017 协同覆盖"轮询至 SUCCEEDED 并下载"的真实链路（本任务负责实现侧：状态推进、产物落地与下载响应头）。
+- [x] [S-05][integration] 覆盖导出执行：按任务筛选条件生成 CSV/JSON，写入 artifact store 并回填 `artifact_ref`/`row_count`/`status`。
+- [x] 覆盖错误分支：未完成下载 → `COMMON_CONFLICT`；不存在 → `COMMON_NOT_FOUND`；执行失败写 `error_code`。
+- [x] [B-202][integration] 以真实 Console HTTP 导出状态/下载 → 真实 PostgreSQL + artifact store 为边界编写/扩展用例；关键断言：状态机可轮询、仅 SUCCEEDED 可下载（响应头正确）、未完成 COMMON_CONFLICT、不存在/跨租户 COMMON_NOT_FOUND、产物无 Secret。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_audit_export_download.py"]`。
+- [x] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-05 | E2E | Browser→Console 导出状态/下载 HTTP→PostgreSQL + artifact store | 轮询至 SUCCEEDED；下载返回产物与正确响应头；未完成/不存在错误码正确 | tests/acceptance/audit_observability/test_audit_acceptance.py / S-05（owner TASK-017） | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s05"]` | planned |
+| S-05 | E2E | Browser→Console 导出状态/下载 HTTP→PostgreSQL + artifact store | 轮询至 SUCCEEDED；下载返回产物与正确响应头；未完成/不存在错误码正确 | tests/acceptance/audit_observability/test_audit_acceptance.py / S-05（owner TASK-017） | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s05"]` | e2e_deferred |
+| B-202 | integration | 真实 Console HTTP 导出状态/下载 → 真实 PostgreSQL + artifact store | 状态机 PENDING→RUNNING→SUCCEEDED/FAILED 可轮询；仅 SUCCEEDED 可下载且带正确响应头；未完成 COMMON_CONFLICT、不存在/跨租户 COMMON_NOT_FOUND；产物不含 Secret | tests/console_platform/test_audit_export_download.py / B-202 | `["uv","run","pytest","-q","tests/console_platform/test_audit_export_download.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-202 | **真实 RED**：`5 failed in 0.72s`，全部为 `assert 404 == 200/409`（`COMMON_NOT_FOUND` —— API-06 两条 GET 路由尚不存在）。诚实记录：首轮 RED 为 4 failed / 1 passed，随即给跨租户用例补了正向对照，使其 RED 阶段不空过。 | 实现 API-06 状态/下载两条路由（均声明在 `GET /{audit_id}` 之前，`export_id` 用 `uuid.UUID` 路径参数）+ 懒执行器 `run_pending_exports`（按设计的 `(tenant_id, status, create_time)` 索引 `FOR UPDATE SKIP LOCKED` claim，随即 `mark_running`，多 Pod 只执行一次）+ 产物复用既有 artifact store（`write_artifact`/`artifact_path`，键位 `exports/{tenant}/{export_id}/audits.{csv,json}` —— **刻意放在 `skills/` 之外**，否则会被 `cleanup_orphan_files` 回收）→ **5 passed in 0.77s**；console 回归 `tests/console_platform/` **108 passed**；ruff/mypy 干净；配对 verifier 腿（`test_audit_export_api.py` 3、`test_import_idempotency.py` 5、`schema_parity` 35、i18n+catalog 15、`check_error_message_hardcode.py` OK）全绿。 | 5 个用例：`test_b202_export_status_progresses_and_download_returns_artifact`（轮询状态推进到 `SUCCEEDED`、`row_count` 与种子一致、下载 `Content-Type`/`Content-Disposition` 文件名正确、正文按格式解析且只含筛选行、无 Secret）；`test_b202_json_export_download_parses_as_json`；`test_b202_download_before_completion_is_conflict`（PENDING 下载 → `COMMON_CONFLICT`）；`test_b202_unknown_and_cross_tenant_export_is_not_found`（未知与跨租户均 `COMMON_NOT_FOUND`，且对方任务仍 PENDING、无产物）；`test_b202_failed_execution_reports_catalog_error_code`（执行失败 → `FAILED` + catalog `error_code`，下载仍冲突） | 真实 Console HTTP + 真实 PostgreSQL（作业行逐行回读）+ 真实 artifact store（每用例临时 `ARTIFACT_ROOT`，并断言下载字节与磁盘产物逐字节一致，不污染仓库 `.data/artifacts`）；未 mock 业务 API | verified |
+
+**实现中的判断点（如实登记）**：
+- **执行触发（设计未规定进程/间隔）**：采用"状态 GET 内懒执行"——`ASGITransport` 下 lifespan 不启动，后台任务会 flaky，故由轮询自驱动；**下载路由刻意不触发执行**，否则 PENDING 下载无法返回 `COMMON_CONFLICT`。代价：状态 GET 带副作用（限于本租户 PENDING 作业）。
+- **并发**：`SELECT … WHERE tenant_id/status='PENDING'/is_deleted=false ORDER BY create_time FOR UPDATE SKIP LOCKED` + 立即 `mark_running`；`PENDING→RUNNING→SUCCEEDED/FAILED` 为真实状态迁移（非装饰）。
+- **产物存储**：复用 `infrastructure/skill_artifact_store.py` 的 `write_artifact`/`artifact_path`（同一 NFS 根、原子写、遍历防护）；键位**避开 `skills/`**（`cleanup_orphan_files` 会 glob `skills/*/*`）；`write_artifact` 不可覆盖，重复执行同一作业会落 `FAILED/COMMON_INTERNAL_ERROR` 而非静默覆盖。
+- **列集与格式**：CSV 16 列表头/`\n`/UTF-8；JSON 为裸行数组；列集与 API-01/02 同一 `_PROJECTION_SQL`（无第二套查询、不建宽表）；时间用 `format_console_time`（`YYYY-MM-DD HH:mm:ss`，RULE-05/`harness-time`）。
+- **`update_time`**：模型只有 `server_default now()`（无 DB `onupdate`），每次状态迁移在仓储层显式写 `now(UTC)`，否则暴露的 `update_time` 永不变化。
+- **失败注入**：真实 PENDING 行 + 非法存储筛选（执行前复用 `validate_filters` 复验）→ `FAILED` + catalog 码；只捕获 `AppError`（业务→catalog）与 `OSError`（产物写失败→`COMMON_INTERNAL_ERROR`，`logger.exception`），其余如实上抛。
+- **跨租户口径**：查询恒带 `(tenant_id, export_id, is_deleted=false)`，未知与外部 id 不可区分（均 `COMMON_NOT_FOUND`）；执行器只 claim 请求租户的作业（用例断言对方作业仍 PENDING）。沿用兄弟路由既有的 `TenantId`（`X-Tenant-Id`），未擅自改动共享鉴权模型——该模块已登记的鉴权加固遗留项继续保留。
+- **状态 GET 先执行后判存在**（一次读取而非 check/run/re-read），接受一个小副作用。
+- 下载返回裸 `Response`（正文即产物字节，非封套）；错误仍走 `AppError` → catalog 封套；`text/*` 会被 Starlette 追加 `charset`，断言按 media type 比较。
+- B-202: verified — automated command passed; run_id=7599b9172245445a9e07dbd87467d692 (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-008: 三层脱敏收口（日志/写入/响应）
 
 - **Status**: draft

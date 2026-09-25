@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "11-audit-observability.md",
-  "task_sha256": "e739628226a103e4caaa4e0ace85ad3067d5b0f18806570cac1993383c5fc97a",
+  "task_sha256": "a0209268417ba5353492a1b864709cf575a02728647e305fcb43dcdc65f7d4e2",
   "scenarios": [
     {
       "id": "S-01",
@@ -128,6 +128,46 @@
       "depends_on": []
     },
     {
+      "id": "B-202",
+      "source": "11-audit-observability.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Console HTTP 导出状态/下载 → 真实 PostgreSQL + artifact store",
+      "owner": "TASK-007",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_audit_export_download.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-202",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "7599b9172245445a9e07dbd87467d692",
+        "executed_at": "2026-09-25T04:26:51.953955+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-202",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7599b9172245445a9e07dbd87467d692",
+          "executed_at": "2026-09-25T04:26:51.953955+00:00"
+        }
+      ]
+    },
+    {
       "id": "E-01",
       "source": "11-audit-observability.backend.design.md#2.5.2 功能验收场景",
       "level": "integration",
@@ -230,28 +270,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-05",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "c1808094e57242419e22393732f4f09e",
-        "executed_at": "2026-09-25T04:07:27.966283+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-05",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "c1808094e57242419e22393732f4f09e",
-          "executed_at": "2026-09-25T04:07:27.966283+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-06",
