@@ -20,6 +20,7 @@ from .application.run_service import reap_abandoned_runs
 from .infrastructure.cancel_hint import create_cancel_hint_store
 from .infrastructure.console_client import ConsoleCredentialsClient, ConsoleResolveClient
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
+from .metrics import install_runtime_metrics
 
 SERVICE_NAME = "muad-agent-runtime"
 
@@ -72,6 +73,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="MUAD Agent Runtime", version="0.1.0", lifespan=lifespan)
 install_api_foundation(app)
+install_runtime_metrics(app)
 install_health_probes(
     app,
     {

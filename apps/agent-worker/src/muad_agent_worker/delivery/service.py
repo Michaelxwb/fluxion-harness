@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.task_events import TaskEventType, append_event
 from ..infrastructure.models.task import DeliveryRoute, TaskExecution
-from ..metrics import increment
+from ..metrics import DELIVERY_METRIC, increment, record_outcome
 from .client import DeliveryClientProtocol, DeliveryTransportError
 from .messages import build_delivery_message
 
@@ -173,6 +173,7 @@ class DeliveryLoop:
         return task, route
 
     async def _record_sent(self, task: TaskExecution, *, now: datetime) -> None:
+        record_outcome(DELIVERY_METRIC, str(DeliveryStatus.SENT))
         await self._apply(
             task,
             values={
@@ -192,6 +193,7 @@ class DeliveryLoop:
         now: datetime,
     ) -> None:
         increment(DELIVERY_FAILED_TOTAL)
+        record_outcome(DELIVERY_METRIC, str(DeliveryStatus.FAILED))
         await self._apply(
             task,
             values={
@@ -214,6 +216,10 @@ class DeliveryLoop:
         exhausted = attempts >= self._settings.delivery_max_attempts
         if exhausted:
             increment(DELIVERY_FAILED_TOTAL)
+        record_outcome(
+            DELIVERY_METRIC,
+            str(DeliveryStatus.FAILED if exhausted else DeliveryStatus.PENDING),
+        )
         await self._apply(
             task,
             values={

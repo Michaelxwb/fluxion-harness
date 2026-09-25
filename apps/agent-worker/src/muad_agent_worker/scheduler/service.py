@@ -39,7 +39,13 @@ from ..application.task_service import (
     validate_execution_snapshot,
 )
 from ..infrastructure.models.task import TaskExecution, TaskSchedule
-from ..metrics import increment
+from ..metrics import (
+    SCHEDULED_FIRE_METRIC,
+    SCHEDULED_MISFIRE_METRIC,
+    TASKS_METRIC,
+    increment,
+    record_outcome,
+)
 from .client import ResolveDefinitionProtocol, ResolveTransportError
 from .templates import render_input_template, validate_input_template
 
@@ -50,7 +56,7 @@ ONCE_TYPE = "ONCE"
 TERMINAL_SCHEDULE_STATUSES = (str(ScheduleStatus.COMPLETED), str(ScheduleStatus.MISSED))
 SKIP_MISFIRE = "SCHEDULE_MISFIRE_SKIPPED"
 SKIP_SKILL_NOT_EFFECTIVE = "SKILL_NOT_EFFECTIVE"
-SCHEDULED_MISFIRE_TOTAL = "scheduled_misfire_total"
+FIRED_STATUS = "FIRED"
 TASK_DEADLINE_EXCEEDED = "TASK_DEADLINE_EXCEEDED"
 TASK_DEADLINE_EXCEEDED_TOTAL = "task_deadline_exceeded_total"
 NON_TERMINAL_TASK_STATUSES = (
@@ -96,7 +102,9 @@ class DeadlineSweeper:
                             lease_until=None,
                             update_time=moment,
                         )
-                        .returning(TaskExecution.id, TaskExecution.tenant_id)
+                        .returning(
+                            TaskExecution.id, TaskExecution.tenant_id, TaskExecution.task_type
+                        )
                     )
                 ).all()
                 if not rows:
@@ -109,13 +117,15 @@ class DeadlineSweeper:
                             task_id=task_id,
                             event_type=TaskEventType.DEADLINE_EXCEEDED,
                         )
-                        for task_id, tenant_id in rows
+                        for task_id, tenant_id, _task_type in rows
                     ],
                 )
-                for task_id, _ in rows:
+                for task_id, _, _task_type in rows:
                     expired = await session.get(TaskExecution, task_id)
                     if expired is not None:
                         await settle_child(session, expired, moment)
+        for _task_id, _tenant_id, task_type in rows:
+            record_outcome(TASKS_METRIC, str(TaskStatus.FAILED), {"type": task_type})
         increment(TASK_DEADLINE_EXCEEDED_TOTAL, len(rows))
         return len(rows)
 
@@ -534,6 +544,8 @@ class SchedulerLoop:
                 await self._advance(
                     session, schedule, scheduled_fire_at, moment, fired=True
                 )
+        if inserted_id is not None:
+            record_outcome(SCHEDULED_FIRE_METRIC, FIRED_STATUS)
         return inserted_id
 
     async def _insert_task(
@@ -681,7 +693,8 @@ class SchedulerLoop:
             skip=(code, message),
         )
         if code == SKIP_MISFIRE:
-            increment(SCHEDULED_MISFIRE_TOTAL)
+            increment(SCHEDULED_MISFIRE_METRIC)
+        record_outcome(SCHEDULED_FIRE_METRIC, code)
 
     async def _advance(
         self,

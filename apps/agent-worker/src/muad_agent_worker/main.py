@@ -29,6 +29,7 @@ from .infrastructure.wakeup_hint import (
     create_wakeup_listener,
     create_wakeup_notifier,
 )
+from .metrics import install_worker_metrics
 from .scheduler.client import ConsoleResolveClient
 from .scheduler.service import SchedulerLoop
 from .worker.service import WorkerLoop
@@ -104,6 +105,7 @@ def wakeup_detail() -> dict[str, str]:
 
 app = FastAPI(title="MUAD Agent Worker", version="0.1.0", lifespan=lifespan)
 install_api_foundation(app)
+install_worker_metrics(app)
 install_health_probes(
     app,
     {

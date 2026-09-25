@@ -1,19 +1,37 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from muad_common import SharedSettings
 from muad_contracts import TaskStatus
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.task_events import TaskEventType, append_event
 from ..infrastructure.models.task import TaskExecution
-from ..metrics import increment
+from ..metrics import TASK_QUEUE_DEPTH_METRIC, increment, record_gauge
 
 TASK_CLAIM_TOTAL = "task_claim_total"
 
 CLAIMABLE_STATUSES = (str(TaskStatus.QUEUED), str(TaskStatus.WAITING))
+
+
+def _claimable_conditions(moment: datetime) -> tuple[Any, ...]:
+    """可 claim 条件：`task_queue_depth` 与 claim 本身共用同一口径。"""
+    return (
+        TaskExecution.status.in_(CLAIMABLE_STATUSES),
+        TaskExecution.not_before <= moment,
+        TaskExecution.cancel_requested.is_(False),
+        TaskExecution.is_deleted.is_(False),
+    )
+
+
+async def _claimable_depth(session: AsyncSession, moment: datetime) -> int:
+    depth = await session.scalar(
+        select(func.count()).select_from(TaskExecution).where(*_claimable_conditions(moment))
+    )
+    return int(depth or 0)
 
 
 class TaskClaimer:
@@ -29,15 +47,11 @@ class TaskClaimer:
         claimed_at = now or datetime.now(UTC)
         async with self._session_factory() as session:
             async with session.begin():
+                record_gauge(TASK_QUEUE_DEPTH_METRIC, float(await _claimable_depth(session, claimed_at)))
                 task = (
                     await session.execute(
                         select(TaskExecution)
-                        .where(
-                            TaskExecution.status.in_(CLAIMABLE_STATUSES),
-                            TaskExecution.not_before <= claimed_at,
-                            TaskExecution.cancel_requested.is_(False),
-                            TaskExecution.is_deleted.is_(False),
-                        )
+                        .where(*_claimable_conditions(claimed_at))
                         .order_by(TaskExecution.priority.asc(), TaskExecution.create_time.asc())
                         .with_for_update(skip_locked=True)
                         .limit(1)

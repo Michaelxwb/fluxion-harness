@@ -4,6 +4,7 @@ from .error_codes import ErrorCode
 from .errors import AppError
 from .metrics import (
     MetricsRegistry,
+    declare_metric,
     inc_counter,
     install_metrics,
     render_metrics,
@@ -28,6 +29,7 @@ __all__ = [
     "render_metrics",
     "set_gauge",
     "inc_counter",
+    "declare_metric",
     "MetricsRegistry",
     "database_readiness",
     "require_roles",

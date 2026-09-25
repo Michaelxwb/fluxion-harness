@@ -17,10 +17,13 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
+from ..metrics import MODEL_INVOCATIONS_METRIC, record_outcome
 
 MAX_RETRIES_DEFAULT = 3
 DEADLINE_DEFAULT_MS = 60_000
 RETRY_BASE_SEC = 0.05
+SUCCEEDED_STATUS = "SUCCEEDED"
+FAILED_STATUS = "FAILED"
 
 
 class _Provider(Protocol):
@@ -93,6 +96,11 @@ class ModelGateway:
                         latency_ms=int((time.monotonic() - start) * 1000),
                         status="SUCCEEDED",
                     )
+                record_outcome(
+                    MODEL_INVOCATIONS_METRIC,
+                    SUCCEEDED_STATUS,
+                    {"provider": provider_name, "model": model},
+                )
                 return response
             except ModelRateLimitedError as exc:
                 retry_reason = "rate_limited"
@@ -136,6 +144,11 @@ class ModelGateway:
         attempt: int,
         retry_reason: str,
     ) -> None:
+        record_outcome(
+            MODEL_INVOCATIONS_METRIC,
+            FAILED_STATUS,
+            {"provider": provider_name, "model": model},
+        )
         if writer is None:
             return
         await writer.record_model_invocation(

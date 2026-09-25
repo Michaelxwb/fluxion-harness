@@ -19,12 +19,15 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
+from ..metrics import EGRESS_CALLS_METRIC, record_outcome
 
 JSON_RPC_VERSION = "2.0"
 MCP_PROTOCOL_VERSION = "2025-03-26"
 MCP_ACCEPT = "application/json, text/event-stream"
 MCP_CLIENT_NAME = "muad-agent-runtime"
 MCP_CALL_TIMEOUT_SEC = 10.0
+# Egress 审计与 `egress_calls_total{platform}` 共用同一取值（非资源 ID，不含 endpoint）。
+EGRESS_TARGET_TYPE = "MCP"
 
 
 class McpToolError(RuntimeError):
@@ -290,10 +293,11 @@ class McpRuntimeAdapter:
         latency_ms: int | None = None,
         error_code: str | None = None,
     ) -> None:
+        record_outcome(EGRESS_CALLS_METRIC, result_status, {"platform": EGRESS_TARGET_TYPE})
         if self._audit_writer is None:
             return
         await self._audit_writer.record_egress(
-            target_type="MCP",
+            target_type=EGRESS_TARGET_TYPE,
             target=target,
             policy_decision=decision,
             operation="mcp.tool",

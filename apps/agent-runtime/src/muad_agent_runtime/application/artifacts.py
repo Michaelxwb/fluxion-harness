@@ -12,8 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactoryProvider, get_session_factory
 from ..infrastructure.models.runtime import Artifact
+from ..metrics import ARTIFACT_BYTES_METRIC, record_counter
 
 PREVIEW_DEFAULT_LIMIT = 200
+TOOL_RESULT_ARTIFACT_TYPE = "TOOL_RESULT"
 
 
 def _storage_key(tenant_id: str, run_id: uuid.UUID, artifact_id: uuid.UUID) -> str:
@@ -95,7 +97,7 @@ class ArtifactResultWriter:
                 run_id=run_id,
                 task_id=task_id,
                 conversation_id=conversation_id,
-                artifact_type="TOOL_RESULT",
+                artifact_type=TOOL_RESULT_ARTIFACT_TYPE,
                 storage_key=key,
                 media_type="text/plain",
                 size=len(data),
@@ -113,6 +115,7 @@ class ArtifactResultWriter:
             except OSError:
                 pass
             raise
+        record_counter(ARTIFACT_BYTES_METRIC, len(data), {"type": TOOL_RESULT_ARTIFACT_TYPE})
         return {
             "artifact_id": str(artifact_id),
             "storage_key": key,

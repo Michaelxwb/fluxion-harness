@@ -19,7 +19,13 @@ from ..application.task_events import TaskEventSeed, TaskEventType, append_event
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.models.task import TaskExecution
 from ..infrastructure.wakeup_hint import NullWakeupListener, WakeupListener
-from ..metrics import increment
+from ..metrics import (
+    TASK_LEASE_EXPIRED_METRIC,
+    TASK_RECLAIM_METRIC,
+    TASKS_METRIC,
+    increment,
+    record_outcome,
+)
 from .claimer import TaskClaimer
 from .execution_outcomes import DEFAULT_WAIT_SEC, OutcomeKind, TaskOutcome, interpret_execution
 from .executor import SkillTaskExecutor, TaskExecutionError, TaskExecutorProtocol
@@ -27,7 +33,6 @@ from .executor import SkillTaskExecutor, TaskExecutionError, TaskExecutorProtoco
 logger = logging.getLogger(__name__)
 
 RETRY_BACKOFF_BASE_SEC = 5
-TASK_RECLAIM_TOTAL = "task_reclaim_total"
 
 
 def default_instance_id() -> str:
@@ -201,9 +206,11 @@ class WorkerLoop:
         async with self._session_factory() as session:
             async with session.begin():
                 rows = await self._requeue_expired(session, moment)
-                await self._cancel_abandoned(session, moment)
+                abandoned = await self._cancel_abandoned(session, moment)
         if rows:
-            increment(TASK_RECLAIM_TOTAL, rows)
+            increment(TASK_RECLAIM_METRIC, rows)
+        if rows or abandoned:
+            increment(TASK_LEASE_EXPIRED_METRIC, rows + abandoned)
         return rows
 
     async def _requeue_expired(self, session: AsyncSession, moment: datetime) -> int:
@@ -296,6 +303,11 @@ class WorkerLoop:
                     require_not_cancelled=True,
                 )
                 if rowcount == 1:
+                    record_outcome(
+                        TASKS_METRIC,
+                        str(TaskStatus.COMPLETED),
+                        {"type": task.task_type},
+                    )
                     await append_events(
                         session,
                         [
@@ -398,6 +410,7 @@ class WorkerLoop:
         )
         if rowcount != 1:
             return False
+        record_outcome(TASKS_METRIC, str(TaskStatus.FAILED), {"type": task.task_type})
         await append_events(
             session,
             [
@@ -433,6 +446,7 @@ class WorkerLoop:
         )
         if rowcount != 1:
             return False
+        record_outcome(TASKS_METRIC, str(TaskStatus.CANCELLED), {"type": task.task_type})
         await append_events(
             session,
             [

@@ -3,9 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
-
-from typing import Protocol
+from typing import Any, Protocol
 
 from muad_agent_core.agent import AgentPolicy
 from muad_agent_core.skill import (
@@ -22,6 +20,7 @@ from muad_common import SharedSettings
 from muad_contracts import ResolvedSkill, SkillExecutionMode
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError
 
+from ..metrics import SKILL_LOAD_METRIC, record_outcome
 from .task_client import TaskSubmissionContext
 
 LOAD_SKILL_TOOL = "load_skill"
@@ -264,7 +263,9 @@ class SkillToolSet:
                 checksum=skill.checksum,
             )
         except SkillArtifactCacheError as exc:
+            record_outcome(SKILL_LOAD_METRIC, exc.code, {"skill": skill.key})
             raise SkillToolError(exc.code, str(exc)) from exc
+        record_outcome(SKILL_LOAD_METRIC, "OK", {"skill": skill.key})
         self._ready_dirs[skill.key] = ready_dir
         return ready_dir
 

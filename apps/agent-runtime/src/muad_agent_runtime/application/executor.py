@@ -46,6 +46,7 @@ from muad_contracts import (
 from muad_platform_sdk.types import SecretValue
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
+from ..metrics import MODEL_INVOCATIONS_METRIC, TOOL_CALLS_METRIC, record_outcome
 from .artifacts import ArtifactResultWriter
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .skill_tools import build_default_skill_cache, build_skill_registry
@@ -327,6 +328,11 @@ class AuditedModelProvider:
             status=status,
             error_code=error_code,
         )
+        record_outcome(
+            MODEL_INVOCATIONS_METRIC,
+            status,
+            {"provider": self._provider, "model": self._model},
+        )
 
 
 def _tool_kind(name: str) -> str:
@@ -398,6 +404,11 @@ class ToolCallRecorder:
             error_code = str(ErrorCode.COMMON_INTERNAL_ERROR)
             raise
         finally:
+            record_outcome(
+                TOOL_CALLS_METRIC,
+                status,
+                {"kind": _tool_kind(definition.name), "tool": definition.name},
+            )
             if self._audit is not None:
                 await self._audit.record_tool_call(
                     tool_call_id=definition.name,

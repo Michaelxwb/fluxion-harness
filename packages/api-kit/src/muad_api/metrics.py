@@ -63,13 +63,18 @@ class MetricsRegistry:
             self._samples[key] = self._samples.get(key, 0.0) + float(value)
             self._register(name, "counter", help)
 
+    def declare(self, name: str, kind: str = DEFAULT_KIND, *, help: str = "") -> None:
+        """只登记 HELP/TYPE、不写样本：让 `/metrics` 在无流量时也暴露完整指标目录。"""
+        with self._lock:
+            self._register(name, kind, help)
+
     def render(self) -> str:
         with self._lock:
             samples = dict(self._samples)
             kinds = dict(self._kinds)
             help_text = dict(self._help)
         lines: list[str] = []
-        for name in sorted({key[0] for key in samples}):
+        for name in sorted({key[0] for key in samples} | set(kinds)):
             if name in help_text:
                 lines.append(f"# HELP {name} {_escape(help_text[name])}")
             lines.append(f"# TYPE {name} {kinds.get(name, DEFAULT_KIND)}")
@@ -97,6 +102,10 @@ def inc_counter(
     name: str, value: float = 1.0, labels: Labels | None = None, *, help: str = ""
 ) -> None:
     REGISTRY.inc_counter(name, value, labels, help=help)
+
+
+def declare_metric(name: str, kind: str = DEFAULT_KIND, *, help: str = "") -> None:
+    REGISTRY.declare(name, kind, help=help)
 
 
 def render_metrics() -> str:

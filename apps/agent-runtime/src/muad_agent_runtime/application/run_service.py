@@ -44,6 +44,7 @@ from ..infrastructure.models.runtime import (
     RunSubmission,
     RuntimeSnapshot,
 )
+from ..metrics import AGENT_RUNS_METRIC, RUN_RECLAIM_METRIC, record_counter, record_outcome
 from .context_builder import BudgetPolicy, DbBackedContextBuilder
 from .executor import (
     ExecutorCredentials,
@@ -208,6 +209,8 @@ async def reap_abandoned_runs(session_factory: async_sessionmaker[AsyncSession])
         )
         reaped = list(result.scalars())
         await session.commit()
+    if reaped:
+        record_counter(RUN_RECLAIM_METRIC, len(reaped))
     return len(reaped)
 
 
@@ -927,9 +930,9 @@ class RunService:
             with suppress(asyncio.CancelledError):
                 await heartbeat
         if failure is not None:
-            yield await self._finalize_failed(run, submission_id, failure)
+            yield await self._finalize_failed(run, submission_id, failure, agent_key=agent.key)
             return
-        yield await self._finalize_run(run, submission_id, final_text)
+        yield await self._finalize_run(run, submission_id, final_text, agent_key=agent.key)
 
     async def _persist_event(
         self,
@@ -954,10 +957,7 @@ class RunService:
         )
 
     async def _finalize_run(
-        self,
-        run: RunRecord,
-        submission_id: uuid.UUID,
-        final_text: str,
+        self, run: RunRecord, submission_id: uuid.UUID, final_text: str, *, agent_key: str
     ) -> ExecutorEvent:
         async with get_session_factory()() as session:
             row = await session.scalar(sa.select(RunRecord).where(RunRecord.id == run.id))
@@ -1006,6 +1006,7 @@ class RunService:
                 terminal_result_json={"status": str(target)},
             )
             await session.commit()
+        record_outcome(AGENT_RUNS_METRIC, str(target), {"agent": agent_key})
         return ExecutorEvent(
             type=RUN_COMPLETED_EVENT,
             data=payload,
@@ -1014,10 +1015,7 @@ class RunService:
         )
 
     async def _finalize_failed(
-        self,
-        run: RunRecord,
-        submission_id: uuid.UUID,
-        exc: Exception,
+        self, run: RunRecord, submission_id: uuid.UUID, exc: Exception, *, agent_key: str
     ) -> ExecutorEvent:
         code = _error_code_for(exc)
         async with get_session_factory()() as session:
@@ -1057,6 +1055,7 @@ class RunService:
                 terminal_result_json={"status": str(RunStatus.FAILED), "error_code": code},
             )
             await session.commit()
+        record_outcome(AGENT_RUNS_METRIC, str(RunStatus.FAILED), {"agent": agent_key})
         return ExecutorEvent(
             type=RUN_FAILED_EVENT,
             data=payload,

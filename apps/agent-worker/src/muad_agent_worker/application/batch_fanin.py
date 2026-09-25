@@ -19,6 +19,7 @@ from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import TaskExecution
+from ..metrics import TASKS_METRIC, record_outcome
 from .batch_fanout import AGGREGATE_ALL, AGGREGATE_BEST_EFFORT, BATCH_REF_KEY, PARKED_NOT_BEFORE
 from .task_events import TaskEventType, append_event
 
@@ -86,6 +87,7 @@ async def settle_child(
     )
     if rowcount != 1:
         return FaninOutcome(aggregated=False, parent_status=None, released=0)
+    record_outcome(TASKS_METRIC, status, {"type": parent.task_type})
     await append_event(
         session,
         tenant_id=parent.tenant_id,
