@@ -5,8 +5,11 @@
  * 列表数据状态机归 TASK-012 的 `hooks/useAuditList`，列表体（列/行渲染/空错槽位/分页联动）归
  * TASK-012 的 `components/AuditTable`，两者都只经 TASK-010 的 service 层取数（不裸用 HTTP 客户端）。
  * 页面继续渲染公共 `RemoteTable`（内置 `PaginationFooter`，仓库级 verifier 冻结其存在），入参由
- * `buildAuditTableProps` 原样供给；详情选择态驱动 TASK-013 的只读 `AuditDetailSideSheet`、左上主操作位的
- * 导出按钮归 TASK-014。
+ * `buildAuditTableProps` 原样供给；详情选择态驱动 TASK-013 的只读 `AuditDetailSideSheet`，左上主操作位渲染
+ * TASK-014 的导出按钮（按当前筛选建任务，状态机归 `hooks/useAuditExport`）。
+ *
+ * 状态划分（自上而下）：`useAuditQueryState`（筛选/分页状态与出口）、`useAuditDetailSelection`（详情
+ * 选择态）、`AuditPageToolbar`/`AuditDetailPanel`（两处局部 JSX）→ `AuditPage`（只做装配与取数编排）。
  */
 
 import { useCallback, useState } from 'react';
@@ -16,10 +19,16 @@ import { PageSection } from '../../../components/common/ConsolePage';
 import { ModuleToolbar } from '../../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../../components/common/RemoteTable';
 import { AuditDetailSideSheet } from '../components/AuditDetailSideSheet';
+import { AuditExportButton } from '../components/AuditExportButton';
 import { buildAuditTableProps } from '../components/AuditTable';
 import { AuditFilterBar } from '../components/AuditFilterBar';
 import { useAuditList } from '../hooks/useAuditList';
-import { AUDIT_PAGE_SIZE_DEFAULT, type AuditListItem, type AuditListQuery } from '../types';
+import {
+  AUDIT_PAGE_SIZE_DEFAULT,
+  type AuditExportCreateRequest,
+  type AuditListItem,
+  type AuditListQuery
+} from '../types';
 
 /** TASK-012 `components/AuditTable.tsx` 的入参（设计 §3.4）。 */
 export interface AuditTableProps {
@@ -49,37 +58,100 @@ interface AuditDetailSelection {
 /** 初始/重置查询：不含任何筛选项（重置即回到此值，设计 §3.3.1「重置」）。 */
 const DEFAULT_QUERY: AuditListQuery = { page: 1, pageSize: AUDIT_PAGE_SIZE_DEFAULT };
 
-export function AuditPage() {
-  const { t } = useTranslation();
+/** 筛选/分页状态（设计 §3.3.1/§3.4）：筛选合并补丁（页码由筛选栏重置为 1）、翻页落回本页状态。 */
+function useAuditQueryState() {
   const [query, setQuery] = useState<AuditListQuery>(DEFAULT_QUERY);
-  const [detail, setDetail] = useState<AuditDetailSelection | null>(null);
-  const { items, loading, page, pageSize, total, failed, reload } = useAuditList(query);
 
   const handleFilterChange = useCallback((patch: Partial<AuditListQuery>) => {
     setQuery((prev) => ({ ...prev, ...patch }));
   }, []);
 
+  /** 重置：清空全部筛选并回到第 1 页（设计 §3.3.1「重置」）。 */
   const handleReset = useCallback(() => {
     setQuery(DEFAULT_QUERY);
   }, []);
-
-  /** 刷新与失败重试同一出口（[E-06] 保留筛选条件，按当前页重取）。 */
-  const handleRefresh = useCallback(() => {
-    void reload();
-  }, [reload]);
 
   const handlePageChange = useCallback((page: number, pageSize: number) => {
     setQuery((prev) => ({ ...prev, page, pageSize }));
   }, []);
 
+  return { query, handleFilterChange, handleReset, handlePageChange };
+}
+
+/** 详情选择态（设计 §3.5）：打开落选择态、关闭清空（SideSheet 随之卸载）。 */
+function useAuditDetailSelection() {
+  const [detail, setDetail] = useState<AuditDetailSelection | null>(null);
+
   const handleOpenDetail = useCallback((item: AuditListItem) => {
     setDetail({ auditType: item.auditType, auditId: item.auditId });
   }, []);
 
-  /** 关闭详情：清空选择态（设计 §3.5，SideSheet 随之卸载）。 */
   const handleCloseDetail = useCallback(() => {
     setDetail(null);
   }, []);
+
+  return { detail, handleOpenDetail, handleCloseDetail };
+}
+
+/** 工具栏入参（设计 §3.3.1）：筛选/分页状态 + 四个出口；导出筛选与列表筛选同源、不含分页。 */
+interface AuditPageToolbarProps {
+  query: AuditListQuery;
+  exportFilters: AuditExportCreateRequest['filters'];
+  onChange(patch: Partial<AuditListQuery>): void;
+  onSearch(): void;
+  onReset(): void;
+  onRefresh(): void;
+}
+
+/** 工具栏：左主操作位是 TASK-014 的导出按钮（按当前筛选建任务、提交中禁用），右上挂筛选栏。 */
+function AuditPageToolbar(props: AuditPageToolbarProps) {
+  return (
+    <ModuleToolbar
+      actions={<AuditExportButton filters={props.exportFilters} />}
+      search={
+        <AuditFilterBar
+          value={props.query}
+          onChange={props.onChange}
+          onSearch={props.onSearch}
+          onReset={props.onReset}
+          onRefresh={props.onRefresh}
+        />
+      }
+    />
+  );
+}
+
+/** 详情面板入参：选择态（null 即不渲染）与关闭出口。 */
+interface AuditDetailPanelProps {
+  detail: AuditDetailSelection | null;
+  handleCloseDetail(): void;
+}
+
+/** 详情面板（设计 §3.5）：TASK-013 的只读 SideSheet，按选择态渲染、关闭即清空。 */
+function AuditDetailPanel({ detail, handleCloseDetail }: AuditDetailPanelProps) {
+  if (detail === null) {
+    return null;
+  }
+  return (
+    <AuditDetailSideSheet
+      visible
+      auditType={detail.auditType}
+      auditId={detail.auditId}
+      onClose={handleCloseDetail}
+    />
+  );
+}
+
+export function AuditPage() {
+  const { t } = useTranslation();
+  const { query, handleFilterChange, handleReset, handlePageChange } = useAuditQueryState();
+  const { detail, handleOpenDetail, handleCloseDetail } = useAuditDetailSelection();
+  const { items, loading, page, pageSize, total, failed, reload } = useAuditList(query);
+
+  /** 刷新与失败重试同一出口（[E-06] 保留筛选条件，按当前页重取）。 */
+  const handleRefresh = useCallback(() => {
+    void reload();
+  }, [reload]);
 
   /** 列表渲染入参（设计 §3.4）：TASK-012 的 AuditTable 落地后原样消费。 */
   const tableProps: AuditTableProps = {
@@ -92,6 +164,9 @@ export function AuditPage() {
     onOpenDetail: handleOpenDetail
   };
 
+  /** 导出筛选与列表筛选同源（设计 §3.5）：去掉分页字段后交给 TASK-014 的导出按钮。 */
+  const { page: _page, pageSize: _pageSize, ...exportFilters } = query;
+
   /** 表格入参（设计 §3.4/§3.6）：列/行渲染/空错槽位/分页全部由 AuditTable 供给。 */
   const auditTable = buildAuditTableProps({
     ...tableProps,
@@ -101,31 +176,18 @@ export function AuditPage() {
     t
   });
 
-  // 详情选择态（设计 §3.5）由本页持有：TASK-013 的只读 SideSheet 按选择态渲染，关闭即清空。
   return (
     <PageSection>
-      <ModuleToolbar
-        // 左主操作位：设计 §3.3.1 的「导出」归 TASK-014，落地后在此渲染导出按钮。
-        actions={null}
-        search={
-          <AuditFilterBar
-            value={query}
-            onChange={handleFilterChange}
-            onSearch={handleRefresh}
-            onReset={handleReset}
-            onRefresh={handleRefresh}
-          />
-        }
+      <AuditPageToolbar
+        query={query}
+        exportFilters={exportFilters}
+        onChange={handleFilterChange}
+        onSearch={handleRefresh}
+        onReset={handleReset}
+        onRefresh={handleRefresh}
       />
       <RemoteTable<AuditListItem> {...auditTable} />
-      {detail ? (
-        <AuditDetailSideSheet
-          visible
-          auditType={detail.auditType}
-          auditId={detail.auditId}
-          onClose={handleCloseDetail}
-        />
-      ) : null}
+      <AuditDetailPanel detail={detail} handleCloseDetail={handleCloseDetail} />
     </PageSection>
   );
 }

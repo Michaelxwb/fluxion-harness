@@ -675,5 +675,10 @@
   "audit.detail.related.run": "关联 Run",
   "audit.detail.related.task": "关联 Task",
   "audit.detail.relatedMissing": "关联 Run/Task 不可读",
-  "audit.detail.noRelated": "无关联记录"
+  "audit.detail.noRelated": "无关联记录",
+  "audit.export.action": "导出",
+  "audit.export.busy": "导出中",
+  "audit.export.error.IDEMPOTENCY_MISMATCH": "导出请求与已有任务冲突：筛选条件已变化，请重新导出",
+  "audit.export.error.COMMON_INTERNAL_ERROR": "导出执行失败，请重试",
+  "audit.export.errorFallback": "导出失败，请重试"
 }

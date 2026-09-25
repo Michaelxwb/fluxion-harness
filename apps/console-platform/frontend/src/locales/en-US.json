@@ -675,5 +675,10 @@
   "audit.detail.related.run": "Related run",
   "audit.detail.related.task": "Related task",
   "audit.detail.relatedMissing": "Related run/task unavailable",
-  "audit.detail.noRelated": "No related records"
+  "audit.detail.noRelated": "No related records",
+  "audit.export.action": "Export",
+  "audit.export.busy": "Exporting",
+  "audit.export.error.IDEMPOTENCY_MISMATCH": "Export request conflicts with an existing job: filters changed, please export again",
+  "audit.export.error.COMMON_INTERNAL_ERROR": "Export failed, please retry",
+  "audit.export.errorFallback": "Export failed, please retry"
 }
