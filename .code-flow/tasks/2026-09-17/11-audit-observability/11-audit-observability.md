@@ -68,7 +68,7 @@
 | B-211 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录 | TASK-019 | verified | ["uv","run","pytest","-q","tests/audit_observability_inventory.py","-k","b211"] | . | 600 |  |
 | B-212 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 Runtime/Worker 进程 + 真实 `/metrics` HTTP 端点 + 真实调用点 | TASK-020 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_runtime_metrics.py && uv run pytest -q tests/agent_worker/test_worker_metrics.py"] | . | 600 |  |
 | RULE-worker-001 | 11-audit-observability.backend.design.md#Spec Compliance Matrix | integration | 真实 Worker 进程与 PostgreSQL/Redis（claim/reclaim/lease/schedule/delivery）+ 原 verifier 真实边界 | TASK-020 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_runtime_metrics.py && uv run pytest -q tests/agent_worker/test_worker_metrics.py && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"] | . | 1200 |  |
-| B-213 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 Console HTTP + 真实 PostgreSQL（审计四表 + 运行/任务表） | TASK-021 | planned | ["uv","run","pytest","-q","tests/console_platform/test_audit_agent_filter.py","-k","b213"] | . | 600 |  |
+| B-213 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 Console HTTP + 真实 PostgreSQL（审计四表 + 运行/任务表） | TASK-021 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_agent_filter.py","-k","b213"] | . | 600 |  |
 | B-214 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 前端源码契约 + 真实 tsc + 仓库检查脚本（services 收口/i18n） | TASK-022 | planned | ["uv","run","pytest","-q","tests/frontend/test_audit_gap_contract.py","-k","b214"] | . | 600 |  |
 | E-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 详情查询→关联 Run 不可读 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"] | . | 600 |  |
 | E-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应 | TASK-008 | verified | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
@@ -1205,7 +1205,7 @@ TASK-009 只落地了 Console 侧指标（`/metrics` + 四个计数器）。本�
 - [2026-09-25] completed (done)
 ## TASK-021: API-01/05 增 agent_id 筛选（后端）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-003, TASK-006
 - **Source**: 11-audit-observability.backend.design.md#3.3 数据设计, 11-audit-observability.backend.design.md#3.4 接口设计, 11-audit-observability.frontend.design.md#3.3 组件设计
@@ -1220,26 +1220,37 @@ TASK-009 只落地了 Console 侧指标（`/metrics` + 四个计数器）。本�
 
 ### Checklist
 
-- [ ] [B-213][integration] 以真实 PostgreSQL（四张审计表 + 运行/任务表）为边界编写/扩展用例；关键断言：`agent_id` 过滤只返回该 Agent 的运行类记录、config 类被排除、未传该参数时行为不变。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_audit_agent_filter.py","-k","b213"]`。
-- [ ] 实现或补齐：投影 WHERE 增 `agent_id` 分支（参数化），并让 API-05 的筛选集与指纹输入同步包含它。
-- [ ] 覆盖分页/排序在带 `agent_id` 过滤时仍正确（total 与 items 一致）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
+- [x] [B-213][integration] 以真实 PostgreSQL（四张审计表 + 运行/任务表）为边界编写/扩展用例；关键断言：`agent_id` 过滤只返回该 Agent 的运行类记录、config 类被排除、未传该参数时行为不变。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_audit_agent_filter.py","-k","b213"]`。
+- [x] 实现或补齐：投影 WHERE 增 `agent_id` 分支（参数化），并让 API-05 的筛选集与指纹输入同步包含它。
+- [x] 覆盖分页/排序在带 `agent_id` 过滤时仍正确（total 与 items 一致）。
+- [x] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-213 | integration | 真实 Console HTTP + 真实 PostgreSQL（审计四表 + 运行/任务表） | 按 `agent_id` 过滤仅返回该 Agent 的运行类记录；config 类排除；缺省行为不变；分页 total 一致 | tests/console_platform/test_audit_agent_filter.py / B-213 | `["uv","run","pytest","-q","tests/console_platform/test_audit_agent_filter.py","-k","b213"]` | planned |
+| B-213 | integration | 真实 Console HTTP + 真实 PostgreSQL（审计四表 + 运行/任务表） | 按 `agent_id` 过滤仅返回该 Agent 的运行类记录；config 类排除；缺省行为不变；分页 total 一致 | tests/console_platform/test_audit_agent_filter.py / B-213 | `["uv","run","pytest","-q","tests/console_platform/test_audit_agent_filter.py","-k","b213"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-213 | **真实 RED**（实现临时 stash）：`4 failed` —— 列表用例 `assert 4 == 2`（参数被静默忽略，config 行与另一 Agent 的行都返回）、分页 total 同因、导出两条 `422 COMMON_VALIDATION_ERROR {"loc":["body","agent_id"],"type":"extra_forbidden"}`。诚实记录：首轮 RED 先暴露了**我自己种子助手的缺陷**（审计行挂到了 run 行没有的 `run_id`），修正种子后才在"实现已 stash"的前提下重取 RED。 | `AuditQueryFilters.agent_id` + `_where` 的等值分支（参数化 `agent_id = :agent_id`）、API-01 查询参数、API-05 body（`AuditExportCreateRequest.agent_id`）与导出执行侧（`_FILTER_FIELDS`/`to_query_filters`/`query_filters_from_canonical`）全部接通 → 登记 argv **4 passed**；console 回归 `tests/console_platform/` **112 passed**；ruff/mypy 干净；函数最长 48 行；无残留行/进程。 | `tests/console_platform/test_audit_agent_filter.py`（4 例）：① 按 `agent_id=A` 只返回 A 的运行类行（**config 行的 `resource_id` 故意指向 A，仍被排除** ⇒ 证明过滤只作用于运行类而非靠类型断言）；② 分页 `total` 与 items 一致；③ 不传该参数时行为不变；④ 导出执行侧生效——跑到 `SUCCEEDED` 并断言下载的 CSV 只含 A 的行（fingerprint 变化本身不足以发现"过滤器被静默丢弃"）。 | 真实 Console HTTP + 真实 PostgreSQL（四张审计表 + 运行/任务表），种子与回读均为真实行；导出产物写临时 `ARTIFACT_ROOT`，不污染仓库 | verified |
+
+**实现中的判断点（如实登记）**：
+- **过滤作用域**：在 UNION ALL 子查询的**投影列** `agent_id` 上过滤；运行类投影 `COALESCE(r.agent_id, tx.agent_id)`，config 类投影 `NULL::uuid` ⇒ `NULL = :agent_id` 永假，无需再显式排除 CONFIG，且测试用"config 行指向 Agent A 仍被排除"把该判别固化为断言。
+- **未改 `validate_filters`**：类型化可选 UUID 无业务规则可校验，非法值在边缘（pydantic/FastAPI）已 422；改为**用断言钉住**该行为（API-01 与 API-05 的畸形 `agent_id` 均 422 且不建作业）。"CONFIG + agent_id" 组合返回空页而非报错——设计未规定，未自造规则。
+- **指纹**：仅通过把字段加进 `_FILTER_FIELDS`/`to_query_filters` 实现（指纹源自规范化筛选集）；既有契约未动——`test_audit_export_api.py` 里对"不含 agent_id 的筛选集"的字面 SHA256 断言仍通过，即证明兼容。
+- 测试文件比计划多 1 例（导出执行侧断言），用于发现"指纹变了但过滤器被丢"的静默缺陷。
+- 前端接线（Agent 筛选 → `agentId`）仍是 TASK-022 范围；本次未动 `apps/console-platform/frontend/**`。
+- B-213: verified — automated command passed; run_id=3a7e3da5c9e74b18a8e426e21a5b016b (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)（由 TASK-019 收口发现的缺口拆出：设计筛选栏的「Agent」项此前被映射为 `resource_type`）
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-022: 前端接线收口（Agent 筛选 / resourceType 域 / 刷新失败提示）
 
 - **Status**: draft

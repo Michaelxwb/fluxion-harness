@@ -334,28 +334,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-212",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "5045d8dee964489f812cc15ea8b3239d",
-        "executed_at": "2026-09-25T10:23:38.140936+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-212",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "5045d8dee964489f812cc15ea8b3239d",
-          "executed_at": "2026-09-25T10:23:38.140936+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-213",
@@ -364,7 +343,7 @@
       "kind": "functional",
       "boundary": "真实 Console HTTP + 真实 PostgreSQL（审计四表 + 运行/任务表）",
       "owner": "TASK-021",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -376,7 +355,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-213",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "3a7e3da5c9e74b18a8e426e21a5b016b",
+        "executed_at": "2026-09-25T10:38:14.705816+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-213",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "3a7e3da5c9e74b18a8e426e21a5b016b",
+          "executed_at": "2026-09-25T10:38:14.705816+00:00"
+        }
+      ]
     },
     {
       "id": "B-214",
