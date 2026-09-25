@@ -15,6 +15,7 @@ import { SkillPage } from './modules/skill-management/SkillPage';
 import { PlatformPage } from './modules/project-platform/PlatformPage';
 import { SchedulePage } from './modules/task-schedule/SchedulePage';
 import { TaskPage } from './modules/task-schedule/TaskPage';
+import { AuditPage } from './modules/audit-observability/pages/AuditPage';
 
 export default function App() {
   const theme = useThemeMode();
@@ -54,7 +55,7 @@ export default function App() {
         <Route path="platforms" element={<PlatformPage />} />
         <Route path="tasks" element={<TaskPage />} />
         <Route path="schedules" element={<SchedulePage />} />
-        <Route path="audits" element={<PlaceholderPage titleKey="nav.audit" />} />
+        <Route path="audits" element={<AuditPage />} />
       </Route>
     </Routes>
   );
