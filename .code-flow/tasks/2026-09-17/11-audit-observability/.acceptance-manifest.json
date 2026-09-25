@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "11-audit-observability.md",
-  "task_sha256": "a0209268417ba5353492a1b864709cf575a02728647e305fcb43dcdc65f7d4e2",
+  "task_sha256": "779a86952d008d69d30cd82b4aeb778e333f6d24343f1d0e2e4777a6dfce472b",
   "scenarios": [
     {
       "id": "S-01",
@@ -147,6 +147,46 @@
       "depends_on": []
     },
     {
+      "id": "B-203",
+      "source": "11-audit-observability.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 /metrics HTTP 端点 + 真实日志出口 + 运行审计表(PostgreSQL)",
+      "owner": "TASK-009",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/test_audit_observability_config.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-203",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "2966cc0253944ecdaed96579f1d1ac96",
+        "executed_at": "2026-09-25T05:13:50.537731+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-203",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "2966cc0253944ecdaed96579f1d1ac96",
+          "executed_at": "2026-09-25T05:13:50.537731+00:00"
+        }
+      ]
+    },
+    {
       "id": "E-01",
       "source": "11-audit-observability.backend.design.md#2.5.2 功能验收场景",
       "level": "integration",
@@ -186,28 +226,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "a6d40113f0244822afeee659ee08c9c7",
-        "executed_at": "2026-09-25T04:45:32.343797+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "a6d40113f0244822afeee659ee08c9c7",
-          "executed_at": "2026-09-25T04:45:32.343797+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-03",

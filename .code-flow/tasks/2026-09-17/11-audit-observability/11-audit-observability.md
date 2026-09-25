@@ -31,7 +31,7 @@
 | TASK-006 | P1 | 导出任务表与创建 API-05（幂等） | 003 | 3.3 `control.audit_export_job`；3.4 API-05；2.5.1 RULE-09 | S-05(E2E), E-05(integration), RULE-03(integration), RULE-09(integration), RULE-api-002(E2E), RULE-data-001(integration) | 7 |
 | TASK-007 | P1 | 导出状态/下载 API-06 与执行落地 | 006 | 3.4 API-06；3.5 可靠性 | S-05(E2E), B-202(integration) | 5 |
 | TASK-008 | P0 | 三层脱敏收口（日志/写入/响应） | 001, 002 | 3.5 安全与日志脱敏；2.5.1 RULE-01/RULE-04 | E-02(integration), RULE-01(integration), RULE-04(integration), RULE-log-001(integration), RULE-secret-001(integration) | 6 |
-| TASK-009 | P1 | 可观测性：trace 关联字段与指标目录 | 002 | 3.5 可观测性；4 部署与运维 | — | 4 |
+| TASK-009 | P1 | 可观测性：trace 关联字段与指标目录 | 002 | 3.5 可观测性；4 部署与运维 | B-203(integration) | 5 |
 | TASK-010 | P0 | 前端 service 层与类型契约 | 无 | frontend 3.4 组件接口契约 | RULE-front-001(integration) | 4 |
 | TASK-011 | P0 | 审计列表页容器与筛选栏 | 010 | frontend 3.2/3.3；3.3.1 按钮设计 | E-06(integration), RULE-ui-001(E2E) | 5 |
 | TASK-012 | P0 | 审计表格与字段列 | 011 | frontend 3.3/3.6 | S-06(E2E) | 3 |
@@ -54,6 +54,7 @@
 | S-05 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→Console 导出创建/查询 HTTP→幂等表与导出任务(PostgreSQL) | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s05"] | . | 1200 |  |
 | B-201 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Runtime HTTP /internal/admin/runs 与 /internal/admin/runs/{run_id} → 真实 PostgreSQL | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_admin_run_api.py"] | . | 600 |  |
 | B-202 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Console HTTP 导出状态/下载 → 真实 PostgreSQL + artifact store | TASK-007 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_download.py"] | . | 600 |  |
+| B-203 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实 /metrics HTTP 端点 + 真实日志出口 + 运行审计表(PostgreSQL) | TASK-009 | verified | ["uv","run","pytest","-q","tests/test_audit_observability_config.py"] | . | 600 |  |
 | E-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 详情查询→关联 Run 不可读 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"] | . | 600 |  |
 | E-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应 | TASK-008 | verified | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | E-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 列表查询参数校验 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
@@ -522,13 +523,13 @@
 - [2026-09-25] completed (done)
 ## TASK-009: 可观测性 trace 关联字段与指标目录
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-002
 - **Source**: 11-audit-observability.backend.design.md#3.5 质量实现方案, 11-audit-observability.backend.design.md#4 部署与运维
 - **Spec-Refs**:
-- **Acceptance-Refs**: N/A（可观测性基建，行为证据并入 S-01 的 trace 串联断言与 TASK-017 的验收）
-- **Files**: `apps/console-platform/backend/src/muad_console_platform/main.py`, `tests/test_audit_observability_config.py`
+- **Acceptance-Refs**: B-203
+- **Files**: `apps/console-platform/backend/src/muad_console_platform/main.py`, `tests/test_audit_observability_config.py`、`apps/console-platform/backend/src/muad_console_platform/metrics.py`、`packages/api-kit/src/muad_api/context.py`、`packages/api-kit/src/muad_api/middleware.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
 ### Description
@@ -537,26 +538,39 @@
 
 ### Checklist
 
-- [ ] 实现或补齐：trace 关联字段在审计写入与日志上下文中的注入路径；缺字段时显式置空而非伪造。
-- [ ] 实现或补齐：指标注册（Console 侧 `console_api_requests_total` 等）与 label 脱敏约束。
-- [ ] 以真实 `/metrics` 端点验证指标可抓取、label 无敏感值（真实 uvicorn 单进程 + 真实 HTTP）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
+- [x] 实现或补齐：trace 关联字段在审计写入与日志上下文中的注入路径；缺字段时显式置空而非伪造。
+- [x] 实现或补齐：指标注册（Console 侧 `console_api_requests_total` 等）与 label 脱敏约束。
+- [x] 以真实 `/metrics` 端点验证指标可抓取、label 无敏感值（真实 uvicorn 单进程 + 真实 HTTP）。
+- [x] [B-203][integration] 以真实 `/metrics` HTTP 端点 + 真实日志出口 + 运行审计表(PostgreSQL) 为边界编写/扩展用例；关键断言：指标可抓取、label 不含 Secret/PII、trace 关联字段可串联、缺字段显式置空。执行 argv：`["uv","run","pytest","-q","tests/test_audit_observability_config.py"]`。
+- [x] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| N/A | integration | 真实 `/metrics` 端点 + 真实日志出口 | 指标可抓取、label 无 Secret/PII；trace 字段可串联 | tests/test_audit_observability_config.py / 全部用例 | `["uv","run","pytest","-q","tests/test_audit_observability_config.py"]` | planned |
+| B-203 | integration | 真实 /metrics HTTP 端点 + 真实日志出口 + 运行审计表(PostgreSQL) | 指标可抓取且 label 无 Secret/凭据/消息正文/PII；trace 关联字段可在审计与日志中串联；缺字段显式置空不伪造 | tests/test_audit_observability_config.py / B-203 | `["uv","run","pytest","-q","tests/test_audit_observability_config.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、关键断言位置与真实组件证据。本任务为基建类，无独立场景行；其行为证据并入 S-01（trace 串联）与 TASK-017 的验收记录。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-203 | **真实 RED**（3 failed / 2 passed）：① `/metrics` 返回 `404 COMMON_NOT_FOUND`（Console 从未安装 api-kit 指标注册表）；② 审计写入请求**没有任何日志记录** —— `真实日志出口未按 service/日期落盘: …/2026-09-25.log / assert False = exists()`；③ `ImportError: cannot import name 'TRACE_CORRELATION_FIELDS'`。诚实记录：healthz/readyz 两条断言**首跑即通过**（api-kit 探针本就正确），故未制造改动。 | 新增 `apps/console-platform/backend/src/muad_console_platform/metrics.py`（Console 指标目录 + 路由模板计数中间件 + `install_console_metrics`，**复用** api-kit `install_metrics`，不建第二套注册表）；api-kit 增 `TRACE_CORRELATION_FIELDS`（11 字段，未设显式 `""`、非法名拒绝）并让日志上下文字段经同一相关存储；审计写入新增结构化日志记录（只记关联字段 + action/resource_type/resource_id）；三处 catalog 操作接入 outcome 计数 → `tests/test_audit_observability_config.py` **5 passed**；console 回归 **108 passed**；logging 套件 **10 passed**；ruff/mypy 干净；全量（去 acceptance/e2e）**1242 passed + 1 预存在失败**（`tests/test_secret_ref_residue.py`，已在 pristine worktree 验证为既有失败）。 | 5 个用例：① `/metrics` 暴露 Console catalog 且 label **名**无敏感标记、label **值**无具体资源 ID/凭据形状/正文 canary，`path` 钉为路由模板（断言 `{path="/api/v1/models/{model_id}",status="401"}` 存在而具体 UUID 不在文本中）；② 审计写入请求的 DB 行 `trace_id` 与日志记录 `trace_id` 一致、`request_id` 由响应封套与日志对齐、未设字段显式空；③ `/healthz` 不依赖依赖项返回 200、`/readyz` 反映依赖就绪（503 + failed 列表）；④ `REDIS_URL=127.0.0.1:1` 时 `/readyz` 仍 200；⑤ 关联字段集与设计一致（11 项） | 真实 `/metrics` HTTP 端点 + 真实日志出口文件（按 service/日期落盘）+ 真实 PostgreSQL（审计行回读）+ 真实 Console HTTP；未 mock 业务 API | verified |
+
+**实现中的判断点与剩余缺口（如实登记）**：
+- **剩余缺口（超出本任务 15–60 分钟估算与声明文件面）**：**Runtime / Worker 未暴露 `/metrics`**，其设计指标目录（如 `agent_runs_total`、`tasks_total`）目前只存在于设计与文档（Worker 另有既有的基于日志的计数模块）。补齐跨服务指标属多文件改动，建议后续单独开任务承接（应在 TASK-019 收口或后续需求中显式处置）。
+- **`control.config_audit_log` 无 `request_id` 列**（设计 §3.3 字段表只给 `trace_id`），故审计与日志经关联上下文串联（`trace_id` 对齐 + 响应封套与日志的 `request_id` 对齐），未擅自加列/迁移；若要求审计表也持久化 `request_id`，属 schema 变更。
+- **新增"审计写入日志记录"**：此前审计写入请求不产生任何日志记录，使"审计↔日志串联"无可取证对象；新增记录只含关联字段与 `action/resource_type/resource_id`，**绝不记 before/after 内容**（日志非审计事实源，业务回滚不影响 DB 行）。
+- **label 卫生口径**：敏感标记作用于 label **名**；label **值**检查具体资源 ID（UUID）、凭据形状（`Bearer`/`Basic`/`sk-`/≥40 位 base64）与消息正文 canary；`path` 单独钉为路由模板（未匹配 → `"unmatched"`，低基数且无 PII）。该口径是首版"全字段敏感词扫描"误伤 `{path="/api/v1/auth/password"}` 路由模板后收敛的结果。
+- **域计数器 `status` 语义**：成功 `SUCCESS`、`AppError` 记 catalog 码（如 `BOT_NOT_FOUND`/`AGENT_NOT_FOUND`/`SKILL_PACKAGE_INVALID`）、未预期异常 `FAILED`；HTTP 层 4xx 校验错只在 `console_api_requests_total{status=…}` 可见。
+- **Redis 断言范围**：以死端口 `REDIS_URL` 证明 `/readyz` 不被 Redis 阻断；不覆盖"运行中 Redis 掉线"（该场景在 im_gateway 的 `test_redis_degradation.py`）。
+- B-203: verified — automated command passed; run_id=2966cc0253944ecdaed96579f1d1ac96 (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-010: 前端 service 层与类型契约
 
 - **Status**: draft
