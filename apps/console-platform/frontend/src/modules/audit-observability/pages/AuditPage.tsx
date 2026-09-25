@@ -5,7 +5,8 @@
  * 列表数据状态机归 TASK-012 的 `hooks/useAuditList`，列表体（列/行渲染/空错槽位/分页联动）归
  * TASK-012 的 `components/AuditTable`，两者都只经 TASK-010 的 service 层取数（不裸用 HTTP 客户端）。
  * 页面继续渲染公共 `RemoteTable`（内置 `PaginationFooter`，仓库级 verifier 冻结其存在），入参由
- * `buildAuditTableProps` 原样供给；详情 SideSheet 归 TASK-013、左上主操作位的导出按钮归 TASK-014。
+ * `buildAuditTableProps` 原样供给；详情选择态驱动 TASK-013 的只读 `AuditDetailSideSheet`、左上主操作位的
+ * 导出按钮归 TASK-014。
  */
 
 import { useCallback, useState } from 'react';
@@ -14,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { PageSection } from '../../../components/common/ConsolePage';
 import { ModuleToolbar } from '../../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../../components/common/RemoteTable';
+import { AuditDetailSideSheet } from '../components/AuditDetailSideSheet';
 import { buildAuditTableProps } from '../components/AuditTable';
 import { AuditFilterBar } from '../components/AuditFilterBar';
 import { useAuditList } from '../hooks/useAuditList';
@@ -74,6 +76,11 @@ export function AuditPage() {
     setDetail({ auditType: item.auditType, auditId: item.auditId });
   }, []);
 
+  /** 关闭详情：清空选择态（设计 §3.5，SideSheet 随之卸载）。 */
+  const handleCloseDetail = useCallback(() => {
+    setDetail(null);
+  }, []);
+
   /** 列表渲染入参（设计 §3.4）：TASK-012 的 AuditTable 落地后原样消费。 */
   const tableProps: AuditTableProps = {
     items,
@@ -94,9 +101,7 @@ export function AuditPage() {
     t
   });
 
-  // 详情选择态（设计 §3.5）由本页持有；TASK-013 落地后在此渲染
-  // `<AuditDetailSideSheet {...detail} />`（props 形状见上方 AuditDetailSideSheetProps）。
-
+  // 详情选择态（设计 §3.5）由本页持有：TASK-013 的只读 SideSheet 按选择态渲染，关闭即清空。
   return (
     <PageSection>
       <ModuleToolbar
@@ -113,6 +118,14 @@ export function AuditPage() {
         }
       />
       <RemoteTable<AuditListItem> {...auditTable} />
+      {detail ? (
+        <AuditDetailSideSheet
+          visible
+          auditType={detail.auditType}
+          auditId={detail.auditId}
+          onClose={handleCloseDetail}
+        />
+      ) : null}
     </PageSection>
   );
 }
