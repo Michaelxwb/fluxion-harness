@@ -38,10 +38,10 @@
 | TASK-013 | P0 | 详情 SideSheet 与关联链接 | 012 | frontend 3.3/3.4 | S-07(E2E), E-07(integration), RULE-ui-detail-001(E2E), B-207(integration) | 6 |
 | TASK-014 | P1 | 导出按钮与轮询/下载交互 | 012 | frontend 3.3.1/3.5 | S-08(E2E), E-08(integration), E-09(integration), B-208(integration) | 5 |
 | TASK-015 | P1 | i18n 词条与语言切换覆盖 | 012 | frontend 3.3/3.6 | RULE-i18n-001(E2E), B-209(integration) | 4 |
-| TASK-016 | P0 | 真实审计验收环境与种子清理 | 005, 007 | 3.5 可靠性；4 部署与运维 | — | 5 |
+| TASK-016 | P0 | 真实审计验收环境与种子清理 | 005, 007 | 3.5 可靠性；4 部署与运维 | B-210(integration) | 6 |
 | TASK-017 | P0 | 后端场景真实验收（S-01/03/05 + 集成场景证据） | 016 | 2.5.2 功能验收场景 | S-01(E2E), S-03(E2E), S-05(E2E) | 6 |
 | TASK-018 | P0 | 前端 E2E 验收（列表/详情/导出） | 016 | frontend 2.4 验收条件 | S-06(E2E), S-07(E2E), S-08(E2E) | 6 |
-| TASK-019 | P0 | 收口：场景、规则、证据与仓库级 verifier | 017, 018 | 2.5.2/2.5.1；6 需求追溯矩阵 | RULE-06(integration), RULE-test-001(E2E) | 5 |
+| TASK-019 | P0 | 收口：场景、规则、证据与仓库级 verifier | 017, 018 | 2.5.2/2.5.1；6 需求追溯矩阵 | RULE-06(integration), RULE-test-001(E2E), B-211(integration) | 6 |
 
 ## Acceptance Coverage
 
@@ -61,6 +61,8 @@
 | B-207 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-013 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_detail_contract.py"] | . | 600 |  |
 | B-208 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-014 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_export_contract.py"] | . | 600 |  |
 | B-209 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-015 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_i18n_contract.py"] | . | 600 |  |
+| B-210 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | 真实多进程栈(Console/Runtime/Worker + PostgreSQL/Redis)与租户级清理 | TASK-016 | verified | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_environment.py"] | . | 600 |  |
+| B-211 | 11-audit-observability.backend.design.md#3.5 质量实现方案 | integration | pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录 | TASK-019 | planned | ["uv","run","pytest","-q","tests/audit_observability_inventory.py","-k","b211"] | . | 600 |  |
 | E-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 详情查询→关联 Run 不可读 | TASK-004 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_detail_api.py","-k","e01"] | . | 600 |  |
 | E-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 logging-kit 出口 + 审计写入 + Console 响应 | TASK-008 | verified | ["uv","run","pytest","-q","tests/test_audit_redaction.py","-k","e02"] | . | 600 |  |
 | E-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 列表查询参数校验 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
@@ -909,13 +911,13 @@
 - [2026-09-25] completed (done)
 ## TASK-016: 真实审计验收环境与种子清理
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-007
 - **Source**: 11-audit-observability.backend.design.md#3.5 质量实现方案, 11-audit-observability.backend.design.md#4 部署与运维
 - **Spec-Refs**:
-- **Acceptance-Refs**: N/A（验收基建，行为证据由 TASK-017/018 的场景承载）
-- **Files**: `tests/acceptance/audit_observability/environment.py`, `tests/e2e/seed_audit.py`, `tests/acceptance/audit_observability/test_environment.py`
+- **Acceptance-Refs**: B-210
+- **Files**: `tests/acceptance/audit_observability/environment.py`, `tests/e2e/seed_audit.py`, `tests/acceptance/audit_observability/test_environment.py`、`tests/acceptance/audit_observability/__init__.py`（避免与 im_gateway 同名测试文件 import mismatch）
 - **Estimate**: 半天级（真实多进程栈与清理）；超出先拆环境与种子两段
 
 ### Description
@@ -924,27 +926,42 @@
 
 ### Checklist
 
-- [ ] 实现或补齐：真实进程栈启动/停止、健康就绪等待、租户级数据清理（含 `control.audit_export_job` 与共享幂等表行）。
-- [ ] 实现或补齐：审计种子构造（四类审计 + 一个 `SUCCEEDED` 导出任务与 artifact），支持按 `trace_id` 串联断言。
-- [ ] 以真实 PG 验证清理幂等：连续两次 `purge` 后审计相关表计数归零。
-- [ ] 覆盖启动失败快启路径（依赖缺失时 fail fast，不静默降级）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
+- [x] 实现或补齐：真实进程栈启动/停止、健康就绪等待、租户级数据清理（含 `control.audit_export_job` 与共享幂等表行）。
+- [x] 实现或补齐：审计种子构造（四类审计 + 一个 `SUCCEEDED` 导出任务与 artifact），支持按 `trace_id` 串联断言。
+- [x] 以真实 PG 验证清理幂等：连续两次 `purge` 后审计相关表计数归零。
+- [x] 覆盖启动失败快启路径（依赖缺失时 fail fast，不静默降级）。
+- [x] [B-210][integration] 以 真实多进程栈(Console/Runtime/Worker + PostgreSQL/Redis)与租户级清理 为边界编写/扩展用例；关键断言：栈可启动并健康；审计种子可构造；purge 幂等归零；依赖缺失快启失败。执行 argv：`["uv","run","pytest","-q","tests/acceptance/audit_observability/test_environment.py"]`。
+- [x] 执行上述契约命令，填写 Acceptance Evidence；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| N/A | integration | Console/Runtime 真实进程 + 真实 PostgreSQL | 栈可启动并健康；种子可构造；清理幂等归零 | tests/acceptance/audit_observability/test_environment.py / 全部用例 | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_environment.py"]` | planned |
+| B-210 | integration | 真实多进程栈(Console/Runtime/Worker + PostgreSQL/Redis)与租户级清理 | 栈可启动并健康；审计种子可构造；purge 幂等归零；依赖缺失快启失败 | tests/acceptance/audit_observability/test_environment.py / B-210 | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_environment.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task:start` 在编码期填写 RED/GREEN 结果、关键断言位置与真实组件证据。本任务为验收基建，无独立场景行。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-210 | **真实 RED（两段）**：① 结构性——验收 argv 在模块缺失时报 `ERROR: file or directory not found: …/test_environment.py`、`no tests ran`、`EXIT=4`；② 实现后首跑 **2 failed / 4 passed**：`KeyError: 'status'`（api-kit 服务返回封套 `{code:"0",data:{status:"ok"}}`，而 LLM 探针返回裸 `{"status":"ok"}`）、`test_b210_purge_is_idempotent` 残留 `{'control.console_account': 1}`（复用的 09 `CONTROL_CLEANUP` 未删该表）。 | 新增 `tests/acceptance/audit_observability/environment.py`（真实栈 `start_audit_stack`/`stop_audit_stack`、`wait_ready`、`purge_tenant`/`count_tenant_rows`、导出产物清理、`start_service_without_dependency` 快启助手、`CLEANUP_TABLES` 白名单）、`tests/e2e/seed_audit.py`（身份+Run、四类审计、带产物的 `SUCCEEDED` 导出作业）、`__init__.py`、`test_environment.py` → **6 passed in 11.70s**；purge 两次后 15 张表计数全 0（含 config_audit_log/audit_export_job/skill_import_idempotency/三张 runtime 审计表）；无残留进程；租户残留 0；ruff 干净；函数均 ≤50 行。 | 6 个用例：① 栈可启动且 console/runtime 经**真实 HTTP 探针**就绪（封套与非封套两种响应体形状分别断言）；② 种子行可经自建 engine 逐行回读；③ `purge_tenant` **幂等**（连续两次 + fixture teardown 共三次，15 张表全 0）；④～⑤ 两条**真实进程**快启失败路径（`ARTIFACT_ROOT` 指向不存在目录 → 非零退出且日志含 `artifact storage is not mounted`；`DATABASE_URL` 指向 `127.0.0.1:1` → 非零退出且日志含 `cannot read schema revision`）；⑥ 产物清理断言（模块自有临时 artifact root，不污染仓库 `.data/artifacts`）。 | 真实多进程栈（llm-probe + Console + Runtime + Worker）+ 真实 PostgreSQL/Redis + 真实 HTTP 探针与真实进程快启；未 mock 业务 API | verified |
+
+**实现中的判断点（如实登记）**：
+- **新增 `__init__.py`（第 4 个文件，超出计划的 3 个）且证明必要**：不加则本模块 `test_environment.py` 与 `tests/acceptance/im_gateway/test_environment.py` 同名 → pytest 收集报 `import file mismatch`（`Interrupted: 1 error during collection`），会**直接打断 TASK-019 的仓库级 `uv run pytest -q tests/acceptance`**；加了之后两文件 `--collect-only` 正常（11 tests collected）。两种情形均已实测。
+- **租户按次随机**（`audit-acceptance-<uuid8>`）并与服务 `DEFAULT_TENANT_ID` 一致：与其它模块在共享 `muad` 库中的残留彻底隔离。
+- **栈范围**：`llm-probe + console + runtime + worker`（PG/Redis 外置）；**刻意不起** im-gateway、runtime-2、渠道/WS 探针（与审计无关）。种子的模型指向真实探针 HTTP 端点（而非死地址），使 TASK-017 仍可跑真实模型/运行链路。
+- **种子走真实写入方**（`write_config_audit` + `RuntimeAuditWriter.record_*` + `AuditExportService.create_export`），行 id 事后从 PG 回读（写入方不返回 id）；**并种入真实 `ConsoleAccount`**（ADMIN + argon2 真哈希）+ PlatformUser + AgentAccessGrant —— 因为 CONFIG 审计的 `actor_user_id` 是登录账号 id（RULE-07）且投影会 LEFT JOIN 取 `actor_name`，用随机 UUID 会得到空 actor 名；`ACCOUNT_USERNAME`/`ACCOUNT_PASSWORD` 已导出供 TASK-017/018 真实登录。
+- **导出产物固定在环境自有 root**：**未**调用 `AuditExportService.run_pending_exports`（它从 `SharedSettings()` 解析 root，会落到仓库 `./.data/artifacts`，既在租户清理之外也不该被测试写）；改为复用同一真实投影（`AuditQueryRepository.all_rows`）+ 真实序列化 + 真实 `export_storage_key` + `write_artifact(root=…)`，并用真实 `mark_running/mark_succeeded` 推进状态机。**未**采用"进程级改写 `ARTIFACT_ROOT`"（会波及其它模块）。
+- **清理顺序修正（真实 FK 顺序 bug）**：`runtime.artifact` 必须在复用的 `RUNTIME_CLEANUP` 删 `run_record` **之前**删除（既有元组先删 run_record 后删 artifact，一旦存在 run 产物即 FK 失败）；`console_session` 经 `account_id IN (…)` 先于 `console_account` 删除；审计相关表（`config_audit_log`/`audit_export_job`/`skill_import_idempotency`）前置拼接。
+- **快启校验是行为级而非静态**：用真实进程参数化（console+runtime）验证两种缺失依赖的退出码与日志特征；若服务反而起来了，助手会停掉它并把 `healthy=True` 上报，使测试显式失败而不是静默通过。
+- **清理白名单**：`count_tenant_rows` 的表名是唯一被插值的标识符，且经 `CLEANUP_TABLES` 白名单校验（否则 `ValueError`）；所有 `DELETE` 的值一律绑定参数。
+- B-210: verified — automated command passed; run_id=19c66450385a4085b0997fdda8363fbd (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
 
 ---
-
+- [2026-09-25] started
+- [2026-09-25] completed (done)
 ## TASK-017: 后端场景真实验收（S-01/03/05 + 集成场景证据）
 
 - **Status**: draft
@@ -1038,7 +1055,7 @@
 - **Depends**: TASK-017, TASK-018
 - **Source**: 11-audit-observability.backend.design.md#2.5.2 功能验收场景, 11-audit-observability.backend.design.md#2.5.1 业务规则与约束, 11-audit-observability.backend.design.md#6 需求追溯矩阵
 - **Spec-Refs**: harness-test#RULE-test-001
-- **Acceptance-Refs**: RULE-06, RULE-test-001
+- **Acceptance-Refs**: RULE-06, RULE-test-001, B-211
 - **Files**: `tests/audit_observability_inventory.py`
 - **Estimate**: 半天级（全场景/规则映射核对 + 仓库级 verifier 执行）
 
@@ -1052,6 +1069,7 @@
 - [ ] [RULE-test-001][E2E] verifier_ref=harness-test#RULE-test-001；原 verifier 输入 argv=`["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"]`；原 verifier 全部通过，联合验收 argv 同前；不得以任务标题或静态声明代替行为证据。
 - [ ] 实现或补齐收口检查用例：场景/规则唯一负责人、无未终态行、证据登记、无 mock 与 skip 冒充。
 - [ ] 生成并校验 `.acceptance-manifest.json`（`--verify-plan`）后执行 `cf_acceptance_runner.py --include-e2e --write-evidence` 统一复验。
+- [ ] [B-211][integration] 以 pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录 为边界编写/扩展用例；关键断言：无遗漏/重复最终负责人；无未终态行；verified 场景在 owner Evidence 中登记；E2E 无 mock；无 skip/xfail 冒充。执行 argv：`["uv","run","pytest","-q","tests/audit_observability_inventory.py"]`。
 - [ ] 执行上述契约命令，填写 Acceptance Evidence（含失败项单列与其 owner）；全部 verified 后才可 done。
 
 ### Acceptance Contract
@@ -1060,6 +1078,7 @@
 |---|---|---|---|---|---|---|
 | RULE-06 | integration | 跨 API/DB/Runtime/Browser 的真实 E2E 边界 | 全场景按 design 层级执行、无降级与 mock；断言位置可复核 | tests/audit_observability_inventory.py / RULE-06 | `["bash","-lc","uv run pytest -q tests/audit_observability_inventory.py -k r06"]` | planned |
 | RULE-test-001 | E2E | 仓库级真实 E2E（真实 HTTP/PostgreSQL/Redis/Browser）+ 原 verifier 真实边界 | 无遗漏/重复最终负责人；原 verifier 全部通过；失败/skip 不冒充 verified | tests/audit_observability_inventory.py + 原 verifier / RULE-test-001 | `["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"]` | planned |
+| B-211 | integration | pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录 | 无遗漏/重复最终负责人；无未终态行；verified 场景在 owner Evidence 中登记；E2E 无 mock；无 skip/xfail 冒充 | tests/audit_observability_inventory.py / B-211 | `["uv","run","pytest","-q","tests/audit_observability_inventory.py","-k","b211"]` | planned |
 
 ### Acceptance Evidence
 

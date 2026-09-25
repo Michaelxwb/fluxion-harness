@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "11-audit-observability.md",
-  "task_sha256": "4c287f440ee8129d1b89972bf3b28437e554a512bc028f5963c293451fc45501",
+  "task_sha256": "9cb6818777b903dd23bf14cf662cd9a147d01ef55ac6d4758ae504bf54c480e2",
   "scenarios": [
     {
       "id": "S-01",
@@ -277,28 +277,68 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-210",
+      "source": "11-audit-observability.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实多进程栈(Console/Runtime/Worker + PostgreSQL/Redis)与租户级清理",
+      "owner": "TASK-016",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/audit_observability/test_environment.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
       "depends_on": [],
       "revision": 1,
       "evidence": {
-        "id": "B-209",
+        "id": "B-210",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
         "revision": 1,
-        "run_id": "9ceacb39377b4302a3b18a6494ef868d",
-        "executed_at": "2026-09-25T06:58:50.862013+00:00"
+        "run_id": "19c66450385a4085b0997fdda8363fbd",
+        "executed_at": "2026-09-25T07:18:35.688838+00:00"
       },
       "runs": [
         {
-          "id": "B-209",
+          "id": "B-210",
           "kind": "functional",
           "status": "passed",
           "exit_code": 0,
           "revision": 1,
-          "run_id": "9ceacb39377b4302a3b18a6494ef868d",
-          "executed_at": "2026-09-25T06:58:50.862013+00:00"
+          "run_id": "19c66450385a4085b0997fdda8363fbd",
+          "executed_at": "2026-09-25T07:18:35.688838+00:00"
         }
       ]
+    },
+    {
+      "id": "B-211",
+      "source": "11-audit-observability.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录",
+      "owner": "TASK-019",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/audit_observability_inventory.py",
+        "-k",
+        "b211"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
     },
     {
       "id": "E-01",
