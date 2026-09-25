@@ -13,6 +13,37 @@ from ..infrastructure.models.runtime import (
     ToolCallAudit,
 )
 
+SENSITIVE_KEY_MARKERS = (
+    "password",
+    "secret",
+    "token",
+    "api_key",
+    "credential",
+    "authorization",
+    "cookie",
+)
+
+
+def redact_sensitive(value: Any) -> Any:
+    """按已知敏感 key 递归遮蔽（设计 §3.5「写前递归脱敏」；RULE-04/RULE-08）。
+
+    作为审计写入的边界责任：任何调用方传入的 payload 落库前都会先过这里，
+    避免密钥/令牌以明文进入 `runtime.*_audit`。
+    """
+    if isinstance(value, dict):
+        return {
+            str(key): ("<redacted>" if _is_sensitive_key(str(key)) else redact_sensitive(item))
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [redact_sensitive(item) for item in value]
+    return value
+
+
+def _is_sensitive_key(key: str) -> bool:
+    lowered = key.lower()
+    return any(marker in lowered for marker in SENSITIVE_KEY_MARKERS)
+
 
 class RuntimeAuditWriter:
     """注入执行链的审计 port；每个事件独立短事务，不携带凭据字段。"""
@@ -60,7 +91,7 @@ class RuntimeAuditWriter:
                     tool_name=tool_name,
                     tool_kind=tool_kind,
                     prepared_args_hash=prepared_args_hash,
-                    args_preview_json=args_preview_json,
+                    args_preview_json=redact_sensitive(args_preview_json),
                     status=status,
                     start_time=start_time,
                     end_time=end_time,
