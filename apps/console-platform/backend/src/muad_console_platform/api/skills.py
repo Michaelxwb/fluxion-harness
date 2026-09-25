@@ -10,6 +10,7 @@ from ..application.dto import SkillUpdateRequest, SkillUserScopeRequest
 from ..application.skill_service import SkillService
 from ..infrastructure.db import get_session
 from ..infrastructure.skill_validator import ZIP_BYTES_LIMIT, invalid_package
+from ..metrics import SKILL_IMPORT_METRIC, count_outcome
 from .deps import AdminAccount, CurrentAccount, get_source_ip, get_tenant_id
 
 TenantId = Annotated[str, Depends(get_tenant_id)]
@@ -74,16 +75,17 @@ async def import_skill(
     user_scope: Annotated[str | None, Form(pattern="^(ALL|SELECTED)$")] = None,
     idempotency_key: Annotated[str | None, Header(max_length=128)] = None,
 ) -> ApiResponse[Any]:
-    detail = await SkillService(session).import_skill(
-        tenant_id,
-        version=version,
-        key=key,
-        default_script=default_script,
-        user_scope=user_scope,
-        data=await _upload_bytes(file),
-        actor=_actor(account, request),
-        idempotency_key=idempotency_key,
-    )
+    with count_outcome(SKILL_IMPORT_METRIC):
+        detail = await SkillService(session).import_skill(
+            tenant_id,
+            version=version,
+            key=key,
+            default_script=default_script,
+            user_scope=user_scope,
+            data=await _upload_bytes(file),
+            actor=_actor(account, request),
+            idempotency_key=idempotency_key,
+        )
     return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
 
 

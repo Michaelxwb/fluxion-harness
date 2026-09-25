@@ -12,6 +12,7 @@ from ..application.runtime_credentials import (
     resolve_runtime_credentials,
 )
 from ..infrastructure.db import get_session
+from ..metrics import RESOLVE_DEFINITION_METRIC, count_outcome
 from .deps import get_tenant_id
 
 TenantId = Annotated[str, Depends(get_tenant_id)]
@@ -27,7 +28,8 @@ async def resolve_definition(
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
-    resolved = await ResolveService(session).resolve_definition(tenant_id, payload)
+    with count_outcome(RESOLVE_DEFINITION_METRIC):
+        resolved = await ResolveService(session).resolve_definition(tenant_id, payload)
     return ok(request.app.state.message_catalog, resolved.model_dump(mode="json"))
 
 

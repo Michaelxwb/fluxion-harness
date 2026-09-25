@@ -21,6 +21,7 @@ from .api.router import router
 from .application.auth_service import AuthService
 from .application.platform_adapter_service import build_default_registry
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
+from .metrics import install_console_metrics
 
 SERVICE_NAME = "muad-console-platform"
 
@@ -77,4 +78,5 @@ app.state.platform_adapters = build_default_registry(
 install_api_foundation(app)
 install_console_security(app, ConsoleSessionVerifier(), ConsoleRoleResolver())
 install_health_probes(app, {"database": database_readiness(get_engine)})
+install_console_metrics(app)
 app.include_router(router)

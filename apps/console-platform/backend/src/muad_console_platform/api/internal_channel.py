@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..application.channel_service import ChannelService
 from ..application.channel_skills_service import ChannelSkillsService
 from ..infrastructure.db import get_session
+from ..metrics import BIND_METRIC, count_outcome
 from .deps import get_tenant_id
 
 TenantId = Annotated[str, Depends(get_tenant_id)]
@@ -36,7 +37,8 @@ async def bind(
     session: Session,
     idempotency_key: Annotated[str | None, Header(max_length=128)] = None,
 ) -> ApiResponse[Any]:
-    bound = await ChannelService(session).bind(tenant_id, payload, idempotency_key)
+    with count_outcome(BIND_METRIC):
+        bound = await ChannelService(session).bind(tenant_id, payload, idempotency_key)
     return ok(request.app.state.message_catalog, bound.model_dump(mode="json"))
 
 

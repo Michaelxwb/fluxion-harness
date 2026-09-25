@@ -1,8 +1,10 @@
+import logging
 import uuid
 from dataclasses import dataclass
 from typing import Any
 
 from muad_api import sanitize_audit_payload, write_config_audit
+from muad_api.context import trace_correlation_fields
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import ConfigAuditLog
@@ -10,6 +12,8 @@ from ..infrastructure.repositories.config_audit_log_repository import ConfigAudi
 
 # 敏感键剔除与 JSON 序列化统一由 api-kit 提供（RULE-15 / LIB-09），此处不再保留第二套实现
 sanitize_payload = sanitize_audit_payload
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -71,4 +75,18 @@ class AuditService:
             after=after,
             tenant_id=tenant_id,
             source_ip=actor.source_ip,
+        )
+        # 审计写入与日志出口共用同一 trace 关联字段（docs/09 §6.1）：
+        # 审计行（PostgreSQL）承载 trace_id，此处日志记录与之同源，可按 trace_id 串联排障；
+        # 日志不是审计事实源，只记关联字段与目标资源标识，不记 before/after 内容。
+        _logger.info(
+            "config_audit_write",
+            extra={
+                "fields": {
+                    **trace_correlation_fields(),
+                    "audit_action": action,
+                    "audit_resource_type": resource_type,
+                    "audit_resource_id": str(resource_id),
+                }
+            },
         )

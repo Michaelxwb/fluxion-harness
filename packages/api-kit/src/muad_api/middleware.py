@@ -8,7 +8,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
-from .context import set_request_context
+from .context import set_request_context, trace_correlation_fields
 from .locale import normalize_locale
 
 
@@ -45,12 +45,12 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             tenant_id=tenant_id,
             caller_service=caller_service,
         )
+        # 关联字段（docs/09 §6.1）全量进入日志上下文：请求内不存在的字段显式空串，不伪造。
         set_log_context(
-            trace_id=trace_id,
-            request_id=request_id,
             locale=locale,
             tenant_id=tenant_id or None,
             caller_service=caller_service or None,
+            **trace_correlation_fields(),
         )
 
         request.state.locale = locale
