@@ -141,19 +141,22 @@ def test_menu_entry_registered() -> None:
 
 
 def test_page_composes_shell_toolbar_and_pagination() -> None:
-    """[RULE-ui-001] 页面骨架：ModuleToolbar（左上操作/右上筛选）+ 列表（右下分页由 RemoteTable 内建）。
+    """[RULE-ui-001] 页面骨架：PageHeader（标题+说明）→ ModuleToolbar（左上操作/右上筛选）+ 列表。
 
     列表体的列/行渲染/空错槽位/分页入参由 TASK-012 的 `AuditTable` 供给（页面保留 `RemoteTable`
-    渲染与筛选/分页/详情编排），故这些断言落在供给方文件。
+    渲染与筛选/分页/详情编排），故这些断言落在供给方文件。壳层不渲染逐路由标题，故页标题只能由
+    页面自身的 `PageHeader` 承载（与其余 8 个模块页一致）。
     """
     page = _read(PAGE)
     for component in (
+        "PageHeader",
         "PageSection",
         "ModuleToolbar",
         "AuditFilterBar",
         "RemoteTable",
     ):
         assert component in page, f"列表页缺少公共组件 {component}"
+    assert "t('audit.title')" in page, "页标题须走词条"
     assert "actions={" in page, "缺少工具栏左侧主操作位"
     assert "search={<AuditFilterBar" in _compact(page), "筛选栏必须落在工具栏右侧搜索位"
     assert "AUDIT_PAGE_SIZE_DEFAULT" in page, "初始 pageSize 须取 service 层默认值"

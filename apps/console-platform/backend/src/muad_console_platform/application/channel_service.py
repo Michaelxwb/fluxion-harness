@@ -175,7 +175,7 @@ class ChannelService:
     async def _find_idempotency(
         self, tenant_id: str, idempotency_key: str, endpoint: str
     ) -> SkillImportIdempotency | None:
-        return await self._session.scalar(
+        record: SkillImportIdempotency | None = await self._session.scalar(
             select(SkillImportIdempotency).where(
                 SkillImportIdempotency.tenant_id == tenant_id,
                 SkillImportIdempotency.idempotency_key == idempotency_key,
@@ -183,6 +183,7 @@ class ChannelService:
                 SkillImportIdempotency.is_deleted.is_(False),
             )
         )
+        return record
 
     async def _record_idempotency(
         self,

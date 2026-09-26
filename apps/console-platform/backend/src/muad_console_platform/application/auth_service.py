@@ -176,8 +176,13 @@ class AuthService:
         account.update_time = datetime.now(UTC)
         await self._session.flush()
 
-    async def list_accounts(self) -> list[ConsoleAccount]:
-        return await self._accounts.list(self._require_tenant())
+    async def list_accounts(self, *, page: int, page_size: int) -> tuple[list[ConsoleAccount], int]:
+        tenant_id = self._require_tenant()
+        accounts = await self._accounts.list(
+            tenant_id, limit=page_size, offset=(page - 1) * page_size
+        )
+        total = await self._accounts.count(tenant_id)
+        return accounts, total
 
     async def has_any_account(self) -> bool:
         return await self._accounts.count_all() > 0

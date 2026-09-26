@@ -18,7 +18,7 @@ import { Banner, Button } from '@douyinfe/semi-ui';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { PageSection } from '../../../components/common/ConsolePage';
+import { PageHeader, PageSection } from '../../../components/common/ConsolePage';
 import { ModuleToolbar } from '../../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../../components/common/RemoteTable';
 import { AuditDetailSideSheet } from '../components/AuditDetailSideSheet';
@@ -214,18 +214,21 @@ export function AuditPage() {
   });
 
   return (
-    <PageSection>
-      <AuditPageToolbar
-        query={query}
-        exportFilters={exportFilters}
-        onChange={handleFilterChange}
-        onSearch={handleRefresh}
-        onReset={handleReset}
-        onRefresh={handleRefresh}
-      />
-      {refreshFailed ? <AuditRefreshNotice onRetry={handleRefresh} /> : null}
-      <RemoteTable<AuditListItem> {...auditTable} />
-      <AuditDetailPanel detail={detail} handleCloseDetail={handleCloseDetail} />
-    </PageSection>
+    <>
+      <PageHeader title={t('audit.title')} description={t('audit.subtitle')} />
+      <PageSection>
+        <AuditPageToolbar
+          query={query}
+          exportFilters={exportFilters}
+          onChange={handleFilterChange}
+          onSearch={handleRefresh}
+          onReset={handleReset}
+          onRefresh={handleRefresh}
+        />
+        {refreshFailed ? <AuditRefreshNotice onRetry={handleRefresh} /> : null}
+        <RemoteTable<AuditListItem> {...auditTable} />
+        <AuditDetailPanel detail={detail} handleCloseDetail={handleCloseDetail} />
+      </PageSection>
+    </>
   );
 }

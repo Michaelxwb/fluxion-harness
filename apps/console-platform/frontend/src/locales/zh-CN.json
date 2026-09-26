@@ -552,6 +552,7 @@
   "task.columns.deadlineAt": "截止时间",
   "task.columns.error": "失败原因",
   "task.columns.createTime": "创建时间",
+  "task.columns.updateTime": "更新时间",
   "task.status.QUEUED": "排队中",
   "task.status.RUNNING": "执行中",
   "task.status.WAITING": "等待中",
@@ -696,5 +697,7 @@
   "audit.export.busy": "导出中",
   "audit.export.error.IDEMPOTENCY_MISMATCH": "导出请求与已有任务冲突：筛选条件已变化，请重新导出",
   "audit.export.error.COMMON_INTERNAL_ERROR": "导出执行失败，请重试",
-  "audit.export.errorFallback": "导出失败，请重试"
+  "audit.export.errorFallback": "导出失败，请重试",
+  "audit.title": "运行审计",
+  "audit.subtitle": "跨配置、工具、出网与模型调用统一检索审计记录，支持只读详情与导出"
 }

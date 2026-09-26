@@ -13,7 +13,6 @@ class SharedSettings(BaseSettings):
 
     database_url: str | None = None
     redis_url: str | None = None
-    secret_provider: str = "env"
     internal_service_token: str | None = None
     channel_probe_url: str | None = None
     # WeCom SDK 连接地址与 CA：仅用于本地真实协议探针（默认空 = SDK 官方地址 + certifi 校验）

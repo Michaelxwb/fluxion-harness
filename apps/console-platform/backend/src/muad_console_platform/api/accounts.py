@@ -1,7 +1,7 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
-from muad_api import ApiResponse, ok
+from fastapi import APIRouter, Depends, Query, Request
+from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.auth_service import AuthService
@@ -25,9 +25,21 @@ async def list_accounts(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
 ) -> ApiResponse[Any]:
-    accounts = await AuthService(session, tenant_id=tenant_id).list_accounts()
-    return ok(request.app.state.message_catalog, [_account_payload(account) for account in accounts])
+    accounts, total = await AuthService(session, tenant_id=tenant_id).list_accounts(
+        page=page, page_size=page_size
+    )
+    return ok(
+        request.app.state.message_catalog,
+        paginate(
+            items=[_account_payload(account) for account in accounts],
+            page=page,
+            page_size=page_size,
+            total=total,
+        ),
+    )
 
 
 @router.post("")

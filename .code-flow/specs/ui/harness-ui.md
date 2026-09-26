@@ -30,12 +30,12 @@ verifiers:
 
 统一视觉基调（对齐参考工程 muad-openclaw console 的暗色 Shell，后续模块直接复用，不得各自二次优化）：
 
-- 主题：默认暗色（`index.html` 的 `body[theme-mode="dark"]` + `theme.ts` 持久化切换）；`ConfigProvider(locale=zh_CN)`；颜色/圆角仅在 `src/styles/app.css` 覆盖 `--semi-color-*` 与 `--app-*` token。
+- 主题：默认暗色（`index.html` 的 `body[theme-mode="dark"]` + `theme.ts` 持久化切换）；`ConfigProvider(locale=semiLocaleFor(...))` —— Semi 内建文案（Modal/Popconfirm/表格空态等）随界面语言在 zh-CN/en-US 间切换，**不得写死单一 locale**（词条语言由 react-i18next 持有；`tests/frontend/test_ui_style_contract.py` 明断言不得写死）；颜色/圆角仅在 `src/styles/app.css` 覆盖 `--semi-color-*` 与 `--app-*` token。
 - 图标：统一 `@douyinfe/semi-icons`；Shell/分页等通用图标不得内联 SVG。
 - 页面骨架：`PageHeader`（标题+说明）→ `PageSection`（面板）→ `ModuleToolbar`（左上操作/右上筛选）→ `RemoteTable`（含 `PaginationFooter`：显示区间/每页/翻页，默认每页 10）；详情用 `DetailSideSheet`，表单用 `FormModal`，时间用 `DateTimeText`。
 - 模块列表页必须使用 `RemoteTable`（禁止手写 `<Table>` + 分页）；详情 Tab 内的局部清单允许直接用 Semi `Table`。
 - 表单字段布局以交互稿为准：双列栅格 `.form-grid`、控件同宽、按稿顺序成对、动态字段分区说明；详情基本信息用 `DetailGrid`。
-- 新增/编辑表单统一走 `FormModal`（宽 520、标签置顶、确认文案「保存」）；字段补充说明用 `extraText`（如协议、Base URL、API Key、不可改编码），不得用占位符承载说明。
+- 新增/编辑表单统一走 `FormModal`（宽度按表单复杂度取自交互稿：简单表单 520，含代码/结构化配置的按稿加宽，现网为 560/720/800；标签置顶；确认文案默认「保存」，动作语义不同时按动作命名，如「授权」「导入」「保存并发现」）；字段补充说明用 `extraText`（如协议、Base URL、API Key、不可改编码），不得用占位符承载说明。
 - Shell：侧栏品牌区 + 图标菜单 + 底部用户区（头像/退出）；顶栏放主题切换与语言切换。
 
 ✅ 正确：

@@ -552,6 +552,7 @@
   "task.columns.deadlineAt": "Deadline",
   "task.columns.error": "Failure",
   "task.columns.createTime": "Created",
+  "task.columns.updateTime": "Updated",
   "task.status.QUEUED": "Queued",
   "task.status.RUNNING": "Running",
   "task.status.WAITING": "Waiting",
@@ -696,5 +697,7 @@
   "audit.export.busy": "Exporting",
   "audit.export.error.IDEMPOTENCY_MISMATCH": "Export request conflicts with an existing job: filters changed, please export again",
   "audit.export.error.COMMON_INTERNAL_ERROR": "Export failed, please retry",
-  "audit.export.errorFallback": "Export failed, please retry"
+  "audit.export.errorFallback": "Export failed, please retry",
+  "audit.title": "Runtime Audit",
+  "audit.subtitle": "Search configuration, tool, egress and model audit records; read-only detail with export"
 }

@@ -6,8 +6,8 @@
 Files 栏写的 `locales/zh-CN/audit-observability.ts` 与仓库现状不符，本契约以实际结构为准，不新造
 一套结构出来。
 
-`scripts/check_frontend_i18n.py` 只比对两份词条的键集，**看不到**动态键（模板串拼接）与「文案是否
-真的经 catalog 码映射」；本文件补上这两处：
+`scripts/check_frontend_i18n.py` 比对两份词条的键集齐平/空值，并校验 `t('字面量键')` 的键已定义，
+但**看不到**动态键（模板串拼接）与「文案是否真的经 catalog 码映射」；本文件补上这两处：
 
 - 动态键变体必须齐备：`audit.auditType.${value}`、`audit.resourceType.${type}`、
   `audit.resultStatus.${code}`、`audit.detail.field.${field}`、`audit.export.error.${code}`。

@@ -44,7 +44,7 @@ Runtime 消费冻结 catalog：
 ✅ 冻结定义 + 真实调用：
 
 ```python
-adapter.register_catalog(registry=registry, servers=snapshot_servers)   # definitions 来自 Snapshot
+adapter.register_catalog(registry=registry, tenant_id=run_context.tenant_id, run_id=run_context.run_id, servers=snapshot_servers)   # definitions 来自 Snapshot
 content = await session.call_tool(tool.name, arguments)                # initialize → tools/call
 ```
 

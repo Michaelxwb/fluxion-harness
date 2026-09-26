@@ -14,7 +14,7 @@ verifiers:
     argv:
     - bash
     - -lc
-    - uv run pytest -q tests/agent_runtime -k "executor or resolve"
+    - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"
     cwd: .
     timeout: 600
 ---

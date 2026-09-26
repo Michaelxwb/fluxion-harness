@@ -87,6 +87,7 @@ assert (await session.get(RunRecord, run_id)).status == "RUNNING"               
 - ❌ 命令与场景不符：`-k` 未命中任何测试（退出码 5）却标记 verified；或测试名/文件与 Acceptance Contract 声明的路径不一致。
 - ❌ 验收层级注水：把 service/DB 级测试写成 E2E，或边界文案（真实 Gateway/进程/SSE）与测试实际行为不符。
 - ❌ 空转用例：测试名为"跨 host 跳转拒绝"却请求 `/healthz`、`follow_redirects=False` 从未触发跳转。
+- ❌ 把验收/Done Gate 命令的输出接进会**提前关闭的管道**（典型 `| head`）：SIGPIPE 会打断 pytest 收尾，`stop_live_stack`/`stop_audit_stack` 不执行，留下 uvicorn/`muad_*.main` 孤儿进程继续连同一个本地测试库 → 后续运行随机失败（如 `SKILL_ARTIFACT_UNAVAILABLE`、任务 `FAILED`），且失败点每次不同、单跑却都通过，极易误判为跨模块 flake。用 `> file` 或 `tail`（会读完输入）；每次运行前先确认无残留进程（`ps aux | grep -E "[u]vicorn|muad_(agent_worker|agent_runtime|console_platform|im_gateway)\.main"`）。
 
 ## Avoid
 

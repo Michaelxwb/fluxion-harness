@@ -39,6 +39,8 @@ checks:
 - 所有密钥明文存于各 Owner 表并以主键引用：模型 `model_definition.api_key`、Bot `bot_account.secret`、MCP `mcp_server.auth_secret`、平台 `project_platform.auth_secret`、用户/共享凭据 `user_credential_ref.credential_json` / `shared_credential_ref.credential_json`。
 - 不再有 SecretRef/SecretProvider；跨表引用只使用主键（model_id/bot_account_id/mcp_server_id/platform_id/user_id）。
 - 脱敏边界不变：密钥不得进入日志、`config_audit_log`、RuntimeSnapshot、LLM Prompt、IM 消息与 API 响应（对外只回 `*_configured`）。
+- **禁止面比上述更宽**：密钥同样不得进入 CanonicalEvent、`tool_call_audit`、`egress_audit`、`model_invocation_audit`、IM 出站消息、Skill package 及其 `SKILL.md`。验收以 canary 反查为准（`tests/acceptance/im_gateway/test_secrets_and_readiness.py`）。
+- **唯一受控例外**：内部 bot 快照按最小凭据边界携带 secret，且仅对带 `X-Internal-Service` 的内部调用可见；匿名/越权访问必须 `403 FORBIDDEN`（同上用例断言 canary 存在与不存在两侧）。除该例外，任何"为了联调/调试带上密钥"的做法都属违规。
 
 ✅ 正确：
 

@@ -55,11 +55,41 @@ async def test_admin_can_access_admin_accounts_route(client: AsyncClient, auth: 
 
     listing = await client.get("/api/v1/accounts", headers=tenant_headers(auth))
     assert listing.status_code == 200
-    assert listing.json()["code"] == "0"
-    usernames = [item["username"] for item in listing.json()["data"]]
+    body = listing.json()
+    assert body["code"] == "0"
+    # 列表必须走统一分页封套，不得返回裸数组（RULE-api-001）
+    assert set(body["data"]) == {"items", "page", "page_size", "total"}
+    assert body["data"]["page"] == 1
+    assert body["data"]["page_size"] == 20
+    usernames = [item["username"] for item in body["data"]["items"]]
     assert auth.admin_username in usernames
     assert auth.builder_username in usernames
-    assert all("password_hash" not in item for item in listing.json()["data"])
+    assert body["data"]["total"] >= len(usernames)
+    assert all("password_hash" not in item for item in body["data"]["items"])
+
+
+async def test_admin_accounts_list_is_paginated(client: AsyncClient, auth: AuthContext) -> None:
+    response = await login(client, auth, auth.admin_username, ADMIN_PASSWORD)
+    assert response.status_code == 200
+    headers = tenant_headers(auth)
+
+    first = await client.get("/api/v1/accounts", params={"page": 1, "page_size": 1}, headers=headers)
+    assert first.status_code == 200
+    page_one = first.json()["data"]
+    assert page_one["page_size"] == 1
+    assert len(page_one["items"]) == 1
+    assert page_one["total"] >= 2  # 至少 admin 与 builder 两个种子账号
+
+    second = await client.get("/api/v1/accounts", params={"page": 2, "page_size": 1}, headers=headers)
+    assert second.status_code == 200
+    page_two = second.json()["data"]
+    assert len(page_two["items"]) == 1
+    # 分页必须真正切分，而不是重复返回首页
+    assert page_two["items"][0]["username"] != page_one["items"][0]["username"]
+
+    # 边界：page_size 越界 422
+    rejected = await client.get("/api/v1/accounts", params={"page_size": 101}, headers=headers)
+    assert rejected.status_code == 422
 
 
 async def test_builder_can_manage_agents(client: AsyncClient, auth: AuthContext) -> None:

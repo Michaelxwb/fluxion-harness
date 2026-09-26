@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 import json
+import re
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-locale_dir = root / 'apps/console-platform/frontend/src/locales'
+frontend_dir = root / 'apps/console-platform/frontend'
+locale_dir = frontend_dir / 'src/locales'
+source_dir = frontend_dir / 'src'
+
+# 源码里的字面量文案键引用：t('some.key') / t("some.key")。
+# 带 ${} 插值的模板串与变量入参不匹配本正则，属动态键，由模块级 i18n 契约用例覆盖。
+T_CALL_RE = re.compile(r"""\bt\(\s*(['"])([A-Za-z0-9_][A-Za-z0-9_.:\-]*)\1""")
+SOURCE_SUFFIXES = ('.ts', '.tsx')
 
 
 def flatten(data, prefix=''):
@@ -35,8 +43,45 @@ def compare_locale_files(zh_path, en_path):
     return problems, len(zh)
 
 
+def referenced_keys(search_dir=None):
+    """扫描前端源码，收集 t('字面量键') 形式的键及其引用位置。"""
+    references = {}
+    for path in sorted((search_dir or source_dir).rglob('*')):
+        if not path.is_file() or path.suffix not in SOURCE_SUFFIXES:
+            continue
+        if 'locales' in path.parts:
+            continue
+        try:
+            text = path.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        for match in T_CALL_RE.finditer(text):
+            key = match.group(2)
+            if '.' not in key:
+                continue
+            line = text.count('\n', 0, match.start()) + 1
+            try:
+                shown = path.relative_to(root)
+            except ValueError:
+                shown = path
+            references.setdefault(key, []).append(f'{shown}:{line}')
+    return references
+
+
+def compare_source_references(zh_path, search_dir=None):
+    """代码引用的键必须已定义：只比对两侧键集齐平会漏掉“用了但没写进词条”。"""
+    zh_keys = set(flatten(json.loads(Path(zh_path).read_text(encoding='utf-8'))))
+    problems = []
+    for key, places in sorted(referenced_keys(search_dir).items()):
+        if key in zh_keys:
+            continue
+        problems.append(f'Referenced but not defined: {key} ({", ".join(places[:3])})')
+    return problems
+
+
 def main():
     problems, key_count = compare_locale_files(locale_dir / 'zh-CN.json', locale_dir / 'en-US.json')
+    problems.extend(compare_source_references(locale_dir / 'zh-CN.json'))
     if problems:
         print('\n'.join(problems))
         raise SystemExit(1)
