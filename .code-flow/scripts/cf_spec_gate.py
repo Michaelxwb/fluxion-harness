@@ -171,8 +171,25 @@ def validate_plan_coverage(context: SpecContext, artifact: str) -> GateResult:
     errors: list[GateIssue] = []
     for binding in context.bindings:
         for rule in binding.rules:
-            if rule.enforcement == "required" and "plan" in rule.stage_status:
-                errors.extend(_rule_plan_issues(binding, rule, sections))
+            if rule.enforcement != "required" or "plan" not in rule.stage_status:
+                continue
+            status = rule.stage_status["plan"]
+            # 已逐项确认 N/A / 豁免的规则不再需要责任 TASK（与 _status_issue 口径一致）；
+            # 决策无效时必须报错，不得借此绕过覆盖检查。
+            if status.status in ("not_applicable", "waived"):
+                if status.status == "waived":
+                    if _waiver_issue(status.decision, datetime.now(timezone.utc)) is None:
+                        continue
+                    code = "waiver_invalid"
+                else:
+                    if _decision_valid(status.decision):
+                        continue
+                    code = "decision_invalid"
+                errors.append(
+                    _plan_issue(code, binding, rule, f"{binding.spec_id}#{rule.ref} {status.status} 决策无效")
+                )
+                continue
+            errors.extend(_rule_plan_issues(binding, rule, sections))
     refs = tuple(sorted(f"{item.spec_id}#{item.rule_ref}" for item in errors))
     return GateResult("block" if errors else "pass", tuple(errors), (), refs)
 
