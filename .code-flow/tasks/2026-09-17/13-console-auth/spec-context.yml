@@ -1,7 +1,7 @@
 version: 1
 task: Console 账号与访问控制
 enforcement: required
-updated_at: '2026-09-19T02:48:16.871664+00:00'
+updated_at: '2026-09-26T12:44:37.149518+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -26,9 +26,9 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: ed3d32d8d5085e6d250ef7a24f1988759d414113d2726d0a92052880bf2a66b0
-    metadata_sha256: e9f9b2714c5043dc7d9363ec9a950471b4cdea6d932bd8e86ac2dd0a754c9359
-    rules_sha256: 76ffb366c7643e6faa32a65c751aea08de24bc2c1b6f37db46e6df1a7665e728
+    file_sha256: dcd60f67780352116becacd4b2e8e34f3f179509e7e3c8045c1683b7814ddfdc
+    metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
+    rules_sha256: 03e8e1e883b8e1bb81f74c27ed22bce9b1cf5512d4775ee5f93af5acd06f42c7
   selected_by: agent
   reason: Agent Harness 通用平台规则：api
   enforcement: required
@@ -38,6 +38,36 @@ bindings:
   - code
   - review
   rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，含 endpoint、tenant/actor/资源与关键参数（Runtime 另含 run_id/message_id）；同
+      key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key 不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由
+      partial unique 兜底，落败者读取首次提交结果。
+    text_sha256: d39a45cb02db1de6f4d65c5ea3ee821a976855d8f07316e4cfa5798e98fda87e
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
   - ref: RULE-api-001
     summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
       `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
@@ -52,7 +82,7 @@ bindings:
         - artifact: 13-console-auth.backend.design.md
           section_id: 2.4 范围与边界
           item_id: RULE-api-001
-          artifact_sha256: 167fe70e3042947fa9509baac587f964b4447c67a4c31505e25cd87623f0cfd4
+          artifact_sha256: db114df1245570b0f6ff47599904753c9a7f891dadf3536f20b757966237c77e
         decision: null
         evidence: []
       plan:
@@ -74,7 +104,7 @@ bindings:
   path: test/harness-test.md
   status: active
   hashes:
-    file_sha256: 66b05f4ed49156830ac7d388c9487264b4a85f50d32dacb364e126c83498a3ff
+    file_sha256: c06f8ed2a296db59f1eaae22e30a9385cdd76492ce10ebe0268e3c08819d1c0f
     metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
     rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
   selected_by: agent
@@ -99,7 +129,7 @@ bindings:
         - artifact: 13-console-auth.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-test-001
-          artifact_sha256: 167fe70e3042947fa9509baac587f964b4447c67a4c31505e25cd87623f0cfd4
+          artifact_sha256: db114df1245570b0f6ff47599904753c9a7f891dadf3536f20b757966237c77e
         decision: null
         evidence: []
       plan:
@@ -148,7 +178,7 @@ bindings:
         - artifact: 13-console-auth.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-auth-001
-          artifact_sha256: 167fe70e3042947fa9509baac587f964b4447c67a4c31505e25cd87623f0cfd4
+          artifact_sha256: db114df1245570b0f6ff47599904753c9a7f891dadf3536f20b757966237c77e
         decision: null
         evidence: []
       plan:
@@ -196,7 +226,7 @@ bindings:
         - artifact: 13-console-auth.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-data-001
-          artifact_sha256: 167fe70e3042947fa9509baac587f964b4447c67a4c31505e25cd87623f0cfd4
+          artifact_sha256: db114df1245570b0f6ff47599904753c9a7f891dadf3536f20b757966237c77e
         decision: null
         evidence: []
       plan:
@@ -218,7 +248,7 @@ bindings:
   path: ui/harness-ui.md
   status: active
   hashes:
-    file_sha256: c762895c4a5679287b2c4790178b5dcda135a7a03802c9e4baddac0adda3f713
+    file_sha256: d2d932a9d4b7e02645d2b6159ef703f87cb25f0c5df00441a5c3beb23836510e
     metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
     rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
   selected_by: agent
@@ -265,9 +295,9 @@ bindings:
   path: frontend/harness-frontend.md
   status: active
   hashes:
-    file_sha256: 095d3ec2a3bfe5c77f2884c061bbadc2c2b11ccd28621c8c78d0cc96182262f6
+    file_sha256: 6bc1664cf7ce013876e7788736d3c5e92d316346cddcd76498fb7d6be28c21cb
     metadata_sha256: 1f21efbe8b18a0dfec23126451e4674a64f60cf0f8e7bed81f2f404abd552f98
-    rules_sha256: 0154193b28c857724614f543e1c78a3c01120fcfa8d07d39303b4168cef8156f
+    rules_sha256: 06cb9741cd7728a490de0c0ff5783e6357fc47631da829c5578785e8c24d10fc
   selected_by: agent
   reason: Agent Harness 通用平台规则：front
   enforcement: required
@@ -278,14 +308,17 @@ bindings:
   - review
   rules:
   - ref: RULE-front-001
-    summary: 前端 API 调用只经 `src/api/`（services）层，组件禁止裸用 axios/fetch；所有文案只使用 i18n key（zh-CN/en-US）；列表/详情遵循
-      RULE-ui-001 与 RULE-ui-detail-001。
-    text_sha256: 440c5905981dfbff9549ae224b77391ff6213fea051e1a0b5914099cb0db15fc
+    summary: 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的
+      service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也不直接
+      import `api/client`。所有文案只使用 i18n key（zh-CN/en-US）——`scripts/check_frontend_i18n.py`
+      校验两侧词条的键集齐平与空值，并校验源码中 `t('字面量键')` 引用的键**必须已定义**（增删词条后务必跑它）；模板串动态键变体的齐备性由各模块的
+      `tests/frontend/*_i18n*.py` 契约钉死。列表/详情遵循 RULE-ui-001 与 RULE-ui-detail-001。
+    text_sha256: 6600ad9684da814e45be1bb9b54c86978fedfdd440b29335989ae5f5c9d18f7d
     enforcement: required
     verifier_ref: harness-frontend#RULE-front-001
     stage_status:
       design:
-        status: applied
+        status: stale
         refs:
         - artifact: 13-console-auth.frontend.design.md
           section_id: Spec Compliance Matrix
@@ -294,17 +327,17 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
@@ -312,7 +345,7 @@ bindings:
   path: i18n/harness-i18n.md
   status: active
   hashes:
-    file_sha256: c9488871a20af236a39ad4c8c6e1d59ba3662c9a60e05f7f98eceb24ea85dc8c
+    file_sha256: ed54eff4906bac7f4704613c3910b0d90068e456e8c19bee6fc34130a4792736
     metadata_sha256: b60d271a6656981b54ee716fcd5dece1c41d2402b50ed56d5197effcf17a7959
     rules_sha256: 2f76d4b7d9b26cf3be95f2d812aaca26dd9e576c7e57bf665b65b986a7a1829f
   selected_by: agent
@@ -337,7 +370,7 @@ bindings:
         - artifact: 13-console-auth.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-i18n-001
-          artifact_sha256: 167fe70e3042947fa9509baac587f964b4447c67a4c31505e25cd87623f0cfd4
+          artifact_sha256: db114df1245570b0f6ff47599904753c9a7f891dadf3536f20b757966237c77e
         decision: null
         evidence: []
       plan:
@@ -359,7 +392,7 @@ bindings:
   path: logging/harness-log.md
   status: active
   hashes:
-    file_sha256: e7b54c62cb6c2d5db58bbd7baa5f78563f990ebc475040d52464eba0ef5bf7fa
+    file_sha256: 46c40605ed69825b464d3c0dd50696ba26d176b6c0a9a2a13d5377f0ac75cd57
     metadata_sha256: 8bb67ae0c5cf82baee539013ff9840ed3004f3747460534ec4a8784e4b9640a1
     rules_sha256: 0c3e600fc9f79d41f34519374ae44ff47098361f3cdca41519881ffcfd4d6e4a
   selected_by: agent
@@ -385,7 +418,7 @@ bindings:
         - artifact: 13-console-auth.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-log-001
-          artifact_sha256: 167fe70e3042947fa9509baac587f964b4447c67a4c31505e25cd87623f0cfd4
+          artifact_sha256: db114df1245570b0f6ff47599904753c9a7f891dadf3536f20b757966237c77e
         decision: null
         evidence: []
       plan:
@@ -431,7 +464,7 @@ bindings:
         - artifact: 13-console-auth.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-rel-001
-          artifact_sha256: 167fe70e3042947fa9509baac587f964b4447c67a4c31505e25cd87623f0cfd4
+          artifact_sha256: db114df1245570b0f6ff47599904753c9a7f891dadf3536f20b757966237c77e
         decision: null
         evidence: []
       plan:
@@ -453,8 +486,8 @@ bindings:
   path: secret/harness-secret.md
   status: active
   hashes:
-    file_sha256: 02042d172b287f41143df169d1c8309ff571425f05541d577b5463c74596c1aa
-    metadata_sha256: 6eb93990def2057725626f290065551208a4bd3aee9121a753b5a49b32d05d09
+    file_sha256: 43b233f666a0747d0c395c71ceabefbad5991ae50c7aea42d4a16efe36aed0c8
+    metadata_sha256: af4b34f2fb0332b6cfa359e3771ee61db87085d03bf7bef36e0c5628b1150ffb
     rules_sha256: bfad8617c95199b82ae1cebdbe3aaf0a1fdc0ee8fd0f39205f1d93a9a30201d3
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-secret
@@ -479,7 +512,7 @@ bindings:
         - artifact: 13-console-auth.backend.design.md
           section_id: design
           item_id: design
-          artifact_sha256: 167fe70e3042947fa9509baac587f964b4447c67a4c31505e25cd87623f0cfd4
+          artifact_sha256: db114df1245570b0f6ff47599904753c9a7f891dadf3536f20b757966237c77e
         - artifact: 13-console-auth.frontend.design.md
           section_id: design
           item_id: design
@@ -530,7 +563,7 @@ bindings:
         - artifact: 13-console-auth.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-time-001
-          artifact_sha256: 167fe70e3042947fa9509baac587f964b4447c67a4c31505e25cd87623f0cfd4
+          artifact_sha256: db114df1245570b0f6ff47599904753c9a7f891dadf3536f20b757966237c77e
         decision: null
         evidence: []
       plan:
@@ -549,7 +582,7 @@ bindings:
         decision: null
         evidence: []
 - spec_id: harness-ui-detail
-  path: frontend/harness-ui-detail.md
+  path: ui-detail/harness-ui-detail.md
   status: active
   hashes:
     file_sha256: 97df161668a12c248bded504300b16a95401e269f3b900ee58f3be39f234734d

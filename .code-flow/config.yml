@@ -169,10 +169,13 @@ path_mapping:
               - "nfs"
               tier: 1
     persistence:
+        # 表设计规范只随**schema 载体**注入：迁移与 ORM 模型。
+        # 不列 `**/repositories/**` —— 仓库层是查询代码，只读查询模块（如 11 的
+        # `audit_query_repository`、12 的 `overview_query_repository`）会被绑上
+        # 表设计规则并触发无意义的 scope pause；schema 变更必然落在 migrations/models。
         patterns:
             - "migrations/**"
             - "**/models/**"
-            - "**/repositories/**"
         specs:
             - path: "persistence/harness-data.md"
               tags:
@@ -246,7 +249,18 @@ path_mapping:
               - "api-client"
               - "axios"
               tier: 1
-            - path: "frontend/harness-ui-detail.md"
+    ui-detail:
+        # 只匹配详情视图的载体组件。**不能**沿用 frontend 的 `apps/**/frontend/**`：
+        # 那会把「SideSheet 标题/操作/Tabs 结构」绑到任意前端文件，包括**没有任何详情
+        # 视图**的模块（12-overview-dashboard 是仪表盘、列表只外链，就被误绑并触发一次
+        # 无意义的 scope pause）。规则主体是具体组件家族，pattern 就应指向该家族。
+        patterns:
+            - "**/DetailSideSheet.tsx"
+            - "**/*DetailSideSheet.tsx"
+            - "**/*DetailTabs.tsx"
+            - "**/components/common/DetailGrid.tsx"
+        specs:
+            - path: "ui-detail/harness-ui-detail.md"
               tags:
               - "ui"
               - "sidesheet"
