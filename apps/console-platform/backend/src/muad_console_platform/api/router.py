@@ -10,11 +10,12 @@ from .deps import get_current_account, require_admin
 from .internal_channel import router as internal_channel_router
 from .internal_runtime import router as internal_runtime_router
 from .mcp_servers import router as mcp_servers_router
-from .schedules import router as schedules_router
 from .models import router as models_router
+from .overview import router as overview_router
 from .platform_adapters import router as platform_adapters_router
 from .platform_test import router as platform_test_router
 from .platforms import router as platforms_router
+from .schedules import router as schedules_router
 from .security import require_csrf
 from .skills import router as skills_router
 from .tasks import router as tasks_router
@@ -34,6 +35,7 @@ authenticated.include_router(platform_test_router)
 authenticated.include_router(skills_router)
 authenticated.include_router(audits_router)
 authenticated.include_router(mcp_servers_router)
+authenticated.include_router(overview_router)
 authenticated.include_router(tasks_router)
 authenticated.include_router(schedules_router)
 router.include_router(authenticated)
