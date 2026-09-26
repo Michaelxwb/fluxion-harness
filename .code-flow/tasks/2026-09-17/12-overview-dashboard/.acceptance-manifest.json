@@ -10,7 +10,7 @@
       "kind": "e2e",
       "boundary": "真实 Console HTTP 聚合查询→四张 Owner 表(PostgreSQL)",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -22,7 +22,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-01",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "2510527eb92548b2bc07fefac780dccd",
+        "executed_at": "2026-09-26T10:29:50.451837+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "03cc1dfbb1634354a36669ea047e4a6d",
+          "executed_at": "2026-09-26T10:29:25.838553+00:00"
+        },
+        {
+          "id": "S-01",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "2510527eb92548b2bc07fefac780dccd",
+          "executed_at": "2026-09-26T10:29:50.451837+00:00"
+        }
+      ]
     },
     {
       "id": "S-02",

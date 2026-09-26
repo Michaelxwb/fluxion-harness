@@ -39,7 +39,7 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 argv | cwd | timeout | depends_on |
 |---|---|---|---|---|---|---|---|---|---|
-| S-01 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | 真实 Console HTTP 聚合查询→四张 Owner 表(PostgreSQL) | TASK-004 | planned | ["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"] | . | 1200 |  |
+| S-01 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | 真实 Console HTTP 聚合查询→四张 Owner 表(PostgreSQL) | TASK-004 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"] | . | 1200 |  |
 | S-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 首页→目标模块路由 | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""] | . | 1200 |  |
 | S-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→overview API（一次加载，无前端 N+1） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""] | . | 1200 |  |
 | S-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser Router→tasks/schedules 且菜单选中正确 | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""] | . | 1200 |  |
@@ -222,7 +222,7 @@
 - [2026-09-26] completed (done)
 ## TASK-004: 后端场景真实验收（S-01 + 无 N+1）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 12-overview-dashboard.backend.design.md#2.4 验收条件, 12-overview-dashboard.backend.design.md#4.2 风险识别
@@ -237,27 +237,38 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 
 ### Checklist
 
-- [ ] [S-01][E2E] 以真实 Console HTTP + 真实 PostgreSQL 为边界编写用例：种入已知数量的启用 Agent/Skill、非终态 Task、ACTIVE Schedule 后，`GET /api/v1/overview` 一次返回 4 个 KPI 且数值与逐表回读一致，`recent_tasks`/`next_schedules` 各 ≤5 且排序正确。执行 argv：`["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"]`。
-- [ ] [S-01] 断言封套键集、`recent_tasks[].status/trigger_type/delivery_status` 与 `next_schedules[].status/next_fire_at/last_fire_at` 字段齐备，时间字段匹配 `YYYY-MM-DD HH:mm:ss`。
-- [ ] [RISK-01] 无 N+1 证据：记录并断言单次请求内聚合 SQL 条数 ≤5（与行数无关），断言不随种子数据量增长。
-- [ ] [RISK-03] 断言响应为请求时计算：不读任何概览快照表/物化视图，也不依赖 Redis 缓存键（无 Redis 亦正确）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录（含实测 SQL 条数）。
+- [x] [S-01][E2E] 以真实 Console HTTP + 真实 PostgreSQL 为边界编写用例：种入已知数量的启用 Agent/Skill、非终态 Task、ACTIVE Schedule 后，`GET /api/v1/overview` 一次返回 4 个 KPI 且数值与逐表回读一致，`recent_tasks`/`next_schedules` 各 ≤5 且排序正确。执行 argv：`["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"]`。
+- [x] [S-01] 断言封套键集、`recent_tasks[].status/trigger_type/delivery_status` 与 `next_schedules[].status/next_fire_at/last_fire_at` 字段齐备，时间字段匹配 `YYYY-MM-DD HH:mm:ss`。
+- [x] [RISK-01] 无 N+1 证据：记录并断言单次请求内聚合 SQL 条数 ≤5（与行数无关），断言不随种子数据量增长。
+- [x] [RISK-03] 断言响应为请求时计算：不读任何概览快照表/物化视图，也不依赖 Redis 缓存键（无 Redis 亦正确）。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录（含实测 SQL 条数）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | E2E | 真实 Console HTTP + 四张 Owner 表(PostgreSQL) | 一次请求返回 4 KPI（与逐表回读一致）+ 两组列表（≤5、排序正确）；SQL 条数 ≤5；不读快照/缓存 | tests/acceptance/overview/test_overview_acceptance.py / S-01 | `["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"]` | planned |
+| S-01 | E2E | 真实 Console HTTP + 四张 Owner 表(PostgreSQL) | 一次请求返回 4 KPI（与逐表回读一致）+ 两组列表（≤5、排序正确）；SQL 条数 ≤5；不读快照/缓存 | tests/acceptance/overview/test_overview_acceptance.py / S-01 | `["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"]` | e2e_deferred |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-01 | **验收类不制造实现 RED**：端点已在 TASK-001 落地，本任务只补真实验收（若未实现，登记 argv 会以 `404 COMMON_NOT_FOUND` 失败，即结构性 RED）。真实记录的**测试侧** RED：RISK-01 首轮报 `未捕获到任何 SQL，测量本身失效` —— 监听器挂在 Console 引擎上，而 `run_db` 会另起引擎，故一条语句也捕获不到；改为使用被测服务自己的 `get_engine()`/`get_session_factory()` 后测得真实条数。 | 整文件 `uv run pytest -q tests/acceptance/overview/test_overview_acceptance.py` → **3 passed**（S-01 + RISK-01 + RISK-03）；运行后无孤儿进程、无遗留租户。按流程 S-01 属 E2E，**形式上仍记 `e2e_deferred`**，终验归 verify-e2e（届时以 `--include-e2e` 复跑同一 argv）。 | `test_s01_one_request_returns_all_blocks_matching_independent_reads`：真实登录后一次 `GET /api/v1/overview` → `data` 键集恰为 `{kpis,recent_tasks,next_schedules}`；四个 KPI **与独立原始 SQL 回读逐项相等**（不经被测 API 计算）；`recent_tasks` 长度 ∈(0,5]、`create_time` 严格降序、`agent_name`/`actor_user_name` 为种子值、时间匹配 `YYYY-MM-DD HH:mm:ss`；`next_schedules` 名字序列 == 种子期望（`启用定时 1/2`）、`next_fire_at` 升序、全为 `ACTIVE`。`test_risk01_aggregate_sql_count_is_bounded_and_row_independent`：实测单次聚合 **3 条 SQL**（≤5），**追加 12 行后条数不变**（逐实体查询必然增长，故这是 N+1 的直接反证）；并断言语句只落在四张 Owner 表上、不含 `snapshot`/`redis`。`test_risk03_overview_serves_without_reachable_redis`：另起一个 `REDIS_URL=redis://127.0.0.1:1/0`（死端口）的 Console 真实进程，登录后同一端点仍 200 且 KPI/列表与正常栈**完全一致**（未因 Redis 缺失而伪造或降级），收尾确认该进程已退出。 | 真实 Console **子进程**（真实 HTTP + 真实登录会话/CSRF，非 ASGI 直连）+ 真实 PostgreSQL 独立原始 SQL 回读；种子来自 TASK-003 的真实进程栈与租户级种子。**N+1 计数**以进程内真实会话 + `before_cursor_execute` 监听完成（HTTP 层只做委托，计数对象即请求处理器的工作）——已在用例 docstring 与本表说明。 | e2e_deferred（本地已 GREEN，终验归 verify-e2e） |
+
+**实现中的判断点（如实登记）**：
+
+- **N+1 的判据选"条数不随行数增长"而非"条数小"**：仅断言 ≤5 不能排除"数据量小时恰好少"，故加行重测并断言条数**不变**——这才是逐实体查询的直接反证。实测 3 条（KPI 一条 + 两组列表各一条，名称在同一 SQL 内 JOIN 补齐）。
+- **RISK-03 用死端口 Redis 起真实进程验证**：比静态检查"代码没 import redis"强得多——若实现把 KPI 缓存为 Redis 快照或把 Redis 当必经依赖，该进程要么起不来要么数据不一致。
+- **非 E2E 部分不降级**：S-01 的 E2E 层级保持，RISK-01/RISK-03 作为其证据在同文件内以集成级补强；未把 E2E 改写成集成级。
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=03cc1dfbb1634354a36669ea047e4a6d (confirmed_by: runner)
+- S-01: e2e_deferred — automated command e2e_deferred; run_id=2510527eb92548b2bc07fefac780dccd (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
 
 ---
-
+- [2026-09-26] started
+- [2026-09-26] completed (done)
 ## TASK-005: 前端 service 层与类型契约
 
 - **Status**: draft
