@@ -14,6 +14,7 @@ import re
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -375,3 +376,32 @@ async def test_rule_api_001_contract_and_rule_time_001_time_format(
     assert schedule["timezone"] == "Asia/Shanghai"
     assert schedule["next_fire_at"] == _local(NOW + timedelta(days=3))
     assert schedule["last_fire_at"] is None
+
+
+DOCS_07 = Path(__file__).resolve().parents[2] / "docs" / "07-跨模块接口与协议详细设计.md"
+
+
+def _docs_07_overview_section() -> str:
+    text = DOCS_07.read_text(encoding="utf-8")
+    match = re.search(r"^### 10\.12 Overview$(.*?)(?=^## |\Z)", text, re.S | re.M)
+    assert match, "docs/07 缺 §10.12 Overview 小节"
+    return match.group(1)
+
+
+def test_b201_docs_07_registers_frozen_overview_contract() -> None:
+    """[B-201][integration] 跨模块文档登记端点并逐项列出冻结契约字段与错误码（RISK-02）。
+
+    与 `test_rule_api_001_contract_and_rule_time_001_time_format` 形成闭环：后者断言真实响应
+    的字段集等于本文件常量，本用例断言 docs/07 §10.12 列出**同一集合** —— 任一侧漂移即失败，
+    从而避免契约只活在单个需求的设计文档里。
+    """
+    section = _docs_07_overview_section()
+    assert "GET /api/v1/overview" in section
+    for key in sorted(KPI_KEYS):
+        assert key in section, f"docs/07 §10.12 缺 KPI 字段 {key}"
+    for field in sorted(TASK_ITEM_KEYS | SCHEDULE_ITEM_KEYS):
+        assert field in section, f"docs/07 §10.12 缺响应字段 {field}"
+    for code in ("UNAUTHORIZED", "COMMON_INTERNAL_ERROR"):
+        assert code in section, f"docs/07 §10.12 缺错误码 {code}"
+    assert "LIMIT 5" in section, "docs/07 §10.12 须写明两组列表各 LIMIT 5"
+    assert "tenant_id" in section, "docs/07 §10.12 须写明按 tenant_id 隔离且只读"
