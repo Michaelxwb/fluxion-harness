@@ -43,7 +43,7 @@
 | S-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 首页→目标模块路由 | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""] | . | 1200 |  |
 | S-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→overview API（一次加载，无前端 N+1） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""] | . | 1200 |  |
 | S-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser Router→tasks/schedules 且菜单选中正确 | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""] | . | 1200 |  |
-| E-01 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | 真实 Console HTTP→真实 PostgreSQL（某模块无数据） | TASK-001 | planned | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","e01"] | . | 600 |  |
+| E-01 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | 真实 Console HTTP→真实 PostgreSQL（某模块无数据） | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","e01"] | . | 600 |  |
 | E-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | Browser→Router→目标页（目标 ID 已失效/无权限） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""] | . | 900 |  |
 | E-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser→overview API 失败→ErrorState | TASK-008 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""] | . | 900 |  |
 | E-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser Router→目标页（目标 ID 已失效/无权限） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""] | . | 900 |  |
@@ -56,20 +56,27 @@
 | B-207 | 12-overview-dashboard.frontend.design.md#3.5 状态与数据流 | integration | 前端源码契约 + 两侧词条实际内容 + 真实 tsc | TASK-009 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"] | . | 600 |  |
 | B-208 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Playwright 配置与 spec 的租户/端口隔离、运行后零残留 | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"] | . | 600 |  |
 | B-209 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录 | TASK-011 | planned | ["uv","run","pytest","-q","tests/overview_dashboard_inventory.py","-k","b209"] | . | 600 |  |
+| RULE-api-001 | 12-overview-dashboard.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP 封套/错误码 + 原 verifier 真实边界 | TASK-001 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"] | . | 1200 |  |
+| RULE-time-001 | 12-overview-dashboard.backend.design.md#Spec Compliance Matrix | integration | Console 时间出参 + 原 verifier 真实边界 | TASK-001 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests/frontend/test_datetime_contract.py"] | . | 1200 |  |
+| RULE-data-001 | 12-overview-dashboard.backend.design.md#Spec Compliance Matrix | integration | 真实 PostgreSQL 表结构/约束 + 原 verifier 真实边界 | TASK-001 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
+| RULE-front-001 | 12-overview-dashboard.frontend.design.md#Spec Compliance Matrix | integration | 前端源码契约（services 收口/无裸请求/i18n）+ 原 verifier 真实边界 | TASK-005 | planned | ["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"] | . | 900 |  |
+| RULE-ui-001 | 12-overview-dashboard.frontend.design.md#Spec Compliance Matrix | integration | 真实 Console 页面骨架 + 原 verifier 真实边界 | TASK-006 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | . | 1200 |  |
+| RULE-i18n-001 | 12-overview-dashboard.frontend.design.md#Spec Compliance Matrix | integration | 真实 Console 页面双语 + 原 verifier 真实边界 | TASK-009 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"] | . | 1200 |  |
+| RULE-test-001 | 12-overview-dashboard.frontend.design.md#Spec Compliance Matrix | E2E | 仓库级真实 E2E（真实 HTTP/PostgreSQL/Browser）+ 原 verifier 真实边界 | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 2400 |  |
 
-> 本表覆盖两份 design 中全部 P0/P1 场景（S-01、S-02、E-01、E-02 与重编后的 S-03、S-04、E-03、E-04 共 8 个）与 6 条 required Spec Rule；每个场景与规则有且仅有一个最终负责人；无 manual 场景；E2E 层级不降级。B-201..B-209 为「无 design 场景的任务」补的自有集成场景（每任务需自有可执行场景才能过 Done Gate）。
+> 本表覆盖两份 design 中全部 P0/P1 场景（S-01、S-02、E-01、E-02 与重编后的 S-03、S-04、E-03、E-04 共 8 个）与 7 条 required Spec Rule（`RULE-api-001`/`RULE-time-001`/`RULE-data-001`/`RULE-front-001`/`RULE-ui-001`/`RULE-i18n-001`/`RULE-test-001`，其中 `RULE-data-001` 于 2026-09-26 由实现路径局部 Plan 承接）；每个场景与规则有且仅有一个最终负责人；无 manual 场景；E2E 层级不降级。`harness-api#RULE-api-002` 经用户逐项确认置 `not_applicable`（只读模块无创建类 POST），故不在本表登记。B-201..B-209 为「无 design 场景的任务」补的自有集成场景（每任务需自有可执行场景才能过 Done Gate）。
 
 ---
 
 ## TASK-001: 概览聚合查询服务与 API-01
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: 12-overview-dashboard.backend.design.md#2.2 功能方案, 12-overview-dashboard.backend.design.md#3.2 架构设计, 12-overview-dashboard.backend.design.md#3.3 接口设计, 12-overview-dashboard.backend.design.md#3.4 性能与容量考量
-- **Spec-Refs**: harness-api#RULE-api-001, harness-time#RULE-time-001
-- **Acceptance-Refs**: E-01, RULE-api-001, RULE-time-001
-- **Files**: `apps/console-platform/backend/src/muad_console_platform/modules/overview/query_service.py`, `apps/console-platform/backend/src/muad_console_platform/modules/overview/repository.py`, `apps/console-platform/backend/src/muad_console_platform/api/overview.py`, `tests/console_platform/test_overview_api.py`
+- **Spec-Refs**: harness-api#RULE-api-001, harness-time#RULE-time-001, harness-data#RULE-data-001
+- **Acceptance-Refs**: E-01, RULE-api-001, RULE-time-001, RULE-data-001
+- **Files**: `apps/console-platform/backend/src/muad_console_platform/api/overview.py`, `apps/console-platform/backend/src/muad_console_platform/application/overview_query_service.py`, `apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/overview_query_repository.py`, `apps/console-platform/backend/src/muad_console_platform/api/router.py`, `tests/console_platform/test_overview_api.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
 ### Description
@@ -78,29 +85,47 @@
 
 ### Checklist
 
-- [ ] [E-01][integration] 以真实 Console HTTP + 真实 PostgreSQL 为边界编写用例：某模块无数据时对应 KPI=0 / 列表为空，其余区块照常返回，**不把整个概览判错**。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","e01"]`。
-- [ ] [RULE-api-001][integration] 作为唯一最终负责人，验证统一封套 `code/msg/data/trace_id/request_id/timestamp`，业务只抛 error code、`msg`/`http_status` 只来自 `config/api-messages.yaml`（`UNAUTHORIZED` 路径）。verifier argv：`["bash","-lc","uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]`。
-- [ ] [RULE-time-001][integration] 作为唯一最终负责人，验证时间出参 `YYYY-MM-DD HH:mm:ss`、存储 `timestamptz`。verifier argv：`["bash","-lc","uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity"]`。
-- [ ] 实现或补齐：≤5 条聚合 SQL、两次排序 LIMIT 5、KPI 用条件 COUNT；按 design §3.3 逐字段塑形 `recent_tasks`/`next_schedules`；禁止逐实体查询（N+1）；不返回 Secret/凭据。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
+- [x] [E-01][integration] 以真实 Console HTTP + 真实 PostgreSQL 为边界编写用例：某模块无数据时对应 KPI=0 / 列表为空，其余区块照常返回，**不把整个概览判错**。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","e01"]`。
+- [x] [RULE-api-001][integration] 作为唯一最终负责人，验证统一封套 `code/msg/data/trace_id/request_id/timestamp`，业务只抛 error code、`msg`/`http_status` 只来自 `config/api-messages.yaml`（`UNAUTHORIZED` 路径）。verifier argv：`["bash","-lc","uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]`。
+- [x] [RULE-time-001][integration] 作为唯一最终负责人，验证时间出参 `YYYY-MM-DD HH:mm:ss`、存储 `timestamptz`。verifier argv：`["bash","-lc","uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity"]`。
+- [x] [RULE-data-001][integration] 作为唯一最终负责人（2026-09-26 局部 Plan 承接：新增 `infrastructure/repositories/**` 路径触发 `harness-data` 绑定），验证只读查询所依赖列的 ORM↔DDL 口径不漂移（本模块不建表、不改迁移）。verifier argv：`["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests -k schema_parity"]`。
+- [x] 实现或补齐：≤5 条聚合 SQL、两次排序 LIMIT 5、KPI 用条件 COUNT；按 design §3.3 逐字段塑形 `recent_tasks`/`next_schedules`；禁止逐实体查询（N+1）；不返回 Secret/凭据。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-01 | integration | Console HTTP + 真实 PostgreSQL | 某模块无数据 → 对应 KPI=0/列表空；其余区块正常；整体不判错 | tests/console_platform/test_overview_api.py / E-01 | `["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","e01"]` | planned |
-| RULE-api-001 | integration | Console HTTP + 真实 PostgreSQL + 原 verifier 真实边界 | 统一封套键集；错误码文案来自 catalog；原 verifier 全部通过 | tests/console_platform/test_overview_api.py + 原 verifier / RULE-api-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]` | planned |
-| RULE-time-001 | integration | Console HTTP 时间出参 + 原 verifier 真实边界 | 出参 `YYYY-MM-DD HH:mm:ss`；存储 timestamptz；原 verifier 全部通过 | tests/console_platform/test_overview_api.py + 原 verifier / RULE-time-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests/frontend/test_datetime_contract.py"]` | planned |
+| E-01 | integration | Console HTTP + 真实 PostgreSQL | 某模块无数据 → 对应 KPI=0/列表空；其余区块正常；整体不判错 | tests/console_platform/test_overview_api.py / E-01 | `["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","e01"]` | verified |
+| RULE-api-001 | integration | Console HTTP + 真实 PostgreSQL + 原 verifier 真实边界 | 统一封套键集；错误码文案来自 catalog；原 verifier 全部通过 | tests/console_platform/test_overview_api.py + 原 verifier / RULE-api-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]` | verified |
+| RULE-time-001 | integration | Console HTTP 时间出参 + 原 verifier 真实边界 | 出参 `YYYY-MM-DD HH:mm:ss`；存储 timestamptz；原 verifier 全部通过 | tests/console_platform/test_overview_api.py + 原 verifier / RULE-time-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests/frontend/test_datetime_contract.py"]` | verified |
+| RULE-data-001 | integration | 真实 PostgreSQL 表结构/约束 + 原 verifier 真实边界 | 所依赖表（control 三表 + task 两表）的标准列与软删语义同 ORM 元数据一致；原 verifier 全部通过 | tests/console_platform/test_overview_api.py + 原 verifier / RULE-data-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests -k schema_parity"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| E-01 | **结构性 RED**（先写测试后实现）：按登记 argv 执行 → **4 failed**，其中 3 个为 `assert 404 == 200`、1 个为 `assert 404 == 401`，响应体一律 `COMMON_NOT_FOUND`（`GET /api/v1/overview` 路由尚不存在）。诚实记录：实现落地后转为 **3 failed**，但失败均在**测试侧**——① `_overview` 未带 `X-Tenant-Id`，`get_tenant_id` 回落 default 租户（KPI 读到全局 77/39）；② 误把 `next_schedules` 的 `next_fire_at IS NOT NULL` 条件也加到 `active_schedules` KPI 上；③ 误以为 `recent_tasks` 过滤终态。三处均按 design §3.2.1 原文修正测试，**实现未因此改动**。 | 整文件 `uv run pytest -q tests/console_platform/test_overview_api.py` → **4 passed**；回归 `tests/console_platform/` **116 passed**；改动文件 ruff 干净、mypy 4 files 无问题。 | `test_e01_modules_without_data_yield_zero_and_empty_lists`：四类数据全空的租户 → `kpis` 键集恰为四 KPI 且全为 0、`recent_tasks`/`next_schedules` 均为 `[]`，HTTP 仍 200 且 `code="0"`（局部缺失不把整体判错）；`test_e01_partial_data_only_affects_its_own_kpi`：启用/停用/软删 Agent 与启用/停用 Skill 只计「启用且未软删」；`active_tasks` 只计 `QUEUED/RUNNING/WAITING`（`SUCCEEDED` 不计入 KPI 但仍在列表）；`active_schedules` 按 `status='ACTIVE'` 计数（不要求 `next_fire_at`），而 `next_schedules` **列表**额外要求 `next_fire_at IS NOT NULL`（PAUSED 与无下次触发项均不在列表中）。 | 真实 Console ASGI 全栈（登录会话 + CSRF + `X-Tenant-Id`）→ 真实 PostgreSQL：`control.{agent_definition,skill,platform_user}` 与 `task.{task_execution,task_schedule}` 逐行播种并回读（含停用、软删、终态、PAUSED、`next_fire_at IS NULL` 边界行）；未 mock 业务 API。 | verified |
+| RULE-api-001 | 同上（验收类，随 E-01 一并取证，不另造失败）。 | 联合验收 argv 全通过：新用例 4 passed + 原 verifier **18 passed**。 | `test_rule_api_001_envelope_and_unauthenticated_error`：匿名 GET → **401**，封套键集恰为 `{code,msg,data,trace_id,request_id,timestamp}`、`code="UNAUTHORIZED"`、`msg` 非空（文案来自 catalog）；`test_rule_api_001_contract_and_rule_time_001_time_format`：已认证响应 `code="0"`、`data` 键集恰为 `{kpis,recent_tasks,next_schedules}`，`recent_tasks` 条目键集与 `next_schedules` 条目键集与 design §3.3 冻结契约**逐项相等**（各 13 / 11 个字段）。 | 真实 Console HTTP 响应体 + 真实 PostgreSQL；原 verifier（`tests/test_api_i18n.py`、`tests/test_error_catalog.py`、`tests/acceptance/test_foundation_api_envelope.py`）真实边界。 | verified |
+| RULE-time-001 | 同上（验收类）。 | 联合验收 argv 全通过：新用例 4 passed + `tests/frontend/test_datetime_contract.py` 通过 + `pytest tests -k schema_parity` **35 passed**。 | 同上用例：`started_at`/`deadline_at`/`create_time`/`next_fire_at` 匹配 `YYYY-MM-DD HH:mm:ss`，且与「存储的绝对时刻按本地时区换算」**独立复算**一致（测试侧用 `datetime.astimezone()` 复算期望值，不复用被测格式化函数）；`create_time DESC` 排序按绝对时刻；`finished_at`/`last_fire_at` 为空时保持 `None` 而非空串。 | 真实 Console HTTP 响应体 + 真实 PostgreSQL `timestamptz` 逐行回读；原 verifier 真实边界。 | verified |
+
+**实现中的判断点（如实登记，未静默决定）**：
+
+- **分层位置按仓库实际，未按 design 的 `modules/overview/`**：design 建议代码位置写 `apps/console-platform/backend/src/muad_console_platform/modules/overview/`，但仓库后端实际分层是 `api/` + `application/` + `domain/` + `infrastructure/`（**不存在 `modules/` 子包**，那是前端约定）。按 route→service→repository 落地为 `api/overview.py` / `application/overview_query_service.py` / `infrastructure/repositories/overview_query_repository.py`，与 11-audit-observability 同类实现一致。**设计待更正**。
+- **时间格式复用既有 helper**：`format_console_time` / `CONSOLE_TIME_FORMAT` 取自 `application/audit_query_service.py`（11 已确立的唯一口径），本模块 import 复用而非再定义一份，避免 RULE-time-001 出现两套格式化实现。
+- **KPI 与列表的 Schedule 条件不同**：`active_schedules` 只按 `status='ACTIVE'` 计数，`next_schedules` 额外要求 `next_fire_at IS NOT NULL`（design §3.2.1 两处原文即如此），测试已把该差异固定为断言而非含糊处理。
+- **Console 直读 `task` schema**：本模块按 design §3.2「单请求内 ≤5 条聚合 SQL」在 Console 侧直读 `task.{task_execution,task_schedule}`；与「Console task API 经 Worker Admin HTTP」不冲突（那是写/管理路径），且 11 的 `audit_query_repository` 已有同 schema 只读投影先例。全部查询带 `tenant_id` 与 `is_deleted=false`，不写任何表。
+- **顺带修掉 `api/router.py` 预存在的 ruff I001**（`schedules` import 位置错序）：因本次改动该文件，按「改动文件须 lint 干净」一并整理。
+- E-01: verified — automated command passed; run_id=cae6e10e4f224ef581d4d6c17f7066aa (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=820169b6c75d40d591534a6e90515353 (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
 
 ---
-
+- [2026-09-26] started
+- [2026-09-26] resumed (in-progress)
+- [2026-09-26] completed (done)
 ## TASK-002: docs/07 §10 端点契约补录
 
 - **Status**: draft

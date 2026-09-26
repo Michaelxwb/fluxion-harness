@@ -260,3 +260,4 @@ GET /api/v1/overview
 | `harness-platform#RULE-time-001` | required | 时间存储 timestamptz、展示 YYYY-MM-DD HH:mm:ss。 | §3.3/§3.2.1 | S-01 + verifier | applied |
 | `harness-platform#RULE-front-001` | required | 前端 API 只经 services/；组件不裸用 axios/fetch；文案只用 i18n key。 | 前端文件 §3.5 | S-01 + verifier | applied |
 | `harness-platform#RULE-test-001` | required | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E，列出不得 mock 的真实边界。 | §2.4/§4.2 | S-01, S-02 + verifier | applied |
+| `harness-data#RULE-data-001` | required | 只读聚合查询硬依赖既有产品表的列名与 `is_deleted` 软删语义（`control.{agent_definition,skill,platform_user}`、`task.{task_execution,task_schedule}`）；本模块**不建表、不改迁移**，故落点只在读取口径，并以 schema parity 套件兜住 ORM↔DDL 漂移。 | §3.2.1 | S-01, E-01 + verifier | applied（2026-09-26 承接：`infrastructure/repositories/**` 路径触发绑定）|

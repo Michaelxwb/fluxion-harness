@@ -82,7 +82,7 @@
       "kind": "functional",
       "boundary": "真实 Console HTTP→真实 PostgreSQL（某模块无数据）",
       "owner": "TASK-001",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -94,7 +94,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "820169b6c75d40d591534a6e90515353",
+        "executed_at": "2026-09-26T08:01:14.117200+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "cae6e10e4f224ef581d4d6c17f7066aa",
+          "executed_at": "2026-09-26T07:15:55.746375+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "820169b6c75d40d591534a6e90515353",
+          "executed_at": "2026-09-26T08:01:14.117200+00:00"
+        }
+      ]
     },
     {
       "id": "E-02",
