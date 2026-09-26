@@ -184,7 +184,7 @@
       "kind": "functional",
       "boundary": "docs/07 §10 契约登记→冻结 schema 逐项一致",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -196,7 +196,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-201",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "3d048f558faa4075841ebf988eeff241",
+        "executed_at": "2026-09-26T10:04:20.262259+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-201",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "a092f63d090e4505893f4df61b49be4a",
+          "executed_at": "2026-09-26T10:04:01.467443+00:00"
+        },
+        {
+          "id": "B-201",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "3d048f558faa4075841ebf988eeff241",
+          "executed_at": "2026-09-26T10:04:20.262259+00:00"
+        }
+      ]
     },
     {
       "id": "B-202",

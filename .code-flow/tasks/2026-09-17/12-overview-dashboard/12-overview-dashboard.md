@@ -47,7 +47,7 @@
 | E-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | Browser→Router→目标页（目标 ID 已失效/无权限） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""] | . | 900 |  |
 | E-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser→overview API 失败→ErrorState | TASK-008 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""] | . | 900 |  |
 | E-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser Router→目标页（目标 ID 已失效/无权限） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""] | . | 900 |  |
-| B-201 | 12-overview-dashboard.backend.design.md#3.3 接口设计 | integration | docs/07 §10 契约登记→冻结 schema 逐项一致 | TASK-002 | planned | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"] | . | 600 |  |
+| B-201 | 12-overview-dashboard.backend.design.md#3.3 接口设计 | integration | docs/07 §10 契约登记→冻结 schema 逐项一致 | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"] | . | 600 |  |
 | B-202 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | 真实多进程栈(Console+PostgreSQL)与租户级种子/清理 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"] | . | 600 |  |
 | B-203 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本 | TASK-005 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"] | . | 600 |  |
 | B-204 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc + 真实构建产物 | TASK-006 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"] | . | 600 |  |
@@ -128,7 +128,7 @@
 - [2026-09-26] completed (done)
 ## TASK-002: docs/07 §10 端点契约补录
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-001
 - **Source**: 12-overview-dashboard.backend.design.md#3.3 接口设计, 12-overview-dashboard.backend.design.md#4.2 风险识别
@@ -143,25 +143,35 @@
 
 ### Checklist
 
-- [ ] [B-201][integration] 以 docs/07 真实文本与冻结契约为边界编写用例：断言 docs/07 §10 已登记 `GET /api/v1/overview`，且字段集与 design §3.3 冻结契约**逐项一致**（4 KPI 键 + `recent_tasks`/`next_schedules` 全部字段名），字段缺失或拼写漂移即失败。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"]`。
-- [ ] 在 docs/07 §10 补录端点契约（含错误码 `UNAUTHORIZED`/`COMMON_INTERNAL_ERROR` 与分页/排序口径）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN 与断言位置；不得以「文档已写」代替可执行断言。
+- [x] [B-201][integration] 以 docs/07 真实文本与冻结契约为边界编写用例：断言 docs/07 §10 已登记 `GET /api/v1/overview`，且字段集与 design §3.3 冻结契约**逐项一致**（4 KPI 键 + `recent_tasks`/`next_schedules` 全部字段名），字段缺失或拼写漂移即失败。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"]`。
+- [x] 在 docs/07 §10 补录端点契约（含错误码 `UNAUTHORIZED`/`COMMON_INTERNAL_ERROR` 与分页/排序口径）。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN 与断言位置；不得以「文档已写」代替可执行断言。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-201 | integration | docs/07 真实文本 + design 冻结契约 | §10 已登记该端点；字段集逐项一致 | tests/console_platform/test_overview_api.py / B-201 | `["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"]` | planned |
+| B-201 | integration | docs/07 真实文本 + design 冻结契约 | §10 已登记该端点；字段集逐项一致 | tests/console_platform/test_overview_api.py / B-201 | `["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-201 | **真实 RED**：先写用例后补文档 → `-k b201` **1 failed**，`AssertionError: docs/07 §10.12 缺 KPI 字段 active_schedules`（该小节当时只有散文描述 + 指向设计文档的指针，没有任何字段契约）。 | 在 docs/07 §10.12 补录冻结契约（请求形态、KPI 四键、两组列表全部字段、计数与筛选口径、错误码、`LIMIT 5`、`tenant_id` 隔离）→ `-k b201` **1 passed**；整文件 **5 passed**；ruff 干净。 | `test_b201_docs_07_registers_frozen_overview_contract`：解析 docs/07 §10.12 小节，断言端点已登记、4 个 KPI 键与两组列表全部字段（`TASK_ITEM_KEYS ∪ SCHEDULE_ITEM_KEYS`）逐项出现、两个错误码齐备、写明 `LIMIT 5` 与 `tenant_id` 隔离。**闭环**：同一文件另有 `test_rule_api_001_contract_and_rule_time_001_time_format` 断言真实响应的字段集 == 上述常量，故文档与实现任一侧漂移都会被打红。 | docs/07 真实文本（`docs/07-跨模块接口与协议详细设计.md` §10.12）+ design §3.3 冻结契约；非「文档已写」式空转断言，且经 mutation 语义验证（补录前确为 RED）。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+- **缺口比 design 描述更窄**：design 写「该端点尚未写入 docs/07 §10」，实际 §10.12 Overview 已存在（含路径与一句摘要），缺的是**字段契约与错误码**（原文让读者去翻需求级设计文档，正是 RISK-02 要消除的）。故本任务只补契约，不重写小节。
+- **未搬动同小节内误置的 `result_status` 段**：该段讲审计 `result_status` 映射，应属 §10.11 Audit（疑为 11-audit-observability 收尾时追加位置有误）。属既有内容的归属问题，不在本任务范围，登记待后续修订。
+- B-201: verified — automated command passed; run_id=a092f63d090e4505893f4df61b49be4a (confirmed_by: runner)
+- B-201: verified — automated command passed; run_id=3d048f558faa4075841ebf988eeff241 (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
 
 ---
-
+- [2026-09-26] started
+- [2026-09-26] completed (done)
 ## TASK-003: 概览验收环境与种子清理
 
 - **Status**: draft
