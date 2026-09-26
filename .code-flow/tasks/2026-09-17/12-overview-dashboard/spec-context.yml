@@ -1,7 +1,7 @@
 version: 1
 task: 概览与运营入口
 enforcement: required
-updated_at: '2026-09-19T02:47:13.303029+00:00'
+updated_at: '2026-09-26T02:36:37.917902+00:00'
 sources:
 - type: docs
   ref: docs/03-Console-Platform详细设计.md
@@ -24,9 +24,9 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: ed3d32d8d5085e6d250ef7a24f1988759d414113d2726d0a92052880bf2a66b0
-    metadata_sha256: e9f9b2714c5043dc7d9363ec9a950471b4cdea6d932bd8e86ac2dd0a754c9359
-    rules_sha256: 76ffb366c7643e6faa32a65c751aea08de24bc2c1b6f37db46e6df1a7665e728
+    file_sha256: dcd60f67780352116becacd4b2e8e34f3f179509e7e3c8045c1683b7814ddfdc
+    metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
+    rules_sha256: 03e8e1e883b8e1bb81f74c27ed22bce9b1cf5512d4775ee5f93af5acd06f42c7
   selected_by: agent
   reason: Agent Harness 通用平台规则：api
   enforcement: required
@@ -36,6 +36,64 @@ bindings:
   - code
   - review
   rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，含 endpoint、tenant/actor/资源与关键参数（Runtime 另含 run_id/message_id）；同
+      key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key 不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由
+      partial unique 兜底，落败者读取首次提交结果。
+    text_sha256: d39a45cb02db1de6f4d65c5ea3ee821a976855d8f07316e4cfa5798e98fda87e
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    stage_status:
+      design:
+        status: not_applicable
+        refs: []
+        decision:
+          kind: not_applicable
+          reason: 本模块为只读聚合：两份 design 均声明只读 Owner 表、不写任何表，全模块仅 GET /api/v1/overview
+            一个接口，不存在创建/上传类 POST；该规则（创建类 POST 的 Idempotency-Key 幂等）的适用对象与其 verifier（tests/console_skill/test_import_idempotency.py）均不涉及本模块。用户逐项确认。
+          confirmed_by: jahan
+          confirmed_at: '2026-09-26T02:35:29+00:00'
+          source: user-confirmation:2026-09-26 /cf-task:plan 12-overview-dashboard
+          expires_at: null
+        evidence: []
+      plan:
+        status: not_applicable
+        refs: []
+        decision:
+          kind: not_applicable
+          reason: 本模块为只读聚合：两份 design 均声明只读 Owner 表、不写任何表，全模块仅 GET /api/v1/overview
+            一个接口，不存在创建/上传类 POST；该规则（创建类 POST 的 Idempotency-Key 幂等）的适用对象与其 verifier（tests/console_skill/test_import_idempotency.py）均不涉及本模块。用户逐项确认。
+          confirmed_by: jahan
+          confirmed_at: '2026-09-26T02:35:29+00:00'
+          source: user-confirmation:2026-09-26 /cf-task:plan 12-overview-dashboard
+          expires_at: null
+        evidence: []
+      code:
+        status: not_applicable
+        refs: []
+        decision:
+          kind: not_applicable
+          reason: 本模块为只读聚合：两份 design 均声明只读 Owner 表、不写任何表，全模块仅 GET /api/v1/overview
+            一个接口，不存在创建/上传类 POST；该规则（创建类 POST 的 Idempotency-Key 幂等）的适用对象与其 verifier（tests/console_skill/test_import_idempotency.py）均不涉及本模块。用户逐项确认。
+          confirmed_by: jahan
+          confirmed_at: '2026-09-26T02:35:29+00:00'
+          source: user-confirmation:2026-09-26 /cf-task:plan 12-overview-dashboard
+          expires_at: null
+        evidence: []
+      review:
+        status: not_applicable
+        refs: []
+        decision:
+          kind: not_applicable
+          reason: 本模块为只读聚合：两份 design 均声明只读 Owner 表、不写任何表，全模块仅 GET /api/v1/overview
+            一个接口，不存在创建/上传类 POST；该规则（创建类 POST 的 Idempotency-Key 幂等）的适用对象与其 verifier（tests/console_skill/test_import_idempotency.py）均不涉及本模块。用户逐项确认。
+          confirmed_by: jahan
+          confirmed_at: '2026-09-26T02:35:29+00:00'
+          source: user-confirmation:2026-09-26 /cf-task:plan 12-overview-dashboard
+          expires_at: null
+        evidence: []
   - ref: RULE-api-001
     summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
       `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
@@ -54,102 +112,12 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      code:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      review:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-- spec_id: harness-test
-  path: test/harness-test.md
-  status: active
-  hashes:
-    file_sha256: 66b05f4ed49156830ac7d388c9487264b4a85f50d32dacb364e126c83498a3ff
-    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
-    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
-  selected_by: agent
-  reason: Agent Harness 通用平台规则：test
-  enforcement: required
-  stages:
-  - design
-  - plan
-  - code
-  - review
-  rules:
-  - ref: RULE-test-001
-    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
-      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
-    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
-    enforcement: required
-    verifier_ref: harness-test#RULE-test-001
-    stage_status:
-      design:
         status: applied
         refs:
-        - artifact: 12-overview-dashboard.backend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-test-001
-          artifact_sha256: be5f0dc84873e9977dda78e7db7a1253da88c2bd3e84612a34808992c7671644
-        decision: null
-        evidence: []
-      plan:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      code:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-      review:
-        status: pending
-        refs: []
-        decision: null
-        evidence: []
-- spec_id: harness-ui
-  path: ui/harness-ui.md
-  status: active
-  hashes:
-    file_sha256: 8b8d81d38f91d8b53a9bd297d918c0d30081307e9b83369d5a015911bbfbb406
-    metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
-    rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
-  selected_by: agent
-  reason: Agent Harness 通用平台规则：ui
-  enforcement: required
-  stages:
-  - design
-  - plan
-  - code
-  - review
-  rules:
-  - ref: RULE-ui-001
-    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
-      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计。
-    text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
-    enforcement: required
-    verifier_ref: harness-ui#RULE-ui-001
-    stage_status:
-      design:
-        status: applied
-        refs:
-        - artifact: 12-overview-dashboard.backend.design.md
-          section_id: Spec Compliance Matrix
-          item_id: RULE-ui-001
-          artifact_sha256: be5f0dc84873e9977dda78e7db7a1253da88c2bd3e84612a34808992c7671644
-        decision: null
-        evidence: []
-      plan:
-        status: pending
-        refs: []
+        - artifact: 12-overview-dashboard.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: b54e45efe5f7e4cf837d09b92a15c20ecdc39ba03c5333aaa1ff141ab78e8b2f
         decision: null
         evidence: []
       code:
@@ -166,9 +134,9 @@ bindings:
   path: frontend/harness-frontend.md
   status: active
   hashes:
-    file_sha256: 095d3ec2a3bfe5c77f2884c061bbadc2c2b11ccd28621c8c78d0cc96182262f6
+    file_sha256: 6bc1664cf7ce013876e7788736d3c5e92d316346cddcd76498fb7d6be28c21cb
     metadata_sha256: 1f21efbe8b18a0dfec23126451e4674a64f60cf0f8e7bed81f2f404abd552f98
-    rules_sha256: 0154193b28c857724614f543e1c78a3c01120fcfa8d07d39303b4168cef8156f
+    rules_sha256: 06cb9741cd7728a490de0c0ff5783e6357fc47631da829c5578785e8c24d10fc
   selected_by: agent
   reason: Agent Harness 通用平台规则：front
   enforcement: required
@@ -179,9 +147,12 @@ bindings:
   - review
   rules:
   - ref: RULE-front-001
-    summary: 前端 API 调用只经 `src/api/`（services）层，组件禁止裸用 axios/fetch；所有文案只使用 i18n key（zh-CN/en-US）；列表/详情遵循
-      RULE-ui-001 与 RULE-ui-detail-001。
-    text_sha256: 440c5905981dfbff9549ae224b77391ff6213fea051e1a0b5914099cb0db15fc
+    summary: 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的
+      service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也不直接
+      import `api/client`。所有文案只使用 i18n key（zh-CN/en-US）——`scripts/check_frontend_i18n.py`
+      校验两侧词条的键集齐平与空值，并校验源码中 `t('字面量键')` 引用的键**必须已定义**（增删词条后务必跑它）；模板串动态键变体的齐备性由各模块的
+      `tests/frontend/*_i18n*.py` 契约钉死。列表/详情遵循 RULE-ui-001 与 RULE-ui-detail-001。
+    text_sha256: 6600ad9684da814e45be1bb9b54c86978fedfdd440b29335989ae5f5c9d18f7d
     enforcement: required
     verifier_ref: harness-frontend#RULE-front-001
     stage_status:
@@ -195,17 +166,21 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: 12-overview-dashboard.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: b54e45efe5f7e4cf837d09b92a15c20ecdc39ba03c5333aaa1ff141ab78e8b2f
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
@@ -213,7 +188,7 @@ bindings:
   path: i18n/harness-i18n.md
   status: active
   hashes:
-    file_sha256: c9488871a20af236a39ad4c8c6e1d59ba3662c9a60e05f7f98eceb24ea85dc8c
+    file_sha256: ed54eff4906bac7f4704613c3910b0d90068e456e8c19bee6fc34130a4792736
     metadata_sha256: b60d271a6656981b54ee716fcd5dece1c41d2402b50ed56d5197effcf17a7959
     rules_sha256: 2f76d4b7d9b26cf3be95f2d812aaca26dd9e576c7e57bf665b65b986a7a1829f
   selected_by: agent
@@ -242,8 +217,63 @@ bindings:
         decision: null
         evidence: []
       plan:
+        status: applied
+        refs:
+        - artifact: 12-overview-dashboard.md
+          section_id: TASK-009
+          item_id: TASK-009
+          artifact_sha256: b54e45efe5f7e4cf837d09b92a15c20ecdc39ba03c5333aaa1ff141ab78e8b2f
+        decision: null
+        evidence: []
+      code:
         status: pending
         refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: c06f8ed2a296db59f1eaae22e30a9385cdd76492ce10ebe0268e3c08819d1c0f
+    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：test
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 12-overview-dashboard.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: be5f0dc84873e9977dda78e7db7a1253da88c2bd3e84612a34808992c7671644
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: 12-overview-dashboard.md
+          section_id: TASK-011
+          item_id: TASK-011
+          artifact_sha256: b54e45efe5f7e4cf837d09b92a15c20ecdc39ba03c5333aaa1ff141ab78e8b2f
         decision: null
         evidence: []
       code:
@@ -289,8 +319,63 @@ bindings:
         decision: null
         evidence: []
       plan:
+        status: applied
+        refs:
+        - artifact: 12-overview-dashboard.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: b54e45efe5f7e4cf837d09b92a15c20ecdc39ba03c5333aaa1ff141ab78e8b2f
+        decision: null
+        evidence: []
+      code:
         status: pending
         refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui
+  path: ui/harness-ui.md
+  status: active
+  hashes:
+    file_sha256: d2d932a9d4b7e02645d2b6159ef703f87cb25f0c5df00441a5c3beb23836510e
+    metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
+    rules_sha256: c943312af1b7771b20d4c90003dc05e6730fd32414b79f275396a0856a6a62b4
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：ui
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-001
+    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
+      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计。
+    text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+    enforcement: required
+    verifier_ref: harness-ui#RULE-ui-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 12-overview-dashboard.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-ui-001
+          artifact_sha256: be5f0dc84873e9977dda78e7db7a1253da88c2bd3e84612a34808992c7671644
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: 12-overview-dashboard.md
+          section_id: TASK-006
+          item_id: TASK-006
+          artifact_sha256: b54e45efe5f7e4cf837d09b92a15c20ecdc39ba03c5333aaa1ff141ab78e8b2f
         decision: null
         evidence: []
       code:

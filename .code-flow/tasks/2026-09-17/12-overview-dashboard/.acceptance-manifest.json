@@ -1,0 +1,326 @@
+{
+  "schema": 2,
+  "task_file": "12-overview-dashboard.md",
+  "task_sha256": "1218f5e283bedbdbee854101da3c4d9b5c58feb839bad18c132bb71d4bf5d3e2",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "12-overview-dashboard.backend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "真实 Console HTTP 聚合查询→四张 Owner 表(PostgreSQL)",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/overview/test_overview_acceptance.py",
+        "-k",
+        "s01"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-02",
+      "source": "12-overview-dashboard.backend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser(Chromium)→Console 首页→目标模块路由",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-03",
+      "source": "12-overview-dashboard.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser(Chromium)→overview API（一次加载，无前端 N+1）",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-04",
+      "source": "12-overview-dashboard.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser Router→tasks/schedules 且菜单选中正确",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "12-overview-dashboard.backend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Console HTTP→真实 PostgreSQL（某模块无数据）",
+      "owner": "TASK-001",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_overview_api.py",
+        "-k",
+        "e01"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "12-overview-dashboard.backend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Browser→Router→目标页（目标 ID 已失效/无权限）",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "12-overview-dashboard.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Browser→overview API 失败→ErrorState",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-04",
+      "source": "12-overview-dashboard.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Browser Router→目标页（目标 ID 已失效/无权限）",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-201",
+      "source": "12-overview-dashboard.backend.design.md#3.3 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "docs/07 §10 契约登记→冻结 schema 逐项一致",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_overview_api.py",
+        "-k",
+        "b201"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-202",
+      "source": "12-overview-dashboard.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实多进程栈(Console+PostgreSQL)与租户级种子/清理",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/overview/test_environment.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-203",
+      "source": "12-overview-dashboard.frontend.design.md#3.4 组件接口契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_overview_services_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-204",
+      "source": "12-overview-dashboard.frontend.design.md#3.4 组件接口契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "前端源码契约 + 真实 tsc + 真实构建产物",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_overview_page_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-205",
+      "source": "12-overview-dashboard.frontend.design.md#3.4 组件接口契约",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "前端源码契约 + 真实 tsc 类型检查",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_overview_lists_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-206",
+      "source": "12-overview-dashboard.frontend.design.md#3.2 页面与路由结构",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "前端源码契约（路由表 + 菜单选中）+ 真实构建",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_overview_routing_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-207",
+      "source": "12-overview-dashboard.frontend.design.md#3.5 状态与数据流",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "前端源码契约 + 两侧词条实际内容 + 真实 tsc",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_overview_i18n_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-208",
+      "source": "12-overview-dashboard.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Playwright 配置与 spec 的租户/端口隔离、运行后零残留",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_overview_e2e_fixture_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-209",
+      "source": "12-overview-dashboard.backend.design.md#3.5 质量实现方案",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/overview_dashboard_inventory.py",
+        "-k",
+        "b209"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    }
+  ]
+}

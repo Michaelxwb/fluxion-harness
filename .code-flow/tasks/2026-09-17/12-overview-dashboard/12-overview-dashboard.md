@@ -1,0 +1,483 @@
+# Tasks: 概览与运营入口
+
+- **Source**: .code-flow/tasks/2026-09-17/12-overview-dashboard/（全部 design：12-overview-dashboard.backend.design.md、12-overview-dashboard.frontend.design.md）
+- **Created**: 2026-09-26
+- **Updated**: 2026-09-26
+- **Plan-State**: planned（用户已确认写入；各 TASK 保持 draft，功能与 E2E 验收尚未执行）
+
+## Proposal
+
+为 Console 补齐跨模块的运营入口：以**一次只读聚合**（`GET /api/v1/overview`）返回 4 个 KPI（启用 Agent / 启用 Skill / 后台执行中 Task / 启用定时任务）与最近任务、下一批定时两组列表，避免前端按实体循环拉取造成的 N+1 与 loading 碎片化。前端新增 `overview-dashboard` 模块，承载 KPI 卡片、静态运行关系说明与两个运营列表，并把「查看全部 / 条目跳转」接到既有模块路由。
+
+绝不新增表、不建快照/物化视图、不写任何表：所有指标在请求时由少量聚合 SQL 计算（只读 Owner 表，Redis 不可用时功能仍可用）。共 11 个原子任务：P0 8、P1 3。
+
+## Design Alignment
+
+2026-09-26 拆解前完成三处对齐（均已写入 Context，不代表实现或 verifier 已通过）：
+
+- **场景 ID 重编（前端 4 个中缀 ID）**：前端 design 声明的 `S-FE-01/S-FE-02/E-FE-01/E-FE-02` 带中缀，会被 manifest/runner **静默忽略**（不报错、不执行）。按既定口径并入后端同一数字序列：`S-FE-01→S-03`、`S-FE-02→S-04`、`E-FE-01→E-03`、`E-FE-02→E-04`（与 11-audit-observability 的做法一致：后端 S-01..S-05、前端续 S-06..S-08）。用户确认。S-01/S-03 与 S-02/S-04 语义相近但**边界与渲染面不同**，保留两组，不降级不删减。
+- **`harness-api#RULE-api-002` 判 N/A（逐项确认）**：该规则只约束「创建/上传类 POST 的 `Idempotency-Key` 幂等」，其 verifier 为 `tests/console_skill/test_import_idempotency.py`；本模块两份 design 均声明**只读聚合、不写任何表**，全模块仅 `GET /api/v1/overview` 一个接口，无创建类 POST 可承接（该规则系 11 那轮新增，本需求 design 的 Matrix 尚无此行）。经用户逐项确认，四个 stage 均置 `not_applicable`（`cf_spec_context decision`，`batch=false`，`confirmed_by=jahan`）。
+- **spec id 校正**：两份 design 的 Spec Compliance Matrix 写的是 legacy `harness-platform#RULE-*`，按现行分域 spec 校正为 `harness-api#RULE-api-001` / `harness-ui#RULE-ui-001` / `harness-time#RULE-time-001` / `harness-frontend#RULE-front-001` / `harness-i18n#RULE-i18n-001` / `harness-test#RULE-test-001`，禁止重新选择或降级 enforcement。
+
+## Task Overview
+
+| TASK | 优先级 | 标题 | 依赖 | 来源章节 | 验收 | Checklist |
+|---|---|---|---|---|---|---|
+| TASK-001 | P0 | 概览聚合查询服务与 API-01 | 无 | backend 3.2/3.3/3.4；2.4 | E-01(integration), RULE-api-001(integration), RULE-time-001(integration) | 6 |
+| TASK-002 | P1 | docs/07 §10 端点契约补录 | 001 | backend 3.3；4.2 RISK-02 | B-201(integration) | 4 |
+| TASK-003 | P0 | 概览验收环境与种子清理 | 001 | backend 3.5/2.4 | B-202(integration) | 5 |
+| TASK-004 | P0 | 后端场景真实验收（S-01 + 无 N+1） | 003 | backend 2.4；4.2 RISK-01/03 | S-01(E2E) | 6 |
+| TASK-005 | P0 | 前端 service 层与类型契约 | 001 | frontend 3.4/3.5 | B-203(integration), RULE-front-001(integration) | 5 |
+| TASK-006 | P0 | OverviewPage 容器 + KpiCards | 005 | frontend 3.3/3.3.1/3.4 | B-204(integration), RULE-ui-001(integration) | 5 |
+| TASK-007 | P0 | 最近任务/下一批定时/运行关系卡片 | 006 | frontend 3.3/3.4/3.6 | B-205(integration) | 5 |
+| TASK-008 | P1 | 路由接入与 UI 状态 | 007 | frontend 3.2/3.6 | E-03(integration), B-206(integration) | 5 |
+| TASK-009 | P1 | i18n 词条与语言切换覆盖 | 006 | frontend 3.5/3.6 | B-207(integration), RULE-i18n-001(integration) | 4 |
+| TASK-010 | P0 | 前端 E2E 验收 | 008 | frontend 2.4；3.6 | S-02(E2E), S-03(E2E), S-04(E2E), E-02(integration), E-04(integration), B-208(integration) | 7 |
+| TASK-011 | P0 | 收口：场景、规则、证据与仓库级 verifier | 004, 010 | backend 2.4/2.5；6 需求追溯 | B-209(integration), RULE-test-001(E2E) | 5 |
+
+## Acceptance Coverage
+
+| 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 argv | cwd | timeout | depends_on |
+|---|---|---|---|---|---|---|---|---|---|
+| S-01 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | 真实 Console HTTP 聚合查询→四张 Owner 表(PostgreSQL) | TASK-004 | planned | ["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"] | . | 1200 |  |
+| S-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 首页→目标模块路由 | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""] | . | 1200 |  |
+| S-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→overview API（一次加载，无前端 N+1） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""] | . | 1200 |  |
+| S-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser Router→tasks/schedules 且菜单选中正确 | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""] | . | 1200 |  |
+| E-01 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | 真实 Console HTTP→真实 PostgreSQL（某模块无数据） | TASK-001 | planned | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","e01"] | . | 600 |  |
+| E-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | Browser→Router→目标页（目标 ID 已失效/无权限） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""] | . | 900 |  |
+| E-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser→overview API 失败→ErrorState | TASK-008 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""] | . | 900 |  |
+| E-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser Router→目标页（目标 ID 已失效/无权限） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""] | . | 900 |  |
+| B-201 | 12-overview-dashboard.backend.design.md#3.3 接口设计 | integration | docs/07 §10 契约登记→冻结 schema 逐项一致 | TASK-002 | planned | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"] | . | 600 |  |
+| B-202 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | 真实多进程栈(Console+PostgreSQL)与租户级种子/清理 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"] | . | 600 |  |
+| B-203 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本 | TASK-005 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"] | . | 600 |  |
+| B-204 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc + 真实构建产物 | TASK-006 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"] | . | 600 |  |
+| B-205 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 | TASK-007 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"] | . | 600 |  |
+| B-206 | 12-overview-dashboard.frontend.design.md#3.2 页面与路由结构 | integration | 前端源码契约（路由表 + 菜单选中）+ 真实构建 | TASK-008 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"] | . | 600 |  |
+| B-207 | 12-overview-dashboard.frontend.design.md#3.5 状态与数据流 | integration | 前端源码契约 + 两侧词条实际内容 + 真实 tsc | TASK-009 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"] | . | 600 |  |
+| B-208 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Playwright 配置与 spec 的租户/端口隔离、运行后零残留 | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"] | . | 600 |  |
+| B-209 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录 | TASK-011 | planned | ["uv","run","pytest","-q","tests/overview_dashboard_inventory.py","-k","b209"] | . | 600 |  |
+
+> 本表覆盖两份 design 中全部 P0/P1 场景（S-01、S-02、E-01、E-02 与重编后的 S-03、S-04、E-03、E-04 共 8 个）与 6 条 required Spec Rule；每个场景与规则有且仅有一个最终负责人；无 manual 场景；E2E 层级不降级。B-201..B-209 为「无 design 场景的任务」补的自有集成场景（每任务需自有可执行场景才能过 Done Gate）。
+
+---
+
+## TASK-001: 概览聚合查询服务与 API-01
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**:
+- **Source**: 12-overview-dashboard.backend.design.md#2.2 功能方案, 12-overview-dashboard.backend.design.md#3.2 架构设计, 12-overview-dashboard.backend.design.md#3.3 接口设计, 12-overview-dashboard.backend.design.md#3.4 性能与容量考量
+- **Spec-Refs**: harness-api#RULE-api-001, harness-time#RULE-time-001
+- **Acceptance-Refs**: E-01, RULE-api-001, RULE-time-001
+- **Files**: `apps/console-platform/backend/src/muad_console_platform/modules/overview/query_service.py`, `apps/console-platform/backend/src/muad_console_platform/modules/overview/repository.py`, `apps/console-platform/backend/src/muad_console_platform/api/overview.py`, `tests/console_platform/test_overview_api.py`
+- **Estimate**: 15–60 分钟；超出先拆分
+
+### Description
+
+实现 API-01 `GET /api/v1/overview`：请求时由少量聚合 SQL 计算 4 个 KPI（启用 Agent / 启用 Skill / 后台执行中 Task / 启用定时任务）与 `recent_tasks`（`create_time DESC` LIMIT 5）、`next_schedules`（`status='ACTIVE' AND next_fire_at IS NOT NULL`，`next_fire_at ASC` LIMIT 5）。响应结构按 design §3.3 冻结契约逐字段实现；所有查询带 `tenant_id` 与 `is_deleted=false`；只读 Owner 表，不新增表、不建快照、不写 Redis。
+
+### Checklist
+
+- [ ] [E-01][integration] 以真实 Console HTTP + 真实 PostgreSQL 为边界编写用例：某模块无数据时对应 KPI=0 / 列表为空，其余区块照常返回，**不把整个概览判错**。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","e01"]`。
+- [ ] [RULE-api-001][integration] 作为唯一最终负责人，验证统一封套 `code/msg/data/trace_id/request_id/timestamp`，业务只抛 error code、`msg`/`http_status` 只来自 `config/api-messages.yaml`（`UNAUTHORIZED` 路径）。verifier argv：`["bash","-lc","uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]`。
+- [ ] [RULE-time-001][integration] 作为唯一最终负责人，验证时间出参 `YYYY-MM-DD HH:mm:ss`、存储 `timestamptz`。verifier argv：`["bash","-lc","uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity"]`。
+- [ ] 实现或补齐：≤5 条聚合 SQL、两次排序 LIMIT 5、KPI 用条件 COUNT；按 design §3.3 逐字段塑形 `recent_tasks`/`next_schedules`；禁止逐实体查询（N+1）；不返回 Secret/凭据。
+- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| E-01 | integration | Console HTTP + 真实 PostgreSQL | 某模块无数据 → 对应 KPI=0/列表空；其余区块正常；整体不判错 | tests/console_platform/test_overview_api.py / E-01 | `["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","e01"]` | planned |
+| RULE-api-001 | integration | Console HTTP + 真实 PostgreSQL + 原 verifier 真实边界 | 统一封套键集；错误码文案来自 catalog；原 verifier 全部通过 | tests/console_platform/test_overview_api.py + 原 verifier / RULE-api-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]` | planned |
+| RULE-time-001 | integration | Console HTTP 时间出参 + 原 verifier 真实边界 | 出参 `YYYY-MM-DD HH:mm:ss`；存储 timestamptz；原 verifier 全部通过 | tests/console_platform/test_overview_api.py + 原 verifier / RULE-time-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests/frontend/test_datetime_contract.py"]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-26] created (draft)
+
+---
+
+## TASK-002: docs/07 §10 端点契约补录
+
+- **Status**: draft
+- **Priority**: P1
+- **Depends**: TASK-001
+- **Source**: 12-overview-dashboard.backend.design.md#3.3 接口设计, 12-overview-dashboard.backend.design.md#4.2 风险识别
+- **Spec-Refs**:
+- **Acceptance-Refs**: B-201
+- **Files**: `docs/07-跨模块接口与协议详细设计.md`, `tests/console_platform/test_overview_api.py`
+- **Estimate**: 15–60 分钟；超出先拆分
+
+### Description
+
+落实 RISK-02：design 明确登记「该端点尚未写入 docs/07 §10，需由主任务补录」。把 `GET /api/v1/overview` 的路径、请求、响应字段与错误码补录进 docs/07 §10，避免跨模块契约漂移。本任务不写生产代码。
+
+### Checklist
+
+- [ ] [B-201][integration] 以 docs/07 真实文本与冻结契约为边界编写用例：断言 docs/07 §10 已登记 `GET /api/v1/overview`，且字段集与 design §3.3 冻结契约**逐项一致**（4 KPI 键 + `recent_tasks`/`next_schedules` 全部字段名），字段缺失或拼写漂移即失败。执行 argv：`["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"]`。
+- [ ] 在 docs/07 §10 补录端点契约（含错误码 `UNAUTHORIZED`/`COMMON_INTERNAL_ERROR` 与分页/排序口径）。
+- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN 与断言位置；不得以「文档已写」代替可执行断言。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-201 | integration | docs/07 真实文本 + design 冻结契约 | §10 已登记该端点；字段集逐项一致 | tests/console_platform/test_overview_api.py / B-201 | `["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-26] created (draft)
+
+---
+
+## TASK-003: 概览验收环境与种子清理
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-001
+- **Source**: 12-overview-dashboard.backend.design.md#2.4 验收条件, 12-overview-dashboard.backend.design.md#3.4 性能与容量考量
+- **Spec-Refs**:
+- **Acceptance-Refs**: B-202
+- **Files**: `tests/acceptance/overview/__init__.py`, `tests/acceptance/overview/environment.py`, `tests/acceptance/overview/test_environment.py`
+- **Estimate**: 半天级；外部服务启动与等待另计
+
+### Description
+
+为 S-01 与前端 E2E 建立真实验收环境：真实 Console 进程栈 + 真实 PostgreSQL，租户级种子（启用/停用 Agent、启用/停用 Skill、`QUEUED/RUNNING/WAITING` 与终态 Task、`ACTIVE/PAUSED` Schedule、`next_fire_at` 有值与为空的 Schedule）与收尾清理，保证 S-01 的「4 KPI + 两组列表」断言有真实数据可依。
+
+### Checklist
+
+- [ ] [B-202][integration] 以真实多进程栈 + 真实 PostgreSQL 为边界编写用例：种子后按各表逐行回读断言数量与状态符合预期（含停用项不计入 KPI、PAUSED 不进下一批、`next_fire_at IS NULL` 不进下一批）。执行 argv：`["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"]`。
+- [ ] 收尾清理：用例结束后租户内各表残留为 0，且不污染仓库 `.data/artifacts`。
+- [ ] 用例结束不得残留 uvicorn/`muad_*.main` 进程（收尾在任何失败路径下都要执行）。
+- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN 与真实边界证据。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-202 | integration | 真实 Console 进程 + 真实 PostgreSQL + 租户级清理 | 种子数量/状态逐行回读一致；停用与 PAUSED/无 next_fire_at 项被正确排除；清理后残留 0 | tests/acceptance/overview/test_environment.py / B-202 | `["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-26] created (draft)
+
+---
+
+## TASK-004: 后端场景真实验收（S-01 + 无 N+1）
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-003
+- **Source**: 12-overview-dashboard.backend.design.md#2.4 验收条件, 12-overview-dashboard.backend.design.md#4.2 风险识别
+- **Spec-Refs**:
+- **Acceptance-Refs**: S-01
+- **Files**: `tests/acceptance/overview/test_overview_acceptance.py`
+- **Estimate**: 半天级；外部服务启动与验收等待另计
+
+### Description
+
+S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → 四张 Owner 表」，断言一次请求即返回全部 4 KPI 与两组列表，并给出**无 N+1** 的服务端证据（RISK-01）与「请求时计算、不读快照/缓存」证据（RISK-03）。
+
+### Checklist
+
+- [ ] [S-01][E2E] 以真实 Console HTTP + 真实 PostgreSQL 为边界编写用例：种入已知数量的启用 Agent/Skill、非终态 Task、ACTIVE Schedule 后，`GET /api/v1/overview` 一次返回 4 个 KPI 且数值与逐表回读一致，`recent_tasks`/`next_schedules` 各 ≤5 且排序正确。执行 argv：`["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"]`。
+- [ ] [S-01] 断言封套键集、`recent_tasks[].status/trigger_type/delivery_status` 与 `next_schedules[].status/next_fire_at/last_fire_at` 字段齐备，时间字段匹配 `YYYY-MM-DD HH:mm:ss`。
+- [ ] [RISK-01] 无 N+1 证据：记录并断言单次请求内聚合 SQL 条数 ≤5（与行数无关），断言不随种子数据量增长。
+- [ ] [RISK-03] 断言响应为请求时计算：不读任何概览快照表/物化视图，也不依赖 Redis 缓存键（无 Redis 亦正确）。
+- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录（含实测 SQL 条数）。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| S-01 | E2E | 真实 Console HTTP + 四张 Owner 表(PostgreSQL) | 一次请求返回 4 KPI（与逐表回读一致）+ 两组列表（≤5、排序正确）；SQL 条数 ≤5；不读快照/缓存 | tests/acceptance/overview/test_overview_acceptance.py / S-01 | `["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-26] created (draft)
+
+---
+
+## TASK-005: 前端 service 层与类型契约
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-001
+- **Source**: 12-overview-dashboard.frontend.design.md#3.4 组件接口契约, 12-overview-dashboard.frontend.design.md#3.5 状态与数据流
+- **Spec-Refs**: harness-frontend#RULE-front-001
+- **Acceptance-Refs**: B-203, RULE-front-001
+- **Files**: `apps/console-platform/frontend/src/modules/overview-dashboard/types.ts`, `apps/console-platform/frontend/src/modules/overview-dashboard/services/overviewService.ts`, `tests/frontend/test_overview_services_contract.py`
+- **Estimate**: 15–60 分钟；超出先拆分
+
+### Description
+
+建立模块的类型契约与 service 层：`OverviewData/OverviewKpis/RecentTaskItem/NextScheduleItem` 按 design §3.4 定义，`getOverview()` 走共享 `api/client`，并把后端 snake_case 映射为前端 camelCase（`enabled_agents→enabledAgents`、`next_fire_at→nextFireAt` 等）。组件不直接消费原始 Envelope。
+
+### Checklist
+
+- [ ] [B-203][integration] 以前端源码契约 + 真实 tsc 类型检查为边界编写用例：断言 service 位于 `modules/overview-dashboard/services/*.ts` 且 import 共享 `api/client`；组件/hooks 不 import `api/client`、不裸用 axios/fetch；映射函数存在且覆盖 design §3.4 全部字段（含 `triggerType`/`deliveryStatus` 联合类型）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"]`。
+- [ ] [RULE-front-001][integration] 作为唯一最终负责人，验证前端 HTTP 只经服务层与 i18n 检测线。verifier argv：`["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
+- [ ] 实现或补齐：`types.ts` + `services/overviewService.ts`（映射只在 service 层，线上保持 snake_case）；`undefined` 字段不出现在请求/响应塑形中。
+- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-203 | integration | 前端源码契约 + 真实 tsc | service 收口与 import 方向；字段映射覆盖 design §3.4；联合类型齐备 | tests/frontend/test_overview_services_contract.py / B-203 | `["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"]` | planned |
+| RULE-front-001 | integration | 前端源码契约 + 仓库检查脚本 + 真实 tsc | 组件不裸用 axios/fetch；文案只用 i18n key 且引用的键已定义；原 verifier 全部通过 | tests/frontend/test_overview_services_contract.py + 原 verifier / RULE-front-001 | `["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-26] created (draft)
+
+---
+
+## TASK-006: OverviewPage 容器 + KpiCards
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-005
+- **Source**: 12-overview-dashboard.frontend.design.md#3.3 组件设计, 12-overview-dashboard.frontend.design.md#3.4 组件接口契约
+- **Spec-Refs**: harness-ui#RULE-ui-001
+- **Acceptance-Refs**: B-204, RULE-ui-001
+- **Files**: `apps/console-platform/frontend/src/modules/overview-dashboard/pages/OverviewPage.tsx`, `apps/console-platform/frontend/src/modules/overview-dashboard/components/KpiCards.tsx`, `apps/console-platform/frontend/src/modules/overview-dashboard/hooks/useOverview.ts`, `tests/frontend/test_overview_page_contract.py`
+- **Estimate**: 15–60 分钟；超出先拆分
+
+### Description
+
+实现容器与 KPI 卡片：`useOverview` 一次加载 overview data（`{data, loading, error}`），`OverviewPage` 按页面骨架组装并渲染 4 个 KPI 卡片；每个 KPI 可点击跳转（启用 Agent→`/agents`、启用 Skill→`/skills`、后台执行中→`/tasks`、启用定时任务→`/schedules`）。
+
+### Checklist
+
+- [ ] [B-204][integration] 以前端源码契约 + 真实 tsc + 真实构建为边界编写用例：断言页面骨架为 `PageHeader → PageSection`（不重复标题/说明块）、`KpiCards` 渲染 design §2.2 的 4 项且各自带跳转、`useOverview` 只调用一次 `getOverview()`（无按实体循环拉取）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"]`。
+- [ ] [RULE-ui-001][integration] 作为唯一最终负责人，验证 Console 骨架与固定十项菜单口径、主展示字段即详情入口。verifier argv：`["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]`。
+- [ ] 实现或补齐：复用公共组件（`PageHeader/PageSection/StatusTag/DateTimeText/EntityLink`），不散落魔法颜色/间距；loading 用 Skeleton。
+- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-204 | integration | 前端源码契约 + 真实 tsc + 真实构建 | 页面骨架正确；4 个 KPI 齐备且可跳转；单次加载无 N+1 | tests/frontend/test_overview_page_contract.py / B-204 | `["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"]` | planned |
+| RULE-ui-001 | integration | 前端源码契约 + 原 verifier 真实边界 | 页面骨架/菜单十项/主展示字段入口；原 verifier 全部通过 | tests/frontend/test_overview_page_contract.py + 原 verifier / RULE-ui-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-26] created (draft)
+
+---
+
+## TASK-007: 最近任务 / 下一批定时 / 运行关系卡片
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-006
+- **Source**: 12-overview-dashboard.frontend.design.md#3.3 组件设计, 12-overview-dashboard.frontend.design.md#3.4 组件接口契约, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
+- **Spec-Refs**:
+- **Acceptance-Refs**: B-205
+- **Files**: `apps/console-platform/frontend/src/modules/overview-dashboard/components/RecentTaskList.tsx`, `apps/console-platform/frontend/src/modules/overview-dashboard/components/NextScheduleList.tsx`, `apps/console-platform/frontend/src/modules/overview-dashboard/components/RuntimeRelationCard.tsx`, `tests/frontend/test_overview_lists_contract.py`
+- **Estimate**: 15–60 分钟；超出先拆分
+
+### Description
+
+实现两个运营列表与静态运行关系卡片：`RecentTaskList`（Task ID 主展示字段可打开详情、`查看全部 →` 到 `/tasks`）、`NextScheduleList`（Schedule 名称可打开详情、`查看全部 →` 到 `/schedules`）、`RuntimeRelationCard`（纯静态，说明 IM→Agent→Runtime→ExecutionRouter→Worker/DB/Gateway）。展示组件 props-in / events-out，API 与路由状态由 Page/Hook 管理。
+
+### Checklist
+
+- [ ] [B-205][integration] 以前端源码契约 + 真实 tsc 为边界编写用例：断言两列表各渲染 ≤5 行、主展示字段可打开详情、空态为 `Empty` + 查看全部、`RuntimeRelationCard` 无 props 且为纯静态文案（取自词条）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"]`。
+- [ ] 复用 `StatusTag`（Task 状态/投递状态、Schedule 状态）与 `DateTimeText`（`next_fire_at`/`last_fire_at`/`create_time` 等），不裸渲染枚举值或原始时间串。
+- [ ] 实现或补齐：两个列表的 props 形状与 design §3.4 一致（`onOpenTask/onViewAll`、`onOpenSchedule/onViewAll`）。
+- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-205 | integration | 前端源码契约 + 真实 tsc | 两列表 ≤5 行、主展示字段入口、空态与查看全部；静态卡片无 props | tests/frontend/test_overview_lists_contract.py / B-205 | `["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-26] created (draft)
+
+---
+
+## TASK-008: 路由接入与 UI 状态
+
+- **Status**: draft
+- **Priority**: P1
+- **Depends**: TASK-007
+- **Source**: 12-overview-dashboard.frontend.design.md#3.2 页面与路由结构, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
+- **Spec-Refs**:
+- **Acceptance-Refs**: E-03, B-206
+- **Files**: `apps/console-platform/frontend/src/App.tsx`, `apps/console-platform/frontend/src/modules/overview-dashboard/pages/OverviewPage.tsx`, `tests/frontend/test_overview_routing_contract.py`, `e2e/tests/overview-dashboard.spec.ts`
+- **Estimate**: 15–60 分钟；超出先拆分
+
+### Description
+
+把概览挂到 Console 首页路由 `/`（固定十项菜单的第一项），并按 design §3.6 落实三态：KPI 区 loading 用 Skeleton、整页 error 用公共 `ErrorState` + 重试（**不伪造 0**）、列表区空态用 `Empty` + 查看全部。E-03 的失败路径由 TASK-010 的 Playwright spec 承接（真实失败以路由拦截制造）。
+
+### Checklist
+
+- [ ] [B-206][integration] 以前端源码契约（路由表 + 菜单选中）+ 真实构建为边界编写用例：断言 `/` 挂载 `OverviewPage` 且路由表第一项即概览、菜单选中态正确、页面不重复套壳（`AppLayout` 由路由承载）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"]`。
+- [ ] [E-03][integration] 聚合接口失败 → 整体 `ErrorState` + 重试，**不伪造 0**；真实失败由 `e2e/tests/overview-dashboard.spec.ts` 的 `E-03` 块以路由拦截承载（失败/边界路径允许路由拦截，须在 manifest 中登记为路由拦截场景）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""]`。
+- [ ] 实现或补齐：三态文案全部取自词条；重试复用同一取数出口。
+- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-206 | integration | 前端源码契约（路由+菜单）+ 真实构建 | `/` 挂载概览且菜单第一项选中；不重复套壳 | tests/frontend/test_overview_routing_contract.py / B-206 | `["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"]` | planned |
+| E-03 | integration | Browser→overview API 失败路径（真实 HTTP 失败由拦截制造） | 整体 ErrorState + 重试；不显示伪造的 0 | e2e/tests/overview-dashboard.spec.ts / E-03 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-26] created (draft)
+
+---
+
+## TASK-009: i18n 词条与语言切换覆盖
+
+- **Status**: draft
+- **Priority**: P1
+- **Depends**: TASK-006
+- **Source**: 12-overview-dashboard.frontend.design.md#3.5 状态与数据流, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
+- **Spec-Refs**: harness-i18n#RULE-i18n-001
+- **Acceptance-Refs**: B-207, RULE-i18n-001
+- **Files**: `apps/console-platform/frontend/src/locales/zh-CN.json`, `apps/console-platform/frontend/src/locales/en-US.json`, `tests/frontend/test_overview_i18n_contract.py`
+- **Estimate**: 15–60 分钟；超出先拆分
+
+### Description
+
+为概览模块补齐 zh-CN/en-US 两侧词条（KPI 标题、列表列名与状态、运行关系说明、空/错/重试文案），并保证语言切换后即时生效。
+
+### Checklist
+
+- [ ] [B-207][integration] 以两侧词条实际内容 + 前端源码契约为边界编写用例：断言概览模块全部文案键在 zh-CN 与 en-US 齐平且非空、值真实（非键名回显）、模块源码无硬编码中文；动态键（若有）变体齐备。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"]`。
+- [ ] [RULE-i18n-001][integration] 作为唯一最终负责人，验证 zh-CN/en-US 双侧覆盖与「新增业务只加词条」。verifier argv：`["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]`。
+- [ ] 语言切换安全：组件文案经 `useTranslation()` 每次渲染取得，不缓存译文、不直接 import i18n 实例。
+- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-207 | integration | 两侧词条真实内容 + 前端源码契约 | 键集齐平非空、值真实、无硬编码中文、切换即时生效 | tests/frontend/test_overview_i18n_contract.py / B-207 | `["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"]` | planned |
+| RULE-i18n-001 | integration | 原 verifier 真实边界 + 仓库词条检查脚本 | 双侧覆盖；新增业务只加词条；原 verifier 全部通过 | tests/frontend/test_overview_i18n_contract.py + 原 verifier / RULE-i18n-001 | `["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-26] created (draft)
+
+---
+
+## TASK-010: 前端 E2E 验收
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-008
+- **Source**: 12-overview-dashboard.frontend.design.md#2.4 验收条件, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
+- **Spec-Refs**:
+- **Acceptance-Refs**: S-02, S-03, S-04, E-02, E-04, B-208
+- **Files**: `e2e/playwright.overview-dashboard.config.ts`, `e2e/tests/overview-dashboard.spec.ts`, `tests/frontend/test_overview_e2e_fixture_contract.py`, `tests/e2e/seed_overview.py`
+- **Estimate**: 半天级；外部服务启动与验收等待另计
+
+### Description
+
+S-02/S-03/S-04 与 E-02/E-04 的最终验收：真实 Chromium → 真实 Console（真实登录）→ 真实 PostgreSQL，按场景 ID 组织 `-g` 可选的 spec；配置按 `--grep` 派生端口/租户/产物 root 隔离，`workers: 1`，运行后零残留。
+
+### Checklist
+
+- [ ] [S-03][E2E] Browser(Chromium)→Console 首页：4 个 KPI 与最近任务/下一批定时**一次加载**完成；断言浏览器侧未按实体循环拉取（仅一次 `/api/v1/overview`）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""]`。
+- [ ] [S-02][E2E] 点击最近任务 / 下次调度条目 → 进入对应详情或所属模块（菜单选中正确）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""]`。
+- [ ] [S-04][E2E] 点击「查看全部」→ 进入 `/tasks` / `/schedules` 且菜单选中正确。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""]`。
+- [ ] [E-02][integration] 跳转目标 ID 已失效/无权限 → 目标页展示 `ErrorState` 或回退列表，**不白屏、不伪造数据**。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""]`。
+- [ ] [E-04][integration] 同上（前端侧路由与目标页表现）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""]`。
+- [ ] [B-208][integration] 以配置与 spec 源码 + 运行后环境为边界编写用例：断言配置含 `workers: 1`、按 `--grep` 派生端口偏移与独立租户/产物 root、spec 用例标题含场景 ID（支持 `-g`）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"]`。
+- [ ] 运行后无 uvicorn/`muad_*.main`/chromium 残留，租户残留为 0，仓库 `.data/artifacts` 未变。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| S-02 | E2E | 真实 Chromium + 真实 Console + 真实 PostgreSQL | 条目跳转落到目标详情/模块，菜单选中正确 | e2e/tests/overview-dashboard.spec.ts / S-02 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""]` | planned |
+| S-03 | E2E | 真实 Chromium + 真实 Console 首页 | 4 KPI + 两组列表一次加载；浏览器侧无按实体循环拉取 | e2e/tests/overview-dashboard.spec.ts / S-03 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""]` | planned |
+| S-04 | E2E | 真实 Chromium + 路由 | 查看全部进入 tasks/schedules 且菜单选中正确 | e2e/tests/overview-dashboard.spec.ts / S-04 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""]` | planned |
+| E-02 | integration | Browser→Router→目标页（真实软删/越权目标） | 目标页 ErrorState 或回退列表；不白屏、不伪造数据 | e2e/tests/overview-dashboard.spec.ts / E-02 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""]` | planned |
+| E-04 | integration | Browser→Router→目标页（目标 ID 失效/无权限） | 同上（前端侧表现一致） | e2e/tests/overview-dashboard.spec.ts / E-04 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""]` | planned |
+| B-208 | integration | Playwright 配置/spec 源码 + 运行后真实环境 | `workers: 1`；端口/租户/产物 root 隔离；标题含场景 ID；零残留 | tests/frontend/test_overview_e2e_fixture_contract.py / B-208 | `["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-26] created (draft)
+
+---
+
+## TASK-011: 收口：场景、规则、证据与仓库级 verifier
+
+- **Status**: draft
+- **Priority**: P0
+- **Depends**: TASK-004, TASK-010
+- **Source**: 12-overview-dashboard.backend.design.md#2.4 验收条件, 12-overview-dashboard.backend.design.md#3.3 接口设计, 12-overview-dashboard.backend.design.md#Spec Compliance Matrix
+- **Spec-Refs**: harness-test#RULE-test-001
+- **Acceptance-Refs**: B-209, RULE-test-001
+- **Files**: `tests/overview_dashboard_inventory.py`
+- **Estimate**: 半天级
+
+### Description
+
+按 11-audit-observability 的收口模式建立仓库级清单用例：核对本需求「覆盖表唯一负责人且除本收口任务外全终态」「manifest 与覆盖表一致」「owner 的 Acceptance-Refs 登记」「终态场景在 owner Acceptance Evidence 中登记」「契约行全终态」「done/verified 任务零未勾项」，并作为 RULE-test-001 的仓库级 verifier 归宿。
+
+### Checklist
+
+- [ ] [B-209][integration] 以 pytest 用例收集/运行 + 任务文档与 manifest 为边界编写用例：覆盖表唯一负责人且除本任务外全终态、manifest 与覆盖表 id/level/owner/status 一致、每条 owner 的 Acceptance-Refs 登记、终态场景在 owner Evidence 中登记、契约行全终态、done/verified 任务零未勾项；E2E 命令指向真实在盘套件且无跳过标记。执行 argv：`["uv","run","pytest","-q","tests/overview_dashboard_inventory.py","-k","b209"]`。
+- [ ] [RULE-test-001][E2E] 作为唯一最终负责人，承接仓库级真实 E2E 边界（真实 HTTP/PostgreSQL/Browser），并登记原 verifier argv。
+- [ ] 以 mutation 验证断言有牙（在内存副本/临时目录上做变异：插入未勾项、改契约行为非终态、删证据登记、E2E 命令塞 mock 或指向不存在文件，均应如期失败）。
+- [ ] 补齐场景/规则/证据缺口后执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN 与真实边界记录。
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-209 | integration | 任务文档 + manifest + 在盘套件存在性 | 覆盖表唯一负责人且除本任务外全终态；manifest 一致；refs/evidence/契约行闭合；零未勾项 | tests/overview_dashboard_inventory.py / B-209 | `["uv","run","pytest","-q","tests/overview_dashboard_inventory.py","-k","b209"]` | planned |
+| RULE-test-001 | E2E | 仓库级真实 E2E（真实 HTTP/PostgreSQL/Browser）+ 原 verifier 真实边界 | 跨 API/DB/Browser 关键流程真实 E2E；分层不降级；原 verifier 全部通过 | tests/acceptance + e2e / RULE-test-001 | `["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"]` | planned |
+
+### Acceptance Evidence
+
+> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+
+### Log
+- [2026-09-26] created (draft)
