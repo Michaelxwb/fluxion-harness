@@ -50,7 +50,7 @@
 | B-201 | 12-overview-dashboard.backend.design.md#3.3 接口设计 | integration | docs/07 §10 契约登记→冻结 schema 逐项一致 | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"] | . | 600 |  |
 | B-202 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | 真实多进程栈(Console+PostgreSQL)与租户级种子/清理 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"] | . | 600 |  |
 | B-203 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本 | TASK-005 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"] | . | 600 |  |
-| B-204 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc + 真实构建产物 | TASK-006 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"] | . | 600 |  |
+| B-204 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc + 真实构建产物 | TASK-006 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"] | . | 600 |  |
 | B-205 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 | TASK-007 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"] | . | 600 |  |
 | B-206 | 12-overview-dashboard.frontend.design.md#3.2 页面与路由结构 | integration | 前端源码契约（路由表 + 菜单选中）+ 真实构建 | TASK-008 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"] | . | 600 |  |
 | B-207 | 12-overview-dashboard.frontend.design.md#3.5 状态与数据流 | integration | 前端源码契约 + 两侧词条实际内容 + 真实 tsc | TASK-009 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"] | . | 600 |  |
@@ -323,7 +323,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-26] completed (done)
 ## TASK-006: OverviewPage 容器 + KpiCards
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-005
 - **Source**: 12-overview-dashboard.frontend.design.md#3.3 组件设计, 12-overview-dashboard.frontend.design.md#3.4 组件接口契约
@@ -338,29 +338,43 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 
 ### Checklist
 
-- [ ] [B-204][integration] 以前端源码契约 + 真实 tsc + 真实构建为边界编写用例：断言页面骨架为 `PageHeader → PageSection`（不重复标题/说明块）、`KpiCards` 渲染 design §2.2 的 4 项且各自带跳转、`useOverview` 只调用一次 `getOverview()`（无按实体循环拉取）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"]`。
-- [ ] [RULE-ui-001][integration] 作为唯一最终负责人，验证 Console 骨架与固定十项菜单口径、主展示字段即详情入口。verifier argv：`["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]`。
-- [ ] 实现或补齐：复用公共组件（`PageHeader/PageSection/StatusTag/DateTimeText/EntityLink`），不散落魔法颜色/间距；loading 用 Skeleton。
-- [ ] [RULE-ui-detail-001][integration] 作为唯一最终负责人（2026-09-26 局部 Plan 承接：前端路径曾因过宽的 `apps/**/frontend/**` 绑定该规则；pattern 收窄后绑定保留，由本任务承接）。verifier argv：`["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
+- [x] [B-204][integration] 以前端源码契约 + 真实 tsc + 真实构建为边界编写用例：断言页面骨架为 `PageHeader → PageSection`（不重复标题/说明块）、`KpiCards` 渲染 design §2.2 的 4 项且各自带跳转、`useOverview` 只调用一次 `getOverview()`（无按实体循环拉取）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"]`。
+- [x] [RULE-ui-001][integration] 作为唯一最终负责人，验证 Console 骨架与固定十项菜单口径、主展示字段即详情入口。verifier argv：`["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]`。
+- [x] 实现或补齐：复用公共组件（`PageHeader/PageSection/StatusTag/DateTimeText/EntityLink`），不散落魔法颜色/间距；loading 用 Skeleton。
+- [x] [RULE-ui-detail-001][integration] 作为唯一最终负责人（2026-09-26 局部 Plan 承接：前端路径曾因过宽的 `apps/**/frontend/**` 绑定该规则；pattern 收窄后绑定保留，由本任务承接）。verifier argv：`["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-204 | integration | 前端源码契约 + 真实 tsc + 真实构建 | 页面骨架正确；4 个 KPI 齐备且可跳转；单次加载无 N+1 | tests/frontend/test_overview_page_contract.py / B-204 | `["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"]` | planned |
-| RULE-ui-001 | integration | 前端源码契约 + 原 verifier 真实边界 | 页面骨架/菜单十项/主展示字段入口；原 verifier 全部通过 | tests/frontend/test_overview_page_contract.py + 原 verifier / RULE-ui-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]` | planned |
-| RULE-ui-detail-001 | integration | 公共详情组件契约 + 真实 tsc + 原 verifier 真实边界 | 共享 `DetailSideSheet` 结构契约保持绿；原 verifier 全部通过 | tests/frontend/test_detail_sidesheet_contract.py + 原 verifier / RULE-ui-detail-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]` | planned |
+| B-204 | integration | 前端源码契约 + 真实 tsc + 真实构建 | 页面骨架正确；4 个 KPI 齐备且可跳转；单次加载无 N+1 | tests/frontend/test_overview_page_contract.py / B-204 | `["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"]` | verified |
+| RULE-ui-001 | integration | 前端源码契约 + 原 verifier 真实边界 | 页面骨架/菜单十项/主展示字段入口；原 verifier 全部通过 | tests/frontend/test_overview_page_contract.py + 原 verifier / RULE-ui-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]` | verified |
+| RULE-ui-detail-001 | integration | 公共详情组件契约 + 真实 tsc + 原 verifier 真实边界 | 共享 `DetailSideSheet` 结构契约保持绿；原 verifier 全部通过 | tests/frontend/test_detail_sidesheet_contract.py + 原 verifier / RULE-ui-detail-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-204 | **结构性 RED（真实）**：页面/组件尚未落地时按登记 argv 执行 → 失败于 `缺少前端模块文件：…/pages/OverviewPage.tsx`（模块文件不存在）。实现后转为 GREEN。**另有一处真实 RED 来自既有契约**：`RULE-ui-001` 的原 verifier 报 `test_module_list_pages_use_remote_table` 失败——它把 `modules/**/*Page.tsx` 一律当列表页并要求 `RemoteTable`，而概览是**仪表盘**（无工具栏/表格/筛选），本需求引入的是第一个非列表模块页（规则原文只约束「列表页」）。 | 整文件 `uv run pytest -q tests/frontend/test_overview_page_contract.py` → **6 passed**；`RULE-ui-001` 原 verifier（shell + ui style 契约 + `npm run build`）→ **9 passed + built**；`RULE-ui-detail-001` 原 verifier → 9 passed + tsc exit 0；i18n checker → `i18n keys OK: 708`（新增 7 键）；ruff 干净。 | `test_page_uses_documented_skeleton`（`PageHeader` 先于 `PageSection`、只有一个标题块、不重复套壳）；`test_kpi_cards_reuse_shared_metric_cards`（复用公共 `MetricCards`，不自拼 `metric-card` DOM）；`test_kpi_cards_cover_design_kpis_and_link_targets`（设计 §2.2 四项齐备，标题即跳转入口且目标为 `/agents` `/skills` `/tasks` `/schedules`，全部用**字面量** i18n 键以便 checker 校验）；`test_loading_and_error_states_do_not_fabricate_values`（loading 用 Skeleton；失败分支渲染 `ErrorState` 而非 KPI 卡片——**不显示伪造的 0**）；`test_hook_fetches_once_via_service`（hook 只调一次 `getOverview()`、无 axios/fetch、含 `requestSeq` 乱序保护；页面只经 hook 取数）；`test_no_hardcoded_copy_in_module_sources`（三个文件去注释后无中文） | 前端真实源码 + **真实 `tsc --noEmit`** + **真实 `npm run build`** 产物；`RULE-ui-001` 的 shell/style 契约与 `RULE-ui-detail-001` 的公共 SideSheet 契约均实跑；无 mock。 | verified |
+| RULE-ui-001 | 见上（该规则原 verifier 的失败即本任务的真实 RED 之一）。 | 原 verifier 复跑通过：shell + ui style 契约 **9 passed**、`npm run build` 成功；本模块用例 6 passed。 | 同上用例 + `test_ui_style_contract`（页面骨架/无魔法色/唯一 UI 库/列表页 RemoteTable）；**契约修正**：把「非列表模块页」显式声明并**反查其确实不含** `ModuleToolbar`/`<Table`/`PaginationFooter`，避免用「不写 RemoteTable」蒙过 | 前端真实源码 + 真实构建产物 + 仓库既有契约套件（真实执行，非跳过）。修正后的契约经 **mutation 验证**：给例外页注入 `<ModuleToolbar />` 后该用例如期失败，证明例外未被放宽成白名单。 | verified |
+| RULE-ui-detail-001 | 验收类（承接项，无独立 RED）。 | 原 verifier 通过：`tests/frontend/test_detail_sidesheet_contract.py` **9 passed** + tsc exit 0。 | 原 verifier 自身的 9 条断言（公共 `DetailSideSheet` Header/Tabs 结构、`DetailGrid` 双列、名称列与操作列对齐等） | 前端真实源码 + 真实 tsc。**说明**：本模块无详情视图，该规则系由过宽 pattern 误绑后按用户决定承接；其 verifier 验证的是**公共组件**契约仍绿，不指向本需求页面行为（已在承接时如实登记该代价）。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+- **修正了既有契约的过宽判定**（见上表 RULE-ui-001）：规则原文只约束列表页，测试却把 `*Page.tsx` 一律当列表页。修法是**精确化而非放宽**——例外页必须显式声明，且反查其不含任何列表构件；已用 mutation 证明例外不能被滥用。
+- **KPI 卡片复用公共 `MetricCards`**（设计 §3.3 只写"模块内 CMP-02"，但公共组件已存在且形态一致），避免再造一套卡片壳；卡片标题即跳转入口符合 §3.3.1。
+- **i18n 键用字面量而非模板串**：把键名拼成模板串（`overview.kpi.` 加变量那种）虽更短，但 `check_frontend_i18n.py` 只扫字面量键，用模板串会让这 4 个键**逃过校验**；故写 4 处字面量。
+- **已在 TASK-006 内加入所需词条**（overview.title/subtitle/loadFailed + 4 个 KPI），否则页面会渲染原始键；TASK-009 负责补齐其余词条并落 i18n 契约。
+- B-204: verified — automated command passed; run_id=e90202e82ec3435eac210f1ba0d1aada (confirmed_by: runner)
+- B-204: verified — automated command passed; run_id=39e0c0b36ff545ccaeb80bced35f27b1 (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
 
 ---
-
+- [2026-09-26] started
+- [2026-09-26] completed (done)
 ## TASK-007: 最近任务 / 下一批定时 / 运行关系卡片
 
 - **Status**: draft
