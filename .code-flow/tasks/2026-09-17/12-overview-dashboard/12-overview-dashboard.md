@@ -61,6 +61,7 @@
 | RULE-data-001 | 12-overview-dashboard.backend.design.md#Spec Compliance Matrix | integration | 真实 PostgreSQL 表结构/约束 + 原 verifier 真实边界 | TASK-001 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
 | RULE-front-001 | 12-overview-dashboard.frontend.design.md#Spec Compliance Matrix | integration | 前端源码契约（services 收口/无裸请求/i18n）+ 原 verifier 真实边界 | TASK-005 | planned | ["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"] | . | 900 |  |
 | RULE-ui-001 | 12-overview-dashboard.frontend.design.md#Spec Compliance Matrix | integration | 真实 Console 页面骨架 + 原 verifier 真实边界 | TASK-006 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"] | . | 1200 |  |
+| RULE-ui-detail-001 | 12-overview-dashboard.frontend.design.md#Spec Compliance Matrix | integration | 公共详情组件契约 + 原 verifier 真实边界 | TASK-006 | planned | ["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"] | . | 900 |  |
 | RULE-i18n-001 | 12-overview-dashboard.frontend.design.md#Spec Compliance Matrix | integration | 真实 Console 页面双语 + 原 verifier 真实边界 | TASK-009 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"] | . | 1200 |  |
 | RULE-test-001 | 12-overview-dashboard.frontend.design.md#Spec Compliance Matrix | E2E | 仓库级真实 E2E（真实 HTTP/PostgreSQL/Browser）+ 原 verifier 真实边界 | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 2400 |  |
 
@@ -271,7 +272,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-26] completed (done)
 ## TASK-005: 前端 service 层与类型契约
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 12-overview-dashboard.frontend.design.md#3.4 组件接口契约, 12-overview-dashboard.frontend.design.md#3.5 状态与数据流
@@ -311,20 +312,23 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - **`timezone` 不构成映射**：前后端同名，故「types.ts 不含后端命名」的检查对该字段显式跳过（否则恒失败）。
 - **未越界实现组件**：本任务只交付 service 层与类型契约；`KpiCards`/两个列表的 props 契约已在 `types.ts` 声明，但组件本体归 TASK-006/007，避免抢做后续任务。
 - B-203: verified — automated command passed; run_id=b8c71c2b403e4a71b6ea5e95739c1418 (confirmed_by: runner)
+- B-203: verified — automated command passed; run_id=df791d888c34485798210fdede4a5674 (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
 
 ---
 - [2026-09-26] started
+- [2026-09-26] resumed (in-progress)
+- [2026-09-26] completed (done)
 ## TASK-006: OverviewPage 容器 + KpiCards
 
 - **Status**: draft
 - **Priority**: P0
 - **Depends**: TASK-005
 - **Source**: 12-overview-dashboard.frontend.design.md#3.3 组件设计, 12-overview-dashboard.frontend.design.md#3.4 组件接口契约
-- **Spec-Refs**: harness-ui#RULE-ui-001
-- **Acceptance-Refs**: B-204, RULE-ui-001
+- **Spec-Refs**: harness-ui#RULE-ui-001, harness-ui-detail#RULE-ui-detail-001
+- **Acceptance-Refs**: B-204, RULE-ui-001, RULE-ui-detail-001
 - **Files**: `apps/console-platform/frontend/src/modules/overview-dashboard/pages/OverviewPage.tsx`, `apps/console-platform/frontend/src/modules/overview-dashboard/components/KpiCards.tsx`, `apps/console-platform/frontend/src/modules/overview-dashboard/hooks/useOverview.ts`, `tests/frontend/test_overview_page_contract.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
@@ -337,6 +341,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [ ] [B-204][integration] 以前端源码契约 + 真实 tsc + 真实构建为边界编写用例：断言页面骨架为 `PageHeader → PageSection`（不重复标题/说明块）、`KpiCards` 渲染 design §2.2 的 4 项且各自带跳转、`useOverview` 只调用一次 `getOverview()`（无按实体循环拉取）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"]`。
 - [ ] [RULE-ui-001][integration] 作为唯一最终负责人，验证 Console 骨架与固定十项菜单口径、主展示字段即详情入口。verifier argv：`["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]`。
 - [ ] 实现或补齐：复用公共组件（`PageHeader/PageSection/StatusTag/DateTimeText/EntityLink`），不散落魔法颜色/间距；loading 用 Skeleton。
+- [ ] [RULE-ui-detail-001][integration] 作为唯一最终负责人（2026-09-26 局部 Plan 承接：前端路径曾因过宽的 `apps/**/frontend/**` 绑定该规则；pattern 收窄后绑定保留，由本任务承接）。verifier argv：`["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
 - [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
@@ -345,6 +350,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 |---|---|---|---|---|---|---|
 | B-204 | integration | 前端源码契约 + 真实 tsc + 真实构建 | 页面骨架正确；4 个 KPI 齐备且可跳转；单次加载无 N+1 | tests/frontend/test_overview_page_contract.py / B-204 | `["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"]` | planned |
 | RULE-ui-001 | integration | 前端源码契约 + 原 verifier 真实边界 | 页面骨架/菜单十项/主展示字段入口；原 verifier 全部通过 | tests/frontend/test_overview_page_contract.py + 原 verifier / RULE-ui-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]` | planned |
+| RULE-ui-detail-001 | integration | 公共详情组件契约 + 真实 tsc + 原 verifier 真实边界 | 共享 `DetailSideSheet` 结构契约保持绿；原 verifier 全部通过 | tests/frontend/test_detail_sidesheet_contract.py + 原 verifier / RULE-ui-detail-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]` | planned |
 
 ### Acceptance Evidence
 
