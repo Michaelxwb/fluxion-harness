@@ -235,7 +235,7 @@
       "kind": "functional",
       "boundary": "真实多进程栈(Console+PostgreSQL)与租户级种子/清理",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -245,7 +245,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-202",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "3b43869e2f274209a7997dab4476bdac",
+        "executed_at": "2026-09-26T10:17:32.408696+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-202",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4fda0745ceba453999b64edce50732ea",
+          "executed_at": "2026-09-26T10:17:09.856636+00:00"
+        },
+        {
+          "id": "B-202",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "3b43869e2f274209a7997dab4476bdac",
+          "executed_at": "2026-09-26T10:17:32.408696+00:00"
+        }
+      ]
     },
     {
       "id": "B-203",

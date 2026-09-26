@@ -48,7 +48,7 @@
 | E-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser→overview API 失败→ErrorState | TASK-008 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""] | . | 900 |  |
 | E-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser Router→目标页（目标 ID 已失效/无权限） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""] | . | 900 |  |
 | B-201 | 12-overview-dashboard.backend.design.md#3.3 接口设计 | integration | docs/07 §10 契约登记→冻结 schema 逐项一致 | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"] | . | 600 |  |
-| B-202 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | 真实多进程栈(Console+PostgreSQL)与租户级种子/清理 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"] | . | 600 |  |
+| B-202 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | 真实多进程栈(Console+PostgreSQL)与租户级种子/清理 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"] | . | 600 |  |
 | B-203 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本 | TASK-005 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"] | . | 600 |  |
 | B-204 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc + 真实构建产物 | TASK-006 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"] | . | 600 |  |
 | B-205 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 | TASK-007 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"] | . | 600 |  |
@@ -174,7 +174,7 @@
 - [2026-09-26] completed (done)
 ## TASK-003: 概览验收环境与种子清理
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 12-overview-dashboard.backend.design.md#2.4 验收条件, 12-overview-dashboard.backend.design.md#3.4 性能与容量考量
@@ -189,26 +189,37 @@
 
 ### Checklist
 
-- [ ] [B-202][integration] 以真实多进程栈 + 真实 PostgreSQL 为边界编写用例：种子后按各表逐行回读断言数量与状态符合预期（含停用项不计入 KPI、PAUSED 不进下一批、`next_fire_at IS NULL` 不进下一批）。执行 argv：`["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"]`。
-- [ ] 收尾清理：用例结束后租户内各表残留为 0，且不污染仓库 `.data/artifacts`。
-- [ ] 用例结束不得残留 uvicorn/`muad_*.main` 进程（收尾在任何失败路径下都要执行）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN 与真实边界证据。
+- [x] [B-202][integration] 以真实多进程栈 + 真实 PostgreSQL 为边界编写用例：种子后按各表逐行回读断言数量与状态符合预期（含停用项不计入 KPI、PAUSED 不进下一批、`next_fire_at IS NULL` 不进下一批）。执行 argv：`["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"]`。
+- [x] 收尾清理：用例结束后租户内各表残留为 0，且不污染仓库 `.data/artifacts`。
+- [x] 用例结束不得残留 uvicorn/`muad_*.main` 进程（收尾在任何失败路径下都要执行）。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN 与真实边界证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-202 | integration | 真实 Console 进程 + 真实 PostgreSQL + 租户级清理 | 种子数量/状态逐行回读一致；停用与 PAUSED/无 next_fire_at 项被正确排除；清理后残留 0 | tests/acceptance/overview/test_environment.py / B-202 | `["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"]` | planned |
+| B-202 | integration | 真实 Console 进程 + 真实 PostgreSQL + 租户级清理 | 种子数量/状态逐行回读一致；停用与 PAUSED/无 next_fire_at 项被正确排除；清理后残留 0 | tests/acceptance/overview/test_environment.py / B-202 | `["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-202 | **真实 RED（两轮，均为环境自身缺陷）**：① 首轮 `2 failed` —— `/healthz` 断言读 `body["status"]` 得 `KeyError`（探针经 api-kit 封套返回，实际在 `data.status`）；`purge` 用例报 `UndefinedColumnError: column "tenant_id" does not exist`（`control.console_session` 按 `account_id` 关联、无 `tenant_id`，不该列入按租户计数的白名单）。② 修掉这两处后 `1 failed`：`control.console_account 清理后仍有残留`（`CONTROL_CLEANUP` 来自 09 栈，其租户不含 Console 账号，故不清理 `console_account`/`console_session`，而本环境种了可登录 admin）。 | 补 `CONSOLE_CLEANUP`（会话先于账号）+ 修正探针判读路径后：整文件 **5 passed**；ruff 干净；运行后 `ps` 无 uvicorn/`muad_*.main` 残留；DB 内无 `overview-acceptance-*` 遗留租户。 | `test_b202_stack_boots_and_dependencies_are_ready`（`/healthz` → `data.status=ok`、`/readyz` → `data.status=ready`，PG 不可达时为 503）；`test_b202_seed_produces_expected_rows`（8 张表逐表回读精确行数——共享开发库中还有其它租户数据，能取到**精确**数目即证明按 `tenant_id` 隔离生效）；`test_b202_seed_expectations_match_design_semantics`（3 个 ACTIVE Schedule 全计入 KPI、列表只含带 `next_fire_at` 的 2 条且 ASC、5 条任务不过滤状态）；`test_b202_seeded_admin_can_authenticate`（真实登录 + `/auth/me` 返回种子 admin）；`test_b202_purge_is_idempotent_and_leaves_no_residue`（连续 purge 两次后 8 张表全 0，且清理前先断言 >0 以保证断言灵敏度、并以具体 Agent 名再锚一次非空转） | 真实 Console uvicorn 子进程（失败路径也走 `stop_overview_stack`）+ 真实 PostgreSQL 逐表回读 + 真实登录会话；未 mock 业务服务、未覆盖业务路由。**按需最小栈**：概览是只读聚合，S-01 的边界只需 Console+PG，故不启动 Runtime/Worker/Gateway/探针（口径同 11 对 Gateway 的处理），进程原语复用 09 真实验收栈。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+- **按需最小栈**：design 未规定验收栈组成；按 S-01 的真实边界（Browser→Console HTTP→四张 Owner 表）只起 Console，避免为无关依赖引入 Redis/Gateway/探针耦合。
+- **模块级 TENANT 为随机值**：`overview-acceptance-<uuid>` 每次 import 生成，故清理必须在**同一进程内**的 fixture 收尾完成（`finally` 中调用），不能依赖后续运行补清；已实测无遗留租户。
+- **`control.console_account` 属本模块自带的清理项**：见上 RED 第 ② 轮。
+- B-202: verified — automated command passed; run_id=4fda0745ceba453999b64edce50732ea (confirmed_by: runner)
+- B-202: verified — automated command passed; run_id=3b43869e2f274209a7997dab4476bdac (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
 
 ---
-
+- [2026-09-26] started
+- [2026-09-26] completed (done)
 ## TASK-004: 后端场景真实验收（S-01 + 无 N+1）
 
 - **Status**: draft
