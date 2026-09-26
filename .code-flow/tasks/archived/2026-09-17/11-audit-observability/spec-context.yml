@@ -1,7 +1,7 @@
 version: 1
 task: 运行审计与可观测
 enforcement: required
-updated_at: '2026-09-25T10:55:26.841974+00:00'
+updated_at: '2026-09-25T12:54:41.075327+00:00'
 sources:
 - type: docs
   ref: docs/02-核心领域与数据库详细设计.md
@@ -63,7 +63,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:
@@ -674,7 +674,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:
@@ -1451,7 +1451,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:
@@ -2227,7 +2227,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-010
           item_id: TASK-010
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:
@@ -2922,7 +2922,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-015
           item_id: TASK-015
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:
@@ -3526,7 +3526,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:
@@ -4182,7 +4182,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:
@@ -4833,7 +4833,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:
@@ -5325,7 +5325,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-019
           item_id: TASK-019
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:
@@ -6853,7 +6853,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:
@@ -7579,7 +7579,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-011
           item_id: TASK-011
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:
@@ -8879,7 +8879,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-013
           item_id: TASK-013
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:
@@ -9575,7 +9575,7 @@ bindings:
         - artifact: 11-audit-observability.md
           section_id: TASK-020
           item_id: TASK-020
-          artifact_sha256: 615a3975ad36e98e80c521a1271205bf36af071407fc7d6562d62f03b1afcd05
+          artifact_sha256: 68f00b86164a2c7080ddf07ebacd70aad20b802629cc4f9b7f9662540885d427
         decision: null
         evidence: []
       code:

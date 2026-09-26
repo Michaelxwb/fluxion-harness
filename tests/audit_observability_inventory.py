@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, cast
 
 ROOT = Path(__file__).resolve().parents[1]
-TASK_DIR = ROOT / ".code-flow/tasks/2026-09-17/11-audit-observability"
+TASK_DIR = ROOT / ".code-flow/tasks/archived/2026-09-17/11-audit-observability"
 TASK_FILE = TASK_DIR / "11-audit-observability.md"
 MANIFEST = TASK_DIR / ".acceptance-manifest.json"
 

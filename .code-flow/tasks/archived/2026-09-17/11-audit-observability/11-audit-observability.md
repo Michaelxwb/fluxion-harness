@@ -50,11 +50,11 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 argv | cwd | timeout | depends_on |
 |---|---|---|---|---|---|---|---|---|---|
-| S-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→Console 聚合查询 HTTP→四张审计表(PostgreSQL) | TASK-017 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s01"] | . | 1200 |  |
+| S-01 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→Console 聚合查询 HTTP→四张审计表(PostgreSQL) | TASK-017 | verified | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s01"] | . | 1200 |  |
 | S-02 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | 真实 Tool/Egress/Model 执行路径→runtime 审计表 | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_audit_write.py","-k","s02"] | . | 600 |  |
-| S-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→Console Admin Run 详情 HTTP→Runtime 内部端点→runtime 表 | TASK-017 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s03"] | . | 1200 |  |
+| S-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→Console Admin Run 详情 HTTP→Runtime 内部端点→runtime 表 | TASK-017 | verified | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s03"] | . | 1200 |  |
 | S-04 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console AppService 事务→control.config_audit_log | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_config_write.py","-k","s04"] | . | 600 |  |
-| S-05 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→Console 导出创建/查询 HTTP→幂等表与导出任务(PostgreSQL) | TASK-017 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s05"] | . | 1200 |  |
+| S-05 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | E2E | Browser→Console 导出创建/查询 HTTP→幂等表与导出任务(PostgreSQL) | TASK-017 | verified | ["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s05"] | . | 1200 |  |
 | B-201 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Runtime HTTP /internal/admin/runs 与 /internal/admin/runs/{run_id} → 真实 PostgreSQL | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_admin_run_api.py"] | . | 600 |  |
 | B-204 | 11-audit-observability.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本(services 收口/无裸请求/i18n) | TASK-010 | verified | ["uv","run","pytest","-q","tests/frontend/test_audit_services_contract.py"] | . | 600 |  |
 | B-202 | 11-audit-observability.backend.design.md#3.4 接口设计 | integration | 真实 Console HTTP 导出状态/下载 → 真实 PostgreSQL + artifact store | TASK-007 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_download.py"] | . | 600 |  |
@@ -75,9 +75,9 @@
 | E-03 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 列表查询参数校验 | TASK-003 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"] | . | 600 |  |
 | E-04 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 业务事务回滚→config_audit_log | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_config_write.py","-k","e04"] | . | 600 |  |
 | E-05 | 11-audit-observability.backend.design.md#2.5.2 功能验收场景 | integration | Console 导出创建→幂等表 partial unique | TASK-006 | verified | ["uv","run","pytest","-q","tests/console_platform/test_audit_export_api.py","-k","e05"] | . | 600 |  |
-| S-06 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 聚合查询 HTTP | TASK-018 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""] | . | 1200 |  |
-| S-07 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 详情 HTTP | TASK-018 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""] | . | 1200 |  |
-| S-08 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL | TASK-018 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""] | . | 1200 |  |
+| S-06 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 聚合查询 HTTP | TASK-018 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""] | . | 1200 |  |
+| S-07 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 详情 HTTP | TASK-018 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""] | . | 1200 |  |
+| S-08 | 11-audit-observability.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL | TASK-018 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""] | . | 1200 |  |
 | E-06 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→Console 查询失败路径 | TASK-018 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-06\""] | . | 900 |  |
 | E-07 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→详情不可读路径 | TASK-018 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-07\""] | . | 900 |  |
 | E-08 | 11-audit-observability.frontend.design.md#2.4 验收条件 | integration | Browser→导出创建异指纹 409 | TASK-018 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-08\""] | . | 900 |  |
@@ -110,7 +110,7 @@
 
 ## TASK-001: 配置审计写入与 actor 语义
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 11-audit-observability.backend.design.md#2.5.1 业务规则与约束, 11-audit-observability.backend.design.md#3.3 数据设计, 11-audit-observability.backend.design.md#3.5 质量实现方案
@@ -153,6 +153,10 @@
 - E-04: verified — automated command passed; run_id=3a664093485d434dbd1ec4f9f82f9e79 (confirmed_by: runner)
 - S-04: verified — automated command passed; run_id=7963aa0d1d24480b83e5b9f41dc2be40 (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=7963aa0d1d24480b83e5b9f41dc2be40 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -162,7 +166,7 @@
 - [2026-09-25] completed (done)
 ## TASK-002: 运行审计三表写入补齐与 result_status 归一
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 11-audit-observability.backend.design.md#3.3 数据设计, 11-audit-observability.backend.design.md#2.5.1 业务规则与约束
@@ -200,6 +204,8 @@
 
 **登记一处设计/实现词表差异（不改写历史值）**：设计 §3.3 对 `tool_call_audit.status` 的注释写 `PREPARED/RUNNING/SUCCESS/FAILED/DENIED`，而现行执行链实际写入 `OK`（成功）/`ERROR`（失败）。本任务只登记"投影可归一的输入词表"，统一暴露（`result_status`）由 TASK-003 的聚合投影承担；如需把写入值对齐注释词表，属独立变更（会改动既有数据语义），未在本任务内顺手改。
 - S-02: verified — automated command passed; run_id=3b61cfef47814c42be005b2475033381 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -210,7 +216,7 @@
 - [2026-09-25] completed (done)
 ## TASK-003: 审计聚合投影与列表 API-01
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 11-audit-observability.backend.design.md#3.3 数据设计, 11-audit-observability.backend.design.md#3.4 接口设计, 11-audit-observability.backend.design.md#3.5 质量实现方案
@@ -240,6 +246,7 @@
 | S-01 | E2E | Browser→Console 聚合查询 HTTP→四张审计表(PostgreSQL) | 同链路审计字段归一；含 `result_status`；分页封套正确 | tests/acceptance/audit_observability/test_audit_acceptance.py / S-01（owner TASK-017） | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s01"]` | verified |
 | E-03 | integration | Console 查询参数校验→真实 PostgreSQL | 非法枚举/时间区间 → `COMMON_VALIDATION_ERROR`，不返回全量 | tests/console_platform/test_audit_query_api.py / E-03 | `["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"]` | verified |
 | RULE-02 | integration | Console HTTP 封套→真实 PostgreSQL | 统一封套 + 分页边界 + catalog 错误码 | tests/console_platform/test_audit_query_api.py / RULE-02 | `["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py"]` | verified |
+| RULE-05 | integration | Console HTTP 时间出参→真实 PostgreSQL | 出参统一 `YYYY-MM-DD HH:mm:ss`；存储 timestamptz | tests/console_platform/test_audit_query_api.py / RULE-05 | `["uv","run","pytest","-q","tests/console_platform/test_audit_query_api.py","-k","e03"]` | verified |
 | RULE-api-001 | E2E | 真实 Console HTTP + 原 verifier 真实边界 | 封套/分页/错误码一致性；原 verifier 全部通过 | tests/console_platform/test_audit_query_api.py + 原 verifier / RULE-api-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_audit_query_api.py && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]` | verified |
 | RULE-time-001 | E2E | 真实 Console HTTP 时间出参 + 原 verifier 真实边界 | 出参 `YYYY-MM-DD HH:mm:ss`；存储 timestamptz | tests/console_platform/test_audit_query_api.py + 原 verifier / RULE-time-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_audit_query_api.py && uv run pytest -q tests/frontend/test_datetime_contract.py"]` | verified |
 
@@ -262,6 +269,8 @@
 - **`resource_id` 过滤**：参数表类型为 UUID，但 egress 行的 `resource_id` 可能回退为字符串 `target`（设计 §3.3），故这些行无法按 `resource_id` 过滤；按参数表实现，未擅自放宽类型。
 - 新增 `infrastructure/repositories/audit_query_repository.py`（TASK-003 的 Files 未列），为遵循 route/service/repository 分层。
 - E-03: verified — automated command passed; run_id=0d081c74856d4cab9e985ae0ed2e71b5 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -271,7 +280,7 @@
 - [2026-09-25] completed (done)
 ## TASK-004: 审计详情 API-02 与关联降级
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 11-audit-observability.backend.design.md#3.4 接口设计, 11-audit-observability.backend.design.md#3.3 数据设计
@@ -310,6 +319,8 @@
 - **详情 payload**：API-01 的 16 个统一字段（**复用同一投影 SQL**，避免 list/detail 漂移）+ API-01 既有 legacy 别名 + 每类型 extras（CONFIG `source_ip`；TOOL `tool_call_id/tool_kind/prepared_args_hash/error_code`；EGRESS `target_type/adapter_key/platform_id/method/policy_decision/status_code/error_code`；MODEL `provider/model/attempt/retry_reason/input_tokens/output_tokens/error_code`）；原始列名（`before_json`/`args_preview_json`）不外泄，不含敏感列。
 - **给 TASK-006 的前瞻提醒**：`GET /{audit_id}` 已声明；FastAPI 按声明顺序匹配，故 API-05/06 的 `POST /api/v1/audits/exports` 与 `GET /api/v1/audits/exports/{id}` 必须**声明在 `/{audit_id}` 之前**（或改用 `{audit_id:uuid}` 路径转换器），否则会被详情路由吃掉。
 - E-01: verified — automated command passed; run_id=9d8f2e231dfa482596726ccedf2fce79 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -319,7 +330,7 @@
 - [2026-09-25] completed (done)
 ## TASK-005: Admin Run 列表/详情 API-03/04
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: 11-audit-observability.backend.design.md#3.4 接口设计, 11-audit-observability.backend.design.md#3.3 数据设计
@@ -363,6 +374,8 @@
 - **响应层不做二次脱敏**（三层收口归 TASK-008），改为**白名单投影**：SELECT 不含 `run_record.input_text`/`error_message`、不含 `runtime_snapshot.agent_json/model_json`（后者确含 `api_key`）；并用 mutation 验证断言有牙（加回 `model_json` 会挂形状断言、注入原始 Prompt 标记会挂 LEAK 断言）。
 - 新增 `application/admin_run_service.py` 与 `infrastructure/admin_run_repository.py`（计划 Files 未列），为满足 router→service→repository 分层。
 - B-201: verified — automated command passed; run_id=7b7f870d6eb147e59baf14df0c3b37af (confirmed_by: runner)
+- B-201: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-201: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -372,7 +385,7 @@
 - [2026-09-25] completed (done)
 ## TASK-006: 导出任务表与创建 API-05（幂等）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-003
 - **Source**: 11-audit-observability.backend.design.md#3.3 数据设计, 11-audit-observability.backend.design.md#3.4 接口设计, 11-audit-observability.backend.design.md#2.5.1 业务规则与约束
@@ -418,6 +431,8 @@
 
 **实现中的判断点（如实登记）**：指纹字段集含 `export_format`（设计写"含 endpoint/tenant/actor/filters"，格式不同即请求内容不同）；规范化筛选**不含 legacy `keyword`**（API-05 设计字段表未暴露，body `extra="forbid"` 会拒绝）；复用共享幂等表**不新建**第二张幂等表；重放沿用仓库既有 `pg_advisory_xact_lock` 模式（partial unique 仍作 DB 兜底）；路由顺序采用"把 `POST /exports` 声明在 `/{audit_id}` 之前"而非改用 `{audit_id:uuid}`（后者会把非法 uuid 的详情请求从 422 变 404）；`validate_filters` 抽为模块级供 API-01/05 共用口径；`create_time` 复用 `format_console_time`（RULE-05）。
 - E-05: verified — automated command passed; run_id=c1808094e57242419e22393732f4f09e (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -427,7 +442,7 @@
 - [2026-09-25] completed (done)
 ## TASK-007: 导出状态/下载 API-06 与执行落地
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-006
 - **Source**: 11-audit-observability.backend.design.md#3.4 接口设计, 11-audit-observability.backend.design.md#3.5 质量实现方案
@@ -472,6 +487,8 @@
 - **状态 GET 先执行后判存在**（一次读取而非 check/run/re-read），接受一个小副作用。
 - 下载返回裸 `Response`（正文即产物字节，非封套）；错误仍走 `AppError` → catalog 封套；`text/*` 会被 Starlette 追加 `charset`，断言按 media type 比较。
 - B-202: verified — automated command passed; run_id=7599b9172245445a9e07dbd87467d692 (confirmed_by: runner)
+- B-202: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-202: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -481,7 +498,7 @@
 - [2026-09-25] completed (done)
 ## TASK-008: 三层脱敏收口（日志/写入/响应）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: 11-audit-observability.backend.design.md#3.5 质量实现方案, 11-audit-observability.backend.design.md#2.5.1 业务规则与约束
@@ -529,6 +546,8 @@
 - **`set_log_context` 上下文字段**：由 `JsonLogFormatter` 原样写出（仅 message + `record.fields` 过 `RedactionFilter`）；仓库内无调用方把密钥放入该上下文（api-kit 中间件只放 trace/request/tenant/caller/locale），属"剩余面"而非已证明泄露——未越界改动 formatter 契约。
 - 测试 payload 经**真实应用服务**注入（而非 HTTP 配置变更）：所有真实快照都刻意不含密钥，走 HTTP 会空过、测不到 E-02。
 - E-02: verified — automated command passed; run_id=a6d40113f0244822afeee659ee08c9c7 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -538,7 +557,7 @@
 - [2026-09-25] completed (done)
 ## TASK-009: 可观测性 trace 关联字段与指标目录
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-002
 - **Source**: 11-audit-observability.backend.design.md#3.5 质量实现方案, 11-audit-observability.backend.design.md#4 部署与运维
@@ -579,6 +598,8 @@
 - **域计数器 `status` 语义**：成功 `SUCCESS`、`AppError` 记 catalog 码（如 `BOT_NOT_FOUND`/`AGENT_NOT_FOUND`/`SKILL_PACKAGE_INVALID`）、未预期异常 `FAILED`；HTTP 层 4xx 校验错只在 `console_api_requests_total{status=…}` 可见。
 - **Redis 断言范围**：以死端口 `REDIS_URL` 证明 `/readyz` 不被 Redis 阻断；不覆盖"运行中 Redis 掉线"（该场景在 im_gateway 的 `test_redis_degradation.py`）。
 - B-203: verified — automated command passed; run_id=2966cc0253944ecdaed96579f1d1ac96 (confirmed_by: runner)
+- B-203: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-203: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -588,7 +609,7 @@
 - [2026-09-25] completed (done)
 ## TASK-010: 前端 service 层与类型契约
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 11-audit-observability.frontend.design.md#3.4 组件接口契约
@@ -634,6 +655,8 @@
 - **交 TASK-014 的风险提醒**：下载用 `responseType:'blob'` 时失败响应体也是 Blob，`apiErrorBody()` 读不到封套 `code`；因此 `downloadExport` 只返回字节，失败路径应走"轮询 `getExport` → `FAILED.errorCode` → catalog/i18n 文案"（已在函数注释说明）。若 TASK-014 需要在下载时刻拿到错误码，需自行解码 Blob 错误体。
 - **时间筛选格式留给 TASK-011**（`startTime`/`endTime` 原样透传字符串；后端收 `datetime`）。
 - B-204: verified — automated command passed; run_id=d044e7057c964501bcad83c60c36aa92 (confirmed_by: runner)
+- B-204: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-204: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -643,7 +666,7 @@
 - [2026-09-25] completed (done)
 ## TASK-011: 审计列表页容器与筛选栏
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-010
 - **Source**: 11-audit-observability.frontend.design.md#3.2 页面与路由结构, 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.3.1 每个按钮/操作的设计
@@ -690,6 +713,8 @@
 - **按钮落位**：搜索/筛选、重置、刷新都在 `AuditFilterBar` 内、渲染于 `ModuleToolbar` 的右侧 `search` 槽；空态提供"清筛选"（§3.6）。
 - **无 `PageHeader`**（§3.7「列表页不增加重复标题/说明块」）。
 - B-205: verified — automated command passed; run_id=a5d870f0260f4eabbe5a364863e62bad (confirmed_by: runner)
+- B-205: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-205: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -699,7 +724,7 @@
 - [2026-09-25] completed (done)
 ## TASK-012: 审计表格与字段列
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-011
 - **Source**: 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.6 UI 状态
@@ -743,6 +768,8 @@
 - **`t: TFunction` 以参数传入工厂**（纯函数、非 hook），保证表格文件无 hook、文案随 locale 反应式。
 - **仓库坑（值得记录）**：在注释里写 `**/`（例如 `modules/` 与 `*Page.tsx` 相邻的 glob 写法）会破坏仓库的注释剥离工具（`**/` 含 `*/`）⇒ 会误报"硬编码中文"；本任务已改写措辞规避。
 - B-206: verified — automated command passed; run_id=d559b9d6046d47a8b74de78f5e0527a2 (confirmed_by: runner)
+- B-206: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-206: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -752,7 +779,7 @@
 - [2026-09-25] completed (done)
 ## TASK-013: 详情 SideSheet 与关联链接
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-012
 - **Source**: 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.4 组件接口契约
@@ -800,6 +827,8 @@
 - **JSON 渲染**：`before`/`after`/`argsPreview` 用 `<pre data-testid="audit-detail-<field>">` + 仓库既有内联 `pre-wrap/maxHeight/overflow` 样式（McpToolTable/SkillDetailSideSheet 先例），未新增 CSS 类。
 - **i18n 动态键**：类型专有字段用 `audit.detail.field.${field}`（先例 `audit.auditType.${value}`）；因动态键会绕过仓库静态扫描，契约测试**枚举四类型全部字段键**并断言 zh-CN/en-US 均存在。
 - B-207: verified — automated command passed; run_id=5bf9cbf35a0241d0a0479567d0376f14 (confirmed_by: runner)
+- B-207: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-207: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -809,7 +838,7 @@
 - [2026-09-25] completed (done)
 ## TASK-014: 导出按钮与轮询/下载交互
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-012
 - **Source**: 11-audit-observability.frontend.design.md#3.3.1 每个按钮/操作的设计, 11-audit-observability.frontend.design.md#3.5 状态与数据流
@@ -857,6 +886,8 @@
 - **E-08 无独立分支**：通用创建失败路径已满足（筛选由页面持有且不被触碰、不重复提交、单一 `createExport(` 调用点），契约测试直接断言该形态。
 - **设计口径冲突**：设计 §3.5 说幂等键"由 service 生成"，与 brief/交接的"调用方持有"冲突 → 以调用方持有为准（已是 `auditService.ts` 的既定约定，已登记）。
 - B-208: verified — automated command passed; run_id=8e20391284624aebb64e3c849a82e04a (confirmed_by: runner)
+- B-208: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-208: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -866,7 +897,7 @@
 - [2026-09-25] completed (done)
 ## TASK-015: i18n 词条与语言切换覆盖
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-012
 - **Source**: 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.6 UI 状态
@@ -909,6 +940,8 @@
 - 导出文件名 `audit-export-<id>.csv` 虽用户可见但刻意保持 ASCII，未新增 key。
 - 语言切换的残留风险（已文档化并加守卫）：`AuditTable` 的安全性依赖"工厂在渲染期被调用"——若有人把 `buildAuditTableProps` 包进 `useMemo(…, [])` 会静默破坏切换；契约测试的 `CACHED_TRANSLATION` 守卫会拦下这种写法。
 - B-209: verified — automated command passed; run_id=9ceacb39377b4302a3b18a6494ef868d (confirmed_by: runner)
+- B-209: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-209: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -918,7 +951,7 @@
 - [2026-09-25] completed (done)
 ## TASK-016: 真实审计验收环境与种子清理
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-007
 - **Source**: 11-audit-observability.backend.design.md#3.5 质量实现方案, 11-audit-observability.backend.design.md#4 部署与运维
@@ -962,6 +995,8 @@
 - **快启校验是行为级而非静态**：用真实进程参数化（console+runtime）验证两种缺失依赖的退出码与日志特征；若服务反而起来了，助手会停掉它并把 `healthy=True` 上报，使测试显式失败而不是静默通过。
 - **清理白名单**：`count_tenant_rows` 的表名是唯一被插值的标识符，且经 `CLEANUP_TABLES` 白名单校验（否则 `ValueError`）；所有 `DELETE` 的值一律绑定参数。
 - B-210: verified — automated command passed; run_id=19c66450385a4085b0997fdda8363fbd (confirmed_by: runner)
+- B-210: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-210: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -971,7 +1006,7 @@
 - [2026-09-25] completed (done)
 ## TASK-017: 后端场景真实验收（S-01/03/05 + 集成场景证据）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-016
 - **Source**: 11-audit-observability.backend.design.md#2.5.2 功能验收场景, 11-audit-observability.backend.design.md#3.3 数据设计
@@ -997,9 +1032,9 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | E2E | Browser→Console 聚合查询 HTTP→四张审计表(PostgreSQL) | 同链路字段归一；含 `result_status`；分页封套正确 | tests/acceptance/audit_observability/test_audit_acceptance.py / S-01 | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s01"]` | e2e_deferred |
-| S-03 | E2E | Browser→Console→Runtime /internal/admin/runs→PostgreSQL | 详情字段齐备；无 Secret | tests/acceptance/audit_observability/test_audit_acceptance.py / S-03 | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s03"]` | e2e_deferred |
-| S-05 | E2E | Browser→导出创建/查询 HTTP→幂等表与导出任务(PostgreSQL) | 同 key 重放同一任务；轮询至完成可下载 | tests/acceptance/audit_observability/test_audit_acceptance.py / S-05 | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s05"]` | e2e_deferred |
+| S-01 | E2E | Browser→Console 聚合查询 HTTP→四张审计表(PostgreSQL) | 同链路字段归一；含 `result_status`；分页封套正确 | tests/acceptance/audit_observability/test_audit_acceptance.py / S-01 | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s01"]` | verified |
+| S-03 | E2E | Browser→Console→Runtime /internal/admin/runs→PostgreSQL | 详情字段齐备；无 Secret | tests/acceptance/audit_observability/test_audit_acceptance.py / S-03 | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s03"]` | verified |
+| S-05 | E2E | Browser→导出创建/查询 HTTP→幂等表与导出任务(PostgreSQL) | 同 key 重放同一任务；轮询至完成可下载 | tests/acceptance/audit_observability/test_audit_acceptance.py / S-05 | `["uv","run","pytest","-q","tests/acceptance/audit_observability/test_audit_acceptance.py","-k","s05"]` | verified |
 
 ### Acceptance Evidence
 
@@ -1021,6 +1056,15 @@
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=a1e5d3b6a7aa4747aabc6046f7f442ac (confirmed_by: runner)
 - S-03: e2e_deferred — automated command e2e_deferred; run_id=a1e5d3b6a7aa4747aabc6046f7f442ac (confirmed_by: runner)
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=a1e5d3b6a7aa4747aabc6046f7f442ac (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=00e21def10fc4887b7a2aa37850bc5bd (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=00e21def10fc4887b7a2aa37850bc5bd (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=00e21def10fc4887b7a2aa37850bc5bd (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -1030,7 +1074,7 @@
 - [2026-09-25] completed (done)
 ## TASK-018: 前端 E2E 验收（列表/详情/导出）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-016
 - **Source**: 11-audit-observability.frontend.design.md#2.4 验收条件, 11-audit-observability.frontend.design.md#3.5 状态与数据流
@@ -1056,9 +1100,9 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-06 | E2E | Browser(Chromium)→Console 聚合查询 HTTP | 仅显示相关记录；字段一致；分页可用 | e2e/tests/audit-observability.spec.ts / S-06 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""]` | e2e_deferred |
-| S-07 | E2E | Browser(Chromium)→Console 详情 HTTP | 只读详情；无操作按钮；关联链接可跳转 | e2e/tests/audit-observability.spec.ts / S-07 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""]` | e2e_deferred |
-| S-08 | E2E | Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL | 同 key 重试同一任务；提交中禁用；完成后可下载 | e2e/tests/audit-observability.spec.ts / S-08 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""]` | e2e_deferred |
+| S-06 | E2E | Browser(Chromium)→Console 聚合查询 HTTP | 仅显示相关记录；字段一致；分页可用 | e2e/tests/audit-observability.spec.ts / S-06 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-06\""]` | verified |
+| S-07 | E2E | Browser(Chromium)→Console 详情 HTTP | 只读详情；无操作按钮；关联链接可跳转 | e2e/tests/audit-observability.spec.ts / S-07 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-07\""]` | verified |
+| S-08 | E2E | Browser(Chromium)→导出创建/查询 HTTP→PostgreSQL | 同 key 重试同一任务；提交中禁用；完成后可下载 | e2e/tests/audit-observability.spec.ts / S-08 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"S-08\""]` | verified |
 | E-06 | integration | Browser→Console 查询失败路径 | 保留筛选可重试；ErrorState 呈现 | e2e/tests/audit-observability.spec.ts / E-06 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-06\""]` | verified |
 | E-07 | integration | Browser→详情不可读路径 | SideSheet 内 ErrorState；无伪造关联 | e2e/tests/audit-observability.spec.ts / E-07 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-07\""]` | verified |
 | E-08 | integration | Browser→导出创建异指纹 409 | 展示 `IDEMPOTENCY_MISMATCH` 文案；保留筛选 | e2e/tests/audit-observability.spec.ts / E-08 | `["bash","-lc","cd e2e && npx playwright test --config playwright.audit-observability.config.ts -g \"E-08\""]` | verified |
@@ -1087,6 +1131,23 @@
 - E-07: verified — automated command passed; run_id=d9f3803f83a5428c907d7062d3021083 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=d9f3803f83a5428c907d7062d3021083 (confirmed_by: runner)
 - E-09: verified — automated command passed; run_id=d9f3803f83a5428c907d7062d3021083 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=00e21def10fc4887b7a2aa37850bc5bd (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=00e21def10fc4887b7a2aa37850bc5bd (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=00e21def10fc4887b7a2aa37850bc5bd (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -1096,7 +1157,7 @@
 - [2026-09-25] completed (done)
 ## TASK-019: 收口：场景、规则、证据与仓库级 verifier
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-017, TASK-018
 - **Source**: 11-audit-observability.backend.design.md#2.5.2 功能验收场景, 11-audit-observability.backend.design.md#2.5.1 业务规则与约束, 11-audit-observability.backend.design.md#6 需求追溯矩阵
@@ -1139,6 +1200,8 @@
 - mutation 验证覆盖 12+ 处反例，确保该清单不是空转。
 - B-211: failed — automated command failed; run_id=331c420db1014ef288fcf370f9739a54 (confirmed_by: runner)
 - B-211: verified — automated command passed; run_id=280b495af1cb41a79134ddd1d68cf9c3 (confirmed_by: runner)
+- B-211: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-211: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)
@@ -1149,7 +1212,7 @@
 
 ## TASK-020: Runtime/Worker 指标暴露与 label 卫生
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-009
 - **Source**: 11-audit-observability.backend.design.md#3.5 质量实现方案, 11-audit-observability.backend.design.md#4 部署与运维
@@ -1195,6 +1258,8 @@ TASK-009 只落地了 Console 侧指标（`/metrics` + 四个计数器）。本�
 - 顺带修掉 `skill_tools.py` 预存在的 ruff I001（改动文件须 lint 干净），其余预存在问题未动。
 - **给调用方的注意**：api-kit 注册表是进程级全局，同进程导入多个服务 app 时会并集暴露（仅测试可达）；因改动共享注册表，本次**未**重跑 `tests/test_audit_observability_config.py` 与 `tests/gateway/test_message_metrics.py`（按"不跑其它模块套件"约束）——它们输出可证不变（均不调用 `declare_metric`），且会由本任务 Done Gate 的规则 verifier 覆盖。
 - B-212: verified — automated command passed; run_id=5045d8dee964489f812cc15ea8b3239d (confirmed_by: runner)
+- B-212: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-212: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)（由 TASK-019 收口发现的缺口拆出：设计 §3.5 的四服务指标目录此前仅 Console 侧落地）
@@ -1205,7 +1270,7 @@ TASK-009 只落地了 Console 侧指标（`/metrics` + 四个计数器）。本�
 - [2026-09-25] completed (done)
 ## TASK-021: API-01/05 增 agent_id 筛选（后端）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-003, TASK-006
 - **Source**: 11-audit-observability.backend.design.md#3.3 数据设计, 11-audit-observability.backend.design.md#3.4 接口设计, 11-audit-observability.frontend.design.md#3.3 组件设计
@@ -1244,6 +1309,8 @@ TASK-009 只落地了 Console 侧指标（`/metrics` + 四个计数器）。本�
 - 测试文件比计划多 1 例（导出执行侧断言），用于发现"指纹变了但过滤器被丢"的静默缺陷。
 - 前端接线（Agent 筛选 → `agentId`）仍是 TASK-022 范围；本次未动 `apps/console-platform/frontend/**`。
 - B-213: verified — automated command passed; run_id=3a7e3da5c9e74b18a8e426e21a5b016b (confirmed_by: runner)
+- B-213: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-213: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)（由 TASK-019 收口发现的缺口拆出：设计筛选栏的「Agent」项此前被映射为 `resource_type`）
@@ -1253,7 +1320,7 @@ TASK-009 只落地了 Console 侧指标（`/metrics` + 四个计数器）。本�
 - [2026-09-25] completed (done)
 ## TASK-022: 前端接线收口（Agent 筛选 / resourceType 域 / 刷新失败提示）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-011, TASK-012, TASK-015, TASK-021
 - **Source**: 11-audit-observability.frontend.design.md#3.3 组件设计, 11-audit-observability.frontend.design.md#3.6 UI 状态
@@ -1297,6 +1364,8 @@ TASK-009 只落地了 Console 侧指标（`/metrics` + 四个计数器）。本�
 - `AuditPage` 现 55 物理行 / 42 代码行（上一版 49 物理行），新增逻辑即失败分流 + 一行渲染，提示 JSX 已抽成 19 行局部组件以压小容器；未为了凑行数内联既有 `tableProps` 透传。
 - `useAuditList.ts` 本次仅改文档注释（行为无需改动：刷新保留旧行本就如此，缺的是呈现分流）。
 - B-214: verified — automated command passed; run_id=4e58e535792b457ea54bc394475e2e7e (confirmed_by: runner)
+- B-214: verified — automated command passed; run_id=a4d85e1eb50e46bc8770edd18c95d81b (confirmed_by: runner)
+- B-214: verified — automated command passed; run_id=5edf9b1379b4402eb7eae3bbe3f3d1ae (confirmed_by: runner)
 
 ### Log
 - [2026-09-25] created (draft)（由 TASK-019 收口发现的缺口拆出：Agent 筛选口径、resourceType 域与详情展示、刷新失败提示）
