@@ -699,5 +699,12 @@
   "audit.export.error.COMMON_INTERNAL_ERROR": "导出执行失败，请重试",
   "audit.export.errorFallback": "导出失败，请重试",
   "audit.title": "运行审计",
-  "audit.subtitle": "跨配置、工具、出网与模型调用统一检索审计记录，支持只读详情与导出"
+  "audit.subtitle": "跨配置、工具、出网与模型调用统一检索审计记录，支持只读详情与导出",
+  "overview.title": "概览",
+  "overview.subtitle": "跨模块运营入口：关键指标、最近任务与下一批定时触发",
+  "overview.loadFailed": "概览加载失败，请重试",
+  "overview.kpi.enabledAgents": "启用 Agent",
+  "overview.kpi.enabledSkills": "启用 Skill",
+  "overview.kpi.activeTasks": "后台执行中",
+  "overview.kpi.activeSchedules": "启用定时任务"
 }

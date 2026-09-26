@@ -89,12 +89,28 @@ def test_semi_components_are_the_only_ui_library() -> None:
     assert not [name for name in banned if name in dependencies]
 
 
+# 非列表的模块页（仪表盘等）：规则文案只约束**列表页**（「左上操作 + 右上搜索筛选 + 列表 +
+# 右下分页」），仪表盘没有工具栏/表格/分页，故不受 RemoteTable 约束。例外必须**显式声明**，
+# 且下方会反查它确实不含任何列表构件——不能靠"不写 RemoteTable"混过去。
+NON_LIST_MODULE_PAGES = (
+    "apps/console-platform/frontend/src/modules/overview-dashboard/pages/OverviewPage.tsx",
+)
+
+
 def test_module_list_pages_use_remote_table() -> None:
     list_pages = sorted((SRC / "modules").rglob("*Page.tsx"))
     assert list_pages, "至少应存在一个模块列表页"
+    exceptions = set(NON_LIST_MODULE_PAGES)
     offenders = [
         str(path.relative_to(ROOT))
         for path in list_pages
-        if "RemoteTable" not in _read(path)
+        if str(path.relative_to(ROOT)) not in exceptions and "RemoteTable" not in _read(path)
     ]
     assert offenders == [], "模块列表页必须使用 RemoteTable（内建 PaginationFooter）: " + ", ".join(offenders)
+
+    for relative in sorted(exceptions):
+        body = _read(ROOT / relative)
+        assert "ModuleToolbar" not in body, f"{relative} 声明为非列表页，却使用了列表页工具栏"
+        assert "<Table" not in body and "PaginationFooter" not in body, (
+            f"{relative} 声明为非列表页，却含表格或分页构件"
+        )

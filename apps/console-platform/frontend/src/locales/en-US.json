@@ -699,5 +699,12 @@
   "audit.export.error.COMMON_INTERNAL_ERROR": "Export failed, please retry",
   "audit.export.errorFallback": "Export failed, please retry",
   "audit.title": "Runtime Audit",
-  "audit.subtitle": "Search configuration, tool, egress and model audit records; read-only detail with export"
+  "audit.subtitle": "Search configuration, tool, egress and model audit records; read-only detail with export",
+  "overview.title": "Overview",
+  "overview.subtitle": "Cross-module entry point: key metrics, recent tasks and upcoming triggers",
+  "overview.loadFailed": "Failed to load the overview, please retry",
+  "overview.kpi.enabledAgents": "Enabled Agents",
+  "overview.kpi.enabledSkills": "Enabled Skills",
+  "overview.kpi.activeTasks": "Active Tasks",
+  "overview.kpi.activeSchedules": "Active Schedules"
 }
