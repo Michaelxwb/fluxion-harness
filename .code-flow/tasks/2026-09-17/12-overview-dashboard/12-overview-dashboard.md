@@ -49,7 +49,7 @@
 | E-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser Router→目标页（目标 ID 已失效/无权限） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""] | . | 900 |  |
 | B-201 | 12-overview-dashboard.backend.design.md#3.3 接口设计 | integration | docs/07 §10 契约登记→冻结 schema 逐项一致 | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"] | . | 600 |  |
 | B-202 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | 真实多进程栈(Console+PostgreSQL)与租户级种子/清理 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"] | . | 600 |  |
-| B-203 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本 | TASK-005 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"] | . | 600 |  |
+| B-203 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本 | TASK-005 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"] | . | 600 |  |
 | B-204 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc + 真实构建产物 | TASK-006 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"] | . | 600 |  |
 | B-205 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 | TASK-007 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"] | . | 600 |  |
 | B-206 | 12-overview-dashboard.frontend.design.md#3.2 页面与路由结构 | integration | 前端源码契约（路由表 + 菜单选中）+ 真实构建 | TASK-008 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"] | . | 600 |  |
@@ -271,7 +271,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-26] completed (done)
 ## TASK-005: 前端 service 层与类型契约
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 12-overview-dashboard.frontend.design.md#3.4 组件接口契约, 12-overview-dashboard.frontend.design.md#3.5 状态与数据流
@@ -286,27 +286,37 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 
 ### Checklist
 
-- [ ] [B-203][integration] 以前端源码契约 + 真实 tsc 类型检查为边界编写用例：断言 service 位于 `modules/overview-dashboard/services/*.ts` 且 import 共享 `api/client`；组件/hooks 不 import `api/client`、不裸用 axios/fetch；映射函数存在且覆盖 design §3.4 全部字段（含 `triggerType`/`deliveryStatus` 联合类型）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"]`。
-- [ ] [RULE-front-001][integration] 作为唯一最终负责人，验证前端 HTTP 只经服务层与 i18n 检测线。verifier argv：`["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
-- [ ] 实现或补齐：`types.ts` + `services/overviewService.ts`（映射只在 service 层，线上保持 snake_case）；`undefined` 字段不出现在请求/响应塑形中。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
+- [x] [B-203][integration] 以前端源码契约 + 真实 tsc 类型检查为边界编写用例：断言 service 位于 `modules/overview-dashboard/services/*.ts` 且 import 共享 `api/client`；组件/hooks 不 import `api/client`、不裸用 axios/fetch；映射函数存在且覆盖 design §3.4 全部字段（含 `triggerType`/`deliveryStatus` 联合类型）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"]`。
+- [x] [RULE-front-001][integration] 作为唯一最终负责人，验证前端 HTTP 只经服务层与 i18n 检测线。verifier argv：`["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
+- [x] 实现或补齐：`types.ts` + `services/overviewService.ts`（映射只在 service 层，线上保持 snake_case）；`undefined` 字段不出现在请求/响应塑形中。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型、显式异常处理。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-203 | integration | 前端源码契约 + 真实 tsc | service 收口与 import 方向；字段映射覆盖 design §3.4；联合类型齐备 | tests/frontend/test_overview_services_contract.py / B-203 | `["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"]` | planned |
-| RULE-front-001 | integration | 前端源码契约 + 仓库检查脚本 + 真实 tsc | 组件不裸用 axios/fetch；文案只用 i18n key 且引用的键已定义；原 verifier 全部通过 | tests/frontend/test_overview_services_contract.py + 原 verifier / RULE-front-001 | `["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]` | planned |
+| B-203 | integration | 前端源码契约 + 真实 tsc | service 收口与 import 方向；字段映射覆盖 design §3.4；联合类型齐备 | tests/frontend/test_overview_services_contract.py / B-203 | `["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"]` | verified |
+| RULE-front-001 | integration | 前端源码契约 + 仓库检查脚本 + 真实 tsc | 组件不裸用 axios/fetch；文案只用 i18n key 且引用的键已定义；原 verifier 全部通过 | tests/frontend/test_overview_services_contract.py + 原 verifier / RULE-front-001 | `["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-203 | **结构性 RED（真实，非伪造）**：把模块目录整体移开后按登记 argv 执行 → **6 failed**，逐条均为 `AssertionError: 缺少前端模块文件：…/overview-dashboard/services/overviewService.ts`（模块尚不存在）。诚实记录：恢复文件后首轮仍有 **2 个失败，且都是我写的断言自身的 bug** —— ① `timezone` 在两个语言里同名，被「types.ts 不得出现后端命名」的检查误伤；② 我把 `_compact()` 压空白后的文本拿去比对一个带空格的期望串，恒不成立。两处均为测试缺陷，已修正，`types.ts`/`overviewService.ts` 未因此改动。 | 整文件 `uv run pytest -q tests/frontend/test_overview_services_contract.py` → **6 passed**；前端契约回归 `tests/frontend/` **209 passed**；`npx tsc --noEmit` exit 0；ruff 干净。 | `test_service_uses_shared_api_client_only`（只从 `api/client` 取共享客户端；无 axios/fetch/`create(`）；`test_service_is_read_only_single_aggregate_call`（只暴露 `getOverview`，取 `/overview`，且无任何写请求——概览是只读模块）；`test_field_mapping_lives_in_service_layer`（设计 §3.4 的 20 组 camel↔snake 字段在 service 全量落位，且 `types.ts` **不泄漏**任何后端命名）；`test_types_declare_design_contract`（四个接口 + 两个联合类型 + `OverviewKpis` 四键）；`test_service_and_types_have_no_hardcoded_copy`（去注释后字符串字面量无中文，文案走 i18n key） | 前端真实源码文本（非 mock）+ **真实 `tsc --noEmit`** 类型检查 + 仓库级 `check_frontend_api_usage.py` / `check_frontend_i18n.py`；`tsc` 覆盖 service 与 types 的真实类型解析。 | verified |
+| RULE-front-001 | 同上（验收类，随 B-203 一并取证） | 联合 verifier argv 全通过：`check_frontend_api_usage.py` → `frontend api usage check OK`；`check_frontend_i18n.py` → `i18n keys OK: 701`；`npm run typecheck` → exit 0。 | 同上用例 + 三个仓库级脚本：服务层收口与 import 方向、文案只用 i18n key 且引用的键已定义、真实 tsc | 前端真实源码 + 仓库检查脚本真实输出 + 真实 `tsc`；无 mock。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+- **类型可空性与设计略有差异**：设计 §3.4 把 `agentName` 与时间字段写成非空 `string`，但后端是 `LEFT JOIN` + 可空时间列，实际会返回 `null`。本契约按**实际出参**标注为 `string | null`（字段名与存在性不变，只是精度更诚实），避免下游误判；已在 `types.ts` 头部登记。
+- **`timezone` 不构成映射**：前后端同名，故「types.ts 不含后端命名」的检查对该字段显式跳过（否则恒失败）。
+- **未越界实现组件**：本任务只交付 service 层与类型契约；`KpiCards`/两个列表的 props 契约已在 `types.ts` 声明，但组件本体归 TASK-006/007，避免抢做后续任务。
+- B-203: verified — automated command passed; run_id=b8c71c2b403e4a71b6ea5e95739c1418 (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
 
 ---
-
+- [2026-09-26] started
 ## TASK-006: OverviewPage 容器 + KpiCards
 
 - **Status**: draft

@@ -1,7 +1,7 @@
 version: 1
 task: 概览与运营入口
 enforcement: required
-updated_at: '2026-09-26T10:28:04.053893+00:00'
+updated_at: '2026-09-26T10:41:41.977819+00:00'
 sources:
 - type: docs
   ref: docs/03-Console-Platform详细设计.md
@@ -117,11 +117,11 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: ec2e5a53fa551d6e7dc968e986384f3df6d4a353217794d8d002264983b8b453
+          artifact_sha256: 131cd3bfcf84758a989851ff7826c74fa17a87bccead9112165805848e6dc045
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-001
@@ -289,11 +289,11 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: ec2e5a53fa551d6e7dc968e986384f3df6d4a353217794d8d002264983b8b453
+          artifact_sha256: 131cd3bfcf84758a989851ff7826c74fa17a87bccead9112165805848e6dc045
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-001
@@ -463,7 +463,7 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: ec2e5a53fa551d6e7dc968e986384f3df6d4a353217794d8d002264983b8b453
+          artifact_sha256: 131cd3bfcf84758a989851ff7826c74fa17a87bccead9112165805848e6dc045
         decision: null
         evidence: []
       code:
@@ -626,7 +626,7 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: ec2e5a53fa551d6e7dc968e986384f3df6d4a353217794d8d002264983b8b453
+          artifact_sha256: 131cd3bfcf84758a989851ff7826c74fa17a87bccead9112165805848e6dc045
         decision: null
         evidence: []
       code:
@@ -773,7 +773,7 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-011
           item_id: TASK-011
-          artifact_sha256: ec2e5a53fa551d6e7dc968e986384f3df6d4a353217794d8d002264983b8b453
+          artifact_sha256: 131cd3bfcf84758a989851ff7826c74fa17a87bccead9112165805848e6dc045
         decision: null
         evidence: []
       code:
@@ -1056,11 +1056,11 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: ec2e5a53fa551d6e7dc968e986384f3df6d4a353217794d8d002264983b8b453
+          artifact_sha256: 131cd3bfcf84758a989851ff7826c74fa17a87bccead9112165805848e6dc045
         decision: null
         evidence: []
       code:
-        status: verified
+        status: stale
         refs:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-001
@@ -1219,7 +1219,7 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: ec2e5a53fa551d6e7dc968e986384f3df6d4a353217794d8d002264983b8b453
+          artifact_sha256: 131cd3bfcf84758a989851ff7826c74fa17a87bccead9112165805848e6dc045
         decision: null
         evidence: []
       code:
@@ -1427,6 +1427,48 @@ bindings:
               \ dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
               \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
               - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n"
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui-detail
+  path: frontend/harness-ui-detail.md
+  status: active
+  hashes:
+    file_sha256: 97df161668a12c248bded504300b16a95401e269f3b900ee58f3be39f234734d
+    metadata_sha256: 5b27580a7db12994afb7cb6535630699efaa34ccb6085a28e228127b03ff2b89
+    rules_sha256: 30c0d3e3999233939329105a6b996ccfe793157a6010a8575a77552bf38add9c
+  selected_by: scope:path
+  reason: Git diff matched apps/console-platform/frontend/src/modules/overview-dashboard/services/overviewService.ts,apps/console-platform/frontend/src/modules/overview-dashboard/types.ts
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-detail-001
+    summary: 详情使用 SideSheet：标题与副标题居左，对象级操作与关闭 X 同一行靠右，Tabs 位于其下；关系操作保存后立即影响后续新 Run/Task。
+    text_sha256: 8dcac2de2d48280e57007cf8a1fb4eb70be2741a2d4e2295bbe4252fdc6f60b1
+    enforcement: required
+    verifier_ref: harness-ui-detail#RULE-ui-detail-001
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
       review:
         status: pending
         refs: []

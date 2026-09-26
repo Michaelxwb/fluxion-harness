@@ -311,7 +311,7 @@
       "kind": "functional",
       "boundary": "前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -321,7 +321,28 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-203",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "b8c71c2b403e4a71b6ea5e95739c1418",
+        "executed_at": "2026-09-26T10:41:17.724511+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-203",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "b8c71c2b403e4a71b6ea5e95739c1418",
+          "executed_at": "2026-09-26T10:41:17.724511+00:00"
+        }
+      ]
     },
     {
       "id": "B-204",
