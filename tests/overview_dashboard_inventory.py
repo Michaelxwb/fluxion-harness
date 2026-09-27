@@ -19,7 +19,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TASK_DIR = ROOT / ".code-flow/tasks/2026-09-17/12-overview-dashboard"
+TASK_DIR = ROOT / ".code-flow/tasks/archived/2026-09-17/12-overview-dashboard"
 TASK_FILE = TASK_DIR / "12-overview-dashboard.md"
 MANIFEST = TASK_DIR / ".acceptance-manifest.json"
 

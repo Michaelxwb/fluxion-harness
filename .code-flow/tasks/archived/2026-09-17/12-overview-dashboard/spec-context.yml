@@ -1,7 +1,7 @@
 version: 1
 task: 概览与运营入口
 enforcement: required
-updated_at: '2026-09-27T03:04:18.188922+00:00'
+updated_at: '2026-09-27T03:17:29.910369+00:00'
 sources:
 - type: docs
   ref: docs/03-Console-Platform详细设计.md
@@ -117,16 +117,12 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 1012f042e239d8d53d7cfc44c58321d812b891aaa7005bbbaa2773dd75384809
+          artifact_sha256: cec041e0a847d6fd192a75fd07ae201ec4b40ab72c707039eead1302408d06ba
         decision: null
         evidence: []
       code:
         status: verified
-        refs:
-        - artifact: 12-overview-dashboard.md
-          section_id: TASK-001
-          item_id: TASK-001
-          artifact_sha256: 9617ac218942c493f8c47dea86dc9a21b984d2a48337d5cef1c1a9e124ae27d0
+        refs: []
         decision: null
         evidence:
         - verifier_ref: harness-api#RULE-api-001
@@ -521,16 +517,12 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 1012f042e239d8d53d7cfc44c58321d812b891aaa7005bbbaa2773dd75384809
+          artifact_sha256: cec041e0a847d6fd192a75fd07ae201ec4b40ab72c707039eead1302408d06ba
         decision: null
         evidence: []
       code:
         status: verified
-        refs:
-        - artifact: 12-overview-dashboard.md
-          section_id: TASK-001
-          item_id: TASK-001
-          artifact_sha256: 9617ac218942c493f8c47dea86dc9a21b984d2a48337d5cef1c1a9e124ae27d0
+        refs: []
         decision: null
         evidence:
         - verifier_ref: harness-data#RULE-data-001
@@ -967,7 +959,7 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 1012f042e239d8d53d7cfc44c58321d812b891aaa7005bbbaa2773dd75384809
+          artifact_sha256: cec041e0a847d6fd192a75fd07ae201ec4b40ab72c707039eead1302408d06ba
         decision: null
         evidence: []
       code:
@@ -1326,7 +1318,7 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 1012f042e239d8d53d7cfc44c58321d812b891aaa7005bbbaa2773dd75384809
+          artifact_sha256: cec041e0a847d6fd192a75fd07ae201ec4b40ab72c707039eead1302408d06ba
         decision: null
         evidence: []
       code:
@@ -1641,7 +1633,7 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-011
           item_id: TASK-011
-          artifact_sha256: 1012f042e239d8d53d7cfc44c58321d812b891aaa7005bbbaa2773dd75384809
+          artifact_sha256: cec041e0a847d6fd192a75fd07ae201ec4b40ab72c707039eead1302408d06ba
         decision: null
         evidence: []
       code:
@@ -2388,16 +2380,12 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 1012f042e239d8d53d7cfc44c58321d812b891aaa7005bbbaa2773dd75384809
+          artifact_sha256: cec041e0a847d6fd192a75fd07ae201ec4b40ab72c707039eead1302408d06ba
         decision: null
         evidence: []
       code:
         status: verified
-        refs:
-        - artifact: 12-overview-dashboard.md
-          section_id: TASK-001
-          item_id: TASK-001
-          artifact_sha256: 9617ac218942c493f8c47dea86dc9a21b984d2a48337d5cef1c1a9e124ae27d0
+        refs: []
         decision: null
         evidence:
         - verifier_ref: harness-time#RULE-time-001
@@ -2767,7 +2755,7 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 1012f042e239d8d53d7cfc44c58321d812b891aaa7005bbbaa2773dd75384809
+          artifact_sha256: cec041e0a847d6fd192a75fd07ae201ec4b40ab72c707039eead1302408d06ba
         decision: null
         evidence: []
       code:
@@ -3413,16 +3401,12 @@ bindings:
         - artifact: 12-overview-dashboard.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 1012f042e239d8d53d7cfc44c58321d812b891aaa7005bbbaa2773dd75384809
+          artifact_sha256: cec041e0a847d6fd192a75fd07ae201ec4b40ab72c707039eead1302408d06ba
         decision: null
         evidence: []
       code:
         status: verified
-        refs:
-        - artifact: 12-overview-dashboard.md
-          section_id: TASK-006
-          item_id: TASK-006
-          artifact_sha256: 9328c19c23f5c969db5e4867ea39f77a56ad131e7c9bc19cf698639cc40886d3
+        refs: []
         decision: null
         evidence:
         - verifier_ref: harness-ui-detail#RULE-ui-detail-001
