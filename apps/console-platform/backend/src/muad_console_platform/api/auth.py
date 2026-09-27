@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from muad_api import ApiResponse, ok
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.audit_service import AuditActor, AuditService
 from ..application.auth_service import AuthService
 from ..application.dto import ConsoleAccountInfo, LoginRequest, PasswordChangeRequest
 from ..infrastructure.db import get_session
@@ -34,6 +35,17 @@ async def login(
         payload.username,
         payload.password,
         get_source_ip(request),
+    )
+    # FEAT-08 / RULE-10：登录成功写审计，与 `last_login_at` 更新/会话插入同一事务；
+    # actor 为账号自身（登录动作的发起者即该账号），载荷只含非敏感标识
+    await AuditService(session).record_config_change(
+        tenant_id=account.tenant_id,
+        actor=AuditActor(account_id=account.id, source_ip=get_source_ip(request)),
+        resource_type="CONSOLE_ACCOUNT",
+        resource_id=account.id,
+        action="LOGIN",
+        before=None,
+        after={"username": account.username, "role": account.role},
     )
     set_auth_cookies(response, token, new_csrf_token())
     return ok(request.app.state.message_catalog, _account_payload(account))

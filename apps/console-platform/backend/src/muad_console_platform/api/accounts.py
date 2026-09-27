@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.audit_service import AuditActor, AuditService
 from ..application.auth_service import AuthService
 from ..application.dto import AccountCreateRequest, ConsoleAccountInfo
 from ..infrastructure.db import get_session
 from ..infrastructure.models.auth import ConsoleAccount
-from .deps import get_tenant_id
+from .deps import CurrentAccount, get_source_ip, get_tenant_id
 
 TenantId = Annotated[str, Depends(get_tenant_id)]
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -46,13 +47,28 @@ async def list_accounts(
 async def create_account(
     payload: AccountCreateRequest,
     request: Request,
+    account: CurrentAccount,
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
-    account = await AuthService(session, tenant_id=tenant_id).create_account(
+    created = await AuthService(session, tenant_id=tenant_id).create_account(
         username=payload.username,
         password=payload.password,
         display_name=payload.display_name,
         role=payload.role,
     )
-    return ok(request.app.state.message_catalog, _account_payload(account))
+    # FEAT-08 / RULE-10：审计与业务变更共用同一 session（同一事务），actor 为**创建者**
+    await AuditService(session).record_config_change(
+        tenant_id=tenant_id,
+        actor=AuditActor(account_id=account.id, source_ip=get_source_ip(request)),
+        resource_type="CONSOLE_ACCOUNT",
+        resource_id=created.id,
+        action="CREATE",
+        before=None,
+        after={
+            "username": created.username,
+            "display_name": created.display_name,
+            "role": created.role,
+        },
+    )
+    return ok(request.app.state.message_catalog, _account_payload(created))
