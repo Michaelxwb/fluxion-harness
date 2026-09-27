@@ -45,14 +45,14 @@
 | S-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser Router→tasks/schedules 且菜单选中正确 | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""] | . | 1200 |  |
 | E-01 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | 真实 Console HTTP→真实 PostgreSQL（某模块无数据） | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","e01"] | . | 600 |  |
 | E-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | Browser→Router→目标页（目标 ID 已失效/无权限） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""] | . | 900 |  |
-| E-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser→overview API 失败→ErrorState | TASK-008 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""] | . | 900 |  |
+| E-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser→overview API 失败→ErrorState | TASK-008 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""] | . | 900 |  |
 | E-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser Router→目标页（目标 ID 已失效/无权限） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""] | . | 900 |  |
 | B-201 | 12-overview-dashboard.backend.design.md#3.3 接口设计 | integration | docs/07 §10 契约登记→冻结 schema 逐项一致 | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"] | . | 600 |  |
 | B-202 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | 真实多进程栈(Console+PostgreSQL)与租户级种子/清理 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"] | . | 600 |  |
 | B-203 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本 | TASK-005 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"] | . | 600 |  |
 | B-204 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc + 真实构建产物 | TASK-006 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"] | . | 600 |  |
 | B-205 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 | TASK-007 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"] | . | 600 |  |
-| B-206 | 12-overview-dashboard.frontend.design.md#3.2 页面与路由结构 | integration | 前端源码契约（路由表 + 菜单选中）+ 真实构建 | TASK-008 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"] | . | 600 |  |
+| B-206 | 12-overview-dashboard.frontend.design.md#3.2 页面与路由结构 | integration | 前端源码契约（路由表 + 菜单选中）+ 真实构建 | TASK-008 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"] | . | 600 |  |
 | B-207 | 12-overview-dashboard.frontend.design.md#3.5 状态与数据流 | integration | 前端源码契约 + 两侧词条实际内容 + 真实 tsc | TASK-009 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"] | . | 600 |  |
 | B-208 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Playwright 配置与 spec 的租户/端口隔离、运行后零残留 | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"] | . | 600 |  |
 | B-209 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录 | TASK-011 | planned | ["uv","run","pytest","-q","tests/overview_dashboard_inventory.py","-k","b209"] | . | 600 |  |
@@ -427,7 +427,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-27] completed (done)
 ## TASK-008: 路由接入与 UI 状态
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-007
 - **Source**: 12-overview-dashboard.frontend.design.md#3.2 页面与路由结构, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
@@ -442,27 +442,42 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 
 ### Checklist
 
-- [ ] [B-206][integration] 以前端源码契约（路由表 + 菜单选中）+ 真实构建为边界编写用例：断言 `/` 挂载 `OverviewPage` 且路由表第一项即概览、菜单选中态正确、页面不重复套壳（`AppLayout` 由路由承载）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"]`。
-- [ ] [E-03][integration] 聚合接口失败 → 整体 `ErrorState` + 重试，**不伪造 0**；真实失败由 `e2e/tests/overview-dashboard.spec.ts` 的 `E-03` 块以路由拦截承载（失败/边界路径允许路由拦截，须在 manifest 中登记为路由拦截场景）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""]`。
-- [ ] 实现或补齐：三态文案全部取自词条；重试复用同一取数出口。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [B-206][integration] 以前端源码契约（路由表 + 菜单选中）+ 真实构建为边界编写用例：断言 `/` 挂载 `OverviewPage` 且路由表第一项即概览、菜单选中态正确、页面不重复套壳（`AppLayout` 由路由承载）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"]`。
+- [x] [E-03][integration] 聚合接口失败 → 整体 `ErrorState` + 重试，**不伪造 0**；真实失败由 `e2e/tests/overview-dashboard.spec.ts` 的 `E-03` 块以路由拦截承载（失败/边界路径允许路由拦截，须在 manifest 中登记为路由拦截场景）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""]`。
+- [x] 实现或补齐：三态文案全部取自词条；重试复用同一取数出口。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-206 | integration | 前端源码契约（路由+菜单）+ 真实构建 | `/` 挂载概览且菜单第一项选中；不重复套壳 | tests/frontend/test_overview_routing_contract.py / B-206 | `["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"]` | planned |
-| E-03 | integration | Browser→overview API 失败路径（真实 HTTP 失败由拦截制造） | 整体 ErrorState + 重试；不显示伪造的 0 | e2e/tests/overview-dashboard.spec.ts / E-03 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""]` | planned |
+| B-206 | integration | 前端源码契约（路由+菜单）+ 真实构建 | `/` 挂载概览且菜单第一项选中；不重复套壳 | tests/frontend/test_overview_routing_contract.py / B-206 | `["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"]` | verified |
+| E-03 | integration | Browser→overview API 失败路径（真实 HTTP 失败由拦截制造） | 整体 ErrorState + 重试；不显示伪造的 0 | e2e/tests/overview-dashboard.spec.ts / E-03 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-206 | **结构性 RED（真实）**：路由契约用例先于接线落地时 `App.tsx` 仍是 `<Route index element={<PlaceholderPage titleKey="nav.overview" />} />` → 断言 `index 路由须挂 OverviewPage` 失败。接线后转 GREEN。 | 整文件 `uv run pytest -q tests/frontend/test_overview_routing_contract.py` → **4 passed**（与 B-204/B-205 合计 16 passed）；`npx tsc --noEmit` 通过（含 `App.tsx` 与页面）；ruff 干净。 | `test_index_route_mounts_overview_page`（`<Route index element={<OverviewPage />} />` 存在；占位页 `<PlaceholderPage titleKey="nav.overview" />` 已消失；**改动的孤儿 import 已同步移除**——这是我这次改动造成的，按"清理自己造成的孤儿"处理）；`test_menu_overview_is_the_first_item`（菜单第一项为 `/` 且恰为十项，未新增菜单）；`test_page_does_not_re_shell_and_wires_navigation`（页面不套 `AppLayout`；四个块都挂载；`onOpenTask`/`onOpenSchedule`/`onViewAll` 均已接线；导航集中容器——`useNavigate` 只在页面）；`test_first_load_failure_shows_page_error_state_with_retry`（首载失败分支渲染 `ErrorState` 而非 KPI 卡片，不伪造 0） | 前端真实源码 + 真实 tsc；`App.tsx` 为真实入口文件（非替身）。 | verified |
+| E-03 | **真实 RED（两次，均为基础设施缺陷）**：① 首跑 `ReferenceError: __dirname is not defined in ES module scope` —— e2e 包是 ESM，我照抄了 CJS 写法，改用 `import.meta.url` 推仓库根；② 更早一次同源问题表现为 `No tests found`（配置能起 Console 但 spec 加载即崩）。均非被测行为失败。 | 登记 argv `-g "E-03"` → **1 passed (549ms)**；Console 真实起在派生端口（8604）、`vite preview` 服务真实构建产物；种子脚本 `cleaned → created → cleaned` 三步可见；运行后无 uvicorn/vite/playwright 残留。 | `E-03 聚合接口失败展示整页 ErrorState 并可就地重试，不伪造 0`：真实登录（`/api/v1/auth/login` 经 preview 源，会话 cookie 同源）→ 拦断 `**/api/v1/overview` 返回 500 → 断言 `error-state` 可见、`kpi-agents`/`kpi-skills` 计数为 0（**不伪造 0**）；点击重试后 `attempts` 增加（确实二次请求）且仍停留 ErrorState | 真实 Chromium（channel=chrome）+ 真实 Console 进程（真实 PostgreSQL）+ 真实前端构建产物；失败路径按设计允许用路由拦截制造（成功路径留 TASK-010 走真实后端）。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+- **按需最小栈**：概览的 E-03 只需「Console + 真实构建产物」——概览不触模型/运行面，故配置里**不启** Runtime/Worker/Gateway/LLM 探针（口径同 11 对 Gateway 的处理）。
+- **种子极简**：E-03 拦断了聚合请求，故不需要 Agent/Skill/Task/Schedule 数据，只需一个可登录的 Console 管理员（`tests/e2e/seed_overview.py`，含 `create`/`cleanup`/`check`）。
+- **菜单十项断言**：与设计 §2.3「不新增菜单」一致；本次只把首项从占位页换成真实页面。
+- **`PlaceholderPage` 文件保留**：其 import 因本次替换成为孤儿（已移除），但**文件本身**仍被 `test_ui_style_contract` 的文件清单引用，故不删除。
+- E-03: verified — automated command passed; run_id=4a2c0509b75b46649f4764c9bb78b585 (confirmed_by: runner)
+- B-206: verified — automated command passed; run_id=4a2c0509b75b46649f4764c9bb78b585 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=787ed983f1cd4b05ac8b6d3b6d151860 (confirmed_by: runner)
+- B-206: verified — automated command passed; run_id=787ed983f1cd4b05ac8b6d3b6d151860 (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
 
 ---
-
+- [2026-09-27] started
+- [2026-09-27] completed (done)
 ## TASK-009: i18n 词条与语言切换覆盖
 
 - **Status**: draft

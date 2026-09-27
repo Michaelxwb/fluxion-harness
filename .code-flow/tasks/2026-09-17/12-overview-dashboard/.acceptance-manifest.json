@@ -177,7 +177,7 @@
       "kind": "functional",
       "boundary": "Browser→overview API 失败→ErrorState",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -185,7 +185,37 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "787ed983f1cd4b05ac8b6d3b6d151860",
+        "executed_at": "2026-09-27T02:30:08.083222+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4a2c0509b75b46649f4764c9bb78b585",
+          "executed_at": "2026-09-27T02:29:52.675259+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "787ed983f1cd4b05ac8b6d3b6d151860",
+          "executed_at": "2026-09-27T02:30:08.083222+00:00"
+        }
+      ]
     },
     {
       "id": "E-04",
@@ -467,7 +497,7 @@
       "kind": "functional",
       "boundary": "前端源码契约（路由表 + 菜单选中）+ 真实构建",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -477,7 +507,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-206",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "787ed983f1cd4b05ac8b6d3b6d151860",
+        "executed_at": "2026-09-27T02:30:08.083222+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-206",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "4a2c0509b75b46649f4764c9bb78b585",
+          "executed_at": "2026-09-27T02:29:52.675259+00:00"
+        },
+        {
+          "id": "B-206",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "787ed983f1cd4b05ac8b6d3b6d151860",
+          "executed_at": "2026-09-27T02:30:08.083222+00:00"
+        }
+      ]
     },
     {
       "id": "B-207",
