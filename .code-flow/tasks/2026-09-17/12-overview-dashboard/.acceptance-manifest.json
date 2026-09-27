@@ -58,7 +58,7 @@
       "kind": "e2e",
       "boundary": "Browser(Chromium)→Console 首页→目标模块路由",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -66,7 +66,42 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "S-02",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 3,
+        "run_id": "32134ceef3e64fcf8523a4bf1846c372",
+        "executed_at": "2026-09-27T02:54:03.164562+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "93dbb7ea7dfd44c5b89aa2552ffb9e3b",
+          "executed_at": "2026-09-27T02:53:08.636143+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "bcc60b3a3de944c995af6e960de9d1c8",
+          "executed_at": "2026-09-27T02:53:34.840290+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "32134ceef3e64fcf8523a4bf1846c372",
+          "executed_at": "2026-09-27T02:54:03.164562+00:00"
+        }
+      ]
     },
     {
       "id": "S-03",
@@ -75,7 +110,7 @@
       "kind": "e2e",
       "boundary": "Browser(Chromium)→overview API（一次加载，无前端 N+1）",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -83,7 +118,42 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 3,
+        "run_id": "32134ceef3e64fcf8523a4bf1846c372",
+        "executed_at": "2026-09-27T02:54:03.164562+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "93dbb7ea7dfd44c5b89aa2552ffb9e3b",
+          "executed_at": "2026-09-27T02:53:08.636143+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "bcc60b3a3de944c995af6e960de9d1c8",
+          "executed_at": "2026-09-27T02:53:34.840290+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "32134ceef3e64fcf8523a4bf1846c372",
+          "executed_at": "2026-09-27T02:54:03.164562+00:00"
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -92,7 +162,7 @@
       "kind": "e2e",
       "boundary": "Browser Router→tasks/schedules 且菜单选中正确",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -100,7 +170,42 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "S-04",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 3,
+        "run_id": "32134ceef3e64fcf8523a4bf1846c372",
+        "executed_at": "2026-09-27T02:54:03.164562+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "93dbb7ea7dfd44c5b89aa2552ffb9e3b",
+          "executed_at": "2026-09-27T02:53:08.636143+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "bcc60b3a3de944c995af6e960de9d1c8",
+          "executed_at": "2026-09-27T02:53:34.840290+00:00"
+        },
+        {
+          "id": "S-04",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "32134ceef3e64fcf8523a4bf1846c372",
+          "executed_at": "2026-09-27T02:54:03.164562+00:00"
+        }
+      ]
     },
     {
       "id": "E-01",
@@ -160,7 +265,7 @@
       "kind": "functional",
       "boundary": "Browser→Router→目标页（目标 ID 已失效/无权限）",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -168,7 +273,47 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "32134ceef3e64fcf8523a4bf1846c372",
+        "executed_at": "2026-09-27T02:54:03.164562+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "Running 1 test using 1 worker\n\ncleaned overview-browser-2\ncreated overview-browser-admin@overview-browser-2 + 1 agent/skill/task/schedule\ncleaned overview-browser-2\n  ✘  1 tests/overview-dashboard.spec.ts:112:1 › E-02 跳转目标已失效时目标页不白屏、不伪造数据 (423ms)\n\n\n  1) tests/overview-dashboard.spec.ts:112:1 › E-02 跳转目标已失效时目标页不白屏、不伪造数据 ────────────────────────────\n\n    Error: expect(received).toBeGreaterThan(expected)\n\n    Expected: > 0\n    Received:   0\n\n      34 | async function expectNotBlank(page: Page): Promise<void> {\n      35 |   const body = await page.locator('body').innerText();\n    > 36 |   expect(body.trim().length).toBeGreaterThan(0);\n         |                              ^\n      37 |   await expect(\n      38 |     page.locator('.semi-table, [data-testid=\"error-state\"], .semi-empty, .app-error').first()\n      39 |   ).toBeVisible({ timeout: 15_000 });\n        at expectNotBlank (/Users/jahan/workspace/fluxion-harness/e2e/tests/overview-dashboard.spec.ts:36:30)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/overview-dashboard.spec.ts:116:3\n\n    Error Context: test-results/overview-dashboard-E-02-跳转目标已失效时目标页不白屏、不伪造数据/error-context.md\n\n    Error Context: test-results/overview-dashboard-E-02-跳转目标已失效时目标页不白屏、不伪造数据/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/overview-dashboard-E-02-跳转目标已失效时目标页不白屏、不伪造数据/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/overview-dashboard-E-02-跳转目标已失效时目标页不白屏、不伪造数据/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/overview-dashboard.spec.ts:112:1 › E-02 跳转目标已失效时目标页不白屏、不伪造数据 ─────────────────────────────\n[WebServer] INFO:     Started server process [29006]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8603 (Press CTRL+C to quit)",
+          "revision": 1,
+          "run_id": "93dbb7ea7dfd44c5b89aa2552ffb9e3b",
+          "executed_at": "2026-09-27T02:53:08.636143+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "bcc60b3a3de944c995af6e960de9d1c8",
+          "executed_at": "2026-09-27T02:53:34.840290+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "32134ceef3e64fcf8523a4bf1846c372",
+          "executed_at": "2026-09-27T02:54:03.164562+00:00"
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -224,7 +369,7 @@
       "kind": "functional",
       "boundary": "Browser Router→目标页（目标 ID 已失效/无权限）",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -232,7 +377,47 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "32134ceef3e64fcf8523a4bf1846c372",
+        "executed_at": "2026-09-27T02:54:03.164562+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "Running 1 test using 1 worker\n\ncleaned overview-browser-4\ncreated overview-browser-admin@overview-browser-4 + 1 agent/skill/task/schedule\ncleaned overview-browser-4\n  ✘  1 tests/overview-dashboard.spec.ts:119:1 › E-04 跳转目标无权限/不存在时目标页不白屏、不伪造数据 (341ms)\n\n\n  1) tests/overview-dashboard.spec.ts:119:1 › E-04 跳转目标无权限/不存在时目标页不白屏、不伪造数据 ────────────────────────\n\n    Error: expect(received).toBeGreaterThan(expected)\n\n    Expected: > 0\n    Received:   0\n\n      34 | async function expectNotBlank(page: Page): Promise<void> {\n      35 |   const body = await page.locator('body').innerText();\n    > 36 |   expect(body.trim().length).toBeGreaterThan(0);\n         |                              ^\n      37 |   await expect(\n      38 |     page.locator('.semi-table, [data-testid=\"error-state\"], .semi-empty, .app-error').first()\n      39 |   ).toBeVisible({ timeout: 15_000 });\n        at expectNotBlank (/Users/jahan/workspace/fluxion-harness/e2e/tests/overview-dashboard.spec.ts:36:30)\n        at /Users/jahan/workspace/fluxion-harness/e2e/tests/overview-dashboard.spec.ts:122:3\n\n    Error Context: test-results/overview-dashboard-E-04-跳转目标无权限-不存在时目标页不白屏、不伪造数据/error-context.md\n\n    Error Context: test-results/overview-dashboard-E-04-跳转目标无权限-不存在时目标页不白屏、不伪造数据/error-context.md\n\n    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────\n    test-results/overview-dashboard-E-04-跳转目标无权限-不存在时目标页不白屏、不伪造数据/trace.zip\n    Usage:\n\n        npx playwright show-trace test-results/overview-dashboard-E-04-跳转目标无权限-不存在时目标页不白屏、不伪造数据/trace.zip\n\n    ────────────────────────────────────────────────────────────────────────────────────────────────\n\n  1 failed\n    tests/overview-dashboard.spec.ts:119:1 › E-04 跳转目标无权限/不存在时目标页不白屏、不伪造数据 ─────────────────────────\n[WebServer] INFO:     Started server process [29109]\n[WebServer] INFO:     Waiting for application startup.\n[WebServer] INFO:     Application startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8605 (Press CTRL+C to quit)",
+          "revision": 1,
+          "run_id": "93dbb7ea7dfd44c5b89aa2552ffb9e3b",
+          "executed_at": "2026-09-27T02:53:08.636143+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "bcc60b3a3de944c995af6e960de9d1c8",
+          "executed_at": "2026-09-27T02:53:34.840290+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "32134ceef3e64fcf8523a4bf1846c372",
+          "executed_at": "2026-09-27T02:54:03.164562+00:00"
+        }
+      ]
     },
     {
       "id": "B-201",
@@ -595,7 +780,7 @@
       "kind": "functional",
       "boundary": "Playwright 配置与 spec 的租户/端口隔离、运行后零残留",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -605,7 +790,46 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "B-208",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "32134ceef3e64fcf8523a4bf1846c372",
+        "executed_at": "2026-09-27T02:54:03.164562+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-208",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "93dbb7ea7dfd44c5b89aa2552ffb9e3b",
+          "executed_at": "2026-09-27T02:53:08.636143+00:00"
+        },
+        {
+          "id": "B-208",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "bcc60b3a3de944c995af6e960de9d1c8",
+          "executed_at": "2026-09-27T02:53:34.840290+00:00"
+        },
+        {
+          "id": "B-208",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "32134ceef3e64fcf8523a4bf1846c372",
+          "executed_at": "2026-09-27T02:54:03.164562+00:00"
+        }
+      ]
     },
     {
       "id": "B-209",

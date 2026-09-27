@@ -40,13 +40,13 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 argv | cwd | timeout | depends_on |
 |---|---|---|---|---|---|---|---|---|---|
 | S-01 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | 真实 Console HTTP 聚合查询→四张 Owner 表(PostgreSQL) | TASK-004 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"] | . | 1200 |  |
-| S-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 首页→目标模块路由 | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""] | . | 1200 |  |
-| S-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→overview API（一次加载，无前端 N+1） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""] | . | 1200 |  |
-| S-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser Router→tasks/schedules 且菜单选中正确 | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""] | . | 1200 |  |
+| S-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 首页→目标模块路由 | TASK-010 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""] | . | 1200 |  |
+| S-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→overview API（一次加载，无前端 N+1） | TASK-010 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""] | . | 1200 |  |
+| S-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser Router→tasks/schedules 且菜单选中正确 | TASK-010 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""] | . | 1200 |  |
 | E-01 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | 真实 Console HTTP→真实 PostgreSQL（某模块无数据） | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","e01"] | . | 600 |  |
-| E-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | Browser→Router→目标页（目标 ID 已失效/无权限） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""] | . | 900 |  |
+| E-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | Browser→Router→目标页（目标 ID 已失效/无权限） | TASK-010 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""] | . | 900 |  |
 | E-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser→overview API 失败→ErrorState | TASK-008 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""] | . | 900 |  |
-| E-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser Router→目标页（目标 ID 已失效/无权限） | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""] | . | 900 |  |
+| E-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser Router→目标页（目标 ID 已失效/无权限） | TASK-010 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""] | . | 900 |  |
 | B-201 | 12-overview-dashboard.backend.design.md#3.3 接口设计 | integration | docs/07 §10 契约登记→冻结 schema 逐项一致 | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","b201"] | . | 600 |  |
 | B-202 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | 真实多进程栈(Console+PostgreSQL)与租户级种子/清理 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"] | . | 600 |  |
 | B-203 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本 | TASK-005 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"] | . | 600 |  |
@@ -54,7 +54,7 @@
 | B-205 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 | TASK-007 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"] | . | 600 |  |
 | B-206 | 12-overview-dashboard.frontend.design.md#3.2 页面与路由结构 | integration | 前端源码契约（路由表 + 菜单选中）+ 真实构建 | TASK-008 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"] | . | 600 |  |
 | B-207 | 12-overview-dashboard.frontend.design.md#3.5 状态与数据流 | integration | 前端源码契约 + 两侧词条实际内容 + 真实 tsc | TASK-009 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"] | . | 600 |  |
-| B-208 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Playwright 配置与 spec 的租户/端口隔离、运行后零残留 | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"] | . | 600 |  |
+| B-208 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Playwright 配置与 spec 的租户/端口隔离、运行后零残留 | TASK-010 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"] | . | 600 |  |
 | B-209 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录 | TASK-011 | planned | ["uv","run","pytest","-q","tests/overview_dashboard_inventory.py","-k","b209"] | . | 600 |  |
 | RULE-api-001 | 12-overview-dashboard.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP 封套/错误码 + 原 verifier 真实边界 | TASK-001 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"] | . | 1200 |  |
 | RULE-time-001 | 12-overview-dashboard.backend.design.md#Spec Compliance Matrix | integration | Console 时间出参 + 原 verifier 真实边界 | TASK-001 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests/frontend/test_datetime_contract.py"] | . | 1200 |  |
@@ -530,7 +530,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-27] completed (done)
 ## TASK-010: 前端 E2E 验收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-008
 - **Source**: 12-overview-dashboard.frontend.design.md#2.4 验收条件, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
@@ -545,34 +545,67 @@ S-02/S-03/S-04 与 E-02/E-04 的最终验收：真实 Chromium → 真实 Consol
 
 ### Checklist
 
-- [ ] [S-03][E2E] Browser(Chromium)→Console 首页：4 个 KPI 与最近任务/下一批定时**一次加载**完成；断言浏览器侧未按实体循环拉取（仅一次 `/api/v1/overview`）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""]`。
-- [ ] [S-02][E2E] 点击最近任务 / 下次调度条目 → 进入对应详情或所属模块（菜单选中正确）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""]`。
-- [ ] [S-04][E2E] 点击「查看全部」→ 进入 `/tasks` / `/schedules` 且菜单选中正确。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""]`。
-- [ ] [E-02][integration] 跳转目标 ID 已失效/无权限 → 目标页展示 `ErrorState` 或回退列表，**不白屏、不伪造数据**。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""]`。
-- [ ] [E-04][integration] 同上（前端侧路由与目标页表现）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""]`。
-- [ ] [B-208][integration] 以配置与 spec 源码 + 运行后环境为边界编写用例：断言配置含 `workers: 1`、按 `--grep` 派生端口偏移与独立租户/产物 root、spec 用例标题含场景 ID（支持 `-g`）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"]`。
-- [ ] 运行后无 uvicorn/`muad_*.main`/chromium 残留，租户残留为 0，仓库 `.data/artifacts` 未变。
+- [x] [S-03][E2E] Browser(Chromium)→Console 首页：4 个 KPI 与最近任务/下一批定时**一次加载**完成；断言浏览器侧未按实体循环拉取（仅一次 `/api/v1/overview`）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""]`。
+- [x] [S-02][E2E] 点击最近任务 / 下次调度条目 → 进入对应详情或所属模块（菜单选中正确）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""]`。
+- [x] [S-04][E2E] 点击「查看全部」→ 进入 `/tasks` / `/schedules` 且菜单选中正确。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""]`。
+- [x] [E-02][integration] 跳转目标 ID 已失效/无权限 → 目标页展示 `ErrorState` 或回退列表，**不白屏、不伪造数据**。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""]`。
+- [x] [E-04][integration] 同上（前端侧路由与目标页表现）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""]`。
+- [x] [B-208][integration] 以配置与 spec 源码 + 运行后环境为边界编写用例：断言配置含 `workers: 1`、按 `--grep` 派生端口偏移与独立租户/产物 root、spec 用例标题含场景 ID（支持 `-g`）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"]`。
+- [x] 运行后无 uvicorn/`muad_*.main`/chromium 残留，租户残留为 0，仓库 `.data/artifacts` 未变。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-02 | E2E | 真实 Chromium + 真实 Console + 真实 PostgreSQL | 条目跳转落到目标详情/模块，菜单选中正确 | e2e/tests/overview-dashboard.spec.ts / S-02 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""]` | planned |
-| S-03 | E2E | 真实 Chromium + 真实 Console 首页 | 4 KPI + 两组列表一次加载；浏览器侧无按实体循环拉取 | e2e/tests/overview-dashboard.spec.ts / S-03 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""]` | planned |
-| S-04 | E2E | 真实 Chromium + 路由 | 查看全部进入 tasks/schedules 且菜单选中正确 | e2e/tests/overview-dashboard.spec.ts / S-04 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""]` | planned |
-| E-02 | integration | Browser→Router→目标页（真实软删/越权目标） | 目标页 ErrorState 或回退列表；不白屏、不伪造数据 | e2e/tests/overview-dashboard.spec.ts / E-02 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""]` | planned |
-| E-04 | integration | Browser→Router→目标页（目标 ID 失效/无权限） | 同上（前端侧表现一致） | e2e/tests/overview-dashboard.spec.ts / E-04 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""]` | planned |
-| B-208 | integration | Playwright 配置/spec 源码 + 运行后真实环境 | `workers: 1`；端口/租户/产物 root 隔离；标题含场景 ID；零残留 | tests/frontend/test_overview_e2e_fixture_contract.py / B-208 | `["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"]` | planned |
+| S-02 | E2E | 真实 Chromium + 真实 Console + 真实 PostgreSQL | 条目跳转落到目标详情/模块，菜单选中正确 | e2e/tests/overview-dashboard.spec.ts / S-02 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""]` | e2e_deferred |
+| S-03 | E2E | 真实 Chromium + 真实 Console 首页 | 4 KPI + 两组列表一次加载；浏览器侧无按实体循环拉取 | e2e/tests/overview-dashboard.spec.ts / S-03 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""]` | e2e_deferred |
+| S-04 | E2E | 真实 Chromium + 路由 | 查看全部进入 tasks/schedules 且菜单选中正确 | e2e/tests/overview-dashboard.spec.ts / S-04 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""]` | e2e_deferred |
+| E-02 | integration | Browser→Router→目标页（真实软删/越权目标） | 目标页 ErrorState 或回退列表；不白屏、不伪造数据 | e2e/tests/overview-dashboard.spec.ts / E-02 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""]` | verified |
+| E-04 | integration | Browser→Router→目标页（目标 ID 失效/无权限） | 同上（前端侧表现一致） | e2e/tests/overview-dashboard.spec.ts / E-04 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""]` | verified |
+| B-208 | integration | Playwright 配置/spec 源码 + 运行后真实环境 | `workers: 1`；端口/租户/产物 root 隔离；标题含场景 ID；零残留 | tests/frontend/test_overview_e2e_fixture_contract.py / B-208 | `["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-03 | **真实 RED**：首轮断言把 `data-testid` 放在了 KPI **标签**上（`kpi-agents`），却断言其文本为数值 → `toHaveText('1')` 对上的是标签文案「启用 Agent」。修正为给**数值**加 `kpi-value-*` testid 后再断言。 | 整文件 6 passed 中 S-03 通过；单跑 `-g "S-03"` 亦通过。 | `S-03 首页一次加载 4 个 KPI 与两组列表，无前端 N+1`：真实登录 → 首页 → 四个 `kpi-value-*` 分别为种子的 1/1/1/1（真实后端聚合）；运行关系卡可见；Agent 名与 Schedule 名各出现在列表；**监听网络断言 `/api/v1/overview` 只被请求 1 次**（无前端 N+1） | 真实 Chromium + 真实 Console（真实 PostgreSQL）+ **真实前端构建产物**；成功路径无任何路由拦截。 | e2e_deferred（本地已 GREEN，终验归 verify-e2e） |
+| S-02 | 同上（验收类）。 | 6 passed；单跑 `-g "S-02"` 通过。 | 点最近任务行 → URL 落 `/tasks?taskId=…` 且目标页非白屏；返回后点 Schedule 行 → `/schedules?scheduleId=…` 且非白屏 | 真实浏览器 + 真实路由 + 真实目标页。 | e2e_deferred（终验归 verify-e2e） |
+| S-04 | 同上（验收类）。 | 6 passed；单跑 `-g "S-04"` 通过。 | 点「查看全部」→ 落 `/tasks`、`.semi-navigation-item-selected` 恰 1 个；同法验证 `/schedules` | 真实浏览器 + 真实菜单选中态。 | e2e_deferred（终验归 verify-e2e） |
+| E-02 | **真实 RED（runner 抓出，整跑通过但单跑失败）**：`expectNotBlank` 在 `page.goto` 后**立刻**读 `body.innerText()`，SPA 未挂载即得空串 → 断言恒假。**只有 runner 的 `-g` 单场景执行方式会踩到**（我整文件跑时被前序用例"预热"掩盖）。修法：先 `toBeVisible`（自带轮询）再读文本。 | 单跑 `-g "E-02"` → **1 passed**（与 runner 执行方式一致）；runner 复跑 pass。 | `E-02 跳转目标已失效时目标页不白屏、不伪造数据`：直接进入 `/tasks?taskId=<不存在的 uuid>` → 目标页渲染出列表/空态/错误态之一且 body 非空（**不白屏**） | 真实浏览器 + 真实目标页（真实越权/已删场景的等价物）；失效目标由**不存在的 id** 制造，未拦截成功路径。 | verified |
+| E-04 | 同 E-02（同一竞态）。 | 单跑 `-g "E-04"` → 1 passed；runner pass。 | `E-04 跳转目标无权限/不存在时目标页不白屏、不伪造数据`：进入 `/schedules?scheduleId=<不存在>` → 同上 | 同上（前端侧路由与目标页表现）。 | verified |
+| B-208 | 无独立 RED（夹具契约，随实现落地）。 | 整文件 `uv run pytest -q tests/frontend/test_overview_e2e_fixture_contract.py` → **4 passed**；ruff 干净。 | `test_config_isolates_ports_tenant_and_artifacts`（`workers: 1`；端口偏移优先取 argv 里的 `--grep` 场景号并冻结进 env；租户 `overview-browser-${OFFSET}`；产物 root 在 `os.tmpdir()`；跑真实构建产物与真实 Console；**不启**探针/Runtime/Worker）；`test_spec_titles_carry_scenario_ids`（6 个登记场景各有且仅有一个以场景 ID 开头的用例标题，`-g` 才能选中）；`test_success_paths_do_not_intercept_and_failure_paths_do`（S-* 成功路径**不得**出现 `page.route`；E-* 须以拦截或既成失效目标制造）；`test_spec_seeds_and_cleans_up_around_the_suite`（beforeAll/afterAll 成对，清理覆盖 task/control 各表，种子提供 `counts`） | Playwright 配置与 spec 的真实源码 + 种子脚本的真实清理语句；判据与 manifest 登记口径一致。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+- **runner 的单场景执行方式暴露了整跑掩盖的竞态**：这是本轮最有价值的发现——`-g` 每场景独立进程执行，与"整文件跑"的前序预热完全不同；断言里任何"读完再等"的写法都会在单跑时恒假。已修并**以单跑方式复验**（与 runner 同口径）。
+- **E-02/E-04 的失效目标用不存在的 id 制造**，而不是拦截成功接口：概览的跳转是真实的 `/tasks?taskId=` / `/schedules?scheduleId=`，目标页对未知 id 的表现本就属"真实失效"路径，无需拦截——因此这两条**未用**路由拦截（B-208 的判定也只要求"拦截或既成失效目标"）。
+- **断言的是"不白屏、不伪造数据"而非某种特定版面**：设计允许「ErrorState 或回退列表」二选一，故断言"渲染出列表/空态/错误态之一且 body 非空"，不把设计容差写死成单一形态。
+- **种子极简但够用**：S-02/S-03/S-04 各需一行可点数据（1 Agent/Skill/Task/Schedule）；E-* 走失败路径不需要数据。
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=93dbb7ea7dfd44c5b89aa2552ffb9e3b (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=93dbb7ea7dfd44c5b89aa2552ffb9e3b (confirmed_by: runner)
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=93dbb7ea7dfd44c5b89aa2552ffb9e3b (confirmed_by: runner)
+- E-02: failed — automated command failed; run_id=93dbb7ea7dfd44c5b89aa2552ffb9e3b (confirmed_by: runner)
+- E-04: failed — automated command failed; run_id=93dbb7ea7dfd44c5b89aa2552ffb9e3b (confirmed_by: runner)
+- B-208: verified — automated command passed; run_id=93dbb7ea7dfd44c5b89aa2552ffb9e3b (confirmed_by: runner)
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=bcc60b3a3de944c995af6e960de9d1c8 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=bcc60b3a3de944c995af6e960de9d1c8 (confirmed_by: runner)
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=bcc60b3a3de944c995af6e960de9d1c8 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=bcc60b3a3de944c995af6e960de9d1c8 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=bcc60b3a3de944c995af6e960de9d1c8 (confirmed_by: runner)
+- B-208: verified — automated command passed; run_id=bcc60b3a3de944c995af6e960de9d1c8 (confirmed_by: runner)
+- S-02: e2e_deferred — automated command e2e_deferred; run_id=32134ceef3e64fcf8523a4bf1846c372 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=32134ceef3e64fcf8523a4bf1846c372 (confirmed_by: runner)
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=32134ceef3e64fcf8523a4bf1846c372 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=32134ceef3e64fcf8523a4bf1846c372 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=32134ceef3e64fcf8523a4bf1846c372 (confirmed_by: runner)
+- B-208: verified — automated command passed; run_id=32134ceef3e64fcf8523a4bf1846c372 (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
 
 ---
-
+- [2026-09-27] started
+- [2026-09-27] completed (done)
 ## TASK-011: 收口：场景、规则、证据与仓库级 verifier
 
 - **Status**: draft
