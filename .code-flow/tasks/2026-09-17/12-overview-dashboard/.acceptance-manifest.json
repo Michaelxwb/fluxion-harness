@@ -838,7 +838,7 @@
       "kind": "functional",
       "boundary": "pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -850,7 +850,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-209",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "a94179d2e633442a9aa9a74f31f261aa",
+        "executed_at": "2026-09-27T03:05:16.785534+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-209",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "031199844671469580d4c884bb15384d",
+          "executed_at": "2026-09-27T03:05:10.061955+00:00"
+        },
+        {
+          "id": "B-209",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "a94179d2e633442a9aa9a74f31f261aa",
+          "executed_at": "2026-09-27T03:05:16.785534+00:00"
+        }
+      ]
     }
   ]
 }
