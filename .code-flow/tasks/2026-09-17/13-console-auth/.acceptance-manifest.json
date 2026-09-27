@@ -1265,7 +1265,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL 表结构/索引 + 原 verifier 真实边界",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1277,7 +1277,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "0c5fc0aec2e6433bad5cc2eded8eb3ef",
+        "executed_at": "2026-09-27T13:29:38.160076+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "8761e648a7bc46d0b30c232b151273c6",
+          "executed_at": "2026-09-27T13:29:23.760469+00:00"
+        },
+        {
+          "id": "B-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "0c5fc0aec2e6433bad5cc2eded8eb3ef",
+          "executed_at": "2026-09-27T13:29:38.160076+00:00"
+        }
+      ]
     },
     {
       "id": "B-08",
