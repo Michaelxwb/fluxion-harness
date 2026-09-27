@@ -37,6 +37,12 @@ Do NOT ask the user which Specs to load—the Context-first router is authoritat
 3. 会话收尾被校验拦回（cf-stop 反馈未过项）时，修复后再结束；不要绕过
 4. 新增/修改规范时优先用 ✅/❌ 代码对照示例表达（见 spec 模板 Examples 段）
 
+## 收尾提交纪律（Done Gate）
+
+- 任务收尾提交的信息**必须以 Done Gate 的实际裁决为准**：先拿到 `cf_task_workflow.py finish` 的返回，再写提交信息。禁止把 `finish` 与 `git commit` 串在同一条 `&&` 链里抢先写入结论——本项目曾因此在同一需求上连续写错三次提交信息（先误写 pass、后反向误写 block），虽经 `--amend` 改正，错误结论仍进过历史。
+- Gate `block` 时不得写「Gate pass」；已 pass 时也不得写「阻塞待查」。提交信息只陈述已发生的事实，不写预期。
+- 规则门禁/verifier 的失败若**单跑通过、整跑偶发失败**，先怀疑环境残留（孤儿进程、共享测试库），复跑一次再下结论，不要直接改实现。
+
 ## Task Documents (cf-task workflow)
 
 - `.code-flow/specs/shared/` holds PRD/design templates（含前端 `design-frontend.md`）used by `/cf-task:prd` and `/cf-task:align`

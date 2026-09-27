@@ -62,6 +62,8 @@ body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
   <div style={{ display: 'flex', justifyContent: 'space-between' }}>  {/* 自建工具栏/面板 */}
 ```
 
+- **`RemoteTable` 只约束「列表页」**：以「左上操作 + 右上搜索筛选 + 列表 + 右下分页」为形态的模块列表页必须用它；**仪表盘/概览类页面**（如 `overview-dashboard` 首页：KPI 卡片 + 若干 ≤5 行预览块，无工具栏/筛选/分页）不受该约束，其区块可用 Semi `Table` 并 `pagination={false}`，但区块内**不得**再用 `RemoteTable`/`ModuleToolbar`。契约测试以「显式声明的非列表页 + 反查其确实不含列表构件」实现，不得靠"不写 RemoteTable"蒙过。
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
