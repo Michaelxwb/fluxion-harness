@@ -377,7 +377,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-26] completed (done)
 ## TASK-007: 最近任务 / 下一批定时 / 运行关系卡片
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-006
 - **Source**: 12-overview-dashboard.frontend.design.md#3.3 组件设计, 12-overview-dashboard.frontend.design.md#3.4 组件接口契约, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
@@ -417,12 +417,14 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - **区块级 ErrorState 未实现**：设计 §3.6 给两个列表标了"区块 ErrorState + 重试"，但概览是**单次聚合请求**（E-03 定义为"聚合接口失败 → 整体 ErrorState + 重试"），块级失败在构造上不可能独立发生，故错误态由页面统一承载（TASK-008）。此处按"不写死代码"处理并登记差异。
 - B-205: verified — automated command passed; run_id=6e4444f9bc7b44a9b666fc09c3a6594b (confirmed_by: runner)
 - B-205: verified — automated command passed; run_id=f6dbb9945503443e83adc7c7fcdaa527 (confirmed_by: runner)
+- B-205: verified — automated command passed; run_id=dace0fa34c4e441aa75fb827a0d45536 (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
 
 ---
 - [2026-09-27] started
+- [2026-09-27] completed (done)
 ## TASK-008: 路由接入与 UI 状态
 
 - **Status**: draft
