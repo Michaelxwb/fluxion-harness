@@ -399,7 +399,7 @@
       "kind": "e2e",
       "boundary": "Browser → Router → ApiClient → Console HTTP → PostgreSQL",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -407,7 +407,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-09",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+        "executed_at": "2026-09-27T13:58:32.221742+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-09",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7a58c75493db4b7889fae2002b9b62fe",
+          "executed_at": "2026-09-27T13:58:18.964737+00:00"
+        },
+        {
+          "id": "S-09",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+          "executed_at": "2026-09-27T13:58:32.221742+00:00"
+        }
+      ]
     },
     {
       "id": "S-10",
@@ -416,7 +443,7 @@
       "kind": "e2e",
       "boundary": "Browser → Router → `/auth/me`",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -424,7 +451,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-10",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+        "executed_at": "2026-09-27T13:58:32.221742+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-10",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7a58c75493db4b7889fae2002b9b62fe",
+          "executed_at": "2026-09-27T13:58:18.964737+00:00"
+        },
+        {
+          "id": "S-10",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+          "executed_at": "2026-09-27T13:58:32.221742+00:00"
+        }
+      ]
     },
     {
       "id": "S-11",
@@ -477,7 +531,7 @@
       "kind": "e2e",
       "boundary": "AuthContext → menu → Router → 凭据入口",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -485,7 +539,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-12",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+        "executed_at": "2026-09-27T13:58:32.221742+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-12",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7a58c75493db4b7889fae2002b9b62fe",
+          "executed_at": "2026-09-27T13:58:18.964737+00:00"
+        },
+        {
+          "id": "S-12",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+          "executed_at": "2026-09-27T13:58:32.221742+00:00"
+        }
+      ]
     },
     {
       "id": "S-13",
@@ -494,7 +575,7 @@
       "kind": "e2e",
       "boundary": "UI → logout API → Router",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -502,7 +583,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-13",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+        "executed_at": "2026-09-27T13:58:32.221742+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-13",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "7a58c75493db4b7889fae2002b9b62fe",
+          "executed_at": "2026-09-27T13:58:18.964737+00:00"
+        },
+        {
+          "id": "S-13",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+          "executed_at": "2026-09-27T13:58:32.221742+00:00"
+        }
+      ]
     },
     {
       "id": "S-14",
@@ -511,7 +619,7 @@
       "kind": "functional",
       "boundary": "Router → ADMIN 守卫（列表展示部分随账号页面迭代）",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -519,7 +627,37 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-14",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+        "executed_at": "2026-09-27T13:58:32.221742+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7a58c75493db4b7889fae2002b9b62fe",
+          "executed_at": "2026-09-27T13:58:18.964737+00:00"
+        },
+        {
+          "id": "S-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+          "executed_at": "2026-09-27T13:58:32.221742+00:00"
+        }
+      ]
     },
     {
       "id": "E-01",
@@ -997,7 +1135,7 @@
       "kind": "functional",
       "boundary": "RequireRole → Router（越权重定向，不发数据请求）",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -1005,7 +1143,37 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-11",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+        "executed_at": "2026-09-27T13:58:32.221742+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7a58c75493db4b7889fae2002b9b62fe",
+          "executed_at": "2026-09-27T13:58:18.964737+00:00"
+        },
+        {
+          "id": "E-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+          "executed_at": "2026-09-27T13:58:32.221742+00:00"
+        }
+      ]
     },
     {
       "id": "E-12",
@@ -1014,7 +1182,7 @@
       "kind": "functional",
       "boundary": "ApiClient 请求拦截 → CSRF（后端 403 兜底）",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -1022,7 +1190,37 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-12",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+        "executed_at": "2026-09-27T13:58:32.221742+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-12",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7a58c75493db4b7889fae2002b9b62fe",
+          "executed_at": "2026-09-27T13:58:18.964737+00:00"
+        },
+        {
+          "id": "E-12",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+          "executed_at": "2026-09-27T13:58:32.221742+00:00"
+        }
+      ]
     },
     {
       "id": "E-13",
@@ -1201,7 +1399,7 @@
       "kind": "functional",
       "boundary": "LoginPage 表单校验（不发请求）",
       "owner": "TASK-011",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1213,7 +1411,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+        "executed_at": "2026-09-27T13:58:32.221742+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "7a58c75493db4b7889fae2002b9b62fe",
+          "executed_at": "2026-09-27T13:58:18.964737+00:00"
+        },
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "d1d477788f854b6a9d9805c062ee9cef",
+          "executed_at": "2026-09-27T13:58:32.221742+00:00"
+        }
+      ]
     },
     {
       "id": "B-05",

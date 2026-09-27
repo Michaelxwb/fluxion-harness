@@ -50,12 +50,12 @@
 | S-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-007 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-06\""] | . | 1200 |  |
 | S-07 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | CLI → 真实 PostgreSQL；真实 lifespan 启动 → 日志 | TASK-008 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s07"] | . | 600 |  |
 | S-08 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（审计与变更同事务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s08"] | . | 600 |  |
-| S-09 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | Browser → Router → ApiClient → Console HTTP → PostgreSQL | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-09\""] | . | 1200 |  |
-| S-10 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | Browser → Router → `/auth/me` | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-10\""] | . | 1200 |  |
+| S-09 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | Browser → Router → ApiClient → Console HTTP → PostgreSQL | TASK-011 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-09\""] | . | 1200 |  |
+| S-10 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | Browser → Router → `/auth/me` | TASK-011 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-10\""] | . | 1200 |  |
 | S-11 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | Locale → ApiClient → API msg → UI | TASK-010 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-11\""] | . | 1200 |  |
-| S-12 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | AuthContext → menu → Router → 凭据入口 | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-12\""] | . | 1200 |  |
-| S-13 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | UI → logout API → Router | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-13\""] | . | 1200 |  |
-| S-14 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | Router → ADMIN 守卫（列表展示部分随账号页面迭代） | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-14\""] | . | 900 |  |
+| S-12 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | AuthContext → menu → Router → 凭据入口 | TASK-011 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-12\""] | . | 1200 |  |
+| S-13 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | UI → logout API → Router | TASK-011 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-13\""] | . | 1200 |  |
+| S-14 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | Router → ADMIN 守卫（列表展示部分随账号页面迭代） | TASK-011 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-14\""] | . | 900 |  |
 | E-01 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（失败计数） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e01"] | . | 600 |  |
 | E-02 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（锁定状态机） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e02"] | . | 600 |  |
 | E-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（会话失效） | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e03"] | . | 600 |  |
@@ -66,13 +66,13 @@
 | E-08 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 全局认证（公开端点白名单） | TASK-007 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e08"] | . | 600 |  |
 | E-09 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | ApiClient 响应拦截 → Router（401 跳登录，不循环） | TASK-012 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-09\""] | . | 900 |  |
 | E-10 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | LoginPage → API 错误 → Toast | TASK-012 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-10\""] | . | 900 |  |
-| E-11 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | RequireRole → Router（越权重定向，不发数据请求） | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-11\""] | . | 900 |  |
-| E-12 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | ApiClient 请求拦截 → CSRF（后端 403 兜底） | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-12\""] | . | 900 |  |
+| E-11 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | RequireRole → Router（越权重定向，不发数据请求） | TASK-011 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-11\""] | . | 900 |  |
+| E-12 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | ApiClient 请求拦截 → CSRF（后端 403 兜底） | TASK-011 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-12\""] | . | 900 |  |
 | E-13 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | AuthProvider → `/me` 失败（无空白页/无循环） | TASK-012 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-13\""] | . | 900 |  |
 | B-01 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（第 4/5 次失败临界） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b01"] | . | 600 |  |
 | B-02 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（剩余 6h / <6h 临界） | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b02"] | . | 600 |  |
 | B-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（多租户同名） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b03"] | . | 600 |  |
-| B-04 | 13-console-auth.frontend.design.md#2.4 验收条件 | unit | LoginPage 表单校验（不发请求） | TASK-011 | planned | ["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b04"] | . | 600 |  |
+| B-04 | 13-console-auth.frontend.design.md#2.4 验收条件 | unit | LoginPage 表单校验（不发请求） | TASK-011 | verified | ["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b04"] | . | 600 |  |
 | B-05 | 13-console-auth.frontend.design.md#2.4 验收条件 | unit | i18n 资源双语完整 | TASK-010 | verified | ["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b05"] | . | 600 |  |
 | B-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | 真实 Console 进程 + 真实 PostgreSQL + 租户级清理 | TASK-002 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_environment.py"] | . | 600 |  |
 | B-07 | 13-console-auth.backend.design.md#3.3 数据设计 | integration | 真实 PostgreSQL 表结构/索引 + 原 verifier 真实边界 | TASK-009 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_schema_contract.py","-k","b07"] | . | 600 |  |
@@ -688,7 +688,7 @@ CLI 与启动自检的真实验收：默认租户无账号时 lifespan 记录 `c
 - [2026-09-27] completed (done)
 ## TASK-011: 登录页/会话引导与守卫/角色过滤/退出
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-010
 - **Source**: 13-console-auth.frontend.design.md#3.2 页面与路由结构, 13-console-auth.frontend.design.md#3.3 组件设计, 13-console-auth.frontend.design.md#3.6 UI 状态, 13-console-auth.frontend.design.md#2.4 验收条件
@@ -703,41 +703,77 @@ CLI 与启动自检的真实验收：默认租户无账号时 lifespan 记录 `c
 
 ### Checklist
 
-- [ ] [B-04][unit] LoginPage 表单必填校验：用户名/密码为空时不发起请求，给出字段级提示。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b04"]`。
-- [ ] [S-09][E2E] 正确用户名/密码提交 → 跳转 `/`；概览可见；Header 显示显示名与角色；请求带 `X-Locale`/`X-Request-Id`/`X-CSRF-Token`。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-09\""]`。
-- [ ] [S-10][E2E] 登录后刷新页面 → 启动 Spin；`/me` 成功后回到原路由；不闪回登录页。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-10\""]`。
-- [ ] [S-12][E2E] ADMIN 与 BUILDER 分别登录 → ADMIN 可见「用户」菜单并可进 `/users`；BUILDER 菜单无「用户」；凭据类入口仅 ADMIN 可见（04 模块复用 `RequireRole`，后端 403 兜底）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-12\""]`。
-- [ ] [S-13][E2E] Header 下拉退出 → 返回 `/login`；再访问受保护路由仍跳登录页。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-13\""]`。
-- [ ] [S-14][integration] **按 design 自注限定范围**：仅验证守卫部分——ADMIN 可进 `/users`（占位页渲染）、BUILDER 被重定向到 `/` 且不发起该页数据请求；`last_login_at` 的列表展示与 `YYYY-MM-DD HH:mm:ss` 格式随账号管理页面迭代落地（本需求内不在范围，须在证据中显式登记该边界）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-14\""]`。
-- [ ] [E-11][integration] BUILDER 直接输入 `/users` → 重定向 `/`，不发起该页面数据请求。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-11\""]`。
-- [ ] [E-12][integration] 非安全方法在 `muad_csrf` 缺失/过期时提交 → 后端 403 `FORBIDDEN`、Toast 提示、不误显示成功态。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-12\""]`。
-- [ ] [RULE-ui-001][integration] / [RULE-ui-detail-001][integration] / [RULE-time-001][integration] 作为各自唯一最终负责人，验证骨架与固定十项菜单、详情组件复用约束（本模块无详情页，账号管理后置页面须复用公共 `DetailSideSheet`）、时间展示口径。verifier argv 分别为 shell/style + build、detail_sidesheet + typecheck、datetime + schema_parity（见契约行）。
+- [x] [B-04][unit] LoginPage 表单必填校验：用户名/密码为空时不发起请求，给出字段级提示。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b04"]`。
+- [x] [S-09][E2E] 正确用户名/密码提交 → 跳转 `/`；概览可见；Header 显示显示名与角色；请求带 `X-Locale`/`X-Request-Id`/`X-CSRF-Token`。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-09\""]`。
+- [x] [S-10][E2E] 登录后刷新页面 → 启动 Spin；`/me` 成功后回到原路由；不闪回登录页。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-10\""]`。
+- [x] [S-12][E2E] ADMIN 与 BUILDER 分别登录 → ADMIN 可见「用户」菜单并可进 `/users`；BUILDER 菜单无「用户」；凭据类入口仅 ADMIN 可见（04 模块复用 `RequireRole`，后端 403 兜底）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-12\""]`。
+- [x] [S-13][E2E] Header 下拉退出 → 返回 `/login`；再访问受保护路由仍跳登录页。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-13\""]`。
+- [x] [S-14][integration] **按 design 自注限定范围**：仅验证守卫部分——ADMIN 可进 `/users`（占位页渲染）、BUILDER 被重定向到 `/` 且不发起该页数据请求；`last_login_at` 的列表展示与 `YYYY-MM-DD HH:mm:ss` 格式随账号管理页面迭代落地（本需求内不在范围，须在证据中显式登记该边界）。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-14\""]`。
+- [x] [E-11][integration] BUILDER 直接输入 `/users` → 重定向 `/`，不发起该页面数据请求。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-11\""]`。
+- [x] [E-12][integration] 非安全方法在 `muad_csrf` 缺失/过期时提交 → 后端 403 `FORBIDDEN`、Toast 提示、不误显示成功态。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-12\""]`。
+- [x] [RULE-ui-001][integration] / [RULE-ui-detail-001][integration] / [RULE-time-001][integration] 作为各自唯一最终负责人，验证骨架与固定十项菜单、详情组件复用约束（本模块无详情页，账号管理后置页面须复用公共 `DetailSideSheet`）、时间展示口径。verifier argv 分别为 shell/style + build、detail_sidesheet + typecheck、datetime + schema_parity（见契约行）。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-04 | unit | LoginPage 表单校验（不发请求） | 空值给字段级提示且无请求 | tests/frontend/test_console_auth_contract.py / B-04 | `["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b04"]` | planned |
-| S-09 | E2E | Browser → Router → ApiClient → Console HTTP → PostgreSQL | 跳转 `/`；Header 显示名与角色；三个请求头齐备 | e2e/tests/console-auth.spec.ts / S-09 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-09\""]` | planned |
-| S-10 | E2E | Browser → Router → `/auth/me` | 刷新后 Spin → 回原路由；不闪回登录页 | e2e/tests/console-auth.spec.ts / S-10 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-10\""]` | planned |
-| S-12 | E2E | AuthContext → menu → Router → 凭据入口 | ADMIN/BUILDER 菜单与路由差异；凭据入口仅 ADMIN | e2e/tests/console-auth.spec.ts / S-12 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-12\""]` | planned |
-| S-13 | E2E | UI → logout API → Router | 回 `/login`；受保护路由仍跳登录 | e2e/tests/console-auth.spec.ts / S-13 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-13\""]` | planned |
-| S-14 | integration | Router → ADMIN 守卫（列表展示部分随账号页面迭代） | ADMIN 可进占位页；BUILDER 重定向且不发起数据请求 | e2e/tests/console-auth.spec.ts / S-14 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-14\""]` | planned |
-| E-11 | integration | RequireRole → Router | 重定向 `/`；无该页数据请求 | e2e/tests/console-auth.spec.ts / E-11 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-11\""]` | planned |
-| E-12 | integration | ApiClient 请求拦截 → CSRF | 403 + Toast；不显示成功态 | e2e/tests/console-auth.spec.ts / E-12 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-12\""]` | planned |
+| B-04 | unit | LoginPage 表单校验（不发请求） | 空值给字段级提示且无请求 | tests/frontend/test_console_auth_contract.py / B-04 | `["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b04"]` | verified |
+| S-09 | E2E | Browser → Router → ApiClient → Console HTTP → PostgreSQL | 跳转 `/`；Header 显示名与角色；三个请求头齐备 | e2e/tests/console-auth.spec.ts / S-09 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-09\""]` | e2e_deferred |
+| S-10 | E2E | Browser → Router → `/auth/me` | 刷新后 Spin → 回原路由；不闪回登录页 | e2e/tests/console-auth.spec.ts / S-10 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-10\""]` | e2e_deferred |
+| S-12 | E2E | AuthContext → menu → Router → 凭据入口 | ADMIN/BUILDER 菜单与路由差异；凭据入口仅 ADMIN | e2e/tests/console-auth.spec.ts / S-12 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-12\""]` | e2e_deferred |
+| S-13 | E2E | UI → logout API → Router | 回 `/login`；受保护路由仍跳登录 | e2e/tests/console-auth.spec.ts / S-13 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-13\""]` | e2e_deferred |
+| S-14 | integration | Router → ADMIN 守卫（列表展示部分随账号页面迭代） | ADMIN 可进占位页；BUILDER 重定向且不发起数据请求 | e2e/tests/console-auth.spec.ts / S-14 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-14\""]` | verified |
+| E-11 | integration | RequireRole → Router | 重定向 `/`；无该页数据请求 | e2e/tests/console-auth.spec.ts / E-11 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-11\""]` | verified |
+| E-12 | integration | ApiClient 请求拦截 → CSRF | 403 + Toast；不显示成功态 | e2e/tests/console-auth.spec.ts / E-12 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-12\""]` | verified |
 | RULE-ui-001 | integration | 前端源码契约 + 真实构建 | 骨架/固定十项菜单/主展示字段入口；原 verifier 全部通过 | 原 verifier / RULE-ui-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]` | planned |
 | RULE-ui-detail-001 | integration | 公共详情组件契约 + 真实 tsc | 复用 `DetailSideSheet` 不另造；原 verifier 全部通过 | 原 verifier / RULE-ui-detail-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix apps/console-platform/frontend run typecheck"]` | planned |
 | RULE-time-001 | integration | 时间展示口径 + 原 verifier 真实边界 | `YYYY-MM-DD HH:mm:ss`；timestamptz | 原 verifier / RULE-time-001 | `["bash","-lc","uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity"]` | planned |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-04 | 无 RED（基线已实现必填校验，属补测）。 | `-k b04` → **1 passed**；整文件 11 passed。 | `test_b04_login_form_validates_required_fields_before_requesting`：两字段各有 `rules={[{required:true,message:t('login.*Required')}]}`；密码框 `type="password"`；提交走 `<Form onSubmit>` + `htmlType="submit"`；**断言按钮上不存在 `onClick`**（否则空表单会直连 `login()` 绕过校验）；登录请求只出现在校验通过的提交路径；字段级提示键双侧齐备。 | 真实前端源码 + 真实词条 JSON。 | verified |
+| S-09 | **真实 RED**：Header 未展示角色——`data-testid="account-role"` 不存在、`auth.role.*` 无任何消费点（TASK-010 已登记该缺口），`test_shell_header_shows_role_with_display_name` 首跑失败于该断言。 | 实现后：`-g "S-09"` 通过；整文件 **13 passed（9.7s）**。 | 源码契约 `test_shell_header_shows_role_with_display_name`（角色节点 + `t(\`auth.role.${account.role.toLowerCase()}\`)` + 两侧词条非裸枚举码）；E2E `S-09`：真实表单提交 → URL `/` + 概览选中 → `account-menu` 含 `Browser Admin`、`account-role` 文本 `管理员` → 登录请求 `x-locale=zh-CN` 且 `x-request-id` 非空 → 刷新触发的 `/auth/me` 三头齐备（含 `x-csrf-token`）。 | 真实 Chromium + 真实前端构建产物 + 真实 Console + 真实 PostgreSQL；角色文案由 `auth.role.*` 词条驱动。 | e2e_deferred（本地已 GREEN，终验归 verify-e2e） |
+| S-10 | 无 RED（会话引导基线已实现）。 | `-g "S-10"` → passed（1.7s）。 | E2E `S-10`：进入 `/agents` 后路由 `/auth/me` 延迟 800ms（让加载态可确定性观测）→ 刷新后断言 `.semi-spin` 可见、URL 仍 `/agents`、菜单选中 `Agent`；`framenavigated` 记录全程主 frame 路径，断言**从未出现 `/login`**（不闪回登录页）。 | 真实浏览器路由 + 真实 `/me`（延迟由 `page.route` 施加，不 mock 响应体）。 | e2e_deferred（本地已 GREEN） |
+| S-12 | 无 RED（菜单过滤与 `/users` 的 `RequireRole` 基线已实现，属补测）。 | `-g "S-12"` → passed。 | E2E `S-12`：ADMIN 可见「用户」菜单且可进 `/users`；BUILDER 登录后菜单**无**「用户」；BUILDER 直连 `GET /api/v1/users` → **403**（用户接口在 `admin` 路由组，后端兜底）。**边界登记见下方判断点 3**（凭据入口不在本任务范围）。 | 真实 Chromium + 真实 Console RBAC。 | e2e_deferred（本地已 GREEN） |
+| S-13 | 无 RED（退出基线已实现）。 | `-g "S-13"` → passed。 | E2E `S-13`：`account-menu` → `退出登录` → URL `/login`；再 `goto('/agents')` 仍被守卫送回 `/login`。 | 真实浏览器 + 真实 `POST /auth/logout` + 真实 Cookie。 | e2e_deferred（本地已 GREEN） |
+| S-14 | 无 RED（守卫基线已实现）。 | `-g "S-14"` → passed。 | E2E `S-14`：ADMIN 进 `/users` 渲染 `用户管理` 页；BUILDER 进 `/users` 后 URL 回落 `/`，且**零** `/api/v1/users` 请求。**范围限定**：`last_login_at` 列表展示与 `YYYY-MM-DD HH:mm:ss` 随账号管理页面迭代，本需求不在范围（按 checklist 自注登记）。 | 真实 Chromium + 真实 Console + 请求监听（无 mock）。 | verified |
+| E-11 | 无 RED（`RequireRole` 基线已实现）。 | `-g "E-11"` → passed。 | E2E `E-11`：BUILDER 直接输入 `/users` → URL 回落 `/`、菜单选中 `概览`，且**零** `/api/v1/users` 请求（越权重定向不触发数据请求）。 | 同上。 | verified |
+| E-12 | **真实 RED**：CSRF Cookie 清除后点击退出 → 后端 403，`AuthContext.logout` 的 rejection 无人接管，浏览器抛出未捕获 `AxiosError: Request failed with status code 403`（用例断言 `pageerror` 为空 → 失败）。 | 修复后 `-g "E-12"` → passed（0.66s）。 | E2E `E-12`：登录取会话 → `clearCookies({name:'muad_csrf'})` → 下拉退出 → 断言 Toast 可见、URL 仍 `/`（未被误判为登出成功）、`account-menu` 仍在、**`pageerror` 为空**。修复：`AuthContext.logout` 在请求失败时保持登录态并吞掉 rejection（错误已由 ApiClient 统一 Toast，且不误清 account）。 | 真实 Chromium + 真实 Console（真实 CSRF 双提交校验）+ 真实 403。 | verified |
+| RULE-ui-001 | 承接（原 verifier），无 RED。 | verifier argv 全过：shell/style 契约 **9 passed** + `npm run build` ✓。 | 原 verifier 断言（骨架、固定十项菜单、样式契约）+ 本任务新增的角色展示源码契约 | 真实仓库脚本 + 真实 vite build。 | verified |
+| RULE-ui-detail-001 | 承接，无 RED。 | verifier argv 全过：`test_detail_sidesheet_contract.py` passed + `npm run typecheck` 无错误。 | 原 verifier 断言（本模块无详情页；后续账号管理须复用公共 `DetailSideSheet`） | 真实仓库脚本 + 真实 tsc。 | verified |
+| RULE-time-001 | 承接，无 RED。 | verifier argv 全过：`test_datetime_contract.py` passed + `pytest -k schema_parity` **35 passed**。 | 原 verifier 断言（时间展示口径 `YYYY-MM-DD HH:mm:ss`、`timestamptz`） | 真实仓库脚本 + 真实 PostgreSQL 系统目录。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+1. **S-09 是本任务唯一的实现缺口（真实 RED）**：设计 FEAT-FE-05 要求 Header 展示 `display_name · 角色`，基线只显示显示名，`auth.role.admin/builder` 词条无人消费（TASK-010 已登记待办）。本任务在 `layout/AppLayout.tsx` 补上角色节点（`data-testid="account-role"`，文案经 `auth.role.*` 动态键）并在 `styles/app.css` 加 `.app-user-role` 样式；TASK-010 的孤儿判定随之对 `auth.*` 重新生效。
+2. **E-12 是本任务发现的实现缺陷（真实 RED）**：失败路径留下未捕获异常，违反「不静默吞错/不留未捕获异常」；已按「失败保持登录态 + 错误交由统一 Toast」修复，并以 `pageerror` 断言钉死。
+3. **凭据入口的边界（显式登记，未在本任务改动）**：design FEAT-FE-04 声明「凭据类入口仅 ADMIN，前端隐藏 + **后端 403 兜底**」。实测现状：**前端隐藏（04 模块 project-platform）与后端 403 兜底都不存在**——`api/router.py` 把 `credentials_router` 挂在 `authenticated` 组（`get_current_account` + `require_csrf`），而 `require_admin` 只覆盖 `accounts`/`users` 两组；`api/credentials.py` 内亦无角色判定。design §2.2 把前端隐藏划给 04 模块（本模块只提供 `RequireRole` 守卫与依赖），故本任务**未改动 04 的鉴权行为**（跨模块安全边界，需 04 的 owner 决策）；S-12 只断言本模块拥有的菜单/路由差异与用户接口的后端兜底。
+4. **S-14 的范围限定**：按 checklist 自注，`last_login_at` 的列表展示与时间格式随账号管理页面迭代，本需求不在范围——此处只验证守卫部分（ADMIN 可进、BUILDER 重定向且不触发数据请求）。
+- S-09: e2e_deferred — automated command e2e_deferred; run_id=7a58c75493db4b7889fae2002b9b62fe (confirmed_by: runner)
+- S-10: e2e_deferred — automated command e2e_deferred; run_id=7a58c75493db4b7889fae2002b9b62fe (confirmed_by: runner)
+- S-12: e2e_deferred — automated command e2e_deferred; run_id=7a58c75493db4b7889fae2002b9b62fe (confirmed_by: runner)
+- S-13: e2e_deferred — automated command e2e_deferred; run_id=7a58c75493db4b7889fae2002b9b62fe (confirmed_by: runner)
+- S-14: verified — automated command passed; run_id=7a58c75493db4b7889fae2002b9b62fe (confirmed_by: runner)
+- E-11: verified — automated command passed; run_id=7a58c75493db4b7889fae2002b9b62fe (confirmed_by: runner)
+- E-12: verified — automated command passed; run_id=7a58c75493db4b7889fae2002b9b62fe (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=7a58c75493db4b7889fae2002b9b62fe (confirmed_by: runner)
+- S-09: e2e_deferred — automated command e2e_deferred; run_id=d1d477788f854b6a9d9805c062ee9cef (confirmed_by: runner)
+- S-10: e2e_deferred — automated command e2e_deferred; run_id=d1d477788f854b6a9d9805c062ee9cef (confirmed_by: runner)
+- S-12: e2e_deferred — automated command e2e_deferred; run_id=d1d477788f854b6a9d9805c062ee9cef (confirmed_by: runner)
+- S-13: e2e_deferred — automated command e2e_deferred; run_id=d1d477788f854b6a9d9805c062ee9cef (confirmed_by: runner)
+- S-14: verified — automated command passed; run_id=d1d477788f854b6a9d9805c062ee9cef (confirmed_by: runner)
+- E-11: verified — automated command passed; run_id=d1d477788f854b6a9d9805c062ee9cef (confirmed_by: runner)
+- E-12: verified — automated command passed; run_id=d1d477788f854b6a9d9805c062ee9cef (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=d1d477788f854b6a9d9805c062ee9cef (confirmed_by: runner)
 
 ### Log
 - [2026-09-27] created (draft)
 
 ---
-
+- [2026-09-27] started
+- [2026-09-27] completed (done)
 ## TASK-012: 前端 E2E 验收与收口
 
 - **Status**: draft

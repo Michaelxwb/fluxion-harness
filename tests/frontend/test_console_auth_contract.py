@@ -132,12 +132,11 @@ def test_b05_auth_entries_are_complete_in_both_locales() -> None:
 
 
 def test_b05_auth_key_sets_are_identical_and_all_referenced() -> None:
-    """[B-05] 两侧 `login.*`/`auth.*` 键集一致；本任务拥有的 `login.*` 无多余词条。
+    """[B-05] 两侧 `login.*`/`auth.*` 键集一致；两条命名空间的词条都有真实消费点。
 
-    孤儿判定只覆盖 `login.*`（本任务的交付面）。`auth.role.admin`/`auth.role.builder` 是设计
-    FEAT-FE-05 要求的角色展示词条，由**壳层 Header** 的 `display_name · 角色` 消费——该 Header
-    属 TASK-011（登录页/守卫/角色过滤/退出）的实现面，本任务阶段尚未引用，故不计为孤儿；
-    `auth.logout` 已在 `layout/AppLayout.tsx` 被引用（见下方非空过断言）。
+    消费点分两类：静态 `t('key')`（本模块源码 + 壳层）与**动态键**（壳层按角色拼
+    `auth.role.${...}`）。TASK-010 阶段 `auth.role.*` 尚无消费点，故当时只把 `login.*` 纳入
+    孤儿判定并登记待办；TASK-011 补上 Header 角色展示后，`auth.*` 一并纳入。
     """
     zh, en = _locales()
     prefixes = ("login.", "auth.")
@@ -148,13 +147,56 @@ def test_b05_auth_key_sets_are_identical_and_all_referenced() -> None:
         f"键集不一致：仅 zh-CN={sorted(zh_keys - en_keys)}；仅 en-US={sorted(en_keys - zh_keys)}"
     )
 
-    # 非空过：角色词条确实存在（TASK-011 依赖它们），且退出词条已被壳层引用
+    # 非空过：角色词条确实存在，且退出词条已被壳层引用
     assert {"auth.role.admin", "auth.role.builder", "auth.logout"} <= zh_keys
     assert "auth.logout" in _shell_referenced_keys(), "auth.logout 应已由壳层 Header 引用"
 
-    referenced = _referenced_keys()
-    orphans = sorted(key for key in zh_keys if key.startswith("login.") and key not in referenced)
-    assert not orphans, f"login.* 词条无人引用（多余词条）：{orphans}"
+    referenced = _referenced_keys() | _shell_referenced_keys()
+    # 动态键：壳层按角色拼接，静态扫描看不到，故按模板存在性判定其枚举变体已被消费
+    if "auth.role.${" in _read(SHELL):
+        referenced |= {f"auth.role.{role}" for role in ("admin", "builder")}
+
+    orphans = sorted(key for key in zh_keys if key not in referenced)
+    assert not orphans, f"词条无人引用（多余词条）：{orphans}"
+
+
+def test_b04_login_form_validates_required_fields_before_requesting() -> None:
+    """[B-04] 用户名/密码必填：空值只给字段级提示，**不发起**登录请求。
+
+    口径落在「提交是否经过表单校验」而非「有没有 rules 字符串」：Semi 的 `<Form onSubmit>` 只在
+    校验通过后触发，`htmlType="submit"` 让按钮点击走同一条校验路径；若有人改成按钮 `onClick`
+    直连 `login()`，空表单就会真的发请求，本断言立刻失败。
+    """
+    page = _compact(_read(LOGIN_PAGE))
+    assert 'field="username"' in page and 'field="password"' in page
+    assert "rules={[{required:true,message:t('login.usernameRequired')}]}" in page, "用户名为空须给字段级提示"
+    assert "rules={[{required:true,message:t('login.passwordRequired')}]}" in page, "密码为空须给字段级提示"
+    assert 'type="password"' in page, "密码框须为 password 类型（不明文回显）"
+
+    assert "onSubmit={" in page, "提交必须经 Form 校验（校验不过不发请求）"
+    assert 'htmlType="submit"' in page, "提交按钮须走表单 submit 路径"
+    assert "onClick=" not in page, "提交按钮不得用 onClick 直连 login，绕过必填校验"
+    assert "awaitlogin(values.username,values.password)" in page, "登录请求只能出现在校验通过的提交路径里"
+
+    zh, en = _locales()
+    for key in ("login.usernameRequired", "login.passwordRequired"):
+        assert key in zh and key in en, f"字段级提示须来自词条：{key}"
+
+
+def test_shell_header_shows_role_with_display_name() -> None:
+    """[S-09] 壳层 Header 展示 `display_name · 角色`，角色文案走 `auth.role.*`（设计 FEAT-FE-05）。"""
+    shell = _compact(_read(SHELL))
+    assert "app-user-name" in shell, "Header 须展示显示名"
+    assert 'data-testid="account-role"' in shell, "Header 须有角色展示节点（供断言与可访问性）"
+    assert "t(`auth.role.${account.role.toLowerCase()}`)" in shell, (
+        "角色文案须经 auth.role.* 词条，不得裸渲染 ADMIN/BUILDER"
+    )
+
+    zh, en = _locales()
+    for role in ("ADMIN", "BUILDER"):
+        key = f"auth.role.{role.lower()}"
+        assert key in zh and key in en, f"缺角色词条 {key}"
+        assert zh[key] != role and en[key] != role, f"{key} 是裸枚举码，未本地化"
 
 
 def test_only_api_layer_reaches_the_http_client() -> None:

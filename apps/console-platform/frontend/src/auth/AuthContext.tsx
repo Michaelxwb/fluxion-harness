@@ -54,7 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await logoutRequest();
+    try {
+      await logoutRequest();
+    } catch {
+      // 退出失败（如 CSRF 令牌缺失 → 403）时保持登录态：会话仍有效，误清账号会伪装成已登出。
+      // 失败文案已由 ApiClient 响应拦截器统一 Toast；这里吞掉 rejection 是为了不留下未捕获异常。
+      return;
+    }
     setAccount(null);
   }, []);
 

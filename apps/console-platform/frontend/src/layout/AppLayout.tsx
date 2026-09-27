@@ -87,6 +87,9 @@ export function AppLayout() {
                 {(account?.display_name ?? '?').slice(0, 1).toUpperCase()}
               </span>
               <span className="app-user-name">{account?.display_name ?? t('common.loading')}</span>
+              <span className="app-user-role" data-testid="account-role">
+                {account === null ? '' : t(`auth.role.${account.role.toLowerCase()}`)}
+              </span>
             </Button>
           </Dropdown>
         </div>

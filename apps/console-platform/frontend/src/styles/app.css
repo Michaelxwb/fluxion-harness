@@ -166,6 +166,14 @@ body {
   white-space: nowrap;
 }
 
+/* 角色与显示名同排展示（设计 FEAT-FE-05：`display_name · 角色`） */
+.app-user-role {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--semi-color-text-3);
+  white-space: nowrap;
+}
+
 .app-topbar {
   display: flex;
   align-items: center;

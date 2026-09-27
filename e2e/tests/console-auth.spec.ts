@@ -223,3 +223,143 @@ test('S-11 切换到 English 后登录失败的业务错误与页面文案均为
   await expect(page.getByText('Console Sign In')).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('muad.locale'))).toBe('en-US');
 });
+
+test('S-09 登录成功进入概览、Header 显示显示名与角色、请求带 X-Locale/X-Request-Id/X-CSRF-Token', async ({ page }) => {
+  const loginRequest = page.waitForRequest((request) =>
+    request.url().includes('/api/v1/auth/login')
+  );
+  await page.goto('/login');
+  await page.locator('input').nth(0).fill(ADMIN_USERNAME);
+  await page.locator('input').nth(1).fill(ADMIN_PASSWORD);
+  await page.locator('button[type=submit]').click();
+
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator('.semi-navigation-item-selected')).toContainText('概览');
+
+  // 登录请求本身此时还没有 muad_csrf（Cookie 由登录响应签发），故三头中的 CSRF 在登录后请求上断言
+  const request = await loginRequest;
+  expect(request.headers()['x-locale']).toBe('zh-CN');
+  expect(request.headers()['x-request-id']).toBeTruthy();
+
+  await expect(page.getByTestId('account-menu')).toContainText('Browser Admin');
+  await expect(page.getByTestId('account-role')).toHaveText('管理员');
+
+  const meRequest = page.waitForRequest((request) => request.url().includes('/api/v1/auth/me'));
+  await page.reload();
+  const me = await meRequest;
+  expect(me.headers()['x-locale']).toBe('zh-CN');
+  expect(me.headers()['x-request-id']).toBeTruthy();
+  expect(me.headers()['x-csrf-token']).toBeTruthy();
+});
+
+test('S-10 刷新时先出现启动 Spin，/me 成功后回到原路由且全程不闪回登录页', async ({ page }) => {
+  const admin = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(admin.status(), await admin.text()).toBe(200);
+  await page.goto('/agents');
+  await expect(page).toHaveURL(/\/agents/);
+
+  const visited: string[] = [];
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) visited.push(new URL(frame.url()).pathname);
+  });
+
+  // 拖住 /me，让启动加载态可被确定性观测（否则 Spin 可能在断言执行前就消失）
+  await page.route('**/api/v1/auth/me', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.continue();
+  });
+
+  await page.reload();
+  await expect(page.locator('.semi-spin')).toBeVisible();
+  await expect(page).toHaveURL(/\/agents/);
+  await expect(page.locator('.semi-navigation-item-selected')).toContainText('Agent');
+  expect(visited).not.toContain('/login');
+});
+
+test('S-12 ADMIN 与 BUILDER 的菜单/路由差异：用户入口仅 ADMIN', async ({ page }) => {
+  const admin = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(admin.status(), await admin.text()).toBe(200);
+  await page.goto('/');
+  await expect(page.locator('.semi-navigation-item', { hasText: '用户' })).toBeVisible();
+  await page.goto('/users');
+  await expect(page).toHaveURL(/\/users/);
+
+  const builder = await loginAs(page, BUILDER_USERNAME, BUILDER_PASSWORD);
+  expect(builder.status(), await builder.text()).toBe(200);
+  await page.goto('/');
+  await expect(page.locator('.semi-navigation-item', { hasText: '用户' })).toHaveCount(0);
+
+  // 后端兜底：用户接口位于 admin 路由组，BUILDER 直连被拒
+  const forbidden = await page.request.get('/api/v1/users');
+  expect(forbidden.status()).toBe(403);
+});
+
+test('S-13 Header 下拉退出返回 /login，再访问受保护路由仍跳登录页', async ({ page }) => {
+  const admin = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(admin.status(), await admin.text()).toBe(200);
+  await page.goto('/');
+
+  await page.getByTestId('account-menu').click();
+  await page.getByText('退出登录').click();
+  await expect(page).toHaveURL(/\/login/);
+
+  await page.goto('/agents');
+  await expect(page).toHaveURL(/\/login/);
+});
+
+test('S-14 ADMIN 可进 /users；BUILDER 被重定向且不发起该页数据请求', async ({ page }) => {
+  const admin = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(admin.status(), await admin.text()).toBe(200);
+  await page.goto('/users');
+  await expect(page).toHaveURL(/\/users/);
+  await expect(page.getByText('用户管理')).toBeVisible();
+
+  const builder = await loginAs(page, BUILDER_USERNAME, BUILDER_PASSWORD);
+  expect(builder.status(), await builder.text()).toBe(200);
+  const userRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/v1/users')) {
+      userRequests.push(request.url());
+    }
+  });
+  await page.goto('/users');
+  await expect(page).toHaveURL(/\/$/);
+  expect(userRequests, 'BUILDER 不得触发该页数据请求').toEqual([]);
+});
+
+test('E-11 BUILDER 直接输入 /users 被重定向到 / 且不发起该页数据请求', async ({ page }) => {
+  const builder = await loginAs(page, BUILDER_USERNAME, BUILDER_PASSWORD);
+  expect(builder.status(), await builder.text()).toBe(200);
+
+  const userRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/v1/users')) {
+      userRequests.push(request.url());
+    }
+  });
+
+  await page.goto('/');
+  await page.goto('/users');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator('.semi-navigation-item-selected')).toContainText('概览');
+  expect(userRequests, '越权重定向不得触发数据请求').toEqual([]);
+});
+
+test('E-12 CSRF 缺失时退出登录被 403 拒绝：Toast 提示且不误显示成功态', async ({ page }) => {
+  const uncaught: string[] = [];
+  page.on('pageerror', (error) => uncaught.push(String(error)));
+
+  const admin = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(admin.status(), await admin.text()).toBe(200);
+  await page.goto('/');
+
+  // 模拟 CSRF Cookie 缺失/过期：会话仍在，双提交令牌不在
+  await page.context().clearCookies({ name: 'muad_csrf' });
+  await page.getByTestId('account-menu').click();
+  await page.getByText('退出登录').click();
+
+  await expect(page.locator('.semi-toast-content')).toBeVisible();
+  await expect(page).toHaveURL(/\/$/, { timeout: 5000 });
+  await expect(page.getByTestId('account-menu')).toBeVisible();
+  expect(uncaught, '失败路径不得留下未捕获异常').toEqual([]);
+});
