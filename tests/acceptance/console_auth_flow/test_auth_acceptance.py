@@ -7,9 +7,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import sqlalchemy as sa
 from httpx import AsyncClient
@@ -260,3 +262,109 @@ async def test_b03_cross_tenant_duplicate_username_requires_tenant_header(
                 sa.delete(ConsoleAccount).where(ConsoleAccount.tenant_id == other_tenant)
             )
             await session.commit()
+
+
+# ---- TASK-004：会话链（S-02/E-03/B-02）----
+
+# 边界取样用 ±5s 而非"恰好"：会话在请求前写入、请求后回读，wall-clock 必然流逝；
+# 若取恰好 6h，读回时剩余必已 <6h 而触发续期，断言会变成与执行速度耦合的 flaky 用例。
+BOUNDARY_ABOVE = timedelta(hours=6, seconds=5)
+BOUNDARY_BELOW = timedelta(hours=6, seconds=-5)
+
+
+async def _issue_session(account_id: uuid.UUID, *, remaining: timedelta) -> str:
+    token = secrets.token_urlsafe(32)
+    now = datetime.now(UTC)
+    async with get_session_factory()() as session:
+        session.add(
+            ConsoleSession(
+                account_id=account_id,
+                token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest(),
+                issued_at=now,
+                expires_at=now + remaining,
+                last_seen_at=now,
+            )
+        )
+        await session.commit()
+    return token
+
+
+async def _session_state(token: str) -> ConsoleSession | None:
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    async with get_session_factory()() as session:
+        return await session.scalar(
+            sa.select(ConsoleSession).where(ConsoleSession.token_hash == digest)
+        )
+
+
+async def _me(client: AsyncClient, auth: AuthContext, token: str):
+    # 用显式 Cookie 头而非 per-request cookies=（后者已被 httpx 标记弃用）
+    return await client.get(
+        "/api/v1/auth/me",
+        headers={**tenant_headers(auth), "Cookie": f"muad_session={token}"},
+    )
+
+
+async def test_s02_sliding_renewal_extends_expiry_when_under_half(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[S-02] 剩余 <6h 的会话调 `/auth/me` → 续期为 now+12h 且 `last_seen_at` 更新。"""
+    token = await _issue_session(auth.builder_id, remaining=timedelta(hours=3))
+    before = await _session_state(token)
+    assert before is not None
+
+    response = await _me(client, auth, token)
+    assert response.status_code == 200
+    assert response.json()["data"]["id"] == str(auth.builder_id)
+
+    after = await _session_state(token)
+    assert after is not None
+    assert after.expires_at > before.expires_at, "剩余 <6h 必须续期"
+    remaining_after = after.expires_at - datetime.now(UTC)
+    assert timedelta(hours=11) < remaining_after <= timedelta(hours=12), "续期目标应为 now+12h"
+    assert after.last_seen_at >= before.last_seen_at
+
+
+async def test_e03_expired_revoked_and_unknown_tokens_are_unauthorized(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[E-03] 过期、已撤销、未知令牌访问 `/me` 一律 401 `UNAUTHORIZED`，封套含 `trace_id`。"""
+    expired = await _issue_session(auth.builder_id, remaining=timedelta(hours=-1))
+    revoked = await _issue_session(auth.builder_id, remaining=timedelta(hours=3))
+    digest = hashlib.sha256(revoked.encode("utf-8")).hexdigest()
+    async with get_session_factory()() as session:
+        row = await session.scalar(
+            sa.select(ConsoleSession).where(ConsoleSession.token_hash == digest)
+        )
+        assert row is not None
+        row.revoked_at = datetime.now(UTC)
+        await session.commit()
+
+    for label, token in (("过期", expired), ("已撤销", revoked), ("未知", "unknown-token-xyz")):
+        response = await _me(client, auth, token)
+        assert response.status_code == 401, f"{label}令牌应为 401"
+        body = response.json()
+        assert body["code"] == "UNAUTHORIZED", label
+        assert body["trace_id"], f"{label}令牌的封套须含 trace_id"
+
+
+async def test_b02_six_hour_boundary_renews_only_below(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[B-02] 剩余略多于 6h **不**续期；略少于 6h **续期**（阈值取临界两侧，见上方取样说明）。"""
+    above = await _issue_session(auth.builder_id, remaining=BOUNDARY_ABOVE)
+    before_above = await _session_state(above)
+    assert before_above is not None
+    assert (await _me(client, auth, above)).status_code == 200
+    after_above = await _session_state(above)
+    assert after_above is not None
+    assert after_above.expires_at == before_above.expires_at, "剩余 >6h 不应续期"
+    assert after_above.last_seen_at >= before_above.last_seen_at, "但仍应更新活跃时间"
+
+    below = await _issue_session(auth.builder_id, remaining=BOUNDARY_BELOW)
+    before_below = await _session_state(below)
+    assert before_below is not None
+    assert (await _me(client, auth, below)).status_code == 200
+    after_below = await _session_state(below)
+    assert after_below is not None
+    assert after_below.expires_at > before_below.expires_at, "剩余 <6h 应续期"

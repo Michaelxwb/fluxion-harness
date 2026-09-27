@@ -54,7 +54,7 @@
       "kind": "functional",
       "boundary": "Service → 真实 PostgreSQL（会话续期）",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -66,7 +66,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "95eb9e01841b4c02a83438c3714b76b7",
+        "executed_at": "2026-09-27T07:18:58.304522+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "591d55dbbb164b2c86a1541e62c548be",
+          "executed_at": "2026-09-27T07:02:14.682699+00:00"
+        },
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "95eb9e01841b4c02a83438c3714b76b7",
+          "executed_at": "2026-09-27T07:18:58.304522+00:00"
+        }
+      ]
     },
     {
       "id": "S-03",
@@ -419,7 +449,7 @@
       "kind": "functional",
       "boundary": "API → 真实 PostgreSQL（会话失效）",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -431,7 +461,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "95eb9e01841b4c02a83438c3714b76b7",
+        "executed_at": "2026-09-27T07:18:58.304522+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "591d55dbbb164b2c86a1541e62c548be",
+          "executed_at": "2026-09-27T07:02:14.682699+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "95eb9e01841b4c02a83438c3714b76b7",
+          "executed_at": "2026-09-27T07:18:58.304522+00:00"
+        }
+      ]
     },
     {
       "id": "E-04",
@@ -741,7 +801,7 @@
       "kind": "functional",
       "boundary": "Service → 真实 PostgreSQL（剩余 6h / <6h 临界）",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -753,7 +813,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "95eb9e01841b4c02a83438c3714b76b7",
+        "executed_at": "2026-09-27T07:18:58.304522+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "591d55dbbb164b2c86a1541e62c548be",
+          "executed_at": "2026-09-27T07:02:14.682699+00:00"
+        },
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "95eb9e01841b4c02a83438c3714b76b7",
+          "executed_at": "2026-09-27T07:18:58.304522+00:00"
+        }
+      ]
     },
     {
       "id": "B-03",

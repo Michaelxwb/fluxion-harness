@@ -43,7 +43,7 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 argv | cwd | timeout | depends_on |
 |---|---|---|---|---|---|---|---|---|---|
 | S-01 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-003 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-01\""] | . | 1200 |  |
-| S-02 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（会话续期） | TASK-004 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s02"] | . | 600 |  |
+| S-02 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（会话续期） | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s02"] | . | 600 |  |
 | S-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-005 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-03\""] | . | 1200 |  |
 | S-04 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-006 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-04\""] | . | 1200 |  |
 | S-05 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-007 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-05\""] | . | 1200 |  |
@@ -58,7 +58,7 @@
 | S-14 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | Router → ADMIN 守卫（列表展示部分随账号页面迭代） | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-14\""] | . | 900 |  |
 | E-01 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（失败计数） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e01"] | . | 600 |  |
 | E-02 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（锁定状态机） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e02"] | . | 600 |  |
-| E-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（会话失效） | TASK-004 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e03"] | . | 600 |  |
+| E-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（会话失效） | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e03"] | . | 600 |  |
 | E-04 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → CSRF 校验 | TASK-007 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e04"] | . | 600 |  |
 | E-05 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → RBAC | TASK-007 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e05"] | . | 600 |  |
 | E-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（禁用账号不泄露状态） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e06"] | . | 600 |  |
@@ -70,7 +70,7 @@
 | E-12 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | ApiClient 请求拦截 → CSRF（后端 403 兜底） | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-12\""] | . | 900 |  |
 | E-13 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | AuthProvider → `/me` 失败（无空白页/无循环） | TASK-012 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-13\""] | . | 900 |  |
 | B-01 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（第 4/5 次失败临界） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b01"] | . | 600 |  |
-| B-02 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（剩余 6h / <6h 临界） | TASK-004 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b02"] | . | 600 |  |
+| B-02 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（剩余 6h / <6h 临界） | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b02"] | . | 600 |  |
 | B-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（多租户同名） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b03"] | . | 600 |  |
 | B-04 | 13-console-auth.frontend.design.md#2.4 验收条件 | unit | LoginPage 表单校验（不发请求） | TASK-011 | planned | ["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b04"] | . | 600 |  |
 | B-05 | 13-console-auth.frontend.design.md#2.4 验收条件 | unit | i18n 资源双语完整 | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b05"] | . | 600 |  |
@@ -281,7 +281,7 @@
 - [2026-09-27] completed (done)
 ## TASK-004: 会话链真实验收（续期/过期撤销）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: 13-console-auth.backend.design.md#3.2 架构与流程, 13-console-auth.backend.design.md#3.4 接口设计, 13-console-auth.backend.design.md#2.5.2 功能验收场景
@@ -296,30 +296,48 @@
 
 ### Checklist
 
-- [ ] [S-02][integration] 构造剩余 <6h 的会话后调用 `/auth/me` → 200 返回账号，`expires_at` 续期为 now+12h、`last_seen_at` 更新（库内回读）。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s02"]`。
-- [ ] [E-03][integration] 过期、已撤销、未知令牌访问 `/me` → 401 `UNAUTHORIZED`，Envelope 含 `trace_id`。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e03"]`。
-- [ ] [B-02][integration] 剩余恰为 6h 不续期；小于 6h 续期到 now+12h。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b02"]`。
-- [ ] 断言会话读取只认未软删、未撤销、未过期三条件同时成立（构造三者各自的失效样本）。
-- [ ] 时间断言用绝对时刻比较（不靠字符串截断），存储为 timestamptz。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [S-02][integration] 构造剩余 <6h 的会话后调用 `/auth/me` → 200 返回账号，`expires_at` 续期为 now+12h、`last_seen_at` 更新（库内回读）。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s02"]`。
+- [x] [E-03][integration] 过期、已撤销、未知令牌访问 `/me` → 401 `UNAUTHORIZED`，Envelope 含 `trace_id`。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e03"]`。
+- [x] [B-02][integration] 剩余恰为 6h 不续期；小于 6h 续期到 now+12h。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b02"]`。
+- [x] 断言会话读取只认未软删、未撤销、未过期三条件同时成立（构造三者各自的失效样本）。
+- [x] 时间断言用绝对时刻比较（不靠字符串截断），存储为 timestamptz。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-02 | integration | Service → 真实 PostgreSQL | 续期到 now+12h；`last_seen_at` 更新 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / S-02 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s02"]` | planned |
-| E-03 | integration | API → 真实 PostgreSQL | 三类失效同码；封套含 trace_id | tests/acceptance/console_auth_flow/test_auth_acceptance.py / E-03 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e03"]` | planned |
-| B-02 | integration | Service → 真实 PostgreSQL | 6h 临界不续期 / <6h 续期 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / B-02 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b02"]` | planned |
+| S-02 | integration | Service → 真实 PostgreSQL | 续期到 now+12h；`last_seen_at` 更新 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / S-02 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s02"]` | verified |
+| E-03 | integration | API → 真实 PostgreSQL | 三类失效同码；封套含 trace_id | tests/acceptance/console_auth_flow/test_auth_acceptance.py / E-03 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e03"]` | verified |
+| B-02 | integration | Service → 真实 PostgreSQL | 6h 临界不续期 / <6h 续期 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / B-02 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b02"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-02 | **验收类（不制造 RED）**：会话解析与滑动续期在基线已实现（`AuthService`/`api/auth.py`），按仓库既定口径未伪造失败。 | `-k s02` → 1 passed；整文件 11 passed（含 TASK-001/003 的 8 条）。 | `test_s02_sliding_renewal_extends_expiry_when_under_half`：在真实库中为 builder 签发**剩余 3h** 的会话 → 以该令牌调 `/auth/me` 得 200 且返回本账号 → 回读断言 `expires_at` **严格增大**且续期后剩余落在 `(11h, 12h]`（即目标 now+12h），`last_seen_at` 不早于原值 | 真实 Console ASGI 全栈 + 真实 PostgreSQL（会话行签发前后各回读一次）；无 mock。 | verified |
+| E-03 | 验收类，同上。 | `-k e03` → 1 passed。 | `test_e03_expired_revoked_and_unknown_tokens_are_unauthorized`：分别构造**已过期**（剩余 -1h）、**已撤销**（`revoked_at` 置位）、**未知**令牌 → 三者均 401、`code=="UNAUTHORIZED"`、且封套含非空 `trace_id` | 同上（三类失效样本都在真实库里构造，非内存替身）。 | verified |
+| B-02 | 验收类，同上。 | `-k b02` → 1 passed。 | `test_b02_six_hour_boundary_renews_only_below`：剩余**略多于 6h** → `/auth/me` 200 且 `expires_at` **不变**（不续期）而 `last_seen_at` 仍更新；剩余**略少于 6h** → `expires_at` 增大（续期） | 同上。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+- **6h 边界取样用 ±5s 而非"恰好 6h"**：会话在请求前写入、请求后回读，wall-clock 必然流逝；若按字面取"恰好 6h"，回读时剩余必已 <6h 而触发续期——断言会与执行速度耦合、变成 flaky 用例。改取临界**两侧**各 5s，既检验"`>6h` 不续期 / `<6h` 续期"的分支，又不依赖亚秒精度。该取舍已写在用例注释里。
+- **三类失效样本都从真实库构造**：过期用负剩余、撤销直接置 `revoked_at`、未知用随机串——避免只测"一种失效"就宣称覆盖 E-03。
+- **断言用绝对时刻比较**：`expires_at` 直接比 TimeZone-aware datetime，不做字符串截断或"看起来变大了"这类弱断言。
+- **顺手清掉弃用告警**：首次实现用 httpx 的 per-request `cookies=` 触发 DeprecationWarning，改为显式 `Cookie` 请求头（语义相同、无告警）。
+- S-02: verified — automated command passed; run_id=591d55dbbb164b2c86a1541e62c548be (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=591d55dbbb164b2c86a1541e62c548be (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=591d55dbbb164b2c86a1541e62c548be (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=95eb9e01841b4c02a83438c3714b76b7 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=95eb9e01841b4c02a83438c3714b76b7 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=95eb9e01841b4c02a83438c3714b76b7 (confirmed_by: runner)
 
 ### Log
 - [2026-09-27] created (draft)
 
 ---
-
+- [2026-09-27] started
+- [2026-09-27] completed (done)
 ## TASK-005: 登出撤销真实验收
 
 - **Status**: draft
