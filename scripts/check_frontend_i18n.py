@@ -2,6 +2,7 @@
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 root = Path(__file__).resolve().parents[1]
 frontend_dir = root / 'apps/console-platform/frontend'
@@ -14,8 +15,8 @@ T_CALL_RE = re.compile(r"""\bt\(\s*(['"])([A-Za-z0-9_][A-Za-z0-9_.:\-]*)\1""")
 SOURCE_SUFFIXES = ('.ts', '.tsx')
 
 
-def flatten(data, prefix=''):
-    flat = {}
+def flatten(data: dict[str, Any], prefix: str = '') -> dict[str, object]:
+    flat: dict[str, object] = {}
     for key, value in data.items():
         full_key = f'{prefix}.{key}' if prefix else key
         if isinstance(value, dict):
@@ -25,11 +26,11 @@ def flatten(data, prefix=''):
     return flat
 
 
-def compare_locale_files(zh_path, en_path):
+def compare_locale_files(zh_path: Path, en_path: Path) -> tuple[list[str], int]:
     zh = flatten(json.loads(Path(zh_path).read_text(encoding='utf-8')))
     en = flatten(json.loads(Path(en_path).read_text(encoding='utf-8')))
 
-    problems = []
+    problems: list[str] = []
     missing_en = sorted(set(zh) - set(en))
     missing_zh = sorted(set(en) - set(zh))
     if missing_en:
@@ -43,9 +44,9 @@ def compare_locale_files(zh_path, en_path):
     return problems, len(zh)
 
 
-def referenced_keys(search_dir=None):
+def referenced_keys(search_dir: Path | None = None) -> dict[str, list[str]]:
     """扫描前端源码，收集 t('字面量键') 形式的键及其引用位置。"""
-    references = {}
+    references: dict[str, list[str]] = {}
     for path in sorted((search_dir or source_dir).rglob('*')):
         if not path.is_file() or path.suffix not in SOURCE_SUFFIXES:
             continue
@@ -68,10 +69,10 @@ def referenced_keys(search_dir=None):
     return references
 
 
-def compare_source_references(zh_path, search_dir=None):
+def compare_source_references(zh_path: Path, search_dir: Path | None = None) -> list[str]:
     """代码引用的键必须已定义：只比对两侧键集齐平会漏掉“用了但没写进词条”。"""
     zh_keys = set(flatten(json.loads(Path(zh_path).read_text(encoding='utf-8'))))
-    problems = []
+    problems: list[str] = []
     for key, places in sorted(referenced_keys(search_dir).items()):
         if key in zh_keys:
             continue
@@ -79,7 +80,7 @@ def compare_source_references(zh_path, search_dir=None):
     return problems
 
 
-def main():
+def main() -> None:
     problems, key_count = compare_locale_files(locale_dir / 'zh-CN.json', locale_dir / 'en-US.json')
     problems.extend(compare_source_references(locale_dir / 'zh-CN.json'))
     if problems:

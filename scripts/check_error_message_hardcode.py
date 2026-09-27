@@ -21,7 +21,7 @@ violations = []
 for base in [root / 'apps', root / 'packages']:
     for path in base.rglob('*.py'):
         text = path.read_text(encoding='utf-8')
-        matches = []
+        matches: list[tuple[int, str]] = []
         for pattern in (http_detail, hardcoded_msg):
             matches.extend((match.start(), match.group(0)) for match in pattern.finditer(text))
         for match in app_error_literal.finditer(text):

@@ -93,4 +93,7 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-exclude = ["frontend", "apps/console-platform/frontend"]
+# tests/ 不在 strict mypy 范围内（muad_* 包未提供 py.typed、测试不做全量注解）；
+# migrations/versions/ 为 alembic 自动生成（同 ruff 的 extend-exclude 口径）。
+# 该清单与 .code-flow/validation.yml 的 mypy 触发范围保持一致，避免 `mypy .` 恒红。
+exclude = ["frontend", "apps/console-platform/frontend", "tests", "migrations/versions"]

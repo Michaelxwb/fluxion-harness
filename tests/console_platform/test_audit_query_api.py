@@ -19,7 +19,7 @@ from muad_console_platform.infrastructure.db import get_session_factory
 from sqlalchemy import TextClause, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from console_platform.conftest import TenantContext
+from console_platform.conftest import TenantContext, delete_login_audit_rows
 
 DATE_TIME_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
 
@@ -319,6 +319,7 @@ async def audit_seed(client: AsyncClient, tenant: TenantContext) -> AsyncIterato
         egress_target="customer-service-mgr",
     )
     async with session_factory() as session:
+        await delete_login_audit_rows(session, tenant.tenant_id)
         await _seed(session, tenant, seed)
         await session.commit()
     try:

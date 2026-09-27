@@ -18,7 +18,11 @@ validators:
       on_fail: "检查类型定义，参见 specs/frontend/quality-standards.md"
 
     - name: "Python 类型检查"
-      trigger: "**/*.py"
+      # 触发范围只覆盖 mypy 恒绿的产品代码（apps/packages/scripts，含各根目录下的直属 .py）：
+      # tests/ 从未纳入 strict mypy（muad_* 包未提供 py.typed、测试不做全量注解，实测每个
+      # 测试文件都报错）；migrations/versions/ 为 alembic 自动生成（同 pyproject 的 mypy exclude
+      # 与 ruff 的 extend-exclude 口径）。测试类型由 pytest 契约用例兜底。
+      trigger: "{apps,packages,scripts}/{**,}*.py"
       command: ".venv/bin/python -m mypy {files}"
       timeout: 30000
       on_fail: "检查类型注解，参见 specs/backend/code-quality-performance.md"
@@ -26,6 +30,7 @@ validators:
     - name: "Pytest"
       trigger: "**/*.py"
       command: ".venv/bin/python -m pytest --tb=short -q"
-      # 套件含真实进程验收（uvicorn/子进程/探针/双 Worker），全量实测约 200s；预算取 7 分钟留余量
-      timeout: 420000
+      # 套件含真实进程验收（uvicorn/子进程/探针/双 Worker 等）。2026-09-27 实测
+      # 1562 passed 用时 717s（0:11:57，含 3 例既有失败修复前的状态），预算取 15 分钟留余量。
+      timeout: 900000
       on_fail: "测试失败，检查断言和 mock 是否需要更新"

@@ -14,7 +14,7 @@ from muad_console_platform.infrastructure.models.auth import ROLE_ADMIN, Console
 from muad_console_platform.infrastructure.models.control import ModelDefinition
 from muad_console_platform.main import app
 from sqlalchemy import inspect, text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 SCHEMA = "control"
 AGENT_TABLE = "agent_definition"
@@ -161,3 +161,19 @@ async def client(tenant: TenantContext) -> AsyncIterator[AsyncClient]:
             {"account_id": account_id},
         )
         await session.commit()
+
+
+async def delete_login_audit_rows(session: AsyncSession, tenant_id: str) -> None:
+    """清掉 `client` fixture 真实登录写入的认证审计行（`resource_type='CONSOLE_ACCOUNT'`）。
+
+    审计聚合类用例以「本租户审计行 == 种子行」为前置，而登录审计是 fixture 的认证副作用、
+    不属于其被测对象：不清掉它，租户级 total/集合断言会多出一行。认证审计本身由
+    console-auth 场景自行验证，这里只恢复确定性基线。
+    """
+    await session.execute(
+        text(
+            "DELETE FROM control.config_audit_log "
+            "WHERE tenant_id = :tenant_id AND resource_type = 'CONSOLE_ACCOUNT'"
+        ),
+        {"tenant_id": tenant_id},
+    )

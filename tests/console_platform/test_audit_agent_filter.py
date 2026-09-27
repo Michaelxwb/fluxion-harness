@@ -25,7 +25,7 @@ from muad_console_platform.infrastructure.db import get_session_factory
 from sqlalchemy import TextClause, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from console_platform.conftest import TenantContext
+from console_platform.conftest import TenantContext, delete_login_audit_rows
 
 LIST_PATH = "/api/v1/audits"
 EXPORT_PATH = "/api/v1/audits/exports"
@@ -365,6 +365,7 @@ async def agent_filter_env(
             config_audit_id=uuid.uuid4(),
             artifact_root=tmp_path,
         )
+        await delete_login_audit_rows(session, tenant.tenant_id)
         await _seed(session, tenant, seed)
         await session.commit()
     try:

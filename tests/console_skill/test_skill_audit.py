@@ -88,6 +88,9 @@ async def test_mutations_write_config_audit_rows(
         ("SKILL_USER_GRANT", "DELETE"),
         ("AGENT_SKILL_BINDING", "CREATE"),
         ("AGENT_SKILL_BINDING", "DELETE"),
+        # 认证审计：`client` fixture 在本租户真实登录产生的行（登录写审计后新增），
+        # 不属于本用例的被测对象，但其 actor 恰为本租户管理员（见下方 actor 断言）。
+        ("CONSOLE_ACCOUNT", "LOGIN"),
     }
     assert {row.actor_user_id for row in rows} == {skill_env.admin_id}
     assert all(row.trace_id for row in rows)
