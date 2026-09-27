@@ -53,7 +53,7 @@
 | B-204 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc + 真实构建产物 | TASK-006 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"] | . | 600 |  |
 | B-205 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 | TASK-007 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"] | . | 600 |  |
 | B-206 | 12-overview-dashboard.frontend.design.md#3.2 页面与路由结构 | integration | 前端源码契约（路由表 + 菜单选中）+ 真实构建 | TASK-008 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"] | . | 600 |  |
-| B-207 | 12-overview-dashboard.frontend.design.md#3.5 状态与数据流 | integration | 前端源码契约 + 两侧词条实际内容 + 真实 tsc | TASK-009 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"] | . | 600 |  |
+| B-207 | 12-overview-dashboard.frontend.design.md#3.5 状态与数据流 | integration | 前端源码契约 + 两侧词条实际内容 + 真实 tsc | TASK-009 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"] | . | 600 |  |
 | B-208 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Playwright 配置与 spec 的租户/端口隔离、运行后零残留 | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"] | . | 600 |  |
 | B-209 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | pytest 用例收集/运行→验收 Contract/Evidence→真实组件记录 | TASK-011 | planned | ["uv","run","pytest","-q","tests/overview_dashboard_inventory.py","-k","b209"] | . | 600 |  |
 | RULE-api-001 | 12-overview-dashboard.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP 封套/错误码 + 原 verifier 真实边界 | TASK-001 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_overview_api.py && uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"] | . | 1200 |  |
@@ -480,7 +480,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-27] completed (done)
 ## TASK-009: i18n 词条与语言切换覆盖
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-006
 - **Source**: 12-overview-dashboard.frontend.design.md#3.5 状态与数据流, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
@@ -495,27 +495,39 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 
 ### Checklist
 
-- [ ] [B-207][integration] 以两侧词条实际内容 + 前端源码契约为边界编写用例：断言概览模块全部文案键在 zh-CN 与 en-US 齐平且非空、值真实（非键名回显）、模块源码无硬编码中文；动态键（若有）变体齐备。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"]`。
-- [ ] [RULE-i18n-001][integration] 作为唯一最终负责人，验证 zh-CN/en-US 双侧覆盖与「新增业务只加词条」。verifier argv：`["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]`。
-- [ ] 语言切换安全：组件文案经 `useTranslation()` 每次渲染取得，不缓存译文、不直接 import i18n 实例。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [B-207][integration] 以两侧词条实际内容 + 前端源码契约为边界编写用例：断言概览模块全部文案键在 zh-CN 与 en-US 齐平且非空、值真实（非键名回显）、模块源码无硬编码中文；动态键（若有）变体齐备。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"]`。
+- [x] [RULE-i18n-001][integration] 作为唯一最终负责人，验证 zh-CN/en-US 双侧覆盖与「新增业务只加词条」。verifier argv：`["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]`。
+- [x] 语言切换安全：组件文案经 `useTranslation()` 每次渲染取得，不缓存译文、不直接 import i18n 实例。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-207 | integration | 两侧词条真实内容 + 前端源码契约 | 键集齐平非空、值真实、无硬编码中文、切换即时生效 | tests/frontend/test_overview_i18n_contract.py / B-207 | `["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"]` | planned |
-| RULE-i18n-001 | integration | 原 verifier 真实边界 + 仓库词条检查脚本 | 双侧覆盖；新增业务只加词条；原 verifier 全部通过 | tests/frontend/test_overview_i18n_contract.py + 原 verifier / RULE-i18n-001 | `["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]` | planned |
+| B-207 | integration | 两侧词条真实内容 + 前端源码契约 | 键集齐平非空、值真实、无硬编码中文、切换即时生效 | tests/frontend/test_overview_i18n_contract.py / B-207 | `["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"]` | verified |
+| RULE-i18n-001 | integration | 原 verifier 真实边界 + 仓库词条检查脚本 | 双侧覆盖；新增业务只加词条；原 verifier 全部通过 | tests/frontend/test_overview_i18n_contract.py + 原 verifier / RULE-i18n-001 | `["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-207 | **真实 RED 并抓出一处真实缺口**：首轮 2 failed —— ① `test_language_switch_safety` 误判 `useOverview.ts` 用了 `t(`（实际是 `setData(` 里的子串），测试判定改用词边界；② **`test_dynamic_key_families_are_fully_enumerated` 抓到真问题**：列表色表里有 `SUCCEEDED`，而词条只有 `task.status.COMPLETED` —— 我此前用 inline remap 把 `SUCCEEDED` 硬映射到 `COMPLETED` 文案来掩盖它。**正确修法是补词条、去 remap**（后端实测会返回 `SUCCEEDED`，该状态本就该有自己的文案）。 | 整文件 `uv run pytest -q tests/frontend/test_overview_i18n_contract.py` → **4 passed**；`npx tsc --noEmit` exit 0；i18n checker → `i18n keys OK: 714`（新增 `task.status.SUCCEEDED` 两侧）；`RULE-i18n-001` 原 verifier（foundation i18n + checker）→ **6 passed**；ruff 干净。 | `test_module_keys_exist_in_both_locales_with_real_values`（12 个模块自有词条两侧齐备、非空、**值不等于键名**——防回显）；`test_dynamic_key_families_are_fully_enumerated`（从源码的 `STATUS_COLORS`/`DELIVERY_COLORS`/`TRIGGER_LABELS` 解析出变体，逐一断言两侧有词条——**新增状态漏词条即失败**）；`test_language_switch_safety`（用 `t()` 的文件必须 `useTranslation()`；不得直接 import i18n 实例或把译文塞进 `useMemo/useState/useRef`/模块常量——否则 `changeLanguage` 不重渲染）；`test_no_hardcoded_copy_in_module`（六个模块源文件去注释后无中文硬编码） | 两侧词条**真实内容**（读取并比对，非存在性空转）+ 前端真实源码 + 真实 tsc + 仓库级 checker；无 mock。 | verified |
+| RULE-i18n-001 | 见上（B-207 的 RED 即本规则的取证过程）。 | 原 verifier 复跑通过：`tests/acceptance/test_foundation_i18n.py` **6 passed** + `check_frontend_i18n.py` → `OK: 714`。 | 原 verifier 及其词条对齐断言 | 真实词条文件 + 仓库检查脚本真实输出。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+- **补了 `task.status.SUCCEEDED` 词条**：这不只是让我的用例通过——`task_execution.status` 实测会返回 `SUCCEEDED`（TASK-001 的验收种子里就是它），而词表里只有 `COMPLETED`。原实现用 remap 掩盖，属"看着对、其实把状态显示成另一个词"；现改为该状态有自己的文案，并把 remap 删除。**跨模块词表仍待 task-schedule 模块统一裁定**（该处已在 TASK-007 登记）。
+- **动态键族用"从源码解析变体"而非手写清单**：手写清单会随源码漂移而失守；解析色表/标签表能保证"新增状态必然带动词条检查"。
+- **语言切换安全的判定**：按 i18n 规范断言"渲染期经 hook 取得、不缓存、不直接用实例"，与审计模块的同名用例同口径。
+- B-207: verified — automated command passed; run_id=640005da9c584831954a80d2bde4dea6 (confirmed_by: runner)
+- B-207: verified — automated command passed; run_id=4fb7b6cf619f443297b69f133ac568d4 (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
 
 ---
-
+- [2026-09-27] started
+- [2026-09-27] completed (done)
 ## TASK-010: 前端 E2E 验收
 
 - **Status**: draft

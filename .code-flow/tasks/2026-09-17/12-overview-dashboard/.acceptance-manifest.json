@@ -546,7 +546,7 @@
       "kind": "functional",
       "boundary": "前端源码契约 + 两侧词条实际内容 + 真实 tsc",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -556,7 +556,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-207",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "4fb7b6cf619f443297b69f133ac568d4",
+        "executed_at": "2026-09-27T02:41:13.836865+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-207",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "640005da9c584831954a80d2bde4dea6",
+          "executed_at": "2026-09-27T02:41:04.952785+00:00"
+        },
+        {
+          "id": "B-207",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "4fb7b6cf619f443297b69f133ac568d4",
+          "executed_at": "2026-09-27T02:41:13.836865+00:00"
+        }
+      ]
     },
     {
       "id": "B-208",
