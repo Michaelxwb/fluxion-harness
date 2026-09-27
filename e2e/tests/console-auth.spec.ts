@@ -98,3 +98,38 @@ test('S-03 登出撤销会话并清除 Cookie，已撤销令牌再访问 /me 得
   });
   expect(me.status()).toBe(401);
 });
+
+test('S-04 修改密码成功后旧密码失效、新密码可用（用后即改回，避免影响同文件其它用例）', async ({ page }) => {
+  const rotated = 'console-auth-rotated-password';
+  const loginAsBuilder = async (password: string) =>
+    page.request.post('/api/v1/auth/login', {
+      data: { username: BUILDER_USERNAME, password }
+    });
+
+  const login = await loginAsBuilder(BUILDER_PASSWORD);
+  expect(login.status(), await login.text()).toBe(200);
+  const csrf = (await page.context().cookies()).find((cookie) => cookie.name === 'muad_csrf');
+  expect(csrf, '登录后应有 muad_csrf').toBeTruthy();
+
+  const changed = await page.request.post('/api/v1/auth/password', {
+    data: { current_password: BUILDER_PASSWORD, new_password: rotated },
+    headers: { 'X-CSRF-Token': csrf!.value }
+  });
+  expect(changed.status(), await changed.text()).toBe(200);
+  expect((await changed.json()).data.changed).toBe(true);
+
+  const oldPassword = await loginAsBuilder(BUILDER_PASSWORD);
+  expect(oldPassword.status(), '旧密码必须失效').toBe(401);
+  const newPassword = await loginAsBuilder(rotated);
+  expect(newPassword.status(), '新密码必须可用').toBe(200);
+
+  // 改回原密码：同文件 S-12 仍以 builder 登录，必须还原种子状态
+  const csrf2 = (await page.context().cookies()).find((cookie) => cookie.name === 'muad_csrf');
+  const restored = await page.request.post('/api/v1/auth/password', {
+    data: { current_password: rotated, new_password: BUILDER_PASSWORD },
+    headers: { 'X-CSRF-Token': csrf2!.value }
+  });
+  expect(restored.status(), await restored.text()).toBe(200);
+  const back = await loginAsBuilder(BUILDER_PASSWORD);
+  expect(back.status(), '必须已还原为种子密码').toBe(200);
+});

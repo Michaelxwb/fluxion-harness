@@ -413,3 +413,73 @@ async def test_s03_logout_is_idempotent_at_service_layer(auth: AuthContext) -> N
         await service.logout("unknown-token-xyz")
         await service.logout("")
         await session.commit()
+
+
+# ---- TASK-006：修改密码（S-04 的集成侧证据）----
+
+ROTATED_PASSWORD = "console-rotated-password-123"
+
+
+async def test_s04_change_password_rotates_hash_and_invalidates_old_password(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[S-04] 改密成功 → `{changed:true}`；哈希轮换为 argon2id；旧密码失效、新密码可用。"""
+    before = await _account_state(auth.builder_username)
+    assert before is not None
+
+    response = await login(client, auth, auth.builder_username, BUILDER_PASSWORD)
+    assert response.status_code == 200
+    csrf = client.cookies.get("muad_csrf")
+    assert csrf
+
+    changed = await client.post(
+        "/api/v1/auth/password",
+        json={"current_password": BUILDER_PASSWORD, "new_password": ROTATED_PASSWORD},
+        headers={**tenant_headers(auth), "X-CSRF-Token": csrf},
+    )
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["data"]["changed"] is True
+
+    after = await _account_state(auth.builder_username)
+    assert after is not None
+    assert after.password_hash != before.password_hash, "哈希必须轮换"
+    assert after.password_hash.startswith("$argon2id$"), "必须存 argon2id 哈希"
+
+    # design §2.4 技术债③：V1 不撤销其他既有会话——既有会话仍可用
+    me = await client.get("/api/v1/auth/me", headers=tenant_headers(auth))
+    assert me.status_code == 200, "改密不应撤销既有会话（V1 既定行为）"
+
+    old = await login(client, auth, auth.builder_username, BUILDER_PASSWORD)
+    assert old.status_code == 401, "旧密码必须失效"
+    new = await login(client, auth, auth.builder_username, ROTATED_PASSWORD)
+    assert new.status_code == 200, "新密码必须可用"
+
+
+async def test_s04_short_new_password_and_wrong_current_password_are_rejected(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[S-04] 边界：新密码 <12 位 → 422；当前密码错误 → 401；失败路径不改动密码。"""
+    response = await login(client, auth, auth.builder_username, BUILDER_PASSWORD)
+    assert response.status_code == 200
+    csrf = client.cookies.get("muad_csrf")
+    assert csrf
+    headers = {**tenant_headers(auth), "X-CSRF-Token": csrf}
+
+    short = await client.post(
+        "/api/v1/auth/password",
+        json={"current_password": BUILDER_PASSWORD, "new_password": "too-short"},
+        headers=headers,
+    )
+    assert short.status_code == 422
+    assert short.json()["code"] == "COMMON_VALIDATION_ERROR"
+
+    wrong = await client.post(
+        "/api/v1/auth/password",
+        json={"current_password": "definitely-not-the-password", "new_password": ROTATED_PASSWORD},
+        headers=headers,
+    )
+    assert wrong.status_code == 401
+    assert wrong.json()["code"] == "INVALID_CREDENTIALS"
+
+    still = await login(client, auth, auth.builder_username, BUILDER_PASSWORD)
+    assert still.status_code == 200, "失败路径不得改变密码"

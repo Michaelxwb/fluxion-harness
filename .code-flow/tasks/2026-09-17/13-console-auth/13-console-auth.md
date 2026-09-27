@@ -45,7 +45,7 @@
 | S-01 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-003 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-01\""] | . | 1200 |  |
 | S-02 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（会话续期） | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s02"] | . | 600 |  |
 | S-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-005 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-03\""] | . | 1200 |  |
-| S-04 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-006 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-04\""] | . | 1200 |  |
+| S-04 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-006 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-04\""] | . | 1200 |  |
 | S-05 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-007 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-05\""] | . | 1200 |  |
 | S-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-007 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-06\""] | . | 1200 |  |
 | S-07 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | CLI → 真实 PostgreSQL；真实 lifespan 启动 → 日志 | TASK-008 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s07"] | . | 600 |  |
@@ -391,7 +391,7 @@
 - [2026-09-27] completed (done)
 ## TASK-006: 修改密码真实验收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: 13-console-auth.backend.design.md#3.4 接口设计, 13-console-auth.backend.design.md#2.5.2 功能验收场景
@@ -406,27 +406,38 @@
 
 ### Checklist
 
-- [ ] [S-04][E2E] 以 Browser → Console HTTP → PostgreSQL 真实边界编写用例：登录后带 CSRF 提交 `current_password` + 合规 `new_password` → 200 `{changed:true}`；随后旧密码登录 401 `INVALID_CREDENTIALS`、新密码登录 200。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-04\""]`。
-- [ ] 断言库内 `password_hash` 为新 argon2id 哈希且不等于旧值（真实回读），无明文落库。
-- [ ] 断言容器：新密码 < 12 位 → 422 `COMMON_VALIDATION_ERROR`；当前密码错误 → 401 `INVALID_CREDENTIALS`。
-- [ ] 改密不得撤销其他既有会话（design §2.4 技术债③的 V1 既定行为），以既有会话仍可用为断言。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [S-04][E2E] 以 Browser → Console HTTP → PostgreSQL 真实边界编写用例：登录后带 CSRF 提交 `current_password` + 合规 `new_password` → 200 `{changed:true}`；随后旧密码登录 401 `INVALID_CREDENTIALS`、新密码登录 200。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-04\""]`。
+- [x] 断言库内 `password_hash` 为新 argon2id 哈希且不等于旧值（真实回读），无明文落库。
+- [x] 断言容器：新密码 < 12 位 → 422 `COMMON_VALIDATION_ERROR`；当前密码错误 → 401 `INVALID_CREDENTIALS`。
+- [x] 改密不得撤销其他既有会话（design §2.4 技术债③的 V1 既定行为），以既有会话仍可用为断言。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-04 | E2E | Browser → Console HTTP → PostgreSQL | `{changed:true}`；新旧密码登录结果反转；哈希更新且无明文 | e2e/tests/console-auth.spec.ts / S-04 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-04\""]` | planned |
+| S-04 | E2E | Browser → Console HTTP → PostgreSQL | `{changed:true}`；新旧密码登录结果反转；哈希更新且无明文 | e2e/tests/console-auth.spec.ts / S-04 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-04\""]` | e2e_deferred |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-04 | **验收类（不制造 RED）**：改密链基线已实现；本任务真实记录的是**用例间的状态污染风险**——S-04 会真的改掉某个账号的密码，而同文件后续用例（S-12 以 builder 登录）依赖种子密码，故设计为「用 builder 账号 + 断言完成后**改回原密码**」并在末尾断言还原成功。 | 登记 argv `-g "S-04"` → **1 passed (562ms)**；集成侧 `-k s04` 两条 → 通过（整文件 15 passed）；运行后无 uvicorn/vite/playwright 残留。 | `S-04 修改密码成功后旧密码失效、新密码可用（用后即改回…）`（浏览器）：真实登录 → 带 CSRF 提交正确当前密码 + 合规新密码 → 200 且 `data.changed===true`；**旧密码登录 401**、**新密码登录 200**；随后用新密码改回原密码并断言旧（原）密码重新可用。集成侧 `test_s04_change_password_rotates_hash_and_invalidates_old_password`：除同一链路外，还回读库内 `password_hash` 断言**已轮换**且以 `$argon2id$` 开头，并断言**既有会话仍可用**（design §2.4 技术债③：V1 不撤销其他会话）；`test_s04_short_new_password_and_wrong_current_password_are_rejected`：新密码 <12 位 → 422 `COMMON_VALIDATION_ERROR`、当前密码错误 → 401 `INVALID_CREDENTIALS`，且失败后原密码仍可登录（失败路径不改动密码） | 真实 Chromium + 真实 Console 进程（真实会话与 CSRF）+ 真实 PostgreSQL（`password_hash` 逐行回读比较）。 | e2e_deferred（本地已 GREEN，终验归 verify-e2e） |
+
+**实现中的判断点（如实登记）**：
+
+- **用例自重还原，避免污染同文件其它场景**：E2E spec 以 `workers: 1` 共用一份租户与种子；S-04 若把 builder 密码改成新值就不还原，后续 S-12（ADMIN/BUILDER 菜单差异）会登录失败。故 S-04 用 builder（不动 admin，S-01/S-03/S-13 都依赖 admin）、并在断言完成后**改回原密码**且断言还原成功。这是本仓"共享租户的顺序假设"那类坑的正面处理，而不是靠执行顺序侥幸。
+- **哈希轮换做库内比较而非"看起来变了"**：直接比较改密前后的 `password_hash` 值并断言前缀为 `$argon2id$`，避免只验接口返回而漏掉"其实没写库"。
+- **失败路径也断言副作用为零**：<12 位与当前密码错误两条边界之后，再断言原密码仍能登录——否则一个"失败却已改密"的实现会漏过。**注意**：「不撤销既有会话」在本任务被作为**断言固定下来**，它是 design §2.4 明示的 V1 既定行为（技术债③），若将来改为撤销会话，此断言会如期失败并提醒同步设计。
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=34418a26008c441b9ba9464130fd182f (confirmed_by: runner)
+- S-04: e2e_deferred — automated command e2e_deferred; run_id=affc042eb4cb4e41acaed5b901a142f2 (confirmed_by: runner)
 
 ### Log
 - [2026-09-27] created (draft)
 
 ---
-
+- [2026-09-27] started
+- [2026-09-27] completed (done)
 ## TASK-007: 账号管理与访问控制真实验收
 
 - **Status**: draft
