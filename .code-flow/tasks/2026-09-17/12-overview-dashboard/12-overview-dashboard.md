@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-09-17/12-overview-dashboard/（全部 design：12-overview-dashboard.backend.design.md、12-overview-dashboard.frontend.design.md）
 - **Created**: 2026-09-26
-- **Updated**: 2026-09-26
+- **Updated**: 2026-09-27
 - **Plan-State**: planned（用户已确认写入；各 TASK 保持 draft，功能与 E2E 验收尚未执行）
 
 ## Proposal
@@ -51,7 +51,7 @@
 | B-202 | 12-overview-dashboard.backend.design.md#3.5 质量实现方案 | integration | 真实多进程栈(Console+PostgreSQL)与租户级种子/清理 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/overview/test_environment.py"] | . | 600 |  |
 | B-203 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 + 仓库检查脚本 | TASK-005 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_services_contract.py"] | . | 600 |  |
 | B-204 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc + 真实构建产物 | TASK-006 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_page_contract.py"] | . | 600 |  |
-| B-205 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 | TASK-007 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"] | . | 600 |  |
+| B-205 | 12-overview-dashboard.frontend.design.md#3.4 组件接口契约 | integration | 前端源码契约 + 真实 tsc 类型检查 | TASK-007 | verified | ["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"] | . | 600 |  |
 | B-206 | 12-overview-dashboard.frontend.design.md#3.2 页面与路由结构 | integration | 前端源码契约（路由表 + 菜单选中）+ 真实构建 | TASK-008 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_routing_contract.py"] | . | 600 |  |
 | B-207 | 12-overview-dashboard.frontend.design.md#3.5 状态与数据流 | integration | 前端源码契约 + 两侧词条实际内容 + 真实 tsc | TASK-009 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_i18n_contract.py"] | . | 600 |  |
 | B-208 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Playwright 配置与 spec 的租户/端口隔离、运行后零残留 | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"] | . | 600 |  |
@@ -377,7 +377,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-26] completed (done)
 ## TASK-007: 最近任务 / 下一批定时 / 运行关系卡片
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-006
 - **Source**: 12-overview-dashboard.frontend.design.md#3.3 组件设计, 12-overview-dashboard.frontend.design.md#3.4 组件接口契约, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
@@ -392,26 +392,37 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 
 ### Checklist
 
-- [ ] [B-205][integration] 以前端源码契约 + 真实 tsc 为边界编写用例：断言两列表各渲染 ≤5 行、主展示字段可打开详情、空态为 `Empty` + 查看全部、`RuntimeRelationCard` 无 props 且为纯静态文案（取自词条）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"]`。
-- [ ] 复用 `StatusTag`（Task 状态/投递状态、Schedule 状态）与 `DateTimeText`（`next_fire_at`/`last_fire_at`/`create_time` 等），不裸渲染枚举值或原始时间串。
-- [ ] 实现或补齐：两个列表的 props 形状与 design §3.4 一致（`onOpenTask/onViewAll`、`onOpenSchedule/onViewAll`）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型。
+- [x] [B-205][integration] 以前端源码契约 + 真实 tsc 为边界编写用例：断言两列表各渲染 ≤5 行、主展示字段可打开详情、空态为 `Empty` + 查看全部、`RuntimeRelationCard` 无 props 且为纯静态文案（取自词条）。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"]`。
+- [x] 复用 `StatusTag`（Task 状态/投递状态、Schedule 状态）与 `DateTimeText`（`next_fire_at`/`last_fire_at`/`create_time` 等），不裸渲染枚举值或原始时间串。
+- [x] 实现或补齐：两个列表的 props 形状与 design §3.4 一致（`onOpenTask/onViewAll`、`onOpenSchedule/onViewAll`）。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；函数 ≤50 行、强类型。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-205 | integration | 前端源码契约 + 真实 tsc | 两列表 ≤5 行、主展示字段入口、空态与查看全部；静态卡片无 props | tests/frontend/test_overview_lists_contract.py / B-205 | `["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"]` | planned |
+| B-205 | integration | 前端源码契约 + 真实 tsc | 两列表 ≤5 行、主展示字段入口、空态与查看全部；静态卡片无 props | tests/frontend/test_overview_lists_contract.py / B-205 | `["uv","run","pytest","-q","tests/frontend/test_overview_lists_contract.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-205 | **真实 RED（两处，均在测试/实现侧暴露而非伪造）**：① 首轮 `test_blocks_are_previews_not_list_pages` 失败——我的**负向断言扫了注释**，而文件文档注释里正提到 `RemoteTable`（说明"为何不用它"），故改为只对**去注释后的代码**做负向断言；② **`tsc` 抓出一处真实类型错误**：`DateTimeText` 不接受 `null`，而 `lastFireAt` 可空（`string | null`）→ 改为空值渲染 `common.empty`。 | 整文件 `uv run pytest -q tests/frontend/test_overview_lists_contract.py` → **6 passed**；`npx tsc --noEmit` **exit 0**；i18n checker → `i18n keys OK: 713`（本轮新增 5 键，列头/状态词条全部复用既有 `task.columns.*`/`task.status.*`/`schedule.columns.*`/`schedule.status.*`）；ruff 干净。 | `test_blocks_are_previews_not_list_pages`（Semi `Table` 且 `pagination={false}`；**不用** `RemoteTable`/`ModuleToolbar`；不在前端 `slice` 截断行数——≤5 由后端 LIMIT 保证）；`test_main_field_opens_detail_via_props`（Task ID / Schedule 名称经 `onOpenTask`/`onOpenSchedule` 上抛，预览块自身不导航——props-in/events-out）；`test_empty_state_and_view_all`（空态用公共 `EmptyState`；「查看全部」在空态与有数据时都可点）；`test_shared_components_reused`（`StatusTag`/`DateTimeText`/`EmptyState` 复用，不自造）；`test_runtime_relation_card_is_static_and_i18n_driven`（`export function RuntimeRelationCard()` **无 props**、不取数、文案取自 `overview.runtimeRelation.*`）；`test_no_hardcoded_copy_or_http_client`（去注释后无中文硬编码、无 axios/fetch） | 前端真实源码 + **真实 `tsc --noEmit`**（正是它抓出了可空时间字段的类型错误）；无 mock。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+- **预览块用 Semi `Table` 而非 `RemoteTable`**：规则/契约要求 `RemoteTable` 的是**列表页**（左上操作 + 右上筛选 + 右下分页）；本模块的两块是仪表盘内 ≤5 行预览，用 `RemoteTable` 会带来无意义的分页与工具栏。已在组件注释与用例里写清这一区分，并断言预览块**不得**使用 `RemoteTable`/`ModuleToolbar`。
+- **列头与状态词条全部复用既有 key**（`task.columns.*`、`task.status.*`、`task.delivery.*`、`schedule.columns.*`、`schedule.status.*`），本轮只新增 5 个块级词条（viewAll / 两个空态 / 关系卡标题与说明），避免与兄弟模块重复文案。
+- **状态标签沿用 task-schedule 模块的 `STATUS_COLORS` 口径**（含把 `SUCCEEDED` 显示为 `task.status.COMPLETED` 的"已完成"文案）。**登记一处跨模块口径存疑**：任务列表模块的色表用 `COMPLETED`，而后端 `task_execution.status` 实测会返回 `SUCCEEDED`；本处已显式把两者映射到同一文案，但"到底哪个是权威词表"宜由 task-schedule 模块统一裁定（不在本任务范围）。
+- **区块级 ErrorState 未实现**：设计 §3.6 给两个列表标了"区块 ErrorState + 重试"，但概览是**单次聚合请求**（E-03 定义为"聚合接口失败 → 整体 ErrorState + 重试"），块级失败在构造上不可能独立发生，故错误态由页面统一承载（TASK-008）。此处按"不写死代码"处理并登记差异。
+- B-205: verified — automated command passed; run_id=6e4444f9bc7b44a9b666fc09c3a6594b (confirmed_by: runner)
+- B-205: verified — automated command passed; run_id=f6dbb9945503443e83adc7c7fcdaa527 (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
 
 ---
-
+- [2026-09-27] started
 ## TASK-008: 路由接入与 UI 状态
 
 - **Status**: draft
