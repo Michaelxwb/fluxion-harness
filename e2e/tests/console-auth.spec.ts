@@ -185,3 +185,41 @@ test('S-06 ADMIN 账号列表为分页封套且无敏感字段', async ({ page }
     }
   }
 });
+
+test('S-11 切换到 English 后登录失败的业务错误与页面文案均为 en-US，刷新后语言保持', async ({ page }) => {
+  // 语言切换入口在壳层（LocaleSwitch），登录页无壳层 ⇒ 先登录切换、再退出回到登录页，
+  // 语言经 localStorage 持久化后由登录页读取（与真实用户的操作顺序一致）。
+  const admin = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(admin.status(), await admin.text()).toBe(200);
+
+  await page.goto('/');
+  await page.getByTestId('locale-switch').click();
+  await page.getByTestId('account-menu').click();
+  await page.getByText('Sign out').click();
+  await expect(page).toHaveURL(/\/login/);
+
+  // 页面文案已切到 en-US
+  await expect(page.getByText('Console Sign In')).toBeVisible();
+  await expect(page.locator('button[type=submit]')).toHaveText('Sign in');
+
+  // 业务错误：未知用户 ⇒ 统一 INVALID_CREDENTIALS（不泄露账号是否存在，也不消耗种子账号的
+  // 5 次失败锁定预算）。断言请求头 X-Locale 与 Toast 文案同源。
+  const loginRequest = page.waitForRequest((request) =>
+    request.url().includes('/api/v1/auth/login')
+  );
+  await page.locator('input').nth(0).fill('console-auth-ghost-user');
+  await page.locator('input').nth(1).fill('irrelevant-password');
+  await page.locator('button[type=submit]').click();
+
+  const request = await loginRequest;
+  expect(request.headers()['x-locale']).toBe('en-US');
+  await expect(
+    page.locator('.semi-toast-content', { hasText: 'Invalid username or password' })
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/login/);
+
+  // 刷新后语言保持（持久化在 muad.locale，而非内存态）
+  await page.reload();
+  await expect(page.getByText('Console Sign In')).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('muad.locale'))).toBe('en-US');
+});

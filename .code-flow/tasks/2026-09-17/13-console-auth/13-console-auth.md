@@ -52,7 +52,7 @@
 | S-08 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（审计与变更同事务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s08"] | . | 600 |  |
 | S-09 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | Browser → Router → ApiClient → Console HTTP → PostgreSQL | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-09\""] | . | 1200 |  |
 | S-10 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | Browser → Router → `/auth/me` | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-10\""] | . | 1200 |  |
-| S-11 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | Locale → ApiClient → API msg → UI | TASK-010 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-11\""] | . | 1200 |  |
+| S-11 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | Locale → ApiClient → API msg → UI | TASK-010 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-11\""] | . | 1200 |  |
 | S-12 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | AuthContext → menu → Router → 凭据入口 | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-12\""] | . | 1200 |  |
 | S-13 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | UI → logout API → Router | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-13\""] | . | 1200 |  |
 | S-14 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | Router → ADMIN 守卫（列表展示部分随账号页面迭代） | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-14\""] | . | 900 |  |
@@ -73,7 +73,7 @@
 | B-02 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（剩余 6h / <6h 临界） | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b02"] | . | 600 |  |
 | B-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（多租户同名） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b03"] | . | 600 |  |
 | B-04 | 13-console-auth.frontend.design.md#2.4 验收条件 | unit | LoginPage 表单校验（不发请求） | TASK-011 | planned | ["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b04"] | . | 600 |  |
-| B-05 | 13-console-auth.frontend.design.md#2.4 验收条件 | unit | i18n 资源双语完整 | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b05"] | . | 600 |  |
+| B-05 | 13-console-auth.frontend.design.md#2.4 验收条件 | unit | i18n 资源双语完整 | TASK-010 | verified | ["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b05"] | . | 600 |  |
 | B-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | 真实 Console 进程 + 真实 PostgreSQL + 租户级清理 | TASK-002 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_environment.py"] | . | 600 |  |
 | B-07 | 13-console-auth.backend.design.md#3.3 数据设计 | integration | 真实 PostgreSQL 表结构/索引 + 原 verifier 真实边界 | TASK-009 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_schema_contract.py","-k","b07"] | . | 600 |  |
 | B-08 | 13-console-auth.backend.design.md#3.4 接口设计 | integration | 真实 Console HTTP → 共享幂等表(PostgreSQL) | TASK-007 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b08"] | . | 600 |  |
@@ -629,7 +629,7 @@ CLI 与启动自检的真实验收：默认租户无账号时 lifespan 记录 `c
 - [2026-09-27] completed (done)
 ## TASK-010: 前端 auth service 与 ApiClient 拦截器契约
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: 13-console-auth.frontend.design.md#3.5 状态与数据流, 13-console-auth.frontend.design.md#3.3 组件设计, 13-console-auth.frontend.design.md#2.4 验收条件
@@ -644,32 +644,48 @@ CLI 与启动自检的真实验收：默认租户无账号时 lifespan 记录 `c
 
 ### Checklist
 
-- [ ] [B-05][unit] i18n 资源双语完整：登录页与本模块全部词条在 zh-CN/en-US 齐备非空。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b05"]`。
-- [ ] [S-11][E2E] 切换到 English 后触发一个业务错误 → 页面文案与 Toast `msg` 均为 en-US；刷新后语言保持。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-11\""]`。
-- [ ] [RULE-front-001][integration] 作为唯一最终负责人：API 只经 `src/api/`，组件不裸用 axios/fetch；文案只用 i18n key；引用的键已定义。verifier argv：`["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
-- [ ] [RULE-i18n-001][integration] 作为唯一最终负责人：zh-CN/en-US 双侧覆盖；新增业务只加词条；`X-Locale`/`Accept-Language` 协商。verifier argv：`["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]`。
-- [ ] 契约断言：拦截器注入三头；401 仅在非 `/login` 时 `window.location.assign('/login')`；密码/令牌不出现在 localStorage/sessionStorage。
-- [ ] 断言组件/展示层不出现裸 `fetch`/`axios`（仅 `src/api/`）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [B-05][unit] i18n 资源双语完整：登录页与本模块全部词条在 zh-CN/en-US 齐备非空。执行 argv：`["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b05"]`。
+- [x] [S-11][E2E] 切换到 English 后触发一个业务错误 → 页面文案与 Toast `msg` 均为 en-US；刷新后语言保持。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-11\""]`。
+- [x] [RULE-front-001][integration] 作为唯一最终负责人：API 只经 `src/api/`，组件不裸用 axios/fetch；文案只用 i18n key；引用的键已定义。verifier argv：`["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]`。
+- [x] [RULE-i18n-001][integration] 作为唯一最终负责人：zh-CN/en-US 双侧覆盖；新增业务只加词条；`X-Locale`/`Accept-Language` 协商。verifier argv：`["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]`。
+- [x] 契约断言：拦截器注入三头；401 仅在非 `/login` 时 `window.location.assign('/login')`；密码/令牌不出现在 localStorage/sessionStorage。
+- [x] 断言组件/展示层不出现裸 `fetch`/`axios`（仅 `src/api/`）。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-05 | unit | i18n 资源双语完整 | 双侧齐备非空、无缺失 key | tests/frontend/test_console_auth_contract.py / B-05 | `["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b05"]` | planned |
-| S-11 | E2E | Locale → ApiClient → API msg → UI | 页面与 Toast 均为 en-US；刷新后语言保持 | e2e/tests/console-auth.spec.ts / S-11 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-11\""]` | planned |
+| B-05 | unit | i18n 资源双语完整 | 双侧齐备非空、无缺失 key | tests/frontend/test_console_auth_contract.py / B-05 | `["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b05"]` | verified |
+| S-11 | E2E | Locale → ApiClient → API msg → UI | 页面与 Toast 均为 en-US；刷新后语言保持 | e2e/tests/console-auth.spec.ts / S-11 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-11\""]` | e2e_deferred |
 | RULE-front-001 | integration | 前端源码契约 + 仓库检查脚本 + 真实 tsc | 服务层收口/无裸请求/词条键已定义；原 verifier 全部通过 | 原 verifier / RULE-front-001 | `["bash","-lc","uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]` | planned |
 | RULE-i18n-001 | integration | 双侧词条 + 原 verifier 真实边界 | 双侧覆盖；只加词条；原 verifier 全部通过 | 原 verifier / RULE-i18n-001 | `["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]` | planned |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-05 | **无 RED（词条与拦截器在基线中已齐备，属补测）**，但首跑即暴露一处**判定口径**问题：孤儿检查把 `auth.role.admin`/`auth.role.builder` 判为多余词条——实为设计 FEAT-FE-05 要求的角色展示词条，由**壳层 Header**（TASK-011 的实现面）消费，本阶段未被引用属计划内，故把孤儿判定收窄到本任务拥有的 `login.*` 并把该事实如实登记。为证明断言不是空转，另做**源码扰动取证**（三处，逐个命中对应用例）：① 去掉 401 分支的 `/login` 守卫 → `test_unauthorized_redirects_only_outside_the_login_route` 失败；② 删掉 `X-Request-Id` 注入 → `test_request_interceptor_injects_three_headers` 失败；③ 往 `api/auth.ts` 追加 `localStorage.setItem('muad.token', ...)` → `test_credentials_never_reach_browser_storage` 失败（合计 3 failed / 6 passed），随后 `git checkout --` 还原、复跑 9 passed。 | `-k b05` → **2 passed**；整文件 **9 passed（0.04s）**；ruff 干净。 | `test_b05_auth_entries_are_complete_in_both_locales`：登录页/壳层 8 个哨兵键（`login.title/username/password/*Required/submit`、`app.brand/title`）必须在源码 `t('…')` 引用集中；引用键在 zh-CN 与 en-US 双侧齐备且非空。`test_b05_auth_key_sets_are_identical_and_all_referenced`：两侧 `login.*`/`auth.*` 键集完全一致；`login.*` 无孤儿词条；`auth.logout` 已由 `layout/AppLayout.tsx` 引用。`test_only_api_layer_reaches_the_http_client`：全前端源码中仅 `src/api/client.ts` 命中 axios/fetch 模式。`test_api_layer_exposes_the_four_auth_methods`：四方法齐备且分别打 `/auth/login`、`/auth/logout`、`/auth/me`、`/auth/password`。`test_request_interceptor_injects_three_headers`：`config.headers['X-Locale']=currentLocale()`、`['X-Request-Id']=newRequestId()`、`[CSRF_HEADER]=csrfToken`（取自 `readCookie(CSRF_COOKIE)`，无 Cookie 时不写空头）；`randomUUID` 有非 secure context 兜底。`test_envelope_error_toasts_and_rejects`：`code!=='0'` → `Toast.error({content:body.msg})` + `Promise.reject(body)`。`test_unauthorized_redirects_only_outside_the_login_route`：401 常量 + `pathname!=='/login'` 守卫 + `assign(\`/login?returnUrl=…\`)`。`test_credentials_never_reach_browser_storage`：storage 键白名单仅 `muad.locale`/`muad.theme`，且只出现在 `i18n/index.ts` 与 `theme.ts`；auth 模块文件零 storage 访问。`test_auth_sources_carry_no_hardcoded_chinese`：源码字面量无中文文案。 | 真实前端源码（正则/JSON 解析）+ 仓库检查脚本 + 真实 tsc；扰动取证为真实源码改写后跑同一组断言。未 mock。 | verified |
+| S-11 | E2E 场景编码期锁定，本地已 GREEN（无 RED 需求：语言协商链路在基线中已实现）。 | `-g "S-11"` → **1 passed（1.0s）**；同文件整跑（S-01/S-03/S-04/S-05/S-06/S-11）→ **6 passed（5.5s）**，新增用例未影响既有场景。 | `e2e/tests/console-auth.spec.ts` 的 `S-11 切换到 English 后登录失败的业务错误与页面文案均为 en-US，刷新后语言保持`：ADMIN 真实登录 → 壳层 `locale-switch` 切到 English → 退出回 `/login`；断言登录页文案 `Console Sign In`、提交按钮 `Sign in`；用未知用户触发业务错误，断言**请求头 `x-locale === 'en-US'`** 且 `.semi-toast-content` 显示 catalog 的 en-US msg `Invalid username or password`，仍停留 `/login`；`page.reload()` 后仍为 en-US 且 `localStorage['muad.locale'] === 'en-US'`。 | 真实 Chromium（channel=chrome）+ 真实前端构建产物（vite preview）+ 真实 Console（uvicorn）+ 真实 PostgreSQL；错误码取未知用户（统一 `INVALID_CREDENTIALS`，不消耗种子账号的 5 次失败锁定预算）。 | e2e_deferred（本地已 GREEN，终验归 verify-e2e） |
+| RULE-front-001 | 承接（原 verifier 真实边界），无 RED。 | verifier argv 全过：`check_frontend_api_usage.py` → OK；`check_frontend_i18n.py` → `i18n keys OK: 714`；`npm --prefix … run typecheck` → 无错误。 | 原 verifier 断言（API 只经 `src/api/`、静态键已定义）+ 本文件补充的拦截器/封套/401/存储断言（见 B-05 行） | 真实仓库脚本 + 真实 tsc + 前端源码。 | verified |
+| RULE-i18n-001 | 承接，无 RED。 | verifier argv 全过：`tests/acceptance/test_foundation_i18n.py` → **6 passed**；`check_frontend_i18n.py` → OK。 | 原 verifier 断言（zh-CN/en-US 双侧覆盖、`X-Locale` 协商）+ B-05 行 | 真实仓库脚本 + foundation i18n 验收。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+1. **B-05 是补测**：词条与拦截器在基线中已实现，无实现缺口；RED 缺口以「源码扰动取证」补偿（三处扰动各命中对应断言，还原后复跑全绿）。
+2. **孤儿词条口径**：`auth.role.admin`/`auth.role.builder` 当前无人引用——设计 FEAT-FE-05 要求 Header 展示 `display_name · 角色`，该处由 TASK-011 实现。本任务只把 `login.*` 纳入孤儿判定，并在测试与证据中登记，供 TASK-011 收口（届时若仍未引用即为真实缺口）。
+3. **`S-11` 的语言切换入口**：真实切换入口 `LocaleSwitch` 挂在壳层（登录页无壳层），故用例按真实用户顺序「登录 → 切换 → 退出 → 登录页复现」，而非直接写 `localStorage`。
+- S-11: e2e_deferred — automated command e2e_deferred; run_id=b87023ec53ab49d89385865ee2ae2295 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=b87023ec53ab49d89385865ee2ae2295 (confirmed_by: runner)
+- S-11: e2e_deferred — automated command e2e_deferred; run_id=729a6865ef174573917c10e15b0ab147 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=729a6865ef174573917c10e15b0ab147 (confirmed_by: runner)
 
 ### Log
 - [2026-09-27] created (draft)
 
 ---
-
+- [2026-09-27] started
+- [2026-09-27] completed (done)
 ## TASK-011: 登录页/会话引导与守卫/角色过滤/退出
 
 - **Status**: draft
