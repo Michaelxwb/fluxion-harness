@@ -31,27 +31,31 @@ function KpiLink({ to, text, testId }: KpiLinkProps) {
 export function KpiCards({ kpis, loading }: KpiCardsProps) {
   const { t } = useTranslation();
 
-  const value = (raw: number) =>
-    loading ? <Skeleton.Title style={{ width: 56 }} /> : raw;
+  const value = (raw: number, testId: string) =>
+    loading ? (
+      <Skeleton.Title style={{ width: 56 }} />
+    ) : (
+      <span data-testid={testId}>{raw}</span>
+    );
 
   const items: MetricCardItem[] = [
     {
       label: <KpiLink to="/agents" text={t('overview.kpi.enabledAgents')} testId="kpi-agents" />,
-      value: value(kpis.enabledAgents)
+      value: value(kpis.enabledAgents, 'kpi-value-agents')
     },
     {
       label: <KpiLink to="/skills" text={t('overview.kpi.enabledSkills')} testId="kpi-skills" />,
-      value: value(kpis.enabledSkills)
+      value: value(kpis.enabledSkills, 'kpi-value-skills')
     },
     {
       label: <KpiLink to="/tasks" text={t('overview.kpi.activeTasks')} testId="kpi-tasks" />,
-      value: value(kpis.activeTasks)
+      value: value(kpis.activeTasks, 'kpi-value-tasks')
     },
     {
       label: (
         <KpiLink to="/schedules" text={t('overview.kpi.activeSchedules')} testId="kpi-schedules" />
       ),
-      value: value(kpis.activeSchedules)
+      value: value(kpis.activeSchedules, 'kpi-value-schedules')
     }
   ];
 
