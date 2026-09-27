@@ -9,14 +9,22 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import UTC, datetime
 
 import sqlalchemy as sa
 from httpx import AsyncClient
+from muad_console_platform.application.auth_service import hash_password
 from muad_console_platform.infrastructure.db import get_session_factory
+from muad_console_platform.infrastructure.models.auth import (
+    ROLE_BUILDER,
+    ConsoleAccount,
+    ConsoleSession,
+)
 from muad_console_platform.infrastructure.models.control import ConfigAuditLog
 
 from tests.console_auth.conftest import (
     ADMIN_PASSWORD,
+    BUILDER_PASSWORD,
     AuthContext,
     csrf_headers,
     login,
@@ -135,3 +143,120 @@ async def test_e07_audit_payload_strips_sensitive_keys(
             if isinstance(payload, dict):
                 assert "password" not in payload
                 assert "password_hash" not in payload
+
+
+# ---- TASK-003：登录链（E-01/E-02/E-06/B-01/B-03）----
+
+
+async def _account_state(username: str) -> ConsoleAccount | None:
+    async with get_session_factory()() as session:
+        return await session.scalar(
+            sa.select(ConsoleAccount).where(ConsoleAccount.username == username)
+        )
+
+
+async def _session_count(account_id: uuid.UUID) -> int:
+    async with get_session_factory()() as session:
+        total = await session.scalar(
+            sa.select(sa.func.count())
+            .select_from(ConsoleSession)
+            .where(ConsoleSession.account_id == account_id)
+        )
+        return int(total or 0)
+
+
+async def test_e01_wrong_password_increments_counter_without_session(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[E-01] 正确用户名 + 错误密码 → 401；不建会话、不发 Cookie；计数 +1。"""
+    response = await login(client, auth, auth.builder_username, "definitely-wrong-password")
+    assert response.status_code == 401
+    assert response.json()["code"] == "INVALID_CREDENTIALS"
+    assert "muad_session" not in response.cookies
+    assert "muad_csrf" not in response.cookies
+
+    state = await _account_state(auth.builder_username)
+    assert state is not None
+    assert state.failed_attempts == 1
+    assert await _session_count(auth.builder_id) == 0
+
+
+async def test_e02_fifth_failure_locks_and_correct_password_gets_423(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[E-02] 连续 5 次失败 → 锁定并重置计数；锁定期内即使密码正确也 423。"""
+    for attempt in range(5):
+        failed = await login(client, auth, auth.builder_username, "definitely-wrong-password")
+        assert failed.status_code == 401, f"第 {attempt + 1} 次失败应为 401"
+
+    state = await _account_state(auth.builder_username)
+    assert state is not None
+    assert state.failed_attempts == 0, "达到阈值后计数应重置"
+    assert state.locked_until is not None
+    assert state.locked_until > datetime.now(UTC)
+
+    locked = await login(client, auth, auth.builder_username, BUILDER_PASSWORD)
+    assert locked.status_code == 423
+    assert locked.json()["code"] == "ACCOUNT_LOCKED"
+    assert await _session_count(auth.builder_id) == 0
+
+
+async def test_b01_fourth_failure_does_not_lock(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[B-01] 第 4 次失败计数为 4 且**不**锁定（第 5 次进入锁定见 E-02）。"""
+    for expected in (1, 2, 3, 4):
+        failed = await login(client, auth, auth.builder_username, "definitely-wrong-password")
+        assert failed.status_code == 401
+        state = await _account_state(auth.builder_username)
+        assert state is not None
+        assert state.failed_attempts == expected
+        assert state.locked_until is None, f"第 {expected} 次失败不应锁定"
+
+
+async def test_e06_disabled_account_is_indistinguishable_from_wrong_password(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[E-06] 禁用账号 + 正确密码 → 401 `INVALID_CREDENTIALS`（不暴露"已禁用"）。"""
+    disabled = await _account_state(auth.disabled_username)
+    assert disabled is not None and disabled.enabled is False
+
+    response = await login(client, auth, auth.disabled_username, BUILDER_PASSWORD)
+    assert response.status_code == 401
+    assert response.json()["code"] == "INVALID_CREDENTIALS"
+    assert await _session_count(disabled.id) == 0
+
+
+async def test_b03_cross_tenant_duplicate_username_requires_tenant_header(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[B-03] 跨租户同名：无 `X-Tenant-Id` 时全局解析歧义 → 401；带租户头时正确账号可登录。"""
+    other_tenant = f"test-other-{uuid.uuid4()}"
+    async with get_session_factory()() as session:
+        session.add(
+            ConsoleAccount(
+                tenant_id=other_tenant,
+                username=auth.builder_username,
+                display_name="Other Tenant Builder",
+                password_hash=hash_password(BUILDER_PASSWORD),
+                role=ROLE_BUILDER,
+            )
+        )
+        await session.commit()
+    try:
+        ambiguous = await client.post(
+            "/api/v1/auth/login",
+            json={"username": auth.builder_username, "password": BUILDER_PASSWORD},
+        )
+        assert ambiguous.status_code == 401
+        assert ambiguous.json()["code"] == "INVALID_CREDENTIALS"
+
+        scoped = await login(client, auth, auth.builder_username, BUILDER_PASSWORD)
+        assert scoped.status_code == 200
+        assert scoped.json()["data"]["username"] == auth.builder_username
+    finally:
+        async with get_session_factory()() as session:
+            await session.execute(
+                sa.delete(ConsoleAccount).where(ConsoleAccount.tenant_id == other_tenant)
+            )
+            await session.commit()
