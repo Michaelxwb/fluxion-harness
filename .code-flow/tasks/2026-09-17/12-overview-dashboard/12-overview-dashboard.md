@@ -39,10 +39,10 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 argv | cwd | timeout | depends_on |
 |---|---|---|---|---|---|---|---|---|---|
-| S-01 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | 真实 Console HTTP 聚合查询→四张 Owner 表(PostgreSQL) | TASK-004 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"] | . | 1200 |  |
-| S-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 首页→目标模块路由 | TASK-010 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""] | . | 1200 |  |
-| S-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→overview API（一次加载，无前端 N+1） | TASK-010 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""] | . | 1200 |  |
-| S-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser Router→tasks/schedules 且菜单选中正确 | TASK-010 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""] | . | 1200 |  |
+| S-01 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | 真实 Console HTTP 聚合查询→四张 Owner 表(PostgreSQL) | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"] | . | 1200 |  |
+| S-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→Console 首页→目标模块路由 | TASK-010 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""] | . | 1200 |  |
+| S-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser(Chromium)→overview API（一次加载，无前端 N+1） | TASK-010 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""] | . | 1200 |  |
+| S-04 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | E2E | Browser Router→tasks/schedules 且菜单选中正确 | TASK-010 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""] | . | 1200 |  |
 | E-01 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | 真实 Console HTTP→真实 PostgreSQL（某模块无数据） | TASK-001 | verified | ["uv","run","pytest","-q","tests/console_platform/test_overview_api.py","-k","e01"] | . | 600 |  |
 | E-02 | 12-overview-dashboard.backend.design.md#2.4 验收条件 | integration | Browser→Router→目标页（目标 ID 已失效/无权限） | TASK-010 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""] | . | 900 |  |
 | E-03 | 12-overview-dashboard.frontend.design.md#2.4 验收条件 | integration | Browser→overview API 失败→ErrorState | TASK-008 | verified | ["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-03\""] | . | 900 |  |
@@ -71,7 +71,7 @@
 
 ## TASK-001: 概览聚合查询服务与 API-01
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 12-overview-dashboard.backend.design.md#2.2 功能方案, 12-overview-dashboard.backend.design.md#3.2 架构设计, 12-overview-dashboard.backend.design.md#3.3 接口设计, 12-overview-dashboard.backend.design.md#3.4 性能与容量考量
@@ -119,6 +119,7 @@
 - **顺带修掉 `api/router.py` 预存在的 ruff I001**（`schedules` import 位置错序）：因本次改动该文件，按「改动文件须 lint 干净」一并整理。
 - E-01: verified — automated command passed; run_id=cae6e10e4f224ef581d4d6c17f7066aa (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=820169b6c75d40d591534a6e90515353 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
@@ -129,7 +130,7 @@
 - [2026-09-26] completed (done)
 ## TASK-002: docs/07 §10 端点契约补录
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-001
 - **Source**: 12-overview-dashboard.backend.design.md#3.3 接口设计, 12-overview-dashboard.backend.design.md#4.2 风险识别
@@ -166,6 +167,7 @@
 - **未搬动同小节内误置的 `result_status` 段**：该段讲审计 `result_status` 映射，应属 §10.11 Audit（疑为 11-audit-observability 收尾时追加位置有误）。属既有内容的归属问题，不在本任务范围，登记待后续修订。
 - B-201: verified — automated command passed; run_id=a092f63d090e4505893f4df61b49be4a (confirmed_by: runner)
 - B-201: verified — automated command passed; run_id=3d048f558faa4075841ebf988eeff241 (confirmed_by: runner)
+- B-201: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
@@ -175,7 +177,7 @@
 - [2026-09-26] completed (done)
 ## TASK-003: 概览验收环境与种子清理
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 12-overview-dashboard.backend.design.md#2.4 验收条件, 12-overview-dashboard.backend.design.md#3.4 性能与容量考量
@@ -214,6 +216,7 @@
 - **`control.console_account` 属本模块自带的清理项**：见上 RED 第 ② 轮。
 - B-202: verified — automated command passed; run_id=4fda0745ceba453999b64edce50732ea (confirmed_by: runner)
 - B-202: verified — automated command passed; run_id=3b43869e2f274209a7997dab4476bdac (confirmed_by: runner)
+- B-202: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
@@ -223,7 +226,7 @@
 - [2026-09-26] completed (done)
 ## TASK-004: 后端场景真实验收（S-01 + 无 N+1）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 12-overview-dashboard.backend.design.md#2.4 验收条件, 12-overview-dashboard.backend.design.md#4.2 风险识别
@@ -248,7 +251,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | E2E | 真实 Console HTTP + 四张 Owner 表(PostgreSQL) | 一次请求返回 4 KPI（与逐表回读一致）+ 两组列表（≤5、排序正确）；SQL 条数 ≤5；不读快照/缓存 | tests/acceptance/overview/test_overview_acceptance.py / S-01 | `["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"]` | e2e_deferred |
+| S-01 | E2E | 真实 Console HTTP + 四张 Owner 表(PostgreSQL) | 一次请求返回 4 KPI（与逐表回读一致）+ 两组列表（≤5、排序正确）；SQL 条数 ≤5；不读快照/缓存 | tests/acceptance/overview/test_overview_acceptance.py / S-01 | `["uv","run","pytest","-q","tests/acceptance/overview/test_overview_acceptance.py","-k","s01"]` | verified |
 
 ### Acceptance Evidence
 
@@ -263,6 +266,8 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - **非 E2E 部分不降级**：S-01 的 E2E 层级保持，RISK-01/RISK-03 作为其证据在同文件内以集成级补强；未把 E2E 改写成集成级。
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=03cc1dfbb1634354a36669ea047e4a6d (confirmed_by: runner)
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=2510527eb92548b2bc07fefac780dccd (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=d32466c353864967b390385a42c30a81 (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
@@ -272,7 +277,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-26] completed (done)
 ## TASK-005: 前端 service 层与类型契约
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: 12-overview-dashboard.frontend.design.md#3.4 组件接口契约, 12-overview-dashboard.frontend.design.md#3.5 状态与数据流
@@ -313,6 +318,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - **未越界实现组件**：本任务只交付 service 层与类型契约；`KpiCards`/两个列表的 props 契约已在 `types.ts` 声明，但组件本体归 TASK-006/007，避免抢做后续任务。
 - B-203: verified — automated command passed; run_id=b8c71c2b403e4a71b6ea5e95739c1418 (confirmed_by: runner)
 - B-203: verified — automated command passed; run_id=df791d888c34485798210fdede4a5674 (confirmed_by: runner)
+- B-203: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
@@ -323,7 +329,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-26] completed (done)
 ## TASK-006: OverviewPage 容器 + KpiCards
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-005
 - **Source**: 12-overview-dashboard.frontend.design.md#3.3 组件设计, 12-overview-dashboard.frontend.design.md#3.4 组件接口契约
@@ -368,6 +374,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - **已在 TASK-006 内加入所需词条**（overview.title/subtitle/loadFailed + 4 个 KPI），否则页面会渲染原始键；TASK-009 负责补齐其余词条并落 i18n 契约。
 - B-204: verified — automated command passed; run_id=e90202e82ec3435eac210f1ba0d1aada (confirmed_by: runner)
 - B-204: verified — automated command passed; run_id=39e0c0b36ff545ccaeb80bced35f27b1 (confirmed_by: runner)
+- B-204: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
@@ -377,7 +384,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-26] completed (done)
 ## TASK-007: 最近任务 / 下一批定时 / 运行关系卡片
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-006
 - **Source**: 12-overview-dashboard.frontend.design.md#3.3 组件设计, 12-overview-dashboard.frontend.design.md#3.4 组件接口契约, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
@@ -418,6 +425,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - B-205: verified — automated command passed; run_id=6e4444f9bc7b44a9b666fc09c3a6594b (confirmed_by: runner)
 - B-205: verified — automated command passed; run_id=f6dbb9945503443e83adc7c7fcdaa527 (confirmed_by: runner)
 - B-205: verified — automated command passed; run_id=dace0fa34c4e441aa75fb827a0d45536 (confirmed_by: runner)
+- B-205: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
@@ -427,7 +435,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-27] completed (done)
 ## TASK-008: 路由接入与 UI 状态
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-007
 - **Source**: 12-overview-dashboard.frontend.design.md#3.2 页面与路由结构, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
@@ -471,6 +479,8 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - B-206: verified — automated command passed; run_id=4a2c0509b75b46649f4764c9bb78b585 (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=787ed983f1cd4b05ac8b6d3b6d151860 (confirmed_by: runner)
 - B-206: verified — automated command passed; run_id=787ed983f1cd4b05ac8b6d3b6d151860 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
+- B-206: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
@@ -480,7 +490,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-27] completed (done)
 ## TASK-009: i18n 词条与语言切换覆盖
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-006
 - **Source**: 12-overview-dashboard.frontend.design.md#3.5 状态与数据流, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
@@ -521,6 +531,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - **语言切换安全的判定**：按 i18n 规范断言"渲染期经 hook 取得、不缓存、不直接用实例"，与审计模块的同名用例同口径。
 - B-207: verified — automated command passed; run_id=640005da9c584831954a80d2bde4dea6 (confirmed_by: runner)
 - B-207: verified — automated command passed; run_id=4fb7b6cf619f443297b69f133ac568d4 (confirmed_by: runner)
+- B-207: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
@@ -530,7 +541,7 @@ S-01 的最终验收：以真实 Console HTTP 打通「一次聚合查询 → �
 - [2026-09-27] completed (done)
 ## TASK-010: 前端 E2E 验收
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-008
 - **Source**: 12-overview-dashboard.frontend.design.md#2.4 验收条件, 12-overview-dashboard.frontend.design.md#3.6 UI 状态
@@ -557,9 +568,9 @@ S-02/S-03/S-04 与 E-02/E-04 的最终验收：真实 Chromium → 真实 Consol
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-02 | E2E | 真实 Chromium + 真实 Console + 真实 PostgreSQL | 条目跳转落到目标详情/模块，菜单选中正确 | e2e/tests/overview-dashboard.spec.ts / S-02 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""]` | e2e_deferred |
-| S-03 | E2E | 真实 Chromium + 真实 Console 首页 | 4 KPI + 两组列表一次加载；浏览器侧无按实体循环拉取 | e2e/tests/overview-dashboard.spec.ts / S-03 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""]` | e2e_deferred |
-| S-04 | E2E | 真实 Chromium + 路由 | 查看全部进入 tasks/schedules 且菜单选中正确 | e2e/tests/overview-dashboard.spec.ts / S-04 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""]` | e2e_deferred |
+| S-02 | E2E | 真实 Chromium + 真实 Console + 真实 PostgreSQL | 条目跳转落到目标详情/模块，菜单选中正确 | e2e/tests/overview-dashboard.spec.ts / S-02 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-02\""]` | verified |
+| S-03 | E2E | 真实 Chromium + 真实 Console 首页 | 4 KPI + 两组列表一次加载；浏览器侧无按实体循环拉取 | e2e/tests/overview-dashboard.spec.ts / S-03 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-03\""]` | verified |
+| S-04 | E2E | 真实 Chromium + 路由 | 查看全部进入 tasks/schedules 且菜单选中正确 | e2e/tests/overview-dashboard.spec.ts / S-04 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"S-04\""]` | verified |
 | E-02 | integration | Browser→Router→目标页（真实软删/越权目标） | 目标页 ErrorState 或回退列表；不白屏、不伪造数据 | e2e/tests/overview-dashboard.spec.ts / E-02 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-02\""]` | verified |
 | E-04 | integration | Browser→Router→目标页（目标 ID 失效/无权限） | 同上（前端侧表现一致） | e2e/tests/overview-dashboard.spec.ts / E-04 | `["bash","-lc","cd e2e && npx playwright test --config playwright.overview-dashboard.config.ts -g \"E-04\""]` | verified |
 | B-208 | integration | Playwright 配置/spec 源码 + 运行后真实环境 | `workers: 1`；端口/租户/产物 root 隔离；标题含场景 ID；零残留 | tests/frontend/test_overview_e2e_fixture_contract.py / B-208 | `["uv","run","pytest","-q","tests/frontend/test_overview_e2e_fixture_contract.py"]` | verified |
@@ -599,6 +610,15 @@ S-02/S-03/S-04 与 E-02/E-04 的最终验收：真实 Chromium → 真实 Consol
 - E-02: verified — automated command passed; run_id=32134ceef3e64fcf8523a4bf1846c372 (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=32134ceef3e64fcf8523a4bf1846c372 (confirmed_by: runner)
 - B-208: verified — automated command passed; run_id=32134ceef3e64fcf8523a4bf1846c372 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
+- B-208: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=d32466c353864967b390385a42c30a81 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=d32466c353864967b390385a42c30a81 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=d32466c353864967b390385a42c30a81 (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
@@ -608,7 +628,7 @@ S-02/S-03/S-04 与 E-02/E-04 的最终验收：真实 Chromium → 真实 Consol
 - [2026-09-27] completed (done)
 ## TASK-011: 收口：场景、规则、证据与仓库级 verifier
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-010
 - **Source**: 12-overview-dashboard.backend.design.md#2.4 验收条件, 12-overview-dashboard.backend.design.md#3.3 接口设计, 12-overview-dashboard.backend.design.md#Spec Compliance Matrix
@@ -649,6 +669,7 @@ S-02/S-03/S-04 与 E-02/E-04 的最终验收：真实 Chromium → 真实 Consol
 - **本清单的价值已被验证**：首轮 4 处失败全是真实缺口，说明它没有退化成"永远绿"的空转检查。
 - B-209: verified — automated command passed; run_id=031199844671469580d4c884bb15384d (confirmed_by: runner)
 - B-209: verified — automated command passed; run_id=a94179d2e633442a9aa9a74f31f261aa (confirmed_by: runner)
+- B-209: verified — automated command passed; run_id=4ffaa4a10ecc4a4381c68a2ec1a4ce9d (confirmed_by: runner)
 
 ### Log
 - [2026-09-26] created (draft)
