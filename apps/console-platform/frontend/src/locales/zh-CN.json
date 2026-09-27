@@ -555,6 +555,7 @@
   "task.columns.updateTime": "更新时间",
   "task.status.QUEUED": "排队中",
   "task.status.RUNNING": "执行中",
+  "task.status.SUCCEEDED": "已完成",
   "task.status.WAITING": "等待中",
   "task.status.COMPLETED": "已完成",
   "task.status.FAILED": "失败",

@@ -555,6 +555,7 @@
   "task.columns.updateTime": "Updated",
   "task.status.QUEUED": "Queued",
   "task.status.RUNNING": "Running",
+  "task.status.SUCCEEDED": "Succeeded",
   "task.status.WAITING": "Waiting",
   "task.status.COMPLETED": "Completed",
   "task.status.FAILED": "Failed",

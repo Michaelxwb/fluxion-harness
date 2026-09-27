@@ -60,7 +60,7 @@ export function RecentTaskList({ items, loading, onOpenTask, onViewAll }: Recent
   const statusOptions = Object.fromEntries(
     Object.entries(STATUS_COLORS).map(([key, color]) => [
       key,
-      { color, label: t(`task.status.${key === 'SUCCEEDED' ? 'COMPLETED' : key}`) }
+      { color, label: t(`task.status.${key}`) }
     ])
   );
   const deliveryOptions = Object.fromEntries(
