@@ -1,0 +1,736 @@
+{
+  "schema": 2,
+  "task_file": "13-console-auth.md",
+  "task_sha256": "5d1d95ee7bdeddebde669cbefb7f21f6e62db3f31493a0ad3d534d5b2fe172b0",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser → Console HTTP → PostgreSQL",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-01\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-02",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Service → 真实 PostgreSQL（会话续期）",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "s02"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-03",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser → Console HTTP → PostgreSQL",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-03\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-04",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser → Console HTTP → PostgreSQL",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-04\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-05",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser → Console HTTP → PostgreSQL",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-05\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-06",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser → Console HTTP → PostgreSQL",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-06\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-07",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "CLI → 真实 PostgreSQL；真实 lifespan 启动 → 日志",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "s07"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-08",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Service → 真实 PostgreSQL（审计与变更同事务）",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "s08"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "c7c30d1d4eaf4847ae5d3ce694d7c3a7",
+        "executed_at": "2026-09-27T05:21:00.534785+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "fbc11ea84a6b4920b09ce9ea0b903b58",
+          "executed_at": "2026-09-27T05:20:31.045393+00:00"
+        },
+        {
+          "id": "S-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "c7c30d1d4eaf4847ae5d3ce694d7c3a7",
+          "executed_at": "2026-09-27T05:21:00.534785+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-09",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser → Router → ApiClient → Console HTTP → PostgreSQL",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-09\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-10",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser → Router → `/auth/me`",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-10\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-11",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Locale → ApiClient → API msg → UI",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-11\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-12",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "AuthContext → menu → Router → 凭据入口",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-12\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-13",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "UI → logout API → Router",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-13\""
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-14",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Router → ADMIN 守卫（列表展示部分随账号页面迭代）",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-14\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API → 真实 PostgreSQL（失败计数）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "e01"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API → 真实 PostgreSQL（锁定状态机）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "e02"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API → 真实 PostgreSQL（会话失效）",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "e03"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-04",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API → CSRF 校验",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "e04"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API → RBAC",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "e05"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API → 真实 PostgreSQL（禁用账号不泄露状态）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "e06"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-07",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Service → 真实 PostgreSQL（审计脱敏）",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "e07"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "c7c30d1d4eaf4847ae5d3ce694d7c3a7",
+        "executed_at": "2026-09-27T05:21:00.534785+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "fbc11ea84a6b4920b09ce9ea0b903b58",
+          "executed_at": "2026-09-27T05:20:31.045393+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "c7c30d1d4eaf4847ae5d3ce694d7c3a7",
+          "executed_at": "2026-09-27T05:21:00.534785+00:00"
+        }
+      ]
+    },
+    {
+      "id": "E-08",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API → 全局认证（公开端点白名单）",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "e08"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-09",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "ApiClient 响应拦截 → Router（401 跳登录，不循环）",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-09\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-10",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "LoginPage → API 错误 → Toast",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-10\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-11",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "RequireRole → Router（越权重定向，不发数据请求）",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-11\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-12",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "ApiClient 请求拦截 → CSRF（后端 403 兜底）",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-12\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-13",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "AuthProvider → `/me` 失败（无空白页/无循环）",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-13\""
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-01",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API → 真实 PostgreSQL（第 4/5 次失败临界）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "b01"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-02",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Service → 真实 PostgreSQL（剩余 6h / <6h 临界）",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "b02"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-03",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API → 真实 PostgreSQL（多租户同名）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "b03"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-04",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "LoginPage 表单校验（不发请求）",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_console_auth_contract.py",
+        "-k",
+        "b04"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-05",
+      "source": "13-console-auth.frontend.design.md#2.4 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "i18n 资源双语完整",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_console_auth_contract.py",
+        "-k",
+        "b05"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-06",
+      "source": "13-console-auth.backend.design.md#2.5.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Console 进程 + 真实 PostgreSQL + 租户级清理",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_environment.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-07",
+      "source": "13-console-auth.backend.design.md#3.3 数据设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PostgreSQL 表结构/索引 + 原 verifier 真实边界",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_schema_contract.py",
+        "-k",
+        "b07"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-08",
+      "source": "13-console-auth.backend.design.md#3.4 接口设计",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Console HTTP → 共享幂等表(PostgreSQL)",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/console_auth_flow/test_auth_acceptance.py",
+        "-k",
+        "b08"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": []
+    }
+  ]
+}
