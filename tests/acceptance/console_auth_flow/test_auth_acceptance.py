@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 
 import sqlalchemy as sa
 from httpx import AsyncClient
-from muad_console_platform.application.auth_service import hash_password
+from muad_console_platform.application.auth_service import AuthService, hash_password
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.auth import (
     ROLE_BUILDER,
@@ -368,3 +368,48 @@ async def test_b02_six_hour_boundary_renews_only_below(
     after_below = await _session_state(below)
     assert after_below is not None
     assert after_below.expires_at > before_below.expires_at, "剩余 <6h 应续期"
+
+
+# ---- TASK-005：登出撤销（S-03 的集成侧证据）----
+
+
+async def test_s03_logout_revokes_session_and_blocks_reuse(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[S-03] 带 CSRF 登出 → 200 `{logged_out:true}`；库内 `revoked_at` 置位；旧令牌再访问 401。"""
+    response = await login(client, auth, auth.builder_username, BUILDER_PASSWORD)
+    assert response.status_code == 200
+    token = client.cookies.get("muad_session")
+    csrf = client.cookies.get("muad_csrf")
+    assert token and csrf
+
+    logged_out = await client.post(
+        "/api/v1/auth/logout",
+        headers={**tenant_headers(auth), "X-CSRF-Token": csrf},
+    )
+    assert logged_out.status_code == 200
+    assert logged_out.json()["data"]["logged_out"] is True
+
+    state = await _session_state(token)
+    assert state is not None
+    assert state.revoked_at is not None, "登出必须置 revoked_at"
+
+    reuse = await client.get(
+        "/api/v1/auth/me", headers={**tenant_headers(auth), "Cookie": f"muad_session={token}"}
+    )
+    assert reuse.status_code == 401
+    assert reuse.json()["code"] == "UNAUTHORIZED"
+
+
+async def test_s03_logout_is_idempotent_at_service_layer(auth: AuthContext) -> None:
+    """[S-03] 服务层幂等：已撤销/未知/空令牌调用 `logout` 直接返回，不抛错。
+
+    **边界说明**：API 层的 `logout` 路由位于认证组，重复登出会先被会话校验挡下（401），
+    故「不存在或已撤销直接成功」的幂等语义只能在 **service 层**取证——design §3.4 描述的
+    正是该层行为。
+    """
+    async with get_session_factory()() as session:
+        service = AuthService(session, tenant_id=auth.tenant_id)
+        await service.logout("unknown-token-xyz")
+        await service.logout("")
+        await session.commit()

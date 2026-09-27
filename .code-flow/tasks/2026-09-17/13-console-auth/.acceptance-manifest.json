@@ -105,7 +105,7 @@
       "kind": "e2e",
       "boundary": "Browser → Console HTTP → PostgreSQL",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -113,7 +113,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-03",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "8a03dc91a1ae47e981cc67aeeb6c828f",
+        "executed_at": "2026-09-27T07:30:15.324718+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "a95150741d954e45a1befb5fd02beef7",
+          "executed_at": "2026-09-27T07:29:58.453010+00:00"
+        },
+        {
+          "id": "S-03",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "8a03dc91a1ae47e981cc67aeeb6c828f",
+          "executed_at": "2026-09-27T07:30:15.324718+00:00"
+        }
+      ]
     },
     {
       "id": "S-04",

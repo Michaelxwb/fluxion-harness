@@ -65,3 +65,36 @@ test('S-01 登录成功签发双 Cookie、更新 last_login_at 且库内只存�
   expect(checked.token_hash_matches_plaintext_sha256).toBe(true);
   expect(checked.plaintext_absent_from_db).toBe(true);
 });
+
+test('S-03 登出撤销会话并清除 Cookie，已撤销令牌再访问 /me 得 401', async ({ page }) => {
+  const login = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(login.status(), await login.text()).toBe(200);
+
+  const before = await page.context().cookies();
+  const session = before.find((cookie) => cookie.name === 'muad_session');
+  const csrf = before.find((cookie) => cookie.name === 'muad_csrf');
+  expect(session, '登录后应有 muad_session').toBeTruthy();
+  expect(csrf, '登录后应有 muad_csrf').toBeTruthy();
+
+  // 真实登出：带 CSRF 头（双提交）
+  const logout = await page.request.post('/api/v1/auth/logout', {
+    headers: { 'X-CSRF-Token': csrf!.value }
+  });
+  expect(logout.status(), await logout.text()).toBe(200);
+  expect((await logout.json()).data.logged_out).toBe(true);
+
+  // Cookie 被清除
+  const after = await page.context().cookies();
+  expect(after.find((cookie) => cookie.name === 'muad_session'), 'muad_session 应被清除').toBeFalsy();
+
+  // 库内：该会话已置 revoked_at（按令牌核对，不做租户级聚合）
+  const checked = JSON.parse(seed('check-logout', { E2E_AUTH_SESSION_TOKEN: session!.value }));
+  expect(checked.session_found).toBe(true);
+  expect(checked.revoked).toBe(true);
+
+  // 已撤销令牌再访问 /me → 401
+  const me = await page.request.get('/api/v1/auth/me', {
+    headers: { Cookie: `muad_session=${session!.value}` }
+  });
+  expect(me.status()).toBe(401);
+});

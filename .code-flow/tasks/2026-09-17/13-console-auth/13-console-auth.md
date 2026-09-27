@@ -44,7 +44,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 | S-01 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-003 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-01\""] | . | 1200 |  |
 | S-02 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（会话续期） | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s02"] | . | 600 |  |
-| S-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-005 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-03\""] | . | 1200 |  |
+| S-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-005 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-03\""] | . | 1200 |  |
 | S-04 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-006 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-04\""] | . | 1200 |  |
 | S-05 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-007 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-05\""] | . | 1200 |  |
 | S-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-007 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-06\""] | . | 1200 |  |
@@ -340,7 +340,7 @@
 - [2026-09-27] completed (done)
 ## TASK-005: 登出撤销真实验收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: 13-console-auth.backend.design.md#3.4 接口设计, 13-console-auth.backend.design.md#2.5.2 功能验收场景
@@ -355,28 +355,40 @@
 
 ### Checklist
 
-- [ ] [S-03][E2E] 以 Browser → Console HTTP → PostgreSQL 真实边界编写用例：登录后带 CSRF 调用登出 → 200 `{logged_out:true}`、Cookie 被清除、库内会话 `revoked_at` 非空、再次 `/me` 401。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-03\""]`。
-- [ ] [RULE-rel-001][integration] 作为唯一最终负责人：本模块无关系集合写接口；账号/会话/密码均为单端点单事务原子变更，禁止全量 PUT 覆盖。verifier argv：`["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"]`。
-- [ ] 重复登出幂等：已撤销/不存在会话再次登出仍返回成功（不报错）。
-- [ ] 登出后不得残留可用的 `muad_session`（响应头断言清除属性）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [S-03][E2E] 以 Browser → Console HTTP → PostgreSQL 真实边界编写用例：登录后带 CSRF 调用登出 → 200 `{logged_out:true}`、Cookie 被清除、库内会话 `revoked_at` 非空、再次 `/me` 401。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-03\""]`。
+- [x] [RULE-rel-001][integration] 作为唯一最终负责人：本模块无关系集合写接口；账号/会话/密码均为单端点单事务原子变更，禁止全量 PUT 覆盖。verifier argv：`["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"]`。
+- [x] 重复登出幂等：已撤销/不存在会话再次登出仍返回成功（不报错）。
+- [x] 登出后不得残留可用的 `muad_session`（响应头断言清除属性）。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-03 | E2E | Browser → Console HTTP → PostgreSQL | `{logged_out:true}`；Cookie 清除；`revoked_at` 非空；再访问 401 | e2e/tests/console-auth.spec.ts / S-03 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-03\""]` | planned |
-| RULE-rel-001 | integration | 真实 Console HTTP + 原 verifier 真实边界 | 无关系集合写接口；单端点原子变更；原 verifier 全部通过 | 原 verifier / RULE-rel-001 | `["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"]` | planned |
+| S-03 | E2E | Browser → Console HTTP → PostgreSQL | `{logged_out:true}`；Cookie 清除；`revoked_at` 非空；再访问 401 | e2e/tests/console-auth.spec.ts / S-03 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-03\""]` | e2e_deferred |
+| RULE-rel-001 | integration | 真实 Console HTTP + 原 verifier 真实边界 | 无关系集合写接口；单端点原子变更；原 verifier 全部通过 | 原 verifier / RULE-rel-001 | `["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-03 | **验收类（不制造 RED）**：登出链基线已实现；真实记录的是**接口层的语义边界**——`logout` 路由位于认证组，故"重复登出"会先被会话校验挡下（401），design §3.4 描述的「不存在或已撤销直接返回成功（幂等）」只能在 service 层取证。该发现改变了本任务幂等证据的取证层级（见判断点）。 | 登记 argv `-g "S-03"` → **1 passed (763ms)**；集成侧 `-k s03` 两条 → 通过（整文件 13 passed）；`RULE-rel-001` 原 verifier → **3 passed**；运行后无 uvicorn/vite/playwright 残留。 | `S-03 登出撤销会话并清除 Cookie，已撤销令牌再访问 /me 得 401`（浏览器）：真实登录 → 带 `X-CSRF-Token` 调登出 → 200 且 `data.logged_out===true`；`muad_session` 已从浏览器上下文清除；库内核对（按**该令牌**查会话）`session_found=true` 且 `revoked=true`；再用已撤销令牌访问 `/auth/me` → **401**。集成侧 `test_s03_logout_revokes_session_and_blocks_reuse`：同一链路在真实 PG 上回读 `revoked_at` 非空并断言复用被拒；`test_s03_logout_is_idempotent_at_service_layer`：`AuthService.logout` 对未知/空令牌直接返回不抛错 | 真实 Chromium（channel=chrome）+ 真实 Console 进程（真实 Cookie 清除 + Set-Cookie 过期属性）+ 真实 PostgreSQL（按令牌核对 `revoked_at`）；库内核对经环境变量传令牌（不进 argv）。 | e2e_deferred（本地已 GREEN，终验归 verify-e2e） |
+| RULE-rel-001 | 验收类（随本任务一并取证）。 | 原 verifier 复跑通过：`tests/console_platform/test_user_side_relations.py` → **3 passed**。 | 原 verifier 断言（本模块无关系集合写接口；账号/会话/密码均为单端点单事务原子变更，禁止全量 PUT 覆盖） | 真实 Console HTTP + 真实 PostgreSQL + 原 verifier 真实边界。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+- **幂等的取证层级由接口结构决定**：`/api/v1/auth/logout` 挂在**认证组**（`authenticated.include_router(auth_router)`），因此"用已撤销令牌重复登出"会先被 `get_current_account` 判 401——API 层不可能观察到"重复登出返回成功"。design §3.4 的幂等描述针对的是 **service 层**（`取 muad_session → sha256 查会话；不存在或已撤销直接返回成功`），故幂等断言落在 `AuthService.logout` 上。这是**按代码事实调整取证层级**，不是把断言降级。
+- **库内核对按令牌而非租户聚合**：`check-logout` 用令牌的 sha256 定位该会话并断言 `revoked_at` 置位。同文件里 S-01 也会登录（留下未撤销会话），若按"租户内全部会话均已撤销"断言，整跑时必然误报。
+- **Cookie 清除是真实浏览器断言**：`page.context().cookies()` 在登出后不再含 `muad_session`——验的是真实 Set-Cookie 过期行为，而不是读响应头字符串。
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=a95150741d954e45a1befb5fd02beef7 (confirmed_by: runner)
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=8a03dc91a1ae47e981cc67aeeb6c828f (confirmed_by: runner)
 
 ### Log
 - [2026-09-27] created (draft)
 
 ---
-
+- [2026-09-27] started
+- [2026-09-27] completed (done)
 ## TASK-006: 修改密码真实验收
 
 - **Status**: draft

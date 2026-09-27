@@ -17,7 +17,6 @@ import hashlib
 import json
 import os
 import sys
-import uuid
 
 from muad_console_platform.application.auth_service import hash_password
 from muad_console_platform.infrastructure.db import get_session_factory
@@ -121,6 +120,25 @@ async def _check() -> None:
     )
 
 
+async def _check_logout() -> None:
+    """S-03 的库内断言：按令牌核对**该会话**已置 `revoked_at`（而非全租户聚合）。"""
+    plaintext = os.environ.get("E2E_AUTH_SESSION_TOKEN", "")
+    digest = hashlib.sha256(plaintext.encode("utf-8")).hexdigest() if plaintext else ""
+    row = None
+    if digest:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            row = await session.scalar(
+                select(ConsoleSession).where(ConsoleSession.token_hash == digest)
+            )
+    print(
+        json.dumps(
+            {"session_found": row is not None, "revoked": bool(row and row.revoked_at)},
+            ensure_ascii=False,
+        )
+    )
+
+
 async def _run(action: str) -> int:
     if action == "create":
         await _cleanup()
@@ -129,6 +147,8 @@ async def _run(action: str) -> int:
         await _cleanup()
     elif action == "check":
         await _check()
+    elif action == "check-logout":
+        await _check_logout()
     else:
         raise SystemExit(f"unknown action: {action}")
     return 0
