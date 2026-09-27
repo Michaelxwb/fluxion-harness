@@ -297,7 +297,7 @@
       "kind": "functional",
       "boundary": "CLI → 真实 PostgreSQL；真实 lifespan 启动 → 日志",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -309,7 +309,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "4e22cd7dd494483d9b77e8e52d1fb711",
+        "executed_at": "2026-09-27T12:53:57.246544+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "702123c9bad54706bcf9ffbae1d04cd2",
+          "executed_at": "2026-09-27T12:53:44.195806+00:00"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "4e22cd7dd494483d9b77e8e52d1fb711",
+          "executed_at": "2026-09-27T12:53:57.246544+00:00"
+        }
+      ]
     },
     {
       "id": "S-08",

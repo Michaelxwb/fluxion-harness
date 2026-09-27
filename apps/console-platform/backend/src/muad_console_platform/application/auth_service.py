@@ -240,7 +240,11 @@ class AuthService:
         return accounts, total
 
     async def has_any_account(self) -> bool:
-        return await self._accounts.count_all() > 0
+        """本租户（`self._tenant_id`）是否存在账号：启动自检按默认租户判定，而非全库。
+
+        全库判定会让任一租户有账号就掩盖掉「默认租户无账号 ⇒ 无法登录」的静默故障。
+        """
+        return await self._accounts.count(self._require_tenant()) > 0
 
 ACCOUNT_IDEMPOTENCY_ENDPOINT = "/api/v1/accounts"
 FINGERPRINT_PREFIX = "sha256:"

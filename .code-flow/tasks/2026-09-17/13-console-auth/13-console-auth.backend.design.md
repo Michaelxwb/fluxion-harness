@@ -155,7 +155,7 @@
 | S-04 | FEAT-04 | P0 | E2E | Browser → API → Postgres | 本模块 | 登录后提交正确当前密码 + 合规新密码 | 200 `{changed:true}`；旧密码登录 401、新密码登录 200 |
 | S-05 | FEAT-05 | P0 | E2E | Browser → API → Postgres | 本模块 | ADMIN 登录后创建 BUILDER 账号 | 200 返回账号（无 `password_hash`）；新账号可登录；账号列表含新账号 |
 | S-06 | FEAT-05 | P1 | E2E | Browser → API → Postgres | 本模块 | ADMIN 打开账号列表 | 返回账号集合，字段与 docs/15 一致，无敏感字段 |
-| S-07 | FEAT-07 | P0 | integration | CLI → Postgres；启动 lifespan → 日志 | 本模块 | 空库启动服务；执行 `create-admin --username ... --role ADMIN` | 启动日志出现 `console_no_accounts_run_cli_create_admin` 告警；stdout 输出账号信息；exit 0；建档后告警消失且可登录 |
+| S-07 | FEAT-07 | P0 | integration | CLI → Postgres；启动 lifespan → 日志 | 本模块 | 默认租户无账号时启动服务；执行 `create-admin --username ... --role ADMIN` | 启动日志出现 `console_no_accounts_run_cli_create_admin` 告警；stdout 输出账号信息；exit 0；建档后告警消失且可登录 |
 | S-08 | FEAT-08 | P0 | integration | Service → Postgres | 本模块 | 登录态下执行一次受保护写操作；创建账号 | 写操作审计 `actor_user_id=console_account.id` 且与变更同事务；账号创建/登录成功审计落 `CONSOLE_ACCOUNT` 的 `CREATE`/`LOGIN`（基线待补齐） |
 
 ##### 异常场景
@@ -587,7 +587,7 @@ X-CSRF-Token: <muad_csrf>
 
 - stdout：`created console account <username> role=<role> tenant=<tenant>`；
 - 密码长度 < 12 时不发起 DB 写入，直接以退出码 2 结束；
-- 启动自检：服务 lifespan 检查是否存在账号；无 `DATABASE_URL` 时记录 `console_account_check_skipped_database_url_missing`，查询异常记录 `console_account_check_failed`，无账号记录 `console_no_accounts_run_cli_create_admin`（warning）。
+- 启动自检：服务 lifespan 检查**默认租户（`default_tenant_id`）内**是否存在账号（多租户下按租户判定，否则任一租户有账号就会掩盖「本租户无法登录」）；无 `DATABASE_URL` 时记录 `console_account_check_skipped_database_url_missing`，查询异常记录 `console_account_check_failed`，无账号记录 `console_no_accounts_run_cli_create_admin`（warning）。
 
 ### 3.5 质量实现方案
 

@@ -48,7 +48,7 @@
 | S-04 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-006 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-04\""] | . | 1200 |  |
 | S-05 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-007 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-05\""] | . | 1200 |  |
 | S-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-007 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-06\""] | . | 1200 |  |
-| S-07 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | CLI → 真实 PostgreSQL；真实 lifespan 启动 → 日志 | TASK-008 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s07"] | . | 600 |  |
+| S-07 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | CLI → 真实 PostgreSQL；真实 lifespan 启动 → 日志 | TASK-008 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s07"] | . | 600 |  |
 | S-08 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（审计与变更同事务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s08"] | . | 600 |  |
 | S-09 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | Browser → Router → ApiClient → Console HTTP → PostgreSQL | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-09\""] | . | 1200 |  |
 | S-10 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | Browser → Router → `/auth/me` | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-10\""] | . | 1200 |  |
@@ -526,42 +526,57 @@
 - [2026-09-27] completed (done)
 ## TASK-008: CLI create-admin 与启动自检验收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: 13-console-auth.backend.design.md#3.4 接口设计, 13-console-auth.backend.design.md#2.3 功能方案
 - **Spec-Refs**:
 - **Acceptance-Refs**: S-07
-- **Files**: `tests/acceptance/console_auth_flow/test_auth_acceptance.py`
+- **Files**: `tests/acceptance/console_auth_flow/test_auth_acceptance.py`, `apps/console-platform/backend/src/muad_console_platform/application/auth_service.py`
 - **Estimate**: 15–60 分钟；超出先拆分
 
 ### Description
 
-CLI 与启动自检的真实验收：空库启动时 lifespan 记录 `console_no_accounts_run_cli_create_admin` 告警；`create-admin --username ... --role ADMIN` 输出账号信息且 exit 0；建档后告警消失并可登录；密码 <12 位时退出码 2 且不写库。
+CLI 与启动自检的真实验收：默认租户无账号时 lifespan 记录 `console_no_accounts_run_cli_create_admin` 告警；`create-admin --username ... --role ADMIN` 输出账号信息且 exit 0；建档后告警消失并可登录；密码 <12 位时退出码 2 且不写库。
+
+自检口径修正（本次实现缺口）：`AuthService.has_any_account()` 原为 `count_all() > 0`（全库判定），但 `main.py` 已按 `default_tenant_id` 构造服务——全库判定会让任一租户有账号就掩盖「默认租户无账号 ⇒ 无法登录」的静默故障，也使 S-07 无法在共享库上构造前置。改为按本租户 `count()` 判定（design 3.4 同步措辞）。
 
 ### Checklist
 
-- [ ] [S-07][integration] 以 CLI → 真实 PostgreSQL 与真实 lifespan 启动 → 日志为边界编写用例：空库启动断言告警出现；执行 `create-admin` 断言 stdout 含账号信息、exit 0；再启动断言告警消失且该账号可登录。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s07"]`。
-- [ ] 断言 `--password` 长度 < 12 时退出码 2 且**不发起 DB 写入**。
-- [ ] 断言 `--role` 默认 ADMIN、`--tenant` 默认 default；stdout 文案与 design 一致。
-- [ ] 断言无 `DATABASE_URL` 时记录 `console_account_check_skipped_database_url_missing`、查询异常记录 `console_account_check_failed`（不静默吞错）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [S-07][integration] 以 CLI → 真实 PostgreSQL 与真实 lifespan 启动 → 日志为边界编写用例：默认租户无账号时启动断言告警落盘；执行 `create-admin` 断言 stdout 含账号信息、exit 0；再启动断言告警消失且该账号可登录。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s07"]`。
+- [x] 断言 `--password` 长度 < 12 时退出码 2 且**不发起 DB 写入**。
+- [x] 断言 `--role` 默认 ADMIN、`--tenant` 默认 default；stdout 文案与 design 一致。
+- [x] 断言无 `DATABASE_URL` 时记录 `console_account_check_skipped_database_url_missing`、查询异常记录 `console_account_check_failed`（不静默吞错）。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-07 | integration | CLI → 真实 PostgreSQL；真实 lifespan → 日志 | 告警文案；stdout/exit 0；建档后可登录；短密码 exit 2 不写库 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / S-07 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s07"]` | planned |
+| S-07 | integration | CLI → 真实 PostgreSQL；真实 lifespan → 日志 | 告警按**本租户**判定并落盘；stdout/exit 0；建档后可登录；短密码 exit 2 不写库 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / S-07 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s07"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-07 | **真实 RED（本任务唯一的实现缺口）**：`AuthService.has_any_account()` 原为 `count_all() > 0`（**全库**判定），而 `main.py:39` 已按 `default_tenant_id` 构造服务——共享开发库另有 60 个活跃账号，故全新空租户启动时自检判定「有账号」。契约 argv 首跑：`test_s07_cli_create_admin_and_startup_warning` 失败于首次断言——落盘文件 `logs-before/muad-console-platform/2026-09-27.log` **记录数 = 0**（`assert None is not None`），同批另 3 个用例 passed。实现改为按本租户 `count()` 判定后转 GREEN。 | `-k s07` → **4 passed（7.68s）**；整文件（TASK-001..007 + 008）**28 passed**；`tests/acceptance/console_auth_flow/` 整目录 **28 passed**；ruff 干净；`auth_service.py` mypy 干净。 | `test_s07_cli_create_admin_and_startup_warning`：①无账号租户启动 → `{LOG_DIR}/muad-console-platform/{date}.log` 出现 `console_no_accounts_run_cli_create_admin`（断言 `level=WARNING`、`service=muad-console-platform`，且先回读该租户账号数 = 0）；②CLI 建档 stdout **逐字**等于 `created console account <u> role=ADMIN tenant=<t>` 且 exit 0；③短密码 exit 2、stderr 含 `at least 12 characters`、**该用户名查无此行**（不写库）；④建档后重启 → 先回读账号数 = 1 再断言落盘无该告警，并**真实 HTTP 登录** 200 且 `role=ADMIN`。`test_s07_cli_defaults_to_admin_role_and_default_tenant`：省略 flag → stdout `role=ADMIN tenant=default`，库内行 `tenant_id=default`、`role=ADMIN`。`test_s07_self_check_skips_without_database_url`：`DATABASE_URL=""` → 落盘恰为该一条 `console_account_check_skipped_database_url_missing`。`test_s07_self_check_logs_query_failure`：库可达但无该表 → 落盘恰为该一条 `console_account_check_failed`（`level=ERROR` 且 `exception` 字段含真实 `UndefinedTableError` 堆栈）。 | 真实 uvicorn Console 子进程（真实 lifespan，起两次）+ **真实 logging-kit 落盘文件**（只解析 `{LOG_DIR}/muad-console-platform/{date}.log`，不误取子进程 stdout 捕获文件）+ 真实 PostgreSQL（账号数/行内容回读与精确清理）+ 真实 CLI 子进程（`sys.executable -m muad_console_platform.cli`）+ 真实 HTTP 登录。未 mock 任何组件。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+1. **口径裁决（用户确认）**：design S-07 原文「空库启动」在共享开发库上不可构造（`muad` 角色无 `CREATEDB`，环境内也无空库），且全库判定会掩盖「默认租户无账号 ⇒ 无法登录」的静默故障。经用户裁决改为**按 `default_tenant_id` 租户判定**，design `#2.5.2 S-07` 与 `#3.4 形态 B` 的措辞同步改写为「默认租户无账号」。
+2. **缺席断言的强度**：④的「告警消失」是缺席断言，可信度来自**同构对照**——两次启动的进程形态、环境变量、租户完全一致，唯一差异是该租户是否已有账号；run1 已证明同一落盘链路会产出该记录，run2 前先回读账号数 = 1。故排除「链路静默失效」。
+3. **两个告警分支的可达性（如实记录，非本次改动引入）**：`console_account_check_skipped_database_url_missing` 在真实 lifespan 中不可达——`validate_startup` 会先以 `database_url is not configured` 阻断启动，故以真实子进程直接驱动 `_warn_if_no_accounts()`（真实 logging 落盘，无 mock）；`console_account_check_failed` 的边界取「库可达但 `control.console_account` 不存在」（系统库 `postgres`，只读、报错即返回）。**未覆盖**：连接级失败（端口不可达 / 目标库不存在）不被 `except SQLAlchemyError` 捕获（实测 asyncpg 的连接异常未被 SQLAlchemy 包装），该类失败在 lifespan 中先被 `validate_startup` 阻断，属既有设计边界，本次未改动实现。
+4. **`--tenant` 默认值用例的清理**：`default` 是共享租户，故按用户名精确清理（`_purge_account`），未使用租户级清理。
+5. **校验器状态（与实现分开看）**：`.code-flow/validation.yml` 的 mypy 校验器对 `tests/acceptance/console_auth_flow/*.py` **在改动前即为红**（同目录未改动的 `test_environment.py` 同样报 `Source file found twice under different module names`；HEAD 版本实测 11 errors），根因是 `tests/acceptance/` 缺 `__init__.py` 而子目录有，属既有环境/工具配置问题，不在本任务范围内。
+- S-07: verified — automated command passed; run_id=702123c9bad54706bcf9ffbae1d04cd2 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=4e22cd7dd494483d9b77e8e52d1fb711 (confirmed_by: runner)
 
 ### Log
 - [2026-09-27] created (draft)
 
 ---
-
+- [2026-09-27] started
+- [2026-09-27] completed (done)
 ## TASK-009: 数据契约承接（两表结构/索引）
 
 - **Status**: draft

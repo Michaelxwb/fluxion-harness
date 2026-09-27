@@ -65,12 +65,6 @@ class ConsoleAccountRepository:
         )
         return int(total or 0)
 
-    async def count_all(self) -> int:
-        total = await self._session.scalar(
-            select(func.count()).select_from(ConsoleAccount).where(ConsoleAccount.is_deleted.is_(False))
-        )
-        return int(total or 0)
-
     async def add(self, account: ConsoleAccount) -> ConsoleAccount:
         self._session.add(account)
         await self._session.flush()
