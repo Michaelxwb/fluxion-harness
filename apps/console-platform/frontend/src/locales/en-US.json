@@ -706,5 +706,10 @@
   "overview.kpi.enabledAgents": "Enabled Agents",
   "overview.kpi.enabledSkills": "Enabled Skills",
   "overview.kpi.activeTasks": "Active Tasks",
-  "overview.kpi.activeSchedules": "Active Schedules"
+  "overview.kpi.activeSchedules": "Active Schedules",
+  "overview.viewAll": "View all",
+  "overview.recentTasks.empty": "No background tasks yet",
+  "overview.nextSchedules.empty": "No upcoming scheduled triggers",
+  "overview.runtimeRelation.title": "Runtime relations",
+  "overview.runtimeRelation.description": "IM → Agent → Runtime → ExecutionRouter → Worker/DB/Gateway: messages enter the agent through the gateway, the runtime orchestrates execution, and the execution router hands tasks to the worker for persistence and delivery."
 }

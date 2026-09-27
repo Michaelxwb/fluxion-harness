@@ -706,5 +706,10 @@
   "overview.kpi.enabledAgents": "启用 Agent",
   "overview.kpi.enabledSkills": "启用 Skill",
   "overview.kpi.activeTasks": "后台执行中",
-  "overview.kpi.activeSchedules": "启用定时任务"
+  "overview.kpi.activeSchedules": "启用定时任务",
+  "overview.viewAll": "查看全部",
+  "overview.recentTasks.empty": "暂无后台任务",
+  "overview.nextSchedules.empty": "暂无待触发的定时任务",
+  "overview.runtimeRelation.title": "运行关系",
+  "overview.runtimeRelation.description": "IM → Agent → Runtime → ExecutionRouter → Worker/DB/Gateway：消息经网关进入 Agent，由 Runtime 编排执行，执行分派器把任务交给 Worker 落库与投递。"
 }
