@@ -74,7 +74,7 @@
 | B-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（多租户同名） | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b03"] | . | 600 |  |
 | B-04 | 13-console-auth.frontend.design.md#2.4 验收条件 | unit | LoginPage 表单校验（不发请求） | TASK-011 | planned | ["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b04"] | . | 600 |  |
 | B-05 | 13-console-auth.frontend.design.md#2.4 验收条件 | unit | i18n 资源双语完整 | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b05"] | . | 600 |  |
-| B-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | 真实 Console 进程 + 真实 PostgreSQL + 租户级清理 | TASK-002 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_environment.py"] | . | 600 |  |
+| B-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | 真实 Console 进程 + 真实 PostgreSQL + 租户级清理 | TASK-002 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_environment.py"] | . | 600 |  |
 | B-07 | 13-console-auth.backend.design.md#3.3 数据设计 | integration | 真实 PostgreSQL 表结构/索引 + 原 verifier 真实边界 | TASK-009 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_schema_contract.py","-k","b07"] | . | 600 |  |
 | B-08 | 13-console-auth.backend.design.md#3.4 接口设计 | integration | 真实 Console HTTP → 共享幂等表(PostgreSQL) | TASK-007 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b08"] | . | 600 |  |
 | RULE-log-001 | 13-console-auth.backend#2.5.1 业务规则与约束 | integration | 统一 logging-kit 出口 + 原 verifier 真实边界 | TASK-001 | planned | ["bash","-lc","uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py"] | . | 600 |  |
@@ -155,7 +155,7 @@
 - [2026-09-27] completed (done)
 ## TASK-002: 认证真实验收环境与种子
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: 13-console-auth.backend.design.md#2.5.2 功能验收场景, 13-console-auth.backend.design.md#3.3 数据设计
@@ -170,27 +170,39 @@
 
 ### Checklist
 
-- [ ] [B-06][integration] 以真实 Console 进程 + 真实 PostgreSQL 为边界编写用例：种子后按 `control.console_account` / `control.console_session` 逐行回读断言字段与状态符合预期。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_environment.py"]`。
-- [ ] 种子须覆盖：ADMIN 与 BUILDER 各一；一个 `enabled=false` 账号；一个 `locked_until > now` 的账号；一个 `expires_at` 剩余 <6h 的会话（供 B-02 临界）。
-- [ ] 收尾清理：租户内账号/会话残留为 0；用例结束不得残留 uvicorn/`muad_*.main` 进程（任何失败路径都要执行收尾）。
-- [ ] 复用既有验收栈原语（`ServiceProcess`/`free_port`/`run_db`），不另造进程管理。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN 与真实边界证据。
+- [x] [B-06][integration] 以真实 Console 进程 + 真实 PostgreSQL 为边界编写用例：种子后按 `control.console_account` / `control.console_session` 逐行回读断言字段与状态符合预期。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_environment.py"]`。
+- [x] 种子须覆盖：ADMIN 与 BUILDER 各一；一个 `enabled=false` 账号；一个 `locked_until > now` 的账号；一个 `expires_at` 剩余 <6h 的会话（供 B-02 临界）。
+- [x] 收尾清理：租户内账号/会话残留为 0；用例结束不得残留 uvicorn/`muad_*.main` 进程（任何失败路径都要执行收尾）。
+- [x] 复用既有验收栈原语（`ServiceProcess`/`free_port`/`run_db`），不另造进程管理。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN 与真实边界证据。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-06 | integration | 真实 Console 进程 + 真实 PostgreSQL + 租户级清理 | 种子字段/状态逐行回读一致；清理后残留 0；无孤儿进程 | tests/acceptance/console_auth_flow/test_environment.py / B-06 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_environment.py"]` | planned |
+| B-06 | integration | 真实 Console 进程 + 真实 PostgreSQL + 租户级清理 | 种子字段/状态逐行回读一致；清理后残留 0；无孤儿进程 | tests/acceptance/console_auth_flow/test_environment.py / B-06 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_environment.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-06 | **真实 RED（两处，均为环境自身缺陷）**：① 首轮 `test_b06_seed_produces_expected_rows` 与 `test_b06_purge_is_idempotent_and_leaves_no_residue` 失败，报 `ProgrammingError` —— `control.console_session` **没有 `tenant_id` 列**（它按 `account_id` 关联），不能按租户列直接计数；这与 12-overview-dashboard 归档时踩到的是同一个既有事实。② 会话种子可用性断言触发 httpx 的 per-request cookie 弃用告警。 | 加专用计数器 `count_tenant_sessions()`（按「本租户账号名下的会话」计数）+ 把 cookie 移到 client 构造后：整文件 **5 passed**；ruff 干净；运行后无 uvicorn/`muad_*.main` 残留。 | `test_b06_stack_boots_and_dependencies_are_ready`（`/healthz` → `data.status=ok`、`/readyz` → `data.status=ready`，探针经 api-kit 封套）；`test_b06_seed_produces_expected_rows`（`console_account` 精确 4 行 + 会话精确 2 行——共享开发库里还有其它租户数据，取到精确数即证明租户隔离生效）；`test_b06_seeded_session_token_actually_authenticates`（**库内只存 sha256，但拿种子返回的明文令牌请求 `/auth/me` 必须 200 且返回该 builder**——这条是后续续期/撤销/越权场景的地基）；`test_b06_seeded_edge_accounts_are_usable_bounds`（禁用账号 → 401 `INVALID_CREDENTIALS`；锁定账号 → 423 `ACCOUNT_LOCKED`；ADMIN → 200 且 `role=ADMIN`——三个边界样本都真能用）；`test_b06_purge_is_idempotent_and_leaves_no_residue`（连续 purge 两次后账号/会话/审计行全 0，且清理前先断言 >0 保证灵敏度） | 真实 Console uvicorn 子进程（失败路径也走 `stop_auth_stack`）+ 真实 PostgreSQL 逐行回读与 SQL 计数 + 真实 HTTP 登录/会话请求；未 mock 业务服务、未覆盖业务路由。进程与 DB 原语复用 09 真实验收栈。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+- **`control.console_session` 不按租户计数**：该表无 `tenant_id`，按 `account_id` 关联；专用计数器 `count_tenant_sessions()` 用子查询归属到本租户账号，避免"列不存在"的假失败（12 归档时同一坑）。
+- **边界样本必须"真能用"而非只是数据**：种子不止写入行，B-06 还用真实 HTTP 证明三个样本的行为（禁用 401 / 锁定 423 / ADMIN 200），并证明**明文令牌能认证**——否则后续场景（B-02 续期、E-03 撤销）会建在沙地上。
+- **审计行纳入清理**：`purge_tenant()` 连 `config_audit_log` 一并清（TASK-001 起登录/创建会写审计），否则重复运行会累积残留、污染精确计数断言。
+- **按需最小栈**：本环境的 S-07（CLI + lifespan）需要真实进程与启动日志，故起真实 Console；其余集成场景仍走并发套件的 ASGI 夹具（更快的真实 PG 边界）。
+- B-06: verified — automated command passed; run_id=5c95f9ea051d4dc8b455babe99b855bd (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=f58b7ab1bb09462baebf41f6692088a2 (confirmed_by: runner)
 
 ### Log
 - [2026-09-27] created (draft)
 
 ---
-
+- [2026-09-27] started
+- [2026-09-27] completed (done)
 ## TASK-003: 登录链真实验收
 
 - **Status**: draft

@@ -678,7 +678,7 @@
       "kind": "functional",
       "boundary": "真实 Console 进程 + 真实 PostgreSQL + 租户级清理",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -688,7 +688,37 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "B-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "f58b7ab1bb09462baebf41f6692088a2",
+        "executed_at": "2026-09-27T06:38:40.396144+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "5c95f9ea051d4dc8b455babe99b855bd",
+          "executed_at": "2026-09-27T06:38:10.462569+00:00"
+        },
+        {
+          "id": "B-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "f58b7ab1bb09462baebf41f6692088a2",
+          "executed_at": "2026-09-27T06:38:40.396144+00:00"
+        }
+      ]
     },
     {
       "id": "B-07",
