@@ -8,7 +8,6 @@ import { AppLayout } from './layout/AppLayout';
 import { ModelPage } from './modules/model-management/ModelPage';
 import { UserPage } from './modules/user-identity/UserPage';
 import { LoginPage } from './pages/LoginPage';
-import { PlaceholderPage } from './pages/PlaceholderPage';
 import { AgentPage } from './modules/agent-management/AgentPage';
 import { McpPage } from './modules/mcp-management/McpPage';
 import { SkillPage } from './modules/skill-management/SkillPage';
@@ -16,6 +15,7 @@ import { PlatformPage } from './modules/project-platform/PlatformPage';
 import { SchedulePage } from './modules/task-schedule/SchedulePage';
 import { TaskPage } from './modules/task-schedule/TaskPage';
 import { AuditPage } from './modules/audit-observability/pages/AuditPage';
+import { OverviewPage } from './modules/overview-dashboard/pages/OverviewPage';
 
 export default function App() {
   const theme = useThemeMode();
@@ -39,7 +39,7 @@ export default function App() {
           </RequireAuth>
         }
       >
-        <Route index element={<PlaceholderPage titleKey="nav.overview" />} />
+        <Route index element={<OverviewPage />} />
         <Route path="agents" element={<AgentPage />} />
         <Route path="skills" element={<SkillPage />} />
         <Route path="mcp" element={<McpPage />} />
