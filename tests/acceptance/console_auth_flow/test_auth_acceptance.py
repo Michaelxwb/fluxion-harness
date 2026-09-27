@@ -483,3 +483,114 @@ async def test_s04_short_new_password_and_wrong_current_password_are_rejected(
 
     still = await login(client, auth, auth.builder_username, BUILDER_PASSWORD)
     assert still.status_code == 200, "失败路径不得改变密码"
+
+
+# ---- TASK-007：账号管理与访问控制（E-04/E-05/E-08/B-08）----
+
+
+async def _tenant_account_count(tenant_id: str) -> int:
+    async with get_session_factory()() as session:
+        total = await session.scalar(
+            sa.select(sa.func.count())
+            .select_from(ConsoleAccount)
+            .where(ConsoleAccount.tenant_id == tenant_id, ConsoleAccount.is_deleted.is_(False))
+        )
+        return int(total or 0)
+
+
+async def test_e04_missing_or_forged_csrf_is_forbidden(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[E-04] 非安全方法缺失或伪造 `X-CSRF-Token` → 403 `FORBIDDEN`，且不落业务变更。"""
+    response = await login(client, auth, auth.admin_username, ADMIN_PASSWORD)
+    assert response.status_code == 200
+    before = await _account_create_count(auth.tenant_id)
+
+    missing = await client.post(
+        "/api/v1/accounts",
+        json=_create_payload(f"csrf-{uuid.uuid4()}"),
+        headers=tenant_headers(auth),
+    )
+    assert missing.status_code == 403
+    assert missing.json()["code"] == "FORBIDDEN"
+
+    forged = await client.post(
+        "/api/v1/accounts",
+        json=_create_payload(f"csrf-{uuid.uuid4()}"),
+        headers={**tenant_headers(auth), "X-CSRF-Token": "forged-token"},
+    )
+    assert forged.status_code == 403
+    assert forged.json()["code"] == "FORBIDDEN"
+
+    assert await _account_create_count(auth.tenant_id) == before, "CSRF 失败不得落业务变更"
+
+
+async def test_e05_builder_cannot_reach_accounts(client: AsyncClient, auth: AuthContext) -> None:
+    """[E-05] BUILDER 访问 `/api/v1/accounts`（读与写）→ 403，且不发生写入。"""
+    response = await login(client, auth, auth.builder_username, BUILDER_PASSWORD)
+    assert response.status_code == 200
+    before = await _account_create_count(auth.tenant_id)
+
+    listing = await client.get("/api/v1/accounts", headers=tenant_headers(auth))
+    assert listing.status_code == 403
+    assert listing.json()["code"] == "FORBIDDEN"
+
+    creating = await client.post(
+        "/api/v1/accounts",
+        json=_create_payload(f"rbac-{uuid.uuid4()}"),
+        headers={**tenant_headers(auth), **csrf_headers(client)},
+    )
+    assert creating.status_code == 403
+    assert await _account_create_count(auth.tenant_id) == before
+
+
+async def test_e08_unauthenticated_rejected_while_public_routes_stay_open(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[E-08] 未登录访问受保护端点 → 401；`/healthz` 与 `/auth/login` 保持公开。"""
+    for path in ("/api/v1/agents", "/api/v1/accounts"):
+        response = await client.get(path, headers=tenant_headers(auth))
+        assert response.status_code == 401, path
+        assert response.json()["code"] == "UNAUTHORIZED", path
+
+    health = await client.get("/healthz")
+    assert health.status_code == 200
+
+    public_login = await client.post(
+        "/api/v1/auth/login",
+        json={"username": auth.admin_username, "password": ADMIN_PASSWORD},
+        headers=tenant_headers(auth),
+    )
+    assert public_login.status_code == 200
+
+
+async def test_b08_account_creation_is_idempotent_by_key(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[B-08] 同 key 同指纹重放返回同一账号且不重复创建；异指纹 `IDEMPOTENCY_MISMATCH`。"""
+    response = await login(client, auth, auth.admin_username, ADMIN_PASSWORD)
+    assert response.status_code == 200
+    key = f"acct-key-{uuid.uuid4()}"
+    payload = _create_payload(f"idem-{uuid.uuid4()}")
+    headers = {**tenant_headers(auth), **csrf_headers(client), "Idempotency-Key": key}
+    accounts_before = await _tenant_account_count(auth.tenant_id)
+    audits_before = await _account_create_count(auth.tenant_id)
+
+    first = await client.post("/api/v1/accounts", json=payload, headers=headers)
+    assert first.status_code == 200, first.text
+    first_id = first.json()["data"]["id"]
+    assert await _tenant_account_count(auth.tenant_id) == accounts_before + 1
+    assert await _account_create_count(auth.tenant_id) == audits_before + 1
+
+    replay = await client.post("/api/v1/accounts", json=payload, headers=headers)
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["data"]["id"] == first_id, "同 key 同指纹必须重放首次结果"
+    assert await _tenant_account_count(auth.tenant_id) == accounts_before + 1, "重放不得重复建号"
+    assert await _account_create_count(auth.tenant_id) == audits_before + 1, "重放不产生新变更、不写新审计"
+
+    mismatch = await client.post(
+        "/api/v1/accounts", json={**payload, "role": "ADMIN"}, headers=headers
+    )
+    assert mismatch.status_code == 409
+    assert mismatch.json()["code"] == "IDEMPOTENCY_MISMATCH"
+    assert await _tenant_account_count(auth.tenant_id) == accounts_before + 1

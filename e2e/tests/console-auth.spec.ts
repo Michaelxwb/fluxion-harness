@@ -133,3 +133,55 @@ test('S-04 修改密码成功后旧密码失效、新密码可用（用后即改
   const back = await loginAsBuilder(BUILDER_PASSWORD);
   expect(back.status(), '必须已还原为种子密码').toBe(200);
 });
+
+test('S-05 ADMIN 创建 BUILDER 账号：响应无 password_hash、新账号可登录、列表含之', async ({ page }) => {
+  const admin = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(admin.status(), await admin.text()).toBe(200);
+  const csrf = (await page.context().cookies()).find((cookie) => cookie.name === 'muad_csrf');
+  expect(csrf).toBeTruthy();
+
+  const username = `browser-created-${Date.now()}`;
+  const created = await page.request.post('/api/v1/accounts', {
+    data: { username, display_name: 'Browser Created', password: 'browser-created-password', role: 'BUILDER' },
+    headers: { 'X-CSRF-Token': csrf!.value }
+  });
+  expect(created.status(), await created.text()).toBe(200);
+  const createdBody = await created.json();
+  expect(Object.keys(createdBody.data).sort()).toEqual(['display_name', 'id', 'role', 'username']);
+  expect('password_hash' in createdBody.data).toBe(false);
+
+  // 新账号可登录
+  const relogin = await page.request.post('/api/v1/auth/login', {
+    data: { username, password: 'browser-created-password' }
+  });
+  expect(relogin.status(), '新账号必须可登录').toBe(200);
+
+  // 列表含新账号（重新以 ADMIN 身份查看）
+  const adminAgain = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(adminAgain.status()).toBe(200);
+  const listing = await page.request.get('/api/v1/accounts?page=1&page_size=100');
+  expect(listing.status()).toBe(200);
+  const items = (await listing.json()).data.items;
+  expect(items.map((item: { username: string }) => item.username)).toContain(username);
+});
+
+test('S-06 ADMIN 账号列表为分页封套且无敏感字段', async ({ page }) => {
+  const admin = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(admin.status(), await admin.text()).toBe(200);
+
+  const listing = await page.request.get('/api/v1/accounts');
+  expect(listing.status()).toBe(200);
+  const data = (await listing.json()).data;
+  expect(Object.keys(data).sort()).toEqual(['items', 'page', 'page_size', 'total']);
+  expect(data.page).toBe(1);
+  expect(data.page_size).toBe(20);
+  expect(data.total).toBeGreaterThanOrEqual(1);
+
+  for (const item of data.items) {
+    // 字段与 docs/15 一致，且绝不返回敏感列
+    expect(Object.keys(item).sort()).toEqual(['display_name', 'id', 'role', 'username']);
+    for (const forbidden of ['password_hash', 'failed_attempts', 'locked_until']) {
+      expect(forbidden in item, `${forbidden} 不得出现在列表项`).toBe(false);
+    }
+  }
+});

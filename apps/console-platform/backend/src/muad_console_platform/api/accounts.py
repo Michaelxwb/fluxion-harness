@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +13,8 @@ from .deps import CurrentAccount, get_source_ip, get_tenant_id
 
 TenantId = Annotated[str, Depends(get_tenant_id)]
 Session = Annotated[AsyncSession, Depends(get_session)]
+# RULE-api-002：创建类 POST 支持 `Idempotency-Key`（可选）
+IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key", max_length=128)]
 
 router = APIRouter(prefix="/api/v1/accounts", tags=["accounts"])
 
@@ -50,25 +52,29 @@ async def create_account(
     account: CurrentAccount,
     tenant_id: TenantId,
     session: Session,
+    idempotency_key: IdempotencyKey = None,
 ) -> ApiResponse[Any]:
-    created = await AuthService(session, tenant_id=tenant_id).create_account(
+    created, replayed = await AuthService(session, tenant_id=tenant_id).create_account(
         username=payload.username,
         password=payload.password,
         display_name=payload.display_name,
         role=payload.role,
+        idempotency_key=idempotency_key,
     )
-    # FEAT-08 / RULE-10：审计与业务变更共用同一 session（同一事务），actor 为**创建者**
-    await AuditService(session).record_config_change(
-        tenant_id=tenant_id,
-        actor=AuditActor(account_id=account.id, source_ip=get_source_ip(request)),
-        resource_type="CONSOLE_ACCOUNT",
-        resource_id=created.id,
-        action="CREATE",
-        before=None,
-        after={
-            "username": created.username,
-            "display_name": created.display_name,
-            "role": created.role,
-        },
-    )
+    if not replayed:
+        # FEAT-08 / RULE-10：审计与业务变更共用同一 session（同一事务），actor 为**创建者**。
+        # RULE-api-002：幂等重放没有产生新变更，故不写新审计。
+        await AuditService(session).record_config_change(
+            tenant_id=tenant_id,
+            actor=AuditActor(account_id=account.id, source_ip=get_source_ip(request)),
+            resource_type="CONSOLE_ACCOUNT",
+            resource_id=created.id,
+            action="CREATE",
+            before=None,
+            after={
+                "username": created.username,
+                "display_name": created.display_name,
+                "role": created.role,
+            },
+        )
     return ok(request.app.state.message_catalog, _account_payload(created))

@@ -193,7 +193,7 @@
       "kind": "e2e",
       "boundary": "Browser → Console HTTP → PostgreSQL",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -201,7 +201,42 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "S-05",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 3,
+        "run_id": "30304a0f6a4643ebae7454bebebedb0d",
+        "executed_at": "2026-09-27T08:15:20.817695+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "35cb55ae90c245d09ec473ba3784b211",
+          "executed_at": "2026-09-27T07:53:58.980268+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "0a3df697e790499ca90e4c2866826317",
+          "executed_at": "2026-09-27T07:54:21.015073+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "30304a0f6a4643ebae7454bebebedb0d",
+          "executed_at": "2026-09-27T08:15:20.817695+00:00"
+        }
+      ]
     },
     {
       "id": "S-06",
@@ -210,7 +245,7 @@
       "kind": "e2e",
       "boundary": "Browser → Console HTTP → PostgreSQL",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -218,7 +253,42 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "S-06",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 3,
+        "run_id": "30304a0f6a4643ebae7454bebebedb0d",
+        "executed_at": "2026-09-27T08:15:20.817695+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "35cb55ae90c245d09ec473ba3784b211",
+          "executed_at": "2026-09-27T07:53:58.980268+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "0a3df697e790499ca90e4c2866826317",
+          "executed_at": "2026-09-27T07:54:21.015073+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 3,
+          "run_id": "30304a0f6a4643ebae7454bebebedb0d",
+          "executed_at": "2026-09-27T08:15:20.817695+00:00"
+        }
+      ]
     },
     {
       "id": "S-07",
@@ -554,7 +624,7 @@
       "kind": "functional",
       "boundary": "API → CSRF 校验",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -566,7 +636,46 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "30304a0f6a4643ebae7454bebebedb0d",
+        "executed_at": "2026-09-27T08:15:20.817695+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "35cb55ae90c245d09ec473ba3784b211",
+          "executed_at": "2026-09-27T07:53:58.980268+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "0a3df697e790499ca90e4c2866826317",
+          "executed_at": "2026-09-27T07:54:21.015073+00:00"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "30304a0f6a4643ebae7454bebebedb0d",
+          "executed_at": "2026-09-27T08:15:20.817695+00:00"
+        }
+      ]
     },
     {
       "id": "E-05",
@@ -575,7 +684,7 @@
       "kind": "functional",
       "boundary": "API → RBAC",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -587,7 +696,46 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "30304a0f6a4643ebae7454bebebedb0d",
+        "executed_at": "2026-09-27T08:15:20.817695+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "35cb55ae90c245d09ec473ba3784b211",
+          "executed_at": "2026-09-27T07:53:58.980268+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "0a3df697e790499ca90e4c2866826317",
+          "executed_at": "2026-09-27T07:54:21.015073+00:00"
+        },
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "30304a0f6a4643ebae7454bebebedb0d",
+          "executed_at": "2026-09-27T08:15:20.817695+00:00"
+        }
+      ]
     },
     {
       "id": "E-06",
@@ -698,7 +846,7 @@
       "kind": "functional",
       "boundary": "API → 全局认证（公开端点白名单）",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -710,7 +858,46 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "E-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "30304a0f6a4643ebae7454bebebedb0d",
+        "executed_at": "2026-09-27T08:15:20.817695+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "35cb55ae90c245d09ec473ba3784b211",
+          "executed_at": "2026-09-27T07:53:58.980268+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "0a3df697e790499ca90e4c2866826317",
+          "executed_at": "2026-09-27T07:54:21.015073+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "30304a0f6a4643ebae7454bebebedb0d",
+          "executed_at": "2026-09-27T08:15:20.817695+00:00"
+        }
+      ]
     },
     {
       "id": "E-09",
@@ -1069,7 +1256,7 @@
       "kind": "functional",
       "boundary": "真实 Console HTTP → 共享幂等表(PostgreSQL)",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1081,7 +1268,46 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 3,
+      "evidence": {
+        "id": "B-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 3,
+        "run_id": "30304a0f6a4643ebae7454bebebedb0d",
+        "executed_at": "2026-09-27T08:15:20.817695+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "35cb55ae90c245d09ec473ba3784b211",
+          "executed_at": "2026-09-27T07:53:58.980268+00:00"
+        },
+        {
+          "id": "B-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "0a3df697e790499ca90e4c2866826317",
+          "executed_at": "2026-09-27T07:54:21.015073+00:00"
+        },
+        {
+          "id": "B-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "30304a0f6a4643ebae7454bebebedb0d",
+          "executed_at": "2026-09-27T08:15:20.817695+00:00"
+        }
+      ]
     }
   ]
 }

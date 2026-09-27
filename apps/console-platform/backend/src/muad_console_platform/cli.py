@@ -52,7 +52,8 @@ async def _create_admin(args: argparse.Namespace) -> int:
     async with get_session_factory()() as session:
         service = AuthService(session, tenant_id=args.tenant)
         try:
-            account = await service.create_account(
+            # CLI 不传 idempotency_key ⇒ replayed 恒为 False
+            account, _replayed = await service.create_account(
                 username=args.username,
                 password=password,
                 display_name=args.username,

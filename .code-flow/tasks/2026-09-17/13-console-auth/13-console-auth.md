@@ -46,8 +46,8 @@
 | S-02 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（会话续期） | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s02"] | . | 600 |  |
 | S-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-005 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-03\""] | . | 1200 |  |
 | S-04 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-006 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-04\""] | . | 1200 |  |
-| S-05 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-007 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-05\""] | . | 1200 |  |
-| S-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-007 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-06\""] | . | 1200 |  |
+| S-05 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-007 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-05\""] | . | 1200 |  |
+| S-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | E2E | Browser → Console HTTP → PostgreSQL | TASK-007 | e2e_deferred | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-06\""] | . | 1200 |  |
 | S-07 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | CLI → 真实 PostgreSQL；真实 lifespan 启动 → 日志 | TASK-008 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s07"] | . | 600 |  |
 | S-08 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（审计与变更同事务） | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","s08"] | . | 600 |  |
 | S-09 | 13-console-auth.frontend.design.md#2.4 验收条件 | E2E | Browser → Router → ApiClient → Console HTTP → PostgreSQL | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-09\""] | . | 1200 |  |
@@ -59,11 +59,11 @@
 | E-01 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（失败计数） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e01"] | . | 600 |  |
 | E-02 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（锁定状态机） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e02"] | . | 600 |  |
 | E-03 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（会话失效） | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e03"] | . | 600 |  |
-| E-04 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → CSRF 校验 | TASK-007 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e04"] | . | 600 |  |
-| E-05 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → RBAC | TASK-007 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e05"] | . | 600 |  |
+| E-04 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → CSRF 校验 | TASK-007 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e04"] | . | 600 |  |
+| E-05 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → RBAC | TASK-007 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e05"] | . | 600 |  |
 | E-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 真实 PostgreSQL（禁用账号不泄露状态） | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e06"] | . | 600 |  |
 | E-07 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | Service → 真实 PostgreSQL（审计脱敏） | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e07"] | . | 600 |  |
-| E-08 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 全局认证（公开端点白名单） | TASK-007 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e08"] | . | 600 |  |
+| E-08 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | API → 全局认证（公开端点白名单） | TASK-007 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e08"] | . | 600 |  |
 | E-09 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | ApiClient 响应拦截 → Router（401 跳登录，不循环） | TASK-012 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-09\""] | . | 900 |  |
 | E-10 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | LoginPage → API 错误 → Toast | TASK-012 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-10\""] | . | 900 |  |
 | E-11 | 13-console-auth.frontend.design.md#2.4 验收条件 | integration | RequireRole → Router（越权重定向，不发数据请求） | TASK-011 | planned | ["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"E-11\""] | . | 900 |  |
@@ -76,7 +76,7 @@
 | B-05 | 13-console-auth.frontend.design.md#2.4 验收条件 | unit | i18n 资源双语完整 | TASK-010 | planned | ["uv","run","pytest","-q","tests/frontend/test_console_auth_contract.py","-k","b05"] | . | 600 |  |
 | B-06 | 13-console-auth.backend.design.md#2.5.2 功能验收场景 | integration | 真实 Console 进程 + 真实 PostgreSQL + 租户级清理 | TASK-002 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_environment.py"] | . | 600 |  |
 | B-07 | 13-console-auth.backend.design.md#3.3 数据设计 | integration | 真实 PostgreSQL 表结构/索引 + 原 verifier 真实边界 | TASK-009 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_schema_contract.py","-k","b07"] | . | 600 |  |
-| B-08 | 13-console-auth.backend.design.md#3.4 接口设计 | integration | 真实 Console HTTP → 共享幂等表(PostgreSQL) | TASK-007 | planned | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b08"] | . | 600 |  |
+| B-08 | 13-console-auth.backend.design.md#3.4 接口设计 | integration | 真实 Console HTTP → 共享幂等表(PostgreSQL) | TASK-007 | verified | ["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b08"] | . | 600 |  |
 | RULE-log-001 | 13-console-auth.backend#2.5.1 业务规则与约束 | integration | 统一 logging-kit 出口 + 原 verifier 真实边界 | TASK-001 | planned | ["bash","-lc","uv run pytest -q tests/test_logging.py tests/test_logging_redaction.py tests/acceptance/test_foundation_logging.py"] | . | 600 |  |
 | RULE-secret-001 | 13-console-auth.backend#2.5.1 业务规则与约束 | integration | 密码 argon2id / 令牌 sha256 / 三层脱敏 + 原 verifier 真实边界 | TASK-001 | planned | ["bash","-lc","uv run pytest -q tests/test_logging_redaction.py tests/acceptance/test_foundation_ops_audit.py"] | . | 600 |  |
 | RULE-auth-001 | 13-console-auth.backend#Spec Compliance Matrix | integration | 真实 Console HTTP + 真实 PostgreSQL + 原 verifier 真实边界 | TASK-003 | planned | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
@@ -440,7 +440,7 @@
 - [2026-09-27] completed (done)
 ## TASK-007: 账号管理与访问控制真实验收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: 13-console-auth.backend.design.md#3.4 接口设计, 13-console-auth.backend.design.md#2.5.1 业务规则与约束, 13-console-auth.backend.design.md#2.5.2 功能验收场景
@@ -455,40 +455,75 @@
 
 ### Checklist
 
-- [ ] [S-05][E2E] ADMIN 登录后创建 BUILDER 账号 → 200 返回账号（**无 `password_hash`**）；新账号可登录；账号列表含新账号。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-05\""]`。
-- [ ] [S-06][E2E] ADMIN 打开账号列表 → 返回账号集合，字段与 docs/15 一致且无敏感字段。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-06\""]`。
-- [ ] [E-04][integration] 非安全方法缺失或伪造 `X-CSRF-Token` → 403 `FORBIDDEN` 且请求不落业务变更。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e04"]`。
-- [ ] [E-05][integration] BUILDER 访问 `/api/v1/accounts` → 403 `FORBIDDEN`，不发生查询/写入。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e05"]`。
-- [ ] [E-08][integration] 未登录访问 `/api/v1/agents` 或 `/api/v1/accounts` → 401 `UNAUTHORIZED`；`/healthz`、`/auth/login` 公开。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e08"]`。
-- [ ] [RULE-api-001][integration] 作为唯一最终负责人：统一 Envelope 与列表分页（`page>=1`、`1<=page_size<=100`），错误码只来自 `config/api-messages.yaml`。verifier argv：`["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"]`。
-- [ ] 断言同租户重名 → 409 `ACCOUNT_USERNAME_EXISTS`（含并发唯一约束兜底），且列表分页边界（`page_size=101` → 422）。
-- [ ] [B-08][integration] 创建账号支持 `Idempotency-Key`：同 key 同指纹重放返回**同一账号且不重复创建**（库内账号数不变）；同 key 异指纹返回 `IDEMPOTENCY_MISMATCH`；并发同 key 由 partial unique 兜底、落败者读取首次结果。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b08"]`。
-- [ ] [RULE-api-002][integration] 作为唯一最终负责人：创建/上传类 POST 的 `Idempotency-Key` 幂等（**0.1 承接**：本模块确有创建类 POST，与 12 的只读模块不同）。verifier argv：`["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"]`。
-- [ ] 实现或补齐：复用仓内**既有共享幂等表**（不新建第二张表，口径同 11 的审计导出），指纹 = 规范化 JSON 的 sha256（含 endpoint/tenant/actor/资源与关键参数）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [S-05][E2E] ADMIN 登录后创建 BUILDER 账号 → 200 返回账号（**无 `password_hash`**）；新账号可登录；账号列表含新账号。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-05\""]`。
+- [x] [S-06][E2E] ADMIN 打开账号列表 → 返回账号集合，字段与 docs/15 一致且无敏感字段。执行 argv：`["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-06\""]`。
+- [x] [E-04][integration] 非安全方法缺失或伪造 `X-CSRF-Token` → 403 `FORBIDDEN` 且请求不落业务变更。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e04"]`。
+- [x] [E-05][integration] BUILDER 访问 `/api/v1/accounts` → 403 `FORBIDDEN`，不发生查询/写入。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e05"]`。
+- [x] [E-08][integration] 未登录访问 `/api/v1/agents` 或 `/api/v1/accounts` → 401 `UNAUTHORIZED`；`/healthz`、`/auth/login` 公开。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e08"]`。
+- [x] [RULE-api-001][integration] 作为唯一最终负责人：统一 Envelope 与列表分页（`page>=1`、`1<=page_size<=100`），错误码只来自 `config/api-messages.yaml`。verifier argv：`["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"]`。
+- [x] 断言同租户重名 → 409 `ACCOUNT_USERNAME_EXISTS`（含并发唯一约束兜底），且列表分页边界（`page_size=101` → 422）。
+- [x] [B-08][integration] 创建账号支持 `Idempotency-Key`：同 key 同指纹重放返回**同一账号且不重复创建**（库内账号数不变）；同 key 异指纹返回 `IDEMPOTENCY_MISMATCH`；并发同 key 由 partial unique 兜底、落败者读取首次结果。执行 argv：`["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b08"]`。
+- [x] [RULE-api-002][integration] 作为唯一最终负责人：创建/上传类 POST 的 `Idempotency-Key` 幂等（**0.1 承接**：本模块确有创建类 POST，与 12 的只读模块不同）。verifier argv：`["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"]`。
+- [x] 实现或补齐：复用仓内**既有共享幂等表**（不新建第二张表，口径同 11 的审计导出），指纹 = 规范化 JSON 的 sha256（含 endpoint/tenant/actor/资源与关键参数）。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-05 | E2E | Browser → Console HTTP → PostgreSQL | 创建成功且响应无 `password_hash`；新账号可登录；列表含之 | e2e/tests/console-auth.spec.ts / S-05 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-05\""]` | planned |
-| S-06 | E2E | Browser → Console HTTP → PostgreSQL | 列表为分页封套；字段与 docs/15 一致；无敏感字段 | e2e/tests/console-auth.spec.ts / S-06 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-06\""]` | planned |
-| E-04 | integration | API → CSRF 校验 | 403 且无业务变更落库 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / E-04 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e04"]` | planned |
-| E-05 | integration | API → RBAC | 403 且无查询/写入 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / E-05 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e05"]` | planned |
-| E-08 | integration | API → 全局认证 | 401 契约码；公开端点白名单生效 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / E-08 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e08"]` | planned |
-| RULE-api-001 | integration | 真实 Console HTTP + 原 verifier 真实边界 | 封套/分页边界/catalog 错误码；原 verifier 全部通过 | 原 verifier / RULE-api-001 | `["bash","-lc","uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]` | planned |
-| B-08 | integration | 真实 Console HTTP → 共享幂等表(PostgreSQL) | 同 key 同指纹重放同一账号且不重复创建；异指纹 `IDEMPOTENCY_MISMATCH`；并发落败者读首次结果 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / B-08 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b08"]` | planned |
-| RULE-api-002 | integration | 真实 Console HTTP → 幂等表(PostgreSQL) + 原 verifier 真实边界 | 创建类 POST 幂等；异指纹 409；原 verifier 全部通过 | tests/acceptance/console_auth_flow/test_auth_acceptance.py + 原 verifier / RULE-api-002 | `["bash","-lc","uv run pytest -q tests/acceptance/console_auth_flow/test_auth_acceptance.py -k b08 && uv run pytest -q tests/console_skill/test_import_idempotency.py"]` | planned |
+| S-05 | E2E | Browser → Console HTTP → PostgreSQL | 创建成功且响应无 `password_hash`；新账号可登录；列表含之 | e2e/tests/console-auth.spec.ts / S-05 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-05\""]` | e2e_deferred |
+| S-06 | E2E | Browser → Console HTTP → PostgreSQL | 列表为分页封套；字段与 docs/15 一致；无敏感字段 | e2e/tests/console-auth.spec.ts / S-06 | `["bash","-lc","cd e2e && npx playwright test --config playwright.console-auth.config.ts -g \"S-06\""]` | e2e_deferred |
+| E-04 | integration | API → CSRF 校验 | 403 且无业务变更落库 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / E-04 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e04"]` | verified |
+| E-05 | integration | API → RBAC | 403 且无查询/写入 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / E-05 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e05"]` | verified |
+| E-08 | integration | API → 全局认证 | 401 契约码；公开端点白名单生效 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / E-08 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","e08"]` | verified |
+| RULE-api-001 | integration | 真实 Console HTTP + 原 verifier 真实边界 | 封套/分页边界/catalog 错误码；原 verifier 全部通过 | 原 verifier / RULE-api-001 | `["bash","-lc","uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py"]` | verified |
+| B-08 | integration | 真实 Console HTTP → 共享幂等表(PostgreSQL) | 同 key 同指纹重放同一账号且不重复创建；异指纹 `IDEMPOTENCY_MISMATCH`；并发落败者读首次结果 | tests/acceptance/console_auth_flow/test_auth_acceptance.py / B-08 | `["uv","run","pytest","-q","tests/acceptance/console_auth_flow/test_auth_acceptance.py","-k","b08"]` | verified |
+| RULE-api-002 | integration | 真实 Console HTTP → 幂等表(PostgreSQL) + 原 verifier 真实边界 | 创建类 POST 幂等；异指纹 409；原 verifier 全部通过 | tests/acceptance/console_auth_flow/test_auth_acceptance.py + 原 verifier / RULE-api-002 | `["bash","-lc","uv run pytest -q tests/acceptance/console_auth_flow/test_auth_acceptance.py -k b08 && uv run pytest -q tests/console_skill/test_import_idempotency.py"]` | verified |
 
 ### Acceptance Evidence
 
-> `cf-task-start` 在编码期填写 RED/GREEN 结果、每个关键断言的位置和真实组件证据；全部状态 verified 后任务才可 done。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-05 | 验收类（创建账号链基线已实现；本任务的**真实 RED 在 B-08 的幂等实现上**，见该行）。 | 登记 argv `-g "S-05"` → **1 passed (519ms)**。 | `S-05 ADMIN 创建 BUILDER 账号…`（浏览器）：ADMIN 真实登录 → 带 CSRF 创建 BUILDER → 200 且 `data` 键集恰为 `{display_name,id,role,username}`、**断言 `password_hash` 不在响应中**；新账号**真实登录成功**；重新以 ADMIN 拉列表断言新账号在册 | 真实 Chromium + 真实 Console（真实会话/CSRF）+ 真实 PostgreSQL。 | e2e_deferred（本地已 GREEN，终验归 verify-e2e） |
+| S-06 | 验收类。 | `-g "S-06"` → **1 passed (175ms)**。 | `S-06 ADMIN 账号列表为分页封套且无敏感字段`：`data` 键集恰为 `{items,page,page_size,total}`、`page=1`、`page_size=20`、`total>=1`；**逐项断言键集恰为四字段**且 `password_hash`/`failed_attempts`/`locked_until` 均不出现 | 同上（真实列表响应体逐项校验）。 | e2e_deferred（终验归 verify-e2e） |
+| E-04 | 验收类。 | `-k e04` → 1 passed（整文件 24 passed）。 | `test_e04_missing_or_forged_csrf_is_forbidden`：缺失与**伪造** `X-CSRF-Token` 两种情形均 403 `FORBIDDEN`；并断言租户内 `CONSOLE_ACCOUNT/CREATE` 审计计数不变（CSRF 失败**不落业务变更**） | 真实 Console ASGI 全栈 + 真实 PostgreSQL 计数回读。 | verified |
+| E-05 | 验收类。 | `-k e05` → 1 passed。 | `test_e05_builder_cannot_reach_accounts`：BUILDER 读列表与创建账号**均** 403 `FORBIDDEN`；创建被拒后审计计数不变 | 同上。 | verified |
+| E-08 | 验收类。 | `-k e08` → 1 passed。 | `test_e08_unauthenticated_rejected_while_public_routes_stay_open`：未登录访问 `/api/v1/agents`、`/api/v1/accounts` 均 401 `UNAUTHORIZED`；`/healthz` 200、`/auth/login` 仍可用（公开白名单未被收口破坏） | 同上。 | verified |
+| B-08 | **真实 RED（本任务唯一的实现缺口）**：`create_account` 原先不接受 `Idempotency-Key`，接入前该用例失败于「第二次带同 key 的请求仍会走创建路径」；实现后转 GREEN。附带发现并修复一处**连带破坏**：`create_account` 返回类型由 `ConsoleAccount` 改为 `(account, replayed)` 后，`cli.py` 的调用点仍在解包单个对象（`account = await service.create_account(...)`），若不同步修会让 `create-admin` 静默拿到 tuple——已同步修复（CLI 不传 key，`replayed` 恒为 False）。 | `-k b08` → 1 passed；联合 argv（B-08 + 原 verifier）→ 1 passed + **5 passed**；整文件 24 passed；ruff/mypy（改动文件）干净。 | `test_b08_account_creation_is_idempotent_by_key`：同 key **同指纹**重放 → 200 且返回**同一账号 id**；租户内账号数**只 +1**（重放不重复建号）；**审计也只 +1**（重放不产生新变更、不写新审计）；同 key **异指纹**（role 改 ADMIN）→ 409 `IDEMPOTENCY_MISMATCH` 且账号数不变 | 真实 Console ASGI 全栈 + 真实 PostgreSQL（账号行数与审计行数双向计数）+ 共享幂等表（复用 `control.skill_import_idempotency`，**未新建第二张表**）。 | verified |
+| RULE-api-001 | 验收类（随本任务一并取证）。 | 原 verifier 复跑通过 → **18 passed**。 | 原 verifier 断言（统一封套、列表分页边界、catalog 错误码） | 真实 Console HTTP + 原 verifier 真实边界。 | verified |
+| RULE-api-002 | 本规则为**承接项**（用户决定），RED 见 B-08 行。 | 联合 argv 通过：B-08 1 passed + 原 verifier `tests/console_skill/test_import_idempotency.py` **5 passed**。 | 创建类 POST 的 `Idempotency-Key` 幂等：partial unique + 指纹（规范化 JSON 的 sha256，含 endpoint/tenant/资源与关键参数）+ 同 key 同指纹重放 + 异指纹 409 + advisory lock 串行化并发 | 真实 Console HTTP + 真实 PostgreSQL 幂等表 + 原 verifier 真实边界。 | verified |
+
+**实现中的判断点（如实登记）**：
+
+- **未新建第二张幂等表**：复用仓内既有的 `control.skill_import_idempotency`（含 `tenant_id/idempotency_key/endpoint/request_fingerprint/response_json`），口径同 11-audit-observability 的审计导出所述「复用共享幂等表」。
+- **幂等实现沿用 `channel_service` 的三件套**：`pg_advisory_xact_lock`（按 `tenant|key|endpoint` 派生锁键）→ 重放查询（同 key 异指纹即 `IDEMPOTENCY_MISMATCH`）→ 首次落库记录响应。仓库既有多个模块各自实现该模式（`channel_service`、`submissions`、`run_submission`），故本处**沿用同款**而非另立抽象，避免跨模块重构。
+- **重放不写新审计**：`create_account` 返回 `(account, replayed)`，API 层据此跳过审计——重放没有产生新变更，写审计会让"变更条数"与事实不符。该行为被 B-08 用**审计计数**断言固定。
+- **接口签名变更的连带修复**：`create_account` 改为返回元组属必要代价（调用方需要知道是否重放），但**必须同步全部调用点**——`cli.py` 是第二个调用方，已在同一任务内修复并纳入回归（S-07 会覆盖 CLI 路径）。此处若非主动 grep 调用方，会留下一个静默的类型错配。
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=35cb55ae90c245d09ec473ba3784b211 (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=35cb55ae90c245d09ec473ba3784b211 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=35cb55ae90c245d09ec473ba3784b211 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=35cb55ae90c245d09ec473ba3784b211 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=35cb55ae90c245d09ec473ba3784b211 (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=35cb55ae90c245d09ec473ba3784b211 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=0a3df697e790499ca90e4c2866826317 (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=0a3df697e790499ca90e4c2866826317 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=0a3df697e790499ca90e4c2866826317 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=0a3df697e790499ca90e4c2866826317 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=0a3df697e790499ca90e4c2866826317 (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=0a3df697e790499ca90e4c2866826317 (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=30304a0f6a4643ebae7454bebebedb0d (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=30304a0f6a4643ebae7454bebebedb0d (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=30304a0f6a4643ebae7454bebebedb0d (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=30304a0f6a4643ebae7454bebebedb0d (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=30304a0f6a4643ebae7454bebebedb0d (confirmed_by: runner)
+- B-08: verified — automated command passed; run_id=30304a0f6a4643ebae7454bebebedb0d (confirmed_by: runner)
 
 ### Log
 - [2026-09-27] created (draft)
 
 ---
-
+- [2026-09-27] started
+- [2026-09-27] completed (done)
 ## TASK-008: CLI create-admin 与启动自检验收
 
 - **Status**: draft

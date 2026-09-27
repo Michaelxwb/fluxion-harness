@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import secrets
 import uuid
@@ -8,10 +9,12 @@ from argon2 import PasswordHasher
 from argon2.exceptions import Argon2Error, InvalidHashError
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.auth import ROLE_ADMIN, ROLE_BUILDER, ConsoleAccount, ConsoleSession
+from ..infrastructure.models.control import SkillImportIdempotency
 from ..infrastructure.repositories.console_account_repository import ConsoleAccountRepository
 from ..infrastructure.repositories.console_session_repository import ConsoleSessionRepository
 
@@ -137,24 +140,76 @@ class AuthService:
         password: str,
         display_name: str,
         role: str = ROLE_BUILDER,
-    ) -> ConsoleAccount:
+        idempotency_key: str | None = None,
+    ) -> tuple[ConsoleAccount, bool]:
+        """创建账号；带 `idempotency_key` 时按 RULE-api-002 幂等（同 key 同指纹重放**不重复建号**）。
+
+        返回 `(account, replayed)`：调用方据此决定是否写审计——重放没有产生新变更，故不写新审计。
+        """
         if role not in ROLES:
             raise AppError(ErrorCode.COMMON_BAD_REQUEST)
         if len(password) < MIN_PASSWORD_LENGTH:
             raise AppError(ErrorCode.COMMON_BAD_REQUEST)
-        if await self._accounts.find_by_username(self._require_tenant(), username) is not None:
+        tenant_id = self._require_tenant()
+        fingerprint = account_fingerprint(tenant_id, username, display_name, role)
+        if idempotency_key:
+            await _lock_account_idempotency(self._session, tenant_id, idempotency_key)
+            replay = await self._replay_account(tenant_id, idempotency_key, fingerprint)
+            if replay is not None:
+                return replay, True
+        if await self._accounts.find_by_username(tenant_id, username) is not None:
             raise AppError(ErrorCode.ACCOUNT_USERNAME_EXISTS, message_args={"username": username})
         account = ConsoleAccount(
-            tenant_id=self._tenant_id,
+            tenant_id=tenant_id,
             username=username,
             display_name=display_name,
             password_hash=hash_password(password),
             role=role,
         )
         try:
-            return await self._accounts.add(account)
+            created = await self._accounts.add(account)
         except IntegrityError as exc:
             raise AppError(ErrorCode.ACCOUNT_USERNAME_EXISTS, message_args={"username": username}) from exc
+        if idempotency_key:
+            await self._record_account(tenant_id, idempotency_key, fingerprint, created)
+        return created, False
+
+    async def _replay_account(
+        self, tenant_id: str, idempotency_key: str, fingerprint: str
+    ) -> ConsoleAccount | None:
+        """同 key 同指纹 → 返回首次创建的账号；同 key 异指纹 → `IDEMPOTENCY_MISMATCH`。"""
+        record = await self._session.scalar(
+            select(SkillImportIdempotency).where(
+                SkillImportIdempotency.tenant_id == tenant_id,
+                SkillImportIdempotency.idempotency_key == idempotency_key,
+                SkillImportIdempotency.endpoint == ACCOUNT_IDEMPOTENCY_ENDPOINT,
+                SkillImportIdempotency.is_deleted.is_(False),
+            )
+        )
+        if record is None:
+            return None
+        if record.request_fingerprint != fingerprint:
+            raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
+        return await self._accounts.get(uuid.UUID(str(record.response_json["id"])))
+
+    async def _record_account(
+        self, tenant_id: str, idempotency_key: str, fingerprint: str, account: ConsoleAccount
+    ) -> None:
+        self._session.add(
+            SkillImportIdempotency(
+                tenant_id=tenant_id,
+                idempotency_key=idempotency_key,
+                endpoint=ACCOUNT_IDEMPOTENCY_ENDPOINT,
+                request_fingerprint=fingerprint,
+                response_json={
+                    "id": str(account.id),
+                    "username": account.username,
+                    "display_name": account.display_name,
+                    "role": account.role,
+                },
+            )
+        )
+        await self._session.flush()
 
     async def change_password(
         self,
@@ -186,3 +241,32 @@ class AuthService:
 
     async def has_any_account(self) -> bool:
         return await self._accounts.count_all() > 0
+
+ACCOUNT_IDEMPOTENCY_ENDPOINT = "/api/v1/accounts"
+FINGERPRINT_PREFIX = "sha256:"
+
+
+def account_fingerprint(tenant_id: str, username: str, display_name: str, role: str) -> str:
+    """创建账号请求的规范化指纹（口径同 channel_service：sort_keys + 紧凑分隔符）。"""
+    canonical = json.dumps(
+        {
+            "endpoint": ACCOUNT_IDEMPOTENCY_ENDPOINT,
+            "tenant_id": tenant_id,
+            "username": username,
+            "display_name": display_name,
+            "role": role,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return FINGERPRINT_PREFIX + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+async def _lock_account_idempotency(session: AsyncSession, tenant_id: str, key: str) -> None:
+    """同一 (tenant, key, endpoint) 串行化，避免并发重复建号。"""
+    digest = hashlib.sha256(
+        f"{tenant_id}|{key}|{ACCOUNT_IDEMPOTENCY_ENDPOINT}".encode()
+    ).digest()
+    lock_key = int.from_bytes(digest[:8], "big", signed=True)
+    await session.execute(select(func.pg_advisory_xact_lock(lock_key)))
