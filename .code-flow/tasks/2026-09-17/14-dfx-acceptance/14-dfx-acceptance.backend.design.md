@@ -16,7 +16,7 @@
 | Owner | fluxion-harness 测试与验收组 |
 | 数据 Owner | 无（不新增业务表；证据与报告落 CI 产物） |
 | 前置模块 | 01-platform-foundation, 02-user-identity, 03-model-management, 04-project-platform, 05-skill-management, 06-mcp-management, 07-agent-management, 08-runtime-execution, 09-task-schedule, 10-im-gateway, 11-audit-observability, 12-overview-dashboard, 13-console-auth |
-| 建议落位 | `tests/`（按域目录）、`tests/test_error_catalog.py`、`tests/test_contracts.py`、`tests/test_logging_redaction.py`、`scripts/check_frontend_i18n.py`、`scripts/check_error_message_hardcode.py`、`Makefile check`、CI 流水线 |
+| 建议落位 | `tests/`（按域目录）、`tests/test_error_catalog.py`、`tests/test_contracts.py`、`tests/test_logging_redaction.py`、`tests/architecture/`、各域 `tests/<域>_inventory.py` 收口清单、`e2e/tests/**/*.spec.ts` + `e2e/playwright.<域>.config.ts`、`scripts/check_frontend_i18n.py`、`scripts/check_error_message_hardcode.py`、`Makefile check`、CI 流水线 |
 | 对外接口 | 测试命令（pytest / make check / alembic dry run）；不新增 HTTP API |
 
 ### 1.1 责任人
@@ -34,6 +34,7 @@
 | v0.1 | 2026-09-17 | 14-dfx-acceptance | 初始草稿：按 docs/09 与已实现测试基线聚合 |
 | v1.0 | 2026-09-17 | 14-dfx-acceptance | 评审通过 |
 | v1.1 | 2026-09-18 | 14-dfx-acceptance | 对齐 V1.4 决策（docs/17）：lease/deadline/投递去重/Reaper 场景；补“不得 mock 的真实边界”与上线门禁映射 |
+| v1.2 | 2026-09-28 | Claude | 对齐现行分域 Spec 文本（不改需求与设计决策）：① Spec Compliance Matrix 的 spec id 由 legacy `harness-platform#` 校正为 `harness-api/arch/auth/log/rel/secret/snapshot/test/worker#`，补 `harness-auth#RULE-auth-001` 与新增的 `harness-api#RULE-api-002` 行；② `harness-secret` 语义由“只存 SecretRef”改为“密钥明文存于各 Owner 表、跨表以主键引用（无 `secret_ref`/SecretProvider）”，并登记平台侧休眠列、第三条受控出口与 canary 覆盖边界；③ 补 `harness-auth` 的凭据路由 ADMIN + 账号派生租户、会话/密码/审计口径；④ 补 `harness-test` 的 E2E 设施与验收执行口径（inventory 收口清单、`workers: 1`、`S-*` 禁 `page.route(`、`vite preview` + `MUAD_API_TARGET`、端口偏移冻结、`STREAM_TIMEOUT_SEC`）；⑤ 补 `harness-arch` 架构门禁落点、`harness-rel` 关系幂等/复活原行口径、`harness-worker` 的 `delivered=false` 语义、`harness-log`/`harness-snapshot` 规则文本增量 |
 
 ## 2. 需求分析
 
@@ -53,12 +54,12 @@
 |---|---|---|---|---|
 | FEAT-01 | 测试分层与执行基线 | 单元（纯逻辑/状态机）、契约、集成（真实 PG+Redis）、E2E（浏览器/HTTP 真实链路）分层与选择器 | P0 | docs/09 §8 L242-304 |
 | FEAT-02 | 黄金旅程 E2E | `/bind`、普通会话流式、同步/异步/定时、fan-out/fan-in、Interrupt/Resume、取消、用户范围、多 IM 路由、最终投递、Snapshot/无状态 | P0 | docs/09 §9 L308-329、基线 V7 §2.3 L192 |
-| FEAT-03 | 契约与一致性 | 错误码 enum↔YAML、源扫描、ORM↔迁移 parity、OpenAPI 形状、SSE 封套/seq、分页边界 | P0 | docs/07 §1/§11；harness-platform RULE-api-001 |
+| FEAT-03 | 契约与一致性 | 错误码 enum↔YAML、源扫描、ORM↔迁移 parity、OpenAPI 形状、SSE 封套/seq、分页边界、幂等键指纹 | P0 | docs/07 §1/§11；harness-api#RULE-api-001、harness-api#RULE-api-002 |
 | FEAT-04 | 可靠性/故障矩阵 | PG/Redis/Artifact Store/NFS 故障、lease reclaim、deadline sweep、Reaper、投递重试与去重 | P0 | docs/09 §5 L129-148、docs/10 §5/§8.4/§10 |
 | FEAT-05 | 安全验收 | Egress 拒绝、Secret 不外泄、日志脱敏、CSRF/RBAC、租户隔离、授权可见性 | P0 | docs/09 §3/§8.2/§12 |
 | FEAT-06 | 模型恢复验收 | 429 `Retry-After`、5xx/超时退避、deadline/cancel 约束、prompt too long 处理 | P0 | docs/04 §14 L751-786、docs/08 §13 L385 |
 | FEAT-07 | 上线门禁 | docs/09 §14 清单逐项映射测试与证据；分批发布复用同一门禁 | P0 | docs/09 §14 L421-443 |
-| FEAT-08 | 真实边界与证据 | 明确“不得 mock”清单；WeCom 真机标注需真实凭据；门禁证据可追溯 | P0 | harness-platform RULE-test-001 |
+| FEAT-08 | 真实边界与证据 | 明确“不得 mock”清单；WeCom 真机标注需真实凭据；门禁证据可追溯 | P0 | harness-test#RULE-test-001 |
 
 ### 2.3 范围与边界
 
@@ -67,7 +68,7 @@
 | In Scope | 测试分层与门禁编排；跨模块黄金旅程；契约一致性（错误码/迁移/OpenAPI/SSE/分页）；故障与恢复矩阵；安全与脱敏验收；模型恢复；上线门禁清单与证据规范 |
 | Out of Scope | 不实现业务功能；不替代各模块单元测试（各模块 owner 负责其用例本身）；不建设压测平台/混沌平台；不做公网 WAF、零信任等 docs/09 §2 明确的“当前不建设”项 |
 | 前置假设 | 环境提供真实 PostgreSQL（迁移至 head）、Redis、NFS-backed Artifact Store；企业微信真机验证只在有真实凭据的环境执行 |
-| 有意妥协 / 技术债 | ① pytest 分层 marker 尚未登记，当前基线靠 `make test` 全量执行；② Redis 部分用例当前使用替身（如 `tests/gateway/test_dedupe.py`），按 FEAT-01 在 CI 增加真实 Redis 集成；③ NFS 慢故障注入依赖环境能力；④ WeCom 真机项维持 manual + 证据归档 |
+| 有意妥协 / 技术债 | ① pytest 分层 marker 尚未登记，当前基线靠 `make test` 全量执行；② Redis 部分用例当前使用替身（如 `tests/gateway/test_dedupe.py`），按 FEAT-01 在 CI 增加真实 Redis 集成；③ NFS 慢故障注入依赖环境能力；④ WeCom 真机项维持 manual + 证据归档；⑤ 租户隔离只部分收敛：`credentials`/`tasks`/`schedules` 已改用账号派生租户，`accounts`/`users`/`agents`/`models`/`skills`/`platforms`/`mcp_servers`/`overview`/`audits` 等已认证路由仍用请求头派生的 `get_tenant_id()`（`harness-auth` 登记缺口），验收不得据此宣称租户隔离已全面完成；⑥ `harness-arch` 登记缺口：IM Gateway 只有 `install_metrics`、零 `declare_metric`（`/metrics` 目录为空），四个 k8s 清单的 `readinessProbe`/`livenessProbe` 均指向 `/healthz`，api-kit 的 `/readyz` 未被部署消费；⑦ `harness-snapshot`“配置/授权变更只影响后续新 Run”代码证实但指定 verifier 缺该断言；⑧ `harness-secret` 的“不得进入”面只有一部分被 canary 机检（见 §3.4.5）；⑨ 验收门禁命令的输出不得接进会提前关闭的管道（典型 `head`），该纪律当前无脚本约束 |
 
 ### 2.4 验收条件
 
@@ -76,11 +77,11 @@
 | ID | 类型 | 描述 | 验证场景 |
 |---|---|---|---|
 | RULE-01 | 测试约束 | 测试层级只能为 unit/contract/integration/E2E；跨 API/DB/Runtime/Browser 的关键流程必须 E2E | S-01..S-12 |
-| RULE-02 | 测试约束 | 集成与 E2E 不得 mock 真实 PostgreSQL、Redis 行为、HTTP 与浏览器渲染；允许替身仅限单元层纯逻辑 | 全部场景“关键真实边界”列 |
+| RULE-02 | 测试约束 | 集成与 E2E 不得 mock 真实 PostgreSQL、Redis 行为、HTTP 与浏览器渲染；允许替身仅限单元层纯逻辑；成功路径（`S-*`）不得出现 `page.route(`，失败/边界路径（`E-*`）的改写不得 fulfill 业务响应体 | 全部场景“关键真实边界”列 |
 | RULE-03 | 契约约束 | 错误码必须双向等于 `config/api-messages.yaml`；源码不得出现未登记码；ORM 与迁移列/索引/partial predicate 一致；新增枚举值 Consumer 必须 unknown-safe | S-02/S-03 |
 | RULE-04 | 可靠性约束 | lease 过期可 reclaim；Reaper 把过期 RUNNING 的 Run 置 `FAILED(RUN_ABANDONED)`；deadline 到期置 `FAILED(TASK_DEADLINE_EXCEEDED)`；终态仍按 delivery_mode 投递 | E-04/E-05 |
 | RULE-05 | 可靠性约束 | Final Delivery 以 `delivery_key` 去重；Worker 指数退避最多 5 次；Redis 不可用降级 at-least-once | S-11/E-06 |
-| RULE-06 | 安全约束 | Egress 未授权不发出调用；Secret 不出现在 DB/Snapshot/日志/Audit/Prompt；日志敏感字段必须脱敏 | E-07 |
+| RULE-06 | 安全约束 | Egress 未授权不发出调用；Secret 不出现在 Snapshot/日志/Audit/Prompt/API 响应（凭据明文按设计只存各 Owner 表，不在此禁令内）；日志敏感字段必须脱敏 | E-07 |
 | RULE-07 | 安全约束 | 非安全方法 CSRF 强校验；越权 403；租户谓词覆盖所有查询/写入 | E-08 |
 | RULE-08 | 模型恢复 | 429 尊重 `Retry-After`；5xx/超时指数退避 + jitter；等待不超过剩余 deadline；cancel 优先 | E-09 |
 | RULE-09 | 门禁约束 | docs/09 §14 每项门禁必须有测试或证据路径；WeCom 真机须标注“需真实凭据”；不允许以“未执行”冒充通过 | S-13 |
@@ -115,8 +116,8 @@
 | E-03 | FEAT-04 | integration | emptyDir cache → NFS | 本模块 | Artifact Store 不可用或 NFS 高延迟 | 已有 READY 可继续执行；cache miss 与新 Artifact 写入明确失败（`SKILL_ARTIFACT_UNAVAILABLE`），不返回假成功 |
 | E-04 | FEAT-04 | integration | lease → Reaper → CAS | 本模块 | kill Worker/Runtime Pod 且 lease 过期 | Task 被其他 Worker reclaim；过期 RUNNING Run 被 CAS `FAILED(RUN_ABANDONED)` 并释放会话 |
 | E-05 | FEAT-04 | integration | Scheduler sweep → PG | 本模块 | Task 超过 `deadline_at` | 30s 内 CAS `FAILED(TASK_DEADLINE_EXCEEDED)`，仍按 `delivery_mode` 投递 |
-| E-06 | FEAT-04 | integration | Worker → Gateway → Redis | 本模块 | 前 4 次投递失败、第 5 次成功；以及超限 | 指数退避重试；重复 `delivery_key` 不重复发送；超过 5 次置 `delivery_status=FAILED` 并写审计 |
-| E-07 | FEAT-05 | integration | Egress Boundary → Audit/日志/Snapshot | 本模块 | 未命中 allowlist 调用；载荷含 Secret | 调用不发出并写 DENY 审计；Secret 扫描 DB/Snapshot/日志/Audit/Prompt 均无明文；>5 MiB 响应拒绝 |
+| E-06 | FEAT-04 | integration | Worker → Gateway → Redis | 本模块 | 前 4 次投递失败、第 5 次成功；以及超限 | 指数退避重试；重复 `delivery_key` 不重复发送；仅 HTTP 2xx 且 `delivered=true` 才置 `SENT`，占位响应按可重试失败退避重投；超过 5 次置 `delivery_status=FAILED` 并写审计 |
+| E-07 | FEAT-05 | integration | Egress Boundary → Audit/日志/Snapshot | 本模块 | 未命中 allowlist 调用；载荷含 Secret | 调用不发出并写 DENY 审计；canary 反查 Snapshot/审计/日志/Prompt 均无明文（Owner 凭据表按设计存明文，不在扫描面内）；>5 MiB 响应拒绝 |
 | E-08 | FEAT-05 | integration | API → RBAC/CSRF/租户谓词 | 本模块 | 缺失 CSRF；Builder 访问 ADMIN 端点；跨租户读取 | 403 `FORBIDDEN`；跨租户不可见/不可写，不泄露存在性 |
 | E-09 | FEAT-06 | integration | ModelGateway → Provider | 本模块 | 429（含 `Retry-After`）、5xx、连接超时、deadline 不足、cancel | 退避受剩余 deadline 约束；cancel 时立即停止；无无限等待；重试计数与原因入模型审计 |
 | E-10 | FEAT-07 | manual | Gateway WS → 企业微信 | 本模块 | 断开 WS 后重连（需真实凭据） | SDK backoff 重连成功，`reconnect` 指标可见；标注“需真实凭据，环境受限时记录原因” |
@@ -216,9 +217,9 @@ flowchart LR
 | 层级 | 覆盖目标 | 工具/落点 | 不得 mock 的真实边界 | 场景 |
 |---|---|---|---|---|
 | unit | 纯逻辑、状态机、校验函数（Visibility Resolver、Snapshot hash、claim 决策、cron next_fire、paginate） | pytest；`tests/**` 无 IO 用例 | 无（允许纯函数替身） | S-01 |
-| contract | 错误码 enum↔YAML↔源码、ORM↔迁移、OpenAPI/请求模型形状、SSE 封套/seq、分页边界、i18n | `tests/test_error_catalog.py`、`tests/test_contracts.py`、`tests/test_api_i18n.py`、各域 `test_*_schema_parity.py`、`scripts/check_frontend_i18n.py` | 真实迁移后的 PG schema（parity 反射） | S-02/S-03/B-01/B-02/B-04 |
+| contract | 错误码 enum↔YAML↔源码、ORM↔迁移、OpenAPI/请求模型形状、SSE 封套/seq、分页边界、i18n、架构门禁（依赖方向/IM Gateway 边界/Pod 标记文本扫描/指标 label 卫生） | `tests/test_error_catalog.py`、`tests/test_contracts.py`、`tests/test_api_i18n.py`、各域 `test_*_schema_parity.py`、`tests/architecture/`、`scripts/check_frontend_i18n.py` | 真实迁移后的 PG schema（parity 反射）、真实源码文本扫描 | S-02/S-03/B-01/B-02/B-04 |
 | integration | 真实 PostgreSQL + Redis 的持久化、claim/lease、去重、投递、脱敏、租户隔离 | 各域 conftest + `tests/agent_worker`、`tests/gateway`、`tests/console_auth` | 真实 PG、真实 Redis、真实 HTTP 封套 | S-04/S-11/E-01..E-09 |
-| E2E | 浏览器/HTTP 真实链路的黄金旅程与跨模块边界 | 浏览器 E2E + Gateway↔Runtime↔Worker 真实服务 | 真实浏览器渲染、真实 Cookie/CSRF、真实 PG/Redis、真实 SSE | S-05..S-12 |
+| E2E | 浏览器/HTTP 真实链路的黄金旅程与跨模块边界 | 浏览器 E2E（`e2e/tests/**/*.spec.ts`，递归；`vite preview` 起真实构建产物 + `MUAD_API_TARGET` 指向本域 Console）+ Gateway↔Runtime↔Worker 真实服务 | 真实浏览器渲染、真实 Cookie/CSRF、真实 PG/Redis、真实 SSE；`S-*` 不得出现 `page.route(` | S-05..S-12 |
 | manual | 外部真实条件（企业微信真机、部分平台联调） | 证据归档 + 执行记录 | 真实企业微信凭据 | E-10 |
 
 #### 3.4.2 黄金旅程矩阵（引用 docs/09 与基线，行号按 2026-09-17 版本）
@@ -247,11 +248,14 @@ flowchart LR
 | 后端 msg 映射 | 指定 code 的中英文与 http_status 正确；未知 code 回退内部错误 | `tests/test_api_i18n.py` | S-02 |
 | ORM ↔ 迁移 | 列名/可空/PK/FK/索引名/唯一性/partial predicate 完全一致 | `tests/console_platform/test_schema_parity.py`、`console_internal/test_resolve_schema_parity.py`、`console_channel/test_channel_schema_parity.py`、`agent_runtime/test_runtime_schema_parity.py`、`agent_worker/test_task_schema_parity.py` | S-03 |
 | 契约模型形状 | 拒绝额外字段；enum/literal/pattern（snapshot_hash、delivery_key）符合契约 | `tests/test_contracts.py` | S-03 |
-| 关系接口形态 | 仅单关系 POST/DELETE，无全量 PUT 覆盖关系集合 | OpenAPI 形状断言（新增） | S-03 |
+| 关系接口形态 | 仅单关系 POST/DELETE，无全量 PUT 覆盖关系集合；解除关系的幂等语义按端点显式声明（Agent 侧幂等成功 vs User 侧 `COMMON_NOT_FOUND`）；重新绑定复用软删原行（partial unique `WHERE is_deleted=false`），不得插新行 | OpenAPI 形状断言（新增）；`tests/console_platform/test_user_side_relations.py` | S-03 |
+| 架构门禁 | 依赖方向单向（`packages/*` 不 import 四个 app；runtime/worker 不 import `muad_console_platform`）、IM Gateway 不持库且渠道 SDK 只在 `channels/`、Pod 标记文本扫描、指标 label 无高基数/敏感维度、`/healthz` 存活与 `/readyz` 就绪分离 | `tests/architecture/test_import_direction.py`、`tests/architecture/test_im_gateway_boundaries.py` | S-03 |
+| 幂等键指纹 | 创建/上传类 POST 的 `Idempotency-Key` 指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符）的 SHA256，**必含 `endpoint` 与 `tenant_id` 判别键**；同 key 异指纹返回 `IDEMPOTENCY_MISMATCH`；并发先取 `pg_advisory_xact_lock`（按 `(tenant_id, idempotency_key, endpoint)` 派生）串行化，partial unique 兜底 | `tests/console_skill/test_import_idempotency.py` 及各域幂等用例；存量待收敛：console 侧 `agent_service`/`mcp_service`/`skill_service` 三处 `_fingerprint` 仍以竖线拼接且不含判别键 | S-03 |
+| 关系变更/账号审计同事务 | 关系变更（`action` + before/after 快照）与账号创建/登录成功的 `control.config_audit_log` 均与业务变更共用同一 session；幂等重放不写新审计 | `tests/console_platform/test_user_side_relations.py`、`tests/console_auth/test_login.py` | S-03 |
 | SSE 封套/seq | 公共字段 `{run_id,seq,timestamp,type,data}`；`: heartbeat` 不计 seq；按 seq 单调 | `tests/agent_runtime/test_sse.py`、`tests/gateway/test_sse_parser.py` | B-02 |
 | 分页边界 | 默认形状 `{items,page,page_size,total}`；`page=0`、`page_size=101` 拒绝 | `tests/test_error_catalog.py::test_paginate_*` | B-01 |
 | 前端 i18n parity | zh-CN/en-US key 完全一致 | `scripts/check_frontend_i18n.py`（`make i18n-check`） | B-04 |
-| 日志脱敏 | Authorization/Cookie/api_key/access_token/secret/password 不出现明文 | `tests/test_logging_redaction.py` | E-07 |
+| 日志脱敏 | 敏感字段不出现明文：键表以 logging-kit 为准（宽于最低 7 键，含 `set-cookie`/`id_token`/`passwd`/`credential`/`private_key`），且 api-kit / logging-kit / runtime `audit_writer` 三处清单需同改；**审计侧丢键（键在 payload 中消失）与日志侧值置换 `***` 语义不同，断言不可混用** | `tests/test_logging_redaction.py`、`tests/acceptance/test_secret_consumers.py` | E-07 |
 
 #### 3.4.4 可靠性矩阵（故障注入 → 预期 → 场景）
 
@@ -267,7 +271,7 @@ flowchart LR
 | Scheduler 多副本并发触发 | 同一 Schedule fire 只创建一次 Task | docs/09 §5 L137 | S-07 |
 | Schedule 错过触发 | 仅 SKIP 不补发；`scheduled_misfire_total` 计数 | docs/09 §5 L138；docs/10 §8.5 L381-389 | B-03 |
 | IM Gateway 暂时不可用 | 结果已持久化，Delivery 重试后补发 | docs/09 §5 L139 | E-06 |
-| Final Delivery 重试/去重 | Redis `SET NX EX 7d` 去重返回 200；指数退避最多 5 次；超限 FAILED + 审计 | docs/10 §10 L427-472；docs/07 §7.1 L481 | E-06 |
+| Final Delivery 重试/去重 | Redis `SET NX EX 7d` 去重返回 200；指数退避最多 5 次；超限 FAILED + 审计；HTTP 2xx 但 Gateway 仅占位（`delivered=false`）**不得**置 `SENT`，须按可重试失败退避重投；`delivery_mode` 仅 `FINAL_ONLY`/`NONE` | docs/10 §10 L427-472；docs/07 §7.1 L481；harness-worker RULE-worker-001 | E-06 |
 | 模型 429 | `Retry-After` + deadline；无无限等待 | docs/09 §5 L145；docs/04 §14 | E-09 |
 | MCP down | Tool failed，Run 可由 Agent 解释；有 ToolAudit | docs/09 §5 L146 | E-09 邻接（审计） |
 | WeCom WS down | SDK backoff 重连；reconnect 指标 | docs/09 §5 L144 | E-10（manual，需真实凭据） |
@@ -278,11 +282,17 @@ flowchart LR
 |---|---|---|---|
 | Egress 拒绝 | 未命中租户/部署 allowlist 的 `ctx.http` 不发出调用，按 `target_type=HTTP` 写 DENY 审计 | docs/09 §12 L366-386 | E-07 |
 | 响应大小上限 | `ctx.http` 响应 > 5 MiB 拒绝并审计 | docs/09 §12 L385 | E-07 |
-| Secret 全链路不外泄 | 密钥明文只存于各 Owner 表；不出现在 RuntimeSnapshot、日志、Audit、Prompt、IM 消息与 API 响应 | docs/09 §3；RULE-secret-001 | E-07 |
-| 日志脱敏 | Authorization/Cookie/Set-Cookie/api_key/access_token/secret/password 脱敏输出 | docs/09 §3 L89-99 | E-07 |
-| CSRF / RBAC | 非安全方法缺 CSRF → 403；Builder 越权管理端点 → 403；用户/凭据仅 ADMIN | 模块 13 E-04/E-05；RULE-auth-001 | E-08 |
-| 租户隔离 | 所有查询/写入带 tenant 谓词；跨租户不可见/不可写 | `tests/agent_worker/test_tenant_guard.py` | E-08 |
-| 授权可见性 | `ALL/SELECTED` 判定带 `is_deleted=false` 与 `enabled`；未授权资源不进入 Prompt/ToolRegistry/Catalog；撤销仅影响后续 Run | docs/09 §8.2 L268-279；RULE-auth-001 | S-10 |
+| Secret 全链路不外泄 | 密钥明文只存于各 Owner 表（模型 `api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`），跨表以主键引用，**不再有 `secret_ref`/SecretProvider**；不出现在 RuntimeSnapshot、日志、`config_audit_log`、Prompt、IM 消息与 API 响应（对外以 `*_configured` 表达，用户凭据读接口回 `"configured": True` 为登记例外）；**平台侧无自有密钥列**——`project_platform.auth_secret` 为休眠列，不得读写、待迁移剔除 | docs/09 §3；`harness-secret#RULE-secret-001` | E-07 |
+| Secret 受控出口仅三处 | 明文出口均为受控例外：API-08 bot 快照（仅带 `X-Internal-Service` 的内部调用可见，匿名/越权必须 403）、API-09 `resolve-credentials`（仅在执行内存使用，密钥清空 `CREDENTIAL_MISSING`，禁止环境变量兜底）、`POST /internal/runtime/resolve-definition`（响应含模型明文 `api_key`，为有意契约只能门控不能删字段）；三个 internal 端点统一由 `require_service_identity` 门控，Worker/Runtime 调用方必须发 `X-Internal-Service` | `harness-secret#RULE-secret-001`；`harness-auth#RULE-auth-001` | E-07 |
+| 脱敏覆盖面（勿高估） | 「不得进入」是约定，其中只有一部分被机检：canary 反查实覆盖 `runtime_snapshot`/`egress_audit`/`tool_call_audit`/`model_invocation_audit` 四表 + IM 出站文本 + bot 快照两侧，**不含** `canonical_event`、`config_audit_log`、Skill package 与 `SKILL.md`；新增落库面时必须自查，不得以「canary 全绿」代替覆盖结论 | `harness-secret#RULE-secret-001` | E-07 |
+| 日志脱敏 | Authorization/Cookie/Set-Cookie/api_key/access_token/refresh_token/id_token/secret/password/passwd/credential/private_key 脱敏；键表以 logging-kit 为准（宽于最低 7 键），敏感键清单 api-kit / logging-kit / runtime `audit_writer` 三处必须同改；**语义两侧不同**：审计侧丢键（键在 before/after 中整个消失）、日志侧值置换 `***`，断言不可混用 | docs/09 §3 L89-99；`harness-log#RULE-log-001` | E-07 |
+| 凭据路由 ADMIN + 账号派生租户 | `accounts`/`users`/`credentials` 三组路由挂 `admin` 组（非 ADMIN → `403 FORBIDDEN`）；凭据路由 `TenantId = AccountTenantId`（取登录账号，不信任可改写的 `X-Tenant-Id`）；ADMIN 门控是「前端隐藏 + 后端 403 兜底」双层，缺一不可 | 模块 13 E-04/E-05；`harness-auth#RULE-auth-001` | E-08 |
+| CSRF 与会话 Cookie | 非安全方法必须比对 `muad_csrf` Cookie 与 `X-CSRF-Token` 头（`hmac.compare_digest`，失败 403）；`muad_session` 为 `httponly`、CSRF Cookie 可读、两者 `samesite=strict`、`secure` 仅非 dev 打开 | `harness-auth#RULE-auth-001` | E-08 |
+| 会话权威与密码口径 | 会话唯一权威源是 PG `control.console_session`（只存 sha256 摘要、无明文列；TTL 12h，剩余不足 50% 滑动续期；登出置 `revoked_at` 且幂等；禁止引入无状态 JWT）；密码 `argon2id`（`$argon2id$` 前缀）+ 最短 12 字符；连续 5 次失败锁 15 分钟且锁定时清零计数；未知用户与禁用账号走 dummy hash 等化时序、统一回 `INVALID_CREDENTIALS` | `harness-auth#RULE-auth-001` | E-08 |
+| 账号与登录审计 | 账号创建与登录成功必须写 `control.config_audit_log`，且与业务变更**共用同一 session（同一事务）**；actor 为创建者或账号本人，载荷不含密码哈希；幂等重放未产生新变更时不写新审计 | `harness-auth#RULE-auth-001` | E-08 |
+| 租户隔离 | 所有查询/写入带 tenant 谓词；跨租户不可见/不可写，不泄露存在性 | `tests/agent_worker/test_tenant_guard.py`；`harness-auth#RULE-auth-001` | E-08 |
+| 租户隔离已收敛面（登记缺口） | 已收敛：`api/credentials.py`、`api/tasks.py`、`api/schedules.py` 改用 `AccountTenantId`；**仍用头派生 `get_tenant_id()`** 的已认证路由：`accounts`/`users`/`agents`/`models`/`skills`/`platforms`/`mcp_servers`/`overview`/`audits`——属待收敛口径，验收不得据此宣称租户隔离已全面完成 | `harness-auth#RULE-auth-001` | E-08 |
+| 授权可见性 | `ALL/SELECTED` 判定带 `is_deleted=false` 与资源/Agent `enabled`；未授权资源不进入 Prompt/ToolRegistry/Catalog；撤销仅影响后续 Run，旧 Snapshot 不变 | docs/09 §8.2 L268-279；`harness-auth#RULE-auth-001` | S-10 |
 | 凭据与会话 | 平台 Session 可重建；凭据明文存 `credential_json` 由 Runtime 直接读取；Console 不回显明文 | docs/09 §12；模块 04/12 | E-07 |
 
 #### 3.4.6 模型恢复矩阵
@@ -330,13 +340,32 @@ flowchart LR
   3. HTTP：服务间 Internal API、统一 Envelope、SSE 流式响应
   4. 浏览器：真实渲染、真实 Cookie（HttpOnly/SameSite）、真实 X-CSRF-Token、路由守卫
   5. 文件系统：Artifact Store 的 NFS-backed 语义与本地 emptyDir 缓存边界
+  6. 前端产物：`vite preview` 起真实构建产物（必须先 `npm run build`，否则 preview 拿到陈旧产物），`MUAD_API_TARGET` 指向本域 Console
+  7. 外部依赖：模型/第三方端点由本地真实 HTTP 探针（`tests/e2e/openai_probe_app.py`）承载，禁止在 E2E 中伪造外部响应
 
 允许替身（仅限单元层）：
   纯函数、状态机决策、时间/随机源（需可注入且断言确定性）
 
+E2E 设施口径（不得自建临时浏览器脚本）：
+  用例落 `e2e/tests/**/*.spec.ts`（Playwright + 系统 Chrome，按递归发现）；域配置端口 = 基址 + OFFSET，
+  OFFSET 取本进程 argv 的场景号、无 `--grep` 时回落 `pid % 47`，且必须算一次后冻结进 `process.env`
+  （config 会在每个 worker 重新求值，worker argv 不含 `--grep`，不冻结就连不上已起的服务）；
+  共用租户/共享种子的域配置必须 `workers: 1`（beforeAll 播种、afterAll 清理同一份租户级种子）；
+  成功路径（`S-*`）不得出现 `page.route(`，失败/边界路径（`E-*`）允许改写路由但不得 fulfill 业务响应体；
+  `RuntimeClient` 的流式读超时由独立常量 `STREAM_TIMEOUT_SEC`（默认 300s）决定，「有界失败」用例须
+  monkeypatch 成小值；模块 E2E 只拉起真正用到的服务，租户与产物根钉在系统临时目录。
+
 manual（环境受限，需记录原因与证据）：
   企业微信真机（需真实凭据）
   NFS 慢故障注入（依赖环境能力）
+
+验收执行纪律（人工，当前无脚本约束）：
+  每个需求收尾必须有 `tests/<域>_inventory.py` 收口清单，并以真实盘面交叉核对（任务文档覆盖表/契约表/
+  Evidence 表、`.acceptance-manifest.json`、`spec-context.yml` 的 required 规则、E2E 场景是否真的在盘），
+  禁止只对本文件内的清单自查；
+  验收/Done Gate 命令的输出不得接进会提前关闭的管道（`| head`）：SIGPIPE 会打断 pytest 收尾、
+  留下 uvicorn/`muad_*.main` 孤儿进程继续共用同一本地测试库，导致后续运行随机失败（失败点每次不同、
+  单跑却通过，极易误判为跨模块 flake）；每次运行前先确认无残留进程。
 ```
 
 ### 3.5 性能与容量考量
@@ -374,14 +403,16 @@ manual（环境受限，需记录原因与证据）：
 
 | Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
 |---|---|---|---|---|---|
-| `harness-platform#RULE-test-001` | required | 关键流程 E2E；明确不得 mock 的真实边界（PG/Redis/HTTP/浏览器） | §3.4.1/§3.4.8 | S-01..S-12, E-10 + verifier | applied |
-| `harness-platform#RULE-secret-001` | required | Secret 不入 DB/Snapshot/日志/Audit/Prompt，只存 SecretRef | §3.4.5 | E-07 + verifier | applied |
-| `harness-platform#RULE-snapshot-001` | required | 新 Run/Task 冻结 Snapshot；变更只影响后续；终态 CAS 不漂移 | §3.4.2（S-12）/§3.4.4 | S-12, E-04/E-05 + verifier | applied |
-| `harness-platform#RULE-rel-001` | required | 契约测试断言关系接口只允许单关系 POST/DELETE，禁止全量 PUT 覆盖 | §3.4.3 关系接口形态 | S-03 + verifier | applied |
-| `harness-platform#RULE-arch-001` | required | Architecture Gate 映射为自动化检查；四个部署单元与无状态约束纳入验收 | §3.4.1/§3.4.2；docs/09 §13 L390-417 | S-12 + verifier | applied |
-| `harness-platform#RULE-worker-001` | required | PG 为 Task/Schedule/lease 权威源；Redis 仅 hint；claim/deadline/reclaim 可验证 | §3.4.4 | S-04, E-02/E-04/E-05 + verifier | applied |
-| `harness-platform#RULE-log-001` | required | 日志 JSON、trace_id/request_id 与敏感字段脱敏进入契约与安全矩阵 | §3.4.3/§3.4.5 | E-07 + verifier | applied |
-| `harness-platform#RULE-api-001` | required | 统一 Envelope、错误码 catalog parity、分页边界进入契约矩阵 | §3.4.3 | S-02, B-01 + verifier | applied |
+| `harness-test#RULE-test-001` | required | 关键流程 E2E；明确不得 mock 的真实边界（PG/Redis/HTTP/浏览器）；E2E 设施口径（收口清单、`workers: 1`、`S-*` 禁 `page.route(`、`vite preview` + `MUAD_API_TARGET`、端口偏移冻结、`STREAM_TIMEOUT_SEC`） | §3.4.1/§3.4.8 | S-01..S-12, E-10 + verifier | applied |
+| `harness-secret#RULE-secret-001` | required | 密钥明文只存各 Owner 表、跨表以主键引用（无 `secret_ref`/SecretProvider）；不入日志/`config_audit_log`/Snapshot/Prompt/API 响应；平台侧无自有密钥列（`project_platform.auth_secret` 休眠）；明文出口仅三处受控例外 | §3.4.5、§3.4.3 日志脱敏 | E-07 + verifier | applied |
+| `harness-snapshot#RULE-snapshot-001` | required | 新 Run/Task 执行前冻结 Snapshot（预算只属 execution snapshot 的 `budget`，Run 侧 `RuntimeSnapshot` 无 budget 列、等价载体是 `policy_json`）；配置/授权变更只影响后续新 Run/Task；终态与非终态写入均 CAS；`skills` 恒为 1 | §3.4.2（S-12）/§3.4.4 | S-12, E-04/E-05 + verifier | applied |
+| `harness-rel#RULE-rel-001` | required | 契约测试断言关系接口只允许单关系 POST/DELETE，禁止全量 PUT 覆盖；解除关系幂等语义按端点显式声明；重新绑定复用软删原行 | §3.4.3 关系接口形态 | S-03 + verifier | applied |
+| `harness-arch#RULE-arch-001` | required | Architecture Gate 映射为自动化检查（依赖方向单向、IM Gateway 边界、Pod 标记文本扫描、指标 label 卫生、`/readyz` 探针口径）；四个部署单元与无状态约束纳入验收 | §3.4.1 contract 层/§3.4.3 架构门禁；docs/09 §13 L390-417 | S-03, E-01 + verifier | applied |
+| `harness-worker#RULE-worker-001` | required | PG 为 Task/Schedule/lease 权威源；Redis 仅 wake-up/cancel hint；claim 用 `FOR UPDATE SKIP LOCKED`、进入 WAITING 释放 lease、deadline sweep 置 `FAILED(TASK_DEADLINE_EXCEEDED)`；租约守卫式 CAS；投递去重与 `delivered=false` 语义可验证 | §3.4.4 | S-04, E-02/E-04/E-05/E-06 + verifier | applied |
+| `harness-log#RULE-log-001` | required | 唯一入口 logging-kit（仅 `LOG_DIR`，另读 `LOG_LEVEL`）；JSON 输出与敏感字段脱敏（双通道、键表宽于最低 7 键、审计丢键 vs 日志 `***`）进入契约与安全矩阵 | §3.4.3 日志脱敏/§3.4.5 日志脱敏 | E-07 + verifier | applied |
+| `harness-auth#RULE-auth-001` | required | 三层授权关系与 Effective Capability（含 `is_deleted=false`/`enabled`）；未授权资源不进 Prompt/ToolRegistry/Catalog；Console 侧凭据路由 ADMIN + 账号派生租户、CSRF/会话/密码锁定/审计同事务口径纳入安全矩阵 | §3.4.5、§3.4.2（S-10）/§3.4.3 关系变更/账号审计同事务 | S-10, E-08 + verifier | applied |
+| `harness-api#RULE-api-001` | required | 统一 Envelope、错误码 catalog parity、分页边界进入契约矩阵 | §3.4.3 | S-02, B-01 + verifier | applied |
+| `harness-api#RULE-api-002` | required | 本模块不新增 HTTP API：创建/上传类 POST 的 `Idempotency-Key` 指纹与并发口径（含 `endpoint`/`tenant_id` 判别键、`IDEMPOTENCY_MISMATCH`、`pg_advisory_xact_lock` 串行化）以契约断言承接，执行面复用各域既有幂等用例与其 verifier | §3.4.3 幂等键指纹 | S-03, S-13（门禁执行）+ verifier | applied |
 
 ## 附录：术语表
 

@@ -1,7 +1,7 @@
 version: 1
 task: DFX、测试与验收（跨模块）
 enforcement: required
-updated_at: '2026-09-18T09:24:15.918052+00:00'
+updated_at: '2026-09-28T11:54:56.593072+00:00'
 sources:
 - type: docs
   ref: docs/09-DFX安全可靠性测试验收详细设计.md
@@ -20,9 +20,9 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: ed3d32d8d5085e6d250ef7a24f1988759d414113d2726d0a92052880bf2a66b0
-    metadata_sha256: e9f9b2714c5043dc7d9363ec9a950471b4cdea6d932bd8e86ac2dd0a754c9359
-    rules_sha256: 76ffb366c7643e6faa32a65c751aea08de24bc2c1b6f37db46e6df1a7665e728
+    file_sha256: b6db42b01196f1ec9316a021fef237dfc30934f9464d6f1c88ceda68e9c2fd0f
+    metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
+    rules_sha256: 1c14a73d7f32fecb843b7008e1f356f1e1a956aaa4c3a24063bae626f104fe48
   selected_by: agent
   reason: Agent Harness 通用平台规则：api
   enforcement: required
@@ -32,21 +32,27 @@ bindings:
   - code
   - review
   rules:
-  - ref: RULE-api-001
-    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
-      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
-      只来自 `config/api-messages.yaml`。
-    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime
+      另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
+      不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
+      `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
+      unique 只作兜底（`channel_service.py:153-159`、`auth_service.py:270-276`、`audit_export_service.py:386-392`、`agent_service.py:159-162`、`mcp_service.py:240-243`、`skill_service.py:278-286`）。**存量待收敛**：console
+      侧 `agent_service`/`mcp_service`/`skill_service` 三处 `_fingerprint` 仍用 `|` 拼接且不含
+      endpoint/tenant，须按本口径对齐（合规参考 `channel_service.py:59-74`、`auth_service.py:253-267`、`audit_export_service.py:100-119`、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py:30-49`）。
+    text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
     enforcement: required
-    verifier_ref: harness-api#RULE-api-001
+    verifier_ref: harness-api#RULE-api-002
     stage_status:
       design:
         status: applied
         refs:
         - artifact: 14-dfx-acceptance.backend.design.md
-          section_id: 2.2 功能方案
-          item_id: RULE-api-001
-          artifact_sha256: f4ee19d676e541a69569b5bb7ef869d99376c7cbae967201aba1ed1746db8eb2
+          section_id: 3.4.3 契约与一致性测试清单
+          item_id: RULE-api-002
+          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
         decision: null
         evidence: []
       plan:
@@ -64,36 +70,21 @@ bindings:
         refs: []
         decision: null
         evidence: []
-- spec_id: harness-test
-  path: test/harness-test.md
-  status: active
-  hashes:
-    file_sha256: 66b05f4ed49156830ac7d388c9487264b4a85f50d32dacb364e126c83498a3ff
-    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
-    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
-  selected_by: agent
-  reason: Agent Harness 通用平台规则：test
-  enforcement: required
-  stages:
-  - design
-  - plan
-  - code
-  - review
-  rules:
-  - ref: RULE-test-001
-    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
-      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
-    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+  - ref: RULE-api-001
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
+    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
     enforcement: required
-    verifier_ref: harness-test#RULE-test-001
+    verifier_ref: harness-api#RULE-api-001
     stage_status:
       design:
         status: applied
         refs:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: 2.2 功能方案
-          item_id: RULE-test-001
-          artifact_sha256: f4ee19d676e541a69569b5bb7ef869d99376c7cbae967201aba1ed1746db8eb2
+          item_id: RULE-api-001
+          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
         decision: null
         evidence: []
       plan:
@@ -115,7 +106,7 @@ bindings:
   path: arch/harness-arch.md
   status: active
   hashes:
-    file_sha256: c1636612b11d561f288f9eae6c0679a003aa9a67f6aef408c4bd46b3702d24d1
+    file_sha256: 25580ffca0056360b868e8ff6ff68748cac6279efded4476196a4ef13c646912
     metadata_sha256: 39a976af1534eeebee31887b5b054dd8406536a86fd2e9dc8d6f27e6e0e1bda7
     rules_sha256: 11ae8f2db7be71dfeebbf0d395ea7f65402138090add6e7aa91602ff60c6b12b
   selected_by: agent
@@ -140,7 +131,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-arch-001
-          artifact_sha256: f4ee19d676e541a69569b5bb7ef869d99376c7cbae967201aba1ed1746db8eb2
+          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
         decision: null
         evidence: []
       plan:
@@ -162,7 +153,7 @@ bindings:
   path: auth/harness-auth.md
   status: active
   hashes:
-    file_sha256: 914db4dfad7531c2fe2987c7bbfefd012f253adc9d93bbfee634149b8cd5a650
+    file_sha256: 6268290c557cb49c9acdd22da31b3449aedbeb2b9c3c2a4bb362b16566bc1322
     metadata_sha256: 282fc035519e5c5b8561dea4584ebcd8df997e78dc811a803b0dec769bd31e77
     rules_sha256: 2c0d8492b6adb9167c4309b44a5b1be42b1920f5e241f629d2f2bf9825cdc570
   selected_by: agent
@@ -189,7 +180,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: 3.4.5 安全验收矩阵
           item_id: RULE-auth-001
-          artifact_sha256: f4ee19d676e541a69569b5bb7ef869d99376c7cbae967201aba1ed1746db8eb2
+          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
         decision: null
         evidence: []
       plan:
@@ -211,9 +202,9 @@ bindings:
   path: logging/harness-log.md
   status: active
   hashes:
-    file_sha256: e7b54c62cb6c2d5db58bbd7baa5f78563f990ebc475040d52464eba0ef5bf7fa
+    file_sha256: 90d26b07974449f1b1121f6bd679daad85ecec208c7c706ec8d4885e71c04cd0
     metadata_sha256: 8bb67ae0c5cf82baee539013ff9840ed3004f3747460534ec4a8784e4b9640a1
-    rules_sha256: 0c3e600fc9f79d41f34519374ae44ff47098361f3cdca41519881ffcfd4d6e4a
+    rules_sha256: 3b69c6ff06cb317f71f02b594214665b7f8ef095506ccf453279985f494811a8
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-log
   enforcement: required
@@ -224,10 +215,11 @@ bindings:
   - review
   rules:
   - ref: RULE-log-001
-    summary: 所有服务统一使用 logging-kit，仅配置 `LOG_DIR`；日志按 `service/YYYY-MM-DD.log` 输出 JSON，自动携带
-      `trace_id/request_id/tenant_id`，并对 Authorization/Cookie/api_key/access_token/refresh_token/secret/password
+    summary: 所有服务统一使用 logging-kit，仅配置 `LOG_DIR`（另读 `LOG_LEVEL`，缺省 `INFO`；非法级别直接 `raise
+      ValueError` 而非静默回退；`console=True` 为默认值，会额外挂一个 stdout handler）；日志按 `service/YYYY-MM-DD.log`
+      输出 JSON，自动携带 `trace_id/request_id/tenant_id`，并对 Authorization/Cookie/api_key/access_token/refresh_token/secret/password
       等敏感字段脱敏。
-    text_sha256: 9ac55dd93d515e82fce2d53d526262f448e5502388f32bde445241111950f285
+    text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
     enforcement: required
     verifier_ref: harness-log#RULE-log-001
     stage_status:
@@ -237,21 +229,21 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-log-001
-          artifact_sha256: f4ee19d676e541a69569b5bb7ef869d99376c7cbae967201aba1ed1746db8eb2
+          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
         decision: null
         evidence: []
       plan:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       code:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
@@ -259,7 +251,7 @@ bindings:
   path: rel/harness-rel.md
   status: active
   hashes:
-    file_sha256: 357dacd568feb65401d86756d9eaaf85cd8c743acd8f4089132866fa9d4145a5
+    file_sha256: cd2d0a4aef81e288ad4147cb32582eac2eb2b1f0d4dbbdce5412d0657a588300
     metadata_sha256: 30f77141e0115f249c3aac13a4b61a7b4d53604ba5903fac8c1f3f9e07aafa42
     rules_sha256: 7be20b1f02503c2865570605bc0dc751cff99da8487a1cec7be80bf7633416a5
   selected_by: agent
@@ -283,7 +275,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-rel-001
-          artifact_sha256: f4ee19d676e541a69569b5bb7ef869d99376c7cbae967201aba1ed1746db8eb2
+          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
         decision: null
         evidence: []
       plan:
@@ -305,9 +297,9 @@ bindings:
   path: secret/harness-secret.md
   status: active
   hashes:
-    file_sha256: 02042d172b287f41143df169d1c8309ff571425f05541d577b5463c74596c1aa
-    metadata_sha256: 6eb93990def2057725626f290065551208a4bd3aee9121a753b5a49b32d05d09
-    rules_sha256: bfad8617c95199b82ae1cebdbe3aaf0a1fdc0ee8fd0f39205f1d93a9a30201d3
+    file_sha256: eb8707731633fe77fc6735d5cdcd7fa5da68d5850a5497dc5a0d3f66aa1dd01e
+    metadata_sha256: af4b34f2fb0332b6cfa359e3771ee61db87085d03bf7bef36e0c5628b1150ffb
+    rules_sha256: d72b90f97ac3a4c118df8a8d415344355cc395920a2aad7a767857c0375fc378
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-secret
   enforcement: required
@@ -318,10 +310,10 @@ bindings:
   - review
   rules:
   - ref: RULE-secret-001
-    summary: 密钥明文存于各 Owner 表（模型 `api_key`、Bot `secret`、MCP/平台 `auth_secret`、用户/共享
-      `credential_json`），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM
+    summary: 密钥明文存于各 Owner 表（模型 `api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；**平台侧无自有密钥列**，见
+      Conventions 的休眠列说明），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM
       Prompt 或 API 响应（对外以 `*_configured` 表达）。
-    text_sha256: eb4cdd0b7fa4d7e182cb84beca0488da13386632d61841b12d39045cda60015b
+    text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
     enforcement: required
     verifier_ref: harness-secret#RULE-secret-001
     stage_status:
@@ -331,7 +323,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: design
           item_id: design
-          artifact_sha256: f4ee19d676e541a69569b5bb7ef869d99376c7cbae967201aba1ed1746db8eb2
+          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
         decision: null
         evidence: []
       plan:
@@ -353,9 +345,9 @@ bindings:
   path: snapshot/harness-snapshot.md
   status: active
   hashes:
-    file_sha256: acf3dc7358eef3cf752290ef10bec331ac5367b99a72f317107fbc6e1678054b
-    metadata_sha256: a78fc8f61e08679d4e713fd38cd539e6c205441ce9a6e8c8a4d37acc627453d1
-    rules_sha256: df961c1136b27f8a85895902b348d792abc9f5973d530aa7876c9e8b718e7571
+    file_sha256: e2ce5d252710d91f2a8b5d8c94c11678b39a30cd861463bad19de12d7a6fff57
+    metadata_sha256: 4772b9dff35dcd7ef80935ac4770a4fc804a0080c8bd92d7ab8108a3cfaac583
+    rules_sha256: 4d206a4a4702aef4c95f822bd837b1d26b4bea60bab77138c5bc1ee6940c222b
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-snapshot
   enforcement: required
@@ -366,9 +358,11 @@ bindings:
   - review
   rules:
   - ref: RULE-snapshot-001
-    summary: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP
-      版本、Prompt 模板版本、catalog revision/hash、预算）；配置或授权变更只影响后续新 Run/Task；终态写入必须 CAS。
-    text_sha256: bed55091b1673e3c29c216171a74d6564324334a61fd657fe075516056e3f271
+    summary: '每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP
+      版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run
+      侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认 `{"max_model_retries":
+      3}`）；配置或授权变更只影响后续新 Run/Task；终态写入必须 CAS。'
+    text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
     enforcement: required
     verifier_ref: harness-snapshot#RULE-snapshot-001
     stage_status:
@@ -378,7 +372,54 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: f4ee19d676e541a69569b5bb7ef869d99376c7cbae967201aba1ed1746db8eb2
+          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
+        decision: null
+        evidence: []
+      plan:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 0cc5bdf19c28e7eb30236ea391cf18300a2505b926f3ddb46e0817692efdb232
+    metadata_sha256: 38674ac95c673a4fcb7b72680a2dc68ab40c4f83974db8d0452a19590dac94f7
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: agent
+  reason: Agent Harness 通用平台规则：test
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: 14-dfx-acceptance.backend.design.md
+          section_id: 2.2 功能方案
+          item_id: RULE-test-001
+          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
         decision: null
         evidence: []
       plan:
@@ -400,8 +441,8 @@ bindings:
   path: worker/harness-worker.md
   status: active
   hashes:
-    file_sha256: 5a19eb49d8ab28fc0a88a956e8ff5f083a2f80dcde12649eb32b880018ce300b
-    metadata_sha256: 8b85ec12953984e8fbe1ea450f78cbb7fef4ac829b7cc7033420e130d72d3416
+    file_sha256: 21cebe328bf304185b38c63509ee105aa947461533a8a1b90284416e0bd9c530
+    metadata_sha256: 185250e5e95b30103f5592a48a99064876217aa17b4fc2caeadd5c3ca692b0c3
     rules_sha256: d02da9bc0d9b0d42a01d70601d4db156bfc331b9f1641de59c33d2c152e4cc74
   selected_by: agent
   reason: Agent Harness 通用平台规则：harness-worker
@@ -426,7 +467,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-worker-001
-          artifact_sha256: f4ee19d676e541a69569b5bb7ef869d99376c7cbae967201aba1ed1746db8eb2
+          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
         decision: null
         evidence: []
       plan:
