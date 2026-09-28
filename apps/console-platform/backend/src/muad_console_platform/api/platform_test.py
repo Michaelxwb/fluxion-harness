@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.platform_test_service import PlatformTestService
 from ..infrastructure.db import get_session
-from .deps import CurrentAccount, get_adapter_registry, get_tenant_id
+from .deps import AccountTenantId, CurrentAccount, get_adapter_registry
 
-TenantId = Annotated[str, Depends(get_tenant_id)]
+TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
 Registry = Annotated[PlatformAdapterRegistry, Depends(get_adapter_registry)]
 

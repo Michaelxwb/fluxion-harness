@@ -9,7 +9,7 @@ from muad_common import SharedSettings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .context import current_tenant_id, current_trace_id
+from .context import current_trace_id
 
 # 设计 §3.5 最低识别字段清单：Authorization / Cookie / Set-Cookie / api_key /
 # access_token / refresh_token / secret / password（与 runtime 写入边界的口径一致）。
@@ -74,7 +74,10 @@ async def write_config_audit(
     tenant_id: str | None = None,
     source_ip: str | None = None,
 ) -> None:
-    resolved_tenant = tenant_id or current_tenant_id() or SharedSettings().default_tenant_id
+    # 审计归属**不得**取自请求头派生的 `current_tenant_id()`：那是客户端可改写的值，
+    # 否则审计里会出现「调用方自选租户」的行。缺省一律回落到部署默认租户，
+    # 需要按租户归属的调用方必须**显式**传 `tenant_id`（用户态路由请传账号租户）。
+    resolved_tenant = tenant_id or SharedSettings().default_tenant_id
     await session.execute(
         _AUDIT_INSERT,
         {

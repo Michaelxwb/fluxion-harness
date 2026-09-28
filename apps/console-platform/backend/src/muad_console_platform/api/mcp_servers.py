@@ -13,14 +13,14 @@ from ..application.mcp_ports import McpCatalogCache
 from ..application.mcp_service import McpService
 from ..infrastructure.db import get_session
 from .deps import (
+    AccountTenantId,
     AdminAccount,
     CurrentAccount,
     get_mcp_catalog_cache,
     get_source_ip,
-    get_tenant_id,
 )
 
-TenantId = Annotated[str, Depends(get_tenant_id)]
+TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
 Cache = Annotated[McpCatalogCache, Depends(get_mcp_catalog_cache)]
 

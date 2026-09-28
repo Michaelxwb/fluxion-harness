@@ -9,10 +9,10 @@ from ..application.auth_service import AuthService
 from ..application.dto import ConsoleAccountInfo, LoginRequest, PasswordChangeRequest
 from ..infrastructure.db import get_session
 from ..infrastructure.models.auth import ConsoleAccount
-from .deps import CurrentAccount, get_source_ip, get_tenant_id
+from .deps import AccountTenantId, CurrentAccount, get_source_ip
 from .security import SESSION_COOKIE, clear_auth_cookies, new_csrf_token, set_auth_cookies
 
-TenantId = Annotated[str, Depends(get_tenant_id)]
+TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 public_router = APIRouter(prefix="/api/v1/auth", tags=["auth"])

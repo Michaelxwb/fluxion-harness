@@ -13,9 +13,9 @@ from ..application.audit_query_service import AuditQueryService
 from ..application.dto import AuditExportCreateRequest
 from ..infrastructure.db import get_session
 from ..infrastructure.repositories.audit_query_repository import AuditQueryFilters
-from .deps import CurrentAccount, get_tenant_id
+from .deps import AccountTenantId, CurrentAccount
 
-TenantId = Annotated[str, Depends(get_tenant_id)]
+TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 router = APIRouter(prefix="/api/v1/audits", tags=["audits"])

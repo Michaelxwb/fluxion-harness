@@ -11,9 +11,9 @@ from ..application.skill_service import SkillService
 from ..infrastructure.db import get_session
 from ..infrastructure.skill_validator import ZIP_BYTES_LIMIT, invalid_package
 from ..metrics import SKILL_IMPORT_METRIC, count_outcome
-from .deps import AdminAccount, CurrentAccount, get_source_ip, get_tenant_id
+from .deps import AccountTenantId, AdminAccount, CurrentAccount, get_source_ip
 
-TenantId = Annotated[str, Depends(get_tenant_id)]
+TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 router = APIRouter(prefix="/api/v1/skills", tags=["skills"])

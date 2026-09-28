@@ -44,11 +44,14 @@ class ConsoleRoleResolver:
         return (role,) if isinstance(role, str) else ()
 
 
-def get_tenant_id() -> str:
+def get_header_tenant_id() -> str:
+    """请求头派生的租户——**只给内部服务与公开入口用**，不要在用户态路由上使用。
+
+    租户是**已认证主体**的属性，不是客户端可声明的属性：用户态路由一律用 `AccountTenantId`。
+    保留本依赖只覆盖两处无主体可依的场景：`/internal/*`（另有服务身份门控）与公开登录
+    （无会话，只能靠头按租户定位账号）。见 `HeaderTenantId`。
+    """
     return current_tenant_id() or SharedSettings().default_tenant_id
-
-
-TenantId = Annotated[str, Depends(get_tenant_id)]
 
 
 def get_source_ip(request: Request) -> str | None:
@@ -71,6 +74,11 @@ def get_account_tenant_id(account: CurrentAccount) -> str:
 
 
 AccountTenantId = Annotated[str, Depends(get_account_tenant_id)]
+
+# 用户态/管理态路由的**默认**租户依赖就是账号租户：默认安全，用错需要显式 opt-in。
+# 头派生版本另起名（`HeaderTenantId`），只允许内部服务与公开入口导入。
+TenantId = AccountTenantId
+HeaderTenantId = Annotated[str, Depends(get_header_tenant_id)]
 
 
 async def require_admin(

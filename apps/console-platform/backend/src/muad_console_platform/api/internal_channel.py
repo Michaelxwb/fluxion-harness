@@ -10,9 +10,10 @@ from ..application.channel_service import ChannelService
 from ..application.channel_skills_service import ChannelSkillsService
 from ..infrastructure.db import get_session
 from ..metrics import BIND_METRIC, count_outcome
-from .deps import get_tenant_id
+from .deps import HeaderTenantId
 
-TenantId = Annotated[str, Depends(get_tenant_id)]
+# 内部端点无用户会话，租户由调用方（IM Gateway，已有 InternalServiceDep 门控）显式声明。
+TenantId = HeaderTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 router = APIRouter(prefix="/internal/channel", tags=["internal-channel"])

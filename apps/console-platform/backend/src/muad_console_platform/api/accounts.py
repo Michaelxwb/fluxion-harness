@@ -9,9 +9,9 @@ from ..application.auth_service import AuthService
 from ..application.dto import AccountCreateRequest, ConsoleAccountInfo
 from ..infrastructure.db import get_session
 from ..infrastructure.models.auth import ConsoleAccount
-from .deps import CurrentAccount, get_source_ip, get_tenant_id
+from .deps import AccountTenantId, CurrentAccount, get_source_ip
 
-TenantId = Annotated[str, Depends(get_tenant_id)]
+TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
 # RULE-api-002：创建类 POST 支持 `Idempotency-Key`（可选）
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key", max_length=128)]

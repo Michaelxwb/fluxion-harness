@@ -11,9 +11,9 @@ from ..application.dto import PlatformCreateRequest, PlatformUpdateRequest
 from ..application.platform_ports import PlatformSessionInvalidator
 from ..application.platform_service import PlatformService
 from ..infrastructure.db import get_session
-from .deps import CurrentAccount, get_adapter_registry, get_platform_sessions, get_source_ip, get_tenant_id
+from .deps import AccountTenantId, CurrentAccount, get_adapter_registry, get_platform_sessions, get_source_ip
 
-TenantId = Annotated[str, Depends(get_tenant_id)]
+TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
 Registry = Annotated[PlatformAdapterRegistry, Depends(get_adapter_registry)]
 Sessions = Annotated[PlatformSessionInvalidator, Depends(get_platform_sessions)]

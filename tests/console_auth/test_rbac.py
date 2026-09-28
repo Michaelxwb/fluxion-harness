@@ -70,6 +70,37 @@ async def test_builder_cannot_access_credentials_routes(
         assert forbidden.json()["code"] == "FORBIDDEN"
 
 
+async def test_authenticated_tenant_comes_from_account_not_header(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[越权修复] 用户态路由的租户取自登录账号：伪造 `X-Tenant-Id` 不再切换租户。
+
+    修复前 `deps.TenantId` 由请求头派生（`current_tenant_id()` 读 `X-Tenant-Id`），且各 service 的
+    `row.tenant_id != tenant_id` 只校验「这行属不属于你**要**的租户」，拦不住「你要的租户是不是
+    **你的**」——任意已登录账号改一个头即可读写他租户数据。现 `TenantId = AccountTenantId`，
+    头派生只留给内部服务与公开登录（显式命名 `HeaderTenantId`）。
+
+    非空转：修复前带伪造头会切到空租户，下面的列表里就找不到刚建的 Agent。
+    """
+    response = await login(client, auth, auth.admin_username, ADMIN_PASSWORD)
+    assert response.status_code == 200
+
+    key = f"tenant-scope-{uuid.uuid4().hex[:8]}"
+    created = await client.post(
+        "/api/v1/agents",
+        json=_agent_payload(auth, key),
+        headers={**tenant_headers(auth), **csrf_headers(client)},
+    )
+    assert created.status_code == 200, created.text
+
+    forged = await client.get(
+        "/api/v1/agents", headers={"X-Tenant-Id": f"forged-{uuid.uuid4().hex[:8]}"}
+    )
+    assert forged.status_code == 200, forged.text
+    keys = [item["key"] for item in forged.json()["data"]["items"]]
+    assert key in keys, "伪造 X-Tenant-Id 不得切换租户（列表应仍是本账号租户）"
+
+
 async def test_admin_can_access_admin_accounts_route(client: AsyncClient, auth: AuthContext) -> None:
     response = await login(client, auth, auth.admin_username, ADMIN_PASSWORD)
     assert response.status_code == 200

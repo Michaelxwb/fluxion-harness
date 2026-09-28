@@ -11,9 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.overview_query_service import OverviewQueryService
 from ..infrastructure.db import get_session
-from .deps import get_tenant_id
+from .deps import AccountTenantId
 
-TenantId = Annotated[str, Depends(get_tenant_id)]
+TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 router = APIRouter(prefix="/api/v1/overview", tags=["overview"])

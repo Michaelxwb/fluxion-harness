@@ -13,9 +13,10 @@ from ..application.runtime_credentials import (
 )
 from ..infrastructure.db import get_session
 from ..metrics import RESOLVE_DEFINITION_METRIC, count_outcome
-from .deps import get_tenant_id
+from .deps import HeaderTenantId
 
-TenantId = Annotated[str, Depends(get_tenant_id)]
+# 内部端点无用户会话，租户由调用方（Runtime/Worker，已有服务身份门控）显式声明。
+TenantId = HeaderTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 router = APIRouter(prefix="/internal/runtime", tags=["internal-runtime"])
