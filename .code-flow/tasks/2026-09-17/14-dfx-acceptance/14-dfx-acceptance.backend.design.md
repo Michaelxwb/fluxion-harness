@@ -68,7 +68,7 @@
 | In Scope | 测试分层与门禁编排；跨模块黄金旅程；契约一致性（错误码/迁移/OpenAPI/SSE/分页）；故障与恢复矩阵；安全与脱敏验收；模型恢复；上线门禁清单与证据规范 |
 | Out of Scope | 不实现业务功能；不替代各模块单元测试（各模块 owner 负责其用例本身）；不建设压测平台/混沌平台；不做公网 WAF、零信任等 docs/09 §2 明确的“当前不建设”项 |
 | 前置假设 | 环境提供真实 PostgreSQL（迁移至 head）、Redis、NFS-backed Artifact Store；企业微信真机验证只在有真实凭据的环境执行 |
-| 有意妥协 / 技术债 | ① pytest 分层 marker 尚未登记，当前基线靠 `make test` 全量执行；② Redis 部分用例当前使用替身（如 `tests/gateway/test_dedupe.py`），按 FEAT-01 在 CI 增加真实 Redis 集成；③ NFS 慢故障注入依赖环境能力；④ WeCom 真机项维持 manual + 证据归档；⑤ 租户隔离只部分收敛：`credentials`/`tasks`/`schedules` 已改用账号派生租户，`accounts`/`users`/`agents`/`models`/`skills`/`platforms`/`mcp_servers`/`overview`/`audits` 等已认证路由仍用请求头派生的 `get_tenant_id()`（`harness-auth` 登记缺口），验收不得据此宣称租户隔离已全面完成；⑥ `harness-arch` 登记缺口：IM Gateway 只有 `install_metrics`、零 `declare_metric`（`/metrics` 目录为空），四个 k8s 清单的 `readinessProbe`/`livenessProbe` 均指向 `/healthz`，api-kit 的 `/readyz` 未被部署消费；⑦ `harness-snapshot`“配置/授权变更只影响后续新 Run”代码证实但指定 verifier 缺该断言；⑧ `harness-secret` 的“不得进入”面只有一部分被 canary 机检（见 §3.4.5）；⑨ 验收门禁命令的输出不得接进会提前关闭的管道（典型 `head`），该纪律当前无脚本约束 |
+| 有意妥协 / 技术债 | ① pytest 分层 marker 尚未登记，当前基线靠 `make test` 全量执行；② Redis 部分用例当前使用替身（如 `tests/gateway/test_dedupe.py`），按 FEAT-01 在 CI 增加真实 Redis 集成；③ NFS 慢故障注入依赖环境能力；④ WeCom 真机项维持 manual + 证据归档；⑤ 租户隔离**已全量收敛**（2026-09-28）：用户态/管理态 14 处路由的租户一律取自登录账号（`deps.TenantId` 默认即 `AccountTenantId`），`X-Tenant-Id` 只对内部服务与公开登录生效且改为显式命名 `HeaderTenantId`；审计归属也不再回落 `current_tenant_id()`；⑥ `harness-arch` 登记缺口：IM Gateway 只有 `install_metrics`、零 `declare_metric`（`/metrics` 目录为空），四个 k8s 清单的 `readinessProbe`/`livenessProbe` 均指向 `/healthz`，api-kit 的 `/readyz` 未被部署消费；⑦ `harness-snapshot`“配置/授权变更只影响后续新 Run”代码证实但指定 verifier 缺该断言；⑧ `harness-secret` 的“不得进入”面只有一部分被 canary 机检（见 §3.4.5）；⑨ 验收门禁命令的输出不得接进会提前关闭的管道（典型 `head`），该纪律当前无脚本约束 |
 
 ### 2.4 验收条件
 
@@ -291,7 +291,7 @@ flowchart LR
 | 会话权威与密码口径 | 会话唯一权威源是 PG `control.console_session`（只存 sha256 摘要、无明文列；TTL 12h，剩余不足 50% 滑动续期；登出置 `revoked_at` 且幂等；禁止引入无状态 JWT）；密码 `argon2id`（`$argon2id$` 前缀）+ 最短 12 字符；连续 5 次失败锁 15 分钟且锁定时清零计数；未知用户与禁用账号走 dummy hash 等化时序、统一回 `INVALID_CREDENTIALS` | `harness-auth#RULE-auth-001` | E-08 |
 | 账号与登录审计 | 账号创建与登录成功必须写 `control.config_audit_log`，且与业务变更**共用同一 session（同一事务）**；actor 为创建者或账号本人，载荷不含密码哈希；幂等重放未产生新变更时不写新审计 | `harness-auth#RULE-auth-001` | E-08 |
 | 租户隔离 | 所有查询/写入带 tenant 谓词；跨租户不可见/不可写，不泄露存在性 | `tests/agent_worker/test_tenant_guard.py`；`harness-auth#RULE-auth-001` | E-08 |
-| 租户隔离已收敛面（登记缺口） | 已收敛：`api/credentials.py`、`api/tasks.py`、`api/schedules.py` 改用 `AccountTenantId`；**仍用头派生 `get_tenant_id()`** 的已认证路由：`accounts`/`users`/`agents`/`models`/`skills`/`platforms`/`mcp_servers`/`overview`/`audits`——属待收敛口径，验收不得据此宣称租户隔离已全面完成 | `harness-auth#RULE-auth-001` | E-08 |
+| 租户隔离（2026-09-28 全量收敛） | 用户态/管理态 14 处路由（`accounts`/`agents`/`audits`/`auth` 已认证端点/`credentials`/`mcp_servers`/`models`/`overview`/`platform_test`/`platforms`/`schedules`/`skills`/`tasks`/`users`）的租户一律取自登录账号（`deps.TenantId` 默认即 `AccountTenantId`）；`X-Tenant-Id` 只对内部服务（`/internal/*`，另有服务身份门控）与公开登录生效，且显式命名为 `HeaderTenantId`；审计归属亦不回落 `current_tenant_id()`。伪造头不再切换租户——机检 `tests/console_auth/test_rbac.py::test_authenticated_tenant_comes_from_account_not_header` | `harness-auth#RULE-auth-001` | E-08 |
 | 授权可见性 | `ALL/SELECTED` 判定带 `is_deleted=false` 与资源/Agent `enabled`；未授权资源不进入 Prompt/ToolRegistry/Catalog；撤销仅影响后续 Run，旧 Snapshot 不变 | docs/09 §8.2 L268-279；`harness-auth#RULE-auth-001` | S-10 |
 | 凭据与会话 | 平台 Session 可重建；凭据明文存 `credential_json` 由 Runtime 直接读取；Console 不回显明文 | docs/09 §12；模块 04/12 | E-07 |
 

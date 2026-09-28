@@ -163,6 +163,10 @@ return ok(catalog, data)          # code == "0"
 
 api-kit 原语清单（上表之外的其余共享原语，同样禁止业务代码自建）：`require_internal_service` / `INTERNAL_SERVICE_HEADER`、`require_session` / `require_roles`（`packages/api-kit/src/muad_api/security.py:15,18-31,58-79`）、`install_metrics` / `declare_metric` / `inc_counter`（`packages/api-kit/src/muad_api/metrics.py`）、`database_readiness` / `ReadinessDetail`（`packages/api-kit/src/muad_api/probes.py:14-33`）。
 
+`write_config_audit` 的**租户归属不得取自请求头**（2026-09-28 收口）：`tenant_id` 缺省时只回落部署默认租户，**不再**回落 `current_tenant_id()`——后者是中间件从 `X-Tenant-Id` 写入 contextvar 的值（客户端可任意改写）。读数据还能靠租户谓词兜，而审计归属被污染是合规问题：会产出「调用方自选租户」的审计行。
+
+✅ 调用方显式传 `tenant_id=`（用户态路由请传**账号租户**）；❌ 省略 `tenant_id` 并依赖 `current_tenant_id()` 兜底。
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。

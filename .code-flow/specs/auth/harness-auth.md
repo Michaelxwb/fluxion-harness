@@ -34,9 +34,11 @@ Console 身份、会话与凭据管理（每条末附机器检查）：
   - ✅ `admin.include_router(credentials_router)`
   - ❌ 把 `credentials_router` 挂回 `authenticated`（越权修复前状态：任意已登录账号可读写凭据）
   - 机检：`tests/console_auth/test_rbac.py::test_builder_cannot_access_credentials_routes`
-- **凭据路由的租户取自登录账号，不信任请求头**：`AccountTenantId` → `account.tenant_id`（`api/deps.py:68-73`）；而 `get_tenant_id()` 读的是中间件从 `X-Tenant-Id` 写入的 contextvar（`api/deps.py:47-48`，`packages/api-kit/src/muad_api/middleware.py:36,45`），在已认证路由上等价于信任客户端可改写的头。已收敛：`api/credentials.py:16`、`api/tasks.py:17`、`api/schedules.py:17`。
-  - ✅ `TenantId = AccountTenantId`
-  - ❌ `TenantId = Annotated[str, Depends(get_tenant_id)]`（凭据路由上会导致伪造 `X-Tenant-Id` 即可跨租户读写凭据）
+- **租户是主体属性，不是请求属性**（2026-09-28 全量收敛）：用户态/管理态路由的租户**只能**取自登录账号——`deps.TenantId` 的默认实现就是 `AccountTenantId`（`account.tenant_id`）。请求头 `X-Tenant-Id` 由中间件写入 contextvar（`packages/api-kit/src/muad_api/middleware.py:36,45`），**可被客户端任意改写**，故只允许两处显式 opt-in：内部服务路由（`/internal/*`，另有服务身份门控）与公开登录（`/auth/login`，无会话可依、只能靠头按租户定位账号）——它们用显式命名 `HeaderTenantId`。`get_tenant_id` 已从 deps 删除，残留调用会 import 失败而非静默降级。
+  - 现状：`accounts`/`agents`/`audits`/`auth`(已认证端点)/`credentials`/`mcp_servers`/`models`/`overview`/`platform_test`/`platforms`/`schedules`/`skills`/`tasks`/`users` 共 14 处均为账号租户；`internal_runtime`/`internal_channel` 用 `HeaderTenantId`
+  - ✅ `TenantId = AccountTenantId`（默认即安全）；内部/公开入口显式 `TenantId = HeaderTenantId`
+  - ❌ 已认证路由上用 `HeaderTenantId`：各 service 的 `row.tenant_id != tenant_id` 只校验「这行属不属于你**要**的租户」，拦不住「你要的租户是不是**你的**」——伪造头即可读写他租户数据
+  - 机检：`tests/console_auth/test_rbac.py::test_authenticated_tenant_comes_from_account_not_header`（带伪造头时列表仍须含本账号租户的数据）
   - 登记缺口（实现待收敛）：`accounts`/`users`/`agents`/`models`/`skills`/`platforms`/`mcp_servers`/`overview`/`audits` 等已认证路由仍用 `get_tenant_id()` —— 未认证的公开登录入口按头收窄用户名查找（`api/auth.py:33`）不在此约束内。
   - 机检：`tests/console_platform/test_credentials_api.py::test_credentials_tenant_comes_from_account_not_header`
 - **CSRF 双提交 + Cookie 属性**：非安全方法（`GET/HEAD/OPTIONS/TRACE` 之外）必须比对 `muad_csrf` Cookie 与 `X-CSRF-Token` 头（`hmac.compare_digest`，失败 `403`）；会话 Cookie `muad_session` 为 `httponly`、CSRF Cookie 必须可读、两者 `samesite=strict`、`secure` 仅非 dev 打开。`authenticated` 与 `admin` 两组都挂 `require_csrf`（`api/security.py:9-13,20-47,52-58`；`api/router.py:27,42`；写 Cookie 见 `api/auth.py:50`）。

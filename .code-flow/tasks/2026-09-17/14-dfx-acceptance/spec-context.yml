@@ -1,7 +1,7 @@
 version: 1
 task: DFX、测试与验收（跨模块）
 enforcement: required
-updated_at: '2026-09-28T11:54:56.593072+00:00'
+updated_at: '2026-09-28T12:19:00.046692+00:00'
 sources:
 - type: docs
   ref: docs/09-DFX安全可靠性测试验收详细设计.md
@@ -20,7 +20,7 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: b6db42b01196f1ec9316a021fef237dfc30934f9464d6f1c88ceda68e9c2fd0f
+    file_sha256: 2e5d0a2a000f926953a8827b997514630f4b218746b5748567c75ac21e24c938
     metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
     rules_sha256: 1c14a73d7f32fecb843b7008e1f356f1e1a956aaa4c3a24063bae626f104fe48
   selected_by: agent
@@ -52,7 +52,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: 3.4.3 契约与一致性测试清单
           item_id: RULE-api-002
-          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
+          artifact_sha256: 4326ff317f4f08b8d6ef25753df25d0b7fb829a405c4e38ee2874d09609daa7d
         decision: null
         evidence: []
       plan:
@@ -84,7 +84,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: 2.2 功能方案
           item_id: RULE-api-001
-          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
+          artifact_sha256: 4326ff317f4f08b8d6ef25753df25d0b7fb829a405c4e38ee2874d09609daa7d
         decision: null
         evidence: []
       plan:
@@ -131,7 +131,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-arch-001
-          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
+          artifact_sha256: 4326ff317f4f08b8d6ef25753df25d0b7fb829a405c4e38ee2874d09609daa7d
         decision: null
         evidence: []
       plan:
@@ -153,7 +153,7 @@ bindings:
   path: auth/harness-auth.md
   status: active
   hashes:
-    file_sha256: 6268290c557cb49c9acdd22da31b3449aedbeb2b9c3c2a4bb362b16566bc1322
+    file_sha256: 5c1ede2e78b847a8be71e740f15064e8776986d0f800228510c93067eca1cb63
     metadata_sha256: 282fc035519e5c5b8561dea4584ebcd8df997e78dc811a803b0dec769bd31e77
     rules_sha256: 2c0d8492b6adb9167c4309b44a5b1be42b1920f5e241f629d2f2bf9825cdc570
   selected_by: agent
@@ -180,7 +180,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: 3.4.5 安全验收矩阵
           item_id: RULE-auth-001
-          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
+          artifact_sha256: 4326ff317f4f08b8d6ef25753df25d0b7fb829a405c4e38ee2874d09609daa7d
         decision: null
         evidence: []
       plan:
@@ -229,7 +229,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-log-001
-          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
+          artifact_sha256: 4326ff317f4f08b8d6ef25753df25d0b7fb829a405c4e38ee2874d09609daa7d
         decision: null
         evidence: []
       plan:
@@ -275,7 +275,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-rel-001
-          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
+          artifact_sha256: 4326ff317f4f08b8d6ef25753df25d0b7fb829a405c4e38ee2874d09609daa7d
         decision: null
         evidence: []
       plan:
@@ -323,7 +323,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: design
           item_id: design
-          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
+          artifact_sha256: 4326ff317f4f08b8d6ef25753df25d0b7fb829a405c4e38ee2874d09609daa7d
         decision: null
         evidence: []
       plan:
@@ -372,7 +372,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
+          artifact_sha256: 4326ff317f4f08b8d6ef25753df25d0b7fb829a405c4e38ee2874d09609daa7d
         decision: null
         evidence: []
       plan:
@@ -419,7 +419,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: 2.2 功能方案
           item_id: RULE-test-001
-          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
+          artifact_sha256: 4326ff317f4f08b8d6ef25753df25d0b7fb829a405c4e38ee2874d09609daa7d
         decision: null
         evidence: []
       plan:
@@ -467,7 +467,7 @@ bindings:
         - artifact: 14-dfx-acceptance.backend.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-worker-001
-          artifact_sha256: 4c110db2878c33c9490834dec061bbabf44a630f6c24b56183b24437c690b652
+          artifact_sha256: 4326ff317f4f08b8d6ef25753df25d0b7fb829a405c4e38ee2874d09609daa7d
         decision: null
         evidence: []
       plan:
