@@ -14,7 +14,7 @@ verifiers:
     argv:
     - bash
     - -lc
-    - uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck
+    - uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck
     cwd: .
     timeout: 600
 ---

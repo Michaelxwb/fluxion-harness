@@ -14,7 +14,7 @@ verifiers:
     argv:
     - bash
     - -lc
-    - uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py && npm --prefix
+    - uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py && npm --prefix
       apps/console-platform/frontend run typecheck
     cwd: .
     timeout: 600

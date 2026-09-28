@@ -21,13 +21,6 @@ verifiers:
     - schema_parity
     cwd: .
     timeout: 600
-# 规则正文在根 CLAUDE.md 的 Core Principles（租户内存在性判断），此处只放机检。
-checks:
-- id: no-global-count-in-tenant-check
-  type: regex
-  pattern: 'count_all\('
-  files: apps/console-platform/backend/**
-  message: 租户内的存在性判断禁止全库计数；必须按租户限定（count(tenant_id)）——全库判定会让任一租户有账号就掩盖「默认租户无账号 ⇒ 无法登录」的静默故障
 ---
 
 # harness-data
@@ -52,8 +45,8 @@ checks:
   - ✅ 任何 UPDATE 路径都显式赋 `update_time`。
   - ❌ 只改业务列 ⇒ `update_time` 停在上一次写库时刻，审计/增量同步据此判断会漏行。
 - **Schema 名单固定 4 个**：`control`/`runtime`/`task`/`langgraph`（`migrations/versions/0001_create_schemas.py`）。前三个是本产品的 Owner Schema；`langgraph` 是 LangGraph 框架自有表（无 ORM 模型、不属产品表），**不得**在其中放业务表。
-- **`checks` 机检的覆盖边界（务必按此理解，勿高估）**：本 spec 的 `no-global-count-in-tenant-check` 以 `pattern: 'count_all\('` 匹配 `apps/console-platform/backend/**`。该目标符号**已不存在**（全仓 0 命中，是 13-console-auth 修掉的旧实现 `AuthService.has_any_account()`），因此这条机检**只防该方法复活**，对「无租户过滤的 count」（如 `select(func.count())` 不带 `tenant_id`、或全局 `func.count()` 聚合）**零覆盖**。规则正文在根 `CLAUDE.md` 的 Core Principles（租户内存在性判断），此处只放机检。
-  - ✅ 存在性/计数判定带 `tenant_id`；❌ 依赖这条 `checks` 来保证租户隔离。
+- **租户内存在性判断（规则正文在根 `CLAUDE.md` Core Principles；本 spec 已移除机检）**：任何「是否存在」判断（如启动自检）必须把 `count` 限定在目标租户内，不得用全库计数——全库判定会让任一租户有账号就掩盖「默认租户无账号 ⇒ 无法登录」的静默故障。**此处原先的 `no-global-count-in-tenant-check` 已删除**：它的 `pattern: 'count_all\('` 指向 13-console-auth 已移除的旧实现（全仓 0 命中），只防该法复活；而「无租户过滤的 count」这类通用形态正则在多行 SQL 上判不准、误报率高，留着是假防线。故本条**靠评审把关，不要以为有机检兜底**。
+  - ✅ `await self._accounts.count(self._require_tenant()) > 0`；❌ `count_all() > 0`，或 `select(func.count())` 未带 `tenant_id` 条件
 
 ## Avoid
 
