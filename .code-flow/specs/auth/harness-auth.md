@@ -26,6 +26,32 @@ verifiers:
 
 - [RULE-auth-001] 授权为三层关系：User→Agent（AgentAccessGrant）、Agent→Skill/MCP（Binding）、SELECTED 资源再叠加 SkillUserGrant/McpUserGrant；Effective Capability 公式必须含 `is_deleted=false` 与资源/Agent `enabled`；绑定无启停开关、授权无到期时间；不建三元授权、不做 MCP Tool 级授权；未授权资源不得进入 Prompt/ToolRegistry/Skill Catalog。
 
+## Conventions
+
+Console 身份、会话与凭据管理（每条末附机器检查）：
+
+- **仅两级角色，凭据类路由必须挂 `admin` 组**：角色只有 `ADMIN`/`BUILDER`（`infrastructure/models/auth.py:9-10`），创建账号按白名单校验 role（`application/auth_service.py:21,149-150`）。`accounts`/`users`/`credentials` 三组路由挂 `admin` 组（`require_admin`，非 ADMIN → `403 FORBIDDEN`），其余配置类路由挂 `authenticated`（`api/router.py:27-46`）。凭据管理的 ADMIN 门控是**前端隐藏 + 后端 403 兜底**的双层要求，缺一不可。
+  - ✅ `admin.include_router(credentials_router)`
+  - ❌ 把 `credentials_router` 挂回 `authenticated`（越权修复前状态：任意已登录账号可读写凭据）
+  - 机检：`tests/console_auth/test_rbac.py::test_builder_cannot_access_credentials_routes`
+- **凭据路由的租户取自登录账号，不信任请求头**：`AccountTenantId` → `account.tenant_id`（`api/deps.py:68-73`）；而 `get_tenant_id()` 读的是中间件从 `X-Tenant-Id` 写入的 contextvar（`api/deps.py:47-48`，`packages/api-kit/src/muad_api/middleware.py:36,45`），在已认证路由上等价于信任客户端可改写的头。已收敛：`api/credentials.py:16`、`api/tasks.py:17`、`api/schedules.py:17`。
+  - ✅ `TenantId = AccountTenantId`
+  - ❌ `TenantId = Annotated[str, Depends(get_tenant_id)]`（凭据路由上会导致伪造 `X-Tenant-Id` 即可跨租户读写凭据）
+  - 登记缺口（实现待收敛）：`accounts`/`users`/`agents`/`models`/`skills`/`platforms`/`mcp_servers`/`overview`/`audits` 等已认证路由仍用 `get_tenant_id()` —— 未认证的公开登录入口按头收窄用户名查找（`api/auth.py:33`）不在此约束内。
+  - 机检：`tests/console_platform/test_credentials_api.py::test_credentials_tenant_comes_from_account_not_header`
+- **CSRF 双提交 + Cookie 属性**：非安全方法（`GET/HEAD/OPTIONS/TRACE` 之外）必须比对 `muad_csrf` Cookie 与 `X-CSRF-Token` 头（`hmac.compare_digest`，失败 `403`）；会话 Cookie `muad_session` 为 `httponly`、CSRF Cookie 必须可读、两者 `samesite=strict`、`secure` 仅非 dev 打开。`authenticated` 与 `admin` 两组都挂 `require_csrf`（`api/security.py:9-13,20-47,52-58`；`api/router.py:27,42`；写 Cookie 见 `api/auth.py:50`）。
+- **会话唯一权威源是 PG `control.console_session`**：令牌只存 `sha256` 摘要、库里无明文列；TTL 12h，剩余不足 50% 时滑动续期；登出置 `revoked_at` 且幂等（重复登出不报错）。无状态 JWT 会绕过吊销与滑动续期，禁止引入（`application/auth_service.py:25-26,44-45,78-87,121-122,128-134`；`infrastructure/models/auth.py:49-80`）。
+  - ✅ 库里只有 sha256 摘要；❌ 存明文或改用无状态 JWT
+  - 机检：`tests/console_auth/test_login.py:99-102`
+- **密码与失败锁定**：`argon2id`（`$argon2id$` 前缀）、最短 12 字符；连续 5 次失败锁 15 分钟且**锁定时把计数清零**（恢复后重新计 5 次）；未知用户与禁用账号都走 dummy hash 等化时序并统一回 `INVALID_CREDENTIALS`，不泄露账号是否存在（`application/auth_service.py:22-30,61-75,105-111`）。
+  - ✅ 未知用户先 `verify_password(_DUMMY_HASH, password)` 再报错；❌ 提前 `return` 造成响应时间差
+  - 机检：`tests/console_auth/test_login.py:106-112`；`tests/acceptance/console_auth_flow/test_auth_acceptance.py:220-239`
+- **账号创建与登录成功必须写 `control.config_audit_log`**：审计与业务变更**共用同一 session（同一事务）**，actor 为创建者（创建）或账号本人（登录），载荷不含密码哈希（登录只记 username/role）；幂等重放没有产生新变更，**不写新审计**（`api/accounts.py:64-79`；`api/auth.py:39-49`；`application/audit_service.py:57-78`）。
+- **`resolve-definition` 与 API-08/09 同服务身份门控**：响应含模型明文 `api_key`，必须要求 `X-Internal-Service`（`require_service_identity`），三个 internal 端点一致；Console 侧调用方（Worker `scheduler/client.py:57`、Runtime `infrastructure/console_client.py:50,100`）必须发该头。
+  - ✅ 门控 + 调用方带头；❌ 裸端点（越权修复前状态：无头即可读到明文密钥）
+  - 机检：`tests/console_internal/test_runtime_credentials.py::test_resolve_definition_requires_service_identity`
+- **`POST /api/v1/accounts` 的 `Idempotency-Key` 复用既有共享幂等表**：落在 `control.skill_import_idempotency`（不建第二张表），指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符, `ensure_ascii=False`）的 `sha256:`，含 endpoint/tenant/username/display_name/role；同 key 异指纹 → `IDEMPOTENCY_MISMATCH`；并发由 `pg_advisory_xact_lock`（按 `(tenant, key, endpoint)` 摘要）串行化（`api/accounts.py:16-17,55`；`application/auth_service.py:181-212,249-267,270-276`）。
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。

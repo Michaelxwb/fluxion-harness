@@ -25,7 +25,7 @@ verifiers:
 
 ## Rules
 
-- [RULE-skill-001] Artifact Store 为 NFS-backed RWX PVC（V1 不建 MinIO/S3）；数据库只保存相对 `storage_key`；Runtime/Worker 使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从 NFS 目录执行 Python Skill；同一 checksum 并发首次加载必须 singleflight；Artifact 写入不可变（temp+`os.replace` 原子写，同 `storage_key` 二次写入抛 `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans` CLI 宽限期扫描清理（默认 1h，保护进行中事务）。
+- [RULE-skill-001] Artifact Store 为 **RWX PVC**（硬事实是 `accessModes: ReadWriteMany`，`deploy/k8s/base/pvc-artifacts.yaml:7-8`；是否落在 NFS 由部署侧 StorageClass 决定，清单里 `storageClassName` 并未固定；V1 不建 MinIO/S3）；数据库只保存相对 `storage_key`；Runtime/Worker 使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从 NFS 目录执行 Python Skill；同一 checksum 并发首次加载必须 singleflight（**限每进程内**：跨 Pod 的正确性由 `os.replace` 幂等与 DB CAS 承载，不得当作跨进程互斥）；Artifact 写入不可变（temp+`os.replace` 原子写，同 `storage_key` 二次写入抛 `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans` CLI 宽限期扫描清理（默认 1h，保护进行中事务）。
 
 ✅ 不可变写入 + 孤儿清理（`infrastructure/skill_artifact_store.py`）：
 
@@ -47,6 +47,9 @@ cleanup_orphan_files(known_keys, grace_seconds=0)  # 竞态删除进行中导入
 
 - **非 Skill 产物必须用 `skills/` 之外的前缀**：孤儿清理只扫描 `skills/**`（`skills/*/*/skill.zip` 与 `skills/*/*/.tmp-*`），因此任何非 Skill 产物写进 `skills/` 都会被 `cleanup_orphan_files` 误回收。既有实例：审计导出用 `exports/{tenant_id}/{export_id}/audits.{csv|json}`（`application/audit_export_service.py` 的 `EXPORT_ARTIFACT_PREFIX`）。新增产物类型必须显式声明自己的前缀，不得复用 `skills/`。
 - **解包与执行的逃逸防护**：zip 解包必须做 zip-slip 校验，越界成员按 `SKILL_ARTIFACT_UNAVAILABLE` 拒绝；脚本选择必须校验路径落在 READY 目录内，越界抛 `SkillExecutionError("script path escapes the skill package")`；Skill 子进程环境变量只透传 `PATH/HOME/LANG` 白名单（`packages/artifact-store/.../skill_cache.py`、`packages/agent-core/.../skill/executor.py`）。
+- **`tools/` 是第二个非 `skills/` 产物前缀**：Runtime 的 Tool 大结果落 `tools/{tenant_id}/{run_id}/{artifact_id}/result.bin`，走同款 temp + `os.replace` 原子写、DB 失败即删文件不留孤儿（`apps/agent-runtime/src/muad_agent_runtime/application/artifacts.py:21-22,32-36,110-117`）。✅ 新产物类型显式声明自己的前缀；❌ 复用 `skills/` 会被 `cleanup_orphan_files` 回收。
+- **singleflight 的作用域是「每进程」**：`SkillArtifactCache` 的锁是进程内 `asyncio.Lock` + 内存索引（`packages/artifact-store/src/muad_artifact_store/skill_cache.py:25-27`），对跨 Pod 的并发首次加载**没有互斥力**；跨进程正确性依赖 `os.replace` 幂等与 DB CAS。✅ 依靠 READY 标记与校验 checksum 判等；❌ 假设内存索引能跨副本去重。
+- **`NfsArtifactStore.resolve` 必须做越界防护**：解析后的路径必须落在 `root` 之内、且不得等于 `root` 本身，否则抛 `ValueError("invalid storage_key")`（`packages/artifact-store/src/muad_artifact_store/nfs.py:10-14`）。✅ 一律经 `resolve()` 取路径；❌ 用 `root / storage_key` 直接拼路径（`../` 可越出根目录）。
 
 ## Avoid
 

@@ -38,7 +38,7 @@ verifiers:
 
 ## Rules
 
-- [RULE-api-002] 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符）的 SHA256，含 endpoint、tenant/actor/资源与关键参数（Runtime 另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key 不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。
+- [RULE-api-002] 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime 另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key 不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取 `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial unique 只作兜底（`channel_service.py:153-159`、`auth_service.py:270-276`、`audit_export_service.py:386-392`、`agent_service.py:159-162`、`mcp_service.py:240-243`、`skill_service.py:278-286`）。**存量待收敛**：console 侧 `agent_service`/`mcp_service`/`skill_service` 三处 `_fingerprint` 仍用 `|` 拼接且不含 endpoint/tenant，须按本口径对齐（合规参考 `channel_service.py:59-74`、`auth_service.py:253-267`、`audit_export_service.py:100-119`、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py:30-49`）。
 - [RULE-api-001] Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一 `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status` 只来自 `config/api-messages.yaml`。
 
 ## Conventions
@@ -122,12 +122,46 @@ seq = await EventWriter(session).append(..., stream_type="message.delta", payloa
 yield ExecutorEvent(type="message.delta", data={"delta": chunk}, seq=seq, timestamp=ts)
 ```
 
-❌ 每连接自增序号（resume 会从 1 重排，重放无法对齐）：
+❌ 生产路径每连接自增序号（resume 会从 1 重排，重放无法对齐；`SseEmitter` 的连接内递增只服务无 `event.seq` 的合成/测试事件，见 `apps/agent-runtime/src/muad_agent_runtime/application/sse.py:31-38`）：
 
 ```python
-self._seq += 1          # 连接内计数器，不来自 canonical_event
+self._seq += 1          # 生产路径的连接内计数器，不来自 canonical_event
 yield ExecutorEvent(type="message.delta", data={"delta": chunk})
 ```
+
+## Conventions
+
+成功码是**字符串 `"0"`**，且 `config/api-messages.yaml` 的码集合与 `ErrorCode` 枚举**双向一致**（`packages/api-kit/src/muad_api/response.py:73-74`、`tests/test_error_catalog.py:44-48`）：`ErrorCode` 里有的码必须在 catalog 登记，catalog 里的码（除 `"0"`）也必须在 `ErrorCode` 里存在。
+
+- **catalog 硬校验**：每个码必须有 `zh-CN` 与 `en-US` 文案、`http_status ∈ [100,599]`，且 `COMMON_INTERNAL_ERROR` 必须存在（`packages/api-kit/src/muad_api/catalog.py:30-58`、`tests/test_error_catalog.py:65-86`）。
+- **未登记 code 的兜底语义**：HTTP 500 + `code` 原样回显 + `msg` 回退「系统内部错误」（`tests/acceptance/test_foundation_api_envelope.py:72-77`）。
+
+✅ 成功封套：
+
+```python
+return ok(catalog, data)          # code == "0"
+```
+
+❌ 任一侧多/少一个 code：`catalog.codes() - {'0'}` 与 `ErrorCode` 对不上即测试红。
+
+关联头口径（`packages/api-kit/src/muad_api/middleware.py:30-36,60-64`；前端发送侧 `apps/console-platform/frontend/src/api/client.ts:78-86`）：
+
+- **入站**：`X-Request-Id`（缺失则生成）、`X-Trace-Id`（缺失时可由 `traceparent` 推导，再缺失回落 request_id）、`X-Locale`（或 `Accept-Language`）。
+- **出站回写**：`X-Request-Id`、`X-Trace-Id`、`Content-Language`、`Vary`。
+
+错误文案硬编码三禁（机检 `scripts/check_error_message_hardcode.py:13-32`，扫描 `apps/` 与 `packages/` 下全部 `*.py`）：
+
+- 禁 `HTTPException(detail="字面量")`；
+- 禁 `{"msg": "字面量"}`；
+- `AppError("CODE")` 传入裸字符串时，该 CODE 必须在 catalog 登记，否则即红。
+
+✅ `raise AppError(ErrorCode.MODEL_IN_USE)`　❌ `raise AppError("MODEL_IN_USE")`（该码未登记即红）。
+
+分页常量在 contracts **二次声明**：`packages/contracts/src/muad_contracts/channel.py:10-20` 复刻 `DEFAULT_PAGE_SIZE=20` / `MAX_PAGE_SIZE=100`（注释说明 contracts 是独立包，不反向依赖 api-kit）。
+
+✅ 两处同值；❌ 只改 api-kit 一处会让走 contracts 校验的内部渠道列表越界。
+
+api-kit 原语清单（上表之外的其余共享原语，同样禁止业务代码自建）：`require_internal_service` / `INTERNAL_SERVICE_HEADER`、`require_session` / `require_roles`（`packages/api-kit/src/muad_api/security.py:15,18-31,58-79`）、`install_metrics` / `declare_metric` / `inc_counter`（`packages/api-kit/src/muad_api/metrics.py`）、`database_readiness` / `ReadinessDetail`（`packages/api-kit/src/muad_api/probes.py:14-33`）。
 
 ## Avoid
 

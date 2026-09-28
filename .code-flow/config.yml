@@ -317,8 +317,8 @@ path_mapping:
     im:
         patterns:
             - "apps/im-gateway/**"
-            - "packages/contracts/channel.py"
-            - "packages/contracts/delivery.py"
+            - "packages/contracts/src/muad_contracts/channel.py"
+            - "packages/contracts/src/muad_contracts/delivery.py"
         specs:
             - path: "im/harness-im.md"
               tags:
@@ -342,7 +342,7 @@ path_mapping:
     snapshot:
         patterns:
             - "apps/agent-runtime/**"
-            - "packages/contracts/runtime.py"
+            - "packages/contracts/src/muad_contracts/runtime.py"
         specs:
             - path: "snapshot/harness-snapshot.md"
               tags:
@@ -354,7 +354,7 @@ path_mapping:
     worker:
         patterns:
             - "apps/agent-worker/**"
-            - "packages/contracts/tasks.py"
+            - "packages/contracts/src/muad_contracts/tasks.py"
             - "**/scheduler/**"
         specs:
             - path: "worker/harness-worker.md"

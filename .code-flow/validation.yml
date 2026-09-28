@@ -15,7 +15,7 @@ validators:
       trigger: "apps/console-platform/frontend/**/*.{ts,tsx}"
       command: "cd apps/console-platform/frontend && if [ ! -d node_modules ]; then echo 'SKIP: apps/console-platform/frontend/node_modules 未安装，类型检查未执行（先 npm install）'; else npx tsc --noEmit; fi"
       timeout: 30000
-      on_fail: "检查类型定义，参见 specs/frontend/quality-standards.md"
+      on_fail: "检查类型定义，参见 specs/frontend/harness-frontend.md"
 
     - name: "Python 类型检查"
       # 触发范围只覆盖 mypy 恒绿的产品代码（apps/packages/scripts，含各根目录下的直属 .py）：
@@ -25,7 +25,7 @@ validators:
       trigger: "{apps,packages,scripts}/{**,}*.py"
       command: ".venv/bin/python -m mypy {files}"
       timeout: 30000
-      on_fail: "检查类型注解，参见 specs/backend/code-quality-performance.md"
+      on_fail: "检查类型注解，参见 specs/arch/harness-arch.md"
 
     - name: "Pytest"
       trigger: "**/*.py"

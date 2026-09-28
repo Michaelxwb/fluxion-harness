@@ -47,6 +47,18 @@ verifiers:
 <Descriptions data={[{ key: 'name', value: user.display_name }]} />  // 无分区标题、无状态 Tag、无双列栅格
 ```
 
+详情 `SideSheet` 的公共契约（机器钉死在 `tests/frontend/test_detail_sidesheet_contract.py`）：
+
+- **宽度固定 `width={920}`**，由 `components/common/DetailSideSheet.tsx` 统一给定，各模块不得自设宽度（老模块迁入公共组件时以公共组件为准）。机检：`tests/frontend/test_detail_sidesheet_contract.py:89-90`。
+
+  ❌：模块自己传 `width={720}`/`width={1080}` 覆盖公共组件
+
+- **`actions` 必须条件渲染**：无对象级操作时不渲染空操作区（`{props.actions ? props.actions : null}`），避免标题行右侧留一块空白。机检：`tests/frontend/test_detail_sidesheet_contract.py:32-34`。
+- **危险/行内确认操作统一走公共 `ConfirmAction`**（内部 `Popconfirm`；`danger` 时 `type="danger"`，详情行内默认 `theme="borderless"`，外层按钮需要抢眼时显式传 `theme="light"`）。不要在模块里手写 `Popconfirm` + `Button` 组合——确认/取消文案与危险色都靠它统一（使用点如 `user-identity/UserDetailTabs.tsx`）。
+- **模块内「状态 → 颜色」映射按模块收敛到唯一一份 options**，列表列、筛选下拉、结果 Modal、详情共用同一份口径（参考 `model-management/statusOptions.ts`：`ModelDetailSideSheet` 与 `ModelPage` 同 import 同一份；机检 `tests/frontend/test_detail_sidesheet_contract.py:66-69`）。新模块新增状态枚举时，只允许新增一处映射；不得让同一枚举在多处各写一套。
+
+  ⚠️ 本约束**只要求「按模块收敛」**，不是「全站必须用 `StatusTag`」：`agent-management/AgentDetailSideSheet.tsx`、`skill-management/SkillDetailSideSheet.tsx` 仍有裸用 `<Tag color={...}>` 的存量写法，属待收敛项，不作为违规判据。
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
