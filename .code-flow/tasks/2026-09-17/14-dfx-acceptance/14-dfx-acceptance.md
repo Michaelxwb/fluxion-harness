@@ -46,7 +46,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 | S-01 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | unit | 纯逻辑/状态机（无 IO） | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_layer_baseline.py","-k","s01"] | . | 600 |  |
 | S-02 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | Enum ↔ YAML ↔ 源码扫描 | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_error_catalog.py","tests/test_api_i18n.py"] | . | 600 |  |
-| S-03 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | ORM ↔ 迁移 ↔ OpenAPI | TASK-002 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_contract_parity.py -k s03 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/architecture"] | . | 1200 |  |
+| S-03 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | ORM ↔ 迁移 ↔ OpenAPI | TASK-002 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_contract_parity.py -k s03 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/architecture"] | . | 1200 |  |
 | S-04 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | 真实 PostgreSQL + Redis | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_reliability.py","-k","s04"] | . | 900 |  |
 | S-05 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Browser/HTTP → Console → PG → IM Gateway | TASK-010 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"] | . | 1200 |  |
 | S-06 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Gateway → Runtime SSE → Browser | TASK-010 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"] | . | 1200 |  |
@@ -68,13 +68,13 @@
 | E-09 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | ModelGateway → Provider | TASK-009 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_model_recovery.py -k e09 && uv run pytest -q tests/agent_runtime/test_model_recovery.py"] | . | 900 |  |
 | E-10 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | manual | Gateway WS → 企业微信 | TASK-011 | planned | - | . | 60 |  |
 | B-01 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | api-kit paginate → API Query | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_error_catalog.py","-k","paginate"] | . | 300 |  |
-| B-02 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | SSE 解析器 → Runtime | TASK-002 | planned | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_sse.py tests/gateway/test_sse_parser.py"] | . | 300 |  |
+| B-02 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | SSE 解析器 → Runtime | TASK-002 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_sse.py tests/gateway/test_sse_parser.py"] | . | 300 |  |
 | B-03 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Scheduler → Schedule | TASK-005 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_recovery.py -k b03 && uv run pytest -q tests/agent_worker/test_scheduler_misfire.py"] | . | 900 |  |
 | B-04 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | locale 资源 ↔ API catalog | TASK-001 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"] | . | 600 |  |
 | RULE-api-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | contract | 统一封套/分页边界/catalog 错误码 + 原 verifier 真实边界 | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_api_i18n.py","tests/test_error_catalog.py","tests/acceptance/test_foundation_api_envelope.py"] | . | 300 |  |
-| RULE-api-002 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP → 幂等表(PostgreSQL) + 原 verifier 真实边界 | TASK-002 | planned | ["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"] | . | 300 |  |
-| RULE-arch-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 四部署单元/无状态/依赖方向 + 原 verifier 真实边界 | TASK-002 | planned | ["uv","run","pytest","-q","tests/architecture"] | . | 300 |  |
-| RULE-rel-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP 单端点原子变更 + 原 verifier 真实边界 | TASK-002 | planned | ["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"] | . | 300 |  |
+| RULE-api-002 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP → 幂等表(PostgreSQL) + 原 verifier 真实边界 | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"] | . | 300 |  |
+| RULE-arch-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 四部署单元/无状态/依赖方向 + 原 verifier 真实边界 | TASK-002 | verified | ["uv","run","pytest","-q","tests/architecture"] | . | 300 |  |
+| RULE-rel-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP 单端点原子变更 + 原 verifier 真实边界 | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"] | . | 300 |  |
 | RULE-worker-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 PG 权威源 + Redis 降级 + 原 verifier 真实边界 | TASK-003 | planned | ["bash","-lc","uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"] | . | 600 |  |
 | RULE-secret-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 密钥明文只存 Owner 表/三处受控出口 + 原 verifier 真实边界 | TASK-007 | planned | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | . | 300 |  |
 | RULE-log-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | logging-kit 唯一出口与双通道脱敏 + 原 verifier 真实边界 | TASK-007 | planned | ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"] | . | 300 |  |
@@ -143,13 +143,13 @@
 - [2026-09-28] completed (done)
 ## TASK-002: 契约一致性、关系形态与架构门禁（parity/幂等指纹）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.1 测试分层矩阵, 14-dfx-acceptance.backend.design.md#3.4.3 契约与一致性测试清单, 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix
 - **Spec-Refs**: harness-api#RULE-api-002, harness-rel#RULE-rel-001, harness-arch#RULE-arch-001
 - **Acceptance-Refs**: S-03, B-02, RULE-api-002, RULE-rel-001, RULE-arch-001
-- **Files**: `tests/acceptance/dfx/test_dfx_contract_parity.py`
+- **Files**: `tests/acceptance/dfx/test_dfx_contract_parity.py`, `apps/console-platform/backend/src/muad_console_platform/application/agent_service.py`, `apps/console-platform/backend/src/muad_console_platform/application/mcp_service.py`, `apps/console-platform/backend/src/muad_console_platform/application/skill_service.py`
 - **Estimate**: 半天级（含幂等指纹存量漂移的真实 RED）
 
 ### Description
@@ -158,36 +158,43 @@ FEAT-03 的契约层聚合：ORM↔迁移 parity、契约模型形状、关系�
 
 ### Checklist
 
-- [ ] [S-03][contract] 先写用例后改实现：以 `ORM ↔ 迁移 ↔ OpenAPI` 为真实边界，对三处 `_fingerprint` 断言「指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符）的 SHA256 且**含 `endpoint` 与 `tenant_id` 判别键**」「同 key 异指纹 → `IDEMPOTENCY_MISMATCH`」「并发由 `pg_advisory_xact_lock` 串行化、partial unique 兜底」；首跑必须先记录 RED（现状竖线拼接、无判别键）。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_contract_parity.py -k s03 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/architecture"]`。
-- [ ] [S-03][contract] 引用既有 parity 与形状断言并登记 argv（不复制）：`tests/test_contracts.py`（拒绝额外字段、`snapshot_hash`/`delivery_key` pattern）、各域 `test_*_schema_parity.py`（列/类型/可空/PK/FK/索引/partial predicate）、`tests/console_platform/test_user_side_relations.py`（关系接口只允许单关系 POST/DELETE）、`tests/architecture/`（依赖方向、IM Gateway 边界、Pod 标记文本扫描、指标 label 卫生）。
-- [ ] [B-02][contract] 以 `SSE 解析器 → Runtime` 为真实边界断言 `: heartbeat` 注释帧不计 seq、事件按 seq 单调有序、未知事件类型 unknown-safe、封套公共字段 `{run_id,seq,timestamp,type,data}` 完整。执行 argv：`["bash","-lc","uv run pytest -q tests/agent_runtime/test_sse.py tests/gateway/test_sse_parser.py"]`。
-- [ ] [RULE-api-002][contract] 作为唯一最终负责人：创建/上传类 POST 的 `Idempotency-Key` 幂等（判别键、`IDEMPOTENCY_MISMATCH`、advisory lock 串行化、partial unique 兜底），执行面复用各域既有幂等用例与其 verifier。verifier argv：`["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"]`。
-- [ ] [RULE-rel-001][contract] 作为唯一最终负责人：关系类修改只用单关系 POST/DELETE 且由独立事务完成，禁止全量 PUT 覆盖关系集合；重新绑定复用软删原行（partial unique `WHERE is_deleted=false`）而非插新行；解除关系的幂等语义按端点显式声明（Agent 侧幂等成功 vs User 侧 `COMMON_NOT_FOUND`）。verifier argv：`["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"]`。
-- [ ] [RULE-arch-001][contract] 作为唯一最终负责人：四个部署单元固定、Runtime/Worker 无状态可横向扩展、不绑定 Pod/bot_id/用户；同一会话可被任意 Pod 执行。verifier argv：`["uv","run","pytest","-q","tests/architecture"]`。
-- [ ] 显式边界（不修，只登记）：`harness-arch` 已登记的两处现状差异——IM Gateway 只有 `install_metrics`、零 `declare_metric`（`/metrics` 目录为空）；四个 k8s 清单的 `readinessProbe`/`livenessProbe` 均指向 `/healthz`，api-kit 的 `/readyz` 未被部署消费。本任务只断言 `tests/architecture` verifier 的现行口径，**不改部署清单、不补 gateway catalog**。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [S-03][contract] 先写用例后改实现：以 `ORM ↔ 迁移 ↔ OpenAPI` 为真实边界，对三处 `_fingerprint` 断言「指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符）的 SHA256 且**含 `endpoint` 与 `tenant_id` 判别键**」「同 key 异指纹 → `IDEMPOTENCY_MISMATCH`」「并发由 `pg_advisory_xact_lock` 串行化、partial unique 兜底」；首跑必须先记录 RED（现状竖线拼接、无判别键）。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_contract_parity.py -k s03 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/architecture"]`。**实测 RED：3 failed / 1 passed（指纹值不符 + `_fingerprint` 无 `tenant_id` 入参 TypeError），见 Acceptance Evidence。**
+- [x] [S-03][contract] 引用既有 parity 与形状断言并登记 argv（不复制）：`tests/test_contracts.py`（拒绝额外字段、`snapshot_hash`/`delivery_key` pattern）、各域 `test_*_schema_parity.py`（列/类型/可空/PK/FK/索引/partial predicate）、`tests/console_platform/test_user_side_relations.py`（关系接口只允许单关系 POST/DELETE）、`tests/architecture/`（依赖方向、IM Gateway 边界、Pod 标记文本扫描、指标 label 卫生）。**实测：`-k schema_parity` 35 passed（1558 deselected）、`tests/architecture` 10 passed。**
+- [x] [B-02][contract] 以 `SSE 解析器 → Runtime` 为真实边界断言 `: heartbeat` 注释帧不计 seq、事件按 seq 单调有序、未知事件类型 unknown-safe、封套公共字段 `{run_id,seq,timestamp,type,data}` 完整。执行 argv：`["bash","-lc","uv run pytest -q tests/agent_runtime/test_sse.py tests/gateway/test_sse_parser.py"]`。**实测 14 passed。**
+- [x] [RULE-api-002][contract] 作为唯一最终负责人：创建/上传类 POST 的 `Idempotency-Key` 幂等（判别键、`IDEMPOTENCY_MISMATCH`、advisory lock 串行化、partial unique 兜底），执行面复用各域既有幂等用例与其 verifier。verifier argv：`["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"]`。**实测 verifier 5 passed；同规则另跑 agent/mcp 真实 HTTP 幂等面（`tests/console_platform/test_agent_idempotency.py` + `tests/console_mcp/test_mcp_idempotency.py`）4 passed。**
+- [x] [RULE-rel-001][contract] 作为唯一最终负责人：关系类修改只用单关系 POST/DELETE 且由独立事务完成，禁止全量 PUT 覆盖关系集合；重新绑定复用软删原行（partial unique `WHERE is_deleted=false`）而非插新行；解除关系的幂等语义按端点显式声明（Agent 侧幂等成功 vs User 侧 `COMMON_NOT_FOUND`）。verifier argv：`["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"]`。**实测 3 passed。**
+- [x] [RULE-arch-001][contract] 作为唯一最终负责人：四个部署单元固定、Runtime/Worker 无状态可横向扩展、不绑定 Pod/bot_id/用户；同一会话可被任意 Pod 执行。verifier argv：`["uv","run","pytest","-q","tests/architecture"]`。**实测 10 passed。**
+- [x] 显式边界（不修，只登记）：`harness-arch` 已登记的两处现状差异——IM Gateway 只有 `install_metrics`、零 `declare_metric`（`/metrics` 目录为空）；四个 k8s 清单的 `readinessProbe`/`livenessProbe` 均指向 `/healthz`，api-kit 的 `/readyz` 未被部署消费。本任务只断言 `tests/architecture` verifier 的现行口径，**不改部署清单、不补 gateway catalog**。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-03 | contract | ORM ↔ 迁移 ↔ OpenAPI | 指纹含 `endpoint`/`tenant_id`；异指纹 `IDEMPOTENCY_MISMATCH`；列/类型/索引/partial predicate 一致；关系只单端点变更 | tests/acceptance/dfx/test_dfx_contract_parity.py / S-03 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_contract_parity.py -k s03 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/architecture"]` | planned |
-| B-02 | contract | SSE 解析器 → Runtime | heartbeat 不计 seq；seq 单调；未知事件 unknown-safe；封套字段完整 | tests/agent_runtime/test_sse.py + tests/gateway/test_sse_parser.py / B-02 | `["bash","-lc","uv run pytest -q tests/agent_runtime/test_sse.py tests/gateway/test_sse_parser.py"]` | planned |
-| RULE-api-002 | integration | 真实 Console HTTP → 幂等表(PostgreSQL) + 原 verifier 真实边界 | 判别键齐备；异指纹 409；advisory lock 串行化；原 verifier 全部通过 | 原 verifier / RULE-api-002 | `["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"]` | planned |
-| RULE-rel-001 | integration | 真实 Console HTTP 单端点原子变更 + 原 verifier 真实边界 | 无全量 PUT；单关系 POST/DELETE；复活原行；原 verifier 全部通过 | 原 verifier / RULE-rel-001 | `["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"]` | planned |
-| RULE-arch-001 | integration | 四部署单元/无状态/依赖方向 + 原 verifier 真实边界 | 部署单元与无状态约束；依赖方向单向；原 verifier 全部通过 | 原 verifier / RULE-arch-001 | `["uv","run","pytest","-q","tests/architecture"]` | planned |
+| S-03 | contract | ORM ↔ 迁移 ↔ OpenAPI | 指纹含 `endpoint`/`tenant_id`；异指纹 `IDEMPOTENCY_MISMATCH`；列/类型/索引/partial predicate 一致；关系只单端点变更 | tests/acceptance/dfx/test_dfx_contract_parity.py / S-03 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_contract_parity.py -k s03 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/architecture"]` | verified |
+| B-02 | contract | SSE 解析器 → Runtime | heartbeat 不计 seq；seq 单调；未知事件 unknown-safe；封套字段完整 | tests/agent_runtime/test_sse.py + tests/gateway/test_sse_parser.py / B-02 | `["bash","-lc","uv run pytest -q tests/agent_runtime/test_sse.py tests/gateway/test_sse_parser.py"]` | verified |
+| RULE-api-002 | integration | 真实 Console HTTP → 幂等表(PostgreSQL) + 原 verifier 真实边界 | 判别键齐备；异指纹 409；advisory lock 串行化；原 verifier 全部通过 | 原 verifier / RULE-api-002 | `["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"]` | verified |
+| RULE-rel-001 | integration | 真实 Console HTTP 单端点原子变更 + 原 verifier 真实边界 | 无全量 PUT；单关系 POST/DELETE；复活原行；原 verifier 全部通过 | 原 verifier / RULE-rel-001 | `["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"]` | verified |
+| RULE-arch-001 | integration | 四部署单元/无状态/依赖方向 + 原 verifier 真实边界 | 部署单元与无状态约束；依赖方向单向；原 verifier 全部通过 | 原 verifier / RULE-arch-001 | `["uv","run","pytest","-q","tests/architecture"]` | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| （编码期填写；S-03 的幂等指纹判别键属存量漂移，必须记录真实 RED） | | | | | |
+| S-03 | **真实 RED**：`uv run pytest -q tests/acceptance/dfx/test_dfx_contract_parity.py -k s03` → 3 failed / 1 passed。mcp `actual=sha256:bfdabf53e1f37d7248a4cedd06fc3676644c2ee714f9bb0581e85bf5bd8c9d33` vs 期望 `sha256:4c15525f49ceeed4a6bca2efda1bb42d0f3dafe1aff635ab8cd65883f76ed5a1`；skill `actual=sha256:ab8f28b129fb50a97ee09a2295f30e8ce1fe04a832abeb61a1df0752c8a91714` vs 期望 `sha256:b7b924f2d795f2716d04ac0161be3ae72e9850481b3a3f7df6690afe09dc463f`；agent `TypeError: AgentService._fingerprint() takes 2 positional arguments but 3 were given`（`tenant_id` 根本不在入参里）。漂移输入实测为竖线拼接、无 `endpoint`/`tenant_id`、无 `sort_keys`/紧凑分隔符：`mcp-register\|{payload_json}\|{sha256(secret)}`、`import\|1.0.0\|skill-key\|None\|SELECTED\|sha256:5f68c099…`、`{payload_json}\|agent-key` | `-k s03` → **4 passed**；整条 argv 三段 → **4 passed / 35 passed（1558 deselected）/ 10 passed** | `tests/acceptance/dfx/test_dfx_contract_parity.py` 4 例：`test_s03_agent_create_fingerprint_is_canonical_json_with_discriminators`、`test_s03_mcp_register_fingerprint_is_canonical_json_with_discriminators`、`test_s03_skill_fingerprints_are_canonical_json_with_discriminators`、`test_s03_idempotency_lock_and_unique_index_are_endpoint_scoped` | 期望值由测试独立重算（`json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)` + `sha256:` 前缀），**不从实现取值**；判别键断言含「丢键 ⇒ 摘要变」「换租户/换端点名 ⇒ 换指纹」「换载荷/换包体 ⇒ 换指纹」「与 `json.dumps` 默认口径不同」；幂等表形态取自 ORM 元数据（`SkillImportIdempotency.__table__` 的 unique 索引列集 `{tenant_id,idempotency_key,endpoint}` + partial predicate `is_deleted = false`）；锁与重放口径取自实现源码（按 `(tenant_id, key, endpoint)` 派生 `pg_advisory_xact_lock`、异指纹抛 `IDEMPOTENCY_MISMATCH`）。全程未 mock、无 DB/网络。实现缺口已修：三处 `_fingerprint` 改为规范 JSON 口径（agent/mcp 新增 `tenant_id` 入参，skill 新增 `endpoint`/`tenant_id` 入参）；`_fingerprint` 仍嵌在服务类内（非模块级纯函数），测试以显式 `_UNUSED_SELF` 占位调用其最小可调用面 | verified |
+| B-02 | 无独立 RED（本任务未改 SSE 面，按 design §3.4.3 引用既有落点） | `uv run pytest -q tests/agent_runtime/test_sse.py tests/gateway/test_sse_parser.py` → **14 passed** | 既有用例：`tests/agent_runtime/test_sse.py`、`tests/gateway/test_sse_parser.py` | SSE 解析器 ↔ Runtime 事件流（heartbeat 不计 seq、seq 单调、未知类型 unknown-safe、封套字段完整）；未 mock | verified |
+| RULE-api-002 | 见 S-03 行（同规则的真实 RED 即三处指纹漂移）；原 verifier 侧无独立 RED | verifier argv `uv run pytest -q tests/console_skill/test_import_idempotency.py` → **5 passed**；同规则真实 HTTP 幂等面另跑 `tests/console_platform/test_agent_idempotency.py` + `tests/console_mcp/test_mcp_idempotency.py` → **4 passed** | 原 verifier 自身断言（同 key 重放返回首次结果、同 key 异载荷 `IDEMPOTENCY_MISMATCH`、并发同 key 只落一行）+ 新增契约用例的判别键/规范化 JSON/partial unique/锁派生断言 | 真实 Console HTTP（ASGI 上传）→ 真实 PostgreSQL `control.skill_import_idempotency`；未 mock | verified |
+| RULE-rel-001 | 无独立 RED（本任务未改关系接口） | verifier argv `uv run pytest -q tests/console_platform/test_user_side_relations.py` → **3 passed** | 原 verifier 自身断言（关系只用单关系 POST/DELETE、无全量 PUT 覆盖、重新绑定复用软删原行） | 真实 Console HTTP 单端点原子变更 + 真实 PostgreSQL；未 mock | verified |
+| RULE-arch-001 | 无独立 RED（未改部署清单与依赖方向） | verifier argv `uv run pytest -q tests/architecture` → **10 passed** | `tests/architecture/` 既有断言（依赖方向单向、IM Gateway 不持库且渠道 SDK 只在 `channels/`、Pod 标记文本扫描、指标 label 卫生） | 源码/清单静态扫描（真实 `apps/`+`packages/` 源码与 k8s 清单）。显式边界：IM Gateway 零 `declare_metric`、四份清单探针仍指 `/healthz`，本任务只断言现状口径，不改部署清单 | verified |
+- S-03: verified — automated command passed; run_id=1f09357ded7543ddb63b2d063438d62a (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=1f09357ded7543ddb63b2d063438d62a (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
 
 ---
-
+- [2026-09-28] started
+- [2026-09-28] completed (done)
 ## TASK-003: 可靠性验收基座与 Worker lease/claim
 
 - **Status**: draft

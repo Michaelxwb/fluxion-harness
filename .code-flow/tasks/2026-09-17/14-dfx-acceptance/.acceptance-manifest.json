@@ -93,7 +93,7 @@
       "kind": "functional",
       "boundary": "ORM ↔ 迁移 ↔ OpenAPI",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -101,7 +101,28 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "1f09357ded7543ddb63b2d063438d62a",
+        "executed_at": "2026-09-28T13:04:24.120066+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1f09357ded7543ddb63b2d063438d62a",
+          "executed_at": "2026-09-28T13:04:24.120066+00:00"
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -492,7 +513,7 @@
       "kind": "functional",
       "boundary": "SSE 解析器 → Runtime",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -500,7 +521,28 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "1f09357ded7543ddb63b2d063438d62a",
+        "executed_at": "2026-09-28T13:04:24.120066+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "1f09357ded7543ddb63b2d063438d62a",
+          "executed_at": "2026-09-28T13:04:24.120066+00:00"
+        }
+      ]
     },
     {
       "id": "B-03",

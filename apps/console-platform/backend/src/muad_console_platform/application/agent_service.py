@@ -1,4 +1,5 @@
 import hashlib
+import json
 import uuid
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -143,18 +144,26 @@ class AgentService:
                     tenant_id=tenant_id,
                     idempotency_key=idempotency_key,
                     endpoint="agent-create",
-                    request_fingerprint=self._fingerprint(payload),
+                    request_fingerprint=self._fingerprint(tenant_id, payload),
                     response_json={"id": str(created.id)},
                 )
             )
             await self._session.flush()
         return created
 
-    def _fingerprint(self, payload: AgentCreateRequest) -> str:
-        body = payload.model_dump_json(exclude={"key"})
-        return "sha256:" + hashlib.sha256(
-            (body + "|" + payload.key).encode()
-        ).hexdigest()
+    def _fingerprint(self, tenant_id: str, payload: AgentCreateRequest) -> str:
+        """创建请求的规范化指纹（口径同 auth_service）：含 endpoint/tenant_id 判别键，键序无关。"""
+        canonical = json.dumps(
+            {
+                "endpoint": "agent-create",
+                "tenant_id": tenant_id,
+                "payload": payload.model_dump(mode="json"),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     async def _lock_idempotency(self, tenant_id: str, idempotency_key: str) -> None:
         digest = hashlib.sha256(f"{tenant_id}|{idempotency_key}|agent-create".encode()).digest()
@@ -175,7 +184,7 @@ class AgentService:
         record = row.scalar_one_or_none()
         if record is None:
             return None
-        if record.request_fingerprint != self._fingerprint(payload):
+        if record.request_fingerprint != self._fingerprint(tenant_id, payload):
             raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
         return dict(record.response_json)
 

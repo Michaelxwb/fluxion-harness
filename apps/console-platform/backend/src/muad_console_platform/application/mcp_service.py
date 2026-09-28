@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import time
 import uuid
 from datetime import UTC, datetime
@@ -233,9 +234,25 @@ class McpService:
             raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
         return dict(record_row.response_json)
 
-    def _fingerprint(self, *parts: Any) -> str:
-        payload = "|".join(str(part) for part in parts)
-        return f"sha256:{hashlib.sha256(payload.encode()).hexdigest()}"
+    def _fingerprint(self, tenant_id: str, payload: McpCreateRequest) -> str:
+        """注册请求的规范化指纹（口径同 auth_service）：含 endpoint/tenant_id 判别键，键序无关。
+
+        `auth_secret` 不以明文入场，只纳入其 SHA256。
+        """
+        canonical = json.dumps(
+            {
+                "endpoint": "mcp-register",
+                "tenant_id": tenant_id,
+                "payload": payload.model_dump(mode="json", exclude={"auth_secret"}),
+                "auth_secret_checksum": hashlib.sha256(
+                    (payload.auth_secret or "").encode()
+                ).hexdigest(),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     async def _lock_idempotency(self, tenant_id: str, idempotency_key: str) -> None:
         digest = hashlib.sha256(f"{tenant_id}|{idempotency_key}|mcp-register".encode()).digest()
@@ -249,11 +266,7 @@ class McpService:
         actor: AuditActor,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        fingerprint = self._fingerprint(
-            "mcp-register",
-            payload.model_dump_json(exclude={"auth_secret"}),
-            hashlib.sha256((payload.auth_secret or "").encode()).hexdigest(),
-        )
+        fingerprint = self._fingerprint(tenant_id, payload)
         if idempotency_key:
             await self._lock_idempotency(tenant_id, idempotency_key)
             replayed = await self._idempotency_replay(

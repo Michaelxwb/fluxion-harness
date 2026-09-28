@@ -1,4 +1,5 @@
 import hashlib
+import json
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -272,8 +273,18 @@ class SkillService:
         await self._record_audit(tenant_id, actor, AUDIT_SKILL, skill.id, "UPDATE", before, skill)
         return await self.get_skill_detail(tenant_id, skill_id)
 
-    def _fingerprint(self, *parts: str | None) -> str:
-        return checksum_of("|".join(str(part) for part in parts).encode())
+    def _fingerprint(self, endpoint: str, tenant_id: str, fields: dict[str, Any]) -> str:
+        """导入/上传请求的规范化指纹（口径同 auth_service）：含 endpoint/tenant_id 判别键，键序无关。
+
+        `fields` 是端点各自的可判别字段；判别键由本方法固定，调用方不得覆盖。
+        """
+        canonical = json.dumps(
+            {**fields, "endpoint": endpoint, "tenant_id": tenant_id},
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        return checksum_of(canonical.encode("utf-8"))
 
     async def _lock_idempotency(
         self,
@@ -332,7 +343,15 @@ class SkillService:
     ) -> SkillDetail:
         scope = user_scope or USER_SCOPE_SELECTED
         fingerprint = self._fingerprint(
-            "import", version, key, default_script, scope, checksum_of(data)
+            "import",
+            tenant_id,
+            {
+                "key": key,
+                "version": version,
+                "default_script": default_script,
+                "user_scope": scope,
+                "data_checksum": checksum_of(data),
+            },
         )
         if idempotency_key:
             await self._lock_idempotency(tenant_id, idempotency_key, "import")
@@ -430,7 +449,16 @@ class SkillService:
         actor: AuditActor,
         idempotency_key: str | None = None,
     ) -> SkillArtifactDetail:
-        fingerprint = self._fingerprint("artifact", str(skill_id), version, default_script, checksum_of(data))
+        fingerprint = self._fingerprint(
+            "artifact",
+            tenant_id,
+            {
+                "skill_id": str(skill_id),
+                "version": version,
+                "default_script": default_script,
+                "data_checksum": checksum_of(data),
+            },
+        )
         if idempotency_key:
             await self._lock_idempotency(tenant_id, idempotency_key, "artifact")
             replayed = await self._idempotency_replay(
