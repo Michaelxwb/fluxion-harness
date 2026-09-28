@@ -8,7 +8,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 
 const REPO = fileURLToPath(new URL('../..', import.meta.url));
 const ADMIN_USERNAME = process.env.E2E_AUTH_ADMIN_USERNAME ?? 'console-auth-browser-admin';
@@ -26,6 +26,16 @@ function seed(action: string, extraEnv: Record<string, string> = {}): string {
 
 async function loginAs(page: Page, username: string, password: string) {
   return page.request.post('/api/v1/auth/login', { data: { username, password } });
+}
+
+/**
+ * `page.request` 不走应用内的 axios 拦截器，非安全方法必须自己带双提交 CSRF 头，
+ * 否则会被后端 403 拒绝（登录除外——它挂 public 路由，无会话也就无 CSRF 校验）。
+ */
+async function csrfHeaders(page: Page): Promise<Record<string, string>> {
+  const cookies = await page.context().cookies();
+  const csrf = cookies.find((cookie) => cookie.name === 'muad_csrf');
+  return csrf ? { 'X-CSRF-Token': csrf.value } : {};
 }
 
 test.beforeAll(() => {
@@ -263,16 +273,31 @@ test('S-10 刷新时先出现启动 Spin，/me 成功后回到原路由且全程
     if (frame === page.mainFrame()) visited.push(new URL(frame.url()).pathname);
   });
 
-  // 拖住 /me，让启动加载态可被确定性观测（否则 Spin 可能在断言执行前就消失）
-  await page.route('**/api/v1/auth/me', async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    await route.continue();
+  // 成功路径不得拦截路由，故用 MutationObserver 捕获瞬态的启动加载态：它在文档加载前注入，
+  // 且看的是**新增节点**而非当前 DOM（Spin 可能在同一次变更里被加入又移除，事后查询会落空）。
+  await page.addInitScript(() => {
+    const flag = { seen: false };
+    (window as unknown as { __startupSpin?: { seen: boolean } }).__startupSpin = flag;
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of Array.from(record.addedNodes)) {
+          if (!(node instanceof Element)) continue;
+          if (node.matches('.semi-spin') || node.querySelector('.semi-spin')) {
+            flag.seen = true;
+          }
+        }
+      }
+    });
+    observer.observe(document, { childList: true, subtree: true });
   });
 
   await page.reload();
-  await expect(page.locator('.semi-spin')).toBeVisible();
   await expect(page).toHaveURL(/\/agents/);
   await expect(page.locator('.semi-navigation-item-selected')).toContainText('Agent');
+  const sawSpin = await page.evaluate(
+    () => (window as unknown as { __startupSpin?: { seen: boolean } }).__startupSpin?.seen === true
+  );
+  expect(sawSpin, '启动引导期间必须出现 Spin').toBe(true);
   expect(visited).not.toContain('/login');
 });
 
@@ -362,4 +387,125 @@ test('E-12 CSRF 缺失时退出登录被 403 拒绝：Toast 提示且不误显�
   await expect(page).toHaveURL(/\/$/, { timeout: 5000 });
   await expect(page.getByTestId('account-menu')).toBeVisible();
   expect(uncaught, '失败路径不得留下未捕获异常').toEqual([]);
+});
+
+test('E-09 业务请求 401：响应拦截跳转登录页、不循环、无未捕获异常', async ({ page }) => {
+  const uncaught: string[] = [];
+  page.on('pageerror', (error) => uncaught.push(String(error)));
+
+  const admin = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(admin.status(), await admin.text()).toBe(200);
+  await page.goto('/audits');
+  await expect(page.getByTestId('audit-refresh')).toBeVisible();
+
+  // 「服务端会话已失效」的等价前置（设计允许失败路径用路由拦截制造）：业务接口与启动自检
+  // 都判定未授权——/me 一并 401 才能让登录页不被"仍有账号"弹回 /。
+  const unauthorized = (route: Route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 'UNAUTHORIZED',
+        msg: 'Authentication is required',
+        data: null,
+        trace_id: 'e2e',
+        request_id: 'e2e',
+        timestamp: new Date().toISOString()
+      })
+    });
+  await page.route('**/api/v1/audits*', unauthorized);
+  await page.route('**/api/v1/auth/me', unauthorized);
+
+  const navigations: string[] = [];
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) navigations.push(new URL(frame.url()).pathname);
+  });
+  let businessRequests = 0;
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/v1/audits')) businessRequests += 1;
+  });
+
+  // 刷新按钮触发业务请求且不发生路由跳转；页面自发的业务请求同样会被拦截器接管
+  const trigger = page
+    .getByTestId('audit-refresh')
+    .click({ timeout: 5000 })
+    .catch(() => undefined);
+  await expect(page).toHaveURL(/\/login/);
+  await trigger;
+  await expect(page.locator('input').nth(0), '必须落在渲染完成的登录页（不残留空白/加载态）').toBeVisible();
+
+  // 观察窗口：真出现重定向循环时 URL 会继续叠加导航
+  await page.waitForTimeout(2000);
+  expect(navigations.at(-1), 'URL 必须停在登录页').toBe('/login');
+  expect(navigations.filter((path) => path === '/login').length, '不循环').toBeLessThanOrEqual(2);
+  expect(businessRequests, '401 后不得反复重试该业务请求').toBeLessThanOrEqual(2);
+  expect(uncaught, '不得出现未捕获异常').toEqual([]);
+});
+
+test('E-10 错误密码被拒：Toast 展示本地化 msg、停留登录页、按钮 loading 复位', async ({ page }) => {
+  await page.goto('/login');
+  await page.locator('input').nth(0).fill(BUILDER_USERNAME);
+  await page.locator('input').nth(1).fill('definitely-wrong-password');
+
+  const submit = page.locator('button[type=submit]');
+  await submit.click();
+
+  // 统一 INVALID_CREDENTIALS（不区分账号是否存在），文案来自后端 catalog 的 zh-CN
+  await expect(page.locator('.semi-toast-content', { hasText: '用户名或密码错误' })).toBeVisible();
+  await expect(page).toHaveURL(/\/login/);
+  await expect(submit, '失败后按钮 loading 必须复位').not.toHaveClass(/semi-button-loading/);
+  await expect(submit).toBeEnabled();
+});
+
+test('E-13 启动时 /me 返回 401：进入登录页、无空白页、无循环', async ({ page }) => {
+  // 真实 401：登录后服务端撤销会话，启动引导拿不到账号
+  const admin = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(admin.status(), await admin.text()).toBe(200);
+  const revoked = await page.request.post('/api/v1/auth/logout', { headers: await csrfHeaders(page) });
+  expect(revoked.status(), await revoked.text()).toBe(200);
+
+  let meRequests = 0;
+  const navigations: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/v1/auth/me') meRequests += 1;
+  });
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) navigations.push(new URL(frame.url()).pathname);
+  });
+
+  await page.goto('/agents');
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.locator('input').nth(0), '登录页必须真的渲染（非空白页）').toBeVisible();
+
+  await page.waitForTimeout(2000);
+  expect(navigations.at(-1), 'URL 必须停在登录页').toBe('/login');
+  // 恰为 2 次是**预期**而非循环：① `/agents` 文档的启动自检拿到 401；② 响应拦截器
+  // `window.location.assign('/login…')` 导致文档整体重载，新文档再跑一次启动自检（此时
+  // pathname 已是 `/login`，拦截器不再跳转）。真出现循环时该计数会持续增长。
+  expect(meRequests, '/me 不得被反复重试').toBeLessThanOrEqual(2);
+});
+
+test('E-13 启动时 /me 网络错误：进入登录页、无空白页、无循环', async ({ page }) => {
+  const admin = await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(admin.status(), await admin.text()).toBe(200);
+
+  // 网络错误：请求直接失败（非 401 响应）
+  await page.route('**/api/v1/auth/me', (route) => route.abort());
+
+  let meRequests = 0;
+  const navigations: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/v1/auth/me') meRequests += 1;
+  });
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) navigations.push(new URL(frame.url()).pathname);
+  });
+
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.locator('input').nth(0), '登录页必须真的渲染（非空白页）').toBeVisible();
+
+  await page.waitForTimeout(2000);
+  expect(navigations.at(-1), 'URL 必须停在登录页').toBe('/login');
+  expect(meRequests, '/me 不得被反复重试').toBeLessThanOrEqual(1);
 });
