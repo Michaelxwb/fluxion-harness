@@ -4,12 +4,13 @@ import sqlalchemy as sa
 from httpx import AsyncClient, Response
 
 from console_internal.conftest import TenantContext
+from tests.internal_service import internal_service_token, service_headers  # noqa: F401  (fixture 注册)
 
 RESOLVE_URL = "/internal/runtime/resolve-definition"
 
 
 def _headers(tenant: TenantContext, tenant_id: str | None = None) -> dict[str, str]:
-    return {"X-Tenant-Id": tenant_id or tenant.tenant_id}
+    return service_headers(tenant_id or tenant.tenant_id)
 
 
 def _payload(

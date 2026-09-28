@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
-
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 import httpx
 from sqlalchemy import text

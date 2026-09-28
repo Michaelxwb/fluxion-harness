@@ -37,9 +37,12 @@ class ResolveDefinitionProtocol(Protocol):
 
 
 class ConsoleResolveClient:
-    def __init__(self, base_url: str, client: httpx.AsyncClient) -> None:
+    def __init__(
+        self, base_url: str, client: httpx.AsyncClient, *, service_token: str | None = None
+    ) -> None:
         self._base_url = base_url.rstrip("/")
         self._client = client
+        self._service_token = service_token
 
     async def resolve(
         self, agent_id: UUID, actor_user_id: UUID, tenant_id: str
@@ -49,11 +52,14 @@ class ConsoleResolveClient:
             actor_user_id=actor_user_id,
             channel="WECOM",
         )
+        headers = {"X-Tenant-Id": tenant_id}
+        if self._service_token:
+            headers["X-Internal-Service"] = self._service_token
         try:
             response = await self._client.post(
                 f"{self._base_url}{RESOLVE_DEFINITION_PATH}",
                 json=request.model_dump(mode="json"),
-                headers={"X-Tenant-Id": tenant_id},
+                headers=headers,
             )
         except httpx.HTTPError as exc:
             raise ResolveTransportError(str(exc)) from exc

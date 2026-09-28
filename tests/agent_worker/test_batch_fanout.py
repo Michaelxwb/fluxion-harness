@@ -9,15 +9,12 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import tempfile
 import uuid
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from conftest import TenantContext
-from helpers import fetch_task, persist_task
 from muad_agent_worker.application.batch_fanout import (
     AGGREGATE_ALL,
     PARKED_NOT_BEFORE,
@@ -29,6 +26,9 @@ from muad_agent_worker.worker.service import WorkerLoop
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_common import SharedSettings
 from sqlalchemy import select
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import fetch_task, persist_task
 
 SKILL_MAIN = (
     "import json, sys\n"
@@ -98,7 +98,9 @@ async def _children(tenant: TenantContext, parent_id: uuid.UUID) -> list[TaskExe
         )
 
 
-async def _parent_with_batch_plan(tenant: TenantContext) -> tuple[Path, tempfile.TemporaryDirectory[str], SkillArtifactCache, TaskExecution]:
+async def _parent_with_batch_plan(
+    tenant: TenantContext,
+) -> tuple[Path, tempfile.TemporaryDirectory[str], SkillArtifactCache, TaskExecution]:
     tmpdir = tempfile.TemporaryDirectory()
     tmp = Path(tmpdir.name)
     store = NfsArtifactStore(tmp / "nfs")
@@ -185,7 +187,9 @@ async def test_b118_parent_waits_without_lease_after_fanout(tenant: TenantContex
     """Worker 走真实执行路径：Parent 转 WAITING 且释放 lease，Child 默认 NONE 不主动投递。"""
     _, tmpdir, cache, parent = await _parent_with_batch_plan(tenant)
     executor = _batch_executor(tenant, cache)
-    worker = WorkerLoop(tenant.session_factory, tenant.settings, executor=executor, instance_id="worker-batch")
+    worker = WorkerLoop(
+        tenant.session_factory, tenant.settings, executor=executor, instance_id="worker-batch"
+    )
 
     assert await worker.run_once() == parent.id
 

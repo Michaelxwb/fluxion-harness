@@ -11,11 +11,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import sqlalchemy as sa
-from conftest import TenantContext
-from helpers import persist_task
 from muad_agent_worker.infrastructure.models.task import TaskExecution
 from muad_agent_worker.worker.claimer import TaskClaimer
 from muad_agent_worker.worker.service import WorkerLoop
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import persist_task
 
 
 def _now() -> datetime:

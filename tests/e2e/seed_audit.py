@@ -466,7 +466,8 @@ async def _seed_extra_tool_row(
     """
     from muad_agent_runtime.infrastructure.audit_writer import RuntimeAuditWriter
     from muad_agent_runtime.infrastructure.models.runtime import RunRecord, ToolCallAudit
-    from sqlalchemy import select, update as sql_update
+    from sqlalchemy import select
+    from sqlalchemy import update as sql_update
 
     conversation_id, run_id = await _create_run(
         factory, context, trace_id=trace_id, title=f"Audit Browser {tool_name}"

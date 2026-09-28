@@ -5,12 +5,10 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import hashlib
 import uuid
 import zipfile
-from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -49,7 +47,13 @@ def test_b139_real_dependencies_present_and_migrated(live_stack: LiveStack) -> N
         return schemas
 
     schemas = run_db(inspect)
-    assert {"task_submission", "task_schedule", "task_execution", "task_event", "delivery_route"} <= schemas["task"]
+    assert {
+        "task_submission",
+        "task_schedule",
+        "task_execution",
+        "task_event",
+        "delivery_route",
+    } <= schemas["task"]
     assert {"run_submission", "run_record", "conversation"} <= schemas["runtime"]
     assert {"agent_definition", "skill_artifact", "bot_account"} <= schemas["control"]
 

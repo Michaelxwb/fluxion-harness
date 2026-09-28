@@ -64,7 +64,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         )
         scheduler = SchedulerLoop(
             session_factory,
-            ConsoleResolveClient(settings.console_platform_url, http_client),
+            ConsoleResolveClient(
+                settings.console_platform_url,
+                http_client,
+                service_token=settings.internal_service_token,
+            ),
             settings,
         )
         delivery = DeliveryLoop(

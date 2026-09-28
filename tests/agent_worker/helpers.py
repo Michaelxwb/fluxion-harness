@@ -5,7 +5,6 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from conftest import TenantContext
 from muad_agent_worker.application.delivery_routes import upsert_delivery_route
 from muad_agent_worker.infrastructure.models.task import TaskEvent, TaskExecution, TaskSchedule
 from muad_contracts import (
@@ -21,6 +20,8 @@ from muad_contracts import (
     TaskStatus,
 )
 from sqlalchemy import func, select
+
+from agent_worker.conftest import TenantContext
 
 SNAPSHOT_HASH = "sha256:" + hashlib.sha256(b"snapshot").hexdigest()
 

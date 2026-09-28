@@ -17,8 +17,6 @@ from zoneinfo import ZoneInfo
 import httpx
 import pytest
 import sqlalchemy as sa
-from conftest import TenantContext
-from helpers import create_schedule_payload
 from muad_agent_worker.infrastructure.db import get_session_factory
 from muad_agent_worker.infrastructure.models.task import TaskExecution, TaskSchedule
 from muad_agent_worker.scheduler.client import ConsoleResolveClient
@@ -37,6 +35,10 @@ from muad_console_platform.infrastructure.models.control import (
 from muad_console_platform.main import app as console_app
 from muad_contracts import ResolveDefinitionResponse, ScheduleSpec, UpdateScheduleRequest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import create_schedule_payload
+from tests.internal_service import TOKEN
 
 CONSOLE_URL = "http://console"
 LOCAL_ZONE = ZoneInfo("Asia/Shanghai")
@@ -78,8 +80,12 @@ class TriggerStack:
 
 
 @pytest.fixture
-async def stack(database_guard: None) -> AsyncIterator[TriggerStack]:
+async def stack(
+    database_guard: None, monkeypatch: pytest.MonkeyPatch
+) -> AsyncIterator[TriggerStack]:
     """真实 Console 应用 + 真实 control/task schema 数据，共用一个 tenant。"""
+    # resolve-definition 需服务身份：与 apps/agent-worker/main.py 注入同源（env + 客户端头）
+    monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", TOKEN)
     tenant_id = f"test-{uuid.uuid4()}"
     control = console_session_factory()
     worker = get_session_factory()
@@ -151,7 +157,7 @@ async def stack(database_guard: None) -> AsyncIterator[TriggerStack]:
             artifact_id=artifact.id,
             session_factory=worker,
             settings=SharedSettings(),
-            resolver=ConsoleResolveClient(CONSOLE_URL, http_client),
+            resolver=ConsoleResolveClient(CONSOLE_URL, http_client, service_token=TOKEN),
         )
     try:
         yield context

@@ -69,6 +69,23 @@ async def _stored_credential(tenant_id: str, user_id: str, platform_id: str) -> 
     return {"credential_json": row[0], "status": row[1]} if row else None
 
 
+async def test_credentials_tenant_comes_from_account_not_header(
+    client: AsyncClient, tenant: TenantContext, platform_bundle: dict[str, Any]
+) -> None:
+    """[越权修复] 凭据租户取自登录账号，伪造 `X-Tenant-Id` 不再切换租户。
+
+    修复前该路由用 `get_tenant_id()`（请求头派生）×`credentials_router` 挂在 authenticated 组，
+    任意已登录账号改一个头即可读写他租户凭据。修复后租户来自账号，伪造头被忽略。
+    """
+    url = f"/api/v1/project-platforms/{platform_bundle['platform_id']}/user-credentials"
+    owned = await client.get(url, headers=_headers(tenant))
+    assert owned.status_code == 200
+
+    forged = await client.get(url, headers={"X-Tenant-Id": f"forged-{uuid.uuid4().hex[:8]}"})
+    assert forged.status_code == 200, "伪造 X-Tenant-Id 不得切换租户"
+    assert forged.json()["code"] == "0"
+
+
 async def test_s02_user_credential_plaintext_is_stored_but_never_echoed(
     client: AsyncClient, tenant: TenantContext, platform_bundle: dict[str, Any]
 ) -> None:

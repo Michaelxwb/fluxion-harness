@@ -5,7 +5,6 @@ import logging
 import time
 from collections.abc import AsyncIterator, Sequence
 from math import ceil
-from typing import Any
 from uuid import UUID
 
 from muad_api import AppError, metrics
@@ -29,16 +28,16 @@ from muad_contracts import (
 from ..channels.base import ChannelAdapter, ChannelAdapterUnavailable, StreamFinalizer
 from ..infrastructure.dedupe import DedupeStore, DedupeStoreError, is_duplicate
 from .console_client import ConsoleClientPort
+from .runtime_client import RuntimeClientPort, SseEvent
 from .stream_renderer import (
     BROKEN_STREAM_TEXT,
     DELTA_FLUSH_INTERVAL_SEC,
     FINALIZE_KIND,
     STREAM_KIND,
     TEXT_KIND,
-    StreamRenderer,
     RenderAction,
+    StreamRenderer,
 )
-from .runtime_client import RuntimeClientPort, SseEvent
 
 logger = logging.getLogger(__name__)
 

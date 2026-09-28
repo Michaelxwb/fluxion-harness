@@ -12,6 +12,7 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts import RunRequest
 
 from .envelope import decode_error_payload, decode_json, error_code_from_payload, require_data_dict
+
 # SSE 类型的规范归属是 `.sse`；此处显式再导出，既有消费者（inbound/测试）导入路径不变
 from .sse import SseEvent as SseEvent
 from .sse import iter_sse_events as iter_sse_events

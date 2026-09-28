@@ -9,7 +9,8 @@ import asyncio
 import hashlib
 import threading
 import uuid
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from muad_console_platform.infrastructure.models.auth import ROLE_ADMIN  # noqa: F401
 from muad_console_platform.infrastructure.models.channel import BotAccount, ChannelIdentity
@@ -122,9 +123,8 @@ async def _seed(session_factory: Any, llm_url: str) -> dict[str, Any]:
 
 def seed_control(llm_url: str) -> dict[str, Any]:
     """在 `e2e-im-gateway` 租户下写入一份可用控制数据；返回可被用例引用的 id。"""
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
     from muad_common import SharedSettings
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
     async def run() -> dict[str, Any]:
         # 独立 engine（不碰被缓存的 engine）：验收栈存在多个事件循环
@@ -152,9 +152,8 @@ def seed_delivery_task(
 
     供 B-130 验证生产 Worker 进程的投递循环：真实 PG 事实 + 真实 Gateway 投递。
     """
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
     from muad_common import SharedSettings
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
     async def run() -> dict[str, Any]:
         from datetime import UTC, datetime, timedelta

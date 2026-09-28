@@ -9,10 +9,10 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import sqlalchemy as sa
-from conftest import TenantContext
-from helpers import create_schedule_payload, persist_task
 from httpx import AsyncClient
 
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import create_schedule_payload, persist_task
 
 # Runtime 代表 Schedule owner 调用：Internal 变更接口必须带 X-Actor-User-Id（API-07/08）。
 OWNER = uuid.UUID("5a1d0c1e-0000-4000-8000-00000000a001")

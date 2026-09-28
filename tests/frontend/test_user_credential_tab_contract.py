@@ -36,3 +36,17 @@ def test_credentials_tab_uses_credential_update_time_and_shared_form() -> None:
     assert "CredentialSchemaFields" in source
     assert "validateCredentialValues" in source
     assert "confirmLoading" in source
+
+
+def test_credentials_tab_is_admin_only() -> None:
+    """凭据入口仅 ADMIN（设计 §2.4「前端隐藏 + 后端 403 兜底」）的前端一半。
+
+    后端门控见 tests/console_auth/test_rbac.py::test_builder_cannot_access_credentials_routes。
+    """
+    source = USER_DETAIL.read_text(encoding="utf-8")
+    assert "useAuth" in source
+    assert "account?.role === 'ADMIN'" in source
+    assert "isAdmin && (" in source
+    assert source.index("isAdmin && (") < source.index('itemKey="credentials"'), (
+        "凭据 TabPane 必须包在 isAdmin 门控内"
+    )

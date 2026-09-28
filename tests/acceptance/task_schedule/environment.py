@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import socket
 import subprocess
@@ -24,7 +23,7 @@ from typing import Any, cast
 import httpx
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 TENANT = "e2e-task-schedule"
 INTERNAL_TOKEN = "e2e-internal-service-token"

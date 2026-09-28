@@ -178,7 +178,6 @@ async def test_b128_delete_keeps_history_tasks(
 
 async def test_b128_requires_authenticated_session(task_tenant: TenantContext) -> None:
     from httpx import ASGITransport
-
     from muad_console_platform.main import app as console_app
 
     transport = ASGITransport(app=console_app)

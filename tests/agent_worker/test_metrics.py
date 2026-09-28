@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 
 import pytest
-from conftest import TenantContext
 from muad_agent_worker.metrics import increment, value
+
+from agent_worker.conftest import TenantContext
 
 
 def test_increment_emits_structured_metric_log(caplog: pytest.LogCaptureFixture) -> None:
@@ -22,8 +23,9 @@ def test_increment_emits_structured_metric_log(caplog: pytest.LogCaptureFixture)
 async def test_claim_and_reclaim_increment_metrics(tenant: TenantContext) -> None:
     from datetime import UTC, datetime, timedelta
 
-    from helpers import persist_task
     from muad_agent_worker.worker.service import WorkerLoop
+
+    from agent_worker.helpers import persist_task
 
     now = datetime.now(UTC)
     await persist_task(tenant)

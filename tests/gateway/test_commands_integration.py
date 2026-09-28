@@ -21,34 +21,38 @@ _TESTS_ROOT = Path(__file__).resolve().parents[1]
 if str(_TESTS_ROOT) not in sys.path:  # 复用 console_channel 的真实 Console/PG 夹具
     sys.path.insert(0, str(_TESTS_ROOT))
 
-import httpx
-import pytest
-import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from fakes import ConsoleProcess, StubConsole
-from muad_api.catalog import MessageCatalog
-from muad_console_platform.infrastructure.db import get_session_factory
-from muad_console_platform.infrastructure.models.control import (
-    AgentSkillBinding,
-    Skill,
-    SkillArtifact,
-)
-from muad_common import SharedSettings
-from muad_contracts import ChannelEnvelope
-from muad_im_gateway.application.console_client import ConsoleClient
-from muad_im_gateway.application.inbound import InboundPipeline
-from muad_im_gateway.application.runtime_client import RuntimeClient
-from muad_im_gateway.channels.fake import FakeChannelAdapter
-from muad_im_gateway.infrastructure.dedupe import DedupeStore, NullDedupeStore, build_dedupe_store
-from sqlalchemy import delete
-
-from console_channel.conftest import (  # noqa: F401  (fixture reuse)
+# 以下 import 依赖上面的 sys.path 插入，因此不在文件顶部：逐行标注 E402 例外
+import httpx  # noqa: E402
+import pytest  # noqa: E402
+import uvicorn  # noqa: E402
+from console_channel.conftest import (  # noqa: E402, F401  (fixture reuse)
     ChannelContext,
     channel,
     database_guard,
 )
-from console_channel.test_channel_skills_api import _seed_skill  # 复用 B-104 的有效技能种子构造
+from console_channel.test_channel_skills_api import _seed_skill  # 复用 B-104 的有效技能种子构造  # noqa: E402
+from fakes import ConsoleProcess, StubConsole  # noqa: E402
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+from muad_api.catalog import MessageCatalog  # noqa: E402
+from muad_common import SharedSettings  # noqa: E402
+from muad_console_platform.infrastructure.db import get_session_factory  # noqa: E402
+from muad_console_platform.infrastructure.models.control import (  # noqa: E402
+    AgentSkillBinding,
+    Skill,
+    SkillArtifact,
+)
+from muad_contracts import ChannelEnvelope  # noqa: E402
+from muad_im_gateway.application.console_client import ConsoleClient  # noqa: E402
+from muad_im_gateway.application.inbound import InboundPipeline  # noqa: E402
+from muad_im_gateway.application.runtime_client import RuntimeClient  # noqa: E402
+from muad_im_gateway.channels.fake import FakeChannelAdapter  # noqa: E402
+from muad_im_gateway.infrastructure.dedupe import (  # noqa: E402
+    DedupeStore,
+    NullDedupeStore,
+    build_dedupe_store,
+)
+from sqlalchemy import delete  # noqa: E402
 
 RESOLVE_PATH = "/internal/channel/resolve"
 SKILLS_PATH = "/internal/channel/skills"
@@ -136,7 +140,9 @@ async def runtime_receiver() -> AsyncIterator[CommandRuntimeReceiver]:
 
 
 @pytest.fixture()
-async def catalog_env(channel: ChannelContext) -> AsyncIterator[dict[str, Any]]:
+async def catalog_env(
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
+) -> AsyncIterator[dict[str, Any]]:
     """真实 PG：21 条可见（跨 2 页）+ 1 条未授权；结束硬删除（FK 顺序，不阻塞租户清理）。"""
     visible: list[dict[str, str]] = []
     seeded_ids: list[uuid.UUID] = []
@@ -238,7 +244,7 @@ async def test_b111_skills_lists_full_catalog_without_leaking_unauthorized(
     runtime_receiver: CommandRuntimeReceiver,
     catalog: MessageCatalog,
     catalog_env: dict[str, Any],
-    channel: ChannelContext,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
 ) -> None:
     adapter, pipeline, console, runtime = _build_stack(
         console_server.url, runtime_receiver.url, catalog, channel.tenant_id
@@ -270,7 +276,7 @@ async def test_b111_empty_catalog_differs_from_unavailable(
     console_server: ConsoleProcess,
     runtime_receiver: CommandRuntimeReceiver,
     catalog: MessageCatalog,
-    channel: ChannelContext,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
 ) -> None:
     adapter, pipeline, console, runtime = _build_stack(
         console_server.url, runtime_receiver.url, catalog, channel.tenant_id
@@ -324,7 +330,7 @@ async def test_b111_new_creates_conversation_with_stable_key_and_keeps_binding(
     console_server: ConsoleProcess,
     runtime_receiver: CommandRuntimeReceiver,
     catalog: MessageCatalog,
-    channel: ChannelContext,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
 ) -> None:
     platform_user_id = await _resolve_platform_user(console_server.url, channel)
     dedupe = await build_dedupe_store(SharedSettings().redis_url)  # 真实去重存储：重试被网关挡下

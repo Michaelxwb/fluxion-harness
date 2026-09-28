@@ -23,7 +23,6 @@ from typing import Any
 
 import httpx
 import uvicorn
-from conftest import TenantContext, parse_sse
 from fastapi import FastAPI
 from muad_agent_runtime.api.deps import (
     get_credentials_client,
@@ -36,6 +35,8 @@ from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRecord
 from muad_agent_runtime.main import app
 from muad_contracts import ResolveDefinitionResponse
+
+from agent_runtime.conftest import TenantContext, parse_sse
 
 METRICS_PATH = "/metrics"
 PROMETHEUS_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"

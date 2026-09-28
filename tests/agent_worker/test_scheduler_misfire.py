@@ -9,8 +9,6 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from conftest import TenantContext
-from helpers import FakeResolver, build_resolve_response, create_schedule_payload, fetch_schedule
 from muad_agent_worker.infrastructure.models.task import TaskExecution, TaskSchedule
 from muad_agent_worker.metrics import value
 from muad_agent_worker.scheduler.service import (
@@ -20,6 +18,9 @@ from muad_agent_worker.scheduler.service import (
 )
 from muad_contracts import CreateScheduleRequest, ScheduleSpec, UpdateScheduleRequest
 from sqlalchemy import select, update
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import FakeResolver, build_resolve_response, create_schedule_payload, fetch_schedule
 
 MISFIRE_TOTAL = "scheduled_misfire_total"
 

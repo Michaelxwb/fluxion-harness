@@ -48,7 +48,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         artifact_store,
         migrations_dir=settings.migrations_dir,
     )
-    resolve_client = ConsoleResolveClient(settings.console_platform_url)
+    resolve_client = ConsoleResolveClient(
+        settings.console_platform_url,
+        service_token=settings.internal_service_token,
+    )
     credentials_client = ConsoleCredentialsClient(
         settings.console_platform_url,
         service_token=settings.internal_service_token,

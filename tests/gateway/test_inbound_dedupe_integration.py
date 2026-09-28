@@ -11,15 +11,15 @@ import json
 import socket
 import threading
 import time
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
 import redis.asyncio
 import uvicorn
+from fakes import FakeConsoleClient, make_envelope, resolved_response
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
-from fakes import FakeConsoleClient, make_envelope, resolved_response
 from muad_api.catalog import MessageCatalog
 from muad_common import SharedSettings
 from muad_im_gateway.application.inbound import DEDUPE_TTL_SEC, InboundPipeline

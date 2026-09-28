@@ -12,10 +12,11 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from conftest import TenantContext
 from muad_agent_worker.infrastructure.models.task_submission import TaskSubmission
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
+
+from agent_worker.conftest import TenantContext
 
 SCHEMA = "task"
 TABLE = "task_submission"

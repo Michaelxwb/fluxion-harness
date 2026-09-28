@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from uuid import uuid4
 
 import httpx
@@ -165,6 +166,7 @@ from muad_api.context import set_request_context as _set_request_context  # noqa
 from muad_contracts import ChannelContext as _ChannelContext  # noqa: E402
 from muad_contracts import MessageInput as _MessageInput  # noqa: E402
 from muad_contracts import RunRequest as _RunRequest  # noqa: E402
+from muad_im_gateway.application import runtime_client as _runtime_client  # noqa: E402
 from muad_im_gateway.application.runtime_client import RuntimeClient as _RuntimeClient  # noqa: E402
 
 B113_MESSAGE_ID = "msg-b113"
@@ -188,7 +190,10 @@ class _RuntimeStub:
             if self.delay_sec:
                 await asyncio.sleep(self.delay_sec)
             if self.error_status is not None:
-                return _JSONResponse(status_code=self.error_status, content={"code": self.error_code, "msg": "busy"})
+                return _JSONResponse(
+                    status_code=self.error_status,
+                    content={"code": self.error_code, "msg": "busy"},
+                )
 
             async def _stream():
                 yield 'event: run.created\ndata: {"run_id": "run-1", "resumed": false}\n\n'
@@ -275,11 +280,14 @@ async def test_b113_error_envelope_is_distinguished_from_stream() -> None:
     assert excinfo.value.code == "RUN_BUSY"
 
 
-async def test_b113_stream_timeout_is_bounded() -> None:
+async def test_b113_stream_timeout_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 流式读取超时由 STREAM_TIMEOUT_SEC 决定（不是构造函数 timeout_sec，见 create_run 的显式覆盖）；
+    # 常量默认 300s，此处注入小值以驱动“上游挂起 → 有界失败”的真实路径
+    monkeypatch.setattr(_runtime_client, "STREAM_TIMEOUT_SEC", 0.2)
     stub = _RuntimeStub()
     stub.start()
     stub.delay_sec = 1.0
-    client = _RuntimeClient(stub.url, timeout_sec=0.2)
+    client = _RuntimeClient(stub.url)
     started = _time.monotonic()
     try:
         with pytest.raises(AppError):

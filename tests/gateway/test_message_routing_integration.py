@@ -7,11 +7,8 @@
 from __future__ import annotations
 
 import json
-import os
 import socket
-import subprocess
 import sys
-import tempfile
 import threading
 import time
 from collections.abc import AsyncIterator
@@ -23,24 +20,24 @@ _TESTS_ROOT = Path(__file__).resolve().parents[1]
 if str(_TESTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_TESTS_ROOT))
 
-import httpx
-import pytest
-import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse
-from fakes import ConsoleProcess, make_envelope
-from muad_api.catalog import MessageCatalog
-from muad_im_gateway.application.console_client import ConsoleClient
-from muad_im_gateway.application.inbound import InboundPipeline
-from muad_im_gateway.application.runtime_client import RuntimeClient
-from muad_im_gateway.channels.fake import FakeChannelAdapter
-from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
-
-from console_channel.conftest import (  # noqa: F401  (fixture reuse)
+# 以下 import 依赖上面的 sys.path 插入，因此不在文件顶部：逐行标注 E402 例外
+import httpx  # noqa: E402
+import pytest  # noqa: E402
+import uvicorn  # noqa: E402
+from console_channel.conftest import (  # noqa: E402, F401  (fixture reuse)
     ChannelContext,
     channel,
     database_guard,
 )
+from fakes import ConsoleProcess, make_envelope  # noqa: E402
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.responses import StreamingResponse  # noqa: E402
+from muad_api.catalog import MessageCatalog  # noqa: E402
+from muad_im_gateway.application.console_client import ConsoleClient  # noqa: E402
+from muad_im_gateway.application.inbound import InboundPipeline  # noqa: E402
+from muad_im_gateway.application.runtime_client import RuntimeClient  # noqa: E402
+from muad_im_gateway.channels.fake import FakeChannelAdapter  # noqa: E402
+from muad_im_gateway.infrastructure.dedupe import NullDedupeStore  # noqa: E402
 
 RESOLVE_URL = "/internal/channel/resolve"
 RUNS_PATH = "/v1/runs"
@@ -128,7 +125,9 @@ def _sent_texts(adapter: FakeChannelAdapter) -> list[str]:
     return [message.text for _route, message in adapter.sent]
 
 
-async def _resolve_raw(console_url: str, channel_ctx: ChannelContext, bot_id: str, user: str) -> httpx.Response:
+async def _resolve_raw(
+    console_url: str, channel_ctx: ChannelContext, bot_id: str, user: str
+) -> httpx.Response:
     async with httpx.AsyncClient(base_url=console_url, timeout=5.0) as client:
         return await client.post(
             RESOLVE_URL,
@@ -138,7 +137,8 @@ async def _resolve_raw(console_url: str, channel_ctx: ChannelContext, bot_id: st
 
 
 async def test_e01_unknown_disabled_and_deleted_bot_return_bot_not_found(
-    console_server: ConsoleProcess, channel: ChannelContext
+    console_server: ConsoleProcess,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
 ) -> None:
     from uuid import uuid4
 
@@ -159,7 +159,7 @@ async def test_b109_unbound_and_unauthorized_are_normal_branches_without_run(
     console_server: ConsoleProcess,
     runtime_receiver: RuntimeReceiver,
     catalog: MessageCatalog,
-    channel: ChannelContext,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
 ) -> None:
     adapter = FakeChannelAdapter()
     console = ConsoleClient(console_server.url)
@@ -206,7 +206,7 @@ async def test_b109_authorized_message_creates_run_with_matching_route(
     console_server: ConsoleProcess,
     runtime_receiver: RuntimeReceiver,
     catalog: MessageCatalog,
-    channel: ChannelContext,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
 ) -> None:
     adapter = FakeChannelAdapter()
     console = RecordingConsoleClient(console_server.url)

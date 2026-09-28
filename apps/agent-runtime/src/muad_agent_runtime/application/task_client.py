@@ -12,7 +12,7 @@ import hashlib
 import json
 import logging
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 

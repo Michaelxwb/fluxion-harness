@@ -10,15 +10,15 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import pytest
 import httpx
+import pytest
 import uvicorn
 from httpx import ASGITransport, AsyncClient
-from muad_im_gateway.api.deps import get_dedupe_store, get_registry
 from muad_contracts import BotSnapshotItem
+from muad_im_gateway.api.deps import get_dedupe_store, get_registry
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable, ChannelRegistry
-from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.channels.fake import FakeChannelAdapter
+from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.infrastructure.dedupe import (
     DedupeStore,
     DedupeStoreError,
@@ -292,8 +292,8 @@ class _ProbeAdapter(FakeChannelAdapter):
 
 async def _redis_store() -> Any:
     import redis.asyncio
-    from muad_im_gateway.infrastructure.dedupe import RedisDedupeStore
     from muad_common import SharedSettings
+    from muad_im_gateway.infrastructure.dedupe import RedisDedupeStore
 
     url = SharedSettings().redis_url
     if not url:

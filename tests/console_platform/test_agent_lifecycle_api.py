@@ -10,6 +10,7 @@ import uuid
 from httpx import AsyncClient
 
 from console_platform.conftest import TenantContext
+from tests.internal_service import internal_service_token, service_headers  # noqa: F401  (fixture 注册)
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
@@ -151,7 +152,7 @@ async def test_s01_revision_bump_and_resolve_uses_new_config(
             "actor_user_id": str(user_id),
             "channel": "WECOM",
         },
-        headers=_headers(tenant),
+        headers=service_headers(tenant.tenant_id),
     )
     assert resolved.status_code == 200, resolved.text
     data = resolved.json()["data"]
@@ -194,7 +195,7 @@ async def test_s05_soft_delete_agent_lifecycle(
             "actor_user_id": str(uuid.uuid4()),
             "channel": "WECOM",
         },
-        headers=_headers(tenant),
+        headers=service_headers(tenant.tenant_id),
     )
     assert resolved.status_code == 404
     assert resolved.json()["code"] == "AGENT_NOT_FOUND"

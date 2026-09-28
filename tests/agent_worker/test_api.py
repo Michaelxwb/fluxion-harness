@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import uuid
 
-from conftest import TenantContext
-from helpers import create_schedule_payload, create_task_payload
 from httpx import AsyncClient
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import create_schedule_payload, create_task_payload
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:

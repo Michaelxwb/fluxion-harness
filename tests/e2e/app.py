@@ -209,7 +209,8 @@ async def update_task(payload: dict[str, Any]) -> ApiResponse[Any]:
 
     from muad_agent_worker.infrastructure.db import get_session_factory
     from muad_agent_worker.infrastructure.models.task import TaskEvent, TaskExecution
-    from sqlalchemy import func, select, update as sql_update
+    from sqlalchemy import func, select
+    from sqlalchemy import update as sql_update
 
     task_id = uuid_module.UUID(str(payload["task_id"]))
     session_factory = get_session_factory()

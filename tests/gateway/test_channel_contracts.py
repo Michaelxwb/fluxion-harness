@@ -9,8 +9,6 @@ import json
 from uuid import uuid4
 
 import pytest
-from pydantic import ValidationError
-
 from muad_contracts import (
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
@@ -24,6 +22,7 @@ from muad_contracts import (
     DeliveryResponse,
     DeliveryRouteInput,
 )
+from pydantic import ValidationError
 
 SECRET_CANARY = "s3cr3t-canary-do-not-leak"
 

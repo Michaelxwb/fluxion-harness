@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
-
 import json
 import uuid
+from typing import Any
 
 import httpx
 from muad_agent_runtime.application.task_client import WorkerTaskClient

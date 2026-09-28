@@ -5,11 +5,12 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 import pytest
-from conftest import TenantContext
-from helpers import create_schedule_payload, create_task_payload
 from httpx import AsyncClient
 from muad_agent_worker.api.deps import get_tenant_id
 from muad_agent_worker.main import app
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import create_schedule_payload, create_task_payload
 
 
 @contextmanager

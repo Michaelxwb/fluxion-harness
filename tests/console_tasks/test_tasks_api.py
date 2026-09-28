@@ -9,8 +9,6 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
-import httpx
-import pytest
 from console_platform.conftest import TenantContext
 from httpx import ASGITransport, AsyncClient
 from muad_agent_worker.infrastructure.db import get_session_factory as worker_session_factory

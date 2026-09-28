@@ -9,9 +9,10 @@ from __future__ import annotations
 import asyncio
 
 import sqlalchemy as sa
-from conftest import TenantContext
-from helpers import create_task_payload
 from httpx import AsyncClient
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import create_task_payload
 
 IDEMPOTENCY_HEADER = "Idempotency-Key"
 

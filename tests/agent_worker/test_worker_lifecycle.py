@@ -1,19 +1,25 @@
 from __future__ import annotations
 
-import pytest
-
 import asyncio
 from datetime import UTC, datetime, timedelta
 
-from conftest import TenantContext
-from helpers import RecordingExecutor, create_task_payload, fetch_events, fetch_task, persist_task
+import pytest
 from muad_agent_worker.application.task_service import TaskService
 from muad_agent_worker.infrastructure.models.task import TaskExecution
-from muad_agent_worker.worker.executor import TaskExecutionError
 from muad_agent_worker.scheduler.service import TASK_DEADLINE_EXCEEDED, DeadlineSweeper
+from muad_agent_worker.worker.executor import TaskExecutionError
 from muad_agent_worker.worker.service import WorkerLoop
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import (
+    RecordingExecutor,
+    create_task_payload,
+    fetch_events,
+    fetch_task,
+    persist_task,
+)
 
 INSTANCE_ID = "test-worker:1"
 
@@ -217,7 +223,7 @@ async def test_sweep_deadlines_marks_failed(tenant: TenantContext) -> None:
 
 
 class _FakeLoop:
-    instances: list["_FakeLoop"] = []
+    instances: list[_FakeLoop] = []
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         self.started = asyncio.Event()

@@ -60,12 +60,24 @@ async def sweep_stale_test_rows(database_guard: None) -> None:
     )
     session_factory = get_session_factory()
     async with session_factory() as session:
-        await session.execute(
-            text(
-                "DELETE FROM task.task_schedule "
-                "WHERE tenant_id LIKE 'test-%' AND next_fire_at <= now()"
-            )
+        # 到期 Schedule 的清理同样必须先删引用行，否则被 task_execution/task_submission
+        # 引用时整条清扫 FK 失败 → 残留越积越多（外键方向：task_event→task_execution→
+        # task_schedule，task_submission→两者）。
+        due_schedules = (
+            "SELECT id FROM task.task_schedule "
+            "WHERE tenant_id LIKE 'test-%' AND next_fire_at <= now()"
         )
+        for statement in (
+            "DELETE FROM task.task_event WHERE task_id IN "
+            f"(SELECT id FROM task.task_execution WHERE schedule_id IN ({due_schedules}))",
+            f"DELETE FROM task.task_submission WHERE schedule_id IN ({due_schedules})",
+            "DELETE FROM task.task_submission WHERE task_id IN "
+            f"(SELECT id FROM task.task_execution WHERE schedule_id IN ({due_schedules}))",
+            f"DELETE FROM task.task_execution WHERE schedule_id IN ({due_schedules})",
+            "DELETE FROM task.task_schedule "
+            "WHERE tenant_id LIKE 'test-%' AND next_fire_at <= now()",
+        ):
+            await session.execute(text(statement))
         for predicate in (stale_tasks, stale_deliveries):
             # 先删引用行，避免 task_event/task_submission 的外键阻塞清理。
             await session.execute(

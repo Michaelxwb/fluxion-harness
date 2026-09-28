@@ -14,6 +14,7 @@ from muad_console_platform.infrastructure.models.mcp import McpServer
 from sqlalchemy import update
 
 from console_platform.conftest import TenantContext
+from tests.internal_service import internal_service_token, service_headers  # noqa: F401  (fixture 注册)
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
@@ -115,7 +116,7 @@ async def test_s06_unbind_then_rebind_updates_resolve(
     resolved = await client.post(
         "/internal/runtime/resolve-definition",
         json={"agent_id": agent_id, "actor_user_id": str(user_id), "channel": "WECOM"},
-        headers=_headers(tenant),
+        headers=service_headers(tenant.tenant_id),
     )
     assert resolved.status_code == 200
     assert any(
@@ -133,7 +134,7 @@ async def test_s06_unbind_then_rebind_updates_resolve(
     resolved_after = await client.post(
         "/internal/runtime/resolve-definition",
         json={"agent_id": agent_id, "actor_user_id": str(user_id), "channel": "WECOM"},
-        headers=_headers(tenant),
+        headers=service_headers(tenant.tenant_id),
     )
     assert resolved_after.status_code == 200
     assert resolved_after.json()["data"]["mcp_servers"] == []  # 解除后立即不可见
@@ -182,7 +183,7 @@ async def test_b02_effective_mcp_formula_matrix(
         resolved = await client.post(
             "/internal/runtime/resolve-definition",
             json={"agent_id": agent_id, "actor_user_id": str(user_id), "channel": "WECOM"},
-            headers=_headers(tenant),
+            headers=service_headers(tenant.tenant_id),
         )
         assert resolved.status_code == 200
         return {s["key"] for s in resolved.json()["data"]["mcp_servers"]}

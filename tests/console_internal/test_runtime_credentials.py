@@ -17,6 +17,15 @@ from sqlalchemy import update
 from console_internal.conftest import TenantContext
 
 URL = "/internal/runtime/resolve-credentials"
+DEFINITION_URL = "/internal/runtime/resolve-definition"
+
+
+def _definition_payload() -> dict[str, object]:
+    return {
+        "agent_id": str(uuid.uuid4()),
+        "actor_user_id": str(uuid.uuid4()),
+        "channel": "WECOM",
+    }
 
 
 def _service_headers(tenant: TenantContext) -> dict[str, str]:
@@ -35,6 +44,40 @@ def _payload(tenant: TenantContext, model_id: str | None = None) -> dict[str, ob
 @pytest.fixture(autouse=True)
 def _service_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", "test-internal-token")
+
+
+async def test_resolve_definition_requires_service_identity(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[越权修复] resolve-definition 响应含模型明文 `api_key`，故与 API-08/09 同门控。
+
+    修复前该端点**无**服务身份校验，且挂在顶层 router（不经 authenticated/admin）——
+    集群内任意进程 POST 即可拿到任意模型的明文 API Key。
+    """
+    missing = await client.post(
+        DEFINITION_URL, json=_definition_payload(), headers={"X-Tenant-Id": tenant.tenant_id}
+    )
+    assert missing.status_code in (401, 403)
+
+    wrong = await client.post(
+        DEFINITION_URL,
+        json=_definition_payload(),
+        headers={"X-Tenant-Id": tenant.tenant_id, "X-Internal-Service": "not-the-token"},
+    )
+    assert wrong.status_code in (401, 403)
+
+
+async def test_resolve_definition_passes_gate_with_service_identity(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[越权修复] 带正确服务身份则通过门控（后续失败必须是业务码，不是门控 403）。
+
+    与上一条构成对照：证明 403 确实来自服务身份校验，而不是任何请求都 403。
+    """
+    allowed = await client.post(
+        DEFINITION_URL, json=_definition_payload(), headers=_service_headers(tenant)
+    )
+    assert allowed.status_code in (200, 404), allowed.text[:200]
 
 
 async def test_b128_requires_service_identity(client: AsyncClient, tenant: TenantContext) -> None:

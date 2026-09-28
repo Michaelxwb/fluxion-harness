@@ -9,11 +9,12 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
-from conftest import TenantContext
-from helpers import create_schedule_payload
 from httpx import AsyncClient
 from muad_agent_worker.scheduler.service import ScheduleService
 from muad_contracts import ScheduleSpec
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import create_schedule_payload
 
 INTERNAL_HEADER = "X-Internal-Service"
 TENANT_HEADER = "X-Tenant-Id"
@@ -107,9 +108,8 @@ async def test_b125_terminal_schedule_rejects_pause_without_state_change(
         tenant, schedule=ScheduleSpec(type="ONCE", run_at=datetime.now(UTC), timezone="UTC")
     )
     async with tenant.session_factory() as session:
-        from sqlalchemy import update
-
         from muad_agent_worker.infrastructure.models.task import TaskSchedule
+        from sqlalchemy import update
 
         await session.execute(
             update(TaskSchedule)

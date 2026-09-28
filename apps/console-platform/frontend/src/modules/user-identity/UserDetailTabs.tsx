@@ -13,6 +13,7 @@ import { IconPlus } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '../../auth/AuthContext';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
@@ -647,6 +648,8 @@ function MemoryTab(props: { userId: string }) {
 
 export function UserDetailTabs(props: UserDetailTabsProps) {
   const { t } = useTranslation();
+  const { account } = useAuth();
+  const isAdmin = account?.role === 'ADMIN';
   const [activeTab, setActiveTab] = useState('basic');
   const { user } = props;
 
@@ -735,9 +738,11 @@ export function UserDetailTabs(props: UserDetailTabsProps) {
       <Tabs.TabPane itemKey="agents" tab={`${t('user.tabs.agents')} (${user.agent_grant_count})`}>
         <AgentGrantTab userId={user.id} />
       </Tabs.TabPane>
-      <Tabs.TabPane itemKey="credentials" tab={`${t('user.tabs.credentials')} (${user.credential_count})`}>
-        <CredentialsTab userId={user.id} />
-      </Tabs.TabPane>
+      {isAdmin && (
+        <Tabs.TabPane itemKey="credentials" tab={`${t('user.tabs.credentials')} (${user.credential_count})`}>
+          <CredentialsTab userId={user.id} />
+        </Tabs.TabPane>
+      )}
       <Tabs.TabPane itemKey="identities" tab={`${t('user.tabs.identities')} (${user.identity_count})`}>
         <IdentityTab userId={user.id} />
       </Tabs.TabPane>

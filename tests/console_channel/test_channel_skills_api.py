@@ -18,7 +18,7 @@ from muad_console_platform.infrastructure.models.control import (
     SkillArtifact,
     SkillUserGrant,
 )
-from sqlalchemy import delete, event, select
+from sqlalchemy import delete, event
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from console_channel.conftest import ChannelContext

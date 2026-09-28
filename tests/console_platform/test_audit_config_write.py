@@ -11,8 +11,8 @@ from typing import Any
 
 from httpx import AsyncClient
 from muad_common import SharedSettings
-from muad_console_platform.application.audit_service import AuditActor
 from muad_console_platform.application.agent_service import AgentService
+from muad_console_platform.application.audit_service import AuditActor
 from muad_console_platform.application.dto import AgentCreateRequest
 from muad_console_platform.infrastructure.db import get_session_factory
 from sqlalchemy import text

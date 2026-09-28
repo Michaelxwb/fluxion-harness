@@ -35,6 +35,8 @@ from muad_console_platform.main import app as console_app
 from muad_logging import configure_logging
 from sqlalchemy import text
 
+from tests.internal_service import TOKEN, internal_service_token  # noqa: F401  (fixture 注册)
+
 # 夹具复用：以原名把 console_platform 的真实夹具（真实 Console HTTP + 真实 PostgreSQL 租户清理）
 # 注册到本模块；pytest 按模块属性名解析夹具，故不能用别名 import。
 database_guard = console_conftest.database_guard
@@ -217,10 +219,10 @@ async def _drive_metric_producing_requests(
         },
     )
     assert bind.status_code >= 400, bind.text
-    # 3) resolve-definition 失败路径（未知 agent → AGENT_NOT_FOUND）
+    # 3) resolve-definition 失败路径（未知 agent → AGENT_NOT_FOUND）；内部端点需服务身份
     resolve = await http.post(
         "/internal/runtime/resolve-definition",
-        headers=headers,
+        headers={**headers, "X-Internal-Service": TOKEN},
         json={
             "agent_id": str(uuid.uuid4()),
             "actor_user_id": str(uuid.uuid4()),

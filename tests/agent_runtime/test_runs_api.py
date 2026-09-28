@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
-from conftest import FakeResolveClient, TenantContext, parse_sse
 from httpx import AsyncClient
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
@@ -19,6 +18,8 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import ResolveDefinitionResponse
 from sqlalchemy import select
+
+from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:

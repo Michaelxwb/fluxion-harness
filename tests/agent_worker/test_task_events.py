@@ -10,8 +10,6 @@ import asyncio
 import uuid
 
 import pytest
-from conftest import TenantContext
-from helpers import fetch_events, persist_task
 from muad_agent_worker.application.task_events import (
     TaskEventSeed,
     TaskEventType,
@@ -19,6 +17,9 @@ from muad_agent_worker.application.task_events import (
     append_events,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import fetch_events, persist_task
 
 
 async def _append_and_commit(

@@ -2,7 +2,8 @@ from typing import Any, cast
 
 from httpx import AsyncClient
 
-from console_skill.conftest import ARTIFACT_CHECKSUM, SkillContext, tenant_headers
+from console_skill.conftest import ARTIFACT_CHECKSUM, SkillContext
+from tests.internal_service import internal_service_token, service_headers  # noqa: F401  (fixture 注册)
 
 RESOLVE_URL = "/internal/runtime/resolve-definition"
 
@@ -23,7 +24,7 @@ async def _resolve(client: AsyncClient, context: SkillContext, **kwargs: Any) ->
     response = await client.post(
         RESOLVE_URL,
         json=_payload(context, **kwargs),
-        headers=tenant_headers(context),
+        headers=service_headers(context.tenant_id),
     )
     assert response.status_code == 200
     return cast(dict[str, Any], response.json()["data"])

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from uuid import uuid4
-
 import asyncio
 from contextlib import suppress
 from pathlib import Path
+from uuid import uuid4
 
 from fakes import FakeConsoleClient, FakeRuntimeClient, make_envelope, resolved_response
 from muad_api import AppError
@@ -13,8 +12,8 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts import ChannelResolveRequest, ChannelResolveResponse, DeliveryMessage, DeliveryRouteInput
 from muad_im_gateway.application.inbound import (
     BIND_USAGE_TEXT,
-    DELTA_FLUSH_INTERVAL_SEC,
     BROKEN_STREAM_TEXT,
+    DELTA_FLUSH_INTERVAL_SEC,
     NEW_CONVERSATION_TEXT,
     NO_PERMISSION_TEXT,
     NO_SKILLS_TEXT,

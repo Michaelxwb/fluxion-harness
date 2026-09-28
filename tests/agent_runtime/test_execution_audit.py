@@ -9,7 +9,6 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from conftest import FakeExecutor, TenantContext, parse_sse
 from httpx import AsyncClient
 from muad_agent_core.model import (
     ModelRateLimitedError,
@@ -34,6 +33,8 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     ToolCallAudit,
 )
 from muad_agent_runtime.main import app
+
+from agent_runtime.conftest import FakeExecutor, TenantContext, parse_sse
 
 TENANT = f"exec-{uuid.uuid4()}"
 RUN_ID = uuid.uuid4()

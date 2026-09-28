@@ -9,9 +9,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
-from conftest import TenantContext
-from helpers import persist_task
 from httpx import AsyncClient
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import persist_task
 
 INTERNAL_HEADER = "X-Internal-Service"
 TENANT_HEADER = "X-Tenant-Id"

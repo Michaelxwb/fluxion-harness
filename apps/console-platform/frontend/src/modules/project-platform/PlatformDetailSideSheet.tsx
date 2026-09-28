@@ -2,6 +2,7 @@ import { Banner, Button, Spin, Tabs, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '../../auth/AuthContext';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
@@ -22,6 +23,8 @@ export interface PlatformDetailSideSheetProps {
 
 export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
   const { t } = useTranslation();
+  const { account } = useAuth();
+  const isAdmin = account?.role === 'ADMIN';
   const [platform, setPlatform] = useState<PlatformItem | null>(null);
   const [failed, setFailed] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
@@ -48,10 +51,11 @@ export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
   }, [load]);
 
   useEffect(() => {
-    if (props.reconfigureRequired) {
+    // 凭据 Tab 仅 ADMIN 可见（凭据入口仅 ADMIN），非 ADMIN 不得切到不存在的 pane。
+    if (props.reconfigureRequired && isAdmin) {
       setActiveTab('credentials');
     }
-  }, [props.reconfigureRequired]);
+  }, [props.reconfigureRequired, isAdmin]);
 
   if (!props.platformId) {
     return null;
@@ -143,13 +147,15 @@ export function PlatformDetailSideSheet(props: PlatformDetailSideSheetProps) {
           </>
         )}
       </Tabs.TabPane>
-      <Tabs.TabPane itemKey="credentials" tab={t('platform.detail.credentials')}>
-        {failed ? (
-          <ErrorState onRetry={() => void load()} />
-        ) : platform === null ? null : (
-          <PlatformCredentialTab platform={platform} onChanged={props.onChanged} />
-        )}
-      </Tabs.TabPane>
+      {isAdmin && (
+        <Tabs.TabPane itemKey="credentials" tab={t('platform.detail.credentials')}>
+          {failed ? (
+            <ErrorState onRetry={() => void load()} />
+          ) : platform === null ? null : (
+            <PlatformCredentialTab platform={platform} onChanged={props.onChanged} />
+          )}
+        </Tabs.TabPane>
+      )}
       <PlatformTestModal
         visible={testVisible}
         platformId={platform?.platform_id ?? null}

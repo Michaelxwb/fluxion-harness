@@ -3,7 +3,6 @@ import uuid
 from typing import Any
 
 import pytest
-from conftest import FakeExecutor, TenantContext, parse_sse
 from httpx import AsyncClient
 from muad_agent_core.agent import AgentRunner
 from muad_agent_core.hooks import HookPipeline
@@ -29,6 +28,8 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import ResolveDefinitionResponse, ResolvedModel
 from muad_platform_sdk import SecretValue
+
+from agent_runtime.conftest import FakeExecutor, TenantContext, parse_sse
 
 
 class StaticProvider:

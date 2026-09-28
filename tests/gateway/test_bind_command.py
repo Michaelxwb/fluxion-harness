@@ -32,7 +32,11 @@ _TESTS_ROOT = Path(__file__).resolve().parents[1]
 if str(_TESTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_TESTS_ROOT))
 
-from console_channel.conftest import ChannelContext, channel, database_guard  # noqa: E402,F401
+from console_channel.conftest import (  # noqa: E402,F401  (fixture reuse)
+    ChannelContext,
+    channel,
+    database_guard,
+)
 
 
 @pytest.fixture()
@@ -106,7 +110,7 @@ async def _fetch_code(channel_ctx: ChannelContext) -> BindCode | None:
 async def test_b110_bind_success_replies_and_persists_identity(
     console_server: ConsoleProcess,
     catalog: MessageCatalog,
-    channel: ChannelContext,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     runtime = FakeRuntimeClient()
@@ -136,7 +140,7 @@ async def test_b110_bind_success_replies_and_persists_identity(
 async def test_b110_replayed_message_does_not_consume_twice(
     console_server: ConsoleProcess,
     catalog: MessageCatalog,
-    channel: ChannelContext,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
 ) -> None:
     runtime = FakeRuntimeClient()
     console = ConsoleClient(console_server.url)
@@ -162,7 +166,7 @@ async def test_b110_replayed_message_does_not_consume_twice(
 async def test_b110_error_branches_use_catalog_texts(
     console_server: ConsoleProcess,
     catalog: MessageCatalog,
-    channel: ChannelContext,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
 ) -> None:
     runtime = FakeRuntimeClient()
     console = ConsoleClient(console_server.url)

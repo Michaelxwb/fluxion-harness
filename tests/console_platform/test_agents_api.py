@@ -4,6 +4,7 @@ from httpx import AsyncClient
 from sqlalchemy import text
 
 from console_platform.conftest import TenantContext
+from tests.internal_service import internal_service_token, service_headers  # noqa: F401  (fixture 注册)
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
@@ -297,7 +298,7 @@ async def test_s01_revision_bumps_and_frozen_snapshot_not_drifted(
             "actor_user_id": str(user_id),
             "channel": "WECOM",
         },
-        headers=_headers(tenant),
+        headers=service_headers(tenant.tenant_id),
     )
     assert resolved.status_code == 200, resolved.text
     resolved_v1 = ResolveDefinitionResponse.model_validate(resolved.json()["data"])
@@ -328,7 +329,7 @@ async def test_s01_revision_bumps_and_frozen_snapshot_not_drifted(
                 "actor_user_id": str(user_id),
                 "channel": "WECOM",
             },
-            headers=_headers(tenant),
+            headers=service_headers(tenant.tenant_id),
         )
         assert resolved_v2.status_code == 200
         assert resolved_v2.json()["data"]["agent"]["revision"] == 2

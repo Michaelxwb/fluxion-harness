@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import uuid
 
-from conftest import TenantContext
+from agent_runtime.conftest import TenantContext
 
 
 async def test_b122_executor_full_turn_with_tool_and_audit(

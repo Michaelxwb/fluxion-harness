@@ -27,7 +27,10 @@ async def resolve_definition(
     request: Request,
     tenant_id: TenantId,
     session: Session,
+    x_internal_service: Annotated[str | None, Header()] = None,
 ) -> ApiResponse[Any]:
+    """仅受信 Runtime/Worker 可调用：响应含模型明文 `api_key`，故与 API-08/09 同门控。"""
+    require_service_identity(x_internal_service)
     with count_outcome(RESOLVE_DEFINITION_METRIC):
         resolved = await ResolveService(session).resolve_definition(tenant_id, payload)
     return ok(request.app.state.message_catalog, resolved.model_dump(mode="json"))

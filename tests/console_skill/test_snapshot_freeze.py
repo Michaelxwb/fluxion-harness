@@ -20,6 +20,7 @@ from sqlalchemy import select
 from console_skill.conftest import SkillContext, import_skill, tenant_headers
 from console_skill.packages import demo_package
 from console_skill.test_resolve_skills import _resolve
+from tests.internal_service import internal_service_token  # noqa: F401  (fixture 注册)
 
 BIND_URL = "/api/v1/agents/{agent_id}/skills/{skill_id}"
 

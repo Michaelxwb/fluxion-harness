@@ -2,7 +2,6 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from conftest import FakeResolveClient, TenantContext
 from muad_agent_runtime.application.executor import ExecutorFactory
 from muad_agent_runtime.application.run_service import RunService, reap_abandoned_runs
 from muad_agent_runtime.infrastructure.db import get_session_factory
@@ -14,6 +13,8 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 from muad_contracts import ChannelContext, MessageInput, RunRequest, RunStatus
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from agent_runtime.conftest import FakeResolveClient, TenantContext
 
 
 def _request(tenant: TenantContext, text: str = "hello") -> RunRequest:
@@ -222,7 +223,7 @@ async def test_resume_uses_api09_credentials_in_memory(
     """resume 按冻结主键走 API-09；密钥只进内存 ExecutorRequest，不落 Snapshot。"""
     from muad_agent_runtime.application.executor import ExecutorRequest, RunExecutor
 
-    from tests.agent_runtime.conftest import FakeExecutor
+    from agent_runtime.conftest import FakeExecutor
 
     resolved = fake_resolve.response
     _, run_id = await _seed_waiting_run_with_snapshot(tenant, resolved)

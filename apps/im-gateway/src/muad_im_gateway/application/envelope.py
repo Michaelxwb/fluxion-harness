@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, TypeVar
+from typing import Any
 
 import httpx
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from pydantic import BaseModel, ValidationError
-
-ContractT = TypeVar("ContractT", bound=BaseModel)
 
 
 def error_code_from_payload(payload: Any) -> str:
@@ -38,7 +36,9 @@ def decode_json(response: httpx.Response) -> Any:
         return None
 
 
-def require_data_model(response: httpx.Response, model: type[ContractT]) -> ContractT:
+def require_data_model[ContractT: BaseModel](
+    response: httpx.Response, model: type[ContractT]
+) -> ContractT:
     """真实封套 → 强类型 data。
 
     坏 JSON、缺 data、字段不符都显式失败为 `COMMON_INTERNAL_ERROR`；

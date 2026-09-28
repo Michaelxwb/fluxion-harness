@@ -13,6 +13,7 @@ from muad_console_platform.infrastructure.models.control import (
 from sqlalchemy import select
 
 from console_platform.conftest import TenantContext
+from tests.internal_service import internal_service_token, service_headers  # noqa: F401  (fixture 注册)
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
@@ -69,7 +70,7 @@ async def test_s04_grant_revoke_affects_resolve_snapshot_stable(
     resolved = await client.post(
         "/internal/runtime/resolve-definition",
         json={"agent_id": agent_id, "actor_user_id": user_id, "channel": "WECOM"},
-        headers=_headers(tenant),
+        headers=service_headers(tenant.tenant_id),
     )
     assert resolved.status_code == 200, resolved.text
 
@@ -82,7 +83,7 @@ async def test_s04_grant_revoke_affects_resolve_snapshot_stable(
     resolved_after = await client.post(
         "/internal/runtime/resolve-definition",
         json={"agent_id": agent_id, "actor_user_id": user_id, "channel": "WECOM"},
-        headers=_headers(tenant),
+        headers=service_headers(tenant.tenant_id),
     )
     assert resolved_after.status_code == 403
     assert resolved_after.json()["code"] == "AGENT_ACCESS_DENIED"

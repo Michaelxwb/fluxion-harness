@@ -8,9 +8,8 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import UTC, datetime, timedelta
 from collections.abc import AsyncGenerator
-from typing import Any
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest

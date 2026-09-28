@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import ssl
-
 import asyncio
 import logging
+import ssl
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field

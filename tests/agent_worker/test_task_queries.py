@@ -8,11 +8,12 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from conftest import TenantContext
-from helpers import create_schedule_payload, persist_task
 from httpx import AsyncClient
 from muad_agent_worker.application.task_events import TaskEventType, append_event
 from muad_agent_worker.scheduler.service import ScheduleService
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import create_schedule_payload, persist_task
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import httpx
 import os
 import socket
 import subprocess
@@ -8,26 +7,26 @@ import sys
 import tempfile
 import threading
 import time
-import uvicorn
-from pathlib import Path
-
 from collections.abc import AsyncIterator, Awaitable, Callable
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, Response
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+import httpx
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, Response
 from muad_api import AppError
 from muad_contracts import (
     DEFAULT_PAGE_SIZE,
     BotSnapshotResponse,
-    ChannelSkillItem,
-    ChannelSkillsResponse,
     ChannelBindRequest,
     ChannelBindResponse,
     ChannelEnvelope,
     ChannelResolveRequest,
     ChannelResolveResponse,
+    ChannelSkillItem,
+    ChannelSkillsResponse,
     RunRequest,
 )
 from muad_im_gateway.application.runtime_client import SseEvent

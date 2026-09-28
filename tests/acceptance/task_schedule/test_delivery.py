@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
-
 import time
 import uuid
+from typing import Any, cast
 
 import httpx
+from muad_agent_runtime.application.task_client import WorkerTaskClient
 from sqlalchemy import text
 
 from .environment import INTERNAL_TOKEN, LiveStack, run_async, run_db
-from .helpers import load_resolved, submission_context
-from muad_agent_runtime.application.task_client import WorkerTaskClient
+from .helpers import submission_context
 
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED"}
 

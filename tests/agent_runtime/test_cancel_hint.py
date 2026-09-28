@@ -1,7 +1,6 @@
 import uuid
 
 import pytest
-from conftest import FakeResolveClient, TenantContext
 from muad_agent_runtime.application.run_service import RunService
 from muad_agent_runtime.infrastructure.cancel_hint import (
     CANCEL_HINT_TTL_SEC,
@@ -13,6 +12,8 @@ from muad_agent_runtime.infrastructure.cancel_hint import (
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRecord
 from redis.exceptions import ConnectionError as RedisConnectionError
+
+from agent_runtime.conftest import FakeResolveClient, TenantContext
 
 
 class StubRedisClient:

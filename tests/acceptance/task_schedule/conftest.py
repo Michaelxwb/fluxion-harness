@@ -10,8 +10,8 @@ import pytest
 
 from .environment import (
     LiveStack,
-    clear_engine_caches,
     cleanup,
+    clear_engine_caches,
     require,
     start_live_stack,
     stop_live_stack,

@@ -7,6 +7,7 @@ import uuid
 from httpx import AsyncClient
 
 from console_platform.conftest import TenantContext
+from tests.internal_service import internal_service_token, service_headers  # noqa: F401  (fixture 注册)
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
@@ -129,7 +130,7 @@ async def test_s02_resolve_reflects_binding_immediately(
     resolved = await client.post(
         "/internal/runtime/resolve-definition",
         json={"agent_id": agent_id, "actor_user_id": str(user_id), "channel": "WECOM"},
-        headers=_headers(tenant),
+        headers=service_headers(tenant.tenant_id),
     )
     assert resolved.status_code == 200, resolved.text
     keys = {skill["key"] for skill in resolved.json()["data"]["skills"]}
@@ -214,7 +215,7 @@ async def test_e03_bind_disabled_skill_allowed_but_filtered(
         response = await client.post(
             "/internal/runtime/resolve-definition",
             json={"agent_id": agent_id, "actor_user_id": str(user_id), "channel": "WECOM"},
-            headers=_headers(tenant),
+            headers=service_headers(tenant.tenant_id),
         )
         assert response.status_code == 200, response.text
         return {skill["key"] for skill in response.json()["data"]["skills"]}

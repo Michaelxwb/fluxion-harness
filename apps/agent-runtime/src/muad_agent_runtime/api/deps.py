@@ -30,7 +30,11 @@ def get_instance_id() -> str:
 def get_resolve_client(request: Request) -> ResolveClient:
     client: ResolveClient | None = getattr(request.app.state, "resolve_client", None)
     if client is None:
-        client = ConsoleResolveClient(SharedSettings().console_platform_url)
+        settings = SharedSettings()
+        client = ConsoleResolveClient(
+            settings.console_platform_url,
+            service_token=settings.internal_service_token,
+        )
         request.app.state.resolve_client = client
     return client
 

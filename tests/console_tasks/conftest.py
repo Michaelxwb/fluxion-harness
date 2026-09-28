@@ -42,15 +42,16 @@ def internal_token(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 async def worker_client() -> AsyncIterator[WorkerAdminClient]:
-    client = WorkerAdminClient(
+    # 局部名避开上面 re-export 的 `client` 夹具，防止遮蔽（F811）
+    worker_admin = WorkerAdminClient(
         "http://worker",
         service_token=TOKEN,
         transport=httpx.ASGITransport(app=worker_app),
     )
     try:
-        yield client
+        yield worker_admin
     finally:
-        await client.aclose()
+        await worker_admin.aclose()
 
 
 @pytest.fixture(autouse=True)
@@ -63,7 +64,9 @@ def worker_client_override(worker_client: WorkerAdminClient) -> Iterator[None]:
 
 
 @pytest.fixture
-async def task_tenant(tenant: TenantContext) -> AsyncIterator[TenantContext]:
+async def task_tenant(
+    tenant: TenantContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
+) -> AsyncIterator[TenantContext]:
     """把 Console 租户同时用于 Worker task schema，并在用例后清理。"""
 
     async def cleanup() -> None:

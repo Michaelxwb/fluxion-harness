@@ -15,8 +15,6 @@ import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from conftest import TenantContext
-from helpers import fetch_task, persist_task
 from muad_agent_worker.application.batch_fanin import BATCH_CHILD_FAILED, settle_child
 from muad_agent_worker.application.batch_fanout import (
     AGGREGATE_ALL,
@@ -29,6 +27,9 @@ from muad_agent_worker.worker.executor import SkillTaskExecutor, TaskExecutionEr
 from muad_agent_worker.worker.service import WorkerLoop
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from sqlalchemy import func, select
+
+from agent_worker.conftest import TenantContext
+from agent_worker.helpers import fetch_task, persist_task
 
 STORAGE_KEY = "skills/batch_fanin.zip"
 ARTIFACT_ID = "7f4a3c1e-0000-4000-8000-000000000003"

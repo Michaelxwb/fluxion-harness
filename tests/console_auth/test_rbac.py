@@ -49,6 +49,27 @@ async def test_builder_cannot_access_admin_accounts_route(
     assert forbidden.json()["code"] == "FORBIDDEN"
 
 
+async def test_builder_cannot_access_credentials_routes(
+    client: AsyncClient, auth: AuthContext
+) -> None:
+    """[越权修复] 凭据类管理仅 ADMIN（设计 §2.4：前端隐藏 + 后端 403 兜底）。
+
+    修复前 `credentials_router` 挂在 `authenticated` 组，BUILDER 可读写凭据；
+    平台 id 用随机值即可——403 来自路由依赖，早于业务查询（修复前会走到 404）。
+    """
+    response = await login(client, auth, auth.builder_username, BUILDER_PASSWORD)
+    assert response.status_code == 200
+
+    platform_id = uuid.uuid4()
+    for path in (
+        f"/api/v1/project-platforms/{platform_id}/user-credentials",
+        f"/api/v1/project-platforms/{platform_id}/shared-credential",
+    ):
+        forbidden = await client.get(path, headers=tenant_headers(auth))
+        assert forbidden.status_code == 403, path
+        assert forbidden.json()["code"] == "FORBIDDEN"
+
+
 async def test_admin_can_access_admin_accounts_route(client: AsyncClient, auth: AuthContext) -> None:
     response = await login(client, auth, auth.admin_username, ADMIN_PASSWORD)
     assert response.status_code == 200

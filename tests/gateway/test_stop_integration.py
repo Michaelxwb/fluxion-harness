@@ -15,28 +15,30 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
+# tests/ 需在 sys.path 上才能复用 console_channel 的真实 Console 夹具（channel/database_guard）
 _TESTS_ROOT = Path(__file__).resolve().parents[1]
 if str(_TESTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_TESTS_ROOT))
 
-import httpx
-import pytest
-from fakes import ConsoleProcess
-from muad_api.catalog import MessageCatalog
-from muad_contracts import ChannelEnvelope
-from muad_im_gateway.application.console_client import ConsoleClient
-from muad_im_gateway.application.inbound import InboundPipeline
-from muad_im_gateway.application.runtime_client import RuntimeClient
-from muad_im_gateway.channels.fake import FakeChannelAdapter
-from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
-from sqlalchemy import text
-
-from console_channel.conftest import (  # noqa: F401  (fixture reuse)
+# 以下 import 依赖上面的 sys.path 插入，因此不在文件顶部：逐行标注 E402 例外
+import httpx  # noqa: E402
+import pytest  # noqa: E402
+from console_channel.conftest import (  # noqa: E402, F401  (fixture reuse)
     ChannelContext,
     channel,
     database_guard,
 )
-from tests.acceptance.task_schedule.environment import (
+from fakes import ConsoleProcess  # noqa: E402
+from muad_api.catalog import MessageCatalog  # noqa: E402
+from muad_contracts import ChannelEnvelope  # noqa: E402
+from muad_im_gateway.application.console_client import ConsoleClient  # noqa: E402
+from muad_im_gateway.application.inbound import InboundPipeline  # noqa: E402
+from muad_im_gateway.application.runtime_client import RuntimeClient  # noqa: E402
+from muad_im_gateway.channels.fake import FakeChannelAdapter  # noqa: E402
+from muad_im_gateway.infrastructure.dedupe import NullDedupeStore  # noqa: E402
+from sqlalchemy import text  # noqa: E402
+
+from tests.acceptance.task_schedule.environment import (  # noqa: E402
     RUNTIME_CLEANUP,
     ServiceProcess,
     free_port,
@@ -72,7 +74,9 @@ def _runtime_env(root: Path, console_url: str) -> dict[str, str]:
 
 
 @pytest.fixture()
-async def runtime_rows(channel: ChannelContext) -> AsyncIterator[None]:
+async def runtime_rows(
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
+) -> AsyncIterator[None]:
     """用例结束后清理本租户的 runtime 行（FK 顺序由 RUNTIME_CLEANUP 保证）。"""
     try:
         yield
@@ -307,7 +311,7 @@ async def test_s06_stop_on_waiting_input_cancels_immediately_with_readable_event
     console_server: ConsoleProcess,
     runtime_server: ServiceProcess,
     catalog: MessageCatalog,
-    channel: ChannelContext,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
     runtime_rows: None,
 ) -> None:
     run_id, _conversation_id = _seed_run(channel, status="WAITING_INPUT", with_interrupt=True)
@@ -336,7 +340,7 @@ async def test_b112_stop_on_running_run_is_accepted_not_reported_completed(
     console_server: ConsoleProcess,
     runtime_server: ServiceProcess,
     catalog: MessageCatalog,
-    channel: ChannelContext,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
     runtime_rows: None,
 ) -> None:
     run_id, _conversation_id = _seed_run(channel, status="RUNNING")
@@ -356,7 +360,7 @@ async def test_e05_stop_without_active_run_reports_no_active_task(
     console_server: ConsoleProcess,
     runtime_server: ServiceProcess,
     catalog: MessageCatalog,
-    channel: ChannelContext,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
     runtime_rows: None,
 ) -> None:
     adapter, pipeline, console, runtime = _build_stack(
@@ -381,7 +385,7 @@ async def test_b112_stop_without_permission_does_not_cancel(
     console_server: ConsoleProcess,
     runtime_server: ServiceProcess,
     catalog: MessageCatalog,
-    channel: ChannelContext,
+    channel: ChannelContext,  # noqa: F811  (遮蔽 re-export 的夹具：pytest 按参数名解析)
     runtime_rows: None,
 ) -> None:
     # 该 Run 属于"已绑定但无 Agent 授权"的用户：未授权 /stop 绝不允许取消它

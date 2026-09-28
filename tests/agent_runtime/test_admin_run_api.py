@@ -18,7 +18,6 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from conftest import TenantContext
 from httpx import AsyncClient
 from muad_agent_runtime.application.run_events import EventWriter
 from muad_agent_runtime.infrastructure.audit_writer import RuntimeAuditWriter
@@ -34,6 +33,8 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 )
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from agent_runtime.conftest import TenantContext
 
 INTERNAL_HEADER = "X-Internal-Service"
 TENANT_HEADER = "X-Tenant-Id"

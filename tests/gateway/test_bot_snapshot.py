@@ -116,21 +116,15 @@ async def test_failed_refresh_does_not_invoke_snapshot_callback() -> None:
 # ---------------------------------------------------------------------------
 
 import logging  # noqa: E402
-import os  # noqa: E402
 import socket  # noqa: E402
 import threading  # noqa: E402
 import time  # noqa: E402
 import uuid  # noqa: E402
-from collections.abc import AsyncIterator, Iterator  # noqa: E402
+from collections.abc import AsyncIterator  # noqa: E402
 from typing import Any  # noqa: E402
 
-import httpx  # noqa: E402
 import pytest  # noqa: E402
-import subprocess  # noqa: E402
-import sys  # noqa: E402
-import tempfile  # noqa: E402
 import uvicorn  # noqa: E402
-from pathlib import Path  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 from muad_console_platform.infrastructure.db import get_session_factory  # noqa: E402
