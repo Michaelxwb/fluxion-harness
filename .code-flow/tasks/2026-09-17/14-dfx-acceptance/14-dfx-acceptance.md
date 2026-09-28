@@ -47,7 +47,7 @@
 | S-01 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | unit | 纯逻辑/状态机（无 IO） | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_layer_baseline.py","-k","s01"] | . | 600 |  |
 | S-02 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | Enum ↔ YAML ↔ 源码扫描 | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_error_catalog.py","tests/test_api_i18n.py"] | . | 600 |  |
 | S-03 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | ORM ↔ 迁移 ↔ OpenAPI | TASK-002 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_contract_parity.py -k s03 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/architecture"] | . | 1200 |  |
-| S-04 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | 真实 PostgreSQL + Redis | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_reliability.py","-k","s04"] | . | 900 |  |
+| S-04 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | 真实 PostgreSQL + Redis | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_reliability.py","-k","s04"] | . | 900 |  |
 | S-05 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Browser/HTTP → Console → PG → IM Gateway | TASK-010 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"] | . | 1200 |  |
 | S-06 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Gateway → Runtime SSE → Browser | TASK-010 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"] | . | 1200 |  |
 | S-07 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime → Worker → Schedule | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"] | . | 1200 |  |
@@ -75,7 +75,7 @@
 | RULE-api-002 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP → 幂等表(PostgreSQL) + 原 verifier 真实边界 | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_skill/test_import_idempotency.py"] | . | 300 |  |
 | RULE-arch-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 四部署单元/无状态/依赖方向 + 原 verifier 真实边界 | TASK-002 | verified | ["uv","run","pytest","-q","tests/architecture"] | . | 300 |  |
 | RULE-rel-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP 单端点原子变更 + 原 verifier 真实边界 | TASK-002 | verified | ["uv","run","pytest","-q","tests/console_platform/test_user_side_relations.py"] | . | 300 |  |
-| RULE-worker-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 PG 权威源 + Redis 降级 + 原 verifier 真实边界 | TASK-003 | planned | ["bash","-lc","uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"] | . | 600 |  |
+| RULE-worker-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 PG 权威源 + Redis 降级 + 原 verifier 真实边界 | TASK-003 | verified | ["bash","-lc","uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"] | . | 600 |  |
 | RULE-secret-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 密钥明文只存 Owner 表/三处受控出口 + 原 verifier 真实边界 | TASK-007 | planned | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | . | 300 |  |
 | RULE-log-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | logging-kit 唯一出口与双通道脱敏 + 原 verifier 真实边界 | TASK-007 | planned | ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"] | . | 300 |  |
 | RULE-auth-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP + 真实 PostgreSQL + 原 verifier 真实边界 | TASK-008 | planned | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
@@ -197,7 +197,7 @@ FEAT-03 的契约层聚合：ORM↔迁移 parity、契约模型形状、关系�
 - [2026-09-28] completed (done)
 ## TASK-003: 可靠性验收基座与 Worker lease/claim
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.1 测试分层矩阵, 14-dfx-acceptance.backend.design.md#3.4.4 可靠性矩阵, 14-dfx-acceptance.backend.design.md#3.1 技术选型与关键决策
@@ -212,32 +212,35 @@ FEAT-03 的契约层聚合：ORM↔迁移 parity、契约模型形状、关系�
 
 ### Checklist
 
-- [ ] [S-04][integration] 以 `真实 PostgreSQL + Redis` 为真实边界编写用例：同一 Task 并发提交两次只被一个 Worker claim（`FOR UPDATE SKIP LOCKED`，落败者不重复执行）；执行中 heartbeat 续租使 `lease_until` 前移；跨租户查询不可见。执行 argv：`["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_reliability.py","-k","s04"]`。
-- [ ] [RULE-worker-001][integration] 作为唯一最终负责人：PG 是 Task/Schedule/lease 唯一权威源、Redis 仅 wake-up/cancel hint、`task_type` 仅 `SKILL/BATCH`、claim 用 `FOR UPDATE SKIP LOCKED`、进入 WAITING 释放 lease、deadline 到期由 Scheduler sweep 置 `FAILED(TASK_DEADLINE_EXCEEDED)`（后三条的**场景**归 TASK-005，规则责任在本任务）。verifier argv：`["bash","-lc","uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"]`。
-- [ ] 种子与清理：唯一租户 + 可识别 key 前缀；收尾清理本租户残留为 0；任何失败路径都要执行清理，运行后不得残留 `uvicorn`/`muad_*.main` 进程。
-- [ ] 真实边界断言取材于真实库：claim/租约状态一律从 PG 逐行回读（`lease_owner`/`lease_until`/`status`），不以日志或返回值代替。
-- [ ] 复用既有验收栈原语（`ServiceProcess`/`free_port`/迁移到 head）与 `tests/acceptance/task_schedule|runtime` 的环境口径，不新建第二套进程管理；租户与产物根钉在系统临时目录。
-- [ ] 显式边界（不修，只登记）：Redis 的既有部分用例仍使用替身（design 技术债②）——本任务与 TASK-004 只在集成/E2E 层接真实 Redis，不去逐个改造模块单测。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [S-04][integration] 以 `真实 PostgreSQL + Redis` 为真实边界编写用例：同一 Task 并发提交两次只被一个 Worker claim（`FOR UPDATE SKIP LOCKED`，落败者不重复执行）；执行中 heartbeat 续租使 `lease_until` 前移；跨租户查询不可见。执行 argv：`["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_reliability.py","-k","s04"]`。**实测：5 passed in 25.31s**（租户 `dfx-reliability-<hex>`，Console/Worker 真实子进程 + 真实 PG/Redis）。
+- [x] [RULE-worker-001][integration] 作为唯一最终负责人：PG 是 Task/Schedule/lease 唯一权威源、Redis 仅 wake-up/cancel hint、`task_type` 仅 `SKILL/BATCH`、claim 用 `FOR UPDATE SKIP LOCKED`、进入 WAITING 释放 lease、deadline 到期由 Scheduler sweep 置 `FAILED(TASK_DEADLINE_EXCEEDED)`（后三条的**场景**归 TASK-005，规则责任在本任务）。verifier argv：`["bash","-lc","uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"]`。**实测 verifier 两段 = 234 passed（10.00s）+ 142 passed（4.89s）；本任务新增的 DFX 口径用例（PG 权威/Redis 仅 hint/`task_type` 枚举与 PG 实值/claim SKIP LOCKED）同批取证。**
+- [x] 种子与清理：唯一租户 + 可识别 key 前缀；收尾清理本租户残留为 0；任何失败路径都要执行清理，运行后不得残留 `uvicorn`/`muad_*.main` 进程。**实测：租户前缀 `dfx-reliability-`（含跨租户对照 `dfx-reliability-cross-*`）、产物根在 `tmp_path_factory` 的系统临时目录；`cleanup()` 在 `finally` 中执行并对 14 张表逐一回读计数，全部为 0（含 `control.config_audit_log`）；运行后 `ps aux | grep -E "uvicorn|muad_.*main"` 计数为 0。**
+- [x] 真实边界断言取材于真实库：claim/租约状态一律从 PG 逐行回读（`lease_owner`/`lease_until`/`status`），不以日志或返回值代替。**实测：`read_task_row()` 逐行回读 `status/task_type/attempt/lease_owner/lease_until/heartbeat_at/cancel_requested/result_json/finished_at`；「落败者未执行」以 PG 的 `attempt=1` + `task_event` 中 `CLAIMED` 计数=1 + `result_json IS NULL` 判定。**
+- [x] 复用既有验收栈原语（`ServiceProcess`/`free_port`/迁移到 head）与 `tests/acceptance/task_schedule|runtime` 的环境口径，不新建第二套进程管理；租户与产物根钉在系统临时目录。**实测：`environment.py` 直接 import 08/09 栈的 `ServiceProcess`/`free_port`/`require`/`run_db`/`run_async`/`build_skill_zip` 与 `TASK_CLEANUP`/`CONTROL_CLEANUP`；未新写进程管理器。**
+- [x] 显式边界（不修，只登记）：Redis 的既有部分用例仍使用替身（design 技术债②）——本任务与 TASK-004 只在集成/E2E 层接真实 Redis，不去逐个改造模块单测。**本任务实测口径：`SET NX EX`+TTL 往返（`ttl=5`）、Worker `/readyz` 的 `wakeup_hint=redis`；未改动任何模块单测的替身。**
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。**本任务无生产缺口，RED 行为「无 RED（新用例覆盖既有行为，如实登记）」并以三处抖动取证补足非空性（见 Evidence）。**
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-04 | integration | 真实 PostgreSQL + Redis | 单一 claim；heartbeat 续租；租户隔离查询通过 | tests/acceptance/dfx/test_dfx_reliability.py / S-04 | `["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_reliability.py","-k","s04"]` | planned |
-| RULE-worker-001 | integration | 真实 PG 权威源 + Redis 降级 + 原 verifier 真实边界 | PG 为唯一权威源；Redis 仅 hint；claim/WAITING/deadline 口径；原 verifier 全部通过 | 原 verifier / RULE-worker-001 | `["bash","-lc","uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"]` | planned |
+| S-04 | integration | 真实 PostgreSQL + Redis | 单一 claim；heartbeat 续租；租户隔离查询通过 | tests/acceptance/dfx/test_dfx_reliability.py / S-04 | `["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_reliability.py","-k","s04"]` | verified |
+| RULE-worker-001 | integration | 真实 PG 权威源 + Redis 降级 + 原 verifier 真实边界 | PG 为唯一权威源；Redis 仅 hint；claim/WAITING/deadline 口径；原 verifier 全部通过 | 原 verifier / RULE-worker-001 | `["bash","-lc","uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"]` | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| （编码期填写） | | | | | |
+| S-04 | **无 RED（新用例覆盖既有行为，如实登记）**：本任务无生产缺口——claim/heartbeat/租户谓词均已按 design 口径实现，首跑即绿。为证明断言非空，做了三处**抖动取证**（改生产代码 → 对应断言失败 → 按字节还原 → 复绿，`git diff -- apps/` 为空）：① `apps/agent-worker/src/muad_agent_worker/worker/claimer.py` 去掉 `.with_for_update(skip_locked=True)` → `test_s04_claim_skips_row_locked_by_another_transaction` 失败 `AssertionError: 行被持锁时 claim 不该领到它（SKIP LOCKED 语义）` / `assert "ERROR:Error:<class 'asyncpg.exceptions.QueryCanceledError'>: canceling statement due to statement timeout" is None`；② `worker/service.py::_renew_lease` 去掉 `lease_until` 更新 → `test_s04_heartbeat_renews_lease_until_in_pg` 失败 `AssertionError: heartbeat 未续租：lease_until 2026-09-28 13:23:21.225248+00:00 → 2026-09-28 13:23:21.225248+00:00`；③ `claimer.py` 整段去掉 `.with_for_update(...)`（非原子 claim）→ `test_s04_single_claim_race_has_exactly_one_winner` 失败 `并发 claim 的赢家集合不符：[2985b44d-…, 2985b44d-…]`（同一 task id 出现两个赢家）。三次还原后逐一复跑均复绿。 | `-k s04` → **5 passed in 25.31s**（抖动还原后复跑同为 5 passed） | `tests/acceptance/dfx/test_dfx_reliability.py` 5 例：`test_s04_single_claim_race_has_exactly_one_winner`、`test_s04_heartbeat_renews_lease_until_in_pg`、`test_s04_cross_tenant_query_returns_nothing`、`test_s04_claim_skips_row_locked_by_another_transaction`、`test_s04_pg_is_authority_and_redis_is_hint_only`（均 `@pytest.mark.integration`） | 真实 PG 逐行回读：竞态 `claimers_returned=[null, <race_id>]`、PG `status=RUNNING`/`lease_owner=dfx-claimer-b`/`attempt=1`/`CLAIMED 事件=1`/`result_json IS NULL`；Worker 空闲后盘面**逐字段未变**且本租户内 `RUNNING` 行=1、`lease_owner IS NOT NULL` 行=1；heartbeat `lease_owner=hostname:pid`（真实 Worker 子进程，pid≠测试进程）、`lease_until` 13:25:48.125114+00:00 → 13:25:51.152236+00:00（Δ=3.027s）、`heartbeat_at` 同步前移、`status=RUNNING`、`attempt=1`，终态 `COMPLETED`+租约清空+`result_json={"probe":"hb","slept_sec":8.0}`；SKIP LOCKED 对照（另一事务 `FOR UPDATE` 持锁）被 statement_timeout 取消、claim `claimed=None`/`elapsed_sec=0.008`/`status` 仍 `QUEUED`/`CLAIMED 事件=0`；跨租户 `same_tenant=1 / other_tenant=0 / read_row_other=None`；真实 Redis `ping=True`、`SET NX` 首真次假、`ttl=5`、Worker `/readyz` `wakeup_hint=redis`、`/healthz`（Console/Worker）=200；收尾 14 张表残留计数全 0。全程未 mock 真实边界；租户 `dfx-reliability-<hex>`、产物根在系统临时目录。 | verified |
+| RULE-worker-001 | 承接（原 verifier），无独立 RED：本任务未改 claim/lease 生产实现；同实现的抖动取证见 S-04 行（①②③）。更宽的扰动（去掉 claim 的状态谓词）会先撞上共享开发库的历史终态残留行、不构成干净取证，故未采用（该次扰动把既有残留行 `ignored-by-header` 由 `COMPLETED` 改为 `FAILED`，属其他套件的历史测试残留，如实登记）。 | verifier argv 两段全过：`tests/agent_worker` → **234 passed（10.00s）**；`tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py` → **142 passed（4.89s）**。本任务新增的口径用例（PG 唯一权威源/Redis 仅 hint/`task_type` 仅 `SKILL/BATCH`/claim SKIP LOCKED）随 S-04 一批 5 passed。blast radius 单跑：`tests/agent_worker` 234 passed、`tests/agent_runtime` 149 passed、`tests/console_tasks` 19 passed。 | 原 verifier 自身断言（`tests/agent_worker/test_worker_leases.py` 的单租约/回收/CAS 面等）+ 本任务新增断言：`TaskType` 枚举封闭 `{"SKILL","BATCH"}` 且 PG 实际取值 ⊆ 该集合；Redis `task:cancel:{uuid}`/`task:wakeup` hint 对不存在的 Task 既造不出行也改不了任何真实事实（PG 行数 before==after）；行被他人事务持锁时 claim 必须跳过而非等待（`FOR UPDATE SKIP LOCKED`）。 | 真实 PG（`task.task_execution`/`task.task_event`/`task.task_submission` 逐行回读与计数）+ 真实 Redis（`SET NX EX`/TTL/PING 往返）+ 真实 Console/Worker uvicorn 子进程；未 mock。本任务不宣称 TASK-005 拥有的场景（WAITING 释放 lease、deadline sweep、过期 reclaim）。 | verified |
+- S-04: verified — automated command passed; run_id=280e260563b343178fea186511d5a0c9 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
 
 ---
-
+- [2026-09-28] started
+- [2026-09-28] completed (done)
 ## TASK-004: 依赖故障矩阵（PG/Redis/Artifact Store）
 
 - **Status**: draft

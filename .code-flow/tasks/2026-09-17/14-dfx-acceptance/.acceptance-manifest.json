@@ -131,7 +131,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL + Redis",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -143,7 +143,28 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "280e260563b343178fea186511d5a0c9",
+        "executed_at": "2026-09-28T13:30:12.780014+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "280e260563b343178fea186511d5a0c9",
+          "executed_at": "2026-09-28T13:30:12.780014+00:00"
+        }
+      ]
     },
     {
       "id": "S-05",
