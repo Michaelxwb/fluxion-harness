@@ -1,0 +1,561 @@
+{
+  "schema": 2,
+  "task_file": "14-dfx-acceptance.md",
+  "task_sha256": "5e100eda64822c81d02167b09d8ac3724b8033444fcec774974e70e746ac0223",
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "纯逻辑/状态机（无 IO）",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/dfx/test_dfx_layer_baseline.py",
+        "-k",
+        "s01"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "dbfe43dd807b4298b731bc0a372198d8",
+        "executed_at": "2026-09-28T12:43:47.745779+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "dbfe43dd807b4298b731bc0a372198d8",
+          "executed_at": "2026-09-28T12:43:47.745779+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-02",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "contract",
+      "kind": "functional",
+      "boundary": "Enum ↔ YAML ↔ 源码扫描",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/test_error_catalog.py",
+        "tests/test_api_i18n.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "dbfe43dd807b4298b731bc0a372198d8",
+        "executed_at": "2026-09-28T12:43:47.745779+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "dbfe43dd807b4298b731bc0a372198d8",
+          "executed_at": "2026-09-28T12:43:47.745779+00:00"
+        }
+      ]
+    },
+    {
+      "id": "S-03",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "contract",
+      "kind": "functional",
+      "boundary": "ORM ↔ 迁移 ↔ OpenAPI",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_contract_parity.py -k s03 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/architecture"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-04",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PostgreSQL + Redis",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/dfx/test_dfx_reliability.py",
+        "-k",
+        "s04"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-05",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Browser/HTTP → Console → PG → IM Gateway",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-06",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Gateway → Runtime SSE → Browser",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-07",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime → Worker → Schedule",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-08",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Worker Parent/Child → fan-in",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-09",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime interrupt → resume/cancel",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-10",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "授权解析 → Prompt/ToolRegistry → IM 路由",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-11",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Worker → Gateway `/internal/deliveries` → Redis",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-12",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "E2E",
+      "kind": "e2e",
+      "boundary": "Runtime A/B Pod → PostgreSQL + Artifact Store",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "S-13",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "manual",
+      "kind": "manual",
+      "boundary": "CI/环境全链路",
+      "owner": "TASK-013",
+      "status": "planned",
+      "command": null,
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-01",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Service → PostgreSQL",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/dfx/test_dfx_fault_matrix.py",
+        "-k",
+        "e01"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-02",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Redis → PG",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e02 && uv run pytest -q tests/acceptance/im_gateway/test_redis_degradation.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-03",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "emptyDir cache → NFS",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e03 && uv run pytest -q tests/acceptance/test_foundation_artifact.py tests/test_skill_artifact_cache.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-04",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "lease → Reaper → CAS",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_recovery.py -k e04 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py tests/acceptance/task_schedule/test_recovery.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-05",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Scheduler sweep → PG",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_recovery.py -k e05 && uv run pytest -q tests/agent_worker/test_task_deadline.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-06",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Worker → Gateway → Redis",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k e06 && uv run pytest -q tests/acceptance/im_gateway/test_worker_delivery.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-07",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Egress Boundary → Audit/日志/Snapshot",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_security.py -k e07 && uv run pytest -q tests/acceptance/test_secret_consumers.py tests/acceptance/im_gateway/test_secrets_and_readiness.py"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-08",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "API → RBAC/CSRF/租户谓词",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_api_security.py -k e08 && uv run pytest -q tests/console_auth/test_rbac.py tests/console_platform/test_credentials_api.py tests/agent_worker/test_tenant_guard.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-09",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "ModelGateway → Provider",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_model_recovery.py -k e09 && uv run pytest -q tests/agent_runtime/test_model_recovery.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "E-10",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "manual",
+      "kind": "manual",
+      "boundary": "Gateway WS → 企业微信",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": null,
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-01",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "contract",
+      "kind": "functional",
+      "boundary": "api-kit paginate → API Query",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/test_error_catalog.py",
+        "-k",
+        "paginate"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "dbfe43dd807b4298b731bc0a372198d8",
+        "executed_at": "2026-09-28T12:43:47.745779+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "dbfe43dd807b4298b731bc0a372198d8",
+          "executed_at": "2026-09-28T12:43:47.745779+00:00"
+        }
+      ]
+    },
+    {
+      "id": "B-02",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "contract",
+      "kind": "functional",
+      "boundary": "SSE 解析器 → Runtime",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/agent_runtime/test_sse.py tests/gateway/test_sse_parser.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-03",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Scheduler → Schedule",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/dfx/test_dfx_recovery.py -k b03 && uv run pytest -q tests/agent_worker/test_scheduler_misfire.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": []
+    },
+    {
+      "id": "B-04",
+      "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
+      "level": "contract",
+      "kind": "functional",
+      "boundary": "locale 资源 ↔ API catalog",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "bash",
+        "-lc",
+        "uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "dbfe43dd807b4298b731bc0a372198d8",
+        "executed_at": "2026-09-28T12:43:47.745779+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "dbfe43dd807b4298b731bc0a372198d8",
+          "executed_at": "2026-09-28T12:43:47.745779+00:00"
+        }
+      ]
+    }
+  ]
+}

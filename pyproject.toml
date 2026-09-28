@@ -81,6 +81,15 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+# 测试分层（DFX FEAT-01）：选择器 `-m unit|contract|integration|e2e` 的注册表。
+# 注：既有全量用例未逐条打 marker（14-dfx-acceptance design §2.3 技术债①），
+# 因此 `-m <层>` 的选择范围只覆盖已登记 marker 的用例；新增用例须显式标注层级。
+markers = [
+    "unit: 纯逻辑/状态机，无 IO（不依赖 DB、Redis、网络与真实文件系统）",
+    "contract: 契约一致性（错误码/封套/迁移 parity/SSE 解析/词条）",
+    "integration: 真实 PG/Redis 或真实进程栈，允许有限外部依赖",
+    "e2e: 真实浏览器或跨服务真实链路（Gateway↔Runtime↔Worker↔Browser）",
+]
 
 [tool.ruff]
 target-version = "py312"
