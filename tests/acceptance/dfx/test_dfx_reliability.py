@@ -43,6 +43,7 @@ from .environment import (
     run_async,
     submit_task,
     task_type_values,
+    worker_instance_id,
 )
 
 pytestmark = pytest.mark.integration
@@ -51,13 +52,20 @@ pytestmark = pytest.mark.integration
 RACE_LEASE_SEC = 300
 RACE_CLAIMERS = ("dfx-claimer-a", "dfx-claimer-b")
 # 占住 Worker 单循环的时长 / 心跳观测窗口内 Skill 的执行时长（秒）。
+# 执行时长必须显著大于心跳观测窗口（HEARTBEAT_SAMPLES × HEARTBEAT_SAMPLE_GAP_SEC = 4.5s），
+# 使负载下 sleep 超时也不会让采样期间执行自己结束。
 BLOCKER_SLEEP_SEC = 12.0
 LOCK_BLOCKER_SLEEP_SEC = 6.0
-HEARTBEAT_SLEEP_SEC = 8.0
-HEARTBEAT_WINDOW_SEC = 3.5
+HEARTBEAT_SLEEP_SEC = 15.0
+# 心跳采样：窗口 ≥ 2 个心跳间隔（子进程 `TASK_HEARTBEAT_SEC=1`），逐点核对「租约前移 + 归属不变」。
+HEARTBEAT_SAMPLES = 3
+HEARTBEAT_SAMPLE_GAP_SEC = 1.5
 # 行被他人事务持锁时：若 claim 不是 SKIP LOCKED，它会阻塞到此处被 PG 取消（对照样本用它证明锁真实存在）。
 LOCK_STATEMENT_TIMEOUT_MS = 2000
 POLL_INTERVAL_SEC = 0.2
+# 等待真实 PG 行到达某状态的窗口：负载下 claim/执行会被拖慢，留足余量而不是立刻断言。
+RUNNING_TIMEOUT_SEC = 60.0
+COMPLETED_TIMEOUT_SEC = 120.0
 
 
 def _database_url() -> str:
@@ -214,9 +222,16 @@ def test_s04_single_claim_race_has_exactly_one_winner(
     spec = _spec(live_stack, http)
     # 先让 Worker 单循环忙于一个长执行任务，使下面的竞态窗口内它不可能参与 claim。
     blocker_id = _submit(live_stack, http, spec, sleep_sec=BLOCKER_SLEEP_SEC, probe="blocker")
-    _await_status(blocker_id, "RUNNING", timeout_sec=30)
+    _await_status(blocker_id, "RUNNING", timeout_sec=RUNNING_TIMEOUT_SEC)
 
     race_id = _submit(live_stack, http, spec, sleep_sec=0, probe="race")
+    # 前置条件：这一行在两条 claimer 起跑前必须仍可领。claim 是全局的（无 tenant 谓词），
+    # 若此刻另有 Worker 在跑（别的套件/未退净的进程），它会先领走这一行，本用例就不再是
+    # 「本用例驱动的两者之争」——先失败并给出盘面，而不是把环境问题算成竞态结果不符。
+    pre = cast(dict[str, Any], read_task_row(race_id))
+    assert pre["status"] == "QUEUED" and pre["lease_owner"] is None, (
+        f"竞态样板已被本用例之外的执行者领取（claim 跨租户全局有效）：{pre}"
+    )
     claimed = run_async(_race_two_claimers)
 
     winners = [item for item in claimed if item is not None]
@@ -234,7 +249,7 @@ def test_s04_single_claim_race_has_exactly_one_winner(
     assert row["result_json"] is None and row["finished_at"] is None
 
     # 等 Worker 空闲下来：它仍不能碰被租出去的这一行（落败者没有执行）。
-    _await_status(blocker_id, "COMPLETED", timeout_sec=90)
+    _await_status(blocker_id, "COMPLETED", timeout_sec=COMPLETED_TIMEOUT_SEC)
     after = read_task_row(race_id)
     assert after == row, f"Worker 空闲后改动了竞态样板：{after}"
     assert count_task_events(race_id, "CLAIMED") == 1
@@ -245,32 +260,51 @@ def test_s04_single_claim_race_has_exactly_one_winner(
 
 
 def test_s04_heartbeat_renews_lease_until_in_pg(live_stack: DfxStack, http: httpx.Client) -> None:
-    """执行中 heartbeat 续租：`lease_until` 在真实 PG 里严格前移。"""
+    """执行中 heartbeat 续租：`lease_until` 在真实 PG 里持续前移，且租约**一次都没被回收**。
+
+    不变式取自 design §2.4.2 S-04（heartbeat 续租）与 §3.4.4 / `harness-worker#RULE-worker-001`
+    （PG 为 lease 权威源、租约守卫式 CAS）：执行期内 `lease_owner` 始终是本基座 Worker 子进程，
+    PG 无 `RECLAIMED` 事件，且 `lease_until` 在观测窗口内严格前移。**不用 `attempt == 1` 当判据**：
+    租约一旦过期，`WorkerLoop._requeue_expired` 就会按设计回收、下一次 claim 递增 `attempt` ——
+    那是产品在正确工作（`_cas` 的 `lease_until > now` 守卫正是为此），不是 heartbeat 失效；
+    负载下的一次续租延误就会误判。`attempt` 是派生计数，本用例断言它背后的不变式本身。
+    """
     spec = _spec(live_stack, http)
     task_id = _submit(live_stack, http, spec, sleep_sec=HEARTBEAT_SLEEP_SEC, probe="heartbeat")
 
-    running = _await_status(task_id, "RUNNING", timeout_sec=30)
+    running = _await_status(task_id, "RUNNING", timeout_sec=RUNNING_TIMEOUT_SEC)
+    lease_owner = running["lease_owner"]
     first = running["lease_until"]
     first_heartbeat = running["heartbeat_at"]
-    assert running["lease_owner"], "执行中必须有 lease_owner（claim 落库事实）"
+    assert lease_owner, "执行中必须有 lease_owner（claim 落库事实）"
     assert first is not None and first_heartbeat is not None
-    # 租约归属必须是真实的 Worker 子进程实例（`hostname:pid`），而非本测试进程。
-    host, _, pid = str(running["lease_owner"]).partition(":")
-    assert host == socket.gethostname(), f"lease_owner 不是本机 Worker 实例：{running['lease_owner']}"
+    # 租约归属必须是本基座真实 Worker 子进程（`hostname:pid`），而非测试进程或别的 Worker。
+    assert lease_owner == worker_instance_id(live_stack), f"租约不属于本基座 Worker 子进程：{lease_owner}"
+    host, _, pid = str(lease_owner).partition(":")
+    assert host == socket.gethostname(), f"lease_owner 不是本机 Worker 实例：{lease_owner}"
     assert pid.isdigit() and int(pid) != os.getpid(), "租约不是子进程持有的"
 
-    time.sleep(HEARTBEAT_WINDOW_SEC)
+    # 窗口 ≥ 2 个心跳间隔（`TASK_HEARTBEAT_SEC=1` 在子进程环境里），逐点核对执行者与租约。
+    samples: list[dict[str, Any]] = [running]
+    for _ in range(HEARTBEAT_SAMPLES):
+        time.sleep(HEARTBEAT_SAMPLE_GAP_SEC)
+        row = read_task_row(task_id)
+        assert row is not None, f"PG 中不存在 task {task_id}"
+        samples.append(row)
 
-    later_row = read_task_row(task_id)
-    assert later_row is not None
-    assert later_row["status"] == "RUNNING", f"观测窗口内执行已中断：{later_row}"
-    later = later_row["lease_until"]
-    assert later is not None, "heartbeat 停摆会让租约被清空（reclaim）"
-    assert later > first, f"heartbeat 未续租：lease_until {first} → {later}"
-    assert later_row["heartbeat_at"] > first_heartbeat, "heartbeat_at 未前移"
-    assert later_row["attempt"] == 1, "正常执行中被续租，不应发生 reclaim/重试"
+    for row in samples:
+        assert row["status"] == "RUNNING", f"观测窗口内执行已中断：{row}"
+        assert row["lease_owner"] == lease_owner, f"租约归属发生变化（被回收后重领）：{row}"
+        assert row["lease_until"] is not None, "heartbeat 停摆会让租约被清空（reclaim）"
 
-    completed = _await_status(task_id, "COMPLETED", timeout_sec=60)
+    leases = [cast(datetime, row["lease_until"]) for row in samples]
+    assert leases == sorted(leases), f"lease_until 未单调前移：{leases}"
+    assert leases[-1] > cast(datetime, first), f"heartbeat 未续租：lease_until {first} → {leases[-1]}"
+    assert samples[-1]["heartbeat_at"] > first_heartbeat, "heartbeat_at 未前移"
+    assert count_task_events(task_id, "RECLAIMED") == 0, "执行中租约被回收（heartbeat 没守住租约）"
+
+    completed = _await_status(task_id, "COMPLETED", timeout_sec=COMPLETED_TIMEOUT_SEC)
+    assert count_task_events(task_id, "RECLAIMED") == 0, "整个执行期都不该发生 reclaim"
     assert completed["lease_owner"] is None, "终态必须释放租约"
     assert completed["lease_until"] is None
     assert completed["result_json"] is not None
@@ -301,7 +335,7 @@ def test_s04_claim_skips_row_locked_by_another_transaction(
     """claim 是 `FOR UPDATE SKIP LOCKED`：行被他人事务持锁时必须跳过，而不是等待或重复领取。"""
     spec = _spec(live_stack, http)
     blocker_id = _submit(live_stack, http, spec, sleep_sec=LOCK_BLOCKER_SLEEP_SEC, probe="lock")
-    _await_status(blocker_id, "RUNNING", timeout_sec=30)
+    _await_status(blocker_id, "RUNNING", timeout_sec=RUNNING_TIMEOUT_SEC)
 
     task_id = _submit(live_stack, http, spec, sleep_sec=0, probe="locked-row")
     assert cast(dict[str, Any], read_task_row(task_id))["status"] == "QUEUED"

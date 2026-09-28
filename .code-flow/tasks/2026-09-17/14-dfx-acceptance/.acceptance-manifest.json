@@ -322,7 +322,7 @@
       "kind": "functional",
       "boundary": "Service → PostgreSQL",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -334,7 +334,55 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 4,
+        "run_id": "d305f3014b19408ba310c76588f5e5d0",
+        "executed_at": "2026-09-28T17:10:04.372921+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "d53ddeaebdc74018ade4f3458abbae87",
+          "executed_at": "2026-09-28T15:56:06.330575+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "0b03002f86d54960aae2f0504eb80c61",
+          "executed_at": "2026-09-28T15:57:26.751118+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "ed3f19f39aa04becb2a888473d62f83e",
+          "executed_at": "2026-09-28T15:59:08.507722+00:00"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "d305f3014b19408ba310c76588f5e5d0",
+          "executed_at": "2026-09-28T17:10:04.372921+00:00"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -343,7 +391,7 @@
       "kind": "functional",
       "boundary": "Redis → PG",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -351,7 +399,57 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 4,
+        "run_id": "d305f3014b19408ba310c76588f5e5d0",
+        "executed_at": "2026-09-28T17:10:04.372921+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "d53ddeaebdc74018ade4f3458abbae87",
+          "executed_at": "2026-09-28T15:56:06.330575+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "failed",
+          "error": "timeout",
+          "output": "",
+          "revision": 2,
+          "run_id": "0b03002f86d54960aae2f0504eb80c61",
+          "executed_at": "2026-09-28T15:57:26.751118+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "adiness(degraded.url, ready=True)\n            assert ready[\"wakeup_hint\"] == \"disabled\", f\"降级模式必须被明确上报：{ready}\"\n            status, _ = _probe_service(degraded.url, \"/healthz\")\n            assert status == 200, \"Redis 只是 hint，不该让 /healthz 失败\"\n            task_id = _submit(live_stack, http, spec, worker_url=degraded.url, probe=\"no-redis\")\n            task_ids.append(task_id)\n            row = _await_task_status(task_id, \"COMPLETED\")\n            assert row[\"result_json\"] == {\"slept_sec\": 0.0, \"probe\": \"no-redis\"}, (\n                \"Redis 不可用时 PG 事实必须完整（权威源在 PG）\"\n            )\n            assert row[\"finished_at\"] is not None\n            dedupe = cast(dict[str, Any], run_async(_dedupe_degrade_and_restore))\n            assert dedupe[\"degraded_store\"] == \"NullDedupeStore\", dedupe\n            assert dedupe[\"degraded_duplicate\"] is False, f\"不得假称重复而丢弃投递：{dedupe}\"\n            assert dedupe[\"restored_store\"] == \"RedisDedupeStore\", dedupe\n            assert dedupe[\"restored_first_duplicate\"] is False, dedupe\n            assert dedupe[\"restored_second_duplicate\"] is True, f\"恢复后去重未重新生效：{dedupe}\"\n>       _assert_residue_free(live_stack, task_ids, artifacts_before=artifacts_before)\n\ntests/acceptance/dfx/test_dfx_fault_matrix.py:583: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/acceptance/dfx/test_dfx_fault_matrix.py:239: in _assert_residue_free\n    commands = _await_service_processes(\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nexpected = {'muad_agent_worker.main': 1, 'muad_console_platform.main': 1}\n\n    def _await_service_processes(expected: dict[str, int]) -> list[str]:\n        \"\"\"等进程收敛到期望分布（停进程后端口/进程表有极短抖动窗口）。\"\"\"\n        deadline = time.monotonic() + PROCESS_WAIT_SEC\n        commands: list[str] = []\n        while time.monotonic() < deadline:\n            commands = _service_commands()\n            if {module: sum(module in line for line in commands) for module in expected} == expected:\n                return commands\n            time.sleep(POLL_INTERVAL_SEC)\n>       raise AssertionError(f\"服务进程未收敛到 {expected}：{commands}\")\nE       AssertionError: 服务进程未收敛到 {'muad_console_platform.main': 1, 'muad_agent_worker.main': 1}：['/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_console_platform.main:app --host 127.0.0.1 --port 56136 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_runtime.main:app --host 127.0.0.1 --port 56110 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_runtime.main:app --host 127.0.0.1 --port 56111 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_worker.main:app --host 127.0.0.1 --port 56112 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_im_gateway.main:app --host 127.0.0.1 --port 56113 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_worker.main:app --host 127.0.0.1 --port 56137 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_console_platform.main:app --host 127.0.0.1 --port 56109 --log-level error']\n\ntests/acceptance/dfx/test_dfx_fault_matrix.py:187: AssertionError\n------------------------------ Captured log call -------------------------------\nWARNING  muad_im_gateway.infrastructure.dedupe:dedupe.py:170 dedupe_redis_ping_failed error=Error 61 connecting to 127.0.0.1:1. Connect call failed ('127.0.0.1', 1). using_null_store\nWARNING  muad_im_gateway.infrastructure.dedupe:dedupe.py:170 dedupe_redis_ping_failed error=Error 61 connecting to 127.0.0.1:1. Connect call failed ('127.0.0.1', 1). using_null_store\n=========================== short test summary info ============================\nFAILED tests/acceptance/dfx/test_dfx_fault_matrix.py::test_e02_redis_unavailable_degrades_to_at_least_once_and_recovers\n1 failed, 2 deselected in 14.64s",
+          "revision": 3,
+          "run_id": "ed3f19f39aa04becb2a888473d62f83e",
+          "executed_at": "2026-09-28T15:59:08.507722+00:00"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "d305f3014b19408ba310c76588f5e5d0",
+          "executed_at": "2026-09-28T17:10:04.372921+00:00"
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -360,7 +458,7 @@
       "kind": "functional",
       "boundary": "emptyDir cache → NFS",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -368,7 +466,56 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 4,
+        "run_id": "d305f3014b19408ba310c76588f5e5d0",
+        "executed_at": "2026-09-28T17:10:04.372921+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "d53ddeaebdc74018ade4f3458abbae87",
+          "executed_at": "2026-09-28T15:56:06.330575+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "incomplete",
+          "error": "deadline_exceeded",
+          "revision": 2,
+          "run_id": "0b03002f86d54960aae2f0504eb80c61",
+          "executed_at": "2026-09-28T15:57:26.751118+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_e03_artifact_store_unavailable_keeps_ready_and_fails_new_writes _____\n\nlive_stack = DfxStack(console_url='http://127.0.0.1:56376', worker_url='http://127.0.0.1:56377', artifact_root=PosixPath('/private/...ai0/worker-restored.log'), _process=<Popen: returncode: None args: ['/Users/jahan/workspace/fluxion-harness/.ven...>)})\nhttp = <httpx.Client object at 0x10987bc50>\ntmp_path = PosixPath('/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/pytest-of-jahan/pytest-154/test_e03_artifact_store_unavai0')\n\n    def test_e03_artifact_store_unavailable_keeps_ready_and_fails_new_writes(\n        live_stack: DfxStack, http: httpx.Client, tmp_path: Path\n    ) -> None:\n        \"\"\"E-03：Artifact Store 不可用 → 既有 READY 继续执行；cache miss/新写入明确失败。\"\"\"\n        spec = resolve_task_spec(live_stack, http)\n        artifacts_before = _artifact_files(live_stack.artifact_root)\n        outage = _prepare_store_outage(live_stack, tmp_path)\n        task_ids: list[uuid.UUID] = []\n        try:\n            for arm in (\n                _arm_ready_cache_keeps_running,\n                _arm_cache_miss_fails_explicitly,\n                _arm_new_write_succeeds_after_recovery,\n            ):\n                task_ids.append(arm(live_stack, http, spec, tmp_path, outage))\n        finally:\n            _reattach_store(outage.store_root, outage.detached)\n>       _assert_residue_free(live_stack, task_ids, artifacts_before=artifacts_before)\n\ntests/acceptance/dfx/test_dfx_fault_matrix.py:758: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/acceptance/dfx/test_dfx_fault_matrix.py:239: in _assert_residue_free\n    commands = _await_service_processes(\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nexpected = {'muad_agent_worker.main': 1, 'muad_console_platform.main': 1}\n\n    def _await_service_processes(expected: dict[str, int]) -> list[str]:\n        \"\"\"等进程收敛到期望分布（停进程后端口/进程表有极短抖动窗口）。\"\"\"\n        deadline = time.monotonic() + PROCESS_WAIT_SEC\n        commands: list[str] = []\n        while time.monotonic() < deadline:\n            commands = _service_commands()\n            if {module: sum(module in line for line in commands) for module in expected} == expected:\n                return commands\n            time.sleep(POLL_INTERVAL_SEC)\n>       raise AssertionError(f\"服务进程未收敛到 {expected}：{commands}\")\nE       AssertionError: 服务进程未收敛到 {'muad_console_platform.main': 1, 'muad_agent_worker.main': 1}：['/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_console_platform.main:app --host 127.0.0.1 --port 56376 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_console_platform.main:app --host 127.0.0.1 --port 56814 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_runtime.main:app --host 127.0.0.1 --port 56815 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_runtime.main:app --host 127.0.0.1 --port 56816 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_worker.main:app --host 127.0.0.1 --port 56817 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_worker.main:app --host 127.0.0.1 --port 56377 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_im_gateway.main:app --host 127.0.0.1 --port 56818 --log-level error']\n\ntests/acceptance/dfx/test_dfx_fault_matrix.py:187: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/dfx/test_dfx_fault_matrix.py::test_e03_artifact_store_unavailable_keeps_ready_and_fails_new_writes\n1 failed, 2 deselected in 32.06s",
+          "revision": 3,
+          "run_id": "ed3f19f39aa04becb2a888473d62f83e",
+          "executed_at": "2026-09-28T15:59:08.507722+00:00"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "d305f3014b19408ba310c76588f5e5d0",
+          "executed_at": "2026-09-28T17:10:04.372921+00:00"
+        }
+      ]
     },
     {
       "id": "E-04",

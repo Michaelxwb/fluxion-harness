@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-09-17/14-dfx-acceptance/（唯一 design：14-dfx-acceptance.backend.design.md）
 - **Created**: 2026-09-28
-- **Updated**: 2026-09-28
+- **Updated**: 2026-09-29
 - **Plan-State**: planned（用户已确认写入；manual 两例 S-13/E-10 与 S-06 的「Browser 臂不可执行」边界均已确认；各 TASK 保持 draft，功能与 E2E 验收尚未执行）
 
 ## Proposal
@@ -57,9 +57,9 @@
 | S-11 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Worker → Gateway `/internal/deliveries` → Redis | TASK-006 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"] | . | 900 |  |
 | S-12 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | TASK-012 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"] | . | 1200 |  |
 | S-13 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | manual | CI/环境全链路 | TASK-013 | planned | - | . | 60 |  |
-| E-01 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Service → PostgreSQL | TASK-004 | planned | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_fault_matrix.py","-k","e01"] | . | 900 |  |
-| E-02 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Redis → PG | TASK-004 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e02 && uv run pytest -q tests/acceptance/im_gateway/test_redis_degradation.py"] | . | 900 |  |
-| E-03 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | emptyDir cache → NFS | TASK-004 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e03 && uv run pytest -q tests/acceptance/test_foundation_artifact.py tests/test_skill_artifact_cache.py"] | . | 900 |  |
+| E-01 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Service → PostgreSQL | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_fault_matrix.py","-k","e01"] | . | 900 |  |
+| E-02 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Redis → PG | TASK-004 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e02 && uv run pytest -q tests/acceptance/im_gateway/test_redis_degradation.py"] | . | 900 |  |
+| E-03 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | emptyDir cache → NFS | TASK-004 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e03 && uv run pytest -q tests/acceptance/test_foundation_artifact.py tests/test_skill_artifact_cache.py"] | . | 900 |  |
 | E-04 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | lease → Reaper → CAS | TASK-005 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_recovery.py -k e04 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py tests/acceptance/task_schedule/test_recovery.py"] | . | 1200 |  |
 | E-05 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Scheduler sweep → PG | TASK-005 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_recovery.py -k e05 && uv run pytest -q tests/agent_worker/test_task_deadline.py"] | . | 900 |  |
 | E-06 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Worker → Gateway → Redis | TASK-006 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k e06 && uv run pytest -q tests/acceptance/im_gateway/test_worker_delivery.py"] | . | 900 |  |
@@ -243,13 +243,13 @@ FEAT-03 的契约层聚合：ORM↔迁移 parity、契约模型形状、关系�
 - [2026-09-28] completed (done)
 ## TASK-004: 依赖故障矩阵（PG/Redis/Artifact Store）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.4 可靠性矩阵, 14-dfx-acceptance.backend.design.md#3.4.8 不得 mock 的真实边界清单, 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景
 - **Spec-Refs**:
 - **Acceptance-Refs**: E-01, E-02, E-03
-- **Files**: `tests/acceptance/dfx/test_dfx_fault_matrix.py`
+- **Files**: `tests/acceptance/dfx/test_dfx_fault_matrix.py`, `tests/acceptance/dfx/environment.py`
 - **Estimate**: 半天级
 
 ### Description
@@ -258,33 +258,48 @@ FEAT-04 的依赖故障面：PG 不可用 fail closed（不本地落状态、`/r
 
 ### Checklist
 
-- [ ] [E-01][integration] 以 `Service → PostgreSQL` 为真实边界编写故障注入用例：停 PG/连接失败 → fail closed（不本地落状态）、`/readyz` 返回失败（503 语义）、恢复后业务事实完整。执行 argv：`["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_fault_matrix.py","-k","e01"]`。
-- [ ] [E-02][integration] 以 `Redis → PG` 为真实边界断言 Redis 停止时 cache miss / dedupe 降级为 at-least-once、PG 数据完整、恢复后去重重新生效；既有真实降级用例一并登记 argv（引用不复制）。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e02 && uv run pytest -q tests/acceptance/im_gateway/test_redis_degradation.py"]`。
-- [ ] [E-03][integration] 以 `emptyDir cache → NFS` 为真实边界断言已有 READY 可继续执行；cache miss 与新 Artifact 写入明确失败为 `SKILL_ARTIFACT_UNAVAILABLE`，**不返回假成功**。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e03 && uv run pytest -q tests/acceptance/test_foundation_artifact.py tests/test_skill_artifact_cache.py"]`。
-- [ ] 故障注入必须真实可复位：注入前后各取一次真实盘面（PG/Redis/Artifact 目录），并断言复位后无残留（无孤儿进程、无残留 key、无残留对象）。
-- [ ] 显式边界（不修，只登记）：E-03 的「NFS 高延迟」部分依赖环境能力（design 技术债③），环境不具备时按 manual 口径记录原因，**不得**用本地替身冒充 NFS 慢故障。
-- [ ] 每条失败路径都要断言「不返回假成功」：失败必须显式（错误码/状态），不得静默吞错或返回空结果。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [E-01][integration] 以 `Service → PostgreSQL` 为真实边界编写故障注入用例：停 PG/连接失败 → fail closed（不本地落状态）、`/readyz` 返回失败（503 语义）、恢复后业务事实完整。执行 argv：`["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_fault_matrix.py","-k","e01"]`。**实测：`-k e01` → 1 passed in 14.12s。注入方式为「真实连接失败」而非停真实 PG（该 PG 是外部共享服务）：测试进程内起真实 TCP 转发器（`_TcpRelay`），被测 Worker 的 `DATABASE_URL` 指向转发端口，`fail()` 后新连接被拒、已建立连接被切断；窗口内以测试进程自身 `SELECT 1` 为正对照。**
+- [x] [E-02][integration] 以 `Redis → PG` 为真实边界断言 Redis 停止时 cache miss / dedupe 降级为 at-least-once、PG 数据完整、恢复后去重重新生效；既有真实降级用例一并登记 argv（引用不复制）。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e02 && uv run pytest -q tests/acceptance/im_gateway/test_redis_degradation.py"]`。**实测：本任务段 1 passed in 4.15s；既有降级套件 2 passed in 41.66s。真实 Redis 未被停：被测 Worker 的 `REDIS_URL` 指向不可达端点 `redis://127.0.0.1:1/0`（与既有套件同口径）。**
+- [x] [E-03][integration] 以 `emptyDir cache → NFS` 为真实边界断言已有 READY 可继续执行；cache miss 与新 Artifact 写入明确失败为 `SKILL_ARTIFACT_UNAVAILABLE`，**不返回假成功**。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e03 && uv run pytest -q tests/acceptance/test_foundation_artifact.py tests/test_skill_artifact_cache.py"]`。**实测：本任务段 1 passed in 6.67s；既有套件 7 passed in 0.02s。注入方式：被测 Worker 的 Artifact 根先真实存在（真实 zip 拷贝 + PG 登记 checksum），随后 `rename` 成同名普通文件 → `is_dir()` 为假、`resolve/open` 得 `ENOTDIR`；复位时换回目录。**
+- [x] 故障注入必须真实可复位：注入前后各取一次真实盘面（PG/Redis/Artifact 目录），并断言复位后无残留（无孤儿进程、无残留 key、无残留对象）。**实测：三例均以 `_assert_residue_free` 核对——本运行 task id 的 `task:cancel:*` = 0、本用例投递去重键（前缀 `delivery:dedupe:dfx-fault-matrix*`）= 0、本运行 Task 对应的 `delivery:dedupe:task:{id}:final` = 0（`delivery_mode=NONE` 不该产生）、真实 Artifact 根文件清单逐项未变、服务进程恰好 `muad_console_platform.main`×1 + `muad_agent_worker.main`×1（注入进程已在 `finally` 停掉并复位基座 Worker）。跑完全部扰动后复核：`ps -Aww | grep -E "uvicorn|muad_.*main"` = 0 行；本租户 12 张表残留 = 0；Redis 无 `task:cancel:*`/`task:wakeup`/`dfx-fault-matrix*` 残留键。**
+- [x] 显式边界（不修，只登记）：E-03 的「NFS 高延迟」部分依赖环境能力（design 技术债③），环境不具备时按 manual 口径记录原因，**不得**用本地替身冒充 NFS 慢故障。**本次实测口径：本机（macOS 本地文件系统，无 NFS 挂载）无法产生可复现的真实 NFS 慢故障注入，故「NFS 高延迟」按 manual 口径登记（原因：环境不具备真实 NFS-backed 慢 IO 能力），未以本地替身冒充。E-03 的机检仅覆盖「Store 不可用」这一半（已有 READY 继续 + cache miss/新写入明确失败），不宣称已覆盖慢故障。**
+- [x] 每条失败路径都要断言「不返回假成功」：失败必须显式（错误码/状态），不得静默吞错或返回空结果。**实测：E-01 提交路径断言 `status_code == 500` + 封套 `code == COMMON_INTERNAL_ERROR`（未落任何 PG 行、未写本地缓存）；E-02 断言运行期 `DedupeStoreError` 显式抛出 + 降级态 `is_duplicate == False`（不假称重复而丢发）+ `/readyz` 明确上报 `wakeup_hint=disabled`；E-03 断言 `error_code == SKILL_ARTIFACT_UNAVAILABLE`、`result_json IS NULL`、`FAILED` 事件=1 且 cache 目录零残留（无假 READY）。**
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。**本任务三场景均无生产缺口，RED 行统一为「无 RED（新用例覆盖既有行为，如实登记）」，并以 6 处生产代码抖动取证证明断言非空（6 处均在最终文件版本上复验，`git status --porcelain -- packages/ apps/` 为空；详见 Evidence）。**
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-01 | integration | Service → PostgreSQL | fail closed 不落本地状态；`/readyz` 失败；恢复后事实完整 | tests/acceptance/dfx/test_dfx_fault_matrix.py / E-01 | `["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_fault_matrix.py","-k","e01"]` | planned |
-| E-02 | integration | Redis → PG | cache miss/dedupe 降级 at-least-once；PG 完整；恢复后去重生效 | tests/acceptance/dfx/test_dfx_fault_matrix.py + tests/acceptance/im_gateway/test_redis_degradation.py / E-02 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e02 && uv run pytest -q tests/acceptance/im_gateway/test_redis_degradation.py"]` | planned |
-| E-03 | integration | emptyDir cache → NFS | 已有 READY 可继续；新写入明确 `SKILL_ARTIFACT_UNAVAILABLE`；不假成功 | tests/acceptance/dfx/test_dfx_fault_matrix.py + tests/acceptance/test_foundation_artifact.py + tests/test_skill_artifact_cache.py / E-03 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e03 && uv run pytest -q tests/acceptance/test_foundation_artifact.py tests/test_skill_artifact_cache.py"]` | planned |
+| E-01 | integration | Service → PostgreSQL | fail closed 不落本地状态；`/readyz` 失败；恢复后事实完整 | tests/acceptance/dfx/test_dfx_fault_matrix.py / E-01 | `["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_fault_matrix.py","-k","e01"]` | verified |
+| E-02 | integration | Redis → PG | cache miss/dedupe 降级 at-least-once；PG 完整；恢复后去重生效 | tests/acceptance/dfx/test_dfx_fault_matrix.py + tests/acceptance/im_gateway/test_redis_degradation.py / E-02 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e02 && uv run pytest -q tests/acceptance/im_gateway/test_redis_degradation.py"]` | verified |
+| E-03 | integration | emptyDir cache → NFS | 已有 READY 可继续；新写入明确 `SKILL_ARTIFACT_UNAVAILABLE`；不假成功 | tests/acceptance/dfx/test_dfx_fault_matrix.py + tests/acceptance/test_foundation_artifact.py + tests/test_skill_artifact_cache.py / E-03 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e03 && uv run pytest -q tests/acceptance/test_foundation_artifact.py tests/test_skill_artifact_cache.py"]` | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| （编码期填写） | | | | | |
+| E-01 | **无 RED（新用例覆盖既有行为，如实登记）**：本任务无生产缺口——PG 不可达时 `/readyz` 已由 `database_readiness` 返回 503、提交路径已 fail closed（未落 PG 行、未写本地状态），首跑即绿。为证明断言非空，做了两处**抖动取证**（改生产代码 → 对应断言失败 → 按字节还原 → 复绿，`git status --porcelain -- packages/ apps/` 为空）：① `packages/api-kit/src/muad_api/probes.py::database_readiness` 的 `except Exception: return False` 改为 `return True`（就绪检查 fail-open）→ 失败 `AssertionError: http://127.0.0.1:59903/readyz 未在 30.0s 内降级：200 {'status': 'ready', ...}`；② `packages/api-kit/src/muad_api/handlers.py` 通用异常处理器 `_json_response(body, 500)` 改为 `200`（把内部错误伪装成 HTTP 成功）→ 失败 `AssertionError: PG 不可用时提交必须显式失败：200 / assert 200 == 500`。两次还原后 `-k e01` 均复绿。 | `-k e01` → **1 passed in 14.12s**（六处抖动均在最终文件版本上复验：改生产代码 → 断言失败 → 按字节还原 → 复绿） | `tests/acceptance/dfx/test_dfx_fault_matrix.py::test_e01_postgres_unavailable_fails_closed_and_recovers`：`/readyz` 503 且 `failed` 含 `database`；`/healthz` 仍 200（存活与依赖分离）；窗口内测试进程 `SELECT 1` 成功（正对照：真实 PG 未被触碰）；`POST /internal/tasks` = 500 + 封套 `code=COMMON_INTERNAL_ERROR`；`task.task_execution`/`task.task_submission` 按该 idempotency_key 计数 = 0；本地 cache 根零写入；`relay.recover()` 后 `/readyz` 复 200、故障前任务行逐字段未变（`read_task_row(pre_fault_id) == pre_fault_row`）、新任务 COMPLETED 且 `result_json={"slept_sec": 0.0, "probe": "after-recovery"}` | **真实连接失败（不停真实 PG）**：测试进程内真实 TCP 转发器 `_TcpRelay` 承接被测 Worker 的 `DATABASE_URL`；`fail()` 拒绝新连接并切断已建立连接（asyncpg 得到真实网络错误），`recover()` 后同一进程重连成功；真实 PostgreSQL（外部共享服务）全程未被停止/重启/改配置。被注入的边界是「Service → PostgreSQL」这一段连接；Worker 是真实 uvicorn 子进程（`muad_agent_worker.main`，复用基座 Worker 端口），未 mock | verified |
+| E-02 | **无 RED（新用例覆盖既有行为，如实登记）**：Redis 不可用时 Worker 已降级为 PG 扫描（`wakeup_hint=disabled`）、任务照常 claim/执行、网关去重已降级 `NullDedupeStore`（at-least-once），首跑即绿。为证明断言非空，做了两处**抖动取证**（按字节还原后 `git status --porcelain -- apps/` 为空）：① `apps/agent-worker/src/muad_agent_worker/main.py` 的降级上报 `"disabled"` 改为 `"redis"`（把降级伪装成正常）→ 失败 `AssertionError: 降级模式必须被明确上报：{'wakeup_hint': 'redis', ...} / assert 'redis' == 'disabled'`；② `apps/im-gateway/src/muad_im_gateway/infrastructure/dedupe.py::RedisDedupeStore.set_if_absent` 的 `nx=True` 改为 `nx=False`（去重永不生效）→ 失败 `AssertionError: 恢复后去重未重新生效：{... 'restored_second_duplicate': False} / assert False is True`。两次还原后 `-k e02` 均复绿；扰动期写入的探针键在 `finally` 中 `release` 删除，复核 Redis 无 `delivery:dedupe:dfx-fault-matrix*` 残留。 | `-k e02` → **1 passed in 4.15s**（复合 argv 首段 4.78s）；既有降级套件 `tests/acceptance/im_gateway/test_redis_degradation.py` → **2 passed in 41.66s**（复合 argv 两段全过） | `test_e02_redis_unavailable_degrades_to_at_least_once_and_recovers`：不可达端点真实 `ConnectionError` + 运行期 `DedupeStoreError`（生产 `RedisDedupeStore`）；启动期 `build_dedupe_store(DEAD)` → `NullDedupeStore` 且 `is_duplicate == False`（不假称重复而丢发）；降级 Worker `/readyz` 200 且 `wakeup_hint == "disabled"`、`/healthz` 200；经降级 Worker 提交的任务 COMPLETED 且 `result_json == {"slept_sec": 0.0, "probe": "no-redis"}`、`finished_at` 非空；恢复（真实 Redis）后 `RedisDedupeStore` 首次 `False`、二次 `True`（去重重新生效） | **真实 Redis 未被停**：被测 Worker 的 `REDIS_URL` 指向不可达端点 `redis://127.0.0.1:1/0`（与 `tests/acceptance/im_gateway/test_redis_degradation.py` 同口径）；去重口径直接复用生产类 `build_dedupe_store`/`is_duplicate`/`RedisDedupeStore`（网关启动与运行期同一实现），不手写替身。端到端 at-least-once（两次投递都真实发送）由既有降级套件承接，本用例只登记其 argv（引用不复制） | verified |
+| E-03 | **无 RED（新用例覆盖既有行为，如实登记）**：Artifact 根由目录换成普通文件后，`SkillArtifactCache` 已按设计「先查本地 READY、miss 才回源」，miss 时显式 `SKILL_ARTIFACT_UNAVAILABLE`、Worker `/readyz` 的 `artifact_storage` 已为假，首跑即绿。为证明断言非空，做了两处**抖动取证**（按字节还原后 `git status --porcelain -- packages/artifact-store/` 为空）：① `packages/artifact-store/src/muad_artifact_store/skill_cache.py::ensure` 的两处 `if (final_dir / "READY").exists():` 短路改为 `if False:`（丢掉本地 READY 语义、每次都回源）→ 失败 `AssertionError: task 57daebb7-… 未在 60.0s 内到达 COMPLETED，最后盘面：{... 'status': 'FAILED', 'attempt': 3, 'error_code': 'SKILL_ARTIFACT_UNAVAILABLE'}`（既有 READY 不再能继续执行）；② `_prepare` 的 miss 分支 `raise SkillArtifactCacheError("SKILL_ARTIFACT_UNAVAILABLE")` 改为写一个假 READY 并 `return final_dir`（注入假成功）→ 失败 `AssertionError: {'attempt': 1, ..., 'error_code': 'SKILL_EXECUTION_FAILED', ...} / assert 'SKILL_EXECUTION_FAILED' == 'SKILL_ARTIFACT_UNAVAILABLE'`（失败被错标为普通执行失败）。两次还原后 `-k e03` 均复绿；扰动只落在本用例自建的 tmp 产物根/缓存上，未触碰真实 Artifact 根与共享租户数据。 | `-k e03` → **1 passed in 6.67s**（复合 argv 首段 9.16s）；既有套件 `tests/acceptance/test_foundation_artifact.py tests/test_skill_artifact_cache.py` → **7 passed in 0.02s**（复合 argv 两段全过） | `test_e03_artifact_store_unavailable_keeps_ready_and_fails_new_writes`：注入后 `not store_root.is_dir()`、`(detached / storage_key).is_file()`（包仍在、只是被换位）、`not (store_root / storage_key).exists()`、`/readyz` 503 且 `failed` 含 `artifact_storage` 且 `artifact_root` 指向注入路径；臂 A（本地已有 READY）COMPLETED 且 `result_json == {"slept_sec": 0.0, "probe": "cache-hit"}`、READY 文件内容逐字节未变；臂 B（同一 artifact、cache 为空、`TASK_MAX_ATTEMPTS=1`）FAILED、`error_code == "SKILL_ARTIFACT_UNAVAILABLE"`、`result_json IS NULL`、`finished_at` 非空、`FAILED` 事件 = 1、cache 目录零条目（无假 READY/半成品）；臂 C（存储复位后）COMPLETED 且新写入落下 READY | **真实不可读的存储**：注入用的 Artifact 根是本租户真实 zip 的逐字节拷贝（`_digest(target) == stack.checksum`，与 PG 登记 checksum 一致），先由生产 `SkillArtifactCache` 真实落 READY；随后把该根换成同名普通文件（`ENOTDIR`）——被测 Worker（真实 uvicorn 子进程）配置的源路径真实不可读。全流程未 mock；真实 Artifact 根文件清单在用例前后逐项一致 | verified |
+- E-01: verified — automated command passed; run_id=d53ddeaebdc74018ade4f3458abbae87 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=d53ddeaebdc74018ade4f3458abbae87 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=d53ddeaebdc74018ade4f3458abbae87 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=0b03002f86d54960aae2f0504eb80c61 (confirmed_by: runner)
+- E-02: failed — automated command failed; run_id=0b03002f86d54960aae2f0504eb80c61 (confirmed_by: runner)
+- E-03: incomplete — automated command incomplete; run_id=0b03002f86d54960aae2f0504eb80c61 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=ed3f19f39aa04becb2a888473d62f83e (confirmed_by: runner)
+- E-02: failed — automated command failed; run_id=ed3f19f39aa04becb2a888473d62f83e (confirmed_by: runner)
+- E-03: failed — automated command failed; run_id=ed3f19f39aa04becb2a888473d62f83e (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=d305f3014b19408ba310c76588f5e5d0 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=d305f3014b19408ba310c76588f5e5d0 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=d305f3014b19408ba310c76588f5e5d0 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
 
 ---
-
+- [2026-09-28] started
+- [2026-09-29] completed (done)
 ## TASK-005: 租约回收、deadline sweep 与 Schedule 边界
 
 - **Status**: draft

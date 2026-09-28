@@ -18,6 +18,8 @@ DFX 自己的唯一租户、控制面种子与最小真实服务链（Console + 
 from __future__ import annotations
 
 import os
+import socket
+import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -53,13 +55,23 @@ MODEL_API_KEY = "dfx-reliability-model-key"
 SKILL_KEY = "dfx_reliability_probe"
 SKILL_VERSION = "1.0.0"
 
-# 子进程租约口径：心跳 1s / 租约 2s —— 观测窗口内必然见到多次续租，而心跳一旦停摆，
-# 租约 2s 内失效并被 reclaim（抖动取证的靶点）。
-TASK_LEASE_SEC = 2
+# 子进程租约口径：心跳 1s / 租约 30s（生产默认 `task_lease_sec=60` / `task_heartbeat_sec=20` 的同向缩放）。
+# 租约必须显著大于心跳间隔：整跑 `tests/acceptance` 时同机有大量并发服务进程，心跳协程的 1s
+# sleep 与一次续租的 PG/Redis 往返都可能被延误。若只留 1s 余量（心跳 1s / 租约 2s），一次延误
+# 就让租约按设计合法过期并被 `WorkerLoop._requeue_expired` 回收 —— 那是产品在正确工作，但用例会
+# 看到 `attempt` 递增而误判成 heartbeat 失效。30x 余量让「执行中不失约」成为可稳定观测的不变式；
+# 心跳真停摆时租约仍会在 30s 内失效并被回收（PG 落 RECLAIMED 事件），用例仍抓得住。
+TASK_LEASE_SEC = 30
 TASK_HEARTBEAT_SEC = 1
 TASK_CANCEL_CHECK_SEC = 1
 WORKER_POLL_INTERVAL_SEC = 1
 READY_TIMEOUT_SEC = 45.0
+# 服务子进程启动：负载下首次绑定/启动可能瞬时失败——重试，而不是让用例失败。
+START_ATTEMPTS = 3
+START_RETRY_BACKOFF_SEC = 2.0
+# `/readyz`（依赖就绪，而非仅进程存活）的等待窗口；进程活着 ≠ 依赖已连上。
+READYZ_TIMEOUT_SEC = 60.0
+POLL_INTERVAL_SEC = 0.2
 
 # 可注入时长的真实 Skill：`input.sleep_sec` 决定脚本执行多长，用于制造连续心跳窗口。
 SKILL_SCRIPT = (
@@ -131,6 +143,61 @@ def _service_env(base: dict[str, str], **overrides: str) -> dict[str, str]:
     env["DEFAULT_TENANT_ID"] = TENANT
     env["INTERNAL_SERVICE_TOKEN"] = INTERNAL_TOKEN
     return env
+
+
+def distinct_free_ports(count: int) -> list[int]:
+    """取 `count` 个互不相同的空闲端口：避免两个服务抢到同一个 ephemeral 端口。"""
+    ports: list[int] = []
+    while len(ports) < count:
+        port = free_port()
+        if port not in ports:
+            ports.append(port)
+    return ports
+
+
+def start_service(process: ServiceProcess, *, attempts: int = START_ATTEMPTS) -> ServiceProcess:
+    """启动真实服务子进程；负载下首次启动/绑定失败时重试，不把瞬时失败当用例失败。"""
+    last: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            process.start()
+            return process
+        except RuntimeError as exc:
+            last = exc
+            process.stop()  # 早退与就绪超时都可能留下半启动进程：重试前先收干净
+            if attempt < attempts:
+                time.sleep(START_RETRY_BACKOFF_SEC * attempt)
+    raise AssertionError(f"{process.name} 启动失败（重试 {attempts} 次）：{last}") from last
+
+
+def await_readyz(url: str, *, timeout_sec: float = READYZ_TIMEOUT_SEC) -> dict[str, Any]:
+    """等真实服务的 `/readyz` 到 200（依赖就绪而非仅进程存活）；有界，超时给出最后盘面。"""
+    deadline = time.monotonic() + timeout_sec
+    status = 0
+    detail: dict[str, Any] = {}
+    while time.monotonic() < deadline:
+        try:
+            response = httpx.get(f"{url}/readyz", timeout=5.0)
+            status = response.status_code
+            body = response.json()
+            detail = cast(dict[str, Any], body.get("data") or {})
+        except httpx.HTTPError:
+            status = 0
+        if status == 200:
+            return detail
+        time.sleep(POLL_INTERVAL_SEC)
+    raise AssertionError(f"{url}/readyz 未在 {timeout_sec}s 内就绪：{status} {detail}")
+
+
+def worker_instance_id(stack: DfxStack) -> str:
+    """当前基座 Worker 子进程的 lease 实例标识（与 `worker/service.py::default_instance_id` 同口径）。
+
+    用于断言「租约属于本用例驱动的那一个执行者」，而不是「某个本机进程」——claim 是全局的
+    （`claimer.py::_claimable_conditions` 没有 tenant 谓词），别的 Worker 也领得到本租户的行。
+    """
+    process = stack.processes["worker"]._process
+    assert process is not None and process.pid is not None, "基座 Worker 子进程未启动"
+    return f"{socket.gethostname()}:{process.pid}"
 
 
 def seed_control(database_url: str, artifact_root: Path) -> dict[str, Any]:
@@ -243,17 +310,18 @@ def resolve_task_spec(stack: DfxStack, http: httpx.Client) -> TaskSpec:
     )
 
 
-def submit_task(
+def post_task_request(
     stack: DfxStack,
     http: httpx.Client,
     spec: TaskSpec,
     *,
     input_data: dict[str, Any],
     idempotency_key: str,
-) -> dict[str, Any]:
-    """真实 HTTP 提交：Worker `POST /internal/tasks`（Runtime 同一个内部接口）。"""
-    response = http.post(
-        f"{stack.worker_url}/internal/tasks",
+    worker_url: str | None = None,
+) -> httpx.Response:
+    """真实 HTTP 提交「原样返回响应」：故障路径要据响应本身断言失败（不得改写为成功）。"""
+    return http.post(
+        f"{worker_url or stack.worker_url}/internal/tasks",
         json={
             "tenant_id": stack.tenant_id,
             "agent_id": str(stack.agent_id),
@@ -269,6 +337,26 @@ def submit_task(
         },
         headers=stack.service_headers(),
     )
+
+
+def submit_task(
+    stack: DfxStack,
+    http: httpx.Client,
+    spec: TaskSpec,
+    *,
+    input_data: dict[str, Any],
+    idempotency_key: str,
+    worker_url: str | None = None,
+) -> dict[str, Any]:
+    """真实 HTTP 提交：Worker `POST /internal/tasks`（Runtime 同一个内部接口）。"""
+    response = post_task_request(
+        stack,
+        http,
+        spec,
+        input_data=input_data,
+        idempotency_key=idempotency_key,
+        worker_url=worker_url,
+    )
     assert response.status_code == 200, f"提交 Task 失败：{response.status_code} {response.text}"
     data = cast(dict[str, Any], response.json()["data"])
     stack.task_ids.append(uuid.UUID(data["task_id"]))
@@ -283,8 +371,9 @@ def read_task_row(task_id: uuid.UUID, *, tenant_id: str | None = None) -> dict[s
             row = (
                 await session.execute(
                     text(
-                        "SELECT tenant_id, status, task_type, attempt, lease_owner, lease_until,"
-                        " heartbeat_at, cancel_requested, result_json, finished_at"
+                        "SELECT tenant_id, status, task_type, attempt, max_attempts, lease_owner,"
+                        " lease_until, heartbeat_at, cancel_requested, result_json,"
+                        " error_code, error_message, finished_at"
                         " FROM task.task_execution WHERE tenant_id = :t AND id = :id"
                     ),
                     {"t": tenant_id or TENANT, "id": task_id},
@@ -297,12 +386,15 @@ def read_task_row(task_id: uuid.UUID, *, tenant_id: str | None = None) -> dict[s
             "status": row[1],
             "task_type": row[2],
             "attempt": row[3],
-            "lease_owner": row[4],
-            "lease_until": row[5],
-            "heartbeat_at": row[6],
-            "cancel_requested": row[7],
-            "result_json": row[8],
-            "finished_at": row[9],
+            "max_attempts": row[4],
+            "lease_owner": row[5],
+            "lease_until": row[6],
+            "heartbeat_at": row[7],
+            "cancel_requested": row[8],
+            "result_json": row[9],
+            "error_code": row[10],
+            "error_message": row[11],
+            "finished_at": row[12],
         }
 
     return cast(dict[str, Any] | None, run_db(query))
@@ -455,8 +547,7 @@ def start_dfx_stack(root: Path) -> tuple[DfxStack, list[ServiceProcess]]:
         "WORKER_POLL_INTERVAL_SEC": str(WORKER_POLL_INTERVAL_SEC),
     }
 
-    console_port = free_port()
-    worker_port = free_port()
+    console_port, worker_port = distinct_free_ports(2)
     console_url = f"http://127.0.0.1:{console_port}"
     worker_url = f"http://127.0.0.1:{worker_port}"
 
@@ -480,8 +571,12 @@ def start_dfx_stack(root: Path) -> tuple[DfxStack, list[ServiceProcess]]:
         "worker", "muad_agent_worker.main", worker_port, CONSOLE_PLATFORM_URL=console_url
     )
     ids = seed_control(database_url, artifact_root)
-    console.start()
-    worker.start()
+    start_service(console)
+    start_service(worker)
+    # 依赖就绪再把盘面交回用例：控制台（PG）与 Worker（PG + Artifact 根）都过 `/readyz` 才继续，
+    # 否则用例的第一次真实请求会落在「进程活着但依赖还没连上」的窗口里（负载下该窗口会变长）。
+    await_readyz(console_url)
+    await_readyz(worker_url)
 
     stack = DfxStack(
         processes={process.name: process for process in processes},
@@ -511,16 +606,21 @@ __all__ = [
     "TENANT",
     "TENANT_PREFIX",
     "TaskSpec",
+    "await_readyz",
     "cleanup",
     "clear_engine_caches",
     "count_rows",
     "count_task_events",
+    "distinct_free_ports",
     "list_task_types",
     "purge_redis_hints",
+    "post_task_request",
     "read_task_row",
     "resolve_task_spec",
     "start_dfx_stack",
+    "start_service",
     "stop_dfx_stack",
     "submit_task",
     "task_type_values",
+    "worker_instance_id",
 ]
