@@ -21,6 +21,13 @@ verifiers:
     - schema_parity
     cwd: .
     timeout: 600
+# 规则正文在根 CLAUDE.md 的 Core Principles（租户内存在性判断），此处只放机检。
+checks:
+- id: no-global-count-in-tenant-check
+  type: regex
+  pattern: 'count_all\('
+  files: apps/console-platform/backend/**
+  message: 租户内的存在性判断禁止全库计数；必须按租户限定（count(tenant_id)）——全库判定会让任一租户有账号就掩盖「默认租户无账号 ⇒ 无法登录」的静默故障
 ---
 
 # harness-data

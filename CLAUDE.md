@@ -10,6 +10,7 @@
 - Single responsibility per function (<= 50 lines)
 - No loose typing or silent exception handling
 - Handle errors explicitly
+- Tenant-scoped existence checks: scope `count` to the tenant (`count(tenant_id)`), never a global count — a global count lets another tenant's rows hide that the default tenant has no account and nobody can log in (instance: Console startup self-check `_warn_if_no_accounts()`)
 
 ## Forbidden Patterns
 - Hard-coded secrets or credentials
