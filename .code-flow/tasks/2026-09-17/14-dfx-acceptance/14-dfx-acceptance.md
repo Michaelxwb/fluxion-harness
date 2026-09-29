@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-09-17/14-dfx-acceptance/（唯一 design：14-dfx-acceptance.backend.design.md）
 - **Created**: 2026-09-28
-- **Updated**: 2026-09-29
+- **Updated**: 2026-09-30
 - **Plan-State**: planned（用户已确认写入；manual 两例 S-13/E-10 与 S-06 的「Browser 臂不可执行」边界均已确认；各 TASK 保持 draft，功能与 E2E 验收尚未执行）
 
 ## Proposal
@@ -48,11 +48,11 @@
 | S-02 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | Enum ↔ YAML ↔ 源码扫描 | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_error_catalog.py","tests/test_api_i18n.py"] | . | 600 |  |
 | S-03 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | ORM ↔ 迁移 ↔ OpenAPI | TASK-002 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_contract_parity.py -k s03 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/architecture"] | . | 1200 |  |
 | S-04 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | 真实 PostgreSQL + Redis | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_reliability.py","-k","s04"] | . | 900 |  |
-| S-05 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Browser/HTTP → Console → PG → IM Gateway | TASK-010 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"] | . | 1200 |  |
-| S-06 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Gateway → Runtime SSE → Browser | TASK-010 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"] | . | 1200 |  |
+| S-05 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Browser/HTTP → Console → PG → IM Gateway | TASK-010 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"] | . | 1200 |  |
+| S-06 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Gateway → Runtime SSE → Browser | TASK-010 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"] | . | 1200 |  |
 | S-07 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime → Worker → Schedule | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"] | . | 1200 |  |
 | S-08 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Worker Parent/Child → fan-in | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"] | . | 1200 |  |
-| S-09 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime interrupt → resume/cancel | TASK-010 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"] | . | 1200 |  |
+| S-09 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime interrupt → resume/cancel | TASK-010 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"] | . | 1200 |  |
 | S-10 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | 授权解析 → Prompt/ToolRegistry → IM 路由 | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | . | 1200 |  |
 | S-11 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Worker → Gateway `/internal/deliveries` → Redis | TASK-006 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"] | . | 900 |  |
 | S-12 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | TASK-012 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"] | . | 1200 |  |
@@ -549,7 +549,7 @@ FEAT-06 的模型恢复面：429 优先按 `Retry-After` 等待后重试；5xx/5
 
 ## TASK-010: 黄金旅程：绑定、流式与中断恢复/取消
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.2 黄金旅程矩阵, 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景
@@ -564,33 +564,46 @@ FEAT-02 的第一组黄金旅程：`/bind` 首次绑定后身份稳定映射 Pla
 
 ### Checklist
 
-- [ ] [S-05][E2E] 以 `Browser/HTTP → Console → PG → IM Gateway` 为真实边界编写用例：未绑定用户发消息触发 `/bind` 后再次对话，断言身份稳定映射 PlatformUser、**不自动授予 Agent**（授权表无新增行）。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"]`。
-- [ ] [S-06][E2E] 以 `Gateway → Runtime SSE → Browser` 为真实边界编写用例：发起普通对话断言首事件 `run.created`、`message.delta` 按 seq 顺序到达、终态为 `run.completed`/`run.failed`、封套字段 `{run_id,seq,timestamp,type,data}` 完整。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"]`。
-- [ ] [S-06][E2E] **显式边界登记（不冒充）**：本仓前端无 SSE 消费面，「Browser」臂在本需求内不可执行（自建流式页面属 design Out of Scope 的业务功能）；必须在 Acceptance Evidence 中如实登记该边界并给出「真实 Gateway→Runtime HTTP/SSE 链路已达成的断言清单」，不得写成完整覆盖。
-- [ ] [S-09][E2E] 以 `Runtime interrupt → resume/cancel` 为真实边界编写用例：触发澄清 → `WAITING_INPUT`；resume 后继续且 seq 不重排；另一 Run 执行 `cancel-active` → 返回 `CANCELLING` 并协作终态；无活跃 Run → `NO_ACTIVE_RUN`；`WAITING_INPUT` 直接 CAS 取消。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"]`。
-- [ ] 流式断言只认已落库事件：`seq`/`timestamp` 沿用 `canonical_event` 持久值（禁止按连接自增），`: heartbeat` 不计 seq；`STREAM_TIMEOUT_SEC` 的「有界失败」用例须注入小值，不得依赖默认 300s。
-- [ ] 失败路径允许改写路由制造超时/错误，但**不得 fulfill 业务响应体**；成功路径（S-*）不得出现 `page.route(`（本任务为 pytest 链路，同口径适用于任何 HTTP 拦截）。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [S-05][E2E] 以 `Browser/HTTP → Console → PG → IM Gateway` 为真实边界编写用例：未绑定用户发消息触发 `/bind` 后再次对话，断言身份稳定映射 PlatformUser、**不自动授予 Agent**（授权表无新增行）。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"]`。
+- [x] [S-06][E2E] 以 `Gateway → Runtime SSE → Browser` 为真实边界编写用例：发起普通对话断言首事件 `run.created`、`message.delta` 按 seq 顺序到达、终态为 `run.completed`/`run.failed`、封套字段 `{run_id,seq,timestamp,type,data}` 完整。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"]`。
+- [x] [S-06][E2E] **显式边界登记（不冒充）**：本仓前端无 SSE 消费面，「Browser」臂在本需求内不可执行（自建流式页面属 design Out of Scope 的业务功能）；必须在 Acceptance Evidence 中如实登记该边界并给出「真实 Gateway→Runtime HTTP/SSE 链路已达成的断言清单」，不得写成完整覆盖。
+- [x] [S-09][E2E] 以 `Runtime interrupt → resume/cancel` 为真实边界编写用例：触发澄清 → `WAITING_INPUT`；resume 后继续且 seq 不重排；另一 Run 执行 `cancel-active` → 返回 `CANCELLING` 并协作终态；无活跃 Run → `NO_ACTIVE_RUN`；`WAITING_INPUT` 直接 CAS 取消。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"]`。
+- [x] 流式断言只认已落库事件：`seq`/`timestamp` 沿用 `canonical_event` 持久值（禁止按连接自增），`: heartbeat` 不计 seq；`STREAM_TIMEOUT_SEC` 的「有界失败」用例须注入小值，不得依赖默认 300s。
+- [x] 失败路径允许改写路由制造超时/错误，但**不得 fulfill 业务响应体**；成功路径（S-*）不得出现 `page.route(`（本任务为 pytest 链路，同口径适用于任何 HTTP 拦截）。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-05 | E2E | Browser/HTTP → Console → PG → IM Gateway | 身份稳定映射 PlatformUser；不自动授予 Agent | tests/acceptance/dfx/test_dfx_journeys.py + tests/acceptance/im_gateway/test_binding.py / S-05 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"]` | planned |
-| S-06 | E2E | Gateway → Runtime SSE → Browser | 首事件 `run.created`；`message.delta` 顺序；终态事件；封套完整 | tests/acceptance/dfx/test_dfx_journeys.py + tests/acceptance/im_gateway/test_runtime_stream.py / S-06 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"]` | planned |
-| S-09 | E2E | Runtime interrupt → resume/cancel | `WAITING_INPUT`→resume 继续；`CANCELLING` 协作终态；`NO_ACTIVE_RUN` | tests/acceptance/dfx/test_dfx_journeys.py + tests/acceptance/runtime/test_run_lifecycle.py / S-09 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"]` | planned |
+| S-05 | E2E | Browser/HTTP → Console → PG → IM Gateway | 身份稳定映射 PlatformUser；不自动授予 Agent | tests/acceptance/dfx/test_dfx_journeys.py + tests/acceptance/im_gateway/test_binding.py / S-05 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"]` | e2e_deferred |
+| S-06 | E2E | Gateway → Runtime SSE → Browser | 首事件 `run.created`；`message.delta` 顺序；终态事件；封套完整 | tests/acceptance/dfx/test_dfx_journeys.py + tests/acceptance/im_gateway/test_runtime_stream.py / S-06 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"]` | e2e_deferred |
+| S-09 | E2E | Runtime interrupt → resume/cancel | `WAITING_INPUT`→resume 继续；`CANCELLING` 协作终态；`NO_ACTIVE_RUN` | tests/acceptance/dfx/test_dfx_journeys.py + tests/acceptance/runtime/test_run_lifecycle.py / S-09 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"]` | e2e_deferred |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| （编码期填写；S-06 必须登记「Browser 臂不可执行」边界） | | | | | |
+| S-05 | **E2E 本阶段不执行 RED**（工作流口径：E2E 的 RED/GREEN 统归 `/cf-task:verify-e2e`）。文件已自检实跑，**不是「未执行」**：整文件 `6 passed in 20.91s`。 | **e2e_deferred**（终验归 verify-e2e）；自检实跑：`-k s05` → 1 passed，配对 `tests/acceptance/im_gateway/test_binding.py` → 4 passed in 17.27s | `test_dfx_journeys.py::test_s05_bind_maps_identity_stably_without_granting_agent` | **真实 `wss://` WS 探针 → 真实 IM Gateway 子进程 → 真实 Console `POST /internal/channel/bind` → 真实 PostgreSQL**（全程无替身、无 HTTP 拦截）。真实盘面回读：推 `/bind <code>` 后 WS 出站收到「绑定成功」；`control.channel_identity` 按增量 +1 且最新行 `platform_user_id` = 种子用户、`is_deleted=false`；`control.bind_code` 出现 `USED`；`control.agent_access_grant` 行数**不变**（不自动授予 Agent）；「再次对话」后新建 Run 的 `user_id` 仍是同一 PlatformUser。 | e2e_deferred |
+| S-06 | 同上（E2E 不执行 RED）。 | **e2e_deferred**；自检实跑：`-k s06` → 1 passed，配对 `tests/acceptance/im_gateway/test_runtime_stream.py` → 5 passed in 18.66s | `test_dfx_journeys.py::test_s06_stream_reply_envelope_and_monotonic_seq` | **真实 Gateway → Runtime HTTP/SSE → 真实 WS 出站**。**已达成的断言清单**（Browser 渲染**不在**其中，见下）：① WS 出站收到流式增量帧（`aibot_respond_msg` 的 `body.stream.content`），证明 Gateway 把 Runtime 的流式内容真实转发出去了；② 落库 `runtime.canonical_event` 的流式帧首事件 `stream_type=run.created`、末事件 `run.completed`；③ `message.delta` 按 seq 递增，且整条事件流 seq 严格单调（业务帧 `stream_type IS NULL` 与流式帧共用 seq 空间）；④ 封套 `{run_id,seq,timestamp,type,data}` 四要素全部由**落库值**重建（`seq`/`create_time` 取持久值，禁按连接自增；`: heartbeat` 是注释帧、不落库故不占 seq）；⑤ Run 终态 status ∈ {COMPLETED, FAILED}。**边界登记：本仓前端无 SSE 消费面 ⇒「Browser」臂在本需求内不可执行**（自建流式页面属 design Out of Scope 的业务功能），故本行**不写成完整覆盖**。 | e2e_deferred |
+| S-09 | 同上（E2E 不执行 RED）。 | **e2e_deferred**；自检实跑：`-k s09` → 4 passed，配对 `tests/acceptance/runtime/test_run_lifecycle.py` → 8 passed in 7.20s | `test_s09_waiting_input_resume_continues_without_seq_reset` / `test_s09_cancel_running_is_cooperative_and_terminal` / `test_s09_cancel_waiting_input_is_cas_cancelled` / `test_s09_cancel_active_without_active_run_returns_no_active_run` | **真实 Runtime 子进程 + 真实 PostgreSQL/Redis**。① 恢复：`WAITING_INPUT` Run 经**同会话再次发言**恢复 → SSE 首事件 `run.created` 且 `data.resumed is True`、`run_id` 不变、`seq > 1`（不重排）、`run_interrupt.status=RESOLVED`、该 Run 落库 seq 严格单调（快照取本租户真实执行留下的 `runtime_snapshot`）；② 运行中取消：给真实 LLM 探针注入 3s 延迟（改其进程 env 后**重启该真实探针**，非替身），流到首帧即调 `cancel-active` → 200 `CANCELLING`，协作终态 `run.completed` + `status=CANCELLED`，`run_record.cancel_requested=true`，Redis `run:cancel:{id}` 存在；③ `WAITING_INPUT` 直接 CAS：返回 `CANCELLED`（实测该路径**不置** `cancel_requested`）、interrupt `CANCELLED`、业务事件含 `CANCEL`、终态 `run.completed`；④ 无活跃 Run → 404 `NO_ACTIVE_RUN`。 | e2e_deferred |
+
+> 另登记两条**不冒充**的边界：① `STREAM_TIMEOUT_SEC` 的「有界失败」子用例**本模块未覆盖** —— 该常量是 Gateway 模块常量（`muad_im_gateway/application/runtime_client.py`），**无 env 覆盖**，子进程形态下无法注入小值（不得依赖默认 300s 等它真超时）；该分支由 `tests/gateway/test_runtime_client.py`（monkeypatch `STREAM_TIMEOUT_SEC`）承接。② 企业微信真机重连（E-10）为 manual，不在本模块。
+> 成功路径未使用任何 HTTP 拦截（文件内无路由改写、无 `page.route(` 同口径的响应伪造）；唯一的失败注入是**真实探针的 env 延迟 + 真实进程重启**。
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=c43871d766234fb28eb425febc585aca (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=c43871d766234fb28eb425febc585aca (confirmed_by: runner)
+- S-09: e2e_deferred — automated command e2e_deferred; run_id=c43871d766234fb28eb425febc585aca (confirmed_by: runner)
+- S-05: e2e_deferred — automated command e2e_deferred; run_id=40c8e0dd57794a9798cc8a0cf2b2bb3e (confirmed_by: runner)
+- S-06: e2e_deferred — automated command e2e_deferred; run_id=40c8e0dd57794a9798cc8a0cf2b2bb3e (confirmed_by: runner)
+- S-09: e2e_deferred — automated command e2e_deferred; run_id=40c8e0dd57794a9798cc8a0cf2b2bb3e (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
+- [2026-09-30] S-05/S-06/S-09 编写并登记（E2E）：新增 `tests/acceptance/dfx/test_dfx_journeys.py`（6 例；真实 `wss://` 渠道探针 → 真实 Gateway/Console/Runtime×2/Worker/LLM 探针子进程 → 真实 PostgreSQL/Redis）。三段契约 argv 自检全过（`-k s05` 1+4、`-k s06` 1+5、`-k s09` 4+8），整文件 `6 passed in 20.91s`；runner 判 `e2e_deferred`，终验归 `/cf-task:verify-e2e`。边界登记（不冒充）：Browser 臂不可执行（本仓前端无 SSE 消费面）、`STREAM_TIMEOUT_SEC` 有界失败子用例归既有 monkeypatch 用例。**无生产改动**。
 
 ---
-
+- [2026-09-30] started
+- [2026-09-30] completed (done)
 ## TASK-011: 执行路由、批量 fan-out/fan-in 与授权可见性/多 IM 路由
 
 - **Status**: draft

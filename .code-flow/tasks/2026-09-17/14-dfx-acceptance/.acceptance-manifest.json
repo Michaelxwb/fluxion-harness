@@ -173,7 +173,7 @@
       "kind": "e2e",
       "boundary": "Browser/HTTP → Console → PG → IM Gateway",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -181,7 +181,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-05",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "40c8e0dd57794a9798cc8a0cf2b2bb3e",
+        "executed_at": "2026-09-29T16:13:03.008130+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "c43871d766234fb28eb425febc585aca",
+          "executed_at": "2026-09-29T16:12:20.529351+00:00"
+        },
+        {
+          "id": "S-05",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "40c8e0dd57794a9798cc8a0cf2b2bb3e",
+          "executed_at": "2026-09-29T16:13:03.008130+00:00"
+        }
+      ]
     },
     {
       "id": "S-06",
@@ -190,7 +217,7 @@
       "kind": "e2e",
       "boundary": "Gateway → Runtime SSE → Browser",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -198,7 +225,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-06",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "40c8e0dd57794a9798cc8a0cf2b2bb3e",
+        "executed_at": "2026-09-29T16:13:03.008130+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "c43871d766234fb28eb425febc585aca",
+          "executed_at": "2026-09-29T16:12:20.529351+00:00"
+        },
+        {
+          "id": "S-06",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "40c8e0dd57794a9798cc8a0cf2b2bb3e",
+          "executed_at": "2026-09-29T16:13:03.008130+00:00"
+        }
+      ]
     },
     {
       "id": "S-07",
@@ -241,7 +295,7 @@
       "kind": "e2e",
       "boundary": "Runtime interrupt → resume/cancel",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -249,7 +303,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-09",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "40c8e0dd57794a9798cc8a0cf2b2bb3e",
+        "executed_at": "2026-09-29T16:13:03.008130+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-09",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "c43871d766234fb28eb425febc585aca",
+          "executed_at": "2026-09-29T16:12:20.529351+00:00"
+        },
+        {
+          "id": "S-09",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "40c8e0dd57794a9798cc8a0cf2b2bb3e",
+          "executed_at": "2026-09-29T16:13:03.008130+00:00"
+        }
+      ]
     },
     {
       "id": "S-10",
