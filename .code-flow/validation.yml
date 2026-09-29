@@ -30,7 +30,18 @@ validators:
     - name: "Pytest"
       trigger: "**/*.py"
       command: ".venv/bin/python -m pytest --tb=short -q"
-      # 套件含真实进程验收（uvicorn/子进程/探针/双 Worker 等）。2026-09-27 实测
-      # 1562 passed 用时 717s（0:11:57，含 3 例既有失败修复前的状态），预算取 15 分钟留余量。
-      timeout: 900000
+      # Stop 链预算只有 30s（cf_stop_hook 的 TOTAL_BUDGET_SECONDS），全量套件永远跑不完——
+      # 表现是「超时（>900s）」的**假失败**（cf_exec_base 用 min(timeout, remaining)，
+      # 报错文案却按声明值打印）。故标为 heavy：语义是「Stop 链跳过、由 Done Gate(finish)/
+      # cf-validate/CI 跑」（见 cf_stop_hook 的 `_stop_validators`）。**判据不变**：
+      # `cf_validation` 不过滤 heavy，finish 仍跑全量。
+      heavy: true
+      # 套件含真实进程验收（uvicorn/子进程/探针/双 Worker 等）。2026-09-27 实测 1562 passed
+      # 用时 717s（0:11:57），当时预算取 900s。2026-09-29：在 900s 预算下 finish 报
+      # 「预算耗尽，部分未执行: Pytest」——注意该次观测发生时共享库上存在一套**孤儿验收栈**
+      # （PPID=1 的 runtime×2+worker+gateway），其 Worker 会抢走验收任务（claim 无 tenant
+      # 谓词），把耗时显著放大（同批用例清孤儿前后 369s → 56s）。故 1171s 类数字**不足以**
+      # 作为标定依据。清孤儿后预算上限放宽到 1800s 并实测通过（Done Gate pass，
+      # 2026-09-29 15:07）；真实分段耗时待下次干净单跑补记。
+      timeout: 1800000
       on_fail: "测试失败，检查断言和 mock 是否需要更新"

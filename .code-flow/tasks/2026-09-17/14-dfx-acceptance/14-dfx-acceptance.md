@@ -64,7 +64,7 @@
 | E-05 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Scheduler sweep → PG | TASK-005 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_recovery.py -k e05 && uv run pytest -q tests/agent_worker/test_task_deadline.py"] | . | 900 |  |
 | E-06 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Worker → Gateway → Redis | TASK-006 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k e06 && uv run pytest -q tests/acceptance/im_gateway/test_worker_delivery.py"] | . | 900 |  |
 | E-07 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Egress Boundary → Audit/日志/Snapshot | TASK-007 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_security.py -k e07 && uv run pytest -q tests/acceptance/test_secret_consumers.py tests/acceptance/im_gateway/test_secrets_and_readiness.py"] | . | 1200 |  |
-| E-08 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | API → RBAC/CSRF/租户谓词 | TASK-008 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_api_security.py -k e08 && uv run pytest -q tests/console_auth/test_rbac.py tests/console_platform/test_credentials_api.py tests/agent_worker/test_tenant_guard.py"] | . | 900 |  |
+| E-08 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | API → RBAC/CSRF/租户谓词 | TASK-008 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_api_security.py -k e08 && uv run pytest -q tests/console_auth/test_rbac.py tests/console_platform/test_credentials_api.py tests/agent_worker/test_tenant_guard.py"] | . | 900 |  |
 | E-09 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | ModelGateway → Provider | TASK-009 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_model_recovery.py -k e09 && uv run pytest -q tests/agent_runtime/test_model_recovery.py"] | . | 900 |  |
 | E-10 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | manual | Gateway WS → 企业微信 | TASK-011 | planned | - | . | 60 |  |
 | B-01 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | api-kit paginate → API Query | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_error_catalog.py","-k","paginate"] | . | 300 |  |
@@ -78,7 +78,7 @@
 | RULE-worker-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 PG 权威源 + Redis 降级 + 原 verifier 真实边界 | TASK-003 | verified | ["bash","-lc","uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"] | . | 600 |  |
 | RULE-secret-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 密钥明文只存 Owner 表/三处受控出口 + 原 verifier 真实边界 | TASK-007 | planned | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | . | 300 |  |
 | RULE-log-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | logging-kit 唯一出口与双通道脱敏 + 原 verifier 真实边界 | TASK-007 | planned | ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"] | . | 300 |  |
-| RULE-auth-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP + 真实 PostgreSQL + 原 verifier 真实边界 | TASK-008 | planned | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
+| RULE-auth-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP + 真实 PostgreSQL + 原 verifier 真实边界 | TASK-008 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
 | RULE-snapshot-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 冻结快照/终态 CAS + 原 verifier 真实边界 | TASK-012 | planned | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 600 |  |
 | RULE-test-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | E2E | 仓库级真实 E2E（HTTP/PostgreSQL/Redis/Browser）+ 原 verifier 真实边界 | TASK-013 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 1200 |  |
 
@@ -453,7 +453,7 @@ FEAT-05 的安全面：未命中 allowlist 的 `ctx.http` 不发出调用并按 
 
 ## TASK-008: API 安全与租户隔离（RBAC/CSRF/ADMIN 门控/租户谓词）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.5 安全验收矩阵, 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix
@@ -468,33 +468,44 @@ FEAT-05 的 API 面：缺失/伪造 CSRF → 403 `FORBIDDEN` 且不落业务变�
 
 ### Checklist
 
-- [ ] [E-08][integration] 以 `API → RBAC/CSRF/租户谓词` 为真实边界编写用例：非安全方法缺失与伪造 `X-CSRF-Token` → 403 且审计计数不变；BUILDER 访问 ADMIN 端点（含 `credentials`）→ 403；跨租户读取/写入不可见且不泄露存在性；**带伪造 `X-Tenant-Id` 时列表仍只含本账号租户数据**。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_api_security.py -k e08 && uv run pytest -q tests/console_auth/test_rbac.py tests/console_platform/test_credentials_api.py tests/agent_worker/test_tenant_guard.py"]`。
-- [ ] [RULE-auth-001][integration] 作为唯一最终负责人：三层授权关系与 Effective Capability（含 `is_deleted=false` 与资源/Agent `enabled`）、未授权资源不进 Prompt/ToolRegistry/Catalog；并覆盖 Console 侧的凭据路由 ADMIN + 账号派生租户、CSRF/会话/密码锁定/审计同事务口径。verifier argv：`["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]`。
-- [ ] 断言「ADMIN 门控是前端隐藏 + 后端 403 兜底双层」时只断言**本模块可断言的后端兜底层**；前端隐藏归各前端 owner，如发现缺失只登记缺口不改跨模块行为。
-- [ ] 断言 CSRF 与会话 Cookie 属性：`muad_session` 为 httponly、CSRF Cookie 可读、两者 `samesite=strict`、`secure` 仅非 dev 打开。
-- [ ] 断言密码与会话口径不被削弱的边界：`argon2id`（`$argon2id$` 前缀）+ 最短 12 字符、连续 5 次失败锁 15 分钟且锁定时清零计数、未知用户与禁用账号走 dummy hash 等化时序统一回 `INVALID_CREDENTIALS`。
-- [ ] 收尾清理：跨租户对照样本自建自清（`finally` 删除），不污染共享开发库；运行后无孤儿进程。
-- [ ] 显式边界（不修，只登记）：租户隔离已于 2026-09-28 全量收敛为「账号派生」，`X-Tenant-Id` 仅对内部服务与公开登录生效（内部路由另有服务身份门控）；本任务只断言该口径，不改任何路由的租户来源。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [E-08][integration] 以 `API → RBAC/CSRF/租户谓词` 为真实边界编写用例：非安全方法缺失与伪造 `X-CSRF-Token` → 403 且审计计数不变；BUILDER 访问 ADMIN 端点（含 `credentials`）→ 403；跨租户读取/写入不可见且不泄露存在性；**带伪造 `X-Tenant-Id` 时列表仍只含本账号租户数据**。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_api_security.py -k e08 && uv run pytest -q tests/console_auth/test_rbac.py tests/console_platform/test_credentials_api.py tests/agent_worker/test_tenant_guard.py"]`。
+- [x] [RULE-auth-001][integration] 作为唯一最终负责人：三层授权关系与 Effective Capability（含 `is_deleted=false` 与资源/Agent `enabled`）、未授权资源不进 Prompt/ToolRegistry/Catalog；并覆盖 Console 侧的凭据路由 ADMIN + 账号派生租户、CSRF/会话/密码锁定/审计同事务口径。verifier argv：`["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]`。
+- [x] 断言「ADMIN 门控是前端隐藏 + 后端 403 兜底双层」时只断言**本模块可断言的后端兜底层**；前端隐藏归各前端 owner，如发现缺失只登记缺口不改跨模块行为。
+- [x] 断言 CSRF 与会话 Cookie 属性：`muad_session` 为 httponly、CSRF Cookie 可读、两者 `samesite=strict`、`secure` 仅非 dev 打开。
+- [x] 断言密码与会话口径不被削弱的边界：`argon2id`（`$argon2id$` 前缀）+ 最短 12 字符、连续 5 次失败锁 15 分钟且锁定时清零计数、未知用户与禁用账号走 dummy hash 等化时序统一回 `INVALID_CREDENTIALS`。
+- [x] 收尾清理：跨租户对照样本自建自清（`finally` 删除），不污染共享开发库；运行后无孤儿进程。
+- [x] 显式边界（不修，只登记）：租户隔离已于 2026-09-28 全量收敛为「账号派生」，`X-Tenant-Id` 仅对内部服务与公开登录生效（内部路由另有服务身份门控）；本任务只断言该口径，不改任何路由的租户来源。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-08 | integration | API → RBAC/CSRF/租户谓词 | 403 `FORBIDDEN` 且不落变更；跨租户不可见/不可写不泄露存在性；伪造租户头无效 | tests/acceptance/dfx/test_dfx_api_security.py + tests/console_auth/test_rbac.py + tests/console_platform/test_credentials_api.py + tests/agent_worker/test_tenant_guard.py / E-08 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_api_security.py -k e08 && uv run pytest -q tests/console_auth/test_rbac.py tests/console_platform/test_credentials_api.py tests/agent_worker/test_tenant_guard.py"]` | planned |
-| RULE-auth-001 | integration | 真实 Console HTTP + 真实 PostgreSQL + 原 verifier 真实边界 | 三层授权与 Effective Capability；未授权不进 Prompt/Catalog；凭据路由 ADMIN + 账号派生租户；原 verifier 全部通过 | 原 verifier / RULE-auth-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]` | planned |
+| E-08 | integration | API → RBAC/CSRF/租户谓词 | 403 `FORBIDDEN` 且不落变更；跨租户不可见/不可写不泄露存在性；伪造租户头无效 | tests/acceptance/dfx/test_dfx_api_security.py + tests/console_auth/test_rbac.py + tests/console_platform/test_credentials_api.py + tests/agent_worker/test_tenant_guard.py / E-08 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_api_security.py -k e08 && uv run pytest -q tests/console_auth/test_rbac.py tests/console_platform/test_credentials_api.py tests/agent_worker/test_tenant_guard.py"]` | verified |
+| RULE-auth-001 | integration | 真实 Console HTTP + 真实 PostgreSQL + 原 verifier 真实边界 | 三层授权与 Effective Capability；未授权不进 Prompt/Catalog；凭据路由 ADMIN + 账号派生租户；原 verifier 全部通过 | 原 verifier / RULE-auth-001 | `["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"]` | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| （编码期填写） | | | | | |
+| E-08 | **无 RED（验收任务，生产无缺口，如实登记）**：首跑即绿（`7 passed`）。为证明断言非空，做了 **7 处扰动取证**（改生产代码 → 对应断言失败 → 按字节还原 → `git status --porcelain -- apps/` 为空）：① `api/security.py::require_csrf` 的 `raise AppError(FORBIDDEN)` 改 `return` → CSRF 403 断言失败；② `api/router.py` 把 `credentials_router` 从 `admin` 组挂回 `authenticated` → BUILDER 凭据路由 403 断言失败；③ `api/accounts.py` 的 `TenantId = AccountTenantId` 改回 `HeaderTenantId` → 「伪造头不切租户」断言失败；④ `agent_repository.get()` 去掉 `tenant_id` 谓词 → 跨租户不可见/不可写断言失败；⑤ `auth_service._register_failure` 去掉 `failed_attempts = 0` → 「锁定时清零计数」断言失败；⑥ `hash_session_token` 改回明文 → 「会话按 sha256 摘要可查」断言失败；⑦ `api/auth.py` 登录不再写审计 → 「登录审计恰好 +1」断言失败。其中 ④ 首轮替换断言拦下（该行在文件内 5 处，未误改），第二次按 `get()` 方法块精确定位后重做。 | `-k e08` → **7 passed in 3.66s**；复合 argv 两段全过：本段 7 passed + `tests/console_auth/test_rbac.py`/`tests/console_platform/test_credentials_api.py`/`tests/agent_worker/test_tenant_guard.py` → **22 passed in 2.22s** | `test_dfx_api_security.py::test_e08_csrf_missing_or_forged_is_forbidden_without_audit` / `test_e08_builder_is_denied_admin_endpoints_and_admin_is_allowed` / `test_e08_cross_tenant_resource_is_invisible_and_not_writable` / `test_e08_forged_tenant_header_does_not_switch_tenant` / `test_e08_session_and_csrf_cookie_attributes` / `test_e08_password_policy_and_failed_login_lockout` / `test_e08_session_row_is_hashed_and_login_audit_shares_transaction` | **真实 Console uvicorn 子进程**（DFX 基座 `start_dfx_stack`，真实 HTTP + 真实 Cookie jar；非 ASGI 传输替身）+ **真实 PostgreSQL 逐行回读**（账号/会话/审计/资源）。①CSRF：缺失与伪造头均 403 `FORBIDDEN`，`config_audit_log` 的 `CREATE`/`CONSOLE_ACCOUNT` 计数不变且无账号行；正对照带正确头 → 200 且计数 +1。②门控：BUILDER 对 `accounts`/`users`/`user-credentials`/`shared-credential` 四条路径与写面 `POST /accounts`（带正确 CSRF）全 403；ADMIN 正对照 200/200，凭据路由 404（非 403，证明拒绝来自角色而非路由不存在）。③跨租户：`CROSS_TENANT` 的 Agent 不在列表；`GET /agents/{cross}` 与随机不存在 id **同为 404 且 error code 相同**（不泄露存在性）；`PUT`/`DELETE` 跨租户 → 404 且真实库回读 `name` 未变、`is_deleted=false`；跨租户账号不在 accounts 列表。④伪造头：`X-Tenant-Id` 换成随机租户后列表 200 且仍含本账号租户数据、不含他租户。⑤Cookie：`muad_session` 带 HttpOnly、`muad_csrf` 不带、两者 `SameSite=strict`、`Secure` 与 `SharedSettings().env != "dev"` 一致（本机 `ENV=dev` ⇒ 无 Secure，用例按环境判定而非写死）。⑥密码：11 字符 → 422 且无账号行；库内哈希 `$argon2id$` 前缀；未知用户与禁用账号同为 **401 `INVALID_CREDENTIALS`**（同码不泄露存在性）；第 1–4 次失败 `failed_attempts` 逐次递增且 `locked_until` 为空，第 5 次 → `locked_until` 非空且 `failed_attempts=0`，随后正确密码 → **423 `ACCOUNT_LOCKED`**。⑦会话与审计：cookie 值的 sha256 可在 `console_session` 查到（明文查询 0 行）、TTL 恰 12h、`revoked_at` 为空；登录 `config_audit_log` 恰好 +1 行、`actor_user_id` = 账号本人、`after_json={"username","role"}`、`before_json` 为空、载荷无 password。**收尾**：自建账号/会话/审计与跨租户对照样本在 fixture `finally` 删除（`console_account`/`console_session`/`config_audit_log` **不在** DFX 基座 `cleanup()` 覆盖内，不清会污染共享开发库）；运行后无残留服务进程。 | verified |
+| RULE-auth-001 | **无 RED（规则既有实现已满足，验收补机检）**：verifier 首跑即绿。规则的三层授权/Effective Capability 面由原 verifier 承载；本任务的机检增量是 Console 侧的 CSRF/会话/密码口径（扰动 ①③⑤⑥⑦ 证明其非空转）。 | `test_user_side_relations.py -k s04` → **2 passed in 0.40s**；`tests -k schema_parity` → **35 passed, 1589 deselected in 3.62s** | 原 verifier `tests/console_platform/test_user_side_relations.py::test_s04_grant_and_revoke_share_application_service`/`::test_s04_unknown_agent_or_user_returns_not_found` + `tests -k schema_parity`；Console 侧增量见 E-08 七例 | 真实 Console HTTP + 真实 PostgreSQL（原 verifier 的真实边界）+ 本任务新增的真实 HTTP/PG 机检面。 | verified |
+
+> 边界登记（本任务只断言、不改行为）：① ADMIN 门控的**前端隐藏**层归各前端 owner，本用例只断言可机检的后端 403 兜底；② 未授权资源不进 Prompt/ToolRegistry/Catalog 与「撤销只影响后续新 Run」归 **S-10（TASK-011）**；③ 三处 internal 端点的服务身份门控归 **E-07（TASK-007）**；④ 租户隔离自 2026-09-28 全量收敛为「账号派生」，`X-Tenant-Id` 仅对内部服务与公开登录生效——本任务只断言该口径，**未改任何路由的租户来源**；⑤ 会话滑动续期与登出幂等不在本 argv 内（由既有 `tests/console_auth/test_login.py` 承接）。
+- E-08: verified — automated command passed; run_id=65b1695991bd4529bdba0ba990c92ab7 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=9ad0d941122c4215a485ae271fc7dc0c (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=abd14a904b1348e3b9b6fb17e2e79ae2 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=7d599cd8d80d4d48a0e11abc66bf08c1 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=66d0986a691843019a674b8dd8ef8b28 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=cf49bc596e5748fa8e283aa0fb5055a6 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
+- [2026-09-29] E-08 / RULE-auth-001 终态：新增 `tests/acceptance/dfx/test_dfx_api_security.py`（7 例，真实 Console uvicorn 子进程 + 真实 PostgreSQL 逐行回读），契约表/覆盖表/证据表三处 verified；7 处扰动取证证明断言非空；**无生产改动**（验收任务，生产无缺口 ⇒ 无 RED 如实登记）。
 
 ---
-
+- [2026-09-29] started
+- [2026-09-29] completed (done)
 ## TASK-009: 模型恢复验收（429/5xx/超时/deadline/cancel）
 
 - **Status**: draft

@@ -733,7 +733,7 @@
       "kind": "functional",
       "boundary": "API → RBAC/CSRF/租户谓词",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -741,7 +741,73 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 6,
+      "evidence": {
+        "id": "E-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 6,
+        "run_id": "cf49bc596e5748fa8e283aa0fb5055a6",
+        "executed_at": "2026-09-29T14:29:53.611570+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "65b1695991bd4529bdba0ba990c92ab7",
+          "executed_at": "2026-09-29T12:35:17.467125+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "9ad0d941122c4215a485ae271fc7dc0c",
+          "executed_at": "2026-09-29T12:36:37.929914+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "abd14a904b1348e3b9b6fb17e2e79ae2",
+          "executed_at": "2026-09-29T12:58:04.928279+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "7d599cd8d80d4d48a0e11abc66bf08c1",
+          "executed_at": "2026-09-29T13:35:37.339949+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "66d0986a691843019a674b8dd8ef8b28",
+          "executed_at": "2026-09-29T13:57:30.666912+00:00"
+        },
+        {
+          "id": "E-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 6,
+          "run_id": "cf49bc596e5748fa8e283aa0fb5055a6",
+          "executed_at": "2026-09-29T14:29:53.611570+00:00"
+        }
+      ]
     },
     {
       "id": "E-09",

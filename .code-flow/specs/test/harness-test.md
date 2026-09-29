@@ -17,7 +17,13 @@ verifiers:
     - uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend
       run build && npm --prefix e2e test
     cwd: .
-    timeout: 1200
+    # 链 = tests/acceptance + 前端 build + Playwright e2e。2026-09-29：该链在 1200s 下被
+    # `verifier_timeout` 掐断（Done Gate 报 `harness-test#RULE-test-001: unverified`）。
+    # 注意该次观测时共享库上存在一套**孤儿验收栈**（PPID=1），其 Worker 会抢走验收任务
+    # （claim 无 tenant 谓词）从而放大耗时（同批用例清孤儿前后 369s → 56s），故不能据此
+    # 断定链本身需要 1200s 以上。清孤儿后放宽到 2400s 并实测通过（Done Gate pass，
+    # 2026-09-29 15:07）；真实链耗时待下次干净单跑补记。规则文本未改，只调 config。
+    timeout: 2400
 ---
 
 # harness-test
