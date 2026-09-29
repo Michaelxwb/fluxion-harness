@@ -171,11 +171,25 @@ def _await_readiness(
 
 
 def _service_commands() -> list[str]:
-    """当前在跑的服务命令行（`uvicorn` + `muad_*.main`）——孤儿进程判据。"""
+    """当前在跑的**真实服务进程**命令行（`uvicorn` + `muad_*.main`）——孤儿进程判据。
+
+    判据是「可执行文件是 Python 且命令行为 `-m uvicorn muad_*`」：真实服务的启动形式就是
+    `python -m uvicorn muad_*.main:app`。不能只按「命令行里出现 uvicorn/muad_」过滤——调用方
+    shell 自己的命令行只要提到这两个子串（例如 `grep -E "uvicorn|muad_"`），那个 shell 就会被
+    算成多余的服务进程，把「无多余进程」的断言变成假失败。`ucomm` 取 argv[0] 的名字
+    （`python3.13`）；`comm` 在 macOS 上被截断成 16 字符（`/Users/jahan/wor`），不能用它判定。
+    """
     completed = subprocess.run(
-        ["ps", "-Aww", "-o", "command="], capture_output=True, text=True, check=True
+        ["ps", "-Aww", "-o", "ucomm=,command="], capture_output=True, text=True, check=True
     )
-    return [line for line in completed.stdout.splitlines() if "uvicorn" in line and "muad_" in line]
+    services: list[str] = []
+    for line in completed.stdout.splitlines():
+        ucomm, _, command = line.strip().partition(" ")
+        if "python" not in ucomm.lower():
+            continue
+        if "-m uvicorn muad_" in command:
+            services.append(command.strip())
+    return services
 
 
 def _await_service_processes(expected: dict[str, int]) -> list[str]:

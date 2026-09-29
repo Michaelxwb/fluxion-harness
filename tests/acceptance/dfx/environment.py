@@ -318,23 +318,32 @@ def post_task_request(
     input_data: dict[str, Any],
     idempotency_key: str,
     worker_url: str | None = None,
+    delivery_mode: str = "NONE",
+    delivery_route: dict[str, Any] | None = None,
 ) -> httpx.Response:
-    """真实 HTTP 提交「原样返回响应」：故障路径要据响应本身断言失败（不得改写为成功）。"""
+    """真实 HTTP 提交「原样返回响应」：故障路径要据响应本身断言失败（不得改写为成功）。
+
+    `delivery_mode`/`delivery_route` 由调用方显式给出（默认 `NONE` 不投递）；
+    `FINAL_ONLY` 按契约必须带路由（`CreateTaskRequest._require_route_for_delivery`）。
+    """
+    payload: dict[str, Any] = {
+        "tenant_id": stack.tenant_id,
+        "agent_id": str(stack.agent_id),
+        "actor_user_id": str(stack.platform_user_id),
+        "intent_key": "dfx_reliability_probe",
+        "skill_id": str(spec.skill_id),
+        "skill_artifact_id": str(spec.artifact_id),
+        "input": input_data,
+        "execution_snapshot": spec.snapshot,
+        "snapshot_hash": snapshot_hash(spec.snapshot),
+        "idempotency_key": idempotency_key,
+        "delivery_mode": delivery_mode,
+    }
+    if delivery_route is not None:
+        payload["delivery_route"] = delivery_route
     return http.post(
         f"{worker_url or stack.worker_url}/internal/tasks",
-        json={
-            "tenant_id": stack.tenant_id,
-            "agent_id": str(stack.agent_id),
-            "actor_user_id": str(stack.platform_user_id),
-            "intent_key": "dfx_reliability_probe",
-            "skill_id": str(spec.skill_id),
-            "skill_artifact_id": str(spec.artifact_id),
-            "input": input_data,
-            "execution_snapshot": spec.snapshot,
-            "snapshot_hash": snapshot_hash(spec.snapshot),
-            "idempotency_key": idempotency_key,
-            "delivery_mode": "NONE",
-        },
+        json=payload,
         headers=stack.service_headers(),
     )
 
@@ -347,6 +356,8 @@ def submit_task(
     input_data: dict[str, Any],
     idempotency_key: str,
     worker_url: str | None = None,
+    delivery_mode: str = "NONE",
+    delivery_route: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """真实 HTTP 提交：Worker `POST /internal/tasks`（Runtime 同一个内部接口）。"""
     response = post_task_request(
@@ -356,6 +367,8 @@ def submit_task(
         input_data=input_data,
         idempotency_key=idempotency_key,
         worker_url=worker_url,
+        delivery_mode=delivery_mode,
+        delivery_route=delivery_route,
     )
     assert response.status_code == 200, f"提交 Task 失败：{response.status_code} {response.text}"
     data = cast(dict[str, Any], response.json()["data"])
@@ -364,7 +377,7 @@ def submit_task(
 
 
 def read_task_row(task_id: uuid.UUID, *, tenant_id: str | None = None) -> dict[str, Any] | None:
-    """从真实 PostgreSQL 逐行回读 claim/租约盘面（不以日志或返回值代替）。"""
+    """从真实 PostgreSQL 逐行回读 claim/租约/投递盘面（不以日志或返回值代替）。"""
 
     async def query(factory: Any) -> dict[str, Any] | None:
         async with factory() as session:
@@ -373,7 +386,8 @@ def read_task_row(task_id: uuid.UUID, *, tenant_id: str | None = None) -> dict[s
                     text(
                         "SELECT tenant_id, status, task_type, attempt, max_attempts, lease_owner,"
                         " lease_until, heartbeat_at, cancel_requested, result_json,"
-                        " error_code, error_message, finished_at"
+                        " error_code, error_message, finished_at, delivery_mode, delivery_status,"
+                        " delivery_attempts, delivered_at, delivery_key"
                         " FROM task.task_execution WHERE tenant_id = :t AND id = :id"
                     ),
                     {"t": tenant_id or TENANT, "id": task_id},
@@ -395,6 +409,11 @@ def read_task_row(task_id: uuid.UUID, *, tenant_id: str | None = None) -> dict[s
             "error_code": row[10],
             "error_message": row[11],
             "finished_at": row[12],
+            "delivery_mode": row[13],
+            "delivery_status": row[14],
+            "delivery_attempts": row[15],
+            "delivered_at": row[16],
+            "delivery_key": row[17],
         }
 
     return cast(dict[str, Any] | None, run_db(query))

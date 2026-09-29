@@ -524,7 +524,7 @@
       "kind": "functional",
       "boundary": "lease → Reaper → CAS",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -532,7 +532,28 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "378093d797ed41e3a64a9d5ef7aeeaa0",
+        "executed_at": "2026-09-29T01:50:38.781222+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "378093d797ed41e3a64a9d5ef7aeeaa0",
+          "executed_at": "2026-09-29T01:50:38.781222+00:00"
+        }
+      ]
     },
     {
       "id": "E-05",
@@ -541,7 +562,7 @@
       "kind": "functional",
       "boundary": "Scheduler sweep → PG",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -549,7 +570,28 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "378093d797ed41e3a64a9d5ef7aeeaa0",
+        "executed_at": "2026-09-29T01:50:38.781222+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "378093d797ed41e3a64a9d5ef7aeeaa0",
+          "executed_at": "2026-09-29T01:50:38.781222+00:00"
+        }
+      ]
     },
     {
       "id": "E-06",
@@ -719,7 +761,7 @@
       "kind": "functional",
       "boundary": "Scheduler → Schedule",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -727,7 +769,28 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 1,
+      "evidence": {
+        "id": "B-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 1,
+        "run_id": "378093d797ed41e3a64a9d5ef7aeeaa0",
+        "executed_at": "2026-09-29T01:50:38.781222+00:00"
+      },
+      "runs": [
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "378093d797ed41e3a64a9d5ef7aeeaa0",
+          "executed_at": "2026-09-29T01:50:38.781222+00:00"
+        }
+      ]
     },
     {
       "id": "B-04",
