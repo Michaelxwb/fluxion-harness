@@ -30,15 +30,11 @@ E-04/E-05 在基座 Worker 的**同一端口**上换入显式配置的 Worker（
 
 from __future__ import annotations
 
-import os
 import re
 import signal
-import socket
-import subprocess
 import time
 import uuid
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -57,16 +53,19 @@ from .environment import (
     TENANT,
     DfxStack,
     TaskSpec,
-    await_readyz,
+    await_no_extra_services,
     count_rows,
     count_task_events,
-    distinct_free_ports,
+    delivery_pair,
+    instance_id,
+    probe_deliveries,
     read_task_row,
     resolve_task_spec,
     run_async,
     run_db,
-    start_service,
+    stop_spawned_services,
     submit_task,
+    swapped_workers,
 )
 
 pytestmark = pytest.mark.integration
@@ -77,7 +76,6 @@ POLL_INTERVAL_SEC = 0.2
 READY_TIMEOUT_SEC = 60.0
 RUNNING_TIMEOUT_SEC = 60.0
 TERMINAL_TIMEOUT_SEC = 120.0
-PROCESS_WAIT_SEC = 30.0
 
 # E-04：被 SIGKILL 的 Worker 用**显式短租约**（基座默认 30s，见 `environment.TASK_LEASE_SEC`），
 # 使「租约过期 → 被接手」成为可在用例内等待的事件；心跳仍是 1s（远小于租约）。
@@ -120,21 +118,16 @@ SKIP_MISFIRE = "SCHEDULE_MISFIRE_SKIPPED"
 TASK_DEADLINE_EXCEEDED = "TASK_DEADLINE_EXCEEDED"
 MISFIRE_METRIC = "scheduled_misfire_total"
 
-# 用例内换入/新起的服务进程：模块收尾必须全部停掉，否则留下孤儿进程共用同一测试库。
-_SPAWNED_SERVICES: list[ServiceProcess] = []
-# 基座端口上「此刻真正活着」的 Worker：基座对象，或用例内换入/还原的那个。
-# 只停基座对象不够：上一个用例还原的 Worker 仍占着同一端口，新进程会绑定失败而 `/healthz`
-# 由旧进程应答，于是用例以为换入成功、实际跑的是没有注入配置的旧 Worker（E-05 曾因此误判）。
-_LIVE_WORKER: list[ServiceProcess] = []
-
 
 @pytest.fixture(scope="module", autouse=True)
-def _stop_spawned_services(live_stack: DfxStack) -> Iterator[None]:
-    """模块收尾：停掉用例内换入/新起的服务（依赖 `live_stack` 以保证先于其清理执行）。"""
+def _stop_spawned(live_stack: DfxStack) -> Iterator[None]:
+    """模块收尾：停掉用例内换入/还原的服务进程（依赖 `live_stack` 以保证先于其清理执行）。
+
+    基座的 `stop_dfx_stack` 只停它自己创建的那批对象；用例内还原到同一端口的 Worker 是**另一个**
+    进程对象，不在这里收掉就会成为孤儿，继续连同一个测试库。
+    """
     yield
-    for process in _SPAWNED_SERVICES:
-        process.stop()
-    _SPAWNED_SERVICES.clear()
+    stop_spawned_services()
 
 
 def _database_url() -> str:
@@ -249,13 +242,6 @@ def _claimable_task_ids() -> list[uuid.UUID]:
     return cast(list[uuid.UUID], run_db(query))
 
 
-def _instance_id(process: ServiceProcess) -> str:
-    """Worker 子进程的 lease 实例标识（与 `worker/service.py::default_instance_id` 同口径）。"""
-    handle = process._process
-    assert handle is not None and handle.pid is not None, f"{process.name} 未启动"
-    return f"{socket.gethostname()}:{handle.pid}"
-
-
 def _sigkill(process: ServiceProcess) -> None:
     """真实 `SIGKILL`（不是 terminate、不是异常退出）：崩溃注入点。"""
     handle = process._process
@@ -263,113 +249,6 @@ def _sigkill(process: ServiceProcess) -> None:
     handle.send_signal(signal.SIGKILL)
     handle.wait(timeout=10)
     assert handle.poll() is not None, f"{process.name} 未被杀死"
-
-
-def _service_commands() -> list[str]:
-    """当前在跑的**真实服务进程**命令行（孤儿进程判据）。
-
-    判据是「可执行文件是 Python 且命令行为 `-m uvicorn muad_*`」：真实服务的启动形式就是
-    `python -m uvicorn muad_*.main:app`。不能只按「命令行里出现 uvicorn/muad_」过滤——
-    调用方 shell 自己的命令行只要提到这两个子串（例如 `grep -E "uvicorn|muad_"`、
-    `grep -c "-m uvicorn muad_"`），那个 shell 就会被算成多余服务进程，把「无多余进程」的断言
-    变成假失败（2026-09-29 整跑 `tests/acceptance` 时实测到 5 例；改用 `comm` 判定后消除）。
-    """
-    completed = subprocess.run(
-        ["ps", "-Aww", "-o", "ucomm=,command="], capture_output=True, text=True, check=True
-    )
-    services: list[str] = []
-    for line in completed.stdout.splitlines():
-        # `ucomm` 是 argv[0] 的名字（`python3.13`）；`comm` 在 macOS 上被截断成 16 字符，
-        # 形如 `/Users/jahan/wor`，用它做判据会把真实服务漏掉。
-        ucomm, _, command = line.strip().partition(" ")
-        if "python" not in ucomm.lower():
-            continue
-        if "-m uvicorn muad_" in command:
-            services.append(command.strip())
-    return services
-
-
-def _await_service_processes(expected: dict[str, int]) -> list[str]:
-    """等进程收敛到期望分布（停进程后进程表有极短抖动窗口）。"""
-    deadline = time.monotonic() + PROCESS_WAIT_SEC
-    commands: list[str] = []
-    while time.monotonic() < deadline:
-        commands = _service_commands()
-        if {module: sum(module in line for line in commands) for module in expected} == expected:
-            return commands
-        time.sleep(POLL_INTERVAL_SEC)
-    raise AssertionError(f"服务进程未收敛到 {expected}：{commands}")
-
-
-def _await_no_extra_services() -> None:
-    """本用例起的临时服务（Gateway/探针/换入 Worker）必须全部停掉，只留基座一对。"""
-    commands = _await_service_processes(
-        {"muad_console_platform.main": 1, "muad_agent_worker.main": 1}
-    )
-    assert len(commands) == 2, f"本用例仍有多余服务进程：{commands}"
-
-
-def _await_port_free(port: int, *, timeout_sec: float = 15.0) -> None:
-    """换入前确认端口真的空出来：否则新进程绑定失败、`/healthz` 由旧进程应答（静默换不成功）。"""
-    deadline = time.monotonic() + timeout_sec
-    while time.monotonic() < deadline:
-        with socket.socket() as probe:
-            probe.settimeout(1.0)
-            if probe.connect_ex(("127.0.0.1", port)) != 0:
-                return
-        time.sleep(POLL_INTERVAL_SEC)
-    raise AssertionError(f"端口 {port} 在 {timeout_sec}s 内仍被占用：换入的 Worker 不会真的接管")
-
-
-def _stop_live_worker(live_stack: DfxStack) -> None:
-    """停掉基座端口上此刻真正活着的 Worker（基座对象或用例内还原的那个）。"""
-    for process in [*_LIVE_WORKER, live_stack.processes["worker"]]:
-        process.stop()
-    _LIVE_WORKER.clear()
-
-
-@contextmanager
-def _swapped_workers(live_stack: DfxStack, log_dir: Path) -> Iterator[Callable[..., ServiceProcess]]:
-    """停掉基座端口上的 Worker，用**同一端口 + 同一基座环境**起替代 Worker（可叠加显式配置）。
-
-    claim/reap 是全局的：只要还有一个存活 Worker，「谁领走这一行」就不可控。用例内只让自己的
-    Worker 参与，收尾按基座环境把 Worker 起回来（同一端口 + 同一 env，与 TASK-004 的
-    `_degraded_worker` 同口径，不另造第二套进程管理）。
-    """
-    base = live_stack.processes["worker"]
-    _stop_live_worker(live_stack)
-    started: list[ServiceProcess] = []
-
-    def start(name: str, **overrides: str) -> ServiceProcess:
-        process = ServiceProcess(
-            name=name,
-            module="muad_agent_worker.main",
-            port=base.port,
-            env={**base.env, **overrides},
-            log_path=log_dir / f"{name}.log",
-        )
-        _await_port_free(base.port)
-        start_service(process)
-        started.append(process)
-        return process
-
-    try:
-        yield start
-    finally:
-        for process in started:
-            process.stop()
-        _LIVE_WORKER.clear()
-        restored = ServiceProcess(
-            name="worker",
-            module="muad_agent_worker.main",
-            port=base.port,
-            env=base.env,
-            log_path=log_dir / "worker-restored.log",
-        )
-        _await_port_free(base.port)
-        start_service(restored)
-        _SPAWNED_SERVICES.append(restored)
-        _LIVE_WORKER.append(restored)
 
 
 class _FixedClaimer:
@@ -487,7 +366,7 @@ def _sigkill_reclaim_arm(
         TASK_LEASE_SEC=str(RECOVERY_LEASE_SEC),
         TASK_HEARTBEAT_SEC=str(RECOVERY_HEARTBEAT_SEC),
     )
-    victim_owner = _instance_id(victim)
+    victim_owner = instance_id(victim)
     task_id = _submit(live_stack, http, spec, sleep_sec=VICTIM_SLEEP_SEC, probe="killed")
     # 前置：这一行必须真的被**被杀进程**领走（判据是 PG 的 lease_owner，不是进程状态）。
     held = _await_row(
@@ -587,63 +466,11 @@ def test_e04_sigkill_worker_is_reclaimed_and_stale_write_is_refused(
 ) -> None:
     """[E-04] 真实 SIGKILL → 租约过期 → 另一 Worker reclaim；过期执行者的晚到写入被 CAS 拒绝。"""
     spec = resolve_task_spec(live_stack, http)
-    with _swapped_workers(live_stack, tmp_path) as start:
+    with swapped_workers(live_stack, tmp_path) as start:
         killed_id = _sigkill_reclaim_arm(live_stack, http, tmp_path, start, spec)
         _stale_write_control_sample(live_stack, http, spec, start)
-    _await_no_extra_services()
+    await_no_extra_services()
     assert count_rows("task.task_execution", live_stack.tenant_id, "id = :id", {"id": killed_id}) == 1
-
-
-@contextmanager
-def _delivery_pair(
-    live_stack: DfxStack, tmp_path: Path
-) -> Iterator[tuple[str, str]]:
-    """真实 IM Gateway + 真实渠道探针（外部渠道由本地真实 HTTP 探针承载，不是替身）。
-
-    退出时两个进程都停掉：它们是用例自起的临时服务，收尾不得留下孤儿。
-    """
-    probe_port, gateway_port = distinct_free_ports(2)
-    probe_url = f"http://127.0.0.1:{probe_port}"
-    gateway_url = f"http://127.0.0.1:{gateway_port}"
-    settings = SharedSettings()
-    probe = ServiceProcess(
-        name="dfx-channel-probe",
-        module="tests.acceptance.task_schedule.channel_probe",
-        port=probe_port,
-        env={**os.environ},
-        log_path=tmp_path / "channel-probe.log",
-    )
-    gateway = ServiceProcess(
-        name="dfx-im-gateway",
-        module="muad_im_gateway.main",
-        port=gateway_port,
-        env={
-            **os.environ,
-            "DATABASE_URL": settings.require_database_url(),
-            "REDIS_URL": settings.require_redis_url(),
-            "CONSOLE_PLATFORM_URL": live_stack.console_url,
-            "CHANNEL_PROBE_URL": f"{probe_url}/probe/deliveries",
-            "DEFAULT_TENANT_ID": live_stack.tenant_id,
-            "INTERNAL_SERVICE_TOKEN": live_stack.service_headers()["X-Internal-Service"],
-        },
-        log_path=tmp_path / "im-gateway.log",
-    )
-    start_service(probe)
-    start_service(gateway)
-    try:
-        await_readyz(gateway_url, timeout_sec=READY_TIMEOUT_SEC)
-        yield gateway_url, probe_url
-    finally:
-        gateway.stop()
-        probe.stop()
-
-
-def _probe_deliveries(probe_url: str, bot_id: str) -> list[dict[str, Any]]:
-    """渠道探针真实收到的投递记录（按本用例的 bot_id 归因）。"""
-    response = httpx.get(f"{probe_url}/probe/deliveries", timeout=5.0)
-    assert response.status_code == 200, response.text
-    records = cast(list[dict[str, Any]], response.json()["deliveries"])
-    return [record for record in records if record.get("bot_id") == bot_id]
 
 
 def _expire_deadline(task_ids: list[uuid.UUID], *, seconds: int = 2) -> dict[uuid.UUID, datetime]:
@@ -706,14 +533,14 @@ def _assert_delivery_by_mode(
     )
     assert sent["delivery_attempts"] >= 1 and sent["delivered_at"] is not None
     assert count_task_events(deliverable_id, "DELIVERY_SENT") == 1
-    records = _probe_deliveries(probe_url, DELIVERY_ROUTE["bot_id"])
+    records = probe_deliveries(probe_url, DELIVERY_ROUTE["bot_id"])
     assert len(records) >= 1, "真实渠道探针没有收到投递（Gateway→探针链路未打通）"
     assert all("超过截止时间" in str(record.get("text")) for record in records), records
 
     # 同窗口负例：delivery_mode=NONE 不产生任何投递事实；A 臂已证明投递循环在跑（非空对照）。
     quiet_deadline = time.monotonic() + DELIVERY_QUIET_SEC
     while time.monotonic() < quiet_deadline:
-        assert _probe_deliveries(probe_url, DELIVERY_ROUTE["bot_id"]) == records, (
+        assert probe_deliveries(probe_url, DELIVERY_ROUTE["bot_id"]) == records, (
             "安静窗口内又出现了新的投递记录"
         )
         time.sleep(POLL_INTERVAL_SEC)
@@ -728,8 +555,8 @@ def test_e05_deadline_sweep_cas_and_delivery_by_mode(
 ) -> None:
     """[E-05] 超过 deadline_at 的 Task 被 CAS `FAILED(TASK_DEADLINE_EXCEEDED)`，并仍按 delivery_mode 投递。"""
     spec = resolve_task_spec(live_stack, http)
-    with _delivery_pair(live_stack, tmp_path) as (gateway_url, probe_url):
-        with _swapped_workers(live_stack, tmp_path) as start:
+    with delivery_pair(live_stack, tmp_path) as (gateway_url, probe_url):
+        with swapped_workers(live_stack, tmp_path) as start:
             start("worker-delivery", IM_GATEWAY_URL=gateway_url)
             deliverable_id = _submit(
                 live_stack,
@@ -747,7 +574,7 @@ def test_e05_deadline_sweep_cas_and_delivery_by_mode(
             )
             silent = _assert_deadline_swept(silent_id, deadlines[silent_id], label="NONE 样本")
             _assert_delivery_by_mode(deliverable_id, silent_id, silent, probe_url)
-    _await_no_extra_services()
+    await_no_extra_services()
 
 
 def _create_schedule(

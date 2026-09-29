@@ -54,7 +54,7 @@
 | S-08 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Worker Parent/Child → fan-in | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"] | . | 1200 |  |
 | S-09 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime interrupt → resume/cancel | TASK-010 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"] | . | 1200 |  |
 | S-10 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | 授权解析 → Prompt/ToolRegistry → IM 路由 | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | . | 1200 |  |
-| S-11 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Worker → Gateway `/internal/deliveries` → Redis | TASK-006 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"] | . | 900 |  |
+| S-11 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Worker → Gateway `/internal/deliveries` → Redis | TASK-006 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"] | . | 900 |  |
 | S-12 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | TASK-012 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"] | . | 1200 |  |
 | S-13 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | manual | CI/环境全链路 | TASK-013 | planned | - | . | 60 |  |
 | E-01 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Service → PostgreSQL | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_fault_matrix.py","-k","e01"] | . | 900 |  |
@@ -62,7 +62,7 @@
 | E-03 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | emptyDir cache → NFS | TASK-004 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e03 && uv run pytest -q tests/acceptance/test_foundation_artifact.py tests/test_skill_artifact_cache.py"] | . | 900 |  |
 | E-04 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | lease → Reaper → CAS | TASK-005 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_recovery.py -k e04 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py tests/acceptance/task_schedule/test_recovery.py"] | . | 1200 |  |
 | E-05 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Scheduler sweep → PG | TASK-005 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_recovery.py -k e05 && uv run pytest -q tests/agent_worker/test_task_deadline.py"] | . | 900 |  |
-| E-06 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Worker → Gateway → Redis | TASK-006 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k e06 && uv run pytest -q tests/acceptance/im_gateway/test_worker_delivery.py"] | . | 900 |  |
+| E-06 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Worker → Gateway → Redis | TASK-006 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k e06 && uv run pytest -q tests/acceptance/im_gateway/test_worker_delivery.py"] | . | 900 |  |
 | E-07 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Egress Boundary → Audit/日志/Snapshot | TASK-007 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_security.py -k e07 && uv run pytest -q tests/acceptance/test_secret_consumers.py tests/acceptance/im_gateway/test_secrets_and_readiness.py"] | . | 1200 |  |
 | E-08 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | API → RBAC/CSRF/租户谓词 | TASK-008 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_api_security.py -k e08 && uv run pytest -q tests/console_auth/test_rbac.py tests/console_platform/test_credentials_api.py tests/agent_worker/test_tenant_guard.py"] | . | 900 |  |
 | E-09 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | ModelGateway → Provider | TASK-009 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_model_recovery.py -k e09 && uv run pytest -q tests/agent_runtime/test_model_recovery.py"] | . | 900 |  |
@@ -353,13 +353,13 @@ FEAT-04 的依赖故障面：PG 不可用 fail closed（不本地落状态、`/r
 - [2026-09-29] completed (done)
 ## TASK-006: 最终投递去重与重试（Worker→Gateway→Redis）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.4 可靠性矩阵, 14-dfx-acceptance.backend.design.md#3.4.3 契约与一致性测试清单, 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景
 - **Spec-Refs**:
 - **Acceptance-Refs**: S-11, E-06
-- **Files**: `tests/acceptance/dfx/test_dfx_delivery.py`
+- **Files**: `tests/acceptance/dfx/test_dfx_delivery.py`、`tests/acceptance/dfx/delivery_rewriter.py`（新增：Worker↔真实 Gateway 之间的**真实 HTTP 响应改写代理**，只在回程延迟/改写 `delivered`，请求仍打到真实 Gateway/Redis/探针）, `tests/acceptance/dfx/environment.py`（把 TASK-005 落在 `test_dfx_recovery.py` 里的**投递链/换入 Worker/孤儿进程判据**原语上移到基座公用，供本任务复用；新增 `instance_id()`——不另造第二套进程管理）, `tests/acceptance/dfx/test_dfx_recovery.py`（改为引用上移后的原语，行为一字未改；回归 3 passed）
 - **Estimate**: 半天级
 
 ### Description
@@ -368,32 +368,44 @@ FEAT-04 的最终投递面：终态投递以 `delivery_key`（`task:{task_id}:fi
 
 ### Checklist
 
-- [ ] [S-11][integration] 以 `Worker → Gateway /internal/deliveries → Redis` 为真实边界编写用例：同一 `delivery_key` 投递两次 → 第二次返回 200 且不重复发送、`delivery_status` 最终 `SENT`；并断言结果**先持久化后投递**（投递发生前库内已有终态事实）。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"]`。
-- [ ] [E-06][integration] 以 `Worker → Gateway → Redis` 为真实边界断言：前 4 次失败后第 5 次成功的指数退避序列（`BACKOFF_BASE_SEC * 2**attempts`）；重复 `delivery_key` 不重复发送；**HTTP 200 但 `delivered=false` 不得置 `SENT`**，须按可重试失败退避重投；超过 5 次置 `delivery_status=FAILED` 并写审计。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k e06 && uv run pytest -q tests/acceptance/im_gateway/test_worker_delivery.py"]`。
-- [ ] 退避断言用可注入时钟或真实间隔两者之一，并显式登记所选口径；`delivery_attempts` 必须在发起请求前自增并提交（崩溃重启不丢退避进度），以真实库回读取证。
-- [ ] `delivery_mode` 仅 `FINAL_ONLY`/`NONE`：对 `NONE` 构造对照样本，断言不产生投递记录。
-- [ ] 断言失败面不吞事实：超限后审计行存在且载荷含原因与重试次数，反查无明文密钥。
-- [ ] 真实 Redis 未配置时显式记录原因，不得用替身冒充「真实 SET NX EX/TTL 去重」。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [S-11][integration] 以 `Worker → Gateway /internal/deliveries → Redis` 为真实边界编写用例：同一 `delivery_key` 投递两次 → 第二次返回 200 且不重复发送、`delivery_status` 最终 `SENT`；并断言结果**先持久化后投递**（投递发生前库内已有终态事实）。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"]`。**实测：本段 1 passed（13.79s）；引用段 2 passed（24.38s）。「先持久化后投递」有两条真实库证据：①投递正文由库内已持久化结果构造——探针实收 `后台任务已完成：dfx_reliability_probe\n{"probe":"s11-persist","slept_sec":0}`，与 `result_json` 逐字段一致；②同库两列比较 `finished_at(06:19:18.793702) ≤ delivered_at(06:19:19.652829)`。重放走真实 Gateway：`{duplicate: True, delivered: True, deduplicated: True}`，探针 8s 安静窗口记录数不变，真实 Redis 上 `delivery:dedupe:task:{id}:final` TTL = 604792s（≈7d）。**
+- [x] [E-06][integration] 以 `Worker → Gateway → Redis` 为真实边界断言：前 4 次失败后第 5 次成功的指数退避序列（`BACKOFF_BASE_SEC * 2**attempts`）；重复 `delivery_key` 不重复发送；**HTTP 200 但 `delivered=false` 不得置 `SENT`**，须按可重试失败退避重投；超过 5 次置 `delivery_status=FAILED` 并写审计。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k e06 && uv run pytest -q tests/acceptance/im_gateway/test_worker_delivery.py"]`。**实测：本段 3 passed（265.57s）；引用段 4 passed（118.91s）。退避臂实测间隔 `[10.08, 20.14, 40.25, 80.40]s` 对窗口 `[10, 20, 40, 80]s`（取自真实 `task_event.create_time` 差值），第 5 次成功且探针**恰好收到 1 条**成功投递（前 4 次被渠道 500 拒绝、不记录）。占位臂由真实 HTTP 响应改写代理注入 2xx+`delivered=false`：该行 `delivered_at` 始终 NULL、`DELIVERY_SENT` 事件 0，按可重试失败耗尽后置 `FAILED`（Task 自身仍 `COMPLETED`），审计事件 `DELIVERY_FAILED` 载荷 `{"error": "delivery accepted as in-flight placeholder, not delivered yet", "terminal": true, "delivery_attempts": 5}`。**
+- [x] 退避断言用可注入时钟或真实间隔两者之一，并显式登记所选口径；`delivery_attempts` 必须在发起请求前自增并提交（崩溃重启不丢退避进度），以真实库回读取证。**口径登记：用**真实间隔**（不注入时钟）——真实 Worker 子进程按生产 `DeliveryLoop` 的窗口重试，窗口从真实事件时间测量；为避免默认 `delivery_poll_interval_sec=5` 把窗口放大到 5s 轮询粒度上，本模块把该**真实配置项**钉到 1s（生产环境变量，非替身）。「先自增后发送」以真实库回读取证：响应改写代理把回程延迟 3s，在探针**已收到请求**而 Worker 仍被挡住的窗口内回读 PG，得到 `delivery_status=PENDING`、`delivery_attempts=5`（把种入的 4 自增到 5）——即预留已提交才有请求。**
+- [x] `delivery_mode` 仅 `FINAL_ONLY`/`NONE`：对 `NONE` 构造对照样本，断言不产生投递记录。**实测：同一投递链同一窗口内，`FINAL_ONLY` 正对照样本被真实探针收到（1 条、最终 `SENT`），而 `NONE` 样本回读为 `delivery_mode=NONE`、`delivery_status=NONE`、`delivery_attempts=0`、`delivered_at` 为 NULL，`DELIVERY_SENT/RETRY/FAILED` 事件全为 0，按该样本路由归因的探针记录为空——负例非空转。**
+- [x] 断言失败面不吞事实：超限后审计行存在且载荷含原因与重试次数，反查无明文密钥。**实测：耗尽时写 `task.task_event` 的 `DELIVERY_FAILED`（该租户该 Task 的投递事件恰好 1 条），载荷含 `error`（原因）、`delivery_attempts=5`（重试次数）、`terminal=true`；载荷序列化串内不含 `INTERNAL_SERVICE_TOKEN` 与租户模型 `api_key` 明文（逐值反查）。Task 自身终态事实未被投递失败吞掉（`status=COMPLETED`）。**
+- [x] 真实 Redis 未配置时显式记录原因，不得用替身冒充「真实 SET NX EX/TTL 去重」。**实测：`REDIS_URL` 缺失时基座 `require()` 直接 fail（不 skip），Gateway 侧 `settings.require_redis_url()` 亦直接抛错——不会退化成替身；去重语义本身以真实 Redis 键值与 TTL 取证（见 S-11 行）。**
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。**本任务两场景均无生产缺口，RED 行统一为「无 RED（新用例覆盖既有行为，如实登记）」，并以 4 处生产代码抖动取证证明断言非空（均在最终文件版本上复验，`git status --porcelain -- apps/ packages/` 为空），详见 Evidence。另新增两处环境前提守卫（见 Evidence）。**
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-11 | integration | Worker → Gateway `/internal/deliveries` → Redis | 重复 `delivery_key` 返回 200；最终 `SENT`；先持久化后投递 | tests/acceptance/dfx/test_dfx_delivery.py + tests/acceptance/task_schedule/test_delivery.py / S-11 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"]` | planned |
-| E-06 | integration | Worker → Gateway → Redis | 退避 5 次；去重不重发；`delivered=false` 不置 SENT；超限 FAILED + 审计 | tests/acceptance/dfx/test_dfx_delivery.py + tests/acceptance/im_gateway/test_worker_delivery.py / E-06 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k e06 && uv run pytest -q tests/acceptance/im_gateway/test_worker_delivery.py"]` | planned |
+| S-11 | integration | Worker → Gateway `/internal/deliveries` → Redis | 重复 `delivery_key` 返回 200；最终 `SENT`；先持久化后投递 | tests/acceptance/dfx/test_dfx_delivery.py + tests/acceptance/task_schedule/test_delivery.py / S-11 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"]` | verified |
+| E-06 | integration | Worker → Gateway → Redis | 退避 5 次；去重不重发；`delivered=false` 不置 SENT；超限 FAILED + 审计 | tests/acceptance/dfx/test_dfx_delivery.py + tests/acceptance/im_gateway/test_worker_delivery.py / E-06 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k e06 && uv run pytest -q tests/acceptance/im_gateway/test_worker_delivery.py"]` | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| （编码期填写） | | | | | |
+| S-11 | **无 RED（新用例覆盖既有行为，如实登记）**：本场景无生产缺口，首跑即绿。为证明断言非空，做了 2 处**抖动取证**（改生产代码 → 对应断言失败 → 按字节还原 → 复绿，`git status --porcelain -- apps/` 为空）：① gateway `api/delivery.py::deliver` 的 `reserved = await dedupe.reserve(...)` 改为 `reserved = True`（去重占位失效）→ 失败 `AssertionError: {'accepted': True, 'deduplicated': False, 'delivered': True, 'duplicate': False}`（重放被当成首发、未去重）；② `delivery/messages.py::_completed_text` 去掉 `_result_summary` 摘要行 → 失败 `AssertionError: 投递正文不是由库内已持久化的结果构造：后台任务已完成：dfx_reliability_probe`（正文不再承载库内结果）。 | `-k s11` → **1 passed in 13.79s**；复合 argv 两段全过：本段 1 passed + `tests/acceptance/task_schedule/test_delivery.py` → **2 passed in 24.38s**（整文件单跑 4 passed in 277.73s） | `tests/acceptance/dfx/test_dfx_delivery.py::test_s11_final_delivery_dedupes_replay_and_persists_before_send`（`_worker_chain`/`_await_probe`/`_assert_quiet`/`_dedupe_ttl`/`_replay`/`_await_worker_claim`） | **真实 Worker 子进程 → 真实 IM Gateway → 真实 Redis → 真实渠道探针**（本地真实 HTTP 进程，非替身）。①先持久化后投递：投递正文 = `后台任务已完成：dfx_reliability_probe\n{"probe":"s11-persist","slept_sec":0}`（由库内 `result_json` 构造），且 `finished_at 06:19:18.793702 ≤ delivered_at 06:19:19.652829`（同库两列比较）；投递到达瞬间回读 PG 为 `status=COMPLETED`、`result_json` 非空。②终态 `delivery_status=SENT`、`delivery_attempts=1`、`DELIVERY_SENT` 事件 == 1、`delivery_key=task:{id}:final`。③重放（真实 Gateway HTTP）→ 200 `{duplicate: True, delivered: True, deduplicated: True}`；探针 8s 安静窗口记录数不变；真实 Redis `delivery:dedupe:task:{id}:final` TTL = 604792s（≈7d，产品设计的成功键）。 | verified |
+| E-06 | **无 RED（新用例覆盖既有行为，如实登记）**：本场景无生产缺口，首跑即绿。4 处**抖动取证**（均在最终文件版本上复验）：① `delivery/service.py` 的 `BACKOFF_BASE_SEC * sa.func.power(2, delivery_attempts)` 改为常量 `BACKOFF_BASE_SEC`（去掉指数）→ 失败 `AssertionError: 第 1 次失败后的退避间隔 5.047744s 不在 [10.0, 15.0]`；② 同文件 `if 200 <= status_code < 300 and result.delivered:` 去掉 `and result.delivered` → 失败 `未在 90.0s 内占位响应按可重试失败处理并在耗尽后置 FAILED`，盘面 `delivery_status='SENT'`、`delivered_at` 非空（占位被当送达）；③ `messages.py::_completed_text` 去掉摘要（同 S-11 行）；④ gateway 去重占位失效（同 S-11 行）。**边界登记**：退避窗口以生产常量 `BACKOFF_BASE_SEC` 为基准断言「形状」（公式口径）——把 5 改成 1 时两侧同步缩放、用例仍通过（实测确认），即**调参不改公式不视为违规**；本用例钉住的是「指数序列 + 与生产公式一致」，不钉常量取值。 | `-k e06` → **3 passed in 265.57s**；复合 argv 两段全过：本段 3 passed + `tests/acceptance/im_gateway/test_worker_delivery.py` → **4 passed in 118.91s** | 退避：`test_e06_backoff_sequence_then_success`（`_delivery_events` 取真实 `create_time` 差值）；占位/耗尽/去重：`test_e06_placeholder_200_is_never_sent_and_exhaustion_writes_audit`（`_seed_delivery_attempts`/`_await_worker_claim`/`_replay`）；`NONE` 对照：`test_e06_none_mode_produces_no_delivery_fact` | **真实退避**：探针注入 4 次 500 后放行，实测间隔 `[10.082654, 20.135896, 40.248275, 80.397248]s` 对窗口 `[10, 20, 40, 80]s`；事件序列 `[DELIVERY_RETRY]×4 + [DELIVERY_SENT]`；第 5 次成功触达**恰好 1 条**（同一 `delivery_key` 不重复成功发送）。**先自增后发送**：响应改写代理把回程延迟 3s，在探针已收件、Worker 仍等待的窗口内回读 PG = `delivery_status=PENDING`、`delivery_attempts=5`。**2xx+`delivered=false` 不置 SENT**：注入后该行 `delivered_at` 始终 NULL、`DELIVERY_SENT`==0、终态 `FAILED`（Task 自身 `COMPLETED`），审计 `DELIVERY_FAILED` 载荷 `{"error": "delivery accepted as in-flight placeholder, not delivered yet", "terminal": true, "delivery_attempts": 5}` 且无明文密钥；重放同一 `delivery_key` 直连真实 Gateway → `{duplicate: True, deduplicated: True}`、探针记录数不变。**`NONE` 对照**：正对照样本同窗口成功投递 1 条（证明链路在跑），`NONE` 样本 `delivery_status=NONE`/`attempts=0`/`delivered_at` NULL/三类投递事件皆 0/探针无记录。**环境前提（本轮实测，复用时留意）**：claim 无 tenant 谓词，共享库上任何别的 Worker 都会领走本租户的行并用**它自己的** `ARTIFACT_ROOT` 执行（表现为 `SKILL_ARTIFACT_UNAVAILABLE` 重试到 FAILED）。实测命中两次：一次是本地 dev 服务 `uvicorn muad_agent_worker.main:app --app-dir apps/agent-worker/src --reload --port 8002` 的 **reload 子进程**（命令行形如 `python -c from multiprocessing.spawn import spawn_main`，**不含** `-m uvicorn muad_`，逃过了既有孤儿进程判据），一次是刻意起的对照 Worker（`-m uvicorn muad_agent_worker.main`，被 `await_no_extra_services()` 判据抓到）。因此新增两处守卫：`_await_worker_claim` 用**真实库回读的 CLAIMED `lease_owner`** 钉死「本栈 Worker 领走这一行」（外来 owner 时 ~4s 内失败并指名 owner 与典型成因），`await_no_extra_services()` 覆盖 `-m uvicorn muad_*` 形态的额外服务进程；两处都在本轮以真实外来 Worker 验证过（守卫触发实测：`owner=['…:23655'] ≠ 本栈 …:24235`，3.74s 失败；另两轮由收尾判据抓到额外服务进程）。**收尾**：整跑后无残留服务进程（`ps` 无 `uvicorn muad_*`），`dfx-reli%` 租户在 task/control 相关表 0 行；`delivery:dedupe:task:{id}:final` 属产品设计（7d TTL），不删（删键会掩盖投递事实）。 | verified |
+
+> E-06 独立覆盖三例：`test_e06_backoff_sequence_then_success`、`test_e06_placeholder_200_is_never_sent_and_exhaustion_writes_audit`、`test_e06_none_mode_produces_no_delivery_fact`。
+> 本轮之前的一次 runner 记录（`failed` / `incomplete`）来自**污染环境**：当时本地 dev Worker 与验收栈争抢同一 PG 上的 Task，该失败已定位并登记为上表「环境前提」。
+- S-11: verified — automated command passed; run_id=d2d5ad0694384734ade661e0fd8cf788 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=d2d5ad0694384734ade661e0fd8cf788 (confirmed_by: runner)
+- S-11: failed — automated command failed; run_id=d4a61b870b844583b4c3b97326bd55cf (confirmed_by: runner)
+- E-06: failed — automated command failed; run_id=d4a61b870b844583b4c3b97326bd55cf (confirmed_by: runner)
+- S-11: verified — automated command passed; run_id=ff33447f6f1b41b489cb50c7b2040e6b (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=ff33447f6f1b41b489cb50c7b2040e6b (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
 
 ---
-
+- [2026-09-29] started
+- [2026-09-29] resumed (in-progress)
+- [2026-09-29] completed (done)
 ## TASK-007: 安全验收：Egress 拒绝、Secret 全链路与日志脱敏
 
 - **Status**: draft

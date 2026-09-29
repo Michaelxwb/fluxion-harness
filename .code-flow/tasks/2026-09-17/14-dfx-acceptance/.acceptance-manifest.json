@@ -275,7 +275,7 @@
       "kind": "functional",
       "boundary": "Worker → Gateway `/internal/deliveries` → Redis",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -283,7 +283,57 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "S-11",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 4,
+        "run_id": "ff33447f6f1b41b489cb50c7b2040e6b",
+        "executed_at": "2026-09-29T11:20:54.235285+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "failed",
+          "error": "timeout",
+          "output": "",
+          "revision": 1,
+          "run_id": "c8ba9facec1c425fbe47677409f24bb3",
+          "executed_at": "2026-09-29T05:26:48.111264+00:00"
+        },
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "d2d5ad0694384734ade661e0fd8cf788",
+          "executed_at": "2026-09-29T10:42:18.975110+00:00"
+        },
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______ test_s11_final_delivery_dedupes_replay_and_persists_before_send ________\n\nlive_stack = DfxStack(console_url='http://127.0.0.1:56980', worker_url='http://127.0.0.1:56981', artifact_root=PosixPath('/private/...bility0/logs/worker.log'), _process=<Popen: returncode: -15 args: ['/Users/jahan/workspace/fluxion-harness/.venv...>)})\nhttp = <httpx.Client object at 0x10e8a95b0>\ntmp_path = PosixPath('/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/pytest-of-jahan/pytest-304/test_s11_final_delivery_dedupe0')\n\n    def test_s11_final_delivery_dedupes_replay_and_persists_before_send(\n        live_stack: DfxStack, http: httpx.Client, tmp_path: Any\n    ) -> None:\n        \"\"\"[S-11] 同一 `delivery_key` 投递两次：第二次 200 且不重发；最终 SENT；结果先持久化后投递。\"\"\"\n        bot_id = \"dfx-delivery-s11\"\n        with _worker_chain(live_stack, tmp_path) as (gateway_url, probe_url, worker):\n            http.post(f\"{probe_url}/probe/reset\")\n            spec = resolve_task_spec(live_stack, http)\n            task_id = _submit(\n                live_stack,\n                http,\n                spec,\n                probe=\"s11-persist\",\n                delivery_mode=\"FINAL_ONLY\",\n                delivery_route=_route(bot_id),\n            )\n>           _await_worker_claim(task_id, worker)\n\ntests/acceptance/dfx/test_dfx_delivery.py:331: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\ntask_id = UUID('e267a8a9-f3b2-4989-b5a5-08cdaa27c2aa')\nexpected_owner = 'xuwenbindeMacBook-Pro.local:50050'\n\n    def _await_worker_claim(\n        task_id: uuid.UUID, expected_owner: str, *, timeout_sec: float = 30.0\n    ) -> None:\n        \"\"\"断言这一行由**本栈 Worker** 领取。\n    \n        claim 没有 tenant 谓词（`claimer.py::_claimable_conditions`），共享库上任何别的 Worker 都\n        领得到本租户的行；外来 Worker 用它自己的 `ARTIFACT_ROOT` 执行，本栈刚种下的 Skill 包在那边\n        不存在，表现为 `SKILL_ARTIFACT_UNAVAILABLE` 并被重试到 FAILED——与本用例要断言的事实无关，\n        却会让用例以极难看懂的方式失败（本仓实测：本地 dev 服务 `uvicorn muad_agent_worker.main:app\n        --app-dir apps/agent-worker/src --reload` 的 reload 子进程命令行不含 `-m uvicorn muad_`，\n        逃过了所有孤儿进程判据）。故这里以真实库回读的 `lease_owner` 直接把环境前提钉死。\n        \"\"\"\n        deadline = time.monotonic() + timeout_sec\n        owners: list[str] = []\n        while time.monotonic() < deadline:\n            owners = _claim_owners(task_id)\n            foreign = [owner for owner in owners if owner != expected_owner]\n>           assert not foreign, (\n                f\"本栈之外的 Worker 领取了 task {task_id}：owner={foreign} ≠ 本栈 {expected_owner}。\"\n                \"共享库上还有别的 Worker 在跑（典型：本地 dev 服务 muad_agent_worker），\"\n                \"验收要求独占 Worker 池——请先停掉它再跑本套件。\"\n            )\nE           AssertionError: 本栈之外的 Worker 领取了 task e267a8a9-f3b2-4989-b5a5-08cdaa27c2aa：owner=['xuwenbindeMacBook-Pro.local:50028'] ≠ 本栈 xuwenbindeMacBook-Pro.local:50050。共享库上还有别的 Worker 在跑（典型：本地 dev 服务 muad_agent_worker），验收要求独占 Worker 池——请先停掉它再跑本套件。\nE           assert not ['xuwenbindeMacBook-Pro.local:50028']\n\ntests/acceptance/dfx/test_dfx_delivery.py:188: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/dfx/test_dfx_delivery.py::test_s11_final_delivery_dedupes_replay_and_persists_before_send\n1 failed, 3 deselected in 4.42s",
+          "revision": 3,
+          "run_id": "d4a61b870b844583b4c3b97326bd55cf",
+          "executed_at": "2026-09-29T10:51:12.663139+00:00"
+        },
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "ff33447f6f1b41b489cb50c7b2040e6b",
+          "executed_at": "2026-09-29T11:20:54.235285+00:00"
+        }
+      ]
     },
     {
       "id": "S-12",
@@ -600,7 +650,7 @@
       "kind": "functional",
       "boundary": "Worker → Gateway → Redis",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -608,7 +658,56 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 4,
+      "evidence": {
+        "id": "E-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 4,
+        "run_id": "ff33447f6f1b41b489cb50c7b2040e6b",
+        "executed_at": "2026-09-29T11:20:54.235285+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "incomplete",
+          "error": "deadline_exceeded",
+          "revision": 1,
+          "run_id": "c8ba9facec1c425fbe47677409f24bb3",
+          "executed_at": "2026-09-29T05:26:48.111264+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "d2d5ad0694384734ade661e0fd8cf788",
+          "executed_at": "2026-09-29T10:42:18.975110+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "failed",
+          "error": "timeout",
+          "output": "",
+          "revision": 3,
+          "run_id": "d4a61b870b844583b4c3b97326bd55cf",
+          "executed_at": "2026-09-29T10:51:12.663139+00:00"
+        },
+        {
+          "id": "E-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "ff33447f6f1b41b489cb50c7b2040e6b",
+          "executed_at": "2026-09-29T11:20:54.235285+00:00"
+        }
+      ]
     },
     {
       "id": "E-07",

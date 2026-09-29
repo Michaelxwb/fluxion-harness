@@ -19,8 +19,11 @@ from __future__ import annotations
 
 import os
 import socket
+import subprocess
 import time
 import uuid
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -189,15 +192,20 @@ def await_readyz(url: str, *, timeout_sec: float = READYZ_TIMEOUT_SEC) -> dict[s
     raise AssertionError(f"{url}/readyz 未在 {timeout_sec}s 内就绪：{status} {detail}")
 
 
-def worker_instance_id(stack: DfxStack) -> str:
-    """当前基座 Worker 子进程的 lease 实例标识（与 `worker/service.py::default_instance_id` 同口径）。
+def instance_id(process: ServiceProcess) -> str:
+    """服务子进程的 lease 实例标识（与 `worker/service.py::default_instance_id` 同口径）。
 
     用于断言「租约属于本用例驱动的那一个执行者」，而不是「某个本机进程」——claim 是全局的
     （`claimer.py::_claimable_conditions` 没有 tenant 谓词），别的 Worker 也领得到本租户的行。
     """
-    process = stack.processes["worker"]._process
-    assert process is not None and process.pid is not None, "基座 Worker 子进程未启动"
-    return f"{socket.gethostname()}:{process.pid}"
+    handle = process._process
+    assert handle is not None and handle.pid is not None, f"{process.name} 子进程未启动"
+    return f"{socket.gethostname()}:{handle.pid}"
+
+
+def worker_instance_id(stack: DfxStack) -> str:
+    """当前基座 Worker 子进程的 lease 实例标识（见 `instance_id`）。"""
+    return instance_id(stack.processes["worker"])
 
 
 def seed_control(database_url: str, artifact_root: Path) -> dict[str, Any]:
@@ -619,27 +627,257 @@ def stop_dfx_stack(processes: list[ServiceProcess]) -> None:
         process.stop()
 
 
+# ---------------------------------------------------------------------------
+# 服务监督（用例内换入/新起的真实服务进程，模块收尾必须全部停掉）
+# ---------------------------------------------------------------------------
+
+# 用例内换入/新起的服务进程：模块收尾必须全部停掉，否则留下孤儿进程共用同一测试库。
+_SPAWNED_SERVICES: list[ServiceProcess] = []
+# 基座端口上「此刻真正活着」的 Worker：基座对象，或用例内换入/还原的那个。
+# 只停基座对象不够：上一个用例还原的 Worker 仍占着同一端口，新进程会绑定失败而 `/healthz`
+# 由旧进程应答，于是用例以为换入成功、实际跑的是没有注入配置的那个（E-05 曾因此误判）。
+_LIVE_WORKER: list[ServiceProcess] = []
+PROCESS_WAIT_SEC = 30.0
+
+
+def stop_spawned_services() -> None:
+    """停掉用例内换入/新起的全部服务进程（模块收尾用；失败路径同样调用）。"""
+    for process in _SPAWNED_SERVICES:
+        process.stop()
+    _SPAWNED_SERVICES.clear()
+    _LIVE_WORKER.clear()
+
+
+def service_commands() -> list[str]:
+    """当前在跑的**真实服务进程**命令行（孤儿进程判据）。
+
+    判据是「可执行文件是 Python 且命令行为 `-m uvicorn muad_*`」：真实服务的启动形式就是
+    `python -m uvicorn muad_*.main:app`。不能只按「命令行里出现 uvicorn/muad_」过滤——
+    调用方 shell 自己的命令行只要提到这两个子串（例如 `grep -E "uvicorn|muad_"`、`grep -c
+    "-m uvicorn muad_"`），那个 shell 就会被算成多余服务进程，把「无多余进程」的断言变成
+    假失败（2026-09-29 整跑 `tests/acceptance` 时实测到 5 例；改用 `ucomm` 判定后消除）。
+    """
+    completed = subprocess.run(
+        ["ps", "-Aww", "-o", "ucomm=,command="], capture_output=True, text=True, check=True
+    )
+    services: list[str] = []
+    for line in completed.stdout.splitlines():
+        # `ucomm` 是 argv[0] 的名字（`python3.13`）；`comm` 在 macOS 上被截断成 16 字符，
+        # 形如 `/Users/jahan/wor`，用它做判据会把真实服务漏掉。
+        ucomm, _, command = line.strip().partition(" ")
+        if "python" not in ucomm.lower():
+            continue
+        if "-m uvicorn muad_" in command:
+            services.append(command.strip())
+    return services
+
+
+def await_service_processes(expected: dict[str, int]) -> list[str]:
+    """等进程收敛到期望分布（停进程后进程表有极短抖动窗口）。"""
+    deadline = time.monotonic() + PROCESS_WAIT_SEC
+    commands: list[str] = []
+    while time.monotonic() < deadline:
+        commands = service_commands()
+        if {module: sum(module in line for line in commands) for module in expected} == expected:
+            return commands
+        time.sleep(POLL_INTERVAL_SEC)
+    raise AssertionError(f"服务进程未收敛到 {expected}：{commands}")
+
+
+def await_no_extra_services() -> None:
+    """本用例起的临时服务（Gateway/探针/换入 Worker）必须全部停掉，只留基座一对。"""
+    commands = await_service_processes(
+        {"muad_console_platform.main": 1, "muad_agent_worker.main": 1}
+    )
+    assert len(commands) == 2, f"本用例仍有多余服务进程：{commands}"
+
+
+def await_port_free(port: int, *, timeout_sec: float = 15.0) -> None:
+    """换入前确认端口真的空出来：否则新进程绑定失败、`/healthz` 由旧进程应答（静默换不成功）。"""
+    deadline = time.monotonic() + timeout_sec
+    while time.monotonic() < deadline:
+        with socket.socket() as probe:
+            probe.settimeout(1.0)
+            if probe.connect_ex(("127.0.0.1", port)) != 0:
+                return
+        time.sleep(POLL_INTERVAL_SEC)
+    raise AssertionError(f"端口 {port} 在 {timeout_sec}s 内仍被占用：换入的 Worker 不会真的接管")
+
+
+def stop_live_worker(stack: DfxStack) -> None:
+    """停掉基座端口上此刻真正活着的 Worker（基座对象或用例内还原的那个）。"""
+    for process in [*_LIVE_WORKER, stack.processes["worker"]]:
+        process.stop()
+    _LIVE_WORKER.clear()
+
+
+@contextmanager
+def swapped_workers(stack: DfxStack, log_dir: Path) -> Iterator[Callable[..., ServiceProcess]]:
+    """停掉基座端口上的 Worker，用**同一端口 + 同一基座环境**起替代 Worker（可叠加显式配置）。
+
+    claim/reap/投递都是全局的：只要还有一个存活 Worker，「谁领走这一行」就不可控。用例内只让
+    自己的 Worker 参与，收尾按基座环境把 Worker 起回来（同一端口 + 同一 env，与 TASK-004 的
+    `_degraded_worker` 同口径，不另造第二套进程管理）。
+    """
+    base = stack.processes["worker"]
+    stop_live_worker(stack)
+    started: list[ServiceProcess] = []
+
+    def start(name: str, **overrides: str) -> ServiceProcess:
+        process = ServiceProcess(
+            name=name,
+            module="muad_agent_worker.main",
+            port=base.port,
+            env={**base.env, **overrides},
+            log_path=log_dir / f"{name}.log",
+        )
+        await_port_free(base.port)
+        start_service(process)
+        started.append(process)
+        return process
+
+    try:
+        yield start
+    finally:
+        for process in started:
+            process.stop()
+        _LIVE_WORKER.clear()
+        restored = ServiceProcess(
+            name="worker",
+            module="muad_agent_worker.main",
+            port=base.port,
+            env=base.env,
+            log_path=log_dir / "worker-restored.log",
+        )
+        await_port_free(base.port)
+        start_service(restored)
+        _SPAWNED_SERVICES.append(restored)
+        _LIVE_WORKER.append(restored)
+
+
+# ---------------------------------------------------------------------------
+# 投递链（真实 IM Gateway + 真实渠道探针，可选响应改写代理）
+# ---------------------------------------------------------------------------
+
+
+@contextmanager
+def delivery_pair(stack: DfxStack, log_dir: Path) -> Iterator[tuple[str, str]]:
+    """真实 IM Gateway + 真实渠道探针（外部渠道由本地真实 HTTP 探针承载，不是替身）。
+
+    退出时两个进程都停掉：它们是用例自起的临时服务，收尾不得留下孤儿。
+    """
+    from muad_common import SharedSettings
+
+    probe_port, gateway_port = distinct_free_ports(2)
+    probe_url = f"http://127.0.0.1:{probe_port}"
+    gateway_url = f"http://127.0.0.1:{gateway_port}"
+    settings = SharedSettings()
+    probe = ServiceProcess(
+        name="dfx-channel-probe",
+        module="tests.acceptance.task_schedule.channel_probe",
+        port=probe_port,
+        env={**os.environ},
+        log_path=log_dir / "channel-probe.log",
+    )
+    gateway = ServiceProcess(
+        name="dfx-im-gateway",
+        module="muad_im_gateway.main",
+        port=gateway_port,
+        env={
+            **os.environ,
+            "DATABASE_URL": settings.require_database_url(),
+            "REDIS_URL": settings.require_redis_url(),
+            "CONSOLE_PLATFORM_URL": stack.console_url,
+            "CHANNEL_PROBE_URL": f"{probe_url}/probe/deliveries",
+            "DEFAULT_TENANT_ID": stack.tenant_id,
+            "INTERNAL_SERVICE_TOKEN": stack.service_headers()["X-Internal-Service"],
+        },
+        log_path=log_dir / "im-gateway.log",
+    )
+    start_service(probe)
+    start_service(gateway)
+    try:
+        await_readyz(gateway_url, timeout_sec=READY_TIMEOUT_SEC)
+        yield gateway_url, probe_url
+    finally:
+        gateway.stop()
+        probe.stop()
+
+
+@contextmanager
+def delivery_rewriter(
+    upstream_gateway_url: str,
+    log_dir: Path,
+    *,
+    delay_sec: float = 0.0,
+    force_not_delivered: bool = False,
+) -> Iterator[str]:
+    """Worker ↔ 真实 Gateway 之间的响应改写代理（故障注入，见 `delivery_rewriter.py`）。
+
+    请求仍打到真实 Gateway（真实 Redis 去重 + 真实渠道探针收件），只在回程延迟/改写响应。
+    """
+    port = distinct_free_ports(1)[0]
+    url = f"http://127.0.0.1:{port}"
+    process = ServiceProcess(
+        name="dfx-delivery-rewriter",
+        module="tests.acceptance.dfx.delivery_rewriter",
+        port=port,
+        env={
+            **os.environ,
+            "REWRITE_UPSTREAM_GATEWAY_URL": upstream_gateway_url,
+            "REWRITE_DELAY_SEC": str(delay_sec),
+            "REWRITE_FORCE_NOT_DELIVERED": "1" if force_not_delivered else "0",
+        },
+        log_path=log_dir / "delivery-rewriter.log",
+    )
+    start_service(process)
+    try:
+        yield url
+    finally:
+        process.stop()
+
+
+def probe_deliveries(probe_url: str, bot_id: str) -> list[dict[str, Any]]:
+    """渠道探针真实收到的投递记录（按本用例的 bot_id 归因）。"""
+    response = httpx.get(f"{probe_url}/probe/deliveries", timeout=5.0)
+    assert response.status_code == 200, response.text
+    records = cast(list[dict[str, Any]], response.json()["deliveries"])
+    return [record for record in records if record.get("bot_id") == bot_id]
+
+
 __all__ = [
     "CROSS_TENANT",
     "DfxStack",
+    "PROCESS_WAIT_SEC",
     "TENANT",
     "TENANT_PREFIX",
     "TaskSpec",
+    "await_no_extra_services",
+    "await_port_free",
     "await_readyz",
+    "await_service_processes",
     "cleanup",
     "clear_engine_caches",
     "count_rows",
     "count_task_events",
+    "delivery_pair",
+    "delivery_rewriter",
     "distinct_free_ports",
+    "instance_id",
     "list_task_types",
+    "probe_deliveries",
     "purge_redis_hints",
     "post_task_request",
     "read_task_row",
     "resolve_task_spec",
+    "service_commands",
     "start_dfx_stack",
     "start_service",
     "stop_dfx_stack",
+    "stop_live_worker",
+    "stop_spawned_services",
     "submit_task",
+    "swapped_workers",
     "task_type_values",
     "worker_instance_id",
 ]
