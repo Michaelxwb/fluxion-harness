@@ -2,6 +2,7 @@ import { Button, Input, Select, Toast } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ListActionButton } from '../../components/common/ListActionButton';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -127,13 +128,9 @@ export function UserPage() {
               ]}
               onChange={(value) => setFilters((prev) => ({ ...prev, status: value ? String(value) : '' }))}
             />
-            <Button data-testid="search-user" onClick={applyFilters}>
-              {t('common.search')}
-            </Button>
-            <Button data-testid="reset-user" onClick={resetFilters}>
-              {t('user.reset')}
-            </Button>
-            <Button onClick={() => void reload()}>{t('common.refresh')}</Button>
+            <ListActionButton data-testid="search-user" onClick={applyFilters} action="search" />
+            <ListActionButton data-testid="reset-user" onClick={resetFilters} action="reset" />
+            <ListActionButton onClick={() => void reload()} action="refresh" />
           </>
         }
       />

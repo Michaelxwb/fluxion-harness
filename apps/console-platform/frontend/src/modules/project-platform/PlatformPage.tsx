@@ -2,6 +2,7 @@ import { Button, Input, Select, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ListActionButton } from '../../components/common/ListActionButton';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -143,7 +144,7 @@ export function PlatformPage() {
                 ]}
                 onChange={(value) => setParams((prev) => ({ ...prev, enabled: String(value), page: 1 }))}
               />
-              <Button onClick={() => void reload()}>{t('common.refresh')}</Button>
+              <ListActionButton onClick={() => void reload()} action="refresh" />
             </>
           }
         />

@@ -6,9 +6,10 @@
  * （service 层会丢弃未设置项，不会污染查询串）。后端 snake_case 只出现在 service 层。
  */
 
-import { Button, DatePicker, Input, Select } from '@douyinfe/semi-ui';
+import { DatePicker, Input, Select } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
+import { ListActionButton } from '../../../components/common/ListActionButton';
 import type { AuditListQuery } from '../types';
 
 export interface AuditFilterBarProps {
@@ -91,6 +92,17 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
 
   return (
     <>
+      <Input
+        data-testid="audit-filter-keyword"
+        style={{ width: 340, maxWidth: '100%' }}
+        maxLength={128}
+        showClear
+        aria-label={t('audit.filter.keyword')}
+        placeholder={t('audit.filter.keyword')}
+        value={value.keyword ?? ''}
+        onChange={(text) => emit({ keyword: text || undefined })}
+        onEnterPress={() => props.onSearch()}
+      />
       <DatePicker
         data-testid="audit-filter-time"
         type="dateRange"
@@ -116,24 +128,6 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
           emit({ auditType: (raw as AuditListQuery['auditType']) ?? undefined })
         }
       />
-      <Input
-        data-testid="audit-filter-actorUserId"
-        style={{ width: 180 }}
-        showClear
-        placeholder={t('audit.filter.actorUserId')}
-        value={value.actorUserId ?? ''}
-        onChange={(text) => emit({ actorUserId: text || undefined })}
-        onEnterPress={() => props.onSearch()}
-      />
-      <Input
-        data-testid="audit-filter-agent"
-        style={{ width: 180 }}
-        showClear
-        placeholder={t('audit.filter.agent')}
-        value={value.agentId ?? ''}
-        onChange={(text) => emit({ agentId: text || undefined })}
-        onEnterPress={() => props.onSearch()}
-      />
       <Select
         data-testid="audit-filter-resourceType"
         style={{ width: 180 }}
@@ -145,24 +139,6 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
           label: t(`audit.resourceType.${type}`)
         }))}
         onChange={(raw) => emit({ resourceType: (raw as string) ?? undefined })}
-      />
-      <Input
-        data-testid="audit-filter-resourceId"
-        style={{ width: 180 }}
-        showClear
-        placeholder={t('audit.filter.resourceId')}
-        value={value.resourceId ?? ''}
-        onChange={(text) => emit({ resourceId: text || undefined })}
-        onEnterPress={() => props.onSearch()}
-      />
-      <Input
-        data-testid="audit-filter-action"
-        style={{ width: 150 }}
-        showClear
-        placeholder={t('audit.filter.action')}
-        value={value.action ?? ''}
-        onChange={(text) => emit({ action: text || undefined })}
-        onEnterPress={() => props.onSearch()}
       />
       <Select
         data-testid="audit-filter-resultStatus"
@@ -176,21 +152,9 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
         }))}
         onChange={(raw) => emit({ resultStatus: (raw as string) ?? undefined })}
       />
-      <Input
-        data-testid="audit-filter-traceId"
-        style={{ width: 200 }}
-        showClear
-        placeholder={t('audit.filter.traceId')}
-        value={value.traceId ?? ''}
-        onChange={(text) => emit({ traceId: text || undefined })}
-        onEnterPress={() => props.onSearch()}
-      />
-      <Button data-testid="audit-reset" onClick={() => props.onReset()}>
-        {t('common.reset')}
-      </Button>
-      <Button data-testid="audit-refresh" onClick={() => props.onRefresh()}>
-        {t('common.refresh')}
-      </Button>
+      <ListActionButton action="search" data-testid="audit-search" onClick={props.onSearch} />
+      <ListActionButton data-testid="audit-reset" onClick={() => props.onReset()} action="reset" />
+      <ListActionButton data-testid="audit-refresh" onClick={() => props.onRefresh()} action="refresh" />
     </>
   );
 }

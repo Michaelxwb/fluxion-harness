@@ -12,6 +12,7 @@ export const AUDIT_PAGE_SIZE_MAX = 100;
 export const AUDIT_PAGE_SIZE_DEFAULT = 20;
 
 export interface AuditListQuery {
+  keyword?: string;
   auditType?: 'CONFIG' | 'TOOL' | 'EGRESS' | 'MODEL';
   resourceType?: string;
   resourceId?: string;

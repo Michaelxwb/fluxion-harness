@@ -2,6 +2,7 @@ import { Button, Input, Select, Switch, Toast } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ListActionButton } from '../../components/common/ListActionButton';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -212,13 +213,9 @@ export function ModelPage() {
                   setFilters((prev) => ({ ...prev, last_test_status: value ? String(value) : '' }))
                 }
               />
-              <Button data-testid="search-model" onClick={applyFilters}>
-                {t('common.search')}
-              </Button>
-              <Button data-testid="reset-model" onClick={resetFilters}>
-                {t('common.reset')}
-              </Button>
-              <Button onClick={() => void reload()}>{t('common.refresh')}</Button>
+              <ListActionButton data-testid="search-model" onClick={applyFilters} action="search" />
+              <ListActionButton data-testid="reset-model" onClick={resetFilters} action="reset" />
+              <ListActionButton onClick={() => void reload()} action="refresh" />
             </>
           }
         />

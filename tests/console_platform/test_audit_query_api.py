@@ -540,3 +540,64 @@ async def test_ru02_type_and_status_filters_narrow_the_projection(
     )
     assert unknown_type.status_code == 422, unknown_type.text
     assert unknown_type.json()["code"] == "COMMON_VALIDATION_ERROR"
+
+
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [("user_name", 3), ("agent_name", 3), ("agent_id", 4),
+     ("user_id", 3), ("account_id", 1), ("trace_id", 4), ("egress_target", 1)],
+)
+async def test_keyword_matches_names_ids_and_targets(
+    client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed,
+    field: str, expected: int,
+) -> None:
+    keyword = str(getattr(audit_seed, field))[1:-1].upper()
+    response = await client.get(
+        "/api/v1/audits", params={"keyword": keyword}, headers=_headers(tenant)
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["total"] == expected
+
+
+async def test_keyword_combines_with_enum_and_pagination(
+    client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed,
+) -> None:
+    response = await client.get(
+        "/api/v1/audits",
+        params={"keyword": "audit", "audit_type": "TOOL", "page_size": 1},
+        headers=_headers(tenant),
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["total"] == 1
+    assert data["items"][0]["audit_type"] == "TOOL"
+    response = await client.get(
+        "/api/v1/audits", params={"keyword": "' OR 1=1 --"}, headers=_headers(tenant)
+    )
+    assert response.json()["data"]["total"] == 0
+
+
+async def test_keyword_export_filters_survive_persistence_and_match_list(
+    client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed,
+) -> None:
+    from muad_console_platform.application.audit_export_service import (
+        canonical_filters, query_filters_from_canonical, to_query_filters,
+    )
+    from muad_console_platform.application.dto import AuditExportCreateRequest
+    from muad_console_platform.infrastructure.repositories.audit_query_repository import (
+        AuditQueryRepository,
+    )
+
+    payload = AuditExportCreateRequest(export_format="CSV", keyword="AUDIT USER")
+    canonical = canonical_filters(to_query_filters(payload))
+    assert canonical["keyword"] == "AUDIT USER"
+    filters = query_filters_from_canonical(canonical)
+    async with get_session_factory()() as session:
+        rows = await AuditQueryRepository(session).all_rows(tenant.tenant_id, filters)
+    response = await client.get(
+        "/api/v1/audits", params={"keyword": payload.keyword}, headers=_headers(tenant)
+    )
+    assert len(rows) == 3
+    assert {str(row["audit_id"]) for row in rows} == {
+        row["audit_id"] for row in response.json()["data"]["items"]
+    }

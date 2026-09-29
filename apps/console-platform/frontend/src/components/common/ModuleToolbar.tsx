@@ -13,11 +13,12 @@ export function ModuleToolbar(props: ModuleToolbarProps) {
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 16,
+        flexWrap: 'wrap',
         marginBottom: 16
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{props.actions}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{props.search}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8, marginLeft: 'auto' }}>{props.search}</div>
     </div>
   );
 }

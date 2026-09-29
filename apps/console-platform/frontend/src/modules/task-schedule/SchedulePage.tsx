@@ -2,6 +2,7 @@ import { Button, Modal, Select } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ListActionButton } from '../../components/common/ListActionButton';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -99,13 +100,12 @@ export function SchedulePage() {
                   }))
                 }
               />
-              <Button
+              <ListActionButton
                 data-testid="schedule-reset"
                 onClick={() => setParams(DEFAULT_PARAMS)}
-              >
-                {t('common.reset')}
-              </Button>
-              <Button onClick={() => void reload()}>{t('common.refresh')}</Button>
+                action="reset"
+              />
+              <ListActionButton onClick={() => void reload()} action="refresh" />
             </>
           }
         />

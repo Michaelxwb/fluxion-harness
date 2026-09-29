@@ -248,7 +248,7 @@ class AuditDetailRecord:
 
 @dataclass(frozen=True)
 class AuditQueryFilters:
-    """API-01 的筛选条件；未设置即不过滤。`keyword` 为旧版兼容筛选。"""
+    """API-01 的筛选条件；未设置即不过滤。`keyword` 跨用户、Agent、目标、动作和追踪信息模糊匹配。"""
 
     audit_type: str | None = None
     resource_type: str | None = None
@@ -298,7 +298,10 @@ def _where(filters: AuditQueryFilters) -> tuple[str, dict[str, Any]]:
     if filters.keyword:
         clauses.append(
             "(action ILIKE :keyword OR resource_type ILIKE :keyword"
-            " OR trace_id ILIKE :keyword)"
+            " OR trace_id ILIKE :keyword OR actor_name ILIKE :keyword"
+            " OR actor_user_id::text ILIKE :keyword OR agent_name ILIKE :keyword"
+            " OR agent_id::text ILIKE :keyword OR resource_id::text ILIKE :keyword"
+            " OR target ILIKE :keyword)"
         )
         params["keyword"] = f"%{filters.keyword}%"
     if not clauses:

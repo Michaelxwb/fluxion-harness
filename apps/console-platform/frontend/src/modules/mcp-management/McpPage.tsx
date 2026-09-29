@@ -2,6 +2,7 @@ import { Button, Input, Select, Tag, Toast } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ListActionButton } from '../../components/common/ListActionButton';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -159,7 +160,7 @@ export function McpPage() {
                   }))
                 }
               />
-              <Button onClick={() => void reload()}>{t('common.refresh')}</Button>
+              <ListActionButton onClick={() => void reload()} action="refresh" />
             </>
           }
         />

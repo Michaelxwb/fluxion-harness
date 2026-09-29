@@ -62,8 +62,9 @@ EXPORT_FORMATS = frozenset(_EXPORT_FORMAT_SPECS)
 _EXPORT_TIME_FIELDS = ("occurred_at", "started_at", "finished_at")
 _EXPORT_UUID_FIELDS = ("audit_id", "resource_id", "actor_user_id", "agent_id")
 
-# 与 API-01 一致的筛选字段（不含旧版兼容的 keyword：API-05 请求体不暴露该字段）
+# 与 API-01 一致的筛选字段，列表与导出共享关键词口径。
 _FILTER_FIELDS = (
+    "keyword",
     "audit_type",
     "resource_type",
     "resource_id",
@@ -122,6 +123,7 @@ def request_fingerprint(
 def to_query_filters(payload: AuditExportCreateRequest) -> AuditQueryFilters:
     """请求体 → API-01 同构筛选条件（校验与指纹都基于同一份值）。"""
     return AuditQueryFilters(
+        keyword=payload.keyword,
         audit_type=payload.audit_type,
         resource_type=payload.resource_type,
         resource_id=payload.resource_id,
@@ -187,6 +189,7 @@ def query_filters_from_canonical(canonical: Mapping[str, Any]) -> AuditQueryFilt
     if not isinstance(canonical, Mapping):
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
     return AuditQueryFilters(
+        keyword=canonical.get("keyword"),
         audit_type=canonical.get("audit_type"),
         resource_type=canonical.get("resource_type"),
         resource_id=_canonical_uuid(canonical.get("resource_id")),

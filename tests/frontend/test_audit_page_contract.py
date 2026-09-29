@@ -33,16 +33,13 @@ LOCALES = SRC / "locales"
 # 可见中文与全角字符：去掉注释后仍出现在字符串字面量里即视为硬编码文案
 CJK = re.compile(r"[　-〿一-鿿！-～]")
 
-# 八个筛选控件 → `AuditListQuery` 字段（「时间」一个控件映射 startTime/endTime）
+# 合并后的筛选控件 → `AuditListQuery` 字段（「时间」一个控件映射 startTime/endTime）
 FILTER_FIELDS = (
     ("time", ("startTime", "endTime")),
+    ("keyword", ("keyword",)),
     ("auditType", ("auditType",)),
-    ("actorUserId", ("actorUserId",)),
-    ("agent", ("resourceType",)),
-    ("resourceId", ("resourceId",)),
-    ("action", ("action",)),
+    ("resourceType", ("resourceType",)),
     ("resultStatus", ("resultStatus",)),
-    ("traceId", ("traceId",)),
 )
 
 # 后端 snake_case 只允许出现在 service 层
@@ -204,8 +201,8 @@ def test_left_main_action_slot_is_reserved_for_export() -> None:
     assert "audits/exports" not in page
 
 
-def test_filter_bar_declares_eight_filters_mapped_to_query() -> None:
-    """[RULE-ui-001] 筛选栏声明八个筛选控件，并映射到 `AuditListQuery`（camelCase）。"""
+def test_filter_bar_declares_merged_filters_mapped_to_query() -> None:
+    """[RULE-ui-001] 筛选栏声明合并后的筛选控件，并映射到 `AuditListQuery`（camelCase）。"""
     source = _read(FILTER_BAR)
     props = _block(source, "export interface AuditFilterBarProps {")
     for member in (
@@ -231,7 +228,7 @@ def test_filter_change_resets_page_to_one() -> None:
     """设计 §3.4：任一筛选变更都把 page 重置为 1（单一出口保证不留例外）。"""
     source = _read(FILTER_BAR)
     assert "onChange({...patch,page:1})" in _compact(source), "筛选变更必须重置 page=1"
-    assert source.count("emit({") >= len(FILTER_FIELDS), "八个筛选控件都须经统一 emit 出口上抛"
+    assert source.count("emit({") >= len(FILTER_FIELDS), "合并后的筛选控件都须经统一 emit 出口上抛"
     assert source.count("props.onChange(") == 1, "只允许一个筛选上抛出口"
     assert "...patch" in _compact(_read(PAGE)), "页面须合并筛选补丁而非整体替换"
 
@@ -240,7 +237,7 @@ def test_reset_clears_filters_and_refresh_requeries() -> None:
     """设计 §3.3.1：重置清空筛选、刷新按当前页重查。"""
     bar = _read(FILTER_BAR)
     assert "props.onReset()" in bar and "props.onRefresh()" in bar
-    assert "common.reset" in bar and "common.refresh" in bar
+    assert 'action="reset"' in bar and 'action="refresh"' in bar
 
     page = _compact(_read(PAGE))
     assert "constDEFAULT_QUERY:AuditListQuery={page:1,pageSize:AUDIT_PAGE_SIZE_DEFAULT};" in page

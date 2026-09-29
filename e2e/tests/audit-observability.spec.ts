@@ -102,7 +102,7 @@ async function pickOption(page: Page, testId: string, label: string): Promise<vo
 
 /** Trace ID 筛选：受控输入每键触发重查（设计 §3.3.1）。 */
 async function filterByTrace(page: Page, traceId: string): Promise<void> {
-  await page.getByTestId('audit-filter-traceId').fill(traceId);
+  await page.getByTestId('audit-filter-keyword').fill(traceId);
 }
 
 /** 把创建导出的请求头换成固定幂等键，其余（URL/体/响应）全部走真实后端。 */
@@ -291,7 +291,7 @@ test('E-06 查询失败保留筛选与 ErrorState，重试后按原筛选恢复�
 
   // 失败期间筛选条件不被清空：输入值保留，失败态仍在
   await filterByTrace(page, state.traceId);
-  await expect(page.getByTestId('audit-filter-traceId')).toHaveValue(state.traceId);
+  await expect(page.getByTestId('audit-filter-keyword')).toHaveValue(state.traceId);
   await expect(page.getByTestId('error-state')).toBeVisible();
 
   // 重试按当前筛选重取：列表恢复且只含该 trace 的行

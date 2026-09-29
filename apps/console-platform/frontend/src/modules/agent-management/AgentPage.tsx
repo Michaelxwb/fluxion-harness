@@ -2,6 +2,7 @@ import { Button, Input, Select, Tag, Toast } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ListActionButton } from '../../components/common/ListActionButton';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
@@ -144,7 +145,7 @@ export function AgentPage() {
                   setParams((prev) => ({ ...prev, enabled: value ? String(value) : '', page: 1 }))
                 }
               />
-              <Button onClick={() => void reload()}>{t('common.refresh')}</Button>
+              <ListActionButton onClick={() => void reload()} action="refresh" />
             </>
           }
         />

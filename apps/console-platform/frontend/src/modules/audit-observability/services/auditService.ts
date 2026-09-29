@@ -52,6 +52,7 @@ interface RawAuditDetail extends RawAuditItem {
 
 /** 列表查询出参：后端 snake_case 命名；值为 undefined 的筛选默认不进查询串。 */
 interface RawListQuery {
+  keyword?: string;
   audit_type?: string;
   resource_type?: string;
   resource_id?: string;
@@ -68,6 +69,7 @@ interface RawListQuery {
 
 /** 导出创建请求体：后端 `AuditExportCreateRequest` DTO 为 flat 且 `extra="forbid"`。 */
 interface RawExportCreateBody {
+  keyword?: string;
   export_format: string;
   audit_type?: string;
   resource_type?: string;
@@ -172,6 +174,7 @@ function toAuditDetail(raw: RawAuditDetail): AuditDetail {
 
 function toListParams(query: AuditListQuery): RawListQuery {
   return {
+    keyword: query.keyword,
     audit_type: query.auditType,
     resource_type: query.resourceType,
     resource_id: query.resourceId,
@@ -191,6 +194,7 @@ function toExportBody(req: AuditExportCreateRequest): RawExportCreateBody {
   const filters = req.filters;
   return {
     export_format: req.exportFormat,
+    keyword: filters.keyword,
     audit_type: filters.auditType,
     resource_type: filters.resourceType,
     resource_id: filters.resourceId,

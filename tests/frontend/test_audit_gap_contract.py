@@ -177,9 +177,9 @@ def test_b214_agent_filter_is_wired_to_agent_id_end_to_end() -> None:
     assert "agent_id:filters.agentId," in export_body, "导出请求体须带上 agentId（后端 DTO 已支持）"
 
     bar = _read(FILTER_BAR)
-    agent_control = _window(bar, 'data-testid="audit-filter-agent"', "/>")
-    assert "value={value.agentId??''}" in agent_control, "Agent 筛选控件须绑定 agentId"
-    assert "emit({agentId:text||undefined})" in agent_control, "Agent 筛选须上抛 agentId"
+    agent_control = _window(bar, 'data-testid="audit-filter-keyword"', "/>")
+    assert "value={value.keyword??''}" in agent_control, "合并搜索控件须绑定 keyword"
+    assert "emit({keyword:text||undefined})" in agent_control, "合并搜索须上抛 keyword"
     assert "resourceType" not in agent_control, "Agent 筛选不得再冒充 resourceType"
 
     resource_control = _window(bar, 'data-testid="audit-filter-resourceType"', "/>")
@@ -257,7 +257,7 @@ def test_b214_new_i18n_keys_exist_in_both_locales() -> None:
     for path in CHANGED_FILES:
         referenced |= _static_keys(_read(path))
     for key in (
-        "audit.filter.agent",
+        "audit.filter.keyword",
         "audit.filter.resourceType",
         "audit.list.refreshFailed",
         "common.retry",

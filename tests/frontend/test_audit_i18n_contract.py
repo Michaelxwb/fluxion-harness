@@ -201,7 +201,7 @@ def test_every_static_key_exists_in_both_locales() -> None:
     assert {
         "nav.audit",
         "audit.columns.time",
-        "audit.filter.traceId",
+        "audit.filter.keyword",
         "audit.detail.tab.relations",
         "audit.export.action",
         "common.retry",

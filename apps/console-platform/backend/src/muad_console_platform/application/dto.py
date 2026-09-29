@@ -503,6 +503,7 @@ class AuditExportCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     export_format: str = Field(max_length=8)
+    keyword: str | None = Field(default=None, max_length=128)
     audit_type: str | None = Field(default=None, max_length=32)
     resource_type: str | None = Field(default=None, max_length=64)
     resource_id: uuid.UUID | None = None
