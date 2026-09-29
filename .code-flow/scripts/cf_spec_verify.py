@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import fnmatch
 import hashlib
@@ -59,15 +59,90 @@ def _cache_file(root: str) -> Path:
     return Path(root) / ".code-flow" / ".verifier-cache.json"
 
 
-def _cache_key(metadata: SpecMetadata, rule: SpecRule, verifier: SpecVerifier, scope: VerificationScope, confirmation: Optional[Mapping[str, object]]) -> str:
+def _cache_key(metadata: SpecMetadata, rule: SpecRule, verifier: SpecVerifier, scope: VerificationScope, confirmation: Optional[Mapping[str, object]], stage: str = "code") -> str:
     payload = {
         "spec": metadata.hashes.file_sha256,
         "rule": rule.text_sha256,
         "verifier": {"type": verifier.type, "config": verifier.config},
         "files": scope.files,
         "diff": scope.diff_sha256,
+        "stage": stage,
         "confirmation": confirmation or {},
         "artifact_content": _artifact_fingerprint(verifier, scope),
+    }
+    return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def _normalize_scope_path(value: str) -> str:
+    return value.replace("\\", "/").strip()
+
+
+def _matches_scope(path: str, patterns: Sequence[str]) -> bool:
+    for pattern in patterns:
+        if fnmatch.fnmatchcase(path, pattern):
+            return True
+        bare = pattern.rstrip("/")
+        if not any(char in pattern for char in "*?[") and path.startswith(bare + "/"):
+            return True
+    return False
+
+
+def _git_tracked_files(root: str) -> tuple[str, ...]:
+    try:
+        outcome = subprocess.run(
+            ("git", "ls-files"), cwd=root, text=True, encoding="utf-8", capture_output=True, check=False
+        )
+    except OSError:
+        return ()
+    if outcome.returncode != 0:
+        return ()
+    return tuple(_normalize_scope_path(line) for line in outcome.stdout.splitlines() if line.strip())
+
+
+def scoped_files(verifier: SpecVerifier, scope: VerificationScope) -> tuple[str, ...]:
+    """作用域命中的文件集合：git tracked ∪ 任务持有文件，按 verifier.files 过滤。
+
+    决议仓库级集合（而非仅当前任务 diff）才能让未触及作用域的其他任务命中缓存。
+    """
+    if not verifier.files:
+        return ()
+    candidates = {_normalize_scope_path(item) for item in scope.files if item.strip()}
+    candidates.update(_git_tracked_files(scope.root))
+    return tuple(sorted(path for path in candidates if _matches_scope(path, verifier.files)))
+
+
+def _scope_fingerprint(root: str, files: Sequence[str]) -> str:
+    digest = hashlib.sha256()
+    for relative in files:
+        path = Path(root) / relative
+        digest.update(relative.encode("utf-8"))
+        try:
+            digest.update(path.read_bytes() if path.is_file() else b"<deleted>")
+        except OSError:
+            digest.update(b"<unreadable>")
+    return digest.hexdigest()
+
+
+def _scoped_cache_key(
+    metadata: SpecMetadata,
+    rule: SpecRule,
+    verifier: SpecVerifier,
+    scope: VerificationScope,
+    confirmation: Optional[Mapping[str, object]],
+    stage: str,
+) -> Optional[str]:
+    """command/test 仅在声明 files 作用域时缓存；未声明保持全量执行。"""
+    if verifier.type not in ("command", "test") or not verifier.files:
+        return None
+    files = scoped_files(verifier, scope)
+    payload = {
+        "spec": metadata.hashes.file_sha256,
+        "rule": rule.text_sha256,
+        "verifier": {"type": verifier.type, "config": verifier.config, "files": list(verifier.files)},
+        "stage": stage,
+        "scope_files": files,
+        "scope_sha256": _scope_fingerprint(scope.root, files),
+        "confirmation": confirmation or {},
     }
     return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
 
@@ -143,13 +218,32 @@ def _cached_or_run(
     verifier: SpecVerifier,
     scope: VerificationScope,
     confirmation: Optional[Mapping[str, object]],
+    stage: str = "code",
 ) -> VerificationEvidence:
     cacheable = verifier.type in _PURE_VERIFIER_TYPES
-    key = _cache_key(metadata, rule, verifier, scope, confirmation) if cacheable else ""
+    scoped_key: Optional[str] = None
+    if cacheable:
+        key = _cache_key(metadata, rule, verifier, scope, confirmation, stage)
+    else:
+        scoped_key = _scoped_cache_key(metadata, rule, verifier, scope, confirmation, stage)
+        if scoped_key is None:
+            key = ""
+        else:
+            cacheable, key = True, scoped_key
     if cacheable:
         cached = _cached_evidence(key)
         if cached is not None:
-            return cached
+            if scoped_key is None:
+                return cached
+            details = dict(cached.details or {})
+            details["cache_reused"] = True
+            details["scope_files"] = list(scoped_files(verifier, scope))
+            return replace(
+                cached,
+                executed_at=datetime.now(timezone.utc).isoformat(),
+                diff_sha256=scope.diff_sha256,
+                details=details,
+            )
     current = _evidence(metadata, rule, verifier, scope, confirmation)
     if cacheable and current.status == "verified":
         _save_result_cache(key, current)
@@ -400,6 +494,7 @@ def _run_all_verifiers(
     confirmations: Optional[Mapping[str, Mapping[str, object]]] = None,
     skip_command: bool = False,
     timeout_budget: Optional[float] = None,
+    stage: str = "code",
 ) -> VerificationResult:
     verifier_by_rule = {item.rule: item for item in metadata.verifiers}
     confirmation_by_rule = confirmations or {}
@@ -410,12 +505,14 @@ def _run_all_verifiers(
     for rule in metadata.rules:
         if rule.enforcement != "required":
             continue
+        verifier = verifier_by_rule.get(rule.ref)
+        if verifier is not None and verifier.stage != stage:
+            continue
         if timeout_budget is not None:
             remaining = timeout_budget - (time.monotonic() - started)
             if remaining <= 0:
                 evidence_by_ref[rule.ref] = _budget_evidence(metadata, rule, scope, timeout_budget)
                 continue
-        verifier = verifier_by_rule.get(rule.ref)
         if verifier is None:
             evidence_by_ref[rule.ref] = _missing_evidence(metadata, rule, scope)
             continue
@@ -427,11 +524,11 @@ def _run_all_verifiers(
             parallel.append((rule, verifier, confirmation))
             continue
         cap = None if timeout_budget is None else max(0.1, timeout_budget - (time.monotonic() - started))
-        evidence_by_ref[rule.ref] = _cached_or_run(metadata, rule, verifier, scope, confirmation) if cap is None else _evidence(metadata, rule, verifier, scope, confirmation, cap)
+        evidence_by_ref[rule.ref] = _cached_or_run(metadata, rule, verifier, scope, confirmation, stage) if cap is None else _evidence(metadata, rule, verifier, scope, confirmation, cap)
     if parallel:
         with ThreadPoolExecutor(max_workers=min(8, len(parallel))) as pool:
             futures = {
-                rule.ref: pool.submit(_cached_or_run, metadata, rule, verifier, scope, confirmation)
+                rule.ref: pool.submit(_cached_or_run, metadata, rule, verifier, scope, confirmation, stage)
                 for rule, verifier, confirmation in parallel
             }
             evidence_by_ref.update({ref: future.result() for ref, future in futures.items()})
@@ -442,9 +539,10 @@ def _run_all_verifiers(
 
 def run_all_verifiers(metadata: SpecMetadata, scope: VerificationScope,
                       confirmations: Optional[Mapping[str, Mapping[str, object]]] = None,
-                      skip_command: bool = False, timeout_budget: Optional[float] = None) -> VerificationResult:
+                      skip_command: bool = False, timeout_budget: Optional[float] = None,
+                      stage: str = "code") -> VerificationResult:
     with execution_session():
-        return _run_all_verifiers(metadata, scope, confirmations, skip_command, timeout_budget)
+        return _run_all_verifiers(metadata, scope, confirmations, skip_command, timeout_budget, stage)
 
 
 def evidence_is_fresh(

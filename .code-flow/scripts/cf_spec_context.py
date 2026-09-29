@@ -101,6 +101,7 @@ class RuleBinding:
     enforcement: str
     verifier_ref: str
     stage_status: Mapping[str, RuleStageStatus]
+    verifier_stage: str = "code"
 
 
 @dataclass(frozen=True)
@@ -806,6 +807,7 @@ def _rule_from_data(value: object, path: str) -> RuleBinding:
         _string(data.get("enforcement"), "rules[].enforcement", path),
         _string(data.get("verifier_ref"), "rules[].verifier_ref", path),
         parsed,
+        _string(data.get("verifier_stage", "code"), "rules[].verifier_stage", path),
     )
 
 
@@ -816,6 +818,7 @@ def _rule_data(rule: RuleBinding) -> dict[str, object]:
         "text_sha256": rule.text_sha256,
         "enforcement": rule.enforcement,
         "verifier_ref": rule.verifier_ref,
+        "verifier_stage": rule.verifier_stage,
         "stage_status": {stage: _stage_data(status) for stage, status in rule.stage_status.items()},
     }
 
@@ -990,7 +993,12 @@ def _binding_from_input(selection: BindingInput) -> SpecBinding:
         }
         verifier = verifier_by_rule.get(rule.ref)
         verifier_ref = f"{candidate.spec_id}#{rule.ref}" if verifier is not None else "advisory:none"
-        rules.append(RuleBinding(rule.ref, rule.text, rule.text_sha256, enforcement, verifier_ref, statuses))
+        rules.append(
+            RuleBinding(
+                rule.ref, rule.text, rule.text_sha256, enforcement, verifier_ref, statuses,
+                verifier.stage if verifier is not None else "code",
+            )
+        )
     return SpecBinding(
         candidate.spec_id,
         candidate.path,
@@ -1003,12 +1011,26 @@ def _binding_from_input(selection: BindingInput) -> SpecBinding:
     )
 
 
+def _with_declared_stages(rule: RuleBinding, stages: Sequence[str]) -> RuleBinding:
+    """兼容补齐：绑定旧版本时声明的 stages 缺状态，按声明补 pending。"""
+    missing = [stage for stage in stages if stage not in rule.stage_status]
+    if not missing:
+        return rule
+    statuses = dict(rule.stage_status)
+    for stage in missing:
+        statuses[stage] = RuleStageStatus("pending", (), None, ())
+    return replace(rule, stage_status=statuses)
+
+
 def _rule_from_metadata(spec_id: str, metadata: SpecMetadata, rule: SpecRule) -> RuleBinding:
     enforcement = "advisory" if metadata.enforcement == "advisory" else rule.enforcement
     statuses = {stage: RuleStageStatus("pending", (), None, ()) for stage in metadata.stages}
-    has_verifier = any(item.rule == rule.ref for item in metadata.verifiers)
-    verifier_ref = f"{spec_id}#{rule.ref}" if has_verifier else "advisory:none"
-    return RuleBinding(rule.ref, rule.text, rule.text_sha256, enforcement, verifier_ref, statuses)
+    verifier = next((item for item in metadata.verifiers if item.rule == rule.ref), None)
+    verifier_ref = f"{spec_id}#{rule.ref}" if verifier is not None else "advisory:none"
+    return RuleBinding(
+        rule.ref, rule.text, rule.text_sha256, enforcement, verifier_ref, statuses,
+        verifier.stage if verifier is not None else "code",
+    )
 
 
 def bind_specs(context: SpecContext, selections: Sequence[BindingInput]) -> SpecContext:
@@ -1156,14 +1178,15 @@ def _refresh_existing_rule(
     binding: SpecBinding, existing: RuleBinding, current: SpecRule, metadata: SpecMetadata
 ) -> tuple[RuleBinding, Optional[DriftChange]]:
     enforcement = "advisory" if metadata.enforcement == "advisory" else current.enforcement
-    has_verifier = any(item.rule == current.ref for item in metadata.verifiers)
-    verifier_ref = f"{binding.spec_id}#{current.ref}" if has_verifier else "advisory:none"
+    verifier = next((item for item in metadata.verifiers if item.rule == current.ref), None)
+    verifier_ref = f"{binding.spec_id}#{current.ref}" if verifier is not None else "advisory:none"
     updated = replace(
         existing,
         summary=current.text,
         text_sha256=current.text_sha256,
         enforcement=enforcement,
         verifier_ref=verifier_ref,
+        verifier_stage=verifier.stage if verifier is not None else "code",
     )
     if existing.text_sha256 == current.text_sha256:
         return updated, None
@@ -1200,6 +1223,7 @@ def _refresh_binding(
             rule, change = _refresh_existing_rule(binding, prior, current, metadata)
             if change is not None:
                 changes.append(change)
+        rule = _with_declared_stages(rule, metadata.stages)
         rule, artifact_changes = _refresh_artifacts(binding.spec_id, rule, artifact_root)
         rules.append(rule)
         changes.extend(artifact_changes)
@@ -1571,11 +1595,13 @@ def _status_command(args: argparse.Namespace) -> dict[str, object]:
         rules = []
         for rule in binding.rules:
             status = rule.stage_status.get("code")
+            stages = {stage: item.status for stage, item in sorted(rule.stage_status.items())}
             rules.append(
                 {
                     "ref": f"{binding.spec_id}#{rule.ref}",
                     "enforcement": rule.enforcement,
                     "status": status.status if status else "missing",
+                    "stages": stages,
                     "verifier": rule.verifier_ref,
                 }
             )
@@ -1609,7 +1635,8 @@ def _status_text(data: dict[str, object]) -> str:
     for binding in data["bindings"]:
         lines.append(f"- {binding['spec_id']}（{binding['path']}）— {binding['status']}")
         for rule in binding["rules"]:
-            lines.append(f"  {rule['status']:<12} {rule['ref']}（{rule['verifier']}）")
+            stage_text = " ".join(f"{stage}={value}" for stage, value in rule.get("stages", {}).items())
+            lines.append(f"  {stage_text:<24} {rule['ref']}（{rule['verifier']}）")
     return "\n".join(lines)
 
 
