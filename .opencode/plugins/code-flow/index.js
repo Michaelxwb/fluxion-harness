@@ -3,20 +3,19 @@ import { join } from "path";
 import { appendFileSync, mkdirSync } from "fs";
 
 // Note: intentionally no `import { Plugin } from "@opencode/plugin"`.
-// Plugin.define is an identity helper only; a plain default export with
-// { id, setup } satisfies the V2 loader schema and keeps this plugin
-// dependency-free (the server binary cannot resolve bare specifiers
-// from this directory).
+// The server does not auto-provide that package for local plugins, and
+// `Plugin.define` is only an identity wrapper — a plain default export
+// with `id` + `setup` satisfies the v2 plugin schema dependency-free,
+// so `code-flow init` works offline without npm install.
 
 const SCRIPT_DIR = ".code-flow/scripts";
-const STOP_HOOK_TIMEOUT = 35000;
-const POST_HOOK_TIMEOUT = 5000;
-const EDIT_TOOLS = new Set(["edit", "write", "multiedit", "patch"]);
+const STOP_CHECK_TIMEOUT = 35000;
+const HOOK_TIMEOUT = 5000;
 
 // Per-session queued feedback. Single map, append-only: idle/stop-check and
-// post-check feedback accumulate here and are consumed by the next
-// context hook. Never overwrite — a prompt hook arriving between idle and
-// context must not drop queued stop-check feedback.
+// post-check feedback accumulate here and are consumed by the next context
+// hook. Never overwrite — a prompt hook arriving between idle and context
+// must not drop queued stop-check feedback.
 const sessionContext = new Map();
 
 export function mergePending(existing, incoming) {
@@ -39,7 +38,11 @@ function pythonPath(projectRoot, script) {
   return join(projectRoot, SCRIPT_DIR, script);
 }
 
-function callHook(projectRoot, script, input, timeout = POST_HOOK_TIMEOUT) {
+function callHook(projectRoot, script, input, timeout = HOOK_TIMEOUT) {
+  // Async child process: never block the plugin event thread. opencode's
+  // idle event cannot interrupt a turn, so stop-check failures queue into
+  // sessionContext for the next context hook (documented platform gap
+  // vs. blocking Stop hooks).
   return new Promise((resolve) => {
     const child = execFile(
       "python3",
@@ -71,106 +74,140 @@ function callHook(projectRoot, script, input, timeout = POST_HOOK_TIMEOUT) {
   });
 }
 
-function readSessionID(event) {
-  if (!event || typeof event !== "object") return "";
-  const data = event.data && typeof event.data === "object" ? event.data : null;
-  return (
-    event.sessionID ||
-    data?.sessionID ||
-    data?.session?.id ||
-    data?.info?.id ||
-    event.properties?.sessionID ||
-    event.properties?.info?.id ||
-    ""
-  );
+function queueFeedback(sessionID, text) {
+  if (!sessionID || !text) return;
+  sessionContext.set(sessionID, mergePending(sessionContext.get(sessionID), text));
 }
 
-function readFilePath(input) {
+function consumeFeedback(sessionID) {
+  const pending = sessionContext.get(sessionID);
+  if (pending) sessionContext.delete(sessionID);
+  return pending;
+}
+
+function toolInputFilePath(input) {
   if (!input || typeof input !== "object") return "";
-  return input.filePath || input.file_path || input.path || "";
+  const args = input;
+  return args.filePath || args.file_path || args.path || "";
 }
 
-async function queueStopFeedback(projectRoot, sessionID) {
-  const result = await callHook(projectRoot, "cf_stop_hook.py", { session_id: sessionID }, STOP_HOOK_TIMEOUT);
+async function runStopCheck(projectRoot, sessionID) {
+  const result = await callHook(projectRoot, "cf_stop_hook.py", { session_id: sessionID }, STOP_CHECK_TIMEOUT);
   if (result?.reason) {
-    sessionContext.set(sessionID, mergePending(sessionContext.get(sessionID), result.reason));
-    debugLog(projectRoot, "stop-check feedback queued");
+    // idle 无法阻断，校验失败排队到下一轮 context hook
+    queueFeedback(sessionID, result.reason);
+    debugLog(projectRoot, `stop-check feedback queued`);
   }
 }
 
-function subscribeSessionEvents(ctx, projectRoot, signal) {
+async function registerPromptHook(ctx, projectRoot) {
+  await ctx.session.hook("prompt", async (event) => {
+    const promptText = event.prompt?.text || "";
+    if (!promptText) return;
+    debugLog(projectRoot, `prompt sid=${event.sessionID} prompt_len=${promptText.length}`);
+    const result = await callHook(projectRoot, "cf_user_prompt_hook.py", {
+      prompt: promptText,
+      session_id: event.sessionID,
+    });
+    const additional = result?.hookSpecificOutput?.additionalContext;
+    if (additional) {
+      // Append, never overwrite: queued stop-check feedback survives.
+      queueFeedback(event.sessionID, additional);
+      debugLog(projectRoot, `hook matched — context ${additional.length} chars cached`);
+    } else {
+      debugLog(projectRoot, `hook returned no context`);
+    }
+  });
+}
+
+async function registerToolHook(ctx, projectRoot) {
+  await ctx.tool.hook("execute.after", async (event) => {
+    const tool = String(event.tool || "").toLowerCase();
+    if (!["edit", "write", "multiedit", "patch"].includes(tool)) return;
+    const filePath = toolInputFilePath(event.input);
+    if (!filePath) return;
+    const result = await callHook(projectRoot, "cf_post_hook.py", {
+      tool_name: tool === "write" ? "Write" : "Edit",
+      tool_input: { file_path: filePath },
+      session_id: event.sessionID || "",
+    });
+    const additional = result?.hookSpecificOutput?.additionalContext;
+    if (additional) {
+      // 反馈排队，下一轮 context hook 注入（opencode 无法当轮插话）
+      queueFeedback(event.sessionID, additional);
+      debugLog(projectRoot, `post-check feedback queued ${additional.length} chars`);
+    }
+  });
+}
+
+async function registerContextHook(ctx) {
+  await ctx.session.hook("context", (event) => {
+    const pending = consumeFeedback(event.sessionID);
+    if (pending) {
+      event.system.push({ type: "text", text: pending });
+      debugLog(ctx.location.directory, `context — injected ${pending.length} chars`);
+    }
+  });
+}
+
+// 子会话（子 agent / worktree 并行任务）的 idle 不得触发主工作区 stop-check：
+// 子会话的编辑发生在自己的工作区，主区既无 active marker 也没有对应文件，
+// 触发只会重复执行主区 validators（全量测试）。用 session.created.parentID 标记子会话。
+export function createSessionRegistry() {
+  const children = new Set();
+  return {
+    observe(event) {
+      if (!event || typeof event.type !== "string") return null;
+      const sid = event.data?.sessionID || "";
+      if (!sid) return null;
+      if (event.type === "session.created") {
+        if (event.data?.parentID) children.add(sid);
+        return { type: "created", sid };
+      }
+      if (event.type === "session.idle") {
+        return { type: "idle", sid, child: children.has(sid) };
+      }
+      return null;
+    },
+  };
+}
+
+function startEventSubscription(ctx, projectRoot) {
+  const controller = new AbortController();
+  const registry = createSessionRegistry();
   void (async () => {
     try {
-      for await (const event of ctx.event.subscribe({ signal })) {
-        try {
-          if (event.type === "session.created") {
-            const sid = readSessionID(event);
-            debugLog(projectRoot, `session.created sid=${sid}`);
-            if (sid) sessionContext.delete(sid);
-          }
-          if (event.type === "session.idle") {
-            const sid = readSessionID(event);
-            if (sid) void queueStopFeedback(projectRoot, sid);
-          }
-        } catch {}
+      for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
+        const observed = registry.observe(event);
+        if (!observed) continue;
+        if (observed.type === "created") {
+          debugLog(projectRoot, `session.created sid=${observed.sid}`);
+          sessionContext.delete(observed.sid);
+        } else if (observed.child) {
+          debugLog(projectRoot, `session.idle sid=${observed.sid} (child) — stop-check skipped`);
+        } else {
+          await runStopCheck(projectRoot, observed.sid);
+        }
       }
-    } catch {}
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        debugLog(projectRoot, `event subscription ended: ${err?.message || err}`);
+      }
+    }
   })();
+  return () => controller.abort();
 }
 
-async function handlePrompt(projectRoot, event) {
-  const promptText = event.prompt?.text || "";
-  if (!promptText) return;
-  debugLog(projectRoot, `prompt sid=${event.sessionID} len=${promptText.length}`);
-  const result = await callHook(projectRoot, "cf_user_prompt_hook.py", {
-    prompt: promptText,
-    session_id: event.sessionID,
-  });
-  const additional = result?.hookSpecificOutput?.additionalContext;
-  if (additional) {
-    debugLog(projectRoot, `hook matched — context ${additional.length} chars cached`);
-    sessionContext.set(event.sessionID, mergePending(sessionContext.get(event.sessionID), additional));
-  } else {
-    debugLog(projectRoot, "hook returned no context");
-  }
-}
-
-async function handleToolAfter(projectRoot, event) {
-  const tool = String(event.tool || "").toLowerCase();
-  if (!EDIT_TOOLS.has(tool)) return;
-  const filePath = readFilePath(event.input);
-  if (!filePath) return;
-  const result = await callHook(projectRoot, "cf_post_hook.py", {
-    tool_name: tool === "write" ? "Write" : "Edit",
-    tool_input: { file_path: filePath },
-    session_id: event.sessionID || "",
-  });
-  const feedback = result?.hookSpecificOutput?.additionalContext;
-  if (feedback) {
-    const sid = event.sessionID || "";
-    sessionContext.set(sid, mergePending(sessionContext.get(sid), feedback));
-    debugLog(projectRoot, `post-check feedback queued ${feedback.length} chars`);
-  }
-}
-
-function injectPending(projectRoot, event) {
-  const pending = sessionContext.get(event.sessionID);
-  if (pending) {
-    event.system.push({ type: "text", text: pending });
-    debugLog(projectRoot, `context — injected ${pending.length} chars`);
-    sessionContext.delete(event.sessionID);
-  }
-}
-
-export default {
+const CodeFlowPlugin = {
   id: "code-flow",
   async setup(ctx) {
-    const projectRoot = ctx.location?.directory ?? process.cwd();
-    const controller = new AbortController();
-    subscribeSessionEvents(ctx, projectRoot, controller.signal);
-    await ctx.session.hook("prompt", (event) => handlePrompt(projectRoot, event));
-    await ctx.tool.hook("execute.after", (event) => handleToolAfter(projectRoot, event));
-    await ctx.session.hook("context", (event) => injectPending(projectRoot, event));
-    return () => controller.abort();
+    const projectRoot = ctx.location.directory;
+    await registerPromptHook(ctx, projectRoot);
+    await registerToolHook(ctx, projectRoot);
+    await registerContextHook(ctx);
+    const stopSubscription = startEventSubscription(ctx, projectRoot);
+    return () => stopSubscription();
   },
 };
+
+export default CodeFlowPlugin;

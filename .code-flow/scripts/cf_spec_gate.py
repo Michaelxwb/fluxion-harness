@@ -74,11 +74,28 @@ def _evidence_issue(rule: RuleBinding, status: RuleStageStatus, diff_sha256: Opt
     return "stale_evidence"
 
 
-def _status_issue(rule: RuleBinding, status: RuleStageStatus, now: datetime, diff_sha256: Optional[str]) -> Optional[str]:
+def _cheap_skip(status: RuleStageStatus) -> bool:
+    """Latest evidence is a cheap-gate skip (command/test verifier deferred)."""
+    if not status.evidence:
+        return False
+    latest = status.evidence[-1]
+    return isinstance(latest, Mapping) and latest.get("error_code") == "skipped_in_cheap_gate"
+
+
+def _status_issue(
+    rule: RuleBinding,
+    status: RuleStageStatus,
+    now: datetime,
+    diff_sha256: Optional[str],
+    allow_cheap_skips: bool = False,
+) -> Optional[str]:
     if status.status == "applied":
         return None
     if status.status == "verified":
         return _evidence_issue(rule, status, diff_sha256)
+    if allow_cheap_skips and status.status == "unverified" and _cheap_skip(status):
+        # 轻量门禁（stop 阶段）：命令类 verifier 未执行属预期，留给 finish 全量门禁。
+        return None
     if status.status == "not_applicable":
         return None if _decision_valid(status.decision) else "decision_invalid"
     if status.status == "waived":
@@ -87,7 +104,11 @@ def _status_issue(rule: RuleBinding, status: RuleStageStatus, now: datetime, dif
 
 
 def _binding_issues(
-    binding: SpecBinding, stage: str, now: datetime, diff_sha256: Optional[str]
+    binding: SpecBinding,
+    stage: str,
+    now: datetime,
+    diff_sha256: Optional[str],
+    allow_cheap_skips: bool = False,
 ) -> tuple[list[GateIssue], list[GateIssue]]:
     errors: list[GateIssue] = []
     warnings: list[GateIssue] = []
@@ -97,7 +118,7 @@ def _binding_issues(
             continue
         if rule.enforcement == "advisory" and status.status == "pending":
             continue
-        code = "missing_spec" if binding.status == "missing" else _status_issue(rule, status, now, diff_sha256)
+        code = "missing_spec" if binding.status == "missing" else _status_issue(rule, status, now, diff_sha256, allow_cheap_skips)
         if code is None:
             continue
         issue = GateIssue(code, binding.spec_id, rule.ref, stage, f"{binding.spec_id}#{rule.ref}: {code}")
@@ -113,13 +134,14 @@ def validate_stage(
     task_id: str = "",
     now: Optional[datetime] = None,
     diff_sha256: Optional[str] = None,
+    allow_cheap_skips: bool = False,
 ) -> GateResult:
     del artifact, task_id
     current = now or datetime.now(timezone.utc)
     errors: list[GateIssue] = []
     warnings: list[GateIssue] = []
     for binding in context.bindings:
-        binding_errors, binding_warnings = _binding_issues(binding, stage, current, diff_sha256)
+        binding_errors, binding_warnings = _binding_issues(binding, stage, current, diff_sha256, allow_cheap_skips)
         errors.extend(binding_errors)
         warnings.extend(binding_warnings)
     refs = tuple(sorted({f"{item.spec_id}#{item.rule_ref}" for item in (*errors, *warnings)}))
@@ -171,25 +193,8 @@ def validate_plan_coverage(context: SpecContext, artifact: str) -> GateResult:
     errors: list[GateIssue] = []
     for binding in context.bindings:
         for rule in binding.rules:
-            if rule.enforcement != "required" or "plan" not in rule.stage_status:
-                continue
-            status = rule.stage_status["plan"]
-            # 已逐项确认 N/A / 豁免的规则不再需要责任 TASK（与 _status_issue 口径一致）；
-            # 决策无效时必须报错，不得借此绕过覆盖检查。
-            if status.status in ("not_applicable", "waived"):
-                if status.status == "waived":
-                    if _waiver_issue(status.decision, datetime.now(timezone.utc)) is None:
-                        continue
-                    code = "waiver_invalid"
-                else:
-                    if _decision_valid(status.decision):
-                        continue
-                    code = "decision_invalid"
-                errors.append(
-                    _plan_issue(code, binding, rule, f"{binding.spec_id}#{rule.ref} {status.status} 决策无效")
-                )
-                continue
-            errors.extend(_rule_plan_issues(binding, rule, sections))
+            if rule.enforcement == "required" and "plan" in rule.stage_status:
+                errors.extend(_rule_plan_issues(binding, rule, sections))
     refs = tuple(sorted(f"{item.spec_id}#{item.rule_ref}" for item in errors))
     return GateResult("block" if errors else "pass", tuple(errors), (), refs)
 
