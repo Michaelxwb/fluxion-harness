@@ -55,7 +55,7 @@
 | S-09 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime interrupt → resume/cancel | TASK-010 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"] | . | 1200 |  |
 | S-10 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | 授权解析 → Prompt/ToolRegistry → IM 路由 | TASK-011 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | . | 1200 |  |
 | S-11 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Worker → Gateway `/internal/deliveries` → Redis | TASK-006 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"] | . | 900 |  |
-| S-12 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | TASK-012 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"] | . | 1200 |  |
+| S-12 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | TASK-012 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"] | . | 1200 |  |
 | S-13 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | manual | CI/环境全链路 | TASK-013 | planned | - | . | 60 |  |
 | E-01 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Service → PostgreSQL | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_fault_matrix.py","-k","e01"] | . | 900 |  |
 | E-02 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Redis → PG | TASK-004 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e02 && uv run pytest -q tests/acceptance/im_gateway/test_redis_degradation.py"] | . | 900 |  |
@@ -79,7 +79,7 @@
 | RULE-secret-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 密钥明文只存 Owner 表/三处受控出口 + 原 verifier 真实边界 | TASK-007 | planned | ["uv","run","pytest","-q","tests/test_logging_redaction.py","tests/acceptance/test_foundation_ops_audit.py"] | . | 300 |  |
 | RULE-log-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | logging-kit 唯一出口与双通道脱敏 + 原 verifier 真实边界 | TASK-007 | planned | ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"] | . | 300 |  |
 | RULE-auth-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP + 真实 PostgreSQL + 原 verifier 真实边界 | TASK-008 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
-| RULE-snapshot-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 冻结快照/终态 CAS + 原 verifier 真实边界 | TASK-012 | planned | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 600 |  |
+| RULE-snapshot-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 冻结快照/终态 CAS + 原 verifier 真实边界 | TASK-012 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 600 |  |
 | RULE-test-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | E2E | 仓库级真实 E2E（HTTP/PostgreSQL/Redis/Browser）+ 原 verifier 真实边界 | TASK-013 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 1200 |  |
 
 > 本表覆盖 design §2.4.2 的全部 **27 个场景**（S-01..S-13、E-01..E-10、B-01..B-04）与 **10 条 required Spec Rule**，共 **37 行**；每个场景与每条规则有且仅有一个最终负责人（规则行以短 ref 为行键，与 13-console-auth 一致）。**规则行的「测试层级」列沿用 13-console-auth 的口径填 `integration`（`RULE-test-001` 为 `E2E`）**——它表达的是「verifier 命令的执行层级」，规则的验证力度以 argv 指向的 verifier 套件为准，不因此把场景行的 `contract`/`unit` 层级改写。design §2.4.1 的 RULE-01..RULE-10 是 design 级约束，**不建 RULE 行**（映射见 Design Alignment）。测试层级与 design 一致、**不降级**；`manual` 两行（S-13、E-10）保持 manual 且无 argv，**必须经用户明确确认**，E-10 未经真实凭据复验不得写成通过。`depends_on` 列统一留空（场景间顺序由 TASK 依赖表达，manifest 亦按空数组锁定）。E2E 行不接 `head` 一类提前关闭的管道（design §3.4.8 已登记该纪律**无机器约束**）。
@@ -683,7 +683,7 @@ FEAT-02/FEAT-05 的第二组旅程：同步 Skill/异步 Task/定时 Schedule �
 - [2026-09-30] completed (done)
 ## TASK-012: 无状态与 Snapshot 确定性（A/B Pod）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-010
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.2 黄金旅程矩阵, 14-dfx-acceptance.backend.design.md#3.4.4 可靠性矩阵, 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix
@@ -698,31 +698,38 @@ FEAT-02 的无状态面：Run R1 执行后更新配置，删除 Pod 后继续 Tu
 
 ### Checklist
 
-- [ ] [S-12][E2E] 以 `Runtime A/B Pod → PostgreSQL + Artifact Store` 为真实边界编写用例：Run R1 后更新配置（Agent/Model/Skill/MCP 任一版本或授权）；删除（真实终止）Pod；继续 Turn 2，断言 R1 Snapshot 的 `snapshot_hash`/内容**不漂移**、Turn 2 在新 Pod 重建上下文、无 sticky session 依赖。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"]`。
-- [ ] [RULE-snapshot-001][integration] 作为唯一最终负责人：每个新 Run/Task 执行前冻结 Snapshot（Agent/Model/Skill/MCP 版本、Prompt 模板版本、catalog revision/hash；预算只属 execution snapshot 的 `budget`，Run 侧 `RuntimeSnapshot` 无 budget 列、等价载体是 `policy_json`，默认 `{"max_model_retries": 3}`）；配置/授权变更只影响后续新 Run/Task；终态与非终态写入均 CAS；`skills` 恒为 1；`api_key` 从快照与 hash 中剥离。verifier argv：`["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]`。
-- [ ] 补 design 已登记的缺位断言：**「配置/授权变更只影响后续新 Run/Task」当前在指定 verifier 中缺该断言**（harness-snapshot 自注），本任务补齐「变更后旧 Run 仍用旧快照」的真实断言并登记该缺位已收敛；不得只依赖 resume 代码路径的间接证据。
-- [ ] 删除 Pod 用真实进程终止（`SIGKILL`），并以真实库回读该 Run 的状态与快照行；不用日志推断，不引入 sticky session 假设。
-- [ ] 断言 Snapshot 的确定性口径：hash 为 `"sha256:"` + canonical JSON（`sort_keys` + 紧凑分隔符 + `ensure_ascii=False`），两侧同口径比对。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [S-12][E2E] 以 `Runtime A/B Pod → PostgreSQL + Artifact Store` 为真实边界编写用例：Run R1 后更新配置（Agent/Model/Skill/MCP 任一版本或授权）；删除（真实终止）Pod；继续 Turn 2，断言 R1 Snapshot 的 `snapshot_hash`/内容**不漂移**、Turn 2 在新 Pod 重建上下文、无 sticky session 依赖。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"]`。
+- [x] [RULE-snapshot-001][integration] 作为唯一最终负责人：每个新 Run/Task 执行前冻结 Snapshot（Agent/Model/Skill/MCP 版本、Prompt 模板版本、catalog revision/hash；预算只属 execution snapshot 的 `budget`，Run 侧 `RuntimeSnapshot` 无 budget 列、等价载体是 `policy_json`，默认 `{"max_model_retries": 3}`）；配置/授权变更只影响后续新 Run/Task；终态与非终态写入均 CAS；`skills` 恒为 1；`api_key` 从快照与 hash 中剥离。verifier argv：`["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]`。
+- [x] 补 design 已登记的缺位断言：**「配置/授权变更只影响后续新 Run/Task」当前在指定 verifier 中缺该断言**（harness-snapshot 自注），本任务补齐「变更后旧 Run 仍用旧快照」的真实断言并登记该缺位已收敛；不得只依赖 resume 代码路径的间接证据。
+- [x] 删除 Pod 用真实进程终止（`SIGKILL`），并以真实库回读该 Run 的状态与快照行；不用日志推断，不引入 sticky session 假设。
+- [x] 断言 Snapshot 的确定性口径：hash 为 `"sha256:"` + canonical JSON（`sort_keys` + 紧凑分隔符 + `ensure_ascii=False`），两侧同口径比对。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-12 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | R1 Snapshot 不漂移；Turn 2 新 Pod 重建上下文；无 sticky session | tests/acceptance/dfx/test_dfx_stateless.py + tests/acceptance/runtime/test_multipod_recovery.py / S-12 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"]` | planned |
-| RULE-snapshot-001 | integration | 冻结快照/终态 CAS + 原 verifier 真实边界 | 冻结与不漂移；变更只影响新 Run；CAS；`skills` 恒 1；`api_key` 剥离；原 verifier 全部通过 | 原 verifier / RULE-snapshot-001 | `["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]` | planned |
+| S-12 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | R1 Snapshot 不漂移；Turn 2 新 Pod 重建上下文；无 sticky session | tests/acceptance/dfx/test_dfx_stateless.py + tests/acceptance/runtime/test_multipod_recovery.py / S-12 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"]` | e2e_deferred |
+| RULE-snapshot-001 | integration | 冻结快照/终态 CAS + 原 verifier 真实边界 | 冻结与不漂移；变更只影响新 Run；CAS；`skills` 恒 1；`api_key` 剥离；原 verifier 全部通过 | 原 verifier / RULE-snapshot-001 | `["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]` | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| （编码期填写；「变更只影响后续新 Run」的断言属新增缺口补齐，需记录 RED 或登记原 verifier 缺位） | | | | | |
+| S-12 | **无 RED（E2E 本阶段不执行 RED —— 工作流口径；且被断言的生产行为无缺口）**。为证明断言非空做了 **4 处扰动取证**（改生产代码 → 对应断言变红 → 按字节还原 → `git status --porcelain -- apps/ packages/` 为空）：P1 `_snapshot_model` 去掉 `data.pop("api_key")` → 红（`api_key` 进入 `model_json`）；P2 `_snapshot_hash` 的 model 改用未剥离版本 → 红（凭据轮换后 hash 漂移）；**P3 `_snapshot_hash` payload 去掉 `"agent"` → 首轮不变红**（我原先的"改配置"一步同时改了 `agent.instructions` 与 `model.params_json`，无法归因到每一腿）**⇒ 已加固为逐腿可归因后复跑即红**（失败文案「只改 Agent instructions 也必须改变 content_hash」）；P4 `reap_abandoned_runs` 的 `lease_until < now()` 改成永不命中 → 红（被杀 Pod 的 Run 30s 内未进终态 + reaper 用例同时红）。 | **e2e_deferred**（终验归 verify-e2e）；独立复跑：`-k s12` → **1 passed in 14.57s**，配对 `tests/acceptance/runtime/test_multipod_recovery.py` → 1 passed。 | `test_dfx_stateless.py::test_s12_stateless_pod_replacement_freezes_snapshot_and_deterministic_hash` | **真实 Runtime Pod 子进程**（uvicorn；各自独立 `POD_NAME`/端口/租约；Pod A 被**真实 `SIGKILL`**，断言 `returncode == -SIGKILL` 且进程不再存活）+ 真实 Console/Worker/LLM 探针 + 真实 PostgreSQL + 真实 artifact 根；断言全部库内回读（`run_db` 线程版，**不用 `asyncio.run`**）。事实链：① 同配置跨 Pod 的 `content_hash` **相等**（确定性）；② **真实 PG 凭据轮换**后 hash 仍相等、且轮换后的明文不出现在 `model_json`；③ **只改 `agent.instructions`** 的 Run 与再**只改 `model.params_json`** 的 Run **各自**推动 `content_hash`（逐腿可归因，且未改动的那一腿列保持不变）；④ R1 的快照行（`content_hash` + `agent_json`/`model_json`/`skill_catalog_json`/`mcp_catalog_json` + `run_id`/`snapshot_id`）在全部变更与杀 Pod 之后**逐列前后相等**；⑤ SIGKILL 后 R1 被 reaper 置 `FAILED` + `RUN_ABANDONED`；⑥ **Turn 2 在同一 `conversation_id` 上由 Pod B 完成**（无 sticky session 的直接证据）且其快照反映新配置。 | e2e_deferred |
+| RULE-snapshot-001 | **无 RED（规则既有实现已满足；本任务补的是 spec 自注的验收缺位，属新增断言而非缺陷修复）**。 | verifier 独立复跑：`tests/agent_runtime/test_snapshot_freeze.py` + `tests/agent_runtime/test_run_reaper.py` → **4 passed in 0.25s**；`tests/agent_runtime -k "executor or resolve"` → **19 passed**。 | `tests/agent_runtime/test_snapshot_freeze.py::test_b104_definition_change_only_affects_new_runs`（**新增，收敛缺位**）+ 既有 `::test_b104_snapshot_hash_stable_across_key_rotation` / `::test_b104_snapshot_model_json_excludes_api_key` | 真实 PG（既有 `tenant`/`client` fixtures，落真实 `runtime.run_record`/`runtime.runtime_snapshot`）。**spec 自注的缺位已收敛**（`harness-snapshot.md` §Conventions 第 5 条：指定 verifier 只有 hash 稳定性与 `api_key` 剥离两例、缺"变更后旧 Run 仍用旧快照"）：新增用例做**两次单腿替换** —— 先只换 agent（`instructions`+`revision`）、再只换 model（`base_url`/`params`/`revision`），每次断言「新 Run 的 `content_hash` 变化且对应列反映新值、另一腿列不变」，并且**每一步之后都把旧 Run 的快照行与变更前逐列比对相等**（直接的列级冻结证据，不依赖 resume 行为的间接推断）。其余口径仍由既有用例承载：`sha256:`+canonical JSON 同口径、`skills` 恒 1、`api_key` 从 `model_json` 与 hash 输入剥离、终态/非终态写入 CAS（`test_run_reaper.py`）。 | verified（人工终态化；RULE 行不由 runner 回写） |
+
+> 本任务**如实登记的边界**（写进 `test_dfx_stateless.py` docstring）：① Pod 是**同主机独立 uvicorn 子进程**（进程/端口/租约独立）——「跨 Pod」指独立进程实例，**不是**容器或主机级隔离；② 只覆盖 **Runtime 侧的 run 快照**；③ Prompt 文本本身不落库，故以冻结的快照列作为持久等价证据。本任务**未改任何生产代码**；对 verifier 的改动仅为**新增**一个用例（既有 2 例逐字未动）。
+- S-12: e2e_deferred — automated command e2e_deferred; run_id=92889ec8baa04eba9b3c6494079ec92c (confirmed_by: runner)
+- S-12: e2e_deferred — automated command e2e_deferred; run_id=f9bdffb00ff5428a8f2b194cd07f49f1 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
+- [2026-09-30] S-12 + RULE-snapshot-001 终态：新增 `tests/acceptance/dfx/test_dfx_stateless.py`（真实 Runtime **Pod 子进程 A/B** + **真实 `SIGKILL`** + 真实 Console/Worker/LLM 探针 + 真实 PG + 真实 artifact 根；断言链：同配置跨 Pod `content_hash` 相等 → 真实 PG 凭据轮换后 hash 仍相等 → **逐腿**（只改 `agent.instructions` / 只改 `model.params_json`）各自推动 hash 且另一腿列不变 → R1 快照行逐列前后相等 → SIGKILL 后 R1 被 reaper 置 `FAILED/RUN_ABANDONED` → **Turn 2 在同一 `conversation_id` 上由 Pod B 完成**（无 sticky session））。并在 verifier `tests/agent_runtime/test_snapshot_freeze.py` **新增** `test_b104_definition_change_only_affects_new_runs`，**收敛 spec 自注的验收缺位**（原 verifier 只有 hash 稳定性与 `api_key` 剥离两例，缺"配置/授权变更只影响后续新 Run"）；既有 2 例逐字未动。两组 argv 独立复跑全绿（S-12 1 passed + 兄弟 1 passed；verifier 4 passed + `-k "executor or resolve"` 19 passed）。**4 处扰动取证**：P1 剥离失效、P2 hash 含密钥、**P3 hash 去掉 agent ⇒ 首轮不变红（我的断言把两腿合并、无法归因）⇒ 加固为逐腿可归因后复跑即红**、P4 reaper 条件失效。**未改生产代码。**
 
 ---
-
+- [2026-09-30] started
+- [2026-09-30] completed (done)
 ## TASK-013: 上线门禁清单、收口清单与仓库级 verifier
 
 - **Status**: draft

@@ -208,7 +208,7 @@
       "kind": "e2e",
       "boundary": "Runtime A/B Pod → PostgreSQL + Artifact Store",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "bash",
         "-lc",
@@ -216,7 +216,34 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "S-12",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "revision": 2,
+        "run_id": "f9bdffb00ff5428a8f2b194cd07f49f1",
+        "executed_at": "2026-09-30T10:13:31.698925+00:00"
+      },
+      "runs": [
+        {
+          "id": "S-12",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 1,
+          "run_id": "92889ec8baa04eba9b3c6494079ec92c",
+          "executed_at": "2026-09-30T10:12:46.192720+00:00"
+        },
+        {
+          "id": "S-12",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "revision": 2,
+          "run_id": "f9bdffb00ff5428a8f2b194cd07f49f1",
+          "executed_at": "2026-09-30T10:13:31.698925+00:00"
+        }
+      ]
     },
     {
       "id": "S-13",
