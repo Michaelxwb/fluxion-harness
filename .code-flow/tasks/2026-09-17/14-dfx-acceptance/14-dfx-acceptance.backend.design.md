@@ -119,7 +119,7 @@
 | E-06 | FEAT-04 | integration | Worker → Gateway → Redis | 本模块 | 前 4 次投递失败、第 5 次成功；以及超限 | 指数退避重试；重复 `delivery_key` 不重复发送；仅 HTTP 2xx 且 `delivered=true` 才置 `SENT`，占位响应按可重试失败退避重投；超过 5 次置 `delivery_status=FAILED` 并写审计 |
 | E-07 | FEAT-05 | integration | Egress Boundary → Audit/日志/Snapshot | 本模块 | 未命中 allowlist 调用；载荷含 Secret | 调用不发出并写 DENY 审计；canary 反查 Snapshot/审计/日志/Prompt 均无明文（Owner 凭据表按设计存明文，不在扫描面内）；>5 MiB 响应拒绝 |
 | E-08 | FEAT-05 | integration | API → RBAC/CSRF/租户谓词 | 本模块 | 缺失 CSRF；Builder 访问 ADMIN 端点；跨租户读取 | 403 `FORBIDDEN`；跨租户不可见/不可写，不泄露存在性 |
-| E-09 | FEAT-06 | integration | ModelGateway → Provider | 本模块 | 429（含 `Retry-After`）、5xx、连接超时、deadline 不足、cancel | 退避受剩余 deadline 约束；cancel 时立即停止；无无限等待；重试计数与原因入模型审计 |
+| E-09 | FEAT-06 | integration | Runtime 恢复链 → Provider（`AgentRunner._complete_with_recovery` + `AuditedModelProvider`；取证经真实 runtime 起 Run） | 本模块 | 429（`Retry-After` 取自**响应头**）、5xx、连接超时、deadline 不足、cancel | 退避受剩余 deadline 约束；cancel 时立即停止；无无限等待；重试计数与原因入 `runtime.model_invocation_audit`（逐 attempt 一行、含 `retry_reason`，该表无任何 payload/密钥列） |
 | E-10 | FEAT-07 | manual | Gateway WS → 企业微信 | 本模块 | 断开 WS 后重连（需真实凭据） | SDK backoff 重连成功，`reconnect` 指标可见；标注“需真实凭据，环境受限时记录原因” |
 
 **边界场景**
@@ -297,13 +297,21 @@ flowchart LR
 
 #### 3.4.6 模型恢复矩阵
 
-| 触发 | 预期 | 约束 | 场景 |
-|---|---|---|---|
-| 429 + `Retry-After` | 优先按 `Retry-After` 等待后重试 | 等待 ≤ 剩余 deadline | E-09 |
-| 5xx / 529 / 连接重置 / 超时 | 指数退避 + jitter 重试 | 受 `max_model_retries` 与 deadline 约束 | E-09 |
-| deadline 不足 | 不再重试，Run/Task 进入失败终态并写审计 | 终态 CAS，不被过期执行者覆盖 | E-05/E-09 |
-| cancel 请求 | 每轮调用前检查取消，立即停止重试 | 取消优先于重试 | S-09/E-09 |
-| prompt too long | 触发一次 Context rebuild/compaction 后重试 | 不得无限循环 | E-09（补充用例） |
+> **2026-09-30 按代码事实重写**：原表把恢复逻辑记在 `ModelGateway` 名下，但该组件**未接入生产**
+> （全仓仅 `tests/agent_runtime/test_model_recovery.py` 引用它）；真实生产恢复链是
+> `AgentRunner._complete_with_recovery`（`packages/agent-core/src/muad_agent_core/agent/runner.py:435`）
+> 外包一层 `AuditedModelProvider`（`apps/agent-runtime/.../worker` 侧 `executor.py:555`）。
+> 下表"预期（要求）"是必须成立的行为，"代码现状"是核对结果，`⚠️待整改` 项已登记为缺口。
+
+| 触发 | 预期（要求） | 代码现状（file:line） | 约束 | 场景 |
+|---|---|---|---|---|
+| 429 + `Retry-After` | 优先按 `Retry-After` 等待后重试 | ✅ 已实现：provider 从 **HTTP 响应头** `Retry-After` 解析（`openai_provider.py:326-334`，仅取 header、失败即 `None`），runner `_retry_delay` 优先用该值（`runner.py:477`） | 等待 ≤ 剩余 deadline | E-09 |
+| 5xx / 529 / 连接重置 / 超时 | 指数退避 **+ jitter** 重试 | ⚠️ **部分实现**：指数退避 `DEFAULT_RETRY_BASE_SEC * 2**attempt` 已有（`runner.py:477`；`model_gateway.py:110` 同形），**jitter 全仓未实现**（`grep -i jitter` 无命中）⇒ **待整改** | 受 `max_model_retries` 与 deadline 约束 | E-09 |
+| deadline 不足 | 不再重试，Run/Task 进入失败终态并写审计 | ✅ 已实现：`_retry_delay` 判 `elapsed + delay*1000 >= deadline_ms` → `RunnerDeadlineExceeded`（`runner.py:471-483`）；落库错误码经 `run_service._error_code_for` 为 `COMMON_INTERNAL_ERROR`（`run_service.py:1165-1170`） | 终态 CAS，不被过期执行者覆盖 | E-05/E-09 |
+| cancel 请求 | 每轮调用前检查取消，立即停止重试 | ✅ 已实现：`_ensure_runnable` 每轮检查（`runner.py:425-432`），退避 sleep 以 0.1s 分片再检查（`_cancel_aware_sleep`，460-468）；取消来源先 Redis `run:cancel:` hint 再 DB `RunRecord.cancel_requested`（`run_service.py:838-848`） | 取消优先于重试 | S-09/E-09 |
+| `prompt too long` | 触发**一次** Context rebuild/compaction 后重试，不得无限循环 | ❌ **未实现**：全仓无 `compaction`/`rebuild`/`context_length` 相关机制（`context_builder.json_compact` 只是 JSON 压缩）⇒ **待整改**（需先定上下文压缩策略，非小改） | 不得无限循环 | E-09 |
+| （归属）恢复链 | E-09 的验收对象 = **生产恢复链**（`AgentRunner._complete_with_recovery` + `AuditedModelProvider`） | ⚠️ 原 design 点名的 `ModelGateway` **未接线**，其行为不代表生产 ⇒ **待整改**：接线或删除该死实现（不得两套并存） | — | E-09 |
+
 
 #### 3.4.7 上线门禁映射（docs/09 §14 L421-443）
 

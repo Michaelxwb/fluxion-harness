@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "task_file": "14-dfx-acceptance.md",
-  "task_sha256": "5e100eda64822c81d02167b09d8ac3724b8033444fcec774974e70e746ac0223",
+  "task_sha256": "d4f02658e938741cd20e453d46880e65870a3056e921e5a2ec35dc9cff255202",
   "scenarios": [
     {
       "id": "S-01",
@@ -22,28 +22,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-01",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "dbfe43dd807b4298b731bc0a372198d8",
-        "executed_at": "2026-09-28T12:43:47.745779+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "dbfe43dd807b4298b731bc0a372198d8",
-          "executed_at": "2026-09-28T12:43:47.745779+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-02",
@@ -63,28 +42,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "dbfe43dd807b4298b731bc0a372198d8",
-        "executed_at": "2026-09-28T12:43:47.745779+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "dbfe43dd807b4298b731bc0a372198d8",
-          "executed_at": "2026-09-28T12:43:47.745779+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-03",
@@ -101,28 +59,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "1f09357ded7543ddb63b2d063438d62a",
-        "executed_at": "2026-09-28T13:04:24.120066+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "1f09357ded7543ddb63b2d063438d62a",
-          "executed_at": "2026-09-28T13:04:24.120066+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-04",
@@ -143,28 +80,7 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "S-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "280e260563b343178fea186511d5a0c9",
-        "executed_at": "2026-09-28T13:30:12.780014+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "280e260563b343178fea186511d5a0c9",
-          "executed_at": "2026-09-28T13:30:12.780014+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-05",
@@ -181,34 +97,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 2,
-      "evidence": {
-        "id": "S-05",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "40c8e0dd57794a9798cc8a0cf2b2bb3e",
-        "executed_at": "2026-09-29T16:13:03.008130+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-05",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "c43871d766234fb28eb425febc585aca",
-          "executed_at": "2026-09-29T16:12:20.529351+00:00"
-        },
-        {
-          "id": "S-05",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "40c8e0dd57794a9798cc8a0cf2b2bb3e",
-          "executed_at": "2026-09-29T16:13:03.008130+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-06",
@@ -225,34 +114,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 2,
-      "evidence": {
-        "id": "S-06",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "40c8e0dd57794a9798cc8a0cf2b2bb3e",
-        "executed_at": "2026-09-29T16:13:03.008130+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-06",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "c43871d766234fb28eb425febc585aca",
-          "executed_at": "2026-09-29T16:12:20.529351+00:00"
-        },
-        {
-          "id": "S-06",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "40c8e0dd57794a9798cc8a0cf2b2bb3e",
-          "executed_at": "2026-09-29T16:13:03.008130+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-07",
@@ -269,34 +131,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 2,
-      "evidence": {
-        "id": "S-07",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "43b0590911994dd1bb086c81a1e5b749",
-        "executed_at": "2026-09-30T05:52:01.377442+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-07",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "ed00e49fe1854bccade5b6cdd8bd5217",
-          "executed_at": "2026-09-30T04:55:43.442508+00:00"
-        },
-        {
-          "id": "S-07",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "43b0590911994dd1bb086c81a1e5b749",
-          "executed_at": "2026-09-30T05:52:01.377442+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-08",
@@ -313,34 +148,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 2,
-      "evidence": {
-        "id": "S-08",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "43b0590911994dd1bb086c81a1e5b749",
-        "executed_at": "2026-09-30T05:52:01.377442+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-08",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "ed00e49fe1854bccade5b6cdd8bd5217",
-          "executed_at": "2026-09-30T04:55:43.442508+00:00"
-        },
-        {
-          "id": "S-08",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "43b0590911994dd1bb086c81a1e5b749",
-          "executed_at": "2026-09-30T05:52:01.377442+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-09",
@@ -357,34 +165,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 2,
-      "evidence": {
-        "id": "S-09",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "40c8e0dd57794a9798cc8a0cf2b2bb3e",
-        "executed_at": "2026-09-29T16:13:03.008130+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-09",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "c43871d766234fb28eb425febc585aca",
-          "executed_at": "2026-09-29T16:12:20.529351+00:00"
-        },
-        {
-          "id": "S-09",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "40c8e0dd57794a9798cc8a0cf2b2bb3e",
-          "executed_at": "2026-09-29T16:13:03.008130+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-10",
@@ -401,34 +182,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 2,
-      "evidence": {
-        "id": "S-10",
-        "kind": "e2e",
-        "status": "e2e_deferred",
-        "revision": 2,
-        "run_id": "43b0590911994dd1bb086c81a1e5b749",
-        "executed_at": "2026-09-30T05:52:01.377442+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-10",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 1,
-          "run_id": "ed00e49fe1854bccade5b6cdd8bd5217",
-          "executed_at": "2026-09-30T04:55:43.442508+00:00"
-        },
-        {
-          "id": "S-10",
-          "kind": "e2e",
-          "status": "e2e_deferred",
-          "revision": 2,
-          "run_id": "43b0590911994dd1bb086c81a1e5b749",
-          "executed_at": "2026-09-30T05:52:01.377442+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-11",
@@ -445,57 +199,7 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 4,
-      "evidence": {
-        "id": "S-11",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 4,
-        "run_id": "ff33447f6f1b41b489cb50c7b2040e6b",
-        "executed_at": "2026-09-29T11:20:54.235285+00:00"
-      },
-      "runs": [
-        {
-          "id": "S-11",
-          "kind": "functional",
-          "status": "failed",
-          "error": "timeout",
-          "output": "",
-          "revision": 1,
-          "run_id": "c8ba9facec1c425fbe47677409f24bb3",
-          "executed_at": "2026-09-29T05:26:48.111264+00:00"
-        },
-        {
-          "id": "S-11",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 2,
-          "run_id": "d2d5ad0694384734ade661e0fd8cf788",
-          "executed_at": "2026-09-29T10:42:18.975110+00:00"
-        },
-        {
-          "id": "S-11",
-          "kind": "functional",
-          "status": "failed",
-          "exit_code": 1,
-          "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______ test_s11_final_delivery_dedupes_replay_and_persists_before_send ________\n\nlive_stack = DfxStack(console_url='http://127.0.0.1:56980', worker_url='http://127.0.0.1:56981', artifact_root=PosixPath('/private/...bility0/logs/worker.log'), _process=<Popen: returncode: -15 args: ['/Users/jahan/workspace/fluxion-harness/.venv...>)})\nhttp = <httpx.Client object at 0x10e8a95b0>\ntmp_path = PosixPath('/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/pytest-of-jahan/pytest-304/test_s11_final_delivery_dedupe0')\n\n    def test_s11_final_delivery_dedupes_replay_and_persists_before_send(\n        live_stack: DfxStack, http: httpx.Client, tmp_path: Any\n    ) -> None:\n        \"\"\"[S-11] 同一 `delivery_key` 投递两次：第二次 200 且不重发；最终 SENT；结果先持久化后投递。\"\"\"\n        bot_id = \"dfx-delivery-s11\"\n        with _worker_chain(live_stack, tmp_path) as (gateway_url, probe_url, worker):\n            http.post(f\"{probe_url}/probe/reset\")\n            spec = resolve_task_spec(live_stack, http)\n            task_id = _submit(\n                live_stack,\n                http,\n                spec,\n                probe=\"s11-persist\",\n                delivery_mode=\"FINAL_ONLY\",\n                delivery_route=_route(bot_id),\n            )\n>           _await_worker_claim(task_id, worker)\n\ntests/acceptance/dfx/test_dfx_delivery.py:331: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\ntask_id = UUID('e267a8a9-f3b2-4989-b5a5-08cdaa27c2aa')\nexpected_owner = 'xuwenbindeMacBook-Pro.local:50050'\n\n    def _await_worker_claim(\n        task_id: uuid.UUID, expected_owner: str, *, timeout_sec: float = 30.0\n    ) -> None:\n        \"\"\"断言这一行由**本栈 Worker** 领取。\n    \n        claim 没有 tenant 谓词（`claimer.py::_claimable_conditions`），共享库上任何别的 Worker 都\n        领得到本租户的行；外来 Worker 用它自己的 `ARTIFACT_ROOT` 执行，本栈刚种下的 Skill 包在那边\n        不存在，表现为 `SKILL_ARTIFACT_UNAVAILABLE` 并被重试到 FAILED——与本用例要断言的事实无关，\n        却会让用例以极难看懂的方式失败（本仓实测：本地 dev 服务 `uvicorn muad_agent_worker.main:app\n        --app-dir apps/agent-worker/src --reload` 的 reload 子进程命令行不含 `-m uvicorn muad_`，\n        逃过了所有孤儿进程判据）。故这里以真实库回读的 `lease_owner` 直接把环境前提钉死。\n        \"\"\"\n        deadline = time.monotonic() + timeout_sec\n        owners: list[str] = []\n        while time.monotonic() < deadline:\n            owners = _claim_owners(task_id)\n            foreign = [owner for owner in owners if owner != expected_owner]\n>           assert not foreign, (\n                f\"本栈之外的 Worker 领取了 task {task_id}：owner={foreign} ≠ 本栈 {expected_owner}。\"\n                \"共享库上还有别的 Worker 在跑（典型：本地 dev 服务 muad_agent_worker），\"\n                \"验收要求独占 Worker 池——请先停掉它再跑本套件。\"\n            )\nE           AssertionError: 本栈之外的 Worker 领取了 task e267a8a9-f3b2-4989-b5a5-08cdaa27c2aa：owner=['xuwenbindeMacBook-Pro.local:50028'] ≠ 本栈 xuwenbindeMacBook-Pro.local:50050。共享库上还有别的 Worker 在跑（典型：本地 dev 服务 muad_agent_worker），验收要求独占 Worker 池——请先停掉它再跑本套件。\nE           assert not ['xuwenbindeMacBook-Pro.local:50028']\n\ntests/acceptance/dfx/test_dfx_delivery.py:188: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/dfx/test_dfx_delivery.py::test_s11_final_delivery_dedupes_replay_and_persists_before_send\n1 failed, 3 deselected in 4.42s",
-          "revision": 3,
-          "run_id": "d4a61b870b844583b4c3b97326bd55cf",
-          "executed_at": "2026-09-29T10:51:12.663139+00:00"
-        },
-        {
-          "id": "S-11",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 4,
-          "run_id": "ff33447f6f1b41b489cb50c7b2040e6b",
-          "executed_at": "2026-09-29T11:20:54.235285+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "S-12",
@@ -546,55 +250,7 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 4,
-      "evidence": {
-        "id": "E-01",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 4,
-        "run_id": "d305f3014b19408ba310c76588f5e5d0",
-        "executed_at": "2026-09-28T17:10:04.372921+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "d53ddeaebdc74018ade4f3458abbae87",
-          "executed_at": "2026-09-28T15:56:06.330575+00:00"
-        },
-        {
-          "id": "E-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 2,
-          "run_id": "0b03002f86d54960aae2f0504eb80c61",
-          "executed_at": "2026-09-28T15:57:26.751118+00:00"
-        },
-        {
-          "id": "E-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 3,
-          "run_id": "ed3f19f39aa04becb2a888473d62f83e",
-          "executed_at": "2026-09-28T15:59:08.507722+00:00"
-        },
-        {
-          "id": "E-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 4,
-          "run_id": "d305f3014b19408ba310c76588f5e5d0",
-          "executed_at": "2026-09-28T17:10:04.372921+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-02",
@@ -611,57 +267,7 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 4,
-      "evidence": {
-        "id": "E-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 4,
-        "run_id": "d305f3014b19408ba310c76588f5e5d0",
-        "executed_at": "2026-09-28T17:10:04.372921+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "d53ddeaebdc74018ade4f3458abbae87",
-          "executed_at": "2026-09-28T15:56:06.330575+00:00"
-        },
-        {
-          "id": "E-02",
-          "kind": "functional",
-          "status": "failed",
-          "error": "timeout",
-          "output": "",
-          "revision": 2,
-          "run_id": "0b03002f86d54960aae2f0504eb80c61",
-          "executed_at": "2026-09-28T15:57:26.751118+00:00"
-        },
-        {
-          "id": "E-02",
-          "kind": "functional",
-          "status": "failed",
-          "exit_code": 1,
-          "output": "adiness(degraded.url, ready=True)\n            assert ready[\"wakeup_hint\"] == \"disabled\", f\"降级模式必须被明确上报：{ready}\"\n            status, _ = _probe_service(degraded.url, \"/healthz\")\n            assert status == 200, \"Redis 只是 hint，不该让 /healthz 失败\"\n            task_id = _submit(live_stack, http, spec, worker_url=degraded.url, probe=\"no-redis\")\n            task_ids.append(task_id)\n            row = _await_task_status(task_id, \"COMPLETED\")\n            assert row[\"result_json\"] == {\"slept_sec\": 0.0, \"probe\": \"no-redis\"}, (\n                \"Redis 不可用时 PG 事实必须完整（权威源在 PG）\"\n            )\n            assert row[\"finished_at\"] is not None\n            dedupe = cast(dict[str, Any], run_async(_dedupe_degrade_and_restore))\n            assert dedupe[\"degraded_store\"] == \"NullDedupeStore\", dedupe\n            assert dedupe[\"degraded_duplicate\"] is False, f\"不得假称重复而丢弃投递：{dedupe}\"\n            assert dedupe[\"restored_store\"] == \"RedisDedupeStore\", dedupe\n            assert dedupe[\"restored_first_duplicate\"] is False, dedupe\n            assert dedupe[\"restored_second_duplicate\"] is True, f\"恢复后去重未重新生效：{dedupe}\"\n>       _assert_residue_free(live_stack, task_ids, artifacts_before=artifacts_before)\n\ntests/acceptance/dfx/test_dfx_fault_matrix.py:583: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/acceptance/dfx/test_dfx_fault_matrix.py:239: in _assert_residue_free\n    commands = _await_service_processes(\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nexpected = {'muad_agent_worker.main': 1, 'muad_console_platform.main': 1}\n\n    def _await_service_processes(expected: dict[str, int]) -> list[str]:\n        \"\"\"等进程收敛到期望分布（停进程后端口/进程表有极短抖动窗口）。\"\"\"\n        deadline = time.monotonic() + PROCESS_WAIT_SEC\n        commands: list[str] = []\n        while time.monotonic() < deadline:\n            commands = _service_commands()\n            if {module: sum(module in line for line in commands) for module in expected} == expected:\n                return commands\n            time.sleep(POLL_INTERVAL_SEC)\n>       raise AssertionError(f\"服务进程未收敛到 {expected}：{commands}\")\nE       AssertionError: 服务进程未收敛到 {'muad_console_platform.main': 1, 'muad_agent_worker.main': 1}：['/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_console_platform.main:app --host 127.0.0.1 --port 56136 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_runtime.main:app --host 127.0.0.1 --port 56110 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_runtime.main:app --host 127.0.0.1 --port 56111 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_worker.main:app --host 127.0.0.1 --port 56112 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_im_gateway.main:app --host 127.0.0.1 --port 56113 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_worker.main:app --host 127.0.0.1 --port 56137 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_console_platform.main:app --host 127.0.0.1 --port 56109 --log-level error']\n\ntests/acceptance/dfx/test_dfx_fault_matrix.py:187: AssertionError\n------------------------------ Captured log call -------------------------------\nWARNING  muad_im_gateway.infrastructure.dedupe:dedupe.py:170 dedupe_redis_ping_failed error=Error 61 connecting to 127.0.0.1:1. Connect call failed ('127.0.0.1', 1). using_null_store\nWARNING  muad_im_gateway.infrastructure.dedupe:dedupe.py:170 dedupe_redis_ping_failed error=Error 61 connecting to 127.0.0.1:1. Connect call failed ('127.0.0.1', 1). using_null_store\n=========================== short test summary info ============================\nFAILED tests/acceptance/dfx/test_dfx_fault_matrix.py::test_e02_redis_unavailable_degrades_to_at_least_once_and_recovers\n1 failed, 2 deselected in 14.64s",
-          "revision": 3,
-          "run_id": "ed3f19f39aa04becb2a888473d62f83e",
-          "executed_at": "2026-09-28T15:59:08.507722+00:00"
-        },
-        {
-          "id": "E-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 4,
-          "run_id": "d305f3014b19408ba310c76588f5e5d0",
-          "executed_at": "2026-09-28T17:10:04.372921+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-03",
@@ -678,56 +284,7 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 4,
-      "evidence": {
-        "id": "E-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 4,
-        "run_id": "d305f3014b19408ba310c76588f5e5d0",
-        "executed_at": "2026-09-28T17:10:04.372921+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "d53ddeaebdc74018ade4f3458abbae87",
-          "executed_at": "2026-09-28T15:56:06.330575+00:00"
-        },
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "incomplete",
-          "error": "deadline_exceeded",
-          "revision": 2,
-          "run_id": "0b03002f86d54960aae2f0504eb80c61",
-          "executed_at": "2026-09-28T15:57:26.751118+00:00"
-        },
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "failed",
-          "exit_code": 1,
-          "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_e03_artifact_store_unavailable_keeps_ready_and_fails_new_writes _____\n\nlive_stack = DfxStack(console_url='http://127.0.0.1:56376', worker_url='http://127.0.0.1:56377', artifact_root=PosixPath('/private/...ai0/worker-restored.log'), _process=<Popen: returncode: None args: ['/Users/jahan/workspace/fluxion-harness/.ven...>)})\nhttp = <httpx.Client object at 0x10987bc50>\ntmp_path = PosixPath('/private/var/folders/81/t8x84frn1v15nx7w6647r9sr0000gn/T/pytest-of-jahan/pytest-154/test_e03_artifact_store_unavai0')\n\n    def test_e03_artifact_store_unavailable_keeps_ready_and_fails_new_writes(\n        live_stack: DfxStack, http: httpx.Client, tmp_path: Path\n    ) -> None:\n        \"\"\"E-03：Artifact Store 不可用 → 既有 READY 继续执行；cache miss/新写入明确失败。\"\"\"\n        spec = resolve_task_spec(live_stack, http)\n        artifacts_before = _artifact_files(live_stack.artifact_root)\n        outage = _prepare_store_outage(live_stack, tmp_path)\n        task_ids: list[uuid.UUID] = []\n        try:\n            for arm in (\n                _arm_ready_cache_keeps_running,\n                _arm_cache_miss_fails_explicitly,\n                _arm_new_write_succeeds_after_recovery,\n            ):\n                task_ids.append(arm(live_stack, http, spec, tmp_path, outage))\n        finally:\n            _reattach_store(outage.store_root, outage.detached)\n>       _assert_residue_free(live_stack, task_ids, artifacts_before=artifacts_before)\n\ntests/acceptance/dfx/test_dfx_fault_matrix.py:758: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/acceptance/dfx/test_dfx_fault_matrix.py:239: in _assert_residue_free\n    commands = _await_service_processes(\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nexpected = {'muad_agent_worker.main': 1, 'muad_console_platform.main': 1}\n\n    def _await_service_processes(expected: dict[str, int]) -> list[str]:\n        \"\"\"等进程收敛到期望分布（停进程后端口/进程表有极短抖动窗口）。\"\"\"\n        deadline = time.monotonic() + PROCESS_WAIT_SEC\n        commands: list[str] = []\n        while time.monotonic() < deadline:\n            commands = _service_commands()\n            if {module: sum(module in line for line in commands) for module in expected} == expected:\n                return commands\n            time.sleep(POLL_INTERVAL_SEC)\n>       raise AssertionError(f\"服务进程未收敛到 {expected}：{commands}\")\nE       AssertionError: 服务进程未收敛到 {'muad_console_platform.main': 1, 'muad_agent_worker.main': 1}：['/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_console_platform.main:app --host 127.0.0.1 --port 56376 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_console_platform.main:app --host 127.0.0.1 --port 56814 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_runtime.main:app --host 127.0.0.1 --port 56815 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_runtime.main:app --host 127.0.0.1 --port 56816 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_worker.main:app --host 127.0.0.1 --port 56817 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_agent_worker.main:app --host 127.0.0.1 --port 56377 --log-level error', '/Users/jahan/workspace/fluxion-harness/.venv/bin/python3 -m uvicorn muad_im_gateway.main:app --host 127.0.0.1 --port 56818 --log-level error']\n\ntests/acceptance/dfx/test_dfx_fault_matrix.py:187: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/dfx/test_dfx_fault_matrix.py::test_e03_artifact_store_unavailable_keeps_ready_and_fails_new_writes\n1 failed, 2 deselected in 32.06s",
-          "revision": 3,
-          "run_id": "ed3f19f39aa04becb2a888473d62f83e",
-          "executed_at": "2026-09-28T15:59:08.507722+00:00"
-        },
-        {
-          "id": "E-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 4,
-          "run_id": "d305f3014b19408ba310c76588f5e5d0",
-          "executed_at": "2026-09-28T17:10:04.372921+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-04",
@@ -744,28 +301,7 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "378093d797ed41e3a64a9d5ef7aeeaa0",
-        "executed_at": "2026-09-29T01:50:38.781222+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "378093d797ed41e3a64a9d5ef7aeeaa0",
-          "executed_at": "2026-09-29T01:50:38.781222+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-05",
@@ -782,28 +318,7 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "E-05",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "378093d797ed41e3a64a9d5ef7aeeaa0",
-        "executed_at": "2026-09-29T01:50:38.781222+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-05",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "378093d797ed41e3a64a9d5ef7aeeaa0",
-          "executed_at": "2026-09-29T01:50:38.781222+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-06",
@@ -820,56 +335,7 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 4,
-      "evidence": {
-        "id": "E-06",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 4,
-        "run_id": "ff33447f6f1b41b489cb50c7b2040e6b",
-        "executed_at": "2026-09-29T11:20:54.235285+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-06",
-          "kind": "functional",
-          "status": "incomplete",
-          "error": "deadline_exceeded",
-          "revision": 1,
-          "run_id": "c8ba9facec1c425fbe47677409f24bb3",
-          "executed_at": "2026-09-29T05:26:48.111264+00:00"
-        },
-        {
-          "id": "E-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 2,
-          "run_id": "d2d5ad0694384734ade661e0fd8cf788",
-          "executed_at": "2026-09-29T10:42:18.975110+00:00"
-        },
-        {
-          "id": "E-06",
-          "kind": "functional",
-          "status": "failed",
-          "error": "timeout",
-          "output": "",
-          "revision": 3,
-          "run_id": "d4a61b870b844583b4c3b97326bd55cf",
-          "executed_at": "2026-09-29T10:51:12.663139+00:00"
-        },
-        {
-          "id": "E-06",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 4,
-          "run_id": "ff33447f6f1b41b489cb50c7b2040e6b",
-          "executed_at": "2026-09-29T11:20:54.235285+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-07",
@@ -903,82 +369,16 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 6,
-      "evidence": {
-        "id": "E-08",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 6,
-        "run_id": "cf49bc596e5748fa8e283aa0fb5055a6",
-        "executed_at": "2026-09-29T14:29:53.611570+00:00"
-      },
-      "runs": [
-        {
-          "id": "E-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "65b1695991bd4529bdba0ba990c92ab7",
-          "executed_at": "2026-09-29T12:35:17.467125+00:00"
-        },
-        {
-          "id": "E-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 2,
-          "run_id": "9ad0d941122c4215a485ae271fc7dc0c",
-          "executed_at": "2026-09-29T12:36:37.929914+00:00"
-        },
-        {
-          "id": "E-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 3,
-          "run_id": "abd14a904b1348e3b9b6fb17e2e79ae2",
-          "executed_at": "2026-09-29T12:58:04.928279+00:00"
-        },
-        {
-          "id": "E-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 4,
-          "run_id": "7d599cd8d80d4d48a0e11abc66bf08c1",
-          "executed_at": "2026-09-29T13:35:37.339949+00:00"
-        },
-        {
-          "id": "E-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 5,
-          "run_id": "66d0986a691843019a674b8dd8ef8b28",
-          "executed_at": "2026-09-29T13:57:30.666912+00:00"
-        },
-        {
-          "id": "E-08",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 6,
-          "run_id": "cf49bc596e5748fa8e283aa0fb5055a6",
-          "executed_at": "2026-09-29T14:29:53.611570+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "E-09",
       "source": "14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景",
       "level": "integration",
       "kind": "functional",
-      "boundary": "ModelGateway → Provider",
+      "boundary": "Runtime 恢复链 → Provider（`AgentRunner._complete_with_recovery` + `AuditedModelProvider`）",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -986,7 +386,64 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 5,
+      "evidence": {
+        "id": "E-09",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 5,
+        "run_id": "b65e40710b0948ae97ecaed43aec3e60",
+        "executed_at": "2026-09-30T09:17:07.620941+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "a5cc5b54d3b44898b5637d43ae5afe34",
+          "executed_at": "2026-09-30T06:55:38.075390+00:00"
+        },
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "28bb2340633a4e88ad6e6129e8adab0b",
+          "executed_at": "2026-09-30T06:56:45.506512+00:00"
+        },
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 3,
+          "run_id": "e63cbdddaec84e6c9cef9038b07f5103",
+          "executed_at": "2026-09-30T07:49:37.305247+00:00"
+        },
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 4,
+          "run_id": "5a52d00158b148b4b3b2ffdf723c65a9",
+          "executed_at": "2026-09-30T08:13:15.936253+00:00"
+        },
+        {
+          "id": "E-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 5,
+          "run_id": "b65e40710b0948ae97ecaed43aec3e60",
+          "executed_at": "2026-09-30T09:17:07.620941+00:00"
+        }
+      ]
     },
     {
       "id": "E-10",
@@ -999,11 +456,7 @@
       "command": null,
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": [],
-      "evidence": {
-        "confirmed_by": "jahan",
-        "evidence": "2026-09-30 真机复验（真实 bot 凭据 + 企业微信线上端点）：认证成功 wecom_ws_connected=1（04:55:11.580）；经本地 TLS 中继切断真实连接后 wecom_bot_disconnected(connection_lost) + 指标归零 + state=BACKOFF，退避 1.0s 后重连成功 CONNECTED attempt=2（04:55:24.601），指标复归 1；重连由网关适配器监督退避执行（SDK 侧 max_reconnect_attempts=0 关闭其内部重连），reconnect 指标以 wecom_ws_connected（GET /metrics）与 state_changed 日志的 attempt 计数为证。端到端：企微发消息→入站帧→绑定落 channel_identity→对话 run COMPLETED（run.created→message.delta→run.completed）→回执 Reply ack received，用户确认实际收到回复；期间发现并修复回复协议误用（提交 6d142ab）。凭据仅经环境变量写入本机临时租户行，收尾随租户删除（库内残留 0）。"
-      }
+      "depends_on": []
     },
     {
       "id": "B-01",
@@ -1024,28 +477,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-01",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "dbfe43dd807b4298b731bc0a372198d8",
-        "executed_at": "2026-09-28T12:43:47.745779+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-01",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "dbfe43dd807b4298b731bc0a372198d8",
-          "executed_at": "2026-09-28T12:43:47.745779+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-02",
@@ -1062,28 +494,7 @@
       ],
       "cwd": ".",
       "timeout": 300.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-02",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "1f09357ded7543ddb63b2d063438d62a",
-        "executed_at": "2026-09-28T13:04:24.120066+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-02",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "1f09357ded7543ddb63b2d063438d62a",
-          "executed_at": "2026-09-28T13:04:24.120066+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-03",
@@ -1100,28 +511,7 @@
       ],
       "cwd": ".",
       "timeout": 900.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-03",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "378093d797ed41e3a64a9d5ef7aeeaa0",
-        "executed_at": "2026-09-29T01:50:38.781222+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-03",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "378093d797ed41e3a64a9d5ef7aeeaa0",
-          "executed_at": "2026-09-29T01:50:38.781222+00:00"
-        }
-      ]
+      "depends_on": []
     },
     {
       "id": "B-04",
@@ -1138,28 +528,7 @@
       ],
       "cwd": ".",
       "timeout": 600.0,
-      "depends_on": [],
-      "revision": 1,
-      "evidence": {
-        "id": "B-04",
-        "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "revision": 1,
-        "run_id": "dbfe43dd807b4298b731bc0a372198d8",
-        "executed_at": "2026-09-28T12:43:47.745779+00:00"
-      },
-      "runs": [
-        {
-          "id": "B-04",
-          "kind": "functional",
-          "status": "passed",
-          "exit_code": 0,
-          "revision": 1,
-          "run_id": "dbfe43dd807b4298b731bc0a372198d8",
-          "executed_at": "2026-09-28T12:43:47.745779+00:00"
-        }
-      ]
+      "depends_on": []
     }
   ]
 }
