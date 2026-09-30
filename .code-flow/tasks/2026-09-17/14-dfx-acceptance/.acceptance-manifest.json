@@ -252,11 +252,15 @@
       "kind": "manual",
       "boundary": "CI/环境全链路",
       "owner": "TASK-013",
-      "status": "planned",
+      "status": "verified",
       "command": null,
       "cwd": ".",
       "timeout": 60.0,
-      "depends_on": []
+      "depends_on": [],
+      "evidence": {
+        "confirmed_by": "jahan",
+        "evidence": "S-13 人工门禁核对（docs/09 §14 共 19 项，逐项登记见 TASK-013 段「S-13 门禁核对」表）：通过 11 项（DB Migration Dry Run、Egress Deny、ctx.http allowlist、Runtime run lease reclaim、WeCom reconnect（真机复验，需真实凭据）、Model 429 recovery、Worker lease reclaim、Task deadline sweep、Schedule SKIP、Background final-delivery retry、Log redaction）；部分 1 项（Secret Scan：测试面 E-07 + 两条 verifier 通过，扫描报告本仓无步骤）；已执行待 E2E 终验 5 项（Golden Journey、Snapshot Determinism、Runtime A/B Stateless、Schedule duplicate-fire、Batch concurrency limit，终验归 /cf-task:verify-e2e）；未执行 2 项（SCA/Mend、Image Scan：本仓 CI 无扫描步骤，证据路径=组织 CI/发布流水线报告）。未执行项一律如实标注，不以「未执行」冒充通过。"
+      }
     },
     {
       "id": "E-01",

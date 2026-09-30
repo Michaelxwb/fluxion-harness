@@ -56,7 +56,7 @@
 | S-10 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | 授权解析 → Prompt/ToolRegistry → IM 路由 | TASK-011 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | . | 1200 |  |
 | S-11 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Worker → Gateway `/internal/deliveries` → Redis | TASK-006 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"] | . | 900 |  |
 | S-12 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | TASK-012 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"] | . | 1200 |  |
-| S-13 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | manual | CI/环境全链路 | TASK-013 | planned | - | . | 60 |  |
+| S-13 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | manual | CI/环境全链路 | TASK-013 | verified | - | . | 60 |  |
 | E-01 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Service → PostgreSQL | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_fault_matrix.py","-k","e01"] | . | 900 |  |
 | E-02 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Redis → PG | TASK-004 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e02 && uv run pytest -q tests/acceptance/im_gateway/test_redis_degradation.py"] | . | 900 |  |
 | E-03 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | emptyDir cache → NFS | TASK-004 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e03 && uv run pytest -q tests/acceptance/test_foundation_artifact.py tests/test_skill_artifact_cache.py"] | . | 900 |  |
@@ -80,7 +80,7 @@
 | RULE-log-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | logging-kit 唯一出口与双通道脱敏 + 原 verifier 真实边界 | TASK-007 | verified | ["uv","run","pytest","-q","tests/test_logging.py","tests/test_logging_redaction.py","tests/acceptance/test_foundation_logging.py"] | . | 300 |  |
 | RULE-auth-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 真实 Console HTTP + 真实 PostgreSQL + 原 verifier 真实边界 | TASK-008 | verified | ["bash","-lc","uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity"] | . | 600 |  |
 | RULE-snapshot-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | integration | 冻结快照/终态 CAS + 原 verifier 真实边界 | TASK-012 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""] | . | 600 |  |
-| RULE-test-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | E2E | 仓库级真实 E2E（HTTP/PostgreSQL/Redis/Browser）+ 原 verifier 真实边界 | TASK-013 | planned | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 1200 |  |
+| RULE-test-001 | 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix | E2E | 仓库级真实 E2E（HTTP/PostgreSQL/Redis/Browser）+ 原 verifier 真实边界 | TASK-013 | verified | ["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | . | 1200 |  |
 
 > 本表覆盖 design §2.4.2 的全部 **27 个场景**（S-01..S-13、E-01..E-10、B-01..B-04）与 **10 条 required Spec Rule**，共 **37 行**；每个场景与每条规则有且仅有一个最终负责人（规则行以短 ref 为行键，与 13-console-auth 一致）。**规则行的「测试层级」列沿用 13-console-auth 的口径填 `integration`（`RULE-test-001` 为 `E2E`）**——它表达的是「verifier 命令的执行层级」，规则的验证力度以 argv 指向的 verifier 套件为准，不因此把场景行的 `contract`/`unit` 层级改写。design §2.4.1 的 RULE-01..RULE-10 是 design 级约束，**不建 RULE 行**（映射见 Design Alignment）。测试层级与 design 一致、**不降级**；`manual` 两行（S-13、E-10）保持 manual 且无 argv，**必须经用户明确确认**，E-10 未经真实凭据复验不得写成通过。`depends_on` 列统一留空（场景间顺序由 TASK 依赖表达，manifest 亦按空数组锁定）。E2E 行不接 `head` 一类提前关闭的管道（design §3.4.8 已登记该纪律**无机器约束**）。
 
@@ -744,7 +744,7 @@ FEAT-02 的无状态面：Run R1 执行后更新配置，删除 Pod 后继续 Tu
 - [2026-09-30] completed (done)
 ## TASK-013: 上线门禁清单、收口清单与仓库级 verifier
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-009, TASK-010, TASK-011, TASK-012
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.7 上线门禁映射, 14-dfx-acceptance.backend.design.md#3.4.8 不得 mock 的真实边界清单, 14-dfx-acceptance.backend.design.md#4.2 风险识别, 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix
@@ -759,26 +759,59 @@ FEAT-07/FEAT-08 的收口：按 design §3.4.7 把 docs/09 §14 的每一项门�
 
 ### Checklist
 
-- [ ] [S-13][manual] **保持 manual，需用户明确确认**：逐项核对 docs/09 §14 门禁清单，每项登记「通过记录或证据路径」；WeCom 真机项标注「需真实凭据」；**不允许以「未执行」冒充通过**。执行条件与确认人由用户给出。
-- [ ] [RULE-test-001][E2E] 作为唯一最终负责人：跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确不得 mock 的真实边界；verifier argv：`["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"]`。
-- [ ] 先写用例后建清单（结构性 RED）：`tests/dfx_inventory.py` 不存在时按登记命令执行必须先失败，再逐条补齐；核对内容包括：覆盖表每行（含 10 条 RULE 规则行）唯一负责人且除本收口任务外全部终态、manifest 与覆盖表 id/level/owner/command 逐项一致、终态场景与规则行在 owner 的 Acceptance Evidence 中各自登记、每个任务契约表每一行全终态、done/verified 任务零未勾项、10 条 required 规则各有唯一负责人与可执行命令、E2E 命令指向真实在盘套件。
-- [ ] 以 mutation 验证清单有牙（改状态/删证据/塞路由拦截均应如期失败），并按字节还原后复跑全绿。执行 argv：`["uv","run","pytest","-q","tests/dfx_inventory.py"]`。
-- [ ] 显式边界（不修，只登记）：门禁命令输出不得接入 `head` 一类会提前关闭的管道（SIGPIPE 打断 pytest 收尾并留下孤儿进程，导致后续随机失败）；本条 design 自注**当前无脚本约束**，只能在收口清单里做人工纪律登记，不得写成已机检。
-- [ ] 显式边界（不修，只登记）：`docs/09 §14` 中的 SCA/Mend、Image Scan 为 CI 外部工具报告，本任务登记其证据路径而不在本仓复现扫描。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。
+- [x] [S-13][manual] **保持 manual，需用户明确确认**：逐项核对 docs/09 §14 门禁清单，每项登记「通过记录或证据路径」；WeCom 真机项标注「需真实凭据」；**不允许以「未执行」冒充通过**。执行条件与确认人由用户给出。**已执行（2026-09-30）**：19 项逐项登记见下方「S-13 门禁核对」表（通过 11 / 部分 1 / 已执行待 E2E 终验 5 / 未执行（外部 CI） 2），用户确认并署名 jahan（`cf_acceptance_manifest.py --record-manual --scenario-id S-13 --confirmed-by jahan`）。
+- [x] [RULE-test-001][E2E] 作为唯一最终负责人：跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确不得 mock 的真实边界；verifier argv：`["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"]`。**已执行（2026-09-30 12:44:30Z→13:04:02Z，`CHAIN_EXIT=0`，见 `tests/dfx_inventory.py` 的同名在盘核对）**：`tests/acceptance` → 261 passed / 3 warnings / 1162.74s；前端 → `tsc --noEmit` + `vite build` ✓ 3437 modules / 2.88s；`e2e` → 真实 Playwright 4 passed / 2.9s。
+- [x] 先写用例后建清单（结构性 RED）：`tests/dfx_inventory.py` 不存在时按登记命令执行必须先失败，再逐条补齐；核对内容包括：覆盖表每行（含 10 条 RULE 规则行）唯一负责人且全部终态、manifest 与覆盖表 id/level/boundary/owner/command/cwd 逐项一致、终态场景与规则行在 owner 的 Acceptance Evidence 中各自登记、每个任务契约表每一行全终态、done/verified 任务零未勾项、10 条 required 规则各有唯一负责人与可执行命令、E2E 命令指向真实在盘套件。**已执行**：结构性 RED 取证——文件缺失时 argv 退出码 4（`ERROR: file or directory not found: tests/dfx_inventory.py`、`no tests ran in 0.01s`）；建清单后首跑 **3 红且全部是真实缺口**（覆盖表 S-13/RULE-test-001 未终态、TASK-013 证据表残留占位行、契约表两行未终态），逐条补齐后转绿。**口径加强并已同步到文案**：不豁免收口任务自身（13-console-auth 的收窄复发点）、要求 cwd/真实边界也逐项一致、证据表不得残留占位行、RULE 行必须**恰好**等于 design 矩阵的 10 条 required 规则。
+- [x] 以 mutation 验证清单有牙（改状态/删证据/伪造指向均应如期失败），并按字节还原后复跑全绿。执行 argv：`["uv","run","pytest","-q","tests/dfx_inventory.py"]`。**已执行（6 处扰动，全部如期红且消息指名条目，逐字节还原后复跑 14 passed）**：P1 覆盖表状态 `verified→planned`；P2 删 RULE-snapshot-001 证据表行；P2b 删其契约表行；P3 E2E 段 `-k s07→-k s999`（伪造用例名）；P4 删覆盖表 RULE-test-001 行；P5 manifest owner 漂移。**其中两处是扰动打出来的真实缺口**：① P2 首轮**不变红**——清单把 runner 自动写的 `- ID: <status> — …` 条目也当成证据登记，与 docstring 声明口径（只有 manual 接受条目）不符，已收紧 `_evidence_status`；② P2b 的首次误打（打到了契约表行）暴露出「契约表整行被删时无检查会发现」——行没了就没有非终态状态可查，已新增 `test_contract_tables_cover_every_acceptance_ref`。
+- [x] 显式边界（不修，只登记）：门禁命令输出不得接入 `head` 一类会提前关闭的管道（SIGPIPE 打断 pytest 收尾并留下孤儿进程，导致后续随机失败）；本条 design 自注**当前无脚本约束**，只能在收口清单里做人工纪律登记，不得写成已机检。已登记于 `tests/dfx_inventory.py` 模块 docstring 的「人工纪律（无脚本约束）」段与下方 S-13 门禁核对表的执行纪律注。
+- [x] 显式边界（不修，只登记）：`docs/09 §14` 中的 SCA/Mend、Image Scan 为 CI 外部工具报告，本任务登记其证据路径而不在本仓复现扫描。已在 S-13 门禁核对表第 1/2 行登记为「未执行（外部 CI）」——本仓 `.github/workflows/check.yml` 只有 backend/frontend 两个 job，`deploy/` 仅 k8s 清单，均无扫描步骤；证据路径 = 组织 CI/发布流水线报告。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录。两条契约命令均已执行：S-13 为人工门禁核对（用户确认署名 jahan），RULE-test-001 为仓库级重链实跑（acceptance 261 passed + 前端 build ✓ + e2e 4 passed）；记录见下方 Evidence 两行与 Log。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-13 | manual | CI/环境全链路 | 每项门禁有通过记录或证据路径；WeCom 真机标注「需真实凭据」；未执行不得记通过 | 人工门禁核对记录 + docs/09 §14 / S-13 | - | planned |
-| RULE-test-001 | E2E | 仓库级真实 E2E（HTTP/PostgreSQL/Redis/Browser）+ 原 verifier 真实边界 | 跨 API/DB/Runtime/Browser 关键流程真实 E2E；分层不降级；原 verifier 全部通过 | tests/acceptance + e2e / RULE-test-001 | `["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"]` | planned |
+| S-13 | manual | CI/环境全链路 | 每项门禁有通过记录或证据路径；WeCom 真机标注「需真实凭据」；未执行不得记通过 | 人工门禁核对记录 + docs/09 §14 / S-13 | - | verified |
+| RULE-test-001 | E2E | 仓库级真实 E2E（HTTP/PostgreSQL/Redis/Browser）+ 原 verifier 真实边界 | 跨 API/DB/Runtime/Browser 关键流程真实 E2E；分层不降级；原 verifier 全部通过 | tests/acceptance + e2e / RULE-test-001 | `["bash","-lc","uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"]` | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| （编码期填写；S-13 为 manual，须由用户确认人填写，agent 不得代填） | | | | | |
+| S-13 | **人工核对，不产自动 RED**：RED/GREEN 不适用于人工门禁核对；本任务核对的是「每项门禁有通过记录或证据路径、未执行不得记通过」，见下方「S-13 门禁核对」表的 19 行逐项登记。 | **verified（用户确认署名 jahan，2026-09-30）**：通过 11 项 / 部分 1 项（Secret Scan：测试面通过、扫描报告本仓无步骤）/ 已执行待 E2E 终验 5 项 / 未执行 2 项（SCA/Mend、Image Scan = 外部 CI）。 | TASK-013 Checklist 第 1 项 + 下方「S-13 门禁核对」表（19 行） | 核对表每行证据均为在盘事实：覆盖表/契约表/证据表、`tests/acceptance/**` 实跑记录、`.github/workflows/check.yml`（backend `make check`、frontend `npm run build`）、`deploy/k8s`、`docs/09 §14`、`uv run alembic -c migrations/alembic.ini heads` → `0014 (head)`；真机项凭据边界见 E-10 记录。 | verified |
+| RULE-test-001 | 结构性 RED：`tests/dfx_inventory.py` 尚不存在时按登记 argv 执行 → `ERROR: file or directory not found: tests/dfx_inventory.py`、`no tests ran in 0.01s`、exit=4。 | 仓库级重链三段实跑 GREEN（2026-09-30 12:44:30Z→13:04:02Z，`CHAIN_EXIT=0`）：`uv run pytest -q tests/acceptance` → **261 passed, 3 warnings in 1162.74s**；`npm --prefix apps/console-platform/frontend run build` → `tsc --noEmit` + `vite build`，3437 modules / 2.88s；`npm --prefix e2e test` → **4 passed (2.9s)**（`e2e/tests/foundation.spec.ts` 的四条用例）。 | `tests/acceptance/dfx/*`（DFX 自有套件）+ `tests/dfx_inventory.py`（E2E 行与重链的在盘核对；`-k` 令牌必须命中真实用例名） | **真实 HTTP / PostgreSQL / Redis / Browser**：acceptance 段 = 真实 uvicorn 子进程栈（Console/Runtime/Worker/Gateway/LLM+MCP 探针）+ 真实 PG/Redis（共享本地实例，全程未停未重启）；build 段 = 真实前端产物；e2e 段 = 真实 Playwright + 系统 Chrome（`e2e/playwright.config.ts`）。**分层不降级**：E2E 行仍为 E2E，argv 未被改写为 unit/integration。 | verified |
+
+**S-13 门禁核对（人工，docs/09 §14 = design §3.4.7 的 19 项；逐项登记「通过记录或证据路径」，未执行不得记通过）**
+
+| # | 门禁项 | 登记（通过记录 / 证据路径） | 判定 |
+|---|---|---|---|
+| 1 | SCA/Mend | 本仓无该步骤：`.github/workflows/check.yml` 只有 backend（`make check`）与 frontend（`npm run build`）两个 job，`deploy/` 仅 k8s 清单。组织级要求见 `docs/基线-智能服务交付平台-V2.0-总体设计说明书.md` L715（「上线前通过组织规定的 SCA/Mend 流程进行漏洞和许可证检查」）。**证据路径 = 组织 CI 平台报告** | 未执行（外部 CI） |
+| 2 | Image Scan | 同 #1：本仓不构建镜像、无扫描清单。**证据路径 = 发布流水线报告** | 未执行（外部 CI） |
+| 3 | Secret Scan | 扫描报告同 #1（未执行）；密钥/明文外泄的测试面已通过：E-07 verified（canary 四表 + IM 出站 + bot 快照 + 三处 internal 端点门控 + `>5 MiB` 拒绝并审计），RULE-secret-001 / RULE-log-001 两条 verifier 真跑 | 部分（测试面通过；扫描报告未执行） |
+| 4 | DB Migration Dry Run | `uv run alembic -c migrations/alembic.ini heads` → `0014 (head)`；CI 在全新 PG 上执行 `uv run alembic -c migrations/alembic.ini upgrade head`（`check.yml` backend job）；S-03 verified（ORM↔迁移↔OpenAPI parity） | 通过 |
+| 5 | Golden Journey | S-05..S-12 七行 E2E：本地真跑 GREEN（各 TASK 的 Evidence 有 run 记录），**终验归 `/cf-task:verify-e2e`**（覆盖表现状 `e2e_deferred`） | 已执行，待 E2E 终验 |
+| 6 | Egress Deny Test | E-07 verified：未命中 allowlist 拒绝（探针零请求）+ DENY 审计 + 同 URL 放行对照臂 | 通过 |
+| 7 | ctx.http allowlist test | E-07 verified：命中放行 + `>5 MiB` 拒绝并落 DENY(`RESPONSE_TOO_LARGE`) 审计 | 通过 |
+| 8 | Snapshot Determinism Test | S-12（`e2e_deferred`）：R1 快照行逐列前后相等 + 逐腿归因；RULE-snapshot-001 verifier（`tests/agent_runtime/test_snapshot_freeze.py`，含新增 `test_b104_definition_change_only_affects_new_runs`） | 已执行，待 E2E 终验 |
+| 9 | Runtime A/B Stateless Test | S-12（`e2e_deferred`）：真实 `SIGKILL` Pod A → Pod B 在同一 `conversation_id` 完成 Turn 2 | 已执行，待 E2E 终验 |
+| 10 | Runtime run lease reclaim test | E-04 verified：`SIGKILL` → Reaper 置 `FAILED/RUN_ABANDONED` + 会话释放 | 通过 |
+| 11 | WeCom reconnect test | E-10 verified（**需真实凭据**，2026-09-30 真机复验、用户署名 jahan）：真实断链 → `BACKOFF` → `CONNECTED attempt=2` | 通过（manual 真机） |
+| 12 | Model 429 recovery test | E-09 verified：`Retry-After` 响应头 + 指数退避 + deadline 守卫 + 取消感知 | 通过 |
+| 13 | Worker lease reclaim test | E-04 verified：租约过期被其他 Worker reclaim（真实短租约 Worker + PG 权威盘面） | 通过 |
+| 14 | Task deadline sweep test | E-05 verified：deadline 到期 CAS 失败终态 | 通过 |
+| 15 | Schedule duplicate-fire test | S-07（`e2e_deferred`）：ONCE 到点只创建一行 Task（跨一个 Scheduler 拍点仍为 1） | 已执行，待 E2E 终验 |
+| 16 | Schedule SKIP test | B-03 verified：错过触发只记 skip 不补发 | 通过 |
+| 17 | Background final-delivery retry test | E-06 verified：真实退避间隔 10/20/40/80s、≤5 次、去重、`delivered=false` 不发送 | 通过 |
+| 18 | Batch concurrency limit test | S-08（`e2e_deferred`）：停放列 + 非终态 Child 数不超 `max_concurrency` | 已执行，待 E2E 终验 |
+| 19 | Log redaction test | E-07 + RULE-log-001 verified：logging-kit 唯一出口、双通道脱敏（审计丢键 vs 日志 `***`） | 通过 |
+
+> **本表口径**：19 项中 11 项在本仓有已通过的真实执行记录（4/6/7/10/11/12/13/14/16/17/19），5 项属 E2E 行且本地已跑 GREEN 但终验归 `/cf-task:verify-e2e`（5/8/9/15/18），3 项为 CI 外部工具报告、本仓不复现（1/2 及其扫描报告部分 3）。**未执行项一律如实标注，不以「未执行」冒充通过**；企业微信真机项（#11）已标注「需真实凭据」并有真机复验署名。若部署侧采用分批发布，复用本表同一清单（design §3.4.7 注；本仓 `deploy/` 目前无灰度/分批编排）。
+>
+> **执行纪律（人工，无脚本约束）**：本次全部门禁命令均未接入 `| head` 一类会提前关闭的管道——SIGPIPE 会打断 pytest 收尾并留下共用同一测试库的孤儿服务进程（design §3.4.8）；每次运行前均已按 PPID=1 判据确认无残留进程。
+- S-13: verified — S-13 人工门禁核对（docs/09 §14 共 19 项，逐项登记见 TASK-013 段「S-13 门禁核对」表）：通过 11 项（DB Migration Dry Run、Egress Deny、ctx.http allowlist、Runtime run lease reclaim、WeCom reconnect（真机复验，需真实凭据）、Model 429 recovery、Worker lease reclaim、Task deadline sweep、Schedule SKIP、Background final-delivery retry、Log redaction）；部分 1 项（Secret Scan：测试面 E-07 + 两条 verifier 通过，扫描报告本仓无步骤）；已执行待 E2E 终验 5 项（Golden Journey、Snapshot Determinism、Runtime A/B Stateless、Schedule duplicate-fire、Batch concurrency limit，终验归 /cf-task:verify-e2e）；未执行 2 项（SCA/Mend、Image Scan：本仓 CI 无扫描步骤，证据路径=组织 CI/发布流水线报告）。未执行项一律如实标注，不以「未执行」冒充通过。 (confirmed_by: jahan)
 
 ### Log
 - [2026-09-28] created (draft)
+- [2026-09-30] started
+- [2026-09-30] **收口：新增 `tests/dfx_inventory.py`（14 项检查）＋ `RULE-test-001` 重链实跑 ＋ `S-13` 人工门禁核对（用户署名 jahan）**。① **结构性 RED 取证**：清单文件缺失时按登记 argv 执行 → `ERROR: file or directory not found`、`no tests ran in 0.01s`、exit=4。② 建清单后首跑 **3 红且全部是真实缺口**（覆盖表 S-13/RULE-test-001 未终态、TASK-013 证据表残留占位行、契约表两行未终态），逐条补齐后转绿。③ **6 处扰动取证**（改覆盖表状态 / 删规则证据表行 / 删规则契约表行 / 伪造 E2E `-k` 用例名 / 删覆盖表规则行 / 改 manifest owner）：均如期红且消息指名条目，逐字节还原（`filecmp` 校验）后复跑 **14 passed**。**扰动打出两个真实缺口**——(a) 「删规则证据表行」首轮**不变红**：清单把 runner 自动写的 `- ID: <status> — …` 条目也当作证据登记，与 docstring 声明口径不符 ⇒ 收紧 `_evidence_status`（非 manual 行必须有同 ID 证据表行）；(b) 该扰动首次误打到契约表行时暴露出「契约表整行被删无人发现」（行没了就没有非终态状态可查）⇒ 新增 `test_contract_tables_cover_every_acceptance_ref`。④ **口径比 11/12/13 更严**：不豁免收口任务自身（13-console-auth 的收窄复发点）、manifest 比对加上 cwd 与「真实边界」列、证据表禁占位行、RULE 行必须**恰好**等于 design `Spec Compliance Matrix` 的 10 条 required 规则（`spec-context.yml` 继承的 16 条是其超集，多出的 front/i18n/im/platform/time/ui 6 条不在 design 矩阵内、由各自域需求负责，不建 RULE 行）。⑤ **`RULE-test-001` 仓库级重链实跑 GREEN**（12:44:30Z→13:04:02Z，`CHAIN_EXIT=0`）：`tests/acceptance` 261 passed / 3 warnings / 1162.74s；前端 `tsc --noEmit` + `vite build` ✓ 3437 modules / 2.88s；`npm --prefix e2e test` → 真实 Playwright 4 passed / 2.9s。⑥ **S-13 人工门禁核对**：docs/09 §14 共 19 项逐项登记（通过 11 / 部分 1（Secret Scan 扫描报告本仓无步骤）/ 已执行待 E2E 终验 5 / 未执行 2（SCA/Mend、Image Scan = 外部 CI）），用户确认署名 jahan（`--record-manual --scenario-id S-13 --confirmed-by jahan`）；未执行项如实标注，不以「未执行」冒充通过。⑦ **登记边界**：`cf_acceptance_manifest.py --verify-plan` 对 6 条 path-mapped 继承规则报 `pending` + `plan_owner_missing`（与 TASK-001..012 同态；`cf_task_workflow.py finish` 不跑 verify-plan、`cf_spec_gate.py --stage code` 对本任务判 **pass**）——归档阶段若被 plan 门禁拦下，需按「N/A 逐项用户确认」或「局部 Plan 承接」另行处理，本任务不代签。
+- [2026-09-30] completed (done)
