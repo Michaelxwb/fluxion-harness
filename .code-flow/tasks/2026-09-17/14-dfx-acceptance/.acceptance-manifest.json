@@ -371,7 +371,7 @@
       "kind": "functional",
       "boundary": "Egress Boundary → Audit/日志/Snapshot",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "bash",
         "-lc",
@@ -379,7 +379,37 @@
       ],
       "cwd": ".",
       "timeout": 1200.0,
-      "depends_on": []
+      "depends_on": [],
+      "revision": 2,
+      "evidence": {
+        "id": "E-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "revision": 2,
+        "run_id": "0dedce87a21b4ac6928a0c50cfd68347",
+        "executed_at": "2026-09-30T11:15:48.289514+00:00"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 1,
+          "run_id": "903ac46342b340cd897e186319eeaf02",
+          "executed_at": "2026-09-30T11:13:38.033553+00:00"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "revision": 2,
+          "run_id": "0dedce87a21b4ac6928a0c50cfd68347",
+          "executed_at": "2026-09-30T11:15:48.289514+00:00"
+        }
+      ]
     },
     {
       "id": "E-08",

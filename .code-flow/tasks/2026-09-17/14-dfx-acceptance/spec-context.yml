@@ -1,7 +1,7 @@
 version: 1
 task: DFX、测试与验收（跨模块）
 enforcement: required
-updated_at: '2026-09-30T10:00:28.559982+00:00'
+updated_at: '2026-09-30T11:12:33.197893+00:00'
 sources:
 - type: docs
   ref: docs/09-DFX安全可靠性测试验收详细设计.md
@@ -62,7 +62,7 @@ bindings:
         - artifact: 14-dfx-acceptance.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 1f8286bee868718d349c9b6caa11c5ff891db6df6685382018d8b4460680fc71
+          artifact_sha256: 78d8e5b27a12c8417990ad7aa65860cf8eb4074418cdc4acccf36de995251328
         decision: null
         evidence: []
       code:
@@ -594,6 +594,38 @@ bindings:
               [32m                                                               \
               \     [100%]\e[0m\n\e[32m\e[32m\e[1m5 passed\e[0m\e[32m in 1.01s\e[0m\e\
               [0m\n"
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-09-30T10:59:28.549769+00:00'
+          status: unverified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-09-30T11:15:50.349155+00:00'
+          status: verified
+          rule_text_sha256: 61cdc509bd187727547e1edb0ab74e385cc068ec77843529353b13db1dc308ab
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: 0d4d763ab45521eddd41b9aa623bdb36ec8203e4302e6ca98b2d701655ada411
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 88a8a8a96e7a7bc399c63a312296cbbddf7738ef15ef97d19e91f890ab22a15c
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e\
+              [32m                                                               \
+              \     [100%]\e[0m\n\e[32m\e[32m\e[1m5 passed\e[0m\e[32m in 0.89s\e[0m\e\
+              [0m\n"
       review:
         status: pending
         refs: []
@@ -623,7 +655,7 @@ bindings:
         - artifact: 14-dfx-acceptance.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 1f8286bee868718d349c9b6caa11c5ff891db6df6685382018d8b4460680fc71
+          artifact_sha256: 78d8e5b27a12c8417990ad7aa65860cf8eb4074418cdc4acccf36de995251328
         decision: null
         evidence: []
       code:
@@ -1305,6 +1337,49 @@ bindings:
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               \e[33m\e[32m18 passed\e[0m, \e[33m\e[1m1 warning\e[0m\e[33m in 0.54s\e\
               [0m\e[0m\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-09-30T10:59:28.549933+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-09-30T11:15:51.178320+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: 1f8d21a597add54b833bb12bd4bc38c601137080aaffa8afb012561eb6f2d179
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 0c7ba16e1f2921dc27f466e6feaf345597f4eacaaed49cfec510a2f31f77fe3b
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e\
+              [32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[33m                                              \
+              \         [100%]\e[0m\n\e[33m=============================== warnings\
+              \ summary ===============================\e[0m\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              \e[33m\e[32m18 passed\e[0m, \e[33m\e[1m1 warning\e[0m\e[33m in 0.46s\e\
+              [0m\e[0m\n"
       review:
         status: pending
         refs: []
@@ -1349,7 +1424,7 @@ bindings:
         - artifact: 14-dfx-acceptance.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 1f8286bee868718d349c9b6caa11c5ff891db6df6685382018d8b4460680fc71
+          artifact_sha256: 78d8e5b27a12c8417990ad7aa65860cf8eb4074418cdc4acccf36de995251328
         decision: null
         evidence: []
       code:
@@ -1881,6 +1956,38 @@ bindings:
               [32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m   \
               \                                                            [100%]\e\
               [0m\n\e[32m\e[32m\e[1m10 passed\e[0m\e[32m in 0.09s\e[0m\e[0m\n"
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-09-30T10:59:28.550561+00:00'
+          status: unverified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-09-30T11:15:51.566225+00:00'
+          status: verified
+          rule_text_sha256: c8b7610b0825011eeae758ed0a4d83d963e18a4ca0239398e59dad840663f35f
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: 3f4c215f5783834f8757afbbdb4060297e831edf0dff75ea853d6e40aa950199
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: c4c1b9ed894e63847356b84ddf9348603c0f3adaa19193b544ae1acc930f2269
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e\
+              [32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m   \
+              \                                                            [100%]\e\
+              [0m\n\e[32m\e[32m\e[1m10 passed\e[0m\e[32m in 0.09s\e[0m\e[0m\n"
       review:
         status: pending
         refs: []
@@ -1927,7 +2034,7 @@ bindings:
         - artifact: 14-dfx-acceptance.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 1f8286bee868718d349c9b6caa11c5ff891db6df6685382018d8b4460680fc71
+          artifact_sha256: 78d8e5b27a12c8417990ad7aa65860cf8eb4074418cdc4acccf36de995251328
         decision: null
         evidence: []
       code:
@@ -2593,6 +2700,51 @@ bindings:
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               \e[33m\e[32m35 passed\e[0m, \e[33m\e[1m1613 deselected\e[0m, \e[33m\e\
               [1m1 warning\e[0m\e[33m in 3.62s\e[0m\e[0m\n"
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-09-30T10:59:28.551184+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-09-30T11:15:57.006447+00:00'
+          status: verified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: 46bd3768c365659d169b253d58e5fc0271d05dc3bc624a3fb626d856dcca4b28
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/console_platform/test_user_side_relations.py
+              -k s04 && uv run pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 502390b2dddc103f9c9089e8b2ea8f968583a9c0a9d6ac6154e5972255252f19
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m                              \
+              \                                         [100%]\e[0m\n\e[32m\e[32m\e\
+              [1m2 passed\e[0m, \e[33m1 deselected\e[0m\e[32m in 0.47s\e[0m\e[0m\n\
+              \e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[33m\
+              \                                      [100%]\e[0m\n\e[33m===============================\
+              \ warnings summary ===============================\e[0m\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              \e[33m\e[32m35 passed\e[0m, \e[33m\e[1m1619 deselected\e[0m, \e[33m\e\
+              [1m1 warning\e[0m\e[33m in 3.43s\e[0m\e[0m\n"
       review:
         status: pending
         refs: []
@@ -3113,6 +3265,39 @@ bindings:
               [0m\n\e[32m\e[32m\e[1m4 passed\e[0m\e[32m in 0.01s\e[0m\e[0m\nfrontend\
               \ api usage check OK\ni18n keys OK: 717\n\n> muad-console-web@0.1.0\
               \ typecheck\n> tsc --noEmit\n\n"
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-09-30T10:59:28.551847+00:00'
+          status: unverified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-09-30T11:15:59.032139+00:00'
+          status: verified
+          rule_text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: 203a6d4016f647ab57cf3283b9ad5ce040b2a7a95ec70db0500ca57c93c6fa29
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_api_client_contract.py && uv run
+              python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: b7dc7b5c849168ba91f6eda140130305000711c7972e3c6bda2a4f70c3e1cb4f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m      \
+              \                                                               [100%]\e\
+              [0m\n\e[32m\e[32m\e[1m4 passed\e[0m\e[32m in 0.01s\e[0m\e[0m\nfrontend\
+              \ api usage check OK\ni18n keys OK: 717\n\n> muad-console-web@0.1.0\
+              \ typecheck\n> tsc --noEmit\n\n"
       review:
         status: pending
         refs: []
@@ -3485,6 +3670,37 @@ bindings:
           rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
           artifact_sha256: null
           diff_sha256: ff303a725dcb5560095b4a5a140a76ed6a766599bf296b6bfc18b98825d12722
+          result_sha256: b02ee95e3f6771ef8a055e6050f30ac642c54eb554541bb678d8fd8f3a63c849
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: fdeb4d2e5fd85096d83243943737ced83c283e6929afd9e8816ebb76d4ca565a
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e\
+              [32m.\e[0m\e[32m                                                   \
+              \                [100%]\e[0m\n\e[32m\e[32m\e[1m6 passed\e[0m\e[32m in\
+              \ 0.03s\e[0m\e[0m\ni18n keys OK: 717\n"
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-09-30T10:59:28.552447+00:00'
+          status: unverified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-09-30T11:15:59.394281+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
           result_sha256: b02ee95e3f6771ef8a055e6050f30ac642c54eb554541bb678d8fd8f3a63c849
           error_code: null
           details:
@@ -4039,6 +4255,88 @@ bindings:
               \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               \e[33m\e[32m242 passed\e[0m, \e[33m\e[1m2 warnings\e[0m\e[33m in 57.93s\e\
               [0m\e[0m\n"
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-09-30T10:59:28.553030+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-09-30T11:16:58.053564+00:00'
+          status: verified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: cd657ac5811c1018fb4ba54d0a5365fd4c8faf981f222dc5533fb8cf3bf66977
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_channel
+            - tests/gateway
+            exit_code: 0
+            stdout_sha256: 4dab540d14b051d4e855bce7133eddaa6e4b56f51e14b977681a9261754e2cf2
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e\
+              [32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[33m [ 29%]\n\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[33m [ 59%]\n\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[33m\
+              \ [ 89%]\n\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[33m                      \
+              \                         [100%]\e[0m\n\e[33m===============================\
+              \ warnings summary ===============================\e[0m\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/aibot/ws.py:28:\
+              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
+              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/websockets/legacy/__init__.py:6:\
+              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
+              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
+              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              \e[33m\e[32m242 passed\e[0m, \e[33m\e[1m2 warnings\e[0m\e[33m in 57.62s\e\
+              [0m\e[0m\n"
       review:
         status: pending
         refs: []
@@ -4085,7 +4383,7 @@ bindings:
         - artifact: 14-dfx-acceptance.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 1f8286bee868718d349c9b6caa11c5ff891db6df6685382018d8b4460680fc71
+          artifact_sha256: 78d8e5b27a12c8417990ad7aa65860cf8eb4074418cdc4acccf36de995251328
         decision: null
         evidence: []
       code:
@@ -4663,8 +4961,123 @@ bindings:
               [0m\e[32m                                                          \
               \    [100%]\e[0m\n\e[32m\e[32m\e[1m11 passed\e[0m\e[32m in 0.06s\e[0m\e\
               [0m\n"
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-09-30T10:59:28.553660+00:00'
+          status: unverified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-09-30T11:16:58.398924+00:00'
+          status: verified
+          rule_text_sha256: 47d0a6aad9f6a1b2d15f6929870234f479a79d324421d50253b4b49192769fca
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: 34d299e9f7b113ef08e4cacee8757e49d54cdd02cfa1cc4f2d273ef15c5bd379
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging.py
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_logging.py
+            exit_code: 0
+            stdout_sha256: 1ce41228c0940be997c49c47cedec241dcb072734c59fa42d28a10cedc0f153d
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e\
+              [32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m                                                          \
+              \    [100%]\e[0m\n\e[32m\e[32m\e[1m11 passed\e[0m\e[32m in 0.06s\e[0m\e\
+              [0m\n"
       review:
         status: stale
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-project-platform
+  path: platform/harness-project-platform.md
+  status: active
+  hashes:
+    file_sha256: 749361311877a0957be7b0a96934535bbeac48f2bb492910ad208ea516dc1e08
+    metadata_sha256: 28a4d92c0ce7539c6b65112f7eb365fac6afde41be59646e75fe6cbd8ca8c1a0
+    rules_sha256: b552927e5b65dbeaeec21ef2081bad646283e0f4862ab9c263bb5062b422426e
+  selected_by: user
+  reason: '用户授权修复真机/验收发现的缺陷：Egress 响应超限（>max_bytes）分支只抛 ResponseTooLargeError、不写 DENY
+    审计（首跑 RED：AssertionError: []），按 design §3.4.5「>5 MiB 拒绝并审计」补 _audit_too_large。改动只在
+    egress 边界的拒绝路径上新增审计，不涉及 RULE-platform-001 的实例/寻址配置、凭据模式、PlatformSession 缓存与 adapter_key
+    语义；该规则 verifier（tests -k schema_parity）已实测通过。'
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-platform-001
+    summary: ProjectPlatform 只保存实例与寻址配置，认证/Session 由 PlatformAdapter 承担（SPI 无独立 `refresh`，刷新属于
+      `authenticate` 内部）；凭据明文存于凭据表并由主键引用，`credential_mode` 仅表达选择策略（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）；PlatformSession
+      为可重建 Redis 缓存，键为 `platform_session:{tenant_id}:{platform_id}:{actor_scope}:{credential_version}:{adapter_key}:{adapter_version}`
+      并以 Set 索引清理；更换 adapter_key 必须使旧凭据与会话失效。
+    text_sha256: 9bfa326bb7da3ce17fab7298a71fd493548b90109dc9850a2645170ba1ce61c1
+    enforcement: required
+    verifier_ref: harness-project-platform#RULE-platform-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-project-platform#RULE-platform-001
+          executed_at: '2026-09-30T11:17:02.596685+00:00'
+          status: verified
+          rule_text_sha256: 9bfa326bb7da3ce17fab7298a71fd493548b90109dc9850a2645170ba1ce61c1
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: 3fd181ba60f0cc32244bdb82e414dac57207c77e4f58c3f9758bcf82296fd009
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 476aa7f79b7eeebd0eda216156fd59053bba9a36bfc91b68d151fc5fb802ba5c
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e\
+              [32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[33m                                      [100%]\e[0m\n\e[33m===============================\
+              \ warnings summary ===============================\e[0m\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              \e[33m\e[32m35 passed\e[0m, \e[33m\e[1m1619 deselected\e[0m, \e[33m\e\
+              [1m1 warning\e[0m\e[33m in 3.55s\e[0m\e[0m\n"
+      review:
+        status: pending
         refs: []
         decision: null
         evidence: []
@@ -4706,7 +5119,7 @@ bindings:
         - artifact: 14-dfx-acceptance.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 1f8286bee868718d349c9b6caa11c5ff891db6df6685382018d8b4460680fc71
+          artifact_sha256: 78d8e5b27a12c8417990ad7aa65860cf8eb4074418cdc4acccf36de995251328
         decision: null
         evidence: []
       code:
@@ -5232,6 +5645,37 @@ bindings:
             output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m                  \
               \                                                    [100%]\e[0m\n\e\
               [32m\e[32m\e[1m3 passed\e[0m\e[32m in 0.62s\e[0m\e[0m\n"
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-09-30T10:59:28.554238+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-09-30T11:17:04.099911+00:00'
+          status: verified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: 689b11d0e0213ec6652d65b90ead51894fcdf9b28853c6ba30b29cb452e77b4b
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_platform/test_user_side_relations.py
+            exit_code: 0
+            stdout_sha256: 363e054c36afacd4b1d1ada764bc5c8a39453a2701346cce0de6896b5b86de4e
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m                  \
+              \                                                    [100%]\e[0m\n\e\
+              [32m\e[32m\e[1m3 passed\e[0m\e[32m in 0.64s\e[0m\e[0m\n"
       review:
         status: pending
         refs: []
@@ -5277,7 +5721,7 @@ bindings:
         - artifact: 14-dfx-acceptance.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 1f8286bee868718d349c9b6caa11c5ff891db6df6685382018d8b4460680fc71
+          artifact_sha256: 78d8e5b27a12c8417990ad7aa65860cf8eb4074418cdc4acccf36de995251328
         decision: null
         evidence: []
       code:
@@ -5835,6 +6279,40 @@ bindings:
               [0m\e[32m.\e[0m\e[32m                                              \
               \               [100%]\e[0m\n\e[32m\e[32m\e[1m12 passed\e[0m\e[32m in\
               \ 0.22s\e[0m\e[0m\n"
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-09-30T10:59:28.555061+00:00'
+          status: unverified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-09-30T11:17:04.669577+00:00'
+          status: verified
+          rule_text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: 5c8cb234efec52006bbf4aeab1deeeed8e69f559fd73f6ff3022f67eefad23da
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: f0607f462f931091ab7ed6bb4ab7ae645249f6d08157952cdee645ac54f5f7f1
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e\
+              [32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m                                              \
+              \               [100%]\e[0m\n\e[32m\e[32m\e[1m12 passed\e[0m\e[32m in\
+              \ 0.22s\e[0m\e[0m\n"
       review:
         status: stale
         refs: []
@@ -5881,7 +6359,7 @@ bindings:
         - artifact: 14-dfx-acceptance.md
           section_id: TASK-012
           item_id: TASK-012
-          artifact_sha256: 1f8286bee868718d349c9b6caa11c5ff891db6df6685382018d8b4460680fc71
+          artifact_sha256: 78d8e5b27a12c8417990ad7aa65860cf8eb4074418cdc4acccf36de995251328
         decision: null
         evidence: []
       code:
@@ -6479,6 +6957,42 @@ bindings:
               [0m\e[32m                                                      [100%]\e\
               [0m\n\e[32m\e[32m\e[1m19 passed\e[0m, \e[33m131 deselected\e[0m\e[32m\
               \ in 0.65s\e[0m\e[0m\n"
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-09-30T10:59:28.555658+00:00'
+          status: unverified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-09-30T11:17:07.018049+00:00'
+          status: verified
+          rule_text_sha256: 6986bf9b5fbcf6d1e67b1e61e01f68cf5d4d6bdb2c2d1d6f9b3099e3bc8c7bb1
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: c673f1d73e1e09e1b7f2d7ec2799cfcf70bbbe3f689f5ca0df873b460caa8cca
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 87c43ae354e3a204262b578fab374ed3ee1f32e919fb30eea4eecf5b2eeb7eee
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m      \
+              \                                                               [100%]\e\
+              [0m\n\e[32m\e[32m\e[1m4 passed\e[0m\e[32m in 0.22s\e[0m\e[0m\n\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m                                                      [100%]\e\
+              [0m\n\e[32m\e[32m\e[1m19 passed\e[0m, \e[33m131 deselected\e[0m\e[32m\
+              \ in 0.63s\e[0m\e[0m\n"
       review:
         status: stale
         refs: []
@@ -6523,7 +7037,7 @@ bindings:
         - artifact: 14-dfx-acceptance.md
           section_id: TASK-013
           item_id: TASK-013
-          artifact_sha256: 1f8286bee868718d349c9b6caa11c5ff891db6df6685382018d8b4460680fc71
+          artifact_sha256: 78d8e5b27a12c8417990ad7aa65860cf8eb4074418cdc4acccf36de995251328
         decision: null
         evidence: []
       code:
@@ -7767,6 +8281,76 @@ bindings:
               [2m[WebServer] \e[22mINFO:     Application startup complete.\n\e[2m[WebServer]\
               \ \e[22mINFO:     Uvicorn running on http://127.0.0.1:4173 (Press CTRL+C\
               \ to quit)\n"
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-09-30T10:59:28.556422+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-09-30T11:36:36.266308+00:00'
+          status: verified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: c7fad37ec238830b8c927768ea2528327d3a1d06ec87e670e3ecbb472f258b04
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend
+              run build && npm --prefix e2e test
+            exit_code: 0
+            stdout_sha256: 5b5c8e53a0039d6d82cb517d9e298fc7d3c84509f4fc7c0b6b12465b8b8f2fee
+            stderr_sha256: 6785f62440e31fdd55d4ce34aabb07188a50bae402452e18194e41256eb91432
+            output: "ndex-DWIDQ9LL.css  \e[39m\e[1m\e[2m  715.78 kB\e[22m\e[1m\e[22m\e\
+              [2m │ gzip:  83.54 kB\e[22m\n\e[2mdist/\e[22m\e[2massets/\e[22m\e[36mindex-BwP6-v7d.js\
+              \   \e[39m\e[1m\e[33m1,673.70 kB\e[39m\e[22m\e[2m │ gzip: 474.22 kB\e\
+              [22m\n\e[32m✓ built in 2.46s\e[39m\n\n> fluxion-harness-e2e@0.1.0 test\n\
+              > playwright test\n\n\n\e[2mRunning \e[22m4\e[2m tests using \e[22m1\e\
+              [2m worker\e[22m\n\n  \e[32m✓\e[39m  \e[2m1 \e[22mtests/foundation.spec.ts:17:1\
+              \ › S-03 切到 English 后触发错误时页面文案与后端 msg 同步为 en-US\e[2m (848ms)\e[22m\n\
+              \  \e[32m✓\e[39m  \e[2m2 \e[22mtests/foundation.spec.ts:36:1 › S-12\
+              \ 切换模块路由时 Layout 不重建且菜单选中正确\e[2m (336ms)\e[22m\n  \e[32m✓\e[39m  \e\
+              [2m3 \e[22mtests/foundation.spec.ts:52:1 › S-13 切换 English 后刷新语言保持且请求带\
+              \ X-Locale=en-US\e[2m (392ms)\e[22m\n  \e[32m✓\e[39m  \e[2m4 \e[22mtests/foundation.spec.ts:64:1\
+              \ › E-09 会话失效访问业务页跳转登录并保留 returnUrl，不渲染业务数据\e[2m (278ms)\e[22m\n\n\e\
+              [32m  4 passed\e[39m\e[2m (2.9s)\e[22m\n\e[1m\e[33m[plugin:vite:reporter]\e\
+              [39m\e[22m \e[33m[plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,\
+              \ dynamic import will not move module into another chunk.\n\e[39m\n\e\
+              [1m\e[33m[plugin:vite:reporter]\e[39m\e[22m \e[33m[plugin vite:reporter]\
+              \ \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx,\
+              \ dynamic import will not move module into another chunk.\n\e[39m\n\e\
+              [33m\n(!) Some chunks are larger than 500 kB after minification. Consider:\n\
+              - Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\e\
+              [39m\n\e[2m[WebServer] \e[22mINFO:     Started server process [76895]\n\
+              \e[2m[WebServer] \e[22mINFO:     Waiting for application startup.\n\e\
+              [2m[WebServer] \e[22mINFO:     Application startup complete.\n\e[2m[WebServer]\
+              \ \e[22mINFO:     Uvicorn running on http://127.0.0.1:4173 (Press CTRL+C\
+              \ to quit)\n"
       review:
         status: pending
         refs: []
@@ -8245,6 +8829,51 @@ bindings:
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               \e[33m\e[32m35 passed\e[0m, \e[33m\e[1m1613 deselected\e[0m, \e[33m\e\
               [1m1 warning\e[0m\e[33m in 3.65s\e[0m\e[0m\n"
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-09-30T10:59:28.556993+00:00'
+          status: unverified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-09-30T11:36:40.897301+00:00'
+          status: verified
+          rule_text_sha256: a06706c68f582a2e9b1881b024bfb544936c743ffce0183be5e70ee9df9efa8a
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: d2f709fa9df2b224abd2b3a9bd878fff5e57273510d7458507384fa0f0e9b780
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run
+              pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 104fb5bd18662dfd5e53cf2127ef7c8684b5e4ad899e8f2179709a2d3e4569cd
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m                              \
+              \                                         [100%]\e[0m\n\e[32m\e[32m\e\
+              [1m2 passed\e[0m\e[32m in 0.01s\e[0m\e[0m\n\e[32m.\e[0m\e[32m.\e[0m\e\
+              [32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[33m                      \
+              \                [100%]\e[0m\n\e[33m===============================\
+              \ warnings summary ===============================\e[0m\n.venv/lib/python3.13/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.13/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              \e[33m\e[32m35 passed\e[0m, \e[33m\e[1m1619 deselected\e[0m, \e[33m\e\
+              [1m1 warning\e[0m\e[33m in 3.60s\e[0m\e[0m\n"
       review:
         status: pending
         refs: []
@@ -9101,6 +9730,73 @@ bindings:
               \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
               - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\e\
               [39m\n"
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-09-30T10:59:28.557601+00:00'
+          status: unverified
+          rule_text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-09-30T11:36:45.671676+00:00'
+          status: verified
+          rule_text_sha256: 6280b112348e099ad3161721e93e4ec4c59a76db5ac330fd55ca9c0a5205b9d6
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: bb7a402a9465f7d8634a17b070ddc1525481ec3173dde07672801453564c2310
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py
+              && npm --prefix apps/console-platform/frontend run build
+            exit_code: 0
+            stdout_sha256: 9ed78bd4e6dc6386c1d99a10027395a4e505ace3f98fe953b40e5f21492771ed
+            stderr_sha256: d8f6ad29da5bcbb5268c9c02d823241e73cca0d1ad4762e82447a81982e93fcc
+            output: "\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e\
+              [32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m               \
+              \                                                 [100%]\e[0m\n\e[32m\e\
+              [32m\e[1m9 passed\e[0m\e[32m in 0.02s\e[0m\e[0m\n\n> muad-console-web@0.1.0\
+              \ build\n> npm run typecheck && vite build\n\n\n> muad-console-web@0.1.0\
+              \ typecheck\n> tsc --noEmit\n\n\e[36mvite v5.4.21 \e[32mbuilding for\
+              \ production...\e[36m\e[39m\ntransforming...\n\e[32m✓\e[39m 3437 modules\
+              \ transformed.\nrendering chunks...\ncomputing gzip size...\n\e[2mdist/\e\
+              [22m\e[32mindex.html                 \e[39m\e[1m\e[2m    0.44 kB\e[22m\e\
+              [1m\e[22m\e[2m │ gzip:   0.31 kB\e[22m\n\e[2mdist/\e[22m\e[2massets/\e\
+              [22m\e[35mindex-DWIDQ9LL.css  \e[39m\e[1m\e[2m  715.78 kB\e[22m\e[1m\e\
+              [22m\e[2m │ gzip:  83.54 kB\e[22m\n\e[2mdist/\e[22m\e[2massets/\e[22m\e\
+              [36mindex-BwP6-v7d.js   \e[39m\e[1m\e[33m1,673.70 kB\e[39m\e[22m\e[2m\
+              \ │ gzip: 474.22 kB\e[22m\n\e[32m✓ built in 2.77s\e[39m\n\e[1m\e[33m[plugin:vite:reporter]\e\
+              [39m\e[22m \e[33m[plugin vite:reporter] \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx,\
+              \ dynamic import will not move module into another chunk.\n\e[39m\n\e\
+              [1m\e[33m[plugin:vite:reporter]\e[39m\e[22m \e[33m[plugin vite:reporter]\
+              \ \n(!) /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/services/skills.ts\
+              \ is dynamically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx\
+              \ but also statically imported by /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx,\
+              \ /Users/jahan/workspace/fluxion-harness/apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx,\
+              \ dynamic import will not move module into another chunk.\n\e[39m\n\e\
+              [33m\n(!) Some chunks are larger than 500 kB after minification. Consider:\n\
+              - Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\e\
+              [39m\n"
       review:
         status: pending
         refs: []
@@ -9146,7 +9842,7 @@ bindings:
         - artifact: 14-dfx-acceptance.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 1f8286bee868718d349c9b6caa11c5ff891db6df6685382018d8b4460680fc71
+          artifact_sha256: 78d8e5b27a12c8417990ad7aa65860cf8eb4074418cdc4acccf36de995251328
         decision: null
         evidence: []
       code:
@@ -10265,6 +10961,101 @@ bindings:
               [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
               [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m\
               \  [100%]\e[0m\n\e[32m\e[32m\e[1m143 passed\e[0m\e[32m in 5.00s\e[0m\e\
+              [0m\n"
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-09-30T10:59:28.558181+00:00'
+          status: unverified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
+          error_code: skipped_in_cheap_gate
+          details:
+            skipped: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-09-30T11:37:01.803446+00:00'
+          status: verified
+          rule_text_sha256: fa19ecb2f747ec5832d181fa4975c3b745deda5c70c046784651d2e84282f2e9
+          artifact_sha256: null
+          diff_sha256: 29162aa64c79bc458dbf9abf21f525656fa665b52d995bc3962fcbc6488f8beb
+          result_sha256: bda548dcc4cee5b146e9563a3d62287271a1258da455696fca731fcde45ed072
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
+              --ignore=tests/agent_runtime/test_runner_executor.py
+            exit_code: 0
+            stdout_sha256: e933fb614ff25be51d8799770404007c17066975445e220ca68f8f8efb76ddf0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e\
+              [32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m [ 30%]\n\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m [ 61%]\n\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m [ 92%]\n\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m          \
+              \                                             [100%]\e[0m\n\e[32m\e\
+              [32m\e[1m234 passed\e[0m\e[32m in 9.86s\e[0m\e[0m\n\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m [ 50%]\n\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e\
+              [0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m\
+              \  [100%]\e[0m\n\e[32m\e[32m\e[1m143 passed\e[0m\e[32m in 4.55s\e[0m\e\
               [0m\n"
       review:
         status: pending

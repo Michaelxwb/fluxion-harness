@@ -63,15 +63,27 @@ class EgressBoundary:
             await self._audit(target=url, decision="DENY", status_code=None)
             raise
 
-    async def _audit(self, *, target: str, decision: str, status_code: int | None) -> None:
+    async def _audit(
+        self, *, target: str, decision: str, status_code: int | None, error_code: str | None = None
+    ) -> None:
         if self._audit_writer is None:
             return
 
         outcome = self._audit_writer.record_egress(
-            target_type="HTTP", target=target, policy_decision=decision, status_code=status_code
+            target_type="HTTP",
+            target=target,
+            policy_decision=decision,
+            status_code=status_code,
+            error_code=error_code,
         )
         if hasattr(outcome, "__await__"):
             await outcome
+
+    async def _audit_too_large(self, url: str, status_code: int) -> None:
+        """超限同样是拒绝：按 `target_type=HTTP` 落 DENY 审计后才抛错，不静默降级。"""
+        await self._audit(
+            target=url, decision="DENY", status_code=status_code, error_code="RESPONSE_TOO_LARGE"
+        )
 
     async def http_get(
         self, url: str, *, follow_redirects: bool = False
@@ -83,6 +95,7 @@ class EgressBoundary:
             self._check(location)  # 跳转目标也必须过 allowlist
             response = await self._client.get(location, follow_redirects=False)
         if len(response.content) > self._policy.max_bytes:
+            await self._audit_too_large(url, response.status_code)
             raise ResponseTooLargeError(
                 f"response exceeds {self._policy.max_bytes} bytes"
             )
@@ -97,6 +110,7 @@ class EgressBoundary:
         await self._check_audited(url)
         response = await self._client.post(url, json=json_body, follow_redirects=False)
         if len(response.content) > self._policy.max_bytes:
+            await self._audit_too_large(url, response.status_code)
             raise ResponseTooLargeError(
                 f"response exceeds {self._policy.max_bytes} bytes"
             )
