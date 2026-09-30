@@ -50,10 +50,10 @@
 | S-04 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | 真实 PostgreSQL + Redis | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_reliability.py","-k","s04"] | . | 900 |  |
 | S-05 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Browser/HTTP → Console → PG → IM Gateway | TASK-010 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"] | . | 1200 |  |
 | S-06 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Gateway → Runtime SSE → Browser | TASK-010 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"] | . | 1200 |  |
-| S-07 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime → Worker → Schedule | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"] | . | 1200 |  |
-| S-08 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Worker Parent/Child → fan-in | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"] | . | 1200 |  |
+| S-07 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime → Worker → Schedule | TASK-011 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"] | . | 1200 |  |
+| S-08 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Worker Parent/Child → fan-in | TASK-011 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"] | . | 1200 |  |
 | S-09 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime interrupt → resume/cancel | TASK-010 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"] | . | 1200 |  |
-| S-10 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | 授权解析 → Prompt/ToolRegistry → IM 路由 | TASK-011 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | . | 1200 |  |
+| S-10 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | 授权解析 → Prompt/ToolRegistry → IM 路由 | TASK-011 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | . | 1200 |  |
 | S-11 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Worker → Gateway `/internal/deliveries` → Redis | TASK-006 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"] | . | 900 |  |
 | S-12 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | TASK-012 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"] | . | 1200 |  |
 | S-13 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | manual | CI/环境全链路 | TASK-013 | planned | - | . | 60 |  |
@@ -66,7 +66,7 @@
 | E-07 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Egress Boundary → Audit/日志/Snapshot | TASK-007 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_security.py -k e07 && uv run pytest -q tests/acceptance/test_secret_consumers.py tests/acceptance/im_gateway/test_secrets_and_readiness.py"] | . | 1200 |  |
 | E-08 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | API → RBAC/CSRF/租户谓词 | TASK-008 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_api_security.py -k e08 && uv run pytest -q tests/console_auth/test_rbac.py tests/console_platform/test_credentials_api.py tests/agent_worker/test_tenant_guard.py"] | . | 900 |  |
 | E-09 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | ModelGateway → Provider | TASK-009 | planned | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_model_recovery.py -k e09 && uv run pytest -q tests/agent_runtime/test_model_recovery.py"] | . | 900 |  |
-| E-10 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | manual | Gateway WS → 企业微信 | TASK-011 | planned | - | . | 60 |  |
+| E-10 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | manual | Gateway WS → 企业微信 | TASK-011 | verified | - | . | 60 |  |
 | B-01 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | api-kit paginate → API Query | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_error_catalog.py","-k","paginate"] | . | 300 |  |
 | B-02 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | SSE 解析器 → Runtime | TASK-002 | verified | ["bash","-lc","uv run pytest -q tests/agent_runtime/test_sse.py tests/gateway/test_sse_parser.py"] | . | 300 |  |
 | B-03 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Scheduler → Schedule | TASK-005 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_recovery.py -k b03 && uv run pytest -q tests/agent_worker/test_scheduler_misfire.py"] | . | 900 |  |
@@ -606,7 +606,7 @@ FEAT-02 的第一组黄金旅程：`/bind` 首次绑定后身份稳定映射 Pla
 - [2026-09-30] completed (done)
 ## TASK-011: 执行路由、批量 fan-out/fan-in 与授权可见性/多 IM 路由
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-010
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.2 黄金旅程矩阵, 14-dfx-acceptance.backend.design.md#3.4.5 安全验收矩阵, 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景
@@ -621,35 +621,50 @@ FEAT-02/FEAT-05 的第二组旅程：同步 Skill/异步 Task/定时 Schedule �
 
 ### Checklist
 
-- [ ] [S-07][E2E] 以 `Runtime → Worker → Schedule` 为真实边界编写用例：分别触发同步 Skill、异步 Task、定时 Schedule，断言路由符合 `execution_mode`；Schedule 到点只创建一次 Task；ONCE 成功后 `COMPLETED` 且无 `next_fire_at`。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"]`。
-- [ ] [S-08][E2E] 以 `Worker Parent/Child → fan-in` 为真实边界编写用例：批量意图产生 Parent/Child，断言 Child 幂等键为 `parent:{parent_id}:{item_key}`、并发受限、fan-in 后 Parent CAS 完成并**只推最终结果一次**。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"]`。
-- [ ] [S-10][E2E] 以 `授权解析 → Prompt/ToolRegistry → IM 路由` 为真实边界编写用例：SELECTED/ALL 用户范围下未授权 Skill/MCP 不进入 Catalog/Prompt；撤销授权后新 Run 不可见而旧 Snapshot 不变；多 `bot_id` 路由同一 Agent。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"]`。
-- [ ] [E-10][manual] **保持 manual，不降级**：企业微信真机重连（`Gateway WS → 企业微信`）需真实凭据；执行条件为有真实凭据的环境，记录 `reconnect` 指标可见与 SDK backoff 重连成功；**环境受限时只记录「需真实凭据 + 原因」，绝不写成通过**。
-- [ ] 断言「撤销只影响后续新 Run」时，必须同时取旧 Run 的 Snapshot 前后哈希作对照，避免只断言新 Run 的行为就宣称该条目覆盖。
-- [ ] 断言无授权泄漏：对未授权资源构造真实 MCP/Skill 探针，断言其工具**未被调用**（调用计数为 0），而不是只断言返回体为空。
-- [ ] 收尾清理：批量/定时/多 bot 产生的 Task、Schedule、Binding、会话与审计行按租户清理为 0；运行后无残留 `uvicorn`/`muad_*.main` 进程。
-- [ ] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；E-10 行按 manual 口径登记执行条件与确认人。
+- [x] [S-07][E2E] 以 `Runtime → Worker → Schedule` 为真实边界编写用例：分别触发同步 Skill、异步 Task、定时 Schedule，断言路由符合 `execution_mode`；Schedule 到点只创建一次 Task；ONCE 成功后 `COMPLETED` 且无 `next_fire_at`。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"]`。
+- [x] [S-08][E2E] 以 `Worker Parent/Child → fan-in` 为真实边界编写用例：批量意图产生 Parent/Child，断言 Child 幂等键为 `parent:{parent_id}:{item_key}`、并发受限、fan-in 后 Parent CAS 完成并**只推最终结果一次**。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"]`。
+- [x] [S-10][E2E] 以 `授权解析 → Prompt/ToolRegistry → IM 路由` 为真实边界编写用例：SELECTED/ALL 用户范围下未授权 Skill/MCP 不进入 Catalog/Prompt；撤销授权后新 Run 不可见而旧 Snapshot 不变；多 `bot_id` 路由同一 Agent。执行 argv：`["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"]`。
+- [x] [E-10][manual] **保持 manual，不降级**：企业微信真机重连（`Gateway WS → 企业微信`）需真实凭据；执行条件为有真实凭据的环境，记录 `reconnect` 指标可见与 SDK backoff 重连成功；**环境受限时只记录「需真实凭据 + 原因」，绝不写成通过**。
+- [x] 断言「撤销只影响后续新 Run」时，必须同时取旧 Run 的 Snapshot 前后哈希作对照，避免只断言新 Run 的行为就宣称该条目覆盖。
+- [x] 断言无授权泄漏：对未授权资源构造真实 MCP/Skill 探针，断言其工具**未被调用**（调用计数为 0），而不是只断言返回体为空。
+- [x] 收尾清理：批量/定时/多 bot 产生的 Task、Schedule、Binding、会话与审计行按租户清理为 0；运行后无残留 `uvicorn`/`muad_*.main` 进程。
+- [x] 执行上述契约命令，填写 Acceptance Evidence 的 RED/GREEN、断言位置与真实组件记录；E-10 行按 manual 口径登记执行条件与确认人。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-07 | E2E | Runtime → Worker → Schedule | `execution_mode` 路由；Schedule 只触发一次；ONCE `COMPLETED` 无 `next_fire_at` | tests/acceptance/dfx/test_dfx_routing.py + tests/acceptance/task_schedule/test_execution.py + test_schedules.py / S-07 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"]` | planned |
-| S-08 | E2E | Worker Parent/Child → fan-in | Child 幂等键；并发受限；fan-in CAS 且只推最终结果 | tests/acceptance/dfx/test_dfx_routing.py + tests/acceptance/task_schedule/test_batch.py / S-08 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"]` | planned |
-| S-10 | E2E | 授权解析 → Prompt/ToolRegistry → IM 路由 | 未授权不进 Catalog/Prompt；撤销只影响新 Run；多 bot_id 同一 Agent | tests/acceptance/dfx/test_dfx_authorization_scope.py + tests/acceptance/runtime/test_capability_snapshot.py / S-10 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"]` | planned |
-| E-10 | manual | Gateway WS → 企业微信 | SDK backoff 重连成功、`reconnect` 指标可见；**标注「需真实凭据，环境受限时记录原因」** | 人工真机复验记录 / E-10 | - | planned |
+| S-07 | E2E | Runtime → Worker → Schedule | `execution_mode` 路由；Schedule 只触发一次；ONCE `COMPLETED` 无 `next_fire_at` | tests/acceptance/dfx/test_dfx_routing.py + tests/acceptance/task_schedule/test_execution.py + test_schedules.py / S-07 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"]` | e2e_deferred |
+| S-08 | E2E | Worker Parent/Child → fan-in | Child 幂等键；并发受限；fan-in CAS 且只推最终结果 | tests/acceptance/dfx/test_dfx_routing.py + tests/acceptance/task_schedule/test_batch.py / S-08 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"]` | e2e_deferred |
+| S-10 | E2E | 授权解析 → Prompt/ToolRegistry → IM 路由 | 未授权不进 Catalog/Prompt；撤销只影响新 Run；多 bot_id 同一 Agent | tests/acceptance/dfx/test_dfx_authorization_scope.py + tests/acceptance/runtime/test_capability_snapshot.py / S-10 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"]` | e2e_deferred |
+| E-10 | manual | Gateway WS → 企业微信 | SDK backoff 重连成功、`reconnect` 指标可见；**标注「需真实凭据，环境受限时记录原因」** | 人工真机复验记录 / E-10 | - | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| （编码期填写；E-10 为 manual，须由用户确认人在有真实凭据的环境填写，agent 不得代填） | | | | | |
+| S-07 | **E2E 本阶段不执行 RED**（工作流口径：E2E 的 RED/GREEN 归 `/cf-task:verify-e2e`）。文件已自检实跑（并由 TASK owner 独立复跑），**不是「未执行」**。 | **e2e_deferred**（终验归 verify-e2e）；独立复跑：`-k s07` → 3 passed in 29.79s，配对 `tests/acceptance/task_schedule/test_execution.py`+`test_schedules.py` → 5 passed in 52.68s | `test_dfx_routing.py::test_s07_async_skill_call_submits_immediate_task_and_run_completes` / `::test_s07_sync_skill_call_executes_inline_without_task_row` / `::test_s07_scheduled_once_fires_exactly_one_task_and_completes` | **真实 PG/Redis + 真实 uvicorn 子进程栈**（Console / Runtime / Worker×2，SchedulerLoop 内嵌在每个 Worker，无独立 scheduler 进程）；断言全部取自持久化盘面。① **ASYNC 路由**：Run 经真实 `execute_skill` 命中 `execution_mode=ASYNC` 的 Skill ⇒ `task.task_execution` **恰一行**（`task_type=SKILL`、`execution_mode=ASYNC`、`trigger_type=IMMEDIATE`、`source_run_id` 指向该 Run），`runtime.tool_call_audit` 有且仅有该工具且 `OK`，Run `COMPLETED` 且 Task 随后 `COMPLETED`。② **SYNC 路由**：命中 `execution_mode=SYNC` ⇒ **零 Task 行**，且脚本副作用真实发生（写入 `input.side_effect_path` 的文件内容为 `executed`）。③ **SCHEDULED**：真实 `POST /internal/schedules` 建 ONCE + 把 `next_fire_at` 推到期 ⇒ 到点**只创建一行** `trigger_type=SCHEDULED` 的 Task（跨一个 Scheduler 拍点仍为 1），ONCE 成功后 `status=COMPLETED`、`completed_at` 非空、**`next_fire_at IS NULL`**。 | e2e_deferred |
+| S-08 | 同上（E2E 不执行 RED）。 | **e2e_deferred**；独立复跑：`-k s08` → 2 passed in 40.30s，配对 `tests/acceptance/task_schedule/test_batch.py` → 1 passed in 6.45s | `test_dfx_routing.py::test_s08_batch_fanout_parked_children_and_single_fan_in` / `::test_s08_batch_children_start_within_concurrency_limit` | **真实 Worker Parent/Child → fan-in**（同一真实子进程栈）。Parent：`task_type=BATCH`、终态 `COMPLETED`、`result_json` 汇总 `total==succeeded==4`、`delivery_mode=NONE`；4 个 Child：`parent_id`/`root_id` 指向 Parent、`status=COMPLETED`、**`idempotency_key == f"parent:{parent_id}:{item_key}"`**；**并发受限**以真实列断言（停放 Child 的 `not_before == 9999-12-31 23:59:59+00` 恰 2 个、可行恰 2 个，且全程轮询「非停放且未终态的 Child」从不超过 `max_concurrency`）；**fan-in 只推一次**以 `task_event` 中 `FAN_IN` **恰 1 条**断言。 | e2e_deferred |
+| S-10 | 同上（E2E 不执行 RED）。 | **e2e_deferred**；独立复跑：`-k s10` → 3 passed in 8.33s，配对 `tests/acceptance/runtime/test_capability_snapshot.py` → 2 passed in 1.89s | `test_dfx_authorization_scope.py::test_s10_unauthorized_skill_and_mcp_absent_from_catalog_and_never_called` / `::test_s10_revocation_only_affects_new_run_snapshot` / `::test_s10_multiple_bot_ids_route_to_same_agent` | **授权解析 → Prompt/ToolRegistry → IM 路由**（真实解析查询 + 真实 Run + 真实 MCP 探针 + 真实 Console 内部端点）。① 未授权（`user_scope=SELECTED` 且无用户授权行）Skill/MCP **不在**该 Run 的 `runtime_snapshot.skill_catalog_json`/`mcp_catalog_json`，对照臂在内；② **未授权资源未被调用**：真实 MCP 探针的 `tools/call` 计数——可见探针 ≥1（正对照，证明探针真在收请求）而未授权探针**== 0**，`egress_audit` 仅出现可见 server 的 `mcp://<key>/<tool>` 且 `ALLOW`；③ **撤销只影响新 Run**：撤权（`is_deleted=true`）后新 Run 快照两者皆不可见，且**旧 Run 的 `runtime_snapshot.content_hash` 前后各读一次完全相等**、旧快照两个 catalog json 逐项不变（不是只断言新 Run 行为）；④ **多 bot_id 路由同一 Agent**：两个 `bot_id` 经 `POST /internal/channel/resolve` 均返回同一 `agent_id`。 | e2e_deferred |
+
+> 本任务**如实登记的边界**（不冒充覆盖，写进两个文件的 docstring）：① **LLM 由本模块自带的脚本化真实 HTTP 探针承载**——既有 `tests.e2e.openai_probe_app` 的 tool_call 参数写死为 `{"query":"ping"}`，表达不了 `execute_skill` 需要的 `skill_key`/`input`；在「不改既有文件」约束下由本模块提供同性质的**真实 provider 端点**（Runtime 经真实 HTTP 调用，非拦截、非响应改写、无 monkeypatch）。② **SYNC 臂的 Skill 包自造**：Runtime 侧 `SkillPackage.load` 要求 `SKILL.md` frontmatter，而 `environment.build_skill_zip` 只写 `scripts/main.py`（仅够 Worker 侧执行）。③ **Prompt 文本不落库**：以 `skill_catalog_json`/`mcp_catalog_json` 作为 Prompt/ToolRegistry 的**持久等价证据**，不对 prompt 字符串直接断言。④ **停放窗口**：`not_before` 停放的 Child 会在兄弟终态时被 fan-in 释放（真实列被覆写），故「可行/停放」只在首个 Child 终态前可观测——本模块用自带慢速批量脚本把窗口拉到数秒并在窗口内断言。⑤ misfire / CRON 臂由 `test_dfx_recovery.py::test_b03_*` 与 `task_schedule/test_schedules.py` 承接，本模块不重复。
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=ed00e49fe1854bccade5b6cdd8bd5217 (confirmed_by: runner)
+- S-08: e2e_deferred — automated command e2e_deferred; run_id=ed00e49fe1854bccade5b6cdd8bd5217 (confirmed_by: runner)
+- S-10: e2e_deferred — automated command e2e_deferred; run_id=ed00e49fe1854bccade5b6cdd8bd5217 (confirmed_by: runner)
+- E-10: verified — 2026-09-30 真机复验（真实 bot 凭据 + 企业微信线上端点）：认证成功 wecom_ws_connected=1（04:55:11.580）；经本地 TLS 中继切断真实连接后 wecom_bot_disconnected(connection_lost) + 指标归零 + state=BACKOFF，退避 1.0s 后重连成功 CONNECTED attempt=2（04:55:24.601），指标复归 1；重连由网关适配器监督退避执行（SDK 侧 max_reconnect_attempts=0 关闭其内部重连），reconnect 指标以 wecom_ws_connected（GET /metrics）与 state_changed 日志的 attempt 计数为证。端到端：企微发消息→入站帧→绑定落 channel_identity→对话 run COMPLETED（run.created→message.delta→run.completed）→回执 Reply ack received，用户确认实际收到回复；期间发现并修复回复协议误用（提交 6d142ab）。凭据仅经环境变量写入本机临时租户行，收尾随租户删除（库内残留 0）。 (confirmed_by: jahan)
+- S-07: e2e_deferred — automated command e2e_deferred; run_id=43b0590911994dd1bb086c81a1e5b749 (confirmed_by: runner)
+- S-08: e2e_deferred — automated command e2e_deferred; run_id=43b0590911994dd1bb086c81a1e5b749 (confirmed_by: runner)
+- S-10: e2e_deferred — automated command e2e_deferred; run_id=43b0590911994dd1bb086c81a1e5b749 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
+- [2026-09-30] S-07/S-08/S-10 编写并登记（E2E）：新增 `tests/acceptance/dfx/test_dfx_routing.py`（S-07 三臂 SYNC/ASYNC/SCHEDULED、S-08 batch fan-out/fan-in）与 `tests/acceptance/dfx/test_dfx_authorization_scope.py`（S-10 授权可见性/撤销后旧快照不变/多 bot 同 Agent）；三段契约 argv 独立复跑全过（3+5 / 2+1 / 3+2），runner 判 `e2e_deferred`（终验归 verify-e2e）。边界如实登记 5 条：自造脚本化真实 HTTP provider（既有探针的 tool_call 参数写死、表达不了 `execute_skill` 参数）、自造 SYNC 包（Runtime 侧要求 `SKILL.md`）、Prompt 不落库改用快照 catalog 作等价证据、并发停放窗口只在首个 Child 终态前可观测、misfire/CRON 归他处。
+- [2026-09-30] **E-10 真机复验通过（用户确认，署名 jahan）**：真实 bot 凭据 + 企业微信线上端点 —— 认证成功 `wecom_ws_connected=1`；真实断链后 `wecom_bot_disconnected(connection_lost)` + 指标归零 + `BACKOFF`，退避 1.0s 后 `CONNECTED attempt=2`；端到端「企微发消息 → 入站帧 → 绑定落 `channel_identity` → 对话 `run COMPLETED` → 回执 `Reply ack received`」全部实测，用户确认实际收到回复。复验中发现并修复回复协议误用（会话内回复须走 `aibot_respond_msg` + stream 体、主动投递体须 markdown —— 官方服务对 `msgtype=text` 一律回 `errcode=40008`），另提交 `6d142ab`（含两条守卫用例与各套件读帧统一到 `tests.e2e.wecom_probe_app.frame_text`）。
 
 ---
-
+- [2026-09-30] started
+- [2026-09-30] resumed (in-progress)
+- [2026-09-30] completed (done)
 ## TASK-012: 无状态与 Snapshot 确定性（A/B Pod）
 
 - **Status**: draft
