@@ -68,6 +68,7 @@ export function PlatformTestModal(props: PlatformTestModalProps) {
 
   return (
     <Modal
+      centered
       visible={props.visible}
       title={t('platform.test.title')}
       footer={null}

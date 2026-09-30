@@ -76,7 +76,7 @@ export function ModelFormModal(props: ModelFormModalProps) {
   return (
     <FormModal
       visible={props.visible}
-      width={520}
+      width={720}
       title={props.model ? t('model.form.editTitle') : t('model.form.createTitle')}
       okText={t('common.save')}
       confirmLoading={saving}
@@ -89,56 +89,62 @@ export function ModelFormModal(props: ModelFormModalProps) {
         void submit(values as unknown as FormValues);
       }}
     >
-      <Form.Input
-        field="name"
-        label={t('model.form.name')}
-        rules={[{ required: true, message: t('model.form.name') }]}
-      />
-      <Form.Input
-        field="key"
-        label={t('model.form.key')}
-        disabled={props.model !== null}
-        rules={props.model ? [] : [{ required: true, message: t('model.form.key') }]}
-      />
-      <Form.Select
-        field="protocol"
-        label={t('model.form.protocol')}
-        disabled
-        initValue="OPENAI"
-        extraText={t('model.form.protocolHint')}
-        optionList={[{ value: 'OPENAI', label: 'OpenAI' }]}
-      />
-      <Form.Input
-        field="model_id"
-        label={t('model.form.modelId')}
-        rules={[{ required: true, message: t('model.form.modelId') }]}
-      />
-      <Form.Input
-        field="base_url"
-        label={t('model.form.baseUrl')}
-        extraText={t('model.form.baseUrlHint')}
-        rules={[
-          { required: true, message: t('model.form.baseUrl') },
-          {
-            pattern: /^https?:\/\/.+/,
-            message: t('model.form.baseUrlInvalid')
-          }
-        ]}
-      />
-      <Form.Input
-        field="api_key"
-        label={t('model.form.apiKey')}
-        extraText={
-          <>
-            {props.model
-              ? `${t('model.form.apiKeyHint')} ${t('model.form.apiKeyKeep')}`
-              : t('model.form.apiKeyHint')}
-            <br />
-            {t('model.form.apiKeyNotice')}
-          </>
-        }
-      />
-      <Form.Switch field="enabled" label={t('model.form.enabled')} initValue />
+      <div className="form-grid">
+        <Form.Input
+          field="name"
+          label={t('model.form.name')}
+          rules={[{ required: true, message: t('model.form.name') }]}
+        />
+        <Form.Input
+          field="key"
+          label={t('model.form.key')}
+          disabled={props.model !== null}
+          rules={props.model ? [] : [{ required: true, message: t('model.form.key') }]}
+        />
+        <Form.Select
+          field="protocol"
+          label={t('model.form.protocol')}
+          disabled
+          initValue="OPENAI"
+          extraText={t('model.form.protocolHint')}
+          optionList={[{ value: 'OPENAI', label: 'OpenAI' }]}
+        />
+        <Form.Input
+          field="model_id"
+          label={t('model.form.modelId')}
+          rules={[{ required: true, message: t('model.form.modelId') }]}
+        />
+        <div className="form-field-full">
+          <Form.Input
+            field="base_url"
+            label={t('model.form.baseUrl')}
+            extraText={t('model.form.baseUrlHint')}
+            rules={[
+              { required: true, message: t('model.form.baseUrl') },
+              {
+                pattern: /^https?:\/\/.+/,
+                message: t('model.form.baseUrlInvalid')
+              }
+            ]}
+          />
+        </div>
+        <div className="form-field-full">
+          <Form.Input
+            field="api_key"
+            label={t('model.form.apiKey')}
+            extraText={
+              <>
+                {props.model
+                  ? `${t('model.form.apiKeyHint')} ${t('model.form.apiKeyKeep')}`
+                  : t('model.form.apiKeyHint')}
+                <br />
+                {t('model.form.apiKeyNotice')}
+              </>
+            }
+          />
+        </div>
+        <Form.Switch field="enabled" label={t('model.form.enabled')} initValue />
+      </div>
     </FormModal>
   );
 }

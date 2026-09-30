@@ -203,6 +203,7 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
                     : 'skill.detail.scopeSelectedNotice'
                 )}
               />
+              <div className="detail-section-title">{t('skill.detail.tabs.basic')}</div>
               <DetailGrid
                 items={[
                   { label: t('skill.form.key'), value: detail.key },
@@ -237,6 +238,7 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
           )}
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="artifacts" tab={t('skill.detail.tabs.artifacts')}>
+          <div className="detail-section-title">{t('skill.detail.tabs.artifacts')}</div>
           {failed ? (
             <ErrorState onRetry={() => void reload()} />
           ) : artifacts.length === 0 ? (
@@ -277,9 +279,11 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
           )}
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="agents" tab={t('skill.detail.tabs.agents')}>
+          <div className="detail-section-title">{t('skill.detail.tabs.agents')}</div>
           <SkillAgentsTable skillId={props.skill.id} />
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="users" tab={t('skill.detail.tabs.users')}>
+          <div className="detail-section-title">{t('skill.detail.tabs.users')}</div>
           {failed ? (
             <ErrorState onRetry={() => void reload()} />
           ) : detail === null ? (

@@ -34,9 +34,9 @@ SHELL = SRC / "layout/AppLayout.tsx"
 # 本模块的源码面：认证请求层 + 会话上下文 + 登录页 + i18n 单例
 AUTH_SOURCES = (AUTH_TS, CLIENT_TS, AUTH_CONTEXT, LOGIN_PAGE, I18N)
 
-# 允许访问浏览器存储的文件与键（locale / theme 是仅有的两处；不含任何凭据）
-ALLOWED_STORAGE_KEYS = {"muad.locale", "muad.theme"}
-STORAGE_FILES = (I18N, SRC / "theme.ts")
+# 仅允许语言、主题、导航收起偏好；不含任何凭据。
+ALLOWED_STORAGE_KEYS = {"muad.locale", "muad.theme", "muad.sidebar.collapsed"}
+STORAGE_FILES = (I18N, SRC / "theme.ts", SHELL)
 
 # 组件/展示层不得出现的裸 HTTP 客户端
 BARE_HTTP = re.compile(r"from\s+['\"]axios['\"]|^\s*import\s+axios\b|\bfetch\s*\(")

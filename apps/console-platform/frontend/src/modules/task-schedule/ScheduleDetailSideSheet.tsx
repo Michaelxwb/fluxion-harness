@@ -133,59 +133,64 @@ export function ScheduleDetailSideSheet(props: ScheduleDetailSideSheetProps) {
       <Tabs.TabPane itemKey="basic" tab={t('schedule.detail.basic')}>
         {loading ? <Spin /> : null}
         {detail ? (
-          <DetailGrid
-            items={[
-              { label: t('schedule.columns.name'), value: detail.name },
-              {
-                label: t('schedule.columns.status'),
-                value: <StatusTag status={detail.status} options={statusOptions} />
-              },
-              { label: t('schedule.columns.intent'), value: detail.intent_key },
-              { label: t('schedule.columns.scheduleType'), value: detail.schedule_type },
-              {
-                label: t('schedule.columns.cron'),
-                value:
-                  detail.schedule_type === 'CRON'
-                    ? detail.cron_expr ?? '-'
-                    : detail.run_at
-                      ? <DateTimeText value={detail.run_at} />
-                      : '-'
-              },
-              { label: t('schedule.columns.timezone'), value: detail.timezone },
-              { label: 'revision', value: detail.revision },
-              {
-                label: t('schedule.columns.nextFireAt'),
-                value: (
-                  <span data-testid="schedule-detail-next-fire">
-                    {detail.next_fire_at ? <DateTimeText value={detail.next_fire_at} /> : '-'}
-                  </span>
-                )
-              },
-              {
-                label: t('schedule.columns.lastFireAt'),
-                value: detail.last_fire_at ? <DateTimeText value={detail.last_fire_at} /> : '-'
-              },
-              {
-                label: 'completed_at',
-                value: detail.completed_at ? <DateTimeText value={detail.completed_at} /> : '-'
-              },
-              {
-                label: t('task.detail.error'),
-                value: (
-                  <span data-testid="schedule-detail-skip">
-                    {detail.last_error_code ? `${detail.last_error_code}: ` : ''}
-                    {detail.last_error_message ?? '-'}
-                    {detail.last_skipped_at ? (
-                      <>
-                        {' · '}
-                        <DateTimeText value={detail.last_skipped_at} />
-                      </>
+          <>
+            <div className="detail-section-title">{t('schedule.detail.basic')}</div>
+            <DetailGrid
+              items={[
+                { label: t('schedule.columns.name'), value: detail.name },
+                {
+                  label: t('schedule.columns.status'),
+                  value: <StatusTag status={detail.status} options={statusOptions} />
+                },
+                { label: t('schedule.columns.intent'), value: detail.intent_key },
+                { label: t('schedule.columns.scheduleType'), value: detail.schedule_type },
+                {
+                  label: t('schedule.columns.cron'),
+                  value:
+                    detail.schedule_type === 'CRON'
+                      ? detail.cron_expr ?? '-'
+                      : detail.run_at
+                        ? <DateTimeText value={detail.run_at} />
+                        : '-'
+                },
+                { label: t('schedule.columns.timezone'), value: detail.timezone },
+                { label: t('schedule.detail.revision'), value: detail.revision },
+                {
+                  label: t('schedule.columns.nextFireAt'),
+                  value: (
+                    <span data-testid="schedule-detail-next-fire">
+                      {detail.next_fire_at ? <DateTimeText value={detail.next_fire_at} /> : '-'}
+                    </span>
+                  )
+                },
+                {
+                  label: t('schedule.columns.lastFireAt'),
+                  value: detail.last_fire_at ? <DateTimeText value={detail.last_fire_at} /> : '-'
+                },
+                {
+                  label: t('schedule.detail.completedAt'),
+                  value: detail.completed_at ? <DateTimeText value={detail.completed_at} /> : '-'
+                },
+                {
+                  fullWidth: true,
+                  label: t('task.detail.error'),
+                  value: (
+                    <span data-testid="schedule-detail-skip">
+                      {detail.last_error_code ? `${detail.last_error_code}: ` : ''}
+                      {detail.last_error_message ?? '-'}
+                      {detail.last_skipped_at ? (
+                        <>
+                          {' · '}
+                          <DateTimeText value={detail.last_skipped_at} />
+              
+          </>
                     ) : null}
                   </span>
                 )
               }
             ]}
           />
+          </>
         ) : null}
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="history" tab={t('schedule.detail.history')}>

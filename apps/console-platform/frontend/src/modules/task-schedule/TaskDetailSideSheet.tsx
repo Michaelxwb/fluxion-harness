@@ -193,47 +193,52 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
       <Tabs.TabPane itemKey="basic" tab={t('task.detail.basic')}>
         {loading ? <Spin /> : null}
         {detail ? (
-          <DetailGrid
-            items={[
-              { label: t('task.columns.taskId'), value: detail.task_id },
-              {
-                label: t('task.columns.status'),
-                value: <StatusTag status={detail.status} options={statusOptions} />
-              },
-              { label: t('task.columns.intent'), value: detail.intent_key },
-              { label: t('task.columns.triggerType'), value: t(`task.trigger.${detail.trigger_type}`) },
-              { label: t('task.columns.deliveryStatus'), value: t(`task.delivery.${detail.delivery_status}`) },
-              {
-                label: t('task.columns.deadlineAt'),
-                value: <span data-testid="task-detail-deadline"><DateTimeText value={detail.deadline_at} /></span>
-              },
-              {
-                label: t('task.detail.error'),
-                value: (
-                  <span data-testid="task-detail-error">
-                    {detail.error_code ? `${detail.error_code}: ` : ''}
-                    {detail.error_message ?? '-'}
-                  </span>
-                )
-              },
-              {
-                label: t('task.detail.snapshot'),
-                value: (
-                  <span data-testid="task-detail-snapshot">
-                    {snapshotSummary(detail.execution_snapshot)}
-                  </span>
-                )
-              },
-              {
-                label: t('task.columns.createTime'),
-                value: <DateTimeText value={detail.create_time} />
-              },
-              {
-                label: t('task.columns.updateTime'),
-                value: <DateTimeText value={detail.update_time} />
-              }
-            ]}
-          />
+          <>
+            <div className="detail-section-title">{t('task.detail.basic')}</div>
+            <DetailGrid
+              items={[
+                { label: t('task.columns.taskId'), value: detail.task_id },
+                {
+                  label: t('task.columns.status'),
+                  value: <StatusTag status={detail.status} options={statusOptions} />
+                },
+                { label: t('task.columns.intent'), value: detail.intent_key },
+                { label: t('task.columns.triggerType'), value: t(`task.trigger.${detail.trigger_type}`) },
+                { label: t('task.columns.deliveryStatus'), value: t(`task.delivery.${detail.delivery_status}`) },
+                {
+                  label: t('task.columns.deadlineAt'),
+                  value: <span data-testid="task-detail-deadline"><DateTimeText value={detail.deadline_at} /></span>
+                },
+                {
+                  fullWidth: true,
+                  label: t('task.detail.error'),
+                  value: (
+                    <span data-testid="task-detail-error">
+                      {detail.error_code ? `${detail.error_code}: ` : ''}
+                      {detail.error_message ?? '-'}
+                    </span>
+                  )
+                },
+                {
+                  fullWidth: true,
+                  label: t('task.detail.snapshot'),
+                  value: (
+                    <span data-testid="task-detail-snapshot">
+                      {snapshotSummary(detail.execution_snapshot)}
+                    </span>
+                  )
+                },
+                {
+                  label: t('task.columns.createTime'),
+                  value: <DateTimeText value={detail.create_time} />
+                },
+                {
+                  label: t('task.columns.updateTime'),
+                  value: <DateTimeText value={detail.update_time} />
+                }
+              ]}
+            />
+          </>
         ) : null}
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="timeline" tab={t('task.detail.timeline')}>
@@ -241,7 +246,7 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="children" tab={t('task.detail.children')}>
         {detail ? (
-          <ul data-testid="task-detail-children">
+          <ul className="detail-list" data-testid="task-detail-children">
             {children.map((child) => (
               <li key={child.task_id}>
                 <EntityLink

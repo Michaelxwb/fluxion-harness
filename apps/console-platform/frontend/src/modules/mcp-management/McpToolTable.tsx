@@ -1,8 +1,10 @@
-import { Button, Modal } from '@douyinfe/semi-ui';
+import { Button, Tabs } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '../../components/common/EmptyState';
+import { DetailGrid } from '../../components/common/DetailGrid';
+import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { ErrorState } from '../../components/common/ErrorState';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import {
@@ -108,11 +110,10 @@ export function McpToolTable(props: McpToolTableProps) {
           }
         ]}
       />
-      <Modal
+      <DetailSideSheet
+        activeTab="basic"
         visible={detail !== null || detailFailed}
         title={t('mcp.tools.detailTitle', { name: detail?.name ?? '' })}
-        footer={null}
-        width={560}
         onCancel={() => {
           setDetail(null);
           setDetailFailed(false);
@@ -121,19 +122,21 @@ export function McpToolTable(props: McpToolTableProps) {
         {detailFailed ? (
           <ErrorState />
         ) : detail === null ? null : (
-          <>
-            <p>{detail.description}</p>
-            <h5>{t('mcp.tools.inputSchema')}</h5>
+          <Tabs.TabPane itemKey="basic" tab={t('mcp.detail.tabs.basic')}>
+            <div className="detail-section-title">{t('mcp.detail.tabs.basic')}</div>
+            <DetailGrid items={[
+              { label: t('mcp.tools.name'), value: detail.name },
+              { label: t('mcp.tools.effect'), value: t(`mcp.tools.effect_${detail.effect}`) },
+              { label: t('mcp.detail.catalogRevision'), value: detail.catalog_revision },
+              { label: t('mcp.tools.description'), value: detail.description, fullWidth: true }
+            ]} />
+            <div className="detail-section-title">{t('mcp.tools.inputSchema')}</div>
             <pre style={{ whiteSpace: 'pre-wrap', maxHeight: 280, overflow: 'auto' }}>
               {JSON.stringify(detail.input_schema, null, 2)}
             </pre>
-            <p>
-              {t('mcp.tools.effect')}: {t(`mcp.tools.effect_${detail.effect}`)} ·{' '}
-              {t('mcp.detail.catalogRevision')}: {detail.catalog_revision}
-            </p>
-          </>
+          </Tabs.TabPane>
         )}
-      </Modal>
+      </DetailSideSheet>
     </>
   );
 }

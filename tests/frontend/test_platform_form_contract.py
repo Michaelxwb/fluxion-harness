@@ -9,7 +9,7 @@ MODULE = ROOT / "apps/console-platform/frontend/src/modules/project-platform"
 def test_form_uses_shared_modal_and_conditional_resolver_fields() -> None:
     source = (MODULE / "ProjectPlatformForm.tsx").read_text(encoding="utf-8")
     assert "components/common/FormModal" in source
-    assert "width={800}" in source
+    assert "width={720}" in source
     assert "common.save" in source
     assert "resolver_type === 'BASE_URL'" in source or "resolverType === 'BASE_URL'" in source
     assert "disabled={props.platform !== null}" in source
@@ -29,7 +29,7 @@ def test_form_uses_two_column_grid_and_localized_adapter_fields() -> None:
     assert "form-grid" in source, "表单必须使用双列栅格"
     assert "platform.form.adapterSection" in source
     assert "platform.adapterField." in source, "Adapter 字段必须走 i18n 而非裸 schema key"
-    assert "form-grid-spacer" in source
+    assert "form-field-full" in source
 
 
 def test_form_maps_backend_errors_to_fields() -> None:

@@ -23,9 +23,12 @@ export function FormModal(props: FormModalProps) {
   const { t } = useTranslation();
   return (
     <Modal
+      centered
+      className="app-form-modal"
       visible={props.visible}
       title={props.title}
-      width={props.width}
+      width={props.width ?? 520}
+      style={{ maxWidth: 'calc(100vw - 32px)' }}
       confirmLoading={props.confirmLoading}
       okText={props.okText ?? t('common.confirm')}
       cancelText={props.cancelText ?? t('common.cancel')}
@@ -33,7 +36,13 @@ export function FormModal(props: FormModalProps) {
       onOk={props.onOk}
       onCancel={props.onCancel}
     >
-      <Form<Record<string, unknown>> getFormApi={props.getFormApi} onSubmit={props.onSubmit}>
+      <Form<Record<string, unknown>>
+        className="app-modal-form"
+        labelPosition="top"
+        labelAlign="left"
+        getFormApi={props.getFormApi}
+        onSubmit={props.onSubmit}
+      >
         {props.children}
       </Form>
     </Modal>

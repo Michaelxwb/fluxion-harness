@@ -175,6 +175,7 @@ export function SchedulePage() {
         />
       </PageSection>
       <Modal
+        centered
         visible={helpVisible}
         title={t('schedule.help.title')}
         footer={null}

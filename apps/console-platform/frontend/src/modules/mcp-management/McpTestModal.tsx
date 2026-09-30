@@ -51,6 +51,7 @@ export function McpTestModal(props: McpTestModalProps) {
 
   return (
     <Modal
+      centered
       visible={props.visible}
       title={t('mcp.test.title')}
       footer={null}

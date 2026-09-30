@@ -6,6 +6,8 @@ import { PaginationFooter } from './PaginationFooter';
 type SemiTableProps = ComponentProps<typeof Table>;
 
 export interface RemoteTableProps<T extends object> {
+  className?: string;
+  scroll?: SemiTableProps['scroll'];
   columns: SemiTableProps['columns'];
   dataSource: T[];
   rowKey: string;
@@ -23,6 +25,8 @@ export function RemoteTable<T extends object>(props: RemoteTableProps<T>) {
   return (
     <>
       <Table
+        className={props.className}
+        scroll={props.scroll}
         columns={props.columns}
         dataSource={props.dataSource}
         rowKey={props.rowKey}

@@ -42,7 +42,7 @@ def test_model_page_follows_console_skeleton_and_batch_test_entry() -> None:
 def test_model_form_uses_shared_form_modal_with_hints() -> None:
     source = _source("ModelFormModal.tsx")
     assert "components/common/FormModal" in source
-    assert "width={520}" in source
+    assert "width={720}" in source
     assert "common.save" in source
     for key in ("model.form.protocolHint", "model.form.baseUrlHint", "model.form.apiKeyNotice"):
         assert key in source, f"缺少字段说明: {key}"

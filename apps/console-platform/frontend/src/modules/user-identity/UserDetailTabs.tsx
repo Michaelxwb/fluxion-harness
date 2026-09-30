@@ -494,6 +494,7 @@ function IdentityTab(props: { userId: string }) {
         {t('user.identities.generate')}
       </Button>
       <Modal
+        centered
         visible={bindCode !== null}
         title={t('user.bindCode.title')}
         footer={null}

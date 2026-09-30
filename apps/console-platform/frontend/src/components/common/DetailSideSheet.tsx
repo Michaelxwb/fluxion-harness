@@ -15,21 +15,22 @@ export interface DetailSideSheetProps {
 
 export function DetailSideSheet(props: DetailSideSheetProps) {
   const header = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%' }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 600 }}>{props.title}</div>
+    <div className="detail-header">
+      <div className="detail-heading">
+        <div className="detail-title">{props.title}</div>
         {props.subtitle ? (
-          <div data-testid="detail-subtitle" style={{ fontSize: 12, color: 'var(--semi-color-text-2)' }}>
+          <div data-testid="detail-subtitle" className="detail-subtitle">
             {props.subtitle}
           </div>
         ) : null}
       </div>
-      <div style={{ marginLeft: 'auto' }}>{props.actions ? props.actions : null}</div>
+      {props.actions ? <div className="detail-actions">{props.actions}</div> : null}
     </div>
   );
   return (
-    <SideSheet visible={props.visible} title={header} onCancel={props.onCancel} footer={null} width={920}>
-      {props.notice ? <div style={{ marginBottom: 12 }}>{props.notice}</div> : null}
+    <SideSheet className="app-detail-sheet" style={{ maxWidth: '100vw' }}
+      visible={props.visible} title={header} onCancel={props.onCancel} footer={null} width={920}>
+      {props.notice ? <div className="detail-notice">{props.notice}</div> : null}
       <Tabs type="line" activeKey={props.activeTab} onChange={(key) => props.onTabChange?.(String(key))}>
         {props.children}
       </Tabs>

@@ -108,7 +108,7 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
   return (
     <FormModal
       visible={props.visible}
-      width={560}
+      width={720}
       title={props.channel ? t('agent.channel.editTitle') : t('agent.channel.createTitle')}
       okText={t('common.save')}
       confirmLoading={saving}

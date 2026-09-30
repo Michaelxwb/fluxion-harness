@@ -185,8 +185,10 @@ export function McpFormModal(props: McpFormModalProps) {
             { value: 'false', label: t('common.status.disabled') }
           ]}
         />
-        <div className="form-section-title">{t('mcp.form.advancedSection')}</div>
-        <div className="form-section-hint">{t('mcp.form.advancedSectionHint')}</div>
+        <div className="form-section">
+          <div className="form-section-title">{t('mcp.form.advancedSection')}</div>
+          <div className="form-section-hint">{t('mcp.form.advancedSectionHint')}</div>
+        </div>
         <div className="form-field-full">
           <Form.Input
             field="auth_secret"
@@ -199,24 +201,20 @@ export function McpFormModal(props: McpFormModalProps) {
             }
           />
         </div>
-        <div className="form-field-full">
-          <Form.InputNumber
-            field="connect_timeout_ms"
-            label={t('mcp.form.connectTimeout')}
-            initValue={5000}
-            min={100}
-            max={60000}
-          />
-        </div>
-        <div className="form-field-full">
-          <Form.InputNumber
-            field="tool_cache_ttl_sec"
-            label={t('mcp.form.cacheTtl')}
-            initValue={300}
-            min={1}
-            max={86400}
-          />
-        </div>
+        <Form.InputNumber
+          field="connect_timeout_ms"
+          label={t('mcp.form.connectTimeout')}
+          initValue={5000}
+          min={100}
+          max={60000}
+        />
+        <Form.InputNumber
+          field="tool_cache_ttl_sec"
+          label={t('mcp.form.cacheTtl')}
+          initValue={300}
+          min={1}
+          max={86400}
+        />
         <div className="form-field-full">
           <Form.Input
             field="auth_config"

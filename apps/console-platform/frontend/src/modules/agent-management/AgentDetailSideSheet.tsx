@@ -162,10 +162,10 @@ function RelationPicker({
   };
 
   return (
-    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+    <div className="detail-toolbar">
       <Select
         data-testid={testId}
-        style={{ width: 300 }}
+        style={{ width: 300, maxWidth: '100%' }}
         showClear
         filter
         placeholder={failed ? t('agent.relation.optionsFailed') : t('agent.relation.pickPlaceholder')}
@@ -276,6 +276,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
             <Spin />
           ) : (
             <>
+              <div className="detail-section-title">{t('agent.detail.tabs.basic')}</div>
               <DetailGrid
                 items={[
                   { label: t('agent.form.key'), value: detail.key },
@@ -290,7 +291,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                   { label: t('agent.detail.mcpCount'), value: detail.mcp_count },
                   { label: t('agent.detail.channelCount'), value: detail.channel_count },
                   { label: t('agent.detail.userCount'), value: detail.user_count },
-                  { label: t('agent.form.instructions'), value: detail.instructions }
+                  { fullWidth: true, label: t('agent.form.instructions'), value: detail.instructions }
                 ]}
               />
               <h5>{t('agent.detail.recentRuns')}</h5>
@@ -299,6 +300,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
           )}
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="skills" tab={t('agent.detail.tabs.skills')}>
+          <div className="detail-section-title">{t('agent.detail.tabs.skills')}</div>
           {relationFailed ? <ErrorState onRetry={() => void reload()} /> : null}
           <RelationPicker
             testId="bind-skill-select"
@@ -352,6 +354,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
           )}
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="mcp" tab={t('agent.detail.tabs.mcp')}>
+          <div className="detail-section-title">{t('agent.detail.tabs.mcp')}</div>
           {relationFailed ? <ErrorState onRetry={() => void reload()} /> : null}
           <RelationPicker
             testId="bind-mcp-select"
@@ -405,6 +408,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
           )}
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="users" tab={t('agent.detail.tabs.users')}>
+          <div className="detail-section-title">{t('agent.detail.tabs.users')}</div>
           {relationFailed ? <ErrorState onRetry={() => void reload()} /> : null}
           <RelationPicker
             testId="grant-user-select"
@@ -461,6 +465,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
           )}
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="channels" tab={t('agent.detail.tabs.channels')}>
+          <div className="detail-section-title">{t('agent.detail.tabs.channels')}</div>
           <Button
             theme="solid"
             data-testid="create-channel"

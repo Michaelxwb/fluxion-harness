@@ -215,6 +215,7 @@ export function TaskPage() {
         />
       </PageSection>
       <Modal
+        centered
         visible={helpVisible}
         title={t('task.help.title')}
         footer={null}

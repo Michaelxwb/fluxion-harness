@@ -1,4 +1,4 @@
-import { Button, Input, Select, Switch, Toast } from '@douyinfe/semi-ui';
+import { Button, Input, Select, Toast } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,10 +11,10 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { RemoteTable } from '../../components/common/RemoteTable';
-import { StatusTag } from '../../components/common/StatusTag';
 import { ModelDetailSideSheet, ModelTestResultModal } from './ModelDetailSideSheet';
 import { ModelFormModal } from './ModelFormModal';
-import { apiKeyOptions, testStatusOptions } from './statusOptions';
+import { testStatusOptions } from './statusOptions';
+import { ModelStatusIcons } from './ModelStatusIcons';
 import {
   batchTestModels,
   deleteModel,
@@ -223,6 +223,8 @@ export function ModelPage() {
           <ErrorState onRetry={() => void reload()} />
         ) : (
           <RemoteTable<ModelItem>
+            className="model-table"
+            scroll={{ x: 1408 }}
             rowKey="id"
             loading={loading}
             rowSelection={{
@@ -233,50 +235,41 @@ export function ModelPage() {
               {
                 title: t('model.columns.key'),
                 dataIndex: 'key',
+                width: 220,
+                ellipsis: true,
                 render: (value: string, record: ModelItem) => (
                   <EntityLink testId={`model-link-${value}`} onClick={() => void openDetail(record.id)}>
                     {value}
                   </EntityLink>
                 )
               },
-              { title: t('model.columns.name'), dataIndex: 'name' },
-              { title: t('model.columns.modelId'), dataIndex: 'model_id' },
-              { title: t('model.columns.protocol'), dataIndex: 'protocol' },
-              { title: t('model.columns.baseUrl'), dataIndex: 'base_url', width: 220 },
+              { title: t('model.columns.name'), dataIndex: 'name', width: 160, ellipsis: true },
+              { title: t('model.columns.modelId'), dataIndex: 'model_id', width: 130, ellipsis: true },
+              { title: t('model.columns.protocol'), dataIndex: 'protocol', width: 90 },
+              { title: t('model.columns.baseUrl'), dataIndex: 'base_url', width: 240, ellipsis: true },
               {
-                title: t('model.columns.apiKey'),
-                dataIndex: 'api_key_configured',
-                render: (value: boolean) => <StatusTag status={value} options={apiKeyOptions(t)} />
-              },
-              {
-                title: t('model.columns.enabled'),
-                dataIndex: 'enabled',
-                render: (value: boolean, record: ModelItem) => (
-                  <Switch
-                    size="small"
-                    checked={value}
-                    loading={savingId === record.id}
-                    onChange={() => void toggleEnabled(record)}
+                title: t('model.columns.statusSummary'),
+                width: 128,
+                render: (_: unknown, record: ModelItem) => (
+                  <ModelStatusIcons
+                    model={record}
+                    saving={savingId === record.id}
+                    onToggle={() => void toggleEnabled(record)}
                   />
                 )
               },
-              {
-                title: t('model.columns.lastTestStatus'),
-                dataIndex: 'last_test_status',
-                render: (value: ModelItem['last_test_status']) => (
-                  <StatusTag status={value} options={testStatusOptions(t)} />
-                )
-              },
-              { title: t('model.columns.revision'), dataIndex: 'revision' },
+              { title: t('model.columns.revision'), dataIndex: 'revision', width: 80 },
               {
                 title: t('model.columns.updateTime'),
                 dataIndex: 'update_time',
+                width: 170,
                 render: (value: string) => <DateTimeText value={value} />
               },
               {
                 title: t('model.columns.actions'),
+                width: 128,
                 render: (_: unknown, record: ModelItem) => (
-                  <>
+                  <div className="model-table-actions">
                     <Button
                       theme="borderless"
                       onClick={() => {
@@ -289,7 +282,7 @@ export function ModelPage() {
                     <ConfirmAction danger title={t('model.confirmDelete')} onConfirm={() => void remove(record)}>
                       {t('model.actions.delete')}
                     </ConfirmAction>
-                  </>
+                  </div>
                 )
               }
             ]}

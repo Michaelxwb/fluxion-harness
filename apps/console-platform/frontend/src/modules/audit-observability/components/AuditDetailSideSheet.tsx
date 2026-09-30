@@ -137,7 +137,8 @@ function buildTypeItems(detail: AuditDetail, t: TFunction): DetailGridItem[] {
     .filter((field) => detail.extras[field] !== undefined && detail.extras[field] !== null)
     .map((field) => ({
       label: t(`audit.detail.field.${field}`),
-      value: formatExtra(field, detail.extras[field])
+      value: formatExtra(field, detail.extras[field]),
+      fullWidth: typeof detail.extras[field] === 'object'
     }));
 }
 

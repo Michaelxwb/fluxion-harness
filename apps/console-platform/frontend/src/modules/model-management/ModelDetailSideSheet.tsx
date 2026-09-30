@@ -83,6 +83,7 @@ export function ModelTestResultModal(props: ModelTestResultModalProps) {
   const { t } = useTranslation();
   return (
     <Modal
+      centered
       visible={props.visible}
       title={t('model.test.resultTitle')}
       footer={null}

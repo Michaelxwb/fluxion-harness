@@ -88,6 +88,8 @@
   "common.perPage": "每页",
   "common.items": "条",
   "app.brand": "fluxion",
+  "app.sidebar.collapse": "收起导航",
+  "app.sidebar.expand": "展开导航",
   "app.brandSuffix": "控制台",
   "page.planned": "该模块属于后续迭代范围",
   "page.plannedHint": "需求已纳入规划，完成设计拆解后在此实现。",
@@ -128,6 +130,9 @@
   "model.columns.apiKey": "API Key",
   "model.columns.enabled": "启用状态",
   "model.columns.revision": "修订版本",
+  "model.columns.statusSummary": "状态",
+  "model.status.enable": "启用模型",
+  "model.status.disable": "禁用模型",
   "model.columns.actions": "操作",
   "model.actions.edit": "编辑",
   "model.actions.delete": "删除",
@@ -708,5 +713,7 @@
   "overview.recentTasks.empty": "暂无后台任务",
   "overview.nextSchedules.empty": "暂无待触发的定时任务",
   "overview.runtimeRelation.title": "运行关系",
-  "overview.runtimeRelation.description": "IM → Agent → Runtime → ExecutionRouter → Worker/DB/Gateway：消息经网关进入 Agent，由 Runtime 编排执行，执行分派器把任务交给 Worker 落库与投递。"
+  "overview.runtimeRelation.description": "IM → Agent → Runtime → ExecutionRouter → Worker/DB/Gateway：消息经网关进入 Agent，由 Runtime 编排执行，执行分派器把任务交给 Worker 落库与投递。",
+  "schedule.detail.revision": "修订版本",
+  "schedule.detail.completedAt": "完成时间"
 }

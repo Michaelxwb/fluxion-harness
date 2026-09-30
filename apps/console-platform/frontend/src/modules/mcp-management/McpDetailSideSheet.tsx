@@ -150,6 +150,7 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
                 closeIcon={null}
                 description={t(`mcp.connection.${detail.connection_status}`)}
               />
+              <div className="detail-section-title">{t('mcp.detail.tabs.basic')}</div>
               <DetailGrid
                 items={[
                   { label: t('mcp.form.key'), value: detail.key },
@@ -164,7 +165,7 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
                   { label: t('mcp.detail.catalogRevision'), value: detail.tool_catalog_revision },
                   { label: t('mcp.detail.catalogHash'), value: detail.tool_catalog_hash ?? '-' },
                   {
-                    label: t('mcp.detail.lastDiscoveryError'),
+                    fullWidth: true, label: t('mcp.detail.lastDiscoveryError'),
                     value: detail.last_discovery_error ?? '-'
                   },
                   {
@@ -195,6 +196,7 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
           )}
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="tools" tab={t('mcp.detail.tabs.tools')}>
+          <div className="detail-section-title">{t('mcp.detail.tabs.tools')}</div>
           {failed ? (
             <ErrorState onRetry={() => void reload()} />
           ) : detail === null ? (
@@ -204,6 +206,7 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
           )}
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="agents" tab={t('mcp.detail.tabs.agents')}>
+          <div className="detail-section-title">{t('mcp.detail.tabs.agents')}</div>
           {failed ? (
             <ErrorState onRetry={() => void reload()} />
           ) : detail === null ? (
@@ -213,6 +216,7 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
           )}
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="users" tab={t('mcp.detail.tabs.users')}>
+          <div className="detail-section-title">{t('mcp.detail.tabs.users')}</div>
           {failed ? (
             <ErrorState onRetry={() => void reload()} />
           ) : detail === null ? (

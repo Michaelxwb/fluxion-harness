@@ -133,7 +133,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
   return (
     <FormModal
       visible={props.visible}
-      width={800}
+      width={720}
       title={props.platform ? t('platform.form.editTitle') : t('platform.form.createTitle')}
       okText={t('common.save')}
       confirmLoading={saving}
@@ -148,93 +148,96 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
     >
       {formError ? <Banner type="danger" closeIcon={null} description={formError} /> : null}
       <div className="form-grid">
-      <Form.Input
-        field="name"
-        label={t('platform.form.name')}
-        rules={[{ required: true, message: t('platform.form.name') }]}
-      />
-      <Form.Input
-        field="key"
-        label={t('platform.form.key')}
-        disabled={props.platform !== null}
-        rules={props.platform ? [] : [{ required: true, message: t('platform.form.key') }]}
-      />
-      <Form.Select
-        field="resolver_type"
-        label={t('platform.form.resolverType')}
-        initValue="BASE_URL"
-        optionList={[
-          { value: 'BASE_URL', label: t('platform.resolverType.BASE_URL') },
-          { value: 'SERVICE_DISCOVERY', label: t('platform.resolverType.SERVICE_DISCOVERY') }
-        ]}
-        onChange={(value) => setResolverType(String(value) as 'BASE_URL' | 'SERVICE_DISCOVERY')}
-        rules={[{ required: true, message: t('platform.form.resolverType') }]}
-      />
-      <Form.Select
-        field="adapter_key"
-        label={t('platform.form.adapter')}
-        optionList={adapters.map((adapter) => ({ value: adapter.key, label: `${adapter.name} · ${adapter.version}` }))}
-        onChange={(value) => setAdapterKey(String(value))}
-        rules={[{ required: true, message: t('platform.form.adapter') }]}
-      />
-      {resolverType === 'BASE_URL' ? (
         <Form.Input
-          field="base_url"
-          label={t('platform.form.baseUrl')}
-          rules={[{ required: true, message: t('platform.form.baseUrl') }]}
+          field="name"
+          label={t('platform.form.name')}
+          rules={[{ required: true, message: t('platform.form.name') }]}
         />
-      ) : (
         <Form.Input
-          field="service_name"
-          label={t('platform.form.serviceName')}
-          rules={[{ required: true, message: t('platform.form.serviceName') }]}
+          field="key"
+          label={t('platform.form.key')}
+          disabled={props.platform !== null}
+          rules={props.platform ? [] : [{ required: true, message: t('platform.form.key') }]}
         />
-      )}
-      <div className="form-grid-spacer" />
-      <Form.Select
-        field="credential_mode"
-        label={t('platform.form.credentialMode')}
-        initValue="NONE"
-        optionList={[
-          { value: 'USER_ONLY', label: t('platform.credentialMode.USER_ONLY') },
-          { value: 'SHARED_ONLY', label: t('platform.credentialMode.SHARED_ONLY') },
-          { value: 'USER_THEN_SHARED', label: t('platform.credentialMode.USER_THEN_SHARED') },
-          { value: 'NONE', label: t('platform.credentialMode.NONE') }
-        ]}
-        rules={[{ required: true, message: t('platform.form.credentialMode') }]}
-      />
-      <Form.Select
-        field="enabled"
-        label={t('platform.form.enabled')}
-        initValue="true"
-        optionList={[
-          { value: 'true', label: t('common.status.enabled') },
-          { value: 'false', label: t('common.status.disabled') }
-        ]}
-      />
-      <div className="form-section-title">{t('platform.form.adapterSection')}</div>
-      <div className="form-section-hint">{t('platform.form.adapterSectionHint')}</div>
-      {Object.entries(adapterProperties).map(([property, definition]) => {
-        const field = `adapter_config.${property}`;
-        const label = t(`platform.adapterField.${property}`, {
-          defaultValue: String(definition.title ?? property)
-        });
-        const enumValues = Array.isArray(definition.enum) ? (definition.enum as string[]) : null;
-        if (enumValues) {
-          return (
-            <Form.Select
-              key={field}
-              field={field}
-              label={label}
-              optionList={enumValues.map((value) => ({ value, label: value }))}
+        <Form.Select
+          field="resolver_type"
+          label={t('platform.form.resolverType')}
+          initValue="BASE_URL"
+          optionList={[
+            { value: 'BASE_URL', label: t('platform.resolverType.BASE_URL') },
+            { value: 'SERVICE_DISCOVERY', label: t('platform.resolverType.SERVICE_DISCOVERY') }
+          ]}
+          onChange={(value) => setResolverType(String(value) as 'BASE_URL' | 'SERVICE_DISCOVERY')}
+          rules={[{ required: true, message: t('platform.form.resolverType') }]}
+        />
+        <Form.Select
+          field="adapter_key"
+          label={t('platform.form.adapter')}
+          optionList={adapters.map((adapter) => ({ value: adapter.key, label: `${adapter.name} · ${adapter.version}` }))}
+          onChange={(value) => setAdapterKey(String(value))}
+          rules={[{ required: true, message: t('platform.form.adapter') }]}
+        />
+        <div className="form-field-full">
+          {resolverType === 'BASE_URL' ? (
+            <Form.Input
+              field="base_url"
+              label={t('platform.form.baseUrl')}
+              rules={[{ required: true, message: t('platform.form.baseUrl') }]}
             />
-          );
-        }
-        if (definition.type === 'integer' || definition.type === 'number') {
-          return <Form.InputNumber key={field} field={field} label={label} />;
-        }
-        return <Form.Input key={field} field={field} label={label} />;
-      })}
+          ) : (
+            <Form.Input
+              field="service_name"
+              label={t('platform.form.serviceName')}
+              rules={[{ required: true, message: t('platform.form.serviceName') }]}
+            />
+          )}
+        </div>
+        <Form.Select
+          field="credential_mode"
+          label={t('platform.form.credentialMode')}
+          initValue="NONE"
+          optionList={[
+            { value: 'USER_ONLY', label: t('platform.credentialMode.USER_ONLY') },
+            { value: 'SHARED_ONLY', label: t('platform.credentialMode.SHARED_ONLY') },
+            { value: 'USER_THEN_SHARED', label: t('platform.credentialMode.USER_THEN_SHARED') },
+            { value: 'NONE', label: t('platform.credentialMode.NONE') }
+          ]}
+          rules={[{ required: true, message: t('platform.form.credentialMode') }]}
+        />
+        <Form.Select
+          field="enabled"
+          label={t('platform.form.enabled')}
+          initValue="true"
+          optionList={[
+            { value: 'true', label: t('common.status.enabled') },
+            { value: 'false', label: t('common.status.disabled') }
+          ]}
+        />
+        <div className="form-section">
+          <div className="form-section-title">{t('platform.form.adapterSection')}</div>
+          <div className="form-section-hint">{t('platform.form.adapterSectionHint')}</div>
+        </div>
+        {Object.entries(adapterProperties).map(([property, definition]) => {
+          const field = `adapter_config.${property}`;
+          const label = t(`platform.adapterField.${property}`, {
+            defaultValue: String(definition.title ?? property)
+          });
+          const enumValues = Array.isArray(definition.enum) ? (definition.enum as string[]) : null;
+          if (enumValues) {
+            return (
+              <Form.Select
+                key={field}
+                field={field}
+                label={label}
+                optionList={enumValues.map((value) => ({ value, label: value }))}
+              />
+            );
+          }
+          if (definition.type === 'integer' || definition.type === 'number') {
+            return <Form.InputNumber key={field} field={field} label={label} />;
+          }
+          return <Form.Input key={field} field={field} label={label} />;
+        })}
       </div>
     </FormModal>
   );

@@ -88,6 +88,8 @@
   "common.perPage": "Per page",
   "common.items": "items",
   "app.brand": "fluxion",
+  "app.sidebar.collapse": "Collapse navigation",
+  "app.sidebar.expand": "Expand navigation",
   "app.brandSuffix": "Console",
   "page.planned": "Planned for a later milestone",
   "page.plannedHint": "The requirement is planned and will be implemented here once designed.",
@@ -128,6 +130,9 @@
   "model.columns.apiKey": "API Key",
   "model.columns.enabled": "Status",
   "model.columns.revision": "Revision",
+  "model.columns.statusSummary": "Status",
+  "model.status.enable": "Enable model",
+  "model.status.disable": "Disable model",
   "model.columns.actions": "Actions",
   "model.actions.edit": "Edit",
   "model.actions.delete": "Delete",
@@ -708,5 +713,7 @@
   "overview.recentTasks.empty": "No background tasks yet",
   "overview.nextSchedules.empty": "No upcoming scheduled triggers",
   "overview.runtimeRelation.title": "Runtime relations",
-  "overview.runtimeRelation.description": "IM → Agent → Runtime → ExecutionRouter → Worker/DB/Gateway: messages enter the agent through the gateway, the runtime orchestrates execution, and the execution router hands tasks to the worker for persistence and delivery."
+  "overview.runtimeRelation.description": "IM → Agent → Runtime → ExecutionRouter → Worker/DB/Gateway: messages enter the agent through the gateway, the runtime orchestrates execution, and the execution router hands tasks to the worker for persistence and delivery.",
+  "schedule.detail.revision": "Revision",
+  "schedule.detail.completedAt": "Completed at"
 }
