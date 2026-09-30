@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-09-17/14-dfx-acceptance/（唯一 design：14-dfx-acceptance.backend.design.md）
 - **Created**: 2026-09-28
-- **Updated**: 2026-09-30
+- **Updated**: 2026-10-01
 - **Plan-State**: planned（用户已确认写入；manual 两例 S-13/E-10 与 S-06 的「Browser 臂不可执行」边界均已确认；各 TASK 保持 draft，功能与 E2E 验收尚未执行）
 
 ## Proposal
@@ -48,14 +48,14 @@
 | S-02 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | Enum ↔ YAML ↔ 源码扫描 | TASK-001 | verified | ["uv","run","pytest","-q","tests/test_error_catalog.py","tests/test_api_i18n.py"] | . | 600 |  |
 | S-03 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | contract | ORM ↔ 迁移 ↔ OpenAPI | TASK-002 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_contract_parity.py -k s03 && uv run pytest -q tests -k schema_parity && uv run pytest -q tests/architecture"] | . | 1200 |  |
 | S-04 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | 真实 PostgreSQL + Redis | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_reliability.py","-k","s04"] | . | 900 |  |
-| S-05 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Browser/HTTP → Console → PG → IM Gateway | TASK-010 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"] | . | 1200 |  |
-| S-06 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Gateway → Runtime SSE → Browser | TASK-010 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"] | . | 1200 |  |
-| S-07 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime → Worker → Schedule | TASK-011 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"] | . | 1200 |  |
-| S-08 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Worker Parent/Child → fan-in | TASK-011 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"] | . | 1200 |  |
-| S-09 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime interrupt → resume/cancel | TASK-010 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"] | . | 1200 |  |
-| S-10 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | 授权解析 → Prompt/ToolRegistry → IM 路由 | TASK-011 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | . | 1200 |  |
+| S-05 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Browser/HTTP → Console → PG → IM Gateway | TASK-010 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"] | . | 1200 |  |
+| S-06 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Gateway → Runtime SSE → Browser | TASK-010 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"] | . | 1200 |  |
+| S-07 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime → Worker → Schedule | TASK-011 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"] | . | 1200 |  |
+| S-08 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Worker Parent/Child → fan-in | TASK-011 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"] | . | 1200 |  |
+| S-09 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime interrupt → resume/cancel | TASK-010 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"] | . | 1200 |  |
+| S-10 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | 授权解析 → Prompt/ToolRegistry → IM 路由 | TASK-011 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"] | . | 1200 |  |
 | S-11 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Worker → Gateway `/internal/deliveries` → Redis | TASK-006 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_delivery.py -k s11 && uv run pytest -q tests/acceptance/task_schedule/test_delivery.py"] | . | 900 |  |
-| S-12 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | TASK-012 | e2e_deferred | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"] | . | 1200 |  |
+| S-12 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | TASK-012 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"] | . | 1200 |  |
 | S-13 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | manual | CI/环境全链路 | TASK-013 | verified | - | . | 60 |  |
 | E-01 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Service → PostgreSQL | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/dfx/test_dfx_fault_matrix.py","-k","e01"] | . | 900 |  |
 | E-02 | 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景 | integration | Redis → PG | TASK-004 | verified | ["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_fault_matrix.py -k e02 && uv run pytest -q tests/acceptance/im_gateway/test_redis_degradation.py"] | . | 900 |  |
@@ -88,7 +88,7 @@
 
 ## TASK-001: 测试分层基线与契约执行聚合（unit/错误码/分页/i18n）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 14-dfx-acceptance.backend.design.md#2.4.1 业务规则与约束, 14-dfx-acceptance.backend.design.md#3.4.1 测试分层矩阵, 14-dfx-acceptance.backend.design.md#3.4.3 契约与一致性测试清单, 14-dfx-acceptance.backend.design.md#3.3 接口设计
@@ -134,6 +134,10 @@
 - S-02: verified — automated command passed; run_id=dbfe43dd807b4298b731bc0a372198d8 (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=dbfe43dd807b4298b731bc0a372198d8 (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=dbfe43dd807b4298b731bc0a372198d8 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=0c0d5d06d65944d8a74c482f883bae2c (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=0c0d5d06d65944d8a74c482f883bae2c (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=0c0d5d06d65944d8a74c482f883bae2c (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=0c0d5d06d65944d8a74c482f883bae2c (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -143,7 +147,7 @@
 - [2026-09-28] completed (done)
 ## TASK-002: 契约一致性、关系形态与架构门禁（parity/幂等指纹）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.1 测试分层矩阵, 14-dfx-acceptance.backend.design.md#3.4.3 契约与一致性测试清单, 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix
@@ -188,6 +192,8 @@ FEAT-03 的契约层聚合：ORM↔迁移 parity、契约模型形状、关系�
 | RULE-arch-001 | 无独立 RED（未改部署清单与依赖方向） | verifier argv `uv run pytest -q tests/architecture` → **10 passed** | `tests/architecture/` 既有断言（依赖方向单向、IM Gateway 不持库且渠道 SDK 只在 `channels/`、Pod 标记文本扫描、指标 label 卫生） | 源码/清单静态扫描（真实 `apps/`+`packages/` 源码与 k8s 清单）。显式边界：IM Gateway 零 `declare_metric`、四份清单探针仍指 `/healthz`，本任务只断言现状口径，不改部署清单 | verified |
 - S-03: verified — automated command passed; run_id=1f09357ded7543ddb63b2d063438d62a (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=1f09357ded7543ddb63b2d063438d62a (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=fcb8746c587e4007b920ab71d5d1a6bc (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=fcb8746c587e4007b920ab71d5d1a6bc (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -197,7 +203,7 @@ FEAT-03 的契约层聚合：ORM↔迁移 parity、契约模型形状、关系�
 - [2026-09-28] completed (done)
 ## TASK-003: 可靠性验收基座与 Worker lease/claim
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.1 测试分层矩阵, 14-dfx-acceptance.backend.design.md#3.4.4 可靠性矩阵, 14-dfx-acceptance.backend.design.md#3.1 技术选型与关键决策
@@ -234,6 +240,7 @@ FEAT-03 的契约层聚合：ORM↔迁移 parity、契约模型形状、关系�
 | S-04 | **无 RED（新用例覆盖既有行为，如实登记）**：本任务无生产缺口——claim/heartbeat/租户谓词均已按 design 口径实现，首跑即绿。为证明断言非空，做了三处**抖动取证**（改生产代码 → 对应断言失败 → 按字节还原 → 复绿，`git diff -- apps/` 为空）：① `apps/agent-worker/src/muad_agent_worker/worker/claimer.py` 去掉 `.with_for_update(skip_locked=True)` → `test_s04_claim_skips_row_locked_by_another_transaction` 失败 `AssertionError: 行被持锁时 claim 不该领到它（SKIP LOCKED 语义）` / `assert "ERROR:Error:<class 'asyncpg.exceptions.QueryCanceledError'>: canceling statement due to statement timeout" is None`；② `worker/service.py::_renew_lease` 去掉 `lease_until` 更新 → `test_s04_heartbeat_renews_lease_until_in_pg` 失败 `AssertionError: heartbeat 未续租：lease_until 2026-09-28 13:23:21.225248+00:00 → 2026-09-28 13:23:21.225248+00:00`；③ `claimer.py` 整段去掉 `.with_for_update(...)`（非原子 claim）→ `test_s04_single_claim_race_has_exactly_one_winner` 失败 `并发 claim 的赢家集合不符：[2985b44d-…, 2985b44d-…]`（同一 task id 出现两个赢家）。三次还原后逐一复跑均复绿。 | `-k s04` → **5 passed in 25.31s**（抖动还原后复跑同为 5 passed） | `tests/acceptance/dfx/test_dfx_reliability.py` 5 例：`test_s04_single_claim_race_has_exactly_one_winner`、`test_s04_heartbeat_renews_lease_until_in_pg`、`test_s04_cross_tenant_query_returns_nothing`、`test_s04_claim_skips_row_locked_by_another_transaction`、`test_s04_pg_is_authority_and_redis_is_hint_only`（均 `@pytest.mark.integration`） | 真实 PG 逐行回读：竞态 `claimers_returned=[null, <race_id>]`、PG `status=RUNNING`/`lease_owner=dfx-claimer-b`/`attempt=1`/`CLAIMED 事件=1`/`result_json IS NULL`；Worker 空闲后盘面**逐字段未变**且本租户内 `RUNNING` 行=1、`lease_owner IS NOT NULL` 行=1；heartbeat `lease_owner=hostname:pid`（真实 Worker 子进程，pid≠测试进程）、`lease_until` 13:25:48.125114+00:00 → 13:25:51.152236+00:00（Δ=3.027s）、`heartbeat_at` 同步前移、`status=RUNNING`、`attempt=1`，终态 `COMPLETED`+租约清空+`result_json={"probe":"hb","slept_sec":8.0}`；SKIP LOCKED 对照（另一事务 `FOR UPDATE` 持锁）被 statement_timeout 取消、claim `claimed=None`/`elapsed_sec=0.008`/`status` 仍 `QUEUED`/`CLAIMED 事件=0`；跨租户 `same_tenant=1 / other_tenant=0 / read_row_other=None`；真实 Redis `ping=True`、`SET NX` 首真次假、`ttl=5`、Worker `/readyz` `wakeup_hint=redis`、`/healthz`（Console/Worker）=200；收尾 14 张表残留计数全 0。全程未 mock 真实边界；租户 `dfx-reliability-<hex>`、产物根在系统临时目录。 | verified |
 | RULE-worker-001 | 承接（原 verifier），无独立 RED：本任务未改 claim/lease 生产实现；同实现的抖动取证见 S-04 行（①②③）。更宽的扰动（去掉 claim 的状态谓词）会先撞上共享开发库的历史终态残留行、不构成干净取证，故未采用（该次扰动把既有残留行 `ignored-by-header` 由 `COMPLETED` 改为 `FAILED`，属其他套件的历史测试残留，如实登记）。 | verifier argv 两段全过：`tests/agent_worker` → **234 passed（10.00s）**；`tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py` → **142 passed（4.89s）**。本任务新增的口径用例（PG 唯一权威源/Redis 仅 hint/`task_type` 仅 `SKILL/BATCH`/claim SKIP LOCKED）随 S-04 一批 5 passed。blast radius 单跑：`tests/agent_worker` 234 passed、`tests/agent_runtime` 149 passed、`tests/console_tasks` 19 passed。 | 原 verifier 自身断言（`tests/agent_worker/test_worker_leases.py` 的单租约/回收/CAS 面等）+ 本任务新增断言：`TaskType` 枚举封闭 `{"SKILL","BATCH"}` 且 PG 实际取值 ⊆ 该集合；Redis `task:cancel:{uuid}`/`task:wakeup` hint 对不存在的 Task 既造不出行也改不了任何真实事实（PG 行数 before==after）；行被他人事务持锁时 claim 必须跳过而非等待（`FOR UPDATE SKIP LOCKED`）。 | 真实 PG（`task.task_execution`/`task.task_event`/`task.task_submission` 逐行回读与计数）+ 真实 Redis（`SET NX EX`/TTL/PING 往返）+ 真实 Console/Worker uvicorn 子进程；未 mock。本任务不宣称 TASK-005 拥有的场景（WAITING 释放 lease、deadline sweep、过期 reclaim）。 | verified |
 - S-04: verified — automated command passed; run_id=280e260563b343178fea186511d5a0c9 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=c5d27f0b9f0541a6be6083bdd6ae6aed (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -243,7 +250,7 @@ FEAT-03 的契约层聚合：ORM↔迁移 parity、契约模型形状、关系�
 - [2026-09-28] completed (done)
 ## TASK-004: 依赖故障矩阵（PG/Redis/Artifact Store）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.4 可靠性矩阵, 14-dfx-acceptance.backend.design.md#3.4.8 不得 mock 的真实边界清单, 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景
@@ -293,6 +300,9 @@ FEAT-04 的依赖故障面：PG 不可用 fail closed（不本地落状态、`/r
 - E-01: verified — automated command passed; run_id=d305f3014b19408ba310c76588f5e5d0 (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=d305f3014b19408ba310c76588f5e5d0 (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=d305f3014b19408ba310c76588f5e5d0 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=f84de0ab660b477eb55fa5008911c0f5 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=f84de0ab660b477eb55fa5008911c0f5 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=f84de0ab660b477eb55fa5008911c0f5 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -302,7 +312,7 @@ FEAT-04 的依赖故障面：PG 不可用 fail closed（不本地落状态、`/r
 - [2026-09-29] completed (done)
 ## TASK-005: 租约回收、deadline sweep 与 Schedule 边界
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.4 可靠性矩阵, 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景
@@ -344,6 +354,9 @@ FEAT-04 的依赖故障面：PG 不可用 fail closed（不本地落状态、`/r
 - E-04: verified — automated command passed; run_id=378093d797ed41e3a64a9d5ef7aeeaa0 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=378093d797ed41e3a64a9d5ef7aeeaa0 (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=378093d797ed41e3a64a9d5ef7aeeaa0 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=bebfe15ea73a417683fc42964924b5bc (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=bebfe15ea73a417683fc42964924b5bc (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=bebfe15ea73a417683fc42964924b5bc (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -353,7 +366,7 @@ FEAT-04 的依赖故障面：PG 不可用 fail closed（不本地落状态、`/r
 - [2026-09-29] completed (done)
 ## TASK-006: 最终投递去重与重试（Worker→Gateway→Redis）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.4 可靠性矩阵, 14-dfx-acceptance.backend.design.md#3.4.3 契约与一致性测试清单, 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景
@@ -398,6 +411,8 @@ FEAT-04 的最终投递面：终态投递以 `delivery_key`（`task:{task_id}:fi
 - E-06: failed — automated command failed; run_id=d4a61b870b844583b4c3b97326bd55cf (confirmed_by: runner)
 - S-11: verified — automated command passed; run_id=ff33447f6f1b41b489cb50c7b2040e6b (confirmed_by: runner)
 - E-06: verified — automated command passed; run_id=ff33447f6f1b41b489cb50c7b2040e6b (confirmed_by: runner)
+- S-11: verified — automated command passed; run_id=dd3775deb539431782b9bcac87c6c1ea (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=dd3775deb539431782b9bcac87c6c1ea (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -408,7 +423,7 @@ FEAT-04 的最终投递面：终态投递以 `delivery_key`（`task:{task_id}:fi
 - [2026-09-29] completed (done)
 ## TASK-007: 安全验收：Egress 拒绝、Secret 全链路与日志脱敏
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.5 安全验收矩阵, 14-dfx-acceptance.backend.design.md#3.4.3 契约与一致性测试清单, 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix
@@ -465,7 +480,7 @@ FEAT-05 的安全面：未命中 allowlist 的 `ctx.http` 不发出调用并按 
 - [2026-09-30] completed (done)
 ## TASK-008: API 安全与租户隔离（RBAC/CSRF/ADMIN 门控/租户谓词）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.5 安全验收矩阵, 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix
@@ -510,6 +525,7 @@ FEAT-05 的 API 面：缺失/伪造 CSRF → 403 `FORBIDDEN` 且不落业务变�
 - E-08: verified — automated command passed; run_id=7d599cd8d80d4d48a0e11abc66bf08c1 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=66d0986a691843019a674b8dd8ef8b28 (confirmed_by: runner)
 - E-08: verified — automated command passed; run_id=cf49bc596e5748fa8e283aa0fb5055a6 (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=781a6f5cdfd742d3b6c14c244bd070a9 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -520,7 +536,7 @@ FEAT-05 的 API 面：缺失/伪造 CSRF → 403 `FORBIDDEN` 且不落业务变�
 - [2026-09-29] completed (done)
 ## TASK-009: 模型恢复验收（429/5xx/超时/deadline/cancel）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.6 模型恢复矩阵, 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景
@@ -577,7 +593,7 @@ FEAT-06 的模型恢复面。**验收对象是生产恢复链**：`AgentRunner._
 - [2026-09-30] completed (done)
 ## TASK-010: 黄金旅程：绑定、流式与中断恢复/取消
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.2 黄金旅程矩阵, 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景
@@ -604,9 +620,9 @@ FEAT-02 的第一组黄金旅程：`/bind` 首次绑定后身份稳定映射 Pla
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-05 | E2E | Browser/HTTP → Console → PG → IM Gateway | 身份稳定映射 PlatformUser；不自动授予 Agent | tests/acceptance/dfx/test_dfx_journeys.py + tests/acceptance/im_gateway/test_binding.py / S-05 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"]` | e2e_deferred |
-| S-06 | E2E | Gateway → Runtime SSE → Browser | 首事件 `run.created`；`message.delta` 顺序；终态事件；封套完整 | tests/acceptance/dfx/test_dfx_journeys.py + tests/acceptance/im_gateway/test_runtime_stream.py / S-06 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"]` | e2e_deferred |
-| S-09 | E2E | Runtime interrupt → resume/cancel | `WAITING_INPUT`→resume 继续；`CANCELLING` 协作终态；`NO_ACTIVE_RUN` | tests/acceptance/dfx/test_dfx_journeys.py + tests/acceptance/runtime/test_run_lifecycle.py / S-09 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"]` | e2e_deferred |
+| S-05 | E2E | Browser/HTTP → Console → PG → IM Gateway | 身份稳定映射 PlatformUser；不自动授予 Agent | tests/acceptance/dfx/test_dfx_journeys.py + tests/acceptance/im_gateway/test_binding.py / S-05 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s05 && uv run pytest -q tests/acceptance/im_gateway/test_binding.py"]` | verified |
+| S-06 | E2E | Gateway → Runtime SSE → Browser | 首事件 `run.created`；`message.delta` 顺序；终态事件；封套完整 | tests/acceptance/dfx/test_dfx_journeys.py + tests/acceptance/im_gateway/test_runtime_stream.py / S-06 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s06 && uv run pytest -q tests/acceptance/im_gateway/test_runtime_stream.py"]` | verified |
+| S-09 | E2E | Runtime interrupt → resume/cancel | `WAITING_INPUT`→resume 继续；`CANCELLING` 协作终态；`NO_ACTIVE_RUN` | tests/acceptance/dfx/test_dfx_journeys.py + tests/acceptance/runtime/test_run_lifecycle.py / S-09 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_journeys.py -k s09 && uv run pytest -q tests/acceptance/runtime/test_run_lifecycle.py"]` | verified |
 
 ### Acceptance Evidence
 
@@ -624,6 +640,9 @@ FEAT-02 的第一组黄金旅程：`/bind` 首次绑定后身份稳定映射 Pla
 - S-05: e2e_deferred — automated command e2e_deferred; run_id=40c8e0dd57794a9798cc8a0cf2b2bb3e (confirmed_by: runner)
 - S-06: e2e_deferred — automated command e2e_deferred; run_id=40c8e0dd57794a9798cc8a0cf2b2bb3e (confirmed_by: runner)
 - S-09: e2e_deferred — automated command e2e_deferred; run_id=40c8e0dd57794a9798cc8a0cf2b2bb3e (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -634,7 +653,7 @@ FEAT-02 的第一组黄金旅程：`/bind` 首次绑定后身份稳定映射 Pla
 - [2026-09-30] completed (done)
 ## TASK-011: 执行路由、批量 fan-out/fan-in 与授权可见性/多 IM 路由
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-010
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.2 黄金旅程矩阵, 14-dfx-acceptance.backend.design.md#3.4.5 安全验收矩阵, 14-dfx-acceptance.backend.design.md#2.4.2 功能验收场景
@@ -662,9 +681,9 @@ FEAT-02/FEAT-05 的第二组旅程：同步 Skill/异步 Task/定时 Schedule �
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-07 | E2E | Runtime → Worker → Schedule | `execution_mode` 路由；Schedule 只触发一次；ONCE `COMPLETED` 无 `next_fire_at` | tests/acceptance/dfx/test_dfx_routing.py + tests/acceptance/task_schedule/test_execution.py + test_schedules.py / S-07 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"]` | e2e_deferred |
-| S-08 | E2E | Worker Parent/Child → fan-in | Child 幂等键；并发受限；fan-in CAS 且只推最终结果 | tests/acceptance/dfx/test_dfx_routing.py + tests/acceptance/task_schedule/test_batch.py / S-08 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"]` | e2e_deferred |
-| S-10 | E2E | 授权解析 → Prompt/ToolRegistry → IM 路由 | 未授权不进 Catalog/Prompt；撤销只影响新 Run；多 bot_id 同一 Agent | tests/acceptance/dfx/test_dfx_authorization_scope.py + tests/acceptance/runtime/test_capability_snapshot.py / S-10 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"]` | e2e_deferred |
+| S-07 | E2E | Runtime → Worker → Schedule | `execution_mode` 路由；Schedule 只触发一次；ONCE `COMPLETED` 无 `next_fire_at` | tests/acceptance/dfx/test_dfx_routing.py + tests/acceptance/task_schedule/test_execution.py + test_schedules.py / S-07 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s07 && uv run pytest -q tests/acceptance/task_schedule/test_execution.py tests/acceptance/task_schedule/test_schedules.py"]` | verified |
+| S-08 | E2E | Worker Parent/Child → fan-in | Child 幂等键；并发受限；fan-in CAS 且只推最终结果 | tests/acceptance/dfx/test_dfx_routing.py + tests/acceptance/task_schedule/test_batch.py / S-08 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_routing.py -k s08 && uv run pytest -q tests/acceptance/task_schedule/test_batch.py"]` | verified |
+| S-10 | E2E | 授权解析 → Prompt/ToolRegistry → IM 路由 | 未授权不进 Catalog/Prompt；撤销只影响新 Run；多 bot_id 同一 Agent | tests/acceptance/dfx/test_dfx_authorization_scope.py + tests/acceptance/runtime/test_capability_snapshot.py / S-10 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_authorization_scope.py -k s10 && uv run pytest -q tests/acceptance/runtime/test_capability_snapshot.py"]` | verified |
 | E-10 | manual | Gateway WS → 企业微信 | SDK backoff 重连成功、`reconnect` 指标可见；**标注「需真实凭据，环境受限时记录原因」** | 人工真机复验记录 / E-10 | - | verified |
 
 ### Acceptance Evidence
@@ -683,6 +702,10 @@ FEAT-02/FEAT-05 的第二组旅程：同步 Skill/异步 Task/定时 Schedule �
 - S-07: e2e_deferred — automated command e2e_deferred; run_id=43b0590911994dd1bb086c81a1e5b749 (confirmed_by: runner)
 - S-08: e2e_deferred — automated command e2e_deferred; run_id=43b0590911994dd1bb086c81a1e5b749 (confirmed_by: runner)
 - S-10: e2e_deferred — automated command e2e_deferred; run_id=43b0590911994dd1bb086c81a1e5b749 (confirmed_by: runner)
+- E-10: verified — 用户确认：「确认，署名 jahan」——按 2026-09-30 企业微信真机复验结论（真实 bot 凭据 + 线上端点：wecom_ws_connected=1 → 本地 TLS 中继切断真实连接 → wecom_bot_disconnected(connection_lost) + 指标归零 + BACKOFF → 退避 1.0s 后 CONNECTED attempt=2；端到端打消息→入站帧→绑定落 channel_identity→对话 run COMPLETED→回执 Reply ack received，用户确认实际收到回复） (confirmed_by: user:jahan)
+- S-07: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -695,7 +718,7 @@ FEAT-02/FEAT-05 的第二组旅程：同步 Skill/异步 Task/定时 Schedule �
 - [2026-09-30] completed (done)
 ## TASK-012: 无状态与 Snapshot 确定性（A/B Pod）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-010
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.2 黄金旅程矩阵, 14-dfx-acceptance.backend.design.md#3.4.4 可靠性矩阵, 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix
@@ -721,7 +744,7 @@ FEAT-02 的无状态面：Run R1 执行后更新配置，删除 Pod 后继续 Tu
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-12 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | R1 Snapshot 不漂移；Turn 2 新 Pod 重建上下文；无 sticky session | tests/acceptance/dfx/test_dfx_stateless.py + tests/acceptance/runtime/test_multipod_recovery.py / S-12 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"]` | e2e_deferred |
+| S-12 | E2E | Runtime A/B Pod → PostgreSQL + Artifact Store | R1 Snapshot 不漂移；Turn 2 新 Pod 重建上下文；无 sticky session | tests/acceptance/dfx/test_dfx_stateless.py + tests/acceptance/runtime/test_multipod_recovery.py / S-12 | `["bash","-lc","uv run pytest -q tests/acceptance/dfx/test_dfx_stateless.py -k s12 && uv run pytest -q tests/acceptance/runtime/test_multipod_recovery.py"]` | verified |
 | RULE-snapshot-001 | integration | 冻结快照/终态 CAS + 原 verifier 真实边界 | 冻结与不漂移；变更只影响新 Run；CAS；`skills` 恒 1；`api_key` 剥离；原 verifier 全部通过 | 原 verifier / RULE-snapshot-001 | `["bash","-lc","uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k \"executor or resolve\""]` | verified |
 
 ### Acceptance Evidence
@@ -734,6 +757,7 @@ FEAT-02 的无状态面：Run R1 执行后更新配置，删除 Pod 后继续 Tu
 > 本任务**如实登记的边界**（写进 `test_dfx_stateless.py` docstring）：① Pod 是**同主机独立 uvicorn 子进程**（进程/端口/租约独立）——「跨 Pod」指独立进程实例，**不是**容器或主机级隔离；② 只覆盖 **Runtime 侧的 run 快照**；③ Prompt 文本本身不落库，故以冻结的快照列作为持久等价证据。本任务**未改任何生产代码**；对 verifier 的改动仅为**新增**一个用例（既有 2 例逐字未动）。
 - S-12: e2e_deferred — automated command e2e_deferred; run_id=92889ec8baa04eba9b3c6494079ec92c (confirmed_by: runner)
 - S-12: e2e_deferred — automated command e2e_deferred; run_id=f9bdffb00ff5428a8f2b194cd07f49f1 (confirmed_by: runner)
+- S-12: verified — automated command passed; run_id=4b1b2bef6a034c70bb23947d256182e8 (confirmed_by: runner)
 
 ### Log
 - [2026-09-28] created (draft)
@@ -744,7 +768,7 @@ FEAT-02 的无状态面：Run R1 执行后更新配置，删除 Pod 后继续 Tu
 - [2026-09-30] completed (done)
 ## TASK-013: 上线门禁清单、收口清单与仓库级 verifier
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-009, TASK-010, TASK-011, TASK-012
 - **Source**: 14-dfx-acceptance.backend.design.md#3.4.7 上线门禁映射, 14-dfx-acceptance.backend.design.md#3.4.8 不得 mock 的真实边界清单, 14-dfx-acceptance.backend.design.md#4.2 风险识别, 14-dfx-acceptance.backend.design.md#Spec Compliance Matrix
