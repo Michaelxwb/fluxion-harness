@@ -29,6 +29,7 @@ from tests.acceptance.im_gateway.environment import (
     count_tenant_rows,
     purge_tenant,
 )
+from tests.e2e.wecom_probe_app import frame_text
 
 BIND_PATH = "/internal/channel/bind"
 BOTS_PATH = "/internal/channel/bots"
@@ -89,9 +90,9 @@ def _probe_texts(gateway_stack: GatewayStack) -> list[str]:
     probe = gateway_stack.ws_probe
     assert probe is not None, "WS 探针未接入栈"
     return [
-        str(((item.frame.get("body") or {}).get("text") or {}).get("content") or "")
+        frame_text(item.frame)
         for item in probe.received  # type: ignore[attr-defined]
-        if item.frame.get("cmd") == "aibot_send_msg"
+        if item.frame.get("cmd") in ("aibot_send_msg", "aibot_respond_msg")
     ]
 
 

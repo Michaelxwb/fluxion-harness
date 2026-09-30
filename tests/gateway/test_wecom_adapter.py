@@ -144,6 +144,36 @@ async def test_inbound_message_becomes_envelope() -> None:
         await adapter.stop()
 
 
+async def test_in_session_reply_uses_respond_msg_not_send_msg() -> None:
+    """会话内回复必须走 `aibot_respond_msg`（带入站回调的 req_id），不得用 `aibot_send_msg`。
+
+    2026-09-30 真机复验：用 `aibot_send_msg`（主动发送）回「绑定成功」被企业微信以
+    `errcode=40008 invalid message type` 拒收；本地探针两种命令都收，故此前从未暴露。
+    """
+    factory = FakeWeComSdkFactory()
+    adapter = build_adapter(factory)
+    await adapter.start()
+    try:
+        client = factory.latest()
+        events = await adapter.iter_events()
+        client.push_message(make_message(reply_id="req-42"))
+        await anext(events)
+
+        await adapter.send(route(), DeliveryMessage(text="绑定成功"))
+        assert client.replied_texts == [("req-42", "绑定成功")]
+        assert client.sent_texts == [], "回会话不得用主动发送命令（官方服务报 40008）"
+
+        # 无回调上下文（真正的主动投递）仍走 send_text
+        await adapter.send(
+            route(external_user_id="ext-2", external_conversation_id="conv-2"),
+            DeliveryMessage(text="任务结果"),
+        )
+        assert client.sent_texts == [("conv-2", "任务结果")]
+        assert client.replied_texts == [("req-42", "绑定成功")]
+    finally:
+        await adapter.stop()
+
+
 async def test_inbound_event_callback_is_accepted() -> None:
     factory = FakeWeComSdkFactory()
     adapter = build_adapter(factory)
@@ -195,7 +225,9 @@ async def test_stream_accumulates_one_reply_and_throttles() -> None:
             ("abc", True),
         ]
         assert {stream_id for _, stream_id, _, _ in updates} == {updates[0][1]}
-        assert factory.latest().sent_texts == [("conv-1", "done")]
+        # 会话内收尾文本同样走 `aibot_respond_msg`（不是主动发送的 `aibot_send_msg`）
+        assert factory.latest().replied_texts == [("req-1", "done")]
+        assert factory.latest().sent_texts == []
     finally:
         await adapter.stop()
 

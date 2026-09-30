@@ -26,6 +26,7 @@ from tests.acceptance.im_gateway.environment import (
     purge_tenant,
 )
 from tests.e2e.seed_im_gateway import seed_delivery_task
+from tests.e2e.wecom_probe_app import frame_text
 
 DELIVERIES_PATH = "/internal/deliveries"
 DELIVERY_TTL_SEC = 604800
@@ -72,9 +73,9 @@ def _delivered_texts(stack: GatewayStack) -> list[str]:
     probe = stack.ws_probe
     assert probe is not None
     return [
-        str(((item.frame.get("body") or {}).get("text") or {}).get("content") or "")
+        frame_text(item.frame)
         for item in probe.received  # type: ignore[attr-defined]
-        if item.frame.get("cmd") == "aibot_send_msg"
+        if item.frame.get("cmd") in ("aibot_send_msg", "aibot_respond_msg")
     ]
 
 
@@ -84,7 +85,7 @@ def _delivered_chats(stack: GatewayStack) -> list[str]:
     return [
         str((item.frame.get("body") or {}).get("chatid") or "")
         for item in probe.received  # type: ignore[attr-defined]
-        if item.frame.get("cmd") == "aibot_send_msg"
+        if item.frame.get("cmd") in ("aibot_send_msg", "aibot_respond_msg")
     ]
 
 
@@ -130,7 +131,7 @@ async def test_s04_worker_delivers_to_route_with_7d_dedupe(
     assert BOT_ID in {
         probe_map.connection_bots[item.connection]  # type: ignore[attr-defined]
         for item in gateway_stack.ws_probe.received  # type: ignore[attr-defined]
-        if item.frame.get("cmd") == "aibot_send_msg"
+        if item.frame.get("cmd") in ("aibot_send_msg", "aibot_respond_msg")
         for probe_map in (gateway_stack.ws_probe,)
     }
     assert CHAT_ID in _delivered_chats(gateway_stack)

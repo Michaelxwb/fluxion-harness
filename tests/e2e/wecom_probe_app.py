@@ -30,6 +30,24 @@ CMD_MESSAGE_CALLBACK = "aibot_msg_callback"
 CMD_EVENT_CALLBACK = "aibot_event_callback"
 
 
+def frame_text(frame: dict[str, Any]) -> str:
+    """出站帧承载的**文本**（三种合法体，按官方 API 的取值）：
+
+    - 会话内回复（`aibot_respond_msg`）→ `body.stream.content`（回复体只支持 stream/template_card）
+    - 主动投递（`aibot_send_msg`）→ `body.markdown.content`（发送体只支持 markdown/template_card）
+    - 兼容历史：`body.text.content`（官方服务对 `msgtype=text` 报 `errcode=40008 invalid message type`，
+      2026-09-30 真机实测；保留读取以便断言不受形状影响）
+
+    断言只关心"这条文本是否送达渠道"，与载体命令/体形状无关，故统一在此取。
+    """
+    body = frame.get("body") or {}
+    for key in ("stream", "markdown", "text"):
+        content = (body.get(key) or {}).get("content")
+        if content:
+            return str(content)
+    return ""
+
+
 def generate_self_signed_cert(root: Path) -> tuple[Path, Path]:
     """本地自签证书：官方 SDK 强制 `ssl=`，因此探针必须以 wss:// 承载真实 TLS。"""
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)

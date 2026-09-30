@@ -30,6 +30,7 @@ from tests.acceptance.im_gateway.environment import (
     count_tenant_rows,
     purge_tenant,
 )
+from tests.e2e.wecom_probe_app import frame_text
 
 BOT2_ID = "e2e-im-bot-2"
 BOT2_SECRET = "e2e-im-bot-2-secret"
@@ -109,11 +110,8 @@ def _frames_for_bot(stack: GatewayStack, bot_id: str) -> list[str]:
     for item in probe.received:  # type: ignore[attr-defined]
         if probe.connection_bots.get(item.connection) != bot_id:
             continue
-        body = item.frame.get("body") or {}
-        if item.frame.get("cmd") == "aibot_respond_msg":
-            texts.append(str((body.get("stream") or {}).get("content") or ""))
-        elif item.frame.get("cmd") == "aibot_send_msg":
-            texts.append(str((body.get("text") or {}).get("content") or ""))
+        if item.frame.get("cmd") in ("aibot_respond_msg", "aibot_send_msg"):
+            texts.append(frame_text(item.frame))
     return texts
 
 

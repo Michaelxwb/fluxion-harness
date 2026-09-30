@@ -59,7 +59,7 @@ from tests.acceptance.im_gateway.environment import (
     start_gateway_stack,
     stop_gateway_stack,
 )
-from tests.e2e.wecom_probe_app import WeComProbe
+from tests.e2e.wecom_probe_app import WeComProbe, frame_text
 
 pytestmark = pytest.mark.e2e
 
@@ -212,9 +212,12 @@ def _frames(stack: GatewayStack, cmd: str) -> list[dict[str, Any]]:
 
 
 def _reply_texts(stack: GatewayStack) -> list[str]:
+    """出站**文本**：会话内回复走 `aibot_respond_msg`（可能是流式体、也可能是纯文本体），
+    主动投递走 `aibot_send_msg`（纯文本体）——两种载体都要读，否则会漏掉文本回执。"""
     return [
-        str(((frame.get("body") or {}).get("text") or {}).get("content") or "")
-        for frame in _frames(stack, "aibot_send_msg")
+        frame_text(frame)
+        for cmd in ("aibot_respond_msg", "aibot_send_msg")
+        for frame in _frames(stack, cmd)
     ]
 
 

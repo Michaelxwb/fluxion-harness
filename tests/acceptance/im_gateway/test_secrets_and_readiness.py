@@ -27,6 +27,7 @@ from tests.acceptance.im_gateway.environment import (
     count_tenant_rows,
     purge_tenant,
 )
+from tests.e2e.wecom_probe_app import frame_text
 
 BAD_BOT_ID = "e2e-im-bot-badsecret"
 BAD_BOT_EXTERNAL_USER = "e2e-im-ext-badsecret"
@@ -102,7 +103,7 @@ def _probe_texts(stack: GatewayStack) -> list[str]:
     probe = stack.ws_probe
     assert probe is not None
     return [
-        str(((item.frame.get("body") or {}).get("text") or {}).get("content") or "")
+        frame_text(item.frame)
         for item in probe.received  # type: ignore[attr-defined]
         if item.frame.get("cmd") in ("aibot_send_msg", "aibot_respond_msg")
     ]

@@ -16,7 +16,7 @@ import pytest
 from muad_contracts import BotSnapshotItem, DeliveryMessage, DeliveryRouteInput
 from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 
-from tests.e2e.wecom_probe_app import WeComProbe
+from tests.e2e.wecom_probe_app import WeComProbe, frame_text
 
 BOT_ID = "bot-probe-1"
 BOT_SECRET = "probe-secret-1"
@@ -178,4 +178,4 @@ async def test_b120_proactive_send_uses_real_socket(probe: WeComProbe, adapter: 
     replies = await probe.wait_for_replies(1)
     sent = [frame for frame in replies if frame.get("cmd") == "aibot_send_msg"]
     assert len(sent) == 1
-    assert sent[0]["body"]["text"]["content"] == "主动通知"
+    assert frame_text(sent[0]) == "主动通知"

@@ -26,6 +26,7 @@ from tests.acceptance.im_gateway.environment import (
     purge_tenant,
     restart_process,
 )
+from tests.e2e.wecom_probe_app import frame_text
 
 WAIT_TIMEOUT_SEC = 120.0
 REAPER_WAIT_SEC = 100.0
@@ -66,11 +67,8 @@ def _replies(stack: GatewayStack) -> list[str]:
     assert probe is not None
     texts: list[str] = []
     for item in probe.received:  # type: ignore[attr-defined]
-        body = item.frame.get("body") or {}
-        if item.frame.get("cmd") == "aibot_respond_msg":
-            texts.append(str((body.get("stream") or {}).get("content") or ""))
-        elif item.frame.get("cmd") == "aibot_send_msg":
-            texts.append(str((body.get("text") or {}).get("content") or ""))
+        if item.frame.get("cmd") in ("aibot_respond_msg", "aibot_send_msg"):
+            texts.append(frame_text(item.frame))
     return texts
 
 

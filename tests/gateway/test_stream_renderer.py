@@ -25,6 +25,7 @@ from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
 
 from tests.e2e.wecom_probe_app import WeComProbe
+from tests.e2e.wecom_probe_app import frame_text as probe_frame_text
 
 B115_BOT = "bot-b115"
 B115_SECRET = "b115-secret"
@@ -134,10 +135,8 @@ def _outbound_frames(probe: WeComProbe, since: int) -> list[dict[str, Any]]:
 
 
 def _frame_text(frame: dict[str, Any]) -> str:
-    body = frame.get("body") or {}
-    if frame.get("cmd") == STREAM_CMD:
-        return str((body.get("stream") or {}).get("content") or "")
-    return str((body.get("text") or {}).get("content") or "")
+    """出站文本统一出口（见 `tests.e2e.wecom_probe_app.frame_text`）。"""
+    return probe_frame_text(frame)
 
 
 def _is_stream(frame: dict[str, Any]) -> bool:

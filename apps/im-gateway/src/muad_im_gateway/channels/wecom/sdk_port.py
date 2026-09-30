@@ -57,7 +57,23 @@ class WeComSdkPort(Protocol):
 
     def disconnect(self) -> None: ...
 
-    async def send_text(self, chat_id: str, text: str) -> None: ...
+    async def send_text(self, chat_id: str, text: str) -> None:
+        """**主动发送**（`aibot_send_msg`）：用于任务结果等主动投递，不依附回调。
+
+        不要用它回入站回调——官方服务对会话内回复只接受 `aibot_respond_msg`
+        （实测以 `errcode=40008 invalid message type` 拒收 `aibot_send_msg`）；
+        会话内回复用 `reply_text`。
+        """
+        ...
+
+    async def reply_text(self, reply_id: str, text: str) -> None:
+        """**会话内回复**（`aibot_respond_msg` + 入站回调的 `req_id`）。
+
+        2026-09-30 真机复验：用 `send_text` 回「绑定成功」被企业微信以
+        `errcode=40008 invalid message type` 拒收；改用本方法（带回调 req_id）后
+        文本回复可正常送达。
+        """
+        ...
 
     async def send_stream(
         self,

@@ -244,7 +244,8 @@ async def test_b119_failure_metrics_and_trace_correlation(
         await _push(probe, text="触发运行时错误")
         await _wait_for(
             lambda: any(
-                item.frame.get("cmd") == "aibot_send_msg" for item in probe.received
+                item.frame.get("cmd") in ("aibot_send_msg", "aibot_respond_msg")
+                for item in probe.received
             ),
             what="未收到错误文案回复",
         )

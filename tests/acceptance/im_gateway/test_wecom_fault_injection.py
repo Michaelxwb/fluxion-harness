@@ -17,7 +17,7 @@ import pytest
 from muad_contracts import BotSnapshotItem, DeliveryMessage, DeliveryRouteInput
 from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 
-from tests.e2e.wecom_probe_app import WeComProbe
+from tests.e2e.wecom_probe_app import WeComProbe, frame_text
 
 GOOD_BOT = "bot-fault-good"
 BAD_BOT = "bot-fault-bad"
@@ -121,4 +121,4 @@ async def test_b131_send_failure_is_observed_and_connection_survives(probe: WeCo
         await adapter.send(route, DeliveryMessage(type="text", text="恢复后的发送"))
         await asyncio.sleep(0.3)
         assert adapter.connection_states[GOOD_BOT] is ConnectionState.CONNECTED
-        assert probe.replies[-1]["body"]["text"]["content"] == "恢复后的发送"
+        assert frame_text(probe.replies[-1]) == "恢复后的发送"

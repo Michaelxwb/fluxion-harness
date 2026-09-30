@@ -31,6 +31,7 @@ from tests.acceptance.im_gateway.environment import (
     count_tenant_rows,
     purge_tenant,
 )
+from tests.e2e.wecom_probe_app import frame_text
 
 _TESTS_ROOT = Path(__file__).resolve().parents[2]
 if str(_TESTS_ROOT) not in sys.path:  # 复用 console_channel 的"有效技能"真实 PG 种子构造
@@ -80,11 +81,8 @@ def _replies(stack: GatewayStack) -> list[str]:
     assert probe is not None
     texts: list[str] = []
     for item in probe.received:  # type: ignore[attr-defined]
-        body = item.frame.get("body") or {}
-        if item.frame.get("cmd") == "aibot_respond_msg":
-            texts.append(str((body.get("stream") or {}).get("content") or ""))
-        elif item.frame.get("cmd") == "aibot_send_msg":
-            texts.append(str((body.get("text") or {}).get("content") or ""))
+        if item.frame.get("cmd") in ("aibot_respond_msg", "aibot_send_msg"):
+            texts.append(frame_text(item.frame))
     return texts
 
 

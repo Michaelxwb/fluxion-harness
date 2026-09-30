@@ -26,6 +26,7 @@ from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
 
 from tests.e2e.wecom_probe_app import WeComProbe
+from tests.e2e.wecom_probe_app import frame_text as probe_frame_text
 
 B116_BOT = "bot-b116"
 B116_SECRET = "b116-secret"
@@ -154,16 +155,17 @@ def _pipeline(runtime: Any, catalog: MessageCatalog) -> InboundPipeline:
     )
 
 
+def _frame_text(frame: dict[str, Any]) -> str:
+    """出站文本统一出口（见 `tests.e2e.wecom_probe_app.frame_text`）。"""
+    return probe_frame_text(frame)
+
+
 def _outbound_texts(probe: WeComProbe, since: int) -> list[str]:
-    texts: list[str] = []
-    for item in probe.received[since:]:
-        frame = item.frame
-        body = frame.get("body") or {}
-        if frame.get("cmd") == STREAM_CMD:
-            texts.append(str((body.get("stream") or {}).get("content") or ""))
-        elif frame.get("cmd") == SEND_CMD:
-            texts.append(str((body.get("text") or {}).get("content") or ""))
-    return texts
+    return [
+        _frame_text(item.frame)
+        for item in probe.received[since:]
+        if item.frame.get("cmd") in (STREAM_CMD, SEND_CMD)
+    ]
 
 
 async def _push(probe: WeComProbe, *, external_user_id: str, text: str, chat_id: str) -> None:

@@ -339,7 +339,19 @@ class _AibotClientPort:
         self._client.disconnect()
 
     async def send_text(self, chat_id: str, text: str) -> None:
-        await self._client.send_message(chat_id, {"msgtype": "text", "text": {"content": text}})
+        """主动投递纯文本：官方 `aibot_send_msg` 体只支持 markdown / template_card，
+        用 `text` 会被服务端以 `errcode=40008 invalid message type` 拒收（2026-09-30 真机实测）。"""
+        await self._client.send_message(chat_id, {"msgtype": "markdown", "markdown": {"content": text}})
+
+    async def reply_text(self, reply_id: str, text: str) -> None:
+        """会话内文本回复：回复体只支持 stream / template_card，故用 stream 体一次收尾
+        （`finish=True`）。命令为 `aibot_respond_msg`，并带**入站回调的 req_id**。"""
+        await self._client.reply_stream(
+            {"headers": {"req_id": reply_id}},
+            uuid4().hex,
+            text,
+            finish=True,
+        )
 
     async def send_stream(self, reply_id: str, stream_id: str, content: str, *, finish: bool) -> None:
         frame: dict[str, object] = {STREAM_HEADER_KEY: {STREAM_REPLY_ID_KEY: reply_id}}
@@ -542,6 +554,14 @@ class WeComAdapter:
         self._ensure_started()
         await self._finish_stream(route_key(route))
         client = self._require_client(route.bot_id)
+        # 该会话有入站回调的 reply_id 时，回复必须走会话内命令（`aibot_respond_msg`）：
+        # 官方服务对 `aibot_send_msg`（主动发送）回会话会以 errcode=40008 拒收
+        # （2026-09-30 真机复验：「绑定成功」回执即因此失败）。仅真正的主动投递
+        # （无回调上下文）才用 `send_text`。
+        reply_ref = self._reply_refs.get(route_key(route))
+        if reply_ref is not None:
+            await client.reply_text(reply_ref, message.text)
+            return
         await client.send_text(_chat_id(route), message.text)
 
     async def stream(self, route: DeliveryRouteInput, chunks: AsyncIterator[str]) -> None:

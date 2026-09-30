@@ -27,7 +27,7 @@ from muad_im_gateway.infrastructure.dedupe import (
 )
 from muad_im_gateway.main import app
 
-from tests.e2e.wecom_probe_app import WeComProbe
+from tests.e2e.wecom_probe_app import WeComProbe, frame_text
 
 
 class _FailingAdapter(FakeChannelAdapter):
@@ -665,7 +665,7 @@ async def _b117_wait_connected(adapter: WeComAdapter, bot_id: str, timeout: floa
 def _b117_sent_frames(probe: Any) -> dict[str, str]:
     """探针回读：bot_id（按连接归属）→ 出站文本。"""
     return {
-        probe.connection_bots[item.connection]: item.frame["body"]["text"]["content"]
+        probe.connection_bots[item.connection]: frame_text(item.frame)
         for item in probe.received
         if item.frame.get("cmd") == "aibot_send_msg"
     }
@@ -688,7 +688,7 @@ async def test_b117_replay_is_deduplicated_with_7d_ttl(monkeypatch: pytest.Monke
                     "deduplicated": False,
                 }
                 frames = await probe.wait_for_replies(1)
-                sent_text = frames[-1]["body"]["text"]["content"]
+                sent_text = frame_text(frames[-1])
                 assert sent_text == body["message"]["text"]  # 不追加下载入口/链接
                 assert body["artifact_ids"][0] not in sent_text
 

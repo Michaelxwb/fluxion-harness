@@ -13,7 +13,8 @@ BUILDER 访问 ADMIN 端点（`accounts`/`users`/`credentials`）→ 403（ADMIN
 不覆盖（归其他 owner，勿在此宣称）：三层授权与 Effective Capability 的应用服务口径（RULE-auth-001
 verifier `tests/console_platform/test_user_side_relations.py -k s04` 承载）；授权变更对
 Prompt/ToolRegistry/Catalog 的影响（S-10，归 TASK-011）；三处 internal 端点的服务身份门控
-（E-07，归 TASK-007）；会话滑动续期与登出幂等（既有 `tests/console_auth/test_login.py` 承接，不在本 argv 内）；
+（E-07，归 TASK-007）；会话滑动续期与登出幂等（既有 `tests/console_auth/test_login.py`
+承接，不在本 argv 内）；
 ADMIN 门控的**前端隐藏**层（归前端 owner，本用例只断言可机检的后端 403 兜底层）。
 
 收尾清理：本模块自建的账号/会话/审计与跨租户对照样本在 fixture 内 `finally` 删除——DFX 基座的

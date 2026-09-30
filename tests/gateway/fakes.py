@@ -160,6 +160,7 @@ class FakeWeComSdkPort:
         self.fail_connect_times = 0
         self.auth_on_connect = True
         self.sent_texts: list[tuple[str, str]] = []
+        self.replied_texts: list[tuple[str, str]] = []
         self.stream_updates: list[tuple[str, str, str, bool]] = []
         self._on_message: Callable[[WeComInboundMessage], None] | None = None
         self._on_event: Callable[[WeComInboundEvent], None] | None = None
@@ -202,6 +203,11 @@ class FakeWeComSdkPort:
         if not self.connected:
             raise RuntimeError("fake client not connected")
         self.sent_texts.append((chat_id, text))
+
+    async def reply_text(self, reply_id: str, text: str) -> None:
+        if not self.connected:
+            raise RuntimeError("fake client not connected")
+        self.replied_texts.append((reply_id, text))
 
     async def send_stream(self, reply_id: str, stream_id: str, content: str, *, finish: bool) -> None:
         if not self.connected:

@@ -142,11 +142,26 @@ def test_sdk_event_frame_without_eventtype_is_ignored() -> None:
     assert received == []
 
 
-async def test_sdk_send_text_builds_text_payload() -> None:
+async def test_sdk_send_text_builds_markdown_payload() -> None:
+    """主动投递必须用 markdown 体：官方 `aibot_send_msg` 只支持 markdown / template_card，
+    `msgtype=text` 会被服务端以 `errcode=40008 invalid message type` 拒收（2026-09-30 真机实测）。"""
     raw = StubRawClient()
     await build_port(raw).send_text("conv-1", "hello")
 
-    assert raw.sent_messages == [("conv-1", {"msgtype": "text", "text": {"content": "hello"}})]
+    assert raw.sent_messages == [
+        ("conv-1", {"msgtype": "markdown", "markdown": {"content": "hello"}})
+    ]
+
+
+async def test_sdk_reply_text_uses_callback_req_id_and_finished_stream_body() -> None:
+    """会话内文本回复：带**入站回调的 req_id**，且体是 `stream` + `finish=True`（回复体不支持 text）。"""
+    raw = StubRawClient()
+    await build_port(raw).reply_text("req-ink-9", "绑定成功")
+
+    frame, stream_id, content, finish = raw.stream_replies[0]
+    assert frame == {"headers": {"req_id": "req-ink-9"}}
+    assert isinstance(stream_id, str) and stream_id
+    assert (content, finish) == ("绑定成功", True)
 
 
 async def test_sdk_send_stream_passes_reply_id() -> None:
