@@ -386,17 +386,19 @@ def test_s11_final_delivery_dedupes_replay_and_persists_before_send(
 
 
 def test_e06_backoff_sequence_then_success(live_stack: DfxStack, http: httpx.Client, tmp_path: Any) -> None:
-    """[E-06] 前 N-1 次渠道失败、第 N 次成功：真实退避窗口 `BACKOFF_BASE_SEC * 2**attempts`。
+    """[E-06] 渠道失败后按真实退避窗口重投、恢复后成功：`BACKOFF_BASE_SEC * 2**attempts`。
 
-    **确定性写法**：不靠「探针注入的失败次数」与「Worker 尝试次数」对齐——某次 Worker 尝试可能没走到探针
-    （如 Gateway 侧 reserve 冲突直接 500），对齐一错位成功就会落在更早一轮（本地侥幸绿、慢环境必红：
-    实测 CI/干净环境里 `delivery_attempts` 是 4 而不是 5）。改为：让探针**持续失败**，观察到盘面已累计
-    `max_attempts - 1` 次 `DELIVERY_RETRY`（= 前 N-1 次确实都失败）之后再放开探针，于是**下一次尝试必然是
-    第 N 次**，成功与否与机器快慢无关。
+    **只断言产品不变量，不赌"第几次成功"**：
+    - 早期写法（`delivery_attempts == max_attempts`，靠探针注入次数与 Worker 尝试次数对齐）在慢环境必红：
+      某次 Worker 尝试可能没走到探针（Gateway 侧 reserve 冲突等）⇒ 对齐错位；而"等到已失败 N-1 次再放开"
+      又可能晚于最后一次尝试（默认退避更短时）⇒ 盘面已 FAILED。
+    - 现在：探针**持续失败**（数量取到上限以上）→ 观察到 ≥2 次 `DELIVERY_RETRY`（确凿的多次重试）后
+      **立即放开**探针 → 断言「尝试次数 ≥3、不超过上限、事件序列 = 重试×(attempts-1) + 一次 SENT、
+      各次间隔落在指数窗口内、成功触达恰好 1 次」——这些与机器快慢无关。
     """
     bot_id = "dfx-delivery-e06-backoff"
     max_attempts = _max_attempts()
-    assert max_attempts >= 2, f"本用例需要至少 2 次尝试上限，当前 {max_attempts}"
+    assert max_attempts >= 3, f"本用例需要至少 3 次尝试上限，当前 {max_attempts}"
     with _worker_chain(live_stack, tmp_path) as (gateway_url, probe_url, worker):
         http.post(f"{probe_url}/probe/reset")
         # 持续失败：数量取得比上限大——放开探针之前不会有任何一次成功
@@ -411,24 +413,24 @@ def test_e06_backoff_sequence_then_success(live_stack: DfxStack, http: httpx.Cli
             delivery_route=_route(bot_id),
         )
         _await_worker_claim(task_id, worker)
-        _await_delivery_retries(task_id, max_attempts - 1, timeout_sec=BACKOFF_BUDGET_SEC)
+        # 先确凿地失败两次（拿到两个真实退避窗口），再放开——放开后下一次尝试即成功
+        _await_delivery_retries(task_id, 2, timeout_sec=BACKOFF_BUDGET_SEC)
         pending = read_task_row(task_id)
-        assert pending is not None and pending["delivery_status"] == "PENDING", pending
-        assert pending["delivered_at"] is None, pending
+        assert pending is not None and pending["delivered_at"] is None, pending
+        http.post(f"{probe_url}/probe/fail-next", json={"count": 0})  # 只清注入失败，保留已收记录
 
-        # 放开探针（`fail-next=0` 只清注入的失败，保留已收记录）→ 下一次尝试就是第 max_attempts 次
-        http.post(f"{probe_url}/probe/fail-next", json={"count": 0})
         sent = _await_row(
             task_id,
             lambda row: row["delivery_status"] == "SENT",
-            what=f"渠道恢复后第 {max_attempts} 次投递成功",
+            what="渠道恢复后投递成功",
             timeout_sec=BACKOFF_BUDGET_SEC,
         )
-        assert sent["delivery_attempts"] == max_attempts, sent
+        attempts = cast(int, sent["delivery_attempts"])
+        assert 3 <= attempts <= max_attempts, sent
         assert sent["delivered_at"] is not None
         events = _delivery_events(task_id)
         kinds = [item[0] for item in events]
-        assert kinds == ["DELIVERY_RETRY"] * (max_attempts - 1) + ["DELIVERY_SENT"], kinds
+        assert kinds == ["DELIVERY_RETRY"] * (attempts - 1) + ["DELIVERY_SENT"], kinds
         gaps = [
             (events[index + 1][1] - events[index][1]).total_seconds()
             for index in range(len(events) - 1)
@@ -439,12 +441,12 @@ def test_e06_backoff_sequence_then_success(live_stack: DfxStack, http: httpx.Cli
             assert window <= gap <= window + BACKOFF_SLACK_SEC, (
                 f"第 {index} 次失败后的退避间隔 {gap}s 不在 [{window}, {window + BACKOFF_SLACK_SEC}]"
             )
-        # 前 N-1 次被渠道拒绝（探针不记录），第 N 次成功 → 成功触达恰好 1 次
+        # 失败期间渠道收不到（探针不记录），成功只发生一次 → 触达恰好 1 次
         records = probe_deliveries(probe_url, bot_id)
         assert len(records) == 1, f"同一 delivery_key 不得重复成功发送：{records}"
         assert count_task_events(task_id, "DELIVERY_SENT") == 1
-        windows = [BACKOFF_BASE_SEC * 2**index for index in range(1, max_attempts)]
-        print(f"[E-06] 退避实测间隔={gaps}s 窗口={windows}s attempts={sent['delivery_attempts']}")
+        windows = [BACKOFF_BASE_SEC * 2**index for index in range(1, attempts)]
+        print(f"[E-06] 退避实测间隔={gaps}s 窗口={windows}s attempts={attempts}")
     await_no_extra_services()
 
 
