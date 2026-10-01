@@ -14,6 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import Artifact, CanonicalEvent
+from ..metrics import MEMORY_INJECT_METRIC, record_counter
 from .memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
@@ -269,6 +270,16 @@ class DbBackedContextBuilder:
                 break
             injected.append(line)
             total_bytes += size
+        # 条数记在 amount：它每次取值都可能不同，放进 label 会裂出无界时间序列
+        record_counter(MEMORY_INJECT_METRIC, len(injected))
+        logger.info(
+            "memory_inject_ok",
+            extra={
+                "tenant_id": tenant_id,
+                "injected_count": len(injected),
+                "injected_bytes": total_bytes,
+            },
+        )
         return injected
 
 
