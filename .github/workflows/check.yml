@@ -43,3 +43,24 @@ jobs:
         working-directory: apps/console-platform/frontend
       - run: npm run build
         working-directory: apps/console-platform/frontend
+
+  # 四个部署单元各一个镜像（与 deploy/k8s/base 的四份 Deployment 一一对应）。
+  # 这里只验证「能构建」；镜像推送/打标（:latest / :vX.Y.Z）待 registry 确定后另加 job。
+  images:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        unit: [console-platform, agent-runtime, agent-worker, im-gateway]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.unit }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.unit }}/Dockerfile
+          push: false
+          tags: muad-${{ matrix.unit }}:ci
+          cache-from: type=gha,scope=${{ matrix.unit }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.unit }}

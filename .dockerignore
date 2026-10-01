@@ -1,0 +1,37 @@
+# 构建上下文裁剪：镜像只需要 pyproject/uv.lock/packages/apps/config
+.git
+.github
+.code-flow
+.venv
+.idea
+.vscode
+
+# Python 缓存与虚拟环境
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/.venv
+
+# 前端依赖与产物（前端在镜像内现构建）
+**/node_modules
+**/dist
+**/.vite
+
+# 与镜像无关的目录（文档、测试、E2E、部署清单、脚本）
+docs
+e2e
+tests
+deploy
+scripts
+playwright-report
+test-results
+
+# 杂项
+**/*.md
+**/*.log
+Makefile
+.opencode
+.agents
+.claude

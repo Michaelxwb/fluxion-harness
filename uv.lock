@@ -1361,6 +1361,7 @@ name = "muad-agent-runtime"
 version = "0.1.0"
 source = { editable = "apps/agent-runtime" }
 dependencies = [
+    { name = "asyncpg" },
     { name = "fastapi" },
     { name = "muad-agent-core" },
     { name = "muad-api" },
@@ -1371,11 +1372,13 @@ dependencies = [
     { name = "muad-platform-sdk" },
     { name = "muad-skill-sdk" },
     { name = "redis" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "asyncpg", specifier = ">=0.30,<1" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "muad-agent-core", editable = "packages/agent-core" },
     { name = "muad-api", editable = "packages/api-kit" },
@@ -1386,6 +1389,7 @@ requires-dist = [
     { name = "muad-platform-sdk", editable = "packages/platform-sdk" },
     { name = "muad-skill-sdk", editable = "packages/skill-sdk" },
     { name = "redis", specifier = ">=5,<7" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0,<3" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 
@@ -1479,6 +1483,7 @@ dependencies = [
     { name = "argon2-cffi" },
     { name = "asyncpg" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "jsonschema" },
     { name = "muad-api" },
     { name = "muad-artifact-store" },
@@ -1496,6 +1501,7 @@ requires-dist = [
     { name = "argon2-cffi", specifier = ">=23,<26" },
     { name = "asyncpg", specifier = ">=0.30,<1" },
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "httpx", specifier = ">=0.28,<1" },
     { name = "jsonschema", specifier = ">=4.26.0" },
     { name = "muad-api", editable = "packages/api-kit" },
     { name = "muad-artifact-store", editable = "packages/artifact-store" },
