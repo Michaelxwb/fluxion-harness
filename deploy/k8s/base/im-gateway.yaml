@@ -13,6 +13,12 @@ spec:
       labels:
         app: muad-im-gateway
     spec:
+      # 非 root 运行：与镜像内 UID/GID 10001 对齐；fsGroup 让 artifacts PVC 对该组可写
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
       containers:
         - name: app
           image: muad-im-gateway:latest
