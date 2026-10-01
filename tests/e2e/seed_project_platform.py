@@ -1,4 +1,9 @@
-"""E2E 数据播种：项目平台 + 用户凭据（真实 PostgreSQL）。"""
+"""E2E 数据播种：项目平台 + 用户凭据（真实 PostgreSQL）。
+
+`--cleanup` 是**整场拆除**：删该 `--platform-key` 的平台与其凭据引用，**并删该
+`--user-code` 的用户行**。播种路径内部只清平台（见 `_cleanup_platform`），
+因为同一场景会用同一个 user_code 连续播多个平台（如 S-08），删用户会连带抹掉先播的凭据。
+"""
 
 from __future__ import annotations
 
@@ -24,7 +29,8 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-async def _cleanup(connection, tenant_id: str, platform_key: str) -> None:
+async def _cleanup_platform(connection, tenant_id: str, platform_key: str) -> None:
+    """删掉该平台及其凭据引用。**不动用户行** —— 播种路径也走这里做幂等预清。"""
     for statement in (
         "DELETE FROM control.user_credential_ref WHERE tenant_id = :tenant_id AND platform_id IN "
         "(SELECT id FROM control.project_platform WHERE tenant_id = :tenant_id AND key = :platform_key)",
@@ -35,6 +41,31 @@ async def _cleanup(connection, tenant_id: str, platform_key: str) -> None:
         await connection.execute(
             text(statement),
             {"tenant_id": tenant_id, "platform_key": platform_key},
+        )
+
+
+async def _cleanup_user(connection, tenant_id: str, user_code: str) -> None:
+    """删掉该用户及其全部引用行，只由 `--cleanup`（整场拆除）调用。
+
+    先删引用再删用户：下列 6 张表对 `control.platform_user` 有物理外键，漏一张就会直接报错。
+    user_code 不存在时是 no-op —— 调用方常拿它清一个从未播过的 code。
+    """
+    owner = (
+        "SELECT id FROM control.platform_user "
+        "WHERE tenant_id = :tenant_id AND user_code = :user_code"
+    )
+    for statement in (
+        f"DELETE FROM control.user_credential_ref WHERE user_id IN ({owner})",
+        f"DELETE FROM control.agent_access_grant WHERE user_id IN ({owner})",
+        f"DELETE FROM control.skill_user_grant WHERE user_id IN ({owner})",
+        f"DELETE FROM control.mcp_user_grant WHERE user_id IN ({owner})",
+        f"DELETE FROM control.channel_identity WHERE platform_user_id IN ({owner})",
+        f"DELETE FROM control.bind_code WHERE platform_user_id IN ({owner})",
+        f"DELETE FROM control.platform_user WHERE id IN ({owner})",
+    ):
+        await connection.execute(
+            text(statement),
+            {"tenant_id": tenant_id, "user_code": user_code},
         )
 
 
@@ -129,10 +160,14 @@ async def main() -> int:
                 )
                 print(json.dumps(payload, ensure_ascii=False))
             elif args.cleanup:
-                await _cleanup(connection, settings.default_tenant_id, args.platform_key)
+                # 整场拆除：平台与该用户都要清（用户行是 _ensure_user 建的，不删就永久留在库里）
+                await _cleanup_platform(connection, settings.default_tenant_id, args.platform_key)
+                await _cleanup_user(connection, settings.default_tenant_id, args.user_code)
             else:
+                # 只清平台、**不删用户**：同一场景会用同一 user_code 连播多个平台（如 S-08），
+                # 这里若删用户，会把先前已播平台的凭据一并抹掉。
                 user_id = await _ensure_user(connection, settings.default_tenant_id, args.user_code)
-                await _cleanup(connection, settings.default_tenant_id, args.platform_key)
+                await _cleanup_platform(connection, settings.default_tenant_id, args.platform_key)
                 await _seed(
                     connection,
                     settings.default_tenant_id,

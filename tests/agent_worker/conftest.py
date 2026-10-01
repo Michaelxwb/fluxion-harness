@@ -80,21 +80,23 @@ async def sweep_stale_test_rows(database_guard: None) -> None:
             await session.execute(text(statement))
         for predicate in (stale_tasks, stale_deliveries):
             # 先删引用行，避免 task_event/task_submission 的外键阻塞清理。
-            await session.execute(
-                text(
-                    "DELETE FROM task.task_event WHERE task_id IN "
-                    f"(SELECT id FROM task.task_execution WHERE {predicate})"
-                )
+            # ⚠️ 还必须连同**子行**一起删：`task_execution.parent_id` 是**自引用外键**，而子行
+            # 的 delivery_mode/status 未必匹配谓词（实测子行为 `delivery_mode='NONE'`）——只删
+            # 父行会被 FK 挡下，整个夹具 setup 失败，一次中断就让后续**全部**用例 ERROR
+            # （2026-10-01 实测：234 个用例在 setup 全挂）。按「子行 → 引用行 → 父行」顺序清。
+            targets = f"SELECT id FROM task.task_execution WHERE {predicate}"
+            victims = (
+                f"SELECT id FROM ({targets}) AS target UNION "
+                f"SELECT child.id FROM task.task_execution AS child "
+                f"WHERE child.parent_id IN ({targets})"
             )
-            await session.execute(
-                text(
-                    "DELETE FROM task.task_submission WHERE task_id IN "
-                    f"(SELECT id FROM task.task_execution WHERE {predicate})"
-                )
-            )
-            await session.execute(
-                text(f"DELETE FROM task.task_execution WHERE {predicate}")
-            )
+            for statement in (
+                f"DELETE FROM task.task_event WHERE task_id IN ({victims})",
+                f"DELETE FROM task.task_submission WHERE task_id IN ({victims})",
+                f"DELETE FROM task.task_execution WHERE parent_id IN ({targets})",
+                f"DELETE FROM task.task_execution WHERE {predicate}",
+            ):
+                await session.execute(text(statement))
         await session.commit()
 
 
