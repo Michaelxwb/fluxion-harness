@@ -1,4 +1,10 @@
-"""S-04/E-03：密钥明文迁移（真实 Alembic/PostgreSQL/backfill CLI）。"""
+"""S-04/E-03：密钥明文迁移（真实 Alembic/PostgreSQL/backfill CLI）。
+
+**本文件必须单独一次 pytest 调用运行**（`make test-migration`，排在主套件之后）：它会对**共享库**
+做 `alembic downgrade 0004` → 插旧行 → `upgrade head`，与其同批跑的后续套件会连锁失败
+（历史现象：`tests/gateway/test_bind_command.py` 报 `console server did not become ready`）。
+`make test` / CI 的主套件因此显式 `--ignore` 本文件。
+"""
 
 from __future__ import annotations
 
